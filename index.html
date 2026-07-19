@@ -623,6 +623,9 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .photo-mosaic .pm:active{opacity:.82}
 .photo-mosaic .pm .subj{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:38px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.28))}
 .photo-mosaic .pm.c-hero .subj,.photo-mosaic .pm.c-big .subj{font-size:60px}
+.pm-single{cursor:pointer}
+.pm-single img{display:block;width:100%;height:auto}
+.pm-single:active{opacity:.85}
 /* multi-photo picker strip (expense + event modals) */
 .photo-strip{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px}
 .photo-strip:empty{display:none}
@@ -1590,6 +1593,10 @@ function pmTile(r,cls){
   return '<div class="'+(r.src?c:c+' '+(r.cls||'ph-park'))+'" '+style+' onclick="openMemory('+idx+')">'+inner+'</div>';
 }
 function mosaicHTML(items){
+  if(items.length===1 && items[0].src){                    // a lone photo shows full-width at its natural aspect
+    var r=items[0], idx=memRecords.indexOf(r);
+    return '<div class="photo-mosaic-wrap"><div class="pm-single" onclick="openMemory('+idx+')"><img src="'+r.src+'" alt=""></div></div>';
+  }
   var cc=collageClasses(items.length);
   return '<div class="photo-mosaic-wrap"><div class="photo-mosaic">'+items.map(function(r,i){ return pmTile(r,cc[i]); }).join('')+'</div></div>';
 }
