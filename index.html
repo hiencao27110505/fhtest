@@ -1640,8 +1640,8 @@ function setHTML(id,h){ var e=document.getElementById(id); if(e)e.innerHTML=h; }
 function renderBudget(){
   var m=M(), done=m.done, spent=m.spent, dim=m.dim, dom=m.dom, budget=m.budget;
   var reserved=done?0:monthReserved();                 // set-aside for events (unrealized)
-  var pctSpent=Math.min(100,spent/budget*100);
-  var pctRes=Math.max(0,Math.min(100-pctSpent, reserved/budget*100));
+  var pctSpent=budget>0?Math.min(100,spent/budget*100):0;
+  var pctRes=budget>0?Math.max(0,Math.min(100-pctSpent, reserved/budget*100)):0;
   var pctPace=done?100:dom/dim*100;                    // pace = REALIZED only
   var overBudget=spent>budget;
   var safe=Math.max(0,budget-spent-reserved);          // safe to spend = budget − spent − set aside
@@ -1780,6 +1780,7 @@ function setBudget(){
     txns.forEach(function(t){ if(t.cat===pr[0]) t.cat=pr[1]; });
     Object.keys(months).forEach(function(mk){ var cs=months[mk].catSpent; if(cs && cs[pr[0]]!==undefined){ cs[pr[1]]=(cs[pr[1]]||0)+cs[pr[0]]; delete cs[pr[0]]; } });
   });
+  window.__catRenames=renames;                              // hand renames to the DB write-through
   catOrder=newOrder; catStyle=newStyle; catBudget=newBudget;
   renderAll(); renderTxns(); closeModals(); toast('Categories updated');
 }
@@ -2679,6 +2680,7 @@ function addFunds(){
   var amt=parseAmtBase(document.getElementById('fn-amt').value);
   if(!amt){ document.getElementById('fn-amt').focus(); return; }
   var e=events[id];
+  if(!e){ toast('Select an event to fund'); return; }
   if(e.saved>=e.target){ toast(e.name+' is already fully funded'); return; }
   if(savings<=0){ toast('No savings available to allocate'); return; }
   if(amt>savings){ toast('Only '+fmt(savings)+' available in savings'); return; }
@@ -3290,6 +3292,22 @@ if('serviceWorker' in navigator){
     return '<div class="r-sp av" style="background:' + col + ';color:#fff">' + ini + '</div>';
   };
 
+  // rebuild the "who paid" / "added by" chips from the real family (replaces mock Emma/James/…)
+  function _rebuildWhoChips() {
+    const mems = (window.FAM && window.FAM.members) || [];
+    const bothLabel = (window.LANG === 'vi') ? 'Chung' : 'Both';
+    const esc = (s) => String(s || '').replace(/"/g, '&quot;');
+    function fill(id, onclick) {
+      const box = document.getElementById(id); if (!box) return;
+      let html = mems.map((m, i) => '<button class="choice' + (i === 0 ? ' on' : '') + '" data-v="' + esc(m.name) + '" onclick="' + onclick + '">' + m.name + '</button>').join('');
+      html += '<button class="choice" data-v="Both" onclick="' + onclick + '">' + bothLabel + '</button>';
+      box.innerHTML = html;
+    }
+    fill('ex-who', 'pickExWho(this)');
+    fill('fn-who', "pick('fn-who',this)");
+    if (mems[0]) window.lastWho = mems[0].name;
+  }
+
   // ---- THE hydrate: pull the whole active family into the app's globals ----
   window.loadFamilyData = async function loadFamilyData() {
     try {
@@ -3299,7 +3317,7 @@ if('serviceWorker' in navigator){
       const prof = (await sb.from('profiles').select('family_id,theme,language').eq('id', uid).maybeSingle()).data;
       const fid = prof && prof.family_id; if (!fid) return false;
       window.DB.fid = fid;
-      const now = new Date(); now.setHours(0, 0, 0, 0);
+      const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now()); now.setHours(0, 0, 0, 0);
       const monthDate = _isoMonth(now); window.DB.month = monthDate; window.DB.monthKey = MO[now.getMonth()];
 
       const R = await Promise.all([
@@ -3334,6 +3352,7 @@ if('serviceWorker' in navigator){
       if (!mm['Shared']) mm['Shared'] = { av: '', ini: '👥', col: '#8f8a99' };
       window.membersMeta = mm;
       window.FAM.members = mem.filter((m) => !m.is_shared).map((m) => ({ name: m.name, color: m.color || '#8f8a99', me: m.user_id === uid }));
+      _rebuildWhoChips();
 
       // categories → catOrder / catStyle
       const order = [], style = {};
@@ -3376,7 +3395,7 @@ if('serviceWorker' in navigator){
         const who = mrec ? (mrec.is_shared ? 'Shared' : mrec.name) : 'Shared';
         const realized = (t.status !== 'planned') && (dt <= now);
         const amt = Number(t.amount);
-        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _catId: t.category_id, _memberId: t.member_id, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: MO[dt.getMonth()] + ' ' + dt.getDate(), who: who, amt: amt, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
+        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _catId: t.category_id, _memberId: t.member_id, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
         if (realized) { m.spent += amt; m.catSpent[catName] = (m.catSpent[catName] || 0) + amt; m.memberSpent[who] = (m.memberSpent[who] || 0) + amt; }
       });
       window.txns = newTxns;
@@ -3400,6 +3419,7 @@ if('serviceWorker' in navigator){
         evOrder.push(e.id);
       });
       window.events = evObj; window.order = evOrder;
+      if (!window.events[window.curEvent]) window.curEvent = window.order[0] || null;
 
       // savings pool = deposits − withdrawals − savings-source fundings
       let pool = 0;
@@ -3467,7 +3487,8 @@ if('serviceWorker' in navigator){
   };
 
   // ---- write-through: events & funding ----
-  async function _dbInsertEvent(localKey) {
+  async function _dbInsertEvent(localKey, opts) {
+    opts = opts || {};
     try {
       const fid = window.DB.fid; if (!fid) return;
       const e = window.events[localKey]; if (!e || e._dbId) return;
@@ -3476,16 +3497,17 @@ if('serviceWorker' in navigator){
       if (res.error) throw res.error;
       const evId = res.data.id; e._dbId = evId; window.DB.eventById[evId] = res.data;
       const who = window.DB.ownerMemberId;
-      if (e.setAside > 0) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: e.setAside, source: 'budget', month: window.DB.month });
+      const budgetAmt = e.achieved ? (e.saved || 0) : (e.setAside || 0);
+      if (budgetAmt > 0) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: budgetAmt, source: 'budget', month: window.DB.month });
       const sp = (e.saved || 0) - (e.setAside || 0);
-      if (sp > 0) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: sp, source: 'savings', month: null });
+      if (sp > 0 && opts.savingsSource) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: sp, source: 'savings', month: null });
     } catch (e) { console.warn('event insert failed', e); }
   }
   const _origAddEvent = window.addEvent;
   window.addEvent = function () {
     const beforeOrder = (window.order || []).slice();
     _origAddEvent.apply(this, arguments);
-    (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => _dbInsertEvent(k));
+    (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => { const p = _dbInsertEvent(k, { savingsSource: (window.selSrc === 'savings') }); const ev = window.events[k]; if (ev) ev._dbPending = p; });
   };
   const _origAddFunds = window.addFunds;
   window.addFunds = function () {
@@ -3495,23 +3517,35 @@ if('serviceWorker' in navigator){
     _origAddFunds.apply(this, arguments);
     const applied = savingsBefore - window.savings;
     const ev = window.events[evKey];
-    if (applied > 0 && ev && ev._dbId) {
-      try {
-        sb.from('event_fundings').insert({ family_id: window.DB.fid, event_id: ev._dbId, member_id: _memberIdForWho(who), amount: applied, source: 'savings', month: null });
-      } catch (e) { console.warn('funding insert failed', e); }
+    if (applied > 0 && ev) {
+      (async () => {
+        try {
+          if (!ev._dbId && ev._dbPending) { try { await ev._dbPending; } catch (e) {} }
+          if (ev._dbId) await sb.from('event_fundings').insert({ family_id: window.DB.fid, event_id: ev._dbId, member_id: _memberIdForWho(who), amount: applied, source: 'savings', month: null });
+        } catch (e) { console.warn('funding insert failed', e); }
+      })();
     }
   };
 
   // ---- write-through: budget ----
   async function _dbSaveBudget() {
     try {
-      const fid = window.DB.fid; if (!fid) return; const month = window.DB.month;
+      const fid = window.DB.fid; if (!fid) return;
       const m = window.months[window.selMonth] || {};
+      const month = m._iso || window.DB.month;
+      // apply pending category renames as DB updates (avoids duplicate categories)
+      const rn = window.__catRenames || []; window.__catRenames = [];
+      for (const pr of rn) {
+        const oldId = window.DB.catByName[pr[0]];
+        if (oldId) { try { await sb.from('categories').update({ name: pr[1] }).eq('id', oldId); window.DB.catByName[pr[1]] = oldId; delete window.DB.catByName[pr[0]]; if (window.DB.catById[oldId]) window.DB.catById[oldId].name = pr[1]; } catch (e) {} }
+      }
       await sb.from('monthly_budgets').upsert({ family_id: fid, month: month, budget_total: m.budget || 0 }, { onConflict: 'family_id,month' });
       for (let i = 0; i < window.catOrder.length; i++) {
         const name = window.catOrder[i]; const amt = window.catBudget[name] || 0;
         const cid = window.DB.catByName[name] || await _categoryIdForName(name, (window.catStyle[name] || [])[0], i + 1);
-        if (cid && amt > 0) await sb.from('category_budgets').upsert({ family_id: fid, month: month, category_id: cid, amount: amt }, { onConflict: 'family_id,month,category_id' });
+        if (!cid) continue;
+        if (amt > 0) await sb.from('category_budgets').upsert({ family_id: fid, month: month, category_id: cid, amount: amt }, { onConflict: 'family_id,month,category_id' });
+        else await sb.from('category_budgets').delete().eq('family_id', fid).eq('month', month).eq('category_id', cid);
       }
     } catch (e) { console.warn('budget save failed', e); }
   }
@@ -3534,7 +3568,7 @@ if('serviceWorker' in navigator){
       const ch = sb.channel('fam-' + fid);
       ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos'].forEach((tbl) => {
         ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: 'family_id=eq.' + fid }, () => {
-          clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { window.loadFamilyData && window.loadFamilyData(); }, 900);
+          clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 900);
         });
       });
       ch.subscribe();
@@ -3581,7 +3615,7 @@ if('serviceWorker' in navigator){
         })));
       }
       // budget: current-month cap + per-category budgets (mapped by sort_order → catOrder)
-      const now = new Date();
+      const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
       const month = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
       if (F.budget) await sb.from('monthly_budgets')
         .upsert({ family_id: familyId, month, budget_total: F.budget }, { onConflict: 'family_id,month' });
