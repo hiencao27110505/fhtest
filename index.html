@@ -1285,6 +1285,7 @@ var membersMeta={
 var TODAY=new Date(2026,6,13);
 var events={
   japan:{name:'Summer in Japan',emoji:'✈️',cov:'blue',date:'Sep 15',d:new Date(2026,8,15),target:12000,saved:5600},
+  dinner:{name:'Family dinner out',emoji:'🍜',cov:'sun',date:'Jul 13',d:new Date(2026,6,13),target:120,saved:120,setAside:120},
   bday:{name:"Weekend getaway",emoji:'🏝️',cov:'pink',date:'Jul 28',d:new Date(2026,6,28),target:800,saved:520,setAside:300},
   laptop:{name:"Mia's laptop",emoji:'💻',cov:'purple',date:'Aug 20',d:new Date(2026,7,20),target:1100,saved:620},
   rent:{name:'August rent',emoji:'🏠',cov:'indigo',date:'Aug 1',d:new Date(2026,7,1),target:2400,saved:1600},
@@ -1298,7 +1299,7 @@ var events={
   picnic:{name:'4th of July picnic',emoji:'🎆',cov:'blue',date:'Jul 4',d:new Date(2026,6,4),target:250,saved:250,achieved:true},
   fathers:{name:"Father's Day brunch",emoji:'🍳',cov:'sun',date:'Jun 21',d:new Date(2026,5,21),target:300,saved:300,achieved:true}
 };
-var order=['bday','laptop','rent','japan','school','beach','kyoto','anniv','picnic','fathers'];
+var order=['dinner','bday','laptop','rent','japan','school','beach','kyoto','anniv','picnic','fathers'];
 // A fully-funded event is "ready", not done — it becomes a memory only once its date passes.
 function achievedNow(e){ return e.achieved===true || (e.d && e.d<TODAY); }
 // Money set aside from THIS month's budget (unrealized — reserved, not spent):
