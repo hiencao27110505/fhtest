@@ -603,21 +603,25 @@ input{font-family:inherit}
 /* Home: horizontal memory strip */
 .mem-strip{display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding:0 16px 4px}
 .mem-strip::-webkit-scrollbar{display:none}
-/* Memories tab: iOS Photos–style mosaic, grouped into event sections */
-.photo-sec{margin-top:20px}
-.photo-sec:first-child{margin-top:4px}
-.photo-sec-h{padding:0 16px 10px;display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+/* Memories: photos grouped into date / event sections, each a rounded collage card */
+.photo-sec{margin-top:24px}
+.photo-sec:first-child{margin-top:8px}
+.photo-sec-h{padding:0 18px 11px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
 .photo-sec-title{font-family:var(--disp);font-weight:800;font-size:20px;letter-spacing:-.4px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.photo-sec-sub{font-size:13px;font-weight:500;color:var(--muted);flex-shrink:0}
-.photo-mosaic-wrap{container-type:inline-size}
-.photo-mosaic{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:calc((100cqw - 4px)/3);gap:2px;grid-auto-flow:dense}
-.photo-mosaic .pm{position:relative;overflow:hidden;cursor:pointer;background:var(--canvas);background-size:cover;background-position:center}
-.photo-mosaic .pm.hero{grid-column:span 3;grid-row:span 2}
-.photo-mosaic .pm.big{grid-column:span 2;grid-row:span 2}
+.photo-sec-ev{display:block;margin-top:2px;color:var(--brand-ink);font-size:14px;font-weight:600;letter-spacing:-.01em;text-align:left}
+button.photo-sec-title{cursor:pointer}
+button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
+.photo-sec-sub{font-size:13px;font-weight:500;color:var(--muted);flex-shrink:0;padding-bottom:2px}
+.photo-mosaic-wrap{container-type:inline-size;margin:0 16px;border-radius:16px;overflow:hidden}
+.photo-mosaic{display:grid;grid-template-columns:repeat(6,1fr);grid-auto-rows:calc((100cqw - 10px)/6);gap:2px;grid-auto-flow:dense}
+.photo-mosaic .pm{position:relative;overflow:hidden;cursor:pointer;background:var(--canvas);background-size:cover;background-position:center;grid-column:span 2;grid-row:span 2}
+.photo-mosaic .pm.c-hero{grid-column:span 6;grid-row:span 4}
+.photo-mosaic .pm.c-big{grid-column:span 4;grid-row:span 4}
+.photo-mosaic .pm.c-half{grid-column:span 3;grid-row:span 3}
+.photo-mosaic .pm.c-sm{grid-column:span 2;grid-row:span 2}
 .photo-mosaic .pm:active{opacity:.82}
-.photo-mosaic .pm .subj{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:40px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.28))}
-.photo-mosaic .pm.hero .subj{font-size:64px}
-.photo-mosaic .pm .mday{position:absolute;top:6px;left:9px;z-index:1;color:#fff;font-size:15px;font-weight:600;letter-spacing:-.02em;text-shadow:0 1px 4px rgba(0,0,0,.55)}
+.photo-mosaic .pm .subj{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:38px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.28))}
+.photo-mosaic .pm.c-hero .subj,.photo-mosaic .pm.c-big .subj{font-size:60px}
 /* Shared overlay nav bar (memory detail + photos-by-date) */
 .ovnav{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:4px;padding:0 10px;padding-top:max(env(safe-area-inset-top),8px);min-height:52px;background:rgba(255,255,255,.82);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);border-bottom:1px solid var(--divider)}
 .ovback{display:inline-flex;align-items:center;gap:1px;color:var(--brand-ink);font-size:17px;font-weight:600;letter-spacing:-.02em;padding:8px 6px 8px 2px;flex-shrink:0}
@@ -974,7 +978,7 @@ input{font-family:inherit}
 </div>
 
 <!-- SCRIM + SHEETS -->
-<div class="scrim" id="scrim" onclick="closeSheet();closeExpense()"></div>
+<div class="scrim" id="scrim" onclick="closeSheet();closeExpense();closeEventModal()"></div>
 
 <div class="sheet" id="sheet-add">
   <div class="grab"></div>
@@ -1049,43 +1053,46 @@ input{font-family:inherit}
   </div>
 </div>
 
-<div class="sheet" id="sheet-event">
-  <div class="grab"></div>
-  <div class="sheet-h">New event</div>
-  <div class="sheet-sub">Something coming up you'll need to pay for.</div>
+<!-- NEW EVENT — full-screen modal -->
+<div class="modal" id="event-modal">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeEventModal()">Cancel</button>
+    <div class="modal-title">New event</div>
+    <button class="modal-save" onclick="addEvent()">Create</button>
+  </div>
+  <div class="modal-body">
+    <div class="field">
+      <label>What is it?</label>
+      <input id="ng-name" placeholder="e.g. Beach trip"/>
+      <div class="emoji-row" id="ev-emoji" style="margin-top:10px">
+        <button class="on" data-v="🎉" onclick="pickEmoji(this)">🎉</button>
+        <button data-v="✈️" onclick="pickEmoji(this)">✈️</button>
+        <button data-v="🎂" onclick="pickEmoji(this)">🎂</button>
+        <button data-v="🏖️" onclick="pickEmoji(this)">🏖️</button>
+        <button data-v="🏫" onclick="pickEmoji(this)">🏫</button>
+        <button data-v="💍" onclick="pickEmoji(this)">💍</button>
+        <button data-v="🚗" onclick="pickEmoji(this)">🚗</button>
+        <button data-v="🏠" onclick="pickEmoji(this)">🏠</button>
+        <button data-v="🎄" onclick="pickEmoji(this)">🎄</button>
+      </div>
+    </div>
 
-  <div class="field">
-    <label>What is it?</label>
-    <input id="ng-name" placeholder="e.g. Beach trip"/>
-    <div class="emoji-row" id="ev-emoji" style="margin-top:10px">
-      <button class="on" data-v="🎉" onclick="pickEmoji(this)">🎉</button>
-      <button data-v="✈️" onclick="pickEmoji(this)">✈️</button>
-      <button data-v="🎂" onclick="pickEmoji(this)">🎂</button>
-      <button data-v="🏖️" onclick="pickEmoji(this)">🏖️</button>
-      <button data-v="🏫" onclick="pickEmoji(this)">🏫</button>
-      <button data-v="💍" onclick="pickEmoji(this)">💍</button>
-      <button data-v="🚗" onclick="pickEmoji(this)">🚗</button>
-      <button data-v="🏠" onclick="pickEmoji(this)">🏠</button>
-      <button data-v="🎄" onclick="pickEmoji(this)">🎄</button>
+    <div class="field-row">
+      <div class="field"><label>Est. cost</label><input class="num" id="ng-amt" inputmode="numeric" placeholder="$0" oninput="updateSrcHint()"/></div>
+      <div class="field"><label>When</label><input type="date" id="ng-date" min="2026-07-01"/></div>
+    </div>
+
+    <div class="fund-sep"></div>
+
+    <div class="field"><label>Cover the full cost from</label>
+      <div class="src-opts" id="ng-src">
+        <button class="src-opt on" data-v="savings" onclick="pickSrc(this)"><span class="src-t"><span class="src-em">💰</span>Savings</span><span class="src-a" id="src-savings">$2,400 <span class="u">available</span></span></button>
+        <button class="src-opt" data-v="month" onclick="pickSrc(this)"><span class="src-t"><span class="src-em">📆</span>This month</span><span class="src-a" id="src-month">$4,880 <span class="u">to spend</span></span></button>
+      </div>
+      <div class="field-hint" id="ng-srchint"></div>
     </div>
   </div>
-
-  <div class="field-row">
-    <div class="field"><label>Est. cost</label><input class="num" id="ng-amt" inputmode="numeric" placeholder="$0" oninput="updateSrcHint()"/></div>
-    <div class="field"><label>When</label><input type="date" id="ng-date" min="2026-07-01"/></div>
-  </div>
-
-  <div class="fund-sep"></div>
-
-  <div class="field"><label>Cover the full cost from</label>
-    <div class="src-opts" id="ng-src">
-      <button class="src-opt on" data-v="savings" onclick="pickSrc(this)"><span class="src-t"><span class="src-em">💰</span>Savings</span><span class="src-a" id="src-savings">$2,400 <span class="u">available</span></span></button>
-      <button class="src-opt" data-v="month" onclick="pickSrc(this)"><span class="src-t"><span class="src-em">📆</span>This month</span><span class="src-a" id="src-month">$4,880 <span class="u">to spend</span></span></button>
-    </div>
-    <div class="field-hint" id="ng-srchint"></div>
-  </div>
-
-  <button class="cta" onclick="addEvent()">Create event</button>
 </div>
 
 <div class="sheet" id="sheet-fund">
@@ -1144,7 +1151,7 @@ input{font-family:inherit}
   <div class="mem-ico" id="mem-ico"></div>
   <div class="sheet-sub">Save a photo from this event. Caption is optional.</div>
   <div class="field"><label>Photo</label>
-    <label class="mem-upload">📷 Upload a photo<input type="file" accept="image/*" onchange="onMemFile(this)" hidden></label>
+    <label class="mem-upload">📷 Upload photos<input type="file" accept="image/*" multiple onchange="onMemFile(this)" hidden></label>
     <div class="mem-scenes" id="mem-scenes">
       <button class="ph-beach" data-c="ph-beach" data-e="🏖️" onclick="pickMemScene(this)">🏖️</button>
       <button class="ph-japan" data-c="ph-japan" data-e="🌸" onclick="pickMemScene(this)">🌸</button>
@@ -1277,6 +1284,8 @@ function renderTrend(){
 /* ---------- month name lookups (shared) ---------- */
 var MONF=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var MONA=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var WKD=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function fmtDateLong(d){ return d ? (WKD[d.getDay()]+', '+MONF[d.getMonth()]+' '+d.getDate()) : ''; }
 function parseAmt(s){ return parseInt((s||'').replace(/[^0-9]/g,''))||0; }
 function daysLeft(d){ return Math.max(0,Math.round((d-TODAY)/86400000)); }
 function setTxt(id,t){ var e=document.getElementById(id); if(e)e.textContent=t; }
@@ -1553,22 +1562,46 @@ function buildMemRecords(){
   } });
   memRecords.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });
 }
-// One mosaic tile (iOS Photos style). idx = index into memRecords for the detail view.
-function pmTile(r){
+// Collage template chosen by photo count (Apple-style, dynamic).
+function collageClasses(n){
+  if(n<=1) return ['c-hero'];
+  if(n===2) return ['c-half','c-half'];
+  if(n===3) return ['c-big','c-sm','c-sm'];
+  if(n===4) return ['c-half','c-half','c-half','c-half'];
+  var a=['c-hero']; for(var i=1;i<n;i++) a.push('c-sm'); return a;   // 5+: hero + squares
+}
+function pmTile(r,cls){
   var idx=memRecords.indexOf(r);
-  var cls='pm'+(r.mos?' '+r.mos:'');
+  var c='pm '+(cls||'c-sm');
   var style=r.src?'style="background-image:url('+r.src+')"':'';
   var inner=r.src?'':'<div class="subj">'+(r.emoji||'📸')+'</div>';
-  var day=r.d?r.d.getDate():'';
-  return '<div class="'+(r.src?cls:cls+' '+(r.cls||'ph-park'))+'" '+style+' onclick="openMemory('+idx+')">'+inner+'<span class="mday">'+day+'</span></div>';
+  return '<div class="'+(r.src?c:c+' '+(r.cls||'ph-park'))+'" '+style+' onclick="openMemory('+idx+')">'+inner+'</div>';
 }
-// A grid of tiles: first is a full-width hero, the rest fill in as squares.
 function mosaicHTML(items){
-  items.forEach(function(r,i){ r.mos=(items.length===1||i===0)?'hero':''; });
-  return '<div class="photo-mosaic-wrap"><div class="photo-mosaic">'+items.map(pmTile).join('')+'</div></div>';
+  var cc=collageClasses(items.length);
+  return '<div class="photo-mosaic-wrap"><div class="photo-mosaic">'+items.map(function(r,i){ return pmTile(r,cc[i]); }).join('')+'</div></div>';
 }
-// Group a set of records into event sections (+ an "Everyday moments" section for expenses).
-function photoSectionsHTML(recs){
+function secHTML(titleHTML,count,mosaic){
+  return '<div class="photo-sec"><div class="photo-sec-h"><div>'+titleHTML+'</div><div class="photo-sec-sub">'+count+' photo'+(count!==1?'s':'')+'</div></div>'+mosaic+'</div>';
+}
+// Memories tab: group by DATE (each day a section), noting the event(s) of that day.
+function photoSectionsByDate(recs){
+  var groups=[], by={};
+  recs.forEach(function(r){
+    var key=r.d?(r.d.getFullYear()+'-'+r.d.getMonth()+'-'+r.d.getDate()):'x';
+    if(!by[key]){ by[key]={d:r.d,items:[],evs:[]}; groups.push(by[key]); }
+    by[key].items.push(r);
+    if(r.type==='event' && by[key].evs.indexOf(r.ref)<0) by[key].evs.push(r.ref);
+  });
+  return groups.map(function(g){
+    var title='<div class="photo-sec-title">'+fmtDateLong(g.d)+'</div>';
+    if(g.evs.length===1){ var e=events[g.evs[0]]; title+='<button class="photo-sec-ev" onclick="openEvent(\''+g.evs[0]+'\')">'+e.emoji+' '+e.name+' ›</button>'; }
+    else if(g.evs.length>1){ title+='<div class="photo-sec-ev" style="color:var(--muted)">'+g.evs.length+' events</div>'; }
+    return secHTML(title, g.items.length, mosaicHTML(g.items));
+  }).join('');
+}
+// Photos-by-date screen: group by EVENT (name links to the event) + an "Everyday moments" section.
+function photoSectionsByEvent(recs){
   var order2=[], byEv={}, moments=[];
   recs.forEach(function(r){
     if(r.type==='event'){ if(!byEv[r.ref]){ byEv[r.ref]={ev:r.ref,items:[]}; order2.push(byEv[r.ref]); } byEv[r.ref].items.push(r); }
@@ -1576,11 +1609,9 @@ function photoSectionsHTML(recs){
   });
   var html='';
   order2.forEach(function(g){ var e=events[g.ev];
-    html+='<div class="photo-sec"><div class="photo-sec-h"><div class="photo-sec-title">'+e.emoji+' '+e.name+'</div><div class="photo-sec-sub">'+g.items.length+' photo'+(g.items.length!==1?'s':'')+'</div></div>'+mosaicHTML(g.items)+'</div>';
+    html+=secHTML('<button class="photo-sec-title" onclick="openEvent(\''+g.ev+'\')">'+e.emoji+' '+e.name+' ›</button>', g.items.length, mosaicHTML(g.items));
   });
-  if(moments.length){
-    html+='<div class="photo-sec"><div class="photo-sec-h"><div class="photo-sec-title">Everyday moments</div><div class="photo-sec-sub">'+moments.length+' photo'+(moments.length!==1?'s':'')+'</div></div>'+mosaicHTML(moments)+'</div>';
-  }
+  if(moments.length) html+=secHTML('<div class="photo-sec-title">Everyday moments</div>', moments.length, mosaicHTML(moments));
   return html;
 }
 function renderMemoriesTab(){
@@ -1596,7 +1627,7 @@ function renderMemoriesTab(){
     box.innerHTML='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">No photos in '+MONF[mcalM]+'</div><p>'+(memRecords.length?'Use the calendar to browse another month.':'Add a photo when you log an expense, or to a saved event.')+'</p></div>';
     return;
   }
-  box.innerHTML=photoSectionsHTML(monthRecs);
+  box.innerHTML=photoSectionsByDate(monthRecs);
 }
 // Photos taken on one date, grouped by event — opened from the calendar.
 function openPhotosForDate(y,m,d){
@@ -1604,7 +1635,7 @@ function openPhotosForDate(y,m,d){
   var recs=memRecords.filter(function(r){ return r.d && r.d.getFullYear()===y && r.d.getMonth()===m && r.d.getDate()===d; });
   if(!recs.length) return;
   setTxt('po-title', MONF[m]+' '+d+', '+y);
-  document.getElementById('po-body').innerHTML=photoSectionsHTML(recs);
+  document.getElementById('po-body').innerHTML=photoSectionsByEvent(recs);
   var sc=document.querySelector('#photos-overlay .mo-scroll'); if(sc)sc.scrollTop=0;
   document.getElementById('photos-overlay').classList.add('on');
 }
@@ -1633,20 +1664,29 @@ function openSheet(id){
   if(id==='sheet-catpick') buildCatPicker();
   if(id==='sheet-budget') fillBudgetSheet();
   if(id==='sheet-theme') buildThemeChoices();
+  if(id==='sheet-event'){ openEventModal(); return; }        // new-event form is a full-screen modal now
   if(id==='sheet-suggest'){ document.getElementById('sg-msg').value=''; selectChipByVal('sg-type','Idea'); }
-  if(id==='sheet-event'){
-    document.getElementById('ng-name').value=''; document.getElementById('ng-amt').value='';
-    document.getElementById('ng-date').value='2026-08-15';
-    selEmoji='🎉';
-    document.getElementById('ev-emoji').querySelectorAll('button').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='🎉'); });
-    selSrc='savings';
-    document.getElementById('ng-src').querySelectorAll('.src-opt').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='savings'); });
-    updateSrcHint();
-  }
   document.getElementById('scrim').classList.add('on'); document.getElementById(id).classList.add('on');
 }
 function closeSheet(){
   document.getElementById('scrim').classList.remove('on'); document.querySelectorAll('.sheet').forEach(function(s){ s.classList.remove('on'); s.style.transform=''; s.style.transition=''; });
+}
+/* new-event modal */
+function openEventModal(){
+  document.getElementById('ng-name').value=''; document.getElementById('ng-amt').value='';
+  document.getElementById('ng-date').value='2026-08-15';
+  selEmoji='🎉';
+  document.getElementById('ev-emoji').querySelectorAll('button').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='🎉'); });
+  selSrc='savings';
+  document.getElementById('ng-src').querySelectorAll('.src-opt').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='savings'); });
+  updateSrcHint();
+  document.getElementById('scrim').classList.add('on');
+  var m=document.getElementById('event-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
+  var body=m.querySelector('.modal-body'); if(body)body.scrollTop=0;
+}
+function closeEventModal(){
+  document.getElementById('scrim').classList.remove('on');
+  var m=document.getElementById('event-modal'); m.classList.remove('on'); m.style.transform=''; m.style.transition='';
 }
 /* expense create/edit modal */
 function openExpense(){
@@ -1662,32 +1702,40 @@ function closeExpense(){
   setTxt('ex-title','Log an expense');
   var del=document.getElementById('ex-del'); if(del)del.style.display='none';
 }
-/* Drag a bottom sheet / modal downward to dismiss (Apple sheet gesture). */
+/* Drag a bottom sheet / modal DOWN to dismiss — axis-locked so it never fights scrolling. */
 function initSheetDrag(sheet, closeFn){
   closeFn = closeFn || closeSheet;
   var scroller = sheet.querySelector('.modal-body') || sheet;   // the modal scrolls its body, not itself
-  var startY=0, dy=0, active=false, dragging=false;
+  var x0=0, y0=0, dy=0, active=false, dragging=false, decided=false;
   var scrim=function(){ return document.getElementById('scrim'); };
   sheet.addEventListener('touchstart',function(e){
-    if(scroller.scrollTop>0){ active=false; return; }       // let inner content scroll first
-    if(e.target.closest('input,textarea,select')){ active=false; return; }
-    active=true; dragging=false; startY=e.touches[0].clientY; dy=0;
-    sheet.style.transition='none';
+    if(e.touches.length>1){ active=false; return; }
+    if(e.target.closest('input,textarea,select,button,a')){ active=false; return; }  // taps on controls aren't drags
+    active=true; dragging=false; decided=false; dy=0;
+    x0=e.touches[0].clientX; y0=e.touches[0].clientY;
   },{passive:true});
   sheet.addEventListener('touchmove',function(e){
-    if(!active)return;
-    dy=e.touches[0].clientY-startY;
-    if(dy<=0){ if(dragging){ sheet.style.transform='translateY(0)'; var sc0=scrim(); if(sc0)sc0.style.opacity=''; } return; }
-    if(!dragging && dy<5) return;
-    dragging=true; e.preventDefault();
+    if(!active) return;
+    var ax=e.touches[0].clientX-x0, ay=e.touches[0].clientY-y0;
+    if(!decided){
+      if(Math.abs(ax)<6 && Math.abs(ay)<6) return;             // wait for a clear direction
+      decided=true;
+      // engage ONLY for a downward, vertical-dominant drag that starts at the top of the scroll
+      if(ay>0 && Math.abs(ay)>Math.abs(ax)*1.3 && scroller.scrollTop<=0){ dragging=true; sheet.style.transition='none'; }
+      else { active=false; return; }                           // otherwise let the content scroll natively
+    }
+    if(!dragging) return;
+    dy=Math.max(0, ay);
+    e.preventDefault();
     sheet.style.transform='translateY('+dy+'px)';
-    var sc=scrim(); if(sc) sc.style.opacity=Math.max(0,1-dy/(sheet.offsetHeight||480));
+    var sc=scrim(); if(sc) sc.style.opacity=Math.max(.2, 1-dy/(sheet.offsetHeight||480));
   },{passive:false});
   function end(){
-    if(!active)return; active=false;
+    if(!active) return; active=false;
+    if(!dragging) return; dragging=false;
     var sc=scrim();
     sheet.style.transition='transform .32s cubic-bezier(.32,.72,0,1)';
-    if(dragging && dy>110){
+    if(dy>120){
       sheet.style.transform='translateY(102%)';
       if(sc){ sc.style.opacity=''; sc.classList.remove('on'); }
       setTimeout(function(){ closeFn(); },300);
@@ -2126,9 +2174,9 @@ function renderGallery(boxId){
   });
   box.innerHTML=html;
 }
-var memPick=null;
+var memPick=null, memPickMulti=null;
 function openMemorySheet(){
-  memPick=null; document.getElementById('mem-cap').value='';
+  memPick=null; memPickMulti=null; document.getElementById('mem-cap').value='';
   setTxt('mem-ico', (events[curEvent]&&events[curEvent].emoji)||'📸');
   document.querySelectorAll('#mem-scenes button').forEach(function(b){ b.classList.remove('on'); });
   var pv=document.getElementById('mem-preview'); pv.className='mem-preview'; pv.style.backgroundImage='';
@@ -2136,28 +2184,45 @@ function openMemorySheet(){
 }
 function showMemPreview(){
   var pv=document.getElementById('mem-preview');
-  if(!memPick){ pv.className='mem-preview'; pv.style.backgroundImage=''; return; }
+  if(memPickMulti && memPickMulti.length){
+    pv.className='mem-preview show'; pv.style.backgroundImage='url('+memPickMulti[0].src+')';
+    setTxt('mem-prev-cap', memPickMulti.length+' photos selected'); return;
+  }
+  if(!memPick){ pv.className='mem-preview'; pv.style.backgroundImage=''; setTxt('mem-prev-cap',''); return; }
   if(memPick.src){ pv.className='mem-preview show'; pv.style.backgroundImage='url('+memPick.src+')'; }
   else { pv.className='mem-preview show '+memPick.cls; pv.style.backgroundImage=''; }
   setTxt('mem-prev-cap','Photo selected');
 }
 function pickMemScene(btn){
+  memPickMulti=null;
   document.querySelectorAll('#mem-scenes button').forEach(function(b){ b.classList.remove('on'); });
   btn.classList.add('on'); memPick={cls:btn.dataset.c,emoji:btn.dataset.e}; showMemPreview();
 }
 function onMemFile(input){
-  var f=input.files&&input.files[0]; if(!f)return;
-  var r=new FileReader();
-  r.onload=function(){ memPick={src:r.result}; document.querySelectorAll('#mem-scenes button').forEach(function(b){ b.classList.remove('on'); }); showMemPreview(); };
-  r.readAsDataURL(f);
+  var files=input.files; if(!files||!files.length)return;
+  var arr=Array.prototype.slice.call(files,0,10);            // max 10 at once
+  var capped=files.length>10;
+  document.querySelectorAll('#mem-scenes button').forEach(function(b){ b.classList.remove('on'); });
+  if(arr.length>1){
+    memPick=null; memPickMulti=new Array(arr.length); var loaded=0;
+    arr.forEach(function(f,i){ var r=new FileReader(); r.onload=function(){ memPickMulti[i]={src:r.result}; if(++loaded===arr.length){ showMemPreview(); if(capped) toast('Added the first 10 photos'); } }; r.readAsDataURL(f); });
+  } else {
+    memPickMulti=null; var r=new FileReader(); r.onload=function(){ memPick={src:r.result}; showMemPreview(); }; r.readAsDataURL(arr[0]);
+  }
+  input.value='';
 }
 function addMemory(){
-  var cap=document.getElementById('mem-cap').value.trim();
-  var m={};
+  var e=events[curEvent]; if(!e.memories)e.memories=[];
+  if(memPickMulti && memPickMulti.length){                   // multiple photos → one memory each
+    memPickMulti.slice().reverse().forEach(function(p){ e.memories.unshift({src:p.src}); });
+    var n=memPickMulti.length;
+    renderEvents(); openEvent(curEvent); closeSheet(); toast(n+' photos saved 📸'); floatEmojis('📸'); return;
+  }
+  var cap=document.getElementById('mem-cap').value.trim(), m={};
   if(memPick){ if(memPick.src){ m.src=memPick.src; } else { m.cls=memPick.cls; m.emoji=memPick.emoji; } }
   else { m.cls='ph-park'; m.emoji='📸'; }
   if(cap) m.caption=cap;
-  var e=events[curEvent]; if(!e.memories)e.memories=[]; e.memories.unshift(m);   // a photo doesn't complete an event
+  e.memories.unshift(m);                                     // a photo doesn't complete an event
   renderEvents(); openEvent(curEvent);
   closeSheet(); toast('Memory saved 📸'); floatEmojis('📸');
 }
@@ -2237,7 +2302,7 @@ function addEvent(){
   }
   renderEvents(); renderAll(); renderTxns();
   document.getElementById('ng-name').value=''; document.getElementById('ng-amt').value=''; document.getElementById('ng-date').value='';
-  closeSheet(); toast(msg); go('events'); floatEmojis(selEmoji);
+  closeEventModal(); toast(msg); go('events'); floatEmojis(selEmoji);
 }
 
 /* ---------- celebration ---------- */
@@ -2302,6 +2367,7 @@ setGreeting();
 renderEvents(); renderAll(); renderTxns();
 document.querySelectorAll('.sheet').forEach(function(s){ initSheetDrag(s); });   // drag-down-to-dismiss on every bottom sheet
 initSheetDrag(document.getElementById('expense-modal'), closeExpense);           // …and the expense modal
+initSheetDrag(document.getElementById('event-modal'), closeEventModal);          // …and the new-event modal
 
 /* ---------- deep links ---------- */
 (function(){
