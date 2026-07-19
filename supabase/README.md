@@ -38,10 +38,29 @@ are correct for every past month — **no rollup/snapshot table needed**. Import
 - Recommended path: a one-off `import_transactions(jsonb)` SECURITY DEFINER function or a
   staged CSV load — to be written once the column mapping from your source is confirmed.
 
+## Review status
+Adversarially reviewed (syntax / RLS-security / financial-logic / integrity). No
+apply-time blockers. 13 findings fixed in-place: seed-helper cross-tenant lockdown,
+per-function EXECUTE grants, achieved-budget-funding folded into `v_month_spent`,
+`v_member_spent` reconciliation, `transaction_photos` composite FK, auto-create
+`monthly_budgets` trigger, idempotent DDL, `v_event_saved` LEFT JOIN, soft-delete-only
+on members/categories/events, one-active-Shared index, immutable `date_trunc`.
+
+## OPEN DECISION — `v_reserved` future-expense scoping (0002_views.sql `pl` CTE)
+A future-dated expense reduces safe-to-spend. Two rules:
+- **Option A (current):** reserve it against **its own month** (an Aug expense hits Aug).
+  Cleaner multi-month accounting.
+- **Option B (prototype):** reserve **all** future spending against the **current month**.
+  Matches today's app number exactly. Flip the two commented lines to switch.
+
 ## v2 backlog (deliberately deferred)
 - `monthly_rollup` snapshot (only if aggregate-only history is ever imported).
+- Savings over-draw guard: `allocate_savings()` RPC with a per-family lock (pool can
+  currently go negative — fine for a small trusted family).
 - currency/language as ISO-4217 / BCP-47 text + lookup instead of enums.
 - `families.currency` immutability trigger; VND fractional-amount CHECK.
+- `event_fundings.month` FK to `monthly_budgets` (intentionally NOT added — would be
+  stricter than planned transactions, which feed the same reserved number).
 - Recurring **auto-save** config + manual/auto funding-type discriminator.
 - Roles/permissions beyond owner (funding eligibility is derivable today).
 

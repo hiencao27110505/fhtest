@@ -6,10 +6,20 @@
 -- for families/profiles/invitations so a brand-new user isn't locked out.
 -- ============================================================================
 
--- Base grants (RLS still gates every row underneath these)
+-- Table access (RLS still gates every row underneath these)
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on all tables in schema public to authenticated;
-grant execute on all functions in schema public to authenticated;
+
+-- Function access: lock everything, then grant EXECUTE only on real entrypoints.
+-- (Postgres grants EXECUTE to PUBLIC by default; revoke from PUBLIC too, else the
+--  SECURITY DEFINER helpers seed_default_categories/ensure_monthly_budget/etc are
+--  callable cross-tenant.)
+revoke execute on all functions in schema public from public, authenticated;
+grant  execute on function public.auth_family_id()                         to authenticated; -- used inside RLS
+grant  execute on function public.auth_email()                            to authenticated; -- used inside RLS
+grant  execute on function public.create_family(text, currency_code, language_code) to authenticated;
+grant  execute on function public.invite_to_family(text, uuid)            to authenticated;
+grant  execute on function public.accept_invitation(uuid)                 to authenticated;
 
 -- profiles: lock family_id (and email) so clients can't self-assign a family.
 -- family_id is written ONLY by create_family / accept_invitation (SECURITY DEFINER).
@@ -32,6 +42,9 @@ alter table event_fundings     enable row level security;
 alter table invitations        enable row level security;
 
 -- ---- families --------------------------------------------------------------
+drop policy if exists families_select on families;
+drop policy if exists families_insert on families;
+drop policy if exists families_update on families;
 create policy families_select on families for select
   using (id = auth_family_id() or owner_id = auth.uid());
 create policy families_insert on families for insert
@@ -39,23 +52,32 @@ create policy families_insert on families for insert
 create policy families_update on families for update
   using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 
--- ---- profiles: self always; plus same-family read ---------------------------
+-- ---- profiles: self always; plus same-family read --------------------------
+drop policy if exists profiles_select on profiles;
+drop policy if exists profiles_update on profiles;
 create policy profiles_select on profiles for select
   using (id = auth.uid() or family_id = auth_family_id());
 create policy profiles_update on profiles for update
   using (id = auth.uid()) with check (id = auth.uid());
 -- (no insert policy: rows are created by handle_new_user trigger, definer)
 
--- ---- generic family-scoped tables ------------------------------------------
--- Same shape for every table that carries family_id.
+-- ---- family-scoped tables --------------------------------------------------
+-- Ledger / child tables get full CRUD. members/categories/events are
+-- soft-delete only (archived_at) — no DELETE policy is minted for them, so a
+-- hard delete that would hit an ON DELETE RESTRICT child never even reaches PG.
 do $$
 declare t text;
 begin
+  -- full CRUD
   foreach t in array array[
-    'members','categories','monthly_budgets','category_budgets','transactions',
-    'transaction_photos','events','event_memories','savings_entries','event_fundings'
+    'monthly_budgets','category_budgets','transactions','transaction_photos',
+    'event_memories','savings_entries','event_fundings'
   ] loop
     execute format($f$
+      drop policy if exists %1$s_select on %1$I;
+      drop policy if exists %1$s_insert on %1$I;
+      drop policy if exists %1$s_update on %1$I;
+      drop policy if exists %1$s_delete on %1$I;
       create policy %1$s_select on %1$I for select using (family_id = auth_family_id());
       create policy %1$s_insert on %1$I for insert with check (family_id = auth_family_id());
       create policy %1$s_update on %1$I for update using (family_id = auth_family_id())
@@ -63,16 +85,30 @@ begin
       create policy %1$s_delete on %1$I for delete using (family_id = auth_family_id());
     $f$, t);
   end loop;
+
+  -- soft-delete only (SELECT/INSERT/UPDATE, no DELETE)
+  foreach t in array array['members','categories','events'] loop
+    execute format($f$
+      drop policy if exists %1$s_select on %1$I;
+      drop policy if exists %1$s_insert on %1$I;
+      drop policy if exists %1$s_update on %1$I;
+      create policy %1$s_select on %1$I for select using (family_id = auth_family_id());
+      create policy %1$s_insert on %1$I for insert with check (family_id = auth_family_id());
+      create policy %1$s_update on %1$I for update using (family_id = auth_family_id())
+                                                   with check (family_id = auth_family_id());
+    $f$, t);
+  end loop;
 end $$;
 
 -- ---- invitations -----------------------------------------------------------
--- family members see their family's invites; the invitee sees the one addressed
--- to their Gmail (so the app can show "You've been invited to <family>").
+drop policy if exists invitations_select_family  on invitations;
+drop policy if exists invitations_select_invitee on invitations;
+drop policy if exists invitations_insert         on invitations;
+drop policy if exists invitations_update         on invitations;
 create policy invitations_select_family on invitations for select
   using (family_id = auth_family_id());
 create policy invitations_select_invitee on invitations for select
   using (lower(invited_email) = auth_email());
--- create/revoke by a family member; accept goes through accept_invitation()
 create policy invitations_insert on invitations for insert
   with check (family_id = auth_family_id() and invited_by = auth.uid());
 create policy invitations_update on invitations for update
@@ -86,6 +122,10 @@ insert into storage.buckets (id, name, public)
 values ('family-media', 'family-media', false)
 on conflict (id) do nothing;
 
+drop policy if exists family_media_read   on storage.objects;
+drop policy if exists family_media_insert on storage.objects;
+drop policy if exists family_media_update on storage.objects;
+drop policy if exists family_media_delete on storage.objects;
 create policy family_media_read on storage.objects for select
   using (bucket_id = 'family-media'
          and (storage.foldername(name))[1] = auth_family_id()::text);

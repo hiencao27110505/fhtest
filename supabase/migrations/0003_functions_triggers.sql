@@ -26,7 +26,8 @@ begin
     'event_fundings','invitations'
   ] loop
     execute format(
-      'create trigger trg_%1$s_updated before update on %1$I
+      'drop trigger if exists trg_%1$s_updated on %1$I;
+       create trigger trg_%1$s_updated before update on %1$I
          for each row execute function set_updated_at()', t);
   end loop;
 end $$;
@@ -69,7 +70,27 @@ language sql stable as $$
 $$;
 
 -- ---------------------------------------------------------------------------
+-- ensure_monthly_budget: auto-create the parent monthly_budgets bucket so a
+-- category_budget can be written for a month with no overall cap yet.
+-- ---------------------------------------------------------------------------
+create or replace function ensure_monthly_budget() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into monthly_budgets (family_id, month, budget_total)
+  values (new.family_id, new.month, 0)
+  on conflict (family_id, month) do nothing;
+  return new;
+end $$;
+
+drop trigger if exists trg_category_budgets_ensure_month on category_budgets;
+create trigger trg_category_budgets_ensure_month
+  before insert on category_budgets
+  for each row execute function ensure_monthly_budget();
+
+-- ---------------------------------------------------------------------------
 -- seed_default_categories(family, language)
+-- SECURITY DEFINER + only ever called internally by create_family. Direct
+-- end-user EXECUTE is revoked in 0004 so it can't be used for cross-tenant writes.
 -- ---------------------------------------------------------------------------
 create or replace function seed_default_categories(p_family_id uuid, p_language language_code)
 returns void

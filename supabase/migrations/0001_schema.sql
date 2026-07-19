@@ -67,7 +67,7 @@ create table members (
   unique (id, family_id)
 );
 -- exactly one "Shared" pseudo-member per family, and it can never own a login
-create unique index members_one_shared_per_family on members(family_id) where is_shared;
+create unique index members_one_shared_per_family on members(family_id) where is_shared and archived_at is null;
 alter table members add constraint members_shared_no_user check (not is_shared or user_id is null);
 create index members_family_idx on members(family_id);
 
@@ -101,7 +101,7 @@ create table monthly_budgets (
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
   unique (family_id, month),
-  check (month = date_trunc('month', month)::date)
+  check (month = date_trunc('month', month::timestamp)::date)
 );
 
 -- ---------------------------------------------------------------------------
@@ -116,7 +116,7 @@ create table category_budgets (
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
   unique (family_id, month, category_id),
-  check (month = date_trunc('month', month)::date),
+  check (month = date_trunc('month', month::timestamp)::date),
   foreign key (family_id, month)      references monthly_budgets(family_id, month) on delete restrict,
   foreign key (category_id, family_id) references categories(id, family_id)         on delete restrict
 );
@@ -139,7 +139,8 @@ create table transactions (
   updated_at  timestamptz not null default now(),
   foreign key (category_id, family_id) references categories(id, family_id) on delete restrict,
   foreign key (member_id,   family_id) references members(id,    family_id) on delete restrict,
-  check (status = 'planned' or member_id is not null)   -- realized rows must have a payer
+  check (status = 'planned' or member_id is not null),  -- realized rows must have a payer
+  unique (id, family_id)                                -- composite-FK target for transaction_photos
 );
 create index transactions_family_date_idx on transactions(family_id, txn_date);
 create index transactions_category_idx     on transactions(category_id);
@@ -151,11 +152,13 @@ create index transactions_member_idx       on transactions(member_id);
 create table transaction_photos (
   id             uuid primary key default gen_random_uuid(),
   family_id      uuid not null references families(id),
-  transaction_id uuid not null references transactions(id) on delete cascade,
+  transaction_id uuid not null,
   photo_url      text not null,
   sort_order     int  not null default 0,
   created_at     timestamptz not null default now(),
-  updated_at     timestamptz not null default now()
+  updated_at     timestamptz not null default now(),
+  -- composite FK ties the photo's tenant tag to its parent transaction's
+  foreign key (transaction_id, family_id) references transactions(id, family_id) on delete cascade
 );
 create index transaction_photos_tx_idx on transaction_photos(transaction_id);
 
@@ -230,7 +233,7 @@ create table event_fundings (
   updated_at timestamptz not null default now(),
   foreign key (event_id,  family_id) references events(id,  family_id) on delete restrict,
   foreign key (member_id, family_id) references members(id, family_id) on delete restrict,
-  check (month is null or month = date_trunc('month', month)::date),
+  check (month is null or month = date_trunc('month', month::timestamp)::date),
   check ((source = 'budget'  and month is not null)
       or (source = 'savings' and month is null))
 );
