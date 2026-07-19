@@ -771,9 +771,21 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .ob-gmail{width:100%;background:var(--surface);border:1.5px solid var(--hairline);border-radius:12px;padding:14px;font-size:16px;letter-spacing:-.01em;color:var(--ink);outline:none}
 .ob-gmail:focus{border-color:var(--brand);background:#fff}
 .ob-gform-note{font-size:12.5px;line-height:1.4;color:var(--muted-soft);margin-top:10px}
-/* category budgets (onboarding) */
-.ob-catbud{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--divider)}
-.ob-catbud-ic{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+/* budget step — total amount card */
+.ob-total-card{background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px 16px 15px;box-shadow:0 1px 3px rgba(25,16,34,.04);margin-bottom:24px}
+.ob-total-card label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.03em;text-transform:uppercase;margin-bottom:7px}
+.ob-total-in{display:flex;align-items:baseline;gap:6px}
+.ob-total-sym{font-family:var(--disp);font-weight:800;font-size:25px;letter-spacing:-1px;color:var(--muted-soft);flex-shrink:0}
+.ob-total-input{flex:1;min-width:0;border:none;background:none;outline:none;font-family:var(--disp);font-weight:800;font-size:32px;letter-spacing:-1.2px;color:var(--ink);padding:0}
+.ob-total-input::placeholder{color:#cfc8d6;font-weight:700}
+/* category budgets (onboarding) — grouped inset list */
+.ob-catbud-lead{margin:0 2px 11px}
+.ob-catbud-lead .bg-sub{margin:0}
+.ob-catbud-hint{font-size:12.5px;line-height:1.4;letter-spacing:-.01em;color:var(--muted-soft);margin-top:3px}
+.ob-group{background:var(--white);border:1px solid var(--hairline);border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(25,16,34,.04)}
+.ob-catbud{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--divider)}
+.ob-catbud:last-child{border-bottom:none}
+.ob-catbud-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
 .ob-catbud-n{flex:1;min-width:0;font-size:15.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
 /* choice cards */
 .ob-card{display:flex;align-items:center;gap:15px;width:100%;text-align:left;background:var(--white);border:1px solid var(--hairline);border-radius:18px;padding:18px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(25,16,34,.04),0 10px 24px rgba(25,16,34,.05)}
@@ -846,7 +858,7 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
         </div>
       </div>
       <div class="greet" id="greet">Good evening, Emma 🌙</div>
-      <div class="greet-sub">Here's how the family's money looks today.</div>
+      <div class="greet-sub" data-t="greetSub">Here's how the family's money looks today.</div>
       <div class="hero-fam" id="hero-fam">
         <div class="av av-emma av-hero">EM</div>
         <div class="av av-james av-hero">JR</div>
@@ -1006,10 +1018,10 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 
 <!-- TAB BAR -->
 <nav class="tabbar">
-  <button class="tab on" id="t-home" onclick="go('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg><span>Home</span></button>
-  <button class="tab" id="t-spending" onclick="go('spending')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg><span>Spending</span></button>
-  <button class="tab" id="t-events" onclick="go('events')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Events</span></button>
-  <button class="tab" id="t-memories" onclick="go('memories')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 16l4.5-4 3.5 3 4-3.5L21 16.5"/></svg><span>Memories</span></button>
+  <button class="tab on" id="t-home" onclick="go('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg><span data-t="tabHome">Home</span></button>
+  <button class="tab" id="t-spending" onclick="go('spending')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg><span data-t="tabSpending">Spending</span></button>
+  <button class="tab" id="t-events" onclick="go('events')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span data-t="tabEvents">Events</span></button>
+  <button class="tab" id="t-memories" onclick="go('memories')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 16l4.5-4 3.5 3 4-3.5L21 16.5"/></svg><span data-t="tabMemories">Memories</span></button>
 </nav>
 
 <!-- EVENT OVERLAY -->
@@ -1352,18 +1364,34 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
     <div class="ob-content center">
       <div class="ob-brand">
         <div class="ob-logo">🏡</div>
-        <div class="ob-welcome-t">Welcome to<br><em>FamilyHub</em></div>
+        <div class="ob-welcome-t"><span data-t="welcomeTitle">Welcome to</span><br><em>FamilyHub</em></div>
       </div>
       <div class="ob-feats">
-        <div class="ob-feat"><div class="ob-feat-ic" style="background:#e9f7f0;color:#1a9d5f">💰</div><div><div class="ob-feat-t">One shared pool</div><div class="ob-feat-s">See your family's money together — budgets and spending in one place.</div></div></div>
-        <div class="ob-feat"><div class="ob-feat-ic" style="background:#eef1fc;color:#5E5CE6">🎯</div><div><div class="ob-feat-t">Goals &amp; events</div><div class="ob-feat-s">Save toward trips, birthdays and the things that matter.</div></div></div>
-        <div class="ob-feat"><div class="ob-feat-ic" style="background:#fdeef4;color:#FF375F">📸</div><div><div class="ob-feat-t">Memories together</div><div class="ob-feat-s">Turn everyday moments into a shared family album.</div></div></div>
+        <div class="ob-feat"><div class="ob-feat-ic" style="background:#e9f7f0;color:#1a9d5f">💰</div><div><div class="ob-feat-t" data-t="tagPool">One shared pool</div><div class="ob-feat-s" data-t="tagPoolS">See your family's money together — budgets and spending in one place.</div></div></div>
+        <div class="ob-feat"><div class="ob-feat-ic" style="background:#eef1fc;color:#5E5CE6">🎯</div><div><div class="ob-feat-t" data-t="tagGoals">Goals &amp; events</div><div class="ob-feat-s" data-t="tagGoalsS">Save toward trips, birthdays and the things that matter.</div></div></div>
+        <div class="ob-feat"><div class="ob-feat-ic" style="background:#fdeef4;color:#FF375F">📸</div><div><div class="ob-feat-t" data-t="tagMem">Memories together</div><div class="ob-feat-s" data-t="tagMemS">Turn everyday moments into a shared family album.</div></div></div>
       </div>
     </div>
     <div class="ob-foot">
-      <button class="cta" onclick="obGo('auth')">Get started</button>
-      <button class="ob-textlink" onclick="obGo('auth')">I already have an account</button>
+      <button class="cta" data-t="getStarted" onclick="obGo('locale')">Get started</button>
+      <button class="ob-textlink" data-t="haveAccount" onclick="obGo('locale')">I already have an account</button>
     </div>
+  </section>
+
+  <section class="ob-screen" data-ob="locale">
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('welcome')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1" data-t="localeTitle">Language & currency</div><div class="ob-sub" data-t="localeSub">Choose how FamilyHub speaks and shows money.</div></div>
+      <div class="field"><label data-t="langLabel">Language</label><div class="choices" id="ob-lang">
+        <button class="choice on" data-v="en" onclick="obPickLang(this)">🇬🇧 English</button>
+        <button class="choice" data-v="vi" onclick="obPickLang(this)">🇻🇳 Tiếng Việt</button>
+      </div></div>
+      <div class="field"><label data-t="curLabel">Currency</label><div class="choices" id="ob-cur">
+        <button class="choice on" data-v="USD" onclick="obPickCur(this)">$ USD</button>
+        <button class="choice" data-v="VND" onclick="obPickCur(this)">₫ VND</button>
+      </div></div>
+    </div>
+    <div class="ob-foot"><button class="cta" data-t="continue" onclick="obGo('auth')">Continue</button></div>
   </section>
 
   <section class="ob-screen" data-ob="auth">
@@ -1371,52 +1399,46 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
     <div class="ob-content center">
       <div class="ob-signin-hero">
         <div class="ob-logo">🏡</div>
-        <div class="ob-signin-t">Sign in to FamilyHub</div>
-        <div class="ob-signin-s" id="ob-signin-s">Use your Google account to get started — secure, and just one tap.</div>
-      </div>
-      <div class="ob-gform" id="ob-gform" style="display:none">
-        <div class="ob-gform-head"><svg viewBox="0 0 48 48" width="16" height="16"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Sign in with Google</div>
-        <input class="ob-gmail" id="ob-gmail" type="email" inputmode="email" autocapitalize="off" autocomplete="off" placeholder="you@gmail.com" oninput="obGmailInput()">
-        <div class="ob-gform-note">FamilyHub uses this only to identify your account.</div>
+        <div class="ob-signin-t" data-t="signinT">Sign in to FamilyHub</div>
+        <div class="ob-signin-s" data-t="signinS">Continue with your Google account — secure, and just one tap.</div>
       </div>
     </div>
     <div class="ob-foot">
-      <button class="ob-google" id="ob-gbtn" onclick="obGoogle()"><svg class="ob-gicon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Continue with Google</button>
-      <button class="cta" id="ob-gcontinue" style="display:none" onclick="obGoogleNext()" disabled>Continue</button>
-      <div class="ob-note">By continuing, you agree to our Terms &amp; Privacy Policy.</div>
+      <button class="ob-google" id="ob-gbtn" onclick="obGoogle()"><svg class="ob-gicon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span data-t="continueGoogle">Continue with Google</span></button>
+      <div class="ob-note" data-t="terms">By continuing, you agree to our Terms &amp; Privacy Policy.</div>
     </div>
   </section>
 
   <section class="ob-screen" data-ob="choice">
     <div class="ob-top"><button class="ob-back2" onclick="obGo('auth')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1">Your family</div><div class="ob-sub">Start a new family, or join one you've been invited to.</div></div>
-      <button class="ob-card" onclick="obChoose('create')"><div class="ob-card-em">✨</div><div><div class="ob-card-t">Start a new family</div><div class="ob-card-s">You'll name it and invite others</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-      <button class="ob-card" onclick="obChoose('join')"><div class="ob-card-em">🔗</div><div><div class="ob-card-t">Join a family</div><div class="ob-card-s">Enter an invite code</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+      <div class="ob-head"><div class="ob-h1" data-t="familyTitle">Your family</div><div class="ob-sub" data-t="familySub">Start a new family, or join one you've been invited to.</div></div>
+      <button class="ob-card" onclick="obChoose('create')"><div class="ob-card-em">✨</div><div><div class="ob-card-t" data-t="startFamily">Start a new family</div><div class="ob-card-s" data-t="startFamilyS">You'll name it and invite others</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+      <button class="ob-card" onclick="obChoose('join')"><div class="ob-card-em">🔗</div><div><div class="ob-card-t" data-t="joinFamily">Join a family</div><div class="ob-card-s" data-t="joinFamilyS">Enter an invite code</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     </div>
   </section>
 
   <section class="ob-screen" data-ob="join">
     <div class="ob-top"><button class="ob-back2" onclick="obGo('choice')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1">Enter invite code</div><div class="ob-sub">Ask a family member for the 6-character code from their invite.</div></div>
+      <div class="ob-head"><div class="ob-h1" data-t="joinTitle">Enter invite code</div><div class="ob-sub" data-t="joinSub">Ask a family member for the 6-character code from their invite.</div></div>
       <div class="ob-code-wrap">
         <div class="ob-code-boxes" id="ob-code-boxes"></div>
         <input class="ob-code" id="ob-code" maxlength="6" inputmode="text" autocapitalize="characters" autocomplete="off" oninput="obCodeInput(this)">
       </div>
       <div class="ob-preview" id="ob-join-preview" style="display:none"></div>
     </div>
-    <div class="ob-foot"><button class="cta" id="ob-join-cta" onclick="obJoin()" disabled>Join family</button></div>
+    <div class="ob-foot"><button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta" disabled>Join family</button></div>
   </section>
 
   <section class="ob-screen" data-ob="profile">
     <div class="ob-top"><button class="ob-back2" id="ob-profile-back" onclick="obGo('choice')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1">Set up your profile</div><div class="ob-sub">This is how your family will see you.</div></div>
+      <div class="ob-head"><div class="ob-h1" data-t="profileTitle">Set up your profile</div><div class="ob-sub" data-t="profileSub">This is how your family will see you.</div></div>
       <div class="ob-avatar" id="ob-avatar">?</div>
       <div class="ob-colors" id="ob-colors"></div>
-      <div class="field"><label>Your name</label><input id="ob-name" placeholder="e.g. Emma" oninput="obNameInput()"></div>
-      <div class="field"><label>You are the…</label><div class="choices" id="ob-role">
+      <div class="field"><label data-t="yourName">Your name</label><input id="ob-name" placeholder="e.g. Emma" oninput="obNameInput()"></div>
+      <div class="field"><label data-t="youAreThe">You are the…</label><div class="choices" id="ob-role">
         <button class="choice on" data-v="Mom" onclick="pick('ob-role',this)">Mom</button>
         <button class="choice" data-v="Dad" onclick="pick('ob-role',this)">Dad</button>
         <button class="choice" data-v="Husband" onclick="pick('ob-role',this)">Husband</button>
@@ -1436,11 +1458,11 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   <section class="ob-screen" data-ob="family">
     <div class="ob-top"><button class="ob-back2" onclick="obGo('profile')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1">Set up your family</div><div class="ob-sub">Name it and invite who's in it.</div></div>
-      <div class="field"><label>Family name</label><input id="ob-famname" placeholder="e.g. The Reeds"></div>
-      <div class="field"><label>Members &amp; invites</label>
+      <div class="ob-head"><div class="ob-h1" data-t="setFamilyTitle">Set up your family</div><div class="ob-sub" data-t="setFamilySub">Name it and invite who's in it.</div></div>
+      <div class="field"><label data-t="familyName">Family name</label><input id="ob-famname" placeholder="e.g. The Reeds"></div>
+      <div class="field"><label data-t="membersInvites">Members &amp; invites</label>
         <div id="ob-members"></div>
-        <button class="btn-line" onclick="obAddMember()" style="margin:12px 0 0;width:100%">＋ Invite a member</button>
+        <button class="btn-line" onclick="obAddMember()" data-t="inviteMember" style="margin:12px 0 0;width:100%">＋ Invite a member</button>
       </div>
     </div>
     <div class="ob-foot"><button class="cta" onclick="obFamilyNext()">Continue</button></div>
@@ -1449,10 +1471,13 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   <section class="ob-screen" data-ob="budget">
     <div class="ob-top"><button class="ob-back2" onclick="obGo('family')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1">Set your budget</div><div class="ob-sub">A monthly target for the family, then a budget for each category.</div></div>
-      <div class="field"><label>Monthly budget</label><input class="big num" id="ob-budget" inputmode="numeric" placeholder="$9,000"></div>
-      <div class="bg-sub">Category budgets</div>
-      <div id="ob-catbudgets"></div>
+      <div class="ob-head"><div class="ob-h1" data-t="budgetTitle">Set your budget</div><div class="ob-sub" data-t="budgetSub">A monthly target for the family, then a budget for each category.</div></div>
+      <div class="ob-total-card">
+        <label data-t="monthlyBudget">Monthly budget</label>
+        <div class="ob-total-in"><span class="ob-total-sym" id="ob-budget-sym">$</span><input class="ob-total-input num" id="ob-budget" inputmode="numeric" placeholder="9,000" oninput="obSuggestBudgets()"></div>
+      </div>
+      <div class="ob-catbud-lead"><div class="bg-sub" data-t="categoryBudgets">Category budgets</div><div class="ob-catbud-hint" data-t="categoryBudgetsHint">Suggested from your total — adjust anytime.</div></div>
+      <div class="ob-group" id="ob-catbudgets"></div>
     </div>
     <div class="ob-foot"><button class="cta" onclick="obBudgetNext()">Continue</button></div>
   </section>
@@ -1460,7 +1485,7 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   <section class="ob-screen" data-ob="theme">
     <div class="ob-top"><button class="ob-back2" id="ob-theme-back" onclick="obGo('family')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1">Pick your look</div><div class="ob-sub">Choose a color theme for your family's hub — you can change it anytime.</div></div>
+      <div class="ob-head"><div class="ob-h1" data-t="themeTitle">Pick your look</div><div class="ob-sub" data-t="themeSub">Choose a color theme for your family's hub — you can change it anytime.</div></div>
       <div class="theme-grid" id="ob-theme-grid"></div>
     </div>
     <div class="ob-foot"><button class="cta" onclick="obThemeNext()">Continue</button></div>
@@ -1472,7 +1497,7 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
       <div class="ob-welcome-t" id="ob-done-title" style="margin-top:26px">You're all set!</div>
       <div class="ob-signin-s" id="ob-done-sub" style="max-width:300px;margin-top:10px">Welcome to FamilyHub.</div>
     </div>
-    <div class="ob-foot"><button class="cta" onclick="finishOnboarding()">Enter FamilyHub</button></div>
+    <div class="ob-foot"><button class="cta" data-t="enterApp" onclick="finishOnboarding()">Enter FamilyHub</button></div>
   </section>
 </div>
 </div><!-- /phone -->
@@ -1557,8 +1582,20 @@ function achievedNow(e){ return e.achieved===true || (e.d && e.d<TODAY); }
 function eventsReserved(){ return order.reduce(function(s,k){ return achievedNow(events[k]) ? s : s+(events[k].setAside||0); },0); }
 function futureExpReserved(){ return txns.reduce(function(s,t){ return s+(t.future?t.amt:0); },0); }
 function monthReserved(){ return eventsReserved()+futureExpReserved(); }
-function fmt(n){ return '$'+Math.round(n).toLocaleString('en-US'); }
-function fmtK(n){ return n>=1000 ? '$'+(n/1000).toFixed(1).replace(/\.0$/,'')+'k' : '$'+Math.round(n); }
+/* ---- currency (USD $ · VND ₫, VND display ×1000 so amounts read realistically) ---- */
+var CUR='USD';
+function curMult(){ return CUR==='VND'?1000:1; }
+function curSym(){ return CUR==='VND'?'₫':'$'; }
+function fmt(n){
+  var v=Math.round(n*curMult());
+  return CUR==='VND' ? v.toLocaleString('vi-VN')+' ₫' : '$'+v.toLocaleString('en-US');
+}
+function fmtK(n){
+  var v=n*curMult();
+  if(CUR==='VND') return v>=1000000 ? (v/1000000).toFixed(1).replace(/\.0$/,'')+'tr' : Math.round(v/1000)+'k';
+  return n>=1000 ? '$'+(n/1000).toFixed(1).replace(/\.0$/,'')+'k' : '$'+Math.round(n);
+}
+function parseAmtBase(s){ return Math.round(parseAmt(s)/curMult()); }   // input is in display currency → store base
 function renderTrend(){
   var box=document.getElementById('trend-chart'); if(!box)return;
   var maxV=Math.max.apply(null, monthOrder.map(function(k){return Math.max(months[k].spent,months[k].budget);}));
@@ -1719,12 +1756,12 @@ function fillBudgetSheet(){
 }
 function addCatRow(){ document.getElementById('bg-rows').insertAdjacentHTML('beforeend', catRowHTML('🏷️','','','')); }
 function setBudget(){
-  var v=parseAmt(document.getElementById('bg-amt').value); if(v)M().budget=v;
+  var v=parseAmtBase(document.getElementById('bg-amt').value); if(v)M().budget=v;
   var newOrder=[], newStyle={}, newBudget={}, renames=[], seen={};
   document.querySelectorAll('#sheet-budget .cat-row').forEach(function(row){
     var name=row.querySelector('.cat-name').value.trim(); if(!name || seen[name.toLowerCase()]) return; seen[name.toLowerCase()]=1;
     var emoji=row.querySelector('.cat-emoji').value.trim()||'🏷️';
-    var bud=parseAmt(row.querySelector('.cat-bud').value)||0;
+    var bud=parseAmtBase(row.querySelector('.cat-bud').value)||0;
     var orig=row.getAttribute('data-orig');
     var style = (orig&&catStyle[orig]) ? [emoji,catStyle[orig][1],catStyle[orig][2]] : [emoji].concat(CATPAL[newOrder.length%CATPAL.length]);
     newOrder.push(name); newStyle[name]=style; newBudget[name]=bud;
@@ -2205,7 +2242,7 @@ function renderExPhoto(){
 }
 function exFormState(){                                     // snapshot used to detect edits
   return document.getElementById('ex-note').value.trim()
-    +'|'+parseAmt(document.getElementById('ex-amt').value)
+    +'|'+parseAmtBase(document.getElementById('ex-amt').value)
     +'|'+chosen('ex-cat')+'|'+chosen('ex-who')
     +'|'+document.getElementById('ex-date').value
     +'|'+exPhotos.length+':'+exPhotos.map(function(s){return s.length;}).join(',');
@@ -2239,7 +2276,7 @@ function fillExpenseFromTx(){
 function submitExpense(){ if(editingTx) saveExpenseEdit(); else addExpense(); }
 function saveExpenseEdit(){
   var t=txById(editingTx); if(!t){ closeExpense(); return; }
-  var amt=parseAmt(document.getElementById('ex-amt').value);
+  var amt=parseAmtBase(document.getElementById('ex-amt').value);
   if(!amt){ document.getElementById('ex-amt').focus(); return; }
   var note=document.getElementById('ex-note').value.trim()||'Expense';
   var cat=chosen('ex-cat')||'Fun', who=chosen('ex-who')||'Emma';
@@ -2486,7 +2523,7 @@ function buildCatPicker(){
 function pickCatFilter(t,v){ closeSheet(); openCat(t,v); }
 function closeCat(){ document.getElementById('cat-overlay').classList.remove('on'); }
 function addExpense(){
-  var amt=parseAmt(document.getElementById('ex-amt').value);
+  var amt=parseAmtBase(document.getElementById('ex-amt').value);
   if(!amt){ document.getElementById('ex-amt').focus(); return; }
   var note=document.getElementById('ex-note').value.trim()||'Expense';
   var cat=chosen('ex-cat')||'Fun'; lastCat=cat;
@@ -2631,7 +2668,7 @@ function renderRing(){
 function closeEvent(){ document.getElementById('event-overlay').classList.remove('on'); }
 function addFunds(){
   var id=chosen('fn-event')||curEvent||order[0];
-  var amt=parseAmt(document.getElementById('fn-amt').value);
+  var amt=parseAmtBase(document.getElementById('fn-amt').value);
   if(!amt){ document.getElementById('fn-amt').focus(); return; }
   var e=events[id];
   if(e.saved>=e.target){ toast(e.name+' is already fully funded'); return; }
@@ -2662,7 +2699,7 @@ function updateSrcHint(){
   var safe=Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved());
   setHTML('src-savings', fmt(savings)+' <span class="u">available</span>');
   setHTML('src-month', fmt(safe)+' <span class="u">to spend</span>');
-  var cost=parseAmt(document.getElementById('ng-amt').value)||0;
+  var cost=parseAmtBase(document.getElementById('ng-amt').value)||0;
   var el=document.getElementById('ng-srchint'); if(!el)return;
   if(cost<=0){ el.textContent=''; return; }
   var avail=selSrc==='savings'?savings:safe;
@@ -2673,7 +2710,7 @@ function updateSrcHint(){
 function addEvent(){
   var name=document.getElementById('ng-name').value.trim();
   if(!name){ document.getElementById('ng-name').focus(); return; }
-  var target=parseAmt(document.getElementById('ng-amt').value)||1000;
+  var target=parseAmtBase(document.getElementById('ng-amt').value)||1000;
   var raw=document.getElementById('ng-date').value;       // "YYYY-MM-DD" from the date picker
   var src=selSrc;
   var id='e'+order.length+Math.floor(target);
@@ -2756,11 +2793,53 @@ function buildThemeChoices(){
 function firstName(n){ return (n||'').trim().split(/\s+/)[0]||'there'; }
 function setGreeting(){
   var h=new Date().getHours();
-  var g=h<12?'Good morning':(h<18?'Good afternoon':'Good evening');
+  var g=h<12?t('morning'):(h<18?t('afternoon'):t('evening'));
   var em=h<5?'🌙':(h<12?'☀️':(h<18?'🌤️':'🌙'));
   setTxt('greet',g+', '+firstName(FAM.user.name)+' '+em);
+  var gs=document.querySelector('.greet-sub'); if(gs) gs.textContent=t('greetSub');
 }
 
+/* ---------- i18n (English · Tiếng Việt) ---------- */
+var LANG='en';
+var I18N={
+  en:{}, // English = the literal strings already in the HTML; en falls back to the DOM default
+  vi:{
+    welcomeTitle:'Chào mừng đến với', tagPool:'Một ví chung', tagPoolS:"Xem tiền của cả nhà ở một nơi — ngân sách và chi tiêu cùng nhau.",
+    tagGoals:'Mục tiêu & sự kiện', tagGoalsS:'Tiết kiệm cho những chuyến đi, sinh nhật và điều quan trọng.',
+    tagMem:'Kỷ niệm cùng nhau', tagMemS:'Biến những khoảnh khắc thường ngày thành album của gia đình.',
+    getStarted:'Bắt đầu', haveAccount:'Tôi đã có tài khoản',
+    localeTitle:'Ngôn ngữ & tiền tệ', localeSub:'Chọn ngôn ngữ và cách hiển thị tiền của FamilyHub.', langLabel:'Ngôn ngữ', curLabel:'Tiền tệ',
+    signinT:'Đăng nhập FamilyHub', signinS:'Tiếp tục với tài khoản Google — an toàn, chỉ một chạm.', continueGoogle:'Tiếp tục với Google', signingIn:'Đang đăng nhập…',
+    terms:'Khi tiếp tục, bạn đồng ý với Điều khoản & Chính sách bảo mật.',
+    familyTitle:'Gia đình của bạn', familySub:'Tạo một gia đình mới, hoặc tham gia gia đình đã mời bạn.',
+    startFamily:'Tạo gia đình mới', startFamilyS:'Bạn sẽ đặt tên và mời người khác', joinFamily:'Tham gia gia đình', joinFamilyS:'Nhập mã mời',
+    joinTitle:'Nhập mã mời', joinSub:'Xin mã 6 ký tự từ lời mời của người thân.', joinCta:'Tham gia gia đình',
+    profileTitle:'Thiết lập hồ sơ', profileSub:'Đây là cách gia đình nhìn thấy bạn.', yourName:'Tên của bạn', youAreThe:'Bạn là…',
+    setFamilyTitle:'Thiết lập gia đình', setFamilySub:'Đặt tên và mời các thành viên.', familyName:'Tên gia đình', membersInvites:'Thành viên & lời mời', inviteMember:'＋ Mời thành viên',
+    budgetTitle:'Đặt ngân sách', budgetSub:'Mục tiêu hằng tháng cho gia đình, rồi ngân sách cho từng danh mục.', monthlyBudget:'Ngân sách hằng tháng', categoryBudgets:'Ngân sách theo danh mục', categoryBudgetsHint:'Gợi ý sẵn từ tổng ngân sách — bạn có thể chỉnh bất cứ lúc nào.',
+    themeTitle:'Chọn giao diện', themeSub:'Chọn màu chủ đề cho gia đình — có thể đổi bất cứ lúc nào.',
+    enterApp:'Vào FamilyHub', continue:'Tiếp tục', you:'Bạn',
+    tabHome:'Trang chủ', tabSpending:'Chi tiêu', tabEvents:'Sự kiện', tabMemories:'Kỷ niệm',
+    morning:'Chào buổi sáng', afternoon:'Chào buổi chiều', evening:'Chào buổi tối', greetSub:'Tình hình tiền của gia đình hôm nay.',
+    comingUp:'Sắp tới', recent:'Gần đây', activity:'Hoạt động', memories:'Kỷ niệm', whereGoing:'Tiền đi đâu', allPhotos:'Tất cả ảnh', all:'Tất cả'
+  }
+};
+var EN_DEFAULT={welcomeTitle:'Welcome to',getStarted:'Get started',haveAccount:'I already have an account',continue:'Continue',continueGoogle:'Continue with Google',signingIn:'Signing in…',joinCta:'Join family',enterApp:'Enter FamilyHub',you:'You',categoryBudgetsHint:'Suggested from your total — adjust anytime.',tabHome:'Home',tabSpending:'Spending',tabEvents:'Events',tabMemories:'Memories',morning:'Good morning',afternoon:'Good afternoon',evening:'Good evening',greetSub:"Here's how the family's money looks today.",recent:'Recent',activity:'Activity'};
+function t(k){ if(LANG==='vi' && I18N.vi[k]!==undefined) return I18N.vi[k]; if(EN_DEFAULT[k]!==undefined) return EN_DEFAULT[k]; var el=document.querySelector('[data-t="'+k+'"]'); return el?el.getAttribute('data-en')||el.textContent:k; }
+function applyLang(){
+  document.querySelectorAll('[data-t]').forEach(function(el){
+    var k=el.getAttribute('data-t');
+    if(!el.getAttribute('data-en')) el.setAttribute('data-en', el.textContent);   // capture the original English once
+    el.textContent = (LANG==='vi' && I18N.vi[k]!==undefined) ? I18N.vi[k] : el.getAttribute('data-en');
+  });
+  document.querySelectorAll('[data-tp]').forEach(function(el){
+    var k=el.getAttribute('data-tp');
+    if(!el.getAttribute('data-enp')) el.setAttribute('data-enp', el.getAttribute('placeholder')||'');
+    el.setAttribute('placeholder', (LANG==='vi' && I18N.vi[k]!==undefined) ? I18N.vi[k] : el.getAttribute('data-enp'));
+  });
+  document.documentElement.lang = LANG==='vi'?'vi':'en';
+  setGreeting();
+}
 /* ---------- onboarding ---------- */
 var FAM={
   user:{name:'Emma',role:'Parent',color:'#6f3fc0'},
@@ -2770,8 +2849,10 @@ var FAM={
 };
 var OB_COLORS=['#6f3fc0','#0e8478','#f0701a','#e03d86','#1e74d0','#B8730B','#7A5AE0','#1a9d5f'];
 var OB_ROLES=['Mom','Dad','Husband','Wife','Boyfriend','Girlfriend','Partner','Sweetheart','Sweetie','Coldheart','Man of steel','Parent','Son','Daughter','Kid','Teen','Sibling','Guardian','Grandma','Grandpa','Other'];
-var obOrder=['welcome','auth','choice','join','profile','family','budget','theme','done'];
-var obProg={welcome:0,auth:.14,choice:.3,join:.5,profile:.58,family:.72,budget:.85,theme:.93,done:1};
+var obOrder=['welcome','locale','auth','choice','join','profile','family','budget','theme','done'];
+var obProg={welcome:0,locale:.1,auth:.2,choice:.34,join:.52,profile:.6,family:.74,budget:.86,theme:.93,done:1};
+function obPickLang(btn){ pick('ob-lang',btn); LANG=btn.dataset.v; applyLang(); }
+function obPickCur(btn){ pick('ob-cur',btn); CUR=btn.dataset.v; }
 function inits(n){ return ((n||'').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2)||'?').toUpperCase(); }
 function roleOpts(sel){ return OB_ROLES.map(function(r){ return '<option'+(r===sel?' selected':'')+'>'+r+'</option>'; }).join(''); }
 function obGo(name){
@@ -2799,22 +2880,9 @@ function buildObThemes(){
       +'<div class="nm">'+t.name+'</div></div>';
   }).join('');
 }
-function obGoogle(){                                          // reveal a Google-style email entry (manual)
-  document.getElementById('ob-gform').style.display='block';
-  document.getElementById('ob-gbtn').style.display='none';
-  document.getElementById('ob-gcontinue').style.display='';
-  setTxt('ob-signin-s','Enter the Google email you'+"'"+'ll use for FamilyHub.');
-  setTimeout(function(){ document.getElementById('ob-gmail').focus(); },260);
-}
-function obGmailInput(){
-  var v=document.getElementById('ob-gmail').value.trim();
-  document.getElementById('ob-gcontinue').disabled = !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
-}
-function obGoogleNext(){
-  var v=document.getElementById('ob-gmail').value.trim();
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ document.getElementById('ob-gmail').focus(); return; }
-  FAM.user.email=v;
-  obGo('choice');
+function obGoogle(){                                          // Google SSO handles the account (email) — no manual entry
+  var b=document.getElementById('ob-gbtn'); if(b){ b.disabled=true; b.style.opacity='.7'; b.querySelector('span').textContent=t('signingIn'); }
+  setTimeout(function(){ if(b){ b.disabled=false; b.style.opacity=''; b.querySelector('span').textContent=t('continueGoogle'); } obGo('choice'); }, 650);
 }
 function obChoose(mode){
   FAM.mode=mode;
@@ -2855,7 +2923,7 @@ function obMemberRowHTML(name,email,role,color,me){
   return '<div class="ob-mcard">'
     +'<div class="ob-mrow"><div class="ob-mav" style="background:'+color+'">'+inits(name)+'</div>'
     +'<input class="ob-mname" value="'+String(name||'').replace(/"/g,'&quot;')+'" placeholder="Name"'+(me?' readonly':'')+' oninput="obSyncMav(this)">'
-    +(me?'<span class="ob-mtag">You</span>':'<button class="ob-mdel" onclick="this.closest(\'.ob-mcard\').remove()" aria-label="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
+    +(me?'<span class="ob-mtag">'+t('you')+'</span>':'<button class="ob-mdel" onclick="this.closest(\'.ob-mcard\').remove()" aria-label="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
     +'</div>'
     +'<div class="ob-mfields">'
     +'<input class="ob-memail" type="email" inputmode="email" autocapitalize="off" placeholder="name@gmail.com" value="'+String(email||'').replace(/"/g,'&quot;')+'"'+(me?' readonly':'')+'>'
@@ -2882,26 +2950,41 @@ function obFamilyNext(){
   FAM.members=mems.length?mems:[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,role:FAM.user.role,me:true}];
   obPrefillBudget(); obGo('budget');
 }
+var BUDGET_PROPS={Housing:.30,Groceries:.14,Transport:.10,Kids:.08,Dining:.08,Fun:.06};   // best-practice proportions
 function obPrefillBudget(){
+  var sym=document.getElementById('ob-budget-sym'); if(sym) sym.textContent=curSym();
+  document.getElementById('ob-budget').setAttribute('placeholder', CUR==='VND'?'30.000.000':'9,000');
   document.getElementById('ob-catbudgets').innerHTML = catOrder.map(function(c){
     var s=catStyle[c]||['🏷️'];
     return '<div class="ob-catbud"><span class="ob-catbud-ic" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</span><span class="ob-catbud-n">'+c+'</span>'
-      +'<span class="cat-bud-wrap">$<input class="cat-bud num" data-cat="'+c+'" inputmode="numeric" placeholder="'+(catBudget[c]||0)+'"></span></div>';
+      +'<span class="cat-bud-wrap">'+curSym()+'<input class="cat-bud num" data-cat="'+c+'" inputmode="numeric" placeholder="0"></span></div>';
   }).join('');
 }
+function obSuggestBudgets(){
+  var total=parseAmtBase(document.getElementById('ob-budget').value); if(!total) return;   // total in base units
+  var loc = CUR==='VND'?'vi-VN':'en-US';
+  document.querySelectorAll('#ob-catbudgets .cat-bud').forEach(function(inp){
+    var c=inp.getAttribute('data-cat'), prop=(BUDGET_PROPS[c]!==undefined)?BUDGET_PROPS[c]:(0.7/Math.max(1,catOrder.length));
+    var base=Math.round(total*prop/10)*10;                        // round base value
+    inp.value = base ? (base*curMult()).toLocaleString(loc) : '';  // shown in the display currency
+  });
+}
 function obBudgetNext(){
-  FAM.budget=parseAmt(document.getElementById('ob-budget').value)||9000;
+  FAM.budget=parseAmtBase(document.getElementById('ob-budget').value)||9000;
   FAM.catBudget={};
   document.querySelectorAll('#ob-catbudgets .cat-bud').forEach(function(inp){
-    var c=inp.getAttribute('data-cat'), v=parseAmt(inp.value)||catBudget[c]||0; FAM.catBudget[c]=v;
+    var c=inp.getAttribute('data-cat'), v=parseAmtBase(inp.value)||catBudget[c]||0; FAM.catBudget[c]=v;
   });
   document.getElementById('ob-theme-back').setAttribute('onclick',"obGo('budget')");
   obGo('theme');
 }
 function obThemeNext(){ obPrepDone(); obGo('done'); }
 function obPrepDone(){
-  setTxt('ob-done-title','Welcome, '+firstName(FAM.user.name)+'!');
-  setTxt('ob-done-sub', FAM.mode==='join' ? ('You\'ve joined '+FAM.familyName+'.') : (FAM.familyName+' is ready — '+FAM.members.length+' member'+(FAM.members.length!==1?'s':'')+'.'));
+  var nm=firstName(FAM.user.name), n=FAM.members.length, vi=(LANG==='vi');
+  setTxt('ob-done-title', vi ? ('Chào mừng, '+nm+'!') : ('Welcome, '+nm+'!'));
+  setTxt('ob-done-sub', FAM.mode==='join'
+    ? (vi ? ('Bạn đã tham gia '+FAM.familyName+'.') : ('You\'ve joined '+FAM.familyName+'.'))
+    : (vi ? (FAM.familyName+' đã sẵn sàng — '+n+' thành viên.') : (FAM.familyName+' is ready — '+n+' member'+(n!==1?'s':'')+'.')));
 }
 function applyFam(){
   if(FAM.budget) months.Jul.budget=FAM.budget;
@@ -2912,19 +2995,18 @@ function applyFam(){
   try{ localStorage.setItem('fh-fam',JSON.stringify(FAM)); }catch(e){}
 }
 function finishOnboarding(){
-  applyFam();
-  try{ localStorage.setItem('fh-onboarded','1'); }catch(e){}
+  FAM.lang=LANG; FAM.cur=CUR;
+  applyFam(); applyLang();
+  try{ localStorage.setItem('fh-onboarded','1'); localStorage.setItem('fh-lang',LANG); localStorage.setItem('fh-cur',CUR); }catch(e){}
   document.getElementById('onboarding').classList.add('done');
   go('home');
 }
 function restartOnboarding(){
-  try{ localStorage.removeItem('fh-onboarded'); localStorage.removeItem('fh-fam'); }catch(e){}
+  try{ localStorage.removeItem('fh-onboarded'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-lang'); localStorage.removeItem('fh-cur'); }catch(e){}
+  LANG='en'; CUR='USD'; applyLang();
   FAM={ user:{name:'',email:'',role:'Mom',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };
-  var gf=document.getElementById('ob-gform'); if(gf)gf.style.display='none';
-  var gb=document.getElementById('ob-gbtn'); if(gb)gb.style.display='';
-  var gc=document.getElementById('ob-gcontinue'); if(gc){ gc.style.display='none'; gc.disabled=true; }
-  var gm=document.getElementById('ob-gmail'); if(gm)gm.value='';
-  setTxt('ob-signin-s','Use your Google account to get started — secure, and just one tap.');
+  document.querySelectorAll('#ob-lang .choice').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='en'); });
+  document.querySelectorAll('#ob-cur .choice').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='USD'); });
   document.querySelectorAll('#ob-role .choice').forEach(function(b,i){ b.classList.toggle('on',i===0); });
   document.getElementById('onboarding').classList.remove('done'); obGo('welcome');
 }
@@ -2932,18 +3014,20 @@ function obInit(){
   var done=false; try{ done=localStorage.getItem('fh-onboarded')==='1'; }catch(e){}
   if(done){
     try{ var saved=localStorage.getItem('fh-fam'); if(saved) FAM=JSON.parse(saved); }catch(e){}
-    applyFam();
+    try{ var sl=localStorage.getItem('fh-lang'); if(sl) LANG=sl; }catch(e){}
+    try{ var sc=localStorage.getItem('fh-cur'); if(sc) CUR=sc; }catch(e){}
+    applyFam(); applyLang(); setGreeting();
     document.getElementById('onboarding').classList.add('done');
   } else {
     FAM={ user:{name:'',email:'',role:'Mom',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };  // fresh: everything entered manually
   }
 }
 
+obInit();   // restore lang/currency + family before first paint
 setGreeting();
 renderEvents(); renderAll(); renderTxns();
 document.querySelectorAll('.sheet').forEach(function(s){ initSheetDrag(s, closeSheet); });   // drag-down-to-dismiss on every bottom sheet
 document.querySelectorAll('.modal').forEach(function(m){ initSheetDrag(m, closeModals); });  // …and every full-screen modal
-obInit();
 
 /* ---------- deep links ---------- */
 (function(){
@@ -2960,6 +3044,69 @@ obInit();
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
 }
+</script>
+
+<!-- ═══ FamilyHub × Supabase — real Google auth (Phase 2) ═══════════════════ -->
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+  // Public config: the publishable (anon) key is safe to ship — RLS protects the data.
+  const SUPABASE_URL = 'https://iizyukzfsbdkbrgfupwq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_KQnm-h0bn3gCa1i_dlkapw_7b8kPRDD';
+  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+  window.sb = sb;
+
+  const g = (id) => document.getElementById(id);
+
+  // Replace the mock obGoogle() with a real Google OAuth redirect.
+  window.obGoogle = async function () {
+    const b = g('ob-gbtn');
+    if (b) { b.disabled = true; b.style.opacity = '.7';
+      try { b.querySelector('span').textContent = (window.t ? window.t('signingIn') : 'Signing in…'); } catch (e) {} }
+    // preserve the locale choice across the OAuth redirect round-trip
+    try { sessionStorage.setItem('fh-ob-locale', JSON.stringify({ lang: window.LANG, cur: window.CUR })); } catch (e) {}
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: location.href.split('#')[0].split('?')[0] }
+    });
+    if (error) {
+      alert('Sign-in failed: ' + error.message);
+      if (b) { b.disabled = false; b.style.opacity = '';
+        try { b.querySelector('span').textContent = (window.t ? window.t('continueGoogle') : 'Continue with Google'); } catch (e) {} }
+    }
+  };
+
+  // On any load with a session (e.g. returning from Google), pick the flow back up.
+  async function boot() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return;                       // signed out → normal onboarding
+    window.fhUser = session.user;
+
+    try {                                        // prefill profile with the Google identity
+      const md = session.user.user_metadata || {};
+      if (window.FAM) {
+        window.FAM.user.email = session.user.email || '';
+        const nm = md.full_name || md.name || '';
+        if (nm && !window.FAM.user.name) window.FAM.user.name = nm;
+      }
+    } catch (e) {}
+
+    try {                                        // restore language/currency chosen before redirect
+      const loc = JSON.parse(sessionStorage.getItem('fh-ob-locale') || 'null');
+      if (loc && window.applyLang) { window.LANG = loc.lang; window.CUR = loc.cur; window.applyLang(); }
+    } catch (e) {}
+
+    const onb = g('onboarding');
+    if (onb && !onb.classList.contains('done') && typeof window.obGo === 'function') {
+      window.obGo('choice');                    // skip welcome/locale/auth → "Your family"
+    }
+  }
+
+  sb.auth.onAuthStateChange(() => {});          // keep the session token fresh
+  boot();
+
+  // test helper: run fhSignOut() in the console to switch Google accounts
+  window.fhSignOut = async () => { await sb.auth.signOut(); location.reload(); };
 </script>
 </body>
 </html>
