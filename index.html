@@ -332,6 +332,7 @@ input{font-family:inherit}
 .row.res .r-t{display:flex;align-items:center;gap:8px;min-width:0}
 .row.res .r-amt{color:var(--brand-ink)}
 .res-tag{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--brand-ink);background:var(--brand-tint);border-radius:5px;padding:1px 5px;margin-right:7px;vertical-align:1px}
+.res-tag.now{color:var(--good);background:var(--good-tint)}
 /* spending — insight-led scroll */
 .sp-hero{padding:10px 20px 2px}
 .sp-hero-lab{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
@@ -452,6 +453,7 @@ input{font-family:inherit}
 .cd-back svg{width:22px;height:22px}
 .cd-scroll{flex:1;overflow-y:auto;overflow-x:hidden}
 .cd-scroll::-webkit-scrollbar{display:none}
+.cd-cta-bar{flex-shrink:0;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:rgba(251,250,252,.92);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-top:1px solid var(--hairline)}
 /* nav bar: back + month control */
 .cd-nav{display:flex;align-items:center;justify-content:space-between;padding-right:16px}
 .cd-monbtn{display:inline-flex;align-items:center;gap:4px;background:var(--brand-tint);color:var(--brand-ink);border-radius:9999px;padding:7px 11px 7px 14px;font-size:14px;font-weight:700;letter-spacing:-.02em}
@@ -506,7 +508,6 @@ input{font-family:inherit}
 .modal-save:disabled{color:var(--muted-soft)}
 .modal-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;padding:20px 20px calc(30px + env(safe-area-inset-bottom))}
 .modal-body::-webkit-scrollbar{display:none}
-.modal .ex-del{margin-top:6px}
 .sheet-h{font-family:var(--disp);font-weight:800;font-size:25px;letter-spacing:-.7px;color:var(--ink);margin-bottom:5px}
 .sheet-sub{font-size:15px;letter-spacing:-.01em;color:var(--muted);margin-bottom:20px;line-height:1.45}
 .qa{display:flex;align-items:center;gap:15px;padding:14px 2px;border-bottom:1px solid var(--divider);width:100%;text-align:left}
@@ -568,7 +569,8 @@ input{font-family:inherit}
 .fund-avail b{font-family:var(--disp);font-weight:800;color:var(--brand)}
 .preset{padding:9px 16px;border-radius:9999px;border:1.5px solid var(--hairline);color:var(--ink);font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.3px}
 .cta{width:100%;background:var(--grad-brand);color:#fff;font-size:17px;font-weight:700;letter-spacing:-.02em;padding:17px;border-radius:9999px;margin-top:6px;box-shadow:0 8px 20px var(--brand-glow)}
-.ex-del{display:none;width:100%;background:none;color:var(--danger);font-size:16px;font-weight:600;letter-spacing:-.01em;padding:13px;margin-top:4px}
+.ex-del{display:none;width:fit-content;margin:26px auto 4px;background:none;color:var(--muted);font-size:14px;font-weight:500;letter-spacing:-.01em;padding:8px 16px}
+.ex-del.armed{color:var(--danger);font-weight:700}
 .ex-del:active{opacity:.55}
 /* suggestion / founders' note */
 .founder-note{display:flex;gap:13px;align-items:flex-start;background:var(--brand-tint);border-radius:16px;padding:14px 15px;margin-bottom:20px}
@@ -590,6 +592,17 @@ input{font-family:inherit}
 .bg-row .cn{flex:1;font-size:16px;font-weight:500;letter-spacing:-.01em;color:var(--ink)}
 .bg-row input{width:118px;background:var(--canvas);border-radius:11px;padding:11px 13px;font-family:var(--disp);font-weight:700;font-size:16px;color:var(--ink);outline:none;border:2px solid transparent;text-align:right}
 .bg-row input:focus{border-color:var(--brand);background:#fff}
+/* editable category rows */
+.cat-row{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--divider)}
+.cat-row input{font-family:inherit;color:var(--ink);outline:none}
+.cat-emoji{width:44px;height:44px;flex-shrink:0;text-align:center;font-size:21px;border:1px solid var(--hairline);border-radius:12px;background:var(--surface)}
+.cat-name{flex:1;min-width:0;font-size:15px;font-weight:600;letter-spacing:-.01em;border:none;background:none;padding:0 2px}
+.cat-bud-wrap{display:inline-flex;align-items:center;flex-shrink:0;border:1px solid var(--hairline);border-radius:11px;background:var(--surface);padding:0 11px;color:var(--muted);font-family:var(--disp);font-weight:700;font-size:15px}
+.cat-bud-wrap:focus-within{border-color:var(--brand);background:#fff}
+.cat-bud{width:62px;text-align:right;border:none;background:none;padding:9px 0 9px 1px;font-family:var(--disp);font-weight:700;font-size:15px;color:var(--ink)}
+.cat-del{flex-shrink:0;width:30px;height:30px;color:var(--muted-soft);display:flex;align-items:center;justify-content:center;border-radius:8px}
+.cat-del svg{width:17px;height:17px}
+.cat-del:active{color:var(--danger);background:var(--danger-tint)}
 
 /* ---------- memories ---------- */
 .mscroll{display:flex;gap:12px;overflow-x:auto;padding:0 16px 4px;scroll-snap-type:x mandatory}
@@ -792,7 +805,7 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   <div class="rows" id="cat-budget-rows"></div>
 
   <!-- RECENT -->
-  <div class="section-h"><span class="t" id="tx-head">Recent</span><a onclick="clearFilter()">All</a></div>
+  <div class="section-h"><span class="t" id="tx-head">Recent</span></div>
   <div id="act-filter"></div>
   <div class="rows" id="tx-rows"></div>
 
@@ -985,10 +998,13 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
     <div class="rows" id="cd-rows"></div>
     <div class="spacer"></div>
   </div>
+  <div class="cd-cta-bar" id="cd-cta-bar" style="display:none">
+    <button class="cta" id="cd-log" onclick="logFromCat()">Log expense</button>
+  </div>
 </div>
 
 <!-- SCRIM + SHEETS -->
-<div class="scrim" id="scrim" onclick="closeSheet();closeExpense();closeEventModal()"></div>
+<div class="scrim" id="scrim" onclick="closeSheet();closeModals()"></div>
 
 <div class="sheet" id="sheet-add">
   <div class="grab"></div>
@@ -999,21 +1015,26 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   <button class="qa" onclick="closeSheet();openSheet('sheet-suggest')"><div class="qi" style="background:linear-gradient(135deg,#FF8FB1,#F0567F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20s-7-4.4-9.3-8.7C1.2 8 2.7 4.6 6 4.6c2 0 3.2 1.3 4 2.6.8-1.3 2-2.6 4-2.6 3.3 0 4.8 3.4 3.3 6.7C19 15.6 12 20 12 20z"/></svg></div><div><div class="qt">Suggest something</div><div class="qs">An idea, a wish, or something that's bugging you</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
 </div>
 
-<div class="sheet" id="sheet-suggest">
-  <div class="grab"></div>
-  <div class="sheet-h">We hear you 💛</div>
-  <div class="sheet-sub">An idea, a gripe, a feature you wish existed — tell us anything. We read every single one.</div>
-  <div class="founder-note">
-    <div class="fn-avs"><span class="fn-av">👩🏻</span><span class="fn-av">🧑🏻</span></div>
-    <div class="fn-txt">“We're two parents building FamilyHub for families like yours. Your notes shape what we make next — truly, thank you.”<span class="fn-sig">— Mira &amp; Sam, founders</span></div>
+<div class="modal" id="sheet-suggest">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()">Cancel</button>
+    <div class="modal-title">We hear you 💛</div>
+    <button class="modal-save" onclick="sendSuggestion()">Send</button>
   </div>
-  <div class="field"><label>What's on your mind</label><div class="choices" id="sg-type">
-    <button class="choice on" data-v="Idea" onclick="pick('sg-type',this)">💡 An idea</button>
-    <button class="choice" data-v="Love" onclick="pick('sg-type',this)">💛 Something I love</button>
-    <button class="choice" data-v="Issue" onclick="pick('sg-type',this)">🐞 Something's off</button>
-  </div></div>
-  <div class="field"><label>Tell us more</label><textarea id="sg-msg" rows="4" placeholder="Say it however it comes — no need to be polished."></textarea></div>
-  <button class="cta" onclick="sendSuggestion()">Send to the team</button>
+  <div class="modal-body">
+    <div class="sheet-sub">An idea, a gripe, a feature you wish existed — tell us anything. We read every single one.</div>
+    <div class="founder-note">
+      <div class="fn-avs"><span class="fn-av">👩🏻</span><span class="fn-av">🧑🏻</span></div>
+      <div class="fn-txt">“We're two parents building FamilyHub for families like yours. Your notes shape what we make next — truly, thank you.”<span class="fn-sig">— Mira &amp; Sam, founders</span></div>
+    </div>
+    <div class="field"><label>What's on your mind</label><div class="choices" id="sg-type">
+      <button class="choice on" data-v="Idea" onclick="pick('sg-type',this)">💡 An idea</button>
+      <button class="choice" data-v="Love" onclick="pick('sg-type',this)">💛 Something I love</button>
+      <button class="choice" data-v="Issue" onclick="pick('sg-type',this)">🐞 Something's off</button>
+    </div></div>
+    <div class="field"><label>Tell us more</label><textarea id="sg-msg" rows="4" placeholder="Say it however it comes — no need to be polished."></textarea></div>
+  </div>
 </div>
 
 <!-- EXPENSE CREATE / EDIT — full-screen modal -->
@@ -1110,25 +1131,30 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   </div>
 </div>
 
-<div class="sheet" id="sheet-fund">
-  <div class="grab"></div>
-  <div class="sheet-h">Add funds</div>
-  <div class="sheet-sub">Moved from your family savings into this event.</div>
-  <div class="fund-avail" id="fund-avail">💰 <b>$2,400</b> available in savings</div>
-  <div class="field"><label>Event</label><div class="choices" id="fn-event"></div></div>
-  <div class="field"><label>Amount</label><input class="big num" id="fn-amt" inputmode="numeric" placeholder="$0"/></div>
-  <div class="presets" id="fn-presets">
-    <button class="preset" onclick="setV('fn-amt','50')">$50</button>
-    <button class="preset" onclick="setV('fn-amt','100')">$100</button>
-    <button class="preset" onclick="setV('fn-amt','250')">$250</button>
-    <button class="preset" onclick="setV('fn-amt', String(savings))">All</button>
+<div class="modal" id="sheet-fund">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()">Cancel</button>
+    <div class="modal-title">Add funds</div>
+    <button class="modal-save" onclick="addFunds()">Add</button>
   </div>
-  <div class="field"><label>Added by</label><div class="choices" id="fn-who">
-    <button class="choice on" data-v="Emma" onclick="pick('fn-who',this)">Emma</button>
-    <button class="choice" data-v="James" onclick="pick('fn-who',this)">James</button>
-    <button class="choice" data-v="Both" onclick="pick('fn-who',this)">Both</button>
-  </div></div>
-  <button class="cta" onclick="addFunds()">Add funds</button>
+  <div class="modal-body">
+    <div class="sheet-sub">Moved from your family savings into this event.</div>
+    <div class="fund-avail" id="fund-avail">💰 <b>$2,400</b> available in savings</div>
+    <div class="field"><label>Event</label><div class="choices" id="fn-event"></div></div>
+    <div class="field"><label>Amount</label><input class="big num" id="fn-amt" inputmode="numeric" placeholder="$0"/></div>
+    <div class="presets" id="fn-presets">
+      <button class="preset" onclick="setV('fn-amt','50')">$50</button>
+      <button class="preset" onclick="setV('fn-amt','100')">$100</button>
+      <button class="preset" onclick="setV('fn-amt','250')">$250</button>
+      <button class="preset" onclick="setV('fn-amt', String(savings))">All</button>
+    </div>
+    <div class="field"><label>Added by</label><div class="choices" id="fn-who">
+      <button class="choice on" data-v="Emma" onclick="pick('fn-who',this)">Emma</button>
+      <button class="choice" data-v="James" onclick="pick('fn-who',this)">James</button>
+      <button class="choice" data-v="Both" onclick="pick('fn-who',this)">Both</button>
+    </div></div>
+  </div>
 </div>
 
 <div class="sheet" id="sheet-month">
@@ -1145,40 +1171,46 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   <div class="choices" id="catpick-list"></div>
 </div>
 
-<div class="sheet" id="sheet-budget">
-  <div class="grab"></div>
-  <div class="sheet-h">Set up budget</div>
-  <div class="sheet-sub">Your monthly target — overall and per category.</div>
-  <div class="field" style="margin-bottom:20px"><label>Monthly budget</label><input class="big num" id="bg-amt" inputmode="numeric" placeholder="$9,000"/></div>
-  <div class="bg-sub">Category budgets</div>
-  <div class="bg-row"><span class="cn">🏠 Housing</span><input class="num" id="bg-Housing" inputmode="numeric"/></div>
-  <div class="bg-row"><span class="cn">🛒 Groceries</span><input class="num" id="bg-Groceries" inputmode="numeric"/></div>
-  <div class="bg-row"><span class="cn">🍽️ Dining</span><input class="num" id="bg-Dining" inputmode="numeric"/></div>
-  <div class="bg-row"><span class="cn">🚗 Transport</span><input class="num" id="bg-Transport" inputmode="numeric"/></div>
-  <div class="bg-row"><span class="cn">🎉 Fun</span><input class="num" id="bg-Fun" inputmode="numeric"/></div>
-  <div class="bg-row"><span class="cn">🎒 Kids</span><input class="num" id="bg-Kids" inputmode="numeric"/></div>
-  <button class="cta" onclick="setBudget()">Save budget</button>
+<div class="modal" id="sheet-budget">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()">Cancel</button>
+    <div class="modal-title">Categories &amp; budget</div>
+    <button class="modal-save" onclick="setBudget()">Save</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">Your monthly target, plus the categories your spending is grouped into — add, rename, re-budget or remove them.</div>
+    <div class="field" style="margin-bottom:20px"><label>Monthly budget</label><input class="big num" id="bg-amt" inputmode="numeric" placeholder="$9,000"/></div>
+    <div class="bg-sub">Categories</div>
+    <div id="bg-rows"></div>
+    <button class="btn-line" onclick="addCatRow()" style="margin-top:14px">＋ Add category</button>
+  </div>
 </div>
 
-<div class="sheet" id="sheet-memory">
-  <div class="grab"></div>
-  <div class="sheet-h">Add a memory</div>
-  <div class="mem-ico" id="mem-ico"></div>
-  <div class="sheet-sub">Save a photo from this event. Caption is optional.</div>
-  <div class="field"><label>Photo</label>
-    <label class="mem-upload">📷 Upload photos<input type="file" accept="image/*" multiple onchange="onMemFile(this)" hidden></label>
-    <div class="mem-scenes" id="mem-scenes">
-      <button class="ph-beach" data-c="ph-beach" data-e="🏖️" onclick="pickMemScene(this)">🏖️</button>
-      <button class="ph-japan" data-c="ph-japan" data-e="🌸" onclick="pickMemScene(this)">🌸</button>
-      <button class="ph-dinner" data-c="ph-dinner" data-e="🍽️" onclick="pickMemScene(this)">🍽️</button>
-      <button class="ph-hike" data-c="ph-hike" data-e="⛰️" onclick="pickMemScene(this)">⛰️</button>
-      <button class="ph-park" data-c="ph-park" data-e="🌳" onclick="pickMemScene(this)">🌳</button>
-      <button class="ph-city" data-c="ph-city" data-e="🏙️" onclick="pickMemScene(this)">🏙️</button>
-    </div>
-    <div class="mem-preview" id="mem-preview"><div class="scrim"></div><span id="mem-prev-cap"></span></div>
+<div class="modal" id="sheet-memory">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()">Cancel</button>
+    <div class="modal-title">Add a memory</div>
+    <button class="modal-save" onclick="addMemory()">Save</button>
   </div>
-  <div class="field"><label>Caption (optional)</label><input id="mem-cap" placeholder="e.g. Best day of the trip"/></div>
-  <button class="cta" onclick="addMemory()">Save memory</button>
+  <div class="modal-body">
+    <div class="mem-ico" id="mem-ico"></div>
+    <div class="sheet-sub">Save a photo from this event. Caption is optional.</div>
+    <div class="field"><label>Photo</label>
+      <label class="mem-upload">📷 Upload photos<input type="file" accept="image/*" multiple onchange="onMemFile(this)" hidden></label>
+      <div class="mem-scenes" id="mem-scenes">
+        <button class="ph-beach" data-c="ph-beach" data-e="🏖️" onclick="pickMemScene(this)">🏖️</button>
+        <button class="ph-japan" data-c="ph-japan" data-e="🌸" onclick="pickMemScene(this)">🌸</button>
+        <button class="ph-dinner" data-c="ph-dinner" data-e="🍽️" onclick="pickMemScene(this)">🍽️</button>
+        <button class="ph-hike" data-c="ph-hike" data-e="⛰️" onclick="pickMemScene(this)">⛰️</button>
+        <button class="ph-park" data-c="ph-park" data-e="🌳" onclick="pickMemScene(this)">🌳</button>
+        <button class="ph-city" data-c="ph-city" data-e="🏙️" onclick="pickMemScene(this)">🏙️</button>
+      </div>
+      <div class="mem-preview" id="mem-preview"><div class="scrim"></div><span id="mem-prev-cap"></span></div>
+    </div>
+    <div class="field"><label>Caption (optional)</label><input id="mem-cap" placeholder="e.g. Best day of the trip"/></div>
+  </div>
 </div>
 
 <div class="sheet" id="sheet-theme">
@@ -1301,6 +1333,7 @@ var MONF=['January','February','March','April','May','June','July','August','Sep
 var MONA=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 var WKD=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function fmtDateLong(d){ return d ? (WKD[d.getDay()]+', '+MONF[d.getMonth()]+' '+d.getDate()) : ''; }
+function sameDay(a,b){ return !!(a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate()); }
 function parseAmt(s){ return parseInt((s||'').replace(/[^0-9]/g,''))||0; }
 function daysLeft(d){ return Math.max(0,Math.round((d-TODAY)/86400000)); }
 function setTxt(id,t){ var e=document.getElementById(id); if(e)e.textContent=t; }
@@ -1351,14 +1384,20 @@ function renderBudget(){
   renderCatBudget();
 }
 /* Curated, plain-language insights — the smart core of Spending. */
+function catFutureReserved(c){ return txns.reduce(function(s,t){ return (t.future && t.cat===c) ? s+t.amt : s; },0); }
 function renderCatBudget(){
   var box=document.getElementById('cat-budget-rows'); if(!box)return;
   var m=M(), done=m.done, pace=done?1:m.dom/m.dim, html='';
   catOrder.forEach(function(c){
     var sp=m.catSpent[c]||0, bd=catBudget[c]||0, pct=bd?Math.min(100,sp/bd*100):0;
+    var fut=done?0:catFutureReserved(c), rpct=bd?Math.max(0,Math.min(100-pct, fut/bd*100)):0;   // upcoming, shown after the spent bar
     var s=catStyle[c]||['🧾','#f2eef6','var(--cat-other)'];
     var overBud=sp>bd, overPace=!done && bd && (sp/bd)>(pace+0.14);
-    var statusText=overBud?'Over budget':(overPace?'Over pace':''), statusCol=overBud?'var(--danger)':'var(--amber)';
+    var statusText, statusCol;
+    if(overBud){ statusText='Over budget'; statusCol='var(--danger)'; }
+    else if(overPace){ statusText='Over pace'; statusCol='var(--amber)'; }
+    else if(fut>0){ statusText='＋'+fmt(fut)+' upcoming'; statusCol='var(--brand-ink)'; }
+    else { statusText=''; }
     var barCol=overBud?'#FF375F':(overPace?'#FFB020':s[2]);
     var mark=done?'display:none':('left:'+(pace*100)+'%');
     html+='<div class="crow tap" onclick="openCat(\'cat\',\''+c+'\')"><div class="cico" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</div>'
@@ -1366,13 +1405,14 @@ function renderCatBudget(){
       +'<span>'+c+'</span><span class="num" style="font-weight:600">'+fmt(sp)
       +' <span style="color:var(--muted);font-weight:500">/ '+fmt(bd)+'</span></span></div>'
       +(statusText?'<div class="cstatus" style="color:'+statusCol+'">'+statusText+'</div>':'')
-      +'<div class="bcbar"><i style="width:'+pct+'%;background:'+barCol+'"></i><span class="cmark" style="'+mark+'"></span></div>'
+      +'<div class="bcbar"><i style="width:'+pct+'%;background:'+barCol+'"></i>'
+      +(rpct>0?'<i class="res-stripe" style="left:'+pct+'%;width:'+rpct+'%"></i>':'')
+      +'<span class="cmark" style="'+mark+'"></span></div>'
       +'</div><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>';
   });
   if(!done){
-    var evRes=eventsReserved(), fxRes=futureExpReserved();
-    if(evRes>0) html+=catFutureRow('Events','🎯',evRes,m.budget);
-    if(fxRes>0) html+=catFutureRow('Future expenses','📅',fxRes,m.budget);
+    var evRes=eventsReserved();
+    if(evRes>0) html+=catFutureRow('Events','🎯',evRes,m.budget);   // events stay a group (not a category)
   }
   box.innerHTML=html;
 }
@@ -1413,14 +1453,38 @@ function buildMonthChoices(){
 function selectMonth(k){ selMonth=k; renderAll(); renderTxns(); closeSheet(); if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val); }
 
 /* ---------- budget setup ---------- */
+var CATPAL=[['#eeeefc','var(--cat-housing)'],['#eaf7ee','var(--cat-food)'],['#fdeef4','var(--cat-dining)'],['#eafaf9','var(--cat-transport)'],['#f7eefd','var(--cat-fun)'],['#fff2e6','var(--cat-kids)'],['#eef4fb','var(--cat-other)']];
+function catRowHTML(emoji,name,budget,orig){
+  return '<div class="cat-row" data-orig="'+(orig||'')+'">'
+    +'<input class="cat-emoji" maxlength="2" value="'+(emoji||'🏷️')+'">'
+    +'<input class="cat-name" placeholder="Name" value="'+String(name||'').replace(/"/g,'&quot;')+'">'
+    +'<span class="cat-bud-wrap">$<input class="cat-bud num" inputmode="numeric" placeholder="0" value="'+(budget||'')+'"></span>'
+    +'<button class="cat-del" aria-label="Remove" onclick="this.closest(\'.cat-row\').remove()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>';
+}
 function fillBudgetSheet(){
   document.getElementById('bg-amt').value=String(M().budget);
-  catOrder.forEach(function(c){ var el=document.getElementById('bg-'+c); if(el)el.value=String(catBudget[c]); });
+  document.getElementById('bg-rows').innerHTML = catOrder.map(function(c){ var s=catStyle[c]||['🏷️']; return catRowHTML(s[0],c,catBudget[c],c); }).join('');
 }
+function addCatRow(){ document.getElementById('bg-rows').insertAdjacentHTML('beforeend', catRowHTML('🏷️','','','')); }
 function setBudget(){
   var v=parseAmt(document.getElementById('bg-amt').value); if(v)M().budget=v;
-  catOrder.forEach(function(c){ var el=document.getElementById('bg-'+c); if(el){ var cv=parseAmt(el.value); if(cv)catBudget[c]=cv; } });
-  renderAll(); closeSheet(); toast('Budget updated');
+  var newOrder=[], newStyle={}, newBudget={}, renames=[], seen={};
+  document.querySelectorAll('#sheet-budget .cat-row').forEach(function(row){
+    var name=row.querySelector('.cat-name').value.trim(); if(!name || seen[name.toLowerCase()]) return; seen[name.toLowerCase()]=1;
+    var emoji=row.querySelector('.cat-emoji').value.trim()||'🏷️';
+    var bud=parseAmt(row.querySelector('.cat-bud').value)||0;
+    var orig=row.getAttribute('data-orig');
+    var style = (orig&&catStyle[orig]) ? [emoji,catStyle[orig][1],catStyle[orig][2]] : [emoji].concat(CATPAL[newOrder.length%CATPAL.length]);
+    newOrder.push(name); newStyle[name]=style; newBudget[name]=bud;
+    if(orig && orig!==name) renames.push([orig,name]);
+  });
+  if(!newOrder.length){ toast('Keep at least one category'); return; }
+  renames.forEach(function(pr){                              // cascade renames to transactions + month totals
+    txns.forEach(function(t){ if(t.cat===pr[0]) t.cat=pr[1]; });
+    Object.keys(months).forEach(function(mk){ var cs=months[mk].catSpent; if(cs && cs[pr[0]]!==undefined){ cs[pr[1]]=(cs[pr[1]]||0)+cs[pr[0]]; delete cs[pr[0]]; } });
+  });
+  catOrder=newOrder; catStyle=newStyle; catBudget=newBudget;
+  renderAll(); renderTxns(); closeModals(); toast('Categories updated');
 }
 
 /* ---------- events ---------- */
@@ -1674,18 +1738,28 @@ function closeMemory(){ document.getElementById('memory-overlay').classList.remo
 
 /* ---------- sheets ---------- */
 function openSheet(id){
-  if(id==='sheet-expense'){ openExpense(); return; }        // expense form is a full-screen modal now
+  if(id==='sheet-expense'){ openExpense(); return; }        // expense form is a full-screen modal
+  if(id==='sheet-event'){ openEventModal(); return; }        // new-event form is a full-screen modal
   if(id==='sheet-fund') buildFundChoices();
   if(id==='sheet-month') buildMonthChoices();
   if(id==='sheet-catpick') buildCatPicker();
   if(id==='sheet-budget') fillBudgetSheet();
   if(id==='sheet-theme') buildThemeChoices();
-  if(id==='sheet-event'){ openEventModal(); return; }        // new-event form is a full-screen modal now
   if(id==='sheet-suggest'){ document.getElementById('sg-msg').value=''; selectChipByVal('sg-type','Idea'); }
-  document.getElementById('scrim').classList.add('on'); document.getElementById(id).classList.add('on');
+  var el=document.getElementById(id);
+  document.getElementById('scrim').classList.add('on'); el.classList.add('on');
+  if(el.classList.contains('modal')){ el.style.transform=''; el.style.transition=''; var b=el.querySelector('.modal-body'); if(b)b.scrollTop=0; }
 }
 function closeSheet(){
   document.getElementById('scrim').classList.remove('on'); document.querySelectorAll('.sheet').forEach(function(s){ s.classList.remove('on'); s.style.transform=''; s.style.transition=''; });
+}
+// Close any open full-screen modal (expense, event, memory, suggest, fund, budget).
+function closeModals(){
+  document.querySelectorAll('.modal.on').forEach(function(m){ m.classList.remove('on'); m.style.transform=''; m.style.transition=''; });
+  document.getElementById('scrim').classList.remove('on');
+  editingTx=null; editSnap=null; exPhotos=[]; evPhotos=[]; memPick=null; memPickMulti=null;
+  setTxt('ex-title','Log an expense'); var del=document.getElementById('ex-del'); if(del)del.style.display='none';
+  resetDelArm();
 }
 /* new-event modal */
 var evPhotos=[];
@@ -1715,24 +1789,23 @@ function openEventModal(){
   var m=document.getElementById('event-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
   var body=m.querySelector('.modal-body'); if(body)body.scrollTop=0;
 }
-function closeEventModal(){
-  document.getElementById('scrim').classList.remove('on');
-  var m=document.getElementById('event-modal'); m.classList.remove('on'); m.style.transform=''; m.style.transition='';
-}
+function closeEventModal(){ closeModals(); }
 /* expense create/edit modal */
-function openExpense(){
+var exPreset=null;
+function buildExCatChips(){                                  // category chips reflect the current (editable) categories
+  var box=document.getElementById('ex-cat'); if(!box)return;
+  box.innerHTML = catOrder.map(function(c){ var s=catStyle[c]||['🏷️']; return '<button class="choice" data-v="'+c+'" onclick="pickExCat(this)">'+s[0]+' '+c+'</button>'; }).join('')
+    + '<button class="choice" data-v="Event" onclick="pickExCat(this)">🎈 Event</button>';
+}
+function openExpense(preset){
+  exPreset = preset || null;
+  buildExCatChips();
   document.getElementById('scrim').classList.add('on');
   var m=document.getElementById('expense-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
   var body=m.querySelector('.modal-body'); if(body)body.scrollTop=0;
   if(editingTx) fillExpenseFromTx(); else prefillExpense();
 }
-function closeExpense(){
-  document.getElementById('scrim').classList.remove('on');
-  var m=document.getElementById('expense-modal'); m.classList.remove('on'); m.style.transform=''; m.style.transition='';
-  editingTx=null; editSnap=null; exPhotos=[];
-  setTxt('ex-title','Log an expense');
-  var del=document.getElementById('ex-del'); if(del)del.style.display='none';
-}
+function closeExpense(){ closeModals(); }
 /* Drag a bottom sheet / modal DOWN to dismiss — axis-locked so it never fights scrolling. */
 function initSheetDrag(sheet, closeFn){
   closeFn = closeFn || closeSheet;
@@ -1826,9 +1899,10 @@ function updateExWhen(){
 function prefillExpense(){
   document.getElementById('ex-note').value='';
   document.getElementById('ex-amt').value='';
-  selectChipByVal('ex-cat',lastCat);
-  selectChipByVal('ex-who',lastWho);
-  document.getElementById('ex-date').value='2026-07-13';
+  var preCat = (exPreset && exPreset.cat && catBudget[exPreset.cat]) ? exPreset.cat : lastCat;
+  selectChipByVal('ex-cat', preCat);
+  selectChipByVal('ex-who', lastWho);
+  document.getElementById('ex-date').value = (exPreset && exPreset.date) || isoDate(TODAY);   // default: today
   exPhotos=[]; renderExPhoto();
   setTxt('ex-title','Log an expense');
   var del=document.getElementById('ex-del'); if(del)del.style.display='none';
@@ -1896,6 +1970,7 @@ function fillExpenseFromTx(){
   updateExWhen();
   setTxt('ex-title','Edit expense');
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
+  resetDelArm();
   editSnap=exFormState();                                  // baseline: no changes yet
   refreshExCta();                                          // Save stays disabled until the first edit
 }
@@ -1909,16 +1984,20 @@ function saveExpenseEdit(){
   var whoStore=(who==='Both')?'Shared':who;
   var dObj=exDate(), dstr=(dObj.getTime()===TODAY.getTime())?'Today':(MONA[dObj.getMonth()]+' '+dObj.getDate());
   var s=catStyle[cat]||['🧾','#f2eef6','var(--cat-other)'];
-  var jul=months.Jul;
-  // reverse the old realized contribution
-  var oldMk=(t.who==='Shared'||t.who==='both')?'Shared':t.who;
-  jul.spent-=t.amt; jul.catSpent[t.cat]=(jul.catSpent[t.cat]||0)-t.amt; jul.memberSpent[oldMk]=(jul.memberSpent[oldMk]||0)-t.amt;
+  var jul=months.Jul, newFuture=dObj>TODAY;                 // a future date → reserved (not counted as spent)
+  // reverse the OLD contribution (only realized items were ever counted toward spending)
+  if(!t.future){
+    var oldMk=(t.who==='Shared'||t.who==='both')?'Shared':t.who;
+    jul.spent-=t.amt; jul.catSpent[t.cat]=(jul.catSpent[t.cat]||0)-t.amt; jul.memberSpent[oldMk]=(jul.memberSpent[oldMk]||0)-t.amt;
+  }
   // write the new values in place (keep the specific icon unless the category changed)
-  t.ico=(cat===t.cat)?t.ico:s[0]; t.cat=cat; t.note=note; t.amt=amt; t.who=whoStore; t.date=dstr;
+  t.ico=(cat===t.cat && t.ico)?t.ico:s[0]; t.cat=cat; t.note=note; t.amt=amt; t.who=whoStore; t.date=dstr; t.future=newFuture?true:undefined;
   t.photos=exPhotos.slice(); delete t.photo;               // add / keep / remove the memory photos
-  // apply the new contribution
-  var newMk=(whoStore==='Shared')?'Shared':whoStore;
-  jul.spent+=amt; jul.catSpent[cat]=(jul.catSpent[cat]||0)+amt; jul.memberSpent[newMk]=(jul.memberSpent[newMk]||0)+amt;
+  // apply the NEW contribution only if it is realized
+  if(!newFuture){
+    var newMk=(whoStore==='Shared')?'Shared':whoStore;
+    jul.spent+=amt; jul.catSpent[cat]=(jul.catSpent[cat]||0)+amt; jul.memberSpent[newMk]=(jul.memberSpent[newMk]||0)+amt;
+  }
   editingTx=null; editSnap=null; exPhotos=[];
   txns.sort(function(a,b){ return txDay(b)-txDay(a); });
   selMonth='Jul'; renderAll(); renderTxns(); renderEvents();
@@ -1926,8 +2005,16 @@ function saveExpenseEdit(){
   closeExpense();
   toast('Changes saved · '+note);
 }
+var delArmed=false, delTimer=null;
+function resetDelArm(){ delArmed=false; clearTimeout(delTimer); var b=document.getElementById('ex-del'); if(b){ b.classList.remove('armed'); b.textContent='Delete expense'; } }
 function deleteExpense(){
   var t=txById(editingTx); if(!t){ closeExpense(); return; }
+  var btn=document.getElementById('ex-del');
+  if(!delArmed){                                           // first tap arms it — guards against a misclick
+    delArmed=true; if(btn){ btn.classList.add('armed'); btn.textContent='Tap again to delete'; }
+    clearTimeout(delTimer); delTimer=setTimeout(resetDelArm,3000); return;
+  }
+  resetDelArm();
   var note=t.note;
   var jul=months.Jul;
   if(!t.future && t.month==='Jul'){                        // remove its realized contribution
@@ -1957,7 +2044,7 @@ function sendSuggestion(){
   var el=document.getElementById('sg-msg'), msg=(el.value||'').trim();
   if(!msg){ el.focus(); return; }
   el.value='';
-  closeSheet();
+  closeModals();
   toast('Got it — thank you 💛 We read every note');
   floatEmojis('💛');
 }
@@ -2033,14 +2120,15 @@ function txMatch(t){
 }
 // Unrealized "set aside" row — money reserved from this month's budget toward an event.
 function resRow(k){   // an event funded from this month → an "Events" future item
-  var e=events[k];
+  var e=events[k], today=sameDay(e.d,TODAY);
   return '<div class="row res" onclick="openEvent(\''+k+'\')"><div class="r-ico-wrap"><div class="r-ico">'+e.emoji+'</div></div>'
-    +'<div class="r-body"><div class="r-t">'+e.name+'</div><div class="r-s"><span class="res-tag">future</span>Events · in July</div></div>'
+    +'<div class="r-body"><div class="r-t">'+e.name+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?'today':'future')+'</span>Events · '+(today?'today':'in July')+'</div></div>'
     +'<div class="r-amt num">'+fmt(e.setAside)+'</div></div>';
 }
 function futRow(t){   // a standalone future expense logged in the expense sheet
-  return '<div class="row res"><div class="r-ico-wrap"><div class="r-ico">'+(t.ico||'📅')+'</div></div>'
-    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s"><span class="res-tag">future</span>Future expense · in July</div></div>'
+  var today=sameDay(txPhotoDate(t),TODAY);
+  return '<div class="row res" onclick="openEditExpense(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico">'+(t.ico||'📅')+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?'today':'future')+'</span>'+(today?'Planned expense · today':'Future expense · in July')+'</div></div>'
     +'<div class="r-amt num">'+fmt(t.amt)+'</div></div>';
 }
 function renderTxns(){
@@ -2112,8 +2200,11 @@ function openCat(type,val,month){
   var empty = m.done ? 'Earlier months show totals only — individual transactions aren’t itemized.' : 'No transactions here yet.';
   document.getElementById('cd-rows').innerHTML=rows||'<div class="empty-note">'+empty+'</div>';
   var sc=document.querySelector('#cat-overlay .cd-scroll'); if(sc)sc.scrollTop=0;
+  var realCat = type==='cat' && val!=='Events' && val!=='Future expenses' && !m.done;   // can log into a real, open-month category
+  document.getElementById('cd-cta-bar').style.display = realCat ? '' : 'none';
   document.getElementById('cat-overlay').classList.add('on');
 }
+function logFromCat(){ if(curDetail && curDetail.type==='cat') openExpense({cat:curDetail.val, date:isoDate(TODAY)}); }
 function openCatPicker(){ openSheet('sheet-catpick'); }
 function buildCatPicker(){
   if(!curDetail)return; var t=curDetail.type, v=curDetail.val, html='';
@@ -2151,9 +2242,10 @@ function addExpense(){
     return;
   }
   if(dObj>TODAY){                                           // future date → a future expense (reserved, not spent)
-    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:'Future expenses',note:note,date:dstr,amt:amt,future:true,month:'Jul'});
+    var fwho=chosen('ex-who')||'Emma', fwhoStore=(fwho==='Both')?'Shared':fwho;
+    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:fwhoStore,amt:amt,future:true,month:'Jul',photos:exPhotos.length?exPhotos.slice():undefined});
     renderTxns(); selMonth='Jul'; renderAll();
-    document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value='';
+    document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
     closeExpense();
     toast(fmt(amt)+' set aside · '+fmt(Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved()))+' safe to spend');
     go('spending'); segTo('overview'); return;
@@ -2168,11 +2260,13 @@ function addExpense(){
   jul.spent+=amt; jul.catSpent[cat]=(jul.catSpent[cat]||0)+amt; jul.memberSpent[mkey]=(jul.memberSpent[mkey]||0)+amt;
   selMonth='Jul'; renderAll(); if(hadPhoto) renderEvents();   // photo → shows in Memories
   document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
+  var catOv=document.getElementById('cat-overlay').classList.contains('on');
   closeExpense();
   if(hadPhoto){ toast('Logged '+fmt(amt)+' · saved to Memories 📸'); floatEmojis('📸'); }
   else if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast('Heads up — '+cat+' is now over budget');
   else toast('Logged '+fmt(amt)+' · '+fmt(Math.max(0,months.Jul.budget-jul.spent))+' safe to spend');
-  go('spending'); segTo('overview');
+  if(catOv && curDetail){ openCat(curDetail.type,curDetail.val); }   // logged from a category detail → refresh it
+  else { go('spending'); segTo('overview'); }
 }
 
 /* ---------- events fund/create ---------- */
@@ -2252,7 +2346,7 @@ function addMemory(){
   if(memPickMulti && memPickMulti.length){                   // multiple photos → one memory each
     memPickMulti.slice().reverse().forEach(function(p){ e.memories.unshift({src:p.src}); });
     var n=memPickMulti.length;
-    renderEvents(); openEvent(curEvent); closeSheet(); toast(n+' photos saved 📸'); floatEmojis('📸'); return;
+    renderEvents(); openEvent(curEvent); closeModals(); toast(n+' photos saved 📸'); floatEmojis('📸'); return;
   }
   var cap=document.getElementById('mem-cap').value.trim(), m={};
   if(memPick){ if(memPick.src){ m.src=memPick.src; } else { m.cls=memPick.cls; m.emoji=memPick.emoji; } }
@@ -2260,7 +2354,7 @@ function addMemory(){
   if(cap) m.caption=cap;
   e.memories.unshift(m);                                     // a photo doesn't complete an event
   renderEvents(); openEvent(curEvent);
-  closeSheet(); toast('Memory saved 📸'); floatEmojis('📸');
+  closeModals(); toast('Memory saved 📸'); floatEmojis('📸');
 }
 function renderRing(){
   var e=events[curEvent], pct=Math.round(e.saved/e.target*100);
@@ -2289,7 +2383,7 @@ function addFunds(){
     document.getElementById('ov-history').insertAdjacentHTML('afterbegin','<div class="row"><div class="r-ico" style="background:var(--brand-tint);color:var(--brand)">＋</div><div class="r-body"><div class="r-t">'+who+' added · from savings</div><div class="r-s">Just now</div></div><div class="r-amt num pos">+'+fmt(applied)+'</div></div>');
   } else if(ovOpen){ openEvent(id); }
   document.getElementById('fn-amt').value='';
-  closeSheet();
+  closeModals();
   if(justFunded){ celebrate('🎉',e.name+' is fully funded!','The money\'s set aside — ready for '+e.date+'.'); }
   else { toast('Added '+fmt(applied)+' · '+fmt(savings)+' left in savings'); floatEmojis(e.emoji); }
 }
@@ -2345,7 +2439,7 @@ function addEvent(){
 /* ---------- celebration ---------- */
 function celebrate(emoji,title,sub){
   setTxt('cel-emoji',emoji); setTxt('cel-title',title); setTxt('cel-sub',sub);
-  closeSheet(); document.getElementById('celebrate').classList.add('on'); floatEmojis(emoji);
+  closeSheet(); closeModals(); document.getElementById('celebrate').classList.add('on'); floatEmojis(emoji);
 }
 function closeCelebrate(){ document.getElementById('celebrate').classList.remove('on'); }
 function floatEmojis(emoji){
@@ -2402,9 +2496,8 @@ function setGreeting(){
 }
 setGreeting();
 renderEvents(); renderAll(); renderTxns();
-document.querySelectorAll('.sheet').forEach(function(s){ initSheetDrag(s); });   // drag-down-to-dismiss on every bottom sheet
-initSheetDrag(document.getElementById('expense-modal'), closeExpense);           // …and the expense modal
-initSheetDrag(document.getElementById('event-modal'), closeEventModal);          // …and the new-event modal
+document.querySelectorAll('.sheet').forEach(function(s){ initSheetDrag(s, closeSheet); });   // drag-down-to-dismiss on every bottom sheet
+document.querySelectorAll('.modal').forEach(function(m){ initSheetDrag(m, closeModals); });  // …and every full-screen modal
 
 /* ---------- deep links ---------- */
 (function(){
