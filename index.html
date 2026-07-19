@@ -3046,43 +3046,25 @@ if('serviceWorker' in navigator){
 }
 </script>
 
-<!-- ═══ FamilyHub × Supabase — real Google auth (Phase 2) ═══════════════════ -->
+<!-- ═══ FamilyHub × Supabase — Google auth (ID-token flow, PWA-safe) ═══════ -->
+<script src="https://accounts.google.com/gsi/client" async></script>
 <script type="module">
   import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-  // Public config: the publishable (anon) key is safe to ship — RLS protects the data.
-  const SUPABASE_URL = 'https://iizyukzfsbdkbrgfupwq.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_KQnm-h0bn3gCa1i_dlkapw_7b8kPRDD';
+  // Public config — publishable key + Google Client ID are safe to ship (RLS protects data).
+  const SUPABASE_URL     = 'https://iizyukzfsbdkbrgfupwq.supabase.co';
+  const SUPABASE_KEY     = 'sb_publishable_KQnm-h0bn3gCa1i_dlkapw_7b8kPRDD';
+  const GOOGLE_CLIENT_ID = '860668973723-ud2mbr4kj9nb41elbkvlp3lt5fibpf8v.apps.googleusercontent.com';
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
   window.sb = sb;
 
   const g = (id) => document.getElementById(id);
 
-  // Replace the mock obGoogle() with a real Google OAuth redirect.
-  window.obGoogle = async function () {
-    const b = g('ob-gbtn');
-    if (b) { b.disabled = true; b.style.opacity = '.7';
-      try { b.querySelector('span').textContent = (window.t ? window.t('signingIn') : 'Signing in…'); } catch (e) {} }
-    // preserve the locale choice across the OAuth redirect round-trip
-    try { sessionStorage.setItem('fh-ob-locale', JSON.stringify({ lang: window.LANG, cur: window.CUR })); } catch (e) {}
-    const { error } = await sb.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: location.href.split('#')[0].split('?')[0] }
-    });
-    if (error) {
-      alert('Sign-in failed: ' + error.message);
-      if (b) { b.disabled = false; b.style.opacity = '';
-        try { b.querySelector('span').textContent = (window.t ? window.t('continueGoogle') : 'Continue with Google'); } catch (e) {} }
-    }
-  };
-
-  // On any load with a session (e.g. returning from Google), pick the flow back up.
-  async function boot() {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) return;                       // signed out → normal onboarding
+  // Continue the onboarding once we have a session (no redirect — we never left the app).
+  async function afterLogin(session) {
+    if (!session) return;
     window.fhUser = session.user;
-
-    try {                                        // prefill profile with the Google identity
+    try {
       const md = session.user.user_metadata || {};
       if (window.FAM) {
         window.FAM.user.email = session.user.email || '';
@@ -3090,21 +3072,77 @@ if('serviceWorker' in navigator){
         if (nm && !window.FAM.user.name) window.FAM.user.name = nm;
       }
     } catch (e) {}
-
-    try {                                        // restore language/currency chosen before redirect
-      const loc = JSON.parse(sessionStorage.getItem('fh-ob-locale') || 'null');
-      if (loc && window.applyLang) { window.LANG = loc.lang; window.CUR = loc.cur; window.applyLang(); }
-    } catch (e) {}
-
     const onb = g('onboarding');
     if (onb && !onb.classList.contains('done') && typeof window.obGo === 'function') {
-      window.obGo('choice');                    // skip welcome/locale/auth → "Your family"
+      window.obGo('choice');                     // → "Your family"
     }
   }
 
-  sb.auth.onAuthStateChange(() => {});          // keep the session token fresh
-  boot();
+  // ── Google Identity Services: ID-token popup that stays INSIDE the installed PWA ──
+  let rawNonce = null;
+  async function makeNonce() {
+    rawNonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawNonce));
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  window.handleSignInWithGoogle = async (response) => {
+    const { data, error } = await sb.auth.signInWithIdToken({
+      provider: 'google', token: response.credential, nonce: rawNonce
+    });
+    if (error) { alert('Sign-in failed: ' + error.message); return; }
+    await afterLogin(data.session);
+  };
+  function gisReady() { return window.google && google.accounts && google.accounts.id; }
+  async function waitGIS(ms) {
+    const t0 = Date.now();
+    while (!gisReady()) { if (Date.now() - t0 > (ms || 5000)) return false; await new Promise((r) => setTimeout(r, 80)); }
+    return true;
+  }
+  async function mountGoogleButton() {
+    if (!(await waitGIS())) return false;         // GIS blocked/offline → keep the redirect fallback
+    const hashedNonce = await makeNonce();
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: window.handleSignInWithGoogle,
+      nonce: hashedNonce,
+      ux_mode: 'popup',
+      use_fedcm_for_prompt: true
+    });
+    const custom = g('ob-gbtn'); if (custom) custom.style.display = 'none';
+    const foot = document.querySelector('#onboarding .ob-screen[data-ob="auth"] .ob-foot');
+    let holder = g('ob-gholder');
+    if (!holder && foot) {
+      holder = document.createElement('div');
+      holder.id = 'ob-gholder';
+      holder.style.cssText = 'display:flex;justify-content:center;margin-bottom:14px';
+      foot.insertBefore(holder, foot.firstChild);
+    }
+    if (holder) google.accounts.id.renderButton(holder, {
+      type: 'standard', shape: 'pill', theme: 'outline', text: 'continue_with', size: 'large'
+    });
+    return true;
+  }
 
+  // Fallback (desktop / GIS unavailable): the redirect flow, still on the original custom button.
+  window.obGoogle = async function () {
+    try { sessionStorage.setItem('fh-ob-locale', JSON.stringify({ lang: window.LANG, cur: window.CUR })); } catch (e) {}
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google', options: { redirectTo: location.href.split('#')[0].split('?')[0] }
+    });
+    if (error) alert('Sign-in failed: ' + error.message);
+  };
+
+  (async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    try {                                          // restore locale if we came back via the redirect fallback
+      const loc = JSON.parse(sessionStorage.getItem('fh-ob-locale') || 'null');
+      if (loc && window.applyLang) { window.LANG = loc.lang; window.CUR = loc.cur; window.applyLang(); }
+    } catch (e) {}
+    if (session) await afterLogin(session);        // already signed in → resume
+    else await mountGoogleButton();                // otherwise mount the in-app Google button
+  })();
+
+  sb.auth.onAuthStateChange(() => {});
   // test helper: run fhSignOut() in the console to switch Google accounts
   window.fhSignOut = async () => { await sb.auth.signOut(); location.reload(); };
 </script>
