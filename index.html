@@ -41,8 +41,9 @@
 .phone.t-blossom{--brand:#E0567F;--brand-ink:#C43E68;--brand-2:#F79BB8;--grad-brand:linear-gradient(135deg,#EC6A90,#F58FA5);--grad-hero:linear-gradient(150deg,#F07898 0%,#E0567F 50%,#D98AB0 100%);--brand-glow:rgba(224,86,127,.32);--brand-tint:#fdecf1}
 .phone.t-twilight{--brand:#5B63D6;--brand-ink:#454CC0;--brand-2:#8E97F0;--grad-brand:linear-gradient(135deg,#5B63D6,#7A6FD8);--grad-hero:linear-gradient(150deg,#4A54C4 0%,#3B3F86 55%,#6A5FC0 100%);--brand-glow:rgba(91,99,214,.32);--brand-tint:#ebedfb}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
-html,body{height:100%}
-body{font-family:var(--text);color:var(--ink);overflow:hidden;background:var(--canvas);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+/* iOS PWA shell — mirrors momo/prototypes/createbank so the app fills the screen and text never auto-scales */
+html{height:100%;min-height:calc(100% + env(safe-area-inset-top));overflow:hidden;background:var(--canvas);-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{height:100%;overflow:hidden;font-family:var(--text);color:var(--ink);background:var(--canvas);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;transition:transform .18s cubic-bezier(.4,0,.2,1)}
 button:active{transform:scale(.95)}
 input{font-family:inherit}
