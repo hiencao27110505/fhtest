@@ -494,6 +494,18 @@ input{font-family:inherit}
 .sheet.on{transform:translateY(0);visibility:visible;transition:transform .4s cubic-bezier(.32,.72,0,1), visibility 0s}
 .sheet::-webkit-scrollbar{display:none}
 .grab{width:36px;height:5px;border-radius:3px;background:#dcd6e2;margin:8px auto 16px}
+/* full-screen create/edit modal (Apple page-sheet) */
+.modal{position:absolute;left:0;right:0;bottom:0;top:max(env(safe-area-inset-top),12px);z-index:62;background:var(--white);border-radius:22px 22px 0 0;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -12px 44px rgba(25,16,34,.22);transform:translateY(101%);visibility:hidden;transition:transform .42s cubic-bezier(.32,.72,0,1), visibility 0s linear .42s}
+.modal.on{transform:none;visibility:visible;transition:transform .42s cubic-bezier(.32,.72,0,1), visibility 0s}
+.modal-grip{width:36px;height:5px;border-radius:3px;background:#dcd6e2;margin:8px auto 2px;flex-shrink:0}
+.modal-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 18px 12px;border-bottom:1px solid var(--divider);flex-shrink:0}
+.modal-title{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.02em;color:var(--ink);text-align:center;flex:1}
+.modal-cancel{color:var(--brand-ink);font-size:17px;font-weight:500;letter-spacing:-.02em;flex-shrink:0}
+.modal-save{color:var(--brand-ink);font-size:17px;font-weight:700;letter-spacing:-.02em;flex-shrink:0}
+.modal-save:disabled{color:var(--muted-soft)}
+.modal-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;padding:20px 20px calc(30px + env(safe-area-inset-bottom))}
+.modal-body::-webkit-scrollbar{display:none}
+.modal .ex-del{margin-top:6px}
 .sheet-h{font-family:var(--disp);font-weight:800;font-size:25px;letter-spacing:-.7px;color:var(--ink);margin-bottom:5px}
 .sheet-sub{font-size:15px;letter-spacing:-.01em;color:var(--muted);margin-bottom:20px;line-height:1.45}
 .qa{display:flex;align-items:center;gap:15px;padding:14px 2px;border-bottom:1px solid var(--divider);width:100%;text-align:left}
@@ -945,13 +957,13 @@ input{font-family:inherit}
 </div>
 
 <!-- SCRIM + SHEETS -->
-<div class="scrim" id="scrim" onclick="closeSheet()"></div>
+<div class="scrim" id="scrim" onclick="closeSheet();closeExpense()"></div>
 
 <div class="sheet" id="sheet-add">
   <div class="grab"></div>
   <div class="sheet-h">Add</div>
   <div class="sheet-sub">Log a spend or plan for what's coming.</div>
-  <button class="qa" onclick="closeSheet();openSheet('sheet-expense')"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg></div><div><div class="qt">Log an expense</div><div class="qs">Money you just spent</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();openExpense()"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg></div><div><div class="qt">Log an expense</div><div class="qs">Money you just spent</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();openSheet('sheet-event')"><div class="qi" style="background:linear-gradient(135deg,#9D4EFF,#E14BF0)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div><div><div class="qt">New event</div><div class="qs">Something coming up that needs money</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();openSheet('sheet-suggest')"><div class="qi" style="background:linear-gradient(135deg,#FF8FB1,#F0567F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20s-7-4.4-9.3-8.7C1.2 8 2.7 4.6 6 4.6c2 0 3.2 1.3 4 2.6.8-1.3 2-2.6 4-2.6 3.3 0 4.8 3.4 3.3 6.7C19 15.6 12 20 12 20z"/></svg></div><div><div class="qt">Suggest something</div><div class="qs">An idea, a wish, or something that's bugging you</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
 </div>
@@ -973,47 +985,51 @@ input{font-family:inherit}
   <button class="cta" onclick="sendSuggestion()">Send to the team</button>
 </div>
 
-<div class="sheet" id="sheet-expense">
-  <div class="grab"></div>
-  <div class="sheet-h">Log an expense</div>
-  <div class="sheet-sub">A recent spend, or something coming up.</div>
-
-  <div class="field">
-    <label>What for?</label>
-    <input id="ex-note" placeholder="e.g. Grocery run" oninput="onExInput()"/>
-    <div class="choices" id="ex-cat" style="margin-top:10px">
-      <button class="choice on" data-v="Groceries" onclick="pickExCat(this)">🛒 Groceries</button>
-      <button class="choice" data-v="Housing" onclick="pickExCat(this)">🏠 Housing</button>
-      <button class="choice" data-v="Dining" onclick="pickExCat(this)">🍽️ Dining</button>
-      <button class="choice" data-v="Kids" onclick="pickExCat(this)">🎒 Kids</button>
-      <button class="choice" data-v="Transport" onclick="pickExCat(this)">🚗 Transport</button>
-      <button class="choice" data-v="Fun" onclick="pickExCat(this)">🎉 Fun</button>
-      <button class="choice" data-v="Event" onclick="pickExCat(this)">🎈 Event</button>
+<!-- EXPENSE CREATE / EDIT — full-screen modal -->
+<div class="modal" id="expense-modal">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeExpense()">Cancel</button>
+    <div class="modal-title" id="ex-title">Log an expense</div>
+    <button class="modal-save" id="ex-save" onclick="submitExpense()">Save</button>
+  </div>
+  <div class="modal-body">
+    <div class="field">
+      <label>What for?</label>
+      <input id="ex-note" placeholder="e.g. Grocery run" oninput="onExInput()"/>
+      <div class="choices" id="ex-cat" style="margin-top:10px">
+        <button class="choice on" data-v="Groceries" onclick="pickExCat(this)">🛒 Groceries</button>
+        <button class="choice" data-v="Housing" onclick="pickExCat(this)">🏠 Housing</button>
+        <button class="choice" data-v="Dining" onclick="pickExCat(this)">🍽️ Dining</button>
+        <button class="choice" data-v="Kids" onclick="pickExCat(this)">🎒 Kids</button>
+        <button class="choice" data-v="Transport" onclick="pickExCat(this)">🚗 Transport</button>
+        <button class="choice" data-v="Fun" onclick="pickExCat(this)">🎉 Fun</button>
+        <button class="choice" data-v="Event" onclick="pickExCat(this)">🎈 Event</button>
+      </div>
     </div>
+
+    <div class="field-row">
+      <div class="field"><label>Amount</label><input class="num" id="ex-amt" inputmode="numeric" placeholder="$0" oninput="onExInput()"/></div>
+      <div class="field"><label>When</label><input type="date" id="ex-date" value="2026-07-13" min="2026-07-01" onchange="onExInput()" oninput="onExInput()"/></div>
+    </div>
+
+    <div class="field" id="ex-whofield"><label>Who paid</label><div class="choices" id="ex-who">
+      <button class="choice on" data-v="Emma" onclick="pickExWho(this)">Emma</button>
+      <button class="choice" data-v="James" onclick="pickExWho(this)">James</button>
+      <button class="choice" data-v="Both" onclick="pickExWho(this)">Both</button>
+      <button class="choice" data-v="Mia" onclick="pickExWho(this)">Mia</button>
+      <button class="choice" data-v="Leo" onclick="pickExWho(this)">Leo</button>
+    </div></div>
+
+    <div class="field"><label>Photo (optional)</label>
+      <label class="mem-upload"><span id="ex-upload-txt">📷 Add a photo</span><input type="file" accept="image/*" onchange="onExPhoto(this)" hidden></label>
+      <div class="mem-preview" id="ex-preview"><div class="scrim"></div><span>Saved as a memory 📸</span><button type="button" class="pv-remove" onclick="clearExPhoto(event)">Remove</button></div>
+    </div>
+
+    <div class="field-hint" id="ex-whenhint"></div>
+
+    <button class="ex-del" id="ex-del" onclick="deleteExpense()">Delete expense</button>
   </div>
-
-  <div class="field-row">
-    <div class="field"><label>Amount</label><input class="num" id="ex-amt" inputmode="numeric" placeholder="$0" oninput="onExInput()"/></div>
-    <div class="field"><label>When</label><input type="date" id="ex-date" value="2026-07-13" min="2026-07-01" onchange="onExInput()" oninput="onExInput()"/></div>
-  </div>
-
-  <div class="field" id="ex-whofield"><label>Who paid</label><div class="choices" id="ex-who">
-    <button class="choice on" data-v="Emma" onclick="pickExWho(this)">Emma</button>
-    <button class="choice" data-v="James" onclick="pickExWho(this)">James</button>
-    <button class="choice" data-v="Both" onclick="pickExWho(this)">Both</button>
-    <button class="choice" data-v="Mia" onclick="pickExWho(this)">Mia</button>
-    <button class="choice" data-v="Leo" onclick="pickExWho(this)">Leo</button>
-  </div></div>
-
-  <div class="field"><label>Photo (optional)</label>
-    <label class="mem-upload"><span id="ex-upload-txt">📷 Add a photo</span><input type="file" accept="image/*" onchange="onExPhoto(this)" hidden></label>
-    <div class="mem-preview" id="ex-preview"><div class="scrim"></div><span>Saved as a memory 📸</span><button type="button" class="pv-remove" onclick="clearExPhoto(event)">Remove</button></div>
-  </div>
-
-  <div class="field-hint" id="ex-whenhint"></div>
-
-  <button class="cta" id="ex-cta" onclick="submitExpense()">Save expense</button>
-  <button class="ex-del" id="ex-del" onclick="deleteExpense()">Delete expense</button>
 </div>
 
 <div class="sheet" id="sheet-event">
@@ -1556,12 +1572,12 @@ function closeMemory(){ document.getElementById('memory-overlay').classList.remo
 
 /* ---------- sheets ---------- */
 function openSheet(id){
+  if(id==='sheet-expense'){ openExpense(); return; }        // expense form is a full-screen modal now
   if(id==='sheet-fund') buildFundChoices();
   if(id==='sheet-month') buildMonthChoices();
   if(id==='sheet-catpick') buildCatPicker();
   if(id==='sheet-budget') fillBudgetSheet();
   if(id==='sheet-theme') buildThemeChoices();
-  if(id==='sheet-expense'){ if(editingTx) fillExpenseFromTx(); else prefillExpense(); }
   if(id==='sheet-suggest'){ document.getElementById('sg-msg').value=''; selectChipByVal('sg-type','Idea'); }
   if(id==='sheet-event'){
     document.getElementById('ng-name').value=''; document.getElementById('ng-amt').value='';
@@ -1576,18 +1592,29 @@ function openSheet(id){
 }
 function closeSheet(){
   document.getElementById('scrim').classList.remove('on'); document.querySelectorAll('.sheet').forEach(function(s){ s.classList.remove('on'); s.style.transform=''; s.style.transition=''; });
+}
+/* expense create/edit modal */
+function openExpense(){
+  document.getElementById('scrim').classList.add('on');
+  var m=document.getElementById('expense-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
+  var body=m.querySelector('.modal-body'); if(body)body.scrollTop=0;
+  if(editingTx) fillExpenseFromTx(); else prefillExpense();
+}
+function closeExpense(){
+  document.getElementById('scrim').classList.remove('on');
+  var m=document.getElementById('expense-modal'); m.classList.remove('on'); m.style.transform=''; m.style.transition='';
   editingTx=null; editSnap=null; exPhoto=null;
-  var eh=document.querySelector('#sheet-expense .sheet-h'); if(eh)eh.textContent='Log an expense';
-  var es=document.querySelector('#sheet-expense .sheet-sub'); if(es)es.textContent='A recent spend, or something coming up.';
-  var cta=document.getElementById('ex-cta'); if(cta){ cta.style.display=''; cta.textContent='Save expense'; }
+  setTxt('ex-title','Log an expense');
   var del=document.getElementById('ex-del'); if(del)del.style.display='none';
 }
-/* Drag a bottom sheet downward to dismiss (Apple sheet gesture). */
-function initSheetDrag(sheet){
+/* Drag a bottom sheet / modal downward to dismiss (Apple sheet gesture). */
+function initSheetDrag(sheet, closeFn){
+  closeFn = closeFn || closeSheet;
+  var scroller = sheet.querySelector('.modal-body') || sheet;   // the modal scrolls its body, not itself
   var startY=0, dy=0, active=false, dragging=false;
   var scrim=function(){ return document.getElementById('scrim'); };
   sheet.addEventListener('touchstart',function(e){
-    if(sheet.scrollTop>0){ active=false; return; }          // let inner content scroll first
+    if(scroller.scrollTop>0){ active=false; return; }       // let inner content scroll first
     if(e.target.closest('input,textarea,select')){ active=false; return; }
     active=true; dragging=false; startY=e.touches[0].clientY; dy=0;
     sheet.style.transition='none';
@@ -1608,7 +1635,7 @@ function initSheetDrag(sheet){
     if(dragging && dy>110){
       sheet.style.transform='translateY(102%)';
       if(sc){ sc.style.opacity=''; sc.classList.remove('on'); }
-      setTimeout(function(){ closeSheet(); },300);
+      setTimeout(function(){ closeFn(); },300);
     } else {
       sheet.style.transform='translateY(0)';
       if(sc) sc.style.opacity='';
@@ -1638,7 +1665,7 @@ function selectChipByVal(group,val){
 }
 function pickExCat(btn){ pick('ex-cat',btn); lastCat=btn.dataset.v; onExInput(); }
 function pickExWho(btn){ pick('ex-who',btn); lastWho=btn.dataset.v; onExInput(); }
-function setExCta(txt){ if(!editingTx) setTxt('ex-cta',txt); }
+function setExCta(txt){}   // Save button label is fixed in the modal; the hint below explains the action
 // The date decides the kind of expense: after today = a future expense (set aside), else = spent.
 function exDate(){ var v=document.getElementById('ex-date').value; if(!v)return TODAY; var p=v.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
 function isExFuture(){ return exDate()>TODAY; }
@@ -1663,10 +1690,14 @@ function updateExWhen(){
   el.textContent='';   // a normal spend → no extra hint
 }
 function prefillExpense(){
+  document.getElementById('ex-note').value='';
+  document.getElementById('ex-amt').value='';
   selectChipByVal('ex-cat',lastCat);
   selectChipByVal('ex-who',lastWho);
   document.getElementById('ex-date').value='2026-07-13';
   exPhoto=null; renderExPhoto();
+  setTxt('ex-title','Log an expense');
+  var del=document.getElementById('ex-del'); if(del)del.style.display='none';
   updateExWhen(); refreshExCta();
 }
 /* ---- edit a logged expense ---- */
@@ -1704,18 +1735,16 @@ function exFormState(){                                     // snapshot used to 
     +'|'+document.getElementById('ex-date').value
     +'|'+(exPhoto?exPhoto.slice(0,40)+exPhoto.length:'');
 }
-function refreshExCta(){
-  var cta=document.getElementById('ex-cta'); if(!cta)return;
-  if(!editingTx){ cta.style.display=''; return; }          // add mode: CTA always shown (text set by updateExWhen)
-  var changed = editSnap!==null && exFormState()!==editSnap;
-  cta.style.display = changed?'':'none';                   // edit mode: appears only once something changes
-  if(changed) cta.textContent='Save changes';
+function refreshExCta(){                                    // nav-bar Save button
+  var s=document.getElementById('ex-save'); if(!s)return;
+  if(!editingTx){ s.disabled=false; return; }              // add mode: Save always enabled
+  s.disabled = !(editSnap!==null && exFormState()!==editSnap);  // edit mode: enabled only once something changes
 }
 function onExInput(){ updateExWhen(); refreshExCta(); }
 function openEditExpense(id){
   var t=txById(id); if(!t)return;
   editingTx=id;
-  openSheet('sheet-expense');                              // openSheet hook calls fillExpenseFromTx()
+  openExpense();                                           // opens the modal; fillExpenseFromTx() runs inside
 }
 function fillExpenseFromTx(){
   var t=txById(editingTx); if(!t){ editingTx=null; prefillExpense(); return; }
@@ -1726,15 +1755,14 @@ function fillExpenseFromTx(){
   selectChipByVal('ex-who', whoToChip(t.who));
   exPhoto=t.photo||null; renderExPhoto();
   updateExWhen();
-  var eh=document.querySelector('#sheet-expense .sheet-h'); if(eh)eh.textContent='Edit expense';
-  var es=document.querySelector('#sheet-expense .sheet-sub'); if(es)es.textContent='Change any detail, then save your update.';
+  setTxt('ex-title','Edit expense');
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
   editSnap=exFormState();                                  // baseline: no changes yet
-  refreshExCta();                                          // hides CTA until the first edit
+  refreshExCta();                                          // Save stays disabled until the first edit
 }
 function submitExpense(){ if(editingTx) saveExpenseEdit(); else addExpense(); }
 function saveExpenseEdit(){
-  var t=txById(editingTx); if(!t){ closeSheet(); return; }
+  var t=txById(editingTx); if(!t){ closeExpense(); return; }
   var amt=parseAmt(document.getElementById('ex-amt').value);
   if(!amt){ document.getElementById('ex-amt').focus(); return; }
   var note=document.getElementById('ex-note').value.trim()||'Expense';
@@ -1756,11 +1784,11 @@ function saveExpenseEdit(){
   txns.sort(function(a,b){ return txDay(b)-txDay(a); });
   selMonth='Jul'; renderAll(); renderTxns(); renderEvents();
   if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val);
-  closeSheet();
+  closeExpense();
   toast('Changes saved · '+note);
 }
 function deleteExpense(){
-  var t=txById(editingTx); if(!t){ closeSheet(); return; }
+  var t=txById(editingTx); if(!t){ closeExpense(); return; }
   var note=t.note;
   var jul=months.Jul;
   if(!t.future && t.month==='Jul'){                        // remove its realized contribution
@@ -1771,7 +1799,7 @@ function deleteExpense(){
   editingTx=null; editSnap=null; exPhoto=null;
   selMonth='Jul'; renderAll(); renderTxns(); renderEvents();
   if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val);
-  closeSheet();
+  closeExpense();
   toast('Deleted · '+note);
 }
 var selEmoji='🎉', selCov='pink';
@@ -1978,7 +2006,7 @@ function addExpense(){
     if(exPhoto) ev.memories=[{src:exPhoto,caption:note}]; // a photo makes it a memory right away
     events[eid]=ev; order.unshift(eid); renderEvents(); renderTxns(); selMonth='Jul'; renderAll();
     document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhoto=null;
-    closeSheet();
+    closeExpense();
     if(past){ toast(note+' saved · add a photo to remember it 📸'); floatEmojis('📸'); go('events'); }
     else { toast(note+' added to Events · '+fmt(Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved()))+' safe to spend'); floatEmojis('🎈'); go('events'); }
     return;
@@ -1987,7 +2015,7 @@ function addExpense(){
     txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:'Future expenses',note:note,date:dstr,amt:amt,future:true,month:'Jul'});
     renderTxns(); selMonth='Jul'; renderAll();
     document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value='';
-    closeSheet();
+    closeExpense();
     toast(fmt(amt)+' set aside · '+fmt(Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved()))+' safe to spend');
     go('spending'); segTo('overview'); return;
   }
@@ -2001,7 +2029,7 @@ function addExpense(){
   jul.spent+=amt; jul.catSpent[cat]=(jul.catSpent[cat]||0)+amt; jul.memberSpent[mkey]=(jul.memberSpent[mkey]||0)+amt;
   selMonth='Jul'; renderAll(); if(hadPhoto) renderEvents();   // photo → shows in Memories
   document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhoto=null;
-  closeSheet();
+  closeExpense();
   if(hadPhoto){ toast('Logged '+fmt(amt)+' · saved to Memories 📸'); floatEmojis('📸'); }
   else if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast('Heads up — '+cat+' is now over budget');
   else toast('Logged '+fmt(amt)+' · '+fmt(Math.max(0,months.Jul.budget-jul.spent))+' safe to spend');
@@ -2217,7 +2245,8 @@ function setGreeting(){
 }
 setGreeting();
 renderEvents(); renderAll(); renderTxns();
-document.querySelectorAll('.sheet').forEach(initSheetDrag);   // drag-down-to-dismiss on every bottom sheet
+document.querySelectorAll('.sheet').forEach(function(s){ initSheetDrag(s); });   // drag-down-to-dismiss on every bottom sheet
+initSheetDrag(document.getElementById('expense-modal'), closeExpense);           // …and the expense modal
 
 /* ---------- deep links ---------- */
 (function(){
