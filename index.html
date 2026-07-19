@@ -765,6 +765,16 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .ob-gacct-n{font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
 .ob-gacct-e{font-size:13px;color:var(--muted)}
 .ob-gacct .chk{margin-left:auto;width:22px;height:22px;color:var(--good)}
+/* google email entry (manual) */
+.ob-gform{margin-top:26px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:16px;box-shadow:0 2px 12px rgba(25,16,34,.06);text-align:left}
+.ob-gform-head{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--muted);margin-bottom:12px}
+.ob-gmail{width:100%;background:var(--surface);border:1.5px solid var(--hairline);border-radius:12px;padding:14px;font-size:16px;letter-spacing:-.01em;color:var(--ink);outline:none}
+.ob-gmail:focus{border-color:var(--brand);background:#fff}
+.ob-gform-note{font-size:12.5px;line-height:1.4;color:var(--muted-soft);margin-top:10px}
+/* category budgets (onboarding) */
+.ob-catbud{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--divider)}
+.ob-catbud-ic{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.ob-catbud-n{flex:1;min-width:0;font-size:15.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
 /* choice cards */
 .ob-card{display:flex;align-items:center;gap:15px;width:100%;text-align:left;background:var(--white);border:1px solid var(--hairline);border-radius:18px;padding:18px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(25,16,34,.04),0 10px 24px rgba(25,16,34,.05)}
 .ob-card:active{transform:scale(.985)}
@@ -1362,12 +1372,17 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
       <div class="ob-signin-hero">
         <div class="ob-logo">🏡</div>
         <div class="ob-signin-t">Sign in to FamilyHub</div>
-        <div class="ob-signin-s">Use your Google account to get started — secure, and just one tap.</div>
+        <div class="ob-signin-s" id="ob-signin-s">Use your Google account to get started — secure, and just one tap.</div>
       </div>
-      <div class="ob-gacct" id="ob-gacct" style="display:none;margin-top:26px"></div>
+      <div class="ob-gform" id="ob-gform" style="display:none">
+        <div class="ob-gform-head"><svg viewBox="0 0 48 48" width="16" height="16"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Sign in with Google</div>
+        <input class="ob-gmail" id="ob-gmail" type="email" inputmode="email" autocapitalize="off" autocomplete="off" placeholder="you@gmail.com" oninput="obGmailInput()">
+        <div class="ob-gform-note">FamilyHub uses this only to identify your account.</div>
+      </div>
     </div>
     <div class="ob-foot">
-      <button class="ob-google" onclick="obGoogle()"><svg class="ob-gicon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Continue with Google</button>
+      <button class="ob-google" id="ob-gbtn" onclick="obGoogle()"><svg class="ob-gicon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Continue with Google</button>
+      <button class="cta" id="ob-gcontinue" style="display:none" onclick="obGoogleNext()" disabled>Continue</button>
       <div class="ob-note">By continuing, you agree to our Terms &amp; Privacy Policy.</div>
     </div>
   </section>
@@ -1421,15 +1436,25 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   <section class="ob-screen" data-ob="family">
     <div class="ob-top"><button class="ob-back2" onclick="obGo('profile')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1">Set up your family</div><div class="ob-sub">Name it, invite who's in it, and set a monthly budget.</div></div>
+      <div class="ob-head"><div class="ob-h1">Set up your family</div><div class="ob-sub">Name it and invite who's in it.</div></div>
       <div class="field"><label>Family name</label><input id="ob-famname" placeholder="e.g. The Reeds"></div>
       <div class="field"><label>Members &amp; invites</label>
         <div id="ob-members"></div>
         <button class="btn-line" onclick="obAddMember()" style="margin:12px 0 0;width:100%">＋ Invite a member</button>
       </div>
-      <div class="field"><label>Monthly budget</label><input class="big num" id="ob-budget" inputmode="numeric" placeholder="$9,000"></div>
     </div>
     <div class="ob-foot"><button class="cta" onclick="obFamilyNext()">Continue</button></div>
+  </section>
+
+  <section class="ob-screen" data-ob="budget">
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('family')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1">Set your budget</div><div class="ob-sub">A monthly target for the family, then a budget for each category.</div></div>
+      <div class="field"><label>Monthly budget</label><input class="big num" id="ob-budget" inputmode="numeric" placeholder="$9,000"></div>
+      <div class="bg-sub">Category budgets</div>
+      <div id="ob-catbudgets"></div>
+    </div>
+    <div class="ob-foot"><button class="cta" onclick="obBudgetNext()">Continue</button></div>
   </section>
 
   <section class="ob-screen" data-ob="theme">
@@ -2745,8 +2770,8 @@ var FAM={
 };
 var OB_COLORS=['#6f3fc0','#0e8478','#f0701a','#e03d86','#1e74d0','#B8730B','#7A5AE0','#1a9d5f'];
 var OB_ROLES=['Mom','Dad','Husband','Wife','Boyfriend','Girlfriend','Partner','Sweetheart','Sweetie','Coldheart','Man of steel','Parent','Son','Daughter','Kid','Teen','Sibling','Guardian','Grandma','Grandpa','Other'];
-var obOrder=['welcome','auth','choice','join','profile','family','theme','done'];
-var obProg={welcome:0,auth:.16,choice:.34,join:.55,profile:.62,family:.82,theme:.92,done:1};
+var obOrder=['welcome','auth','choice','join','profile','family','budget','theme','done'];
+var obProg={welcome:0,auth:.14,choice:.3,join:.5,profile:.58,family:.72,budget:.85,theme:.93,done:1};
 function inits(n){ return ((n||'').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2)||'?').toUpperCase(); }
 function roleOpts(sel){ return OB_ROLES.map(function(r){ return '<option'+(r===sel?' selected':'')+'>'+r+'</option>'; }).join(''); }
 function obGo(name){
@@ -2774,12 +2799,22 @@ function buildObThemes(){
       +'<div class="nm">'+t.name+'</div></div>';
   }).join('');
 }
-function obGoogle(){
-  var acct=document.getElementById('ob-gacct');
-  acct.style.display='flex';
-  acct.innerHTML='<div class="ob-gacct-av">E</div><div><div class="ob-gacct-n">Emma Reed</div><div class="ob-gacct-e">emma.reed@gmail.com</div></div><svg class="chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5L20 7"/></svg>';
-  FAM.user.name='Emma Reed'; FAM.user.email='emma.reed@gmail.com';
-  setTimeout(function(){ obGo('choice'); },750);
+function obGoogle(){                                          // reveal a Google-style email entry (manual)
+  document.getElementById('ob-gform').style.display='block';
+  document.getElementById('ob-gbtn').style.display='none';
+  document.getElementById('ob-gcontinue').style.display='';
+  setTxt('ob-signin-s','Enter the Google email you'+"'"+'ll use for FamilyHub.');
+  setTimeout(function(){ document.getElementById('ob-gmail').focus(); },260);
+}
+function obGmailInput(){
+  var v=document.getElementById('ob-gmail').value.trim();
+  document.getElementById('ob-gcontinue').disabled = !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
+}
+function obGoogleNext(){
+  var v=document.getElementById('ob-gmail').value.trim();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ document.getElementById('ob-gmail').focus(); return; }
+  FAM.user.email=v;
+  obGo('choice');
 }
 function obChoose(mode){
   FAM.mode=mode;
@@ -2809,7 +2844,7 @@ function obNameInput(){
   var a=document.getElementById('ob-avatar'), n=document.getElementById('ob-name').value;
   a.textContent=inits(n); a.style.background=FAM.user.color;
 }
-function obPrefillProfile(){ document.getElementById('ob-name').value=FAM.user.name||''; renderObColors(); obNameInput(); }
+function obPrefillProfile(){ document.getElementById('ob-name').value=''; renderObColors(); obNameInput(); }
 function obProfileNext(){
   var n=document.getElementById('ob-name').value.trim(); if(!n){ document.getElementById('ob-name').focus(); return; }
   FAM.user.name=n; FAM.user.role=chosen('ob-role')||'Parent';
@@ -2829,8 +2864,7 @@ function obMemberRowHTML(name,email,role,color,me){
 }
 function obSyncMav(inp){ var av=inp.previousElementSibling; if(av) av.textContent=inits(inp.value); }
 function obPrefillFamily(){
-  if(!document.getElementById('ob-famname').value) document.getElementById('ob-famname').value=firstName(FAM.user.name)!=='there'?("The "+firstName(FAM.user.name)+"s"):'';
-  if(!document.getElementById('ob-budget').value) document.getElementById('ob-budget').value='9000';
+  document.getElementById('ob-famname').value='';                 // start empty — the user names it
   document.getElementById('ob-members').innerHTML=obMemberRowHTML(FAM.user.name,FAM.user.email||'',FAM.user.role,FAM.user.color,true);
 }
 function obAddMember(){
@@ -2846,8 +2880,22 @@ function obFamilyNext(){
     mems.push({name:nm, email:(row.querySelector('.ob-memail')||{value:''}).value.trim(), role:row.querySelector('.ob-mrole').value, color:row.querySelector('.ob-mav').style.background||OB_COLORS[i%OB_COLORS.length], me:!!row.querySelector('.ob-mtag')});
   });
   FAM.members=mems.length?mems:[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,role:FAM.user.role,me:true}];
+  obPrefillBudget(); obGo('budget');
+}
+function obPrefillBudget(){
+  document.getElementById('ob-catbudgets').innerHTML = catOrder.map(function(c){
+    var s=catStyle[c]||['🏷️'];
+    return '<div class="ob-catbud"><span class="ob-catbud-ic" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</span><span class="ob-catbud-n">'+c+'</span>'
+      +'<span class="cat-bud-wrap">$<input class="cat-bud num" data-cat="'+c+'" inputmode="numeric" placeholder="'+(catBudget[c]||0)+'"></span></div>';
+  }).join('');
+}
+function obBudgetNext(){
   FAM.budget=parseAmt(document.getElementById('ob-budget').value)||9000;
-  document.getElementById('ob-theme-back').setAttribute('onclick',"obGo('family')");
+  FAM.catBudget={};
+  document.querySelectorAll('#ob-catbudgets .cat-bud').forEach(function(inp){
+    var c=inp.getAttribute('data-cat'), v=parseAmt(inp.value)||catBudget[c]||0; FAM.catBudget[c]=v;
+  });
+  document.getElementById('ob-theme-back').setAttribute('onclick',"obGo('budget')");
   obGo('theme');
 }
 function obThemeNext(){ obPrepDone(); obGo('done'); }
@@ -2856,7 +2904,8 @@ function obPrepDone(){
   setTxt('ob-done-sub', FAM.mode==='join' ? ('You\'ve joined '+FAM.familyName+'.') : (FAM.familyName+' is ready — '+FAM.members.length+' member'+(FAM.members.length!==1?'s':'')+'.'));
 }
 function applyFam(){
-  months.Jul.budget=FAM.budget;
+  if(FAM.budget) months.Jul.budget=FAM.budget;
+  if(FAM.catBudget) Object.keys(FAM.catBudget).forEach(function(c){ if(FAM.catBudget[c]) catBudget[c]=FAM.catBudget[c]; });
   var box=document.getElementById('hero-fam');
   if(box) box.innerHTML=FAM.members.slice(0,5).map(function(mm){ return '<div class="av av-hero" style="background:'+mm.color+'">'+inits(mm.name)+'</div>'; }).join('')+'<span class="hero-fam-cap">'+FAM.familyName+'</span>';
   setGreeting(); renderAll();
@@ -2870,7 +2919,13 @@ function finishOnboarding(){
 }
 function restartOnboarding(){
   try{ localStorage.removeItem('fh-onboarded'); localStorage.removeItem('fh-fam'); }catch(e){}
-  document.getElementById('ob-gacct').style.display='none';
+  FAM={ user:{name:'',email:'',role:'Mom',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };
+  var gf=document.getElementById('ob-gform'); if(gf)gf.style.display='none';
+  var gb=document.getElementById('ob-gbtn'); if(gb)gb.style.display='';
+  var gc=document.getElementById('ob-gcontinue'); if(gc){ gc.style.display='none'; gc.disabled=true; }
+  var gm=document.getElementById('ob-gmail'); if(gm)gm.value='';
+  setTxt('ob-signin-s','Use your Google account to get started — secure, and just one tap.');
+  document.querySelectorAll('#ob-role .choice').forEach(function(b,i){ b.classList.toggle('on',i===0); });
   document.getElementById('onboarding').classList.remove('done'); obGo('welcome');
 }
 function obInit(){
@@ -2879,6 +2934,8 @@ function obInit(){
     try{ var saved=localStorage.getItem('fh-fam'); if(saved) FAM=JSON.parse(saved); }catch(e){}
     applyFam();
     document.getElementById('onboarding').classList.add('done');
+  } else {
+    FAM={ user:{name:'',email:'',role:'Mom',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };  // fresh: everything entered manually
   }
 }
 
