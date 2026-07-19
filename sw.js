@@ -1,5 +1,5 @@
 /* FamilyHub — offline-first service worker */
-const CACHE_NAME = 'familyhub-v98';
+const CACHE_NAME = 'familyhub-v99';
 const ASSETS = [
   './',
   './index.html',

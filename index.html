@@ -3128,7 +3128,7 @@ if('serviceWorker' in navigator){
         btn.style.opacity = '.6';
         try { await sb.rpc('switch_family', { p_family_id: btn.getAttribute('data-fid') }); }
         catch (e) { alert('Could not open: ' + (e.message || e)); btn.style.opacity = ''; return; }
-        await loadActiveFamily();
+        await (window.loadFamilyData ? window.loadFamilyData() : loadActiveFamily());
         ov.remove();
         if (onb) onb.classList.add('done');
         if (typeof window.go === 'function') window.go('home');
@@ -3237,6 +3237,310 @@ if('serviceWorker' in navigator){
     if (error) alert('Sign-in failed: ' + error.message);
   };
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  DATA LAYER — hydrate the app's globals from the DB + write-through mutations
+  // ═══════════════════════════════════════════════════════════════════════════
+  window.DB = { fid: null, month: null, monthKey: null, catById: {}, catByName: {}, memberById: {}, memberByAppName: {}, sharedId: null, ownerMemberId: null, eventById: {}, rtFid: null };
+
+  const _pad = (n) => (n < 10 ? '0' : '') + n;
+  const _isoMonth = (d) => d.getFullYear() + '-' + _pad(d.getMonth() + 1) + '-01';
+  const _isoDate = (d) => d.getFullYear() + '-' + _pad(d.getMonth() + 1) + '-' + _pad(d.getDate());
+  const MO = window.MONA || ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const MOF = window.MONF || ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  function _memberIdForWho(who) {
+    const key = (who || '').toLowerCase();
+    if (key === 'both' || key === 'shared') return window.DB.sharedId || window.DB.ownerMemberId;
+    const id = window.DB.memberByAppName[who];
+    if (id) return id;
+    // case-insensitive fallback
+    for (const n in window.DB.memberByAppName) { if (n.toLowerCase() === key) return window.DB.memberByAppName[n]; }
+    return window.DB.ownerMemberId || window.DB.sharedId;
+  }
+  async function _categoryIdForName(name, emoji, sort) {
+    if (window.DB.catByName[name]) return window.DB.catByName[name];
+    try {
+      const res = await sb.from('categories').insert({ family_id: window.DB.fid, name: name, emoji: emoji || '🏷️', color: '#8f8a99', sort_order: sort || 99 }).select('id').single();
+      if (res.data) { window.DB.catByName[name] = res.data.id; window.DB.catById[res.data.id] = { id: res.data.id, name: name, emoji: emoji }; return res.data.id; }
+    } catch (e) { console.warn('category create failed', e); }
+    return null;
+  }
+  function _txnIso(t, exD) {
+    if (exD && exD.getFullYear) return _isoDate(exD);
+    const d = t.date || ''; const now = new Date();
+    if (d === 'Today' || d === 'Just now') return _isoDate(now);
+    const m = d.match(/([A-Za-z]{3,})\s+(\d{1,2})/);
+    if (m) { const mi = MO.indexOf(m[1].slice(0, 3)); if (mi >= 0) return now.getFullYear() + '-' + _pad(mi + 1) + '-' + _pad(parseInt(m[2])); }
+    return _isoDate(now);
+  }
+
+  function updateHeroFam() {
+    const box = document.getElementById('hero-fam');
+    if (box && window.FAM) box.innerHTML = (window.FAM.members || []).slice(0, 5).map((mm) =>
+      '<div class="av av-hero" style="background:' + mm.color + '">' + inits(mm.name) + '</div>').join('') +
+      '<span class="hero-fam-cap">' + (window.FAM.familyName || '') + '</span>';
+  }
+
+  // colored txn-row avatars from the real member palette (overrides the mock spMap version)
+  window.spAv = function (who) {
+    const key = (who || '').toLowerCase(); let mm = null;
+    if (key === 'both' || key === 'shared') mm = window.membersMeta && window.membersMeta['Shared'];
+    else if (window.membersMeta) { for (const n in window.membersMeta) { if (n.toLowerCase() === key) { mm = window.membersMeta[n]; break; } } }
+    const col = mm ? mm.col : '#8f8a99', ini = mm ? mm.ini : '👥';
+    return '<div class="r-sp av" style="background:' + col + ';color:#fff">' + ini + '</div>';
+  };
+
+  // ---- THE hydrate: pull the whole active family into the app's globals ----
+  window.loadFamilyData = async function loadFamilyData() {
+    try {
+      const sess = (await sb.auth.getSession()).data.session;
+      if (!sess || !window.FAM) return false;
+      const uid = sess.user.id;
+      const prof = (await sb.from('profiles').select('family_id,theme,language').eq('id', uid).maybeSingle()).data;
+      const fid = prof && prof.family_id; if (!fid) return false;
+      window.DB.fid = fid;
+      const now = new Date(); now.setHours(0, 0, 0, 0);
+      const monthDate = _isoMonth(now); window.DB.month = monthDate; window.DB.monthKey = MO[now.getMonth()];
+
+      const R = await Promise.all([
+        sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
+        sb.from('members').select('id,name,color,is_shared,user_id,created_at').eq('family_id', fid).is('archived_at', null).order('created_at'),
+        sb.from('categories').select('id,name,emoji,color,sort_order').eq('family_id', fid).is('archived_at', null).order('sort_order'),
+        sb.from('category_budgets').select('category_id,amount,month').eq('family_id', fid),
+        sb.from('monthly_budgets').select('month,budget_total,closed').eq('family_id', fid),
+        sb.from('transactions').select('id,category_id,member_id,note,amount,txn_date,status').eq('family_id', fid),
+        sb.from('events').select('id,name,emoji,cover,target_amount,target_date,achieved,sort_order').eq('family_id', fid).order('sort_order'),
+        sb.from('event_fundings').select('id,event_id,amount,source,month,member_id').eq('family_id', fid),
+        sb.from('savings_entries').select('kind,amount').eq('family_id', fid),
+        sb.from('event_memories').select('id,event_id,emoji,caption,photo_url,sort_order').eq('family_id', fid).order('sort_order'),
+        sb.from('transaction_photos').select('transaction_id,photo_url').eq('family_id', fid)
+      ]);
+      const fam = R[0].data, mem = R[1].data || [], cat = R[2].data || [], cb = R[3].data || [], mb = R[4].data || [],
+        tx = R[5].data || [], ev = R[6].data || [], ef = R[7].data || [], se = R[8].data || [], em = R[9].data || [], tp = R[10].data || [];
+
+      if (fam) { window.FAM.familyName = fam.name; if (fam.currency) window.CUR = fam.currency; if (fam.default_language) window.LANG = fam.default_language; }
+
+      // members → membersMeta + maps
+      window.DB.memberById = {}; window.DB.memberByAppName = {}; window.DB.sharedId = null; window.DB.ownerMemberId = null;
+      const mm = {};
+      mem.forEach((m) => {
+        window.DB.memberById[m.id] = m;
+        const appName = m.is_shared ? 'Shared' : m.name;
+        mm[appName] = { av: '', ini: inits(m.name), col: m.color || '#8f8a99' };
+        window.DB.memberByAppName[appName] = m.id;
+        if (m.is_shared) window.DB.sharedId = m.id;
+        if (m.user_id === uid && !m.is_shared) window.DB.ownerMemberId = m.id;
+      });
+      if (!mm['Shared']) mm['Shared'] = { av: '', ini: '👥', col: '#8f8a99' };
+      window.membersMeta = mm;
+      window.FAM.members = mem.filter((m) => !m.is_shared).map((m) => ({ name: m.name, color: m.color || '#8f8a99', me: m.user_id === uid }));
+
+      // categories → catOrder / catStyle
+      const order = [], style = {};
+      window.DB.catById = {}; window.DB.catByName = {};
+      cat.forEach((c) => {
+        window.DB.catById[c.id] = c; window.DB.catByName[c.name] = c.id;
+        order.push(c.name); style[c.name] = [c.emoji || '🏷️', '#f2eef6', c.color || 'var(--cat-other)'];
+      });
+      window.catOrder = order.length ? order : ['Other']; window.catStyle = style;
+
+      // category budgets for the current month → catBudget
+      const cbud = {}; window.catOrder.forEach((n) => { cbud[n] = 0; });
+      cb.forEach((b) => { if (b.month === monthDate) { const c = window.DB.catById[b.category_id]; if (c) cbud[c.name] = Number(b.amount); } });
+      window.catBudget = cbud;
+
+      // photos grouped by transaction
+      const photosByTx = {};
+      tp.forEach((p) => { (photosByTx[p.transaction_id] = photosByTx[p.transaction_id] || []).push(p.photo_url); });
+
+      // months (from budgets) + transactions (derive spent)
+      const byKey = {};
+      function ensureMonth(iso) {
+        const dt = new Date(iso + 'T00:00:00'); const key = MO[dt.getMonth()];
+        if (!byKey[key]) {
+          const dim = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+          const isCur = iso === monthDate;
+          byKey[key] = { label: MOF[dt.getMonth()] + ' ' + dt.getFullYear(), short: key, done: iso < monthDate, dim: dim, dom: isCur ? now.getDate() : dim, spent: 0, budget: 0, catSpent: {}, memberSpent: {}, _iso: iso };
+          window.catOrder.forEach((n) => { byKey[key].catSpent[n] = 0; });
+        }
+        return byKey[key];
+      }
+      mb.forEach((b) => { const m = ensureMonth(b.month); m.budget = Number(b.budget_total); if (b.closed) m.done = true; });
+      ensureMonth(monthDate);
+      const newTxns = [];
+      tx.forEach((t) => {
+        const dt = new Date(t.txn_date + 'T00:00:00'); const mkey = MO[dt.getMonth()];
+        const m = ensureMonth(t.txn_date);
+        const c = window.DB.catById[t.category_id]; const catName = c ? c.name : (window.catOrder[0] || 'Other');
+        const mrec = t.member_id ? window.DB.memberById[t.member_id] : null;
+        const who = mrec ? (mrec.is_shared ? 'Shared' : mrec.name) : 'Shared';
+        const realized = (t.status !== 'planned') && (dt <= now);
+        const amt = Number(t.amount);
+        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _catId: t.category_id, _memberId: t.member_id, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: MO[dt.getMonth()] + ' ' + dt.getDate(), who: who, amt: amt, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
+        if (realized) { m.spent += amt; m.catSpent[catName] = (m.catSpent[catName] || 0) + amt; m.memberSpent[who] = (m.memberSpent[who] || 0) + amt; }
+      });
+      window.txns = newTxns;
+      window.months = byKey;
+      window.monthOrder = Object.keys(byKey).sort((a, b) => new Date(byKey[a]._iso) - new Date(byKey[b]._iso));
+      window.selMonth = byKey[window.DB.monthKey] ? window.DB.monthKey : (window.monthOrder[window.monthOrder.length - 1] || window.DB.monthKey);
+
+      // events + fundings + memories
+      const savedByEvent = {}, setAsideByEvent = {};
+      ef.forEach((f) => {
+        savedByEvent[f.event_id] = (savedByEvent[f.event_id] || 0) + Number(f.amount);
+        if (f.source === 'budget' && f.month === monthDate) setAsideByEvent[f.event_id] = (setAsideByEvent[f.event_id] || 0) + Number(f.amount);
+      });
+      const memByEvent = {};
+      em.forEach((x) => { (memByEvent[x.event_id] = memByEvent[x.event_id] || []).push(x.photo_url ? { src: x.photo_url, caption: x.caption || '' } : { emoji: x.emoji || '📸', caption: x.caption || '', cls: 'ph-park' }); });
+      const evObj = {}, evOrder = []; window.DB.eventById = {};
+      ev.forEach((e) => {
+        const d = e.target_date ? new Date(e.target_date + 'T00:00:00') : new Date(now.getTime() + 30 * 86400000);
+        window.DB.eventById[e.id] = e;
+        evObj[e.id] = { _dbId: e.id, name: e.name, emoji: e.emoji || '🎯', cov: e.cover || 'blue', date: e.target_date ? (MO[d.getMonth()] + ' ' + d.getDate()) : '', d: d, target: Number(e.target_amount), saved: savedByEvent[e.id] || 0, setAside: setAsideByEvent[e.id] || 0, achieved: !!e.achieved, memories: memByEvent[e.id] };
+        evOrder.push(e.id);
+      });
+      window.events = evObj; window.order = evOrder;
+
+      // savings pool = deposits − withdrawals − savings-source fundings
+      let pool = 0;
+      se.forEach((s) => { pool += (s.kind === 'deposit' ? 1 : -1) * Number(s.amount); });
+      ef.forEach((f) => { if (f.source === 'savings') pool -= Number(f.amount); });
+      window.savings = Math.max(0, pool);
+
+      try { localStorage.setItem('fh-fam', JSON.stringify(window.FAM)); localStorage.setItem('fh-lang', window.LANG); localStorage.setItem('fh-cur', window.CUR); } catch (e) {}
+
+      // render everything
+      if (typeof window.applyLang === 'function') window.applyLang();
+      if (typeof window.applyCurrency === 'function') window.applyCurrency(); else { window.renderAll && window.renderAll(); window.renderEvents && window.renderEvents(); window.renderTxns && window.renderTxns(); }
+      if (typeof window.setGreeting === 'function') window.setGreeting();
+      updateHeroFam();
+      _subscribeRealtime(fid);
+      return true;
+    } catch (e) { console.warn('loadFamilyData failed', e); return false; }
+  };
+
+  // ---- write-through: transactions ----
+  async function _dbInsertTxn(t, exD) {
+    try {
+      const fid = window.DB.fid; if (!fid) return;
+      const catId = window.DB.catByName[t.cat] || await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1);
+      const row = { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' };
+      const res = await sb.from('transactions').insert(row).select('id').single();
+      if (res.error) throw res.error;
+      if (res.data) t._dbId = res.data.id;
+    } catch (e) { console.warn('txn insert failed', e); }
+  }
+  async function _dbUpdateTxn(dbId, t, exD) {
+    try {
+      const catId = window.DB.catByName[t.cat] || await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1);
+      await sb.from('transactions').update({ category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' }).eq('id', dbId);
+    } catch (e) { console.warn('txn update failed', e); }
+  }
+  async function _dbDeleteTxn(dbId) { try { await sb.from('transactions').delete().eq('id', dbId); } catch (e) { console.warn('txn delete failed', e); } }
+
+  const _origAddExpense = window.addExpense;
+  window.addExpense = function () {
+    const before = {}; (window.txns || []).forEach((t) => { before[t.id] = 1; });
+    const beforeOrder = (window.order || []).slice();
+    const exD = (typeof window.exDate === 'function') ? window.exDate() : null;
+    _origAddExpense.apply(this, arguments);
+    let nt = null; for (let i = 0; i < window.txns.length; i++) { if (!before[window.txns[i].id]) { nt = window.txns[i]; break; } }
+    if (nt) _dbInsertTxn(nt, exD);
+    (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => _dbInsertEvent(k));
+  };
+  const _origSaveEdit = window.saveExpenseEdit;
+  window.saveExpenseEdit = function () {
+    const id = window.editingTx;
+    const tx = (id != null && typeof txById === 'function') ? txById(id) : null;
+    const dbId = tx ? tx._dbId : null;
+    const exD = (typeof window.exDate === 'function') ? window.exDate() : null;
+    _origSaveEdit.apply(this, arguments);
+    if (dbId && tx) _dbUpdateTxn(dbId, tx, exD);
+  };
+  const _origDelete = window.deleteExpense;
+  window.deleteExpense = function () {
+    const tx = (window.editingTx != null && typeof txById === 'function') ? txById(window.editingTx) : null;
+    const dbId = tx ? tx._dbId : null;
+    const before = (window.txns || []).length;
+    _origDelete.apply(this, arguments);
+    if (dbId && window.txns.length < before) _dbDeleteTxn(dbId);
+  };
+
+  // ---- write-through: events & funding ----
+  async function _dbInsertEvent(localKey) {
+    try {
+      const fid = window.DB.fid; if (!fid) return;
+      const e = window.events[localKey]; if (!e || e._dbId) return;
+      const iso = e.d ? _isoDate(e.d) : null;
+      const res = await sb.from('events').insert({ family_id: fid, name: e.name, emoji: e.emoji, cover: e.cov, target_amount: e.target, target_date: iso, achieved: !!e.achieved, sort_order: 0 }).select('id').single();
+      if (res.error) throw res.error;
+      const evId = res.data.id; e._dbId = evId; window.DB.eventById[evId] = res.data;
+      const who = window.DB.ownerMemberId;
+      if (e.setAside > 0) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: e.setAside, source: 'budget', month: window.DB.month });
+      const sp = (e.saved || 0) - (e.setAside || 0);
+      if (sp > 0) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: sp, source: 'savings', month: null });
+    } catch (e) { console.warn('event insert failed', e); }
+  }
+  const _origAddEvent = window.addEvent;
+  window.addEvent = function () {
+    const beforeOrder = (window.order || []).slice();
+    _origAddEvent.apply(this, arguments);
+    (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => _dbInsertEvent(k));
+  };
+  const _origAddFunds = window.addFunds;
+  window.addFunds = function () {
+    const evKey = (typeof chosen === 'function' && chosen('fn-event')) || window.curEvent || (window.order || [])[0];
+    const who = (typeof chosen === 'function' && chosen('fn-who')) || null;
+    const savingsBefore = window.savings;
+    _origAddFunds.apply(this, arguments);
+    const applied = savingsBefore - window.savings;
+    const ev = window.events[evKey];
+    if (applied > 0 && ev && ev._dbId) {
+      try {
+        sb.from('event_fundings').insert({ family_id: window.DB.fid, event_id: ev._dbId, member_id: _memberIdForWho(who), amount: applied, source: 'savings', month: null });
+      } catch (e) { console.warn('funding insert failed', e); }
+    }
+  };
+
+  // ---- write-through: budget ----
+  async function _dbSaveBudget() {
+    try {
+      const fid = window.DB.fid; if (!fid) return; const month = window.DB.month;
+      const m = window.months[window.selMonth] || {};
+      await sb.from('monthly_budgets').upsert({ family_id: fid, month: month, budget_total: m.budget || 0 }, { onConflict: 'family_id,month' });
+      for (let i = 0; i < window.catOrder.length; i++) {
+        const name = window.catOrder[i]; const amt = window.catBudget[name] || 0;
+        const cid = window.DB.catByName[name] || await _categoryIdForName(name, (window.catStyle[name] || [])[0], i + 1);
+        if (cid && amt > 0) await sb.from('category_budgets').upsert({ family_id: fid, month: month, category_id: cid, amount: amt }, { onConflict: 'family_id,month,category_id' });
+      }
+    } catch (e) { console.warn('budget save failed', e); }
+  }
+  const _origSetBudget = window.setBudget;
+  window.setBudget = function () { _origSetBudget.apply(this, arguments); _dbSaveBudget(); };
+
+  // ---- write-through: theme ----
+  const _origApplyTheme = window.applyTheme;
+  window.applyTheme = function (k) {
+    _origApplyTheme.apply(this, arguments);
+    try { if (window.fhUser && window.DB.fid && k) sb.from('profiles').update({ theme: k }).eq('id', window.fhUser.id); } catch (e) {}
+  };
+
+  // ---- realtime: reload on any change to this family's rows ----
+  let _rtTimer = null;
+  function _subscribeRealtime(fid) {
+    if (window.DB.rtFid === fid || !sb.channel) return;
+    window.DB.rtFid = fid;
+    try {
+      const ch = sb.channel('fam-' + fid);
+      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos'].forEach((tbl) => {
+        ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: 'family_id=eq.' + fid }, () => {
+          clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { window.loadFamilyData && window.loadFamilyData(); }, 900);
+        });
+      });
+      ch.subscribe();
+    } catch (e) { console.warn('realtime subscribe failed', e); }
+  }
+
   (async () => {
     const { data: { session } } = await sb.auth.getSession();
     try {                                          // restore locale if we came back via the redirect fallback
@@ -3322,6 +3626,7 @@ if('serviceWorker' in navigator){
     }
     busy(false);
     if (typeof _origFinish === 'function') _origFinish();
+    if (window.loadFamilyData) { try { await window.loadFamilyData(); } catch (e) {} }
   };
 
   // ── Owner: generate a shareable invite code (Settings → Invite a member) ──
