@@ -603,21 +603,31 @@ input{font-family:inherit}
 /* Home: horizontal memory strip */
 .mem-strip{display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding:0 16px 4px}
 .mem-strip::-webkit-scrollbar{display:none}
-/* Memories tab: Apple Photos–style square grid */
-.mem-photos{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px}
-.mem-photos .ph{position:relative;aspect-ratio:1;border-radius:16px;overflow:hidden;cursor:pointer;background:var(--canvas);background-size:cover;background-position:center}
-.mem-photos .ph:active{transform:scale(.97)}
-.mem-photos .ph .subj{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:48px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.28))}
-.mem-photos .ph .scrim{position:absolute;inset:0;background:linear-gradient(180deg,transparent 52%,rgba(0,0,0,.55))}
-.mem-photos .ph .cap{position:absolute;left:11px;right:11px;bottom:10px;z-index:1;color:#fff;font-size:12.5px;font-weight:600;letter-spacing:-.01em;line-height:1.22;text-shadow:0 1px 3px rgba(0,0,0,.45);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* Memories tab: iOS Photos–style mosaic, grouped into event sections */
+.photo-sec{margin-top:20px}
+.photo-sec:first-child{margin-top:4px}
+.photo-sec-h{padding:0 16px 10px;display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.photo-sec-title{font-family:var(--disp);font-weight:800;font-size:20px;letter-spacing:-.4px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.photo-sec-sub{font-size:13px;font-weight:500;color:var(--muted);flex-shrink:0}
+.photo-mosaic-wrap{container-type:inline-size}
+.photo-mosaic{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:calc((100cqw - 4px)/3);gap:2px;grid-auto-flow:dense}
+.photo-mosaic .pm{position:relative;overflow:hidden;cursor:pointer;background:var(--canvas);background-size:cover;background-position:center}
+.photo-mosaic .pm.hero{grid-column:span 3;grid-row:span 2}
+.photo-mosaic .pm.big{grid-column:span 2;grid-row:span 2}
+.photo-mosaic .pm:active{opacity:.82}
+.photo-mosaic .pm .subj{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:40px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.28))}
+.photo-mosaic .pm.hero .subj{font-size:64px}
+.photo-mosaic .pm .mday{position:absolute;top:6px;left:9px;z-index:1;color:#fff;font-size:15px;font-weight:600;letter-spacing:-.02em;text-shadow:0 1px 4px rgba(0,0,0,.55)}
+/* Shared overlay nav bar (memory detail + photos-by-date) */
+.ovnav{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:4px;padding:0 10px;padding-top:max(env(safe-area-inset-top),8px);min-height:52px;background:rgba(255,255,255,.82);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);border-bottom:1px solid var(--divider)}
+.ovback{display:inline-flex;align-items:center;gap:1px;color:var(--brand-ink);font-size:17px;font-weight:600;letter-spacing:-.02em;padding:8px 6px 8px 2px;flex-shrink:0}
+.ovback svg{width:22px;height:22px}
+.ovnav-title{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.02em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* Memory detail overlay */
 #memory-overlay{z-index:47;background:var(--white)}
+#photos-overlay{z-index:46;background:var(--white)}
 .mo-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .mo-scroll::-webkit-scrollbar{display:none}
-.mo-nav{position:sticky;top:0;z-index:3;display:flex;align-items:center;padding:6px 8px;background:rgba(255,255,255,.82);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px)}
-.mo-nav .safe{position:absolute;left:0;right:0;top:0}
-.mo-back{display:inline-flex;align-items:center;gap:1px;color:var(--brand-ink);font-size:17px;font-weight:600;letter-spacing:-.02em;padding:8px 8px 8px 4px}
-.mo-back svg{width:21px;height:21px}
 .mo-photo{position:relative;background:var(--canvas)}
 .mo-photo img{display:block;width:100%;height:auto}
 .mo-photo.tile{aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
@@ -844,8 +854,7 @@ input{font-family:inherit}
     </div>
     <div class="mcal-grid" id="mcal-grid"></div>
   </div>
-  <div class="section-h"><span class="t">All photos</span></div>
-  <div class="mem-photos" id="mem-grid"></div>
+  <div id="mem-grid"></div>
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
     <span class="sf-heart">💛</span>
     <span class="sf-t">Ideas or gripes? We're always listening</span>
@@ -918,13 +927,21 @@ input{font-family:inherit}
 <!-- MEMORY DETAIL -->
 <div class="overlay" id="memory-overlay">
   <div class="mo-scroll">
-    <div class="mo-nav"><div class="safe"></div><button class="mo-back" onclick="closeMemory()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>Memories</button></div>
+    <div class="ovnav"><button class="ovback" onclick="closeMemory()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>Memories</button></div>
     <div class="mo-photo" id="mo-photo"></div>
     <div class="mo-body">
       <div class="mo-cap" id="mo-cap"></div>
       <div class="mo-meta" id="mo-meta"></div>
       <button class="mo-action" id="mo-action"></button>
     </div>
+  </div>
+</div>
+
+<!-- PHOTOS BY DATE (iOS Photos style) -->
+<div class="overlay" id="photos-overlay">
+  <div class="mo-scroll">
+    <div class="ovnav"><button class="ovback" onclick="closePhotos()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>Memories</button><div class="ovnav-title" id="po-title"></div></div>
+    <div id="po-body" style="padding-bottom:calc(30px + env(safe-area-inset-bottom))"></div>
   </div>
 </div>
 
@@ -1498,7 +1515,7 @@ function memCalInit(){
   txns.forEach(function(t){ if(!t.future && t.photo){ var d=txPhotoDate(t); if(!latest||d>latest)latest=d; } });
   var d=latest||TODAY; mcalY=d.getFullYear(); mcalM=d.getMonth();
 }
-function mcalNav(delta){ if(mcalY===null)memCalInit(); mcalM+=delta; if(mcalM<0){mcalM=11;mcalY--;} if(mcalM>11){mcalM=0;mcalY++;} renderMemCalendar(); }
+function mcalNav(delta){ if(mcalY===null)memCalInit(); mcalM+=delta; if(mcalM<0){mcalM=11;mcalY--;} if(mcalM>11){mcalM=0;mcalY++;} renderMemCalendar(); renderMemoriesTab(); }
 function renderMemCalendar(){
   var grid=document.getElementById('mcal-grid'); if(!grid)return;
   if(mcalY===null) memCalInit();
@@ -1517,7 +1534,7 @@ function renderMemCalendar(){
     if(info){
       var m=info.m, cls='mcell photo'+(isToday?' today':''), style='';
       if(m.src){ style=' style="background-image:url('+m.src+')"'; } else { cls+=' '+(m.cls||'ph-park'); }
-      html+='<div class="'+cls+'"'+style+' onclick="openMemoryByRef(\''+info.type+'\',\''+info.ref+'\')"><div class="scrim"></div><span class="mday">'+d+'</span></div>';
+      html+='<div class="'+cls+'"'+style+' onclick="openPhotosForDate('+mcalY+','+mcalM+','+d+')"><div class="scrim"></div><span class="mday">'+d+'</span></div>';
     } else {
       html+='<div class="mcell day'+(isToday?' today':'')+'">'+d+'</div>';
     }
@@ -1536,24 +1553,62 @@ function buildMemRecords(){
   } });
   memRecords.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });
 }
+// One mosaic tile (iOS Photos style). idx = index into memRecords for the detail view.
+function pmTile(r){
+  var idx=memRecords.indexOf(r);
+  var cls='pm'+(r.mos?' '+r.mos:'');
+  var style=r.src?'style="background-image:url('+r.src+')"':'';
+  var inner=r.src?'':'<div class="subj">'+(r.emoji||'📸')+'</div>';
+  var day=r.d?r.d.getDate():'';
+  return '<div class="'+(r.src?cls:cls+' '+(r.cls||'ph-park'))+'" '+style+' onclick="openMemory('+idx+')">'+inner+'<span class="mday">'+day+'</span></div>';
+}
+// A grid of tiles: first is a full-width hero, the rest fill in as squares.
+function mosaicHTML(items){
+  items.forEach(function(r,i){ r.mos=(items.length===1||i===0)?'hero':''; });
+  return '<div class="photo-mosaic-wrap"><div class="photo-mosaic">'+items.map(pmTile).join('')+'</div></div>';
+}
+// Group a set of records into event sections (+ an "Everyday moments" section for expenses).
+function photoSectionsHTML(recs){
+  var order2=[], byEv={}, moments=[];
+  recs.forEach(function(r){
+    if(r.type==='event'){ if(!byEv[r.ref]){ byEv[r.ref]={ev:r.ref,items:[]}; order2.push(byEv[r.ref]); } byEv[r.ref].items.push(r); }
+    else moments.push(r);
+  });
+  var html='';
+  order2.forEach(function(g){ var e=events[g.ev];
+    html+='<div class="photo-sec"><div class="photo-sec-h"><div class="photo-sec-title">'+e.emoji+' '+e.name+'</div><div class="photo-sec-sub">'+g.items.length+' photo'+(g.items.length!==1?'s':'')+'</div></div>'+mosaicHTML(g.items)+'</div>';
+  });
+  if(moments.length){
+    html+='<div class="photo-sec"><div class="photo-sec-h"><div class="photo-sec-title">Everyday moments</div><div class="photo-sec-sub">'+moments.length+' photo'+(moments.length!==1?'s':'')+'</div></div>'+mosaicHTML(moments)+'</div>';
+  }
+  return html;
+}
 function renderMemoriesTab(){
   var box=document.getElementById('mem-grid'); if(!box)return;
   buildMemRecords();
+  if(mcalY===null) memCalInit();
+  var monthRecs=memRecords.filter(function(r){ return r.d && r.d.getFullYear()===mcalY && r.d.getMonth()===mcalM; });
   var sub=document.getElementById('mem-sub');
   if(sub) sub.textContent = memRecords.length
     ? (memRecords.length+' photo'+(memRecords.length!==1?'s':'')+' the family has captured together.')
     : "Add a photo to an event or an expense to start your memories.";
-  if(!memRecords.length){
-    box.innerHTML='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">No memories yet</div><p>Add a photo when you log an expense, or to a saved event.</p></div>';
+  if(!monthRecs.length){
+    box.innerHTML='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">No photos in '+MONF[mcalM]+'</div><p>'+(memRecords.length?'Use the calendar to browse another month.':'Add a photo when you log an expense, or to a saved event.')+'</p></div>';
     return;
   }
-  box.innerHTML=memRecords.map(function(p,i){
-    var style=p.src?'style="background-image:url('+p.src+')"':'';
-    var cls='ph'+(p.src?'':' '+(p.cls||'ph-park'));
-    var subj=p.src?'':'<div class="subj">'+(p.emoji||'📸')+'</div>';
-    return '<div class="'+cls+'" '+style+' onclick="openMemory('+i+')">'+subj+'<div class="scrim"></div><div class="cap">'+p.cap+'</div></div>';
-  }).join('');
+  box.innerHTML=photoSectionsHTML(monthRecs);
 }
+// Photos taken on one date, grouped by event — opened from the calendar.
+function openPhotosForDate(y,m,d){
+  buildMemRecords();
+  var recs=memRecords.filter(function(r){ return r.d && r.d.getFullYear()===y && r.d.getMonth()===m && r.d.getDate()===d; });
+  if(!recs.length) return;
+  setTxt('po-title', MONF[m]+' '+d+', '+y);
+  document.getElementById('po-body').innerHTML=photoSectionsHTML(recs);
+  var sc=document.querySelector('#photos-overlay .mo-scroll'); if(sc)sc.scrollTop=0;
+  document.getElementById('photos-overlay').classList.add('on');
+}
+function closePhotos(){ document.getElementById('photos-overlay').classList.remove('on'); }
 var curMemory=null;
 function openMemory(i){
   var r=memRecords[i]; if(!r)return; curMemory=r;
