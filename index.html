@@ -717,49 +717,91 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 /* ---------- ONBOARDING ---------- */
 #onboarding{position:absolute;inset:0;z-index:90;background:var(--canvas);overflow:hidden}
 #onboarding.done{display:none}
-.ob-screen{position:absolute;inset:0;display:flex;flex-direction:column;padding:0 24px;opacity:0;pointer-events:none;transform:translateX(100%);transition:transform .4s cubic-bezier(.32,.72,0,1),opacity .3s;overflow-y:auto}
+.ob-progress{position:absolute;top:0;left:0;right:0;height:3px;background:var(--divider);z-index:6;opacity:0;transition:opacity .3s}
+.ob-progress.show{opacity:1}
+.ob-progress i{display:block;height:100%;width:0;background:var(--brand);border-radius:0 3px 3px 0;transition:width .45s cubic-bezier(.32,.72,0,1)}
+.ob-screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateX(100%);transition:transform .42s cubic-bezier(.32,.72,0,1),opacity .32s;will-change:transform}
 .ob-screen.on{opacity:1;pointer-events:auto;transform:none}
-.ob-screen.past{opacity:0;transform:translateX(-28px);pointer-events:none}
-.ob-screen::-webkit-scrollbar{display:none}
-.ob-back{position:absolute;top:max(env(safe-area-inset-top),16px);left:14px;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.05);color:var(--ink);font-size:26px;font-weight:400;display:flex;align-items:center;justify-content:center;z-index:2;line-height:1}
-.ob-hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px}
-.ob-logo{width:96px;height:96px;border-radius:28px;background:var(--grad-hero);display:flex;align-items:center;justify-content:center;font-size:50px;box-shadow:0 18px 40px var(--brand-glow);margin-bottom:14px}
-.ob-title{font-family:var(--disp);font-weight:800;font-size:34px;letter-spacing:-1px;color:var(--ink)}
-.ob-tag{font-size:16px;line-height:1.5;letter-spacing:-.01em;color:var(--muted);max-width:280px;margin-top:4px}
-.ob-body{flex:1;padding-top:max(calc(env(safe-area-inset-top) + 62px),82px)}
-.ob-h1{font-family:var(--disp);font-weight:800;font-size:28px;letter-spacing:-.7px;color:var(--ink)}
-.ob-sub{font-size:15.5px;line-height:1.5;letter-spacing:-.01em;color:var(--muted);margin:8px 0 26px}
-.ob-foot{flex-shrink:0;padding:14px 0 calc(24px + env(safe-area-inset-bottom))}
-.ob-textlink{display:block;width:100%;text-align:center;color:var(--muted);font-size:15px;font-weight:600;letter-spacing:-.01em;padding:14px}
-.ob-google{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;background:var(--white);border:1.5px solid var(--hairline);border-radius:9999px;padding:15px;font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--ink);box-shadow:0 2px 10px rgba(25,16,34,.05)}
+.ob-screen.past{opacity:0;transform:translateX(-32px);pointer-events:none}
+.ob-top{flex-shrink:0;height:max(calc(env(safe-area-inset-top) + 10px),40px);display:flex;align-items:flex-end;padding:0 10px 2px}
+.ob-back2{width:40px;height:40px;display:flex;align-items:center;justify-content:center;color:var(--ink);border-radius:50%}
+.ob-back2:active{background:rgba(0,0,0,.05)}
+.ob-back2 svg{width:25px;height:25px}
+.ob-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 24px 12px}
+.ob-content::-webkit-scrollbar{display:none}
+.ob-content.center{display:flex;flex-direction:column;justify-content:center}
+.ob-head{margin:6px 0 28px}
+.ob-h1{font-family:var(--disp);font-weight:800;font-size:30px;line-height:1.1;letter-spacing:-.8px;color:var(--ink)}
+.ob-sub{font-size:16px;line-height:1.5;letter-spacing:-.01em;color:var(--muted);margin-top:11px}
+.ob-foot{flex-shrink:0;padding:12px 24px calc(20px + env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,var(--canvas) 34%)}
+.ob-foot .cta{margin-top:0}
+.ob-note{text-align:center;font-size:12.5px;line-height:1.45;color:var(--muted-soft);letter-spacing:-.01em;margin-top:13px;padding:0 8px}
+.ob-textlink{display:block;width:100%;text-align:center;color:var(--brand-ink);font-size:15px;font-weight:600;letter-spacing:-.01em;padding:15px 0 2px}
+/* welcome — app mark + feature list */
+.ob-brand{text-align:center;padding-top:min(6vh,44px)}
+.ob-logo{width:88px;height:88px;border-radius:24px;background:var(--grad-hero);display:inline-flex;align-items:center;justify-content:center;font-size:46px;box-shadow:0 16px 38px var(--brand-glow)}
+.ob-welcome-t{font-family:var(--disp);font-weight:800;font-size:29px;line-height:1.14;letter-spacing:-.7px;color:var(--ink);margin-top:18px}
+.ob-welcome-t em{font-style:normal;color:var(--brand-ink)}
+.ob-feats{margin-top:34px;display:flex;flex-direction:column;gap:24px}
+.ob-feat{display:flex;gap:15px;align-items:flex-start;text-align:left}
+.ob-feat-ic{width:44px;height:44px;border-radius:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px}
+.ob-feat-t{font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.ob-feat-s{font-size:14px;line-height:1.42;color:var(--muted);margin-top:2px}
+/* sign-in hero */
+.ob-signin-hero{text-align:center;margin-bottom:8px}
+.ob-signin-hero .ob-logo{width:76px;height:76px;font-size:38px;border-radius:22px}
+.ob-signin-t{font-family:var(--disp);font-weight:800;font-size:26px;letter-spacing:-.6px;color:var(--ink);margin-top:20px}
+.ob-signin-s{font-size:15.5px;line-height:1.5;color:var(--muted);margin-top:9px}
+/* google button (real mark) */
+.ob-google{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;background:var(--white);border:1px solid var(--hairline);border-radius:14px;padding:16px;font-size:16px;font-weight:600;letter-spacing:-.01em;color:#3c4043;box-shadow:0 2px 10px rgba(25,16,34,.06)}
 .ob-google:active{background:var(--surface)}
-.ob-gicon{width:24px;height:24px;border-radius:50%;background:conic-gradient(from -45deg,#EA4335 0 25%,#FBBC05 0 50%,#34A853 0 75%,#4285F4 0);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;box-shadow:inset 0 0 0 6px #fff}
-.ob-gacct{display:flex;align-items:center;gap:12px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px;margin-top:16px}
-.ob-gacct-av{width:42px;height:42px;border-radius:50%;background:var(--emma-b);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex-shrink:0}
-.ob-gacct-n{font-size:15px;font-weight:700;color:var(--ink)}
+.ob-gicon{width:20px;height:20px;flex-shrink:0}
+.ob-gacct{display:flex;align-items:center;gap:12px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:13px 15px}
+.ob-gacct-av{width:40px;height:40px;border-radius:50%;background:var(--emma-b);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;flex-shrink:0}
+.ob-gacct-n{font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
 .ob-gacct-e{font-size:13px;color:var(--muted)}
 .ob-gacct .chk{margin-left:auto;width:22px;height:22px;color:var(--good)}
-.ob-card{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--white);border:1px solid var(--hairline);border-radius:18px;padding:18px;margin-bottom:12px;box-shadow:0 2px 10px rgba(25,16,34,.05)}
-.ob-card:active{transform:scale(.99)}
-.ob-card-em{width:46px;height:46px;border-radius:14px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
-.ob-card-t{font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
-.ob-card-s{font-size:13.5px;color:var(--muted);margin-top:2px}
+/* choice cards */
+.ob-card{display:flex;align-items:center;gap:15px;width:100%;text-align:left;background:var(--white);border:1px solid var(--hairline);border-radius:18px;padding:18px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(25,16,34,.04),0 10px 24px rgba(25,16,34,.05)}
+.ob-card:active{transform:scale(.985)}
+.ob-card-em{width:48px;height:48px;border-radius:14px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.ob-card-t{font-size:16.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.ob-card-s{font-size:13.5px;line-height:1.35;color:var(--muted);margin-top:2px}
 .ob-card .chev{margin-left:auto;color:#cfc8d6;flex-shrink:0}
-.ob-code{width:100%;text-align:center;font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:8px;text-transform:uppercase;background:var(--surface);border:2px solid var(--hairline);border-radius:16px;padding:18px;color:var(--ink);outline:none}
-.ob-code:focus{border-color:var(--brand)}
-.ob-preview{background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:16px;margin-top:16px}
-.ob-preview-fam{font-family:var(--disp);font-weight:800;font-size:19px;letter-spacing:-.4px;color:var(--ink)}
-.ob-preview-sub{font-size:14px;color:var(--muted);margin-top:3px}
-.ob-avatar{width:88px;height:88px;border-radius:50%;margin:6px auto 16px;background:var(--emma-b);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:34px;letter-spacing:-1px;box-shadow:0 10px 26px rgba(25,16,34,.16)}
-.ob-colors{display:flex;justify-content:center;gap:12px;margin-bottom:24px}
-.ob-swatch{width:32px;height:32px;border-radius:50%;border:3px solid transparent;transition:transform .15s}
-.ob-swatch.on{border-color:var(--ink);transform:scale(1.12)}
-.ob-mrow{display:flex;align-items:center;gap:9px;margin-bottom:9px}
-.ob-mrow .ob-mav{width:38px;height:38px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
-.ob-mrow .ob-mname{flex:1;min-width:0;background:var(--surface);border:1px solid var(--hairline);border-radius:11px;padding:10px 12px;font-size:15px;font-weight:600;color:var(--ink);outline:none}
-.ob-mrow select{flex-shrink:0;background:var(--surface);border:1px solid var(--hairline);border-radius:11px;padding:10px 8px;font-size:14px;font-weight:600;color:var(--ink);font-family:inherit}
-.ob-mrow .ob-mdel{flex-shrink:0;width:30px;height:30px;color:var(--muted-soft);display:flex;align-items:center;justify-content:center}
-.ob-mrow .ob-mtag{flex-shrink:0;font-size:12px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:3px 8px}
+/* segmented code input */
+.ob-code-wrap{position:relative;margin-top:4px}
+.ob-code-boxes{display:flex;gap:9px;justify-content:center;pointer-events:none}
+.ob-code-box{flex:1;max-width:50px;aspect-ratio:.82;border-radius:13px;background:var(--surface);border:2px solid var(--hairline);display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:24px;color:var(--ink)}
+.ob-code-box.filled{border-color:var(--brand);background:var(--white)}
+.ob-code-box.cursor{border-color:var(--brand)}
+.ob-code{position:absolute;inset:0;width:100%;opacity:0;font-size:16px}
+.ob-preview{display:flex;align-items:center;gap:13px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:15px;margin-top:20px;box-shadow:0 8px 22px rgba(25,16,34,.05)}
+.ob-preview-ic{width:44px;height:44px;border-radius:12px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.ob-preview-fam{font-family:var(--disp);font-weight:800;font-size:18px;letter-spacing:-.4px;color:var(--ink)}
+.ob-preview-sub{font-size:13.5px;color:var(--muted);margin-top:2px}
+/* profile avatar + colours */
+.ob-avatar{width:96px;height:96px;border-radius:50%;margin:4px auto 18px;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:36px;letter-spacing:-1px;color:#fff;box-shadow:0 12px 30px rgba(25,16,34,.18)}
+.ob-colors{display:flex;justify-content:center;flex-wrap:wrap;gap:14px;margin-bottom:28px}
+.ob-swatch{width:34px;height:34px;border-radius:50%;position:relative;transition:transform .15s;box-shadow:0 2px 6px rgba(25,16,34,.14)}
+.ob-swatch.on{transform:scale(1.12)}
+.ob-swatch.on::after{content:'';position:absolute;inset:0;border-radius:50%;border:2.5px solid var(--white);box-shadow:0 0 0 2px currentColor}
+/* member / invite cards */
+.ob-mcard{background:var(--white);border:1px solid var(--hairline);border-radius:15px;padding:11px 13px 12px;margin-bottom:10px;box-shadow:0 1px 3px rgba(25,16,34,.04)}
+.ob-mrow{display:flex;align-items:center;gap:11px;padding:0 0 9px}
+.ob-mrow .ob-mav{width:40px;height:40px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.ob-mname{flex:1;min-width:0;background:none;border:none;font-size:15.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);outline:none;padding:2px}
+.ob-mfields{display:flex;align-items:center;gap:9px}
+.ob-memail{flex:1;min-width:0;background:var(--surface);border:1px solid var(--hairline);border-radius:10px;padding:9px 11px;font-size:14px;letter-spacing:-.01em;color:var(--ink);outline:none}
+.ob-memail:focus{border-color:var(--brand);background:#fff}
+.ob-memail[readonly]{opacity:.55}
+.ob-mrole{flex-shrink:0;background:var(--surface);border:1px solid var(--hairline);border-radius:10px;padding:9px 26px 9px 11px;font-size:13.5px;font-weight:600;color:var(--ink);font-family:inherit;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a5a6e' stroke-width='2.6'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.ob-mdel{flex-shrink:0;width:30px;height:30px;color:var(--muted-soft);display:flex;align-items:center;justify-content:center;border-radius:8px}
+.ob-mdel:active{color:var(--danger);background:var(--danger-tint)}
+.ob-mdel svg{width:16px;height:16px}
+.ob-mtag{flex-shrink:0;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:4px 8px}
+/* done */
+.ob-done-badge{width:104px;height:104px;border-radius:50%;background:var(--good-tint);color:var(--good);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 14px 34px rgba(26,157,95,.22)}
+.ob-done-badge svg{width:52px;height:52px}
 </style>
 </head>
 <body>
@@ -1279,11 +1321,19 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 
 <!-- ONBOARDING -->
 <div id="onboarding">
+  <div class="ob-progress" id="ob-progress"><i id="ob-bar"></i></div>
+
   <section class="ob-screen on" data-ob="welcome">
-    <div class="ob-hero">
-      <div class="ob-logo">🏡</div>
-      <div class="ob-title">FamilyHub</div>
-      <div class="ob-tag">One home for your family's money — budgets, goals and memories, together.</div>
+    <div class="ob-content center">
+      <div class="ob-brand">
+        <div class="ob-logo">🏡</div>
+        <div class="ob-welcome-t">Welcome to<br><em>FamilyHub</em></div>
+      </div>
+      <div class="ob-feats">
+        <div class="ob-feat"><div class="ob-feat-ic" style="background:#e9f7f0;color:#1a9d5f">💰</div><div><div class="ob-feat-t">One shared pool</div><div class="ob-feat-s">See your family's money together — budgets and spending in one place.</div></div></div>
+        <div class="ob-feat"><div class="ob-feat-ic" style="background:#eef1fc;color:#5E5CE6">🎯</div><div><div class="ob-feat-t">Goals &amp; events</div><div class="ob-feat-s">Save toward trips, birthdays and the things that matter.</div></div></div>
+        <div class="ob-feat"><div class="ob-feat-ic" style="background:#fdeef4;color:#FF375F">📸</div><div><div class="ob-feat-t">Memories together</div><div class="ob-feat-s">Turn everyday moments into a shared family album.</div></div></div>
+      </div>
     </div>
     <div class="ob-foot">
       <button class="cta" onclick="obGo('auth')">Get started</button>
@@ -1292,73 +1342,88 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   </section>
 
   <section class="ob-screen" data-ob="auth">
-    <button class="ob-back" onclick="obGo('welcome')" aria-label="Back">‹</button>
-    <div class="ob-body">
-      <div class="ob-h1">Sign in</div>
-      <div class="ob-sub">Continue with your Google account — secure, and just one tap.</div>
-      <button class="ob-google" onclick="obGoogle()"><span class="ob-gicon">G</span>Continue with Google</button>
-      <div class="ob-gacct" id="ob-gacct" style="display:none"></div>
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('welcome')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content center">
+      <div class="ob-signin-hero">
+        <div class="ob-logo">🏡</div>
+        <div class="ob-signin-t">Sign in to FamilyHub</div>
+        <div class="ob-signin-s">Use your Google account to get started — secure, and just one tap.</div>
+      </div>
+      <div class="ob-gacct" id="ob-gacct" style="display:none;margin-top:26px"></div>
+    </div>
+    <div class="ob-foot">
+      <button class="ob-google" onclick="obGoogle()"><svg class="ob-gicon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Continue with Google</button>
+      <div class="ob-note">By continuing, you agree to our Terms &amp; Privacy Policy.</div>
     </div>
   </section>
 
   <section class="ob-screen" data-ob="choice">
-    <button class="ob-back" onclick="obGo('auth')" aria-label="Back">‹</button>
-    <div class="ob-body">
-      <div class="ob-h1">Your family</div>
-      <div class="ob-sub">Start a new family, or join one you've been invited to.</div>
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('auth')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1">Your family</div><div class="ob-sub">Start a new family, or join one you've been invited to.</div></div>
       <button class="ob-card" onclick="obChoose('create')"><div class="ob-card-em">✨</div><div><div class="ob-card-t">Start a new family</div><div class="ob-card-s">You'll name it and invite others</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
       <button class="ob-card" onclick="obChoose('join')"><div class="ob-card-em">🔗</div><div><div class="ob-card-t">Join a family</div><div class="ob-card-s">Enter an invite code</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     </div>
   </section>
 
   <section class="ob-screen" data-ob="join">
-    <button class="ob-back" onclick="obGo('choice')" aria-label="Back">‹</button>
-    <div class="ob-body">
-      <div class="ob-h1">Join a family</div>
-      <div class="ob-sub">Enter the 6-character code from your invite.</div>
-      <input class="ob-code" id="ob-code" maxlength="6" placeholder="ABC123" autocapitalize="characters" oninput="obCodeInput(this)">
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('choice')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1">Enter invite code</div><div class="ob-sub">Ask a family member for the 6-character code from their invite.</div></div>
+      <div class="ob-code-wrap">
+        <div class="ob-code-boxes" id="ob-code-boxes"></div>
+        <input class="ob-code" id="ob-code" maxlength="6" inputmode="text" autocapitalize="characters" autocomplete="off" oninput="obCodeInput(this)">
+      </div>
       <div class="ob-preview" id="ob-join-preview" style="display:none"></div>
     </div>
     <div class="ob-foot"><button class="cta" id="ob-join-cta" onclick="obJoin()" disabled>Join family</button></div>
   </section>
 
   <section class="ob-screen" data-ob="profile">
-    <button class="ob-back" id="ob-profile-back" onclick="obGo('choice')" aria-label="Back">‹</button>
-    <div class="ob-body">
-      <div class="ob-h1">Your profile</div>
-      <div class="ob-sub">This is how your family will see you.</div>
+    <div class="ob-top"><button class="ob-back2" id="ob-profile-back" onclick="obGo('choice')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1">Set up your profile</div><div class="ob-sub">This is how your family will see you.</div></div>
       <div class="ob-avatar" id="ob-avatar">?</div>
       <div class="ob-colors" id="ob-colors"></div>
       <div class="field"><label>Your name</label><input id="ob-name" placeholder="e.g. Emma" oninput="obNameInput()"></div>
       <div class="field"><label>You are the…</label><div class="choices" id="ob-role">
-        <button class="choice on" data-v="Parent" onclick="pick('ob-role',this)">Parent</button>
-        <button class="choice" data-v="Teen" onclick="pick('ob-role',this)">Teen</button>
-        <button class="choice" data-v="Kid" onclick="pick('ob-role',this)">Kid</button>
+        <button class="choice on" data-v="Mom" onclick="pick('ob-role',this)">Mom</button>
+        <button class="choice" data-v="Dad" onclick="pick('ob-role',this)">Dad</button>
+        <button class="choice" data-v="Parent" onclick="pick('ob-role',this)">Parent</button>
+        <button class="choice" data-v="Guardian" onclick="pick('ob-role',this)">Guardian</button>
       </div></div>
     </div>
     <div class="ob-foot"><button class="cta" onclick="obProfileNext()">Continue</button></div>
   </section>
 
   <section class="ob-screen" data-ob="family">
-    <button class="ob-back" onclick="obGo('profile')" aria-label="Back">‹</button>
-    <div class="ob-body">
-      <div class="ob-h1">Set up your family</div>
-      <div class="ob-sub">Name it, add who's in it, and set a monthly budget.</div>
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('profile')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1">Set up your family</div><div class="ob-sub">Name it, invite who's in it, and set a monthly budget.</div></div>
       <div class="field"><label>Family name</label><input id="ob-famname" placeholder="e.g. The Reeds"></div>
-      <div class="field"><label>Members</label>
+      <div class="field"><label>Members &amp; invites</label>
         <div id="ob-members"></div>
-        <button class="btn-line" onclick="obAddMember()" style="margin:8px 0 0;width:100%">＋ Add member</button>
+        <button class="btn-line" onclick="obAddMember()" style="margin:12px 0 0;width:100%">＋ Invite a member</button>
       </div>
       <div class="field"><label>Monthly budget</label><input class="big num" id="ob-budget" inputmode="numeric" placeholder="$9,000"></div>
     </div>
     <div class="ob-foot"><button class="cta" onclick="obFamilyNext()">Continue</button></div>
   </section>
 
+  <section class="ob-screen" data-ob="theme">
+    <div class="ob-top"><button class="ob-back2" id="ob-theme-back" onclick="obGo('family')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1">Pick your look</div><div class="ob-sub">Choose a color theme for your family's hub — you can change it anytime.</div></div>
+      <div class="theme-grid" id="ob-theme-grid"></div>
+    </div>
+    <div class="ob-foot"><button class="cta" onclick="obThemeNext()">Continue</button></div>
+  </section>
+
   <section class="ob-screen" data-ob="done">
-    <div class="ob-hero">
-      <div class="ob-logo">🎉</div>
-      <div class="ob-title" id="ob-done-title">You're all set!</div>
-      <div class="ob-tag" id="ob-done-sub">Welcome to FamilyHub.</div>
+    <div class="ob-content center" style="align-items:center;text-align:center">
+      <div class="ob-done-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
+      <div class="ob-welcome-t" id="ob-done-title" style="margin-top:26px">You're all set!</div>
+      <div class="ob-signin-s" id="ob-done-sub" style="max-width:300px;margin-top:10px">Welcome to FamilyHub.</div>
     </div>
     <div class="ob-foot"><button class="cta" onclick="finishOnboarding()">Enter FamilyHub</button></div>
   </section>
@@ -2657,20 +2722,41 @@ var FAM={
   budget:9000
 };
 var OB_COLORS=['#6f3fc0','#0e8478','#f0701a','#e03d86','#1e74d0','#B8730B','#7A5AE0','#1a9d5f'];
-var obOrder=['welcome','auth','choice','join','profile','family','done'];
+var OB_ROLES=['Mom','Dad','Parent','Partner','Son','Daughter','Kid','Teen','Sweetie','Guardian','Grandma','Grandpa','Other'];
+var obOrder=['welcome','auth','choice','join','profile','family','theme','done'];
+var obProg={welcome:0,auth:.16,choice:.34,join:.55,profile:.62,family:.82,theme:.92,done:1};
 function inits(n){ return ((n||'').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2)||'?').toUpperCase(); }
+function roleOpts(sel){ return OB_ROLES.map(function(r){ return '<option'+(r===sel?' selected':'')+'>'+r+'</option>'; }).join(''); }
 function obGo(name){
   var ci=obOrder.indexOf(name);
   document.querySelectorAll('#onboarding .ob-screen').forEach(function(s){
     var i=obOrder.indexOf(s.dataset.ob);
     s.classList.toggle('on', i===ci); s.classList.toggle('past', i<ci);
   });
+  var p = (name==='profile' && FAM.mode==='join') ? .78 : (obProg[name]||0);
+  document.getElementById('ob-bar').style.width=(p*100)+'%';
+  document.getElementById('ob-progress').classList.toggle('show', name!=='welcome');
+  if(name==='join'){ var c=document.getElementById('ob-code'); renderCodeBoxes(c.value); setTimeout(function(){ c.focus(); },320); }
+  if(name==='theme') buildObThemes();
+}
+function renderCodeBoxes(val){
+  val=val||''; var box=document.getElementById('ob-code-boxes'); if(!box)return;
+  var html=''; for(var i=0;i<6;i++){ var ch=val[i]||''; html+='<div class="ob-code-box'+(ch?' filled':(i===val.length?' cursor':''))+'">'+ch+'</div>'; }
+  box.innerHTML=html;
+}
+function buildObThemes(){
+  var box=document.getElementById('ob-theme-grid'); if(!box)return;
+  box.innerHTML=THEMES.map(function(t){
+    return '<div class="theme-opt'+(t.k===curTheme?' on':'')+'" onclick="applyTheme(\''+t.k+'\');buildObThemes()">'
+      +'<div class="sw" style="background:'+t.grad+'"><div class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#191022" stroke-width="3.2"><path d="M5 12l5 5L20 7"/></svg></div></div>'
+      +'<div class="nm">'+t.name+'</div></div>';
+  }).join('');
 }
 function obGoogle(){
   var acct=document.getElementById('ob-gacct');
   acct.style.display='flex';
   acct.innerHTML='<div class="ob-gacct-av">E</div><div><div class="ob-gacct-n">Emma Reed</div><div class="ob-gacct-e">emma.reed@gmail.com</div></div><svg class="chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5L20 7"/></svg>';
-  FAM.user.name='Emma Reed';
+  FAM.user.name='Emma Reed'; FAM.user.email='emma.reed@gmail.com';
   setTimeout(function(){ obGo('choice'); },750);
 }
 function obChoose(mode){
@@ -2679,10 +2765,11 @@ function obChoose(mode){
   else { document.getElementById('ob-profile-back').setAttribute('onclick',"obGo('choice')"); obPrefillProfile(); obGo('profile'); }
 }
 function obCodeInput(el){
-  el.value=el.value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  el.value=el.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+  renderCodeBoxes(el.value);
   var ok=el.value.length>=6, pv=document.getElementById('ob-join-preview');
   document.getElementById('ob-join-cta').disabled=!ok;
-  if(ok){ pv.style.display='block'; pv.innerHTML='<div class="ob-preview-fam">🏡 The Reeds</div><div class="ob-preview-sub">4 members · invited by James</div>'; }
+  if(ok){ pv.style.display='flex'; pv.innerHTML='<div class="ob-preview-ic">🏡</div><div><div class="ob-preview-fam">The Reeds</div><div class="ob-preview-sub">4 members · invited by James</div></div>'; }
   else pv.style.display='none';
 }
 function obJoin(){
@@ -2705,37 +2792,43 @@ function obProfileNext(){
   var n=document.getElementById('ob-name').value.trim(); if(!n){ document.getElementById('ob-name').focus(); return; }
   FAM.user.name=n; FAM.user.role=chosen('ob-role')||'Parent';
   if(FAM.mode==='create'){ obPrefillFamily(); obGo('family'); }
-  else { FAM.members=[{name:n,color:FAM.user.color,role:FAM.user.role,me:true}]; obPrepDone(); obGo('done'); }
+  else { FAM.members=[{name:n,email:FAM.user.email||'',color:FAM.user.color,role:FAM.user.role,me:true}]; document.getElementById('ob-theme-back').setAttribute('onclick',"obGo('profile')"); obGo('theme'); }
 }
-function obMemberRowHTML(name,role,color,me){
-  return '<div class="ob-mrow"><div class="ob-mav" style="background:'+color+'">'+inits(name)+'</div>'
+function obMemberRowHTML(name,email,role,color,me){
+  return '<div class="ob-mcard">'
+    +'<div class="ob-mrow"><div class="ob-mav" style="background:'+color+'">'+inits(name)+'</div>'
     +'<input class="ob-mname" value="'+String(name||'').replace(/"/g,'&quot;')+'" placeholder="Name"'+(me?' readonly':'')+' oninput="obSyncMav(this)">'
-    +'<select><option'+(role==='Parent'?' selected':'')+'>Parent</option><option'+(role==='Teen'?' selected':'')+'>Teen</option><option'+(role==='Kid'?' selected':'')+'>Kid</option></select>'
-    +(me?'<span class="ob-mtag">You</span>':'<button class="ob-mdel" onclick="this.closest(\'.ob-mrow\').remove()" aria-label="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
-    +'</div>';
+    +(me?'<span class="ob-mtag">You</span>':'<button class="ob-mdel" onclick="this.closest(\'.ob-mcard\').remove()" aria-label="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
+    +'</div>'
+    +'<div class="ob-mfields">'
+    +'<input class="ob-memail" type="email" inputmode="email" autocapitalize="off" placeholder="name@gmail.com" value="'+String(email||'').replace(/"/g,'&quot;')+'"'+(me?' readonly':'')+'>'
+    +'<select class="ob-mrole">'+roleOpts(role)+'</select>'
+    +'</div></div>';
 }
 function obSyncMav(inp){ var av=inp.previousElementSibling; if(av) av.textContent=inits(inp.value); }
 function obPrefillFamily(){
   if(!document.getElementById('ob-famname').value) document.getElementById('ob-famname').value=firstName(FAM.user.name)!=='there'?("The "+firstName(FAM.user.name)+"s"):'';
   if(!document.getElementById('ob-budget').value) document.getElementById('ob-budget').value='9000';
-  document.getElementById('ob-members').innerHTML=obMemberRowHTML(FAM.user.name,FAM.user.role,FAM.user.color,true);
+  document.getElementById('ob-members').innerHTML=obMemberRowHTML(FAM.user.name,FAM.user.email||'',FAM.user.role,FAM.user.color,true);
 }
 function obAddMember(){
-  var used=document.querySelectorAll('#ob-members .ob-mrow').length;
-  document.getElementById('ob-members').insertAdjacentHTML('beforeend', obMemberRowHTML('','Kid',OB_COLORS[(used+2)%OB_COLORS.length],false));
+  var used=document.querySelectorAll('#ob-members .ob-mcard').length;
+  document.getElementById('ob-members').insertAdjacentHTML('beforeend', obMemberRowHTML('','','Kid',OB_COLORS[(used+2)%OB_COLORS.length],false));
 }
 function obFamilyNext(){
   var fn=document.getElementById('ob-famname').value.trim(); if(!fn){ document.getElementById('ob-famname').focus(); return; }
   FAM.familyName=fn;
   var mems=[];
-  document.querySelectorAll('#ob-members .ob-mrow').forEach(function(row,i){
+  document.querySelectorAll('#ob-members .ob-mcard').forEach(function(row,i){
     var nm=row.querySelector('.ob-mname').value.trim(); if(!nm)return;
-    mems.push({name:nm, role:row.querySelector('select').value, color:row.querySelector('.ob-mav').style.background||OB_COLORS[i%OB_COLORS.length], me:!!row.querySelector('.ob-mtag')});
+    mems.push({name:nm, email:(row.querySelector('.ob-memail')||{value:''}).value.trim(), role:row.querySelector('.ob-mrole').value, color:row.querySelector('.ob-mav').style.background||OB_COLORS[i%OB_COLORS.length], me:!!row.querySelector('.ob-mtag')});
   });
-  FAM.members=mems.length?mems:[{name:FAM.user.name,color:FAM.user.color,role:FAM.user.role,me:true}];
+  FAM.members=mems.length?mems:[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,role:FAM.user.role,me:true}];
   FAM.budget=parseAmt(document.getElementById('ob-budget').value)||9000;
-  obPrepDone(); obGo('done');
+  document.getElementById('ob-theme-back').setAttribute('onclick',"obGo('family')");
+  obGo('theme');
 }
+function obThemeNext(){ obPrepDone(); obGo('done'); }
 function obPrepDone(){
   setTxt('ob-done-title','Welcome, '+firstName(FAM.user.name)+'!');
   setTxt('ob-done-sub', FAM.mode==='join' ? ('You\'ve joined '+FAM.familyName+'.') : (FAM.familyName+' is ready — '+FAM.members.length+' member'+(FAM.members.length!==1?'s':'')+'.'));
