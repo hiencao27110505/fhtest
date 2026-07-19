@@ -3561,10 +3561,12 @@ if('serviceWorker' in navigator){
 
   // ---- realtime: reload on any change to this family's rows ----
   let _rtTimer = null;
-  function _subscribeRealtime(fid) {
+  async function _subscribeRealtime(fid) {
     if (window.DB.rtFid === fid || !sb.channel) return;
     window.DB.rtFid = fid;
     try {
+      // authenticate the realtime socket so RLS-gated postgres_changes are delivered
+      try { const { data: { session } } = await sb.auth.getSession(); if (session && sb.realtime && sb.realtime.setAuth) await sb.realtime.setAuth(session.access_token); } catch (e) {}
       const ch = sb.channel('fam-' + fid);
       ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos'].forEach((tbl) => {
         ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: 'family_id=eq.' + fid }, () => {
@@ -3574,6 +3576,19 @@ if('serviceWorker' in navigator){
       ch.subscribe();
     } catch (e) { console.warn('realtime subscribe failed', e); }
   }
+
+  // re-sync whenever the app is brought back to the foreground (iOS PWAs resume without reloading)
+  let _lastRefresh = 0;
+  function _refreshOnResume() {
+    if (document.visibilityState === 'hidden') return;
+    if (!window.DB || !window.DB.fid || window.editingTx != null) return;
+    const now = Date.now();
+    if (now - _lastRefresh < 2000) return;
+    _lastRefresh = now;
+    window.loadFamilyData && window.loadFamilyData();
+  }
+  document.addEventListener('visibilitychange', _refreshOnResume);
+  window.addEventListener('focus', _refreshOnResume);
 
   (async () => {
     const { data: { session } } = await sb.auth.getSession();
