@@ -1529,60 +1529,22 @@ function segTo(which){
 
 /* ---------- model ---------- */
 var budget=9000;
-var catBudget={Housing:3000,Groceries:2200,Dining:900,Transport:1400,Fun:900,Others:600};
-var catOrder=['Housing','Groceries','Dining','Transport','Fun','Others'];
+var catBudget={};
+var catOrder=[];
 var months={
-  Feb:{label:'February 2026',short:'Feb',done:true,dim:28,dom:28,spent:8900,budget:8500,
-    catSpent:{Housing:3050,Groceries:2300,Dining:1080,Transport:870,Fun:700,Others:900},
-    memberSpent:{Emma:3700,James:3300,Shared:1300,Mia:400,Leo:200}},
-  Mar:{label:'March 2026',short:'Mar',done:true,dim:31,dom:31,spent:9600,budget:8500,
-    catSpent:{Housing:3200,Groceries:2500,Dining:1350,Transport:950,Fun:800,Others:800},
-    memberSpent:{Emma:4000,James:3600,Shared:1400,Mia:400,Leo:200}},
-  Apr:{label:'April 2026',short:'Apr',done:true,dim:30,dom:30,spent:8200,budget:9000,
-    catSpent:{Housing:2950,Groceries:2150,Dining:1000,Transport:820,Fun:680,Others:600},
-    memberSpent:{Emma:3400,James:3100,Shared:1200,Mia:350,Leo:150}},
-  May:{label:'May 2026',short:'May',done:true,dim:31,dom:31,spent:8740,budget:9000,
-    catSpent:{Housing:3100,Groceries:2400,Dining:1150,Transport:900,Fun:690,Others:500},
-    memberSpent:{Emma:3600,James:3300,Shared:1200,Mia:420,Leo:220}},
-  Jun:{label:'June 2026',short:'June',done:true,dim:30,dom:30,spent:9320,budget:9500,
-    catSpent:{Housing:3200,Groceries:2600,Dining:1300,Transport:950,Fun:770,Others:500},
-    memberSpent:{Emma:3900,James:3400,Shared:1400,Mia:400,Leo:220}},
-  Jul:{label:'July 2026',short:'July',done:false,dim:31,dom:13,spent:4120,budget:9000,
-    catSpent:{Housing:1480,Groceries:1070,Dining:740,Transport:500,Fun:330,Others:0},
-    memberSpent:{Emma:1760,James:1480,Shared:620,Mia:180,Leo:80}}
+  Jul:{label:'',short:'Jul',done:false,dim:31,dom:15,spent:0,budget:0,catSpent:{},memberSpent:{}}
 };
-var monthOrder=['Feb','Mar','Apr','May','Jun','Jul'];
+var monthOrder=['Jul'];
 var selMonth='Jul';
 function M(){ return months[selMonth]; }
-var membersMeta={
-  Emma:{av:'av-emma',ini:'EM',col:'#6f3fc0'},
-  James:{av:'av-james',ini:'JR',col:'#0e8478'},
-  Shared:{av:'av-shared',ini:'👥',col:'#8f8a99'},
-  Mia:{av:'av-mia',ini:'MR',col:'#f0701a'},
-  Leo:{av:'av-leo',ini:'LR',col:'#e03d86'}
-};
+var membersMeta={};
 // Real current date. The demo data lives in July 2026, so if the device clock is
 // outside that month we fall back to mid-July to keep the seed coherent.
 var TODAY=(function(){ var d=new Date(); d.setHours(0,0,0,0); if(d.getFullYear()!==2026 || d.getMonth()!==6) d=new Date(2026,6,15); return d; })();
 months.Jul.dom=TODAY.getDate();
 months.Jul.dim=new Date(TODAY.getFullYear(),TODAY.getMonth()+1,0).getDate();
-var events={
-  japan:{name:'Summer in Japan',emoji:'✈️',cov:'blue',date:'Sep 15',d:new Date(2026,8,15),target:12000,saved:5600},
-  dinner:{name:'Family dinner out',emoji:'🍜',cov:'sun',date:'',d:TODAY,target:120,saved:120,setAside:120},
-  bday:{name:"Weekend getaway",emoji:'🏝️',cov:'pink',date:'Jul 28',d:new Date(2026,6,28),target:800,saved:520,setAside:300},
-  laptop:{name:"Mia's laptop",emoji:'💻',cov:'purple',date:'Aug 20',d:new Date(2026,7,20),target:1100,saved:620},
-  rent:{name:'August rent',emoji:'🏠',cov:'indigo',date:'Aug 1',d:new Date(2026,7,1),target:2400,saved:1600},
-  school:{name:'Back to school',emoji:'🎒',cov:'sun',date:'Aug 25',d:new Date(2026,7,25),target:600,saved:180},
-  beach:{name:'Summer beach trip',emoji:'🏖️',cov:'blue',date:'Jun 20',d:new Date(2026,5,20),target:2200,saved:2200,achieved:true,
-    memories:[{cls:'ph-beach',emoji:'🏖️',caption:'Leo built the biggest sandcastle ever'},{cls:'ph-city',emoji:'🍦',caption:'Ice cream on the boardwalk'}]},
-  kyoto:{name:'Spring in Kyoto',emoji:'🌸',cov:'purple',date:'Apr 8',d:new Date(2026,3,8),target:8000,saved:8000,achieved:true,
-    memories:[{cls:'ph-japan',emoji:'🌸',caption:'Cherry blossoms at Maruyama Park'}]},
-  anniv:{name:'10-year anniversary',emoji:'🥂',cov:'pink',date:'May 2',d:new Date(2026,4,2),target:600,saved:600,achieved:true,
-    memories:[{cls:'ph-dinner',emoji:'🥂',caption:'Ten years together 💛'}]},
-  picnic:{name:'4th of July picnic',emoji:'🎆',cov:'blue',date:'Jul 4',d:new Date(2026,6,4),target:250,saved:250,achieved:true},
-  fathers:{name:"Father's Day brunch",emoji:'🍳',cov:'sun',date:'Jun 21',d:new Date(2026,5,21),target:300,saved:300,achieved:true}
-};
-var order=['dinner','bday','laptop','rent','japan','school','beach','kyoto','anniv','picnic','fathers'];
+var events={};
+var order=[];
 // A fully-funded event is "ready", not done — it becomes a memory only once its date passes.
 function achievedNow(e){ return e.achieved===true || (e.d && e.d<TODAY); }
 // Money set aside from THIS month's budget (unrealized — reserved, not spent):
@@ -2367,34 +2329,10 @@ function toast(msg){
 }
 
 /* ---------- expense ---------- */
-var catStyle={Groceries:['🛒','#eaf7ee','var(--cat-food)'],Housing:['🏠','#eeeefc','var(--cat-housing)'],Dining:['🍽️','#fdeef4','var(--cat-dining)'],Others:['🗂️','#eef4fb','var(--cat-other)'],Transport:['🚗','#eafaf9','var(--cat-transport)'],Fun:['🎉','#f7eefd','var(--cat-fun)']};
+var catStyle={};
 /* ---------- transactions (with spender avatar) ---------- */
 // July transactions — per-category sums ARE the category totals (aggregates derived below).
-var txns=[
-  {ico:'🏠',cat:'Housing',note:'Rent',date:'Jul 1',who:'Shared',amt:1180,month:'Jul'},
-  {ico:'💡',cat:'Housing',note:'Electricity',date:'Jul 6',who:'James',amt:140,month:'Jul'},
-  {ico:'🚰',cat:'Housing',note:'Water',date:'Jul 6',who:'Shared',amt:95,month:'Jul'},
-  {ico:'📶',cat:'Housing',note:'Internet',date:'Jul 3',who:'James',amt:65,month:'Jul'},
-  {ico:'🛒',cat:'Groceries',note:'Weekly shop',date:'Jul 12',who:'Emma',amt:224,month:'Jul'},
-  {ico:'🏪',cat:'Groceries',note:'Costco run',date:'Jul 7',who:'James',amt:312,month:'Jul'},
-  {ico:'🛒',cat:'Groceries',note:'Grocery run',date:'Jul 5',who:'Emma',amt:186,month:'Jul'},
-  {ico:'🥬',cat:'Groceries',note:'Farmers market',date:'Jul 9',who:'Emma',amt:128,month:'Jul'},
-  {ico:'💊',cat:'Groceries',note:'Pharmacy',date:'Jul 4',who:'James',amt:95,month:'Jul'},
-  {ico:'🍫',cat:'Groceries',note:'Snacks',date:'Jul 2',who:'Mia',amt:125,month:'Jul'},
-  {ico:'🍷',cat:'Dining',note:'Date night',date:'Jul 11',who:'Shared',amt:220,month:'Jul'},
-  {ico:'🥡',cat:'Dining',note:'Takeout',date:'Jul 9',who:'Emma',amt:180,month:'Jul'},
-  {ico:'🍳',cat:'Dining',note:'Family brunch',date:'Jul 6',who:'James',amt:166,month:'Jul'},
-  {ico:'☕',cat:'Dining',note:'Coffee runs',date:'Jul 8',who:'James',amt:120,month:'Jul'},
-  {ico:'🍜',cat:'Dining',note:'Dinner out',date:'Jul 3',who:'Emma',amt:54,month:'Jul'},
-  {ico:'🚇',cat:'Transport',note:'Transit passes',date:'Jul 1',who:'Emma',amt:150,month:'Jul'},
-  {ico:'⛽',cat:'Transport',note:'Gas',date:'Jul 10',who:'James',amt:135,month:'Jul'},
-  {ico:'🚕',cat:'Transport',note:'Rideshares',date:'Jul 7',who:'Emma',amt:128,month:'Jul'},
-  {ico:'🅿️',cat:'Transport',note:'Parking',date:'Jul 4',who:'James',amt:87,month:'Jul'},
-  {ico:'🎫',cat:'Fun',note:'Concert tickets',date:'Jul 8',who:'Emma',amt:180,month:'Jul'},
-  {ico:'🎬',cat:'Fun',note:'Movie night',date:'Jul 11',who:'Shared',amt:58,month:'Jul'},
-  {ico:'🎮',cat:'Fun',note:'Video game',date:'Jul 5',who:'Leo',amt:50,month:'Jul'},
-  {ico:'📺',cat:'Fun',note:'Streaming',date:'Jul 1',who:'James',amt:42,month:'Jul'}
-];
+var txns=[];
 // Derive July's category + member totals from the transactions so everything reconciles.
 (function(){
   var cs={}, ms={}, total=0;
@@ -2582,7 +2520,7 @@ function addExpense(){
 
 /* ---------- events fund/create ---------- */
 var CIRC=496.4, curEvent='japan';
-var savings=2400; // available saved money to allocate to events
+var savings=0; // saved-for-events pool (hydrated from DB)
 function openEvent(id){
   closeCat();
   curEvent=id; var e=events[id], dl=daysLeft(e.d), ach=achievedNow(e);
@@ -3097,10 +3035,14 @@ if('serviceWorker' in navigator){
     let fams = [];
     try { const { data } = await sb.rpc('my_families'); fams = data || []; } catch (e) {}
     const onb = g('onboarding');
-    if (fams.length === 0) {
-      if (onb && typeof window.obGo === 'function') { onb.classList.remove('done'); window.obGo('choice'); }
-    } else {
-      showFamilyPicker(fams);
+    const active = fams.find((f) => f.is_active);
+    if (active) {
+      if (onb) onb.classList.add('done');
+      await window.loadFamilyData();            // auto-enter the active family → real data + DB.fid set
+    } else if (fams.length) {
+      showFamilyPicker(fams);                    // in families but none active → pick one
+    } else if (onb && typeof window.obGo === 'function') {
+      onb.classList.remove('done'); window.obGo('choice');   // brand-new → onboarding
     }
   }
 
@@ -3283,6 +3225,19 @@ if('serviceWorker' in navigator){
       '<span class="hero-fam-cap">' + (window.FAM.familyName || '') + '</span>';
   }
 
+  // first-load spinner (so the app never flashes empty/mock before real data arrives)
+  function _showLoading() {
+    if (document.getElementById('fh-loading')) return;
+    const ov = document.createElement('div');
+    ov.id = 'fh-loading';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9997;display:flex;align-items:center;justify-content:center;background:#f4f1f6';
+    ov.innerHTML = '<div style="text-align:center;font-family:inherit"><div style="width:34px;height:34px;border:3px solid #e4dbe0;border-top-color:#b92e78;border-radius:50%;margin:0 auto 14px;animation:fhspin .8s linear infinite"></div><div style="font-size:14px;color:#7a5a6e">Loading your family…</div></div><style>@keyframes fhspin{to{transform:rotate(360deg)}}</style>';
+    document.body.appendChild(ov);
+  }
+  function _hideLoading() { const ov = document.getElementById('fh-loading'); if (ov) ov.remove(); }
+  // surface write failures instead of failing silently
+  function _writeErr(what, e) { console.warn(what, e); try { if (window.toast) window.toast('Couldn’t save — check your connection'); } catch (x) {} }
+
   // colored txn-row avatars from the real member palette (overrides the mock spMap version)
   window.spAv = function (who) {
     const key = (who || '').toLowerCase(); let mm = null;
@@ -3310,6 +3265,7 @@ if('serviceWorker' in navigator){
 
   // ---- THE hydrate: pull the whole active family into the app's globals ----
   window.loadFamilyData = async function loadFamilyData() {
+    const _first = !window.DB.fid; if (_first) _showLoading();
     try {
       const sess = (await sb.auth.getSession()).data.session;
       if (!sess || !window.FAM) return false;
@@ -3437,6 +3393,7 @@ if('serviceWorker' in navigator){
       _subscribeRealtime(fid);
       return true;
     } catch (e) { console.warn('loadFamilyData failed', e); return false; }
+    finally { _hideLoading(); }
   };
 
   // ---- write-through: transactions ----
@@ -3448,15 +3405,15 @@ if('serviceWorker' in navigator){
       const res = await sb.from('transactions').insert(row).select('id').single();
       if (res.error) throw res.error;
       if (res.data) t._dbId = res.data.id;
-    } catch (e) { console.warn('txn insert failed', e); }
+    } catch (e) { _writeErr('txn insert failed', e); }
   }
   async function _dbUpdateTxn(dbId, t, exD) {
     try {
       const catId = window.DB.catByName[t.cat] || await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1);
       await sb.from('transactions').update({ category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' }).eq('id', dbId);
-    } catch (e) { console.warn('txn update failed', e); }
+    } catch (e) { _writeErr('txn update failed', e); }
   }
-  async function _dbDeleteTxn(dbId) { try { await sb.from('transactions').delete().eq('id', dbId); } catch (e) { console.warn('txn delete failed', e); } }
+  async function _dbDeleteTxn(dbId) { try { await sb.from('transactions').delete().eq('id', dbId); } catch (e) { _writeErr('txn delete failed', e); } }
 
   const _origAddExpense = window.addExpense;
   window.addExpense = function () {
@@ -3501,7 +3458,7 @@ if('serviceWorker' in navigator){
       if (budgetAmt > 0) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: budgetAmt, source: 'budget', month: window.DB.month });
       const sp = (e.saved || 0) - (e.setAside || 0);
       if (sp > 0 && opts.savingsSource) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: sp, source: 'savings', month: null });
-    } catch (e) { console.warn('event insert failed', e); }
+    } catch (e) { _writeErr('event insert failed', e); }
   }
   const _origAddEvent = window.addEvent;
   window.addEvent = function () {
@@ -3522,7 +3479,7 @@ if('serviceWorker' in navigator){
         try {
           if (!ev._dbId && ev._dbPending) { try { await ev._dbPending; } catch (e) {} }
           if (ev._dbId) await sb.from('event_fundings').insert({ family_id: window.DB.fid, event_id: ev._dbId, member_id: _memberIdForWho(who), amount: applied, source: 'savings', month: null });
-        } catch (e) { console.warn('funding insert failed', e); }
+        } catch (e) { _writeErr('funding insert failed', e); }
       })();
     }
   };
@@ -3547,7 +3504,7 @@ if('serviceWorker' in navigator){
         if (amt > 0) await sb.from('category_budgets').upsert({ family_id: fid, month: month, category_id: cid, amount: amt }, { onConflict: 'family_id,month,category_id' });
         else await sb.from('category_budgets').delete().eq('family_id', fid).eq('month', month).eq('category_id', cid);
       }
-    } catch (e) { console.warn('budget save failed', e); }
+    } catch (e) { _writeErr('budget save failed', e); }
   }
   const _origSetBudget = window.setBudget;
   window.setBudget = function () { _origSetBudget.apply(this, arguments); _dbSaveBudget(); };
