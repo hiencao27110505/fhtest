@@ -1308,7 +1308,7 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   </div>
   <div class="modal-body">
     <div class="sheet-sub">Your monthly target, plus the categories your spending is grouped into — add, rename, re-budget or remove them.</div>
-    <div class="field" style="margin-bottom:20px"><label>Monthly budget</label><input class="big num" id="bg-amt" inputmode="numeric" placeholder="$9,000"/></div>
+    <div class="field" style="margin-bottom:20px"><label>Monthly budget <span style="font-weight:400;color:var(--ink-3);font-size:12px">· auto-splits into categories</span></label><input class="big num" id="bg-amt" inputmode="numeric" placeholder="$9,000" oninput="suggestBudgetSplit()"/></div>
     <div class="bg-sub">Categories</div>
     <div id="bg-rows"></div>
     <button class="btn-line" onclick="addCatRow()" style="margin-top:14px">＋ Add category</button>
@@ -1728,6 +1728,15 @@ function fillBudgetSheet(){
   document.getElementById('bg-rows').innerHTML = catOrder.map(function(c){ var s=catStyle[c]||['🏷️']; return catRowHTML(s[0],c,catBudget[c],c); }).join('');
 }
 function addCatRow(){ document.getElementById('bg-rows').insertAdjacentHTML('beforeend', catRowHTML('🏷️','','','')); }
+// best-practice weights (EN + seeded VI names); unknown categories default to 0.08, then normalised
+var CATW={housing:.30,'nhà ở':.30,rent:.30,groceries:.14,'đi chợ':.14,dining:.08,'ăn ngoài':.08,transport:.10,'đi lại':.10,fun:.06,'giải trí':.06,kids:.08,'con cái':.08,others:.08,shopping:.10,clothing:.06};
+function suggestBudgetSplit(){
+  var total=parseAmtBase(document.getElementById('bg-amt').value); if(!total)return;
+  var rows=[].slice.call(document.querySelectorAll('#sheet-budget .cat-row'));
+  var ws=rows.map(function(r){ var n=(r.querySelector('.cat-name').value||'').trim().toLowerCase(); return CATW[n]!==undefined?CATW[n]:0.08; });
+  var sum=ws.reduce(function(a,b){return a+b;},0)||1, loc=CUR==='VND'?'vi-VN':'en-US';
+  rows.forEach(function(r,i){ var base=Math.round(total*(ws[i]/sum)/10)*10; var inp=r.querySelector('.cat-bud'); if(inp) inp.value=base?(base*curMult()).toLocaleString(loc):''; });
+}
 function setBudget(){
   var v=parseAmtBase(document.getElementById('bg-amt').value); if(v)M().budget=v;
   var newOrder=[], newStyle={}, newBudget={}, renames=[], seen={};
@@ -2016,7 +2025,7 @@ function openSheet(id){
   if(id==='sheet-fund') buildFundChoices();
   if(id==='sheet-month') buildMonthChoices();
   if(id==='sheet-catpick') buildCatPicker();
-  if(id==='sheet-budget') fillBudgetSheet();
+  if(id==='sheet-budget'){ if(window.loadFamilyData){ window.loadFamilyData().then(fillBudgetSheet); } else fillBudgetSheet(); }
   if(id==='sheet-theme') buildThemeChoices();
   if(id==='sheet-suggest'){ document.getElementById('sg-msg').value=''; selectChipByVal('sg-type','Idea'); }
   var el=document.getElementById(id);
@@ -3004,7 +3013,14 @@ document.querySelectorAll('.modal').forEach(function(m){ initSheetDrag(m, closeM
 })();
 
 if('serviceWorker' in navigator){
-  window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+  window.addEventListener('load',function(){
+    var refreshing=false;
+    navigator.serviceWorker.addEventListener('controllerchange',function(){ if(refreshing)return; refreshing=true; location.reload(); });   // new build activated → reload into it
+    navigator.serviceWorker.register('sw.js').then(function(reg){
+      reg.update();
+      document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') reg.update(); });   // check for updates on foreground
+    }).catch(function(){});
+  });
 }
 </script>
 
@@ -3240,6 +3256,9 @@ if('serviceWorker' in navigator){
   function _hideLoading() { const ov = document.getElementById('fh-loading'); if (ov) ov.remove(); }
   // surface write failures instead of failing silently
   function _writeErr(what, e) { console.warn(what, e); try { if (window.toast) window.toast('Couldn’t save — check your connection'); } catch (x) {} }
+  // re-fetch everything shortly after any write so every screen stays consistent
+  let _syncTimer = null;
+  function _syncSoon() { clearTimeout(_syncTimer); _syncTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 700); }
 
   // colored txn-row avatars from the real member palette (overrides the mock spMap version)
   window.spAv = function (who) {
@@ -3447,15 +3466,17 @@ if('serviceWorker' in navigator){
       const res = await sb.from('transactions').insert(row).select('id').single();
       if (res.error) throw res.error;
       if (res.data) { t._dbId = res.data.id; if (t.photos && t.photos.length) _dbUploadTxnPhotos(t._dbId, t.photos); }
+      _syncSoon();
     } catch (e) { _writeErr('txn insert failed', e); }
   }
   async function _dbUpdateTxn(dbId, t, exD) {
     try {
       const catId = window.DB.catByName[t.cat] || await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1);
       await sb.from('transactions').update({ category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' }).eq('id', dbId);
+      _syncSoon();
     } catch (e) { _writeErr('txn update failed', e); }
   }
-  async function _dbDeleteTxn(dbId) { try { await sb.from('transactions').delete().eq('id', dbId); } catch (e) { _writeErr('txn delete failed', e); } }
+  async function _dbDeleteTxn(dbId) { try { await sb.from('transactions').delete().eq('id', dbId); _syncSoon(); } catch (e) { _writeErr('txn delete failed', e); } }
 
   const _origAddExpense = window.addExpense;
   window.addExpense = function () {
@@ -3501,6 +3522,7 @@ if('serviceWorker' in navigator){
       if (budgetAmt > 0) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: budgetAmt, source: 'budget', month: window.DB.month });
       const sp = (e.saved || 0) - (e.setAside || 0);
       if (sp > 0 && opts.savingsSource) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: sp, source: 'savings', month: null });
+      _syncSoon();
     } catch (e) { _writeErr('event insert failed', e); }
   }
   const _origAddEvent = window.addEvent;
@@ -3521,7 +3543,7 @@ if('serviceWorker' in navigator){
       (async () => {
         try {
           if (!ev._dbId && ev._dbPending) { try { await ev._dbPending; } catch (e) {} }
-          if (ev._dbId) await sb.from('event_fundings').insert({ family_id: window.DB.fid, event_id: ev._dbId, member_id: _memberIdForWho(who), amount: applied, source: 'savings', month: null });
+          if (ev._dbId) { await sb.from('event_fundings').insert({ family_id: window.DB.fid, event_id: ev._dbId, member_id: _memberIdForWho(who), amount: applied, source: 'savings', month: null }); _syncSoon(); }
         } catch (e) { _writeErr('funding insert failed', e); }
       })();
     }
@@ -3547,6 +3569,7 @@ if('serviceWorker' in navigator){
         if (amt > 0) await sb.from('category_budgets').upsert({ family_id: fid, month: month, category_id: cid, amount: amt }, { onConflict: 'family_id,month,category_id' });
         else await sb.from('category_budgets').delete().eq('family_id', fid).eq('month', month).eq('category_id', cid);
       }
+      _syncSoon();
     } catch (e) { _writeErr('budget save failed', e); }
   }
   const _origSetBudget = window.setBudget;
