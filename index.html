@@ -616,6 +616,12 @@ input{font-family:inherit}
 .mem-scenes button{width:54px;height:54px;border-radius:12px;border:2px solid transparent;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 3px rgba(0,0,0,.25))}
 .mem-scenes button.on{border-color:var(--ink)}
 .mem-preview{margin-top:12px;width:100%;aspect-ratio:1;border-radius:14px;position:relative;overflow:hidden;display:none;align-items:flex-end;padding:12px;color:#fff;background-size:cover;background-position:center}
+/* expense photo → memory */
+.ex-photo-row{display:flex;gap:12px;align-items:center}
+.ex-upload{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--canvas);border:2px dashed #d8d2df;border-radius:13px;padding:14px;font-size:15px;font-weight:700;color:var(--brand);cursor:pointer}
+.ex-thumb{display:none;position:relative;width:66px;height:66px;border-radius:13px;background-size:cover;background-position:center;flex-shrink:0}
+.ex-thumb.show{display:block}
+.ex-thumb .pv-x{position:absolute;top:-7px;right:-7px;width:23px;height:23px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.35)}
 .mem-preview.show{display:flex}
 .mem-preview .scrim{position:absolute;inset:0;background:linear-gradient(180deg,transparent,rgba(0,0,0,.5))}
 .mem-preview span{position:relative;font-weight:700;letter-spacing:-.01em}
@@ -958,6 +964,14 @@ input{font-family:inherit}
     <button class="choice" data-v="Mia" onclick="pickExWho(this)">Mia</button>
     <button class="choice" data-v="Leo" onclick="pickExWho(this)">Leo</button>
   </div></div>
+
+  <div class="field"><label>Photo (optional)</label>
+    <div class="ex-photo-row">
+      <label class="ex-upload">📷 <span id="ex-upload-txt">Add a photo</span><input type="file" accept="image/*" onchange="onExPhoto(this)" hidden></label>
+      <div class="ex-thumb" id="ex-thumb"><button type="button" class="pv-x" onclick="clearExPhoto(event)">✕</button></div>
+    </div>
+    <div class="field-hint" id="ex-photo-hint" style="margin-top:8px">A photo turns this expense into a memory.</div>
+  </div>
 
   <div class="field-hint" id="ex-whenhint"></div>
 
@@ -1428,6 +1442,7 @@ var mcalY=null, mcalM=null;
 function memCalInit(){
   var latest=null;
   order.forEach(function(k){ var e=events[k]; if(achievedNow(e)&&e.memories&&e.memories.length){ if(!latest||e.d>latest)latest=e.d; } });
+  txns.forEach(function(t){ if(!t.future && t.photo){ var d=txPhotoDate(t); if(!latest||d>latest)latest=d; } });
   var d=latest||TODAY; mcalY=d.getFullYear(); mcalM=d.getMonth();
 }
 function mcalNav(delta){ if(mcalY===null)memCalInit(); mcalM+=delta; if(mcalM<0){mcalM=11;mcalY--;} if(mcalM>11){mcalM=0;mcalY++;} renderMemCalendar(); }
@@ -1438,7 +1453,8 @@ function renderMemCalendar(){
   var firstDow=new Date(mcalY,mcalM,1).getDay();
   var dim=new Date(mcalY,mcalM+1,0).getDate();
   var byDay={};
-  order.forEach(function(k){ var e=events[k]; if(achievedNow(e)&&e.memories&&e.memories.length&&e.d.getFullYear()===mcalY&&e.d.getMonth()===mcalM&&byDay[e.d.getDate()]===undefined){ byDay[e.d.getDate()]={ev:k,m:e.memories[0]}; } });
+  order.forEach(function(k){ var e=events[k]; if(achievedNow(e)&&e.memories&&e.memories.length&&e.d.getFullYear()===mcalY&&e.d.getMonth()===mcalM&&byDay[e.d.getDate()]===undefined){ byDay[e.d.getDate()]={m:e.memories[0],click:"openEvent('"+k+"')"}; } });
+  txns.forEach(function(t){ if(!t.future && t.photo){ var pd=txPhotoDate(t); if(pd.getFullYear()===mcalY&&pd.getMonth()===mcalM&&byDay[pd.getDate()]===undefined){ byDay[pd.getDate()]={m:{src:t.photo},click:"openEditExpense('"+t.id+"')"}; } } });
   var html='';
   ['S','M','T','W','T','F','S'].forEach(function(d){ html+='<div class="dow">'+d+'</div>'; });
   for(var i=0;i<firstDow;i++) html+='<div class="mcell mute"></div>';
@@ -1448,7 +1464,7 @@ function renderMemCalendar(){
     if(info){
       var m=info.m, cls='mcell photo'+(isToday?' today':''), style='';
       if(m.src){ style=' style="background-image:url('+m.src+')"'; } else { cls+=' '+(m.cls||'ph-park'); }
-      html+='<div class="'+cls+'"'+style+' onclick="openEvent(\''+info.ev+'\')"><div class="scrim"></div><span class="mday">'+d+'</span></div>';
+      html+='<div class="'+cls+'"'+style+' onclick="'+info.click+'"><div class="scrim"></div><span class="mday">'+d+'</span></div>';
     } else {
       html+='<div class="mcell day'+(isToday?' today':'')+'">'+d+'</div>';
     }
@@ -1459,25 +1475,30 @@ function renderMemoriesTab(mem){
   var box=document.getElementById('mem-grid'); if(!box)return;
   mem=mem||order.filter(function(k){return achievedNow(events[k]);});
   var photos=[];
-  mem.forEach(function(k){ (events[k].memories||[]).forEach(function(m){ photos.push({m:m,ev:k}); }); });
+  // memories captured on events
+  mem.forEach(function(k){ var e=events[k]; (e.memories||[]).forEach(function(m){
+    photos.push({src:m.src||'',cls:m.src?'':(m.cls||'ph-park'),emoji:m.emoji||e.emoji,cap:m.caption||e.name,meta:m.caption?(e.emoji+' '+e.name):e.date,click:"openEvent('"+k+"')",d:e.d});
+  }); });
+  // photos attached to logged expenses
+  txns.forEach(function(t){ if(!t.future && t.photo){
+    photos.push({src:t.photo,cls:'',emoji:'',cap:t.note,meta:t.date+' · '+fmt(t.amt),click:"openEditExpense('"+t.id+"')",d:txPhotoDate(t)});
+  } });
+  photos.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });
   var sub=document.getElementById('mem-sub');
   if(sub) sub.textContent = photos.length
-    ? (photos.length+' photo'+(photos.length!==1?'s':'')+' from '+mem.length+' event'+(mem.length!==1?'s':'')+'.')
-    : "Moments from events you've saved for together.";
+    ? (photos.length+' photo'+(photos.length!==1?'s':'')+' the family has captured together.')
+    : "Add a photo to an event or an expense to start your memories.";
   if(!photos.length){
-    box.innerHTML='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">No memories yet</div><p>Fully fund an event, then add photos to remember it.</p></div>';
+    box.innerHTML='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">No memories yet</div><p>Add a photo when you log an expense, or to a saved event.</p></div>';
     return;
   }
   box.innerHTML=photos.map(function(p){
-    var m=p.m, e=events[p.ev];
-    var cls=m.src?'':(m.cls||'ph-park');
-    var style=m.src?'style="background-image:url('+m.src+');background-size:cover;background-position:center"':'';
-    var subj=m.src?'':'<div class="subj">'+(m.emoji||e.emoji)+'</div>';
-    var cap=m.caption||e.name;
-    var meta=m.caption?(e.emoji+' '+e.name):e.date;
-    return '<div class="memory '+cls+'" '+style+' onclick="openEvent(\''+p.ev+'\')">'+subj+'<div class="scrim"></div>'
-      +'<div class="m-cap" style="font-size:14px;line-height:1.25">'+cap+'</div>'
-      +'<div class="m-date">'+meta+'</div></div>';
+    var cls=p.src?'':(p.cls||'ph-park');
+    var style=p.src?'style="background-image:url('+p.src+');background-size:cover;background-position:center"':'';
+    var subj=p.src?'':'<div class="subj">'+(p.emoji||'📸')+'</div>';
+    return '<div class="memory '+cls+'" '+style+' onclick="'+p.click+'">'+subj+'<div class="scrim"></div>'
+      +'<div class="m-cap" style="font-size:14px;line-height:1.25">'+p.cap+'</div>'
+      +'<div class="m-date">'+p.meta+'</div></div>';
   }).join('');
 }
 
@@ -1502,12 +1523,48 @@ function openSheet(id){
   document.getElementById('scrim').classList.add('on'); document.getElementById(id).classList.add('on');
 }
 function closeSheet(){
-  document.getElementById('scrim').classList.remove('on'); document.querySelectorAll('.sheet').forEach(function(s){ s.classList.remove('on'); });
-  editingTx=null; editSnap=null;
+  document.getElementById('scrim').classList.remove('on'); document.querySelectorAll('.sheet').forEach(function(s){ s.classList.remove('on'); s.style.transform=''; s.style.transition=''; });
+  editingTx=null; editSnap=null; exPhoto=null;
   var eh=document.querySelector('#sheet-expense .sheet-h'); if(eh)eh.textContent='Log an expense';
   var es=document.querySelector('#sheet-expense .sheet-sub'); if(es)es.textContent='A recent spend, or something coming up.';
   var cta=document.getElementById('ex-cta'); if(cta){ cta.style.display=''; cta.textContent='Save expense'; }
   var del=document.getElementById('ex-del'); if(del)del.style.display='none';
+}
+/* Drag a bottom sheet downward to dismiss (Apple sheet gesture). */
+function initSheetDrag(sheet){
+  var startY=0, dy=0, active=false, dragging=false;
+  var scrim=function(){ return document.getElementById('scrim'); };
+  sheet.addEventListener('touchstart',function(e){
+    if(sheet.scrollTop>0){ active=false; return; }          // let inner content scroll first
+    if(e.target.closest('input,textarea,select')){ active=false; return; }
+    active=true; dragging=false; startY=e.touches[0].clientY; dy=0;
+    sheet.style.transition='none';
+  },{passive:true});
+  sheet.addEventListener('touchmove',function(e){
+    if(!active)return;
+    dy=e.touches[0].clientY-startY;
+    if(dy<=0){ if(dragging){ sheet.style.transform='translateY(0)'; var sc0=scrim(); if(sc0)sc0.style.opacity=''; } return; }
+    if(!dragging && dy<5) return;
+    dragging=true; e.preventDefault();
+    sheet.style.transform='translateY('+dy+'px)';
+    var sc=scrim(); if(sc) sc.style.opacity=Math.max(0,1-dy/(sheet.offsetHeight||480));
+  },{passive:false});
+  function end(){
+    if(!active)return; active=false;
+    var sc=scrim();
+    sheet.style.transition='transform .32s cubic-bezier(.32,.72,0,1)';
+    if(dragging && dy>110){
+      sheet.style.transform='translateY(102%)';
+      if(sc){ sc.style.opacity=''; sc.classList.remove('on'); }
+      setTimeout(function(){ closeSheet(); },300);
+    } else {
+      sheet.style.transform='translateY(0)';
+      if(sc) sc.style.opacity='';
+      setTimeout(function(){ if(sheet.classList.contains('on')){ sheet.style.transition=''; sheet.style.transform=''; } },300);
+    }
+  }
+  sheet.addEventListener('touchend',end);
+  sheet.addEventListener('touchcancel',end);
 }
 function setV(id,v){ document.getElementById(id).value=v; }
 function pick(group,btn){ document.getElementById(group).querySelectorAll('.choice').forEach(function(c){ c.classList.remove('on'); }); btn.classList.add('on'); }
@@ -1557,6 +1614,7 @@ function prefillExpense(){
   selectChipByVal('ex-cat',lastCat);
   selectChipByVal('ex-who',lastWho);
   document.getElementById('ex-date').value='2026-07-13';
+  exPhoto=null; renderExPhoto();
   updateExWhen(); refreshExCta();
 }
 /* ---- edit a logged expense ---- */
@@ -1571,11 +1629,28 @@ function txDateInput(t){                                    // stored 'Jul 8' / 
   return isoDate(TODAY);
 }
 function whoToChip(w){ return (w==='Shared'||w==='both'||w==='Both')?'Both':(w||'Emma'); }
+function txPhotoDate(t){ var p=txDateInput(t).split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
+/* ---- expense photo → memory ---- */
+var exPhoto=null;
+function onExPhoto(input){
+  var f=input.files&&input.files[0]; if(!f)return;
+  var r=new FileReader();
+  r.onload=function(){ exPhoto=r.result; renderExPhoto(); onExInput(); };
+  r.readAsDataURL(f); input.value='';
+}
+function clearExPhoto(e){ if(e){e.preventDefault();e.stopPropagation();} exPhoto=null; renderExPhoto(); onExInput(); }
+function renderExPhoto(){
+  var th=document.getElementById('ex-thumb'), up=document.getElementById('ex-upload-txt'), h=document.getElementById('ex-photo-hint');
+  if(!th)return;
+  if(exPhoto){ th.classList.add('show'); th.style.backgroundImage='url('+exPhoto+')'; if(up)up.textContent='Change photo'; if(h)h.innerHTML='<span style="color:var(--brand-ink);font-weight:700">Saved as a memory 📸</span>'; }
+  else { th.classList.remove('show'); th.style.backgroundImage=''; if(up)up.textContent='Add a photo'; if(h)h.textContent='A photo turns this expense into a memory.'; }
+}
 function exFormState(){                                     // snapshot used to detect edits
   return document.getElementById('ex-note').value.trim()
     +'|'+parseAmt(document.getElementById('ex-amt').value)
     +'|'+chosen('ex-cat')+'|'+chosen('ex-who')
-    +'|'+document.getElementById('ex-date').value;
+    +'|'+document.getElementById('ex-date').value
+    +'|'+(exPhoto?exPhoto.slice(0,40)+exPhoto.length:'');
 }
 function refreshExCta(){
   var cta=document.getElementById('ex-cta'); if(!cta)return;
@@ -1597,6 +1672,7 @@ function fillExpenseFromTx(){
   document.getElementById('ex-date').value=txDateInput(t);
   selectChipByVal('ex-cat', t.cat);
   selectChipByVal('ex-who', whoToChip(t.who));
+  exPhoto=t.photo||null; renderExPhoto();
   updateExWhen();
   var eh=document.querySelector('#sheet-expense .sheet-h'); if(eh)eh.textContent='Edit expense';
   var es=document.querySelector('#sheet-expense .sheet-sub'); if(es)es.textContent='Change any detail, then save your update.';
@@ -1620,12 +1696,13 @@ function saveExpenseEdit(){
   jul.spent-=t.amt; jul.catSpent[t.cat]=(jul.catSpent[t.cat]||0)-t.amt; jul.memberSpent[oldMk]=(jul.memberSpent[oldMk]||0)-t.amt;
   // write the new values in place (keep the specific icon unless the category changed)
   t.ico=(cat===t.cat)?t.ico:s[0]; t.cat=cat; t.note=note; t.amt=amt; t.who=whoStore; t.date=dstr;
+  t.photo=exPhoto||undefined;                              // add / keep / remove the memory photo
   // apply the new contribution
   var newMk=(whoStore==='Shared')?'Shared':whoStore;
   jul.spent+=amt; jul.catSpent[cat]=(jul.catSpent[cat]||0)+amt; jul.memberSpent[newMk]=(jul.memberSpent[newMk]||0)+amt;
-  editingTx=null; editSnap=null;
+  editingTx=null; editSnap=null; exPhoto=null;
   txns.sort(function(a,b){ return txDay(b)-txDay(a); });
-  selMonth='Jul'; renderAll(); renderTxns();
+  selMonth='Jul'; renderAll(); renderTxns(); renderEvents();
   if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val);
   closeSheet();
   toast('Changes saved · '+note);
@@ -1639,8 +1716,8 @@ function deleteExpense(){
     jul.spent-=t.amt; jul.catSpent[t.cat]=(jul.catSpent[t.cat]||0)-t.amt; jul.memberSpent[mk]=(jul.memberSpent[mk]||0)-t.amt;
   }
   var i=txns.indexOf(t); if(i>=0) txns.splice(i,1);
-  editingTx=null; editSnap=null;
-  selMonth='Jul'; renderAll(); renderTxns();
+  editingTx=null; editSnap=null; exPhoto=null;
+  selMonth='Jul'; renderAll(); renderTxns(); renderEvents();
   if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val);
   closeSheet();
   toast('Deleted · '+note);
@@ -1846,8 +1923,9 @@ function addExpense(){
     var past=dObj<TODAY;                                    // a past date = it already happened (realized), not upcoming
     var ev={name:note,emoji:'🎈',cov:'pink',date:(MONA[dObj.getMonth()]+' '+dObj.getDate()),d:dObj,target:amt,saved:amt,setAside:past?0:amt};
     if(past){ ev.achieved=true; months.Jul.spent+=amt; }   // spent already · goes straight to Memories
+    if(exPhoto) ev.memories=[{src:exPhoto,caption:note}]; // a photo makes it a memory right away
     events[eid]=ev; order.unshift(eid); renderEvents(); renderTxns(); selMonth='Jul'; renderAll();
-    document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value='';
+    document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhoto=null;
     closeSheet();
     if(past){ toast(note+' saved · add a photo to remember it 📸'); floatEmojis('📸'); go('events'); }
     else { toast(note+' added to Events · '+fmt(Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved()))+' safe to spend'); floatEmojis('🎈'); go('events'); }
@@ -1863,15 +1941,17 @@ function addExpense(){
   }
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
-  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:whoStore,amt:amt,month:'Jul'});
+  var hadPhoto=!!exPhoto;
+  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:whoStore,amt:amt,month:'Jul',photo:exPhoto||undefined});
   renderTxns();
   var jul=months.Jul;
   var wasUnder=(jul.catSpent[cat]||0)<=(catBudget[cat]||Infinity);
   jul.spent+=amt; jul.catSpent[cat]=(jul.catSpent[cat]||0)+amt; jul.memberSpent[mkey]=(jul.memberSpent[mkey]||0)+amt;
-  selMonth='Jul'; renderAll();
-  document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value='';
+  selMonth='Jul'; renderAll(); if(hadPhoto) renderEvents();   // photo → shows in Memories
+  document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhoto=null;
   closeSheet();
-  if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast('Heads up — '+cat+' is now over budget');
+  if(hadPhoto){ toast('Logged '+fmt(amt)+' · saved to Memories 📸'); floatEmojis('📸'); }
+  else if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast('Heads up — '+cat+' is now over budget');
   else toast('Logged '+fmt(amt)+' · '+fmt(Math.max(0,months.Jul.budget-jul.spent))+' safe to spend');
   go('spending'); segTo('overview');
 }
@@ -2083,6 +2163,7 @@ function setGreeting(){
 }
 setGreeting();
 renderEvents(); renderAll(); renderTxns();
+document.querySelectorAll('.sheet').forEach(initSheetDrag);   // drag-down-to-dismiss on every bottom sheet
 
 /* ---------- deep links ---------- */
 (function(){
