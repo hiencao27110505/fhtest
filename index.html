@@ -588,6 +588,33 @@ input{font-family:inherit}
 .memory .scrim{position:absolute;inset:0;background:linear-gradient(180deg,transparent 42%,rgba(0,0,0,.64))}
 .memory .m-cap{position:relative;color:#fff;font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px;line-height:1.2}
 .memory .m-date{position:relative;color:rgba(255,255,255,.85);font-size:12.5px;letter-spacing:-.01em;margin-top:3px}
+/* Home: horizontal memory strip */
+.mem-strip{display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding:0 16px 4px}
+.mem-strip::-webkit-scrollbar{display:none}
+/* Memories tab: Apple Photos–style square grid */
+.mem-photos{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px}
+.mem-photos .ph{position:relative;aspect-ratio:1;border-radius:16px;overflow:hidden;cursor:pointer;background:var(--canvas);background-size:cover;background-position:center}
+.mem-photos .ph:active{transform:scale(.97)}
+.mem-photos .ph .subj{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:48px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.28))}
+.mem-photos .ph .scrim{position:absolute;inset:0;background:linear-gradient(180deg,transparent 52%,rgba(0,0,0,.55))}
+.mem-photos .ph .cap{position:absolute;left:11px;right:11px;bottom:10px;z-index:1;color:#fff;font-size:12.5px;font-weight:600;letter-spacing:-.01em;line-height:1.22;text-shadow:0 1px 3px rgba(0,0,0,.45);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* Memory detail overlay */
+#memory-overlay{z-index:47;background:var(--white)}
+.mo-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.mo-scroll::-webkit-scrollbar{display:none}
+.mo-nav{position:sticky;top:0;z-index:3;display:flex;align-items:center;padding:6px 8px;background:rgba(255,255,255,.82);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px)}
+.mo-nav .safe{position:absolute;left:0;right:0;top:0}
+.mo-back{display:inline-flex;align-items:center;gap:1px;color:var(--brand-ink);font-size:17px;font-weight:600;letter-spacing:-.02em;padding:8px 8px 8px 4px}
+.mo-back svg{width:21px;height:21px}
+.mo-photo{position:relative;background:var(--canvas)}
+.mo-photo img{display:block;width:100%;height:auto}
+.mo-photo.tile{aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
+.mo-photo .subj{font-size:70px;filter:drop-shadow(0 2px 8px rgba(0,0,0,.3))}
+.mo-body{padding:20px 22px calc(28px + env(safe-area-inset-bottom))}
+.mo-cap{font-family:var(--disp);font-weight:800;font-size:24px;letter-spacing:-.6px;color:var(--ink);line-height:1.15}
+.mo-meta{font-size:15px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:8px}
+.mo-action{margin-top:20px;display:inline-flex;align-items:center;gap:7px;color:var(--brand-ink);font-size:16px;font-weight:600;letter-spacing:-.01em}
+.mo-action svg{width:18px;height:18px}
 /* memory detail — full-width photos to enjoy, stacked vertically */
 .mgallery{display:flex;flex-direction:column;gap:14px;padding:0 16px}
 .mem-full{position:relative;border-radius:18px;overflow:hidden;background:var(--canvas)}
@@ -606,7 +633,7 @@ input{font-family:inherit}
 .ph-hike{background:linear-gradient(180deg,#9cc4e4,#89ab8a 55%,#5f7d55)}
 .ph-park{background:linear-gradient(180deg,#8fd0c0,#6bb894 55%,#3f8f6a)}
 .ph-city{background:linear-gradient(180deg,#2a2350,#5b3f8a 55%,#8a5a9e)}
-.mem-empty{grid-column:1/-1;text-align:center;padding:28px 20px;background:var(--white);border-radius:20px}
+.mem-empty{grid-column:1/-1;width:100%;text-align:center;padding:28px 20px;background:var(--white);border-radius:20px}
 .me-emoji{font-size:40px}
 .me-t{font-weight:700;color:var(--ink);font-size:16px;margin-top:8px}
 .mem-empty p{font-size:14px;color:var(--muted);margin-top:4px}
@@ -617,12 +644,8 @@ input{font-family:inherit}
 .mem-scenes button{width:54px;height:54px;border-radius:12px;border:2px solid transparent;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 3px rgba(0,0,0,.25))}
 .mem-scenes button.on{border-color:var(--ink)}
 .mem-preview{margin-top:12px;width:100%;aspect-ratio:1;border-radius:14px;position:relative;overflow:hidden;display:none;align-items:flex-end;padding:12px;color:#fff;background-size:cover;background-position:center}
-/* expense photo → memory */
-.ex-photo-row{display:flex;gap:12px;align-items:center}
-.ex-upload{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--canvas);border:2px dashed #d8d2df;border-radius:13px;padding:14px;font-size:15px;font-weight:700;color:var(--brand);cursor:pointer}
-.ex-thumb{display:none;position:relative;width:66px;height:66px;border-radius:13px;background-size:cover;background-position:center;flex-shrink:0}
-.ex-thumb.show{display:block}
-.ex-thumb .pv-x{position:absolute;top:-7px;right:-7px;width:23px;height:23px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+/* remove button shown over a photo preview */
+.pv-remove{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.5);color:#fff;font-size:13px;font-weight:600;letter-spacing:-.01em;padding:6px 13px;border-radius:9999px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:2}
 .mem-preview.show{display:flex}
 .mem-preview .scrim{position:absolute;inset:0;background:linear-gradient(180deg,transparent,rgba(0,0,0,.5))}
 .mem-preview span{position:relative;font-weight:700;letter-spacing:-.01em}
@@ -696,7 +719,7 @@ input{font-family:inherit}
   <div class="rows" id="home-tx"></div>
 
   <div class="section-h"><span class="t">Memories</span><a onclick="go('memories')">All</a></div>
-  <div class="mgrid" id="home-memories"></div>
+  <div class="mem-strip" id="home-memories"></div>
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
     <span class="sf-heart">💛</span>
     <span class="sf-t">Ideas or gripes? We're always listening</span>
@@ -810,7 +833,7 @@ input{font-family:inherit}
     <div class="mcal-grid" id="mcal-grid"></div>
   </div>
   <div class="section-h"><span class="t">All photos</span></div>
-  <div class="mgrid" id="mem-grid"></div>
+  <div class="mem-photos" id="mem-grid"></div>
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
     <span class="sf-heart">💛</span>
     <span class="sf-t">Ideas or gripes? We're always listening</span>
@@ -866,6 +889,9 @@ input{font-family:inherit}
         <div class="row"><div class="r-ico" style="background:var(--brand-tint);color:var(--brand)">＋</div><div class="r-body"><div class="r-t">James added</div><div class="r-s">3 days ago</div></div><div class="r-amt num pos">+$200</div></div>
         <div class="row"><div class="r-ico" style="background:var(--brand-tint);color:var(--brand)">↻</div><div class="r-body"><div class="r-t">Emma auto-saved</div><div class="r-s">Jul 1</div></div><div class="r-amt num pos">+$400</div></div>
       </div>
+      <div class="section-h" style="margin-top:22px"><span class="t">Memories</span></div>
+      <div class="mgallery" id="ov-fund-gallery" style="margin-bottom:12px"></div>
+      <button class="btn-line" onclick="openMemorySheet()" style="margin:0 16px">📷 Add a photo</button>
     </div>
     <div id="ov-memories" style="display:none">
       <div class="section-h"><span class="t">Memories</span></div>
@@ -874,6 +900,19 @@ input{font-family:inherit}
   </div>
   <div style="padding:12px 16px calc(18px + env(safe-area-inset-bottom));background:rgba(251,250,252,.9);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--hairline)">
     <button class="cta" id="ov-cta" onclick="openFund()">Add funds</button>
+  </div>
+</div>
+
+<!-- MEMORY DETAIL -->
+<div class="overlay" id="memory-overlay">
+  <div class="mo-scroll">
+    <div class="mo-nav"><div class="safe"></div><button class="mo-back" onclick="closeMemory()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>Memories</button></div>
+    <div class="mo-photo" id="mo-photo"></div>
+    <div class="mo-body">
+      <div class="mo-cap" id="mo-cap"></div>
+      <div class="mo-meta" id="mo-meta"></div>
+      <button class="mo-action" id="mo-action"></button>
+    </div>
   </div>
 </div>
 
@@ -967,11 +1006,8 @@ input{font-family:inherit}
   </div></div>
 
   <div class="field"><label>Photo (optional)</label>
-    <div class="ex-photo-row">
-      <label class="ex-upload">📷 <span id="ex-upload-txt">Add a photo</span><input type="file" accept="image/*" onchange="onExPhoto(this)" hidden></label>
-      <div class="ex-thumb" id="ex-thumb"><button type="button" class="pv-x" onclick="clearExPhoto(event)">✕</button></div>
-    </div>
-    <div class="field-hint" id="ex-photo-hint" style="margin-top:8px">A photo turns this expense into a memory.</div>
+    <label class="mem-upload"><span id="ex-upload-txt">📷 Add a photo</span><input type="file" accept="image/*" onchange="onExPhoto(this)" hidden></label>
+    <div class="mem-preview" id="ex-preview"><div class="scrim"></div><span>Saved as a memory 📸</span><button type="button" class="pv-remove" onclick="clearExPhoto(event)">Remove</button></div>
   </div>
 
   <div class="field-hint" id="ex-whenhint"></div>
@@ -1442,7 +1478,7 @@ function renderEvents(){
 var mcalY=null, mcalM=null;
 function memCalInit(){
   var latest=null;
-  order.forEach(function(k){ var e=events[k]; if(achievedNow(e)&&e.memories&&e.memories.length){ if(!latest||e.d>latest)latest=e.d; } });
+  order.forEach(function(k){ var e=events[k]; if(e.memories&&e.memories.length){ if(!latest||e.d>latest)latest=e.d; } });
   txns.forEach(function(t){ if(!t.future && t.photo){ var d=txPhotoDate(t); if(!latest||d>latest)latest=d; } });
   var d=latest||TODAY; mcalY=d.getFullYear(); mcalM=d.getMonth();
 }
@@ -1454,8 +1490,8 @@ function renderMemCalendar(){
   var firstDow=new Date(mcalY,mcalM,1).getDay();
   var dim=new Date(mcalY,mcalM+1,0).getDate();
   var byDay={};
-  order.forEach(function(k){ var e=events[k]; if(achievedNow(e)&&e.memories&&e.memories.length&&e.d.getFullYear()===mcalY&&e.d.getMonth()===mcalM&&byDay[e.d.getDate()]===undefined){ byDay[e.d.getDate()]={m:e.memories[0],click:"openEvent('"+k+"')"}; } });
-  txns.forEach(function(t){ if(!t.future && t.photo){ var pd=txPhotoDate(t); if(pd.getFullYear()===mcalY&&pd.getMonth()===mcalM&&byDay[pd.getDate()]===undefined){ byDay[pd.getDate()]={m:{src:t.photo},click:"openEditExpense('"+t.id+"')"}; } } });
+  order.forEach(function(k){ var e=events[k]; if(e.memories&&e.memories.length&&e.d.getFullYear()===mcalY&&e.d.getMonth()===mcalM&&byDay[e.d.getDate()]===undefined){ byDay[e.d.getDate()]={m:e.memories[0],type:'event',ref:k}; } });
+  txns.forEach(function(t){ if(!t.future && t.photo){ var pd=txPhotoDate(t); if(pd.getFullYear()===mcalY&&pd.getMonth()===mcalM&&byDay[pd.getDate()]===undefined){ byDay[pd.getDate()]={m:{src:t.photo},type:'expense',ref:t.id}; } } });
   var html='';
   ['S','M','T','W','T','F','S'].forEach(function(d){ html+='<div class="dow">'+d+'</div>'; });
   for(var i=0;i<firstDow;i++) html+='<div class="mcell mute"></div>';
@@ -1465,43 +1501,58 @@ function renderMemCalendar(){
     if(info){
       var m=info.m, cls='mcell photo'+(isToday?' today':''), style='';
       if(m.src){ style=' style="background-image:url('+m.src+')"'; } else { cls+=' '+(m.cls||'ph-park'); }
-      html+='<div class="'+cls+'"'+style+' onclick="'+info.click+'"><div class="scrim"></div><span class="mday">'+d+'</span></div>';
+      html+='<div class="'+cls+'"'+style+' onclick="openMemoryByRef(\''+info.type+'\',\''+info.ref+'\')"><div class="scrim"></div><span class="mday">'+d+'</span></div>';
     } else {
       html+='<div class="mcell day'+(isToday?' today':'')+'">'+d+'</div>';
     }
   }
   grid.innerHTML=html;
 }
-function renderMemoriesTab(mem){
-  var box=document.getElementById('mem-grid'); if(!box)return;
-  mem=mem||order.filter(function(k){return achievedNow(events[k]);});
-  var photos=[];
-  // memories captured on events
-  mem.forEach(function(k){ var e=events[k]; (e.memories||[]).forEach(function(m){
-    photos.push({src:m.src||'',cls:m.src?'':(m.cls||'ph-park'),emoji:m.emoji||e.emoji,cap:m.caption||e.name,meta:m.caption?(e.emoji+' '+e.name):e.date,click:"openEvent('"+k+"')",d:e.d});
+// Every memory (from an event or a photo-expense) is a record; the tab is a photo grid into these.
+var memRecords=[];
+function buildMemRecords(){
+  memRecords=[];
+  order.forEach(function(k){ var e=events[k]; (e.memories||[]).forEach(function(m){
+    memRecords.push({src:m.src||'',cls:m.src?'':(m.cls||'ph-park'),emoji:m.emoji||e.emoji,cap:m.caption||e.name,meta:m.caption?(e.emoji+' '+e.name):e.date,type:'event',ref:k,d:e.d});
   }); });
-  // photos attached to logged expenses
   txns.forEach(function(t){ if(!t.future && t.photo){
-    photos.push({src:t.photo,cls:'',emoji:'',cap:t.note,meta:t.date+' · '+fmt(t.amt),click:"openEditExpense('"+t.id+"')",d:txPhotoDate(t)});
+    memRecords.push({src:t.photo,cls:'',emoji:'',cap:t.note,meta:t.date+' · '+fmt(t.amt),type:'expense',ref:t.id,d:txPhotoDate(t)});
   } });
-  photos.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });
+  memRecords.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });
+}
+function renderMemoriesTab(){
+  var box=document.getElementById('mem-grid'); if(!box)return;
+  buildMemRecords();
   var sub=document.getElementById('mem-sub');
-  if(sub) sub.textContent = photos.length
-    ? (photos.length+' photo'+(photos.length!==1?'s':'')+' the family has captured together.')
+  if(sub) sub.textContent = memRecords.length
+    ? (memRecords.length+' photo'+(memRecords.length!==1?'s':'')+' the family has captured together.')
     : "Add a photo to an event or an expense to start your memories.";
-  if(!photos.length){
+  if(!memRecords.length){
     box.innerHTML='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">No memories yet</div><p>Add a photo when you log an expense, or to a saved event.</p></div>';
     return;
   }
-  box.innerHTML=photos.map(function(p){
-    var cls=p.src?'':(p.cls||'ph-park');
-    var style=p.src?'style="background-image:url('+p.src+');background-size:cover;background-position:center"':'';
+  box.innerHTML=memRecords.map(function(p,i){
+    var style=p.src?'style="background-image:url('+p.src+')"':'';
+    var cls='ph'+(p.src?'':' '+(p.cls||'ph-park'));
     var subj=p.src?'':'<div class="subj">'+(p.emoji||'📸')+'</div>';
-    return '<div class="memory '+cls+'" '+style+' onclick="'+p.click+'">'+subj+'<div class="scrim"></div>'
-      +'<div class="m-cap" style="font-size:14px;line-height:1.25">'+p.cap+'</div>'
-      +'<div class="m-date">'+p.meta+'</div></div>';
+    return '<div class="'+cls+'" '+style+' onclick="openMemory('+i+')">'+subj+'<div class="scrim"></div><div class="cap">'+p.cap+'</div></div>';
   }).join('');
 }
+var curMemory=null;
+function openMemory(i){
+  var r=memRecords[i]; if(!r)return; curMemory=r;
+  var ph=document.getElementById('mo-photo');
+  if(r.src){ ph.className='mo-photo'; ph.innerHTML='<img src="'+r.src+'" alt="">'; }
+  else { ph.className='mo-photo tile '+(r.cls||'ph-park'); ph.innerHTML='<div class="subj">'+(r.emoji||'📸')+'</div>'; }
+  setTxt('mo-cap', r.cap||'Memory');
+  setTxt('mo-meta', r.meta||'');
+  var act=document.getElementById('mo-action'), chev=' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
+  if(r.type==='expense'){ act.innerHTML='Open expense'+chev; act.setAttribute('onclick','closeMemory();openEditExpense(\''+r.ref+'\')'); }
+  else { act.innerHTML='View event'+chev; act.setAttribute('onclick','closeMemory();openEvent(\''+r.ref+'\')'); }
+  document.getElementById('memory-overlay').classList.add('on');
+}
+function openMemoryByRef(type,ref){ for(var i=0;i<memRecords.length;i++){ if(memRecords[i].type===type&&memRecords[i].ref===ref){ openMemory(i); return; } } }
+function closeMemory(){ document.getElementById('memory-overlay').classList.remove('on'); }
 
 /* ---------- sheets ---------- */
 function openSheet(id){
@@ -1641,10 +1692,10 @@ function onExPhoto(input){
 }
 function clearExPhoto(e){ if(e){e.preventDefault();e.stopPropagation();} exPhoto=null; renderExPhoto(); onExInput(); }
 function renderExPhoto(){
-  var th=document.getElementById('ex-thumb'), up=document.getElementById('ex-upload-txt'), h=document.getElementById('ex-photo-hint');
-  if(!th)return;
-  if(exPhoto){ th.classList.add('show'); th.style.backgroundImage='url('+exPhoto+')'; if(up)up.textContent='Change photo'; if(h)h.innerHTML='<span style="color:var(--brand-ink);font-weight:700">Saved as a memory 📸</span>'; }
-  else { th.classList.remove('show'); th.style.backgroundImage=''; if(up)up.textContent='Add a photo'; if(h)h.textContent='A photo turns this expense into a memory.'; }
+  var pv=document.getElementById('ex-preview'), up=document.getElementById('ex-upload-txt');
+  if(!pv)return;
+  if(exPhoto){ pv.classList.add('show'); pv.style.backgroundImage='url('+exPhoto+')'; if(up)up.textContent='📷 Change photo'; }
+  else { pv.classList.remove('show'); pv.style.backgroundImage=''; if(up)up.textContent='📷 Add a photo'; }
 }
 function exFormState(){                                     // snapshot used to detect edits
   return document.getElementById('ex-note').value.trim()
@@ -1969,14 +2020,16 @@ function openEvent(id){
   document.getElementById('ov-funding').style.display=ach?'none':'block';
   document.getElementById('ov-memories').style.display=ach?'block':'none';
   var cta=document.getElementById('ov-cta');
-  if(ach){ renderGallery(); cta.textContent='Add photos & caption'; cta.setAttribute('onclick','openMemorySheet()'); }
-  else { renderRing(); cta.textContent='Add funds'; cta.setAttribute('onclick','openFund()'); }
+  if(ach){ renderGallery('ov-gallery'); cta.textContent='Add photos & caption'; cta.setAttribute('onclick','openMemorySheet()'); }
+  else { renderRing(); renderGallery('ov-fund-gallery'); cta.textContent='Add funds'; cta.setAttribute('onclick','openFund()'); }
   document.getElementById('event-overlay').classList.add('on');
 }
-function renderGallery(){
-  var e=events[curEvent], box=document.getElementById('ov-gallery'); if(!box)return;
+function renderGallery(boxId){
+  boxId=boxId||'ov-gallery';
+  var e=events[curEvent], box=document.getElementById(boxId); if(!box)return;
   if(!e.memories||!e.memories.length){
-    box.innerHTML='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">No memories yet</div><p>Add a photo and caption to remember this event.</p></div>';
+    box.innerHTML = boxId==='ov-fund-gallery' ? ''    // funding view: the "Add a photo" button is the invite
+      : '<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">No memories yet</div><p>Add a photo and caption to remember this event.</p></div>';
     return;
   }
   var html='';
@@ -2021,8 +2074,8 @@ function addMemory(){
   if(memPick){ if(memPick.src){ m.src=memPick.src; } else { m.cls=memPick.cls; m.emoji=memPick.emoji; } }
   else { m.cls='ph-park'; m.emoji='📸'; }
   if(cap) m.caption=cap;
-  var e=events[curEvent]; if(!e.memories)e.memories=[]; e.memories.unshift(m); e.achieved=true;
-  renderEvents(); renderGallery();
+  var e=events[curEvent]; if(!e.memories)e.memories=[]; e.memories.unshift(m);   // a photo doesn't complete an event
+  renderEvents(); openEvent(curEvent);
   closeSheet(); toast('Memory saved 📸'); floatEmojis('📸');
 }
 function renderRing(){
