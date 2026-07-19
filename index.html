@@ -1349,6 +1349,9 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   <div class="set-actions">
     <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhManageFamily()"><span class="set-ic">👥</span><span class="set-t">Manage family &amp; members</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhSavings()"><span class="set-ic">🐷</span><span class="set-t">Saved for events</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhIncome()"><span class="set-ic">💵</span><span class="set-t">Income</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();restartOnboarding()"><span class="set-ic">↻</span><span class="set-t">Restart onboarding</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row danger" onclick="closeSheet();fhSignOut()"><span class="set-ic">⎋</span><span class="set-t">Sign out</span></button>
   </div>
@@ -3546,6 +3549,134 @@ if('serviceWorker' in navigator){
   }
   document.addEventListener('visibilitychange', _refreshOnResume);
   window.addEventListener('focus', _refreshOnResume);
+
+  // ═══ feature UIs: manage family/members, saved-for-events, income ═══════════
+  function _fhOverlay(inner) {
+    let ov = document.getElementById('fh-ov'); if (ov) ov.remove();
+    ov = document.createElement('div'); ov.id = 'fh-ov';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9990;display:flex;align-items:flex-end;justify-content:center;background:rgba(20,12,26,.45);font-family:inherit';
+    ov.innerHTML = '<div onclick="event.stopPropagation()" style="background:#fff;border-radius:22px 22px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom));width:100%;max-width:460px;max-height:88vh;overflow:auto">' + inner + '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', () => ov.remove());
+    return ov;
+  }
+  window._closeOv = () => { const o = document.getElementById('fh-ov'); if (o) o.remove(); };
+  const _pal = () => window.OB_COLORS || ['#6f3fc0', '#0e8478', '#f0701a', '#e03d86', '#1e74d0', '#B8730B', '#7A5AE0', '#1a9d5f'];
+  const _btn = (label, onclick, style) => '<button onclick="' + onclick + '" style="' + style + ';font-family:inherit;cursor:pointer">' + label + '</button>';
+  const _primary = 'width:100%;border:0;background:#b92e78;color:#fff;border-radius:12px;padding:13px;font-weight:700;font-size:15px';
+  const _ghost = 'width:100%;border:0;background:transparent;color:#7a5a6e;font-weight:600;padding:12px 0 0;font-size:14px';
+
+  // ---- Manage family & members ----
+  window.fhManageFamily = async function () {
+    const fid = window.DB.fid, uid = window.fhUser && window.fhUser.id;
+    if (!fid) { window.toast && window.toast('Open a family first'); return; }
+    const [famR, memR] = await Promise.all([
+      sb.from('families').select('owner_id,name').eq('id', fid).maybeSingle(),
+      sb.from('members').select('id,name,color,is_shared,user_id').eq('family_id', fid).is('archived_at', null).order('created_at')
+    ]);
+    const fam = famR.data, mems = memR.data || [];
+    const owner = fam && fam.owner_id === uid;
+    window._fhMembers = mems;
+    const rows = mems.map((m) => {
+      const isSelf = m.user_id === uid;
+      const tag = m.is_shared ? 'shared' : (m.user_id ? (isSelf ? 'you' : 'member') : 'seat');
+      return '<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #eee">'
+        + '<div style="width:34px;height:34px;border-radius:10px;flex:none;background:' + (m.color || '#8f8a99') + ';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">' + inits(m.name) + '</div>'
+        + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:15px;color:#191022">' + m.name + '</div><div style="font-size:12px;color:#8a7683">' + tag + '</div></div>'
+        + ((owner || isSelf) && !m.is_shared ? _btn('Edit', "fhEditMember('" + m.id + "')", 'border:0;background:#faf2f6;color:#b92e78;border-radius:8px;padding:7px 11px;font-weight:600;font-size:13px') : '')
+        + (owner && !isSelf && !m.is_shared ? _btn('&times;', "fhArchiveMember('" + m.id + "')", 'border:0;background:transparent;color:#c33b4e;font-size:20px;padding:2px 8px;margin-left:4px') : '')
+        + '</div>';
+    }).join('');
+    let html = '<div style="font-size:18px;font-weight:800;color:#191022;margin-bottom:2px">' + (fam ? fam.name : 'Family') + '</div>'
+      + '<div style="font-size:13px;color:#7a5a6e;margin-bottom:12px">Members</div>' + rows;
+    if (owner) html += _btn('＋ Add member', 'fhAddMember()', 'width:100%;border:1px dashed #d3b3c6;background:transparent;color:#b92e78;border-radius:12px;padding:12px;font-weight:700;margin-top:12px');
+    html += _btn('Leave this family', 'fhLeaveFamily()', _ghost);
+    if (owner) html += _btn('Delete family', 'fhDeleteFamily()', 'width:100%;border:0;background:transparent;color:#c33b4e;font-weight:600;padding:10px 0 0;font-size:14px');
+    html += _btn('Done', '_closeOv()', 'width:100%;border:0;background:#191022;color:#fff;border-radius:12px;padding:13px;font-weight:700;margin-top:14px');
+    _fhOverlay(html);
+  };
+  window.fhEditMember = function (id) {
+    const m = (window._fhMembers || []).find((x) => x.id === id) || { name: '', color: '' };
+    window._fhMColor = m.color || _pal()[0];
+    const swatches = _pal().map((c) => '<button data-c="' + c + '" onclick="window._fhMColor=this.dataset.c;document.querySelectorAll(\'#fh-mcol button\').forEach(b=>b.style.outline=\'none\');this.style.outline=\'3px solid #191022\'" style="width:32px;height:32px;border-radius:50%;border:0;cursor:pointer;background:' + c + ';outline:' + (c === window._fhMColor ? '3px solid #191022' : 'none') + '"></button>').join('');
+    _fhOverlay('<div style="font-size:17px;font-weight:800;color:#191022;margin-bottom:14px">Edit member</div>'
+      + '<input id="fh-mname" value="' + String(m.name).replace(/"/g, '&quot;') + '" placeholder="Name" style="width:100%;border:1px solid #e4dbe0;border-radius:10px;padding:12px;margin-bottom:14px;font-size:15px;font-family:inherit">'
+      + '<div id="fh-mcol" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">' + swatches + '</div>'
+      + _btn('Save', "fhSaveMember('" + id + "')", _primary) + _btn('Back', 'fhManageFamily()', _ghost));
+  };
+  window.fhSaveMember = async function (id) {
+    const name = (document.getElementById('fh-mname').value || '').trim(); if (!name) return;
+    try { await sb.rpc('update_member', { p_member_id: id, p_name: name, p_color: window._fhMColor || null }); }
+    catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
+    await window.loadFamilyData(); window.fhManageFamily();
+  };
+  window.fhArchiveMember = async function (id) {
+    if (!confirm('Remove this member? Their history stays in the books.')) return;
+    try { await sb.rpc('archive_member', { p_member_id: id }); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
+    await window.loadFamilyData(); window.fhManageFamily();
+  };
+  window.fhAddMember = async function () {
+    const name = prompt('New member name'); if (!name || !name.trim()) return;
+    try { await sb.rpc('add_member', { p_name: name.trim(), p_color: _pal()[Math.floor(Math.random() * _pal().length)] }); }
+    catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
+    await window.loadFamilyData(); window.fhManageFamily();
+  };
+  window.fhLeaveFamily = async function () {
+    if (!confirm('Leave this family? You can be re-invited later.')) return;
+    try { await sb.rpc('leave_family'); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
+    window._closeOv(); location.reload();
+  };
+  window.fhDeleteFamily = async function () {
+    if (!confirm('Delete this family for everyone? Data is kept but the family disappears.')) return;
+    try { await sb.rpc('archive_family', { p_family_id: window.DB.fid }); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
+    window._closeOv(); location.reload();
+  };
+
+  // ---- Saved for events (the savings pool) ----
+  window.fhSavings = function () {
+    if (!window.DB.fid) { window.toast && window.toast('Open a family first'); return; }
+    const cur = window.savings || 0;
+    _fhOverlay('<div style="font-size:18px;font-weight:800;color:#191022;margin-bottom:2px">Saved for events</div>'
+      + '<div style="font-size:13px;color:#7a5a6e;margin-bottom:16px">Money you’ve set aside to fund goals — separate from income.</div>'
+      + '<div style="font-size:12px;color:#7a5a6e;margin-bottom:6px">Set the total to:</div>'
+      + '<input id="fh-sav" inputmode="numeric" style="width:100%;border:1px solid #e4dbe0;border-radius:10px;padding:14px;margin-bottom:16px;font-size:20px;font-weight:800;color:#b92e78;font-family:inherit">'
+      + _btn('Save', 'fhSetSavings()', _primary) + _btn('Cancel', '_closeOv()', _ghost));
+    const inp = document.getElementById('fh-sav');
+    if (inp) inp.value = (window.curMult ? cur * window.curMult() : cur).toLocaleString(window.CUR === 'VND' ? 'vi-VN' : 'en-US');
+  };
+  window.fhSetSavings = async function () {
+    const base = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-sav').value) : 0;
+    try { await sb.rpc('set_savings', { p_amount: base || 0 }); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
+    window._closeOv(); await window.loadFamilyData(); window.toast && window.toast('Savings updated');
+  };
+
+  // ---- Income (separate ledger) ----
+  window.fhIncome = async function () {
+    const fid = window.DB.fid; if (!fid) { window.toast && window.toast('Open a family first'); return; }
+    const { data: inc } = await sb.from('incomes').select('id,amount,note,income_date').eq('family_id', fid).order('income_date', { ascending: false }).limit(20);
+    const mk = (window.DB.month || '').slice(0, 7);
+    const monthTotal = (inc || []).filter((r) => String(r.income_date).slice(0, 7) === mk).reduce((s, r) => s + Number(r.amount), 0);
+    const list = (inc || []).map((r) => '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #eee"><div style="min-width:0"><div style="font-size:14px;color:#191022">' + (r.note || 'Income') + '</div><div style="font-size:11px;color:#8a7683">' + r.income_date + '</div></div><div style="display:flex;align-items:center;gap:6px;flex:none"><span style="color:#1a7a4a;font-weight:700">+' + (window.fmt ? window.fmt(Number(r.amount)) : r.amount) + '</span>' + _btn('&times;', "fhDelIncome('" + r.id + "')", 'border:0;background:transparent;color:#c33b4e;font-size:18px;padding:0 6px') + '</div></div>').join('');
+    _fhOverlay('<div style="font-size:18px;font-weight:800;color:#191022;margin-bottom:2px">Income</div>'
+      + '<div style="font-size:13px;color:#7a5a6e;margin-bottom:14px">Money coming in — tracked on its own, never auto-saved.</div>'
+      + '<div style="background:#eef7f1;border-radius:12px;padding:12px 14px;margin-bottom:14px"><div style="font-size:11px;color:#1a7a4a;letter-spacing:.06em;text-transform:uppercase">This month</div><div style="font-size:22px;font-weight:800;color:#1a7a4a">' + (window.fmt ? window.fmt(monthTotal) : monthTotal) + '</div></div>'
+      + '<input id="fh-inc-amt" inputmode="numeric" placeholder="Amount" style="width:100%;border:1px solid #e4dbe0;border-radius:10px;padding:11px;margin-bottom:8px;font-size:15px;font-family:inherit">'
+      + '<input id="fh-inc-note" placeholder="Note (e.g. Salary)" style="width:100%;border:1px solid #e4dbe0;border-radius:10px;padding:11px;margin-bottom:12px;font-size:15px;font-family:inherit">'
+      + _btn('＋ Add income', 'fhAddIncome()', 'width:100%;border:0;background:#1a7a4a;color:#fff;border-radius:12px;padding:12px;font-weight:700;font-size:15px')
+      + '<div style="margin-top:14px">' + (list || '<div style="color:#8a7683;font-size:13px;text-align:center;padding:12px">No income logged yet</div>') + '</div>'
+      + _btn('Done', '_closeOv()', 'width:100%;border:0;background:#191022;color:#fff;border-radius:12px;padding:13px;font-weight:700;margin-top:14px'));
+  };
+  window.fhAddIncome = async function () {
+    const base = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-inc-amt').value) : 0;
+    if (!base) return;
+    const note = (document.getElementById('fh-inc-note').value || '').trim() || 'Income';
+    const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
+    const iso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    try { await sb.from('incomes').insert({ family_id: window.DB.fid, member_id: window.DB.ownerMemberId || null, amount: base, note: note, income_date: iso }); }
+    catch (e) { window.toast && window.toast('Couldn’t add income'); return; }
+    window.fhIncome();
+  };
+  window.fhDelIncome = async function (id) { try { await sb.from('incomes').delete().eq('id', id); } catch (e) {} window.fhIncome(); };
 
   (async () => {
     const { data: { session } } = await sb.auth.getSession();
