@@ -717,7 +717,10 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 /* ---------- ONBOARDING ---------- */
 #onboarding{position:absolute;inset:0;z-index:90;background:var(--canvas);overflow:hidden}
 #onboarding.done{display:none}
-.ob-progress{position:absolute;top:0;left:0;right:0;height:3px;background:var(--divider);z-index:6;opacity:0;transition:opacity .3s}
+.ob-progress{position:absolute;top:max(env(safe-area-inset-top),0px);left:0;right:0;height:3px;background:var(--divider);z-index:6;opacity:0;transition:opacity .3s}
+/* onboarding form fields: white so they read on the canvas background (Apple grouped-form look) */
+#onboarding .field input{background:var(--white);border:1px solid var(--hairline)}
+#onboarding .field input:focus{border-color:var(--brand);background:var(--white);box-shadow:0 0 0 3px var(--brand-tint)}
 .ob-progress.show{opacity:1}
 .ob-progress i{display:block;height:100%;width:0;background:var(--brand);border-radius:0 3px 3px 0;transition:width .45s cubic-bezier(.32,.72,0,1)}
 .ob-screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateX(100%);transition:transform .42s cubic-bezier(.32,.72,0,1),opacity .32s;will-change:transform}
@@ -802,6 +805,14 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 /* done */
 .ob-done-badge{width:104px;height:104px;border-radius:50%;background:var(--good-tint);color:var(--good);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 14px 34px rgba(26,157,95,.22)}
 .ob-done-badge svg{width:52px;height:52px}
+/* settings actions (Personalize sheet) */
+.set-actions{margin-top:20px}
+.set-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:15px 2px;font-size:16px;font-weight:600;letter-spacing:-.01em;color:var(--ink);border-top:1px solid var(--divider)}
+.set-row:active{opacity:.6}
+.set-row .set-ic{width:34px;height:34px;border-radius:10px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.set-row.danger{color:var(--danger)}
+.set-row.danger .set-ic{background:var(--danger-tint);color:var(--danger)}
+.set-row .chev{margin-left:auto;color:#cfc8d6;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -1303,10 +1314,13 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 
 <div class="sheet" id="sheet-theme">
   <div class="grab"></div>
-  <div class="sheet-h">Personalize</div>
+  <div class="sheet-h">Settings</div>
   <div class="sheet-sub">Pick a theme — it applies across the whole app.</div>
   <div class="theme-grid" id="theme-grid"></div>
-  <button class="ob-textlink" style="color:var(--danger)" onclick="closeSheet();restartOnboarding()">Sign out</button>
+  <div class="set-actions">
+    <button class="set-row" onclick="closeSheet();restartOnboarding()"><span class="set-ic">↻</span><span class="set-t">Restart onboarding</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row danger" onclick="closeSheet();restartOnboarding()"><span class="set-ic">⎋</span><span class="set-t">Sign out</span></button>
+  </div>
 </div>
 
 <!-- CELEBRATE -->
@@ -1389,6 +1403,13 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
       <div class="field"><label>You are the…</label><div class="choices" id="ob-role">
         <button class="choice on" data-v="Mom" onclick="pick('ob-role',this)">Mom</button>
         <button class="choice" data-v="Dad" onclick="pick('ob-role',this)">Dad</button>
+        <button class="choice" data-v="Husband" onclick="pick('ob-role',this)">Husband</button>
+        <button class="choice" data-v="Wife" onclick="pick('ob-role',this)">Wife</button>
+        <button class="choice" data-v="Boyfriend" onclick="pick('ob-role',this)">Boyfriend</button>
+        <button class="choice" data-v="Sweetheart" onclick="pick('ob-role',this)">Sweetheart</button>
+        <button class="choice" data-v="Coldheart" onclick="pick('ob-role',this)">Coldheart</button>
+        <button class="choice" data-v="Man of steel" onclick="pick('ob-role',this)">Man of steel</button>
+        <button class="choice" data-v="Partner" onclick="pick('ob-role',this)">Partner</button>
         <button class="choice" data-v="Parent" onclick="pick('ob-role',this)">Parent</button>
         <button class="choice" data-v="Guardian" onclick="pick('ob-role',this)">Guardian</button>
       </div></div>
@@ -2722,7 +2743,7 @@ var FAM={
   budget:9000
 };
 var OB_COLORS=['#6f3fc0','#0e8478','#f0701a','#e03d86','#1e74d0','#B8730B','#7A5AE0','#1a9d5f'];
-var OB_ROLES=['Mom','Dad','Parent','Partner','Son','Daughter','Kid','Teen','Sweetie','Guardian','Grandma','Grandpa','Other'];
+var OB_ROLES=['Mom','Dad','Husband','Wife','Boyfriend','Girlfriend','Partner','Sweetheart','Sweetie','Coldheart','Man of steel','Parent','Son','Daughter','Kid','Teen','Sibling','Guardian','Grandma','Grandpa','Other'];
 var obOrder=['welcome','auth','choice','join','profile','family','theme','done'];
 var obProg={welcome:0,auth:.16,choice:.34,join:.55,profile:.62,family:.82,theme:.92,done:1};
 function inits(n){ return ((n||'').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2)||'?').toUpperCase(); }
