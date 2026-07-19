@@ -446,6 +446,7 @@ input{font-family:inherit}
 .ov-scroll::-webkit-scrollbar{display:none}
 /* category / member / bucket detail — mirrors the Spending tab's own composition */
 #cat-overlay{z-index:48}
+#event-overlay{z-index:49}   /* event detail stacks above the photos-by-date screen */
 #cat-overlay .safe{height:max(env(safe-area-inset-top),16px)}
 .cd-back{display:inline-flex;align-items:center;gap:1px;color:var(--ink);font-size:17px;font-weight:600;letter-spacing:-.02em;padding:6px 16px 8px 14px}
 .cd-back svg{width:22px;height:22px}
@@ -622,6 +623,12 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .photo-mosaic .pm:active{opacity:.82}
 .photo-mosaic .pm .subj{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:38px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.28))}
 .photo-mosaic .pm.c-hero .subj,.photo-mosaic .pm.c-big .subj{font-size:60px}
+/* multi-photo picker strip (expense + event modals) */
+.photo-strip{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px}
+.photo-strip:empty{display:none}
+.photo-thumb{position:relative;width:74px;height:74px;border-radius:13px;background-size:cover;background-position:center;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
+.photo-thumb .x{position:absolute;top:-7px;right:-7px;width:23px;height:23px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.photo-strip-note{width:100%;font-size:12.5px;font-weight:600;color:var(--brand-ink);letter-spacing:-.01em;margin-top:2px}
 /* Shared overlay nav bar (memory detail + photos-by-date) */
 .ovnav{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:4px;padding:0 10px;padding-top:max(env(safe-area-inset-top),8px);min-height:52px;background:rgba(255,255,255,.82);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);border-bottom:1px solid var(--divider)}
 .ovback{display:inline-flex;align-items:center;gap:1px;color:var(--brand-ink);font-size:17px;font-weight:600;letter-spacing:-.02em;padding:8px 6px 8px 2px;flex-shrink:0}
@@ -1042,9 +1049,9 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
       <button class="choice" data-v="Leo" onclick="pickExWho(this)">Leo</button>
     </div></div>
 
-    <div class="field"><label>Photo (optional)</label>
-      <label class="mem-upload"><span id="ex-upload-txt">📷 Add a photo</span><input type="file" accept="image/*" onchange="onExPhoto(this)" hidden></label>
-      <div class="mem-preview" id="ex-preview"><div class="scrim"></div><span>Saved as a memory 📸</span><button type="button" class="pv-remove" onclick="clearExPhoto(event)">Remove</button></div>
+    <div class="field"><label>Photos (optional)</label>
+      <label class="mem-upload"><span id="ex-upload-txt">📷 Add photos</span><input type="file" accept="image/*" multiple onchange="onExPhoto(this)" hidden></label>
+      <div class="photo-strip" id="ex-strip"></div>
     </div>
 
     <div class="field-hint" id="ex-whenhint"></div>
@@ -1091,6 +1098,11 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
         <button class="src-opt" data-v="month" onclick="pickSrc(this)"><span class="src-t"><span class="src-em">📆</span>This month</span><span class="src-a" id="src-month">$4,880 <span class="u">to spend</span></span></button>
       </div>
       <div class="field-hint" id="ng-srchint"></div>
+    </div>
+
+    <div class="field"><label>Photos (optional)</label>
+      <label class="mem-upload"><span id="ev-upload-txt">📷 Add photos</span><input type="file" accept="image/*" multiple onchange="onEvPhoto(this)" hidden></label>
+      <div class="photo-strip" id="ev-strip"></div>
     </div>
   </div>
 </div>
@@ -1557,9 +1569,9 @@ function buildMemRecords(){
   order.forEach(function(k){ var e=events[k]; (e.memories||[]).forEach(function(m){
     memRecords.push({src:m.src||'',cls:m.src?'':(m.cls||'ph-park'),emoji:m.emoji||e.emoji,cap:m.caption||e.name,meta:m.caption?(e.emoji+' '+e.name):e.date,type:'event',ref:k,d:e.d});
   }); });
-  txns.forEach(function(t){ if(!t.future && t.photo){
-    memRecords.push({src:t.photo,cls:'',emoji:'',cap:t.note,meta:t.date+' · '+fmt(t.amt),type:'expense',ref:t.id,d:txPhotoDate(t)});
-  } });
+  txns.forEach(function(t){ if(t.future)return; var ph=t.photos||(t.photo?[t.photo]:[]);
+    ph.forEach(function(src){ memRecords.push({src:src,cls:'',emoji:'',cap:t.note,meta:t.date+' · '+fmt(t.amt),type:'expense',ref:t.id,d:txPhotoDate(t)}); });
+  });
   memRecords.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });
 }
 // Collage template chosen by photo count (Apple-style, dynamic).
@@ -1594,10 +1606,7 @@ function photoSectionsByDate(recs){
     if(r.type==='event' && by[key].evs.indexOf(r.ref)<0) by[key].evs.push(r.ref);
   });
   return groups.map(function(g){
-    var title='<div class="photo-sec-title">'+fmtDateLong(g.d)+'</div>';
-    if(g.evs.length===1){ var e=events[g.evs[0]]; title+='<button class="photo-sec-ev" onclick="openEvent(\''+g.evs[0]+'\')">'+e.emoji+' '+e.name+' ›</button>'; }
-    else if(g.evs.length>1){ title+='<div class="photo-sec-ev" style="color:var(--muted)">'+g.evs.length+' events</div>'; }
-    return secHTML(title, g.items.length, mosaicHTML(g.items));
+    return secHTML('<div class="photo-sec-title">'+fmtDateLong(g.d)+'</div>', g.items.length, mosaicHTML(g.items));
   }).join('');
 }
 // Photos-by-date screen: group by EVENT (name links to the event) + an "Everyday moments" section.
@@ -1672,6 +1681,20 @@ function closeSheet(){
   document.getElementById('scrim').classList.remove('on'); document.querySelectorAll('.sheet').forEach(function(s){ s.classList.remove('on'); s.style.transform=''; s.style.transition=''; });
 }
 /* new-event modal */
+var evPhotos=[];
+function onEvPhoto(input){
+  var files=Array.prototype.slice.call(input.files||[]);
+  files.forEach(function(f){ if(evPhotos.length>=10){ toast('Up to 10 photos'); return; } var r=new FileReader(); r.onload=function(){ if(evPhotos.length<10){ evPhotos.push(r.result); renderEvPhoto(); } }; r.readAsDataURL(f); });
+  input.value='';
+}
+function removeEvPhoto(i){ evPhotos.splice(i,1); renderEvPhoto(); }
+function renderEvPhoto(){
+  var strip=document.getElementById('ev-strip'), up=document.getElementById('ev-upload-txt');
+  if(up) up.textContent = evPhotos.length ? '📷 Add more' : '📷 Add photos';
+  if(!strip)return;
+  strip.innerHTML = evPhotos.map(function(src,i){ return '<div class="photo-thumb" style="background-image:url('+src+')"><button type="button" class="x" onclick="removeEvPhoto('+i+')">✕</button></div>'; }).join('')
+    + (evPhotos.length ? '<div class="photo-strip-note">'+evPhotos.length+' photo'+(evPhotos.length!==1?'s':'')+' added</div>' : '');
+}
 function openEventModal(){
   document.getElementById('ng-name').value=''; document.getElementById('ng-amt').value='';
   document.getElementById('ng-date').value='2026-08-15';
@@ -1680,6 +1703,7 @@ function openEventModal(){
   selSrc='savings';
   document.getElementById('ng-src').querySelectorAll('.src-opt').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='savings'); });
   updateSrcHint();
+  evPhotos=[]; renderEvPhoto();
   document.getElementById('scrim').classList.add('on');
   var m=document.getElementById('event-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
   var body=m.querySelector('.modal-body'); if(body)body.scrollTop=0;
@@ -1698,7 +1722,7 @@ function openExpense(){
 function closeExpense(){
   document.getElementById('scrim').classList.remove('on');
   var m=document.getElementById('expense-modal'); m.classList.remove('on'); m.style.transform=''; m.style.transition='';
-  editingTx=null; editSnap=null; exPhoto=null;
+  editingTx=null; editSnap=null; exPhotos=[];
   setTxt('ex-title','Log an expense');
   var del=document.getElementById('ex-del'); if(del)del.style.display='none';
 }
@@ -1798,7 +1822,7 @@ function prefillExpense(){
   selectChipByVal('ex-cat',lastCat);
   selectChipByVal('ex-who',lastWho);
   document.getElementById('ex-date').value='2026-07-13';
-  exPhoto=null; renderExPhoto();
+  exPhotos=[]; renderExPhoto();
   setTxt('ex-title','Log an expense');
   var del=document.getElementById('ex-del'); if(del)del.style.display='none';
   updateExWhen(); refreshExCta();
@@ -1816,27 +1840,32 @@ function txDateInput(t){                                    // stored 'Jul 8' / 
 }
 function whoToChip(w){ return (w==='Shared'||w==='both'||w==='Both')?'Both':(w||'Emma'); }
 function txPhotoDate(t){ var p=txDateInput(t).split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
-/* ---- expense photo → memory ---- */
-var exPhoto=null;
+/* ---- expense photos → memories (multi, max 10) ---- */
+var exPhotos=[];
 function onExPhoto(input){
-  var f=input.files&&input.files[0]; if(!f)return;
-  var r=new FileReader();
-  r.onload=function(){ exPhoto=r.result; renderExPhoto(); onExInput(); };
-  r.readAsDataURL(f); input.value='';
+  var files=Array.prototype.slice.call(input.files||[]);
+  files.forEach(function(f){
+    if(exPhotos.length>=10){ toast('Up to 10 photos'); return; }
+    var r=new FileReader(); r.onload=function(){ if(exPhotos.length<10){ exPhotos.push(r.result); renderExPhoto(); onExInput(); } }; r.readAsDataURL(f);
+  });
+  input.value='';
 }
-function clearExPhoto(e){ if(e){e.preventDefault();e.stopPropagation();} exPhoto=null; renderExPhoto(); onExInput(); }
+function removeExPhoto(i){ exPhotos.splice(i,1); renderExPhoto(); onExInput(); }
+function clearExPhoto(){ exPhotos=[]; renderExPhoto(); onExInput(); }
 function renderExPhoto(){
-  var pv=document.getElementById('ex-preview'), up=document.getElementById('ex-upload-txt');
-  if(!pv)return;
-  if(exPhoto){ pv.classList.add('show'); pv.style.backgroundImage='url('+exPhoto+')'; if(up)up.textContent='📷 Change photo'; }
-  else { pv.classList.remove('show'); pv.style.backgroundImage=''; if(up)up.textContent='📷 Add a photo'; }
+  var strip=document.getElementById('ex-strip'), up=document.getElementById('ex-upload-txt');
+  if(up) up.textContent = exPhotos.length ? '📷 Add more' : '📷 Add photos';
+  if(!strip)return;
+  strip.innerHTML = exPhotos.map(function(src,i){
+    return '<div class="photo-thumb" style="background-image:url('+src+')"><button type="button" class="x" onclick="removeExPhoto('+i+')">✕</button></div>';
+  }).join('') + (exPhotos.length ? '<div class="photo-strip-note">'+exPhotos.length+' photo'+(exPhotos.length!==1?'s':'')+' · saved as '+(exPhotos.length!==1?'memories':'a memory')+' 📸</div>' : '');
 }
 function exFormState(){                                     // snapshot used to detect edits
   return document.getElementById('ex-note').value.trim()
     +'|'+parseAmt(document.getElementById('ex-amt').value)
     +'|'+chosen('ex-cat')+'|'+chosen('ex-who')
     +'|'+document.getElementById('ex-date').value
-    +'|'+(exPhoto?exPhoto.slice(0,40)+exPhoto.length:'');
+    +'|'+exPhotos.length+':'+exPhotos.map(function(s){return s.length;}).join(',');
 }
 function refreshExCta(){                                    // nav-bar Save button
   var s=document.getElementById('ex-save'); if(!s)return;
@@ -1856,7 +1885,7 @@ function fillExpenseFromTx(){
   document.getElementById('ex-date').value=txDateInput(t);
   selectChipByVal('ex-cat', t.cat);
   selectChipByVal('ex-who', whoToChip(t.who));
-  exPhoto=t.photo||null; renderExPhoto();
+  exPhotos = (t.photos||(t.photo?[t.photo]:[])).slice(); renderExPhoto();
   updateExWhen();
   setTxt('ex-title','Edit expense');
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
@@ -1879,11 +1908,11 @@ function saveExpenseEdit(){
   jul.spent-=t.amt; jul.catSpent[t.cat]=(jul.catSpent[t.cat]||0)-t.amt; jul.memberSpent[oldMk]=(jul.memberSpent[oldMk]||0)-t.amt;
   // write the new values in place (keep the specific icon unless the category changed)
   t.ico=(cat===t.cat)?t.ico:s[0]; t.cat=cat; t.note=note; t.amt=amt; t.who=whoStore; t.date=dstr;
-  t.photo=exPhoto||undefined;                              // add / keep / remove the memory photo
+  t.photos=exPhotos.slice(); delete t.photo;               // add / keep / remove the memory photos
   // apply the new contribution
   var newMk=(whoStore==='Shared')?'Shared':whoStore;
   jul.spent+=amt; jul.catSpent[cat]=(jul.catSpent[cat]||0)+amt; jul.memberSpent[newMk]=(jul.memberSpent[newMk]||0)+amt;
-  editingTx=null; editSnap=null; exPhoto=null;
+  editingTx=null; editSnap=null; exPhotos=[];
   txns.sort(function(a,b){ return txDay(b)-txDay(a); });
   selMonth='Jul'; renderAll(); renderTxns(); renderEvents();
   if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val);
@@ -1899,7 +1928,7 @@ function deleteExpense(){
     jul.spent-=t.amt; jul.catSpent[t.cat]=(jul.catSpent[t.cat]||0)-t.amt; jul.memberSpent[mk]=(jul.memberSpent[mk]||0)-t.amt;
   }
   var i=txns.indexOf(t); if(i>=0) txns.splice(i,1);
-  editingTx=null; editSnap=null; exPhoto=null;
+  editingTx=null; editSnap=null; exPhotos=[];
   selMonth='Jul'; renderAll(); renderTxns(); renderEvents();
   if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val);
   closeExpense();
@@ -2106,9 +2135,9 @@ function addExpense(){
     var past=dObj<TODAY;                                    // a past date = it already happened (realized), not upcoming
     var ev={name:note,emoji:'🎈',cov:'pink',date:(MONA[dObj.getMonth()]+' '+dObj.getDate()),d:dObj,target:amt,saved:amt,setAside:past?0:amt};
     if(past){ ev.achieved=true; months.Jul.spent+=amt; }   // spent already · goes straight to Memories
-    if(exPhoto) ev.memories=[{src:exPhoto,caption:note}]; // a photo makes it a memory right away
+    if(exPhotos.length) ev.memories=exPhotos.map(function(s,i){ return i===0?{src:s,caption:note}:{src:s}; }); // photos become memories right away
     events[eid]=ev; order.unshift(eid); renderEvents(); renderTxns(); selMonth='Jul'; renderAll();
-    document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhoto=null;
+    document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
     closeExpense();
     if(past){ toast(note+' saved · add a photo to remember it 📸'); floatEmojis('📸'); go('events'); }
     else { toast(note+' added to Events · '+fmt(Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved()))+' safe to spend'); floatEmojis('🎈'); go('events'); }
@@ -2124,14 +2153,14 @@ function addExpense(){
   }
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
-  var hadPhoto=!!exPhoto;
-  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:whoStore,amt:amt,month:'Jul',photo:exPhoto||undefined});
+  var hadPhoto=exPhotos.length>0;
+  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:whoStore,amt:amt,month:'Jul',photos:exPhotos.length?exPhotos.slice():undefined});
   renderTxns();
   var jul=months.Jul;
   var wasUnder=(jul.catSpent[cat]||0)<=(catBudget[cat]||Infinity);
   jul.spent+=amt; jul.catSpent[cat]=(jul.catSpent[cat]||0)+amt; jul.memberSpent[mkey]=(jul.memberSpent[mkey]||0)+amt;
   selMonth='Jul'; renderAll(); if(hadPhoto) renderEvents();   // photo → shows in Memories
-  document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhoto=null;
+  document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
   closeExpense();
   if(hadPhoto){ toast('Logged '+fmt(amt)+' · saved to Memories 📸'); floatEmojis('📸'); }
   else if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast('Heads up — '+cat+' is now over budget');
@@ -2287,6 +2316,7 @@ function addEvent(){
   else { d=new Date(TODAY.getTime()+30*86400000); }
   var date=MONA[d.getMonth()]+' '+d.getDate();
   var ev={name:name,emoji:selEmoji,cov:selCov,date:date,d:d,target:target,saved:0,setAside:0};
+  if(evPhotos.length) ev.memories=evPhotos.map(function(s){ return {src:s}; });   // photos added at creation
   events[id]=ev; order.unshift(id);
   // 100% cover the full cost by default, from the chosen source (capped by what's available)
   var msg='Event created 🎯';
