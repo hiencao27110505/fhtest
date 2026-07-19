@@ -3060,7 +3060,7 @@ if('serviceWorker' in navigator){
 
   const g = (id) => document.getElementById(id);
 
-  // Continue the onboarding once we have a session (no redirect — we never left the app).
+  // Continue once we have a session (no redirect — we never left the app).
   async function afterLogin(session) {
     if (!session) return;
     window.fhUser = session.user;
@@ -3072,9 +3072,18 @@ if('serviceWorker' in navigator){
         if (nm && !window.FAM.user.name) window.FAM.user.name = nm;
       }
     } catch (e) {}
+    // Authoritative "onboarded" = do you have a family row yet? (not localStorage)
+    let familyId = null;
+    try {
+      const { data: prof } = await sb.from('profiles').select('family_id').eq('id', session.user.id).maybeSingle();
+      familyId = prof && prof.family_id;
+    } catch (e) {}
     const onb = g('onboarding');
-    if (onb && !onb.classList.contains('done') && typeof window.obGo === 'function') {
-      window.obGo('choice');                     // → "Your family"
+    if (familyId) {
+      if (onb) onb.classList.add('done');          // has a family → into the app
+    } else if (onb && typeof window.obGo === 'function') {
+      onb.classList.remove('done');                // no family yet → create/join
+      window.obGo('choice');
     }
   }
 
@@ -3141,6 +3150,73 @@ if('serviceWorker' in navigator){
     if (session) await afterLogin(session);        // already signed in → resume
     else await mountGoogleButton();                // otherwise mount the in-app Google button
   })();
+
+  // ── Create-family: wire the onboarding "Enter FamilyHub" step to the real RPC + inserts ──
+  async function createFamilyInDB() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return;
+    const uid = session.user.id;
+    const { data: prof } = await sb.from('profiles').select('family_id').eq('id', uid).maybeSingle();
+    let familyId = prof && prof.family_id, created = false;
+    if (!familyId) {
+      const { data, error } = await sb.rpc('create_family', {
+        p_name: (window.FAM && window.FAM.familyName) || 'My family',
+        p_currency: window.CUR || 'VND',
+        p_language: window.LANG || 'vi'
+      });
+      if (error) throw error;
+      familyId = data; created = true;
+    }
+    const F = window.FAM || { user: {} };
+    // owner member: adopt the name + colour chosen in onboarding
+    await sb.from('members').update({ name: F.user.name, color: F.user.color })
+      .eq('family_id', familyId).eq('user_id', uid);
+    // profile: display name, theme, language
+    await sb.from('profiles').update({
+      display_name: F.user.name, theme: (window.curTheme || 'sage'), language: window.LANG || 'vi'
+    }).eq('id', uid);
+    if (created) {
+      // extra (non-me) members entered during onboarding
+      const extras = (F.members || []).filter((m) => !m.me && (m.name || '').trim());
+      if (extras.length) {
+        await sb.from('members').insert(extras.map((m) => ({
+          family_id: familyId, name: m.name.trim(), color: m.color || null
+        })));
+      }
+      // budget: current-month cap + per-category budgets (mapped by sort_order → catOrder)
+      const now = new Date();
+      const month = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
+      if (F.budget) await sb.from('monthly_budgets')
+        .upsert({ family_id: familyId, month, budget_total: F.budget }, { onConflict: 'family_id,month' });
+      const { data: cats } = await sb.from('categories').select('id, sort_order').eq('family_id', familyId);
+      const order = window.catOrder || [];
+      const rows = [];
+      (cats || []).forEach((c) => {
+        const key = order[c.sort_order - 1];
+        const amt = (key && F.catBudget) ? (F.catBudget[key] || 0) : 0;
+        if (amt > 0) rows.push({ family_id: familyId, month, category_id: c.id, amount: amt });
+      });
+      if (rows.length) await sb.from('category_budgets')
+        .upsert(rows, { onConflict: 'family_id,month,category_id' });
+    }
+  }
+
+  const _origFinish = window.finishOnboarding;
+  window.finishOnboarding = async function () {
+    if (window.FAM && window.FAM.mode === 'create') {
+      const btn = document.querySelector('#onboarding .ob-screen[data-ob="done"] .cta');
+      const label = btn ? btn.textContent : '';
+      if (btn) { btn.disabled = true; btn.style.opacity = '.7'; btn.textContent = 'Setting up…'; }
+      try { await createFamilyInDB(); }
+      catch (e) {
+        alert('Could not create your family: ' + (e.message || e));
+        if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.textContent = label; }
+        return;
+      }
+      if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.textContent = label; }
+    }
+    if (typeof _origFinish === 'function') _origFinish();
+  };
 
   sb.auth.onAuthStateChange(() => {});
   // test helper: run fhSignOut() in the console to switch Google accounts
