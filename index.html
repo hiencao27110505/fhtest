@@ -139,6 +139,12 @@ input{font-family:inherit}
 .ovc-l{font-size:12.5px;font-weight:600;letter-spacing:-.01em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ovc-n{font-family:var(--disp);font-weight:700;font-size:27px;letter-spacing:-1px;color:var(--ink);margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ovc-s{font-size:12.5px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:7px;line-height:1.35}
+/* VND figures are longer — shrink the glanceable hero numbers so they don't clip */
+.cur-vnd .ovc-n{font-size:20px;letter-spacing:-.5px}
+.cur-vnd .hero-tile .ht-n{font-size:18px;letter-spacing:-.4px}
+/* spending breakdown rows: name + "spent / budget" — tighten the amount in VND so it doesn't collide/clip */
+.cur-vnd .crow .r-t{font-size:15px}
+.cur-vnd .crow .r-t .num{font-size:13.5px;padding-left:8px;letter-spacing:-.3px}
 
 /* section heading */
 .section-h{display:flex;align-items:baseline;justify-content:space-between;margin:26px 22px 13px}
@@ -2996,6 +3002,7 @@ function applyFam(){
   try{ localStorage.setItem('fh-fam',JSON.stringify(FAM)); }catch(e){}
 }
 function applyCurrency(){                         // re-render every money figure in the chosen currency
+  document.documentElement.classList.toggle('cur-vnd', CUR==='VND');   // longer VND figures → tighter hero type
   renderBudget(); renderEvents(); renderTxns(); renderMembers();
   document.querySelectorAll('[data-amt]').forEach(function(el){         // static demo amounts (base USD units)
     var base=parseFloat(el.getAttribute('data-amt'))||0;
