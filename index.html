@@ -1282,10 +1282,14 @@ var membersMeta={
   Mia:{av:'av-mia',ini:'MR',col:'#f0701a'},
   Leo:{av:'av-leo',ini:'LR',col:'#e03d86'}
 };
-var TODAY=new Date(2026,6,13);
+// Real current date. The demo data lives in July 2026, so if the device clock is
+// outside that month we fall back to mid-July to keep the seed coherent.
+var TODAY=(function(){ var d=new Date(); d.setHours(0,0,0,0); if(d.getFullYear()!==2026 || d.getMonth()!==6) d=new Date(2026,6,15); return d; })();
+months.Jul.dom=TODAY.getDate();
+months.Jul.dim=new Date(TODAY.getFullYear(),TODAY.getMonth()+1,0).getDate();
 var events={
   japan:{name:'Summer in Japan',emoji:'✈️',cov:'blue',date:'Sep 15',d:new Date(2026,8,15),target:12000,saved:5600},
-  dinner:{name:'Family dinner out',emoji:'🍜',cov:'sun',date:'Jul 13',d:new Date(2026,6,13),target:120,saved:120,setAside:120},
+  dinner:{name:'Family dinner out',emoji:'🍜',cov:'sun',date:'',d:TODAY,target:120,saved:120,setAside:120},
   bday:{name:"Weekend getaway",emoji:'🏝️',cov:'pink',date:'Jul 28',d:new Date(2026,6,28),target:800,saved:520,setAside:300},
   laptop:{name:"Mia's laptop",emoji:'💻',cov:'purple',date:'Aug 20',d:new Date(2026,7,20),target:1100,saved:620},
   rent:{name:'August rent',emoji:'🏠',cov:'indigo',date:'Aug 1',d:new Date(2026,7,1),target:2400,saved:1600},
@@ -1332,6 +1336,7 @@ function renderTrend(){
 /* ---------- month name lookups (shared) ---------- */
 var MONF=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var MONA=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+if(events.dinner) events.dinner.date=MONA[TODAY.getMonth()]+' '+TODAY.getDate();   // demo event tracks today
 var WKD=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function fmtDateLong(d){ return d ? (WKD[d.getDay()]+', '+MONF[d.getMonth()]+' '+d.getDate()) : ''; }
 function sameDay(a,b){ return !!(a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate()); }
