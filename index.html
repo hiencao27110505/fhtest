@@ -615,7 +615,8 @@ input{font-family:inherit}
 .memory .m-cap{position:relative;color:#fff;font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px;line-height:1.2}
 .memory .m-date{position:relative;color:rgba(255,255,255,.85);font-size:12.5px;letter-spacing:-.01em;margin-top:3px}
 /* Home: horizontal memory strip */
-.mem-strip{display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding:0 16px 4px}
+/* vertical padding so card shadows aren't clipped by the horizontal scroll (overflow-x forces overflow-y to clip) */
+.mem-strip{display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding:13px 16px 26px;margin-bottom:-8px}
 .mem-strip::-webkit-scrollbar{display:none}
 /* Memories: photos grouped into date / event sections, each a rounded collage card */
 .photo-sec{margin-top:24px}
@@ -726,13 +727,13 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .ob-screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateX(100%);transition:transform .42s cubic-bezier(.32,.72,0,1),opacity .32s;will-change:transform}
 .ob-screen.on{opacity:1;pointer-events:auto;transform:none}
 .ob-screen.past{opacity:0;transform:translateX(-32px);pointer-events:none}
-.ob-top{flex-shrink:0;height:max(calc(env(safe-area-inset-top) + 10px),40px);display:flex;align-items:flex-end;padding:0 10px 2px}
-.ob-back2{width:40px;height:40px;display:flex;align-items:center;justify-content:center;color:var(--ink);border-radius:50%}
-.ob-back2:active{background:rgba(0,0,0,.05)}
-.ob-back2 svg{width:25px;height:25px}
+.ob-top{flex-shrink:0;padding:calc(max(env(safe-area-inset-top),0px) + 15px) 8px 2px;display:flex;align-items:center}
+.ob-back2{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--ink);border-radius:50%}
+.ob-back2:active{background:rgba(0,0,0,.06)}
+.ob-back2 svg{width:26px;height:26px}
 .ob-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 24px 12px}
 .ob-content::-webkit-scrollbar{display:none}
-.ob-content.center{display:flex;flex-direction:column;justify-content:center}
+.ob-content.center{display:flex;flex-direction:column;justify-content:center;padding-top:calc(max(env(safe-area-inset-top),0px) + 16px)}
 .ob-head{margin:6px 0 28px}
 .ob-h1{font-family:var(--disp);font-weight:800;font-size:30px;line-height:1.1;letter-spacing:-.8px;color:var(--ink)}
 .ob-sub{font-size:16px;line-height:1.5;letter-spacing:-.01em;color:var(--muted);margin-top:11px}
