@@ -3128,6 +3128,7 @@ if('serviceWorker' in navigator){
         btn.style.opacity = '.6';
         try { await sb.rpc('switch_family', { p_family_id: btn.getAttribute('data-fid') }); }
         catch (e) { alert('Could not open: ' + (e.message || e)); btn.style.opacity = ''; return; }
+        await loadActiveFamily();
         ov.remove();
         if (onb) onb.classList.add('done');
         if (typeof window.go === 'function') window.go('home');
@@ -3146,6 +3147,36 @@ if('serviceWorker' in navigator){
       if (typeof window.obGo === 'function') window.obGo('join');
     };
   }
+  // First real read: pull the active family's name + members from the DB into the header.
+  // (Budget / categories / transactions come in the next slice — those numbers are still mock.)
+  async function loadActiveFamily() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session || !window.FAM) return;
+    const uid = session.user.id;
+    const { data: prof } = await sb.from('profiles').select('family_id').eq('id', uid).maybeSingle();
+    const fid = prof && prof.family_id; if (!fid) return;
+    const [famRes, memRes] = await Promise.all([
+      sb.from('families').select('name, currency, default_language').eq('id', fid).maybeSingle(),
+      sb.from('members').select('name, color, is_shared, user_id').eq('family_id', fid).is('archived_at', null).order('created_at')
+    ]);
+    const fam = famRes.data, mems = memRes.data || [];
+    if (fam) {
+      window.FAM.familyName = fam.name;
+      if (fam.default_language) window.LANG = fam.default_language;
+      if (fam.currency) window.CUR = fam.currency;
+    }
+    window.FAM.members = mems.filter((m) => !m.is_shared).map((m) => ({
+      name: m.name, color: m.color || '#8f8a99', me: m.user_id === uid
+    }));
+    try {
+      localStorage.setItem('fh-fam', JSON.stringify(window.FAM));
+      localStorage.setItem('fh-lang', window.LANG);
+      localStorage.setItem('fh-cur', window.CUR);
+    } catch (e) {}
+    if (typeof window.applyLang === 'function') window.applyLang();
+    if (typeof window.applyFam === 'function') window.applyFam();
+  }
+
   window.fhSwitchFamily = async function () {
     let fams = [];
     try { const { data } = await sb.rpc('my_families'); fams = data || []; } catch (e) {}
