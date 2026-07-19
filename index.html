@@ -1347,6 +1347,7 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   <div class="sheet-sub">Pick a theme — it applies across the whole app.</div>
   <div class="theme-grid" id="theme-grid"></div>
   <div class="set-actions">
+    <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();restartOnboarding()"><span class="set-ic">↻</span><span class="set-t">Restart onboarding</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row danger" onclick="closeSheet();fhSignOut()"><span class="set-ic">⎋</span><span class="set-t">Sign out</span></button>
@@ -3090,20 +3091,66 @@ if('serviceWorker' in navigator){
         if (nm && !window.FAM.user.name) window.FAM.user.name = nm;
       }
     } catch (e) {}
-    // Authoritative "onboarded" = do you have a family row yet? (not localStorage)
-    let familyId = null;
-    try {
-      const { data: prof } = await sb.from('profiles').select('family_id').eq('id', session.user.id).maybeSingle();
-      familyId = prof && prof.family_id;
-    } catch (e) {}
+    // Multi-family: which families do you belong to?
+    let fams = [];
+    try { const { data } = await sb.rpc('my_families'); fams = data || []; } catch (e) {}
     const onb = g('onboarding');
-    if (familyId) {
-      if (onb) onb.classList.add('done');          // has a family → into the app
-    } else if (onb && typeof window.obGo === 'function') {
-      onb.classList.remove('done');                // no family yet → create/join
-      window.obGo('choice');
+    if (fams.length === 0) {
+      if (onb && typeof window.obGo === 'function') { onb.classList.remove('done'); window.obGo('choice'); }
+    } else {
+      showFamilyPicker(fams);
     }
   }
+
+  // Full-screen "Your families" picker (shown on login, and from Settings → Switch family)
+  function showFamilyPicker(fams) {
+    const onb = g('onboarding');
+    let ov = document.getElementById('fh-fam-ov'); if (ov) ov.remove();
+    ov = document.createElement('div'); ov.id = 'fh-fam-ov';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9998;display:flex;flex-direction:column;justify-content:center;padding:32px 22px;background:#f4f1f6;overflow:auto;font-family:inherit';
+    const cards = (fams || []).map((f) =>
+      '<button class="fh-fam-card" data-fid="' + f.family_id + '" style="display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:1px solid #e4dbe0;background:#fff;border-radius:16px;padding:16px 18px;margin-bottom:10px;font-family:inherit;cursor:pointer">'
+      + '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#b92e78,#e14b8a);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px">' + String(f.name || '?').slice(0, 1).toUpperCase() + '</div>'
+      + '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:16px;color:#191022">' + (f.name || 'Family') + '</div>'
+      + '<div style="font-size:12.5px;color:#7a5a6e">' + (f.is_owner ? 'Owner' : 'Member') + (f.is_active ? ' · current' : '') + '</div></div>'
+      + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>'
+    ).join('');
+    ov.innerHTML = '<div style="max-width:420px;width:100%;margin:0 auto">'
+      + '<div style="font-size:24px;font-weight:800;color:#191022;margin-bottom:4px">Your families</div>'
+      + '<div style="font-size:14px;color:#7a5a6e;margin-bottom:22px">Pick one to open, or start / join another.</div>'
+      + cards
+      + '<button id="fh-fam-new" style="width:100%;border:1px dashed #d3b3c6;background:transparent;color:#b92e78;border-radius:16px;padding:15px;font-weight:700;font-size:15px;font-family:inherit;margin-top:6px;cursor:pointer">＋ Create a new family</button>'
+      + '<button id="fh-fam-join" style="width:100%;border:0;background:transparent;color:#7a5a6e;font-weight:600;font-size:14px;padding:14px 0 0;font-family:inherit;cursor:pointer">🔗 Join with a code</button>'
+      + '</div>';
+    document.body.appendChild(ov);
+    ov.querySelectorAll('.fh-fam-card').forEach((btn) => {
+      btn.onclick = async () => {
+        btn.style.opacity = '.6';
+        try { await sb.rpc('switch_family', { p_family_id: btn.getAttribute('data-fid') }); }
+        catch (e) { alert('Could not open: ' + (e.message || e)); btn.style.opacity = ''; return; }
+        ov.remove();
+        if (onb) onb.classList.add('done');
+        if (typeof window.go === 'function') window.go('home');
+      };
+    });
+    document.getElementById('fh-fam-new').onclick = () => {
+      ov.remove();
+      if (onb) onb.classList.remove('done');
+      if (window.FAM) { window.FAM.mode = 'create'; window.FAM.familyName = ''; window.FAM.members = []; window.FAM.budget = 0; window.FAM.catBudget = null; }
+      if (typeof window.obChoose === 'function') window.obChoose('create');
+    };
+    document.getElementById('fh-fam-join').onclick = () => {
+      ov.remove();
+      if (onb) onb.classList.remove('done');
+      if (window.FAM) window.FAM.mode = 'join';
+      if (typeof window.obGo === 'function') window.obGo('join');
+    };
+  }
+  window.fhSwitchFamily = async function () {
+    let fams = [];
+    try { const { data } = await sb.rpc('my_families'); fams = data || []; } catch (e) {}
+    showFamilyPicker(fams);
+  };
 
   // ── Google Identity Services: ID-token popup that stays INSIDE the installed PWA ──
   let rawNonce = null;
@@ -3174,17 +3221,14 @@ if('serviceWorker' in navigator){
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return;
     const uid = session.user.id;
-    const { data: prof } = await sb.from('profiles').select('family_id').eq('id', uid).maybeSingle();
-    let familyId = prof && prof.family_id, created = false;
-    if (!familyId) {
-      const { data, error } = await sb.rpc('create_family', {
-        p_name: (window.FAM && window.FAM.familyName) || 'My family',
-        p_currency: window.CUR || 'VND',
-        p_language: window.LANG || 'vi'
-      });
-      if (error) throw error;
-      familyId = data; created = true;
-    }
+    // always create a fresh family (multi-family: "create" means a new one)
+    const { data: familyId, error } = await sb.rpc('create_family', {
+      p_name: (window.FAM && window.FAM.familyName) || 'My family',
+      p_currency: window.CUR || 'VND',
+      p_language: window.LANG || 'vi'
+    });
+    if (error) throw error;
+    const created = true;
     const F = window.FAM || { user: {} };
     // owner member: adopt the name + colour chosen in onboarding
     await sb.from('members').update({ name: F.user.name, color: F.user.color })
