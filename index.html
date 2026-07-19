@@ -3328,8 +3328,15 @@ if('serviceWorker' in navigator){
       window.catBudget = cbud;
 
       // photos grouped by transaction
+      // sign storage-path photos so they render (transaction photos + memories)
+      const _paths = [];
+      tp.forEach((p) => { if (p.photo_url && p.photo_url.indexOf('http') !== 0) _paths.push(p.photo_url); });
+      em.forEach((x) => { if (x.photo_url && x.photo_url.indexOf('http') !== 0) _paths.push(x.photo_url); });
+      const _signed = {};
+      if (_paths.length) { try { const r = await sb.storage.from('family-media').createSignedUrls(_paths, 3600); (r.data || []).forEach((s) => { if (s && s.signedUrl) _signed[s.path] = s.signedUrl; }); } catch (e) {} }
+      const _url = (p) => p ? (p.indexOf('http') === 0 ? p : (_signed[p] || p)) : p;
       const photosByTx = {};
-      tp.forEach((p) => { (photosByTx[p.transaction_id] = photosByTx[p.transaction_id] || []).push(p.photo_url); });
+      tp.forEach((p) => { (photosByTx[p.transaction_id] = photosByTx[p.transaction_id] || []).push(_url(p.photo_url)); });
 
       // months (from budgets) + transactions (derive spent)
       const byKey = {};
@@ -3369,7 +3376,7 @@ if('serviceWorker' in navigator){
         if (f.source === 'budget' && f.month === monthDate) setAsideByEvent[f.event_id] = (setAsideByEvent[f.event_id] || 0) + Number(f.amount);
       });
       const memByEvent = {};
-      em.forEach((x) => { (memByEvent[x.event_id] = memByEvent[x.event_id] || []).push(x.photo_url ? { src: x.photo_url, caption: x.caption || '' } : { emoji: x.emoji || '📸', caption: x.caption || '', cls: 'ph-park' }); });
+      em.forEach((x) => { (memByEvent[x.event_id] = memByEvent[x.event_id] || []).push(x.photo_url ? { src: _url(x.photo_url), caption: x.caption || '' } : { emoji: x.emoji || '📸', caption: x.caption || '', cls: 'ph-park' }); });
       const evObj = {}, evOrder = []; window.DB.eventById = {};
       ev.forEach((e) => {
         const d = e.target_date ? new Date(e.target_date + 'T00:00:00') : new Date(now.getTime() + 30 * 86400000);
@@ -3400,6 +3407,38 @@ if('serviceWorker' in navigator){
   };
 
   // ---- write-through: transactions ----
+  async function _uploadPhoto(dataUri) {
+    try {
+      const fid = window.DB.fid; if (!fid || !dataUri || dataUri.indexOf('data:') !== 0) return null;
+      const m = dataUri.match(/^data:([^;]+);base64,(.*)$/); if (!m) return null;
+      const mime = m[1]; const bin = atob(m[2]); const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const ext = ((mime.split('/')[1]) || 'jpg').replace('jpeg', 'jpg').replace('svg+xml', 'svg');
+      const path = fid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      const { error } = await sb.storage.from('family-media').upload(path, arr, { contentType: mime });
+      if (error) { console.warn('upload failed', error); return null; }
+      return path;
+    } catch (e) { console.warn('upload err', e); return null; }
+  }
+  async function _dbUploadTxnPhotos(txnId, photos) {
+    try {
+      for (let i = 0; i < photos.length; i++) {
+        const path = await _uploadPhoto(photos[i]);
+        if (path) await sb.from('transaction_photos').insert({ family_id: window.DB.fid, transaction_id: txnId, photo_url: path, sort_order: i });
+      }
+    } catch (e) { console.warn('txn photos failed', e); }
+  }
+  async function _dbUploadEventMemories(eventId, memories) {
+    try {
+      for (let i = 0; i < memories.length; i++) {
+        const mm = memories[i]; let path = null;
+        if (mm.src && mm.src.indexOf('data:') === 0) path = await _uploadPhoto(mm.src);
+        else if (mm.src && mm.src.indexOf('http') === 0) path = mm.src;
+        await sb.from('event_memories').insert({ family_id: window.DB.fid, event_id: eventId, photo_url: path, caption: mm.caption || null, emoji: mm.emoji || null, sort_order: i });
+      }
+    } catch (e) { console.warn('event memories failed', e); }
+  }
+
   async function _dbInsertTxn(t, exD) {
     try {
       const fid = window.DB.fid; if (!fid) return;
@@ -3407,7 +3446,7 @@ if('serviceWorker' in navigator){
       const row = { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' };
       const res = await sb.from('transactions').insert(row).select('id').single();
       if (res.error) throw res.error;
-      if (res.data) t._dbId = res.data.id;
+      if (res.data) { t._dbId = res.data.id; if (t.photos && t.photos.length) _dbUploadTxnPhotos(t._dbId, t.photos); }
     } catch (e) { _writeErr('txn insert failed', e); }
   }
   async function _dbUpdateTxn(dbId, t, exD) {
@@ -3456,6 +3495,7 @@ if('serviceWorker' in navigator){
       const res = await sb.from('events').insert({ family_id: fid, name: e.name, emoji: e.emoji, cover: e.cov, target_amount: e.target, target_date: iso, achieved: !!e.achieved, sort_order: 0 }).select('id').single();
       if (res.error) throw res.error;
       const evId = res.data.id; e._dbId = evId; window.DB.eventById[evId] = res.data;
+      if (e.memories && e.memories.length) _dbUploadEventMemories(evId, e.memories);
       const who = window.DB.ownerMemberId;
       const budgetAmt = e.achieved ? (e.saved || 0) : (e.setAside || 0);
       if (budgetAmt > 0) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: budgetAmt, source: 'budget', month: window.DB.month });
