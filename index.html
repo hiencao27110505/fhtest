@@ -3021,19 +3021,37 @@ function renderGallery(boxId){
   if(!e.memories||!e.memories.length){
     box.innerHTML = boxId==='ov-fund-gallery' ? ''    // funding view: the "Add a photo" button is the invite
       : '<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">No memories yet</div><p>Add a photo and caption to remember this event.</p></div>';
+    delete box.dataset.sig;      // or deleting the last photo and re-adding it would match a stale sig and leave the empty state up
     return;
   }
+  /* The hydrate re-renders on focus, on realtime and after every write. Rewriting
+     innerHTML each time throws away the <img> nodes and builds new ones, which
+     restarts every image's load and makes an already-cached gallery flash empty.
+     Nothing to do unless the photo list actually changed. Keyed by event too —
+     openPeek() indexes into events[curEvent], so a stale gallery from another
+     event would open the wrong photo. */
+  var sig=curEvent+'␝'+e.memories.map(function(m){ return (m.src||m.emoji||'')+'␟'+(m.caption||''); }).join('␞');
+  if(box.dataset.sig===sig) return;
+
   var html='';
   e.memories.forEach(function(m,i){
     var cap=m.caption?'<div class="scrim"></div><div class="m-cap">'+esc(m.caption)+'</div>':'';
     // no delete button on the tile — it lives in the peek (see openPeek)
     if(m.src){
-      html+='<div class="mem-full tap" onclick="openPeek('+i+')"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||'Memory photo')+'" loading="lazy">'+cap+'</div>';
+      /* These photos are the whole point of the screen, so they must not wait on
+         an intersection check — lazy meant arriving on a detail view and watching
+         images that were already in cache (the Memories mosaic painted them)
+         resolve one by one. Load the first few eagerly; anything below the fold
+         on a long event can still defer. */
+      var eager=i<4;
+      html+='<div class="mem-full tap" onclick="openPeek('+i+')"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||'Memory photo')+'"'
+        +(eager?' fetchpriority="high"':' loading="lazy"')+' decoding="async">'+cap+'</div>';
     } else {
       html+='<div class="mem-full tile tap '+esc(m.cls||'ph-park')+'" onclick="openPeek('+i+')"><div class="subj">'+esc(m.emoji||'📸')+'</div>'+cap+'</div>';
     }
   });
   box.innerHTML=html;
+  box.dataset.sig=sig;
 }
 
 /* ---------- photo peek ----------
