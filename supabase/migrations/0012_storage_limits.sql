@@ -1,6 +1,6 @@
 -- FamilyHub — 0012: storage guardrails for the family-media bucket
 --
--- NOT YET APPLIED. Review, then apply (Supabase SQL editor or apply_migration).
+-- APPLIED (confirmed 2026-07-20 against fhtest; header was stale).
 --
 -- Safe to add now because the client downscales to <=1600px and re-encodes to
 -- JPEG before upload (_compressImage in index.html), which also normalizes iOS

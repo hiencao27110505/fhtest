@@ -344,6 +344,32 @@ input{font-family:inherit}
 .mcell.photo .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.42))}
 /* 10px white on a .42 chip was unreadable over light photos — solid dark chip instead */
 .mcell.photo .mday{position:absolute;top:3px;left:4px;z-index:1;font-size:10px;font-weight:800;color:#fff;background:rgba(0,0,0,.72);border-radius:5px;padding:0 4px;line-height:15px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+/* An empty day is an entry point. It stays visually quiet — .day already reads as
+   "nothing here" — so selection is the only thing that changes appearance. */
+.mcell.open{cursor:pointer;font:inherit;font-size:13px;font-weight:500}
+.mcell.open:active{transform:scale(.95)}
+.mcell.sel{background:var(--brand-tint);color:var(--brand-ink);font-weight:800;outline:2px solid var(--brand);outline-offset:-2px}
+/* .today already draws a brand ring, so a selected today keeps one ring, not two */
+.mcell.today.sel{color:var(--brand-ink)}
+/* The prompt sits directly under the grid: the response has to appear where the
+   tap happened, not somewhere the user has to go looking for it. */
+.mcal-prompt{overflow:hidden;max-height:0;opacity:0;visibility:hidden;
+  transition:max-height .32s cubic-bezier(.32,.72,0,1),opacity .22s ease,visibility 0s linear .32s}
+.mcal-prompt.on{max-height:200px;opacity:1;visibility:visible;
+  transition:max-height .32s cubic-bezier(.32,.72,0,1),opacity .22s ease,visibility 0s}
+.mcal-prompt-in{margin-top:12px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;
+  padding:14px 16px;display:flex;align-items:center;gap:14px}
+.mcp-txt{flex:1;min-width:0}
+.mcp-d{font-family:var(--disp);font-weight:800;font-size:16px;letter-spacing:-.3px;color:var(--ink)}
+.mcp-h{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:2px}
+/* mirrors .btn-line, sized to sit inline rather than span the screen */
+.mcp-go{flex-shrink:0;background:var(--white);color:var(--brand);border:1.5px solid var(--brand);border-radius:9999px;
+  font-size:14px;font-weight:700;letter-spacing:-.02em;padding:11px 16px;min-height:44px}
+.mcp-go:active{transform:scale(.97)}
+@media (prefers-reduced-motion:reduce){
+  .mcal-prompt{transition:opacity .01s linear,visibility 0s}
+  .mcal-prompt.on{transition:opacity .01s linear,visibility 0s}
+}
 .btn-line{display:block;width:calc(100% - 32px);margin:2px 16px 16px;text-align:center;background:var(--white);color:var(--brand);border:1.5px solid var(--brand);border-radius:9999px;font-size:16px;font-weight:700;padding:15px;letter-spacing:-.02em}
 .btn-line:active{transform:scale(.99)}
 /* spending revamp */
@@ -545,6 +571,38 @@ input{font-family:inherit}
 .modal{position:absolute;left:0;right:0;bottom:0;top:max(env(safe-area-inset-top),12px);z-index:62;background:var(--white);border-radius:22px 22px 0 0;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -12px 44px rgba(25,16,34,.22);transform:translateY(101%);visibility:hidden;transition:transform .42s cubic-bezier(.32,.72,0,1), visibility 0s linear .42s}
 .modal.on{transform:none;visibility:visible;transition:transform .42s cubic-bezier(.32,.72,0,1), visibility 0s}
 .modal-grip{width:36px;height:5px;border-radius:3px;background:#dcd6e2;margin:8px auto 2px;flex-shrink:0}
+/* ---- bulk photo → expense assignment ---- */
+.pa-day{border:1px solid var(--hairline);border-radius:16px;margin-bottom:14px;overflow:hidden;background:var(--white)}
+.pa-day-h{display:flex;align-items:baseline;gap:8px;padding:13px 15px 11px}
+.pa-day-t{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px;color:var(--ink)}
+.pa-day-n{font-size:12.5px;font-weight:600;color:var(--muted)}
+.pa-grid{display:flex;flex-wrap:wrap;gap:7px;padding:0 15px 13px}
+/* The whole tile is the hit target — a corner-sized checkmark would fall under 44pt. */
+.pa-ph{position:relative;width:62px;height:62px;border-radius:10px;overflow:hidden;background:var(--surface);border:0;padding:0;flex-shrink:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pa-ph img{width:100%;height:100%;object-fit:cover;display:block}
+.pa-ph .pa-tick{position:absolute;inset:0;display:none;align-items:flex-start;justify-content:flex-end;padding:4px;background:rgba(25,16,34,.34)}
+.pa-ph .pa-tick span{width:21px;height:21px;border-radius:50%;background:var(--brand);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(25,16,34,.3)}
+.pa-ph.on .pa-tick{display:flex}
+.pa-ph.on{outline:2.5px solid var(--brand);outline-offset:-2.5px}
+.pa-txs{border-top:1px solid var(--divider)}
+.pa-tx{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:0;padding:11px 15px;min-height:52px;border-bottom:1px solid var(--divider);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pa-tx:last-child{border-bottom:0}
+.pa-tx:active{background:var(--surface)}
+.pa-tx-ico{font-size:19px;flex-shrink:0}
+.pa-tx-b{flex:1;min-width:0}
+.pa-tx-n{display:block;font-size:14.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pa-tx-c{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.pa-tx-amt{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.3px;color:var(--ink);flex-shrink:0}
+.pa-tx.armed{background:var(--brand-tint)}
+.pa-mini{display:flex;gap:4px;flex-wrap:wrap;padding:0 15px 11px;margin-top:-3px}
+.pa-mini img{width:34px;height:34px;border-radius:7px;object-fit:cover;display:block}
+.pa-mini .pa-x{width:34px;height:34px;border-radius:7px;border:1px dashed var(--hairline);background:none;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;padding:0}
+.pa-empty{padding:2px 15px 13px;font-size:13px;color:var(--muted)}
+.pa-new{display:inline-flex;align-items:center;gap:6px;margin:0 15px 13px;padding:9px 14px;min-height:40px;border-radius:10px;border:1px solid var(--hairline);background:var(--white);font-size:13.5px;font-weight:600;color:var(--brand-ink);cursor:pointer}
+.pa-hint{font-size:13px;color:var(--muted);padding:2px 2px 14px;line-height:1.45}
+.pa-bar{flex-shrink:0;border-top:1px solid var(--divider);padding:11px 18px calc(11px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:12px;background:var(--white)}
+.pa-bar-t{flex:1;min-width:0;font-size:13.5px;font-weight:600;color:var(--ink)}
+.pa-bar-t em{font-style:normal;color:var(--muted);font-weight:500}
 .modal-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 18px 12px;border-bottom:1px solid var(--divider);flex-shrink:0}
 .modal-title{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.02em;color:var(--ink);text-align:center;flex:1}
 .modal-cancel{color:var(--brand-ink);font-size:17px;font-weight:500;letter-spacing:-.02em;flex-shrink:0}
@@ -1151,7 +1209,8 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="rows" id="cat-budget-rows"></div>
 
   <!-- RECENT -->
-  <div class="section-h"><span class="t" id="tx-head">Recent</span></div>
+  <div class="section-h"><span class="t" id="tx-head">Recent</span><a onclick="paOpen()">Add photos</a></div>
+  <input type="file" id="pa-file" accept="image/*" multiple onchange="paIngest(this)" hidden>
   <div id="act-filter"></div>
   <div class="rows" id="tx-rows"></div>
 
@@ -1226,6 +1285,8 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       <button class="cal-nav" onclick="mcalNav(1)" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg></button>
     </div>
     <div class="mcal-grid" id="mcal-grid"></div>
+    <!-- contextual prompt for a tapped empty day; filled by renderMcalPrompt() -->
+    <div class="mcal-prompt" id="mcal-prompt" role="status" aria-live="polite"></div>
   </div>
   <div id="mem-grid"></div>
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
@@ -1475,6 +1536,26 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       <label class="mem-upload"><span id="ev-upload-txt">📷 Add photos</span><input type="file" accept="image/*" multiple onchange="onEvPhoto(this)" hidden></label>
       <div class="photo-strip" id="ev-strip"></div>
     </div>
+  </div>
+</div>
+
+<!-- Bulk photo → expense assignment. Full-screen .modal (not a push overlay): the
+     batch lives in memory only, so the tab bar must be covered and the exit must
+     read as Cancel, not as a back chevron promising a place to return to. -->
+<div class="modal" id="photo-assign">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="paCancel()">Cancel</button>
+    <div class="modal-title">Add photos</div>
+    <button class="modal-save" id="pa-save" onclick="paDone()">Done</button>
+  </div>
+  <div class="modal-body">
+    <div class="pa-hint" id="pa-hint"></div>
+    <div id="pa-days"></div>
+  </div>
+  <div class="pa-bar" id="pa-bar" style="display:none">
+    <div class="pa-bar-t" id="pa-bar-t"></div>
+    <button class="btn-ghost" onclick="paClearSel()">Clear</button>
   </div>
 </div>
 
@@ -2298,7 +2379,26 @@ function memCalInit(){
   order.forEach(function(k){ var e=events[k]; if(e.memories&&e.memories.length){ if(!latest||e.d>latest)latest=e.d; } });
   var d=latest||TODAY; mcalY=d.getFullYear(); mcalM=d.getMonth();
 }
-function mcalNav(delta){ if(mcalY===null)memCalInit(); mcalM+=delta; if(mcalM<0){mcalM=11;mcalY--;} if(mcalM>11){mcalM=0;mcalY++;} renderMemCalendar(); renderMemoriesTab(); }
+function mcalNav(delta){ if(mcalY===null)memCalInit(); mcalM+=delta; if(mcalM<0){mcalM=11;mcalY--;} if(mcalM>11){mcalM=0;mcalY++;} mcalSel=null; renderMemCalendar(); renderMemoriesTab(); }
+/* The date inputs used to carry min="2026-07-01" hardcoded in the markup, so the
+   floor drifted out of date the moment the month turned — by September it still
+   said July. Compute it instead. The floor is also widened to whatever date is
+   being prefilled, so a day picked from the calendar can never be rejected by the
+   very input we just put it in. */
+function setDateFloor(id, floorIso, valueIso){
+  var el=document.getElementById(id); if(!el)return;
+  if(valueIso && valueIso<floorIso) floorIso=valueIso;   // ISO strings compare correctly
+  el.min=floorIso;
+}
+// Clamped to the target month's last day: a naive +1 month on Jan 31 lands on
+// Mar 3, which reads as a typo in a date field.
+function isoShiftMonths(n){
+  var d=new Date(TODAY.getFullYear(),TODAY.getMonth()+n,1);
+  var last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+  d.setDate(Math.min(TODAY.getDate(),last));
+  return isoDate(d);
+}
+function isoMonthStart(n){ return isoDate(new Date(TODAY.getFullYear(),TODAY.getMonth()+n,1)); }
 function renderMemCalendar(){
   var grid=document.getElementById('mcal-grid'); if(!grid)return;
   if(mcalY===null) memCalInit();
@@ -2318,10 +2418,50 @@ function renderMemCalendar(){
       if(m.src){ style=' style="background-image:url('+m.src+')"'; } else { cls+=' '+(m.cls||'ph-park'); }
       html+='<div class="'+cls+'"'+style+' onclick="openPhotosForDate('+mcalY+','+mcalM+','+d+')"><div class="scrim"></div><span class="mday">'+d+'</span></div>';
     } else {
-      html+='<div class="mcell day'+(isToday?' today':'')+'">'+d+'</div>';
+      // A real <button> so it is focusable and reads as an action to VoiceOver —
+      // the photo cells predate this and stay divs.
+      var sel=mcalSel&&mcalSel.y===mcalY&&mcalSel.m===mcalM&&mcalSel.d===d;
+      var lab=MONF[mcalM]+' '+d+', nothing yet. Add something.';
+      html+='<button type="button" class="mcell day open'+(isToday?' today':'')+(sel?' sel':'')+'"'
+        +' aria-pressed="'+(sel?'true':'false')+'" aria-label="'+escAttr(lab)+'"'
+        +' onclick="mcalPick('+mcalY+','+mcalM+','+d+')">'+d+'</button>';
     }
   }
   grid.innerHTML=html;
+  renderMcalPrompt();
+}
+/* Tapping an empty day selects it and reveals a prompt under the grid, rather
+   than throwing a full-screen form up immediately: a stray tap while scrolling
+   the Memories tab shouldn't cost a dismissal, and the selection undoes itself
+   on a second tap. Selection lives in a variable, not the DOM, so the hydrate's
+   re-render on focus/realtime/write can't silently clear it. */
+var mcalSel=null;                                   // {y,m,d} of the tapped empty day
+function mcalPick(y,m,d){
+  var same=mcalSel&&mcalSel.y===y&&mcalSel.m===m&&mcalSel.d===d;
+  mcalSel=same?null:{y:y,m:m,d:d};
+  renderMemCalendar();
+}
+function mcalDate(){ return mcalSel?new Date(mcalSel.y,mcalSel.m,mcalSel.d):null; }
+function renderMcalPrompt(){
+  var box=document.getElementById('mcal-prompt'); if(!box)return;
+  var dt=mcalDate();
+  if(!dt){ box.classList.remove('on'); box.innerHTML=''; return; }
+  // The date decides the offer, so the user never picks between "event" and
+  // "expense" — a past day can only be something that happened, a future day can
+  // only be something planned.
+  var past=dt.getTime()<TODAY.getTime();
+  box.innerHTML='<div class="mcal-prompt-in"><div class="mcp-txt">'
+    +'<div class="mcp-d">'+esc(MONF[mcalSel.m]+' '+mcalSel.d)+'</div>'
+    +'<div class="mcp-h">'+(past?'Nothing saved on this day yet.':'Nothing planned for this day yet.')+'</div></div>'
+    +'<button type="button" class="mcp-go" onclick="mcalCreate()">'+(past?'Log a spend':'Plan an event')+'</button></div>';
+  box.classList.add('on');
+}
+function mcalCreate(){
+  var dt=mcalDate(); if(!dt)return;
+  var iso=isoDate(dt), past=dt.getTime()<TODAY.getTime();
+  mcalSel=null; renderMemCalendar();                // clear it behind the modal, not on return
+  if(past) openExpense({date:iso});
+  else openEventModal({date:iso});
 }
 // Every memory (from an event or a photo-expense) is a record; the tab is a photo grid into these.
 var memRecords=[];
@@ -2438,6 +2578,7 @@ function renderMemoriesTab(){
 }
 // Photos taken on one date, grouped by event — opened from the calendar.
 function openPhotosForDate(y,m,d){
+  mcalSel=null;                                     // a day with photos isn't an empty-day selection
   buildMemRecords();
   var recs=memRecords.filter(function(r){ return r.d && r.d.getFullYear()===y && r.d.getMonth()===m && r.d.getDate()===d; });
   if(!recs.length) return;
@@ -2484,8 +2625,16 @@ function closeSheet(){
 }
 // Close any open full-screen modal (expense, event, memory, suggest, fund, budget).
 function closeModals(){
-  document.querySelectorAll('.modal.on').forEach(function(m){ m.classList.remove('on'); m.style.transform=''; m.style.transition=''; });
-  document.getElementById('scrim').classList.remove('on');
+  // The bulk-assign screen survives a modal opened on top of it (logging an
+  // expense for an undated day), because its batch lives only in memory and
+  // closing it would silently destroy every photo still held. Both of its own
+  // exits empty paBatch first, so this never traps the user inside it.
+  var keepPa = (typeof paBatch !== 'undefined') && paBatch.length > 0;
+  document.querySelectorAll('.modal.on').forEach(function(m){
+    if(keepPa && m.id === 'photo-assign') return;
+    m.classList.remove('on'); m.style.transform=''; m.style.transition='';
+  });
+  if(!keepPa) document.getElementById('scrim').classList.remove('on');
   editingTx=null; editSnap=null; exPhotos=[]; evPhotos=[]; memPick=null; memPickMulti=null;
   setTxt('ex-title','Log an expense'); var del=document.getElementById('ex-del'); if(del)del.style.display='none';
   resetDelArm();
@@ -2494,7 +2643,7 @@ function closeModals(){
 var evPhotos=[];
 function onEvPhoto(input){
   var files=Array.prototype.slice.call(input.files||[]);
-  files.forEach(function(f){ if(evPhotos.length>=10){ toast('Up to 10 photos'); return; } var r=new FileReader(); r.onload=function(){ if(evPhotos.length<10){ evPhotos.push(r.result); renderEvPhoto(); } }; r.readAsDataURL(f); });
+  files.forEach(function(f){ if(evPhotos.length>=10){ toast('Up to 10 photos'); return; } readPhoto(f, function(src){ if(src && evPhotos.length<10){ evPhotos.push(src); renderEvPhoto(); } }); });
   input.value='';
 }
 function removeEvPhoto(i){ evPhotos.splice(i,1); renderEvPhoto(); }
@@ -2505,9 +2654,13 @@ function renderEvPhoto(){
   strip.innerHTML = evPhotos.map(function(src,i){ return '<div class="photo-thumb" style="background-image:url('+src+')"><button type="button" class="x" onclick="removeEvPhoto('+i+')">✕</button></div>'; }).join('')
     + (evPhotos.length ? '<div class="photo-strip-note">'+evPhotos.length+' photo'+(evPhotos.length!==1?'s':'')+' added</div>' : '');
 }
-function openEventModal(){
+function openEventModal(preset){
   document.getElementById('ng-name').value=''; document.getElementById('ng-amt').value='';
-  document.getElementById('ng-date').value='2026-08-15';
+  // Was hardcoded to 2026-08-15 — a month out from the fixture "today", frozen.
+  // Keep the intent (about a month ahead) and let it track the real date.
+  var ngIso=(preset&&preset.date)||isoShiftMonths(1);
+  document.getElementById('ng-date').value=ngIso;
+  setDateFloor('ng-date', isoDate(TODAY), ngIso);   // a goal dated in the past isn't a goal
   selEmoji='🎉';
   document.getElementById('ev-emoji').querySelectorAll('button').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='🎉'); });
   selSrc='savings';
@@ -2632,8 +2785,15 @@ function prefillExpense(){
   var preCat = (exPreset && exPreset.cat && catBudget[exPreset.cat]) ? exPreset.cat : lastCat;
   selectChipByVal('ex-cat', preCat);
   selectChipByVal('ex-who', lastWho);
-  document.getElementById('ex-date').value = (exPreset && exPreset.date) || isoDate(TODAY);   // default: today
-  exPhotos=[]; renderExPhoto();
+  var exIso = (exPreset && exPreset.date) || isoDate(TODAY);   // default: today
+  document.getElementById('ex-date').value = exIso;
+  // 24 months of backdating: the memory calendar lets you page back freely, and a
+  // day you can tap has to be a day you can file something on.
+  setDateFloor('ex-date', isoMonthStart(-24), exIso);
+  // A preset can carry photos (bulk-assign hands off its selection here), so
+  // this clears to the preset rather than unconditionally to empty.
+  exPhotos = (exPreset && exPreset.photos) ? exPreset.photos.slice() : [];
+  renderExPhoto();
   setTxt('ex-title','Log an expense');
   var del=document.getElementById('ex-del'); if(del)del.style.display='none';
   updateExWhen(); refreshExCta();
@@ -2651,18 +2811,302 @@ function txDateInput(t){                                    // stored 'Jul 8' / 
 }
 function whoToChip(w){ return (w==='Shared'||w==='both'||w==='Both')?'Both':(w||'Emma'); }
 function txPhotoDate(t){ var p=txDateInput(t).split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
+/* ---- EXIF capture date --------------------------------------------------
+   _compressImage() redraws every photo on a <canvas>, and canvas output has no
+   EXIF at all — so the capture date has to be read from the ORIGINAL File before
+   compression ever runs, or it is gone for good.
+
+   PHOTO_TAKEN maps a pre-compression data URI → 'YYYY-MM-DD'. Keying on the URI
+   rather than threading a new field through exPhotos/evPhotos/memPickMulti keeps
+   every existing array shape (and every splice/reorder) untouched; _uploadPhoto
+   receives that same pre-compression URI, so the lookup still resolves there.
+   Two identical photos collide on one key, which is harmless — same bytes, same
+   date.
+
+   We read DateTimeOriginal (0x9003) as a plain string and slice it. Building a
+   Date and calling toISOString() would push anything shot between midnight and
+   07:00 back a day in UTC+7 and match it to yesterday's expense. */
+var PHOTO_TAKEN = new Map();
+
+function _exifTakenOn(buf){
+  try{
+    var v = new DataView(buf);
+    if(v.byteLength < 4 || v.getUint16(0) !== 0xFFD8) return null;      // JPEG only (HEIC/PNG → null)
+    var off = 2;
+    while(off + 4 <= v.byteLength){
+      if(v.getUint8(off) !== 0xFF) return null;                          // out of marker sync
+      var marker = v.getUint8(off + 1), size = v.getUint16(off + 2);
+      if(marker === 0xE1){                                               // APP1 — the Exif segment
+        var base = off + 4;
+        if(v.getUint32(base) !== 0x45786966) return null;                // not "Exif"
+        var tiff = base + 6;
+        var le = v.getUint16(tiff) === 0x4949;                           // II = little-endian, MM = big
+        var ifd0 = tiff + v.getUint32(tiff + 4, le);
+        // DateTimeOriginal lives in the Exif sub-IFD, reachable via tag 0x8769 in IFD0.
+        var sub = _exifTag(v, tiff, ifd0, 0x8769, le, true);
+        var d = sub ? _exifTag(v, tiff, tiff + sub, 0x9003, le, false) : null;
+        if(!d) d = _exifTag(v, tiff, ifd0, 0x0132, le, false);           // fall back to DateTime
+        // Format is "YYYY:MM:DD HH:MM:SS"; an unset clock reads all zeroes.
+        if(d && /^\d{4}:\d{2}:\d{2}/.test(d) && d.slice(0,4) !== '0000')
+          return d.slice(0,4) + '-' + d.slice(5,7) + '-' + d.slice(8,10);
+        return null;
+      }
+      if(marker === 0xDA) return null;                                   // start of scan — no Exif
+      off += 2 + size;
+    }
+  }catch(e){}
+  return null;
+}
+function _exifTag(v, tiff, dir, tag, le, isPointer){
+  if(dir + 2 > v.byteLength) return null;
+  var n = v.getUint16(dir, le);
+  for(var i = 0; i < n; i++){
+    var e = dir + 2 + i * 12;
+    if(e + 12 > v.byteLength) return null;
+    if(v.getUint16(e, le) !== tag) continue;
+    if(isPointer) return v.getUint32(e + 8, le);
+    var len = v.getUint32(e + 4, le);
+    if(len < 1 || len > 64) return null;
+    var at = tiff + v.getUint32(e + 8, le), s = '';
+    for(var j = 0; j < len - 1 && at + j < v.byteLength; j++) s += String.fromCharCode(v.getUint8(at + j));
+    return s;
+  }
+  return null;
+}
+/* Reads one File → { src, takenOn } and records the date in PHOTO_TAKEN.
+   Parse and read run off the same File so the order is always parse-then-hold;
+   compression happens later, inside _uploadPhoto, on the already-keyed URI. */
+function readPhoto(file, cb){
+  var fr = new FileReader();
+  fr.onload = function(){
+    var takenOn = _exifTakenOn(fr.result);
+    var br = new FileReader();
+    br.onload = function(){
+      if(takenOn) PHOTO_TAKEN.set(br.result, takenOn);
+      cb(br.result, takenOn);
+    };
+    br.onerror = function(){ cb(null, null); };
+    br.readAsDataURL(file);
+  };
+  fr.onerror = function(){                                               // unreadable EXIF ≠ unusable photo
+    var br = new FileReader();
+    br.onload = function(){ cb(br.result, null); };
+    br.onerror = function(){ cb(null, null); };
+    br.readAsDataURL(file);
+  };
+  fr.readAsArrayBuffer(file.slice(0, 262144));                           // EXIF sits in the first bytes
+}
 /* ---- expense photos → memories (multi, max 10) ---- */
 var exPhotos=[];
 function onExPhoto(input){
   var files=Array.prototype.slice.call(input.files||[]);
   files.forEach(function(f){
     if(exPhotos.length>=10){ toast('Up to 10 photos'); return; }
-    var r=new FileReader(); r.onload=function(){ if(exPhotos.length<10){ exPhotos.push(r.result); renderExPhoto(); onExInput(); } }; r.readAsDataURL(f);
+    readPhoto(f, function(src){ if(src && exPhotos.length<10){ exPhotos.push(src); renderExPhoto(); onExInput(); } });
   });
   input.value='';
 }
 function removeExPhoto(i){ exPhotos.splice(i,1); renderExPhoto(); onExInput(); }
 function clearExPhoto(){ exPhotos=[]; renderExPhoto(); onExInput(); }
+
+/* ---- bulk photo → expense assignment -------------------------------------
+   Photos are held in memory and nothing is uploaded until Done, so a batch the
+   user abandons costs no storage quota. The price of that choice is that the
+   batch is fragile: it dies with the page. Hence the 20-photo cap (keeps the
+   held bytes small enough that iOS is unlikely to reclaim the tab) and the
+   arm-then-confirm on Cancel.
+
+   Matching is by date only, which NARROWS rather than resolves — a normal day
+   has several expenses, and EXIF gives a capture time that txn_date has nothing
+   to compare against. So the UI never auto-assigns; it puts each day's photos
+   next to that day's expenses and lets the tap decide. */
+var PA_MAX = 20;
+var paBatch = [];                     // {src, taken:'YYYY-MM-DD'|null, txId:string|null}
+var paSel = {};                       // index → true
+var paBusy = false;
+
+function paOpen(){ document.getElementById('pa-file').click(); }
+function paIngest(input){
+  var files = Array.prototype.slice.call(input.files || []);
+  input.value = '';
+  if(!files.length) return;
+  var capped = files.length > PA_MAX;
+  files = files.slice(0, PA_MAX);
+  paBatch = []; paSel = {}; paBusy = false;
+  var loaded = 0, slot = new Array(files.length);
+  files.forEach(function(f, i){
+    readPhoto(f, function(src, taken){
+      slot[i] = src ? { src: src, taken: taken || null, txId: null } : null;
+      if(++loaded < files.length) return;
+      paBatch = slot.filter(Boolean);
+      if(!paBatch.length){ toast('Could not read those photos'); return; }
+      if(capped) toast('Added the first ' + PA_MAX + ' photos');
+      paShow();
+    });
+  });
+}
+function paShow(){
+  document.getElementById('scrim').classList.add('on');
+  var m = document.getElementById('photo-assign');
+  m.style.transform = ''; m.style.transition = ''; m.classList.add('on');
+  var body = m.querySelector('.modal-body'); if(body) body.scrollTop = 0;
+  paRender();
+}
+function paDayLabel(iso){
+  if(!iso) return 'No date';
+  var p = iso.split('-'), d = new Date(+p[0], +p[1]-1, +p[2]);
+  if(iso === isoDate(TODAY)) return 'Today';
+  return WKD[d.getDay()] + ', ' + MONA[d.getMonth()] + ' ' + d.getDate();
+}
+function paGroups(){
+  var by = {}, keys = [];
+  paBatch.forEach(function(p, i){
+    var k = p.taken || '';
+    if(!by[k]){ by[k] = []; keys.push(k); }
+    by[k].push(i);
+  });
+  keys.sort(function(a, b){                      // newest first, undated last
+    if(!a) return 1; if(!b) return -1; return a < b ? 1 : -1;
+  });
+  return keys.map(function(k){ return { iso: k || null, idx: by[k] }; });
+}
+function paTxForDay(iso){
+  if(!iso) return [];
+  return txns.filter(function(t){ return txDateInput(t) === iso; });
+}
+function paSelCount(){ var n = 0; for(var k in paSel) if(paSel[k]) n++; return n; }
+function paRender(){
+  var host = document.getElementById('pa-days'); if(!host) return;
+  var groups = paGroups();
+  var unassigned = paBatch.filter(function(p){ return !p.txId; }).length;
+  var undated = paBatch.some(function(p){ return !p.taken; });
+  setTxt('pa-hint', unassigned
+    ? ('Tap photos, then tap the expense they belong to.' + (undated ? ' Undated photos can go on any expense.' : ''))
+    : 'All ' + paBatch.length + ' photos assigned. Tap Done to upload.');
+
+  host.innerHTML = groups.map(function(g){
+    var open = g.idx.filter(function(i){ return !paBatch[i].txId; });
+    var tx = paTxForDay(g.iso);
+    var h = '<div class="pa-day"><div class="pa-day-h"><span class="pa-day-t">' + esc(paDayLabel(g.iso)) + '</span>'
+          + '<span class="pa-day-n">' + g.idx.length + ' photo' + (g.idx.length !== 1 ? 's' : '') + '</span></div>';
+    h += open.length
+      ? '<div class="pa-grid">' + open.map(function(i){
+          return '<button class="pa-ph' + (paSel[i] ? ' on' : '') + '" onclick="paToggle(' + i + ')">'
+               + '<img src="' + paBatch[i].src + '" alt=""><span class="pa-tick"><span>✓</span></span></button>';
+        }).join('') + '</div>'
+      : '<div class="pa-empty">All of this day\'s photos are assigned.</div>';
+    if(tx.length){
+      h += '<div class="pa-txs">' + tx.map(function(t){
+        var mine = paBatch.map(function(p, i){ return p.txId === t.id ? i : -1; }).filter(function(i){ return i >= 0; });
+        var row = '<button class="pa-tx" onclick="paAssign(\'' + t.id + '\')">'
+                + '<span class="pa-tx-ico">' + (t.ico || '🧾') + '</span>'
+                + '<span class="pa-tx-b"><span class="pa-tx-n">' + esc(t.note || t.cat) + '</span>'
+                + '<span class="pa-tx-c">' + esc(t.cat) + (mine.length ? ' · ' + mine.length + ' added' : '') + '</span></span>'
+                + '<span class="pa-tx-amt">' + fmt(t.amt) + '</span></button>';
+        if(mine.length) row += '<div class="pa-mini">' + mine.map(function(i){
+          return '<img src="' + paBatch[i].src + '" alt="">';
+        }).join('') + '<button class="pa-x" onclick="paUnassign(\'' + t.id + '\')" aria-label="Remove">×</button></div>';
+        return row;
+      }).join('') + '</div>';
+    } else if(g.iso){
+      h += '<div class="pa-empty">No expense logged on this day.</div>'
+         + '<button class="pa-new" onclick="paNewExpense(\'' + g.iso + '\')">＋ Log an expense</button>';
+    }
+    return h + '</div>';
+  }).join('');
+
+  var n = paSelCount(), bar = document.getElementById('pa-bar');
+  bar.style.display = n ? 'flex' : 'none';
+  if(n) setTxt('pa-bar-t', n + ' selected');
+  var save = document.getElementById('pa-save');
+  save.disabled = paBusy || !paBatch.some(function(p){ return p.txId; });
+}
+function paToggle(i){ paSel[i] = !paSel[i]; paRender(); }
+function paClearSel(){ paSel = {}; paRender(); }
+function paAssign(txId){
+  var picked = []; for(var k in paSel) if(paSel[k]) picked.push(+k);
+  if(!picked.length){ toast('Pick some photos first'); return; }
+  picked.forEach(function(i){ if(paBatch[i]) paBatch[i].txId = txId; });
+  paSel = {}; paRender();
+}
+function paUnassign(txId){
+  paBatch.forEach(function(p){ if(p.txId === txId) p.txId = null; });
+  paRender();
+}
+/* Photos on a day with no expense are often the sign an expense was never
+   logged at all, so this opens the normal expense form with the date and the
+   photos already filled in. The batch stays alive underneath. */
+function paNewExpense(iso){
+  var picked = []; for(var k in paSel) if(paSel[k]) picked.push(+k);
+  if(!picked.length) picked = paBatch.map(function(p, i){ return (!p.txId && p.taken === iso) ? i : -1; }).filter(function(i){ return i >= 0; });
+  if(!picked.length){ toast('Pick some photos first'); return; }
+  paPending = picked.slice();
+  editingTx = null;
+  openExpense({ date: iso, photos: picked.map(function(i){ return paBatch[i].src; }) });
+}
+var paPending = null;                 // indices handed to the expense form, dropped from the batch once it saves
+function paAdopt(){                   // called after the expense form saves
+  if(!paPending) return;
+  var drop = {}; paPending.forEach(function(i){ drop[i] = 1; });
+  paBatch = paBatch.filter(function(p, i){ return !drop[i]; });
+  paSel = {}; paPending = null;
+  if(!paBatch.length){ paClose(); toast('Photos added'); return; }
+  paRender();
+}
+async function paDone(){
+  if(paBusy) return;
+  var byTx = {};
+  paBatch.forEach(function(p){ if(p.txId){ (byTx[p.txId] = byTx[p.txId] || []).push(p.src); } });
+  var ids = Object.keys(byTx);
+  if(!ids.length){ toast('Nothing assigned yet'); return; }
+  var leftover = paBatch.filter(function(p){ return !p.txId; }).length;
+  paBusy = true;
+  var save = document.getElementById('pa-save');
+  save.disabled = true;
+  var done = 0, total = paBatch.length - leftover;
+  for(var i = 0; i < ids.length; i++){
+    save.textContent = 'Saving ' + Math.min(done + byTx[ids[i]].length, total) + '/' + total;
+    try { await paApply(ids[i], byTx[ids[i]]); } catch(e){ console.warn('assign failed', e); }
+    done += byTx[ids[i]].length;
+  }
+  save.textContent = 'Done'; paBusy = false;
+  paBatch = []; paSel = {}; paClose();
+  renderTxns();
+  toast(leftover ? (total + ' photos added · ' + leftover + ' skipped') : (total + ' photos added'));
+}
+/* Local model update. The data layer wraps this to persist; keeping the split
+   means the screen still works unauthenticated, exactly like the expense form. */
+window.paApply = function(txId, srcs){
+  var t = txById(txId); if(!t) return null;
+  t.photos = (t.photos || []).concat(srcs);
+  syncExpenseEvent(t);
+  return t;
+};
+function paClose(){
+  closeModals();
+  var s = document.getElementById('pa-save'); if(s){ s.textContent = 'Done'; s.disabled = false; }
+  document.getElementById('pa-bar').style.display = 'none';
+  paSel = {}; paPending = null; paBusy = false;
+}
+/* Arm-then-confirm rather than a browser confirm() — leaving discards a batch
+   that exists nowhere else. */
+function paCancel(){
+  var btn = document.querySelector('#photo-assign .modal-cancel');
+  if(paBusy){ toast('Still uploading…'); return; }
+  if(!paBatch.length){ paClose(); return; }
+  if(btn && !btn.dataset.armed){
+    btn.dataset.armed = '1';
+    btn.textContent = 'Discard ' + paBatch.length + '?';
+    clearTimeout(window._paArmT);
+    window._paArmT = setTimeout(function(){
+      if(!btn.isConnected) return;
+      delete btn.dataset.armed; btn.textContent = 'Cancel';
+    }, 3200);
+    return;
+  }
+  if(btn){ delete btn.dataset.armed; btn.textContent = 'Cancel'; }
+  paBatch = []; paClose();
+}
 function renderExPhoto(){
   var strip=document.getElementById('ex-strip'), up=document.getElementById('ex-upload-txt');
   if(up) up.textContent = exPhotos.length ? '📷 Add more' : '📷 Add photos';
@@ -2697,7 +3141,9 @@ function fillExpenseFromTx(){
   var t=txById(editingTx); if(!t){ editingTx=null; prefillExpense(); return; }
   document.getElementById('ex-note').value=t.note||'';
   document.getElementById('ex-amt').value=t.amt?((t.amt*curMult()).toLocaleString(CUR==='VND'?'vi-VN':'en-US')):'';
-  document.getElementById('ex-date').value=txDateInput(t);
+  var edIso=txDateInput(t);
+  document.getElementById('ex-date').value=edIso;
+  setDateFloor('ex-date', isoMonthStart(-24), edIso);   // an old expense must stay editable
   selectChipByVal('ex-cat', t.cat);
   selectChipByVal('ex-who', whoToChip(t.who));
   exPhotos = (t.photos||(t.photo?[t.photo]:[])).slice(); renderExPhoto();
@@ -2708,7 +3154,13 @@ function fillExpenseFromTx(){
   editSnap=exFormState();                                  // baseline: no changes yet
   refreshExCta();                                          // Save stays disabled until the first edit
 }
-function submitExpense(){ if(editingTx) saveExpenseEdit(); else addExpense(); }
+function submitExpense(){
+  var adopting = !editingTx && paPending;   // expense created from the bulk-assign screen
+  if(editingTx) saveExpenseEdit(); else addExpense();
+  // addExpense() bails without closing when the form is invalid; only drop the
+  // photos from the batch once the expense actually landed.
+  if(adopting && !document.getElementById('expense-modal').classList.contains('on')) paAdopt();
+}
 function saveExpenseEdit(){
   var t=txById(editingTx); if(!t){ closeExpense(); return; }
   var amt=parseAmtBase(document.getElementById('ex-amt').value);
@@ -3154,9 +3606,9 @@ function onMemFile(input){
   document.querySelectorAll('#mem-scenes button').forEach(function(b){ b.classList.remove('on'); });
   if(arr.length>1){
     memPick=null; memPickMulti=new Array(arr.length); var loaded=0;
-    arr.forEach(function(f,i){ var r=new FileReader(); r.onload=function(){ memPickMulti[i]={src:r.result}; if(++loaded===arr.length){ showMemPreview(); if(capped) toast('Added the first 10 photos'); } }; r.readAsDataURL(f); });
+    arr.forEach(function(f,i){ readPhoto(f, function(src){ memPickMulti[i]={src:src}; if(++loaded===arr.length){ showMemPreview(); if(capped) toast('Added the first 10 photos'); } }); });
   } else {
-    memPickMulti=null; var r=new FileReader(); r.onload=function(){ memPick={src:r.result}; showMemPreview(); }; r.readAsDataURL(arr[0]);
+    memPickMulti=null; readPhoto(arr[0], function(src){ memPick={src:src}; showMemPreview(); });
   }
   input.value='';
 }
@@ -4298,13 +4750,29 @@ if('serviceWorker' in navigator){
       return path;
     } catch (e) { console.warn('upload err', e); return null; }
   }
+  /* EXIF capture date for a pre-compression data URI, recorded by readPhoto().
+     Photos that predate the parser, or that carried no usable EXIF, return null
+     and are stored as "date unknown" rather than guessed at. */
+  function _takenOn(dataUri) {
+    try {
+      const m = (typeof PHOTO_TAKEN !== 'undefined') ? PHOTO_TAKEN : window.PHOTO_TAKEN;
+      if (!m || !dataUri) return null;
+      const hit = m.get(dataUri) || null;
+      // Keys are the full data URIs, so a long session would pin every photo's
+      // bytes in memory after its array is cleared. Bounded, oldest-first —
+      // read first, so pruning can never drop the entry we were just asked for.
+      if (m.size > 120) { const it = m.keys(); for (let i = 0; i < 40; i++) { const k = it.next(); if (k.done) break; m.delete(k.value); } }
+      return hit;
+    } catch (e) { return null; }
+  }
   async function _dbUploadTxnPhotos(txnId, photos) {
     let failed = 0;
     try { window.fhUploadBusy && window.fhUploadBusy(photos.length); } catch (e) {}
     try {
       for (let i = 0; i < photos.length; i++) {
+        const takenOn = _takenOn(photos[i]);
         const path = await _uploadPhoto(photos[i]);
-        if (path) await _w(sb.from('transaction_photos').insert({ family_id: window.DB.fid, transaction_id: txnId, photo_url: path, sort_order: i }), 'write transaction_photos');
+        if (path) await _w(sb.from('transaction_photos').insert({ family_id: window.DB.fid, transaction_id: txnId, photo_url: path, sort_order: i, taken_on: takenOn }), 'write transaction_photos');
         else failed++;
       }
     } catch (e) { console.warn('txn photos failed', e); failed++; }
@@ -4317,10 +4785,11 @@ if('serviceWorker' in navigator){
     try {
       for (let i = 0; i < memories.length; i++) {
         const mm = memories[i]; let path = null; const wantsPhoto = !!mm.src;
+        const takenOn = _takenOn(mm.src);
         if (mm.src && mm.src.indexOf('data:') === 0) path = await _uploadPhoto(mm.src);
         else if (mm.src && mm.src.indexOf('http') === 0) path = mm.src;
         if (wantsPhoto && !path) { failed++; continue; }     // upload failed → skip the row (no photoless ghost memory)
-        await _w(sb.from('event_memories').insert({ family_id: window.DB.fid, event_id: eventId, photo_url: path, caption: mm.caption || null, emoji: mm.emoji || null, sort_order: baseSort + i }), 'write event_memories');
+        await _w(sb.from('event_memories').insert({ family_id: window.DB.fid, event_id: eventId, photo_url: path, caption: mm.caption || null, emoji: mm.emoji || null, sort_order: baseSort + i, taken_on: takenOn }), 'write event_memories');
       }
     } catch (e) { console.warn('event memories failed', e); failed++; }
     finally { try { window.fhUploadBusy && window.fhUploadBusy(-memories.length); } catch (e) {} }
@@ -4363,8 +4832,9 @@ if('serviceWorker' in navigator){
     }
     let sort = cur.length - removed.length;
     for (const dataUri of uploads) {
+      const takenOn = _takenOn(dataUri);
       const path = await _uploadPhoto(dataUri);
-      if (path) await _w(sb.from('transaction_photos').insert({ family_id: fid, transaction_id: txnId, photo_url: path, sort_order: sort++ }), 'write transaction_photos');
+      if (path) await _w(sb.from('transaction_photos').insert({ family_id: fid, transaction_id: txnId, photo_url: path, sort_order: sort++, taken_on: takenOn }), 'write transaction_photos');
     }
   }
 
@@ -4436,6 +4906,28 @@ if('serviceWorker' in navigator){
       if (e && dbId) e._srcTxn = dbId;      // bind the mirror to the expense it came from
       _dbInsertEvent(k);
     });
+  };
+  /* Bulk-assign write-through. Awaited by paDone() so its "Saving n/N" counter
+     tracks real uploads rather than finishing before the bytes land — a toast
+     fired at close time would be a lie if the upload then failed. */
+  const _origPaApply = window.paApply;
+  window.paApply = async function (txId, srcs) {
+    const beforeOrder = (window.order || []).slice();
+    const t = _origPaApply.apply(this, arguments);
+    if (!t) return null;
+    const dbId = t._dbId;
+    if (dbId) {
+      await _dbSyncTxnPhotos(dbId, t.photos);
+      // first photo on an expense spawns its mirror "memory" event — persist it,
+      // bound to the expense so a later photo-add doesn't duplicate the row
+      (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => {
+        const e = window.events[k];
+        if (e) e._srcTxn = dbId;
+        _dbInsertEvent(k);
+      });
+      _syncSoon();
+    }
+    return t;
   };
   const _origDelete = window.deleteExpense;
   window.deleteExpense = function () {

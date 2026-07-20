@@ -1,6 +1,6 @@
 -- FamilyHub — 0013: delete (archive) an event, reversing all of its funding
 --
--- NOT YET APPLIED. Review, then apply.
+-- APPLIED (confirmed 2026-07-20 against fhtest; header was stale).
 --
 -- Product decision: deleting a goal is a FULL reversal. Every event_fundings row
 -- for the event is removed, so savings-source money returns to the savings pool

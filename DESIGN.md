@@ -197,7 +197,7 @@ Centered emoji + short title + one-line hint on a white rounded block. Always gu
 |---|---|---|---|
 | **Tab views** (`.view`) | base | The 4 primary tabs (Home / Spending / Events / Memories) | Tab bar |
 | **Push overlay** (`.overlay`) | 45–49 | Read/drill-in detail that keeps context (category detail, event, memory, photos-by-date) | Back chevron (top-left), slides right |
-| **Full-screen modal** (`.modal`) | 62 | **Create/edit forms** with several inputs (log expense, new event, add memory, suggest, settings/budget). Nav bar = Cancel · Title · Save | Cancel, or **drag down**; rises from bottom |
+| **Full-screen modal** (`.modal`) | 62 | **Create/edit forms** with several inputs (log expense, new event, add memory, suggest, settings/budget) and **long self-contained tasks holding unsaved state** (bulk photo assign). Nav bar = Cancel · Title · Save | Cancel, or **drag down**; rises from bottom |
 | **Bottom sheet** (`.sheet`) | 60 | **Quick pickers / menus** (add menu, month, category filter, theme) | Tap scrim, or drag down; rises from bottom |
 
 - **Form → modal. Quick pick → sheet.** Don't put a multi-field form in a sheet, and don't make a
@@ -211,6 +211,27 @@ Centered emoji + short title + one-line hint on a white rounded block. Always gu
   month; "Log expense" from category detail prefills category + today's date).
 - **Destructive confirm:** arm-then-confirm (see Buttons). Deleting a linked object cleans up its
   dependents (e.g. removing an expense's photos also removes its linked memory event).
+
+### 4.0 Photo capture dates (EXIF)
+
+`_compressImage()` redraws every upload on a `<canvas>`, and **canvas output carries no EXIF** — the
+capture date is destroyed before the bytes reach storage, unrecoverably. So any new photo entry point
+must read the date from the original `File` *before* compression:
+
+- Use **`readPhoto(file, cb)`**, never a bare `FileReader`. It parses EXIF `DateTimeOriginal` off the
+  original bytes, records it in `PHOTO_TAKEN` (data URI → `'YYYY-MM-DD'`), then hands back the data URI.
+  Order is always **parse → compress → hold**.
+- Persist it by passing `_takenOn(dataUri)` into the row's `taken_on` column.
+- Treat the date as **naive local wall-clock**. `taken_on` and `transactions.txn_date` are both plain
+  `date`, so they compare directly. Never build a `Date` and `toISOString()` it — in UTC+7 that shifts
+  anything shot between midnight and 07:00 to the previous day.
+- **Null means unknown.** Screenshots, chat-app saves and raw HEIC have no usable EXIF. Never fall back
+  to `file.lastModified` — on iOS that is often the export time, so it looks authoritative while being
+  wrong. Bucket unknowns separately and let the user place them.
+
+Date matching **narrows, it does not resolve**: a normal day has several expenses and EXIF's capture
+time has no counterpart on `txn_date`. UI must present candidates and let the tap decide — never
+auto-assign.
 
 ### 4.1 Never use browser chrome
 
