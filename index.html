@@ -4783,23 +4783,51 @@ if('serviceWorker' in navigator){
   };
 
   // ── Owner: generate a shareable invite code (Settings → Invite a member) ──
-  // Sharing a code is a quick action → bottom sheet, on the app's own layer.
+  /* Sharing a code is a quick action → bottom sheet, on the app's own layer.
+     The code is stable: opening this screen shows the family's existing code
+     rather than minting another. Rotating is deliberate, via "Generate a new
+     code" — which invalidates whatever was shared before, so it confirms. */
   window.fhInvite = async function () {
     let code;
     try { code = await _rpc('create_invite'); }
     catch (e) { window.toast && window.toast(_friendly(e)); return; }
+    _fhShowInvite(code);
+  };
+  function _fhShowInvite(code) {
     window._fhInviteCode = code;
     _fhSheet(
       '<div class="fh-s-h">Invite code</div>'
-      + '<div class="fh-s-sub">Share this with your family member. They open FamilyHub, choose “Join a family”, and enter it.</div>'
+      + '<div class="fh-s-sub">Share this with your family member. They open FamilyHub, choose “Join a family”, and enter it. It works for 14 days.</div>'
       + '<div class="fh-code-show">' + _esc(code) + '</div>'
       + _btn('Copy code', 'fhCopyInvite(this)', _S.cta)
       + _btn('Done', '_closeOv()', _S.ghost)
+      + _btn('Generate a new code', 'fhRegenInvite(this)', _S.del)
     );
-  };
+  }
   window.fhCopyInvite = async function (btn) {
     try { await navigator.clipboard.writeText(window._fhInviteCode || ''); btn.textContent = 'Copied ✓'; }
     catch (e) { window.toast && window.toast('Couldn’t copy — write it down instead'); }
+  };
+  window.fhRegenInvite = async function (btn) {
+    if (btn && !btn.classList.contains('armed')) {          // rotating kills the shared code
+      btn.classList.add('armed'); btn.textContent = 'Tap again — the old code stops working';
+      clearTimeout(window._fhRegenT);
+      window._fhRegenT = setTimeout(() => {
+        if (!btn.isConnected) return;
+        btn.classList.remove('armed'); btn.textContent = 'Generate a new code';
+      }, 3000);
+      return;
+    }
+    clearTimeout(window._fhRegenT);
+    btn.textContent = 'Generating…'; btn.disabled = true;
+    let code;
+    try { code = await _rpc('regenerate_invite'); }
+    catch (e) {
+      btn.disabled = false; btn.classList.remove('armed'); btn.textContent = 'Generate a new code';
+      window.toast && window.toast(_friendly(e)); return;
+    }
+    _fhShowInvite(code);
+    window.toast && window.toast('New code — the old one no longer works');
   };
 
   // ── Joiner: code input + redeem ──
