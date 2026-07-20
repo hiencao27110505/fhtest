@@ -13,6 +13,29 @@
 <link rel="apple-touch-icon" href="icon.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- the auth module and its first query start their handshakes before the parser reaches them -->
+<link rel="preconnect" href="https://esm.sh" crossorigin>
+<link rel="preconnect" href="https://iizyukzfsbdkbrgfupwq.supabase.co" crossorigin>
+<link rel="modulepreload" href="https://esm.sh/@supabase/supabase-js@2">
+<script>
+/* Returning-user gate — runs before the first paint, with no network involved.
+   The auth module lives in a deferred <script type="module"> that imports supabase-js
+   over the wire, so the real session check lands hundreds of ms after the HTML paints.
+   Until then the markup's default state is the onboarding screen, which is why a
+   signed-in user saw sign-in → loading → home on every cold start.
+   This flag (set once a family is open, cleared on sign-out) says "we expect a session",
+   so we paint the splash instead of the sign-in screen. It is only a UI hint: the real
+   getSession() still runs and fhResumeFail() walks it back if the session is actually gone. */
+try{ if(localStorage.getItem('fh-resume')==='1'){
+  document.documentElement.classList.add('fh-resume');
+  /* Watchdog: if the module never arrives (offline, CDN down) the splash would sit there
+     forever. Hand the screen back after 10s but keep the flag — the session may be fine. */
+  window.__fhResumeWatch=setTimeout(function(){
+    document.documentElement.classList.remove('fh-resume');
+    var s=document.getElementById('fh-splash'); if(s) s.remove();
+  },10000);
+} }catch(e){}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -740,6 +763,18 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 /* ---------- ONBOARDING ---------- */
 #onboarding{position:absolute;inset:0;z-index:90;background:var(--canvas);overflow:hidden}
 #onboarding.done{display:none}
+/* Resume splash: for a returning user the sign-in screen never paints — this does instead,
+   and fades out once the family data is in. */
+#fh-splash{display:none;position:fixed;inset:0;z-index:9999;background:var(--canvas);
+  flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  transition:opacity .28s ease;opacity:1}
+#fh-splash.gone{opacity:0;pointer-events:none}
+#fh-splash .fs-logo{font-size:44px;line-height:1;animation:fs-breathe 1.6s ease-in-out infinite}
+#fh-splash .fs-name{font-family:var(--disp);font-weight:800;font-size:19px;letter-spacing:-.4px;color:var(--ink)}
+@keyframes fs-breathe{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.06);opacity:1}}
+@media (prefers-reduced-motion:reduce){#fh-splash .fs-logo{animation:none}}
+html.fh-resume #onboarding{display:none}          /* never flash sign-in at a signed-in user */
+html.fh-resume #fh-splash{display:flex}
 .ob-progress{position:absolute;top:max(env(safe-area-inset-top),0px);left:0;right:0;height:3px;background:var(--divider);z-index:6;opacity:0;transition:opacity .3s}
 /* onboarding form fields: white so they read on the canvas background (Apple grouped-form look) */
 #onboarding .field input{background:var(--white);border:1px solid var(--hairline)}
@@ -861,6 +896,8 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 </style>
 </head>
 <body>
+<!-- static so it paints on the first frame — see the returning-user gate in <head> -->
+<div id="fh-splash" aria-hidden="true"><div class="fs-logo">🏡</div><div class="fs-name">FamilyHub</div></div>
 <div class="phone t-sage" id="phone">
 <div class="scroll" id="scroll">
 
@@ -3140,6 +3177,26 @@ if('serviceWorker' in navigator){
 
   const g = (id) => document.getElementById(id);
 
+  // ---- returning-user resume (see the gate script in <head>) ----
+  const _resuming = () => document.documentElement.classList.contains('fh-resume');
+  // We got in: remember it, so the next cold start paints the splash, not sign-in.
+  function fhResumeArm() { try { localStorage.setItem('fh-resume', '1'); } catch (e) {} }
+  // Data is on screen: retire the splash.
+  function fhResumeDone() {
+    clearTimeout(window.__fhResumeWatch);
+    const s = g('fh-splash'); if (!s) return;
+    s.classList.add('gone');
+    setTimeout(() => { s.remove(); document.documentElement.classList.remove('fh-resume'); }, 300);
+  }
+  // The session was NOT there after all (expired / signed out elsewhere) — drop the
+  // optimistic flag and hand the screen back to onboarding.
+  function fhResumeFail() {
+    clearTimeout(window.__fhResumeWatch);
+    try { localStorage.removeItem('fh-resume'); } catch (e) {}
+    document.documentElement.classList.remove('fh-resume');
+    const s = g('fh-splash'); if (s) s.remove();
+  }
+
   // Continue once we have a session (no redirect — we never left the app).
   async function afterLogin(session) {
     if (!session) return;
@@ -3159,11 +3216,18 @@ if('serviceWorker' in navigator){
     const active = fams.find((f) => f.is_active);
     if (active) {
       if (onb) onb.classList.add('done');
-      await window.loadFamilyData();            // auto-enter the active family → real data + DB.fid set
+      fhResumeArm();                             // next cold start can skip straight to the splash
+      // finally: a failed load must still hand the screen over, never strand us on the splash
+      try { await window.loadFamilyData(); }     // auto-enter the active family → real data + DB.fid set
+      finally { fhResumeDone(); }                // (no go('home') here — it would stomp on deep links)
     } else if (fams.length) {
+      fhResumeFail();                            // no active family → the picker owns the screen
       showFamilyPicker(fams);                    // in families but none active → pick one
     } else if (onb && typeof window.obGo === 'function') {
+      fhResumeFail();
       onb.classList.remove('done'); window.obGo('choice');   // brand-new → onboarding
+    } else {
+      fhResumeFail();
     }
   }
 
@@ -3361,6 +3425,7 @@ if('serviceWorker' in navigator){
   // first-load spinner (so the app never flashes empty/mock before real data arrives)
   function _showLoading() {
     if (document.getElementById('fh-loading')) return;
+    if (_resuming()) return;                     // the resume splash is already covering the screen
     const ov = document.createElement('div');
     ov.id = 'fh-loading';
     ov.style.cssText = 'position:fixed;inset:0;z-index:9997;display:flex;align-items:center;justify-content:center;background:#f4f1f6';
@@ -4016,7 +4081,7 @@ if('serviceWorker' in navigator){
       if (loc && window.applyLang) { window.LANG = loc.lang; window.CUR = loc.cur; window.applyLang(); }
     } catch (e) {}
     if (session) await afterLogin(session);        // already signed in → resume
-    else await mountGoogleButton();                // otherwise mount the in-app Google button
+    else { fhResumeFail(); await mountGoogleButton(); }   // no session → back to the sign-in screen
   })();
 
   // ── Create-family: wire the onboarding "Enter FamilyHub" step to the real RPC + inserts ──
@@ -4157,7 +4222,7 @@ if('serviceWorker' in navigator){
 
   sb.auth.onAuthStateChange(() => {});
   // test helper: run fhSignOut() in the console to switch Google accounts
-  window.fhSignOut = async () => { await sb.auth.signOut(); location.reload(); };
+  window.fhSignOut = async () => { fhResumeFail(); await sb.auth.signOut(); location.reload(); };
 </script>
 </body>
 </html>
