@@ -3475,7 +3475,10 @@ function obInit(){
    real data. loadFamilyData() then refreshes in the background and re-renders.
    Cache is display state only; it is never trusted for writes (the DB maps it
    carries are replaced wholesale by the hydrate). */
-var FH_SNAP='fh-snap', FH_SNAP_V=1, FH_SNAP_TTL=14*86400000;   // a fortnight of staleness is plenty
+// v2: v1 snapshots cached expired *signed* photo URLs, which would warm-boot into
+// broken images now that photos resolve to stable public URLs. Bumping discards
+// them — one cold start for existing users, then clean.
+var FH_SNAP='fh-snap', FH_SNAP_V=2, FH_SNAP_TTL=14*86400000;   // a fortnight of staleness is plenty
 function fhSaveSnapshot(){
   try{
     var ev={};                                          // events carry a live Date — store epoch ms
@@ -3632,6 +3635,11 @@ if('serviceWorker' in navigator){
     const active = fams.find((f) => f.is_active);
     if (active) {
       if (onb) onb.classList.add('done');
+      // Authoritative active family, straight from the server. Seeding it here
+      // saves loadFamilyData() a profiles round trip, and overwriting (rather
+      // than defaulting) means a warm boot whose snapshot carries a stale fid —
+      // someone switched family on another device — still lands on the right one.
+      if (window.DB) window.DB.fid = active.family_id;
       fhResumeArm();                             // next cold start can skip straight to the splash
       // finally: a failed load must still hand the screen over, never strand us on the splash
       try { await window.loadFamilyData(); }     // auto-enter the active family → real data + DB.fid set
@@ -3684,6 +3692,9 @@ if('serviceWorker' in navigator){
           delete btn.dataset.busy; btn.classList.remove('busy');
           window.toast && window.toast(_friendly(e)); return;
         }
+        // The switch landed, so the cached fid now points at the family we just
+        // left — drop it and let the hydrate re-read the active one.
+        if (window.DB) window.DB.fid = null;
         await (window.loadFamilyData ? window.loadFamilyData() : loadActiveFamily());
         ov.remove();
         if (onb) onb.classList.add('done');
@@ -3928,13 +3939,24 @@ if('serviceWorker' in navigator){
 
   // ---- THE hydrate: pull the whole active family into the app's globals ----
   window.loadFamilyData = async function loadFamilyData() {
-    const _first = !window.DB.fid; if (_first) _showLoading();
+    // "have we ever finished a hydrate" needs its own flag now — DB.fid is seeded
+    // at login, so it no longer doubles as one.
+    if (!window.DB._hydrated) _showLoading();
     try {
       const sess = (await sb.auth.getSession()).data.session;
       if (!sess || !window.FAM) return false;
       const uid = sess.user.id;
-      const prof = (await sb.from('profiles').select('family_id,theme,language').eq('id', uid).maybeSingle()).data;
-      const fid = prof && prof.family_id; if (!fid) return false;
+      // afterLogin() already learned the active family from my_families(), and it
+      // writes it to DB.fid — same value profiles.family_id would give us. Only
+      // pay for that round trip when we genuinely don't have it (e.g. a hydrate
+      // that somehow beat login). switch_family clears DB.fid so a switch still
+      // re-reads rather than reloading the family we just left.
+      let fid = window.DB.fid;
+      if (!fid) {
+        const prof = (await sb.from('profiles').select('family_id').eq('id', uid).maybeSingle()).data;
+        fid = prof && prof.family_id;
+      }
+      if (!fid) return false;
       window.DB.fid = fid;
       const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now()); now.setHours(0, 0, 0, 0);
       const monthDate = _isoMonth(now); window.DB.month = monthDate; window.DB.monthKey = MO[now.getMonth()];
@@ -3992,15 +4014,15 @@ if('serviceWorker' in navigator){
       window.catBudget = cbud;                            // catch-all share is derived in renderBudget()
 
       // photos grouped by transaction
-      // sign storage-path photos so they render (transaction photos + memories)
-      const _paths = [];
-      tp.forEach((p) => { if (p.photo_url && p.photo_url.indexOf('http') !== 0) _paths.push(p.photo_url); });
-      em.forEach((x) => { if (x.photo_url && x.photo_url.indexOf('http') !== 0) _paths.push(x.photo_url); });
-      const _signed = {};
-      // 8h TTL: comfortably outlives a session (was 1h, so images broke mid-use).
-      // Re-signed on every hydrate — and the app re-hydrates on focus/realtime.
-      if (_paths.length) { try { const r = await sb.storage.from('family-media').createSignedUrls(_paths, 28800); (r.data || []).forEach((s) => { if (s && s.signedUrl) _signed[s.path] = s.signedUrl; }); } catch (e) {} }
-      const _url = (p) => p ? (p.indexOf('http') === 0 ? p : (_signed[p] || p)) : p;
+      // The bucket is public, so a storage path maps to a stable URL we can build
+      // locally — no round trip, and the same photo always resolves to the same
+      // string. That last part is the whole point: the old signed-URL scheme
+      // re-signed every photo in the family on every hydrate, and hydrate runs on
+      // focus, on realtime, and 700ms after every write. Each fresh signature was
+      // a brand-new URL, so the browser cache never hit and every image was
+      // re-downloaded from scratch each time the app came to the foreground.
+      const _PUB = SUPABASE_URL + '/storage/v1/object/public/family-media/';
+      const _url = (p) => p ? (p.indexOf('http') === 0 ? p : (_PUB + p.split('/').map(encodeURIComponent).join('/'))) : p;
       const photosByTx = {}; window.DB.pathByUrl = {};
       tp.forEach((p) => { const u = _url(p.photo_url); (photosByTx[p.transaction_id] = photosByTx[p.transaction_id] || []).push(u); if (p.photo_url) window.DB.pathByUrl[u] = p.photo_url; });
 
@@ -4094,6 +4116,7 @@ if('serviceWorker' in navigator){
       updateHeroFam();
       _subscribeRealtime(fid);
       fhFresh();                                        // fresh data is on screen — drop the "Updating…" chip
+      window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
       if (window.fhSaveSnapshot) window.fhSaveSnapshot();   // cache it for the next cold start
       return true;
     } catch (e) { console.warn('loadFamilyData failed', e); return false; }
@@ -4141,7 +4164,11 @@ if('serviceWorker' in navigator){
       for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
       const ext = ((mime.split('/')[1]) || 'jpg').replace('jpeg', 'jpg').replace('svg+xml', 'svg');
       const path = fid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
-      const { error } = await sb.storage.from('family-media').upload(path, arr, { contentType: mime });
+      // Paths embed a timestamp + random suffix and are never overwritten, so the
+      // bytes at a given URL are immutable — cache them for a year instead of
+      // Supabase's 1h default, which would otherwise force a revalidation round
+      // trip per photo every hour.
+      const { error } = await sb.storage.from('family-media').upload(path, arr, { contentType: mime, cacheControl: '31536000' });
       if (error) { console.warn('upload failed', error); return null; }
       return path;
     } catch (e) { console.warn('upload err', e); return null; }
