@@ -2235,7 +2235,13 @@ function syncExpenseEvent(t){
   if(has){
     var key=t.linkedEvent||('xp-'+t.id); t.linkedEvent=key;
     var s=catStyle[t.cat]||['📸'];
-    events[key]={name:t.note,emoji:s[0]||'📸',cov:'sun',date:t.date,d:txPhotoDate(t),target:t.amt,saved:t.amt,achieved:true,fromExpense:t.id,memories:t.photos.map(function(src){return {src:src};})};
+    var prev=events[key]||{};
+    // Update in place. Replacing the object wholesale dropped _dbId/_srcTxn, so
+    // the write-through saw an event with no DB id and inserted a second row.
+    events[key]={name:t.note,emoji:s[0]||'📸',cov:'sun',date:t.date,d:txPhotoDate(t),
+      target:t.amt,saved:t.amt,achieved:true,fromExpense:t.id,
+      memories:t.photos.map(function(src){return {src:src};}),
+      _dbId:prev._dbId, _srcTxn:prev._srcTxn||t._dbId||null, _dbPending:prev._dbPending};
     if(order.indexOf(key)<0) order.unshift(key);
   } else if(t.linkedEvent){
     delete events[t.linkedEvent]; var i=order.indexOf(t.linkedEvent); if(i>=0) order.splice(i,1); delete t.linkedEvent;
@@ -3871,7 +3877,7 @@ if('serviceWorker' in navigator){
         sb.from('category_budgets').select('category_id,amount,month').eq('family_id', fid),
         sb.from('monthly_budgets').select('month,budget_total,closed').eq('family_id', fid),
         sb.from('transactions').select('id,category_id,member_id,note,amount,txn_date,status').eq('family_id', fid),
-        sb.from('events').select('id,name,emoji,cover,target_amount,target_date,achieved,sort_order').eq('family_id', fid).is('archived_at', null).order('sort_order'),
+        sb.from('events').select('id,name,emoji,cover,target_amount,target_date,achieved,sort_order,source_txn_id').eq('family_id', fid).is('archived_at', null).order('sort_order'),
         sb.from('event_fundings').select('id,event_id,amount,source,month,member_id').eq('family_id', fid),
         sb.from('savings_entries').select('kind,amount').eq('family_id', fid),
         sb.from('event_memories').select('id,event_id,emoji,caption,photo_url,sort_order').eq('family_id', fid).order('sort_order'),
@@ -3976,10 +3982,30 @@ if('serviceWorker' in navigator){
       ev.forEach((e) => {
         const d = e.target_date ? new Date(e.target_date + 'T00:00:00') : new Date(now.getTime() + 30 * 86400000);
         window.DB.eventById[e.id] = e;
-        evObj[e.id] = { _dbId: e.id, name: e.name, emoji: e.emoji || '🎯', cov: e.cover || 'blue', date: e.target_date ? (MO[d.getMonth()] + ' ' + d.getDate()) : '', d: d, target: Number(e.target_amount), saved: savedByEvent[e.id] || 0, setAside: setAsideByEvent[e.id] || 0, fromSavings: fromSavingsByEvent[e.id] || 0, fromBudget: fromBudgetByEvent[e.id] || 0, achieved: !!e.achieved, memories: memByEvent[e.id] };
+        /* A mirror event's photos ARE its expense's photos — read them straight
+           from transaction_photos rather than keeping a second copy in
+           event_memories. One source of truth, and no duplicate uploads. */
+        const mirrored = e.source_txn_id
+          ? (photosByTx[e.source_txn_id] || []).map((src) => ({ src: src }))
+          : null;
+        evObj[e.id] = { _dbId: e.id, name: e.name, emoji: e.emoji || '🎯', cov: e.cover || 'blue', date: e.target_date ? (MO[d.getMonth()] + ' ' + d.getDate()) : '', d: d, target: Number(e.target_amount), saved: savedByEvent[e.id] || 0, setAside: setAsideByEvent[e.id] || 0, fromSavings: fromSavingsByEvent[e.id] || 0, fromBudget: fromBudgetByEvent[e.id] || 0, achieved: !!e.achieved, memories: mirrored || memByEvent[e.id], _srcTxn: e.source_txn_id || null };
         evOrder.push(e.id);
       });
       window.events = evObj; window.order = evOrder;
+
+      /* Restore the expense↔mirror-event link. This is the step whose absence
+         caused clones: syncExpenseEvent() falls back to minting a new key when a
+         transaction has no linkedEvent, so without re-attaching it here every
+         photo added after a reload created another event (and another funding). */
+      const _evByTxn = {};
+      ev.forEach((e) => { if (e.source_txn_id) _evByTxn[e.source_txn_id] = e.id; });
+      newTxns.forEach((t) => {
+        const evId = _evByTxn[t._dbId];
+        if (evId) {
+          t.linkedEvent = evId;
+          if (evObj[evId]) evObj[evId].fromExpense = t.id;   // powers "Open expense" in memory detail
+        }
+      });
       if (!window.events[window.curEvent]) window.curEvent = window.order[0] || null;
 
       // savings pool = deposits − withdrawals − savings-source fundings
@@ -4157,8 +4183,20 @@ if('serviceWorker' in navigator){
     const exD = (typeof window.exDate === 'function') ? window.exDate() : null;
     _origAddExpense.apply(this, arguments);
     let nt = null; for (let i = 0; i < window.txns.length; i++) { if (!before[window.txns[i].id]) { nt = window.txns[i]; break; } }
-    if (nt) _dbInsertTxn(nt, exD);
-    (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => _dbInsertEvent(k));
+    const newKeys = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
+    const inserted = nt ? _dbInsertTxn(nt, exD) : Promise.resolve();
+    if (newKeys.length) {
+      // Wait for the transaction's id before writing its mirror event — the
+      // event must carry source_txn_id, or the link isn't durable and the next
+      // photo-add spawns a duplicate.
+      inserted.then(() => {
+        newKeys.forEach((k) => {
+          const e = window.events[k];
+          if (e && nt && nt._dbId) { e._srcTxn = nt._dbId; nt.linkedEvent = k; }
+          _dbInsertEvent(k);
+        });
+      });
+    }
   };
   const _origSaveEdit = window.saveExpenseEdit;
   window.saveExpenseEdit = function () {
@@ -4170,15 +4208,31 @@ if('serviceWorker' in navigator){
     _origSaveEdit.apply(this, arguments);
     if (dbId && tx) _dbUpdateTxn(dbId, tx, exD);
     // adding a photo during an edit can spawn a linked "memory" event via syncExpenseEvent — persist it too
-    (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => _dbInsertEvent(k));
+    (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => {
+      const e = window.events[k];
+      if (e && dbId) e._srcTxn = dbId;      // bind the mirror to the expense it came from
+      _dbInsertEvent(k);
+    });
   };
   const _origDelete = window.deleteExpense;
   window.deleteExpense = function () {
     const tx = (window.editingTx != null && typeof txById === 'function') ? txById(window.editingTx) : null;
     const dbId = tx ? tx._dbId : null;
+    // Its mirror event has to go first, through archive_event — that reverses the
+    // funding and soft-deletes, matching how Delete Event behaves. Leaving it to
+    // the FK would either strand a live orphan event or (with a hard cascade)
+    // fail against the RESTRICT constraint on event_fundings.
+    const mirrorId = (tx && tx.linkedEvent && window.events[tx.linkedEvent])
+      ? window.events[tx.linkedEvent]._dbId : null;
     const before = (window.txns || []).length;
     _origDelete.apply(this, arguments);
-    if (dbId && window.txns.length < before) _dbDeleteTxn(dbId);
+    if (dbId && window.txns.length < before) {
+      (async () => {
+        try { if (mirrorId) await _rpc('archive_event', { p_event_id: mirrorId }); }
+        catch (e) { _writeErr('mirror event archive failed', e); }
+        _dbDeleteTxn(dbId);
+      })();
+    }
   };
 
   // ---- write-through: events & funding ----
@@ -4188,15 +4242,33 @@ if('serviceWorker' in navigator){
       const fid = window.DB.fid; if (!fid) return;
       const e = window.events[localKey]; if (!e || e._dbId) return;
       const iso = e.d ? _isoDate(e.d) : null;
-      const res = await sb.from('events').insert({ family_id: fid, name: e.name, emoji: e.emoji, cover: e.cov, target_amount: e.target, target_date: iso, achieved: !!e.achieved, sort_order: 0 }).select('id').single();
+      const row = { family_id: fid, name: e.name, emoji: e.emoji, cover: e.cov, target_amount: e.target, target_date: iso, achieved: !!e.achieved, sort_order: 0 };
+
+      /* A mirror event belongs to its transaction. Upserting on source_txn_id
+         means a re-sync that lost the local link can't create a second one —
+         and the partial unique index backs that up at the database level. */
+      let res;
+      if (e._srcTxn) {
+        row.source_txn_id = e._srcTxn;
+        res = await sb.from('events').upsert(row, { onConflict: 'source_txn_id' }).select('id').single();
+      } else {
+        res = await sb.from('events').insert(row).select('id').single();
+      }
       if (res.error) throw res.error;
       const evId = res.data.id; e._dbId = evId; window.DB.eventById[evId] = res.data;
-      if (e.memories && e.memories.length) _dbUploadEventMemories(evId, e.memories);
+      // Mirror events read their photos from transaction_photos, so copying them
+      // into event_memories would re-upload every image to storage on each sync.
+      if (!e._srcTxn && e.memories && e.memories.length) _dbUploadEventMemories(evId, e.memories);
       const who = window.DB.ownerMemberId;
       const budgetAmt = e.achieved ? (e.saved || 0) : (e.setAside || 0);
       // tag budget-sourced funding with the month being viewed, not always "today's" month
       const _vm = window.months[window.selMonth] || {}; const fMonth = _vm._iso || window.DB.month;
-      if (budgetAmt > 0) await _w(sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: budgetAmt, source: 'budget', month: fMonth }), 'write event_fundings');
+      // upsert, not insert: one budget reservation per (event, month), so a
+      // re-sync can never reserve the same money twice
+      if (budgetAmt > 0) await _w(sb.from('event_fundings').upsert(
+        { family_id: fid, event_id: evId, member_id: who, amount: budgetAmt, source: 'budget', month: fMonth },
+        { onConflict: 'event_id,month' }
+      ), 'write event_fundings');
       const sp = (e.saved || 0) - (e.setAside || 0);
       if (sp > 0 && opts.savingsSource) await _w(sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: sp, source: 'savings', month: null }), 'write event_fundings');
       _syncSoon();
