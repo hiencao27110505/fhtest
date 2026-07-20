@@ -753,11 +753,19 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .peek-bg{position:absolute;inset:0;background:rgba(20,12,26,.42);
   -webkit-backdrop-filter:blur(24px) saturate(118%);backdrop-filter:blur(24px) saturate(118%)}
 .peek-stage{position:relative;display:flex;flex-direction:column;align-items:center;gap:14px;max-width:100%;max-height:100%}
-.peek-frame{position:relative;border-radius:20px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.45);
-  transform:scale(.94);transition:transform .34s cubic-bezier(.32,.72,0,1);background:var(--canvas)}
+/* No overflow:hidden here. Clipping a rounded box that is also being scaled makes
+   WebKit rasterize the corner mask once and then stretch it, so the edges come
+   back stair-stepped instead of antialiased. Round the media itself and there is
+   no clip to alias. backface-visibility keeps the promoted layer on the pixel
+   grid so the corners stay clean at rest, not just mid-animation. */
+.peek-frame{position:relative;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.45);
+  transform:scale(.94);transition:transform .34s cubic-bezier(.32,.72,0,1);background:var(--canvas);
+  will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .peek.on .peek-frame{transform:scale(1)}
-.peek-frame img{display:block;max-width:min(86vw,520px);max-height:64vh;width:auto;height:auto;object-fit:contain}
-.peek-tile{display:none;width:min(78vw,420px);aspect-ratio:4/3;align-items:center;justify-content:center;font-size:78px}
+.peek-frame img{display:block;max-width:min(86vw,520px);max-height:64vh;width:auto;height:auto;object-fit:contain;
+  border-radius:20px}
+.peek-tile{display:none;width:min(78vw,420px);aspect-ratio:4/3;align-items:center;justify-content:center;font-size:78px;
+  border-radius:20px}
 .peek-frame.is-tile img{display:none}
 .peek-frame.is-tile .peek-tile{display:flex}
 .peek-cap{max-width:min(86vw,520px);text-align:center;color:#fff;font-size:15px;font-weight:500;letter-spacing:-.01em;
