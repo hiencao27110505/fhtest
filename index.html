@@ -225,10 +225,10 @@ input{font-family:inherit}
 .tl-item{display:flex;gap:12px;padding-bottom:16px;cursor:pointer}
 .tl-item:last-child{padding-bottom:2px}
 .tl-item:active .tl-card{transform:scale(.99)}
-.tl-date{width:42px;flex-shrink:0;text-align:center;padding-top:5px}
+.tl-date{width:50px;flex-shrink:0;text-align:center;padding-top:5px}
 .tl-date .d{font-family:var(--disp);font-weight:800;font-size:20px;letter-spacing:-.5px;color:var(--ink);line-height:1}
 .tl-date .mo{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-top:3px;letter-spacing:.03em}
-.tl-date .dl{font-size:10px;font-weight:600;color:var(--muted);margin-top:5px}
+.tl-date .dl{font-size:10px;font-weight:600;color:var(--muted);margin-top:5px;white-space:nowrap}
 .tl-rail{width:12px;flex-shrink:0;display:flex;justify-content:center;position:relative}
 .tl-rail::before{content:'';position:absolute;top:9px;bottom:-16px;left:50%;transform:translateX(-50%);width:1px;background:var(--hairline)}
 .tl-item:last-child .tl-rail::before{display:none}
@@ -240,6 +240,14 @@ input{font-family:inherit}
 .tl-pct{font-size:13.5px;font-weight:600;letter-spacing:-.02em;color:var(--muted);flex-shrink:0}
 .tl-fig{font-size:13px;font-weight:500;letter-spacing:-.01em;color:var(--muted);margin-top:2px}
 .tl-fig b{color:var(--ink);font-weight:600}
+/* past events reuse the rail; a filled dot marks "already happened" */
+.tl-dot.done{background:var(--brand);box-shadow:0 0 0 3px var(--white)}
+/* photos exposed on the row itself — square, gapless-ish, iOS Photos feel */
+.tl-photos{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin:11px 0 8px;border-radius:10px;overflow:hidden}
+.tl-ph{position:relative;aspect-ratio:1;overflow:hidden;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:20px}
+.tl-ph img{width:100%;height:100%;object-fit:cover;display:block}
+.tl-more{position:absolute;inset:0;background:rgba(20,12,26,.55);color:#fff;font-family:var(--disp);font-weight:800;font-size:14px;letter-spacing:-.3px;display:flex;align-items:center;justify-content:center}
+.pastlist{margin:0 16px}
 /* coming-up compact stats (home) */
 .ev-sum{display:flex;background:var(--white);border-radius:16px;margin:0 16px 12px;padding:15px 6px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 22px rgba(25,16,34,.06)}
 .ev-sum:empty{display:none}
@@ -731,6 +739,12 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .mgallery{display:flex;flex-direction:column;gap:14px;padding:0 16px}
 .mem-full{position:relative;border-radius:18px;overflow:hidden;background:var(--canvas)}
 .mem-full img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;background:var(--surface)}
+/* per-photo delete — sits on the image, 44×44, low prominence until armed */
+.mem-del{position:absolute;top:8px;right:8px;z-index:3;width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+  border-radius:9999px;background:rgba(20,12,26,.5);color:#fff;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.mem-del svg{width:18px;height:18px}
+.mem-del:active{background:rgba(20,12,26,.72)}
+.mem-del.armed{width:auto;padding:0 14px;background:var(--danger);font-size:13px;font-weight:700;letter-spacing:-.01em}
 .mem-full.tile{aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
 .mem-full .subj{font-size:56px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.3));position:relative;z-index:1}
 .mem-full .scrim{position:absolute;inset:0;background:linear-gradient(180deg,transparent 46%,rgba(0,0,0,.34) 66%,rgba(0,0,0,.8))}
@@ -1800,6 +1814,16 @@ function fmtDateLong(d){ return d ? (WKD[d.getDay()]+', '+MONF[d.getMonth()]+' '
 function sameDay(a,b){ return !!(a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate()); }
 function parseAmt(s){ return parseInt((s||'').replace(/[^0-9]/g,''))||0; }
 function daysLeft(d){ return Math.max(0,Math.round((d-TODAY)/86400000)); }
+// Signed version — daysLeft() clamps at 0, so past dates all read as "today".
+function daysAgo(d){ return Math.max(0,Math.round((TODAY-d)/86400000)); }
+function agoLabel(d){
+  var n=daysAgo(d);
+  if(n===0) return 'today';
+  if(n===1) return '1d ago';
+  if(n<30)  return n+'d ago';
+  var mo=Math.round(n/30);
+  return mo<12 ? mo+'mo ago' : Math.round(n/365)+'y ago';
+}
 function setTxt(id,t){ var e=document.getElementById(id); if(e)e.textContent=t; }
 function setHTML(id,h){ var e=document.getElementById(id); if(e)e.innerHTML=h; }
 
@@ -2165,31 +2189,50 @@ function renderEvents(){
   document.getElementById('events-list').innerHTML=full||'<div style="padding:10px 4px;color:var(--muted);font-size:14px">Nothing upcoming.</div>';
   // ---- Past events (Events tab): nudge to add photos → memories ----
   function noPhotos(k){ return !(events[k].memories&&events[k].memories.length); }
-  var past=mem.slice().sort(function(a,b){
-    var an=noPhotos(a), bn=noPhotos(b);
-    if(an!==bn) return an?-1:1;            // events still missing photos come first
-    return events[b].d-events[a].d;         // then most recent
-  });
+  // Strictly reverse-chronological. This used to float photo-less events to the
+  // top as a nudge, but on a dated timeline that produced a rail running
+  // May → Jul → Jun, which reads as broken. The "N need photos" count in the
+  // section header carries the nudge instead.
+  var past=mem.slice().sort(function(a,b){ return events[b].d-events[a].d; });
   var needy=past.filter(noPhotos).length;
   var pl='';
   past.forEach(function(k){
-    var e=events[k], dt=MONA[e.d.getMonth()]+' '+e.d.getDate();
+    var e=events[k];
+    // same timeline rail as upcoming, so the tab reads as one continuous story
+    var tlDate='<div class="tl-date"><div class="d num">'+e.d.getDate()+'</div><div class="mo">'+MONA[e.d.getMonth()]+'</div>'
+      +'<div class="dl">'+agoLabel(e.d)+'</div></div>';
+    var body;
     if(noPhotos(k)){
-      pl+='<div class="past-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="past-thumb">'+e.emoji+'</div>'
-        +'<div class="past-body"><div class="past-name">'+e.name+'</div><div class="past-meta">'+dt+' · no photos yet</div></div>'
-        +'<span class="past-add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>Add photos</span></div>';
+      body='<div class="tl-fig">No photos yet</div>'
+        +'<span class="past-add" style="margin-top:10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>Add photos</span>';
     } else {
-      var m=e.memories[0], c=e.memories.length;
-      pl+='<div class="past-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="past-thumb photo '+(m.cls||'ph-park')+'"><span class="subj">'+(m.emoji||e.emoji)+'</span><span class="cnt">'+c+'</span></div>'
-        +'<div class="past-body"><div class="past-name">'+e.name+'</div><div class="past-meta">'+dt+' · '+c+' photo'+(c>1?'s':'')+'</div></div>'
-        +'<svg class="past-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>';
+      var c=e.memories.length;
+      // the photos are the point of a past event — show them, don't hide them behind a thumbnail
+      body='<div class="tl-photos">'+e.memories.slice(0,4).map(function(m,i){
+        var more=(i===3 && c>4) ? '<span class="tl-more">+'+(c-4)+'</span>' : '';
+        return m.src
+          ? '<span class="tl-ph"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||e.name)+'" loading="lazy">'+more+'</span>'
+          : '<span class="tl-ph tile '+esc(m.cls||'ph-park')+'">'+esc(m.emoji||'📸')+more+'</span>';
+      }).join('')+'</div>'
+        +'<div class="tl-fig">'+c+' photo'+(c>1?'s':'')+'</div>';
     }
+    pl+='<div class="tl-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'
+      +tlDate
+      +'<div class="tl-rail"><span class="tl-dot done"></span></div>'
+      +'<div class="tl-card">'
+        +'<div class="tl-top"><span class="tl-emoji">'+esc(e.emoji)+'</span><span class="tl-name">'+esc(e.name)+'</span></div>'
+        +body
+      +'</div></div>';
   });
   var pe=document.getElementById('past-events'); if(pe)pe.innerHTML=pl;
   var ph=document.getElementById('past-head'); if(ph)ph.style.display=past.length?'':'none';
   setTxt('past-note', needy?(needy+' need photos'):'');
-  // home preview: one tile per achieved event
-  var tiles=mem.map(memTileHTML).join('');
+  // home preview: one tile per achieved event, newest first — the strip is a
+  // "what happened lately" glance, so recency beats the stored sort order
+  var memRecent=mem.slice().sort(function(a,b){
+    return (events[b].d?events[b].d.getTime():0)-(events[a].d?events[a].d.getTime():0);
+  });
+  var tiles=memRecent.map(memTileHTML).join('');
   var empty='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">No memories yet</div><p>Fully fund an event to start logging memories.</p></div>';
   document.getElementById('home-memories').innerHTML=tiles||empty;
   renderMemoriesTab(mem);
@@ -2936,15 +2979,42 @@ function renderGallery(boxId){
     return;
   }
   var html='';
-  e.memories.forEach(function(m){
+  e.memories.forEach(function(m,i){
     var cap=m.caption?'<div class="scrim"></div><div class="m-cap">'+esc(m.caption)+'</div>':'';
+    // arm-then-confirm, per the destructive-action rule — a photo can't be undeleted
+    var del='<button class="mem-del" aria-label="Delete photo" onclick="event.stopPropagation();armMemDelete(this,'+i+')">'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>';
     if(m.src){
-      html+='<div class="mem-full"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||'Memory photo')+'" loading="lazy">'+cap+'</div>';
+      html+='<div class="mem-full"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||'Memory photo')+'" loading="lazy">'+cap+del+'</div>';
     } else {
-      html+='<div class="mem-full tile '+esc(m.cls||'ph-park')+'"><div class="subj">'+esc(m.emoji||'📸')+'</div>'+cap+'</div>';
+      html+='<div class="mem-full tile '+esc(m.cls||'ph-park')+'"><div class="subj">'+esc(m.emoji||'📸')+'</div>'+cap+del+'</div>';
     }
   });
   box.innerHTML=html;
+}
+var memDelT=null;
+function armMemDelete(btn,i){
+  if(!btn.classList.contains('armed')){
+    document.querySelectorAll('.mem-del.armed').forEach(function(b){ b.classList.remove('armed'); b.innerHTML=b.dataset.ico||b.innerHTML; });
+    btn.dataset.ico=btn.innerHTML;
+    btn.classList.add('armed'); btn.innerHTML='<span>Delete?</span>';
+    clearTimeout(memDelT);
+    memDelT=setTimeout(function(){
+      if(!btn.isConnected)return;
+      btn.classList.remove('armed'); btn.innerHTML=btn.dataset.ico;
+    },3000);
+    return;
+  }
+  clearTimeout(memDelT);
+  deleteMemoryPhoto(i);
+}
+// Local removal; the DB module wraps this to delete the row + storage object.
+function deleteMemoryPhoto(i){
+  var e=events[curEvent]; if(!e||!e.memories||!e.memories[i])return;
+  e.memories.splice(i,1);
+  renderGallery('ov-gallery'); renderGallery('ov-fund-gallery');
+  renderEvents(); renderMemCalendar();
+  toast('Photo deleted');
 }
 var memPick=null, memPickMulti=null;
 function openMemorySheet(){
@@ -3977,7 +4047,8 @@ if('serviceWorker' in navigator){
         if (f.source === 'budget' && f.month === monthDate) setAsideByEvent[f.event_id] = (setAsideByEvent[f.event_id] || 0) + amt;
       });
       const memByEvent = {};
-      em.forEach((x) => { (memByEvent[x.event_id] = memByEvent[x.event_id] || []).push(x.photo_url ? { src: _url(x.photo_url), caption: x.caption || '' } : { emoji: x.emoji || '📸', caption: x.caption || '', cls: 'ph-park' }); });
+      // _id / _path let a single photo be deleted later (row + storage object)
+      em.forEach((x) => { (memByEvent[x.event_id] = memByEvent[x.event_id] || []).push(x.photo_url ? { src: _url(x.photo_url), caption: x.caption || '', _id: x.id, _path: x.photo_url } : { emoji: x.emoji || '📸', caption: x.caption || '', cls: 'ph-park', _id: x.id }); });
       const evObj = {}, evOrder = []; window.DB.eventById = {};
       ev.forEach((e) => {
         const d = e.target_date ? new Date(e.target_date + 'T00:00:00') : new Date(now.getTime() + 30 * 86400000);
@@ -3986,7 +4057,7 @@ if('serviceWorker' in navigator){
            from transaction_photos rather than keeping a second copy in
            event_memories. One source of truth, and no duplicate uploads. */
         const mirrored = e.source_txn_id
-          ? (photosByTx[e.source_txn_id] || []).map((src) => ({ src: src }))
+          ? (photosByTx[e.source_txn_id] || []).map((src) => ({ src: src, _txn: e.source_txn_id, _path: (window.DB.pathByUrl || {})[src] || null }))
           : null;
         evObj[e.id] = { _dbId: e.id, name: e.name, emoji: e.emoji || '🎯', cov: e.cover || 'blue', date: e.target_date ? (MO[d.getMonth()] + ' ' + d.getDate()) : '', d: d, target: Number(e.target_amount), saved: savedByEvent[e.id] || 0, setAside: setAsideByEvent[e.id] || 0, fromSavings: fromSavingsByEvent[e.id] || 0, fromBudget: fromBudgetByEvent[e.id] || 0, achieved: !!e.achieved, memories: mirrored || memByEvent[e.id], _srcTxn: e.source_txn_id || null };
         evOrder.push(e.id);
@@ -4311,6 +4382,36 @@ if('serviceWorker' in navigator){
         if (!ev._dbId && ev._dbPending) { try { await ev._dbPending; } catch (e) {} }
         if (ev._dbId) await _dbUploadEventMemories(ev._dbId, added, before);
       } catch (e) { _writeErr('memory save failed', e); }
+    })();
+  };
+
+  /* ---- write-through: deleting a single photo ----
+     Two storage shapes to handle. A normal event's photos are event_memories
+     rows; a photo-expense's mirror event reads straight from transaction_photos,
+     so deleting there has to hit the expense's photo (and the in-memory txn, or
+     the next expense save would re-upload what was just deleted). */
+  const _origDelMemPhoto = window.deleteMemoryPhoto;
+  if (typeof _origDelMemPhoto === 'function') window.deleteMemoryPhoto = function (i) {
+    const ev = window.events[window.curEvent];
+    const m = (ev && ev.memories) ? ev.memories[i] : null;
+    _origDelMemPhoto.apply(this, arguments);
+    if (!m) return;
+    (async () => {
+      try {
+        if (m._txn) {
+          const path = m._path || _storagePathFromUrl(m.src);
+          if (path) await _w(sb.from('transaction_photos').delete().eq('transaction_id', m._txn).eq('photo_url', path), 'delete transaction photo');
+          const tx = (window.txns || []).find((t) => t._dbId === m._txn);   // keep local state honest
+          if (tx && tx.photos) {
+            tx.photos = tx.photos.filter((p) => p !== m.src);
+            if (!tx.photos.length) delete tx.photos;
+          }
+        } else if (m._id) {
+          await _w(sb.from('event_memories').delete().eq('id', m._id), 'delete memory');
+        }
+        if (m._path) { try { await sb.storage.from('family-media').remove([m._path]); } catch (e) {} }
+        _syncSoon();
+      } catch (e) { _writeErr('photo delete failed', e); }
     })();
   };
 
