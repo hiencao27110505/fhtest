@@ -4928,14 +4928,20 @@ if('serviceWorker' in navigator){
     if (!t) return null;
     const dbId = t._dbId;
     if (dbId) {
+      /* Diff the order and bind the mirror BEFORE the first await. A hydrate
+         (realtime, window focus, an earlier _syncSoon) replaces window.events and
+         window.order wholesale, so a diff taken after an await can find the key
+         gone — _dbInsertEvent then bails on its `!e` guard and no events row is
+         ever written. The photos still land in transaction_photos, so the expense
+         shows them while Memories stays empty: silent, and permanent until the
+         next photo on that expense happens to win the race.
+
+         The inserts are also awaited, and run before the photo sync, so the
+         700ms _syncSoon reload cannot overtake them. */
+      const fresh = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
+      fresh.forEach((k) => { const e = window.events[k]; if (e) e._srcTxn = dbId; });
+      for (const k of fresh) await _dbInsertEvent(k);
       await _dbSyncTxnPhotos(dbId, t.photos);
-      // first photo on an expense spawns its mirror "memory" event — persist it,
-      // bound to the expense so a later photo-add doesn't duplicate the row
-      (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => {
-        const e = window.events[k];
-        if (e) e._srcTxn = dbId;
-        _dbInsertEvent(k);
-      });
       _syncSoon();
     }
     return t;
