@@ -611,6 +611,10 @@ input{font-family:inherit}
 .cat-del{flex-shrink:0;width:30px;height:30px;color:var(--muted-soft);display:flex;align-items:center;justify-content:center;border-radius:8px}
 .cat-del svg{width:17px;height:17px}
 .cat-del:active{color:var(--danger);background:var(--danger-tint)}
+/* the catch-all row: locked name, no remove */
+.cat-del-off{opacity:.45;cursor:default}
+.cat-del-off:active{color:var(--muted-soft);background:none}
+.cat-row-lock .cat-name{color:var(--muted);cursor:default}
 
 /* ---------- memories ---------- */
 .mscroll{display:flex;gap:12px;overflow-x:auto;padding:0 16px 4px;scroll-snap-type:x mandatory}
@@ -1581,6 +1585,8 @@ function fmtK(n){
   return n>=1000 ? '$'+(n/1000).toFixed(1).replace(/\.0$/,'')+'k' : '$'+Math.round(n);
 }
 function parseAmtBase(s){ return Math.round(parseAmt(s)/curMult()); }   // input is in display currency → store base
+// base → the number an amount input should show (display currency, grouped, no symbol)
+function amtToInput(n){ n=Number(n)||0; return n?(n*curMult()).toLocaleString(CUR==='VND'?'vi-VN':'en-US'):''; }
 function renderTrend(){
   var box=document.getElementById('trend-chart'); if(!box)return;
   var maxV=Math.max.apply(null, monthOrder.map(function(k){return Math.max(months[k].spent,months[k].budget);}));
@@ -1728,16 +1734,34 @@ function selectMonth(k){ selMonth=k; renderAll(); renderTxns(); closeSheet(); if
 
 /* ---------- budget setup ---------- */
 var CATPAL=[['#eeeefc','var(--cat-housing)'],['#eaf7ee','var(--cat-food)'],['#fdeef4','var(--cat-dining)'],['#eafaf9','var(--cat-transport)'],['#f7eefd','var(--cat-fun)'],['#fff2e6','var(--cat-kids)'],['#eef4fb','var(--cat-other)']];
+// "Others" is the catch-all: it always exists, can't be renamed away or removed,
+// and anything with no category of its own lands here.
+var CAT_FALLBACK='Others';
+function isFallbackCat(n){ return String(n||'').trim().toLowerCase()===CAT_FALLBACK.toLowerCase(); }
+// Guarantee the catch-all sits at the end of a category list (mutates in place).
+function ensureFallbackCat(order,style,budget){
+  if(order.some(isFallbackCat)) return order;
+  order.push(CAT_FALLBACK);
+  if(style && !style[CAT_FALLBACK]) style[CAT_FALLBACK]=['🗂️','#eef4fb','var(--cat-other)'];
+  if(budget && budget[CAT_FALLBACK]===undefined) budget[CAT_FALLBACK]=0;
+  return order;
+}
 function catRowHTML(emoji,name,budget,orig){
-  return '<div class="cat-row" data-orig="'+(orig||'')+'">'
+  var lock=isFallbackCat(name);
+  return '<div class="cat-row'+(lock?' cat-row-lock':'')+'" data-orig="'+(orig||'')+'">'
     +'<input class="cat-emoji" maxlength="2" value="'+(emoji||'🏷️')+'">'
-    +'<input class="cat-name" placeholder="Name" value="'+String(name||'').replace(/"/g,'&quot;')+'">'
-    +'<span class="cat-bud-wrap">$<input class="cat-bud num" inputmode="numeric" placeholder="0" value="'+(budget||'')+'"></span>'
-    +'<button class="cat-del" aria-label="Remove" onclick="this.closest(\'.cat-row\').remove()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>';
+    +'<input class="cat-name" placeholder="Name" value="'+String(name||'').replace(/"/g,'&quot;')+'"'+(lock?' readonly':'')+'>'
+    +'<span class="cat-bud-wrap">'+curSym()+'<input class="cat-bud num" inputmode="numeric" placeholder="0" value="'+amtToInput(budget)+'"></span>'
+    +(lock
+      ? '<span class="cat-del cat-del-off" title="Everything uncategorised lands here"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></span>'
+      : '<button class="cat-del" aria-label="Remove" onclick="this.closest(\'.cat-row\').remove()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
+    +'</div>';
 }
 function fillBudgetSheet(){
-  document.getElementById('bg-amt').value=String(M().budget);
+  document.getElementById('bg-amt').value=amtToInput(M().budget);
+  ensureFallbackCat(catOrder,catStyle,catBudget);
   document.getElementById('bg-rows').innerHTML = catOrder.map(function(c){ var s=catStyle[c]||['🏷️']; return catRowHTML(s[0],c,catBudget[c],c); }).join('');
+  document.getElementById('bg-amt').placeholder=curSym()+(CUR==='VND'?'9,000,000':'9,000');
 }
 function addCatRow(){ document.getElementById('bg-rows').insertAdjacentHTML('beforeend', catRowHTML('🏷️','','','')); }
 // best-practice weights (EN + seeded VI names); unknown categories default to 0.08, then normalised
@@ -1757,16 +1781,22 @@ function setBudget(){
     var emoji=row.querySelector('.cat-emoji').value.trim()||'🏷️';
     var bud=parseAmtBase(row.querySelector('.cat-bud').value)||0;
     var orig=row.getAttribute('data-orig');
+    if(isFallbackCat(orig)) name=CAT_FALLBACK;               // the catch-all keeps its name whatever the input says
     var style = (orig&&catStyle[orig]) ? [emoji,catStyle[orig][1],catStyle[orig][2]] : [emoji].concat(CATPAL[newOrder.length%CATPAL.length]);
     newOrder.push(name); newStyle[name]=style; newBudget[name]=bud;
     if(orig && orig!==name) renames.push([orig,name]);
   });
   if(!newOrder.length){ toast('Keep at least one category'); return; }
+  ensureFallbackCat(newOrder,newStyle,newBudget);             // catch-all is never lost, however the rows were edited
   renames.forEach(function(pr){                              // cascade renames to transactions + month totals
     txns.forEach(function(t){ if(t.cat===pr[0]) t.cat=pr[1]; });
     Object.keys(months).forEach(function(mk){ var cs=months[mk].catSpent; if(cs && cs[pr[0]]!==undefined){ cs[pr[1]]=(cs[pr[1]]||0)+cs[pr[0]]; delete cs[pr[0]]; } });
   });
   window.__catRenames=renames;                              // hand renames to the DB write-through
+  // categories whose row was removed (a rename is not a removal) → archive them server-side
+  var kept={}; newOrder.forEach(function(n){ kept[n]=1; });
+  renames.forEach(function(pr){ kept[pr[0]]=1; });
+  window.__catDeletes=catOrder.filter(function(c){ return !kept[c]; });
   catOrder=newOrder; catStyle=newStyle; catBudget=newBudget;
   renderAll(); renderTxns(); closeModals(); toast('Categories updated');
 }
@@ -3349,7 +3379,8 @@ if('serviceWorker' in navigator){
       const R = await Promise.all([
         sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
         sb.from('members').select('id,name,color,is_shared,user_id,created_at').eq('family_id', fid).is('archived_at', null).order('created_at'),
-        sb.from('categories').select('id,name,emoji,color,sort_order').eq('family_id', fid).is('archived_at', null).order('sort_order'),
+        // archived ones come along so old transactions still resolve their name; they're kept out of catOrder below
+        sb.from('categories').select('id,name,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
         sb.from('category_budgets').select('category_id,amount,month').eq('family_id', fid),
         sb.from('monthly_budgets').select('month,budget_total,closed').eq('family_id', fid),
         sb.from('transactions').select('id,category_id,member_id,note,amount,txn_date,status').eq('family_id', fid),
@@ -3384,14 +3415,17 @@ if('serviceWorker' in navigator){
       const order = [], style = {};
       window.DB.catById = {}; window.DB.catByName = {};
       cat.forEach((c) => {
-        window.DB.catById[c.id] = c; window.DB.catByName[c.name] = c.id;
+        window.DB.catById[c.id] = c;                       // by id: archived included, so removals resolve to the catch-all
+        if (c.archived_at) return;                          // archived: no picker entry, no budget row
+        window.DB.catByName[c.name] = c.id;
         order.push(c.name); style[c.name] = [c.emoji || '🏷️', '#f2eef6', c.color || 'var(--cat-other)'];
       });
-      window.catOrder = order.length ? order : ['Other']; window.catStyle = style;
+      window.catStyle = style;
+      window.catOrder = ensureFallbackCat(order, style, null);   // the catch-all is always present
 
       // category budgets for the current month → catBudget
       const cbud = {}; window.catOrder.forEach((n) => { cbud[n] = 0; });
-      cb.forEach((b) => { if (b.month === monthDate) { const c = window.DB.catById[b.category_id]; if (c) cbud[c.name] = Number(b.amount); } });
+      cb.forEach((b) => { if (b.month === monthDate) { const c = window.DB.catById[b.category_id]; if (c && !c.archived_at) cbud[c.name] = Number(b.amount); } });
       window.catBudget = cbud;
 
       // photos grouped by transaction
@@ -3425,7 +3459,9 @@ if('serviceWorker' in navigator){
       tx.forEach((t) => {
         const dt = new Date(t.txn_date + 'T00:00:00'); const mkey = MO[dt.getMonth()];
         const m = ensureMonth(t.txn_date);
-        const c = window.DB.catById[t.category_id]; const catName = c ? c.name : (window.catOrder[0] || 'Other');
+        // unknown or since-removed category → the catch-all, never someone else's category
+        const c = window.DB.catById[t.category_id];
+        const catName = (c && !c.archived_at) ? c.name : CAT_FALLBACK;
         const mrec = t.member_id ? window.DB.memberById[t.member_id] : null;
         const who = mrec ? (mrec.is_shared ? 'Shared' : mrec.name) : 'Shared';
         const realized = (t.status !== 'planned') && (dt <= now);
@@ -3712,6 +3748,16 @@ if('serviceWorker' in navigator){
       for (const pr of rn) {
         const oldId = window.DB.catByName[pr[0]];
         if (oldId) { try { await sb.from('categories').update({ name: pr[1] }).eq('id', oldId); window.DB.catByName[pr[1]] = oldId; delete window.DB.catByName[pr[0]]; if (window.DB.catById[oldId]) window.DB.catById[oldId].name = pr[1]; } catch (e) {} }
+      }
+      // removed categories → soft-delete (archived_at); history keeps its category_id, pickers drop it
+      const del = window.__catDeletes || []; window.__catDeletes = [];
+      for (const name of del) {
+        const cid = window.DB.catByName[name]; if (!cid) continue;
+        try {
+          await sb.from('category_budgets').delete().eq('family_id', fid).eq('category_id', cid);
+          await sb.from('categories').update({ archived_at: new Date().toISOString() }).eq('id', cid);
+          delete window.DB.catByName[name];
+        } catch (e) { _writeErr('category remove failed', e); }
       }
       await sb.from('monthly_budgets').upsert({ family_id: fid, month: month, budget_total: m.budget || 0 }, { onConflict: 'family_id,month' });
       for (let i = 0; i < window.catOrder.length; i++) {
