@@ -578,6 +578,8 @@ input{font-family:inherit}
 .ex-del{display:none;width:fit-content;margin:26px auto 4px;background:none;color:var(--muted);font-size:14px;font-weight:500;letter-spacing:-.01em;padding:8px 16px}
 .ex-del.armed{color:var(--danger);font-weight:700}
 .ex-del:active{opacity:.55}
+.ev-del{display:none;width:fit-content;margin:10px auto 0;background:none;border:0;color:var(--muted);font-size:14px;font-weight:500;letter-spacing:-.01em;padding:8px 16px;font-family:inherit}
+.ev-del:active{opacity:.55}
 /* suggestion / founders' note */
 .founder-note{display:flex;gap:13px;align-items:flex-start;background:var(--brand-tint);border-radius:16px;padding:14px 15px;margin-bottom:20px}
 .fn-avs{display:flex;flex-shrink:0;padding-top:1px}
@@ -646,6 +648,15 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .pm-single{cursor:pointer}
 .pm-single img{display:block;width:100%;height:auto}
 .pm-single:active{opacity:.85}
+/* one collage per event inside a date section — caption sits on the photo (like the home strip) */
+.pm-block{position:relative;margin-top:10px}
+.pm-block:first-child{margin-top:0}
+.pm-block .photo-mosaic-wrap{margin:0 16px}
+.pm-block .pm-cap{position:absolute;left:16px;right:16px;bottom:0;padding:34px 14px 12px;border-radius:0 0 16px 16px;
+  background:linear-gradient(180deg,transparent,rgba(0,0,0,.62));pointer-events:none}
+.pm-block .pm-cap-t{color:#fff;font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm-block .pm-cap-s{color:rgba(255,255,255,.85);font-size:12.5px;letter-spacing:-.01em;margin-top:3px}
 /* multi-photo picker strip (expense + event modals) */
 .photo-strip{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px}
 .photo-strip:empty{display:none}
@@ -1076,6 +1087,7 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   </div>
   <div style="padding:12px 16px calc(18px + env(safe-area-inset-bottom));background:rgba(251,250,252,.9);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--hairline)">
     <button class="cta" id="ov-cta" onclick="openFund()">Add funds</button>
+    <button class="ev-del" id="ov-del" onclick="fhDeleteEvent()">Delete event</button>
   </div>
 </div>
 
@@ -1947,17 +1959,34 @@ function mosaicHTML(items){
 function secHTML(titleHTML,count,mosaic){
   return '<div class="photo-sec"><div class="photo-sec-h"><div>'+titleHTML+'</div><div class="photo-sec-sub">'+count+' photo'+(count!==1?'s':'')+'</div></div>'+mosaic+'</div>';
 }
-// Memories tab: group by DATE (each day a section), noting the event(s) of that day.
+// What an event actually cost, if anything was put toward it.
+function evAmount(e){ var v=(e.saved>0?e.saved:(e.target||0)); return v>0?v:0; }
+// A collage for one event, captioned on the photo (name + amount) — no sub-heading above it.
+function evBlockHTML(items,k){
+  var cap='';
+  if(k){
+    var e=events[k], amt=evAmount(e), c=items.length;
+    var sub=(amt?fmt(amt)+' · ':'')+c+' photo'+(c!==1?'s':'');
+    cap='<div class="pm-cap"><div class="pm-cap-t">'+e.emoji+' '+e.name+'</div><div class="pm-cap-s">'+sub+'</div></div>';
+  }
+  return '<div class="pm-block">'+mosaicHTML(items)+cap+'</div>';
+}
+// Memories tab: one section per DATE (date is the only title), one captioned collage per event inside it.
 function photoSectionsByDate(recs){
   var groups=[], by={};
   recs.forEach(function(r){
     var key=r.d?(r.d.getFullYear()+'-'+r.d.getMonth()+'-'+r.d.getDate()):'x';
-    if(!by[key]){ by[key]={d:r.d,items:[],evs:[]}; groups.push(by[key]); }
+    if(!by[key]){ by[key]={d:r.d,items:[],evs:[],byEv:{},moments:[]}; groups.push(by[key]); }
     by[key].items.push(r);
-    if(r.type==='event' && by[key].evs.indexOf(r.ref)<0) by[key].evs.push(r.ref);
+    if(r.type==='event'){
+      if(by[key].evs.indexOf(r.ref)<0){ by[key].evs.push(r.ref); by[key].byEv[r.ref]=[]; }
+      by[key].byEv[r.ref].push(r);
+    } else by[key].moments.push(r);
   });
   return groups.map(function(g){
-    return secHTML('<div class="photo-sec-title">'+fmtDateLong(g.d)+'</div>', g.items.length, mosaicHTML(g.items));
+    var body=g.evs.map(function(k){ return evBlockHTML(g.byEv[k],k); }).join('');
+    if(g.moments.length) body+=evBlockHTML(g.moments,null);
+    return secHTML('<div class="photo-sec-title">'+fmtDateLong(g.d)+'</div>', g.items.length, body);
   }).join('');
 }
 // Photos-by-date screen: group by EVENT (name links to the event) + an "Everyday moments" section.
@@ -2544,6 +2573,8 @@ function openEvent(id){
   var cta=document.getElementById('ov-cta');
   if(ach){ renderGallery('ov-gallery'); cta.textContent='Add photos & caption'; cta.setAttribute('onclick','openMemorySheet()'); }
   else { renderRing(); renderGallery('ov-fund-gallery'); cta.textContent='Add funds'; cta.setAttribute('onclick','openFund()'); }
+  // photo-events mirror an expense's photos — those are removed from the expense, not here
+  var evd=document.getElementById('ov-del'); if(evd) evd.style.display=e.fromExpense?'none':'block';
   document.getElementById('event-overlay').classList.add('on');
 }
 function renderGallery(boxId){
@@ -3322,7 +3353,7 @@ if('serviceWorker' in navigator){
         sb.from('category_budgets').select('category_id,amount,month').eq('family_id', fid),
         sb.from('monthly_budgets').select('month,budget_total,closed').eq('family_id', fid),
         sb.from('transactions').select('id,category_id,member_id,note,amount,txn_date,status').eq('family_id', fid),
-        sb.from('events').select('id,name,emoji,cover,target_amount,target_date,achieved,sort_order').eq('family_id', fid).order('sort_order'),
+        sb.from('events').select('id,name,emoji,cover,target_amount,target_date,achieved,sort_order').eq('family_id', fid).is('archived_at', null).order('sort_order'),
         sb.from('event_fundings').select('id,event_id,amount,source,month,member_id').eq('family_id', fid),
         sb.from('savings_entries').select('kind,amount').eq('family_id', fid),
         sb.from('event_memories').select('id,event_id,emoji,caption,photo_url,sort_order').eq('family_id', fid).order('sort_order'),
@@ -3408,10 +3439,13 @@ if('serviceWorker' in navigator){
       window.selMonth = byKey[window.DB.monthKey] ? window.DB.monthKey : (window.monthOrder[window.monthOrder.length - 1] || window.DB.monthKey);
 
       // events + fundings + memories
-      const savedByEvent = {}, setAsideByEvent = {};
+      const savedByEvent = {}, setAsideByEvent = {}, fromSavingsByEvent = {}, fromBudgetByEvent = {};
       ef.forEach((f) => {
-        savedByEvent[f.event_id] = (savedByEvent[f.event_id] || 0) + Number(f.amount);
-        if (f.source === 'budget' && f.month === monthDate) setAsideByEvent[f.event_id] = (setAsideByEvent[f.event_id] || 0) + Number(f.amount);
+        const amt = Number(f.amount);
+        savedByEvent[f.event_id] = (savedByEvent[f.event_id] || 0) + amt;
+        if (f.source === 'savings') fromSavingsByEvent[f.event_id] = (fromSavingsByEvent[f.event_id] || 0) + amt;
+        else fromBudgetByEvent[f.event_id] = (fromBudgetByEvent[f.event_id] || 0) + amt;
+        if (f.source === 'budget' && f.month === monthDate) setAsideByEvent[f.event_id] = (setAsideByEvent[f.event_id] || 0) + amt;
       });
       const memByEvent = {};
       em.forEach((x) => { (memByEvent[x.event_id] = memByEvent[x.event_id] || []).push(x.photo_url ? { src: _url(x.photo_url), caption: x.caption || '' } : { emoji: x.emoji || '📸', caption: x.caption || '', cls: 'ph-park' }); });
@@ -3419,7 +3453,7 @@ if('serviceWorker' in navigator){
       ev.forEach((e) => {
         const d = e.target_date ? new Date(e.target_date + 'T00:00:00') : new Date(now.getTime() + 30 * 86400000);
         window.DB.eventById[e.id] = e;
-        evObj[e.id] = { _dbId: e.id, name: e.name, emoji: e.emoji || '🎯', cov: e.cover || 'blue', date: e.target_date ? (MO[d.getMonth()] + ' ' + d.getDate()) : '', d: d, target: Number(e.target_amount), saved: savedByEvent[e.id] || 0, setAside: setAsideByEvent[e.id] || 0, achieved: !!e.achieved, memories: memByEvent[e.id] };
+        evObj[e.id] = { _dbId: e.id, name: e.name, emoji: e.emoji || '🎯', cov: e.cover || 'blue', date: e.target_date ? (MO[d.getMonth()] + ' ' + d.getDate()) : '', d: d, target: Number(e.target_amount), saved: savedByEvent[e.id] || 0, setAside: setAsideByEvent[e.id] || 0, fromSavings: fromSavingsByEvent[e.id] || 0, fromBudget: fromBudgetByEvent[e.id] || 0, achieved: !!e.achieved, memories: memByEvent[e.id] };
         evOrder.push(e.id);
       });
       window.events = evObj; window.order = evOrder;
@@ -3746,6 +3780,38 @@ if('serviceWorker' in navigator){
   const _btn = (label, onclick, style) => '<button onclick="' + onclick + '" style="' + style + ';font-family:inherit;cursor:pointer">' + label + '</button>';
   const _primary = 'width:100%;border:0;background:#b92e78;color:#fff;border-radius:12px;padding:13px;font-weight:700;font-size:15px';
   const _ghost = 'width:100%;border:0;background:transparent;color:#7a5a6e;font-weight:600;padding:12px 0 0;font-size:14px';
+  const _danger = 'width:100%;border:0;background:var(--danger,#E0322F);color:#fff;border-radius:12px;padding:13px;font-weight:700;font-size:15px';
+  const _esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // ---- Delete an event: soft delete (archived_at) + full funding reversal ----
+  // Confirmation names the exact consequences rather than asking a generic "are you sure".
+  window.fhDeleteEvent = function (key) {
+    const k = key || window.curEvent; const ev = window.events[k]; if (!ev) return;
+    window._fhDelEvKey = k;
+    const f = (n) => (window.fmt ? window.fmt(n) : n);
+    const lines = [];
+    if (ev.fromSavings > 0) lines.push('<b>' + f(ev.fromSavings) + '</b> goes back to your savings.');
+    if (ev.fromBudget > 0) lines.push('<b>' + f(ev.fromBudget) + '</b> comes off your spending.');
+    const nm = (ev.memories || []).length;
+    if (nm) lines.push(nm + ' photo' + (nm > 1 ? 's' : '') + ' will be removed from Memories.');
+    if (!lines.length) lines.push('Nothing has been put toward this goal yet.');
+    _fhOverlay(
+      '<div style="font-size:18px;font-weight:800;color:#191022;margin-bottom:8px">Delete “' + _esc(ev.name) + '”?</div>'
+      + '<div style="font-size:14px;color:#7a5a6e;line-height:1.55;margin-bottom:18px">' + lines.join('<br>') + '</div>'
+      + _btn('Delete Event', 'fhConfirmDeleteEvent()', _danger)
+      + _btn('Cancel', '_closeOv()', _ghost)
+    );
+  };
+  window.fhConfirmDeleteEvent = async function () {
+    const ev = window.events[window._fhDelEvKey];
+    if (!ev) { window._closeOv(); return; }
+    try { if (ev._dbId) await _rpc('archive_event', { p_event_id: ev._dbId }); }
+    catch (e) { window.toast && window.toast(e.message || 'Couldn’t delete'); return; }
+    window._closeOv();
+    if (typeof window.closeEvent === 'function') window.closeEvent();
+    await window.loadFamilyData();
+    window.toast && window.toast('Event deleted');
+  };
 
   // ---- Manage family & members ----
   window.fhManageFamily = async function () {
