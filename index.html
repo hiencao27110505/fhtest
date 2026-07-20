@@ -3036,6 +3036,11 @@ if('serviceWorker' in navigator){
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
   window.sb = sb;
 
+  // supabase-js resolves { data, error } on HTTP 4xx (it does NOT throw), so a bare
+  // `try { await sb.rpc(...) } catch` silently misses DB errors and reports false success.
+  // Unwrap here so every caller's try/catch behaves as intended.
+  async function _rpc(fn, args) { const { data, error } = await sb.rpc(fn, args); if (error) throw error; return data; }
+
   const g = (id) => document.getElementById(id);
 
   // Continue once we have a session (no redirect — we never left the app).
@@ -3669,29 +3674,29 @@ if('serviceWorker' in navigator){
   };
   window.fhSaveMember = async function (id) {
     const name = (document.getElementById('fh-mname').value || '').trim(); if (!name) return;
-    try { await sb.rpc('update_member', { p_member_id: id, p_name: name, p_color: window._fhMColor || null }); }
+    try { await _rpc('update_member', { p_member_id: id, p_name: name, p_color: window._fhMColor || null }); }
     catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
     await window.loadFamilyData(); window.fhManageFamily();
   };
   window.fhArchiveMember = async function (id) {
     if (!confirm('Remove this member? Their history stays in the books.')) return;
-    try { await sb.rpc('archive_member', { p_member_id: id }); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
+    try { await _rpc('archive_member', { p_member_id: id }); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
     await window.loadFamilyData(); window.fhManageFamily();
   };
   window.fhAddMember = async function () {
     const name = prompt('New member name'); if (!name || !name.trim()) return;
-    try { await sb.rpc('add_member', { p_name: name.trim(), p_color: _pal()[Math.floor(Math.random() * _pal().length)] }); }
+    try { await _rpc('add_member', { p_name: name.trim(), p_color: _pal()[Math.floor(Math.random() * _pal().length)] }); }
     catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
     await window.loadFamilyData(); window.fhManageFamily();
   };
   window.fhLeaveFamily = async function () {
     if (!confirm('Leave this family? You can be re-invited later.')) return;
-    try { await sb.rpc('leave_family'); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
+    try { await _rpc('leave_family'); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
     window._closeOv(); location.reload();
   };
   window.fhDeleteFamily = async function () {
     if (!confirm('Delete this family for everyone? Data is kept but the family disappears.')) return;
-    try { await sb.rpc('archive_family', { p_family_id: window.DB.fid }); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
+    try { await _rpc('archive_family', { p_family_id: window.DB.fid }); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
     window._closeOv(); location.reload();
   };
 
@@ -3709,7 +3714,7 @@ if('serviceWorker' in navigator){
   };
   window.fhSetSavings = async function () {
     const base = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-sav').value) : 0;
-    try { await sb.rpc('set_savings', { p_amount: base || 0 }); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
+    try { await _rpc('set_savings', { p_amount: base || 0 }); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
     window._closeOv(); await window.loadFamilyData(); window.toast && window.toast('Savings updated');
   };
 
@@ -3735,11 +3740,13 @@ if('serviceWorker' in navigator){
     const note = (document.getElementById('fh-inc-note').value || '').trim() || 'Income';
     const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
     const iso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-    try { await sb.from('incomes').insert({ family_id: window.DB.fid, member_id: window.DB.ownerMemberId || null, amount: base, note: note, income_date: iso }); }
-    catch (e) { window.toast && window.toast('Couldn’t add income'); return; }
+    try {
+      const { error } = await sb.from('incomes').insert({ family_id: window.DB.fid, member_id: window.DB.ownerMemberId || null, amount: base, note: note, income_date: iso });
+      if (error) throw error;
+    } catch (e) { window.toast && window.toast('Couldn’t add income'); return; }
     window.fhIncome();
   };
-  window.fhDelIncome = async function (id) { try { await sb.from('incomes').delete().eq('id', id); } catch (e) {} window.fhIncome(); };
+  window.fhDelIncome = async function (id) { try { const { error } = await sb.from('incomes').delete().eq('id', id); if (error) throw error; } catch (e) { window.toast && window.toast('Couldn’t delete'); } window.fhIncome(); };
 
   (async () => {
     const { data: { session } } = await sb.auth.getSession();
