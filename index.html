@@ -28,6 +28,10 @@
    getSession() still runs and fhResumeFail() walks it back if the session is actually gone. */
 try{ if(localStorage.getItem('fh-resume')==='1'){
   document.documentElement.classList.add('fh-resume');
+  /* A cached snapshot means the app can open on real data — no splash at all.
+     The restore itself happens in the main script; if it turns out to be
+     unusable it drops this class and the splash takes over. */
+  if(localStorage.getItem('fh-snap')) document.documentElement.classList.add('fh-warm-boot');
   /* Watchdog: if the module never arrives (offline, CDN down) the splash would sit there
      forever. Hand the screen back after 10s but keep the flag — the session may be fine. */
   window.__fhResumeWatch=setTimeout(function(){
@@ -774,7 +778,18 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 @keyframes fs-breathe{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.06);opacity:1}}
 @media (prefers-reduced-motion:reduce){#fh-splash .fs-logo{animation:none}}
 html.fh-resume #onboarding{display:none}          /* never flash sign-in at a signed-in user */
-html.fh-resume #fh-splash{display:flex}
+html.fh-resume:not(.fh-warm-boot) #fh-splash{display:flex}   /* splash only when there's no cache to open on */
+/* Warm start: cached data is real but may be seconds-to-days old. Say so quietly
+   instead of blocking the screen — it clears the moment the hydrate lands. */
+#fh-updating{position:fixed;left:50%;transform:translateX(-50%);z-index:60;display:none;align-items:center;gap:7px;
+  top:calc(max(env(safe-area-inset-top),0px) + 8px);padding:6px 13px;border-radius:100px;
+  background:rgba(26,17,23,.82);color:#fff;font-size:12px;font-weight:600;letter-spacing:-.01em;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:fh-up-in .3s ease both}
+html.fh-stale #fh-updating{display:flex}
+#fh-updating .fu-dot{width:11px;height:11px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:fhspin2 .7s linear infinite}
+@keyframes fhspin2{to{transform:rotate(360deg)}}
+@keyframes fh-up-in{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
+@media (prefers-reduced-motion:reduce){#fh-updating{animation:none}#fh-updating .fu-dot{animation-duration:2s}}
 .ob-progress{position:absolute;top:max(env(safe-area-inset-top),0px);left:0;right:0;height:3px;background:var(--divider);z-index:6;opacity:0;transition:opacity .3s}
 /* onboarding form fields: white so they read on the canvas background (Apple grouped-form look) */
 #onboarding .field input{background:var(--white);border:1px solid var(--hairline)}
@@ -898,6 +913,7 @@ html.fh-resume #fh-splash{display:flex}
 <body>
 <!-- static so it paints on the first frame — see the returning-user gate in <head> -->
 <div id="fh-splash" aria-hidden="true"><div class="fs-logo">🏡</div><div class="fs-name">FamilyHub</div></div>
+<div id="fh-updating" role="status" aria-live="polite"><span class="fu-dot"></span><span>Updating…</span></div>
 <div class="phone t-sage" id="phone">
 <div class="scroll" id="scroll">
 
@@ -3128,7 +3144,56 @@ function obInit(){
   }
 }
 
+/* ---------- warm start ----------
+   The DB hydrate needs a module import + ~10 network round-trips, so a signed-in
+   user used to stare at a splash every launch. We cache the last-known state and
+   replay it here — synchronously, before the first render — so the app opens on
+   real data. loadFamilyData() then refreshes in the background and re-renders.
+   Cache is display state only; it is never trusted for writes (the DB maps it
+   carries are replaced wholesale by the hydrate). */
+var FH_SNAP='fh-snap', FH_SNAP_V=1, FH_SNAP_TTL=14*86400000;   // a fortnight of staleness is plenty
+function fhSaveSnapshot(){
+  try{
+    var ev={};                                          // events carry a live Date — store epoch ms
+    Object.keys(events||{}).forEach(function(k){ var e=events[k], c={}; for(var p in e) c[p]=e[p]; c.d=e.d?e.d.getTime():null; ev[k]=c; });
+    localStorage.setItem(FH_SNAP, JSON.stringify({
+      v:FH_SNAP_V, at:Date.now(),
+      FAM:FAM, membersMeta:membersMeta, catOrder:catOrder, catStyle:catStyle, catBudget:catBudget,
+      txns:txns, months:months, monthOrder:monthOrder, selMonth:selMonth,
+      events:ev, order:order, savings:savings, curEvent:curEvent,
+      LANG:LANG, CUR:CUR, DB:window.DB || null
+    }));
+  }catch(e){}                                            // quota/private-mode: warm start is optional
+}
+function fhRestoreSnapshot(){
+  try{
+    var raw=localStorage.getItem(FH_SNAP); if(!raw) return false;
+    var s=JSON.parse(raw);
+    if(!s || s.v!==FH_SNAP_V || !s.catOrder || !s.months) return false;
+    if(s.at && Date.now()-s.at > FH_SNAP_TTL) return false;
+    FAM=s.FAM||FAM; membersMeta=s.membersMeta||membersMeta;
+    catOrder=s.catOrder; catStyle=s.catStyle||{}; catBudget=s.catBudget||{};
+    txns=s.txns||[]; months=s.months||{}; monthOrder=s.monthOrder||[]; selMonth=s.selMonth||selMonth;
+    order=s.order||[]; savings=s.savings||0; curEvent=s.curEvent||null;
+    events={}; Object.keys(s.events||{}).forEach(function(k){ var e=s.events[k]; e.d=e.d?new Date(e.d):null; events[k]=e; });
+    if(s.LANG) LANG=s.LANG; if(s.CUR) CUR=s.CUR;
+    window.__fhSnapDB=s.DB||null;                        // handed to the module's DB init below
+    return true;
+  }catch(e){ return false; }
+}
 obInit();   // restore lang/currency + family before first paint
+// after obInit, so the richer snapshot wins over the fh-fam/lang/cur it restores
+var fhWarm=fhRestoreSnapshot();
+if(fhWarm){                                              // cached state is on screen — no splash, no sign-in flash
+  applyFam(); applyLang();
+  var _obEl=document.getElementById('onboarding'); if(_obEl) _obEl.classList.add('done');
+  document.documentElement.classList.add('fh-warm','fh-stale');   // fh-stale → "Updating…" until fresh data lands
+} else {
+  // cache was missing/expired/unreadable — let the splash cover the mock data after all
+  document.documentElement.classList.remove('fh-warm-boot');
+}
+// fresh data has landed (or we gave up): retire the "Updating…" chip
+window.fhFresh=function(){ document.documentElement.classList.remove('fh-stale'); };
 setGreeting();
 renderEvents(); renderAll(); renderTxns(); applyCurrency();
 document.querySelectorAll('.sheet').forEach(function(s){ initSheetDrag(s, closeSheet); });   // drag-down-to-dismiss on every bottom sheet
@@ -3188,6 +3253,13 @@ if('serviceWorker' in navigator){
     s.classList.add('gone');
     setTimeout(() => { s.remove(); document.documentElement.classList.remove('fh-resume'); }, 300);
   }
+  // Warm start was wrong (no session / no family): the cached screen has to go, and
+  // onboarding — which the warm start hid — has to come back, or there's no way to sign in.
+  function fhWarmAbandon() {
+    try { localStorage.removeItem('fh-snap'); } catch (e) {}
+    document.documentElement.classList.remove('fh-warm', 'fh-stale', 'fh-warm-boot');
+    const onb = g('onboarding'); if (onb) onb.classList.remove('done');
+  }
   // The session was NOT there after all (expired / signed out elsewhere) — drop the
   // optimistic flag and hand the screen back to onboarding.
   function fhResumeFail() {
@@ -3221,13 +3293,13 @@ if('serviceWorker' in navigator){
       try { await window.loadFamilyData(); }     // auto-enter the active family → real data + DB.fid set
       finally { fhResumeDone(); }                // (no go('home') here — it would stomp on deep links)
     } else if (fams.length) {
-      fhResumeFail();                            // no active family → the picker owns the screen
+      fhResumeFail(); fhWarmAbandon();           // no active family → the picker owns the screen
       showFamilyPicker(fams);                    // in families but none active → pick one
     } else if (onb && typeof window.obGo === 'function') {
-      fhResumeFail();
+      fhResumeFail(); fhWarmAbandon();
       onb.classList.remove('done'); window.obGo('choice');   // brand-new → onboarding
     } else {
-      fhResumeFail();
+      fhResumeFail(); fhWarmAbandon();
     }
   }
 
@@ -3369,7 +3441,12 @@ if('serviceWorker' in navigator){
   // ═══════════════════════════════════════════════════════════════════════════
   //  DATA LAYER — hydrate the app's globals from the DB + write-through mutations
   // ═══════════════════════════════════════════════════════════════════════════
-  window.DB = { fid: null, month: null, monthKey: null, catById: {}, catByName: {}, memberById: {}, memberByAppName: {}, sharedId: null, ownerMemberId: null, eventById: {}, rtFid: null };
+  // warm start hands us the last-known maps so writes work before the hydrate lands
+  window.DB = Object.assign(
+    { fid: null, month: null, monthKey: null, catById: {}, catByName: {}, memberById: {}, memberByAppName: {}, sharedId: null, ownerMemberId: null, eventById: {}, rtFid: null },
+    window.__fhSnapDB || {},
+    { rtFid: null }                                    // realtime must re-subscribe for real
+  );
 
   const _pad = (n) => (n < 10 ? '0' : '') + n;
   const _isoMonth = (d) => d.getFullYear() + '-' + _pad(d.getMonth() + 1) + '-01';
@@ -3426,6 +3503,7 @@ if('serviceWorker' in navigator){
   function _showLoading() {
     if (document.getElementById('fh-loading')) return;
     if (_resuming()) return;                     // the resume splash is already covering the screen
+    if (document.documentElement.classList.contains('fh-warm')) return;   // warm start shows real data + "Updating…"
     const ov = document.createElement('div');
     ov.id = 'fh-loading';
     ov.style.cssText = 'position:fixed;inset:0;z-index:9997;display:flex;align-items:center;justify-content:center;background:#f4f1f6';
@@ -3610,9 +3688,11 @@ if('serviceWorker' in navigator){
       if (typeof window.setGreeting === 'function') window.setGreeting();
       updateHeroFam();
       _subscribeRealtime(fid);
+      fhFresh();                                        // fresh data is on screen — drop the "Updating…" chip
+      if (window.fhSaveSnapshot) window.fhSaveSnapshot();   // cache it for the next cold start
       return true;
     } catch (e) { console.warn('loadFamilyData failed', e); return false; }
-    finally { _hideLoading(); }
+    finally { _hideLoading(); fhFresh(); }     // the chip must clear even if the hydrate failed
   };
 
   // ---- write-through: transactions ----
@@ -4081,7 +4161,7 @@ if('serviceWorker' in navigator){
       if (loc && window.applyLang) { window.LANG = loc.lang; window.CUR = loc.cur; window.applyLang(); }
     } catch (e) {}
     if (session) await afterLogin(session);        // already signed in → resume
-    else { fhResumeFail(); await mountGoogleButton(); }   // no session → back to the sign-in screen
+    else { fhResumeFail(); fhWarmAbandon(); await mountGoogleButton(); }   // no session → sign-in screen
   })();
 
   // ── Create-family: wire the onboarding "Enter FamilyHub" step to the real RPC + inserts ──
@@ -4222,7 +4302,7 @@ if('serviceWorker' in navigator){
 
   sb.auth.onAuthStateChange(() => {});
   // test helper: run fhSignOut() in the console to switch Google accounts
-  window.fhSignOut = async () => { fhResumeFail(); await sb.auth.signOut(); location.reload(); };
+  window.fhSignOut = async () => { fhResumeFail(); fhWarmAbandon(); await sb.auth.signOut(); location.reload(); };
 </script>
 </body>
 </html>
