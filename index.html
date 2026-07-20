@@ -611,6 +611,7 @@ input{font-family:inherit}
 .cat-del{flex-shrink:0;width:30px;height:30px;color:var(--muted-soft);display:flex;align-items:center;justify-content:center;border-radius:8px}
 .cat-del svg{width:17px;height:17px}
 .cat-del:active{color:var(--danger);background:var(--danger-tint)}
+.bg-over{margin-top:10px;font-size:12.5px;font-weight:600;letter-spacing:-.01em;color:var(--danger)}
 /* the catch-all row: locked name, no remove */
 .cat-del-off{opacity:.45;cursor:default}
 .cat-del-off:active{color:var(--muted-soft);background:none}
@@ -1324,9 +1325,10 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   </div>
   <div class="modal-body">
     <div class="sheet-sub">Your monthly target, plus the categories your spending is grouped into — add, rename, re-budget or remove them.</div>
-    <div class="field" style="margin-bottom:20px"><label>Monthly budget <span style="font-weight:400;color:var(--ink-3);font-size:12px">· auto-splits into categories</span></label><input class="big num" id="bg-amt" inputmode="numeric" placeholder="$9,000" oninput="suggestBudgetSplit()"/></div>
+    <div class="field" style="margin-bottom:20px"><label>Monthly budget <span style="font-weight:400;color:var(--ink-3);font-size:12px">· auto-splits into categories</span></label><input class="big num" id="bg-amt" inputmode="numeric" placeholder="$9,000" oninput="suggestBudgetSplit();syncFallbackRow()"/></div>
     <div class="bg-sub">Categories</div>
     <div id="bg-rows"></div>
+    <div id="bg-over" class="bg-over" style="display:none">Categories add up to more than the monthly budget — Others is at 0.</div>
     <button class="btn-line" onclick="addCatRow()" style="margin-top:14px">＋ Add category</button>
   </div>
 </div>
@@ -1621,6 +1623,7 @@ function setHTML(id,h){ var e=document.getElementById(id); if(e)e.innerHTML=h; }
 
 /* ---------- budget + run-rate ---------- */
 function renderBudget(){
+  syncFallbackBudget();                                  // catch-all always holds the unallocated remainder
   var m=M(), done=m.done, spent=m.spent, dim=m.dim, dom=m.dom, budget=m.budget;
   var reserved=done?0:monthReserved();                 // set-aside for events (unrealized)
   var pctSpent=budget>0?Math.min(100,spent/budget*100):0;
@@ -1751,27 +1754,59 @@ function catRowHTML(emoji,name,budget,orig){
   return '<div class="cat-row'+(lock?' cat-row-lock':'')+'" data-orig="'+(orig||'')+'">'
     +'<input class="cat-emoji" maxlength="2" value="'+(emoji||'🏷️')+'">'
     +'<input class="cat-name" placeholder="Name" value="'+String(name||'').replace(/"/g,'&quot;')+'"'+(lock?' readonly':'')+'>'
-    +'<span class="cat-bud-wrap">'+curSym()+'<input class="cat-bud num" inputmode="numeric" placeholder="0" value="'+amtToInput(budget)+'"></span>'
+    +'<span class="cat-bud-wrap">'+curSym()+'<input class="cat-bud num" inputmode="numeric" placeholder="0" value="'+amtToInput(budget)+'"'
+      +(lock?' readonly title="Whatever the other categories leave unallocated">':' oninput="syncFallbackRow()">')+'</span>'
     +(lock
       ? '<span class="cat-del cat-del-off" title="Everything uncategorised lands here"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></span>'
-      : '<button class="cat-del" aria-label="Remove" onclick="this.closest(\'.cat-row\').remove()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
+      : '<button class="cat-del" aria-label="Remove" onclick="this.closest(\'.cat-row\').remove();syncFallbackRow()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
     +'</div>';
+}
+// The catch-all is not budgeted by hand — it absorbs whatever the named
+// categories leave unallocated: total − sum(everything else), floored at 0.
+function fallbackShare(total,budget,order){
+  var used=order.reduce(function(s,c){ return isFallbackCat(c)?s:s+(Number(budget[c])||0); },0);
+  return Math.max(0,(Number(total)||0)-used);
+}
+// Recompute the catch-all's budget from the current totals (mutates catBudget).
+function syncFallbackBudget(){
+  ensureFallbackCat(catOrder,catStyle,catBudget);
+  catBudget[CAT_FALLBACK]=fallbackShare(M().budget,catBudget,catOrder);
+}
+// Same, live inside the sheet, so the row tracks what you type in the others.
+function syncFallbackRow(){
+  var total=parseAmtBase(document.getElementById('bg-amt').value)||0, used=0, tgt=null;
+  document.querySelectorAll('#sheet-budget .cat-row').forEach(function(row){
+    var inp=row.querySelector('.cat-bud');
+    if(isFallbackCat(row.getAttribute('data-orig'))||isFallbackCat(row.querySelector('.cat-name').value)) tgt=inp;
+    else used+=parseAmtBase(inp.value)||0;
+  });
+  if(tgt) tgt.value=amtToInput(Math.max(0,total-used));
+  var note=document.getElementById('bg-over');
+  if(note) note.style.display = (total&&used>total) ? '' : 'none';
 }
 function fillBudgetSheet(){
   document.getElementById('bg-amt').value=amtToInput(M().budget);
-  ensureFallbackCat(catOrder,catStyle,catBudget);
+  syncFallbackBudget();
   document.getElementById('bg-rows').innerHTML = catOrder.map(function(c){ var s=catStyle[c]||['🏷️']; return catRowHTML(s[0],c,catBudget[c],c); }).join('');
   document.getElementById('bg-amt').placeholder=curSym()+(CUR==='VND'?'9,000,000':'9,000');
+  syncFallbackRow();
 }
-function addCatRow(){ document.getElementById('bg-rows').insertAdjacentHTML('beforeend', catRowHTML('🏷️','','','')); }
+function addCatRow(){                                       // new rows go above the catch-all, which stays last
+  var box=document.getElementById('bg-rows'), lock=box.querySelector('.cat-row-lock'), html=catRowHTML('🏷️','','','');
+  if(lock) lock.insertAdjacentHTML('beforebegin',html); else box.insertAdjacentHTML('beforeend',html);
+}
 // best-practice weights (EN + seeded VI names); unknown categories default to 0.08, then normalised
 var CATW={housing:.30,'nhà ở':.30,rent:.30,groceries:.14,'đi chợ':.14,dining:.08,'ăn ngoài':.08,transport:.10,'đi lại':.10,fun:.06,'giải trí':.06,kids:.08,'con cái':.08,others:.08,shopping:.10,clothing:.06};
 function suggestBudgetSplit(){
   var total=parseAmtBase(document.getElementById('bg-amt').value); if(!total)return;
-  var rows=[].slice.call(document.querySelectorAll('#sheet-budget .cat-row'));
+  // the catch-all is left out of the split — it takes the remainder afterwards
+  var rows=[].slice.call(document.querySelectorAll('#sheet-budget .cat-row')).filter(function(r){
+    return !isFallbackCat(r.getAttribute('data-orig')) && !isFallbackCat(r.querySelector('.cat-name').value);
+  });
   var ws=rows.map(function(r){ var n=(r.querySelector('.cat-name').value||'').trim().toLowerCase(); return CATW[n]!==undefined?CATW[n]:0.08; });
-  var sum=ws.reduce(function(a,b){return a+b;},0)||1, loc=CUR==='VND'?'vi-VN':'en-US';
-  rows.forEach(function(r,i){ var base=Math.round(total*(ws[i]/sum)/10)*10; var inp=r.querySelector('.cat-bud'); if(inp) inp.value=base?(base*curMult()).toLocaleString(loc):''; });
+  var sum=ws.reduce(function(a,b){return a+b;},0)||1;
+  rows.forEach(function(r,i){ var base=Math.round(total*(ws[i]/sum)/10)*10; var inp=r.querySelector('.cat-bud'); if(inp) inp.value=amtToInput(base); });
+  syncFallbackRow();
 }
 function setBudget(){
   var v=parseAmtBase(document.getElementById('bg-amt').value); if(v)M().budget=v;
@@ -1788,6 +1823,7 @@ function setBudget(){
   });
   if(!newOrder.length){ toast('Keep at least one category'); return; }
   ensureFallbackCat(newOrder,newStyle,newBudget);             // catch-all is never lost, however the rows were edited
+  newBudget[CAT_FALLBACK]=fallbackShare(M().budget,newBudget,newOrder);   // and is always the unallocated remainder
   renames.forEach(function(pr){                              // cascade renames to transactions + month totals
     txns.forEach(function(t){ if(t.cat===pr[0]) t.cat=pr[1]; });
     Object.keys(months).forEach(function(mk){ var cs=months[mk].catSpent; if(cs && cs[pr[0]]!==undefined){ cs[pr[1]]=(cs[pr[1]]||0)+cs[pr[0]]; delete cs[pr[0]]; } });
@@ -3426,7 +3462,7 @@ if('serviceWorker' in navigator){
       // category budgets for the current month → catBudget
       const cbud = {}; window.catOrder.forEach((n) => { cbud[n] = 0; });
       cb.forEach((b) => { if (b.month === monthDate) { const c = window.DB.catById[b.category_id]; if (c && !c.archived_at) cbud[c.name] = Number(b.amount); } });
-      window.catBudget = cbud;
+      window.catBudget = cbud;                            // catch-all share is derived in renderBudget()
 
       // photos grouped by transaction
       // sign storage-path photos so they render (transaction photos + memories)
