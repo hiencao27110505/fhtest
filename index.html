@@ -3226,10 +3226,22 @@ if('serviceWorker' in navigator){
     return window.DB.ownerMemberId || window.DB.sharedId;
   }
   async function _categoryIdForName(name, emoji, sort) {
-    if (window.DB.catByName[name]) return window.DB.catByName[name];
+    const nm = String(name == null ? '' : name).trim();
+    if (!nm) return null;
+    if (window.DB.catByName[nm]) return window.DB.catByName[nm];
+    const lower = nm.toLowerCase();                                     // case-insensitive: don't duplicate "Fun" vs "fun"
+    for (const k in window.DB.catByName) { if (k.toLowerCase() === lower) return window.DB.catByName[k]; }
     try {
-      const res = await sb.from('categories').insert({ family_id: window.DB.fid, name: name, emoji: emoji || '🏷️', color: '#8f8a99', sort_order: sort || 99 }).select('id').single();
-      if (res.data) { window.DB.catByName[name] = res.data.id; window.DB.catById[res.data.id] = { id: res.data.id, name: name, emoji: emoji }; return res.data.id; }
+      // reuse an existing row (including an archived one) before creating a duplicate
+      const found = (await sb.from('categories').select('id,name,archived_at').eq('family_id', window.DB.fid).ilike('name', nm).limit(1)).data;
+      if (found && found.length) {
+        const c = found[0];
+        if (c.archived_at) await sb.from('categories').update({ archived_at: null }).eq('id', c.id);
+        window.DB.catByName[nm] = c.id; window.DB.catById[c.id] = { id: c.id, name: c.name, emoji: emoji };
+        return c.id;
+      }
+      const res = await sb.from('categories').insert({ family_id: window.DB.fid, name: nm, emoji: emoji || '🏷️', color: '#8f8a99', sort_order: sort || 99 }).select('id').single();
+      if (res.data) { window.DB.catByName[nm] = res.data.id; window.DB.catById[res.data.id] = { id: res.data.id, name: nm, emoji: emoji }; return res.data.id; }
     } catch (e) { console.warn('category create failed', e); }
     return null;
   }
@@ -3357,7 +3369,9 @@ if('serviceWorker' in navigator){
       tp.forEach((p) => { if (p.photo_url && p.photo_url.indexOf('http') !== 0) _paths.push(p.photo_url); });
       em.forEach((x) => { if (x.photo_url && x.photo_url.indexOf('http') !== 0) _paths.push(x.photo_url); });
       const _signed = {};
-      if (_paths.length) { try { const r = await sb.storage.from('family-media').createSignedUrls(_paths, 3600); (r.data || []).forEach((s) => { if (s && s.signedUrl) _signed[s.path] = s.signedUrl; }); } catch (e) {} }
+      // 8h TTL: comfortably outlives a session (was 1h, so images broke mid-use).
+      // Re-signed on every hydrate — and the app re-hydrates on focus/realtime.
+      if (_paths.length) { try { const r = await sb.storage.from('family-media').createSignedUrls(_paths, 28800); (r.data || []).forEach((s) => { if (s && s.signedUrl) _signed[s.path] = s.signedUrl; }); } catch (e) {} }
       const _url = (p) => p ? (p.indexOf('http') === 0 ? p : (_signed[p] || p)) : p;
       const photosByTx = {}; window.DB.pathByUrl = {};
       tp.forEach((p) => { const u = _url(p.photo_url); (photosByTx[p.transaction_id] = photosByTx[p.transaction_id] || []).push(u); if (p.photo_url) window.DB.pathByUrl[u] = p.photo_url; });
@@ -3431,9 +3445,41 @@ if('serviceWorker' in navigator){
   };
 
   // ---- write-through: transactions ----
+  // downscale + re-encode to JPEG before upload; also normalizes iOS HEIC.
+  // Falls back to the original data URI if decoding/encoding fails, so a photo is never lost.
+  function _compressImage(dataUri, maxPx, quality) {
+    maxPx = maxPx || 1600; quality = quality || 0.82;
+    return new Promise((resolve) => {
+      try {
+        if (!dataUri || dataUri.indexOf('data:image/') !== 0) return resolve(dataUri);
+        if (dataUri.indexOf('data:image/gif') === 0) return resolve(dataUri);     // keep animation intact
+        const srcMime = (dataUri.match(/^data:([^;]+)/) || [])[1] || '';
+        const webSafe = /^image\/(jpeg|png|webp)$/.test(srcMime);
+        const img = new Image();
+        img.onload = function () {
+          try {
+            const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+            if (!w || !h) return resolve(dataUri);
+            const scale = Math.min(1, maxPx / Math.max(w, h));
+            const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+            const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+            const cx = cv.getContext('2d'); if (!cx) return resolve(dataUri);
+            cx.drawImage(img, 0, 0, cw, ch);
+            const out = cv.toDataURL('image/jpeg', quality);
+            if (!out || out.indexOf('data:image/jpeg') !== 0) return resolve(dataUri);
+            // always take the JPEG for non-web-safe sources (HEIC); otherwise keep whichever is smaller
+            resolve((!webSafe || out.length < dataUri.length) ? out : dataUri);
+          } catch (e) { resolve(dataUri); }
+        };
+        img.onerror = function () { resolve(dataUri); };
+        img.src = dataUri;
+      } catch (e) { resolve(dataUri); }
+    });
+  }
   async function _uploadPhoto(dataUri) {
     try {
       const fid = window.DB.fid; if (!fid || !dataUri || dataUri.indexOf('data:') !== 0) return null;
+      dataUri = await _compressImage(dataUri);
       const m = dataUri.match(/^data:([^;]+);base64,(.*)$/); if (!m) return null;
       const mime = m[1]; const bin = atob(m[2]); const arr = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
@@ -3545,8 +3591,11 @@ if('serviceWorker' in navigator){
     const tx = (id != null && typeof txById === 'function') ? txById(id) : null;
     const dbId = tx ? tx._dbId : null;
     const exD = (typeof window.exDate === 'function') ? window.exDate() : null;
+    const beforeOrder = (window.order || []).slice();
     _origSaveEdit.apply(this, arguments);
     if (dbId && tx) _dbUpdateTxn(dbId, tx, exD);
+    // adding a photo during an edit can spawn a linked "memory" event via syncExpenseEvent — persist it too
+    (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => _dbInsertEvent(k));
   };
   const _origDelete = window.deleteExpense;
   window.deleteExpense = function () {
@@ -3570,7 +3619,9 @@ if('serviceWorker' in navigator){
       if (e.memories && e.memories.length) _dbUploadEventMemories(evId, e.memories);
       const who = window.DB.ownerMemberId;
       const budgetAmt = e.achieved ? (e.saved || 0) : (e.setAside || 0);
-      if (budgetAmt > 0) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: budgetAmt, source: 'budget', month: window.DB.month });
+      // tag budget-sourced funding with the month being viewed, not always "today's" month
+      const _vm = window.months[window.selMonth] || {}; const fMonth = _vm._iso || window.DB.month;
+      if (budgetAmt > 0) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: budgetAmt, source: 'budget', month: fMonth });
       const sp = (e.saved || 0) - (e.setAside || 0);
       if (sp > 0 && opts.savingsSource) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: sp, source: 'savings', month: null });
       _syncSoon();
