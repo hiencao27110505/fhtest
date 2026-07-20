@@ -739,12 +739,42 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .mgallery{display:flex;flex-direction:column;gap:14px;padding:0 16px}
 .mem-full{position:relative;border-radius:18px;overflow:hidden;background:var(--canvas)}
 .mem-full img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;background:var(--surface)}
-/* per-photo delete — sits on the image, 44×44, low prominence until armed */
-.mem-del{position:absolute;top:8px;right:8px;z-index:3;width:44px;height:44px;display:flex;align-items:center;justify-content:center;
-  border-radius:9999px;background:rgba(20,12,26,.5);color:#fff;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
-.mem-del svg{width:18px;height:18px}
-.mem-del:active{background:rgba(20,12,26,.72)}
-.mem-del.armed{width:auto;padding:0 14px;background:var(--danger);font-size:13px;font-weight:700;letter-spacing:-.01em}
+.mem-full.tap:active{transform:scale(.985);transition:transform .12s}
+
+/* ---- photo peek ----
+   One tap lifts the photo out and blurs everything behind it — the Safari
+   long-press preview, without the long press. Delete lives in here rather than
+   on every tile: a destructive control sitting permanently on top of a family
+   photo reads as a call to action, which is the opposite of what it should be. */
+.peek{position:absolute;inset:0;z-index:68;visibility:hidden;opacity:0;
+  transition:opacity .26s ease, visibility 0s linear .26s;
+  display:flex;align-items:center;justify-content:center;padding:24px}
+.peek.on{visibility:visible;opacity:1;transition:opacity .26s ease, visibility 0s}
+.peek-bg{position:absolute;inset:0;background:rgba(20,12,26,.42);
+  -webkit-backdrop-filter:blur(24px) saturate(118%);backdrop-filter:blur(24px) saturate(118%)}
+.peek-stage{position:relative;display:flex;flex-direction:column;align-items:center;gap:14px;max-width:100%;max-height:100%}
+.peek-frame{position:relative;border-radius:20px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.45);
+  transform:scale(.94);transition:transform .34s cubic-bezier(.32,.72,0,1);background:var(--canvas)}
+.peek.on .peek-frame{transform:scale(1)}
+.peek-frame img{display:block;max-width:min(86vw,520px);max-height:64vh;width:auto;height:auto;object-fit:contain}
+.peek-tile{display:none;width:min(78vw,420px);aspect-ratio:4/3;align-items:center;justify-content:center;font-size:78px}
+.peek-frame.is-tile img{display:none}
+.peek-frame.is-tile .peek-tile{display:flex}
+.peek-cap{max-width:min(86vw,520px);text-align:center;color:#fff;font-size:15px;font-weight:500;letter-spacing:-.01em;
+  line-height:1.4;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+.peek-cap:empty{display:none}
+/* revealed by a second tap on the photo — never shown on arrival */
+.peek-actions{opacity:0;transform:translateY(6px);pointer-events:none;transition:opacity .22s ease, transform .22s ease}
+.peek-actions.on{opacity:1;transform:none;pointer-events:auto}
+.peek-del{display:block!important;margin:0;color:#fff;background:rgba(255,255,255,.16);border-radius:9999px;padding:11px 22px;
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);min-height:44px}
+.peek-del.armed{background:var(--danger);color:#fff;font-weight:700}
+.peek-hint{font-size:12.5px;font-weight:600;color:rgba(255,255,255,.62);letter-spacing:-.01em}
+.peek-hint:empty{display:none}
+@media (prefers-reduced-motion:reduce){
+  .peek-frame{transition:none}
+  .peek-actions{transition:none}
+}
 .mem-full.tile{aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
 .mem-full .subj{font-size:56px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.3));position:relative;z-index:1}
 .mem-full .scrim{position:absolute;inset:0;background:linear-gradient(180deg,transparent 46%,rgba(0,0,0,.34) 66%,rgba(0,0,0,.8))}
@@ -1536,6 +1566,21 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <button class="set-row" onclick="closeSheet();fhIncome()"><span class="set-ic">💵</span><span class="set-t">Income</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();restartOnboarding()"><span class="set-ic">↻</span><span class="set-t">Restart onboarding</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row danger" onclick="closeSheet();fhSignOut()"><span class="set-ic">⎋</span><span class="set-t">Sign out</span></button>
+  </div>
+</div>
+
+<!-- PHOTO PEEK — one tap lifts a photo out and blurs everything behind it -->
+<div class="peek" id="peek" role="dialog" aria-modal="true" aria-label="Photo">
+  <div class="peek-bg" id="peek-bg"></div>
+  <div class="peek-stage">
+    <div class="peek-frame" id="peek-frame">
+      <img id="peek-img" alt="">
+      <div class="peek-tile" id="peek-tile"></div>
+    </div>
+    <div class="peek-cap" id="peek-cap"></div>
+    <div class="peek-actions" id="peek-actions">
+      <button class="ex-del peek-del" id="peek-del" onclick="peekDelete(this)">Delete photo</button>
+    </div>
   </div>
 </div>
 
@@ -2981,31 +3026,67 @@ function renderGallery(boxId){
   var html='';
   e.memories.forEach(function(m,i){
     var cap=m.caption?'<div class="scrim"></div><div class="m-cap">'+esc(m.caption)+'</div>':'';
-    // arm-then-confirm, per the destructive-action rule — a photo can't be undeleted
-    var del='<button class="mem-del" aria-label="Delete photo" onclick="event.stopPropagation();armMemDelete(this,'+i+')">'
-      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>';
+    // no delete button on the tile — it lives in the peek (see openPeek)
     if(m.src){
-      html+='<div class="mem-full"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||'Memory photo')+'" loading="lazy">'+cap+del+'</div>';
+      html+='<div class="mem-full tap" onclick="openPeek('+i+')"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||'Memory photo')+'" loading="lazy">'+cap+'</div>';
     } else {
-      html+='<div class="mem-full tile '+esc(m.cls||'ph-park')+'"><div class="subj">'+esc(m.emoji||'📸')+'</div>'+cap+del+'</div>';
+      html+='<div class="mem-full tile tap '+esc(m.cls||'ph-park')+'" onclick="openPeek('+i+')"><div class="subj">'+esc(m.emoji||'📸')+'</div>'+cap+'</div>';
     }
   });
   box.innerHTML=html;
 }
-var memDelT=null;
-function armMemDelete(btn,i){
-  if(!btn.classList.contains('armed')){
-    document.querySelectorAll('.mem-del.armed').forEach(function(b){ b.classList.remove('armed'); b.innerHTML=b.dataset.ico||b.innerHTML; });
-    btn.dataset.ico=btn.innerHTML;
-    btn.classList.add('armed'); btn.innerHTML='<span>Delete?</span>';
-    clearTimeout(memDelT);
-    memDelT=setTimeout(function(){
+
+/* ---------- photo peek ----------
+   Tap once: the photo lifts out, everything behind it blurs. Tap the photo
+   again: the delete CTA appears. That second tap is what makes a quick
+   double-tap from the gallery land straight on "Delete photo" — no tap-delay
+   timer needed, because the first tap has already done something useful. */
+var peekIdx=-1, peekDelT=null;
+function openPeek(i){
+  var e=events[curEvent]; if(!e||!e.memories||!e.memories[i])return;
+  peekIdx=i;
+  var m=e.memories[i];
+  var frame=document.getElementById('peek-frame');
+  var img=document.getElementById('peek-img'), tile=document.getElementById('peek-tile');
+  if(m.src){
+    frame.className='peek-frame';
+    img.src=m.src; img.alt=m.caption||'Memory photo';
+  } else {
+    frame.className='peek-frame is-tile '+(m.cls||'ph-park');
+    img.removeAttribute('src'); tile.textContent=m.emoji||'📸';
+  }
+  setTxt('peek-cap', m.caption||'');
+  peekHideActions();
+  document.getElementById('peek').classList.add('on');
+}
+function closePeek(){
+  document.getElementById('peek').classList.remove('on');
+  peekHideActions(); peekIdx=-1;
+  var img=document.getElementById('peek-img'); if(img) img.removeAttribute('src');   // free the decoded bitmap
+}
+function peekHideActions(){
+  clearTimeout(peekDelT);
+  document.getElementById('peek-actions').classList.remove('on');
+  var d=document.getElementById('peek-del');
+  if(d){ d.classList.remove('armed'); d.textContent='Delete photo'; }
+}
+function peekToggleActions(){
+  var a=document.getElementById('peek-actions');
+  if(a.classList.contains('on')) peekHideActions(); else a.classList.add('on');
+}
+function peekDelete(btn){
+  if(!btn.classList.contains('armed')){          // still arm-then-confirm — this is permanent
+    btn.classList.add('armed'); btn.textContent='Tap again to delete';
+    clearTimeout(peekDelT);
+    peekDelT=setTimeout(function(){
       if(!btn.isConnected)return;
-      btn.classList.remove('armed'); btn.innerHTML=btn.dataset.ico;
+      btn.classList.remove('armed'); btn.textContent='Delete photo';
     },3000);
     return;
   }
-  clearTimeout(memDelT);
+  clearTimeout(peekDelT);
+  var i=peekIdx;
+  closePeek();
   deleteMemoryPhoto(i);
 }
 // Local removal; the DB module wraps this to delete the row + storage object.
@@ -3525,6 +3606,24 @@ setGreeting();
 renderEvents(); renderAll(); renderTxns(); applyCurrency();
 document.querySelectorAll('.sheet').forEach(function(s){ initSheetDrag(s, closeSheet); });   // drag-down-to-dismiss on every bottom sheet
 document.querySelectorAll('.modal').forEach(function(m){ initSheetDrag(m, closeModals); });  // …and every full-screen modal
+
+/* peek: tapping the blurred surround dismisses; tapping the photo reveals the
+   delete CTA. Bound here rather than inline so the two targets can't be confused. */
+(function(){
+  var pk=document.getElementById('peek'); if(!pk)return;
+  document.getElementById('peek-bg').addEventListener('click', closePeek);
+  document.getElementById('peek-frame').addEventListener('click', function(ev){ ev.stopPropagation(); peekToggleActions(); });
+  document.getElementById('peek-actions').addEventListener('click', function(ev){ ev.stopPropagation(); });
+  pk.addEventListener('click', function(ev){ if(ev.target===pk) closePeek(); });   // padding around the stage
+  // swipe down to dismiss, matching the app's other rising layers
+  var y0=null;
+  pk.addEventListener('touchstart', function(ev){ y0=ev.touches[0].clientY; }, {passive:true});
+  pk.addEventListener('touchend', function(ev){
+    if(y0===null)return;
+    var dy=(ev.changedTouches[0].clientY-y0); y0=null;
+    if(dy>70) closePeek();
+  }, {passive:true});
+})();
 
 /* ---------- deep links ---------- */
 (function(){
