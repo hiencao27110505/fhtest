@@ -3359,8 +3359,8 @@ if('serviceWorker' in navigator){
       const _signed = {};
       if (_paths.length) { try { const r = await sb.storage.from('family-media').createSignedUrls(_paths, 3600); (r.data || []).forEach((s) => { if (s && s.signedUrl) _signed[s.path] = s.signedUrl; }); } catch (e) {} }
       const _url = (p) => p ? (p.indexOf('http') === 0 ? p : (_signed[p] || p)) : p;
-      const photosByTx = {};
-      tp.forEach((p) => { (photosByTx[p.transaction_id] = photosByTx[p.transaction_id] || []).push(_url(p.photo_url)); });
+      const photosByTx = {}; window.DB.pathByUrl = {};
+      tp.forEach((p) => { const u = _url(p.photo_url); (photosByTx[p.transaction_id] = photosByTx[p.transaction_id] || []).push(u); if (p.photo_url) window.DB.pathByUrl[u] = p.photo_url; });
 
       // months (from budgets) + transactions (derive spent)
       const byKey = {};
@@ -3445,22 +3445,57 @@ if('serviceWorker' in navigator){
     } catch (e) { console.warn('upload err', e); return null; }
   }
   async function _dbUploadTxnPhotos(txnId, photos) {
+    let failed = 0;
     try {
       for (let i = 0; i < photos.length; i++) {
         const path = await _uploadPhoto(photos[i]);
         if (path) await sb.from('transaction_photos').insert({ family_id: window.DB.fid, transaction_id: txnId, photo_url: path, sort_order: i });
+        else failed++;
       }
-    } catch (e) { console.warn('txn photos failed', e); }
+    } catch (e) { console.warn('txn photos failed', e); failed++; }
+    if (failed) { try { window.toast && window.toast(failed + ' photo' + (failed > 1 ? 's' : '') + ' didn’t upload'); } catch (e) {} }
   }
-  async function _dbUploadEventMemories(eventId, memories) {
+  async function _dbUploadEventMemories(eventId, memories, baseSort) {
+    baseSort = baseSort || 0; let failed = 0;
     try {
       for (let i = 0; i < memories.length; i++) {
-        const mm = memories[i]; let path = null;
+        const mm = memories[i]; let path = null; const wantsPhoto = !!mm.src;
         if (mm.src && mm.src.indexOf('data:') === 0) path = await _uploadPhoto(mm.src);
         else if (mm.src && mm.src.indexOf('http') === 0) path = mm.src;
-        await sb.from('event_memories').insert({ family_id: window.DB.fid, event_id: eventId, photo_url: path, caption: mm.caption || null, emoji: mm.emoji || null, sort_order: i });
+        if (wantsPhoto && !path) { failed++; continue; }     // upload failed → skip the row (no photoless ghost memory)
+        await sb.from('event_memories').insert({ family_id: window.DB.fid, event_id: eventId, photo_url: path, caption: mm.caption || null, emoji: mm.emoji || null, sort_order: baseSort + i });
       }
-    } catch (e) { console.warn('event memories failed', e); }
+    } catch (e) { console.warn('event memories failed', e); failed++; }
+    if (failed) { try { window.toast && window.toast(failed + ' photo' + (failed > 1 ? 's' : '') + ' didn’t upload'); } catch (e) {} }
+  }
+
+  function _storagePathFromUrl(u) {
+    const m = String(u || '').match(/\/family-media\/([^?]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  // reconcile a transaction's photos on edit: keep existing, upload new (data:), delete removed (rows + storage files)
+  async function _dbSyncTxnPhotos(txnId, photos) {
+    const fid = window.DB.fid; if (!fid) return;
+    photos = photos || [];
+    const cur = (await sb.from('transaction_photos').select('id,photo_url').eq('transaction_id', txnId)).data || [];
+    const kept = new Set(); const uploads = [];
+    photos.forEach((p) => {
+      if (typeof p !== 'string') return;
+      if (p.indexOf('data:') === 0) { uploads.push(p); return; }
+      const path = (window.DB.pathByUrl && window.DB.pathByUrl[p]) || _storagePathFromUrl(p);
+      if (path) kept.add(path);
+    });
+    const removed = cur.filter((r) => !kept.has(r.photo_url));
+    if (removed.length) {
+      await sb.from('transaction_photos').delete().in('id', removed.map((r) => r.id));
+      const files = removed.map((r) => r.photo_url).filter((p) => p && p.indexOf('http') !== 0);
+      if (files.length) { try { await sb.storage.from('family-media').remove(files); } catch (e) {} }
+    }
+    let sort = cur.length - removed.length;
+    for (const dataUri of uploads) {
+      const path = await _uploadPhoto(dataUri);
+      if (path) await sb.from('transaction_photos').insert({ family_id: fid, transaction_id: txnId, photo_url: path, sort_order: sort++ });
+    }
   }
 
   async function _dbInsertTxn(t, exD) {
@@ -3478,10 +3513,21 @@ if('serviceWorker' in navigator){
     try {
       const catId = window.DB.catByName[t.cat] || await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1);
       await sb.from('transactions').update({ category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' }).eq('id', dbId);
+      await _dbSyncTxnPhotos(dbId, t.photos);
       _syncSoon();
     } catch (e) { _writeErr('txn update failed', e); }
   }
-  async function _dbDeleteTxn(dbId) { try { await sb.from('transactions').delete().eq('id', dbId); _syncSoon(); } catch (e) { _writeErr('txn delete failed', e); } }
+  async function _dbDeleteTxn(dbId) {
+    try {
+      try {                                                   // remove storage files before the photo rows cascade away
+        const ph = (await sb.from('transaction_photos').select('photo_url').eq('transaction_id', dbId)).data || [];
+        const files = ph.map((r) => r.photo_url).filter((p) => p && p.indexOf('http') !== 0);
+        if (files.length) await sb.storage.from('family-media').remove(files);
+      } catch (e) {}
+      await sb.from('transactions').delete().eq('id', dbId);  // transaction_photos rows cascade on delete
+      _syncSoon();
+    } catch (e) { _writeErr('txn delete failed', e); }
+  }
 
   const _origAddExpense = window.addExpense;
   window.addExpense = function () {
@@ -3552,6 +3598,22 @@ if('serviceWorker' in navigator){
         } catch (e) { _writeErr('funding insert failed', e); }
       })();
     }
+  };
+
+  // ---- write-through: memories added to an existing event ----
+  const _origAddMemory = window.addMemory;
+  if (typeof _origAddMemory === 'function') window.addMemory = function () {
+    const ev = window.events[window.curEvent];
+    const before = ev && ev.memories ? ev.memories.length : 0;
+    _origAddMemory.apply(this, arguments);
+    if (!ev || !ev.memories || ev.memories.length <= before) return;
+    const added = ev.memories.slice(0, ev.memories.length - before);   // newest are unshifted to the front
+    (async () => {
+      try {
+        if (!ev._dbId && ev._dbPending) { try { await ev._dbPending; } catch (e) {} }
+        if (ev._dbId) await _dbUploadEventMemories(ev._dbId, added, before);
+      } catch (e) { _writeErr('memory save failed', e); }
+    })();
   };
 
   // ---- write-through: budget ----
