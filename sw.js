@@ -1,11 +1,15 @@
 /* FamilyHub — offline-first service worker */
-const CACHE_NAME = 'familyhub-v122';
-/* Photos live in their own cache, and its name is deliberately UNVERSIONED.
-   Folding them into CACHE_NAME would throw every photo away on each app release,
-   which is the exact re-download this cache exists to prevent. Nothing here ever
-   goes stale: a storage path embeds a timestamp and a random suffix and is never
-   overwritten, so a given URL always means the same bytes. */
-const MEDIA_CACHE = 'familyhub-media';
+const CACHE_NAME = 'familyhub-v123';
+/* Photos live in their own cache, deliberately NOT tied to CACHE_NAME. Folding
+   them together would throw every photo away on each app release, which is the
+   exact re-download this cache exists to prevent. Nothing here ever goes stale:
+   a storage path embeds a timestamp and a random suffix and is never overwritten,
+   so a given URL always means the same bytes.
+
+   The -v2 suffix moves only when the cache's own semantics change, not per
+   release. It moved once, from unsuffixed, to drop entries stored as opaque
+   responses — see mediaFirst. The activate sweep deletes the old name for us. */
+const MEDIA_CACHE = 'familyhub-media-v2';
 const MEDIA_PREFIX = '/storage/v1/object/public/';
 const MEDIA_MAX = 400;                      // ~400 photos, then evict oldest-first
 const ASSETS = [
@@ -40,16 +44,40 @@ self.addEventListener('activate', (e) => {
    nothing had changed. */
 async function mediaFirst(req) {
   const cache = await caches.open(MEDIA_CACHE);
-  const hit = await cache.match(req);
+  // Key by URL string rather than the Request. The gallery's <img> and the
+  // Memories mosaic's CSS background-image fetch the same photo in different
+  // modes, and they must resolve to ONE entry — keying by Request invites a
+  // second copy of every photo.
+  const key = req.url;
+  const hit = await cache.match(key);
   if (hit) return hit;
-  const res = await fetch(req);
-  // <img> and CSS background-image issue no-cors requests, so success here is an
-  // opaque response (status 0). Opaque is still cacheable and still renders; only
-  // res.ok would wrongly reject it.
-  if (res && (res.ok || res.type === 'opaque')) {
-    cache.put(req, res.clone()).then(() => trimMedia(cache)).catch(() => {});
+
+  /* Always fetch CORS, whatever mode the caller used. Supabase returns
+     access-control-allow-origin:* unconditionally, so this works for the CSS
+     background tiles too, and a cors response satisfies a no-cors request fine —
+     it is strictly more permissive. The point is that the response is not opaque:
+     Chromium pads opaque cache entries by megabytes each regardless of real size,
+     so a few hundred 60KB photos can be accounted as gigabytes and evicted long
+     before real disk use warrants it. An opaque response also hides its status,
+     which means a 404 or a 500 gets cached as though it were a photo. */
+  try {
+    const res = await fetch(key, { mode: 'cors', credentials: 'omit' });
+    if (res && res.ok) {
+      cache.put(key, res.clone()).then(() => trimMedia(cache)).catch(() => {});
+      return res;
+    }
+    // A real error response: hand it back, but never store it, and don't retry as
+    // no-cors — that would only convert a known failure into an opaque one.
+    if (res) return res;
+  } catch (e) { /* CORS itself failed — fall through */ }
+
+  // Network blip, or something upstream stripping the header. Degrade to exactly
+  // the previous behaviour (opaque, padded) rather than showing a broken photo.
+  const plain = await fetch(req);
+  if (plain && (plain.ok || plain.type === 'opaque')) {
+    cache.put(key, plain.clone()).then(() => trimMedia(cache)).catch(() => {});
   }
-  return res;
+  return plain;
 }
 
 // Cache API preserves insertion order, so the oldest entries are simply the first.
