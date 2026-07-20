@@ -288,7 +288,7 @@ input{font-family:inherit}
 .trend-chart{height:150px;display:flex;gap:8px}
 .tr-col{flex:1;cursor:pointer}
 .tr-barwrap{position:relative;height:100%}
-.tr-val{position:absolute;left:0;right:0;text-align:center;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:-.03em;padding-bottom:3px}
+.tr-val{position:absolute;left:0;right:0;text-align:center;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:-.03em;padding-bottom:3px;font-variant-numeric:tabular-nums}
 .tr-bar{position:absolute;left:16%;right:16%;bottom:0;border-radius:6px 6px 0 0;background:var(--brand);min-height:3px;transition:height .5s cubic-bezier(.4,0,.2,1)}
 .tr-bar.over{background:#FFB020}
 .tr-bar.cur{opacity:.42}
@@ -304,7 +304,7 @@ input{font-family:inherit}
 .cal{background:var(--white);border-radius:22px;margin:18px 16px 14px;padding:17px 17px 15px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09)}
 .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:0 2px}
 .cal-mon{font-family:var(--disp);font-weight:800;font-size:17px;letter-spacing:-.4px;color:var(--ink)}
-.cal-nav{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.cal-nav{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted)}
 .cal-nav:active{background:var(--canvas)}
 .cal-nav svg{width:18px;height:18px}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
@@ -334,7 +334,8 @@ input{font-family:inherit}
 .mcell.photo:active{transform:scale(.95)}
 .mcell.photo.today{outline:2px solid #fff;outline-offset:-2px}
 .mcell.photo .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.42))}
-.mcell.photo .mday{position:absolute;top:3px;left:4px;z-index:1;font-size:10px;font-weight:800;color:#fff;background:rgba(0,0,0,.42);border-radius:5px;padding:0 4px;line-height:15px}
+/* 10px white on a .42 chip was unreadable over light photos — solid dark chip instead */
+.mcell.photo .mday{position:absolute;top:3px;left:4px;z-index:1;font-size:10px;font-weight:800;color:#fff;background:rgba(0,0,0,.72);border-radius:5px;padding:0 4px;line-height:15px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
 .btn-line{display:block;width:calc(100% - 32px);margin:2px 16px 16px;text-align:center;background:var(--white);color:var(--brand);border:1.5px solid var(--brand);border-radius:9999px;font-size:16px;font-weight:700;padding:15px;letter-spacing:-.02em}
 .btn-line:active{transform:scale(.99)}
 /* spending revamp */
@@ -391,7 +392,8 @@ input{font-family:inherit}
 /* stat card — a peer of the content cards below (same light shadow), not a heavy slab */
 .stat-card{position:relative;background:var(--white);border-radius:20px;margin:14px 16px 4px;padding:17px 19px 16px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 22px rgba(25,16,34,.06)}
 .sum-lab{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
-.sum-num{font-family:var(--disp);font-weight:800;font-size:35px;letter-spacing:-1.4px;color:var(--ink);line-height:1;margin-top:5px}
+.sum-num{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:800;font-size:35px;letter-spacing:-1.4px;color:var(--ink);line-height:1;margin-top:5px}
+.cur-vnd .sum-num{font-size:27px;letter-spacing:-.9px}   /* "10.920.000 ₫ of 16.900.000 ₫" has to fit */
 .sum-num .of{font-size:16px;font-weight:600;color:var(--muted);letter-spacing:-.4px}
 .sum-line{font-size:14px;font-weight:500;color:var(--ink-2);letter-spacing:-.015em;margin-top:8px}
 .sum-foot{display:flex;justify-content:space-between;font-size:12.5px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:2px}
@@ -500,7 +502,8 @@ input{font-family:inherit}
 /* light summary */
 .cd-summary{padding:14px 20px 6px}
 .cd-sum-lab{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
-.cd-sum-num{font-family:var(--disp);font-weight:800;font-size:40px;letter-spacing:-2px;color:var(--ink);line-height:1;margin-top:5px}
+.cd-sum-num{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:800;font-size:40px;letter-spacing:-2px;color:var(--ink);line-height:1;margin-top:5px}
+.cur-vnd .cd-sum-num{font-size:31px;letter-spacing:-1.2px}
 .cd-sum-num .of{font-size:16px;font-weight:600;color:var(--muted);letter-spacing:-.4px}
 .cd-sum-line{font-size:14px;font-weight:600;letter-spacing:-.01em;margin-top:7px}
 .cd-sum-foot{display:flex;justify-content:space-between;font-size:12.5px;font-weight:500;color:var(--muted);letter-spacing:-.01em}
@@ -634,10 +637,15 @@ input{font-family:inherit}
 .cat-name{flex:1;min-width:0;font-size:15px;font-weight:600;letter-spacing:-.01em;border:none;background:none;padding:0 2px}
 .cat-bud-wrap{display:inline-flex;align-items:center;gap:2px;flex-shrink:0;border:1px solid var(--hairline);border-radius:11px;background:var(--surface);padding:0 11px;color:var(--muted);font-family:var(--disp);font-weight:700;font-size:14px}
 .cat-bud-wrap:focus-within{border-color:var(--brand);background:#fff}
-.cat-bud{width:84px;text-align:right;border:none;background:none;padding:9px 0 9px 1px;font-family:var(--disp);font-weight:700;font-size:14px;color:var(--ink)}
-.cat-del{flex-shrink:0;width:30px;height:30px;color:var(--muted-soft);display:flex;align-items:center;justify-content:center;border-radius:8px}
+.cat-bud{width:84px;text-align:right;border:none;background:none;padding:9px 0 9px 1px;font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;color:var(--ink)}
+.cur-vnd .cat-bud{width:104px;font-size:13px}   /* millions need the room (e.g. 9.000.000) */
+.cat-del{flex-shrink:0;width:44px;height:44px;color:var(--muted-soft);display:flex;align-items:center;justify-content:center;border-radius:10px}
 .cat-del svg{width:17px;height:17px}
 .cat-del:active{color:var(--danger);background:var(--danger-tint)}
+/* armed = one tap from removal; the whole row shifts so the state is unmissable */
+.cat-del.armed{color:var(--danger);background:var(--danger-tint)}
+.cat-del.armed svg{transform:rotate(45deg)}
+.cat-row.arming{background:var(--danger-tint);border-radius:10px;box-shadow:0 0 0 6px var(--danger-tint)}
 .bg-over{margin-top:10px;font-size:12.5px;font-weight:600;letter-spacing:-.01em;color:var(--danger)}
 /* the catch-all row: locked name, no remove */
 .cat-del-off{opacity:.45;cursor:default}
@@ -664,7 +672,7 @@ input{font-family:inherit}
 .photo-sec-h{padding:0 18px 11px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
 .photo-sec-title{font-family:var(--disp);font-weight:800;font-size:20px;letter-spacing:-.4px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .photo-sec-ev{display:block;margin-top:2px;color:var(--brand-ink);font-size:14px;font-weight:600;letter-spacing:-.01em;text-align:left}
-button.photo-sec-title{cursor:pointer}
+button.photo-sec-title{cursor:pointer;min-height:44px;display:flex;align-items:center;max-width:100%}
 button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .photo-sec-sub{font-size:13px;font-weight:500;color:var(--muted);flex-shrink:0;padding-bottom:2px}
 .photo-mosaic-wrap{container-type:inline-size;margin:0 16px;border-radius:16px;overflow:hidden}
@@ -678,22 +686,27 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .photo-mosaic .pm .subj{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:38px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.28))}
 .photo-mosaic .pm.c-hero .subj,.photo-mosaic .pm.c-big .subj{font-size:60px}
 .pm-single{cursor:pointer}
-.pm-single img{display:block;width:100%;height:auto}
+.pm-single img{display:block;width:100%;height:auto;max-height:78vh;object-fit:cover;background:var(--surface)}
 .pm-single:active{opacity:.85}
 /* one collage per event inside a date section — caption sits on the photo (like the home strip) */
 .pm-block{position:relative;margin-top:10px}
 .pm-block:first-child{margin-top:0}
 .pm-block .photo-mosaic-wrap{margin:0 16px}
-.pm-block .pm-cap{position:absolute;left:16px;right:16px;bottom:0;padding:34px 14px 12px;border-radius:0 0 16px 16px;
-  background:linear-gradient(180deg,transparent,rgba(0,0,0,.62));pointer-events:none}
+/* Caption legibility can't depend on the photo. A .62 gradient over a bright shot
+   (snow, sky, sand) left white text at ~2.4:1. The deeper ramp plus a text shadow
+   holds contrast on any image; the shadow is what carries the worst case. */
+.pm-block .pm-cap{position:absolute;left:16px;right:16px;bottom:0;padding:44px 14px 12px;border-radius:0 0 16px 16px;
+  background:linear-gradient(180deg,transparent,rgba(0,0,0,.34) 42%,rgba(0,0,0,.82));pointer-events:none}
 .pm-block .pm-cap-t{color:#fff;font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px;line-height:1.2;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pm-block .pm-cap-s{color:rgba(255,255,255,.85);font-size:12.5px;letter-spacing:-.01em;margin-top:3px}
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.pm-block .pm-cap-s{color:rgba(255,255,255,.96);font-size:12.5px;letter-spacing:-.01em;margin-top:3px;text-shadow:0 1px 3px rgba(0,0,0,.6)}
 /* multi-photo picker strip (expense + event modals) */
 .photo-strip{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px}
 .photo-strip:empty{display:none}
 .photo-thumb{position:relative;width:74px;height:74px;border-radius:13px;background-size:cover;background-position:center;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
-.photo-thumb .x{position:absolute;top:-7px;right:-7px;width:23px;height:23px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.photo-thumb .x{position:absolute;top:-3px;right:-3px;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+/* the visual dot is 30px; this pads the *hit* area out to 44 without moving it */
+.photo-thumb .x::after{content:"";position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
 .photo-strip-note{width:100%;font-size:12.5px;font-weight:600;color:var(--brand-ink);letter-spacing:-.01em;margin-top:2px}
 /* Shared overlay nav bar (memory detail + photos-by-date) */
 .ovnav{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:4px;padding:0 10px;padding-top:max(env(safe-area-inset-top),8px);min-height:52px;background:rgba(255,255,255,.82);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);border-bottom:1px solid var(--divider)}
@@ -706,21 +719,21 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .mo-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .mo-scroll::-webkit-scrollbar{display:none}
 .mo-photo{position:relative;background:var(--canvas)}
-.mo-photo img{display:block;width:100%;height:auto}
+.mo-photo img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;background:var(--surface)}
 .mo-photo.tile{aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
 .mo-photo .subj{font-size:70px;filter:drop-shadow(0 2px 8px rgba(0,0,0,.3))}
 .mo-body{padding:20px 22px calc(28px + env(safe-area-inset-bottom))}
 .mo-cap{font-family:var(--disp);font-weight:800;font-size:24px;letter-spacing:-.6px;color:var(--ink);line-height:1.15}
 .mo-meta{font-size:15px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:8px}
-.mo-action{margin-top:20px;display:inline-flex;align-items:center;gap:7px;color:var(--brand-ink);font-size:16px;font-weight:600;letter-spacing:-.01em}
+.mo-action{margin-top:14px;display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:6px 2px;color:var(--brand-ink);font-size:16px;font-weight:600;letter-spacing:-.01em}
 .mo-action svg{width:18px;height:18px}
 /* memory detail — full-width photos to enjoy, stacked vertically */
 .mgallery{display:flex;flex-direction:column;gap:14px;padding:0 16px}
 .mem-full{position:relative;border-radius:18px;overflow:hidden;background:var(--canvas)}
-.mem-full img{display:block;width:100%;height:auto}
+.mem-full img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;background:var(--surface)}
 .mem-full.tile{aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
 .mem-full .subj{font-size:56px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.3));position:relative;z-index:1}
-.mem-full .scrim{position:absolute;inset:0;background:linear-gradient(180deg,transparent 52%,rgba(0,0,0,.62))}
+.mem-full .scrim{position:absolute;inset:0;background:linear-gradient(180deg,transparent 46%,rgba(0,0,0,.34) 66%,rgba(0,0,0,.8))}
 .mem-full .m-cap{position:absolute;left:16px;right:16px;bottom:15px;z-index:2;color:#fff;font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px;line-height:1.25}
 .mem-blank{background:var(--canvas);border:1.5px dashed #d8d2df;box-shadow:none;justify-content:center;align-items:center;text-align:center}
 .mem-blank .mb-em{font-size:30px}
@@ -732,7 +745,7 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .ph-hike{background:linear-gradient(180deg,#9cc4e4,#89ab8a 55%,#5f7d55)}
 .ph-park{background:linear-gradient(180deg,#8fd0c0,#6bb894 55%,#3f8f6a)}
 .ph-city{background:linear-gradient(180deg,#2a2350,#5b3f8a 55%,#8a5a9e)}
-.mem-empty{grid-column:1/-1;width:100%;text-align:center;padding:28px 20px;background:var(--white);border-radius:20px}
+.mem-empty{grid-column:1/-1;width:auto;text-align:center;padding:28px 20px;margin:0 16px;background:var(--white);border-radius:20px}
 .me-emoji{font-size:40px}
 .me-t{font-weight:700;color:var(--ink);font-size:16px;margin-top:8px}
 .mem-empty p{font-size:14px;color:var(--muted);margin-top:4px}
@@ -908,12 +921,96 @@ html.fh-stale #fh-updating{display:flex}
 .set-row.danger{color:var(--danger)}
 .set-row.danger .set-ic{background:var(--danger-tint);color:var(--danger)}
 .set-row .chev{margin-left:auto;color:#cfc8d6;flex-shrink:0}
+
+/* ---- settings sheet/modal internals (family, members, savings, income) ----
+   Tokens only: these screens must re-theme with the rest of the app. */
+.fh-s-cta{width:100%;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;padding:15px;border-radius:9999px;box-shadow:0 8px 20px var(--brand-glow);margin-top:6px}
+.fh-s-cta:active{transform:scale(.99)}
+.fh-s-cta:disabled{background:var(--surface);color:var(--muted-soft);box-shadow:none}
+.fh-s-line{width:100%;background:var(--white);color:var(--brand);border:1.5px solid var(--brand);border-radius:9999px;font-size:15px;font-weight:700;padding:14px;margin-top:12px;letter-spacing:-.02em}
+.fh-s-line:active{transform:scale(.99)}
+.fh-s-ghost{width:100%;background:none;color:var(--muted);font-size:15px;font-weight:600;letter-spacing:-.01em;padding:14px 0 4px;min-height:44px}
+.fh-s-ghost:active{opacity:.55}
+.fh-s-del{display:block!important;margin:18px auto 2px}          /* .ex-del is display:none by default */
+.fh-s-h{font-family:var(--disp);font-weight:800;font-size:25px;letter-spacing:-.7px;color:var(--ink);margin-bottom:5px}
+.fh-s-sub{font-size:14.5px;letter-spacing:-.01em;color:var(--muted);line-height:1.45;margin-bottom:18px}
+.fh-s-lab{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;margin-bottom:8px}
+/* member / income rows — 44px min height, hairline separated, no fills */
+.fh-s-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--divider);min-height:56px}
+.fh-s-row:last-of-type{border-bottom:none}
+.fh-s-row .fh-s-name{font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fh-s-row .fh-s-meta{font-size:12.5px;font-weight:500;color:var(--muted);margin-top:1px}
+.fh-s-row .fh-s-grow{flex:1;min-width:0}
+/* 44×44 icon actions — these are destructive, so they get full targets (DESIGN §1) */
+.fh-s-act{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:12px;flex-shrink:0;color:var(--muted);background:none}
+.fh-s-act:active{background:var(--surface)}
+.fh-s-act.danger{color:var(--danger)}
+.fh-s-act.armed{color:var(--danger);background:var(--danger-tint);width:auto;padding:0 13px;font-size:13px;font-weight:700;letter-spacing:-.01em}
+.fh-s-act svg{width:19px;height:19px}
+.fh-s-edit{flex-shrink:0;min-height:44px;padding:0 14px;border-radius:9999px;background:var(--brand-tint);color:var(--brand-ink);font-size:13.5px;font-weight:700;letter-spacing:-.01em}
+.fh-s-edit:active{opacity:.6}
+/* stat block: border + accent, never a colored fill (DESIGN §2.1) */
+.fh-s-stat{border:1px solid var(--hairline);border-left:3px solid var(--good);border-radius:12px;padding:12px 14px;margin-bottom:18px}
+.fh-s-stat .k{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.fh-s-stat .v{font-family:var(--disp);font-variant-numeric:tabular-nums;font-size:26px;font-weight:800;letter-spacing:-.5px;color:var(--good);margin-top:2px}
+/* colour swatches — 44×44 target, ring shows selection */
+.fh-s-swatches{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.fh-s-sw{width:44px;height:44px;border-radius:50%;padding:5px;background:none;flex-shrink:0}
+.fh-s-sw i{display:block;width:100%;height:100%;border-radius:50%}
+.fh-s-sw.on{box-shadow:inset 0 0 0 2.5px var(--ink)}
+.fh-s-empty{text-align:center;color:var(--muted);font-size:13.5px;padding:18px 8px}
+
+/* ---- "Your families" picker — inside .phone, safe-area padded, tokenised ---- */
+.fh-fam-ov{position:absolute;inset:0;z-index:64;background:var(--canvas);overflow-y:auto;
+  display:flex;flex-direction:column;justify-content:center;
+  padding:calc(max(env(safe-area-inset-top),16px) + 44px) 22px calc(24px + env(safe-area-inset-bottom))}
+.fh-fam-inner{max-width:420px;width:100%;margin:0 auto;position:relative}
+.fh-fam-back{position:absolute;top:-56px;left:-6px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:12px;color:var(--ink)}
+.fh-fam-back svg{width:24px;height:24px}
+.fh-fam-back:active{background:var(--surface)}
+.fh-fam-h{font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:-.8px;color:var(--ink);margin-bottom:4px}
+.fh-fam-sub{font-size:14.5px;color:var(--muted);letter-spacing:-.01em;margin-bottom:22px}
+.fh-fam-card{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:1px solid var(--hairline);
+  background:var(--white);border-radius:16px;padding:16px 18px;margin-bottom:10px;min-height:76px}
+.fh-fam-card:active{background:var(--surface);transform:scale(.99)}
+.fh-fam-card.busy{opacity:.55}
+.fh-fam-ico{width:44px;height:44px;border-radius:12px;background:var(--grad-hero);display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--disp);font-weight:800;font-size:18px;flex-shrink:0}
+.fh-fam-grow{flex:1;min-width:0}
+.fh-fam-name{font-weight:700;font-size:16px;letter-spacing:-.02em;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fh-fam-meta{font-size:12.5px;color:var(--muted);margin-top:1px}
+.fh-fam-chev{width:20px;height:20px;color:#cfc8d6;flex-shrink:0}
+/* blocking sign-in progress — stops a second tap on the Google button */
+#fh-authbusy{position:absolute;inset:0;z-index:70;display:none;align-items:center;justify-content:center;gap:10px;
+  background:rgba(244,241,246,.82);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--ink-2)}
+#fh-authbusy .fu-dot{width:16px;height:16px;border:2.5px solid var(--hairline);border-top-color:var(--brand);border-radius:50%;animation:fhspin2 .7s linear infinite}
+/* photo upload progress — sits above the tab bar, out of the toast's slot */
+#fh-uploading{position:fixed;left:50%;transform:translateX(-50%) translateY(10px);z-index:78;display:flex;align-items:center;gap:8px;
+  bottom:calc(150px + env(safe-area-inset-bottom));padding:8px 15px;border-radius:100px;
+  background:rgba(26,17,23,.9);color:#fff;font-size:13px;font-weight:600;letter-spacing:-.01em;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+#fh-uploading.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#fh-uploading .fu-dot{width:13px;height:13px;border:2px solid rgba(255,255,255,.32);border-top-color:#fff;border-radius:50%;animation:fhspin2 .7s linear infinite}
+@media (prefers-reduced-motion:reduce){#fh-uploading .fu-dot{animation-duration:2s}}
+/* offline banner — writes are fire-and-forget, so the user needs to know before
+   they spend five minutes entering things that will never reach the server */
+#fh-offline{position:fixed;left:50%;transform:translateX(-50%) translateY(-6px);z-index:79;display:none;align-items:center;gap:8px;
+  top:calc(max(env(safe-area-inset-top),0px) + 8px);padding:7px 14px;border-radius:100px;
+  background:var(--danger);color:#fff;font-size:12.5px;font-weight:700;letter-spacing:-.01em;
+  box-shadow:0 6px 18px rgba(224,50,47,.32)}
+html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
+#fh-offline svg{width:15px;height:15px;flex-shrink:0}
+/* invite code — bordered, not filled, per the no-colored-fills rule */
+.fh-code-show{font-family:ui-monospace,Menlo,monospace;font-size:31px;font-weight:800;letter-spacing:6px;
+  color:var(--brand-ink);text-align:center;border:1.5px solid var(--hairline);border-radius:14px;padding:18px 0;margin-bottom:18px}
 </style>
 </head>
 <body>
 <!-- static so it paints on the first frame — see the returning-user gate in <head> -->
 <div id="fh-splash" aria-hidden="true"><div class="fs-logo">🏡</div><div class="fs-name">FamilyHub</div></div>
 <div id="fh-updating" role="status" aria-live="polite"><span class="fu-dot"></span><span>Updating…</span></div>
+<div id="fh-uploading" role="status" aria-live="polite"><span class="fu-dot"></span><span class="fu-txt">Saving photo…</span></div>
+<div id="fh-offline" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22M16.7 16.7A6 6 0 007 8.3M5 12.5a10 10 0 013-2.3M2 8.8a15 15 0 014.2-2.7M12 20h.01"/></svg><span>Offline — changes won’t save</span></div>
 <div class="phone t-sage" id="phone">
 <div class="scroll" id="scroll">
 
@@ -1288,12 +1385,12 @@ html.fh-stale #fh-updating{display:flex}
   <div class="modal-nav">
     <button class="modal-cancel" onclick="closeEventModal()">Cancel</button>
     <div class="modal-title">New event</div>
-    <button class="modal-save" onclick="addEvent()">Create</button>
+    <button class="modal-save" id="ng-save" onclick="addEvent()" disabled>Create</button>
   </div>
   <div class="modal-body">
     <div class="field">
       <label>What is it?</label>
-      <input id="ng-name" placeholder="e.g. Beach trip"/>
+      <input id="ng-name" placeholder="e.g. Beach trip" oninput="ngDirty()"/>
       <div class="emoji-row" id="ev-emoji" style="margin-top:10px">
         <button class="on" data-v="🎉" onclick="pickEmoji(this)">🎉</button>
         <button data-v="✈️" onclick="pickEmoji(this)">✈️</button>
@@ -1308,7 +1405,7 @@ html.fh-stale #fh-updating{display:flex}
     </div>
 
     <div class="field-row">
-      <div class="field"><label>Est. cost</label><input class="num" id="ng-amt" inputmode="numeric" placeholder="$0" oninput="updateSrcHint()"/></div>
+      <div class="field"><label>Est. cost</label><input class="num" id="ng-amt" inputmode="numeric" placeholder="0" oninput="updateSrcHint();ngDirty()" onblur="snapAmtInput(this);updateSrcHint();ngDirty()"/></div>
       <div class="field"><label>When</label><input type="date" id="ng-date" min="2026-07-01"/></div>
     </div>
 
@@ -1374,11 +1471,11 @@ html.fh-stale #fh-updating{display:flex}
   <div class="modal-nav">
     <button class="modal-cancel" onclick="closeModals()">Cancel</button>
     <div class="modal-title">Categories &amp; budget</div>
-    <button class="modal-save" onclick="setBudget()">Save</button>
+    <button class="modal-save" id="bg-save" onclick="setBudget()" disabled>Save</button>
   </div>
   <div class="modal-body">
     <div class="sheet-sub">Your monthly target, plus the categories your spending is grouped into — add, rename, re-budget or remove them.</div>
-    <div class="field" style="margin-bottom:20px"><label>Monthly budget <span style="font-weight:400;color:var(--ink-3);font-size:12px">· auto-splits into categories</span></label><input class="big num" id="bg-amt" inputmode="numeric" placeholder="$9,000" oninput="suggestBudgetSplit();syncFallbackRow()"/></div>
+    <div class="field" style="margin-bottom:20px"><label>Monthly budget <span class="opt">· fills in categories you haven’t set</span></label><input class="big num" id="bg-amt" inputmode="numeric" oninput="suggestBudgetSplit();syncFallbackRow();bgDirty()" onblur="snapAmtInput(this);suggestBudgetSplit();syncFallbackRow()"/></div>
     <div class="bg-sub">Categories</div>
     <div id="bg-rows"></div>
     <div id="bg-over" class="bg-over" style="display:none">Categories add up to more than the monthly budget — Others is at 0.</div>
@@ -1426,6 +1523,23 @@ html.fh-stale #fh-updating{display:flex}
     <button class="set-row" onclick="closeSheet();restartOnboarding()"><span class="set-ic">↻</span><span class="set-t">Restart onboarding</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row danger" onclick="closeSheet();fhSignOut()"><span class="set-ic">⎋</span><span class="set-t">Sign out</span></button>
   </div>
+</div>
+
+<!-- GENERIC SETTINGS SHEET — quick menus & destructive confirms (family, members) -->
+<div class="sheet" id="fh-sheet">
+  <div class="grab"></div>
+  <div id="fh-sheet-body"></div>
+</div>
+
+<!-- GENERIC SETTINGS MODAL — multi-field forms (edit member, savings, income) -->
+<div class="modal" id="fh-modal">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="fhModalClose()">Cancel</button>
+    <div class="modal-title" id="fh-modal-title">Edit</div>
+    <button class="modal-save" id="fh-modal-save" onclick="fhModalSave()" disabled>Save</button>
+  </div>
+  <div class="modal-body" id="fh-modal-body"></div>
 </div>
 
 <!-- CELEBRATE -->
@@ -1634,14 +1748,29 @@ function fmt(n){
   var v=Math.round(n*curMult());
   return CUR==='VND' ? v.toLocaleString('vi-VN')+' ₫' : '$'+v.toLocaleString('en-US');
 }
+/* Compact form for charts. Symbol placement follows fmt(): VND suffixes, USD prefixes —
+   both are labelled, so a VND chart is never left as bare unlabelled numbers. */
 function fmtK(n){
   var v=n*curMult();
-  if(CUR==='VND') return v>=1000000 ? (v/1000000).toFixed(1).replace(/\.0$/,'')+'tr' : Math.round(v/1000)+'k';
+  if(CUR==='VND') return (v>=1000000 ? (v/1000000).toFixed(1).replace(/\.0$/,'')+'tr' : Math.round(v/1000)+'k')+' ₫';
   return n>=1000 ? '$'+(n/1000).toFixed(1).replace(/\.0$/,'')+'k' : '$'+Math.round(n);
 }
+/* VND is stored in units of 1,000đ, so sub-1,000 input can't be represented.
+   parseAmtBase still rounds — but snapAmtInput() writes the rounded value back into
+   the field on blur, so the user sees what will actually be saved instead of having
+   it silently changed underneath them. */
 function parseAmtBase(s){ return Math.round(parseAmt(s)/curMult()); }   // input is in display currency → store base
 // base → the number an amount input should show (display currency, grouped, no symbol)
 function amtToInput(n){ n=Number(n)||0; return n?(n*curMult()).toLocaleString(CUR==='VND'?'vi-VN':'en-US'):''; }
+function snapAmtInput(el){
+  if(!el) return;
+  var raw=(el.value||'').trim(); if(!raw) return;
+  var base=parseAmtBase(raw); if(!base){ el.value=''; return; }
+  el.value=amtToInput(base);                       // canonical grouping + the real stored value
+}
+/* One placeholder source, so the separator always matches what the field produces
+   (vi-VN uses dots, en-US commas — hardcoding either taught the wrong format). */
+function amtPlaceholder(){ return CUR==='VND' ? (9000000).toLocaleString('vi-VN') : (9000).toLocaleString('en-US'); }
 function renderTrend(){
   var box=document.getElementById('trend-chart'); if(!box)return;
   var maxV=Math.max.apply(null, monthOrder.map(function(k){return Math.max(months[k].spent,months[k].budget);}));
@@ -1805,13 +1934,18 @@ function ensureFallbackCat(order,style,budget){
 function catRowHTML(emoji,name,budget,orig){
   var lock=isFallbackCat(name);
   return '<div class="cat-row'+(lock?' cat-row-lock':'')+'" data-orig="'+(orig||'')+'">'
-    +'<input class="cat-emoji" maxlength="2" value="'+(emoji||'🏷️')+'">'
-    +'<input class="cat-name" placeholder="Name" value="'+String(name||'').replace(/"/g,'&quot;')+'"'+(lock?' readonly':'')+'>'
-    +'<span class="cat-bud-wrap">'+curSym()+'<input class="cat-bud num" inputmode="numeric" placeholder="0" value="'+amtToInput(budget)+'"'
-      +(lock?' readonly title="Whatever the other categories leave unallocated">':' oninput="syncFallbackRow()">')+'</span>'
+    +'<input class="cat-emoji" maxlength="2" value="'+(emoji||'🏷️')+'" oninput="bgDirty()">'
+    +'<input class="cat-name" placeholder="Name" value="'+String(name||'').replace(/"/g,'&quot;')+'"'+(lock?' readonly':' oninput="bgDirty()"')+'>'
+    // symbol sits on the same side as fmt() puts it: ₫ after, $ before
+    +'<span class="cat-bud-wrap">'+(CUR==='VND'?'':curSym())
+      +'<input class="cat-bud num" inputmode="numeric" placeholder="0" value="'+amtToInput(budget)+'"'
+      +(budget?' data-touched="1"':'')
+      +(lock?' readonly title="Whatever the other categories leave unallocated">'
+            :' oninput="markCatTouched(this);syncFallbackRow()" onblur="snapAmtInput(this);syncFallbackRow()">')
+      +(CUR==='VND'?curSym():'')+'</span>'
     +(lock
       ? '<span class="cat-del cat-del-off" title="Everything uncategorised lands here"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></span>'
-      : '<button class="cat-del" aria-label="Remove" onclick="this.closest(\'.cat-row\').remove();syncFallbackRow()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
+      : '<button class="cat-del" aria-label="Remove category" onclick="armCatDelete(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
     +'</div>';
 }
 // The catch-all is not budgeted by hand — it absorbs whatever the named
@@ -1835,30 +1969,93 @@ function syncFallbackRow(){
   });
   if(tgt) tgt.value=amtToInput(Math.max(0,total-used));
   var note=document.getElementById('bg-over');
-  if(note) note.style.display = (total&&used>total) ? '' : 'none';
+  if(note){
+    var over = !!(total&&used>total);
+    note.style.display = over ? '' : 'none';
+    // say by how much, so "Others is at 0" isn't the only signal something's wrong
+    if(over) note.textContent='Categories add up to '+fmt(used-total)+' more than the monthly budget — Others is at 0.';
+  }
+  bgDirty();
 }
 function fillBudgetSheet(){
   document.getElementById('bg-amt').value=amtToInput(M().budget);
   syncFallbackBudget();
   document.getElementById('bg-rows').innerHTML = catOrder.map(function(c){ var s=catStyle[c]||['🏷️']; return catRowHTML(s[0],c,catBudget[c],c); }).join('');
-  document.getElementById('bg-amt').placeholder=curSym()+(CUR==='VND'?'9,000,000':'9,000');
+  document.getElementById('bg-amt').placeholder=amtPlaceholder();
   syncFallbackRow();
+  bgSnap=bgSig(); bgDirty();                     // Save stays off until something actually changes
+}
+/* Save is disabled until the form is both valid and changed (DESIGN §3 .modal-save). */
+var bgSnap='';
+function bgSig(){
+  var parts=[document.getElementById('bg-amt').value];
+  document.querySelectorAll('#sheet-budget .cat-row').forEach(function(r){
+    parts.push((r.querySelector('.cat-emoji').value||'')+''+(r.querySelector('.cat-name').value||'')+''+(r.querySelector('.cat-bud').value||''));
+  });
+  return parts.join('');
+}
+function bgValid(){
+  if(!parseAmtBase(document.getElementById('bg-amt').value)) return false;
+  var named=0;
+  document.querySelectorAll('#sheet-budget .cat-row').forEach(function(r){
+    if((r.querySelector('.cat-name').value||'').trim()) named++;
+  });
+  return named>0;
+}
+function bgDirty(){
+  var b=document.getElementById('bg-save'); if(!b) return;
+  b.disabled = !(bgValid() && bgSig()!==bgSnap);
 }
 function addCatRow(){                                       // new rows go above the catch-all, which stays last
   var box=document.getElementById('bg-rows'), lock=box.querySelector('.cat-row-lock'), html=catRowHTML('🏷️','','','');
   if(lock) lock.insertAdjacentHTML('beforebegin',html); else box.insertAdjacentHTML('beforeend',html);
+  bgDirty();
+  var rows=box.querySelectorAll('.cat-row:not(.cat-row-lock) .cat-name');
+  if(rows.length) rows[rows.length-1].focus();               // land the cursor in the new row
 }
 // best-practice weights (EN + seeded VI names); unknown categories default to 0.08, then normalised
 var CATW={housing:.30,'nhà ở':.30,rent:.30,groceries:.14,'đi chợ':.14,dining:.08,'ăn ngoài':.08,transport:.10,'đi lại':.10,fun:.06,'giải trí':.06,kids:.08,'con cái':.08,others:.08,shopping:.10,clothing:.06};
+/* Auto-split fills in categories the user hasn't set themselves. It must never
+   overwrite a hand-typed figure: editing the monthly total after tuning categories
+   used to wipe that work on every keystroke, with no undo. A row is "touched" once
+   it's edited by hand (or arrives with a saved budget), and touched rows are left
+   exactly as they are. */
+function markCatTouched(inp){ if(inp) inp.dataset.touched='1'; }
+/* Removing a category archives it server-side on Save, so a stray tap on a small
+   icon shouldn't do it. First tap arms (row goes red + label), second removes. */
+var catArmT=null;
+function armCatDelete(btn){
+  var row=btn.closest('.cat-row');
+  if(!btn.classList.contains('armed')){
+    document.querySelectorAll('.cat-row .cat-del.armed').forEach(function(b){ b.classList.remove('armed'); b.closest('.cat-row').classList.remove('arming'); });
+    btn.classList.add('armed'); row.classList.add('arming');
+    btn.setAttribute('aria-label','Tap again to remove');
+    clearTimeout(catArmT);
+    catArmT=setTimeout(function(){
+      if(!btn.isConnected) return;
+      btn.classList.remove('armed'); row.classList.remove('arming');
+      btn.setAttribute('aria-label','Remove category');
+    },3000);
+    return;
+  }
+  clearTimeout(catArmT);
+  row.remove(); syncFallbackRow();
+}
 function suggestBudgetSplit(){
   var total=parseAmtBase(document.getElementById('bg-amt').value); if(!total)return;
   // the catch-all is left out of the split — it takes the remainder afterwards
   var rows=[].slice.call(document.querySelectorAll('#sheet-budget .cat-row')).filter(function(r){
     return !isFallbackCat(r.getAttribute('data-orig')) && !isFallbackCat(r.querySelector('.cat-name').value);
   });
-  var ws=rows.map(function(r){ var n=(r.querySelector('.cat-name').value||'').trim().toLowerCase(); return CATW[n]!==undefined?CATW[n]:0.08; });
+  var free=rows.filter(function(r){ var i=r.querySelector('.cat-bud'); return i && i.dataset.touched!=='1'; });
+  if(!free.length){ syncFallbackRow(); return; }        // everything is hand-set — nothing to do
+  // only the budget not already claimed by hand-set rows gets divided up
+  var spoken=0;
+  rows.forEach(function(r){ var i=r.querySelector('.cat-bud'); if(i&&i.dataset.touched==='1') spoken+=parseAmtBase(i.value)||0; });
+  var pool=Math.max(0,total-spoken);
+  var ws=free.map(function(r){ var n=(r.querySelector('.cat-name').value||'').trim().toLowerCase(); return CATW[n]!==undefined?CATW[n]:0.08; });
   var sum=ws.reduce(function(a,b){return a+b;},0)||1;
-  rows.forEach(function(r,i){ var base=Math.round(total*(ws[i]/sum)/10)*10; var inp=r.querySelector('.cat-bud'); if(inp) inp.value=amtToInput(base); });
+  free.forEach(function(r,i){ var base=Math.round(pool*(ws[i]/sum)/10)*10; var inp=r.querySelector('.cat-bud'); if(inp) inp.value=amtToInput(base); });
   syncFallbackRow();
 }
 function setBudget(){
@@ -1894,14 +2091,14 @@ function setBudget(){
 function memTileHTML(k){
   var e=events[k], m=(e.memories&&e.memories[0])||null;
   if(!m){
-    return '<div class="memory mem-blank" onclick="openEvent(\''+k+'\')"><div class="mb-em">'+e.emoji+'</div><div class="mb-cap">'+e.name+'</div><div class="mb-sub">Add a memory</div></div>';
+    return '<div class="memory mem-blank" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="mb-em">'+esc(e.emoji)+'</div><div class="mb-cap">'+esc(e.name)+'</div><div class="mb-sub">Add a memory</div></div>';
   }
   var cls, style, subj;
   if(m.src){ cls=''; style='style="background-image:url('+m.src+');background-size:cover;background-position:center"'; subj=''; }
   else { cls=m.cls||'ph-park'; style=''; subj='<div class="subj">'+(m.emoji||e.emoji)+'</div>'; }
   var c=e.memories.length;
   var sub=e.date+' · '+c+' photo'+(c>1?'s':'');
-  return '<div class="memory '+cls+'" '+style+' onclick="openEvent(\''+k+'\')">'+subj+'<div class="scrim"></div><div class="m-cap">'+e.name+'</div><div class="m-date">'+sub+'</div></div>';
+  return '<div class="memory '+cls+'" '+style+' onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+subj+'<div class="scrim"></div><div class="m-cap">'+esc(e.name)+'</div><div class="m-date">'+esc(sub)+'</div></div>';
 }
 function renderEvents(){
   var up=order.filter(function(k){return !achievedNow(events[k]);});
@@ -1942,7 +2139,7 @@ function renderEvents(){
   var rows='';
   homeUp.forEach(function(k){
     var e=events[k], pct=Math.round(e.saved/e.target*100), dl=daysLeft(e.d);
-    rows+='<div class="ev-row" onclick="openEvent(\''+k+'\')">'
+    rows+='<div class="ev-row" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'
       +'<div class="em-sm">'+e.emoji+'</div>'
       +'<div class="evb"><div class="evt"><span>'+e.name+'</span><span class="p num">'+pct+'%</span></div>'
       +'<div class="evs">'+(dl===0?'due today':'in '+dl+' days')+' · '+fmt(Math.max(0,e.target-e.saved))+' to go</div>'
@@ -1956,7 +2153,7 @@ function renderEvents(){
     var tlDate = e.noDay
       ? '<div class="tl-date"><div class="d num" style="font-size:17px;letter-spacing:-.3px">'+MONA[e.d.getMonth()].toUpperCase()+'</div><div class="dl">this month</div></div>'
       : '<div class="tl-date"><div class="d num">'+e.d.getDate()+'</div><div class="mo">'+MONA[e.d.getMonth()]+'</div><div class="dl">'+(dl===0?'today':'in '+dl+'d')+'</div></div>';
-    full+='<div class="tl-item" onclick="openEvent(\''+k+'\')">'
+    full+='<div class="tl-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'
       +tlDate
       +'<div class="tl-rail"><span class="tl-dot"></span></div>'
       +'<div class="tl-card">'
@@ -1978,12 +2175,12 @@ function renderEvents(){
   past.forEach(function(k){
     var e=events[k], dt=MONA[e.d.getMonth()]+' '+e.d.getDate();
     if(noPhotos(k)){
-      pl+='<div class="past-item" onclick="openEvent(\''+k+'\')"><div class="past-thumb">'+e.emoji+'</div>'
+      pl+='<div class="past-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="past-thumb">'+e.emoji+'</div>'
         +'<div class="past-body"><div class="past-name">'+e.name+'</div><div class="past-meta">'+dt+' · no photos yet</div></div>'
         +'<span class="past-add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>Add photos</span></div>';
     } else {
       var m=e.memories[0], c=e.memories.length;
-      pl+='<div class="past-item" onclick="openEvent(\''+k+'\')"><div class="past-thumb photo '+(m.cls||'ph-park')+'"><span class="subj">'+(m.emoji||e.emoji)+'</span><span class="cnt">'+c+'</span></div>'
+      pl+='<div class="past-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="past-thumb photo '+(m.cls||'ph-park')+'"><span class="subj">'+(m.emoji||e.emoji)+'</span><span class="cnt">'+c+'</span></div>'
         +'<div class="past-body"><div class="past-name">'+e.name+'</div><div class="past-meta">'+dt+' · '+c+' photo'+(c>1?'s':'')+'</div></div>'
         +'<svg class="past-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>';
     }
@@ -2086,7 +2283,7 @@ function evBlockHTML(items,k){
   if(k){
     var e=events[k], amt=evAmount(e), c=items.length;
     var sub=(amt?fmt(amt)+' · ':'')+c+' photo'+(c!==1?'s':'');
-    cap='<div class="pm-cap"><div class="pm-cap-t">'+e.emoji+' '+e.name+'</div><div class="pm-cap-s">'+sub+'</div></div>';
+    cap='<div class="pm-cap"><div class="pm-cap-t">'+esc(e.emoji)+' '+esc(e.name)+'</div><div class="pm-cap-s">'+esc(sub)+'</div></div>';
   }
   return '<div class="pm-block">'+mosaicHTML(items)+cap+'</div>';
 }
@@ -2117,7 +2314,7 @@ function photoSectionsByEvent(recs){
   });
   var html='';
   order2.forEach(function(g){ var e=events[g.ev];
-    html+=secHTML('<button class="photo-sec-title" onclick="openEvent(\''+g.ev+'\')">'+e.emoji+' '+e.name+' ›</button>', g.items.length, mosaicHTML(g.items));
+    html+=secHTML('<button class="photo-sec-title" onclick="openEvent(&#39;'+escAttr(g.ev)+'&#39;)">'+esc(e.emoji)+' '+esc(e.name)+' ›</button>', g.items.length, mosaicHTML(g.items));
   });
   if(moments.length) html+=secHTML('<div class="photo-sec-title">Everyday moments</div>', moments.length, mosaicHTML(moments));
   return html;
@@ -2214,6 +2411,7 @@ function openEventModal(){
   selSrc='savings';
   document.getElementById('ng-src').querySelectorAll('.src-opt').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='savings'); });
   updateSrcHint();
+  ngDirty();                                  // Create starts disabled on a blank form
   evPhotos=[]; renderEvPhoto();
   document.getElementById('scrim').classList.add('on');
   var m=document.getElementById('event-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
@@ -2380,7 +2578,11 @@ function exFormState(){                                     // snapshot used to 
 }
 function refreshExCta(){                                    // nav-bar Save button
   var s=document.getElementById('ex-save'); if(!s)return;
-  if(!editingTx){ s.disabled=false; return; }              // add mode: Save always enabled
+  // add mode: needs an amount and a category before Save means anything
+  if(!editingTx){
+    s.disabled = !(parseAmtBase(document.getElementById('ex-amt').value)>0 && chosen('ex-cat'));
+    return;
+  }
   s.disabled = !(editSnap!==null && exFormState()!==editSnap);  // edit mode: enabled only once something changes
 }
 function onExInput(){ updateExWhen(); refreshExCta(); }
@@ -2481,6 +2683,29 @@ function sendSuggestion(){
   floatEmojis('💛');
 }
 
+/* User text (event names, captions, notes) goes into innerHTML and into inline
+   onclick attributes all over this file. An apostrophe — "Emma's party" — was
+   enough to break the markup or the handler, so everything user-authored is
+   escaped on the way out. esc() for text nodes, escAttr() for quoted attributes. */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function escAttr(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+/* Photo uploads compress + POST each image; on cellular that's tens of seconds.
+   The app used to toast "Memory saved 📸" the instant the modal closed, before
+   anything had been attempted — so a failed upload looked like a success and the
+   photo silently vanished on the next reload. Saving is now only claimed once the
+   bytes are actually stored; until then this counter shows real progress. */
+var fhUpN=0, fhUpDone=0;
+function fhUploadBusy(add){
+  fhUpN+=add; if(fhUpN<0)fhUpN=0;
+  if(add>0) fhUpDone=0;
+  var el=document.getElementById('fh-uploading'); if(!el)return;
+  if(fhUpN>0){
+    el.querySelector('.fu-txt').textContent = fhUpN===1 ? 'Saving photo…' : 'Saving '+fhUpN+' photos…';
+    el.classList.add('on');
+  } else el.classList.remove('on');
+}
+
 var tt;
 function toast(msg){
   var el=document.getElementById('toast');
@@ -2529,7 +2754,7 @@ function txMatch(t){
 // Unrealized "set aside" row — money reserved from this month's budget toward an event.
 function resRow(k){   // an event funded from this month → an "Events" future item
   var e=events[k], today=sameDay(e.d,TODAY);
-  return '<div class="row res" onclick="openEvent(\''+k+'\')"><div class="r-ico-wrap"><div class="r-ico">'+e.emoji+'</div></div>'
+  return '<div class="row res" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="r-ico-wrap"><div class="r-ico">'+e.emoji+'</div></div>'
     +'<div class="r-body"><div class="r-t">'+e.name+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?'today':'future')+'</span>Events · '+(today?'today':'in July')+'</div></div>'
     +'<div class="r-amt num">'+fmt(e.setAside)+'</div></div>';
 }
@@ -2706,11 +2931,11 @@ function renderGallery(boxId){
   }
   var html='';
   e.memories.forEach(function(m){
-    var cap=m.caption?'<div class="scrim"></div><div class="m-cap">'+m.caption+'</div>':'';
+    var cap=m.caption?'<div class="scrim"></div><div class="m-cap">'+esc(m.caption)+'</div>':'';
     if(m.src){
-      html+='<div class="mem-full"><img src="'+m.src+'" alt="">'+cap+'</div>';
+      html+='<div class="mem-full"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||'Memory photo')+'" loading="lazy">'+cap+'</div>';
     } else {
-      html+='<div class="mem-full tile '+(m.cls||'ph-park')+'"><div class="subj">'+(m.emoji||'📸')+'</div>'+cap+'</div>';
+      html+='<div class="mem-full tile '+esc(m.cls||'ph-park')+'"><div class="subj">'+esc(m.emoji||'📸')+'</div>'+cap+'</div>';
     }
   });
   box.innerHTML=html;
@@ -2756,8 +2981,8 @@ function addMemory(){
   var e=events[curEvent]; if(!e.memories)e.memories=[];
   if(memPickMulti && memPickMulti.length){                   // multiple photos → one memory each
     memPickMulti.slice().reverse().forEach(function(p){ e.memories.unshift({src:p.src}); });
-    var n=memPickMulti.length;
-    renderEvents(); openEvent(curEvent); closeModals(); toast(n+' photos saved 📸'); floatEmojis('📸'); return;
+    renderEvents(); openEvent(curEvent); closeModals();
+    floatEmojis('📸'); return;
   }
   var cap=document.getElementById('mem-cap').value.trim(), m={};
   if(memPick){ if(memPick.src){ m.src=memPick.src; } else { m.cls=memPick.cls; m.emoji=memPick.emoji; } }
@@ -2765,14 +2990,16 @@ function addMemory(){
   if(cap) m.caption=cap;
   e.memories.unshift(m);                                     // a photo doesn't complete an event
   renderEvents(); openEvent(curEvent);
-  closeModals(); toast('Memory saved 📸'); floatEmojis('📸');
+  closeModals(); floatEmojis('📸');
+  if(!m.src) toast('Memory saved 📸');                       // emoji tile → nothing to upload, so confirm now
 }
 function renderRing(){
-  var e=events[curEvent], pct=Math.round(e.saved/e.target*100);
+  var e=events[curEvent], pct=e.target>0?Math.round(e.saved/e.target*100):0;
   setTxt('ring-pct',pct+'%');
   setHTML('ov-cur',fmt(e.saved)+' <span class="t">of '+fmt(e.target)+'</span>');
   setTxt('ov-left',fmt(Math.max(0,e.target-e.saved))+' still to save');
-  document.getElementById('ring-fill').setAttribute('stroke-dashoffset',(CIRC*(1-Math.min(1,e.saved/e.target))).toFixed(1));
+  var frac=e.target>0?Math.min(1,e.saved/e.target):0;   // a 0 target used to yield NaN and a broken arc
+  document.getElementById('ring-fill').setAttribute('stroke-dashoffset',(CIRC*(1-frac)).toFixed(1));
 }
 function closeEvent(){ document.getElementById('event-overlay').classList.remove('on'); }
 function addFunds(){
@@ -2817,10 +3044,20 @@ function updateSrcHint(){
   else if(selSrc==='savings') el.textContent='Covers the full '+fmt(cost)+' from savings';
   else el.innerHTML='Covers the full '+fmt(cost)+' · leaves you '+fmt(safe-cost)+' in July';
 }
+/* Create is gated on both a name and a real target. The old code defaulted a blank
+   target to 1000 and then immediately moved that much out of savings — a half-filled
+   form could silently spend money. */
+function ngDirty(){
+  var b=document.getElementById('ng-save'); if(!b) return;
+  var name=(document.getElementById('ng-name').value||'').trim();
+  var target=parseAmtBase(document.getElementById('ng-amt').value)||0;
+  b.disabled=!(name && target>0);
+}
 function addEvent(){
   var name=document.getElementById('ng-name').value.trim();
   if(!name){ document.getElementById('ng-name').focus(); return; }
-  var target=parseAmtBase(document.getElementById('ng-amt').value)||1000;
+  var target=parseAmtBase(document.getElementById('ng-amt').value)||0;
+  if(!target){ document.getElementById('ng-amt').focus(); return; }
   var raw=document.getElementById('ng-date').value;       // "YYYY-MM-DD" from the date picker
   var src=selSrc;
   var id='e'+order.length+Math.floor(target);
@@ -2990,9 +3227,20 @@ function buildObThemes(){
       +'<div class="nm">'+t.name+'</div></div>';
   }).join('');
 }
-function obGoogle(){                                          // Google SSO handles the account (email) — no manual entry
-  var b=document.getElementById('ob-gbtn'); if(b){ b.disabled=true; b.style.opacity='.7'; b.querySelector('span').textContent=t('signingIn'); }
-  setTimeout(function(){ if(b){ b.disabled=false; b.style.opacity=''; b.querySelector('span').textContent=t('continueGoogle'); } obGo('choice'); }, 650);
+/* Placeholder only. The auth module replaces this with the real Supabase flow as
+   soon as it loads. If it never does (offline, CDN blocked), this must NOT wave the
+   user through: it used to advance to 'choice', let them complete every onboarding
+   step, and then write the whole family to localStorage only — nothing reached the
+   database and nothing said so. Failing loudly here is the honest outcome. */
+function obGoogle(){
+  var b=document.getElementById('ob-gbtn');
+  if(b){ b.disabled=true; b.style.opacity='.7'; b.querySelector('span').textContent=t('signingIn'); }
+  // give a slow module a moment to arrive and overwrite this function
+  setTimeout(function(){
+    if(window.obGoogle!==obGoogle){ window.obGoogle(); return; }   // real one landed → hand over
+    if(b){ b.disabled=false; b.style.opacity=''; b.querySelector('span').textContent=t('continueGoogle'); }
+    toast('Can’t reach the server — check your connection and try again');
+  }, 1200);
 }
 function obChoose(mode){
   FAM.mode=mode;
@@ -3111,8 +3359,8 @@ function applyCurrency(){                         // re-render every money figur
     var base=parseFloat(el.getAttribute('data-amt'))||0;
     el.textContent=(el.getAttribute('data-amt-pre')||'')+fmt(base)+(el.getAttribute('data-amt-suf')||'');
   });
-  ['ex-amt','ng-amt','fn-amt'].forEach(function(id){ var el=document.getElementById(id); if(el) el.setAttribute('placeholder',curSym()+'0'); });
-  var bg=document.getElementById('bg-amt'); if(bg) bg.setAttribute('placeholder',curSym()+(CUR==='VND'?'9.000.000':'9,000'));
+  ['ex-amt','ng-amt','fn-amt'].forEach(function(id){ var el=document.getElementById(id); if(el) el.setAttribute('placeholder',amtPlaceholder()); });
+  var bg=document.getElementById('bg-amt'); if(bg) bg.setAttribute('placeholder',amtPlaceholder());
 }
 function fnPreset(base){ setV('fn-amt',(base*curMult()).toLocaleString(CUR==='VND'?'vi-VN':'en-US')); }   // preset → display currency
 function finishOnboarding(){
@@ -3211,6 +3459,18 @@ document.querySelectorAll('.modal').forEach(function(m){ initSheetDrag(m, closeM
   if(['home','spending','events','memories'].indexOf(h)>=0) go(h);
 })();
 
+/* ---------- connectivity ----------
+   Writes are optimistic and fire-and-forget, so going offline silently would let
+   someone log a whole evening of expenses that never leave the device. */
+function fhSyncOnline(){
+  var off = (navigator.onLine===false);
+  document.documentElement.classList.toggle('fh-offline', off);
+  if(!off && window.DB && window.DB.fid && window.loadFamilyData) window.loadFamilyData();  // catch up
+}
+window.addEventListener('online', fhSyncOnline);
+window.addEventListener('offline', fhSyncOnline);
+fhSyncOnline();
+
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
     var refreshing=false;
@@ -3282,8 +3542,16 @@ if('serviceWorker' in navigator){
       }
     } catch (e) {}
     // Multi-family: which families do you belong to?
-    let fams = [];
-    try { const { data } = await sb.rpc('my_families'); fams = data || []; } catch (e) {}
+    // A transient failure here must not read as "no families" — that would send an
+    // existing user into onboarding and have them create a duplicate family.
+    let fams = [], famsErr = null;
+    try { fams = (await _rpc('my_families')) || []; }
+    catch (e) { famsErr = e; console.warn('my_families failed', e); }
+    if (famsErr) {
+      fhResumeFail(); fhWarmAbandon();
+      window.toast && window.toast(_friendly(famsErr));
+      return;
+    }
     const onb = g('onboarding');
     const active = fams.find((f) => f.is_active);
     if (active) {
@@ -3304,31 +3572,42 @@ if('serviceWorker' in navigator){
   }
 
   // Full-screen "Your families" picker (shown on login, and from Settings → Switch family)
-  function showFamilyPicker(fams) {
+  /* Lives inside .phone so it stays in the device frame on desktop, pads for the
+     notch and home indicator, and offers a way back when it was opened from
+     Settings rather than as the login landing (it used to be a dead end). */
+  function showFamilyPicker(fams, opts) {
     const onb = g('onboarding');
+    const dismissible = !!(opts && opts.dismissible);
     let ov = document.getElementById('fh-fam-ov'); if (ov) ov.remove();
-    ov = document.createElement('div'); ov.id = 'fh-fam-ov';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:9998;display:flex;flex-direction:column;justify-content:center;padding:32px 22px;background:#f4f1f6;overflow:auto;font-family:inherit';
+    ov = document.createElement('div'); ov.id = 'fh-fam-ov'; ov.className = 'fh-fam-ov';
     const cards = (fams || []).map((f) =>
-      '<button class="fh-fam-card" data-fid="' + f.family_id + '" style="display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:1px solid #e4dbe0;background:#fff;border-radius:16px;padding:16px 18px;margin-bottom:10px;font-family:inherit;cursor:pointer">'
-      + '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#b92e78,#e14b8a);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px">' + String(f.name || '?').slice(0, 1).toUpperCase() + '</div>'
-      + '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:16px;color:#191022">' + (f.name || 'Family') + '</div>'
-      + '<div style="font-size:12.5px;color:#7a5a6e">' + (f.is_owner ? 'Owner' : 'Member') + (f.is_active ? ' · current' : '') + '</div></div>'
-      + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>'
+      '<button class="fh-fam-card" data-fid="' + _esc(f.family_id) + '">'
+      + '<div class="fh-fam-ico">' + _esc(String(f.name || '?').slice(0, 1).toUpperCase()) + '</div>'
+      + '<div class="fh-fam-grow"><div class="fh-fam-name">' + _esc(f.name || 'Family') + '</div>'
+      + '<div class="fh-fam-meta">' + (f.is_owner ? 'Owner' : 'Member') + (f.is_active ? ' · current' : '') + '</div></div>'
+      + '<svg class="fh-fam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>'
     ).join('');
-    ov.innerHTML = '<div style="max-width:420px;width:100%;margin:0 auto">'
-      + '<div style="font-size:24px;font-weight:800;color:#191022;margin-bottom:4px">Your families</div>'
-      + '<div style="font-size:14px;color:#7a5a6e;margin-bottom:22px">Pick one to open, or start / join another.</div>'
+    ov.innerHTML = '<div class="fh-fam-inner">'
+      + (dismissible ? '<button class="fh-fam-back" id="fh-fam-back" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>' : '')
+      + '<div class="fh-fam-h">Your families</div>'
+      + '<div class="fh-fam-sub">Pick one to open, or start / join another.</div>'
       + cards
-      + '<button id="fh-fam-new" style="width:100%;border:1px dashed #d3b3c6;background:transparent;color:#b92e78;border-radius:16px;padding:15px;font-weight:700;font-size:15px;font-family:inherit;margin-top:6px;cursor:pointer">＋ Create a new family</button>'
-      + '<button id="fh-fam-join" style="width:100%;border:0;background:transparent;color:#7a5a6e;font-weight:600;font-size:14px;padding:14px 0 0;font-family:inherit;cursor:pointer">🔗 Join with a code</button>'
+      + '<button id="fh-fam-new" class="fh-s-line">Create a new family</button>'
+      + '<button id="fh-fam-join" class="fh-s-ghost">Join with a code</button>'
       + '</div>';
-    document.body.appendChild(ov);
+    (document.getElementById('phone') || document.body).appendChild(ov);
+    if (dismissible) document.getElementById('fh-fam-back').onclick = () => ov.remove();
     ov.querySelectorAll('.fh-fam-card').forEach((btn) => {
       btn.onclick = async () => {
-        btn.style.opacity = '.6';
-        try { await sb.rpc('switch_family', { p_family_id: btn.getAttribute('data-fid') }); }
-        catch (e) { alert('Could not open: ' + (e.message || e)); btn.style.opacity = ''; return; }
+        if (btn.dataset.busy) return;
+        btn.dataset.busy = '1'; btn.classList.add('busy');
+        // switch_family resolves {error} on 4xx — unwrap it, or a failed switch
+        // would drop us into the *previous* family looking like a success.
+        try { await _rpc('switch_family', { p_family_id: btn.getAttribute('data-fid') }); }
+        catch (e) {
+          delete btn.dataset.busy; btn.classList.remove('busy');
+          window.toast && window.toast(_friendly(e)); return;
+        }
         await (window.loadFamilyData ? window.loadFamilyData() : loadActiveFamily());
         ov.remove();
         if (onb) onb.classList.add('done');
@@ -3379,9 +3658,13 @@ if('serviceWorker' in navigator){
   }
 
   window.fhSwitchFamily = async function () {
-    let fams = [];
-    try { const { data } = await sb.rpc('my_families'); fams = data || []; } catch (e) {}
-    showFamilyPicker(fams);
+    let fams;
+    // A failed lookup must not look like "you have no families" — that used to
+    // route people into creating a duplicate one.
+    try { fams = await _rpc('my_families'); }
+    catch (e) { window.toast && window.toast(_friendly(e)); return; }
+    if (!fams || !fams.length) { window.toast && window.toast('No other families yet'); return; }
+    showFamilyPicker(fams, { dismissible: true });     // opened from Settings → must be escapable
   };
 
   // ── Google Identity Services: ID-token popup that stays INSIDE the installed PWA ──
@@ -3391,12 +3674,28 @@ if('serviceWorker' in navigator){
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawNonce));
     return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
   }
+  /* Sign-in blocks on a token exchange plus a family hydrate — seconds on cellular.
+     Cover the screen while it runs so the Google button can't be tapped twice, and
+     report failure inline instead of in a system alert. */
+  function authBusy(on) {
+    let el = g('fh-authbusy');
+    if (on) {
+      if (!el) {
+        el = document.createElement('div'); el.id = 'fh-authbusy';
+        el.innerHTML = '<span class="fu-dot"></span><span>Signing you in…</span>';
+        (g('phone') || document.body).appendChild(el);
+      }
+      el.style.display = 'flex';
+    } else if (el) el.style.display = 'none';
+  }
   window.handleSignInWithGoogle = async (response) => {
+    authBusy(true);
     const { data, error } = await sb.auth.signInWithIdToken({
       provider: 'google', token: response.credential, nonce: rawNonce
     });
-    if (error) { alert('Sign-in failed: ' + error.message); return; }
-    await afterLogin(data.session);
+    if (error) { authBusy(false); window.toast && window.toast(_friendly(error)); return; }
+    try { await afterLogin(data.session); }
+    finally { authBusy(false); }
   };
   function gisReady() { return window.google && google.accounts && google.accounts.id; }
   async function waitGIS(ms) {
@@ -3435,7 +3734,7 @@ if('serviceWorker' in navigator){
     const { error } = await sb.auth.signInWithOAuth({
       provider: 'google', options: { redirectTo: location.href.split('#')[0].split('?')[0] }
     });
-    if (error) alert('Sign-in failed: ' + error.message);
+    if (error) { authBusy(false); window.toast && window.toast(_friendly(error)); }
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -3474,7 +3773,7 @@ if('serviceWorker' in navigator){
       const found = (await sb.from('categories').select('id,name,archived_at').eq('family_id', window.DB.fid).ilike('name', nm).limit(1)).data;
       if (found && found.length) {
         const c = found[0];
-        if (c.archived_at) await sb.from('categories').update({ archived_at: null }).eq('id', c.id);
+        if (c.archived_at) await _w(sb.from('categories').update({ archived_at: null }).eq('id', c.id), 'write categories');
         window.DB.catByName[nm] = c.id; window.DB.catById[c.id] = { id: c.id, name: c.name, emoji: emoji };
         return c.id;
       }
@@ -3506,13 +3805,22 @@ if('serviceWorker' in navigator){
     if (document.documentElement.classList.contains('fh-warm')) return;   // warm start shows real data + "Updating…"
     const ov = document.createElement('div');
     ov.id = 'fh-loading';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:9997;display:flex;align-items:center;justify-content:center;background:#f4f1f6';
-    ov.innerHTML = '<div style="text-align:center;font-family:inherit"><div style="width:34px;height:34px;border:3px solid #e4dbe0;border-top-color:#b92e78;border-radius:50%;margin:0 auto 14px;animation:fhspin .8s linear infinite"></div><div style="font-size:14px;color:#7a5a6e">Loading your family…</div></div><style>@keyframes fhspin{to{transform:rotate(360deg)}}</style>';
-    document.body.appendChild(ov);
+    ov.style.cssText = 'position:absolute;inset:0;z-index:66;display:flex;align-items:center;justify-content:center;background:var(--canvas)';
+    ov.innerHTML = '<div style="text-align:center"><div style="width:34px;height:34px;border:3px solid var(--hairline);border-top-color:var(--brand);border-radius:50%;margin:0 auto 14px;animation:fhspin2 .8s linear infinite"></div><div style="font-size:14px;color:var(--muted)">Loading your family…</div></div>';
+    (document.getElementById('phone') || document.body).appendChild(ov);
   }
   function _hideLoading() { const ov = document.getElementById('fh-loading'); if (ov) ov.remove(); }
   // surface write failures instead of failing silently
-  function _writeErr(what, e) { console.warn(what, e); try { if (window.toast) window.toast('Couldn’t save — check your connection'); } catch (x) {} }
+  function _writeErr(what, e) { console.warn(what, e); try { if (window.toast) window.toast(_friendly(e)); } catch (x) {} }
+  /* supabase-js RESOLVES {data,error} on 4xx — it does not throw. A bare
+     `await sb.from(x).update(...)` therefore swallows RLS denials and constraint
+     violations, and the caller reports success for a write that never landed.
+     Route every write through this so the surrounding try/catch actually works. */
+  async function _w(q, what) {
+    const { data, error } = await q;
+    if (error) { console.warn(what || 'write failed', error); throw error; }
+    return data;
+  }
   // re-fetch everything shortly after any write so every screen stays consistent
   let _syncTimer = null;
   function _syncSoon() { clearTimeout(_syncTimer); _syncTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 700); }
@@ -3743,27 +4051,43 @@ if('serviceWorker' in navigator){
   }
   async function _dbUploadTxnPhotos(txnId, photos) {
     let failed = 0;
+    try { window.fhUploadBusy && window.fhUploadBusy(photos.length); } catch (e) {}
     try {
       for (let i = 0; i < photos.length; i++) {
         const path = await _uploadPhoto(photos[i]);
-        if (path) await sb.from('transaction_photos').insert({ family_id: window.DB.fid, transaction_id: txnId, photo_url: path, sort_order: i });
+        if (path) await _w(sb.from('transaction_photos').insert({ family_id: window.DB.fid, transaction_id: txnId, photo_url: path, sort_order: i }), 'write transaction_photos');
         else failed++;
       }
     } catch (e) { console.warn('txn photos failed', e); failed++; }
-    if (failed) { try { window.toast && window.toast(failed + ' photo' + (failed > 1 ? 's' : '') + ' didn’t upload'); } catch (e) {} }
+    finally { try { window.fhUploadBusy && window.fhUploadBusy(-photos.length); } catch (e) {} }
+    _uploadOutcome(failed, photos.length);
   }
   async function _dbUploadEventMemories(eventId, memories, baseSort) {
     baseSort = baseSort || 0; let failed = 0;
+    try { window.fhUploadBusy && window.fhUploadBusy(memories.length); } catch (e) {}
     try {
       for (let i = 0; i < memories.length; i++) {
         const mm = memories[i]; let path = null; const wantsPhoto = !!mm.src;
         if (mm.src && mm.src.indexOf('data:') === 0) path = await _uploadPhoto(mm.src);
         else if (mm.src && mm.src.indexOf('http') === 0) path = mm.src;
         if (wantsPhoto && !path) { failed++; continue; }     // upload failed → skip the row (no photoless ghost memory)
-        await sb.from('event_memories').insert({ family_id: window.DB.fid, event_id: eventId, photo_url: path, caption: mm.caption || null, emoji: mm.emoji || null, sort_order: baseSort + i });
+        await _w(sb.from('event_memories').insert({ family_id: window.DB.fid, event_id: eventId, photo_url: path, caption: mm.caption || null, emoji: mm.emoji || null, sort_order: baseSort + i }), 'write event_memories');
       }
     } catch (e) { console.warn('event memories failed', e); failed++; }
-    if (failed) { try { window.toast && window.toast(failed + ' photo' + (failed > 1 ? 's' : '') + ' didn’t upload'); } catch (e) {} }
+    finally { try { window.fhUploadBusy && window.fhUploadBusy(-memories.length); } catch (e) {} }
+    _uploadOutcome(failed, memories.length);
+  }
+  /* Report only once the bytes are actually stored. A failure names how many and
+     tells the user the photo wasn't kept — the local copy is dropped on the next
+     hydrate, so silence here reads as success and then loses the photo. */
+  function _uploadOutcome(failed, total) {
+    if (!total) return;
+    if (!failed) { window.toast && window.toast(total === 1 ? 'Photo saved 📸' : total + ' photos saved 📸'); return; }
+    window.toast && window.toast(
+      failed === total
+        ? (total === 1 ? 'Photo didn’t save — try again' : 'Photos didn’t save — try again')
+        : failed + ' of ' + total + ' photos didn’t save'
+    );
   }
 
   function _storagePathFromUrl(u) {
@@ -3784,14 +4108,14 @@ if('serviceWorker' in navigator){
     });
     const removed = cur.filter((r) => !kept.has(r.photo_url));
     if (removed.length) {
-      await sb.from('transaction_photos').delete().in('id', removed.map((r) => r.id));
+      await _w(sb.from('transaction_photos').delete().in('id', removed.map((r) => r.id)), 'write transaction_photos');
       const files = removed.map((r) => r.photo_url).filter((p) => p && p.indexOf('http') !== 0);
       if (files.length) { try { await sb.storage.from('family-media').remove(files); } catch (e) {} }
     }
     let sort = cur.length - removed.length;
     for (const dataUri of uploads) {
       const path = await _uploadPhoto(dataUri);
-      if (path) await sb.from('transaction_photos').insert({ family_id: fid, transaction_id: txnId, photo_url: path, sort_order: sort++ });
+      if (path) await _w(sb.from('transaction_photos').insert({ family_id: fid, transaction_id: txnId, photo_url: path, sort_order: sort++ }), 'write transaction_photos');
     }
   }
 
@@ -3809,7 +4133,7 @@ if('serviceWorker' in navigator){
   async function _dbUpdateTxn(dbId, t, exD) {
     try {
       const catId = window.DB.catByName[t.cat] || await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1);
-      await sb.from('transactions').update({ category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' }).eq('id', dbId);
+      await _w(sb.from('transactions').update({ category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' }).eq('id', dbId), 'write transactions');
       await _dbSyncTxnPhotos(dbId, t.photos);
       _syncSoon();
     } catch (e) { _writeErr('txn update failed', e); }
@@ -3821,7 +4145,7 @@ if('serviceWorker' in navigator){
         const files = ph.map((r) => r.photo_url).filter((p) => p && p.indexOf('http') !== 0);
         if (files.length) await sb.storage.from('family-media').remove(files);
       } catch (e) {}
-      await sb.from('transactions').delete().eq('id', dbId);  // transaction_photos rows cascade on delete
+      await _w(sb.from('transactions').delete().eq('id', dbId), 'delete transaction');  // transaction_photos rows cascade on delete
       _syncSoon();
     } catch (e) { _writeErr('txn delete failed', e); }
   }
@@ -3872,9 +4196,9 @@ if('serviceWorker' in navigator){
       const budgetAmt = e.achieved ? (e.saved || 0) : (e.setAside || 0);
       // tag budget-sourced funding with the month being viewed, not always "today's" month
       const _vm = window.months[window.selMonth] || {}; const fMonth = _vm._iso || window.DB.month;
-      if (budgetAmt > 0) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: budgetAmt, source: 'budget', month: fMonth });
+      if (budgetAmt > 0) await _w(sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: budgetAmt, source: 'budget', month: fMonth }), 'write event_fundings');
       const sp = (e.saved || 0) - (e.setAside || 0);
-      if (sp > 0 && opts.savingsSource) await sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: sp, source: 'savings', month: null });
+      if (sp > 0 && opts.savingsSource) await _w(sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: sp, source: 'savings', month: null }), 'write event_fundings');
       _syncSoon();
     } catch (e) { _writeErr('event insert failed', e); }
   }
@@ -3896,7 +4220,7 @@ if('serviceWorker' in navigator){
       (async () => {
         try {
           if (!ev._dbId && ev._dbPending) { try { await ev._dbPending; } catch (e) {} }
-          if (ev._dbId) { await sb.from('event_fundings').insert({ family_id: window.DB.fid, event_id: ev._dbId, member_id: _memberIdForWho(who), amount: applied, source: 'savings', month: null }); _syncSoon(); }
+          if (ev._dbId) { await _w(sb.from('event_fundings').insert({ family_id: window.DB.fid, event_id: ev._dbId, member_id: _memberIdForWho(who), amount: applied, source: 'savings', month: null }), 'write event_fundings'); _syncSoon(); }
         } catch (e) { _writeErr('funding insert failed', e); }
       })();
     }
@@ -3928,25 +4252,25 @@ if('serviceWorker' in navigator){
       const rn = window.__catRenames || []; window.__catRenames = [];
       for (const pr of rn) {
         const oldId = window.DB.catByName[pr[0]];
-        if (oldId) { try { await sb.from('categories').update({ name: pr[1] }).eq('id', oldId); window.DB.catByName[pr[1]] = oldId; delete window.DB.catByName[pr[0]]; if (window.DB.catById[oldId]) window.DB.catById[oldId].name = pr[1]; } catch (e) {} }
+        if (oldId) { try { await _w(sb.from('categories').update({ name: pr[1] }).eq('id', oldId), 'rename category'); window.DB.catByName[pr[1]] = oldId; delete window.DB.catByName[pr[0]]; if (window.DB.catById[oldId]) window.DB.catById[oldId].name = pr[1]; } catch (e) {} }
       }
       // removed categories → soft-delete (archived_at); history keeps its category_id, pickers drop it
       const del = window.__catDeletes || []; window.__catDeletes = [];
       for (const name of del) {
         const cid = window.DB.catByName[name]; if (!cid) continue;
         try {
-          await sb.from('category_budgets').delete().eq('family_id', fid).eq('category_id', cid);
-          await sb.from('categories').update({ archived_at: new Date().toISOString() }).eq('id', cid);
+          await _w(sb.from('category_budgets').delete().eq('family_id', fid).eq('category_id', cid), 'write category_budgets');
+          await _w(sb.from('categories').update({ archived_at: new Date().toISOString() }).eq('id', cid), 'write categories');
           delete window.DB.catByName[name];
         } catch (e) { _writeErr('category remove failed', e); }
       }
-      await sb.from('monthly_budgets').upsert({ family_id: fid, month: month, budget_total: m.budget || 0 }, { onConflict: 'family_id,month' });
+      await _w(sb.from('monthly_budgets').upsert({ family_id: fid, month: month, budget_total: m.budget || 0 }, { onConflict: 'family_id,month' }), 'write monthly_budgets');
       for (let i = 0; i < window.catOrder.length; i++) {
         const name = window.catOrder[i]; const amt = window.catBudget[name] || 0;
         const cid = window.DB.catByName[name] || await _categoryIdForName(name, (window.catStyle[name] || [])[0], i + 1);
         if (!cid) continue;
-        if (amt > 0) await sb.from('category_budgets').upsert({ family_id: fid, month: month, category_id: cid, amount: amt }, { onConflict: 'family_id,month,category_id' });
-        else await sb.from('category_budgets').delete().eq('family_id', fid).eq('month', month).eq('category_id', cid);
+        if (amt > 0) await _w(sb.from('category_budgets').upsert({ family_id: fid, month: month, category_id: cid, amount: amt }, { onConflict: 'family_id,month,category_id' }), 'write category_budgets');
+        else await _w(sb.from('category_budgets').delete().eq('family_id', fid).eq('month', month).eq('category_id', cid), 'clear category budget');
       }
       _syncSoon();
     } catch (e) { _writeErr('budget save failed', e); }
@@ -3993,22 +4317,94 @@ if('serviceWorker' in navigator){
   window.addEventListener('focus', _refreshOnResume);
 
   // ═══ feature UIs: manage family/members, saved-for-events, income ═══════════
-  function _fhOverlay(inner) {
-    let ov = document.getElementById('fh-ov'); if (ov) ov.remove();
-    ov = document.createElement('div'); ov.id = 'fh-ov';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:9990;display:flex;align-items:flex-end;justify-content:center;background:rgba(20,12,26,.45);font-family:inherit';
-    ov.innerHTML = '<div onclick="event.stopPropagation()" style="background:#fff;border-radius:22px 22px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom));width:100%;max-width:460px;max-height:88vh;overflow:auto">' + inner + '</div>';
-    document.body.appendChild(ov);
-    ov.addEventListener('click', () => ov.remove());
-    return ov;
-  }
-  window._closeOv = () => { const o = document.getElementById('fh-ov'); if (o) o.remove(); };
-  const _pal = () => window.OB_COLORS || ['#6f3fc0', '#0e8478', '#f0701a', '#e03d86', '#1e74d0', '#B8730B', '#7A5AE0', '#1a9d5f'];
-  const _btn = (label, onclick, style) => '<button onclick="' + onclick + '" style="' + style + ';font-family:inherit;cursor:pointer">' + label + '</button>';
-  const _primary = 'width:100%;border:0;background:#b92e78;color:#fff;border-radius:12px;padding:13px;font-weight:700;font-size:15px';
-  const _ghost = 'width:100%;border:0;background:transparent;color:#7a5a6e;font-weight:600;padding:12px 0 0;font-size:14px';
-  const _danger = 'width:100%;border:0;background:var(--danger,#E0322F);color:#fff;border-radius:12px;padding:13px;font-weight:700;font-size:15px';
+  /* Settings UI runs on the app's own layers (DESIGN §4), not a bespoke overlay:
+     quick menus + destructive confirms → #fh-sheet, multi-field forms → #fh-modal.
+     Both live inside .phone, so they stay in the device frame on desktop, inherit
+     drag-to-dismiss from initSheetDrag, and sit *below* the toast (z-80) so errors
+     raised from inside them are actually visible. */
   const _esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const _pal = () => window.OB_COLORS || ['#6f3fc0', '#0e8478', '#f0701a', '#e03d86', '#1e74d0', '#B8730B', '#7A5AE0', '#1a9d5f'];
+
+  function _fhSheet(inner) {
+    const body = document.getElementById('fh-sheet-body'); if (!body) return;
+    body.innerHTML = inner;
+    document.getElementById('scrim').classList.add('on');
+    document.getElementById('fh-sheet').classList.add('on');
+  }
+  window._closeOv = () => {
+    const s = document.getElementById('fh-sheet');
+    if (s) { s.classList.remove('on'); s.style.transform = ''; s.style.transition = ''; }
+    const m = document.getElementById('fh-modal');
+    if (m) { m.classList.remove('on'); m.style.transform = ''; m.style.transition = ''; }
+    if (!document.querySelector('.sheet.on, .modal.on')) document.getElementById('scrim').classList.remove('on');
+    _fhModalCtx = null;
+  };
+
+  /* Form modal: Cancel · Title · Save, Save gated until the form is valid AND dirty. */
+  let _fhModalCtx = null;
+  function _fhModal(opts) {
+    _fhModalCtx = opts;                                  // {title, body, valid(), save(), saveLabel}
+    document.getElementById('fh-modal-title').textContent = opts.title;
+    document.getElementById('fh-modal-body').innerHTML = opts.body;
+    const save = document.getElementById('fh-modal-save');
+    save.textContent = opts.saveLabel || 'Save';
+    save.disabled = true;
+    document.getElementById('scrim').classList.add('on');
+    const m = document.getElementById('fh-modal');
+    m.classList.add('on'); m.style.transform = ''; m.style.transition = '';
+    m.querySelector('.modal-body').scrollTop = 0;
+    if (opts.after) opts.after();
+    window.fhModalDirty();
+  }
+  // Re-evaluate Save on every input — the modal's own inputs call this via oninput.
+  window.fhModalDirty = function () {
+    if (!_fhModalCtx) return;
+    const save = document.getElementById('fh-modal-save');
+    save.disabled = !(_fhModalCtx.valid ? _fhModalCtx.valid() : true);
+  };
+  window.fhModalClose = () => window._closeOv();
+  window.fhModalSave = async function () {
+    if (!_fhModalCtx || !_fhModalCtx.save) return;
+    const save = document.getElementById('fh-modal-save'), ctx = _fhModalCtx;
+    save.disabled = true; save.textContent = 'Saving…';   // async writes show progress (HIG)
+    let then;
+    try { then = await ctx.save(); }
+    catch (e) {
+      save.textContent = ctx.saveLabel || 'Save'; save.disabled = false;
+      window.toast && window.toast(_friendly(e));         // recoverable: modal stays open
+      return;
+    }
+    save.textContent = ctx.saveLabel || 'Save';
+    window._closeOv();
+    // A save may ask to reopen the screen (e.g. Income, to show the new row).
+    // Run it *after* the close so it isn't torn down by its own dismissal.
+    if (typeof then === 'function') setTimeout(then, 0);
+  };
+
+  /* Never show raw PostgREST/Postgres text to a user (DESIGN §6). */
+  function _friendly(e) {
+    const raw = String((e && (e.message || e.error_description)) || e || '');
+    if (/row-level security|permission denied|not authorized/i.test(raw)) return 'You don’t have permission for that';
+    if (/duplicate key|already exists/i.test(raw)) return 'That already exists';
+    if (/network|fetch|timeout|Failed to fetch/i.test(raw)) return 'No connection — try again';
+    return 'Something went wrong — try again';
+  }
+  window._fhFriendly = _friendly;
+
+  /* Buttons use the design system's own classes — no inline hex, so themes apply. */
+  const _btn = (label, onclick, cls, style) =>
+    '<button class="' + (cls || '') + '" onclick="' + onclick + '"' + (style ? ' style="' + style + '"' : '') + '>' + label + '</button>';
+  const _S = {
+    cta: 'fh-s-cta',            // primary, brand gradient pill
+    line: 'fh-s-line',          // secondary, brand outline pill
+    ghost: 'fh-s-ghost',        // tertiary text
+    del: 'ex-del fh-s-del'      // destructive: low-prominence text, arm-then-confirm
+  };
+  // UI icons are inline SVG, never emoji (DESIGN §2.6).
+  const _svg = (d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+  const _ICO = {
+    trash: _svg('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')
+  };
 
   // ---- Delete an event: soft delete (archived_at) + full funding reversal ----
   // Confirmation names the exact consequences rather than asking a generic "are you sure".
@@ -4022,18 +4418,33 @@ if('serviceWorker' in navigator){
     const nm = (ev.memories || []).length;
     if (nm) lines.push(nm + ' photo' + (nm > 1 ? 's' : '') + ' will be removed from Memories.');
     if (!lines.length) lines.push('Nothing has been put toward this goal yet.');
-    _fhOverlay(
-      '<div style="font-size:18px;font-weight:800;color:#191022;margin-bottom:8px">Delete “' + _esc(ev.name) + '”?</div>'
-      + '<div style="font-size:14px;color:#7a5a6e;line-height:1.55;margin-bottom:18px">' + lines.join('<br>') + '</div>'
-      + _btn('Delete Event', 'fhConfirmDeleteEvent()', _danger)
-      + _btn('Cancel', '_closeOv()', _ghost)
+    // Cancel is the prominent action; delete is low-prominence text + arm-then-confirm (DESIGN §3).
+    _fhSheet(
+      '<div class="fh-s-h">Delete “' + _esc(ev.name) + '”?</div>'
+      + '<div class="fh-s-sub">' + lines.join('<br>') + '</div>'
+      + _btn('Keep event', '_closeOv()', _S.cta)
+      + _btn('Delete event', 'fhConfirmDeleteEvent(this)', _S.del)
     );
   };
-  window.fhConfirmDeleteEvent = async function () {
+  window.fhConfirmDeleteEvent = async function (btn) {
+    if (btn && !btn.classList.contains('armed')) {        // first tap arms, second confirms
+      btn.classList.add('armed'); btn.textContent = 'Tap again to delete';
+      clearTimeout(window._fhDelArmT);
+      window._fhDelArmT = setTimeout(() => {
+        if (!btn.isConnected) return;
+        btn.classList.remove('armed'); btn.textContent = 'Delete event';
+      }, 3000);
+      return;
+    }
+    clearTimeout(window._fhDelArmT);
     const ev = window.events[window._fhDelEvKey];
     if (!ev) { window._closeOv(); return; }
+    if (btn) { btn.textContent = 'Deleting…'; btn.disabled = true; }
     try { if (ev._dbId) await _rpc('archive_event', { p_event_id: ev._dbId }); }
-    catch (e) { window.toast && window.toast(e.message || 'Couldn’t delete'); return; }
+    catch (e) {
+      if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = 'Delete event'; }
+      window.toast && window.toast(_friendly(e)); return;
+    }
     window._closeOv();
     if (typeof window.closeEvent === 'function') window.closeEvent();
     await window.loadFamilyData();
@@ -4054,55 +4465,140 @@ if('serviceWorker' in navigator){
     const rows = mems.map((m) => {
       const isSelf = m.user_id === uid;
       const tag = m.is_shared ? 'shared' : (m.user_id ? (isSelf ? 'you' : 'member') : 'seat');
-      return '<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #eee">'
-        + '<div style="width:34px;height:34px;border-radius:10px;flex:none;background:' + (m.color || '#8f8a99') + ';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">' + inits(m.name) + '</div>'
-        + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:15px;color:#191022">' + m.name + '</div><div style="font-size:12px;color:#8a7683">' + tag + '</div></div>'
-        + ((owner || isSelf) && !m.is_shared ? _btn('Edit', "fhEditMember('" + m.id + "')", 'border:0;background:#faf2f6;color:#b92e78;border-radius:8px;padding:7px 11px;font-weight:600;font-size:13px') : '')
-        + (owner && !isSelf && !m.is_shared ? _btn('&times;', "fhArchiveMember('" + m.id + "')", 'border:0;background:transparent;color:#c33b4e;font-size:20px;padding:2px 8px;margin-left:4px') : '')
+      return '<div class="fh-s-row">'
+        + '<div class="av av-32" style="background:' + _esc(m.color || '#8f8a99') + '">' + inits(m.name) + '</div>'
+        + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(m.name) + '</div><div class="fh-s-meta">' + tag + '</div></div>'
+        + ((owner || isSelf) && !m.is_shared ? _btn('Edit', "fhEditMember('" + m.id + "')", 'fh-s-edit') : '')
+        + (owner && !isSelf && !m.is_shared
+            ? _btn(_ICO.trash, "fhArchiveMember('" + m.id + "',this)", 'fh-s-act danger')
+            : '')
         + '</div>';
     }).join('');
-    let html = '<div style="font-size:18px;font-weight:800;color:#191022;margin-bottom:2px">' + (fam ? fam.name : 'Family') + '</div>'
-      + '<div style="font-size:13px;color:#7a5a6e;margin-bottom:12px">Members</div>' + rows;
-    if (owner) html += _btn('＋ Add member', 'fhAddMember()', 'width:100%;border:1px dashed #d3b3c6;background:transparent;color:#b92e78;border-radius:12px;padding:12px;font-weight:700;margin-top:12px');
-    html += _btn('Leave this family', 'fhLeaveFamily()', _ghost);
-    if (owner) html += _btn('Delete family', 'fhDeleteFamily()', 'width:100%;border:0;background:transparent;color:#c33b4e;font-weight:600;padding:10px 0 0;font-size:14px');
-    html += _btn('Done', '_closeOv()', 'width:100%;border:0;background:#191022;color:#fff;border-radius:12px;padding:13px;font-weight:700;margin-top:14px');
-    _fhOverlay(html);
+    let html = '<div class="fh-s-h">' + _esc(fam ? fam.name : 'Family') + '</div>'
+      + '<div class="fh-s-lab" style="margin-top:14px">Members</div>' + rows;
+    if (owner) html += _btn('Add member', 'fhAddMember()', _S.line);
+    html += _btn('Done', '_closeOv()', _S.cta);
+    html += _btn('Leave this family', 'fhLeaveFamily(this)', _S.del);
+    if (owner) html += _btn('Delete family', 'fhDeleteFamily(this)', _S.del);
+    _fhSheet(html);
   };
+
+  /* Editing a member is a form → modal with Cancel · Title · Save (DESIGN §4). */
   window.fhEditMember = function (id) {
     const m = (window._fhMembers || []).find((x) => x.id === id) || { name: '', color: '' };
     window._fhMColor = m.color || _pal()[0];
-    const swatches = _pal().map((c) => '<button data-c="' + c + '" onclick="window._fhMColor=this.dataset.c;document.querySelectorAll(\'#fh-mcol button\').forEach(b=>b.style.outline=\'none\');this.style.outline=\'3px solid #191022\'" style="width:32px;height:32px;border-radius:50%;border:0;cursor:pointer;background:' + c + ';outline:' + (c === window._fhMColor ? '3px solid #191022' : 'none') + '"></button>').join('');
-    _fhOverlay('<div style="font-size:17px;font-weight:800;color:#191022;margin-bottom:14px">Edit member</div>'
-      + '<input id="fh-mname" value="' + String(m.name).replace(/"/g, '&quot;') + '" placeholder="Name" style="width:100%;border:1px solid #e4dbe0;border-radius:10px;padding:12px;margin-bottom:14px;font-size:15px;font-family:inherit">'
-      + '<div id="fh-mcol" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">' + swatches + '</div>'
-      + _btn('Save', "fhSaveMember('" + id + "')", _primary) + _btn('Back', 'fhManageFamily()', _ghost));
+    window._fhMName0 = m.name || '';
+    const swatches = _pal().map((c) =>
+      '<button class="fh-s-sw' + (c === window._fhMColor ? ' on' : '') + '" data-c="' + c + '" aria-label="Colour ' + c + '"'
+      + ' onclick="fhPickMColor(this)"><i style="background:' + c + '"></i></button>').join('');
+    _fhModal({
+      title: 'Edit member',
+      saveLabel: 'Save',
+      body: '<div class="field"><label>Name</label>'
+        + '<input id="fh-mname" value="' + _esc(m.name) + '" placeholder="Name" oninput="fhModalDirty()"></div>'
+        + '<div class="field"><label>Colour</label><div class="fh-s-swatches" id="fh-mcol">' + swatches + '</div></div>',
+      valid: () => {
+        const v = (document.getElementById('fh-mname').value || '').trim();
+        return !!v && (v !== window._fhMName0 || window._fhMColor !== (m.color || _pal()[0]));
+      },
+      save: async () => {
+        const name = (document.getElementById('fh-mname').value || '').trim();
+        await _rpc('update_member', { p_member_id: id, p_name: name, p_color: window._fhMColor || null });
+        await window.loadFamilyData();
+        window.toast && window.toast('Member updated');
+      }
+    });
   };
-  window.fhSaveMember = async function (id) {
-    const name = (document.getElementById('fh-mname').value || '').trim(); if (!name) return;
-    try { await _rpc('update_member', { p_member_id: id, p_name: name, p_color: window._fhMColor || null }); }
-    catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
+  window.fhPickMColor = function (btn) {
+    window._fhMColor = btn.dataset.c;
+    btn.parentNode.querySelectorAll('.fh-s-sw').forEach((b) => b.classList.remove('on'));
+    btn.classList.add('on');
+    window.fhModalDirty();
+  };
+
+  // Removing a member is destructive → arm-then-confirm inline on the row's own button.
+  window.fhArchiveMember = async function (id, btn) {
+    if (btn && !btn.classList.contains('armed')) {
+      btn.classList.add('armed'); btn.textContent = 'Remove?';
+      clearTimeout(window._fhMemArmT);
+      window._fhMemArmT = setTimeout(() => {
+        if (!btn.isConnected) return;
+        btn.classList.remove('armed'); btn.innerHTML = _ICO.trash;
+      }, 3000);
+      return;
+    }
+    clearTimeout(window._fhMemArmT);
+    try { await _rpc('archive_member', { p_member_id: id }); }
+    catch (e) { window.toast && window.toast(_friendly(e)); return; }
     await window.loadFamilyData(); window.fhManageFamily();
+    window.toast && window.toast('Member removed');
   };
-  window.fhArchiveMember = async function (id) {
-    if (!confirm('Remove this member? Their history stays in the books.')) return;
-    try { await _rpc('archive_member', { p_member_id: id }); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
-    await window.loadFamilyData(); window.fhManageFamily();
+
+  /* Adding a member is a create form → modal, not a browser prompt(). */
+  window.fhAddMember = function () {
+    window._fhNewColor = _pal()[Math.floor(Math.random() * _pal().length)];
+    const swatches = _pal().map((c) =>
+      '<button class="fh-s-sw' + (c === window._fhNewColor ? ' on' : '') + '" data-c="' + c + '" aria-label="Colour ' + c + '"'
+      + ' onclick="fhPickNewColor(this)"><i style="background:' + c + '"></i></button>').join('');
+    _fhModal({
+      title: 'Add member',
+      saveLabel: 'Add',
+      body: '<div class="field"><label>Name</label>'
+        + '<input id="fh-newname" placeholder="e.g. Emma" oninput="fhModalDirty()"></div>'
+        + '<div class="field"><label>Colour</label><div class="fh-s-swatches">' + swatches + '</div></div>',
+      valid: () => !!(document.getElementById('fh-newname').value || '').trim(),
+      after: () => { const i = document.getElementById('fh-newname'); if (i) i.focus(); },
+      save: async () => {
+        const name = (document.getElementById('fh-newname').value || '').trim();
+        await _rpc('add_member', { p_name: name, p_color: window._fhNewColor });
+        await window.loadFamilyData();
+        window.toast && window.toast('Member added');
+        window.fhManageFamily();
+      }
+    });
   };
-  window.fhAddMember = async function () {
-    const name = prompt('New member name'); if (!name || !name.trim()) return;
-    try { await _rpc('add_member', { p_name: name.trim(), p_color: _pal()[Math.floor(Math.random() * _pal().length)] }); }
-    catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
-    await window.loadFamilyData(); window.fhManageFamily();
+  window.fhPickNewColor = function (btn) {
+    window._fhNewColor = btn.dataset.c;
+    btn.parentNode.querySelectorAll('.fh-s-sw').forEach((b) => b.classList.remove('on'));
+    btn.classList.add('on');
   };
-  window.fhLeaveFamily = async function () {
-    if (!confirm('Leave this family? You can be re-invited later.')) return;
-    try { await _rpc('leave_family'); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
+
+  window.fhLeaveFamily = async function (btn) {
+    if (btn && !btn.classList.contains('armed')) {
+      btn.classList.add('armed'); btn.textContent = 'Tap again to leave';
+      clearTimeout(window._fhLeaveT);
+      window._fhLeaveT = setTimeout(() => {
+        if (!btn.isConnected) return;
+        btn.classList.remove('armed'); btn.textContent = 'Leave this family';
+      }, 3000);
+      return;
+    }
+    clearTimeout(window._fhLeaveT);
+    if (btn) { btn.textContent = 'Leaving…'; btn.disabled = true; }
+    try { await _rpc('leave_family'); }
+    catch (e) {
+      if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = 'Leave this family'; }
+      window.toast && window.toast(_friendly(e)); return;
+    }
     window._closeOv(); location.reload();
   };
-  window.fhDeleteFamily = async function () {
-    if (!confirm('Delete this family for everyone? Data is kept but the family disappears.')) return;
-    try { await _rpc('archive_family', { p_family_id: window.DB.fid }); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
+  window.fhDeleteFamily = async function (btn) {
+    if (btn && !btn.classList.contains('armed')) {
+      btn.classList.add('armed'); btn.textContent = 'Tap again — deletes for everyone';
+      clearTimeout(window._fhDelFamT);
+      window._fhDelFamT = setTimeout(() => {
+        if (!btn.isConnected) return;
+        btn.classList.remove('armed'); btn.textContent = 'Delete family';
+      }, 3000);
+      return;
+    }
+    clearTimeout(window._fhDelFamT);
+    if (btn) { btn.textContent = 'Deleting…'; btn.disabled = true; }
+    try { await _rpc('archive_family', { p_family_id: window.DB.fid }); }
+    catch (e) {
+      if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = 'Delete family'; }
+      window.toast && window.toast(_friendly(e)); return;
+    }
     window._closeOv(); location.reload();
   };
 
@@ -4110,49 +4606,90 @@ if('serviceWorker' in navigator){
   window.fhSavings = function () {
     if (!window.DB.fid) { window.toast && window.toast('Open a family first'); return; }
     const cur = window.savings || 0;
-    _fhOverlay('<div style="font-size:18px;font-weight:800;color:#191022;margin-bottom:2px">Saved for events</div>'
-      + '<div style="font-size:13px;color:#7a5a6e;margin-bottom:16px">Money you’ve set aside to fund goals — separate from income.</div>'
-      + '<div style="font-size:12px;color:#7a5a6e;margin-bottom:6px">Set the total to:</div>'
-      + '<input id="fh-sav" inputmode="numeric" style="width:100%;border:1px solid #e4dbe0;border-radius:10px;padding:14px;margin-bottom:16px;font-size:20px;font-weight:800;color:#b92e78;font-family:inherit">'
-      + _btn('Save', 'fhSetSavings()', _primary) + _btn('Cancel', '_closeOv()', _ghost));
-    const inp = document.getElementById('fh-sav');
-    if (inp) inp.value = (window.curMult ? cur * window.curMult() : cur).toLocaleString(window.CUR === 'VND' ? 'vi-VN' : 'en-US');
-  };
-  window.fhSetSavings = async function () {
-    const base = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-sav').value) : 0;
-    try { await _rpc('set_savings', { p_amount: base || 0 }); } catch (e) { window.toast && window.toast(e.message || 'Failed'); return; }
-    window._closeOv(); await window.loadFamilyData(); window.toast && window.toast('Savings updated');
+    const shown = window.amtToInput ? window.amtToInput(cur) : String(cur);
+    _fhModal({
+      title: 'Saved for events',
+      body: '<div class="fh-s-sub">Money you’ve set aside to fund goals — separate from income.</div>'
+        + '<div class="field"><label>Set the total to</label>'
+        + '<input id="fh-sav" class="num big" inputmode="numeric" value="' + _esc(shown) + '" oninput="fhModalDirty()"></div>'
+        + '<div class="field-hint">' + _esc(window.curSym ? window.curSym() : '') + ' · this replaces the pool total, it doesn’t add to it.</div>',
+      valid: () => {
+        const v = (document.getElementById('fh-sav').value || '').trim();
+        return v !== '' && v !== shown;
+      },
+      save: async () => {
+        const base = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-sav').value) : 0;
+        await _rpc('set_savings', { p_amount: base || 0 });
+        await window.loadFamilyData();
+        window.toast && window.toast('Savings updated');
+      }
+    });
   };
 
   // ---- Income (separate ledger) ----
   window.fhIncome = async function () {
     const fid = window.DB.fid; if (!fid) { window.toast && window.toast('Open a family first'); return; }
-    const { data: inc } = await sb.from('incomes').select('id,amount,note,income_date').eq('family_id', fid).order('income_date', { ascending: false }).limit(20);
-    const mk = (window.DB.month || '').slice(0, 7);
-    const monthTotal = (inc || []).filter((r) => String(r.income_date).slice(0, 7) === mk).reduce((s, r) => s + Number(r.amount), 0);
-    const list = (inc || []).map((r) => '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #eee"><div style="min-width:0"><div style="font-size:14px;color:#191022">' + (r.note || 'Income') + '</div><div style="font-size:11px;color:#8a7683">' + r.income_date + '</div></div><div style="display:flex;align-items:center;gap:6px;flex:none"><span style="color:#1a7a4a;font-weight:700">+' + (window.fmt ? window.fmt(Number(r.amount)) : r.amount) + '</span>' + _btn('&times;', "fhDelIncome('" + r.id + "')", 'border:0;background:transparent;color:#c33b4e;font-size:18px;padding:0 6px') + '</div></div>').join('');
-    _fhOverlay('<div style="font-size:18px;font-weight:800;color:#191022;margin-bottom:2px">Income</div>'
-      + '<div style="font-size:13px;color:#7a5a6e;margin-bottom:14px">Money coming in — tracked on its own, never auto-saved.</div>'
-      + '<div style="background:#eef7f1;border-radius:12px;padding:12px 14px;margin-bottom:14px"><div style="font-size:11px;color:#1a7a4a;letter-spacing:.06em;text-transform:uppercase">This month</div><div style="font-size:22px;font-weight:800;color:#1a7a4a">' + (window.fmt ? window.fmt(monthTotal) : monthTotal) + '</div></div>'
-      + '<input id="fh-inc-amt" inputmode="numeric" placeholder="Amount" style="width:100%;border:1px solid #e4dbe0;border-radius:10px;padding:11px;margin-bottom:8px;font-size:15px;font-family:inherit">'
-      + '<input id="fh-inc-note" placeholder="Note (e.g. Salary)" style="width:100%;border:1px solid #e4dbe0;border-radius:10px;padding:11px;margin-bottom:12px;font-size:15px;font-family:inherit">'
-      + _btn('＋ Add income', 'fhAddIncome()', 'width:100%;border:0;background:#1a7a4a;color:#fff;border-radius:12px;padding:12px;font-weight:700;font-size:15px')
-      + '<div style="margin-top:14px">' + (list || '<div style="color:#8a7683;font-size:13px;text-align:center;padding:12px">No income logged yet</div>') + '</div>'
-      + _btn('Done', '_closeOv()', 'width:100%;border:0;background:#191022;color:#fff;border-radius:12px;padding:13px;font-weight:700;margin-top:14px'));
-  };
-  window.fhAddIncome = async function () {
-    const base = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-inc-amt').value) : 0;
-    if (!base) return;
-    const note = (document.getElementById('fh-inc-note').value || '').trim() || 'Income';
-    const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
-    const iso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    let inc = [];
     try {
-      const { error } = await sb.from('incomes').insert({ family_id: window.DB.fid, member_id: window.DB.ownerMemberId || null, amount: base, note: note, income_date: iso });
+      const { data, error } = await sb.from('incomes').select('id,amount,note,income_date').eq('family_id', fid).order('income_date', { ascending: false }).limit(20);
       if (error) throw error;
-    } catch (e) { window.toast && window.toast('Couldn’t add income'); return; }
+      inc = data || [];
+    } catch (e) { window.toast && window.toast(_friendly(e)); return; }
+    const mk = (window.DB.month || '').slice(0, 7);
+    const monthTotal = inc.filter((r) => String(r.income_date).slice(0, 7) === mk).reduce((s, r) => s + Number(r.amount), 0);
+    const f = (n) => (window.fmt ? window.fmt(n) : n);
+    const list = inc.map((r) =>
+      '<div class="fh-s-row">'
+      + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(r.note || 'Income') + '</div><div class="fh-s-meta">' + _esc(r.income_date) + '</div></div>'
+      + '<span class="num" style="color:var(--good);font-weight:700;flex:none">+' + f(Number(r.amount)) + '</span>'
+      + _btn(_ICO.trash, "fhDelIncome('" + r.id + "',this)", 'fh-s-act danger')
+      + '</div>').join('');
+    _fhModal({
+      title: 'Income',
+      saveLabel: 'Add',
+      body: '<div class="fh-s-sub">Money coming in — tracked on its own, never auto-saved.</div>'
+        + '<div class="fh-s-stat"><div class="k">This month</div><div class="v">' + f(monthTotal) + '</div></div>'
+        + '<div class="field"><label>Amount</label>'
+        + '<input id="fh-inc-amt" inputmode="numeric" placeholder="' + _esc(window.amtPlaceholder ? window.amtPlaceholder() : '') + '" oninput="fhModalDirty()"></div>'
+        + '<div class="field"><label>Note <span class="opt">optional</span></label>'
+        + '<input id="fh-inc-note" placeholder="e.g. Salary" oninput="fhModalDirty()"></div>'
+        + '<div class="fh-s-lab" style="margin-top:26px">Recent</div>'
+        + (list || '<div class="fh-s-empty">No income logged yet — add your first above.</div>'),
+      valid: () => {
+        const b = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-inc-amt').value) : 0;
+        return b > 0;
+      },
+      save: async () => {
+        const base = window.parseAmtBase(document.getElementById('fh-inc-amt').value);
+        const note = (document.getElementById('fh-inc-note').value || '').trim() || 'Income';
+        const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
+        const iso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        const { error } = await sb.from('incomes').insert({ family_id: window.DB.fid, member_id: window.DB.ownerMemberId || null, amount: base, note: note, income_date: iso });
+        if (error) throw error;
+        window.toast && window.toast('Income added');
+        return window.fhIncome;                            // reopen with the new row in place
+      }
+    });
+  };
+  // Deleting income is destructive and permanent → arm-then-confirm on the row itself.
+  window.fhDelIncome = async function (id, btn) {
+    if (btn && !btn.classList.contains('armed')) {
+      btn.classList.add('armed'); btn.textContent = 'Delete?';
+      clearTimeout(window._fhIncArmT);
+      window._fhIncArmT = setTimeout(() => {
+        if (!btn.isConnected) return;
+        btn.classList.remove('armed'); btn.innerHTML = _ICO.trash;
+      }, 3000);
+      return;
+    }
+    clearTimeout(window._fhIncArmT);
+    try {
+      const { error } = await sb.from('incomes').delete().eq('id', id);
+      if (error) throw error;
+    } catch (e) { window.toast && window.toast(_friendly(e)); return; }
+    window.toast && window.toast('Income deleted');
     window.fhIncome();
   };
-  window.fhDelIncome = async function (id) { try { const { error } = await sb.from('incomes').delete().eq('id', id); if (error) throw error; } catch (e) { window.toast && window.toast('Couldn’t delete'); } window.fhIncome(); };
 
   (async () => {
     const { data: { session } } = await sb.auth.getSession();
@@ -4179,25 +4716,25 @@ if('serviceWorker' in navigator){
     const created = true;
     const F = window.FAM || { user: {} };
     // owner member: adopt the name + colour chosen in onboarding
-    await sb.from('members').update({ name: F.user.name, color: F.user.color })
-      .eq('family_id', familyId).eq('user_id', uid);
+    await _w(sb.from('members').update({ name: F.user.name, color: F.user.color })
+      .eq('family_id', familyId).eq('user_id', uid), 'write members');
     // profile: display name, theme, language
-    await sb.from('profiles').update({
+    await _w(sb.from('profiles').update({
       display_name: F.user.name, theme: (window.curTheme || 'sage'), language: window.LANG || 'vi'
-    }).eq('id', uid);
+    }).eq('id', uid), 'write profiles');
     if (created) {
       // extra (non-me) members entered during onboarding
       const extras = (F.members || []).filter((m) => !m.me && (m.name || '').trim());
       if (extras.length) {
-        await sb.from('members').insert(extras.map((m) => ({
+        await _w(sb.from('members').insert(extras.map((m) => ({
           family_id: familyId, name: m.name.trim(), color: m.color || null
-        })));
+        }))), 'write members');
       }
       // budget: current-month cap + per-category budgets (mapped by sort_order → catOrder)
       const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
       const month = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
-      if (F.budget) await sb.from('monthly_budgets')
-        .upsert({ family_id: familyId, month, budget_total: F.budget }, { onConflict: 'family_id,month' });
+      if (F.budget) await _w(sb.from('monthly_budgets')
+        .upsert({ family_id: familyId, month, budget_total: F.budget }, { onConflict: 'family_id,month' }), 'write monthly_budgets');
       const { data: cats } = await sb.from('categories').select('id, sort_order').eq('family_id', familyId);
       const order = window.catOrder || [];
       const rows = [];
@@ -4206,8 +4743,8 @@ if('serviceWorker' in navigator){
         const amt = (key && F.catBudget) ? (F.catBudget[key] || 0) : 0;
         if (amt > 0) rows.push({ family_id: familyId, month, category_id: c.id, amount: amt });
       });
-      if (rows.length) await sb.from('category_budgets')
-        .upsert(rows, { onConflict: 'family_id,month,category_id' });
+      if (rows.length) await _w(sb.from('category_budgets')
+        .upsert(rows, { onConflict: 'family_id,month,category_id' }), 'write category_budgets');
     }
   }
 
@@ -4218,12 +4755,12 @@ if('serviceWorker' in navigator){
     const uid = session.user.id;
     const F = window.FAM || { user: {} };
     if (F.joinFamilyId && F.user) {
-      await sb.from('members').update({ name: F.user.name, color: F.user.color })
-        .eq('family_id', F.joinFamilyId).eq('user_id', uid);
+      await _w(sb.from('members').update({ name: F.user.name, color: F.user.color })
+        .eq('family_id', F.joinFamilyId).eq('user_id', uid), 'write members');
     }
-    await sb.from('profiles').update({
+    await _w(sb.from('profiles').update({
       display_name: F.user.name, theme: (window.curTheme || 'sage'), language: window.LANG || 'vi'
-    }).eq('id', uid);
+    }).eq('id', uid), 'write profiles');
   }
 
   const _origFinish = window.finishOnboarding;
@@ -4235,7 +4772,10 @@ if('serviceWorker' in navigator){
       if (window.FAM && window.FAM.mode === 'create') { busy(true); await createFamilyInDB(); }
       else if (window.FAM && window.FAM.mode === 'join') { busy(true); await joinFinalizeDB(); }
     } catch (e) {
-      alert('Could not finish setup: ' + (e.message || e)); busy(false); return;
+      busy(false);
+      // Stay on the step so the user can retry — their answers are still in the form.
+      window.toast && window.toast(_friendly(e));
+      return;
     }
     busy(false);
     if (typeof _origFinish === 'function') _origFinish();
@@ -4243,32 +4783,23 @@ if('serviceWorker' in navigator){
   };
 
   // ── Owner: generate a shareable invite code (Settings → Invite a member) ──
+  // Sharing a code is a quick action → bottom sheet, on the app's own layer.
   window.fhInvite = async function () {
     let code;
-    try {
-      const { data, error } = await sb.rpc('create_invite');
-      if (error) throw error;
-      code = data;
-    } catch (e) { alert('Could not create an invite: ' + (e.message || e)); return; }
-    let ov = document.getElementById('fh-invite-ov');
-    if (ov) ov.remove();
-    ov = document.createElement('div');
-    ov.id = 'fh-invite-ov';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(20,12,26,.5);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)';
-    ov.innerHTML =
-      '<div style="background:#fff;border-radius:22px;padding:26px 24px;width:86%;max-width:340px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.28);font-family:inherit">'
-      + '<div style="font-size:16px;font-weight:800;color:#191022;margin-bottom:6px">Invite code</div>'
-      + '<div style="font-size:13px;color:#7a5a6e;line-height:1.45;margin-bottom:18px">Share this with your family member. They open FamilyHub, choose “Join a family”, and enter it.</div>'
-      + '<div style="font-family:ui-monospace,Menlo,monospace;font-size:32px;font-weight:800;letter-spacing:6px;color:#b92e78;background:#faf2f6;border-radius:14px;padding:16px 0;margin-bottom:16px">' + code + '</div>'
-      + '<button id="fh-copy" style="width:100%;border:0;border-radius:14px;padding:14px;background:#b92e78;color:#fff;font-weight:700;font-size:15px;font-family:inherit">Copy code</button>'
-      + '<button id="fh-close" style="width:100%;border:0;background:transparent;color:#7a5a6e;font-weight:600;font-size:14px;padding:12px 0 0;font-family:inherit">Done</button>'
-      + '</div>';
-    document.body.appendChild(ov);
-    document.getElementById('fh-copy').onclick = async () => {
-      try { await navigator.clipboard.writeText(code); document.getElementById('fh-copy').textContent = 'Copied ✓'; } catch (e) {}
-    };
-    document.getElementById('fh-close').onclick = () => ov.remove();
-    ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
+    try { code = await _rpc('create_invite'); }
+    catch (e) { window.toast && window.toast(_friendly(e)); return; }
+    window._fhInviteCode = code;
+    _fhSheet(
+      '<div class="fh-s-h">Invite code</div>'
+      + '<div class="fh-s-sub">Share this with your family member. They open FamilyHub, choose “Join a family”, and enter it.</div>'
+      + '<div class="fh-code-show">' + _esc(code) + '</div>'
+      + _btn('Copy code', 'fhCopyInvite(this)', _S.cta)
+      + _btn('Done', '_closeOv()', _S.ghost)
+    );
+  };
+  window.fhCopyInvite = async function (btn) {
+    try { await navigator.clipboard.writeText(window._fhInviteCode || ''); btn.textContent = 'Copied ✓'; }
+    catch (e) { window.toast && window.toast('Couldn’t copy — write it down instead'); }
   };
 
   // ── Joiner: code input + redeem ──
@@ -4290,7 +4821,11 @@ if('serviceWorker' in navigator){
       if (error) throw error;
       if (window.FAM) { window.FAM.mode = 'join'; window.FAM.joinFamilyId = data.family_id; window.FAM.familyName = data.family_name || ''; }
     } catch (e) {
-      alert('Could not join: ' + (e.message || e));
+      // Wrong/expired codes are the common case — say so plainly, keep them on the step.
+      const raw = String((e && e.message) || '');
+      window.toast && window.toast(
+        /invalid|not found|expired|no rows/i.test(raw) ? 'That code isn’t valid — check it and try again' : _friendly(e)
+      );
       if (cta) { cta.disabled = false; cta.textContent = label; }
       return;
     }

@@ -212,6 +212,39 @@ Centered emoji + short title + one-line hint on a white rounded block. Always gu
 - **Destructive confirm:** arm-then-confirm (see Buttons). Deleting a linked object cleans up its
   dependents (e.g. removing an expense's photos also removes its linked memory event).
 
+### 4.1 Never use browser chrome
+
+`alert()`, `confirm()` and `prompt()` are **banned** — they break the native illusion instantly,
+ignore the theme, and escape the device frame on desktop. Every case has a house equivalent:
+
+| Instead of | Use |
+|---|---|
+| `alert('failed: ' + e.message)` | `toast(_friendly(e))` — see §4.3 |
+| `confirm('Delete X?')` | Arm-then-confirm on a low-prominence control, or a `_fhSheet` naming the consequences |
+| `prompt('Name?')` | A form in `_fhModal` (Cancel · Title · Save) |
+
+Dynamic UI built by the auth/data module uses `_fhSheet(html)` for quick menus and confirms, and
+`_fhModal({title, body, valid, save})` for forms. Both mount **inside `.phone`**, so they stay in
+the device frame, inherit drag-to-dismiss, and sit below the toast (z-80) — anything appended to
+`document.body` above z-1 covers the whole browser window and hides its own error messages.
+
+### 4.2 Async actions
+
+Every async write shows progress and cannot be double-fired: disable the control, swap its label
+(`Saving…`, `Deleting…`), and restore it on failure. `_fhModal`'s Save does this for you.
+Long background work (photo upload) uses the `fhUploadBusy()` counter chip, not a toast.
+
+**Never confirm success before the write lands.** A toast fired at modal-close time is a lie if the
+request then fails — report from the completion handler.
+
+### 4.3 Errors
+
+- Writes go through `_w(query, label)`. supabase-js **resolves** `{data, error}` on 4xx, so a bare
+  `await sb.from(x).update(...)` swallows RLS denials and reports false success.
+- Users never see raw Postgres text. `_friendly(e)` maps errors to human sentences.
+- Errors must be recoverable: keep the form open, keep their input, offer the retry.
+- Offline is surfaced by the `#fh-offline` banner (`html.fh-offline`), because writes are optimistic.
+
 ---
 
 ## 5. Layout shell & PWA (native feel)
@@ -233,10 +266,43 @@ Centered emoji + short title + one-line hint on a white rounded block. Always gu
 
 - **Language:** English. Warm, concise, human ("Here's how the family's money looks today.",
   "You're all set!"). Second person. No jargon, no consultant-ese.
-- **Money:** `fmt()` → `$1,070` (grouped, no cents) · `fmtK()` → `$1.2k` for compact charts.
+- **Money:** see §6.1 — never hand-format an amount.
 - **Roles are relational and playful:** Mom, Dad, Husband, Wife, Boyfriend, Sweetheart, Partner,
   Son, Daughter, Kid, Teen, Guardian, Grandma/Grandpa, and fun ones (Coldheart, Man of steel…).
 - **Empty states and nudges** always offer the next step, never a dead end.
+
+### 6.1 Currency
+
+The app is bi-currency (`CUR` = `'USD'` | `'VND'`, chosen in onboarding). **Never format an
+amount by hand and never hardcode a symbol** — every rule below is already encoded in a helper.
+
+| Helper | USD | VND | Use |
+|---|---|---|---|
+| `fmt(n)` | `$9,000` | `9.000.000 ₫` | Any amount shown as text |
+| `fmtK(n)` | `$1.2k` | `4tr ₫` · `120k ₫` | Compact chart labels |
+| `amtToInput(n)` | `9,000` | `9.000.000` | Base value → what an input shows (no symbol) |
+| `parseAmtBase(s)` | `9000` | `9000` | What an input holds → the value we store |
+| `amtPlaceholder()` | `9,000` | `9.000.000` | The only placeholder source for a money field |
+| `snapAmtInput(el)` | — | rounds to 1,000đ | `onblur` on every money input |
+
+**Symbol placement follows the locale: `$` prefixes, `₫` suffixes.** This holds in `fmt`, in
+`fmtK`, and in the budget editor's input affix — an amount must never read `₫ 9.000.000` in one
+place and `9.000.000 ₫` in another.
+
+**Storage unit.** VND is stored in units of **1,000đ** (`curMult()` = 1000), so the display value
+is 1,000× the stored one. Sub-1,000đ input can't be represented — `snapAmtInput()` therefore
+rewrites the field on blur to the value that will actually be saved, so rounding is *visible*
+rather than silently applied underneath the user.
+
+**Grouping separators differ** (`vi-VN` dots, `en-US` commas). Always go through `amtPlaceholder()`
+/ `amtToInput()`; a hardcoded `9,000,000` teaches VND users a format the field never produces.
+
+**Layout.** VND figures are ~4 characters longer. `html.cur-vnd` scale-down rules exist for the
+hero, overview, category rows, `.sum-num`, `.cd-sum-num` and `.cat-bud` — extend that block when
+adding any new large figure rather than letting it clip. Every money figure carries `.num`
+(or `font-variant-numeric: tabular-nums`) so digits don't jitter between renders.
+
+Money inputs are `inputmode="numeric"` (never `type="number"` — the values are grouped strings).
 
 ---
 
@@ -252,3 +318,7 @@ Centered emoji + short title + one-line hint on a white rounded block. Always gu
 - [ ] Hidden layers use `visibility:hidden`; scroll containers don't clip shadows.
 - [ ] Bumped `sw.js` `CACHE_NAME`.
 - [ ] Copy is warm, concise, English; empty states guide the next action.
+- [ ] No `alert` / `confirm` / `prompt`; no raw hex (tokens only, so all 5 themes apply).
+- [ ] Money via §6.1 helpers; `inputmode="numeric"` + `onblur="snapAmtInput(this)"`.
+- [ ] Writes wrapped in `_w()`; success reported only after the write lands.
+- [ ] User-authored text escaped with `esc()` / `escAttr()` before it enters HTML or an `onclick`.
