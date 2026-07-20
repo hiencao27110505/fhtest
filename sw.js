@@ -1,5 +1,5 @@
 /* FamilyHub — offline-first service worker */
-const CACHE_NAME = 'familyhub-v106';
+const CACHE_NAME = 'familyhub-v107';
 const ASSETS = [
   './',
   './index.html',
@@ -26,6 +26,11 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
+  // Only manage SAME-ORIGIN requests. Never touch cross-origin calls (Supabase
+  // REST/RPC/Storage, Google, fonts): cache-first there froze API GETs at their
+  // first response, so every write appeared to revert after loadFamilyData re-read.
+  // Let them go straight to the network — always fresh.
+  if (new URL(req.url).origin !== self.location.origin) return;
   // Network-first for the document so edits show up; cache fallback offline.
   if (req.mode === 'navigate') {
     e.respondWith(
