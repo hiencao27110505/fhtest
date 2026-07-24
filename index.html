@@ -2565,11 +2565,14 @@ function secHTML(titleHTML,count,mosaic){
 function evAmount(e){ var v=(e.saved>0?e.saved:(e.target||0)); return v>0?v:0; }
 // A collage for one event, captioned on the photo (name + amount) — no sub-heading above it.
 function evBlockHTML(items,k){
-  var cap='';
-  if(k){
-    var e=events[k], amt=evAmount(e), c=items.length;
-    var sub=(amt?fmt(amt)+' · ':'')+c+' photo'+(c!==1?'s':'');
+  var cap='', c=items.length, ct=c+' photo'+(c!==1?'s':'');
+  if(k){                                                  // an event: title from the event record
+    var e=events[k], amt=evAmount(e);
+    var sub=(amt?fmt(amt)+' · ':'')+ct;
     cap='<div class="pm-cap"><div class="pm-cap-t">'+esc(e.emoji)+' '+esc(e.name)+'</div><div class="pm-cap-s">'+esc(sub)+'</div></div>';
+  } else if(items[0] && items[0].type==='expense'){       // an expense: titled just like an event (emoji + note · amount · N photos)
+    var r0=items[0], sub2=(r0.meta?r0.meta+' · ':'')+ct;
+    cap='<div class="pm-cap"><div class="pm-cap-t">'+esc(r0.emoji||'📸')+' '+esc(r0.cap||'Expense')+'</div><div class="pm-cap-s">'+esc(sub2)+'</div></div>';
   }
   return '<div class="pm-block">'+mosaicHTML(items)+cap+'</div>';
 }
@@ -2578,29 +2581,39 @@ function photoSectionsByDate(recs){
   var groups=[], by={};
   recs.forEach(function(r){
     var key=r.d?(r.d.getFullYear()+'-'+r.d.getMonth()+'-'+r.d.getDate()):'x';
-    if(!by[key]){ by[key]={d:r.d,items:[],evs:[],byEv:{},moments:[]}; groups.push(by[key]); }
+    if(!by[key]){ by[key]={d:r.d,items:[],order:[],byRef:{},moments:[]}; groups.push(by[key]); }
     by[key].items.push(r);
-    if(r.type==='event'){
-      if(by[key].evs.indexOf(r.ref)<0){ by[key].evs.push(r.ref); by[key].byEv[r.ref]=[]; }
-      by[key].byEv[r.ref].push(r);
+    if(r.type==='event'||r.type==='expense'){             // both events and expenses get their own titled block
+      var rk=r.type+':'+r.ref;
+      if(!by[key].byRef[rk]){ by[key].byRef[rk]=[]; by[key].order.push(rk); }
+      by[key].byRef[rk].push(r);
     } else by[key].moments.push(r);
   });
   return groups.map(function(g){
-    var body=g.evs.map(function(k){ return evBlockHTML(g.byEv[k],k); }).join('');
+    var body=g.order.map(function(rk){ var items=g.byRef[rk]; return evBlockHTML(items, items[0].type==='event'?items[0].ref:null); }).join('');
     if(g.moments.length) body+=evBlockHTML(g.moments,null);
     return secHTML('<div class="photo-sec-title">'+fmtDateLong(g.d)+'</div>', g.items.length, body);
   }).join('');
 }
 // Photos-by-date screen: group by EVENT (name links to the event) + an "Everyday moments" section.
 function photoSectionsByEvent(recs){
-  var order2=[], byEv={}, moments=[];
+  var order2=[], byRef={}, moments=[];
   recs.forEach(function(r){
-    if(r.type==='event'){ if(!byEv[r.ref]){ byEv[r.ref]={ev:r.ref,items:[]}; order2.push(byEv[r.ref]); } byEv[r.ref].items.push(r); }
-    else moments.push(r);
+    if(r.type==='event'||r.type==='expense'){
+      var rk=r.type+':'+r.ref;
+      if(!byRef[rk]){ byRef[rk]={type:r.type,ref:r.ref,items:[]}; order2.push(byRef[rk]); }
+      byRef[rk].items.push(r);
+    } else moments.push(r);
   });
   var html='';
-  order2.forEach(function(g){ var e=events[g.ev];
-    html+=secHTML('<button class="photo-sec-title" onclick="openEvent(&#39;'+escAttr(g.ev)+'&#39;)">'+esc(e.emoji)+' '+esc(e.name)+' ›</button>', g.items.length, mosaicHTML(g.items));
+  order2.forEach(function(g){
+    var titleHTML;
+    if(g.type==='event'){ var e=events[g.ref];
+      titleHTML='<button class="photo-sec-title" onclick="openEvent(&#39;'+escAttr(g.ref)+'&#39;)">'+esc(e.emoji)+' '+esc(e.name)+' ›</button>';
+    } else { var r0=g.items[0];                            // an expense — title links to the expense
+      titleHTML='<button class="photo-sec-title" onclick="openEditExpense(&#39;'+escAttr(g.ref)+'&#39;)">'+esc(r0.emoji||'📸')+' '+esc(r0.cap||'Expense')+' ›</button>';
+    }
+    html+=secHTML(titleHTML, g.items.length, mosaicHTML(g.items));
   });
   if(moments.length) html+=secHTML('<div class="photo-sec-title">Everyday moments</div>', moments.length, mosaicHTML(moments));
   return html;
