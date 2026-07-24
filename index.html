@@ -108,6 +108,9 @@ input{font-family:inherit}
 .hero{background:var(--grad-hero);color:#fff;padding:0 24px 52px;position:relative;overflow:hidden}
 .hero::after{content:'';position:absolute;top:-70px;right:-50px;width:230px;height:230px;border-radius:50%;
   background:radial-gradient(circle,rgba(255,255,255,.22),transparent 70%);pointer-events:none}
+/* second, softer glow low-left for warmth + depth (no asset needed) */
+.hero::before{content:'';position:absolute;bottom:-40px;left:-30px;width:180px;height:180px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.14),transparent 70%);pointer-events:none}
 .hero .safe{height:max(env(safe-area-inset-top),16px)}
 .hero-top{padding-top:10px;position:relative;z-index:1}
 .hrow{display:flex;justify-content:space-between;align-items:center}
@@ -737,7 +740,13 @@ input{font-family:inherit}
 .memory .m-date{position:relative;color:rgba(255,255,255,.85);font-size:12.5px;letter-spacing:-.01em;margin-top:3px}
 /* Home: horizontal memory strip */
 /* vertical padding so card shadows aren't clipped by the horizontal scroll (overflow-x forces overflow-y to clip) */
-.mem-strip{display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding:13px 16px 26px;margin-bottom:-8px}
+/* Carousel gutter via flex spacers (WebKit eats a scroll container's inline padding
+   once it overflows). Leading spacer 10px + 12px gap = 22px, so the first card
+   left-aligns with the "Memories" title (.section-h, 22px) — the iOS carousel pattern,
+   title and first card sharing one margin. Trailing 4px + gap = 16px breathing room. */
+.mem-strip{display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding:13px 0 26px;margin-bottom:-8px;scroll-padding-left:22px}
+.mem-strip::before{content:'';flex:0 0 10px}
+.mem-strip::after{content:'';flex:0 0 4px}
 .mem-strip::-webkit-scrollbar{display:none}
 /* Memories: photos grouped into date / event sections, each a rounded collage card */
 .photo-sec{margin-top:24px}
@@ -1175,11 +1184,11 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="section-h"><span class="t">Coming up</span><a onclick="go('events')">All events</a></div>
   <div class="rows" id="home-events"></div>
 
-  <div class="section-h"><span class="t">Recent</span><a onclick="clearFilter();go('spending');segTo('activity')">All</a></div>
-  <div class="rows" id="home-tx"></div>
-
   <div class="section-h"><span class="t">Memories</span><a onclick="go('memories')">All</a></div>
   <div class="mem-strip" id="home-memories"></div>
+
+  <div class="section-h"><span class="t">Recent</span><a onclick="clearFilter();go('spending');segTo('activity')">All</a></div>
+  <div class="rows" id="home-tx"></div>
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
     <span class="sf-heart">💛</span>
     <span class="sf-t">Ideas or gripes? We're always listening</span>
@@ -2266,8 +2275,13 @@ function memTileHTML(k){
   return '<div class="memory '+cls+'" '+style+' onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+subj+'<div class="scrim"></div><div class="m-cap">'+esc(e.name)+'</div><div class="m-date">'+esc(sub)+'</div></div>';
 }
 function renderEvents(){
-  var up=order.filter(function(k){return !achievedNow(events[k]);});
-  var mem=order.filter(function(k){return achievedNow(events[k]);});
+  // Mirror events (shadow events standing in for a photo-expense) no longer appear in
+  // the Events tab — their photos live in Memories directly (see buildMemRecords). Real
+  // savings goals, including genuinely achieved ones, are unaffected. The mirror is still
+  // CREATED under the hood (syncExpenseEvent) — only its display here is suppressed.
+  var isMirror=function(k){ var e=events[k]; return !!(e&&(e._srcTxn||e.fromExpense)); };
+  var up=order.filter(function(k){return !isMirror(k)&&!achievedNow(events[k]);});
+  var mem=order.filter(function(k){return !isMirror(k)&&achievedNow(events[k]);});
   var upS=up.slice().sort(function(a,b){return events[a].d-events[b].d;});
   // compact stats summary (home)
   var toSave=upS.reduce(function(s,k){return s+Math.max(0,events[k].target-events[k].saved);},0);
@@ -2294,7 +2308,10 @@ function renderEvents(){
   setTxt('sav-avail-lbl',fmt(savings)+' ready');
   // hero savings summary tile
   setTxt('ht-sav',fmt(totSav));
-  setTxt('ht-sav-s',fmt(stillToHave)+' to go');
+  // warm the abstract savings figure into concrete progress toward the next goal
+  var nextEv=upS.length?events[upS[0]]:null;
+  if(nextEv){ var np=Math.min(100,Math.round(nextEv.saved/nextEv.target*100)); setHTML('ht-sav-s', np+'% to '+esc(nextEv.name)); }
+  else setTxt('ht-sav-s', fmt(stillToHave)+' to go');
   var eb=document.getElementById('ev-badge');
   if(eb){ if(thisMonth>0){ eb.className='b-badge over'; eb.textContent=fmt(thisMonth)+' due soon'; }
           else { eb.className='b-badge ok'; eb.textContent='nothing due soon'; } }
@@ -2304,13 +2321,14 @@ function renderEvents(){
   var rows='';
   homeUp.forEach(function(k){
     var e=events[k], pct=Math.round(e.saved/e.target*100), dl=daysLeft(e.d);
+    var evCov=(e.memories&&e.memories[0]&&e.memories[0].src);   // a saved photo makes the goal feel real, not just a number
     rows+='<div class="ev-row" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'
-      +'<div class="em-sm">'+e.emoji+'</div>'
+      +(evCov?'<div class="em-sm" style="background-image:url('+evCov+');background-size:cover;background-position:center"></div>':'<div class="em-sm">'+e.emoji+'</div>')
       +'<div class="evb"><div class="evt"><span>'+e.name+'</span><span class="p num">'+pct+'%</span></div>'
       +'<div class="evs">'+(dl===0?'due today':'in '+dl+' days')+' · '+fmt(Math.max(0,e.target-e.saved))+' to go</div>'
       +'<div class="evbar"><i style="width:'+pct+'%"></i></div></div></div>';
   });
-  document.getElementById('home-events').innerHTML=rows||'<div style="padding:16px 18px;color:var(--muted);font-size:14px">Nothing coming up.</div>';
+  document.getElementById('home-events').innerHTML=rows||'<div style="padding:26px 20px;text-align:center"><div style="font-size:30px">🌤️</div><div style="font-family:var(--disp);font-weight:800;font-size:18px;letter-spacing:-.3px;color:var(--ink);margin-top:6px">Free and clear</div><p style="color:var(--muted);font-size:14px;margin:6px 0 10px">Nothing to save for right now.</p><span onclick="openSheet(\'sheet-event\')" style="color:var(--brand);font-size:14px;font-weight:600;letter-spacing:-.01em;cursor:pointer">Plan something good</span></div>';
   // full cards (Events tab) — neutral, no avatars
   var full='';
   upS.forEach(function(k){
@@ -2492,10 +2510,29 @@ function syncExpenseEvent(t){
 }
 function buildMemRecords(){
   memRecords=[];
-  // every memory comes from an event (real events + the linked events created from photo-expenses)
-  order.forEach(function(k){ var e=events[k]; (e.memories||[]).forEach(function(m){
-    memRecords.push({src:m.src||'',cls:m.src?'':(m.cls||'ph-park'),emoji:m.emoji||e.emoji,cap:m.caption||e.name,meta:m.caption?(e.emoji+' '+e.name):e.date,type:'event',ref:k,d:e.d});
-  }); });
+  // EXPERIMENT (unify "memory"): a memory is any photographed moment in the past —
+  // whether it hangs off an event (a savings goal) or an expense. So the feed is built
+  // from two sources directly, and no longer relies on the mirror-event bridge to
+  // surface expense photos.
+  //   1. Real events contribute their memories as captioned event blocks (unchanged).
+  //   2. Mirror events (those standing in for a photo-expense, marked by _srcTxn /
+  //      fromExpense) are SKIPPED here — their photos come straight from the expense
+  //      in step 3, so we don't double-count them.
+  order.forEach(function(k){ var e=events[k];
+    if(e._srcTxn||e.fromExpense) return;                 // mirror event → handled via its expense below
+    (e.memories||[]).forEach(function(m){
+      memRecords.push({src:m.src||'',cls:m.src?'':(m.cls||'ph-park'),emoji:m.emoji||e.emoji,cap:m.caption||e.name,meta:m.caption?(e.emoji+' '+e.name):e.date,type:'event',ref:k,d:e.d});
+    });
+  });
+  //   3. Every expense photo IS a memory — pull them from the ledger directly, shown as
+  //      everyday moments grouped by their capture date (txPhotoDate → EXIF or txn_date).
+  (window.txns||[]).forEach(function(t){
+    if(!t.photos||!t.photos.length) return;
+    var d=(typeof txPhotoDate==='function')?txPhotoDate(t):null, ico=t.ico||'📸';
+    t.photos.forEach(function(src){
+      memRecords.push({src:src||'',cls:src?'':'ph-park',emoji:ico,cap:t.note||'Expense',meta:fmt(t.amt),type:'expense',ref:t.id,d:d});
+    });
+  });
   memRecords.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });
 }
 // Collage template chosen by photo count (Apple-style, dynamic).
@@ -3196,8 +3233,9 @@ function saveExpenseEdit(){
     var newMk=(whoStore==='Shared')?'Shared':whoStore;
     jul.spent+=amt; jul.catSpent[cat]=(jul.catSpent[cat]||0)+amt; jul.memberSpent[newMk]=(jul.memberSpent[newMk]||0)+amt;
   }
+  t._d=dObj;                                              // preserve the real date so ordering holds across months
   editingTx=null; editSnap=null; exPhotos=[];
-  txns.sort(function(a,b){ return txDay(b)-txDay(a); });
+  txns.sort(txNewestFirst);
   selMonth='Jul'; renderAll(); renderTxns(); renderEvents();
   if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val);
   closeExpense();
@@ -3298,8 +3336,12 @@ var txns=[];
 var txSeq=0;
 txns.forEach(function(t){ t.id='t'+(txSeq++); });
 function txById(id){ for(var i=0;i<txns.length;i++){ if(txns[i].id===id) return txns[i]; } return null; }
-function txDay(t){ var d=t.date||''; if(d==='Just now'||d==='Today')return 99; if(d==='Upcoming')return 50; var mm=d.match(/(\d{1,2})/); return mm?parseInt(mm[1]):0; }
-txns.sort(function(a,b){ return txDay(b)-txDay(a); });
+// Newest first everywhere. Sorts on the real date (_d, set at hydrate / on edit); a
+// freshly-added local item has no _d yet, so it floats to the top until the next
+// hydrate stamps its date. Replaces the old txDay() which sorted by day-of-month only
+// (so "Jun 30" wrongly beat "Jul 5").
+function txNewestFirst(a,b){ var ta=a._d?a._d.getTime():Infinity, tb=b._d?b._d.getTime():Infinity; return tb-ta; }
+txns.sort(txNewestFirst);
 var spMap={emma:['av-emma','EM'],james:['av-james','JR'],mia:['av-mia','MR'],leo:['av-leo','LR'],both:['av-shared','👥'],shared:['av-shared','👥']};
 function spAv(who){ var a=spMap[(who||'').toLowerCase()]||['av-shared','👥']; return '<div class="r-sp av '+a[0]+'">'+a[1]+'</div>'; }
 function txRow(t){
@@ -4556,7 +4598,7 @@ if('serviceWorker' in navigator){
         sb.from('categories').select('id,name,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
         sb.from('category_budgets').select('category_id,amount,month').eq('family_id', fid),
         sb.from('monthly_budgets').select('month,budget_total,closed').eq('family_id', fid),
-        sb.from('transactions').select('id,category_id,member_id,note,amount,txn_date,status').eq('family_id', fid),
+        sb.from('transactions').select('id,category_id,member_id,note,amount,txn_date,status').eq('family_id', fid).order('txn_date', { ascending: false }),
         sb.from('events').select('id,name,emoji,cover,target_amount,target_date,achieved,sort_order,source_txn_id').eq('family_id', fid).is('archived_at', null).order('sort_order'),
         sb.from('event_fundings').select('id,event_id,amount,source,month,member_id').eq('family_id', fid),
         sb.from('savings_entries').select('kind,amount').eq('family_id', fid),
@@ -4639,9 +4681,10 @@ if('serviceWorker' in navigator){
         const who = mrec ? (mrec.is_shared ? 'Shared' : mrec.name) : 'Shared';
         const realized = (t.status !== 'planned') && (dt <= now);
         const amt = Number(t.amount);
-        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _catId: t.category_id, _memberId: t.member_id, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
+        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _catId: t.category_id, _memberId: t.member_id, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
         if (realized) { m.spent += amt; m.catSpent[catName] = (m.catSpent[catName] || 0) + amt; m.memberSpent[who] = (m.memberSpent[who] || 0) + amt; }
       });
+      newTxns.sort(function(a,b){ var ta=a._d?a._d.getTime():Infinity, tb=b._d?b._d.getTime():Infinity; return tb-ta; }); // newest first, globally
       window.txns = newTxns;
       window.months = byKey;
       window.monthOrder = Object.keys(byKey).sort((a, b) => new Date(byKey[a]._iso) - new Date(byKey[b]._iso));
