@@ -243,6 +243,11 @@ input{font-family:inherit}
 .tl-pct{font-size:13.5px;font-weight:600;letter-spacing:-.02em;color:var(--muted);flex-shrink:0}
 .tl-fig{font-size:13px;font-weight:500;letter-spacing:-.01em;color:var(--muted);margin-top:2px}
 .tl-fig b{color:var(--ink);font-weight:600}
+/* Fully-funded upcoming event: a celebratory "ready" state, not a 100% bar */
+.ev-ready{font-weight:700;font-size:11.5px;letter-spacing:.02em;color:var(--good);background:var(--good-tint);padding:3px 9px;border-radius:9999px;flex-shrink:0;white-space:nowrap}
+.tl-card.ready{background:linear-gradient(135deg,var(--brand-tint),var(--white) 62%)}
+.tl-ready{margin-left:auto;font-weight:700;font-size:11.5px;letter-spacing:.02em;color:var(--good);background:var(--good-tint);padding:3px 10px;border-radius:9999px;flex-shrink:0;white-space:nowrap}
+.tl-count{font-family:var(--disp);font-weight:800;font-size:15.5px;letter-spacing:-.3px;color:var(--brand-ink);margin:9px 0 5px}
 /* past events reuse the rail; a filled dot marks "already happened" */
 .tl-dot.done{background:var(--brand);box-shadow:0 0 0 3px var(--white)}
 /* photos exposed on the row itself — square, gapless-ish, iOS Photos feel */
@@ -748,6 +753,14 @@ input{font-family:inherit}
 .mem-strip::before{content:'';flex:0 0 10px}
 .mem-strip::after{content:'';flex:0 0 4px}
 .mem-strip::-webkit-scrollbar{display:none}
+/* Home photo feed (below expenses): full-size photos + title overlay, 16px content gutter */
+#home-feed{margin:0 16px}
+.mem-feed-item{border-radius:18px;overflow:hidden;position:relative;margin-bottom:12px;cursor:pointer;transition:transform .18s cubic-bezier(.4,0,.2,1);box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04)}
+.mem-feed-item:active{transform:scale(.99)}
+.mem-feed-item img{display:block;width:100%;height:auto}
+.mem-feed-item .mff-cap{position:absolute;left:0;right:0;bottom:0;padding:16px 16px 14px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.62))}
+.mff-t{color:#fff;font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.3px;line-height:1.2}
+.mff-s{color:rgba(255,255,255,.85);font-size:12.5px;margin-top:3px;letter-spacing:-.01em}
 /* Memories: photos grouped into date / event sections, each a rounded collage card */
 .photo-sec{margin-top:24px}
 .photo-sec:first-child{margin-top:8px}
@@ -1189,6 +1202,10 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 
   <div class="section-h"><span class="t">Recent</span><a onclick="clearFilter();go('spending');segTo('activity')">All</a></div>
   <div class="rows" id="home-tx"></div>
+
+  <div class="section-h" id="home-feed-h"><span class="t">Latest photos</span><a onclick="go('memories')">See all</a></div>
+  <div id="home-feed"></div>
+
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
     <span class="sf-heart">💛</span>
     <span class="sf-t">Ideas or gripes? We're always listening</span>
@@ -2320,13 +2337,16 @@ function renderEvents(){
   var homeUp = thisMon.length ? thisMon : upS.slice(0,1);
   var rows='';
   homeUp.forEach(function(k){
-    var e=events[k], pct=Math.round(e.saved/e.target*100), dl=daysLeft(e.d);
+    var e=events[k], pct=Math.round(e.saved/e.target*100), dl=daysLeft(e.d), funded=e.saved>=e.target;
     var evCov=(e.memories&&e.memories[0]&&e.memories[0].src);   // a saved photo makes the goal feel real, not just a number
-    rows+='<div class="ev-row" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'
-      +(evCov?'<div class="em-sm" style="background-image:url('+evCov+');background-size:cover;background-position:center"></div>':'<div class="em-sm">'+e.emoji+'</div>')
-      +'<div class="evb"><div class="evt"><span>'+e.name+'</span><span class="p num">'+pct+'%</span></div>'
-      +'<div class="evs">'+(dl===0?'due today':'in '+dl+' days')+' · '+fmt(Math.max(0,e.target-e.saved))+' to go</div>'
-      +'<div class="evbar"><i style="width:'+pct+'%"></i></div></div></div>';
+    var thumb=evCov?'<div class="em-sm" style="background-image:url('+evCov+');background-size:cover;background-position:center"></div>':'<div class="em-sm">'+e.emoji+'</div>';
+    var dueTxt=(dl===0?'today':'in '+dl+' day'+(dl!==1?'s':''));
+    rows+='<div class="ev-row" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+thumb
+      +(funded
+        ? '<div class="evb"><div class="evt"><span>'+e.name+'</span><span class="ev-ready">✓ Ready</span></div><div class="evs">Fully funded · '+dueTxt+'</div></div></div>'
+        : '<div class="evb"><div class="evt"><span>'+e.name+'</span><span class="p num">'+pct+'%</span></div>'
+          +'<div class="evs">'+dueTxt+' · '+fmt(Math.max(0,e.target-e.saved))+' to go</div>'
+          +'<div class="evbar"><i style="width:'+pct+'%"></i></div></div></div>');
   });
   document.getElementById('home-events').innerHTML=rows||'<div style="padding:26px 20px;text-align:center"><div style="font-size:30px">🌤️</div><div style="font-family:var(--disp);font-weight:800;font-size:18px;letter-spacing:-.3px;color:var(--ink);margin-top:6px">Free and clear</div><p style="color:var(--muted);font-size:14px;margin:6px 0 10px">Nothing to save for right now.</p><span onclick="openSheet(\'sheet-event\')" style="color:var(--brand);font-size:14px;font-weight:600;letter-spacing:-.01em;cursor:pointer">Plan something good</span></div>';
   // full cards (Events tab) — neutral, no avatars
@@ -2336,14 +2356,18 @@ function renderEvents(){
     var tlDate = e.noDay
       ? '<div class="tl-date"><div class="d num" style="font-size:17px;letter-spacing:-.3px">'+MONA[e.d.getMonth()].toUpperCase()+'</div><div class="dl">this month</div></div>'
       : '<div class="tl-date"><div class="d num">'+e.d.getDate()+'</div><div class="mo">'+MONA[e.d.getMonth()]+'</div><div class="dl">'+(dl===0?'today':'in '+dl+'d')+'</div></div>';
-    full+='<div class="tl-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'
-      +tlDate
-      +'<div class="tl-rail"><span class="tl-dot"></span></div>'
-      +'<div class="tl-card">'
-        +'<div class="tl-top"><span class="tl-emoji">'+e.emoji+'</span><span class="tl-name">'+e.name+'</span><span class="tl-pct num">'+pct+'%</span></div>'
-        +'<div class="bar" style="margin:11px 0 8px"><i style="width:'+pct+'%"></i></div>'
-        +'<div class="tl-fig num"><b>'+fmt(e.saved)+'</b> of '+fmt(e.target)+' · '+fmt(Math.max(0,e.target-e.saved))+' to go</div>'
-      +'</div></div>';
+    var card=funded
+      ? '<div class="tl-card ready">'
+          +'<div class="tl-top"><span class="tl-emoji">'+e.emoji+'</span><span class="tl-name">'+e.name+'</span><span class="tl-ready">✓ Ready to go</span></div>'
+          +'<div class="tl-count">🎉 Fully funded — '+(dl===0?'the day is here!':(dl+' day'+(dl!==1?'s':'')+' to go'))+'</div>'
+          +'<div class="tl-fig num">'+fmt(e.saved)+' set aside</div>'
+        +'</div>'
+      : '<div class="tl-card">'
+          +'<div class="tl-top"><span class="tl-emoji">'+e.emoji+'</span><span class="tl-name">'+e.name+'</span><span class="tl-pct num">'+pct+'%</span></div>'
+          +'<div class="bar" style="margin:11px 0 8px"><i style="width:'+pct+'%"></i></div>'
+          +'<div class="tl-fig num"><b>'+fmt(e.saved)+'</b> of '+fmt(e.target)+' · '+fmt(Math.max(0,e.target-e.saved))+' to go</div>'
+        +'</div>';
+    full+='<div class="tl-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+tlDate+'<div class="tl-rail"><span class="tl-dot"></span></div>'+card+'</div>';
   });
   document.getElementById('events-list').innerHTML=full||'<div style="padding:10px 4px;color:var(--muted);font-size:14px">Nothing upcoming.</div>';
   // ---- Past events (Events tab): nudge to add photos → memories ----
@@ -2386,14 +2410,15 @@ function renderEvents(){
   var pe=document.getElementById('past-events'); if(pe)pe.innerHTML=pl;
   var ph=document.getElementById('past-head'); if(ph)ph.style.display=past.length?'':'none';
   setTxt('past-note', needy?(needy+' need photos'):'');
-  // home preview: one tile per achieved event, newest first — the strip is a
-  // "what happened lately" glance, so recency beats the stored sort order
-  var memRecent=mem.slice().sort(function(a,b){
-    return (events[b].d?events[b].d.getTime():0)-(events[a].d?events[a].d.getTime():0);
-  });
-  var tiles=memRecent.map(memTileHTML).join('');
-  var empty='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">No memories yet</div><p>Fully fund an event to start logging memories.</p></div>';
+  // Home memories: cover tiles up top (events + expenses, newest 10) + a full-size photo
+  // feed below the expenses (up to 50, lazy-loaded), "See all" → Memories tab.
+  buildMemRecords();
+  var groups=memGroups(), feedPhotos=memRecords.filter(function(r){return r.src;});
+  var tiles=groups.slice(0,10).map(memCoverHTML).join('');
+  var empty='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">No memories yet</div><p>Add a photo to an expense or event to start your memories.</p></div>';
   document.getElementById('home-memories').innerHTML=tiles||empty;
+  var fb=document.getElementById('home-feed'); if(fb) fb.innerHTML=feedPhotos.slice(0,50).map(memFeedHTML).join('');
+  var fhh=document.getElementById('home-feed-h'); if(fhh) fhh.style.display=feedPhotos.length?'':'none';
   renderMemoriesTab(mem);
   renderMemCalendar();
 }
@@ -2534,6 +2559,29 @@ function buildMemRecords(){
     });
   });
   memRecords.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });
+}
+// Group photo memories by their source (event or expense). memRecords is newest-first,
+// so the first record of each group is its cover and groups come out newest-cover-first.
+function memGroups(){
+  var order=[], by={};
+  memRecords.forEach(function(r){
+    if(!r.src) return;                                    // covers are photos only
+    var rk=r.type+':'+r.ref;
+    if(!by[rk]){ by[rk]={type:r.type,ref:r.ref,cover:r.src,title:r.cap,emoji:r.emoji,d:r.d,items:[]}; order.push(by[rk]); }
+    by[rk].items.push(r);
+  });
+  return order;
+}
+// Home carousel tile: one cover per memory (event or expense) — title + date · count, no money.
+function memCoverHTML(g){
+  var idx=memRecords.indexOf(g.items[0]), c=g.items.length;
+  var sub=(g.d?MONA[g.d.getMonth()]+' '+g.d.getDate():'')+' · '+c+' photo'+(c!==1?'s':'');
+  return '<div class="memory" style="background-image:url('+g.cover+');background-size:cover;background-position:center" onclick="openMemory('+idx+')"><div class="scrim"></div><div class="m-cap">'+esc(g.title||'Memory')+'</div><div class="m-date">'+esc(sub)+'</div></div>';
+}
+// Home photo feed item: full-size photo + title (no money), lazy-loaded.
+function memFeedHTML(r){
+  var idx=memRecords.indexOf(r);
+  return '<div class="mem-feed-item" onclick="openMemory('+idx+')"><img src="'+escAttr(r.src)+'" alt="" loading="lazy"><div class="mff-cap"><div class="mff-t">'+esc(r.cap||'Memory')+'</div><div class="mff-s">'+esc(fmtDateLong(r.d))+'</div></div></div>';
 }
 // Collage template chosen by photo count (Apple-style, dynamic).
 function collageClasses(n){
