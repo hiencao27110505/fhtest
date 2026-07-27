@@ -1219,7 +1219,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 <div id="fh-splash" aria-hidden="true"><div class="fs-logo">🏡</div><div class="fs-name">FamilyHub</div></div>
 <div id="fh-updating" role="status" aria-live="polite"><span class="fu-dot"></span><span>Updating…</span></div>
 <div id="fh-uploading" role="status" aria-live="polite"><span class="fu-dot"></span><span class="fu-txt" data-t="savingPhoto">Saving photo…</span></div>
-<div id="fh-offline" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22M16.7 16.7A6 6 0 007 8.3M5 12.5a10 10 0 013-2.3M2 8.8a15 15 0 014.2-2.7M12 20h.01"/></svg><span>Offline — changes save here, sync when you’re back</span></div>
+<div id="fh-offline" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22M16.7 16.7A6 6 0 007 8.3M5 12.5a10 10 0 013-2.3M2 8.8a15 15 0 014.2-2.7M12 20h.01"/></svg><span>Offline. Changes save here, sync when you’re back</span></div>
 <div class="phone t-sage" id="phone">
 <div class="scroll" id="scroll">
 
@@ -1562,17 +1562,17 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <button class="modal-save" onclick="sendSuggestion()">Send</button>
   </div>
   <div class="modal-body">
-    <div class="sheet-sub">An idea, a gripe, a feature you wish existed — tell us anything. We read every single one.</div>
+    <div class="sheet-sub">An idea, a gripe, a feature you wish existed. Tell us anything. We read every single one.</div>
     <div class="founder-note">
       <div class="fn-avs"><span class="fn-av">👩🏻</span><span class="fn-av">🧑🏻</span></div>
-      <div class="fn-txt">“We're two parents building FamilyHub for families like yours. Your notes shape what we make next — truly, thank you.”<span class="fn-sig">— Mira &amp; Sam, founders</span></div>
+      <div class="fn-txt">“We're two parents building FamilyHub for families like yours. Your notes shape what we make next. Truly, thank you.”<span class="fn-sig">Mira &amp; Sam, founders</span></div>
     </div>
     <div class="field"><label>What's on your mind</label><div class="choices" id="sg-type">
       <button class="choice on" data-v="Idea" onclick="pick('sg-type',this)">💡 An idea</button>
       <button class="choice" data-v="Love" onclick="pick('sg-type',this)">💛 Something I love</button>
       <button class="choice" data-v="Issue" onclick="pick('sg-type',this)">🐞 Something's off</button>
     </div></div>
-    <div class="field"><label data-t="tellMore">Tell us more</label><textarea id="sg-msg" rows="4" data-tp="tellMorePh" placeholder="Say it however it comes — no need to be polished."></textarea></div>
+    <div class="field"><label data-t="tellMore">Tell us more</label><textarea id="sg-msg" rows="4" data-tp="tellMorePh" placeholder="Say it however it comes. No need to be polished."></textarea></div>
   </div>
 </div>
 
@@ -1780,11 +1780,11 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <button class="modal-save" id="bg-save" data-t="save" onclick="setBudget()" disabled>Save</button>
   </div>
   <div class="modal-body">
-    <div class="sheet-sub">Your monthly target, plus the categories your spending is grouped into — add, rename, re-budget or remove them.</div>
+    <div class="sheet-sub">Your monthly target, plus the categories your spending is grouped into. Add, rename, re-budget or remove them.</div>
     <div class="field" style="margin-bottom:20px"><label>Monthly budget <span class="opt">· fills in categories you haven’t set</span></label><input class="big num" id="bg-amt" inputmode="numeric" oninput="suggestBudgetSplit();syncFallbackRow();bgDirty()" onblur="snapAmtInput(this);suggestBudgetSplit();syncFallbackRow()"/></div>
     <div class="bg-sub">Categories</div>
     <div id="bg-rows"></div>
-    <div id="bg-over" class="bg-over" style="display:none">Categories add up to more than the monthly budget — Others is at 0.</div>
+    <div id="bg-over" class="bg-over" style="display:none">Categories add up to more than the monthly budget, so Others is at 0.</div>
     <button class="btn-line" onclick="addCatRow()" style="margin-top:14px">＋ Add category</button>
   </div>
 </div>
@@ -1818,7 +1818,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 <div class="sheet" id="sheet-theme">
   <div class="grab"></div>
   <div class="sheet-h">Settings</div>
-  <div class="sheet-sub">Pick a theme — it applies across the whole app.</div>
+  <div class="sheet-sub">Pick a theme. It applies across the whole app.</div>
   <div class="theme-grid" id="theme-grid"></div>
   <div class="set-actions">
     <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -1884,7 +1884,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
         <div class="ob-welcome-t"><span data-t="welcomeTitle">Welcome to</span><br><em>FamilyHub</em></div>
       </div>
       <div class="ob-feats">
-        <div class="ob-feat"><div class="ob-feat-ic" style="background:#e9f7f0;color:#1a9d5f">💰</div><div><div class="ob-feat-t" data-t="tagPool">One shared pool</div><div class="ob-feat-s" data-t="tagPoolS">See your family's money together — budgets and spending in one place.</div></div></div>
+        <div class="ob-feat"><div class="ob-feat-ic" style="background:#e9f7f0;color:#1a9d5f">💰</div><div><div class="ob-feat-t" data-t="tagPool">One shared pool</div><div class="ob-feat-s" data-t="tagPoolS">See your family's money together: budgets and spending in one place.</div></div></div>
         <div class="ob-feat"><div class="ob-feat-ic" style="background:#eef1fc;color:#5E5CE6">🎯</div><div><div class="ob-feat-t" data-t="tagGoals">Goals &amp; events</div><div class="ob-feat-s" data-t="tagGoalsS">Save toward trips, birthdays and the things that matter.</div></div></div>
         <div class="ob-feat"><div class="ob-feat-ic" style="background:#fdeef4;color:#FF375F">📸</div><div><div class="ob-feat-t" data-t="tagMem">Memories together</div><div class="ob-feat-s" data-t="tagMemS">Turn everyday moments into a shared family album.</div></div></div>
       </div>
@@ -1917,7 +1917,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       <div class="ob-signin-hero">
         <div class="ob-logo">🏡</div>
         <div class="ob-signin-t" data-t="signinT">Sign in to FamilyHub</div>
-        <div class="ob-signin-s" data-t="signinS">Continue with your Google account — secure, and just one tap.</div>
+        <div class="ob-signin-s" data-t="signinS">Continue with your Google account. Secure, and just one tap.</div>
       </div>
     </div>
     <div class="ob-foot">
@@ -1993,7 +1993,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
         <label data-t="monthlyBudget">Monthly budget</label>
         <div class="ob-total-in"><span class="ob-total-sym" id="ob-budget-sym">$</span><input class="ob-total-input num" id="ob-budget" inputmode="numeric" placeholder="9,000" oninput="obSuggestBudgets()"></div>
       </div>
-      <div class="ob-catbud-lead"><div class="bg-sub" data-t="categoryBudgets">Category budgets</div><div class="ob-catbud-hint" data-t="categoryBudgetsHint">Suggested from your total — adjust anytime.</div></div>
+      <div class="ob-catbud-lead"><div class="bg-sub" data-t="categoryBudgets">Category budgets</div><div class="ob-catbud-hint" data-t="categoryBudgetsHint">Suggested from your total. Adjust anytime.</div></div>
       <div class="ob-group" id="ob-catbudgets"></div>
     </div>
     <div class="ob-foot"><button class="cta" onclick="obBudgetNext()">Continue</button></div>
@@ -2002,7 +2002,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <section class="ob-screen" data-ob="theme">
     <div class="ob-top"><button class="ob-back2" id="ob-theme-back" onclick="obGo('family')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="themeTitle">Pick your look</div><div class="ob-sub" data-t="themeSub">Choose a color theme for your family's hub — you can change it anytime.</div></div>
+      <div class="ob-head"><div class="ob-h1" data-t="themeTitle">Pick your look</div><div class="ob-sub" data-t="themeSub">Choose a color theme for your family's hub. You can change it anytime.</div></div>
       <div class="theme-grid" id="ob-theme-grid"></div>
     </div>
     <div class="ob-foot"><button class="cta" onclick="obThemeNext()">Continue</button></div>
@@ -2219,7 +2219,7 @@ function renderBudget(){
       var st=overBudget?'red':((spent/dom*dim)-budget>budget*0.01?'over':'ok');
       var bf2=document.getElementById('bfill'); bf2.className=st==='red'?'fill-red':(st==='over'?'fill-over':'fill-ok'); bf2.style.width=pctSpent+'%';
       setTxt('b-safe', fmt(safe));
-      setTxt('b-safe-sub', overBudget ? L('vượt ngân sách — nên tạm dừng những khoản chưa cần','over budget — best to pause non-essentials') : L('khoảng '+fmt(safeDaily)+' mỗi ngày cho '+(dim-dom)+' ngày còn lại','about '+fmt(safeDaily)+' a day for the '+(dim-dom)+' days left'));
+      setTxt('b-safe-sub', overBudget ? L('vượt ngân sách, nên tạm dừng những khoản chưa cần','over budget, best to pause non-essentials') : L('khoảng '+fmt(safeDaily)+' mỗi ngày cho '+(dim-dom)+' ngày còn lại','about '+fmt(safeDaily)+' a day for the '+(dim-dom)+' days left'));
       setTxt('b-days',(dim-dom)+L(' ngày còn lại',' days left'));
     }
   }
@@ -2351,7 +2351,7 @@ function syncFallbackRow(){
     var over = !!(total&&used>total);
     note.style.display = over ? '' : 'none';
     // say by how much, so "Others is at 0" isn't the only signal something's wrong
-    if(over) note.textContent='Categories add up to '+fmt(used-total)+' more than the monthly budget — Others is at 0.';
+    if(over) note.textContent='Categories add up to '+fmt(used-total)+' more than the monthly budget, so Others is at 0.';
   }
   bgDirty();
 }
@@ -2491,6 +2491,20 @@ function applyPastPreview(){
   }
 }
 function toggleMem(){ memOpen=!memOpen; applyPastPreview(); }
+/* Shared empty state for the "Sắp tới" (upcoming plans) section — ONE pattern (icon →
+   title → action, per Apple's empty-state shape) so both instances read the same, but
+   two weights for context: `compact` on the Home dashboard (a quiet glance inside its
+   card) vs the full treatment on the Khoảnh Khắc tab (the dedicated place to plan, so it
+   earns the explanatory line). Same title/icon/button = consistency; different prominence
+   = context-fit. */
+function emptyPlansHTML(compact){
+  // Even spacing scale, symmetric padding: icon → 12 → title → 7 → body → 18 → button.
+  return '<div style="padding:'+(compact?'22px 20px':'30px 22px')+';text-align:center">'
+    +'<div style="font-size:'+(compact?'32px':'38px')+';line-height:1">🗓️</div>'
+    +'<div style="font-family:var(--disp);font-weight:700;font-size:'+(compact?'16px':'18px')+';letter-spacing:-.2px;color:var(--ink);margin-top:12px">'+L('Chưa có dự định nào','Nothing planned yet')+'</div>'
+    +(compact ? '' : '<p style="color:var(--muted);font-size:14px;line-height:1.5;margin:7px auto 0;max-width:30ch">'+L('Lên kế hoạch cho một dịp của gia đình: chuyến đi, sinh nhật hay một bữa tối đáng nhớ.','Plan a family occasion: a trip, a birthday, a dinner worth remembering.')+'</p>')
+    +'<button class="empty-cta" style="margin-top:18px" onclick="openSheet(\'sheet-event\')">'+L('Lên kế hoạch','Plan something')+'</button></div>';
+}
 function renderEvents(){
   // Mirror events (shadow events standing in for a photo-expense) no longer appear in
   // the Events tab — their photos live in Memories directly (see buildMemRecords). Real
@@ -2548,7 +2562,7 @@ function renderEvents(){
           +'<div class="evs">'+dueTxt+' · '+fmt(Math.max(0,e.target-e.saved))+L(' còn lại',' to go')+'</div>'
           +'<div class="evbar"><i style="width:'+pct+'%"></i></div></div></div>');
   });
-  setHTMLIf('home-events', rows||'<div style="padding:26px 20px;text-align:center"><div style="font-size:30px">🌤️</div><div style="font-family:var(--disp);font-weight:800;font-size:18px;letter-spacing:-.3px;color:var(--ink);margin-top:6px">'+L('Thong thả','Free and clear')+'</div><p style="color:var(--muted);font-size:14px;margin:6px 0 10px">'+L('Chưa có mục tiêu nào cần tiết kiệm.','Nothing to save for right now.')+'</p><button class="empty-cta" onclick="openSheet(\'sheet-event\')">'+L('Lên kế hoạch điều gì đó','Plan something good')+'</button></div>');
+  setHTMLIf('home-events', rows||emptyPlansHTML(true));   // Home = compact glance (dashboard card)
   // full cards (Events tab) — neutral, no avatars
   var full='';
   upS.forEach(function(k){
@@ -2559,7 +2573,7 @@ function renderEvents(){
     var card=funded
       ? '<div class="tl-card ready">'
           +'<div class="tl-top"><span class="tl-emoji">'+e.emoji+'</span><span class="tl-name">'+e.name+'</span><span class="tl-ready">✓ '+L('Sẵn sàng','Ready to go')+'</span></div>'
-          +'<div class="tl-count">🎉 '+L('Đã đủ tiền','Fully funded')+' — '+(dl===0?L('đến ngày rồi!','the day is here!'):L('còn '+dl+' ngày',dl+' day'+(dl!==1?'s':'')+' to go'))+'</div>'
+          +'<div class="tl-count">🎉 '+L('Đã đủ tiền','Fully funded')+', '+(dl===0?L('đến ngày rồi!','the day is here!'):L('còn '+dl+' ngày',dl+' day'+(dl!==1?'s':'')+' to go'))+'</div>'
           +'<div class="tl-fig num">'+L('đã để dành '+fmt(e.saved),fmt(e.saved)+' set aside')+'</div>'
         +'</div>'
       : '<div class="tl-card">'
@@ -2569,7 +2583,9 @@ function renderEvents(){
         +'</div>';
     full+='<div class="tl-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+tlDate+'<div class="tl-rail"><span class="tl-dot"></span></div>'+card+'</div>';
   });
-  setHTMLIf('events-list', full||'<div style="padding:24px 20px 6px;text-align:center"><div style="font-size:30px">🗓️</div><div style="font-family:var(--disp);font-weight:800;font-size:18px;letter-spacing:-.3px;color:var(--ink);margin-top:6px">'+L('Chưa có dự định nào','Nothing planned yet')+'</div><p style="color:var(--muted);font-size:14px;line-height:1.45;margin:6px auto 10px;max-width:30ch">'+L('Lên kế hoạch cho một dịp của gia đình — chuyến đi, sinh nhật hay một bữa tối đáng nhớ.','Plan a family occasion — a trip, a birthday, a dinner worth remembering.')+'</p><button class="empty-cta" onclick="openSheet(\'sheet-event\')">'+L('Lên kế hoạch','Plan something')+'</button></div>');
+  // Wrap in a .rows white card so it matches Home's empty state (whose container is already
+  // a .rows card). margin:0 because .timeline already provides the 16px side inset.
+  setHTMLIf('events-list', full||('<div class="rows" style="margin:0">'+emptyPlansHTML()+'</div>'));
   // ---- Past events (Events tab): nudge to add photos → memories ----
   function noPhotos(k){ return !(events[k].memories&&events[k].memories.length); }
   // Strictly reverse-chronological. This used to float photo-less events to the
@@ -2759,7 +2775,7 @@ function renderMemCalendar(){
       // A real <button> so it is focusable and reads as an action to VoiceOver —
       // the photo cells predate this and stay divs.
       var sel=mcalSel&&mcalSel.y===mcalY&&mcalSel.m===mcalM&&mcalSel.d===d;
-      var lab=isVi()?(d+' '+moFull(mcalM)+', chưa có gì — thêm một khoảnh khắc.'):(MONF[mcalM]+' '+d+', nothing yet. Add something.');
+      var lab=isVi()?(d+' '+moFull(mcalM)+', chưa có gì, thêm một khoảnh khắc.'):(MONF[mcalM]+' '+d+', nothing yet. Add something.');
       html+='<button type="button" class="mcell day open'+(isToday?' today':'')+(sel?' sel':'')+'"'
         +' aria-pressed="'+(sel?'true':'false')+'" aria-label="'+escAttr(lab)+'"'
         +' onclick="mcalPick('+mcalY+','+mcalM+','+d+')">'+d+'</button>';
@@ -3182,7 +3198,7 @@ function updateExWhen(){
   if(!el)return;
   if(fut){
     var safe=Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved());
-    el.innerHTML='<span style="color:var(--brand-ink)">'+L('Sắp tới — để dành từ tháng này','Upcoming — set aside from July')+'</span> · '+fmt(safe)+L(' vẫn an toàn để tiêu',' still safe to spend');
+    el.innerHTML='<span style="color:var(--brand-ink)">'+L('Sắp tới, để dành từ tháng này','Upcoming, set aside from July')+'</span> · '+fmt(safe)+L(' vẫn an toàn để tiêu',' still safe to spend');
     return;
   }
   el.textContent='';   // a normal spend → no extra hint
@@ -3646,7 +3662,7 @@ function sendSuggestion(){
   if(!msg){ el.focus(); return; }
   el.value='';
   closeModals();
-  toast(L('Đã nhận — cảm ơn bạn 💛 Chúng tôi đọc mọi góp ý','Got it — thank you 💛 We read every note'));
+  toast(L('Đã nhận rồi, cảm ơn bạn 💛 Chúng tôi đọc mọi góp ý','Got it, thank you 💛 We read every note'));
   floatEmojis('💛');
 }
 
@@ -3854,7 +3870,7 @@ function openCat(type,val,month){
   document.getElementById('cd-barbox').style.display=showBar?'':'none';
   var ft=document.getElementById('cd-foot'); ft.style.display=showFoot?'':'none';
   if(showFoot){ setHTML('cd-foot-l',fl); setTxt('cd-foot-r',fr); }
-  var empty = m.done ? L('Các tháng trước chỉ hiển thị tổng — không liệt kê từng giao dịch.','Earlier months show totals only — individual transactions aren’t itemized.') : L('Chưa có giao dịch nào ở đây.','No transactions here yet.');
+  var empty = m.done ? L('Các tháng trước chỉ hiển thị tổng, không liệt kê từng giao dịch.','Earlier months show totals only. Individual transactions aren’t itemized.') : L('Chưa có giao dịch nào ở đây.','No transactions here yet.');
   document.getElementById('cd-rows').innerHTML=rows||'<div class="empty-note">'+empty+'</div>';
   var sc=document.querySelector('#cat-overlay .cd-scroll'); if(sc)sc.scrollTop=0;
   var realCat = type==='cat' && val!=='Events' && val!=='Future expenses' && !m.done;   // can log into a real, open-month category
@@ -3921,7 +3937,7 @@ function addExpense(){
   var catOv=document.getElementById('cat-overlay').classList.contains('on');
   closeExpense();
   if(hadPhoto){ toast(L('Đã ghi '+fmt(amt)+' · lưu vào Kỉ niệm 📸','Logged '+fmt(amt)+' · saved to Memories 📸')); floatEmojis('📸'); }
-  else if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast(L('Lưu ý — '+cat+' đã vượt ngân sách','Heads up — '+cat+' is now over budget'));
+  else if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast(L('Lưu ý: '+cat+' đã vượt ngân sách','Heads up: '+cat+' is now over budget'));
   else toast(L('Đã ghi '+fmt(amt)+' · còn '+fmt(Math.max(0,months.Jul.budget-jul.spent))+' an toàn để tiêu','Logged '+fmt(amt)+' · '+fmt(Math.max(0,months.Jul.budget-jul.spent))+' safe to spend'));
   if(catOv && curDetail){ openCat(curDetail.type,curDetail.val); }   // logged from a category detail → refresh it
   else { go('spending'); segTo('overview'); }
@@ -4137,7 +4153,7 @@ function addFunds(){
   } else if(ovOpen){ openEvent(id); }
   document.getElementById('fn-amt').value='';
   closeModals();
-  if(justFunded){ celebrate('🎉',L(e.name+' đã đủ tiền!',e.name+' is fully funded!'),L('Tiền đã để dành — sẵn sàng cho '+(e.d?fmtDayMon(e.d):e.date)+'.','The money\'s set aside — ready for '+e.date+'.')); }
+  if(justFunded){ celebrate('🎉',L(e.name+' đã đủ tiền!',e.name+' is fully funded!'),L('Tiền đã để dành xong, sẵn sàng cho '+(e.d?fmtDayMon(e.d):e.date)+'.','The money\'s set aside, ready for '+e.date+'.')); }
   else { toast(L('Đã thêm '+fmt(applied)+' · quỹ còn '+fmt(savings),'Added '+fmt(applied)+' · '+fmt(savings)+' left in savings')); floatEmojis(e.emoji); }
 }
 var selSrc='savings';
@@ -4154,7 +4170,7 @@ function updateSrcHint(){
   var el=document.getElementById('ng-srchint'); if(!el)return;
   if(cost<=0){ el.textContent=''; return; }
   var avail=selSrc==='savings'?savings:safe;
-  if(cost>avail) el.innerHTML='<span class="warn">Short by '+fmt(cost-avail)+' — covers '+fmt(avail)+' now</span>';
+  if(cost>avail) el.innerHTML='<span class="warn">Short by '+fmt(cost-avail)+', covers '+fmt(avail)+' now</span>';
   else if(selSrc==='savings') el.textContent=L('Đủ trọn '+fmt(cost)+' từ quỹ tiết kiệm','Covers the full '+fmt(cost)+' from savings');
   else el.innerHTML=L('Đủ trọn '+fmt(cost)+' · còn '+fmt(safe-cost)+' trong tháng','Covers the full '+fmt(cost)+' · leaves you '+fmt(safe-cost)+' in July');
 }
@@ -4265,29 +4281,29 @@ var LANG='en';
 var I18N={
   en:{}, // English = the literal strings already in the HTML; en falls back to the DOM default
   vi:{
-    welcomeTitle:'Chào mừng đến với', tagPool:'Một ví chung', tagPoolS:"Xem tiền của cả nhà ở một nơi — ngân sách và chi tiêu cùng nhau.",
+    welcomeTitle:'Chào mừng đến với', tagPool:'Một ví chung', tagPoolS:"Xem tiền của cả nhà ở một nơi: ngân sách và chi tiêu cùng nhau.",
     tagGoals:'Mục tiêu & sự kiện', tagGoalsS:'Tiết kiệm cho những chuyến đi, sinh nhật và điều quan trọng.',
     tagMem:'Kỷ niệm cùng nhau', tagMemS:'Biến những khoảnh khắc thường ngày thành album của gia đình.',
     getStarted:'Bắt đầu', haveAccount:'Tôi đã có tài khoản',
     localeTitle:'Ngôn ngữ & tiền tệ', localeSub:'Chọn ngôn ngữ và cách hiển thị tiền của FamilyHub.', langLabel:'Ngôn ngữ', curLabel:'Tiền tệ',
-    signinT:'Đăng nhập FamilyHub', signinS:'Tiếp tục với tài khoản Google — an toàn, chỉ một chạm.', continueGoogle:'Tiếp tục với Google', signingIn:'Đang đăng nhập…',
+    signinT:'Đăng nhập FamilyHub', signinS:'Tiếp tục với tài khoản Google, an toàn và chỉ một chạm.', continueGoogle:'Tiếp tục với Google', signingIn:'Đang đăng nhập…',
     terms:'Khi tiếp tục, bạn đồng ý với Điều khoản & Chính sách bảo mật.',
     familyTitle:'Gia đình của bạn', familySub:'Tạo một gia đình mới, hoặc tham gia gia đình đã mời bạn.',
     startFamily:'Tạo gia đình mới', startFamilyS:'Bạn sẽ đặt tên và mời người khác', joinFamily:'Tham gia gia đình', joinFamilyS:'Nhập mã mời',
     joinTitle:'Nhập mã mời', joinSub:'Xin mã 6 ký tự từ lời mời của người thân.', joinCta:'Tham gia gia đình',
     profileTitle:'Thiết lập hồ sơ', profileSub:'Đây là cách gia đình nhìn thấy bạn.', yourName:'Tên của bạn', youAreThe:'Bạn là…',
     setFamilyTitle:'Thiết lập gia đình', setFamilySub:'Đặt tên và mời các thành viên.', familyName:'Tên gia đình', membersInvites:'Thành viên & lời mời', inviteMember:'＋ Mời thành viên',
-    budgetTitle:'Đặt ngân sách', budgetSub:'Mục tiêu hằng tháng cho gia đình, rồi ngân sách cho từng danh mục.', monthlyBudget:'Ngân sách hằng tháng', categoryBudgets:'Ngân sách theo danh mục', categoryBudgetsHint:'Gợi ý sẵn từ tổng ngân sách — bạn có thể chỉnh bất cứ lúc nào.',
-    themeTitle:'Chọn giao diện', themeSub:'Chọn màu chủ đề cho gia đình — có thể đổi bất cứ lúc nào.',
+    budgetTitle:'Đặt ngân sách', budgetSub:'Mục tiêu hằng tháng cho gia đình, rồi ngân sách cho từng danh mục.', monthlyBudget:'Ngân sách hằng tháng', categoryBudgets:'Ngân sách theo danh mục', categoryBudgetsHint:'Gợi ý sẵn từ tổng ngân sách, bạn có thể chỉnh bất cứ lúc nào.',
+    themeTitle:'Chọn giao diện', themeSub:'Chọn màu chủ đề cho gia đình, có thể đổi bất cứ lúc nào.',
     enterApp:'Vào FamilyHub', continue:'Tiếp tục', you:'Bạn',
     tabHome:'Nhà', tabMoney:'Tài Chính', tabMoments:'Khoảnh Khắc', tabSpending:'Chi tiêu', tabEvents:'Sự kiện', tabMemories:'Kỷ niệm',
     morning:'Chào buổi sáng', afternoon:'Chào buổi chiều', evening:'Chào buổi tối', greetSub:'Tình hình tiền của gia đình hôm nay.',
     comingUp:'Sắp tới', recent:'Gần đây', activity:'Hoạt động', memories:'Kỷ niệm', whereGoing:'Tiền đi đâu', allPhotos:'Tất cả ảnh', all:'Tất cả',
-    save:'Lưu', amountLbl:'Số tiền', thisMonthSrc:'Tháng này', toSpendU:'để tiêu', inviteMember2:'Mời thành viên', tellMore:'Kể thêm', tellMorePh:'Nói theo cách của bạn — không cần trau chuốt.', namePh:'Tên',
+    save:'Lưu', amountLbl:'Số tiền', thisMonthSrc:'Tháng này', toSpendU:'để tiêu', inviteMember2:'Mời thành viên', tellMore:'Kể thêm', tellMorePh:'Nói theo cách của bạn, không cần trau chuốt.', namePh:'Tên',
     savingPhoto:'Đang lưu ảnh…', suggestFootHome:'Ý tưởng hay góp ý? Chúng tôi luôn lắng nghe', deleteEventBtn:'Xoá sự kiện', logExpenseBtn:'Ghi khoản chi', addFundsTitle:'Góp quỹ', addMemoryTitle:'Thêm kỉ niệm'
   }
 };
-var EN_DEFAULT={welcomeTitle:'Welcome to',getStarted:'Get started',haveAccount:'I already have an account',continue:'Continue',continueGoogle:'Continue with Google',signingIn:'Signing in…',joinCta:'Join family',enterApp:'Enter FamilyHub',you:'You',categoryBudgetsHint:'Suggested from your total — adjust anytime.',tabHome:'Home',tabMoney:'Finance',tabMoments:'Moments',tabSpending:'Spending',tabEvents:'Events',tabMemories:'Memories',morning:'Good morning',afternoon:'Good afternoon',evening:'Good evening',greetSub:"Here's how the family's money looks today.",recent:'Recent',activity:'Activity'};
+var EN_DEFAULT={welcomeTitle:'Welcome to',getStarted:'Get started',haveAccount:'I already have an account',continue:'Continue',continueGoogle:'Continue with Google',signingIn:'Signing in…',joinCta:'Join family',enterApp:'Enter FamilyHub',you:'You',categoryBudgetsHint:'Suggested from your total. Adjust anytime.',tabHome:'Home',tabMoney:'Finance',tabMoments:'Moments',tabSpending:'Spending',tabEvents:'Events',tabMemories:'Memories',morning:'Good morning',afternoon:'Good afternoon',evening:'Good evening',greetSub:"Here's how the family's money looks today.",recent:'Recent',activity:'Activity'};
 function t(k){ if(LANG==='vi' && I18N.vi[k]!==undefined) return I18N.vi[k]; if(EN_DEFAULT[k]!==undefined) return EN_DEFAULT[k]; var el=document.querySelector('[data-t="'+k+'"]'); return el?el.getAttribute('data-en')||el.textContent:k; }
 function applyLang(){
   document.querySelectorAll('[data-t]').forEach(function(el){
@@ -4355,7 +4371,7 @@ function obGoogle(){
   setTimeout(function(){
     if(window.obGoogle!==obGoogle){ window.obGoogle(); return; }   // real one landed → hand over
     if(b){ b.disabled=false; b.style.opacity=''; b.querySelector('span').textContent=t('continueGoogle'); }
-    toast(L('Không kết nối được máy chủ — kiểm tra mạng và thử lại','Can’t reach the server — check your connection and try again'));
+    toast(L('Không kết nối được máy chủ. Kiểm tra mạng và thử lại','Can’t reach the server. Check your connection and try again'));
   }, 1200);
 }
 function obChoose(mode){
@@ -4458,7 +4474,7 @@ function obPrepDone(){
   setTxt('ob-done-title', vi ? ('Chào mừng, '+nm+'!') : ('Welcome, '+nm+'!'));
   setTxt('ob-done-sub', FAM.mode==='join'
     ? (vi ? ('Bạn đã tham gia '+FAM.familyName+'.') : ('You\'ve joined '+FAM.familyName+'.'))
-    : (vi ? (FAM.familyName+' đã sẵn sàng — '+n+' thành viên.') : (FAM.familyName+' is ready — '+n+' member'+(n!==1?'s':'')+'.')));
+    : (vi ? (FAM.familyName+' đã sẵn sàng với '+n+' thành viên.') : (FAM.familyName+' is ready with '+n+' member'+(n!==1?'s':'')+'.')));
 }
 function applyFam(){
   if(FAM.budget) months.Jul.budget=FAM.budget;
@@ -5347,7 +5363,7 @@ if('serviceWorker' in navigator){
     if (!failed) { window.toast && window.toast(total === 1 ? L('Đã lưu ảnh 📸','Photo saved 📸') : L(total+' ảnh đã lưu 📸', total + ' photos saved 📸')); return; }
     window.toast && window.toast(
       failed === total
-        ? (total === 1 ? L('Ảnh chưa lưu được — thử lại','Photo didn’t save — try again') : L('Ảnh chưa lưu được — thử lại','Photos didn’t save — try again'))
+        ? (total === 1 ? L('Ảnh chưa lưu được, thử lại','Photo didn’t save, try again') : L('Ảnh chưa lưu được, thử lại','Photos didn’t save, try again'))
         : L(failed+'/'+total+' ảnh chưa lưu được', failed + ' of ' + total + ' photos didn’t save')
     );
   }
@@ -5420,7 +5436,7 @@ if('serviceWorker' in navigator){
     if (t) t._dbId = id;                                   // local row now carries its eventual id
     const ok = await _obAdd({ id: id, kind: 'insertTxn', payload: payload, ts: Date.now() });
     _obHadItems = true;
-    window.toast && window.toast(ok ? L('Đã lưu trên máy — sẽ đồng bộ khi có mạng','Saved on this device — will sync when you’re back online') : L('Đã lưu trên máy','Saved on this device'));
+    window.toast && window.toast(ok ? L('Đã lưu trên máy, sẽ đồng bộ khi có mạng','Saved on this device, will sync when you’re back online') : L('Đã lưu trên máy','Saved on this device'));
   }
   async function fhOutboxFlush() {
     if (_obFlushing || navigator.onLine === false || !window.DB || !window.DB.fid) return;
@@ -5838,8 +5854,8 @@ if('serviceWorker' in navigator){
     if (/duplicate key|already exists/i.test(raw)) return L('Mục này đã tồn tại','That already exists');
     // iOS Safari reports an offline fetch as "Load failed" (not "Failed to fetch"),
     // so match that too, and treat navigator offline as a connection issue outright.
-    if (navigator.onLine === false || /network|fetch|timeout|failed to fetch|load failed|networkerror|connection/i.test(raw)) return L('Không có kết nối — thử lại','No connection — try again');
-    return L('Có lỗi xảy ra — thử lại','Something went wrong — try again');
+    if (navigator.onLine === false || /network|fetch|timeout|failed to fetch|load failed|networkerror|connection/i.test(raw)) return L('Không có kết nối, thử lại','No connection, try again');
+    return L('Có lỗi xảy ra, thử lại','Something went wrong, try again');
   }
   window._fhFriendly = _friendly;
 
@@ -6036,7 +6052,7 @@ if('serviceWorker' in navigator){
   };
   window.fhDeleteFamily = async function (btn) {
     if (btn && !btn.classList.contains('armed')) {
-      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa — xoá với tất cả mọi người','Tap again — deletes for everyone');
+      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa để xoá với mọi người','Tap again to delete for everyone');
       clearTimeout(window._fhDelFamT);
       window._fhDelFamT = setTimeout(() => {
         if (!btn.isConnected) return;
@@ -6065,7 +6081,7 @@ if('serviceWorker' in navigator){
         await _w(sb.from('event_fundings').insert({ family_id: fid, goal_id: gr.data.id, member_id: window.DB.ownerMemberId || null, amount: g.init, source: 'savings', month: null }), 'fund goal');
       }
       await loadFamilyData();
-    } catch (e) { if (typeof console !== 'undefined') console.error(e); if (window.toast) window.toast('Không lưu được mục tiêu — thử lại'); }
+    } catch (e) { if (typeof console !== 'undefined') console.error(e); if (window.toast) window.toast('Không lưu được mục tiêu, thử lại'); }
   };
   // Add money to a goal from the savings pool.
   window.fhFundGoal = async function (goalId, amount) {
@@ -6073,7 +6089,7 @@ if('serviceWorker' in navigator){
       const fid = window.DB.fid;
       await _w(sb.from('event_fundings').insert({ family_id: fid, goal_id: goalId, member_id: window.DB.ownerMemberId || null, amount: amount, source: 'savings', month: null }), 'fund goal');
       await loadFamilyData();
-    } catch (e) { if (typeof console !== 'undefined') console.error(e); if (window.toast) window.toast('Không bỏ ống được — thử lại'); }
+    } catch (e) { if (typeof console !== 'undefined') console.error(e); if (window.toast) window.toast('Không bỏ ống được, thử lại'); }
   };
   window.fhSavings = function () {
     if (!window.DB.fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
@@ -6081,7 +6097,7 @@ if('serviceWorker' in navigator){
     const shown = window.amtToInput ? window.amtToInput(cur) : String(cur);
     _fhModal({
       title: L('Để dành cho sự kiện','Saved for events'),
-      body: '<div class="fh-s-sub">Money you’ve set aside to fund goals — separate from income.</div>'
+      body: '<div class="fh-s-sub">Money you’ve set aside to fund goals, separate from income.</div>'
         + '<div class="field"><label>Set the total to</label>'
         + '<input id="fh-sav" class="num big" inputmode="numeric" value="' + _esc(shown) + '" oninput="fhModalDirty()"></div>'
         + '<div class="field-hint">' + _esc(window.curSym ? window.curSym() : '') + ' · this replaces the pool total, it doesn’t add to it.</div>',
@@ -6119,14 +6135,14 @@ if('serviceWorker' in navigator){
     _fhModal({
       title: 'Income',
       saveLabel: L('Thêm','Add'),
-      body: '<div class="fh-s-sub">Money coming in — tracked on its own, never auto-saved.</div>'
+      body: '<div class="fh-s-sub">Money coming in, tracked on its own, never auto-saved.</div>'
         + '<div class="fh-s-stat"><div class="k">This month</div><div class="v">' + f(monthTotal) + '</div></div>'
         + '<div class="field"><label>Amount</label>'
         + '<input id="fh-inc-amt" inputmode="numeric" placeholder="' + _esc(window.amtPlaceholder ? window.amtPlaceholder() : '') + '" oninput="fhModalDirty()"></div>'
         + '<div class="field"><label>Note <span class="opt">optional</span></label>'
         + '<input id="fh-inc-note" placeholder="e.g. Salary" oninput="fhModalDirty()"></div>'
         + '<div class="fh-s-lab" style="margin-top:26px">Recent</div>'
-        + (list || '<div class="fh-s-empty">No income logged yet — add your first above.</div>'),
+        + (list || '<div class="fh-s-empty">No income logged yet. Add your first above.</div>'),
       valid: () => {
         const b = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-inc-amt').value) : 0;
         return b > 0;
@@ -6278,11 +6294,11 @@ if('serviceWorker' in navigator){
   }
   window.fhCopyInvite = async function (btn) {
     try { await navigator.clipboard.writeText(window._fhInviteCode || ''); btn.textContent = 'Copied ✓'; }
-    catch (e) { window.toast && window.toast('Couldn’t copy — write it down instead'); }
+    catch (e) { window.toast && window.toast('Couldn’t copy, write it down instead'); }
   };
   window.fhRegenInvite = async function (btn) {
     if (btn && !btn.classList.contains('armed')) {          // rotating kills the shared code
-      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa — mã cũ sẽ ngừng hoạt động','Tap again — the old code stops working');
+      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa, mã cũ sẽ ngừng hoạt động','Tap again, the old code stops working');
       clearTimeout(window._fhRegenT);
       window._fhRegenT = setTimeout(() => {
         if (!btn.isConnected) return;
@@ -6299,7 +6315,7 @@ if('serviceWorker' in navigator){
       window.toast && window.toast(_friendly(e)); return;
     }
     _fhShowInvite(code);
-    window.toast && window.toast('New code — the old one no longer works');
+    window.toast && window.toast('New code, the old one no longer works');
   };
 
   // ── Joiner: code input + redeem ──
@@ -6324,7 +6340,7 @@ if('serviceWorker' in navigator){
       // Wrong/expired codes are the common case — say so plainly, keep them on the step.
       const raw = String((e && e.message) || '');
       window.toast && window.toast(
-        /invalid|not found|expired|no rows/i.test(raw) ? 'That code isn’t valid — check it and try again' : _friendly(e)
+        /invalid|not found|expired|no rows/i.test(raw) ? 'That code isn’t valid. Check it and try again' : _friendly(e)
       );
       if (cta) { cta.disabled = false; cta.textContent = label; }
       return;
