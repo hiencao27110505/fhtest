@@ -397,6 +397,17 @@ input{font-family:inherit}
    Auto-width + inline so it centers inside a centered empty state. Shared by every empty CTA. */
 .empty-cta{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:11px 22px;border-radius:9999px;background:var(--brand-tint);color:var(--brand-ink);font-size:15px;font-weight:700;letter-spacing:-.01em;cursor:pointer;border:none}
 .empty-cta:active{transform:scale(.96)}
+/* Plan trigger = the last node on the Đáng nhớ timeline — a subtle dashed "add" card with
+   a hollow rail dot, so it reads as the timeline continuing ("add the next moment"), not a
+   detached CTA. Quiet by default, brightens on press. Tap target is the whole tl-item row. */
+.tl-add{width:100%;padding:0}   /* stretch to full width + drop UA button padding so the card lines up with memory rows */
+.tl-add:active{transform:none}
+.tl-add-plus{font-family:var(--disp);font-weight:500;font-size:22px;color:var(--brand);line-height:1;padding-top:3px}
+.tl-dot-open{background:var(--white)!important;box-shadow:0 0 0 2px var(--brand-2)}
+.tl-add-card{flex:1;min-width:0;text-align:left;border:1.5px dashed var(--brand-2);border-radius:16px;padding:13px 15px;transition:transform .18s,border-color .18s,background .18s}
+.tl-add:active .tl-add-card{transform:scale(.99);border-color:var(--brand);background:var(--brand-tint)}
+.tl-add-t{font-weight:700;font-size:15px;color:var(--brand-ink);letter-spacing:-.01em}
+.tl-add-s{font-size:13px;color:var(--muted);margin-top:2px}
 .btn-line:active{transform:scale(.99)}
 /* spending revamp */
 .hdr-month{display:inline-flex;align-items:center;gap:4px;background:rgba(138,132,148,.13);border-radius:9999px;padding:8px 10px 8px 14px;font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin-top:6px;flex-shrink:0}
@@ -1378,15 +1389,11 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="mcal-prompt" id="mcal-prompt" role="status" aria-live="polite"></div>
   </div>
 
-  <!-- SẮP TỚI — what's coming up -->
-  <div class="section-h"><span class="t">Sắp tới</span><a onclick="openSheet('sheet-event')">Thêm</a></div>
-  <div id="events-list" class="timeline"></div>
-
-  <!-- ĐÁNG NHỚ — worth remembering. Collapsible + collapsed by default so a long memory
-       timeline never buries the Album section that follows it. -->
-  <div class="section-h" id="past-head"><span class="t">Đáng nhớ</span><span class="sh-note" id="past-note"></span></div>
-  <div id="past-events" class="pastlist"></div>
-  <button id="past-more" class="mem-more" onclick="toggleMem()" style="display:none"></button>
+  <!-- ĐÁNG NHỚ — the family's occasions: any upcoming plans lead, then past memories
+       (5-preview + "Xem tất cả"), and the scroll ends on a plan trigger — so browsing
+       memories flows naturally into planning the next one. (No separate "Sắp tới" section.) -->
+  <div class="section-h" id="past-head"><span class="t">Kỉ niệm gần đây</span><a id="past-more" onclick="toggleMem()" style="display:none"></a></div>
+  <div id="past-events" class="timeline"></div>
 
   <!-- Ảnh tháng … — the month's photos; the title carries the month so the calendar's
        scope reads clearly (it governs these photos). -->
@@ -2031,10 +2038,12 @@ function go(name){
 /* Khoảnh Khắc is one flat scroll now (like Tài Chính) — momSec glides to a section
    instead of toggling a hidden panel. Map each former segment to its anchor. */
 function momSec(which){
-  // A deep link to memories expands the (collapsed-by-default) Đáng nhớ section first.
+  // A deep link to memories expands the (preview-limited) Đáng nhớ list first.
   if(which==='memories' && typeof memOpen!=='undefined' && !memOpen){ memOpen=true; if(typeof applyPastPreview==='function') applyPastPreview(); }
-  var map={plans:'events-list', memories:'past-head', album:'mem-grid'};
+  // "plans" now lands on the plan trigger (the occasions section's action); memories on its header.
+  var map={plans:'plan-trigger', memories:'past-head', album:'mem-grid'};
   var sc=document.getElementById('scroll'), el=document.getElementById(map[which]||'mcal-grid');
+  if(el && el.offsetParent===null) el=document.getElementById('plan-trigger');   // target hidden → fall back to the always-visible trigger
   if(!sc||!el)return;
   var y=Math.max(0, el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 78);
   sc.scrollTo({top:y,behavior:'smooth'});
@@ -2480,17 +2489,28 @@ function memTileHTML(k){
 }
 /* Đáng nhớ (past memories) is collapsed by default so a long timeline never buries the
    Album section below it. State persists across re-renders; renderEvents re-applies it. */
-var memOpen=false, PAST_PREVIEW=5;   // show the 5 most recent by default, "Xem tất cả" reveals the rest
+var memOpen=false, PAST_PREVIEW=3;   // show the 3 most recent by default, "Xem tất cả" reveals the rest
 function applyPastPreview(){
-  var items=window._pastItems||[];
+  var up=window._upItems||'';                 // upcoming plans lead the timeline
+  var items=window._pastItems||[];            // past memories (preview-limited)
   var pe=document.getElementById('past-events'), more=document.getElementById('past-more');
-  if(pe) pe.innerHTML=(memOpen||items.length<=PAST_PREVIEW)?items.join(''):items.slice(0,PAST_PREVIEW).join('');
+  var pastHTML=(memOpen||items.length<=PAST_PREVIEW)?items.join(''):items.slice(0,PAST_PREVIEW).join('');
+  if(pe) pe.innerHTML=up+pastHTML+planTriggerHTML();   // plan trigger is the last node on the rail
   if(more){
     if(items.length<=PAST_PREVIEW){ more.style.display='none'; }
-    else { more.style.display=''; more.textContent=memOpen?L('Thu gọn','Show less'):(L('Xem tất cả','See all')+' · '+items.length); }
+    else { more.style.display=''; more.textContent=memOpen?L('Thu gọn','Show less'):L('Xem tất cả','See all'); }
   }
 }
 function toggleMem(){ memOpen=!memOpen; applyPastPreview(); }
+// The final node on the memories timeline: a subtle "add the next moment" prompt on the rail.
+function planTriggerHTML(){
+  return '<button class="tl-item tl-add" id="plan-trigger" onclick="openSheet(\'sheet-event\')" aria-label="'+L('Lên kế hoạch cho một dịp mới','Plan a new occasion')+'">'
+    +'<div class="tl-date"><span class="tl-add-plus">+</span></div>'
+    +'<div class="tl-rail"><span class="tl-dot tl-dot-open"></span></div>'
+    +'<div class="tl-add-card"><div class="tl-add-t">'+L('Lên kế hoạch cho một dịp mới','Plan a new occasion')+'</div>'
+    +'<div class="tl-add-s">'+L('Thêm điều đáng nhớ tiếp theo','Add the next thing worth remembering')+'</div></div>'
+  +'</button>';
+}
 /* Shared empty state for the "Sắp tới" (upcoming plans) section — ONE pattern (icon →
    title → action, per Apple's empty-state shape) so both instances read the same, but
    two weights for context: `compact` on the Home dashboard (a quiet glance inside its
@@ -2583,9 +2603,8 @@ function renderEvents(){
         +'</div>';
     full+='<div class="tl-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+tlDate+'<div class="tl-rail"><span class="tl-dot"></span></div>'+card+'</div>';
   });
-  // Wrap in a .rows white card so it matches Home's empty state (whose container is already
-  // a .rows card). margin:0 because .timeline already provides the 16px side inset.
-  setHTMLIf('events-list', full||('<div class="rows" style="margin:0">'+emptyPlansHTML()+'</div>'));
+  // Upcoming plans now lead the Đáng nhớ occasions timeline (no separate "Sắp tới").
+  window._upItems = full;
   // ---- Past events (Events tab): nudge to add photos → memories ----
   function noPhotos(k){ return !(events[k].memories&&events[k].memories.length); }
   // Strictly reverse-chronological. This used to float photo-less events to the
@@ -2623,11 +2642,11 @@ function renderEvents(){
         +body
       +'</div></div>');
   });
-  var ph=document.getElementById('past-head'); if(ph)ph.style.display=past.length?'':'none';
-  // Header note carries the total count; the needy nudge wins when present.
-  setTxt('past-note', past.length ? (needy?(needy+L(' chưa có ảnh',' need photos')):(past.length+L(' kỉ niệm',' memories'))) : '');
+  // Header shows whenever there are occasions (upcoming or past); when there are none,
+  // the section is just the plan trigger below.
+  var ph=document.getElementById('past-head'); if(ph)ph.style.display=(past.length||upS.length)?'':'none';
   window._pastItems=plItems;
-  applyPastPreview();
+  applyPastPreview();   // renders upcoming + past + the plan-trigger node
   // Home memories: cover tiles up top (events + expenses, newest 10) + a full-size photo
   // feed below the expenses (up to 50, lazy-loaded), "See all" → Memories tab.
   buildMemRecords();
