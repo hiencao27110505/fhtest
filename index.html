@@ -1843,7 +1843,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 </div>
 
 <!-- PHOTO PEEK — one tap lifts a photo out and blurs everything behind it -->
-<div class="peek" id="peek" role="dialog" aria-modal="true" aria-label="Photo">
+<div class="peek" id="peek" role="dialog" aria-modal="true" aria-label="Photo" onclick="if(!(event.target.closest&&event.target.closest('#peek-actions')))closePeek()">
   <div class="peek-bg" id="peek-bg"></div>
   <button class="peek-close" id="peek-close" onclick="closePeek()" aria-label="Đóng"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   <div class="peek-stage">
@@ -4588,23 +4588,24 @@ function fhRestoreSnapshot(){
     return true;
   }catch(e){ return false; }
 }
-obInit();   // restore lang/currency + family before first paint
-// after obInit, so the richer snapshot wins over the fh-fam/lang/cur it restores
-var fhWarm=fhRestoreSnapshot();
+// fresh data has landed (or we gave up): retire the "Updating…" chip. Defined FIRST so a
+// later boot error can't leave it undefined (the hydrate calls it).
+window.fhFresh=function(){ document.documentElement.classList.remove('fh-stale'); };
+/* EVERY fragile boot step is isolated: a throw in any one of them must NOT halt this script,
+   because the gesture wiring at the bottom (sheet drag-to-dismiss + photo-peek handlers) is
+   attached here — and losing it silently breaks "drag to close" / "tap to close" everywhere.
+   The Supabase hydrate re-renders regardless, so a skipped initial render is invisible. */
+try{ obInit(); }catch(e){ if(typeof console!=='undefined') console.error('obInit failed', e); }   // restore lang/currency + family before first paint
+var fhWarm=false;
+try{ fhWarm=fhRestoreSnapshot(); }catch(e){}   // richer snapshot wins over fh-fam/lang/cur
 if(fhWarm){                                              // cached state is on screen — no splash, no sign-in flash
-  applyFam(); applyLang();
+  try{ applyFam(); applyLang(); }catch(e){ if(typeof console!=='undefined') console.error('warm apply failed', e); }
   var _obEl=document.getElementById('onboarding'); if(_obEl) _obEl.classList.add('done');
   document.documentElement.classList.add('fh-warm','fh-stale');   // fh-stale → "Updating…" until fresh data lands
 } else {
-  // cache was missing/expired/unreadable — let the splash cover the mock data after all
-  document.documentElement.classList.remove('fh-warm-boot');
+  document.documentElement.classList.remove('fh-warm-boot');   // no cache — let the splash cover the mock data
 }
-// fresh data has landed (or we gave up): retire the "Updating…" chip
-window.fhFresh=function(){ document.documentElement.classList.remove('fh-stale'); };
-setGreeting();
-// A throw in the first render must NOT halt the rest of this script — the gesture wiring
-// below (sheet drag-to-dismiss, the photo-peek handlers) lives here, and losing it silently
-// breaks "drag to close" and "tap to close" everywhere. Isolate the render; the hydrate re-renders anyway.
+try{ setGreeting(); }catch(e){}
 try{ renderEvents(); renderAll(); renderTxns(); applyCurrency(); }
 catch(e){ if(typeof console!=='undefined') console.error('initial render failed', e); }
 document.querySelectorAll('.sheet').forEach(function(s){ initSheetDrag(s, closeSheet); });   // drag-down-to-dismiss on every bottom sheet
