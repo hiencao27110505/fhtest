@@ -920,6 +920,10 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .peek.on{visibility:visible;opacity:1;transition:opacity .26s ease, visibility 0s}
 .peek-bg{position:absolute;inset:0;background:rgba(20,12,26,.42);
   -webkit-backdrop-filter:blur(24px) saturate(118%);backdrop-filter:blur(24px) saturate(118%)}
+/* Always-visible close — the primary way back (tap-around + swipe-down still work). */
+.peek-close{position:absolute;top:max(env(safe-area-inset-top),14px);right:14px;z-index:2;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.18);color:#fff;border:none;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.peek-close:active{transform:scale(.92)}
+.peek-close svg{width:18px;height:18px}
 .peek-stage{position:relative;display:flex;flex-direction:column;align-items:center;gap:14px;max-width:100%;max-height:100%}
 /* No overflow:hidden here. Clipping a rounded box that is also being scaled makes
    WebKit rasterize the corner mask once and then stretch it, so the edges come
@@ -940,9 +944,9 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   line-height:1.4;text-shadow:0 1px 4px rgba(0,0,0,.5)}
 .peek-cap:empty{display:none}
 /* revealed by a second tap on the photo — never shown on arrival */
-.peek-actions{opacity:0;transform:translateY(6px);pointer-events:none;transition:opacity .22s ease, transform .22s ease}
-.peek-actions.on{opacity:1;transform:none;pointer-events:auto}
-.peek-del{display:block!important;margin:0;color:#fff;background:rgba(255,255,255,.16);border-radius:9999px;padding:11px 22px;
+/* Delete is always present but low-prominence (destructive → subtle, arm-then-confirm). */
+.peek-actions{opacity:1;pointer-events:auto}
+.peek-del{display:block!important;margin:0;color:rgba(255,255,255,.82);background:rgba(255,255,255,.12);border-radius:9999px;padding:10px 18px;font-size:13px;font-weight:600;letter-spacing:-.01em;
   -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);min-height:44px}
 .peek-del.armed{background:var(--danger);color:#fff;font-weight:700}
 .peek-hint{font-size:12.5px;font-weight:600;color:rgba(255,255,255,.62);letter-spacing:-.01em}
@@ -1841,6 +1845,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 <!-- PHOTO PEEK — one tap lifts a photo out and blurs everything behind it -->
 <div class="peek" id="peek" role="dialog" aria-modal="true" aria-label="Photo">
   <div class="peek-bg" id="peek-bg"></div>
+  <button class="peek-close" id="peek-close" onclick="closePeek()" aria-label="Đóng"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   <div class="peek-stage">
     <div class="peek-frame" id="peek-frame">
       <img id="peek-img" alt="">
@@ -4605,10 +4610,10 @@ document.querySelectorAll('.modal').forEach(function(m){ initSheetDrag(m, closeM
    delete CTA. Bound here rather than inline so the two targets can't be confused. */
 (function(){
   var pk=document.getElementById('peek'); if(!pk)return;
-  document.getElementById('peek-bg').addEventListener('click', closePeek);
-  document.getElementById('peek-frame').addEventListener('click', function(ev){ ev.stopPropagation(); peekToggleActions(); });
+  // Tap anywhere closes (photo, backdrop, ✕) — the delete pill is the only exception,
+  // and it runs its own arm-then-confirm.
   document.getElementById('peek-actions').addEventListener('click', function(ev){ ev.stopPropagation(); });
-  pk.addEventListener('click', function(ev){ if(ev.target===pk) closePeek(); });   // padding around the stage
+  pk.addEventListener('click', function(ev){ if(!(ev.target.closest && ev.target.closest('#peek-actions'))) closePeek(); });
   // swipe down to dismiss, matching the app's other rising layers
   var y0=null;
   pk.addEventListener('touchstart', function(ev){ y0=ev.touches[0].clientY; }, {passive:true});
