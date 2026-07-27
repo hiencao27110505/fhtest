@@ -1210,7 +1210,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 <div id="fh-splash" aria-hidden="true"><div class="fs-logo">🏡</div><div class="fs-name">FamilyHub</div></div>
 <div id="fh-updating" role="status" aria-live="polite"><span class="fu-dot"></span><span>Updating…</span></div>
 <div id="fh-uploading" role="status" aria-live="polite"><span class="fu-dot"></span><span class="fu-txt">Saving photo…</span></div>
-<div id="fh-offline" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22M16.7 16.7A6 6 0 007 8.3M5 12.5a10 10 0 013-2.3M2 8.8a15 15 0 014.2-2.7M12 20h.01"/></svg><span>Offline — changes won’t save</span></div>
+<div id="fh-offline" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22M16.7 16.7A6 6 0 007 8.3M5 12.5a10 10 0 013-2.3M2 8.8a15 15 0 014.2-2.7M12 20h.01"/></svg><span>Offline — changes save here, sync when you’re back</span></div>
 <div class="phone t-sage" id="phone">
 <div class="scroll" id="scroll">
 
@@ -4897,7 +4897,14 @@ if('serviceWorker' in navigator){
   }
   function _hideLoading() { const ov = document.getElementById('fh-loading'); if (ov) ov.remove(); }
   // surface write failures instead of failing silently
-  function _writeErr(what, e) { console.warn(what, e); try { if (window.toast) window.toast(_friendly(e)); } catch (x) {} }
+  function _writeErr(what, e) {
+    console.warn(what, e);
+    // A connection drop isn't "something went wrong": the transaction is already
+    // queued (R9) and other writes reconcile on the next hydrate. Staying silent
+    // here stops a false error toast from stomping the "Saved on this device" one.
+    if (navigator.onLine === false || _isNetErr(e)) return;
+    try { if (window.toast) window.toast(_friendly(e)); } catch (x) {}
+  }
   /* supabase-js RESOLVES {data,error} on 4xx — it does not throw. A bare
      `await sb.from(x).update(...)` therefore swallows RLS denials and constraint
      violations, and the caller reports success for a write that never landed.
@@ -5764,7 +5771,9 @@ if('serviceWorker' in navigator){
     const raw = String((e && (e.message || e.error_description)) || e || '');
     if (/row-level security|permission denied|not authorized/i.test(raw)) return 'You don’t have permission for that';
     if (/duplicate key|already exists/i.test(raw)) return 'That already exists';
-    if (/network|fetch|timeout|Failed to fetch/i.test(raw)) return 'No connection — try again';
+    // iOS Safari reports an offline fetch as "Load failed" (not "Failed to fetch"),
+    // so match that too, and treat navigator offline as a connection issue outright.
+    if (navigator.onLine === false || /network|fetch|timeout|failed to fetch|load failed|networkerror|connection/i.test(raw)) return 'No connection — try again';
     return 'Something went wrong — try again';
   }
   window._fhFriendly = _friendly;
