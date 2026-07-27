@@ -1,0 +1,82 @@
+/* scrim + sheets */
+.scrim{position:absolute;inset:0;background:rgba(25,16,34,.45);opacity:0;pointer-events:none;transition:opacity .3s;z-index:50}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--white);border-radius:24px 24px 0 0;transform:translateY(102%);visibility:hidden;
+  transition:transform .4s cubic-bezier(.32,.72,0,1), visibility 0s linear .4s;z-index:60;padding:8px 20px calc(24px + env(safe-area-inset-bottom));max-height:92%;overflow-y:auto}
+.sheet.on{transform:translateY(0);visibility:visible;transition:transform .4s cubic-bezier(.32,.72,0,1), visibility 0s}
+.sheet::-webkit-scrollbar{display:none}
+.grab{width:36px;height:5px;border-radius:3px;background:#dcd6e2;margin:8px auto 16px}
+/* full-screen create/edit modal (Apple page-sheet) */
+.modal{position:absolute;left:0;right:0;bottom:0;top:max(env(safe-area-inset-top),12px);z-index:62;background:var(--white);border-radius:22px 22px 0 0;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -12px 44px rgba(25,16,34,.22);transform:translateY(101%);visibility:hidden;transition:transform .42s cubic-bezier(.32,.72,0,1), visibility 0s linear .42s}
+.modal.on{transform:none;visibility:visible;transition:transform .42s cubic-bezier(.32,.72,0,1), visibility 0s}
+.modal-grip{width:36px;height:5px;border-radius:3px;background:#dcd6e2;margin:8px auto 2px;flex-shrink:0}
+/* ---- bulk photo → expense assignment ---- */
+.pa-day{border:1px solid var(--hairline);border-radius:16px;margin-bottom:14px;overflow:hidden;background:var(--white)}
+.pa-day-h{display:flex;align-items:baseline;gap:8px;padding:13px 15px 11px}
+.pa-day-t{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px;color:var(--ink)}
+.pa-day-n{font-size:12.5px;font-weight:600;color:var(--muted)}
+.pa-grid{display:flex;flex-wrap:wrap;gap:7px;padding:0 15px 13px}
+/* The whole tile is the hit target — a corner-sized checkmark would fall under 44pt. */
+.pa-ph{position:relative;width:62px;height:62px;border-radius:10px;overflow:hidden;background:var(--surface);border:0;padding:0;flex-shrink:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pa-ph img{width:100%;height:100%;object-fit:cover;display:block}
+.pa-ph .pa-tick{position:absolute;inset:0;display:none;align-items:flex-start;justify-content:flex-end;padding:4px;background:rgba(25,16,34,.34)}
+.pa-ph .pa-tick span{width:21px;height:21px;border-radius:50%;background:var(--brand);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(25,16,34,.3)}
+.pa-ph.on .pa-tick{display:flex}
+.pa-ph.on{outline:2.5px solid var(--brand);outline-offset:-2.5px}
+.pa-txs{border-top:1px solid var(--divider)}
+/* Row + its assigned photos are one unit, so the divider sits on the wrapper —
+   otherwise the strip reads as belonging to the row below it. */
+.pa-txw{border-bottom:1px solid var(--divider)}
+.pa-txw:last-child{border-bottom:0}
+.pa-tx{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:0;padding:11px 15px;min-height:52px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pa-tx:active{background:var(--surface)}
+.pa-tx-ico{font-size:19px;flex-shrink:0}
+.pa-tx-b{flex:1;min-width:0}
+.pa-tx-n{display:block;font-size:14.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pa-tx-c{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.pa-tx-amt{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.3px;color:var(--ink);flex-shrink:0}
+.pa-tx.armed{background:var(--brand-tint)}
+/* Indented to the row's title column so the strip reads as that row's content.
+   Each thumbnail is its own 44px target that removes just itself — the previous
+   single × cleared the whole row while looking like it cleared one photo. */
+.pa-mini{display:flex;gap:6px;flex-wrap:wrap;padding:0 15px 12px 45px;margin-top:-4px}
+.pa-mini button{position:relative;width:44px;height:44px;border-radius:9px;overflow:hidden;border:0;padding:0;background:var(--surface);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pa-mini img{width:100%;height:100%;object-fit:cover;display:block}
+.pa-mini .pa-un{position:absolute;top:2px;right:2px;width:17px;height:17px;border-radius:50%;background:rgba(25,16,34,.62);color:#fff;font-size:11px;line-height:17px;text-align:center;font-weight:700}
+.pa-empty{padding:2px 15px 13px;font-size:13px;color:var(--muted)}
+.pa-new{display:inline-flex;align-items:center;gap:6px;margin:0 15px 13px;padding:9px 14px;min-height:40px;border-radius:10px;border:1px solid var(--hairline);background:var(--white);font-size:13.5px;font-weight:600;color:var(--brand-ink);cursor:pointer}
+.pa-hint{font-size:13px;color:var(--muted);padding:2px 2px 14px;line-height:1.45}
+.pa-bar{flex-shrink:0;border-top:1px solid var(--divider);padding:11px 18px calc(11px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:12px;background:var(--white)}
+.pa-bar-t{flex:1;min-width:0;font-size:13.5px;font-weight:600;color:var(--ink)}
+.pa-bar-t em{font-style:normal;color:var(--muted);font-weight:500}
+.modal-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 18px 12px;border-bottom:1px solid var(--divider);flex-shrink:0}
+.modal-title{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.02em;color:var(--ink);text-align:center;flex:1}
+.modal-cancel{color:var(--brand-ink);font-size:17px;font-weight:500;letter-spacing:-.02em;flex-shrink:0}
+.modal-save{color:var(--brand-ink);font-size:17px;font-weight:700;letter-spacing:-.02em;flex-shrink:0}
+.modal-save:disabled{color:var(--muted-soft)}
+.modal-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;padding:20px 20px calc(30px + env(safe-area-inset-bottom))}
+.modal-body::-webkit-scrollbar{display:none}
+.sheet-h{font-family:var(--disp);font-weight:800;font-size:25px;letter-spacing:-.7px;color:var(--ink);margin-bottom:5px}
+.sheet-sub{font-size:15px;letter-spacing:-.01em;color:var(--muted);margin-bottom:20px;line-height:1.45}
+.qa{display:flex;align-items:center;gap:15px;padding:14px 2px;border-bottom:1px solid var(--divider);width:100%;text-align:left}
+.qa:last-of-type{border-bottom:none}
+.qa .qi{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+.qa .qi svg{width:22px;height:22px}
+.qa .qt{font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.qa .qs{font-size:14px;letter-spacing:-.01em;color:var(--muted);margin-top:1px}
+.qa .chev{margin-left:auto}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;margin-bottom:8px}
+.field input{width:100%;background:var(--canvas);border-radius:13px;padding:15px;font-size:17px;letter-spacing:-.02em;color:var(--ink);outline:none;border:2px solid transparent}
+.field input.big{font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:-1.2px;padding:16px 15px}
+.field input:focus{border-color:var(--brand);background:var(--white)}
+.field input::placeholder{color:#bab3c2;font-weight:500}
+.field input[type=date]{font-size:15px;font-weight:600;color:var(--ink);min-height:53px}
+.field input[type=date]::-webkit-calendar-picker-indicator{opacity:.45;cursor:pointer}
+.field input[type=date]:focus::-webkit-calendar-picker-indicator{opacity:.8}
+.choices{display:flex;gap:8px;flex-wrap:wrap}
+.choice{padding:10px 15px;border-radius:9999px;background:var(--white);border:1.5px solid var(--hairline);font-size:15px;font-weight:500;letter-spacing:-.01em;color:var(--ink)}
+.choice.on{border-color:var(--brand);border-width:2px;padding:9px 14px;color:var(--brand);font-weight:700;background:var(--brand-tint)}
+.emoji-pick{display:flex;gap:8px;flex-wrap:wrap}
+.emoji-pick button{width:50px;height:50px;border-radius:14px;background:var(--canvas);font-size:24px;border:2px solid transparent}
+.emoji-pick button.on{border-color:var(--brand);background:var(--brand-tint)}

@@ -1,0 +1,99 @@
+/* ---------- memories ---------- */
+.mscroll{display:flex;gap:12px;overflow-x:auto;padding:0 16px 4px;scroll-snap-type:x mandatory}
+.mscroll::-webkit-scrollbar{display:none}
+.memory{flex:0 0 160px;scroll-snap-align:start;height:204px;border-radius:18px;overflow:hidden;position:relative;cursor:pointer;
+  display:flex;flex-direction:column;justify-content:flex-end;padding:14px;box-shadow:0 8px 22px rgba(25,16,34,.14)}
+.memory:active{transform:scale(.98)}
+.memory .subj{position:absolute;top:14px;left:14px;font-size:26px;filter:drop-shadow(0 1px 4px rgba(0,0,0,.3))}
+.memory .scrim{position:absolute;inset:0;background:linear-gradient(180deg,transparent 42%,rgba(0,0,0,.64))}
+.memory .m-cap{position:relative;color:#fff;font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px;line-height:1.2}
+.memory .m-date{position:relative;color:rgba(255,255,255,.85);font-size:12.5px;letter-spacing:-.01em;margin-top:3px}
+/* Home: horizontal memory strip */
+/* vertical padding so card shadows aren't clipped by the horizontal scroll (overflow-x forces overflow-y to clip) */
+/* Carousel gutter via flex spacers (WebKit eats a scroll container's inline padding
+   once it overflows). Leading spacer 10px + 12px gap = 22px, so the first card
+   left-aligns with the "Memories" title (.section-h, 22px) — the iOS carousel pattern,
+   title and first card sharing one margin. Trailing 4px + gap = 16px breathing room. */
+.mem-strip{display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding:13px 0 26px;margin-bottom:-8px;scroll-padding-left:22px}
+.mem-strip::before{content:'';flex:0 0 10px}
+.mem-strip::after{content:'';flex:0 0 4px}
+.mem-strip::-webkit-scrollbar{display:none}
+/* Home photo feed (below expenses): full-size photos + title overlay, 16px content gutter */
+#home-feed{margin:0 16px}
+.mem-feed-item{border-radius:18px;overflow:hidden;position:relative;margin-bottom:12px;cursor:pointer;transition:transform .18s cubic-bezier(.4,0,.2,1);box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04)}
+.mem-feed-item:active{transform:scale(.99)}
+.mem-feed-item img{display:block;width:100%;height:auto}
+.mem-feed-item .mff-cap{position:absolute;left:0;right:0;bottom:0;padding:16px 16px 14px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.62))}
+.mff-t{color:#fff;font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.3px;line-height:1.2}
+.mff-s{color:rgba(255,255,255,.85);font-size:12.5px;margin-top:3px;letter-spacing:-.01em}
+/* Memories: photos grouped into date / event sections, each a rounded collage card */
+.photo-sec{margin-top:24px}
+.photo-sec:first-child{margin-top:8px}
+.photo-sec-h{padding:0 18px 11px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+/* Day/event group label — deliberately lighter than a section header (.section-h .t, 22/800)
+   so it reads as a sub-group under "Ảnh tháng …", not a rival header. */
+.photo-sec-title{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.2px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.photo-sec-ev{display:block;margin-top:2px;color:var(--brand-ink);font-size:14px;font-weight:600;letter-spacing:-.01em;text-align:left}
+button.photo-sec-title{cursor:pointer;min-height:44px;display:flex;align-items:center;max-width:100%}
+button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
+.photo-sec-sub{font-size:13px;font-weight:500;color:var(--muted);flex-shrink:0;padding-bottom:2px}
+.photo-mosaic-wrap{container-type:inline-size;margin:0 16px;border-radius:16px;overflow:hidden}
+.photo-mosaic{display:grid;grid-template-columns:repeat(6,1fr);grid-auto-rows:calc((100cqw - 10px)/6);gap:2px;grid-auto-flow:dense}
+.photo-mosaic .pm{position:relative;overflow:hidden;cursor:pointer;background:var(--canvas);background-size:cover;background-position:center;grid-column:span 2;grid-row:span 2}
+.photo-mosaic .pm.c-hero{grid-column:span 6;grid-row:span 4}
+.photo-mosaic .pm.c-big{grid-column:span 4;grid-row:span 4}
+.photo-mosaic .pm.c-half{grid-column:span 3;grid-row:span 3}
+/* row-of-2 cell in the 5+ collage: half width, but only 2 base-rows tall so it
+   shares the row height of the span-2 squares next to it — keeps rows gap-free */
+.photo-mosaic .pm.c-half2{grid-column:span 3;grid-row:span 2}
+.photo-mosaic .pm.c-sm{grid-column:span 2;grid-row:span 2}
+.photo-mosaic .pm:active{opacity:.82}
+.photo-mosaic .pm .subj{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:38px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.28))}
+.photo-mosaic .pm.c-hero .subj,.photo-mosaic .pm.c-big .subj{font-size:60px}
+.pm-single{cursor:pointer}
+.pm-single img{display:block;width:100%;height:auto;max-height:78vh;object-fit:cover;background:var(--surface)}
+.pm-single:active{opacity:.85}
+/* one collage per event inside a date section — caption sits on the photo (like the home strip) */
+.pm-block{position:relative;margin-top:10px}
+.pm-block:first-child{margin-top:0}
+.pm-block .photo-mosaic-wrap{margin:0 16px}
+/* Caption legibility can't depend on the photo. A .62 gradient over a bright shot
+   (snow, sky, sand) left white text at ~2.4:1. The deeper ramp plus a text shadow
+   holds contrast on any image; the shadow is what carries the worst case. */
+.pm-block .pm-cap{position:absolute;left:16px;right:16px;bottom:0;padding:44px 14px 12px;border-radius:0 0 16px 16px;
+  background:linear-gradient(180deg,transparent,rgba(0,0,0,.34) 42%,rgba(0,0,0,.82));pointer-events:none}
+.pm-block .pm-cap-t{color:#fff;font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.pm-block .pm-cap-s{color:rgba(255,255,255,.96);font-size:12.5px;letter-spacing:-.01em;margin-top:3px;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+/* multi-photo picker strip (expense + event modals) */
+.photo-strip{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px}
+.photo-strip:empty{display:none}
+.photo-thumb{position:relative;width:74px;height:74px;border-radius:13px;background-size:cover;background-position:center;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
+.photo-thumb .x{position:absolute;top:-3px;right:-3px;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+/* the visual dot is 30px; this pads the *hit* area out to 44 without moving it */
+.photo-thumb .x::after{content:"";position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+.photo-strip-note{width:100%;font-size:12.5px;font-weight:600;color:var(--brand-ink);letter-spacing:-.01em;margin-top:2px}
+/* Shared overlay nav bar (memory detail + photos-by-date) */
+.ovnav{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:4px;padding:0 10px;padding-top:max(env(safe-area-inset-top),8px);min-height:52px;background:rgba(255,255,255,.82);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);border-bottom:1px solid var(--divider)}
+.ovback{display:inline-flex;align-items:center;gap:1px;color:var(--brand-ink);font-size:17px;font-weight:600;letter-spacing:-.02em;padding:8px 6px 8px 2px;flex-shrink:0}
+.ovback svg{width:22px;height:22px}
+.ovnav-title{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.02em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Memory detail overlay */
+#memory-overlay{z-index:47;background:var(--white)}
+#photos-overlay{z-index:46;background:var(--white)}
+.mo-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.mo-scroll::-webkit-scrollbar{display:none}
+.mo-photo{position:relative;background:var(--canvas)}
+.mo-photo img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;background:var(--surface)}
+.mo-photo.tile{aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
+.mo-photo .subj{font-size:70px;filter:drop-shadow(0 2px 8px rgba(0,0,0,.3))}
+.mo-body{padding:20px 22px calc(28px + env(safe-area-inset-bottom))}
+.mo-cap{font-family:var(--disp);font-weight:800;font-size:24px;letter-spacing:-.6px;color:var(--ink);line-height:1.15}
+.mo-meta{font-size:15px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:8px}
+.mo-action{margin-top:14px;display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:6px 2px;color:var(--brand-ink);font-size:16px;font-weight:600;letter-spacing:-.01em}
+.mo-action svg{width:18px;height:18px}
+/* memory detail — full-width photos to enjoy, stacked vertically */
+.mgallery{display:flex;flex-direction:column;gap:14px;padding:0 16px}
+.mem-full{position:relative;border-radius:18px;overflow:hidden;background:var(--canvas)}
+.mem-full img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;background:var(--surface)}
+.mem-full.tap:active{transform:scale(.985);transition:transform .12s}

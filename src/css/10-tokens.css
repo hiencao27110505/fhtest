@@ -1,0 +1,26 @@
+:root{
+  /* default theme = Sage (overridden by .phone.t-* classes) */
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --grad-hero:linear-gradient(150deg,#4CB584 0%,#2E9E6B 52%,#8FC97E 100%);
+  --brand-glow:rgba(46,158,107,.32); --brand-tint:#e9f7f0;
+  --danger:#E0322F; --danger-tint:#fdecef;
+  --good:#1a9d5f; --good-tint:#e7f5ee; --amber:#B8730B; --amber-tint:#fbefda;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#8a8494; --muted-soft:#a29caa;
+  --white:#ffffff; --canvas:#f4f1f6; --pearl:#fbfafc;
+  --hairline:#e9e4ee; --divider:#f1edf4;
+  --cat-housing:#5E5CE6; --cat-food:#34C759; --cat-dining:#FF375F;
+  --cat-kids:#FF9F0A; --cat-transport:#32ADE6; --cat-fun:#BF5AF2; --cat-other:#98949e;
+  --emma-a:#a074e0; --emma-b:#6f3fc0;
+  --james-a:#25b3a3; --james-b:#0e8478;
+  --mia-a:#ff9d4d; --mia-b:#f0701a;
+  --leo-a:#ff72ad; --leo-b:#e03d86;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+.phone.t-sage{--brand:#2E9E6B;--brand-ink:#1F7E52;--brand-2:#5FD3A0;--grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);--grad-hero:linear-gradient(150deg,#4CB584 0%,#2E9E6B 52%,#8FC97E 100%);--brand-glow:rgba(46,158,107,.32);--brand-tint:#e9f7f0}
+.phone.t-ocean{--brand:#1487D6;--brand-ink:#0F6DB0;--brand-2:#62C6F5;--grad-brand:linear-gradient(135deg,#1E9BE0,#3FB6D9);--grad-hero:linear-gradient(150deg,#2AA9E0 0%,#1E74D0 52%,#4FC2C9 100%);--brand-glow:rgba(20,135,214,.32);--brand-tint:#e7f4fd}
+.phone.t-lavender{--brand:#7A5AE0;--brand-ink:#6242C4;--brand-2:#B79BF5;--grad-brand:linear-gradient(135deg,#8A63E8,#A97DF0);--grad-hero:linear-gradient(150deg,#9270E8 0%,#7A5AE0 50%,#B98BE0 100%);--brand-glow:rgba(122,90,224,.32);--brand-tint:#f0ecfd}
+.phone.t-blossom{--brand:#E0567F;--brand-ink:#C43E68;--brand-2:#F79BB8;--grad-brand:linear-gradient(135deg,#EC6A90,#F58FA5);--grad-hero:linear-gradient(150deg,#F07898 0%,#E0567F 50%,#D98AB0 100%);--brand-glow:rgba(224,86,127,.32);--brand-tint:#fdecf1}
+.phone.t-twilight{--brand:#5B63D6;--brand-ink:#454CC0;--brand-2:#8E97F0;--grad-brand:linear-gradient(135deg,#5B63D6,#7A6FD8);--grad-hero:linear-gradient(150deg,#4A54C4 0%,#3B3F86 55%,#6A5FC0 100%);--brand-glow:rgba(91,99,214,.32);--brand-tint:#ebedfb}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}

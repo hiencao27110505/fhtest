@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<title>FamilyHub</title>
+<meta name="theme-color" content="#2E9E6B"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="FamilyHub"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icon.png"/>
+<!-- Supabase JS is vendored locally (vendor/supabase.js, SW-precached) so the auth
+     module carries NO cross-origin dependency on the cold-start path — only the API
+     host still needs an early handshake. Fonts are self-hosted too (@font-face below). -->
+<link rel="preconnect" href="https://iizyukzfsbdkbrgfupwq.supabase.co" crossorigin>
+<link rel="preload" href="vendor/supabase.js" as="script">
+<link rel="preload" href="vendor/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+<script>
+/* Returning-user gate — runs before the first paint, with no network involved.
+   The auth module lives in a deferred <script type="module"> that imports supabase-js
+   over the wire, so the real session check lands hundreds of ms after the HTML paints.
+   Until then the markup's default state is the onboarding screen, which is why a
+   signed-in user saw sign-in → loading → home on every cold start.
+   This flag (set once a family is open, cleared on sign-out) says "we expect a session",
+   so we paint the splash instead of the sign-in screen. It is only a UI hint: the real
+   getSession() still runs and fhResumeFail() walks it back if the session is actually gone. */
+try{ if(localStorage.getItem('fh-resume')==='1'){
+  document.documentElement.classList.add('fh-resume');
+  /* A cached snapshot means the app can open on real data — no splash at all.
+     The restore itself happens in the main script; if it turns out to be
+     unusable it drops this class and the splash takes over. */
+  if(localStorage.getItem('fh-snap')) document.documentElement.classList.add('fh-warm-boot');
+  /* Watchdog: if the module never arrives (offline, CDN down) the splash would sit there
+     forever. Hand the screen back after 10s but keep the flag — the session may be fine. */
+  window.__fhResumeWatch=setTimeout(function(){
+    document.documentElement.classList.remove('fh-resume');
+    var s=document.getElementById('fh-splash'); if(s) s.remove();
+  },10000);
+} }catch(e){}
+</script>
+<style>
+/* Inter — self-hosted variable subset (Latin + Vietnamese), replacing the Google Fonts
+   round trip. Both files are SW-precached, so text renders offline with no third-party hop.
+   The unicode-ranges mirror Google/Fontsource so the Vietnamese file loads only when needed. */
+@font-face{font-family:'Inter';font-style:normal;font-weight:300 800;font-display:swap;
+  src:url('vendor/fonts/inter-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Inter';font-style:normal;font-weight:300 800;font-display:swap;
+  src:url('vendor/fonts/inter-vietnamese.woff2') format('woff2');
+  unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+1EA0-1EF9,U+20AB}
+</style>
+<style>
+/*@build:css@*/
+</style>
+</head>
+<body>
+<!-- static so it paints on the first frame — see the returning-user gate in <head> -->
+<div id="fh-splash" aria-hidden="true"><div class="fs-logo">🏡</div><div class="fs-name">FamilyHub</div></div>
+<div id="fh-updating" role="status" aria-live="polite"><span class="fu-dot"></span><span>Updating…</span></div>
+<div id="fh-uploading" role="status" aria-live="polite"><span class="fu-dot"></span><span class="fu-txt" data-t="savingPhoto">Saving photo…</span></div>
+<div id="fh-offline" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22M16.7 16.7A6 6 0 007 8.3M5 12.5a10 10 0 013-2.3M2 8.8a15 15 0 014.2-2.7M12 20h.01"/></svg><span>Offline. Changes save here, sync when you’re back</span></div>
+<div class="phone t-sage" id="phone">
+<div class="scroll" id="scroll">
+
+<!-- ============================ HOME ============================ -->
+<section class="view on" id="v-home">
+  <div class="hero">
+    <div class="safe"></div>
+    <div class="hero-top">
+      <div class="hrow">
+        <button class="month-sel" onclick="openSheet('sheet-month')"><span id="hero-month">July 2026</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div style="display:flex;gap:8px">
+          <button class="hero-ic" onclick="openSheet('sheet-theme')" aria-label="Theme">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3a9 9 0 100 18 2 2 0 001.6-3.3 2 2 0 011.5-3.2H18a3 3 0 003-3c0-4-4-6-9-6z"/><circle cx="7.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="10" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8" r="1.1" fill="currentColor" stroke="none"/></svg></button>
+          <button class="hero-gear" onclick="openSheet('sheet-budget')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/><circle cx="9" cy="6" r="2.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2.4" fill="currentColor" stroke="none"/><circle cx="8" cy="18" r="2.4" fill="currentColor" stroke="none"/></svg>Budget</button>
+        </div>
+      </div>
+      <div class="greet" id="greet">Good evening, Emma 🌙</div>
+      <div class="greet-sub" data-t="greetSub">Here's how the family's money looks today.</div>
+      <div class="hero-fam" id="hero-fam">
+        <div class="av av-emma av-hero">EM</div>
+        <div class="av av-james av-hero">JR</div>
+        <div class="av av-mia av-hero">MR</div>
+        <div class="av av-leo av-hero">LR</div>
+        <span class="hero-fam-cap">The Reeds</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="ov-card">
+    <div class="ovc-col" onclick="go('spending')">
+      <div class="ovc-l" id="ht-spend-l">Spent · July</div>
+      <div class="ovc-n num" id="ht-spent">$4,120</div>
+      <div class="ovc-s" id="ht-spend-s">$4,880 left</div>
+    </div>
+    <div class="ovc-div"></div>
+    <div class="ovc-col" onclick="goMoments('plans')">
+      <div class="ovc-l">Đã để dành</div>
+      <div class="ovc-n num" id="ht-sav">$10,920</div>
+      <div class="ovc-s" id="ht-sav-s">$5,980 to go</div>
+    </div>
+  </div>
+
+  <div class="section-h"><span class="t">Sắp tới</span><a onclick="goMoments('plans')">Tất cả</a></div>
+  <div class="rows" id="home-events"></div>
+
+  <div class="section-h"><span class="t">Kỉ niệm</span><a onclick="goMoments('memories')">Tất cả</a></div>
+  <div class="mem-strip" id="home-memories"></div>
+
+  <div class="section-h"><span class="t">Gần đây</span><a onclick="clearFilter();go('spending');segTo('activity')">Tất cả</a></div>
+  <div class="rows" id="home-tx"></div>
+
+  <div class="section-h" id="home-feed-h"><span class="t">Ảnh mới nhất</span><a onclick="goMoments('album')">Xem tất cả</a></div>
+  <div id="home-feed"></div>
+
+  <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
+    <span class="sf-heart">💛</span>
+    <span class="sf-t" data-t="suggestFootHome">Ideas or gripes? We're always listening</span>
+  </button>
+  <div class="spacer"></div>
+</section>
+
+<!-- ============================ SPENDING ============================ -->
+<section class="view" id="v-spending">
+  <div class="safe"></div>
+  <div class="child-hdr">
+    <div class="ch-row">
+      <div>
+        <div class="ch-title">Tài Chính</div>
+        <div class="ch-sub">Chi tiêu, thu nhập và tiết kiệm của gia đình.</div>
+      </div>
+      <button class="ch-pill" onclick="openSheet('sheet-month')"><span id="sp-month">July 2026</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 9l6 6 6-6"/></svg></button>
+    </div>
+  </div>
+
+  <!-- HERO — the one verdict: how much is safe to spend -->
+  <div class="stat-card">
+    <div class="sum-lab">An toàn để tiêu<span id="b-lab-mo"> · July</span></div>
+    <div class="sum-num" id="b-safe">$4,880</div>
+    <div class="sum-line" id="b-safe-sub">about $271 a day for the days left</div>
+    <div class="bbar" style="margin:20px 0 10px"><i id="bfill" class="fill-over" style="width:46%"></i><i id="bres" class="res-stripe" style="left:46%;width:6%"></i><span class="bmark" id="bmark" style="left:42%"></span></div>
+    <div class="sum-foot"><span id="b-left"><b>$4,120</b> of $9,000 spent</span><span id="b-days">18 days left</span></div>
+  </div>
+
+  <!-- MONEY THIS MONTH — in · out · banked (each taps into its detail) -->
+  <div class="cash3">
+    <button class="c3" onclick="fhIncome()"><div class="k"><span class="ar" style="color:var(--good)">↑</span>Thu</div><div class="v num" id="snap-in">—</div></button>
+    <button class="c3" onclick="segTo('activity')"><div class="k"><span class="ar" style="color:var(--ink-2)">↓</span>Chi</div><div class="v num" id="snap-out">—</div></button>
+    <button class="c3" onclick="fhSavings()"><div class="k"><span class="ar" style="color:var(--brand-ink)">◎</span>Quỹ</div><div class="v num" id="snap-pool">—</div></button>
+  </div>
+
+  <!-- NGÂN SÁCH — where the money goes -->
+  <div class="section-h"><span class="t">Ngân sách</span><a onclick="openSheet('sheet-budget')">Chỉnh</a></div>
+  <div class="rows" id="cat-budget-rows"></div>
+
+  <!-- GIAO DỊCH -->
+  <div class="section-h"><span class="t" id="tx-head">Giao dịch gần đây</span><a onclick="openTxns()">Xem tất cả</a></div>
+  <!-- note: #tx-head text is overwritten by renderTxns() when a filter is active -->
+  <input type="file" id="pa-file" accept="image/*" multiple onchange="paIngest(this)" hidden>
+  <div id="act-filter"></div>
+  <div class="rows" id="tx-rows"></div>
+
+  <!-- MỤC TIÊU TIẾT KIỆM -->
+  <div class="section-h"><span class="t">Mục tiêu tiết kiệm</span><a onclick="openGoal()">＋ Mục tiêu</a></div>
+  <div class="gsum">
+    <div class="gsum-top">
+      <div class="gsum-lab">Đã để dành <b class="num" id="sav-total">—</b> <span class="of">/ <span id="ev-goal">—</span></span></div>
+      <span class="b-badge over" id="ev-badge">—</span>
+    </div>
+    <div class="gsum-bar"><i id="sav-fill" style="width:0%"></i></div>
+    <div class="gsum-foot"><span id="ev-tosave">—</span><span id="sav-avail-lbl">—</span></div>
+  </div>
+  <div id="goals-list"></div>
+
+  <!-- XU HƯỚNG -->
+  <div class="section-h"><span class="t">Xu hướng 6 tháng</span><span class="sh-note">so với ngân sách</span></div>
+  <div class="card" style="padding:18px 18px 16px">
+    <div class="trend-chart" id="trend-chart"></div>
+    <div class="trend-labels" id="trend-labels"></div>
+    <div class="trend-legend"><span class="dash"></span> Đường nét đứt = ngân sách tháng đó</div>
+  </div>
+
+  <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
+    <span class="sf-heart">💛</span>
+    <span class="sf-t">Ý tưởng hay góp ý? Chúng tôi luôn lắng nghe</span>
+  </button>
+  <div class="spacer"></div>
+</section>
+
+<!-- ==================== KHOẢNH KHẮC (moments: plans · memories · album) ==================== -->
+<section class="view" id="v-events">
+  <div class="safe"></div>
+  <div class="child-hdr">
+    <div class="ch-row">
+      <div>
+        <div class="ch-title">Khoảnh Khắc</div>
+        <div class="ch-sub">Dự định, kỉ niệm và album của gia đình.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- One continuous scroll (mirrors Tài Chính): a focal element up top, then sections. -->
+
+  <!-- HERO — the month at a glance. No section label above it, so it reads as the tab's
+       focal element (parallel to Tài Chính's stat-card), not just another section. -->
+  <div class="cal">
+    <div class="cal-head">
+      <button class="cal-nav" onclick="mcalNav(-1)" aria-label="Previous month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <span class="cal-mon" id="mcal-mon">June 2026</span>
+      <button class="cal-nav" onclick="mcalNav(1)" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg></button>
+    </div>
+    <div class="mcal-grid" id="mcal-grid"></div>
+    <!-- contextual prompt for a tapped empty day; filled by renderMcalPrompt() -->
+    <div class="mcal-prompt" id="mcal-prompt" role="status" aria-live="polite"></div>
+  </div>
+
+  <!-- ĐÁNG NHỚ — the family's occasions: any upcoming plans lead, then past memories
+       (5-preview + "Xem tất cả"), and the scroll ends on a plan trigger — so browsing
+       memories flows naturally into planning the next one. (No separate "Sắp tới" section.) -->
+  <div class="section-h" id="past-head"><span class="t">Kỉ niệm gần đây</span><a id="past-more" onclick="toggleMem()" style="display:none"></a></div>
+  <div id="past-events" class="timeline"></div>
+
+  <!-- Ảnh tháng … — the month's photos; the title carries the month so the calendar's
+       scope reads clearly (it governs these photos). -->
+  <div class="section-h"><span class="t" id="album-title">Ảnh</span><a onclick="paOpen()">Thêm ảnh</a></div>
+  <div id="mem-grid"></div>
+
+  <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
+    <span class="sf-heart">💛</span>
+    <span class="sf-t">Ý tưởng hay góp ý? Chúng tôi luôn lắng nghe</span>
+  </button>
+  <div class="spacer"></div>
+</section>
+
+</div><!-- /scroll -->
+
+<!-- FLOATING ADD -->
+<button class="fab" onclick="openSheet('sheet-add')" aria-label="Add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+
+<!-- TAB BAR -->
+<nav class="tabbar">
+  <button class="tab on" id="t-home" onclick="go('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg><span data-t="tabHome">Nhà</span></button>
+  <button class="tab" id="t-spending" onclick="go('spending')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg><span data-t="tabMoney">Tài Chính</span></button>
+  <button class="tab" id="t-events" onclick="go('events')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 16l4.5-4 3.5 3 4-3.5L21 16.5"/></svg><span data-t="tabMoments">Khoảnh Khắc</span></button>
+</nav>
+
+<!-- EVENT OVERLAY -->
+<div class="overlay" id="event-overlay">
+  <div class="ov-hero" id="ov-hero">
+    <div class="safe"></div>
+    <button class="ov-back" onclick="closeEvent()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>Back</button>
+    <div class="ov-em" id="ov-em">✈️</div>
+    <div class="ov-name" id="ov-name">Summer in Japan</div>
+    <div class="ov-meta" id="ov-meta">Sep 15 · 64 days to go</div>
+  </div>
+  <div class="ov-scroll">
+    <div id="ov-funding">
+      <div class="card">
+        <div class="ring-wrap">
+          <div class="ring">
+            <svg width="186" height="186" viewBox="0 0 186 186">
+              <circle cx="93" cy="93" r="79" fill="none" stroke="#efeaf4" stroke-width="15"/>
+              <circle id="ring-fill" cx="93" cy="93" r="79" fill="none" stroke="#FF375F" stroke-width="15" stroke-linecap="round" stroke-dasharray="496.4" stroke-dashoffset="263.1"/>
+            </svg>
+            <div class="ring-c"><div class="ring-p num" id="ring-pct">47%</div><div class="ring-l" id="ring-lab">funded</div></div>
+          </div>
+          <div class="ring-fig">
+            <div class="big num" id="ov-cur">$5,600 <span class="t">of $12,000</span></div>
+            <div class="sub num" id="ov-left">$6,400 still to save</div>
+          </div>
+        </div>
+      </div>
+      <div class="rows">
+        <div class="row"><div class="av av-emma av-44">EM</div><div class="r-body"><div class="r-t">Emma</div><div class="r-s">Auto-saves <span data-amt="200" data-amt-suf="/mo"></span></div></div><div class="r-amt num" data-amt="3200"></div></div>
+        <div class="row"><div class="av av-james av-44">JR</div><div class="r-body"><div class="r-t">James</div><div class="r-s">Contributes monthly</div></div><div class="r-amt num" data-amt="2400"></div></div>
+      </div>
+      <div class="section-h"><span class="t">History</span></div>
+      <div class="rows" id="ov-history">
+        <div class="row"><div class="r-ico" style="background:var(--brand-tint);color:var(--brand)">＋</div><div class="r-body"><div class="r-t">James added</div><div class="r-s">3 days ago</div></div><div class="r-amt num pos" data-amt="200" data-amt-pre="+"></div></div>
+        <div class="row"><div class="r-ico" style="background:var(--brand-tint);color:var(--brand)">↻</div><div class="r-body"><div class="r-t">Emma auto-saved</div><div class="r-s">Jul 1</div></div><div class="r-amt num pos" data-amt="400" data-amt-pre="+"></div></div>
+      </div>
+      <div class="section-h" style="margin-top:22px"><span class="t">Memories</span></div>
+      <div class="mgallery" id="ov-fund-gallery" style="margin-bottom:12px"></div>
+      <button class="btn-line" onclick="openMemorySheet()" style="margin:0 16px">📷 Add a photo</button>
+    </div>
+    <div id="ov-memories" style="display:none">
+      <div class="section-h"><span class="t">Memories</span></div>
+      <div class="mgallery" id="ov-gallery"></div>
+    </div>
+  </div>
+  <div style="padding:12px 16px calc(18px + env(safe-area-inset-bottom));background:rgba(251,250,252,.9);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--hairline)">
+    <button class="cta" id="ov-cta" onclick="openFund()">Add funds</button>
+    <button class="ev-del" id="ov-del" data-t="deleteEventBtn" onclick="fhDeleteEvent()">Delete event</button>
+  </div>
+</div>
+
+<!-- MEMORY DETAIL -->
+<div class="overlay" id="memory-overlay">
+  <div class="mo-scroll">
+    <div class="ovnav"><button class="ovback" onclick="closeMemory()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>Memories</button></div>
+    <div class="mo-photo" id="mo-photo"></div>
+    <div class="mo-body">
+      <div class="mo-cap" id="mo-cap"></div>
+      <div class="mo-meta" id="mo-meta"></div>
+      <button class="mo-action" id="mo-action"></button>
+    </div>
+  </div>
+</div>
+
+<!-- PHOTOS BY DATE (iOS Photos style) -->
+<div class="overlay" id="photos-overlay">
+  <div class="mo-scroll">
+    <div class="ovnav"><button class="ovback" onclick="closePhotos()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>Memories</button><div class="ovnav-title" id="po-title"></div></div>
+    <div id="po-body" style="padding-bottom:calc(30px + env(safe-area-inset-bottom))"></div>
+  </div>
+</div>
+
+<!-- CATEGORY / MEMBER / BUCKET DETAIL -->
+<div class="overlay" id="cat-overlay">
+  <div class="safe"></div>
+  <div class="cd-nav">
+    <button class="cd-back" onclick="closeCat()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>Back</button>
+    <button class="cd-monbtn" onclick="openSheet('sheet-month')"><span id="cd-monname">July</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 9l6 6 6-6"/></svg></button>
+  </div>
+  <div class="cd-scroll">
+    <button class="cd-title" onclick="openCatPicker()">
+      <span class="cd-fico" id="cd-ico">🛒</span>
+      <span class="cd-titletext" id="cd-name">Groceries</span>
+      <svg class="cd-titlechev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+
+    <div class="cd-summary">
+      <div class="cd-sum-lab" id="cd-lab">Spent this month</div>
+      <div class="cd-sum-num" id="cd-num">$1,070</div>
+      <div class="cd-sum-line" id="cd-line">of $2,200 · on track</div>
+      <div class="bbar" id="cd-barbox" style="margin:24px 0 9px"><i id="cd-bar"></i><span class="bmark" id="cd-mark"></span></div>
+      <div class="cd-sum-foot" id="cd-foot"><span id="cd-foot-l"><b>$1,070</b> of $2,200</span><span id="cd-foot-r">18 days left</span></div>
+    </div>
+
+    <div class="cd-listhead-row"><span class="t" id="cd-listhead">Transactions</span><span class="c" id="cd-count"></span></div>
+    <div class="rows" id="cd-rows"></div>
+    <div class="spacer"></div>
+  </div>
+  <div class="cd-cta-bar" id="cd-cta-bar" style="display:none">
+    <button class="cta" id="cd-log" data-t="logExpenseBtn" onclick="logFromCat()">Log expense</button>
+  </div>
+</div>
+
+<!-- FULL TRANSACTIONS — search · filter · sort (drill-in from Tài Chính › Giao dịch) -->
+<div class="overlay" id="txn-overlay">
+  <div class="safe"></div>
+  <div class="cd-nav">
+    <button class="cd-back" onclick="closeTxns()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>Tài Chính</button>
+  </div>
+  <h1 class="txn-title">Giao dịch</h1>
+  <div class="txn-tools">
+    <div class="txn-row1">
+      <div class="txn-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4" stroke-linecap="round"/></svg><input id="txn-q" inputmode="search" placeholder="Tìm theo tên, danh mục, người…" oninput="onTxnQ()"/><button class="txn-clear" id="txn-clear" onclick="txnClear()" aria-label="Xoá tìm kiếm" style="display:none"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M9 9l6 6M15 9l-6 6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></button></div>
+      <button class="txn-sort" id="txn-sort" onclick="toggleTxnSort()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h13M4 12h8M4 18h4"/></svg><span id="txn-sort-lab">Mới nhất</span></button>
+    </div>
+    <div class="txn-chips" id="txn-chips"></div>
+  </div>
+  <div class="cd-scroll" id="txn-scroll">
+    <div class="txn-sum" id="txn-sum"></div>
+    <div id="txn-list"></div>
+    <div class="spacer"></div>
+  </div>
+</div>
+
+<!-- SCRIM + SHEETS -->
+<div class="scrim" id="scrim" onclick="closeSheet();closeModals()"></div>
+
+<div class="sheet" id="sheet-add">
+  <div class="grab"></div>
+  <div class="sheet-h">Thêm mới</div>
+  <div class="sheet-sub">Ghi lại tiền bạc, hoặc lưu giữ một khoảnh khắc.</div>
+  <div class="qa-group">Tài Chính</div>
+  <button class="qa" onclick="closeSheet();go('spending');openExpense()"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg></div><div><div class="qt">Ghi chi tiêu</div><div class="qs">Khoản tiền vừa chi</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();go('spending');fhIncome()"><div class="qi" style="background:linear-gradient(135deg,#34C77B,#1a9d5f)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div><div><div class="qt">Ghi thu nhập</div><div class="qs">Tiền vào của gia đình</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();go('spending');fhSavings()"><div class="qi" style="background:linear-gradient(135deg,#F0B450,#DB8A24)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a5 5 0 015-5h5a6 6 0 016 6 6 6 0 01-3 5.2V20h-3v-2h-2v2H7v-3a6 6 0 01-4-5zM8 9h.01"/></svg></div><div><div class="qt">Bỏ ống tiết kiệm</div><div class="qs">Thêm vào quỹ chung của nhà</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();go('spending');openSheet('sheet-budget')"><div class="qi" style="background:linear-gradient(135deg,#5AA9D8,#2E7DAE)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></div><div><div class="qt">Đặt ngân sách</div><div class="qs">Hạn mức chi tiêu hằng tháng</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();go('spending');openGoal()"><div class="qi" style="background:linear-gradient(135deg,#34B87A,#2E9E6B)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg></div><div><div class="qt">Tạo mục tiêu</div><div class="qs">Để dành cho điều bạn muốn mua hoặc làm</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <div class="qa-group">Khoảnh Khắc</div>
+  <button class="qa" onclick="closeSheet();goMoments('plans');openSheet('sheet-event')"><div class="qi" style="background:linear-gradient(135deg,#9D4EFF,#E14BF0)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div><div><div class="qt">Lên kế hoạch</div><div class="qs">Một dịp sắp tới của gia đình</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();goMoments('album');paOpen()"><div class="qi" style="background:linear-gradient(135deg,#FF8FB1,#F0567F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg></div><div><div class="qt">Thêm khoảnh khắc</div><div class="qs">Ảnh của gia đình</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();openSheet('sheet-suggest')"><div class="qi" style="background:linear-gradient(135deg,#B9B2C6,#8a8494)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20s-7-4.4-9.3-8.7C1.2 8 2.7 4.6 6 4.6c2 0 3.2 1.3 4 2.6.8-1.3 2-2.6 4-2.6 3.3 0 4.8 3.4 3.3 6.7C19 15.6 12 20 12 20z"/></svg></div><div><div class="qt">Góp ý</div><div class="qs">Một ý tưởng hay điều bạn mong muốn</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+</div>
+
+<div class="modal" id="sheet-suggest">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()">Cancel</button>
+    <div class="modal-title">We hear you 💛</div>
+    <button class="modal-save" onclick="sendSuggestion()">Send</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">An idea, a gripe, a feature you wish existed. Tell us anything. We read every single one.</div>
+    <div class="founder-note">
+      <div class="fn-avs"><span class="fn-av">👩🏻</span><span class="fn-av">🧑🏻</span></div>
+      <div class="fn-txt">“We're two parents building FamilyHub for families like yours. Your notes shape what we make next. Truly, thank you.”<span class="fn-sig">Mira &amp; Sam, founders</span></div>
+    </div>
+    <div class="field"><label>What's on your mind</label><div class="choices" id="sg-type">
+      <button class="choice on" data-v="Idea" onclick="pick('sg-type',this)">💡 An idea</button>
+      <button class="choice" data-v="Love" onclick="pick('sg-type',this)">💛 Something I love</button>
+      <button class="choice" data-v="Issue" onclick="pick('sg-type',this)">🐞 Something's off</button>
+    </div></div>
+    <div class="field"><label data-t="tellMore">Tell us more</label><textarea id="sg-msg" rows="4" data-tp="tellMorePh" placeholder="Say it however it comes. No need to be polished."></textarea></div>
+  </div>
+</div>
+
+<!-- EXPENSE CREATE / EDIT — full-screen modal -->
+<div class="modal" id="expense-modal">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeExpense()">Cancel</button>
+    <div class="modal-title" id="ex-title">Log an expense</div>
+    <button class="modal-save" id="ex-save" data-t="save" onclick="submitExpense()">Save</button>
+  </div>
+  <div class="modal-body">
+    <div class="field">
+      <label>What for?</label>
+      <input id="ex-note" placeholder="e.g. Grocery run" oninput="onExInput()"/>
+      <div class="choices" id="ex-cat" style="margin-top:10px">
+        <button class="choice on" data-v="Groceries" onclick="pickExCat(this)">🛒 Groceries</button>
+        <button class="choice" data-v="Housing" onclick="pickExCat(this)">🏠 Housing</button>
+        <button class="choice" data-v="Dining" onclick="pickExCat(this)">🍽️ Dining</button>
+        <button class="choice" data-v="Others" onclick="pickExCat(this)">🗂️ Others</button>
+        <button class="choice" data-v="Transport" onclick="pickExCat(this)">🚗 Transport</button>
+        <button class="choice" data-v="Fun" onclick="pickExCat(this)">🎉 Fun</button>
+        <button class="choice" data-v="Event" onclick="pickExCat(this)">🎈 Event</button>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label data-t="amountLbl">Amount</label><input class="num" id="ex-amt" inputmode="numeric" placeholder="$0" oninput="onExInput()"/></div>
+      <div class="field"><label>When</label><input type="date" id="ex-date" value="2026-07-13" min="2026-07-01" onchange="onExInput()" oninput="onExInput()"/></div>
+    </div>
+
+    <div class="field" id="ex-whofield"><label>Who paid</label><div class="choices" id="ex-who">
+      <button class="choice on" data-v="Emma" onclick="pickExWho(this)">Emma</button>
+      <button class="choice" data-v="James" onclick="pickExWho(this)">James</button>
+      <button class="choice" data-v="Both" onclick="pickExWho(this)">Both</button>
+      <button class="choice" data-v="Mia" onclick="pickExWho(this)">Mia</button>
+      <button class="choice" data-v="Leo" onclick="pickExWho(this)">Leo</button>
+    </div></div>
+
+    <div class="field"><label>Photos (optional)</label>
+      <label class="mem-upload"><span id="ex-upload-txt">📷 Add photos</span><input type="file" accept="image/*" multiple onchange="onExPhoto(this)" hidden></label>
+      <div class="photo-strip" id="ex-strip"></div>
+    </div>
+
+    <div class="field-hint" id="ex-whenhint"></div>
+
+    <button class="ex-del" id="ex-del" onclick="deleteExpense()">Delete expense</button>
+  </div>
+</div>
+
+<!-- NEW EVENT — full-screen modal -->
+<div class="modal" id="event-modal">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeEventModal()">Cancel</button>
+    <div class="modal-title">New event</div>
+    <button class="modal-save" id="ng-save" onclick="addEvent()" disabled>Create</button>
+  </div>
+  <div class="modal-body">
+    <div class="field">
+      <label>What is it?</label>
+      <input id="ng-name" placeholder="e.g. Beach trip" oninput="ngDirty()"/>
+      <div class="emoji-row" id="ev-emoji" style="margin-top:10px">
+        <button class="on" data-v="🎉" onclick="pickEmoji(this)">🎉</button>
+        <button data-v="✈️" onclick="pickEmoji(this)">✈️</button>
+        <button data-v="🎂" onclick="pickEmoji(this)">🎂</button>
+        <button data-v="🏖️" onclick="pickEmoji(this)">🏖️</button>
+        <button data-v="🏫" onclick="pickEmoji(this)">🏫</button>
+        <button data-v="💍" onclick="pickEmoji(this)">💍</button>
+        <button data-v="🚗" onclick="pickEmoji(this)">🚗</button>
+        <button data-v="🏠" onclick="pickEmoji(this)">🏠</button>
+        <button data-v="🎄" onclick="pickEmoji(this)">🎄</button>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label>Est. cost</label><input class="num" id="ng-amt" inputmode="numeric" placeholder="0" oninput="updateSrcHint();ngDirty()" onblur="snapAmtInput(this);updateSrcHint();ngDirty()"/></div>
+      <div class="field"><label>When</label><input type="date" id="ng-date" min="2026-07-01"/></div>
+    </div>
+
+    <div class="fund-sep"></div>
+
+    <div class="field"><label>Cover the full cost from</label>
+      <div class="src-opts" id="ng-src">
+        <button class="src-opt on" data-v="savings" onclick="pickSrc(this)"><span class="src-t"><span class="src-em">💰</span>Savings</span><span class="src-a" id="src-savings">$2,400 <span class="u">available</span></span></button>
+        <button class="src-opt" data-v="month" onclick="pickSrc(this)"><span class="src-t"><span class="src-em">📆</span><span data-t="thisMonthSrc">This month</span></span><span class="src-a" id="src-month">$4,880 <span class="u" data-t="toSpendU">to spend</span></span></button>
+      </div>
+      <div class="field-hint" id="ng-srchint"></div>
+    </div>
+
+    <div class="field"><label>Photos (optional)</label>
+      <label class="mem-upload"><span id="ev-upload-txt">📷 Add photos</span><input type="file" accept="image/*" multiple onchange="onEvPhoto(this)" hidden></label>
+      <div class="photo-strip" id="ev-strip"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk photo → expense assignment. Full-screen .modal (not a push overlay): the
+     batch lives in memory only, so the tab bar must be covered and the exit must
+     read as Cancel, not as a back chevron promising a place to return to. -->
+<div class="modal" id="photo-assign">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="paCancel()">Cancel</button>
+    <div class="modal-title">Add photos</div>
+    <button class="modal-save" id="pa-save" onclick="paDone()">Done</button>
+  </div>
+  <div class="modal-body">
+    <div class="pa-hint" id="pa-hint"></div>
+    <div id="pa-days"></div>
+  </div>
+  <div class="pa-bar" id="pa-bar" style="display:none">
+    <div class="pa-bar-t" id="pa-bar-t"></div>
+    <button class="btn-ghost" onclick="paClearSel()">Clear</button>
+  </div>
+</div>
+
+<!-- CREATE A SAVING GOAL — lives in Thu Chi, NOT an event -->
+<div class="modal" id="goal-modal">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()">Huỷ</button>
+    <div class="modal-title">Mục tiêu tiết kiệm</div>
+    <button class="modal-save" id="goal-save" onclick="submitGoal()">Lưu</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">Để dành tiền cho điều bạn muốn mua hoặc làm.</div>
+    <div class="field"><label>Mục tiêu này để làm gì?</label><input id="goal-name" placeholder="vd. Laptop mới, Quỹ khẩn cấp" oninput="onGoalInput()"/></div>
+    <div class="field"><label>Biểu tượng</label><div class="choices" id="goal-emoji">
+      <button class="choice on" data-v="🎯" onclick="pick('goal-emoji',this)">🎯</button>
+      <button class="choice" data-v="💻" onclick="pick('goal-emoji',this)">💻</button>
+      <button class="choice" data-v="✈️" onclick="pick('goal-emoji',this)">✈️</button>
+      <button class="choice" data-v="🏠" onclick="pick('goal-emoji',this)">🏠</button>
+      <button class="choice" data-v="🎁" onclick="pick('goal-emoji',this)">🎁</button>
+      <button class="choice" data-v="🚗" onclick="pick('goal-emoji',this)">🚗</button>
+      <button class="choice" data-v="🛡️" onclick="pick('goal-emoji',this)">🛡️</button>
+    </div></div>
+    <div class="field-row">
+      <div class="field"><label>Cần bao nhiêu</label><input class="num" id="goal-amt" inputmode="numeric" placeholder="0" oninput="onGoalInput()" onblur="snapAmtInput(this)"/></div>
+      <div class="field"><label>Khi nào (tuỳ chọn)</label><input type="date" id="goal-date"/></div>
+    </div>
+    <div class="field"><label>Bỏ ống ngay (tuỳ chọn)</label><input class="num" id="goal-init" inputmode="numeric" placeholder="0" onblur="snapAmtInput(this)"/><div class="r-s" style="margin-top:6px">Lấy từ quỹ tiết kiệm chung của gia đình.</div></div>
+  </div>
+</div>
+
+<!-- ADD MONEY TO A GOAL — from the savings pool -->
+<div class="modal" id="goal-fund">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()">Huỷ</button>
+    <div class="modal-title">Bỏ ống</div>
+    <button class="modal-save" id="gf-save" onclick="submitGoalFund()">Thêm</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub" id="gf-sub">Thêm tiền vào mục tiêu, lấy từ quỹ tiết kiệm chung.</div>
+    <div class="field"><label>Số tiền</label><input class="num big" id="gf-amt" inputmode="numeric" placeholder="0" oninput="onGoalFundInput()" onblur="snapAmtInput(this)"/></div>
+  </div>
+</div>
+
+<div class="modal" id="sheet-fund">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()">Cancel</button>
+    <div class="modal-title" data-t="addFundsTitle">Add funds</div>
+    <button class="modal-save" onclick="addFunds()">Add</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">Moved from your family savings into this event.</div>
+    <div class="fund-avail" id="fund-avail">💰 <b>$2,400</b> available in savings</div>
+    <div class="field"><label>Event</label><div class="choices" id="fn-event"></div></div>
+    <div class="field"><label data-t="amountLbl">Amount</label><input class="big num" id="fn-amt" inputmode="numeric" placeholder="$0"/></div>
+    <div class="presets" id="fn-presets">
+      <button class="preset" data-amt="50" onclick="fnPreset(50)"></button>
+      <button class="preset" data-amt="100" onclick="fnPreset(100)"></button>
+      <button class="preset" data-amt="250" onclick="fnPreset(250)"></button>
+      <button class="preset" onclick="fnPreset(savings)">All</button>
+    </div>
+    <div class="field"><label>Added by</label><div class="choices" id="fn-who">
+      <button class="choice on" data-v="Emma" onclick="pick('fn-who',this)">Emma</button>
+      <button class="choice" data-v="James" onclick="pick('fn-who',this)">James</button>
+      <button class="choice" data-v="Both" onclick="pick('fn-who',this)">Both</button>
+    </div></div>
+  </div>
+</div>
+
+<div class="sheet" id="sheet-month">
+  <div class="grab"></div>
+  <div class="sheet-h">Choose month</div>
+  <div class="sheet-sub">See spending and budget for any month.</div>
+  <div id="month-list"></div>
+</div>
+
+<div class="sheet" id="sheet-catpick">
+  <div class="grab"></div>
+  <div class="sheet-h" id="catpick-h">Category</div>
+  <div class="sheet-sub" id="catpick-sub">Jump to another category's transactions.</div>
+  <div class="choices" id="catpick-list"></div>
+</div>
+
+<div class="modal" id="sheet-budget">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()">Cancel</button>
+    <div class="modal-title">Categories &amp; budget</div>
+    <button class="modal-save" id="bg-save" data-t="save" onclick="setBudget()" disabled>Save</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">Your monthly target, plus the categories your spending is grouped into. Add, rename, re-budget or remove them.</div>
+    <div class="field" style="margin-bottom:20px"><label>Monthly budget <span class="opt">· fills in categories you haven’t set</span></label><input class="big num" id="bg-amt" inputmode="numeric" oninput="suggestBudgetSplit();syncFallbackRow();bgDirty()" onblur="snapAmtInput(this);suggestBudgetSplit();syncFallbackRow()"/></div>
+    <div class="bg-sub">Categories</div>
+    <div id="bg-rows"></div>
+    <div id="bg-over" class="bg-over" style="display:none">Categories add up to more than the monthly budget, so Others is at 0.</div>
+    <button class="btn-line" onclick="addCatRow()" style="margin-top:14px">＋ Add category</button>
+  </div>
+</div>
+
+<div class="modal" id="sheet-memory">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()">Cancel</button>
+    <div class="modal-title" data-t="addMemoryTitle">Add a memory</div>
+    <button class="modal-save" data-t="save" onclick="addMemory()">Save</button>
+  </div>
+  <div class="modal-body">
+    <div class="mem-ico" id="mem-ico"></div>
+    <div class="sheet-sub">Save a photo from this event. Caption is optional.</div>
+    <div class="field"><label>Photo</label>
+      <label class="mem-upload">📷 Upload photos<input type="file" accept="image/*" multiple onchange="onMemFile(this)" hidden></label>
+      <div class="mem-scenes" id="mem-scenes">
+        <button class="ph-beach" data-c="ph-beach" data-e="🏖️" onclick="pickMemScene(this)">🏖️</button>
+        <button class="ph-japan" data-c="ph-japan" data-e="🌸" onclick="pickMemScene(this)">🌸</button>
+        <button class="ph-dinner" data-c="ph-dinner" data-e="🍽️" onclick="pickMemScene(this)">🍽️</button>
+        <button class="ph-hike" data-c="ph-hike" data-e="⛰️" onclick="pickMemScene(this)">⛰️</button>
+        <button class="ph-park" data-c="ph-park" data-e="🌳" onclick="pickMemScene(this)">🌳</button>
+        <button class="ph-city" data-c="ph-city" data-e="🏙️" onclick="pickMemScene(this)">🏙️</button>
+      </div>
+      <div class="mem-preview" id="mem-preview"><div class="scrim"></div><span id="mem-prev-cap"></span></div>
+    </div>
+    <div class="field"><label>Caption (optional)</label><input id="mem-cap" placeholder="e.g. Best day of the trip"/></div>
+  </div>
+</div>
+
+<div class="sheet" id="sheet-theme">
+  <div class="grab"></div>
+  <div class="sheet-h">Settings</div>
+  <div class="sheet-sub">Pick a theme. It applies across the whole app.</div>
+  <div class="theme-grid" id="theme-grid"></div>
+  <div class="set-actions">
+    <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t" data-t="inviteMember2">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhManageFamily()"><span class="set-ic">👥</span><span class="set-t">Manage family &amp; members</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhSavings()"><span class="set-ic">🐷</span><span class="set-t">Saved for events</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhIncome()"><span class="set-ic">💵</span><span class="set-t">Income</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();restartOnboarding()"><span class="set-ic">↻</span><span class="set-t">Restart onboarding</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row danger" onclick="closeSheet();fhSignOut()"><span class="set-ic">⎋</span><span class="set-t">Sign out</span></button>
+  </div>
+</div>
+
+<!-- PHOTO PEEK — one tap lifts a photo out and blurs everything behind it -->
+<div class="peek" id="peek" role="dialog" aria-modal="true" aria-label="Photo" onclick="if(!(event.target.closest&&event.target.closest('#peek-actions')))closePeek()">
+  <div class="peek-bg" id="peek-bg"></div>
+  <button class="peek-close" id="peek-close" onclick="closePeek()" aria-label="Đóng"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <div class="peek-stage">
+    <div class="peek-frame" id="peek-frame">
+      <img id="peek-img" alt="">
+      <div class="peek-tile" id="peek-tile"></div>
+    </div>
+    <div class="peek-cap" id="peek-cap"></div>
+    <div class="peek-actions" id="peek-actions">
+      <button class="ex-del peek-del" id="peek-del" onclick="peekDelete(this)">Delete photo</button>
+    </div>
+  </div>
+</div>
+
+<!-- GENERIC SETTINGS SHEET — quick menus & destructive confirms (family, members) -->
+<div class="sheet" id="fh-sheet">
+  <div class="grab"></div>
+  <div id="fh-sheet-body"></div>
+</div>
+
+<!-- GENERIC SETTINGS MODAL — multi-field forms (edit member, savings, income) -->
+<div class="modal" id="fh-modal">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="fhModalClose()">Cancel</button>
+    <div class="modal-title" id="fh-modal-title">Edit</div>
+    <button class="modal-save" id="fh-modal-save" onclick="fhModalSave()" disabled>Save</button>
+  </div>
+  <div class="modal-body" id="fh-modal-body"></div>
+</div>
+
+<!-- CELEBRATE -->
+<div class="celebrate" id="celebrate">
+  <div class="cel-emoji" id="cel-emoji">🎉</div>
+  <div class="cel-title" id="cel-title">Fully funded!</div>
+  <div class="cel-sub" id="cel-sub">You saved it all together.</div>
+  <button class="cel-btn" onclick="closeCelebrate()">Let's go! 🙌</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ONBOARDING -->
+<div id="onboarding">
+  <div class="ob-progress" id="ob-progress"><i id="ob-bar"></i></div>
+
+  <section class="ob-screen on" data-ob="welcome">
+    <div class="ob-content center">
+      <div class="ob-brand">
+        <div class="ob-logo">🏡</div>
+        <div class="ob-welcome-t"><span data-t="welcomeTitle">Welcome to</span><br><em>FamilyHub</em></div>
+      </div>
+      <div class="ob-feats">
+        <div class="ob-feat"><div class="ob-feat-ic" style="background:#e9f7f0;color:#1a9d5f">💰</div><div><div class="ob-feat-t" data-t="tagPool">One shared pool</div><div class="ob-feat-s" data-t="tagPoolS">See your family's money together: budgets and spending in one place.</div></div></div>
+        <div class="ob-feat"><div class="ob-feat-ic" style="background:#eef1fc;color:#5E5CE6">🎯</div><div><div class="ob-feat-t" data-t="tagGoals">Goals &amp; events</div><div class="ob-feat-s" data-t="tagGoalsS">Save toward trips, birthdays and the things that matter.</div></div></div>
+        <div class="ob-feat"><div class="ob-feat-ic" style="background:#fdeef4;color:#FF375F">📸</div><div><div class="ob-feat-t" data-t="tagMem">Memories together</div><div class="ob-feat-s" data-t="tagMemS">Turn everyday moments into a shared family album.</div></div></div>
+      </div>
+    </div>
+    <div class="ob-foot">
+      <button class="cta" data-t="getStarted" onclick="obGo('locale')">Get started</button>
+      <button class="ob-textlink" data-t="haveAccount" onclick="obGo('locale')">I already have an account</button>
+    </div>
+  </section>
+
+  <section class="ob-screen" data-ob="locale">
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('welcome')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1" data-t="localeTitle">Language & currency</div><div class="ob-sub" data-t="localeSub">Choose how FamilyHub speaks and shows money.</div></div>
+      <div class="field"><label data-t="langLabel">Language</label><div class="choices" id="ob-lang">
+        <button class="choice on" data-v="en" onclick="obPickLang(this)">🇬🇧 English</button>
+        <button class="choice" data-v="vi" onclick="obPickLang(this)">🇻🇳 Tiếng Việt</button>
+      </div></div>
+      <div class="field"><label data-t="curLabel">Currency</label><div class="choices" id="ob-cur">
+        <button class="choice on" data-v="USD" onclick="obPickCur(this)">$ USD</button>
+        <button class="choice" data-v="VND" onclick="obPickCur(this)">₫ VND</button>
+      </div></div>
+    </div>
+    <div class="ob-foot"><button class="cta" data-t="continue" onclick="obGo('auth')">Continue</button></div>
+  </section>
+
+  <section class="ob-screen" data-ob="auth">
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('welcome')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content center">
+      <div class="ob-signin-hero">
+        <div class="ob-logo">🏡</div>
+        <div class="ob-signin-t" data-t="signinT">Sign in to FamilyHub</div>
+        <div class="ob-signin-s" data-t="signinS">Continue with your Google account. Secure, and just one tap.</div>
+      </div>
+    </div>
+    <div class="ob-foot">
+      <button class="ob-google" id="ob-gbtn" onclick="obGoogle()"><svg class="ob-gicon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span data-t="continueGoogle">Continue with Google</span></button>
+      <div class="ob-note" data-t="terms">By continuing, you agree to our Terms &amp; Privacy Policy.</div>
+    </div>
+  </section>
+
+  <section class="ob-screen" data-ob="choice">
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('auth')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1" data-t="familyTitle">Your family</div><div class="ob-sub" data-t="familySub">Start a new family, or join one you've been invited to.</div></div>
+      <button class="ob-card" onclick="obChoose('create')"><div class="ob-card-em">✨</div><div><div class="ob-card-t" data-t="startFamily">Start a new family</div><div class="ob-card-s" data-t="startFamilyS">You'll name it and invite others</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+      <button class="ob-card" onclick="obChoose('join')"><div class="ob-card-em">🔗</div><div><div class="ob-card-t" data-t="joinFamily">Join a family</div><div class="ob-card-s" data-t="joinFamilyS">Enter an invite code</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    </div>
+  </section>
+
+  <section class="ob-screen" data-ob="join">
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('choice')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1" data-t="joinTitle">Enter invite code</div><div class="ob-sub" data-t="joinSub">Ask a family member for the 6-character code from their invite.</div></div>
+      <div class="ob-code-wrap">
+        <div class="ob-code-boxes" id="ob-code-boxes"></div>
+        <input class="ob-code" id="ob-code" maxlength="6" inputmode="text" autocapitalize="characters" autocomplete="off" oninput="obCodeInput(this)">
+      </div>
+      <div class="ob-preview" id="ob-join-preview" style="display:none"></div>
+    </div>
+    <div class="ob-foot"><button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta" disabled>Join family</button></div>
+  </section>
+
+  <section class="ob-screen" data-ob="profile">
+    <div class="ob-top"><button class="ob-back2" id="ob-profile-back" onclick="obGo('choice')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1" data-t="profileTitle">Set up your profile</div><div class="ob-sub" data-t="profileSub">This is how your family will see you.</div></div>
+      <div class="ob-avatar" id="ob-avatar">?</div>
+      <div class="ob-colors" id="ob-colors"></div>
+      <div class="field"><label data-t="yourName">Your name</label><input id="ob-name" placeholder="e.g. Emma" oninput="obNameInput()"></div>
+      <div class="field"><label data-t="youAreThe">You are the…</label><div class="choices" id="ob-role">
+        <button class="choice on" data-v="Mom" onclick="pick('ob-role',this)">Mom</button>
+        <button class="choice" data-v="Dad" onclick="pick('ob-role',this)">Dad</button>
+        <button class="choice" data-v="Husband" onclick="pick('ob-role',this)">Husband</button>
+        <button class="choice" data-v="Wife" onclick="pick('ob-role',this)">Wife</button>
+        <button class="choice" data-v="Boyfriend" onclick="pick('ob-role',this)">Boyfriend</button>
+        <button class="choice" data-v="Sweetheart" onclick="pick('ob-role',this)">Sweetheart</button>
+        <button class="choice" data-v="Coldheart" onclick="pick('ob-role',this)">Coldheart</button>
+        <button class="choice" data-v="Man of steel" onclick="pick('ob-role',this)">Man of steel</button>
+        <button class="choice" data-v="Partner" onclick="pick('ob-role',this)">Partner</button>
+        <button class="choice" data-v="Parent" onclick="pick('ob-role',this)">Parent</button>
+        <button class="choice" data-v="Guardian" onclick="pick('ob-role',this)">Guardian</button>
+      </div></div>
+    </div>
+    <div class="ob-foot"><button class="cta" onclick="obProfileNext()">Continue</button></div>
+  </section>
+
+  <section class="ob-screen" data-ob="family">
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('profile')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1" data-t="setFamilyTitle">Set up your family</div><div class="ob-sub" data-t="setFamilySub">Name it and invite who's in it.</div></div>
+      <div class="field"><label data-t="familyName">Family name</label><input id="ob-famname" placeholder="e.g. The Reeds"></div>
+      <div class="field"><label data-t="membersInvites">Members &amp; invites</label>
+        <div id="ob-members"></div>
+        <button class="btn-line" onclick="obAddMember()" data-t="inviteMember" style="margin:12px 0 0;width:100%">＋ Invite a member</button>
+      </div>
+    </div>
+    <div class="ob-foot"><button class="cta" onclick="obFamilyNext()">Continue</button></div>
+  </section>
+
+  <section class="ob-screen" data-ob="budget">
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('family')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1" data-t="budgetTitle">Set your budget</div><div class="ob-sub" data-t="budgetSub">A monthly target for the family, then a budget for each category.</div></div>
+      <div class="ob-total-card">
+        <label data-t="monthlyBudget">Monthly budget</label>
+        <div class="ob-total-in"><span class="ob-total-sym" id="ob-budget-sym">$</span><input class="ob-total-input num" id="ob-budget" inputmode="numeric" placeholder="9,000" oninput="obSuggestBudgets()"></div>
+      </div>
+      <div class="ob-catbud-lead"><div class="bg-sub" data-t="categoryBudgets">Category budgets</div><div class="ob-catbud-hint" data-t="categoryBudgetsHint">Suggested from your total. Adjust anytime.</div></div>
+      <div class="ob-group" id="ob-catbudgets"></div>
+    </div>
+    <div class="ob-foot"><button class="cta" onclick="obBudgetNext()">Continue</button></div>
+  </section>
+
+  <section class="ob-screen" data-ob="theme">
+    <div class="ob-top"><button class="ob-back2" id="ob-theme-back" onclick="obGo('family')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1" data-t="themeTitle">Pick your look</div><div class="ob-sub" data-t="themeSub">Choose a color theme for your family's hub. You can change it anytime.</div></div>
+      <div class="theme-grid" id="ob-theme-grid"></div>
+    </div>
+    <div class="ob-foot"><button class="cta" onclick="obThemeNext()">Continue</button></div>
+  </section>
+
+  <section class="ob-screen" data-ob="done">
+    <div class="ob-content center" style="align-items:center;text-align:center">
+      <div class="ob-done-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
+      <div class="ob-welcome-t" id="ob-done-title" style="margin-top:26px">You're all set!</div>
+      <div class="ob-signin-s" id="ob-done-sub" style="max-width:300px;margin-top:10px">Welcome to FamilyHub.</div>
+    </div>
+    <div class="ob-foot"><button class="cta" data-t="enterApp" onclick="finishOnboarding()">Enter FamilyHub</button></div>
+  </section>
+</div>
+</div><!-- /phone -->
+
+<script>
+//@build:js-ui@
+</script>
+
+<!-- ═══ FamilyHub × Supabase — Google auth (ID-token flow, PWA-safe) ═══════ -->
+<script src="https://accounts.google.com/gsi/client" async></script>
+<!-- Vendored supabase-js UMD (exposes window.supabase). `defer` keeps it off the
+     parser's critical path yet guarantees it runs before the module below, which
+     reads window.supabase. No esm.sh, no CDN module waterfall on cold start. -->
+<script defer src="vendor/supabase.js"></script>
+<script type="module">
+//@build:js-data@
+</script>
+</body>
+</html>

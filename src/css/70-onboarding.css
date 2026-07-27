@@ -1,0 +1,144 @@
+/* ---------- ONBOARDING ---------- */
+#onboarding{position:absolute;inset:0;z-index:90;background:var(--canvas);overflow:hidden}
+#onboarding.done{display:none}
+/* Resume splash: for a returning user the sign-in screen never paints — this does instead,
+   and fades out once the family data is in. */
+#fh-splash{display:none;position:fixed;inset:0;z-index:9999;background:var(--canvas);
+  flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  transition:opacity .28s ease;opacity:1}
+#fh-splash.gone{opacity:0;pointer-events:none}
+#fh-splash .fs-logo{font-size:44px;line-height:1;animation:fs-breathe 1.6s ease-in-out infinite}
+#fh-splash .fs-name{font-family:var(--disp);font-weight:800;font-size:19px;letter-spacing:-.4px;color:var(--ink)}
+@keyframes fs-breathe{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.06);opacity:1}}
+@media (prefers-reduced-motion:reduce){#fh-splash .fs-logo{animation:none}}
+html.fh-resume #onboarding{display:none}          /* never flash sign-in at a signed-in user */
+html.fh-resume:not(.fh-warm-boot) #fh-splash{display:flex}   /* splash only when there's no cache to open on */
+/* Warm start: cached data is real but may be seconds-to-days old. Say so quietly
+   instead of blocking the screen — it clears the moment the hydrate lands. */
+#fh-updating{position:fixed;left:50%;transform:translateX(-50%);z-index:60;display:none;align-items:center;gap:7px;
+  top:calc(max(env(safe-area-inset-top),0px) + 8px);padding:6px 13px;border-radius:100px;
+  background:rgba(26,17,23,.82);color:#fff;font-size:12px;font-weight:600;letter-spacing:-.01em;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:fh-up-in .3s ease both}
+html.fh-stale #fh-updating{display:flex}
+#fh-updating .fu-dot{width:11px;height:11px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:fhspin2 .7s linear infinite}
+@keyframes fhspin2{to{transform:rotate(360deg)}}
+@keyframes fh-up-in{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
+@media (prefers-reduced-motion:reduce){#fh-updating{animation:none}#fh-updating .fu-dot{animation-duration:2s}}
+.ob-progress{position:absolute;top:max(env(safe-area-inset-top),0px);left:0;right:0;height:3px;background:var(--divider);z-index:6;opacity:0;transition:opacity .3s}
+/* onboarding form fields: white so they read on the canvas background (Apple grouped-form look) */
+#onboarding .field input{background:var(--white);border:1px solid var(--hairline)}
+#onboarding .field input:focus{border-color:var(--brand);background:var(--white);box-shadow:0 0 0 3px var(--brand-tint)}
+.ob-progress.show{opacity:1}
+.ob-progress i{display:block;height:100%;width:0;background:var(--brand);border-radius:0 3px 3px 0;transition:width .45s cubic-bezier(.32,.72,0,1)}
+.ob-screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateX(100%);transition:transform .42s cubic-bezier(.32,.72,0,1),opacity .32s;will-change:transform}
+.ob-screen.on{opacity:1;pointer-events:auto;transform:none}
+.ob-screen.past{opacity:0;transform:translateX(-32px);pointer-events:none}
+.ob-top{flex-shrink:0;padding:calc(max(env(safe-area-inset-top),0px) + 15px) 8px 2px;display:flex;align-items:center}
+.ob-back2{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--ink);border-radius:50%}
+.ob-back2:active{background:rgba(0,0,0,.06)}
+.ob-back2 svg{width:26px;height:26px}
+.ob-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 24px 12px}
+.ob-content::-webkit-scrollbar{display:none}
+.ob-content.center{display:flex;flex-direction:column;justify-content:center;padding-top:calc(max(env(safe-area-inset-top),0px) + 16px)}
+.ob-head{margin:6px 0 28px}
+.ob-h1{font-family:var(--disp);font-weight:800;font-size:30px;line-height:1.1;letter-spacing:-.8px;color:var(--ink)}
+.ob-sub{font-size:16px;line-height:1.5;letter-spacing:-.01em;color:var(--muted);margin-top:11px}
+.ob-foot{flex-shrink:0;padding:12px 24px calc(20px + env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,var(--canvas) 34%)}
+.ob-foot .cta{margin-top:0}
+.ob-note{text-align:center;font-size:12.5px;line-height:1.45;color:var(--muted-soft);letter-spacing:-.01em;margin-top:13px;padding:0 8px}
+.ob-textlink{display:block;width:100%;text-align:center;color:var(--brand-ink);font-size:15px;font-weight:600;letter-spacing:-.01em;padding:15px 0 2px}
+/* welcome — app mark + feature list */
+.ob-brand{text-align:center;padding-top:min(6vh,44px)}
+.ob-logo{width:88px;height:88px;border-radius:24px;background:var(--grad-hero);display:inline-flex;align-items:center;justify-content:center;font-size:46px;box-shadow:0 16px 38px var(--brand-glow)}
+.ob-welcome-t{font-family:var(--disp);font-weight:800;font-size:29px;line-height:1.14;letter-spacing:-.7px;color:var(--ink);margin-top:18px}
+.ob-welcome-t em{font-style:normal;color:var(--brand-ink)}
+.ob-feats{margin-top:34px;display:flex;flex-direction:column;gap:24px}
+.ob-feat{display:flex;gap:15px;align-items:flex-start;text-align:left}
+.ob-feat-ic{width:44px;height:44px;border-radius:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px}
+.ob-feat-t{font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.ob-feat-s{font-size:14px;line-height:1.42;color:var(--muted);margin-top:2px}
+/* sign-in hero */
+.ob-signin-hero{text-align:center;margin-bottom:8px}
+.ob-signin-hero .ob-logo{width:76px;height:76px;font-size:38px;border-radius:22px}
+.ob-signin-t{font-family:var(--disp);font-weight:800;font-size:26px;letter-spacing:-.6px;color:var(--ink);margin-top:20px}
+.ob-signin-s{font-size:15.5px;line-height:1.5;color:var(--muted);margin-top:9px}
+/* google button (real mark) */
+.ob-google{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;background:var(--white);border:1px solid var(--hairline);border-radius:14px;padding:16px;font-size:16px;font-weight:600;letter-spacing:-.01em;color:#3c4043;box-shadow:0 2px 10px rgba(25,16,34,.06)}
+.ob-google:active{background:var(--surface)}
+.ob-gicon{width:20px;height:20px;flex-shrink:0}
+.ob-gacct{display:flex;align-items:center;gap:12px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:13px 15px}
+.ob-gacct-av{width:40px;height:40px;border-radius:50%;background:var(--emma-b);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;flex-shrink:0}
+.ob-gacct-n{font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.ob-gacct-e{font-size:13px;color:var(--muted)}
+.ob-gacct .chk{margin-left:auto;width:22px;height:22px;color:var(--good)}
+/* google email entry (manual) */
+.ob-gform{margin-top:26px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:16px;box-shadow:0 2px 12px rgba(25,16,34,.06);text-align:left}
+.ob-gform-head{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--muted);margin-bottom:12px}
+.ob-gmail{width:100%;background:var(--surface);border:1.5px solid var(--hairline);border-radius:12px;padding:14px;font-size:16px;letter-spacing:-.01em;color:var(--ink);outline:none}
+.ob-gmail:focus{border-color:var(--brand);background:#fff}
+.ob-gform-note{font-size:12.5px;line-height:1.4;color:var(--muted-soft);margin-top:10px}
+/* budget step — total amount card */
+.ob-total-card{background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px 16px 15px;box-shadow:0 1px 3px rgba(25,16,34,.04);margin-bottom:24px}
+.ob-total-card label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.03em;text-transform:uppercase;margin-bottom:7px}
+.ob-total-in{display:flex;align-items:baseline;gap:6px}
+.ob-total-sym{font-family:var(--disp);font-weight:800;font-size:25px;letter-spacing:-1px;color:var(--muted-soft);flex-shrink:0}
+.ob-total-input{flex:1;min-width:0;border:none;background:none;outline:none;font-family:var(--disp);font-weight:800;font-size:32px;letter-spacing:-1.2px;color:var(--ink);padding:0}
+.ob-total-input::placeholder{color:#cfc8d6;font-weight:700}
+/* category budgets (onboarding) — grouped inset list */
+.ob-catbud-lead{margin:0 2px 11px}
+.ob-catbud-lead .bg-sub{margin:0}
+.ob-catbud-hint{font-size:12.5px;line-height:1.4;letter-spacing:-.01em;color:var(--muted-soft);margin-top:3px}
+.ob-group{background:var(--white);border:1px solid var(--hairline);border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(25,16,34,.04)}
+.ob-catbud{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--divider)}
+.ob-catbud:last-child{border-bottom:none}
+.ob-catbud-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.ob-catbud-n{flex:1;min-width:0;font-size:15.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+/* choice cards */
+.ob-card{display:flex;align-items:center;gap:15px;width:100%;text-align:left;background:var(--white);border:1px solid var(--hairline);border-radius:18px;padding:18px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(25,16,34,.04),0 10px 24px rgba(25,16,34,.05)}
+.ob-card:active{transform:scale(.985)}
+.ob-card-em{width:48px;height:48px;border-radius:14px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.ob-card-t{font-size:16.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.ob-card-s{font-size:13.5px;line-height:1.35;color:var(--muted);margin-top:2px}
+.ob-card .chev{margin-left:auto;color:#cfc8d6;flex-shrink:0}
+/* segmented code input */
+.ob-code-wrap{position:relative;margin-top:4px}
+.ob-code-boxes{display:flex;gap:9px;justify-content:center;pointer-events:none}
+.ob-code-box{flex:1;max-width:50px;aspect-ratio:.82;border-radius:13px;background:var(--surface);border:2px solid var(--hairline);display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:24px;color:var(--ink)}
+.ob-code-box.filled{border-color:var(--brand);background:var(--white)}
+.ob-code-box.cursor{border-color:var(--brand)}
+.ob-code{position:absolute;inset:0;width:100%;opacity:0;font-size:16px}
+.ob-preview{display:flex;align-items:center;gap:13px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:15px;margin-top:20px;box-shadow:0 8px 22px rgba(25,16,34,.05)}
+.ob-preview-ic{width:44px;height:44px;border-radius:12px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.ob-preview-fam{font-family:var(--disp);font-weight:800;font-size:18px;letter-spacing:-.4px;color:var(--ink)}
+.ob-preview-sub{font-size:13.5px;color:var(--muted);margin-top:2px}
+/* profile avatar + colours */
+.ob-avatar{width:96px;height:96px;border-radius:50%;margin:4px auto 18px;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:36px;letter-spacing:-1px;color:#fff;box-shadow:0 12px 30px rgba(25,16,34,.18)}
+.ob-colors{display:flex;justify-content:center;flex-wrap:wrap;gap:14px;margin-bottom:28px}
+.ob-swatch{width:34px;height:34px;border-radius:50%;position:relative;transition:transform .15s;box-shadow:0 2px 6px rgba(25,16,34,.14)}
+.ob-swatch.on{transform:scale(1.12)}
+.ob-swatch.on::after{content:'';position:absolute;inset:0;border-radius:50%;border:2.5px solid var(--white);box-shadow:0 0 0 2px currentColor}
+/* member / invite cards */
+.ob-mcard{background:var(--white);border:1px solid var(--hairline);border-radius:15px;padding:11px 13px 12px;margin-bottom:10px;box-shadow:0 1px 3px rgba(25,16,34,.04)}
+.ob-mrow{display:flex;align-items:center;gap:11px;padding:0 0 9px}
+.ob-mrow .ob-mav{width:40px;height:40px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.ob-mname{flex:1;min-width:0;background:none;border:none;font-size:15.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);outline:none;padding:2px}
+.ob-mfields{display:flex;align-items:center;gap:9px}
+.ob-memail{flex:1;min-width:0;background:var(--surface);border:1px solid var(--hairline);border-radius:10px;padding:9px 11px;font-size:14px;letter-spacing:-.01em;color:var(--ink);outline:none}
+.ob-memail:focus{border-color:var(--brand);background:#fff}
+.ob-memail[readonly]{opacity:.55}
+.ob-mrole{flex-shrink:0;background:var(--surface);border:1px solid var(--hairline);border-radius:10px;padding:9px 26px 9px 11px;font-size:13.5px;font-weight:600;color:var(--ink);font-family:inherit;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a5a6e' stroke-width='2.6'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.ob-mdel{flex-shrink:0;width:30px;height:30px;color:var(--muted-soft);display:flex;align-items:center;justify-content:center;border-radius:8px}
+.ob-mdel:active{color:var(--danger);background:var(--danger-tint)}
+.ob-mdel svg{width:16px;height:16px}
+.ob-mtag{flex-shrink:0;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:4px 8px}
+/* done */
+.ob-done-badge{width:104px;height:104px;border-radius:50%;background:var(--good-tint);color:var(--good);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 14px 34px rgba(26,157,95,.22)}
+.ob-done-badge svg{width:52px;height:52px}
+/* settings actions (Personalize sheet) */
+.set-actions{margin-top:20px}
+.set-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:15px 2px;font-size:16px;font-weight:600;letter-spacing:-.01em;color:var(--ink);border-top:1px solid var(--divider)}
+.set-row:active{opacity:.6}
+.set-row .set-ic{width:34px;height:34px;border-radius:10px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.set-row.danger{color:var(--danger)}
+.set-row.danger .set-ic{background:var(--danger-tint);color:var(--danger)}
+.set-row .chev{margin-left:auto;color:#cfc8d6;flex-shrink:0}

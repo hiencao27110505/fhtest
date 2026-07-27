@@ -1,0 +1,82 @@
+/* ---------- HERO = month budget dashboard ---------- */
+.hero{background:var(--grad-hero);color:#fff;padding:0 24px 52px;position:relative;overflow:hidden}
+.hero::after{content:'';position:absolute;top:-70px;right:-50px;width:230px;height:230px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.22),transparent 70%);pointer-events:none}
+/* second, softer glow low-left for warmth + depth (no asset needed) */
+.hero::before{content:'';position:absolute;bottom:-40px;left:-30px;width:180px;height:180px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.14),transparent 70%);pointer-events:none}
+.hero .safe{height:max(env(safe-area-inset-top),16px)}
+.hero-top{padding-top:10px;position:relative;z-index:1}
+.hrow{display:flex;justify-content:space-between;align-items:center}
+.month-sel{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.22);backdrop-filter:blur(4px);color:#fff;border-radius:9999px;padding:8px 12px 8px 15px;font-size:15px;font-weight:700;letter-spacing:-.02em}
+.month-sel svg{width:16px;height:16px}
+.hero-gear{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.22);backdrop-filter:blur(4px);color:#fff;border-radius:9999px;padding:8px 14px;font-size:14px;font-weight:700;letter-spacing:-.01em}
+.hero-gear svg{width:16px;height:16px}
+.hero-ic{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.22);backdrop-filter:blur(4px);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hero-ic svg{width:20px;height:20px}
+.theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.theme-opt{border-radius:16px;overflow:hidden;border:2px solid var(--hairline);cursor:pointer;background:var(--white);transition:transform .15s}
+.theme-opt:active{transform:scale(.98)}
+.theme-opt.on{border-color:var(--ink)}
+.theme-opt .sw{height:76px;position:relative}
+.theme-opt .sw .chk{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.92);display:none;align-items:center;justify-content:center}
+.theme-opt.on .sw .chk{display:flex}
+.theme-opt .nm{padding:11px 14px;font-weight:700;font-size:15px;letter-spacing:-.02em;color:var(--ink)}
+.hero-lab{font-size:14px;font-weight:600;color:rgba(255,255,255,.9);margin-top:20px}
+.hero-big{margin-top:2px;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.hero-big .n{font-family:var(--disp);font-weight:800;font-size:46px;letter-spacing:-2px;color:#fff;line-height:1}
+.hero-big .of{font-size:16px;font-weight:600;color:rgba(255,255,255,.85)}
+.hbar{position:relative;height:14px;border-radius:7px;background:rgba(255,255,255,.28);margin:26px 0 0}
+.hbar i{position:absolute;left:0;top:0;bottom:0;border-radius:7px;background:#fff;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.hbar .hmark{position:absolute;top:-4px;bottom:-4px;width:2.5px;border-radius:2px;background:rgba(25,16,34,.5)}
+.hbar .hmark::after{content:'today';position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;letter-spacing:.03em;color:rgba(255,255,255,.9);text-transform:uppercase}
+.hero-metrics{display:flex;gap:10px;margin-top:24px}
+.hero-metrics .hm{flex:1}
+.hm-v{font-family:var(--disp);font-weight:800;font-size:21px;letter-spacing:-.7px;color:#fff}
+.hm-l{font-size:11.5px;font-weight:600;color:rgba(255,255,255,.82);margin-top:3px;letter-spacing:-.01em}
+.hero-tiles{display:flex;gap:10px;margin-top:22px}
+.hero-tile{flex:1;background:rgba(255,255,255,.17);border-radius:16px;padding:14px 14px 15px;backdrop-filter:blur(6px);min-width:0}
+.hero-tile .ht-l{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:rgba(255,255,255,.82);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero-tile .ht-n{font-family:var(--disp);font-weight:800;font-size:22px;letter-spacing:-.8px;color:#fff;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero-tile .ht-n .of{font-size:12.5px;font-weight:600;color:rgba(255,255,255,.8);letter-spacing:-.2px}
+.hero-tile .ht-bar{height:6px;border-radius:9999px;background:rgba(255,255,255,.28);overflow:hidden;margin:11px 0 8px}
+.hero-tile .ht-bar i{display:block;height:100%;background:#fff;border-radius:9999px}
+.hero-tile .ht-s{font-size:12px;font-weight:600;color:rgba(255,255,255,.85);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero-chip{margin-top:16px;background:rgba(255,255,255,.96);border-radius:13px;padding:11px 14px;font-size:13.5px;font-weight:600;color:var(--ink);letter-spacing:-.01em;line-height:1.4}
+/* warm welcome */
+.greet{font-family:var(--disp);font-weight:800;font-size:31px;letter-spacing:-1px;color:#fff;margin-top:18px;line-height:1.08}
+.greet-sub{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.86);margin-top:9px;letter-spacing:-.01em}
+.hero-fam{display:flex;align-items:center;margin-top:18px}
+.av-hero{width:30px;height:30px;font-size:12px;letter-spacing:-.2px;margin-left:-8px;box-shadow:0 0 0 2px rgba(255,255,255,.55)}
+.av-hero:first-child{margin-left:0}
+.hero-fam-cap{margin-left:12px;font-size:13px;font-weight:600;color:rgba(255,255,255,.82);letter-spacing:-.01em}
+@keyframes rise{from{opacity:0;transform:translateY(11px)}to{opacity:1;transform:none}}
+#v-home.on .greet{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
+#v-home.on .greet-sub{animation:rise .5s cubic-bezier(.2,.7,.2,1) .05s both}
+#v-home.on .hero-fam{animation:rise .5s cubic-bezier(.2,.7,.2,1) .1s both}
+#v-home.on .ov-card{animation:rise .55s cubic-bezier(.2,.7,.2,1) .16s both}
+/* home overview stats (moved from header) */
+.ov-card{display:flex;position:relative;z-index:5;background:var(--white);border-radius:20px;margin:-34px 16px 0;padding:18px 4px;box-shadow:0 2px 6px rgba(25,16,34,.06),0 16px 34px rgba(25,16,34,.12)}
+.ovc-col{flex:1;min-width:0;padding:0 15px;cursor:pointer}
+.ovc-col:active{opacity:.6}
+.ovc-div{width:1px;background:var(--hairline);margin:3px 0}
+.ovc-l{font-size:12.5px;font-weight:600;letter-spacing:-.01em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ovc-n{font-family:var(--disp);font-weight:700;font-size:27px;letter-spacing:-1px;color:var(--ink);margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ovc-s{font-size:12.5px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:7px;line-height:1.35}
+/* VND figures are longer — shrink the glanceable hero numbers so they don't clip */
+.cur-vnd .ovc-n{font-size:20px;letter-spacing:-.5px}
+.cur-vnd .hero-tile .ht-n{font-size:18px;letter-spacing:-.4px}
+/* spending breakdown rows: name + "spent / budget" — tighten the amount in VND so it doesn't collide/clip */
+.cur-vnd .crow .r-t{font-size:15px}
+.cur-vnd .crow .r-t .num{font-size:13.5px;padding-left:8px;letter-spacing:-.3px}
+
+/* section heading */
+.section-h{display:flex;align-items:baseline;justify-content:space-between;margin:26px 22px 13px}
+/* Đáng nhớ shows a short preview by default; this expands/collapses the rest so a long
+   memory timeline never buries the Album below it. */
+.mem-more{display:block;width:calc(100% - 44px);margin:8px 22px 0;padding:12px;text-align:center;font-family:var(--text);font-size:14px;font-weight:700;letter-spacing:-.01em;color:var(--brand-ink);background:var(--surface);border:1px solid var(--hairline);border-radius:12px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.mem-more:active{opacity:.65}
+.section-h .t{font-family:var(--disp);font-weight:800;font-size:22px;letter-spacing:-.6px;color:var(--ink)}
+.section-h a{font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--brand);cursor:pointer}
+
+.card{background:var(--white);border-radius:20px;margin:0 16px 14px;padding:20px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04)}

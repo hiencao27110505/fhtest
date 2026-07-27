@@ -1,0 +1,55 @@
+/* memories photo calendar */
+.mcal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.mcell{aspect-ratio:1;border-radius:9px;position:relative;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:var(--ink)}
+.mcell.day{background:var(--canvas)}
+.mcell.mute{background:transparent}
+.mcell.today{outline:2px solid var(--brand);outline-offset:-2px;color:var(--brand);font-weight:800}
+.mcell.photo{color:#fff;overflow:hidden;cursor:pointer;background-size:cover;background-position:center}
+.mcell.photo:active{transform:scale(.95)}
+.mcell.photo.today{outline:2px solid #fff;outline-offset:-2px}
+.mcell.photo .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.42))}
+/* 10px white on a .42 chip was unreadable over light photos — solid dark chip instead */
+.mcell.photo .mday{position:absolute;top:3px;left:4px;z-index:1;font-size:10px;font-weight:800;color:#fff;background:rgba(0,0,0,.72);border-radius:5px;padding:0 4px;line-height:15px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+/* An empty day is an entry point. It stays visually quiet — .day already reads as
+   "nothing here" — so selection is the only thing that changes appearance. */
+.mcell.open{cursor:pointer;font:inherit;font-size:13px;font-weight:500}
+.mcell.open:active{transform:scale(.95)}
+.mcell.sel{background:var(--brand-tint);color:var(--brand-ink);font-weight:800;outline:2px solid var(--brand);outline-offset:-2px}
+/* .today already draws a brand ring, so a selected today keeps one ring, not two */
+.mcell.today.sel{color:var(--brand-ink)}
+/* The prompt sits directly under the grid: the response has to appear where the
+   tap happened, not somewhere the user has to go looking for it. */
+.mcal-prompt{overflow:hidden;max-height:0;opacity:0;visibility:hidden;
+  transition:max-height .32s cubic-bezier(.32,.72,0,1),opacity .22s ease,visibility 0s linear .32s}
+.mcal-prompt.on{max-height:200px;opacity:1;visibility:visible;
+  transition:max-height .32s cubic-bezier(.32,.72,0,1),opacity .22s ease,visibility 0s}
+.mcal-prompt-in{margin-top:12px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;
+  padding:14px 16px;display:flex;align-items:center;gap:14px}
+.mcp-txt{flex:1;min-width:0}
+.mcp-d{font-family:var(--disp);font-weight:800;font-size:16px;letter-spacing:-.3px;color:var(--ink)}
+.mcp-h{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:2px}
+/* mirrors .btn-line, sized to sit inline rather than span the screen */
+.mcp-go{flex-shrink:0;background:var(--white);color:var(--brand);border:1.5px solid var(--brand);border-radius:9999px;
+  font-size:14px;font-weight:700;letter-spacing:-.02em;padding:11px 16px;min-height:44px}
+.mcp-go:active{transform:scale(.97)}
+@media (prefers-reduced-motion:reduce){
+  .mcal-prompt{transition:opacity .01s linear,visibility 0s}
+  .mcal-prompt.on{transition:opacity .01s linear,visibility 0s}
+}
+.btn-line{display:block;width:calc(100% - 32px);margin:2px 16px 16px;text-align:center;background:var(--white);color:var(--brand);border:1.5px solid var(--brand);border-radius:9999px;font-size:16px;font-weight:700;padding:15px;letter-spacing:-.02em}
+/* Empty-state action — a real tinted button with a 44pt target (HIG), not a text link.
+   Auto-width + inline so it centers inside a centered empty state. Shared by every empty CTA. */
+.empty-cta{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:11px 22px;border-radius:9999px;background:var(--brand-tint);color:var(--brand-ink);font-size:15px;font-weight:700;letter-spacing:-.01em;cursor:pointer;border:none}
+.empty-cta:active{transform:scale(.96)}
+/* Plan trigger = the last node on the Đáng nhớ timeline — a subtle dashed "add" card with
+   a hollow rail dot, so it reads as the timeline continuing ("add the next moment"), not a
+   detached CTA. Quiet by default, brightens on press. Tap target is the whole tl-item row. */
+.tl-add{width:100%;padding:0}   /* stretch to full width + drop UA button padding so the card lines up with memory rows */
+.tl-add:active{transform:none}
+.tl-add-plus{font-family:var(--disp);font-weight:500;font-size:22px;color:var(--brand);line-height:1;padding-top:3px}
+.tl-dot-open{background:var(--white)!important;box-shadow:0 0 0 2px var(--brand-2)}
+.tl-add-card{flex:1;min-width:0;text-align:left;border:1.5px dashed var(--brand-2);border-radius:16px;padding:13px 15px;transition:transform .18s,border-color .18s,background .18s}
+.tl-add:active .tl-add-card{transform:scale(.99);border-color:var(--brand);background:var(--brand-tint)}
+.tl-add-t{font-weight:700;font-size:15px;color:var(--brand-ink);letter-spacing:-.01em}
+.tl-add-s{font-size:13px;color:var(--muted);margin-top:2px}
+.btn-line:active{transform:scale(.99)}
