@@ -188,6 +188,10 @@ input{font-family:inherit}
 
 /* section heading */
 .section-h{display:flex;align-items:baseline;justify-content:space-between;margin:26px 22px 13px}
+/* Đáng nhớ shows a short preview by default; this expands/collapses the rest so a long
+   memory timeline never buries the Album below it. */
+.mem-more{display:block;width:calc(100% - 44px);margin:8px 22px 0;padding:12px;text-align:center;font-family:var(--text);font-size:14px;font-weight:700;letter-spacing:-.01em;color:var(--brand-ink);background:var(--surface);border:1px solid var(--hairline);border-radius:12px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.mem-more:active{opacity:.65}
 .section-h .t{font-family:var(--disp);font-weight:800;font-size:22px;letter-spacing:-.6px;color:var(--ink)}
 .section-h a{font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--brand);cursor:pointer}
 
@@ -389,6 +393,10 @@ input{font-family:inherit}
   .mcal-prompt.on{transition:opacity .01s linear,visibility 0s}
 }
 .btn-line{display:block;width:calc(100% - 32px);margin:2px 16px 16px;text-align:center;background:var(--white);color:var(--brand);border:1.5px solid var(--brand);border-radius:9999px;font-size:16px;font-weight:700;padding:15px;letter-spacing:-.02em}
+/* Empty-state action — a real tinted button with a 44pt target (HIG), not a text link.
+   Auto-width + inline so it centers inside a centered empty state. Shared by every empty CTA. */
+.empty-cta{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:11px 22px;border-radius:9999px;background:var(--brand-tint);color:var(--brand-ink);font-size:15px;font-weight:700;letter-spacing:-.01em;cursor:pointer;border:none}
+.empty-cta:active{transform:scale(.96)}
 .btn-line:active{transform:scale(.99)}
 /* spending revamp */
 .hdr-month{display:inline-flex;align-items:center;gap:4px;background:rgba(138,132,148,.13);border-radius:9999px;padding:8px 10px 8px 14px;font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin-top:6px;flex-shrink:0}
@@ -822,7 +830,9 @@ input{font-family:inherit}
 .photo-sec{margin-top:24px}
 .photo-sec:first-child{margin-top:8px}
 .photo-sec-h{padding:0 18px 11px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
-.photo-sec-title{font-family:var(--disp);font-weight:800;font-size:20px;letter-spacing:-.4px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Day/event group label — deliberately lighter than a section header (.section-h .t, 22/800)
+   so it reads as a sub-group under "Ảnh tháng …", not a rival header. */
+.photo-sec-title{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.2px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .photo-sec-ev{display:block;margin-top:2px;color:var(--brand-ink);font-size:14px;font-weight:600;letter-spacing:-.01em;text-align:left}
 button.photo-sec-title{cursor:pointer;min-height:44px;display:flex;align-items:center;max-width:100%}
 button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
@@ -1368,18 +1378,20 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="mcal-prompt" id="mcal-prompt" role="status" aria-live="polite"></div>
   </div>
 
-  <!-- Ảnh tháng … — the hero month's photos; the title carries the month so the calendar's
-       scope reads clearly (it governs these photos, not the always-current lists below). -->
-  <div class="section-h"><span class="t" id="album-title">Ảnh</span><a onclick="paOpen()">Thêm ảnh</a></div>
-  <div id="mem-grid"></div>
-
   <!-- SẮP TỚI — what's coming up -->
   <div class="section-h"><span class="t">Sắp tới</span><a onclick="openSheet('sheet-event')">Thêm</a></div>
   <div id="events-list" class="timeline"></div>
 
-  <!-- ĐÁNG NHỚ — worth remembering -->
+  <!-- ĐÁNG NHỚ — worth remembering. Collapsible + collapsed by default so a long memory
+       timeline never buries the Album section that follows it. -->
   <div class="section-h" id="past-head"><span class="t">Đáng nhớ</span><span class="sh-note" id="past-note"></span></div>
   <div id="past-events" class="pastlist"></div>
+  <button id="past-more" class="mem-more" onclick="toggleMem()" style="display:none"></button>
+
+  <!-- Ảnh tháng … — the month's photos; the title carries the month so the calendar's
+       scope reads clearly (it governs these photos). -->
+  <div class="section-h"><span class="t" id="album-title">Ảnh</span><a onclick="paOpen()">Thêm ảnh</a></div>
+  <div id="mem-grid"></div>
 
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
     <span class="sf-heart">💛</span>
@@ -2019,7 +2031,9 @@ function go(name){
 /* Khoảnh Khắc is one flat scroll now (like Tài Chính) — momSec glides to a section
    instead of toggling a hidden panel. Map each former segment to its anchor. */
 function momSec(which){
-  var map={plans:'events-list', memories:'past-events', album:'mem-grid'};
+  // A deep link to memories expands the (collapsed-by-default) Đáng nhớ section first.
+  if(which==='memories' && typeof memOpen!=='undefined' && !memOpen){ memOpen=true; if(typeof applyPastPreview==='function') applyPastPreview(); }
+  var map={plans:'events-list', memories:'past-head', album:'mem-grid'};
   var sc=document.getElementById('scroll'), el=document.getElementById(map[which]||'mcal-grid');
   if(!sc||!el)return;
   var y=Math.max(0, el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 78);
@@ -2129,6 +2143,8 @@ function moAbbr(i){ return isVi()?MONA_VI[i]:MONA[i]; }         // "Thg 7" / "Ju
 function fmtMonYear(i,y){ return isVi()?('Tháng '+(i+1)+' '+y):(MONF[i]+' '+y); }
 function fmtDayMon(d){ return isVi()?(d.getDate()+' thg '+(d.getMonth()+1)):(MONA[d.getMonth()]+' '+d.getDate()); }  // "26 thg 7" / "Jul 26"
 function fmtDateLong(d){ if(!d) return ''; return isVi()?(WKD_VI[d.getDay()]+', '+d.getDate()+' thg '+(d.getMonth()+1)):(WKD[d.getDay()]+', '+MONF[d.getMonth()]+' '+d.getDate()); }
+// Weekday + day only (no month) — for the album's day groups, already scoped to one month.
+function fmtWeekdayDay(d){ if(!d) return ''; return isVi()?(WKD_VI[d.getDay()]+', '+d.getDate()):(WKD[d.getDay()]+' '+d.getDate()); }
 function sameDay(a,b){ return !!(a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate()); }
 function parseAmt(s){ return parseInt((s||'').replace(/[^0-9]/g,''))||0; }
 function daysLeft(d){ return Math.max(0,Math.round((d-TODAY)/86400000)); }
@@ -2462,6 +2478,19 @@ function memTileHTML(k){
   var sub=(e.d?fmtDayMon(e.d):e.date)+' · '+c+' '+(isVi()?'ảnh':('photo'+(c>1?'s':'')));
   return '<div class="memory '+cls+'" '+style+' onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+subj+'<div class="scrim"></div><div class="m-cap">'+esc(e.name)+'</div><div class="m-date">'+esc(sub)+'</div></div>';
 }
+/* Đáng nhớ (past memories) is collapsed by default so a long timeline never buries the
+   Album section below it. State persists across re-renders; renderEvents re-applies it. */
+var memOpen=false, PAST_PREVIEW=5;   // show the 5 most recent by default, "Xem tất cả" reveals the rest
+function applyPastPreview(){
+  var items=window._pastItems||[];
+  var pe=document.getElementById('past-events'), more=document.getElementById('past-more');
+  if(pe) pe.innerHTML=(memOpen||items.length<=PAST_PREVIEW)?items.join(''):items.slice(0,PAST_PREVIEW).join('');
+  if(more){
+    if(items.length<=PAST_PREVIEW){ more.style.display='none'; }
+    else { more.style.display=''; more.textContent=memOpen?L('Thu gọn','Show less'):(L('Xem tất cả','See all')+' · '+items.length); }
+  }
+}
+function toggleMem(){ memOpen=!memOpen; applyPastPreview(); }
 function renderEvents(){
   // Mirror events (shadow events standing in for a photo-expense) no longer appear in
   // the Events tab — their photos live in Memories directly (see buildMemRecords). Real
@@ -2519,7 +2548,7 @@ function renderEvents(){
           +'<div class="evs">'+dueTxt+' · '+fmt(Math.max(0,e.target-e.saved))+L(' còn lại',' to go')+'</div>'
           +'<div class="evbar"><i style="width:'+pct+'%"></i></div></div></div>');
   });
-  setHTMLIf('home-events', rows||'<div style="padding:26px 20px;text-align:center"><div style="font-size:30px">🌤️</div><div style="font-family:var(--disp);font-weight:800;font-size:18px;letter-spacing:-.3px;color:var(--ink);margin-top:6px">'+L('Thong thả','Free and clear')+'</div><p style="color:var(--muted);font-size:14px;margin:6px 0 10px">'+L('Chưa có mục tiêu nào cần tiết kiệm.','Nothing to save for right now.')+'</p><span onclick="openSheet(\'sheet-event\')" style="color:var(--brand);font-size:14px;font-weight:600;letter-spacing:-.01em;cursor:pointer">'+L('Lên kế hoạch điều gì đó','Plan something good')+'</span></div>');
+  setHTMLIf('home-events', rows||'<div style="padding:26px 20px;text-align:center"><div style="font-size:30px">🌤️</div><div style="font-family:var(--disp);font-weight:800;font-size:18px;letter-spacing:-.3px;color:var(--ink);margin-top:6px">'+L('Thong thả','Free and clear')+'</div><p style="color:var(--muted);font-size:14px;margin:6px 0 10px">'+L('Chưa có mục tiêu nào cần tiết kiệm.','Nothing to save for right now.')+'</p><button class="empty-cta" onclick="openSheet(\'sheet-event\')">'+L('Lên kế hoạch điều gì đó','Plan something good')+'</button></div>');
   // full cards (Events tab) — neutral, no avatars
   var full='';
   upS.forEach(function(k){
@@ -2540,7 +2569,7 @@ function renderEvents(){
         +'</div>';
     full+='<div class="tl-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+tlDate+'<div class="tl-rail"><span class="tl-dot"></span></div>'+card+'</div>';
   });
-  setHTMLIf('events-list', full||'<div style="padding:10px 4px;color:var(--muted);font-size:14px">'+L('Chưa có gì sắp tới.','Nothing upcoming.')+'</div>');
+  setHTMLIf('events-list', full||'<div style="padding:24px 20px 6px;text-align:center"><div style="font-size:30px">🗓️</div><div style="font-family:var(--disp);font-weight:800;font-size:18px;letter-spacing:-.3px;color:var(--ink);margin-top:6px">'+L('Chưa có dự định nào','Nothing planned yet')+'</div><p style="color:var(--muted);font-size:14px;line-height:1.45;margin:6px auto 10px;max-width:30ch">'+L('Lên kế hoạch cho một dịp của gia đình — chuyến đi, sinh nhật hay một bữa tối đáng nhớ.','Plan a family occasion — a trip, a birthday, a dinner worth remembering.')+'</p><button class="empty-cta" onclick="openSheet(\'sheet-event\')">'+L('Lên kế hoạch','Plan something')+'</button></div>');
   // ---- Past events (Events tab): nudge to add photos → memories ----
   function noPhotos(k){ return !(events[k].memories&&events[k].memories.length); }
   // Strictly reverse-chronological. This used to float photo-less events to the
@@ -2549,7 +2578,7 @@ function renderEvents(){
   // section header carries the nudge instead.
   var past=mem.slice().sort(function(a,b){ return events[b].d-events[a].d; });
   var needy=past.filter(noPhotos).length;
-  var pl='';
+  var plItems=[];
   past.forEach(function(k){
     var e=events[k];
     // same timeline rail as upcoming, so the tab reads as one continuous story
@@ -2570,17 +2599,19 @@ function renderEvents(){
       }).join('')+'</div>'
         +'<div class="tl-fig">'+c+' '+(isVi()?'ảnh':('photo'+(c>1?'s':'')))+'</div>';
     }
-    pl+='<div class="tl-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'
+    plItems.push('<div class="tl-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'
       +tlDate
       +'<div class="tl-rail"><span class="tl-dot done"></span></div>'
       +'<div class="tl-card">'
         +'<div class="tl-top"><span class="tl-emoji">'+esc(e.emoji)+'</span><span class="tl-name">'+esc(e.name)+'</span></div>'
         +body
-      +'</div></div>';
+      +'</div></div>');
   });
-  var pe=document.getElementById('past-events'); if(pe)pe.innerHTML=pl;
   var ph=document.getElementById('past-head'); if(ph)ph.style.display=past.length?'':'none';
-  setTxt('past-note', needy?(needy+L(' chưa có ảnh',' need photos')):'');
+  // Header note carries the total count; the needy nudge wins when present.
+  setTxt('past-note', past.length ? (needy?(needy+L(' chưa có ảnh',' need photos')):(past.length+L(' kỉ niệm',' memories'))) : '');
+  window._pastItems=plItems;
+  applyPastPreview();
   // Home memories: cover tiles up top (events + expenses, newest 10) + a full-size photo
   // feed below the expenses (up to 50, lazy-loaded), "See all" → Memories tab.
   buildMemRecords();
@@ -2911,7 +2942,7 @@ function photoSectionsByDate(recs){
   return groups.map(function(g){
     var body=g.order.map(function(rk){ var items=g.byRef[rk]; return evBlockHTML(items, items[0].type==='event'?items[0].ref:null); }).join('');
     if(g.moments.length) body+=evBlockHTML(g.moments,null);
-    return secHTML('<div class="photo-sec-title">'+fmtDateLong(g.d)+'</div>', g.items.length, body);
+    return secHTML('<div class="photo-sec-title">'+fmtWeekdayDay(g.d)+'</div>', g.items.length, body);
   }).join('');
 }
 // Photos-by-date screen: group by EVENT (name links to the event) + an "Everyday moments" section.
