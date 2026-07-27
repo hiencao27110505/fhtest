@@ -4602,7 +4602,11 @@ if(fhWarm){                                              // cached state is on s
 // fresh data has landed (or we gave up): retire the "Updating…" chip
 window.fhFresh=function(){ document.documentElement.classList.remove('fh-stale'); };
 setGreeting();
-renderEvents(); renderAll(); renderTxns(); applyCurrency();
+// A throw in the first render must NOT halt the rest of this script — the gesture wiring
+// below (sheet drag-to-dismiss, the photo-peek handlers) lives here, and losing it silently
+// breaks "drag to close" and "tap to close" everywhere. Isolate the render; the hydrate re-renders anyway.
+try{ renderEvents(); renderAll(); renderTxns(); applyCurrency(); }
+catch(e){ if(typeof console!=='undefined') console.error('initial render failed', e); }
 document.querySelectorAll('.sheet').forEach(function(s){ initSheetDrag(s, closeSheet); });   // drag-down-to-dismiss on every bottom sheet
 document.querySelectorAll('.modal').forEach(function(m){ initSheetDrag(m, closeModals); });  // …and every full-screen modal
 
@@ -4620,7 +4624,10 @@ document.querySelectorAll('.modal').forEach(function(m){ initSheetDrag(m, closeM
   pk.addEventListener('touchend', function(ev){
     if(y0===null)return;
     var dy=(ev.changedTouches[0].clientY-y0); y0=null;
-    if(dy>70) closePeek();
+    // iOS doesn't fire `click` on taps of plain <div>s, so the click handler above only
+    // covers desktop — close here on a swipe-down OR a tap anywhere except the delete pill.
+    if(ev.target.closest && ev.target.closest('#peek-actions')) return;
+    if(dy>70 || Math.abs(dy)<12) closePeek();
   }, {passive:true});
 })();
 
