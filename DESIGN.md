@@ -195,15 +195,22 @@ Centered emoji + short title + one-line hint on a white rounded block. Always gu
 **The four layers (pick the right one):**
 | Layer | z-index | Use for | Dismiss |
 |---|---|---|---|
-| **Tab views** (`.view`) | base | The 4 primary tabs (Home / Spending / Events / Memories) | Tab bar |
+| **Tab views** (`.view`) | base | The 3 primary tabs (Nhà / Tài Chính / Khoảnh Khắc — Home merges nothing; the former Events + Memories are unified under Khoảnh Khắc) | Tab bar |
 | **Push overlay** (`.overlay`) | 45–49 | Read/drill-in detail that keeps context (category detail, event, memory, photos-by-date) | Back chevron (top-left), slides right |
 | **Full-screen modal** (`.modal`) | 62 | **Create/edit forms** with several inputs (log expense, new event, add memory, suggest, settings/budget) and **long self-contained tasks holding unsaved state** (bulk photo assign). Nav bar = Cancel · Title · Save | Cancel, or **drag down**; rises from bottom |
 | **Bottom sheet** (`.sheet`) | 60 | **Quick pickers / menus** (add menu, month, category filter, theme) | Tap scrim, or drag down; rises from bottom |
 
 - **Form → modal. Quick pick → sheet.** Don't put a multi-field form in a sheet, and don't make a
   one-tap picker a full-screen modal.
-- **Tab bar** (`.tabbar`): frosted (`backdrop-filter: blur`), `74px + safe-area-inset-bottom`, 4 tabs,
+- **Tab bar** (`.tabbar`): frosted (`backdrop-filter: blur`), `74px + safe-area-inset-bottom`, 3 tabs,
   brand for the active tab. **FAB** (`.fab`): brand gradient circle, bottom-right above the tab bar.
+- **Tabs are one flat scroll, never a nested tab bar.** Both Tài Chính and Khoảnh Khắc are a single
+  vertical scroll of `.section-h` sections with a focal element up top (Tài Chính → the "safe to spend"
+  `.stat-card`; Khoảnh Khắc → the `.cal` month-overview). Deep links glide to a section (`segTo` /
+  `momSec` via `getBoundingClientRect`), they don't toggle hidden panels. Don't reintroduce an in-tab
+  segmented control — it competes with this bottom tab bar. Add actions live on the FAB + section-level
+  links (`Thêm`, `＋`), not on the header pill (which is a month/context selector, as in Tài Chính).
+  Khoảnh Khắc order: Lịch ảnh (calendar) → Album (mosaic, month-scoped) → Sắp tới → Đáng nhớ.
 - **Drag-to-dismiss** (sheets + modals): axis-locked — only a downward, vertical-dominant drag from
   the top of the scroll dismisses; horizontal/upward gestures scroll normally. Past ~110–120px it
   closes, else snaps back; the scrim fades with the drag.
@@ -285,8 +292,15 @@ request then fails — report from the completion handler.
 
 ## 6. Content & voice
 
-- **Language:** English. Warm, concise, human ("Here's how the family's money looks today.",
-  "You're all set!"). Second person. No jargon, no consultant-ese.
+- **Language:** Bilingual — **Tiếng Việt (default) + English**, driven by the family's `LANG`.
+  Warm, concise, human. Second person. No jargon, no consultant-ese.
+  - **Every user-visible string must localize.** Static markup uses `data-t` / `data-tp`
+    (auto-captures the English fallback; add the Vietnamese to `I18N.vi`). Dynamic strings
+    built in JS use `L('vi','en')`. Dates/months/weekdays **never** use raw `MONF`/`MONA`/`WKD`
+    — use `fmtDayMon` / `fmtMonYear` / `fmtDateLong` / `moFull` / `moAbbr`, which are `LANG`-gated
+    and put the day **before** the month for Vietnamese ("26 thg 7", "Tháng 7").
+  - Never localize a string that is *also* a lookup key (`t.date`, `t.who`, `months[k].short`) —
+    localize only its **display**, from the underlying value (`t._d`, `._iso`).
 - **Money:** see §6.1 — never hand-format an amount.
 - **Roles are relational and playful:** Mom, Dad, Husband, Wife, Boyfriend, Sweetheart, Partner,
   Son, Daughter, Kid, Teen, Guardian, Grandma/Grandpa, and fun ones (Coldheart, Man of steel…).
