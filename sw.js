@@ -1,5 +1,5 @@
 /* FamilyHub — offline-first service worker */
-const CACHE_NAME = 'familyhub-v137';
+const CACHE_NAME = 'familyhub-v147';
 /* Photos live in their own cache, deliberately NOT tied to CACHE_NAME. Folding
    them together would throw every photo away on each app release, which is the
    exact re-download this cache exists to prevent. Nothing here ever goes stale:
@@ -17,7 +17,12 @@ const ASSETS = [
   './index.html',
   './manifest.json',
   './icon.svg',
-  './icon.png'
+  './icon.png',
+  // Vendored so cold start has no cross-origin dependency (see index.html). These are
+  // version-pinned and content-stable, so they ride the normal per-release cache bump.
+  './vendor/supabase.js',
+  './vendor/fonts/inter-latin.woff2',
+  './vendor/fonts/inter-vietnamese.woff2'
 ];
 
 self.addEventListener('install', (e) => {
