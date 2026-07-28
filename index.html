@@ -3965,9 +3965,8 @@ function txRow(t){
   // Localize the display date/payer; the stored t.date/t.who strings stay as-is
   // (they are parsed by _txnIso / mapped by _memberIdForWho — display only here).
   var dstr=(t.date==='Today')?L('Hôm nay','Today'):(t.date==='Just now')?L('Vừa xong','Just now'):(t._d?fmtDayMon(t._d):t.date);
-  var whoD=(t.who==='Shared'||t.who==='Both')?L('Chung',t.who):t.who;
   return '<div class="row tap" onclick="openEditExpense(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+t.ico+'</div>'+spAv(t.who)+'</div>'
-    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s">'+dstr+' · '+t.cat+' · '+whoD+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s">'+dstr+' · '+t.cat+'</div></div>'
     +'<div class="r-amt num">'+fmt(t.amt)+'</div></div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
@@ -4044,8 +4043,7 @@ function renderTxnScreen(){
     if(q){ var hay=((t.note||'')+' '+(t.cat||'')+' '+(t.who||'')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
     return true;
   });
-  var total=list.reduce(function(s,t){return s+(t.amt||0);},0);
-  setHTML('txn-sum','<b>'+list.length+'</b> giao dịch · tổng <span class="num">'+fmt(total)+'</span>');
+  var ts=document.getElementById('txn-sum'); if(ts) ts.style.display='none';   // count + total removed — less detail
   var html='';
   if(!list.length){
     html='<div class="mem-empty" style="margin:22px 16px"><div class="me-emoji">🔍</div><div class="me-t">Không tìm thấy</div><p>Thử từ khoá khác hoặc đổi bộ lọc.</p></div>';
