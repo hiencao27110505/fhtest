@@ -286,28 +286,44 @@ function openPhotosForDate(y,m,d){
 function closePhotos(){ document.getElementById('photos-overlay').classList.remove('on'); }
 var curMemory=null;
 // The one rich memory view, opened by BOTH the timeline nodes and the Album: the whole
-// item (all photos of the tapped occasion/expense) stacked full-width to enjoy, with a
+// item (all photos of the tapped occasion/expense) stacked full-width, tap-to-zoom, with a
 // header and a single action that defers to the source record (event funding / expense).
 function openMemory(i){
   var r=memRecords[i]; if(!r)return; curMemory=r;
-  var items=memRecords.filter(function(m){ return m.type===r.type && m.ref===r.ref; });   // every photo of this item
+  // Peek context so zoom + delete index the right gallery: an occasion is its own event; a
+  // photo-expense borrows its mirror event, whose memories carry _txn so a delete hits
+  // transaction_photos. Rendering the stack straight from events[curEvent].memories keeps
+  // each tapped index aligned with what openPeek()/deleteMemoryPhoto() expect.
+  if(r.type==='event'){ curEvent=r.ref; }
+  else { var t=(typeof txById==='function')?txById(r.ref):null; curEvent=(t&&t.linkedEvent)||null; }
+  _renderMemoryDetail();
+  var sc=document.querySelector('#memory-overlay .mo-scroll'); if(sc)sc.scrollTop=0;
+  document.getElementById('memory-overlay').classList.add('on');
+}
+// Renders the memory-overlay body from curMemory/curEvent. Re-called after a photo delete
+// so the stack stays honest.
+function _renderMemoryDetail(){
+  var r=curMemory; if(!r)return;
   var ev=events[r.ref];
+  var gal=(curEvent && events[curEvent] && events[curEvent].memories) ? events[curEvent].memories : null;
+  var list=gal || memRecords.filter(function(m){ return m.type===r.type && m.ref===r.ref; });
   var titleName  = (r.type==='event' && ev) ? ev.name  : (r.cap||L('Kỉ niệm','Memory'));
   var titleEmoji = (r.type==='event' && ev) ? ev.emoji : r.emoji;
-  var cnt=items.length;
+  var cnt=list.length;
   setTxt('mo-cap', (titleEmoji?titleEmoji+' ':'')+titleName);
   setTxt('mo-meta', fmtDateLong(r.d)+(cnt>1?' · '+cnt+' '+(isVi()?'ảnh':'photos'):''));
-  document.getElementById('mo-photo').innerHTML=items.map(function(m){
-    return m.src
-      ? '<div class="mem-full"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.cap||titleName||'')+'" decoding="async"></div>'
-      : '<div class="mem-full tile '+esc(m.cls||'ph-park')+'"><div class="subj">'+esc(m.emoji||'📸')+'</div></div>';
+  document.getElementById('mo-photo').innerHTML=list.map(function(m,idx){
+    var cls='mem-full'+(gal?' tap':'')+(m.src?'':' tile '+esc(m.cls||'ph-park'));
+    var on=gal?' onclick="openPeek('+idx+')"':'';
+    var inner=m.src
+      ? '<img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||m.cap||titleName||'')+'" decoding="async">'
+      : '<div class="subj">'+esc(m.emoji||'📸')+'</div>';
+    return '<div class="'+cls+'"'+on+'>'+inner+'</div>';
   }).join('');
   var act=document.getElementById('mo-action'), chev=' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
   if(r.type==='event' && ev && ev.fromExpense){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openEditExpense(\''+ev.fromExpense+'\')'); }
   else if(r.type==='expense'){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openEditExpense(\''+r.ref+'\')'); }
   else { act.innerHTML=L('Mở sự kiện','Open event')+chev; act.setAttribute('onclick','closeMemory();openEvent(\''+r.ref+'\')'); }
-  var sc=document.querySelector('#memory-overlay .mo-scroll'); if(sc)sc.scrollTop=0;
-  document.getElementById('memory-overlay').classList.add('on');
 }
 function openMemoryByRef(type,ref){ for(var i=0;i<memRecords.length;i++){ if(memRecords[i].type===type&&memRecords[i].ref===ref){ openMemory(i); return; } } }
 function closeMemory(){ document.getElementById('memory-overlay').classList.remove('on'); }

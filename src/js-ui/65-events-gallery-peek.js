@@ -114,6 +114,12 @@ function deleteMemoryPhoto(i){
   e.memories.splice(i,1);
   renderGallery('ov-gallery'); renderGallery('ov-fund-gallery');
   renderEvents(); renderMemCalendar();
+  // If we deleted from the shared memory view, keep its stack honest (or close it when the
+  // last photo is gone) — otherwise it would keep showing a photo that no longer exists.
+  var mo=document.getElementById('memory-overlay');
+  if(mo && mo.classList.contains('on') && typeof _renderMemoryDetail==='function'){
+    if(e.memories.length) _renderMemoryDetail(); else closeMemory();
+  }
   toast(L('Đã xoá ảnh','Photo deleted'));
 }
 var memPick=null, memPickMulti=null;
