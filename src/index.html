@@ -140,15 +140,26 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 
   <!-- HERO — allocation ring: spending vs saving at a glance (the "whole") -->
   <div class="fin-hero">
-    <div class="fin-ring-wrap">
-      <svg viewBox="0 0 100 100" class="fin-ring" aria-hidden="true"><circle class="fh-btrack" cx="50" cy="50" r="45" fill="none" stroke-width="4"></circle><circle class="fh-bfill" id="fh-bfill" cx="50" cy="50" r="45" fill="none" stroke-width="4" stroke-linecap="round" stroke-dasharray="0 999"></circle><line class="fh-pace" id="fh-pace" x1="50" y1="2.4" x2="50" y2="7" stroke-width="1.6" style="display:none"></line><circle class="fh-track" cx="50" cy="50" r="33" fill="none" stroke-width="11"></circle><g id="fh-segs"></g></svg>
-      <div class="fin-center">
-        <div class="fh-lbl" id="fh-lbl"></div>
-        <div class="fh-spent num" id="fh-spent">—</div>
-        <div class="fh-rule"></div>
-        <div class="fh-saved"><span class="num" id="fh-saved">—</span><small id="fh-saved-lbl"></small></div>
+    <div class="fin-pager" id="fin-pager">
+      <div class="fin-page">
+        <div class="fin-ring-wrap">
+          <svg viewBox="0 0 100 100" class="fin-ring" aria-hidden="true"><defs><linearGradient id="fh-grad-ok" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#3CC98D"></stop><stop offset="1" stop-color="#12A06D"></stop></linearGradient><linearGradient id="fh-grad-pace" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#F5C061"></stop><stop offset="1" stop-color="#E0951E"></stop></linearGradient><linearGradient id="fh-grad-over" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#F58A8A"></stop><stop offset="1" stop-color="#DC3B3B"></stop></linearGradient></defs><circle class="fh-track" cx="50" cy="50" r="43" fill="none" stroke-width="9"></circle><circle class="fh-bfill" id="fh-bfill" cx="50" cy="50" r="43" fill="none" stroke="url(#fh-grad-ok)" stroke-width="9" stroke-linecap="round" stroke-dasharray="0 999"></circle></svg>
+          <div class="fin-center">
+            <div class="fh-lbl" id="fh-lbl"></div>
+            <div class="fh-spent num" id="fh-spent">—</div>
+            <div class="fh-of num" id="fh-of"></div>
+          </div>
+        </div>
+      </div>
+      <div class="fin-page">
+        <div class="fin-daily">
+          <div class="fd-head"><div class="fh-lbl" id="fd-lbl"></div><div class="fd-avg num" id="fd-avg">—</div><div class="fd-sub" id="fd-sub"></div></div>
+          <div class="fd-chart" id="fd-chart"></div>
+          <div class="fd-axis" id="fd-axis"></div>
+        </div>
       </div>
     </div>
+    <div class="fin-dots" id="fin-dots" aria-hidden="true"><span class="on"></span><span></span></div>
     <div class="fin-note" id="fh-note"></div>
     <div class="fin-cats-h"><span id="fh-cats-lbl"></span><a id="fh-cats-edit" onclick="openSheet('sheet-budget')"></a></div>
     <div class="fin-legend" id="fh-legend"></div>
