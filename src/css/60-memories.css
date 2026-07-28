@@ -83,11 +83,10 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 #photos-overlay{z-index:46;background:var(--white)}
 .mo-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .mo-scroll::-webkit-scrollbar{display:none}
-.mo-photo{position:relative;background:var(--canvas)}
-.mo-photo img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;background:var(--surface)}
-.mo-photo.tile{aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
-.mo-photo .subj{font-size:70px;filter:drop-shadow(0 2px 8px rgba(0,0,0,.3))}
-.mo-body{padding:20px 22px calc(28px + env(safe-area-inset-bottom))}
+/* Header on top (title + date · count), then the item's photos stacked full-width. */
+.mo-head{padding:6px 22px 14px}
+.mo-photos{display:flex;flex-direction:column;gap:10px;padding:0 16px}
+.mo-body{padding:16px 22px calc(28px + env(safe-area-inset-bottom))}
 .mo-cap{font-family:var(--disp);font-weight:800;font-size:24px;letter-spacing:-.6px;color:var(--ink);line-height:1.15}
 .mo-meta{font-size:15px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:8px}
 .mo-action{margin-top:14px;display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:6px 2px;color:var(--brand-ink);font-size:16px;font-weight:600;letter-spacing:-.01em}

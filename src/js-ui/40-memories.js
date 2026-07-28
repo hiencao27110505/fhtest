@@ -285,18 +285,28 @@ function openPhotosForDate(y,m,d){
 }
 function closePhotos(){ document.getElementById('photos-overlay').classList.remove('on'); }
 var curMemory=null;
+// The one rich memory view, opened by BOTH the timeline nodes and the Album: the whole
+// item (all photos of the tapped occasion/expense) stacked full-width to enjoy, with a
+// header and a single action that defers to the source record (event funding / expense).
 function openMemory(i){
   var r=memRecords[i]; if(!r)return; curMemory=r;
-  var ph=document.getElementById('mo-photo');
-  if(r.src){ ph.className='mo-photo'; ph.innerHTML='<img src="'+r.src+'" alt="" decoding="async">'; }
-  else { ph.className='mo-photo tile '+(r.cls||'ph-park'); ph.innerHTML='<div class="subj">'+(r.emoji||'📸')+'</div>'; }
-  setTxt('mo-cap', r.cap||'Memory');
-  setTxt('mo-meta', r.meta||'');
-  var act=document.getElementById('mo-action'), chev=' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
+  var items=memRecords.filter(function(m){ return m.type===r.type && m.ref===r.ref; });   // every photo of this item
   var ev=events[r.ref];
-  if(r.type==='event' && ev && ev.fromExpense){ act.innerHTML='Open expense'+chev; act.setAttribute('onclick','closeMemory();openEditExpense(\''+ev.fromExpense+'\')'); }
-  else if(r.type==='expense'){ act.innerHTML='Open expense'+chev; act.setAttribute('onclick','closeMemory();openEditExpense(\''+r.ref+'\')'); }
-  else { act.innerHTML='View event'+chev; act.setAttribute('onclick','closeMemory();openEvent(\''+r.ref+'\')'); }
+  var titleName  = (r.type==='event' && ev) ? ev.name  : (r.cap||L('Kỉ niệm','Memory'));
+  var titleEmoji = (r.type==='event' && ev) ? ev.emoji : r.emoji;
+  var cnt=items.length;
+  setTxt('mo-cap', (titleEmoji?titleEmoji+' ':'')+titleName);
+  setTxt('mo-meta', fmtDateLong(r.d)+(cnt>1?' · '+cnt+' '+(isVi()?'ảnh':'photos'):''));
+  document.getElementById('mo-photo').innerHTML=items.map(function(m){
+    return m.src
+      ? '<div class="mem-full"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.cap||titleName||'')+'" decoding="async"></div>'
+      : '<div class="mem-full tile '+esc(m.cls||'ph-park')+'"><div class="subj">'+esc(m.emoji||'📸')+'</div></div>';
+  }).join('');
+  var act=document.getElementById('mo-action'), chev=' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
+  if(r.type==='event' && ev && ev.fromExpense){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openEditExpense(\''+ev.fromExpense+'\')'); }
+  else if(r.type==='expense'){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openEditExpense(\''+r.ref+'\')'); }
+  else { act.innerHTML=L('Mở sự kiện','Open event')+chev; act.setAttribute('onclick','closeMemory();openEvent(\''+r.ref+'\')'); }
+  var sc=document.querySelector('#memory-overlay .mo-scroll'); if(sc)sc.scrollTop=0;
   document.getElementById('memory-overlay').classList.add('on');
 }
 function openMemoryByRef(type,ref){ for(var i=0;i<memRecords.length;i++){ if(memRecords[i].type===type&&memRecords[i].ref===ref){ openMemory(i); return; } } }

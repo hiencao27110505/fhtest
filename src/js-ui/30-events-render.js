@@ -140,26 +140,29 @@ function renderEvents(){
   function noPhotos(k){ return !(events[k].memories&&events[k].memories.length); }
   function pastDateCol(d){ return '<div class="tl-date"><div class="d num">'+d.getDate()+'</div><div class="mo">'+moAbbr(d.getMonth())+'</div><div class="dl">'+agoLabel(d)+'</div></div>'; }
   function photoStrip(list, altName){    // list: event memories [{src|emoji}] OR expense photos [url string]
-    var c=list.length;
+    var c=list.length;                   // no count line under the strip — the photos speak for themselves
     return '<div class="tl-photos">'+list.slice(0,4).map(function(m,i){
       var more=(i===3 && c>4) ? '<span class="tl-more">+'+(c-4)+'</span>' : '';
       var src=(typeof m==='string')?m:m.src;
       return src
         ? '<span class="tl-ph"><img src="'+escAttr(src)+'" alt="'+escAttr((m&&m.caption)||altName||'')+'" loading="lazy" decoding="async">'+more+'</span>'
         : '<span class="tl-ph tile '+esc((m&&m.cls)||'ph-park')+'">'+esc((m&&m.emoji)||'📸')+more+'</span>';
-    }).join('')+'</div>'
-      +'<div class="tl-fig">'+c+' '+(isVi()?'ảnh':('photo'+(c>1?'s':'')))+'</div>';
+    }).join('')+'</div>';
   }
+  // Both timeline cards defer to the SAME rich memory view (openMemoryByRef → openMemory),
+  // which shows the item's photos + an "Open event / Open expense" button. A photo-less
+  // occasion has no memory record, so it still opens the event detail to add photos.
   function occasionCard(k){
-    var e=events[k];
-    var body = noPhotos(k)
-      ? '<div class="tl-fig">'+L('Chưa có ảnh','No photos yet')+'</div>'
-        +'<span class="past-add" style="margin-top:10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>'+L('Thêm ảnh','Add photos')+'</span>'
-      : photoStrip(e.memories, e.name);
-    return '<div class="tl-card" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="tl-top"><span class="tl-emoji">'+esc(e.emoji)+'</span><span class="tl-name">'+esc(e.name)+'</span></div>'+body+'</div>';
+    var e=events[k], has=!noPhotos(k);
+    var tap = has ? 'openMemoryByRef(&#39;event&#39;,&#39;'+escAttr(k)+'&#39;)' : 'openEvent(&#39;'+escAttr(k)+'&#39;)';
+    var body = has
+      ? photoStrip(e.memories, e.name)
+      : '<div class="tl-fig">'+L('Chưa có ảnh','No photos yet')+'</div>'
+        +'<span class="past-add" style="margin-top:10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>'+L('Thêm ảnh','Add photos')+'</span>';
+    return '<div class="tl-card" onclick="'+tap+'"><div class="tl-top"><span class="tl-emoji">'+esc(e.emoji)+'</span><span class="tl-name">'+esc(e.name)+'</span></div>'+body+'</div>';
   }
-  function expenseCard(t){    // one photo-expense = one memory card; tap opens the expense
-    return '<div class="tl-card" onclick="openEditExpense(&#39;'+escAttr(t.id)+'&#39;)"><div class="tl-top"><span class="tl-emoji">'+esc(t.ico||'📸')+'</span><span class="tl-name">'+esc(t.note||L('Khoản chi','Expense'))+'</span></div>'+photoStrip(t.photos, t.note)+'</div>';
+  function expenseCard(t){    // one photo-expense = one memory card → the shared memory view
+    return '<div class="tl-card" onclick="openMemoryByRef(&#39;expense&#39;,&#39;'+escAttr(t.id)+'&#39;)"><div class="tl-top"><span class="tl-emoji">'+esc(t.ico||'📸')+'</span><span class="tl-name">'+esc(t.note||L('Khoản chi','Expense'))+'</span></div>'+photoStrip(t.photos, t.note)+'</div>';
   }
   // Collect every memory (occasion + photo-expense) newest-first, then GROUP BY DAY: one
   // date column + one rail dot owns a stack of that day's cards (iOS Photos by-day), so a
