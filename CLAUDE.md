@@ -24,9 +24,9 @@ npm run build          # = node build.js  → regenerates ./index.html
 npm run check          # builds, then fails if index.html drifted from src/  (the only drift guard — no CI)
 # 2. commit the src change AND the regenerated index.html together, in ONE commit
 ```
-- `index.html` **is committed** (Vercel serves it directly, there is **no CI build step**), so a stale
-  `index.html` ships old code even when `src/` looks correct. Never commit a `src/` change without its
-  rebuilt `index.html`, and never commit an `index.html` change without the matching `src/` edit.
+- `index.html` **is committed** — and Vercel also **rebuilds it from `src/` on deploy** (`npm run build`;
+  see §8), so keep both in sync. Never commit a `src/` change without its rebuilt `index.html`, and never
+  commit an `index.html` change without the matching `src/` edit.
 - The split is **verbatim contiguous slices**, so a rebuild is **byte-identical** until code actually
   changes. Do not reindent, reformat, or add/remove trailing newlines in `src/` files "for tidiness" —
   each file must end with no trailing newline, or the rebuild diffs for no reason.
@@ -145,9 +145,11 @@ blocks (borders + a single left-accent per view instead).
 
 ## 8. Deploy & commits
 
-- **Deploy** = `git push origin main` → Vercel serves the committed static files as-is (remote
-  `github.com/hiencao27110505/fhtest.git`, no `vercel.json`, no `.github/`, no build command). The committed
-  `index.html` **is** production.
+- **Deploy** = `git push origin main` → Vercel runs `npm run build` (`node build.js`, which regenerates
+  `index.html` from `src/`) and serves the **repo root** (remote `github.com/hiencao27110505/fhtest.git`,
+  branch `main`, no `.github/`). Because `package.json` has a `build` script, Vercel auto-runs it; `vercel.json`
+  sets `"outputDirectory": "."` so it serves the root — **without that, Vercel looks for a `public/` dir and
+  the deploy fails.** Do not remove `vercel.json` or the `build` script without adjusting the other.
 - **Commit and push only when the user explicitly asks.** When you do commit a code change, include the
   rebuilt `index.html` (§1) and, if a precached asset changed, the `sw.js` bump (§4).
 
