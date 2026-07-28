@@ -138,13 +138,20 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     </div>
   </div>
 
-  <!-- HERO — the one verdict: how much is safe to spend -->
-  <div class="stat-card">
-    <div class="sum-lab">An toàn để tiêu<span id="b-lab-mo"> · July</span></div>
-    <div class="sum-num" id="b-safe">$4,880</div>
-    <div class="sum-line" id="b-safe-sub">about $271 a day for the days left</div>
-    <div class="bbar" style="margin:20px 0 10px"><i id="bfill" class="fill-over" style="width:46%"></i><i id="bres" class="res-stripe" style="left:46%;width:6%"></i><span class="bmark" id="bmark" style="left:42%"></span></div>
-    <div class="sum-foot"><span id="b-left"><b>$4,120</b> of $9,000 spent</span><span id="b-days">18 days left</span></div>
+  <!-- HERO — allocation ring: spending vs saving at a glance (the "whole") -->
+  <div class="fin-hero">
+    <div class="fin-ring-wrap">
+      <svg viewBox="0 0 100 100" class="fin-ring" aria-hidden="true"><circle class="fh-btrack" cx="50" cy="50" r="45" fill="none" stroke-width="4"></circle><circle class="fh-bfill" id="fh-bfill" cx="50" cy="50" r="45" fill="none" stroke-width="4" stroke-linecap="round" stroke-dasharray="0 999"></circle><line class="fh-pace" id="fh-pace" x1="50" y1="2.4" x2="50" y2="7" stroke-width="1.6" style="display:none"></line><circle class="fh-track" cx="50" cy="50" r="33" fill="none" stroke-width="11"></circle><g id="fh-segs"></g></svg>
+      <div class="fin-center">
+        <div class="fh-lbl" id="fh-lbl"></div>
+        <div class="fh-spent num" id="fh-spent">—</div>
+        <div class="fh-rule"></div>
+        <div class="fh-saved"><span class="num" id="fh-saved">—</span><small id="fh-saved-lbl"></small></div>
+      </div>
+    </div>
+    <div class="fin-note" id="fh-note"></div>
+    <div class="fin-cats-h"><span id="fh-cats-lbl"></span><a id="fh-cats-edit" onclick="openSheet('sheet-budget')"></a></div>
+    <div class="fin-legend" id="fh-legend"></div>
   </div>
 
   <!-- MONEY THIS MONTH — in · out · banked (each taps into its detail) -->
@@ -154,9 +161,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <button class="c3" onclick="fhSavings()"><div class="k"><span class="ar" style="color:var(--brand-ink)">◎</span>Quỹ</div><div class="v num" id="snap-pool">—</div></button>
   </div>
 
-  <!-- NGÂN SÁCH — where the money goes -->
-  <div class="section-h"><span class="t">Ngân sách</span><a onclick="openSheet('sheet-budget')">Chỉnh</a></div>
-  <div class="rows" id="cat-budget-rows"></div>
+  <!-- Ngân sách theo hạng mục now lives inside the hero card's legend (renderFinanceHero) -->
 
   <!-- GIAO DỊCH -->
   <div class="section-h"><span class="t" id="tx-head">Giao dịch gần đây</span><a onclick="openTxns()">Xem tất cả</a></div>

@@ -48,6 +48,81 @@ function renderBudget(){
   }
   renderTrend();
   renderCatBudget();
+  renderFinanceHero();
+}
+/* The "whole": one allocation ring — inner arcs = the spending composition (by category)
+   + green quỹ (kept); outer ring = budget with a pace tick (run-rate). Below it, the same
+   categories as a compact budget list. One view, no switcher. Uses renderBudget's numbers. */
+function renderFinanceHero(){
+  var g = document.getElementById('fh-segs'); if(!g) return;
+  var m = M(), spent = m.spent || 0, budget = m.budget || 0, saved = window.savings || 0;
+  var reserved = m.done ? 0 : monthReserved(), safe = Math.max(0, budget - spent - reserved), over = spent > budget;
+  // ── Inner ring: the composition — category arcs (where money went) + green quỹ (kept).
+  var R = 33, C = 2 * Math.PI * R, GAP = 1.6, total = (spent + saved) || 1;
+  var segs = catOrder.map(function(c){ return { v:(m.catSpent[c]||0), color:((catStyle[c]||[])[2]||'var(--cat-other)') }; }).filter(function(s){ return s.v > 0; });
+  segs.push({ v:saved, color:'var(--good)' });
+  // arcs (dash-offset donut; the svg's -90deg CSS rotation lifts the 3-o'clock start to the top)
+  var cum = 0, html = '';
+  segs.forEach(function(s){
+    var len = s.v / total * C, drawn = Math.max(len - GAP, 0.5);
+    html += '<circle cx="50" cy="50" r="' + R + '" fill="none" style="stroke:' + s.color + '" stroke-width="11" stroke-linecap="butt" stroke-dasharray="' + drawn.toFixed(2) + ' ' + (C - drawn).toFixed(2) + '" stroke-dashoffset="' + (-cum).toFixed(2) + '"></circle>';
+    cum += len;
+  });
+  g.innerHTML = html;
+
+  // ── Outer ring (Apple Activity style): budget is the full track, spend fills it, a tick marks
+  // today's pace. Fill reaching past the tick = spending ahead of run-rate; a full red ring = over.
+  var Ro = 45, Co = 2 * Math.PI * Ro;
+  var spentFrac = budget > 0 ? spent / budget : 0;
+  var pace = m.done ? 1 : (m.dim ? m.dom / m.dim : 0);
+  var projected = (!m.done && m.dom) ? spent / m.dom * m.dim : spent;    // run-rate projection to month end
+  var projOver = !m.done && budget > 0 && projected > budget * 1.02;
+  var status = over ? 'over' : (projOver ? 'pace' : 'ok');
+  var bfEl = document.getElementById('fh-bfill');
+  if(bfEl){
+    var fl = Math.min(spentFrac, 1) * Co;
+    bfEl.setAttribute('stroke-dasharray', fl.toFixed(2) + ' ' + (Co - fl).toFixed(2));
+    bfEl.setAttribute('class', 'fh-bfill ' + status);
+  }
+  var pk = document.getElementById('fh-pace');
+  if(pk){
+    if(!m.done && pace > 0.02 && pace < 0.99){
+      var pa = pace * 2 * Math.PI;
+      pk.setAttribute('x1', (50 + Math.cos(pa) * 47.6).toFixed(2)); pk.setAttribute('y1', (50 + Math.sin(pa) * 47.6).toFixed(2));
+      pk.setAttribute('x2', (50 + Math.cos(pa) * 42.4).toFixed(2)); pk.setAttribute('y2', (50 + Math.sin(pa) * 42.4).toFixed(2));
+      pk.style.display = '';
+    } else pk.style.display = 'none';
+  }
+
+  setTxt('fh-lbl', L('Đã chi','Spent')); setTxt('fh-saved-lbl', L('để dành','saved'));
+  // Center shows the bare compact number (unit stripped — it's tight in the hole, and the
+  // currency is right there in the legend + note below).
+  setTxt('fh-spent', fmtK(spent).replace(/[\s₫$]/g, '')); setTxt('fh-saved', fmtK(saved).replace(/[\s₫$]/g, ''));
+  // Note: run-rate verdict (colored), with the budget number kept in view (muted).
+  var verdict = over ? (L('Vượt ','Over by ') + fmtK(spent - budget))
+    : projOver ? L('Nhanh hơn tiến độ','Ahead of pace')
+    : L('Đúng tiến độ','On pace');
+  setHTMLIf('fh-note', '<b class="' + status + '">' + verdict + '</b> · ' + L('ngân sách ','budget ') + fmtK(budget));
+  // ── Category budget exposure — the outer ring's story one level down: each category's
+  // spend against ITS budget, as an Apple inset list. Tap a row to drill into the category.
+  setTxt('fh-cats-lbl', L('Ngân sách theo hạng mục','Budget by category'));
+  setTxt('fh-cats-edit', L('Chỉnh','Edit'));
+  var legend = (catOrder || []).map(function(c){
+    var sp = m.catSpent[c] || 0, bd = catBudget[c] || 0, col = (catStyle[c] || [])[2] || 'var(--cat-other)';
+    var pct = bd > 0 ? Math.min(100, sp / bd * 100) : (sp > 0 ? 100 : 0);
+    var overB = bd > 0 && sp > bd, overP = !m.done && bd > 0 && (sp / bd) > (pace + 0.12);
+    var barCol = overB ? 'var(--danger)' : (overP ? 'var(--amber)' : col);
+    // Whole row IS the progress bar: a low-opacity tint fills to spent/budget, label rides on top.
+    return '<button type="button" class="fh-lrow" onclick="openCat(&#39;cat&#39;,&#39;' + escAttr(c) + '&#39;)">'
+      + '<span class="fh-fill" style="width:' + pct.toFixed(0) + '%;background:' + barCol + '"></span>'
+      + '<span class="fh-lname">' + esc(c) + '</span>'
+      + '<span class="fh-lamt num">' + fmtK(sp) + (bd > 0 ? ' <span class="fh-lof">/' + fmtK(bd) + '</span>' : '') + '</span>'
+      + '<svg class="fh-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
+  }).join('');
+  legend += '<div class="fh-lrow save">'
+    + '<span class="fh-lname">' + L('Quỹ tiết kiệm','Savings') + '</span>'
+    + '<span class="fh-lamt num">' + fmtK(saved) + '</span></div>';
+  setHTMLIf('fh-legend', legend);
 }
 /* Curated, plain-language insights — the smart core of Spending. */
 function catFutureReserved(c){ return txns.reduce(function(s,t){ return (t.future && t.cat===c) ? s+t.amt : s; },0); }

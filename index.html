@@ -425,6 +425,53 @@ input{font-family:inherit}
 .tl-wait{font-size:13px;font-weight:500;letter-spacing:-.01em;color:var(--muted);margin-top:3px}
 .btn-line:active{transform:scale(.99)}
 /* spending revamp */
+/* Finance hero — one allocation ring reading spending vs saving at a glance ("the whole").
+   Warm arcs = đã chi (gone), green = quỹ (kept); a notch marks the budget. */
+:root{--fin-spend:#e0895a}
+.fin-hero{background:var(--white);border-radius:22px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.07);padding:14px 16px 6px;margin:2px 16px 12px}
+.fin-ring-wrap{position:relative;width:200px;height:200px;margin:6px auto 2px}
+.fin-ring{width:100%;height:100%;display:block;transform:rotate(-90deg)}
+.fh-track{stroke:rgba(138,132,148,.13)}
+.fh-btrack{stroke:rgba(138,132,148,.15)}
+.fh-bfill{stroke:var(--good);transition:stroke-dasharray .55s cubic-bezier(.3,1,.5,1)}
+.fh-bfill.pace{stroke:var(--amber)}
+.fh-bfill.over{stroke:var(--danger)}
+.fh-pace{stroke:var(--ink);opacity:.42;stroke-linecap:round}
+.fin-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.fh-lbl{font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.fh-spent{font-size:24px;font-weight:800;letter-spacing:-.5px;line-height:1.05;color:var(--ink);font-variant-numeric:tabular-nums}
+.fh-rule{width:30px;height:1px;background:var(--hairline);margin:7px 0 5px}
+.fh-saved{font-size:14px;font-weight:800;letter-spacing:-.2px;color:var(--good);font-variant-numeric:tabular-nums}
+.fh-saved small{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-left:5px}
+.fin-note{text-align:center;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:-.01em;margin-top:3px;font-variant-numeric:tabular-nums}
+.fin-note b{font-weight:700}
+.fin-note b.over{color:var(--danger)}
+.fin-note b.ok{color:var(--good)}
+.fin-note b.pace{color:var(--amber)}
+.fin-ring-wrap{animation:fhpop .5s cubic-bezier(.22,1,.36,1) both}
+@keyframes fhpop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.fin-ring-wrap{animation:none}.fh-bfill{transition:none}}
+/* category budget list header (inside the hero card) */
+.fin-cats-h{display:flex;align-items:baseline;justify-content:space-between;margin:12px 4px 0;padding-top:12px;border-top:1px solid var(--hairline)}
+.fin-cats-h span{font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.fin-cats-h a{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--brand);cursor:pointer;padding:8px 4px;margin:-8px -4px}
+/* Each row IS a full-width progress bar: a low-opacity tint fills to spent/budget so dark text
+   stays legible across the whole width; name + numbers ride on top. Compact, no bullet — the
+   fill already carries the category colour. */
+.fin-legend{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.fh-lrow{position:relative;display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:0 10px;background:none;border:0;border-radius:9px;overflow:hidden;text-align:left;font:inherit;cursor:pointer}
+.fh-lrow:active{background:rgba(138,132,148,.09)}
+/* No grey track — unfilled space is the white card. The fill is a soft low-opacity wash, inset
+   from the row's top/bottom so it's a slim centered band (not a full-height block) with air
+   around it, and its trailing edge feathers out (mask) so it reads as a light tint. */
+.fh-fill{position:absolute;left:0;top:6px;bottom:6px;width:0;opacity:.15;border-radius:8px;-webkit-mask:linear-gradient(90deg,#000 66%,transparent);mask:linear-gradient(90deg,#000 66%,transparent);transition:width .55s cubic-bezier(.3,1,.5,1)}
+.fh-lname{position:relative;z-index:1;flex:1;min-width:0;font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fh-lamt{position:relative;z-index:1;font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.fh-lof{color:var(--muted);font-weight:500}
+.fh-chev{position:relative;z-index:1;width:15px;height:15px;color:#b9b2c6;flex:0 0 auto;margin-right:-2px}
+.fh-lrow.save{cursor:default}
+.fh-lrow.save:active{background:rgba(138,132,148,.08)}
+.fh-lrow.save .fh-lname,.fh-lrow.save .fh-lamt{color:var(--good)}
 .hdr-month{display:inline-flex;align-items:center;gap:4px;background:rgba(138,132,148,.13);border-radius:9999px;padding:8px 10px 8px 14px;font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin-top:6px;flex-shrink:0}
 .hdr-month svg{width:15px;height:15px;color:var(--muted)}
 .b-safe-sub{font-size:13.5px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:5px}
@@ -1326,13 +1373,20 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     </div>
   </div>
 
-  <!-- HERO — the one verdict: how much is safe to spend -->
-  <div class="stat-card">
-    <div class="sum-lab">An toàn để tiêu<span id="b-lab-mo"> · July</span></div>
-    <div class="sum-num" id="b-safe">$4,880</div>
-    <div class="sum-line" id="b-safe-sub">about $271 a day for the days left</div>
-    <div class="bbar" style="margin:20px 0 10px"><i id="bfill" class="fill-over" style="width:46%"></i><i id="bres" class="res-stripe" style="left:46%;width:6%"></i><span class="bmark" id="bmark" style="left:42%"></span></div>
-    <div class="sum-foot"><span id="b-left"><b>$4,120</b> of $9,000 spent</span><span id="b-days">18 days left</span></div>
+  <!-- HERO — allocation ring: spending vs saving at a glance (the "whole") -->
+  <div class="fin-hero">
+    <div class="fin-ring-wrap">
+      <svg viewBox="0 0 100 100" class="fin-ring" aria-hidden="true"><circle class="fh-btrack" cx="50" cy="50" r="45" fill="none" stroke-width="4"></circle><circle class="fh-bfill" id="fh-bfill" cx="50" cy="50" r="45" fill="none" stroke-width="4" stroke-linecap="round" stroke-dasharray="0 999"></circle><line class="fh-pace" id="fh-pace" x1="50" y1="2.4" x2="50" y2="7" stroke-width="1.6" style="display:none"></line><circle class="fh-track" cx="50" cy="50" r="33" fill="none" stroke-width="11"></circle><g id="fh-segs"></g></svg>
+      <div class="fin-center">
+        <div class="fh-lbl" id="fh-lbl"></div>
+        <div class="fh-spent num" id="fh-spent">—</div>
+        <div class="fh-rule"></div>
+        <div class="fh-saved"><span class="num" id="fh-saved">—</span><small id="fh-saved-lbl"></small></div>
+      </div>
+    </div>
+    <div class="fin-note" id="fh-note"></div>
+    <div class="fin-cats-h"><span id="fh-cats-lbl"></span><a id="fh-cats-edit" onclick="openSheet('sheet-budget')"></a></div>
+    <div class="fin-legend" id="fh-legend"></div>
   </div>
 
   <!-- MONEY THIS MONTH — in · out · banked (each taps into its detail) -->
@@ -1342,9 +1396,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <button class="c3" onclick="fhSavings()"><div class="k"><span class="ar" style="color:var(--brand-ink)">◎</span>Quỹ</div><div class="v num" id="snap-pool">—</div></button>
   </div>
 
-  <!-- NGÂN SÁCH — where the money goes -->
-  <div class="section-h"><span class="t">Ngân sách</span><a onclick="openSheet('sheet-budget')">Chỉnh</a></div>
-  <div class="rows" id="cat-budget-rows"></div>
+  <!-- Ngân sách theo hạng mục now lives inside the hero card's legend (renderFinanceHero) -->
 
   <!-- GIAO DỊCH -->
   <div class="section-h"><span class="t" id="tx-head">Giao dịch gần đây</span><a onclick="openTxns()">Xem tất cả</a></div>
@@ -2250,6 +2302,81 @@ function renderBudget(){
   }
   renderTrend();
   renderCatBudget();
+  renderFinanceHero();
+}
+/* The "whole": one allocation ring — inner arcs = the spending composition (by category)
+   + green quỹ (kept); outer ring = budget with a pace tick (run-rate). Below it, the same
+   categories as a compact budget list. One view, no switcher. Uses renderBudget's numbers. */
+function renderFinanceHero(){
+  var g = document.getElementById('fh-segs'); if(!g) return;
+  var m = M(), spent = m.spent || 0, budget = m.budget || 0, saved = window.savings || 0;
+  var reserved = m.done ? 0 : monthReserved(), safe = Math.max(0, budget - spent - reserved), over = spent > budget;
+  // ── Inner ring: the composition — category arcs (where money went) + green quỹ (kept).
+  var R = 33, C = 2 * Math.PI * R, GAP = 1.6, total = (spent + saved) || 1;
+  var segs = catOrder.map(function(c){ return { v:(m.catSpent[c]||0), color:((catStyle[c]||[])[2]||'var(--cat-other)') }; }).filter(function(s){ return s.v > 0; });
+  segs.push({ v:saved, color:'var(--good)' });
+  // arcs (dash-offset donut; the svg's -90deg CSS rotation lifts the 3-o'clock start to the top)
+  var cum = 0, html = '';
+  segs.forEach(function(s){
+    var len = s.v / total * C, drawn = Math.max(len - GAP, 0.5);
+    html += '<circle cx="50" cy="50" r="' + R + '" fill="none" style="stroke:' + s.color + '" stroke-width="11" stroke-linecap="butt" stroke-dasharray="' + drawn.toFixed(2) + ' ' + (C - drawn).toFixed(2) + '" stroke-dashoffset="' + (-cum).toFixed(2) + '"></circle>';
+    cum += len;
+  });
+  g.innerHTML = html;
+
+  // ── Outer ring (Apple Activity style): budget is the full track, spend fills it, a tick marks
+  // today's pace. Fill reaching past the tick = spending ahead of run-rate; a full red ring = over.
+  var Ro = 45, Co = 2 * Math.PI * Ro;
+  var spentFrac = budget > 0 ? spent / budget : 0;
+  var pace = m.done ? 1 : (m.dim ? m.dom / m.dim : 0);
+  var projected = (!m.done && m.dom) ? spent / m.dom * m.dim : spent;    // run-rate projection to month end
+  var projOver = !m.done && budget > 0 && projected > budget * 1.02;
+  var status = over ? 'over' : (projOver ? 'pace' : 'ok');
+  var bfEl = document.getElementById('fh-bfill');
+  if(bfEl){
+    var fl = Math.min(spentFrac, 1) * Co;
+    bfEl.setAttribute('stroke-dasharray', fl.toFixed(2) + ' ' + (Co - fl).toFixed(2));
+    bfEl.setAttribute('class', 'fh-bfill ' + status);
+  }
+  var pk = document.getElementById('fh-pace');
+  if(pk){
+    if(!m.done && pace > 0.02 && pace < 0.99){
+      var pa = pace * 2 * Math.PI;
+      pk.setAttribute('x1', (50 + Math.cos(pa) * 47.6).toFixed(2)); pk.setAttribute('y1', (50 + Math.sin(pa) * 47.6).toFixed(2));
+      pk.setAttribute('x2', (50 + Math.cos(pa) * 42.4).toFixed(2)); pk.setAttribute('y2', (50 + Math.sin(pa) * 42.4).toFixed(2));
+      pk.style.display = '';
+    } else pk.style.display = 'none';
+  }
+
+  setTxt('fh-lbl', L('Đã chi','Spent')); setTxt('fh-saved-lbl', L('để dành','saved'));
+  // Center shows the bare compact number (unit stripped — it's tight in the hole, and the
+  // currency is right there in the legend + note below).
+  setTxt('fh-spent', fmtK(spent).replace(/[\s₫$]/g, '')); setTxt('fh-saved', fmtK(saved).replace(/[\s₫$]/g, ''));
+  // Note: run-rate verdict (colored), with the budget number kept in view (muted).
+  var verdict = over ? (L('Vượt ','Over by ') + fmtK(spent - budget))
+    : projOver ? L('Nhanh hơn tiến độ','Ahead of pace')
+    : L('Đúng tiến độ','On pace');
+  setHTMLIf('fh-note', '<b class="' + status + '">' + verdict + '</b> · ' + L('ngân sách ','budget ') + fmtK(budget));
+  // ── Category budget exposure — the outer ring's story one level down: each category's
+  // spend against ITS budget, as an Apple inset list. Tap a row to drill into the category.
+  setTxt('fh-cats-lbl', L('Ngân sách theo hạng mục','Budget by category'));
+  setTxt('fh-cats-edit', L('Chỉnh','Edit'));
+  var legend = (catOrder || []).map(function(c){
+    var sp = m.catSpent[c] || 0, bd = catBudget[c] || 0, col = (catStyle[c] || [])[2] || 'var(--cat-other)';
+    var pct = bd > 0 ? Math.min(100, sp / bd * 100) : (sp > 0 ? 100 : 0);
+    var overB = bd > 0 && sp > bd, overP = !m.done && bd > 0 && (sp / bd) > (pace + 0.12);
+    var barCol = overB ? 'var(--danger)' : (overP ? 'var(--amber)' : col);
+    // Whole row IS the progress bar: a low-opacity tint fills to spent/budget, label rides on top.
+    return '<button type="button" class="fh-lrow" onclick="openCat(&#39;cat&#39;,&#39;' + escAttr(c) + '&#39;)">'
+      + '<span class="fh-fill" style="width:' + pct.toFixed(0) + '%;background:' + barCol + '"></span>'
+      + '<span class="fh-lname">' + esc(c) + '</span>'
+      + '<span class="fh-lamt num">' + fmtK(sp) + (bd > 0 ? ' <span class="fh-lof">/' + fmtK(bd) + '</span>' : '') + '</span>'
+      + '<svg class="fh-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
+  }).join('');
+  legend += '<div class="fh-lrow save">'
+    + '<span class="fh-lname">' + L('Quỹ tiết kiệm','Savings') + '</span>'
+    + '<span class="fh-lamt num">' + fmtK(saved) + '</span></div>';
+  setHTMLIf('fh-legend', legend);
 }
 /* Curated, plain-language insights — the smart core of Spending. */
 function catFutureReserved(c){ return txns.reduce(function(s,t){ return (t.future && t.cat===c) ? s+t.amt : s; },0); }

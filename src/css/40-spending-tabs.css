@@ -1,4 +1,51 @@
 /* spending revamp */
+/* Finance hero — one allocation ring reading spending vs saving at a glance ("the whole").
+   Warm arcs = đã chi (gone), green = quỹ (kept); a notch marks the budget. */
+:root{--fin-spend:#e0895a}
+.fin-hero{background:var(--white);border-radius:22px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.07);padding:14px 16px 6px;margin:2px 16px 12px}
+.fin-ring-wrap{position:relative;width:200px;height:200px;margin:6px auto 2px}
+.fin-ring{width:100%;height:100%;display:block;transform:rotate(-90deg)}
+.fh-track{stroke:rgba(138,132,148,.13)}
+.fh-btrack{stroke:rgba(138,132,148,.15)}
+.fh-bfill{stroke:var(--good);transition:stroke-dasharray .55s cubic-bezier(.3,1,.5,1)}
+.fh-bfill.pace{stroke:var(--amber)}
+.fh-bfill.over{stroke:var(--danger)}
+.fh-pace{stroke:var(--ink);opacity:.42;stroke-linecap:round}
+.fin-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.fh-lbl{font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.fh-spent{font-size:24px;font-weight:800;letter-spacing:-.5px;line-height:1.05;color:var(--ink);font-variant-numeric:tabular-nums}
+.fh-rule{width:30px;height:1px;background:var(--hairline);margin:7px 0 5px}
+.fh-saved{font-size:14px;font-weight:800;letter-spacing:-.2px;color:var(--good);font-variant-numeric:tabular-nums}
+.fh-saved small{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-left:5px}
+.fin-note{text-align:center;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:-.01em;margin-top:3px;font-variant-numeric:tabular-nums}
+.fin-note b{font-weight:700}
+.fin-note b.over{color:var(--danger)}
+.fin-note b.ok{color:var(--good)}
+.fin-note b.pace{color:var(--amber)}
+.fin-ring-wrap{animation:fhpop .5s cubic-bezier(.22,1,.36,1) both}
+@keyframes fhpop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.fin-ring-wrap{animation:none}.fh-bfill{transition:none}}
+/* category budget list header (inside the hero card) */
+.fin-cats-h{display:flex;align-items:baseline;justify-content:space-between;margin:12px 4px 0;padding-top:12px;border-top:1px solid var(--hairline)}
+.fin-cats-h span{font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.fin-cats-h a{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--brand);cursor:pointer;padding:8px 4px;margin:-8px -4px}
+/* Each row IS a full-width progress bar: a low-opacity tint fills to spent/budget so dark text
+   stays legible across the whole width; name + numbers ride on top. Compact, no bullet — the
+   fill already carries the category colour. */
+.fin-legend{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.fh-lrow{position:relative;display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:0 10px;background:none;border:0;border-radius:9px;overflow:hidden;text-align:left;font:inherit;cursor:pointer}
+.fh-lrow:active{background:rgba(138,132,148,.09)}
+/* No grey track — unfilled space is the white card. The fill is a soft low-opacity wash, inset
+   from the row's top/bottom so it's a slim centered band (not a full-height block) with air
+   around it, and its trailing edge feathers out (mask) so it reads as a light tint. */
+.fh-fill{position:absolute;left:0;top:6px;bottom:6px;width:0;opacity:.15;border-radius:8px;-webkit-mask:linear-gradient(90deg,#000 66%,transparent);mask:linear-gradient(90deg,#000 66%,transparent);transition:width .55s cubic-bezier(.3,1,.5,1)}
+.fh-lname{position:relative;z-index:1;flex:1;min-width:0;font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fh-lamt{position:relative;z-index:1;font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.fh-lof{color:var(--muted);font-weight:500}
+.fh-chev{position:relative;z-index:1;width:15px;height:15px;color:#b9b2c6;flex:0 0 auto;margin-right:-2px}
+.fh-lrow.save{cursor:default}
+.fh-lrow.save:active{background:rgba(138,132,148,.08)}
+.fh-lrow.save .fh-lname,.fh-lrow.save .fh-lamt{color:var(--good)}
 .hdr-month{display:inline-flex;align-items:center;gap:4px;background:rgba(138,132,148,.13);border-radius:9999px;padding:8px 10px 8px 14px;font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin-top:6px;flex-shrink:0}
 .hdr-month svg{width:15px;height:15px;color:var(--muted)}
 .b-safe-sub{font-size:13.5px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:5px}
