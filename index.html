@@ -269,6 +269,14 @@ input{font-family:inherit}
 .tl-ph{position:relative;aspect-ratio:1;overflow:hidden;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:20px}
 .tl-ph img{width:100%;height:100%;object-fit:cover;display:block}
 .tl-more{position:absolute;inset:0;background:rgba(20,12,26,.55);color:#fff;font-family:var(--disp);font-weight:800;font-size:14px;letter-spacing:-.3px;display:flex;align-items:center;justify-content:center}
+/* Day group: same-date memories share one date column + rail dot; their cards stack
+   under it (iOS Photos by-day) instead of repeating the date per card. The group is not
+   itself tappable — each card carries its own onclick. */
+.tl-day{cursor:default}
+.tl-day:active .tl-card{transform:none}          /* don't scale the whole day when one card is pressed */
+.tl-stack{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px}
+.tl-stack .tl-card{flex:none;cursor:pointer}
+.tl-stack .tl-card:active{transform:scale(.99)}
 .pastlist{margin:0 16px}
 /* coming-up compact stats (home) */
 .ev-sum{display:flex;background:var(--white);border-radius:16px;margin:0 16px 12px;padding:15px 6px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 22px rgba(25,16,34,.06)}
@@ -2617,46 +2625,58 @@ function renderEvents(){
   });
   // Upcoming plans now lead the Đáng nhớ occasions timeline (no separate "Sắp tới").
   window._upItems = full;
-  // ---- Past events (Events tab): nudge to add photos → memories ----
+  // ---- Past = the memory story: achieved occasions + every photo-expense ----
+  // A logged expense that has photo(s) is itself a memory, so each one is its OWN
+  // node (by the expense, not per photo), interleaved with occasions in strict
+  // reverse-chronological order so the rail reads as one continuous story. Occasions
+  // still needing photos keep the "add photos" nudge; expenses always carry theirs.
+  // (Mirror events for photo-expenses stay excluded from `mem` above — the expense is
+  // surfaced straight from the ledger here, exactly as the Album does, so a photo is
+  // never counted twice.)
   function noPhotos(k){ return !(events[k].memories&&events[k].memories.length); }
-  // Strictly reverse-chronological. This used to float photo-less events to the
-  // top as a nudge, but on a dated timeline that produced a rail running
-  // May → Jul → Jun, which reads as broken. The "N need photos" count in the
-  // section header carries the nudge instead.
-  var past=mem.slice().sort(function(a,b){ return events[b].d-events[a].d; });
-  var needy=past.filter(noPhotos).length;
-  var plItems=[];
-  past.forEach(function(k){
+  function pastDateCol(d){ return '<div class="tl-date"><div class="d num">'+d.getDate()+'</div><div class="mo">'+moAbbr(d.getMonth())+'</div><div class="dl">'+agoLabel(d)+'</div></div>'; }
+  function photoStrip(list, altName){    // list: event memories [{src|emoji}] OR expense photos [url string]
+    var c=list.length;
+    return '<div class="tl-photos">'+list.slice(0,4).map(function(m,i){
+      var more=(i===3 && c>4) ? '<span class="tl-more">+'+(c-4)+'</span>' : '';
+      var src=(typeof m==='string')?m:m.src;
+      return src
+        ? '<span class="tl-ph"><img src="'+escAttr(src)+'" alt="'+escAttr((m&&m.caption)||altName||'')+'" loading="lazy" decoding="async">'+more+'</span>'
+        : '<span class="tl-ph tile '+esc((m&&m.cls)||'ph-park')+'">'+esc((m&&m.emoji)||'📸')+more+'</span>';
+    }).join('')+'</div>'
+      +'<div class="tl-fig">'+c+' '+(isVi()?'ảnh':('photo'+(c>1?'s':'')))+'</div>';
+  }
+  function occasionCard(k){
     var e=events[k];
-    // same timeline rail as upcoming, so the tab reads as one continuous story
-    var tlDate='<div class="tl-date"><div class="d num">'+e.d.getDate()+'</div><div class="mo">'+moAbbr(e.d.getMonth())+'</div>'
-      +'<div class="dl">'+agoLabel(e.d)+'</div></div>';
-    var body;
-    if(noPhotos(k)){
-      body='<div class="tl-fig">'+L('Chưa có ảnh','No photos yet')+'</div>'
-        +'<span class="past-add" style="margin-top:10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>'+L('Thêm ảnh','Add photos')+'</span>';
-    } else {
-      var c=e.memories.length;
-      // the photos are the point of a past event — show them, don't hide them behind a thumbnail
-      body='<div class="tl-photos">'+e.memories.slice(0,4).map(function(m,i){
-        var more=(i===3 && c>4) ? '<span class="tl-more">+'+(c-4)+'</span>' : '';
-        return m.src
-          ? '<span class="tl-ph"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||e.name)+'" loading="lazy" decoding="async">'+more+'</span>'
-          : '<span class="tl-ph tile '+esc(m.cls||'ph-park')+'">'+esc(m.emoji||'📸')+more+'</span>';
-      }).join('')+'</div>'
-        +'<div class="tl-fig">'+c+' '+(isVi()?'ảnh':('photo'+(c>1?'s':'')))+'</div>';
-    }
-    plItems.push('<div class="tl-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'
-      +tlDate
-      +'<div class="tl-rail"><span class="tl-dot done"></span></div>'
-      +'<div class="tl-card">'
-        +'<div class="tl-top"><span class="tl-emoji">'+esc(e.emoji)+'</span><span class="tl-name">'+esc(e.name)+'</span></div>'
-        +body
-      +'</div></div>');
+    var body = noPhotos(k)
+      ? '<div class="tl-fig">'+L('Chưa có ảnh','No photos yet')+'</div>'
+        +'<span class="past-add" style="margin-top:10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>'+L('Thêm ảnh','Add photos')+'</span>'
+      : photoStrip(e.memories, e.name);
+    return '<div class="tl-card" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="tl-top"><span class="tl-emoji">'+esc(e.emoji)+'</span><span class="tl-name">'+esc(e.name)+'</span></div>'+body+'</div>';
+  }
+  function expenseCard(t){    // one photo-expense = one memory card; tap opens the expense
+    return '<div class="tl-card" onclick="openEditExpense(&#39;'+escAttr(t.id)+'&#39;)"><div class="tl-top"><span class="tl-emoji">'+esc(t.ico||'📸')+'</span><span class="tl-name">'+esc(t.note||L('Khoản chi','Expense'))+'</span></div>'+photoStrip(t.photos, t.note)+'</div>';
+  }
+  // Collect every memory (occasion + photo-expense) newest-first, then GROUP BY DAY: one
+  // date column + one rail dot owns a stack of that day's cards (iOS Photos by-day), so a
+  // date never repeats down the rail.
+  var memNodes=[];
+  mem.forEach(function(k){ memNodes.push({ d: events[k].d, card: occasionCard(k) }); });
+  (window.txns||[]).forEach(function(t){ if(t.photos && t.photos.length) memNodes.push({ d: txPhotoDate(t), card: expenseCard(t) }); });
+  memNodes.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });   // newest first
+  var dayGroups=[], byDay={};
+  memNodes.forEach(function(n){
+    var key = n.d ? (n.d.getFullYear()+'-'+n.d.getMonth()+'-'+n.d.getDate()) : 'x';
+    if(!byDay[key]){ byDay[key]={ d:n.d, cards:[] }; dayGroups.push(byDay[key]); }
+    byDay[key].cards.push(n.card);
   });
-  // Header shows whenever there are occasions (upcoming or past); when there are none,
-  // the section is just the plan trigger below.
-  var ph=document.getElementById('past-head'); if(ph)ph.style.display=(past.length||upS.length)?'':'none';
+  var plItems=dayGroups.map(function(g){
+    return '<div class="tl-item tl-day">'+pastDateCol(g.d)
+      +'<div class="tl-rail"><span class="tl-dot done"></span></div>'
+      +'<div class="tl-stack">'+g.cards.join('')+'</div></div>';
+  });
+  // Header shows whenever there is anything in the story (upcoming plans or past memories).
+  var ph=document.getElementById('past-head'); if(ph)ph.style.display=(plItems.length||upS.length)?'':'none';
   window._pastItems=plItems;
   applyPastPreview();   // renders upcoming + past + the plan-trigger node
   // Home memories: cover tiles up top (events + expenses, newest 10) + a full-size photo
