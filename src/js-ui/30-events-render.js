@@ -107,25 +107,25 @@ function renderEvents(){
           +'<div class="evbar"><i style="width:'+pct+'%"></i></div></div></div>');
   });
   setHTMLIf('home-events', rows||emptyPlansHTML(true));   // Home = compact glance (dashboard card)
-  // full cards (Events tab) — neutral, no avatars
+  // Upcoming occasions render as planned "memories-in-waiting": the plan-trigger,
+  // filled in. Same open-ring dot; the card's brand-2 border is the trigger's dashed
+  // one gone solid. This is the memory timeline, so it's pure anticipation — the
+  // funding/progress side lives in Thu Chi (renderGoals), not here.
   var full='';
   upS.forEach(function(k){
-    var e=events[k], pct=Math.round(e.saved/e.target*100), dl=daysLeft(e.d);
+    var e=events[k], dl=daysLeft(e.d);
     var tlDate = e.noDay
       ? '<div class="tl-date"><div class="d num" style="font-size:17px;letter-spacing:-.3px">'+moAbbr(e.d.getMonth()).toUpperCase()+'</div><div class="dl">'+L('tháng này','this month')+'</div></div>'
       : '<div class="tl-date"><div class="d num">'+e.d.getDate()+'</div><div class="mo">'+moAbbr(e.d.getMonth())+'</div><div class="dl">'+(dl===0?L('hôm nay','today'):L('còn '+dl+'n','in '+dl+'d'))+'</div></div>';
-    var card=funded
-      ? '<div class="tl-card ready">'
-          +'<div class="tl-top"><span class="tl-emoji">'+e.emoji+'</span><span class="tl-name">'+e.name+'</span><span class="tl-ready">✓ '+L('Sẵn sàng','Ready to go')+'</span></div>'
-          +'<div class="tl-count">🎉 '+L('Đã đủ tiền','Fully funded')+', '+(dl===0?L('đến ngày rồi!','the day is here!'):L('còn '+dl+' ngày',dl+' day'+(dl!==1?'s':'')+' to go'))+'</div>'
-          +'<div class="tl-fig num">'+L('đã để dành '+fmt(e.saved),fmt(e.saved)+' set aside')+'</div>'
-        +'</div>'
-      : '<div class="tl-card">'
-          +'<div class="tl-top"><span class="tl-emoji">'+e.emoji+'</span><span class="tl-name">'+e.name+'</span><span class="tl-pct num">'+pct+'%</span></div>'
-          +'<div class="bar" style="margin:11px 0 8px"><i style="width:'+pct+'%"></i></div>'
-          +'<div class="tl-fig num"><b>'+fmt(e.saved)+'</b> '+L('trên','of')+' '+fmt(e.target)+' · '+fmt(Math.max(0,e.target-e.saved))+L(' còn lại',' to go')+'</div>'
-        +'</div>';
-    full+='<div class="tl-item" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+tlDate+'<div class="tl-rail"><span class="tl-dot"></span></div>'+card+'</div>';
+    var wait = dl===0 ? L('Hôm nay rồi','The day is here')
+             : dl===1 ? L('Ngày mai','Tomorrow')
+             : L('Sắp diễn ra','Coming up');
+    full+='<div class="tl-item tl-plan" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+tlDate
+      +'<div class="tl-rail"><span class="tl-dot tl-dot-open"></span></div>'
+      +'<div class="tl-card tl-plan-card">'
+        +'<div class="tl-top"><span class="tl-emoji">'+esc(e.emoji)+'</span><span class="tl-name">'+esc(e.name)+'</span></div>'
+        +'<div class="tl-wait">'+wait+'</div>'
+      +'</div></div>';
   });
   // Upcoming plans now lead the Đáng nhớ occasions timeline (no separate "Sắp tới").
   window._upItems = full;

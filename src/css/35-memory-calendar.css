@@ -52,4 +52,11 @@
 .tl-add:active .tl-add-card{transform:scale(.99);border-color:var(--brand);background:var(--brand-tint)}
 .tl-add-t{font-weight:700;font-size:15px;color:var(--brand-ink);letter-spacing:-.01em}
 .tl-add-s{font-size:13px;color:var(--muted);margin-top:2px}
+/* Planned occasion = a memory-in-waiting: the trigger's placeholder, solidified into a
+   real plan. It reuses the trigger's hollow rail dot (.tl-dot-open); its border is the
+   same brand-2, gone from dashed to SOLID — and it's flatter than a settled photo
+   memory (no shadow). So the rail reads future(hollow) → past(filled) → add(hollow). */
+.tl-plan-card{border:1.5px solid var(--brand-2);box-shadow:none}
+.tl-plan:active .tl-plan-card{border-color:var(--brand);background:var(--brand-tint)}
+.tl-wait{font-size:13px;font-weight:500;letter-spacing:-.01em;color:var(--muted);margin-top:3px}
 .btn-line:active{transform:scale(.99)}
