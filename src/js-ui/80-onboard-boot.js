@@ -168,6 +168,7 @@ function applyFam(){
 function applyCurrency(){                         // re-render every money figure in the chosen currency
   document.documentElement.classList.toggle('cur-vnd', CUR==='VND');   // longer VND figures → tighter hero type
   renderBudget(); renderEvents(); renderTxns(); renderMembers();
+  try{ renderHome(); }catch(e){ if(typeof console!=='undefined') console.error('renderHome', e); }
   document.querySelectorAll('[data-amt]').forEach(function(el){         // static demo amounts (base USD units)
     var base=parseFloat(el.getAttribute('data-amt'))||0;
     el.textContent=(el.getAttribute('data-amt-pre')||'')+fmt(base)+(el.getAttribute('data-amt-suf')||'');

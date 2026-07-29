@@ -204,6 +204,43 @@ input{font-family:inherit}
 
 .card{background:var(--white);border-radius:20px;margin:0 16px 14px;padding:20px;box-shadow:var(--shadow-card)}
 
+/* ---------- Home — the emotional feed ---------- */
+.home-body{padding:6px 16px 4px}
+/* the daily moment (centerpiece) */
+.hmoment{display:block;width:100%;position:relative;border-radius:22px;overflow:hidden;aspect-ratio:5/4;box-shadow:var(--shadow-focal);margin-top:12px;padding:0;border:0;background:none;cursor:pointer;text-align:left}
+.hmoment:active{transform:scale(.99)}
+.hm-bg{position:absolute;inset:0;background-size:cover;background-position:center}
+.hm-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.02) 30%,rgba(0,0,0,.28) 60%,rgba(0,0,0,.68))}
+.hm-subj{position:absolute;top:15px;left:16px;font-size:30px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.32))}
+.hm-cap{position:absolute;left:18px;right:18px;bottom:16px;color:#fff}
+.hm-eye{font-size:11px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:rgba(255,255,255,.9);text-shadow:0 1px 3px rgba(0,0,0,.4)}
+.hm-title{font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1.06;margin-top:6px;text-shadow:0 1px 6px rgba(0,0,0,.35)}
+.hm-sub{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.95);margin-top:5px;text-shadow:0 1px 4px rgba(0,0,0,.4)}
+.hm-prog{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.28)}
+.hm-prog i{display:block;height:100%;background:#fff;opacity:.92}
+/* money, felt — the emotionalized pulse */
+.hpulse{display:flex;align-items:center;gap:13px;width:100%;background:var(--white);border-radius:18px;padding:14px 15px;margin-top:12px;box-shadow:var(--shadow-card);border:0;font:inherit;text-align:left;cursor:pointer}
+.hpulse:active{transform:scale(.99)}
+.hp-ico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto}
+.hp-body{flex:1;min-width:0}
+.hp-title{font-family:var(--disp);font-size:16.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.18}
+.hp-sub{font-size:13.5px;font-weight:500;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
+.hp-bar{height:5px;border-radius:3px;background:var(--fill-neutral);overflow:hidden;margin-top:9px}
+.hp-bar i{display:block;height:100%;border-radius:3px}
+.hpulse.ok .hp-ico{background:var(--good-tint)} .hpulse.ok .hp-bar i{background:var(--good);opacity:.85}
+.hpulse.pace .hp-ico{background:var(--amber-tint)} .hpulse.pace .hp-bar i{background:var(--amber);opacity:.85}
+.hpulse.over .hp-ico{background:var(--danger-tint)} .hpulse.over .hp-bar i{background:var(--danger);opacity:.85}
+/* woven beats */
+.hbeat{display:flex;align-items:center;gap:13px;width:100%;background:var(--white);border-radius:18px;padding:11px;margin-top:12px;box-shadow:var(--shadow-card);border:0;font:inherit;text-align:left;cursor:pointer}
+.hbeat:active{transform:scale(.99)}
+.hb-thumb{position:relative;width:74px;height:74px;border-radius:13px;overflow:hidden;flex:0 0 auto;background-size:cover;background-position:center}
+.hb-thumb .hm-scrim{background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,.4))}
+.hb-subj{position:absolute;top:8px;left:9px;font-size:18px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.3))}
+.hb-body{flex:1;min-width:0}
+.hb-eye{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted-soft)}
+.hb-title{font-family:var(--disp);font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--ink);margin-top:3px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hb-sub{font-size:13px;font-weight:500;color:var(--muted);margin-top:3px}
+
 /* ---------- event cards (neutral, theme-consistent) ---------- */
 .escroll{display:flex;gap:14px;overflow-x:auto;padding:0 16px 6px;scroll-snap-type:x mandatory}
 .escroll::-webkit-scrollbar{display:none}
@@ -1349,31 +1386,8 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     </div>
   </div>
 
-  <div class="ov-card">
-    <div class="ovc-col" onclick="go('spending')">
-      <div class="ovc-l" id="ht-spend-l">Spent · July</div>
-      <div class="ovc-n num" id="ht-spent">$4,120</div>
-      <div class="ovc-s" id="ht-spend-s">$4,880 left</div>
-    </div>
-    <div class="ovc-div"></div>
-    <div class="ovc-col" onclick="goMoments('plans')">
-      <div class="ovc-l" data-t="savedLbl">Saved</div>
-      <div class="ovc-n num" id="ht-sav">$10,920</div>
-      <div class="ovc-s" id="ht-sav-s">$5,980 to go</div>
-    </div>
-  </div>
-
-  <div class="section-h"><span class="t" data-t="comingUp">Coming up</span><a onclick="goMoments('plans')" data-t="seeAll">See all</a></div>
-  <div class="rows" id="home-events"></div>
-
-  <div class="section-h"><span class="t" data-t="memories">Memories</span><a onclick="goMoments('memories')" data-t="seeAll">See all</a></div>
-  <div class="mem-strip" id="home-memories"></div>
-
-  <div class="section-h"><span class="t" data-t="recent">Recent</span><a onclick="clearFilter();go('spending');segTo('activity')" data-t="seeAll">See all</a></div>
-  <div class="rows" id="home-tx"></div>
-
-  <div class="section-h" id="home-feed-h"><span class="t" data-t="latestPhotos">Latest photos</span><a onclick="goMoments('album')" data-t="seeAll">See all</a></div>
-  <div id="home-feed"></div>
+  <!-- the emotional feed: one daily moment + "money, felt" + woven beats, filled by renderHome() -->
+  <div class="home-body" id="home-body"></div>
 
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
     <span class="sf-heart">💛</span>
@@ -2653,6 +2667,96 @@ function setBudget(){
   catOrder=newOrder; catStyle=newStyle; catBudget=newBudget;
   renderAll(); renderTxns(); closeModals(); toast(L('Đã cập nhật danh mục','Categories updated'));
 }
+
+/* ---------- Home — the emotional feed ("moment engine") ----------
+   Home isn't a dashboard: it surfaces ONE warm moment a day woven from
+   everything the family has (an upcoming occasion, a resurfaced memory, a
+   spend that became a photo), plus a "money, felt" pulse — the month's
+   financial mood in a glance, never a stat. The tabs stay for the doing. */
+
+/* a full-bleed cover: a real photo (src) or a scene gradient (cls), with scrim + subject emoji */
+function hVisual(cls, src, subj){
+  var bg = src ? '<div class="hm-bg" style="background-image:url(' + escAttr(src) + ')"></div>'
+               : '<div class="hm-bg ' + esc(cls || 'ph-park') + '"></div>';
+  return bg + '<div class="hm-scrim"></div>' + (subj ? '<div class="hm-subj">' + esc(subj) + '</div>' : '');
+}
+/* a small square thumb for a woven beat */
+function hThumb(cls, src, subj){
+  var st = src ? ' style="background-image:url(' + escAttr(src) + ')"' : '';
+  return '<div class="hb-thumb ' + (src ? '' : esc(cls || 'ph-park')) + '"' + st + '>'
+    + '<div class="hm-scrim"></div>' + (subj ? '<div class="hb-subj">' + esc(subj) + '</div>' : '') + '</div>';
+}
+
+function renderHome(){
+  var box = document.getElementById('home-body'); if(!box) return;
+  buildMemRecords();
+  var evs = window.events || {}, ord = window.order || [];
+  var isMirrorK = function(k){ var e = evs[k]; return !!(e && (e._srcTxn || e.fromExpense)); };
+  var html = '', usedRef = null;
+
+  // upcoming real occasions (not achieved, not a photo-expense mirror), nearest first
+  var up = ord.filter(function(k){ return evs[k] && evs[k].d && !isMirrorK(k) && !achievedNow(evs[k]); })
+              .sort(function(a, b){ return evs[a].d.getTime() - evs[b].d.getTime(); });
+
+  /* ---- centerpiece: the daily moment ---- */
+  if(up.length){                                          // anticipation, saving woven in
+    var k = up[0], e = evs[k], dl = daysLeft(e.d);
+    var pct = e.target > 0 ? Math.min(100, Math.round(e.saved / e.target * 100)) : 0;
+    var eye = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : L('Còn ' + dl + ' ngày', dl + ' days to go'));
+    var money = e.target > 0
+      ? (pct >= 85 ? L('Cả nhà đã để dành gần đủ rồi 🌿', 'Almost there together 🌿')
+        : (pct >= 35 ? L('Cả nhà đang để dành dần 🌿', 'Saving up together 🌿')
+          : L('Cùng để dành cho dịp này nhé 🌿', 'Saving toward it together 🌿')))
+      : L('Điều cả nhà đang mong 💛', 'Something to look forward to 💛');
+    html += '<button class="hmoment" onclick="openEvent(&#39;' + escAttr(k) + '&#39;)">' + hVisual(e.cls, e.cov, e.emoji)
+      + '<div class="hm-cap"><div class="hm-eye">' + esc(eye) + '</div><div class="hm-title">' + esc(e.name)
+      + '</div><div class="hm-sub">' + money + '</div></div>'
+      + (e.target > 0 ? '<div class="hm-prog"><i style="width:' + pct + '%"></i></div>' : '') + '</button>';
+  } else if(memRecords.length){                           // a resurfaced moment
+    var r = memRecords[0], i = memRecords.indexOf(r); usedRef = r.type + ':' + r.ref;
+    html += '<button class="hmoment" onclick="openMemory(' + i + ')">' + hVisual(r.cls, r.src, r.emoji)
+      + '<div class="hm-cap"><div class="hm-eye">' + L('Khoảnh khắc gần đây', 'A recent moment') + '</div><div class="hm-title">'
+      + esc(r.cap) + '</div><div class="hm-sub">' + esc(r.meta || '') + '</div></div></button>';
+  } else {                                                // a new family — a gentle invitation, still a feeling
+    html += '<button class="hmoment" onclick="openSheet(&#39;sheet-add&#39;)"><div class="hm-bg ph-park"></div><div class="hm-scrim"></div><div class="hm-subj">🌿</div>'
+      + '<div class="hm-cap"><div class="hm-eye">' + L('Bắt đầu', 'Begin') + '</div><div class="hm-title">'
+      + L('Câu chuyện của cả nhà', 'Your family’s story') + '</div><div class="hm-sub">'
+      + L('Thêm khoảnh khắc đầu tiên, hoặc lên kế hoạch một dịp 💛', 'Add your first moment, or plan an occasion 💛') + '</div></div></button>';
+  }
+
+  /* ---- money, felt: the month's financial mood ---- */
+  var m = (typeof M === 'function') ? M() : null;
+  if(m && m.budget > 0){
+    var reserved = m.done ? 0 : monthReserved();
+    var safe = Math.max(0, m.budget - m.spent - reserved), over = m.spent > m.budget;
+    var proj = m.dom > 0 && ((m.spent / m.dom * m.dim) - m.budget > m.budget * 0.01);
+    var mood, ico, tt, ss;
+    if(over){ mood = 'over'; ico = '🍂'; tt = L('Hơi quá tay một chút rồi', 'A little over this month');
+      ss = L('Vượt ' + fmtK(m.spent - m.budget) + ' · cùng nhau chỉnh lại nha', 'Over by ' + fmtK(m.spent - m.budget) + ' · let’s ease back together'); }
+    else if(proj){ mood = 'pace'; ico = '⚡'; tt = L('Tháng này tiêu hơi nhanh tay', 'Spending a touch fast');
+      ss = L('Nhẹ nhàng chút là vẫn dư · còn ' + fmtK(safe), 'Ease up a little · ' + fmtK(safe) + ' left'); }
+    else { mood = 'ok'; ico = '🌿'; tt = L('Tháng này cả nhà đang thong thả', 'Comfortable this month');
+      ss = L('Còn ' + fmtK(safe) + ' để cả nhà thoải mái tận hưởng', fmtK(safe) + ' left to enjoy together'); }
+    var ps = Math.min(100, Math.round(m.spent / m.budget * 100));
+    html += '<button class="hpulse ' + mood + '" onclick="go(&#39;spending&#39;)"><div class="hp-ico">' + ico + '</div>'
+      + '<div class="hp-body"><div class="hp-title">' + tt + '</div><div class="hp-sub">' + ss + '</div>'
+      + '<div class="hp-bar"><i style="width:' + ps + '%"></i></div></div></button>';
+  }
+
+  /* ---- woven beats: up to 2 more moments (a memory, a spend-that-became-a-memory) ---- */
+  var beats = memRecords.filter(function(r){ return (r.type + ':' + r.ref) !== usedRef; }).slice(0, 2);
+  beats.forEach(function(r){
+    var i = memRecords.indexOf(r), isExp = r.type === 'expense';
+    var eye = isExp ? L('Từ một khoản chi', 'From a spend') : L('Nhớ lại', 'Remember');
+    var sub = isExp ? L('Một khoản chi đã thành kỷ niệm 📸', 'A spend that became a memory 📸') : esc(r.meta || '');
+    html += '<button class="hbeat" onclick="openMemory(' + i + ')">' + hThumb(r.cls, r.src, r.emoji)
+      + '<div class="hb-body"><div class="hb-eye">' + eye + '</div><div class="hb-title">' + esc(r.cap) + '</div>'
+      + '<div class="hb-sub">' + sub + '</div></div></button>';
+  });
+
+  setHTMLIf(box, html);
+}
+window.renderHome = renderHome;
 
 /* ---------- events ---------- */
 function memTileHTML(k){
@@ -4559,7 +4663,7 @@ var EN_DEFAULT={
   /* tabs */
   tabHome:'Home', tabMoney:'Finance', tabMoments:'Moments',
   /* greeting */
-  morning:'Good morning', afternoon:'Good afternoon', evening:'Good evening', greetSub:"Your family's money at a glance today.",
+  morning:'Good morning', afternoon:'Good afternoon', evening:'Good evening', greetSub:'Another day, together.',
   budgetBtn:'Budget',
   /* home feed */
   comingUp:'Coming up', recent:'Recent', memories:'Memories', seeAll:'See all',
@@ -4663,7 +4767,7 @@ var I18N={
     /* tabs */
     tabHome:'Nhà', tabMoney:'Tài chính', tabMoments:'Khoảnh khắc',
     /* greeting */
-    morning:'Chào buổi sáng', afternoon:'Chào buổi chiều', evening:'Chào buổi tối', greetSub:'Tình hình tiền của cả nhà hôm nay nè.',
+    morning:'Chào buổi sáng', afternoon:'Chào buổi chiều', evening:'Chào buổi tối', greetSub:'Một ngày nữa bên nhau.',
     budgetBtn:'Ngân sách',
     /* home feed */
     comingUp:'Sắp tới', recent:'Gần đây', memories:'Kỷ niệm', seeAll:'Xem tất cả',
@@ -4935,6 +5039,7 @@ function applyFam(){
 function applyCurrency(){                         // re-render every money figure in the chosen currency
   document.documentElement.classList.toggle('cur-vnd', CUR==='VND');   // longer VND figures → tighter hero type
   renderBudget(); renderEvents(); renderTxns(); renderMembers();
+  try{ renderHome(); }catch(e){ if(typeof console!=='undefined') console.error('renderHome', e); }
   document.querySelectorAll('[data-amt]').forEach(function(el){         // static demo amounts (base USD units)
     var base=parseFloat(el.getAttribute('data-amt'))||0;
     el.textContent=(el.getAttribute('data-amt-pre')||'')+fmt(base)+(el.getAttribute('data-amt-suf')||'');

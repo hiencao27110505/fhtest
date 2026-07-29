@@ -91,31 +91,8 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     </div>
   </div>
 
-  <div class="ov-card">
-    <div class="ovc-col" onclick="go('spending')">
-      <div class="ovc-l" id="ht-spend-l">Spent · July</div>
-      <div class="ovc-n num" id="ht-spent">$4,120</div>
-      <div class="ovc-s" id="ht-spend-s">$4,880 left</div>
-    </div>
-    <div class="ovc-div"></div>
-    <div class="ovc-col" onclick="goMoments('plans')">
-      <div class="ovc-l" data-t="savedLbl">Saved</div>
-      <div class="ovc-n num" id="ht-sav">$10,920</div>
-      <div class="ovc-s" id="ht-sav-s">$5,980 to go</div>
-    </div>
-  </div>
-
-  <div class="section-h"><span class="t" data-t="comingUp">Coming up</span><a onclick="goMoments('plans')" data-t="seeAll">See all</a></div>
-  <div class="rows" id="home-events"></div>
-
-  <div class="section-h"><span class="t" data-t="memories">Memories</span><a onclick="goMoments('memories')" data-t="seeAll">See all</a></div>
-  <div class="mem-strip" id="home-memories"></div>
-
-  <div class="section-h"><span class="t" data-t="recent">Recent</span><a onclick="clearFilter();go('spending');segTo('activity')" data-t="seeAll">See all</a></div>
-  <div class="rows" id="home-tx"></div>
-
-  <div class="section-h" id="home-feed-h"><span class="t" data-t="latestPhotos">Latest photos</span><a onclick="goMoments('album')" data-t="seeAll">See all</a></div>
-  <div id="home-feed"></div>
+  <!-- the emotional feed: one daily moment + "money, felt" + woven beats, filled by renderHome() -->
+  <div class="home-body" id="home-body"></div>
 
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
     <span class="sf-heart">💛</span>

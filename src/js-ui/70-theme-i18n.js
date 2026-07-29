@@ -98,7 +98,7 @@ var EN_DEFAULT={
   /* tabs */
   tabHome:'Home', tabMoney:'Finance', tabMoments:'Moments',
   /* greeting */
-  morning:'Good morning', afternoon:'Good afternoon', evening:'Good evening', greetSub:"Your family's money at a glance today.",
+  morning:'Good morning', afternoon:'Good afternoon', evening:'Good evening', greetSub:'Another day, together.',
   budgetBtn:'Budget',
   /* home feed */
   comingUp:'Coming up', recent:'Recent', memories:'Memories', seeAll:'See all',
@@ -202,7 +202,7 @@ var I18N={
     /* tabs */
     tabHome:'Nhà', tabMoney:'Tài chính', tabMoments:'Khoảnh khắc',
     /* greeting */
-    morning:'Chào buổi sáng', afternoon:'Chào buổi chiều', evening:'Chào buổi tối', greetSub:'Tình hình tiền của cả nhà hôm nay nè.',
+    morning:'Chào buổi sáng', afternoon:'Chào buổi chiều', evening:'Chào buổi tối', greetSub:'Một ngày nữa bên nhau.',
     budgetBtn:'Ngân sách',
     /* home feed */
     comingUp:'Sắp tới', recent:'Gần đây', memories:'Kỷ niệm', seeAll:'Xem tất cả',
