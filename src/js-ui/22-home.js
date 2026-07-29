@@ -32,13 +32,16 @@ function renderHome(){
   if(up.length){                                          // anticipation, saving woven in
     var k = up[0], e = evs[k], dl = daysLeft(e.d);
     var pct = e.target > 0 ? Math.min(100, Math.round(e.saved / e.target * 100)) : 0;
+    var emm = (e.memories && e.memories[0]) || null;                 // a saved photo makes the anticipation real
+    var eSrc = (emm && emm.src) ? emm.src : '', eCls = (emm && emm.cls) ? emm.cls : 'ph-hike';
+    usedRef = 'event:' + k;
     var eye = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : L('Còn ' + dl + ' ngày', dl + ' days to go'));
     var money = e.target > 0
       ? (pct >= 85 ? L('Cả nhà đã để dành gần đủ rồi 🌿', 'Almost there together 🌿')
         : (pct >= 35 ? L('Cả nhà đang để dành dần 🌿', 'Saving up together 🌿')
           : L('Cùng để dành cho dịp này nhé 🌿', 'Saving toward it together 🌿')))
       : L('Điều cả nhà đang mong 💛', 'Something to look forward to 💛');
-    html += '<button class="hmoment" onclick="openEvent(&#39;' + escAttr(k) + '&#39;)">' + hVisual(e.cls, e.cov, e.emoji)
+    html += '<button class="hmoment" onclick="openEvent(&#39;' + escAttr(k) + '&#39;)">' + hVisual(eCls, eSrc, e.emoji)
       + '<div class="hm-cap"><div class="hm-eye">' + esc(eye) + '</div><div class="hm-title">' + esc(e.name)
       + '</div><div class="hm-sub">' + money + '</div></div>'
       + (e.target > 0 ? '<div class="hm-prog"><i style="width:' + pct + '%"></i></div>' : '') + '</button>';
@@ -59,7 +62,7 @@ function renderHome(){
   if(m && m.budget > 0){
     var reserved = m.done ? 0 : monthReserved();
     var safe = Math.max(0, m.budget - m.spent - reserved), over = m.spent > m.budget;
-    var proj = m.dom > 0 && ((m.spent / m.dom * m.dim) - m.budget > m.budget * 0.01);
+    var proj = !m.done && m.dom > 0 && ((m.spent / m.dom * m.dim) - m.budget > m.budget * 0.01);
     var mood, ico, tt, ss;
     if(over){ mood = 'over'; ico = '🍂'; tt = L('Hơi quá tay một chút rồi', 'A little over this month');
       ss = L('Vượt ' + fmtK(m.spent - m.budget) + ' · cùng nhau chỉnh lại nha', 'Over by ' + fmtK(m.spent - m.budget) + ' · let’s ease back together'); }
@@ -74,8 +77,10 @@ function renderHome(){
   }
 
   /* ---- woven beats: up to 2 more moments (a memory, a spend-that-became-a-memory) ---- */
-  var beats = memRecords.filter(function(r){ return (r.type + ':' + r.ref) !== usedRef; }).slice(0, 2);
-  beats.forEach(function(r){
+  var seen = {}; if(usedRef) seen[usedRef] = 1;                      // one beat per distinct memory source
+  var beats = [];
+  memRecords.forEach(function(r){ var rk = r.type + ':' + r.ref; if(seen[rk]) return; seen[rk] = 1; beats.push(r); });
+  beats.slice(0, 2).forEach(function(r){
     var i = memRecords.indexOf(r), isExp = r.type === 'expense';
     var eye = isExp ? L('Từ một khoản chi', 'From a spend') : L('Nhớ lại', 'Remember');
     var sub = isExp ? L('Một khoản chi đã thành kỷ niệm 📸', 'A spend that became a memory 📸') : esc(r.meta || '');

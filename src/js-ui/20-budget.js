@@ -183,7 +183,7 @@ function renderMembers(){
   });
   setHTML('member-split',split); setHTML('member-legend',legend);
 }
-function renderAll(){ renderBudget(); renderMembers(); }
+function renderAll(){ renderBudget(); renderMembers(); try{ if(typeof renderHome==='function') renderHome(); }catch(e){} }
 
 /* ---------- month picker ---------- */
 function buildMonthChoices(){
