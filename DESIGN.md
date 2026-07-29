@@ -94,11 +94,11 @@ Two families, both system-first (no web font shipped for display):
 **Scale** (weight + size + negative tracking make hierarchy — never a contrasting font):
 | Role | Family | Size / Weight / Tracking | Token |
 |---|---|---|---|
-| Screen large title | disp | 34 / 800 / −1px | `.h-title` |
-| Onboarding / detail H1 | disp | 30 / 800 / −.8px | `.ob-h1` |
-| Modal / sheet title | disp | 25 / 800 / −.7px | `.sheet-h` |
-| Section title | disp | 20 / 800 / −.4px | `.photo-sec-title` |
-| Big number / stat | disp | 28–47 / 800 / −.5→−1.4px | `.num`, `.fh-spent` |
+| Screen large title | disp | 34 / 700 / −1px | `.h-title` |
+| Onboarding / detail H1 | disp | 30 / 700 / −.8px | `.ob-h1` |
+| Modal / sheet title | disp | 25 / 700 / −.7px | `.sheet-h` |
+| Section title | disp | 20 / 700 / −.4px | `.photo-sec-title` |
+| Big number / stat | disp | 28–47 / 700 / −.5→−1.4px | `.num`, `.fh-spent` |
 | Body | text | 15–17 / 400–500 / −.01em | `p, li, input` |
 | Field label / eyebrow | text | 12–13 / 700 / +.02–.04em, **UPPERCASE** | `.field label`, `.eyebrow` |
 | Row title | text | 15–17 / 500 | `.r-t`, `.fh-lname` |
@@ -164,7 +164,7 @@ brand text, weight 700. Use for single-select options (category, who paid, role)
 ### Fields (`.field`)
 - Label: uppercase 13/700 `--muted`, `margin-bottom:8px`.
 - Input: `radius:13px`, `padding:15px`, 17px text, 2px transparent border → **brand border + white
-  bg on focus**. Big numeric inputs use `.num.big` (disp 30/800).
+  bg on focus**. Big numeric inputs use `.num.big` (disp 30/700).
 - Fill: `--canvas` **on a white surface** (modals/sheets). On the canvas app background (onboarding),
   inputs must be **white with a hairline border** so they're visible — never canvas-on-canvas.
 

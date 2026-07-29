@@ -3,18 +3,18 @@
 .mcell{aspect-ratio:1;border-radius:9px;position:relative;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:var(--ink)}
 .mcell.day{background:var(--canvas)}
 .mcell.mute{background:transparent}
-.mcell.today{outline:2px solid var(--brand);outline-offset:-2px;color:var(--brand);font-weight:800}
+.mcell.today{outline:2px solid var(--brand);outline-offset:-2px;color:var(--brand);font-weight:700}
 .mcell.photo{color:#fff;overflow:hidden;cursor:pointer;background-size:cover;background-position:center}
 .mcell.photo:active{transform:scale(.95)}
 .mcell.photo.today{outline:2px solid #fff;outline-offset:-2px}
 .mcell.photo .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.42))}
 /* 10px white on a .42 chip was unreadable over light photos — solid dark chip instead */
-.mcell.photo .mday{position:absolute;top:3px;left:4px;z-index:1;font-size:10px;font-weight:800;color:#fff;background:rgba(0,0,0,.72);border-radius:5px;padding:0 4px;line-height:15px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.mcell.photo .mday{position:absolute;top:3px;left:4px;z-index:1;font-size:10px;font-weight:700;color:#fff;background:rgba(0,0,0,.72);border-radius:5px;padding:0 4px;line-height:15px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
 /* An empty day is an entry point. It stays visually quiet — .day already reads as
    "nothing here" — so selection is the only thing that changes appearance. */
 .mcell.open{cursor:pointer;font:inherit;font-size:13px;font-weight:500}
 .mcell.open:active{transform:scale(.95)}
-.mcell.sel{background:var(--brand-tint);color:var(--brand-ink);font-weight:800;outline:2px solid var(--brand);outline-offset:-2px}
+.mcell.sel{background:var(--brand-tint);color:var(--brand-ink);font-weight:700;outline:2px solid var(--brand);outline-offset:-2px}
 /* .today already draws a brand ring, so a selected today keeps one ring, not two */
 .mcell.today.sel{color:var(--brand-ink)}
 /* The prompt sits directly under the grid: the response has to appear where the
@@ -26,7 +26,7 @@
 .mcal-prompt-in{margin-top:12px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;
   padding:14px 16px;display:flex;align-items:center;gap:14px}
 .mcp-txt{flex:1;min-width:0}
-.mcp-d{font-family:var(--disp);font-weight:800;font-size:16px;letter-spacing:-.3px;color:var(--ink)}
+.mcp-d{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px;color:var(--ink)}
 .mcp-h{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:2px}
 /* mirrors .btn-line, sized to sit inline rather than span the screen */
 .mcp-go{flex-shrink:0;background:var(--white);color:var(--brand);border:1.5px solid var(--brand);border-radius:9999px;

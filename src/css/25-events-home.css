@@ -14,9 +14,9 @@
 .ecard:active{transform:scale(.99)}
 .e-head{display:flex;align-items:center;gap:14px}
 .e-hbody{flex:1;min-width:0}
-.ecard .nm{font-family:var(--disp);font-weight:800;font-size:19px;letter-spacing:-.4px;color:var(--ink)}
+.ecard .nm{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.4px;color:var(--ink)}
 .e-sub{font-size:13.5px;letter-spacing:-.01em;color:var(--muted);margin-top:2px}
-.ecard .pct{font-family:var(--disp);font-weight:800;font-size:19px;letter-spacing:-.5px;color:var(--brand);flex-shrink:0}
+.ecard .pct{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.5px;color:var(--brand);flex-shrink:0}
 .bar{height:8px;background:var(--divider);border-radius:9999px;overflow:hidden;margin:12px 0 0}
 .bar i{display:block;height:100%;border-radius:9999px;transition:width .6s cubic-bezier(.4,0,.2,1);background:var(--brand)}
 .ecard .bar{height:9px;margin:14px 0 10px}
@@ -31,7 +31,7 @@
 .past-thumb{width:52px;height:52px;border-radius:13px;flex-shrink:0;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:24px;background:var(--canvas)}
 .past-thumb.photo{color:#fff}
 .past-thumb .subj{filter:drop-shadow(0 1px 3px rgba(0,0,0,.3))}
-.past-thumb .cnt{position:absolute;bottom:2px;right:3px;font-size:9.5px;font-weight:800;color:#fff;background:rgba(0,0,0,.5);border-radius:5px;padding:0 4px;line-height:14px}
+.past-thumb .cnt{position:absolute;bottom:2px;right:3px;font-size:9.5px;font-weight:700;color:#fff;background:rgba(0,0,0,.5);border-radius:5px;padding:0 4px;line-height:14px}
 .past-body{flex:1;min-width:0}
 .past-name{font-family:var(--disp);font-weight:700;font-size:15.5px;letter-spacing:-.3px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .past-meta{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:2px}
@@ -44,7 +44,7 @@
 .tl-item:last-child{padding-bottom:2px}
 .tl-item:active .tl-card{transform:scale(.99)}
 .tl-date{width:50px;flex-shrink:0;text-align:center;padding-top:5px}
-.tl-date .d{font-family:var(--disp);font-weight:800;font-size:20px;letter-spacing:-.5px;color:var(--ink);line-height:1}
+.tl-date .d{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:-.5px;color:var(--ink);line-height:1}
 .tl-date .mo{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-top:3px;letter-spacing:.03em}
 .tl-date .dl{font-size:10px;font-weight:600;color:var(--muted);margin-top:5px;white-space:nowrap}
 .tl-rail{width:12px;flex-shrink:0;display:flex;justify-content:center;position:relative}
@@ -62,14 +62,14 @@
 .ev-ready{font-weight:700;font-size:11.5px;letter-spacing:.02em;color:var(--good);background:var(--good-tint);padding:3px 9px;border-radius:9999px;flex-shrink:0;white-space:nowrap}
 .tl-card.ready{background:linear-gradient(135deg,var(--brand-tint),var(--white) 62%)}
 .tl-ready{margin-left:auto;font-weight:700;font-size:11.5px;letter-spacing:.02em;color:var(--good);background:var(--good-tint);padding:3px 10px;border-radius:9999px;flex-shrink:0;white-space:nowrap}
-.tl-count{font-family:var(--disp);font-weight:800;font-size:15.5px;letter-spacing:-.3px;color:var(--brand-ink);margin:9px 0 5px}
+.tl-count{font-family:var(--disp);font-weight:700;font-size:15.5px;letter-spacing:-.3px;color:var(--brand-ink);margin:9px 0 5px}
 /* past events reuse the rail; a filled dot marks "already happened" */
 .tl-dot.done{background:var(--brand);box-shadow:0 0 0 3px var(--white)}
 /* photos exposed on the row itself — square, gapless-ish, iOS Photos feel */
 .tl-photos{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin:11px 0 8px;border-radius:10px;overflow:hidden}
 .tl-ph{position:relative;aspect-ratio:1;overflow:hidden;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:20px}
 .tl-ph img{width:100%;height:100%;object-fit:cover;display:block}
-.tl-more{position:absolute;inset:0;background:rgba(20,12,26,.55);color:#fff;font-family:var(--disp);font-weight:800;font-size:14px;letter-spacing:-.3px;display:flex;align-items:center;justify-content:center}
+.tl-more{position:absolute;inset:0;background:rgba(20,12,26,.55);color:#fff;font-family:var(--disp);font-weight:700;font-size:14px;letter-spacing:-.3px;display:flex;align-items:center;justify-content:center}
 /* Day group: same-date memories share one date column + rail dot; their cards stack
    under it (iOS Photos by-day) instead of repeating the date per card. The group is not
    itself tappable — each card carries its own onclick. */
@@ -84,7 +84,7 @@
 .ev-sum:empty{display:none}
 .ev-sum .s{flex:1;text-align:center;position:relative}
 .ev-sum .s+.s::before{content:'';position:absolute;left:0;top:18%;bottom:18%;width:1px;background:var(--divider)}
-.ev-sum .sv{font-family:var(--disp);font-weight:800;font-size:19px;letter-spacing:-.5px;color:var(--ink)}
+.ev-sum .sv{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.5px;color:var(--ink)}
 .ev-sum .sl{font-size:11.5px;color:var(--muted);font-weight:600;margin-top:3px;letter-spacing:-.01em}
 .ev-row{display:flex;align-items:center;gap:13px;padding:13px 18px;border-bottom:1px solid var(--divider);cursor:pointer}
 .ev-row:last-child{border-bottom:none}
@@ -93,7 +93,7 @@
 .evb{flex:1;min-width:0}
 .evt{font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--ink);display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .evt>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.evt .p{font-family:var(--disp);font-weight:800;font-size:15px;color:var(--brand);letter-spacing:-.3px;flex-shrink:0}
+.evt .p{font-family:var(--disp);font-weight:700;font-size:15px;color:var(--brand);letter-spacing:-.3px;flex-shrink:0}
 .evs{font-size:13px;color:var(--muted);margin-top:2px;letter-spacing:-.01em}
 .evbar{height:6px;background:var(--divider);border-radius:9999px;overflow:hidden;margin-top:8px}
 .evbar i{display:block;height:100%;background:var(--brand);border-radius:9999px}

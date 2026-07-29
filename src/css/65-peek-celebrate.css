@@ -80,7 +80,7 @@
 .celebrate.on{display:flex;animation:fade .4s ease}
 .celebrate .cel-emoji{font-size:86px;animation:celPop .6s cubic-bezier(.3,1.4,.5,1);filter:drop-shadow(0 4px 12px rgba(0,0,0,.2))}
 @keyframes celPop{0%{transform:scale(0)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
-.celebrate .cel-title{font-family:var(--disp);font-weight:800;font-size:32px;letter-spacing:-.8px;color:#fff;margin-top:22px;line-height:1.12}
+.celebrate .cel-title{font-family:var(--disp);font-weight:700;font-size:32px;letter-spacing:-.8px;color:#fff;margin-top:22px;line-height:1.12}
 .celebrate .cel-sub{font-size:16px;font-weight:500;letter-spacing:-.01em;color:rgba(255,255,255,.92);margin-top:12px;line-height:1.5;max-width:290px}
 .celebrate .cel-btn{margin-top:34px;background:#fff;color:var(--brand-ink);font-size:17px;font-weight:700;letter-spacing:-.02em;padding:15px 42px;border-radius:9999px}
 .float-e{position:absolute;bottom:38%;font-size:26px;pointer-events:none;opacity:0;z-index:71}

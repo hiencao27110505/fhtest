@@ -30,8 +30,8 @@
 .photo-sec{margin-top:24px}
 .photo-sec:first-child{margin-top:8px}
 .photo-sec-h{padding:0 18px 11px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
-/* Day/event group label — deliberately lighter than a section header (.section-h .t, 22/800)
-   so it reads as a sub-group under "Ảnh tháng …", not a rival header. */
+/* Day/event group label — smaller + softer colour than a section header (.section-h .t: 22px/--ink
+   vs this 15px/--ink-2) so it reads as a sub-group under "Ảnh tháng …", not a rival header. */
 .photo-sec-title{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.2px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .photo-sec-ev{display:block;margin-top:2px;color:var(--brand-ink);font-size:14px;font-weight:600;letter-spacing:-.01em;text-align:left}
 button.photo-sec-title{cursor:pointer;min-height:44px;display:flex;align-items:center;max-width:100%}
@@ -87,7 +87,7 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .mo-head{padding:6px 22px 14px}
 .mo-photos{display:flex;flex-direction:column;gap:10px;padding:0 16px}
 .mo-body{padding:16px 22px calc(28px + env(safe-area-inset-bottom))}
-.mo-cap{font-family:var(--disp);font-weight:800;font-size:24px;letter-spacing:-.6px;color:var(--ink);line-height:1.15}
+.mo-cap{font-family:var(--disp);font-weight:700;font-size:24px;letter-spacing:-.6px;color:var(--ink);line-height:1.15}
 .mo-meta{font-size:15px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:8px}
 .mo-action{margin-top:14px;display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:6px 2px;color:var(--brand-ink);font-size:16px;font-weight:600;letter-spacing:-.01em}
 .mo-action svg{width:18px;height:18px}

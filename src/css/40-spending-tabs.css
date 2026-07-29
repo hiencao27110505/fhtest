@@ -8,7 +8,7 @@
 .fh-bfill{transition:stroke-dasharray .55s cubic-bezier(.3,1,.5,1)}   /* colour comes from the status gradient (fh-grad-*) */
 .fin-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 .fh-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.fh-spent{font-family:var(--disp);font-size:38px;font-weight:800;letter-spacing:-1.4px;line-height:1.02;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:4px}
+.fh-spent{font-family:var(--disp);font-size:38px;font-weight:700;letter-spacing:-1.4px;line-height:1.02;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:4px}
 .fh-of{font-size:14px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:4px}
 .fin-note{text-align:center;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:-.01em;margin-top:3px;font-variant-numeric:tabular-nums}
 .fin-note b{font-weight:700}
@@ -28,7 +28,7 @@
 /* daily chart page */
 .fin-daily{width:100%;display:flex;flex-direction:column;justify-content:center;padding:0 6px}
 .fd-head{text-align:center;margin-bottom:14px}
-.fd-avg{font-size:24px;font-weight:800;letter-spacing:-.5px;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:3px;line-height:1.05}
+.fd-avg{font-size:24px;font-weight:700;letter-spacing:-.5px;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:3px;line-height:1.05}
 .fd-sub{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:-.01em;margin-top:4px;font-variant-numeric:tabular-nums}
 .fd-chart{position:relative;display:flex;align-items:flex-end;gap:2px;height:116px;padding:0 4px}
 .fd-bar{flex:1;min-height:0;background:var(--ink);opacity:.22;border-radius:2px 2px 0 0;transition:height .5s cubic-bezier(.3,1,.5,1)}
@@ -88,12 +88,12 @@
 .row.res .r-ico{background:var(--brand-tint);color:var(--brand-ink);font-size:18px}
 .row.res .r-t{display:flex;align-items:center;gap:8px;min-width:0}
 .row.res .r-amt{color:var(--brand-ink)}
-.res-tag{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--brand-ink);background:var(--brand-tint);border-radius:5px;padding:1px 5px;margin-right:7px;vertical-align:1px}
+.res-tag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--brand-ink);background:var(--brand-tint);border-radius:5px;padding:1px 5px;margin-right:7px;vertical-align:1px}
 .res-tag.now{color:var(--good);background:var(--good-tint)}
 /* spending — insight-led scroll */
 .sp-hero{padding:10px 20px 2px}
 .sp-hero-lab{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
-.sp-hero-num{font-size:47px;font-weight:800;letter-spacing:-.035em;color:var(--ink);line-height:1;margin-top:5px}
+.sp-hero-num{font-size:47px;font-weight:700;letter-spacing:-.035em;color:var(--ink);line-height:1;margin-top:5px}
 .sp-hero-line{font-size:15px;font-weight:500;color:var(--ink-2);letter-spacing:-.015em;margin-top:8px}
 .sp-hero-foot{display:flex;justify-content:space-between;font-size:12.5px;font-weight:500;color:var(--muted);letter-spacing:-.01em}
 .sp-hero-foot b{font-weight:700;color:var(--ink-2)}
@@ -106,7 +106,7 @@
 /* child-tab header — light large-title; Home's vibe (display type, warm copy, brand accent) without the gradient */
 .child-hdr{padding:28px 22px 6px}
 .ch-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.ch-title{font-family:var(--disp);font-weight:800;font-size:34px;line-height:1.04;letter-spacing:-1px;color:var(--ink)}
+.ch-title{font-family:var(--disp);font-weight:700;font-size:34px;line-height:1.04;letter-spacing:-1px;color:var(--ink)}
 .ch-sub{font-size:15px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:7px;max-width:26ch}
 .ch-pill{display:inline-flex;align-items:center;gap:6px;background:var(--brand-tint);color:var(--brand-ink);border-radius:9999px;padding:9px 13px;font-size:14px;font-weight:700;letter-spacing:-.02em;flex-shrink:0;margin-top:6px}
 .ch-pill svg{width:15px;height:15px;flex-shrink:0}
@@ -115,7 +115,7 @@
 /* stat card — a peer of the content cards below (same light shadow), not a heavy slab */
 .stat-card{position:relative;background:var(--white);border-radius:20px;margin:14px 16px 4px;padding:17px 19px 16px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 22px rgba(25,16,34,.06)}
 .sum-lab{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
-.sum-num{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:800;font-size:35px;letter-spacing:-1.4px;color:var(--ink);line-height:1;margin-top:5px}
+.sum-num{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:700;font-size:35px;letter-spacing:-1.4px;color:var(--ink);line-height:1;margin-top:5px}
 .cur-vnd .sum-num{font-size:27px;letter-spacing:-.9px}   /* "10.920.000 ₫ of 16.900.000 ₫" has to fit */
 .sum-num .of{font-size:16px;font-weight:600;color:var(--muted);letter-spacing:-.4px}
 .sum-line{font-size:14px;font-weight:500;color:var(--ink-2);letter-spacing:-.015em;margin-top:8px}
@@ -155,7 +155,7 @@
 .r-body{flex:1;min-width:0}
 .r-body .r-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .r-s{font-size:13.5px;letter-spacing:-.01em;color:var(--muted);margin-top:2px}
-.r-amt{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.4px;text-align:right;white-space:nowrap;color:var(--ink)}
+.r-amt{font-family:var(--disp);font-weight:600;font-size:17px;letter-spacing:-.4px;text-align:right;white-space:nowrap;color:var(--muted)}
 .r-amt.pos{color:#12B08C}
 
 /* avatars */
@@ -191,5 +191,5 @@
 .cash3 .c3{flex:1;text-align:left;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px 12px;cursor:pointer;font:inherit;-webkit-appearance:none;appearance:none;box-shadow:var(--shadow-card)}
 .cash3 .c3:active{transform:scale(.98)}
 .cash3 .c3 .k{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--muted);display:flex;align-items:center;gap:5px}
-.cash3 .c3 .k .ar{font-size:13px;font-weight:800}
-.cash3 .c3 .v{font-family:var(--disp);font-weight:800;font-size:18px;letter-spacing:-.04em;color:var(--ink);margin-top:7px;font-variant-numeric:tabular-nums}
+.cash3 .c3 .k .ar{font-size:13px;font-weight:700}
+.cash3 .c3 .v{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.04em;color:var(--ink);margin-top:7px;font-variant-numeric:tabular-nums}

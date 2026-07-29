@@ -8,7 +8,7 @@
 .fh-s-ghost{width:100%;background:none;color:var(--muted);font-size:15px;font-weight:600;letter-spacing:-.01em;padding:14px 0 4px;min-height:44px}
 .fh-s-ghost:active{opacity:.55}
 .fh-s-del{display:block!important;margin:18px auto 2px}          /* .ex-del is display:none by default */
-.fh-s-h{font-family:var(--disp);font-weight:800;font-size:25px;letter-spacing:-.7px;color:var(--ink);margin-bottom:5px}
+.fh-s-h{font-family:var(--disp);font-weight:700;font-size:25px;letter-spacing:-.7px;color:var(--ink);margin-bottom:5px}
 .fh-s-sub{font-size:14.5px;letter-spacing:-.01em;color:var(--muted);line-height:1.45;margin-bottom:18px}
 .fh-s-lab{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;margin-bottom:8px}
 /* member / income rows — 44px min height, hairline separated, no fills */
@@ -28,7 +28,7 @@
 /* stat block: border + accent, never a colored fill (DESIGN §2.1) */
 .fh-s-stat{border:1px solid var(--hairline);border-left:3px solid var(--good);border-radius:12px;padding:12px 14px;margin-bottom:18px}
 .fh-s-stat .k{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
-.fh-s-stat .v{font-family:var(--disp);font-variant-numeric:tabular-nums;font-size:26px;font-weight:800;letter-spacing:-.5px;color:var(--good);margin-top:2px}
+.fh-s-stat .v{font-family:var(--disp);font-variant-numeric:tabular-nums;font-size:26px;font-weight:700;letter-spacing:-.5px;color:var(--good);margin-top:2px}
 /* colour swatches — 44×44 target, ring shows selection */
 .fh-s-swatches{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
 .fh-s-sw{width:44px;height:44px;border-radius:50%;padding:5px;background:none;flex-shrink:0}
@@ -44,13 +44,13 @@
 .fh-fam-back{position:absolute;top:-56px;left:-6px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:12px;color:var(--ink)}
 .fh-fam-back svg{width:24px;height:24px}
 .fh-fam-back:active{background:var(--surface)}
-.fh-fam-h{font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:-.8px;color:var(--ink);margin-bottom:4px}
+.fh-fam-h{font-family:var(--disp);font-weight:700;font-size:30px;letter-spacing:-.8px;color:var(--ink);margin-bottom:4px}
 .fh-fam-sub{font-size:14.5px;color:var(--muted);letter-spacing:-.01em;margin-bottom:22px}
 .fh-fam-card{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:1px solid var(--hairline);
   background:var(--white);border-radius:16px;padding:16px 18px;margin-bottom:10px;min-height:76px}
 .fh-fam-card:active{background:var(--surface);transform:scale(.99)}
 .fh-fam-card.busy{opacity:.55}
-.fh-fam-ico{width:44px;height:44px;border-radius:12px;background:var(--grad-hero);display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--disp);font-weight:800;font-size:18px;flex-shrink:0}
+.fh-fam-ico{width:44px;height:44px;border-radius:12px;background:var(--grad-hero);display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--disp);font-weight:700;font-size:18px;flex-shrink:0}
 .fh-fam-grow{flex:1;min-width:0}
 .fh-fam-name{font-weight:700;font-size:16px;letter-spacing:-.02em;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fh-fam-meta{font-size:12.5px;color:var(--muted);margin-top:1px}
@@ -77,5 +77,5 @@
 html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 #fh-offline svg{width:15px;height:15px;flex-shrink:0}
 /* invite code — bordered, not filled, per the no-colored-fills rule */
-.fh-code-show{font-family:ui-monospace,Menlo,monospace;font-size:31px;font-weight:800;letter-spacing:6px;
+.fh-code-show{font-family:ui-monospace,Menlo,monospace;font-size:31px;font-weight:700;letter-spacing:6px;
   color:var(--brand-ink);text-align:center;border:1.5px solid var(--hairline);border-radius:14px;padding:18px 0;margin-bottom:18px}
