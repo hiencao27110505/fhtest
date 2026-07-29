@@ -238,6 +238,18 @@ input{font-family:inherit}
 /* a quiet look-ahead at the foot */
 .hlook{margin-top:14px;padding:2px 4px;text-align:center;font-size:13px;font-weight:500;color:var(--muted);letter-spacing:-.01em;cursor:pointer}
 .hlook b{color:var(--ink-2);font-weight:600}
+/* welcome-back strip — what the family added while you were away */
+.hwelcome{display:block;width:100%;text-align:left;background:var(--white);border:0;border-radius:14px;padding:12px 15px;margin-top:12px;box-shadow:var(--shadow-card);font:inherit;font-size:13.5px;font-weight:500;color:var(--ink-2);letter-spacing:-.01em;line-height:1.45;cursor:pointer}
+.hwelcome b{font-weight:600;color:var(--ink)}
+.hwelcome:active{transform:scale(.99)}
+/* "saving together" — the family avatar stack on an occasion / a reached dream */
+.hm-fam{display:flex;align-items:center;margin-top:10px}
+.hm-fam .hby-av{margin-left:-6px;box-shadow:0 0 0 2px rgba(255,255,255,.5)}
+.hm-fam .hby-av:first-child{margin-left:0}
+.hm-fam-t{margin-left:9px;font-size:12.5px;font-weight:500;color:rgba(255,255,255,.92);text-shadow:0 1px 3px rgba(0,0,0,.4)}
+/* a gentle seed when the feed is thin */
+.hseed{display:block;width:100%;text-align:center;background:var(--fill-neutral);border:0;border-radius:14px;padding:13px;margin-top:12px;font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em;cursor:pointer}
+.hseed:active{transform:scale(.99)}
 
 /* ---------- event cards (neutral, theme-consistent) ---------- */
 .escroll{display:flex;gap:14px;overflow-x:auto;padding:0 16px 6px;scroll-snap-type:x mandatory}
@@ -2145,6 +2157,7 @@ function go(name){
   document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('on'); });
   var t=document.getElementById('t-'+name); if(t)t.classList.add('on');
   document.getElementById('scroll').scrollTop=0;
+  if(name==='home' && typeof renderHome==='function'){ try{ renderHome(); }catch(e){} }   // fresh home (milestone shows on open)
 }
 /* Khoảnh Khắc has three inner sections: Dự định (plans) · Kỷ niệm (memories) · Album gia đình (album). */
 /* Khoảnh Khắc is one flat scroll now (like Tài Chính) — momSec glides to a section
@@ -2668,9 +2681,10 @@ function setBudget(){
 
 /* ---------- Home — the emotional feed ("moment engine") ----------
    Home isn't a dashboard: it surfaces ONE warm moment a day woven from
-   everything the family has (an on-this-day memory, an upcoming occasion, a
-   spend that became a photo) — now with the FAMILY made visible (who added
-   what) — plus a "money, felt" pulse and a quiet look-ahead. The tabs do. */
+   everything the family has, with the family made VISIBLE (who added what) and
+   the loop's hooks strengthened — a welcome-back line, milestone celebrations,
+   a shared-dream avatar stack, a gentle seed. The tabs do; home makes you feel.
+   Facilitator ethic: warmth, never streaks / guilt / scores. */
 
 /* a full-bleed cover: a real photo (src) or a scene gradient (cls), with scrim + subject emoji */
 function hVisual(cls, src, subj){
@@ -2698,6 +2712,14 @@ function hByline(who){
   if(typeof firstName === 'function') nm = firstName(nm);
   return '<span class="hby">' + av + esc(nm) + '</span>';
 }
+/* a small overlapping stack of the family's avatars (for "saving together") */
+function hFamAvs(n){
+  var mems = (window.FAM && FAM.members) || [];
+  return mems.slice(0, n || 4).map(function(mm){
+    var ini = (typeof inits === 'function') ? inits(mm.name) : ('' + (mm.name || '?')).charAt(0).toUpperCase();
+    return '<span class="av hby-av" style="background:' + (mm.color || '#8f8a99') + ';color:#fff">' + esc(ini) + '</span>';
+  }).join('');
+}
 /* a memory record rendered as the centerpiece moment (on-this-day / recent) */
 function hMemMoment(r, eye){
   var i = memRecords.indexOf(r), by = hByline(r.who);
@@ -2711,6 +2733,9 @@ function renderHome(){
   buildMemRecords();
   var evs = window.events || {}, ord = window.order || [];
   var isMirrorK = function(k){ var e = evs[k]; return !!(e && (e._srcTxn || e.fromExpense)); };
+  var _meM = ((window.FAM && FAM.members) || []).filter(function(mm){ return mm.me; })[0];   // the in-family member name (who is tagged with)
+  var meName = (_meM ? _meM.name : ((window.FAM && FAM.user && FAM.user.name) || '')).toLowerCase();
+  var _hv = document.getElementById('v-home'); var homeVis = !!(_hv && _hv.classList.contains('on'));
   var html = '', usedRef = null;
 
   // upcoming real occasions (not achieved, not a photo-expense mirror), nearest first
@@ -2720,17 +2745,48 @@ function renderHome(){
   var onThis = memRecords.filter(function(r){
     if(!r.d || r.d.getFullYear() >= TODAY.getFullYear()) return false;
     var a = new Date(TODAY.getFullYear(), r.d.getMonth(), r.d.getDate());
-    return Math.abs((a - TODAY) / 86400000) <= 3;                       // within 3 days of the anniversary (handles month edges)
+    return Math.abs((a - TODAY) / 86400000) <= 3;                       // within 3 days of the anniversary
   });
 
-  /* ---- centerpiece: the daily moment (on-this-day → anticipation → recent → invite) ---- */
-  if(onThis.length){                                       // nostalgia, un-gameable + date-driven
+  /* ---- #4 welcome-back: what the family added while you were away (top) ---- */
+  if(window._homeSess === undefined){                                   // capture last-seen once per page load, then advance it
+    try{ var _ls = localStorage.getItem('fh-lastseen'); window._homeSess = _ls ? (parseInt(_ls, 10) || 0) : Date.now(); localStorage.setItem('fh-lastseen', '' + Date.now()); }catch(e){ window._homeSess = Date.now(); }
+  }
+  var lastSeen = window._homeSess;
+  var others = memRecords.filter(function(r){
+    var w = ('' + (r.who || '')).toLowerCase();
+    return w && w !== meName && w !== 'both' && w !== 'shared' && w !== 'chung' && r.d && r.d.getTime() > lastSeen;
+  });
+  if(others.length){
+    var byWho = {}, seq = [];
+    others.forEach(function(r){ var w = r.who; if(!byWho[w]){ byWho[w] = 0; seq.push(w); } byWho[w]++; });
+    var parts = seq.slice(0, 2).map(function(w){ var c = byWho[w]; return '<b>' + esc((typeof firstName === 'function' ? firstName(w) : w)) + '</b> ' + L('thêm ' + c + ' khoảnh khắc', 'added ' + c + (c === 1 ? ' moment' : ' moments')); });
+    html += '<button class="hwelcome" onclick="goMoments(&#39;album&#39;)">' + L('Trong lúc bạn vắng', 'While you were away') + ': ' + parts.join(' · ') + ' 💛</button>';
+  }
+
+  /* ---- #5 milestone: a goal/occasion just fully funded — celebrated once ---- */
+  var celebrated = {}; try{ celebrated = JSON.parse(localStorage.getItem('fh-celebrated') || '{}') || {}; }catch(e){ celebrated = {}; }
+  var milestones = [];
+  var goals = window.goals || {}, gord = window.goalOrder || [];
+  gord.forEach(function(g){ var go = goals[g]; if(go && typeof achievedGoal === 'function' && achievedGoal(go)) milestones.push({ key: 'goal:' + g, name: go.name, cls: go.cls || 'ph-park' }); });
+  var fresh = milestones.filter(function(mi){ return !celebrated[mi.key]; })[0] || null;
+
+  /* ---- centerpiece: milestone → on-this-day → anticipation → recent → invite ---- */
+  if(fresh && homeVis){                                                 // a shared dream, reached — celebrate only when home is the visible view
+    milestones.forEach(function(mi){ celebrated[mi.key] = 1; });        // clear the backlog once; future completions celebrate one by one
+    try{ localStorage.setItem('fh-celebrated', JSON.stringify(celebrated)); }catch(e){}
+    usedRef = fresh.key;
+    html += '<button class="hmoment" onclick="go(&#39;spending&#39;)">' + hVisual(fresh.cls, '', '🎉')
+      + '<div class="hm-cap"><div class="hm-eye">' + L('Vừa đủ rồi', 'Goal reached') + '</div><div class="hm-title">' + esc(fresh.name) + '</div>'
+      + '<div class="hm-sub">' + L('Giấc mơ chung đã thành hình 🎉', 'A shared dream, reached 🎉') + '</div>'
+      + '<div class="hm-fam">' + hFamAvs(4) + '</div></div></button>';
+  } else if(onThis.length){                                             // nostalgia, un-gameable + date-driven
     var rr = onThis[0]; usedRef = rr.type + ':' + rr.ref;
     html += hMemMoment(rr, L('Ngày này năm xưa', 'On this day'));
-  } else if(up.length){                                    // anticipation, saving woven in
+  } else if(up.length){                                                 // anticipation, saving woven in
     var k = up[0], e = evs[k], dl = daysLeft(e.d);
     var pct = e.target > 0 ? Math.min(100, Math.round(e.saved / e.target * 100)) : 0;
-    var emm = (e.memories && e.memories[0]) || null;                 // a saved photo makes the anticipation real
+    var emm = (e.memories && e.memories[0]) || null;
     var eSrc = (emm && emm.src) ? emm.src : '', eCls = (emm && emm.cls) ? emm.cls : 'ph-hike';
     usedRef = 'event:' + k;
     var eye = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : L('Còn ' + dl + ' ngày', dl + ' days to go'));
@@ -2739,14 +2795,15 @@ function renderHome(){
         : (pct >= 35 ? L('Cả nhà đang để dành dần 🌿', 'Saving up together 🌿')
           : L('Cùng để dành cho dịp này nhé 🌿', 'Saving toward it together 🌿')))
       : L('Điều cả nhà đang mong 💛', 'Something to look forward to 💛');
+    var famRow = (e.target > 0 && (e.saved > 0 || e.setAside > 0)) ? '<div class="hm-fam">' + hFamAvs(4) + '<span class="hm-fam-t">' + L('cả nhà cùng góp', 'saving together') + '</span></div>' : '';
     html += '<button class="hmoment" onclick="openEvent(&#39;' + escAttr(k) + '&#39;)">' + hVisual(eCls, eSrc, e.emoji)
       + '<div class="hm-cap"><div class="hm-eye">' + esc(eye) + '</div><div class="hm-title">' + esc(e.name)
-      + '</div><div class="hm-sub">' + money + '</div></div>'
+      + '</div><div class="hm-sub">' + money + '</div>' + famRow + '</div>'
       + (e.target > 0 ? '<div class="hm-prog"><i style="width:' + pct + '%"></i></div>' : '') + '</button>';
-  } else if(memRecords.length){                            // a resurfaced moment
+  } else if(memRecords.length){                                        // a resurfaced moment
     var r = memRecords[0]; usedRef = r.type + ':' + r.ref;
     html += hMemMoment(r, L('Khoảnh khắc gần đây', 'A recent moment'));
-  } else {                                                 // a new family — a gentle invitation, still a feeling
+  } else {                                                             // a new family — a gentle invitation, still a feeling
     html += '<button class="hmoment" onclick="openSheet(&#39;sheet-add&#39;)"><div class="hm-bg ph-park"></div><div class="hm-scrim"></div><div class="hm-subj">🌿</div>'
       + '<div class="hm-cap"><div class="hm-eye">' + L('Bắt đầu', 'Begin') + '</div><div class="hm-title">'
       + L('Câu chuyện của cả nhà', 'Your family’s story') + '</div><div class="hm-sub">'
@@ -2773,10 +2830,10 @@ function renderHome(){
   }
 
   /* ---- look-ahead target (chosen first, so a photo-bearing occasion can't also surface as a beat) ---- */
-  var nk = (up.length > (onThis.length ? 0 : 1)) ? up[onThis.length ? 0 : 1] : null;
+  var nk = (up.length > (onThis.length || fresh ? 0 : 1)) ? up[onThis.length || fresh ? 0 : 1] : null;
 
   /* ---- woven beats: up to 2 more moments, each with its author ---- */
-  var seen = {}; if(usedRef) seen[usedRef] = 1; if(nk) seen['event:' + nk] = 1;   // one beat per distinct source
+  var seen = {}; if(usedRef) seen[usedRef] = 1; if(nk) seen['event:' + nk] = 1;
   var beats = [];
   memRecords.forEach(function(r){ var rk = r.type + ':' + r.ref; if(seen[rk]) return; seen[rk] = 1; beats.push(r); });
   beats.slice(0, 2).forEach(function(r){
@@ -2794,6 +2851,11 @@ function renderHome(){
     html += '<div class="hlook" onclick="openEvent(&#39;' + escAttr(nk) + '&#39;)">' + esc(e2.emoji) + ' '
       + L('Sắp tới', 'Coming up') + ': <b>' + esc(e2.name) + '</b> · '
       + (dl2 === 0 ? L('hôm nay', 'today') : L('còn ' + dl2 + ' ngày', dl2 + ' days')) + '</div>';
+  }
+
+  /* ---- #11 seed the feed: a gentle nudge only when it's genuinely thin ---- */
+  if(memRecords.length > 0 && memRecords.length < 3){
+    html += '<button class="hseed" onclick="openSheet(&#39;sheet-add&#39;)">📸 ' + L('Hôm nay có gì đáng nhớ không?', 'Anything to remember today?') + '</button>';
   }
 
   setHTMLIf(box, html);

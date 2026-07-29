@@ -115,3 +115,15 @@
 /* a quiet look-ahead at the foot */
 .hlook{margin-top:14px;padding:2px 4px;text-align:center;font-size:13px;font-weight:500;color:var(--muted);letter-spacing:-.01em;cursor:pointer}
 .hlook b{color:var(--ink-2);font-weight:600}
+/* welcome-back strip — what the family added while you were away */
+.hwelcome{display:block;width:100%;text-align:left;background:var(--white);border:0;border-radius:14px;padding:12px 15px;margin-top:12px;box-shadow:var(--shadow-card);font:inherit;font-size:13.5px;font-weight:500;color:var(--ink-2);letter-spacing:-.01em;line-height:1.45;cursor:pointer}
+.hwelcome b{font-weight:600;color:var(--ink)}
+.hwelcome:active{transform:scale(.99)}
+/* "saving together" — the family avatar stack on an occasion / a reached dream */
+.hm-fam{display:flex;align-items:center;margin-top:10px}
+.hm-fam .hby-av{margin-left:-6px;box-shadow:0 0 0 2px rgba(255,255,255,.5)}
+.hm-fam .hby-av:first-child{margin-left:0}
+.hm-fam-t{margin-left:9px;font-size:12.5px;font-weight:500;color:rgba(255,255,255,.92);text-shadow:0 1px 3px rgba(0,0,0,.4)}
+/* a gentle seed when the feed is thin */
+.hseed{display:block;width:100%;text-align:center;background:var(--fill-neutral);border:0;border-radius:14px;padding:13px;margin-top:12px;font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em;cursor:pointer}
+.hseed:active{transform:scale(.99)}
