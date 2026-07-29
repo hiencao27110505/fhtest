@@ -222,7 +222,7 @@ input{font-family:inherit}
 .e-hbody{flex:1;min-width:0}
 .ecard .nm{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.4px;color:var(--ink)}
 .e-sub{font-size:13.5px;letter-spacing:-.01em;color:var(--muted);margin-top:2px}
-.ecard .pct{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.5px;color:var(--brand);flex-shrink:0}
+.ecard .pct{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.5px;color:var(--ink);flex-shrink:0}
 .bar{height:8px;background:var(--divider);border-radius:9999px;overflow:hidden;margin:12px 0 0}
 .bar i{display:block;height:100%;border-radius:9999px;transition:width .6s cubic-bezier(.4,0,.2,1);background:var(--brand)}
 .ecard .bar{height:9px;margin:14px 0 10px}
@@ -299,7 +299,7 @@ input{font-family:inherit}
 .evb{flex:1;min-width:0}
 .evt{font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--ink);display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .evt>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.evt .p{font-family:var(--disp);font-weight:700;font-size:15px;color:var(--brand);letter-spacing:-.3px;flex-shrink:0}
+.evt .p{font-family:var(--disp);font-weight:700;font-size:15px;color:var(--ink);letter-spacing:-.3px;flex-shrink:0}
 .evs{font-size:13px;color:var(--muted);margin-top:2px;letter-spacing:-.01em}
 .evbar{height:6px;background:var(--divider);border-radius:9999px;overflow:hidden;margin-top:8px}
 .evbar i{display:block;height:100%;background:var(--brand);border-radius:9999px}
@@ -346,7 +346,7 @@ input{font-family:inherit}
 .trend-legend{display:flex;align-items:center;gap:6px;margin-top:12px;font-size:12px;color:var(--muted);font-weight:500;letter-spacing:-.01em}
 .trend-legend .dash{width:16px;border-top:2px dashed var(--ink-2);opacity:.5}
 /* events calendar */
-.cal{background:var(--white);border-radius:var(--r-card-lg);margin:18px 16px 14px;padding:17px 17px 15px;box-shadow:var(--shadow-focal)}
+.cal{background:var(--white);border-radius:var(--r-card-lg);margin:2px 16px 14px;padding:17px 17px 15px;box-shadow:var(--shadow-focal)}
 .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:0 2px}
 .cal-mon{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.4px;color:var(--ink)}
 .cal-nav{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted)}
@@ -898,7 +898,7 @@ input{font-family:inherit}
 .mscroll{display:flex;gap:12px;overflow-x:auto;padding:0 16px 4px;scroll-snap-type:x mandatory}
 .mscroll::-webkit-scrollbar{display:none}
 .memory{flex:0 0 160px;scroll-snap-align:start;height:204px;border-radius:18px;overflow:hidden;position:relative;cursor:pointer;
-  display:flex;flex-direction:column;justify-content:flex-end;padding:14px;box-shadow:0 8px 22px rgba(25,16,34,.14)}
+  display:flex;flex-direction:column;justify-content:flex-end;padding:14px;box-shadow:0 8px 22px rgba(25,16,34,.12)}
 .memory:active{transform:scale(.98)}
 .memory .subj{position:absolute;top:14px;left:14px;font-size:26px;filter:drop-shadow(0 1px 4px rgba(0,0,0,.3))}
 .memory .scrim{position:absolute;inset:0;background:linear-gradient(180deg,transparent 42%,rgba(0,0,0,.64))}
@@ -1014,7 +1014,7 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
    back stair-stepped instead of antialiased. Round the media itself and there is
    no clip to alias. backface-visibility keeps the promoted layer on the pixel
    grid so the corners stay clean at rest, not just mid-animation. */
-.peek-frame{position:relative;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.45);
+.peek-frame{position:relative;border-radius:20px;box-shadow:0 24px 70px rgba(25,16,34,.42);
   transform:scale(.94);transition:transform .34s cubic-bezier(.32,.72,0,1);background:var(--canvas);
   will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .peek.on .peek-frame{transform:scale(1)}
@@ -2894,7 +2894,7 @@ function renderGoals(){
     +'</div>';
   }).join('');
   setHTML('goals-list', rows ? '<div class="goal-group">'+rows+'</div>'
-    : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🎯</div><div class="me-t">'+L('Chưa có mục tiêu','No goals yet')+'</div><p>'+L('Để dành tiền cho điều bạn muốn mua hoặc làm.','Save up for something you want to buy or do.')+'</p><span onclick="openGoal()" style="display:inline-block;margin-top:12px;color:var(--brand-ink);font-size:14px;font-weight:600;cursor:pointer">＋ '+L('Tạo mục tiêu đầu tiên','Create your first goal')+'</span></div>');
+    : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🎯</div><div class="me-t">'+L('Chưa có mục tiêu','No goals yet')+'</div><p>'+L('Để dành tiền cho điều bạn muốn mua hoặc làm.','Save up for something you want to buy or do.')+'</p><button class="empty-cta" style="margin-top:18px" onclick="openGoal()">＋ '+L('Tạo mục tiêu đầu tiên','Create your first goal')+'</button></div>');
 }
 function onGoalInput(){
   var name=(document.getElementById('goal-name').value||'').trim();

@@ -19,7 +19,7 @@
    back stair-stepped instead of antialiased. Round the media itself and there is
    no clip to alias. backface-visibility keeps the promoted layer on the pixel
    grid so the corners stay clean at rest, not just mid-animation. */
-.peek-frame{position:relative;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.45);
+.peek-frame{position:relative;border-radius:20px;box-shadow:0 24px 70px rgba(25,16,34,.42);
   transform:scale(.94);transition:transform .34s cubic-bezier(.32,.72,0,1);background:var(--canvas);
   will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .peek.on .peek-frame{transform:scale(1)}

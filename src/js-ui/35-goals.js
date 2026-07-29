@@ -37,7 +37,7 @@ function renderGoals(){
     +'</div>';
   }).join('');
   setHTML('goals-list', rows ? '<div class="goal-group">'+rows+'</div>'
-    : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🎯</div><div class="me-t">'+L('Chưa có mục tiêu','No goals yet')+'</div><p>'+L('Để dành tiền cho điều bạn muốn mua hoặc làm.','Save up for something you want to buy or do.')+'</p><span onclick="openGoal()" style="display:inline-block;margin-top:12px;color:var(--brand-ink);font-size:14px;font-weight:600;cursor:pointer">＋ '+L('Tạo mục tiêu đầu tiên','Create your first goal')+'</span></div>');
+    : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🎯</div><div class="me-t">'+L('Chưa có mục tiêu','No goals yet')+'</div><p>'+L('Để dành tiền cho điều bạn muốn mua hoặc làm.','Save up for something you want to buy or do.')+'</p><button class="empty-cta" style="margin-top:18px" onclick="openGoal()">＋ '+L('Tạo mục tiêu đầu tiên','Create your first goal')+'</button></div>');
 }
 function onGoalInput(){
   var name=(document.getElementById('goal-name').value||'').trim();

@@ -16,7 +16,7 @@
 .e-hbody{flex:1;min-width:0}
 .ecard .nm{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.4px;color:var(--ink)}
 .e-sub{font-size:13.5px;letter-spacing:-.01em;color:var(--muted);margin-top:2px}
-.ecard .pct{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.5px;color:var(--brand);flex-shrink:0}
+.ecard .pct{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.5px;color:var(--ink);flex-shrink:0}
 .bar{height:8px;background:var(--divider);border-radius:9999px;overflow:hidden;margin:12px 0 0}
 .bar i{display:block;height:100%;border-radius:9999px;transition:width .6s cubic-bezier(.4,0,.2,1);background:var(--brand)}
 .ecard .bar{height:9px;margin:14px 0 10px}
@@ -93,7 +93,7 @@
 .evb{flex:1;min-width:0}
 .evt{font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--ink);display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .evt>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.evt .p{font-family:var(--disp);font-weight:700;font-size:15px;color:var(--brand);letter-spacing:-.3px;flex-shrink:0}
+.evt .p{font-family:var(--disp);font-weight:700;font-size:15px;color:var(--ink);letter-spacing:-.3px;flex-shrink:0}
 .evs{font-size:13px;color:var(--muted);margin-top:2px;letter-spacing:-.01em}
 .evbar{height:6px;background:var(--divider);border-radius:9999px;overflow:hidden;margin-top:8px}
 .evbar i{display:block;height:100%;background:var(--brand);border-radius:9999px}
