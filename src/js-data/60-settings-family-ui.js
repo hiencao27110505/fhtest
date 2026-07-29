@@ -100,7 +100,7 @@
     if (ev.fromSavings > 0) lines.push('<b>' + f(ev.fromSavings) + '</b> '+L('sẽ trả lại quỹ tiết kiệm.','goes back to your savings.'));
     if (ev.fromBudget > 0) lines.push('<b>' + f(ev.fromBudget) + '</b> '+L('sẽ trừ khỏi chi tiêu.','comes off your spending.'));
     const nm = (ev.memories || []).length;
-    if (nm) lines.push(nm + (isVi()?(' ảnh sẽ bị xoá khỏi Kỉ niệm.'):(' photo' + (nm > 1 ? 's' : '') + ' will be removed from Memories.')));
+    if (nm) lines.push(nm + (isVi()?(' ảnh sẽ bị xoá khỏi Kỷ niệm.'):(' photo' + (nm > 1 ? 's' : '') + ' will be removed from Memories.')));
     if (!lines.length) lines.push(L('Chưa có gì được góp cho mục tiêu này.','Nothing has been put toward this goal yet.'));
     // Cancel is the prominent action; delete is low-prominence text + arm-then-confirm (DESIGN §3).
     _fhSheet(

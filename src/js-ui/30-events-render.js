@@ -2,7 +2,7 @@
 function memTileHTML(k){
   var e=events[k], m=(e.memories&&e.memories[0])||null;
   if(!m){
-    return '<div class="memory mem-blank" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="mb-em">'+esc(e.emoji)+'</div><div class="mb-cap">'+esc(e.name)+'</div><div class="mb-sub">'+L('Thêm kỉ niệm','Add a memory')+'</div></div>';
+    return '<div class="memory mem-blank" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="mb-em">'+esc(e.emoji)+'</div><div class="mb-cap">'+esc(e.name)+'</div><div class="mb-sub">'+L('Thêm kỷ niệm','Add a memory')+'</div></div>';
   }
   var cls, style, subj;
   if(m.src){ cls=''; style='style="background-image:url('+m.src+');background-size:cover;background-position:center"'; subj=''; }
@@ -80,7 +80,7 @@ function renderEvents(){
   setTxt('sav-total',fmt(totSav)); setTxt('ev-goal',fmt(goal));
   var sf=document.getElementById('sav-fill'); if(sf)sf.style.width=savPct+'%';
   setHTML('ev-tosave','<b>'+fmt(stillToHave)+'</b> '+L('cần tiết kiệm thêm','still to save'));
-  setTxt('sav-avail-lbl',fmt(savings)+L(' sẵn có',' ready'));
+  setTxt('sav-avail-lbl',fmt(savings)+L(' sẵn có',' available'));
   // hero savings summary tile
   setTxt('ht-sav',fmt(totSav));
   // warm the abstract savings figure into concrete progress toward the next goal
@@ -191,7 +191,7 @@ function renderEvents(){
   buildMemRecords();
   var groups=memGroups(), feedPhotos=memRecords.filter(function(r){return r.src;});
   var tiles=groups.slice(0,10).map(memCoverHTML).join('');
-  var empty='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">'+L('Chưa có kỉ niệm nào','No memories yet')+'</div><p>'+L('Thêm ảnh vào một khoản chi hoặc sự kiện để bắt đầu.','Add a photo to an expense or event to start your memories.')+'</p></div>';
+  var empty='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">'+L('Chưa có kỷ niệm nào','No memories yet')+'</div><p>'+L('Thêm ảnh vào một khoản chi hoặc sự kiện để bắt đầu.','Add a photo to an expense or event to start your memories.')+'</p></div>';
   setHTMLIf('home-memories', tiles||empty);
   var fb=document.getElementById('home-feed'); if(fb) setHTMLIf(fb, feedPhotos.slice(0,50).map(memFeedHTML).join(''));
   var fhh=document.getElementById('home-feed-h'); if(fhh) fhh.style.display=feedPhotos.length?'':'none';

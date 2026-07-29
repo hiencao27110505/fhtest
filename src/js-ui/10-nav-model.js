@@ -5,7 +5,7 @@ function go(name){
   var t=document.getElementById('t-'+name); if(t)t.classList.add('on');
   document.getElementById('scroll').scrollTop=0;
 }
-/* Khoảnh Khắc has three inner sections: Dự định (plans) · Kỉ niệm (memories) · Album gia đình (album). */
+/* Khoảnh Khắc has three inner sections: Dự định (plans) · Kỷ niệm (memories) · Album gia đình (album). */
 /* Khoảnh Khắc is one flat scroll now (like Tài Chính) — momSec glides to a section
    instead of toggling a hidden panel. Map each former segment to its anchor. */
 function momSec(which){

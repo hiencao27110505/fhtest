@@ -1338,7 +1338,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
         </div>
       </div>
       <div class="greet" id="greet">Good evening, Emma 🌙</div>
-      <div class="greet-sub" data-t="greetSub">Here's how the family's money looks today.</div>
+      <div class="greet-sub" data-t="greetSub">Your family's money at a glance today.</div>
       <div class="hero-fam" id="hero-fam">
         <div class="av av-emma av-hero">EM</div>
         <div class="av av-james av-hero">JR</div>
@@ -2134,7 +2134,7 @@ function go(name){
   var t=document.getElementById('t-'+name); if(t)t.classList.add('on');
   document.getElementById('scroll').scrollTop=0;
 }
-/* Khoảnh Khắc has three inner sections: Dự định (plans) · Kỉ niệm (memories) · Album gia đình (album). */
+/* Khoảnh Khắc has three inner sections: Dự định (plans) · Kỷ niệm (memories) · Album gia đình (album). */
 /* Khoảnh Khắc is one flat scroll now (like Tài Chính) — momSec glides to a section
    instead of toggling a hidden panel. Map each former segment to its anchor. */
 function momSec(which){
@@ -2321,7 +2321,7 @@ function renderBudget(){
       var diff2=budget-spent, okc=diff2>=0;
       var bf=document.getElementById('bfill'); bf.className=okc?'fill-ok':'fill-red'; bf.style.width=pctSpent+'%';
       setTxt('b-safe', okc?fmt(diff2):'—');
-      setTxt('b-safe-sub', okc? L('còn dư khi '+m.short+' khép lại','left unspent when '+m.short+' closed') : L(m.short+' kết thúc vượt ngân sách',m.short+' finished over budget'));
+      setTxt('b-safe-sub', okc? L('còn dư khi '+moAb+' khép lại','left unspent when '+moAb+' closed') : L(moAb+' kết thúc vượt ngân sách',moAb+' finished over budget'));
       setTxt('b-days',L('Đã chốt tháng','Month closed'));
     } else {
       var safeDaily=Math.round(safe/Math.max(1,dim-dom));
@@ -2397,7 +2397,7 @@ function renderFinanceHero(){
   }
   // ── Category budget exposure — the outer ring's story one level down: each category's
   // spend against ITS budget, as an Apple inset list. Tap a row to drill into the category.
-  setTxt('fh-cats-lbl', L('Ngân sách theo hạng mục','Budget by category'));
+  setTxt('fh-cats-lbl', L('Ngân sách theo danh mục','Budget by category'));
   setTxt('fh-cats-edit', L('Chỉnh','Edit'));
   var legend = (catOrder || []).map(function(c){
     var sp = m.catSpent[c] || 0, bd = catBudget[c] || 0, ico = (catStyle[c] || [])[0] || '🏷️';
@@ -2658,7 +2658,7 @@ function setBudget(){
 function memTileHTML(k){
   var e=events[k], m=(e.memories&&e.memories[0])||null;
   if(!m){
-    return '<div class="memory mem-blank" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="mb-em">'+esc(e.emoji)+'</div><div class="mb-cap">'+esc(e.name)+'</div><div class="mb-sub">'+L('Thêm kỉ niệm','Add a memory')+'</div></div>';
+    return '<div class="memory mem-blank" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="mb-em">'+esc(e.emoji)+'</div><div class="mb-cap">'+esc(e.name)+'</div><div class="mb-sub">'+L('Thêm kỷ niệm','Add a memory')+'</div></div>';
   }
   var cls, style, subj;
   if(m.src){ cls=''; style='style="background-image:url('+m.src+');background-size:cover;background-position:center"'; subj=''; }
@@ -2736,7 +2736,7 @@ function renderEvents(){
   setTxt('sav-total',fmt(totSav)); setTxt('ev-goal',fmt(goal));
   var sf=document.getElementById('sav-fill'); if(sf)sf.style.width=savPct+'%';
   setHTML('ev-tosave','<b>'+fmt(stillToHave)+'</b> '+L('cần tiết kiệm thêm','still to save'));
-  setTxt('sav-avail-lbl',fmt(savings)+L(' sẵn có',' ready'));
+  setTxt('sav-avail-lbl',fmt(savings)+L(' sẵn có',' available'));
   // hero savings summary tile
   setTxt('ht-sav',fmt(totSav));
   // warm the abstract savings figure into concrete progress toward the next goal
@@ -2847,7 +2847,7 @@ function renderEvents(){
   buildMemRecords();
   var groups=memGroups(), feedPhotos=memRecords.filter(function(r){return r.src;});
   var tiles=groups.slice(0,10).map(memCoverHTML).join('');
-  var empty='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">'+L('Chưa có kỉ niệm nào','No memories yet')+'</div><p>'+L('Thêm ảnh vào một khoản chi hoặc sự kiện để bắt đầu.','Add a photo to an expense or event to start your memories.')+'</p></div>';
+  var empty='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">'+L('Chưa có kỷ niệm nào','No memories yet')+'</div><p>'+L('Thêm ảnh vào một khoản chi hoặc sự kiện để bắt đầu.','Add a photo to an expense or event to start your memories.')+'</p></div>';
   setHTMLIf('home-memories', tiles||empty);
   var fb=document.getElementById('home-feed'); if(fb) setHTMLIf(fb, feedPhotos.slice(0,50).map(memFeedHTML).join(''));
   var fhh=document.getElementById('home-feed-h'); if(fhh) fhh.style.display=feedPhotos.length?'':'none';
@@ -3300,7 +3300,7 @@ function closeModals(){
   });
   if(!keepPa) document.getElementById('scrim').classList.remove('on');
   editingTx=null; editSnap=null; exPhotos=[]; evPhotos=[]; memPick=null; memPickMulti=null;
-  setTxt('ex-title',L('Ghi chi tiêu','Log an expense')); var del=document.getElementById('ex-del'); if(del)del.style.display='none';
+  setTxt('ex-title',L('Ghi khoản chi','Log an expense')); var del=document.getElementById('ex-del'); if(del)del.style.display='none';
   resetDelArm();
 }
 /* new-event modal */
@@ -3428,10 +3428,10 @@ function updateExWhen(){
   var isEvent=(chosen('ex-cat')==='Event'), fut=isExFuture(), past=exDate()<TODAY;
   var el=document.getElementById('ex-whenhint');
   if(isEvent){
-    setExCta(past ? L('Lưu vào Kỉ niệm','Save to Memories') : L('Thêm vào Sự kiện','Add to Events'));
+    setExCta(past ? L('Lưu vào Kỷ niệm','Save to Memories') : L('Thêm vào Sự kiện','Add to Events'));
     if(el) el.innerHTML = past
-      ? '<span style="color:var(--brand-ink)">'+L('Đã diễn ra','Already happened')+'</span> · '+L('một kỉ niệm để nhớ về','a memory to look back on')
-      : '<span style="color:var(--brand-ink)">'+L('Đã thêm vào Sự kiện','Added to Events')+'</span> · '+L('để dành từ tháng này, thành kỉ niệm khi nó diễn ra','set aside from July, a memory once it happens');
+      ? '<span style="color:var(--brand-ink)">'+L('Đã diễn ra','Already happened')+'</span> · '+L('một kỷ niệm để nhớ về','a memory to look back on')
+      : '<span style="color:var(--brand-ink)">'+L('Đã thêm vào Sự kiện','Added to Events')+'</span> · '+L('để dành từ tháng này, thành kỷ niệm khi nó diễn ra','set aside from July, a memory once it happens');
     return;
   }
   setExCta(L('Lưu khoản chi','Save expense'));
@@ -3458,7 +3458,7 @@ function prefillExpense(){
   // this clears to the preset rather than unconditionally to empty.
   exPhotos = (exPreset && exPreset.photos) ? exPreset.photos.slice() : [];
   renderExPhoto();
-  setTxt('ex-title',L('Ghi chi tiêu','Log an expense'));
+  setTxt('ex-title',L('Ghi khoản chi','Log an expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='none';
   updateExWhen(); refreshExCta();
 }
@@ -3862,7 +3862,7 @@ function saveExpenseEdit(){
   toast(L('Đã lưu · ','Changes saved · ')+note);
 }
 var delArmed=false, delTimer=null;
-function resetDelArm(){ delArmed=false; clearTimeout(delTimer); var b=document.getElementById('ex-del'); if(b){ b.classList.remove('armed'); b.textContent='Delete expense'; } }
+function resetDelArm(){ delArmed=false; clearTimeout(delTimer); var b=document.getElementById('ex-del'); if(b){ b.classList.remove('armed'); b.textContent=L('Xoá khoản chi','Delete expense'); } }
 function deleteExpense(){
   var t=txById(editingTx); if(!t){ closeExpense(); return; }
   var btn=document.getElementById('ex-del');
@@ -3902,7 +3902,7 @@ function sendSuggestion(){
   if(!msg){ el.focus(); return; }
   el.value='';
   closeModals();
-  toast(L('Gửi rồi nha, cảm ơn bạn 💛 Tụi mình đọc hết mọi góp ý','Got it — thanks! 💛 We read every note'));
+  toast(L('Gửi rồi nha, cảm ơn bạn 💛 Tụi mình đọc hết mọi góp ý','Got it, thanks! 💛 We read every note'));
   floatEmojis('💛');
 }
 
@@ -4135,7 +4135,7 @@ function closeCat(){ document.getElementById('cat-overlay').classList.remove('on
 function addExpense(){
   var amt=parseAmtBase(document.getElementById('ex-amt').value);
   if(!amt){ document.getElementById('ex-amt').focus(); return; }
-  var note=document.getElementById('ex-note').value.trim()||L('Chi tiêu','Expense');
+  var note=document.getElementById('ex-note').value.trim()||L('Khoản chi','Expense');
   var cat=chosen('ex-cat')||'Fun'; lastCat=cat;
   var s=catStyle[cat]||['🧾','#f2eef6','var(--cat-other)'];
   var dObj=exDate(), dstr=(dObj.getTime()===TODAY.getTime())?'Today':(MONA[dObj.getMonth()]+' '+dObj.getDate());
@@ -4174,7 +4174,7 @@ function addExpense(){
   document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
   var catOv=document.getElementById('cat-overlay').classList.contains('on');
   closeExpense();
-  if(hadPhoto){ toast(L('Đã ghi '+fmt(amt)+' · lưu vào Kỉ niệm 📸','Logged '+fmt(amt)+' · saved to Memories 📸')); floatEmojis('📸'); }
+  if(hadPhoto){ toast(L('Đã ghi '+fmt(amt)+' · lưu vào Kỷ niệm 📸','Logged '+fmt(amt)+' · saved to Memories 📸')); floatEmojis('📸'); }
   else if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast(L('Lưu ý: '+cat+' đã vượt ngân sách','Heads up: '+cat+' is now over budget'));
   else toast(L('Đã ghi '+fmt(amt)+' · còn '+fmt(Math.max(0,months.Jul.budget-jul.spent))+' an toàn để tiêu','Logged '+fmt(amt)+' · '+fmt(Math.max(0,months.Jul.budget-jul.spent))+' safe to spend'));
   if(catOv && curDetail){ openCat(curDetail.type,curDetail.val); }   // logged from a category detail → refresh it
@@ -4189,7 +4189,7 @@ function openEvent(id){
   curEvent=id; var e=events[id], dl=daysLeft(e.d), ach=achievedNow(e);
   document.getElementById('ov-hero').className='ov-hero';
   setTxt('ov-em',e.emoji); setTxt('ov-name',e.name);
-  setTxt('ov-meta', ach ? L('Đã đạt · kỉ niệm từ '+(e.d?fmtDayMon(e.d):e.date),'Achieved · a memory from '+e.date) : ((e.d?fmtDayMon(e.d):e.date)+' · '+(dl===0?L('đến hạn hôm nay','due today'):L('còn '+dl+' ngày',dl+' days to go'))));
+  setTxt('ov-meta', ach ? L('Đã đạt · kỷ niệm từ '+(e.d?fmtDayMon(e.d):e.date),'Achieved · a memory from '+e.date) : ((e.d?fmtDayMon(e.d):e.date)+' · '+(dl===0?L('đến hạn hôm nay','due today'):L('còn '+dl+' ngày',dl+' days to go'))));
   document.getElementById('ov-funding').style.display=ach?'none':'block';
   document.getElementById('ov-memories').style.display=ach?'block':'none';
   var cta=document.getElementById('ov-cta');
@@ -4204,7 +4204,7 @@ function renderGallery(boxId){
   var e=events[curEvent], box=document.getElementById(boxId); if(!box)return;
   if(!e.memories||!e.memories.length){
     box.innerHTML = boxId==='ov-fund-gallery' ? ''    // funding view: the "Add a photo" button is the invite
-      : '<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">'+L('Chưa có kỉ niệm nào','No memories yet')+'</div><p>'+L('Thêm ảnh và chú thích để ghi nhớ dịp này nha.','Add a photo and caption to remember this event.')+'</p></div>';
+      : '<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">'+L('Chưa có kỷ niệm nào','No memories yet')+'</div><p>'+L('Thêm ảnh và chú thích để ghi nhớ dịp này nha.','Add a photo and caption to remember this event.')+'</p></div>';
     delete box.dataset.sig;      // or deleting the last photo and re-adding it would match a stale sig and leave the empty state up
     return;
   }
@@ -4228,7 +4228,7 @@ function renderGallery(boxId){
          resolve one by one. Load the first few eagerly; anything below the fold
          on a long event can still defer. */
       var eager=i<4;
-      html+='<div class="mem-full tap" onclick="openPeek('+i+')"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||L('Ảnh kỉ niệm','Memory photo'))+'"'
+      html+='<div class="mem-full tap" onclick="openPeek('+i+')"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||L('Ảnh kỷ niệm','Memory photo'))+'"'
         +(eager?' fetchpriority="high"':' loading="lazy"')+' decoding="async">'+cap+'</div>';
     } else {
       html+='<div class="mem-full tile tap '+esc(m.cls||'ph-park')+'" onclick="openPeek('+i+')"><div class="subj">'+esc(m.emoji||'📸')+'</div>'+cap+'</div>';
@@ -4252,7 +4252,7 @@ function openPeek(i){
   var img=document.getElementById('peek-img'), tile=document.getElementById('peek-tile');
   if(m.src){
     frame.className='peek-frame';
-    img.src=m.src; img.alt=m.caption||L('Ảnh kỉ niệm','Memory photo');
+    img.src=m.src; img.alt=m.caption||L('Ảnh kỷ niệm','Memory photo');
   } else {
     frame.className='peek-frame is-tile '+(m.cls||'ph-park');
     img.removeAttribute('src'); tile.textContent=m.emoji||'📸';
@@ -4356,7 +4356,7 @@ function addMemory(){
   e.memories.unshift(m);                                     // a photo doesn't complete an event
   renderEvents(); openEvent(curEvent);
   closeModals(); floatEmojis('📸');
-  if(!m.src) toast(L('Đã lưu kỉ niệm 📸','Memory saved 📸'));   // emoji tile → nothing to upload, so confirm now
+  if(!m.src) toast(L('Đã lưu kỷ niệm 📸','Memory saved 📸'));   // emoji tile → nothing to upload, so confirm now
 }
 function renderRing(){
   var e=events[curEvent], pct=e.target>0?Math.round(e.saved/e.target*100):0;
@@ -4383,7 +4383,7 @@ function addFunds(){
   var e=events[id];
   if(!e){ toast(L('Chọn một sự kiện để góp quỹ','Select an event to fund')); return; }
   if(e.saved>=e.target){ toast(L(e.name+' đã đủ tiền',e.name+' is already fully funded')); return; }
-  if(savings<=0){ toast(L('Không có quỹ tiết kiệm để phân bổ','No savings available to allocate')); return; }
+  if(savings<=0){ toast(L('Chưa có tiền tiết kiệm để dùng','No savings available to allocate')); return; }
   if(amt>savings){ toast(L('Quỹ chỉ còn '+fmt(savings),'Only '+fmt(savings)+' available in savings')); return; }
   var who=chosen('fn-who')||'Emma', before=e.saved;
   var applied=Math.min(amt, e.target-e.saved);   // never overfund the event
@@ -4414,7 +4414,7 @@ function updateSrcHint(){
   var el=document.getElementById('ng-srchint'); if(!el)return;
   if(cost<=0){ el.textContent=''; return; }
   var avail=selSrc==='savings'?savings:safe;
-  if(cost>avail) el.innerHTML=L('<span class="warn">Thiếu '+fmt(cost-avail)+', giờ mới đủ '+fmt(avail)+'</span>','<span class="warn">Short by '+fmt(cost-avail)+', covers '+fmt(avail)+' now</span>');
+  if(cost>avail) el.innerHTML=L('<span class="warn">Thiếu '+fmt(cost-avail)+', hiện chỉ đủ '+fmt(avail)+'</span>','<span class="warn">Short by '+fmt(cost-avail)+', covers '+fmt(avail)+' now</span>');
   else if(selSrc==='savings') el.textContent=L('Đủ trọn '+fmt(cost)+' từ quỹ tiết kiệm','Covers the full '+fmt(cost)+' from savings');
   else el.innerHTML=L('Đủ trọn '+fmt(cost)+' · còn '+fmt(safe-cost)+' trong tháng','Covers the full '+fmt(cost)+' · leaves you '+fmt(safe-cost)+' in July');
 }
@@ -4666,7 +4666,7 @@ var I18N={
     morning:'Chào buổi sáng', afternoon:'Chào buổi chiều', evening:'Chào buổi tối', greetSub:'Tình hình tiền của cả nhà hôm nay nè.',
     budgetBtn:'Ngân sách',
     /* home feed */
-    comingUp:'Sắp tới', recent:'Gần đây', memories:'Kỷ niệm', seeAll:'Tất cả',
+    comingUp:'Sắp tới', recent:'Gần đây', memories:'Kỷ niệm', seeAll:'Xem tất cả',
     savedLbl:'Đã để dành', spentLbl:'Đã chi', poolLbl:'Quỹ', latestPhotos:'Ảnh mới nhất',
     txRecent:'Giao dịch gần đây', savingsGoals:'Mục tiêu tiết kiệm', addGoal:'＋ Mục tiêu',
     trend6:'Xu hướng 6 tháng', vsBudget:'so với ngân sách', trendLegend:'Đường nét đứt là ngân sách của tháng đó',
@@ -4678,7 +4678,7 @@ var I18N={
     cancel:'Huỷ', save:'Lưu', add:'Thêm', done:'Xong', create:'Tạo', send:'Gửi', back:'Quay lại',
     /* add sheet */
     addSheetTitle:'Thêm mới', addSheetSub:'Ghi lại tiền bạc, hoặc lưu một khoảnh khắc.', grpFinance:'Tài chính', grpMoments:'Khoảnh khắc',
-    qaExpenseT:'Ghi chi tiêu', qaExpenseS:'Khoản tiền vừa chi',
+    qaExpenseT:'Ghi khoản chi', qaExpenseS:'Khoản tiền vừa chi',
     qaIncomeT:'Ghi thu nhập', qaIncomeS:'Tiền vào của gia đình',
     qaSaveT:'Bỏ ống tiết kiệm', qaSaveS:'Thêm vào quỹ chung của nhà',
     qaGoalT:'Tạo mục tiêu', qaGoalS:'Để dành cho điều bạn muốn mua hoặc làm',
@@ -4687,7 +4687,7 @@ var I18N={
     qaSuggestT:'Góp ý', qaSuggestS:'Một ý tưởng hay điều bạn mong muốn',
     /* suggest modal */
     suggestTitle:'Tụi mình nghe bạn nè 💛', suggestSub:'Một ý tưởng, một điều chưa ưng, hay tính năng bạn ước có — kể tụi mình nghe hết nha.',
-    founderNote:'Tụi mình là hai phụ huynh, làm FamilyHub cho những gia đình như nhà bạn. Góp ý của bạn định hình những gì tụi mình làm tiếp theo.',
+    founderNote:'Tụi mình cũng là cha mẹ, làm FamilyHub cho những gia đình như nhà bạn. Góp ý của bạn giúp tụi mình biết nên làm gì tiếp theo.',
     founderSig:'Mira & Sam, người sáng lập',
     sgTypeLbl:'Bạn đang nghĩ gì', sgIdea:'💡 Một ý tưởng', sgLove:'💛 Điều mình thích', sgIssue:'🐞 Có gì đó chưa ổn',
     tellMore:'Kể thêm nha', tellMorePh:'Nói theo cách của bạn thôi, không cần trau chuốt đâu.',
@@ -4708,7 +4708,7 @@ var I18N={
     goalNeed:'Cần bao nhiêu', goalWhen:'Khi nào (tuỳ chọn)', goalInit:'Bỏ ống ngay (tuỳ chọn)',
     goalInitHint:'Lấy từ quỹ tiết kiệm chung của cả nhà.',
     /* goal fund modal */
-    goalFundTitle:'Bỏ ống', goalFundSub:'Thêm tiền vào mục tiêu, lấy từ quỹ tiết kiệm chung.',
+    goalFundTitle:'Bỏ ống cho mục tiêu', goalFundSub:'Thêm tiền vào mục tiêu, lấy từ quỹ tiết kiệm chung.',
     /* event fund modal */
     addFundsTitle:'Góp quỹ', fundSub:'Chuyển từ quỹ tiết kiệm của nhà vào sự kiện này.',
     fundAvail:'đang có trong quỹ tiết kiệm', eventLbl:'Sự kiện', addedByLbl:'Người thêm', fundAll:'Tất cả',
@@ -4736,7 +4736,7 @@ var I18N={
     /* category detail */
     cdSpentThisMonth:'Đã chi tháng này', cdTransactions:'Giao dịch', logExpenseBtn:'Ghi khoản chi',
     /* status & misc */
-    savingPhoto:'Đang lưu ảnh…', updating:'Đang cập nhật…', offline:'Đang ngoại tuyến. Thay đổi lưu ở đây, đồng bộ khi bạn có mạng lại',
+    savingPhoto:'Đang lưu ảnh…', updating:'Đang cập nhật…', offline:'Đang ngoại tuyến. Thay đổi vẫn lưu ở đây, có mạng lại là tự đồng bộ.',
     deletePhoto:'Xoá ảnh', addPhotoLine:'📷 Thêm ảnh', namePh:'Tên',
     /* aria labels */
     ariaTheme:'Giao diện', ariaPrevMonth:'Tháng trước', ariaNextMonth:'Tháng sau', ariaAdd:'Thêm', ariaPhoto:'Ảnh',
@@ -4861,7 +4861,7 @@ function obMemberRowHTML(name,email,role,color,me){
   return '<div class="ob-mcard">'
     +'<div class="ob-mrow"><div class="ob-mav" style="background:'+color+'">'+inits(name)+'</div>'
     +'<input class="ob-mname" value="'+String(name||'').replace(/"/g,'&quot;')+'" placeholder="'+L('vd. Mai','e.g. Emma')+'"'+(me?' readonly':'')+' oninput="obSyncMav(this)">'
-    +(me?'<span class="ob-mtag">'+t('you')+'</span>':'<button class="ob-mdel" onclick="this.closest(\'.ob-mcard\').remove()" aria-label="'+L('Xóa','Remove')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
+    +(me?'<span class="ob-mtag">'+t('you')+'</span>':'<button class="ob-mdel" onclick="this.closest(\'.ob-mcard\').remove()" aria-label="'+L('Xoá','Remove')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
     +'</div>'
     +'<div class="ob-mfields">'
     +'<input class="ob-memail" type="email" inputmode="email" autocapitalize="off" placeholder="name@gmail.com" value="'+String(email||'').replace(/"/g,'&quot;')+'"'+(me?' readonly':'')+'>'
@@ -6340,7 +6340,7 @@ if('serviceWorker' in navigator){
     if (ev.fromSavings > 0) lines.push('<b>' + f(ev.fromSavings) + '</b> '+L('sẽ trả lại quỹ tiết kiệm.','goes back to your savings.'));
     if (ev.fromBudget > 0) lines.push('<b>' + f(ev.fromBudget) + '</b> '+L('sẽ trừ khỏi chi tiêu.','comes off your spending.'));
     const nm = (ev.memories || []).length;
-    if (nm) lines.push(nm + (isVi()?(' ảnh sẽ bị xoá khỏi Kỉ niệm.'):(' photo' + (nm > 1 ? 's' : '') + ' will be removed from Memories.')));
+    if (nm) lines.push(nm + (isVi()?(' ảnh sẽ bị xoá khỏi Kỷ niệm.'):(' photo' + (nm > 1 ? 's' : '') + ' will be removed from Memories.')));
     if (!lines.length) lines.push(L('Chưa có gì được góp cho mục tiêu này.','Nothing has been put toward this goal yet.'));
     // Cancel is the prominent action; delete is low-prominence text + arm-then-confirm (DESIGN §3).
     _fhSheet(

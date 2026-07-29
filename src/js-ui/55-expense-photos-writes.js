@@ -300,7 +300,7 @@ function saveExpenseEdit(){
   toast(L('Đã lưu · ','Changes saved · ')+note);
 }
 var delArmed=false, delTimer=null;
-function resetDelArm(){ delArmed=false; clearTimeout(delTimer); var b=document.getElementById('ex-del'); if(b){ b.classList.remove('armed'); b.textContent='Delete expense'; } }
+function resetDelArm(){ delArmed=false; clearTimeout(delTimer); var b=document.getElementById('ex-del'); if(b){ b.classList.remove('armed'); b.textContent=L('Xoá khoản chi','Delete expense'); } }
 function deleteExpense(){
   var t=txById(editingTx); if(!t){ closeExpense(); return; }
   var btn=document.getElementById('ex-del');
@@ -340,7 +340,7 @@ function sendSuggestion(){
   if(!msg){ el.focus(); return; }
   el.value='';
   closeModals();
-  toast(L('Gửi rồi nha, cảm ơn bạn 💛 Tụi mình đọc hết mọi góp ý','Got it — thanks! 💛 We read every note'));
+  toast(L('Gửi rồi nha, cảm ơn bạn 💛 Tụi mình đọc hết mọi góp ý','Got it, thanks! 💛 We read every note'));
   floatEmojis('💛');
 }
 

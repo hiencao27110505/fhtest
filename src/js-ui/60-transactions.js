@@ -197,7 +197,7 @@ function closeCat(){ document.getElementById('cat-overlay').classList.remove('on
 function addExpense(){
   var amt=parseAmtBase(document.getElementById('ex-amt').value);
   if(!amt){ document.getElementById('ex-amt').focus(); return; }
-  var note=document.getElementById('ex-note').value.trim()||L('Chi tiêu','Expense');
+  var note=document.getElementById('ex-note').value.trim()||L('Khoản chi','Expense');
   var cat=chosen('ex-cat')||'Fun'; lastCat=cat;
   var s=catStyle[cat]||['🧾','#f2eef6','var(--cat-other)'];
   var dObj=exDate(), dstr=(dObj.getTime()===TODAY.getTime())?'Today':(MONA[dObj.getMonth()]+' '+dObj.getDate());
@@ -236,7 +236,7 @@ function addExpense(){
   document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
   var catOv=document.getElementById('cat-overlay').classList.contains('on');
   closeExpense();
-  if(hadPhoto){ toast(L('Đã ghi '+fmt(amt)+' · lưu vào Kỉ niệm 📸','Logged '+fmt(amt)+' · saved to Memories 📸')); floatEmojis('📸'); }
+  if(hadPhoto){ toast(L('Đã ghi '+fmt(amt)+' · lưu vào Kỷ niệm 📸','Logged '+fmt(amt)+' · saved to Memories 📸')); floatEmojis('📸'); }
   else if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast(L('Lưu ý: '+cat+' đã vượt ngân sách','Heads up: '+cat+' is now over budget'));
   else toast(L('Đã ghi '+fmt(amt)+' · còn '+fmt(Math.max(0,months.Jul.budget-jul.spent))+' an toàn để tiêu','Logged '+fmt(amt)+' · '+fmt(Math.max(0,months.Jul.budget-jul.spent))+' safe to spend'));
   if(catOv && curDetail){ openCat(curDetail.type,curDetail.val); }   // logged from a category detail → refresh it

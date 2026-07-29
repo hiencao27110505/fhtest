@@ -205,7 +205,7 @@ var I18N={
     morning:'Chào buổi sáng', afternoon:'Chào buổi chiều', evening:'Chào buổi tối', greetSub:'Tình hình tiền của cả nhà hôm nay nè.',
     budgetBtn:'Ngân sách',
     /* home feed */
-    comingUp:'Sắp tới', recent:'Gần đây', memories:'Kỷ niệm', seeAll:'Tất cả',
+    comingUp:'Sắp tới', recent:'Gần đây', memories:'Kỷ niệm', seeAll:'Xem tất cả',
     savedLbl:'Đã để dành', spentLbl:'Đã chi', poolLbl:'Quỹ', latestPhotos:'Ảnh mới nhất',
     txRecent:'Giao dịch gần đây', savingsGoals:'Mục tiêu tiết kiệm', addGoal:'＋ Mục tiêu',
     trend6:'Xu hướng 6 tháng', vsBudget:'so với ngân sách', trendLegend:'Đường nét đứt là ngân sách của tháng đó',
@@ -217,7 +217,7 @@ var I18N={
     cancel:'Huỷ', save:'Lưu', add:'Thêm', done:'Xong', create:'Tạo', send:'Gửi', back:'Quay lại',
     /* add sheet */
     addSheetTitle:'Thêm mới', addSheetSub:'Ghi lại tiền bạc, hoặc lưu một khoảnh khắc.', grpFinance:'Tài chính', grpMoments:'Khoảnh khắc',
-    qaExpenseT:'Ghi chi tiêu', qaExpenseS:'Khoản tiền vừa chi',
+    qaExpenseT:'Ghi khoản chi', qaExpenseS:'Khoản tiền vừa chi',
     qaIncomeT:'Ghi thu nhập', qaIncomeS:'Tiền vào của gia đình',
     qaSaveT:'Bỏ ống tiết kiệm', qaSaveS:'Thêm vào quỹ chung của nhà',
     qaGoalT:'Tạo mục tiêu', qaGoalS:'Để dành cho điều bạn muốn mua hoặc làm',
@@ -226,7 +226,7 @@ var I18N={
     qaSuggestT:'Góp ý', qaSuggestS:'Một ý tưởng hay điều bạn mong muốn',
     /* suggest modal */
     suggestTitle:'Tụi mình nghe bạn nè 💛', suggestSub:'Một ý tưởng, một điều chưa ưng, hay tính năng bạn ước có — kể tụi mình nghe hết nha.',
-    founderNote:'Tụi mình là hai phụ huynh, làm FamilyHub cho những gia đình như nhà bạn. Góp ý của bạn định hình những gì tụi mình làm tiếp theo.',
+    founderNote:'Tụi mình cũng là cha mẹ, làm FamilyHub cho những gia đình như nhà bạn. Góp ý của bạn giúp tụi mình biết nên làm gì tiếp theo.',
     founderSig:'Mira & Sam, người sáng lập',
     sgTypeLbl:'Bạn đang nghĩ gì', sgIdea:'💡 Một ý tưởng', sgLove:'💛 Điều mình thích', sgIssue:'🐞 Có gì đó chưa ổn',
     tellMore:'Kể thêm nha', tellMorePh:'Nói theo cách của bạn thôi, không cần trau chuốt đâu.',
@@ -247,7 +247,7 @@ var I18N={
     goalNeed:'Cần bao nhiêu', goalWhen:'Khi nào (tuỳ chọn)', goalInit:'Bỏ ống ngay (tuỳ chọn)',
     goalInitHint:'Lấy từ quỹ tiết kiệm chung của cả nhà.',
     /* goal fund modal */
-    goalFundTitle:'Bỏ ống', goalFundSub:'Thêm tiền vào mục tiêu, lấy từ quỹ tiết kiệm chung.',
+    goalFundTitle:'Bỏ ống cho mục tiêu', goalFundSub:'Thêm tiền vào mục tiêu, lấy từ quỹ tiết kiệm chung.',
     /* event fund modal */
     addFundsTitle:'Góp quỹ', fundSub:'Chuyển từ quỹ tiết kiệm của nhà vào sự kiện này.',
     fundAvail:'đang có trong quỹ tiết kiệm', eventLbl:'Sự kiện', addedByLbl:'Người thêm', fundAll:'Tất cả',
@@ -275,7 +275,7 @@ var I18N={
     /* category detail */
     cdSpentThisMonth:'Đã chi tháng này', cdTransactions:'Giao dịch', logExpenseBtn:'Ghi khoản chi',
     /* status & misc */
-    savingPhoto:'Đang lưu ảnh…', updating:'Đang cập nhật…', offline:'Đang ngoại tuyến. Thay đổi lưu ở đây, đồng bộ khi bạn có mạng lại',
+    savingPhoto:'Đang lưu ảnh…', updating:'Đang cập nhật…', offline:'Đang ngoại tuyến. Thay đổi vẫn lưu ở đây, có mạng lại là tự đồng bộ.',
     deletePhoto:'Xoá ảnh', addPhotoLine:'📷 Thêm ảnh', namePh:'Tên',
     /* aria labels */
     ariaTheme:'Giao diện', ariaPrevMonth:'Tháng trước', ariaNextMonth:'Tháng sau', ariaAdd:'Thêm', ariaPhoto:'Ảnh',

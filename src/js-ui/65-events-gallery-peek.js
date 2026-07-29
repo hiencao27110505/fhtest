@@ -6,7 +6,7 @@ function openEvent(id){
   curEvent=id; var e=events[id], dl=daysLeft(e.d), ach=achievedNow(e);
   document.getElementById('ov-hero').className='ov-hero';
   setTxt('ov-em',e.emoji); setTxt('ov-name',e.name);
-  setTxt('ov-meta', ach ? L('Đã đạt · kỉ niệm từ '+(e.d?fmtDayMon(e.d):e.date),'Achieved · a memory from '+e.date) : ((e.d?fmtDayMon(e.d):e.date)+' · '+(dl===0?L('đến hạn hôm nay','due today'):L('còn '+dl+' ngày',dl+' days to go'))));
+  setTxt('ov-meta', ach ? L('Đã đạt · kỷ niệm từ '+(e.d?fmtDayMon(e.d):e.date),'Achieved · a memory from '+e.date) : ((e.d?fmtDayMon(e.d):e.date)+' · '+(dl===0?L('đến hạn hôm nay','due today'):L('còn '+dl+' ngày',dl+' days to go'))));
   document.getElementById('ov-funding').style.display=ach?'none':'block';
   document.getElementById('ov-memories').style.display=ach?'block':'none';
   var cta=document.getElementById('ov-cta');
@@ -21,7 +21,7 @@ function renderGallery(boxId){
   var e=events[curEvent], box=document.getElementById(boxId); if(!box)return;
   if(!e.memories||!e.memories.length){
     box.innerHTML = boxId==='ov-fund-gallery' ? ''    // funding view: the "Add a photo" button is the invite
-      : '<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">'+L('Chưa có kỉ niệm nào','No memories yet')+'</div><p>'+L('Thêm ảnh và chú thích để ghi nhớ dịp này nha.','Add a photo and caption to remember this event.')+'</p></div>';
+      : '<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">'+L('Chưa có kỷ niệm nào','No memories yet')+'</div><p>'+L('Thêm ảnh và chú thích để ghi nhớ dịp này nha.','Add a photo and caption to remember this event.')+'</p></div>';
     delete box.dataset.sig;      // or deleting the last photo and re-adding it would match a stale sig and leave the empty state up
     return;
   }
@@ -45,7 +45,7 @@ function renderGallery(boxId){
          resolve one by one. Load the first few eagerly; anything below the fold
          on a long event can still defer. */
       var eager=i<4;
-      html+='<div class="mem-full tap" onclick="openPeek('+i+')"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||L('Ảnh kỉ niệm','Memory photo'))+'"'
+      html+='<div class="mem-full tap" onclick="openPeek('+i+')"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||L('Ảnh kỷ niệm','Memory photo'))+'"'
         +(eager?' fetchpriority="high"':' loading="lazy"')+' decoding="async">'+cap+'</div>';
     } else {
       html+='<div class="mem-full tile tap '+esc(m.cls||'ph-park')+'" onclick="openPeek('+i+')"><div class="subj">'+esc(m.emoji||'📸')+'</div>'+cap+'</div>';
@@ -69,7 +69,7 @@ function openPeek(i){
   var img=document.getElementById('peek-img'), tile=document.getElementById('peek-tile');
   if(m.src){
     frame.className='peek-frame';
-    img.src=m.src; img.alt=m.caption||L('Ảnh kỉ niệm','Memory photo');
+    img.src=m.src; img.alt=m.caption||L('Ảnh kỷ niệm','Memory photo');
   } else {
     frame.className='peek-frame is-tile '+(m.cls||'ph-park');
     img.removeAttribute('src'); tile.textContent=m.emoji||'📸';
@@ -173,7 +173,7 @@ function addMemory(){
   e.memories.unshift(m);                                     // a photo doesn't complete an event
   renderEvents(); openEvent(curEvent);
   closeModals(); floatEmojis('📸');
-  if(!m.src) toast(L('Đã lưu kỉ niệm 📸','Memory saved 📸'));   // emoji tile → nothing to upload, so confirm now
+  if(!m.src) toast(L('Đã lưu kỷ niệm 📸','Memory saved 📸'));   // emoji tile → nothing to upload, so confirm now
 }
 function renderRing(){
   var e=events[curEvent], pct=e.target>0?Math.round(e.saved/e.target*100):0;
@@ -200,7 +200,7 @@ function addFunds(){
   var e=events[id];
   if(!e){ toast(L('Chọn một sự kiện để góp quỹ','Select an event to fund')); return; }
   if(e.saved>=e.target){ toast(L(e.name+' đã đủ tiền',e.name+' is already fully funded')); return; }
-  if(savings<=0){ toast(L('Không có quỹ tiết kiệm để phân bổ','No savings available to allocate')); return; }
+  if(savings<=0){ toast(L('Chưa có tiền tiết kiệm để dùng','No savings available to allocate')); return; }
   if(amt>savings){ toast(L('Quỹ chỉ còn '+fmt(savings),'Only '+fmt(savings)+' available in savings')); return; }
   var who=chosen('fn-who')||'Emma', before=e.saved;
   var applied=Math.min(amt, e.target-e.saved);   // never overfund the event
@@ -231,7 +231,7 @@ function updateSrcHint(){
   var el=document.getElementById('ng-srchint'); if(!el)return;
   if(cost<=0){ el.textContent=''; return; }
   var avail=selSrc==='savings'?savings:safe;
-  if(cost>avail) el.innerHTML=L('<span class="warn">Thiếu '+fmt(cost-avail)+', giờ mới đủ '+fmt(avail)+'</span>','<span class="warn">Short by '+fmt(cost-avail)+', covers '+fmt(avail)+' now</span>');
+  if(cost>avail) el.innerHTML=L('<span class="warn">Thiếu '+fmt(cost-avail)+', hiện chỉ đủ '+fmt(avail)+'</span>','<span class="warn">Short by '+fmt(cost-avail)+', covers '+fmt(avail)+' now</span>');
   else if(selSrc==='savings') el.textContent=L('Đủ trọn '+fmt(cost)+' từ quỹ tiết kiệm','Covers the full '+fmt(cost)+' from savings');
   else el.innerHTML=L('Đủ trọn '+fmt(cost)+' · còn '+fmt(safe-cost)+' trong tháng','Covers the full '+fmt(cost)+' · leaves you '+fmt(safe-cost)+' in July');
 }

@@ -35,7 +35,7 @@ function renderBudget(){
       var diff2=budget-spent, okc=diff2>=0;
       var bf=document.getElementById('bfill'); bf.className=okc?'fill-ok':'fill-red'; bf.style.width=pctSpent+'%';
       setTxt('b-safe', okc?fmt(diff2):'—');
-      setTxt('b-safe-sub', okc? L('còn dư khi '+m.short+' khép lại','left unspent when '+m.short+' closed') : L(m.short+' kết thúc vượt ngân sách',m.short+' finished over budget'));
+      setTxt('b-safe-sub', okc? L('còn dư khi '+moAb+' khép lại','left unspent when '+moAb+' closed') : L(moAb+' kết thúc vượt ngân sách',moAb+' finished over budget'));
       setTxt('b-days',L('Đã chốt tháng','Month closed'));
     } else {
       var safeDaily=Math.round(safe/Math.max(1,dim-dom));
@@ -111,7 +111,7 @@ function renderFinanceHero(){
   }
   // ── Category budget exposure — the outer ring's story one level down: each category's
   // spend against ITS budget, as an Apple inset list. Tap a row to drill into the category.
-  setTxt('fh-cats-lbl', L('Ngân sách theo hạng mục','Budget by category'));
+  setTxt('fh-cats-lbl', L('Ngân sách theo danh mục','Budget by category'));
   setTxt('fh-cats-edit', L('Chỉnh','Edit'));
   var legend = (catOrder || []).map(function(c){
     var sp = m.catSpent[c] || 0, bd = catBudget[c] || 0, ico = (catStyle[c] || [])[0] || '🏷️';
