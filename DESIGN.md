@@ -53,6 +53,8 @@ Use the semantic token, never a raw hex, so theming and dark-mode work.
 | `--canvas` | `#f4f1f6` | App background (behind cards) |
 | `--white` | `#ffffff` | Card / sheet / modal surfaces, input fields |
 | `--surface` | `#f9f7f8` | Subtle hover / inset field fill |
+| `--fill-neutral` | `rgba(138,132,148,.14)` | Neutral wash — segmented controls, chips, progress-ring track + bars, icon tiles |
+| `--chev` | `#cfc8d6` | Disclosure-chevron color |
 | `--hairline` | `#e9e4ee` | Borders, dividers between groups |
 | `--divider` | `#f1edf4` | Row dividers inside a card |
 
@@ -63,6 +65,11 @@ Use the semantic token, never a raw hex, so theming and dark-mode work.
 | `--danger` / `--danger-tint` | `#E0322F` / `#fdecef` | Destructive, over budget |
 | `--amber` / `--amber-tint` | `#B8730B` / `#fbefda` | Warning, "over pace" |
 
+**Progress-ring status arcs** (finance hero) — status on the large ring is carried by gradient-stop
+token *pairs* (light→dark), never raw hex in markup, so it stays consistent and can be re-tinted in
+one place: `--ring-ok-1/2` (light → `--good`), `--ring-over-1/2` (light → `--danger`), `--ring-pace-1/2`
+(a vivid amber pair, deliberately brighter than the text-legible `--amber`, which is too dark for a big arc).
+
 **Category colors** (`--cat-housing #5E5CE6`, `--cat-food #34C759`, `--cat-dining #FF375F`,
 `--cat-kids #FF9F0A`, `--cat-transport #32ADE6`, `--cat-fun #BF5AF2`, `--cat-other #98949e`) —
 each category has a `[emoji, tint-bg, text-color]` triple in `catStyle`. New categories cycle a
@@ -72,7 +79,9 @@ palette (`CATPAL`). **Member/person colors** are per-member, stored on the membe
 `.phone.t-<name>` class; chosen in onboarding + Settings, persisted to `localStorage: fh-theme`.
 
 **Rules:** No colored fills on info cards, quote cards, table headers or stat blocks — use borders
-and left-accent lines. No gradients except the brand hero/CTA. One accent per view.
+and left-accent lines. No gradients except the brand hero/CTA. One accent per view. The finance
+hero is the reference for this restraint (status lives in the ring, not a tinted card). Known legacy
+tint-fill exceptions to migrate: `.fund-avail`, `.founder-note` (event sheet).
 
 ### 2.2 Typography
 
@@ -89,11 +98,12 @@ Two families, both system-first (no web font shipped for display):
 | Onboarding / detail H1 | disp | 30 / 800 / −.8px | `.ob-h1` |
 | Modal / sheet title | disp | 25 / 800 / −.7px | `.sheet-h` |
 | Section title | disp | 20 / 800 / −.4px | `.photo-sec-title` |
-| Big number / stat | disp | 28–34 / 800 / −.5→−1.2px | `.num` |
+| Big number / stat | disp | 28–47 / 800 / −.5→−1.4px | `.num`, `.fh-spent` |
 | Body | text | 15–17 / 400–500 / −.01em | `p, li, input` |
 | Field label / eyebrow | text | 12–13 / 700 / +.02–.04em, **UPPERCASE** | `.field label`, `.eyebrow` |
-| Row title | text | 15–16 / 600 | `.r-t` |
+| Row title | text | 15–17 / 500 | `.r-t`, `.fh-lname` |
 | Row subtitle / meta | text | 13–14 / 400–500, `--muted` | `.r-s` |
+| Secondary / list amount | disp | 15 / 500, `--muted` (bold part `--ink`/600) | `.fh-lamt` |
 
 `<em>` inside a display title = same weight, `--brand-ink` color (e.g. "Welcome to *FamilyHub*").
 
@@ -101,17 +111,19 @@ Two families, both system-first (no web font shipped for display):
 
 - **Screen gutter:** content sits `16px` from the phone edge (cards `margin:0 16px`), text blocks
   and section headers `18–22px`. Onboarding uses `24px`.
-- **Radius:** cards/sheets `16–24px` · modal top `22px` · sheet top `24px` · inputs `13px` ·
-  chips & buttons `9999px` (pill) · small tiles `12–14px` · icon tiles `10–15px`.
+- **Radius:** cards/sheets `16–24px` (focal cards — finance hero + calendar — share `--r-card-lg` `22px`) ·
+  modal top `22px` · sheet top `24px` · inputs `13px` · chips & buttons `9999px` (pill) ·
+  small / icon tiles `10–15px` (compact list tiles `10px`).
 - **Section header** (`.section-h`): baseline-aligned title + optional right-side link, `margin:26px 22px 13px`.
 - **Edge-to-edge exceptions:** photo mosaics and the memory calendar run full-bleed (inside the
   16px gutter only via their own inset), matching iOS Photos.
 
 ### 2.4 Elevation (shadows)
 
-Soft, layered, low-opacity — never a hard drop shadow.
-- **Card:** `0 1px 3px rgba(25,16,34,.05), 0 8px 24px rgba(25,16,34,.04)`
-- **Raised card (hero/ov-card):** `0 2px 6px …/.06, 0 16px 34px …/.12`
+Soft, layered, low-opacity — never a hard drop shadow. Use the token, not a raw shadow.
+- **Card** (`--shadow-card`): `0 1px 3px rgba(25,16,34,.05), 0 8px 24px rgba(25,16,34,.04)`
+- **Focal card** (`--shadow-focal`, finance hero + calendar): `0 1px 3px …/.05, 0 12px 30px …/.09`
+- **Raised card** (`--shadow-raised`, ov-card): `0 2px 6px …/.06, 0 16px 34px …/.12`
 - **Floating (FAB, memory tile):** `0 8px 22px …/.14`, `0 12px 28px var(--brand-glow)`
 - **Modal:** `0 -12px 44px rgba(25,16,34,.22)` (rises from bottom)
 - ⚠️ A horizontally-scrolling row (`overflow-x:auto`) clips vertical shadows — add vertical padding

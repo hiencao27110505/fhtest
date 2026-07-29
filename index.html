@@ -63,6 +63,13 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   --ink:#191022; --ink-2:#3a2f45; --muted:#8a8494; --muted-soft:#a29caa;
   --white:#ffffff; --canvas:#f4f1f6; --pearl:#fbfafc;
   --hairline:#e9e4ee; --divider:#f1edf4;
+  --surface:#f9f7f8; --fill-neutral:rgba(138,132,148,.14); --chev:#cfc8d6;
+  --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+  --shadow-focal:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09);
+  --shadow-raised:0 2px 6px rgba(25,16,34,.06),0 16px 34px rgba(25,16,34,.12);
+  --r-card-lg:22px;
+  /* finance progress-ring status arcs (light stop -> dark stop): ok anchors --good, over anchors --danger, pace = vivid amber (brighter than text --amber) */
+  --ring-ok-1:#48CE93; --ring-ok-2:#1A9D5F; --ring-pace-1:#F5C061; --ring-pace-2:#E0951E; --ring-over-1:#F58A8A; --ring-over-2:#E0322F;
   --cat-housing:#5E5CE6; --cat-food:#34C759; --cat-dining:#FF375F;
   --cat-kids:#FF9F0A; --cat-transport:#32ADE6; --cat-fun:#BF5AF2; --cat-other:#98949e;
   --emma-a:#a074e0; --emma-b:#6f3fc0;
@@ -172,7 +179,7 @@ input{font-family:inherit}
 #v-home.on .hero-fam{animation:rise .5s cubic-bezier(.2,.7,.2,1) .1s both}
 #v-home.on .ov-card{animation:rise .55s cubic-bezier(.2,.7,.2,1) .16s both}
 /* home overview stats (moved from header) */
-.ov-card{display:flex;position:relative;z-index:5;background:var(--white);border-radius:20px;margin:-34px 16px 0;padding:18px 4px;box-shadow:0 2px 6px rgba(25,16,34,.06),0 16px 34px rgba(25,16,34,.12)}
+.ov-card{display:flex;position:relative;z-index:5;background:var(--white);border-radius:20px;margin:-34px 16px 0;padding:18px 4px;box-shadow:var(--shadow-raised)}
 .ovc-col{flex:1;min-width:0;padding:0 15px;cursor:pointer}
 .ovc-col:active{opacity:.6}
 .ovc-div{width:1px;background:var(--hairline);margin:3px 0}
@@ -195,7 +202,7 @@ input{font-family:inherit}
 .section-h .t{font-family:var(--disp);font-weight:800;font-size:22px;letter-spacing:-.6px;color:var(--ink)}
 .section-h a{font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--brand);cursor:pointer}
 
-.card{background:var(--white);border-radius:20px;margin:0 16px 14px;padding:20px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04)}
+.card{background:var(--white);border-radius:20px;margin:0 16px 14px;padding:20px;box-shadow:var(--shadow-card)}
 
 /* ---------- event cards (neutral, theme-consistent) ---------- */
 .escroll{display:flex;gap:14px;overflow-x:auto;padding:0 16px 6px;scroll-snap-type:x mandatory}
@@ -205,7 +212,7 @@ input{font-family:inherit}
 .em-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .em-tile{width:44px;height:44px;border-radius:12px;background:var(--canvas);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
 .em-tile.lg{width:50px;height:50px;font-size:25px}
-.cd-chip{background:rgba(138,132,148,.14);color:var(--muted);border-radius:9999px;padding:5px 10px;font-size:12px;font-weight:700;letter-spacing:-.01em}
+.cd-chip{background:var(--fill-neutral);color:var(--muted);border-radius:9999px;padding:5px 10px;font-size:12px;font-weight:700;letter-spacing:-.01em}
 .ecard-mini .nm{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px;color:var(--ink)}
 .ecard-mini .fig{font-size:13px;letter-spacing:-.01em;color:var(--muted);margin-top:4px}
 .ecard-mini .fig b{color:var(--ink);font-weight:600}
@@ -236,7 +243,7 @@ input{font-family:inherit}
 .past-meta{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:2px}
 .past-add{flex-shrink:0;display:inline-flex;align-items:center;gap:5px;background:var(--brand-tint);color:var(--brand-ink);border-radius:9999px;padding:8px 12px;font-size:13.5px;font-weight:700;letter-spacing:-.01em}
 .past-add svg{width:14px;height:14px}
-.past-chev{flex-shrink:0;color:#cfc8d6}
+.past-chev{flex-shrink:0;color:var(--chev)}
 /* upcoming events timeline (restrained) */
 .timeline{margin:0 16px}
 .tl-item{display:flex;gap:12px;padding-bottom:16px;cursor:pointer}
@@ -298,7 +305,7 @@ input{font-family:inherit}
 .evbar i{display:block;height:100%;background:var(--brand);border-radius:9999px}
 
 /* ---------- budget pane ---------- */
-.budget-card{background:var(--white);border-radius:20px;margin:0 16px 14px;padding:20px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04)}
+.budget-card{background:var(--white);border-radius:20px;margin:0 16px 14px;padding:20px;box-shadow:var(--shadow-card)}
 .spend-lab{font-size:14px;font-weight:500;color:var(--muted);letter-spacing:-.01em}
 .b-spent{font-family:var(--disp);font-weight:800;font-size:32px;letter-spacing:-1.2px;color:var(--ink);margin-top:3px}
 .b-spent .t{font-size:16px;font-weight:600;color:var(--muted);letter-spacing:-.3px}
@@ -339,7 +346,7 @@ input{font-family:inherit}
 .trend-legend{display:flex;align-items:center;gap:6px;margin-top:12px;font-size:12px;color:var(--muted);font-weight:500;letter-spacing:-.01em}
 .trend-legend .dash{width:16px;border-top:2px dashed var(--ink-2);opacity:.5}
 /* events calendar */
-.cal{background:var(--white);border-radius:22px;margin:18px 16px 14px;padding:17px 17px 15px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09)}
+.cal{background:var(--white);border-radius:var(--r-card-lg);margin:18px 16px 14px;padding:17px 17px 15px;box-shadow:var(--shadow-focal)}
 .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:0 2px}
 .cal-mon{font-family:var(--disp);font-weight:800;font-size:17px;letter-spacing:-.4px;color:var(--ink)}
 .cal-nav{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted)}
@@ -427,15 +434,14 @@ input{font-family:inherit}
 /* spending revamp */
 /* Finance hero — one allocation ring reading spending vs saving at a glance ("the whole").
    Warm arcs = đã chi (gone), green = quỹ (kept); a notch marks the budget. */
-:root{--fin-spend:#e0895a}
-.fin-hero{background:var(--white);border-radius:22px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.07);padding:14px 16px 6px;margin:2px 16px 12px}
+.fin-hero{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:14px 16px 6px;margin:2px 16px 12px}
 .fin-ring-wrap{position:relative;width:200px;height:200px;margin:6px auto 2px}
 .fin-ring{width:100%;height:100%;display:block;transform:rotate(-90deg)}
-.fh-track{stroke:rgba(120,120,128,.14)}
+.fh-track{stroke:var(--fill-neutral)}
 .fh-bfill{transition:stroke-dasharray .55s cubic-bezier(.3,1,.5,1)}   /* colour comes from the status gradient (fh-grad-*) */
 .fin-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 .fh-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.fh-spent{font-size:38px;font-weight:700;letter-spacing:-1px;line-height:1.02;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:4px}
+.fh-spent{font-family:var(--disp);font-size:38px;font-weight:800;letter-spacing:-1.4px;line-height:1.02;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:4px}
 .fh-of{font-size:14px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:4px}
 .fin-note{text-align:center;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:-.01em;margin-top:3px;font-variant-numeric:tabular-nums}
 .fin-note b{font-weight:700}
@@ -460,7 +466,7 @@ input{font-family:inherit}
 .fd-chart{position:relative;display:flex;align-items:flex-end;gap:2px;height:116px;padding:0 4px}
 .fd-bar{flex:1;min-height:0;background:var(--ink);opacity:.22;border-radius:2px 2px 0 0;transition:height .5s cubic-bezier(.3,1,.5,1)}
 .fd-bar.today{background:var(--good);opacity:1}
-.fd-bar.over{background:#e58a5e;opacity:.5}
+.fd-bar.over{background:var(--amber);opacity:.5}
 .fd-bar.future{opacity:.08}
 .fd-allow{position:absolute;left:4px;right:4px;border-top:1px dashed var(--ink);opacity:.28}
 .fd-axis{display:flex;justify-content:space-between;margin-top:8px;padding:0 4px;font-size:10.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -474,22 +480,22 @@ input{font-family:inherit}
 .fh-lrow{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:7px 2px;background:none;border:0;text-align:left;font:inherit;cursor:pointer}
 .fh-lrow + .fh-lrow{border-top:1px solid var(--hairline)}
 .fh-lrow:active{background:var(--surface)}
-.fh-ico{width:30px;height:30px;border-radius:8px;background:rgba(120,120,128,.12);display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto}
+.fh-ico{width:30px;height:30px;border-radius:10px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto}
 .fh-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
 .fh-l1{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.fh-lname{font-size:16px;font-weight:400;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fh-lname{font-size:16px;font-weight:500;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fh-lamt{font-size:15px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;flex:0 0 auto}
 .fh-lamt b{color:var(--ink);font-weight:600}
-.fh-bar{height:4px;border-radius:2px;background:rgba(120,120,128,.14);overflow:hidden}
+.fh-bar{height:4px;border-radius:2px;background:var(--fill-neutral);overflow:hidden}
 .fh-bar i{display:block;height:100%;border-radius:2px;background:var(--muted);opacity:.5;transition:width .5s cubic-bezier(.3,1,.5,1)}
-.fh-chev{width:16px;height:16px;color:#c4bdcf;flex:0 0 auto;align-self:center}
+.fh-chev{width:16px;height:16px;color:var(--chev);flex:0 0 auto;align-self:center}
 .fh-lrow.over .fh-bar i{background:var(--danger);opacity:.85}
 .fh-lrow.over .fh-lamt b{color:var(--danger)}
 .fh-lrow.save{cursor:default}
 .fh-lrow.save:active{background:none}
 .fh-lrow.save .fh-ico{background:transparent;color:var(--good)}
 .fh-lrow.save .fh-lname,.fh-lrow.save .fh-lamt b{color:var(--good)}
-.hdr-month{display:inline-flex;align-items:center;gap:4px;background:rgba(138,132,148,.13);border-radius:9999px;padding:8px 10px 8px 14px;font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin-top:6px;flex-shrink:0}
+.hdr-month{display:inline-flex;align-items:center;gap:4px;background:var(--fill-neutral);border-radius:9999px;padding:8px 10px 8px 14px;font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin-top:6px;flex-shrink:0}
 .hdr-month svg{width:15px;height:15px;color:var(--muted)}
 .b-safe-sub{font-size:13.5px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:5px}
 .subseg{display:flex;gap:8px;margin:0 16px 14px}
@@ -497,7 +503,7 @@ input{font-family:inherit}
 .subseg button.on{color:var(--brand);border-color:var(--brand);background:var(--brand-tint);font-weight:700}
 .crow.tap,.row.tap{cursor:pointer}
 .crow.tap:active,.row.tap:active{background:var(--canvas)}
-.crow .chev,.row.tap .chev{color:#cfc8d6;flex-shrink:0}
+.crow .chev,.row.tap .chev{color:var(--chev);flex-shrink:0}
 .drill-hint{padding:6px 20px 2px;font-size:12.5px;font-weight:500;color:var(--muted);letter-spacing:-.01em}
 .act-filter{margin:0 16px}
 .act-filter:empty{display:none}
@@ -573,7 +579,7 @@ input{font-family:inherit}
 .cpace.red{background:var(--danger-tint);color:var(--danger)}
 
 /* list rows */
-.rows{background:var(--white);border-radius:20px;margin:0 16px 14px;overflow:hidden;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04)}
+.rows{background:var(--white);border-radius:20px;margin:0 16px 14px;overflow:hidden;box-shadow:var(--shadow-card)}
 .row{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--divider)}
 .row:last-child{border-bottom:none}
 .r-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
@@ -599,7 +605,7 @@ input{font-family:inherit}
 .av-stack .av:first-child{margin-left:0}
 
 /* segmented */
-.seg{display:flex;background:rgba(138,132,148,.14);border-radius:11px;padding:3px;margin:4px 16px 18px}
+.seg{display:flex;background:var(--fill-neutral);border-radius:11px;padding:3px;margin:4px 16px 18px}
 .seg button{flex:1;padding:9px 4px;border-radius:8px;font-weight:600;font-size:14.5px;letter-spacing:-.02em;color:var(--ink)}
 .seg button.on{background:var(--white);box-shadow:0 1px 4px rgba(25,16,34,.12)}
 
@@ -615,13 +621,13 @@ input{font-family:inherit}
 .qa-group{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 4px 4px;padding:0 2px}
 .qa-group:first-of-type{margin-top:8px}
 .cash3{display:flex;gap:10px;margin:0 16px 18px}
-.cash3 .c3{flex:1;text-align:left;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px 12px;cursor:pointer;font:inherit;-webkit-appearance:none;appearance:none;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04)}
+.cash3 .c3{flex:1;text-align:left;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px 12px;cursor:pointer;font:inherit;-webkit-appearance:none;appearance:none;box-shadow:var(--shadow-card)}
 .cash3 .c3:active{transform:scale(.98)}
 .cash3 .c3 .k{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--muted);display:flex;align-items:center;gap:5px}
 .cash3 .c3 .k .ar{font-size:13px;font-weight:800}
 .cash3 .c3 .v{font-family:var(--disp);font-weight:800;font-size:18px;letter-spacing:-.04em;color:var(--ink);margin-top:7px;font-variant-numeric:tabular-nums}
 /* compact goals summary (demoted from a second hero card) */
-.gsum{background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px 16px;margin:0 16px 12px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04)}
+.gsum{background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px 16px;margin:0 16px 12px;box-shadow:var(--shadow-card)}
 .gsum-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .gsum-lab{font-size:13.5px;font-weight:600;color:var(--ink-2)}
 .gsum-lab b{font-family:var(--disp);font-weight:800;font-size:16px;color:var(--ink);letter-spacing:-.02em}
@@ -631,7 +637,7 @@ input{font-family:inherit}
 .gsum-foot{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}
 .gsum-foot b{color:var(--ink);font-weight:700}
 /* goals as one grouped list (single list paradigm, slim meters) */
-.goal-group{background:var(--white);border:1px solid var(--hairline);border-radius:16px;margin:0 16px;overflow:hidden;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04)}
+.goal-group{background:var(--white);border:1px solid var(--hairline);border-radius:16px;margin:0 16px;overflow:hidden;box-shadow:var(--shadow-card)}
 .goal-row{display:flex;align-items:center;gap:13px;padding:13px 15px;border-bottom:1px solid var(--divider);cursor:pointer}
 .goal-row:last-child{border-bottom:none}
 .goal-row:active{background:var(--canvas)}
@@ -788,7 +794,7 @@ input{font-family:inherit}
 .qa .qi svg{width:22px;height:22px}
 .qa .qt{font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
 .qa .qs{font-size:14px;letter-spacing:-.01em;color:var(--muted);margin-top:1px}
-.qa .chev{margin-left:auto}
+.qa .chev{margin-left:auto;color:var(--chev)}
 .field{margin-bottom:16px}
 .field label{display:block;font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;margin-bottom:8px}
 .field input{width:100%;background:var(--canvas);border-radius:13px;padding:15px;font-size:17px;letter-spacing:-.02em;color:var(--ink);outline:none;border:2px solid transparent}
@@ -910,7 +916,7 @@ input{font-family:inherit}
 .mem-strip::-webkit-scrollbar{display:none}
 /* Home photo feed (below expenses): full-size photos + title overlay, 16px content gutter */
 #home-feed{margin:0 16px}
-.mem-feed-item{border-radius:18px;overflow:hidden;position:relative;margin-bottom:12px;cursor:pointer;transition:transform .18s cubic-bezier(.4,0,.2,1);box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04)}
+.mem-feed-item{border-radius:18px;overflow:hidden;position:relative;margin-bottom:12px;cursor:pointer;transition:transform .18s cubic-bezier(.4,0,.2,1);box-shadow:var(--shadow-card)}
 .mem-feed-item:active{transform:scale(.99)}
 .mem-feed-item img{display:block;width:100%;height:auto}
 .mem-feed-item .mff-cap{position:absolute;left:0;right:0;bottom:0;padding:16px 16px 14px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.62))}
@@ -1180,7 +1186,7 @@ html.fh-stale #fh-updating{display:flex}
 .ob-card-em{width:48px;height:48px;border-radius:14px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
 .ob-card-t{font-size:16.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
 .ob-card-s{font-size:13.5px;line-height:1.35;color:var(--muted);margin-top:2px}
-.ob-card .chev{margin-left:auto;color:#cfc8d6;flex-shrink:0}
+.ob-card .chev{margin-left:auto;color:var(--chev);flex-shrink:0}
 /* segmented code input */
 .ob-code-wrap{position:relative;margin-top:4px}
 .ob-code-boxes{display:flex;gap:9px;justify-content:center;pointer-events:none}
@@ -1222,7 +1228,7 @@ html.fh-stale #fh-updating{display:flex}
 .set-row .set-ic{width:34px;height:34px;border-radius:10px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
 .set-row.danger{color:var(--danger)}
 .set-row.danger .set-ic{background:var(--danger-tint);color:var(--danger)}
-.set-row .chev{margin-left:auto;color:#cfc8d6;flex-shrink:0}
+.set-row .chev{margin-left:auto;color:var(--chev);flex-shrink:0}
 
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
@@ -1280,7 +1286,7 @@ html.fh-stale #fh-updating{display:flex}
 .fh-fam-grow{flex:1;min-width:0}
 .fh-fam-name{font-weight:700;font-size:16px;letter-spacing:-.02em;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fh-fam-meta{font-size:12.5px;color:var(--muted);margin-top:1px}
-.fh-fam-chev{width:20px;height:20px;color:#cfc8d6;flex-shrink:0}
+.fh-fam-chev{width:20px;height:20px;color:var(--chev);flex-shrink:0}
 /* blocking sign-in progress — stops a second tap on the Google button */
 #fh-authbusy{position:absolute;inset:0;z-index:70;display:none;align-items:center;justify-content:center;gap:10px;
   background:rgba(244,241,246,.82);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
@@ -1395,7 +1401,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="fin-pager" id="fin-pager">
       <div class="fin-page">
         <div class="fin-ring-wrap">
-          <svg viewBox="0 0 100 100" class="fin-ring" aria-hidden="true"><defs><linearGradient id="fh-grad-ok" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#3CC98D"></stop><stop offset="1" stop-color="#12A06D"></stop></linearGradient><linearGradient id="fh-grad-pace" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#F5C061"></stop><stop offset="1" stop-color="#E0951E"></stop></linearGradient><linearGradient id="fh-grad-over" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#F58A8A"></stop><stop offset="1" stop-color="#DC3B3B"></stop></linearGradient></defs><circle class="fh-track" cx="50" cy="50" r="43" fill="none" stroke-width="9"></circle><circle class="fh-bfill" id="fh-bfill" cx="50" cy="50" r="43" fill="none" stroke="url(#fh-grad-ok)" stroke-width="9" stroke-linecap="round" stroke-dasharray="0 999"></circle></svg>
+          <svg viewBox="0 0 100 100" class="fin-ring" aria-hidden="true"><defs><linearGradient id="fh-grad-ok" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" style="stop-color:var(--ring-ok-1)"></stop><stop offset="1" style="stop-color:var(--ring-ok-2)"></stop></linearGradient><linearGradient id="fh-grad-pace" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" style="stop-color:var(--ring-pace-1)"></stop><stop offset="1" style="stop-color:var(--ring-pace-2)"></stop></linearGradient><linearGradient id="fh-grad-over" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" style="stop-color:var(--ring-over-1)"></stop><stop offset="1" style="stop-color:var(--ring-over-2)"></stop></linearGradient></defs><circle class="fh-track" cx="50" cy="50" r="43" fill="none" stroke-width="9"></circle><circle class="fh-bfill" id="fh-bfill" cx="50" cy="50" r="43" fill="none" stroke="url(#fh-grad-ok)" stroke-width="9" stroke-linecap="round" stroke-dasharray="0 999"></circle></svg>
           <div class="fin-center">
             <div class="fh-lbl" id="fh-lbl"></div>
             <div class="fh-spent num" id="fh-spent">—</div>
@@ -1645,15 +1651,15 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="sheet-h">Thêm mới</div>
   <div class="sheet-sub">Ghi lại tiền bạc, hoặc lưu giữ một khoảnh khắc.</div>
   <div class="qa-group">Tài Chính</div>
-  <button class="qa" onclick="closeSheet();go('spending');openExpense()"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg></div><div><div class="qt">Ghi chi tiêu</div><div class="qs">Khoản tiền vừa chi</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();go('spending');fhIncome()"><div class="qi" style="background:linear-gradient(135deg,#34C77B,#1a9d5f)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div><div><div class="qt">Ghi thu nhập</div><div class="qs">Tiền vào của gia đình</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();go('spending');fhSavings()"><div class="qi" style="background:linear-gradient(135deg,#F0B450,#DB8A24)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a5 5 0 015-5h5a6 6 0 016 6 6 6 0 01-3 5.2V20h-3v-2h-2v2H7v-3a6 6 0 01-4-5zM8 9h.01"/></svg></div><div><div class="qt">Bỏ ống tiết kiệm</div><div class="qs">Thêm vào quỹ chung của nhà</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();go('spending');openSheet('sheet-budget')"><div class="qi" style="background:linear-gradient(135deg,#5AA9D8,#2E7DAE)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></div><div><div class="qt">Đặt ngân sách</div><div class="qs">Hạn mức chi tiêu hằng tháng</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();go('spending');openGoal()"><div class="qi" style="background:linear-gradient(135deg,#34B87A,#2E9E6B)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg></div><div><div class="qt">Tạo mục tiêu</div><div class="qs">Để dành cho điều bạn muốn mua hoặc làm</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();go('spending');openExpense()"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg></div><div><div class="qt">Ghi chi tiêu</div><div class="qs">Khoản tiền vừa chi</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();go('spending');fhIncome()"><div class="qi" style="background:linear-gradient(135deg,#34C77B,#1a9d5f)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div><div><div class="qt">Ghi thu nhập</div><div class="qs">Tiền vào của gia đình</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();go('spending');fhSavings()"><div class="qi" style="background:linear-gradient(135deg,#F0B450,#DB8A24)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a5 5 0 015-5h5a6 6 0 016 6 6 6 0 01-3 5.2V20h-3v-2h-2v2H7v-3a6 6 0 01-4-5zM8 9h.01"/></svg></div><div><div class="qt">Bỏ ống tiết kiệm</div><div class="qs">Thêm vào quỹ chung của nhà</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();go('spending');openSheet('sheet-budget')"><div class="qi" style="background:linear-gradient(135deg,#5AA9D8,#2E7DAE)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></div><div><div class="qt">Đặt ngân sách</div><div class="qs">Hạn mức chi tiêu hằng tháng</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();go('spending');openGoal()"><div class="qi" style="background:linear-gradient(135deg,#34B87A,#2E9E6B)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg></div><div><div class="qt">Tạo mục tiêu</div><div class="qs">Để dành cho điều bạn muốn mua hoặc làm</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <div class="qa-group">Khoảnh Khắc</div>
-  <button class="qa" onclick="closeSheet();goMoments('plans');openSheet('sheet-event')"><div class="qi" style="background:linear-gradient(135deg,#9D4EFF,#E14BF0)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div><div><div class="qt">Lên kế hoạch</div><div class="qs">Một dịp sắp tới của gia đình</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();goMoments('album');paOpen()"><div class="qi" style="background:linear-gradient(135deg,#FF8FB1,#F0567F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg></div><div><div class="qt">Thêm khoảnh khắc</div><div class="qs">Ảnh của gia đình</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();openSheet('sheet-suggest')"><div class="qi" style="background:linear-gradient(135deg,#B9B2C6,#8a8494)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20s-7-4.4-9.3-8.7C1.2 8 2.7 4.6 6 4.6c2 0 3.2 1.3 4 2.6.8-1.3 2-2.6 4-2.6 3.3 0 4.8 3.4 3.3 6.7C19 15.6 12 20 12 20z"/></svg></div><div><div class="qt">Góp ý</div><div class="qs">Một ý tưởng hay điều bạn mong muốn</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfc8d6" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();goMoments('plans');openSheet('sheet-event')"><div class="qi" style="background:linear-gradient(135deg,#9D4EFF,#E14BF0)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div><div><div class="qt">Lên kế hoạch</div><div class="qs">Một dịp sắp tới của gia đình</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();goMoments('album');paOpen()"><div class="qi" style="background:linear-gradient(135deg,#FF8FB1,#F0567F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg></div><div><div class="qt">Thêm khoảnh khắc</div><div class="qs">Ảnh của gia đình</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();openSheet('sheet-suggest')"><div class="qi" style="background:linear-gradient(135deg,#B9B2C6,#8a8494)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20s-7-4.4-9.3-8.7C1.2 8 2.7 4.6 6 4.6c2 0 3.2 1.3 4 2.6.8-1.3 2-2.6 4-2.6 3.3 0 4.8 3.4 3.3 6.7C19 15.6 12 20 12 20z"/></svg></div><div><div class="qt">Góp ý</div><div class="qs">Một ý tưởng hay điều bạn mong muốn</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
 </div>
 
 <div class="modal" id="sheet-suggest">

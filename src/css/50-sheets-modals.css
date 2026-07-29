@@ -64,7 +64,7 @@
 .qa .qi svg{width:22px;height:22px}
 .qa .qt{font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
 .qa .qs{font-size:14px;letter-spacing:-.01em;color:var(--muted);margin-top:1px}
-.qa .chev{margin-left:auto}
+.qa .chev{margin-left:auto;color:var(--chev)}
 .field{margin-bottom:16px}
 .field label{display:block;font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;margin-bottom:8px}
 .field input{width:100%;background:var(--canvas);border-radius:13px;padding:15px;font-size:17px;letter-spacing:-.02em;color:var(--ink);outline:none;border:2px solid transparent}

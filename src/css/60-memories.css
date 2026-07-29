@@ -20,7 +20,7 @@
 .mem-strip::-webkit-scrollbar{display:none}
 /* Home photo feed (below expenses): full-size photos + title overlay, 16px content gutter */
 #home-feed{margin:0 16px}
-.mem-feed-item{border-radius:18px;overflow:hidden;position:relative;margin-bottom:12px;cursor:pointer;transition:transform .18s cubic-bezier(.4,0,.2,1);box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04)}
+.mem-feed-item{border-radius:18px;overflow:hidden;position:relative;margin-bottom:12px;cursor:pointer;transition:transform .18s cubic-bezier(.4,0,.2,1);box-shadow:var(--shadow-card)}
 .mem-feed-item:active{transform:scale(.99)}
 .mem-feed-item img{display:block;width:100%;height:auto}
 .mem-feed-item .mff-cap{position:absolute;left:0;right:0;bottom:0;padding:16px 16px 14px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.62))}

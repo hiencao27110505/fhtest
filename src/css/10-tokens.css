@@ -9,6 +9,13 @@
   --ink:#191022; --ink-2:#3a2f45; --muted:#8a8494; --muted-soft:#a29caa;
   --white:#ffffff; --canvas:#f4f1f6; --pearl:#fbfafc;
   --hairline:#e9e4ee; --divider:#f1edf4;
+  --surface:#f9f7f8; --fill-neutral:rgba(138,132,148,.14); --chev:#cfc8d6;
+  --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+  --shadow-focal:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09);
+  --shadow-raised:0 2px 6px rgba(25,16,34,.06),0 16px 34px rgba(25,16,34,.12);
+  --r-card-lg:22px;
+  /* finance progress-ring status arcs (light stop -> dark stop): ok anchors --good, over anchors --danger, pace = vivid amber (brighter than text --amber) */
+  --ring-ok-1:#48CE93; --ring-ok-2:#1A9D5F; --ring-pace-1:#F5C061; --ring-pace-2:#E0951E; --ring-over-1:#F58A8A; --ring-over-2:#E0322F;
   --cat-housing:#5E5CE6; --cat-food:#34C759; --cat-dining:#FF375F;
   --cat-kids:#FF9F0A; --cat-transport:#32ADE6; --cat-fun:#BF5AF2; --cat-other:#98949e;
   --emma-a:#a074e0; --emma-b:#6f3fc0;

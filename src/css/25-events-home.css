@@ -6,7 +6,7 @@
 .em-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .em-tile{width:44px;height:44px;border-radius:12px;background:var(--canvas);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
 .em-tile.lg{width:50px;height:50px;font-size:25px}
-.cd-chip{background:rgba(138,132,148,.14);color:var(--muted);border-radius:9999px;padding:5px 10px;font-size:12px;font-weight:700;letter-spacing:-.01em}
+.cd-chip{background:var(--fill-neutral);color:var(--muted);border-radius:9999px;padding:5px 10px;font-size:12px;font-weight:700;letter-spacing:-.01em}
 .ecard-mini .nm{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px;color:var(--ink)}
 .ecard-mini .fig{font-size:13px;letter-spacing:-.01em;color:var(--muted);margin-top:4px}
 .ecard-mini .fig b{color:var(--ink);font-weight:600}
@@ -37,7 +37,7 @@
 .past-meta{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:-.01em;margin-top:2px}
 .past-add{flex-shrink:0;display:inline-flex;align-items:center;gap:5px;background:var(--brand-tint);color:var(--brand-ink);border-radius:9999px;padding:8px 12px;font-size:13.5px;font-weight:700;letter-spacing:-.01em}
 .past-add svg{width:14px;height:14px}
-.past-chev{flex-shrink:0;color:#cfc8d6}
+.past-chev{flex-shrink:0;color:var(--chev)}
 /* upcoming events timeline (restrained) */
 .timeline{margin:0 16px}
 .tl-item{display:flex;gap:12px;padding-bottom:16px;cursor:pointer}

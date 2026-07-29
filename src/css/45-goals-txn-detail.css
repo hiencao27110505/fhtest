@@ -1,5 +1,5 @@
 /* compact goals summary (demoted from a second hero card) */
-.gsum{background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px 16px;margin:0 16px 12px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04)}
+.gsum{background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px 16px;margin:0 16px 12px;box-shadow:var(--shadow-card)}
 .gsum-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .gsum-lab{font-size:13.5px;font-weight:600;color:var(--ink-2)}
 .gsum-lab b{font-family:var(--disp);font-weight:800;font-size:16px;color:var(--ink);letter-spacing:-.02em}
@@ -9,7 +9,7 @@
 .gsum-foot{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}
 .gsum-foot b{color:var(--ink);font-weight:700}
 /* goals as one grouped list (single list paradigm, slim meters) */
-.goal-group{background:var(--white);border:1px solid var(--hairline);border-radius:16px;margin:0 16px;overflow:hidden;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04)}
+.goal-group{background:var(--white);border:1px solid var(--hairline);border-radius:16px;margin:0 16px;overflow:hidden;box-shadow:var(--shadow-card)}
 .goal-row{display:flex;align-items:center;gap:13px;padding:13px 15px;border-bottom:1px solid var(--divider);cursor:pointer}
 .goal-row:last-child{border-bottom:none}
 .goal-row:active{background:var(--canvas)}
