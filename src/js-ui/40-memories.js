@@ -122,7 +122,7 @@ function buildMemRecords(){
   order.forEach(function(k){ var e=events[k];
     if(e._srcTxn||e.fromExpense) return;                 // mirror event → handled via its expense below
     (e.memories||[]).forEach(function(m){
-      memRecords.push({src:m.src||'',cls:m.src?'':(m.cls||'ph-park'),emoji:m.emoji||e.emoji,cap:m.caption||e.name,meta:m.caption?(e.emoji+' '+e.name):e.date,type:'event',ref:k,d:e.d});
+      memRecords.push({src:m.src||'',cls:m.src?'':(m.cls||'ph-park'),emoji:m.emoji||e.emoji,cap:m.caption||e.name,meta:m.caption?(e.emoji+' '+e.name):e.date,type:'event',ref:k,d:e.d,who:(m.who||e.who||'')});
     });
   });
   //   3. Every expense photo IS a memory — pull them from the ledger directly, shown as
@@ -131,7 +131,7 @@ function buildMemRecords(){
     if(!t.photos||!t.photos.length) return;
     var d=(typeof txPhotoDate==='function')?txPhotoDate(t):null, ico=t.ico||'📸';
     t.photos.forEach(function(src){
-      memRecords.push({src:src||'',cls:src?'':'ph-park',emoji:ico,cap:t.note||L('Khoản chi','Expense'),meta:fmt(t.amt),type:'expense',ref:t.id,d:d});
+      memRecords.push({src:src||'',cls:src?'':'ph-park',emoji:ico,cap:t.note||L('Khoản chi','Expense'),meta:fmt(t.amt),type:'expense',ref:t.id,d:d,who:(t.who||'')});
     });
   });
   memRecords.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });
