@@ -119,7 +119,7 @@ function renderFinanceHero(){
     var overB = bd > 0 && sp > bd;                              // colour appears only when over budget
     return '<button type="button" class="fh-lrow' + (overB ? ' over' : '') + '" onclick="openCat(&#39;cat&#39;,&#39;' + escAttr(c) + '&#39;)">'
       + '<span class="fh-ico">' + esc(ico) + '</span>'
-      + '<span class="fh-body"><span class="fh-l1"><span class="fh-lname">' + esc(c) + '</span>'
+      + '<span class="fh-body"><span class="fh-l1"><span class="fh-lname">' + esc(isFallbackCat(c)?L('Khác','Others'):c) + '</span>'
       + '<span class="fh-lamt num"><b>' + fmtK(sp) + '</b>' + (bd > 0 ? ' / ' + fmtK(bd) : '') + '</span></span>'
       + '<span class="fh-bar"><i style="width:' + pct.toFixed(0) + '%"></i></span></span>'
       + '<svg class="fh-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
@@ -140,15 +140,15 @@ function renderCatBudget(){
     var s=catStyle[c]||['🧾','#f2eef6','var(--cat-other)'];
     var overBud=sp>bd, overPace=!done && bd && (sp/bd)>(pace+0.14);
     var statusText, statusCol;
-    if(overBud){ statusText='Over budget'; statusCol='var(--danger)'; }
-    else if(overPace){ statusText='Over pace'; statusCol='var(--amber)'; }
-    else if(fut>0){ statusText='＋'+fmt(fut)+' upcoming'; statusCol='var(--brand-ink)'; }
+    if(overBud){ statusText=L('Vượt ngân sách','Over budget'); statusCol='var(--danger)'; }
+    else if(overPace){ statusText=L('Vượt tiến độ','Over pace'); statusCol='var(--amber)'; }
+    else if(fut>0){ statusText='＋'+fmt(fut)+L(' sắp tới',' upcoming'); statusCol='var(--brand-ink)'; }
     else { statusText=''; }
     var barCol=overBud?'#FF375F':(overPace?'#FFB020':s[2]);
     var mark=done?'display:none':('left:'+(pace*100)+'%');
     html+='<div class="crow tap" onclick="openCat(\'cat\',\''+c+'\')"><div class="cico" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</div>'
       +'<div class="r-body"><div class="r-t" style="display:flex;justify-content:space-between;align-items:center">'
-      +'<span>'+c+'</span><span class="num" style="font-weight:600">'+fmt(sp)
+      +'<span>'+(isFallbackCat(c)?L('Khác','Others'):c)+'</span><span class="num" style="font-weight:600">'+fmt(sp)
       +' <span style="color:var(--muted);font-weight:500">/ '+fmt(bd)+'</span></span></div>'
       +(statusText?'<div class="cstatus" style="color:'+statusCol+'">'+statusText+'</div>':'')
       +'<div class="bcbar"><i style="width:'+pct+'%;background:'+barCol+'"></i>'
@@ -166,7 +166,7 @@ function catFutureRow(label,icon,amt,budget){
   var rpct=Math.min(100,amt/budget*100);
   return '<div class="crow tap events" onclick="openCat(\'cat\',\''+label+'\')"><div class="cico" style="background:var(--brand-tint);color:var(--brand-ink)">'+icon+'</div>'
     +'<div class="r-body"><div class="r-t" style="display:flex;justify-content:space-between;align-items:center">'
-    +'<span>'+label+'</span><span class="num" style="font-weight:600">'+fmt(amt)+'</span></div>'
+    +'<span>'+(label==='Events'?L('Sự kiện','Events'):label)+'</span><span class="num" style="font-weight:600">'+fmt(amt)+'</span></div>'
     +'<div class="bcbar"><i class="res-stripe" style="width:'+rpct+'%"></i></div>'
     +'</div><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>';
 }
@@ -216,17 +216,17 @@ function catRowHTML(emoji,name,budget,orig){
   var lock=isFallbackCat(name);
   return '<div class="cat-row'+(lock?' cat-row-lock':'')+'" data-orig="'+(orig||'')+'">'
     +'<input class="cat-emoji" maxlength="2" value="'+(emoji||'🏷️')+'" oninput="bgDirty()">'
-    +'<input class="cat-name" placeholder="Name" value="'+String(name||'').replace(/"/g,'&quot;')+'"'+(lock?' readonly':' oninput="bgDirty()"')+'>'
+    +'<input class="cat-name" placeholder="'+L('Tên','Name')+'" value="'+String(name||'').replace(/"/g,'&quot;')+'"'+(lock?' readonly':' oninput="bgDirty()"')+'>'
     // symbol sits on the same side as fmt() puts it: ₫ after, $ before
     +'<span class="cat-bud-wrap">'+(CUR==='VND'?'':curSym())
       +'<input class="cat-bud num" inputmode="numeric" placeholder="0" value="'+amtToInput(budget)+'"'
       +(budget?' data-touched="1"':'')
-      +(lock?' readonly title="Whatever the other categories leave unallocated">'
+      +(lock?' readonly title="'+L('Phần các danh mục khác chưa dùng tới','Whatever the other categories leave unallocated')+'">'
             :' oninput="markCatTouched(this);syncFallbackRow()" onblur="snapAmtInput(this);syncFallbackRow()">')
       +(CUR==='VND'?curSym():'')+'</span>'
     +(lock
-      ? '<span class="cat-del cat-del-off" title="Everything uncategorised lands here"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></span>'
-      : '<button class="cat-del" aria-label="Remove category" onclick="armCatDelete(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
+      ? '<span class="cat-del cat-del-off" title="'+L('Mọi khoản chưa phân loại sẽ nằm ở đây','Everything uncategorised lands here')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></span>'
+      : '<button class="cat-del" aria-label="'+L('Xoá danh mục','Remove category')+'" onclick="armCatDelete(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
     +'</div>';
 }
 // The catch-all is not budgeted by hand — it absorbs whatever the named
@@ -254,7 +254,7 @@ function syncFallbackRow(){
     var over = !!(total&&used>total);
     note.style.display = over ? '' : 'none';
     // say by how much, so "Others is at 0" isn't the only signal something's wrong
-    if(over) note.textContent='Categories add up to '+fmt(used-total)+' more than the monthly budget, so Others is at 0.';
+    if(over) note.textContent=L('Các danh mục cộng lại vượt ngân sách tháng '+fmt(used-total)+', nên '+L('Khác','Others')+' còn 0.','Categories add up to '+fmt(used-total)+' more than the monthly budget, so '+L('Khác','Others')+' is at 0.');
   }
   bgDirty();
 }
@@ -315,7 +315,7 @@ function armCatDelete(btn){
     catArmT=setTimeout(function(){
       if(!btn.isConnected) return;
       btn.classList.remove('armed'); row.classList.remove('arming');
-      btn.setAttribute('aria-label','Remove category');
+      btn.setAttribute('aria-label',L('Xoá danh mục','Remove category'));
     },3000);
     return;
   }

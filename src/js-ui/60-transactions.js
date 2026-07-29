@@ -47,20 +47,20 @@ function txMatch(t){
 function resRow(k){   // an event funded from this month → an "Events" future item
   var e=events[k], today=sameDay(e.d,TODAY);
   return '<div class="row res" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="r-ico-wrap"><div class="r-ico">'+e.emoji+'</div></div>'
-    +'<div class="r-body"><div class="r-t">'+e.name+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?'today':'future')+'</span>Events · '+(today?'today':'in July')+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+e.name+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>'+L('Sự kiện','Events')+' · '+(today?L('hôm nay','today'):L('trong tháng 7','in July'))+'</div></div>'
     +'<div class="r-amt num">'+fmt(e.setAside)+'</div></div>';
 }
 function futRow(t){   // a standalone future expense logged in the expense sheet
   var today=sameDay(txPhotoDate(t),TODAY);
   return '<div class="row res" onclick="openEditExpense(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico">'+(t.ico||'📅')+'</div></div>'
-    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?'today':'future')+'</span>'+(today?'Planned expense · today':'Future expense · in July')+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>'+(today?L('Chi tiêu dự kiến · hôm nay','Planned expense · today'):L('Chi tiêu tương lai · trong tháng 7','Future expense · in July'))+'</div></div>'
     +'<div class="r-amt num">'+fmt(t.amt)+'</div></div>';
 }
 function renderTxns(){
   var tx=document.getElementById('tx-rows');
   var evRes=(selMonth==='Jul') ? order.filter(function(k){return !achievedNow(events[k]) && (events[k].setAside||0)>0;}) : [];
   var anyFuture = evRes.length>0 || txns.some(function(t){return t.future;});
-  setTxt('tx-head', anyFuture ? 'Hoạt động' : 'Giao dịch gần đây');
+  setTxt('tx-head', anyFuture ? L('Hoạt động','Activity') : L('Giao dịch gần đây','Recent transactions'));
   if(tx){
     var evHtml=evRes.map(resRow).join('');
     var futHtml=txns.filter(function(t){return t.future;}).map(futRow).join('');
@@ -70,11 +70,11 @@ function renderTxns(){
     else if(f && f.type==='cat' && f.val==='Future expenses') out=futHtml;           // standalone future items
     else if(f) out=realAll.filter(txMatch).map(txRow).join('');                      // realized, filtered
     else out=evHtml+futHtml+realAll.slice(0,8).map(txRow).join('');                  // preview — full list is the Giao dịch drill-in (openTxns)
-    setHTMLIf(tx, out||'<div class="empty-note">No expenses here yet.</div>');
+    setHTMLIf(tx, out||'<div class="empty-note">'+L('Chưa có giao dịch nào ở đây.','No transactions here yet.')+'</div>');
   }
   var af=document.getElementById('act-filter');
   if(af){
-    af.innerHTML=txFilter?('<div class="filter-chip">'+txFilter.val+'<button onclick="clearFilter()" aria-label="Clear">&times;</button></div>'):'';
+    af.innerHTML=txFilter?('<div class="filter-chip">'+txFilter.val+'<button onclick="clearFilter()" aria-label="'+L('Xoá','Clear')+'">&times;</button></div>'):'';
   }
   var htx=document.getElementById('home-tx'); if(htx)setHTMLIf(htx, txns.filter(function(t){return !t.future;}).slice(0,3).map(txRow).join(''));
 }
@@ -85,21 +85,21 @@ var txnCat=null, txnSort='date';
 function openTxns(){
   txnCat=null; txnSort='date';
   var q=document.getElementById('txn-q'); if(q)q.value='';
-  setTxt('txn-sort-lab','Mới nhất'); var _cl=document.getElementById('txn-clear'); if(_cl)_cl.style.display='none';
+  setTxt('txn-sort-lab',L('Mới nhất','Newest')); var _cl=document.getElementById('txn-clear'); if(_cl)_cl.style.display='none';
   buildTxnChips(); renderTxnScreen();
   document.getElementById('txn-overlay').classList.add('on');
   var sc=document.getElementById('txn-scroll'); if(sc)sc.scrollTop=0;
 }
 function closeTxns(){ document.getElementById('txn-overlay').classList.remove('on'); }
 function buildTxnChips(){
-  var html='<button class="txn-chip'+(!txnCat?' on':'')+'" onclick="setTxnCat(null)">Tất cả</button>';
+  var html='<button class="txn-chip'+(!txnCat?' on':'')+'" onclick="setTxnCat(null)">'+L('Tất cả','All')+'</button>';
   (window.catOrder||[]).forEach(function(c){
     html+='<button class="txn-chip'+(txnCat===c?' on':'')+'" onclick="setTxnCat(&#39;'+escAttr(c)+'&#39;)">'+esc(c)+'</button>';
   });
   setHTML('txn-chips', html);
 }
 function setTxnCat(c){ txnCat=c; buildTxnChips(); renderTxnScreen(); }
-function toggleTxnSort(){ txnSort=(txnSort==='amount'?'date':'amount'); setTxt('txn-sort-lab', txnSort==='amount'?'Số tiền':'Mới nhất'); renderTxnScreen(); }
+function toggleTxnSort(){ txnSort=(txnSort==='amount'?'date':'amount'); setTxt('txn-sort-lab', txnSort==='amount'?L('Số tiền','Amount'):L('Mới nhất','Newest')); renderTxnScreen(); }
 function onTxnQ(){ var v=(document.getElementById('txn-q').value||''); var c=document.getElementById('txn-clear'); if(c)c.style.display=v?'grid':'none'; renderTxnScreen(); }
 function txnClear(){ var q=document.getElementById('txn-q'); if(q){ q.value=''; q.focus(); } var c=document.getElementById('txn-clear'); if(c)c.style.display='none'; renderTxnScreen(); }
 function renderTxnScreen(){
@@ -112,7 +112,7 @@ function renderTxnScreen(){
   var ts=document.getElementById('txn-sum'); if(ts) ts.style.display='none';   // count + total removed — less detail
   var html='';
   if(!list.length){
-    html='<div class="mem-empty" style="margin:22px 16px"><div class="me-emoji">🔍</div><div class="me-t">Không tìm thấy</div><p>Thử từ khoá khác hoặc đổi bộ lọc.</p></div>';
+    html='<div class="mem-empty" style="margin:22px 16px"><div class="me-emoji">🔍</div><div class="me-t">'+L('Không tìm thấy','No results')+'</div><p>'+L('Thử từ khoá khác hoặc đổi bộ lọc.','Try another keyword or change the filter.')+'</p></div>';
   } else if(txnSort==='amount'){
     html='<div class="rows">'+list.slice().sort(function(a,b){return b.amt-a.amt;}).map(txRow).join('')+'</div>';
   } else {
@@ -120,7 +120,7 @@ function renderTxnScreen(){
     var groups=[], idx={};
     sorted.forEach(function(t){
       var d=t._d||TODAY, key=d.getFullYear()+'-'+d.getMonth();
-      if(idx[key]===undefined){ idx[key]=groups.length; groups.push({label:'Tháng '+(d.getMonth()+1)+' '+d.getFullYear(), rows:''}); }
+      if(idx[key]===undefined){ idx[key]=groups.length; groups.push({label:(isVi()?('Tháng '+(d.getMonth()+1)):moAbbr(d.getMonth()))+' '+d.getFullYear(), rows:''}); }
       groups[idx[key]].rows+=txRow(t);
     });
     html=groups.map(function(g){ return '<div class="txn-mhead">'+g.label+'</div><div class="rows">'+g.rows+'</div>'; }).join('');
@@ -185,10 +185,10 @@ function buildCatPicker(){
     setTxt('catpick-h',L('Ai đã trả','Who paid')); setTxt('catpick-sub',L('Xem chi tiêu của người khác.',"Jump to another person's spending."));
     Object.keys(M().memberSpent).forEach(function(k){ html+='<button class="choice'+(k===v?' on':'')+'" onclick="pickCatFilter(\'mem\',\''+k+'\')">'+k+'</button>'; });
   } else {
-    setTxt('catpick-h','Category'); setTxt('catpick-sub',"Jump to another category's transactions.");
+    setTxt('catpick-h',L('Danh mục','Category')); setTxt('catpick-sub',L('Chuyển tới giao dịch của danh mục khác.',"Jump to another category's transactions."));
     catOrder.forEach(function(c){ html+='<button class="choice'+(c===v?' on':'')+'" onclick="pickCatFilter(\'cat\',\''+c+'\')">'+((catStyle[c]||[''])[0])+' '+c+'</button>'; });
-    if(eventsReserved()>0) html+='<button class="choice'+(v==='Events'?' on':'')+'" onclick="pickCatFilter(\'cat\',\'Events\')">🎯 Events</button>';
-    if(futureExpReserved()>0) html+='<button class="choice'+(v==='Future expenses'?' on':'')+'" onclick="pickCatFilter(\'cat\',\'Future expenses\')">📅 Future</button>';
+    if(eventsReserved()>0) html+='<button class="choice'+(v==='Events'?' on':'')+'" onclick="pickCatFilter(\'cat\',\'Events\')">🎯 '+L('Sự kiện','Events')+'</button>';
+    if(futureExpReserved()>0) html+='<button class="choice'+(v==='Future expenses'?' on':'')+'" onclick="pickCatFilter(\'cat\',\'Future expenses\')">📅 '+L('Sắp tới','Future')+'</button>';
   }
   setHTML('catpick-list',html);
 }
@@ -197,7 +197,7 @@ function closeCat(){ document.getElementById('cat-overlay').classList.remove('on
 function addExpense(){
   var amt=parseAmtBase(document.getElementById('ex-amt').value);
   if(!amt){ document.getElementById('ex-amt').focus(); return; }
-  var note=document.getElementById('ex-note').value.trim()||'Expense';
+  var note=document.getElementById('ex-note').value.trim()||L('Chi tiêu','Expense');
   var cat=chosen('ex-cat')||'Fun'; lastCat=cat;
   var s=catStyle[cat]||['🧾','#f2eef6','var(--cat-other)'];
   var dObj=exDate(), dstr=(dObj.getTime()===TODAY.getTime())?'Today':(MONA[dObj.getMonth()]+' '+dObj.getDate());
@@ -210,7 +210,7 @@ function addExpense(){
     events[eid]=ev; order.unshift(eid); renderEvents(); renderTxns(); selMonth='Jul'; renderAll();
     document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
     closeExpense();
-    if(past){ toast(note+' saved · add a photo to remember it 📸'); floatEmojis('📸'); goMoments('memories'); }
+    if(past){ toast(L(note+' đã lưu · thêm ảnh để ghi nhớ nhé 📸',note+' saved · add a photo to remember it 📸')); floatEmojis('📸'); goMoments('memories'); }
     else { toast(L(note+' đã thêm vào Sự kiện · còn '+fmt(Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved()))+' an toàn để tiêu',note+' added to Events · '+fmt(Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved()))+' safe to spend')); floatEmojis('🎈'); goMoments('plans'); }
     return;
   }

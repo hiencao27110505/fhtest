@@ -34,7 +34,7 @@ function renderMemCalendar(){
   var byDay={};
   order.forEach(function(k){ var e=events[k]; if(e.memories&&e.memories.length&&e.d.getFullYear()===mcalY&&e.d.getMonth()===mcalM&&byDay[e.d.getDate()]===undefined){ byDay[e.d.getDate()]={m:e.memories[0],type:'event',ref:k}; } });
   var html='';
-  ['S','M','T','W','T','F','S'].forEach(function(d){ html+='<div class="dow">'+d+'</div>'; });
+  (isVi()?['CN','2','3','4','5','6','7']:['S','M','T','W','T','F','S']).forEach(function(d){ html+='<div class="dow">'+d+'</div>'; });
   for(var i=0;i<firstDow;i++) html+='<div class="mcell mute"></div>';
   for(var d=1;d<=dim;d++){
     var isToday=(mcalY===TODAY.getFullYear()&&mcalM===TODAY.getMonth()&&d===TODAY.getDate());
@@ -79,7 +79,7 @@ function renderMcalPrompt(){
   box.innerHTML='<div class="mcal-prompt-in"><div class="mcp-txt">'
     +'<div class="mcp-d">'+esc(isVi()?(mcalSel.d+' '+moFull(mcalSel.m)):(MONF[mcalSel.m]+' '+mcalSel.d))+'</div>'
     +'<div class="mcp-h">'+(past?L('Chưa lưu gì cho ngày này.','Nothing saved on this day yet.'):L('Chưa có kế hoạch cho ngày này.','Nothing planned for this day yet.'))+'</div></div>'
-    +'<button type="button" class="mcp-go" onclick="mcalCreate()">'+(past?L('Ghi một khoản chi','Log a spend'):L('Lên kế hoạch','Plan an event'))+'</button></div>';
+    +'<button type="button" class="mcp-go" onclick="mcalCreate()">'+(past?L('Ghi một khoản chi','Log an expense'):L('Lên kế hoạch','Plan an event'))+'</button></div>';
   box.classList.add('on');
 }
 function mcalCreate(){
@@ -131,7 +131,7 @@ function buildMemRecords(){
     if(!t.photos||!t.photos.length) return;
     var d=(typeof txPhotoDate==='function')?txPhotoDate(t):null, ico=t.ico||'📸';
     t.photos.forEach(function(src){
-      memRecords.push({src:src||'',cls:src?'':'ph-park',emoji:ico,cap:t.note||'Expense',meta:fmt(t.amt),type:'expense',ref:t.id,d:d});
+      memRecords.push({src:src||'',cls:src?'':'ph-park',emoji:ico,cap:t.note||L('Khoản chi','Expense'),meta:fmt(t.amt),type:'expense',ref:t.id,d:d});
     });
   });
   memRecords.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });
@@ -152,12 +152,12 @@ function memGroups(){
 function memCoverHTML(g){
   var idx=memRecords.indexOf(g.items[0]), c=g.items.length;
   var sub=(g.d?fmtDayMon(g.d):'')+' · '+c+' '+(isVi()?'ảnh':('photo'+(c!==1?'s':'')));
-  return '<div class="memory" style="background-image:url('+g.cover+');background-size:cover;background-position:center" onclick="openMemory('+idx+')"><div class="scrim"></div><div class="m-cap">'+esc(g.title||'Memory')+'</div><div class="m-date">'+esc(sub)+'</div></div>';
+  return '<div class="memory" style="background-image:url('+g.cover+');background-size:cover;background-position:center" onclick="openMemory('+idx+')"><div class="scrim"></div><div class="m-cap">'+esc(g.title||L('Kỷ niệm','Memory'))+'</div><div class="m-date">'+esc(sub)+'</div></div>';
 }
 // Home photo feed item: full-size photo + title (no money), lazy-loaded.
 function memFeedHTML(r){
   var idx=memRecords.indexOf(r);
-  return '<div class="mem-feed-item" onclick="openMemory('+idx+')"><img src="'+escAttr(r.src)+'" alt="" loading="lazy" decoding="async"><div class="mff-cap"><div class="mff-t">'+esc(r.cap||'Memory')+'</div><div class="mff-s">'+esc(fmtDateLong(r.d))+'</div></div></div>';
+  return '<div class="mem-feed-item" onclick="openMemory('+idx+')"><img src="'+escAttr(r.src)+'" alt="" loading="lazy" decoding="async"><div class="mff-cap"><div class="mff-t">'+esc(r.cap||L('Kỷ niệm','Memory'))+'</div><div class="mff-s">'+esc(fmtDateLong(r.d))+'</div></div></div>';
 }
 // Collage template chosen by photo count (Apple-style, dynamic).
 function collageClasses(n){
@@ -210,7 +210,7 @@ function evBlockHTML(items,k){
     cap='<div class="pm-cap"><div class="pm-cap-t">'+esc(e.emoji)+' '+esc(e.name)+'</div><div class="pm-cap-s">'+esc(sub)+'</div></div>';
   } else if(items[0] && items[0].type==='expense'){       // an expense: titled just like an event (emoji + note · amount · N photos)
     var r0=items[0], sub2=(r0.meta?r0.meta+' · ':'')+ct;
-    cap='<div class="pm-cap"><div class="pm-cap-t">'+esc(r0.emoji||'📸')+' '+esc(r0.cap||'Expense')+'</div><div class="pm-cap-s">'+esc(sub2)+'</div></div>';
+    cap='<div class="pm-cap"><div class="pm-cap-t">'+esc(r0.emoji||'📸')+' '+esc(r0.cap||L('Khoản chi','Expense'))+'</div><div class="pm-cap-s">'+esc(sub2)+'</div></div>';
   }
   return '<div class="pm-block">'+mosaicHTML(items)+cap+'</div>';
 }
@@ -249,7 +249,7 @@ function photoSectionsByEvent(recs){
     if(g.type==='event'){ var e=events[g.ref];
       titleHTML='<button class="photo-sec-title" onclick="openEvent(&#39;'+escAttr(g.ref)+'&#39;)">'+esc(e.emoji)+' '+esc(e.name)+' ›</button>';
     } else { var r0=g.items[0];                            // an expense — title links to the expense
-      titleHTML='<button class="photo-sec-title" onclick="openEditExpense(&#39;'+escAttr(g.ref)+'&#39;)">'+esc(r0.emoji||'📸')+' '+esc(r0.cap||'Expense')+' ›</button>';
+      titleHTML='<button class="photo-sec-title" onclick="openEditExpense(&#39;'+escAttr(g.ref)+'&#39;)">'+esc(r0.emoji||'📸')+' '+esc(r0.cap||L('Khoản chi','Expense'))+' ›</button>';
     }
     html+=secHTML(titleHTML, g.items.length, mosaicHTML(g.items));
   });
@@ -307,7 +307,7 @@ function _renderMemoryDetail(){
   var ev=events[r.ref];
   var gal=(curEvent && events[curEvent] && events[curEvent].memories) ? events[curEvent].memories : null;
   var list=gal || memRecords.filter(function(m){ return m.type===r.type && m.ref===r.ref; });
-  var titleName  = (r.type==='event' && ev) ? ev.name  : (r.cap||L('Kỉ niệm','Memory'));
+  var titleName  = (r.type==='event' && ev) ? ev.name  : (r.cap||L('Kỷ niệm','Memory'));
   var titleEmoji = (r.type==='event' && ev) ? ev.emoji : r.emoji;
   var cnt=list.length;
   setTxt('mo-cap', (titleEmoji?titleEmoji+' ':'')+titleName);

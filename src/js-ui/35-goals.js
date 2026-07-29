@@ -12,13 +12,13 @@ function renderGoals(){
   var savPct=goal?Math.min(100,totSav/goal*100):0;
   setTxt('sav-total',fmt(totSav)); setTxt('ev-goal',fmt(goal));
   var sf=document.getElementById('sav-fill'); if(sf)sf.style.width=savPct+'%';
-  setHTML('ev-tosave','<b>'+fmt(still)+'</b> còn phải để dành');
-  setTxt('sav-avail-lbl',fmt(pool)+' sẵn có');
+  setHTML('ev-tosave','<b>'+fmt(still)+'</b> '+L('còn phải để dành','left to save'));
+  setTxt('sav-avail-lbl',fmt(pool)+' '+L('sẵn có','available'));
   var eb=document.getElementById('ev-badge');
   if(eb){ var dueSoon=live.filter(function(g){var e=goals[g]; return e.d&&daysLeft(e.d)<=30;})
             .reduce(function(s,g){return s+Math.max(0,goals[g].target-goals[g].saved);},0);
-          if(dueSoon>0){ eb.className='b-badge over'; eb.textContent=fmt(dueSoon)+' sắp đến hạn'; }
-          else { eb.className='b-badge ok'; eb.textContent='không có hạn gấp'; } }
+          if(dueSoon>0){ eb.className='b-badge over'; eb.textContent=fmt(dueSoon)+' '+L('sắp đến hạn','due soon'); }
+          else { eb.className='b-badge ok'; eb.textContent=L('không có hạn gấp','nothing due soon'); } }
   // show every goal (active first, then fully-funded) — nothing a user makes vanishes
   var listed=ord.slice().sort(function(a,b){
     var aa=achievedGoal(goals[a])?1:0, bb=achievedGoal(goals[b])?1:0; if(aa!==bb) return aa-bb;
@@ -26,8 +26,8 @@ function renderGoals(){
   });
   var rows=listed.map(function(g){
     var e=goals[g], pct=e.target>0?Math.min(100,Math.round(e.saved/e.target*100)):0, funded=e.saved>=e.target;
-    var occ=e.occasion_id?' · 🔗 dịp':'';
-    var overdue=(!funded && e.d && e.d<TODAY)?' · <span style="color:var(--amber)">quá hạn</span>':'';
+    var occ=e.occasion_id?' · 🔗 '+L('dịp','occasion'):'';
+    var overdue=(!funded && e.d && e.d<TODAY)?' · <span style="color:var(--amber)">'+L('quá hạn','overdue')+'</span>':'';
     return '<div class="goal-row" onclick="fundGoal(&#39;'+escAttr(g)+'&#39;)">'
       +'<div class="goal-ico">'+esc(e.emoji)+'</div>'
       +'<div class="goal-mid"><div class="r-t">'+esc(e.name)+(funded?' <span class="ev-ready">✓</span>':'')+'</div>'
@@ -37,7 +37,7 @@ function renderGoals(){
     +'</div>';
   }).join('');
   setHTML('goals-list', rows ? '<div class="goal-group">'+rows+'</div>'
-    : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🎯</div><div class="me-t">Chưa có mục tiêu</div><p>Để dành tiền cho điều bạn muốn mua hoặc làm.</p><span onclick="openGoal()" style="display:inline-block;margin-top:12px;color:var(--brand-ink);font-size:14px;font-weight:600;cursor:pointer">＋ Tạo mục tiêu đầu tiên</span></div>');
+    : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🎯</div><div class="me-t">'+L('Chưa có mục tiêu','No goals yet')+'</div><p>'+L('Để dành tiền cho điều bạn muốn mua hoặc làm.','Save up for something you want to buy or do.')+'</p><span onclick="openGoal()" style="display:inline-block;margin-top:12px;color:var(--brand-ink);font-size:14px;font-weight:600;cursor:pointer">＋ '+L('Tạo mục tiêu đầu tiên','Create your first goal')+'</span></div>');
 }
 function onGoalInput(){
   var name=(document.getElementById('goal-name').value||'').trim();
@@ -53,20 +53,20 @@ function openGoal(){
 function submitGoal(){
   var name=(document.getElementById('goal-name').value||'').trim();
   var target=parseAmtBase(document.getElementById('goal-amt').value);
-  if(!name||!target){ toast('Nhập tên và số tiền mục tiêu'); return; }
+  if(!name||!target){ toast(L('Nhập tên và số tiền mục tiêu','Enter a name and target amount')); return; }
   var pool=(window.savings!==undefined?window.savings:savings)||0;
   var data={ name:name, target:target, date:(document.getElementById('goal-date').value||null),
     init:Math.min(parseAmtBase(document.getElementById('goal-init').value)||0, pool),
     emoji:chosen('goal-emoji')||'🎯' };
   closeModals();
-  toast('Đã tạo mục tiêu · '+name); floatEmojis(data.emoji); go('spending');
+  toast(L('Đã tạo mục tiêu · ','Goal created · ')+name); floatEmojis(data.emoji); go('spending');
   if(typeof window.fhCreateGoal==='function') window.fhCreateGoal(data);
 }
 var _fundGoalId=null;
 function fundGoal(id){
   _fundGoalId=id;
   var g=(window.goals||{})[id]; var pool=(window.savings!==undefined?window.savings:savings)||0;
-  if(g) setHTML('gf-sub','Thêm vào <b>'+esc(g.name)+'</b> · '+fmt(pool)+' sẵn có trong quỹ.');
+  if(g) setHTML('gf-sub',L('Thêm vào <b>','Add to <b>')+esc(g.name)+'</b> · '+fmt(pool)+L(' sẵn có trong quỹ.',' available in the fund.'));
   var a=document.getElementById('gf-amt'); if(a)a.value='';
   var sv=document.getElementById('gf-save'); if(sv)sv.classList.remove('on');
   openSheet('goal-fund');
@@ -75,11 +75,11 @@ function fundGoal(id){
 function onGoalFundInput(){ var amt=parseAmtBase(document.getElementById('gf-amt').value); var b=document.getElementById('gf-save'); if(b) b.classList.toggle('on', amt>0); }
 function submitGoalFund(){
   var amt=parseAmtBase(document.getElementById('gf-amt').value);
-  if(!amt){ toast('Nhập số tiền'); return; }
+  if(!amt){ toast(L('Nhập số tiền','Enter an amount')); return; }
   var pool=(window.savings!==undefined?window.savings:savings)||0;
   amt=Math.min(amt,pool);
-  if(amt<=0){ toast('Quỹ tiết kiệm chưa đủ'); return; }
+  if(amt<=0){ toast(L('Quỹ tiết kiệm chưa đủ','Not enough in savings')); return; }
   var id=_fundGoalId; closeModals();
-  toast('Đã bỏ ống '+fmt(amt)); floatEmojis('🪙');
+  toast(L('Đã bỏ ống ','Saved ')+fmt(amt)); floatEmojis('🪙');
   if(typeof window.fhFundGoal==='function') window.fhFundGoal(id, amt);
 }

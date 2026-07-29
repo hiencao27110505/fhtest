@@ -28,7 +28,7 @@ function closeModals(){
   });
   if(!keepPa) document.getElementById('scrim').classList.remove('on');
   editingTx=null; editSnap=null; exPhotos=[]; evPhotos=[]; memPick=null; memPickMulti=null;
-  setTxt('ex-title',L('Ghi khoản chi','Log an expense')); var del=document.getElementById('ex-del'); if(del)del.style.display='none';
+  setTxt('ex-title',L('Ghi chi tiêu','Log an expense')); var del=document.getElementById('ex-del'); if(del)del.style.display='none';
   resetDelArm();
 }
 /* new-event modal */
@@ -41,10 +41,10 @@ function onEvPhoto(input){
 function removeEvPhoto(i){ evPhotos.splice(i,1); renderEvPhoto(); }
 function renderEvPhoto(){
   var strip=document.getElementById('ev-strip'), up=document.getElementById('ev-upload-txt');
-  if(up) up.textContent = evPhotos.length ? '📷 Add more' : '📷 Add photos';
+  if(up) up.textContent = evPhotos.length ? L('📷 Thêm ảnh nữa','📷 Add more') : L('📷 Thêm ảnh','📷 Add photos');
   if(!strip)return;
   strip.innerHTML = evPhotos.map(function(src,i){ return '<div class="photo-thumb" style="background-image:url('+src+')"><button type="button" class="x" onclick="removeEvPhoto('+i+')">✕</button></div>'; }).join('')
-    + (evPhotos.length ? '<div class="photo-strip-note">'+evPhotos.length+' photo'+(evPhotos.length!==1?'s':'')+' added</div>' : '');
+    + (evPhotos.length ? '<div class="photo-strip-note">'+L('đã thêm '+evPhotos.length+' ảnh',evPhotos.length+' photo'+(evPhotos.length!==1?'s':'')+' added')+'</div>' : '');
 }
 function openEventModal(preset){
   document.getElementById('ng-name').value=''; document.getElementById('ng-amt').value='';
@@ -186,7 +186,7 @@ function prefillExpense(){
   // this clears to the preset rather than unconditionally to empty.
   exPhotos = (exPreset && exPreset.photos) ? exPreset.photos.slice() : [];
   renderExPhoto();
-  setTxt('ex-title',L('Ghi khoản chi','Log an expense'));
+  setTxt('ex-title',L('Ghi chi tiêu','Log an expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='none';
   updateExWhen(); refreshExCta();
 }

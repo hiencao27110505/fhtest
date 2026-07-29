@@ -59,45 +59,247 @@ function setGreeting(){
   var gs=document.querySelector('.greet-sub'); if(gs) gs.textContent=t('greetSub');
 }
 
-/* ---------- i18n (English · Tiếng Việt) ---------- */
-var LANG='en';
+/* ---------- i18n (English · Tiếng Việt) ----------
+   English is the source of truth and lives in EN_DEFAULT (the HTML literals are
+   English too). I18N.vi holds the Vietnamese overrides. BOTH tables are kept
+   complete — every key present in both — so a lookup never leaks the wrong
+   language or a raw key. Vietnamese voice is warm & casual (family-texting
+   register: "tụi mình", "bạn", soft particles), sentence case, full diacritics. */
+
+/* Default language follows the device: a Vietnamese device opens in Vietnamese,
+   everything else in English. localStorage 'fh-lang' (restored in onboard-boot)
+   still overrides this once the user has made a choice. */
+var LANG=(function(){
+  try{
+    var n=(navigator.language||navigator.userLanguage||navigator.languages&&navigator.languages[0]||'').toLowerCase();
+    return n.indexOf('vi')===0 ? 'vi' : 'en';
+  }catch(e){ return 'en'; }
+})();
+
+var EN_DEFAULT={
+  /* onboarding */
+  welcomeTitle:'Welcome to',
+  tagPool:'One shared pool', tagPoolS:"See your family's money in one place — budgets and spending together.",
+  tagGoals:'Goals & events', tagGoalsS:'Save toward trips, birthdays and the things that matter.',
+  tagMem:'Memories together', tagMemS:'Turn everyday moments into a shared family album.',
+  getStarted:'Get started', haveAccount:'I already have an account',
+  localeTitle:'Language & currency', localeSub:'Choose how FamilyHub speaks and shows money.', langLabel:'Language', curLabel:'Currency',
+  signinT:'Sign in to FamilyHub', signinS:'Sign in with Google — secure and quick.', continueGoogle:'Continue with Google', signingIn:'Signing in…',
+  terms:'By continuing, you agree to our Terms & Privacy Policy.',
+  familyTitle:'Your family', familySub:"Start a new family, or join one you've been invited to.",
+  startFamily:'Start a new family', startFamilyS:"You'll name it and invite others", joinFamily:'Join a family', joinFamilyS:'Enter an invite code',
+  joinTitle:'Enter invite code', joinSub:'Ask a family member for the 6-character code from their invite.', joinCta:'Join family',
+  profileTitle:'Set up your profile', profileSub:'This is how your family will see you.', yourName:'Your name', youAreThe:'You are the…', phObName:'e.g. Emma',
+  setFamilyTitle:'Set up your family', setFamilySub:"Name it and invite who's in it.", familyName:'Family name', phFamName:'e.g. The Reeds', membersInvites:'Members & invites', inviteMember:'＋ Invite a member',
+  budgetTitle:'Set your budget', budgetSub:'A monthly target for the family, then a budget per category.', monthlyBudget:'Monthly budget', categoryBudgets:'Category budgets', categoryBudgetsHint:'Suggested from your total. Adjust anytime.',
+  themeTitle:'Pick your look', themeSub:"Choose a color theme for your family's hub. Change it anytime.",
+  enterApp:'Enter FamilyHub', continue:'Continue', you:'You',
+  doneTitle:"You're all set!", doneSub:'Welcome to FamilyHub.',
+  /* tabs */
+  tabHome:'Home', tabMoney:'Finance', tabMoments:'Moments',
+  /* greeting */
+  morning:'Good morning', afternoon:'Good afternoon', evening:'Good evening', greetSub:"Your family's money at a glance today.",
+  budgetBtn:'Budget',
+  /* home feed */
+  comingUp:'Coming up', recent:'Recent', memories:'Memories', seeAll:'See all',
+  savedLbl:'Saved', spentLbl:'Spent', poolLbl:'Pool', latestPhotos:'Latest photos',
+  txRecent:'Recent transactions', savingsGoals:'Savings goals', addGoal:'＋ Goal',
+  trend6:'6-month trend', vsBudget:'vs budget', trendLegend:"Dashed line = that month's budget",
+  /* finance view */
+  finHead:'Finance', finSub:"The family's spending, income and savings.", incomeLbl:'In', outLbl:'Out',
+  /* moments view */
+  momentsTitle:'Moments', momentsSub:"The family's plans, memories and album.", recentMemories:'Recent memories', addPhotos:'Add photos',
+  /* shared buttons */
+  cancel:'Cancel', save:'Save', add:'Add', done:'Done', create:'Create', send:'Send', back:'Back',
+  /* add sheet */
+  addSheetTitle:'Add something', addSheetSub:'Log money, or save a moment.', grpFinance:'Finance', grpMoments:'Moments',
+  qaExpenseT:'Log an expense', qaExpenseS:'Money you just spent',
+  qaIncomeT:'Log income', qaIncomeS:'Money coming into the family',
+  qaSaveT:'Add to savings', qaSaveS:'Add to the family pool',
+  qaGoalT:'Create a goal', qaGoalS:'Save for something you want to buy or do',
+  qaPlanT:'Plan something', qaPlanS:'An upcoming family occasion',
+  qaPhotoT:'Add a moment', qaPhotoS:'Family photos',
+  qaSuggestT:'Share feedback', qaSuggestS:'An idea or something you wish for',
+  /* suggest modal */
+  suggestTitle:'We hear you 💛', suggestSub:'An idea, a gripe, a feature you wish existed — tell us anything.',
+  founderNote:"We're two parents building FamilyHub for families like yours. Your notes shape what we build next.",
+  founderSig:'Mira & Sam, founders',
+  sgTypeLbl:"What's on your mind", sgIdea:'💡 An idea', sgLove:'💛 Something I love', sgIssue:"🐞 Something's off",
+  tellMore:'Tell us more', tellMorePh:'Say it however it comes. No need to be polished.',
+  suggestFootHome:"Ideas or gripes? We're always listening",
+  /* expense modal */
+  expenseTitle:'Log an expense', exWhatFor:'What for?', phExNote:'e.g. Grocery run',
+  amountLbl:'Amount', whenLbl:'When', whoPaidLbl:'Who paid', whoBoth:'Both',
+  photosOptLbl:'Photos (optional)', addPhotosBtn:'📷 Add photos', deleteExpense:'Delete expense',
+  /* event modal */
+  eventTitle:'New event', evWhat:'What is it?', phEvName:'e.g. Beach trip', estCost:'Est. cost',
+  coverFrom:'Cover the full cost from', srcSavings:'Savings', srcAvailable:'available',
+  thisMonthSrc:'This month', toSpendU:'to spend', deleteEventBtn:'Delete event',
+  /* photo assign modal */
+  photoAssignTitle:'Add photos', clearBtn:'Clear',
+  /* goal modal */
+  goalTitle:'Savings goal', goalSub:'Set aside money for something you want to buy or do.',
+  goalWhat:"What's this goal for?", phGoalName:'e.g. New laptop, Emergency fund', goalIcon:'Icon',
+  goalNeed:'How much you need', goalWhen:'When (optional)', goalInit:'Add now (optional)',
+  goalInitHint:'Taken from the family savings pool.',
+  /* goal fund modal */
+  goalFundTitle:'Add to goal', goalFundSub:'Move money into this goal from the shared savings pool.',
+  /* event fund modal */
+  addFundsTitle:'Add funds', fundSub:'Moved from your family savings into this event.',
+  fundAvail:'available in savings', eventLbl:'Event', addedByLbl:'Added by', fundAll:'All',
+  /* month sheet */
+  monthTitle:'Choose month', monthSub:'See spending and budget for any month.',
+  /* category picker sheet */
+  catpickTitle:'Category', catpickSub:"Jump to another category's transactions.",
+  /* budget modal */
+  budgetModalTitle:'Categories & budget', budgetModalSub:'Your monthly target, plus the categories your spending is grouped into. Add, rename, re-budget or remove them.',
+  monthlyBudgetOpt:"· fills in categories you haven't set", catsLbl:'Categories',
+  budgetOver:'Categories add up to more than the monthly budget, so Others is at 0.', addCategory:'＋ Add category',
+  /* memory modal */
+  addMemoryTitle:'Add a memory', memorySub:'Save a photo from this event. Caption is optional.',
+  photoLbl:'Photo', uploadPhotos:'📷 Upload photos', captionOpt:'Caption (optional)', phMemCap:'e.g. Best day of the trip',
+  /* settings sheet */
+  settingsTitle:'Settings', settingsSub:'Pick a theme. It applies across the whole app.',
+  setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members',
+  setSavedEvents:'Saved for events', setIncome:'Income', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out',
+  /* generic edit modal */
+  fhModalEdit:'Edit',
+  /* celebrate */
+  celTitle:'Fully funded!', celSub:'You saved it all together.', celBtn:'Woohoo! 🙌',
+  /* transactions overlay */
+  txnTitle:'Transactions', phTxnSearch:'Search by name, category, person…', txnSortNewest:'Newest', txnHistory:'History', txActivity:'Activity',
+  /* category detail */
+  cdSpentThisMonth:'Spent this month', cdTransactions:'Transactions', logExpenseBtn:'Log expense',
+  /* status & misc */
+  savingPhoto:'Saving photo…', updating:'Updating…', offline:"Offline. Changes save here, sync when you're back",
+  deletePhoto:'Delete photo', addPhotoLine:'📷 Add a photo', namePh:'Name',
+  /* aria labels */
+  ariaTheme:'Theme', ariaPrevMonth:'Previous month', ariaNextMonth:'Next month', ariaAdd:'Add', ariaPhoto:'Photo',
+  ariaBack:'Back', ariaClose:'Close', ariaClearSearch:'Clear search',
+  ariaRemoveCat:'Remove category', ariaRemovePhoto:'Remove photo', ariaRemove:'Remove'
+};
+
 var I18N={
-  en:{}, // English = the literal strings already in the HTML; en falls back to the DOM default
   vi:{
-    welcomeTitle:'Chào mừng đến với', tagPool:'Một ví chung', tagPoolS:"Xem tiền của cả nhà ở một nơi: ngân sách và chi tiêu cùng nhau.",
-    tagGoals:'Mục tiêu & sự kiện', tagGoalsS:'Tiết kiệm cho những chuyến đi, sinh nhật và điều quan trọng.',
-    tagMem:'Kỷ niệm cùng nhau', tagMemS:'Biến những khoảnh khắc thường ngày thành album của gia đình.',
-    getStarted:'Bắt đầu', haveAccount:'Tôi đã có tài khoản',
-    localeTitle:'Ngôn ngữ & tiền tệ', localeSub:'Chọn ngôn ngữ và cách hiển thị tiền của FamilyHub.', langLabel:'Ngôn ngữ', curLabel:'Tiền tệ',
-    signinT:'Đăng nhập FamilyHub', signinS:'Tiếp tục với tài khoản Google, an toàn và chỉ một chạm.', continueGoogle:'Tiếp tục với Google', signingIn:'Đang đăng nhập…',
+    /* onboarding */
+    welcomeTitle:'Chào mừng đến với',
+    tagPool:'Một ví chung của cả nhà', tagPoolS:'Tiền của cả nhà gom về một chỗ: ngân sách với chi tiêu, xem là thấy hết.',
+    tagGoals:'Mục tiêu & sự kiện', tagGoalsS:'Để dành cho những chuyến đi, sinh nhật và những điều quan trọng.',
+    tagMem:'Kỷ niệm cùng nhau', tagMemS:'Gom những khoảnh khắc thường ngày thành album của cả nhà.',
+    getStarted:'Bắt đầu nào', haveAccount:'Mình đã có tài khoản rồi',
+    localeTitle:'Ngôn ngữ & tiền tệ', localeSub:'Chọn ngôn ngữ và cách hiển thị tiền cho FamilyHub.', langLabel:'Ngôn ngữ', curLabel:'Tiền tệ',
+    signinT:'Đăng nhập FamilyHub', signinS:'Đăng nhập bằng Google — an toàn, nhanh gọn.', continueGoogle:'Tiếp tục với Google', signingIn:'Đang đăng nhập…',
     terms:'Khi tiếp tục, bạn đồng ý với Điều khoản & Chính sách bảo mật.',
-    familyTitle:'Gia đình của bạn', familySub:'Tạo một gia đình mới, hoặc tham gia gia đình đã mời bạn.',
-    startFamily:'Tạo gia đình mới', startFamilyS:'Bạn sẽ đặt tên và mời người khác', joinFamily:'Tham gia gia đình', joinFamilyS:'Nhập mã mời',
-    joinTitle:'Nhập mã mời', joinSub:'Xin mã 6 ký tự từ lời mời của người thân.', joinCta:'Tham gia gia đình',
-    profileTitle:'Thiết lập hồ sơ', profileSub:'Đây là cách gia đình nhìn thấy bạn.', yourName:'Tên của bạn', youAreThe:'Bạn là…',
-    setFamilyTitle:'Thiết lập gia đình', setFamilySub:'Đặt tên và mời các thành viên.', familyName:'Tên gia đình', membersInvites:'Thành viên & lời mời', inviteMember:'＋ Mời thành viên',
-    budgetTitle:'Đặt ngân sách', budgetSub:'Mục tiêu hằng tháng cho gia đình, rồi ngân sách cho từng danh mục.', monthlyBudget:'Ngân sách hằng tháng', categoryBudgets:'Ngân sách theo danh mục', categoryBudgetsHint:'Gợi ý sẵn từ tổng ngân sách, bạn có thể chỉnh bất cứ lúc nào.',
-    themeTitle:'Chọn giao diện', themeSub:'Chọn màu chủ đề cho gia đình, có thể đổi bất cứ lúc nào.',
+    familyTitle:'Gia đình của bạn', familySub:'Tạo gia đình mới, hoặc tham gia gia đình đã mời bạn.',
+    startFamily:'Tạo gia đình mới', startFamilyS:'Bạn đặt tên rồi mời mọi người vào', joinFamily:'Tham gia gia đình', joinFamilyS:'Nhập mã mời',
+    joinTitle:'Nhập mã mời', joinSub:'Xin người thân mã 6 ký tự trong lời mời của họ.', joinCta:'Tham gia',
+    profileTitle:'Thiết lập hồ sơ', profileSub:'Đây là cách cả nhà nhìn thấy bạn.', yourName:'Tên của bạn', youAreThe:'Bạn là…', phObName:'vd. Hân',
+    setFamilyTitle:'Thiết lập gia đình', setFamilySub:'Đặt tên và mời mọi người vào nhà.', familyName:'Tên gia đình', phFamName:'vd. Nhà mình', membersInvites:'Thành viên & lời mời', inviteMember:'＋ Mời thành viên',
+    budgetTitle:'Đặt ngân sách', budgetSub:'Mục tiêu hằng tháng của cả nhà, rồi ngân sách cho từng danh mục.', monthlyBudget:'Ngân sách hằng tháng', categoryBudgets:'Ngân sách theo danh mục', categoryBudgetsHint:'Tụi mình gợi ý sẵn từ tổng ngân sách, bạn chỉnh lúc nào cũng được.',
+    themeTitle:'Chọn giao diện', themeSub:'Chọn màu chủ đề cho nhà mình, đổi lúc nào cũng được.',
     enterApp:'Vào FamilyHub', continue:'Tiếp tục', you:'Bạn',
-    tabHome:'Nhà', tabMoney:'Tài Chính', tabMoments:'Khoảnh Khắc', tabSpending:'Chi tiêu', tabEvents:'Sự kiện', tabMemories:'Kỷ niệm',
-    morning:'Chào buổi sáng', afternoon:'Chào buổi chiều', evening:'Chào buổi tối', greetSub:'Tình hình tiền của gia đình hôm nay.',
-    comingUp:'Sắp tới', recent:'Gần đây', activity:'Hoạt động', memories:'Kỷ niệm', whereGoing:'Tiền đi đâu', allPhotos:'Tất cả ảnh', all:'Tất cả',
-    save:'Lưu', amountLbl:'Số tiền', thisMonthSrc:'Tháng này', toSpendU:'để tiêu', inviteMember2:'Mời thành viên', tellMore:'Kể thêm', tellMorePh:'Nói theo cách của bạn, không cần trau chuốt.', namePh:'Tên',
-    savingPhoto:'Đang lưu ảnh…', suggestFootHome:'Ý tưởng hay góp ý? Chúng tôi luôn lắng nghe', deleteEventBtn:'Xoá sự kiện', logExpenseBtn:'Ghi khoản chi', addFundsTitle:'Góp quỹ', addMemoryTitle:'Thêm kỉ niệm'
+    doneTitle:'Xong hết rồi!', doneSub:'Chào mừng bạn đến với FamilyHub.',
+    /* tabs */
+    tabHome:'Nhà', tabMoney:'Tài chính', tabMoments:'Khoảnh khắc',
+    /* greeting */
+    morning:'Chào buổi sáng', afternoon:'Chào buổi chiều', evening:'Chào buổi tối', greetSub:'Tình hình tiền của cả nhà hôm nay nè.',
+    budgetBtn:'Ngân sách',
+    /* home feed */
+    comingUp:'Sắp tới', recent:'Gần đây', memories:'Kỷ niệm', seeAll:'Tất cả',
+    savedLbl:'Đã để dành', spentLbl:'Đã chi', poolLbl:'Quỹ', latestPhotos:'Ảnh mới nhất',
+    txRecent:'Giao dịch gần đây', savingsGoals:'Mục tiêu tiết kiệm', addGoal:'＋ Mục tiêu',
+    trend6:'Xu hướng 6 tháng', vsBudget:'so với ngân sách', trendLegend:'Đường nét đứt là ngân sách của tháng đó',
+    /* finance view */
+    finHead:'Tài chính', finSub:'Chi tiêu, thu nhập và tiết kiệm của cả nhà.', incomeLbl:'Thu', outLbl:'Chi',
+    /* moments view */
+    momentsTitle:'Khoảnh khắc', momentsSub:'Dự định, kỷ niệm và album của cả nhà.', recentMemories:'Kỷ niệm gần đây', addPhotos:'Thêm ảnh',
+    /* shared buttons */
+    cancel:'Huỷ', save:'Lưu', add:'Thêm', done:'Xong', create:'Tạo', send:'Gửi', back:'Quay lại',
+    /* add sheet */
+    addSheetTitle:'Thêm mới', addSheetSub:'Ghi lại tiền bạc, hoặc lưu một khoảnh khắc.', grpFinance:'Tài chính', grpMoments:'Khoảnh khắc',
+    qaExpenseT:'Ghi chi tiêu', qaExpenseS:'Khoản tiền vừa chi',
+    qaIncomeT:'Ghi thu nhập', qaIncomeS:'Tiền vào của gia đình',
+    qaSaveT:'Bỏ ống tiết kiệm', qaSaveS:'Thêm vào quỹ chung của nhà',
+    qaGoalT:'Tạo mục tiêu', qaGoalS:'Để dành cho điều bạn muốn mua hoặc làm',
+    qaPlanT:'Lên kế hoạch', qaPlanS:'Một dịp sắp tới của cả nhà',
+    qaPhotoT:'Thêm khoảnh khắc', qaPhotoS:'Ảnh của gia đình',
+    qaSuggestT:'Góp ý', qaSuggestS:'Một ý tưởng hay điều bạn mong muốn',
+    /* suggest modal */
+    suggestTitle:'Tụi mình nghe bạn nè 💛', suggestSub:'Một ý tưởng, một điều chưa ưng, hay tính năng bạn ước có — kể tụi mình nghe hết nha.',
+    founderNote:'Tụi mình là hai phụ huynh, làm FamilyHub cho những gia đình như nhà bạn. Góp ý của bạn định hình những gì tụi mình làm tiếp theo.',
+    founderSig:'Mira & Sam, người sáng lập',
+    sgTypeLbl:'Bạn đang nghĩ gì', sgIdea:'💡 Một ý tưởng', sgLove:'💛 Điều mình thích', sgIssue:'🐞 Có gì đó chưa ổn',
+    tellMore:'Kể thêm nha', tellMorePh:'Nói theo cách của bạn thôi, không cần trau chuốt đâu.',
+    suggestFootHome:'Có ý tưởng hay muốn góp ý? Kể tụi mình nghe nha 💛',
+    /* expense modal */
+    expenseTitle:'Ghi một khoản chi', exWhatFor:'Chi cho gì?', phExNote:'vd. Đi chợ',
+    amountLbl:'Số tiền', whenLbl:'Khi nào', whoPaidLbl:'Ai trả', whoBoth:'Cả hai',
+    photosOptLbl:'Ảnh (tuỳ chọn)', addPhotosBtn:'📷 Thêm ảnh', deleteExpense:'Xoá khoản chi',
+    /* event modal */
+    eventTitle:'Sự kiện mới', evWhat:'Sự kiện gì?', phEvName:'vd. Đi biển', estCost:'Chi phí dự kiến',
+    coverFrom:'Lấy trọn chi phí từ', srcSavings:'Tiết kiệm', srcAvailable:'đang có',
+    thisMonthSrc:'Tháng này', toSpendU:'để tiêu', deleteEventBtn:'Xoá sự kiện',
+    /* photo assign modal */
+    photoAssignTitle:'Thêm ảnh', clearBtn:'Bỏ chọn',
+    /* goal modal */
+    goalTitle:'Mục tiêu tiết kiệm', goalSub:'Để dành tiền cho điều bạn muốn mua hoặc làm.',
+    goalWhat:'Mục tiêu này để làm gì?', phGoalName:'vd. Laptop mới, Quỹ khẩn cấp', goalIcon:'Biểu tượng',
+    goalNeed:'Cần bao nhiêu', goalWhen:'Khi nào (tuỳ chọn)', goalInit:'Bỏ ống ngay (tuỳ chọn)',
+    goalInitHint:'Lấy từ quỹ tiết kiệm chung của cả nhà.',
+    /* goal fund modal */
+    goalFundTitle:'Bỏ ống', goalFundSub:'Thêm tiền vào mục tiêu, lấy từ quỹ tiết kiệm chung.',
+    /* event fund modal */
+    addFundsTitle:'Góp quỹ', fundSub:'Chuyển từ quỹ tiết kiệm của nhà vào sự kiện này.',
+    fundAvail:'đang có trong quỹ tiết kiệm', eventLbl:'Sự kiện', addedByLbl:'Người thêm', fundAll:'Tất cả',
+    /* month sheet */
+    monthTitle:'Chọn tháng', monthSub:'Xem chi tiêu và ngân sách của bất kỳ tháng nào.',
+    /* category picker sheet */
+    catpickTitle:'Danh mục', catpickSub:'Xem giao dịch của danh mục khác.',
+    /* budget modal */
+    budgetModalTitle:'Danh mục & ngân sách', budgetModalSub:'Mục tiêu hằng tháng, cùng các danh mục gom chi tiêu của bạn. Thêm, đổi tên, chỉnh ngân sách hoặc xoá thoải mái.',
+    monthlyBudgetOpt:'· tự điền cho các danh mục bạn chưa đặt', catsLbl:'Danh mục',
+    budgetOver:'Các danh mục cộng lại vượt quá ngân sách tháng, nên mục Khác đang là 0.', addCategory:'＋ Thêm danh mục',
+    /* memory modal */
+    addMemoryTitle:'Thêm kỷ niệm', memorySub:'Lưu một tấm ảnh từ sự kiện này. Chú thích tuỳ bạn thôi.',
+    photoLbl:'Ảnh', uploadPhotos:'📷 Tải ảnh lên', captionOpt:'Chú thích (tuỳ chọn)', phMemCap:'vd. Ngày vui nhất chuyến đi',
+    /* settings sheet */
+    settingsTitle:'Cài đặt', settingsSub:'Chọn giao diện, áp dụng cho cả ứng dụng.',
+    setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên',
+    setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất',
+    /* generic edit modal */
+    fhModalEdit:'Chỉnh sửa',
+    /* celebrate */
+    celTitle:'Đủ tiền rồi!', celSub:'Cả nhà để dành đủ rồi đó.', celBtn:'Tuyệt vời! 🙌',
+    /* transactions overlay */
+    txnTitle:'Giao dịch', phTxnSearch:'Tìm theo tên, danh mục, người…', txnSortNewest:'Mới nhất', txnHistory:'Lịch sử', txActivity:'Hoạt động',
+    /* category detail */
+    cdSpentThisMonth:'Đã chi tháng này', cdTransactions:'Giao dịch', logExpenseBtn:'Ghi khoản chi',
+    /* status & misc */
+    savingPhoto:'Đang lưu ảnh…', updating:'Đang cập nhật…', offline:'Đang ngoại tuyến. Thay đổi lưu ở đây, đồng bộ khi bạn có mạng lại',
+    deletePhoto:'Xoá ảnh', addPhotoLine:'📷 Thêm ảnh', namePh:'Tên',
+    /* aria labels */
+    ariaTheme:'Giao diện', ariaPrevMonth:'Tháng trước', ariaNextMonth:'Tháng sau', ariaAdd:'Thêm', ariaPhoto:'Ảnh',
+    ariaBack:'Quay lại', ariaClose:'Đóng', ariaClearSearch:'Xoá tìm kiếm',
+    ariaRemoveCat:'Xoá danh mục', ariaRemovePhoto:'Xoá ảnh', ariaRemove:'Xoá'
   }
 };
-var EN_DEFAULT={welcomeTitle:'Welcome to',getStarted:'Get started',haveAccount:'I already have an account',continue:'Continue',continueGoogle:'Continue with Google',signingIn:'Signing in…',joinCta:'Join family',enterApp:'Enter FamilyHub',you:'You',categoryBudgetsHint:'Suggested from your total. Adjust anytime.',tabHome:'Home',tabMoney:'Finance',tabMoments:'Moments',tabSpending:'Spending',tabEvents:'Events',tabMemories:'Memories',morning:'Good morning',afternoon:'Good afternoon',evening:'Good evening',greetSub:"Here's how the family's money looks today.",recent:'Recent',activity:'Activity'};
+
 function t(k){ if(LANG==='vi' && I18N.vi[k]!==undefined) return I18N.vi[k]; if(EN_DEFAULT[k]!==undefined) return EN_DEFAULT[k]; var el=document.querySelector('[data-t="'+k+'"]'); return el?el.getAttribute('data-en')||el.textContent:k; }
 function applyLang(){
   document.querySelectorAll('[data-t]').forEach(function(el){
     var k=el.getAttribute('data-t');
     if(!el.getAttribute('data-en')) el.setAttribute('data-en', el.textContent);   // capture the original English once
-    el.textContent = (LANG==='vi' && I18N.vi[k]!==undefined) ? I18N.vi[k] : el.getAttribute('data-en');
+    el.textContent = (LANG==='vi' && I18N.vi[k]!==undefined) ? I18N.vi[k] : (EN_DEFAULT[k]!==undefined ? EN_DEFAULT[k] : el.getAttribute('data-en'));
   });
   document.querySelectorAll('[data-tp]').forEach(function(el){
     var k=el.getAttribute('data-tp');
     if(!el.getAttribute('data-enp')) el.setAttribute('data-enp', el.getAttribute('placeholder')||'');
-    el.setAttribute('placeholder', (LANG==='vi' && I18N.vi[k]!==undefined) ? I18N.vi[k] : el.getAttribute('data-enp'));
+    el.setAttribute('placeholder', (LANG==='vi' && I18N.vi[k]!==undefined) ? I18N.vi[k] : (EN_DEFAULT[k]!==undefined ? EN_DEFAULT[k] : el.getAttribute('data-enp')));
+  });
+  document.querySelectorAll('[data-ta]').forEach(function(el){
+    var k=el.getAttribute('data-ta');
+    if(!el.getAttribute('data-ena')) el.setAttribute('data-ena', el.getAttribute('aria-label')||'');
+    el.setAttribute('aria-label', (LANG==='vi' && I18N.vi[k]!==undefined) ? I18N.vi[k] : (EN_DEFAULT[k]!==undefined ? EN_DEFAULT[k] : el.getAttribute('data-ena')));
   });
   document.documentElement.lang = LANG==='vi'?'vi':'en';
   setGreeting();

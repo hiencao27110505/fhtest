@@ -21,7 +21,7 @@ function renderGallery(boxId){
   var e=events[curEvent], box=document.getElementById(boxId); if(!box)return;
   if(!e.memories||!e.memories.length){
     box.innerHTML = boxId==='ov-fund-gallery' ? ''    // funding view: the "Add a photo" button is the invite
-      : '<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">No memories yet</div><p>Add a photo and caption to remember this event.</p></div>';
+      : '<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">'+L('Chưa có kỉ niệm nào','No memories yet')+'</div><p>'+L('Thêm ảnh và chú thích để ghi nhớ dịp này nha.','Add a photo and caption to remember this event.')+'</p></div>';
     delete box.dataset.sig;      // or deleting the last photo and re-adding it would match a stale sig and leave the empty state up
     return;
   }
@@ -45,7 +45,7 @@ function renderGallery(boxId){
          resolve one by one. Load the first few eagerly; anything below the fold
          on a long event can still defer. */
       var eager=i<4;
-      html+='<div class="mem-full tap" onclick="openPeek('+i+')"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||'Memory photo')+'"'
+      html+='<div class="mem-full tap" onclick="openPeek('+i+')"><img src="'+escAttr(m.src)+'" alt="'+escAttr(m.caption||L('Ảnh kỉ niệm','Memory photo'))+'"'
         +(eager?' fetchpriority="high"':' loading="lazy"')+' decoding="async">'+cap+'</div>';
     } else {
       html+='<div class="mem-full tile tap '+esc(m.cls||'ph-park')+'" onclick="openPeek('+i+')"><div class="subj">'+esc(m.emoji||'📸')+'</div>'+cap+'</div>';
@@ -69,7 +69,7 @@ function openPeek(i){
   var img=document.getElementById('peek-img'), tile=document.getElementById('peek-tile');
   if(m.src){
     frame.className='peek-frame';
-    img.src=m.src; img.alt=m.caption||'Memory photo';
+    img.src=m.src; img.alt=m.caption||L('Ảnh kỉ niệm','Memory photo');
   } else {
     frame.className='peek-frame is-tile '+(m.cls||'ph-park');
     img.removeAttribute('src'); tile.textContent=m.emoji||'📸';
@@ -134,7 +134,7 @@ function showMemPreview(){
   var pv=document.getElementById('mem-preview');
   if(memPickMulti && memPickMulti.length){
     pv.className='mem-preview show'; pv.style.backgroundImage='url('+memPickMulti[0].src+')';
-    setTxt('mem-prev-cap', memPickMulti.length+' photos selected'); return;
+    setTxt('mem-prev-cap', L('Đã chọn '+memPickMulti.length+' ảnh',memPickMulti.length+' photos selected')); return;
   }
   if(!memPick){ pv.className='mem-preview'; pv.style.backgroundImage=''; setTxt('mem-prev-cap',''); return; }
   if(memPick.src){ pv.className='mem-preview show'; pv.style.backgroundImage='url('+memPick.src+')'; }
@@ -183,13 +183,13 @@ function renderRing(){
   rf.setAttribute('stroke-dashoffset',(CIRC*(1-frac)).toFixed(1));
   rf.style.stroke=funded?'var(--good)':'';              // the full ring turns celebratory green when funded
   if(funded){                                            // ready state: countdown leads, money demoted, no "0 still to save"
-    setTxt('ring-pct','✓'); setTxt('ring-lab','Ready');
-    setHTML('ov-cur', dl===0?'The day is here! 🎉':(dl+' day'+(dl!==1?'s':'')+' to go 🎉'));
-    setTxt('ov-left', fmt(e.saved)+' set aside');
+    setTxt('ring-pct','✓'); setTxt('ring-lab',L('Sẵn sàng','Ready'));
+    setHTML('ov-cur', dl===0?L('Hôm nay là ngày đó rồi! 🎉','The day is here! 🎉'):L('còn '+dl+' ngày nữa 🎉',dl+' day'+(dl!==1?'s':'')+' to go 🎉'));
+    setTxt('ov-left', fmt(e.saved)+L(' đã để dành',' set aside'));
   } else {
-    setTxt('ring-pct',pct+'%'); setTxt('ring-lab','funded');
-    setHTML('ov-cur',fmt(e.saved)+' <span class="t">of '+fmt(e.target)+'</span>');
-    setTxt('ov-left',fmt(Math.max(0,e.target-e.saved))+' still to save');
+    setTxt('ring-pct',pct+'%'); setTxt('ring-lab',L('đã góp','funded'));
+    setHTML('ov-cur',fmt(e.saved)+' <span class="t">'+L('trên','of')+' '+fmt(e.target)+'</span>');
+    setTxt('ov-left',fmt(Math.max(0,e.target-e.saved))+L(' cần tiết kiệm thêm',' still to save'));
   }
 }
 function closeEvent(){ document.getElementById('event-overlay').classList.remove('on'); }
@@ -225,13 +225,13 @@ function pickSrc(btn){
 }
 function updateSrcHint(){
   var safe=Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved());
-  setHTML('src-savings', fmt(savings)+' <span class="u">available</span>');
-  setHTML('src-month', fmt(safe)+' <span class="u">to spend</span>');
+  setHTML('src-savings', fmt(savings)+' <span class="u">'+L('sẵn có','available')+'</span>');
+  setHTML('src-month', fmt(safe)+' <span class="u">'+L('để chi','to spend')+'</span>');
   var cost=parseAmtBase(document.getElementById('ng-amt').value)||0;
   var el=document.getElementById('ng-srchint'); if(!el)return;
   if(cost<=0){ el.textContent=''; return; }
   var avail=selSrc==='savings'?savings:safe;
-  if(cost>avail) el.innerHTML='<span class="warn">Short by '+fmt(cost-avail)+', covers '+fmt(avail)+' now</span>';
+  if(cost>avail) el.innerHTML=L('<span class="warn">Thiếu '+fmt(cost-avail)+', giờ mới đủ '+fmt(avail)+'</span>','<span class="warn">Short by '+fmt(cost-avail)+', covers '+fmt(avail)+' now</span>');
   else if(selSrc==='savings') el.textContent=L('Đủ trọn '+fmt(cost)+' từ quỹ tiết kiệm','Covers the full '+fmt(cost)+' from savings');
   else el.innerHTML=L('Đủ trọn '+fmt(cost)+' · còn '+fmt(safe-cost)+' trong tháng','Covers the full '+fmt(cost)+' · leaves you '+fmt(safe-cost)+' in July');
 }
@@ -265,11 +265,11 @@ function addEvent(){
     var safe=Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved());
     var use=Math.min(target,safe);
     ev.saved+=use; ev.setAside+=use;
-    msg='Created · '+fmt(use)+' set aside from July 🎯';
+    msg=L('Đã tạo · để dành '+fmt(use)+' từ tháng 7 🎯','Created · '+fmt(use)+' set aside from July 🎯');
   } else {
     var use2=Math.min(target,savings);
     ev.saved+=use2; savings-=use2;
-    msg='Created · '+fmt(use2)+' from savings 🎯';
+    msg=L('Đã tạo · '+fmt(use2)+' từ quỹ tiết kiệm 🎯','Created · '+fmt(use2)+' from savings 🎯');
   }
   renderEvents(); renderAll(); renderTxns();
   document.getElementById('ng-name').value=''; document.getElementById('ng-amt').value=''; document.getElementById('ng-date').value='';

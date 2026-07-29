@@ -58,9 +58,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <body>
 <!-- static so it paints on the first frame — see the returning-user gate in <head> -->
 <div id="fh-splash" aria-hidden="true"><div class="fs-logo">🏡</div><div class="fs-name">FamilyHub</div></div>
-<div id="fh-updating" role="status" aria-live="polite"><span class="fu-dot"></span><span>Updating…</span></div>
+<div id="fh-updating" role="status" aria-live="polite"><span class="fu-dot"></span><span data-t="updating">Updating…</span></div>
 <div id="fh-uploading" role="status" aria-live="polite"><span class="fu-dot"></span><span class="fu-txt" data-t="savingPhoto">Saving photo…</span></div>
-<div id="fh-offline" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22M16.7 16.7A6 6 0 007 8.3M5 12.5a10 10 0 013-2.3M2 8.8a15 15 0 014.2-2.7M12 20h.01"/></svg><span>Offline. Changes save here, sync when you’re back</span></div>
+<div id="fh-offline" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22M16.7 16.7A6 6 0 007 8.3M5 12.5a10 10 0 013-2.3M2 8.8a15 15 0 014.2-2.7M12 20h.01"/></svg><span data-t="offline">Offline. Changes save here, sync when you’re back</span></div>
 <div class="phone t-sage" id="phone">
 <div class="scroll" id="scroll">
 
@@ -73,10 +73,10 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
         <button class="month-sel" onclick="openSheet('sheet-month')"><span id="hero-month">July 2026</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></button>
         <div style="display:flex;gap:8px">
-          <button class="hero-ic" onclick="openSheet('sheet-theme')" aria-label="Theme">
+          <button class="hero-ic" onclick="openSheet('sheet-theme')" aria-label="Theme" data-ta="ariaTheme">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3a9 9 0 100 18 2 2 0 001.6-3.3 2 2 0 011.5-3.2H18a3 3 0 003-3c0-4-4-6-9-6z"/><circle cx="7.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="10" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8" r="1.1" fill="currentColor" stroke="none"/></svg></button>
           <button class="hero-gear" onclick="openSheet('sheet-budget')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/><circle cx="9" cy="6" r="2.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2.4" fill="currentColor" stroke="none"/><circle cx="8" cy="18" r="2.4" fill="currentColor" stroke="none"/></svg>Budget</button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/><circle cx="9" cy="6" r="2.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2.4" fill="currentColor" stroke="none"/><circle cx="8" cy="18" r="2.4" fill="currentColor" stroke="none"/></svg><span data-t="budgetBtn">Budget</span></button>
         </div>
       </div>
       <div class="greet" id="greet">Good evening, Emma 🌙</div>
@@ -99,22 +99,22 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     </div>
     <div class="ovc-div"></div>
     <div class="ovc-col" onclick="goMoments('plans')">
-      <div class="ovc-l">Đã để dành</div>
+      <div class="ovc-l" data-t="savedLbl">Saved</div>
       <div class="ovc-n num" id="ht-sav">$10,920</div>
       <div class="ovc-s" id="ht-sav-s">$5,980 to go</div>
     </div>
   </div>
 
-  <div class="section-h"><span class="t">Sắp tới</span><a onclick="goMoments('plans')">Tất cả</a></div>
+  <div class="section-h"><span class="t" data-t="comingUp">Coming up</span><a onclick="goMoments('plans')" data-t="seeAll">See all</a></div>
   <div class="rows" id="home-events"></div>
 
-  <div class="section-h"><span class="t">Kỉ niệm</span><a onclick="goMoments('memories')">Tất cả</a></div>
+  <div class="section-h"><span class="t" data-t="memories">Memories</span><a onclick="goMoments('memories')" data-t="seeAll">See all</a></div>
   <div class="mem-strip" id="home-memories"></div>
 
-  <div class="section-h"><span class="t">Gần đây</span><a onclick="clearFilter();go('spending');segTo('activity')">Tất cả</a></div>
+  <div class="section-h"><span class="t" data-t="recent">Recent</span><a onclick="clearFilter();go('spending');segTo('activity')" data-t="seeAll">See all</a></div>
   <div class="rows" id="home-tx"></div>
 
-  <div class="section-h" id="home-feed-h"><span class="t">Ảnh mới nhất</span><a onclick="goMoments('album')">Xem tất cả</a></div>
+  <div class="section-h" id="home-feed-h"><span class="t" data-t="latestPhotos">Latest photos</span><a onclick="goMoments('album')" data-t="seeAll">See all</a></div>
   <div id="home-feed"></div>
 
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
@@ -130,8 +130,8 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="child-hdr">
     <div class="ch-row">
       <div>
-        <div class="ch-title">Tài Chính</div>
-        <div class="ch-sub">Chi tiêu, thu nhập và tiết kiệm của gia đình.</div>
+        <div class="ch-title" data-t="finHead">Finance</div>
+        <div class="ch-sub" data-t="finSub">The family's spending, income and savings.</div>
       </div>
       <button class="ch-pill" onclick="openSheet('sheet-month')"><span id="sp-month">July 2026</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 9l6 6 6-6"/></svg></button>
@@ -167,25 +167,25 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 
   <!-- MONEY THIS MONTH — in · out · banked (each taps into its detail) -->
   <div class="cash3">
-    <button class="c3" onclick="fhIncome()"><div class="k"><span class="ar" style="color:var(--good)">↑</span>Thu</div><div class="v num" id="snap-in">—</div></button>
-    <button class="c3" onclick="segTo('activity')"><div class="k"><span class="ar" style="color:var(--ink-2)">↓</span>Chi</div><div class="v num" id="snap-out">—</div></button>
-    <button class="c3" onclick="fhSavings()"><div class="k"><span class="ar" style="color:var(--brand-ink)">◎</span>Quỹ</div><div class="v num" id="snap-pool">—</div></button>
+    <button class="c3" onclick="fhIncome()"><div class="k"><span class="ar" style="color:var(--good)">↑</span><span data-t="incomeLbl">In</span></div><div class="v num" id="snap-in">—</div></button>
+    <button class="c3" onclick="segTo('activity')"><div class="k"><span class="ar" style="color:var(--ink-2)">↓</span><span data-t="outLbl">Out</span></div><div class="v num" id="snap-out">—</div></button>
+    <button class="c3" onclick="fhSavings()"><div class="k"><span class="ar" style="color:var(--brand-ink)">◎</span><span data-t="poolLbl">Pool</span></div><div class="v num" id="snap-pool">—</div></button>
   </div>
 
   <!-- Ngân sách theo hạng mục now lives inside the hero card's legend (renderFinanceHero) -->
 
   <!-- GIAO DỊCH -->
-  <div class="section-h"><span class="t" id="tx-head">Giao dịch gần đây</span><a onclick="openTxns()">Xem tất cả</a></div>
+  <div class="section-h"><span class="t" id="tx-head">Giao dịch gần đây</span><a onclick="openTxns()" data-t="seeAll">See all</a></div>
   <!-- note: #tx-head text is overwritten by renderTxns() when a filter is active -->
   <input type="file" id="pa-file" accept="image/*" multiple onchange="paIngest(this)" hidden>
   <div id="act-filter"></div>
   <div class="rows" id="tx-rows"></div>
 
   <!-- MỤC TIÊU TIẾT KIỆM -->
-  <div class="section-h"><span class="t">Mục tiêu tiết kiệm</span><a onclick="openGoal()">＋ Mục tiêu</a></div>
+  <div class="section-h"><span class="t" data-t="savingsGoals">Savings goals</span><a onclick="openGoal()" data-t="addGoal">＋ Goal</a></div>
   <div class="gsum">
     <div class="gsum-top">
-      <div class="gsum-lab">Đã để dành <b class="num" id="sav-total">—</b> <span class="of">/ <span id="ev-goal">—</span></span></div>
+      <div class="gsum-lab"><span data-t="savedLbl">Saved</span> <b class="num" id="sav-total">—</b> <span class="of">/ <span id="ev-goal">—</span></span></div>
       <span class="b-badge over" id="ev-badge">—</span>
     </div>
     <div class="gsum-bar"><i id="sav-fill" style="width:0%"></i></div>
@@ -194,16 +194,16 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div id="goals-list"></div>
 
   <!-- XU HƯỚNG -->
-  <div class="section-h"><span class="t">Xu hướng 6 tháng</span><span class="sh-note">so với ngân sách</span></div>
+  <div class="section-h"><span class="t" data-t="trend6">6-month trend</span><span class="sh-note" data-t="vsBudget">vs budget</span></div>
   <div class="card" style="padding:18px 18px 16px">
     <div class="trend-chart" id="trend-chart"></div>
     <div class="trend-labels" id="trend-labels"></div>
-    <div class="trend-legend"><span class="dash"></span> Đường nét đứt = ngân sách tháng đó</div>
+    <div class="trend-legend"><span class="dash"></span> <span data-t="trendLegend">Dashed line = that month's budget</span></div>
   </div>
 
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
     <span class="sf-heart">💛</span>
-    <span class="sf-t">Ý tưởng hay góp ý? Chúng tôi luôn lắng nghe</span>
+    <span class="sf-t" data-t="suggestFootHome">Ideas or gripes? We're always listening</span>
   </button>
   <div class="spacer"></div>
 </section>
@@ -214,8 +214,8 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="child-hdr">
     <div class="ch-row">
       <div>
-        <div class="ch-title">Khoảnh Khắc</div>
-        <div class="ch-sub">Dự định, kỉ niệm và album của gia đình.</div>
+        <div class="ch-title" data-t="momentsTitle">Moments</div>
+        <div class="ch-sub" data-t="momentsSub">The family's plans, memories and album.</div>
       </div>
     </div>
   </div>
@@ -226,9 +226,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
        focal element (parallel to Tài Chính's stat-card), not just another section. -->
   <div class="cal">
     <div class="cal-head">
-      <button class="cal-nav" onclick="mcalNav(-1)" aria-label="Previous month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button class="cal-nav" onclick="mcalNav(-1)" aria-label="Previous month" data-ta="ariaPrevMonth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 18l-6-6 6-6"/></svg></button>
       <span class="cal-mon" id="mcal-mon">June 2026</span>
-      <button class="cal-nav" onclick="mcalNav(1)" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg></button>
+      <button class="cal-nav" onclick="mcalNav(1)" aria-label="Next month" data-ta="ariaNextMonth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg></button>
     </div>
     <div class="mcal-grid" id="mcal-grid"></div>
     <!-- contextual prompt for a tapped empty day; filled by renderMcalPrompt() -->
@@ -238,17 +238,17 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <!-- ĐÁNG NHỚ — the family's occasions: any upcoming plans lead, then past memories
        (5-preview + "Xem tất cả"), and the scroll ends on a plan trigger — so browsing
        memories flows naturally into planning the next one. (No separate "Sắp tới" section.) -->
-  <div class="section-h" id="past-head"><span class="t">Kỉ niệm gần đây</span><a id="past-more" onclick="toggleMem()" style="display:none"></a></div>
+  <div class="section-h" id="past-head"><span class="t" data-t="recentMemories">Recent memories</span><a id="past-more" onclick="toggleMem()" style="display:none"></a></div>
   <div id="past-events" class="timeline"></div>
 
   <!-- Ảnh tháng … — the month's photos; the title carries the month so the calendar's
        scope reads clearly (it governs these photos). -->
-  <div class="section-h"><span class="t" id="album-title">Ảnh</span><a onclick="paOpen()">Thêm ảnh</a></div>
+  <div class="section-h"><span class="t" id="album-title">Ảnh</span><a onclick="paOpen()" data-t="addPhotos">Add photos</a></div>
   <div id="mem-grid"></div>
 
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
     <span class="sf-heart">💛</span>
-    <span class="sf-t">Ý tưởng hay góp ý? Chúng tôi luôn lắng nghe</span>
+    <span class="sf-t" data-t="suggestFootHome">Ideas or gripes? We're always listening</span>
   </button>
   <div class="spacer"></div>
 </section>
@@ -256,20 +256,20 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 </div><!-- /scroll -->
 
 <!-- FLOATING ADD -->
-<button class="fab" onclick="openSheet('sheet-add')" aria-label="Add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+<button class="fab" onclick="openSheet('sheet-add')" aria-label="Add" data-ta="ariaAdd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
 
 <!-- TAB BAR -->
 <nav class="tabbar">
-  <button class="tab on" id="t-home" onclick="go('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg><span data-t="tabHome">Nhà</span></button>
-  <button class="tab" id="t-spending" onclick="go('spending')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg><span data-t="tabMoney">Tài Chính</span></button>
-  <button class="tab" id="t-events" onclick="go('events')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 16l4.5-4 3.5 3 4-3.5L21 16.5"/></svg><span data-t="tabMoments">Khoảnh Khắc</span></button>
+  <button class="tab on" id="t-home" onclick="go('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg><span data-t="tabHome">Home</span></button>
+  <button class="tab" id="t-spending" onclick="go('spending')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg><span data-t="tabMoney">Finance</span></button>
+  <button class="tab" id="t-events" onclick="go('events')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 16l4.5-4 3.5 3 4-3.5L21 16.5"/></svg><span data-t="tabMoments">Moments</span></button>
 </nav>
 
 <!-- EVENT OVERLAY -->
 <div class="overlay" id="event-overlay">
   <div class="ov-hero" id="ov-hero">
     <div class="safe"></div>
-    <button class="ov-back" onclick="closeEvent()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>Back</button>
+    <button class="ov-back" onclick="closeEvent()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="back">Back</span></button>
     <div class="ov-em" id="ov-em">✈️</div>
     <div class="ov-name" id="ov-name">Summer in Japan</div>
     <div class="ov-meta" id="ov-meta">Sep 15 · 64 days to go</div>
@@ -295,17 +295,17 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
         <div class="row"><div class="av av-emma av-44">EM</div><div class="r-body"><div class="r-t">Emma</div><div class="r-s">Auto-saves <span data-amt="200" data-amt-suf="/mo"></span></div></div><div class="r-amt num" data-amt="3200"></div></div>
         <div class="row"><div class="av av-james av-44">JR</div><div class="r-body"><div class="r-t">James</div><div class="r-s">Contributes monthly</div></div><div class="r-amt num" data-amt="2400"></div></div>
       </div>
-      <div class="section-h"><span class="t">History</span></div>
+      <div class="section-h"><span class="t" data-t="txnHistory">History</span></div>
       <div class="rows" id="ov-history">
         <div class="row"><div class="r-ico" style="background:var(--brand-tint);color:var(--brand)">＋</div><div class="r-body"><div class="r-t">James added</div><div class="r-s">3 days ago</div></div><div class="r-amt num pos" data-amt="200" data-amt-pre="+"></div></div>
         <div class="row"><div class="r-ico" style="background:var(--brand-tint);color:var(--brand)">↻</div><div class="r-body"><div class="r-t">Emma auto-saved</div><div class="r-s">Jul 1</div></div><div class="r-amt num pos" data-amt="400" data-amt-pre="+"></div></div>
       </div>
-      <div class="section-h" style="margin-top:22px"><span class="t">Memories</span></div>
+      <div class="section-h" style="margin-top:22px"><span class="t" data-t="memories">Memories</span></div>
       <div class="mgallery" id="ov-fund-gallery" style="margin-bottom:12px"></div>
-      <button class="btn-line" onclick="openMemorySheet()" style="margin:0 16px">📷 Add a photo</button>
+      <button class="btn-line" onclick="openMemorySheet()" style="margin:0 16px" data-t="addPhotoLine">📷 Add a photo</button>
     </div>
     <div id="ov-memories" style="display:none">
-      <div class="section-h"><span class="t">Memories</span></div>
+      <div class="section-h"><span class="t" data-t="memories">Memories</span></div>
       <div class="mgallery" id="ov-gallery"></div>
     </div>
   </div>
@@ -318,7 +318,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <!-- MEMORY DETAIL -->
 <div class="overlay" id="memory-overlay">
   <div class="mo-scroll">
-    <div class="ovnav"><button class="ovback" onclick="closeMemory()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>Memories</button></div>
+    <div class="ovnav"><button class="ovback" onclick="closeMemory()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="memories">Memories</span></button></div>
     <div class="mo-head"><div class="mo-cap" id="mo-cap"></div><div class="mo-meta" id="mo-meta"></div></div>
     <div class="mo-photos" id="mo-photo"></div>
     <div class="mo-body"><button class="mo-action" id="mo-action"></button></div>
@@ -328,7 +328,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <!-- PHOTOS BY DATE (iOS Photos style) -->
 <div class="overlay" id="photos-overlay">
   <div class="mo-scroll">
-    <div class="ovnav"><button class="ovback" onclick="closePhotos()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>Memories</button><div class="ovnav-title" id="po-title"></div></div>
+    <div class="ovnav"><button class="ovback" onclick="closePhotos()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="memories">Memories</span></button><div class="ovnav-title" id="po-title"></div></div>
     <div id="po-body" style="padding-bottom:calc(30px + env(safe-area-inset-bottom))"></div>
   </div>
 </div>
@@ -337,7 +337,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <div class="overlay" id="cat-overlay">
   <div class="safe"></div>
   <div class="cd-nav">
-    <button class="cd-back" onclick="closeCat()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>Back</button>
+    <button class="cd-back" onclick="closeCat()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="back">Back</span></button>
     <button class="cd-monbtn" onclick="openSheet('sheet-month')"><span id="cd-monname">July</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 9l6 6 6-6"/></svg></button>
   </div>
   <div class="cd-scroll">
@@ -368,13 +368,13 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <div class="overlay" id="txn-overlay">
   <div class="safe"></div>
   <div class="cd-nav">
-    <button class="cd-back" onclick="closeTxns()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>Tài Chính</button>
+    <button class="cd-back" onclick="closeTxns()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="finHead">Finance</span></button>
   </div>
-  <h1 class="txn-title">Giao dịch</h1>
+  <h1 class="txn-title" data-t="txnTitle">Transactions</h1>
   <div class="txn-tools">
     <div class="txn-row1">
-      <div class="txn-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4" stroke-linecap="round"/></svg><input id="txn-q" inputmode="search" placeholder="Tìm theo tên, danh mục, người…" oninput="onTxnQ()"/><button class="txn-clear" id="txn-clear" onclick="txnClear()" aria-label="Xoá tìm kiếm" style="display:none"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M9 9l6 6M15 9l-6 6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></button></div>
-      <button class="txn-sort" id="txn-sort" onclick="toggleTxnSort()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h13M4 12h8M4 18h4"/></svg><span id="txn-sort-lab">Mới nhất</span></button>
+      <div class="txn-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4" stroke-linecap="round"/></svg><input id="txn-q" inputmode="search" data-tp="phTxnSearch" placeholder="Search by name, category, person…" oninput="onTxnQ()"/><button class="txn-clear" id="txn-clear" onclick="txnClear()" aria-label="Clear search" data-ta="ariaClearSearch" style="display:none"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M9 9l6 6M15 9l-6 6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></button></div>
+      <button class="txn-sort" id="txn-sort" onclick="toggleTxnSort()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h13M4 12h8M4 18h4"/></svg><span id="txn-sort-lab">Newest</span></button>
     </div>
     <div class="txn-chips" id="txn-chips"></div>
   </div>
@@ -390,37 +390,35 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 
 <div class="sheet" id="sheet-add">
   <div class="grab"></div>
-  <div class="sheet-h">Thêm mới</div>
-  <div class="sheet-sub">Ghi lại tiền bạc, hoặc lưu giữ một khoảnh khắc.</div>
-  <div class="qa-group">Tài Chính</div>
-  <button class="qa" onclick="closeSheet();go('spending');openExpense()"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg></div><div><div class="qt">Ghi chi tiêu</div><div class="qs">Khoản tiền vừa chi</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();go('spending');fhIncome()"><div class="qi" style="background:linear-gradient(135deg,#34C77B,#1a9d5f)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div><div><div class="qt">Ghi thu nhập</div><div class="qs">Tiền vào của gia đình</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();go('spending');fhSavings()"><div class="qi" style="background:linear-gradient(135deg,#F0B450,#DB8A24)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a5 5 0 015-5h5a6 6 0 016 6 6 6 0 01-3 5.2V20h-3v-2h-2v2H7v-3a6 6 0 01-4-5zM8 9h.01"/></svg></div><div><div class="qt">Bỏ ống tiết kiệm</div><div class="qs">Thêm vào quỹ chung của nhà</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();go('spending');openSheet('sheet-budget')"><div class="qi" style="background:linear-gradient(135deg,#5AA9D8,#2E7DAE)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></div><div><div class="qt">Đặt ngân sách</div><div class="qs">Hạn mức chi tiêu hằng tháng</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();go('spending');openGoal()"><div class="qi" style="background:linear-gradient(135deg,#34B87A,#2E9E6B)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg></div><div><div class="qt">Tạo mục tiêu</div><div class="qs">Để dành cho điều bạn muốn mua hoặc làm</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <div class="qa-group">Khoảnh Khắc</div>
-  <button class="qa" onclick="closeSheet();goMoments('plans');openSheet('sheet-event')"><div class="qi" style="background:linear-gradient(135deg,#9D4EFF,#E14BF0)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div><div><div class="qt">Lên kế hoạch</div><div class="qs">Một dịp sắp tới của gia đình</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();goMoments('album');paOpen()"><div class="qi" style="background:linear-gradient(135deg,#FF8FB1,#F0567F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg></div><div><div class="qt">Thêm khoảnh khắc</div><div class="qs">Ảnh của gia đình</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();openSheet('sheet-suggest')"><div class="qi" style="background:linear-gradient(135deg,#B9B2C6,#8a8494)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20s-7-4.4-9.3-8.7C1.2 8 2.7 4.6 6 4.6c2 0 3.2 1.3 4 2.6.8-1.3 2-2.6 4-2.6 3.3 0 4.8 3.4 3.3 6.7C19 15.6 12 20 12 20z"/></svg></div><div><div class="qt">Góp ý</div><div class="qs">Một ý tưởng hay điều bạn mong muốn</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <div class="sheet-h" data-t="addSheetTitle">Add something</div>
+  <div class="sheet-sub" data-t="addSheetSub">Log money, or save a moment.</div>
+  <div class="qa-group" data-t="grpFinance">Finance</div>
+  <button class="qa" onclick="closeSheet();go('spending');openExpense()"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg></div><div><div class="qt" data-t="qaExpenseT">Log an expense</div><div class="qs" data-t="qaExpenseS">Money you just spent</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();go('spending');fhIncome()"><div class="qi" style="background:linear-gradient(135deg,#34C77B,#1a9d5f)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div><div><div class="qt" data-t="qaIncomeT">Log income</div><div class="qs" data-t="qaIncomeS">Money coming into the family</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();go('spending');fhSavings()"><div class="qi" style="background:linear-gradient(135deg,#F0B450,#DB8A24)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a5 5 0 015-5h5a6 6 0 016 6 6 6 0 01-3 5.2V20h-3v-2h-2v2H7v-3a6 6 0 01-4-5zM8 9h.01"/></svg></div><div><div class="qt" data-t="qaSaveT">Add to savings</div><div class="qs" data-t="qaSaveS">Add to the family pool</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>  <button class="qa" onclick="closeSheet();go('spending');openGoal()"><div class="qi" style="background:linear-gradient(135deg,#34B87A,#2E9E6B)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg></div><div><div class="qt" data-t="qaGoalT">Create a goal</div><div class="qs" data-t="qaGoalS">Save for something you want to buy or do</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <div class="qa-group" data-t="grpMoments">Moments</div>
+  <button class="qa" onclick="closeSheet();goMoments('plans');openSheet('sheet-event')"><div class="qi" style="background:linear-gradient(135deg,#9D4EFF,#E14BF0)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div><div><div class="qt" data-t="qaPlanT">Plan something</div><div class="qs" data-t="qaPlanS">An upcoming family occasion</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();goMoments('album');paOpen()"><div class="qi" style="background:linear-gradient(135deg,#FF8FB1,#F0567F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg></div><div><div class="qt" data-t="qaPhotoT">Add a moment</div><div class="qs" data-t="qaPhotoS">Family photos</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();openSheet('sheet-suggest')"><div class="qi" style="background:linear-gradient(135deg,#B9B2C6,#8a8494)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20s-7-4.4-9.3-8.7C1.2 8 2.7 4.6 6 4.6c2 0 3.2 1.3 4 2.6.8-1.3 2-2.6 4-2.6 3.3 0 4.8 3.4 3.3 6.7C19 15.6 12 20 12 20z"/></svg></div><div><div class="qt" data-t="qaSuggestT">Share feedback</div><div class="qs" data-t="qaSuggestS">An idea or something you wish for</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
 </div>
 
 <div class="modal" id="sheet-suggest">
   <div class="modal-grip"></div>
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeModals()">Cancel</button>
-    <div class="modal-title">We hear you 💛</div>
-    <button class="modal-save" onclick="sendSuggestion()">Send</button>
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title" data-t="suggestTitle">We hear you 💛</div>
+    <button class="modal-save" onclick="sendSuggestion()" data-t="send">Send</button>
   </div>
   <div class="modal-body">
-    <div class="sheet-sub">An idea, a gripe, a feature you wish existed. Tell us anything. We read every single one.</div>
+    <div class="sheet-sub" data-t="suggestSub">An idea, a gripe, a feature you wish existed — tell us anything.</div>
     <div class="founder-note">
       <div class="fn-avs"><span class="fn-av">👩🏻</span><span class="fn-av">🧑🏻</span></div>
-      <div class="fn-txt">“We're two parents building FamilyHub for families like yours. Your notes shape what we make next. Truly, thank you.”<span class="fn-sig">Mira &amp; Sam, founders</span></div>
+      <div class="fn-txt"><span data-t="founderNote">We're two parents building FamilyHub for families like yours. Your notes shape what we build next.</span><span class="fn-sig" data-t="founderSig">Mira &amp; Sam, founders</span></div>
     </div>
-    <div class="field"><label>What's on your mind</label><div class="choices" id="sg-type">
-      <button class="choice on" data-v="Idea" onclick="pick('sg-type',this)">💡 An idea</button>
-      <button class="choice" data-v="Love" onclick="pick('sg-type',this)">💛 Something I love</button>
-      <button class="choice" data-v="Issue" onclick="pick('sg-type',this)">🐞 Something's off</button>
+    <div class="field"><label data-t="sgTypeLbl">What's on your mind</label><div class="choices" id="sg-type">
+      <button class="choice on" data-v="Idea" onclick="pick('sg-type',this)" data-t="sgIdea">💡 An idea</button>
+      <button class="choice" data-v="Love" onclick="pick('sg-type',this)" data-t="sgLove">💛 Something I love</button>
+      <button class="choice" data-v="Issue" onclick="pick('sg-type',this)" data-t="sgIssue">🐞 Something's off</button>
     </div></div>
     <div class="field"><label data-t="tellMore">Tell us more</label><textarea id="sg-msg" rows="4" data-tp="tellMorePh" placeholder="Say it however it comes. No need to be polished."></textarea></div>
   </div>
@@ -430,14 +428,14 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <div class="modal" id="expense-modal">
   <div class="modal-grip"></div>
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeExpense()">Cancel</button>
+    <button class="modal-cancel" onclick="closeExpense()" data-t="cancel">Cancel</button>
     <div class="modal-title" id="ex-title">Log an expense</div>
     <button class="modal-save" id="ex-save" data-t="save" onclick="submitExpense()">Save</button>
   </div>
   <div class="modal-body">
     <div class="field">
-      <label>What for?</label>
-      <input id="ex-note" placeholder="e.g. Grocery run" oninput="onExInput()"/>
+      <label data-t="exWhatFor">What for?</label>
+      <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExInput()"/>
       <div class="choices" id="ex-cat" style="margin-top:10px">
         <button class="choice on" data-v="Groceries" onclick="pickExCat(this)">🛒 Groceries</button>
         <button class="choice" data-v="Housing" onclick="pickExCat(this)">🏠 Housing</button>
@@ -451,19 +449,19 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 
     <div class="field-row">
       <div class="field"><label data-t="amountLbl">Amount</label><input class="num" id="ex-amt" inputmode="numeric" placeholder="$0" oninput="onExInput()"/></div>
-      <div class="field"><label>When</label><input type="date" id="ex-date" value="2026-07-13" min="2026-07-01" onchange="onExInput()" oninput="onExInput()"/></div>
+      <div class="field"><label data-t="whenLbl">When</label><input type="date" id="ex-date" value="2026-07-13" min="2026-07-01" onchange="onExInput()" oninput="onExInput()"/></div>
     </div>
 
-    <div class="field" id="ex-whofield"><label>Who paid</label><div class="choices" id="ex-who">
+    <div class="field" id="ex-whofield"><label data-t="whoPaidLbl">Who paid</label><div class="choices" id="ex-who">
       <button class="choice on" data-v="Emma" onclick="pickExWho(this)">Emma</button>
       <button class="choice" data-v="James" onclick="pickExWho(this)">James</button>
-      <button class="choice" data-v="Both" onclick="pickExWho(this)">Both</button>
+      <button class="choice" data-v="Both" onclick="pickExWho(this)" data-t="whoBoth">Both</button>
       <button class="choice" data-v="Mia" onclick="pickExWho(this)">Mia</button>
       <button class="choice" data-v="Leo" onclick="pickExWho(this)">Leo</button>
     </div></div>
 
-    <div class="field"><label>Photos (optional)</label>
-      <label class="mem-upload"><span id="ex-upload-txt">📷 Add photos</span><input type="file" accept="image/*" multiple onchange="onExPhoto(this)" hidden></label>
+    <div class="field"><label data-t="photosOptLbl">Photos (optional)</label>
+      <label class="mem-upload"><span id="ex-upload-txt" data-t="addPhotosBtn">📷 Add photos</span><input type="file" accept="image/*" multiple onchange="onExPhoto(this)" hidden></label>
       <div class="photo-strip" id="ex-strip"></div>
     </div>
 
@@ -477,14 +475,14 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <div class="modal" id="event-modal">
   <div class="modal-grip"></div>
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeEventModal()">Cancel</button>
-    <div class="modal-title">New event</div>
-    <button class="modal-save" id="ng-save" onclick="addEvent()" disabled>Create</button>
+    <button class="modal-cancel" onclick="closeEventModal()" data-t="cancel">Cancel</button>
+    <div class="modal-title" data-t="eventTitle">New event</div>
+    <button class="modal-save" id="ng-save" onclick="addEvent()" data-t="create" disabled>Create</button>
   </div>
   <div class="modal-body">
     <div class="field">
-      <label>What is it?</label>
-      <input id="ng-name" placeholder="e.g. Beach trip" oninput="ngDirty()"/>
+      <label data-t="evWhat">What is it?</label>
+      <input id="ng-name" data-tp="phEvName" placeholder="e.g. Beach trip" oninput="ngDirty()"/>
       <div class="emoji-row" id="ev-emoji" style="margin-top:10px">
         <button class="on" data-v="🎉" onclick="pickEmoji(this)">🎉</button>
         <button data-v="✈️" onclick="pickEmoji(this)">✈️</button>
@@ -499,22 +497,22 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     </div>
 
     <div class="field-row">
-      <div class="field"><label>Est. cost</label><input class="num" id="ng-amt" inputmode="numeric" placeholder="0" oninput="updateSrcHint();ngDirty()" onblur="snapAmtInput(this);updateSrcHint();ngDirty()"/></div>
-      <div class="field"><label>When</label><input type="date" id="ng-date" min="2026-07-01"/></div>
+      <div class="field"><label data-t="estCost">Est. cost</label><input class="num" id="ng-amt" inputmode="numeric" placeholder="0" oninput="updateSrcHint();ngDirty()" onblur="snapAmtInput(this);updateSrcHint();ngDirty()"/></div>
+      <div class="field"><label data-t="whenLbl">When</label><input type="date" id="ng-date" min="2026-07-01"/></div>
     </div>
 
     <div class="fund-sep"></div>
 
-    <div class="field"><label>Cover the full cost from</label>
+    <div class="field"><label data-t="coverFrom">Cover the full cost from</label>
       <div class="src-opts" id="ng-src">
-        <button class="src-opt on" data-v="savings" onclick="pickSrc(this)"><span class="src-t"><span class="src-em">💰</span>Savings</span><span class="src-a" id="src-savings">$2,400 <span class="u">available</span></span></button>
+        <button class="src-opt on" data-v="savings" onclick="pickSrc(this)"><span class="src-t"><span class="src-em">💰</span><span data-t="srcSavings">Savings</span></span><span class="src-a" id="src-savings">$2,400 <span class="u" data-t="srcAvailable">available</span></span></button>
         <button class="src-opt" data-v="month" onclick="pickSrc(this)"><span class="src-t"><span class="src-em">📆</span><span data-t="thisMonthSrc">This month</span></span><span class="src-a" id="src-month">$4,880 <span class="u" data-t="toSpendU">to spend</span></span></button>
       </div>
       <div class="field-hint" id="ng-srchint"></div>
     </div>
 
-    <div class="field"><label>Photos (optional)</label>
-      <label class="mem-upload"><span id="ev-upload-txt">📷 Add photos</span><input type="file" accept="image/*" multiple onchange="onEvPhoto(this)" hidden></label>
+    <div class="field"><label data-t="photosOptLbl">Photos (optional)</label>
+      <label class="mem-upload"><span id="ev-upload-txt" data-t="addPhotosBtn">📷 Add photos</span><input type="file" accept="image/*" multiple onchange="onEvPhoto(this)" hidden></label>
       <div class="photo-strip" id="ev-strip"></div>
     </div>
   </div>
@@ -526,9 +524,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <div class="modal" id="photo-assign">
   <div class="modal-grip"></div>
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="paCancel()">Cancel</button>
-    <div class="modal-title">Add photos</div>
-    <button class="modal-save" id="pa-save" onclick="paDone()">Done</button>
+    <button class="modal-cancel" onclick="paCancel()" data-t="cancel">Cancel</button>
+    <div class="modal-title" data-t="photoAssignTitle">Add photos</div>
+    <button class="modal-save" id="pa-save" onclick="paDone()" data-t="done">Done</button>
   </div>
   <div class="modal-body">
     <div class="pa-hint" id="pa-hint"></div>
@@ -536,7 +534,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </div>
   <div class="pa-bar" id="pa-bar" style="display:none">
     <div class="pa-bar-t" id="pa-bar-t"></div>
-    <button class="btn-ghost" onclick="paClearSel()">Clear</button>
+    <button class="btn-ghost" onclick="paClearSel()" data-t="clearBtn">Clear</button>
   </div>
 </div>
 
@@ -544,14 +542,14 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <div class="modal" id="goal-modal">
   <div class="modal-grip"></div>
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeModals()">Huỷ</button>
-    <div class="modal-title">Mục tiêu tiết kiệm</div>
-    <button class="modal-save" id="goal-save" onclick="submitGoal()">Lưu</button>
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title" data-t="goalTitle">Savings goal</div>
+    <button class="modal-save" id="goal-save" onclick="submitGoal()" data-t="save">Save</button>
   </div>
   <div class="modal-body">
-    <div class="sheet-sub">Để dành tiền cho điều bạn muốn mua hoặc làm.</div>
-    <div class="field"><label>Mục tiêu này để làm gì?</label><input id="goal-name" placeholder="vd. Laptop mới, Quỹ khẩn cấp" oninput="onGoalInput()"/></div>
-    <div class="field"><label>Biểu tượng</label><div class="choices" id="goal-emoji">
+    <div class="sheet-sub" data-t="goalSub">Set aside money for something you want to buy or do.</div>
+    <div class="field"><label data-t="goalWhat">What's this goal for?</label><input id="goal-name" data-tp="phGoalName" placeholder="e.g. New laptop, Emergency fund" oninput="onGoalInput()"/></div>
+    <div class="field"><label data-t="goalIcon">Icon</label><div class="choices" id="goal-emoji">
       <button class="choice on" data-v="🎯" onclick="pick('goal-emoji',this)">🎯</button>
       <button class="choice" data-v="💻" onclick="pick('goal-emoji',this)">💻</button>
       <button class="choice" data-v="✈️" onclick="pick('goal-emoji',this)">✈️</button>
@@ -561,10 +559,10 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
       <button class="choice" data-v="🛡️" onclick="pick('goal-emoji',this)">🛡️</button>
     </div></div>
     <div class="field-row">
-      <div class="field"><label>Cần bao nhiêu</label><input class="num" id="goal-amt" inputmode="numeric" placeholder="0" oninput="onGoalInput()" onblur="snapAmtInput(this)"/></div>
-      <div class="field"><label>Khi nào (tuỳ chọn)</label><input type="date" id="goal-date"/></div>
+      <div class="field"><label data-t="goalNeed">How much you need</label><input class="num" id="goal-amt" inputmode="numeric" placeholder="0" oninput="onGoalInput()" onblur="snapAmtInput(this)"/></div>
+      <div class="field"><label data-t="goalWhen">When (optional)</label><input type="date" id="goal-date"/></div>
     </div>
-    <div class="field"><label>Bỏ ống ngay (tuỳ chọn)</label><input class="num" id="goal-init" inputmode="numeric" placeholder="0" onblur="snapAmtInput(this)"/><div class="r-s" style="margin-top:6px">Lấy từ quỹ tiết kiệm chung của gia đình.</div></div>
+    <div class="field"><label data-t="goalInit">Add now (optional)</label><input class="num" id="goal-init" inputmode="numeric" placeholder="0" onblur="snapAmtInput(this)"/><div class="r-s" style="margin-top:6px" data-t="goalInitHint">Taken from the family savings pool.</div></div>
   </div>
 </div>
 
@@ -572,46 +570,46 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <div class="modal" id="goal-fund">
   <div class="modal-grip"></div>
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeModals()">Huỷ</button>
-    <div class="modal-title">Bỏ ống</div>
-    <button class="modal-save" id="gf-save" onclick="submitGoalFund()">Thêm</button>
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title" data-t="goalFundTitle">Add to goal</div>
+    <button class="modal-save" id="gf-save" onclick="submitGoalFund()" data-t="add">Add</button>
   </div>
   <div class="modal-body">
-    <div class="sheet-sub" id="gf-sub">Thêm tiền vào mục tiêu, lấy từ quỹ tiết kiệm chung.</div>
-    <div class="field"><label>Số tiền</label><input class="num big" id="gf-amt" inputmode="numeric" placeholder="0" oninput="onGoalFundInput()" onblur="snapAmtInput(this)"/></div>
+    <div class="sheet-sub" id="gf-sub" data-t="goalFundSub">Move money into this goal from the shared savings pool.</div>
+    <div class="field"><label data-t="amountLbl">Amount</label><input class="num big" id="gf-amt" inputmode="numeric" placeholder="0" oninput="onGoalFundInput()" onblur="snapAmtInput(this)"/></div>
   </div>
 </div>
 
 <div class="modal" id="sheet-fund">
   <div class="modal-grip"></div>
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeModals()">Cancel</button>
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
     <div class="modal-title" data-t="addFundsTitle">Add funds</div>
-    <button class="modal-save" onclick="addFunds()">Add</button>
+    <button class="modal-save" onclick="addFunds()" data-t="add">Add</button>
   </div>
   <div class="modal-body">
-    <div class="sheet-sub">Moved from your family savings into this event.</div>
+    <div class="sheet-sub" data-t="fundSub">Moved from your family savings into this event.</div>
     <div class="fund-avail" id="fund-avail">💰 <b>$2,400</b> available in savings</div>
-    <div class="field"><label>Event</label><div class="choices" id="fn-event"></div></div>
+    <div class="field"><label data-t="eventLbl">Event</label><div class="choices" id="fn-event"></div></div>
     <div class="field"><label data-t="amountLbl">Amount</label><input class="big num" id="fn-amt" inputmode="numeric" placeholder="$0"/></div>
     <div class="presets" id="fn-presets">
       <button class="preset" data-amt="50" onclick="fnPreset(50)"></button>
       <button class="preset" data-amt="100" onclick="fnPreset(100)"></button>
       <button class="preset" data-amt="250" onclick="fnPreset(250)"></button>
-      <button class="preset" onclick="fnPreset(savings)">All</button>
+      <button class="preset" onclick="fnPreset(savings)" data-t="fundAll">All</button>
     </div>
-    <div class="field"><label>Added by</label><div class="choices" id="fn-who">
+    <div class="field"><label data-t="addedByLbl">Added by</label><div class="choices" id="fn-who">
       <button class="choice on" data-v="Emma" onclick="pick('fn-who',this)">Emma</button>
       <button class="choice" data-v="James" onclick="pick('fn-who',this)">James</button>
-      <button class="choice" data-v="Both" onclick="pick('fn-who',this)">Both</button>
+      <button class="choice" data-v="Both" onclick="pick('fn-who',this)" data-t="whoBoth">Both</button>
     </div></div>
   </div>
 </div>
 
 <div class="sheet" id="sheet-month">
   <div class="grab"></div>
-  <div class="sheet-h">Choose month</div>
-  <div class="sheet-sub">See spending and budget for any month.</div>
+  <div class="sheet-h" data-t="monthTitle">Choose month</div>
+  <div class="sheet-sub" data-t="monthSub">See spending and budget for any month.</div>
   <div id="month-list"></div>
 </div>
 
@@ -625,32 +623,32 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <div class="modal" id="sheet-budget">
   <div class="modal-grip"></div>
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeModals()">Cancel</button>
-    <div class="modal-title">Categories &amp; budget</div>
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title" data-t="budgetModalTitle">Categories &amp; budget</div>
     <button class="modal-save" id="bg-save" data-t="save" onclick="setBudget()" disabled>Save</button>
   </div>
   <div class="modal-body">
-    <div class="sheet-sub">Your monthly target, plus the categories your spending is grouped into. Add, rename, re-budget or remove them.</div>
-    <div class="field" style="margin-bottom:20px"><label>Monthly budget <span class="opt">· fills in categories you haven’t set</span></label><input class="big num" id="bg-amt" inputmode="numeric" oninput="suggestBudgetSplit();syncFallbackRow();bgDirty()" onblur="snapAmtInput(this);suggestBudgetSplit();syncFallbackRow()"/></div>
-    <div class="bg-sub">Categories</div>
+    <div class="sheet-sub" data-t="budgetModalSub">Your monthly target, plus the categories your spending is grouped into. Add, rename, re-budget or remove them.</div>
+    <div class="field" style="margin-bottom:20px"><label><span data-t="monthlyBudget">Monthly budget</span> <span class="opt" data-t="monthlyBudgetOpt">· fills in categories you haven’t set</span></label><input class="big num" id="bg-amt" inputmode="numeric" oninput="suggestBudgetSplit();syncFallbackRow();bgDirty()" onblur="snapAmtInput(this);suggestBudgetSplit();syncFallbackRow()"/></div>
+    <div class="bg-sub" data-t="catsLbl">Categories</div>
     <div id="bg-rows"></div>
-    <div id="bg-over" class="bg-over" style="display:none">Categories add up to more than the monthly budget, so Others is at 0.</div>
-    <button class="btn-line" onclick="addCatRow()" style="margin-top:14px">＋ Add category</button>
+    <div id="bg-over" class="bg-over" style="display:none" data-t="budgetOver">Categories add up to more than the monthly budget, so Others is at 0.</div>
+    <button class="btn-line" onclick="addCatRow()" style="margin-top:14px" data-t="addCategory">＋ Add category</button>
   </div>
 </div>
 
 <div class="modal" id="sheet-memory">
   <div class="modal-grip"></div>
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeModals()">Cancel</button>
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
     <div class="modal-title" data-t="addMemoryTitle">Add a memory</div>
     <button class="modal-save" data-t="save" onclick="addMemory()">Save</button>
   </div>
   <div class="modal-body">
     <div class="mem-ico" id="mem-ico"></div>
-    <div class="sheet-sub">Save a photo from this event. Caption is optional.</div>
-    <div class="field"><label>Photo</label>
-      <label class="mem-upload">📷 Upload photos<input type="file" accept="image/*" multiple onchange="onMemFile(this)" hidden></label>
+    <div class="sheet-sub" data-t="memorySub">Save a photo from this event. Caption is optional.</div>
+    <div class="field"><label data-t="photoLbl">Photo</label>
+      <label class="mem-upload"><span data-t="uploadPhotos">📷 Upload photos</span><input type="file" accept="image/*" multiple onchange="onMemFile(this)" hidden></label>
       <div class="mem-scenes" id="mem-scenes">
         <button class="ph-beach" data-c="ph-beach" data-e="🏖️" onclick="pickMemScene(this)">🏖️</button>
         <button class="ph-japan" data-c="ph-japan" data-e="🌸" onclick="pickMemScene(this)">🌸</button>
@@ -661,30 +659,30 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
       </div>
       <div class="mem-preview" id="mem-preview"><div class="scrim"></div><span id="mem-prev-cap"></span></div>
     </div>
-    <div class="field"><label>Caption (optional)</label><input id="mem-cap" placeholder="e.g. Best day of the trip"/></div>
+    <div class="field"><label data-t="captionOpt">Caption (optional)</label><input id="mem-cap" data-tp="phMemCap" placeholder="e.g. Best day of the trip"/></div>
   </div>
 </div>
 
 <div class="sheet" id="sheet-theme">
   <div class="grab"></div>
-  <div class="sheet-h">Settings</div>
-  <div class="sheet-sub">Pick a theme. It applies across the whole app.</div>
+  <div class="sheet-h" data-t="settingsTitle">Settings</div>
+  <div class="sheet-sub" data-t="settingsSub">Pick a theme. It applies across the whole app.</div>
   <div class="theme-grid" id="theme-grid"></div>
   <div class="set-actions">
-    <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t" data-t="setSwitchFamily">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t" data-t="inviteMember2">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-    <button class="set-row" onclick="closeSheet();fhManageFamily()"><span class="set-ic">👥</span><span class="set-t">Manage family &amp; members</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-    <button class="set-row" onclick="closeSheet();fhSavings()"><span class="set-ic">🐷</span><span class="set-t">Saved for events</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-    <button class="set-row" onclick="closeSheet();fhIncome()"><span class="set-ic">💵</span><span class="set-t">Income</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-    <button class="set-row" onclick="closeSheet();restartOnboarding()"><span class="set-ic">↻</span><span class="set-t">Restart onboarding</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-    <button class="set-row danger" onclick="closeSheet();fhSignOut()"><span class="set-ic">⎋</span><span class="set-t">Sign out</span></button>
+    <button class="set-row" onclick="closeSheet();fhManageFamily()"><span class="set-ic">👥</span><span class="set-t" data-t="setManageFamily">Manage family &amp; members</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhSavings()"><span class="set-ic">🐷</span><span class="set-t" data-t="setSavedEvents">Saved for events</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhIncome()"><span class="set-ic">💵</span><span class="set-t" data-t="setIncome">Income</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();restartOnboarding()"><span class="set-ic">↻</span><span class="set-t" data-t="setRestartOnboarding">Restart onboarding</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row danger" onclick="closeSheet();fhSignOut()"><span class="set-ic">⎋</span><span class="set-t" data-t="setSignOut">Sign out</span></button>
   </div>
 </div>
 
 <!-- PHOTO PEEK — one tap lifts a photo out and blurs everything behind it -->
-<div class="peek" id="peek" role="dialog" aria-modal="true" aria-label="Photo" onclick="if(!(event.target.closest&&event.target.closest('#peek-actions')))closePeek()">
+<div class="peek" id="peek" role="dialog" aria-modal="true" aria-label="Photo" data-ta="ariaPhoto" onclick="if(!(event.target.closest&&event.target.closest('#peek-actions')))closePeek()">
   <div class="peek-bg" id="peek-bg"></div>
-  <button class="peek-close" id="peek-close" onclick="closePeek()" aria-label="Đóng"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <button class="peek-close" id="peek-close" onclick="closePeek()" aria-label="Close" data-ta="ariaClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   <div class="peek-stage">
     <div class="peek-frame" id="peek-frame">
       <img id="peek-img" alt="">
@@ -692,7 +690,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     </div>
     <div class="peek-cap" id="peek-cap"></div>
     <div class="peek-actions" id="peek-actions">
-      <button class="ex-del peek-del" id="peek-del" onclick="peekDelete(this)">Delete photo</button>
+      <button class="ex-del peek-del" id="peek-del" onclick="peekDelete(this)" data-t="deletePhoto">Delete photo</button>
     </div>
   </div>
 </div>
@@ -707,9 +705,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <div class="modal" id="fh-modal">
   <div class="modal-grip"></div>
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="fhModalClose()">Cancel</button>
+    <button class="modal-cancel" onclick="fhModalClose()" data-t="cancel">Cancel</button>
     <div class="modal-title" id="fh-modal-title">Edit</div>
-    <button class="modal-save" id="fh-modal-save" onclick="fhModalSave()" disabled>Save</button>
+    <button class="modal-save" id="fh-modal-save" onclick="fhModalSave()" data-t="save" disabled>Save</button>
   </div>
   <div class="modal-body" id="fh-modal-body"></div>
 </div>
@@ -719,7 +717,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="cel-emoji" id="cel-emoji">🎉</div>
   <div class="cel-title" id="cel-title">Fully funded!</div>
   <div class="cel-sub" id="cel-sub">You saved it all together.</div>
-  <button class="cel-btn" onclick="closeCelebrate()">Let's go! 🙌</button>
+  <button class="cel-btn" onclick="closeCelebrate()" data-t="celBtn">Woohoo! 🙌</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -747,7 +745,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </section>
 
   <section class="ob-screen" data-ob="locale">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('welcome')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('welcome')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
       <div class="ob-head"><div class="ob-h1" data-t="localeTitle">Language & currency</div><div class="ob-sub" data-t="localeSub">Choose how FamilyHub speaks and shows money.</div></div>
       <div class="field"><label data-t="langLabel">Language</label><div class="choices" id="ob-lang">
@@ -763,7 +761,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </section>
 
   <section class="ob-screen" data-ob="auth">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('welcome')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('welcome')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content center">
       <div class="ob-signin-hero">
         <div class="ob-logo">🏡</div>
@@ -778,7 +776,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </section>
 
   <section class="ob-screen" data-ob="choice">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('auth')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('auth')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
       <div class="ob-head"><div class="ob-h1" data-t="familyTitle">Your family</div><div class="ob-sub" data-t="familySub">Start a new family, or join one you've been invited to.</div></div>
       <button class="ob-card" onclick="obChoose('create')"><div class="ob-card-em">✨</div><div><div class="ob-card-t" data-t="startFamily">Start a new family</div><div class="ob-card-s" data-t="startFamilyS">You'll name it and invite others</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -787,7 +785,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </section>
 
   <section class="ob-screen" data-ob="join">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('choice')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('choice')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
       <div class="ob-head"><div class="ob-h1" data-t="joinTitle">Enter invite code</div><div class="ob-sub" data-t="joinSub">Ask a family member for the 6-character code from their invite.</div></div>
       <div class="ob-code-wrap">
@@ -800,12 +798,12 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </section>
 
   <section class="ob-screen" data-ob="profile">
-    <div class="ob-top"><button class="ob-back2" id="ob-profile-back" onclick="obGo('choice')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-top"><button class="ob-back2" id="ob-profile-back" onclick="obGo('choice')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
       <div class="ob-head"><div class="ob-h1" data-t="profileTitle">Set up your profile</div><div class="ob-sub" data-t="profileSub">This is how your family will see you.</div></div>
       <div class="ob-avatar" id="ob-avatar">?</div>
       <div class="ob-colors" id="ob-colors"></div>
-      <div class="field"><label data-t="yourName">Your name</label><input id="ob-name" placeholder="e.g. Emma" oninput="obNameInput()"></div>
+      <div class="field"><label data-t="yourName">Your name</label><input id="ob-name" data-tp="phObName" placeholder="e.g. Emma" oninput="obNameInput()"></div>
       <div class="field"><label data-t="youAreThe">You are the…</label><div class="choices" id="ob-role">
         <button class="choice on" data-v="Mom" onclick="pick('ob-role',this)">Mom</button>
         <button class="choice" data-v="Dad" onclick="pick('ob-role',this)">Dad</button>
@@ -824,10 +822,10 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </section>
 
   <section class="ob-screen" data-ob="family">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('profile')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('profile')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
       <div class="ob-head"><div class="ob-h1" data-t="setFamilyTitle">Set up your family</div><div class="ob-sub" data-t="setFamilySub">Name it and invite who's in it.</div></div>
-      <div class="field"><label data-t="familyName">Family name</label><input id="ob-famname" placeholder="e.g. The Reeds"></div>
+      <div class="field"><label data-t="familyName">Family name</label><input id="ob-famname" data-tp="phFamName" placeholder="e.g. The Reeds"></div>
       <div class="field"><label data-t="membersInvites">Members &amp; invites</label>
         <div id="ob-members"></div>
         <button class="btn-line" onclick="obAddMember()" data-t="inviteMember" style="margin:12px 0 0;width:100%">＋ Invite a member</button>
@@ -837,7 +835,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </section>
 
   <section class="ob-screen" data-ob="budget">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('family')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('family')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
       <div class="ob-head"><div class="ob-h1" data-t="budgetTitle">Set your budget</div><div class="ob-sub" data-t="budgetSub">A monthly target for the family, then a budget for each category.</div></div>
       <div class="ob-total-card">
@@ -851,7 +849,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </section>
 
   <section class="ob-screen" data-ob="theme">
-    <div class="ob-top"><button class="ob-back2" id="ob-theme-back" onclick="obGo('family')" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-top"><button class="ob-back2" id="ob-theme-back" onclick="obGo('family')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
       <div class="ob-head"><div class="ob-h1" data-t="themeTitle">Pick your look</div><div class="ob-sub" data-t="themeSub">Choose a color theme for your family's hub. You can change it anytime.</div></div>
       <div class="theme-grid" id="ob-theme-grid"></div>

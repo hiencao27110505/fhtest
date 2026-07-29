@@ -12,7 +12,9 @@ var obProg={welcome:0,locale:.1,auth:.2,choice:.34,join:.52,profile:.6,family:.7
 function obPickLang(btn){ pick('ob-lang',btn); LANG=btn.dataset.v; applyLang(); }
 function obPickCur(btn){ pick('ob-cur',btn); CUR=btn.dataset.v; }
 function inits(n){ return ((n||'').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2)||'?').toUpperCase(); }
-function roleOpts(sel){ return OB_ROLES.map(function(r){ return '<option'+(r===sel?' selected':'')+'>'+r+'</option>'; }).join(''); }
+var OB_ROLE_LABELS={Mom:['Mẹ','Mom'],Dad:['Bố','Dad'],Husband:['Chồng','Husband'],Wife:['Vợ','Wife'],Boyfriend:['Bạn trai','Boyfriend'],Girlfriend:['Bạn gái','Girlfriend'],Partner:['Bạn đời','Partner'],Sweetheart:['Người thương','Sweetheart'],Sweetie:['Cưng','Sweetie'],Coldheart:['Tảng băng','Coldheart'],'Man of steel':['Người sắt','Man of steel'],Parent:['Phụ huynh','Parent'],Son:['Con trai','Son'],Daughter:['Con gái','Daughter'],Kid:['Nhóc','Kid'],Teen:['Tuổi teen','Teen'],Sibling:['Anh chị em','Sibling'],Guardian:['Người giám hộ','Guardian'],Grandma:['Bà','Grandma'],Grandpa:['Ông','Grandpa'],Other:['Khác','Other']};
+function roleLabel(r){ var m=OB_ROLE_LABELS[r]; return m?L(m[0],m[1]):r; }   // localized display; value stays English (data)
+function roleOpts(sel){ return OB_ROLES.map(function(r){ return '<option value="'+r+'"'+(r===sel?' selected':'')+'>'+roleLabel(r)+'</option>'; }).join(''); }
 function obGo(name){
   var ci=obOrder.indexOf(name);
   document.querySelectorAll('#onboarding .ob-screen').forEach(function(s){
@@ -63,7 +65,7 @@ function obCodeInput(el){
   renderCodeBoxes(el.value);
   var ok=el.value.length>=6, pv=document.getElementById('ob-join-preview');
   document.getElementById('ob-join-cta').disabled=!ok;
-  if(ok){ pv.style.display='flex'; pv.innerHTML='<div class="ob-preview-ic">🏡</div><div><div class="ob-preview-fam">The Reeds</div><div class="ob-preview-sub">4 members · invited by James</div></div>'; }
+  if(ok){ pv.style.display='flex'; pv.innerHTML='<div class="ob-preview-ic">🏡</div><div><div class="ob-preview-fam">The Reeds</div><div class="ob-preview-sub">'+L('4 thành viên · James mời bạn','4 members · invited by James')+'</div></div>'; }
   else pv.style.display='none';
 }
 function obJoin(){
@@ -91,8 +93,8 @@ function obProfileNext(){
 function obMemberRowHTML(name,email,role,color,me){
   return '<div class="ob-mcard">'
     +'<div class="ob-mrow"><div class="ob-mav" style="background:'+color+'">'+inits(name)+'</div>'
-    +'<input class="ob-mname" value="'+String(name||'').replace(/"/g,'&quot;')+'" placeholder="Name"'+(me?' readonly':'')+' oninput="obSyncMav(this)">'
-    +(me?'<span class="ob-mtag">'+t('you')+'</span>':'<button class="ob-mdel" onclick="this.closest(\'.ob-mcard\').remove()" aria-label="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
+    +'<input class="ob-mname" value="'+String(name||'').replace(/"/g,'&quot;')+'" placeholder="'+L('vd. Mai','e.g. Emma')+'"'+(me?' readonly':'')+' oninput="obSyncMav(this)">'
+    +(me?'<span class="ob-mtag">'+t('you')+'</span>':'<button class="ob-mdel" onclick="this.closest(\'.ob-mcard\').remove()" aria-label="'+L('Xóa','Remove')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
     +'</div>'
     +'<div class="ob-mfields">'
     +'<input class="ob-memail" type="email" inputmode="email" autocapitalize="off" placeholder="name@gmail.com" value="'+String(email||'').replace(/"/g,'&quot;')+'"'+(me?' readonly':'')+'>'

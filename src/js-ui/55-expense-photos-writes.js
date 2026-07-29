@@ -57,7 +57,7 @@ function paShow(){
 function paDayLabel(iso){
   if(!iso) return L('Không có ngày','No date');
   var p = iso.split('-'), d = new Date(+p[0], +p[1]-1, +p[2]);
-  if(iso === isoDate(TODAY)) return 'Today';
+  if(iso === isoDate(TODAY)) return L('Hôm nay','Today');
   return WKD[d.getDay()] + ', ' + MONA[d.getMonth()] + ' ' + d.getDate();
 }
 function paGroups(){
@@ -83,44 +83,44 @@ function paRender(){
   var unassigned = paBatch.filter(function(p){ return !p.txId; }).length;
   var undated = paBatch.some(function(p){ return !p.taken; });
   setTxt('pa-hint', unassigned
-    ? ('Tap photos, then tap the expense they belong to.' + (undated ? ' Undated photos can go on any expense.' : ''))
-    : 'All ' + paBatch.length + ' photos assigned. Tap Done to upload.');
+    ? (L('Chạm vào ảnh, rồi chạm khoản chi tương ứng.','Tap photos, then tap the expense they belong to.') + (undated ? L(' Ảnh không có ngày thì gán vào khoản nào cũng được.',' Undated photos can go on any expense.') : ''))
+    : (L('Đã gán hết ','All ') + paBatch.length + L(' ảnh rồi. Chạm Xong để tải lên.',' photos assigned. Tap Done to upload.')));
 
   host.innerHTML = groups.map(function(g){
     var open = g.idx.filter(function(i){ return !paBatch[i].txId; });
     var tx = paTxForDay(g.iso);
     var h = '<div class="pa-day"><div class="pa-day-h"><span class="pa-day-t">' + esc(paDayLabel(g.iso)) + '</span>'
-          + '<span class="pa-day-n">' + g.idx.length + ' photo' + (g.idx.length !== 1 ? 's' : '') + '</span></div>';
+          + '<span class="pa-day-n">' + g.idx.length + L(' ảnh',' photo' + (g.idx.length !== 1 ? 's' : '')) + '</span></div>';
     h += open.length
       ? '<div class="pa-grid">' + open.map(function(i){
           return '<button class="pa-ph' + (paSel[i] ? ' on' : '') + '" onclick="paToggle(' + i + ')">'
                + '<img src="' + paBatch[i].src + '" alt="" loading="lazy" decoding="async"><span class="pa-tick"><span>✓</span></span></button>';
         }).join('') + '</div>'
-      : '<div class="pa-empty">All of this day\'s photos are assigned.</div>';
+      : '<div class="pa-empty">' + L('Ảnh của ngày này đã gán hết rồi.','All of this day\'s photos are assigned.') + '</div>';
     if(tx.length){
       h += '<div class="pa-txs">' + tx.map(function(t){
         var mine = paBatch.map(function(p, i){ return p.txId === t.id ? i : -1; }).filter(function(i){ return i >= 0; });
         var row = '<div class="pa-txw"><button class="pa-tx" onclick="paAssign(\'' + t.id + '\')">'
                 + '<span class="pa-tx-ico">' + (t.ico || '🧾') + '</span>'
                 + '<span class="pa-tx-b"><span class="pa-tx-n">' + esc(t.note || t.cat) + '</span>'
-                + '<span class="pa-tx-c">' + esc(t.cat) + (mine.length ? ' · ' + mine.length + ' added' : '') + '</span></span>'
+                + '<span class="pa-tx-c">' + esc(t.cat) + (mine.length ? ' · ' + mine.length + L(' đã thêm',' added') : '') + '</span></span>'
                 + '<span class="pa-tx-amt">' + fmt(t.amt) + '</span></button>';
         if(mine.length) row += '<div class="pa-mini">' + mine.map(function(i){
-          return '<button onclick="paUnassign(' + i + ')" aria-label="Remove this photo">'
+          return '<button onclick="paUnassign(' + i + ')" aria-label="' + L('Bỏ ảnh này','Remove this photo') + '">'
                + '<img src="' + paBatch[i].src + '" alt="" loading="lazy" decoding="async"><span class="pa-un">×</span></button>';
         }).join('') + '</div>';
         return row + '</div>';
       }).join('') + '</div>';
     } else if(g.iso){
-      h += '<div class="pa-empty">No expense logged on this day.</div>'
-         + '<button class="pa-new" onclick="paNewExpense(\'' + g.iso + '\')">＋ Log an expense</button>';
+      h += '<div class="pa-empty">' + L('Ngày này chưa ghi khoản chi nào.','No expense logged on this day.') + '</div>'
+         + '<button class="pa-new" onclick="paNewExpense(\'' + g.iso + '\')">＋ ' + L('Ghi một khoản chi','Log an expense') + '</button>';
     }
     return h + '</div>';
   }).join('');
 
   var n = paSelCount(), bar = document.getElementById('pa-bar');
   bar.style.display = n ? 'flex' : 'none';
-  if(n) setTxt('pa-bar-t', n + ' selected');
+  if(n) setTxt('pa-bar-t', n + L(' đã chọn',' selected'));
   var save = document.getElementById('pa-save');
   save.disabled = paBusy || !paBatch.some(function(p){ return p.txId; });
 }
@@ -168,17 +168,17 @@ async function paDone(){
   save.disabled = true;
   var done = 0, total = paBatch.length - leftover;
   for(var i = 0; i < ids.length; i++){
-    save.textContent = 'Saving ' + Math.min(done + byTx[ids[i]].length, total) + '/' + total;
+    save.textContent = L('Đang lưu ','Saving ') + Math.min(done + byTx[ids[i]].length, total) + '/' + total;
     try { await paApply(ids[i], byTx[ids[i]]); } catch(e){ console.warn('assign failed', e); }
     done += byTx[ids[i]].length;
   }
-  save.textContent = 'Done'; paBusy = false;
+  save.textContent = L('Xong','Done'); paBusy = false;
   paBatch = []; paSel = {}; paClose();
   // Same refresh as saveExpenseEdit. renderEvents() is the one that matters:
   // the Memories tab and its calendar are rebuilt from its tail, so without it
   // the photos are saved but never appear there.
   renderTxns(); renderEvents();
-  toast(leftover ? (total + ' photos added · ' + leftover + ' skipped') : (total + ' photos added'));
+  toast(leftover ? (total + L(' ảnh đã thêm · ',' photos added · ') + leftover + L(' bỏ qua',' skipped')) : (total + L(' ảnh đã thêm',' photos added')));
 }
 /* Local model update. The data layer wraps this to persist; keeping the split
    means the screen still works unauthenticated, exactly like the expense form. */
@@ -190,7 +190,7 @@ window.paApply = function(txId, srcs){
 };
 function paClose(){
   closeModals();
-  var s = document.getElementById('pa-save'); if(s){ s.textContent = 'Done'; s.disabled = false; }
+  var s = document.getElementById('pa-save'); if(s){ s.textContent = L('Xong','Done'); s.disabled = false; }
   document.getElementById('pa-bar').style.display = 'none';
   paSel = {}; paPending = null; paBusy = false;
 }
@@ -202,24 +202,24 @@ function paCancel(){
   if(!paBatch.length){ paClose(); return; }
   if(btn && !btn.dataset.armed){
     btn.dataset.armed = '1';
-    btn.textContent = 'Discard ' + paBatch.length + '?';
+    btn.textContent = L('Bỏ ','Discard ') + paBatch.length + L(' ảnh?','?');
     clearTimeout(window._paArmT);
     window._paArmT = setTimeout(function(){
       if(!btn.isConnected) return;
-      delete btn.dataset.armed; btn.textContent = 'Cancel';
+      delete btn.dataset.armed; btn.textContent = L('Huỷ','Cancel');
     }, 3200);
     return;
   }
-  if(btn){ delete btn.dataset.armed; btn.textContent = 'Cancel'; }
+  if(btn){ delete btn.dataset.armed; btn.textContent = L('Huỷ','Cancel'); }
   paBatch = []; paClose();
 }
 function renderExPhoto(){
   var strip=document.getElementById('ex-strip'), up=document.getElementById('ex-upload-txt');
-  if(up) up.textContent = exPhotos.length ? '📷 Add more' : '📷 Add photos';
+  if(up) up.textContent = exPhotos.length ? L('📷 Thêm ảnh nữa','📷 Add more') : L('📷 Thêm ảnh','📷 Add photos');
   if(!strip)return;
   strip.innerHTML = exPhotos.map(function(src,i){
     return '<div class="photo-thumb" style="background-image:url('+src+')"><button type="button" class="x" onclick="removeExPhoto('+i+')">✕</button></div>';
-  }).join('') + (exPhotos.length ? '<div class="photo-strip-note">'+exPhotos.length+' photo'+(exPhotos.length!==1?'s':'')+' · saved as '+(exPhotos.length!==1?'memories':'a memory')+' 📸</div>' : '');
+  }).join('') + (exPhotos.length ? '<div class="photo-strip-note">'+exPhotos.length+L(' ảnh',' photo'+(exPhotos.length!==1?'s':''))+L(' · lưu thành kỷ niệm',' · saved as '+(exPhotos.length!==1?'memories':'a memory'))+' 📸</div>' : '');
 }
 function exFormState(){                                     // snapshot used to detect edits
   return document.getElementById('ex-note').value.trim()
@@ -332,7 +332,7 @@ function buildFundChoices(){
   var sel=up.indexOf(curEvent)>=0?curEvent:(up[0]||'');
   up.forEach(function(k){ html+='<button class="choice'+(k===sel?' on':'')+'" data-v="'+k+'" onclick="pick(\'fn-event\',this)">'+events[k].emoji+' '+events[k].name+'</button>'; });
   box.innerHTML=html;
-  setHTML('fund-avail','💰 <b>'+fmt(savings)+'</b> available in savings');
+  setHTML('fund-avail','💰 <b>'+fmt(savings)+'</b> '+L('đang có trong tiết kiệm','available in savings'));
 }
 function openFund(){ openSheet('sheet-fund'); }
 function sendSuggestion(){
@@ -340,7 +340,7 @@ function sendSuggestion(){
   if(!msg){ el.focus(); return; }
   el.value='';
   closeModals();
-  toast(L('Đã nhận rồi, cảm ơn bạn 💛 Chúng tôi đọc mọi góp ý','Got it, thank you 💛 We read every note'));
+  toast(L('Gửi rồi nha, cảm ơn bạn 💛 Tụi mình đọc hết mọi góp ý','Got it — thanks! 💛 We read every note'));
   floatEmojis('💛');
 }
 
@@ -362,7 +362,7 @@ function fhUploadBusy(add){
   if(add>0) fhUpDone=0;
   var el=document.getElementById('fh-uploading'); if(!el)return;
   if(fhUpN>0){
-    el.querySelector('.fu-txt').textContent = fhUpN===1 ? 'Saving photo…' : 'Saving '+fhUpN+' photos…';
+    el.querySelector('.fu-txt').textContent = fhUpN===1 ? L('Đang lưu ảnh…','Saving photo…') : L('Đang lưu ','Saving ')+fhUpN+L(' ảnh…',' photos…');
     el.classList.add('on');
   } else el.classList.remove('on');
 }
