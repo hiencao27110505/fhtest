@@ -5,6 +5,134 @@
    a shared-dream avatar stack, a gentle seed. The tabs do; home makes you feel.
    Facilitator ethic: warmth, never streaks / guilt / scores. */
 
+/* ---------- Thời tiết cảm xúc — a two-sided emotional loop ----------
+   (1) Anyone sets today's weather in one tap. (2) EVERYONE sees it in a shared
+   "family sky" — a row of faces, each with their mood. (3) When someone you love
+   is having a rough day, you're handed a caring, BUILD-something action FOR them
+   (⛈️ upset → a make-up jar; 🌧️ down → plan a treat they'll look forward to).
+   (4) They feel seen. Backed by the realtime member_weather table so a mood set on
+   one phone appears on the others. Self-care is only a quiet fallback when you're
+   the only one who's shared. Every offer uses the ONE consistent .woffer card. */
+var WEATHER = [
+  { k:'sun',   e:'☀️', vi:'nắng',       en:'sunny',   fvi:'vui',        fen:'happy',    rough:false, oico:'✈️', ovi:'Rủ {n} lên kế hoạch một chuyến đi',          oen:'Plan a trip with {n}',                 act:"openSheet(&#39;sheet-event&#39;)" },
+  { k:'fire',  e:'🔥', vi:'bừng',       en:'buzzing', fvi:'hứng khởi',  fen:'inspired', rough:false, oico:'🎯', ovi:'Cùng {n} mơ một điều lớn',                   oen:'Dream up something big with {n}',      act:"openGoal()" },
+  { k:'ok',    e:'⛅', vi:'bình thường', en:'okay',    fvi:'ổn',         fen:'okay',     rough:false, oico:'📸', ovi:'Giữ một khoảnh khắc nhỏ cùng {n} hôm nay',   oen:'Keep a small moment with {n} today',   act:"openSheet(&#39;sheet-add&#39;)" },
+  { k:'rain',  e:'🌧️', vi:'hơi buồn',   en:'down',    fvi:'hơi buồn',   fen:'down',     rough:true,  oico:'🌤️', ovi:'Hẹn một điều nhỏ để {n} mong tới',           oen:'Plan a little thing for {n} to enjoy', act:"openSheet(&#39;sheet-event&#39;)" },
+  { k:'tired', e:'🌫️', vi:'mệt',        en:'drained', fvi:'mệt',        fen:'drained',  rough:true,  oico:'🫖', ovi:'Chuẩn bị một buổi tối nhẹ cho {n}',          oen:'Set up a cozy evening for {n}',        act:"openSheet(&#39;sheet-event&#39;)" },
+  { k:'anger', e:'⛈️', vi:'bực bội',    en:'stormy',  fvi:'bực bội',    fen:'upset',    rough:true,  oico:'🕊️', ovi:'Gửi {n} một hũ làm hòa',                     oen:'Start a make-up jar for {n}',          act:"openGoal()" }
+];
+function _wdef(k){ for(var i=0;i<WEATHER.length;i++){ if(WEATHER[i].k===k) return WEATHER[i]; } return null; }
+/* weather is a real daily mood — freshness is judged against the real clock, not the demo's pinned TODAY */
+function _wkey(){ var n=new Date(); return n.getFullYear()+'-'+(n.getMonth()+1)+'-'+n.getDate(); }
+function _wIsToday(at){ if(!at) return false; try{ var d=new Date(at), n=new Date(); return d.getFullYear()===n.getFullYear() && d.getMonth()===n.getMonth() && d.getDate()===n.getDate(); }catch(e){ return true; } }
+function _wIsReal(){ return !!(window.DB && window.DB.memberByAppName && window.DB.ownerMemberId); }
+function _meName(){
+  var mems = (window.FAM && FAM.members) || [];
+  for(var i=0;i<mems.length;i++){ if(mems[i].me) return mems[i].name; }
+  return (window.FAM && FAM.user && FAM.user.name) || (mems[0] && mems[0].name) || '';
+}
+/* my own mood — from the live table when signed in, else a local same-day fallback */
+function myWeather(){
+  if(_wIsReal()){ var id=window.DB.ownerMemberId, r=window.memberWeather && window.memberWeather[id]; return (r && _wIsToday(r.at)) ? r.weather : null; }
+  try{ var w = JSON.parse(localStorage.getItem('fh-weather') || '{}'); return (w && w.date === _wkey()) ? w.k : null; }catch(e){ return null; }
+}
+/* another member's mood; in the signed-out preview, seed a couple so the loop is visible */
+function _demoWeather(name){ var d={ James:'anger', Mia:'rain', Leo:'sun' }; return d[name] || null; }
+function memberWeatherOf(name){
+  if(name === _meName()) return myWeather();
+  if(_wIsReal()){ var id=window.DB.memberByAppName[name], r=id && window.memberWeather && window.memberWeather[id]; return (r && _wIsToday(r.at)) ? r.weather : null; }
+  return _demoWeather(name);
+}
+function setWeather(k){
+  window._wpick = false;
+  if(_wIsReal() && typeof window.saveWeather === 'function'){ window.saveWeather(k); }
+  else { try{ localStorage.setItem('fh-weather', JSON.stringify({ date: _wkey(), k: k })); }catch(e){} }
+  if(typeof renderHome === 'function') renderHome();
+}
+function clearWeather(){                       // signed-out reset (kept for compatibility)
+  window._wpick = true;
+  if(_wIsReal() && typeof window.saveWeather === 'function'){ window.saveWeather(null); }
+  else { try{ localStorage.removeItem('fh-weather'); }catch(e){} }
+  if(typeof renderHome === 'function') renderHome();
+}
+function openWeatherPick(){ window._wpick = true; if(typeof renderHome === 'function') renderHome(); }
+window.setWeather = setWeather; window.clearWeather = clearWeather; window.openWeatherPick = openWeatherPick;
+
+/* one avatar for the sky: real family palette (membersMeta) → FAM color fallback */
+function _skyAv(m){
+  var ini = (typeof inits === 'function') ? inits(m.name) : ('' + (m.name || '?')).charAt(0).toUpperCase();
+  var col = (typeof membersMeta !== 'undefined' && membersMeta[m.name] && membersMeta[m.name].col) || m.color || '#8f8a99';
+  return '<span class="fs-av av" style="background:' + col + '">' + esc(ini) + '</span>';
+}
+/* ONE connected card that straddles the hero and body.
+   The reveal is GATED: until you share your own mood you can't see the family's —
+   only locked silhouettes hinting they're there. Express → the sky opens, showing
+   each member EMOTION-FIRST (a big mood, the face small beneath it), then the
+   caring offers for whoever's having a rough day. */
+function renderWeather(){
+  var mems = (window.FAM && FAM.members) || [];
+  var meName = _meName();
+  var myW = myWeather();
+
+  // (1) NOT expressed yet → ask + a locked teaser of the family (reciprocity gate)
+  if(!myW || window._wpick){
+    var btns = WEATHER.map(function(w){ return '<button class="wpk" onclick="setWeather(&#39;' + w.k + '&#39;)" aria-label="' + escAttr(L(w.vi, w.en)) + '">' + w.e + '</button>'; }).join('');
+    var others = mems.filter(function(m){ return m.name !== meName; });
+    var lock = others.length
+      ? '<div class="wsky-lock"><span class="wsky-locks">' + others.slice(0, 5).map(function(m){ return '<span class="fs-lock">' + _skyAv(m) + '</span>'; }).join('')
+        + '</span><span class="wsky-lockcap">' + L('Chia sẻ để xem cả nhà hôm nay thế nào', 'Share to see how your family is today') + '</span></div>'
+      : '';
+    return '<div class="wsky wsky-ask"><div class="wsky-q">' + L('Hôm nay bạn thế nào?', 'How are you today?') + '</div>'
+      + '<div class="wrow">' + btns + '</div>' + lock + '</div>';
+  }
+
+  // (2) EXPRESSED → the family sky. Each cell is just the emotion + a name label —
+  //     no avatar, no status text. Those who haven't shared read as a soft cloud.
+  var sky = mems.map(function(m){
+    var mine = (m.name === meName);
+    var w = memberWeatherOf(m.name), wd = w && _wdef(w);
+    var nm = esc((typeof firstName === 'function') ? firstName(m.name) : m.name);
+    var emo = wd ? '<span class="fs-emo">' + wd.e + '</span>' : '<span class="fs-emo fs-emo-wait">☁️</span>';
+    var inner = emo + '<span class="fs-n">' + nm + '</span>';
+    return mine
+      ? '<button class="fs-c me" onclick="openWeatherPick()" aria-label="' + escAttr(L('Đổi cảm xúc', 'Change your mood')) + '">' + inner + '</button>'
+      : '<span class="fs-c' + (wd ? '' : ' waiting') + '">' + inner + '</span>';
+  }).join('');
+
+  // a warm, collective read of the whole sky (the emotional payoff, not a stat)
+  var oth = mems.filter(function(m){ return m.name !== meName; });
+  var othShared = oth.filter(function(m){ return memberWeatherOf(m.name); });
+  var roughAny = othShared.some(function(m){ var d = _wdef(memberWeatherOf(m.name)); return d && d.rough; });
+  var read = roughAny ? L('Có người đang cần được quan tâm 💛', 'Someone could use a little care 💛')
+           : othShared.length ? L('Cả nhà đang ổn cả 🌿', 'Everyone’s doing okay 🌿')
+           : oth.length ? L('Chờ cả nhà cùng chia sẻ nhé', 'Waiting for the family to check in')
+           : L('Mời thêm cả nhà cùng chia sẻ nhé 💛', 'Invite your family to share 💛');
+
+  var out = '<div class="wsky wsky-open"><div class="wsky-h">' + L('Bầu trời của nhà', 'The family sky') + '</div>'
+    + '<div class="fsky-row">' + sky + '</div><div class="sky-read">' + read + '</div></div>';
+
+  // (3) caring, build-something offers for the OTHERS — rough moods first, at most two
+  var offers = [];
+  mems.forEach(function(m){
+    if(m.name === meName) return;
+    var w = memberWeatherOf(m.name), wd = w && _wdef(w); if(!wd) return;
+    offers.push({ nm: (typeof firstName === 'function') ? firstName(m.name) : m.name, wd: wd });
+  });
+  offers.sort(function(a, b){ return (b.wd.rough ? 1 : 0) - (a.wd.rough ? 1 : 0); });
+  var offHtml = offers.slice(0, 2).map(function(o){
+    var nm = esc(o.nm);
+    var eye = nm + ' ' + L('đang ' + o.wd.fvi, 'is ' + o.wd.fen);
+    var line = L(o.wd.ovi, o.wd.oen).replace(/\{n\}/g, nm);
+    return '<button class="woffer" onclick="' + o.wd.act + '"><div class="wo-ico">' + o.wd.oico + '</div>'
+      + '<div class="wo-body"><div class="wo-k">' + eye + '</div><div class="wo-t">' + line + '</div></div>'
+      + '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
+  }).join('');
+
+  // Offers are for the OTHERS only — no self-directed action. If nobody else has
+  // shared a mood, the sky simply stands on its own.
+  return out + offHtml;
+}
+
 /* a full-bleed cover: a real photo (src) or a scene gradient (cls), with scrim + subject emoji */
 function hVisual(cls, src, subj){
   var bg = src ? '<div class="hm-bg" style="background-image:url(' + escAttr(src) + ')"></div>'
@@ -55,7 +183,7 @@ function renderHome(){
   var _meM = ((window.FAM && FAM.members) || []).filter(function(mm){ return mm.me; })[0];   // the in-family member name (who is tagged with)
   var meName = (_meM ? _meM.name : ((window.FAM && FAM.user && FAM.user.name) || '')).toLowerCase();
   var _hv = document.getElementById('v-home'); var homeVis = !!(_hv && _hv.classList.contains('on'));
-  var html = '', usedRef = null;
+  var html = renderWeather(), usedRef = null;                          // Thời tiết cảm xúc — express + a matched offer, always on top
 
   // upcoming real occasions (not achieved, not a photo-expense mirror), nearest first
   var up = ord.filter(function(k){ return evs[k] && evs[k].d && !isMirrorK(k) && !achievedNow(evs[k]); })
@@ -167,9 +295,9 @@ function renderHome(){
   /* ---- the quiet look-ahead whisper ---- */
   if(nk){
     var e2 = evs[nk], dl2 = daysLeft(e2.d);
-    html += '<div class="hlook" onclick="openEvent(&#39;' + escAttr(nk) + '&#39;)">' + esc(e2.emoji) + ' '
+    html += '<button class="hlook" onclick="openEvent(&#39;' + escAttr(nk) + '&#39;)">' + esc(e2.emoji) + ' '
       + L('Sắp tới', 'Coming up') + ': <b>' + esc(e2.name) + '</b> · '
-      + (dl2 === 0 ? L('hôm nay', 'today') : L('còn ' + dl2 + ' ngày', dl2 + ' days')) + '</div>';
+      + (dl2 === 0 ? L('hôm nay', 'today') : L('còn ' + dl2 + ' ngày', dl2 + ' days')) + '</button>';
   }
 
   /* ---- #11 seed the feed: a gentle nudge only when it's genuinely thin ---- */

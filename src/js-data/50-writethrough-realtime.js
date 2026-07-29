@@ -237,6 +237,24 @@
     try { if (window.fhUser && window.DB.fid && k) sb.from('profiles').update({ theme: k }).eq('id', window.fhUser.id); } catch (e) {}
   };
 
+  // ---- write-through: emotional weather (one shared mood per member) ----
+  window.saveWeather = async function (weather) {
+    try {
+      const fid = window.DB && window.DB.fid, mid = window.DB && window.DB.ownerMemberId;
+      if (!sb || !fid || !mid) return false;
+      const now = new Date().toISOString();
+      window.memberWeather = window.memberWeather || {};
+      if (weather) window.memberWeather[mid] = { weather: weather, at: now };   // optimistic local echo
+      else delete window.memberWeather[mid];
+      window.DB._lastLocalWrite = Date.now();
+      const res = weather
+        ? await sb.from('member_weather').upsert({ family_id: fid, member_id: mid, weather: weather, updated_at: now }, { onConflict: 'family_id,member_id' })
+        : await sb.from('member_weather').delete().eq('family_id', fid).eq('member_id', mid);
+      if (res && res.error) console.warn('saveWeather', res.error);
+      return true;
+    } catch (e) { console.warn('saveWeather', e); return false; }
+  };
+
   // ---- realtime: reload on any change to this family's rows ----
   let _rtTimer = null;
   async function _subscribeRealtime(fid) {
@@ -246,7 +264,7 @@
       // authenticate the realtime socket so RLS-gated postgres_changes are delivered
       try { const { data: { session } } = await sb.auth.getSession(); if (session && sb.realtime && sb.realtime.setAuth) await sb.realtime.setAuth(session.access_token); } catch (e) {}
       const ch = sb.channel('fam-' + fid);
-      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals'].forEach((tbl) => {
+      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather'].forEach((tbl) => {
         ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: 'family_id=eq.' + fid }, () => {
           // Echo suppression (R3): our own writes already schedule a _syncSoon reload,
           // and realtime replays them straight back. Ignore ticks inside the local-write

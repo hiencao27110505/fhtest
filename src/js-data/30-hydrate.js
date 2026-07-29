@@ -227,6 +227,16 @@
       updateHeroFam();
       _subscribeRealtime(fid);
       fhFresh();                                        // fresh data is on screen — drop the "Updating…" chip
+      // emotional weather: one current mood per member (shared, realtime).
+      // Fetched after first paint (it's tiny + off the critical path), then the
+      // home sky repaints — this is what makes a mood set on one phone appear on
+      // the others when the realtime tick re-runs loadFamilyData.
+      try {
+        const wr = await sb.from('member_weather').select('member_id,weather,updated_at').eq('family_id', fid);
+        const wmap = {}; (wr.data || []).forEach((r) => { wmap[r.member_id] = { weather: r.weather, at: r.updated_at }; });
+        window.memberWeather = wmap;
+        if (typeof window.renderHome === 'function') window.renderHome();
+      } catch (e) { window.memberWeather = window.memberWeather || {}; }
       window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
       if (window.fhSaveSnapshot) window.fhSaveSnapshot();   // cache it for the next cold start
       return true;
