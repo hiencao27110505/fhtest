@@ -45,6 +45,7 @@ function memberWeatherOf(name){
 }
 function setWeather(k){
   window._wpick = false;
+  if(k) window._wxMine = k;                       // animate my own change immediately (self-feedback)
   if(_wIsReal() && typeof window.saveWeather === 'function'){ window.saveWeather(k); }
   else { try{ localStorage.setItem('fh-weather', JSON.stringify({ date: _wkey(), k: k })); }catch(e){} }
   if(typeof renderHome === 'function') renderHome();
@@ -94,9 +95,10 @@ function renderWeather(){
     var nm = esc((typeof firstName === 'function') ? firstName(m.name) : m.name);
     var emo = wd ? '<span class="fs-emo">' + wd.e + '</span>' : '<span class="fs-emo fs-emo-wait">☁️</span>';
     var inner = emo + '<span class="fs-n">' + nm + '</span>';
+    var dn = ' data-name="' + escAttr(m.name) + '"';
     return mine
-      ? '<button class="fs-c me" onclick="openWeatherPick()" aria-label="' + escAttr(L('Đổi cảm xúc', 'Change your mood')) + '">' + inner + '</button>'
-      : '<span class="fs-c' + (wd ? '' : ' waiting') + '">' + inner + '</span>';
+      ? '<button class="fs-c me"' + dn + ' onclick="openWeatherPick()" aria-label="' + escAttr(L('Đổi cảm xúc', 'Change your mood')) + '">' + inner + '</button>'
+      : '<span class="fs-c' + (wd ? '' : ' waiting') + '"' + dn + '>' + inner + '</span>';
   }).join('');
 
   // a warm, collective read of the whole sky (the emotional payoff, not a stat)
@@ -306,5 +308,96 @@ function renderHome(){
   }
 
   setHTMLIf(box, html);
+  try{ runWeatherFx(); }catch(e){}                 // play any just-set / just-arrived mood animations
 }
 window.renderHome = renderHome;
+
+/* ---------- weather FX — a felt moment when a mood is set or arrives ----------
+   A persisted "seen" map (member_id → last-seen timestamp) is diffed on every
+   home render: your own change plays instantly (A: cell pop), and any OTHER
+   member whose mood is newer than last seen plays the full moment (B: the whole
+   card takes on that weather; C: a short "just changed" note). Because the map is
+   persisted, a change made while you were away replays once on your next open.
+   First-ever load seeds silently so nothing animates on a cold start. */
+var _WXFX = { sun:'sun', fire:'spark', ok:'cloud', rain:'rain', tired:'mist', anger:'storm' };
+function _wxIdOf(name){
+  if(!window.DB) return null;
+  if(name === _meName()) return window.DB.ownerMemberId || null;
+  return (window.DB.memberByAppName && window.DB.memberByAppName[name]) || null;
+}
+function _wxPersist(){ try{ localStorage.setItem('fh-wx-seen', JSON.stringify(window._wxSeen)); }catch(e){} }
+function _wxParticles(t){
+  var s = '', i, n;
+  if(t === 'rain' || t === 'storm'){
+    n = (t === 'storm') ? 22 : 14;
+    for(i = 0; i < n; i++){ s += '<i class="wx-drop" style="left:' + (Math.random()*100).toFixed(1) + '%;animation-delay:' + (Math.random()*1.1).toFixed(2) + 's;animation-duration:' + (0.62 + Math.random()*0.4).toFixed(2) + 's"></i>'; }
+    if(t === 'storm') s += '<i class="wx-flash"></i>';
+  } else if(t === 'sun'){
+    s += '<i class="wx-glow"></i>';
+    for(i = 0; i < 8; i++){ s += '<i class="wx-spark" style="left:' + (10 + Math.random()*80).toFixed(1) + '%;top:' + (8 + Math.random()*60).toFixed(1) + '%;animation-delay:' + (Math.random()*1).toFixed(2) + 's"></i>'; }
+  } else if(t === 'spark'){
+    for(i = 0; i < 12; i++){ s += '<i class="wx-ember" style="left:' + (Math.random()*100).toFixed(1) + '%;animation-delay:' + (Math.random()*1.2).toFixed(2) + 's"></i>'; }
+  } else if(t === 'cloud'){
+    s += '<i class="wx-cloud"></i>';
+  } else if(t === 'mist'){
+    s += '<i class="wx-mist"></i>';
+  }
+  return s;
+}
+function _wxPlay(host, plays){
+  var lead = plays.filter(function(p){ return !p.mine; })[0] || plays[0];
+  var fxType = _WXFX[lead.k] || 'rain';
+  var layer = document.createElement('div');
+  layer.className = 'wx-fx wx-' + fxType;
+  layer.innerHTML = _wxParticles(fxType);
+  host.appendChild(layer);
+  setTimeout(function(){ if(layer.parentNode) layer.parentNode.removeChild(layer); }, 2700);
+
+  var others = plays.filter(function(p){ return !p.mine; });
+  if(others.length){
+    var wd = _wdef(others[0].k), nm = (typeof firstName === 'function') ? firstName(others[0].name) : others[0].name;
+    var note = document.createElement('div');
+    note.className = 'wx-note';
+    note.innerHTML = esc(nm) + (others.length > 1 ? ' +' + (others.length - 1) : '') + ' ' + L('vừa đổi tâm trạng', 'just changed their weather') + ' ' + (wd ? wd.e : '');
+    host.appendChild(note);
+    setTimeout(function(){ if(note.parentNode) note.parentNode.removeChild(note); }, 3300);
+  }
+  var cells = host.querySelectorAll('.fs-c');
+  plays.forEach(function(p){
+    Array.prototype.forEach.call(cells, function(c){
+      if(c.getAttribute('data-name') === p.name){
+        c.classList.remove('fx'); void c.offsetWidth; c.classList.add('fx');
+        setTimeout(function(){ c.classList.remove('fx'); }, 1100);
+      }
+    });
+  });
+}
+function runWeatherFx(){
+  if(document.hidden) return;
+  // Only on the OPEN sky (home visible). In the locked "share first" state the host
+  // is absent, so a member's change defers — it neither leaks past the reciprocity
+  // gate nor gets marked seen, and animates once the user shares and the sky opens.
+  var host = document.querySelector('#v-home.on .wsky.wsky-open'); if(!host) return;
+  var meName = _meName();
+  if(window._wxSeen === undefined){
+    var raw = null; try{ raw = localStorage.getItem('fh-wx-seen'); }catch(e){}
+    try{ window._wxSeen = raw ? (JSON.parse(raw) || {}) : null; }catch(e){ window._wxSeen = null; }
+  }
+  var plays = [];
+  if(window._wxMine){ plays.push({ name: meName, k: window._wxMine, mine: true }); window._wxMine = null; }
+  var mems = (window.FAM && FAM.members) || [], nextSeen = {}, hasData = false;
+  mems.forEach(function(m){
+    var id = _wxIdOf(m.name); if(!id) return;
+    var rec = window.memberWeather && window.memberWeather[id];
+    if(!rec || !rec.weather || !rec.at) return;
+    hasData = true; nextSeen[id] = rec.at;
+    if(window._wxSeen && m.name !== meName){
+      var prev = window._wxSeen[id];
+      if(!prev || rec.at > prev) plays.push({ name: m.name, k: rec.weather, mine: false });
+    }
+  });
+  if(window._wxSeen === null){ if(hasData){ window._wxSeen = nextSeen; _wxPersist(); } }      // first-ever: seed silently
+  else if(hasData){ for(var id in nextSeen) window._wxSeen[id] = nextSeen[id]; _wxPersist(); }
+  if(plays.length) _wxPlay(host, plays);
+}
+window.runWeatherFx = runWeatherFx;

@@ -265,7 +265,7 @@ input{font-family:inherit}
 .wsky-h{font-family:var(--disp);font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:center;margin-bottom:18px}
 .fsky-row{display:flex;justify-content:space-around;align-items:flex-start;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 6px;scrollbar-width:none}
 .fsky-row::-webkit-scrollbar{display:none}
-.fs-c{display:flex;flex-direction:column;align-items:center;gap:11px;background:none;border:0;padding:0;font:inherit;flex:0 0 auto;cursor:default;min-width:60px}
+.fs-c{position:relative;isolation:isolate;display:flex;flex-direction:column;align-items:center;gap:11px;background:none;border:0;padding:0;font:inherit;flex:0 0 auto;cursor:default;min-width:60px}
 .fs-c.me{cursor:pointer}
 .fs-c.me:active{transform:scale(.94)}
 .fs-emo{font-size:42px;line-height:1}
@@ -275,6 +275,32 @@ input{font-family:inherit}
 .fs-c.waiting .fs-n{color:var(--muted)}
 /* the collective read — a warm one-line feeling for the whole family */
 .sky-read{margin-top:18px;padding-top:14px;border-top:1px solid var(--divider);text-align:center;font-size:13px;font-weight:500;letter-spacing:-.01em;color:var(--ink-2)}
+/* ---- weather FX: a felt one-shot moment when a mood is set or arrives ---- */
+/* A: the changed face pops with a soft aura */
+.fs-c.fx .fs-emo{animation:wx-pop .9s cubic-bezier(.2,1.4,.35,1) both}
+.fs-c.fx::after{content:'';position:absolute;top:-4px;left:50%;width:56px;height:56px;margin-left:-28px;border-radius:50%;background:radial-gradient(circle,var(--brand-glow),transparent 66%);animation:wx-aura 1s ease-out both;pointer-events:none;z-index:-1}
+@keyframes wx-pop{0%{transform:scale(.5);opacity:.4}55%{transform:scale(1.22)}100%{transform:scale(1)}}
+@keyframes wx-aura{0%{transform:scale(.4);opacity:.75}100%{transform:scale(1.6);opacity:0}}
+/* B: the whole card takes on the weather (particles clipped to the card) */
+.wx-fx{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3;border-radius:var(--r-card-lg)}
+.wx-drop{position:absolute;top:-14%;width:2px;height:15px;border-radius:1px;background:linear-gradient(180deg,transparent,rgba(78,116,168,.6));opacity:0;animation:wx-fall .8s linear forwards}
+@keyframes wx-fall{0%{transform:translateY(0);opacity:0}12%{opacity:.85}100%{transform:translateY(360px);opacity:0}}
+.wx-flash{position:absolute;inset:0;background:rgba(255,255,255,.82);opacity:0;animation:wx-flash 1.7s ease-out forwards}
+@keyframes wx-flash{0%,100%{opacity:0}5%{opacity:.85}11%{opacity:.08}17%{opacity:.65}25%{opacity:0}}
+.wx-glow{position:absolute;left:50%;top:40%;width:44px;height:44px;margin:-22px;border-radius:50%;background:radial-gradient(circle,rgba(255,203,84,.7),rgba(255,203,84,0) 70%);opacity:0;animation:wx-bloom 2.2s ease-out forwards}
+@keyframes wx-bloom{0%{transform:scale(.3);opacity:0}28%{opacity:.85}100%{transform:scale(7.5);opacity:0}}
+.wx-spark{position:absolute;width:5px;height:5px;border-radius:50%;background:rgba(255,214,110,.95);opacity:0;animation:wx-tw 1.4s ease-in-out forwards}
+@keyframes wx-tw{0%,100%{transform:scale(0);opacity:0}50%{transform:scale(1);opacity:1}}
+.wx-ember{position:absolute;bottom:-8px;width:5px;height:5px;border-radius:50%;background:radial-gradient(circle,rgba(255,150,60,.95),rgba(255,90,30,0));opacity:0;animation:wx-rise 1.7s ease-in forwards}
+@keyframes wx-rise{0%{transform:translateY(0) scale(1);opacity:0}15%{opacity:1}100%{transform:translateY(-150px) scale(.4);opacity:0}}
+.wx-cloud{position:absolute;top:26%;left:-45%;width:130px;height:44px;border-radius:44px;background:radial-gradient(closest-side,rgba(176,186,203,.5),rgba(176,186,203,0));animation:wx-drift 2.6s ease-in-out forwards}
+@keyframes wx-drift{0%{transform:translateX(0);opacity:0}20%{opacity:.85}80%{opacity:.85}100%{transform:translateX(190%);opacity:0}}
+.wx-mist{position:absolute;inset:0;background:linear-gradient(180deg,rgba(198,204,214,.6),rgba(198,204,214,.12));opacity:0;animation:wx-mistin 2.4s ease-in-out forwards}
+@keyframes wx-mistin{0%,100%{opacity:0}40%,60%{opacity:1}}
+/* C: a brief "just changed" note pill */
+.wx-note{position:absolute;top:13px;left:50%;transform:translateX(-50%);background:var(--white);box-shadow:var(--shadow-card);border-radius:9999px;padding:5px 13px;font-size:11.5px;font-weight:700;letter-spacing:-.01em;color:var(--ink-2);white-space:nowrap;z-index:4;opacity:0;pointer-events:none;animation:wx-note 3.3s ease-in-out forwards}
+@keyframes wx-note{0%{opacity:0}11%{opacity:1}82%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.wx-fx,.wx-note{display:none}.fs-c.fx .fs-emo{animation:none}.fs-c.fx::after{display:none}}
 /* (3) the ONE consistent offer card every mood routes into */
 .woffer{display:flex;align-items:center;gap:13px;width:100%;background:var(--white);border:0;border-radius:18px;padding:12px 15px;margin-top:9px;box-shadow:var(--shadow-card);font:inherit;text-align:left;cursor:pointer}
 .woffer:active{transform:scale(.99)}
@@ -2752,6 +2778,7 @@ function memberWeatherOf(name){
 }
 function setWeather(k){
   window._wpick = false;
+  if(k) window._wxMine = k;                       // animate my own change immediately (self-feedback)
   if(_wIsReal() && typeof window.saveWeather === 'function'){ window.saveWeather(k); }
   else { try{ localStorage.setItem('fh-weather', JSON.stringify({ date: _wkey(), k: k })); }catch(e){} }
   if(typeof renderHome === 'function') renderHome();
@@ -2801,9 +2828,10 @@ function renderWeather(){
     var nm = esc((typeof firstName === 'function') ? firstName(m.name) : m.name);
     var emo = wd ? '<span class="fs-emo">' + wd.e + '</span>' : '<span class="fs-emo fs-emo-wait">☁️</span>';
     var inner = emo + '<span class="fs-n">' + nm + '</span>';
+    var dn = ' data-name="' + escAttr(m.name) + '"';
     return mine
-      ? '<button class="fs-c me" onclick="openWeatherPick()" aria-label="' + escAttr(L('Đổi cảm xúc', 'Change your mood')) + '">' + inner + '</button>'
-      : '<span class="fs-c' + (wd ? '' : ' waiting') + '">' + inner + '</span>';
+      ? '<button class="fs-c me"' + dn + ' onclick="openWeatherPick()" aria-label="' + escAttr(L('Đổi cảm xúc', 'Change your mood')) + '">' + inner + '</button>'
+      : '<span class="fs-c' + (wd ? '' : ' waiting') + '"' + dn + '>' + inner + '</span>';
   }).join('');
 
   // a warm, collective read of the whole sky (the emotional payoff, not a stat)
@@ -3013,8 +3041,99 @@ function renderHome(){
   }
 
   setHTMLIf(box, html);
+  try{ runWeatherFx(); }catch(e){}                 // play any just-set / just-arrived mood animations
 }
 window.renderHome = renderHome;
+
+/* ---------- weather FX — a felt moment when a mood is set or arrives ----------
+   A persisted "seen" map (member_id → last-seen timestamp) is diffed on every
+   home render: your own change plays instantly (A: cell pop), and any OTHER
+   member whose mood is newer than last seen plays the full moment (B: the whole
+   card takes on that weather; C: a short "just changed" note). Because the map is
+   persisted, a change made while you were away replays once on your next open.
+   First-ever load seeds silently so nothing animates on a cold start. */
+var _WXFX = { sun:'sun', fire:'spark', ok:'cloud', rain:'rain', tired:'mist', anger:'storm' };
+function _wxIdOf(name){
+  if(!window.DB) return null;
+  if(name === _meName()) return window.DB.ownerMemberId || null;
+  return (window.DB.memberByAppName && window.DB.memberByAppName[name]) || null;
+}
+function _wxPersist(){ try{ localStorage.setItem('fh-wx-seen', JSON.stringify(window._wxSeen)); }catch(e){} }
+function _wxParticles(t){
+  var s = '', i, n;
+  if(t === 'rain' || t === 'storm'){
+    n = (t === 'storm') ? 22 : 14;
+    for(i = 0; i < n; i++){ s += '<i class="wx-drop" style="left:' + (Math.random()*100).toFixed(1) + '%;animation-delay:' + (Math.random()*1.1).toFixed(2) + 's;animation-duration:' + (0.62 + Math.random()*0.4).toFixed(2) + 's"></i>'; }
+    if(t === 'storm') s += '<i class="wx-flash"></i>';
+  } else if(t === 'sun'){
+    s += '<i class="wx-glow"></i>';
+    for(i = 0; i < 8; i++){ s += '<i class="wx-spark" style="left:' + (10 + Math.random()*80).toFixed(1) + '%;top:' + (8 + Math.random()*60).toFixed(1) + '%;animation-delay:' + (Math.random()*1).toFixed(2) + 's"></i>'; }
+  } else if(t === 'spark'){
+    for(i = 0; i < 12; i++){ s += '<i class="wx-ember" style="left:' + (Math.random()*100).toFixed(1) + '%;animation-delay:' + (Math.random()*1.2).toFixed(2) + 's"></i>'; }
+  } else if(t === 'cloud'){
+    s += '<i class="wx-cloud"></i>';
+  } else if(t === 'mist'){
+    s += '<i class="wx-mist"></i>';
+  }
+  return s;
+}
+function _wxPlay(host, plays){
+  var lead = plays.filter(function(p){ return !p.mine; })[0] || plays[0];
+  var fxType = _WXFX[lead.k] || 'rain';
+  var layer = document.createElement('div');
+  layer.className = 'wx-fx wx-' + fxType;
+  layer.innerHTML = _wxParticles(fxType);
+  host.appendChild(layer);
+  setTimeout(function(){ if(layer.parentNode) layer.parentNode.removeChild(layer); }, 2700);
+
+  var others = plays.filter(function(p){ return !p.mine; });
+  if(others.length){
+    var wd = _wdef(others[0].k), nm = (typeof firstName === 'function') ? firstName(others[0].name) : others[0].name;
+    var note = document.createElement('div');
+    note.className = 'wx-note';
+    note.innerHTML = esc(nm) + (others.length > 1 ? ' +' + (others.length - 1) : '') + ' ' + L('vừa đổi tâm trạng', 'just changed their weather') + ' ' + (wd ? wd.e : '');
+    host.appendChild(note);
+    setTimeout(function(){ if(note.parentNode) note.parentNode.removeChild(note); }, 3300);
+  }
+  var cells = host.querySelectorAll('.fs-c');
+  plays.forEach(function(p){
+    Array.prototype.forEach.call(cells, function(c){
+      if(c.getAttribute('data-name') === p.name){
+        c.classList.remove('fx'); void c.offsetWidth; c.classList.add('fx');
+        setTimeout(function(){ c.classList.remove('fx'); }, 1100);
+      }
+    });
+  });
+}
+function runWeatherFx(){
+  if(document.hidden) return;
+  // Only on the OPEN sky (home visible). In the locked "share first" state the host
+  // is absent, so a member's change defers — it neither leaks past the reciprocity
+  // gate nor gets marked seen, and animates once the user shares and the sky opens.
+  var host = document.querySelector('#v-home.on .wsky.wsky-open'); if(!host) return;
+  var meName = _meName();
+  if(window._wxSeen === undefined){
+    var raw = null; try{ raw = localStorage.getItem('fh-wx-seen'); }catch(e){}
+    try{ window._wxSeen = raw ? (JSON.parse(raw) || {}) : null; }catch(e){ window._wxSeen = null; }
+  }
+  var plays = [];
+  if(window._wxMine){ plays.push({ name: meName, k: window._wxMine, mine: true }); window._wxMine = null; }
+  var mems = (window.FAM && FAM.members) || [], nextSeen = {}, hasData = false;
+  mems.forEach(function(m){
+    var id = _wxIdOf(m.name); if(!id) return;
+    var rec = window.memberWeather && window.memberWeather[id];
+    if(!rec || !rec.weather || !rec.at) return;
+    hasData = true; nextSeen[id] = rec.at;
+    if(window._wxSeen && m.name !== meName){
+      var prev = window._wxSeen[id];
+      if(!prev || rec.at > prev) plays.push({ name: m.name, k: rec.weather, mine: false });
+    }
+  });
+  if(window._wxSeen === null){ if(hasData){ window._wxSeen = nextSeen; _wxPersist(); } }      // first-ever: seed silently
+  else if(hasData){ for(var id in nextSeen) window._wxSeen[id] = nextSeen[id]; _wxPersist(); }
+  if(plays.length) _wxPlay(host, plays);
+}
+window.runWeatherFx = runWeatherFx;
 
 /* ---------- events ---------- */
 function memTileHTML(k){
