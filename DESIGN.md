@@ -39,7 +39,7 @@ Use the semantic token, never a raw hex, so theming and dark-mode work.
 | `--brand-ink` | `#1F7E52` | Brand-colored text on light backgrounds (higher contrast) |
 | `--brand-2` | `#5FD3A0` | Secondary brand, gradient stop |
 | `--grad-brand` | `linear-gradient(135deg,#34B87A,#5FC98D)` | Primary button fill |
-| `--grad-hero` | `linear-gradient(150deg,#4CB584,#2E9E6B,#8FC97E)` | Home hero, app mark |
+| `--grad-hero` | `linear-gradient(150deg,#4CB584,#2E9E6B,#8FC97E)` | App mark (the Home hero is now the house scene, see §3) |
 | `--brand-tint` | `#e9f7f0` | Selected-chip fill, subtle brand backgrounds |
 | `--brand-glow` | `rgba(46,158,107,.32)` | Primary button shadow |
 
@@ -193,6 +193,23 @@ Dark pill, bottom-center, check icon, auto-dismiss ~2.4s. For lightweight confir
 
 ### Empty states (`.mem-empty`)
 Centered emoji + short title + one-line hint on a white rounded block. Always guide the next action.
+
+### Home house scene ("Ngôi nhà")
+The Home hero is a living scene, not a gradient: a cottage whose **roof + door use
+`--brand-ink`** (the theme paints the house) on a sky that follows the **real clock**
+(`.sky-dawn/day/dusk/night` on `#home-sky`, phase palettes as scene-local CSS vars —
+the one sanctioned exception to "no raw hex", since they are illustration, not UI).
+Every member is a **window** (`.hw`): the pane lights with their mood (`.p-<mood>`,
+`.lit` adds a glow that strengthens at dusk/night); until you share, others stay
+curtained (`.p-cur`) and your pane shows a candle (`.p-ask`). The **door** opens the
+add sheet. Recent memories hang as **polaroids on the clothesline** (`.pol`, tap →
+`openMemory`); the **tree** scales with total goal progress; the **chimney smokes**
+when something was added today; the family's collective mood plays as ambient
+weather (`.amb`: drizzle / storm / mist / sunbeams). 4+ members compact the windows
+(`.big-house`), 5+ also clears the clothesline (`.full-house`). Under the scene, the
+**hearth card** (`.hearth`, straddles the ground) holds the mood picker until you've
+shared, then the caring `.woffer` offers. All ambient motion is gated by
+`prefers-reduced-motion`.
 
 ### Photo / memory system
 - **Mosaic** (`.photo-mosaic`): 6-col grid, dynamic collage by count (1 hero / 2 halves / 3 big+2 /

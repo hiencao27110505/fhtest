@@ -66,7 +66,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 
 <!-- ============================ HOME ============================ -->
 <section class="view on" id="v-home">
-  <div class="home-hd">
+  <!-- the living house: sky follows the real clock; each member is a window lit by
+       their mood; memories hang on the line; the tree grows with savings. -->
+  <div class="home-sky sky-day" id="home-sky">
     <div class="safe"></div>
     <div class="hh-row">
       <div class="hh-l">
@@ -76,9 +78,10 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
       <button class="hh-ic" onclick="openSheet('sheet-theme')" aria-label="Theme" data-ta="ariaTheme">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3a9 9 0 100 18 2 2 0 001.6-3.3 2 2 0 011.5-3.2H18a3 3 0 003-3c0-4-4-6-9-6z"/><circle cx="7.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="10" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8" r="1.1" fill="currentColor" stroke="none"/></svg></button>
     </div>
+    <div class="home-scene" id="home-scene"></div>
   </div>
 
-  <!-- the emotional feed: one daily moment + "money, felt" + woven beats, filled by renderHome() -->
+  <!-- the emotional feed: the hearth card + daily moments woven by renderHome() -->
   <div class="home-body" id="home-body"></div>
 
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">

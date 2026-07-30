@@ -312,39 +312,151 @@ input{font-family:inherit}
 .woffer .chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
 
 /* ============================================================================
-   HOME — "Hôm nay" (Option 2): a light large-title on canvas, a focal mood card,
-   and section-organized, data-driven recommendation widgets. Every widget is
-   built from the shared kit (canvas · white cards · section headers · rows ·
-   photo cards · badges) so home reads as the same designer as the two tabs —
-   even though the recommendation FORMS vary (photo · act-row · reflect · whisper
-   · chips · countdown · relational · progress · peek · quote · then-now).
+   HOME — "Ngôi nhà": a living house hero. The sky follows the real clock
+   (dawn / day / dusk / night); every member is a window lit by their mood;
+   recent memories hang as polaroids on the clothesline; the tree grows with the
+   family's savings; the chimney smokes when someone added something today. The
+   roof and door take the family's theme color, so each theme paints the house.
+   Under the scene: the hearth card (mood picker → caring offers) + the feed.
    This file loads after 20-hero.css and overrides the old gradient-hero home.
    ============================================================================ */
 
-/* ---------- colored hero (gradient, emotional top) ---------- */
-/* top scrim darkens the status-bar zone so the white iOS glyphs (time/battery) stay legible over the mid-tone gradient */
-.home-hd{background:linear-gradient(180deg,rgba(0,0,0,.26),rgba(0,0,0,0) 96px),var(--grad-hero);color:#fff;padding:0 22px 40px;position:relative;overflow:hidden}
-.home-hd::after{content:'';position:absolute;top:-70px;right:-46px;width:230px;height:230px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.22),transparent 70%);pointer-events:none}
-.home-hd::before{content:'';position:absolute;bottom:-30px;left:-30px;width:170px;height:170px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.13),transparent 70%);pointer-events:none}
-.home-hd .safe{height:max(env(safe-area-inset-top),16px)}
+/* ---------- the sky: phase-tinted container (greeting + scene) ---------- */
+.home-sky{position:relative;overflow:hidden;color:#fff;
+  --sky1:#5fa7d6;--sky2:#cde8f7;--hill1:#86b294;--hill2:#639b7c;
+  --gr1:#9cc98b;--gr2:#77aa67;--dim:rgba(15,20,45,0);--linec:rgba(255,255,255,.5);
+  background:linear-gradient(180deg,var(--sky1),var(--sky2) 82%)}
+.home-sky.sky-dawn{--sky1:#d98e6b;--sky2:#ffdfb4;--hill1:#b18a8e;--hill2:#93707e;--gr1:#a8bf7e;--gr2:#87a565;--dim:rgba(80,40,30,.06)}
+.home-sky.sky-dusk{--sky1:#5d4d8f;--sky2:#f0a172;--hill1:#6d5a80;--hill2:#55486b;--gr1:#69865c;--gr2:#4d6a45;--dim:rgba(35,25,70,.16)}
+.home-sky.sky-night{--sky1:#121a32;--sky2:#33406b;--hill1:#232b48;--hill2:#1a2138;--gr1:#28403a;--gr2:#1c2f2a;--dim:rgba(10,14,40,.38);--linec:rgba(255,255,255,.22)}
+/* status-bar zone stays legible over any sky */
+.home-sky::before{content:'';position:absolute;top:0;left:0;right:0;height:104px;background:linear-gradient(180deg,rgba(0,0,0,.26),rgba(0,0,0,0));pointer-events:none;z-index:0}
+.home-sky .safe{height:max(env(safe-area-inset-top),16px)}
 /* padding-top 28 matches the tabs' .child-hdr (28px) so the greeting sits at the SAME
    Y as the Finance/Moments large titles — no vertical jump when switching tabs. */
-.hh-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:28px 0 2px;position:relative;z-index:1}
+.hh-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:28px 22px 0;position:relative;z-index:3}
 .hh-l{min-width:0;flex:1}
-.home-hd .greet{font-family:var(--disp);font-weight:750;font-size:30px;letter-spacing:-.7px;color:#fff;line-height:1.05;margin:0;text-shadow:0 1px 4px rgba(0,0,0,.26)}
-.home-hd .greet-sub{font-size:15px;font-weight:500;color:#fff;margin-top:7px;letter-spacing:-.01em;text-shadow:0 1px 3px rgba(0,0,0,.3)}
+.home-sky .greet{font-family:var(--disp);font-weight:750;font-size:30px;letter-spacing:-.7px;color:#fff;line-height:1.05;margin:0;text-shadow:0 1px 4px rgba(0,0,0,.28)}
+.home-sky .greet-sub{font-size:15px;font-weight:500;color:#fff;margin-top:7px;letter-spacing:-.01em;text-shadow:0 1px 3px rgba(0,0,0,.3)}
 .hh-ic{width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.2);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:2px;color:#fff}
 .hh-ic svg{width:20px;height:20px}
 .hh-ic:active{transform:scale(.94)}
-#v-home.on .home-hd .greet{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
-#v-home.on .home-hd .greet-sub{animation:rise .5s cubic-bezier(.2,.7,.2,1) .05s both}
+#v-home.on .home-sky .greet{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
+#v-home.on .home-sky .greet-sub{animation:rise .5s cubic-bezier(.2,.7,.2,1) .05s both}
+
+/* ---------- the scene ---------- */
+.home-scene{position:relative;height:238px;margin-top:4px;z-index:1}
+/* sun / moon */
+.sc-orb{position:absolute;top:10px;right:26px;width:42px;height:42px;border-radius:50%;background:#fff3c9;box-shadow:0 0 34px 10px rgba(255,244,190,.5)}
+.sky-dawn .sc-orb{top:44px;right:auto;left:60%;background:#ffcf7e;box-shadow:0 0 40px 14px rgba(255,190,110,.5)}
+.sky-dusk .sc-orb{top:54px;right:15%;background:#ffc06e;box-shadow:0 0 44px 16px rgba(255,170,90,.55)}
+.sky-night .sc-orb{background:transparent;box-shadow:inset -11px 5px 0 0 #dfe6f5;filter:drop-shadow(0 0 9px rgba(215,228,255,.35))}
+.sc-star{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;animation:sc-tw 3.2s ease-in-out infinite}
+@keyframes sc-tw{0%,100%{opacity:.25}50%{opacity:.9}}
+/* soft drifting clouds */
+.sc-cloud{position:absolute;width:86px;height:22px;border-radius:22px;background:rgba(255,255,255,.55)}
+.sc-cloud::before{content:'';position:absolute;left:16px;top:-12px;width:34px;height:26px;border-radius:50%;background:inherit}
+.sc-cloud::after{content:'';position:absolute;left:42px;top:-8px;width:26px;height:20px;border-radius:50%;background:inherit}
+.sc-cloud.c1{top:22px;left:-24px;animation:sc-drift 90s linear infinite}
+.sc-cloud.c2{top:62px;left:40%;width:62px;opacity:.65;animation:sc-drift 120s linear infinite}
+@keyframes sc-drift{from{transform:translateX(-90px)}to{transform:translateX(440px)}}
+.sky-dusk .sc-cloud{opacity:.4}
+.sky-night .sc-cloud{opacity:.13}
+/* horizon hills (phase-tinted) + ground */
+.sc-hill{position:absolute;border-radius:50%}
+.sc-hill.h1{left:-100px;bottom:30px;width:360px;height:104px;background:var(--hill1)}
+.sc-hill.h2{right:-130px;bottom:24px;width:420px;height:120px;background:var(--hill2)}
+.sc-ground{position:absolute;left:0;right:0;bottom:0;height:44px;background:linear-gradient(180deg,var(--gr1),var(--gr2))}
+/* the clothesline of memories */
+.sc-line{position:absolute;left:0;top:2px;width:60%;height:60px;z-index:1;pointer-events:none}
+.sc-line path{stroke:var(--linec)}
+.pol{position:absolute;z-index:2;width:46px;padding:3px 3px 11px;background:#fff;border:0;border-radius:2.5px;box-shadow:0 3px 9px rgba(15,15,35,.22);transform:rotate(var(--r,0deg));transform-origin:50% 0;cursor:pointer;font:inherit;animation:pol-sway 5.5s ease-in-out infinite alternate}
+@keyframes pol-sway{from{transform:rotate(calc(var(--r,0deg) - 1.5deg))}to{transform:rotate(calc(var(--r,0deg) + 1.5deg))}}
+.pol::before{content:'';position:absolute;top:-4px;left:50%;width:7px;height:9px;margin-left:-3.5px;border-radius:2px;background:#caa36b}
+.pol:active{opacity:.75}
+.pol-ph{display:block;width:40px;height:36px;border-radius:1.5px;background-size:cover;background-position:center;position:relative;overflow:hidden}
+.pol-emo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px}
+.sky-night .pol{filter:brightness(.8)}
+/* the savings tree — foliage in the theme's secondary green, grows with progress */
+.sc-tree{position:absolute;left:6%;bottom:42px;width:64px;height:88px;transform-origin:50% 100%}
+.tr-tr{position:absolute;left:50%;bottom:0;width:9px;height:34px;margin-left:-4.5px;border-radius:5px;background:linear-gradient(var(--dim),var(--dim)) #7d5f45}
+.tr-f{position:absolute;border-radius:50%;background:linear-gradient(var(--dim),var(--dim)) var(--brand-2)}
+.tr-f.f1{left:8px;top:4px;width:48px;height:48px}
+.tr-f.f2{left:0;top:30px;width:30px;height:30px}
+.tr-f.f3{right:0;top:26px;width:34px;height:34px}
+/* ---------- the house ---------- */
+.sc-house{position:absolute;left:53%;bottom:40px;transform:translateX(-46%);width:max-content;max-width:274px;z-index:2}
+.hs-roofwrap{position:relative;height:40px;margin:0 -10px;z-index:1}
+.hs-chim{position:absolute;top:-14px;right:20%;width:17px;height:30px;border-radius:3px 3px 0 0;background:linear-gradient(var(--dim),var(--dim)) #a8624c}
+.hs-roof{position:absolute;inset:0;background:linear-gradient(var(--dim),var(--dim)) var(--brand-ink);clip-path:polygon(0 100%,16% 0,84% 0,100% 100%)}
+.puff{position:absolute;left:3px;top:-4px;width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.6);opacity:0;animation:hs-puff 3.8s linear infinite}
+.puff.p2{animation-delay:1.3s}.puff.p3{animation-delay:2.6s}
+@keyframes hs-puff{0%{transform:translate(0,0) scale(.5);opacity:0}18%{opacity:.65}100%{transform:translate(9px,-44px) scale(1.9);opacity:0}}
+.sky-night .puff{background:rgba(210,220,240,.4)}
+.hs-wall{position:relative;border-radius:4px 4px 9px 9px;background:linear-gradient(var(--dim),var(--dim)),linear-gradient(180deg,#fdf4e2,#f0dfc0);box-shadow:inset 0 7px 9px -7px rgba(70,45,20,.4),0 10px 22px rgba(15,15,35,.18);padding:13px 12px 12px}
+.hs-wins{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-end;gap:10px 12px}
+.hs-door{display:block;width:32px;height:58px;border:0;border-radius:16px 16px 4px 4px;background:linear-gradient(var(--dim),var(--dim)) var(--brand-ink);position:relative;cursor:pointer;flex:0 0 auto;padding:0;align-self:flex-end}
+.hs-door::after{content:'';position:absolute;right:6px;top:28px;width:4px;height:4px;border-radius:50%;background:#ffd98e}
+.hs-door:active{transform:scale(.96)}
+/* a member's window: the pane is their light, the name is the room plate */
+.hw{display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:0;padding:0;font:inherit;flex:0 0 auto;position:relative}
+.hw.me{cursor:pointer}
+.hw.me:active .hw-pane{transform:scale(.93)}
+.hw-pane{width:42px;height:46px;border-radius:13px 13px 5px 5px;border:3px solid #e6d2ab;display:flex;align-items:center;justify-content:center;font-size:19px;line-height:1;transition:transform .15s;position:relative;background:linear-gradient(var(--dim),var(--dim)) #3a4156}
+.hw-name{font-size:10.5px;font-weight:700;letter-spacing:-.01em;color:#54432e;max-width:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hw.waiting .hw-name{opacity:.55}
+.p-sun{background:radial-gradient(circle at 50% 36%,#ffeaa6,#ffc75d)}
+.p-fire{background:radial-gradient(circle at 50% 36%,#ffd9a0,#ff9c4b)}
+.p-ok{background:linear-gradient(180deg,#fff6dd,#ffe5ae)}
+.p-rain{background:linear-gradient(180deg,#b7c8e4,#8ba3c9)}
+.p-tired{background:linear-gradient(180deg,#ccd2dc,#a7b0bf)}
+.p-anger{background:linear-gradient(180deg,#7b6ba0,#4e4370);animation:hw-flick 5s steps(1) infinite}
+@keyframes hw-flick{0%,88%,92%,100%{filter:brightness(1)}90%{filter:brightness(1.5)}}
+/* my unlit window — a candle waits, a soft invite pulses */
+.p-ask{background:linear-gradient(180deg,#4a5068,#343a4e)}
+.p-ask::after{content:'';position:absolute;inset:5px;border-radius:9px 9px 3px 3px;animation:hw-invite 2.6s ease-in-out infinite}
+@keyframes hw-invite{0%,100%{box-shadow:0 0 2px 0 rgba(255,215,130,.15)}50%{box-shadow:0 0 14px 3px rgba(255,215,130,.5)}}
+/* curtained (share yours first) · unlit (they haven't shared yet) */
+.p-cur{background:repeating-linear-gradient(90deg,#efd3ad 0 7px,#e2bd8e 7px 14px)}
+.p-wait{background:linear-gradient(115deg,#39415a 42%,#46506e 50%,#39415a 58%)}
+/* lit windows glow — strongest after dark */
+.hw-pane.lit{box-shadow:0 0 12px 1px rgba(255,205,110,.35)}
+.sky-dusk .hw-pane.lit{box-shadow:0 0 18px 3px rgba(255,200,100,.45)}
+.sky-night .hw-pane.lit{box-shadow:0 0 22px 5px rgba(255,200,100,.55)}
+/* 4+ members: tighter windows so the row stays single; 5+ also clears the clothesline */
+.full-house .sc-line,.full-house .pol{display:none}
+.big-house .hw-pane{width:36px;height:40px;font-size:16px;border-width:2.5px}
+.big-house .hs-door{height:50px;width:28px}
+/* ---------- ambient weather: the house feels the family ---------- */
+.amb{position:absolute;inset:0;pointer-events:none;z-index:3}
+.a-drop{position:absolute;top:-14px;width:1.5px;height:13px;border-radius:1px;background:rgba(205,220,245,.6);animation:a-fall 1.7s linear infinite}
+@keyframes a-fall{0%{transform:translateY(0);opacity:0}15%{opacity:.8}86%{opacity:.7}100%{transform:translateY(250px);opacity:0}}
+.a-mist{position:absolute;left:-6%;right:-6%;bottom:62px;height:48px;border-radius:50%;background:rgba(222,228,238,.34);filter:blur(9px);animation:a-mistd 11s ease-in-out infinite alternate}
+@keyframes a-mistd{from{transform:translateX(-14px)}to{transform:translateX(18px)}}
+.a-storm{position:absolute;top:6px;left:50%;width:64px;height:20px;border-radius:20px;background:#5a6175;animation:a-bob 5s ease-in-out infinite alternate}
+.a-storm::before{content:'';position:absolute;left:12px;top:-11px;width:30px;height:24px;border-radius:50%;background:inherit}
+.a-storm::after{content:'';position:absolute;left:34px;top:-7px;width:22px;height:18px;border-radius:50%;background:inherit}
+@keyframes a-bob{from{transform:translateY(0)}to{transform:translateY(5px)}}
+.a-bolt{position:absolute;top:30px;left:55%;width:3px;height:12px;background:#ffe08a;transform:skewX(-18deg);opacity:0;animation:a-strike 4.4s linear infinite}
+@keyframes a-strike{0%,86%,94%,100%{opacity:0}88%,92%{opacity:.9}}
+.a-beam{position:absolute;top:-30px;width:110px;height:170px;background:linear-gradient(195deg,rgba(255,242,190,.34),rgba(255,242,190,0) 72%);filter:blur(2px)}
+.a-beam.b1{right:6%;transform:rotate(14deg)}
+.a-beam.b2{right:26%;transform:rotate(22deg);opacity:.7}
+/* weather FX retarget (particles defined in 20-hero.css play over the scene) */
+#home-scene .wx-fx{border-radius:0}
+.hw.fx .hw-pane{animation:wx-pop .9s cubic-bezier(.2,1.4,.35,1) both}
+.hw.fx::after{content:'';position:absolute;top:-6px;left:50%;width:58px;height:58px;margin-left:-29px;border-radius:50%;background:radial-gradient(circle,var(--brand-glow),transparent 66%);animation:wx-aura 1s ease-out both;pointer-events:none}
+/* short phones: trim the sky, keep the house whole */
+@media (max-height:700px){.home-scene{height:212px}.sc-house{bottom:36px}.sc-hill.h1{height:128px}.sc-hill.h2{height:146px}}
 
 /* body: cards carry their own 16px inset, like the tabs */
 .home-body{padding:0 0 6px}
 
-/* ---------- focal mood card (peer of the ring / calendar) ---------- */
-.wsky{background:var(--white);border-radius:var(--r-card-lg);padding:16px 16px 14px;margin:-28px 16px 4px;box-shadow:var(--shadow-focal);overflow:hidden;position:relative;z-index:2}
-/* (faces + merged action already styled in 20-hero.css: .fsky-row/.fs-c/.woffer) */
+/* ---------- the hearth card (straddles the ground): picker → caring offers ---------- */
+.hearth{position:relative;z-index:2;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);margin:-26px 16px 14px;padding:15px 16px 13px}
+.hearth-q{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--ink);text-align:center}
+.hearth-hint{margin-top:12px;padding-top:11px;border-top:1px solid var(--divider);text-align:center;font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
+.hearth-off{padding:5px 16px 6px}
 
 /* ---------- centerpiece photo card + money-felt row (reuse, re-inset) ---------- */
 .hmoment{margin:0 16px 12px}
@@ -513,10 +625,12 @@ input{font-family:inherit}
 .fc-foot span{font-size:12.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
 .fc-foot em{font-size:14px;font-weight:700;color:var(--brand-ink);font-style:normal}
 
-/* HIG: honor Reduce Motion — the greeting entrance slide is gated here (the weather FX
-   and .view fade are gated elsewhere). */
+/* HIG: honor Reduce Motion — the greeting entrance slide and every ambient scene
+   animation are gated here (the weather FX and .view fade are gated elsewhere). */
 @media (prefers-reduced-motion:reduce){
-  #v-home.on .home-hd .greet,#v-home.on .home-hd .greet-sub{animation:none}
+  #v-home.on .home-sky .greet,#v-home.on .home-sky .greet-sub{animation:none}
+  .sc-cloud,.sc-star,.pol,.p-anger,.p-ask::after,.hw.fx .hw-pane{animation:none}
+  .amb,.puff,.hw.fx::after{display:none}
 }
 
 /* ---------- event cards (neutral, theme-consistent) ---------- */
@@ -1640,7 +1754,9 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 
 <!-- ============================ HOME ============================ -->
 <section class="view on" id="v-home">
-  <div class="home-hd">
+  <!-- the living house: sky follows the real clock; each member is a window lit by
+       their mood; memories hang on the line; the tree grows with savings. -->
+  <div class="home-sky sky-day" id="home-sky">
     <div class="safe"></div>
     <div class="hh-row">
       <div class="hh-l">
@@ -1650,9 +1766,10 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       <button class="hh-ic" onclick="openSheet('sheet-theme')" aria-label="Theme" data-ta="ariaTheme">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3a9 9 0 100 18 2 2 0 001.6-3.3 2 2 0 011.5-3.2H18a3 3 0 003-3c0-4-4-6-9-6z"/><circle cx="7.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="10" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8" r="1.1" fill="currentColor" stroke="none"/></svg></button>
     </div>
+    <div class="home-scene" id="home-scene"></div>
   </div>
 
-  <!-- the emotional feed: one daily moment + "money, felt" + woven beats, filled by renderHome() -->
+  <!-- the emotional feed: the hearth card + daily moments woven by renderHome() -->
   <div class="home-body" id="home-body"></div>
 
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
@@ -2943,13 +3060,13 @@ function setBudget(){
    Facilitator ethic: warmth, never streaks / guilt / scores. */
 
 /* ---------- Thời tiết cảm xúc — a two-sided emotional loop ----------
-   (1) Anyone sets today's weather in one tap. (2) EVERYONE sees it in a shared
-   "family sky" — a row of faces, each with their mood. (3) When someone you love
-   is having a rough day, you're handed a caring, BUILD-something action FOR them
+   (1) Anyone sets today's weather in one tap. (2) EVERYONE sees it in the house:
+   each member is a WINDOW, lit by their mood. (3) When someone you love is having
+   a rough day, you're handed a caring, BUILD-something action FOR them
    (⛈️ upset → a make-up jar; 🌧️ down → plan a treat they'll look forward to).
    (4) They feel seen. Backed by the realtime member_weather table so a mood set on
-   one phone appears on the others. Self-care is only a quiet fallback when you're
-   the only one who's shared. Every offer uses the ONE consistent .woffer card. */
+   one phone appears on the others. The reveal is GATED: until you light your own
+   window, the others stay curtained. Offers use the ONE consistent .woffer card. */
 var WEATHER = [
   { k:'sun',   e:'☀️', vi:'nắng',       en:'sunny',   fvi:'vui',        fen:'happy',    rough:false, oico:'✈️', ovi:'Rủ nhau đi chơi',          oen:'Go somewhere together',                 act:"openSheet(&#39;sheet-event&#39;)" },
   { k:'fire',  e:'🔥', vi:'bừng',       en:'buzzing', fvi:'hứng khởi',  fen:'inspired', rough:false, oico:'🎯', ovi:'Cùng mơ điều lớn',                   oen:'Dream big together',      act:"openGoal()" },
@@ -2996,50 +3113,99 @@ function clearWeather(){                       // signed-out reset (kept for com
 function openWeatherPick(){ window._wpick = true; if(typeof renderHome === 'function') renderHome(); }
 window.setWeather = setWeather; window.clearWeather = clearWeather; window.openWeatherPick = openWeatherPick;
 
-/* one avatar for the sky: real family palette (membersMeta) → FAM color fallback */
-function _skyAv(m){
-  var ini = (typeof inits === 'function') ? inits(m.name) : ('' + (m.name || '?')).charAt(0).toUpperCase();
-  var col = (typeof membersMeta !== 'undefined' && membersMeta[m.name] && membersMeta[m.name].col) || m.color || '#8f8a99';
-  return '<span class="fs-av av" style="background:' + col + '">' + esc(ini) + '</span>';
+/* ---------- the living house scene ---------- */
+/* the sky follows the REAL clock (not the demo's pinned TODAY) */
+function _skyPhase(){ var h = new Date().getHours(); if(h >= 5 && h < 8) return 'dawn'; if(h >= 8 && h < 17) return 'day'; if(h >= 17 && h < 20) return 'dusk'; return 'night'; }
+/* fixed star field ([%left, px-top]) — deterministic so re-renders don't shuffle the sky */
+var _STARS = [[6,14],[14,36],[24,8],[33,24],[44,15],[55,6],[63,28],[72,12],[81,32],[88,8],[93,22],[38,40],[68,44],[18,54]];
+/* one member = one window; the pane is the light their mood casts */
+function _hwCell(m, meName, gate){
+  var mine = (m.name === meName);
+  var w = memberWeatherOf(m.name), wd = w && _wdef(w);
+  var pane, emo = '';
+  if(mine && gate){ pane = 'ask'; emo = '🕯️'; }
+  else if(gate){ pane = 'cur'; }                       // curtained until you light yours
+  else if(wd){ pane = wd.k; emo = wd.e; }
+  else { pane = 'wait'; }                              // they haven't shared — light's off
+  var lit = (pane === 'sun' || pane === 'fire' || pane === 'ok');
+  var nm = esc((typeof firstName === 'function') ? firstName(m.name) : m.name);
+  var inner = '<span class="hw-pane p-' + pane + (lit ? ' lit' : '') + '">' + emo + '</span><span class="hw-name">' + nm + '</span>';
+  var dn = ' data-name="' + escAttr(m.name) + '"';
+  return mine
+    ? '<button class="hw me"' + dn + ' onclick="openWeatherPick()" aria-label="' + escAttr(L('Đổi cảm xúc', 'Change your mood')) + '">' + inner + '</button>'
+    : '<span class="hw' + (pane === 'wait' ? ' waiting' : '') + '"' + dn + '>' + inner + '</span>';
 }
-/* ONE connected card that straddles the hero and body.
-   The reveal is GATED: until you share your own mood you can't see the family's —
-   only locked silhouettes hinting they're there. Express → the sky opens, showing
-   each member EMOTION-FIRST (a big mood, the face small beneath it), then the
-   caring offers for whoever's having a rough day. */
-function renderWeather(){
-  var mems = (window.FAM && FAM.members) || [];
-  var meName = _meName();
-  var myW = myWeather();
+/* the whole scene: sky bits → hills/ground → clothesline memories → tree → house.
+   Expects buildMemRecords() to have run (renderHome does). */
+function renderScene(){
+  var mems = ((window.FAM && FAM.members) || []).slice(0, 8), meName = _meName(), myW = myWeather();
+  var gate = !myW || window._wpick, ph = _skyPhase();
 
-  // (1) NOT expressed yet → ask + a locked teaser of the family (reciprocity gate)
+  // windows + the family door (tap the door → add something to the house)
+  var door = '<button class="hs-door" onclick="openSheet(&#39;sheet-add&#39;)" aria-label="' + escAttr(L('Thêm', 'Add')) + '"></button>';
+  var cells = mems.map(function(m){ return _hwCell(m, meName, gate); }).join('');
+
+  // chimney smokes when the family added something today (memory, mood…)
+  var act = false;
+  try{
+    var n = new Date();
+    act = (window.memRecords || []).some(function(r){ return r.d && r.d.getFullYear() === n.getFullYear() && r.d.getMonth() === n.getMonth() && r.d.getDate() === n.getDate(); });
+    if(!act && window.memberWeather){ for(var id in memberWeather){ if(_wIsToday(memberWeather[id].at)){ act = true; break; } } }
+    if(!act) act = !!myW;
+  }catch(e){}
+
+  // the savings tree grows with total goal progress
+  var goals = window.goals || {}, gord = window.goalOrder || [], tt = 0, ts = 0;
+  gord.forEach(function(g){ var e = goals[g]; if(e && e.target > 0){ tt += e.target; ts += Math.min(e.saved || 0, e.target); } });
+  var grow = tt > 0 ? (0.62 + 0.5 * (ts / tt)) : 0.55;
+
+  // up to two recent memories hang on the clothesline (hidden for big families)
+  var pols = '';
+  if(mems.length < 5){                                   // 5+: the wide house needs the sky (.full-house also hides via CSS)
+    var hang = (window.memRecords || []).slice(0, 2), POS = [[5, 14, -6], [24, 26, 4]];
+    hang.forEach(function(r, i){
+      var idx = memRecords.indexOf(r), p = POS[i];
+      var st = r.src ? ' style="background-image:url(' + escAttr(r.src) + ')"' : '';
+      pols += '<button class="pol" style="left:' + p[0] + '%;top:' + p[1] + 'px;--r:' + p[2] + 'deg" onclick="openMemory(' + idx + ')" aria-label="' + escAttr(L('Kỷ niệm', 'Memory')) + '">'
+        + '<span class="pol-ph ' + (r.src ? '' : esc(r.cls || 'ph-park')) + '"' + st + '>' + (r.src ? '' : '<span class="pol-emo">' + esc(r.emoji || '📸') + '</span>') + '</span></button>';
+    });
+    if(pols) pols = '<svg class="sc-line" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 8 Q 55 44 100 34" fill="none" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>' + pols;
+  }
+
+  var stars = '';
+  if(ph === 'night'){ _STARS.forEach(function(s, i){ stars += '<i class="sc-star" style="left:' + s[0] + '%;top:' + s[1] + 'px;animation-delay:' + ((i % 5) * 0.6).toFixed(1) + 's"></i>'; }); }
+
+  // ambient weather over the scene — the house feels whoever's having a day
+  var amb = '';
+  if(!gate){
+    var shared = []; mems.forEach(function(m){ var w = memberWeatherOf(m.name); if(w) shared.push(w); });
+    var has = function(k){ return shared.indexOf(k) >= 0; };
+    if(has('anger')) amb = '<div class="amb"><i class="a-storm"></i><i class="a-bolt"></i></div>';
+    else if(has('rain')){ var d = '', i; for(i = 0; i < 7; i++){ d += '<i class="a-drop" style="left:' + (8 + i * 13) + '%;animation-delay:' + (i * 0.23).toFixed(2) + 's"></i>'; } amb = '<div class="amb">' + d + '</div>'; }
+    else if(has('tired')) amb = '<div class="amb"><i class="a-mist"></i></div>';
+    else if(shared.length >= 2 && shared.every(function(w){ return w === 'sun' || w === 'fire'; })) amb = '<div class="amb"><i class="a-beam b1"></i><i class="a-beam b2"></i></div>';
+  }
+
+  return '<i class="sc-orb"></i>' + stars
+    + '<i class="sc-cloud c1"></i><i class="sc-cloud c2"></i>'
+    + '<i class="sc-hill h1"></i><i class="sc-hill h2"></i><i class="sc-ground"></i>'
+    + pols
+    + '<div class="sc-tree" style="transform:scale(' + grow.toFixed(2) + ')"><i class="tr-tr"></i><i class="tr-f f1"></i><i class="tr-f f2"></i><i class="tr-f f3"></i></div>'
+    + '<div class="sc-house"><div class="hs-roofwrap"><i class="hs-chim">' + (act ? '<i class="puff p1"></i><i class="puff p2"></i><i class="puff p3"></i>' : '') + '</i><i class="hs-roof"></i></div>'
+    + '<div class="hs-wall"><div class="hs-wins">' + door + cells + '</div></div></div>'
+    + amb;
+}
+/* the hearth card under the scene: the mood picker until you've lit your window,
+   then the caring offers for whoever's having a rough day. */
+function renderHearth(){
+  var mems = (window.FAM && FAM.members) || [], meName = _meName(), myW = myWeather();
   if(!myW || window._wpick){
     var btns = WEATHER.map(function(w){ return '<button class="wpk" onclick="setWeather(&#39;' + w.k + '&#39;)" aria-label="' + escAttr(L(w.vi, w.en)) + '">' + w.e + '</button>'; }).join('');
     var others = mems.filter(function(m){ return m.name !== meName; });
-    var lock = others.length
-      ? '<div class="wsky-lock"><span class="wsky-locks">' + others.slice(0, 5).map(function(m){ return '<span class="fs-lock">' + _skyAv(m) + '</span>'; }).join('')
-        + '</span><span class="wsky-lockcap">' + L('Chia sẻ để xem cả nhà hôm nay thế nào', 'Share to see how your family is today') + '</span></div>'
-      : '';
-    return '<div class="wsky wsky-ask"><div class="wsky-q">' + L('Hôm nay bạn thế nào?', 'How are you today?') + '</div>'
-      + '<div class="wrow">' + btns + '</div>' + lock + '</div>';
+    var hint = others.length ? '<div class="hearth-hint">' + L('Thắp đèn rồi sẽ thấy đèn của cả nhà', 'Light yours to see everyone’s windows') + '</div>' : '';
+    return '<div class="hearth"><div class="hearth-q">' + L('Thắp đèn phòng bạn nhé. Hôm nay bạn thế nào?', 'Light your window. How are you today?') + '</div>'
+      + '<div class="wrow">' + btns + '</div>' + hint + '</div>';
   }
-
-  // (2) EXPRESSED → the family sky. Each cell is just the emotion + a name label —
-  //     no avatar, no status text. Those who haven't shared read as a soft cloud.
-  var sky = mems.map(function(m){
-    var mine = (m.name === meName);
-    var w = memberWeatherOf(m.name), wd = w && _wdef(w);
-    var nm = esc((typeof firstName === 'function') ? firstName(m.name) : m.name);
-    var emo = wd ? '<span class="fs-emo">' + wd.e + '</span>' : '<span class="fs-emo fs-emo-wait">☁️</span>';
-    var inner = emo + '<span class="fs-n">' + nm + '</span>';
-    var dn = ' data-name="' + escAttr(m.name) + '"';
-    return mine
-      ? '<button class="fs-c me"' + dn + ' onclick="openWeatherPick()" aria-label="' + escAttr(L('Đổi cảm xúc', 'Change your mood')) + '">' + inner + '</button>'
-      : '<span class="fs-c' + (wd ? '' : ' waiting') + '"' + dn + '>' + inner + '</span>';
-  }).join('');
-
-  // caring, build-something offers for the OTHERS — rough moods first, at most two.
-  // They live INSIDE the card (a footer under the faces).
   var offers = [];
   mems.forEach(function(m){
     if(m.name === meName) return;
@@ -3048,19 +3214,12 @@ function renderWeather(){
   });
   offers.sort(function(a, b){ return (b.wd.rough ? 1 : 0) - (a.wd.rough ? 1 : 0); });
   var offHtml = offers.slice(0, 2).map(function(o){
-    var nm = esc(o.nm);
-    var line = L(o.wd.ovi, o.wd.oen).replace(/\{n\}/g, nm);   // no "X đang vui" label — the faces already show the mood
+    var line = L(o.wd.ovi, o.wd.oen).replace(/\{n\}/g, esc(o.nm));   // no "X đang vui" label — the windows already show the mood
     return '<button class="woffer" onclick="' + o.wd.act + '"><div class="wo-ico">' + o.wd.oico + '</div>'
       + '<div class="wo-t">' + line + '</div>'
       + '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
   }).join('');
-
-  // faces → caring things to do. The collective "read" now lives in the page
-  // subtitle (renderHome sets it via moodRead()), so it isn't repeated here.
-  return '<div class="wsky wsky-open">'
-    + '<div class="fsky-row">' + sky + '</div>'
-    + (offHtml ? '<div class="sky-acts">' + offHtml + '</div>' : '')
-    + '</div>';
+  return offHtml ? '<div class="hearth hearth-off">' + offHtml + '</div>' : '';
 }
 
 /* the collective mood read — shown as the home subtitle under the greeting */
@@ -3222,10 +3381,20 @@ function renderHome(){
   var rot = TODAY.getDate();                            // rotates recommendation FORMS daily
   var myW = myWeather();
 
-  // subtitle under the greeting = the family mood read (or the check-in prompt)
-  setTxt('greet-sub', (!myW || window._wpick) ? L('Hôm nay bạn thế nào?', 'How are you today?') : moodRead());
+  // subtitle under the greeting = the family mood read (the hearth card asks the question)
+  setTxt('greet-sub', (!myW || window._wpick) ? L('Một ngày nữa bên nhau 🌿', 'Another day, together 🌿') : moodRead());
 
-  var html = renderWeather();                           // focal mood card (peer of the ring/calendar)
+  // the living house: phase the sky from the real clock, then paint the scene
+  var skyEl = document.getElementById('home-sky');
+  if(skyEl) skyEl.className = 'home-sky sky-' + _skyPhase();
+  var sceneEl = document.getElementById('home-scene');
+  if(sceneEl){
+    var _nm = ((window.FAM && FAM.members) || []).length;
+    sceneEl.className = 'home-scene' + (_nm >= 4 ? ' big-house' : '') + (_nm >= 5 ? ' full-house' : '');
+    setHTMLIf(sceneEl, renderScene());
+  }
+
+  var html = renderHearth();                            // the hearth card under the scene
 
   /* ---- signals from the active user's + relatives' data ---- */
   var up = ord.filter(function(k){ return evs[k] && evs[k].d && !isMirrorK(k) && !achievedNow(evs[k]); })
@@ -3364,7 +3533,7 @@ function _wxPlay(host, plays){
     host.appendChild(note);
     setTimeout(function(){ if(note.parentNode) note.parentNode.removeChild(note); }, 3300);
   }
-  var cells = host.querySelectorAll('.fs-c');
+  var cells = host.querySelectorAll('.hw');
   plays.forEach(function(p){
     Array.prototype.forEach.call(cells, function(c){
       if(c.getAttribute('data-name') === p.name){
@@ -3376,10 +3545,11 @@ function _wxPlay(host, plays){
 }
 function runWeatherFx(){
   if(document.hidden) return;
-  // Only on the OPEN sky (home visible). In the locked "share first" state the host
-  // is absent, so a member's change defers — it neither leaks past the reciprocity
-  // gate nor gets marked seen, and animates once the user shares and the sky opens.
-  var host = document.querySelector('#v-home.on .wsky.wsky-open'); if(!host) return;
+  // Only on the OPEN house (home visible, own mood shared). In the curtained
+  // "light yours first" state a member's change defers — it neither leaks past the
+  // reciprocity gate nor gets marked seen, and animates once the windows open.
+  if(!myWeather() || window._wpick) return;
+  var host = document.querySelector('#v-home.on #home-scene'); if(!host) return;
   var meName = _meName();
   if(window._wxSeen === undefined){
     var raw = null; try{ raw = localStorage.getItem('fh-wx-seen'); }catch(e){}
