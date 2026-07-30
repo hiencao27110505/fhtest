@@ -184,6 +184,7 @@
 .tab.on{color:var(--brand)}
 .tab svg{width:25px;height:25px}
 .tab span{font-size:11px;font-weight:600;letter-spacing:-.01em}
+.tab.on span{color:var(--brand-ink)}   /* 11px label needs AA (5:1); the icon keeps the vibrant --brand */
 /* (Khoảnh Khắc's segmented control was removed — the tab is one flat scroll now.) */
 .qa-group{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 4px 4px;padding:0 2px}
 .qa-group:first-of-type{margin-top:8px}

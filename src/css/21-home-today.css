@@ -9,15 +9,16 @@
    ============================================================================ */
 
 /* ---------- colored hero (gradient, emotional top) ---------- */
-.home-hd{background:var(--grad-hero);color:#fff;padding:0 22px 40px;position:relative;overflow:hidden}
+/* top scrim darkens the status-bar zone so the white iOS glyphs (time/battery) stay legible over the mid-tone gradient */
+.home-hd{background:linear-gradient(180deg,rgba(0,0,0,.26),rgba(0,0,0,0) 96px),var(--grad-hero);color:#fff;padding:0 22px 40px;position:relative;overflow:hidden}
 .home-hd::after{content:'';position:absolute;top:-70px;right:-46px;width:230px;height:230px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.22),transparent 70%);pointer-events:none}
 .home-hd::before{content:'';position:absolute;bottom:-30px;left:-30px;width:170px;height:170px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.13),transparent 70%);pointer-events:none}
 .home-hd .safe{height:max(env(safe-area-inset-top),16px)}
 .hh-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:8px 0 2px;position:relative;z-index:1}
 .hh-l{min-width:0;flex:1}
-.home-hd .greet{font-family:var(--disp);font-weight:750;font-size:30px;letter-spacing:-.7px;color:#fff;line-height:1.05;margin:0;text-shadow:none}
-.home-hd .greet-sub{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.9);margin-top:8px;letter-spacing:-.01em}
-.hh-ic{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.22);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:4px;color:#fff}
+.home-hd .greet{font-family:var(--disp);font-weight:750;font-size:30px;letter-spacing:-.7px;color:#fff;line-height:1.05;margin:0;text-shadow:0 1px 4px rgba(0,0,0,.26)}
+.home-hd .greet-sub{font-size:14.5px;font-weight:500;color:#fff;margin-top:8px;letter-spacing:-.01em;text-shadow:0 1px 3px rgba(0,0,0,.3)}
+.hh-ic{width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.2);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:2px;color:#fff}
 .hh-ic svg{width:20px;height:20px}
 .hh-ic:active{transform:scale(.94)}
 #v-home.on .home-hd .greet{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
@@ -147,14 +148,14 @@
 .bigphoto.tall{min-height:280px}
 .bigphoto:active{transform:scale(.99)}
 .bp-ph{position:absolute;inset:0;background-size:cover;background-position:center}
-.bp-sc{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05) 22%,rgba(0,0,0,.34) 55%,rgba(0,0,0,.76))}
+.bp-sc{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.08) 8%,rgba(0,0,0,.42) 50%,rgba(0,0,0,.82))}
 .bp-subj{position:absolute;top:15px;left:17px;font-size:30px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));z-index:1}
 .bp-by{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.32);backdrop-filter:blur(6px);border-radius:9999px;padding:5px 11px 5px 6px;z-index:1}
 .bp-by .av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700}
 .bp-by span{font-size:12px;font-weight:600;color:#fff}
 .bp-cap{position:relative;z-index:1;padding:0 18px 18px;color:#fff}
 .bp-eye{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.94);text-shadow:0 1px 4px rgba(0,0,0,.5)}
-.bp-ti{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.5px;margin-top:5px;line-height:1.05;text-shadow:0 2px 8px rgba(0,0,0,.45)}
+.bp-ti{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.5px;margin-top:5px;line-height:1.18;text-shadow:0 2px 8px rgba(0,0,0,.45)}
 .bp-mt{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.96);margin-top:6px;text-shadow:0 1px 5px rgba(0,0,0,.5)}
 .bp-prog{height:6px;border-radius:9999px;background:rgba(255,255,255,.32);overflow:hidden;margin:14px 0 0}
 .bp-prog i{display:block;height:100%;border-radius:9999px;background:#fff}
@@ -190,4 +191,10 @@
 .fincard.ok .fc-bar i{background:var(--good);opacity:.85}
 .fc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:13px}
 .fc-foot span{font-size:12.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-.fc-foot em{font-size:14px;font-weight:700;color:var(--brand);font-style:normal}
+.fc-foot em{font-size:14px;font-weight:700;color:var(--brand-ink);font-style:normal}
+
+/* HIG: honor Reduce Motion — the greeting entrance slide is gated here (the weather FX
+   and .view fade are gated elsewhere). */
+@media (prefers-reduced-motion:reduce){
+  #v-home.on .home-hd .greet,#v-home.on .home-hd .greet-sub{animation:none}
+}
