@@ -146,9 +146,12 @@
    ============================================================================ */
 
 /* ---------- immersive photo card (uses the family's real uploaded media) ---------- */
-/* NOTE: block + horizontal margin (no width:100%) — width:auto fills the row MINUS the
-   16px side margins. Setting width:100% here would make the box 100%+32px and overflow. */
-.bigphoto{position:relative;display:block;border:0;background:none;text-align:left;font:inherit;border-radius:var(--r-card-lg);overflow:hidden;box-shadow:var(--shadow-focal);margin:0 16px 14px;min-height:236px;cursor:pointer;padding:0}
+/* block-level flex + horizontal margin (NO width:100%) — width:auto fills the row minus the
+   16px side margins (width:100% would be 100%+32px = overflow). flex + an in-flow caption is
+   REQUIRED: a <button> whose children are all position:absolute fails to establish a
+   containing block on iOS Safari, so the photo/caption don't paint. The relative caption
+   gives it in-flow content and justify-content:flex-end bottoms it. */
+.bigphoto{position:relative;display:flex;flex-direction:column;justify-content:flex-end;border:0;background:none;text-align:left;font:inherit;border-radius:var(--r-card-lg);overflow:hidden;box-shadow:var(--shadow-focal);margin:0 16px 14px;min-height:236px;cursor:pointer;padding:0}
 .bigphoto.tall{min-height:280px}
 .bigphoto:active{transform:scale(.99)}
 .bp-ph{position:absolute;inset:0;background-size:cover;background-position:center}
@@ -157,7 +160,7 @@
 .bp-by{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.32);backdrop-filter:blur(6px);border-radius:9999px;padding:5px 11px 5px 6px;z-index:1}
 .bp-by .av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700}
 .bp-by span{font-size:12px;font-weight:600;color:#fff}
-.bp-cap{position:absolute;left:0;right:0;bottom:0;z-index:1;padding:16px 18px 18px;color:#fff}
+.bp-cap{position:relative;z-index:1;padding:16px 18px 18px;color:#fff}
 .bp-eye{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.94);text-shadow:0 1px 4px rgba(0,0,0,.5)}
 .bp-ti{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.5px;margin-top:5px;line-height:1.18;text-shadow:0 2px 8px rgba(0,0,0,.45)}
 .bp-mt{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.96);margin-top:6px;text-shadow:0 1px 5px rgba(0,0,0,.5)}
