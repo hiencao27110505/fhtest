@@ -162,10 +162,11 @@
 .wt-head{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:650;letter-spacing:-.01em;color:var(--muted);min-width:0}
 .wt-ch{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .wt-ch svg{width:15px;height:15px}
-.wt-ch.c-brand{background:var(--brand-tint);color:var(--brand-ink)}
-.wt-ch.c-good{background:var(--good-tint);color:var(--good)}
-.wt-ch.c-amber{background:var(--amber-tint);color:var(--amber)}
-.wt-ch.c-rose{background:var(--danger-tint);color:var(--cat-dining)}
+.wc-brand{background:var(--brand-tint);color:var(--brand-ink)}
+.wc-good{background:var(--good-tint);color:var(--good)}
+.wc-amber{background:var(--amber-tint);color:var(--amber)}
+.wc-rose{background:var(--danger-tint);color:var(--cat-dining)}
+.wc-indigo{background:rgba(94,92,230,.12);color:var(--cat-housing)}
 .wt-mid{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
 .wt-big{font-family:var(--disp);font-size:23px;font-weight:800;letter-spacing:-.6px;color:var(--ink);line-height:1.05;font-variant-numeric:tabular-nums;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wt-big .u{font-family:var(--text);font-size:12px;font-weight:600;letter-spacing:0;color:var(--muted)}
@@ -186,8 +187,8 @@
 .qgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 16px 14px}
 .qtile{display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--white);border:0;border-radius:16px;box-shadow:var(--shadow-card);padding:13px 4px 11px;font:inherit;cursor:pointer;min-width:0}
 .qtile:active{transform:scale(.96)}
-.qt-ic{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}
-.qt-ic svg{width:20px;height:20px}
+.qt-ic{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center}
+.qt-ic svg{width:21px;height:21px}
 .qt-l{font-size:11px;font-weight:650;color:var(--ink-2);letter-spacing:-.01em;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* ---------- grouped goal rows — chip in to a shared dream ---------- */
@@ -229,10 +230,71 @@
 .bp-prog i{display:block;height:100%;border-radius:9999px;background:#fff}
 .bp-cta{display:inline-flex;align-items:center;gap:7px;margin-top:14px;background:rgba(255,255,255,.96);color:var(--brand-ink);border-radius:14px;padding:12px 18px;font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.01em;align-self:flex-start;box-shadow:0 3px 12px rgba(0,0,0,.22)}
 
+/* ---------- illustrated occasion covers (scene-style, keyword-matched) ----------
+   Photo cards keep text-over-image + dark scrim. Illustrated cards use an ART
+   BAND on top and the caption below it (Journal/Invites-style) — no collision,
+   no veil. Scene-local hexes are the sanctioned illustration exception. */
+.occ-card{min-height:0;justify-content:flex-start;background:var(--white)}
+.occ-card .bp-sc{display:none}
+.occ-card .bp-ph.occ{position:relative;inset:auto;height:128px;flex:0 0 auto;overflow:hidden}
+.occ-card.tall .bp-ph.occ{height:152px}
+.occ-card .bp-by{top:12px;right:12px}
+.occ-card .bp-cap{padding:13px 16px 15px;color:var(--ink)}
+.occ-card .bp-eye{color:#8a7048;text-shadow:none}
+.occ-card .bp-ti{color:var(--ink);text-shadow:none;font-size:22px}
+.occ-card .bp-mt{color:var(--muted);text-shadow:none;font-size:13.5px}
+.occ-card .bp-prog{background:var(--fill-neutral);margin-top:12px}
+.occ-card .bp-prog i{background:var(--brand)}
+.occ-card .bp-cta{background:var(--grad-brand);color:#fff;box-shadow:0 4px 14px var(--brand-glow);margin-top:13px}
+/* shared sky pieces (sized for the band) */
+.occ .oc-sun{position:absolute;top:10px;left:16px;width:30px;height:30px;border-radius:50%;background:#fff3c9;box-shadow:0 0 24px 7px rgba(255,244,190,.55)}
+.occ .oc-cloud{position:absolute;width:64px;height:17px;border-radius:17px;background:rgba(255,255,255,.8)}
+.occ .oc-cloud::before{content:'';position:absolute;left:11px;top:-9px;width:25px;height:20px;border-radius:50%;background:inherit}
+.occ .oc-cloud::after{content:'';position:absolute;left:31px;top:-6px;width:20px;height:15px;border-radius:50%;background:inherit}
+.occ .oc-cloud.a{top:12px;right:20%;animation:occ-drift 70s linear infinite}
+.occ .oc-cloud.b{top:42%;left:40%;width:46px;opacity:.75;animation:occ-drift 95s linear infinite reverse}
+@keyframes occ-drift{from{transform:translateX(-30px)}to{transform:translateX(150px)}}
+.occ .oc-hill{position:absolute;border-radius:50%}
+/* travel — hills, an open road on the horizon, a little car on its way */
+.occ-travel{background:linear-gradient(180deg,#7fb9e2,#cfe8f7 70%)}
+.occ-travel .oc-hill.h1{left:-50px;bottom:44%;width:230px;height:42px;background:#8fbf83}
+.occ-travel .oc-hill.h2{right:-60px;bottom:42%;width:260px;height:48px;background:#6da86b}
+.occ-travel .oc-road{position:absolute;left:0;right:0;bottom:22%;height:22px;background:#7b8794;box-shadow:0 30vh 0 30vh #86b478}
+.occ-travel .oc-road::before{content:'';position:absolute;left:0;right:0;top:50%;height:2.5px;margin-top:-1.25px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.85) 0 15px,transparent 15px 32px)}
+.oc-car{position:absolute;bottom:calc(22% + 5px);left:-80px;width:56px;height:25px;animation:oc-drive 11s linear infinite}
+.oc-car .bd{position:absolute;left:0;right:0;bottom:6px;height:13px;border-radius:7px;background:#e0604c}
+.oc-car .cab{position:absolute;left:11px;right:17px;bottom:17px;height:10px;border-radius:6px 8px 2px 2px;background:#f0937d}
+.oc-car .w{position:absolute;bottom:1px;width:11px;height:11px;border-radius:50%;background:#333c48;box-shadow:inset 0 0 0 3px #4d5666}
+.oc-car .w.wa{left:7px}
+.oc-car .w.wb{right:7px}
+@keyframes oc-drive{from{transform:translateX(0)}to{transform:translateX(560px)}}
+/* party — bunting, bobbing balloons, confetti */
+.occ-party{background:linear-gradient(180deg,#ffe3c2,#fff3e2 78%)}
+.oc-bunting{position:absolute;left:0;top:6px;width:100%;height:48px}
+.oc-bal{position:absolute;width:22px;height:27px;border-radius:50% 50% 50% 50%/46% 46% 54% 54%;animation:oc-bob 4.2s ease-in-out infinite alternate}
+.oc-bal::after{content:'';position:absolute;left:50%;top:100%;width:1.5px;height:24px;background:rgba(110,80,60,.35)}
+@keyframes oc-bob{from{transform:translateY(0)}to{transform:translateY(-7px)}}
+.oc-conf{position:absolute;width:4.5px;height:4.5px;border-radius:50%;opacity:.65}
+/* outing — a park: the scene's tree and a kite in the wind */
+.occ-outing{background:linear-gradient(180deg,#8fc3e8,#d8ecf8 72%)}
+.occ-outing .oc-hill.h1{left:-60px;bottom:32%;width:250px;height:46px;background:#8fbf83}
+.occ-outing .oc-hill.h2{right:-70px;bottom:28%;width:280px;height:54px;background:#6da86b;box-shadow:0 30vh 0 30vh #86b478}
+.oc-tree{position:absolute;left:11%;bottom:30%;width:54px;height:64px}
+.oc-tree .tr{position:absolute;left:50%;bottom:0;width:8px;height:24px;margin-left:-4px;border-radius:4px;background:#7d5f45}
+.oc-tree i:not(.tr){position:absolute;border-radius:50%;background:var(--brand-2)}
+.oc-tree .f1{left:9px;top:0;width:36px;height:36px}
+.oc-tree .f2{left:0;top:22px;width:22px;height:22px}
+.oc-tree .f3{right:2px;top:20px;width:26px;height:26px}
+.oc-kite{position:absolute;top:12%;right:20%;width:24px;height:30px;transform-origin:50% 130%;animation:oc-sway 5.5s ease-in-out infinite alternate}
+.oc-kite .bd{position:absolute;left:0;top:0;width:24px;height:30px;background:#f0784f;clip-path:polygon(50% 0,100% 42%,50% 100%,0 42%)}
+.oc-kite .tl{position:absolute;left:50%;top:100%;width:1.5px;height:20px;background:rgba(110,80,60,.4)}
+@keyframes oc-sway{from{transform:rotate(-7deg)}to{transform:rotate(7deg)}}
+
 /* HIG: honor Reduce Motion — the greeting entrance slide and every ambient scene
    animation are gated here (the weather FX and .view fade are gated elsewhere). */
 @media (prefers-reduced-motion:reduce){
   #v-home.on .home-sky .greet,#v-home.on .home-sky .greet-sub{animation:none}
   .sc-cloud,.sc-star,.pol,.p-anger,.p-ask::after,.hw.fx .hw-pane{animation:none}
+  .oc-car,.oc-cloud,.oc-bal,.oc-kite{animation:none}
   .amb,.puff,.hw.fx::after{display:none}
 }

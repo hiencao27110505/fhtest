@@ -223,10 +223,19 @@ is absent the grid takes its straddle: `.home-body > .wgrid:first-child` docks i
 the lawn), the **immersive photo card**
 (`.bigphoto`, Photos-featured style: full-bleed media, scrim, eyebrow/title/sub,
 `_byChip` author chip, optional progress + white CTA pill), **quick actions**
-(`.qgrid`/`.qtile`: SVG icons in gradient circles, mirroring the add-sheet's `.qi`
-language), **grouped goal rows** (`.hgoals`/`.hgoal`: emoji tile, progress bar,
+(`.qgrid`/`.qtile`: SVG glyphs in tinted `.wc-*` chips — the same chip language as
+the widget-tile headers, colors mapped brand/rose/amber/indigo), **grouped goal rows** (`.hgoals`/`.hgoal`: emoji tile, progress bar,
 saved/target, pct — tap = `fundGoal`), and the home **memory strip** (reuses
-`.mem-strip`/`.memory` with `.home-strip` inset). All these cards are buttons —
+`.mem-strip`/`.memory` with `.home-strip` inset).
+
+**Illustrated occasion covers.** When an occasion/memory has no photo, `occCover(name,
+emoji)` keyword-matches it (vi + en + emoji) to a scene-style cover — `travel` (hills,
+road, a little car driving across), `party` (bunting, bobbing balloons, confetti),
+`outing` (the scene's tree + a kite) — drawn with the house scene's shapes and the
+sanctioned illustration hexes. Illustrated `.occ-card`s use an **art band on top and
+the caption below** (Journal-style; ink text, brand progress + filled CTA) — never
+white-on-scrim over the art; photo cards keep the dark-scrim overlay layout. Cover
+motion (car, clouds, balloons, kite) is gated by `prefers-reduced-motion`. All these cards are buttons —
 give them `width:calc(100% - 32px)` (buttons shrink-to-fit; `width:100%` plus
 margins overflows).
 
