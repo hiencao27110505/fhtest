@@ -14,12 +14,12 @@
    one phone appears on the others. Self-care is only a quiet fallback when you're
    the only one who's shared. Every offer uses the ONE consistent .woffer card. */
 var WEATHER = [
-  { k:'sun',   e:'☀️', vi:'nắng',       en:'sunny',   fvi:'vui',        fen:'happy',    rough:false, oico:'✈️', ovi:'Rủ {n} lên kế hoạch một chuyến đi',          oen:'Plan a trip with {n}',                 act:"openSheet(&#39;sheet-event&#39;)" },
-  { k:'fire',  e:'🔥', vi:'bừng',       en:'buzzing', fvi:'hứng khởi',  fen:'inspired', rough:false, oico:'🎯', ovi:'Cùng {n} mơ một điều lớn',                   oen:'Dream up something big with {n}',      act:"openGoal()" },
-  { k:'ok',    e:'⛅', vi:'bình thường', en:'okay',    fvi:'ổn',         fen:'okay',     rough:false, oico:'📸', ovi:'Giữ một khoảnh khắc nhỏ cùng {n} hôm nay',   oen:'Keep a small moment with {n} today',   act:"openSheet(&#39;sheet-add&#39;)" },
-  { k:'rain',  e:'🌧️', vi:'hơi buồn',   en:'down',    fvi:'hơi buồn',   fen:'down',     rough:true,  oico:'🌤️', ovi:'Hẹn một điều nhỏ để {n} mong tới',           oen:'Plan a little thing for {n} to enjoy', act:"openSheet(&#39;sheet-event&#39;)" },
-  { k:'tired', e:'🌫️', vi:'mệt',        en:'drained', fvi:'mệt',        fen:'drained',  rough:true,  oico:'🫖', ovi:'Chuẩn bị một buổi tối nhẹ cho {n}',          oen:'Set up a cozy evening for {n}',        act:"openSheet(&#39;sheet-event&#39;)" },
-  { k:'anger', e:'⛈️', vi:'bực bội',    en:'stormy',  fvi:'bực bội',    fen:'upset',    rough:true,  oico:'🕊️', ovi:'Gửi {n} một hũ làm hòa',                     oen:'Start a make-up jar for {n}',          act:"openGoal()" }
+  { k:'sun',   e:'☀️', vi:'nắng',       en:'sunny',   fvi:'vui',        fen:'happy',    rough:false, oico:'✈️', ovi:'Rủ nhau đi chơi',          oen:'Go somewhere together',                 act:"openSheet(&#39;sheet-event&#39;)" },
+  { k:'fire',  e:'🔥', vi:'bừng',       en:'buzzing', fvi:'hứng khởi',  fen:'inspired', rough:false, oico:'🎯', ovi:'Cùng mơ điều lớn',                   oen:'Dream big together',      act:"openGoal()" },
+  { k:'ok',    e:'⛅', vi:'bình thường', en:'okay',    fvi:'ổn',         fen:'okay',     rough:false, oico:'📸', ovi:'Giữ một khoảnh khắc',   oen:'Save a moment',   act:"openSheet(&#39;sheet-add&#39;)" },
+  { k:'rain',  e:'🌧️', vi:'hơi buồn',   en:'down',    fvi:'hơi buồn',   fen:'down',     rough:true,  oico:'🌤️', ovi:'Hẹn một niềm vui nhỏ',           oen:'Plan a little joy', act:"openSheet(&#39;sheet-event&#39;)" },
+  { k:'tired', e:'🌫️', vi:'mệt',        en:'drained', fvi:'mệt',        fen:'drained',  rough:true,  oico:'🫖', ovi:'Một tối nhẹ nhàng',          oen:'A cozy evening',        act:"openSheet(&#39;sheet-event&#39;)" },
+  { k:'anger', e:'⛈️', vi:'bực bội',    en:'stormy',  fvi:'bực bội',    fen:'upset',    rough:true,  oico:'🕊️', ovi:'Một hũ làm hòa',                     oen:'A make-up jar',          act:"openGoal()" }
 ];
 function _wdef(k){ for(var i=0;i<WEATHER.length;i++){ if(WEATHER[i].k===k) return WEATHER[i]; } return null; }
 /* weather is a real daily mood — freshness is judged against the real clock, not the demo's pinned TODAY */
@@ -112,10 +112,9 @@ function renderWeather(){
   offers.sort(function(a, b){ return (b.wd.rough ? 1 : 0) - (a.wd.rough ? 1 : 0); });
   var offHtml = offers.slice(0, 2).map(function(o){
     var nm = esc(o.nm);
-    var eye = nm + ' ' + L('đang ' + o.wd.fvi, 'is ' + o.wd.fen);
-    var line = L(o.wd.ovi, o.wd.oen).replace(/\{n\}/g, nm);
+    var line = L(o.wd.ovi, o.wd.oen).replace(/\{n\}/g, nm);   // no "X đang vui" label — the faces already show the mood
     return '<button class="woffer" onclick="' + o.wd.act + '"><div class="wo-ico">' + o.wd.oico + '</div>'
-      + '<div class="wo-body"><div class="wo-k">' + eye + '</div><div class="wo-t">' + line + '</div></div>'
+      + '<div class="wo-t">' + line + '</div>'
       + '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
   }).join('');
 

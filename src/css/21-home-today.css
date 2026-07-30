@@ -14,10 +14,12 @@
 .home-hd::after{content:'';position:absolute;top:-70px;right:-46px;width:230px;height:230px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.22),transparent 70%);pointer-events:none}
 .home-hd::before{content:'';position:absolute;bottom:-30px;left:-30px;width:170px;height:170px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.13),transparent 70%);pointer-events:none}
 .home-hd .safe{height:max(env(safe-area-inset-top),16px)}
-.hh-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:8px 0 2px;position:relative;z-index:1}
+/* padding-top 28 matches the tabs' .child-hdr (28px) so the greeting sits at the SAME
+   Y as the Finance/Moments large titles — no vertical jump when switching tabs. */
+.hh-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:28px 0 2px;position:relative;z-index:1}
 .hh-l{min-width:0;flex:1}
 .home-hd .greet{font-family:var(--disp);font-weight:750;font-size:30px;letter-spacing:-.7px;color:#fff;line-height:1.05;margin:0;text-shadow:0 1px 4px rgba(0,0,0,.26)}
-.home-hd .greet-sub{font-size:14.5px;font-weight:500;color:#fff;margin-top:8px;letter-spacing:-.01em;text-shadow:0 1px 3px rgba(0,0,0,.3)}
+.home-hd .greet-sub{font-size:15px;font-weight:500;color:#fff;margin-top:7px;letter-spacing:-.01em;text-shadow:0 1px 3px rgba(0,0,0,.3)}
 .hh-ic{width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.2);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:2px;color:#fff}
 .hh-ic svg{width:20px;height:20px}
 .hh-ic:active{transform:scale(.94)}
@@ -144,7 +146,9 @@
    ============================================================================ */
 
 /* ---------- immersive photo card (uses the family's real uploaded media) ---------- */
-.bigphoto{position:relative;display:flex;flex-direction:column;justify-content:flex-end;width:100%;border:0;background:none;text-align:left;font:inherit;border-radius:var(--r-card-lg);overflow:hidden;box-shadow:var(--shadow-focal);margin:0 16px 14px;min-height:236px;cursor:pointer;padding:0}
+/* NOTE: block + horizontal margin (no width:100%) — width:auto fills the row MINUS the
+   16px side margins. Setting width:100% here would make the box 100%+32px and overflow. */
+.bigphoto{position:relative;display:block;border:0;background:none;text-align:left;font:inherit;border-radius:var(--r-card-lg);overflow:hidden;box-shadow:var(--shadow-focal);margin:0 16px 14px;min-height:236px;cursor:pointer;padding:0}
 .bigphoto.tall{min-height:280px}
 .bigphoto:active{transform:scale(.99)}
 .bp-ph{position:absolute;inset:0;background-size:cover;background-position:center}
@@ -153,7 +157,7 @@
 .bp-by{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.32);backdrop-filter:blur(6px);border-radius:9999px;padding:5px 11px 5px 6px;z-index:1}
 .bp-by .av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700}
 .bp-by span{font-size:12px;font-weight:600;color:#fff}
-.bp-cap{position:relative;z-index:1;padding:0 18px 18px;color:#fff}
+.bp-cap{position:absolute;left:0;right:0;bottom:0;z-index:1;padding:16px 18px 18px;color:#fff}
 .bp-eye{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.94);text-shadow:0 1px 4px rgba(0,0,0,.5)}
 .bp-ti{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.5px;margin-top:5px;line-height:1.18;text-shadow:0 2px 8px rgba(0,0,0,.45)}
 .bp-mt{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.96);margin-top:6px;text-shadow:0 1px 5px rgba(0,0,0,.5)}
@@ -173,7 +177,7 @@
 .btn-soft:active{transform:scale(.97)}
 
 /* ---------- finance card (distinct, warm stat) ---------- */
-.fincard{display:block;width:100%;border:0;text-align:left;font:inherit;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:0 16px 14px;padding:17px 17px 16px;cursor:pointer}
+.fincard{display:block;border:0;text-align:left;font:inherit;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:0 16px 14px;padding:17px 17px 16px;cursor:pointer}
 .fincard:active{transform:scale(.99)}
 .fc-top{display:flex;align-items:center;gap:13px}
 .fc-i{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:23px;flex:0 0 auto;background:var(--fill-neutral)}

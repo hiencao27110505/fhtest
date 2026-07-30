@@ -302,14 +302,13 @@ input{font-family:inherit}
 .wx-note{position:absolute;top:13px;left:50%;transform:translateX(-50%);background:var(--white);box-shadow:var(--shadow-card);border-radius:9999px;padding:5px 13px;font-size:11.5px;font-weight:700;letter-spacing:-.01em;color:var(--ink-2);white-space:nowrap;z-index:4;opacity:0;pointer-events:none;animation:wx-note 3.3s ease-in-out forwards}
 @keyframes wx-note{0%{opacity:0}11%{opacity:1}82%{opacity:1}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.wx-fx,.wx-note{display:none}.fs-c.fx .fs-emo{animation:none}.fs-c.fx::after{display:none}}
-/* (3) the ONE consistent offer card every mood routes into */
-.woffer{display:flex;align-items:center;gap:13px;width:100%;background:none;border:0;border-radius:12px;padding:13px 4px;font:inherit;text-align:left;cursor:pointer}
+/* (3) the mood action — one clean row: a tinted icon, the action itself, a chevron.
+   No "X đang vui" eyebrow (the faces above already say the mood). */
+.woffer{display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;border-radius:12px;padding:12px 2px;font:inherit;text-align:left;cursor:pointer}
 .woffer + .woffer{border-top:1px solid var(--divider)}
 .woffer:active{background:var(--surface)}
-.wo-ico{width:44px;height:44px;border-radius:13px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto}
-.wo-body{flex:1;min-width:0}
-.wo-k{font-size:11px;font-weight:700;letter-spacing:.01em;color:var(--muted);margin-bottom:2px}
-.wo-t{font-family:var(--disp);font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.25}
+.wo-ico{width:42px;height:42px;border-radius:12px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto}
+.wo-t{flex:1;min-width:0;font-family:var(--disp);font-size:15px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.3}
 .woffer .chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
 
 /* ============================================================================
@@ -328,10 +327,12 @@ input{font-family:inherit}
 .home-hd::after{content:'';position:absolute;top:-70px;right:-46px;width:230px;height:230px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.22),transparent 70%);pointer-events:none}
 .home-hd::before{content:'';position:absolute;bottom:-30px;left:-30px;width:170px;height:170px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.13),transparent 70%);pointer-events:none}
 .home-hd .safe{height:max(env(safe-area-inset-top),16px)}
-.hh-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:8px 0 2px;position:relative;z-index:1}
+/* padding-top 28 matches the tabs' .child-hdr (28px) so the greeting sits at the SAME
+   Y as the Finance/Moments large titles — no vertical jump when switching tabs. */
+.hh-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:28px 0 2px;position:relative;z-index:1}
 .hh-l{min-width:0;flex:1}
 .home-hd .greet{font-family:var(--disp);font-weight:750;font-size:30px;letter-spacing:-.7px;color:#fff;line-height:1.05;margin:0;text-shadow:0 1px 4px rgba(0,0,0,.26)}
-.home-hd .greet-sub{font-size:14.5px;font-weight:500;color:#fff;margin-top:8px;letter-spacing:-.01em;text-shadow:0 1px 3px rgba(0,0,0,.3)}
+.home-hd .greet-sub{font-size:15px;font-weight:500;color:#fff;margin-top:7px;letter-spacing:-.01em;text-shadow:0 1px 3px rgba(0,0,0,.3)}
 .hh-ic{width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.2);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:2px;color:#fff}
 .hh-ic svg{width:20px;height:20px}
 .hh-ic:active{transform:scale(.94)}
@@ -458,7 +459,9 @@ input{font-family:inherit}
    ============================================================================ */
 
 /* ---------- immersive photo card (uses the family's real uploaded media) ---------- */
-.bigphoto{position:relative;display:flex;flex-direction:column;justify-content:flex-end;width:100%;border:0;background:none;text-align:left;font:inherit;border-radius:var(--r-card-lg);overflow:hidden;box-shadow:var(--shadow-focal);margin:0 16px 14px;min-height:236px;cursor:pointer;padding:0}
+/* NOTE: block + horizontal margin (no width:100%) — width:auto fills the row MINUS the
+   16px side margins. Setting width:100% here would make the box 100%+32px and overflow. */
+.bigphoto{position:relative;display:block;border:0;background:none;text-align:left;font:inherit;border-radius:var(--r-card-lg);overflow:hidden;box-shadow:var(--shadow-focal);margin:0 16px 14px;min-height:236px;cursor:pointer;padding:0}
 .bigphoto.tall{min-height:280px}
 .bigphoto:active{transform:scale(.99)}
 .bp-ph{position:absolute;inset:0;background-size:cover;background-position:center}
@@ -467,7 +470,7 @@ input{font-family:inherit}
 .bp-by{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.32);backdrop-filter:blur(6px);border-radius:9999px;padding:5px 11px 5px 6px;z-index:1}
 .bp-by .av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700}
 .bp-by span{font-size:12px;font-weight:600;color:#fff}
-.bp-cap{position:relative;z-index:1;padding:0 18px 18px;color:#fff}
+.bp-cap{position:absolute;left:0;right:0;bottom:0;z-index:1;padding:16px 18px 18px;color:#fff}
 .bp-eye{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.94);text-shadow:0 1px 4px rgba(0,0,0,.5)}
 .bp-ti{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.5px;margin-top:5px;line-height:1.18;text-shadow:0 2px 8px rgba(0,0,0,.45)}
 .bp-mt{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.96);margin-top:6px;text-shadow:0 1px 5px rgba(0,0,0,.5)}
@@ -487,7 +490,7 @@ input{font-family:inherit}
 .btn-soft:active{transform:scale(.97)}
 
 /* ---------- finance card (distinct, warm stat) ---------- */
-.fincard{display:block;width:100%;border:0;text-align:left;font:inherit;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:0 16px 14px;padding:17px 17px 16px;cursor:pointer}
+.fincard{display:block;border:0;text-align:left;font:inherit;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:0 16px 14px;padding:17px 17px 16px;cursor:pointer}
 .fincard:active{transform:scale(.99)}
 .fc-top{display:flex;align-items:center;gap:13px}
 .fc-i{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:23px;flex:0 0 auto;background:var(--fill-neutral)}
@@ -2945,12 +2948,12 @@ function setBudget(){
    one phone appears on the others. Self-care is only a quiet fallback when you're
    the only one who's shared. Every offer uses the ONE consistent .woffer card. */
 var WEATHER = [
-  { k:'sun',   e:'☀️', vi:'nắng',       en:'sunny',   fvi:'vui',        fen:'happy',    rough:false, oico:'✈️', ovi:'Rủ {n} lên kế hoạch một chuyến đi',          oen:'Plan a trip with {n}',                 act:"openSheet(&#39;sheet-event&#39;)" },
-  { k:'fire',  e:'🔥', vi:'bừng',       en:'buzzing', fvi:'hứng khởi',  fen:'inspired', rough:false, oico:'🎯', ovi:'Cùng {n} mơ một điều lớn',                   oen:'Dream up something big with {n}',      act:"openGoal()" },
-  { k:'ok',    e:'⛅', vi:'bình thường', en:'okay',    fvi:'ổn',         fen:'okay',     rough:false, oico:'📸', ovi:'Giữ một khoảnh khắc nhỏ cùng {n} hôm nay',   oen:'Keep a small moment with {n} today',   act:"openSheet(&#39;sheet-add&#39;)" },
-  { k:'rain',  e:'🌧️', vi:'hơi buồn',   en:'down',    fvi:'hơi buồn',   fen:'down',     rough:true,  oico:'🌤️', ovi:'Hẹn một điều nhỏ để {n} mong tới',           oen:'Plan a little thing for {n} to enjoy', act:"openSheet(&#39;sheet-event&#39;)" },
-  { k:'tired', e:'🌫️', vi:'mệt',        en:'drained', fvi:'mệt',        fen:'drained',  rough:true,  oico:'🫖', ovi:'Chuẩn bị một buổi tối nhẹ cho {n}',          oen:'Set up a cozy evening for {n}',        act:"openSheet(&#39;sheet-event&#39;)" },
-  { k:'anger', e:'⛈️', vi:'bực bội',    en:'stormy',  fvi:'bực bội',    fen:'upset',    rough:true,  oico:'🕊️', ovi:'Gửi {n} một hũ làm hòa',                     oen:'Start a make-up jar for {n}',          act:"openGoal()" }
+  { k:'sun',   e:'☀️', vi:'nắng',       en:'sunny',   fvi:'vui',        fen:'happy',    rough:false, oico:'✈️', ovi:'Rủ nhau đi chơi',          oen:'Go somewhere together',                 act:"openSheet(&#39;sheet-event&#39;)" },
+  { k:'fire',  e:'🔥', vi:'bừng',       en:'buzzing', fvi:'hứng khởi',  fen:'inspired', rough:false, oico:'🎯', ovi:'Cùng mơ điều lớn',                   oen:'Dream big together',      act:"openGoal()" },
+  { k:'ok',    e:'⛅', vi:'bình thường', en:'okay',    fvi:'ổn',         fen:'okay',     rough:false, oico:'📸', ovi:'Giữ một khoảnh khắc',   oen:'Save a moment',   act:"openSheet(&#39;sheet-add&#39;)" },
+  { k:'rain',  e:'🌧️', vi:'hơi buồn',   en:'down',    fvi:'hơi buồn',   fen:'down',     rough:true,  oico:'🌤️', ovi:'Hẹn một niềm vui nhỏ',           oen:'Plan a little joy', act:"openSheet(&#39;sheet-event&#39;)" },
+  { k:'tired', e:'🌫️', vi:'mệt',        en:'drained', fvi:'mệt',        fen:'drained',  rough:true,  oico:'🫖', ovi:'Một tối nhẹ nhàng',          oen:'A cozy evening',        act:"openSheet(&#39;sheet-event&#39;)" },
+  { k:'anger', e:'⛈️', vi:'bực bội',    en:'stormy',  fvi:'bực bội',    fen:'upset',    rough:true,  oico:'🕊️', ovi:'Một hũ làm hòa',                     oen:'A make-up jar',          act:"openGoal()" }
 ];
 function _wdef(k){ for(var i=0;i<WEATHER.length;i++){ if(WEATHER[i].k===k) return WEATHER[i]; } return null; }
 /* weather is a real daily mood — freshness is judged against the real clock, not the demo's pinned TODAY */
@@ -3043,10 +3046,9 @@ function renderWeather(){
   offers.sort(function(a, b){ return (b.wd.rough ? 1 : 0) - (a.wd.rough ? 1 : 0); });
   var offHtml = offers.slice(0, 2).map(function(o){
     var nm = esc(o.nm);
-    var eye = nm + ' ' + L('đang ' + o.wd.fvi, 'is ' + o.wd.fen);
-    var line = L(o.wd.ovi, o.wd.oen).replace(/\{n\}/g, nm);
+    var line = L(o.wd.ovi, o.wd.oen).replace(/\{n\}/g, nm);   // no "X đang vui" label — the faces already show the mood
     return '<button class="woffer" onclick="' + o.wd.act + '"><div class="wo-ico">' + o.wd.oico + '</div>'
-      + '<div class="wo-body"><div class="wo-k">' + eye + '</div><div class="wo-t">' + line + '</div></div>'
+      + '<div class="wo-t">' + line + '</div>'
       + '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
   }).join('');
 
