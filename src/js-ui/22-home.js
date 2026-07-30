@@ -241,6 +241,40 @@ function fThenNow(o){
 }
 function _sectionH(title, link){ return '<div class="section-h"><div class="t">' + title + '</div>' + (link ? '<a onclick="' + link + '">' + L('Xem tất cả', 'See all') + '</a>' : '') + '</div>'; }
 
+/* ---- BIG media-rich widgets (immersive photo · friendly CTA · finance stat) ---- */
+function _phCls(cls, src){ return 'bp-ph' + (src ? '' : ' ' + esc(cls || 'ph-park')); }
+function _phBg(cls, src){ return src ? ' style="background-image:url(' + escAttr(src) + ')"' : ''; }
+function _byChip(who){
+  if(!who) return '';
+  var w = ('' + who).toLowerCase();
+  if(w === 'both' || w === 'shared' || w === 'chung') return '';        // collective → no single face
+  var nm = who, col = '#8f8a99', ini = (typeof inits === 'function') ? inits(who) : ('' + who).charAt(0).toUpperCase();
+  if(typeof membersMeta !== 'undefined' && membersMeta){ for(var n in membersMeta){ if(n.toLowerCase() === w){ col = membersMeta[n].col; ini = membersMeta[n].ini; nm = n; break; } } }
+  var fn = (typeof firstName === 'function') ? firstName(nm) : nm;
+  return '<div class="bp-by"><span class="av" style="background:' + col + '">' + esc(ini) + '</span><span>' + esc(fn) + '</span></div>';
+}
+function bigPhoto(o){   // {cls,src,subj,who,eye,title,sub,pct,cta:{label},tall,act}
+  var cta = o.cta ? '<span class="bp-cta">' + o.cta.label + '</span>' : '';
+  var prog = (typeof o.pct === 'number') ? '<div class="bp-prog"><i style="width:' + o.pct + '%"></i></div>' : '';
+  return '<button class="bigphoto' + (o.tall ? ' tall' : '') + '" onclick="' + o.act + '">'
+    + '<div class="' + _phCls(o.cls, o.src) + '"' + _phBg(o.cls, o.src) + '></div><div class="bp-sc"></div>'
+    + (o.subj ? '<div class="bp-subj">' + esc(o.subj) + '</div>' : '') + _byChip(o.who)
+    + '<div class="bp-cap"><div class="bp-eye">' + o.eye + '</div><div class="bp-ti">' + esc(o.title) + '</div>'
+    + (o.sub ? '<div class="bp-mt">' + o.sub + '</div>' : '') + prog + cta + '</div></button>';
+}
+function ctaCard(o){    // {ill,title,sub,cta:{label,act},row2:[{label,act}]}
+  var btn = o.cta ? '<button class="btn-fill" onclick="' + o.cta.act + '">' + o.cta.label + '</button>' : '';
+  var row = o.row2 ? '<div class="cc-row2">' + o.row2.map(function(b){ return '<button class="btn-soft" onclick="' + b.act + '">' + b.label + '</button>'; }).join('') + '</div>' : '';
+  return '<div class="ctacard"><div class="cc-ill">' + o.ill + '</div><div class="cc-t">' + o.title + '</div>'
+    + (o.sub ? '<div class="cc-s">' + o.sub + '</div>' : '') + btn + row + '</div>';
+}
+function finCard(o){    // {mood,ico,title,sub,pct,foot,act}
+  return '<button class="fincard ' + o.mood + '" onclick="' + o.act + '"><div class="fc-top"><div class="fc-i">' + o.ico + '</div>'
+    + '<div><div class="fc-t">' + o.title + '</div><div class="fc-s">' + o.sub + '</div></div></div>'
+    + '<div class="fc-bar"><i style="width:' + o.pct + '%"></i></div>'
+    + (o.foot ? '<div class="fc-foot"><span>' + o.foot + '</span><em>' + L('Xem chi tiết →', 'View details →') + '</em></div>' : '') + '</button>';
+}
+
 function renderHome(){
   var box = document.getElementById('home-body'); if(!box) return;
   buildMemRecords();
@@ -269,104 +303,75 @@ function renderHome(){
   var goals = window.goals || {}, gord = window.goalOrder || [], milestones = [];
   gord.forEach(function(g){ var go = goals[g]; if(go && typeof achievedGoal === 'function' && achievedGoal(go)) milestones.push({ key: 'goal:' + g, name: go.name, cls: go.cls || 'ph-park' }); });
   var fresh = milestones.filter(function(mi){ return !celebrated[mi.key]; })[0] || null;
-  var usedRef = null;
-
-  /* ============ KHOẢNH KHẮC ============ */
-  var kh = '';
-  if(fresh && homeVis){                                 // a shared dream reached — celebrated once
-    milestones.forEach(function(mi){ celebrated[mi.key] = 1; });
-    try{ localStorage.setItem('fh-celebrated', JSON.stringify(celebrated)); }catch(e){}
-    usedRef = fresh.key;
-    kh += '<button class="hmoment" onclick="go(&#39;spending&#39;)">' + hVisual(fresh.cls, '', '🎉')
-      + '<div class="hm-cap"><div class="hm-eye">' + L('Vừa đủ rồi', 'Goal reached') + '</div><div class="hm-title">' + esc(fresh.name) + '</div>'
-      + '<div class="hm-sub">' + L('Giấc mơ chung đã thành hình 🎉', 'A shared dream, reached 🎉') + '</div>'
-      + '<div class="hm-fam">' + hFamAvs(4) + '</div></div></button>';
-  } else if(onThis.length){                             // nostalgia — rotate the angle: photo · question · then↔now
-    var rr = onThis[0], i0 = memRecords.indexOf(rr), yrs = TODAY.getFullYear() - rr.d.getFullYear();
-    var agoVi = yrs <= 1 ? 'năm ngoái' : (yrs + ' năm trước'), agoEn = yrs <= 1 ? 'last year' : (yrs + ' years ago');
-    usedRef = rr.type + ':' + rr.ref;
-    var f = rot % 3;
-    if(f === 0){ kh += hMemMoment(rr, L('Ngày này ' + agoVi, 'On this day · ' + agoEn)); }
-    else if(f === 1){ kh += fPeek({ cls: rr.cls, src: rr.src, emoji: rr.emoji, title: L('Còn nhớ hôm này ' + agoVi + '?', 'Remember this day, ' + agoEn + '?'), sub: esc(rr.cap || L('Chạm để mở lại', 'Tap to look back')), act: 'openMemory(' + i0 + ')' }); }
-    else { kh += fThenNow({ cls: rr.cls, src: rr.src, emoji: rr.emoji, thenL: esc(rr.cap || agoVi), nowL: L('Hôm nay?', 'Today?'), cap: L('Thêm hôm nay vào bộ sưu tập', 'Add today to the collection'), act: 'openSheet(&#39;sheet-add&#39;)' }); }
-  } else if(memRecords.length){                         // a recent moment resurfaced
-    var r0 = memRecords[0]; usedRef = r0.type + ':' + r0.ref;
-    kh += hMemMoment(r0, L('Khoảnh khắc gần đây', 'A recent moment'));
-  } else {                                              // a new family — a gentle invitation
-    kh += '<button class="hmoment" onclick="openSheet(&#39;sheet-add&#39;)"><div class="hm-bg ph-park"></div><div class="hm-scrim"></div><div class="hm-subj">🌿</div>'
-      + '<div class="hm-cap"><div class="hm-eye">' + L('Bắt đầu', 'Begin') + '</div><div class="hm-title">' + L('Câu chuyện của cả nhà', 'Your family’s story') + '</div>'
-      + '<div class="hm-sub">' + L('Thêm khoảnh khắc đầu tiên 💛', 'Add your first moment 💛') + '</div></div></button>';
-  }
-
-  // relatives' data — what the family added while you were away
-  if(window._homeSess === undefined){
-    try{ var _ls = localStorage.getItem('fh-lastseen'); window._homeSess = _ls ? (parseInt(_ls, 10) || 0) : Date.now(); localStorage.setItem('fh-lastseen', '' + Date.now()); }catch(e){ window._homeSess = Date.now(); }
-  }
-  var away = memRecords.filter(function(r){ var w = ('' + (r.who || '')).toLowerCase(); return w && w !== meName && w !== 'both' && w !== 'shared' && w !== 'chung' && r.d && r.d.getTime() > window._homeSess; });
-  if(away.length){
-    var nm0 = (typeof firstName === 'function') ? firstName(away[0].who) : away[0].who;
-    kh += fRelational({ name: away[0].who, emoji: '💛', html: L('<b>' + esc(nm0) + '</b> vừa thêm ' + away.length + ' khoảnh khắc lúc bạn vắng', '<b>' + esc(nm0) + '</b> added ' + away.length + ' moment' + (away.length > 1 ? 's' : '') + ' while you were away'), act: 'goMoments(&#39;album&#39;)' });
-  }
-
-  // reflection from history — a warm count, never a scoreboard
-  var monCount = memRecords.filter(function(r){ return r.d && r.d.getFullYear() === TODAY.getFullYear() && r.d.getMonth() === TODAY.getMonth(); }).length;
-  if(monCount >= 3){
-    kh += fReflect({ ico: '💛', html: L('Tháng này cả nhà đã cùng lưu <b>' + monCount + ' khoảnh khắc</b> 🌿', 'This month you’ve saved <b>' + monCount + ' moments</b> together 🌿') });
-  }
-
-  // build a memory — capture today (rotate a chips prompt with a plain act-row)
-  if(rot % 2 === 0){
-    kh += fChips({ q: L('Hôm nay có gì đáng nhớ không?', 'Anything worth remembering today?'), chips: [
-      { label: '📸 ' + L('Thêm ảnh', 'Add a photo'), act: 'openSheet(&#39;sheet-add&#39;)', br: true },
-      { label: '✍️ ' + L('Ghi một dòng', 'Jot a line'), act: 'openSheet(&#39;sheet-add&#39;)' }] });
-  } else {
-    kh += fActRow({ ico: '📸', eye: L('Giữ lại hôm nay', 'Keep today'), title: L('Thêm một khoảnh khắc mới', 'Add a new moment'), act: 'openSheet(&#39;sheet-add&#39;)' });
-  }
-  html += _sectionH(L('Khoảnh khắc', 'Moments'), 'goMoments()') + kh;
-
-  /* ============ TÀI CHÍNH ============ */
-  var m = (typeof M === 'function') ? M() : null;
+  /* ---- finance signal (computed up-front: the Tài chính card AND the goal nudge use it) ---- */
+  var m = (typeof M === 'function') ? M() : null, finV = null;
   if(m && m.budget > 0){
     var reserved = m.done ? 0 : monthReserved();
     var safe = Math.max(0, m.budget - m.spent - reserved), over = m.spent > m.budget;
     var proj = !m.done && m.dom > 0 && ((m.spent / m.dom * m.dim) - m.budget > m.budget * 0.01);
-    var mood, ico, tt, ss;
-    if(over){ mood = 'over'; ico = '🍂'; tt = L('Hơi quá tay một chút rồi', 'A little over this month');
-      ss = L('Vượt ' + fmtK(m.spent - m.budget) + ' · cùng nhau chỉnh lại nha', 'Over by ' + fmtK(m.spent - m.budget) + ' · ease back together'); }
-    else if(proj){ mood = 'pace'; ico = '⚡'; tt = L('Tháng này tiêu hơi nhanh tay', 'Spending a touch fast');
-      ss = L('Nhẹ nhàng chút là vẫn dư · còn ' + fmtK(safe), 'Ease up · ' + fmtK(safe) + ' left'); }
-    else { mood = 'ok'; ico = '🌿'; tt = L('Tháng này cả nhà đang thong thả', 'Comfortable this month');
-      ss = L('Còn ' + fmtK(safe) + ' để cả nhà thoải mái tận hưởng', fmtK(safe) + ' left to enjoy together'); }
-    var ps = Math.min(100, Math.round(m.spent / m.budget * 100));
-    html += _sectionH(L('Tài chính', 'Finance'), 'go(&#39;spending&#39;)')
-      + '<button class="hpulse ' + mood + '" onclick="go(&#39;spending&#39;)"><div class="hp-ico">' + ico + '</div>'
-      + '<div class="hp-body"><div class="hp-title">' + tt + '</div><div class="hp-sub">' + ss + '</div>'
-      + '<div class="hp-bar"><i style="width:' + ps + '%"></i></div></div></button>';
+    var fmood, fico, ftt, fss;
+    if(over){ fmood = 'over'; fico = '🍂'; ftt = L('Hơi quá tay một chút rồi', 'A little over this month');
+      fss = L('Vượt <b>' + fmtK(m.spent - m.budget) + '</b> · cùng nhau chỉnh lại nha', 'Over by <b>' + fmtK(m.spent - m.budget) + '</b> · ease back together'); }
+    else if(proj){ fmood = 'pace'; fico = '⚡'; ftt = L('Tháng này tiêu hơi nhanh tay', 'Spending a touch fast');
+      fss = L('Nhẹ nhàng chút là vẫn dư · còn <b>' + fmtK(safe) + '</b>', 'Ease up · <b>' + fmtK(safe) + '</b> left'); }
+    else { fmood = 'ok'; fico = '🌿'; ftt = L('Tháng này cả nhà đang thong thả', 'Comfortable this month');
+      fss = L('Còn <b>' + fmtK(safe) + '</b> để cả nhà thoải mái tận hưởng', '<b>' + fmtK(safe) + '</b> left to enjoy together'); }
+    finV = { mood: fmood, ico: fico, tt: ftt, ss: fss, ps: Math.min(100, Math.round(m.spent / m.budget * 100)), foot: L('Đã tiêu ' + fmtK(m.spent) + ' / ' + fmtK(m.budget), 'Spent ' + fmtK(m.spent) + ' / ' + fmtK(m.budget)) };
   }
+  var mComfortable = !!(finV && finV.mood === 'ok');
 
-  /* ============ SẮP TỚI ============ */
-  var st = '', firstUp = null;
+  /* ============ KHOẢNH KHẮC — a big, media-rich centerpiece + a warm capture CTA ============ */
+  var kh = '', centerRef = null;
+  if(fresh && homeVis){                                 // a shared dream reached — celebrated once
+    milestones.forEach(function(mi){ celebrated[mi.key] = 1; });
+    try{ localStorage.setItem('fh-celebrated', JSON.stringify(celebrated)); }catch(e){}
+    kh += bigPhoto({ cls: fresh.cls, subj: '🎉', eye: L('Vừa đủ rồi', 'Goal reached'), title: fresh.name, sub: L('Giấc mơ chung đã thành hình 🎉', 'A shared dream, reached 🎉'), tall: true, cta: { label: '🎯 ' + L('Xem mục tiêu', 'View goal') }, act: 'go(&#39;spending&#39;)' });
+  } else if(memRecords.length){                         // the most recent moment, big — with the real photo + who added it
+    var r0 = memRecords[0], i0 = memRecords.indexOf(r0); centerRef = r0.type + ':' + r0.ref;
+    var isExp0 = r0.type === 'expense';
+    kh += bigPhoto({ cls: r0.cls, src: r0.src, subj: r0.emoji, who: r0.who, eye: isExp0 ? L('Một khoản chi thành kỷ niệm', 'A spend, remembered') : L('Khoảnh khắc gần đây', 'A recent moment'), title: r0.cap, sub: esc(r0.meta || ''), tall: true, act: 'openMemory(' + i0 + ')' });
+  } else {                                              // a new family — a warm, photo-shaped invitation
+    kh += bigPhoto({ cls: 'ph-park', subj: '🌿', eye: L('Bắt đầu', 'Begin'), title: L('Câu chuyện của cả nhà', 'Your family’s story'), sub: L('Tấm ảnh đầu tiên bắt đầu từ đây 💛', 'Your first photo starts here 💛'), tall: true, cta: { label: '＋ ' + L('Thêm khoảnh khắc', 'Add a moment') }, act: 'openSheet(&#39;sheet-add&#39;)' });
+  }
+  if(memRecords.length || fresh){                       // a big, friendly capture CTA under the centerpiece
+    kh += ctaCard({ ill: '📸', title: L('Hôm nay có gì đáng nhớ không?', 'Anything worth remembering today?'), sub: L('Một tấm ảnh, một dòng ngắn — để dành cho cả nhà xem lại sau này.', 'A photo, a line — to look back on together.'), cta: { label: '＋ ' + L('Thêm một khoảnh khắc', 'Add a moment'), act: 'openSheet(&#39;sheet-add&#39;)' } });
+  }
+  html += _sectionH(L('Khoảnh khắc', 'Moments'), 'goMoments()') + kh;
+
+  /* ============ SẮP TỚI — a big anticipation card with a real CTA ============ */
+  var st = '';
   if(up.length){
-    firstUp = up[0]; var e = evs[firstUp], dl = daysLeft(e.d);
+    var k = up[0], e = evs[k], dl = daysLeft(e.d);
     var emm = (e.memories && e.memories[0]) || null, eSrc = (emm && emm.src) ? emm.src : '', eCls = (emm && emm.cls) ? emm.cls : 'ph-hike';
-    if(e.target > 0){                                   // saving together → a progress widget
-      var pct = Math.min(100, Math.round(e.saved / e.target * 100));
-      st += fProgress({ cls: eCls, src: eSrc, emoji: e.emoji, title: esc(e.name), sub: L('còn ' + dl + ' ngày · cả nhà đang để dành', dl + ' days · saving together'), pct: pct, avlbl: L('cả nhà cùng góp', 'saving together'), act: 'openEvent(&#39;' + escAttr(firstUp) + '&#39;)' });
-    } else {                                            // pure anticipation → a countdown
-      st += fCountdown({ n: dl, unit: L('ngày nữa', 'days'), title: esc(e.name) + (e.emoji ? ' ' + esc(e.emoji) : ''), sub: L('điều cả nhà đang mong 💛', 'something to look forward to 💛'), act: 'openEvent(&#39;' + escAttr(firstUp) + '&#39;)' });
+    var eyeU = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : L('Còn ' + dl + ' ngày', dl + ' days to go'));
+    if(e.target > 0){
+      var pctU = Math.min(100, Math.round(e.saved / e.target * 100));
+      st += bigPhoto({ cls: eCls, src: eSrc, subj: e.emoji, eye: eyeU, title: e.name, sub: L('Cả nhà đã để dành được ' + pctU + '% rồi 🌿', 'Saved ' + pctU + '% together 🌿'), pct: pctU, cta: { label: '🌱 ' + L('Cùng góp thêm', 'Chip in') }, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
+    } else {
+      st += bigPhoto({ cls: eCls, src: eSrc, subj: e.emoji, eye: eyeU, title: e.name, sub: L('Điều cả nhà đang mong 💛', 'Something to look forward to 💛'), cta: { label: L('Xem kế hoạch', 'View plan') }, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
     }
   }
-  // dream a goal — finances comfortable and no active goal yet
-  if(m && m.budget > 0 && m.spent <= m.budget && gord.length === 0){
-    st += fActRow({ ico: '🎯', eye: L('Cả nhà đang thong thả', 'Comfortable this month'), title: L('Cùng mơ một điều lớn — đặt mục tiêu chung?', 'Dream big — set a shared goal?'), act: 'openGoal()' });
-  }
-  // a quiet look-ahead whisper to the next occasion
-  var nk = up.length > 1 ? up[1] : null;
-  if(nk){
-    var e2 = evs[nk], dl2 = daysLeft(e2.d);
-    st += fWhisper({ ico: esc(e2.emoji || '🗓️'), html: L('Rồi tới <b>' + esc(e2.name) + '</b> · còn ' + dl2 + ' ngày', 'Then <b>' + esc(e2.name) + '</b> · ' + dl2 + ' days'), act: 'openEvent(&#39;' + escAttr(nk) + '&#39;)' });
+  if(mComfortable && gord.length === 0){                 // dream a goal — comfortable + no active goal yet
+    st += ctaCard({ ill: '🎯', title: L('Cùng mơ một điều lớn?', 'Dream something big?'), sub: L('Tháng này cả nhà thong thả — đặt một mục tiêu chung để cùng hướng tới.', 'A comfortable month — set a shared goal to grow toward.'), cta: { label: L('Đặt mục tiêu chung', 'Set a shared goal'), act: 'openGoal()' } });
   }
   if(st) html += _sectionH(L('Sắp tới', 'Coming up'), 'goMoments(&#39;plans&#39;)') + st;
+
+  /* ============ TÀI CHÍNH — one distinct, warm stat card ============ */
+  if(finV){
+    html += _sectionH(L('Tài chính', 'Finance'), 'go(&#39;spending&#39;)')
+      + finCard({ mood: finV.mood, ico: finV.ico, title: finV.tt, sub: finV.ss, pct: finV.ps, foot: finV.foot, act: 'go(&#39;spending&#39;)' });
+  }
+
+  /* ============ NHỚ LẠI — a big nostalgia photo when a memory shares today's date ============ */
+  if(onThis.length){
+    var rr = onThis[0], refN = rr.type + ':' + rr.ref;
+    if(refN !== centerRef){                              // don't repeat the centerpiece
+      var iN = memRecords.indexOf(rr), yrs = TODAY.getFullYear() - rr.d.getFullYear();
+      var agoVi = yrs <= 1 ? 'năm ngoái' : (yrs + ' năm trước'), agoEn = yrs <= 1 ? 'last year' : (yrs + ' years ago');
+      html += _sectionH(L('Nhớ lại', 'Looking back'), 'goMoments(&#39;album&#39;)')
+        + bigPhoto({ cls: rr.cls, src: rr.src, subj: rr.emoji, who: rr.who, eye: L('Ngày này ' + agoVi, 'On this day · ' + agoEn), title: rr.cap, sub: esc(rr.meta || ''), cta: { label: '💛 ' + L('Xem lại ngày ấy', 'Look back') }, act: 'openMemory(' + iN + ')' });
+    }
+  }
 
   setHTMLIf(box, html);
   try{ runWeatherFx(); }catch(e){}                       // play any just-set / just-arrived mood animations

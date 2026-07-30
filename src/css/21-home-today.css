@@ -8,15 +8,17 @@
    This file loads after 20-hero.css and overrides the old gradient-hero home.
    ============================================================================ */
 
-/* ---------- light header ---------- */
-.home-hd{padding:0 22px}
+/* ---------- colored hero (gradient, emotional top) ---------- */
+.home-hd{background:var(--grad-hero);color:#fff;padding:0 22px 40px;position:relative;overflow:hidden}
+.home-hd::after{content:'';position:absolute;top:-70px;right:-46px;width:230px;height:230px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.22),transparent 70%);pointer-events:none}
+.home-hd::before{content:'';position:absolute;bottom:-30px;left:-30px;width:170px;height:170px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.13),transparent 70%);pointer-events:none}
 .home-hd .safe{height:max(env(safe-area-inset-top),16px)}
-.hh-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:6px 0 2px}
+.hh-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:8px 0 2px;position:relative;z-index:1}
 .hh-l{min-width:0;flex:1}
-.home-hd .greet{font-family:var(--disp);font-weight:750;font-size:33px;letter-spacing:-.9px;color:var(--ink);line-height:1.04;margin:0;text-shadow:none}
-.home-hd .greet-sub{font-size:15px;font-weight:500;color:var(--muted);margin-top:7px;letter-spacing:-.01em}
-.hh-ic{width:40px;height:40px;border-radius:50%;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:5px;color:var(--ink-2)}
-.hh-ic svg{width:21px;height:21px}
+.home-hd .greet{font-family:var(--disp);font-weight:750;font-size:30px;letter-spacing:-.7px;color:#fff;line-height:1.05;margin:0;text-shadow:none}
+.home-hd .greet-sub{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.9);margin-top:8px;letter-spacing:-.01em}
+.hh-ic{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.22);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:4px;color:#fff}
+.hh-ic svg{width:20px;height:20px}
 .hh-ic:active{transform:scale(.94)}
 #v-home.on .home-hd .greet{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
 #v-home.on .home-hd .greet-sub{animation:rise .5s cubic-bezier(.2,.7,.2,1) .05s both}
@@ -25,7 +27,7 @@
 .home-body{padding:0 0 6px}
 
 /* ---------- focal mood card (peer of the ring / calendar) ---------- */
-.wsky{background:var(--white);border-radius:var(--r-card-lg);padding:17px 16px 14px;margin:8px 16px 4px;box-shadow:var(--shadow-focal);overflow:hidden;position:static;z-index:auto}
+.wsky{background:var(--white);border-radius:var(--r-card-lg);padding:16px 16px 14px;margin:-28px 16px 4px;box-shadow:var(--shadow-focal);overflow:hidden;position:relative;z-index:2}
 /* (faces + merged action already styled in 20-hero.css: .fsky-row/.fs-c/.woffer) */
 
 /* ---------- centerpiece photo card + money-felt row (reuse, re-inset) ---------- */
@@ -134,3 +136,58 @@
 .rav-stack .rav{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;margin-left:-6px;box-shadow:0 0 0 2px var(--white)}
 .rav-stack .rav:first-child{margin-left:0}
 .rav-stack .lbl{font-size:11.5px;color:var(--muted);font-weight:600;margin-left:9px;letter-spacing:-.01em}
+
+/* ============================================================================
+   BIG emotional widgets — media-rich, varied layouts, prominent CTAs.
+   (Replaces the compact uniform rec-rows on Home.)
+   ============================================================================ */
+
+/* ---------- immersive photo card (uses the family's real uploaded media) ---------- */
+.bigphoto{position:relative;display:flex;flex-direction:column;justify-content:flex-end;width:100%;border:0;background:none;text-align:left;font:inherit;border-radius:var(--r-card-lg);overflow:hidden;box-shadow:var(--shadow-focal);margin:0 16px 14px;min-height:236px;cursor:pointer;padding:0}
+.bigphoto.tall{min-height:280px}
+.bigphoto:active{transform:scale(.99)}
+.bp-ph{position:absolute;inset:0;background-size:cover;background-position:center}
+.bp-sc{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05) 22%,rgba(0,0,0,.34) 55%,rgba(0,0,0,.76))}
+.bp-subj{position:absolute;top:15px;left:17px;font-size:30px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));z-index:1}
+.bp-by{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.32);backdrop-filter:blur(6px);border-radius:9999px;padding:5px 11px 5px 6px;z-index:1}
+.bp-by .av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700}
+.bp-by span{font-size:12px;font-weight:600;color:#fff}
+.bp-cap{position:relative;z-index:1;padding:0 18px 18px;color:#fff}
+.bp-eye{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.94);text-shadow:0 1px 4px rgba(0,0,0,.5)}
+.bp-ti{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.5px;margin-top:5px;line-height:1.05;text-shadow:0 2px 8px rgba(0,0,0,.45)}
+.bp-mt{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.96);margin-top:6px;text-shadow:0 1px 5px rgba(0,0,0,.5)}
+.bp-prog{height:6px;border-radius:9999px;background:rgba(255,255,255,.32);overflow:hidden;margin:14px 0 0}
+.bp-prog i{display:block;height:100%;border-radius:9999px;background:#fff}
+.bp-cta{display:inline-flex;align-items:center;gap:7px;margin-top:14px;background:rgba(255,255,255,.96);color:var(--brand-ink);border-radius:14px;padding:12px 18px;font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.01em;align-self:flex-start;box-shadow:0 3px 12px rgba(0,0,0,.22)}
+
+/* ---------- big, friendly CTA card ---------- */
+.ctacard{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:0 16px 14px;padding:22px 18px 18px;text-align:center}
+.cc-ill{font-size:40px;line-height:1}
+.cc-t{font-family:var(--disp);font-size:18px;font-weight:700;letter-spacing:-.3px;color:var(--ink);margin-top:12px}
+.cc-s{font-size:14px;font-weight:500;color:var(--muted);margin-top:6px;line-height:1.45;max-width:34ch;margin-left:auto;margin-right:auto}
+.btn-fill{display:block;width:100%;margin-top:16px;background:var(--brand);color:#fff;border:0;border-radius:15px;padding:15px;font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.01em;box-shadow:0 4px 14px var(--brand-glow,rgba(20,135,214,.28));cursor:pointer}
+.btn-fill:active{transform:scale(.98)}
+.cc-row2{display:flex;gap:10px;margin-top:14px}
+.btn-soft{flex:1;background:var(--brand-tint);color:var(--brand-ink);border:0;border-radius:14px;padding:14px 10px;font-family:var(--disp);font-size:14.5px;font-weight:700;letter-spacing:-.01em;cursor:pointer}
+.btn-soft:active{transform:scale(.97)}
+
+/* ---------- finance card (distinct, warm stat) ---------- */
+.fincard{display:block;width:100%;border:0;text-align:left;font:inherit;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:0 16px 14px;padding:17px 17px 16px;cursor:pointer}
+.fincard:active{transform:scale(.99)}
+.fc-top{display:flex;align-items:center;gap:13px}
+.fc-i{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:23px;flex:0 0 auto;background:var(--fill-neutral)}
+.fincard.over .fc-i{background:var(--danger-tint)}
+.fincard.pace .fc-i{background:var(--amber-tint,#fbeecd)}
+.fincard.ok .fc-i{background:var(--good-tint)}
+.fc-t{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.3px;color:var(--ink)}
+.fc-s{font-size:13.5px;font-weight:500;color:var(--muted);margin-top:2px}
+.fc-s b{font-weight:700}
+.fincard.over .fc-s b{color:var(--danger)}
+.fc-bar{height:8px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;margin-top:14px}
+.fc-bar i{display:block;height:100%;border-radius:9999px;background:var(--muted);opacity:.5}
+.fincard.over .fc-bar i{background:var(--danger);opacity:.9}
+.fincard.pace .fc-bar i{background:var(--amber);opacity:.9}
+.fincard.ok .fc-bar i{background:var(--good);opacity:.85}
+.fc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:13px}
+.fc-foot span{font-size:12.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.fc-foot em{font-size:14px;font-weight:700;color:var(--brand);font-style:normal}
