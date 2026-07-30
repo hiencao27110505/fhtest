@@ -211,6 +211,17 @@ weather (`.amb`: drizzle / storm / mist / sunbeams). 4+ members compact the wind
 shared, then the caring `.woffer` offers. All ambient motion is gated by
 `prefers-reduced-motion`.
 
+**The feed below is the house's interior** — `#v-home` sits on a warm paper canvas
+(`#f6f0e4`, extended to the scroll via `:has(#v-home.on)`), and every widget is a
+keepsake in the scene's own materials: memories are **framed prints** (`.frame`:
+cream mat + caption + `frBy` byline; `.tape` washi corners for "on this day"; the
+`.frame-empty` dashed **empty frame** is the add CTA), plans are **notes pinned with
+a pushpin** (`.pnote`: countdown or emoji lead, paper progress bar, optional
+`.pn-snap` polaroid), and the month's money is **the family jar** (`.jarcard`:
+glass fill = what's left in the pot, mood-tinted ok/pace/over). Keepsake cards are
+buttons — give them `width:calc(100% - 32px)` (buttons shrink-to-fit; `width:100%`
+plus margins overflows).
+
 ### Photo / memory system
 - **Mosaic** (`.photo-mosaic`): 6-col grid, dynamic collage by count (1 hero / 2 halves / 3 big+2 /
   4-up / 5+ hero+grid), tiny 2px gaps, rounded inset card, container-query sized so cells stay square.

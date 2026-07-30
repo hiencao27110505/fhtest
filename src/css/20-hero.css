@@ -43,17 +43,13 @@
 .hero-tile .ht-bar i{display:block;height:100%;background:#fff;border-radius:9999px}
 .hero-tile .ht-s{font-size:12px;font-weight:600;color:rgba(255,255,255,.85);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hero-chip{margin-top:16px;background:rgba(255,255,255,.96);border-radius:13px;padding:11px 14px;font-size:13.5px;font-weight:600;color:var(--ink);letter-spacing:-.01em;line-height:1.4}
-/* warm welcome */
-.greet{font-family:var(--disp);font-weight:700;font-size:31px;letter-spacing:-1px;color:#fff;margin-top:18px;line-height:1.08}
-.greet-sub{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.86);margin-top:9px;letter-spacing:-.01em}
-@keyframes rise{from{opacity:0;transform:translateY(11px)}to{opacity:1;transform:none}}
-#v-home.on .greet{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
-#v-home.on .greet-sub{animation:rise .5s cubic-bezier(.2,.7,.2,1) .05s both}
 /* VND figures are longer — shrink the glanceable hero numbers so they don't clip */
 .cur-vnd .hero-tile .ht-n{font-size:18px;letter-spacing:-.4px}
 /* spending breakdown rows: name + "spent / budget" — tighten the amount in VND so it doesn't collide/clip */
 .cur-vnd .crow .r-t{font-size:15px}
 .cur-vnd .crow .r-t .num{font-size:13.5px;padding-left:8px;letter-spacing:-.3px}
+/* shared entrance: large titles + focal cards rise in (home greet, tab heads) */
+@keyframes rise{from{opacity:0;transform:translateY(11px)}to{opacity:1;transform:none}}
 
 /* section heading */
 .section-h{display:flex;align-items:baseline;justify-content:space-between;margin:26px 22px 13px}
@@ -67,95 +63,12 @@
 
 .card{background:var(--white);border-radius:20px;margin:0 16px 14px;padding:20px;box-shadow:var(--shadow-card)}
 
-/* ---------- Home — the emotional feed ---------- */
-.home-body{padding:6px 16px 4px}
-/* the daily moment (centerpiece) */
-.hmoment{display:block;width:100%;position:relative;border-radius:var(--r-card-lg);overflow:hidden;aspect-ratio:5/4;box-shadow:var(--shadow-focal);margin-top:12px;padding:0;border:0;background:none;cursor:pointer;text-align:left}
-.hmoment:active{transform:scale(.99)}
-.hm-bg{position:absolute;inset:0;background-size:cover;background-position:center}
-.hm-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.02) 30%,rgba(0,0,0,.28) 60%,rgba(0,0,0,.68))}
-.hm-subj{position:absolute;top:15px;left:16px;font-size:30px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.32))}
-.hm-cap{position:absolute;left:18px;right:18px;bottom:16px;color:#fff}
-.hm-eye{font-size:11px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:rgba(255,255,255,.9);text-shadow:0 1px 3px rgba(0,0,0,.4)}
-.hm-title{font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1.06;margin-top:6px;text-shadow:0 1px 6px rgba(0,0,0,.35)}
-.hm-sub{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.95);margin-top:5px;text-shadow:0 1px 4px rgba(0,0,0,.4)}
-.hm-prog{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.28)}
-.hm-prog i{display:block;height:100%;background:#fff;opacity:.92}
-/* money, felt — the emotionalized pulse */
-.hpulse{display:flex;align-items:center;gap:13px;width:100%;background:var(--white);border-radius:18px;padding:14px 15px;margin-top:12px;box-shadow:var(--shadow-card);border:0;font:inherit;text-align:left;cursor:pointer}
-.hpulse:active{transform:scale(.99)}
-.hp-ico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto}
-.hp-body{flex:1;min-width:0}
-.hp-title{font-family:var(--disp);font-size:16.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.18}
-.hp-sub{font-size:13.5px;font-weight:500;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
-.hp-bar{height:5px;border-radius:3px;background:var(--fill-neutral);overflow:hidden;margin-top:9px}
-.hp-bar i{display:block;height:100%;border-radius:3px}
-.hpulse.ok .hp-ico{background:var(--good-tint)} .hpulse.ok .hp-bar i{background:var(--good);opacity:.85}
-.hpulse.pace .hp-ico{background:var(--amber-tint)} .hpulse.pace .hp-bar i{background:var(--amber);opacity:.85}
-.hpulse.over .hp-ico{background:var(--danger-tint)} .hpulse.over .hp-bar i{background:var(--danger);opacity:.85}
-/* woven beats */
-.hbeat{display:flex;align-items:center;gap:13px;width:100%;background:var(--white);border-radius:18px;padding:11px;margin-top:12px;box-shadow:var(--shadow-card);border:0;font:inherit;text-align:left;cursor:pointer}
-.hbeat:active{transform:scale(.99)}
-.hb-thumb{position:relative;width:74px;height:74px;border-radius:13px;overflow:hidden;flex:0 0 auto;background-size:cover;background-position:center}
-.hb-thumb .hm-scrim{background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,.4))}
-.hb-subj{position:absolute;top:8px;left:9px;font-size:18px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.3))}
-.hb-body{flex:1;min-width:0}
-.hb-eye{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted-soft)}
-.hb-title{font-family:var(--disp);font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--ink);margin-top:3px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hb-sub{font-size:13px;font-weight:500;color:var(--muted);margin-top:3px}
-/* family-presence byline — a face + first name, never a score */
-.hby{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;letter-spacing:-.01em}
-.hby-av{width:18px;height:18px;font-size:8.5px;letter-spacing:0}
-.hm-by{margin-top:9px;color:rgba(255,255,255,.92);text-shadow:0 1px 3px rgba(0,0,0,.4)}
-.hb-by{margin-top:5px;color:var(--muted)}
-/* a quiet look-ahead at the foot */
-.hlook{display:block;width:100%;background:none;border:0;margin-top:10px;padding:11px 4px;text-align:center;font:inherit;font-size:13px;font-weight:500;color:var(--muted);letter-spacing:-.01em;cursor:pointer}
-.hlook:active{opacity:.6}
-.hlook b{color:var(--ink-2);font-weight:600}
-/* welcome-back strip — what the family added while you were away */
-.hwelcome{display:block;width:100%;text-align:left;background:var(--white);border:0;border-radius:18px;padding:13px 15px;margin-top:12px;box-shadow:var(--shadow-card);font:inherit;font-size:13.5px;font-weight:500;color:var(--ink-2);letter-spacing:-.01em;line-height:1.45;cursor:pointer}
-.hwelcome b{font-weight:600;color:var(--ink)}
-.hwelcome:active{transform:scale(.99)}
-/* "saving together" — the family avatar stack on an occasion / a reached dream */
-.hm-fam{display:flex;align-items:center;margin-top:10px}
-.hm-fam .hby-av{margin-left:-6px;box-shadow:0 0 0 2px rgba(255,255,255,.5)}
-.hm-fam .hby-av:first-child{margin-left:0}
-.hm-fam-t{margin-left:9px;font-size:12.5px;font-weight:500;color:rgba(255,255,255,.92);text-shadow:0 1px 3px rgba(0,0,0,.4)}
-/* a gentle seed when the feed is thin */
-.hseed{display:block;width:100%;text-align:center;background:var(--fill-neutral);border:0;border-radius:18px;padding:14px;margin-top:12px;font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em;cursor:pointer}
-.hseed:active{transform:scale(.99)}
-/* ---------- Thời tiết cảm xúc — ONE card straddling hero + body, gated reveal ---------- */
-/* the straddle: floats up over the hero's bottom edge, half in the pink, half in the body.
-   A soft sky wash (tinted from the active theme) makes it read as an actual sky, not a box. */
-.wsky{background:linear-gradient(180deg,var(--brand-tint) 0%,var(--white) 56%);border-radius:var(--r-card-lg);padding:18px 16px 16px;margin-top:-30px;box-shadow:var(--shadow-raised);position:relative;z-index:2;overflow:hidden}
 /* (1) ask state — the prompt + picker, then a locked teaser of the family */
 .wsky-q{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--ink);text-align:center}
 .wrow{display:flex;justify-content:space-between;gap:7px;margin-top:14px}
 .wpk{flex:1;background:var(--fill-neutral);border:0;border-radius:13px;padding:10px 0;font-size:24px;line-height:1;cursor:pointer;transition:transform .12s}
 .wpk:active{transform:scale(.88)}
-.wsky-lock{display:flex;align-items:center;gap:9px;margin-top:14px;padding-top:13px;border-top:1px solid var(--divider)}
-.wsky-locks{display:inline-flex}
-.fs-lock{display:inline-flex}
-.fs-lock .fs-av{width:26px;height:26px;font-size:10px;filter:grayscale(1);opacity:.32;margin-left:-8px;box-shadow:0 0 0 2px var(--white)}
-.fs-lock:first-child .fs-av{margin-left:0}
-.wsky-lockcap{font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em;line-height:1.3}
-/* (2) revealed sky — each cell is simply EMOTION + a name label; nothing competes */
-.fsky-row{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:20px 40px;padding:0 4px}
-.fs-c{position:relative;isolation:isolate;display:flex;flex-direction:column;align-items:center;gap:11px;background:none;border:0;padding:0;font:inherit;flex:0 0 auto;cursor:default;min-width:60px}
-.fs-c.me{cursor:pointer}
-.fs-c.me:active{transform:scale(.94)}
-.fs-emo{font-size:42px;line-height:1}
-.fs-emo-wait{font-size:38px;opacity:.4;filter:grayscale(.5)}
-.fs-n{font-size:13px;font-weight:600;letter-spacing:-.01em;color:var(--ink);max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fs-c.me .fs-n{color:var(--brand)}
-.fs-c.waiting .fs-n{color:var(--muted)}
-/* the collective read — a warm one-line feeling for the whole family */
-/* caring actions, merged into the card as a footer under the faces */
-.sky-acts{margin-top:16px;border-top:1px solid var(--divider)}
 /* ---- weather FX: a felt one-shot moment when a mood is set or arrives ---- */
-/* A: the changed face pops with a soft aura */
-.fs-c.fx .fs-emo{animation:wx-pop .9s cubic-bezier(.2,1.4,.35,1) both}
-.fs-c.fx::after{content:'';position:absolute;top:-4px;left:50%;width:56px;height:56px;margin-left:-28px;border-radius:50%;background:radial-gradient(circle,var(--brand-glow),transparent 66%);animation:wx-aura 1s ease-out both;pointer-events:none;z-index:-1}
 @keyframes wx-pop{0%{transform:scale(.5);opacity:.4}55%{transform:scale(1.22)}100%{transform:scale(1)}}
 @keyframes wx-aura{0%{transform:scale(.4);opacity:.75}100%{transform:scale(1.6);opacity:0}}
 /* B: the whole card takes on the weather (particles clipped to the card) */
@@ -177,7 +90,7 @@
 /* C: a brief "just changed" note pill */
 .wx-note{position:absolute;top:13px;left:50%;transform:translateX(-50%);background:var(--white);box-shadow:var(--shadow-card);border-radius:9999px;padding:5px 13px;font-size:11.5px;font-weight:700;letter-spacing:-.01em;color:var(--ink-2);white-space:nowrap;z-index:4;opacity:0;pointer-events:none;animation:wx-note 3.3s ease-in-out forwards}
 @keyframes wx-note{0%{opacity:0}11%{opacity:1}82%{opacity:1}100%{opacity:0}}
-@media (prefers-reduced-motion:reduce){.wx-fx,.wx-note{display:none}.fs-c.fx .fs-emo{animation:none}.fs-c.fx::after{display:none}}
+@media (prefers-reduced-motion:reduce){.wx-fx,.wx-note{display:none}}
 /* (3) the mood action — one clean row: a tinted icon, the action itself, a chevron.
    No "X đang vui" eyebrow (the faces above already say the mood). */
 .woffer{display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;border-radius:12px;padding:12px 2px;font:inherit;text-align:left;cursor:pointer}

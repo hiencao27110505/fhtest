@@ -181,140 +181,53 @@ function moodRead(){
 }
 window.moodRead = moodRead;
 
-/* a full-bleed cover: a real photo (src) or a scene gradient (cls), with scrim + subject emoji */
-function hVisual(cls, src, subj){
-  var bg = src ? '<div class="hm-bg" style="background-image:url(' + escAttr(src) + ')"></div>'
-               : '<div class="hm-bg ' + esc(cls || 'ph-park') + '"></div>';
-  return bg + '<div class="hm-scrim"></div>' + (subj ? '<div class="hm-subj">' + esc(subj) + '</div>' : '');
-}
-/* a small square thumb for a woven beat */
-function hThumb(cls, src, subj){
-  var st = src ? ' style="background-image:url(' + escAttr(src) + ')"' : '';
-  return '<div class="hb-thumb ' + (src ? '' : esc(cls || 'ph-park')) + '"' + st + '>'
-    + '<div class="hm-scrim"></div>' + (subj ? '<div class="hb-subj">' + esc(subj) + '</div>' : '') + '</div>';
-}
-/* family presence: a small avatar + first name of who added it — a face, never a score */
-function hByline(who){
-  if(!who) return '';
-  var w = ('' + who).toLowerCase();
-  if(w === 'both' || w === 'shared' || w === 'chung') return '';        // collective → no single author
-  var nm = ('' + who).charAt(0).toUpperCase() + ('' + who).slice(1), av = '', mm = null;
-  if(typeof membersMeta !== 'undefined' && membersMeta){               // real family palette (mirrors spAv)
-    for(var n in membersMeta){ if(n.toLowerCase() === w){ mm = membersMeta[n]; nm = n; break; } }
-  }
-  if(mm){ av = '<span class="av hby-av" style="background:' + mm.col + ';color:#fff">' + esc(mm.ini) + '</span>'; }
-  else { var a = (typeof spMap !== 'undefined' && spMap[w]) || null; if(a) av = '<span class="av hby-av ' + a[0] + '">' + a[1] + '</span>'; }
-  if(typeof firstName === 'function') nm = firstName(nm);
-  return '<span class="hby">' + av + esc(nm) + '</span>';
-}
-/* a small overlapping stack of the family's avatars (for "saving together") */
-function hFamAvs(n){
-  var mems = (window.FAM && FAM.members) || [];
-  return mems.slice(0, n || 4).map(function(mm){
-    var ini = (typeof inits === 'function') ? inits(mm.name) : ('' + (mm.name || '?')).charAt(0).toUpperCase();
-    return '<span class="av hby-av" style="background:' + (mm.color || '#8f8a99') + ';color:#fff">' + esc(ini) + '</span>';
-  }).join('');
-}
-/* a memory record rendered as the centerpiece moment (on-this-day / recent) */
-function hMemMoment(r, eye){
-  var i = memRecords.indexOf(r), by = hByline(r.who);
-  return '<button class="hmoment" onclick="openMemory(' + i + ')">' + hVisual(r.cls, r.src, r.emoji)
-    + '<div class="hm-cap"><div class="hm-eye">' + eye + '</div><div class="hm-title">' + esc(r.cap) + '</div>'
-    + '<div class="hm-sub">' + esc(r.meta || '') + '</div>' + (by ? '<div class="hm-by">' + by + '</div>' : '') + '</div></button>';
-}
-
 /* ============================================================================
-   Home recommendation FORMS — the Apple-kit widgets. Each takes an opts object
-   and returns HTML. The engine (renderHome) picks WHICH form to use per trigger,
-   rotating by day so the same trigger lands from a different angle each time.
+   The keepsake kit — the feed is the house's interior, in the scene's own
+   materials: memories hang as FRAMED PRINTS on the wall (an empty frame waits
+   for today), plans are NOTES PINNED with a pushpin, the month's money is THE
+   FAMILY JAR. Each builder takes an opts object and returns HTML.
    ============================================================================ */
-var _CHEVSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
-function _rvAvs(n){
-  var mems = (window.FAM && FAM.members) || [];
-  return mems.slice(0, n || 3).map(function(m){
-    var ini = (typeof inits === 'function') ? inits(m.name) : ('' + (m.name || '?')).charAt(0);
-    var col = (typeof membersMeta !== 'undefined' && membersMeta[m.name] && membersMeta[m.name].col) || m.color || '#8f8a99';
-    return '<span class="rav" style="background:' + col + '">' + esc(ini) + '</span>';
-  }).join('');
-}
-function _rBg(cls, src){ return src ? '' : (' ' + esc(cls || 'ph-park')); }
-function _rSt(cls, src){ return src ? ' style="background-image:url(' + escAttr(src) + ')"' : ''; }
-function fActRow(o){                                    // icon → eyebrow/title → chevron
-  return '<button class="ract" onclick="' + o.act + '"><div class="ract-ico' + (o.tone ? ' ' + o.tone : '') + '">' + o.ico + '</div>'
-    + '<div class="ract-b">' + (o.eye ? '<div class="ract-k">' + o.eye + '</div>' : '') + '<div class="ract-t">' + o.title + '</div></div>'
-    + '<span class="chev">' + _CHEVSVG + '</span></button>';
-}
-function fReflect(o){ return '<div class="rrefl"><div class="rrefl-h">' + o.ico + '</div><div class="rrefl-t">' + o.html + '</div></div>'; }
-function fWhisper(o){ return '<button class="rwhis" onclick="' + o.act + '"><span class="rwhis-i">' + o.ico + '</span><span class="rwhis-t">' + o.html + '</span></button>'; }
-function fChips(o){
-  var c = o.chips.map(function(ch){ return '<button class="rchip' + (ch.br ? ' br' : '') + '" onclick="' + ch.act + '">' + ch.label + '</button>'; }).join('');
-  return '<div class="rchips"><div class="rchips-q">' + o.q + '</div><div class="rchips-r">' + c + '</div></div>';
-}
-function fCountdown(o){
-  return '<button class="rcd" onclick="' + o.act + '"><div class="rcd-n"><b>' + o.n + '</b><span>' + o.unit + '</span></div>'
-    + '<div class="rcd-b"><div class="rcd-t">' + o.title + '</div>' + (o.sub ? '<div class="rcd-s">' + o.sub + '</div>' : '') + '</div>'
-    + '<span class="chev">' + _CHEVSVG + '</span></button>';
-}
-function fRelational(o){
-  var ini = (typeof inits === 'function') ? inits(o.name) : ('' + (o.name || '?')).charAt(0);
-  var col = (typeof membersMeta !== 'undefined' && membersMeta[o.name] && membersMeta[o.name].col) || o.color || '#8f8a99';
-  return '<button class="rrel" onclick="' + o.act + '"><span class="rrel-av" style="background:' + col + '">' + esc(ini) + (o.emoji ? '<span class="em">' + o.emoji + '</span>' : '') + '</span>'
-    + '<span class="rrel-t">' + o.html + '</span><span class="chev">' + _CHEVSVG + '</span></button>';
-}
-function fProgress(o){
-  var thumb = '<div class="rprog-th' + _rBg(o.cls, o.src) + '"' + _rSt(o.cls, o.src) + '><div class="sc"></div>' + (o.emoji ? '<div class="em">' + o.emoji + '</div>' : '') + '</div>';
-  var avs = o.avlbl ? '<div class="rav-stack">' + _rvAvs(3) + '<span class="lbl">' + o.avlbl + '</span></div>' : '';
-  return '<button class="rprog" onclick="' + o.act + '"><div class="rprog-top">' + thumb
-    + '<div class="rprog-b"><div class="rprog-t">' + o.title + '</div>' + (o.sub ? '<div class="rprog-s">' + o.sub + '</div>' : '') + '</div>'
-    + '<span class="rprog-pct">' + o.pct + '%</span></div>'
-    + '<div class="rprog-bar"><i style="width:' + o.pct + '%"></i></div>' + avs + '</button>';
-}
-function fPeek(o){
-  return '<button class="rpeek" onclick="' + o.act + '"><div class="rpeek-th' + _rBg(o.cls, o.src) + '"' + _rSt(o.cls, o.src) + '>' + (o.emoji ? '<div class="em">' + o.emoji + '</div>' : '') + '</div>'
-    + '<div class="rpeek-b"><div class="rpeek-t">' + o.title + '</div>' + (o.sub ? '<div class="rpeek-s">' + o.sub + '</div>' : '') + '</div>'
-    + '<span class="chev">' + _CHEVSVG + '</span></button>';
-}
-function fThenNow(o){
-  return '<button class="rtn" onclick="' + o.act + '"><div class="rtn-g">'
-    + '<div class="rtn-p' + _rBg(o.cls, o.src) + '"' + _rSt(o.cls, o.src) + '>' + (o.src ? '' : '<div class="em">' + (o.emoji || '📷') + '</div>') + '<div class="l">' + o.thenL + '</div></div>'
-    + '<div class="rtn-p now"><div class="em">＋</div><div class="l">' + o.nowL + '</div></div></div>'
-    + '<div class="rtn-cap">' + o.cap + '</div></button>';
-}
-function _sectionH(title, link){ return '<div class="section-h"><div class="t">' + title + '</div>' + (link ? '<a onclick="' + link + '">' + L('Xem tất cả', 'See all') + '</a>' : '') + '</div>'; }
-
-/* ---- BIG media-rich widgets (immersive photo · friendly CTA · finance stat) ---- */
-function _phCls(cls, src){ return 'bp-ph' + (src ? '' : ' ' + esc(cls || 'ph-park')); }
-function _phBg(cls, src){ return src ? ' style="background-image:url(' + escAttr(src) + ')"' : ''; }
-function _byChip(who){
+/* who added it — a small face + first name inside a frame's caption */
+function frBy(who){
   if(!who) return '';
   var w = ('' + who).toLowerCase();
   if(w === 'both' || w === 'shared' || w === 'chung') return '';        // collective → no single face
   var nm = who, col = '#8f8a99', ini = (typeof inits === 'function') ? inits(who) : ('' + who).charAt(0).toUpperCase();
   if(typeof membersMeta !== 'undefined' && membersMeta){ for(var n in membersMeta){ if(n.toLowerCase() === w){ col = membersMeta[n].col; ini = membersMeta[n].ini; nm = n; break; } } }
   var fn = (typeof firstName === 'function') ? firstName(nm) : nm;
-  return '<div class="bp-by"><span class="av" style="background:' + col + '">' + esc(ini) + '</span><span>' + esc(fn) + '</span></div>';
+  return '<span class="fr-by"><span class="av" style="background:' + col + '">' + esc(ini) + '</span>' + esc(fn) + '</span>';
 }
-function bigPhoto(o){   // {cls,src,subj,who,eye,title,sub,pct,cta:{label},tall,act}
-  var cta = o.cta ? '<span class="bp-cta">' + o.cta.label + '</span>' : '';
-  var prog = (typeof o.pct === 'number') ? '<div class="bp-prog"><i style="width:' + o.pct + '%"></i></div>' : '';
-  return '<button class="bigphoto' + (o.tall ? ' tall' : '') + '" onclick="' + o.act + '">'
-    + '<div class="' + _phCls(o.cls, o.src) + '"' + _phBg(o.cls, o.src) + '></div><div class="bp-sc"></div>'
-    + (o.subj ? '<div class="bp-subj">' + esc(o.subj) + '</div>' : '') + _byChip(o.who)
-    + '<div class="bp-cap"><div class="bp-eye">' + o.eye + '</div><div class="bp-ti">' + esc(o.title) + '</div>'
-    + (o.sub ? '<div class="bp-mt">' + o.sub + '</div>' : '') + prog + cta + '</div></button>';
+function frameCard(o){   // {src,cls,emoji,who,eye,title,sub,cta,act,tape,tall}
+  var ph = '<div class="fr-ph' + (o.src ? '' : ' ' + esc(o.cls || 'ph-park')) + '"' + (o.src ? ' style="background-image:url(' + escAttr(o.src) + ')"' : '') + '>'
+    + (o.src ? '' : '<span class="fr-emo">' + esc(o.emoji || '📸') + '</span>') + '</div>';
+  var by = frBy(o.who);
+  var foot = (by || o.cta) ? '<div class="fr-foot">' + by + (o.cta ? '<span class="fr-cta">' + o.cta + '</span>' : '') + '</div>' : '';
+  return '<button class="frame' + (o.tall ? ' tall' : '') + '" onclick="' + o.act + '"><div class="fr-mat">' + ph
+    + (o.tape ? '<i class="tape tl"></i><i class="tape tr"></i>' : '') + '</div>'
+    + '<div class="fr-cap"><div class="fr-eye">' + o.eye + '</div><div class="fr-ti">' + esc(o.title) + '</div>'
+    + (o.sub ? '<div class="fr-sub">' + o.sub + '</div>' : '') + foot + '</div></button>';
 }
-function ctaCard(o){    // {ill,title,sub,cta:{label,act},row2:[{label,act}]}
-  var btn = o.cta ? '<button class="btn-fill" onclick="' + o.cta.act + '">' + o.cta.label + '</button>' : '';
-  var row = o.row2 ? '<div class="cc-row2">' + o.row2.map(function(b){ return '<button class="btn-soft" onclick="' + b.act + '">' + b.label + '</button>'; }).join('') + '</div>' : '';
-  return '<div class="ctacard"><div class="cc-ill">' + o.ill + '</div><div class="cc-t">' + o.title + '</div>'
-    + (o.sub ? '<div class="cc-s">' + o.sub + '</div>' : '') + btn + row + '</div>';
+function emptyFrame(o){  // {big,title,sub,act} — an empty frame on the wall, waiting
+  return '<button class="frame frame-empty' + (o.big ? ' big' : '') + '" onclick="' + o.act + '"><div class="fr-mat"><div class="fr-hole"><span class="fh-plus">＋</span></div></div>'
+    + '<div class="fr-cap center"><div class="fr-ti' + (o.big ? '' : ' sm') + '">' + o.title + '</div>'
+    + (o.sub ? '<div class="fr-sub">' + o.sub + '</div>' : '') + '</div></button>';
 }
-function finCard(o){    // {mood,ico,title,sub,pct,foot,act}
-  return '<button class="fincard ' + o.mood + '" onclick="' + o.act + '"><div class="fc-top"><div class="fc-i">' + o.ico + '</div>'
-    + '<div><div class="fc-t">' + o.title + '</div><div class="fc-s">' + o.sub + '</div></div></div>'
-    + '<div class="fc-bar"><i style="width:' + o.pct + '%"></i></div>'
-    + (o.foot ? '<div class="fc-foot"><span>' + o.foot + '</span><em>' + L('Xem chi tiết →', 'View details →') + '</em></div>' : '') + '</button>';
+function pinNote(o){     // {n,unit}|{ico} + {title,sub,pct,src,act} — a note pinned to the wall
+  var lead = (o.n != null)
+    ? '<div class="pn-n"><b>' + o.n + '</b><span>' + o.unit + '</span></div>'
+    : '<div class="pn-ico">' + (o.ico || '📌') + '</div>';
+  var snap = o.src ? '<span class="pn-snap"><i style="background-image:url(' + escAttr(o.src) + ')"></i></span>' : '';
+  return '<button class="pnote" onclick="' + o.act + '"><i class="pn-pin"></i>' + lead
+    + '<div class="pn-b"><div class="pn-t">' + o.title + '</div>' + (o.sub ? '<div class="pn-s">' + o.sub + '</div>' : '')
+    + ((typeof o.pct === 'number') ? '<div class="pn-bar"><i style="width:' + o.pct + '%"></i></div>' : '') + '</div>' + snap + '</button>';
 }
+function jarCard(o){     // {mood,title,sub,fill,foot,act} — fill = what's left in the pot
+  return '<button class="jarcard ' + o.mood + '" onclick="' + o.act + '">'
+    + '<div class="jar"><i class="jar-lid"></i><div class="jar-glass"><i class="jar-fill" style="height:' + o.fill + '%"></i><i class="jar-shine"></i></div></div>'
+    + '<div class="jc-b"><div class="jc-t">' + o.title + '</div><div class="jc-s">' + o.sub + '</div>'
+    + '<div class="jc-foot"><span>' + o.foot + '</span><em>' + L('Xem chi tiết', 'View details') + '</em></div></div></button>';
+}
+function _sectionH(title, link){ return '<div class="section-h"><div class="t">' + title + '</div>' + (link ? '<a onclick="' + link + '">' + L('Xem tất cả', 'See all') + '</a>' : '') + '</div>'; }
 
 function renderHome(){
   var box = document.getElementById('home-body'); if(!box) return;
@@ -371,56 +284,60 @@ function renderHome(){
   }
   var mComfortable = !!(finV && finV.mood === 'ok');
 
-  /* ============ KHOẢNH KHẮC — a big, media-rich centerpiece + a warm capture CTA ============ */
+  /* ============ KHOẢNH KHẮC — a framed print on the wall + an empty frame for today ============ */
   var kh = '', centerRef = null;
   if(fresh && homeVis){                                 // a shared dream reached — celebrated once
     milestones.forEach(function(mi){ celebrated[mi.key] = 1; });
     try{ localStorage.setItem('fh-celebrated', JSON.stringify(celebrated)); }catch(e){}
-    kh += bigPhoto({ cls: fresh.cls, subj: '🎉', eye: L('Vừa đủ rồi', 'Goal reached'), title: fresh.name, sub: L('Giấc mơ chung đã thành hình 🎉', 'A shared dream, reached 🎉'), tall: true, cta: { label: '🎯 ' + L('Xem mục tiêu', 'View goal') }, act: 'go(&#39;spending&#39;)' });
-  } else if(memRecords.length){                         // the most recent moment, big — with the real photo + who added it
+    kh += frameCard({ cls: fresh.cls, emoji: '🎉', eye: L('Vừa đủ rồi', 'Goal reached'), title: fresh.name, sub: L('Giấc mơ chung đã thành hình 🎉', 'A shared dream, reached 🎉'), tall: true, cta: '🎯 ' + L('Xem mục tiêu', 'View goal'), act: 'go(&#39;spending&#39;)' });
+  } else if(memRecords.length){                         // the most recent moment, framed — with who added it
     var r0 = memRecords[0], i0 = memRecords.indexOf(r0); centerRef = r0.type + ':' + r0.ref;
     var isExp0 = r0.type === 'expense';
-    kh += bigPhoto({ cls: r0.cls, src: r0.src, subj: r0.emoji, who: r0.who, eye: isExp0 ? L('Một khoản chi thành kỷ niệm', 'A spend, remembered') : L('Khoảnh khắc gần đây', 'A recent moment'), title: r0.cap, sub: esc(r0.meta || ''), tall: true, act: 'openMemory(' + i0 + ')' });
-  } else {                                              // a new family — a warm, photo-shaped invitation
-    kh += bigPhoto({ cls: 'ph-park', subj: '🌿', eye: L('Bắt đầu', 'Begin'), title: L('Câu chuyện của cả nhà', 'Your family’s story'), sub: L('Tấm ảnh đầu tiên bắt đầu từ đây 💛', 'Your first photo starts here 💛'), tall: true, cta: { label: '＋ ' + L('Thêm khoảnh khắc', 'Add a moment') }, act: 'openSheet(&#39;sheet-add&#39;)' });
+    kh += frameCard({ cls: r0.cls, src: r0.src, emoji: r0.emoji, who: r0.who, eye: isExp0 ? L('Một khoản chi thành kỷ niệm', 'A spend, remembered') : L('Khoảnh khắc gần đây', 'A recent moment'), title: r0.cap, sub: esc(r0.meta || ''), tall: true, act: 'openMemory(' + i0 + ')' });
+  } else {                                              // a new family — the first empty frame on the wall
+    kh += emptyFrame({ big: true, title: L('Câu chuyện của cả nhà', 'Your family’s story'), sub: L('Tấm ảnh đầu tiên treo lên tường từ đây 💛', 'The first photo on this wall starts here 💛'), act: 'openSheet(&#39;sheet-add&#39;)' });
   }
-  if(memRecords.length || fresh){                       // a big, friendly capture CTA under the centerpiece
-    kh += ctaCard({ ill: '📸', title: L('Hôm nay có gì đáng nhớ không?', 'Anything worth remembering today?'), sub: L('Một tấm ảnh, một dòng ngắn — để dành cho cả nhà xem lại sau này.', 'A photo, a line — to look back on together.'), cta: { label: '＋ ' + L('Thêm một khoảnh khắc', 'Add a moment'), act: 'openSheet(&#39;sheet-add&#39;)' } });
+  if(memRecords.length || fresh){                       // an empty frame always waits for today
+    kh += emptyFrame({ title: L('Hôm nay có gì đáng nhớ không?', 'Anything worth remembering today?'), sub: L('Còn một khung trống trên tường cho hôm nay.', 'There’s an empty frame on the wall for today.'), act: 'openSheet(&#39;sheet-add&#39;)' });
   }
   html += _sectionH(L('Khoảnh khắc', 'Moments'), 'goMoments()') + kh;
 
-  /* ============ SẮP TỚI — a big anticipation card with a real CTA ============ */
+  /* ============ SẮP TỚI — a note pinned to the wall ============ */
   var st = '';
   if(up.length){
     var k = up[0], e = evs[k], dl = daysLeft(e.d);
-    var emm = (e.memories && e.memories[0]) || null, eSrc = (emm && emm.src) ? emm.src : '', eCls = (emm && emm.cls) ? emm.cls : 'ph-hike';
-    var eyeU = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : L('Còn ' + dl + ' ngày', dl + ' days to go'));
+    var emm = (e.memories && e.memories[0]) || null, eSrc = (emm && emm.src) ? emm.src : '';
+    var lead = dl > 1 ? { n: dl, unit: L('ngày nữa', 'days to go') } : { ico: e.emoji || '📅' };
+    var when = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : '');
+    var subU, pctU = null;
     if(e.target > 0){
-      var pctU = Math.min(100, Math.round(e.saved / e.target * 100));
-      st += bigPhoto({ cls: eCls, src: eSrc, subj: e.emoji, eye: eyeU, title: e.name, sub: L('Cả nhà đã để dành được ' + pctU + '% rồi 🌿', 'Saved ' + pctU + '% together 🌿'), pct: pctU, cta: { label: '🌱 ' + L('Cùng góp thêm', 'Chip in') }, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
+      pctU = Math.min(100, Math.round(e.saved / e.target * 100));
+      subU = (when ? when + ' · ' : '') + L('Cả nhà đã để dành được ' + pctU + '% rồi 🌿', 'Saved ' + pctU + '% together 🌿');
     } else {
-      st += bigPhoto({ cls: eCls, src: eSrc, subj: e.emoji, eye: eyeU, title: e.name, sub: L('Điều cả nhà đang mong 💛', 'Something to look forward to 💛'), cta: { label: L('Xem kế hoạch', 'View plan') }, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
+      subU = (when ? when + ' · ' : '') + L('Điều cả nhà đang mong 💛', 'Something to look forward to 💛');
     }
+    st += pinNote({ n: lead.n, unit: lead.unit, ico: lead.ico, title: esc(e.name), sub: subU, pct: pctU, src: eSrc, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
   }
   if(mComfortable && gord.length === 0){                 // dream a goal — comfortable + no active goal yet
-    st += ctaCard({ ill: '🎯', title: L('Cùng mơ một điều lớn?', 'Dream something big?'), sub: L('Tháng này cả nhà thong thả — đặt một mục tiêu chung để cùng hướng tới.', 'A comfortable month — set a shared goal to grow toward.'), cta: { label: L('Đặt mục tiêu chung', 'Set a shared goal'), act: 'openGoal()' } });
+    st += pinNote({ ico: '🎯', title: L('Cùng mơ một điều lớn?', 'Dream something big?'), sub: L('Tháng này thong thả, ghim một mục tiêu chung lên đây nhé.', 'A comfortable month, pin a shared goal up here.'), act: 'openGoal()' });
   }
   if(st) html += _sectionH(L('Sắp tới', 'Coming up'), 'goMoments(&#39;plans&#39;)') + st;
 
-  /* ============ TÀI CHÍNH — one distinct, warm stat card ============ */
+  /* ============ TÀI CHÍNH — the family jar: what's left in the pot this month ============ */
   if(finV){
+    var jfill = finV.mood === 'over' ? 6 : Math.max(8, 100 - finV.ps);
     html += _sectionH(L('Tài chính', 'Finance'), 'go(&#39;spending&#39;)')
-      + finCard({ mood: finV.mood, ico: finV.ico, title: finV.tt, sub: finV.ss, pct: finV.ps, foot: finV.foot, act: 'go(&#39;spending&#39;)' });
+      + jarCard({ mood: finV.mood, title: finV.tt, sub: finV.ss, fill: jfill, foot: finV.foot, act: 'go(&#39;spending&#39;)' });
   }
 
-  /* ============ NHỚ LẠI — a big nostalgia photo when a memory shares today's date ============ */
+  /* ============ NHỚ LẠI — an old print held by washi tape ============ */
   if(onThis.length){
     var rr = onThis[0], refN = rr.type + ':' + rr.ref;
     if(refN !== centerRef){                              // don't repeat the centerpiece
       var iN = memRecords.indexOf(rr), yrs = TODAY.getFullYear() - rr.d.getFullYear();
       var agoVi = yrs <= 1 ? 'năm ngoái' : (yrs + ' năm trước'), agoEn = yrs <= 1 ? 'last year' : (yrs + ' years ago');
       html += _sectionH(L('Nhớ lại', 'Looking back'), 'goMoments(&#39;album&#39;)')
-        + bigPhoto({ cls: rr.cls, src: rr.src, subj: rr.emoji, who: rr.who, eye: L('Ngày này ' + agoVi, 'On this day · ' + agoEn), title: rr.cap, sub: esc(rr.meta || ''), cta: { label: '💛 ' + L('Xem lại ngày ấy', 'Look back') }, act: 'openMemory(' + iN + ')' });
+        + frameCard({ cls: rr.cls, src: rr.src, emoji: rr.emoji, who: rr.who, tape: true, eye: L('Ngày này ' + agoVi, 'On this day · ' + agoEn), title: rr.cap, sub: esc(rr.meta || ''), cta: '💛 ' + L('Xem lại ngày ấy', 'Look back'), act: 'openMemory(' + iN + ')' });
     }
   }
 

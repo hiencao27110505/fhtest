@@ -167,17 +167,13 @@ input{font-family:inherit}
 .hero-tile .ht-bar i{display:block;height:100%;background:#fff;border-radius:9999px}
 .hero-tile .ht-s{font-size:12px;font-weight:600;color:rgba(255,255,255,.85);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hero-chip{margin-top:16px;background:rgba(255,255,255,.96);border-radius:13px;padding:11px 14px;font-size:13.5px;font-weight:600;color:var(--ink);letter-spacing:-.01em;line-height:1.4}
-/* warm welcome */
-.greet{font-family:var(--disp);font-weight:700;font-size:31px;letter-spacing:-1px;color:#fff;margin-top:18px;line-height:1.08}
-.greet-sub{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.86);margin-top:9px;letter-spacing:-.01em}
-@keyframes rise{from{opacity:0;transform:translateY(11px)}to{opacity:1;transform:none}}
-#v-home.on .greet{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
-#v-home.on .greet-sub{animation:rise .5s cubic-bezier(.2,.7,.2,1) .05s both}
 /* VND figures are longer — shrink the glanceable hero numbers so they don't clip */
 .cur-vnd .hero-tile .ht-n{font-size:18px;letter-spacing:-.4px}
 /* spending breakdown rows: name + "spent / budget" — tighten the amount in VND so it doesn't collide/clip */
 .cur-vnd .crow .r-t{font-size:15px}
 .cur-vnd .crow .r-t .num{font-size:13.5px;padding-left:8px;letter-spacing:-.3px}
+/* shared entrance: large titles + focal cards rise in (home greet, tab heads) */
+@keyframes rise{from{opacity:0;transform:translateY(11px)}to{opacity:1;transform:none}}
 
 /* section heading */
 .section-h{display:flex;align-items:baseline;justify-content:space-between;margin:26px 22px 13px}
@@ -191,95 +187,12 @@ input{font-family:inherit}
 
 .card{background:var(--white);border-radius:20px;margin:0 16px 14px;padding:20px;box-shadow:var(--shadow-card)}
 
-/* ---------- Home — the emotional feed ---------- */
-.home-body{padding:6px 16px 4px}
-/* the daily moment (centerpiece) */
-.hmoment{display:block;width:100%;position:relative;border-radius:var(--r-card-lg);overflow:hidden;aspect-ratio:5/4;box-shadow:var(--shadow-focal);margin-top:12px;padding:0;border:0;background:none;cursor:pointer;text-align:left}
-.hmoment:active{transform:scale(.99)}
-.hm-bg{position:absolute;inset:0;background-size:cover;background-position:center}
-.hm-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.02) 30%,rgba(0,0,0,.28) 60%,rgba(0,0,0,.68))}
-.hm-subj{position:absolute;top:15px;left:16px;font-size:30px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.32))}
-.hm-cap{position:absolute;left:18px;right:18px;bottom:16px;color:#fff}
-.hm-eye{font-size:11px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:rgba(255,255,255,.9);text-shadow:0 1px 3px rgba(0,0,0,.4)}
-.hm-title{font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1.06;margin-top:6px;text-shadow:0 1px 6px rgba(0,0,0,.35)}
-.hm-sub{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.95);margin-top:5px;text-shadow:0 1px 4px rgba(0,0,0,.4)}
-.hm-prog{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.28)}
-.hm-prog i{display:block;height:100%;background:#fff;opacity:.92}
-/* money, felt — the emotionalized pulse */
-.hpulse{display:flex;align-items:center;gap:13px;width:100%;background:var(--white);border-radius:18px;padding:14px 15px;margin-top:12px;box-shadow:var(--shadow-card);border:0;font:inherit;text-align:left;cursor:pointer}
-.hpulse:active{transform:scale(.99)}
-.hp-ico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto}
-.hp-body{flex:1;min-width:0}
-.hp-title{font-family:var(--disp);font-size:16.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.18}
-.hp-sub{font-size:13.5px;font-weight:500;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
-.hp-bar{height:5px;border-radius:3px;background:var(--fill-neutral);overflow:hidden;margin-top:9px}
-.hp-bar i{display:block;height:100%;border-radius:3px}
-.hpulse.ok .hp-ico{background:var(--good-tint)} .hpulse.ok .hp-bar i{background:var(--good);opacity:.85}
-.hpulse.pace .hp-ico{background:var(--amber-tint)} .hpulse.pace .hp-bar i{background:var(--amber);opacity:.85}
-.hpulse.over .hp-ico{background:var(--danger-tint)} .hpulse.over .hp-bar i{background:var(--danger);opacity:.85}
-/* woven beats */
-.hbeat{display:flex;align-items:center;gap:13px;width:100%;background:var(--white);border-radius:18px;padding:11px;margin-top:12px;box-shadow:var(--shadow-card);border:0;font:inherit;text-align:left;cursor:pointer}
-.hbeat:active{transform:scale(.99)}
-.hb-thumb{position:relative;width:74px;height:74px;border-radius:13px;overflow:hidden;flex:0 0 auto;background-size:cover;background-position:center}
-.hb-thumb .hm-scrim{background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,.4))}
-.hb-subj{position:absolute;top:8px;left:9px;font-size:18px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.3))}
-.hb-body{flex:1;min-width:0}
-.hb-eye{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted-soft)}
-.hb-title{font-family:var(--disp);font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--ink);margin-top:3px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hb-sub{font-size:13px;font-weight:500;color:var(--muted);margin-top:3px}
-/* family-presence byline — a face + first name, never a score */
-.hby{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;letter-spacing:-.01em}
-.hby-av{width:18px;height:18px;font-size:8.5px;letter-spacing:0}
-.hm-by{margin-top:9px;color:rgba(255,255,255,.92);text-shadow:0 1px 3px rgba(0,0,0,.4)}
-.hb-by{margin-top:5px;color:var(--muted)}
-/* a quiet look-ahead at the foot */
-.hlook{display:block;width:100%;background:none;border:0;margin-top:10px;padding:11px 4px;text-align:center;font:inherit;font-size:13px;font-weight:500;color:var(--muted);letter-spacing:-.01em;cursor:pointer}
-.hlook:active{opacity:.6}
-.hlook b{color:var(--ink-2);font-weight:600}
-/* welcome-back strip — what the family added while you were away */
-.hwelcome{display:block;width:100%;text-align:left;background:var(--white);border:0;border-radius:18px;padding:13px 15px;margin-top:12px;box-shadow:var(--shadow-card);font:inherit;font-size:13.5px;font-weight:500;color:var(--ink-2);letter-spacing:-.01em;line-height:1.45;cursor:pointer}
-.hwelcome b{font-weight:600;color:var(--ink)}
-.hwelcome:active{transform:scale(.99)}
-/* "saving together" — the family avatar stack on an occasion / a reached dream */
-.hm-fam{display:flex;align-items:center;margin-top:10px}
-.hm-fam .hby-av{margin-left:-6px;box-shadow:0 0 0 2px rgba(255,255,255,.5)}
-.hm-fam .hby-av:first-child{margin-left:0}
-.hm-fam-t{margin-left:9px;font-size:12.5px;font-weight:500;color:rgba(255,255,255,.92);text-shadow:0 1px 3px rgba(0,0,0,.4)}
-/* a gentle seed when the feed is thin */
-.hseed{display:block;width:100%;text-align:center;background:var(--fill-neutral);border:0;border-radius:18px;padding:14px;margin-top:12px;font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em;cursor:pointer}
-.hseed:active{transform:scale(.99)}
-/* ---------- Thời tiết cảm xúc — ONE card straddling hero + body, gated reveal ---------- */
-/* the straddle: floats up over the hero's bottom edge, half in the pink, half in the body.
-   A soft sky wash (tinted from the active theme) makes it read as an actual sky, not a box. */
-.wsky{background:linear-gradient(180deg,var(--brand-tint) 0%,var(--white) 56%);border-radius:var(--r-card-lg);padding:18px 16px 16px;margin-top:-30px;box-shadow:var(--shadow-raised);position:relative;z-index:2;overflow:hidden}
 /* (1) ask state — the prompt + picker, then a locked teaser of the family */
 .wsky-q{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--ink);text-align:center}
 .wrow{display:flex;justify-content:space-between;gap:7px;margin-top:14px}
 .wpk{flex:1;background:var(--fill-neutral);border:0;border-radius:13px;padding:10px 0;font-size:24px;line-height:1;cursor:pointer;transition:transform .12s}
 .wpk:active{transform:scale(.88)}
-.wsky-lock{display:flex;align-items:center;gap:9px;margin-top:14px;padding-top:13px;border-top:1px solid var(--divider)}
-.wsky-locks{display:inline-flex}
-.fs-lock{display:inline-flex}
-.fs-lock .fs-av{width:26px;height:26px;font-size:10px;filter:grayscale(1);opacity:.32;margin-left:-8px;box-shadow:0 0 0 2px var(--white)}
-.fs-lock:first-child .fs-av{margin-left:0}
-.wsky-lockcap{font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em;line-height:1.3}
-/* (2) revealed sky — each cell is simply EMOTION + a name label; nothing competes */
-.fsky-row{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:20px 40px;padding:0 4px}
-.fs-c{position:relative;isolation:isolate;display:flex;flex-direction:column;align-items:center;gap:11px;background:none;border:0;padding:0;font:inherit;flex:0 0 auto;cursor:default;min-width:60px}
-.fs-c.me{cursor:pointer}
-.fs-c.me:active{transform:scale(.94)}
-.fs-emo{font-size:42px;line-height:1}
-.fs-emo-wait{font-size:38px;opacity:.4;filter:grayscale(.5)}
-.fs-n{font-size:13px;font-weight:600;letter-spacing:-.01em;color:var(--ink);max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fs-c.me .fs-n{color:var(--brand)}
-.fs-c.waiting .fs-n{color:var(--muted)}
-/* the collective read — a warm one-line feeling for the whole family */
-/* caring actions, merged into the card as a footer under the faces */
-.sky-acts{margin-top:16px;border-top:1px solid var(--divider)}
 /* ---- weather FX: a felt one-shot moment when a mood is set or arrives ---- */
-/* A: the changed face pops with a soft aura */
-.fs-c.fx .fs-emo{animation:wx-pop .9s cubic-bezier(.2,1.4,.35,1) both}
-.fs-c.fx::after{content:'';position:absolute;top:-4px;left:50%;width:56px;height:56px;margin-left:-28px;border-radius:50%;background:radial-gradient(circle,var(--brand-glow),transparent 66%);animation:wx-aura 1s ease-out both;pointer-events:none;z-index:-1}
 @keyframes wx-pop{0%{transform:scale(.5);opacity:.4}55%{transform:scale(1.22)}100%{transform:scale(1)}}
 @keyframes wx-aura{0%{transform:scale(.4);opacity:.75}100%{transform:scale(1.6);opacity:0}}
 /* B: the whole card takes on the weather (particles clipped to the card) */
@@ -301,7 +214,7 @@ input{font-family:inherit}
 /* C: a brief "just changed" note pill */
 .wx-note{position:absolute;top:13px;left:50%;transform:translateX(-50%);background:var(--white);box-shadow:var(--shadow-card);border-radius:9999px;padding:5px 13px;font-size:11.5px;font-weight:700;letter-spacing:-.01em;color:var(--ink-2);white-space:nowrap;z-index:4;opacity:0;pointer-events:none;animation:wx-note 3.3s ease-in-out forwards}
 @keyframes wx-note{0%{opacity:0}11%{opacity:1}82%{opacity:1}100%{opacity:0}}
-@media (prefers-reduced-motion:reduce){.wx-fx,.wx-note{display:none}.fs-c.fx .fs-emo{animation:none}.fs-c.fx::after{display:none}}
+@media (prefers-reduced-motion:reduce){.wx-fx,.wx-note{display:none}}
 /* (3) the mood action — one clean row: a tinted icon, the action itself, a chevron.
    No "X đang vui" eyebrow (the faces above already say the mood). */
 .woffer{display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;border-radius:12px;padding:12px 2px;font:inherit;text-align:left;cursor:pointer}
@@ -458,172 +371,77 @@ input{font-family:inherit}
 .hearth-hint{margin-top:12px;padding-top:11px;border-top:1px solid var(--divider);text-align:center;font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
 .hearth-off{padding:5px 16px 6px}
 
-/* ---------- centerpiece photo card + money-felt row (reuse, re-inset) ---------- */
-.hmoment{margin:0 16px 12px}
-.hpulse{margin:0 16px 12px}
-
-/* ---------- recommendation form: ACT-ROW (the "do this" card) ---------- */
-.ract{display:flex;align-items:center;gap:13px;width:100%;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:13px 15px;text-align:left;font:inherit;cursor:pointer}
-.ract:active{transform:scale(.99)}
-.ract-ico{width:44px;height:44px;border-radius:13px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto}
-.ract-ico.emo{background:var(--emo-tint)}
-.ract-ico.neutral{background:var(--fill-neutral)}
-.ract-ico.warn{background:var(--danger-tint)}
-.ract-b{flex:1;min-width:0}
-.ract-k{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:2px;letter-spacing:.02em;text-transform:uppercase}
-.ract-t{font-family:var(--disp);font-size:15.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.26}
-.ract .chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
-
-/* ---------- recommendation form: REFLECTION (a warm number, not a scoreboard) ---------- */
-.rrefl{display:flex;align-items:center;gap:13px;background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:13px 15px}
-.rrefl-h{width:44px;height:44px;border-radius:13px;background:var(--emo-tint);display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto}
-.rrefl-t{font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.42;letter-spacing:-.01em}
-.rrefl-t b{font-family:var(--disp);font-weight:750;color:var(--emo);font-size:15px}
-.rrefl-t b.br{color:var(--brand)}
-
-/* ---------- recommendation form: WHISPER (quiet ambient line) ---------- */
-.rwhis{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;margin:2px 22px 12px;padding:9px 2px;text-align:left;font:inherit;cursor:pointer;letter-spacing:-.01em}
-.rwhis-i{font-size:16px;flex:0 0 auto}
-.rwhis-t{flex:1;font-size:13.5px;font-weight:500;color:var(--muted)}
-.rwhis-t b{font-weight:650;color:var(--ink-2)}
-.rwhis:active{opacity:.6}
-
-/* ---------- recommendation form: CHIPS (quick-reply) ---------- */
-.rchips{background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:14px 15px}
-.rchips-q{font-family:var(--disp);font-size:15px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.3}
-.rchips-r{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
-.rchip{font-size:13px;font-weight:600;color:var(--ink-2);background:var(--surface);border:0;border-radius:9999px;padding:8px 13px;font-family:inherit;cursor:pointer;display:inline-flex;gap:5px;align-items:center}
-.rchip:active{transform:scale(.96)}
-.rchip.br{background:var(--brand-tint);color:var(--brand-ink)}
-
-/* ---------- recommendation form: COUNTDOWN (anticipation) ---------- */
-.rcd{display:flex;align-items:center;gap:15px;width:100%;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:14px 16px;text-align:left;font:inherit;cursor:pointer}
-.rcd-n{text-align:center;flex:0 0 auto;min-width:48px}
-.rcd-n b{display:block;font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:-1px;color:var(--brand);line-height:1;font-variant-numeric:tabular-nums}
-.rcd-n span{display:block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:2px}
-.rcd-b{flex:1;min-width:0}
-.rcd-t{font-family:var(--disp);font-size:15.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.25}
-.rcd-s{font-size:12.5px;font-weight:500;color:var(--muted);margin-top:3px}
-.rcd .chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
-.rcd:active{transform:scale(.99)}
-
-/* ---------- recommendation form: RELATIONAL (framed on a person) ---------- */
-.rrel{display:flex;align-items:center;gap:12px;width:100%;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:12px 15px;text-align:left;font:inherit;cursor:pointer}
-.rrel:active{transform:scale(.99)}
-.rrel-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--disp);font-size:15px;font-weight:700;flex:0 0 auto;position:relative}
-.rrel-av .em{position:absolute;right:-5px;bottom:-5px;font-size:14px;background:var(--white);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.16)}
-.rrel-t{flex:1;min-width:0;font-size:14px;font-weight:550;color:var(--ink);letter-spacing:-.01em;line-height:1.35}
-.rrel-t b{font-weight:700}
-.rrel .chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
-
-/* ---------- recommendation form: PROGRESS (saving/planning together) ---------- */
-.rprog{display:block;width:100%;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:14px 15px;text-align:left;font:inherit;cursor:pointer}
-.rprog:active{transform:scale(.99)}
-.rprog-top{display:flex;align-items:center;gap:12px}
-.rprog-th{width:46px;height:46px;border-radius:12px;flex:0 0 auto;position:relative;overflow:hidden;background-size:cover;background-position:center}
-.rprog-th .em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px}
-.rprog-th .sc{position:absolute;inset:0;background:linear-gradient(180deg,transparent 50%,rgba(0,0,0,.22))}
-.rprog-b{flex:1;min-width:0}
-.rprog-t{font-family:var(--disp);font-size:15.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
-.rprog-s{font-size:12.5px;font-weight:500;color:var(--muted);margin-top:2px}
-.rprog-s b{font-weight:650;color:var(--ink-2)}
-.rprog-pct{font-family:var(--disp);font-size:13.5px;font-weight:700;color:var(--brand);font-variant-numeric:tabular-nums;flex:0 0 auto}
-.rprog-bar{height:6px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;margin-top:11px}
-.rprog-bar i{display:block;height:100%;border-radius:9999px;background:var(--brand);opacity:.9}
-
-/* ---------- recommendation form: PEEK (a blurred, curious teaser) ---------- */
-.rpeek{display:flex;align-items:center;gap:13px;width:100%;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:12px 14px;text-align:left;font:inherit;cursor:pointer}
-.rpeek:active{transform:scale(.99)}
-.rpeek-th{width:48px;height:48px;border-radius:12px;flex:0 0 auto;filter:blur(3.5px);position:relative;overflow:hidden;background-size:cover;background-position:center}
-.rpeek-th .em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px}
-.rpeek-b{flex:1;min-width:0}
-.rpeek-t{font-family:var(--disp);font-size:14.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.3}
-.rpeek-s{font-size:12.5px;font-weight:500;color:var(--muted);margin-top:2px}
-.rpeek .chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
-
-/* ---------- recommendation form: QUOTE (a resurfaced caption) ---------- */
-.rquote{display:block;width:100%;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:15px 16px;text-align:left;font:inherit;cursor:pointer}
-.rquote:active{transform:scale(.99)}
-.rquote-q{font-family:var(--disp);font-size:16px;font-weight:500;font-style:italic;color:var(--ink);line-height:1.4}
-.rquote-a{font-size:12px;font-weight:600;color:var(--muted);margin-top:9px}
-
-/* ---------- recommendation form: THEN ↔ NOW (a diptych) ---------- */
-.rtn{display:block;width:100%;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:13px;text-align:left;font:inherit;cursor:pointer}
-.rtn:active{transform:scale(.99)}
-.rtn-g{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-.rtn-p{position:relative;border-radius:12px;overflow:hidden;height:88px;background-size:cover;background-position:center}
-.rtn-p .em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:30px}
-.rtn-p .l{position:absolute;left:9px;bottom:8px;color:#fff;font-size:10.5px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.5)}
-.rtn-p.now{background:var(--surface);border:1.5px dashed var(--brand-2,#5FD3A0)}
-.rtn-p.now .em{color:var(--brand)}
-.rtn-p.now .l{color:var(--brand-ink);text-shadow:none}
-.rtn-cap{font-size:13px;font-weight:600;color:var(--ink-2);text-align:center;margin-top:11px;letter-spacing:-.01em}
-
-/* small avatar stack (reuse look of tabs) for progress/relational */
-.rav-stack{display:flex;align-items:center;margin-top:10px}
-.rav-stack .rav{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;margin-left:-6px;box-shadow:0 0 0 2px var(--white)}
-.rav-stack .rav:first-child{margin-left:0}
-.rav-stack .lbl{font-size:11.5px;color:var(--muted);font-weight:600;margin-left:9px;letter-spacing:-.01em}
-
 /* ============================================================================
-   BIG emotional widgets — media-rich, varied layouts, prominent CTAs.
-   (Replaces the compact uniform rec-rows on Home.)
+   INSIDE THE HOUSE — the feed is the home's interior. One warm paper canvas;
+   memories are framed prints on the wall; plans are notes pinned with a
+   pushpin; the month's money is the family jar; "on this day" is an old print
+   held by washi tape. Same materials as the scene: paper, pegs, glass, wood.
    ============================================================================ */
 
-/* ---------- immersive photo card (uses the family's real uploaded media) ---------- */
-/* block-level flex + horizontal margin (NO width:100%) — width:auto fills the row minus the
-   16px side margins (width:100% would be 100%+32px = overflow). flex + an in-flow caption is
-   REQUIRED: a <button> whose children are all position:absolute fails to establish a
-   containing block on iOS Safari, so the photo/caption don't paint. The relative caption
-   gives it in-flow content and justify-content:flex-end bottoms it. */
-.bigphoto{position:relative;display:flex;flex-direction:column;justify-content:flex-end;border:0;background:none;text-align:left;font:inherit;border-radius:var(--r-card-lg);overflow:hidden;box-shadow:var(--shadow-focal);margin:0 16px 14px;min-height:236px;cursor:pointer;padding:0}
-.bigphoto.tall{min-height:280px}
-.bigphoto:active{transform:scale(.99)}
-.bp-ph{position:absolute;inset:0;background-size:cover;background-position:center}
-.bp-sc{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.08) 8%,rgba(0,0,0,.42) 50%,rgba(0,0,0,.82))}
-.bp-subj{position:absolute;top:15px;left:17px;font-size:30px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));z-index:1}
-.bp-by{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.32);backdrop-filter:blur(6px);border-radius:9999px;padding:5px 11px 5px 6px;z-index:1}
-.bp-by .av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700}
-.bp-by span{font-size:12px;font-weight:600;color:#fff}
-.bp-cap{position:relative;z-index:1;padding:16px 18px 18px;color:#fff}
-.bp-eye{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.94);text-shadow:0 1px 4px rgba(0,0,0,.5)}
-.bp-ti{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.5px;margin-top:5px;line-height:1.18;text-shadow:0 2px 8px rgba(0,0,0,.45)}
-.bp-mt{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.96);margin-top:6px;text-shadow:0 1px 5px rgba(0,0,0,.5)}
-.bp-prog{height:6px;border-radius:9999px;background:rgba(255,255,255,.32);overflow:hidden;margin:14px 0 0}
-.bp-prog i{display:block;height:100%;border-radius:9999px;background:#fff}
-.bp-cta{display:inline-flex;align-items:center;gap:7px;margin-top:14px;background:rgba(255,255,255,.96);color:var(--brand-ink);border-radius:14px;padding:12px 18px;font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.01em;align-self:flex-start;box-shadow:0 3px 12px rgba(0,0,0,.22)}
+/* the warm interior wall — home only (the tabs keep the shared cool canvas) */
+#v-home{background:#f6f0e4;min-height:100%}
+.scroll:has(#v-home.on){background:#f6f0e4}
 
-/* ---------- big, friendly CTA card ---------- */
-.ctacard{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:0 16px 14px;padding:22px 18px 18px;text-align:center}
-.cc-ill{font-size:40px;line-height:1}
-.cc-t{font-family:var(--disp);font-size:18px;font-weight:700;letter-spacing:-.3px;color:var(--ink);margin-top:12px}
-.cc-s{font-size:14px;font-weight:500;color:var(--muted);margin-top:6px;line-height:1.45;max-width:34ch;margin-left:auto;margin-right:auto}
-.btn-fill{display:block;width:100%;margin-top:16px;background:var(--brand);color:#fff;border:0;border-radius:15px;padding:15px;font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.01em;box-shadow:0 4px 14px var(--brand-glow,rgba(20,135,214,.28));cursor:pointer}
-.btn-fill:active{transform:scale(.98)}
-.cc-row2{display:flex;gap:10px;margin-top:14px}
-.btn-soft{flex:1;background:var(--brand-tint);color:var(--brand-ink);border:0;border-radius:14px;padding:14px 10px;font-family:var(--disp);font-size:14.5px;font-weight:700;letter-spacing:-.01em;cursor:pointer}
-.btn-soft:active{transform:scale(.97)}
+/* ---------- framed print (memories, on-this-day) ---------- */
+.frame{display:flex;flex-direction:column;width:calc(100% - 32px);border:0;background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 14px;padding:12px 12px 13px;text-align:left;font:inherit;cursor:pointer}
+.frame:active{transform:scale(.99)}
+.fr-mat{position:relative;background:#fbf5e9;border:1px solid #ecdfc6;border-radius:10px;padding:10px}
+.fr-ph{position:relative;height:186px;border-radius:6px;background-size:cover;background-position:center;overflow:hidden}
+.frame.tall .fr-ph{height:226px}
+.fr-emo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:44px}
+.tape{position:absolute;width:56px;height:17px;background:rgba(233,207,152,.6);border-left:1px dashed rgba(160,130,75,.4);border-right:1px dashed rgba(160,130,75,.4)}
+.tape.tl{top:-2px;left:-14px;transform:rotate(-42deg)}
+.tape.tr{top:-2px;right:-14px;transform:rotate(42deg)}
+.fr-cap{padding:12px 6px 2px}
+.fr-eye{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#8a7048}
+.fr-ti{font-family:var(--disp);font-size:20px;font-weight:700;letter-spacing:-.4px;color:var(--ink);margin-top:4px;line-height:1.2}
+.fr-sub{font-size:13.5px;font-weight:500;color:var(--muted);margin-top:4px;line-height:1.4}
+.fr-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+.fr-by{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.fr-by .av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700}
+.fr-cta{margin-left:auto;font-size:13.5px;font-weight:700;color:var(--brand-ink)}
+/* an empty frame on the wall — the warmest possible "add" */
+.fr-hole{height:112px;border:2px dashed #d9c7a2;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fdfaf2}
+.frame-empty.big .fr-hole{height:150px}
+.fh-plus{width:40px;height:40px;border-radius:50%;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700}
+.fr-cap.center{text-align:center}
+.fr-ti.sm{font-size:16.5px;letter-spacing:-.3px}
 
-/* ---------- finance card (distinct, warm stat) ---------- */
-.fincard{display:block;border:0;text-align:left;font:inherit;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:0 16px 14px;padding:17px 17px 16px;cursor:pointer}
-.fincard:active{transform:scale(.99)}
-.fc-top{display:flex;align-items:center;gap:13px}
-.fc-i{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:23px;flex:0 0 auto;background:var(--fill-neutral)}
-.fincard.over .fc-i{background:var(--danger-tint)}
-.fincard.pace .fc-i{background:var(--amber-tint,#fbeecd)}
-.fincard.ok .fc-i{background:var(--good-tint)}
-.fc-t{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.3px;color:var(--ink)}
-.fc-s{font-size:13.5px;font-weight:500;color:var(--muted);margin-top:2px}
-.fc-s b{font-weight:700}
-.fincard.over .fc-s b{color:var(--danger)}
-.fc-bar{height:8px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;margin-top:14px}
-.fc-bar i{display:block;height:100%;border-radius:9999px;background:var(--muted);opacity:.5}
-.fincard.over .fc-bar i{background:var(--danger);opacity:.9}
-.fincard.pace .fc-bar i{background:var(--amber);opacity:.9}
-.fincard.ok .fc-bar i{background:var(--good);opacity:.85}
-.fc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:13px}
-.fc-foot span{font-size:12.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-.fc-foot em{font-size:14px;font-weight:700;color:var(--brand-ink);font-style:normal}
+/* ---------- pinned note (plans, dreams) ---------- */
+.pnote{position:relative;display:flex;align-items:center;gap:15px;width:calc(100% - 32px);border:0;background:#fffaec;border-radius:16px;box-shadow:var(--shadow-card);margin:2px 16px 14px;padding:16px 16px 15px;text-align:left;font:inherit;cursor:pointer;transform:rotate(-.6deg)}
+.pnote:active{transform:rotate(-.6deg) scale(.99)}
+.pn-pin{position:absolute;top:-7px;left:50%;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff8f7d,#d94f3d);box-shadow:0 2px 4px rgba(120,30,20,.35)}
+.pn-n{text-align:center;min-width:52px;flex:0 0 auto}
+.pn-n b{display:block;font-family:var(--disp);font-weight:800;font-size:32px;letter-spacing:-1px;color:var(--brand-ink);line-height:1;font-variant-numeric:tabular-nums}
+.pn-n span{display:block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a7048;margin-top:3px}
+.pn-ico{font-size:30px;min-width:52px;text-align:center;flex:0 0 auto}
+.pn-b{flex:1;min-width:0}
+.pn-t{font-family:var(--disp);font-size:16.5px;font-weight:700;letter-spacing:-.3px;color:var(--ink);line-height:1.25}
+.pn-s{font-size:13px;font-weight:500;color:var(--muted);margin-top:3px;line-height:1.35}
+.pn-bar{height:6px;border-radius:9999px;background:rgba(138,112,72,.16);overflow:hidden;margin-top:10px}
+.pn-bar i{display:block;height:100%;border-radius:9999px;background:var(--brand)}
+.pn-snap{width:52px;height:58px;flex:0 0 auto;background:#fff;padding:3px 3px 9px;border-radius:2px;box-shadow:0 2px 6px rgba(50,35,10,.2);transform:rotate(5deg)}
+.pn-snap i{display:block;width:100%;height:100%;border-radius:1px;background-size:cover;background-position:center}
+
+/* ---------- the family jar (money this month; fill = what's left in the pot) ---------- */
+.jarcard{display:flex;align-items:center;gap:16px;width:calc(100% - 32px);border:0;background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 14px;padding:15px 16px;text-align:left;font:inherit;cursor:pointer}
+.jarcard:active{transform:scale(.99)}
+.jar{width:50px;flex:0 0 auto}
+.jar-lid{display:block;width:32px;height:7px;margin:0 auto 2px;border-radius:3px;background:#b99a6d}
+.jar-glass{position:relative;height:56px;border:2.5px solid rgba(125,105,75,.3);border-radius:7px 7px 13px 13px;overflow:hidden;background:rgba(250,246,236,.6)}
+.jar-fill{position:absolute;left:0;right:0;bottom:0;transition:height .6s cubic-bezier(.4,0,.2,1)}
+.jarcard.ok .jar-fill{background:linear-gradient(180deg,#7fd6a8,#3cb377)}
+.jarcard.pace .jar-fill{background:linear-gradient(180deg,#ffd27e,#eda93f)}
+.jarcard.over .jar-fill{background:linear-gradient(180deg,#ff9f8a,#e35d47)}
+.jar-shine{position:absolute;top:5px;left:5px;width:6px;height:24px;border-radius:4px;background:rgba(255,255,255,.55)}
+.jc-b{flex:1;min-width:0}
+.jc-t{font-family:var(--disp);font-size:16.5px;font-weight:700;letter-spacing:-.3px;color:var(--ink);line-height:1.25}
+.jc-s{font-size:13px;font-weight:500;color:var(--muted);margin-top:3px;line-height:1.35}
+.jc-s b{font-weight:700;color:var(--ink-2)}
+.jarcard.over .jc-s b{color:var(--danger)}
+.jc-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:9px}
+.jc-foot span{font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.jc-foot em{font-size:13px;font-weight:700;color:var(--brand-ink);font-style:normal;flex:0 0 auto}
 
 /* HIG: honor Reduce Motion — the greeting entrance slide and every ambient scene
    animation are gated here (the weather FX and .view fade are gated elsewhere). */
@@ -3235,140 +3053,53 @@ function moodRead(){
 }
 window.moodRead = moodRead;
 
-/* a full-bleed cover: a real photo (src) or a scene gradient (cls), with scrim + subject emoji */
-function hVisual(cls, src, subj){
-  var bg = src ? '<div class="hm-bg" style="background-image:url(' + escAttr(src) + ')"></div>'
-               : '<div class="hm-bg ' + esc(cls || 'ph-park') + '"></div>';
-  return bg + '<div class="hm-scrim"></div>' + (subj ? '<div class="hm-subj">' + esc(subj) + '</div>' : '');
-}
-/* a small square thumb for a woven beat */
-function hThumb(cls, src, subj){
-  var st = src ? ' style="background-image:url(' + escAttr(src) + ')"' : '';
-  return '<div class="hb-thumb ' + (src ? '' : esc(cls || 'ph-park')) + '"' + st + '>'
-    + '<div class="hm-scrim"></div>' + (subj ? '<div class="hb-subj">' + esc(subj) + '</div>' : '') + '</div>';
-}
-/* family presence: a small avatar + first name of who added it — a face, never a score */
-function hByline(who){
-  if(!who) return '';
-  var w = ('' + who).toLowerCase();
-  if(w === 'both' || w === 'shared' || w === 'chung') return '';        // collective → no single author
-  var nm = ('' + who).charAt(0).toUpperCase() + ('' + who).slice(1), av = '', mm = null;
-  if(typeof membersMeta !== 'undefined' && membersMeta){               // real family palette (mirrors spAv)
-    for(var n in membersMeta){ if(n.toLowerCase() === w){ mm = membersMeta[n]; nm = n; break; } }
-  }
-  if(mm){ av = '<span class="av hby-av" style="background:' + mm.col + ';color:#fff">' + esc(mm.ini) + '</span>'; }
-  else { var a = (typeof spMap !== 'undefined' && spMap[w]) || null; if(a) av = '<span class="av hby-av ' + a[0] + '">' + a[1] + '</span>'; }
-  if(typeof firstName === 'function') nm = firstName(nm);
-  return '<span class="hby">' + av + esc(nm) + '</span>';
-}
-/* a small overlapping stack of the family's avatars (for "saving together") */
-function hFamAvs(n){
-  var mems = (window.FAM && FAM.members) || [];
-  return mems.slice(0, n || 4).map(function(mm){
-    var ini = (typeof inits === 'function') ? inits(mm.name) : ('' + (mm.name || '?')).charAt(0).toUpperCase();
-    return '<span class="av hby-av" style="background:' + (mm.color || '#8f8a99') + ';color:#fff">' + esc(ini) + '</span>';
-  }).join('');
-}
-/* a memory record rendered as the centerpiece moment (on-this-day / recent) */
-function hMemMoment(r, eye){
-  var i = memRecords.indexOf(r), by = hByline(r.who);
-  return '<button class="hmoment" onclick="openMemory(' + i + ')">' + hVisual(r.cls, r.src, r.emoji)
-    + '<div class="hm-cap"><div class="hm-eye">' + eye + '</div><div class="hm-title">' + esc(r.cap) + '</div>'
-    + '<div class="hm-sub">' + esc(r.meta || '') + '</div>' + (by ? '<div class="hm-by">' + by + '</div>' : '') + '</div></button>';
-}
-
 /* ============================================================================
-   Home recommendation FORMS — the Apple-kit widgets. Each takes an opts object
-   and returns HTML. The engine (renderHome) picks WHICH form to use per trigger,
-   rotating by day so the same trigger lands from a different angle each time.
+   The keepsake kit — the feed is the house's interior, in the scene's own
+   materials: memories hang as FRAMED PRINTS on the wall (an empty frame waits
+   for today), plans are NOTES PINNED with a pushpin, the month's money is THE
+   FAMILY JAR. Each builder takes an opts object and returns HTML.
    ============================================================================ */
-var _CHEVSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
-function _rvAvs(n){
-  var mems = (window.FAM && FAM.members) || [];
-  return mems.slice(0, n || 3).map(function(m){
-    var ini = (typeof inits === 'function') ? inits(m.name) : ('' + (m.name || '?')).charAt(0);
-    var col = (typeof membersMeta !== 'undefined' && membersMeta[m.name] && membersMeta[m.name].col) || m.color || '#8f8a99';
-    return '<span class="rav" style="background:' + col + '">' + esc(ini) + '</span>';
-  }).join('');
-}
-function _rBg(cls, src){ return src ? '' : (' ' + esc(cls || 'ph-park')); }
-function _rSt(cls, src){ return src ? ' style="background-image:url(' + escAttr(src) + ')"' : ''; }
-function fActRow(o){                                    // icon → eyebrow/title → chevron
-  return '<button class="ract" onclick="' + o.act + '"><div class="ract-ico' + (o.tone ? ' ' + o.tone : '') + '">' + o.ico + '</div>'
-    + '<div class="ract-b">' + (o.eye ? '<div class="ract-k">' + o.eye + '</div>' : '') + '<div class="ract-t">' + o.title + '</div></div>'
-    + '<span class="chev">' + _CHEVSVG + '</span></button>';
-}
-function fReflect(o){ return '<div class="rrefl"><div class="rrefl-h">' + o.ico + '</div><div class="rrefl-t">' + o.html + '</div></div>'; }
-function fWhisper(o){ return '<button class="rwhis" onclick="' + o.act + '"><span class="rwhis-i">' + o.ico + '</span><span class="rwhis-t">' + o.html + '</span></button>'; }
-function fChips(o){
-  var c = o.chips.map(function(ch){ return '<button class="rchip' + (ch.br ? ' br' : '') + '" onclick="' + ch.act + '">' + ch.label + '</button>'; }).join('');
-  return '<div class="rchips"><div class="rchips-q">' + o.q + '</div><div class="rchips-r">' + c + '</div></div>';
-}
-function fCountdown(o){
-  return '<button class="rcd" onclick="' + o.act + '"><div class="rcd-n"><b>' + o.n + '</b><span>' + o.unit + '</span></div>'
-    + '<div class="rcd-b"><div class="rcd-t">' + o.title + '</div>' + (o.sub ? '<div class="rcd-s">' + o.sub + '</div>' : '') + '</div>'
-    + '<span class="chev">' + _CHEVSVG + '</span></button>';
-}
-function fRelational(o){
-  var ini = (typeof inits === 'function') ? inits(o.name) : ('' + (o.name || '?')).charAt(0);
-  var col = (typeof membersMeta !== 'undefined' && membersMeta[o.name] && membersMeta[o.name].col) || o.color || '#8f8a99';
-  return '<button class="rrel" onclick="' + o.act + '"><span class="rrel-av" style="background:' + col + '">' + esc(ini) + (o.emoji ? '<span class="em">' + o.emoji + '</span>' : '') + '</span>'
-    + '<span class="rrel-t">' + o.html + '</span><span class="chev">' + _CHEVSVG + '</span></button>';
-}
-function fProgress(o){
-  var thumb = '<div class="rprog-th' + _rBg(o.cls, o.src) + '"' + _rSt(o.cls, o.src) + '><div class="sc"></div>' + (o.emoji ? '<div class="em">' + o.emoji + '</div>' : '') + '</div>';
-  var avs = o.avlbl ? '<div class="rav-stack">' + _rvAvs(3) + '<span class="lbl">' + o.avlbl + '</span></div>' : '';
-  return '<button class="rprog" onclick="' + o.act + '"><div class="rprog-top">' + thumb
-    + '<div class="rprog-b"><div class="rprog-t">' + o.title + '</div>' + (o.sub ? '<div class="rprog-s">' + o.sub + '</div>' : '') + '</div>'
-    + '<span class="rprog-pct">' + o.pct + '%</span></div>'
-    + '<div class="rprog-bar"><i style="width:' + o.pct + '%"></i></div>' + avs + '</button>';
-}
-function fPeek(o){
-  return '<button class="rpeek" onclick="' + o.act + '"><div class="rpeek-th' + _rBg(o.cls, o.src) + '"' + _rSt(o.cls, o.src) + '>' + (o.emoji ? '<div class="em">' + o.emoji + '</div>' : '') + '</div>'
-    + '<div class="rpeek-b"><div class="rpeek-t">' + o.title + '</div>' + (o.sub ? '<div class="rpeek-s">' + o.sub + '</div>' : '') + '</div>'
-    + '<span class="chev">' + _CHEVSVG + '</span></button>';
-}
-function fThenNow(o){
-  return '<button class="rtn" onclick="' + o.act + '"><div class="rtn-g">'
-    + '<div class="rtn-p' + _rBg(o.cls, o.src) + '"' + _rSt(o.cls, o.src) + '>' + (o.src ? '' : '<div class="em">' + (o.emoji || '📷') + '</div>') + '<div class="l">' + o.thenL + '</div></div>'
-    + '<div class="rtn-p now"><div class="em">＋</div><div class="l">' + o.nowL + '</div></div></div>'
-    + '<div class="rtn-cap">' + o.cap + '</div></button>';
-}
-function _sectionH(title, link){ return '<div class="section-h"><div class="t">' + title + '</div>' + (link ? '<a onclick="' + link + '">' + L('Xem tất cả', 'See all') + '</a>' : '') + '</div>'; }
-
-/* ---- BIG media-rich widgets (immersive photo · friendly CTA · finance stat) ---- */
-function _phCls(cls, src){ return 'bp-ph' + (src ? '' : ' ' + esc(cls || 'ph-park')); }
-function _phBg(cls, src){ return src ? ' style="background-image:url(' + escAttr(src) + ')"' : ''; }
-function _byChip(who){
+/* who added it — a small face + first name inside a frame's caption */
+function frBy(who){
   if(!who) return '';
   var w = ('' + who).toLowerCase();
   if(w === 'both' || w === 'shared' || w === 'chung') return '';        // collective → no single face
   var nm = who, col = '#8f8a99', ini = (typeof inits === 'function') ? inits(who) : ('' + who).charAt(0).toUpperCase();
   if(typeof membersMeta !== 'undefined' && membersMeta){ for(var n in membersMeta){ if(n.toLowerCase() === w){ col = membersMeta[n].col; ini = membersMeta[n].ini; nm = n; break; } } }
   var fn = (typeof firstName === 'function') ? firstName(nm) : nm;
-  return '<div class="bp-by"><span class="av" style="background:' + col + '">' + esc(ini) + '</span><span>' + esc(fn) + '</span></div>';
+  return '<span class="fr-by"><span class="av" style="background:' + col + '">' + esc(ini) + '</span>' + esc(fn) + '</span>';
 }
-function bigPhoto(o){   // {cls,src,subj,who,eye,title,sub,pct,cta:{label},tall,act}
-  var cta = o.cta ? '<span class="bp-cta">' + o.cta.label + '</span>' : '';
-  var prog = (typeof o.pct === 'number') ? '<div class="bp-prog"><i style="width:' + o.pct + '%"></i></div>' : '';
-  return '<button class="bigphoto' + (o.tall ? ' tall' : '') + '" onclick="' + o.act + '">'
-    + '<div class="' + _phCls(o.cls, o.src) + '"' + _phBg(o.cls, o.src) + '></div><div class="bp-sc"></div>'
-    + (o.subj ? '<div class="bp-subj">' + esc(o.subj) + '</div>' : '') + _byChip(o.who)
-    + '<div class="bp-cap"><div class="bp-eye">' + o.eye + '</div><div class="bp-ti">' + esc(o.title) + '</div>'
-    + (o.sub ? '<div class="bp-mt">' + o.sub + '</div>' : '') + prog + cta + '</div></button>';
+function frameCard(o){   // {src,cls,emoji,who,eye,title,sub,cta,act,tape,tall}
+  var ph = '<div class="fr-ph' + (o.src ? '' : ' ' + esc(o.cls || 'ph-park')) + '"' + (o.src ? ' style="background-image:url(' + escAttr(o.src) + ')"' : '') + '>'
+    + (o.src ? '' : '<span class="fr-emo">' + esc(o.emoji || '📸') + '</span>') + '</div>';
+  var by = frBy(o.who);
+  var foot = (by || o.cta) ? '<div class="fr-foot">' + by + (o.cta ? '<span class="fr-cta">' + o.cta + '</span>' : '') + '</div>' : '';
+  return '<button class="frame' + (o.tall ? ' tall' : '') + '" onclick="' + o.act + '"><div class="fr-mat">' + ph
+    + (o.tape ? '<i class="tape tl"></i><i class="tape tr"></i>' : '') + '</div>'
+    + '<div class="fr-cap"><div class="fr-eye">' + o.eye + '</div><div class="fr-ti">' + esc(o.title) + '</div>'
+    + (o.sub ? '<div class="fr-sub">' + o.sub + '</div>' : '') + foot + '</div></button>';
 }
-function ctaCard(o){    // {ill,title,sub,cta:{label,act},row2:[{label,act}]}
-  var btn = o.cta ? '<button class="btn-fill" onclick="' + o.cta.act + '">' + o.cta.label + '</button>' : '';
-  var row = o.row2 ? '<div class="cc-row2">' + o.row2.map(function(b){ return '<button class="btn-soft" onclick="' + b.act + '">' + b.label + '</button>'; }).join('') + '</div>' : '';
-  return '<div class="ctacard"><div class="cc-ill">' + o.ill + '</div><div class="cc-t">' + o.title + '</div>'
-    + (o.sub ? '<div class="cc-s">' + o.sub + '</div>' : '') + btn + row + '</div>';
+function emptyFrame(o){  // {big,title,sub,act} — an empty frame on the wall, waiting
+  return '<button class="frame frame-empty' + (o.big ? ' big' : '') + '" onclick="' + o.act + '"><div class="fr-mat"><div class="fr-hole"><span class="fh-plus">＋</span></div></div>'
+    + '<div class="fr-cap center"><div class="fr-ti' + (o.big ? '' : ' sm') + '">' + o.title + '</div>'
+    + (o.sub ? '<div class="fr-sub">' + o.sub + '</div>' : '') + '</div></button>';
 }
-function finCard(o){    // {mood,ico,title,sub,pct,foot,act}
-  return '<button class="fincard ' + o.mood + '" onclick="' + o.act + '"><div class="fc-top"><div class="fc-i">' + o.ico + '</div>'
-    + '<div><div class="fc-t">' + o.title + '</div><div class="fc-s">' + o.sub + '</div></div></div>'
-    + '<div class="fc-bar"><i style="width:' + o.pct + '%"></i></div>'
-    + (o.foot ? '<div class="fc-foot"><span>' + o.foot + '</span><em>' + L('Xem chi tiết →', 'View details →') + '</em></div>' : '') + '</button>';
+function pinNote(o){     // {n,unit}|{ico} + {title,sub,pct,src,act} — a note pinned to the wall
+  var lead = (o.n != null)
+    ? '<div class="pn-n"><b>' + o.n + '</b><span>' + o.unit + '</span></div>'
+    : '<div class="pn-ico">' + (o.ico || '📌') + '</div>';
+  var snap = o.src ? '<span class="pn-snap"><i style="background-image:url(' + escAttr(o.src) + ')"></i></span>' : '';
+  return '<button class="pnote" onclick="' + o.act + '"><i class="pn-pin"></i>' + lead
+    + '<div class="pn-b"><div class="pn-t">' + o.title + '</div>' + (o.sub ? '<div class="pn-s">' + o.sub + '</div>' : '')
+    + ((typeof o.pct === 'number') ? '<div class="pn-bar"><i style="width:' + o.pct + '%"></i></div>' : '') + '</div>' + snap + '</button>';
 }
+function jarCard(o){     // {mood,title,sub,fill,foot,act} — fill = what's left in the pot
+  return '<button class="jarcard ' + o.mood + '" onclick="' + o.act + '">'
+    + '<div class="jar"><i class="jar-lid"></i><div class="jar-glass"><i class="jar-fill" style="height:' + o.fill + '%"></i><i class="jar-shine"></i></div></div>'
+    + '<div class="jc-b"><div class="jc-t">' + o.title + '</div><div class="jc-s">' + o.sub + '</div>'
+    + '<div class="jc-foot"><span>' + o.foot + '</span><em>' + L('Xem chi tiết', 'View details') + '</em></div></div></button>';
+}
+function _sectionH(title, link){ return '<div class="section-h"><div class="t">' + title + '</div>' + (link ? '<a onclick="' + link + '">' + L('Xem tất cả', 'See all') + '</a>' : '') + '</div>'; }
 
 function renderHome(){
   var box = document.getElementById('home-body'); if(!box) return;
@@ -3425,56 +3156,60 @@ function renderHome(){
   }
   var mComfortable = !!(finV && finV.mood === 'ok');
 
-  /* ============ KHOẢNH KHẮC — a big, media-rich centerpiece + a warm capture CTA ============ */
+  /* ============ KHOẢNH KHẮC — a framed print on the wall + an empty frame for today ============ */
   var kh = '', centerRef = null;
   if(fresh && homeVis){                                 // a shared dream reached — celebrated once
     milestones.forEach(function(mi){ celebrated[mi.key] = 1; });
     try{ localStorage.setItem('fh-celebrated', JSON.stringify(celebrated)); }catch(e){}
-    kh += bigPhoto({ cls: fresh.cls, subj: '🎉', eye: L('Vừa đủ rồi', 'Goal reached'), title: fresh.name, sub: L('Giấc mơ chung đã thành hình 🎉', 'A shared dream, reached 🎉'), tall: true, cta: { label: '🎯 ' + L('Xem mục tiêu', 'View goal') }, act: 'go(&#39;spending&#39;)' });
-  } else if(memRecords.length){                         // the most recent moment, big — with the real photo + who added it
+    kh += frameCard({ cls: fresh.cls, emoji: '🎉', eye: L('Vừa đủ rồi', 'Goal reached'), title: fresh.name, sub: L('Giấc mơ chung đã thành hình 🎉', 'A shared dream, reached 🎉'), tall: true, cta: '🎯 ' + L('Xem mục tiêu', 'View goal'), act: 'go(&#39;spending&#39;)' });
+  } else if(memRecords.length){                         // the most recent moment, framed — with who added it
     var r0 = memRecords[0], i0 = memRecords.indexOf(r0); centerRef = r0.type + ':' + r0.ref;
     var isExp0 = r0.type === 'expense';
-    kh += bigPhoto({ cls: r0.cls, src: r0.src, subj: r0.emoji, who: r0.who, eye: isExp0 ? L('Một khoản chi thành kỷ niệm', 'A spend, remembered') : L('Khoảnh khắc gần đây', 'A recent moment'), title: r0.cap, sub: esc(r0.meta || ''), tall: true, act: 'openMemory(' + i0 + ')' });
-  } else {                                              // a new family — a warm, photo-shaped invitation
-    kh += bigPhoto({ cls: 'ph-park', subj: '🌿', eye: L('Bắt đầu', 'Begin'), title: L('Câu chuyện của cả nhà', 'Your family’s story'), sub: L('Tấm ảnh đầu tiên bắt đầu từ đây 💛', 'Your first photo starts here 💛'), tall: true, cta: { label: '＋ ' + L('Thêm khoảnh khắc', 'Add a moment') }, act: 'openSheet(&#39;sheet-add&#39;)' });
+    kh += frameCard({ cls: r0.cls, src: r0.src, emoji: r0.emoji, who: r0.who, eye: isExp0 ? L('Một khoản chi thành kỷ niệm', 'A spend, remembered') : L('Khoảnh khắc gần đây', 'A recent moment'), title: r0.cap, sub: esc(r0.meta || ''), tall: true, act: 'openMemory(' + i0 + ')' });
+  } else {                                              // a new family — the first empty frame on the wall
+    kh += emptyFrame({ big: true, title: L('Câu chuyện của cả nhà', 'Your family’s story'), sub: L('Tấm ảnh đầu tiên treo lên tường từ đây 💛', 'The first photo on this wall starts here 💛'), act: 'openSheet(&#39;sheet-add&#39;)' });
   }
-  if(memRecords.length || fresh){                       // a big, friendly capture CTA under the centerpiece
-    kh += ctaCard({ ill: '📸', title: L('Hôm nay có gì đáng nhớ không?', 'Anything worth remembering today?'), sub: L('Một tấm ảnh, một dòng ngắn — để dành cho cả nhà xem lại sau này.', 'A photo, a line — to look back on together.'), cta: { label: '＋ ' + L('Thêm một khoảnh khắc', 'Add a moment'), act: 'openSheet(&#39;sheet-add&#39;)' } });
+  if(memRecords.length || fresh){                       // an empty frame always waits for today
+    kh += emptyFrame({ title: L('Hôm nay có gì đáng nhớ không?', 'Anything worth remembering today?'), sub: L('Còn một khung trống trên tường cho hôm nay.', 'There’s an empty frame on the wall for today.'), act: 'openSheet(&#39;sheet-add&#39;)' });
   }
   html += _sectionH(L('Khoảnh khắc', 'Moments'), 'goMoments()') + kh;
 
-  /* ============ SẮP TỚI — a big anticipation card with a real CTA ============ */
+  /* ============ SẮP TỚI — a note pinned to the wall ============ */
   var st = '';
   if(up.length){
     var k = up[0], e = evs[k], dl = daysLeft(e.d);
-    var emm = (e.memories && e.memories[0]) || null, eSrc = (emm && emm.src) ? emm.src : '', eCls = (emm && emm.cls) ? emm.cls : 'ph-hike';
-    var eyeU = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : L('Còn ' + dl + ' ngày', dl + ' days to go'));
+    var emm = (e.memories && e.memories[0]) || null, eSrc = (emm && emm.src) ? emm.src : '';
+    var lead = dl > 1 ? { n: dl, unit: L('ngày nữa', 'days to go') } : { ico: e.emoji || '📅' };
+    var when = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : '');
+    var subU, pctU = null;
     if(e.target > 0){
-      var pctU = Math.min(100, Math.round(e.saved / e.target * 100));
-      st += bigPhoto({ cls: eCls, src: eSrc, subj: e.emoji, eye: eyeU, title: e.name, sub: L('Cả nhà đã để dành được ' + pctU + '% rồi 🌿', 'Saved ' + pctU + '% together 🌿'), pct: pctU, cta: { label: '🌱 ' + L('Cùng góp thêm', 'Chip in') }, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
+      pctU = Math.min(100, Math.round(e.saved / e.target * 100));
+      subU = (when ? when + ' · ' : '') + L('Cả nhà đã để dành được ' + pctU + '% rồi 🌿', 'Saved ' + pctU + '% together 🌿');
     } else {
-      st += bigPhoto({ cls: eCls, src: eSrc, subj: e.emoji, eye: eyeU, title: e.name, sub: L('Điều cả nhà đang mong 💛', 'Something to look forward to 💛'), cta: { label: L('Xem kế hoạch', 'View plan') }, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
+      subU = (when ? when + ' · ' : '') + L('Điều cả nhà đang mong 💛', 'Something to look forward to 💛');
     }
+    st += pinNote({ n: lead.n, unit: lead.unit, ico: lead.ico, title: esc(e.name), sub: subU, pct: pctU, src: eSrc, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
   }
   if(mComfortable && gord.length === 0){                 // dream a goal — comfortable + no active goal yet
-    st += ctaCard({ ill: '🎯', title: L('Cùng mơ một điều lớn?', 'Dream something big?'), sub: L('Tháng này cả nhà thong thả — đặt một mục tiêu chung để cùng hướng tới.', 'A comfortable month — set a shared goal to grow toward.'), cta: { label: L('Đặt mục tiêu chung', 'Set a shared goal'), act: 'openGoal()' } });
+    st += pinNote({ ico: '🎯', title: L('Cùng mơ một điều lớn?', 'Dream something big?'), sub: L('Tháng này thong thả, ghim một mục tiêu chung lên đây nhé.', 'A comfortable month, pin a shared goal up here.'), act: 'openGoal()' });
   }
   if(st) html += _sectionH(L('Sắp tới', 'Coming up'), 'goMoments(&#39;plans&#39;)') + st;
 
-  /* ============ TÀI CHÍNH — one distinct, warm stat card ============ */
+  /* ============ TÀI CHÍNH — the family jar: what's left in the pot this month ============ */
   if(finV){
+    var jfill = finV.mood === 'over' ? 6 : Math.max(8, 100 - finV.ps);
     html += _sectionH(L('Tài chính', 'Finance'), 'go(&#39;spending&#39;)')
-      + finCard({ mood: finV.mood, ico: finV.ico, title: finV.tt, sub: finV.ss, pct: finV.ps, foot: finV.foot, act: 'go(&#39;spending&#39;)' });
+      + jarCard({ mood: finV.mood, title: finV.tt, sub: finV.ss, fill: jfill, foot: finV.foot, act: 'go(&#39;spending&#39;)' });
   }
 
-  /* ============ NHỚ LẠI — a big nostalgia photo when a memory shares today's date ============ */
+  /* ============ NHỚ LẠI — an old print held by washi tape ============ */
   if(onThis.length){
     var rr = onThis[0], refN = rr.type + ':' + rr.ref;
     if(refN !== centerRef){                              // don't repeat the centerpiece
       var iN = memRecords.indexOf(rr), yrs = TODAY.getFullYear() - rr.d.getFullYear();
       var agoVi = yrs <= 1 ? 'năm ngoái' : (yrs + ' năm trước'), agoEn = yrs <= 1 ? 'last year' : (yrs + ' years ago');
       html += _sectionH(L('Nhớ lại', 'Looking back'), 'goMoments(&#39;album&#39;)')
-        + bigPhoto({ cls: rr.cls, src: rr.src, subj: rr.emoji, who: rr.who, eye: L('Ngày này ' + agoVi, 'On this day · ' + agoEn), title: rr.cap, sub: esc(rr.meta || ''), cta: { label: '💛 ' + L('Xem lại ngày ấy', 'Look back') }, act: 'openMemory(' + iN + ')' });
+        + frameCard({ cls: rr.cls, src: rr.src, emoji: rr.emoji, who: rr.who, tape: true, eye: L('Ngày này ' + agoVi, 'On this day · ' + agoEn), title: rr.cap, sub: esc(rr.meta || ''), cta: '💛 ' + L('Xem lại ngày ấy', 'Look back'), act: 'openMemory(' + iN + ')' });
     }
   }
 
