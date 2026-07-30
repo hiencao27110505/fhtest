@@ -156,7 +156,7 @@
 .wgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 16px 14px}
 /* when the hearth card is absent, the grid itself docks into the lawn */
 .home-body > .wgrid:first-child{margin-top:-26px;position:relative;z-index:2}
-.wtile{display:flex;flex-direction:column;justify-content:space-between;gap:9px;min-height:116px;background:var(--white);border:0;border-radius:20px;box-shadow:var(--shadow-card);padding:13px 14px 12px;text-align:left;font:inherit;cursor:pointer;min-width:0}
+.wtile{display:flex;flex-direction:column;justify-content:flex-start;gap:10px;min-height:98px;background:var(--white);border:0;border-radius:20px;box-shadow:var(--shadow-card);padding:13px 14px 12px;text-align:left;font:inherit;cursor:pointer;min-width:0}
 .wtile:active{transform:scale(.98)}
 /* header: a tinted glyph chip + a quiet sentence-case label (like widget app marks) */
 .wt-head{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:650;letter-spacing:-.01em;color:var(--muted);min-width:0}
@@ -167,17 +167,17 @@
 .wc-amber{background:var(--amber-tint);color:var(--amber)}
 .wc-rose{background:var(--danger-tint);color:var(--cat-dining)}
 .wc-indigo{background:rgba(94,92,230,.12);color:var(--cat-housing)}
-.wt-mid{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
-.wt-big{font-family:var(--disp);font-size:23px;font-weight:800;letter-spacing:-.6px;color:var(--ink);line-height:1.05;font-variant-numeric:tabular-nums;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wt-mid{flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
+.wt-big{font-family:var(--disp);font-size:24px;font-weight:800;letter-spacing:-.6px;color:var(--ink);line-height:1.05;font-variant-numeric:tabular-nums;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wt-big.neg{color:var(--danger)}
 .wt-big .u{font-family:var(--text);font-size:12px;font-weight:600;letter-spacing:0;color:var(--muted)}
 .cur-vnd .wt-big{font-size:18px;letter-spacing:-.3px}
-.wt-sub{font-size:12px;font-weight:500;color:var(--muted);line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wt-sub{font-size:12.5px;font-weight:500;color:var(--muted);line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wt-sub b{color:var(--ink-2);font-weight:650}
 /* accessories: ring · drawn tree · event-emoji chip · photo mosaic · add glyph */
 .wt-ring{width:44px;height:44px;flex:0 0 auto}
 .wt-ring .tr{stroke:var(--fill-neutral)}
 .wt-treesvg{width:44px;height:44px;flex:0 0 auto}
-.wt-emo{width:42px;height:42px;border-radius:12px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto}
 .wt-add{width:32px;height:32px;border-radius:50%;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;flex:0 0 auto}
 .wt-mosaic{display:grid;grid-template-columns:1fr 1fr;gap:2px;border-radius:10px;overflow:hidden;width:44px;flex:0 0 auto}
 .wt-mosaic i{display:block;height:21px;background-size:cover;background-position:center;position:relative}

@@ -258,10 +258,10 @@ function _treeSVG(stage){
         : '<circle cx="22" cy="22" r="6"/>';
   return '<svg class="wt-treesvg" viewBox="0 0 44 44" aria-hidden="true"><rect x="20" y="25" width="4" height="12" rx="2" fill="#7d5f45"/><g fill="var(--brand-2)">' + f + '</g></svg>';
 }
-function wTile(o){      // {ch,chCls,label,mid,sub,act} — one small glanceable widget
+function wTile(o){      // {ch,chCls,label,mid,sub?,act} — one small glanceable widget, one hero
   return '<button class="wtile" onclick="' + o.act + '">'
     + '<div class="wt-head"><span class="wt-ch ' + o.chCls + '">' + _WICON[o.ch] + '</span>' + o.label + '</div>'
-    + '<div class="wt-mid">' + o.mid + '</div><div class="wt-sub">' + o.sub + '</div></button>';
+    + '<div class="wt-mid">' + o.mid + '</div>' + (o.sub ? '<div class="wt-sub">' + o.sub + '</div>' : '') + '</button>';
 }
 var _QSVG = {
   exp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg>',
@@ -335,43 +335,39 @@ function renderHome(){
   var tSaved = 0, tTarget = 0;
   goalsLive.forEach(function(g){ var e = goals[g]; if(e && e.target > 0){ tTarget += e.target; tSaved += Math.min(e.saved || 0, e.target); } });
   var tiles = '';
-  // 1 · budget — what's left this month, with a mini progress ring
+  // 1 · budget — the number and the ring say it all (ring color carries the mood)
   if(finV){
     var rTok = finV.mood === 'over' ? 'danger' : (finV.mood === 'pace' ? 'amber' : 'good');
     var rPct = finV.mood === 'over' ? 100 : Math.max(0, 100 - finV.ps);
-    var bBig = finV.mood === 'over' ? fmtK(finV.overAmt) : fmtK(finV.safe);
-    var bUnit = finV.mood === 'over' ? L('vượt', 'over') : L('còn lại', 'left');
-    var bSub = finV.mood === 'over' ? L('Cùng nhau chỉnh lại nha', 'Ease back together')
-             : finV.mood === 'pace' ? L('Hơi nhanh tay một chút', 'A touch fast')
-             : L('Đang thong thả', 'Comfortable');
-    tiles += wTile({ ch: 'budget', chCls: 'wc-brand', label: L('Ngân sách', 'Budget'), mid: '<div class="wt-big">' + bBig + ' <span class="u">' + bUnit + '</span></div>' + _ringSVG(rPct, rTok), sub: bSub, act: 'go(&#39;spending&#39;)' });
+    var bBig = finV.mood === 'over'
+      ? '<div class="wt-big neg">' + fmtK(finV.overAmt) + ' <span class="u">' + L('vượt', 'over') + '</span></div>'
+      : '<div class="wt-big">' + fmtK(finV.safe) + ' <span class="u">' + L('còn lại', 'left') + '</span></div>';
+    tiles += wTile({ ch: 'budget', chCls: 'wc-brand', label: L('Ngân sách', 'Budget'), mid: bBig + _ringSVG(rPct, rTok), act: 'go(&#39;spending&#39;)' });
   } else {
     tiles += wTile({ ch: 'budget', chCls: 'wc-brand', label: L('Ngân sách', 'Budget'), mid: '<span class="wt-add">＋</span>', sub: L('Đặt ngân sách tháng này', 'Set this month’s budget'), act: 'openSheet(&#39;sheet-budget&#39;)' });
   }
-  // 2 · the savings tree — invest in the house (drawn like the scene's tree)
+  // 2 · the savings tree — growth as one number, the tree as the picture
   var tStage = tTarget > 0 ? (tSaved / tTarget >= .7 ? 3 : (tSaved / tTarget >= .3 ? 2 : 1)) : 1;
   if(tTarget > 0){
-    tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Nhà mình', 'Our house'), mid: '<div class="wt-big">' + fmtK(tSaved) + '</div>' + _treeSVG(tStage), sub: L('Cây nhà đã lớn ' + Math.round(tSaved / tTarget * 100) + '%', 'The tree is ' + Math.round(tSaved / tTarget * 100) + '% grown'), act: 'go(&#39;spending&#39;)' });
+    tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Nhà mình', 'Our house'), mid: '<div class="wt-big">' + Math.round(tSaved / tTarget * 100) + '%</div>' + _treeSVG(tStage), act: 'go(&#39;spending&#39;)' });
   } else {
     tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Nhà mình', 'Our house'), mid: '<span class="wt-add">＋</span>' + _treeSVG(1), sub: L('Trồng một mục tiêu chung', 'Plant a shared goal'), act: 'openGoal()' });
   }
-  // 3 · next plan — countdown; the event's own emoji is the accessory
+  // 3 · next plan — the countdown and the name, nothing else
   if(up.length){
     var k0 = up[0], e0 = evs[k0], dl0 = daysLeft(e0.d);
     var cBig = dl0 === 0 ? L('Hôm nay', 'Today') : (dl0 === 1 ? L('Ngày mai', 'Tomorrow') : dl0 + ' <span class="u">' + L('ngày', 'days') + '</span>');
-    var cAcc = e0.emoji ? '<span class="wt-emo">' + esc(e0.emoji) + '</span>' : '';
-    tiles += wTile({ ch: 'plan', chCls: 'wc-amber', label: L('Sắp tới', 'Coming up'), mid: '<div class="wt-big">' + cBig + '</div>' + cAcc, sub: '<b>' + esc(e0.name) + '</b>', act: 'openEvent(&#39;' + escAttr(k0) + '&#39;)' });
+    tiles += wTile({ ch: 'plan', chCls: 'wc-amber', label: L('Sắp tới', 'Coming up'), mid: '<div class="wt-big">' + cBig + '</div>', sub: '<b>' + esc(e0.name) + '</b>', act: 'openEvent(&#39;' + escAttr(k0) + '&#39;)' });
   } else {
     tiles += wTile({ ch: 'plan', chCls: 'wc-amber', label: L('Sắp tới', 'Coming up'), mid: '<span class="wt-add">＋</span>', sub: L('Lên một kế hoạch vui', 'Plan something fun'), act: 'goMoments(&#39;plans&#39;);openSheet(&#39;sheet-event&#39;)' });
   }
-  // 4 · album — count + a live micro-mosaic of the latest shots
-  var phThis = memRecords.filter(function(r){ return r.d && r.d.getMonth() === TODAY.getMonth() && r.d.getFullYear() === TODAY.getFullYear(); });
+  // 4 · album — the count and the photos themselves
   if(memRecords.length){
     var mz = memRecords.slice(0, 4).map(function(r){
       return r.src ? '<i style="background-image:url(' + escAttr(r.src) + ')"></i>'
                    : '<i class="' + esc(r.cls || 'ph-park') + '"><em>' + esc(r.emoji || '📸') + '</em></i>';
     }).join('');
-    tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'), mid: '<div class="wt-big">' + memRecords.length + ' <span class="u">' + L('ảnh', 'photos') + '</span></div><span class="wt-mosaic">' + mz + '</span>', sub: phThis.length ? L('Thêm ' + phThis.length + ' trong tháng này', phThis.length + ' new this month') : L('Khoảnh khắc của cả nhà', 'The family’s moments'), act: 'goMoments(&#39;album&#39;)' });
+    tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'), mid: '<div class="wt-big">' + memRecords.length + ' <span class="u">' + L('ảnh', 'photos') + '</span></div><span class="wt-mosaic">' + mz + '</span>', act: 'goMoments(&#39;album&#39;)' });
   } else {
     tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'), mid: '<span class="wt-add">＋</span>', sub: L('Thêm tấm ảnh đầu tiên', 'Add the first photo'), act: 'openSheet(&#39;sheet-add&#39;)' });
   }
@@ -454,19 +450,17 @@ function renderHome(){
 window.renderHome = renderHome;
 
 /* ---------- weather FX — a felt moment when a mood is set or arrives ----------
-   A persisted "seen" map (member_id → last-seen timestamp) is diffed on every
-   home render: your own change plays instantly (A: cell pop), and any OTHER
-   member whose mood is newer than last seen plays the full moment (B: the whole
-   card takes on that weather; C: a short "just changed" note). Because the map is
-   persisted, a change made while you were away replays once on your next open.
-   First-ever load seeds silently so nothing animates on a cold start. */
+   Session-scoped: the "seen" map lives in memory only, so EVERY app open replays
+   today's moods — each shared window pops and the scene takes on the lead mood
+   (rough moods lead). During the session, live changes still play as they arrive,
+   with the "just changed" note; the reopen replay skips the note (nothing "just"
+   happened). Coming back after a long background pause counts as a reopen. */
 var _WXFX = { sun:'sun', fire:'spark', ok:'cloud', rain:'rain', tired:'mist', anger:'storm' };
 function _wxIdOf(name){
   if(!window.DB) return null;
   if(name === _meName()) return window.DB.ownerMemberId || null;
   return (window.DB.memberByAppName && window.DB.memberByAppName[name]) || null;
 }
-function _wxPersist(){ try{ localStorage.setItem('fh-wx-seen', JSON.stringify(window._wxSeen)); }catch(e){} }
 function _wxParticles(t){
   var s = '', i, n;
   if(t === 'rain' || t === 'storm'){
@@ -485,7 +479,7 @@ function _wxParticles(t){
   }
   return s;
 }
-function _wxPlay(host, plays){
+function _wxPlay(host, plays, showNote){
   var lead = plays.filter(function(p){ return !p.mine; })[0] || plays[0];
   var fxType = _WXFX[lead.k] || 'rain';
   var layer = document.createElement('div');
@@ -495,7 +489,7 @@ function _wxPlay(host, plays){
   setTimeout(function(){ if(layer.parentNode) layer.parentNode.removeChild(layer); }, 2700);
 
   var others = plays.filter(function(p){ return !p.mine; });
-  if(others.length){
+  if(showNote && others.length){
     var wd = _wdef(others[0].k), nm = (typeof firstName === 'function') ? firstName(others[0].name) : others[0].name;
     var note = document.createElement('div');
     note.className = 'wx-note';
@@ -504,11 +498,13 @@ function _wxPlay(host, plays){
     setTimeout(function(){ if(note.parentNode) note.parentNode.removeChild(note); }, 3300);
   }
   var cells = host.querySelectorAll('.hw');
-  plays.forEach(function(p){
+  plays.forEach(function(p, i){
     Array.prototype.forEach.call(cells, function(c){
       if(c.getAttribute('data-name') === p.name){
-        c.classList.remove('fx'); void c.offsetWidth; c.classList.add('fx');
-        setTimeout(function(){ c.classList.remove('fx'); }, 1100);
+        setTimeout(function(){                        // stagger the pops so a full house reads as a wave
+          c.classList.remove('fx'); void c.offsetWidth; c.classList.add('fx');
+          setTimeout(function(){ c.classList.remove('fx'); }, 1100);
+        }, i * 140);
       }
     });
   });
@@ -521,25 +517,36 @@ function runWeatherFx(){
   if(!myWeather() || window._wpick) return;
   var host = document.querySelector('#v-home.on #home-scene'); if(!host) return;
   var meName = _meName();
-  if(window._wxSeen === undefined){
-    var raw = null; try{ raw = localStorage.getItem('fh-wx-seen'); }catch(e){}
-    try{ window._wxSeen = raw ? (JSON.parse(raw) || {}) : null; }catch(e){ window._wxSeen = null; }
-  }
-  var plays = [];
-  if(window._wxMine){ plays.push({ name: meName, k: window._wxMine, mine: true }); window._wxMine = null; }
-  var mems = (window.FAM && FAM.members) || [], nextSeen = {}, hasData = false;
+  var mems = (window.FAM && FAM.members) || [], plays = [], nextSeen = {};
+  var isReplay = (window._wxSeen === undefined || window._wxSeen === null);
   mems.forEach(function(m){
-    var id = _wxIdOf(m.name); if(!id) return;
-    var rec = window.memberWeather && window.memberWeather[id];
-    if(!rec || !rec.weather || !rec.at) return;
-    hasData = true; nextSeen[id] = rec.at;
-    if(window._wxSeen && m.name !== meName){
-      var prev = window._wxSeen[id];
-      if(!prev || rec.at > prev) plays.push({ name: m.name, k: rec.weather, mine: false });
-    }
+    if(m.name === meName) return;
+    var w = memberWeatherOf(m.name); if(!w) return;    // demo moods play too (keyed by name)
+    var id = _wxIdOf(m.name), rec = id && window.memberWeather && window.memberWeather[id];
+    var at = (rec && rec.at) ? rec.at : 'today', key = id || m.name;
+    nextSeen[key] = at;
+    if(isReplay){ plays.push({ name: m.name, k: w, mine: false }); }
+    else { var prev = window._wxSeen[key]; if(!prev || at > prev) plays.push({ name: m.name, k: w, mine: false }); }
   });
-  if(window._wxSeen === null){ if(hasData){ window._wxSeen = nextSeen; _wxPersist(); } }      // first-ever: seed silently
-  else if(hasData){ for(var id in nextSeen) window._wxSeen[id] = nextSeen[id]; _wxPersist(); }
-  if(plays.length) _wxPlay(host, plays);
+  if(!window._wxSeen) window._wxSeen = {};
+  for(var kk in nextSeen) window._wxSeen[kk] = nextSeen[kk];
+  if(window._wxMine){ plays.push({ name: meName, k: window._wxMine, mine: true }); window._wxMine = null; }
+  if(!plays.length) return;
+  plays.sort(function(a, b){                            // rough moods lead the scene's weather
+    var ra = (_wdef(a.k) || {}).rough ? 1 : 0, rb = (_wdef(b.k) || {}).rough ? 1 : 0;
+    if(ra !== rb) return rb - ra;
+    return (a.mine ? 1 : 0) - (b.mine ? 1 : 0);
+  });
+  _wxPlay(host, plays, !isReplay);
 }
 window.runWeatherFx = runWeatherFx;
+/* a long time away = a fresh open: replay the family's moods on return */
+try{
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden){ window._wxHidAt = Date.now(); }
+    else if(window._wxHidAt && Date.now() - window._wxHidAt > 15 * 60 * 1000){
+      window._wxSeen = undefined;
+      if(typeof renderHome === 'function') renderHome();
+    }
+  });
+}catch(e){}

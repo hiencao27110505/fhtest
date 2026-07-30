@@ -215,10 +215,11 @@ shared, then the caring `.woffer` offers. All ambient motion is gated by
 in the hero; the feed uses the same kit as the tabs, plus these home components:
 the **widget grid** (`.wgrid`/`.wtile`: 2-col iOS-small-widget tiles. Anatomy:
 header = tinted glyph chip `.wt-ch` reusing the tab bar's SVG icons + sentence-case
-label; value row = big tabular number + one drawn accessory (`_ringSVG` Fitness-style
-ring, `_treeSVG` staged tree matching the scene's tree, `.wt-emo` content-emoji chip,
-`.wt-mosaic` micro-mosaic); caption = quiet one-liner, no decorative emoji. Every
-tile is glanceable with data and a `.wt-add` ＋ invitation without. When the hearth
+label; hero row = big tabular number + AT MOST one drawn accessory (`_ringSVG`
+Fitness-style ring, `_treeSVG` staged tree matching the scene's tree, `.wt-mosaic`
+micro-mosaic); a caption line ONLY when it carries content (the next plan's name,
+an empty-state invitation) — one hero per tile, no decorative emoji, minimal by
+default. Every tile is glanceable with data and a `.wt-add` ＋ invitation without. When the hearth
 is absent the grid takes its straddle: `.home-body > .wgrid:first-child` docks into
 the lawn), the **immersive photo card**
 (`.bigphoto`, Photos-featured style: full-bleed media, scrim, eyebrow/title/sub,
@@ -235,7 +236,13 @@ road, a little car driving across), `party` (bunting, bobbing balloons, confetti
 sanctioned illustration hexes. Illustrated `.occ-card`s use an **art band on top and
 the caption below** (Journal-style; ink text, brand progress + filled CTA) — never
 white-on-scrim over the art; photo cards keep the dark-scrim overlay layout. Cover
-motion (car, clouds, balloons, kite) is gated by `prefers-reduced-motion`. All these cards are buttons —
+motion (car, clouds, balloons, kite) is gated by `prefers-reduced-motion`.
+
+**Mood FX are session-scoped.** The weather-FX "seen" map lives in memory only —
+every app open (and any return after 15+ min in the background) REPLAYS today's
+moods: each shared window pops in a staggered wave and the scene plays the lead
+mood's weather, rough moods leading. The "vừa đổi tâm trạng" note shows only for
+live changes during the session, never on the reopen replay. All these cards are buttons —
 give them `width:calc(100% - 32px)` (buttons shrink-to-fit; `width:100%` plus
 margins overflows).
 
