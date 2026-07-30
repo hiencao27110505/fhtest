@@ -211,16 +211,20 @@ weather (`.amb`: drizzle / storm / mist / sunbeams). 4+ members compact the wind
 shared, then the caring `.woffer` offers. All ambient motion is gated by
 `prefers-reduced-motion`.
 
-**The feed below is the house's interior** — `#v-home` sits on a warm paper canvas
-(`#f6f0e4`, extended to the scroll via `:has(#v-home.on)`), and every widget is a
-keepsake in the scene's own materials: memories are **framed prints** (`.frame`:
-cream mat + caption + `frBy` byline; `.tape` washi corners for "on this day"; the
-`.frame-empty` dashed **empty frame** is the add CTA), plans are **notes pinned with
-a pushpin** (`.pnote`: countdown or emoji lead, paper progress bar, optional
-`.pn-snap` polaroid), and the month's money is **the family jar** (`.jarcard`:
-glass fill = what's left in the pot, mood-tinted ok/pace/over). Keepsake cards are
-buttons — give them `width:calc(100% - 32px)` (buttons shrink-to-fit; `width:100%`
-plus margins overflows).
+**The feed below is standard HIG widgets on the shared canvas** — the house lives
+in the hero; the feed uses the same kit as the tabs, plus these home components:
+the **widget grid** (`.wgrid`/`.wtile`: 2-col iOS-small-widget tiles — budget with
+a Fitness-style mini ring `_ringSVG`, "Our house" savings + tree stage, next-plan
+countdown, album count + `.wt-mosaic` micro-mosaic; every tile is glanceable when
+there's data and an invitation `＋` when there isn't), the **immersive photo card**
+(`.bigphoto`, Photos-featured style: full-bleed media, scrim, eyebrow/title/sub,
+`_byChip` author chip, optional progress + white CTA pill), **quick actions**
+(`.qgrid`/`.qtile`: SVG icons in gradient circles, mirroring the add-sheet's `.qi`
+language), **grouped goal rows** (`.hgoals`/`.hgoal`: emoji tile, progress bar,
+saved/target, pct — tap = `fundGoal`), and the home **memory strip** (reuses
+`.mem-strip`/`.memory` with `.home-strip` inset). All these cards are buttons —
+give them `width:calc(100% - 32px)` (buttons shrink-to-fit; `width:100%` plus
+margins overflows).
 
 ### Photo / memory system
 - **Mosaic** (`.photo-mosaic`): 6-col grid, dynamic collage by count (1 hero / 2 halves / 3 big+2 /

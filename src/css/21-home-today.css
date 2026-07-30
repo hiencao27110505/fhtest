@@ -146,76 +146,79 @@
 .hearth-off{padding:5px 16px 6px}
 
 /* ============================================================================
-   INSIDE THE HOUSE — the feed is the home's interior. One warm paper canvas;
-   memories are framed prints on the wall; plans are notes pinned with a
-   pushpin; the month's money is the family jar; "on this day" is an old print
-   held by washi tape. Same materials as the scene: paper, pegs, glass, wood.
+   THE FEED — the standard HIG widget kit on the shared canvas. Glanceable
+   small-widget tiles (2-col grid), the immersive photo card, quick actions
+   mirroring the add-sheet's icon language, and grouped goal rows. Tokens,
+   soft shadows, one accent per view — the house lives in the hero above.
    ============================================================================ */
 
-/* the warm interior wall — home only (the tabs keep the shared cool canvas) */
-#v-home{background:#f6f0e4;min-height:100%}
-.scroll:has(#v-home.on){background:#f6f0e4}
+/* ---------- widget grid (iOS small-widget tiles) ---------- */
+.wgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 16px 14px}
+.wtile{display:flex;flex-direction:column;justify-content:space-between;gap:8px;min-height:104px;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);padding:13px 14px;text-align:left;font:inherit;cursor:pointer;min-width:0}
+.wtile:active{transform:scale(.98)}
+.wt-head{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.wt-mid{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
+.wt-big{font-family:var(--disp);font-size:23px;font-weight:800;letter-spacing:-.6px;color:var(--ink);line-height:1.05;font-variant-numeric:tabular-nums;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wt-big .u{font-family:var(--text);font-size:12px;font-weight:600;letter-spacing:0;color:var(--muted)}
+.cur-vnd .wt-big{font-size:18px;letter-spacing:-.3px}
+.wt-sub{font-size:11.5px;font-weight:600;color:var(--muted);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wt-sub b{color:var(--ink-2);font-weight:650}
+/* mini progress ring (Fitness-style; tokens keep it re-tintable) */
+.wt-ring{width:44px;height:44px;flex:0 0 auto}
+.wt-ring .tr{stroke:var(--fill-neutral)}
+/* mini 2×2 album mosaic */
+.wt-mosaic{display:grid;grid-template-columns:1fr 1fr;gap:3px;border-radius:9px;overflow:hidden;width:57px;flex:0 0 auto}
+.wt-mosaic i{display:block;height:27px;background-size:cover;background-position:center;position:relative}
+.wt-mosaic i em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-style:normal}
+/* the savings tree stage (ties the tile to the house's tree) */
+.wt-tree{font-size:27px;line-height:1;flex:0 0 auto}
 
-/* ---------- framed print (memories, on-this-day) ---------- */
-.frame{display:flex;flex-direction:column;width:calc(100% - 32px);border:0;background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 14px;padding:12px 12px 13px;text-align:left;font:inherit;cursor:pointer}
-.frame:active{transform:scale(.99)}
-.fr-mat{position:relative;background:#fbf5e9;border:1px solid #ecdfc6;border-radius:10px;padding:10px}
-.fr-ph{position:relative;height:186px;border-radius:6px;background-size:cover;background-position:center;overflow:hidden}
-.frame.tall .fr-ph{height:226px}
-.fr-emo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:44px}
-.tape{position:absolute;width:56px;height:17px;background:rgba(233,207,152,.6);border-left:1px dashed rgba(160,130,75,.4);border-right:1px dashed rgba(160,130,75,.4)}
-.tape.tl{top:-2px;left:-14px;transform:rotate(-42deg)}
-.tape.tr{top:-2px;right:-14px;transform:rotate(42deg)}
-.fr-cap{padding:12px 6px 2px}
-.fr-eye{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#8a7048}
-.fr-ti{font-family:var(--disp);font-size:20px;font-weight:700;letter-spacing:-.4px;color:var(--ink);margin-top:4px;line-height:1.2}
-.fr-sub{font-size:13.5px;font-weight:500;color:var(--muted);margin-top:4px;line-height:1.4}
-.fr-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
-.fr-by{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
-.fr-by .av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700}
-.fr-cta{margin-left:auto;font-size:13.5px;font-weight:700;color:var(--brand-ink)}
-/* an empty frame on the wall — the warmest possible "add" */
-.fr-hole{height:112px;border:2px dashed #d9c7a2;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fdfaf2}
-.frame-empty.big .fr-hole{height:150px}
-.fh-plus{width:40px;height:40px;border-radius:50%;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700}
-.fr-cap.center{text-align:center}
-.fr-ti.sm{font-size:16.5px;letter-spacing:-.3px}
+/* ---------- quick actions (the add-sheet's icon language, on the wall) ---------- */
+.qgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 16px 14px}
+.qtile{display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--white);border:0;border-radius:16px;box-shadow:var(--shadow-card);padding:13px 4px 11px;font:inherit;cursor:pointer;min-width:0}
+.qtile:active{transform:scale(.96)}
+.qt-ic{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}
+.qt-ic svg{width:20px;height:20px}
+.qt-l{font-size:11px;font-weight:650;color:var(--ink-2);letter-spacing:-.01em;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* ---------- pinned note (plans, dreams) ---------- */
-.pnote{position:relative;display:flex;align-items:center;gap:15px;width:calc(100% - 32px);border:0;background:#fffaec;border-radius:16px;box-shadow:var(--shadow-card);margin:2px 16px 14px;padding:16px 16px 15px;text-align:left;font:inherit;cursor:pointer;transform:rotate(-.6deg)}
-.pnote:active{transform:rotate(-.6deg) scale(.99)}
-.pn-pin{position:absolute;top:-7px;left:50%;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff8f7d,#d94f3d);box-shadow:0 2px 4px rgba(120,30,20,.35)}
-.pn-n{text-align:center;min-width:52px;flex:0 0 auto}
-.pn-n b{display:block;font-family:var(--disp);font-weight:800;font-size:32px;letter-spacing:-1px;color:var(--brand-ink);line-height:1;font-variant-numeric:tabular-nums}
-.pn-n span{display:block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a7048;margin-top:3px}
-.pn-ico{font-size:30px;min-width:52px;text-align:center;flex:0 0 auto}
-.pn-b{flex:1;min-width:0}
-.pn-t{font-family:var(--disp);font-size:16.5px;font-weight:700;letter-spacing:-.3px;color:var(--ink);line-height:1.25}
-.pn-s{font-size:13px;font-weight:500;color:var(--muted);margin-top:3px;line-height:1.35}
-.pn-bar{height:6px;border-radius:9999px;background:rgba(138,112,72,.16);overflow:hidden;margin-top:10px}
-.pn-bar i{display:block;height:100%;border-radius:9999px;background:var(--brand)}
-.pn-snap{width:52px;height:58px;flex:0 0 auto;background:#fff;padding:3px 3px 9px;border-radius:2px;box-shadow:0 2px 6px rgba(50,35,10,.2);transform:rotate(5deg)}
-.pn-snap i{display:block;width:100%;height:100%;border-radius:1px;background-size:cover;background-position:center}
+/* ---------- grouped goal rows — chip in to a shared dream ---------- */
+.hgoals{background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 14px;padding:2px 0}
+.hgoal{display:flex;align-items:center;gap:13px;width:100%;background:none;border:0;padding:13px 16px;text-align:left;font:inherit;cursor:pointer}
+.hgoal + .hgoal{border-top:1px solid var(--divider)}
+.hgoal:active{background:var(--surface)}
+.hg-ic{width:40px;height:40px;border-radius:12px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;font-size:19px;flex:0 0 auto}
+.hg-b{flex:1;min-width:0}
+.hg-t{font-size:15px;font-weight:600;color:var(--ink);letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hg-bar{height:5px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;margin-top:7px}
+.hg-bar i{display:block;height:100%;border-radius:9999px;background:var(--brand)}
+.hg-s{font-size:12px;font-weight:500;color:var(--muted);margin-top:5px;font-variant-numeric:tabular-nums}
+.hg-pct{font-family:var(--disp);font-size:14px;font-weight:700;color:var(--brand-ink);font-variant-numeric:tabular-nums;flex:0 0 auto}
 
-/* ---------- the family jar (money this month; fill = what's left in the pot) ---------- */
-.jarcard{display:flex;align-items:center;gap:16px;width:calc(100% - 32px);border:0;background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 14px;padding:15px 16px;text-align:left;font:inherit;cursor:pointer}
-.jarcard:active{transform:scale(.99)}
-.jar{width:50px;flex:0 0 auto}
-.jar-lid{display:block;width:32px;height:7px;margin:0 auto 2px;border-radius:3px;background:#b99a6d}
-.jar-glass{position:relative;height:56px;border:2.5px solid rgba(125,105,75,.3);border-radius:7px 7px 13px 13px;overflow:hidden;background:rgba(250,246,236,.6)}
-.jar-fill{position:absolute;left:0;right:0;bottom:0;transition:height .6s cubic-bezier(.4,0,.2,1)}
-.jarcard.ok .jar-fill{background:linear-gradient(180deg,#7fd6a8,#3cb377)}
-.jarcard.pace .jar-fill{background:linear-gradient(180deg,#ffd27e,#eda93f)}
-.jarcard.over .jar-fill{background:linear-gradient(180deg,#ff9f8a,#e35d47)}
-.jar-shine{position:absolute;top:5px;left:5px;width:6px;height:24px;border-radius:4px;background:rgba(255,255,255,.55)}
-.jc-b{flex:1;min-width:0}
-.jc-t{font-family:var(--disp);font-size:16.5px;font-weight:700;letter-spacing:-.3px;color:var(--ink);line-height:1.25}
-.jc-s{font-size:13px;font-weight:500;color:var(--muted);margin-top:3px;line-height:1.35}
-.jc-s b{font-weight:700;color:var(--ink-2)}
-.jarcard.over .jc-s b{color:var(--danger)}
-.jc-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:9px}
-.jc-foot span{font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-.jc-foot em{font-size:13px;font-weight:700;color:var(--brand-ink);font-style:normal;flex:0 0 auto}
+/* home memory strip inset (the strip itself lives in 60-memories.css) */
+.home-strip{padding-left:16px;padding-right:16px}
+
+/* ---------- immersive photo card (uses the family's real uploaded media) ---------- */
+/* block-level flex + horizontal margin (NO width:100%) — width:auto fills the row minus the
+   16px side margins (width:100% would be 100%+32px = overflow). flex + an in-flow caption is
+   REQUIRED: a <button> whose children are all position:absolute fails to establish a
+   containing block on iOS Safari, so the photo/caption don't paint. The relative caption
+   gives it in-flow content and justify-content:flex-end bottoms it. */
+.bigphoto{position:relative;display:flex;flex-direction:column;justify-content:flex-end;width:calc(100% - 32px);border:0;background:none;text-align:left;font:inherit;border-radius:var(--r-card-lg);overflow:hidden;box-shadow:var(--shadow-focal);margin:0 16px 14px;min-height:236px;cursor:pointer;padding:0}
+.bigphoto.tall{min-height:280px}
+.bigphoto:active{transform:scale(.99)}
+.bp-ph{position:absolute;inset:0;background-size:cover;background-position:center}
+.bp-sc{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.08) 8%,rgba(0,0,0,.42) 50%,rgba(0,0,0,.82))}
+.bp-subj{position:absolute;top:15px;left:17px;font-size:30px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));z-index:1}
+.bp-by{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.32);backdrop-filter:blur(6px);border-radius:9999px;padding:5px 11px 5px 6px;z-index:1}
+.bp-by .av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700}
+.bp-by span{font-size:12px;font-weight:600;color:#fff}
+.bp-cap{position:relative;z-index:1;padding:16px 18px 18px;color:#fff}
+.bp-eye{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.94);text-shadow:0 1px 4px rgba(0,0,0,.5)}
+.bp-ti{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.5px;margin-top:5px;line-height:1.18;text-shadow:0 2px 8px rgba(0,0,0,.45)}
+.bp-mt{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.96);margin-top:6px;text-shadow:0 1px 5px rgba(0,0,0,.5)}
+.bp-prog{height:6px;border-radius:9999px;background:rgba(255,255,255,.32);overflow:hidden;margin:14px 0 0}
+.bp-prog i{display:block;height:100%;border-radius:9999px;background:#fff}
+.bp-cta{display:inline-flex;align-items:center;gap:7px;margin-top:14px;background:rgba(255,255,255,.96);color:var(--brand-ink);border-radius:14px;padding:12px 18px;font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.01em;align-self:flex-start;box-shadow:0 3px 12px rgba(0,0,0,.22)}
 
 /* HIG: honor Reduce Motion — the greeting entrance slide and every ambient scene
    animation are gated here (the weather FX and .view fade are gated elsewhere). */

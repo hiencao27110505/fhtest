@@ -372,76 +372,79 @@ input{font-family:inherit}
 .hearth-off{padding:5px 16px 6px}
 
 /* ============================================================================
-   INSIDE THE HOUSE — the feed is the home's interior. One warm paper canvas;
-   memories are framed prints on the wall; plans are notes pinned with a
-   pushpin; the month's money is the family jar; "on this day" is an old print
-   held by washi tape. Same materials as the scene: paper, pegs, glass, wood.
+   THE FEED — the standard HIG widget kit on the shared canvas. Glanceable
+   small-widget tiles (2-col grid), the immersive photo card, quick actions
+   mirroring the add-sheet's icon language, and grouped goal rows. Tokens,
+   soft shadows, one accent per view — the house lives in the hero above.
    ============================================================================ */
 
-/* the warm interior wall — home only (the tabs keep the shared cool canvas) */
-#v-home{background:#f6f0e4;min-height:100%}
-.scroll:has(#v-home.on){background:#f6f0e4}
+/* ---------- widget grid (iOS small-widget tiles) ---------- */
+.wgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 16px 14px}
+.wtile{display:flex;flex-direction:column;justify-content:space-between;gap:8px;min-height:104px;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);padding:13px 14px;text-align:left;font:inherit;cursor:pointer;min-width:0}
+.wtile:active{transform:scale(.98)}
+.wt-head{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.wt-mid{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
+.wt-big{font-family:var(--disp);font-size:23px;font-weight:800;letter-spacing:-.6px;color:var(--ink);line-height:1.05;font-variant-numeric:tabular-nums;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wt-big .u{font-family:var(--text);font-size:12px;font-weight:600;letter-spacing:0;color:var(--muted)}
+.cur-vnd .wt-big{font-size:18px;letter-spacing:-.3px}
+.wt-sub{font-size:11.5px;font-weight:600;color:var(--muted);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wt-sub b{color:var(--ink-2);font-weight:650}
+/* mini progress ring (Fitness-style; tokens keep it re-tintable) */
+.wt-ring{width:44px;height:44px;flex:0 0 auto}
+.wt-ring .tr{stroke:var(--fill-neutral)}
+/* mini 2×2 album mosaic */
+.wt-mosaic{display:grid;grid-template-columns:1fr 1fr;gap:3px;border-radius:9px;overflow:hidden;width:57px;flex:0 0 auto}
+.wt-mosaic i{display:block;height:27px;background-size:cover;background-position:center;position:relative}
+.wt-mosaic i em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-style:normal}
+/* the savings tree stage (ties the tile to the house's tree) */
+.wt-tree{font-size:27px;line-height:1;flex:0 0 auto}
 
-/* ---------- framed print (memories, on-this-day) ---------- */
-.frame{display:flex;flex-direction:column;width:calc(100% - 32px);border:0;background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 14px;padding:12px 12px 13px;text-align:left;font:inherit;cursor:pointer}
-.frame:active{transform:scale(.99)}
-.fr-mat{position:relative;background:#fbf5e9;border:1px solid #ecdfc6;border-radius:10px;padding:10px}
-.fr-ph{position:relative;height:186px;border-radius:6px;background-size:cover;background-position:center;overflow:hidden}
-.frame.tall .fr-ph{height:226px}
-.fr-emo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:44px}
-.tape{position:absolute;width:56px;height:17px;background:rgba(233,207,152,.6);border-left:1px dashed rgba(160,130,75,.4);border-right:1px dashed rgba(160,130,75,.4)}
-.tape.tl{top:-2px;left:-14px;transform:rotate(-42deg)}
-.tape.tr{top:-2px;right:-14px;transform:rotate(42deg)}
-.fr-cap{padding:12px 6px 2px}
-.fr-eye{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#8a7048}
-.fr-ti{font-family:var(--disp);font-size:20px;font-weight:700;letter-spacing:-.4px;color:var(--ink);margin-top:4px;line-height:1.2}
-.fr-sub{font-size:13.5px;font-weight:500;color:var(--muted);margin-top:4px;line-height:1.4}
-.fr-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
-.fr-by{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
-.fr-by .av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700}
-.fr-cta{margin-left:auto;font-size:13.5px;font-weight:700;color:var(--brand-ink)}
-/* an empty frame on the wall — the warmest possible "add" */
-.fr-hole{height:112px;border:2px dashed #d9c7a2;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fdfaf2}
-.frame-empty.big .fr-hole{height:150px}
-.fh-plus{width:40px;height:40px;border-radius:50%;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700}
-.fr-cap.center{text-align:center}
-.fr-ti.sm{font-size:16.5px;letter-spacing:-.3px}
+/* ---------- quick actions (the add-sheet's icon language, on the wall) ---------- */
+.qgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 16px 14px}
+.qtile{display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--white);border:0;border-radius:16px;box-shadow:var(--shadow-card);padding:13px 4px 11px;font:inherit;cursor:pointer;min-width:0}
+.qtile:active{transform:scale(.96)}
+.qt-ic{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}
+.qt-ic svg{width:20px;height:20px}
+.qt-l{font-size:11px;font-weight:650;color:var(--ink-2);letter-spacing:-.01em;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* ---------- pinned note (plans, dreams) ---------- */
-.pnote{position:relative;display:flex;align-items:center;gap:15px;width:calc(100% - 32px);border:0;background:#fffaec;border-radius:16px;box-shadow:var(--shadow-card);margin:2px 16px 14px;padding:16px 16px 15px;text-align:left;font:inherit;cursor:pointer;transform:rotate(-.6deg)}
-.pnote:active{transform:rotate(-.6deg) scale(.99)}
-.pn-pin{position:absolute;top:-7px;left:50%;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff8f7d,#d94f3d);box-shadow:0 2px 4px rgba(120,30,20,.35)}
-.pn-n{text-align:center;min-width:52px;flex:0 0 auto}
-.pn-n b{display:block;font-family:var(--disp);font-weight:800;font-size:32px;letter-spacing:-1px;color:var(--brand-ink);line-height:1;font-variant-numeric:tabular-nums}
-.pn-n span{display:block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a7048;margin-top:3px}
-.pn-ico{font-size:30px;min-width:52px;text-align:center;flex:0 0 auto}
-.pn-b{flex:1;min-width:0}
-.pn-t{font-family:var(--disp);font-size:16.5px;font-weight:700;letter-spacing:-.3px;color:var(--ink);line-height:1.25}
-.pn-s{font-size:13px;font-weight:500;color:var(--muted);margin-top:3px;line-height:1.35}
-.pn-bar{height:6px;border-radius:9999px;background:rgba(138,112,72,.16);overflow:hidden;margin-top:10px}
-.pn-bar i{display:block;height:100%;border-radius:9999px;background:var(--brand)}
-.pn-snap{width:52px;height:58px;flex:0 0 auto;background:#fff;padding:3px 3px 9px;border-radius:2px;box-shadow:0 2px 6px rgba(50,35,10,.2);transform:rotate(5deg)}
-.pn-snap i{display:block;width:100%;height:100%;border-radius:1px;background-size:cover;background-position:center}
+/* ---------- grouped goal rows — chip in to a shared dream ---------- */
+.hgoals{background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 14px;padding:2px 0}
+.hgoal{display:flex;align-items:center;gap:13px;width:100%;background:none;border:0;padding:13px 16px;text-align:left;font:inherit;cursor:pointer}
+.hgoal + .hgoal{border-top:1px solid var(--divider)}
+.hgoal:active{background:var(--surface)}
+.hg-ic{width:40px;height:40px;border-radius:12px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;font-size:19px;flex:0 0 auto}
+.hg-b{flex:1;min-width:0}
+.hg-t{font-size:15px;font-weight:600;color:var(--ink);letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hg-bar{height:5px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;margin-top:7px}
+.hg-bar i{display:block;height:100%;border-radius:9999px;background:var(--brand)}
+.hg-s{font-size:12px;font-weight:500;color:var(--muted);margin-top:5px;font-variant-numeric:tabular-nums}
+.hg-pct{font-family:var(--disp);font-size:14px;font-weight:700;color:var(--brand-ink);font-variant-numeric:tabular-nums;flex:0 0 auto}
 
-/* ---------- the family jar (money this month; fill = what's left in the pot) ---------- */
-.jarcard{display:flex;align-items:center;gap:16px;width:calc(100% - 32px);border:0;background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 14px;padding:15px 16px;text-align:left;font:inherit;cursor:pointer}
-.jarcard:active{transform:scale(.99)}
-.jar{width:50px;flex:0 0 auto}
-.jar-lid{display:block;width:32px;height:7px;margin:0 auto 2px;border-radius:3px;background:#b99a6d}
-.jar-glass{position:relative;height:56px;border:2.5px solid rgba(125,105,75,.3);border-radius:7px 7px 13px 13px;overflow:hidden;background:rgba(250,246,236,.6)}
-.jar-fill{position:absolute;left:0;right:0;bottom:0;transition:height .6s cubic-bezier(.4,0,.2,1)}
-.jarcard.ok .jar-fill{background:linear-gradient(180deg,#7fd6a8,#3cb377)}
-.jarcard.pace .jar-fill{background:linear-gradient(180deg,#ffd27e,#eda93f)}
-.jarcard.over .jar-fill{background:linear-gradient(180deg,#ff9f8a,#e35d47)}
-.jar-shine{position:absolute;top:5px;left:5px;width:6px;height:24px;border-radius:4px;background:rgba(255,255,255,.55)}
-.jc-b{flex:1;min-width:0}
-.jc-t{font-family:var(--disp);font-size:16.5px;font-weight:700;letter-spacing:-.3px;color:var(--ink);line-height:1.25}
-.jc-s{font-size:13px;font-weight:500;color:var(--muted);margin-top:3px;line-height:1.35}
-.jc-s b{font-weight:700;color:var(--ink-2)}
-.jarcard.over .jc-s b{color:var(--danger)}
-.jc-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:9px}
-.jc-foot span{font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-.jc-foot em{font-size:13px;font-weight:700;color:var(--brand-ink);font-style:normal;flex:0 0 auto}
+/* home memory strip inset (the strip itself lives in 60-memories.css) */
+.home-strip{padding-left:16px;padding-right:16px}
+
+/* ---------- immersive photo card (uses the family's real uploaded media) ---------- */
+/* block-level flex + horizontal margin (NO width:100%) — width:auto fills the row minus the
+   16px side margins (width:100% would be 100%+32px = overflow). flex + an in-flow caption is
+   REQUIRED: a <button> whose children are all position:absolute fails to establish a
+   containing block on iOS Safari, so the photo/caption don't paint. The relative caption
+   gives it in-flow content and justify-content:flex-end bottoms it. */
+.bigphoto{position:relative;display:flex;flex-direction:column;justify-content:flex-end;width:calc(100% - 32px);border:0;background:none;text-align:left;font:inherit;border-radius:var(--r-card-lg);overflow:hidden;box-shadow:var(--shadow-focal);margin:0 16px 14px;min-height:236px;cursor:pointer;padding:0}
+.bigphoto.tall{min-height:280px}
+.bigphoto:active{transform:scale(.99)}
+.bp-ph{position:absolute;inset:0;background-size:cover;background-position:center}
+.bp-sc{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.08) 8%,rgba(0,0,0,.42) 50%,rgba(0,0,0,.82))}
+.bp-subj{position:absolute;top:15px;left:17px;font-size:30px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));z-index:1}
+.bp-by{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.32);backdrop-filter:blur(6px);border-radius:9999px;padding:5px 11px 5px 6px;z-index:1}
+.bp-by .av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700}
+.bp-by span{font-size:12px;font-weight:600;color:#fff}
+.bp-cap{position:relative;z-index:1;padding:16px 18px 18px;color:#fff}
+.bp-eye{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.94);text-shadow:0 1px 4px rgba(0,0,0,.5)}
+.bp-ti{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.5px;margin-top:5px;line-height:1.18;text-shadow:0 2px 8px rgba(0,0,0,.45)}
+.bp-mt{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.96);margin-top:6px;text-shadow:0 1px 5px rgba(0,0,0,.5)}
+.bp-prog{height:6px;border-radius:9999px;background:rgba(255,255,255,.32);overflow:hidden;margin:14px 0 0}
+.bp-prog i{display:block;height:100%;border-radius:9999px;background:#fff}
+.bp-cta{display:inline-flex;align-items:center;gap:7px;margin-top:14px;background:rgba(255,255,255,.96);color:var(--brand-ink);border-radius:14px;padding:12px 18px;font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.01em;align-self:flex-start;box-shadow:0 3px 12px rgba(0,0,0,.22)}
 
 /* HIG: honor Reduce Motion — the greeting entrance slide and every ambient scene
    animation are gated here (the weather FX and .view fade are gated elsewhere). */
@@ -3054,52 +3057,51 @@ function moodRead(){
 window.moodRead = moodRead;
 
 /* ============================================================================
-   The keepsake kit — the feed is the house's interior, in the scene's own
-   materials: memories hang as FRAMED PRINTS on the wall (an empty frame waits
-   for today), plans are NOTES PINNED with a pushpin, the month's money is THE
-   FAMILY JAR. Each builder takes an opts object and returns HTML.
+   The widget kit — standard HIG components for the feed. Small glanceable
+   widget tiles, the immersive photo card (Photos-featured style), quick
+   actions in the add-sheet's icon language, and grouped goal rows. Each
+   builder takes an opts object and returns HTML.
    ============================================================================ */
-/* who added it — a small face + first name inside a frame's caption */
-function frBy(who){
+function _phCls(cls, src){ return 'bp-ph' + (src ? '' : ' ' + esc(cls || 'ph-park')); }
+function _phBg(cls, src){ return src ? ' style="background-image:url(' + escAttr(src) + ')"' : ''; }
+function _byChip(who){
   if(!who) return '';
   var w = ('' + who).toLowerCase();
   if(w === 'both' || w === 'shared' || w === 'chung') return '';        // collective → no single face
   var nm = who, col = '#8f8a99', ini = (typeof inits === 'function') ? inits(who) : ('' + who).charAt(0).toUpperCase();
   if(typeof membersMeta !== 'undefined' && membersMeta){ for(var n in membersMeta){ if(n.toLowerCase() === w){ col = membersMeta[n].col; ini = membersMeta[n].ini; nm = n; break; } } }
   var fn = (typeof firstName === 'function') ? firstName(nm) : nm;
-  return '<span class="fr-by"><span class="av" style="background:' + col + '">' + esc(ini) + '</span>' + esc(fn) + '</span>';
+  return '<div class="bp-by"><span class="av" style="background:' + col + '">' + esc(ini) + '</span><span>' + esc(fn) + '</span></div>';
 }
-function frameCard(o){   // {src,cls,emoji,who,eye,title,sub,cta,act,tape,tall}
-  var ph = '<div class="fr-ph' + (o.src ? '' : ' ' + esc(o.cls || 'ph-park')) + '"' + (o.src ? ' style="background-image:url(' + escAttr(o.src) + ')"' : '') + '>'
-    + (o.src ? '' : '<span class="fr-emo">' + esc(o.emoji || '📸') + '</span>') + '</div>';
-  var by = frBy(o.who);
-  var foot = (by || o.cta) ? '<div class="fr-foot">' + by + (o.cta ? '<span class="fr-cta">' + o.cta + '</span>' : '') + '</div>' : '';
-  return '<button class="frame' + (o.tall ? ' tall' : '') + '" onclick="' + o.act + '"><div class="fr-mat">' + ph
-    + (o.tape ? '<i class="tape tl"></i><i class="tape tr"></i>' : '') + '</div>'
-    + '<div class="fr-cap"><div class="fr-eye">' + o.eye + '</div><div class="fr-ti">' + esc(o.title) + '</div>'
-    + (o.sub ? '<div class="fr-sub">' + o.sub + '</div>' : '') + foot + '</div></button>';
+function bigPhoto(o){   // {cls,src,subj,who,eye,title,sub,pct,cta:{label},tall,act}
+  var cta = o.cta ? '<span class="bp-cta">' + o.cta.label + '</span>' : '';
+  var prog = (typeof o.pct === 'number') ? '<div class="bp-prog"><i style="width:' + o.pct + '%"></i></div>' : '';
+  return '<button class="bigphoto' + (o.tall ? ' tall' : '') + '" onclick="' + o.act + '">'
+    + '<div class="' + _phCls(o.cls, o.src) + '"' + _phBg(o.cls, o.src) + '></div><div class="bp-sc"></div>'
+    + (o.subj ? '<div class="bp-subj">' + esc(o.subj) + '</div>' : '') + _byChip(o.who)
+    + '<div class="bp-cap"><div class="bp-eye">' + o.eye + '</div><div class="bp-ti">' + esc(o.title) + '</div>'
+    + (o.sub ? '<div class="bp-mt">' + o.sub + '</div>' : '') + prog + cta + '</div></button>';
 }
-function emptyFrame(o){  // {big,title,sub,act} — an empty frame on the wall, waiting
-  return '<button class="frame frame-empty' + (o.big ? ' big' : '') + '" onclick="' + o.act + '"><div class="fr-mat"><div class="fr-hole"><span class="fh-plus">＋</span></div></div>'
-    + '<div class="fr-cap center"><div class="fr-ti' + (o.big ? '' : ' sm') + '">' + o.title + '</div>'
-    + (o.sub ? '<div class="fr-sub">' + o.sub + '</div>' : '') + '</div></button>';
+/* Fitness-style mini ring: pct 0–100, tok = semantic token name (good/amber/danger) */
+function _ringSVG(pct, tok){
+  return '<svg class="wt-ring" viewBox="0 0 36 36" aria-hidden="true"><circle class="tr" cx="18" cy="18" r="15.9" fill="none" stroke-width="3.6"></circle>'
+    + '<circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--' + tok + ')" stroke-width="3.6" stroke-linecap="round" stroke-dasharray="' + pct + ' 100" transform="rotate(-90 18 18)"></circle></svg>';
 }
-function pinNote(o){     // {n,unit}|{ico} + {title,sub,pct,src,act} — a note pinned to the wall
-  var lead = (o.n != null)
-    ? '<div class="pn-n"><b>' + o.n + '</b><span>' + o.unit + '</span></div>'
-    : '<div class="pn-ico">' + (o.ico || '📌') + '</div>';
-  var snap = o.src ? '<span class="pn-snap"><i style="background-image:url(' + escAttr(o.src) + ')"></i></span>' : '';
-  return '<button class="pnote" onclick="' + o.act + '"><i class="pn-pin"></i>' + lead
-    + '<div class="pn-b"><div class="pn-t">' + o.title + '</div>' + (o.sub ? '<div class="pn-s">' + o.sub + '</div>' : '')
-    + ((typeof o.pct === 'number') ? '<div class="pn-bar"><i style="width:' + o.pct + '%"></i></div>' : '') + '</div>' + snap + '</button>';
+function wTile(o){      // {head,mid,sub,act} — one small glanceable widget
+  return '<button class="wtile" onclick="' + o.act + '"><div class="wt-head">' + o.head + '</div>'
+    + '<div class="wt-mid">' + o.mid + '</div><div class="wt-sub">' + o.sub + '</div></button>';
 }
-function jarCard(o){     // {mood,title,sub,fill,foot,act} — fill = what's left in the pot
-  return '<button class="jarcard ' + o.mood + '" onclick="' + o.act + '">'
-    + '<div class="jar"><i class="jar-lid"></i><div class="jar-glass"><i class="jar-fill" style="height:' + o.fill + '%"></i><i class="jar-shine"></i></div></div>'
-    + '<div class="jc-b"><div class="jc-t">' + o.title + '</div><div class="jc-s">' + o.sub + '</div>'
-    + '<div class="jc-foot"><span>' + o.foot + '</span><em>' + L('Xem chi tiết', 'View details') + '</em></div></div></button>';
+var _QSVG = {
+  exp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg>',
+  cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg>',
+  cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  pig: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a5 5 0 015-5h5a6 6 0 016 6 6 6 0 01-3 5.2V20h-3v-2h-2v2H7v-3a6 6 0 01-4-5zM8 9h.01"/></svg>'
+};
+function qTile(o){      // {ic,grad,label,act} — quick action, mirrors the add sheet's .qi tiles
+  return '<button class="qtile" onclick="' + o.act + '"><span class="qt-ic" style="background:' + o.grad + '">' + o.ic + '</span>'
+    + '<span class="qt-l">' + o.label + '</span></button>';
 }
-function _sectionH(title, link){ return '<div class="section-h"><div class="t">' + title + '</div>' + (link ? '<a onclick="' + link + '">' + L('Xem tất cả', 'See all') + '</a>' : '') + '</div>'; }
+function _sectionH(title, link, label){ return '<div class="section-h"><div class="t">' + title + '</div>' + (link ? '<a onclick="' + link + '">' + (label || L('Xem tất cả', 'See all')) + '</a>' : '') + '</div>'; }
 
 function renderHome(){
   var box = document.getElementById('home-body'); if(!box) return;
@@ -3152,64 +3154,123 @@ function renderHome(){
       fss = L('Nhẹ nhàng chút là vẫn dư · còn <b>' + fmtK(safe) + '</b>', 'Ease up · <b>' + fmtK(safe) + '</b> left'); }
     else { fmood = 'ok'; fico = '🌿'; ftt = L('Tháng này cả nhà đang thong thả', 'Comfortable this month');
       fss = L('Còn <b>' + fmtK(safe) + '</b> để cả nhà thoải mái tận hưởng', '<b>' + fmtK(safe) + '</b> left to enjoy together'); }
-    finV = { mood: fmood, ico: fico, tt: ftt, ss: fss, ps: Math.min(100, Math.round(m.spent / m.budget * 100)), foot: L('Đã tiêu ' + fmtK(m.spent) + ' / ' + fmtK(m.budget), 'Spent ' + fmtK(m.spent) + ' / ' + fmtK(m.budget)) };
+    finV = { mood: fmood, ico: fico, tt: ftt, ss: fss, safe: safe, overAmt: over ? (m.spent - m.budget) : 0, ps: Math.min(100, Math.round(m.spent / m.budget * 100)), foot: L('Đã tiêu ' + fmtK(m.spent) + ' / ' + fmtK(m.budget), 'Spent ' + fmtK(m.spent) + ' / ' + fmtK(m.budget)) };
   }
   var mComfortable = !!(finV && finV.mood === 'ok');
 
-  /* ============ KHOẢNH KHẮC — a framed print on the wall + an empty frame for today ============ */
+  /* ============ WIDGET GRID — four glanceable tiles, always present ============ */
+  var goalsLive = gord.filter(function(g){ return !achievedGoal(goals[g]); });
+  var tSaved = 0, tTarget = 0;
+  goalsLive.forEach(function(g){ var e = goals[g]; if(e && e.target > 0){ tTarget += e.target; tSaved += Math.min(e.saved || 0, e.target); } });
+  var tiles = '';
+  // 1 · budget — mini ring of what's left this month
+  if(finV){
+    var rTok = finV.mood === 'over' ? 'danger' : (finV.mood === 'pace' ? 'amber' : 'good');
+    var rPct = finV.mood === 'over' ? 100 : Math.max(0, 100 - finV.ps);
+    var bBig = finV.mood === 'over' ? fmtK(finV.overAmt) : fmtK(finV.safe);
+    var bUnit = finV.mood === 'over' ? L('vượt', 'over') : L('còn lại', 'left');
+    var bSub = finV.mood === 'over' ? L('Cùng nhau chỉnh lại nha', 'Ease back together')
+             : finV.mood === 'pace' ? L('Hơi nhanh tay một chút ⚡', 'A touch fast ⚡')
+             : L('Đang thong thả 🌿', 'Comfortable 🌿');
+    tiles += wTile({ head: L('Ngân sách', 'Budget'), mid: '<div class="wt-big">' + bBig + ' <span class="u">' + bUnit + '</span></div>' + _ringSVG(rPct, rTok), sub: bSub, act: 'go(&#39;spending&#39;)' });
+  } else {
+    tiles += wTile({ head: L('Ngân sách', 'Budget'), mid: '<div class="wt-big">＋</div>', sub: L('Đặt ngân sách tháng này', 'Set this month’s budget'), act: 'openSheet(&#39;sheet-budget&#39;)' });
+  }
+  // 2 · the savings tree — invest in the house
+  var treeStage = tTarget > 0 ? (tSaved / tTarget >= .75 ? '🌳' : (tSaved / tTarget >= .35 ? '🌿' : '🌱')) : '🌱';
+  if(tTarget > 0){
+    tiles += wTile({ head: L('Nhà mình', 'Our house'), mid: '<div class="wt-big">' + fmtK(tSaved) + '</div><span class="wt-tree">' + treeStage + '</span>', sub: L('Cây nhà đã lớn ' + Math.round(tSaved / tTarget * 100) + '%', 'The tree is ' + Math.round(tSaved / tTarget * 100) + '% grown'), act: 'go(&#39;spending&#39;)' });
+  } else {
+    tiles += wTile({ head: L('Nhà mình', 'Our house'), mid: '<div class="wt-big">＋</div><span class="wt-tree">🌱</span>', sub: L('Trồng một mục tiêu chung', 'Plant a shared goal'), act: 'openGoal()' });
+  }
+  // 3 · next plan — countdown
+  if(up.length){
+    var k0 = up[0], e0 = evs[k0], dl0 = daysLeft(e0.d);
+    var cBig = dl0 === 0 ? L('Hôm nay', 'Today') : (dl0 === 1 ? L('Ngày mai', 'Tomorrow') : dl0 + ' <span class="u">' + L('ngày', 'days') + '</span>');
+    tiles += wTile({ head: L('Sắp tới', 'Coming up'), mid: '<div class="wt-big">' + cBig + '</div>', sub: '<b>' + esc(e0.emoji ? e0.emoji + ' ' : '') + esc(e0.name) + '</b>', act: 'openEvent(&#39;' + escAttr(k0) + '&#39;)' });
+  } else {
+    tiles += wTile({ head: L('Sắp tới', 'Coming up'), mid: '<div class="wt-big">＋</div>', sub: L('Lên một kế hoạch vui', 'Plan something fun'), act: 'goMoments(&#39;plans&#39;);openSheet(&#39;sheet-event&#39;)' });
+  }
+  // 4 · album — this month's photos as a micro mosaic
+  var phThis = memRecords.filter(function(r){ return r.d && r.d.getMonth() === TODAY.getMonth() && r.d.getFullYear() === TODAY.getFullYear(); });
+  if(memRecords.length){
+    var mz = memRecords.slice(0, 4).map(function(r){
+      return r.src ? '<i style="background-image:url(' + escAttr(r.src) + ')"></i>'
+                   : '<i class="' + esc(r.cls || 'ph-park') + '"><em>' + esc(r.emoji || '📸') + '</em></i>';
+    }).join('');
+    tiles += wTile({ head: L('Album', 'Album'), mid: '<div class="wt-big">' + memRecords.length + ' <span class="u">' + L('ảnh', 'photos') + '</span></div><span class="wt-mosaic">' + mz + '</span>', sub: phThis.length ? L(phThis.length + ' ảnh mới tháng này', phThis.length + ' new this month') : L('Khoảnh khắc của cả nhà', 'The family’s moments'), act: 'goMoments(&#39;album&#39;)' });
+  } else {
+    tiles += wTile({ head: L('Album', 'Album'), mid: '<div class="wt-big">＋</div>', sub: L('Thêm tấm ảnh đầu tiên', 'Add the first photo'), act: 'openSheet(&#39;sheet-add&#39;)' });
+  }
+  html += '<div class="wgrid">' + tiles + '</div>';
+
+  /* ============ KHOẢNH KHẮC — the featured photo card + the memory strip ============ */
   var kh = '', centerRef = null;
   if(fresh && homeVis){                                 // a shared dream reached — celebrated once
     milestones.forEach(function(mi){ celebrated[mi.key] = 1; });
     try{ localStorage.setItem('fh-celebrated', JSON.stringify(celebrated)); }catch(e){}
-    kh += frameCard({ cls: fresh.cls, emoji: '🎉', eye: L('Vừa đủ rồi', 'Goal reached'), title: fresh.name, sub: L('Giấc mơ chung đã thành hình 🎉', 'A shared dream, reached 🎉'), tall: true, cta: '🎯 ' + L('Xem mục tiêu', 'View goal'), act: 'go(&#39;spending&#39;)' });
-  } else if(memRecords.length){                         // the most recent moment, framed — with who added it
+    kh += bigPhoto({ cls: fresh.cls, subj: '🎉', eye: L('Vừa đủ rồi', 'Goal reached'), title: fresh.name, sub: L('Giấc mơ chung đã thành hình 🎉', 'A shared dream, reached 🎉'), tall: true, cta: { label: '🎯 ' + L('Xem mục tiêu', 'View goal') }, act: 'go(&#39;spending&#39;)' });
+  } else if(memRecords.length){                         // the most recent moment, big — with who added it
     var r0 = memRecords[0], i0 = memRecords.indexOf(r0); centerRef = r0.type + ':' + r0.ref;
     var isExp0 = r0.type === 'expense';
-    kh += frameCard({ cls: r0.cls, src: r0.src, emoji: r0.emoji, who: r0.who, eye: isExp0 ? L('Một khoản chi thành kỷ niệm', 'A spend, remembered') : L('Khoảnh khắc gần đây', 'A recent moment'), title: r0.cap, sub: esc(r0.meta || ''), tall: true, act: 'openMemory(' + i0 + ')' });
-  } else {                                              // a new family — the first empty frame on the wall
-    kh += emptyFrame({ big: true, title: L('Câu chuyện của cả nhà', 'Your family’s story'), sub: L('Tấm ảnh đầu tiên treo lên tường từ đây 💛', 'The first photo on this wall starts here 💛'), act: 'openSheet(&#39;sheet-add&#39;)' });
+    kh += bigPhoto({ cls: r0.cls, src: r0.src, subj: r0.emoji, who: r0.who, eye: isExp0 ? L('Một khoản chi thành kỷ niệm', 'A spend, remembered') : L('Khoảnh khắc gần đây', 'A recent moment'), title: r0.cap, sub: esc(r0.meta || ''), tall: true, act: 'openMemory(' + i0 + ')' });
+  } else {                                              // a new family — a warm, photo-shaped invitation
+    kh += bigPhoto({ cls: 'ph-park', subj: '🌿', eye: L('Bắt đầu', 'Begin'), title: L('Câu chuyện của cả nhà', 'Your family’s story'), sub: L('Tấm ảnh đầu tiên bắt đầu từ đây 💛', 'Your first photo starts here 💛'), tall: true, cta: { label: '＋ ' + L('Thêm khoảnh khắc', 'Add a moment') }, act: 'openSheet(&#39;sheet-add&#39;)' });
   }
-  if(memRecords.length || fresh){                       // an empty frame always waits for today
-    kh += emptyFrame({ title: L('Hôm nay có gì đáng nhớ không?', 'Anything worth remembering today?'), sub: L('Còn một khung trống trên tường cho hôm nay.', 'There’s an empty frame on the wall for today.'), act: 'openSheet(&#39;sheet-add&#39;)' });
+  var grps = (typeof memGroups === 'function') ? memGroups() : [];
+  if(grps.length >= 2){                                 // more covers to browse, iOS-Photos style
+    kh += '<div class="mem-strip home-strip">' + grps.slice(0, 6).map(memCoverHTML).join('') + '</div>';
   }
   html += _sectionH(L('Khoảnh khắc', 'Moments'), 'goMoments()') + kh;
 
-  /* ============ SẮP TỚI — a note pinned to the wall ============ */
-  var st = '';
+  /* ============ CÙNG NHAU — quick actions for the family ============ */
+  html += _sectionH(L('Cùng nhau', 'Together'))
+    + '<div class="qgrid">'
+    + qTile({ ic: _QSVG.exp, grad: 'var(--grad-brand)', label: L('Chi tiêu', 'Expense'), act: 'go(&#39;spending&#39;);openExpense()' })
+    + qTile({ ic: _QSVG.cam, grad: 'linear-gradient(135deg,#FF8FB1,#F0567F)', label: L('Khoảnh khắc', 'Moment'), act: 'goMoments(&#39;album&#39;);paOpen()' })
+    + qTile({ ic: _QSVG.cal, grad: 'linear-gradient(135deg,#9D4EFF,#E14BF0)', label: L('Kế hoạch', 'Plan'), act: 'goMoments(&#39;plans&#39;);openSheet(&#39;sheet-event&#39;)' })
+    + qTile({ ic: _QSVG.pig, grad: 'linear-gradient(135deg,#F0B450,#DB8A24)', label: L('Góp quỹ', 'Chip in'), act: 'fhSavings()' })
+    + '</div>';
+
+  /* ============ SẮP TỚI — the rich anticipation card (when there's a story to tell) ============ */
   if(up.length){
     var k = up[0], e = evs[k], dl = daysLeft(e.d);
-    var emm = (e.memories && e.memories[0]) || null, eSrc = (emm && emm.src) ? emm.src : '';
-    var lead = dl > 1 ? { n: dl, unit: L('ngày nữa', 'days to go') } : { ico: e.emoji || '📅' };
-    var when = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : '');
-    var subU, pctU = null;
-    if(e.target > 0){
-      pctU = Math.min(100, Math.round(e.saved / e.target * 100));
-      subU = (when ? when + ' · ' : '') + L('Cả nhà đã để dành được ' + pctU + '% rồi 🌿', 'Saved ' + pctU + '% together 🌿');
-    } else {
-      subU = (when ? when + ' · ' : '') + L('Điều cả nhà đang mong 💛', 'Something to look forward to 💛');
+    var emm = (e.memories && e.memories[0]) || null, eSrc = (emm && emm.src) ? emm.src : '', eCls = (emm && emm.cls) ? emm.cls : 'ph-hike';
+    if(e.target > 0 || emm){
+      var eyeU = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : L('Còn ' + dl + ' ngày', dl + ' days to go'));
+      if(e.target > 0){
+        var pctU = Math.min(100, Math.round(e.saved / e.target * 100));
+        html += _sectionH(L('Sắp tới', 'Coming up'), 'goMoments(&#39;plans&#39;)')
+          + bigPhoto({ cls: eCls, src: eSrc, subj: e.emoji, eye: eyeU, title: e.name, sub: L('Cả nhà đã để dành được ' + pctU + '% rồi 🌿', 'Saved ' + pctU + '% together 🌿'), pct: pctU, cta: { label: '🌱 ' + L('Cùng góp thêm', 'Chip in') }, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
+      } else {
+        html += _sectionH(L('Sắp tới', 'Coming up'), 'goMoments(&#39;plans&#39;)')
+          + bigPhoto({ cls: eCls, src: eSrc, subj: e.emoji, eye: eyeU, title: e.name, sub: L('Điều cả nhà đang mong 💛', 'Something to look forward to 💛'), cta: { label: L('Xem kế hoạch', 'View plan') }, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
+      }
     }
-    st += pinNote({ n: lead.n, unit: lead.unit, ico: lead.ico, title: esc(e.name), sub: subU, pct: pctU, src: eSrc, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
-  }
-  if(mComfortable && gord.length === 0){                 // dream a goal — comfortable + no active goal yet
-    st += pinNote({ ico: '🎯', title: L('Cùng mơ một điều lớn?', 'Dream something big?'), sub: L('Tháng này thong thả, ghim một mục tiêu chung lên đây nhé.', 'A comfortable month, pin a shared goal up here.'), act: 'openGoal()' });
-  }
-  if(st) html += _sectionH(L('Sắp tới', 'Coming up'), 'goMoments(&#39;plans&#39;)') + st;
-
-  /* ============ TÀI CHÍNH — the family jar: what's left in the pot this month ============ */
-  if(finV){
-    var jfill = finV.mood === 'over' ? 6 : Math.max(8, 100 - finV.ps);
-    html += _sectionH(L('Tài chính', 'Finance'), 'go(&#39;spending&#39;)')
-      + jarCard({ mood: finV.mood, title: finV.tt, sub: finV.ss, fill: jfill, foot: finV.foot, act: 'go(&#39;spending&#39;)' });
   }
 
-  /* ============ NHỚ LẠI — an old print held by washi tape ============ */
+  /* ============ MỤC TIÊU CHUNG — chip in to a shared dream, right here ============ */
+  if(goalsLive.length){
+    var gRows = goalsLive.slice(0, 2).map(function(g){
+      var e = goals[g], pct = e.target > 0 ? Math.min(100, Math.round(e.saved / e.target * 100)) : 0;
+      return '<button class="hgoal" onclick="fundGoal(&#39;' + escAttr(g) + '&#39;)">'
+        + '<div class="hg-ic">' + esc(e.emoji || '🎯') + '</div>'
+        + '<div class="hg-b"><div class="hg-t">' + esc(e.name) + '</div>'
+        + '<div class="hg-bar"><i style="width:' + pct + '%"></i></div>'
+        + '<div class="hg-s">' + fmt(e.saved) + ' / ' + fmt(e.target) + '</div></div>'
+        + '<span class="hg-pct">' + pct + '%</span></button>';
+    }).join('');
+    html += _sectionH(L('Mục tiêu chung', 'Shared goals'), 'openGoal()', '＋ ' + L('Mục tiêu', 'Goal')) + '<div class="hgoals">' + gRows + '</div>';
+  }
+
+  /* ============ NHỚ LẠI — a big nostalgia photo when a memory shares today's date ============ */
   if(onThis.length){
     var rr = onThis[0], refN = rr.type + ':' + rr.ref;
     if(refN !== centerRef){                              // don't repeat the centerpiece
       var iN = memRecords.indexOf(rr), yrs = TODAY.getFullYear() - rr.d.getFullYear();
       var agoVi = yrs <= 1 ? 'năm ngoái' : (yrs + ' năm trước'), agoEn = yrs <= 1 ? 'last year' : (yrs + ' years ago');
       html += _sectionH(L('Nhớ lại', 'Looking back'), 'goMoments(&#39;album&#39;)')
-        + frameCard({ cls: rr.cls, src: rr.src, emoji: rr.emoji, who: rr.who, tape: true, eye: L('Ngày này ' + agoVi, 'On this day · ' + agoEn), title: rr.cap, sub: esc(rr.meta || ''), cta: '💛 ' + L('Xem lại ngày ấy', 'Look back'), act: 'openMemory(' + iN + ')' });
+        + bigPhoto({ cls: rr.cls, src: rr.src, subj: rr.emoji, who: rr.who, eye: L('Ngày này ' + agoVi, 'On this day · ' + agoEn), title: rr.cap, sub: esc(rr.meta || ''), cta: { label: '💛 ' + L('Xem lại ngày ấy', 'Look back') }, act: 'openMemory(' + iN + ')' });
     }
   }
 
