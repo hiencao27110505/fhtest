@@ -239,29 +239,17 @@ function bigPhoto(o){   // {cls,src,subj,who,eye,title,sub,pct,cta:{label},tall,
     + '<div class="bp-cap"><div class="bp-eye">' + o.eye + '</div><div class="bp-ti">' + esc(o.title) + '</div>'
     + (o.sub ? '<div class="bp-mt">' + o.sub + '</div>' : '') + prog + cta + '</div></button>';
 }
-/* Fitness-style mini ring: pct 0–100, tok = semantic token name (good/amber/danger) */
-function _ringSVG(pct, tok){
-  return '<svg class="wt-ring" viewBox="0 0 36 36" aria-hidden="true"><circle class="tr" cx="18" cy="18" r="15.9" fill="none" stroke-width="3.6"></circle>'
-    + '<circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--' + tok + ')" stroke-width="3.6" stroke-linecap="round" stroke-dasharray="' + pct + ' 100" transform="rotate(-90 18 18)"></circle></svg>';
-}
-/* header-chip icon set — the tab bar's own glyphs, so each tile reads native */
 var _WICON = {
   budget: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg>',
   house:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg>',
   plan:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
   album:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 16l4.5-4 3.5 3 4-3.5L21 16.5"/></svg>'
 };
-/* the savings tree, drawn like the scene's tree (trunk + brand-2 circles), staged 1–3 */
-function _treeSVG(stage){
-  var f = stage >= 3 ? '<circle cx="22" cy="15" r="10"/><circle cx="13" cy="22" r="7"/><circle cx="31" cy="21" r="8"/>'
-        : stage === 2 ? '<circle cx="22" cy="18" r="8"/><circle cx="15" cy="23" r="6"/>'
-        : '<circle cx="22" cy="22" r="6"/>';
-  return '<svg class="wt-treesvg" viewBox="0 0 44 44" aria-hidden="true"><rect x="20" y="25" width="4" height="12" rx="2" fill="#7d5f45"/><g fill="var(--brand-2)">' + f + '</g></svg>';
-}
-function wTile(o){      // {ch,chCls,label,mid,sub?,act} — one small glanceable widget, one hero
-  return '<button class="wtile" onclick="' + o.act + '">'
+function wTile(o){      // {ch,chCls,label,val,neg?,foot,act} — ONE strict template, no accessories:
+  return '<button class="wtile" onclick="' + o.act + '">'          // chip + label / value / footer.
     + '<div class="wt-head"><span class="wt-ch ' + o.chCls + '">' + _WICON[o.ch] + '</span>' + o.label + '</div>'
-    + '<div class="wt-mid">' + o.mid + '</div>' + (o.sub ? '<div class="wt-sub">' + o.sub + '</div>' : '') + '</button>';
+    + '<div class="wt-big' + (o.neg ? ' neg' : '') + '">' + o.val + '</div>'
+    + '<div class="wt-sub">' + o.foot + '</div></button>';
 }
 var _QSVG = {
   exp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg>',
@@ -335,41 +323,35 @@ function renderHome(){
   var tSaved = 0, tTarget = 0;
   goalsLive.forEach(function(g){ var e = goals[g]; if(e && e.target > 0){ tTarget += e.target; tSaved += Math.min(e.saved || 0, e.target); } });
   var tiles = '';
-  // 1 · budget — the number and the ring say it all (ring color carries the mood)
+  // every tile: one value, one quiet footer — the same three rows, the same baselines
   if(finV){
-    var rTok = finV.mood === 'over' ? 'danger' : (finV.mood === 'pace' ? 'amber' : 'good');
-    var rPct = finV.mood === 'over' ? 100 : Math.max(0, 100 - finV.ps);
-    var bBig = finV.mood === 'over'
-      ? '<div class="wt-big neg">' + fmtK(finV.overAmt) + ' <span class="u">' + L('vượt', 'over') + '</span></div>'
-      : '<div class="wt-big">' + fmtK(finV.safe) + ' <span class="u">' + L('còn lại', 'left') + '</span></div>';
-    tiles += wTile({ ch: 'budget', chCls: 'wc-brand', label: L('Ngân sách', 'Budget'), mid: bBig + _ringSVG(rPct, rTok), act: 'go(&#39;spending&#39;)' });
+    tiles += wTile({ ch: 'budget', chCls: 'wc-brand', label: L('Ngân sách', 'Budget'), neg: finV.mood === 'over',
+      val: finV.mood === 'over' ? fmtK(finV.overAmt) + ' <span class="u">' + L('vượt', 'over') + '</span>'
+                                : fmtK(finV.safe) + ' <span class="u">' + L('còn lại', 'left') + '</span>',
+      foot: finV.foot, act: 'go(&#39;spending&#39;)' });
   } else {
-    tiles += wTile({ ch: 'budget', chCls: 'wc-brand', label: L('Ngân sách', 'Budget'), mid: '<span class="wt-add">＋</span>', sub: L('Đặt ngân sách tháng này', 'Set this month’s budget'), act: 'openSheet(&#39;sheet-budget&#39;)' });
+    tiles += wTile({ ch: 'budget', chCls: 'wc-brand', label: L('Ngân sách', 'Budget'), val: '<span class="wt-add">＋</span>', foot: L('Đặt ngân sách tháng này', 'Set this month’s budget'), act: 'openSheet(&#39;sheet-budget&#39;)' });
   }
-  // 2 · the savings tree — growth as one number, the tree as the picture
-  var tStage = tTarget > 0 ? (tSaved / tTarget >= .7 ? 3 : (tSaved / tTarget >= .3 ? 2 : 1)) : 1;
   if(tTarget > 0){
-    tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Nhà mình', 'Our house'), mid: '<div class="wt-big">' + Math.round(tSaved / tTarget * 100) + '%</div>' + _treeSVG(tStage), act: 'go(&#39;spending&#39;)' });
+    tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Nhà mình', 'Our house'),
+      val: fmtK(tSaved), foot: Math.round(tSaved / tTarget * 100) + '% ' + L('mục tiêu chung', 'of shared goals'), act: 'go(&#39;spending&#39;)' });
   } else {
-    tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Nhà mình', 'Our house'), mid: '<span class="wt-add">＋</span>' + _treeSVG(1), sub: L('Trồng một mục tiêu chung', 'Plant a shared goal'), act: 'openGoal()' });
+    tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Nhà mình', 'Our house'), val: '<span class="wt-add">＋</span>', foot: L('Trồng một mục tiêu chung', 'Plant a shared goal'), act: 'openGoal()' });
   }
-  // 3 · next plan — the countdown and the name, nothing else
   if(up.length){
     var k0 = up[0], e0 = evs[k0], dl0 = daysLeft(e0.d);
     var cBig = dl0 === 0 ? L('Hôm nay', 'Today') : (dl0 === 1 ? L('Ngày mai', 'Tomorrow') : dl0 + ' <span class="u">' + L('ngày', 'days') + '</span>');
-    tiles += wTile({ ch: 'plan', chCls: 'wc-amber', label: L('Sắp tới', 'Coming up'), mid: '<div class="wt-big">' + cBig + '</div>', sub: '<b>' + esc(e0.name) + '</b>', act: 'openEvent(&#39;' + escAttr(k0) + '&#39;)' });
+    tiles += wTile({ ch: 'plan', chCls: 'wc-amber', label: L('Sắp tới', 'Coming up'), val: cBig, foot: '<b>' + esc(e0.name) + '</b>', act: 'openEvent(&#39;' + escAttr(k0) + '&#39;)' });
   } else {
-    tiles += wTile({ ch: 'plan', chCls: 'wc-amber', label: L('Sắp tới', 'Coming up'), mid: '<span class="wt-add">＋</span>', sub: L('Lên một kế hoạch vui', 'Plan something fun'), act: 'goMoments(&#39;plans&#39;);openSheet(&#39;sheet-event&#39;)' });
+    tiles += wTile({ ch: 'plan', chCls: 'wc-amber', label: L('Sắp tới', 'Coming up'), val: '<span class="wt-add">＋</span>', foot: L('Lên một kế hoạch vui', 'Plan something fun'), act: 'goMoments(&#39;plans&#39;);openSheet(&#39;sheet-event&#39;)' });
   }
-  // 4 · album — the count and the photos themselves
+  var phThis = memRecords.filter(function(r){ return r.d && r.d.getMonth() === TODAY.getMonth() && r.d.getFullYear() === TODAY.getFullYear(); });
   if(memRecords.length){
-    var mz = memRecords.slice(0, 4).map(function(r){
-      return r.src ? '<i style="background-image:url(' + escAttr(r.src) + ')"></i>'
-                   : '<i class="' + esc(r.cls || 'ph-park') + '"><em>' + esc(r.emoji || '📸') + '</em></i>';
-    }).join('');
-    tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'), mid: '<div class="wt-big">' + memRecords.length + ' <span class="u">' + L('ảnh', 'photos') + '</span></div><span class="wt-mosaic">' + mz + '</span>', act: 'goMoments(&#39;album&#39;)' });
+    tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'),
+      val: memRecords.length + ' <span class="u">' + L('ảnh', 'photos') + '</span>',
+      foot: phThis.length ? L('Thêm ' + phThis.length + ' trong tháng này', phThis.length + ' new this month') : L('Kỷ niệm của cả nhà', 'The family’s memories'), act: 'goMoments(&#39;album&#39;)' });
   } else {
-    tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'), mid: '<span class="wt-add">＋</span>', sub: L('Thêm tấm ảnh đầu tiên', 'Add the first photo'), act: 'openSheet(&#39;sheet-add&#39;)' });
+    tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'), val: '<span class="wt-add">＋</span>', foot: L('Thêm tấm ảnh đầu tiên', 'Add the first photo'), act: 'openSheet(&#39;sheet-add&#39;)' });
   }
 
   html += '<div class="wgrid">' + tiles + '</div>';

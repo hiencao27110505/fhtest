@@ -214,12 +214,14 @@ shared, then the caring `.woffer` offers. All ambient motion is gated by
 **The feed below is standard HIG widgets on the shared canvas** — the house lives
 in the hero; the feed uses the same kit as the tabs, plus these home components:
 the **widget grid** (`.wgrid`/`.wtile`: 2-col iOS-small-widget tiles. Anatomy:
-header = tinted glyph chip `.wt-ch` reusing the tab bar's SVG icons + sentence-case
-label; hero row = big tabular number + AT MOST one drawn accessory (`_ringSVG`
-Fitness-style ring, `_treeSVG` staged tree matching the scene's tree, `.wt-mosaic`
-micro-mosaic); a caption line ONLY when it carries content (the next plan's name,
-an empty-state invitation) — one hero per tile, no decorative emoji, minimal by
-default. Every tile is glanceable with data and a `.wt-add` ＋ invitation without. When the hearth
+ONE strict template, identical on all four tiles so the grid reads as a system:
+header = tinted glyph chip `.wt-ch` (the tab bar's SVG icons) + sentence-case
+label · value = one big tabular number with a small unit word (fixed 30px row,
+red only when over budget) · footer = one quiet line (spent/budget, % of goals,
+the plan's name, "+N this month"). NO accessories inside tiles — no rings, no
+mini-illustrations, no photo mosaics (tried, rejected: four different accessory
+species read as clutter; delight lives in the scene and the occasion covers).
+Every tile is glanceable with data and a `.wt-add` ＋ invitation without. When the hearth
 is absent the grid takes its straddle: `.home-body > .wgrid:first-child` docks into
 the lawn), the **immersive photo card**
 (`.bigphoto`, Photos-featured style: full-bleed media, scrim, eyebrow/title/sub,
