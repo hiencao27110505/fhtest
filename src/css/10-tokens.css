@@ -5,6 +5,7 @@
   --grad-hero:linear-gradient(150deg,#4CB584 0%,#2E9E6B 52%,#8FC97E 100%);
   --brand-glow:rgba(46,158,107,.32); --brand-tint:#e9f7f0;
   --danger:#E0322F; --danger-tint:#fdecef;
+  --emo:#C9757F; --emo-tint:#f9ecee;   /* nostalgia / care accent (home recommendations) */
   --good:#1a9d5f; --good-tint:#e7f5ee; --amber:#B8730B; --amber-tint:#fbefda;
   --ink:#191022; --ink-2:#3a2f45; --muted:#8a8494; --muted-soft:#a29caa;
   --white:#ffffff; --canvas:#f4f1f6; --pearl:#fbfafc;

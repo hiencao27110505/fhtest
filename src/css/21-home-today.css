@@ -1,0 +1,136 @@
+/* ============================================================================
+   HOME — "Hôm nay" (Option 2): a light large-title on canvas, a focal mood card,
+   and section-organized, data-driven recommendation widgets. Every widget is
+   built from the shared kit (canvas · white cards · section headers · rows ·
+   photo cards · badges) so home reads as the same designer as the two tabs —
+   even though the recommendation FORMS vary (photo · act-row · reflect · whisper
+   · chips · countdown · relational · progress · peek · quote · then-now).
+   This file loads after 20-hero.css and overrides the old gradient-hero home.
+   ============================================================================ */
+
+/* ---------- light header ---------- */
+.home-hd{padding:0 22px}
+.home-hd .safe{height:max(env(safe-area-inset-top),16px)}
+.hh-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:6px 0 2px}
+.hh-l{min-width:0;flex:1}
+.home-hd .greet{font-family:var(--disp);font-weight:750;font-size:33px;letter-spacing:-.9px;color:var(--ink);line-height:1.04;margin:0;text-shadow:none}
+.home-hd .greet-sub{font-size:15px;font-weight:500;color:var(--muted);margin-top:7px;letter-spacing:-.01em}
+.hh-ic{width:40px;height:40px;border-radius:50%;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:5px;color:var(--ink-2)}
+.hh-ic svg{width:21px;height:21px}
+.hh-ic:active{transform:scale(.94)}
+#v-home.on .home-hd .greet{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
+#v-home.on .home-hd .greet-sub{animation:rise .5s cubic-bezier(.2,.7,.2,1) .05s both}
+
+/* body: cards carry their own 16px inset, like the tabs */
+.home-body{padding:0 0 6px}
+
+/* ---------- focal mood card (peer of the ring / calendar) ---------- */
+.wsky{background:var(--white);border-radius:var(--r-card-lg);padding:17px 16px 14px;margin:8px 16px 4px;box-shadow:var(--shadow-focal);overflow:hidden;position:static;z-index:auto}
+/* (faces + merged action already styled in 20-hero.css: .fsky-row/.fs-c/.woffer) */
+
+/* ---------- centerpiece photo card + money-felt row (reuse, re-inset) ---------- */
+.hmoment{margin:0 16px 12px}
+.hpulse{margin:0 16px 12px}
+
+/* ---------- recommendation form: ACT-ROW (the "do this" card) ---------- */
+.ract{display:flex;align-items:center;gap:13px;width:100%;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:13px 15px;text-align:left;font:inherit;cursor:pointer}
+.ract:active{transform:scale(.99)}
+.ract-ico{width:44px;height:44px;border-radius:13px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto}
+.ract-ico.emo{background:var(--emo-tint)}
+.ract-ico.neutral{background:var(--fill-neutral)}
+.ract-ico.warn{background:var(--danger-tint)}
+.ract-b{flex:1;min-width:0}
+.ract-k{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:2px;letter-spacing:.02em;text-transform:uppercase}
+.ract-t{font-family:var(--disp);font-size:15.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.26}
+.ract .chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
+
+/* ---------- recommendation form: REFLECTION (a warm number, not a scoreboard) ---------- */
+.rrefl{display:flex;align-items:center;gap:13px;background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:13px 15px}
+.rrefl-h{width:44px;height:44px;border-radius:13px;background:var(--emo-tint);display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto}
+.rrefl-t{font-size:14px;font-weight:500;color:var(--ink-2);line-height:1.42;letter-spacing:-.01em}
+.rrefl-t b{font-family:var(--disp);font-weight:750;color:var(--emo);font-size:15px}
+.rrefl-t b.br{color:var(--brand)}
+
+/* ---------- recommendation form: WHISPER (quiet ambient line) ---------- */
+.rwhis{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;margin:2px 22px 12px;padding:9px 2px;text-align:left;font:inherit;cursor:pointer;letter-spacing:-.01em}
+.rwhis-i{font-size:16px;flex:0 0 auto}
+.rwhis-t{flex:1;font-size:13.5px;font-weight:500;color:var(--muted)}
+.rwhis-t b{font-weight:650;color:var(--ink-2)}
+.rwhis:active{opacity:.6}
+
+/* ---------- recommendation form: CHIPS (quick-reply) ---------- */
+.rchips{background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:14px 15px}
+.rchips-q{font-family:var(--disp);font-size:15px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.3}
+.rchips-r{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.rchip{font-size:13px;font-weight:600;color:var(--ink-2);background:var(--surface);border:0;border-radius:9999px;padding:8px 13px;font-family:inherit;cursor:pointer;display:inline-flex;gap:5px;align-items:center}
+.rchip:active{transform:scale(.96)}
+.rchip.br{background:var(--brand-tint);color:var(--brand-ink)}
+
+/* ---------- recommendation form: COUNTDOWN (anticipation) ---------- */
+.rcd{display:flex;align-items:center;gap:15px;width:100%;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:14px 16px;text-align:left;font:inherit;cursor:pointer}
+.rcd-n{text-align:center;flex:0 0 auto;min-width:48px}
+.rcd-n b{display:block;font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:-1px;color:var(--brand);line-height:1;font-variant-numeric:tabular-nums}
+.rcd-n span{display:block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:2px}
+.rcd-b{flex:1;min-width:0}
+.rcd-t{font-family:var(--disp);font-size:15.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.25}
+.rcd-s{font-size:12.5px;font-weight:500;color:var(--muted);margin-top:3px}
+.rcd .chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
+.rcd:active{transform:scale(.99)}
+
+/* ---------- recommendation form: RELATIONAL (framed on a person) ---------- */
+.rrel{display:flex;align-items:center;gap:12px;width:100%;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:12px 15px;text-align:left;font:inherit;cursor:pointer}
+.rrel:active{transform:scale(.99)}
+.rrel-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--disp);font-size:15px;font-weight:700;flex:0 0 auto;position:relative}
+.rrel-av .em{position:absolute;right:-5px;bottom:-5px;font-size:14px;background:var(--white);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.16)}
+.rrel-t{flex:1;min-width:0;font-size:14px;font-weight:550;color:var(--ink);letter-spacing:-.01em;line-height:1.35}
+.rrel-t b{font-weight:700}
+.rrel .chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
+
+/* ---------- recommendation form: PROGRESS (saving/planning together) ---------- */
+.rprog{display:block;width:100%;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:14px 15px;text-align:left;font:inherit;cursor:pointer}
+.rprog:active{transform:scale(.99)}
+.rprog-top{display:flex;align-items:center;gap:12px}
+.rprog-th{width:46px;height:46px;border-radius:12px;flex:0 0 auto;position:relative;overflow:hidden;background-size:cover;background-position:center}
+.rprog-th .em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px}
+.rprog-th .sc{position:absolute;inset:0;background:linear-gradient(180deg,transparent 50%,rgba(0,0,0,.22))}
+.rprog-b{flex:1;min-width:0}
+.rprog-t{font-family:var(--disp);font-size:15.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.rprog-s{font-size:12.5px;font-weight:500;color:var(--muted);margin-top:2px}
+.rprog-s b{font-weight:650;color:var(--ink-2)}
+.rprog-pct{font-family:var(--disp);font-size:13.5px;font-weight:700;color:var(--brand);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.rprog-bar{height:6px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;margin-top:11px}
+.rprog-bar i{display:block;height:100%;border-radius:9999px;background:var(--brand);opacity:.9}
+
+/* ---------- recommendation form: PEEK (a blurred, curious teaser) ---------- */
+.rpeek{display:flex;align-items:center;gap:13px;width:100%;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:12px 14px;text-align:left;font:inherit;cursor:pointer}
+.rpeek:active{transform:scale(.99)}
+.rpeek-th{width:48px;height:48px;border-radius:12px;flex:0 0 auto;filter:blur(3.5px);position:relative;overflow:hidden;background-size:cover;background-position:center}
+.rpeek-th .em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px}
+.rpeek-b{flex:1;min-width:0}
+.rpeek-t{font-family:var(--disp);font-size:14.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.3}
+.rpeek-s{font-size:12.5px;font-weight:500;color:var(--muted);margin-top:2px}
+.rpeek .chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
+
+/* ---------- recommendation form: QUOTE (a resurfaced caption) ---------- */
+.rquote{display:block;width:100%;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:15px 16px;text-align:left;font:inherit;cursor:pointer}
+.rquote:active{transform:scale(.99)}
+.rquote-q{font-family:var(--disp);font-size:16px;font-weight:500;font-style:italic;color:var(--ink);line-height:1.4}
+.rquote-a{font-size:12px;font-weight:600;color:var(--muted);margin-top:9px}
+
+/* ---------- recommendation form: THEN ↔ NOW (a diptych) ---------- */
+.rtn{display:block;width:100%;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:13px;text-align:left;font:inherit;cursor:pointer}
+.rtn:active{transform:scale(.99)}
+.rtn-g{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.rtn-p{position:relative;border-radius:12px;overflow:hidden;height:88px;background-size:cover;background-position:center}
+.rtn-p .em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:30px}
+.rtn-p .l{position:absolute;left:9px;bottom:8px;color:#fff;font-size:10.5px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.rtn-p.now{background:var(--surface);border:1.5px dashed var(--brand-2,#5FD3A0)}
+.rtn-p.now .em{color:var(--brand)}
+.rtn-p.now .l{color:var(--brand-ink);text-shadow:none}
+.rtn-cap{font-size:13px;font-weight:600;color:var(--ink-2);text-align:center;margin-top:11px;letter-spacing:-.01em}
+
+/* small avatar stack (reuse look of tabs) for progress/relational */
+.rav-stack{display:flex;align-items:center;margin-top:10px}
+.rav-stack .rav{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;margin-left:-6px;box-shadow:0 0 0 2px var(--white)}
+.rav-stack .rav:first-child{margin-left:0}
+.rav-stack .lbl{font-size:11.5px;color:var(--muted);font-weight:600;margin-left:9px;letter-spacing:-.01em}

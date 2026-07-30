@@ -54,9 +54,10 @@ function firstName(n){ return (n||'').trim().split(/\s+/)[0]||'there'; }
 function setGreeting(){
   var h=new Date().getHours();
   var g=h<12?t('morning'):(h<18?t('afternoon'):t('evening'));
-  var em=h<5?'🌙':(h<12?'☀️':(h<18?'🌤️':'🌙'));
-  setTxt('greet',g+', '+firstName(FAM.user.name)+' '+em);
-  var gs=document.querySelector('.greet-sub'); if(gs) gs.textContent=t('greetSub');
+  // No time-of-day emoji here — the family sky below carries the weather, and a
+  // sun/moon in the greeting only duplicated the moods a few pixels down.
+  setTxt('greet',g+', '+firstName(FAM.user.name));
+  // greet-sub is owned by renderHome now (it shows the family mood read); don't fight it here.
 }
 
 /* ---------- i18n (English · Tiếng Việt) ----------

@@ -139,9 +139,7 @@
 .fs-lock:first-child .fs-av{margin-left:0}
 .wsky-lockcap{font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em;line-height:1.3}
 /* (2) revealed sky — each cell is simply EMOTION + a name label; nothing competes */
-.wsky-h{font-family:var(--disp);font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:center;margin-bottom:18px}
-.fsky-row{display:flex;justify-content:space-around;align-items:flex-start;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 6px;scrollbar-width:none}
-.fsky-row::-webkit-scrollbar{display:none}
+.fsky-row{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:20px 40px;padding:0 4px}
 .fs-c{position:relative;isolation:isolate;display:flex;flex-direction:column;align-items:center;gap:11px;background:none;border:0;padding:0;font:inherit;flex:0 0 auto;cursor:default;min-width:60px}
 .fs-c.me{cursor:pointer}
 .fs-c.me:active{transform:scale(.94)}
@@ -151,7 +149,8 @@
 .fs-c.me .fs-n{color:var(--brand)}
 .fs-c.waiting .fs-n{color:var(--muted)}
 /* the collective read — a warm one-line feeling for the whole family */
-.sky-read{margin-top:18px;padding-top:14px;border-top:1px solid var(--divider);text-align:center;font-size:13px;font-weight:500;letter-spacing:-.01em;color:var(--ink-2)}
+/* caring actions, merged into the card as a footer under the faces */
+.sky-acts{margin-top:16px;border-top:1px solid var(--divider)}
 /* ---- weather FX: a felt one-shot moment when a mood is set or arrives ---- */
 /* A: the changed face pops with a soft aura */
 .fs-c.fx .fs-emo{animation:wx-pop .9s cubic-bezier(.2,1.4,.35,1) both}
@@ -179,8 +178,9 @@
 @keyframes wx-note{0%{opacity:0}11%{opacity:1}82%{opacity:1}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.wx-fx,.wx-note{display:none}.fs-c.fx .fs-emo{animation:none}.fs-c.fx::after{display:none}}
 /* (3) the ONE consistent offer card every mood routes into */
-.woffer{display:flex;align-items:center;gap:13px;width:100%;background:var(--white);border:0;border-radius:18px;padding:12px 15px;margin-top:9px;box-shadow:var(--shadow-card);font:inherit;text-align:left;cursor:pointer}
-.woffer:active{transform:scale(.99)}
+.woffer{display:flex;align-items:center;gap:13px;width:100%;background:none;border:0;border-radius:12px;padding:13px 4px;font:inherit;text-align:left;cursor:pointer}
+.woffer + .woffer{border-top:1px solid var(--divider)}
+.woffer:active{background:var(--surface)}
 .wo-ico{width:44px;height:44px;border-radius:13px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto}
 .wo-body{flex:1;min-width:0}
 .wo-k{font-size:11px;font-weight:700;letter-spacing:.01em;color:var(--muted);margin-bottom:2px}

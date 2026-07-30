@@ -101,19 +101,8 @@ function renderWeather(){
       : '<span class="fs-c' + (wd ? '' : ' waiting') + '"' + dn + '>' + inner + '</span>';
   }).join('');
 
-  // a warm, collective read of the whole sky (the emotional payoff, not a stat)
-  var oth = mems.filter(function(m){ return m.name !== meName; });
-  var othShared = oth.filter(function(m){ return memberWeatherOf(m.name); });
-  var roughAny = othShared.some(function(m){ var d = _wdef(memberWeatherOf(m.name)); return d && d.rough; });
-  var read = roughAny ? L('Có người đang cần được quan tâm 💛', 'Someone could use a little care 💛')
-           : othShared.length ? L('Cả nhà đang ổn cả 🌿', 'Everyone’s doing okay 🌿')
-           : oth.length ? L('Chờ cả nhà cùng chia sẻ nhé', 'Waiting for the family to check in')
-           : L('Mời thêm cả nhà cùng chia sẻ nhé 💛', 'Invite your family to share 💛');
-
-  var out = '<div class="wsky wsky-open"><div class="wsky-h">' + L('Bầu trời của nhà', 'The family sky') + '</div>'
-    + '<div class="fsky-row">' + sky + '</div><div class="sky-read">' + read + '</div></div>';
-
-  // (3) caring, build-something offers for the OTHERS — rough moods first, at most two
+  // caring, build-something offers for the OTHERS — rough moods first, at most two.
+  // They live INSIDE the card (a footer under the faces).
   var offers = [];
   mems.forEach(function(m){
     if(m.name === meName) return;
@@ -130,10 +119,26 @@ function renderWeather(){
       + '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
   }).join('');
 
-  // Offers are for the OTHERS only — no self-directed action. If nobody else has
-  // shared a mood, the sky simply stands on its own.
-  return out + offHtml;
+  // faces → caring things to do. The collective "read" now lives in the page
+  // subtitle (renderHome sets it via moodRead()), so it isn't repeated here.
+  return '<div class="wsky wsky-open">'
+    + '<div class="fsky-row">' + sky + '</div>'
+    + (offHtml ? '<div class="sky-acts">' + offHtml + '</div>' : '')
+    + '</div>';
 }
+
+/* the collective mood read — shown as the home subtitle under the greeting */
+function moodRead(){
+  var mems = (window.FAM && FAM.members) || [], meName = _meName();
+  var oth = mems.filter(function(m){ return m.name !== meName; });
+  var othShared = oth.filter(function(m){ return memberWeatherOf(m.name); });
+  var roughAny = othShared.some(function(m){ var d = _wdef(memberWeatherOf(m.name)); return d && d.rough; });
+  return roughAny ? L('Có người đang cần một cái ôm 💛', 'Someone could use a hug 💛')
+       : othShared.length ? L('Nhà mình đang ổn cả 🌿', 'Everyone’s doing alright 🌿')
+       : oth.length ? L('Đợi cả nhà cùng ghé vào nhé 🌤️', 'Waiting for the family to drop in 🌤️')
+       : L('Một ngày nữa bên nhau 🌿', 'Another day, together 🌿');
+}
+window.moodRead = moodRead;
 
 /* a full-bleed cover: a real photo (src) or a scene gradient (cls), with scrim + subject emoji */
 function hVisual(cls, src, subj){
@@ -177,89 +182,149 @@ function hMemMoment(r, eye){
     + '<div class="hm-sub">' + esc(r.meta || '') + '</div>' + (by ? '<div class="hm-by">' + by + '</div>' : '') + '</div></button>';
 }
 
+/* ============================================================================
+   Home recommendation FORMS — the Apple-kit widgets. Each takes an opts object
+   and returns HTML. The engine (renderHome) picks WHICH form to use per trigger,
+   rotating by day so the same trigger lands from a different angle each time.
+   ============================================================================ */
+var _CHEVSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
+function _rvAvs(n){
+  var mems = (window.FAM && FAM.members) || [];
+  return mems.slice(0, n || 3).map(function(m){
+    var ini = (typeof inits === 'function') ? inits(m.name) : ('' + (m.name || '?')).charAt(0);
+    var col = (typeof membersMeta !== 'undefined' && membersMeta[m.name] && membersMeta[m.name].col) || m.color || '#8f8a99';
+    return '<span class="rav" style="background:' + col + '">' + esc(ini) + '</span>';
+  }).join('');
+}
+function _rBg(cls, src){ return src ? '' : (' ' + esc(cls || 'ph-park')); }
+function _rSt(cls, src){ return src ? ' style="background-image:url(' + escAttr(src) + ')"' : ''; }
+function fActRow(o){                                    // icon → eyebrow/title → chevron
+  return '<button class="ract" onclick="' + o.act + '"><div class="ract-ico' + (o.tone ? ' ' + o.tone : '') + '">' + o.ico + '</div>'
+    + '<div class="ract-b">' + (o.eye ? '<div class="ract-k">' + o.eye + '</div>' : '') + '<div class="ract-t">' + o.title + '</div></div>'
+    + '<span class="chev">' + _CHEVSVG + '</span></button>';
+}
+function fReflect(o){ return '<div class="rrefl"><div class="rrefl-h">' + o.ico + '</div><div class="rrefl-t">' + o.html + '</div></div>'; }
+function fWhisper(o){ return '<button class="rwhis" onclick="' + o.act + '"><span class="rwhis-i">' + o.ico + '</span><span class="rwhis-t">' + o.html + '</span></button>'; }
+function fChips(o){
+  var c = o.chips.map(function(ch){ return '<button class="rchip' + (ch.br ? ' br' : '') + '" onclick="' + ch.act + '">' + ch.label + '</button>'; }).join('');
+  return '<div class="rchips"><div class="rchips-q">' + o.q + '</div><div class="rchips-r">' + c + '</div></div>';
+}
+function fCountdown(o){
+  return '<button class="rcd" onclick="' + o.act + '"><div class="rcd-n"><b>' + o.n + '</b><span>' + o.unit + '</span></div>'
+    + '<div class="rcd-b"><div class="rcd-t">' + o.title + '</div>' + (o.sub ? '<div class="rcd-s">' + o.sub + '</div>' : '') + '</div>'
+    + '<span class="chev">' + _CHEVSVG + '</span></button>';
+}
+function fRelational(o){
+  var ini = (typeof inits === 'function') ? inits(o.name) : ('' + (o.name || '?')).charAt(0);
+  var col = (typeof membersMeta !== 'undefined' && membersMeta[o.name] && membersMeta[o.name].col) || o.color || '#8f8a99';
+  return '<button class="rrel" onclick="' + o.act + '"><span class="rrel-av" style="background:' + col + '">' + esc(ini) + (o.emoji ? '<span class="em">' + o.emoji + '</span>' : '') + '</span>'
+    + '<span class="rrel-t">' + o.html + '</span><span class="chev">' + _CHEVSVG + '</span></button>';
+}
+function fProgress(o){
+  var thumb = '<div class="rprog-th' + _rBg(o.cls, o.src) + '"' + _rSt(o.cls, o.src) + '><div class="sc"></div>' + (o.emoji ? '<div class="em">' + o.emoji + '</div>' : '') + '</div>';
+  var avs = o.avlbl ? '<div class="rav-stack">' + _rvAvs(3) + '<span class="lbl">' + o.avlbl + '</span></div>' : '';
+  return '<button class="rprog" onclick="' + o.act + '"><div class="rprog-top">' + thumb
+    + '<div class="rprog-b"><div class="rprog-t">' + o.title + '</div>' + (o.sub ? '<div class="rprog-s">' + o.sub + '</div>' : '') + '</div>'
+    + '<span class="rprog-pct">' + o.pct + '%</span></div>'
+    + '<div class="rprog-bar"><i style="width:' + o.pct + '%"></i></div>' + avs + '</button>';
+}
+function fPeek(o){
+  return '<button class="rpeek" onclick="' + o.act + '"><div class="rpeek-th' + _rBg(o.cls, o.src) + '"' + _rSt(o.cls, o.src) + '>' + (o.emoji ? '<div class="em">' + o.emoji + '</div>' : '') + '</div>'
+    + '<div class="rpeek-b"><div class="rpeek-t">' + o.title + '</div>' + (o.sub ? '<div class="rpeek-s">' + o.sub + '</div>' : '') + '</div>'
+    + '<span class="chev">' + _CHEVSVG + '</span></button>';
+}
+function fThenNow(o){
+  return '<button class="rtn" onclick="' + o.act + '"><div class="rtn-g">'
+    + '<div class="rtn-p' + _rBg(o.cls, o.src) + '"' + _rSt(o.cls, o.src) + '>' + (o.src ? '' : '<div class="em">' + (o.emoji || '📷') + '</div>') + '<div class="l">' + o.thenL + '</div></div>'
+    + '<div class="rtn-p now"><div class="em">＋</div><div class="l">' + o.nowL + '</div></div></div>'
+    + '<div class="rtn-cap">' + o.cap + '</div></button>';
+}
+function _sectionH(title, link){ return '<div class="section-h"><div class="t">' + title + '</div>' + (link ? '<a onclick="' + link + '">' + L('Xem tất cả', 'See all') + '</a>' : '') + '</div>'; }
+
 function renderHome(){
   var box = document.getElementById('home-body'); if(!box) return;
   buildMemRecords();
   var evs = window.events || {}, ord = window.order || [];
   var isMirrorK = function(k){ var e = evs[k]; return !!(e && (e._srcTxn || e.fromExpense)); };
-  var _meM = ((window.FAM && FAM.members) || []).filter(function(mm){ return mm.me; })[0];   // the in-family member name (who is tagged with)
+  var _meM = ((window.FAM && FAM.members) || []).filter(function(mm){ return mm.me; })[0];
   var meName = (_meM ? _meM.name : ((window.FAM && FAM.user && FAM.user.name) || '')).toLowerCase();
-  var _hv = document.getElementById('v-home'); var homeVis = !!(_hv && _hv.classList.contains('on'));
-  var html = renderWeather(), usedRef = null;                          // Thời tiết cảm xúc — express + a matched offer, always on top
+  var homeVis = (function(){ var _hv = document.getElementById('v-home'); return !!(_hv && _hv.classList.contains('on')); })();
+  var rot = TODAY.getDate();                            // rotates recommendation FORMS daily
+  var myW = myWeather();
 
-  // upcoming real occasions (not achieved, not a photo-expense mirror), nearest first
+  // subtitle under the greeting = the family mood read (or the check-in prompt)
+  setTxt('greet-sub', (!myW || window._wpick) ? L('Hôm nay bạn thế nào?', 'How are you today?') : moodRead());
+
+  var html = renderWeather();                           // focal mood card (peer of the ring/calendar)
+
+  /* ---- signals from the active user's + relatives' data ---- */
   var up = ord.filter(function(k){ return evs[k] && evs[k].d && !isMirrorK(k) && !achievedNow(evs[k]); })
               .sort(function(a, b){ return evs[a].d.getTime() - evs[b].d.getTime(); });
-  // a memory from a prior year, near today's date — "on this day"
   var onThis = memRecords.filter(function(r){
     if(!r.d || r.d.getFullYear() >= TODAY.getFullYear()) return false;
     var a = new Date(TODAY.getFullYear(), r.d.getMonth(), r.d.getDate());
-    return Math.abs((a - TODAY) / 86400000) <= 3;                       // within 3 days of the anniversary
+    return Math.abs((a - TODAY) / 86400000) <= 3;
   });
-
-  /* ---- #4 welcome-back: what the family added while you were away (top) ---- */
-  if(window._homeSess === undefined){                                   // capture last-seen once per page load, then advance it
-    try{ var _ls = localStorage.getItem('fh-lastseen'); window._homeSess = _ls ? (parseInt(_ls, 10) || 0) : Date.now(); localStorage.setItem('fh-lastseen', '' + Date.now()); }catch(e){ window._homeSess = Date.now(); }
-  }
-  var lastSeen = window._homeSess;
-  var others = memRecords.filter(function(r){
-    var w = ('' + (r.who || '')).toLowerCase();
-    return w && w !== meName && w !== 'both' && w !== 'shared' && w !== 'chung' && r.d && r.d.getTime() > lastSeen;
-  });
-  if(others.length){
-    var byWho = {}, seq = [];
-    others.forEach(function(r){ var w = r.who; if(!byWho[w]){ byWho[w] = 0; seq.push(w); } byWho[w]++; });
-    var parts = seq.slice(0, 2).map(function(w){ var c = byWho[w]; return '<b>' + esc((typeof firstName === 'function' ? firstName(w) : w)) + '</b> ' + L('thêm ' + c + ' khoảnh khắc', 'added ' + c + (c === 1 ? ' moment' : ' moments')); });
-    html += '<button class="hwelcome" onclick="goMoments(&#39;album&#39;)">' + L('Trong lúc bạn vắng', 'While you were away') + ': ' + parts.join(' · ') + ' 💛</button>';
-  }
-
-  /* ---- #5 milestone: a goal/occasion just fully funded — celebrated once ---- */
   var celebrated = {}; try{ celebrated = JSON.parse(localStorage.getItem('fh-celebrated') || '{}') || {}; }catch(e){ celebrated = {}; }
-  var milestones = [];
-  var goals = window.goals || {}, gord = window.goalOrder || [];
+  var goals = window.goals || {}, gord = window.goalOrder || [], milestones = [];
   gord.forEach(function(g){ var go = goals[g]; if(go && typeof achievedGoal === 'function' && achievedGoal(go)) milestones.push({ key: 'goal:' + g, name: go.name, cls: go.cls || 'ph-park' }); });
   var fresh = milestones.filter(function(mi){ return !celebrated[mi.key]; })[0] || null;
+  var usedRef = null;
 
-  /* ---- centerpiece: milestone → on-this-day → anticipation → recent → invite ---- */
-  if(fresh && homeVis){                                                 // a shared dream, reached — celebrate only when home is the visible view
-    milestones.forEach(function(mi){ celebrated[mi.key] = 1; });        // clear the backlog once; future completions celebrate one by one
+  /* ============ KHOẢNH KHẮC ============ */
+  var kh = '';
+  if(fresh && homeVis){                                 // a shared dream reached — celebrated once
+    milestones.forEach(function(mi){ celebrated[mi.key] = 1; });
     try{ localStorage.setItem('fh-celebrated', JSON.stringify(celebrated)); }catch(e){}
     usedRef = fresh.key;
-    html += '<button class="hmoment" onclick="go(&#39;spending&#39;)">' + hVisual(fresh.cls, '', '🎉')
+    kh += '<button class="hmoment" onclick="go(&#39;spending&#39;)">' + hVisual(fresh.cls, '', '🎉')
       + '<div class="hm-cap"><div class="hm-eye">' + L('Vừa đủ rồi', 'Goal reached') + '</div><div class="hm-title">' + esc(fresh.name) + '</div>'
       + '<div class="hm-sub">' + L('Giấc mơ chung đã thành hình 🎉', 'A shared dream, reached 🎉') + '</div>'
       + '<div class="hm-fam">' + hFamAvs(4) + '</div></div></button>';
-  } else if(onThis.length){                                             // nostalgia, un-gameable + date-driven
-    var rr = onThis[0]; usedRef = rr.type + ':' + rr.ref;
-    html += hMemMoment(rr, L('Ngày này năm xưa', 'On this day'));
-  } else if(up.length){                                                 // anticipation, saving woven in
-    var k = up[0], e = evs[k], dl = daysLeft(e.d);
-    var pct = e.target > 0 ? Math.min(100, Math.round(e.saved / e.target * 100)) : 0;
-    var emm = (e.memories && e.memories[0]) || null;
-    var eSrc = (emm && emm.src) ? emm.src : '', eCls = (emm && emm.cls) ? emm.cls : 'ph-hike';
-    usedRef = 'event:' + k;
-    var eye = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : L('Còn ' + dl + ' ngày', dl + ' days to go'));
-    var money = e.target > 0
-      ? (pct >= 85 ? L('Cả nhà đã để dành gần đủ rồi 🌿', 'Almost there together 🌿')
-        : (pct >= 35 ? L('Cả nhà đang để dành dần 🌿', 'Saving up together 🌿')
-          : L('Cùng để dành cho dịp này nhé 🌿', 'Saving toward it together 🌿')))
-      : L('Điều cả nhà đang mong 💛', 'Something to look forward to 💛');
-    var famRow = (e.target > 0 && (e.saved > 0 || e.setAside > 0)) ? '<div class="hm-fam">' + hFamAvs(4) + '<span class="hm-fam-t">' + L('cả nhà cùng góp', 'saving together') + '</span></div>' : '';
-    html += '<button class="hmoment" onclick="openEvent(&#39;' + escAttr(k) + '&#39;)">' + hVisual(eCls, eSrc, e.emoji)
-      + '<div class="hm-cap"><div class="hm-eye">' + esc(eye) + '</div><div class="hm-title">' + esc(e.name)
-      + '</div><div class="hm-sub">' + money + '</div>' + famRow + '</div>'
-      + (e.target > 0 ? '<div class="hm-prog"><i style="width:' + pct + '%"></i></div>' : '') + '</button>';
-  } else if(memRecords.length){                                        // a resurfaced moment
-    var r = memRecords[0]; usedRef = r.type + ':' + r.ref;
-    html += hMemMoment(r, L('Khoảnh khắc gần đây', 'A recent moment'));
-  } else {                                                             // a new family — a gentle invitation, still a feeling
-    html += '<button class="hmoment" onclick="openSheet(&#39;sheet-add&#39;)"><div class="hm-bg ph-park"></div><div class="hm-scrim"></div><div class="hm-subj">🌿</div>'
-      + '<div class="hm-cap"><div class="hm-eye">' + L('Bắt đầu', 'Begin') + '</div><div class="hm-title">'
-      + L('Câu chuyện của cả nhà', 'Your family’s story') + '</div><div class="hm-sub">'
-      + L('Thêm khoảnh khắc đầu tiên, hoặc lên kế hoạch một dịp 💛', 'Add your first moment, or plan an occasion 💛') + '</div></div></button>';
+  } else if(onThis.length){                             // nostalgia — rotate the angle: photo · question · then↔now
+    var rr = onThis[0], i0 = memRecords.indexOf(rr), yrs = TODAY.getFullYear() - rr.d.getFullYear();
+    var agoVi = yrs <= 1 ? 'năm ngoái' : (yrs + ' năm trước'), agoEn = yrs <= 1 ? 'last year' : (yrs + ' years ago');
+    usedRef = rr.type + ':' + rr.ref;
+    var f = rot % 3;
+    if(f === 0){ kh += hMemMoment(rr, L('Ngày này ' + agoVi, 'On this day · ' + agoEn)); }
+    else if(f === 1){ kh += fPeek({ cls: rr.cls, src: rr.src, emoji: rr.emoji, title: L('Còn nhớ hôm này ' + agoVi + '?', 'Remember this day, ' + agoEn + '?'), sub: esc(rr.cap || L('Chạm để mở lại', 'Tap to look back')), act: 'openMemory(' + i0 + ')' }); }
+    else { kh += fThenNow({ cls: rr.cls, src: rr.src, emoji: rr.emoji, thenL: esc(rr.cap || agoVi), nowL: L('Hôm nay?', 'Today?'), cap: L('Thêm hôm nay vào bộ sưu tập', 'Add today to the collection'), act: 'openSheet(&#39;sheet-add&#39;)' }); }
+  } else if(memRecords.length){                         // a recent moment resurfaced
+    var r0 = memRecords[0]; usedRef = r0.type + ':' + r0.ref;
+    kh += hMemMoment(r0, L('Khoảnh khắc gần đây', 'A recent moment'));
+  } else {                                              // a new family — a gentle invitation
+    kh += '<button class="hmoment" onclick="openSheet(&#39;sheet-add&#39;)"><div class="hm-bg ph-park"></div><div class="hm-scrim"></div><div class="hm-subj">🌿</div>'
+      + '<div class="hm-cap"><div class="hm-eye">' + L('Bắt đầu', 'Begin') + '</div><div class="hm-title">' + L('Câu chuyện của cả nhà', 'Your family’s story') + '</div>'
+      + '<div class="hm-sub">' + L('Thêm khoảnh khắc đầu tiên 💛', 'Add your first moment 💛') + '</div></div></button>';
   }
 
-  /* ---- money, felt: the month's financial mood (collective — no byline) ---- */
+  // relatives' data — what the family added while you were away
+  if(window._homeSess === undefined){
+    try{ var _ls = localStorage.getItem('fh-lastseen'); window._homeSess = _ls ? (parseInt(_ls, 10) || 0) : Date.now(); localStorage.setItem('fh-lastseen', '' + Date.now()); }catch(e){ window._homeSess = Date.now(); }
+  }
+  var away = memRecords.filter(function(r){ var w = ('' + (r.who || '')).toLowerCase(); return w && w !== meName && w !== 'both' && w !== 'shared' && w !== 'chung' && r.d && r.d.getTime() > window._homeSess; });
+  if(away.length){
+    var nm0 = (typeof firstName === 'function') ? firstName(away[0].who) : away[0].who;
+    kh += fRelational({ name: away[0].who, emoji: '💛', html: L('<b>' + esc(nm0) + '</b> vừa thêm ' + away.length + ' khoảnh khắc lúc bạn vắng', '<b>' + esc(nm0) + '</b> added ' + away.length + ' moment' + (away.length > 1 ? 's' : '') + ' while you were away'), act: 'goMoments(&#39;album&#39;)' });
+  }
+
+  // reflection from history — a warm count, never a scoreboard
+  var monCount = memRecords.filter(function(r){ return r.d && r.d.getFullYear() === TODAY.getFullYear() && r.d.getMonth() === TODAY.getMonth(); }).length;
+  if(monCount >= 3){
+    kh += fReflect({ ico: '💛', html: L('Tháng này cả nhà đã cùng lưu <b>' + monCount + ' khoảnh khắc</b> 🌿', 'This month you’ve saved <b>' + monCount + ' moments</b> together 🌿') });
+  }
+
+  // build a memory — capture today (rotate a chips prompt with a plain act-row)
+  if(rot % 2 === 0){
+    kh += fChips({ q: L('Hôm nay có gì đáng nhớ không?', 'Anything worth remembering today?'), chips: [
+      { label: '📸 ' + L('Thêm ảnh', 'Add a photo'), act: 'openSheet(&#39;sheet-add&#39;)', br: true },
+      { label: '✍️ ' + L('Ghi một dòng', 'Jot a line'), act: 'openSheet(&#39;sheet-add&#39;)' }] });
+  } else {
+    kh += fActRow({ ico: '📸', eye: L('Giữ lại hôm nay', 'Keep today'), title: L('Thêm một khoảnh khắc mới', 'Add a new moment'), act: 'openSheet(&#39;sheet-add&#39;)' });
+  }
+  html += _sectionH(L('Khoảnh khắc', 'Moments'), 'goMoments()') + kh;
+
+  /* ============ TÀI CHÍNH ============ */
   var m = (typeof M === 'function') ? M() : null;
   if(m && m.budget > 0){
     var reserved = m.done ? 0 : monthReserved();
@@ -267,48 +332,44 @@ function renderHome(){
     var proj = !m.done && m.dom > 0 && ((m.spent / m.dom * m.dim) - m.budget > m.budget * 0.01);
     var mood, ico, tt, ss;
     if(over){ mood = 'over'; ico = '🍂'; tt = L('Hơi quá tay một chút rồi', 'A little over this month');
-      ss = L('Vượt ' + fmtK(m.spent - m.budget) + ' · cùng nhau chỉnh lại nha', 'Over by ' + fmtK(m.spent - m.budget) + ' · let’s ease back together'); }
+      ss = L('Vượt ' + fmtK(m.spent - m.budget) + ' · cùng nhau chỉnh lại nha', 'Over by ' + fmtK(m.spent - m.budget) + ' · ease back together'); }
     else if(proj){ mood = 'pace'; ico = '⚡'; tt = L('Tháng này tiêu hơi nhanh tay', 'Spending a touch fast');
-      ss = L('Nhẹ nhàng chút là vẫn dư · còn ' + fmtK(safe), 'Ease up a little · ' + fmtK(safe) + ' left'); }
+      ss = L('Nhẹ nhàng chút là vẫn dư · còn ' + fmtK(safe), 'Ease up · ' + fmtK(safe) + ' left'); }
     else { mood = 'ok'; ico = '🌿'; tt = L('Tháng này cả nhà đang thong thả', 'Comfortable this month');
       ss = L('Còn ' + fmtK(safe) + ' để cả nhà thoải mái tận hưởng', fmtK(safe) + ' left to enjoy together'); }
     var ps = Math.min(100, Math.round(m.spent / m.budget * 100));
-    html += '<button class="hpulse ' + mood + '" onclick="go(&#39;spending&#39;)"><div class="hp-ico">' + ico + '</div>'
+    html += _sectionH(L('Tài chính', 'Finance'), 'go(&#39;spending&#39;)')
+      + '<button class="hpulse ' + mood + '" onclick="go(&#39;spending&#39;)"><div class="hp-ico">' + ico + '</div>'
       + '<div class="hp-body"><div class="hp-title">' + tt + '</div><div class="hp-sub">' + ss + '</div>'
       + '<div class="hp-bar"><i style="width:' + ps + '%"></i></div></div></button>';
   }
 
-  /* ---- look-ahead target (chosen first, so a photo-bearing occasion can't also surface as a beat) ---- */
-  var nk = (up.length > (onThis.length || fresh ? 0 : 1)) ? up[onThis.length || fresh ? 0 : 1] : null;
-
-  /* ---- woven beats: up to 2 more moments, each with its author ---- */
-  var seen = {}; if(usedRef) seen[usedRef] = 1; if(nk) seen['event:' + nk] = 1;
-  var beats = [];
-  memRecords.forEach(function(r){ var rk = r.type + ':' + r.ref; if(seen[rk]) return; seen[rk] = 1; beats.push(r); });
-  beats.slice(0, 2).forEach(function(r){
-    var i = memRecords.indexOf(r), isExp = r.type === 'expense', by = hByline(r.who);
-    var eye = isExp ? L('Từ một khoản chi', 'From a spend') : L('Nhớ lại', 'Remember');
-    var sub = isExp ? L('Một khoản chi đã thành kỷ niệm 📸', 'A spend that became a memory 📸') : esc(r.meta || '');
-    html += '<button class="hbeat" onclick="openMemory(' + i + ')">' + hThumb(r.cls, r.src, r.emoji)
-      + '<div class="hb-body"><div class="hb-eye">' + eye + '</div><div class="hb-title">' + esc(r.cap) + '</div>'
-      + '<div class="hb-sub">' + sub + '</div>' + (by ? '<div class="hb-by">' + by + '</div>' : '') + '</div></button>';
-  });
-
-  /* ---- the quiet look-ahead whisper ---- */
+  /* ============ SẮP TỚI ============ */
+  var st = '', firstUp = null;
+  if(up.length){
+    firstUp = up[0]; var e = evs[firstUp], dl = daysLeft(e.d);
+    var emm = (e.memories && e.memories[0]) || null, eSrc = (emm && emm.src) ? emm.src : '', eCls = (emm && emm.cls) ? emm.cls : 'ph-hike';
+    if(e.target > 0){                                   // saving together → a progress widget
+      var pct = Math.min(100, Math.round(e.saved / e.target * 100));
+      st += fProgress({ cls: eCls, src: eSrc, emoji: e.emoji, title: esc(e.name), sub: L('còn ' + dl + ' ngày · cả nhà đang để dành', dl + ' days · saving together'), pct: pct, avlbl: L('cả nhà cùng góp', 'saving together'), act: 'openEvent(&#39;' + escAttr(firstUp) + '&#39;)' });
+    } else {                                            // pure anticipation → a countdown
+      st += fCountdown({ n: dl, unit: L('ngày nữa', 'days'), title: esc(e.name) + (e.emoji ? ' ' + esc(e.emoji) : ''), sub: L('điều cả nhà đang mong 💛', 'something to look forward to 💛'), act: 'openEvent(&#39;' + escAttr(firstUp) + '&#39;)' });
+    }
+  }
+  // dream a goal — finances comfortable and no active goal yet
+  if(m && m.budget > 0 && m.spent <= m.budget && gord.length === 0){
+    st += fActRow({ ico: '🎯', eye: L('Cả nhà đang thong thả', 'Comfortable this month'), title: L('Cùng mơ một điều lớn — đặt mục tiêu chung?', 'Dream big — set a shared goal?'), act: 'openGoal()' });
+  }
+  // a quiet look-ahead whisper to the next occasion
+  var nk = up.length > 1 ? up[1] : null;
   if(nk){
     var e2 = evs[nk], dl2 = daysLeft(e2.d);
-    html += '<button class="hlook" onclick="openEvent(&#39;' + escAttr(nk) + '&#39;)">' + esc(e2.emoji) + ' '
-      + L('Sắp tới', 'Coming up') + ': <b>' + esc(e2.name) + '</b> · '
-      + (dl2 === 0 ? L('hôm nay', 'today') : L('còn ' + dl2 + ' ngày', dl2 + ' days')) + '</button>';
+    st += fWhisper({ ico: esc(e2.emoji || '🗓️'), html: L('Rồi tới <b>' + esc(e2.name) + '</b> · còn ' + dl2 + ' ngày', 'Then <b>' + esc(e2.name) + '</b> · ' + dl2 + ' days'), act: 'openEvent(&#39;' + escAttr(nk) + '&#39;)' });
   }
-
-  /* ---- #11 seed the feed: a gentle nudge only when it's genuinely thin ---- */
-  if(memRecords.length > 0 && memRecords.length < 3){
-    html += '<button class="hseed" onclick="openSheet(&#39;sheet-add&#39;)">📸 ' + L('Hôm nay có gì đáng nhớ không?', 'Anything to remember today?') + '</button>';
-  }
+  if(st) html += _sectionH(L('Sắp tới', 'Coming up'), 'goMoments(&#39;plans&#39;)') + st;
 
   setHTMLIf(box, html);
-  try{ runWeatherFx(); }catch(e){}                 // play any just-set / just-arrived mood animations
+  try{ runWeatherFx(); }catch(e){}                       // play any just-set / just-arrived mood animations
 }
 window.renderHome = renderHome;
 
