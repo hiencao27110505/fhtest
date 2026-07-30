@@ -213,10 +213,14 @@ shared, then the caring `.woffer` offers. All ambient motion is gated by
 
 **The feed below is standard HIG widgets on the shared canvas** — the house lives
 in the hero; the feed uses the same kit as the tabs, plus these home components:
-the **widget grid** (`.wgrid`/`.wtile`: 2-col iOS-small-widget tiles — budget with
-a Fitness-style mini ring `_ringSVG`, "Our house" savings + tree stage, next-plan
-countdown, album count + `.wt-mosaic` micro-mosaic; every tile is glanceable when
-there's data and an invitation `＋` when there isn't), the **immersive photo card**
+the **widget grid** (`.wgrid`/`.wtile`: 2-col iOS-small-widget tiles. Anatomy:
+header = tinted glyph chip `.wt-ch` reusing the tab bar's SVG icons + sentence-case
+label; value row = big tabular number + one drawn accessory (`_ringSVG` Fitness-style
+ring, `_treeSVG` staged tree matching the scene's tree, `.wt-emo` content-emoji chip,
+`.wt-mosaic` micro-mosaic); caption = quiet one-liner, no decorative emoji. Every
+tile is glanceable with data and a `.wt-add` ＋ invitation without. When the hearth
+is absent the grid takes its straddle: `.home-body > .wgrid:first-child` docks into
+the lawn), the **immersive photo card**
 (`.bigphoto`, Photos-featured style: full-bleed media, scrim, eyebrow/title/sub,
 `_byChip` author chip, optional progress + white CTA pill), **quick actions**
 (`.qgrid`/`.qtile`: SVG icons in gradient circles, mirroring the add-sheet's `.qi`

@@ -154,24 +154,33 @@
 
 /* ---------- widget grid (iOS small-widget tiles) ---------- */
 .wgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 16px 14px}
-.wtile{display:flex;flex-direction:column;justify-content:space-between;gap:8px;min-height:104px;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);padding:13px 14px;text-align:left;font:inherit;cursor:pointer;min-width:0}
+/* when the hearth card is absent, the grid itself docks into the lawn */
+.home-body > .wgrid:first-child{margin-top:-26px;position:relative;z-index:2}
+.wtile{display:flex;flex-direction:column;justify-content:space-between;gap:9px;min-height:116px;background:var(--white);border:0;border-radius:20px;box-shadow:var(--shadow-card);padding:13px 14px 12px;text-align:left;font:inherit;cursor:pointer;min-width:0}
 .wtile:active{transform:scale(.98)}
-.wt-head{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+/* header: a tinted glyph chip + a quiet sentence-case label (like widget app marks) */
+.wt-head{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:650;letter-spacing:-.01em;color:var(--muted);min-width:0}
+.wt-ch{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.wt-ch svg{width:15px;height:15px}
+.wt-ch.c-brand{background:var(--brand-tint);color:var(--brand-ink)}
+.wt-ch.c-good{background:var(--good-tint);color:var(--good)}
+.wt-ch.c-amber{background:var(--amber-tint);color:var(--amber)}
+.wt-ch.c-rose{background:var(--danger-tint);color:var(--cat-dining)}
 .wt-mid{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
 .wt-big{font-family:var(--disp);font-size:23px;font-weight:800;letter-spacing:-.6px;color:var(--ink);line-height:1.05;font-variant-numeric:tabular-nums;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wt-big .u{font-family:var(--text);font-size:12px;font-weight:600;letter-spacing:0;color:var(--muted)}
 .cur-vnd .wt-big{font-size:18px;letter-spacing:-.3px}
-.wt-sub{font-size:11.5px;font-weight:600;color:var(--muted);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wt-sub{font-size:12px;font-weight:500;color:var(--muted);line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wt-sub b{color:var(--ink-2);font-weight:650}
-/* mini progress ring (Fitness-style; tokens keep it re-tintable) */
+/* accessories: ring · drawn tree · event-emoji chip · photo mosaic · add glyph */
 .wt-ring{width:44px;height:44px;flex:0 0 auto}
 .wt-ring .tr{stroke:var(--fill-neutral)}
-/* mini 2×2 album mosaic */
-.wt-mosaic{display:grid;grid-template-columns:1fr 1fr;gap:3px;border-radius:9px;overflow:hidden;width:57px;flex:0 0 auto}
-.wt-mosaic i{display:block;height:27px;background-size:cover;background-position:center;position:relative}
-.wt-mosaic i em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-style:normal}
-/* the savings tree stage (ties the tile to the house's tree) */
-.wt-tree{font-size:27px;line-height:1;flex:0 0 auto}
+.wt-treesvg{width:44px;height:44px;flex:0 0 auto}
+.wt-emo{width:42px;height:42px;border-radius:12px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto}
+.wt-add{width:32px;height:32px;border-radius:50%;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;flex:0 0 auto}
+.wt-mosaic{display:grid;grid-template-columns:1fr 1fr;gap:2px;border-radius:10px;overflow:hidden;width:44px;flex:0 0 auto}
+.wt-mosaic i{display:block;height:21px;background-size:cover;background-position:center;position:relative}
+.wt-mosaic i em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-style:normal}
 
 /* ---------- quick actions (the add-sheet's icon language, on the wall) ---------- */
 .qgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 16px 14px}
