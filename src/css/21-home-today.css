@@ -238,45 +238,58 @@
 .occ-card .bp-prog{background:var(--fill-neutral);margin-top:12px}
 .occ-card .bp-prog i{background:var(--brand)}
 .occ-card .bp-cta{background:var(--grad-brand);color:#fff;box-shadow:0 4px 14px var(--brand-glow);margin-top:13px}
-/* shared sky pieces (sized for the band) */
-.occ .oc-sun{position:absolute;top:10px;left:16px;width:30px;height:30px;border-radius:50%;background:#fff3c9;box-shadow:0 0 24px 7px rgba(255,244,190,.55)}
-.occ .oc-cloud{position:absolute;width:64px;height:17px;border-radius:17px;background:rgba(255,255,255,.8)}
+/* shared sky pieces (sized for the band) — same construction as the hero scene */
+.occ .oc-sun{position:absolute;top:12px;left:18px;width:32px;height:32px;border-radius:50%;background:#fff3c9;box-shadow:0 0 22px 6px rgba(255,244,190,.55)}
+.occ .oc-cloud{position:absolute;width:64px;height:17px;border-radius:17px;background:rgba(255,255,255,.85)}
 .occ .oc-cloud::before{content:'';position:absolute;left:11px;top:-9px;width:25px;height:20px;border-radius:50%;background:inherit}
 .occ .oc-cloud::after{content:'';position:absolute;left:31px;top:-6px;width:20px;height:15px;border-radius:50%;background:inherit}
-.occ .oc-cloud.a{top:12px;right:20%}
-.occ .oc-cloud.b{top:42%;left:40%;width:46px;opacity:.75}
+.occ .oc-cloud.a{top:14px;right:18%}
+.occ .oc-cloud.b{top:38%;left:38%;width:44px;opacity:.7}
+/* land: an explicit grass band, with three overlapping hill tones behind it (like the scene) */
+.occ .oc-grass{position:absolute;left:0;right:0;bottom:0;height:30%;background:linear-gradient(180deg,#86b478,#77a468)}
 .occ .oc-hill{position:absolute;border-radius:50%}
-/* travel — hills, an open road on the horizon, a little car on its way */
-.occ-travel{background:linear-gradient(180deg,#7fb9e2,#cfe8f7 70%)}
-.occ-travel .oc-hill.h1{left:-50px;bottom:44%;width:230px;height:42px;background:#8fbf83}
-.occ-travel .oc-hill.h2{right:-60px;bottom:42%;width:260px;height:48px;background:#6da86b}
-.occ-travel .oc-road{position:absolute;left:0;right:0;bottom:22%;height:22px;background:#7b8794;box-shadow:0 30vh 0 30vh #86b478}
-.occ-travel .oc-road::before{content:'';position:absolute;left:0;right:0;top:50%;height:2.5px;margin-top:-1.25px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.85) 0 15px,transparent 15px 32px)}
-.oc-car{position:absolute;bottom:calc(22% + 5px);left:16%;width:56px;height:25px}
-.oc-car .bd{position:absolute;left:0;right:0;bottom:6px;height:13px;border-radius:7px;background:#e0604c}
-.oc-car .cab{position:absolute;left:11px;right:17px;bottom:17px;height:10px;border-radius:6px 8px 2px 2px;background:#f0937d}
-.oc-car .w{position:absolute;bottom:1px;width:11px;height:11px;border-radius:50%;background:#333c48;box-shadow:inset 0 0 0 3px #4d5666}
+.occ .oc-hill.back{left:24%;bottom:24%;width:240px;height:64px;background:#a9d09a}
+.occ .oc-hill.h1{left:-56px;bottom:22%;width:230px;height:58px;background:#8fbf83}
+.occ .oc-hill.h2{right:-64px;bottom:20%;width:260px;height:66px;background:#6da86b}
+/* travel — an open road across the grass, a little car on its way */
+.occ-travel{background:linear-gradient(180deg,#7fb9e2,#cfe8f7 62%)}
+.occ-travel .oc-road{position:absolute;left:0;right:0;bottom:11%;height:17px;background:#7b8794}
+.occ-travel .oc-road::before{content:'';position:absolute;left:0;right:0;top:50%;height:2.5px;margin-top:-1.25px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.8) 0 14px,transparent 14px 30px)}
+.oc-car{position:absolute;bottom:calc(11% + 3px);left:17%;width:58px;height:27px}
+.oc-car .sh{position:absolute;left:1px;right:1px;bottom:-4px;height:7px;border-radius:50%;background:rgba(35,55,35,.16)}
+.oc-car .cab{position:absolute;left:9px;right:15px;bottom:15px;height:12px;border-radius:7px 9px 2px 2px;background:#e0604c}
+.oc-car .bd{position:absolute;left:0;right:0;bottom:5px;height:13px;border-radius:7px;background:#e0604c}
+.oc-car .win{position:absolute;left:13px;bottom:17px;width:15px;height:8px;border-radius:3px 4px 1px 1px;background:#cfe8f5}
+.oc-car .w{position:absolute;bottom:0;width:12px;height:12px;border-radius:50%;background:#333c48}
+.oc-car .w::after{content:'';position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#9aa4b2}
 .oc-car .w.wa{left:7px}
 .oc-car .w.wb{right:7px}
-/* party — bunting, bobbing balloons, confetti */
-.occ-party{background:linear-gradient(180deg,#ffe3c2,#fff3e2 78%)}
-.oc-bunting{position:absolute;left:0;top:6px;width:100%;height:48px}
-.oc-bal{position:absolute;width:22px;height:27px;border-radius:50% 50% 50% 50%/46% 46% 54% 54%}
-.oc-bal::after{content:'';position:absolute;left:50%;top:100%;width:1.5px;height:24px;background:rgba(110,80,60,.35)}
-.oc-conf{position:absolute;width:4.5px;height:4.5px;border-radius:50%;opacity:.65}
-/* outing — a park: the scene's tree and a kite in the wind */
-.occ-outing{background:linear-gradient(180deg,#8fc3e8,#d8ecf8 72%)}
-.occ-outing .oc-hill.h1{left:-60px;bottom:32%;width:250px;height:46px;background:#8fbf83}
-.occ-outing .oc-hill.h2{right:-70px;bottom:28%;width:280px;height:54px;background:#6da86b;box-shadow:0 30vh 0 30vh #86b478}
-.oc-tree{position:absolute;left:11%;bottom:30%;width:54px;height:64px}
+/* outing — a park: the scene's tree, a kite, a picnic laid out on the grass */
+.occ-outing{background:linear-gradient(180deg,#8fc3e8,#d8ecf8 66%)}
+.oc-tree{position:absolute;left:11%;bottom:24%;width:54px;height:64px}
 .oc-tree .tr{position:absolute;left:50%;bottom:0;width:8px;height:24px;margin-left:-4px;border-radius:4px;background:#7d5f45}
 .oc-tree i:not(.tr){position:absolute;border-radius:50%;background:var(--brand-2)}
 .oc-tree .f1{left:9px;top:0;width:36px;height:36px}
 .oc-tree .f2{left:0;top:22px;width:22px;height:22px}
 .oc-tree .f3{right:2px;top:20px;width:26px;height:26px}
-.oc-kite{position:absolute;top:12%;right:20%;width:24px;height:30px;transform:rotate(5deg)}
+.oc-kite{position:absolute;top:12%;right:20%;width:24px;height:30px;transform:rotate(6deg)}
 .oc-kite .bd{position:absolute;left:0;top:0;width:24px;height:30px;background:#f0784f;clip-path:polygon(50% 0,100% 42%,50% 100%,0 42%)}
 .oc-kite .tl{position:absolute;left:50%;top:100%;width:1.5px;height:20px;background:rgba(110,80,60,.4)}
+.oc-mat{position:absolute;right:15%;bottom:7%;width:62px;height:24px;border-radius:5px;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.5) 0 7px,transparent 7px 14px),repeating-linear-gradient(0deg,rgba(255,255,255,.5) 0 7px,transparent 7px 14px),#e2685a}
+.oc-bsk{position:absolute;right:24%;bottom:calc(7% + 14px);width:17px;height:12px;border-radius:3px 3px 6px 6px;background:#a5764d}
+.oc-bsk::before{content:'';position:absolute;left:2px;right:2px;top:-7px;height:10px;border:2.5px solid #8a6140;border-bottom:0;border-radius:8px 8px 0 0}
+/* party — bunting, balloons with a catch-light, confetti, a gift on the floor */
+.occ-party{background:linear-gradient(180deg,#ffe3c2,#fff3e2 74%)}
+.oc-pground{position:absolute;left:0;right:0;bottom:0;height:22%;background:linear-gradient(180deg,#f3ddba,#eccfa4)}
+.oc-bunting{position:absolute;left:0;top:6px;width:100%;height:48px}
+.oc-bal{position:absolute;width:22px;height:27px;border-radius:50% 50% 50% 50%/46% 46% 54% 54%}
+.oc-bal i{position:absolute;left:5px;top:4px;width:6px;height:8px;border-radius:50%;background:rgba(255,255,255,.45)}
+.oc-bal::after{content:'';position:absolute;left:50%;top:100%;width:1.5px;height:24px;background:rgba(110,80,60,.35)}
+.oc-conf{position:absolute;width:4.5px;height:4.5px;border-radius:50%;opacity:.65}
+.oc-gift{position:absolute;right:7%;bottom:calc(22% - 5px);width:26px;height:19px;border-radius:3px;background:#8f6fd0}
+.oc-gift .lid{position:absolute;left:-2px;right:-2px;top:-6px;height:7px;border-radius:2.5px;background:#7d5cbf}
+.oc-gift .rib{position:absolute;left:50%;top:-6px;bottom:0;width:4px;margin-left:-2px;background:rgba(255,255,255,.55)}
 
 /* HIG: honor Reduce Motion — the greeting entrance slide and every ambient scene
    animation are gated here (the weather FX and .view fade are gated elsewhere). */

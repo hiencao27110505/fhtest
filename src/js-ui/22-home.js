@@ -206,27 +206,31 @@ function occCover(name, emoji){
   if(has(['sinh nhật','sinh nhat','birthday','tiệc','tiec','party','cưới','cuoi','wedding','kỷ niệm','ky niem','anniversary','tết','tet ','noel','giáng sinh','giang sinh','christmas','trung thu','🎂','🥳','🎉','🎊','🎁','🎄','💍','👰'])) return 'party';
   return 'outing';
 }
-/* the cover's layers — drawn with the house scene's own shapes */
+/* the cover's layers — drawn with the house scene's own shapes.
+   All fills are explicit elements (no box-shadow tricks — Safari paints those
+   differently and floods the band). Static by design. */
 function occHTML(type){
+  var sky = '<i class="oc-sun"></i><i class="oc-cloud a"></i><i class="oc-cloud b"></i>';
+  var land = '<i class="oc-hill back"></i><i class="oc-hill h1"></i><i class="oc-hill h2"></i><i class="oc-grass"></i>';
   if(type === 'travel'){
-    return '<i class="oc-sun"></i><i class="oc-cloud a"></i><i class="oc-cloud b"></i>'
-      + '<i class="oc-hill h1"></i><i class="oc-hill h2"></i><i class="oc-road"></i>'
-      + '<span class="oc-car"><span class="cab"></span><span class="bd"></span><span class="w wa"></span><span class="w wb"></span></span>';
+    return sky + land + '<i class="oc-road"></i>'
+      + '<span class="oc-car"><i class="sh"></i><i class="cab"></i><i class="bd"></i><i class="win"></i><i class="w wa"></i><i class="w wb"></i></span>';
   }
   if(type === 'party'){
     var cols = ['#e0604c', '#f0b450', 'var(--brand)', '#8f6fd0'], flags = '', pts = [[8,5],[22,9.5],[36,12.5],[50,13.5],[64,12.5],[78,9.5],[92,5]];
     for(var i = 0; i < pts.length; i++){ var x = pts[i][0], y = pts[i][1]; flags += '<polygon points="' + (x-3.2) + ',' + y + ' ' + (x+3.2) + ',' + y + ' ' + x + ',' + (y+7) + '" fill="' + cols[i % 4] + '"/>'; }
-    var conf = '', cps = [[12,60],[26,48],[40,66],[58,52],[73,64],[87,50]];
+    var conf = '', cps = [[12,56],[26,44],[40,62],[58,48],[73,60],[87,46]];
     for(var j = 0; j < cps.length; j++){ conf += '<i class="oc-conf" style="left:' + cps[j][0] + '%;top:' + cps[j][1] + '%;background:' + cols[j % 4] + '"></i>'; }
-    return '<svg class="oc-bunting" viewBox="0 0 100 26" preserveAspectRatio="none"><path d="M0 4 Q 50 22 100 4" fill="none" stroke="rgba(120,90,70,.4)" stroke-width="1" vector-effect="non-scaling-stroke"/>' + flags + '</svg>'
-      + '<span class="oc-bal" style="left:14%;top:40%;background:#e0604c"></span>'
-      + '<span class="oc-bal" style="left:28%;top:52%;background:#f0b450;animation-delay:1.3s"></span>'
-      + '<span class="oc-bal" style="right:16%;top:42%;background:#8f6fd0;animation-delay:.6s"></span>' + conf;
+    return '<i class="oc-pground"></i><svg class="oc-bunting" viewBox="0 0 100 26" preserveAspectRatio="none"><path d="M0 4 Q 50 22 100 4" fill="none" stroke="rgba(120,90,70,.4)" stroke-width="1" vector-effect="non-scaling-stroke"/>' + flags + '</svg>'
+      + '<span class="oc-bal" style="left:15%;top:34%;background:#e0604c"><i></i></span>'
+      + '<span class="oc-bal" style="left:31%;top:48%;background:#f0b450"><i></i></span>'
+      + '<span class="oc-bal" style="right:17%;top:36%;background:#8f6fd0"><i></i></span>' + conf
+      + '<span class="oc-gift"><i class="lid"></i><i class="rib"></i></span>';
   }
-  return '<i class="oc-sun"></i><i class="oc-cloud a"></i>'
-    + '<i class="oc-hill h1"></i><i class="oc-hill h2"></i>'
+  return sky + land
     + '<span class="oc-tree"><i class="tr"></i><i class="f1"></i><i class="f2"></i><i class="f3"></i></span>'
-    + '<span class="oc-kite"><i class="bd"></i><i class="tl"></i></span>';
+    + '<span class="oc-kite"><i class="bd"></i><i class="tl"></i></span>'
+    + '<span class="oc-mat"></span><span class="oc-bsk"></span>';
 }
 function bigPhoto(o){   // {cls,src,subj,who,eye,title,sub,pct,cta:{label},tall,act}
   var cta = o.cta ? '<span class="bp-cta">' + o.cta.label + '</span>' : '';

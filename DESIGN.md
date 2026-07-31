@@ -240,6 +240,9 @@ the caption below** (Journal-style; ink text, brand progress + filled CTA) — n
 white-on-scrim over the art; photo cards keep the dark-scrim overlay layout. Covers
 are deliberately STATIC — no animation (lighter, faster, stabler; motion was tried
 and removed). Only the hero scene animates, gated by `prefers-reduced-motion`.
+⚠️ Cover fills must be EXPLICIT elements (`.oc-grass`, `.oc-pground`) — never a
+huge-spread `box-shadow` fill hack: Safari paints those spreads differently than
+Chromium and can flood the whole band solid, blanking the illustration on iOS.
 
 **Mood FX are session-scoped.** The weather-FX "seen" map lives in memory only —
 every app open (and any return after 15+ min in the background) REPLAYS today's
