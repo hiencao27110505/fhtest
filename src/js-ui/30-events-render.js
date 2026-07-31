@@ -107,33 +107,33 @@ function renderEvents(){
           +'<div class="evbar"><i style="width:'+pct+'%"></i></div></div></div>');
   });
   setHTMLIf('home-events', rows||emptyPlansHTML(true));   // Home = compact glance (dashboard card)
-  // Upcoming occasions render as planned "memories-in-waiting": the plan-trigger,
-  // filled in. Same open-ring dot; the card's brand-2 border is the trigger's dashed
-  // one gone solid. This is the memory timeline, so it's pure anticipation — the
-  // funding/progress side lives in Thu Chi (renderGoals), not here.
-  var full='';
-  upS.forEach(function(k){
-    var e=events[k], dl=daysLeft(e.d);
-    var tlDate = e.noDay
-      ? '<div class="tl-date"><div class="d num" style="font-size:17px;letter-spacing:-.3px">'+moAbbr(e.d.getMonth()).toUpperCase()+'</div><div class="dl">'+L('tháng này','this month')+'</div></div>'
-      : '<div class="tl-date"><div class="d num">'+e.d.getDate()+'</div><div class="mo">'+moAbbr(e.d.getMonth())+'</div><div class="dl">'+(dl===0?L('hôm nay','today'):L('còn '+dl+'n','in '+dl+'d'))+'</div></div>';
+  // Upcoming occasions render as planned "memories-in-waiting": an open rail dot, the
+  // card's brand-2 border. This is the memory timeline, so it's pure anticipation — the
+  // funding/progress side lives in Thu Chi (renderGoals), not here. The soonest plan
+  // (the one nearest the past boundary) earns a small flag icon to draw the eye.
+  var nearestKey = upS.length ? upS[0] : null;
+  function planCard(k){
+    var e=events[k], dl=daysLeft(e.d), flagged=(k===nearestKey);
     var wait = dl===0 ? L('Hôm nay rồi','The day is here')
              : dl===1 ? L('Ngày mai','Tomorrow')
              : L('Sắp diễn ra','Coming up');
-    full+='<div class="tl-item tl-plan" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+tlDate
-      +'<div class="tl-rail"><span class="tl-dot tl-dot-open"></span></div>'
-      +'<div class="tl-card tl-plan-card">'
-        +'<div class="tl-top"><span class="tl-emoji">'+esc(e.emoji)+'</span><span class="tl-name">'+esc(e.name)+'</span></div>'
-        +'<div class="tl-wait">'+wait+'</div>'
-      +'</div></div>';
-  });
-  // Upcoming plans now lead the Đáng nhớ occasions timeline (no separate "Sắp tới").
-  window._upItems = full;
-  // ---- Past = the memory story: achieved occasions + every photo-expense ----
-  // A logged expense that has photo(s) is itself a memory, so each one is its OWN
-  // node (by the expense, not per photo), interleaved with occasions in strict
-  // reverse-chronological order so the rail reads as one continuous story. Occasions
-  // still needing photos keep the "add photos" nudge; expenses always carry theirs.
+    return '<div class="tl-card tl-plan-card'+(flagged?' tl-flagged':'')+'" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'
+      +'<div class="tl-top"><span class="tl-emoji">'+esc(e.emoji)+'</span><span class="tl-name">'+esc(e.name)+'</span>'
+        +(flagged?'<svg class="tl-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3v18"/><path d="M6 4h12l-3 4 3 4H6"/></svg>':'')
+      +'</div>'
+      +'<div class="tl-wait">'+wait+'</div>'
+    +'</div>';
+  }
+  function futureDateCol(d){
+    var dl=daysLeft(d);
+    return '<div class="tl-date"><div class="d num">'+d.getDate()+'</div><div class="mo">'+moAbbr(d.getMonth())+'</div><div class="dl">'+(dl===0?L('hôm nay','today'):L('còn '+dl+'n','in '+dl+'d'))+'</div></div>';
+  }
+  // ---- The memory story: upcoming plans + achieved occasions + every photo-expense ----
+  // A logged expense that has photo(s) is itself a memory, so each one is its OWN node (by
+  // the expense, not per photo). Every node — future and past alike — sorts into ONE
+  // date-descending rail (furthest-future at top, oldest-past at bottom) and GROUPS BY DAY:
+  // one date column + one rail dot owns a stack of that day's cards (iOS Photos by-day), so
+  // a date never repeats down the rail — even when a future plan and a past memory share it.
   // (Mirror events for photo-expenses stay excluded from `mem` above — the expense is
   // surfaced straight from the ledger here, exactly as the Album does, so a photo is
   // never counted twice.)
@@ -149,7 +149,7 @@ function renderEvents(){
         : '<span class="tl-ph tile '+esc((m&&m.cls)||'ph-park')+'">'+esc((m&&m.emoji)||'📸')+more+'</span>';
     }).join('')+'</div>';
   }
-  // Both timeline cards defer to the SAME rich memory view (openMemoryByRef → openMemory),
+  // Both past cards defer to the SAME rich memory view (openMemoryByRef → openMemory),
   // which shows the item's photos + an "Open event / Open expense" button. A photo-less
   // occasion has no memory record, so it still opens the event detail to add photos.
   function occasionCard(k){
@@ -164,27 +164,32 @@ function renderEvents(){
   function expenseCard(t){    // one photo-expense = one memory card → the shared memory view
     return '<div class="tl-card" onclick="openMemoryByRef(&#39;expense&#39;,&#39;'+escAttr(t.id)+'&#39;)"><div class="tl-top"><span class="tl-emoji">'+esc(t.ico||'📸')+'</span><span class="tl-name">'+esc(t.note||L('Khoản chi','Expense'))+'</span></div>'+photoStrip(t.photos, t.note)+'</div>';
   }
-  // Collect every memory (occasion + photo-expense) newest-first, then GROUP BY DAY: one
-  // date column + one rail dot owns a stack of that day's cards (iOS Photos by-day), so a
-  // date never repeats down the rail.
   var memNodes=[];
-  mem.forEach(function(k){ memNodes.push({ d: events[k].d, card: occasionCard(k) }); });
-  (window.txns||[]).forEach(function(t){ if(t.photos && t.photos.length) memNodes.push({ d: txPhotoDate(t), card: expenseCard(t) }); });
-  memNodes.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });   // newest first
+  upS.forEach(function(k){ memNodes.push({ d: events[k].d, card: planCard(k), future:true }); });
+  mem.forEach(function(k){ memNodes.push({ d: events[k].d, card: occasionCard(k), future:false }); });
+  (window.txns||[]).forEach(function(t){ if(t.photos && t.photos.length) memNodes.push({ d: txPhotoDate(t), card: expenseCard(t), future:false }); });
+  memNodes.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });   // furthest-future → today → oldest-past
   var dayGroups=[], byDay={};
   memNodes.forEach(function(n){
     var key = n.d ? (n.d.getFullYear()+'-'+n.d.getMonth()+'-'+n.d.getDate()) : 'x';
-    if(!byDay[key]){ byDay[key]={ d:n.d, cards:[] }; dayGroups.push(byDay[key]); }
+    if(!byDay[key]){ byDay[key]={ d:n.d, cards:[], future:false }; dayGroups.push(byDay[key]); }
     byDay[key].cards.push(n.card);
+    if(n.future) byDay[key].future=true;   // a plan sharing today's date keeps the day "open"
   });
-  var plItems=dayGroups.map(function(g){
-    return '<div class="tl-item tl-day">'+pastDateCol(g.d)
-      +'<div class="tl-rail"><span class="tl-dot done"></span></div>'
+  function dayGroupHTML(g){
+    return '<div class="tl-item tl-day">'+(g.future?futureDateCol(g.d):pastDateCol(g.d))
+      +'<div class="tl-rail"><span class="tl-dot'+(g.future?' tl-dot-open':' done')+'"></span></div>'
       +'<div class="tl-stack">'+g.cards.join('')+'</div></div>';
-  });
+  }
+  // Upcoming day-groups (furthest-future first) always render in full; only the past
+  // portion is preview-limited (see applyPastPreview) so a long timeline never buries the
+  // Album section below it. The split point is the first pure-past day group.
+  var splitIdx=dayGroups.length;
+  for(var gi=0; gi<dayGroups.length; gi++){ if(!dayGroups[gi].future){ splitIdx=gi; break; } }
+  window._upItems = dayGroups.slice(0,splitIdx).map(dayGroupHTML).join('');
+  window._pastItems = dayGroups.slice(splitIdx).map(dayGroupHTML);
   // Header shows whenever there is anything in the story (upcoming plans or past memories).
-  var ph=document.getElementById('past-head'); if(ph)ph.style.display=(plItems.length||upS.length)?'':'none';
-  window._pastItems=plItems;
+  var ph=document.getElementById('past-head'); if(ph)ph.style.display=dayGroups.length?'':'none';
   applyPastPreview();   // renders upcoming + past + the plan-trigger node
   // Home memories: cover tiles up top (events + expenses, newest 10) + a full-size photo
   // feed below the expenses (up to 50, lazy-loaded), "See all" → Memories tab.

@@ -109,7 +109,7 @@ var EN_DEFAULT={
   /* finance view */
   finHead:'Finance', finSub:"The family's spending, income and savings.", incomeLbl:'In', outLbl:'Out',
   /* moments view */
-  momentsTitle:'Moments', momentsSub:"The family's plans, memories and album.", recentMemories:'Recent memories', addPhotos:'Add photos',
+  momentsTitle:'Moments', momentsSub:"The family's plans, memories and album.", recentMemories:'Timeline', addPhotos:'Add photos',
   /* shared buttons */
   cancel:'Cancel', save:'Save', add:'Add', done:'Done', create:'Create', send:'Send', back:'Back',
   /* add sheet */
@@ -213,7 +213,7 @@ var I18N={
     /* finance view */
     finHead:'Tài chính', finSub:'Chi tiêu, thu nhập và tiết kiệm của cả nhà.', incomeLbl:'Thu', outLbl:'Chi',
     /* moments view */
-    momentsTitle:'Khoảnh khắc', momentsSub:'Dự định, kỷ niệm và album của cả nhà.', recentMemories:'Kỷ niệm gần đây', addPhotos:'Thêm ảnh',
+    momentsTitle:'Khoảnh khắc', momentsSub:'Dự định, kỷ niệm và album của cả nhà.', recentMemories:'Dòng thời gian', addPhotos:'Thêm ảnh',
     /* shared buttons */
     cancel:'Huỷ', save:'Lưu', add:'Thêm', done:'Xong', create:'Tạo', send:'Gửi', back:'Quay lại',
     /* add sheet */

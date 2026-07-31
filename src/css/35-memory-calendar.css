@@ -57,6 +57,11 @@
    same brand-2, gone from dashed to SOLID — and it's flatter than a settled photo
    memory (no shadow). So the rail reads future(hollow) → past(filled) → add(hollow). */
 .tl-plan-card{border:1.5px solid var(--brand-2);box-shadow:none}
-.tl-plan:active .tl-plan-card{border-color:var(--brand);background:var(--brand-tint)}
+.tl-plan-card:active{border-color:var(--brand);background:var(--brand-tint)}
 .tl-wait{font-size:13px;font-weight:500;letter-spacing:-.01em;color:var(--muted);margin-top:3px}
+/* Nearest upcoming plan — the one about to tip from "future" into "past" — earns a
+   subtle flag: solid brand border (vs the default brand-2) + a small outline flag icon,
+   no fill, so it draws the eye without shouting. */
+.tl-plan-card.tl-flagged{border-color:var(--brand)}
+.tl-flag{width:13px;height:13px;flex-shrink:0;margin-left:auto;color:var(--brand)}
 .btn-line:active{transform:scale(.99)}
