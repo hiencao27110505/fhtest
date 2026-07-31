@@ -237,8 +237,9 @@ road, a little car driving across), `party` (bunting, bobbing balloons, confetti
 `outing` (the scene's tree + a kite) — drawn with the house scene's shapes and the
 sanctioned illustration hexes. Illustrated `.occ-card`s use an **art band on top and
 the caption below** (Journal-style; ink text, brand progress + filled CTA) — never
-white-on-scrim over the art; photo cards keep the dark-scrim overlay layout. Cover
-motion (car, clouds, balloons, kite) is gated by `prefers-reduced-motion`.
+white-on-scrim over the art; photo cards keep the dark-scrim overlay layout. Covers
+are deliberately STATIC — no animation (lighter, faster, stabler; motion was tried
+and removed). Only the hero scene animates, gated by `prefers-reduced-motion`.
 
 **Mood FX are session-scoped.** The weather-FX "seen" map lives in memory only —
 every app open (and any return after 15+ min in the background) REPLAYS today's

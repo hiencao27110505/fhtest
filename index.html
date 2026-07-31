@@ -469,9 +469,8 @@ input{font-family:inherit}
 .occ .oc-cloud{position:absolute;width:64px;height:17px;border-radius:17px;background:rgba(255,255,255,.8)}
 .occ .oc-cloud::before{content:'';position:absolute;left:11px;top:-9px;width:25px;height:20px;border-radius:50%;background:inherit}
 .occ .oc-cloud::after{content:'';position:absolute;left:31px;top:-6px;width:20px;height:15px;border-radius:50%;background:inherit}
-.occ .oc-cloud.a{top:12px;right:20%;animation:occ-drift 70s linear infinite}
-.occ .oc-cloud.b{top:42%;left:40%;width:46px;opacity:.75;animation:occ-drift 95s linear infinite reverse}
-@keyframes occ-drift{from{transform:translateX(-30px)}to{transform:translateX(150px)}}
+.occ .oc-cloud.a{top:12px;right:20%}
+.occ .oc-cloud.b{top:42%;left:40%;width:46px;opacity:.75}
 .occ .oc-hill{position:absolute;border-radius:50%}
 /* travel — hills, an open road on the horizon, a little car on its way */
 .occ-travel{background:linear-gradient(180deg,#7fb9e2,#cfe8f7 70%)}
@@ -479,19 +478,17 @@ input{font-family:inherit}
 .occ-travel .oc-hill.h2{right:-60px;bottom:42%;width:260px;height:48px;background:#6da86b}
 .occ-travel .oc-road{position:absolute;left:0;right:0;bottom:22%;height:22px;background:#7b8794;box-shadow:0 30vh 0 30vh #86b478}
 .occ-travel .oc-road::before{content:'';position:absolute;left:0;right:0;top:50%;height:2.5px;margin-top:-1.25px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.85) 0 15px,transparent 15px 32px)}
-.oc-car{position:absolute;bottom:calc(22% + 5px);left:-80px;width:56px;height:25px;animation:oc-drive 11s linear infinite}
+.oc-car{position:absolute;bottom:calc(22% + 5px);left:16%;width:56px;height:25px}
 .oc-car .bd{position:absolute;left:0;right:0;bottom:6px;height:13px;border-radius:7px;background:#e0604c}
 .oc-car .cab{position:absolute;left:11px;right:17px;bottom:17px;height:10px;border-radius:6px 8px 2px 2px;background:#f0937d}
 .oc-car .w{position:absolute;bottom:1px;width:11px;height:11px;border-radius:50%;background:#333c48;box-shadow:inset 0 0 0 3px #4d5666}
 .oc-car .w.wa{left:7px}
 .oc-car .w.wb{right:7px}
-@keyframes oc-drive{from{transform:translateX(0)}to{transform:translateX(560px)}}
 /* party — bunting, bobbing balloons, confetti */
 .occ-party{background:linear-gradient(180deg,#ffe3c2,#fff3e2 78%)}
 .oc-bunting{position:absolute;left:0;top:6px;width:100%;height:48px}
-.oc-bal{position:absolute;width:22px;height:27px;border-radius:50% 50% 50% 50%/46% 46% 54% 54%;animation:oc-bob 4.2s ease-in-out infinite alternate}
+.oc-bal{position:absolute;width:22px;height:27px;border-radius:50% 50% 50% 50%/46% 46% 54% 54%}
 .oc-bal::after{content:'';position:absolute;left:50%;top:100%;width:1.5px;height:24px;background:rgba(110,80,60,.35)}
-@keyframes oc-bob{from{transform:translateY(0)}to{transform:translateY(-7px)}}
 .oc-conf{position:absolute;width:4.5px;height:4.5px;border-radius:50%;opacity:.65}
 /* outing — a park: the scene's tree and a kite in the wind */
 .occ-outing{background:linear-gradient(180deg,#8fc3e8,#d8ecf8 72%)}
@@ -503,17 +500,15 @@ input{font-family:inherit}
 .oc-tree .f1{left:9px;top:0;width:36px;height:36px}
 .oc-tree .f2{left:0;top:22px;width:22px;height:22px}
 .oc-tree .f3{right:2px;top:20px;width:26px;height:26px}
-.oc-kite{position:absolute;top:12%;right:20%;width:24px;height:30px;transform-origin:50% 130%;animation:oc-sway 5.5s ease-in-out infinite alternate}
+.oc-kite{position:absolute;top:12%;right:20%;width:24px;height:30px;transform:rotate(5deg)}
 .oc-kite .bd{position:absolute;left:0;top:0;width:24px;height:30px;background:#f0784f;clip-path:polygon(50% 0,100% 42%,50% 100%,0 42%)}
 .oc-kite .tl{position:absolute;left:50%;top:100%;width:1.5px;height:20px;background:rgba(110,80,60,.4)}
-@keyframes oc-sway{from{transform:rotate(-7deg)}to{transform:rotate(7deg)}}
 
 /* HIG: honor Reduce Motion — the greeting entrance slide and every ambient scene
    animation are gated here (the weather FX and .view fade are gated elsewhere). */
 @media (prefers-reduced-motion:reduce){
   #v-home.on .home-sky .greet,#v-home.on .home-sky .greet-sub{animation:none}
   .sc-cloud,.sc-star,.pol,.p-anger,.p-ask::after,.hw.fx .hw-pane{animation:none}
-  .oc-car,.oc-cloud,.oc-bal,.oc-kite{animation:none}
   .amb,.puff,.hw.fx::after{display:none}
 }
 
