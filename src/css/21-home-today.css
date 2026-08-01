@@ -228,8 +228,14 @@
    no veil. Scene-local hexes are the sanctioned illustration exception. */
 .occ-card{min-height:0;justify-content:flex-start;background:var(--white)}
 .occ-card .bp-sc{display:none}
-.occ-card .bp-ph.occ{position:relative;inset:auto;height:128px;flex:0 0 auto;overflow:hidden}
-.occ-card.tall .bp-ph.occ{height:152px}
+/* flex:0 0 128px, not "0 0 auto" — .bp-ph.occ's own children are ALL position:absolute
+   (the illustration layers), so it has zero in-flow content. flex-basis:auto asks WebKit
+   to size the item from that content, and on iOS Safari that resolves to 0 instead of
+   falling back to the explicit height, collapsing the band to nothing (same failure the
+   .bigphoto comment above describes, recurring one level deeper). An explicit px basis
+   sidesteps the auto-content computation entirely. */
+.occ-card .bp-ph.occ{position:relative;inset:auto;height:128px;flex:0 0 128px;overflow:hidden}
+.occ-card.tall .bp-ph.occ{height:152px;flex-basis:152px}
 .occ-card .bp-by{top:12px;right:12px}
 .occ-card .bp-cap{padding:13px 16px 15px;color:var(--ink)}
 .occ-card .bp-eye{color:#8a7048;text-shadow:none}
