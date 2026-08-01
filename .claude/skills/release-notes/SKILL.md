@@ -41,24 +41,38 @@ correct — do not pad. If genuinely nothing is user-facing, say so and stop.
 ### 4. Draft each entry — match the shape exactly
 Prepend to the `RELEASES` array (newest first). Shape:
 ```js
-{ id:'YYYY-MM-DD-slug', date:'YYYY-MM-DD', icon:ICO.<key>,
+{ id:'YYYY-MM-DD-slug', date:'YYYY-MM-DD', time:'HH:MM', ver:'vNNN', icon:ICO.<key>,
   vi:{ t:'…', problem:'…', sol:'…' },
   en:{ t:'…', problem:'…', sol:'…' } },
 ```
 - **`id`**: date-prefixed, unique, sortable (newest at top). Use the deploy date.
+- **`date` / `time`**: the real deploy date and 24h time. Pull them from the feature's commit:
+  `git log -1 --date=format:'%Y-%m-%d %H:%M' --format='%ad' <sha>`. Never invent a time.
+- **`ver`**: the SW build the change shipped in. For a NEW note this is the version you are about
+  to bump the SW to in step 6 (e.g. `v235`). For a backfill, read it from git at that commit:
+  `git grep -h -oE "familyhub-v[0-9]+" <sha> -- sw.js`.
 - **`icon`**: reuse a key from the `ICO` map at the top of the file (heart, calendar, timeline,
   sun, house, globe, pie, camera, grid, envelope). If none fits, add a NEW stroked SVG glyph to
   `ICO` — single-color paths, `viewBox 0 0 24 24`, SF-Symbol-like. **Never** an emoji as the icon.
 - **`t`** (title): the feature, headline voice. VN with full diacritics; EN clear.
 - **`problem`**: the pain in the **user's own POV** — what wasn't working / was annoying, before.
-- **`sol`**: what changed now. `problem` + `sol` are rendered as ONE prose paragraph, so write
-  them to flow as two sentences ("Trước đây… / Giờ…" · "Before… / Now…").
+- **`sol`**: what changed now. `problem` + `sol` render as ONE paragraph.
 
-### 5. Voice rules
+### 5. Voice rules — write like a person, not a changelog robot
+The whole point is copy that does NOT read as AI-generated. Hard rules:
+- **No em-dashes (—)** anywhere. This app deliberately removed them. Use commas or two sentences.
+- **No semicolons** in the prose.
+- **Do not** repeat the same "Problem. Giờ solution." template across every note — vary the
+  opening and rhythm so ten notes don't read as one mail-merge.
+- No marketing gloss ("seamless", "effortless", "delight", "elevate", "at a glance"), no ellipses,
+  no cute filler ("and all").
 - Vietnamese: warm, casual, family-texting tone, **full diacritics always**. English: plain, calm.
-- Problem-first, but as natural prose — **no** labels, badges, chips, dates, or consultant-ese.
-- Avoid AI-tell phrases (see the momo workspace `feedback_ai_tell_phrases` guidance). Write like a
-  person telling their family what's new, not like a changelog robot.
+- Also avoid the momo `feedback_ai_tell_phrases` consultant-ese.
+- Sanity check: read the ten descriptions aloud. If they sound like a template, rewrite.
+
+The panel shows `date · time · ver` under each title, a "You're on version vNNN" line (the running
+build, injected into the app by `build.js` from `sw.js`), and a prompt that opens the feedback
+modal. You only edit `RELEASES`/`ICO`; that chrome is already wired.
 
 ### 6. Apply, build, bump SW
 1. Edit `src/js-ui/90-release-notes.js` (the source — never hand-edit `index.html`).
