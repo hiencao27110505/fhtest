@@ -58,24 +58,20 @@
 .rx-card.compact .rx-card-main{padding:11px 12px}
 .rx-card.compact .rx-ico{width:40px;height:40px;font-size:22px}
 
-/* C · the arrival moment */
-.rx-arrive{position:absolute;inset:0;z-index:73;display:flex;align-items:center;justify-content:center;padding:26px;
-  visibility:hidden;opacity:0;transition:opacity .24s ease,visibility 0s linear .24s}
-.rx-arrive.on{visibility:visible;opacity:1;transition:opacity .24s ease}
-.rx-ar-bg{position:absolute;inset:0;border:none;background:rgba(20,12,26,.5);
-  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);cursor:pointer}
-.rx-ar-card{position:relative;background:var(--white);border-radius:24px;padding:30px 24px 22px;width:min(340px,86%);
-  text-align:center;box-shadow:var(--shadow-raised);transform:scale(.9) translateY(10px);transition:transform .3s cubic-bezier(.32,1.35,.5,1)}
-.rx-arrive.on .rx-ar-card{transform:scale(1) translateY(0)}
-.rx-ar-emoji{font-size:66px;line-height:1;animation:celPop .55s cubic-bezier(.3,1.4,.5,1);filter:drop-shadow(0 4px 10px rgba(25,16,34,.18))}
-.rx-ar-msg{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:-.4px;color:var(--ink);margin-top:16px;line-height:1.25}
-.rx-ar-more{font-size:13px;font-weight:600;color:var(--brand-ink);margin-top:7px}
-.rx-ar-tx{font-size:13.5px;color:var(--muted);font-weight:500;margin-top:9px;letter-spacing:-.01em}
-.rx-ar-btns{display:flex;flex-direction:column;gap:9px;margin-top:22px}
-.rx-ar-view{height:48px;border:none;border-radius:9999px;background:var(--brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;cursor:pointer}
-.rx-ar-view:active{transform:scale(.97)}
-.rx-ar-close{height:44px;border:none;border-radius:9999px;background:transparent;color:var(--muted);font-size:15px;font-weight:600;cursor:pointer}
+/* C · the arrival — a non-blocking tappable toast (the confetti is floatEmojis) */
+.rx-toast{position:absolute;left:50%;bottom:100px;transform:translateX(-50%) translateY(24px);z-index:80;
+  display:flex;align-items:center;gap:11px;max-width:88%;
+  background:rgba(25,16,34,.96);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  color:#fff;border:none;border-radius:16px;padding:11px 13px 11px 14px;cursor:pointer;text-align:left;
+  box-shadow:0 10px 30px rgba(25,16,34,.32);opacity:0;
+  transition:opacity .3s,transform .32s cubic-bezier(.32,.72,0,1)}
+.rx-toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.rx-toast:active{transform:translateX(-50%) translateY(0) scale(.98)}
+.rx-toast-e{font-size:26px;line-height:1;flex:0 0 auto}
+.rx-toast-b{display:flex;flex-direction:column;gap:1px;min-width:0}
+.rx-toast-msg{font-size:14px;font-weight:600;letter-spacing:-.01em;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rx-toast-cta{font-size:12px;font-weight:600;color:var(--brand-2);letter-spacing:-.01em}
+.rx-toast .chev{width:16px;height:16px;color:rgba(255,255,255,.55);flex:0 0 auto}
 @media (prefers-reduced-motion:reduce){
-  .rx-pop,.rx-opt,.rx-ar-card,.rx-burst{transition:none}
-  .rx-ar-emoji{animation:none}
+  .rx-pop,.rx-opt,.rx-burst,.rx-toast{transition:none}
 }

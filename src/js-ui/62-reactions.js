@@ -240,9 +240,10 @@ window.rxJumpTo=rxJumpTo;
 function _rxSeen(){ try{ return localStorage.getItem('fh-rx-seen')||''; }catch(e){ return ''; } }
 function _rxSetSeen(v){ try{ if(v) localStorage.setItem('fh-rx-seen', v); }catch(e){} }
 function _rxBusy(){
-  // don't cover an open sheet / modal / celebration / peek / onboarding — the moment
-  // waits and plays on the next hydrate or focus once the screen is clear
-  if(document.querySelector('.modal.on, .sheet.on, .celebrate.on, .peek.on')) return true;
+  // The arrival is a non-blocking confetti + toast now, so it can coexist with sheets
+  // and the ledger. Only hold it back from stacking on a full-screen celebration or
+  // the onboarding flow — it replays on the next hydrate once those clear.
+  if(document.querySelector('.celebrate.on')) return true;
   var ob=document.getElementById('onboarding'); if(ob && ob.offsetParent!==null) return true;   // onboarding (z-90) is up
   return false;
 }
@@ -262,26 +263,29 @@ function rxCheckArrivals(){
   rxArriveShow(fresh, mineTx);
 }
 window.rxCheckArrivals=rxCheckArrivals;
+/* The arrival is deliberately NON-blocking: emoji confetti over the whole frame
+   (plays wherever you happen to land), plus a tappable toast that deep-links to the
+   transaction. No modal — it never interrupts what you're doing. */
 function rxArriveShow(fresh, mineTx){
-  if(document.getElementById('rx-arrive') || document.hidden) return;
-  var lead=fresh[0], tx=mineTx[lead.txId], more=fresh.length-1;
-  var ov=document.createElement('div'); ov.className='rx-arrive'; ov.id='rx-arrive';
-  ov.innerHTML='<button class="rx-ar-bg" onclick="closeRxArrive()" aria-label="'+escAttr(L('Đóng','Close'))+'"></button>'
-    +'<div class="rx-ar-card">'
-      +'<div class="rx-ar-emoji">'+lead.emoji+'</div>'
-      +'<div class="rx-ar-msg">'+rxMessage(lead,tx)+'</div>'
-      +(more>0?'<div class="rx-ar-more">'+L('và '+more+' phản ứng khác','and '+more+(more===1?' more reaction':' more reactions'))+'</div>':'')
-      +(tx?'<div class="rx-ar-tx">'+esc(tx.note||L('Khoản chi','Expense'))+' · '+((typeof fmt==='function')?fmt(tx.amt):tx.amt)+'</div>':'')
-      +'<div class="rx-ar-btns">'
-        +'<button class="rx-ar-view" onclick="rxJumpTo(\''+(tx?tx._dbId:'')+'\')">'+L('Xem khoản này','See it')+'</button>'
-        +'<button class="rx-ar-close" onclick="closeRxArrive()">'+L('Để sau','Later')+'</button>'
-      +'</div>'
-    +'</div>';
-  (document.getElementById('phone')||document.body).appendChild(ov);
-  requestAnimationFrame(function(){ ov.classList.add('on'); });
-  if(typeof floatEmojis==='function') floatEmojis(lead.emoji);
+  if(document.hidden) return;
+  var lead=fresh[0], tx=mineTx[lead.txId], more=fresh.length-1, txId=tx?tx._dbId:'';
+  if(typeof floatEmojis==='function') floatEmojis(lead.emoji);          // confetti, once, where you are
+  var old=document.getElementById('rx-toast'); if(old && old.parentNode) old.parentNode.removeChild(old);
+  var el=document.createElement('button'); el.className='rx-toast'; el.id='rx-toast';
+  el.setAttribute('aria-label', L('Xem khoản này','See this transaction'));
+  el.onclick=function(){ closeRxArrive(); rxJumpTo(txId); };
+  var second=more>0 ? L('và '+more+' phản ứng khác','and '+more+' more') : L('Chạm để xem','Tap to open');
+  el.innerHTML='<span class="rx-toast-e">'+lead.emoji+'</span>'
+    +'<span class="rx-toast-b"><span class="rx-toast-msg">'+rxMessage(lead,tx)+'</span><span class="rx-toast-cta">'+second+'</span></span>'
+    +'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg>';
+  (document.getElementById('phone')||document.body).appendChild(el);
+  requestAnimationFrame(function(){ el.classList.add('on'); });
+  clearTimeout(window._rxToastT); window._rxToastT=setTimeout(closeRxArrive, 5600);
 }
-function closeRxArrive(){ var o=document.getElementById('rx-arrive'); if(o){ o.classList.remove('on'); setTimeout(function(){ if(o.parentNode) o.parentNode.removeChild(o); }, 260); } }
+function closeRxArrive(){
+  clearTimeout(window._rxToastT);
+  var o=document.getElementById('rx-toast'); if(o){ o.classList.remove('on'); setTimeout(function(){ if(o.parentNode) o.parentNode.removeChild(o); }, 280); }
+}
 window.closeRxArrive=closeRxArrive;
 
 /* run after every hydrate: refresh the wall + play any just-arrived moment */
