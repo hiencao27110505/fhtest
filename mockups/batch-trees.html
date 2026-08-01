@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tổ ấm · Cây tiết kiệm — 5 loài × 4 thời điểm</title>
+<style>
+/* ============================================================================
+   FamilyHub — SAVINGS TREE picker batch. 5 species × 4 time-of-day phases.
+   Same illustrator as the living-house scene (21-home-today.css) + the decor
+   pilot (assets-pilot.html): flat fills, circle/capsule geometry, depth via
+   same-hue low-opacity overlays, NO emoji, NO hard outlines.
+   Every tree = one JS builder svg<Name>(phase) returning an SVG string in the
+   canonical 64×92 footprint; the wrapper .sc-tree keeps transform-origin
+   50% 100% so the app's savings-scale inline transform keeps working.
+   ============================================================================ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --ink:#191022;--muted:#6b6576;--canvas:#efe9f2;
+  /* theme (per-family) — same defaults as the app */
+  --brand-ink:#1F7E52;--brand-2:#5FD3A0;
+  /* ---- LOCKED decor tokens (assets-pilot.html) ---- */
+  --wood:#7d5f45;--wood-2:#8a6844;--leaf-2:#49b183;--gold:#e5b34a;
+  --gshadow:rgba(35,55,35,.16);
+  /* ---- tree-species hues (new, this file) ---- */
+  --blossom:#f2b3c9;        /* cherry crown — blush kin of --brand-2's value */
+  --blossom-pale:#fbd9e4;   /* cherry petal dots / drifting petals */
+  --blossom-moon:#decbdd;   /* cherry at night — moon-pale */
+  --kumquat:#f09a45;        /* kumquat fruit — soft Tết orange */
+  --pot:#a8624c;            /* kumquat pot — SAME hex as the house chimney */
+  --bird:#e0604c;           /* dawn bird — SAME hex as the occasion car */
+}
+body{font-family:var(--text);background:var(--canvas);color:var(--ink);
+  -webkit-font-smoothing:antialiased;padding:30px 20px 70px;line-height:1.5}
+.wrap{max-width:1440px;margin:0 auto}
+.lead{text-align:center;margin-bottom:26px}
+.lead .eyebrow{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--brand-ink)}
+.lead h1{font-family:var(--disp);font-size:29px;font-weight:800;letter-spacing:-.7px;margin:7px 0 5px}
+.lead p{font-size:14px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:104px repeat(4,1fr);gap:10px;align-items:stretch}
+.colhead{font-family:var(--disp);font-size:13px;font-weight:800;letter-spacing:-.2px;text-align:center;align-self:end;padding-bottom:4px}
+.colhead small{display:block;font-family:var(--text);font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
+.rowhead{display:flex;flex-direction:column;justify-content:center;gap:2px;padding-right:4px}
+.rowhead b{font-family:var(--disp);font-size:14.5px;font-weight:800;letter-spacing:-.3px}
+.rowhead span{font-size:11px;color:var(--muted)}
+.cell{position:relative;height:212px;border-radius:16px;overflow:hidden;
+  box-shadow:0 1px 3px rgba(25,16,34,.06),0 8px 22px rgba(25,16,34,.07)}
+
+/* ---------- the mini scene — faithful copy of 21-home-today.css ---------- */
+.mini-scene{position:relative;color:#fff;
+  --sky1:#5fa7d6;--sky2:#cde8f7;--hill1:#86b294;--hill2:#639b7c;
+  --gr1:#9cc98b;--gr2:#77aa67;--dim:rgba(15,20,45,0);
+  background:linear-gradient(180deg,var(--sky1),var(--sky2) 82%)}
+.mini-scene.sky-dawn{--sky1:#d98e6b;--sky2:#ffdfb4;--hill1:#b18a8e;--hill2:#93707e;--gr1:#a8bf7e;--gr2:#87a565;--dim:rgba(80,40,30,.06)}
+.mini-scene.sky-dusk{--sky1:#5d4d8f;--sky2:#f0a172;--hill1:#6d5a80;--hill2:#55486b;--gr1:#69865c;--gr2:#4d6a45;--dim:rgba(35,25,70,.16)}
+.mini-scene.sky-night{--sky1:#121a32;--sky2:#33406b;--hill1:#232b48;--hill2:#1a2138;--gr1:#28403a;--gr2:#1c2f2a;--dim:rgba(10,14,40,.38)}
+.sc-orb{position:absolute;top:8px;right:22px;width:34px;height:34px;border-radius:50%;background:#fff3c9;box-shadow:0 0 28px 8px rgba(255,244,190,.5)}
+.sky-dawn .sc-orb{top:34px;right:auto;left:58%;background:#ffcf7e;box-shadow:0 0 34px 12px rgba(255,190,110,.5)}
+.sky-dusk .sc-orb{top:42px;right:14%;background:#ffc06e;box-shadow:0 0 38px 14px rgba(255,170,90,.55)}
+.sky-night .sc-orb{background:transparent;box-shadow:inset -9px 4px 0 0 #dfe6f5;filter:drop-shadow(0 0 8px rgba(215,228,255,.35))}
+.sc-star{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;animation:sc-tw 3.2s ease-in-out infinite}
+@keyframes sc-tw{0%,100%{opacity:.35}50%{opacity:.9}}
+.sc-cloud{position:absolute;width:70px;height:18px;border-radius:18px;background:rgba(255,255,255,.55)}
+.sc-cloud::before{content:'';position:absolute;left:13px;top:-10px;width:28px;height:21px;border-radius:50%;background:inherit}
+.sc-cloud::after{content:'';position:absolute;left:34px;top:-6px;width:21px;height:16px;border-radius:50%;background:inherit}
+.sc-cloud.c1{top:16px;left:7%}
+.sc-cloud.c2{top:46px;left:52%;width:50px;opacity:.65}
+.sky-dusk .sc-cloud{opacity:.4}
+.sky-night .sc-cloud{opacity:.13}
+.sc-hill{position:absolute;border-radius:50%}
+.sc-hill.h1{left:-100px;bottom:30px;width:340px;height:98px;background:var(--hill1)}
+.sc-hill.h2{right:-120px;bottom:24px;width:390px;height:112px;background:var(--hill2)}
+.sc-ground{position:absolute;left:0;right:0;bottom:0;height:44px;background:linear-gradient(180deg,var(--gr1),var(--gr2))}
+
+/* ---------- the default house (verbatim app construction, dim-aware) ---------- */
+.sc-house{position:absolute;left:60%;bottom:40px;transform:translateX(-46%) scale(.92);transform-origin:50% 100%;width:max-content;z-index:3}
+.hs-roofwrap{position:relative;height:40px;margin:0 -10px;z-index:1}
+.hs-chim{position:absolute;top:-14px;right:20%;width:17px;height:30px;border-radius:3px 3px 0 0;background:linear-gradient(var(--dim),var(--dim)) #a8624c}
+.hs-roof{position:absolute;inset:0;background:linear-gradient(var(--dim),var(--dim)) var(--brand-ink);clip-path:polygon(0 100%,16% 0,84% 0,100% 100%)}
+.hs-wall{position:relative;border-radius:4px 4px 9px 9px;background:linear-gradient(var(--dim),var(--dim)),linear-gradient(180deg,#fdf4e2,#f0dfc0);
+  box-shadow:inset 0 7px 9px -7px rgba(70,45,20,.4),0 10px 22px rgba(15,15,35,.18);padding:13px 12px 12px}
+.hs-wins{display:flex;justify-content:center;align-items:flex-end;gap:10px 12px}
+.hs-door{display:block;width:32px;height:58px;border-radius:16px 16px 4px 4px;background:linear-gradient(var(--dim),var(--dim)) var(--brand-ink);position:relative;flex:0 0 auto;align-self:flex-end}
+.hs-door::after{content:'';position:absolute;right:6px;top:28px;width:4px;height:4px;border-radius:50%;background:#ffd98e}
+.hw{display:flex;flex-direction:column;align-items:center;gap:4px;flex:0 0 auto}
+.hw-pane{width:42px;height:46px;border-radius:13px 13px 5px 5px;border:3px solid #e6d2ab;position:relative;background:linear-gradient(var(--dim),var(--dim)) #3a4156}
+.p-ok{background:linear-gradient(var(--dim),var(--dim)),linear-gradient(180deg,#fff6dd,#ffe5ae)}
+.p-sun{background:linear-gradient(var(--dim),var(--dim)),radial-gradient(circle at 50% 36%,#ffeaa6,#ffc75d)}
+.hw-pane.lit{box-shadow:0 0 12px 1px rgba(255,205,110,.35)}
+.sky-dusk .hw-pane.lit{box-shadow:0 0 18px 3px rgba(255,200,100,.45)}
+.sky-night .hw-pane.lit{box-shadow:0 0 22px 5px rgba(255,200,100,.55)}
+.hw-name{font-size:10.5px;font-weight:700;color:#54432e}
+
+/* ---------- the savings tree slot (app-identical footprint + scale) ---------- */
+.sc-tree{position:absolute;left:5%;bottom:42px;width:64px;height:92px;transform-origin:50% 100%;z-index:2}
+.sc-tree svg{display:block;width:100%;height:100%;overflow:visible}
+
+/* ---------- ambient life ---------- */
+/* cherry petals drifting (day) — animated inside the SVG */
+.petal{transform-box:fill-box;transform-origin:center;animation:petal-fall 5.5s linear infinite}
+.petal.pt2{animation-delay:-2s}.petal.pt3{animation-delay:-3.6s}.petal.pt4{animation-delay:-4.8s}
+@keyframes petal-fall{
+  0%{transform:translate(0,0) rotate(0deg);opacity:0}
+  8%{opacity:.95}
+  55%{transform:translate(8px,24px) rotate(80deg);opacity:.9}
+  100%{transform:translate(17px,50px) rotate(165deg);opacity:0}}
+/* fireflies (night) — drawn glowing dots drifting around the tree */
+.ff{position:absolute;width:4px;height:4px;border-radius:50%;background:#ffe08a;
+  box-shadow:0 0 7px 2.5px rgba(255,224,138,.55);z-index:4;
+  animation:ff-drift 6s ease-in-out infinite alternate,ff-blink 2.4s ease-in-out infinite}
+.ff.f2{animation-delay:-1.4s,-0.9s}.ff.f3{animation-delay:-3s,-1.7s}.ff.f4{animation-delay:-4.4s,-.5s;width:3px;height:3px}
+@keyframes ff-drift{from{transform:translate(0,0)}to{transform:translate(15px,-13px)}}
+@keyframes ff-blink{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* ---------- savings-scale check strip ---------- */
+.scale-row{display:grid;grid-template-columns:104px repeat(3,1fr);gap:10px;margin-top:26px}
+.scale-tag{position:absolute;top:8px;left:12px;font-size:10px;font-weight:800;letter-spacing:1.2px;
+  text-transform:uppercase;color:rgba(255,255,255,.85);text-shadow:0 1px 2px rgba(0,0,0,.25);z-index:9}
+.note{font-size:12px;color:var(--muted);text-align:center;margin-top:22px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="lead">
+    <div class="eyebrow">FamilyHub · Cây tiết kiệm</div>
+    <h1>5 loài cây × 4 thời điểm trong ngày</h1>
+    <p>Mỗi ô là cảnh thật của app (bầu trời + đồi + nền + ngôi nhà mặc định) để soi độ hoà hợp. Cây vẽ SVG thuần, footprint 64×92, giữ nguyên transform-origin 50% 100% cho savings-scale.</p>
+  </div>
+
+  <div class="grid" id="grid">
+    <div></div>
+    <div class="colhead">Bình minh<small>sky-dawn</small></div>
+    <div class="colhead">Ngày<small>day (default)</small></div>
+    <div class="colhead">Hoàng hôn<small>sky-dusk</small></div>
+    <div class="colhead">Đêm<small>sky-night</small></div>
+  </div>
+
+  <div class="scale-row" id="scalerow"></div>
+
+  <div class="note">Hàng cuối: kiểm tra savings-scale (0.72× · 1× · 1.18×) — transform inline trên .sc-tree, gốc 50% 100% như app.</div>
+</div>
+
+<script>
+/* ============================================================================
+   TREE BUILDERS — each returns a full SVG string for the 64×92 slot.
+   Conventions (locked): flat fills; capsule (rect rx=w/2) + circle geometry;
+   depth = same-hue low-opacity overlays; gradient ids salted per instance.
+   The app's phase tint (--dim over every fill) is reproduced faithfully by
+   re-stamping the tree body with fill:var(--dim) — identical math to the
+   CSS `linear-gradient(var(--dim),var(--dim)) <color>` trick.
+   ============================================================================ */
+var UID=0;
+/* P(shape) = the shape + its own --dim copy right on top — the SVG equivalent
+   of the app's `linear-gradient(var(--dim),var(--dim)) <color>` per element.
+   Pairing per shape (not per tree) keeps overlaps single-dimmed, exactly like
+   opaque CSS elements stacking. */
+function P(s){return s + s.replace(/(fill|stroke)="[^"]*"/g,'$1="var(--dim)"');}
+/* dusk rim-light — a warm arc hugging the sun side (the low sun sits to the
+   right of the scene, so the arc leans right: 25°→115° from 12 o'clock) */
+function rimArc(cx,cy,r){
+  var rr=r-1.5;
+  var x1=cx+rr*.42, y1=cy-rr*.91, x2=cx+rr*.91, y2=cy+rr*.42;
+  return '<path d="M'+x1.toFixed(1)+' '+y1.toFixed(1)+' A'+rr+' '+rr+' 0 0 1 '+x2.toFixed(1)+' '+y2.toFixed(1)+'" '
+   +'fill="none" stroke="rgba(255,185,95,.55)" stroke-width="3" stroke-linecap="round"/>';
+}
+/* rounded polygon path (pure fill — no strokes, so the dim copy never
+   double-paints the way fill+stroke shapes do) */
+function roundPoly(pts,r){
+  function off(a,b){var dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);return[a[0]+dx/L*r,a[1]+dy/L*r];}
+  var d='';
+  for(var i=0;i<pts.length;i++){
+    var p=pts[i],prev=pts[(i-1+pts.length)%pts.length],next=pts[(i+1)%pts.length];
+    var pin=off(p,prev),pout=off(p,next);
+    d+=(i?'L':'M')+pin[0].toFixed(1)+' '+pin[1].toFixed(1)
+      +' Q'+p[0]+' '+p[1]+' '+pout[0].toFixed(1)+' '+pout[1].toFixed(1)+' ';
+  }
+  return d+'Z';
+}
+/* phase ground-contact shadow — dusk throws it long toward the left */
+function shadowOf(phase){
+  if(phase==='dusk')  return '<ellipse cx="18" cy="90" rx="30" ry="2.6" fill="rgba(60,42,52,.20)"/>';
+  if(phase==='night') return '<ellipse cx="32" cy="90" rx="14" ry="2.1" fill="rgba(10,15,35,.25)"/>';
+  return '<ellipse cx="32" cy="90" rx="16" ry="2.3" fill="var(--gshadow)"/>';
+}
+/* dawn dew — tiny fresh glints on the crown */
+function dew(pts){
+  return pts.map(function(p){return '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="1.3" fill="rgba(255,255,255,.55)"/>';}).join('');
+}
+/* dawn bird — same body language as the pilot dog/duck: circles + capsules */
+function bird(x,y){
+  return '<g transform="translate('+x+','+y+')">'
+   +'<rect x="3.2" y="4.2" width="8" height="6.2" rx="3.1" fill="var(--bird)"/>'
+   +'<path d="M10.6 6 L14.6 4.2 L11.8 8.6 Z" fill="#c94f3e"/>'
+   +'<ellipse cx="7.4" cy="7" rx="2.5" ry="1.7" fill="rgba(70,20,14,.18)"/>'
+   +'<circle cx="3.6" cy="3.6" r="3" fill="var(--bird)"/>'
+   +'<path d="M1 3.2 L-1.8 4.1 L1 5.1 Z" fill="var(--gold)"/>'
+   +'<circle cx="2.8" cy="3" r=".75" fill="#3a2a22"/>'
+   +'</g>';
+}
+
+/* ---- 1 · SỒI (Oak) — the default, verbatim geometry from .sc-tree ---- */
+function svgOak(phase){
+  /* app order: big crown first, side lobes painted over it (f1 → f2 → f3) */
+  var body=P('<rect x="27.5" y="58" width="9" height="34" rx="4.5" fill="var(--wood)"/>')
+   +P('<circle cx="32" cy="28" r="24" fill="var(--brand-2)"/>')
+   +P('<circle cx="15" cy="45" r="15" fill="var(--brand-2)"/>')
+   +P('<circle cx="47" cy="43" r="17" fill="var(--brand-2)"/>')
+   +'<path d="M14 51 A22 22 0 0 0 50 50" fill="none" stroke="rgba(26,90,60,.10)" stroke-width="5" stroke-linecap="round"/>';
+  var extra='';
+  if(phase==='dusk') extra=rimArc(32,28,24);
+  if(phase==='dawn') extra=dew([[21,16],[41,11],[30,37]])+bird(33,-4);
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+body+extra+'</svg>';
+}
+
+/* ---- 2 · ANH ĐÀO (Cherry) — oak crown vocabulary in blush; petals drift
+        by day; moon-pale at night ---- */
+function svgCherry(phase){
+  var cf = phase==='night' ? 'var(--blossom-moon)' : 'var(--blossom)';
+  var df = phase==='night' ? '#efe6f0' : 'var(--blossom-pale)';
+  var dp = phase==='night' ? 'rgba(95,75,115,.12)' : 'rgba(190,95,135,.10)';
+  var dots='<circle cx="21" cy="14" r="1.9" fill="'+df+'"/>'
+   +'<circle cx="42" cy="10" r="1.9" fill="'+df+'"/>'
+   +'<circle cx="51" cy="30" r="1.8" fill="'+df+'"/>'
+   +'<circle cx="11" cy="41" r="1.7" fill="'+df+'"/>'
+   +'<circle cx="33" cy="38" r="1.8" fill="'+df+'"/>'
+   +'<circle cx="27" cy="24" r="1.7" fill="'+df+'"/>';
+  var body=P('<rect x="27.5" y="58" width="9" height="34" rx="4.5" fill="var(--wood)"/>')
+   +P('<circle cx="32" cy="28" r="24" fill="'+cf+'"/>')
+   +P('<circle cx="15" cy="45" r="15" fill="'+cf+'"/>')
+   +P('<circle cx="47" cy="43" r="17" fill="'+cf+'"/>')
+   +'<path d="M14 51 A22 22 0 0 0 50 50" fill="none" stroke="'+dp+'" stroke-width="5" stroke-linecap="round"/>'
+   +P(dots);
+  var extra='';
+  if(phase==='dusk') extra=rimArc(32,28,24);
+  if(phase==='dawn') extra=dew([[24,18],[44,14]])+bird(33,-4);
+  if(phase==='day') extra='<g>'
+    +'<ellipse class="petal"     cx="57" cy="16" rx="2.8" ry="1.7" fill="var(--blossom-pale)"/>'
+    +'<ellipse class="petal pt2" cx="54" cy="30" rx="2.6" ry="1.6" fill="var(--blossom-pale)"/>'
+    +'<ellipse class="petal pt3" cx="60" cy="38" rx="2.5" ry="1.5" fill="var(--blossom)"/>'
+    +'<ellipse class="petal pt4" cx="51" cy="10" rx="2.3" ry="1.4" fill="var(--blossom-pale)"/>'
+    +'</g>';
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+body+extra+'</svg>';
+}
+
+/* ---- 3 · THÔNG (Pine) — three stacked rounded triangles, --leaf-2 range;
+        rounding via same-color round-join stroke (no outline read) ---- */
+function svgPine(phase){
+  function tier(ay,by,hw){
+    return '<path d="'+roundPoly([[32,ay],[32+hw,by],[32-hw,by]],4.5)+'" fill="var(--leaf-2)"/>';
+  }
+  /* cast shadows tuck just under the skirt of the tier above */
+  var body=P('<rect x="28.5" y="72" width="7" height="20" rx="3.5" fill="var(--wood)"/>')
+   +P(tier(29,76,26.5))
+   +'<rect x="15" y="58.5" width="34" height="3" rx="1.5" fill="rgba(18,68,46,.14)"/>'
+   +P(tier(15,57,21.5))
+   +'<rect x="19" y="39.5" width="26" height="3" rx="1.5" fill="rgba(18,68,46,.14)"/>'
+   +P(tier(3,38,16.5));
+  var extra='';
+  if(phase==='dusk') extra='<path d="M36.3 15.3 L44 31" stroke="rgba(255,185,95,.55)" stroke-width="3" stroke-linecap="round" fill="none"/>'
+   +'<path d="M37 27.6 L46.6 46.5" stroke="rgba(255,185,95,.45)" stroke-width="3" stroke-linecap="round" fill="none"/>'
+   +'<path d="M37.1 40.8 L47.7 59.6" stroke="rgba(255,185,95,.36)" stroke-width="3" stroke-linecap="round" fill="none"/>';
+  if(phase==='dawn') extra=dew([[26,30],[37,48]])+bird(27,-9);
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+body+extra+'</svg>';
+}
+
+/* ---- 4 · LIỄU (Willow) — the pilot builder, verbatim construction:
+        oak-family cloud crown + curtain of capsule fronds in two greens ---- */
+function svgWillow(phase){
+  var fronds=[
+    [ 2.5,6,26,71,1],[ 9.5,7,30,78,0],[17.5,6,34,68,1],[24.5,6,36,60,0],
+    [33.5,6,36,58,1],[40.5,6,34,72,0],[47.5,7,30,79,1],[55.5,6,26,72,0]
+  ].map(function(f){
+    return '<rect x="'+f[0]+'" y="'+f[2]+'" width="'+f[1]+'" height="'+(f[3]-f[2])
+     +'" rx="'+(f[1]/2)+'" fill="var(--'+(f[4]?'leaf-2':'brand-2')+')"/>';
+  }).join('');
+  var body=P('<rect x="28" y="52" width="8" height="40" rx="4" fill="var(--wood)"/>')
+   +P(fronds)      /* fronds never overlap each other — one dim pass is exact */
+   +P('<circle cx="16" cy="29" r="13" fill="var(--brand-2)"/>')
+   +P('<circle cx="48" cy="27" r="14" fill="var(--brand-2)"/>')
+   +P('<circle cx="32" cy="21" r="20" fill="var(--brand-2)"/>');
+  var extra='';
+  if(phase==='dusk') extra=rimArc(32,21,20);
+  if(phase==='dawn') extra=dew([[24,14],[42,20]])+bird(33,-7);
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+body+extra+'</svg>';
+}
+
+/* ---- 5 · QUẤT (Kumquat, Tết) — compact --leaf-2 crown, soft-orange fruit,
+        terracotta pot in the chimney's exact hue ---- */
+function svgKumquat(phase){
+  var fruit='<circle cx="23" cy="20" r="2.7" fill="var(--kumquat)"/>'
+   +'<circle cx="40" cy="15" r="2.6" fill="var(--kumquat)"/>'
+   +'<circle cx="31" cy="33" r="2.7" fill="var(--kumquat)"/>'
+   +'<circle cx="14" cy="42" r="2.4" fill="var(--kumquat)"/>'
+   +'<circle cx="48" cy="37" r="2.5" fill="var(--kumquat)"/>'
+   +'<circle cx="42" cy="45" r="2.4" fill="var(--kumquat)"/>'
+   +'<circle cx="22" cy="46" r="2.3" fill="var(--kumquat)"/>';
+  var body=P('<path d="M23 76 L41 76 L39.6 89 Q39.2 92 36.4 92 L27.6 92 Q24.8 92 24.4 89 Z" fill="var(--pot)"/>')
+   +'<path d="M24.5 78.5 L39.5 78.5" stroke="rgba(55,25,15,.14)" stroke-width="3" stroke-linecap="round" fill="none"/>'
+   +P('<rect x="20.5" y="70" width="23" height="6" rx="2.6" fill="var(--pot)"/>')
+   +P('<rect x="29.5" y="52" width="5" height="22" rx="2.5" fill="var(--wood)"/>')
+   +P('<circle cx="32" cy="31" r="20" fill="var(--leaf-2)"/>')
+   +P('<circle cx="17" cy="43" r="11" fill="var(--leaf-2)"/>')
+   +P('<circle cx="47" cy="41" r="12" fill="var(--leaf-2)"/>')
+   +'<path d="M18 48 A19 19 0 0 0 46 47" fill="none" stroke="rgba(20,70,48,.10)" stroke-width="4" stroke-linecap="round"/>'
+   /* fruit — same dot rhythm as the cherry blossoms, in Tết orange */
+   +P(fruit);
+  var extra='';
+  if(phase==='dusk') extra=rimArc(32,31,20);
+  if(phase==='dawn') extra=dew([[27,22],[42,28]])+bird(26,0);
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+body+extra+'</svg>';
+}
+
+/* ============================================================================
+   SCENE ASSEMBLY
+   ============================================================================ */
+var TREES=[
+  {key:'oak',    name:'Sồi',     sub:'mặc định · --brand-2', fn:svgOak},
+  {key:'cherry', name:'Anh đào', sub:'blush · cánh hoa bay', fn:svgCherry},
+  {key:'pine',   name:'Thông',   sub:'thường xanh · --leaf-2', fn:svgPine},
+  {key:'willow', name:'Liễu',    sub:'tán rủ (pilot)', fn:svgWillow},
+  {key:'kumquat',name:'Quất',    sub:'Tết · chậu đất nung', fn:svgKumquat}
+];
+var PHASES=['dawn','day','dusk','night'];
+
+function houseHTML(){
+  return '<div class="sc-house"><div class="hs-roofwrap"><i class="hs-chim"></i><i class="hs-roof"></i></div>'
+   +'<div class="hs-wall"><div class="hs-wins">'
+   +'<span class="hs-door"></span>'
+   +'<span class="hw"><span class="hw-pane p-ok lit"></span><span class="hw-name">Cao</span></span>'
+   +'<span class="hw"><span class="hw-pane p-sun lit"></span><span class="hw-name">Hiền</span></span>'
+   +'</div></div></div>';
+}
+function sceneBG(phase){
+  var s='<i class="sc-orb"></i>';
+  if(phase==='night'){
+    [[12,8],[34,24],[10,44],[26,60],[48,38],[16,72],[40,84],[58,12]].forEach(function(p){
+      s+='<i class="sc-star" style="top:'+p[0]+'px;left:'+p[1]+'%"></i>';
+    });
+  }
+  if(phase!=='night'){ s+='<i class="sc-cloud c1"></i><i class="sc-cloud c2"></i>'; }
+  s+='<i class="sc-hill h1"></i><i class="sc-hill h2"></i><i class="sc-ground"></i>';
+  return s;
+}
+function firefliesHTML(){
+  return '<i class="ff"    style="left:9%;bottom:98px"></i>'
+   +'<i class="ff f2" style="left:16%;bottom:64px"></i>'
+   +'<i class="ff f3" style="left:4%;bottom:76px"></i>'
+   +'<i class="ff f4" style="left:20%;bottom:112px"></i>';
+}
+function cellHTML(tree,phase,scale){
+  var cls = phase==='day' ? '' : ' sky-'+phase;
+  return '<div class="cell mini-scene'+cls+'">'
+   + sceneBG(phase)
+   + houseHTML()
+   + '<div class="sc-tree" style="transform:scale('+(scale||1)+')">'+tree.fn(phase)+'</div>'
+   + (phase==='night' ? firefliesHTML() : '')
+   + '</div>';
+}
+
+var grid=document.getElementById('grid');
+TREES.forEach(function(t){
+  var row='<div class="rowhead"><b>'+t.name+'</b><span>'+t.sub+'</span></div>';
+  PHASES.forEach(function(p){ row+=cellHTML(t,p,1); });
+  grid.insertAdjacentHTML('beforeend',row);
+});
+
+/* savings-scale check — inline transform on .sc-tree, exactly like the app */
+var sr=document.getElementById('scalerow');
+sr.insertAdjacentHTML('beforeend','<div class="rowhead"><b>Scale</b><span>savings ↑</span></div>');
+[0.72,1,1.18].forEach(function(s){
+  sr.insertAdjacentHTML('beforeend',
+    '<div style="position:relative"><span class="scale-tag">×'+s+'</span>'+cellHTML(TREES[1],'day',s)+'</div>');
+});
+</script>
+</body>
+</html>

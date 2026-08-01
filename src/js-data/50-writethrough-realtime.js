@@ -258,6 +258,23 @@
     } catch (e) { console.warn('saveWeather', e); return false; }
   };
 
+  // ---- write-through: house customization (one shared {house,tree,pet} per family) ----
+  // Optimistic local echo + set_family_house() RPC, then a debounced reload. Same
+  // fire-and-persist shape as saveWeather; errors go through _writeErr like the rest.
+  window.setFamilyHouse = async function (cfg) {
+    try {
+      const fid = window.DB && window.DB.fid;
+      if (!sb || !fid) return false;
+      window.FAM = window.FAM || {};
+      window.FAM.house = cfg;                            // optimistic
+      window.DB._lastLocalWrite = Date.now();
+      const res = await sb.rpc('set_family_house', { p_house: cfg });
+      if (res && res.error) { _writeErr('house save failed', res.error); return false; }
+      _syncSoon();
+      return true;
+    } catch (e) { _writeErr('house save failed', e); return false; }
+  };
+
   // ---- write-through: reactions (collaborative emoji on a transaction) ----
   // Upsert on (transaction_id, member_id) — re-reacting REPLACES, so the feed never
   // fills with one member's rapid taps; a null emoji (tapping your current reaction
@@ -320,6 +337,11 @@
           if (Date.now() - (window.DB._lastLocalWrite || 0) < 2500) return;
           clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 900);
         });
+      });
+      // the families row itself (house customization lives here) — keyed on id, not family_id
+      ch.on('postgres_changes', { event: '*', schema: 'public', table: 'families', filter: 'id=eq.' + fid }, () => {
+        if (Date.now() - (window.DB._lastLocalWrite || 0) < 2500) return;
+        clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 900);
       });
       ch.subscribe();
     } catch (e) { console.warn('realtime subscribe failed', e); }

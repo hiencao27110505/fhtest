@@ -531,6 +531,189 @@ input{font-family:inherit}
   .amb,.puff,.hw.fx::after{display:none}
 }
 
+/* ============================================================================
+   HOUSE · TREE · PET customizer — asset styles ported from
+   mockups/house-customizer.html. Loads AFTER 21-home-today.css, so the house
+   variant rules here override the base .sc-house / .hs-roof / .hs-wall there.
+   Phase-conditional rules are keyed to BOTH ancestors: the live scene
+   (.home-sky.sky-*) and the sheet thumbnails (.thumb.sky-*).
+   ============================================================================ */
+
+/* ---- LOCKED decor tokens + material / species / pet hues (from the mock) ---- */
+:root{
+  --wood:#7d5f45;--wood-2:#8a6844;--leaf-2:#49b183;--gold:#e5b34a;
+  --gshadow:rgba(35,55,35,.16);
+  /* house materials */
+  --terra:#bf6e4e;--terra-2:#a55e40;--brick:#c68a71;--brick-2:#b97e64;
+  --mortar:rgba(250,240,225,.30);--greige-1:#eae3d4;--greige-2:#d4cab6;
+  --flue:#9a8f80;--oak-1:#d8bd94;--oak-2:#c9ac7f;
+  /* tree species — --bird belongs to the pet robin, so the tree's perched bird is --perch-bird */
+  --blossom:#f2b3c9;--blossom-pale:#fbd9e4;--blossom-moon:#decbdd;
+  --kumquat:#f09a45;--pot:#a8624c;--perch-bird:#e0604c;
+  /* pets */
+  --water-1:#a9dbe9;--water-2:#69a7ca;--sand:#d9c9a0;
+  --coat:#c99e6f;--coat-cream:#f4e7cf;--snout:#3a2a22;
+  --cat:#b9a89c;--ear-blush:#eebfae;--bird:#c9785a;--bird-deep:#a85a40;
+}
+
+/* ============================================================================
+   TREE — the flat-fill SVG fills the app's .sc-tree slot; the savings-scale
+   inline transform still drives it.
+   ============================================================================ */
+.sc-tree svg{display:block;width:100%;height:100%;overflow:visible}
+/* cherry petals drifting (day) — animated inside the SVG */
+.petal{transform-box:fill-box;transform-origin:center;animation:petal-fall 5.5s linear infinite}
+.petal.pt2{animation-delay:-2s}.petal.pt3{animation-delay:-3.6s}.petal.pt4{animation-delay:-4.8s}
+@keyframes petal-fall{
+  0%{transform:translate(0,0) rotate(0deg);opacity:0}
+  8%{opacity:.95}
+  55%{transform:translate(8px,24px) rotate(80deg);opacity:.9}
+  100%{transform:translate(17px,50px) rotate(165deg);opacity:0}}
+
+/* ============================================================================
+   HOUSE — the 4 variants. Base .sc-house / roof / wall / door / windows come
+   from 21-home-today.css (cottage = that base look). These override for the
+   modern / tile / brick variants + their phase-driven glows.
+   ============================================================================ */
+/* modern flue smokes in place of the chimney */
+.hs-flue{position:absolute;top:-13px;right:13%;width:8px;height:17px;border-radius:3px 3px 0 0;background:linear-gradient(var(--dim),var(--dim)) var(--flue)}
+.hs-flue .puff{left:0}
+.rim{position:absolute;inset:0;border-radius:inherit;opacity:0;pointer-events:none;z-index:2;
+  background:linear-gradient(215deg,rgba(255,172,92,.3),rgba(255,172,92,0) 58%)}
+.home-sky.sky-dusk .rim,.thumb.sky-dusk .rim{opacity:1}
+/* the door porch light (decorative; glows after dark) */
+.dwrap{position:relative;flex:0 0 auto;align-self:flex-end}
+.porch{position:absolute;left:-10px;top:8px;width:6px;height:6px;border-radius:50%;background:#6b5f52}
+.porch::before{content:'';position:absolute;left:2px;top:-5px;width:2px;height:5px;border-radius:1px;background:#6b5f52}
+.home-sky.sky-dusk .porch,.home-sky.sky-night .porch,.thumb.sky-dusk .porch,.thumb.sky-night .porch{background:#ffd98e;box-shadow:0 0 12px 4px rgba(255,205,110,.7)}
+
+/* HOUSE 2 — modern */
+.hm-modern .hs-roofwrap{height:15px;margin:0 -16px}
+.hm-modern .hs-roof{clip-path:none;border-radius:4px;box-shadow:0 2px 3px rgba(35,30,20,.2)}
+.hm-modern .hs-chim{display:none}
+.hm-modern .hs-wall{border-radius:3px 3px 8px 8px;padding:14px 16px 12px 16px;
+  background:linear-gradient(var(--dim),var(--dim)),linear-gradient(180deg,var(--greige-1),var(--greige-2));
+  box-shadow:inset 0 9px 10px -7px rgba(60,50,35,.42),0 10px 22px rgba(15,15,35,.18)}
+.home-sky.sky-day .hm-modern .hs-wall,.thumb.sky-day .hm-modern .hs-wall{box-shadow:inset 0 14px 10px -9px rgba(60,50,35,.5),0 10px 22px rgba(15,15,35,.18)}
+.slat{position:absolute;left:8px;top:0;bottom:0;width:48px;border-radius:0 0 4px 4px;
+  background:linear-gradient(var(--dim),var(--dim)),repeating-linear-gradient(90deg,var(--oak-1) 0 4px,var(--oak-2) 4px 8px)}
+.hm-modern .hs-door{border-radius:5px 5px 3px 3px}
+.hm-modern .hw-pane{border-radius:6px;border-color:#ded4be}
+.home-sky.sky-dusk .hm-modern .porch,.home-sky.sky-night .hm-modern .porch,.thumb.sky-dusk .hm-modern .porch,.thumb.sky-night .hm-modern .porch{background:#dfe9ff;box-shadow:0 0 10px 3px rgba(185,205,255,.6)}
+.home-sky.sky-dusk .hm-modern .hw-pane.lit,.thumb.sky-dusk .hm-modern .hw-pane.lit{box-shadow:0 0 16px 3px rgba(185,210,255,.4)}
+.home-sky.sky-night .hm-modern .hw-pane.lit,.thumb.sky-night .hm-modern .hw-pane.lit{box-shadow:0 0 20px 5px rgba(185,210,255,.5)}
+
+/* HOUSE 3 — tile */
+.hm-tile .hs-roofwrap{height:33px;margin:0 -19px}
+.hm-tile .hs-roof{clip-path:polygon(0 100%,13% 0,87% 0,100% 100%);border-radius:0 0 3px 3px;
+  background:linear-gradient(var(--dim),var(--dim)),repeating-linear-gradient(90deg,var(--terra) 0 7px,var(--terra-2) 7px 8px)}
+.ridge{position:absolute;left:11%;right:11%;top:-3px;height:6px;border-radius:3px;background:linear-gradient(var(--dim),var(--dim)) var(--terra-2)}
+.hm-tile .hs-chim{right:16%;top:-13px;height:28px}
+.hm-tile .hs-wall{padding:13px 20px 12px}
+.eave{position:absolute;top:3px;left:12px;width:58px;height:7px;border-radius:2px 2px 3px 3px;z-index:2;
+  background:linear-gradient(var(--dim),var(--dim)),repeating-linear-gradient(90deg,var(--terra) 0 6px,var(--terra-2) 6px 7px);
+  box-shadow:0 2px 3px rgba(70,40,20,.2)}
+.lant{position:absolute;top:12px;left:56px;width:9px;height:12px;z-index:2;
+  border-radius:50%/45% 45% 55% 55%;background:radial-gradient(circle at 40% 35%,#e25a50,#b7332e)}
+.lant::before{content:'';position:absolute;left:2px;top:-4px;width:5px;height:3px;border-radius:1px;background:var(--gold)}
+.lant::after{content:'';position:absolute;left:3px;bottom:-5px;width:3px;height:5px;border-radius:1.5px;background:var(--gold)}
+.home-sky.sky-dusk .lant,.home-sky.sky-night .lant,.thumb.sky-dusk .lant,.thumb.sky-night .lant{box-shadow:0 0 12px 3px rgba(255,140,90,.55)}
+
+/* HOUSE 4 — brick */
+.hm-brick .hs-roofwrap{height:52px;margin:0 -8px}
+.hm-brick .hs-roof{clip-path:polygon(0 100%,28% 0,72% 0,100% 100%)}
+.hm-brick .hs-chim{top:-15px;right:23%;height:32px;width:15px}
+.hm-brick .hs-wall{border-radius:3px 3px 8px 8px;padding:30px 9px 12px;
+  background:linear-gradient(var(--dim),var(--dim)),
+    repeating-linear-gradient(90deg,rgba(250,240,225,.13) 0 1.5px,transparent 1.5px 21px),
+    repeating-linear-gradient(90deg,transparent 0 10px,rgba(250,240,225,.1) 10px 11.5px,transparent 11.5px 42px),
+    repeating-linear-gradient(0deg,var(--brick) 0 8px,var(--brick-2) 8px 8.8px,var(--mortar) 8.8px 10px);
+  box-shadow:inset 0 7px 9px -7px rgba(70,35,20,.45),0 10px 22px rgba(15,15,35,.18)}
+.attic{position:absolute;top:6px;left:50%;width:16px;height:16px;margin-left:-8px;border-radius:50%;
+  border:3px solid #f2e6cc;background:linear-gradient(var(--dim),var(--dim)) #3a4156}
+.home-sky.sky-night .attic,.thumb.sky-night .attic{background:radial-gradient(circle at 50% 40%,#ffeaa6,#ffc75d);box-shadow:0 0 10px 2px rgba(255,200,100,.5)}
+.hm-brick .hw-pane{border-color:#f2e6cc}
+.hm-brick .hw-name{color:#f8ecd8;text-shadow:0 1px 2px rgba(80,35,20,.4)}
+.hm-brick .hs-door{border-radius:12px 12px 3px 3px}
+
+/* ============================================================================
+   PET — placed in the yard near the house base, ~1.15× its native PETW.
+   Phase tint via a brightness/saturate filter on the pet body group (.pb);
+   position shifts by phase; at night it curls up to sleep (the zz swirl).
+   ============================================================================ */
+.sc-pet{position:absolute;bottom:44px;left:22%;z-index:2}
+.sc-pet svg{display:block;width:100%;height:auto}
+.sc-pet.k-dog{width:53px}.sc-pet.k-cat{width:48px}.sc-pet.k-rabbit{width:44px}
+.sc-pet.k-bird{width:26px}.sc-pet.k-duck{width:53px}
+.home-scene .sc-pet.k-duck{bottom:42px}
+/* phase placement (scene only — thumbnails center their own pet) */
+.home-sky.sky-dawn .home-scene .sc-pet{left:16%}
+.home-sky.sky-dusk .home-scene .sc-pet{left:30%}
+.home-sky.sky-night .home-scene .sc-pet{left:39%;bottom:47px}
+.home-sky.sky-night .home-scene .sc-pet.k-duck{left:34%}
+.home-sky.sky-night .home-scene .sc-pet.k-bird{left:42%}
+/* pets take the same phase tint as everything else (the sleep swirl stays luminous) */
+.home-sky.sky-dawn .pb,.thumb.sky-dawn .pb{filter:brightness(1)}
+.home-sky.sky-dusk .pb,.thumb.sky-dusk .pb{filter:brightness(.88) saturate(.92)}
+.home-sky.sky-night .pb,.thumb.sky-night .pb{filter:brightness(.68) saturate(.85)}
+.zz{animation:zzf 3.2s ease-in-out infinite}
+@keyframes zzf{0%,100%{transform:translateY(0);opacity:.85}50%{transform:translateY(-2px);opacity:.55}}
+
+/* ============================================================================
+   TOOLBOX SHEET — the 3-picker ("Chăm chút tổ ấm"). The .sheet / #scrim / .grab
+   shell is the app's own (50-sheets-modals.css); these style the inner content.
+   ============================================================================ */
+.sheet-house .sh-hd{padding:2px 2px 12px}
+.sheet-house .sh-hd h3{font-family:var(--disp);font-size:22px;font-weight:800;letter-spacing:-.5px;color:var(--ink)}
+.sheet-house .sh-hd p{font-size:13px;color:var(--muted);margin-top:3px;line-height:1.4}
+.sheet-house .segs{display:flex;gap:7px;padding:0 0 14px;position:sticky;top:0;background:var(--white);z-index:2}
+.sheet-house .seg{flex:1;border:1px solid var(--hairline);background:var(--white);border-radius:12px;padding:9px 8px;font:inherit;font-size:13px;font-weight:650;color:var(--ink-2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.sheet-house .seg.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.sheet-house .seg .e{font-size:15px}
+.sheet-house .sh-body{padding:2px 0 4px}
+.sheet-house .opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sheet-house .opt{position:relative;background:var(--white);border:2px solid var(--hairline);border-radius:16px;padding:8px 8px 9px;cursor:pointer;text-align:center;transition:transform .12s;overflow:hidden;font:inherit}
+.sheet-house .opt:active{transform:scale(.97)}
+.sheet-house .opt.on{border-color:var(--brand)}
+.sheet-house .opt.on::after{content:'✓';position:absolute;top:6px;right:8px;width:18px;height:18px;background:var(--brand);color:#fff;border-radius:50%;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:3}
+.sheet-house .opt .nm{font-size:12px;font-weight:600;color:var(--ink-2);margin-top:7px}
+
+/* thumbnail mini-scene inside an option card — its own phase vars (self-contained) */
+.thumb{position:relative;height:96px;border-radius:11px;overflow:hidden;color:#fff;
+  --sky1:#5fa7d6;--sky2:#cde8f7;--hill1:#86b294;--hill2:#639b7c;--gr1:#9cc98b;--gr2:#77aa67;
+  --dim:rgba(15,20,45,0);
+  background:linear-gradient(180deg,var(--sky1),var(--sky2) 82%)}
+.thumb.sky-dawn{--sky1:#d98e6b;--sky2:#ffdfb4;--hill1:#b18a8e;--hill2:#93707e;--gr1:#a8bf7e;--gr2:#87a565;--dim:rgba(80,40,30,.06)}
+.thumb.sky-dusk{--sky1:#5d4d8f;--sky2:#f0a172;--hill1:#6d5a80;--hill2:#55486b;--gr1:#69865c;--gr2:#4d6a45;--dim:rgba(35,25,70,.16)}
+.thumb.sky-night{--sky1:#121a32;--sky2:#33406b;--hill1:#232b48;--hill2:#1a2138;--gr1:#28403a;--gr2:#1c2f2a;--dim:rgba(10,14,40,.4)}
+.th-ground{position:absolute;left:0;right:0;bottom:0;height:26px;background:linear-gradient(180deg,var(--gr1),var(--gr2))}
+.th-house{position:absolute;inset:0}
+.th-house .sc-house{left:50%;bottom:6px;transform:translateX(-50%) scale(.4);max-width:none}
+.th-tree{position:absolute;left:50%;bottom:4px;width:64px;height:92px;transform:translateX(-50%) scale(.78);transform-origin:50% 100%}
+.th-tree svg{display:block;width:100%;height:100%;overflow:visible}
+.th-pet{position:absolute;left:50%;bottom:12px;transform:translateX(-50%)}
+.th-pet svg{display:block;width:100%;height:auto}
+.th-none{position:absolute;left:0;right:0;bottom:34px;text-align:center;font-size:12px;font-weight:600;color:rgba(255,255,255,.9);text-shadow:0 1px 3px rgba(0,0,0,.35)}
+
+/* ============================================================================
+   HOME-FEED ENTRY — the prominent, persistent "Chăm chút tổ ấm" card. It takes
+   the straddle slot over the scene; the hearth then follows in normal flow.
+   ============================================================================ */
+.house-entry{position:relative;z-index:2;display:flex;align-items:center;gap:13px;width:calc(100% - 32px);
+  margin:-26px 16px 14px;padding:14px 16px;background:linear-gradient(100deg,var(--brand-tint),var(--white));
+  border:1px solid var(--hairline);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);
+  text-align:left;font:inherit;cursor:pointer}
+.house-entry:active{transform:scale(.99)}
+.house-entry + .hearth{margin-top:14px}          /* the hearth no longer straddles when the entry precedes it */
+.he-ic{width:44px;height:44px;border-radius:13px;background:var(--grad-brand);color:#fff;display:flex;
+  align-items:center;justify-content:center;font-size:22px;flex:0 0 auto;box-shadow:0 4px 10px var(--brand-glow)}
+.he-tt{flex:1;min-width:0}
+.he-tt b{font-family:var(--disp);font-size:15.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink);display:block}
+.he-tt span{display:block;font-size:12.5px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.he-chev{width:20px;height:20px;color:var(--chev);flex:0 0 auto}
+
+@media (prefers-reduced-motion:reduce){.petal,.zz{animation:none}.puff{display:none}}
+
 /* ---------- event cards (neutral, theme-consistent) ---------- */
 .escroll{display:flex;gap:14px;overflow-x:auto;padding:0 16px 6px;scroll-snap-type:x mandatory}
 .escroll::-webkit-scrollbar{display:none}
@@ -3387,6 +3570,7 @@ function _hwCell(m, meName, gate){
 function renderScene(){
   var mems = ((window.FAM && FAM.members) || []).slice(0, 8), meName = _meName(), myW = myWeather();
   var gate = !myW || window._wpick, ph = _skyPhase();
+  var cfg = (window.houseCfg ? houseCfg() : { house: 'cottage', tree: 'oak', pet: null });
 
   // windows + the family door (tap the door → add something to the house)
   var door = '<button class="hs-door" onclick="openSheet(&#39;sheet-add&#39;)" aria-label="' + escAttr(L('Thêm', 'Add')) + '"></button>';
@@ -3437,9 +3621,13 @@ function renderScene(){
     + '<i class="sc-cloud c1"></i><i class="sc-cloud c2"></i>'
     + '<i class="sc-hill h1"></i><i class="sc-hill h2"></i><i class="sc-ground"></i>'
     + pols
-    + '<div class="sc-tree" style="transform:scale(' + grow.toFixed(2) + ')"><i class="tr-tr"></i><i class="tr-f f1"></i><i class="tr-f f2"></i><i class="tr-f f3"></i></div>'
-    + '<div class="sc-house"><div class="hs-roofwrap"><i class="hs-chim">' + (act ? '<i class="puff p1"></i><i class="puff p2"></i><i class="puff p3"></i>' : '') + '</i><i class="hs-roof"></i></div>'
-    + '<div class="hs-wall"><div class="hs-wins">' + door + cells + '</div></div></div>'
+    + '<div class="sc-tree tree-' + cfg.tree + '" style="transform:scale(' + grow.toFixed(2) + ')">'
+      + (window.TREEFN ? TREEFN[cfg.tree](ph) : '<i class="tr-tr"></i><i class="tr-f f1"></i><i class="tr-f f2"></i><i class="tr-f f3"></i>') + '</div>'
+    + (window.buildHouseShell
+        ? buildHouseShell(cfg.house, ph, door + cells, act)
+        : '<div class="sc-house"><div class="hs-roofwrap"><i class="hs-chim">' + (act ? '<i class="puff p1"></i><i class="puff p2"></i><i class="puff p3"></i>' : '') + '</i><i class="hs-roof"></i></div>'
+          + '<div class="hs-wall"><div class="hs-wins">' + door + cells + '</div></div></div>')
+    + (cfg.pet && window.PETFN ? '<div class="sc-pet spot k-' + cfg.pet + '">' + PETFN[cfg.pet](ph) + '</div>' : '')
     + amb;
 }
 /* the hearth card under the scene: the mood picker until you've lit your window,
@@ -3592,7 +3780,7 @@ function renderHome(){
     setHTMLIf(sceneEl, renderScene());
   }
 
-  var html = renderHearth();                            // the hearth card under the scene
+  var html = (window._houseEntryHTML ? _houseEntryHTML() : '') + renderHearth();   // "Chăm chút tổ ấm" CTA, then the hearth card
   if(typeof requestsWidgetHTML === 'function') html += requestsWidgetHTML();   // future-expense proposals awaiting my OK
   if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions, right under the hearth
 
@@ -3839,6 +4027,681 @@ try{
     }
   });
 }catch(e){}
+
+/* ============================================================================
+   House · Tree · Pet customizer — the living-house decor layer.
+   Builders (trees + pets + helpers) are ported VERBATIM from
+   mockups/house-customizer.html (the harmonized, collision-fixed source of
+   truth). This file adds the app integration seam on top of them:
+     • buildHouseShell(kind,phase,winsInner,act) — the house shell, injecting
+       the app's real door + member windows instead of the mock's samples.
+     • houseCfg() / pickHouse() — the {house,tree,pet} config store, optimistic
+       + persisted through window.setFamilyHouse().
+     • openHouseToolbox() — the 3-picker bottom sheet ("Chăm chút tổ ấm").
+   Loads after 22-home.js (same global scope), so renderScene() can call in.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   TREES — svgOak / svgCherry / svgPine / svgWillow / svgKumquat   [batch-trees]
+   bird() uses var(--perch-bird) (deduped against the pet robin's var(--bird)).
+   --------------------------------------------------------------------------- */
+var UID=0;
+function P(s){return s + s.replace(/(fill|stroke)="[^"]*"/g,'$1="var(--dim)"');}
+function rimArc(cx,cy,r){
+  var rr=r-1.5;
+  var x1=cx+rr*.42, y1=cy-rr*.91, x2=cx+rr*.91, y2=cy+rr*.42;
+  return '<path d="M'+x1.toFixed(1)+' '+y1.toFixed(1)+' A'+rr+' '+rr+' 0 0 1 '+x2.toFixed(1)+' '+y2.toFixed(1)+'" '
+   +'fill="none" stroke="rgba(255,185,95,.55)" stroke-width="3" stroke-linecap="round"/>';
+}
+function roundPoly(pts,r){
+  function off(a,b){var dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);return[a[0]+dx/L*r,a[1]+dy/L*r];}
+  var d='';
+  for(var i=0;i<pts.length;i++){
+    var p=pts[i],prev=pts[(i-1+pts.length)%pts.length],next=pts[(i+1)%pts.length];
+    var pin=off(p,prev),pout=off(p,next);
+    d+=(i?'L':'M')+pin[0].toFixed(1)+' '+pin[1].toFixed(1)
+      +' Q'+p[0]+' '+p[1]+' '+pout[0].toFixed(1)+' '+pout[1].toFixed(1)+' ';
+  }
+  return d+'Z';
+}
+function shadowOf(phase){
+  if(phase==='dusk')  return '<ellipse cx="18" cy="90" rx="30" ry="2.6" fill="rgba(60,42,52,.20)"/>';
+  if(phase==='night') return '<ellipse cx="32" cy="90" rx="14" ry="2.1" fill="rgba(10,15,35,.25)"/>';
+  return '<ellipse cx="32" cy="90" rx="16" ry="2.3" fill="var(--gshadow)"/>';
+}
+function dew(pts){
+  return pts.map(function(p){return '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="1.3" fill="rgba(255,255,255,.55)"/>';}).join('');
+}
+function bird(x,y){
+  return '<g transform="translate('+x+','+y+')">'
+   +'<rect x="3.2" y="4.2" width="8" height="6.2" rx="3.1" fill="var(--perch-bird)"/>'
+   +'<path d="M10.6 6 L14.6 4.2 L11.8 8.6 Z" fill="#c94f3e"/>'
+   +'<ellipse cx="7.4" cy="7" rx="2.5" ry="1.7" fill="rgba(70,20,14,.18)"/>'
+   +'<circle cx="3.6" cy="3.6" r="3" fill="var(--perch-bird)"/>'
+   +'<path d="M1 3.2 L-1.8 4.1 L1 5.1 Z" fill="var(--gold)"/>'
+   +'<circle cx="2.8" cy="3" r=".75" fill="#3a2a22"/>'
+   +'</g>';
+}
+function svgOak(phase){
+  var body=P('<rect x="27.5" y="58" width="9" height="34" rx="4.5" fill="var(--wood)"/>')
+   +P('<circle cx="32" cy="28" r="24" fill="var(--brand-2)"/>')
+   +P('<circle cx="15" cy="45" r="15" fill="var(--brand-2)"/>')
+   +P('<circle cx="47" cy="43" r="17" fill="var(--brand-2)"/>')
+   +'<path d="M14 51 A22 22 0 0 0 50 50" fill="none" stroke="rgba(26,90,60,.10)" stroke-width="5" stroke-linecap="round"/>';
+  var extra='';
+  if(phase==='dusk') extra=rimArc(32,28,24);
+  if(phase==='dawn') extra=dew([[21,16],[41,11],[30,37]])+bird(33,-4);
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+body+extra+'</svg>';
+}
+function svgCherry(phase){
+  var cf = phase==='night' ? 'var(--blossom-moon)' : 'var(--blossom)';
+  var df = phase==='night' ? '#efe6f0' : 'var(--blossom-pale)';
+  var dp = phase==='night' ? 'rgba(95,75,115,.12)' : 'rgba(190,95,135,.10)';
+  var dots='<circle cx="21" cy="14" r="1.9" fill="'+df+'"/>'
+   +'<circle cx="42" cy="10" r="1.9" fill="'+df+'"/>'
+   +'<circle cx="51" cy="30" r="1.8" fill="'+df+'"/>'
+   +'<circle cx="11" cy="41" r="1.7" fill="'+df+'"/>'
+   +'<circle cx="33" cy="38" r="1.8" fill="'+df+'"/>'
+   +'<circle cx="27" cy="24" r="1.7" fill="'+df+'"/>';
+  var body=P('<rect x="27.5" y="58" width="9" height="34" rx="4.5" fill="var(--wood)"/>')
+   +P('<circle cx="32" cy="28" r="24" fill="'+cf+'"/>')
+   +P('<circle cx="15" cy="45" r="15" fill="'+cf+'"/>')
+   +P('<circle cx="47" cy="43" r="17" fill="'+cf+'"/>')
+   +'<path d="M14 51 A22 22 0 0 0 50 50" fill="none" stroke="'+dp+'" stroke-width="5" stroke-linecap="round"/>'
+   +P(dots);
+  var extra='';
+  if(phase==='dusk') extra=rimArc(32,28,24);
+  if(phase==='dawn') extra=dew([[24,18],[44,14]])+bird(33,-4);
+  if(phase==='day') extra='<g>'
+    +'<ellipse class="petal"     cx="57" cy="16" rx="2.8" ry="1.7" fill="var(--blossom-pale)"/>'
+    +'<ellipse class="petal pt2" cx="54" cy="30" rx="2.6" ry="1.6" fill="var(--blossom-pale)"/>'
+    +'<ellipse class="petal pt3" cx="60" cy="38" rx="2.5" ry="1.5" fill="var(--blossom)"/>'
+    +'<ellipse class="petal pt4" cx="51" cy="10" rx="2.3" ry="1.4" fill="var(--blossom-pale)"/>'
+    +'</g>';
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+body+extra+'</svg>';
+}
+function svgPine(phase){
+  function tier(ay,by,hw){
+    return '<path d="'+roundPoly([[32,ay],[32+hw,by],[32-hw,by]],4.5)+'" fill="var(--leaf-2)"/>';
+  }
+  var body=P('<rect x="28.5" y="72" width="7" height="20" rx="3.5" fill="var(--wood)"/>')
+   +P(tier(29,76,26.5))
+   +'<rect x="15" y="58.5" width="34" height="3" rx="1.5" fill="rgba(18,68,46,.14)"/>'
+   +P(tier(15,57,21.5))
+   +'<rect x="19" y="39.5" width="26" height="3" rx="1.5" fill="rgba(18,68,46,.14)"/>'
+   +P(tier(3,38,16.5));
+  var extra='';
+  if(phase==='dusk') extra='<path d="M36.3 15.3 L44 31" stroke="rgba(255,185,95,.55)" stroke-width="3" stroke-linecap="round" fill="none"/>'
+   +'<path d="M37 27.6 L46.6 46.5" stroke="rgba(255,185,95,.45)" stroke-width="3" stroke-linecap="round" fill="none"/>'
+   +'<path d="M37.1 40.8 L47.7 59.6" stroke="rgba(255,185,95,.36)" stroke-width="3" stroke-linecap="round" fill="none"/>';
+  if(phase==='dawn') extra=dew([[26,30],[37,48]])+bird(27,-9);
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+body+extra+'</svg>';
+}
+function svgWillow(phase){
+  var fronds=[
+    [ 2.5,6,26,71,1],[ 9.5,7,30,78,0],[17.5,6,34,68,1],[24.5,6,36,60,0],
+    [33.5,6,36,58,1],[40.5,6,34,72,0],[47.5,7,30,79,1],[55.5,6,26,72,0]
+  ].map(function(f){
+    return '<rect x="'+f[0]+'" y="'+f[2]+'" width="'+f[1]+'" height="'+(f[3]-f[2])
+     +'" rx="'+(f[1]/2)+'" fill="var(--'+(f[4]?'leaf-2':'brand-2')+')"/>';
+  }).join('');
+  var body=P('<rect x="28" y="52" width="8" height="40" rx="4" fill="var(--wood)"/>')
+   +P(fronds)
+   +P('<circle cx="16" cy="29" r="13" fill="var(--brand-2)"/>')
+   +P('<circle cx="48" cy="27" r="14" fill="var(--brand-2)"/>')
+   +P('<circle cx="32" cy="21" r="20" fill="var(--brand-2)"/>');
+  var extra='';
+  if(phase==='dusk') extra=rimArc(32,21,20);
+  if(phase==='dawn') extra=dew([[24,14],[42,20]])+bird(33,-7);
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+body+extra+'</svg>';
+}
+function svgKumquat(phase){
+  var fruit='<circle cx="23" cy="20" r="2.7" fill="var(--kumquat)"/>'
+   +'<circle cx="40" cy="15" r="2.6" fill="var(--kumquat)"/>'
+   +'<circle cx="31" cy="33" r="2.7" fill="var(--kumquat)"/>'
+   +'<circle cx="14" cy="42" r="2.4" fill="var(--kumquat)"/>'
+   +'<circle cx="48" cy="37" r="2.5" fill="var(--kumquat)"/>'
+   +'<circle cx="42" cy="45" r="2.4" fill="var(--kumquat)"/>'
+   +'<circle cx="22" cy="46" r="2.3" fill="var(--kumquat)"/>';
+  var body=P('<path d="M23 76 L41 76 L39.6 89 Q39.2 92 36.4 92 L27.6 92 Q24.8 92 24.4 89 Z" fill="var(--pot)"/>')
+   +'<path d="M24.5 78.5 L39.5 78.5" stroke="rgba(55,25,15,.14)" stroke-width="3" stroke-linecap="round" fill="none"/>'
+   +P('<rect x="20.5" y="70" width="23" height="6" rx="2.6" fill="var(--pot)"/>')
+   +P('<rect x="29.5" y="52" width="5" height="22" rx="2.5" fill="var(--wood)"/>')
+   +P('<circle cx="32" cy="31" r="20" fill="var(--leaf-2)"/>')
+   +P('<circle cx="17" cy="43" r="11" fill="var(--leaf-2)"/>')
+   +P('<circle cx="47" cy="41" r="12" fill="var(--leaf-2)"/>')
+   +'<path d="M18 48 A19 19 0 0 0 46 47" fill="none" stroke="rgba(20,70,48,.10)" stroke-width="4" stroke-linecap="round"/>'
+   +P(fruit);
+  var extra='';
+  if(phase==='dusk') extra=rimArc(32,31,20);
+  if(phase==='dawn') extra=dew([[27,22],[42,28]])+bird(26,0);
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+body+extra+'</svg>';
+}
+
+/* ---------------------------------------------------------------------------
+   PETS — svgDog / svgCat / svgRabbit / svgBird / svgDuck   [batch-pets]
+   duck gradient id prefixed p_pd (family-unique) + salted per instance.
+   --------------------------------------------------------------------------- */
+var _uid = 0;
+function zz(x,y,s){
+  s = s || 1;
+  return '<g transform="translate('+x+' '+y+') scale('+s+')"><g class="zz">'
+    + '<path d="M0 3 C2.6 -1.8 8.6 -1 8 2.6 C7.5 5.6 3.4 6 2.5 3.6 C1.8 1.7 3.6 .4 5.2 1.1" '
+    + 'fill="none" stroke="rgba(255,255,255,.85)" stroke-width="1.6" stroke-linecap="round"/>'
+    + '<circle cx="11.5" cy="-2.5" r="1.15" fill="rgba(255,255,255,.7)"/>'
+    + '</g></g>';
+}
+function svgDog(phase){
+  var b = '';
+  if(phase === 'day'){
+    b = '<ellipse cx="25" cy="42" rx="15" ry="2.4" fill="var(--gshadow)"/>'
+      + '<rect x="36.5" y="13" width="4.8" height="13" rx="2.4" fill="var(--coat)" transform="rotate(30 38.9 19.5)"/>'
+      + '<circle cx="30" cy="30" r="11.5" fill="var(--coat)"/>'
+      + '<ellipse cx="20" cy="26" rx="9" ry="13" fill="var(--coat)" transform="rotate(-10 20 26)"/>'
+      + '<ellipse cx="17.5" cy="28" rx="4.6" ry="8.5" fill="var(--coat-cream)"/>'
+      + '<rect x="13.5" y="30" width="4.6" height="11.5" rx="2.3" fill="var(--coat)"/>'
+      + '<rect x="20" y="30" width="4.6" height="11.5" rx="2.3" fill="var(--coat)"/>'
+      + '<rect x="9.5" y="17.5" width="13.5" height="3.6" rx="1.8" fill="var(--brand-ink)" transform="rotate(-9 16 19.5)"/>'
+      + '<circle cx="16.9" cy="21.9" r="1.35" fill="var(--gold)"/>'
+      + '<circle cx="16" cy="11" r="9.2" fill="var(--coat)"/>'
+      + '<ellipse cx="10.3" cy="14" rx="5" ry="3.9" fill="var(--coat-cream)"/>'
+      + '<circle cx="6.9" cy="12.6" r="2" fill="var(--snout)"/>'
+      + '<circle cx="13.8" cy="9" r="1.7" fill="var(--snout)"/>'
+      + '<ellipse cx="21.8" cy="13.5" rx="3.8" ry="7" fill="var(--wood-2)" transform="rotate(10 21.8 13.5)"/>';
+  }
+  else if(phase === 'dawn'){
+    b = '<ellipse cx="24" cy="42" rx="16" ry="2.4" fill="var(--gshadow)"/>'
+      + '<rect x="37" y="7" width="4.6" height="12.5" rx="2.3" fill="var(--coat)" transform="rotate(38 39.3 13.2)"/>'
+      + '<circle cx="33.5" cy="28" r="10" fill="var(--coat)"/>'
+      + '<rect x="31" y="31" width="4.6" height="10.5" rx="2.3" fill="var(--coat)"/>'
+      + '<ellipse cx="23" cy="32.5" rx="11" ry="7.2" fill="var(--coat)" transform="rotate(12 23 32.5)"/>'
+      + '<ellipse cx="15.5" cy="35" rx="5" ry="4" fill="var(--coat-cream)"/>'
+      + '<rect x="2.5" y="37.4" width="13" height="4.4" rx="2.2" fill="var(--coat)"/>'
+      + '<rect x="5.5" y="38.6" width="12" height="4" rx="2" fill="var(--coat)"/>'
+      + '<rect x="7" y="26" width="12.5" height="3.4" rx="1.7" fill="var(--brand-ink)" transform="rotate(20 13 27.5)"/>'
+      + '<circle cx="12.2" cy="30.6" r="1.3" fill="var(--gold)"/>'
+      + '<circle cx="11" cy="21" r="8.4" fill="var(--coat)"/>'
+      + '<ellipse cx="5.8" cy="24" rx="4.6" ry="3.6" fill="var(--coat-cream)"/>'
+      + '<circle cx="2.9" cy="22.6" r="1.9" fill="var(--snout)"/>'
+      + '<circle cx="8.8" cy="19" r="1.6" fill="var(--snout)"/>'
+      + '<ellipse cx="16.5" cy="23" rx="3.6" ry="6.6" fill="var(--wood-2)" transform="rotate(14 16.5 23)"/>';
+  }
+  else if(phase === 'dusk'){
+    b = '<g transform="translate(48 0) scale(-1 1)">'
+      + '<ellipse cx="25" cy="42" rx="15" ry="2.3" fill="var(--gshadow)"/>'
+      + '<rect x="37" y="13" width="4.6" height="12" rx="2.3" fill="var(--coat)" transform="rotate(46 39.3 19)"/>'
+      + '<ellipse cx="25" cy="26.5" rx="13" ry="8.6" fill="var(--coat)"/>'
+      + '<rect x="15" y="31" width="4.4" height="11" rx="2.2" fill="var(--coat)"/>'
+      + '<rect x="21.5" y="32.5" width="4.4" height="9.5" rx="2.2" fill="var(--coat)"/>'
+      + '<rect x="29" y="31" width="4.4" height="11" rx="2.2" fill="var(--coat)"/>'
+      + '<rect x="34" y="32.5" width="4.4" height="9.5" rx="2.2" fill="var(--coat)"/>'
+      + '<ellipse cx="15.5" cy="27.5" rx="4" ry="6" fill="var(--coat-cream)"/>'
+      + '<rect x="8.5" y="16.5" width="12.5" height="3.4" rx="1.7" fill="var(--brand-ink)" transform="rotate(-24 14.7 18.2)"/>'
+      + '<circle cx="14.6" cy="21.2" r="1.3" fill="var(--gold)"/>'
+      + '<circle cx="11.5" cy="12" r="8.6" fill="var(--coat)"/>'
+      + '<ellipse cx="5.8" cy="15" rx="4.8" ry="3.7" fill="var(--coat-cream)"/>'
+      + '<circle cx="2.7" cy="13.5" r="1.9" fill="var(--snout)"/>'
+      + '<circle cx="9" cy="10" r="1.6" fill="var(--snout)"/>'
+      + '<ellipse cx="17" cy="14.5" rx="3.7" ry="6.8" fill="var(--wood-2)" transform="rotate(10 17 14.5)"/>'
+      + '</g>';
+  }
+  else{
+    b = '<ellipse cx="23" cy="41.5" rx="14" ry="2.2" fill="var(--gshadow)"/>'
+      + '<circle cx="24" cy="30.5" r="11.5" fill="var(--coat)"/>'
+      + '<circle cx="30.5" cy="32.5" r="6.5" fill="rgba(90,60,35,.12)"/>'
+      + '<rect x="10.5" y="34.6" width="18" height="5.4" rx="2.7" fill="var(--coat)"/>'
+      + '<ellipse cx="12.5" cy="37.3" rx="3" ry="2.4" fill="var(--coat-cream)"/>'
+      + '<rect x="14.5" y="31.6" width="9" height="3" rx="1.5" fill="var(--brand-ink)" transform="rotate(-14 19 33)"/>'
+      + '<circle cx="14.3" cy="33.6" r="1.2" fill="var(--gold)"/>'
+      + '<circle cx="14.5" cy="26.5" r="7.8" fill="var(--coat)"/>'
+      + '<ellipse cx="9.6" cy="29.4" rx="4.2" ry="3.3" fill="var(--coat-cream)"/>'
+      + '<circle cx="6.7" cy="28" r="1.7" fill="var(--snout)"/>'
+      + '<path d="M10.6 25.2 q1.6 1.7 3.2 0" fill="none" stroke="var(--snout)" stroke-width="1.3" stroke-linecap="round"/>'
+      + '<ellipse cx="19.8" cy="27.5" rx="3.4" ry="6" fill="var(--wood-2)" transform="rotate(20 19.8 27.5)"/>';
+  }
+  return '<svg viewBox="0 0 48 44" aria-hidden="true"><g class="pb">'+b+'</g>'
+    + (phase==='night' ? zz(6,11,1) : '') + '</svg>';
+}
+function svgCat(phase){
+  var b = '';
+  var earL = '<path d="M9 8.5 L10.6 1.4 L15.4 5.6 Z" fill="var(--cat)"/>'
+           + '<path d="M10.4 7.2 L11.2 3.6 L13.6 5.8 Z" fill="var(--ear-blush)"/>';
+  var earR = '<path d="M15.8 5.6 L20.6 1.4 L22.2 8.5 Z" fill="var(--cat)"/>'
+           + '<path d="M17.6 5.8 L20 3.6 L20.8 7.2 Z" fill="var(--ear-blush)"/>';
+  if(phase === 'day'){
+    b = '<ellipse cx="22" cy="42" rx="13" ry="2.2" fill="var(--gshadow)"/>'
+      + '<path d="M29 40 Q38.5 39.5 37 30.5" fill="none" stroke="var(--cat)" stroke-width="4.6" stroke-linecap="round"/>'
+      + '<circle cx="37" cy="31" r="2.3" fill="var(--cat)"/>'
+      + '<circle cx="27.5" cy="31.5" r="9" fill="var(--cat)"/>'
+      + '<ellipse cx="19.5" cy="27" rx="8.6" ry="12" fill="var(--cat)" transform="rotate(-6 19.5 27)"/>'
+      + '<ellipse cx="17.5" cy="29.5" rx="4.2" ry="7.6" fill="var(--coat-cream)"/>'
+      + '<rect x="13.5" y="30" width="4.2" height="11.5" rx="2.1" fill="var(--cat)"/>'
+      + '<rect x="19.5" y="30" width="4.2" height="11.5" rx="2.1" fill="var(--cat)"/>'
+      + '<rect x="23.5" y="20.8" width="6" height="2" rx="1" fill="rgba(88,66,58,.17)" transform="rotate(42 26.5 21.8)"/>'
+      + '<rect x="26.5" y="25.5" width="5.5" height="2" rx="1" fill="rgba(88,66,58,.17)" transform="rotate(42 29.2 26.5)"/>'
+      + '<rect x="9.5" y="17.4" width="12.5" height="3.4" rx="1.7" fill="var(--brand-ink)" transform="rotate(-8 15.7 19.1)"/>'
+      + '<circle cx="16" cy="21.4" r="1.3" fill="var(--gold)"/>'
+      + earL + earR
+      + '<circle cx="15.5" cy="11.5" r="7.8" fill="var(--cat)"/>'
+      + '<rect x="12.6" y="4.6" width="1.8" height="3.6" rx=".9" fill="rgba(88,66,58,.2)"/>'
+      + '<rect x="16.4" y="4.2" width="1.8" height="3.8" rx=".9" fill="rgba(88,66,58,.2)"/>'
+      + '<circle cx="12.6" cy="10.8" r="1.45" fill="var(--snout)"/>'
+      + '<circle cx="18.4" cy="10.8" r="1.45" fill="var(--snout)"/>'
+      + '<path d="M14.8 13.6 L16.4 13.6 L15.6 14.9 Z" fill="var(--snout)"/>';
+  }
+  else if(phase === 'dawn'){
+    b = '<ellipse cx="21" cy="42" rx="14.5" ry="2.3" fill="var(--gshadow)"/>'
+      + '<path d="M33.5 26.5 Q41.8 20 37 10.5" fill="none" stroke="var(--cat)" stroke-width="4.6" stroke-linecap="round"/>'
+      + '<circle cx="30.5" cy="29.5" r="8.6" fill="var(--cat)"/>'
+      + '<rect x="28" y="32" width="4.2" height="9.5" rx="2.1" fill="var(--cat)"/>'
+      + '<ellipse cx="21" cy="33.5" rx="10.5" ry="6.2" fill="var(--cat)" transform="rotate(10 21 33.5)"/>'
+      + '<rect x="3" y="37.8" width="12" height="4" rx="2" fill="var(--cat)"/>'
+      + '<rect x="26" y="25.5" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(26 29 26.5)"/>'
+      + '<rect x="24" y="30" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(26 27 31)"/>'
+      + '<rect x="6" y="30.5" width="11.5" height="3.2" rx="1.6" fill="var(--brand-ink)" transform="rotate(22 11.7 32)"/>'
+      + '<circle cx="10.4" cy="34.8" r="1.25" fill="var(--gold)"/>'
+      + '<path d="M4.2 23.6 L4.6 16.6 L9.4 20.4 Z" fill="var(--cat)"/>'
+      + '<path d="M10.6 19.8 L15.4 16.9 L14.6 23.4 Z" fill="var(--cat)"/>'
+      + '<circle cx="9.5" cy="27" r="7" fill="var(--cat)"/>'
+      + '<circle cx="6.6" cy="26.2" r="1.4" fill="var(--snout)"/>'
+      + '<circle cx="12" cy="25.6" r="1.4" fill="var(--snout)"/>'
+      + '<path d="M8.6 29.2 L10.2 29.2 L9.4 30.5 Z" fill="var(--snout)"/>';
+  }
+  else if(phase === 'dusk'){
+    b = '<g transform="translate(44 0) scale(-1 1)">'
+      + '<ellipse cx="22" cy="42" rx="14" ry="2.2" fill="var(--gshadow)"/>'
+      + '<path d="M36 27.5 Q42.5 22 39.5 14" fill="none" stroke="var(--cat)" stroke-width="4" stroke-linecap="round"/>'
+      + '<ellipse cx="24" cy="29" rx="13" ry="6.8" fill="var(--cat)"/>'
+      + '<rect x="14" y="32" width="3.8" height="10" rx="1.9" fill="var(--cat)"/>'
+      + '<rect x="20" y="33.5" width="3.8" height="8.5" rx="1.9" fill="var(--cat)"/>'
+      + '<rect x="28" y="32" width="3.8" height="10" rx="1.9" fill="var(--cat)"/>'
+      + '<rect x="33.5" y="33.5" width="3.8" height="8.5" rx="1.9" fill="var(--cat)"/>'
+      + '<ellipse cx="14" cy="28" rx="3.6" ry="4.8" fill="var(--coat-cream)"/>'
+      + '<rect x="22" y="24.6" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(8 25 25.6)"/>'
+      + '<rect x="28.5" y="26" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(8 31.5 27)"/>'
+      + '<rect x="6.5" y="21.5" width="11" height="3.2" rx="1.6" fill="var(--brand-ink)" transform="rotate(-30 12 23)"/>'
+      + '<circle cx="11.5" cy="25.6" r="1.25" fill="var(--gold)"/>'
+      + '<path d="M4.6 16.6 L5.6 9.6 L10.2 13.6 Z" fill="var(--cat)"/>'
+      + '<path d="M11.4 13.2 L16 10 L15.6 16.8 Z" fill="var(--cat)"/>'
+      + '<circle cx="10.5" cy="19.5" r="7" fill="var(--cat)"/>'
+      + '<circle cx="7.4" cy="18.4" r="1.4" fill="var(--snout)"/>'
+      + '<circle cx="13" cy="18" r="1.4" fill="var(--snout)"/>'
+      + '<path d="M9.2 21.4 L10.8 21.4 L10 22.7 Z" fill="var(--snout)"/>'
+      + '</g>';
+  }
+  else{
+    b = '<ellipse cx="22" cy="41.5" rx="13" ry="2.1" fill="var(--gshadow)"/>'
+      + '<circle cx="23" cy="31.5" r="10.5" fill="var(--cat)"/>'
+      + '<circle cx="28.5" cy="33.5" r="6" fill="rgba(88,66,58,.1)"/>'
+      + '<rect x="21" y="24" width="6.5" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(24 24 25)"/>'
+      + '<rect x="25" y="28" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(24 28 29)"/>'
+      + '<path d="M12 36 Q22.5 41.5 33 35.8" fill="none" stroke="var(--cat)" stroke-width="4.4" stroke-linecap="round"/>'
+      + '<path d="M6.2 26.2 L7.4 20.2 L11.4 23.8 Z" fill="var(--cat)"/>'
+      + '<path d="M12.4 23.4 L16.6 20.6 L16.2 26.2 Z" fill="var(--cat)"/>'
+      + '<circle cx="14" cy="28.5" r="6.8" fill="var(--cat)"/>'
+      + '<ellipse cx="11.6" cy="31.2" rx="3.7" ry="2.7" fill="var(--coat-cream)"/>'
+      + '<path d="M9.8 27.4 q1.4 1.5 2.8 0" fill="none" stroke="var(--snout)" stroke-width="1.2" stroke-linecap="round"/>'
+      + '<path d="M15.4 27 q1.4 1.5 2.8 0" fill="none" stroke="var(--snout)" stroke-width="1.2" stroke-linecap="round"/>'
+      + '<path d="M11.9 29.9 L13.5 29.9 L12.7 31.2 Z" fill="var(--snout)"/>'
+      + '<rect x="17.5" y="32.8" width="6.5" height="2.8" rx="1.4" fill="var(--brand-ink)" transform="rotate(-18 20.7 34.2)"/>'
+      + '<circle cx="17.4" cy="34.6" r="1.15" fill="var(--gold)"/>';
+  }
+  return '<svg viewBox="0 0 44 44" aria-hidden="true"><g class="pb">'+b+'</g>'
+    + (phase==='night' ? zz(5,12,.95) : '') + '</svg>';
+}
+function svgRabbit(phase){
+  var b = '';
+  if(phase === 'day'){
+    b = '<ellipse cx="19" cy="44" rx="13" ry="2.2" fill="var(--gshadow)"/>'
+      + '<ellipse cx="22" cy="34.5" rx="11.5" ry="9.5" fill="var(--coat-cream)"/>'
+      + '<circle cx="27.5" cy="35.5" r="7" fill="rgba(120,95,70,.12)"/>'
+      + '<circle cx="33" cy="30.5" r="3.4" fill="#fdf4e2"/>'
+      + '<rect x="2" y="14" width="5" height="15" rx="2.5" fill="var(--coat-cream)" transform="rotate(-40 4.5 21.5)"/>'
+      + '<rect x="8.5" y="12" width="5" height="15.5" rx="2.5" fill="var(--coat-cream)" transform="rotate(-22 11 19.8)"/>'
+      + '<rect x="9.8" y="14.4" width="2.3" height="10.5" rx="1.15" fill="var(--ear-blush)" transform="rotate(-22 11 19.8)"/>'
+      + '<rect x="7" y="24.5" width="10.5" height="3.2" rx="1.6" fill="var(--brand-ink)" transform="rotate(14 12 26)"/>'
+      + '<circle cx="9.6" cy="27.6" r="1.25" fill="var(--gold)"/>'
+      + '<circle cx="9.5" cy="32.5" r="7" fill="var(--coat-cream)"/>'
+      + '<circle cx="7.2" cy="30.8" r="1.4" fill="var(--snout)"/>'
+      + '<circle cx="3.2" cy="33.4" r="1.25" fill="var(--snout)"/>'
+      + '<rect x="10" y="39.5" width="8" height="4" rx="2" fill="var(--coat-cream)"/>'
+      + '<rect x="10" y="39.5" width="8" height="4" rx="2" fill="rgba(120,95,70,.08)"/>'
+      + '<rect x="1.6" y="39" width="1.4" height="4.5" rx=".7" fill="#57a86a"/>'
+      + '<circle cx="1.4" cy="38" r="1.5" fill="#57a86a"/><circle cx="3.4" cy="37.6" r="1.5" fill="#57a86a"/><circle cx="2.4" cy="36.2" r="1.5" fill="#57a86a"/>';
+  }
+  else if(phase === 'dawn'){
+    b = '<ellipse cx="20" cy="44" rx="15" ry="2.3" fill="var(--gshadow)"/>'
+      + '<circle cx="30" cy="34.5" r="7.5" fill="var(--coat-cream)"/>'
+      + '<circle cx="30" cy="34.5" r="7.5" fill="rgba(120,95,70,.07)"/>'
+      + '<circle cx="34.5" cy="28.5" r="3.2" fill="#fdf4e2"/>'
+      + '<ellipse cx="20" cy="37" rx="13" ry="6.6" fill="var(--coat-cream)"/>'
+      + '<rect x="2.5" y="39.6" width="11" height="4" rx="2" fill="var(--coat-cream)"/>'
+      + '<rect x="2.5" y="39.6" width="11" height="4" rx="2" fill="rgba(120,95,70,.07)"/>'
+      + '<rect x="11" y="16.5" width="4.8" height="16" rx="2.4" fill="var(--coat-cream)" transform="rotate(-54 13.4 24.5)"/>'
+      + '<rect x="12" y="18.5" width="2.2" height="11" rx="1.1" fill="var(--ear-blush)" transform="rotate(-54 13.4 24.5)"/>'
+      + '<rect x="12.5" y="22.5" width="4.8" height="14" rx="2.4" fill="var(--coat-cream)" transform="rotate(-76 14.9 29.5)"/>'
+      + '<rect x="12.5" y="22.5" width="4.8" height="14" rx="2.4" fill="rgba(120,95,70,.08)" transform="rotate(-76 14.9 29.5)"/>'
+      + '<rect x="6" y="30.5" width="10" height="3" rx="1.5" fill="var(--brand-ink)" transform="rotate(18 11 32)"/>'
+      + '<circle cx="8.8" cy="33.6" r="1.2" fill="var(--gold)"/>'
+      + '<circle cx="8.5" cy="30.5" r="6.6" fill="var(--coat-cream)"/>'
+      + '<circle cx="6.2" cy="28.9" r="1.35" fill="var(--snout)"/>'
+      + '<circle cx="2.6" cy="31.4" r="1.2" fill="var(--snout)"/>';
+  }
+  else if(phase === 'dusk'){
+    b = '<ellipse cx="20" cy="44" rx="9" ry="1.8" fill="var(--gshadow)" opacity=".85"/>'
+      + '<circle cx="10" cy="25" r="3.2" fill="#fdf4e2"/>'
+      + '<ellipse cx="19" cy="28" rx="11" ry="8.5" fill="var(--coat-cream)" transform="rotate(-16 19 28)"/>'
+      + '<circle cx="14" cy="29.5" r="6.4" fill="rgba(120,95,70,.1)"/>'
+      + '<rect x="5.5" y="32" width="11" height="4.2" rx="2.1" fill="var(--coat-cream)" transform="rotate(26 8 34)"/>'
+      + '<rect x="5.5" y="32" width="11" height="4.2" rx="2.1" fill="rgba(120,95,70,.08)" transform="rotate(26 8 34)"/>'
+      + '<circle cx="26" cy="31.5" r="2.3" fill="var(--coat-cream)"/>'
+      + '<circle cx="29.5" cy="30" r="2.3" fill="var(--coat-cream)"/>'
+      + '<rect x="17" y="6" width="4.8" height="14" rx="2.4" fill="var(--coat-cream)" transform="rotate(38 19.4 13)"/>'
+      + '<rect x="18.1" y="8" width="2.2" height="10" rx="1.1" fill="var(--ear-blush)" transform="rotate(38 19.4 13)"/>'
+      + '<rect x="13" y="6.5" width="4.8" height="13.5" rx="2.4" fill="var(--coat-cream)" transform="rotate(52 15.4 13.2)"/>'
+      + '<rect x="13" y="6.5" width="4.8" height="13.5" rx="2.4" fill="rgba(120,95,70,.08)" transform="rotate(52 15.4 13.2)"/>'
+      + '<rect x="22.5" y="22" width="10" height="3" rx="1.5" fill="var(--brand-ink)" transform="rotate(-18 27.5 23.5)"/>'
+      + '<circle cx="30.4" cy="24.4" r="1.2" fill="var(--gold)"/>'
+      + '<circle cx="29" cy="17.5" r="6.6" fill="var(--coat-cream)"/>'
+      + '<circle cx="31.6" cy="15.9" r="1.35" fill="var(--snout)"/>'
+      + '<circle cx="35.3" cy="18.3" r="1.2" fill="var(--snout)"/>';
+  }
+  else{
+    b = '<ellipse cx="20" cy="44" rx="13.5" ry="2.2" fill="var(--gshadow)"/>'
+      + '<ellipse cx="21" cy="35" rx="12.5" ry="9" fill="var(--coat-cream)"/>'
+      + '<circle cx="27" cy="36" r="6.6" fill="rgba(120,95,70,.1)"/>'
+      + '<circle cx="32.5" cy="31.5" r="3.4" fill="#fdf4e2"/>'
+      + '<rect x="12.5" y="23.5" width="4.6" height="14" rx="2.3" fill="var(--coat-cream)" transform="rotate(-74 14.8 30.5)"/>'
+      + '<rect x="13.6" y="25.5" width="2.1" height="9.5" rx="1.05" fill="var(--ear-blush)" transform="rotate(-74 14.8 30.5)"/>'
+      + '<rect x="13" y="27" width="4.6" height="13.5" rx="2.3" fill="var(--coat-cream)" transform="rotate(-86 15.3 33.7)"/>'
+      + '<rect x="13" y="27" width="4.6" height="13.5" rx="2.3" fill="rgba(120,95,70,.16)" transform="rotate(-86 15.3 33.7)"/>'
+      + '<rect x="8" y="34" width="9" height="2.8" rx="1.4" fill="var(--brand-ink)" transform="rotate(10 12.5 35.4)"/>'
+      + '<circle cx="9.9" cy="36.9" r="1.15" fill="var(--gold)"/>'
+      + '<circle cx="10.5" cy="33" r="6.4" fill="var(--coat-cream)"/>'
+      + '<path d="M6.9 31.6 q1.4 1.5 2.8 0" fill="none" stroke="var(--snout)" stroke-width="1.2" stroke-linecap="round"/>'
+      + '<circle cx="4.6" cy="34.2" r="1.15" fill="var(--snout)"/>';
+  }
+  return '<svg viewBox="0 0 40 46" aria-hidden="true"><g class="pb">'+b+'</g>'
+    + (phase==='night' ? zz(3,16,.9) : '') + '</svg>';
+}
+function svgBird(phase){
+  var b = '';
+  if(phase === 'day'){
+    b = '<ellipse cx="13" cy="22.6" rx="7" ry="1.5" fill="var(--gshadow)"/>'
+      + '<rect x="17.5" y="8" width="7" height="3.4" rx="1.7" fill="var(--bird-deep)" transform="rotate(-30 21 9.7)"/>'
+      + '<ellipse cx="13" cy="14.5" rx="8" ry="6.2" fill="var(--bird)" transform="rotate(16 13 14.5)"/>'
+      + '<ellipse cx="9.5" cy="18" rx="4.4" ry="3.2" fill="var(--coat-cream)" transform="rotate(16 9.5 18)"/>'
+      + '<ellipse cx="14.5" cy="13" rx="4.6" ry="2.9" fill="var(--bird-deep)" transform="rotate(18 14.5 13)"/>'
+      + '<circle cx="6.4" cy="17.2" r="4.4" fill="var(--bird)"/>'
+      + '<path d="M2.6 18 L0 19.2 L2.7 20.2 Q3.3 19 2.6 18 Z" fill="#e8a24c"/>'
+      + '<circle cx="5.3" cy="16" r="1" fill="var(--snout)"/>'
+      + '<rect x="11" y="19" width="1.4" height="3.8" rx=".7" fill="var(--wood-2)"/>'
+      + '<rect x="14.4" y="19" width="1.4" height="3.8" rx=".7" fill="var(--wood-2)"/>';
+  }
+  else if(phase === 'dawn'){
+    b = '<ellipse cx="13" cy="22.6" rx="6.5" ry="1.4" fill="var(--gshadow)"/>'
+      + '<rect x="16.5" y="14.5" width="6.4" height="3.2" rx="1.6" fill="var(--bird-deep)" transform="rotate(34 19.7 16)"/>'
+      + '<rect x="0.6" y="7.6" width="8" height="3.6" rx="1.8" fill="var(--bird-deep)" transform="rotate(-24 4.6 9.4)"/>'
+      + '<rect x="17.4" y="7.6" width="8" height="3.6" rx="1.8" fill="var(--bird-deep)" transform="rotate(24 21.4 9.4)"/>'
+      + '<ellipse cx="13" cy="13.5" rx="6.6" ry="7.2" fill="var(--bird)"/>'
+      + '<ellipse cx="12.7" cy="16.5" rx="4.2" ry="4.4" fill="var(--coat-cream)"/>'
+      + '<circle cx="13" cy="6.8" r="4.4" fill="var(--bird)"/>'
+      + '<path d="M8.9 6.2 L6.4 7 L9 8 Q9.5 7 8.9 6.2 Z" fill="#e8a24c"/>'
+      + '<circle cx="11.2" cy="5.6" r="1" fill="var(--snout)"/>'
+      + '<rect x="10.8" y="19.5" width="1.4" height="3.6" rx=".7" fill="var(--wood-2)"/>'
+      + '<rect x="13.8" y="19.5" width="1.4" height="3.6" rx=".7" fill="var(--wood-2)"/>';
+  }
+  else if(phase === 'dusk'){
+    b = '<g transform="translate(26 0) scale(-1 1)">'
+      + '<ellipse cx="13" cy="22.8" rx="5.5" ry="1.3" fill="var(--gshadow)" opacity=".85"/>'
+      + '<rect x="16.8" y="10.5" width="6.6" height="3.2" rx="1.6" fill="var(--bird-deep)" transform="rotate(-24 20 12)"/>'
+      + '<ellipse cx="12.5" cy="13" rx="6.4" ry="7" fill="var(--bird)" transform="rotate(-8 12.5 13)"/>'
+      + '<ellipse cx="11.6" cy="16.2" rx="4" ry="4" fill="var(--coat-cream)"/>'
+      + '<ellipse cx="14.5" cy="12" rx="4" ry="2.7" fill="var(--bird-deep)" transform="rotate(-12 14.5 12)"/>'
+      + '<circle cx="9.5" cy="6.6" r="4.2" fill="var(--bird)"/>'
+      + '<path d="M5.6 6.2 L3.1 7 L5.7 8 Q6.2 7 5.6 6.2 Z" fill="#e8a24c"/>'
+      + '<circle cx="8" cy="5.4" r="1" fill="var(--snout)"/>'
+      + '<rect x="10.6" y="18.6" width="1.4" height="2.8" rx=".7" fill="var(--wood-2)"/>'
+      + '<rect x="13.6" y="18.6" width="1.4" height="2.8" rx=".7" fill="var(--wood-2)"/>'
+      + '</g>';
+  }
+  else{
+    b = '<ellipse cx="13" cy="22.6" rx="7" ry="1.5" fill="var(--gshadow)"/>'
+      + '<rect x="18" y="15.5" width="6" height="3.2" rx="1.6" fill="var(--bird-deep)" transform="rotate(16 21 17)"/>'
+      + '<circle cx="13" cy="15" r="7.6" fill="var(--bird)"/>'
+      + '<ellipse cx="12.6" cy="18.4" rx="4.8" ry="3.6" fill="var(--coat-cream)"/>'
+      + '<ellipse cx="16.5" cy="14" rx="4" ry="2.8" fill="var(--bird-deep)" transform="rotate(24 16.5 14)"/>'
+      + '<path d="M7.8 14.6 L5.9 17 L8.7 17.3 Q9 15.9 7.8 14.6 Z" fill="#e8a24c"/>'
+      + '<path d="M8.9 12.4 q1.3 1.4 2.6 0" fill="none" stroke="var(--snout)" stroke-width="1.1" stroke-linecap="round"/>';
+  }
+  return '<svg viewBox="0 0 26 24" aria-hidden="true"><g class="pb">'+b+'</g>'
+    + (phase==='night' ? zz(2,4,.62) : '') + '</svg>';
+}
+function svgDuck(phase){
+  var u = ++_uid, b = '';
+  var bill = function(x,y){
+    return '<path d="M'+x+' '+y+' L'+(x-4.8)+' '+(y+1.3)+' L'+x+' '+(y+2.8)+' Q'+(x+.9)+' '+(y+1.4)+' '+x+' '+y+' Z" fill="#e8a24c"/>';
+  };
+  if(phase === 'day'){
+    b = '<defs><radialGradient id="p_pd'+u+'" cx="42%" cy="34%" r="80%">'
+      + '<stop offset="0%" stop-color="var(--water-1)"/><stop offset="100%" stop-color="var(--water-2)"/>'
+      + '</radialGradient></defs>'
+      + '<ellipse cx="23" cy="30.5" rx="22" ry="5.2" fill="var(--sand)"/>'
+      + '<ellipse cx="23" cy="30" rx="19.5" ry="4.2" fill="url(#p_pd'+u+')"/>'
+      + '<ellipse cx="15" cy="30.8" rx="7.5" ry="1.6" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.1"/>'
+      + '<ellipse cx="30" cy="28.8" rx="7" ry="1.7" fill="rgba(255,255,255,.3)"/>'
+      + '<path d="M22 27 Q22 21.5 28.5 21.5 Q34 21.5 35.5 24.5 L40 21.5 Q41 26.5 36 28.5 Q32.5 30 27 29.5 Q22.5 29 22 27 Z" fill="var(--coat-cream)"/>'
+      + '<ellipse cx="31" cy="25.5" rx="4" ry="2.6" fill="#e7dcc0"/>'
+      + '<rect x="20.2" y="16" width="5" height="8.5" rx="2.5" fill="var(--coat-cream)"/>'
+      + '<circle cx="22.5" cy="17" r="4.6" fill="var(--coat-cream)"/>'
+      + bill(18.4,15.9)
+      + '<circle cx="21" cy="15.8" r="1" fill="var(--snout)"/>';
+  }
+  else if(phase === 'dawn'){
+    b = '<ellipse cx="22" cy="34" rx="11" ry="2" fill="var(--gshadow)"/>'
+      + '<rect x="18.6" y="28.5" width="2.6" height="5" rx="1.3" fill="#e8a24c"/>'
+      + '<rect x="23.8" y="28.5" width="2.6" height="5" rx="1.3" fill="#e8a24c"/>'
+      + '<ellipse cx="19.6" cy="33.6" rx="2.9" ry="1.2" fill="#e8a24c"/>'
+      + '<ellipse cx="24.8" cy="33.6" rx="2.9" ry="1.2" fill="#e8a24c"/>'
+      + '<rect x="9.5" y="11" width="4.8" height="11.5" rx="2.4" fill="#e7dcc0" transform="rotate(30 11.9 16.7)"/>'
+      + '<rect x="30.2" y="11" width="4.8" height="11.5" rx="2.4" fill="#e7dcc0" transform="rotate(-30 32.6 16.7)"/>'
+      + '<ellipse cx="22.5" cy="23.5" rx="8.6" ry="7.6" fill="var(--coat-cream)"/>'
+      + '<ellipse cx="24.5" cy="25.5" rx="4.2" ry="3" fill="#e7dcc0"/>'
+      + '<rect x="20.2" y="9.5" width="5" height="8" rx="2.5" fill="var(--coat-cream)"/>'
+      + '<circle cx="22.7" cy="9.2" r="4.6" fill="var(--coat-cream)"/>'
+      + bill(18.6,8.1)
+      + '<circle cx="21.2" cy="8" r="1" fill="var(--snout)"/>';
+  }
+  else if(phase === 'dusk'){
+    b = '<g transform="translate(46 0) scale(-1 1)">'
+      + '<ellipse cx="24" cy="34" rx="12" ry="2" fill="var(--gshadow)"/>'
+      + '<rect x="20" y="28" width="2.6" height="5.5" rx="1.3" fill="#e8a24c" transform="rotate(-12 21.3 30.8)"/>'
+      + '<rect x="26" y="28.5" width="2.6" height="5" rx="1.3" fill="#e8a24c" transform="rotate(12 27.3 31)"/>'
+      + '<ellipse cx="19.6" cy="33.4" rx="2.9" ry="1.2" fill="#e8a24c"/>'
+      + '<ellipse cx="27.8" cy="33.6" rx="2.9" ry="1.2" fill="#e8a24c"/>'
+      + '<path d="M33 21.5 Q37.5 18.5 36.5 24 Q35.8 27 33 26.5 Z" fill="var(--coat-cream)"/>'
+      + '<ellipse cx="25" cy="24.5" rx="10.5" ry="7" fill="var(--coat-cream)"/>'
+      + '<ellipse cx="27.5" cy="25.5" rx="4.6" ry="3" fill="#e7dcc0"/>'
+      + '<rect x="13.4" y="13" width="5" height="9" rx="2.5" fill="var(--coat-cream)"/>'
+      + '<circle cx="15.9" cy="12.5" r="4.8" fill="var(--coat-cream)"/>'
+      + bill(11.6,11.4)
+      + '<circle cx="14.3" cy="11.3" r="1" fill="var(--snout)"/>'
+      + '</g>';
+  }
+  else{
+    b = '<ellipse cx="23" cy="34" rx="12" ry="2" fill="var(--gshadow)"/>'
+      + '<ellipse cx="23" cy="26.5" rx="10" ry="7.4" fill="var(--coat-cream)"/>'
+      + '<path d="M13.4 23 Q10 21 11 25.5 Q11.6 27.5 13.6 26.8 Z" fill="var(--coat-cream)"/>'
+      + '<ellipse cx="26" cy="26.5" rx="5.6" ry="3.8" fill="#e7dcc0"/>'
+      + '<ellipse cx="29" cy="24.8" rx="4.2" ry="2" fill="rgba(120,95,70,.08)"/>'
+      + '<circle cx="30" cy="20.5" r="4.8" fill="var(--coat-cream)"/>'
+      + '<path d="M27 22.4 L23.6 24.8 L27.4 25.6 Q28.2 24 27 22.4 Z" fill="#e8a24c"/>'
+      + '<path d="M30.4 19.6 q1.3 1.4 2.6 0" fill="none" stroke="var(--snout)" stroke-width="1.1" stroke-linecap="round"/>';
+  }
+  return '<svg viewBox="0 0 46 36" aria-hidden="true"><g class="pb">'+b+'</g>'
+    + (phase==='night' ? zz(26,7,.85) : '') + '</svg>';
+}
+
+/* catalog maps (verbatim) */
+var TREEFN = {oak:svgOak, cherry:svgCherry, pine:svgPine, willow:svgWillow, kumquat:svgKumquat};
+var PETFN  = {dog:svgDog, cat:svgCat, rabbit:svgRabbit, bird:svgBird, duck:svgDuck};
+var PETW   = {dog:46, cat:42, rabbit:38, bird:23, duck:46};
+
+/* ============================================================================
+   HOUSE SHELL — the app-integrated port of the mock's buildHouse(kind,phase).
+   Roof/wall/extras are the mock's markup; the caller injects the app's real
+   door + member windows (winsInner) into .hs-wins, and the chimney smokes when
+   the family did something today (act), not on the dawn phase.
+   ============================================================================ */
+function buildHouseShell(kind, phase, winsInner, act){
+  var puffs = act ? '<i class="puff"></i><i class="puff p2"></i><i class="puff p3"></i>' : '';
+  var roof;
+  if(kind==='modern')     roof = '<i class="hs-flue">'+puffs+'</i><i class="hs-roof"></i>';
+  else if(kind==='tile')  roof = '<i class="hs-chim">'+puffs+'</i><i class="hs-roof"></i><i class="ridge"></i>';
+  else                    roof = '<i class="hs-chim">'+puffs+'</i><i class="hs-roof"></i>';
+  var extra = kind==='modern' ? '<i class="slat"></i>'
+            : kind==='tile'   ? '<i class="eave"></i><i class="lant"></i>'
+            : kind==='brick'  ? '<i class="attic"></i>' : '';
+  return '<div class="sc-house hm-'+kind+'">'
+    + '<div class="hs-roofwrap">'+roof+'</div>'
+    + '<div class="hs-wall">'+extra
+    +   '<div class="hs-wins">'+(winsInner||'')+'</div><i class="rim"></i>'
+    + '</div></div>';
+}
+
+/* ============================================================================
+   CONFIG STORE — {house,tree,pet} from window.FAM.house, defaulted + validated.
+   ============================================================================ */
+var HOUSE_KEYS = {
+  house: ['cottage','modern','tile','brick'],
+  tree:  ['oak','cherry','pine','willow','kumquat'],
+  pet:   ['dog','cat','rabbit','bird','duck']
+};
+function _houseValid(part, v){ return !!(v && HOUSE_KEYS[part] && HOUSE_KEYS[part].indexOf(v) >= 0); }
+function houseCfg(){
+  var h = (window.FAM && window.FAM.house && typeof window.FAM.house === 'object') ? window.FAM.house : {};
+  return {
+    house: _houseValid('house', h.house) ? h.house : 'cottage',
+    tree:  _houseValid('tree',  h.tree)  ? h.tree  : 'oak',
+    pet:   _houseValid('pet',   h.pet)   ? h.pet   : null
+  };
+}
+/* optimistic set → persist through the write-through layer → repaint the scene */
+function pickHouse(part, value){
+  if(part === 'pet' && (value === null || value === 'none' || value === '')) value = null;
+  else if(!_houseValid(part, value)) return;
+  window.FAM = window.FAM || {};
+  if(!window.FAM.house || typeof window.FAM.house !== 'object') window.FAM.house = {};
+  window.FAM.house[part] = value;                                  // optimistic local echo
+  if(typeof window.setFamilyHouse === 'function') window.setFamilyHouse(houseCfg());
+  if(typeof window.renderHome === 'function') window.renderHome(); // repaint the live scene (mirrors setWeather)
+  _houseToolboxRefresh();                                          // update checks + thumbnails under the sheet
+}
+
+/* ============================================================================
+   TOOLBOX — the 3-picker bottom sheet ("Chăm chút tổ ấm"). Reuses the app's
+   own .sheet / #scrim scaffolding (created once, opened via openSheet).
+   ============================================================================ */
+var _HOUSE_SEG = 'house';
+var _HOUSE_CAT = {
+  house: { icon:'🏠', vi:'Kiểu nhà', en:'House', items:[
+    {v:'cottage',vi:'Nhà ấm',en:'Cottage'},{v:'modern',vi:'Hiện đại',en:'Modern'},
+    {v:'tile',vi:'Ngói Việt',en:'Tiled'},{v:'brick',vi:'Gạch phố',en:'Brick'} ] },
+  tree:  { icon:'🌳', vi:'Cây', en:'Tree', items:[
+    {v:'oak',vi:'Sồi',en:'Oak'},{v:'cherry',vi:'Anh đào',en:'Cherry'},{v:'pine',vi:'Thông',en:'Pine'},
+    {v:'willow',vi:'Liễu',en:'Willow'},{v:'kumquat',vi:'Quất',en:'Kumquat'} ] },
+  pet:   { icon:'🐾', vi:'Thú cưng', en:'Pet', items:[
+    {v:null,vi:'Không',en:'None'},{v:'dog',vi:'Chó',en:'Dog'},{v:'cat',vi:'Mèo',en:'Cat'},
+    {v:'rabbit',vi:'Thỏ',en:'Rabbit'},{v:'bird',vi:'Chim',en:'Bird'},{v:'duck',vi:'Vịt',en:'Duck'} ] }
+};
+/* a couple of sample windows for the thumbnails' house shell */
+function _thumbWins(phase){
+  var lit = (phase === 'dusk' || phase === 'night');
+  function w(cls){ return '<span class="hw"><span class="hw-pane ' + cls + (lit ? ' lit' : '') + '"></span></span>'; }
+  return '<span class="hs-door"></span>' + w('p-ok') + w('p-sun');
+}
+/* the real builder thumbnail for one option, at the current sky phase */
+function _houseThumb(seg, v, phase){
+  var inner = '<i class="th-ground"></i>';
+  if(seg === 'house')      inner += '<div class="th-house">' + buildHouseShell(v, phase, _thumbWins(phase), false) + '</div>';
+  else if(seg === 'tree')  inner += '<div class="th-tree">' + TREEFN[v](phase) + '</div>';
+  else if(v){ var pw = Math.round((PETW[v] || 40) * 1.35);
+             inner += '<div class="th-pet k-' + v + '" style="width:' + pw + 'px">' + PETFN[v](phase) + '</div>'; }
+  else                     inner += '<div class="th-none">' + (typeof L==='function'?L('Không nuôi','No pet'):'None') + '</div>';
+  return '<div class="thumb sky-' + phase + '">' + inner + '</div>';
+}
+function _houseSheetEl(){
+  var el = document.getElementById('sheet-house');
+  if(el) return el;
+  el = document.createElement('div');
+  el.id = 'sheet-house';
+  el.className = 'sheet sheet-house';
+  var scrim = document.getElementById('scrim');
+  if(scrim && scrim.parentNode) scrim.parentNode.appendChild(el);
+  else document.body.appendChild(el);
+  return el;
+}
+function _renderHouseToolbox(el){
+  var _L = (typeof L === 'function') ? L : function(a){ return a; };
+  var phase = (typeof _skyPhase === 'function') ? _skyPhase() : 'day';
+  var cfg = houseCfg();
+  var segs = Object.keys(_HOUSE_CAT).map(function(k){
+    var c = _HOUSE_CAT[k];
+    return '<button class="seg' + (k === _HOUSE_SEG ? ' on' : '') + '" onclick="_houseSeg(&#39;' + k + '&#39;)">'
+      + '<span class="e">' + c.icon + '</span>' + _L(c.vi, c.en) + '</button>';
+  }).join('');
+  var g = _HOUSE_CAT[_HOUSE_SEG];
+  var cur = cfg[_HOUSE_SEG];
+  var opts = g.items.map(function(it){
+    var on = (it.v === cur) || (_HOUSE_SEG === 'pet' && !it.v && !cur);
+    var arg = (it.v === null) ? 'null' : ('&#39;' + it.v + '&#39;');
+    return '<button class="opt' + (on ? ' on' : '') + '" onclick="pickHouse(&#39;' + _HOUSE_SEG + '&#39;,' + arg + ')">'
+      + _houseThumb(_HOUSE_SEG, it.v, phase)
+      + '<div class="nm">' + _L(it.vi, it.en) + '</div></button>';
+  }).join('');
+  el.innerHTML = '<div class="grab"></div>'
+    + '<div class="sh-hd"><h3>' + _L('Chăm chút tổ ấm', 'Make it home') + '</h3>'
+    + '<p>' + _L('Chọn kiểu nhà, cây tiết kiệm và bạn nhỏ — hiện ngay trên trang chủ.',
+                 'Pick a house, a savings tree and a little friend — it shows on your home at once.') + '</p></div>'
+    + '<div class="segs">' + segs + '</div>'
+    + '<div class="sh-body"><div class="opts">' + opts + '</div></div>';
+}
+function _houseToolboxRefresh(){
+  var el = document.getElementById('sheet-house');
+  if(el && el.classList.contains('on')) _renderHouseToolbox(el);
+}
+function _houseSeg(k){
+  _HOUSE_SEG = k;
+  var el = document.getElementById('sheet-house');
+  if(el) _renderHouseToolbox(el);
+}
+function openHouseToolbox(){
+  var el = _houseSheetEl();
+  _renderHouseToolbox(el);
+  if(typeof openSheet === 'function') openSheet('sheet-house');
+  else { document.getElementById('scrim').classList.add('on'); el.classList.add('on'); }
+}
+
+/* the persistent, prominent home-feed entry that opens the toolbox */
+function _houseEntryHTML(){
+  var _L = (typeof L === 'function') ? L : function(a){ return a; };
+  return '<button class="house-entry" onclick="openHouseToolbox()">'
+    + '<span class="he-ic">🛠️</span>'
+    + '<span class="he-tt"><b>' + _L('Chăm chút tổ ấm', 'Make it home') + '</b>'
+    + '<span>' + _L('Đổi nhà · cây · thú cưng cho cả nhà', 'Change your house · tree · pet') + '</span></span>'
+    + '<svg class="he-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
+    + '</button>';
+}
+
+window.buildHouseShell = buildHouseShell;
+window._houseEntryHTML = _houseEntryHTML;
+window.houseCfg = houseCfg;
+window.pickHouse = pickHouse;
+window.openHouseToolbox = openHouseToolbox;
+window._houseSeg = _houseSeg;
+window.TREEFN = TREEFN;
+window.PETFN = PETFN;
+window.PETW = PETW;
 
 /* ---------- events ---------- */
 function memTileHTML(k){
@@ -7166,7 +8029,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v235';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v236';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -7787,6 +8650,8 @@ function openWhatsNew(){
       }
 
       if (fam) { window.FAM.familyName = fam.name; if (fam.currency) window.CUR = fam.currency; if (fam.default_language) window.LANG = fam.default_language; }
+      // shared house customization ({house,tree,pet}); [] / null on a pre-migration snapshot → keep whatever we have
+      window.FAM.house = (fam && fam.house && typeof fam.house === 'object') ? fam.house : (window.FAM.house || {});
 
       // members → membersMeta + maps
       window.DB.memberById = {}; window.DB.memberByAppName = {}; window.DB.sharedId = null; window.DB.ownerMemberId = null;
@@ -8506,6 +9371,23 @@ function openWhatsNew(){
     } catch (e) { console.warn('saveWeather', e); return false; }
   };
 
+  // ---- write-through: house customization (one shared {house,tree,pet} per family) ----
+  // Optimistic local echo + set_family_house() RPC, then a debounced reload. Same
+  // fire-and-persist shape as saveWeather; errors go through _writeErr like the rest.
+  window.setFamilyHouse = async function (cfg) {
+    try {
+      const fid = window.DB && window.DB.fid;
+      if (!sb || !fid) return false;
+      window.FAM = window.FAM || {};
+      window.FAM.house = cfg;                            // optimistic
+      window.DB._lastLocalWrite = Date.now();
+      const res = await sb.rpc('set_family_house', { p_house: cfg });
+      if (res && res.error) { _writeErr('house save failed', res.error); return false; }
+      _syncSoon();
+      return true;
+    } catch (e) { _writeErr('house save failed', e); return false; }
+  };
+
   // ---- write-through: reactions (collaborative emoji on a transaction) ----
   // Upsert on (transaction_id, member_id) — re-reacting REPLACES, so the feed never
   // fills with one member's rapid taps; a null emoji (tapping your current reaction
@@ -8568,6 +9450,11 @@ function openWhatsNew(){
           if (Date.now() - (window.DB._lastLocalWrite || 0) < 2500) return;
           clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 900);
         });
+      });
+      // the families row itself (house customization lives here) — keyed on id, not family_id
+      ch.on('postgres_changes', { event: '*', schema: 'public', table: 'families', filter: 'id=eq.' + fid }, () => {
+        if (Date.now() - (window.DB._lastLocalWrite || 0) < 2500) return;
+        clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 900);
       });
       ch.subscribe();
     } catch (e) { console.warn('realtime subscribe failed', e); }

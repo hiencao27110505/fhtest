@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tổ ấm · Bạn nhỏ trong sân — 5 pets × 4 thời điểm</title>
+<style>
+/* ============================================================================
+   FamilyHub — PET BATCH. 5 yard critters × 4 time-of-day states, drawn in the
+   SAME language as the living-house scene + the decor pilot: flat fills,
+   circle/capsule geometry, same-hue soft depth, NO emoji, NO hard outlines.
+   Each pet = one JS builder svgPet(phase) → drop-in for renderScene().
+   ============================================================================ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --ink:#191022;--muted:#6b6576;--canvas:#efe9f2;--hairline:#e6e0ec;
+  /* theme (per-family) — same defaults as the app */
+  --brand-ink:#1F7E52;--brand-2:#5FD3A0;
+  /* ---- LOCKED decor tokens (from assets-pilot.html) ---- */
+  --wood:#7d5f45;--wood-2:#8a6844;
+  --gold:#e5b34a;
+  --water-1:#a9dbe9;--water-2:#69a7ca;--sand:#d9c9a0;
+  --coat:#c99e6f;            /* dog coat tan */
+  --coat-cream:#f4e7cf;      /* dog chest / duck / rabbit body */
+  --snout:#3a2a22;           /* eyes & noses */
+  --gshadow:rgba(35,55,35,.16);
+  /* ---- pet-batch additions (kept in the same warm, muted family) ---- */
+  --cat:#b9a89c;             /* warm grey tabby — grey cousin of --coat */
+  --ear-blush:#eebfae;       /* inner ear (cat + rabbit) — muted blush */
+  --bird:#c9785a;            /* plump robin — chimney-brick family */
+  --bird-deep:#a85a40;       /* bird wing/tail — darker same hue */
+}
+body{font-family:var(--text);background:var(--canvas);color:var(--ink);
+  -webkit-font-smoothing:antialiased;padding:34px 22px 80px;line-height:1.5}
+.wrap{max-width:1400px;margin:0 auto}
+.lead{text-align:center;margin-bottom:26px}
+.lead .eyebrow{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--brand-ink)}
+.lead h1{font-family:var(--disp);font-size:30px;font-weight:800;letter-spacing:-.8px;margin:8px 0 6px}
+.lead p{font-size:14px;color:var(--muted)}
+
+/* ---------- grid ---------- */
+.hd-row,.row{display:grid;grid-template-columns:118px repeat(4,1fr);gap:10px;margin-bottom:10px}
+.hd-row div{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);text-align:center;align-self:end;padding-bottom:4px}
+.rlab{display:flex;flex-direction:column;justify-content:center;gap:2px}
+.rlab b{font-family:var(--disp);font-size:16px;font-weight:800;letter-spacing:-.3px}
+.rlab span{font-size:11.5px;color:var(--muted);line-height:1.35}
+
+/* ---------- mini scene (faithful copy of 21-home-today.css / customizer) ---------- */
+.mini{position:relative;height:192px;border-radius:16px;overflow:hidden;color:#fff;
+  --sky1:#5fa7d6;--sky2:#cde8f7;--hill1:#86b294;--hill2:#639b7c;--gr1:#9cc98b;--gr2:#77aa67;
+  --dim:rgba(15,20,45,0);
+  background:linear-gradient(180deg,var(--sky1),var(--sky2) 82%);
+  box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 22px rgba(25,16,34,.06)}
+.mini.dawn{--sky1:#d98e6b;--sky2:#ffdfb4;--hill1:#b18a8e;--hill2:#93707e;--gr1:#a8bf7e;--gr2:#87a565;--dim:rgba(80,40,30,.06)}
+.mini.dusk{--sky1:#5d4d8f;--sky2:#f0a172;--hill1:#6d5a80;--hill2:#55486b;--gr1:#69865c;--gr2:#4d6a45;--dim:rgba(35,25,70,.16)}
+.mini.night{--sky1:#121a32;--sky2:#33406b;--hill1:#232b48;--hill2:#1a2138;--gr1:#28403a;--gr2:#1c2f2a;--dim:rgba(10,14,40,.4)}
+.sc-orb{position:absolute;top:10px;right:22px;width:30px;height:30px;border-radius:50%;background:#fff3c9;box-shadow:0 0 26px 8px rgba(255,244,190,.5)}
+.dawn .sc-orb{top:34px;right:auto;left:56%;background:#ffcf7e;box-shadow:0 0 30px 11px rgba(255,190,110,.5)}
+.dusk .sc-orb{top:40px;right:14%;background:#ffc06e;box-shadow:0 0 34px 13px rgba(255,170,90,.55)}
+.night .sc-orb{background:transparent;box-shadow:inset -8px 4px 0 0 #dfe6f5;filter:drop-shadow(0 0 7px rgba(215,228,255,.35))}
+.sc-star{position:absolute;width:2.5px;height:2.5px;border-radius:50%;background:#fff;animation:tw 3.2s ease-in-out infinite}
+@keyframes tw{0%,100%{opacity:.25}50%{opacity:.9}}
+.sc-cloud{position:absolute;width:64px;height:17px;border-radius:17px;background:rgba(255,255,255,.55)}
+.sc-cloud::before{content:'';position:absolute;left:11px;top:-9px;width:25px;height:20px;border-radius:50%;background:inherit}
+.sc-cloud::after{content:'';position:absolute;left:31px;top:-6px;width:20px;height:15px;border-radius:50%;background:inherit}
+.sc-cloud.c1{top:16px;left:6%}
+.dusk .sc-cloud{opacity:.4}.night .sc-cloud{opacity:.12}
+.sc-hill{position:absolute;border-radius:50%}
+.sc-hill.h1{left:-90px;bottom:34px;width:300px;height:86px;background:var(--hill1)}
+.sc-hill.h2{right:-110px;bottom:28px;width:340px;height:98px;background:var(--hill2)}
+.sc-ground{position:absolute;left:0;right:0;bottom:0;height:52px;background:linear-gradient(180deg,var(--gr1),var(--gr2))}
+/* the default house (exact app construction, scaled a touch for the cell) */
+.sc-house{position:absolute;left:62%;bottom:46px;transform:translateX(-50%) scale(.8);transform-origin:50% 100%;width:max-content;z-index:3}
+.hs-roofwrap{position:relative;height:40px;margin:0 -10px;z-index:1}
+.hs-chim{position:absolute;top:-14px;right:20%;width:17px;height:30px;border-radius:3px 3px 0 0;background:linear-gradient(var(--dim),var(--dim)) #a8624c}
+.hs-roof{position:absolute;inset:0;background:linear-gradient(var(--dim),var(--dim)) var(--brand-ink);clip-path:polygon(0 100%,16% 0,84% 0,100% 100%)}
+.hs-wall{position:relative;border-radius:4px 4px 9px 9px;padding:13px 12px 12px;
+  background:linear-gradient(var(--dim),var(--dim)),linear-gradient(180deg,#fdf4e2,#f0dfc0);
+  box-shadow:inset 0 7px 9px -7px rgba(70,45,20,.4),0 10px 22px rgba(15,15,35,.18)}
+.hs-wins{display:flex;justify-content:center;align-items:flex-end;gap:10px 12px}
+.hs-door{display:block;width:32px;height:58px;border-radius:16px 16px 4px 4px;background:linear-gradient(var(--dim),var(--dim)) var(--brand-ink);position:relative;flex:0 0 auto;align-self:flex-end}
+.hs-door::after{content:'';position:absolute;right:6px;top:28px;width:4px;height:4px;border-radius:50%;background:#ffd98e}
+.hw{display:flex;flex-direction:column;align-items:center;gap:4px;flex:0 0 auto}
+.hw-pane{width:42px;height:46px;border-radius:13px 13px 5px 5px;border:3px solid #e6d2ab;position:relative}
+.p-ok{background:linear-gradient(180deg,#fff6dd,#ffe5ae)}
+.p-sun{background:radial-gradient(circle at 50% 36%,#ffeaa6,#ffc75d)}
+.hw-pane.lit{box-shadow:0 0 12px 1px rgba(255,205,110,.35)}
+.dusk .hw-pane.lit{box-shadow:0 0 18px 3px rgba(255,200,100,.45)}
+.night .hw-pane.lit{box-shadow:0 0 22px 5px rgba(255,200,100,.55)}
+.hw-name{font-size:10.5px;font-weight:700;color:#54432e}
+
+/* ---------- the pet spot ---------- */
+.spot{position:absolute;bottom:42px;left:9%;z-index:4}
+.spot svg{display:block;width:100%;height:auto}
+/* phase-driven placement: dusk = ambling toward the house, night = at the doorstep */
+.dusk .spot{left:26%}
+.night .spot{left:36.5%;bottom:43px}
+/* the duck's day puddle sits on the lower lawn like the pilot pond */
+.night .spot.duck{left:34.5%}
+/* the little bird snugs right up to the doorstep */
+.night .spot.k-bird{left:40%}
+.spot.duck-day{left:4%;bottom:20px}
+/* pets take the same --dim tint as everything else (the sleep-swirl is exempt) */
+.dawn .spot .pb{filter:brightness(1)}
+.dusk .spot .pb{filter:brightness(.88) saturate(.92)}
+.night .spot .pb{filter:brightness(.68) saturate(.85)}
+/* soft sleep-swirl float */
+.zz{animation:zzf 3.2s ease-in-out infinite}
+@keyframes zzf{0%,100%{transform:translateY(0);opacity:.85}50%{transform:translateY(-2px);opacity:.55}}
+
+/* ---------- reference strip ---------- */
+.refs{display:flex;gap:12px;align-items:stretch;margin:30px 0 12px}
+.ref{flex:1;background:#f7f4f9;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 10px;box-shadow:0 1px 3px rgba(25,16,34,.05)}
+.ref .t{font-size:10.5px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
+.note{font-size:12px;color:var(--muted);text-align:center;margin-top:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="lead">
+    <div class="eyebrow">FamilyHub · Pet picker batch</div>
+    <h1>5 bạn nhỏ trong sân — bình minh · ngày · hoàng hôn · đêm</h1>
+    <p>Cùng ngôn ngữ tạo hình với ngôi nhà &amp; chú chó pilot: khối tròn, mảng phẳng, vòng cổ theo màu gia đình. Ban đêm mỗi bạn cuộn tròn ngủ bên cửa.</p>
+  </div>
+
+  <div class="hd-row"><div></div><div>Bình minh — vươn vai</div><div>Ngày — hoạt động</div><div>Hoàng hôn — về nhà</div><div>Đêm — ngủ bên cửa</div></div>
+  <div id="grid"></div>
+
+  <div class="refs" id="refs"></div>
+  <div class="note">Mỗi pet là một hàm <b>svgPet(phase)</b> trả về chuỗi SVG (id gradient được salt) — chép nguyên khối vào renderScene() của app là dùng được.</div>
+</div>
+
+<script>
+/* ============================================================================
+   PET BUILDERS — svgDog / svgCat / svgRabbit / svgBird / svgDuck (phase)
+   phase ∈ 'dawn' | 'day' | 'dusk' | 'night'
+   Construction rules (from the pilot dog): circles + capsules (rect rx=w/2),
+   flat fills, same-hue low-opacity overlays for depth, --brand-ink collar with
+   a gold tag, --gshadow contact ellipse, NO outlines, NO emoji / NO "Zzz" —
+   sleep is a soft drawn swirl. Gradient ids are salted per instance.
+   ============================================================================ */
+var _uid = 0;
+
+/* soft sleep-swirl (shared) — a loose spiral + a drifting dot, drawn outside
+   the dim-tinted body group so it stays luminous at night */
+function zz(x,y,s){
+  s = s || 1;
+  /* outer <g> positions, inner <g class="zz"> floats — the CSS animation's
+     transform must not clobber the positioning transform */
+  return '<g transform="translate('+x+' '+y+') scale('+s+')"><g class="zz">'
+    + '<path d="M0 3 C2.6 -1.8 8.6 -1 8 2.6 C7.5 5.6 3.4 6 2.5 3.6 C1.8 1.7 3.6 .4 5.2 1.1" '
+    + 'fill="none" stroke="rgba(255,255,255,.85)" stroke-width="1.6" stroke-linecap="round"/>'
+    + '<circle cx="11.5" cy="-2.5" r="1.15" fill="rgba(255,255,255,.7)"/>'
+    + '</g></g>';
+}
+
+/* ---- 1 · DOG — the pilot dog, extended with phase poses ---- */
+function svgDog(phase){
+  var b = '';
+  if(phase === 'day'){                                    /* pilot pose, verbatim */
+    b = '<ellipse cx="25" cy="42" rx="15" ry="2.4" fill="var(--gshadow)"/>'
+      + '<rect x="36.5" y="13" width="4.8" height="13" rx="2.4" fill="var(--coat)" transform="rotate(30 38.9 19.5)"/>'
+      + '<circle cx="30" cy="30" r="11.5" fill="var(--coat)"/>'
+      + '<ellipse cx="20" cy="26" rx="9" ry="13" fill="var(--coat)" transform="rotate(-10 20 26)"/>'
+      + '<ellipse cx="17.5" cy="28" rx="4.6" ry="8.5" fill="var(--coat-cream)"/>'
+      + '<rect x="13.5" y="30" width="4.6" height="11.5" rx="2.3" fill="var(--coat)"/>'
+      + '<rect x="20" y="30" width="4.6" height="11.5" rx="2.3" fill="var(--coat)"/>'
+      + '<rect x="9.5" y="17.5" width="13.5" height="3.6" rx="1.8" fill="var(--brand-ink)" transform="rotate(-9 16 19.5)"/>'
+      + '<circle cx="16.9" cy="21.9" r="1.35" fill="var(--gold)"/>'
+      + '<circle cx="16" cy="11" r="9.2" fill="var(--coat)"/>'
+      + '<ellipse cx="10.3" cy="14" rx="5" ry="3.9" fill="var(--coat-cream)"/>'
+      + '<circle cx="6.9" cy="12.6" r="2" fill="var(--snout)"/>'
+      + '<circle cx="13.8" cy="9" r="1.7" fill="var(--snout)"/>'
+      + '<ellipse cx="21.8" cy="13.5" rx="3.8" ry="7" fill="var(--wood-2)" transform="rotate(10 21.8 13.5)"/>';
+  }
+  else if(phase === 'dawn'){                              /* play-bow stretch */
+    b = '<ellipse cx="24" cy="42" rx="16" ry="2.4" fill="var(--gshadow)"/>'
+      + '<rect x="37" y="7" width="4.6" height="12.5" rx="2.3" fill="var(--coat)" transform="rotate(38 39.3 13.2)"/>'
+      + '<circle cx="33.5" cy="28" r="10" fill="var(--coat)"/>'
+      + '<rect x="31" y="31" width="4.6" height="10.5" rx="2.3" fill="var(--coat)"/>'
+      + '<ellipse cx="23" cy="32.5" rx="11" ry="7.2" fill="var(--coat)" transform="rotate(12 23 32.5)"/>'
+      + '<ellipse cx="15.5" cy="35" rx="5" ry="4" fill="var(--coat-cream)"/>'
+      + '<rect x="2.5" y="37.4" width="13" height="4.4" rx="2.2" fill="var(--coat)"/>'
+      + '<rect x="5.5" y="38.6" width="12" height="4" rx="2" fill="var(--coat)"/>'
+      + '<rect x="7" y="26" width="12.5" height="3.4" rx="1.7" fill="var(--brand-ink)" transform="rotate(20 13 27.5)"/>'
+      + '<circle cx="12.2" cy="30.6" r="1.3" fill="var(--gold)"/>'
+      + '<circle cx="11" cy="21" r="8.4" fill="var(--coat)"/>'
+      + '<ellipse cx="5.8" cy="24" rx="4.6" ry="3.6" fill="var(--coat-cream)"/>'
+      + '<circle cx="2.9" cy="22.6" r="1.9" fill="var(--snout)"/>'
+      + '<circle cx="8.8" cy="19" r="1.6" fill="var(--snout)"/>'
+      + '<ellipse cx="16.5" cy="23" rx="3.6" ry="6.6" fill="var(--wood-2)" transform="rotate(14 16.5 23)"/>';
+  }
+  else if(phase === 'dusk'){                              /* trotting home (faces the house) */
+    b = '<g transform="translate(48 0) scale(-1 1)">'
+      + '<ellipse cx="25" cy="42" rx="15" ry="2.3" fill="var(--gshadow)"/>'
+      + '<rect x="37" y="13" width="4.6" height="12" rx="2.3" fill="var(--coat)" transform="rotate(46 39.3 19)"/>'
+      + '<ellipse cx="25" cy="26.5" rx="13" ry="8.6" fill="var(--coat)"/>'
+      + '<rect x="15" y="31" width="4.4" height="11" rx="2.2" fill="var(--coat)"/>'
+      + '<rect x="21.5" y="32.5" width="4.4" height="9.5" rx="2.2" fill="var(--coat)"/>'
+      + '<rect x="29" y="31" width="4.4" height="11" rx="2.2" fill="var(--coat)"/>'
+      + '<rect x="34" y="32.5" width="4.4" height="9.5" rx="2.2" fill="var(--coat)"/>'
+      + '<ellipse cx="15.5" cy="27.5" rx="4" ry="6" fill="var(--coat-cream)"/>'
+      + '<rect x="8.5" y="16.5" width="12.5" height="3.4" rx="1.7" fill="var(--brand-ink)" transform="rotate(-24 14.7 18.2)"/>'
+      + '<circle cx="14.6" cy="21.2" r="1.3" fill="var(--gold)"/>'
+      + '<circle cx="11.5" cy="12" r="8.6" fill="var(--coat)"/>'
+      + '<ellipse cx="5.8" cy="15" rx="4.8" ry="3.7" fill="var(--coat-cream)"/>'
+      + '<circle cx="2.7" cy="13.5" r="1.9" fill="var(--snout)"/>'
+      + '<circle cx="9" cy="10" r="1.6" fill="var(--snout)"/>'
+      + '<ellipse cx="17" cy="14.5" rx="3.7" ry="6.8" fill="var(--wood-2)" transform="rotate(10 17 14.5)"/>'
+      + '</g>';
+  }
+  else{                                                   /* night — curled asleep */
+    b = '<ellipse cx="23" cy="41.5" rx="14" ry="2.2" fill="var(--gshadow)"/>'
+      + '<circle cx="24" cy="30.5" r="11.5" fill="var(--coat)"/>'
+      + '<circle cx="30.5" cy="32.5" r="6.5" fill="rgba(90,60,35,.12)"/>'
+      + '<rect x="10.5" y="34.6" width="18" height="5.4" rx="2.7" fill="var(--coat)"/>'
+      + '<ellipse cx="12.5" cy="37.3" rx="3" ry="2.4" fill="var(--coat-cream)"/>'
+      + '<rect x="14.5" y="31.6" width="9" height="3" rx="1.5" fill="var(--brand-ink)" transform="rotate(-14 19 33)"/>'
+      + '<circle cx="14.3" cy="33.6" r="1.2" fill="var(--gold)"/>'
+      + '<circle cx="14.5" cy="26.5" r="7.8" fill="var(--coat)"/>'
+      + '<ellipse cx="9.6" cy="29.4" rx="4.2" ry="3.3" fill="var(--coat-cream)"/>'
+      + '<circle cx="6.7" cy="28" r="1.7" fill="var(--snout)"/>'
+      + '<path d="M10.6 25.2 q1.6 1.7 3.2 0" fill="none" stroke="var(--snout)" stroke-width="1.3" stroke-linecap="round"/>'
+      + '<ellipse cx="19.8" cy="27.5" rx="3.4" ry="6" fill="var(--wood-2)" transform="rotate(20 19.8 27.5)"/>';
+  }
+  return '<svg viewBox="0 0 48 44" aria-hidden="true"><g class="pb">'+b+'</g>'
+    + (phase==='night' ? zz(6,11,1) : '') + '</svg>';
+}
+
+/* ---- 2 · CAT — warm-grey tabby, sleeker than the dog, same charm ---- */
+function svgCat(phase){
+  var b = '';
+  var earL = '<path d="M9 8.5 L10.6 1.4 L15.4 5.6 Z" fill="var(--cat)"/>'
+           + '<path d="M10.4 7.2 L11.2 3.6 L13.6 5.8 Z" fill="var(--ear-blush)"/>';
+  var earR = '<path d="M15.8 5.6 L20.6 1.4 L22.2 8.5 Z" fill="var(--cat)"/>'
+           + '<path d="M17.6 5.8 L20 3.6 L20.8 7.2 Z" fill="var(--ear-blush)"/>';
+  if(phase === 'day'){                                    /* sitting alert, tail curled front */
+    b = '<ellipse cx="22" cy="42" rx="13" ry="2.2" fill="var(--gshadow)"/>'
+      + '<path d="M29 40 Q38.5 39.5 37 30.5" fill="none" stroke="var(--cat)" stroke-width="4.6" stroke-linecap="round"/>'
+      + '<circle cx="37" cy="31" r="2.3" fill="var(--cat)"/>'
+      + '<circle cx="27.5" cy="31.5" r="9" fill="var(--cat)"/>'
+      + '<ellipse cx="19.5" cy="27" rx="8.6" ry="12" fill="var(--cat)" transform="rotate(-6 19.5 27)"/>'
+      + '<ellipse cx="17.5" cy="29.5" rx="4.2" ry="7.6" fill="var(--coat-cream)"/>'
+      + '<rect x="13.5" y="30" width="4.2" height="11.5" rx="2.1" fill="var(--cat)"/>'
+      + '<rect x="19.5" y="30" width="4.2" height="11.5" rx="2.1" fill="var(--cat)"/>'
+      + '<rect x="23.5" y="20.8" width="6" height="2" rx="1" fill="rgba(88,66,58,.17)" transform="rotate(42 26.5 21.8)"/>'
+      + '<rect x="26.5" y="25.5" width="5.5" height="2" rx="1" fill="rgba(88,66,58,.17)" transform="rotate(42 29.2 26.5)"/>'
+      + '<rect x="9.5" y="17.4" width="12.5" height="3.4" rx="1.7" fill="var(--brand-ink)" transform="rotate(-8 15.7 19.1)"/>'
+      + '<circle cx="16" cy="21.4" r="1.3" fill="var(--gold)"/>'
+      + earL + earR
+      + '<circle cx="15.5" cy="11.5" r="7.8" fill="var(--cat)"/>'
+      + '<rect x="12.6" y="4.6" width="1.8" height="3.6" rx=".9" fill="rgba(88,66,58,.2)"/>'
+      + '<rect x="16.4" y="4.2" width="1.8" height="3.8" rx=".9" fill="rgba(88,66,58,.2)"/>'
+      + '<circle cx="12.6" cy="10.8" r="1.45" fill="var(--snout)"/>'
+      + '<circle cx="18.4" cy="10.8" r="1.45" fill="var(--snout)"/>'
+      + '<path d="M14.8 13.6 L16.4 13.6 L15.6 14.9 Z" fill="var(--snout)"/>';
+  }
+  else if(phase === 'dawn'){                              /* big cat stretch — rump up, chest low */
+    b = '<ellipse cx="21" cy="42" rx="14.5" ry="2.3" fill="var(--gshadow)"/>'
+      + '<path d="M33.5 26.5 Q41.8 20 37 10.5" fill="none" stroke="var(--cat)" stroke-width="4.6" stroke-linecap="round"/>'
+      + '<circle cx="30.5" cy="29.5" r="8.6" fill="var(--cat)"/>'
+      + '<rect x="28" y="32" width="4.2" height="9.5" rx="2.1" fill="var(--cat)"/>'
+      + '<ellipse cx="21" cy="33.5" rx="10.5" ry="6.2" fill="var(--cat)" transform="rotate(10 21 33.5)"/>'
+      + '<rect x="3" y="37.8" width="12" height="4" rx="2" fill="var(--cat)"/>'
+      + '<rect x="26" y="25.5" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(26 29 26.5)"/>'
+      + '<rect x="24" y="30" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(26 27 31)"/>'
+      + '<rect x="6" y="30.5" width="11.5" height="3.2" rx="1.6" fill="var(--brand-ink)" transform="rotate(22 11.7 32)"/>'
+      + '<circle cx="10.4" cy="34.8" r="1.25" fill="var(--gold)"/>'
+      + '<path d="M4.2 23.6 L4.6 16.6 L9.4 20.4 Z" fill="var(--cat)"/>'
+      + '<path d="M10.6 19.8 L15.4 16.9 L14.6 23.4 Z" fill="var(--cat)"/>'
+      + '<circle cx="9.5" cy="27" r="7" fill="var(--cat)"/>'
+      + '<circle cx="6.6" cy="26.2" r="1.4" fill="var(--snout)"/>'
+      + '<circle cx="12" cy="25.6" r="1.4" fill="var(--snout)"/>'
+      + '<path d="M8.6 29.2 L10.2 29.2 L9.4 30.5 Z" fill="var(--snout)"/>';
+  }
+  else if(phase === 'dusk'){                              /* prowling home, tail high */
+    b = '<g transform="translate(44 0) scale(-1 1)">'
+      + '<ellipse cx="22" cy="42" rx="14" ry="2.2" fill="var(--gshadow)"/>'
+      + '<path d="M36 27.5 Q42.5 22 39.5 14" fill="none" stroke="var(--cat)" stroke-width="4" stroke-linecap="round"/>'
+      + '<ellipse cx="24" cy="29" rx="13" ry="6.8" fill="var(--cat)"/>'
+      + '<rect x="14" y="32" width="3.8" height="10" rx="1.9" fill="var(--cat)"/>'
+      + '<rect x="20" y="33.5" width="3.8" height="8.5" rx="1.9" fill="var(--cat)"/>'
+      + '<rect x="28" y="32" width="3.8" height="10" rx="1.9" fill="var(--cat)"/>'
+      + '<rect x="33.5" y="33.5" width="3.8" height="8.5" rx="1.9" fill="var(--cat)"/>'
+      + '<ellipse cx="14" cy="28" rx="3.6" ry="4.8" fill="var(--coat-cream)"/>'
+      + '<rect x="22" y="24.6" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(8 25 25.6)"/>'
+      + '<rect x="28.5" y="26" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(8 31.5 27)"/>'
+      + '<rect x="6.5" y="21.5" width="11" height="3.2" rx="1.6" fill="var(--brand-ink)" transform="rotate(-30 12 23)"/>'
+      + '<circle cx="11.5" cy="25.6" r="1.25" fill="var(--gold)"/>'
+      + '<path d="M4.6 16.6 L5.6 9.6 L10.2 13.6 Z" fill="var(--cat)"/>'
+      + '<path d="M11.4 13.2 L16 10 L15.6 16.8 Z" fill="var(--cat)"/>'
+      + '<circle cx="10.5" cy="19.5" r="7" fill="var(--cat)"/>'
+      + '<circle cx="7.4" cy="18.4" r="1.4" fill="var(--snout)"/>'
+      + '<circle cx="13" cy="18" r="1.4" fill="var(--snout)"/>'
+      + '<path d="M9.2 21.4 L10.8 21.4 L10 22.7 Z" fill="var(--snout)"/>'
+      + '</g>';
+  }
+  else{                                                   /* night — curled crescent, tail over paws */
+    b = '<ellipse cx="22" cy="41.5" rx="13" ry="2.1" fill="var(--gshadow)"/>'
+      + '<circle cx="23" cy="31.5" r="10.5" fill="var(--cat)"/>'
+      + '<circle cx="28.5" cy="33.5" r="6" fill="rgba(88,66,58,.1)"/>'
+      + '<rect x="21" y="24" width="6.5" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(24 24 25)"/>'
+      + '<rect x="25" y="28" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(24 28 29)"/>'
+      + '<path d="M12 36 Q22.5 41.5 33 35.8" fill="none" stroke="var(--cat)" stroke-width="4.4" stroke-linecap="round"/>'
+      + '<path d="M6.2 26.2 L7.4 20.2 L11.4 23.8 Z" fill="var(--cat)"/>'
+      + '<path d="M12.4 23.4 L16.6 20.6 L16.2 26.2 Z" fill="var(--cat)"/>'
+      + '<circle cx="14" cy="28.5" r="6.8" fill="var(--cat)"/>'
+      + '<ellipse cx="11.6" cy="31.2" rx="3.7" ry="2.7" fill="var(--coat-cream)"/>'
+      + '<path d="M9.8 27.4 q1.4 1.5 2.8 0" fill="none" stroke="var(--snout)" stroke-width="1.2" stroke-linecap="round"/>'
+      + '<path d="M15.4 27 q1.4 1.5 2.8 0" fill="none" stroke="var(--snout)" stroke-width="1.2" stroke-linecap="round"/>'
+      + '<path d="M11.9 29.9 L13.5 29.9 L12.7 31.2 Z" fill="var(--snout)"/>'
+      + '<rect x="17.5" y="32.8" width="6.5" height="2.8" rx="1.4" fill="var(--brand-ink)" transform="rotate(-18 20.7 34.2)"/>'
+      + '<circle cx="17.4" cy="34.6" r="1.15" fill="var(--gold)"/>';
+  }
+  return '<svg viewBox="0 0 44 44" aria-hidden="true"><g class="pb">'+b+'</g>'
+    + (phase==='night' ? zz(5,12,.95) : '') + '</svg>';
+}
+
+/* ---- 3 · RABBIT — round cream body, long ears, blush inner ear ---- */
+function svgRabbit(phase){
+  var b = '';
+  if(phase === 'day'){                                    /* nibbling a clover */
+    b = '<ellipse cx="19" cy="44" rx="13" ry="2.2" fill="var(--gshadow)"/>'
+      + '<ellipse cx="22" cy="34.5" rx="11.5" ry="9.5" fill="var(--coat-cream)"/>'
+      + '<circle cx="27.5" cy="35.5" r="7" fill="rgba(120,95,70,.12)"/>'
+      + '<circle cx="33" cy="30.5" r="3.4" fill="#fdf4e2"/>'
+      + '<rect x="2" y="14" width="5" height="15" rx="2.5" fill="var(--coat-cream)" transform="rotate(-40 4.5 21.5)"/>'
+      + '<rect x="8.5" y="12" width="5" height="15.5" rx="2.5" fill="var(--coat-cream)" transform="rotate(-22 11 19.8)"/>'
+      + '<rect x="9.8" y="14.4" width="2.3" height="10.5" rx="1.15" fill="var(--ear-blush)" transform="rotate(-22 11 19.8)"/>'
+      + '<rect x="7" y="24.5" width="10.5" height="3.2" rx="1.6" fill="var(--brand-ink)" transform="rotate(14 12 26)"/>'
+      + '<circle cx="9.6" cy="27.6" r="1.25" fill="var(--gold)"/>'
+      + '<circle cx="9.5" cy="32.5" r="7" fill="var(--coat-cream)"/>'
+      + '<circle cx="7.2" cy="30.8" r="1.4" fill="var(--snout)"/>'
+      + '<circle cx="3.2" cy="33.4" r="1.25" fill="var(--snout)"/>'
+      + '<rect x="10" y="39.5" width="8" height="4" rx="2" fill="var(--coat-cream)"/>'
+      + '<rect x="10" y="39.5" width="8" height="4" rx="2" fill="rgba(120,95,70,.08)"/>'
+      + '<rect x="1.6" y="39" width="1.4" height="4.5" rx=".7" fill="#57a86a"/>'
+      + '<circle cx="1.4" cy="38" r="1.5" fill="#57a86a"/><circle cx="3.4" cy="37.6" r="1.5" fill="#57a86a"/><circle cx="2.4" cy="36.2" r="1.5" fill="#57a86a"/>';
+  }
+  else if(phase === 'dawn'){                              /* long low waking stretch, ears swept back */
+    b = '<ellipse cx="20" cy="44" rx="15" ry="2.3" fill="var(--gshadow)"/>'
+      + '<circle cx="30" cy="34.5" r="7.5" fill="var(--coat-cream)"/>'
+      + '<circle cx="30" cy="34.5" r="7.5" fill="rgba(120,95,70,.07)"/>'
+      + '<circle cx="34.5" cy="28.5" r="3.2" fill="#fdf4e2"/>'
+      + '<ellipse cx="20" cy="37" rx="13" ry="6.6" fill="var(--coat-cream)"/>'
+      + '<rect x="2.5" y="39.6" width="11" height="4" rx="2" fill="var(--coat-cream)"/>'
+      + '<rect x="2.5" y="39.6" width="11" height="4" rx="2" fill="rgba(120,95,70,.07)"/>'
+      + '<rect x="11" y="16.5" width="4.8" height="16" rx="2.4" fill="var(--coat-cream)" transform="rotate(-54 13.4 24.5)"/>'
+      + '<rect x="12" y="18.5" width="2.2" height="11" rx="1.1" fill="var(--ear-blush)" transform="rotate(-54 13.4 24.5)"/>'
+      + '<rect x="12.5" y="22.5" width="4.8" height="14" rx="2.4" fill="var(--coat-cream)" transform="rotate(-76 14.9 29.5)"/>'
+      + '<rect x="12.5" y="22.5" width="4.8" height="14" rx="2.4" fill="rgba(120,95,70,.08)" transform="rotate(-76 14.9 29.5)"/>'
+      + '<rect x="6" y="30.5" width="10" height="3" rx="1.5" fill="var(--brand-ink)" transform="rotate(18 11 32)"/>'
+      + '<circle cx="8.8" cy="33.6" r="1.2" fill="var(--gold)"/>'
+      + '<circle cx="8.5" cy="30.5" r="6.6" fill="var(--coat-cream)"/>'
+      + '<circle cx="6.2" cy="28.9" r="1.35" fill="var(--snout)"/>'
+      + '<circle cx="2.6" cy="31.4" r="1.2" fill="var(--snout)"/>';
+  }
+  else if(phase === 'dusk'){                              /* mid-hop toward the door */
+    b = '<ellipse cx="20" cy="44" rx="9" ry="1.8" fill="var(--gshadow)" opacity=".85"/>'
+      + '<circle cx="10" cy="25" r="3.2" fill="#fdf4e2"/>'
+      + '<ellipse cx="19" cy="28" rx="11" ry="8.5" fill="var(--coat-cream)" transform="rotate(-16 19 28)"/>'
+      + '<circle cx="14" cy="29.5" r="6.4" fill="rgba(120,95,70,.1)"/>'
+      + '<rect x="5.5" y="32" width="11" height="4.2" rx="2.1" fill="var(--coat-cream)" transform="rotate(26 8 34)"/>'
+      + '<rect x="5.5" y="32" width="11" height="4.2" rx="2.1" fill="rgba(120,95,70,.08)" transform="rotate(26 8 34)"/>'
+      + '<circle cx="26" cy="31.5" r="2.3" fill="var(--coat-cream)"/>'
+      + '<circle cx="29.5" cy="30" r="2.3" fill="var(--coat-cream)"/>'
+      + '<rect x="17" y="6" width="4.8" height="14" rx="2.4" fill="var(--coat-cream)" transform="rotate(38 19.4 13)"/>'
+      + '<rect x="18.1" y="8" width="2.2" height="10" rx="1.1" fill="var(--ear-blush)" transform="rotate(38 19.4 13)"/>'
+      + '<rect x="13" y="6.5" width="4.8" height="13.5" rx="2.4" fill="var(--coat-cream)" transform="rotate(52 15.4 13.2)"/>'
+      + '<rect x="13" y="6.5" width="4.8" height="13.5" rx="2.4" fill="rgba(120,95,70,.08)" transform="rotate(52 15.4 13.2)"/>'
+      + '<rect x="22.5" y="22" width="10" height="3" rx="1.5" fill="var(--brand-ink)" transform="rotate(-18 27.5 23.5)"/>'
+      + '<circle cx="30.4" cy="24.4" r="1.2" fill="var(--gold)"/>'
+      + '<circle cx="29" cy="17.5" r="6.6" fill="var(--coat-cream)"/>'
+      + '<circle cx="31.6" cy="15.9" r="1.35" fill="var(--snout)"/>'
+      + '<circle cx="35.3" cy="18.3" r="1.2" fill="var(--snout)"/>';
+  }
+  else{                                                   /* night — sleepy loaf, ears laid back */
+    b = '<ellipse cx="20" cy="44" rx="13.5" ry="2.2" fill="var(--gshadow)"/>'
+      + '<ellipse cx="21" cy="35" rx="12.5" ry="9" fill="var(--coat-cream)"/>'
+      + '<circle cx="27" cy="36" r="6.6" fill="rgba(120,95,70,.1)"/>'
+      + '<circle cx="32.5" cy="31.5" r="3.4" fill="#fdf4e2"/>'
+      + '<rect x="12.5" y="23.5" width="4.6" height="14" rx="2.3" fill="var(--coat-cream)" transform="rotate(-74 14.8 30.5)"/>'
+      + '<rect x="13.6" y="25.5" width="2.1" height="9.5" rx="1.05" fill="var(--ear-blush)" transform="rotate(-74 14.8 30.5)"/>'
+      + '<rect x="13" y="27" width="4.6" height="13.5" rx="2.3" fill="var(--coat-cream)" transform="rotate(-86 15.3 33.7)"/>'
+      + '<rect x="13" y="27" width="4.6" height="13.5" rx="2.3" fill="rgba(120,95,70,.16)" transform="rotate(-86 15.3 33.7)"/>'
+      + '<rect x="8" y="34" width="9" height="2.8" rx="1.4" fill="var(--brand-ink)" transform="rotate(10 12.5 35.4)"/>'
+      + '<circle cx="9.9" cy="36.9" r="1.15" fill="var(--gold)"/>'
+      + '<circle cx="10.5" cy="33" r="6.4" fill="var(--coat-cream)"/>'
+      + '<path d="M6.9 31.6 q1.4 1.5 2.8 0" fill="none" stroke="var(--snout)" stroke-width="1.2" stroke-linecap="round"/>'
+      + '<circle cx="4.6" cy="34.2" r="1.15" fill="var(--snout)"/>';
+  }
+  return '<svg viewBox="0 0 40 46" aria-hidden="true"><g class="pb">'+b+'</g>'
+    + (phase==='night' ? zz(3,16,.9) : '') + '</svg>';
+}
+
+/* ---- 4 · BIRD — plump little robin, warm muted brick tone ---- */
+function svgBird(phase){
+  var b = '';
+  if(phase === 'day'){                                    /* pecking the lawn */
+    b = '<ellipse cx="13" cy="22.6" rx="7" ry="1.5" fill="var(--gshadow)"/>'
+      + '<rect x="17.5" y="8" width="7" height="3.4" rx="1.7" fill="var(--bird-deep)" transform="rotate(-30 21 9.7)"/>'
+      + '<ellipse cx="13" cy="14.5" rx="8" ry="6.2" fill="var(--bird)" transform="rotate(16 13 14.5)"/>'
+      + '<ellipse cx="9.5" cy="18" rx="4.4" ry="3.2" fill="var(--coat-cream)" transform="rotate(16 9.5 18)"/>'
+      + '<ellipse cx="14.5" cy="13" rx="4.6" ry="2.9" fill="var(--bird-deep)" transform="rotate(18 14.5 13)"/>'
+      + '<circle cx="6.4" cy="17.2" r="4.4" fill="var(--bird)"/>'
+      + '<path d="M2.6 18 L0 19.2 L2.7 20.2 Q3.3 19 2.6 18 Z" fill="#e8a24c"/>'
+      + '<circle cx="5.3" cy="16" r="1" fill="var(--snout)"/>'
+      + '<rect x="11" y="19" width="1.4" height="3.8" rx=".7" fill="var(--wood-2)"/>'
+      + '<rect x="14.4" y="19" width="1.4" height="3.8" rx=".7" fill="var(--wood-2)"/>';
+  }
+  else if(phase === 'dawn'){                              /* both wings out — morning stretch */
+    b = '<ellipse cx="13" cy="22.6" rx="6.5" ry="1.4" fill="var(--gshadow)"/>'
+      + '<rect x="16.5" y="14.5" width="6.4" height="3.2" rx="1.6" fill="var(--bird-deep)" transform="rotate(34 19.7 16)"/>'
+      + '<rect x="0.6" y="7.6" width="8" height="3.6" rx="1.8" fill="var(--bird-deep)" transform="rotate(-24 4.6 9.4)"/>'
+      + '<rect x="17.4" y="7.6" width="8" height="3.6" rx="1.8" fill="var(--bird-deep)" transform="rotate(24 21.4 9.4)"/>'
+      + '<ellipse cx="13" cy="13.5" rx="6.6" ry="7.2" fill="var(--bird)"/>'
+      + '<ellipse cx="12.7" cy="16.5" rx="4.2" ry="4.4" fill="var(--coat-cream)"/>'
+      + '<circle cx="13" cy="6.8" r="4.4" fill="var(--bird)"/>'
+      + '<path d="M8.9 6.2 L6.4 7 L9 8 Q9.5 7 8.9 6.2 Z" fill="#e8a24c"/>'
+      + '<circle cx="11.2" cy="5.6" r="1" fill="var(--snout)"/>'
+      + '<rect x="10.8" y="19.5" width="1.4" height="3.6" rx=".7" fill="var(--wood-2)"/>'
+      + '<rect x="13.8" y="19.5" width="1.4" height="3.6" rx=".7" fill="var(--wood-2)"/>';
+  }
+  else if(phase === 'dusk'){                              /* little hop toward home */
+    b = '<g transform="translate(26 0) scale(-1 1)">'
+      + '<ellipse cx="13" cy="22.8" rx="5.5" ry="1.3" fill="var(--gshadow)" opacity=".85"/>'
+      + '<rect x="16.8" y="10.5" width="6.6" height="3.2" rx="1.6" fill="var(--bird-deep)" transform="rotate(-24 20 12)"/>'
+      + '<ellipse cx="12.5" cy="13" rx="6.4" ry="7" fill="var(--bird)" transform="rotate(-8 12.5 13)"/>'
+      + '<ellipse cx="11.6" cy="16.2" rx="4" ry="4" fill="var(--coat-cream)"/>'
+      + '<ellipse cx="14.5" cy="12" rx="4" ry="2.7" fill="var(--bird-deep)" transform="rotate(-12 14.5 12)"/>'
+      + '<circle cx="9.5" cy="6.6" r="4.2" fill="var(--bird)"/>'
+      + '<path d="M5.6 6.2 L3.1 7 L5.7 8 Q6.2 7 5.6 6.2 Z" fill="#e8a24c"/>'
+      + '<circle cx="8" cy="5.4" r="1" fill="var(--snout)"/>'
+      + '<rect x="10.6" y="18.6" width="1.4" height="2.8" rx=".7" fill="var(--wood-2)"/>'
+      + '<rect x="13.6" y="18.6" width="1.4" height="2.8" rx=".7" fill="var(--wood-2)"/>'
+      + '</g>';
+  }
+  else{                                                   /* night — puffed ball, beak in the fluff */
+    b = '<ellipse cx="13" cy="22.6" rx="7" ry="1.5" fill="var(--gshadow)"/>'
+      + '<rect x="18" y="15.5" width="6" height="3.2" rx="1.6" fill="var(--bird-deep)" transform="rotate(16 21 17)"/>'
+      + '<circle cx="13" cy="15" r="7.6" fill="var(--bird)"/>'
+      + '<ellipse cx="12.6" cy="18.4" rx="4.8" ry="3.6" fill="var(--coat-cream)"/>'
+      + '<ellipse cx="16.5" cy="14" rx="4" ry="2.8" fill="var(--bird-deep)" transform="rotate(24 16.5 14)"/>'
+      + '<path d="M7.8 14.6 L5.9 17 L8.7 17.3 Q9 15.9 7.8 14.6 Z" fill="#e8a24c"/>'
+      + '<path d="M8.9 12.4 q1.3 1.4 2.6 0" fill="none" stroke="var(--snout)" stroke-width="1.1" stroke-linecap="round"/>';
+  }
+  return '<svg viewBox="0 0 26 24" aria-hidden="true"><g class="pb">'+b+'</g>'
+    + (phase==='night' ? zz(2,4,.62) : '') + '</svg>';
+}
+
+/* ---- 5 · DUCK — the pilot duck, extended with land poses + its own puddle ---- */
+function svgDuck(phase){
+  var u = ++_uid, b = '';
+  var bill = function(x,y){ /* small left-facing bill */
+    return '<path d="M'+x+' '+y+' L'+(x-4.8)+' '+(y+1.3)+' L'+x+' '+(y+2.8)+' Q'+(x+.9)+' '+(y+1.4)+' '+x+' '+y+' Z" fill="#e8a24c"/>';
+  };
+  if(phase === 'day'){                                    /* paddling in its own tiny puddle */
+    b = '<defs><radialGradient id="pd'+u+'" cx="42%" cy="34%" r="80%">'
+      + '<stop offset="0%" stop-color="var(--water-1)"/><stop offset="100%" stop-color="var(--water-2)"/>'
+      + '</radialGradient></defs>'
+      + '<ellipse cx="23" cy="30.5" rx="22" ry="5.2" fill="var(--sand)"/>'
+      + '<ellipse cx="23" cy="30" rx="19.5" ry="4.2" fill="url(#pd'+u+')"/>'
+      + '<ellipse cx="15" cy="30.8" rx="7.5" ry="1.6" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.1"/>'
+      + '<ellipse cx="30" cy="28.8" rx="7" ry="1.7" fill="rgba(255,255,255,.3)"/>'
+      + '<path d="M22 27 Q22 21.5 28.5 21.5 Q34 21.5 35.5 24.5 L40 21.5 Q41 26.5 36 28.5 Q32.5 30 27 29.5 Q22.5 29 22 27 Z" fill="var(--coat-cream)"/>'
+      + '<ellipse cx="31" cy="25.5" rx="4" ry="2.6" fill="#e7dcc0"/>'
+      + '<rect x="20.2" y="16" width="5" height="8.5" rx="2.5" fill="var(--coat-cream)"/>'
+      + '<circle cx="22.5" cy="17" r="4.6" fill="var(--coat-cream)"/>'
+      + bill(18.4,15.9)
+      + '<circle cx="21" cy="15.8" r="1" fill="var(--snout)"/>';
+  }
+  else if(phase === 'dawn'){                              /* wing-flap stretch on the lawn */
+    b = '<ellipse cx="22" cy="34" rx="11" ry="2" fill="var(--gshadow)"/>'
+      + '<rect x="18.6" y="28.5" width="2.6" height="5" rx="1.3" fill="#e8a24c"/>'
+      + '<rect x="23.8" y="28.5" width="2.6" height="5" rx="1.3" fill="#e8a24c"/>'
+      + '<ellipse cx="19.6" cy="33.6" rx="2.9" ry="1.2" fill="#e8a24c"/>'
+      + '<ellipse cx="24.8" cy="33.6" rx="2.9" ry="1.2" fill="#e8a24c"/>'
+      + '<rect x="9.5" y="11" width="4.8" height="11.5" rx="2.4" fill="#e7dcc0" transform="rotate(30 11.9 16.7)"/>'
+      + '<rect x="30.2" y="11" width="4.8" height="11.5" rx="2.4" fill="#e7dcc0" transform="rotate(-30 32.6 16.7)"/>'
+      + '<ellipse cx="22.5" cy="23.5" rx="8.6" ry="7.6" fill="var(--coat-cream)"/>'
+      + '<ellipse cx="24.5" cy="25.5" rx="4.2" ry="3" fill="#e7dcc0"/>'
+      + '<rect x="20.2" y="9.5" width="5" height="8" rx="2.5" fill="var(--coat-cream)"/>'
+      + '<circle cx="22.7" cy="9.2" r="4.6" fill="var(--coat-cream)"/>'
+      + bill(18.6,8.1)
+      + '<circle cx="21.2" cy="8" r="1" fill="var(--snout)"/>';
+  }
+  else if(phase === 'dusk'){                              /* waddling home */
+    b = '<g transform="translate(46 0) scale(-1 1)">'
+      + '<ellipse cx="24" cy="34" rx="12" ry="2" fill="var(--gshadow)"/>'
+      + '<rect x="20" y="28" width="2.6" height="5.5" rx="1.3" fill="#e8a24c" transform="rotate(-12 21.3 30.8)"/>'
+      + '<rect x="26" y="28.5" width="2.6" height="5" rx="1.3" fill="#e8a24c" transform="rotate(12 27.3 31)"/>'
+      + '<ellipse cx="19.6" cy="33.4" rx="2.9" ry="1.2" fill="#e8a24c"/>'
+      + '<ellipse cx="27.8" cy="33.6" rx="2.9" ry="1.2" fill="#e8a24c"/>'
+      + '<path d="M33 21.5 Q37.5 18.5 36.5 24 Q35.8 27 33 26.5 Z" fill="var(--coat-cream)"/>'
+      + '<ellipse cx="25" cy="24.5" rx="10.5" ry="7" fill="var(--coat-cream)"/>'
+      + '<ellipse cx="27.5" cy="25.5" rx="4.6" ry="3" fill="#e7dcc0"/>'
+      + '<rect x="13.4" y="13" width="5" height="9" rx="2.5" fill="var(--coat-cream)"/>'
+      + '<circle cx="15.9" cy="12.5" r="4.8" fill="var(--coat-cream)"/>'
+      + bill(11.6,11.4)
+      + '<circle cx="14.3" cy="11.3" r="1" fill="var(--snout)"/>'
+      + '</g>';
+  }
+  else{                                                   /* night — bill tucked under wing */
+    b = '<ellipse cx="23" cy="34" rx="12" ry="2" fill="var(--gshadow)"/>'
+      + '<ellipse cx="23" cy="26.5" rx="10" ry="7.4" fill="var(--coat-cream)"/>'
+      + '<path d="M13.4 23 Q10 21 11 25.5 Q11.6 27.5 13.6 26.8 Z" fill="var(--coat-cream)"/>'
+      + '<ellipse cx="26" cy="26.5" rx="5.6" ry="3.8" fill="#e7dcc0"/>'
+      + '<ellipse cx="29" cy="24.8" rx="4.2" ry="2" fill="rgba(120,95,70,.08)"/>'
+      + '<circle cx="30" cy="20.5" r="4.8" fill="var(--coat-cream)"/>'
+      + '<path d="M27 22.4 L23.6 24.8 L27.4 25.6 Q28.2 24 27 22.4 Z" fill="#e8a24c"/>'
+      + '<path d="M30.4 19.6 q1.3 1.4 2.6 0" fill="none" stroke="var(--snout)" stroke-width="1.1" stroke-linecap="round"/>';
+  }
+  return '<svg viewBox="0 0 46 36" aria-hidden="true"><g class="pb">'+b+'</g>'
+    + (phase==='night' ? zz(26,7,.85) : '') + '</svg>';
+}
+
+/* ============================================================================
+   Grid render — each cell is a faithful mini scene (sky phase + ground + the
+   default house/door) with the pet placed per phase.
+   ============================================================================ */
+var PETS = [
+  {k:'dog',    nm:'Chó',  sub:'Pilot + 3 pose mới', w:46,  fn:svgDog},
+  {k:'cat',    nm:'Mèo',  sub:'Tabby xám ấm, thon hơn chó', w:42, fn:svgCat},
+  {k:'rabbit', nm:'Thỏ',  sub:'Kem tròn, tai dài, tai trong hồng phấn', w:38, fn:svgRabbit},
+  {k:'bird',   nm:'Chim', sub:'Tròn mũm, nâu gạch trầm', w:23, fn:svgBird},
+  {k:'duck',   nm:'Vịt',  sub:'Pilot + vũng nước riêng', w:46, fn:svgDuck}
+];
+var PHASES = ['dawn','day','dusk','night'];
+
+function houseHTML(){
+  return '<div class="sc-house"><div class="hs-roofwrap"><i class="hs-chim"></i><i class="hs-roof"></i></div>'
+    + '<div class="hs-wall"><div class="hs-wins">'
+    + '<span class="hs-door"></span>'
+    + '<span class="hw"><span class="hw-pane p-ok lit"></span><span class="hw-name">Cao</span></span>'
+    + '<span class="hw"><span class="hw-pane p-sun lit"></span><span class="hw-name">Hiền</span></span>'
+    + '</div></div></div>';
+}
+function stars(){
+  var s='';
+  for(var i=0;i<10;i++) s+='<i class="sc-star" style="left:'+(6+i*9.4)+'%;top:'+(8+(i%4)*10)+'px;animation-delay:'+((i%5)*.6)+'s"></i>';
+  return s;
+}
+function cell(p, ph){
+  var extra = ((p.k==='duck' && ph==='day') ? ' duck-day' : (p.k==='duck' ? ' duck' : '')) + ' k-'+p.k;
+  var w = (p.k==='duck' && ph==='day') ? 62 : p.w;
+  return '<div class="mini '+ph+'">'
+    + '<i class="sc-orb"></i>' + (ph==='night'?stars():'')
+    + '<i class="sc-cloud c1"></i>'
+    + '<i class="sc-hill h1"></i><i class="sc-hill h2"></i><i class="sc-ground"></i>'
+    + houseHTML()
+    + '<div class="spot'+extra+'" style="width:'+w+'px">'+p.fn(ph)+'</div>'
+    + '</div>';
+}
+var g='';
+PETS.forEach(function(p){
+  g += '<div class="row"><div class="rlab"><b>'+p.nm+'</b><span>'+p.sub+'</span></div>'
+    + PHASES.map(function(ph){ return cell(p,ph); }).join('') + '</div>';
+});
+document.getElementById('grid').innerHTML = g;
+
+/* reference strip: every pet (day pose) side by side with the pilot dog scale */
+var r = '<div class="ref"><div class="t">So dáng — cùng một hoạ sĩ?</div><div style="display:flex;align-items:flex-end;gap:22px">'
+  + PETS.map(function(p){ return '<div style="width:'+(p.k==='duck'?92:p.w*2)+'px">'+p.fn(p.k==='duck'?'day':'day')+'</div>'; }).join('')
+  + '</div></div>'
+  + '<div class="ref"><div class="t">Đêm — khoảnh khắc dễ thương nhất</div><div style="display:flex;align-items:flex-end;gap:22px">'
+  + PETS.map(function(p){ return '<div style="width:'+p.w*2+'px">'+p.fn('night')+'</div>'; }).join('')
+  + '</div></div>';
+document.getElementById('refs').innerHTML = r;
+</script>
+</body>
+</html>

@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tổ ấm · Bộ đồ trang trí — pilot 6 món (SVG/CSS thuần)</title>
+<style>
+/* ============================================================================
+   FamilyHub — decor pilot set. 6 bespoke elements drawn in the SAME language
+   as the living-house scene (21-home-today.css): flat fills, capsule/circle
+   geometry, soft same-hue depth, NO emoji, NO outlines.
+   Each element = one JS builder (see <script>) + a small CSS block below.
+   ============================================================================ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --ink:#191022;--muted:#6b6576;--canvas:#efe9f2;--hairline:#e6e0ec;
+  /* theme (per-family) — same defaults as the app */
+  --brand-ink:#1F7E52;--brand-2:#5FD3A0;
+  /* ---- NEW decor tokens (proposed standard for the full set) ---- */
+  --wood:#7d5f45;            /* trunk / posts — same as the tree trunk */
+  --wood-2:#8a6844;          /* darker wood accents (ears, cattail) */
+  --leaf-2:#49b183;          /* darker companion green to --brand-2 */
+  --picket:#f6eedd;          /* fence pickets — cream, kin to the wall */
+  --picket-rail:#e3d3b4;     /* fence rails, a step darker */
+  --tet-red:#d4453f;         /* muted Tết red */
+  --tet-red-2:#b7332e;       /* lantern shading red */
+  --gold:#e5b34a;            /* lantern caps, mailbox flag */
+  --water-1:#a9dbe9;         /* pond light */
+  --water-2:#69a7ca;         /* pond deep */
+  --sand:#d9c9a0;            /* pond rim */
+  --coat:#c99e6f;            /* dog coat tan */
+  --coat-cream:#f4e7cf;      /* dog chest / duck body */
+  --snout:#3a2a22;           /* eyes & noses */
+  --gshadow:rgba(35,55,35,.16);  /* soft ground-contact shadow (matches oc-car .sh) */
+}
+body{font-family:var(--text);background:var(--canvas);color:var(--ink);
+  -webkit-font-smoothing:antialiased;padding:36px 22px 90px;line-height:1.5}
+.wrap{max-width:1060px;margin:0 auto}
+.lead{text-align:center;margin-bottom:34px}
+.lead .eyebrow{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--brand-ink)}
+.lead h1{font-family:var(--disp);font-size:31px;font-weight:800;letter-spacing:-.8px;margin:8px 0 6px}
+.lead p{font-size:14.5px;color:var(--muted)}
+.el{margin-bottom:30px}
+.el h2{font-family:var(--disp);font-size:17px;font-weight:800;letter-spacing:-.3px;margin-bottom:3px}
+.el .sub{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+.pair{display:grid;grid-template-columns:300px 1fr;gap:16px}
+@media(max-width:760px){.pair{grid-template-columns:1fr}}
+.card{border-radius:18px;overflow:hidden;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.06)}
+.card.iso{background:#f7f4f9;display:flex;align-items:center;justify-content:center;min-height:240px;position:relative}
+.card.iso .tag,.card.scene .tag{position:absolute;top:10px;left:12px;font-size:10px;font-weight:800;
+  letter-spacing:1.2px;text-transform:uppercase;color:rgba(20,15,30,.4);z-index:9}
+.card.scene .tag{color:rgba(255,255,255,.75);text-shadow:0 1px 2px rgba(0,0,0,.2)}
+
+/* ---------- the scene background (faithful copy of 21-home-today.css, day) ---------- */
+.mini-scene{position:relative;height:240px;color:#fff;
+  --sky1:#5fa7d6;--sky2:#cde8f7;--hill1:#86b294;--hill2:#639b7c;--gr1:#9cc98b;--gr2:#77aa67;
+  background:linear-gradient(180deg,var(--sky1),var(--sky2) 82%)}
+.sc-orb{position:absolute;top:12px;right:26px;width:38px;height:38px;border-radius:50%;background:#fff3c9;box-shadow:0 0 30px 9px rgba(255,244,190,.5)}
+.sc-cloud{position:absolute;width:78px;height:20px;border-radius:20px;background:rgba(255,255,255,.55)}
+.sc-cloud::before{content:'';position:absolute;left:14px;top:-11px;width:31px;height:24px;border-radius:50%;background:inherit}
+.sc-cloud::after{content:'';position:absolute;left:38px;top:-7px;width:24px;height:18px;border-radius:50%;background:inherit}
+.sc-cloud.c1{top:22px;left:6%}.sc-cloud.c2{top:58px;left:52%;width:56px;opacity:.6}
+.sc-hill{position:absolute;border-radius:50%}
+.sc-hill.h1{left:-100px;bottom:30px;width:360px;height:104px;background:var(--hill1)}
+.sc-hill.h2{right:-130px;bottom:24px;width:420px;height:120px;background:var(--hill2)}
+.sc-ground{position:absolute;left:0;right:0;bottom:0;height:44px;background:linear-gradient(180deg,var(--gr1),var(--gr2))}
+/* reference house (exact construction from the app) */
+.sc-house{position:absolute;left:53%;bottom:40px;transform:translateX(-46%);width:max-content;z-index:3}
+.hs-roofwrap{position:relative;height:40px;margin:0 -10px;z-index:1}
+.hs-chim{position:absolute;top:-14px;right:20%;width:17px;height:30px;border-radius:3px 3px 0 0;background:#a8624c}
+.hs-roof{position:absolute;inset:0;background:var(--brand-ink);clip-path:polygon(0 100%,16% 0,84% 0,100% 100%)}
+.hs-wall{position:relative;border-radius:4px 4px 9px 9px;background:linear-gradient(180deg,#fdf4e2,#f0dfc0);
+  box-shadow:inset 0 7px 9px -7px rgba(70,45,20,.4),0 10px 22px rgba(15,15,35,.18);padding:13px 12px 12px}
+.hs-wins{display:flex;justify-content:center;align-items:flex-end;gap:10px 12px}
+.hs-door{display:block;width:32px;height:58px;border-radius:16px 16px 4px 4px;background:var(--brand-ink);position:relative;flex:0 0 auto;align-self:flex-end}
+.hs-door::after{content:'';position:absolute;right:6px;top:28px;width:4px;height:4px;border-radius:50%;background:#ffd98e}
+.hw{display:flex;flex-direction:column;align-items:center;gap:4px;flex:0 0 auto}
+.hw-pane{width:42px;height:46px;border-radius:13px 13px 5px 5px;border:3px solid #e6d2ab;position:relative}
+.hw-pane.lit{box-shadow:0 0 12px 1px rgba(255,205,110,.35)}
+.p-ok{background:linear-gradient(180deg,#fff6dd,#ffe5ae)}
+.p-sun{background:radial-gradient(circle at 50% 36%,#ffeaa6,#ffc75d)}
+.hw-name{font-size:10.5px;font-weight:700;color:#54432e}
+/* reference oak (the current savings tree, verbatim) */
+.sc-tree{position:absolute;left:6%;bottom:42px;width:64px;height:88px;z-index:2}
+.tr-tr{position:absolute;left:50%;bottom:0;width:9px;height:34px;margin-left:-4.5px;border-radius:5px;background:var(--wood)}
+.tr-f{position:absolute;border-radius:50%;background:var(--brand-2)}
+.tr-f.f1{left:8px;top:4px;width:48px;height:48px}
+.tr-f.f2{left:0;top:30px;width:30px;height:30px}
+.tr-f.f3{right:0;top:26px;width:34px;height:34px}
+
+/* ============================================================================
+   ELEMENT 1 — WILLOW TREE (cây liễu) · inline SVG · footprint = .sc-tree
+   ============================================================================ */
+.gd-willow{position:absolute;left:6%;bottom:42px;width:64px;height:92px;z-index:2}
+.gd-willow svg{display:block;width:100%;height:100%}
+
+/* ============================================================================
+   ELEMENT 2 — PICKET FENCE (hàng rào gỗ) · pure CSS, tiles at 16px
+   Rounded picket caps (kin to the arch door), two rails behind, soft shadow.
+   ============================================================================ */
+.gd-fence{position:relative;height:28px;
+  /* the element itself paints the RAILS (behind) */
+  background:
+    linear-gradient(var(--picket-rail),var(--picket-rail)) 0 10px/100% 4px no-repeat,
+    linear-gradient(var(--picket-rail),var(--picket-rail)) 0 20px/100% 4px no-repeat;
+  filter:drop-shadow(0 2px 2px rgba(60,40,20,.16))}
+.gd-fence::before{content:'';position:absolute;inset:0;
+  /* pickets: a round cap strip + the bars, same 16px rhythm */
+  background:
+    radial-gradient(circle 4.5px at 4.5px 4.5px,var(--picket) 4.45px,transparent 4.55px) 0 0/16px 9px repeat-x,
+    repeating-linear-gradient(90deg,var(--picket) 0 9px,transparent 9px 16px) 0 8px/16px calc(100% - 8px) repeat-x}
+/* in-scene placement: sits on the lawn, in front of the yard */
+.mini-scene .gd-fence{position:absolute;left:0;right:0;bottom:28px;z-index:4}
+
+/* ============================================================================
+   ELEMENT 3 — PAPER LANTERN (đèn lồng Tết) · inline SVG · hangs + sways
+   ============================================================================ */
+.gd-lantern{width:36px;height:64px}
+.gd-lantern svg{display:block;width:100%;height:100%}
+.gd-lantern.sway{animation:gd-sway 4s ease-in-out infinite alternate;transform-origin:50% 0}
+@keyframes gd-sway{from{transform:rotate(-4deg)}to{transform:rotate(4deg)}}
+/* in-scene: hung from the house's eave overhang (positioned inside .hs-roofwrap) */
+.hs-roofwrap .gd-lantern{position:absolute;left:-11px;top:33px;width:26px;height:46px;z-index:2}
+.hs-roofwrap .gd-lantern.r{left:auto;right:-11px;animation-delay:1.2s}
+
+/* ============================================================================
+   ELEMENT 4 — MAILBOX (hòm thư) · inline SVG · takes the theme's --brand-ink
+   ============================================================================ */
+.gd-mailbox{width:34px;height:46px}
+.gd-mailbox svg{display:block;width:100%;height:100%}
+.mini-scene .gd-mailbox{position:absolute;left:24%;bottom:40px;z-index:3}
+
+/* ============================================================================
+   ELEMENT 5 — FAMILY DOG (chó nhà) · inline SVG · sitting, flat & friendly
+   ============================================================================ */
+.gd-dog{width:44px;height:40px}
+.gd-dog svg{display:block;width:100%;height:100%}
+.mini-scene .gd-dog{position:absolute;left:74%;bottom:38px;z-index:3}
+
+/* ============================================================================
+   ELEMENT 6 — POND + DUCK (ao + vịt) · inline SVG · foreground water feature
+   ============================================================================ */
+.gd-pond{width:120px;height:50px}
+.gd-pond svg{display:block;width:100%;height:100%}
+.mini-scene .gd-pond{position:absolute;right:4%;bottom:2px;z-index:4}
+
+/* ---------- the combined scene at the end ---------- */
+.combined{height:270px;border-radius:20px}
+.combined .sc-house{left:50%;transform:translateX(-50%)}
+.combined .gd-willow{left:5%}
+.combined .gd-mailbox{left:31%;bottom:44px}
+.combined .gd-dog{left:62%;bottom:42px}
+.combined .gd-pond{right:3%;bottom:4px}
+.combined .gd-fence{left:-6px;right:58%;bottom:28px}
+.combined .gd-fence.rr{left:70%;right:-6px}
+.note{font-size:12px;color:var(--muted);text-align:center;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="lead">
+    <div class="eyebrow">FamilyHub · Decor pilot</div>
+    <h1>6 món trang trí — vẽ tay bằng SVG/CSS</h1>
+    <p>Cùng ngôn ngữ tạo hình với ngôi nhà hiện có: mảng màu phẳng, khối tròn thân thiện, bóng đổ mềm — không emoji.</p>
+  </div>
+
+  <section class="el">
+    <h2>1 · Cây liễu — Willow</h2>
+    <div class="sub">Biến thể loài cây tiết kiệm, cùng footprint 64×92 với .sc-tree. Tán rủ bằng các nhánh con nhộng (capsule) hai tông xanh.</div>
+    <div class="pair">
+      <div class="card iso"><span class="tag">Isolated</span><div class="gd-willow" style="position:static;width:96px;height:138px" data-el="willow"></div></div>
+      <div class="card scene mini-scene" data-scene="house"><span class="tag">In scene</span><div class="gd-willow" data-el="willow"></div></div>
+    </div>
+  </section>
+
+  <section class="el">
+    <h2>2 · Hàng rào gỗ — Picket fence</h2>
+    <div class="sub">CSS thuần, lặp mỗi 16px nên trải rộng bao nhiêu cũng khớp. Đầu cọc bo tròn — họ hàng với cửa vòm.</div>
+    <div class="pair">
+      <div class="card iso"><span class="tag">Isolated</span><div class="gd-fence" style="width:230px"></div></div>
+      <div class="card scene mini-scene" data-scene="house tree"><span class="tag">In scene</span><div class="gd-fence"></div></div>
+    </div>
+  </section>
+
+  <section class="el">
+    <h2>3 · Đèn lồng — Paper lantern (Tết)</h2>
+    <div class="sub">Treo dưới mái hiên, đung đưa nhẹ. Đỏ trầm + nắp vàng đồng, gân lồng cùng-tông mờ.</div>
+    <div class="pair">
+      <div class="card iso"><span class="tag">Isolated</span><div class="gd-lantern sway" style="width:76px;height:135px" data-el="lantern"></div></div>
+      <div class="card scene mini-scene" data-scene="house tree lantern"><span class="tag">In scene</span></div>
+    </div>
+  </section>
+
+  <section class="el">
+    <h2>4 · Hòm thư — Mailbox</h2>
+    <div class="sub">Thân lấy màu --brand-ink như cửa & mái (đổi theme là đổi màu theo), cột gỗ cùng tông thân cây, cờ vàng đồng.</div>
+    <div class="pair">
+      <div class="card iso"><span class="tag">Isolated</span><div class="gd-mailbox" style="width:75px;height:101px" data-el="mailbox"></div></div>
+      <div class="card scene mini-scene" data-scene="house tree"><span class="tag">In scene</span><div class="gd-mailbox" data-el="mailbox"></div></div>
+    </div>
+  </section>
+
+  <section class="el">
+    <h2>5 · Chó nhà — Family dog</h2>
+    <div class="sub">Ngồi trong sân, dựng từ khối tròn: mông tròn, đầu to dễ thương, tai cụp gỗ sẫm, ngực kem.</div>
+    <div class="pair">
+      <div class="card iso"><span class="tag">Isolated</span><div class="gd-dog" style="width:88px;height:80px" data-el="dog"></div></div>
+      <div class="card scene mini-scene" data-scene="house tree"><span class="tag">In scene</span><div class="gd-dog" data-el="dog"></div></div>
+    </div>
+  </section>
+
+  <section class="el">
+    <h2>6 · Ao &amp; vịt — Pond with duck</h2>
+    <div class="sub">Tiền cảnh: viền cát trầm, nước gradient dịu, gợn sóng trắng mờ, lá súng, lau sậy — và một chú vịt kem mỏ cam.</div>
+    <div class="pair">
+      <div class="card iso"><span class="tag">Isolated</span><div class="gd-pond" style="width:240px;height:100px" data-el="pond"></div></div>
+      <div class="card scene mini-scene" data-scene="house tree"><span class="tag">In scene</span><div class="gd-pond" data-el="pond"></div></div>
+    </div>
+  </section>
+
+  <section class="el">
+    <h2>Tất cả cùng một sân — kiểm tra độ hoà hợp</h2>
+    <div class="sub">Liễu + rào + đèn lồng + hòm thư + chó + ao, quanh đúng ngôi nhà của app.</div>
+    <div class="card scene mini-scene combined" data-scene="house lantern lantern2">
+      <span class="tag">Everything</span>
+      <div class="gd-willow" data-el="willow"></div>
+      <div class="gd-fence"></div><div class="gd-fence rr"></div>
+      <div class="gd-mailbox" data-el="mailbox"></div>
+      <div class="gd-dog" data-el="dog"></div>
+      <div class="gd-pond" data-el="pond"></div>
+    </div>
+  </section>
+
+  <div class="note">Mỗi món là một hàm JS trả về SVG (hoặc block CSS với hàng rào) — chép nguyên khối là dùng được trong app.</div>
+</div>
+
+<script>
+/* ============================================================================
+   The 6 element builders. Each returns a self-contained SVG string.
+   Gradient ids are salted per-instance so several copies can live on one page.
+   ============================================================================ */
+var _uid = 0;
+
+/* ---- 1 · WILLOW — cloud crown (oak-family circles) + a curtain of thin
+        hanging fronds in two alternating greens; trunk peeks through ---- */
+function svgWillow(){
+  var fronds = [
+    /* [x, w, yTop, yBottom, dark?] — outer fronds long, center short */
+    [ 2.5, 6, 26, 71, 1],
+    [ 9.5, 7, 30, 78, 0],
+    [17.5, 6, 34, 68, 1],
+    [24.5, 6, 36, 60, 0],
+    [33.5, 6, 36, 58, 1],
+    [40.5, 6, 34, 72, 0],
+    [47.5, 7, 30, 79, 1],
+    [55.5, 6, 26, 72, 0]
+  ].map(function(f){
+    return '<rect x="'+f[0]+'" y="'+f[2]+'" width="'+f[1]+'" height="'+(f[3]-f[2])
+      +'" rx="'+(f[1]/2)+'" fill="var(--'+(f[4]?'leaf-2':'brand-2')+')"/>';
+  }).join('');
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'
+    + '<rect x="28" y="52" width="8" height="40" rx="4" fill="var(--wood)"/>'
+    + fronds
+    /* crown drawn last so the fronds emerge from under it */
+    + '<circle cx="16" cy="29" r="13" fill="var(--brand-2)"/>'
+    + '<circle cx="48" cy="27" r="14" fill="var(--brand-2)"/>'
+    + '<circle cx="32" cy="21" r="20" fill="var(--brand-2)"/>'
+    + '</svg>';
+}
+
+/* ---- 3 · LANTERN — red body, soft radial light, gold caps, tassel ---- */
+function svgLantern(){
+  var u = ++_uid;
+  return '<svg viewBox="0 0 36 64" aria-hidden="true">'
+    + '<defs><radialGradient id="lg'+u+'" cx="40%" cy="38%" r="72%">'
+    + '<stop offset="0%" stop-color="#e25a50"/><stop offset="100%" stop-color="var(--tet-red-2)"/>'
+    + '</radialGradient></defs>'
+    + '<rect x="17.2" y="0" width="1.6" height="9" rx=".8" fill="rgba(120,80,60,.55)"/>'
+    + '<rect x="11" y="8" width="14" height="5" rx="2" fill="var(--gold)"/>'
+    + '<ellipse cx="18" cy="28" rx="14.5" ry="16.5" fill="url(#lg'+u+')"/>'
+    /* ribs — same-hue, soft */
+    + '<ellipse cx="18" cy="28" rx="5"   ry="16" fill="none" stroke="rgba(60,10,10,.16)" stroke-width="1.2"/>'
+    + '<ellipse cx="18" cy="28" rx="10"  ry="16.4" fill="none" stroke="rgba(60,10,10,.16)" stroke-width="1.2"/>'
+    + '<rect x="12" y="42.5" width="12" height="4.5" rx="2" fill="var(--gold)"/>'
+    /* knot + tassel */
+    + '<circle cx="18" cy="49.5" r="2" fill="var(--tet-red-2)"/>'
+    + '<rect x="15.7" y="51.5" width="4.6" height="11" rx="2.3" fill="var(--gold)"/>'
+    + '</svg>';
+}
+
+/* ---- 4 · MAILBOX — classic side-view box in --brand-ink on a wood post;
+        cream little door at the front end, gold flag up ---- */
+function svgMailbox(){
+  return '<svg viewBox="0 0 34 46" aria-hidden="true">'
+    + '<ellipse cx="17" cy="44" rx="11" ry="2.2" fill="var(--gshadow)"/>'
+    + '<rect x="14.8" y="23" width="4.5" height="21" rx="2" fill="var(--wood)"/>'
+    /* box: rounded-top side profile */
+    + '<path d="M3 24 L3 16 Q3 10 9 10 L25 10 Q31 10 31 16 L31 24 Z" fill="var(--brand-ink)"/>'
+    /* darker end cap so the box reads as a volume (soft, same hue) */
+    + '<path d="M25 10 Q31 10 31 16 L31 24 L26.5 24 L26.5 10.2 Z" fill="rgba(10,30,20,.13)"/>'
+    /* cream little door on the front end */
+    + '<rect x="5.6" y="13.2" width="7.6" height="8.2" rx="3.6" fill="#fdf4e2"/>'
+    + '<circle cx="9.4" cy="17.3" r="1" fill="#c9a05a"/>'
+    /* gold flag, raised */
+    + '<rect x="23.4" y="2.5" width="2.2" height="9" rx="1.1" fill="var(--gold)"/>'
+    + '<path d="M25.4 2.5 L31.5 4.6 L25.4 6.9 Z" fill="var(--gold)"/>'
+    + '</svg>';
+}
+
+/* ---- 5 · DOG — sitting, built from circles/capsules; tan + cream + dark ear ---- */
+function svgDog(){
+  return '<svg viewBox="0 0 48 44" aria-hidden="true">'
+    + '<ellipse cx="25" cy="42" rx="15" ry="2.4" fill="var(--gshadow)"/>'
+    /* tail — a happy capsule sticking up behind the haunch */
+    + '<rect x="36.5" y="13" width="4.8" height="13" rx="2.4" fill="var(--coat)" transform="rotate(30 38.9 19.5)"/>'
+    /* haunch */
+    + '<circle cx="30" cy="30" r="11.5" fill="var(--coat)"/>'
+    /* torso up to the head */
+    + '<ellipse cx="20" cy="26" rx="9" ry="13" fill="var(--coat)" transform="rotate(-10 20 26)"/>'
+    /* cream chest */
+    + '<ellipse cx="17.5" cy="28" rx="4.6" ry="8.5" fill="var(--coat-cream)"/>'
+    /* front legs */
+    + '<rect x="13.5" y="30" width="4.6" height="11.5" rx="2.3" fill="var(--coat)"/>'
+    + '<rect x="20"   y="30" width="4.6" height="11.5" rx="2.3" fill="var(--coat)"/>'
+    /* collar in the family's theme color, with a tiny gold tag */
+    + '<rect x="9.5" y="17.5" width="13.5" height="3.6" rx="1.8" fill="var(--brand-ink)" transform="rotate(-9 16 19.5)"/>'
+    + '<circle cx="16.9" cy="21.9" r="1.35" fill="var(--gold)"/>'
+    /* head */
+    + '<circle cx="16" cy="11" r="9.2" fill="var(--coat)"/>'
+    /* muzzle + nose + eye */
+    + '<ellipse cx="10.3" cy="14" rx="5" ry="3.9" fill="var(--coat-cream)"/>'
+    + '<circle cx="6.9" cy="12.6" r="2" fill="var(--snout)"/>'
+    + '<circle cx="13.8" cy="9" r="1.7" fill="var(--snout)"/>'
+    /* floppy ear hanging down the side of the head */
+    + '<ellipse cx="21.8" cy="13.5" rx="3.8" ry="7" fill="var(--wood-2)" transform="rotate(10 21.8 13.5)"/>'
+    + '</svg>';
+}
+
+/* ---- 6 · POND + DUCK — sand rim, gradient water, ripples, lily, reeds ---- */
+function svgPond(){
+  var u = ++_uid;
+  return '<svg viewBox="0 0 120 50" aria-hidden="true">'
+    + '<defs><radialGradient id="pw'+u+'" cx="42%" cy="34%" r="80%">'
+    + '<stop offset="0%" stop-color="var(--water-1)"/><stop offset="100%" stop-color="var(--water-2)"/>'
+    + '</radialGradient></defs>'
+    /* rim + water */
+    + '<ellipse cx="58" cy="33" rx="55" ry="15" fill="var(--sand)"/>'
+    + '<ellipse cx="58" cy="32.5" rx="50" ry="12.5" fill="url(#pw'+u+')"/>'
+    /* ripples */
+    + '<ellipse cx="46" cy="35" rx="17" ry="3.6" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.3"/>'
+    + '<ellipse cx="82" cy="30" rx="9" ry="2.2" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1.1"/>'
+    /* lily pad + a tiny lotus bud */
+    + '<ellipse cx="29" cy="36" rx="6.5" ry="3.6" fill="#57a86a"/>'
+    + '<circle cx="26.5" cy="33.2" r="1.7" fill="#f0a0b4"/>'
+    /* reeds at the right bank */
+    + '<rect x="104" y="12" width="1.8" height="22" rx=".9" fill="#6f9a5c"/>'
+    + '<rect x="109" y="16" width="1.8" height="18" rx=".9" fill="#7fa969"/>'
+    + '<rect x="103.1" y="6" width="3.6" height="8.5" rx="1.8" fill="var(--wood-2)"/>'
+    /* duck — cream body, neck onto the body, orange bill, facing left */
+    + '<ellipse cx="64" cy="28.5" rx="7" ry="1.8" fill="rgba(255,255,255,.3)"/>'
+    + '<path d="M56 25 Q56 19.5 62.5 19.5 Q68 19.5 69.5 22.5 L74 19.5 Q75 24.5 70 26.5 Q66.5 28 61 27.5 Q56.5 27 56 25 Z" fill="var(--coat-cream)"/>'
+    + '<ellipse cx="65" cy="23.5" rx="4" ry="2.6" fill="#e7dcc0"/>'
+    + '<rect x="54.2" y="14" width="5" height="8.5" rx="2.5" fill="var(--coat-cream)"/>'
+    + '<circle cx="56.5" cy="15" r="4.6" fill="var(--coat-cream)"/>'
+    + '<path d="M52.3 14.2 L47.5 15.5 L52.3 17 Q53.2 15.6 52.3 14.2 Z" fill="#e8a24c"/>'
+    + '<circle cx="55" cy="13.8" r="1" fill="var(--snout)"/>'
+    + '</svg>';
+}
+
+var EL = { willow:svgWillow, lantern:svgLantern, mailbox:svgMailbox, dog:svgDog, pond:svgPond };
+
+/* scene furniture: house / oak tree / lanterns hung on the eave */
+function houseHTML(withLantern, both){
+  var lan = withLantern ? '<div class="gd-lantern sway">'+svgLantern()+'</div>' : '';
+  if(withLantern && both) lan += '<div class="gd-lantern sway r">'+svgLantern()+'</div>';
+  return '<div class="sc-house"><div class="hs-roofwrap"><i class="hs-chim"></i><i class="hs-roof"></i>'+lan+'</div>'
+    + '<div class="hs-wall"><div class="hs-wins">'
+    + '<span class="hs-door"></span>'
+    + '<span class="hw"><span class="hw-pane p-ok lit"></span><span class="hw-name">Cao</span></span>'
+    + '<span class="hw"><span class="hw-pane p-sun lit"></span><span class="hw-name">Hiền</span></span>'
+    + '</div></div></div>';
+}
+function oakHTML(){
+  return '<div class="sc-tree"><i class="tr-tr"></i><i class="tr-f f1"></i><i class="tr-f f2"></i><i class="tr-f f3"></i></div>';
+}
+
+document.querySelectorAll('.mini-scene').forEach(function(sc){
+  var opts = (sc.dataset.scene||'').split(' ');
+  var bg = '<i class="sc-orb"></i><i class="sc-cloud c1"></i><i class="sc-cloud c2"></i>'
+    + '<i class="sc-hill h1"></i><i class="sc-hill h2"></i><i class="sc-ground"></i>';
+  if(opts.indexOf('tree')>=0) bg += oakHTML();
+  if(opts.indexOf('house')>=0) bg += houseHTML(opts.indexOf('lantern')>=0, opts.indexOf('lantern2')>=0);
+  sc.insertAdjacentHTML('afterbegin', bg);
+});
+document.querySelectorAll('[data-el]').forEach(function(n){ n.innerHTML = EL[n.dataset.el](); });
+</script>
+</body>
+</html>

@@ -86,6 +86,7 @@ function _hwCell(m, meName, gate){
 function renderScene(){
   var mems = ((window.FAM && FAM.members) || []).slice(0, 8), meName = _meName(), myW = myWeather();
   var gate = !myW || window._wpick, ph = _skyPhase();
+  var cfg = (window.houseCfg ? houseCfg() : { house: 'cottage', tree: 'oak', pet: null });
 
   // windows + the family door (tap the door → add something to the house)
   var door = '<button class="hs-door" onclick="openSheet(&#39;sheet-add&#39;)" aria-label="' + escAttr(L('Thêm', 'Add')) + '"></button>';
@@ -136,9 +137,13 @@ function renderScene(){
     + '<i class="sc-cloud c1"></i><i class="sc-cloud c2"></i>'
     + '<i class="sc-hill h1"></i><i class="sc-hill h2"></i><i class="sc-ground"></i>'
     + pols
-    + '<div class="sc-tree" style="transform:scale(' + grow.toFixed(2) + ')"><i class="tr-tr"></i><i class="tr-f f1"></i><i class="tr-f f2"></i><i class="tr-f f3"></i></div>'
-    + '<div class="sc-house"><div class="hs-roofwrap"><i class="hs-chim">' + (act ? '<i class="puff p1"></i><i class="puff p2"></i><i class="puff p3"></i>' : '') + '</i><i class="hs-roof"></i></div>'
-    + '<div class="hs-wall"><div class="hs-wins">' + door + cells + '</div></div></div>'
+    + '<div class="sc-tree tree-' + cfg.tree + '" style="transform:scale(' + grow.toFixed(2) + ')">'
+      + (window.TREEFN ? TREEFN[cfg.tree](ph) : '<i class="tr-tr"></i><i class="tr-f f1"></i><i class="tr-f f2"></i><i class="tr-f f3"></i>') + '</div>'
+    + (window.buildHouseShell
+        ? buildHouseShell(cfg.house, ph, door + cells, act)
+        : '<div class="sc-house"><div class="hs-roofwrap"><i class="hs-chim">' + (act ? '<i class="puff p1"></i><i class="puff p2"></i><i class="puff p3"></i>' : '') + '</i><i class="hs-roof"></i></div>'
+          + '<div class="hs-wall"><div class="hs-wins">' + door + cells + '</div></div></div>')
+    + (cfg.pet && window.PETFN ? '<div class="sc-pet spot k-' + cfg.pet + '">' + PETFN[cfg.pet](ph) + '</div>' : '')
     + amb;
 }
 /* the hearth card under the scene: the mood picker until you've lit your window,
@@ -291,7 +296,7 @@ function renderHome(){
     setHTMLIf(sceneEl, renderScene());
   }
 
-  var html = renderHearth();                            // the hearth card under the scene
+  var html = (window._houseEntryHTML ? _houseEntryHTML() : '') + renderHearth();   // "Chăm chút tổ ấm" CTA, then the hearth card
   if(typeof requestsWidgetHTML === 'function') html += requestsWidgetHTML();   // future-expense proposals awaiting my OK
   if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions, right under the hearth
 

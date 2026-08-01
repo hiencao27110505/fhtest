@@ -65,6 +65,8 @@
       }
 
       if (fam) { window.FAM.familyName = fam.name; if (fam.currency) window.CUR = fam.currency; if (fam.default_language) window.LANG = fam.default_language; }
+      // shared house customization ({house,tree,pet}); [] / null on a pre-migration snapshot → keep whatever we have
+      window.FAM.house = (fam && fam.house && typeof fam.house === 'object') ? fam.house : (window.FAM.house || {});
 
       // members → membersMeta + maps
       window.DB.memberById = {}; window.DB.memberByAppName = {}; window.DB.sharedId = null; window.DB.ownerMemberId = null;
