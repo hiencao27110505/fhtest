@@ -224,7 +224,7 @@ function pickSrc(btn){
   updateSrcHint();
 }
 function updateSrcHint(){
-  var safe=Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved());
+  var safe=Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved());
   setHTML('src-savings', fmt(savings)+' <span class="u">'+L('sẵn có','available')+'</span>');
   setHTML('src-month', fmt(safe)+' <span class="u">'+L('để chi','to spend')+'</span>');
   var cost=parseAmtBase(document.getElementById('ng-amt').value)||0;
@@ -233,7 +233,7 @@ function updateSrcHint(){
   var avail=selSrc==='savings'?savings:safe;
   if(cost>avail) el.innerHTML=L('<span class="warn">Thiếu '+fmt(cost-avail)+', hiện chỉ đủ '+fmt(avail)+'</span>','<span class="warn">Short by '+fmt(cost-avail)+', covers '+fmt(avail)+' now</span>');
   else if(selSrc==='savings') el.textContent=L('Đủ trọn '+fmt(cost)+' từ quỹ tiết kiệm','Covers the full '+fmt(cost)+' from savings');
-  else el.innerHTML=L('Đủ trọn '+fmt(cost)+' · còn '+fmt(safe-cost)+' trong tháng','Covers the full '+fmt(cost)+' · leaves you '+fmt(safe-cost)+' in July');
+  else el.innerHTML=L('Đủ trọn '+fmt(cost)+' · còn '+fmt(safe-cost)+' trong tháng','Covers the full '+fmt(cost)+' · leaves you '+fmt(safe-cost)+' in '+curMoName());
 }
 /* Create is gated on both a name and a real target. The old code defaulted a blank
    target to 1000 and then immediately moved that much out of savings — a half-filled
@@ -262,10 +262,10 @@ function addEvent(){
   // 100% cover the full cost by default, from the chosen source (capped by what's available)
   var msg=L('Đã tạo sự kiện 🎯','Event created 🎯');
   if(src==='month'){
-    var safe=Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved());
+    var safe=Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved());
     var use=Math.min(target,safe);
     ev.saved+=use; ev.setAside+=use;
-    msg=L('Đã tạo · để dành '+fmt(use)+' từ tháng 7 🎯','Created · '+fmt(use)+' set aside from July 🎯');
+    msg=L('Đã tạo · để dành '+fmt(use)+' từ '+curMoName()+' 🎯','Created · '+fmt(use)+' set aside from '+curMoName()+' 🎯');
   } else {
     var use2=Math.min(target,savings);
     ev.saved+=use2; savings-=use2;

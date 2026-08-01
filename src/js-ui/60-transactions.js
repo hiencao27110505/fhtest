@@ -1,19 +1,19 @@
 /* ---------- expense ---------- */
 var catStyle={};
 /* ---------- transactions (with spender avatar) ---------- */
-// July transactions — per-category sums ARE the category totals (aggregates derived below).
+// Seed transactions — per-category sums ARE the category totals (aggregates derived below).
 var txns=[];
-// Derive July's category + member totals from the transactions so everything reconciles.
+// Derive the current month's category + member totals from the transactions so everything reconciles.
 (function(){
   var cs={}, ms={}, total=0;
   catOrder.forEach(function(c){ cs[c]=0; });
   txns.forEach(function(t){
-    if(t.month!=='Jul' || t.future) return;
+    if(t.month!==curMonthKey() || t.future) return;
     cs[t.cat]=(cs[t.cat]||0)+t.amt; total+=t.amt;
     var w=(t.who||'').toLowerCase(), mk=(w==='both'||w==='shared')?'Shared':(w.charAt(0).toUpperCase()+w.slice(1));
     ms[mk]=(ms[mk]||0)+t.amt;
   });
-  months.Jul.catSpent=cs; months.Jul.spent=total; months.Jul.memberSpent=ms;
+  months[curMonthKey()].catSpent=cs; months[curMonthKey()].spent=total; months[curMonthKey()].memberSpent=ms;
 })();
 var txSeq=0;
 txns.forEach(function(t){ t.id='t'+(txSeq++); });
@@ -47,18 +47,18 @@ function txMatch(t){
 function resRow(k){   // an event funded from this month → an "Events" future item
   var e=events[k], today=sameDay(e.d,TODAY);
   return '<div class="row res" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="r-ico-wrap"><div class="r-ico">'+e.emoji+'</div></div>'
-    +'<div class="r-body"><div class="r-t">'+e.name+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>'+L('Sự kiện','Events')+' · '+(today?L('hôm nay','today'):L('trong tháng 7','in July'))+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+e.name+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>'+L('Sự kiện','Events')+' · '+(today?L('hôm nay','today'):curMoTxt())+'</div></div>'
     +'<div class="r-amt num">'+fmt(e.setAside)+'</div></div>';
 }
 function futRow(t){   // a standalone future expense logged in the expense sheet
   var today=sameDay(txPhotoDate(t),TODAY);
   return '<div class="row res" onclick="openEditExpense(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico">'+(t.ico||'📅')+'</div></div>'
-    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>'+(today?L('Chi tiêu dự kiến · hôm nay','Planned expense · today'):L('Chi tiêu tương lai · trong tháng 7','Future expense · in July'))+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>'+(today?L('Chi tiêu dự kiến · hôm nay','Planned expense · today'):L('Chi tiêu tương lai','Future expense')+' · '+curMoTxt())+'</div></div>'
     +'<div class="r-amt num">'+fmt(t.amt)+'</div></div>';
 }
 function renderTxns(){
   var tx=document.getElementById('tx-rows');
-  var evRes=(selMonth==='Jul') ? order.filter(function(k){return !achievedNow(events[k]) && (events[k].setAside||0)>0;}) : [];
+  var evRes=(selMonth===curMonthKey()) ? order.filter(function(k){return !achievedNow(events[k]) && (events[k].setAside||0)>0;}) : [];
   var anyFuture = evRes.length>0 || txns.some(function(t){return t.future;});
   setTxt('tx-head', anyFuture ? L('Hoạt động','Activity') : L('Giao dịch gần đây','Recent transactions'));
   if(tx){
@@ -205,40 +205,40 @@ function addExpense(){
     var eid='e'+order.length+Math.floor(amt);
     var past=dObj<TODAY;                                    // a past date = it already happened (realized), not upcoming
     var ev={name:note,emoji:'🎈',cov:'pink',date:(MONA[dObj.getMonth()]+' '+dObj.getDate()),d:dObj,target:amt,saved:amt,setAside:past?0:amt};
-    if(past){ ev.achieved=true; months.Jul.spent+=amt; }   // spent already · goes straight to Memories
+    if(past){ ev.achieved=true; months[curMonthKey()].spent+=amt; }   // spent already · goes straight to Memories
     if(exPhotos.length) ev.memories=exPhotos.map(function(s,i){ return i===0?{src:s,caption:note}:{src:s}; }); // photos become memories right away
-    events[eid]=ev; order.unshift(eid); renderEvents(); renderTxns(); selMonth='Jul'; renderAll();
+    events[eid]=ev; order.unshift(eid); renderEvents(); renderTxns(); selMonth=curMonthKey(); renderAll();
     document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
     closeExpense();
     if(past){ toast(L(note+' đã lưu · thêm ảnh để ghi nhớ nhé 📸',note+' saved · add a photo to remember it 📸')); floatEmojis('📸'); goMoments('memories'); }
-    else { toast(L(note+' đã thêm vào Sự kiện · còn '+fmt(Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved()))+' an toàn để tiêu',note+' added to Events · '+fmt(Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved()))+' safe to spend')); floatEmojis('🎈'); goMoments('plans'); }
+    else { toast(L(note+' đã thêm vào Sự kiện · còn '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' an toàn để tiêu',note+' added to Events · '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' safe to spend')); floatEmojis('🎈'); goMoments('plans'); }
     return;
   }
   if(dObj>TODAY){                                           // future date → a future expense (reserved, not spent)
     var fwho=chosen('ex-who')||'Emma', fwhoStore=(fwho==='Both')?'Shared':fwho;
-    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:fwhoStore,amt:amt,future:true,month:'Jul',photos:exPhotos.length?exPhotos.slice():undefined});
-    renderTxns(); selMonth='Jul'; renderAll();
+    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:fwhoStore,amt:amt,future:true,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+    renderTxns(); selMonth=curMonthKey(); renderAll();
     document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
     closeExpense();
-    toast(L('Đã để dành '+fmt(amt)+' · còn '+fmt(Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved()))+' an toàn để tiêu',fmt(amt)+' set aside · '+fmt(Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved()))+' safe to spend'));
+    toast(L('Đã để dành '+fmt(amt)+' · còn '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' an toàn để tiêu',fmt(amt)+' set aside · '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' safe to spend'));
     go('spending'); segTo('overview'); return;
   }
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
   var hadPhoto=exPhotos.length>0;
-  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:whoStore,amt:amt,month:'Jul',photos:exPhotos.length?exPhotos.slice():undefined});
+  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:whoStore,amt:amt,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
   if(hadPhoto) syncExpenseEvent(txns[0]);                   // photos → a linked event for Events + Memories
   renderTxns();
-  var jul=months.Jul;
+  var jul=months[curMonthKey()];
   var wasUnder=(jul.catSpent[cat]||0)<=(catBudget[cat]||Infinity);
   jul.spent+=amt; jul.catSpent[cat]=(jul.catSpent[cat]||0)+amt; jul.memberSpent[mkey]=(jul.memberSpent[mkey]||0)+amt;
-  selMonth='Jul'; renderAll(); if(hadPhoto) renderEvents();   // photo → shows in Memories
+  selMonth=curMonthKey(); renderAll(); if(hadPhoto) renderEvents();   // photo → shows in Memories
   document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
   var catOv=document.getElementById('cat-overlay').classList.contains('on');
   closeExpense();
   if(hadPhoto){ toast(L('Đã ghi '+fmt(amt)+' · lưu vào Kỷ niệm 📸','Logged '+fmt(amt)+' · saved to Memories 📸')); floatEmojis('📸'); }
   else if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast(L('Lưu ý: '+cat+' đã vượt ngân sách','Heads up: '+cat+' is now over budget'));
-  else toast(L('Đã ghi '+fmt(amt)+' · còn '+fmt(Math.max(0,months.Jul.budget-jul.spent))+' an toàn để tiêu','Logged '+fmt(amt)+' · '+fmt(Math.max(0,months.Jul.budget-jul.spent))+' safe to spend'));
+  else toast(L('Đã ghi '+fmt(amt)+' · còn '+fmt(Math.max(0,months[curMonthKey()].budget-jul.spent))+' an toàn để tiêu','Logged '+fmt(amt)+' · '+fmt(Math.max(0,months[curMonthKey()].budget-jul.spent))+' safe to spend'));
   if(catOv && curDetail){ openCat(curDetail.type,curDetail.val); }   // logged from a category detail → refresh it
   else { go('spending'); segTo('overview'); }
 }

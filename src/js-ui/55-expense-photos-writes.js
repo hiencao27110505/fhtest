@@ -276,7 +276,7 @@ function saveExpenseEdit(){
   var whoStore=(who==='Both')?'Shared':who;
   var dObj=exDate(), dstr=(dObj.getTime()===TODAY.getTime())?'Today':(MONA[dObj.getMonth()]+' '+dObj.getDate());
   var s=catStyle[cat]||['🧾','#f2eef6','var(--cat-other)'];
-  var jul=months.Jul, newFuture=dObj>TODAY;                 // a future date → reserved (not counted as spent)
+  var jul=months[curMonthKey()], newFuture=dObj>TODAY;      // a future date → reserved (not counted as spent)
   // reverse the OLD contribution (only realized items were ever counted toward spending)
   if(!t.future){
     var oldMk=(t.who==='Shared'||t.who==='both')?'Shared':t.who;
@@ -294,7 +294,7 @@ function saveExpenseEdit(){
   t._d=dObj;                                              // preserve the real date so ordering holds across months
   editingTx=null; editSnap=null; exPhotos=[];
   txns.sort(txNewestFirst);
-  selMonth='Jul'; renderAll(); renderTxns(); renderEvents();
+  selMonth=curMonthKey(); renderAll(); renderTxns(); renderEvents();
   if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val);
   closeExpense();
   toast(L('Đã lưu · ','Changes saved · ')+note);
@@ -310,15 +310,15 @@ function deleteExpense(){
   }
   resetDelArm();
   var note=t.note;
-  var jul=months.Jul;
-  if(!t.future && t.month==='Jul'){                        // remove its realized contribution
+  var jul=months[curMonthKey()];
+  if(!t.future && t.month===curMonthKey()){                // remove its realized contribution
     var mk=(t.who==='Shared'||t.who==='both')?'Shared':t.who;
     jul.spent-=t.amt; jul.catSpent[t.cat]=(jul.catSpent[t.cat]||0)-t.amt; jul.memberSpent[mk]=(jul.memberSpent[mk]||0)-t.amt;
   }
   if(t.photos&&t.photos.length){ t.photos=[]; syncExpenseEvent(t); }   // drop its linked event too
   var i=txns.indexOf(t); if(i>=0) txns.splice(i,1);
   editingTx=null; editSnap=null; exPhotos=[];
-  selMonth='Jul'; renderAll(); renderTxns(); renderEvents();
+  selMonth=curMonthKey(); renderAll(); renderTxns(); renderEvents();
   if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val);
   closeExpense();
   toast(L('Đã xoá · ','Deleted · ')+note);

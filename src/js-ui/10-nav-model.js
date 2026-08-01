@@ -34,18 +34,19 @@ function segTo(which){
 var budget=9000;
 var catBudget={};
 var catOrder=[];
-var months={
-  Jul:{label:'',short:'Jul',done:false,dim:31,dom:15,spent:0,budget:0,catSpent:{},memberSpent:{}}
-};
-var monthOrder=['Jul'];
-var selMonth='Jul';
+// Real current date — the app is live in production, so TODAY is always the
+// actual device date, never clamped to a fixed demo month.
+var TODAY=(function(){ var d=new Date(); d.setHours(0,0,0,0); return d; })();
+// Month-abbreviation lookup (defined locally — this file loads before
+// 12-format-helpers.js's MONA, and curMonthKey() must work at seed time below).
+var _MOA=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function curMonthKey(){ return _MOA[TODAY.getMonth()]; }
+var months={};
+months[curMonthKey()]={label:'',short:curMonthKey(),done:false,dim:new Date(TODAY.getFullYear(),TODAY.getMonth()+1,0).getDate(),dom:TODAY.getDate(),spent:0,budget:0,catSpent:{},memberSpent:{}};
+var monthOrder=[curMonthKey()];
+var selMonth=curMonthKey();
 function M(){ return months[selMonth]; }
 var membersMeta={};
-// Real current date. The demo data lives in July 2026, so if the device clock is
-// outside that month we fall back to mid-July to keep the seed coherent.
-var TODAY=(function(){ var d=new Date(); d.setHours(0,0,0,0); if(d.getFullYear()!==2026 || d.getMonth()!==6) d=new Date(2026,6,15); return d; })();
-months.Jul.dom=TODAY.getDate();
-months.Jul.dim=new Date(TODAY.getFullYear(),TODAY.getMonth()+1,0).getDate();
 var events={};
 var order=[];
 // A fully-funded event is "ready", not done — it becomes a memory only once its date passes.

@@ -159,14 +159,14 @@ function updateExWhen(){
     setExCta(past ? L('Lưu vào Kỷ niệm','Save to Memories') : L('Thêm vào Sự kiện','Add to Events'));
     if(el) el.innerHTML = past
       ? '<span style="color:var(--brand-ink)">'+L('Đã diễn ra','Already happened')+'</span> · '+L('một kỷ niệm để nhớ về','a memory to look back on')
-      : '<span style="color:var(--brand-ink)">'+L('Đã thêm vào Sự kiện','Added to Events')+'</span> · '+L('để dành từ tháng này, thành kỷ niệm khi nó diễn ra','set aside from July, a memory once it happens');
+      : '<span style="color:var(--brand-ink)">'+L('Đã thêm vào Sự kiện','Added to Events')+'</span> · '+L('để dành từ tháng này, thành kỷ niệm khi nó diễn ra','set aside from this month, a memory once it happens');
     return;
   }
   setExCta(L('Lưu khoản chi','Save expense'));
   if(!el)return;
   if(fut){
-    var safe=Math.max(0,months.Jul.budget-months.Jul.spent-monthReserved());
-    el.innerHTML='<span style="color:var(--brand-ink)">'+L('Sắp tới, để dành từ tháng này','Upcoming, set aside from July')+'</span> · '+fmt(safe)+L(' vẫn an toàn để tiêu',' still safe to spend');
+    var safe=Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved());
+    el.innerHTML='<span style="color:var(--brand-ink)">'+L('Sắp tới, để dành từ tháng này','Upcoming, set aside from this month')+'</span> · '+fmt(safe)+L(' vẫn an toàn để tiêu',' still safe to spend');
     return;
   }
   el.textContent='';   // a normal spend → no extra hint

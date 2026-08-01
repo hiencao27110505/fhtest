@@ -158,7 +158,7 @@ function obPrepDone(){
     : (vi ? (FAM.familyName+' đã sẵn sàng với '+n+' thành viên.') : (FAM.familyName+' is ready with '+n+' member'+(n!==1?'s':'')+'.')));
 }
 function applyFam(){
-  if(FAM.budget) months.Jul.budget=FAM.budget;
+  if(FAM.budget) months[curMonthKey()].budget=FAM.budget;
   if(FAM.catBudget) Object.keys(FAM.catBudget).forEach(function(c){ if(FAM.catBudget[c]) catBudget[c]=FAM.catBudget[c]; });
   var box=document.getElementById('hero-fam');
   if(box) box.innerHTML=FAM.members.slice(0,5).map(function(mm){ return '<div class="av av-hero" style="background:'+mm.color+'">'+inits(mm.name)+'</div>'; }).join('')+'<span class="hero-fam-cap">'+FAM.familyName+'</span>';

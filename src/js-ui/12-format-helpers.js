@@ -14,6 +14,8 @@ function L(vi,en){ return isVi()?vi:en; }                       // inline phrase
 function moFull(i){ return isVi()?MONF_VI[i]:MONF[i]; }         // "Tháng 7" / "July"
 function moAbbr(i){ return isVi()?MONA_VI[i]:MONA[i]; }         // "Thg 7" / "Jul"
 function fmtMonYear(i,y){ return isVi()?('Tháng '+(i+1)+' '+y):(MONF[i]+' '+y); }
+function curMoName(){ return isVi()?('tháng '+(TODAY.getMonth()+1)):MONF[TODAY.getMonth()]; }   // "tháng 8" / "August"
+function curMoTxt(){ return isVi()?('trong '+curMoName()):('in '+curMoName()); }                // "trong tháng 8" / "in August"
 function fmtDayMon(d){ return isVi()?(d.getDate()+' thg '+(d.getMonth()+1)):(MONA[d.getMonth()]+' '+d.getDate()); }  // "26 thg 7" / "Jul 26"
 function fmtDateLong(d){ if(!d) return ''; return isVi()?(WKD_VI[d.getDay()]+', '+d.getDate()+' thg '+(d.getMonth()+1)):(WKD[d.getDay()]+', '+MONF[d.getMonth()]+' '+d.getDate()); }
 // Weekday + day only (no month) — for the album's day groups, already scoped to one month.
