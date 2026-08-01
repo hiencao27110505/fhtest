@@ -54,7 +54,14 @@ function achievedNow(e){ return e.achieved===true || (e.d && e.d<TODAY); }
 // Money set aside from THIS month's budget (unrealized — reserved, not spent):
 // events funded from this month, plus standalone "future expenses" logged in the expense sheet.
 function eventsReserved(){ return order.reduce(function(s,k){ return achievedNow(events[k]) ? s : s+(events[k].setAside||0); },0); }
-function futureExpReserved(){ return txns.reduce(function(s,t){ return s+(t.future?t.amt:0); },0); }
+// A future expense is a *proposal* until at least one family member other than its
+// creator throws a 🥰 (the ledger's "approve" reaction) at it — collaborative future
+// expenses (see 64-requests.js). Only an *aligned* one reserves money from this month.
+function futureAligned(t){ return !!(t && t.reviews && t.reviews.some(function(r){ return r.emoji==='🥰'; })); }
+// Only a *proposal* (created via the collaborative flow, so it carries a `by` proposer)
+// can be pending; legacy future expenses with no proposer stay reserved exactly as before.
+function futurePending(t){ return !!(t && t.future && t.by && !futureAligned(t)); }
+function futureExpReserved(){ return txns.reduce(function(s,t){ return s+((t.future && (!t.by || futureAligned(t)))?t.amt:0); },0); }
 function monthReserved(){ return eventsReserved()+futureExpReserved(); }
 /* ---- currency (USD $ · VND ₫, VND display ×1000 so amounts read realistically) ---- */
 var CUR='USD';

@@ -105,6 +105,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     </div>
   </div>
 
+  <!-- future-expense proposals awaiting my OK (filled by renderReqMounts) -->
+  <div id="fin-requests"></div>
+
   <!-- HERO — allocation ring: spending vs saving at a glance (the "whole") -->
   <div class="fin-hero">
     <div class="fin-pager" id="fin-pager">
@@ -358,8 +361,32 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </div>
 </div>
 
+<!-- REQUESTS HUB — collaborative future expenses (full-screen overlay) -->
+<div class="overlay" id="requests-overlay">
+  <div class="safe"></div>
+  <div class="cd-nav">
+    <button class="cd-back" onclick="closeRequests()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="tabHome">Home</span></button>
+  </div>
+  <h1 class="txn-title" id="req-title">Requests</h1>
+  <div class="cd-scroll">
+    <div id="requests-body"></div>
+    <div class="spacer"></div>
+  </div>
+</div>
+
 <!-- SCRIM + SHEETS -->
 <div class="scrim" id="scrim" onclick="closeSheet();closeModals()"></div>
+
+<!-- REVIEW A REQUEST — the ledger reactions as vertical rows -->
+<div class="modal" id="review-modal">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeReview()" data-t="cancel">Cancel</button>
+    <div class="modal-title" id="rv-title">Review</div>
+    <button class="modal-save" style="visibility:hidden" aria-hidden="true">·</button>
+  </div>
+  <div class="modal-body"><div id="review-body"></div></div>
+</div>
 
 <div class="sheet" id="sheet-add">
   <div class="grab"></div>

@@ -155,6 +155,7 @@ function isExFuture(){ return exDate()>TODAY; }
 function updateExWhen(){
   var isEvent=(chosen('ex-cat')==='Event'), fut=isExFuture(), past=exDate()<TODAY;
   var el=document.getElementById('ex-whenhint');
+  var _sv=document.getElementById('ex-save'); if(_sv) _sv.textContent=L('Lưu','Save');   // default; a future date flips it to Send
   if(isEvent){
     setExCta(past ? L('Lưu vào Kỷ niệm','Save to Memories') : L('Thêm vào Sự kiện','Add to Events'));
     if(el) el.innerHTML = past
@@ -165,8 +166,8 @@ function updateExWhen(){
   setExCta(L('Lưu khoản chi','Save expense'));
   if(!el)return;
   if(fut){
-    var safe=Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved());
-    el.innerHTML='<span style="color:var(--brand-ink)">'+L('Sắp tới, để dành từ tháng này','Upcoming, set aside from this month')+'</span> · '+fmt(safe)+L(' vẫn an toàn để tiêu',' still safe to spend');
+    if(_sv) _sv.textContent=L('Gửi','Send');   // a future expense is a proposal — the family aligns before it's set aside
+    el.innerHTML='<span style="color:var(--brand-ink)">'+L('Chờ cả nhà cùng đồng ý','Waiting for the family to agree')+'</span> · '+L('chưa để dành vào ngân sách','nothing set aside yet');
     return;
   }
   el.textContent='';   // a normal spend → no extra hint

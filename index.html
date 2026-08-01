@@ -1138,6 +1138,74 @@ input{font-family:inherit}
 @media (prefers-reduced-motion:reduce){
   .rx-pop,.rx-opt,.rx-burst,.rx-toast{transition:none}
 }
+/* ---- collaborative future-expense requests ----
+   The "Needs your OK" widget (Home + Finance), the Requests hub (two lanes), and the
+   review sheet (the ledger reactions as vertical rows). Surfaces stay neutral per the
+   design system — emoji carry the colour, borders and left restraint do the rest. */
+
+/* widget */
+.req-widget{background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);overflow:hidden;margin:0 0 14px}
+#fin-requests .req-widget{margin:14px 16px 4px}
+#fin-requests:empty{display:none}
+.req-wh{display:flex;align-items:center;justify-content:space-between;padding:13px 15px 11px}
+.req-wh-l{display:flex;align-items:center;gap:8px}
+.req-wh-t{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.req-badge{font-size:11px;font-weight:800;color:#fff;background:var(--brand);border-radius:999px;padding:1px 8px;letter-spacing:.02em}
+.req-wh-all{font-size:12.5px;font-weight:700;color:var(--brand-ink);cursor:pointer}
+.req-wrows{border-top:1px solid var(--divider)}
+.req-wrow{display:flex;align-items:center;gap:11px;width:100%;padding:11px 15px;background:none;border:0;border-top:1px solid var(--divider);text-align:left;cursor:pointer;font:inherit}
+.req-wrow:first-child{border-top:0}
+.req-wrow:active{background:var(--surface)}
+.req-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex:0 0 auto;box-shadow:0 0 0 1.5px var(--white)}
+.req-av.lg{width:48px;height:48px;font-size:18px}
+.req-wrb{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.req-wrt{font-size:13.5px;font-weight:650;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.req-wrs{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.req-wamt{font-weight:800;font-size:15px;color:var(--ink);flex:0 0 auto}
+.req-chev{width:16px;height:16px;color:var(--chev);flex:0 0 auto}
+.req-wmore{display:block;width:100%;padding:10px;border:0;border-top:1px solid var(--divider);background:none;color:var(--brand-ink);font-size:12.5px;font-weight:700;cursor:pointer;font:inherit}
+
+/* hub lanes */
+#requests-body{padding:4px 16px 0}
+.req-lane-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:4px 2px 10px}
+.req-empty{font-size:13.5px;color:var(--muted);padding:12px 2px 4px}
+.req-card{display:flex;align-items:center;gap:12px;width:100%;padding:13px 14px;margin-bottom:10px;background:var(--white);border:0;border-radius:16px;box-shadow:var(--shadow-card);text-align:left;cursor:pointer;font:inherit}
+.req-card.static{cursor:default}
+.req-card:not(.static):active{background:var(--surface)}
+.req-cb{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.req-ct{font-family:var(--disp);font-size:15px;font-weight:650;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.req-cs{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.req-camt{font-weight:800;font-size:16px;color:var(--ink);flex:0 0 auto}
+.req-status{font-size:12px;font-weight:700;margin-top:2px}
+.req-status.ok{color:var(--brand-ink)}
+.req-status.wait{color:var(--amber)}
+
+/* review sheet */
+.rv-plan{background:var(--surface);border-radius:16px;padding:14px;margin-bottom:15px}
+.rv-top{display:flex;align-items:center;gap:12px}
+.rv-tb{flex:1;min-width:0}
+.rv-t{font-size:14px;font-weight:700;color:var(--ink)}
+.rv-s{font-size:12px;color:var(--muted);margin-top:1px}
+.rv-amt{font-weight:800;font-size:22px;color:var(--ink);flex:0 0 auto}
+.rv-note{font-size:14px;font-weight:600;color:var(--ink-2);margin-top:12px}
+.rv-impact{font-size:12.5px;color:var(--brand-ink);font-weight:600;margin-top:10px;background:var(--brand-tint);border-radius:10px;padding:8px 11px}
+.rv-prompt{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;margin:2px 0 12px}
+.rv-opts{display:flex;flex-direction:column;gap:9px;padding-bottom:6px}
+.rv-opt{display:flex;align-items:center;gap:13px;width:100%;padding:12px 14px;background:var(--white);border:1px solid var(--hairline);border-radius:15px;text-align:left;cursor:pointer;font:inherit;transition:transform .12s ease}
+.rv-opt:active{transform:scale(.99)}
+.rv-opt.yes{background:var(--brand-tint);border-color:transparent}
+.rv-opt.on{box-shadow:inset 0 0 0 2px var(--brand);border-color:transparent}
+.rv-e{font-size:28px;line-height:1;flex:0 0 auto;filter:drop-shadow(0 1px 2px rgba(25,16,34,.12))}
+.rv-ob{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rv-on{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.rv-od{font-size:12.5px;color:var(--muted)}
+.rv-opt.yes .rv-od{color:var(--brand-ink)}
+.rv-tag{font-size:11px;font-weight:800;color:#fff;background:var(--brand);border-radius:999px;padding:3px 10px;flex:0 0 auto;letter-spacing:.02em}
+.rv-chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
+
+/* a future expense still in review carries an amber tag in the ledger's future list */
+.res-tag.pend{color:var(--amber)}
+
 /* scrim + sheets */
 .scrim{position:absolute;inset:0;background:rgba(25,16,34,.45);opacity:0;pointer-events:none;transition:opacity .3s;z-index:50}
 .scrim.on{opacity:1;pointer-events:auto}
@@ -1773,6 +1841,9 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     </div>
   </div>
 
+  <!-- future-expense proposals awaiting my OK (filled by renderReqMounts) -->
+  <div id="fin-requests"></div>
+
   <!-- HERO — allocation ring: spending vs saving at a glance (the "whole") -->
   <div class="fin-hero">
     <div class="fin-pager" id="fin-pager">
@@ -2026,8 +2097,32 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   </div>
 </div>
 
+<!-- REQUESTS HUB — collaborative future expenses (full-screen overlay) -->
+<div class="overlay" id="requests-overlay">
+  <div class="safe"></div>
+  <div class="cd-nav">
+    <button class="cd-back" onclick="closeRequests()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="tabHome">Home</span></button>
+  </div>
+  <h1 class="txn-title" id="req-title">Requests</h1>
+  <div class="cd-scroll">
+    <div id="requests-body"></div>
+    <div class="spacer"></div>
+  </div>
+</div>
+
 <!-- SCRIM + SHEETS -->
 <div class="scrim" id="scrim" onclick="closeSheet();closeModals()"></div>
+
+<!-- REVIEW A REQUEST — the ledger reactions as vertical rows -->
+<div class="modal" id="review-modal">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeReview()" data-t="cancel">Cancel</button>
+    <div class="modal-title" id="rv-title">Review</div>
+    <button class="modal-save" style="visibility:hidden" aria-hidden="true">·</button>
+  </div>
+  <div class="modal-body"><div id="review-body"></div></div>
+</div>
 
 <div class="sheet" id="sheet-add">
   <div class="grab"></div>
@@ -2566,7 +2661,14 @@ function achievedNow(e){ return e.achieved===true || (e.d && e.d<TODAY); }
 // Money set aside from THIS month's budget (unrealized — reserved, not spent):
 // events funded from this month, plus standalone "future expenses" logged in the expense sheet.
 function eventsReserved(){ return order.reduce(function(s,k){ return achievedNow(events[k]) ? s : s+(events[k].setAside||0); },0); }
-function futureExpReserved(){ return txns.reduce(function(s,t){ return s+(t.future?t.amt:0); },0); }
+// A future expense is a *proposal* until at least one family member other than its
+// creator throws a 🥰 (the ledger's "approve" reaction) at it — collaborative future
+// expenses (see 64-requests.js). Only an *aligned* one reserves money from this month.
+function futureAligned(t){ return !!(t && t.reviews && t.reviews.some(function(r){ return r.emoji==='🥰'; })); }
+// Only a *proposal* (created via the collaborative flow, so it carries a `by` proposer)
+// can be pending; legacy future expenses with no proposer stay reserved exactly as before.
+function futurePending(t){ return !!(t && t.future && t.by && !futureAligned(t)); }
+function futureExpReserved(){ return txns.reduce(function(s,t){ return s+((t.future && (!t.by || futureAligned(t)))?t.amt:0); },0); }
 function monthReserved(){ return eventsReserved()+futureExpReserved(); }
 /* ---- currency (USD $ · VND ₫, VND display ×1000 so amounts read realistically) ---- */
 var CUR='USD';
@@ -2856,7 +2958,7 @@ function renderMembers(){
   });
   setHTML('member-split',split); setHTML('member-legend',legend);
 }
-function renderAll(){ renderBudget(); renderMembers(); try{ if(typeof renderHome==='function') renderHome(); }catch(e){} }
+function renderAll(){ renderBudget(); renderMembers(); try{ if(typeof renderReqMounts==='function') renderReqMounts(); }catch(e){} try{ if(typeof renderHome==='function') renderHome(); }catch(e){} }
 
 /* ---------- month picker ---------- */
 function buildMonthChoices(){
@@ -3335,6 +3437,7 @@ function renderHome(){
   }
 
   var html = renderHearth();                            // the hearth card under the scene
+  if(typeof requestsWidgetHTML === 'function') html += requestsWidgetHTML();   // future-expense proposals awaiting my OK
   if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions, right under the hearth
 
   /* ---- signals from the active user's + relatives' data ---- */
@@ -4359,6 +4462,7 @@ function isExFuture(){ return exDate()>TODAY; }
 function updateExWhen(){
   var isEvent=(chosen('ex-cat')==='Event'), fut=isExFuture(), past=exDate()<TODAY;
   var el=document.getElementById('ex-whenhint');
+  var _sv=document.getElementById('ex-save'); if(_sv) _sv.textContent=L('Lưu','Save');   // default; a future date flips it to Send
   if(isEvent){
     setExCta(past ? L('Lưu vào Kỷ niệm','Save to Memories') : L('Thêm vào Sự kiện','Add to Events'));
     if(el) el.innerHTML = past
@@ -4369,8 +4473,8 @@ function updateExWhen(){
   setExCta(L('Lưu khoản chi','Save expense'));
   if(!el)return;
   if(fut){
-    var safe=Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved());
-    el.innerHTML='<span style="color:var(--brand-ink)">'+L('Sắp tới, để dành từ tháng này','Upcoming, set aside from this month')+'</span> · '+fmt(safe)+L(' vẫn an toàn để tiêu',' still safe to spend');
+    if(_sv) _sv.textContent=L('Gửi','Send');   // a future expense is a proposal — the family aligns before it's set aside
+    el.innerHTML='<span style="color:var(--brand-ink)">'+L('Chờ cả nhà cùng đồng ý','Waiting for the family to agree')+'</span> · '+L('chưa để dành vào ngân sách','nothing set aside yet');
     return;
   }
   el.textContent='';   // a normal spend → no extra hint
@@ -4925,8 +5029,16 @@ function resRow(k){   // an event funded from this month → an "Events" future 
 }
 function futRow(t){   // a standalone future expense logged in the expense sheet
   var today=sameDay(txPhotoDate(t),TODAY);
-  return '<div class="row res" onclick="openEditExpense(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico">'+(t.ico||'📅')+'</div></div>'
-    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>'+(today?L('Chi tiêu dự kiến · hôm nay','Planned expense · today'):L('Chi tiêu tương lai','Future expense')+' · '+curMoTxt())+'</div></div>'
+  var pend=(typeof futurePending==='function')&&futurePending(t);
+  var me=(typeof _meName==='function')?_meName():'';
+  var incoming=pend && t.by && t.by!==me;                   // someone else's proposal → tapping it reviews, not edits
+  var onclick=incoming?('openReview(\''+t.id+'\')'):('openEditExpense(\''+t.id+'\')');
+  var tag=pend ? '<span class="res-tag pend">'+L('chờ duyệt','in review')+'</span>'
+               : '<span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>';
+  var sub=pend ? L('Chờ cả nhà duyệt','Waiting for the family')
+               : (today?L('Chi tiêu dự kiến · hôm nay','Planned expense · today'):L('Chi tiêu tương lai','Future expense')+' · '+curMoTxt());
+  return '<div class="row res" onclick="'+onclick+'"><div class="r-ico-wrap"><div class="r-ico">'+(t.ico||'📅')+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s">'+tag+sub+'</div></div>'
     +'<div class="r-amt num">'+fmt(t.amt)+'</div></div>';
 }
 function renderTxns(){
@@ -5088,14 +5200,16 @@ function addExpense(){
     else { toast(L(note+' đã thêm vào Sự kiện · còn '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' an toàn để tiêu',note+' added to Events · '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' safe to spend')); floatEmojis('🎈'); goMoments('plans'); }
     return;
   }
-  if(dObj>TODAY){                                           // future date → a future expense (reserved, not spent)
+  if(dObj>TODAY){                                           // future date → a *proposal* (reserves nothing until the family aligns)
     var fwho=chosen('ex-who')||'Emma', fwhoStore=(fwho==='Both')?'Shared':fwho;
-    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:fwhoStore,amt:amt,future:true,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+    var fby=(typeof _meName==='function')?_meName():fwhoStore;
+    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:fwhoStore,amt:amt,future:true,by:fby,reviews:[],month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
     renderTxns(); selMonth=curMonthKey(); renderAll();
     document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
     closeExpense();
-    toast(L('Đã để dành '+fmt(amt)+' · còn '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' an toàn để tiêu',fmt(amt)+' set aside · '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' safe to spend'));
-    go('spending'); segTo('overview'); return;
+    toast(L('Đã gửi cho cả nhà duyệt · sẽ để dành khi có người đồng ý','Sent to the family · set aside once someone agrees'));
+    if(typeof openRequests==='function') openRequests(); else { go('spending'); segTo('overview'); }
+    return;
   }
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
@@ -5355,7 +5469,11 @@ window.rxHomeStripHTML=rxHomeStripHTML;
 function rxJumpTo(txDbId){ closeRxArrive(); var tx=rxTxByDbId(txDbId); if(tx && typeof openEditExpense==='function') openEditExpense(tx.id); }
 window.rxJumpTo=rxJumpTo;
 
-/* ---- C · the arrival moment — a reaction on MY transaction, landed ---- */
+/* ---- C · the arrival — ANY member's reaction, seen by everyone else in-app ----
+   Fires for every new reaction (not just ones on your own spends): every time one
+   lands while you're in the app, and once (catching up) when you open the app after
+   it happened. Watermark-gated so unrelated rehydrates (your own writes, focus,
+   logging an expense) don't re-fire it. Your own reactions never self-trigger. */
 function _rxSeen(){ try{ return localStorage.getItem('fh-rx-seen')||''; }catch(e){ return ''; } }
 function _rxSetSeen(v){ try{ if(v) localStorage.setItem('fh-rx-seen', v); }catch(e){} }
 function _rxBusy(){
@@ -5368,9 +5486,8 @@ function _rxBusy(){
 }
 function rxCheckArrivals(){
   var mid=window.DB && window.DB.ownerMemberId; if(!mid) return;
-  if(window.editingTx!=null || document.hidden || _rxBusy()) return;     // never interrupt an edit / sheet / a backgrounded app
-  var mineTx={}; (window.txns||[]).forEach(function(t){ if(t._dbId && t._memberId===mid) mineTx[t._dbId]=t; });
-  var all=(window.reactions||[]).filter(function(r){ return mineTx[r.txId] && r.memberId!==mid; });   // others' reactions, on my spends
+  if(window.editingTx!=null || document.hidden || _rxBusy()) return;     // never interrupt an edit / a backgrounded app
+  var all=(window.reactions||[]).filter(function(r){ return r.memberId!==mid && rxTxByDbId(r.txId); });   // anyone else's reaction, on a loaded txn
   if(!all.length) return;
   var maxAt=all.reduce(function(m,r){ return r.at>m?r.at:m; }, '');
   var seen=_rxSeen();
@@ -5379,21 +5496,23 @@ function rxCheckArrivals(){
   if(!fresh.length) return;
   _rxSetSeen(maxAt);
   fresh.sort(function(a,b){ return a.at<b.at?1:a.at>b.at?-1:0; });
-  rxArriveShow(fresh, mineTx);
+  rxArriveShow(fresh);
 }
 window.rxCheckArrivals=rxCheckArrivals;
 /* The arrival is deliberately NON-blocking: emoji confetti over the whole frame
    (plays wherever you happen to land), plus a tappable toast that deep-links to the
    transaction. No modal — it never interrupts what you're doing. */
-function rxArriveShow(fresh, mineTx){
+function rxArriveShow(fresh){
   if(document.hidden) return;
-  var lead=fresh[0], tx=mineTx[lead.txId], more=fresh.length-1, txId=tx?tx._dbId:'';
+  var lead=fresh[0], tx=rxTxByDbId(lead.txId), more=fresh.length-1, txId=tx?tx._dbId:'';
   if(typeof floatEmojis==='function') floatEmojis(lead.emoji);          // confetti, once, where you are
   var old=document.getElementById('rx-toast'); if(old && old.parentNode) old.parentNode.removeChild(old);
   var el=document.createElement('button'); el.className='rx-toast'; el.id='rx-toast';
   el.setAttribute('aria-label', L('Xem khoản này','See this transaction'));
   el.onclick=function(){ closeRxArrive(); rxJumpTo(txId); };
-  var second=more>0 ? L('và '+more+' phản ứng khác','and '+more+' more') : L('Chạm để xem','Tap to open');
+  // second line = which transaction (so a bystander knows what was reacted to), + how many more
+  var second=tx ? (esc(tx.note||L('Khoản chi','Expense'))+' · '+((typeof fmt==='function')?fmt(tx.amt):tx.amt)) : L('Chạm để xem','Tap to open');
+  if(more>0) second += ' · +'+more;
   el.innerHTML='<span class="rx-toast-e">'+lead.emoji+'</span>'
     +'<span class="rx-toast-b"><span class="rx-toast-msg">'+rxMessage(lead,tx)+'</span><span class="rx-toast-cta">'+second+'</span></span>'
     +'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg>';
@@ -5410,6 +5529,197 @@ window.closeRxArrive=closeRxArrive;
 /* run after every hydrate: refresh the wall + play any just-arrived moment */
 function rxAfterHydrate(){ try{ renderRxWall(); }catch(e){} try{ rxCheckArrivals(); }catch(e){} }
 window.rxAfterHydrate=rxAfterHydrate;
+/* ---------- collaborative future-expense requests ----------
+   A future expense is a *proposal*, not a done deal. It reserves nothing until at
+   least one family member OTHER than its creator throws 🥰 (the ledger's "approve"
+   reaction) at it — then it's set aside for real. Reviewing reuses the exact five
+   ledger reactions (😱🤨😂🥰😤): the reviewer expresses HOW they feel, the system
+   reads WHETHER it's aligned. Only 🥰 sets it aside; the other four keep it pending
+   and pass the feeling back to the creator so it stays a conversation, never a reject.
+
+   Surfaces: a "Needs your OK" widget on Home + Finance (deep-links to one request
+   or the hub), a Requests hub (two lanes), and a review sheet. Alignment persists +
+   syncs for free when live via fhReact + the reactions table; the local review state
+   drives the demo. futureAligned()/futurePending() live in 10-nav-model.js. */
+
+function _reqMe(){ return (typeof _meName==='function') ? _meName() : ((window.FAM&&FAM.user&&FAM.user.name)||''); }
+function _firstNm(n){ return (typeof firstName==='function') ? firstName(n||'') : ((n||'').split(/\s+/)[0]||n||''); }
+function _reqMem(name){
+  var mems=(window.FAM&&FAM.members)||[];
+  for(var i=0;i<mems.length;i++){ if(mems[i].name===name) return {name:name,color:mems[i].color,ini:inits(name)}; }
+  return {name:name||'?',color:'#8a8494',ini:(typeof inits==='function')?inits(name||'?'):'?'};
+}
+function _reqAv(name,cls){ var m=_reqMem(name); return '<span class="req-av'+(cls?' '+cls:'')+'" style="background:'+m.color+'">'+esc(m.ini)+'</span>'; }
+function _reqChev(){ return '<svg class="req-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'; }
+function _catLabel(c){ var s=(window.catStyle&&catStyle[c]); return (s?s[0]+' ':'')+(c||''); }
+function _reqDate(t){ return t.date || ''; }
+
+/* the review vocabulary — the ledger's exact five, re-voiced for a proposal.
+   Only 🥰 aligns (sets it aside); the rest are feedback that keeps it pending. */
+function _reqReviewSet(){ return [
+  { e:'🥰', vi:'Thương',    en:'Love it',  dvi:'Đồng ý — để dành luôn', den:'I’m in — set it aside' },
+  { e:'😂', vi:'Vui ghê',   en:'Ha, love it', dvi:'Thích cái vụ này',   den:'Love the energy' },
+  { e:'😱', vi:'Bất ngờ',   en:'Whoa',     dvi:'Hơi nhiều đấy',         den:'That’s a lot' },
+  { e:'🤨', vi:'Nghĩ đã',   en:'Hmm',      dvi:'Bàn thêm chút nha',     den:'Let’s talk first' },
+  { e:'😤', vi:'Chưa nên',  en:'Not now',  dvi:'Chưa hợp lúc này',      den:'Not right now' }
+];}
+function _reqCfg(e){ var a=_reqReviewSet(); for(var i=0;i<a.length;i++){ if(a[i].e===e) return a[i]; } return a[0]; }
+
+/* ---- request lists (a future expense == a request) ---- */
+function _reqAll(){ return (window.txns||[]).filter(function(t){ return t.future; }); }
+function reqIncoming(){ var me=_reqMe(); return _reqAll().filter(function(t){ return (t.by||'')!==me && !futureAligned(t); }); }
+function reqMine(){ var me=_reqMe(); return _reqAll().filter(function(t){ return (t.by||'')===me; }); }
+function _reqMyReaction(t){ var me=_reqMe(); var r=(t.reviews||[]).filter(function(x){ return (x.by||'')===me; })[0]; return r?r.emoji:null; }
+function _alignedBy(t){
+  var r=(t.reviews||[]).filter(function(x){ return x.emoji==='🥰'; })[0];
+  var nm=r?_firstNm(r.byName||r.by):L('Ai đó','Someone');
+  return '✓ '+esc(nm)+' '+L('đã đồng ý · đã để dành','is in · set aside');
+}
+function _reqSafeAfter(t){
+  var m=(typeof M==='function')?M():null; if(!m||!m.budget) return null;
+  var safe=Math.max(0, m.budget - m.spent - monthReserved());
+  return Math.max(0, safe - (t.amt||0));   // aligning would reserve t.amt
+}
+
+/* demo seed: a couple of incoming requests so the loop is visible signed-out.
+   Live mode gets its requests from real data, so it never seeds. Runs once. */
+function _reqEnsureSeed(){
+  if(window._reqSeeded) return;
+  if(typeof _wIsReal==='function' && _wIsReal()){ window._reqSeeded=true; return; }   // live: real requests
+  if(!window.txns || typeof txSeq==='undefined'){ return; }
+  window._reqSeeded=true;
+  var dim=new Date(TODAY.getFullYear(),TODAY.getMonth()+1,0).getDate();
+  function futD(add){ var day=Math.min(TODAY.getDate()+add,dim); var d=new Date(TODAY.getFullYear(),TODAY.getMonth(),day);
+    if(d<=TODAY) d=new Date(TODAY.getFullYear(),TODAY.getMonth()+1,Math.min(5,add)); return d; }
+  function mk(by,note,cat,amt,add){ var d=futD(add); var s=(window.catStyle&&catStyle[cat])||['📅'];
+    return {id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:MONA[d.getMonth()]+' '+d.getDate(),who:by,amt:amt,future:true,by:by,reviews:[],month:curMonthKey(),_d:d}; }
+  txns.unshift(mk('Mia',   L('Giày bóng đá','Football boots'),      'Others', 60, 9));
+  txns.unshift(mk('James', L('Vé xem bóng cuối tuần','Weekend match tickets'), 'Fun', 80, 5));
+}
+
+/* ---- widget (Home + Finance) — only shows when something is waiting on me ---- */
+function requestsWidgetHTML(){
+  _reqEnsureSeed();
+  var inc=reqIncoming(); if(!inc.length) return '';
+  var rows=inc.slice(0,2).map(function(t){
+    return '<button class="req-wrow" onclick="openReview(\''+t.id+'\')">'+_reqAv(t.by)
+      +'<span class="req-wrb"><span class="req-wrt">'+esc(_firstNm(t.by))+' '+L('muốn để dành','wants to set aside')+'</span>'
+      +'<span class="req-wrs">'+esc(t.note)+' · '+_catLabel(t.cat)+'</span></span>'
+      +'<span class="req-wamt num">'+fmt(t.amt)+'</span>'+_reqChev()+'</button>';
+  }).join('');
+  var more=inc.length>2 ? '<button class="req-wmore" onclick="openRequests()">'+L('+ '+(inc.length-2)+' yêu cầu khác','+ '+(inc.length-2)+' more')+'</button>' : '';
+  return '<div class="req-widget">'
+    +'<div class="req-wh"><div class="req-wh-l"><span class="req-wh-t">'+L('Cần bạn duyệt','Needs your OK')+'</span><span class="req-badge">'+inc.length+'</span></div>'
+    +'<a class="req-wh-all" onclick="openRequests()">'+L('Xem tất cả','View all')+'</a></div>'
+    +'<div class="req-wrows">'+rows+more+'</div></div>';
+}
+window.requestsWidgetHTML=requestsWidgetHTML;
+function renderReqMounts(){ var el=document.getElementById('fin-requests'); if(el) el.innerHTML=requestsWidgetHTML(); }
+window.renderReqMounts=renderReqMounts;
+
+/* ---- the hub — every request, two lanes ---- */
+function openRequests(){
+  renderRequests();
+  var t=document.getElementById('req-title'); if(t) t.textContent=L('Yêu cầu','Requests');
+  document.getElementById('requests-overlay').classList.add('on');
+  var sc=document.querySelector('#requests-overlay .cd-scroll'); if(sc) sc.scrollTop=0;
+}
+window.openRequests=openRequests;
+function closeRequests(){ document.getElementById('requests-overlay').classList.remove('on'); }
+window.closeRequests=closeRequests;
+function _reqCard(t, actionable){
+  var av=_reqAv(t.by), amt=fmt(t.amt);
+  if(actionable){
+    return '<button class="req-card" onclick="openReview(\''+t.id+'\')">'+av
+      +'<span class="req-cb"><span class="req-ct">'+esc(_firstNm(t.by))+' '+L('muốn để dành','wants to set aside')+'</span>'
+      +'<span class="req-cs">'+esc(t.note)+' · '+_catLabel(t.cat)+' · '+_reqDate(t)+'</span></span>'
+      +'<span class="req-camt num">'+amt+'</span>'+_reqChev()+'</button>';
+  }
+  var st = futureAligned(t)
+    ? '<span class="req-status ok">'+_alignedBy(t)+'</span>'
+    : '<span class="req-status wait">'+L('Đang chờ cả nhà đồng ý','Waiting for the family')+'</span>';
+  return '<div class="req-card static">'+av
+    +'<span class="req-cb"><span class="req-ct">'+esc(t.note)+'</span>'
+    +'<span class="req-cs">'+_catLabel(t.cat)+' · '+_reqDate(t)+'</span>'+st+'</span>'
+    +'<span class="req-camt num">'+amt+'</span></div>';
+}
+function renderRequests(){
+  _reqEnsureSeed();
+  var box=document.getElementById('requests-body'); if(!box) return;
+  var inc=reqIncoming(), mine=reqMine(), html='';
+  html+='<div class="req-lane-h">'+L('Chờ bạn duyệt','Waiting for you')+' · '+inc.length+'</div>';
+  html+= inc.length ? inc.map(function(t){ return _reqCard(t,true); }).join('')
+                    : '<div class="req-empty">'+L('Không có yêu cầu nào đang chờ bạn.','Nothing waiting on you.')+'</div>';
+  html+='<div class="req-lane-h" style="margin-top:22px">'+L('Yêu cầu của bạn','Your requests')+' · '+mine.length+'</div>';
+  html+= mine.length ? mine.map(function(t){ return _reqCard(t,false); }).join('')
+                     : '<div class="req-empty">'+L('Bạn chưa gửi yêu cầu nào.','You haven’t sent any yet.')+'</div>';
+  box.innerHTML=html;
+}
+window.renderRequests=renderRequests;
+
+/* ---- review one request — the ledger reactions as vertical rows ---- */
+function openReview(id){
+  window._reviewId=id;
+  renderReview(id);
+  var t=document.getElementById('rv-title'); if(t) t.textContent=L('Xem lại','Review');
+  document.getElementById('scrim').classList.add('on');
+  var m=document.getElementById('review-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
+  var b=m.querySelector('.modal-body'); if(b) b.scrollTop=0;
+}
+window.openReview=openReview;
+function closeReview(){
+  var m=document.getElementById('review-modal'); if(m){ m.classList.remove('on'); m.style.transform=''; m.style.transition=''; }
+  var ov=document.getElementById('requests-overlay');
+  if(!(ov && ov.classList.contains('on'))){ var s=document.getElementById('scrim'); if(s) s.classList.remove('on'); }
+}
+window.closeReview=closeReview;
+function renderReview(id){
+  var t=(typeof txById==='function')?txById(id):null; if(!t){ closeReview(); return; }
+  var box=document.getElementById('review-body'); if(!box) return;
+  var safe=_reqSafeAfter(t);
+  var impact = safe!=null ? '<div class="rv-impact">'+L('Còn ','Leaves ')+'<b>'+fmt(safe)+'</b> '+L('an toàn để tiêu sau khoản này','safe to spend after this')+'</div>' : '';
+  var head='<div class="rv-plan">'
+    +'<div class="rv-top">'+_reqAv(t.by,'lg')
+      +'<div class="rv-tb"><div class="rv-t">'+esc(_firstNm(t.by))+' '+L('muốn để dành','wants to set aside')+'</div>'
+      +'<div class="rv-s">'+L('cho một dự định sắp tới','for an upcoming plan')+'</div></div>'
+      +'<div class="rv-amt num">'+fmt(t.amt)+'</div></div>'
+    +'<div class="rv-note">'+(t.ico||'📅')+' '+esc(t.note)+' · '+_catLabel(t.cat)+' · '+_reqDate(t)+'</div>'
+    +impact+'</div>';
+  var mine=_reqMyReaction(t);
+  var rows=_reqReviewSet().map(function(o){
+    var yes=(o.e==='🥰'), on=(mine===o.e);
+    return '<button class="rv-opt'+(yes?' yes':'')+(on?' on':'')+'" onclick="submitReview(\''+t.id+'\',\''+o.e+'\')">'
+      +'<span class="rv-e">'+o.e+'</span>'
+      +'<span class="rv-ob"><span class="rv-on">'+esc(L(o.vi,o.en))+'</span><span class="rv-od">'+esc(L(o.dvi,o.den))+'</span></span>'
+      +(yes ? '<span class="rv-tag">'+L('để dành','set aside')+'</span>' : '<svg class="rv-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>')
+      +'</button>';
+  }).join('');
+  box.innerHTML=head+'<div class="rv-prompt">'+L('Bạn thấy khoản này thế nào?','How do you feel about it?')+'</div><div class="rv-opts">'+rows+'</div>';
+}
+window.renderReview=renderReview;
+
+/* throw a review reaction · 🥰 aligns (sets it aside), the rest stay pending */
+function submitReview(id, emoji){
+  var t=(typeof txById==='function')?txById(id):null; if(!t){ closeReview(); return; }
+  var me=_reqMe();
+  t.reviews=(t.reviews||[]).filter(function(r){ return (r.by||'')!==me; });   // replace my prior take
+  t.reviews.push({ emoji:emoji, by:me, byName:me, at:new Date().toISOString() });
+  if(t._dbId && typeof window.fhReact==='function'){ try{ window.fhReact(t._dbId, emoji); }catch(e){} }   // persist + sync when live
+  var aligned=(emoji==='🥰');
+  closeReview();
+  try{ if(typeof renderTxns==='function') renderTxns(); }catch(e){}
+  selMonth=curMonthKey();
+  try{ if(typeof renderAll==='function') renderAll(); }catch(e){}
+  try{ var ov=document.getElementById('requests-overlay'); if(ov && ov.classList.contains('on')) renderRequests(); }catch(e){}
+  if(aligned){
+    if(typeof floatEmojis==='function') floatEmojis('🥰');
+    toast(L('Đã đồng ý · để dành '+fmt(t.amt)+' cho '+_firstNm(t.by), 'You’re in · '+fmt(t.amt)+' set aside for '+_firstNm(t.by)));
+  } else {
+    toast(L('Đã gửi cảm nhận cho '+_firstNm(t.by), 'Sent your take to '+_firstNm(t.by)));
+  }
+}
+window.submitReview=submitReview;
+
 /* ---------- events fund/create ---------- */
 var CIRC=496.4, curEvent='japan';
 var savings=0; // saved-for-events pool (hydrated from DB)

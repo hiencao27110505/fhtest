@@ -1,0 +1,67 @@
+/* ---- collaborative future-expense requests ----
+   The "Needs your OK" widget (Home + Finance), the Requests hub (two lanes), and the
+   review sheet (the ledger reactions as vertical rows). Surfaces stay neutral per the
+   design system — emoji carry the colour, borders and left restraint do the rest. */
+
+/* widget */
+.req-widget{background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);overflow:hidden;margin:0 0 14px}
+#fin-requests .req-widget{margin:14px 16px 4px}
+#fin-requests:empty{display:none}
+.req-wh{display:flex;align-items:center;justify-content:space-between;padding:13px 15px 11px}
+.req-wh-l{display:flex;align-items:center;gap:8px}
+.req-wh-t{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.req-badge{font-size:11px;font-weight:800;color:#fff;background:var(--brand);border-radius:999px;padding:1px 8px;letter-spacing:.02em}
+.req-wh-all{font-size:12.5px;font-weight:700;color:var(--brand-ink);cursor:pointer}
+.req-wrows{border-top:1px solid var(--divider)}
+.req-wrow{display:flex;align-items:center;gap:11px;width:100%;padding:11px 15px;background:none;border:0;border-top:1px solid var(--divider);text-align:left;cursor:pointer;font:inherit}
+.req-wrow:first-child{border-top:0}
+.req-wrow:active{background:var(--surface)}
+.req-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex:0 0 auto;box-shadow:0 0 0 1.5px var(--white)}
+.req-av.lg{width:48px;height:48px;font-size:18px}
+.req-wrb{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.req-wrt{font-size:13.5px;font-weight:650;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.req-wrs{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.req-wamt{font-weight:800;font-size:15px;color:var(--ink);flex:0 0 auto}
+.req-chev{width:16px;height:16px;color:var(--chev);flex:0 0 auto}
+.req-wmore{display:block;width:100%;padding:10px;border:0;border-top:1px solid var(--divider);background:none;color:var(--brand-ink);font-size:12.5px;font-weight:700;cursor:pointer;font:inherit}
+
+/* hub lanes */
+#requests-body{padding:4px 16px 0}
+.req-lane-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:4px 2px 10px}
+.req-empty{font-size:13.5px;color:var(--muted);padding:12px 2px 4px}
+.req-card{display:flex;align-items:center;gap:12px;width:100%;padding:13px 14px;margin-bottom:10px;background:var(--white);border:0;border-radius:16px;box-shadow:var(--shadow-card);text-align:left;cursor:pointer;font:inherit}
+.req-card.static{cursor:default}
+.req-card:not(.static):active{background:var(--surface)}
+.req-cb{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.req-ct{font-family:var(--disp);font-size:15px;font-weight:650;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.req-cs{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.req-camt{font-weight:800;font-size:16px;color:var(--ink);flex:0 0 auto}
+.req-status{font-size:12px;font-weight:700;margin-top:2px}
+.req-status.ok{color:var(--brand-ink)}
+.req-status.wait{color:var(--amber)}
+
+/* review sheet */
+.rv-plan{background:var(--surface);border-radius:16px;padding:14px;margin-bottom:15px}
+.rv-top{display:flex;align-items:center;gap:12px}
+.rv-tb{flex:1;min-width:0}
+.rv-t{font-size:14px;font-weight:700;color:var(--ink)}
+.rv-s{font-size:12px;color:var(--muted);margin-top:1px}
+.rv-amt{font-weight:800;font-size:22px;color:var(--ink);flex:0 0 auto}
+.rv-note{font-size:14px;font-weight:600;color:var(--ink-2);margin-top:12px}
+.rv-impact{font-size:12.5px;color:var(--brand-ink);font-weight:600;margin-top:10px;background:var(--brand-tint);border-radius:10px;padding:8px 11px}
+.rv-prompt{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;margin:2px 0 12px}
+.rv-opts{display:flex;flex-direction:column;gap:9px;padding-bottom:6px}
+.rv-opt{display:flex;align-items:center;gap:13px;width:100%;padding:12px 14px;background:var(--white);border:1px solid var(--hairline);border-radius:15px;text-align:left;cursor:pointer;font:inherit;transition:transform .12s ease}
+.rv-opt:active{transform:scale(.99)}
+.rv-opt.yes{background:var(--brand-tint);border-color:transparent}
+.rv-opt.on{box-shadow:inset 0 0 0 2px var(--brand);border-color:transparent}
+.rv-e{font-size:28px;line-height:1;flex:0 0 auto;filter:drop-shadow(0 1px 2px rgba(25,16,34,.12))}
+.rv-ob{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rv-on{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.rv-od{font-size:12.5px;color:var(--muted)}
+.rv-opt.yes .rv-od{color:var(--brand-ink)}
+.rv-tag{font-size:11px;font-weight:800;color:#fff;background:var(--brand);border-radius:999px;padding:3px 10px;flex:0 0 auto;letter-spacing:.02em}
+.rv-chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
+
+/* a future expense still in review carries an amber tag in the ledger's future list */
+.res-tag.pend{color:var(--amber)}

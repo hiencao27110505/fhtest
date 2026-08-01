@@ -292,6 +292,7 @@ function renderHome(){
   }
 
   var html = renderHearth();                            // the hearth card under the scene
+  if(typeof requestsWidgetHTML === 'function') html += requestsWidgetHTML();   // future-expense proposals awaiting my OK
   if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions, right under the hearth
 
   /* ---- signals from the active user's + relatives' data ---- */

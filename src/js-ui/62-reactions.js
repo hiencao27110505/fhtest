@@ -236,7 +236,11 @@ window.rxHomeStripHTML=rxHomeStripHTML;
 function rxJumpTo(txDbId){ closeRxArrive(); var tx=rxTxByDbId(txDbId); if(tx && typeof openEditExpense==='function') openEditExpense(tx.id); }
 window.rxJumpTo=rxJumpTo;
 
-/* ---- C · the arrival moment — a reaction on MY transaction, landed ---- */
+/* ---- C · the arrival — ANY member's reaction, seen by everyone else in-app ----
+   Fires for every new reaction (not just ones on your own spends): every time one
+   lands while you're in the app, and once (catching up) when you open the app after
+   it happened. Watermark-gated so unrelated rehydrates (your own writes, focus,
+   logging an expense) don't re-fire it. Your own reactions never self-trigger. */
 function _rxSeen(){ try{ return localStorage.getItem('fh-rx-seen')||''; }catch(e){ return ''; } }
 function _rxSetSeen(v){ try{ if(v) localStorage.setItem('fh-rx-seen', v); }catch(e){} }
 function _rxBusy(){
@@ -249,9 +253,8 @@ function _rxBusy(){
 }
 function rxCheckArrivals(){
   var mid=window.DB && window.DB.ownerMemberId; if(!mid) return;
-  if(window.editingTx!=null || document.hidden || _rxBusy()) return;     // never interrupt an edit / sheet / a backgrounded app
-  var mineTx={}; (window.txns||[]).forEach(function(t){ if(t._dbId && t._memberId===mid) mineTx[t._dbId]=t; });
-  var all=(window.reactions||[]).filter(function(r){ return mineTx[r.txId] && r.memberId!==mid; });   // others' reactions, on my spends
+  if(window.editingTx!=null || document.hidden || _rxBusy()) return;     // never interrupt an edit / a backgrounded app
+  var all=(window.reactions||[]).filter(function(r){ return r.memberId!==mid && rxTxByDbId(r.txId); });   // anyone else's reaction, on a loaded txn
   if(!all.length) return;
   var maxAt=all.reduce(function(m,r){ return r.at>m?r.at:m; }, '');
   var seen=_rxSeen();
@@ -260,21 +263,23 @@ function rxCheckArrivals(){
   if(!fresh.length) return;
   _rxSetSeen(maxAt);
   fresh.sort(function(a,b){ return a.at<b.at?1:a.at>b.at?-1:0; });
-  rxArriveShow(fresh, mineTx);
+  rxArriveShow(fresh);
 }
 window.rxCheckArrivals=rxCheckArrivals;
 /* The arrival is deliberately NON-blocking: emoji confetti over the whole frame
    (plays wherever you happen to land), plus a tappable toast that deep-links to the
    transaction. No modal — it never interrupts what you're doing. */
-function rxArriveShow(fresh, mineTx){
+function rxArriveShow(fresh){
   if(document.hidden) return;
-  var lead=fresh[0], tx=mineTx[lead.txId], more=fresh.length-1, txId=tx?tx._dbId:'';
+  var lead=fresh[0], tx=rxTxByDbId(lead.txId), more=fresh.length-1, txId=tx?tx._dbId:'';
   if(typeof floatEmojis==='function') floatEmojis(lead.emoji);          // confetti, once, where you are
   var old=document.getElementById('rx-toast'); if(old && old.parentNode) old.parentNode.removeChild(old);
   var el=document.createElement('button'); el.className='rx-toast'; el.id='rx-toast';
   el.setAttribute('aria-label', L('Xem khoản này','See this transaction'));
   el.onclick=function(){ closeRxArrive(); rxJumpTo(txId); };
-  var second=more>0 ? L('và '+more+' phản ứng khác','and '+more+' more') : L('Chạm để xem','Tap to open');
+  // second line = which transaction (so a bystander knows what was reacted to), + how many more
+  var second=tx ? (esc(tx.note||L('Khoản chi','Expense'))+' · '+((typeof fmt==='function')?fmt(tx.amt):tx.amt)) : L('Chạm để xem','Tap to open');
+  if(more>0) second += ' · +'+more;
   el.innerHTML='<span class="rx-toast-e">'+lead.emoji+'</span>'
     +'<span class="rx-toast-b"><span class="rx-toast-msg">'+rxMessage(lead,tx)+'</span><span class="rx-toast-cta">'+second+'</span></span>'
     +'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg>';

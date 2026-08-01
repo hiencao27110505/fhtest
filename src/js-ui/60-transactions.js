@@ -55,8 +55,16 @@ function resRow(k){   // an event funded from this month → an "Events" future 
 }
 function futRow(t){   // a standalone future expense logged in the expense sheet
   var today=sameDay(txPhotoDate(t),TODAY);
-  return '<div class="row res" onclick="openEditExpense(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico">'+(t.ico||'📅')+'</div></div>'
-    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>'+(today?L('Chi tiêu dự kiến · hôm nay','Planned expense · today'):L('Chi tiêu tương lai','Future expense')+' · '+curMoTxt())+'</div></div>'
+  var pend=(typeof futurePending==='function')&&futurePending(t);
+  var me=(typeof _meName==='function')?_meName():'';
+  var incoming=pend && t.by && t.by!==me;                   // someone else's proposal → tapping it reviews, not edits
+  var onclick=incoming?('openReview(\''+t.id+'\')'):('openEditExpense(\''+t.id+'\')');
+  var tag=pend ? '<span class="res-tag pend">'+L('chờ duyệt','in review')+'</span>'
+               : '<span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>';
+  var sub=pend ? L('Chờ cả nhà duyệt','Waiting for the family')
+               : (today?L('Chi tiêu dự kiến · hôm nay','Planned expense · today'):L('Chi tiêu tương lai','Future expense')+' · '+curMoTxt());
+  return '<div class="row res" onclick="'+onclick+'"><div class="r-ico-wrap"><div class="r-ico">'+(t.ico||'📅')+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s">'+tag+sub+'</div></div>'
     +'<div class="r-amt num">'+fmt(t.amt)+'</div></div>';
 }
 function renderTxns(){
@@ -218,14 +226,16 @@ function addExpense(){
     else { toast(L(note+' đã thêm vào Sự kiện · còn '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' an toàn để tiêu',note+' added to Events · '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' safe to spend')); floatEmojis('🎈'); goMoments('plans'); }
     return;
   }
-  if(dObj>TODAY){                                           // future date → a future expense (reserved, not spent)
+  if(dObj>TODAY){                                           // future date → a *proposal* (reserves nothing until the family aligns)
     var fwho=chosen('ex-who')||'Emma', fwhoStore=(fwho==='Both')?'Shared':fwho;
-    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:fwhoStore,amt:amt,future:true,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+    var fby=(typeof _meName==='function')?_meName():fwhoStore;
+    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:fwhoStore,amt:amt,future:true,by:fby,reviews:[],month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
     renderTxns(); selMonth=curMonthKey(); renderAll();
     document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
     closeExpense();
-    toast(L('Đã để dành '+fmt(amt)+' · còn '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' an toàn để tiêu',fmt(amt)+' set aside · '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' safe to spend'));
-    go('spending'); segTo('overview'); return;
+    toast(L('Đã gửi cho cả nhà duyệt · sẽ để dành khi có người đồng ý','Sent to the family · set aside once someone agrees'));
+    if(typeof openRequests==='function') openRequests(); else { go('spending'); segTo('overview'); }
+    return;
   }
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
