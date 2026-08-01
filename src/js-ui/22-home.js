@@ -257,21 +257,23 @@ function qTile(o){      // {ic,chCls,label,act} — quick action, same tinted-ch
     + '<span class="qt-l">' + o.label + '</span></button>';
 }
 function _sectionH(title, link, label){ return '<div class="section-h"><div class="t">' + title + '</div>' + (link ? '<a onclick="' + link + '">' + (label || L('Xem tất cả', 'See all')) + '</a>' : '') + '</div>'; }
-var _UP_TINT = { occ: 'wc-amber', goal: 'wc-good', exp: 'wc-indigo' };
-function upCardHTML(it){      // {kind:occ|goal|exp,d,name,emoji,target?,saved?,amt?,act} — one Sắp tới card
+// A Sắp tới card is a smaller bigPhoto: the real uploaded photo when there is
+// one, otherwise the same keyword-matched illustrated cover the rest of the
+// app uses for undefined media (occCover/occHTML — never an emoji icon).
+function upCardHTML(it){      // {kind:occ|goal|exp,d,name,src?,target?,saved?,amt?,act}
   var dl = daysLeft(it.d);
   var dlt = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : L('Còn ' + dl + ' ngày', dl + ' days'));
-  var body;
+  var ill = it.src ? null : occCover(it.name, '');
+  var sub, pct;
   if(it.kind === 'exp'){
-    body = '<div class="up-amt num">' + fmt(it.amt) + '</div>';
+    sub = fmt(it.amt);
   } else if(it.target > 0){
-    var pct = Math.min(100, Math.round((it.saved || 0) / it.target * 100));
-    body = '<div class="up-bar"><i style="width:' + pct + '%"></i></div><div class="up-s">' + pct + '% · ' + fmt(it.saved || 0) + '/' + fmt(it.target) + '</div>';
+    pct = Math.min(100, Math.round((it.saved || 0) / it.target * 100));
+    sub = pct + '% · ' + fmt(it.saved || 0) + '/' + fmt(it.target);
   } else {
-    body = '<div class="up-s">' + L('Kế hoạch', 'Plan') + '</div>';
+    sub = L('Kế hoạch', 'Plan');
   }
-  return '<button class="up-card" onclick="' + it.act + '"><div class="up-head"><span class="up-ic ' + _UP_TINT[it.kind] + '">' + esc(it.emoji) + '</span><span class="up-dl">' + dlt + '</span></div>'
-    + '<div class="up-t">' + esc(it.name) + '</div><div class="up-body">' + body + '</div></button>';
+  return bigPhoto({ src: it.src, ill: ill, eye: dlt, title: it.name, sub: sub, pct: pct, act: it.act });
 }
 
 function renderHome(){
@@ -405,16 +407,16 @@ function renderHome(){
      nearest first, as a horizontal carousel — not just the single closest occasion. ============ */
   var upAll = [];
   up.forEach(function(k){
-    var e = evs[k];
-    upAll.push({ kind: 'occ', d: e.d, name: e.name, emoji: e.emoji, target: e.target, saved: e.saved, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
+    var e = evs[k], m0 = e.memories && e.memories[0];
+    upAll.push({ kind: 'occ', d: e.d, name: e.name, src: (m0 && m0.src) || '', target: e.target, saved: e.saved, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
   });
   goalsLive.forEach(function(g){                       // only goals with a due date belong on a timeline
     var e = goals[g]; if(!e.d) return;
-    upAll.push({ kind: 'goal', d: e.d, name: e.name, emoji: e.emoji || '🎯', target: e.target, saved: e.saved, act: 'fundGoal(&#39;' + escAttr(g) + '&#39;)' });
+    upAll.push({ kind: 'goal', d: e.d, name: e.name, src: '', target: e.target, saved: e.saved, act: 'fundGoal(&#39;' + escAttr(g) + '&#39;)' });
   });
   (window.txns || []).forEach(function(t){
     if(!t.future || !t._d) return;
-    upAll.push({ kind: 'exp', d: t._d, name: t.note || L('Khoản chi', 'Expense'), emoji: t.ico || '📅', amt: t.amt, act: 'openExpenseDetail(&#39;' + escAttr(t.id) + '&#39;)' });
+    upAll.push({ kind: 'exp', d: t._d, name: t.note || L('Khoản chi', 'Expense'), src: (t.photos && t.photos[0]) || '', amt: t.amt, act: 'openExpenseDetail(&#39;' + escAttr(t.id) + '&#39;)' });
   });
   upAll.sort(function(a, b){ return a.d.getTime() - b.d.getTime(); });
   if(upAll.length){
