@@ -139,11 +139,10 @@
 /* body: cards carry their own 16px inset, like the tabs */
 .home-body{padding:0 0 6px}
 
-/* ---------- the hearth card (straddles the ground): picker → caring offers ---------- */
+/* ---------- the hearth card (straddles the ground): the mood picker ---------- */
 .hearth{position:relative;z-index:2;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);margin:-26px 16px 14px;padding:15px 16px 13px}
 .hearth-q{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--ink);text-align:center}
 .hearth-hint{margin-top:12px;padding-top:11px;border-top:1px solid var(--divider);text-align:center;font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
-.hearth-off{padding:5px 16px 6px}
 
 /* ============================================================================
    THE FEED — the standard HIG widget kit on the shared canvas. Glanceable
@@ -172,7 +171,7 @@
 .wt-big .u{font-family:var(--text);font-size:12px;font-weight:600;letter-spacing:0;color:var(--muted)}
 .cur-vnd .wt-big{font-size:20px;letter-spacing:-.4px}
 .wt-add{width:30px;height:30px;border-radius:50%;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex:0 0 auto;align-self:center}
-.wt-sub{font-size:12.5px;font-weight:500;color:var(--muted);line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:7px;font-variant-numeric:tabular-nums}
+.wt-sub{font-size:12.5px;font-weight:500;color:var(--muted);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;margin-top:7px;font-variant-numeric:tabular-nums}
 .wt-sub b{color:var(--ink-2);font-weight:650}
 
 /* ---------- quick actions (the add-sheet's icon language, on the wall) ---------- */
