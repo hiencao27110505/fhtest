@@ -1,54 +1,72 @@
 /* ---------- collaborative future-expense requests ----------
    A future expense is a *proposal*, not a done deal. It reserves nothing until at
-   least one family member OTHER than its creator throws 🥰 (the ledger's "approve"
-   reaction) at it — then it's set aside for real. Reviewing reuses the exact five
-   ledger reactions (😱🤨😂🥰😤): the reviewer expresses HOW they feel, the system
-   reads WHETHER it's aligned. Only 🥰 sets it aside; the other four keep it pending
-   and pass the feeling back to the creator so it stays a conversation, never a reject.
+   least one family member OTHER than its creator approves it with 🥰 — then it's set
+   aside for real. Reviewing reuses the ledger's exact five reactions (😱🤨😂🥰😤):
+   the reviewer expresses HOW they feel, the system reads WHETHER it's aligned. Only
+   🥰 sets it aside; the other four keep it pending and pass the feeling back so it
+   stays a conversation, never a hard reject.
 
-   Surfaces: a "Needs your OK" widget on Home + Finance (deep-links to one request
-   or the hub), a Requests hub (two lanes), and a review sheet. Alignment persists +
-   syncs for free when live via fhReact + the reactions table; the local review state
-   drives the demo. futureAligned()/futurePending() live in 10-nav-model.js. */
+   This is a DISTINCT feature from ledger reactions, even though it persists through
+   the same reactions table (so it syncs across devices for free): a review is a
+   reaction on a future-dated transaction, whose creator is t._memberId. Requests
+   never appear in the Phòng khách feed, and decisions arrive with their OWN
+   confetti + toast (reqCheckArrivals), separate from the reactions arrival.
 
-function _reqMe(){ return (typeof _meName==='function') ? _meName() : ((window.FAM&&FAM.user&&FAM.user.name)||''); }
-function _firstNm(n){ return (typeof firstName==='function') ? firstName(n||'') : ((n||'').split(/\s+/)[0]||n||''); }
-function _reqMem(name){
-  var mems=(window.FAM&&FAM.members)||[];
-  for(var i=0;i<mems.length;i++){ if(mems[i].name===name) return {name:name,color:mems[i].color,ini:inits(name)}; }
-  return {name:name||'?',color:'#8a8494',ini:(typeof inits==='function')?inits(name||'?'):'?'};
+   Identity resolves in both modes: live = DB member ids (window.DB); demo = names.
+   futureAligned()/futurePending()/_futReviews() live in 10-nav-model.js. */
+
+/* ---- identity (live: DB member ids · demo: names) ---- */
+function _memName(id){ var db=window.DB; return (db && db.memberById && db.memberById[id] && db.memberById[id].name) || ''; }
+function _memColor(idOrName){
+  var db=window.DB;
+  if(db && db.memberById && db.memberById[idOrName] && db.memberById[idOrName].color) return db.memberById[idOrName].color;
+  var mems=(window.FAM&&FAM.members)||[]; for(var i=0;i<mems.length;i++){ if(mems[i].name===idOrName) return mems[i].color; }
+  return '#8a8494';
 }
-function _reqAv(name,cls){ var m=_reqMem(name); return '<span class="req-av'+(cls?' '+cls:'')+'" style="background:'+m.color+'">'+esc(m.ini)+'</span>'; }
+function _futMeId(){ var db=window.DB; if(db && db.ownerMemberId) return db.ownerMemberId; return (typeof _meName==='function')?_meName():''; }
+function _futCreatorId(t){ return (t && t._memberId) ? t._memberId : ((t && t.by) || null); }
+function _futCreatorName(t){ if(!t) return ''; return _memName(_futCreatorId(t)) || t.by || t.who || ''; }
+function _isMyReq(t){ var c=_futCreatorId(t); return c!=null && c===_futMeId(); }
+function _reqName(name){ var f=(name||'').trim().split(/\s+/)[0]; return f || L('Người nhà','a family member'); }
+
+/* ---- the review vocabulary — the ledger's exact five, re-voiced for a proposal.
+   Only 🥰 aligns (sets it aside); the rest are feedback that keeps it pending. ---- */
+function _reqReviewSet(){ return [
+  { e:'🥰', vi:'Thương',   en:'Love it',  dvi:'Đồng ý — để dành luôn', den:'I’m in — set it aside' },
+  { e:'😂', vi:'Vui ghê',  en:'Ha, love it', dvi:'Thích cái vụ này',   den:'Love the energy' },
+  { e:'😱', vi:'Bất ngờ',  en:'Whoa',     dvi:'Hơi nhiều đấy',         den:'That’s a lot' },
+  { e:'🤨', vi:'Nghĩ đã',  en:'Hmm',      dvi:'Bàn thêm chút nha',     den:'Let’s talk first' },
+  { e:'😤', vi:'Chưa nên', en:'Not now',  dvi:'Chưa hợp lúc này',      den:'Not right now' }
+];}
+function _reqCfg(e){ var a=_reqReviewSet(); for(var i=0;i<a.length;i++){ if(a[i].e===e) return a[i]; } return a[0]; }
+function _reqReactLabel(e){ var c=_reqCfg(e); return esc(L(c.vi,c.en)); }
+
+/* ---- shared bits ---- */
+function _reqAvOf(t,cls){ var nm=_futCreatorName(t), col=_memColor(_futCreatorId(t))||_memColor(nm);
+  return '<span class="req-av'+(cls?' '+cls:'')+'" style="background:'+col+'">'+esc((typeof inits==='function')?inits(nm||'?'):'?')+'</span>'; }
 function _reqChev(){ return '<svg class="req-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'; }
 function _catLabel(c){ var s=(window.catStyle&&catStyle[c]); return (s?s[0]+' ':'')+(c||''); }
 function _reqDate(t){ return t.date || ''; }
-
-/* the review vocabulary — the ledger's exact five, re-voiced for a proposal.
-   Only 🥰 aligns (sets it aside); the rest are feedback that keeps it pending. */
-function _reqReviewSet(){ return [
-  { e:'🥰', vi:'Thương',    en:'Love it',  dvi:'Đồng ý — để dành luôn', den:'I’m in — set it aside' },
-  { e:'😂', vi:'Vui ghê',   en:'Ha, love it', dvi:'Thích cái vụ này',   den:'Love the energy' },
-  { e:'😱', vi:'Bất ngờ',   en:'Whoa',     dvi:'Hơi nhiều đấy',         den:'That’s a lot' },
-  { e:'🤨', vi:'Nghĩ đã',   en:'Hmm',      dvi:'Bàn thêm chút nha',     den:'Let’s talk first' },
-  { e:'😤', vi:'Chưa nên',  en:'Not now',  dvi:'Chưa hợp lúc này',      den:'Not right now' }
-];}
-function _reqCfg(e){ var a=_reqReviewSet(); for(var i=0;i<a.length;i++){ if(a[i].e===e) return a[i]; } return a[0]; }
-
-/* ---- request lists (a future expense == a request) ---- */
-function _reqAll(){ return (window.txns||[]).filter(function(t){ return t.future; }); }
-function reqIncoming(){ var me=_reqMe(); return _reqAll().filter(function(t){ return (t.by||'')!==me && !futureAligned(t); }); }
-function reqMine(){ var me=_reqMe(); return _reqAll().filter(function(t){ return (t.by||'')===me; }); }
-function _reqMyReaction(t){ var me=_reqMe(); var r=(t.reviews||[]).filter(function(x){ return (x.by||'')===me; })[0]; return r?r.emoji:null; }
-function _alignedBy(t){
-  var r=(t.reviews||[]).filter(function(x){ return x.emoji==='🥰'; })[0];
-  var nm=r?_firstNm(r.byName||r.by):L('Ai đó','Someone');
-  return '✓ '+esc(nm)+' '+L('đã đồng ý · đã để dành','is in · set aside');
-}
 function _reqSafeAfter(t){
   var m=(typeof M==='function')?M():null; if(!m||!m.budget) return null;
   var safe=Math.max(0, m.budget - m.spent - monthReserved());
   return Math.max(0, safe - (t.amt||0));   // aligning would reserve t.amt
 }
+function _reqStatusLine(t){
+  var rs=_futReviews(t);
+  if(futureAligned(t)){
+    var a=null; for(var i=0;i<rs.length;i++){ if(rs[i].emoji==='🥰'){ a=rs[i]; break; } }
+    return '<span class="req-status ok">'+(a?a.emoji:'🥰')+' '+esc(_reqName(_memName(a&&a.by)|| (a&&a.byName)))+' '+L('đã đồng ý · đã để dành','is in · set aside')+'</span>';
+  }
+  if(rs.length){ var r=rs[rs.length-1];
+    return '<span class="req-status hold">'+r.emoji+' '+esc(_reqName(_memName(r.by)||r.byName))+' '+L('vừa phản hồi','responded')+'</span>'; }
+  return '<span class="req-status wait">'+L('Đang chờ cả nhà duyệt','Waiting for the family')+'</span>';
+}
+
+/* ---- request lists (a future expense == a request) ---- */
+function _reqAll(){ return (window.txns||[]).filter(function(t){ return t.future; }); }
+function reqIncoming(){ return _reqAll().filter(function(t){ return !_isMyReq(t) && futurePending(t); }); }
+function reqMine(){ return _reqAll().filter(function(t){ return _isMyReq(t); }); }
 
 /* demo seed: a couple of incoming requests so the loop is visible signed-out.
    Live mode gets its requests from real data, so it never seeds. Runs once. */
@@ -66,21 +84,28 @@ function _reqEnsureSeed(){
   txns.unshift(mk('James', L('Vé xem bóng cuối tuần','Weekend match tickets'), 'Fun', 80, 5));
 }
 
-/* ---- widget (Home + Finance) — only shows when something is waiting on me ---- */
+/* ---- the card — one design everywhere (widget · hub · both lanes), matching the
+   Phòng khách card language (avatar → body → chevron, neutral surface) ---- */
+function _reqCard(t, incoming){
+  if(incoming){
+    var nm=_reqName(_futCreatorName(t));
+    return '<button class="req-card" onclick="openReview(\''+t.id+'\')">'+_reqAvOf(t)
+      +'<span class="req-cb"><span class="req-ct">'+esc(nm)+' '+L('muốn để dành','wants to set aside')+'</span>'
+      +'<span class="req-cs">'+esc(t.note)+' · '+_catLabel(t.cat)+' · '+_reqDate(t)+'</span></span>'
+      +'<span class="req-amt num">'+fmt(t.amt)+'</span>'+_reqChev()+'</button>';
+  }
+  // my own request → a read-only follow card (tap = follow the decisions, never decide)
+  return '<button class="req-card" onclick="openReview(\''+t.id+'\')">'+_reqAvOf(t)
+    +'<span class="req-cb"><span class="req-ct">'+esc(t.note)+' · '+fmt(t.amt)+'</span>'
+    +_reqStatusLine(t)+'</span>'+_reqChev()+'</button>';
+}
+
+/* ---- widget (Home + Finance) — section header + card list, like the reactions strip ---- */
 function requestsWidgetHTML(){
   _reqEnsureSeed();
   var inc=reqIncoming(); if(!inc.length) return '';
-  var rows=inc.slice(0,2).map(function(t){
-    return '<button class="req-wrow" onclick="openReview(\''+t.id+'\')">'+_reqAv(t.by)
-      +'<span class="req-wrb"><span class="req-wrt">'+esc(_firstNm(t.by))+' '+L('muốn để dành','wants to set aside')+'</span>'
-      +'<span class="req-wrs">'+esc(t.note)+' · '+_catLabel(t.cat)+'</span></span>'
-      +'<span class="req-wamt num">'+fmt(t.amt)+'</span>'+_reqChev()+'</button>';
-  }).join('');
-  var more=inc.length>2 ? '<button class="req-wmore" onclick="openRequests()">'+L('+ '+(inc.length-2)+' yêu cầu khác','+ '+(inc.length-2)+' more')+'</button>' : '';
-  return '<div class="req-widget">'
-    +'<div class="req-wh"><div class="req-wh-l"><span class="req-wh-t">'+L('Cần bạn duyệt','Needs your OK')+'</span><span class="req-badge">'+inc.length+'</span></div>'
-    +'<a class="req-wh-all" onclick="openRequests()">'+L('Xem tất cả','View all')+'</a></div>'
-    +'<div class="req-wrows">'+rows+more+'</div></div>';
+  var head=(typeof _sectionH==='function') ? _sectionH(L('Cần bạn duyệt','Waiting for your OK'), 'openRequests()', L('Xem tất cả','See all')) : '';
+  return head+'<div class="req-list">'+inc.slice(0,3).map(function(t){ return _reqCard(t,true); }).join('')+'</div>';
 }
 window.requestsWidgetHTML=requestsWidgetHTML;
 function renderReqMounts(){ var el=document.getElementById('fin-requests'); if(el) el.innerHTML=requestsWidgetHTML(); }
@@ -96,41 +121,26 @@ function openRequests(){
 window.openRequests=openRequests;
 function closeRequests(){ document.getElementById('requests-overlay').classList.remove('on'); }
 window.closeRequests=closeRequests;
-function _reqCard(t, actionable){
-  var av=_reqAv(t.by), amt=fmt(t.amt);
-  if(actionable){
-    return '<button class="req-card" onclick="openReview(\''+t.id+'\')">'+av
-      +'<span class="req-cb"><span class="req-ct">'+esc(_firstNm(t.by))+' '+L('muốn để dành','wants to set aside')+'</span>'
-      +'<span class="req-cs">'+esc(t.note)+' · '+_catLabel(t.cat)+' · '+_reqDate(t)+'</span></span>'
-      +'<span class="req-camt num">'+amt+'</span>'+_reqChev()+'</button>';
-  }
-  var st = futureAligned(t)
-    ? '<span class="req-status ok">'+_alignedBy(t)+'</span>'
-    : '<span class="req-status wait">'+L('Đang chờ cả nhà đồng ý','Waiting for the family')+'</span>';
-  return '<div class="req-card static">'+av
-    +'<span class="req-cb"><span class="req-ct">'+esc(t.note)+'</span>'
-    +'<span class="req-cs">'+_catLabel(t.cat)+' · '+_reqDate(t)+'</span>'+st+'</span>'
-    +'<span class="req-camt num">'+amt+'</span></div>';
-}
 function renderRequests(){
   _reqEnsureSeed();
   var box=document.getElementById('requests-body'); if(!box) return;
   var inc=reqIncoming(), mine=reqMine(), html='';
   html+='<div class="req-lane-h">'+L('Chờ bạn duyệt','Waiting for you')+' · '+inc.length+'</div>';
-  html+= inc.length ? inc.map(function(t){ return _reqCard(t,true); }).join('')
+  html+= inc.length ? '<div class="req-list">'+inc.map(function(t){ return _reqCard(t,true); }).join('')+'</div>'
                     : '<div class="req-empty">'+L('Không có yêu cầu nào đang chờ bạn.','Nothing waiting on you.')+'</div>';
-  html+='<div class="req-lane-h" style="margin-top:22px">'+L('Yêu cầu của bạn','Your requests')+' · '+mine.length+'</div>';
-  html+= mine.length ? mine.map(function(t){ return _reqCard(t,false); }).join('')
+  html+='<div class="req-lane-h" style="margin-top:24px">'+L('Yêu cầu của bạn','Your requests')+' · '+mine.length+'</div>';
+  html+= mine.length ? '<div class="req-list">'+mine.map(function(t){ return _reqCard(t,false); }).join('')+'</div>'
                      : '<div class="req-empty">'+L('Bạn chưa gửi yêu cầu nào.','You haven’t sent any yet.')+'</div>';
   box.innerHTML=html;
 }
 window.renderRequests=renderRequests;
 
-/* ---- review one request — the ledger reactions as vertical rows ---- */
+/* ---- open a request: reviewers DECIDE, the requester only FOLLOWS ---- */
 function openReview(id){
+  var t=(typeof txById==='function')?txById(id):null; if(!t) return;
   window._reviewId=id;
   renderReview(id);
-  var t=document.getElementById('rv-title'); if(t) t.textContent=L('Xem lại','Review');
+  var mine=_isMyReq(t), ttl=document.getElementById('rv-title'); if(ttl) ttl.textContent = mine ? L('Yêu cầu của bạn','Your request') : L('Xem lại','Review');
   document.getElementById('scrim').classList.add('on');
   var m=document.getElementById('review-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
   var b=m.querySelector('.modal-body'); if(b) b.scrollTop=0;
@@ -142,21 +152,43 @@ function closeReview(){
   if(!(ov && ov.classList.contains('on'))){ var s=document.getElementById('scrim'); if(s) s.classList.remove('on'); }
 }
 window.closeReview=closeReview;
-function renderReview(id){
-  var t=(typeof txById==='function')?txById(id):null; if(!t){ closeReview(); return; }
-  var box=document.getElementById('review-body'); if(!box) return;
-  var safe=_reqSafeAfter(t);
+function _reqPlanHead(t){
+  var safe=_reqSafeAfter(t), nm=_reqName(_futCreatorName(t));
   var impact = safe!=null ? '<div class="rv-impact">'+L('Còn ','Leaves ')+'<b>'+fmt(safe)+'</b> '+L('an toàn để tiêu sau khoản này','safe to spend after this')+'</div>' : '';
-  var head='<div class="rv-plan">'
-    +'<div class="rv-top">'+_reqAv(t.by,'lg')
-      +'<div class="rv-tb"><div class="rv-t">'+esc(_firstNm(t.by))+' '+L('muốn để dành','wants to set aside')+'</div>'
+  return '<div class="rv-plan">'
+    +'<div class="rv-top">'+_reqAvOf(t,'lg')
+      +'<div class="rv-tb"><div class="rv-t">'+esc(nm)+' '+L('muốn để dành','wants to set aside')+'</div>'
       +'<div class="rv-s">'+L('cho một dự định sắp tới','for an upcoming plan')+'</div></div>'
       +'<div class="rv-amt num">'+fmt(t.amt)+'</div></div>'
     +'<div class="rv-note">'+(t.ico||'📅')+' '+esc(t.note)+' · '+_catLabel(t.cat)+' · '+_reqDate(t)+'</div>'
     +impact+'</div>';
-  var mine=_reqMyReaction(t);
+}
+function renderReview(id){
+  var t=(typeof txById==='function')?txById(id):null; if(!t){ closeReview(); return; }
+  var box=document.getElementById('review-body'); if(!box) return;
+  var head=_reqPlanHead(t);
+
+  if(_isMyReq(t)){   // ---- FOLLOW view: the requester watches, can't decide ----
+    var rs=_futReviews(t);
+    var banner = futureAligned(t)
+      ? '<div class="rv-follow ok">✓ '+L('Đã được duyệt · đã để dành','Aligned · set aside')+'</div>'
+      : '<div class="rv-follow wait">'+L('Đang chờ ít nhất 1 người trong nhà đồng ý','Waiting for one family member to agree')+'</div>';
+    var list = rs.length
+      ? '<div class="rv-revs">'+rs.slice().sort(function(a,b){ return (a.at<b.at)?1:-1; }).map(function(r){
+          return '<div class="rv-rev"><span class="rv-rev-e">'+r.emoji+'</span>'
+            +'<span class="rv-rev-b"><span class="rv-rev-n">'+esc(_reqName(_memName(r.by)||r.byName))+'</span>'
+            +'<span class="rv-rev-l">'+_reqReactLabel(r.emoji)+'</span></span></div>';
+        }).join('')+'</div>'
+      : '<div class="rv-empty">'+L('Chưa có ai phản hồi. Cả nhà sẽ được nhắc nhẹ nhé.','No responses yet — the family has been nudged.')+'</div>';
+    box.innerHTML=head+banner+'<div class="rv-prompt">'+L('Phản hồi từ cả nhà','From the family')+'</div>'+list;
+    return;
+  }
+
+  // ---- DECIDE view: the ledger reactions as vertical rows ----
+  var meId=_futMeId(), myPick=null;
+  _futReviews(t).forEach(function(r){ if(r.by===meId) myPick=r.emoji; });
   var rows=_reqReviewSet().map(function(o){
-    var yes=(o.e==='🥰'), on=(mine===o.e);
+    var yes=(o.e==='🥰'), on=(myPick===o.e);
     return '<button class="rv-opt'+(yes?' yes':'')+(on?' on':'')+'" onclick="submitReview(\''+t.id+'\',\''+o.e+'\')">'
       +'<span class="rv-e">'+o.e+'</span>'
       +'<span class="rv-ob"><span class="rv-on">'+esc(L(o.vi,o.en))+'</span><span class="rv-od">'+esc(L(o.dvi,o.den))+'</span></span>'
@@ -167,24 +199,64 @@ function renderReview(id){
 }
 window.renderReview=renderReview;
 
-/* throw a review reaction · 🥰 aligns (sets it aside), the rest stay pending */
+/* throw a review reaction · 🥰 aligns (sets it aside), the rest stay pending.
+   Persists through the reactions table (fhReact) so it syncs to every device. */
 function submitReview(id, emoji){
   var t=(typeof txById==='function')?txById(id):null; if(!t){ closeReview(); return; }
-  var me=_reqMe();
-  t.reviews=(t.reviews||[]).filter(function(r){ return (r.by||'')!==me; });   // replace my prior take
-  t.reviews.push({ emoji:emoji, by:me, byName:me, at:new Date().toISOString() });
-  if(t._dbId && typeof window.fhReact==='function'){ try{ window.fhReact(t._dbId, emoji); }catch(e){} }   // persist + sync when live
+  if(_isMyReq(t)){ closeReview(); return; }   // guard: a requester can never decide their own
+  var me=_futMeId();
+  var mine=(t.reviews||[]).filter(function(r){ return (r.by||'')!==me; });   // replace my prior take
+  mine.push({ emoji:emoji, by:me, byName:_memName(me)||(typeof _meName==='function'?_meName():''), at:new Date().toISOString() });
+  t.reviews=mine;                                                            // optimistic (hydrate re-derives from reactions)
+  if(t._dbId && typeof window.fhReact==='function'){ try{ window.fhReact(t._dbId, emoji); }catch(e){} }
   var aligned=(emoji==='🥰');
   closeReview();
   try{ if(typeof renderTxns==='function') renderTxns(); }catch(e){}
   selMonth=curMonthKey();
   try{ if(typeof renderAll==='function') renderAll(); }catch(e){}
   try{ var ov=document.getElementById('requests-overlay'); if(ov && ov.classList.contains('on')) renderRequests(); }catch(e){}
+  var nm=_reqName(_futCreatorName(t));
   if(aligned){
     if(typeof floatEmojis==='function') floatEmojis('🥰');
-    toast(L('Đã đồng ý · để dành '+fmt(t.amt)+' cho '+_firstNm(t.by), 'You’re in · '+fmt(t.amt)+' set aside for '+_firstNm(t.by)));
+    toast(L('Đã đồng ý · để dành '+fmt(t.amt)+' cho '+nm, 'You’re in · '+fmt(t.amt)+' set aside for '+nm));
   } else {
-    toast(L('Đã gửi cảm nhận cho '+_firstNm(t.by), 'Sent your take to '+_firstNm(t.by)));
+    toast(L('Đã gửi cảm nhận cho '+nm, 'Sent your take to '+nm));
   }
 }
 window.submitReview=submitReview;
+
+/* ---- arrival: a decision landed on MY request — its OWN confetti + toast,
+   distinct from the ledger-reaction arrival. Watermark-gated, plays on hydrate. ---- */
+function _reqSeen(){ try{ return localStorage.getItem('fh-req-seen')||''; }catch(e){ return ''; } }
+function _reqSetSeen(v){ try{ if(v) localStorage.setItem('fh-req-seen', v); }catch(e){} }
+function reqCheckArrivals(){
+  var me=_futMeId(); if(!me || document.hidden) return;
+  var got=[];
+  _reqAll().forEach(function(t){
+    if(!_isMyReq(t)) return;
+    _futReviews(t).forEach(function(r){ if(r.by!==me && r.at) got.push({ t:t, r:r }); });
+  });
+  if(!got.length) return;
+  var maxAt=got.reduce(function(m,e){ return e.r.at>m?e.r.at:m; }, '');
+  var seen=_reqSeen();
+  if(!seen){ _reqSetSeen(maxAt); return; }                 // seed the watermark, don't replay history
+  var fresh=got.filter(function(e){ return e.r.at>seen; });
+  if(!fresh.length) return;
+  _reqSetSeen(maxAt);
+  fresh.sort(function(a,b){ return (a.r.at<b.r.at)?1:-1; });
+  var lead=fresh[0], nm=_reqName(_memName(lead.r.by)||lead.r.byName), aligned=(lead.r.emoji==='🥰');
+  if(typeof floatEmojis==='function') floatEmojis(lead.r.emoji);
+  if(typeof toast==='function'){
+    if(aligned) toast(L(nm+' đã đồng ý · đã để dành '+fmt(lead.t.amt), nm+' is in · '+fmt(lead.t.amt)+' set aside'));
+    else toast(L(nm+' vừa phản hồi khoản “'+lead.t.note+'”', nm+' responded to “'+lead.t.note+'”'));
+  }
+}
+window.reqCheckArrivals=reqCheckArrivals;
+
+/* run after every hydrate: refresh the mounts + hub, then play any just-arrived decision */
+function reqAfterHydrate(){
+  try{ renderReqMounts(); }catch(e){}
+  try{ var ov=document.getElementById('requests-overlay'); if(ov && ov.classList.contains('on')) renderRequests(); }catch(e){}
+  try{ reqCheckArrivals(); }catch(e){}
+}
+window.reqAfterHydrate=reqAfterHydrate;

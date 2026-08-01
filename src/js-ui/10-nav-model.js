@@ -55,13 +55,23 @@ function achievedNow(e){ return e.achieved===true || (e.d && e.d<TODAY); }
 // events funded from this month, plus standalone "future expenses" logged in the expense sheet.
 function eventsReserved(){ return order.reduce(function(s,k){ return achievedNow(events[k]) ? s : s+(events[k].setAside||0); },0); }
 // A future expense is a *proposal* until at least one family member other than its
-// creator throws a 🥰 (the ledger's "approve" reaction) at it — collaborative future
-// expenses (see 64-requests.js). Only an *aligned* one reserves money from this month.
-function futureAligned(t){ return !!(t && t.reviews && t.reviews.some(function(r){ return r.emoji==='🥰'; })); }
-// Only a *proposal* (created via the collaborative flow, so it carries a `by` proposer)
-// can be pending; legacy future expenses with no proposer stay reserved exactly as before.
-function futurePending(t){ return !!(t && t.future && t.by && !futureAligned(t)); }
-function futureExpReserved(){ return txns.reduce(function(s,t){ return s+((t.future && (!t.by || futureAligned(t)))?t.amt:0); },0); }
+// creator approves it with 🥰 — collaborative future expenses (see 64-requests.js).
+// Reviews live on t.reviews when freshly created / in demo; once persisted they are
+// reactions on the transaction (creator = t._memberId), so alignment syncs across
+// devices for free. Only an *aligned* proposal reserves money from this month.
+function _futReviews(t){
+  if(!t) return [];
+  if(t.reviews && t.reviews.length) return t.reviews;                       // demo / just-created (pre-hydrate)
+  var db=window.DB;
+  if(db && db.reactionsByTx && t._dbId){                                    // live: derive from reactions, excluding the creator
+    return (db.reactionsByTx[t._dbId]||[]).filter(function(r){ return r.memberId!==t._memberId; })
+      .map(function(r){ return { emoji:r.emoji, by:r.memberId, byName:(db.memberById&&db.memberById[r.memberId])?db.memberById[r.memberId].name:'', at:r.at }; });
+  }
+  return [];
+}
+function futureAligned(t){ return _futReviews(t).some(function(r){ return r.emoji==='🥰'; }); }
+function futurePending(t){ return !!(t && t.future && !futureAligned(t)); }
+function futureExpReserved(){ return txns.reduce(function(s,t){ return s+((t.future && futureAligned(t))?t.amt:0); },0); }
 function monthReserved(){ return eventsReserved()+futureExpReserved(); }
 /* ---- currency (USD $ · VND ₫, VND display ×1000 so amounts read realistically) ---- */
 var CUR='USD';

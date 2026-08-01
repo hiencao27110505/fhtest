@@ -1139,57 +1139,45 @@ input{font-family:inherit}
   .rx-pop,.rx-opt,.rx-burst,.rx-toast{transition:none}
 }
 /* ---- collaborative future-expense requests ----
-   The "Needs your OK" widget (Home + Finance), the Requests hub (two lanes), and the
-   review sheet (the ledger reactions as vertical rows). Surfaces stay neutral per the
-   design system — emoji carry the colour, borders and left restraint do the rest. */
+   A DISTINCT feature from ledger reactions. The "Waiting for your OK" widget (Home +
+   Finance) and the Requests hub reuse the Phòng khách card language — avatar → body →
+   chevron on a neutral white surface, one accent, no fills — so it reads as native. */
 
-/* widget */
-.req-widget{background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);overflow:hidden;margin:0 0 14px}
-#fin-requests .req-widget{margin:14px 16px 4px}
+/* card list — mirrors .rx-home */
+.req-list{display:flex;flex-direction:column;gap:10px;margin:0 16px 14px}
+#requests-body .req-list{margin:0 0 6px}
 #fin-requests:empty{display:none}
-.req-wh{display:flex;align-items:center;justify-content:space-between;padding:13px 15px 11px}
-.req-wh-l{display:flex;align-items:center;gap:8px}
-.req-wh-t{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
-.req-badge{font-size:11px;font-weight:800;color:#fff;background:var(--brand);border-radius:999px;padding:1px 8px;letter-spacing:.02em}
-.req-wh-all{font-size:12.5px;font-weight:700;color:var(--brand-ink);cursor:pointer}
-.req-wrows{border-top:1px solid var(--divider)}
-.req-wrow{display:flex;align-items:center;gap:11px;width:100%;padding:11px 15px;background:none;border:0;border-top:1px solid var(--divider);text-align:left;cursor:pointer;font:inherit}
-.req-wrow:first-child{border-top:0}
-.req-wrow:active{background:var(--surface)}
-.req-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex:0 0 auto;box-shadow:0 0 0 1.5px var(--white)}
-.req-av.lg{width:48px;height:48px;font-size:18px}
-.req-wrb{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.req-wrt{font-size:13.5px;font-weight:650;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.req-wrs{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.req-wamt{font-weight:800;font-size:15px;color:var(--ink);flex:0 0 auto}
+.req-card{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;background:var(--white);border:0;border-radius:16px;box-shadow:var(--shadow-card);text-align:left;font:inherit;cursor:pointer}
+.req-card:active{background:var(--surface)}
+.req-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800;flex:0 0 auto;box-shadow:0 0 0 1.5px var(--white)}
+.req-av.lg{width:52px;height:52px;font-size:19px}
+.req-cb{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.req-ct{font-family:var(--disp);font-size:15px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.req-cs{font-size:12.5px;color:var(--muted);font-weight:500;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.req-amt{font-weight:800;font-size:15px;color:var(--ink);flex:0 0 auto;font-variant-numeric:tabular-nums}
 .req-chev{width:16px;height:16px;color:var(--chev);flex:0 0 auto}
-.req-wmore{display:block;width:100%;padding:10px;border:0;border-top:1px solid var(--divider);background:none;color:var(--brand-ink);font-size:12.5px;font-weight:700;cursor:pointer;font:inherit}
+.req-status{font-size:12.5px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.req-status.ok{color:var(--brand-ink)}
+.req-status.wait{color:var(--muted)}
+.req-status.hold{color:var(--amber)}
 
 /* hub lanes */
 #requests-body{padding:4px 16px 0}
-.req-lane-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:4px 2px 10px}
-.req-empty{font-size:13.5px;color:var(--muted);padding:12px 2px 4px}
-.req-card{display:flex;align-items:center;gap:12px;width:100%;padding:13px 14px;margin-bottom:10px;background:var(--white);border:0;border-radius:16px;box-shadow:var(--shadow-card);text-align:left;cursor:pointer;font:inherit}
-.req-card.static{cursor:default}
-.req-card:not(.static):active{background:var(--surface)}
-.req-cb{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
-.req-ct{font-family:var(--disp);font-size:15px;font-weight:650;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.req-cs{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.req-camt{font-weight:800;font-size:16px;color:var(--ink);flex:0 0 auto}
-.req-status{font-size:12px;font-weight:700;margin-top:2px}
-.req-status.ok{color:var(--brand-ink)}
-.req-status.wait{color:var(--amber)}
+.req-lane-h{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:6px 2px 11px}
+.req-empty{font-size:13.5px;color:var(--muted);padding:10px 2px 6px;line-height:1.5}
 
-/* review sheet */
-.rv-plan{background:var(--surface);border-radius:16px;padding:14px;margin-bottom:15px}
+/* review / follow sheet — the plan card */
+.rv-plan{background:var(--surface);border-radius:16px;padding:15px;margin-bottom:15px}
 .rv-top{display:flex;align-items:center;gap:12px}
 .rv-tb{flex:1;min-width:0}
-.rv-t{font-size:14px;font-weight:700;color:var(--ink)}
+.rv-t{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
 .rv-s{font-size:12px;color:var(--muted);margin-top:1px}
-.rv-amt{font-weight:800;font-size:22px;color:var(--ink);flex:0 0 auto}
-.rv-note{font-size:14px;font-weight:600;color:var(--ink-2);margin-top:12px}
+.rv-amt{font-weight:800;font-size:22px;color:var(--ink);flex:0 0 auto;font-variant-numeric:tabular-nums}
+.rv-note{font-size:14px;font-weight:600;color:var(--ink-2);margin-top:12px;letter-spacing:-.01em}
 .rv-impact{font-size:12.5px;color:var(--brand-ink);font-weight:600;margin-top:10px;background:var(--brand-tint);border-radius:10px;padding:8px 11px}
-.rv-prompt{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;margin:2px 0 12px}
+.rv-prompt{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;margin:4px 0 12px}
+
+/* DECIDE — the five reaction rows */
 .rv-opts{display:flex;flex-direction:column;gap:9px;padding-bottom:6px}
 .rv-opt{display:flex;align-items:center;gap:13px;width:100%;padding:12px 14px;background:var(--white);border:1px solid var(--hairline);border-radius:15px;text-align:left;cursor:pointer;font:inherit;transition:transform .12s ease}
 .rv-opt:active{transform:scale(.99)}
@@ -1202,6 +1190,18 @@ input{font-family:inherit}
 .rv-opt.yes .rv-od{color:var(--brand-ink)}
 .rv-tag{font-size:11px;font-weight:800;color:#fff;background:var(--brand);border-radius:999px;padding:3px 10px;flex:0 0 auto;letter-spacing:.02em}
 .rv-chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
+
+/* FOLLOW — the requester watches, never decides */
+.rv-follow{font-size:13.5px;font-weight:700;letter-spacing:-.01em;border-radius:12px;padding:11px 13px;margin-bottom:4px}
+.rv-follow.ok{color:var(--brand-ink);background:var(--brand-tint)}
+.rv-follow.wait{color:var(--amber);background:var(--amber-tint)}
+.rv-revs{display:flex;flex-direction:column;gap:8px}
+.rv-rev{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--white);border:1px solid var(--hairline);border-radius:13px}
+.rv-rev-e{font-size:24px;line-height:1;flex:0 0 auto}
+.rv-rev-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.rv-rev-n{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.rv-rev-l{font-size:12.5px;color:var(--muted)}
+.rv-empty{font-size:13.5px;color:var(--muted);text-align:center;padding:14px 6px;line-height:1.5}
 
 /* a future expense still in review carries an amber tag in the ledger's future list */
 .res-tag.pend{color:var(--amber)}
@@ -2662,13 +2662,23 @@ function achievedNow(e){ return e.achieved===true || (e.d && e.d<TODAY); }
 // events funded from this month, plus standalone "future expenses" logged in the expense sheet.
 function eventsReserved(){ return order.reduce(function(s,k){ return achievedNow(events[k]) ? s : s+(events[k].setAside||0); },0); }
 // A future expense is a *proposal* until at least one family member other than its
-// creator throws a 🥰 (the ledger's "approve" reaction) at it — collaborative future
-// expenses (see 64-requests.js). Only an *aligned* one reserves money from this month.
-function futureAligned(t){ return !!(t && t.reviews && t.reviews.some(function(r){ return r.emoji==='🥰'; })); }
-// Only a *proposal* (created via the collaborative flow, so it carries a `by` proposer)
-// can be pending; legacy future expenses with no proposer stay reserved exactly as before.
-function futurePending(t){ return !!(t && t.future && t.by && !futureAligned(t)); }
-function futureExpReserved(){ return txns.reduce(function(s,t){ return s+((t.future && (!t.by || futureAligned(t)))?t.amt:0); },0); }
+// creator approves it with 🥰 — collaborative future expenses (see 64-requests.js).
+// Reviews live on t.reviews when freshly created / in demo; once persisted they are
+// reactions on the transaction (creator = t._memberId), so alignment syncs across
+// devices for free. Only an *aligned* proposal reserves money from this month.
+function _futReviews(t){
+  if(!t) return [];
+  if(t.reviews && t.reviews.length) return t.reviews;                       // demo / just-created (pre-hydrate)
+  var db=window.DB;
+  if(db && db.reactionsByTx && t._dbId){                                    // live: derive from reactions, excluding the creator
+    return (db.reactionsByTx[t._dbId]||[]).filter(function(r){ return r.memberId!==t._memberId; })
+      .map(function(r){ return { emoji:r.emoji, by:r.memberId, byName:(db.memberById&&db.memberById[r.memberId])?db.memberById[r.memberId].name:'', at:r.at }; });
+  }
+  return [];
+}
+function futureAligned(t){ return _futReviews(t).some(function(r){ return r.emoji==='🥰'; }); }
+function futurePending(t){ return !!(t && t.future && !futureAligned(t)); }
+function futureExpReserved(){ return txns.reduce(function(s,t){ return s+((t.future && futureAligned(t))?t.amt:0); },0); }
 function monthReserved(){ return eventsReserved()+futureExpReserved(); }
 /* ---- currency (USD $ · VND ₫, VND display ×1000 so amounts read realistically) ---- */
 var CUR='USD';
@@ -5202,7 +5212,7 @@ function addExpense(){
   }
   if(dObj>TODAY){                                           // future date → a *proposal* (reserves nothing until the family aligns)
     var fwho=chosen('ex-who')||'Emma', fwhoStore=(fwho==='Both')?'Shared':fwho;
-    var fby=(typeof _meName==='function')?_meName():fwhoStore;
+    var fby=(typeof _futMeId==='function')?_futMeId():((typeof _meName==='function')?_meName():fwhoStore);   // creator id (live) / name (demo)
     txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:fwhoStore,amt:amt,future:true,by:fby,reviews:[],month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
     renderTxns(); selMonth=curMonthKey(); renderAll();
     document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
@@ -5233,54 +5243,54 @@ function addExpense(){
 
 /* ---------- collaborative reactions ----------
    A family member holds a transaction row, throws ONE emotional reaction, and it
-   surfaces three ways: an inline chip on the ledger row (A), a shared "Phòng khách"
+   surfaces three ways: an inline chip on the ledger row (A), a shared "PhÃ²ng khÃ¡ch"
    feed (B), and an arrival moment on the payer's phone (C). Five reactions, chosen
-   to be emotional not neutral — shock / side-eye / laughing / love / annoyed — each
+   to be emotional not neutral â shock / side-eye / laughing / love / annoyed â each
    with a small pool of contextual one-liners so the log never reads like a bot.
    Data + write-through live in js-data (reactions table, fhReact, get_family_snapshot). */
 var RX = [
-  { k:'shock',   e:'😱', vi:'Sốc',      en:'Shocked' },
-  { k:'suspect', e:'🤨', vi:'Nghi ngờ', en:'Suspicious' },
-  { k:'laugh',   e:'😂', vi:'Cười',     en:'Laughing' },
-  { k:'love',    e:'🥰', vi:'Thương',   en:'Love it' },
-  { k:'mad',     e:'😤', vi:'Tức',      en:'Not having it' }
+  { k:'shock',   e:'ð±', vi:'Sá»c',      en:'Shocked' },
+  { k:'suspect', e:'ð¤¨', vi:'Nghi ngá»', en:'Suspicious' },
+  { k:'laugh',   e:'ð', vi:'CÆ°á»i',     en:'Laughing' },
+  { k:'love',    e:'ð¥°', vi:'ThÆ°Æ¡ng',   en:'Love it' },
+  { k:'mad',     e:'ð¤', vi:'Tá»©c',      en:'Not having it' }
 ];
-/* one-liners per reaction — [vi, en], with {n} = reactor first name, {cat} = category.
+/* one-liners per reaction â [vi, en], with {n} = reactor first name, {cat} = category.
    The pick is deterministic per (txn, member, emoji) so the sentence never reshuffles. */
 var RX_MSG = {
-  '😱': [ ['{n} đang xỉu ngang vụ này','{n} is losing it over this'],
-          ['{n} há hốc mồm với vụ {cat}','{n}’s jaw dropped at this {cat}'],
-          ['{n} chưa hết bàng hoàng','{n} is still in shock'] ],
-  '🤨': [ ['{n} đang nghi ngờ vụ này','{n} is questioning this'],
-          ['{n} đang soi khoản {cat} này','{n} is side-eyeing this {cat}'],
-          ['{n} thấy sai sai chỗ này','{n} smells something off'] ],
-  '😂': [ ['{n} cười không nhặt được mồm','{n} can’t stop laughing'],
-          ['{n} thấy vụ {cat} này hài dễ sợ','{n} finds this {cat} hilarious'],
-          ['{n} cười xỉu với vụ này','{n} is dying at this'] ],
-  '🥰': [ ['{n} duyệt khoản này liền','{n} approves this instantly'],
-          ['{n} thấy tiêu vậy là đáng','{n} says worth every đồng'],
-          ['{n} thương vụ {cat} này ghê','{n} adores this {cat}'] ],
-  '😤': [ ['{n} đang tức cái vụ này','{n} is not having this'],
-          ['{n} không chịu khoản {cat} này đâu','{n} won’t let this {cat} slide'],
-          ['{n} bực ra mặt','{n} is visibly annoyed'] ]
+  'ð±': [ ['{n} Äang xá»u ngang vá»¥ nÃ y','{n} is losing it over this'],
+          ['{n} hÃ¡ há»c má»m vá»i vá»¥ {cat}','{n}âs jaw dropped at this {cat}'],
+          ['{n} chÆ°a háº¿t bÃ ng hoÃ ng','{n} is still in shock'] ],
+  'ð¤¨': [ ['{n} Äang nghi ngá» vá»¥ nÃ y','{n} is questioning this'],
+          ['{n} Äang soi khoáº£n {cat} nÃ y','{n} is side-eyeing this {cat}'],
+          ['{n} tháº¥y sai sai chá» nÃ y','{n} smells something off'] ],
+  'ð': [ ['{n} cÆ°á»i khÃ´ng nháº·t ÄÆ°á»£c má»m','{n} canât stop laughing'],
+          ['{n} tháº¥y vá»¥ {cat} nÃ y hÃ i dá» sá»£','{n} finds this {cat} hilarious'],
+          ['{n} cÆ°á»i xá»u vá»i vá»¥ nÃ y','{n} is dying at this'] ],
+  'ð¥°': [ ['{n} duyá»t khoáº£n nÃ y liá»n','{n} approves this instantly'],
+          ['{n} tháº¥y tiÃªu váº­y lÃ  ÄÃ¡ng','{n} says worth every Äá»ng'],
+          ['{n} thÆ°Æ¡ng vá»¥ {cat} nÃ y ghÃª','{n} adores this {cat}'] ],
+  'ð¤': [ ['{n} Äang tá»©c cÃ¡i vá»¥ nÃ y','{n} is not having this'],
+          ['{n} khÃ´ng chá»u khoáº£n {cat} nÃ y ÄÃ¢u','{n} wonât let this {cat} slide'],
+          ['{n} bá»±c ra máº·t','{n} is visibly annoyed'] ]
 };
 function rxCfg(e){ for(var i=0;i<RX.length;i++){ if(RX[i].e===e) return RX[i]; } return RX[1]; }
 function rxHash(s){ var h=0; s=String(s||''); for(var i=0;i<s.length;i++){ h=((h<<5)-h+s.charCodeAt(i))|0; } return Math.abs(h); }
 function rxFirstName(mid){
   var m=window.DB && window.DB.memberById && window.DB.memberById[mid], nm=m?m.name:'';
   if(mid && window.DB && mid===window.DB.ownerMemberId){ var me=(typeof _meName==='function')?_meName():''; if(me) nm=me; }
-  return (typeof firstName==='function')?firstName(nm||''):(nm||L('Ai đó','Someone'));
+  return (typeof firstName==='function')?firstName(nm||''):(nm||L('Ai ÄÃ³','Someone'));
 }
 function rxMessage(rec, tx){
-  var pool=RX_MSG[rec.emoji]||RX_MSG['🤨'];
+  var pool=RX_MSG[rec.emoji]||RX_MSG['ð¤¨'];
   var nm=rxFirstName(rec.memberId);
-  var cat=(tx && tx.cat)?String(tx.cat):L('khoản này','this');
+  var cat=(tx && tx.cat)?String(tx.cat):L('khoáº£n nÃ y','this');
   var pair=pool[rxHash((rec.txId||'')+'|'+(rec.memberId||'')+'|'+rec.emoji)%pool.length];
   return L(pair[0],pair[1]).replace(/\{n\}/g, esc(nm)).replace(/\{cat\}/g, esc(cat.toLowerCase()));
 }
 function _rxFace(mid){
   var m=window.DB && window.DB.memberById && window.DB.memberById[mid];
-  var col=(m&&m.color)||'#8f8a99', ini=(m && typeof inits==='function')?inits(m.name):'👤';
+  var col=(m&&m.color)||'#8f8a99', ini=(m && typeof inits==='function')?inits(m.name):'ð¤';
   return '<span class="rx-av av" style="background:'+col+'">'+esc(ini)+'</span>';
 }
 function rxTxByDbId(id){ var a=window.txns||[]; for(var i=0;i<a.length;i++){ if(a[i]._dbId===id) return a[i]; } return null; }
@@ -5289,7 +5299,7 @@ function _rxMineOn(txDbId){
   for(var i=0;i<arr.length;i++){ if(arr[i].memberId===mid) return arr[i].emoji; } return null;
 }
 
-/* ---- A · the inline chip appended into a transaction row's body ---- */
+/* ---- A Â· the inline chip appended into a transaction row's body ---- */
 function rxChip(t){
   var rs=t && t.reactions; if(!rs || !rs.length) return '';
   var lead=rs[0]; for(var i=1;i<rs.length;i++){ if(rs[i].at>lead.at) lead=rs[i]; }
@@ -5315,7 +5325,7 @@ function openRxPicker(txDbId, cx, cy){
   var w=pop.offsetWidth, h=pop.offsetHeight;
   var left=(cx-pr.left)-w/2, top=(cy-pr.top)-h-14;
   left=Math.max(10, Math.min(pr.width-w-10, left));
-  if(top<8) top=(cy-pr.top)+22;                     // no room above the finger → drop below it
+  if(top<8) top=(cy-pr.top)+22;                     // no room above the finger â drop below it
   pop.style.left=left+'px'; pop.style.top=top+'px';
   window._rxLastXY={ x:cx, y:cy };                  // remember where the reaction was thrown, so it bursts from there
   requestAnimationFrame(function(){ pop.classList.add('on'); });
@@ -5331,7 +5341,7 @@ function closeRxPicker(){
 }
 window.closeRxPicker=closeRxPicker;
 
-/* a localized burst of the chosen emoji, fanning up from the point it was thrown —
+/* a localized burst of the chosen emoji, fanning up from the point it was thrown â
    the reactor's own "bumping out" feedback (distinct from the recipient's full-screen
    arrival float). Falls back to centre when no coordinates are known (e.g. react-back). */
 function rxBurst(emoji, x, y){
@@ -5376,7 +5386,7 @@ function throwReaction(txDbId, emoji){
   if(typeof renderRxWall==='function') renderRxWall();
   var homeOn=document.getElementById('v-home'); if(homeOn && homeOn.classList.contains('on') && typeof renderHome==='function') renderHome();
   var txnOv=document.getElementById('txn-overlay'); if(txnOv && txnOv.classList.contains('on') && typeof renderTxnScreen==='function') renderTxnScreen();
-  if(!remove){ var r=rxCfg(emoji); if(typeof toast==='function') toast(L('Đã thả '+r.e+' cho khoản này','Reacted '+r.e)); }
+  if(!remove){ var r=rxCfg(emoji); if(typeof toast==='function') toast(L('ÄÃ£ tháº£ '+r.e+' cho khoáº£n nÃ y','Reacted '+r.e)); }
 }
 window.throwReaction=throwReaction;
 
@@ -5404,7 +5414,7 @@ window.throwReaction=throwReaction;
   document.addEventListener('mousemove', function(e){ move(e); });
   document.addEventListener('mouseup', clear);
   // a long-press must NOT also open the expense editor (the row's own onclick).
-  // Never suppress a tap inside the picker itself — the emoji buttons must always fire.
+  // Never suppress a tap inside the picker itself â the emoji buttons must always fire.
   document.addEventListener('click', function(e){
     if(!window._rxSuppressClick) return;
     if(e.target.closest && e.target.closest('#rx-pop')) return;
@@ -5414,13 +5424,13 @@ window.throwReaction=throwReaction;
   document.addEventListener('contextmenu', function(e){ if(e.target.closest && e.target.closest('.row[data-rxid]')) e.preventDefault(); });
 })();
 
-/* ---- B · the "Phòng khách" wall — one card per transaction that has reactions ---- */
+/* ---- B Â· the "PhÃ²ng khÃ¡ch" wall â one card per transaction that has reactions ---- */
 function rxAgo(iso){
   try{ var s=Math.max(0,(Date.now()-new Date(iso).getTime())/1000);
-    if(s<60) return L('vừa xong','just now');
-    if(s<3600) return Math.floor(s/60)+L(' phút','m');
-    if(s<86400) return Math.floor(s/3600)+L(' giờ','h');
-    return Math.floor(s/86400)+L(' ngày','d');
+    if(s<60) return L('vá»«a xong','just now');
+    if(s<3600) return Math.floor(s/60)+L(' phÃºt','m');
+    if(s<86400) return Math.floor(s/3600)+L(' giá»','h');
+    return Math.floor(s/86400)+L(' ngÃ y','d');
   }catch(e){ return ''; }
 }
 function _rxWallItems(){
@@ -5428,6 +5438,7 @@ function _rxWallItems(){
   for(var txid in map){
     var rs=map[txid]; if(!rs||!rs.length) continue;
     var tx=rxTxByDbId(txid); if(!tx) continue;                 // tx must be in the loaded ledger
+    if(tx.future) continue;                                    // reactions on a future expense are REVIEWS (see 64-requests.js), a separate feature — never in the Phòng khách feed
     var lead=rs[0]; for(var i=1;i<rs.length;i++){ if(rs[i].at>lead.at) lead=rs[i]; }
     items.push({ tx:tx, rs:rs, lead:lead, at:lead.at });
   }
@@ -5439,7 +5450,7 @@ function rxCard(it, compact){
   var faces='', sm={}, nExtra=0;
   rs.forEach(function(r){ if(!sm[r.memberId]){ sm[r.memberId]=1; if(Object.keys(sm).length<=3) faces+=_rxFace(r.memberId); else nExtra++; } });
   if(nExtra>0) faces+='<span class="rx-more">+'+nExtra+'</span>';
-  var note=esc(tx.note||L('Khoản chi','Expense')), amt=(typeof fmt==='function')?fmt(tx.amt):tx.amt, when=rxAgo(lead.at);
+  var note=esc(tx.note||L('Khoáº£n chi','Expense')), amt=(typeof fmt==='function')?fmt(tx.amt):tx.amt, when=rxAgo(lead.at);
   var mine=_rxMineOn(tx._dbId);
   var chev='<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
   var back=compact?'':'<div class="rx-back">'+RX.map(function(r){ return '<button class="rx-bk'+(mine===r.e?' on':'')+'" onclick="throwReaction(\''+tx._dbId+'\',\''+r.e+'\')" aria-label="'+escAttr(L(r.vi,r.en))+'">'+r.e+'</button>'; }).join('')+'</div>';
@@ -5447,7 +5458,7 @@ function rxCard(it, compact){
     +'<button class="rx-card-main" onclick="rxJumpTo(\''+tx._dbId+'\')">'
       +'<span class="rx-ico">'+lead.emoji+'</span>'
       +'<span class="rx-card-b"><span class="rx-card-msg">'+rxMessage(lead,tx)+'</span>'
-        +'<span class="rx-card-sub">'+faces+'<span class="rx-tx">'+note+' · '+amt+'</span>'+(when?'<span class="rx-when">'+when+'</span>':'')+'</span></span>'
+        +'<span class="rx-card-sub">'+faces+'<span class="rx-tx">'+note+' Â· '+amt+'</span>'+(when?'<span class="rx-when">'+when+'</span>':'')+'</span></span>'
       +chev
     +'</button>'+back+'</div>';
 }
@@ -5462,14 +5473,14 @@ function renderRxWall(){
 window.renderRxWall=renderRxWall;
 function rxHomeStripHTML(){
   var items=_rxWallItems(); if(!items.length) return '';
-  var head=(typeof _sectionH==='function')?_sectionH(L('Phòng khách','The living room'),'go(&#39;spending&#39;)'):'';
+  var head=(typeof _sectionH==='function')?_sectionH(L('PhÃ²ng khÃ¡ch','The living room'),'go(&#39;spending&#39;)'):'';
   return head+'<div class="rx-home">'+items.slice(0,3).map(function(it){ return rxCard(it,true); }).join('')+'</div>';
 }
 window.rxHomeStripHTML=rxHomeStripHTML;
 function rxJumpTo(txDbId){ closeRxArrive(); var tx=rxTxByDbId(txDbId); if(tx && typeof openEditExpense==='function') openEditExpense(tx.id); }
 window.rxJumpTo=rxJumpTo;
 
-/* ---- C · the arrival — ANY member's reaction, seen by everyone else in-app ----
+/* ---- C Â· the arrival â ANY member's reaction, seen by everyone else in-app ----
    Fires for every new reaction (not just ones on your own spends): every time one
    lands while you're in the app, and once (catching up) when you open the app after
    it happened. Watermark-gated so unrelated rehydrates (your own writes, focus,
@@ -5479,7 +5490,7 @@ function _rxSetSeen(v){ try{ if(v) localStorage.setItem('fh-rx-seen', v); }catch
 function _rxBusy(){
   // The arrival is a non-blocking confetti + toast now, so it can coexist with sheets
   // and the ledger. Only hold it back from stacking on a full-screen celebration or
-  // the onboarding flow — it replays on the next hydrate once those clear.
+  // the onboarding flow â it replays on the next hydrate once those clear.
   if(document.querySelector('.celebrate.on')) return true;
   var ob=document.getElementById('onboarding'); if(ob && ob.offsetParent!==null) return true;   // onboarding (z-90) is up
   return false;
@@ -5487,7 +5498,7 @@ function _rxBusy(){
 function rxCheckArrivals(){
   var mid=window.DB && window.DB.ownerMemberId; if(!mid) return;
   if(window.editingTx!=null || document.hidden || _rxBusy()) return;     // never interrupt an edit / a backgrounded app
-  var all=(window.reactions||[]).filter(function(r){ return r.memberId!==mid && rxTxByDbId(r.txId); });   // anyone else's reaction, on a loaded txn
+  var all=(window.reactions||[]).filter(function(r){ var t=rxTxByDbId(r.txId); return r.memberId!==mid && t && !t.future; });   // anyone else's reaction on a loaded REALIZED txn (future = a review, handled by reqCheckArrivals)
   if(!all.length) return;
   var maxAt=all.reduce(function(m,r){ return r.at>m?r.at:m; }, '');
   var seen=_rxSeen();
@@ -5501,18 +5512,18 @@ function rxCheckArrivals(){
 window.rxCheckArrivals=rxCheckArrivals;
 /* The arrival is deliberately NON-blocking: emoji confetti over the whole frame
    (plays wherever you happen to land), plus a tappable toast that deep-links to the
-   transaction. No modal — it never interrupts what you're doing. */
+   transaction. No modal â it never interrupts what you're doing. */
 function rxArriveShow(fresh){
   if(document.hidden) return;
   var lead=fresh[0], tx=rxTxByDbId(lead.txId), more=fresh.length-1, txId=tx?tx._dbId:'';
   if(typeof floatEmojis==='function') floatEmojis(lead.emoji);          // confetti, once, where you are
   var old=document.getElementById('rx-toast'); if(old && old.parentNode) old.parentNode.removeChild(old);
   var el=document.createElement('button'); el.className='rx-toast'; el.id='rx-toast';
-  el.setAttribute('aria-label', L('Xem khoản này','See this transaction'));
+  el.setAttribute('aria-label', L('Xem khoáº£n nÃ y','See this transaction'));
   el.onclick=function(){ closeRxArrive(); rxJumpTo(txId); };
   // second line = which transaction (so a bystander knows what was reacted to), + how many more
-  var second=tx ? (esc(tx.note||L('Khoản chi','Expense'))+' · '+((typeof fmt==='function')?fmt(tx.amt):tx.amt)) : L('Chạm để xem','Tap to open');
-  if(more>0) second += ' · +'+more;
+  var second=tx ? (esc(tx.note||L('Khoáº£n chi','Expense'))+' Â· '+((typeof fmt==='function')?fmt(tx.amt):tx.amt)) : L('Cháº¡m Äá» xem','Tap to open');
+  if(more>0) second += ' Â· +'+more;
   el.innerHTML='<span class="rx-toast-e">'+lead.emoji+'</span>'
     +'<span class="rx-toast-b"><span class="rx-toast-msg">'+rxMessage(lead,tx)+'</span><span class="rx-toast-cta">'+second+'</span></span>'
     +'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg>';
@@ -5531,55 +5542,73 @@ function rxAfterHydrate(){ try{ renderRxWall(); }catch(e){} try{ rxCheckArrivals
 window.rxAfterHydrate=rxAfterHydrate;
 /* ---------- collaborative future-expense requests ----------
    A future expense is a *proposal*, not a done deal. It reserves nothing until at
-   least one family member OTHER than its creator throws 🥰 (the ledger's "approve"
-   reaction) at it — then it's set aside for real. Reviewing reuses the exact five
-   ledger reactions (😱🤨😂🥰😤): the reviewer expresses HOW they feel, the system
-   reads WHETHER it's aligned. Only 🥰 sets it aside; the other four keep it pending
-   and pass the feeling back to the creator so it stays a conversation, never a reject.
+   least one family member OTHER than its creator approves it with 🥰 — then it's set
+   aside for real. Reviewing reuses the ledger's exact five reactions (😱🤨😂🥰😤):
+   the reviewer expresses HOW they feel, the system reads WHETHER it's aligned. Only
+   🥰 sets it aside; the other four keep it pending and pass the feeling back so it
+   stays a conversation, never a hard reject.
 
-   Surfaces: a "Needs your OK" widget on Home + Finance (deep-links to one request
-   or the hub), a Requests hub (two lanes), and a review sheet. Alignment persists +
-   syncs for free when live via fhReact + the reactions table; the local review state
-   drives the demo. futureAligned()/futurePending() live in 10-nav-model.js. */
+   This is a DISTINCT feature from ledger reactions, even though it persists through
+   the same reactions table (so it syncs across devices for free): a review is a
+   reaction on a future-dated transaction, whose creator is t._memberId. Requests
+   never appear in the Phòng khách feed, and decisions arrive with their OWN
+   confetti + toast (reqCheckArrivals), separate from the reactions arrival.
 
-function _reqMe(){ return (typeof _meName==='function') ? _meName() : ((window.FAM&&FAM.user&&FAM.user.name)||''); }
-function _firstNm(n){ return (typeof firstName==='function') ? firstName(n||'') : ((n||'').split(/\s+/)[0]||n||''); }
-function _reqMem(name){
-  var mems=(window.FAM&&FAM.members)||[];
-  for(var i=0;i<mems.length;i++){ if(mems[i].name===name) return {name:name,color:mems[i].color,ini:inits(name)}; }
-  return {name:name||'?',color:'#8a8494',ini:(typeof inits==='function')?inits(name||'?'):'?'};
+   Identity resolves in both modes: live = DB member ids (window.DB); demo = names.
+   futureAligned()/futurePending()/_futReviews() live in 10-nav-model.js. */
+
+/* ---- identity (live: DB member ids · demo: names) ---- */
+function _memName(id){ var db=window.DB; return (db && db.memberById && db.memberById[id] && db.memberById[id].name) || ''; }
+function _memColor(idOrName){
+  var db=window.DB;
+  if(db && db.memberById && db.memberById[idOrName] && db.memberById[idOrName].color) return db.memberById[idOrName].color;
+  var mems=(window.FAM&&FAM.members)||[]; for(var i=0;i<mems.length;i++){ if(mems[i].name===idOrName) return mems[i].color; }
+  return '#8a8494';
 }
-function _reqAv(name,cls){ var m=_reqMem(name); return '<span class="req-av'+(cls?' '+cls:'')+'" style="background:'+m.color+'">'+esc(m.ini)+'</span>'; }
+function _futMeId(){ var db=window.DB; if(db && db.ownerMemberId) return db.ownerMemberId; return (typeof _meName==='function')?_meName():''; }
+function _futCreatorId(t){ return (t && t._memberId) ? t._memberId : ((t && t.by) || null); }
+function _futCreatorName(t){ if(!t) return ''; return _memName(_futCreatorId(t)) || t.by || t.who || ''; }
+function _isMyReq(t){ var c=_futCreatorId(t); return c!=null && c===_futMeId(); }
+function _reqName(name){ var f=(name||'').trim().split(/\s+/)[0]; return f || L('Người nhà','a family member'); }
+
+/* ---- the review vocabulary — the ledger's exact five, re-voiced for a proposal.
+   Only 🥰 aligns (sets it aside); the rest are feedback that keeps it pending. ---- */
+function _reqReviewSet(){ return [
+  { e:'🥰', vi:'Thương',   en:'Love it',  dvi:'Đồng ý — để dành luôn', den:'I’m in — set it aside' },
+  { e:'😂', vi:'Vui ghê',  en:'Ha, love it', dvi:'Thích cái vụ này',   den:'Love the energy' },
+  { e:'😱', vi:'Bất ngờ',  en:'Whoa',     dvi:'Hơi nhiều đấy',         den:'That’s a lot' },
+  { e:'🤨', vi:'Nghĩ đã',  en:'Hmm',      dvi:'Bàn thêm chút nha',     den:'Let’s talk first' },
+  { e:'😤', vi:'Chưa nên', en:'Not now',  dvi:'Chưa hợp lúc này',      den:'Not right now' }
+];}
+function _reqCfg(e){ var a=_reqReviewSet(); for(var i=0;i<a.length;i++){ if(a[i].e===e) return a[i]; } return a[0]; }
+function _reqReactLabel(e){ var c=_reqCfg(e); return esc(L(c.vi,c.en)); }
+
+/* ---- shared bits ---- */
+function _reqAvOf(t,cls){ var nm=_futCreatorName(t), col=_memColor(_futCreatorId(t))||_memColor(nm);
+  return '<span class="req-av'+(cls?' '+cls:'')+'" style="background:'+col+'">'+esc((typeof inits==='function')?inits(nm||'?'):'?')+'</span>'; }
 function _reqChev(){ return '<svg class="req-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'; }
 function _catLabel(c){ var s=(window.catStyle&&catStyle[c]); return (s?s[0]+' ':'')+(c||''); }
 function _reqDate(t){ return t.date || ''; }
-
-/* the review vocabulary — the ledger's exact five, re-voiced for a proposal.
-   Only 🥰 aligns (sets it aside); the rest are feedback that keeps it pending. */
-function _reqReviewSet(){ return [
-  { e:'🥰', vi:'Thương',    en:'Love it',  dvi:'Đồng ý — để dành luôn', den:'I’m in — set it aside' },
-  { e:'😂', vi:'Vui ghê',   en:'Ha, love it', dvi:'Thích cái vụ này',   den:'Love the energy' },
-  { e:'😱', vi:'Bất ngờ',   en:'Whoa',     dvi:'Hơi nhiều đấy',         den:'That’s a lot' },
-  { e:'🤨', vi:'Nghĩ đã',   en:'Hmm',      dvi:'Bàn thêm chút nha',     den:'Let’s talk first' },
-  { e:'😤', vi:'Chưa nên',  en:'Not now',  dvi:'Chưa hợp lúc này',      den:'Not right now' }
-];}
-function _reqCfg(e){ var a=_reqReviewSet(); for(var i=0;i<a.length;i++){ if(a[i].e===e) return a[i]; } return a[0]; }
-
-/* ---- request lists (a future expense == a request) ---- */
-function _reqAll(){ return (window.txns||[]).filter(function(t){ return t.future; }); }
-function reqIncoming(){ var me=_reqMe(); return _reqAll().filter(function(t){ return (t.by||'')!==me && !futureAligned(t); }); }
-function reqMine(){ var me=_reqMe(); return _reqAll().filter(function(t){ return (t.by||'')===me; }); }
-function _reqMyReaction(t){ var me=_reqMe(); var r=(t.reviews||[]).filter(function(x){ return (x.by||'')===me; })[0]; return r?r.emoji:null; }
-function _alignedBy(t){
-  var r=(t.reviews||[]).filter(function(x){ return x.emoji==='🥰'; })[0];
-  var nm=r?_firstNm(r.byName||r.by):L('Ai đó','Someone');
-  return '✓ '+esc(nm)+' '+L('đã đồng ý · đã để dành','is in · set aside');
-}
 function _reqSafeAfter(t){
   var m=(typeof M==='function')?M():null; if(!m||!m.budget) return null;
   var safe=Math.max(0, m.budget - m.spent - monthReserved());
   return Math.max(0, safe - (t.amt||0));   // aligning would reserve t.amt
 }
+function _reqStatusLine(t){
+  var rs=_futReviews(t);
+  if(futureAligned(t)){
+    var a=null; for(var i=0;i<rs.length;i++){ if(rs[i].emoji==='🥰'){ a=rs[i]; break; } }
+    return '<span class="req-status ok">'+(a?a.emoji:'🥰')+' '+esc(_reqName(_memName(a&&a.by)|| (a&&a.byName)))+' '+L('đã đồng ý · đã để dành','is in · set aside')+'</span>';
+  }
+  if(rs.length){ var r=rs[rs.length-1];
+    return '<span class="req-status hold">'+r.emoji+' '+esc(_reqName(_memName(r.by)||r.byName))+' '+L('vừa phản hồi','responded')+'</span>'; }
+  return '<span class="req-status wait">'+L('Đang chờ cả nhà duyệt','Waiting for the family')+'</span>';
+}
+
+/* ---- request lists (a future expense == a request) ---- */
+function _reqAll(){ return (window.txns||[]).filter(function(t){ return t.future; }); }
+function reqIncoming(){ return _reqAll().filter(function(t){ return !_isMyReq(t) && futurePending(t); }); }
+function reqMine(){ return _reqAll().filter(function(t){ return _isMyReq(t); }); }
 
 /* demo seed: a couple of incoming requests so the loop is visible signed-out.
    Live mode gets its requests from real data, so it never seeds. Runs once. */
@@ -5597,21 +5626,28 @@ function _reqEnsureSeed(){
   txns.unshift(mk('James', L('Vé xem bóng cuối tuần','Weekend match tickets'), 'Fun', 80, 5));
 }
 
-/* ---- widget (Home + Finance) — only shows when something is waiting on me ---- */
+/* ---- the card — one design everywhere (widget · hub · both lanes), matching the
+   Phòng khách card language (avatar → body → chevron, neutral surface) ---- */
+function _reqCard(t, incoming){
+  if(incoming){
+    var nm=_reqName(_futCreatorName(t));
+    return '<button class="req-card" onclick="openReview(\''+t.id+'\')">'+_reqAvOf(t)
+      +'<span class="req-cb"><span class="req-ct">'+esc(nm)+' '+L('muốn để dành','wants to set aside')+'</span>'
+      +'<span class="req-cs">'+esc(t.note)+' · '+_catLabel(t.cat)+' · '+_reqDate(t)+'</span></span>'
+      +'<span class="req-amt num">'+fmt(t.amt)+'</span>'+_reqChev()+'</button>';
+  }
+  // my own request → a read-only follow card (tap = follow the decisions, never decide)
+  return '<button class="req-card" onclick="openReview(\''+t.id+'\')">'+_reqAvOf(t)
+    +'<span class="req-cb"><span class="req-ct">'+esc(t.note)+' · '+fmt(t.amt)+'</span>'
+    +_reqStatusLine(t)+'</span>'+_reqChev()+'</button>';
+}
+
+/* ---- widget (Home + Finance) — section header + card list, like the reactions strip ---- */
 function requestsWidgetHTML(){
   _reqEnsureSeed();
   var inc=reqIncoming(); if(!inc.length) return '';
-  var rows=inc.slice(0,2).map(function(t){
-    return '<button class="req-wrow" onclick="openReview(\''+t.id+'\')">'+_reqAv(t.by)
-      +'<span class="req-wrb"><span class="req-wrt">'+esc(_firstNm(t.by))+' '+L('muốn để dành','wants to set aside')+'</span>'
-      +'<span class="req-wrs">'+esc(t.note)+' · '+_catLabel(t.cat)+'</span></span>'
-      +'<span class="req-wamt num">'+fmt(t.amt)+'</span>'+_reqChev()+'</button>';
-  }).join('');
-  var more=inc.length>2 ? '<button class="req-wmore" onclick="openRequests()">'+L('+ '+(inc.length-2)+' yêu cầu khác','+ '+(inc.length-2)+' more')+'</button>' : '';
-  return '<div class="req-widget">'
-    +'<div class="req-wh"><div class="req-wh-l"><span class="req-wh-t">'+L('Cần bạn duyệt','Needs your OK')+'</span><span class="req-badge">'+inc.length+'</span></div>'
-    +'<a class="req-wh-all" onclick="openRequests()">'+L('Xem tất cả','View all')+'</a></div>'
-    +'<div class="req-wrows">'+rows+more+'</div></div>';
+  var head=(typeof _sectionH==='function') ? _sectionH(L('Cần bạn duyệt','Waiting for your OK'), 'openRequests()', L('Xem tất cả','See all')) : '';
+  return head+'<div class="req-list">'+inc.slice(0,3).map(function(t){ return _reqCard(t,true); }).join('')+'</div>';
 }
 window.requestsWidgetHTML=requestsWidgetHTML;
 function renderReqMounts(){ var el=document.getElementById('fin-requests'); if(el) el.innerHTML=requestsWidgetHTML(); }
@@ -5627,41 +5663,26 @@ function openRequests(){
 window.openRequests=openRequests;
 function closeRequests(){ document.getElementById('requests-overlay').classList.remove('on'); }
 window.closeRequests=closeRequests;
-function _reqCard(t, actionable){
-  var av=_reqAv(t.by), amt=fmt(t.amt);
-  if(actionable){
-    return '<button class="req-card" onclick="openReview(\''+t.id+'\')">'+av
-      +'<span class="req-cb"><span class="req-ct">'+esc(_firstNm(t.by))+' '+L('muốn để dành','wants to set aside')+'</span>'
-      +'<span class="req-cs">'+esc(t.note)+' · '+_catLabel(t.cat)+' · '+_reqDate(t)+'</span></span>'
-      +'<span class="req-camt num">'+amt+'</span>'+_reqChev()+'</button>';
-  }
-  var st = futureAligned(t)
-    ? '<span class="req-status ok">'+_alignedBy(t)+'</span>'
-    : '<span class="req-status wait">'+L('Đang chờ cả nhà đồng ý','Waiting for the family')+'</span>';
-  return '<div class="req-card static">'+av
-    +'<span class="req-cb"><span class="req-ct">'+esc(t.note)+'</span>'
-    +'<span class="req-cs">'+_catLabel(t.cat)+' · '+_reqDate(t)+'</span>'+st+'</span>'
-    +'<span class="req-camt num">'+amt+'</span></div>';
-}
 function renderRequests(){
   _reqEnsureSeed();
   var box=document.getElementById('requests-body'); if(!box) return;
   var inc=reqIncoming(), mine=reqMine(), html='';
   html+='<div class="req-lane-h">'+L('Chờ bạn duyệt','Waiting for you')+' · '+inc.length+'</div>';
-  html+= inc.length ? inc.map(function(t){ return _reqCard(t,true); }).join('')
+  html+= inc.length ? '<div class="req-list">'+inc.map(function(t){ return _reqCard(t,true); }).join('')+'</div>'
                     : '<div class="req-empty">'+L('Không có yêu cầu nào đang chờ bạn.','Nothing waiting on you.')+'</div>';
-  html+='<div class="req-lane-h" style="margin-top:22px">'+L('Yêu cầu của bạn','Your requests')+' · '+mine.length+'</div>';
-  html+= mine.length ? mine.map(function(t){ return _reqCard(t,false); }).join('')
+  html+='<div class="req-lane-h" style="margin-top:24px">'+L('Yêu cầu của bạn','Your requests')+' · '+mine.length+'</div>';
+  html+= mine.length ? '<div class="req-list">'+mine.map(function(t){ return _reqCard(t,false); }).join('')+'</div>'
                      : '<div class="req-empty">'+L('Bạn chưa gửi yêu cầu nào.','You haven’t sent any yet.')+'</div>';
   box.innerHTML=html;
 }
 window.renderRequests=renderRequests;
 
-/* ---- review one request — the ledger reactions as vertical rows ---- */
+/* ---- open a request: reviewers DECIDE, the requester only FOLLOWS ---- */
 function openReview(id){
+  var t=(typeof txById==='function')?txById(id):null; if(!t) return;
   window._reviewId=id;
   renderReview(id);
-  var t=document.getElementById('rv-title'); if(t) t.textContent=L('Xem lại','Review');
+  var mine=_isMyReq(t), ttl=document.getElementById('rv-title'); if(ttl) ttl.textContent = mine ? L('Yêu cầu của bạn','Your request') : L('Xem lại','Review');
   document.getElementById('scrim').classList.add('on');
   var m=document.getElementById('review-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
   var b=m.querySelector('.modal-body'); if(b) b.scrollTop=0;
@@ -5673,21 +5694,43 @@ function closeReview(){
   if(!(ov && ov.classList.contains('on'))){ var s=document.getElementById('scrim'); if(s) s.classList.remove('on'); }
 }
 window.closeReview=closeReview;
-function renderReview(id){
-  var t=(typeof txById==='function')?txById(id):null; if(!t){ closeReview(); return; }
-  var box=document.getElementById('review-body'); if(!box) return;
-  var safe=_reqSafeAfter(t);
+function _reqPlanHead(t){
+  var safe=_reqSafeAfter(t), nm=_reqName(_futCreatorName(t));
   var impact = safe!=null ? '<div class="rv-impact">'+L('Còn ','Leaves ')+'<b>'+fmt(safe)+'</b> '+L('an toàn để tiêu sau khoản này','safe to spend after this')+'</div>' : '';
-  var head='<div class="rv-plan">'
-    +'<div class="rv-top">'+_reqAv(t.by,'lg')
-      +'<div class="rv-tb"><div class="rv-t">'+esc(_firstNm(t.by))+' '+L('muốn để dành','wants to set aside')+'</div>'
+  return '<div class="rv-plan">'
+    +'<div class="rv-top">'+_reqAvOf(t,'lg')
+      +'<div class="rv-tb"><div class="rv-t">'+esc(nm)+' '+L('muốn để dành','wants to set aside')+'</div>'
       +'<div class="rv-s">'+L('cho một dự định sắp tới','for an upcoming plan')+'</div></div>'
       +'<div class="rv-amt num">'+fmt(t.amt)+'</div></div>'
     +'<div class="rv-note">'+(t.ico||'📅')+' '+esc(t.note)+' · '+_catLabel(t.cat)+' · '+_reqDate(t)+'</div>'
     +impact+'</div>';
-  var mine=_reqMyReaction(t);
+}
+function renderReview(id){
+  var t=(typeof txById==='function')?txById(id):null; if(!t){ closeReview(); return; }
+  var box=document.getElementById('review-body'); if(!box) return;
+  var head=_reqPlanHead(t);
+
+  if(_isMyReq(t)){   // ---- FOLLOW view: the requester watches, can't decide ----
+    var rs=_futReviews(t);
+    var banner = futureAligned(t)
+      ? '<div class="rv-follow ok">✓ '+L('Đã được duyệt · đã để dành','Aligned · set aside')+'</div>'
+      : '<div class="rv-follow wait">'+L('Đang chờ ít nhất 1 người trong nhà đồng ý','Waiting for one family member to agree')+'</div>';
+    var list = rs.length
+      ? '<div class="rv-revs">'+rs.slice().sort(function(a,b){ return (a.at<b.at)?1:-1; }).map(function(r){
+          return '<div class="rv-rev"><span class="rv-rev-e">'+r.emoji+'</span>'
+            +'<span class="rv-rev-b"><span class="rv-rev-n">'+esc(_reqName(_memName(r.by)||r.byName))+'</span>'
+            +'<span class="rv-rev-l">'+_reqReactLabel(r.emoji)+'</span></span></div>';
+        }).join('')+'</div>'
+      : '<div class="rv-empty">'+L('Chưa có ai phản hồi. Cả nhà sẽ được nhắc nhẹ nhé.','No responses yet — the family has been nudged.')+'</div>';
+    box.innerHTML=head+banner+'<div class="rv-prompt">'+L('Phản hồi từ cả nhà','From the family')+'</div>'+list;
+    return;
+  }
+
+  // ---- DECIDE view: the ledger reactions as vertical rows ----
+  var meId=_futMeId(), myPick=null;
+  _futReviews(t).forEach(function(r){ if(r.by===meId) myPick=r.emoji; });
   var rows=_reqReviewSet().map(function(o){
-    var yes=(o.e==='🥰'), on=(mine===o.e);
+    var yes=(o.e==='🥰'), on=(myPick===o.e);
     return '<button class="rv-opt'+(yes?' yes':'')+(on?' on':'')+'" onclick="submitReview(\''+t.id+'\',\''+o.e+'\')">'
       +'<span class="rv-e">'+o.e+'</span>'
       +'<span class="rv-ob"><span class="rv-on">'+esc(L(o.vi,o.en))+'</span><span class="rv-od">'+esc(L(o.dvi,o.den))+'</span></span>'
@@ -5698,27 +5741,67 @@ function renderReview(id){
 }
 window.renderReview=renderReview;
 
-/* throw a review reaction · 🥰 aligns (sets it aside), the rest stay pending */
+/* throw a review reaction · 🥰 aligns (sets it aside), the rest stay pending.
+   Persists through the reactions table (fhReact) so it syncs to every device. */
 function submitReview(id, emoji){
   var t=(typeof txById==='function')?txById(id):null; if(!t){ closeReview(); return; }
-  var me=_reqMe();
-  t.reviews=(t.reviews||[]).filter(function(r){ return (r.by||'')!==me; });   // replace my prior take
-  t.reviews.push({ emoji:emoji, by:me, byName:me, at:new Date().toISOString() });
-  if(t._dbId && typeof window.fhReact==='function'){ try{ window.fhReact(t._dbId, emoji); }catch(e){} }   // persist + sync when live
+  if(_isMyReq(t)){ closeReview(); return; }   // guard: a requester can never decide their own
+  var me=_futMeId();
+  var mine=(t.reviews||[]).filter(function(r){ return (r.by||'')!==me; });   // replace my prior take
+  mine.push({ emoji:emoji, by:me, byName:_memName(me)||(typeof _meName==='function'?_meName():''), at:new Date().toISOString() });
+  t.reviews=mine;                                                            // optimistic (hydrate re-derives from reactions)
+  if(t._dbId && typeof window.fhReact==='function'){ try{ window.fhReact(t._dbId, emoji); }catch(e){} }
   var aligned=(emoji==='🥰');
   closeReview();
   try{ if(typeof renderTxns==='function') renderTxns(); }catch(e){}
   selMonth=curMonthKey();
   try{ if(typeof renderAll==='function') renderAll(); }catch(e){}
   try{ var ov=document.getElementById('requests-overlay'); if(ov && ov.classList.contains('on')) renderRequests(); }catch(e){}
+  var nm=_reqName(_futCreatorName(t));
   if(aligned){
     if(typeof floatEmojis==='function') floatEmojis('🥰');
-    toast(L('Đã đồng ý · để dành '+fmt(t.amt)+' cho '+_firstNm(t.by), 'You’re in · '+fmt(t.amt)+' set aside for '+_firstNm(t.by)));
+    toast(L('Đã đồng ý · để dành '+fmt(t.amt)+' cho '+nm, 'You’re in · '+fmt(t.amt)+' set aside for '+nm));
   } else {
-    toast(L('Đã gửi cảm nhận cho '+_firstNm(t.by), 'Sent your take to '+_firstNm(t.by)));
+    toast(L('Đã gửi cảm nhận cho '+nm, 'Sent your take to '+nm));
   }
 }
 window.submitReview=submitReview;
+
+/* ---- arrival: a decision landed on MY request — its OWN confetti + toast,
+   distinct from the ledger-reaction arrival. Watermark-gated, plays on hydrate. ---- */
+function _reqSeen(){ try{ return localStorage.getItem('fh-req-seen')||''; }catch(e){ return ''; } }
+function _reqSetSeen(v){ try{ if(v) localStorage.setItem('fh-req-seen', v); }catch(e){} }
+function reqCheckArrivals(){
+  var me=_futMeId(); if(!me || document.hidden) return;
+  var got=[];
+  _reqAll().forEach(function(t){
+    if(!_isMyReq(t)) return;
+    _futReviews(t).forEach(function(r){ if(r.by!==me && r.at) got.push({ t:t, r:r }); });
+  });
+  if(!got.length) return;
+  var maxAt=got.reduce(function(m,e){ return e.r.at>m?e.r.at:m; }, '');
+  var seen=_reqSeen();
+  if(!seen){ _reqSetSeen(maxAt); return; }                 // seed the watermark, don't replay history
+  var fresh=got.filter(function(e){ return e.r.at>seen; });
+  if(!fresh.length) return;
+  _reqSetSeen(maxAt);
+  fresh.sort(function(a,b){ return (a.r.at<b.r.at)?1:-1; });
+  var lead=fresh[0], nm=_reqName(_memName(lead.r.by)||lead.r.byName), aligned=(lead.r.emoji==='🥰');
+  if(typeof floatEmojis==='function') floatEmojis(lead.r.emoji);
+  if(typeof toast==='function'){
+    if(aligned) toast(L(nm+' đã đồng ý · đã để dành '+fmt(lead.t.amt), nm+' is in · '+fmt(lead.t.amt)+' set aside'));
+    else toast(L(nm+' vừa phản hồi khoản “'+lead.t.note+'”', nm+' responded to “'+lead.t.note+'”'));
+  }
+}
+window.reqCheckArrivals=reqCheckArrivals;
+
+/* run after every hydrate: refresh the mounts + hub, then play any just-arrived decision */
+function reqAfterHydrate(){
+  try{ renderReqMounts(); }catch(e){}
+  try{ var ov=document.getElementById('requests-overlay'); if(ov && ov.classList.contains('on')) renderRequests(); }catch(e){}
+  try{ reqCheckArrivals(); }catch(e){}
+}
+window.reqAfterHydrate=reqAfterHydrate;
 
 /* ---------- events fund/create ---------- */
 var CIRC=496.4, curEvent='japan';
@@ -7279,6 +7362,7 @@ if('serviceWorker' in navigator){
         if (typeof window.renderHome === 'function') window.renderHome();
       } catch (e) { window.memberWeather = window.memberWeather || {}; }
       try { if (window.rxAfterHydrate) window.rxAfterHydrate(); } catch (e) {}   // reactions: refresh the wall + play any just-arrived reaction moment
+      try { if (window.reqAfterHydrate) window.reqAfterHydrate(); } catch (e) {}   // future-expense requests: refresh mounts/hub + play any just-arrived decision
       window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
       if (window.fhSaveSnapshot) window.fhSaveSnapshot();   // cache it for the next cold start
       return true;
