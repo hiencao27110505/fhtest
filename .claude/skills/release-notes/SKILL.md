@@ -58,17 +58,47 @@ Prepend to the `RELEASES` array (newest first). Shape:
 - **`problem`**: the pain in the **user's own POV** — what wasn't working / was annoying, before.
 - **`sol`**: what changed now. `problem` + `sol` render as ONE paragraph.
 
-### 5. Voice rules — write like a person, not a changelog robot
-The whole point is copy that does NOT read as AI-generated. Hard rules:
-- **No em-dashes (—)** anywhere. This app deliberately removed them. Use commas or two sentences.
-- **No semicolons** in the prose.
-- **Do not** repeat the same "Problem. Giờ solution." template across every note — vary the
-  opening and rhythm so ten notes don't read as one mail-merge.
-- No marketing gloss ("seamless", "effortless", "delight", "elevate", "at a glance"), no ellipses,
-  no cute filler ("and all").
-- Vietnamese: warm, casual, family-texting tone, **full diacritics always**. English: plain, calm.
-- Also avoid the momo `feedback_ai_tell_phrases` consultant-ese.
-- Sanity check: read the ten descriptions aloud. If they sound like a template, rewrite.
+### 5. Copywriting rule — write like a person, not a changelog robot
+The single most important thing: the copy must NOT read as AI-generated. Each note should sound
+like one of the founders typing a quick line to their family. This is a rule, not optional polish.
+
+**Mechanics (hard):**
+- No em-dashes (—) or en-dashes (–) anywhere. This app deliberately removed them. Use a comma, a
+  full stop, or two sentences.
+- No semicolons in the prose. No ellipses (…). No exclamation-mark hype.
+- One or two short sentences per description.
+- Do not reuse the same "Vấn đề. Giờ giải pháp." skeleton on every note. Vary how each one opens
+  and where the "now" lands, so ten notes do not read like one mail-merge.
+
+**Banned phrases — English** (marketing / AI tells, never use):
+seamless, effortless(ly), delight(ful), elevate, unlock, empower, streamline, supercharge, revamp,
+"at a glance", "with just a tap / one tap" as filler, "say goodbye to", "we're excited/thrilled to",
+"introducing", "take X to the next level", "game changer", "a whole new way to", "and all", "no more X".
+
+**Banned phrases — Vietnamese** (translated / corporate tells, never use):
+"trải nghiệm liền mạch", "liền mạch", "tối ưu (hoá)", "nâng tầm", "giải pháp toàn diện",
+"một cách dễ dàng", "dễ dàng hơn bao giờ hết", "giờ đây bạn có thể", "chúng tôi rất vui / hân hạnh",
+"đơn giản hoá", "mượt mà" (as gloss), "cải tiến vượt trội".
+
+**Write instead:** warm, casual, family-texting Vietnamese with full diacritics ("tụi mình",
+"nhà mình", "cho gọn", "kể tụi mình nghe"); plain, calm English. State the concrete before/after in
+ordinary words.
+
+**Good vs bad:**
+- Bad VI: "Giờ đây bạn có thể dễ dàng theo dõi chi tiêu một cách liền mạch."
+- Good VI: "Trước hơi khó nhìn ra tháng này tiền chia cho những khoản nào. Giờ có vòng phân bổ cho thấy từng nhóm."
+- Bad EN: "Introducing a seamless new way to react to spending, delightful and effortless!"
+- Good EN: "Before, when someone spent money the rest of you could only look at it. Now you can drop a heart on it and they see it right away."
+
+**Verify before applying** — scan only the copy fields (`t` / `problem` / `sol`), not the code,
+so semicolons and dashes are caught in the prose alone. Zero matches required:
+```
+grep -nE "(t|problem|sol):'" src/js-ui/90-release-notes.js \
+  | grep -E "—|–|;|seamless|effortless|delight|elevate|unlock|empower|streamline|at a glance|liền mạch|tối ưu|nâng tầm|giờ đây bạn có thể|chúng tôi rất|một cách dễ dàng"
+```
+If anything matches, rewrite that note. Then read the descriptions aloud once; if any sounds like a
+template, rewrite it too. (If you happen to have the momo `feedback_ai_tell_phrases` table on hand,
+apply it as an extra pass, but this skill does not depend on it.)
 
 The panel shows `date · time · ver` under each title, a "You're on version vNNN" line (the running
 build, injected into the app by `build.js` from `sw.js`), and a prompt that opens the feedback
