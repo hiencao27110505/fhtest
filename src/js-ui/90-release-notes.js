@@ -39,6 +39,14 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-08-01-house', date:'2026-08-01', time:'19:44', ver:'v236', icon:ICO.house,
+    vi:{ t:'Sửa sang ngôi nhà của nhà mình',
+      problem:'Ngôi nhà trên màn hình chính bấy lâu ai cũng giống ai, muốn đổi chút cho ra chất nhà mình cũng chịu.',
+      sol:'Giờ mở "Chăm chút tổ ấm" là chọn được kiểu nhà, cây trước sân với một bạn thú cưng. Cả nhà thấy chung một cảnh, và cảnh đổi theo sáng trưa chiều tối.' },
+    en:{ t:'Make the house your own',
+      problem:'The house on your home screen looked the same for every family, with no way to make it feel like yours.',
+      sol:'Now open "Chăm chút tổ ấm" to pick a house style, a tree out front, and a pet. Everyone sees the same yard, and it shifts from morning to night.' } },
+
   { id:'2026-08-01-future', date:'2026-08-01', time:'13:42', ver:'v226', icon:ICO.calendar,
     vi:{ t:'Xem trước các khoản sắp chi, cả nhà cùng thấy',
       problem:'Mấy khoản sắp phải chi hay chỉ nằm trong đầu một người trong nhà.',
