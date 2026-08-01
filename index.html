@@ -5992,6 +5992,14 @@ function _reqItems(){
 }
 function reqIncoming(){ var me=_futMeId(); return _reqItems().filter(function(i){ return i.creatorId!==me && _entPending(i); }); }
 function reqMine(){ var me=_futMeId(); return _reqItems().filter(function(i){ return i.creatorId===me; }); }
+// Everything still awaiting alignment — mine to follow + others' to review — so BOTH
+// roles have one visible home for pending expenses, goals and occasions. Actionable
+// (others') first, my own (follow-only) after.
+function reqPendingAll(){
+  var me=_futMeId();
+  return _reqItems().filter(function(i){ return _entPending(i); })
+    .sort(function(a,b){ return ((a.creatorId===me)?1:0) - ((b.creatorId===me)?1:0); });
+}
 
 /* demo seed (signed-out preview only): a couple of incoming expense requests. */
 function _reqEnsureSeed(){
@@ -6037,9 +6045,11 @@ function _reqCard(item, incoming){
 
 /* ---- widget (Home + Finance) ---- */
 function requestsWidgetHTML(){
-  var inc=reqIncoming(); if(!inc.length) return '';
-  var head=(typeof _sectionH==='function') ? _sectionH(L('Cần bạn duyệt','Waiting for your OK'), 'openRequests()', L('Xem tất cả','See all')) : '';
-  return head+'<div class="req-list">'+inc.slice(0,3).map(function(i){ return _reqCard(i,true); }).join('')+'</div>';
+  var items=reqPendingAll(); if(!items.length) return '';
+  var me=_futMeId();
+  var head=(typeof _sectionH==='function') ? _sectionH(L('Cả nhà cùng duyệt','Waiting for the family')+' · '+items.length, 'openRequests()', L('Xem tất cả','See all')) : '';
+  // others' → review card; my own → follow card (title + status)
+  return head+'<div class="req-list">'+items.slice(0,4).map(function(i){ return _reqCard(i, i.creatorId!==me); }).join('')+'</div>';
 }
 window.requestsWidgetHTML=requestsWidgetHTML;
 function renderReqMounts(){ var el=document.getElementById('fin-requests'); if(el) el.innerHTML=requestsWidgetHTML(); }
