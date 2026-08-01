@@ -97,13 +97,24 @@
       const _evCb = e._srcTxn ? null : (e._createdBy != null ? e._createdBy : ((window.DB && window.DB.ownerMemberId) || null));
       const row = { family_id: fid, name: e.name, emoji: e.emoji, cover: e.cov, target_amount: e.target, target_date: iso, achieved: !!e.achieved, sort_order: 0, created_by: _evCb };
 
-      /* A mirror event belongs to its transaction. Upserting on source_txn_id
-         means a re-sync that lost the local link can't create a second one —
-         and the partial unique index backs that up at the database level. */
+      /* A mirror event belongs to its transaction. Looking the live mirror up by
+         source_txn_id (rather than a re-insert) means a re-sync that lost the
+         local link can't create a second one.
+         This used to be sb.upsert(row, {onConflict:'source_txn_id'}), which reads as
+         equivalent but silently dropped EVERY mirror-event write: the uniqueness on
+         source_txn_id is a PARTIAL index (WHERE archived_at IS NULL, so an archived
+         mirror frees the slot for a new one), and Postgres can't match a plain
+         ON CONFLICT(source_txn_id) to a partial index — it throws 42P10 ("no unique
+         or exclusion constraint matching"), which the catch below swallowed. Selecting
+         the live row explicitly and updating/inserting by hand sidesteps that entirely. */
       let res;
       if (e._srcTxn) {
         row.source_txn_id = e._srcTxn;
-        res = await sb.from('events').upsert(row, { onConflict: 'source_txn_id' }).select('id').single();
+        const existing = await sb.from('events').select('id').eq('source_txn_id', e._srcTxn).is('archived_at', null).maybeSingle();
+        if (existing.error) throw existing.error;
+        res = existing.data
+          ? await sb.from('events').update(row).eq('id', existing.data.id).select('id').single()
+          : await sb.from('events').insert(row).select('id').single();
       } else {
         res = await sb.from('events').insert(row).select('id').single();
       }

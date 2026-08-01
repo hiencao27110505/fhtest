@@ -58,7 +58,11 @@
    memory (no shadow). So the rail reads future(hollow) → past(filled) → add(hollow). */
 .tl-plan-card{border:1.5px solid var(--brand-2);box-shadow:none}
 .tl-plan-card:active{border-color:var(--brand);background:var(--brand-tint)}
+.tl-plan-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .tl-wait{font-size:13px;font-weight:500;letter-spacing:-.01em;color:var(--muted);margin-top:3px}
+/* A photo added ahead of the day itself — right-aligned next to the countdown so the
+   plan-card layout (emoji/name row + status line) stays intact, just gains a preview. */
+.tl-plan-thumb{width:34px;height:34px;border-radius:9px;flex-shrink:0;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff}
 /* Nearest upcoming plan — the one about to tip from "future" into "past" — earns a
    subtle flag: solid brand border (vs the default brand-2) + a small outline flag icon,
    no fill, so it draws the eye without shouting. */

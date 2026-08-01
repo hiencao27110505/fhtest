@@ -116,12 +116,18 @@ function renderEvents(){
     var e=events[k], dl=daysLeft(e.d), flagged=(k===nearestKey);
     var wait = dl===0 ? L('Hôm nay rồi','The day is here')
              : dl===1 ? L('Ngày mai','Tomorrow')
-             : L('Sắp diễn ra','Coming up');
+             : L('Diễn ra trong '+dl+' ngày nữa','In '+dl+' days');
+    // A photo already on a planned occasion (added ahead of the day itself) makes the
+    // anticipation concrete — a small thumb sits right-aligned next to the countdown.
+    var m=(e.memories&&e.memories[0])||null;
+    var thumb = m ? (m.src
+      ? '<div class="tl-plan-thumb" style="background-image:url('+m.src+')"></div>'
+      : '<div class="tl-plan-thumb '+esc(m.cls||'ph-park')+'">'+esc(m.emoji||e.emoji)+'</div>') : '';
     return '<div class="tl-card tl-plan-card'+(flagged?' tl-flagged':'')+'" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'
       +'<div class="tl-top"><span class="tl-emoji">'+esc(e.emoji)+'</span><span class="tl-name">'+esc(e.name)+'</span>'
         +(flagged?'<svg class="tl-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3v18"/><path d="M6 4h12l-3 4 3 4H6"/></svg>':'')
       +'</div>'
-      +'<div class="tl-wait">'+wait+'</div>'
+      +'<div class="tl-plan-row"><div class="tl-wait">'+wait+'</div>'+thumb+'</div>'
     +'</div>';
   }
   function futureDateCol(d){

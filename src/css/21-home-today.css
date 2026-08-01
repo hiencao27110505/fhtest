@@ -207,7 +207,15 @@
 .up-strip::after{content:'';flex:0 0 4px}
 .up-strip::-webkit-scrollbar{display:none}
 .up-strip .bigphoto{flex:0 0 208px;width:208px;height:256px;margin:0;min-height:0;scroll-snap-align:start;box-shadow:var(--shadow-card)}
-.up-strip .occ-card .bp-ph.occ{height:126px;flex-basis:126px}
+/* Nested one flex level deeper than the base .occ-card usage (card → horizontal scroll
+   strip), iOS Safari collapses the art band to zero height even with an explicit
+   flex-basis: it's a flex item whose own children are ALL position:absolute, and Safari's
+   auto-size pass fails to find any content to measure through the extra flex context. The
+   base rule's flex-basis fix doesn't reach far enough here — take the band out of flex
+   layout entirely (position:absolute, sized by its own height, never mind flex-basis) and
+   offset the caption below it with a plain margin instead. */
+.up-strip .occ-card .bp-ph.occ{position:absolute;top:0;left:0;right:0;height:126px}
+.up-strip .occ-card .bp-cap{margin-top:126px}
 .up-strip .bp-cap{padding:13px 15px 15px}
 .up-strip .bp-ti{font-size:19px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .up-strip .bp-eye{font-size:10.5px}

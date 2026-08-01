@@ -1,8 +1,11 @@
 /* ---------- memories photo calendar ---------- */
 var mcalY=null, mcalM=null;
 function memCalInit(){
-  var latest=null;
-  order.forEach(function(k){ var e=events[k]; if(e.memories&&e.memories.length){ if(!latest||e.d>latest)latest=e.d; } });
+  // Same unified source as renderMemCalendar's dots (buildMemRecords) — otherwise this
+  // lands on the month of the latest EVENT memory even when the real latest activity is
+  // an expense photo with no mirror event, opening the calendar on the wrong month.
+  buildMemRecords();
+  var latest=memRecords.length?memRecords[0].d:null;    // memRecords is newest-first
   var d=latest||TODAY; mcalY=d.getFullYear(); mcalM=d.getMonth();
 }
 function mcalNav(delta){ if(mcalY===null)memCalInit(); mcalM+=delta; if(mcalM<0){mcalM=11;mcalY--;} if(mcalM>11){mcalM=0;mcalY++;} mcalSel=null; renderMemCalendar(); renderMemoriesTab(); }
@@ -31,8 +34,17 @@ function renderMemCalendar(){
   setTxt('mcal-mon', fmtMonYear(mcalM, mcalY));
   var firstDow=new Date(mcalY,mcalM,1).getDay();
   var dim=new Date(mcalY,mcalM+1,0).getDate();
+  /* Dots come from the same unified source as the timeline/Album (buildMemRecords) —
+     every photographed moment, whether it hangs off an event or is an expense photo
+     with no mirror event — not just `events[k].memories`, which misses expense photos
+     whenever the (fragile) mirror-event write-through never created a linked event. */
+  buildMemRecords();
   var byDay={};
-  order.forEach(function(k){ var e=events[k]; if(e.memories&&e.memories.length&&e.d.getFullYear()===mcalY&&e.d.getMonth()===mcalM&&byDay[e.d.getDate()]===undefined){ byDay[e.d.getDate()]={m:e.memories[0],type:'event',ref:k}; } });
+  memRecords.forEach(function(r){
+    if(!r.d||r.d.getFullYear()!==mcalY||r.d.getMonth()!==mcalM) return;
+    var day=r.d.getDate();
+    if(byDay[day]===undefined) byDay[day]={m:{src:r.src,cls:r.cls,emoji:r.emoji}};
+  });
   var html='';
   (isVi()?['CN','2','3','4','5','6','7']:['S','M','T','W','T','F','S']).forEach(function(d){ html+='<div class="dow">'+d+'</div>'; });
   for(var i=0;i<firstDow;i++) html+='<div class="mcell mute"></div>';
