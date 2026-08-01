@@ -702,6 +702,11 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="modal-body">
     <div class="wn-intro" data-t="whatsNewSub">The latest updates for your family.</div>
     <div class="wn-list" id="whatsnew-list"></div>
+    <button class="suggest-foot wn-ask" onclick="closeModals();openSheet('sheet-suggest')">
+      <span class="sf-heart">💛</span>
+      <span class="sf-t" data-t="whatsNewAsk">Want it to do more? Tell us what you wish for.</span>
+    </button>
+    <div class="wn-cur"><span data-t="whatsNewCur">You're on version</span> <b id="wn-cur-ver">v0</b></div>
   </div>
 </div>
 

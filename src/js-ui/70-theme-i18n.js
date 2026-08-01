@@ -113,6 +113,7 @@ var EN_DEFAULT={
   /* shared buttons */
   cancel:'Cancel', save:'Save', add:'Add', done:'Done', create:'Create', send:'Send', back:'Back', close:'Close',
   setWhatsNew:"What's new", whatsNewTitle:"What's new", whatsNewSub:"The latest updates for your family.",
+  whatsNewAsk:"Wish it did something more? Tell us.", whatsNewCur:"You're on version",
   /* add sheet */
   addSheetTitle:'Add something', addSheetSub:'Log money, or save a moment.', grpFinance:'Finance', grpMoments:'Moments',
   qaExpenseT:'Log an expense', qaExpenseS:'Money you just spent',
@@ -218,6 +219,7 @@ var I18N={
     /* shared buttons */
     cancel:'Huỷ', save:'Lưu', add:'Thêm', done:'Xong', create:'Tạo', send:'Gửi', back:'Quay lại', close:'Đóng',
     setWhatsNew:'Có gì mới', whatsNewTitle:'Có gì mới', whatsNewSub:'Những cập nhật mới nhất cho nhà bạn.',
+    whatsNewAsk:'Mong app có thêm gì đó? Kể tụi mình nghe.', whatsNewCur:'Bạn đang dùng phiên bản',
     /* add sheet */
     addSheetTitle:'Thêm mới', addSheetSub:'Ghi lại tiền bạc, hoặc lưu một khoảnh khắc.', grpFinance:'Tài chính', grpMoments:'Khoảnh khắc',
     qaExpenseT:'Ghi khoản chi', qaExpenseS:'Khoản tiền vừa chi',

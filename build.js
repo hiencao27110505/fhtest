@@ -43,6 +43,12 @@ function build() {
     const body = concatDir(m.dir);
     html = html.replace(m.token, () => body); // function replacer: no $-pattern interpretation
   }
+  // Stamp the current build version (single source of truth = sw.js CACHE_NAME)
+  // into the app so "What's new" can show the version the user is running.
+  const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
+  const vm = sw.match(/familyhub-v(\d+)/);
+  const version = vm ? ('v' + vm[1]) : 'v0';
+  html = html.split('__FH_VERSION__').join(version);
   fs.writeFileSync(path.join(ROOT, 'index.html'), html);
   process.stdout.write('built index.html (' + Buffer.byteLength(html, 'utf8') + ' bytes)\n');
 }
