@@ -199,6 +199,88 @@ function mosaicHTML(items){
 function secHTML(titleHTML,count,mosaic){
   return '<div class="photo-sec"><div class="photo-sec-h"><div>'+titleHTML+'</div><div class="photo-sec-sub">'+count+' '+(isVi()?'ảnh':('photo'+(count!==1?'s':'')))+'</div></div>'+mosaic+'</div>';
 }
+/* ---------- reactions surfaced onto memories ----------
+   A photographed expense IS a memory (buildMemRecords step 3), and that same expense
+   already carries the family's reactions (t.reactions, keyed by _dbId in js-data).
+   So the emotion left on the ledger row is surfaced back onto the photo here — as a
+   passive cluster on the album block, and as a live react-list + bar in the memory
+   detail. Reuses the RX plumbing from 62-reactions.js (RX, rxMessage, _rxFace,
+   _rxMineOn, throwReaction). Only expense-backed memories have reactions; savings-goal
+   event memories have none (reactions are transaction-scoped), so memTxFor returns null. */
+function memTxFor(r){
+  if(!r || typeof txById!=='function') return null;
+  if(r.type==='expense') return txById(r.ref);
+  if(r.type==='event'){ var e=events[r.ref]; if(e && e.fromExpense) return txById(e.fromExpense); }   // safety: a mirror event's source expense
+  return null;
+}
+// Album block: a compact, non-interactive cluster over the photo — unique emojis +
+// up to 3 reactor faces (+N) — so the family's take reads while scrolling Khoảnh Khắc.
+function memRxClusterHTML(t){
+  var rs=t && t.reactions; if(!rs || !rs.length) return '';
+  var emos='', seen={};
+  rs.forEach(function(r){ if(!seen[r.emoji]){ seen[r.emoji]=1; emos+='<span class="pm-rx-e">'+r.emoji+'</span>'; } });
+  var faces='', sm={}, nExtra=0;
+  rs.forEach(function(r){ if(!sm[r.memberId]){ sm[r.memberId]=1; if(Object.keys(sm).length<=3) faces+=_rxFace(r.memberId); else nExtra++; } });
+  if(nExtra>0) faces+='<span class="rx-more">+'+nExtra+'</span>';
+  return '<div class="pm-rx"><span class="pm-rx-es">'+emos+'</span><span class="pm-rx-faces">'+faces+'</span></div>';
+}
+// Timeline card: the family's reactions seated under the photos — ONE row per reaction,
+// never grouped, because each member left their own emoji AND their own one-liner, and
+// folding them into a single "+N" line misattributes the copy. Newest first, each row is
+// the inline-chip language (.rx-chip: emoji + italic copy). Capped so a dense day-stack
+// stays even; the tapped card opens the memory detail with the full, un-capped list. */
+function memRxLineHTML(t){
+  var rs=(t && t.reactions)?t.reactions.slice():[]; if(!rs.length) return '';
+  rs.sort(function(a,b){ return a.at<b.at?1:a.at>b.at?-1:0; });   // newest first
+  var MAX=3, shown=rs.slice(0,MAX), extra=rs.length-shown.length;
+  var rows=shown.map(function(r){
+    return '<div class="tl-rx-row"><span class="tl-rx-e">'+r.emoji+'</span><span class="tl-rx-msg">'+rxMessage(r,t)+'</span></div>';
+  }).join('');
+  if(extra>0) rows+='<div class="tl-rx-more">'+L('còn '+extra+' cảm xúc nữa','+'+extra+' more')+'</div>';
+  return '<div class="tl-rx-list">'+rows+'</div>';
+}
+window.memRxLineHTML=memRxLineHTML;
+// Memory detail: the family's takes (newest first) + a react bar you can throw from
+// while looking at the photo. Mirrors _exdReactions (46/61) but scoped to the overlay.
+function memReactionsHTML(t){
+  var rs=(t.reactions||[]).slice();
+  var h='<div class="mo-rx-h">'+L('Cả nhà nói gì','Reactions')+(rs.length?' <span class="mo-rx-c">'+rs.length+'</span>':'')+'</div>';
+  if(rs.length){
+    rs.sort(function(a,b){ return a.at<b.at?1:a.at>b.at?-1:0; });
+    h+='<div class="mo-rx-list">'+rs.map(function(r){
+      return '<div class="exd-rx"><span class="exd-rx-e">'+r.emoji+'</span><span class="exd-rx-msg">'+rxMessage(r,t)+'</span>'+_rxFace(r.memberId)+'</div>';
+    }).join('')+'</div>';
+  } else {
+    h+='<div class="exd-rx-empty">'+L('Chưa có cảm xúc nào — thả một cái nào 👇','No reactions yet — leave one 👇')+'</div>';
+  }
+  if(t._dbId){
+    var mine=_rxMineOn(t._dbId);
+    h+='<div class="mo-rx-bar">'+RX.map(function(r){
+      return '<button class="exd-rx-bk'+(mine===r.e?' on':'')+'" onclick="memReact(\''+r.e+'\')" aria-label="'+escAttr(L(r.vi,r.en))+'">'+r.e+'</button>';
+    }).join('')+'</div>';
+  }
+  return h;
+}
+// Throw (or clear) a reaction on the memory currently open. throwReaction persists +
+// re-renders every reaction surface, including this overlay (renderMemoryIfOpen).
+function memReact(emoji){
+  var t=memTxFor(curMemory);
+  if(t && t._dbId && typeof throwReaction==='function') throwReaction(t._dbId, emoji);
+}
+window.memReact=memReact;
+// Re-render the open memory overlay after a reaction (local throw or one arrived over realtime).
+function renderMemoryIfOpen(){
+  var o=document.getElementById('memory-overlay'); if(!o || !o.classList.contains('on')) return;
+  if(curMemory) _renderMemoryDetail();
+}
+window.renderMemoryIfOpen=renderMemoryIfOpen;
+// Re-render the Khoảnh Khắc album if it's the visible tab, so its reaction clusters stay live.
+function renderMemoriesTabIfOpen(){
+  var v=document.getElementById('v-events'); if(!v || !v.classList.contains('on')) return;
+  if(typeof renderEvents==='function') renderEvents();          // refreshes both the timeline clusters and the album
+  else if(typeof renderMemoriesTab==='function') renderMemoriesTab();
+}
+window.renderMemoriesTabIfOpen=renderMemoriesTabIfOpen;
 // What an event actually cost, if anything was put toward it.
 function evAmount(e){ var v=(e.saved>0?e.saved:(e.target||0)); return v>0?v:0; }
 // A collage for one event, captioned on the photo (name + amount) — no sub-heading above it.
@@ -210,7 +292,7 @@ function evBlockHTML(items,k){
     cap='<div class="pm-cap"><div class="pm-cap-t">'+esc(e.emoji)+' '+esc(e.name)+'</div><div class="pm-cap-s">'+esc(sub)+'</div></div>';
   } else if(items[0] && items[0].type==='expense'){       // an expense: titled just like an event (emoji + note · amount · N photos)
     var r0=items[0], sub2=(r0.meta?r0.meta+' · ':'')+ct;
-    cap='<div class="pm-cap"><div class="pm-cap-t">'+esc(r0.emoji||'📸')+' '+esc(r0.cap||L('Khoản chi','Expense'))+'</div><div class="pm-cap-s">'+esc(sub2)+'</div></div>';
+    cap='<div class="pm-cap"><div class="pm-cap-t">'+esc(r0.emoji||'📸')+' '+esc(r0.cap||L('Khoản chi','Expense'))+'</div><div class="pm-cap-s">'+esc(sub2)+'</div>'+memRxClusterHTML(memTxFor(r0))+'</div>';
   }
   return '<div class="pm-block">'+mosaicHTML(items)+cap+'</div>';
 }
@@ -249,7 +331,7 @@ function photoSectionsByEvent(recs){
     if(g.type==='event'){ var e=events[g.ref];
       titleHTML='<button class="photo-sec-title" onclick="openEvent(&#39;'+escAttr(g.ref)+'&#39;)">'+esc(e.emoji)+' '+esc(e.name)+' ›</button>';
     } else { var r0=g.items[0];                            // an expense — title links to the expense
-      titleHTML='<button class="photo-sec-title" onclick="openEditExpense(&#39;'+escAttr(g.ref)+'&#39;)">'+esc(r0.emoji||'📸')+' '+esc(r0.cap||L('Khoản chi','Expense'))+' ›</button>';
+      titleHTML='<button class="photo-sec-title" onclick="openExpenseDetail(&#39;'+escAttr(g.ref)+'&#39;)">'+esc(r0.emoji||'📸')+' '+esc(r0.cap||L('Khoản chi','Expense'))+' ›</button>';
     }
     html+=secHTML(titleHTML, g.items.length, mosaicHTML(g.items));
   });
@@ -320,9 +402,13 @@ function _renderMemoryDetail(){
       : '<div class="subj">'+esc(m.emoji||'📸')+'</div>';
     return '<div class="'+cls+'"'+on+'>'+inner+'</div>';
   }).join('');
+  // Reactions block: the family's takes + a react bar, shown only for expense-backed
+  // memories (the ones that carry reactions). Populated above the deep-link action.
+  var rxBox=document.getElementById('mo-rx');
+  if(rxBox){ var mtx=memTxFor(r); rxBox.innerHTML=mtx?memReactionsHTML(mtx):''; rxBox.style.display=mtx?'':'none'; }
   var act=document.getElementById('mo-action'), chev=' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
-  if(r.type==='event' && ev && ev.fromExpense){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openEditExpense(\''+ev.fromExpense+'\')'); }
-  else if(r.type==='expense'){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openEditExpense(\''+r.ref+'\')'); }
+  if(r.type==='event' && ev && ev.fromExpense){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openExpenseDetail(\''+ev.fromExpense+'\')'); }
+  else if(r.type==='expense'){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openExpenseDetail(\''+r.ref+'\')'); }
   else { act.innerHTML=L('Mở sự kiện','Open event')+chev; act.setAttribute('onclick','closeMemory();openEvent(\''+r.ref+'\')'); }
 }
 function openMemoryByRef(type,ref){ for(var i=0;i<memRecords.length;i++){ if(memRecords[i].type===type&&memRecords[i].ref===ref){ openMemory(i); return; } } }

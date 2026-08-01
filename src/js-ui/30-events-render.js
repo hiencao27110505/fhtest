@@ -162,7 +162,10 @@ function renderEvents(){
     return '<div class="tl-card" onclick="'+tap+'"><div class="tl-top"><span class="tl-emoji">'+esc(e.emoji)+'</span><span class="tl-name">'+esc(e.name)+'</span></div>'+body+'</div>';
   }
   function expenseCard(t){    // one photo-expense = one memory card → the shared memory view
-    return '<div class="tl-card" onclick="openMemoryByRef(&#39;expense&#39;,&#39;'+escAttr(t.id)+'&#39;)"><div class="tl-top"><span class="tl-emoji">'+esc(t.ico||'📸')+'</span><span class="tl-name">'+esc(t.note||L('Khoản chi','Expense'))+'</span></div>'+photoStrip(t.photos, t.note)+'</div>';
+    // The same expense carries the family's reactions; a reaction line under the photos
+    // spells out the family's take (emoji + funny copy). Full list + react bar in the detail.
+    var rx=(typeof memRxLineHTML==='function')?memRxLineHTML(t):'';
+    return '<div class="tl-card" onclick="openMemoryByRef(&#39;expense&#39;,&#39;'+escAttr(t.id)+'&#39;)"><div class="tl-top"><span class="tl-emoji">'+esc(t.ico||'📸')+'</span><span class="tl-name">'+esc(t.note||L('Khoản chi','Expense'))+'</span></div>'+photoStrip(t.photos, t.note)+rx+'</div>';
   }
   var memNodes=[];
   upS.forEach(function(k){ memNodes.push({ d: events[k].d, card: planCard(k), future:true }); });

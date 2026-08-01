@@ -589,6 +589,15 @@ input{font-family:inherit}
 .tl-emoji{font-size:19px;flex-shrink:0}
 .tl-name{flex:1;min-width:0;font-family:var(--disp);font-weight:600;font-size:16px;letter-spacing:-.3px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tl-pct{font-size:13.5px;font-weight:600;letter-spacing:-.02em;color:var(--muted);flex-shrink:0}
+/* Reactions on a photo-expense timeline card — seated under the photos, divided by a
+   hairline. ONE row per reaction (never grouped): each member's own emoji + own copy, so
+   nothing is misattributed. Emoji carry the colour; the copy is the app's inline-chip voice
+   (italic, quiet), one line each so the rows stack evenly without a fill or a badge. */
+.tl-rx-list{margin-top:1px;padding-top:9px;border-top:1px solid var(--divider);display:flex;flex-direction:column;gap:5px}
+.tl-rx-row{display:flex;align-items:center;gap:6px;min-width:0}
+.tl-rx-e{font-size:14px;line-height:1;flex:0 0 auto;filter:drop-shadow(0 1px 1px rgba(25,16,34,.12))}
+.tl-rx-msg{flex:1;min-width:0;font-size:12.5px;font-style:italic;font-weight:500;color:var(--ink-2);letter-spacing:-.01em;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-rx-more{font-size:11.5px;font-weight:600;color:var(--chev);letter-spacing:-.01em;padding-left:20px}
 .tl-fig{font-size:13px;font-weight:500;letter-spacing:-.01em;color:var(--muted);margin-top:2px}
 .tl-fig b{color:var(--ink);font-weight:600}
 /* Fully-funded upcoming event: a celebratory "ready" state, not a 100% bar */
@@ -1061,6 +1070,66 @@ input{font-family:inherit}
 .ring-fig .big .t{color:var(--muted);font-weight:500;font-size:15px}
 .ring-fig .sub{font-size:14px;font-weight:500;letter-spacing:-.01em;color:var(--muted);margin-top:5px}
 
+/* ---- expense detail — the view-first screen a ledger tap lands on ----
+   Tapping a transaction no longer jumps straight into the editor. It lands here:
+   a focal read-out of the expense (icon · amount · note), a light meta list, any
+   photos, and the reactions the family left — Update (bottom CTA) + a low-prominence
+   Delete. Mirrors the cat-overlay composition (light header, cd-scroll, cd-cta-bar,
+   cd-listhead-row section heads) and reuses the reaction vocabulary from 47-reactions.css.
+   Stays inside the documented push-overlay band (45–49) so the scrim still dims it. */
+#exp-overlay{z-index:49}
+#exp-overlay .safe{height:max(env(safe-area-inset-top),16px)}
+
+/* focal block — the expense read large and centred (Wallet-style receipt read-out) */
+.exd-focal{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 24px 2px}
+.exd-ico{width:64px;height:64px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:32px;line-height:1}
+.exd-amt{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:700;font-size:44px;letter-spacing:-2px;color:var(--ink);margin-top:16px;line-height:1}
+.cur-vnd .exd-amt{font-size:34px;letter-spacing:-1.2px}
+.exd-note{font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink-2);margin-top:9px;overflow-wrap:anywhere}
+.exd-plan{display:inline-flex;align-items:center;gap:5px;margin-top:12px;background:var(--brand-tint);color:var(--brand-ink);border-radius:9999px;padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+
+/* meta list — one grouped white card, one fact per row (no colored fills) */
+.exd-meta{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:24px 16px 0;overflow:hidden}
+.exd-mrow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border-bottom:1px solid var(--divider)}
+.exd-mrow:last-child{border-bottom:none}
+.exd-ml{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:-.01em;flex:0 0 auto}
+.exd-mv{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;letter-spacing:-.02em;color:var(--ink);text-align:right;min-width:0;justify-content:flex-end}
+.exd-mv .exd-catico{font-size:16px;line-height:1}
+.exd-av{width:22px;height:22px;border-radius:50%;font-size:9.5px;font-weight:700;color:#fff;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+
+/* section head — mirrors cat-overlay's .cd-listhead-row (title + right-aligned count) */
+.exd-sec-h{display:flex;align-items:baseline;justify-content:space-between;margin:28px 20px 12px}
+.exd-sec-h .t{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:-.4px;color:var(--ink)}
+.exd-sec-h .c{font-size:14px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
+
+/* photos strip — vertical padding so the card shadow isn't clipped by overflow-x */
+.exd-photos{display:flex;gap:10px;overflow-x:auto;padding:2px 16px 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.exd-photos::-webkit-scrollbar{display:none}
+.exd-photo{flex:0 0 auto;width:122px;height:122px;border-radius:16px;background-size:cover;background-position:center;background-repeat:no-repeat;box-shadow:var(--shadow-card)}
+
+/* reactions — the family's takes, then a choice-chip react bar */
+.exd-rx-list{display:flex;flex-direction:column;gap:8px;margin:0 16px}
+.exd-rx{display:flex;align-items:center;gap:11px;background:var(--white);border-radius:14px;box-shadow:var(--shadow-card);padding:12px 14px}
+.exd-rx-e{font-size:22px;line-height:1;flex:0 0 auto;filter:drop-shadow(0 1px 2px rgba(25,16,34,.12))}
+.exd-rx-msg{flex:1;min-width:0;font-size:14px;font-weight:500;font-style:italic;color:var(--ink-2);letter-spacing:-.01em;line-height:1.3}
+.exd-rx .rx-av{width:26px;height:26px;font-size:11px;margin:0;box-shadow:none}
+.exd-rx-empty{margin:0 16px;padding:18px 16px;font-size:14px;font-weight:500;color:var(--muted);text-align:center;background:var(--white);border-radius:14px;box-shadow:var(--shadow-card)}
+/* the bar reuses the .choice-chip language: white, hairline border, selected = brand */
+.exd-rx-bar{display:flex;gap:6px;margin:12px 16px 0}
+.exd-rx-bk{flex:1;height:52px;border:1px solid var(--hairline);background:var(--white);border-radius:14px;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .12s ease,background .15s ease}
+.exd-rx-bk:active{transform:scale(1.12)}
+.exd-rx-bk.on{background:var(--brand-tint);border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}
+
+/* Delete — low-prominence muted text at the foot of the scroll, arm-then-confirm
+   (matches .ex-del: never a red button). Update is the single bottom-anchored CTA. */
+.exd-del{display:block;width:fit-content;margin:30px auto 6px;background:none;border:none;color:var(--muted);font-size:14px;font-weight:500;letter-spacing:-.01em;padding:8px 16px;cursor:pointer}
+.exd-del.armed{color:var(--danger);font-weight:700}
+.exd-del:active{opacity:.55}
+
+@media (prefers-reduced-motion:reduce){
+  .exd-rx-bk{transition:none}
+}
+
 /* ---- collaborative reactions ----
    Inline chip (A), the Phòng khách wall (B), the picker + arrival + burst (C).
    Emoji carry the colour; the surfaces stay neutral (no fills) per the design system,
@@ -1470,6 +1539,21 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .mem-full{position:relative;border-radius:18px;overflow:hidden;background:var(--canvas)}
 .mem-full img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;background:var(--surface)}
 .mem-full.tap:active{transform:scale(.985);transition:transform .12s}
+/* Reactions surfaced onto memories. Album cluster sits inside .pm-cap (over the photo,
+   white, non-interactive — the block itself opens the memory). */
+.pm-block .pm-rx{display:flex;align-items:center;gap:8px;margin-top:6px}
+.pm-block .pm-rx-es{display:inline-flex;gap:1px;font-size:14px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
+.pm-block .pm-rx-faces{display:inline-flex;align-items:center}
+.pm-block .pm-rx .rx-more{color:rgba(255,255,255,.96);margin-left:6px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+/* Memory detail reactions block — reuses the .exd-rx card / .exd-rx-bk bar look, with
+   its own containers so margins align to the .mo-body (22px) padding, not the 16px the
+   expense-detail containers assume. */
+.mo-rx{margin-top:22px;border-top:1px solid var(--divider);padding-top:18px}
+.mo-rx-h{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.02em;color:var(--ink);margin:0 0 12px}
+.mo-rx-c{color:var(--muted);font-weight:600}
+.mo-rx-list{display:flex;flex-direction:column;gap:8px}
+.mo-rx-bar{display:flex;gap:6px;margin-top:12px}
+.mo-rx .exd-rx-empty{margin:0}
 
 /* ---- photo peek ----
    One tap lifts the photo out and blurs everything behind it — the Safari
@@ -2033,7 +2117,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="ovnav"><button class="ovback" onclick="closeMemory()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="memories">Memories</span></button></div>
     <div class="mo-head"><div class="mo-cap" id="mo-cap"></div><div class="mo-meta" id="mo-meta"></div></div>
     <div class="mo-photos" id="mo-photo"></div>
-    <div class="mo-body"><button class="mo-action" id="mo-action"></button></div>
+    <div class="mo-body"><div class="mo-rx" id="mo-rx"></div><button class="mo-action" id="mo-action"></button></div>
   </div>
 </div>
 
@@ -2108,6 +2192,19 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div id="requests-body"></div>
     <div class="spacer"></div>
   </div>
+</div>
+
+<!-- EXPENSE DETAIL — view an expense + its reactions first; Update / Delete from here -->
+<div class="overlay" id="exp-overlay">
+  <div class="safe"></div>
+  <div class="cd-nav">
+    <button class="cd-back" onclick="closeExpenseDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="back">Back</span></button>
+  </div>
+  <div class="cd-scroll">
+    <div id="exd-body"></div>
+    <div class="spacer"></div>
+  </div>
+  <div class="cd-cta-bar" id="exd-cta"></div>
 </div>
 
 <!-- SCRIM + SHEETS -->
@@ -3858,7 +3955,10 @@ function renderEvents(){
     return '<div class="tl-card" onclick="'+tap+'"><div class="tl-top"><span class="tl-emoji">'+esc(e.emoji)+'</span><span class="tl-name">'+esc(e.name)+'</span></div>'+body+'</div>';
   }
   function expenseCard(t){    // one photo-expense = one memory card → the shared memory view
-    return '<div class="tl-card" onclick="openMemoryByRef(&#39;expense&#39;,&#39;'+escAttr(t.id)+'&#39;)"><div class="tl-top"><span class="tl-emoji">'+esc(t.ico||'📸')+'</span><span class="tl-name">'+esc(t.note||L('Khoản chi','Expense'))+'</span></div>'+photoStrip(t.photos, t.note)+'</div>';
+    // The same expense carries the family's reactions; a reaction line under the photos
+    // spells out the family's take (emoji + funny copy). Full list + react bar in the detail.
+    var rx=(typeof memRxLineHTML==='function')?memRxLineHTML(t):'';
+    return '<div class="tl-card" onclick="openMemoryByRef(&#39;expense&#39;,&#39;'+escAttr(t.id)+'&#39;)"><div class="tl-top"><span class="tl-emoji">'+esc(t.ico||'📸')+'</span><span class="tl-name">'+esc(t.note||L('Khoản chi','Expense'))+'</span></div>'+photoStrip(t.photos, t.note)+rx+'</div>';
   }
   var memNodes=[];
   upS.forEach(function(k){ memNodes.push({ d: events[k].d, card: planCard(k), future:true }); });
@@ -4186,6 +4286,88 @@ function mosaicHTML(items){
 function secHTML(titleHTML,count,mosaic){
   return '<div class="photo-sec"><div class="photo-sec-h"><div>'+titleHTML+'</div><div class="photo-sec-sub">'+count+' '+(isVi()?'ảnh':('photo'+(count!==1?'s':'')))+'</div></div>'+mosaic+'</div>';
 }
+/* ---------- reactions surfaced onto memories ----------
+   A photographed expense IS a memory (buildMemRecords step 3), and that same expense
+   already carries the family's reactions (t.reactions, keyed by _dbId in js-data).
+   So the emotion left on the ledger row is surfaced back onto the photo here — as a
+   passive cluster on the album block, and as a live react-list + bar in the memory
+   detail. Reuses the RX plumbing from 62-reactions.js (RX, rxMessage, _rxFace,
+   _rxMineOn, throwReaction). Only expense-backed memories have reactions; savings-goal
+   event memories have none (reactions are transaction-scoped), so memTxFor returns null. */
+function memTxFor(r){
+  if(!r || typeof txById!=='function') return null;
+  if(r.type==='expense') return txById(r.ref);
+  if(r.type==='event'){ var e=events[r.ref]; if(e && e.fromExpense) return txById(e.fromExpense); }   // safety: a mirror event's source expense
+  return null;
+}
+// Album block: a compact, non-interactive cluster over the photo — unique emojis +
+// up to 3 reactor faces (+N) — so the family's take reads while scrolling Khoảnh Khắc.
+function memRxClusterHTML(t){
+  var rs=t && t.reactions; if(!rs || !rs.length) return '';
+  var emos='', seen={};
+  rs.forEach(function(r){ if(!seen[r.emoji]){ seen[r.emoji]=1; emos+='<span class="pm-rx-e">'+r.emoji+'</span>'; } });
+  var faces='', sm={}, nExtra=0;
+  rs.forEach(function(r){ if(!sm[r.memberId]){ sm[r.memberId]=1; if(Object.keys(sm).length<=3) faces+=_rxFace(r.memberId); else nExtra++; } });
+  if(nExtra>0) faces+='<span class="rx-more">+'+nExtra+'</span>';
+  return '<div class="pm-rx"><span class="pm-rx-es">'+emos+'</span><span class="pm-rx-faces">'+faces+'</span></div>';
+}
+// Timeline card: the family's reactions seated under the photos — ONE row per reaction,
+// never grouped, because each member left their own emoji AND their own one-liner, and
+// folding them into a single "+N" line misattributes the copy. Newest first, each row is
+// the inline-chip language (.rx-chip: emoji + italic copy). Capped so a dense day-stack
+// stays even; the tapped card opens the memory detail with the full, un-capped list. */
+function memRxLineHTML(t){
+  var rs=(t && t.reactions)?t.reactions.slice():[]; if(!rs.length) return '';
+  rs.sort(function(a,b){ return a.at<b.at?1:a.at>b.at?-1:0; });   // newest first
+  var MAX=3, shown=rs.slice(0,MAX), extra=rs.length-shown.length;
+  var rows=shown.map(function(r){
+    return '<div class="tl-rx-row"><span class="tl-rx-e">'+r.emoji+'</span><span class="tl-rx-msg">'+rxMessage(r,t)+'</span></div>';
+  }).join('');
+  if(extra>0) rows+='<div class="tl-rx-more">'+L('còn '+extra+' cảm xúc nữa','+'+extra+' more')+'</div>';
+  return '<div class="tl-rx-list">'+rows+'</div>';
+}
+window.memRxLineHTML=memRxLineHTML;
+// Memory detail: the family's takes (newest first) + a react bar you can throw from
+// while looking at the photo. Mirrors _exdReactions (46/61) but scoped to the overlay.
+function memReactionsHTML(t){
+  var rs=(t.reactions||[]).slice();
+  var h='<div class="mo-rx-h">'+L('Cả nhà nói gì','Reactions')+(rs.length?' <span class="mo-rx-c">'+rs.length+'</span>':'')+'</div>';
+  if(rs.length){
+    rs.sort(function(a,b){ return a.at<b.at?1:a.at>b.at?-1:0; });
+    h+='<div class="mo-rx-list">'+rs.map(function(r){
+      return '<div class="exd-rx"><span class="exd-rx-e">'+r.emoji+'</span><span class="exd-rx-msg">'+rxMessage(r,t)+'</span>'+_rxFace(r.memberId)+'</div>';
+    }).join('')+'</div>';
+  } else {
+    h+='<div class="exd-rx-empty">'+L('Chưa có cảm xúc nào — thả một cái nào 👇','No reactions yet — leave one 👇')+'</div>';
+  }
+  if(t._dbId){
+    var mine=_rxMineOn(t._dbId);
+    h+='<div class="mo-rx-bar">'+RX.map(function(r){
+      return '<button class="exd-rx-bk'+(mine===r.e?' on':'')+'" onclick="memReact(\''+r.e+'\')" aria-label="'+escAttr(L(r.vi,r.en))+'">'+r.e+'</button>';
+    }).join('')+'</div>';
+  }
+  return h;
+}
+// Throw (or clear) a reaction on the memory currently open. throwReaction persists +
+// re-renders every reaction surface, including this overlay (renderMemoryIfOpen).
+function memReact(emoji){
+  var t=memTxFor(curMemory);
+  if(t && t._dbId && typeof throwReaction==='function') throwReaction(t._dbId, emoji);
+}
+window.memReact=memReact;
+// Re-render the open memory overlay after a reaction (local throw or one arrived over realtime).
+function renderMemoryIfOpen(){
+  var o=document.getElementById('memory-overlay'); if(!o || !o.classList.contains('on')) return;
+  if(curMemory) _renderMemoryDetail();
+}
+window.renderMemoryIfOpen=renderMemoryIfOpen;
+// Re-render the Khoảnh Khắc album if it's the visible tab, so its reaction clusters stay live.
+function renderMemoriesTabIfOpen(){
+  var v=document.getElementById('v-events'); if(!v || !v.classList.contains('on')) return;
+  if(typeof renderEvents==='function') renderEvents();          // refreshes both the timeline clusters and the album
+  else if(typeof renderMemoriesTab==='function') renderMemoriesTab();
+}
+window.renderMemoriesTabIfOpen=renderMemoriesTabIfOpen;
 // What an event actually cost, if anything was put toward it.
 function evAmount(e){ var v=(e.saved>0?e.saved:(e.target||0)); return v>0?v:0; }
 // A collage for one event, captioned on the photo (name + amount) — no sub-heading above it.
@@ -4197,7 +4379,7 @@ function evBlockHTML(items,k){
     cap='<div class="pm-cap"><div class="pm-cap-t">'+esc(e.emoji)+' '+esc(e.name)+'</div><div class="pm-cap-s">'+esc(sub)+'</div></div>';
   } else if(items[0] && items[0].type==='expense'){       // an expense: titled just like an event (emoji + note · amount · N photos)
     var r0=items[0], sub2=(r0.meta?r0.meta+' · ':'')+ct;
-    cap='<div class="pm-cap"><div class="pm-cap-t">'+esc(r0.emoji||'📸')+' '+esc(r0.cap||L('Khoản chi','Expense'))+'</div><div class="pm-cap-s">'+esc(sub2)+'</div></div>';
+    cap='<div class="pm-cap"><div class="pm-cap-t">'+esc(r0.emoji||'📸')+' '+esc(r0.cap||L('Khoản chi','Expense'))+'</div><div class="pm-cap-s">'+esc(sub2)+'</div>'+memRxClusterHTML(memTxFor(r0))+'</div>';
   }
   return '<div class="pm-block">'+mosaicHTML(items)+cap+'</div>';
 }
@@ -4236,7 +4418,7 @@ function photoSectionsByEvent(recs){
     if(g.type==='event'){ var e=events[g.ref];
       titleHTML='<button class="photo-sec-title" onclick="openEvent(&#39;'+escAttr(g.ref)+'&#39;)">'+esc(e.emoji)+' '+esc(e.name)+' ›</button>';
     } else { var r0=g.items[0];                            // an expense — title links to the expense
-      titleHTML='<button class="photo-sec-title" onclick="openEditExpense(&#39;'+escAttr(g.ref)+'&#39;)">'+esc(r0.emoji||'📸')+' '+esc(r0.cap||L('Khoản chi','Expense'))+' ›</button>';
+      titleHTML='<button class="photo-sec-title" onclick="openExpenseDetail(&#39;'+escAttr(g.ref)+'&#39;)">'+esc(r0.emoji||'📸')+' '+esc(r0.cap||L('Khoản chi','Expense'))+' ›</button>';
     }
     html+=secHTML(titleHTML, g.items.length, mosaicHTML(g.items));
   });
@@ -4307,9 +4489,13 @@ function _renderMemoryDetail(){
       : '<div class="subj">'+esc(m.emoji||'📸')+'</div>';
     return '<div class="'+cls+'"'+on+'>'+inner+'</div>';
   }).join('');
+  // Reactions block: the family's takes + a react bar, shown only for expense-backed
+  // memories (the ones that carry reactions). Populated above the deep-link action.
+  var rxBox=document.getElementById('mo-rx');
+  if(rxBox){ var mtx=memTxFor(r); rxBox.innerHTML=mtx?memReactionsHTML(mtx):''; rxBox.style.display=mtx?'':'none'; }
   var act=document.getElementById('mo-action'), chev=' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
-  if(r.type==='event' && ev && ev.fromExpense){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openEditExpense(\''+ev.fromExpense+'\')'); }
-  else if(r.type==='expense'){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openEditExpense(\''+r.ref+'\')'); }
+  if(r.type==='event' && ev && ev.fromExpense){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openExpenseDetail(\''+ev.fromExpense+'\')'); }
+  else if(r.type==='expense'){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openExpenseDetail(\''+r.ref+'\')'); }
   else { act.innerHTML=L('Mở sự kiện','Open event')+chev; act.setAttribute('onclick','closeMemory();openEvent(\''+r.ref+'\')'); }
 }
 function openMemoryByRef(type,ref){ for(var i=0;i<memRecords.length;i++){ if(memRecords[i].type===type&&memRecords[i].ref===ref){ openMemory(i); return; } } }
@@ -4904,6 +5090,7 @@ function saveExpenseEdit(){
   txns.sort(txNewestFirst);
   selMonth=curMonthKey(); renderAll(); renderTxns(); renderEvents();
   if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val);
+  if(typeof renderExpenseDetailIfOpen==='function') renderExpenseDetailIfOpen();   // refresh the detail screen underneath, if it launched this edit
   closeExpense();
   toast(L('Đã lưu · ','Changes saved · ')+note);
 }
@@ -4929,6 +5116,7 @@ function deleteExpense(){
   selMonth=curMonthKey(); renderAll(); renderTxns(); renderEvents();
   if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val);
   closeExpense();
+  if(typeof renderExpenseDetailIfOpen==='function') renderExpenseDetailIfOpen();   // the txn is gone → this backs out of an open detail screen
   toast(L('Đã xoá · ','Deleted · ')+note);
 }
 var selEmoji='🎉', selCov='pink';
@@ -5018,7 +5206,7 @@ function txRow(t){
   // data-rxid (only persisted rows) arms the long-press reaction picker; rxChip appends any reactions inline
   var rxid=t._dbId?(' data-rxid="'+escAttr(t._dbId)+'"'):'';
   var chip=(typeof rxChip==='function')?rxChip(t):'';
-  return '<div class="row tap'+(chip?' has-rx':'')+'"'+rxid+' onclick="openEditExpense(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+t.ico+'</div>'+spAv(t.who)+'</div>'
+  return '<div class="row tap'+(chip?' has-rx':'')+'"'+rxid+' onclick="openExpenseDetail(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+t.ico+'</div>'+spAv(t.who)+'</div>'
     +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s">'+dstr+' · '+t.cat+'</div></div>'
     +'<div class="r-amt num">'+fmt(t.amt)+'</div>'+chip+'</div>';
 }
@@ -5241,56 +5429,200 @@ function addExpense(){
   else { go('spending'); segTo('overview'); }
 }
 
+/* ---------- expense detail — view first, edit second ----------
+   Every tap on a ledger row (txRow) now lands here instead of opening the editor
+   straight away. It's a read-first screen anyone in the family can open: the
+   expense laid out large, any photos, and the reactions left on it — with Update
+   (opens the existing edit modal) and Delete (arm-then-confirm) as the CTAs.
+
+   It reuses the reaction plumbing from 62-reactions.js (RX, rxMessage, _rxFace,
+   _rxMineOn, throwReaction) and hands Delete to the persisting deleteExpense()
+   path in 55/50 by seeding editingTx + delArmed before calling it. All functions
+   share the js-ui global scope, so barewords cross files freely. */
+var _expDetailId=null, _exdDelArmed=false, _exdDelT=null;
+
+/* who paid → { name, initials, colour }. Prefers live membersMeta; falls back to
+   the demo member palette (matches the token colours) so the signed-out preview
+   still reads with the right person's colour. */
+function _whoDisp(who){
+  var raw=String(who||''), isShared=/^(both|shared)$/i.test(raw), key=isShared?'Shared':raw;
+  var mm=(window.membersMeta&&membersMeta[key])||null;
+  var demoCol={emma:'#6f3fc0',james:'#0e8478',mia:'#f0701a',leo:'#e03d86'}, lk=raw.toLowerCase();
+  var col=mm?mm.col:(isShared?'#8f8a99':(demoCol[lk]||'#8a8494'));
+  var ini=mm?mm.ini:((typeof inits==='function')?inits(key||'?'):(key.slice(0,2).toUpperCase()||'?'));
+  var name=isShared?L('Chi tiêu chung','Shared'):(key||L('Ai đó','Someone'));
+  return { name:name, ini:ini, col:col };
+}
+function _exdDate(t){
+  if(t._d) return fmtDateLong(t._d);                       // LANG-gated: "Thứ Ba, 26 thg 7" / "Tuesday, July 26"
+  if(t.date==='Today') return L('Hôm nay','Today');
+  if(t.date==='Just now') return L('Vừa xong','Just now');
+  return t.date||'';
+}
+function _exdMetaRow(label, val){
+  return '<div class="exd-mrow"><span class="exd-ml">'+label+'</span><span class="exd-mv">'+val+'</span></div>';
+}
+function _exdSecH(title, count){
+  return '<div class="exd-sec-h"><span class="t">'+title+'</span>'+(count?'<span class="c">'+count+'</span>':'')+'</div>';
+}
+/* the reactions block: the family's takes (newest first) + a react bar.
+   The bar only appears on a persisted row (t._dbId) — reacting has nowhere to
+   write otherwise, exactly like the ledger long-press picker. */
+function _exdReactions(t){
+  var rs=(t.reactions||[]).slice();
+  var html=_exdSecH(L('Cả nhà nói gì','Reactions'), rs.length||'');
+  if(rs.length){
+    rs.sort(function(a,b){ return a.at<b.at?1:a.at>b.at?-1:0; });
+    html+='<div class="exd-rx-list">'+rs.map(function(r){
+      return '<div class="exd-rx"><span class="exd-rx-e">'+r.emoji+'</span>'
+        +'<span class="exd-rx-msg">'+rxMessage(r,t)+'</span>'+_rxFace(r.memberId)+'</div>';
+    }).join('')+'</div>';
+  } else {
+    html+='<div class="exd-rx-empty">'+L('Chưa có cảm xúc nào — thả một cái nào 👇','No reactions yet — leave one 👇')+'</div>';
+  }
+  if(t._dbId){
+    var mine=_rxMineOn(t._dbId);
+    html+='<div class="exd-rx-bar">'+RX.map(function(r){
+      return '<button class="exd-rx-bk'+(mine===r.e?' on':'')+'" onclick="expDetailReact(\''+r.e+'\')" aria-label="'+escAttr(L(r.vi,r.en))+'">'+r.e+'</button>';
+    }).join('')+'</div>';
+  }
+  return html;
+}
+function renderExpenseDetail(){
+  var t=(typeof txById==='function')?txById(_expDetailId):null;
+  if(!t){ closeExpenseDetail(); return; }
+  var body=document.getElementById('exd-body'); if(!body) return;
+  var s=catStyle[t.cat]||['🧾','#f2eef6','var(--cat-other)'], wd=_whoDisp(t.who);
+  var html='<div class="exd-focal">'
+    +'<div class="exd-ico" style="background:'+s[1]+';color:'+s[2]+'">'+t.ico+'</div>'
+    +'<div class="exd-amt num">'+fmt(t.amt)+'</div>'
+    +'<div class="exd-note">'+esc(t.note||L('Khoản chi','Expense'))+'</div>'
+    +(t.future?('<div class="exd-plan">📅 '+L('Chi tiêu dự kiến','Planned')+'</div>'):'')
+    +'</div>';
+  html+='<div class="exd-meta">'
+    + _exdMetaRow(L('Danh mục','Category'), '<span class="exd-catico">'+s[0]+'</span>'+esc(t.cat))
+    + _exdMetaRow(L('Người trả','Paid by'), '<span class="exd-av" style="background:'+wd.col+'">'+esc(wd.ini)+'</span>'+esc(wd.name))
+    + _exdMetaRow(L('Ngày','Date'), esc(_exdDate(t)))
+    +'</div>';
+  var ph=t.photos||(t.photo?[t.photo]:[]);
+  if(ph.length){
+    html+=_exdSecH(L('Ảnh','Photos'), ph.length)
+      +'<div class="exd-photos">'+ph.map(function(src){ return '<div class="exd-photo" style="background-image:url('+src+')"></div>'; }).join('')+'</div>';
+  }
+  html+=_exdReactions(t);
+  // Delete lives at the foot of the scroll as low-prominence text (arm-then-confirm),
+  // per the destructive-button rule — never a red button in the CTA bar.
+  html+='<button class="exd-del" id="exd-del" onclick="expDetailDelete()">'+L('Xoá khoản chi','Delete expense')+'</button>';
+  body.innerHTML=html;
+  var cta=document.getElementById('exd-cta');
+  if(cta) cta.innerHTML='<button class="cta" onclick="expDetailEdit()">'+L('Cập nhật','Update')+'</button>';   // single bottom-anchored primary
+  _resetExdDel();
+}
+window.renderExpenseDetail=renderExpenseDetail;
+function openExpenseDetail(id){
+  var t=(typeof txById==='function')?txById(id):null; if(!t) return;
+  _expDetailId=id;
+  renderExpenseDetail();
+  document.getElementById('exp-overlay').classList.add('on');
+  var sc=document.querySelector('#exp-overlay .cd-scroll'); if(sc) sc.scrollTop=0;
+}
+window.openExpenseDetail=openExpenseDetail;
+function closeExpenseDetail(){
+  _resetExdDel();
+  var o=document.getElementById('exp-overlay'); if(o) o.classList.remove('on');
+  _expDetailId=null;
+}
+window.closeExpenseDetail=closeExpenseDetail;
+/* re-render if the detail is on screen (after an edit, a delete, or a reaction —
+   local or arrived over realtime); if its expense is gone, back out cleanly. */
+function renderExpenseDetailIfOpen(){
+  var o=document.getElementById('exp-overlay'); if(!o || !o.classList.contains('on')) return;
+  if(!txById(_expDetailId)){ closeExpenseDetail(); return; }
+  renderExpenseDetail();
+}
+window.renderExpenseDetailIfOpen=renderExpenseDetailIfOpen;
+
+/* Update → the existing edit modal, opened over the detail. On save/cancel it
+   closes and the detail (still underneath) refreshes via renderExpenseDetailIfOpen. */
+function expDetailEdit(){ if(_expDetailId!=null && typeof openEditExpense==='function') openEditExpense(_expDetailId); }
+window.expDetailEdit=expDetailEdit;
+function expDetailReact(emoji){
+  var t=(typeof txById==='function')?txById(_expDetailId):null;
+  if(t && t._dbId && typeof throwReaction==='function') throwReaction(t._dbId, emoji);   // throwReaction re-renders the detail via renderExpenseDetailIfOpen
+}
+window.expDetailReact=expDetailReact;
+
+/* Delete — its own arm-then-confirm, then hands off to the persisting delete path
+   (55/50 wrap deleteExpense by name and key off editingTx). Seeding delArmed=true
+   lets that one call execute instead of re-arming the modal's hidden button. */
+function _resetExdDel(){
+  _exdDelArmed=false; clearTimeout(_exdDelT);
+  var b=document.getElementById('exd-del'); if(b){ b.classList.remove('armed'); b.textContent=L('Xoá','Delete'); }
+}
+function expDetailDelete(){
+  var b=document.getElementById('exd-del');
+  if(!_exdDelArmed){
+    _exdDelArmed=true; if(b){ b.classList.add('armed'); b.textContent=L('Chạm lần nữa để xoá','Tap again to delete'); }
+    clearTimeout(_exdDelT); _exdDelT=setTimeout(_resetExdDel,3000); return;
+  }
+  _resetExdDel();
+  if(_expDetailId==null){ closeExpenseDetail(); return; }
+  editingTx=_expDetailId; delArmed=true;                  // hand off to the wrapped, persisting deleteExpense()
+  if(typeof deleteExpense==='function') deleteExpense();
+  closeExpenseDetail();
+}
+window.expDetailDelete=expDetailDelete;
+
 /* ---------- collaborative reactions ----------
    A family member holds a transaction row, throws ONE emotional reaction, and it
-   surfaces three ways: an inline chip on the ledger row (A), a shared "PhÃ²ng khÃ¡ch"
+   surfaces three ways: an inline chip on the ledger row (A), a shared "Phòng khách"
    feed (B), and an arrival moment on the payer's phone (C). Five reactions, chosen
-   to be emotional not neutral â shock / side-eye / laughing / love / annoyed â each
+   to be emotional not neutral — shock / side-eye / laughing / love / annoyed — each
    with a small pool of contextual one-liners so the log never reads like a bot.
    Data + write-through live in js-data (reactions table, fhReact, get_family_snapshot). */
 var RX = [
-  { k:'shock',   e:'ð±', vi:'Sá»c',      en:'Shocked' },
-  { k:'suspect', e:'ð¤¨', vi:'Nghi ngá»', en:'Suspicious' },
-  { k:'laugh',   e:'ð', vi:'CÆ°á»i',     en:'Laughing' },
-  { k:'love',    e:'ð¥°', vi:'ThÆ°Æ¡ng',   en:'Love it' },
-  { k:'mad',     e:'ð¤', vi:'Tá»©c',      en:'Not having it' }
+  { k:'shock',   e:'😱', vi:'Sốc',      en:'Shocked' },
+  { k:'suspect', e:'🤨', vi:'Nghi ngờ', en:'Suspicious' },
+  { k:'laugh',   e:'😂', vi:'Cười',     en:'Laughing' },
+  { k:'love',    e:'🥰', vi:'Thương',   en:'Love it' },
+  { k:'mad',     e:'😤', vi:'Tức',      en:'Not having it' }
 ];
-/* one-liners per reaction â [vi, en], with {n} = reactor first name, {cat} = category.
+/* one-liners per reaction — [vi, en], with {n} = reactor first name, {cat} = category.
    The pick is deterministic per (txn, member, emoji) so the sentence never reshuffles. */
 var RX_MSG = {
-  'ð±': [ ['{n} Äang xá»u ngang vá»¥ nÃ y','{n} is losing it over this'],
-          ['{n} hÃ¡ há»c má»m vá»i vá»¥ {cat}','{n}âs jaw dropped at this {cat}'],
-          ['{n} chÆ°a háº¿t bÃ ng hoÃ ng','{n} is still in shock'] ],
-  'ð¤¨': [ ['{n} Äang nghi ngá» vá»¥ nÃ y','{n} is questioning this'],
-          ['{n} Äang soi khoáº£n {cat} nÃ y','{n} is side-eyeing this {cat}'],
-          ['{n} tháº¥y sai sai chá» nÃ y','{n} smells something off'] ],
-  'ð': [ ['{n} cÆ°á»i khÃ´ng nháº·t ÄÆ°á»£c má»m','{n} canât stop laughing'],
-          ['{n} tháº¥y vá»¥ {cat} nÃ y hÃ i dá» sá»£','{n} finds this {cat} hilarious'],
-          ['{n} cÆ°á»i xá»u vá»i vá»¥ nÃ y','{n} is dying at this'] ],
-  'ð¥°': [ ['{n} duyá»t khoáº£n nÃ y liá»n','{n} approves this instantly'],
-          ['{n} tháº¥y tiÃªu váº­y lÃ  ÄÃ¡ng','{n} says worth every Äá»ng'],
-          ['{n} thÆ°Æ¡ng vá»¥ {cat} nÃ y ghÃª','{n} adores this {cat}'] ],
-  'ð¤': [ ['{n} Äang tá»©c cÃ¡i vá»¥ nÃ y','{n} is not having this'],
-          ['{n} khÃ´ng chá»u khoáº£n {cat} nÃ y ÄÃ¢u','{n} wonât let this {cat} slide'],
-          ['{n} bá»±c ra máº·t','{n} is visibly annoyed'] ]
+  '😱': [ ['{n} đang xỉu ngang vụ này','{n} is losing it over this'],
+          ['{n} há hốc mồm với vụ {cat}','{n}’s jaw dropped at this {cat}'],
+          ['{n} chưa hết bàng hoàng','{n} is still in shock'] ],
+  '🤨': [ ['{n} đang nghi ngờ vụ này','{n} is questioning this'],
+          ['{n} đang soi khoản {cat} này','{n} is side-eyeing this {cat}'],
+          ['{n} thấy sai sai chỗ này','{n} smells something off'] ],
+  '😂': [ ['{n} cười không nhặt được mồm','{n} can’t stop laughing'],
+          ['{n} thấy vụ {cat} này hài dễ sợ','{n} finds this {cat} hilarious'],
+          ['{n} cười xỉu với vụ này','{n} is dying at this'] ],
+  '🥰': [ ['{n} duyệt khoản này liền','{n} approves this instantly'],
+          ['{n} thấy tiêu vậy là đáng','{n} says worth every đồng'],
+          ['{n} thương vụ {cat} này ghê','{n} adores this {cat}'] ],
+  '😤': [ ['{n} đang tức cái vụ này','{n} is not having this'],
+          ['{n} không chịu khoản {cat} này đâu','{n} won’t let this {cat} slide'],
+          ['{n} bực ra mặt','{n} is visibly annoyed'] ]
 };
 function rxCfg(e){ for(var i=0;i<RX.length;i++){ if(RX[i].e===e) return RX[i]; } return RX[1]; }
 function rxHash(s){ var h=0; s=String(s||''); for(var i=0;i<s.length;i++){ h=((h<<5)-h+s.charCodeAt(i))|0; } return Math.abs(h); }
 function rxFirstName(mid){
   var m=window.DB && window.DB.memberById && window.DB.memberById[mid], nm=m?m.name:'';
   if(mid && window.DB && mid===window.DB.ownerMemberId){ var me=(typeof _meName==='function')?_meName():''; if(me) nm=me; }
-  return (typeof firstName==='function')?firstName(nm||''):(nm||L('Ai ÄÃ³','Someone'));
+  return (typeof firstName==='function')?firstName(nm||''):(nm||L('Ai đó','Someone'));
 }
 function rxMessage(rec, tx){
-  var pool=RX_MSG[rec.emoji]||RX_MSG['ð¤¨'];
+  var pool=RX_MSG[rec.emoji]||RX_MSG['🤨'];
   var nm=rxFirstName(rec.memberId);
-  var cat=(tx && tx.cat)?String(tx.cat):L('khoáº£n nÃ y','this');
+  var cat=(tx && tx.cat)?String(tx.cat):L('khoản này','this');
   var pair=pool[rxHash((rec.txId||'')+'|'+(rec.memberId||'')+'|'+rec.emoji)%pool.length];
   return L(pair[0],pair[1]).replace(/\{n\}/g, esc(nm)).replace(/\{cat\}/g, esc(cat.toLowerCase()));
 }
 function _rxFace(mid){
   var m=window.DB && window.DB.memberById && window.DB.memberById[mid];
-  var col=(m&&m.color)||'#8f8a99', ini=(m && typeof inits==='function')?inits(m.name):'ð¤';
+  var col=(m&&m.color)||'#8f8a99', ini=(m && typeof inits==='function')?inits(m.name):'👤';
   return '<span class="rx-av av" style="background:'+col+'">'+esc(ini)+'</span>';
 }
 function rxTxByDbId(id){ var a=window.txns||[]; for(var i=0;i<a.length;i++){ if(a[i]._dbId===id) return a[i]; } return null; }
@@ -5299,7 +5631,7 @@ function _rxMineOn(txDbId){
   for(var i=0;i<arr.length;i++){ if(arr[i].memberId===mid) return arr[i].emoji; } return null;
 }
 
-/* ---- A Â· the inline chip appended into a transaction row's body ---- */
+/* ---- A · the inline chip appended into a transaction row's body ---- */
 function rxChip(t){
   var rs=t && t.reactions; if(!rs || !rs.length) return '';
   var lead=rs[0]; for(var i=1;i<rs.length;i++){ if(rs[i].at>lead.at) lead=rs[i]; }
@@ -5325,7 +5657,7 @@ function openRxPicker(txDbId, cx, cy){
   var w=pop.offsetWidth, h=pop.offsetHeight;
   var left=(cx-pr.left)-w/2, top=(cy-pr.top)-h-14;
   left=Math.max(10, Math.min(pr.width-w-10, left));
-  if(top<8) top=(cy-pr.top)+22;                     // no room above the finger â drop below it
+  if(top<8) top=(cy-pr.top)+22;                     // no room above the finger → drop below it
   pop.style.left=left+'px'; pop.style.top=top+'px';
   window._rxLastXY={ x:cx, y:cy };                  // remember where the reaction was thrown, so it bursts from there
   requestAnimationFrame(function(){ pop.classList.add('on'); });
@@ -5341,7 +5673,7 @@ function closeRxPicker(){
 }
 window.closeRxPicker=closeRxPicker;
 
-/* a localized burst of the chosen emoji, fanning up from the point it was thrown â
+/* a localized burst of the chosen emoji, fanning up from the point it was thrown —
    the reactor's own "bumping out" feedback (distinct from the recipient's full-screen
    arrival float). Falls back to centre when no coordinates are known (e.g. react-back). */
 function rxBurst(emoji, x, y){
@@ -5384,9 +5716,12 @@ function throwReaction(txDbId, emoji){
   if(typeof window.fhReact==='function') window.fhReact(txDbId, remove?null:emoji);
   if(typeof renderTxns==='function') renderTxns();
   if(typeof renderRxWall==='function') renderRxWall();
+  if(typeof renderExpenseDetailIfOpen==='function') renderExpenseDetailIfOpen();   // keep an open detail screen in sync
+  if(typeof renderMemoryIfOpen==='function') renderMemoryIfOpen();                 // keep an open memory detail in sync
+  if(typeof renderMemoriesTabIfOpen==='function') renderMemoriesTabIfOpen();       // refresh album reaction clusters
   var homeOn=document.getElementById('v-home'); if(homeOn && homeOn.classList.contains('on') && typeof renderHome==='function') renderHome();
   var txnOv=document.getElementById('txn-overlay'); if(txnOv && txnOv.classList.contains('on') && typeof renderTxnScreen==='function') renderTxnScreen();
-  if(!remove){ var r=rxCfg(emoji); if(typeof toast==='function') toast(L('ÄÃ£ tháº£ '+r.e+' cho khoáº£n nÃ y','Reacted '+r.e)); }
+  if(!remove){ var r=rxCfg(emoji); if(typeof toast==='function') toast(L('Đã thả '+r.e+' cho khoản này','Reacted '+r.e)); }
 }
 window.throwReaction=throwReaction;
 
@@ -5414,7 +5749,7 @@ window.throwReaction=throwReaction;
   document.addEventListener('mousemove', function(e){ move(e); });
   document.addEventListener('mouseup', clear);
   // a long-press must NOT also open the expense editor (the row's own onclick).
-  // Never suppress a tap inside the picker itself â the emoji buttons must always fire.
+  // Never suppress a tap inside the picker itself — the emoji buttons must always fire.
   document.addEventListener('click', function(e){
     if(!window._rxSuppressClick) return;
     if(e.target.closest && e.target.closest('#rx-pop')) return;
@@ -5424,13 +5759,13 @@ window.throwReaction=throwReaction;
   document.addEventListener('contextmenu', function(e){ if(e.target.closest && e.target.closest('.row[data-rxid]')) e.preventDefault(); });
 })();
 
-/* ---- B Â· the "PhÃ²ng khÃ¡ch" wall â one card per transaction that has reactions ---- */
+/* ---- B · the "Phòng khách" wall — one card per transaction that has reactions ---- */
 function rxAgo(iso){
   try{ var s=Math.max(0,(Date.now()-new Date(iso).getTime())/1000);
-    if(s<60) return L('vá»«a xong','just now');
-    if(s<3600) return Math.floor(s/60)+L(' phÃºt','m');
-    if(s<86400) return Math.floor(s/3600)+L(' giá»','h');
-    return Math.floor(s/86400)+L(' ngÃ y','d');
+    if(s<60) return L('vừa xong','just now');
+    if(s<3600) return Math.floor(s/60)+L(' phút','m');
+    if(s<86400) return Math.floor(s/3600)+L(' giờ','h');
+    return Math.floor(s/86400)+L(' ngày','d');
   }catch(e){ return ''; }
 }
 function _rxWallItems(){
@@ -5450,7 +5785,7 @@ function rxCard(it, compact){
   var faces='', sm={}, nExtra=0;
   rs.forEach(function(r){ if(!sm[r.memberId]){ sm[r.memberId]=1; if(Object.keys(sm).length<=3) faces+=_rxFace(r.memberId); else nExtra++; } });
   if(nExtra>0) faces+='<span class="rx-more">+'+nExtra+'</span>';
-  var note=esc(tx.note||L('Khoáº£n chi','Expense')), amt=(typeof fmt==='function')?fmt(tx.amt):tx.amt, when=rxAgo(lead.at);
+  var note=esc(tx.note||L('Khoản chi','Expense')), amt=(typeof fmt==='function')?fmt(tx.amt):tx.amt, when=rxAgo(lead.at);
   var mine=_rxMineOn(tx._dbId);
   var chev='<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
   var back=compact?'':'<div class="rx-back">'+RX.map(function(r){ return '<button class="rx-bk'+(mine===r.e?' on':'')+'" onclick="throwReaction(\''+tx._dbId+'\',\''+r.e+'\')" aria-label="'+escAttr(L(r.vi,r.en))+'">'+r.e+'</button>'; }).join('')+'</div>';
@@ -5458,7 +5793,7 @@ function rxCard(it, compact){
     +'<button class="rx-card-main" onclick="rxJumpTo(\''+tx._dbId+'\')">'
       +'<span class="rx-ico">'+lead.emoji+'</span>'
       +'<span class="rx-card-b"><span class="rx-card-msg">'+rxMessage(lead,tx)+'</span>'
-        +'<span class="rx-card-sub">'+faces+'<span class="rx-tx">'+note+' Â· '+amt+'</span>'+(when?'<span class="rx-when">'+when+'</span>':'')+'</span></span>'
+        +'<span class="rx-card-sub">'+faces+'<span class="rx-tx">'+note+' · '+amt+'</span>'+(when?'<span class="rx-when">'+when+'</span>':'')+'</span></span>'
       +chev
     +'</button>'+back+'</div>';
 }
@@ -5473,14 +5808,14 @@ function renderRxWall(){
 window.renderRxWall=renderRxWall;
 function rxHomeStripHTML(){
   var items=_rxWallItems(); if(!items.length) return '';
-  var head=(typeof _sectionH==='function')?_sectionH(L('PhÃ²ng khÃ¡ch','The living room'),'go(&#39;spending&#39;)'):'';
+  var head=(typeof _sectionH==='function')?_sectionH(L('Phòng khách','The living room'),'go(&#39;spending&#39;)'):'';
   return head+'<div class="rx-home">'+items.slice(0,3).map(function(it){ return rxCard(it,true); }).join('')+'</div>';
 }
 window.rxHomeStripHTML=rxHomeStripHTML;
-function rxJumpTo(txDbId){ closeRxArrive(); var tx=rxTxByDbId(txDbId); if(tx && typeof openEditExpense==='function') openEditExpense(tx.id); }
+function rxJumpTo(txDbId){ closeRxArrive(); var tx=rxTxByDbId(txDbId); if(tx && typeof openExpenseDetail==='function') openExpenseDetail(tx.id); }
 window.rxJumpTo=rxJumpTo;
 
-/* ---- C Â· the arrival â ANY member's reaction, seen by everyone else in-app ----
+/* ---- C · the arrival — ANY member's reaction, seen by everyone else in-app ----
    Fires for every new reaction (not just ones on your own spends): every time one
    lands while you're in the app, and once (catching up) when you open the app after
    it happened. Watermark-gated so unrelated rehydrates (your own writes, focus,
@@ -5490,7 +5825,7 @@ function _rxSetSeen(v){ try{ if(v) localStorage.setItem('fh-rx-seen', v); }catch
 function _rxBusy(){
   // The arrival is a non-blocking confetti + toast now, so it can coexist with sheets
   // and the ledger. Only hold it back from stacking on a full-screen celebration or
-  // the onboarding flow â it replays on the next hydrate once those clear.
+  // the onboarding flow — it replays on the next hydrate once those clear.
   if(document.querySelector('.celebrate.on')) return true;
   var ob=document.getElementById('onboarding'); if(ob && ob.offsetParent!==null) return true;   // onboarding (z-90) is up
   return false;
@@ -5512,18 +5847,18 @@ function rxCheckArrivals(){
 window.rxCheckArrivals=rxCheckArrivals;
 /* The arrival is deliberately NON-blocking: emoji confetti over the whole frame
    (plays wherever you happen to land), plus a tappable toast that deep-links to the
-   transaction. No modal â it never interrupts what you're doing. */
+   transaction. No modal — it never interrupts what you're doing. */
 function rxArriveShow(fresh){
   if(document.hidden) return;
   var lead=fresh[0], tx=rxTxByDbId(lead.txId), more=fresh.length-1, txId=tx?tx._dbId:'';
   if(typeof floatEmojis==='function') floatEmojis(lead.emoji);          // confetti, once, where you are
   var old=document.getElementById('rx-toast'); if(old && old.parentNode) old.parentNode.removeChild(old);
   var el=document.createElement('button'); el.className='rx-toast'; el.id='rx-toast';
-  el.setAttribute('aria-label', L('Xem khoáº£n nÃ y','See this transaction'));
+  el.setAttribute('aria-label', L('Xem khoản này','See this transaction'));
   el.onclick=function(){ closeRxArrive(); rxJumpTo(txId); };
   // second line = which transaction (so a bystander knows what was reacted to), + how many more
-  var second=tx ? (esc(tx.note||L('Khoáº£n chi','Expense'))+' Â· '+((typeof fmt==='function')?fmt(tx.amt):tx.amt)) : L('Cháº¡m Äá» xem','Tap to open');
-  if(more>0) second += ' Â· +'+more;
+  var second=tx ? (esc(tx.note||L('Khoản chi','Expense'))+' · '+((typeof fmt==='function')?fmt(tx.amt):tx.amt)) : L('Chạm để xem','Tap to open');
+  if(more>0) second += ' · +'+more;
   el.innerHTML='<span class="rx-toast-e">'+lead.emoji+'</span>'
     +'<span class="rx-toast-b"><span class="rx-toast-msg">'+rxMessage(lead,tx)+'</span><span class="rx-toast-cta">'+second+'</span></span>'
     +'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 18l6-6-6-6"/></svg>';
@@ -5538,7 +5873,7 @@ function closeRxArrive(){
 window.closeRxArrive=closeRxArrive;
 
 /* run after every hydrate: refresh the wall + play any just-arrived moment */
-function rxAfterHydrate(){ try{ renderRxWall(); }catch(e){} try{ rxCheckArrivals(); }catch(e){} }
+function rxAfterHydrate(){ try{ renderRxWall(); }catch(e){} try{ if(typeof renderExpenseDetailIfOpen==='function') renderExpenseDetailIfOpen(); }catch(e){} try{ if(typeof renderMemoryIfOpen==='function') renderMemoryIfOpen(); }catch(e){} try{ if(typeof renderMemoriesTabIfOpen==='function') renderMemoriesTabIfOpen(); }catch(e){} try{ rxCheckArrivals(); }catch(e){} }
 window.rxAfterHydrate=rxAfterHydrate;
 /* ---------- collaborative future-expense requests ----------
    A future expense is a *proposal*, not a done deal. It reserves nothing until at

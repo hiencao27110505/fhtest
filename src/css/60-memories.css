@@ -96,3 +96,18 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
 .mem-full{position:relative;border-radius:18px;overflow:hidden;background:var(--canvas)}
 .mem-full img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;background:var(--surface)}
 .mem-full.tap:active{transform:scale(.985);transition:transform .12s}
+/* Reactions surfaced onto memories. Album cluster sits inside .pm-cap (over the photo,
+   white, non-interactive — the block itself opens the memory). */
+.pm-block .pm-rx{display:flex;align-items:center;gap:8px;margin-top:6px}
+.pm-block .pm-rx-es{display:inline-flex;gap:1px;font-size:14px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
+.pm-block .pm-rx-faces{display:inline-flex;align-items:center}
+.pm-block .pm-rx .rx-more{color:rgba(255,255,255,.96);margin-left:6px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+/* Memory detail reactions block — reuses the .exd-rx card / .exd-rx-bk bar look, with
+   its own containers so margins align to the .mo-body (22px) padding, not the 16px the
+   expense-detail containers assume. */
+.mo-rx{margin-top:22px;border-top:1px solid var(--divider);padding-top:18px}
+.mo-rx-h{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.02em;color:var(--ink);margin:0 0 12px}
+.mo-rx-c{color:var(--muted);font-weight:600}
+.mo-rx-list{display:flex;flex-direction:column;gap:8px}
+.mo-rx-bar{display:flex;gap:6px;margin-top:12px}
+.mo-rx .exd-rx-empty{margin:0}

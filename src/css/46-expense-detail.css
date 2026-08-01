@@ -1,0 +1,59 @@
+/* ---- expense detail — the view-first screen a ledger tap lands on ----
+   Tapping a transaction no longer jumps straight into the editor. It lands here:
+   a focal read-out of the expense (icon · amount · note), a light meta list, any
+   photos, and the reactions the family left — Update (bottom CTA) + a low-prominence
+   Delete. Mirrors the cat-overlay composition (light header, cd-scroll, cd-cta-bar,
+   cd-listhead-row section heads) and reuses the reaction vocabulary from 47-reactions.css.
+   Stays inside the documented push-overlay band (45–49) so the scrim still dims it. */
+#exp-overlay{z-index:49}
+#exp-overlay .safe{height:max(env(safe-area-inset-top),16px)}
+
+/* focal block — the expense read large and centred (Wallet-style receipt read-out) */
+.exd-focal{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 24px 2px}
+.exd-ico{width:64px;height:64px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:32px;line-height:1}
+.exd-amt{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:700;font-size:44px;letter-spacing:-2px;color:var(--ink);margin-top:16px;line-height:1}
+.cur-vnd .exd-amt{font-size:34px;letter-spacing:-1.2px}
+.exd-note{font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink-2);margin-top:9px;overflow-wrap:anywhere}
+.exd-plan{display:inline-flex;align-items:center;gap:5px;margin-top:12px;background:var(--brand-tint);color:var(--brand-ink);border-radius:9999px;padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+
+/* meta list — one grouped white card, one fact per row (no colored fills) */
+.exd-meta{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:24px 16px 0;overflow:hidden}
+.exd-mrow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border-bottom:1px solid var(--divider)}
+.exd-mrow:last-child{border-bottom:none}
+.exd-ml{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:-.01em;flex:0 0 auto}
+.exd-mv{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;letter-spacing:-.02em;color:var(--ink);text-align:right;min-width:0;justify-content:flex-end}
+.exd-mv .exd-catico{font-size:16px;line-height:1}
+.exd-av{width:22px;height:22px;border-radius:50%;font-size:9.5px;font-weight:700;color:#fff;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+
+/* section head — mirrors cat-overlay's .cd-listhead-row (title + right-aligned count) */
+.exd-sec-h{display:flex;align-items:baseline;justify-content:space-between;margin:28px 20px 12px}
+.exd-sec-h .t{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:-.4px;color:var(--ink)}
+.exd-sec-h .c{font-size:14px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
+
+/* photos strip — vertical padding so the card shadow isn't clipped by overflow-x */
+.exd-photos{display:flex;gap:10px;overflow-x:auto;padding:2px 16px 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.exd-photos::-webkit-scrollbar{display:none}
+.exd-photo{flex:0 0 auto;width:122px;height:122px;border-radius:16px;background-size:cover;background-position:center;background-repeat:no-repeat;box-shadow:var(--shadow-card)}
+
+/* reactions — the family's takes, then a choice-chip react bar */
+.exd-rx-list{display:flex;flex-direction:column;gap:8px;margin:0 16px}
+.exd-rx{display:flex;align-items:center;gap:11px;background:var(--white);border-radius:14px;box-shadow:var(--shadow-card);padding:12px 14px}
+.exd-rx-e{font-size:22px;line-height:1;flex:0 0 auto;filter:drop-shadow(0 1px 2px rgba(25,16,34,.12))}
+.exd-rx-msg{flex:1;min-width:0;font-size:14px;font-weight:500;font-style:italic;color:var(--ink-2);letter-spacing:-.01em;line-height:1.3}
+.exd-rx .rx-av{width:26px;height:26px;font-size:11px;margin:0;box-shadow:none}
+.exd-rx-empty{margin:0 16px;padding:18px 16px;font-size:14px;font-weight:500;color:var(--muted);text-align:center;background:var(--white);border-radius:14px;box-shadow:var(--shadow-card)}
+/* the bar reuses the .choice-chip language: white, hairline border, selected = brand */
+.exd-rx-bar{display:flex;gap:6px;margin:12px 16px 0}
+.exd-rx-bk{flex:1;height:52px;border:1px solid var(--hairline);background:var(--white);border-radius:14px;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .12s ease,background .15s ease}
+.exd-rx-bk:active{transform:scale(1.12)}
+.exd-rx-bk.on{background:var(--brand-tint);border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}
+
+/* Delete — low-prominence muted text at the foot of the scroll, arm-then-confirm
+   (matches .ex-del: never a red button). Update is the single bottom-anchored CTA. */
+.exd-del{display:block;width:fit-content;margin:30px auto 6px;background:none;border:none;color:var(--muted);font-size:14px;font-weight:500;letter-spacing:-.01em;padding:8px 16px;cursor:pointer}
+.exd-del.armed{color:var(--danger);font-weight:700}
+.exd-del:active{opacity:.55}
+
+@media (prefers-reduced-motion:reduce){
+  .exd-rx-bk{transition:none}
+}

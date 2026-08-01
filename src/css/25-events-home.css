@@ -56,6 +56,15 @@
 .tl-emoji{font-size:19px;flex-shrink:0}
 .tl-name{flex:1;min-width:0;font-family:var(--disp);font-weight:600;font-size:16px;letter-spacing:-.3px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tl-pct{font-size:13.5px;font-weight:600;letter-spacing:-.02em;color:var(--muted);flex-shrink:0}
+/* Reactions on a photo-expense timeline card — seated under the photos, divided by a
+   hairline. ONE row per reaction (never grouped): each member's own emoji + own copy, so
+   nothing is misattributed. Emoji carry the colour; the copy is the app's inline-chip voice
+   (italic, quiet), one line each so the rows stack evenly without a fill or a badge. */
+.tl-rx-list{margin-top:1px;padding-top:9px;border-top:1px solid var(--divider);display:flex;flex-direction:column;gap:5px}
+.tl-rx-row{display:flex;align-items:center;gap:6px;min-width:0}
+.tl-rx-e{font-size:14px;line-height:1;flex:0 0 auto;filter:drop-shadow(0 1px 1px rgba(25,16,34,.12))}
+.tl-rx-msg{flex:1;min-width:0;font-size:12.5px;font-style:italic;font-weight:500;color:var(--ink-2);letter-spacing:-.01em;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-rx-more{font-size:11.5px;font-weight:600;color:var(--chev);letter-spacing:-.01em;padding-left:20px}
 .tl-fig{font-size:13px;font-weight:500;letter-spacing:-.01em;color:var(--muted);margin-top:2px}
 .tl-fig b{color:var(--ink);font-weight:600}
 /* Fully-funded upcoming event: a celebratory "ready" state, not a 100% bar */

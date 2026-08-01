@@ -34,7 +34,7 @@ function txRow(t){
   // data-rxid (only persisted rows) arms the long-press reaction picker; rxChip appends any reactions inline
   var rxid=t._dbId?(' data-rxid="'+escAttr(t._dbId)+'"'):'';
   var chip=(typeof rxChip==='function')?rxChip(t):'';
-  return '<div class="row tap'+(chip?' has-rx':'')+'"'+rxid+' onclick="openEditExpense(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+t.ico+'</div>'+spAv(t.who)+'</div>'
+  return '<div class="row tap'+(chip?' has-rx':'')+'"'+rxid+' onclick="openExpenseDetail(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+t.ico+'</div>'+spAv(t.who)+'</div>'
     +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s">'+dstr+' · '+t.cat+'</div></div>'
     +'<div class="r-amt num">'+fmt(t.amt)+'</div>'+chip+'</div>';
 }

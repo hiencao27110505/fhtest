@@ -297,7 +297,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <div class="ovnav"><button class="ovback" onclick="closeMemory()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="memories">Memories</span></button></div>
     <div class="mo-head"><div class="mo-cap" id="mo-cap"></div><div class="mo-meta" id="mo-meta"></div></div>
     <div class="mo-photos" id="mo-photo"></div>
-    <div class="mo-body"><button class="mo-action" id="mo-action"></button></div>
+    <div class="mo-body"><div class="mo-rx" id="mo-rx"></div><button class="mo-action" id="mo-action"></button></div>
   </div>
 </div>
 
@@ -372,6 +372,19 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <div id="requests-body"></div>
     <div class="spacer"></div>
   </div>
+</div>
+
+<!-- EXPENSE DETAIL — view an expense + its reactions first; Update / Delete from here -->
+<div class="overlay" id="exp-overlay">
+  <div class="safe"></div>
+  <div class="cd-nav">
+    <button class="cd-back" onclick="closeExpenseDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="back">Back</span></button>
+  </div>
+  <div class="cd-scroll">
+    <div id="exd-body"></div>
+    <div class="spacer"></div>
+  </div>
+  <div class="cd-cta-bar" id="exd-cta"></div>
 </div>
 
 <!-- SCRIM + SHEETS -->

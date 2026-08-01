@@ -296,6 +296,7 @@ function saveExpenseEdit(){
   txns.sort(txNewestFirst);
   selMonth=curMonthKey(); renderAll(); renderTxns(); renderEvents();
   if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val);
+  if(typeof renderExpenseDetailIfOpen==='function') renderExpenseDetailIfOpen();   // refresh the detail screen underneath, if it launched this edit
   closeExpense();
   toast(L('Đã lưu · ','Changes saved · ')+note);
 }
@@ -321,6 +322,7 @@ function deleteExpense(){
   selMonth=curMonthKey(); renderAll(); renderTxns(); renderEvents();
   if(curDetail && document.getElementById('cat-overlay').classList.contains('on')) openCat(curDetail.type,curDetail.val);
   closeExpense();
+  if(typeof renderExpenseDetailIfOpen==='function') renderExpenseDetailIfOpen();   // the txn is gone → this backs out of an open detail screen
   toast(L('Đã xoá · ','Deleted · ')+note);
 }
 var selEmoji='🎉', selCov='pink';
