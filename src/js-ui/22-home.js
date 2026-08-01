@@ -257,6 +257,22 @@ function qTile(o){      // {ic,chCls,label,act} — quick action, same tinted-ch
     + '<span class="qt-l">' + o.label + '</span></button>';
 }
 function _sectionH(title, link, label){ return '<div class="section-h"><div class="t">' + title + '</div>' + (link ? '<a onclick="' + link + '">' + (label || L('Xem tất cả', 'See all')) + '</a>' : '') + '</div>'; }
+var _UP_TINT = { occ: 'wc-amber', goal: 'wc-good', exp: 'wc-indigo' };
+function upCardHTML(it){      // {kind:occ|goal|exp,d,name,emoji,target?,saved?,amt?,act} — one Sắp tới card
+  var dl = daysLeft(it.d);
+  var dlt = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : L('Còn ' + dl + ' ngày', dl + ' days'));
+  var body;
+  if(it.kind === 'exp'){
+    body = '<div class="up-amt num">' + fmt(it.amt) + '</div>';
+  } else if(it.target > 0){
+    var pct = Math.min(100, Math.round((it.saved || 0) / it.target * 100));
+    body = '<div class="up-bar"><i style="width:' + pct + '%"></i></div><div class="up-s">' + pct + '% · ' + fmt(it.saved || 0) + '/' + fmt(it.target) + '</div>';
+  } else {
+    body = '<div class="up-s">' + L('Kế hoạch', 'Plan') + '</div>';
+  }
+  return '<button class="up-card" onclick="' + it.act + '"><div class="up-head"><span class="up-ic ' + _UP_TINT[it.kind] + '">' + esc(it.emoji) + '</span><span class="up-dl">' + dlt + '</span></div>'
+    + '<div class="up-t">' + esc(it.name) + '</div><div class="up-body">' + body + '</div></button>';
+}
 
 function renderHome(){
   var box = document.getElementById('home-body'); if(!box) return;
@@ -385,21 +401,25 @@ function renderHome(){
     + qTile({ ic: _QSVG.pig, chCls: 'wc-indigo', label: L('Góp quỹ', 'Chip in'), act: 'fhSavings()' })
     + '</div>';
 
-  /* ============ SẮP TỚI — the rich anticipation card (when there's a story to tell) ============ */
-  if(up.length){
-    var k = up[0], e = evs[k], dl = daysLeft(e.d);
-    var emm = (e.memories && e.memories[0]) || null, eSrc = (emm && emm.src) ? emm.src : '', eIll = eSrc ? null : occCover(e.name, e.emoji);
-    if(e.target > 0 || emm){
-      var eyeU = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : L('Còn ' + dl + ' ngày', dl + ' days to go'));
-      if(e.target > 0){
-        var pctU = Math.min(100, Math.round(e.saved / e.target * 100));
-        html += _sectionH(L('Sắp tới', 'Coming up'), 'goMoments(&#39;plans&#39;)')
-          + bigPhoto({ src: eSrc, ill: eIll, subj: eSrc ? e.emoji : '', eye: eyeU, title: e.name, sub: L('Cả nhà đã để dành được ' + pctU + '% rồi', 'Saved ' + pctU + '% together'), pct: pctU, cta: { label: L('Cùng góp thêm', 'Chip in') }, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
-      } else {
-        html += _sectionH(L('Sắp tới', 'Coming up'), 'goMoments(&#39;plans&#39;)')
-          + bigPhoto({ src: eSrc, ill: eIll, subj: eSrc ? e.emoji : '', eye: eyeU, title: e.name, sub: L('Điều cả nhà đang mong', 'Something to look forward to'), cta: { label: L('Xem kế hoạch', 'View plan') }, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
-      }
-    }
+  /* ============ SẮP TỚI — every upcoming thing (occasions, due goals, future expenses),
+     nearest first, as a horizontal carousel — not just the single closest occasion. ============ */
+  var upAll = [];
+  up.forEach(function(k){
+    var e = evs[k];
+    upAll.push({ kind: 'occ', d: e.d, name: e.name, emoji: e.emoji, target: e.target, saved: e.saved, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
+  });
+  goalsLive.forEach(function(g){                       // only goals with a due date belong on a timeline
+    var e = goals[g]; if(!e.d) return;
+    upAll.push({ kind: 'goal', d: e.d, name: e.name, emoji: e.emoji || '🎯', target: e.target, saved: e.saved, act: 'fundGoal(&#39;' + escAttr(g) + '&#39;)' });
+  });
+  (window.txns || []).forEach(function(t){
+    if(!t.future || !t._d) return;
+    upAll.push({ kind: 'exp', d: t._d, name: t.note || L('Khoản chi', 'Expense'), emoji: t.ico || '📅', amt: t.amt, act: 'openExpenseDetail(&#39;' + escAttr(t.id) + '&#39;)' });
+  });
+  upAll.sort(function(a, b){ return a.d.getTime() - b.d.getTime(); });
+  if(upAll.length){
+    html += _sectionH(L('Sắp tới', 'Coming up') + ' · ' + upAll.length, 'goMoments(&#39;plans&#39;)')
+      + '<div class="up-strip">' + upAll.slice(0, 12).map(upCardHTML).join('') + '</div>';
   }
 
   /* ============ MỤC TIÊU CHUNG — chip in to a shared dream, right here ============ */

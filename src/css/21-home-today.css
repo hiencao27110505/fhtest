@@ -198,6 +198,24 @@
 /* home memory strip inset (the strip itself lives in 60-memories.css) */
 .home-strip{padding-left:16px;padding-right:16px}
 
+/* ---------- Sắp tới carousel — occasions, due goals, future expenses, nearest first ---------- */
+.up-strip{display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding:2px 0 14px;margin-bottom:-8px;scroll-padding-left:22px}
+.up-strip::before{content:'';flex:0 0 10px}
+.up-strip::after{content:'';flex:0 0 4px}
+.up-strip::-webkit-scrollbar{display:none}
+.up-card{flex:0 0 152px;height:150px;scroll-snap-align:start;display:flex;flex-direction:column;background:var(--white);border:0;border-radius:18px;box-shadow:var(--shadow-card);padding:13px 14px 14px;text-align:left;font:inherit;cursor:pointer;min-width:0}
+.up-card:active{transform:scale(.98)}
+.up-head{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.up-ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto}
+.up-dl{font-size:10.5px;font-weight:700;letter-spacing:.1px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.up-t{font-family:var(--disp);font-weight:700;font-size:14.5px;letter-spacing:-.15px;color:var(--ink);line-height:1.28;margin-top:10px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.up-body{margin-top:auto}
+.up-bar{height:4px;border-radius:3px;background:var(--divider);overflow:hidden}
+.up-bar i{display:block;height:100%;background:var(--brand);border-radius:3px}
+.up-s{font-size:11.5px;font-weight:600;color:var(--muted);margin-top:6px;font-variant-numeric:tabular-nums}
+.up-body>.up-s:first-child{margin-top:0}
+.up-amt{font-family:var(--disp);font-weight:800;font-size:16px;letter-spacing:-.2px;color:var(--ink)}
+
 /* ---------- immersive photo card (uses the family's real uploaded media) ---------- */
 /* block-level flex + horizontal margin (NO width:100%) — width:auto fills the row minus the
    16px side margins (width:100% would be 100%+32px = overflow). flex + an in-flow caption is
