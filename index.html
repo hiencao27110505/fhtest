@@ -1873,25 +1873,15 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 /* invite code — bordered, not filled, per the no-colored-fills rule */
 .fh-code-show{font-family:ui-monospace,Menlo,monospace;font-size:31px;font-weight:700;letter-spacing:6px;
   color:var(--brand-ink);text-align:center;border:1.5px solid var(--hairline);border-radius:14px;padding:18px 0;margin-bottom:18px}
-/* ---------- What's new (release notes) ---------- */
-.wn-sub{font-size:14px;color:var(--muted);line-height:1.5;margin:2px 0 18px}
-.wn-list{display:flex;flex-direction:column;gap:18px}
-.wn-item{border:1px solid var(--hairline);border-radius:16px;padding:16px 16px 6px;background:var(--white)}
-.wn-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
-.wn-ic{flex-shrink:0;width:38px;height:38px;border-radius:11px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1}
-.wn-htext{flex:1;min-width:0}
-.wn-t{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.02em;color:var(--ink);line-height:1.3}
-.wn-meta{display:flex;align-items:center;gap:8px;margin-top:5px}
-.wn-tag{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:5px;line-height:1.4}
-.wn-tag-new{color:var(--brand-ink);background:var(--brand-tint)}
-.wn-tag-better{color:var(--muted-soft);background:var(--fill-neutral)}
-.wn-date{font-size:11px;color:var(--muted-soft);font-weight:500}
-.wn-block{padding:10px 0 10px 12px;border-left:2px solid var(--divider)}
-.wn-block+.wn-block{border-top:1px solid var(--divider)}
-.wn-sol{border-left-color:var(--brand-2)}
-.wn-lbl{display:block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-soft);margin-bottom:3px}
-.wn-sol .wn-lbl{color:var(--brand-ink)}
-.wn-block p{font-size:14px;line-height:1.55;color:var(--ink-2);margin:0}
+/* ---------- What's new (release notes) — Apple "What's New" pattern ---------- */
+.wn-intro{font-family:var(--text);font-size:15px;line-height:1.45;color:var(--muted);letter-spacing:-.01em;margin:-2px 0 24px}
+.wn-list{display:flex;flex-direction:column;gap:28px}
+.wn-row{display:flex;gap:16px;align-items:flex-start}
+.wn-ic{flex:0 0 30px;width:30px;height:30px;color:var(--brand);margin-top:1px}
+.wn-ic svg{width:100%;height:100%;display:block}
+.wn-txt{flex:1;min-width:0;padding-top:1px}
+.wn-t{font-family:var(--text);font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.32}
+.wn-desc{font-family:var(--text);font-size:15px;line-height:1.5;letter-spacing:-.01em;color:var(--ink-2);margin:3px 0 0}
 
 /* unread dot — on the header gear and the Settings row */
 .hh-ic{position:relative}
@@ -2538,20 +2528,15 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   </div>
 </div>
 
-<!-- WHAT'S NEW — release notes, problem-first -->
+<!-- WHAT'S NEW — release notes (Apple "What's New" pattern) -->
 <div class="modal" id="modal-whatsnew">
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeModals()" data-t="close">Close</button>
     <div class="modal-title" data-t="whatsNewTitle">What's new</div>
     <button class="modal-save" onclick="closeModals()" data-t="done">Done</button>
   </div>
   <div class="modal-body">
-    <div class="wn-sub" data-t="whatsNewSub">The latest we've shipped for your family — what wasn't working, and what changed.</div>
+    <div class="wn-intro" data-t="whatsNewSub">The latest updates for your family.</div>
     <div class="wn-list" id="whatsnew-list"></div>
-    <div class="founder-note" style="margin-top:20px">
-      <div class="fn-avs"><span class="fn-av">👩🏻</span><span class="fn-av">🧑🏻</span></div>
-      <div class="fn-txt"><span data-t="founderNote">We're two parents building FamilyHub for families like yours. Your notes shape what we build next.</span><span class="fn-sig" data-t="founderSig">Mira &amp; Sam, founders</span></div>
-    </div>
   </div>
 </div>
 
@@ -2806,19 +2791,29 @@ function eventsReserved(){ return order.reduce(function(s,k){ return achievedNow
 // Reviews live on t.reviews when freshly created / in demo; once persisted they are
 // reactions on the transaction (creator = t._memberId), so alignment syncs across
 // devices for free. Only an *aligned* proposal reserves money from this month.
-function _futReviews(t){
-  if(!t) return [];
-  if(t.reviews && t.reviews.length) return t.reviews;                       // demo / just-created (pre-hydrate)
+// Reviews for a proposable entity — a future expense, a saving goal, or a future
+// occasion (collaborative requests, see 64-requests.js). Local optimistic reviews
+// live on obj._reviews; persisted ones in window.DB.reviewsByEntity keyed 'type:dbId'
+// (migration 0024). created_by is the REQUESTER (distinct from the payer), and is
+// excluded from the alignment tally — only ANOTHER member's 🥰 aligns it.
+function _entCreatorId(type, obj){ return obj ? (obj._createdBy || obj.by || obj._by || null) : null; }
+function _entReviews(type, dbId, obj){
+  if(obj && obj._reviews && obj._reviews.length) return obj._reviews;
+  if(obj && obj.reviews && obj.reviews.length) return obj.reviews;          // legacy local field (expense)
   var db=window.DB;
-  if(db && db.reactionsByTx && t._dbId){                                    // live: derive from reactions, excluding the creator
-    return (db.reactionsByTx[t._dbId]||[]).filter(function(r){ return r.memberId!==t._memberId; })
-      .map(function(r){ return { emoji:r.emoji, by:r.memberId, byName:(db.memberById&&db.memberById[r.memberId])?db.memberById[r.memberId].name:'', at:r.at }; });
+  if(db && db.reviewsByEntity && dbId){
+    return (db.reviewsByEntity[type+':'+dbId]||[]).map(function(r){
+      return { emoji:r.emoji, by:r.memberId, byName:(db.memberById&&db.memberById[r.memberId])?db.memberById[r.memberId].name:'', at:r.at };
+    });
   }
   return [];
 }
-function futureAligned(t){ return _futReviews(t).some(function(r){ return r.emoji==='🥰'; }); }
-function futurePending(t){ return !!(t && t.future && !futureAligned(t)); }
-function futureExpReserved(){ return txns.reduce(function(s,t){ return s+((t.future && futureAligned(t))?t.amt:0); },0); }
+function _entAlignedBy(type, obj){ var c=_entCreatorId(type,obj); return _entReviews(type, obj&&obj._dbId, obj).some(function(r){ return r.emoji==='🥰' && r.by!==c; }); }
+// expense money-reserve: a proposal (has a creator) reserves only once aligned; a
+// legacy future expense with no creator reserves exactly as before.
+function futureAligned(t){ return _entAlignedBy('expense', t); }
+function futurePending(t){ return !!(t && t.future && _entCreatorId('expense',t) && !futureAligned(t)); }
+function futureExpReserved(){ return txns.reduce(function(s,t){ return s+((t.future && (_entCreatorId('expense',t) ? futureAligned(t) : true))?t.amt:0); },0); }
 function monthReserved(){ return eventsReserved()+futureExpReserved(); }
 /* ---- currency (USD $ · VND ₫, VND display ×1000 so amounts read realistically) ---- */
 var CUR='USD';
@@ -5271,9 +5266,10 @@ function resRow(k){   // an event funded from this month → an "Events" future 
 function futRow(t){   // a standalone future expense logged in the expense sheet
   var today=sameDay(txPhotoDate(t),TODAY);
   var pend=(typeof futurePending==='function')&&futurePending(t);
-  var me=(typeof _meName==='function')?_meName():'';
-  var incoming=pend && t.by && t.by!==me;                   // someone else's proposal → tapping it reviews, not edits
-  var onclick=incoming?('openReview(\''+t.id+'\')'):('openEditExpense(\''+t.id+'\')');
+  var me=(typeof _futMeId==='function')?_futMeId():'';
+  var creator=(typeof _entCreatorId==='function')?_entCreatorId('expense',t):null;
+  var incoming=pend && creator && creator!==me;             // someone else's proposal → tapping it reviews, not edits
+  var onclick=incoming?('openReview(\'expense\',\''+t.id+'\')'):('openEditExpense(\''+t.id+'\')');
   var tag=pend ? '<span class="res-tag pend">'+L('chờ duyệt','in review')+'</span>'
                : '<span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>';
   var sub=pend ? L('Chờ cả nhà duyệt','Waiting for the family')
@@ -5918,24 +5914,20 @@ window.closeRxArrive=closeRxArrive;
 /* run after every hydrate: refresh the wall + play any just-arrived moment */
 function rxAfterHydrate(){ try{ renderRxWall(); }catch(e){} try{ if(typeof renderExpenseDetailIfOpen==='function') renderExpenseDetailIfOpen(); }catch(e){} try{ if(typeof renderMemoryIfOpen==='function') renderMemoryIfOpen(); }catch(e){} try{ if(typeof renderMemoriesTabIfOpen==='function') renderMemoriesTabIfOpen(); }catch(e){} try{ rxCheckArrivals(); }catch(e){} }
 window.rxAfterHydrate=rxAfterHydrate;
-/* ---------- collaborative future-expense requests ----------
-   A future expense is a *proposal*, not a done deal. It reserves nothing until at
-   least one family member OTHER than its creator approves it with 🥰 — then it's set
-   aside for real. Reviewing reuses the ledger's exact five reactions (😱🤨😂🥰😤):
-   the reviewer expresses HOW they feel, the system reads WHETHER it's aligned. Only
-   🥰 sets it aside; the other four keep it pending and pass the feeling back so it
-   stays a conversation, never a hard reject.
+/* ---------- collaborative requests ----------
+   A proposal — a future EXPENSE, a saving GOAL, or a future OCCASION — must be
+   reviewed and aligned by at least one OTHER family member before it counts. One
+   generalized surface: a "Waiting for your OK" widget (Home + Finance), a Requests
+   hub (two lanes), and a review sheet. Reviewing reuses the ledger's five reactions
+   (😱🤨😂🥰😤): the reviewer expresses HOW they feel, the system reads WHETHER it's
+   aligned — only 🥰 (from someone other than the requester) aligns it.
 
-   This is a DISTINCT feature from ledger reactions, even though it persists through
-   the same reactions table (so it syncs across devices for free): a review is a
-   reaction on a future-dated transaction, whose creator is t._memberId. Requests
-   never appear in the Phòng khách feed, and decisions arrive with their OWN
-   confetti + toast (reqCheckArrivals), separate from the reactions arrival.
+   Persistence (migration 0024): created_by marks the REQUESTER on each entity
+   (distinct from the payer); reviews live in request_reviews, keyed 'type:dbId',
+   and sync across devices via realtime. A DISTINCT feature from ledger reactions.
+   _entCreatorId / _entReviews / _entAlignedBy live in 10-nav-model.js. */
 
-   Identity resolves in both modes: live = DB member ids (window.DB); demo = names.
-   futureAligned()/futurePending()/_futReviews() live in 10-nav-model.js. */
-
-/* ---- identity (live: DB member ids · demo: names) ---- */
+/* ---- identity ---- */
 function _memName(id){ var db=window.DB; return (db && db.memberById && db.memberById[id] && db.memberById[id].name) || ''; }
 function _memColor(idOrName){
   var db=window.DB;
@@ -5944,94 +5936,116 @@ function _memColor(idOrName){
   return '#8a8494';
 }
 function _futMeId(){ var db=window.DB; if(db && db.ownerMemberId) return db.ownerMemberId; return (typeof _meName==='function')?_meName():''; }
-function _futCreatorId(t){ return (t && t._memberId) ? t._memberId : ((t && t.by) || null); }
-function _futCreatorName(t){ if(!t) return ''; return _memName(_futCreatorId(t)) || t.by || t.who || ''; }
-function _isMyReq(t){ var c=_futCreatorId(t); return c!=null && c===_futMeId(); }
-function _reqName(name){ var f=(name||'').trim().split(/\s+/)[0]; return f || L('Người nhà','a family member'); }
+function _reqName(idOrName){ var nm=_memName(idOrName)||idOrName||''; var f=(''+nm).trim().split(/\s+/)[0]; return f || L('Người nhà','a family member'); }
 
 /* ---- the review vocabulary — the ledger's exact five, re-voiced for a proposal.
-   Only 🥰 aligns (sets it aside); the rest are feedback that keeps it pending. ---- */
+   Uniform rows (no highlighted CTA); only 🥰 aligns, said in the sub-label. ---- */
 function _reqReviewSet(){ return [
-  { e:'🥰', vi:'Thương',   en:'Love it',  dvi:'Đồng ý — để dành luôn', den:'I’m in — set it aside' },
+  { e:'🥰', vi:'Thương',   en:'Love it',  dvi:'Đồng ý — chốt luôn',    den:'I’m in — count me' },
   { e:'😂', vi:'Vui ghê',  en:'Ha, love it', dvi:'Thích cái vụ này',   den:'Love the energy' },
-  { e:'😱', vi:'Bất ngờ',  en:'Whoa',     dvi:'Hơi nhiều đấy',         den:'That’s a lot' },
+  { e:'😱', vi:'Bất ngờ',  en:'Whoa',     dvi:'Hơi bất ngờ đấy',       den:'That’s a surprise' },
   { e:'🤨', vi:'Nghĩ đã',  en:'Hmm',      dvi:'Bàn thêm chút nha',     den:'Let’s talk first' },
   { e:'😤', vi:'Chưa nên', en:'Not now',  dvi:'Chưa hợp lúc này',      den:'Not right now' }
 ];}
 function _reqCfg(e){ var a=_reqReviewSet(); for(var i=0;i<a.length;i++){ if(a[i].e===e) return a[i]; } return a[0]; }
 function _reqReactLabel(e){ var c=_reqCfg(e); return esc(L(c.vi,c.en)); }
 
-/* ---- shared bits ---- */
-function _reqAvOf(t,cls){ var nm=_futCreatorName(t), col=_memColor(_futCreatorId(t))||_memColor(nm);
+/* ---- entity normalization (expense · goal · occasion) ---- */
+function _entMeta(type){
+  if(type==='goal')     return { icon:'🎯', verb:L('muốn lập mục tiêu','wants to start a goal'),  unit:L('mục tiêu','goal') };
+  if(type==='occasion') return { icon:'🎈', verb:L('muốn thêm một dịp','wants to plan an occasion'), unit:L('dịp','occasion') };
+  return { icon:'📅', verb:L('muốn để dành','wants to set aside'), unit:L('khoản chi','expense') };
+}
+function _reqObj(type, ref){
+  if(type==='expense') return (typeof txById==='function')?txById(ref):null;
+  if(type==='goal')     return (window.goals||{})[ref] || null;
+  if(type==='occasion') return (window.events||{})[ref] || null;
+  return null;
+}
+function _entNorm(type, obj, ref){
+  var amount = type==='expense' ? obj.amt : obj.target;
+  var title  = type==='expense' ? obj.note : obj.name;
+  var icon   = type==='expense' ? (obj.ico||'📅') : (obj.emoji || _entMeta(type).icon);
+  return { type:type, ref:ref, dbId:obj._dbId||null, key:type+':'+(obj._dbId||ref), obj:obj,
+    title:title||_entMeta(type).unit, amount:amount||0, icon:icon, dateTxt:obj.date||'',
+    creatorId:_entCreatorId(type,obj), reviews:_entReviews(type,obj._dbId,obj) };
+}
+function _entAligned(item){ var c=item.creatorId; return item.reviews.some(function(r){ return r.emoji==='🥰' && r.by!==c; }); }
+function _entPending(item){ return !!(item.creatorId && !_entAligned(item)); }
+function _isMine(item){ var c=item.creatorId; return c!=null && c===_futMeId(); }
+function _creatorName(item){ return _memName(item.creatorId) || item.creatorId || ''; }
+function _entAv(item,cls){ var col=_memColor(item.creatorId), nm=_creatorName(item);
   return '<span class="req-av'+(cls?' '+cls:'')+'" style="background:'+col+'">'+esc((typeof inits==='function')?inits(nm||'?'):'?')+'</span>'; }
-function _reqChev(){ return '<svg class="req-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'; }
-function _catLabel(c){ var s=(window.catStyle&&catStyle[c]); return (s?s[0]+' ':'')+(c||''); }
-function _reqDate(t){ return t.date || ''; }
-function _reqSafeAfter(t){
-  var m=(typeof M==='function')?M():null; if(!m||!m.budget) return null;
-  var safe=Math.max(0, m.budget - m.spent - monthReserved());
-  return Math.max(0, safe - (t.amt||0));   // aligning would reserve t.amt
-}
-function _reqStatusLine(t){
-  var rs=_futReviews(t);
-  if(futureAligned(t)){
-    var a=null; for(var i=0;i<rs.length;i++){ if(rs[i].emoji==='🥰'){ a=rs[i]; break; } }
-    return '<span class="req-status ok">'+(a?a.emoji:'🥰')+' '+esc(_reqName(_memName(a&&a.by)|| (a&&a.byName)))+' '+L('đã đồng ý · đã để dành','is in · set aside')+'</span>';
-  }
-  if(rs.length){ var r=rs[rs.length-1];
-    return '<span class="req-status hold">'+r.emoji+' '+esc(_reqName(_memName(r.by)||r.byName))+' '+L('vừa phản hồi','responded')+'</span>'; }
-  return '<span class="req-status wait">'+L('Đang chờ cả nhà duyệt','Waiting for the family')+'</span>';
-}
 
-/* ---- request lists (a future expense == a request) ---- */
-function _reqAll(){ return (window.txns||[]).filter(function(t){ return t.future; }); }
-function reqIncoming(){ return _reqAll().filter(function(t){ return !_isMyReq(t) && futurePending(t); }); }
-function reqMine(){ return _reqAll().filter(function(t){ return _isMyReq(t); }); }
+/* ---- gather all proposals across the three types ---- */
+function _reqItems(){
+  _reqEnsureSeed();
+  var out=[];
+  (window.txns||[]).forEach(function(t){ if(t.future && _entCreatorId('expense',t)) out.push(_entNorm('expense',t,t.id)); });
+  var goals=window.goals||{}, gord=window.goalOrder||[];
+  gord.forEach(function(k){ var g=goals[k]; if(g && !g.achieved && _entCreatorId('goal',g)) out.push(_entNorm('goal',g,k)); });
+  var evs=window.events||{}, eord=window.order||[];
+  eord.forEach(function(k){ var e=evs[k];
+    if(e && !e._srcTxn && !e.fromExpense && _entCreatorId('occasion',e) && e.d && e.d>TODAY && !(typeof achievedNow==='function'&&achievedNow(e)))
+      out.push(_entNorm('occasion',e,k)); });
+  return out;
+}
+function reqIncoming(){ var me=_futMeId(); return _reqItems().filter(function(i){ return i.creatorId!==me && _entPending(i); }); }
+function reqMine(){ var me=_futMeId(); return _reqItems().filter(function(i){ return i.creatorId===me; }); }
 
-/* demo seed: a couple of incoming requests so the loop is visible signed-out.
-   Live mode gets its requests from real data, so it never seeds. Runs once. */
+/* demo seed (signed-out preview only): a couple of incoming expense requests. */
 function _reqEnsureSeed(){
   if(window._reqSeeded) return;
-  if(typeof _wIsReal==='function' && _wIsReal()){ window._reqSeeded=true; return; }   // live: real requests
+  if(typeof _wIsReal==='function' && _wIsReal()){ window._reqSeeded=true; return; }
   if(!window.txns || typeof txSeq==='undefined'){ return; }
   window._reqSeeded=true;
   var dim=new Date(TODAY.getFullYear(),TODAY.getMonth()+1,0).getDate();
   function futD(add){ var day=Math.min(TODAY.getDate()+add,dim); var d=new Date(TODAY.getFullYear(),TODAY.getMonth(),day);
     if(d<=TODAY) d=new Date(TODAY.getFullYear(),TODAY.getMonth()+1,Math.min(5,add)); return d; }
   function mk(by,note,cat,amt,add){ var d=futD(add); var s=(window.catStyle&&catStyle[cat])||['📅'];
-    return {id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:MONA[d.getMonth()]+' '+d.getDate(),who:by,amt:amt,future:true,by:by,reviews:[],month:curMonthKey(),_d:d}; }
+    return {id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:MONA[d.getMonth()]+' '+d.getDate(),who:by,amt:amt,future:true,by:by,_reviews:[],month:curMonthKey(),_d:d}; }
   txns.unshift(mk('Mia',   L('Giày bóng đá','Football boots'),      'Others', 60, 9));
   txns.unshift(mk('James', L('Vé xem bóng cuối tuần','Weekend match tickets'), 'Fun', 80, 5));
 }
 
-/* ---- the card — one design everywhere (widget · hub · both lanes), matching the
-   Phòng khách card language (avatar → body → chevron, neutral surface) ---- */
-function _reqCard(t, incoming){
-  if(incoming){
-    var nm=_reqName(_futCreatorName(t));
-    return '<button class="req-card" onclick="openReview(\''+t.id+'\')">'+_reqAvOf(t)
-      +'<span class="req-cb"><span class="req-ct">'+esc(nm)+' '+L('muốn để dành','wants to set aside')+'</span>'
-      +'<span class="req-cs">'+esc(t.note)+' · '+_catLabel(t.cat)+' · '+_reqDate(t)+'</span></span>'
-      +'<span class="req-amt num">'+fmt(t.amt)+'</span>'+_reqChev()+'</button>';
+/* ---- shared bits ---- */
+function _reqChev(){ return '<svg class="req-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'; }
+function _reqStatusLine(item){
+  var rs=item.reviews, c=item.creatorId;
+  if(_entAligned(item)){
+    var a=null; for(var i=0;i<rs.length;i++){ if(rs[i].emoji==='🥰' && rs[i].by!==c){ a=rs[i]; break; } }
+    return '<span class="req-status ok">'+(a?a.emoji:'🥰')+' '+esc(_reqName(a&&(a.by))||(a&&a.byName))+' '+L('đã đồng ý','is in')+'</span>';
   }
-  // my own request → a read-only follow card (tap = follow the decisions, never decide)
-  return '<button class="req-card" onclick="openReview(\''+t.id+'\')">'+_reqAvOf(t)
-    +'<span class="req-cb"><span class="req-ct">'+esc(t.note)+' · '+fmt(t.amt)+'</span>'
-    +_reqStatusLine(t)+'</span>'+_reqChev()+'</button>';
+  if(rs.length){ var r=rs[rs.length-1];
+    return '<span class="req-status hold">'+r.emoji+' '+esc(_reqName(r.by)||r.byName)+' '+L('vừa phản hồi','responded')+'</span>'; }
+  return '<span class="req-status wait">'+L('Đang chờ cả nhà duyệt','Waiting for the family')+'</span>';
+}
+function _reqTypeChip(item){ var m=_entMeta(item.type); return item.icon+' '+(item.dateTxt||m.unit); }
+
+/* ---- the card — one design across widget · hub · both lanes ---- */
+function _reqCard(item, incoming){
+  if(incoming){
+    return '<button class="req-card" onclick="openReview(\''+item.type+'\',\''+esc(item.ref)+'\')">'+_entAv(item)
+      +'<span class="req-cb"><span class="req-ct">'+esc(_reqName(item.creatorId))+' '+_entMeta(item.type).verb+'</span>'
+      +'<span class="req-cs">'+esc(item.title)+' · '+_reqTypeChip(item)+'</span></span>'
+      +'<span class="req-amt num">'+fmt(item.amount)+'</span>'+_reqChev()+'</button>';
+  }
+  return '<button class="req-card" onclick="openReview(\''+item.type+'\',\''+esc(item.ref)+'\')">'+_entAv(item)
+    +'<span class="req-cb"><span class="req-ct">'+esc(item.title)+' · '+fmt(item.amount)+'</span>'
+    +_reqStatusLine(item)+'</span>'+_reqChev()+'</button>';
 }
 
-/* ---- widget (Home + Finance) — section header + card list, like the reactions strip ---- */
+/* ---- widget (Home + Finance) ---- */
 function requestsWidgetHTML(){
-  _reqEnsureSeed();
   var inc=reqIncoming(); if(!inc.length) return '';
   var head=(typeof _sectionH==='function') ? _sectionH(L('Cần bạn duyệt','Waiting for your OK'), 'openRequests()', L('Xem tất cả','See all')) : '';
-  return head+'<div class="req-list">'+inc.slice(0,3).map(function(t){ return _reqCard(t,true); }).join('')+'</div>';
+  return head+'<div class="req-list">'+inc.slice(0,3).map(function(i){ return _reqCard(i,true); }).join('')+'</div>';
 }
 window.requestsWidgetHTML=requestsWidgetHTML;
 function renderReqMounts(){ var el=document.getElementById('fin-requests'); if(el) el.innerHTML=requestsWidgetHTML(); }
 window.renderReqMounts=renderReqMounts;
 
-/* ---- the hub — every request, two lanes ---- */
+/* ---- the hub ---- */
 function openRequests(){
   renderRequests();
   var t=document.getElementById('req-title'); if(t) t.textContent=L('Yêu cầu','Requests');
@@ -6042,25 +6056,25 @@ window.openRequests=openRequests;
 function closeRequests(){ document.getElementById('requests-overlay').classList.remove('on'); }
 window.closeRequests=closeRequests;
 function renderRequests(){
-  _reqEnsureSeed();
   var box=document.getElementById('requests-body'); if(!box) return;
   var inc=reqIncoming(), mine=reqMine(), html='';
   html+='<div class="req-lane-h">'+L('Chờ bạn duyệt','Waiting for you')+' · '+inc.length+'</div>';
-  html+= inc.length ? '<div class="req-list">'+inc.map(function(t){ return _reqCard(t,true); }).join('')+'</div>'
+  html+= inc.length ? '<div class="req-list">'+inc.map(function(i){ return _reqCard(i,true); }).join('')+'</div>'
                     : '<div class="req-empty">'+L('Không có yêu cầu nào đang chờ bạn.','Nothing waiting on you.')+'</div>';
   html+='<div class="req-lane-h" style="margin-top:24px">'+L('Yêu cầu của bạn','Your requests')+' · '+mine.length+'</div>';
-  html+= mine.length ? '<div class="req-list">'+mine.map(function(t){ return _reqCard(t,false); }).join('')+'</div>'
+  html+= mine.length ? '<div class="req-list">'+mine.map(function(i){ return _reqCard(i,false); }).join('')+'</div>'
                      : '<div class="req-empty">'+L('Bạn chưa gửi yêu cầu nào.','You haven’t sent any yet.')+'</div>';
   box.innerHTML=html;
 }
 window.renderRequests=renderRequests;
 
-/* ---- open a request: reviewers DECIDE, the requester only FOLLOWS ---- */
-function openReview(id){
-  var t=(typeof txById==='function')?txById(id):null; if(!t) return;
-  window._reviewId=id;
-  renderReview(id);
-  var mine=_isMyReq(t), ttl=document.getElementById('rv-title'); if(ttl) ttl.textContent = mine ? L('Yêu cầu của bạn','Your request') : L('Xem lại','Review');
+/* ---- review (others DECIDE) / follow (requester WATCHES) ---- */
+function openReview(type, ref){
+  var obj=_reqObj(type, ref); if(!obj) return;
+  window._reviewType=type; window._reviewRef=ref;
+  renderReview(type, ref);
+  var item=_entNorm(type,obj,ref), ttl=document.getElementById('rv-title');
+  if(ttl) ttl.textContent = _isMine(item) ? L('Yêu cầu của bạn','Your request') : L('Xem lại','Review');
   document.getElementById('scrim').classList.add('on');
   var m=document.getElementById('review-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
   var b=m.querySelector('.modal-body'); if(b) b.scrollTop=0;
@@ -6072,31 +6086,29 @@ function closeReview(){
   if(!(ov && ov.classList.contains('on'))){ var s=document.getElementById('scrim'); if(s) s.classList.remove('on'); }
 }
 window.closeReview=closeReview;
-function _reqPlanHead(t){
-  var safe=_reqSafeAfter(t), nm=_reqName(_futCreatorName(t));
-  var impact = safe!=null ? '<div class="rv-impact">'+L('Còn ','Leaves ')+'<b>'+fmt(safe)+'</b> '+L('an toàn để tiêu sau khoản này','safe to spend after this')+'</div>' : '';
+function _reqPlanHead(item){
+  var nm=_reqName(item.creatorId);
   return '<div class="rv-plan">'
-    +'<div class="rv-top">'+_reqAvOf(t,'lg')
-      +'<div class="rv-tb"><div class="rv-t">'+esc(nm)+' '+L('muốn để dành','wants to set aside')+'</div>'
-      +'<div class="rv-s">'+L('cho một dự định sắp tới','for an upcoming plan')+'</div></div>'
-      +'<div class="rv-amt num">'+fmt(t.amt)+'</div></div>'
-    +'<div class="rv-note">'+(t.ico||'📅')+' '+esc(t.note)+' · '+_catLabel(t.cat)+' · '+_reqDate(t)+'</div>'
-    +impact+'</div>';
+    +'<div class="rv-top">'+_entAv(item,'lg')
+      +'<div class="rv-tb"><div class="rv-t">'+esc(nm)+' '+_entMeta(item.type).verb+'</div>'
+      +'<div class="rv-s">'+esc(_entMeta(item.type).unit)+(item.dateTxt?(' · '+esc(item.dateTxt)):'')+'</div></div>'
+      +'<div class="rv-amt num">'+fmt(item.amount)+'</div></div>'
+    +'<div class="rv-note">'+item.icon+' '+esc(item.title)+'</div></div>';
 }
-function renderReview(id){
-  var t=(typeof txById==='function')?txById(id):null; if(!t){ closeReview(); return; }
+function renderReview(type, ref){
+  var obj=_reqObj(type, ref); if(!obj){ closeReview(); return; }
   var box=document.getElementById('review-body'); if(!box) return;
-  var head=_reqPlanHead(t);
+  var item=_entNorm(type,obj,ref), head=_reqPlanHead(item);
 
-  if(_isMyReq(t)){   // ---- FOLLOW view: the requester watches, can't decide ----
-    var rs=_futReviews(t);
-    var banner = futureAligned(t)
-      ? '<div class="rv-follow ok">✓ '+L('Đã được duyệt · đã để dành','Aligned · set aside')+'</div>'
+  if(_isMine(item)){   // FOLLOW view — read-only, the requester can't decide
+    var rs=item.reviews;
+    var banner = _entAligned(item)
+      ? '<div class="rv-follow ok">✓ '+L('Đã được duyệt','Aligned — a family member is in')+'</div>'
       : '<div class="rv-follow wait">'+L('Đang chờ ít nhất 1 người trong nhà đồng ý','Waiting for one family member to agree')+'</div>';
     var list = rs.length
       ? '<div class="rv-revs">'+rs.slice().sort(function(a,b){ return (a.at<b.at)?1:-1; }).map(function(r){
           return '<div class="rv-rev"><span class="rv-rev-e">'+r.emoji+'</span>'
-            +'<span class="rv-rev-b"><span class="rv-rev-n">'+esc(_reqName(_memName(r.by)||r.byName))+'</span>'
+            +'<span class="rv-rev-b"><span class="rv-rev-n">'+esc(_reqName(r.by)||r.byName)+'</span>'
             +'<span class="rv-rev-l">'+_reqReactLabel(r.emoji)+'</span></span></div>';
         }).join('')+'</div>'
       : '<div class="rv-empty">'+L('Chưa có ai phản hồi. Cả nhà sẽ được nhắc nhẹ nhé.','No responses yet — the family has been nudged.')+'</div>';
@@ -6104,76 +6116,85 @@ function renderReview(id){
     return;
   }
 
-  // ---- DECIDE view: the ledger reactions as vertical rows ----
+  // DECIDE view — the five reactions as uniform rows (no highlighted CTA)
   var meId=_futMeId(), myPick=null;
-  _futReviews(t).forEach(function(r){ if(r.by===meId) myPick=r.emoji; });
+  item.reviews.forEach(function(r){ if(r.by===meId) myPick=r.emoji; });
   var rows=_reqReviewSet().map(function(o){
-    var yes=(o.e==='🥰'), on=(myPick===o.e);
-    return '<button class="rv-opt'+(yes?' yes':'')+(on?' on':'')+'" onclick="submitReview(\''+t.id+'\',\''+o.e+'\')">'
+    var on=(myPick===o.e);
+    return '<button class="rv-opt'+(on?' on':'')+'" onclick="submitReview(\''+item.type+'\',\''+esc(item.ref)+'\',\''+o.e+'\')">'
       +'<span class="rv-e">'+o.e+'</span>'
       +'<span class="rv-ob"><span class="rv-on">'+esc(L(o.vi,o.en))+'</span><span class="rv-od">'+esc(L(o.dvi,o.den))+'</span></span>'
-      +(yes ? '<span class="rv-tag">'+L('để dành','set aside')+'</span>' : '<svg class="rv-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>')
+      +'<svg class="rv-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
       +'</button>';
   }).join('');
-  box.innerHTML=head+'<div class="rv-prompt">'+L('Bạn thấy khoản này thế nào?','How do you feel about it?')+'</div><div class="rv-opts">'+rows+'</div>';
+  box.innerHTML=head+'<div class="rv-prompt">'+L('Bạn thấy sao?','How do you feel about it?')+'</div><div class="rv-opts">'+rows+'</div>';
 }
 window.renderReview=renderReview;
 
-/* throw a review reaction · 🥰 aligns (sets it aside), the rest stay pending.
-   Persists through the reactions table (fhReact) so it syncs to every device. */
-function submitReview(id, emoji){
-  var t=(typeof txById==='function')?txById(id):null; if(!t){ closeReview(); return; }
-  if(_isMyReq(t)){ closeReview(); return; }   // guard: a requester can never decide their own
+/* throw a review · 🥰 (from a non-requester) aligns; the rest are feedback.
+   Persists via request_reviews so it syncs to every device. */
+function submitReview(type, ref, emoji){
+  var obj=_reqObj(type, ref); if(!obj){ closeReview(); return; }
+  var item=_entNorm(type,obj,ref);
+  if(_isMine(item)){ closeReview(); return; }   // requester can never decide their own
   var me=_futMeId();
-  var mine=(t.reviews||[]).filter(function(r){ return (r.by||'')!==me; });   // replace my prior take
-  mine.push({ emoji:emoji, by:me, byName:_memName(me)||(typeof _meName==='function'?_meName():''), at:new Date().toISOString() });
-  t.reviews=mine;                                                            // optimistic (hydrate re-derives from reactions)
-  if(t._dbId && typeof window.fhReact==='function'){ try{ window.fhReact(t._dbId, emoji); }catch(e){} }
+  obj._reviews=(_entReviews(type, obj._dbId, obj)||[]).filter(function(r){ return r.by!==me; }).map(function(r){ return {emoji:r.emoji,by:r.by,byName:r.byName,at:r.at}; });
+  obj._reviews.push({ emoji:emoji, by:me, byName:_memName(me)||(typeof _meName==='function'?_meName():''), at:new Date().toISOString() });
+  if(obj._dbId && typeof window.fhReviewEntity==='function'){ try{ window.fhReviewEntity(type, obj._dbId, emoji); }catch(e){} }
   var aligned=(emoji==='🥰');
   closeReview();
   try{ if(typeof renderTxns==='function') renderTxns(); }catch(e){}
   selMonth=curMonthKey();
   try{ if(typeof renderAll==='function') renderAll(); }catch(e){}
   try{ var ov=document.getElementById('requests-overlay'); if(ov && ov.classList.contains('on')) renderRequests(); }catch(e){}
-  var nm=_reqName(_futCreatorName(t));
-  if(aligned){
-    if(typeof floatEmojis==='function') floatEmojis('🥰');
-    toast(L('Đã đồng ý · để dành '+fmt(t.amt)+' cho '+nm, 'You’re in · '+fmt(t.amt)+' set aside for '+nm));
-  } else {
-    toast(L('Đã gửi cảm nhận cho '+nm, 'Sent your take to '+nm));
-  }
+  var nm=_reqName(item.creatorId);
+  if(aligned){ if(typeof floatEmojis==='function') floatEmojis('🥰'); toast(L('Đã đồng ý với '+nm+' 🥰','You’re in with '+nm+' 🥰')); }
+  else { toast(L('Đã gửi cảm nhận cho '+nm, 'Sent your take to '+nm)); }
 }
 window.submitReview=submitReview;
 
-/* ---- arrival: a decision landed on MY request — its OWN confetti + toast,
-   distinct from the ledger-reaction arrival. Watermark-gated, plays on hydrate. ---- */
-function _reqSeen(){ try{ return localStorage.getItem('fh-req-seen')||''; }catch(e){ return ''; } }
-function _reqSetSeen(v){ try{ if(v) localStorage.setItem('fh-req-seen', v); }catch(e){} }
+/* ---- realtime arrivals: a NEW request appears (notify reviewers) OR a decision
+   lands on MY request (notify me) — each with confetti + toast, watermark-gated.
+   Distinct from the ledger-reaction arrival. ---- */
+function _ls(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){ return null; } }
 function reqCheckArrivals(){
-  var me=_futMeId(); if(!me || document.hidden) return;
+  if(document.hidden) return;
+  var me=_futMeId(); if(!me) return;
+
+  // (A) new incoming requests → nudge the reviewer
+  var inc=reqIncoming(), incKeys=inc.map(function(i){ return i.key; });
+  var seenNew=_ls('fh-reqnew-seen');
+  if(seenNew==null){ _ls('fh-reqnew-seen', incKeys.join('|')); }
+  else {
+    var seenArr=seenNew?seenNew.split('|'):[];
+    var freshReqs=inc.filter(function(i){ return seenArr.indexOf(i.key)<0; });
+    _ls('fh-reqnew-seen', incKeys.join('|'));
+    if(freshReqs.length){
+      var lr=freshReqs[0], nm=_reqName(lr.creatorId);
+      if(typeof floatEmojis==='function') floatEmojis('🙌');
+      if(typeof toast==='function') toast(L(nm+' có một yêu cầu cần bạn duyệt', nm+' has a request for you to review'));
+    }
+  }
+
+  // (B) decisions on MY requests → tell me who's in
   var got=[];
-  _reqAll().forEach(function(t){
-    if(!_isMyReq(t)) return;
-    _futReviews(t).forEach(function(r){ if(r.by!==me && r.at) got.push({ t:t, r:r }); });
-  });
-  if(!got.length) return;
+  reqMine().forEach(function(i){ i.reviews.forEach(function(r){ if(r.by!==me && r.at) got.push({ i:i, r:r }); }); });
   var maxAt=got.reduce(function(m,e){ return e.r.at>m?e.r.at:m; }, '');
-  var seen=_reqSeen();
-  if(!seen){ _reqSetSeen(maxAt); return; }                 // seed the watermark, don't replay history
-  var fresh=got.filter(function(e){ return e.r.at>seen; });
+  var seenDec=_ls('fh-reqdec-seen');
+  if(seenDec==null){ if(maxAt) _ls('fh-reqdec-seen', maxAt); return; }
+  var fresh=got.filter(function(e){ return e.r.at>seenDec; });
   if(!fresh.length) return;
-  _reqSetSeen(maxAt);
+  if(maxAt) _ls('fh-reqdec-seen', maxAt);
   fresh.sort(function(a,b){ return (a.r.at<b.r.at)?1:-1; });
-  var lead=fresh[0], nm=_reqName(_memName(lead.r.by)||lead.r.byName), aligned=(lead.r.emoji==='🥰');
+  var lead=fresh[0], who=_reqName(lead.r.by)||lead.r.byName, isYes=(lead.r.emoji==='🥰');
   if(typeof floatEmojis==='function') floatEmojis(lead.r.emoji);
   if(typeof toast==='function'){
-    if(aligned) toast(L(nm+' đã đồng ý · đã để dành '+fmt(lead.t.amt), nm+' is in · '+fmt(lead.t.amt)+' set aside'));
-    else toast(L(nm+' vừa phản hồi khoản “'+lead.t.note+'”', nm+' responded to “'+lead.t.note+'”'));
+    if(isYes) toast(L(who+' đã đồng ý với “'+lead.i.title+'” 🥰', who+' is in on “'+lead.i.title+'” 🥰'));
+    else      toast(L(who+' vừa phản hồi “'+lead.i.title+'”', who+' responded to “'+lead.i.title+'”'));
   }
 }
 window.reqCheckArrivals=reqCheckArrivals;
 
-/* run after every hydrate: refresh the mounts + hub, then play any just-arrived decision */
 function reqAfterHydrate(){
   try{ renderReqMounts(); }catch(e){}
   try{ var ov=document.getElementById('requests-overlay'); if(ov && ov.classList.contains('on')) renderRequests(); }catch(e){}
@@ -6573,7 +6594,7 @@ var EN_DEFAULT={
   momentsTitle:'Moments', momentsSub:"The family's plans, memories and album.", recentMemories:'Timeline', addPhotos:'Add photos',
   /* shared buttons */
   cancel:'Cancel', save:'Save', add:'Add', done:'Done', create:'Create', send:'Send', back:'Back', close:'Close',
-  setWhatsNew:"What's new", whatsNewTitle:"What's new", whatsNewSub:"The latest we've shipped for your family — what wasn't working, and what changed.",
+  setWhatsNew:"What's new", whatsNewTitle:"What's new", whatsNewSub:"The latest updates for your family.",
   /* add sheet */
   addSheetTitle:'Add something', addSheetSub:'Log money, or save a moment.', grpFinance:'Finance', grpMoments:'Moments',
   qaExpenseT:'Log an expense', qaExpenseS:'Money you just spent',
@@ -6678,7 +6699,7 @@ var I18N={
     momentsTitle:'Khoảnh khắc', momentsSub:'Dự định, kỷ niệm và album của cả nhà.', recentMemories:'Dòng thời gian', addPhotos:'Thêm ảnh',
     /* shared buttons */
     cancel:'Huỷ', save:'Lưu', add:'Thêm', done:'Xong', create:'Tạo', send:'Gửi', back:'Quay lại', close:'Đóng',
-    setWhatsNew:'Có gì mới', whatsNewTitle:'Có gì mới', whatsNewSub:'Những điều mới nhất tụi mình vừa làm cho nhà bạn — trước đây vướng ở đâu, và giờ đổi thế nào.',
+    setWhatsNew:'Có gì mới', whatsNewTitle:'Có gì mới', whatsNewSub:'Những cập nhật mới nhất cho nhà bạn.',
     /* add sheet */
     addSheetTitle:'Thêm mới', addSheetSub:'Ghi lại tiền bạc, hoặc lưu một khoảnh khắc.', grpFinance:'Tài chính', grpMoments:'Khoảnh khắc',
     qaExpenseT:'Ghi khoản chi', qaExpenseS:'Khoản tiền vừa chi',
@@ -7100,20 +7121,38 @@ if('serviceWorker' in navigator){
 /* ---------- What's new (release notes) ----------
    A hand-curated log, NOT a commit feed. Deploys land all day from several
    people; an entry here exists only when someone decides a change is worth
-   telling a family about. Each note is framed problem-first, in the user's
-   own words, so they see what the feature is a solution FOR — then what we did.
+   telling a family about.
+
+   Presentation follows Apple's "What's New" pattern: a tinted line glyph, a
+   headline, and one plain-language description that reads problem → fix, so the
+   user sees what the feature is a solution FOR without any labelled chrome.
 
    To publish a note: prepend one entry to RELEASES (newest first), ship it.
    The SW auto-reloads users into the new build, and this surfaces the note.
 
    Shape of an entry:
-     { id, date:'YYYY-MM-DD', kind:'new'|'better', icon,
+     { id, date:'YYYY-MM-DD', icon:<svg-inner-markup>,
        vi:{ t, problem, sol }, en:{ t, problem, sol } }
    - id must be unique and monotonically increasing (date-prefixed keeps it so);
      it is what we store as "last seen" to decide what's unread.
+   - problem + sol are rendered as one paragraph; write them so they flow as
+     two sentences ("Before… / Now…").
 */
+var ICO = {
+  heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
+  calendar:'<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3"/>',
+  timeline:'<circle cx="4.5" cy="6" r="1.4"/><circle cx="4.5" cy="12" r="1.4"/><circle cx="4.5" cy="18" r="1.4"/><path d="M9 6h11M9 12h11M9 18h11"/>',
+  sun:'<circle cx="12" cy="12" r="4.3"/><path d="M12 2.5v2.2M12 19.3v2.2M4.4 12H2.2M21.8 12h-2.2M6 6l-1.5-1.5M19.5 19.5 18 18M18 6l1.5-1.5M4.5 19.5 6 18"/>',
+  house:'<path d="M4 10.5 12 4l8 6.5"/><path d="M6 9.6V19a1 1 0 001 1h10a1 1 0 001-1V9.6"/>',
+  globe:'<circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8M12 3.6c2.5 2.4 2.5 14.4 0 16.8M12 3.6c-2.5 2.4-2.5 14.4 0 16.8"/>',
+  pie:'<circle cx="12" cy="12" r="8.4"/><path d="M12 12V3.6M12 12l6.2 5.7"/>',
+  camera:'<rect x="3" y="6.6" width="18" height="12.9" rx="2.6"/><circle cx="12" cy="13" r="3.4"/><path d="M8.4 6.6 9.6 4.6h4.8l1.2 2"/>',
+  grid:'<rect x="4" y="4" width="7" height="7" rx="1.7"/><rect x="13" y="4" width="7" height="7" rx="1.7"/><rect x="4" y="13" width="7" height="7" rx="1.7"/><rect x="13" y="13" width="7" height="7" rx="1.7"/>',
+  envelope:'<rect x="3" y="5.5" width="18" height="13" rx="2.6"/><path d="M3.8 7 12 13l8.2-6"/>'
+};
+
 var RELEASES = [
-  { id:'2026-08-01-reactions', date:'2026-08-01', kind:'new', icon:'💞',
+  { id:'2026-08-01-reactions', date:'2026-08-01', icon:ICO.heart,
     vi:{ t:'Thả cảm xúc lên chi tiêu của nhau',
       problem:'Ai đó trong nhà vừa ghi một khoản chi, mà bạn chẳng có cách nào phản hồi — thấy thương, thấy vui, hay thấy “ơ, sao lại mua cái này”.',
       sol:'Giờ bạn thả được tim, haha, wow… lên từng giao dịch. Người kia thấy ngay, có cả chút confetti cho vui.' },
@@ -7121,31 +7160,31 @@ var RELEASES = [
       problem:'Someone just logged an expense, and you had no easy way to respond — a heart, a laugh, or a “wait, why this?”.',
       sol:'Now you can drop a reaction on any transaction. They see it right away, confetti and all.' } },
 
-  { id:'2026-08-01-future', date:'2026-08-01', kind:'new', icon:'🗓️',
+  { id:'2026-08-01-future', date:'2026-08-01', icon:ICO.calendar,
     vi:{ t:'Cùng nhau xem trước các khoản sắp chi',
       problem:'Những khoản sắp phải chi thường chỉ nằm trong đầu một người; cả nhà không cùng thấy để bàn trước hay chuẩn bị tiền.',
-      sol:'Khoản chi tương lai giờ hiện chung cho cả nhà — ai cũng xem và duyệt được, tự đồng bộ giữa các máy.' },
+      sol:'Giờ khoản chi tương lai hiện chung cho cả nhà — ai cũng xem và duyệt được, tự đồng bộ giữa các máy.' },
     en:{ t:'Plan upcoming expenses together',
       problem:'Money you’ll need soon usually lived in one person’s head — the rest of the family couldn’t see it to plan ahead.',
-      sol:'Upcoming expenses are now shared with everyone — all of you can review them, synced across devices.' } },
+      sol:'Now upcoming expenses are shared with everyone — all of you can review them, synced across devices.' } },
 
-  { id:'2026-07-31-timeline', date:'2026-07-31', kind:'better', icon:'🧵',
+  { id:'2026-07-31-timeline', date:'2026-07-31', icon:ICO.timeline,
     vi:{ t:'Kế hoạch và kỷ niệm chung một dòng thời gian',
       problem:'Việc sắp tới nằm một nơi, kỷ niệm đã qua nằm một nơi — phải nhảy qua lại mới hình dung được dòng chảy của nhà.',
-      sol:'Giờ gộp thành một dải theo ngày: nhìn một mạch từ hôm nay tới những dự định phía trước, và ngược về những gì đã qua.' },
+      sol:'Giờ tất cả gộp thành một dải theo ngày: nhìn một mạch từ hôm nay tới những dự định phía trước, và ngược về những gì đã qua.' },
     en:{ t:'Plans and memories on one timeline',
       problem:'Upcoming plans lived in one place, past memories in another — you had to hop between them to see the family’s flow.',
       sol:'Now they’re one day-by-day rail: glance from today into what’s ahead, and back through what’s passed.' } },
 
-  { id:'2026-07-30-weather', date:'2026-07-30', kind:'new', icon:'🌤️',
+  { id:'2026-07-30-weather', date:'2026-07-30', icon:ICO.sun,
     vi:{ t:'Bầu trời của nhà',
       problem:'Tiền nong thì thấy rõ, nhưng tâm trạng của nhau trong ngày lại khó mà biết.',
-      sol:'Đặt tâm trạng của bạn, cả nhà sẽ thấy “bầu trời” đổi màu theo — kèm chút hiệu ứng thời tiết cho có cảm xúc.' },
+      sol:'Giờ đặt tâm trạng của bạn, cả nhà sẽ thấy “bầu trời” đổi màu theo — kèm chút hiệu ứng thời tiết cho có cảm xúc.' },
     en:{ t:'Your family’s sky',
       problem:'The money was easy to see, but how everyone was actually feeling that day wasn’t.',
-      sol:'Set your mood and the family’s “sky” shifts to match — with a little weather to make it felt.' } },
+      sol:'Now, set your mood and the family’s “sky” shifts to match — with a little weather to make it felt.' } },
 
-  { id:'2026-07-30-home', date:'2026-07-30', kind:'better', icon:'🏠',
+  { id:'2026-07-30-home', date:'2026-07-30', icon:ICO.house,
     vi:{ t:'Trang chủ “Hôm nay” mới',
       problem:'Mở app ra mà chẳng biết nhìn vào đâu trước — số liệu thì nhiều, nhưng không cái nào nói “hôm nay nhà mình thế nào”.',
       sol:'Trang chủ mới gom đúng thứ đáng xem: một khoảnh khắc trong ngày, tiền nong gọn gàng, và việc sắp tới.' },
@@ -7153,15 +7192,15 @@ var RELEASES = [
       problem:'Opening the app, you didn’t know where to look first — lots of numbers, but nothing that said “here’s your family today”.',
       sol:'The new home gathers what actually matters: a moment from the day, money at a glance, and what’s coming up.' } },
 
-  { id:'2026-07-29-bilingual', date:'2026-07-29', kind:'new', icon:'🌏',
+  { id:'2026-07-29-bilingual', date:'2026-07-29', icon:ICO.globe,
     vi:{ t:'Tiếng Việt / English, đổi một chạm',
       problem:'Không phải ai trong nhà cũng đọc tiếng Anh (hay tiếng Việt) thoải mái như nhau.',
-      sol:'Chuyển cả app qua lại giữa Tiếng Việt và English chỉ bằng một chạm trong Cài đặt.' },
+      sol:'Giờ chuyển cả app qua lại giữa Tiếng Việt và English chỉ bằng một chạm trong Cài đặt.' },
     en:{ t:'Vietnamese / English, one tap',
       problem:'Not everyone in the family reads English (or Vietnamese) equally comfortably.',
-      sol:'Switch the whole app between Vietnamese and English with a single tap in Settings.' } },
+      sol:'Now you can switch the whole app between Vietnamese and English with a single tap in Settings.' } },
 
-  { id:'2026-07-29-finance', date:'2026-07-29', kind:'better', icon:'📊',
+  { id:'2026-07-29-finance', date:'2026-07-29', icon:ICO.pie,
     vi:{ t:'Nhìn ra tiền đi đâu, nhanh hơn',
       problem:'Khó thấy nhanh tháng này tiền chia cho những gì và còn lại bao nhiêu.',
       sol:'Vòng phân bổ mới cho thấy ngay tiền dành cho từng nhóm; vuốt để xem chi tiêu từng ngày.' },
@@ -7169,15 +7208,15 @@ var RELEASES = [
       problem:'It was hard to tell at a glance where this month’s money went and how much was left.',
       sol:'A new allocation ring shows each category’s share at once; swipe to see daily spending.' } },
 
-  { id:'2026-07-28-moments', date:'2026-07-28', kind:'better', icon:'📸',
+  { id:'2026-07-28-moments', date:'2026-07-28', icon:ICO.camera,
     vi:{ t:'Khoảnh Khắc: một cuốn album chung',
       problem:'Ảnh chi tiêu, sự kiện và kỷ niệm nằm rải rác, khó xem lại như một cuốn album của cả nhà.',
-      sol:'Khoảnh Khắc gộp tất cả vào một trang — dòng thời gian và album chung, xem lại gọn gàng theo ngày.' },
+      sol:'Giờ Khoảnh Khắc gộp tất cả vào một trang — dòng thời gian và album chung, xem lại gọn gàng theo ngày.' },
     en:{ t:'Moments: one shared album',
       problem:'Expense photos, events and memories were scattered — hard to revisit as one family album.',
-      sol:'Moments brings them together — a shared timeline and album you can browse neatly by day.' } },
+      sol:'Now Moments brings them together — a shared timeline and album you can browse neatly by day.' } },
 
-  { id:'2026-07-26-tabs', date:'2026-07-26', kind:'better', icon:'🧭',
+  { id:'2026-07-26-tabs', date:'2026-07-26', icon:ICO.grid,
     vi:{ t:'Gọn lại còn 3 tab',
       problem:'App có nhiều mục, dễ lạc và không rõ nên bắt đầu từ đâu.',
       sol:'Giờ chỉ còn ba nơi rõ ràng: Nhà · Thu Chi · Khoảnh Khắc.' },
@@ -7185,13 +7224,13 @@ var RELEASES = [
       problem:'The app had many sections — easy to get lost and unsure where to start.',
       sol:'Now there are just three clear places: Home · Money · Moments.' } },
 
-  { id:'2026-07-20-invite', date:'2026-07-20', kind:'new', icon:'✉️',
+  { id:'2026-07-20-invite', date:'2026-07-20', icon:ICO.envelope,
     vi:{ t:'Mời người nhà bằng một mã duy nhất',
       problem:'Rủ thêm người vào nhà mà không rõ chia sẻ mã kiểu gì, mã cũ mã mới lẫn lộn.',
-      sol:'Mỗi nhà giờ có một mã mời đang hiệu lực, chia sẻ là vào được; đổi mã bất cứ lúc nào. Có nhiều nhà thì chuyển qua lại trong Cài đặt.' },
+      sol:'Giờ mỗi nhà có một mã mời đang hiệu lực, chia sẻ là vào được, đổi mã bất cứ lúc nào. Có nhiều nhà thì chuyển qua lại trong Cài đặt.' },
     en:{ t:'Invite family with one code',
       problem:'Adding someone to the family was fuzzy — which code to share, old ones mixing with new.',
-      sol:'Each family now has one live invite code; share it to let someone in, rotate it anytime. In more than one family? Switch between them in Settings.' } }
+      sol:'Now each family has one live invite code; share it to let someone in, rotate it anytime. In more than one family? Switch between them in Settings.' } }
 ];
 
 var FH_SEEN_RELEASE = 'fh-seen-release';
@@ -7207,34 +7246,18 @@ function fhReleaseBadge(){
   ['wn-dot-gear','wn-dot-row'].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; });
 }
 
-var FH_MONTHS_VI = ['Thg 1','Thg 2','Thg 3','Thg 4','Thg 5','Thg 6','Thg 7','Thg 8','Thg 9','Thg 10','Thg 11','Thg 12'];
-var FH_MONTHS_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-function fhReleaseDate(iso){
-  var p=(iso||'').split('-'); if(p.length<3) return iso||'';
-  var y=+p[0], m=+p[1]-1, d=+p[2]; if(isNaN(m)) return iso;
-  return isVi() ? (d+' '+FH_MONTHS_VI[m]+', '+y) : (FH_MONTHS_EN[m]+' '+d+', '+y);
-}
-
 function fhRenderWhatsNew(){
   var wrap=document.getElementById('whatsnew-list'); if(!wrap) return;
-  var newLbl=L('Mới','New'), betterLbl=L('Cải tiến','Improved');
-  var probLbl=L('Vấn đề','The problem'), solLbl=L('Giải pháp','What’s new');
   var html='';
   for(var i=0;i<RELEASES.length;i++){
     var r=RELEASES[i], c=isVi()?r.vi:r.en;
-    var tagCls = r.kind==='new' ? 'wn-tag-new' : 'wn-tag-better';
-    var tagTxt = r.kind==='new' ? newLbl : betterLbl;
-    html+='<article class="wn-item">'
-        +   '<div class="wn-head">'
-        +     '<span class="wn-ic">'+r.icon+'</span>'
-        +     '<div class="wn-htext">'
-        +       '<div class="wn-t">'+c.t+'</div>'
-        +       '<div class="wn-meta"><span class="wn-tag '+tagCls+'">'+tagTxt+'</span><span class="wn-date">'+fhReleaseDate(r.date)+'</span></div>'
-        +     '</div>'
+    html+='<div class="wn-row">'
+        +   '<span class="wn-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+r.icon+'</svg></span>'
+        +   '<div class="wn-txt">'
+        +     '<div class="wn-t">'+c.t+'</div>'
+        +     '<p class="wn-desc">'+c.problem+' '+c.sol+'</p>'
         +   '</div>'
-        +   '<div class="wn-block wn-prob"><span class="wn-lbl">'+probLbl+'</span><p>'+c.problem+'</p></div>'
-        +   '<div class="wn-block wn-sol"><span class="wn-lbl">'+solLbl+'</span><p>'+c.sol+'</p></div>'
-        + '</article>';
+        + '</div>';
   }
   wrap.innerHTML=html;
 }
@@ -7683,7 +7706,7 @@ function openWhatsNew(){
       // Falls back to the legacy multi-query hydrate if the RPC is absent or errors,
       // so an unmigrated env or a bad deploy can never take the app down.
       // p_txn_from stays null today (full ledger); it is the R6 windowing hook.
-      let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg, rx;
+      let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg, rx, rr;
       let snap = null;
       try { const rs = await sb.rpc('get_family_snapshot', { p_txn_from: null }); if (!rs.error && rs.data) snap = rs.data; }
       catch (e) { /* fall through to the multi-query hydrate */ }
@@ -7694,6 +7717,7 @@ function openWhatsNew(){
         se = snap.savings_entries || []; em = snap.event_memories || [];
         tp = snap.transaction_photos || []; inc = snap.incomes || []; sg = snap.saving_goals || [];
         rx = snap.reactions || [];                          // reactions arrive in the same payload (0023); [] on a pre-migration RPC
+        rr = snap.request_reviews || [];                    // request reviews (0024): future-expense / goal / occasion alignment
       } else {
         const R = await Promise.all([
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
@@ -7702,19 +7726,21 @@ function openWhatsNew(){
           sb.from('categories').select('id,name,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
           sb.from('category_budgets').select('category_id,amount,month').eq('family_id', fid),
           sb.from('monthly_budgets').select('month,budget_total,closed').eq('family_id', fid),
-          sb.from('transactions').select('id,category_id,member_id,note,amount,txn_date,status').eq('family_id', fid).order('txn_date', { ascending: false }),
-          sb.from('events').select('id,name,emoji,cover,target_amount,target_date,achieved,sort_order,source_txn_id').eq('family_id', fid).is('archived_at', null).order('sort_order'),
+          sb.from('transactions').select('id,category_id,member_id,note,amount,txn_date,status,created_by').eq('family_id', fid).order('txn_date', { ascending: false }),
+          sb.from('events').select('id,name,emoji,cover,target_amount,target_date,achieved,sort_order,source_txn_id,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
           sb.from('event_fundings').select('id,event_id,goal_id,amount,source,month,member_id').eq('family_id', fid),
           sb.from('savings_entries').select('kind,amount').eq('family_id', fid),
           sb.from('event_memories').select('id,event_id,emoji,caption,photo_url,sort_order').eq('family_id', fid).order('sort_order'),
           sb.from('transaction_photos').select('transaction_id,photo_url').eq('family_id', fid),
           sb.from('incomes').select('amount,income_date').eq('family_id', fid),
-          sb.from('saving_goals').select('id,name,emoji,target_amount,target_date,note,occasion_id,achieved,sort_order').eq('family_id', fid).is('archived_at', null).order('sort_order'),
+          sb.from('saving_goals').select('id,name,emoji,target_amount,target_date,note,occasion_id,achieved,sort_order,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
           // reactions (0023): a failed query on a pre-migration env resolves {data:null} → [], never throws, so hydrate survives
-          sb.from('reactions').select('id,transaction_id,member_id,emoji,created_at').eq('family_id', fid)
+          sb.from('reactions').select('id,transaction_id,member_id,emoji,created_at').eq('family_id', fid),
+          // request_reviews (0024): same fail-safe — [] on a pre-migration env
+          sb.from('request_reviews').select('id,entity_type,entity_id,member_id,emoji,created_at').eq('family_id', fid)
         ]);
         fam = R[0].data; mem = R[1].data || []; cat = R[2].data || []; cb = R[3].data || []; mb = R[4].data || [];
-        tx = R[5].data || []; ev = R[6].data || []; ef = R[7].data || []; se = R[8].data || []; em = R[9].data || []; tp = R[10].data || []; inc = R[11].data || []; sg = R[12].data || []; rx = R[13].data || [];
+        tx = R[5].data || []; ev = R[6].data || []; ef = R[7].data || []; se = R[8].data || []; em = R[9].data || []; tp = R[10].data || []; inc = R[11].data || []; sg = R[12].data || []; rx = R[13].data || []; rr = R[14].data || [];
       }
 
       if (fam) { window.FAM.familyName = fam.name; if (fam.currency) window.CUR = fam.currency; if (fam.default_language) window.LANG = fam.default_language; }
@@ -7790,7 +7816,7 @@ function openWhatsNew(){
         const who = mrec ? (mrec.is_shared ? 'Shared' : mrec.name) : 'Shared';
         const realized = (t.status !== 'planned') && (dt <= now);
         const amt = Number(t.amount);
-        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _catId: t.category_id, _memberId: t.member_id, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
+        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _catId: t.category_id, _memberId: t.member_id, _createdBy: t.created_by || null, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
         if (realized) { m.spent += amt; m.catSpent[catName] = (m.catSpent[catName] || 0) + amt; m.memberSpent[who] = (m.memberSpent[who] || 0) + amt; }
       });
       newTxns.sort(function(a,b){ var ta=a._d?a._d.getTime():Infinity, tb=b._d?b._d.getTime():Infinity; return tb-ta; }); // newest first, globally
@@ -7809,6 +7835,16 @@ function openWhatsNew(){
       newTxns.forEach((t) => { t.reactions = (t._dbId && window.DB.reactionsByTx[t._dbId]) || null; });
       _rxFlat.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));   // newest first
       window.reactions = _rxFlat;
+
+      // ── request reviews (0024): group by entity (type:id) for the requests feature ──
+      // Each review is {id, entityType, entityId, memberId, emoji, at}. reviewsByEntity
+      // keyed 'expense:<id>' / 'goal:<id>' / 'occasion:<id>' powers alignment + the hub.
+      window.DB.reviewsByEntity = {};
+      (rr || []).forEach((r) => {
+        const key = r.entity_type + ':' + r.entity_id;
+        const rec = { id: r.id, entityType: r.entity_type, entityId: r.entity_id, memberId: r.member_id, emoji: r.emoji, at: r.created_at };
+        (window.DB.reviewsByEntity[key] = window.DB.reviewsByEntity[key] || []).push(rec);
+      });
 
       window.months = byKey;
       window.monthOrder = Object.keys(byKey).sort((a, b) => new Date(byKey[a]._iso) - new Date(byKey[b]._iso));
@@ -7836,7 +7872,7 @@ function openWhatsNew(){
         const mirrored = e.source_txn_id
           ? (photosByTx[e.source_txn_id] || []).map((src) => ({ src: src, _txn: e.source_txn_id, _path: (window.DB.pathByUrl || {})[src] || null }))
           : null;
-        evObj[e.id] = { _dbId: e.id, name: e.name, emoji: e.emoji || '🎯', cov: e.cover || 'blue', date: e.target_date ? (MO[d.getMonth()] + ' ' + d.getDate()) : '', d: d, target: Number(e.target_amount), saved: savedByEvent[e.id] || 0, setAside: setAsideByEvent[e.id] || 0, fromSavings: fromSavingsByEvent[e.id] || 0, fromBudget: fromBudgetByEvent[e.id] || 0, achieved: !!e.achieved, memories: mirrored || memByEvent[e.id], _srcTxn: e.source_txn_id || null };
+        evObj[e.id] = { _dbId: e.id, name: e.name, emoji: e.emoji || '🎯', cov: e.cover || 'blue', date: e.target_date ? (MO[d.getMonth()] + ' ' + d.getDate()) : '', d: d, target: Number(e.target_amount), saved: savedByEvent[e.id] || 0, setAside: setAsideByEvent[e.id] || 0, fromSavings: fromSavingsByEvent[e.id] || 0, fromBudget: fromBudgetByEvent[e.id] || 0, achieved: !!e.achieved, memories: mirrored || memByEvent[e.id], _srcTxn: e.source_txn_id || null, _createdBy: e.created_by || null };
         evOrder.push(e.id);
       });
       window.events = evObj; window.order = evOrder;
@@ -7861,7 +7897,7 @@ function openWhatsNew(){
         const _occ = g.occasion_id ? window.DB.eventById[g.occasion_id] : null;
         if (_occ && _occ.source_txn_id) return;
         const gd = g.target_date ? new Date(g.target_date + 'T00:00:00') : null;
-        goalObj[g.id] = { _dbId: g.id, name: g.name, emoji: g.emoji || '🎯', target: Number(g.target_amount), saved: savedByGoal[g.id] || 0, fromSavings: fromSavingsByGoal[g.id] || 0, d: gd, date: gd ? (MO[gd.getMonth()] + ' ' + gd.getDate()) : '', note: g.note || '', occasion_id: g.occasion_id || null, achieved: !!g.achieved };
+        goalObj[g.id] = { _dbId: g.id, name: g.name, emoji: g.emoji || '🎯', target: Number(g.target_amount), saved: savedByGoal[g.id] || 0, fromSavings: fromSavingsByGoal[g.id] || 0, d: gd, date: gd ? (MO[gd.getMonth()] + ' ' + gd.getDate()) : '', note: g.note || '', occasion_id: g.occasion_id || null, achieved: !!g.achieved, _createdBy: g.created_by || null };
         goalOrder.push(g.id);
       });
       window.goals = goalObj; window.goalOrder = goalOrder;
@@ -8133,7 +8169,7 @@ function openWhatsNew(){
     let catId = window.DB.catByName[t.cat];
     if (!catId && navigator.onLine !== false) { try { catId = await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1); } catch (e) {} }
     if (!catId) catId = window.DB.catByName[CAT_FALLBACK] || Object.values(window.DB.catByName)[0];
-    const row = { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' };
+    const row = { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null };
     // Offline → queue durably instead of losing the write.
     if (navigator.onLine === false) { await _obQueueTxn(row, t); return; }
     try {
@@ -8261,7 +8297,10 @@ function openWhatsNew(){
       const fid = window.DB.fid; if (!fid) return;
       const e = window.events[localKey]; if (!e || e._dbId) return;
       const iso = e.d ? _isoDate(e.d) : null;
-      const row = { family_id: fid, name: e.name, emoji: e.emoji, cover: e.cov, target_amount: e.target, target_date: iso, achieved: !!e.achieved, sort_order: 0 };
+      // created_by marks a user-proposed occasion (a request). Mirror events (born from
+      // an expense) are never proposals, so they carry no creator.
+      const _evCb = e._srcTxn ? null : (e._createdBy != null ? e._createdBy : ((window.DB && window.DB.ownerMemberId) || null));
+      const row = { family_id: fid, name: e.name, emoji: e.emoji, cover: e.cov, target_amount: e.target, target_date: iso, achieved: !!e.achieved, sort_order: 0, created_by: _evCb };
 
       /* A mirror event belongs to its transaction. Upserting on source_txn_id
          means a re-sync that lost the local link can't create a second one —
@@ -8447,6 +8486,27 @@ function openWhatsNew(){
     } catch (e) { _writeErr('reaction failed', e); return false; }
   };
 
+  // ---- write-through: request reviews (align a future expense / goal / occasion) ----
+  // Upsert on (entity_type, entity_id, member_id) — re-reviewing REPLACES; a null emoji
+  // clears my review. Same call shape as fhReact, but polymorphic across the three
+  // proposable entity types. Optimistic local update happens in the UI; this persists.
+  window.fhReviewEntity = async function (entityType, entityId, emoji) {
+    try {
+      const fid = window.DB && window.DB.fid, mid = window.DB && window.DB.ownerMemberId;
+      if (!sb || !fid || !mid || !entityType || !entityId) return false;
+      window.DB._lastLocalWrite = Date.now();
+      const nowIso = new Date().toISOString();
+      const res = emoji
+        ? await sb.from('request_reviews').upsert(
+            { family_id: fid, entity_type: entityType, entity_id: entityId, member_id: mid, emoji: emoji, created_at: nowIso, updated_at: nowIso },
+            { onConflict: 'entity_type,entity_id,member_id' })
+        : await sb.from('request_reviews').delete().eq('family_id', fid).eq('entity_type', entityType).eq('entity_id', entityId).eq('member_id', mid);
+      if (res && res.error) { _writeErr('request review failed', res.error); return false; }
+      _syncSoon();
+      return true;
+    } catch (e) { _writeErr('request review failed', e); return false; }
+  };
+
   // ---- realtime: reload on any change to this family's rows ----
   let _rtTimer = null;
   async function _subscribeRealtime(fid) {
@@ -8456,7 +8516,7 @@ function openWhatsNew(){
       // authenticate the realtime socket so RLS-gated postgres_changes are delivered
       try { const { data: { session } } = await sb.auth.getSession(); if (session && sb.realtime && sb.realtime.setAuth) await sb.realtime.setAuth(session.access_token); } catch (e) {}
       const ch = sb.channel('fam-' + fid);
-      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather', 'reactions'].forEach((tbl) => {
+      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather', 'reactions', 'request_reviews'].forEach((tbl) => {
         ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: 'family_id=eq.' + fid }, () => {
           // Echo suppression (R3): our own writes already schedule a _syncSoon reload,
           // and realtime replays them straight back. Ignore ticks inside the local-write
@@ -8776,7 +8836,7 @@ function openWhatsNew(){
   window.fhCreateGoal = async function (g) {
     try {
       const fid = window.DB.fid;
-      const gr = await sb.from('saving_goals').insert({ family_id: fid, name: g.name, emoji: g.emoji, target_amount: g.target, target_date: g.date || null }).select('id').single();
+      const gr = await sb.from('saving_goals').insert({ family_id: fid, name: g.name, emoji: g.emoji, target_amount: g.target, target_date: g.date || null, created_by: (window.DB && window.DB.ownerMemberId) || null }).select('id').single();
       if (gr.error) throw gr.error;
       if (g.init > 0) {
         await _w(sb.from('event_fundings').insert({ family_id: fid, goal_id: gr.data.id, member_id: window.DB.ownerMemberId || null, amount: g.init, source: 'savings', month: null }), 'fund goal');

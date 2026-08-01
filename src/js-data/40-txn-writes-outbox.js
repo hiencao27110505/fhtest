@@ -211,7 +211,7 @@
     let catId = window.DB.catByName[t.cat];
     if (!catId && navigator.onLine !== false) { try { catId = await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1); } catch (e) {} }
     if (!catId) catId = window.DB.catByName[CAT_FALLBACK] || Object.values(window.DB.catByName)[0];
-    const row = { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' };
+    const row = { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null };
     // Offline → queue durably instead of losing the write.
     if (navigator.onLine === false) { await _obQueueTxn(row, t); return; }
     try {

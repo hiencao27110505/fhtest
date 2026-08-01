@@ -92,7 +92,10 @@
       const fid = window.DB.fid; if (!fid) return;
       const e = window.events[localKey]; if (!e || e._dbId) return;
       const iso = e.d ? _isoDate(e.d) : null;
-      const row = { family_id: fid, name: e.name, emoji: e.emoji, cover: e.cov, target_amount: e.target, target_date: iso, achieved: !!e.achieved, sort_order: 0 };
+      // created_by marks a user-proposed occasion (a request). Mirror events (born from
+      // an expense) are never proposals, so they carry no creator.
+      const _evCb = e._srcTxn ? null : (e._createdBy != null ? e._createdBy : ((window.DB && window.DB.ownerMemberId) || null));
+      const row = { family_id: fid, name: e.name, emoji: e.emoji, cover: e.cov, target_amount: e.target, target_date: iso, achieved: !!e.achieved, sort_order: 0, created_by: _evCb };
 
       /* A mirror event belongs to its transaction. Upserting on source_txn_id
          means a re-sync that lost the local link can't create a second one —
@@ -278,6 +281,27 @@
     } catch (e) { _writeErr('reaction failed', e); return false; }
   };
 
+  // ---- write-through: request reviews (align a future expense / goal / occasion) ----
+  // Upsert on (entity_type, entity_id, member_id) — re-reviewing REPLACES; a null emoji
+  // clears my review. Same call shape as fhReact, but polymorphic across the three
+  // proposable entity types. Optimistic local update happens in the UI; this persists.
+  window.fhReviewEntity = async function (entityType, entityId, emoji) {
+    try {
+      const fid = window.DB && window.DB.fid, mid = window.DB && window.DB.ownerMemberId;
+      if (!sb || !fid || !mid || !entityType || !entityId) return false;
+      window.DB._lastLocalWrite = Date.now();
+      const nowIso = new Date().toISOString();
+      const res = emoji
+        ? await sb.from('request_reviews').upsert(
+            { family_id: fid, entity_type: entityType, entity_id: entityId, member_id: mid, emoji: emoji, created_at: nowIso, updated_at: nowIso },
+            { onConflict: 'entity_type,entity_id,member_id' })
+        : await sb.from('request_reviews').delete().eq('family_id', fid).eq('entity_type', entityType).eq('entity_id', entityId).eq('member_id', mid);
+      if (res && res.error) { _writeErr('request review failed', res.error); return false; }
+      _syncSoon();
+      return true;
+    } catch (e) { _writeErr('request review failed', e); return false; }
+  };
+
   // ---- realtime: reload on any change to this family's rows ----
   let _rtTimer = null;
   async function _subscribeRealtime(fid) {
@@ -287,7 +311,7 @@
       // authenticate the realtime socket so RLS-gated postgres_changes are delivered
       try { const { data: { session } } = await sb.auth.getSession(); if (session && sb.realtime && sb.realtime.setAuth) await sb.realtime.setAuth(session.access_token); } catch (e) {}
       const ch = sb.channel('fam-' + fid);
-      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather', 'reactions'].forEach((tbl) => {
+      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather', 'reactions', 'request_reviews'].forEach((tbl) => {
         ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: 'family_id=eq.' + fid }, () => {
           // Echo suppression (R3): our own writes already schedule a _syncSoon reload,
           // and realtime replays them straight back. Ignore ticks inside the local-write

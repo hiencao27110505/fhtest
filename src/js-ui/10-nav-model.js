@@ -59,19 +59,29 @@ function eventsReserved(){ return order.reduce(function(s,k){ return achievedNow
 // Reviews live on t.reviews when freshly created / in demo; once persisted they are
 // reactions on the transaction (creator = t._memberId), so alignment syncs across
 // devices for free. Only an *aligned* proposal reserves money from this month.
-function _futReviews(t){
-  if(!t) return [];
-  if(t.reviews && t.reviews.length) return t.reviews;                       // demo / just-created (pre-hydrate)
+// Reviews for a proposable entity — a future expense, a saving goal, or a future
+// occasion (collaborative requests, see 64-requests.js). Local optimistic reviews
+// live on obj._reviews; persisted ones in window.DB.reviewsByEntity keyed 'type:dbId'
+// (migration 0024). created_by is the REQUESTER (distinct from the payer), and is
+// excluded from the alignment tally — only ANOTHER member's 🥰 aligns it.
+function _entCreatorId(type, obj){ return obj ? (obj._createdBy || obj.by || obj._by || null) : null; }
+function _entReviews(type, dbId, obj){
+  if(obj && obj._reviews && obj._reviews.length) return obj._reviews;
+  if(obj && obj.reviews && obj.reviews.length) return obj.reviews;          // legacy local field (expense)
   var db=window.DB;
-  if(db && db.reactionsByTx && t._dbId){                                    // live: derive from reactions, excluding the creator
-    return (db.reactionsByTx[t._dbId]||[]).filter(function(r){ return r.memberId!==t._memberId; })
-      .map(function(r){ return { emoji:r.emoji, by:r.memberId, byName:(db.memberById&&db.memberById[r.memberId])?db.memberById[r.memberId].name:'', at:r.at }; });
+  if(db && db.reviewsByEntity && dbId){
+    return (db.reviewsByEntity[type+':'+dbId]||[]).map(function(r){
+      return { emoji:r.emoji, by:r.memberId, byName:(db.memberById&&db.memberById[r.memberId])?db.memberById[r.memberId].name:'', at:r.at };
+    });
   }
   return [];
 }
-function futureAligned(t){ return _futReviews(t).some(function(r){ return r.emoji==='🥰'; }); }
-function futurePending(t){ return !!(t && t.future && !futureAligned(t)); }
-function futureExpReserved(){ return txns.reduce(function(s,t){ return s+((t.future && futureAligned(t))?t.amt:0); },0); }
+function _entAlignedBy(type, obj){ var c=_entCreatorId(type,obj); return _entReviews(type, obj&&obj._dbId, obj).some(function(r){ return r.emoji==='🥰' && r.by!==c; }); }
+// expense money-reserve: a proposal (has a creator) reserves only once aligned; a
+// legacy future expense with no creator reserves exactly as before.
+function futureAligned(t){ return _entAlignedBy('expense', t); }
+function futurePending(t){ return !!(t && t.future && _entCreatorId('expense',t) && !futureAligned(t)); }
+function futureExpReserved(){ return txns.reduce(function(s,t){ return s+((t.future && (_entCreatorId('expense',t) ? futureAligned(t) : true))?t.amt:0); },0); }
 function monthReserved(){ return eventsReserved()+futureExpReserved(); }
 /* ---- currency (USD $ · VND ₫, VND display ×1000 so amounts read realistically) ---- */
 var CUR='USD';

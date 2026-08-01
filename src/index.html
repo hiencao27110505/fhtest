@@ -693,20 +693,15 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </div>
 </div>
 
-<!-- WHAT'S NEW — release notes, problem-first -->
+<!-- WHAT'S NEW — release notes (Apple "What's New" pattern) -->
 <div class="modal" id="modal-whatsnew">
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeModals()" data-t="close">Close</button>
     <div class="modal-title" data-t="whatsNewTitle">What's new</div>
     <button class="modal-save" onclick="closeModals()" data-t="done">Done</button>
   </div>
   <div class="modal-body">
-    <div class="wn-sub" data-t="whatsNewSub">The latest we've shipped for your family — what wasn't working, and what changed.</div>
+    <div class="wn-intro" data-t="whatsNewSub">The latest updates for your family.</div>
     <div class="wn-list" id="whatsnew-list"></div>
-    <div class="founder-note" style="margin-top:20px">
-      <div class="fn-avs"><span class="fn-av">👩🏻</span><span class="fn-av">🧑🏻</span></div>
-      <div class="fn-txt"><span data-t="founderNote">We're two parents building FamilyHub for families like yours. Your notes shape what we build next.</span><span class="fn-sig" data-t="founderSig">Mira &amp; Sam, founders</span></div>
-    </div>
   </div>
 </div>
 

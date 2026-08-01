@@ -56,9 +56,10 @@ function resRow(k){   // an event funded from this month → an "Events" future 
 function futRow(t){   // a standalone future expense logged in the expense sheet
   var today=sameDay(txPhotoDate(t),TODAY);
   var pend=(typeof futurePending==='function')&&futurePending(t);
-  var me=(typeof _meName==='function')?_meName():'';
-  var incoming=pend && t.by && t.by!==me;                   // someone else's proposal → tapping it reviews, not edits
-  var onclick=incoming?('openReview(\''+t.id+'\')'):('openEditExpense(\''+t.id+'\')');
+  var me=(typeof _futMeId==='function')?_futMeId():'';
+  var creator=(typeof _entCreatorId==='function')?_entCreatorId('expense',t):null;
+  var incoming=pend && creator && creator!==me;             // someone else's proposal → tapping it reviews, not edits
+  var onclick=incoming?('openReview(\'expense\',\''+t.id+'\')'):('openEditExpense(\''+t.id+'\')');
   var tag=pend ? '<span class="res-tag pend">'+L('chờ duyệt','in review')+'</span>'
                : '<span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>';
   var sub=pend ? L('Chờ cả nhà duyệt','Waiting for the family')

@@ -3,7 +3,7 @@
   window.fhCreateGoal = async function (g) {
     try {
       const fid = window.DB.fid;
-      const gr = await sb.from('saving_goals').insert({ family_id: fid, name: g.name, emoji: g.emoji, target_amount: g.target, target_date: g.date || null }).select('id').single();
+      const gr = await sb.from('saving_goals').insert({ family_id: fid, name: g.name, emoji: g.emoji, target_amount: g.target, target_date: g.date || null, created_by: (window.DB && window.DB.ownerMemberId) || null }).select('id').single();
       if (gr.error) throw gr.error;
       if (g.init > 0) {
         await _w(sb.from('event_fundings').insert({ family_id: fid, goal_id: gr.data.id, member_id: window.DB.ownerMemberId || null, amount: g.init, source: 'savings', month: null }), 'fund goal');

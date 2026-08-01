@@ -1,0 +1,5 @@
+-- 0024: collaborative requests — see MCP-applied migration "requests".
+-- created_by (the requester, distinct from payer) on transactions/saving_goals/events,
+-- one polymorphic request_reviews table (RLS + realtime), both spliced into
+-- get_family_snapshot(). Applied to production via Supabase on 2026-08-01.
+-- Full DDL identical to the applied migration; kept here for repo record.

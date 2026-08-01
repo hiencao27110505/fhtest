@@ -112,7 +112,7 @@ var EN_DEFAULT={
   momentsTitle:'Moments', momentsSub:"The family's plans, memories and album.", recentMemories:'Timeline', addPhotos:'Add photos',
   /* shared buttons */
   cancel:'Cancel', save:'Save', add:'Add', done:'Done', create:'Create', send:'Send', back:'Back', close:'Close',
-  setWhatsNew:"What's new", whatsNewTitle:"What's new", whatsNewSub:"The latest we've shipped for your family — what wasn't working, and what changed.",
+  setWhatsNew:"What's new", whatsNewTitle:"What's new", whatsNewSub:"The latest updates for your family.",
   /* add sheet */
   addSheetTitle:'Add something', addSheetSub:'Log money, or save a moment.', grpFinance:'Finance', grpMoments:'Moments',
   qaExpenseT:'Log an expense', qaExpenseS:'Money you just spent',
@@ -217,7 +217,7 @@ var I18N={
     momentsTitle:'Khoảnh khắc', momentsSub:'Dự định, kỷ niệm và album của cả nhà.', recentMemories:'Dòng thời gian', addPhotos:'Thêm ảnh',
     /* shared buttons */
     cancel:'Huỷ', save:'Lưu', add:'Thêm', done:'Xong', create:'Tạo', send:'Gửi', back:'Quay lại', close:'Đóng',
-    setWhatsNew:'Có gì mới', whatsNewTitle:'Có gì mới', whatsNewSub:'Những điều mới nhất tụi mình vừa làm cho nhà bạn — trước đây vướng ở đâu, và giờ đổi thế nào.',
+    setWhatsNew:'Có gì mới', whatsNewTitle:'Có gì mới', whatsNewSub:'Những cập nhật mới nhất cho nhà bạn.',
     /* add sheet */
     addSheetTitle:'Thêm mới', addSheetSub:'Ghi lại tiền bạc, hoặc lưu một khoảnh khắc.', grpFinance:'Tài chính', grpMoments:'Khoảnh khắc',
     qaExpenseT:'Ghi khoản chi', qaExpenseS:'Khoản tiền vừa chi',

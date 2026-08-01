@@ -27,7 +27,7 @@
       // Falls back to the legacy multi-query hydrate if the RPC is absent or errors,
       // so an unmigrated env or a bad deploy can never take the app down.
       // p_txn_from stays null today (full ledger); it is the R6 windowing hook.
-      let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg, rx;
+      let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg, rx, rr;
       let snap = null;
       try { const rs = await sb.rpc('get_family_snapshot', { p_txn_from: null }); if (!rs.error && rs.data) snap = rs.data; }
       catch (e) { /* fall through to the multi-query hydrate */ }
@@ -38,6 +38,7 @@
         se = snap.savings_entries || []; em = snap.event_memories || [];
         tp = snap.transaction_photos || []; inc = snap.incomes || []; sg = snap.saving_goals || [];
         rx = snap.reactions || [];                          // reactions arrive in the same payload (0023); [] on a pre-migration RPC
+        rr = snap.request_reviews || [];                    // request reviews (0024): future-expense / goal / occasion alignment
       } else {
         const R = await Promise.all([
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
@@ -46,19 +47,21 @@
           sb.from('categories').select('id,name,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
           sb.from('category_budgets').select('category_id,amount,month').eq('family_id', fid),
           sb.from('monthly_budgets').select('month,budget_total,closed').eq('family_id', fid),
-          sb.from('transactions').select('id,category_id,member_id,note,amount,txn_date,status').eq('family_id', fid).order('txn_date', { ascending: false }),
-          sb.from('events').select('id,name,emoji,cover,target_amount,target_date,achieved,sort_order,source_txn_id').eq('family_id', fid).is('archived_at', null).order('sort_order'),
+          sb.from('transactions').select('id,category_id,member_id,note,amount,txn_date,status,created_by').eq('family_id', fid).order('txn_date', { ascending: false }),
+          sb.from('events').select('id,name,emoji,cover,target_amount,target_date,achieved,sort_order,source_txn_id,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
           sb.from('event_fundings').select('id,event_id,goal_id,amount,source,month,member_id').eq('family_id', fid),
           sb.from('savings_entries').select('kind,amount').eq('family_id', fid),
           sb.from('event_memories').select('id,event_id,emoji,caption,photo_url,sort_order').eq('family_id', fid).order('sort_order'),
           sb.from('transaction_photos').select('transaction_id,photo_url').eq('family_id', fid),
           sb.from('incomes').select('amount,income_date').eq('family_id', fid),
-          sb.from('saving_goals').select('id,name,emoji,target_amount,target_date,note,occasion_id,achieved,sort_order').eq('family_id', fid).is('archived_at', null).order('sort_order'),
+          sb.from('saving_goals').select('id,name,emoji,target_amount,target_date,note,occasion_id,achieved,sort_order,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
           // reactions (0023): a failed query on a pre-migration env resolves {data:null} → [], never throws, so hydrate survives
-          sb.from('reactions').select('id,transaction_id,member_id,emoji,created_at').eq('family_id', fid)
+          sb.from('reactions').select('id,transaction_id,member_id,emoji,created_at').eq('family_id', fid),
+          // request_reviews (0024): same fail-safe — [] on a pre-migration env
+          sb.from('request_reviews').select('id,entity_type,entity_id,member_id,emoji,created_at').eq('family_id', fid)
         ]);
         fam = R[0].data; mem = R[1].data || []; cat = R[2].data || []; cb = R[3].data || []; mb = R[4].data || [];
-        tx = R[5].data || []; ev = R[6].data || []; ef = R[7].data || []; se = R[8].data || []; em = R[9].data || []; tp = R[10].data || []; inc = R[11].data || []; sg = R[12].data || []; rx = R[13].data || [];
+        tx = R[5].data || []; ev = R[6].data || []; ef = R[7].data || []; se = R[8].data || []; em = R[9].data || []; tp = R[10].data || []; inc = R[11].data || []; sg = R[12].data || []; rx = R[13].data || []; rr = R[14].data || [];
       }
 
       if (fam) { window.FAM.familyName = fam.name; if (fam.currency) window.CUR = fam.currency; if (fam.default_language) window.LANG = fam.default_language; }
@@ -134,7 +137,7 @@
         const who = mrec ? (mrec.is_shared ? 'Shared' : mrec.name) : 'Shared';
         const realized = (t.status !== 'planned') && (dt <= now);
         const amt = Number(t.amount);
-        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _catId: t.category_id, _memberId: t.member_id, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
+        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _catId: t.category_id, _memberId: t.member_id, _createdBy: t.created_by || null, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
         if (realized) { m.spent += amt; m.catSpent[catName] = (m.catSpent[catName] || 0) + amt; m.memberSpent[who] = (m.memberSpent[who] || 0) + amt; }
       });
       newTxns.sort(function(a,b){ var ta=a._d?a._d.getTime():Infinity, tb=b._d?b._d.getTime():Infinity; return tb-ta; }); // newest first, globally
@@ -153,6 +156,16 @@
       newTxns.forEach((t) => { t.reactions = (t._dbId && window.DB.reactionsByTx[t._dbId]) || null; });
       _rxFlat.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));   // newest first
       window.reactions = _rxFlat;
+
+      // ── request reviews (0024): group by entity (type:id) for the requests feature ──
+      // Each review is {id, entityType, entityId, memberId, emoji, at}. reviewsByEntity
+      // keyed 'expense:<id>' / 'goal:<id>' / 'occasion:<id>' powers alignment + the hub.
+      window.DB.reviewsByEntity = {};
+      (rr || []).forEach((r) => {
+        const key = r.entity_type + ':' + r.entity_id;
+        const rec = { id: r.id, entityType: r.entity_type, entityId: r.entity_id, memberId: r.member_id, emoji: r.emoji, at: r.created_at };
+        (window.DB.reviewsByEntity[key] = window.DB.reviewsByEntity[key] || []).push(rec);
+      });
 
       window.months = byKey;
       window.monthOrder = Object.keys(byKey).sort((a, b) => new Date(byKey[a]._iso) - new Date(byKey[b]._iso));
@@ -180,7 +193,7 @@
         const mirrored = e.source_txn_id
           ? (photosByTx[e.source_txn_id] || []).map((src) => ({ src: src, _txn: e.source_txn_id, _path: (window.DB.pathByUrl || {})[src] || null }))
           : null;
-        evObj[e.id] = { _dbId: e.id, name: e.name, emoji: e.emoji || '🎯', cov: e.cover || 'blue', date: e.target_date ? (MO[d.getMonth()] + ' ' + d.getDate()) : '', d: d, target: Number(e.target_amount), saved: savedByEvent[e.id] || 0, setAside: setAsideByEvent[e.id] || 0, fromSavings: fromSavingsByEvent[e.id] || 0, fromBudget: fromBudgetByEvent[e.id] || 0, achieved: !!e.achieved, memories: mirrored || memByEvent[e.id], _srcTxn: e.source_txn_id || null };
+        evObj[e.id] = { _dbId: e.id, name: e.name, emoji: e.emoji || '🎯', cov: e.cover || 'blue', date: e.target_date ? (MO[d.getMonth()] + ' ' + d.getDate()) : '', d: d, target: Number(e.target_amount), saved: savedByEvent[e.id] || 0, setAside: setAsideByEvent[e.id] || 0, fromSavings: fromSavingsByEvent[e.id] || 0, fromBudget: fromBudgetByEvent[e.id] || 0, achieved: !!e.achieved, memories: mirrored || memByEvent[e.id], _srcTxn: e.source_txn_id || null, _createdBy: e.created_by || null };
         evOrder.push(e.id);
       });
       window.events = evObj; window.order = evOrder;
@@ -205,7 +218,7 @@
         const _occ = g.occasion_id ? window.DB.eventById[g.occasion_id] : null;
         if (_occ && _occ.source_txn_id) return;
         const gd = g.target_date ? new Date(g.target_date + 'T00:00:00') : null;
-        goalObj[g.id] = { _dbId: g.id, name: g.name, emoji: g.emoji || '🎯', target: Number(g.target_amount), saved: savedByGoal[g.id] || 0, fromSavings: fromSavingsByGoal[g.id] || 0, d: gd, date: gd ? (MO[gd.getMonth()] + ' ' + gd.getDate()) : '', note: g.note || '', occasion_id: g.occasion_id || null, achieved: !!g.achieved };
+        goalObj[g.id] = { _dbId: g.id, name: g.name, emoji: g.emoji || '🎯', target: Number(g.target_amount), saved: savedByGoal[g.id] || 0, fromSavings: fromSavingsByGoal[g.id] || 0, d: gd, date: gd ? (MO[gd.getMonth()] + ' ' + gd.getDate()) : '', note: g.note || '', occasion_id: g.occasion_id || null, achieved: !!g.achieved, _createdBy: g.created_by || null };
         goalOrder.push(g.id);
       });
       window.goals = goalObj; window.goalOrder = goalOrder;
