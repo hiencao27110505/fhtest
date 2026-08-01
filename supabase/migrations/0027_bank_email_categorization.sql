@@ -1,5 +1,5 @@
 -- ============================================================================
--- FamilyHub — 0026: bank email pipeline — categorization moved to human review
+-- FamilyHub — 0027: bank email pipeline — categorization moved to human review
 --
 -- Follow-up to 0025 (bank/transaction email ingestion pipeline), landed as a
 -- new migration rather than an edit to 0025 because 0025 has already been
