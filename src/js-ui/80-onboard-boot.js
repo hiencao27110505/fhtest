@@ -181,6 +181,7 @@ function finishOnboarding(){
   FAM.lang=LANG; FAM.cur=CUR;
   applyFam(); applyLang(); applyCurrency();
   try{ localStorage.setItem('fh-onboarded','1'); localStorage.setItem('fh-lang',LANG); localStorage.setItem('fh-cur',CUR); }catch(e){}
+  try{ if(window.fhMarkReleasesSeen) fhMarkReleasesSeen(); }catch(e){}   // fresh user starts clean — no past-release backlog
   document.getElementById('onboarding').classList.add('done');
   go('home');
 }
