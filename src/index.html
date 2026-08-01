@@ -148,6 +148,12 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div id="act-filter"></div>
   <div class="rows" id="tx-rows"></div>
 
+  <!-- PHÒNG KHÁCH — collaborative reactions feed (shown only when there are reactions) -->
+  <div id="rx-wall-sec" style="display:none">
+    <div class="section-h"><span class="t"><span data-t="rxRoom">The living room</span> <span class="rx-count" id="rx-wall-count"></span></span></div>
+    <div id="rx-wall"></div>
+  </div>
+
   <!-- MỤC TIÊU TIẾT KIỆM -->
   <div class="section-h"><span class="t" data-t="savingsGoals">Savings goals</span><a onclick="openGoal()" data-t="addGoal">＋ Goal</a></div>
   <div class="gsum">

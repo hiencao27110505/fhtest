@@ -31,9 +31,12 @@ function txRow(t){
   // Localize the display date/payer; the stored t.date/t.who strings stay as-is
   // (they are parsed by _txnIso / mapped by _memberIdForWho — display only here).
   var dstr=(t.date==='Today')?L('Hôm nay','Today'):(t.date==='Just now')?L('Vừa xong','Just now'):(t._d?fmtDayMon(t._d):t.date);
-  return '<div class="row tap" onclick="openEditExpense(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+t.ico+'</div>'+spAv(t.who)+'</div>'
+  // data-rxid (only persisted rows) arms the long-press reaction picker; rxChip appends any reactions inline
+  var rxid=t._dbId?(' data-rxid="'+escAttr(t._dbId)+'"'):'';
+  var chip=(typeof rxChip==='function')?rxChip(t):'';
+  return '<div class="row tap'+(chip?' has-rx':'')+'"'+rxid+' onclick="openEditExpense(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+t.ico+'</div>'+spAv(t.who)+'</div>'
     +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s">'+dstr+' · '+t.cat+'</div></div>'
-    +'<div class="r-amt num">'+fmt(t.amt)+'</div></div>';
+    +'<div class="r-amt num">'+fmt(t.amt)+'</div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
 function txMatch(t){
@@ -77,6 +80,7 @@ function renderTxns(){
     af.innerHTML=txFilter?('<div class="filter-chip">'+txFilter.val+'<button onclick="clearFilter()" aria-label="'+L('Xoá','Clear')+'">&times;</button></div>'):'';
   }
   var htx=document.getElementById('home-tx'); if(htx)setHTMLIf(htx, txns.filter(function(t){return !t.future;}).slice(0,3).map(txRow).join(''));
+  if(typeof renderRxWall==='function') renderRxWall();   // keep the Phòng khách feed in sync with the ledger
 }
 function drillTo(type,val){ txFilter={type:type,val:val}; go('spending'); renderTxns(); segTo('activity'); }
 function clearFilter(){ txFilter=null; renderTxns(); }

@@ -1061,6 +1061,87 @@ input{font-family:inherit}
 .ring-fig .big .t{color:var(--muted);font-weight:500;font-size:15px}
 .ring-fig .sub{font-size:14px;font-weight:500;letter-spacing:-.01em;color:var(--muted);margin-top:5px}
 
+/* ---- collaborative reactions ----
+   Inline chip (A), the Phòng khách wall (B), the picker + arrival + burst (C).
+   Emoji carry the colour; the surfaces stay neutral (no fills) per the design system,
+   and the cards mirror the .woffer / widget-tile language. */
+
+/* a reactable row must not select-highlight or pop the iOS callout on a long hold */
+.row[data-rxid]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+
+/* A · inline chip — its own full-width line under the row, so the message never
+   fights the amount column for space (the row wraps only when a chip is present) */
+.row.has-rx{flex-wrap:wrap;row-gap:0}   /* the row's 14px gap is between columns only; the chip sets its own top space */
+.rx-chip{flex:0 0 100%;display:flex;align-items:center;gap:6px;min-width:0;margin:7px 0 1px 56px}
+.rx-es{display:inline-flex;flex:0 0 auto}
+.rx-es .rx-e{font-size:14px;line-height:1;margin-right:-3px;filter:drop-shadow(0 1px 1px rgba(25,16,34,.12))}
+.rx-msg{font-size:12.5px;font-style:italic;font-weight:500;color:var(--muted);letter-spacing:-.01em;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rx-n{font-style:normal;font-weight:700;color:var(--chev)}
+
+/* the picker popover — springs from the pressed row */
+.rx-pop{position:absolute;z-index:74;display:flex;gap:4px;padding:7px;background:var(--white);
+  border:1px solid var(--hairline);border-radius:9999px;box-shadow:var(--shadow-raised);
+  transform:translateY(8px) scale(.86);opacity:0;transform-origin:center bottom;
+  transition:transform .2s cubic-bezier(.32,1.5,.5,1),opacity .16s ease;pointer-events:none}
+.rx-pop.on{transform:translateY(0) scale(1);opacity:1;pointer-events:auto}
+.rx-opt{width:46px;height:46px;border:none;background:transparent;border-radius:50%;font-size:27px;line-height:1;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  transform:scale(0);transition:transform .26s cubic-bezier(.3,1.5,.5,1);transition-delay:calc(var(--i) * .035s + .04s)}
+.rx-pop.on .rx-opt{transform:scale(1)}
+.rx-opt:active{transform:scale(1.22)}
+.rx-opt.on{background:var(--brand-tint);box-shadow:inset 0 0 0 2px var(--brand)}
+
+/* the reactor's own burst — emoji fanning up from where it was thrown */
+.rx-burst{position:absolute;z-index:75;font-size:26px;line-height:1;pointer-events:none;opacity:.98;
+  transform:translate(0,0) scale(.5);will-change:transform,opacity;margin:-14px 0 0 -14px;
+  filter:drop-shadow(0 2px 4px rgba(25,16,34,.18))}
+
+/* B · the wall (finance) + home strip — one card per reacted transaction, .woffer-style */
+.rx-count{font-size:11px;font-weight:700;color:var(--white);background:var(--brand);border-radius:9999px;
+  padding:1px 7px;letter-spacing:.02em;vertical-align:middle;margin-left:2px}
+#rx-wall,.rx-home{display:flex;flex-direction:column;gap:10px;margin:0 16px 14px}
+.rx-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);overflow:hidden}
+.rx-card-main{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;background:none;border:0;text-align:left;cursor:pointer;font:inherit}
+.rx-card-main:active{background:var(--surface)}
+.rx-ico{width:42px;height:42px;border-radius:12px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:23px;line-height:1;flex:0 0 auto}
+.rx-card-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.rx-card-msg{font-family:var(--disp);font-size:15px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rx-card-sub{display:flex;align-items:center;gap:7px;min-width:0}
+.rx-faces{display:inline-flex;align-items:center;flex:0 0 auto}
+.rx-av{width:19px;height:19px;font-size:9px;font-weight:700;color:#fff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-right:-5px;box-shadow:0 0 0 1.5px var(--white)}
+.rx-more{font-size:11px;font-weight:700;color:var(--muted);margin-left:8px;flex:0 0 auto}
+.rx-tx{flex:1;min-width:0;font-size:12.5px;color:var(--muted);font-weight:500;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rx-when{font-size:11.5px;color:var(--chev);font-weight:600;flex:0 0 auto}
+.rx-card .chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
+.rx-back{display:flex;gap:2px;padding:6px 7px 8px;border-top:1px solid var(--divider)}
+.rx-bk{flex:1;height:40px;border:none;background:transparent;border-radius:11px;font-size:20px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:background .15s ease,transform .12s ease;opacity:.5}
+.rx-bk:active{transform:scale(1.18)}
+.rx-bk.on{opacity:1;background:var(--brand-tint);box-shadow:inset 0 0 0 1.5px var(--brand)}
+.rx-card.compact .rx-card-main{padding:11px 12px}
+.rx-card.compact .rx-ico{width:40px;height:40px;font-size:22px}
+
+/* C · the arrival moment */
+.rx-arrive{position:absolute;inset:0;z-index:73;display:flex;align-items:center;justify-content:center;padding:26px;
+  visibility:hidden;opacity:0;transition:opacity .24s ease,visibility 0s linear .24s}
+.rx-arrive.on{visibility:visible;opacity:1;transition:opacity .24s ease}
+.rx-ar-bg{position:absolute;inset:0;border:none;background:rgba(20,12,26,.5);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);cursor:pointer}
+.rx-ar-card{position:relative;background:var(--white);border-radius:24px;padding:30px 24px 22px;width:min(340px,86%);
+  text-align:center;box-shadow:var(--shadow-raised);transform:scale(.9) translateY(10px);transition:transform .3s cubic-bezier(.32,1.35,.5,1)}
+.rx-arrive.on .rx-ar-card{transform:scale(1) translateY(0)}
+.rx-ar-emoji{font-size:66px;line-height:1;animation:celPop .55s cubic-bezier(.3,1.4,.5,1);filter:drop-shadow(0 4px 10px rgba(25,16,34,.18))}
+.rx-ar-msg{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:-.4px;color:var(--ink);margin-top:16px;line-height:1.25}
+.rx-ar-more{font-size:13px;font-weight:600;color:var(--brand-ink);margin-top:7px}
+.rx-ar-tx{font-size:13.5px;color:var(--muted);font-weight:500;margin-top:9px;letter-spacing:-.01em}
+.rx-ar-btns{display:flex;flex-direction:column;gap:9px;margin-top:22px}
+.rx-ar-view{height:48px;border:none;border-radius:9999px;background:var(--brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;cursor:pointer}
+.rx-ar-view:active{transform:scale(.97)}
+.rx-ar-close{height:44px;border:none;border-radius:9999px;background:transparent;color:var(--muted);font-size:15px;font-weight:600;cursor:pointer}
+@media (prefers-reduced-motion:reduce){
+  .rx-pop,.rx-opt,.rx-ar-card,.rx-burst{transition:none}
+  .rx-ar-emoji{animation:none}
+}
 /* scrim + sheets */
 .scrim{position:absolute;inset:0;background:rgba(25,16,34,.45);opacity:0;pointer-events:none;transition:opacity .3s;z-index:50}
 .scrim.on{opacity:1;pointer-events:auto}
@@ -1738,6 +1819,12 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <input type="file" id="pa-file" accept="image/*" multiple onchange="paIngest(this)" hidden>
   <div id="act-filter"></div>
   <div class="rows" id="tx-rows"></div>
+
+  <!-- PHÒNG KHÁCH — collaborative reactions feed (shown only when there are reactions) -->
+  <div id="rx-wall-sec" style="display:none">
+    <div class="section-h"><span class="t"><span data-t="rxRoom">The living room</span> <span class="rx-count" id="rx-wall-count"></span></span></div>
+    <div id="rx-wall"></div>
+  </div>
 
   <!-- MỤC TIÊU TIẾT KIỆM -->
   <div class="section-h"><span class="t" data-t="savingsGoals">Savings goals</span><a onclick="openGoal()" data-t="addGoal">＋ Goal</a></div>
@@ -3252,6 +3339,7 @@ function renderHome(){
   }
 
   var html = renderHearth();                            // the hearth card under the scene
+  if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions, right under the hearth
 
   /* ---- signals from the active user's + relatives' data ---- */
   var up = ord.filter(function(k){ return evs[k] && evs[k].d && !isMirrorK(k) && !achievedNow(evs[k]); })
@@ -4817,9 +4905,12 @@ function txRow(t){
   // Localize the display date/payer; the stored t.date/t.who strings stay as-is
   // (they are parsed by _txnIso / mapped by _memberIdForWho — display only here).
   var dstr=(t.date==='Today')?L('Hôm nay','Today'):(t.date==='Just now')?L('Vừa xong','Just now'):(t._d?fmtDayMon(t._d):t.date);
-  return '<div class="row tap" onclick="openEditExpense(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+t.ico+'</div>'+spAv(t.who)+'</div>'
+  // data-rxid (only persisted rows) arms the long-press reaction picker; rxChip appends any reactions inline
+  var rxid=t._dbId?(' data-rxid="'+escAttr(t._dbId)+'"'):'';
+  var chip=(typeof rxChip==='function')?rxChip(t):'';
+  return '<div class="row tap'+(chip?' has-rx':'')+'"'+rxid+' onclick="openEditExpense(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+t.ico+'</div>'+spAv(t.who)+'</div>'
     +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s">'+dstr+' · '+t.cat+'</div></div>'
-    +'<div class="r-amt num">'+fmt(t.amt)+'</div></div>';
+    +'<div class="r-amt num">'+fmt(t.amt)+'</div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
 function txMatch(t){
@@ -4863,6 +4954,7 @@ function renderTxns(){
     af.innerHTML=txFilter?('<div class="filter-chip">'+txFilter.val+'<button onclick="clearFilter()" aria-label="'+L('Xoá','Clear')+'">&times;</button></div>'):'';
   }
   var htx=document.getElementById('home-tx'); if(htx)setHTMLIf(htx, txns.filter(function(t){return !t.future;}).slice(0,3).map(txRow).join(''));
+  if(typeof renderRxWall==='function') renderRxWall();   // keep the Phòng khách feed in sync with the ledger
 }
 function drillTo(type,val){ txFilter={type:type,val:val}; go('spending'); renderTxns(); segTo('activity'); }
 function clearFilter(){ txFilter=null; renderTxns(); }
@@ -5029,6 +5121,295 @@ function addExpense(){
   else { go('spending'); segTo('overview'); }
 }
 
+/* ---------- collaborative reactions ----------
+   A family member holds a transaction row, throws ONE emotional reaction, and it
+   surfaces three ways: an inline chip on the ledger row (A), a shared "Phòng khách"
+   feed (B), and an arrival moment on the payer's phone (C). Five reactions, chosen
+   to be emotional not neutral — shock / side-eye / laughing / love / annoyed — each
+   with a small pool of contextual one-liners so the log never reads like a bot.
+   Data + write-through live in js-data (reactions table, fhReact, get_family_snapshot). */
+var RX = [
+  { k:'shock',   e:'😱', vi:'Sốc',      en:'Shocked' },
+  { k:'suspect', e:'🤨', vi:'Nghi ngờ', en:'Suspicious' },
+  { k:'laugh',   e:'😂', vi:'Cười',     en:'Laughing' },
+  { k:'love',    e:'🥰', vi:'Thương',   en:'Love it' },
+  { k:'mad',     e:'😤', vi:'Tức',      en:'Not having it' }
+];
+/* one-liners per reaction — [vi, en], with {n} = reactor first name, {cat} = category.
+   The pick is deterministic per (txn, member, emoji) so the sentence never reshuffles. */
+var RX_MSG = {
+  '😱': [ ['{n} đang xỉu ngang vụ này','{n} is losing it over this'],
+          ['{n} há hốc mồm với vụ {cat}','{n}’s jaw dropped at this {cat}'],
+          ['{n} chưa hết bàng hoàng','{n} is still in shock'] ],
+  '🤨': [ ['{n} đang nghi ngờ vụ này','{n} is questioning this'],
+          ['{n} đang soi khoản {cat} này','{n} is side-eyeing this {cat}'],
+          ['{n} thấy sai sai chỗ này','{n} smells something off'] ],
+  '😂': [ ['{n} cười không nhặt được mồm','{n} can’t stop laughing'],
+          ['{n} thấy vụ {cat} này hài dễ sợ','{n} finds this {cat} hilarious'],
+          ['{n} cười xỉu với vụ này','{n} is dying at this'] ],
+  '🥰': [ ['{n} duyệt khoản này liền','{n} approves this instantly'],
+          ['{n} thấy tiêu vậy là đáng','{n} says worth every đồng'],
+          ['{n} thương vụ {cat} này ghê','{n} adores this {cat}'] ],
+  '😤': [ ['{n} đang tức cái vụ này','{n} is not having this'],
+          ['{n} không chịu khoản {cat} này đâu','{n} won’t let this {cat} slide'],
+          ['{n} bực ra mặt','{n} is visibly annoyed'] ]
+};
+function rxCfg(e){ for(var i=0;i<RX.length;i++){ if(RX[i].e===e) return RX[i]; } return RX[1]; }
+function rxHash(s){ var h=0; s=String(s||''); for(var i=0;i<s.length;i++){ h=((h<<5)-h+s.charCodeAt(i))|0; } return Math.abs(h); }
+function rxFirstName(mid){
+  var m=window.DB && window.DB.memberById && window.DB.memberById[mid], nm=m?m.name:'';
+  if(mid && window.DB && mid===window.DB.ownerMemberId){ var me=(typeof _meName==='function')?_meName():''; if(me) nm=me; }
+  return (typeof firstName==='function')?firstName(nm||''):(nm||L('Ai đó','Someone'));
+}
+function rxMessage(rec, tx){
+  var pool=RX_MSG[rec.emoji]||RX_MSG['🤨'];
+  var nm=rxFirstName(rec.memberId);
+  var cat=(tx && tx.cat)?String(tx.cat):L('khoản này','this');
+  var pair=pool[rxHash((rec.txId||'')+'|'+(rec.memberId||'')+'|'+rec.emoji)%pool.length];
+  return L(pair[0],pair[1]).replace(/\{n\}/g, esc(nm)).replace(/\{cat\}/g, esc(cat.toLowerCase()));
+}
+function _rxFace(mid){
+  var m=window.DB && window.DB.memberById && window.DB.memberById[mid];
+  var col=(m&&m.color)||'#8f8a99', ini=(m && typeof inits==='function')?inits(m.name):'👤';
+  return '<span class="rx-av av" style="background:'+col+'">'+esc(ini)+'</span>';
+}
+function rxTxByDbId(id){ var a=window.txns||[]; for(var i=0;i<a.length;i++){ if(a[i]._dbId===id) return a[i]; } return null; }
+function _rxMineOn(txDbId){
+  var mid=window.DB&&window.DB.ownerMemberId, arr=((window.DB&&window.DB.reactionsByTx)||{})[txDbId]||[];
+  for(var i=0;i<arr.length;i++){ if(arr[i].memberId===mid) return arr[i].emoji; } return null;
+}
+
+/* ---- A · the inline chip appended into a transaction row's body ---- */
+function rxChip(t){
+  var rs=t && t.reactions; if(!rs || !rs.length) return '';
+  var lead=rs[0]; for(var i=1;i<rs.length;i++){ if(rs[i].at>lead.at) lead=rs[i]; }
+  var seen={}, emos='';
+  rs.forEach(function(r){ if(!seen[r.emoji]){ seen[r.emoji]=1; emos+='<span class="rx-e">'+r.emoji+'</span>'; } });
+  var extra=rs.length>1 ? ' <span class="rx-n">+'+(rs.length-1)+'</span>' : '';
+  return '<div class="rx-chip"><span class="rx-es">'+emos+'</span><span class="rx-msg">'+rxMessage(lead,t)+extra+'</span></div>';
+}
+window.rxChip=rxChip;
+
+/* ---- the picker: a small popover that springs from the pressed row ---- */
+function openRxPicker(txDbId, cx, cy){
+  closeRxPicker();
+  var phone=document.getElementById('phone'); if(!phone) return;
+  window._rxPickTx=txDbId;
+  var pr=phone.getBoundingClientRect();
+  var mine=_rxMineOn(txDbId);
+  var pop=document.createElement('div'); pop.className='rx-pop'; pop.id='rx-pop';
+  pop.innerHTML=RX.map(function(r,i){
+    return '<button class="rx-opt'+(mine===r.e?' on':'')+'" style="--i:'+i+'" onclick="throwReaction(\''+txDbId+'\',\''+r.e+'\')" aria-label="'+escAttr(L(r.vi,r.en))+'">'+r.e+'</button>';
+  }).join('');
+  phone.appendChild(pop);
+  var w=pop.offsetWidth, h=pop.offsetHeight;
+  var left=(cx-pr.left)-w/2, top=(cy-pr.top)-h-14;
+  left=Math.max(10, Math.min(pr.width-w-10, left));
+  if(top<8) top=(cy-pr.top)+22;                     // no room above the finger → drop below it
+  pop.style.left=left+'px'; pop.style.top=top+'px';
+  window._rxLastXY={ x:cx, y:cy };                  // remember where the reaction was thrown, so it bursts from there
+  requestAnimationFrame(function(){ pop.classList.add('on'); });
+  setTimeout(function(){
+    window._rxOutside=function(ev){ if(!ev.target.closest || !ev.target.closest('#rx-pop')) closeRxPicker(); };
+    document.addEventListener('touchstart', window._rxOutside, true);
+    document.addEventListener('mousedown', window._rxOutside, true);
+  }, 30);
+}
+function closeRxPicker(){
+  var p=document.getElementById('rx-pop'); if(p && p.parentNode) p.parentNode.removeChild(p);
+  if(window._rxOutside){ document.removeEventListener('touchstart', window._rxOutside, true); document.removeEventListener('mousedown', window._rxOutside, true); window._rxOutside=null; }
+}
+window.closeRxPicker=closeRxPicker;
+
+/* a localized burst of the chosen emoji, fanning up from the point it was thrown —
+   the reactor's own "bumping out" feedback (distinct from the recipient's full-screen
+   arrival float). Falls back to centre when no coordinates are known (e.g. react-back). */
+function rxBurst(emoji, x, y){
+  var phone=document.getElementById('phone'); if(!phone) return;
+  var pr=phone.getBoundingClientRect();
+  var cx=(x!=null?x-pr.left:pr.width/2), cy=(y!=null?y-pr.top:pr.height*0.42);
+  for(var i=0;i<7;i++){ (function(i){
+    var s=document.createElement('span'); s.className='rx-burst'; s.textContent=emoji;
+    s.style.left=cx+'px'; s.style.top=cy+'px';
+    phone.appendChild(s);
+    var ang=(-90+(i-3)*24)*Math.PI/180, dist=48+(i%3)*22;
+    var dx=Math.cos(ang)*dist, dy=Math.sin(ang)*dist-26;
+    requestAnimationFrame(function(){
+      s.style.transition='transform .85s cubic-bezier(.2,.7,.3,1), opacity .85s ease';
+      s.style.transform='translate('+dx.toFixed(0)+'px,'+dy.toFixed(0)+'px) scale(1.1)'; s.style.opacity='0';
+    });
+    setTimeout(function(){ if(s.parentNode) s.remove(); }, 900);
+  })(i); }
+}
+window.rxBurst=rxBurst;
+
+/* ---- throw (or clear) a reaction: optimistic, then persist ---- */
+function _rxLocalSet(txDbId, emoji){
+  var mid=window.DB && window.DB.ownerMemberId; if(!mid) return;
+  var map=window.DB.reactionsByTx=window.DB.reactionsByTx||{};
+  var arr=(map[txDbId]||[]).filter(function(r){ return r.memberId!==mid; });   // drop my previous, if any
+  if(emoji) arr.push({ id:'local', txId:txDbId, memberId:mid, emoji:emoji, at:new Date().toISOString() });
+  if(arr.length) map[txDbId]=arr; else delete map[txDbId];
+  var tx=rxTxByDbId(txDbId); if(tx) tx.reactions=map[txDbId]||null;
+  var flat=[]; for(var k in map){ (map[k]||[]).forEach(function(r){ flat.push(r); }); }
+  flat.sort(function(a,b){ return a.at<b.at?1:a.at>b.at?-1:0; });
+  window.reactions=flat;
+}
+function throwReaction(txDbId, emoji){
+  closeRxPicker();
+  var remove=(_rxMineOn(txDbId)===emoji);              // tapping your current reaction again clears it
+  _rxLocalSet(txDbId, remove?null:emoji);
+  if(!remove){ var xy=window._rxLastXY; rxBurst(emoji, xy?xy.x:null, xy?xy.y:null); }   // your own reaction bumps out where you threw it
+  window._rxLastXY=null;
+  if(typeof window.fhReact==='function') window.fhReact(txDbId, remove?null:emoji);
+  if(typeof renderTxns==='function') renderTxns();
+  if(typeof renderRxWall==='function') renderRxWall();
+  var homeOn=document.getElementById('v-home'); if(homeOn && homeOn.classList.contains('on') && typeof renderHome==='function') renderHome();
+  var txnOv=document.getElementById('txn-overlay'); if(txnOv && txnOv.classList.contains('on') && typeof renderTxnScreen==='function') renderTxnScreen();
+  if(!remove){ var r=rxCfg(emoji); if(typeof toast==='function') toast(L('Đã thả '+r.e+' cho khoản này','Reacted '+r.e)); }
+}
+window.throwReaction=throwReaction;
+
+/* ---- long-press to open the picker (no long-press exists elsewhere in the app,
+        so this is bound once here via event delegation over both pointer models) ---- */
+(function(){
+  var LP=460, MOVE=12, timer=null, sx=0, sy=0, rxid=null;
+  function clear(){ if(timer){ clearTimeout(timer); timer=null; } rxid=null; }
+  function start(e, pt){
+    var row=e.target.closest && e.target.closest('.row[data-rxid]'); if(!row) return;
+    rxid=row.getAttribute('data-rxid'); sx=pt.clientX; sy=pt.clientY;
+    clearTimeout(timer);
+    timer=setTimeout(function(){
+      window._rxSuppressClick=true; setTimeout(function(){ window._rxSuppressClick=false; }, 700);
+      if(navigator.vibrate){ try{ navigator.vibrate(12); }catch(_){} }
+      openRxPicker(rxid, sx, sy); clear();
+    }, LP);
+  }
+  function move(pt){ if(!timer) return; if(Math.abs(pt.clientX-sx)>MOVE || Math.abs(pt.clientY-sy)>MOVE) clear(); }
+  document.addEventListener('touchstart', function(e){ if(e.touches.length>1){ clear(); return; } start(e, e.touches[0]); }, {passive:true});
+  document.addEventListener('touchmove', function(e){ move(e.touches[0]); }, {passive:true});
+  document.addEventListener('touchend', clear, {passive:true});
+  document.addEventListener('touchcancel', clear, {passive:true});
+  document.addEventListener('mousedown', function(e){ if(e.button===0) start(e, e); });
+  document.addEventListener('mousemove', function(e){ move(e); });
+  document.addEventListener('mouseup', clear);
+  // a long-press must NOT also open the expense editor (the row's own onclick).
+  // Never suppress a tap inside the picker itself — the emoji buttons must always fire.
+  document.addEventListener('click', function(e){
+    if(!window._rxSuppressClick) return;
+    if(e.target.closest && e.target.closest('#rx-pop')) return;
+    window._rxSuppressClick=false; e.stopImmediatePropagation(); e.preventDefault();
+  }, true);
+  // no iOS callout / desktop context menu on a held row
+  document.addEventListener('contextmenu', function(e){ if(e.target.closest && e.target.closest('.row[data-rxid]')) e.preventDefault(); });
+})();
+
+/* ---- B · the "Phòng khách" wall — one card per transaction that has reactions ---- */
+function rxAgo(iso){
+  try{ var s=Math.max(0,(Date.now()-new Date(iso).getTime())/1000);
+    if(s<60) return L('vừa xong','just now');
+    if(s<3600) return Math.floor(s/60)+L(' phút','m');
+    if(s<86400) return Math.floor(s/3600)+L(' giờ','h');
+    return Math.floor(s/86400)+L(' ngày','d');
+  }catch(e){ return ''; }
+}
+function _rxWallItems(){
+  var map=(window.DB&&window.DB.reactionsByTx)||{}, items=[];
+  for(var txid in map){
+    var rs=map[txid]; if(!rs||!rs.length) continue;
+    var tx=rxTxByDbId(txid); if(!tx) continue;                 // tx must be in the loaded ledger
+    var lead=rs[0]; for(var i=1;i<rs.length;i++){ if(rs[i].at>lead.at) lead=rs[i]; }
+    items.push({ tx:tx, rs:rs, lead:lead, at:lead.at });
+  }
+  items.sort(function(a,b){ return a.at<b.at?1:a.at>b.at?-1:0; });
+  return items;
+}
+function rxCard(it, compact){
+  var tx=it.tx, rs=it.rs, lead=it.lead;
+  var faces='', sm={}, nExtra=0;
+  rs.forEach(function(r){ if(!sm[r.memberId]){ sm[r.memberId]=1; if(Object.keys(sm).length<=3) faces+=_rxFace(r.memberId); else nExtra++; } });
+  if(nExtra>0) faces+='<span class="rx-more">+'+nExtra+'</span>';
+  var note=esc(tx.note||L('Khoản chi','Expense')), amt=(typeof fmt==='function')?fmt(tx.amt):tx.amt, when=rxAgo(lead.at);
+  var mine=_rxMineOn(tx._dbId);
+  var chev='<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
+  var back=compact?'':'<div class="rx-back">'+RX.map(function(r){ return '<button class="rx-bk'+(mine===r.e?' on':'')+'" onclick="throwReaction(\''+tx._dbId+'\',\''+r.e+'\')" aria-label="'+escAttr(L(r.vi,r.en))+'">'+r.e+'</button>'; }).join('')+'</div>';
+  return '<div class="rx-card'+(compact?' compact':'')+'">'
+    +'<button class="rx-card-main" onclick="rxJumpTo(\''+tx._dbId+'\')">'
+      +'<span class="rx-ico">'+lead.emoji+'</span>'
+      +'<span class="rx-card-b"><span class="rx-card-msg">'+rxMessage(lead,tx)+'</span>'
+        +'<span class="rx-card-sub">'+faces+'<span class="rx-tx">'+note+' · '+amt+'</span>'+(when?'<span class="rx-when">'+when+'</span>':'')+'</span></span>'
+      +chev
+    +'</button>'+back+'</div>';
+}
+function renderRxWall(){
+  var sec=document.getElementById('rx-wall-sec'), box=document.getElementById('rx-wall'); if(!box) return;
+  var items=_rxWallItems();
+  if(!items.length){ if(sec) sec.style.display='none'; box.innerHTML=''; return; }
+  if(sec) sec.style.display='';
+  var cnt=document.getElementById('rx-wall-count'); if(cnt) cnt.textContent=String(items.length);
+  box.innerHTML=items.slice(0,12).map(function(it){ return rxCard(it,false); }).join('');
+}
+window.renderRxWall=renderRxWall;
+function rxHomeStripHTML(){
+  var items=_rxWallItems(); if(!items.length) return '';
+  var head=(typeof _sectionH==='function')?_sectionH(L('Phòng khách','The living room'),'go(&#39;spending&#39;)'):'';
+  return head+'<div class="rx-home">'+items.slice(0,3).map(function(it){ return rxCard(it,true); }).join('')+'</div>';
+}
+window.rxHomeStripHTML=rxHomeStripHTML;
+function rxJumpTo(txDbId){ closeRxArrive(); var tx=rxTxByDbId(txDbId); if(tx && typeof openEditExpense==='function') openEditExpense(tx.id); }
+window.rxJumpTo=rxJumpTo;
+
+/* ---- C · the arrival moment — a reaction on MY transaction, landed ---- */
+function _rxSeen(){ try{ return localStorage.getItem('fh-rx-seen')||''; }catch(e){ return ''; } }
+function _rxSetSeen(v){ try{ if(v) localStorage.setItem('fh-rx-seen', v); }catch(e){} }
+function _rxBusy(){
+  // don't cover an open sheet / modal / celebration / peek / onboarding — the moment
+  // waits and plays on the next hydrate or focus once the screen is clear
+  if(document.querySelector('.modal.on, .sheet.on, .celebrate.on, .peek.on')) return true;
+  var ob=document.getElementById('onboarding'); if(ob && ob.offsetParent!==null) return true;   // onboarding (z-90) is up
+  return false;
+}
+function rxCheckArrivals(){
+  var mid=window.DB && window.DB.ownerMemberId; if(!mid) return;
+  if(window.editingTx!=null || document.hidden || _rxBusy()) return;     // never interrupt an edit / sheet / a backgrounded app
+  var mineTx={}; (window.txns||[]).forEach(function(t){ if(t._dbId && t._memberId===mid) mineTx[t._dbId]=t; });
+  var all=(window.reactions||[]).filter(function(r){ return mineTx[r.txId] && r.memberId!==mid; });   // others' reactions, on my spends
+  if(!all.length) return;
+  var maxAt=all.reduce(function(m,r){ return r.at>m?r.at:m; }, '');
+  var seen=_rxSeen();
+  if(!seen){ _rxSetSeen(maxAt); return; }                               // first run: seed the watermark, don't replay history
+  var fresh=all.filter(function(r){ return r.at>seen; });
+  if(!fresh.length) return;
+  _rxSetSeen(maxAt);
+  fresh.sort(function(a,b){ return a.at<b.at?1:a.at>b.at?-1:0; });
+  rxArriveShow(fresh, mineTx);
+}
+window.rxCheckArrivals=rxCheckArrivals;
+function rxArriveShow(fresh, mineTx){
+  if(document.getElementById('rx-arrive') || document.hidden) return;
+  var lead=fresh[0], tx=mineTx[lead.txId], more=fresh.length-1;
+  var ov=document.createElement('div'); ov.className='rx-arrive'; ov.id='rx-arrive';
+  ov.innerHTML='<button class="rx-ar-bg" onclick="closeRxArrive()" aria-label="'+escAttr(L('Đóng','Close'))+'"></button>'
+    +'<div class="rx-ar-card">'
+      +'<div class="rx-ar-emoji">'+lead.emoji+'</div>'
+      +'<div class="rx-ar-msg">'+rxMessage(lead,tx)+'</div>'
+      +(more>0?'<div class="rx-ar-more">'+L('và '+more+' phản ứng khác','and '+more+(more===1?' more reaction':' more reactions'))+'</div>':'')
+      +(tx?'<div class="rx-ar-tx">'+esc(tx.note||L('Khoản chi','Expense'))+' · '+((typeof fmt==='function')?fmt(tx.amt):tx.amt)+'</div>':'')
+      +'<div class="rx-ar-btns">'
+        +'<button class="rx-ar-view" onclick="rxJumpTo(\''+(tx?tx._dbId:'')+'\')">'+L('Xem khoản này','See it')+'</button>'
+        +'<button class="rx-ar-close" onclick="closeRxArrive()">'+L('Để sau','Later')+'</button>'
+      +'</div>'
+    +'</div>';
+  (document.getElementById('phone')||document.body).appendChild(ov);
+  requestAnimationFrame(function(){ ov.classList.add('on'); });
+  if(typeof floatEmojis==='function') floatEmojis(lead.emoji);
+}
+function closeRxArrive(){ var o=document.getElementById('rx-arrive'); if(o){ o.classList.remove('on'); setTimeout(function(){ if(o.parentNode) o.parentNode.removeChild(o); }, 260); } }
+window.closeRxArrive=closeRxArrive;
+
+/* run after every hydrate: refresh the wall + play any just-arrived moment */
+function rxAfterHydrate(){ try{ renderRxWall(); }catch(e){} try{ rxCheckArrivals(); }catch(e){} }
+window.rxAfterHydrate=rxAfterHydrate;
 /* ---------- events fund/create ---------- */
 var CIRC=496.4, curEvent='japan';
 var savings=0; // saved-for-events pool (hydrated from DB)
@@ -5413,7 +5794,7 @@ var EN_DEFAULT={
   /* home feed */
   comingUp:'Coming up', recent:'Recent', memories:'Memories', seeAll:'See all',
   savedLbl:'Saved', spentLbl:'Spent', poolLbl:'Pool', latestPhotos:'Latest photos',
-  txRecent:'Recent transactions', savingsGoals:'Savings goals', addGoal:'＋ Goal',
+  txRecent:'Recent transactions', savingsGoals:'Savings goals', addGoal:'＋ Goal', rxRoom:'The living room',
   trend6:'6-month trend', vsBudget:'vs budget', trendLegend:"Dashed line = that month's budget",
   /* finance view */
   finHead:'Finance', finSub:"The family's spending, income and savings.", incomeLbl:'In', outLbl:'Out',
@@ -5517,7 +5898,7 @@ var I18N={
     /* home feed */
     comingUp:'Sắp tới', recent:'Gần đây', memories:'Kỷ niệm', seeAll:'Xem tất cả',
     savedLbl:'Đã để dành', spentLbl:'Đã chi', poolLbl:'Quỹ', latestPhotos:'Ảnh mới nhất',
-    txRecent:'Giao dịch gần đây', savingsGoals:'Mục tiêu tiết kiệm', addGoal:'＋ Mục tiêu',
+    txRecent:'Giao dịch gần đây', savingsGoals:'Mục tiêu tiết kiệm', addGoal:'＋ Mục tiêu', rxRoom:'Phòng khách',
     trend6:'Xu hướng 6 tháng', vsBudget:'so với ngân sách', trendLegend:'Đường nét đứt là ngân sách của tháng đó',
     /* finance view */
     finHead:'Tài chính', finSub:'Chi tiêu, thu nhập và tiết kiệm của cả nhà.', incomeLbl:'Thu', outLbl:'Chi',
@@ -6359,7 +6740,7 @@ if('serviceWorker' in navigator){
       // Falls back to the legacy multi-query hydrate if the RPC is absent or errors,
       // so an unmigrated env or a bad deploy can never take the app down.
       // p_txn_from stays null today (full ledger); it is the R6 windowing hook.
-      let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg;
+      let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg, rx;
       let snap = null;
       try { const rs = await sb.rpc('get_family_snapshot', { p_txn_from: null }); if (!rs.error && rs.data) snap = rs.data; }
       catch (e) { /* fall through to the multi-query hydrate */ }
@@ -6369,6 +6750,7 @@ if('serviceWorker' in navigator){
         tx = snap.transactions || []; ev = snap.events || []; ef = snap.event_fundings || [];
         se = snap.savings_entries || []; em = snap.event_memories || [];
         tp = snap.transaction_photos || []; inc = snap.incomes || []; sg = snap.saving_goals || [];
+        rx = snap.reactions || [];                          // reactions arrive in the same payload (0023); [] on a pre-migration RPC
       } else {
         const R = await Promise.all([
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
@@ -6384,10 +6766,12 @@ if('serviceWorker' in navigator){
           sb.from('event_memories').select('id,event_id,emoji,caption,photo_url,sort_order').eq('family_id', fid).order('sort_order'),
           sb.from('transaction_photos').select('transaction_id,photo_url').eq('family_id', fid),
           sb.from('incomes').select('amount,income_date').eq('family_id', fid),
-          sb.from('saving_goals').select('id,name,emoji,target_amount,target_date,note,occasion_id,achieved,sort_order').eq('family_id', fid).is('archived_at', null).order('sort_order')
+          sb.from('saving_goals').select('id,name,emoji,target_amount,target_date,note,occasion_id,achieved,sort_order').eq('family_id', fid).is('archived_at', null).order('sort_order'),
+          // reactions (0023): a failed query on a pre-migration env resolves {data:null} → [], never throws, so hydrate survives
+          sb.from('reactions').select('id,transaction_id,member_id,emoji,created_at').eq('family_id', fid)
         ]);
         fam = R[0].data; mem = R[1].data || []; cat = R[2].data || []; cb = R[3].data || []; mb = R[4].data || [];
-        tx = R[5].data || []; ev = R[6].data || []; ef = R[7].data || []; se = R[8].data || []; em = R[9].data || []; tp = R[10].data || []; inc = R[11].data || []; sg = R[12].data || [];
+        tx = R[5].data || []; ev = R[6].data || []; ef = R[7].data || []; se = R[8].data || []; em = R[9].data || []; tp = R[10].data || []; inc = R[11].data || []; sg = R[12].data || []; rx = R[13].data || [];
       }
 
       if (fam) { window.FAM.familyName = fam.name; if (fam.currency) window.CUR = fam.currency; if (fam.default_language) window.LANG = fam.default_language; }
@@ -6468,6 +6852,21 @@ if('serviceWorker' in navigator){
       });
       newTxns.sort(function(a,b){ var ta=a._d?a._d.getTime():Infinity, tb=b._d?b._d.getTime():Infinity; return tb-ta; }); // newest first, globally
       window.txns = newTxns;
+
+      // ── reactions (0023): group by transaction, hang onto each txn, keep a flat feed ──
+      // Each reaction is {id, txId, memberId, emoji, at}. reactionsByTx powers the inline
+      // chip; the flat, newest-first list powers the "Phòng khách" wall + the arrival check.
+      window.DB.reactionsByTx = {};
+      const _rxFlat = [];
+      (rx || []).forEach((r) => {
+        const rec = { id: r.id, txId: r.transaction_id, memberId: r.member_id, emoji: r.emoji, at: r.created_at };
+        (window.DB.reactionsByTx[r.transaction_id] = window.DB.reactionsByTx[r.transaction_id] || []).push(rec);
+        _rxFlat.push(rec);
+      });
+      newTxns.forEach((t) => { t.reactions = (t._dbId && window.DB.reactionsByTx[t._dbId]) || null; });
+      _rxFlat.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));   // newest first
+      window.reactions = _rxFlat;
+
       window.months = byKey;
       window.monthOrder = Object.keys(byKey).sort((a, b) => new Date(byKey[a]._iso) - new Date(byKey[b]._iso));
       window.selMonth = byKey[window.DB.monthKey] ? window.DB.monthKey : (window.monthOrder[window.monthOrder.length - 1] || window.DB.monthKey);
@@ -6569,6 +6968,7 @@ if('serviceWorker' in navigator){
         window.memberWeather = wmap;
         if (typeof window.renderHome === 'function') window.renderHome();
       } catch (e) { window.memberWeather = window.memberWeather || {}; }
+      try { if (window.rxAfterHydrate) window.rxAfterHydrate(); } catch (e) {}   // reactions: refresh the wall + play any just-arrived reaction moment
       window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
       if (window.fhSaveSnapshot) window.fhSaveSnapshot();   // cache it for the next cold start
       return true;
@@ -7080,6 +7480,29 @@ if('serviceWorker' in navigator){
     } catch (e) { console.warn('saveWeather', e); return false; }
   };
 
+  // ---- write-through: reactions (collaborative emoji on a transaction) ----
+  // Upsert on (transaction_id, member_id) — re-reacting REPLACES, so the feed never
+  // fills with one member's rapid taps; a null emoji (tapping your current reaction
+  // again) removes it. The optimistic local update + re-render already happened in the
+  // UI; this just persists. Not queued offline — reactions are ephemeral social
+  // signals, same call shape as saveWeather().
+  window.fhReact = async function (txDbId, emoji) {
+    try {
+      const fid = window.DB && window.DB.fid, mid = window.DB && window.DB.ownerMemberId;
+      if (!sb || !fid || !mid || !txDbId) return false;
+      window.DB._lastLocalWrite = Date.now();
+      const nowIso = new Date().toISOString();
+      const res = emoji
+        ? await sb.from('reactions').upsert(
+            { family_id: fid, transaction_id: txDbId, member_id: mid, emoji: emoji, created_at: nowIso, updated_at: nowIso },
+            { onConflict: 'transaction_id,member_id' })
+        : await sb.from('reactions').delete().eq('family_id', fid).eq('transaction_id', txDbId).eq('member_id', mid);
+      if (res && res.error) { _writeErr('reaction failed', res.error); return false; }
+      _syncSoon();
+      return true;
+    } catch (e) { _writeErr('reaction failed', e); return false; }
+  };
+
   // ---- realtime: reload on any change to this family's rows ----
   let _rtTimer = null;
   async function _subscribeRealtime(fid) {
@@ -7089,7 +7512,7 @@ if('serviceWorker' in navigator){
       // authenticate the realtime socket so RLS-gated postgres_changes are delivered
       try { const { data: { session } } = await sb.auth.getSession(); if (session && sb.realtime && sb.realtime.setAuth) await sb.realtime.setAuth(session.access_token); } catch (e) {}
       const ch = sb.channel('fam-' + fid);
-      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather'].forEach((tbl) => {
+      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather', 'reactions'].forEach((tbl) => {
         ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: 'family_id=eq.' + fid }, () => {
           // Echo suppression (R3): our own writes already schedule a _syncSoon reload,
           // and realtime replays them straight back. Ignore ticks inside the local-write

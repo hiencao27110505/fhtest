@@ -255,6 +255,29 @@
     } catch (e) { console.warn('saveWeather', e); return false; }
   };
 
+  // ---- write-through: reactions (collaborative emoji on a transaction) ----
+  // Upsert on (transaction_id, member_id) — re-reacting REPLACES, so the feed never
+  // fills with one member's rapid taps; a null emoji (tapping your current reaction
+  // again) removes it. The optimistic local update + re-render already happened in the
+  // UI; this just persists. Not queued offline — reactions are ephemeral social
+  // signals, same call shape as saveWeather().
+  window.fhReact = async function (txDbId, emoji) {
+    try {
+      const fid = window.DB && window.DB.fid, mid = window.DB && window.DB.ownerMemberId;
+      if (!sb || !fid || !mid || !txDbId) return false;
+      window.DB._lastLocalWrite = Date.now();
+      const nowIso = new Date().toISOString();
+      const res = emoji
+        ? await sb.from('reactions').upsert(
+            { family_id: fid, transaction_id: txDbId, member_id: mid, emoji: emoji, created_at: nowIso, updated_at: nowIso },
+            { onConflict: 'transaction_id,member_id' })
+        : await sb.from('reactions').delete().eq('family_id', fid).eq('transaction_id', txDbId).eq('member_id', mid);
+      if (res && res.error) { _writeErr('reaction failed', res.error); return false; }
+      _syncSoon();
+      return true;
+    } catch (e) { _writeErr('reaction failed', e); return false; }
+  };
+
   // ---- realtime: reload on any change to this family's rows ----
   let _rtTimer = null;
   async function _subscribeRealtime(fid) {
@@ -264,7 +287,7 @@
       // authenticate the realtime socket so RLS-gated postgres_changes are delivered
       try { const { data: { session } } = await sb.auth.getSession(); if (session && sb.realtime && sb.realtime.setAuth) await sb.realtime.setAuth(session.access_token); } catch (e) {}
       const ch = sb.channel('fam-' + fid);
-      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather'].forEach((tbl) => {
+      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather', 'reactions'].forEach((tbl) => {
         ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: 'family_id=eq.' + fid }, () => {
           // Echo suppression (R3): our own writes already schedule a _syncSoon reload,
           // and realtime replays them straight back. Ignore ticks inside the local-write

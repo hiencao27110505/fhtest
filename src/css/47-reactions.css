@@ -1,0 +1,81 @@
+/* ---- collaborative reactions ----
+   Inline chip (A), the Phòng khách wall (B), the picker + arrival + burst (C).
+   Emoji carry the colour; the surfaces stay neutral (no fills) per the design system,
+   and the cards mirror the .woffer / widget-tile language. */
+
+/* a reactable row must not select-highlight or pop the iOS callout on a long hold */
+.row[data-rxid]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+
+/* A · inline chip — its own full-width line under the row, so the message never
+   fights the amount column for space (the row wraps only when a chip is present) */
+.row.has-rx{flex-wrap:wrap;row-gap:0}   /* the row's 14px gap is between columns only; the chip sets its own top space */
+.rx-chip{flex:0 0 100%;display:flex;align-items:center;gap:6px;min-width:0;margin:7px 0 1px 56px}
+.rx-es{display:inline-flex;flex:0 0 auto}
+.rx-es .rx-e{font-size:14px;line-height:1;margin-right:-3px;filter:drop-shadow(0 1px 1px rgba(25,16,34,.12))}
+.rx-msg{font-size:12.5px;font-style:italic;font-weight:500;color:var(--muted);letter-spacing:-.01em;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rx-n{font-style:normal;font-weight:700;color:var(--chev)}
+
+/* the picker popover — springs from the pressed row */
+.rx-pop{position:absolute;z-index:74;display:flex;gap:4px;padding:7px;background:var(--white);
+  border:1px solid var(--hairline);border-radius:9999px;box-shadow:var(--shadow-raised);
+  transform:translateY(8px) scale(.86);opacity:0;transform-origin:center bottom;
+  transition:transform .2s cubic-bezier(.32,1.5,.5,1),opacity .16s ease;pointer-events:none}
+.rx-pop.on{transform:translateY(0) scale(1);opacity:1;pointer-events:auto}
+.rx-opt{width:46px;height:46px;border:none;background:transparent;border-radius:50%;font-size:27px;line-height:1;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  transform:scale(0);transition:transform .26s cubic-bezier(.3,1.5,.5,1);transition-delay:calc(var(--i) * .035s + .04s)}
+.rx-pop.on .rx-opt{transform:scale(1)}
+.rx-opt:active{transform:scale(1.22)}
+.rx-opt.on{background:var(--brand-tint);box-shadow:inset 0 0 0 2px var(--brand)}
+
+/* the reactor's own burst — emoji fanning up from where it was thrown */
+.rx-burst{position:absolute;z-index:75;font-size:26px;line-height:1;pointer-events:none;opacity:.98;
+  transform:translate(0,0) scale(.5);will-change:transform,opacity;margin:-14px 0 0 -14px;
+  filter:drop-shadow(0 2px 4px rgba(25,16,34,.18))}
+
+/* B · the wall (finance) + home strip — one card per reacted transaction, .woffer-style */
+.rx-count{font-size:11px;font-weight:700;color:var(--white);background:var(--brand);border-radius:9999px;
+  padding:1px 7px;letter-spacing:.02em;vertical-align:middle;margin-left:2px}
+#rx-wall,.rx-home{display:flex;flex-direction:column;gap:10px;margin:0 16px 14px}
+.rx-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);overflow:hidden}
+.rx-card-main{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;background:none;border:0;text-align:left;cursor:pointer;font:inherit}
+.rx-card-main:active{background:var(--surface)}
+.rx-ico{width:42px;height:42px;border-radius:12px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:23px;line-height:1;flex:0 0 auto}
+.rx-card-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.rx-card-msg{font-family:var(--disp);font-size:15px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rx-card-sub{display:flex;align-items:center;gap:7px;min-width:0}
+.rx-faces{display:inline-flex;align-items:center;flex:0 0 auto}
+.rx-av{width:19px;height:19px;font-size:9px;font-weight:700;color:#fff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-right:-5px;box-shadow:0 0 0 1.5px var(--white)}
+.rx-more{font-size:11px;font-weight:700;color:var(--muted);margin-left:8px;flex:0 0 auto}
+.rx-tx{flex:1;min-width:0;font-size:12.5px;color:var(--muted);font-weight:500;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rx-when{font-size:11.5px;color:var(--chev);font-weight:600;flex:0 0 auto}
+.rx-card .chev{width:18px;height:18px;color:var(--chev);flex:0 0 auto}
+.rx-back{display:flex;gap:2px;padding:6px 7px 8px;border-top:1px solid var(--divider)}
+.rx-bk{flex:1;height:40px;border:none;background:transparent;border-radius:11px;font-size:20px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:background .15s ease,transform .12s ease;opacity:.5}
+.rx-bk:active{transform:scale(1.18)}
+.rx-bk.on{opacity:1;background:var(--brand-tint);box-shadow:inset 0 0 0 1.5px var(--brand)}
+.rx-card.compact .rx-card-main{padding:11px 12px}
+.rx-card.compact .rx-ico{width:40px;height:40px;font-size:22px}
+
+/* C · the arrival moment */
+.rx-arrive{position:absolute;inset:0;z-index:73;display:flex;align-items:center;justify-content:center;padding:26px;
+  visibility:hidden;opacity:0;transition:opacity .24s ease,visibility 0s linear .24s}
+.rx-arrive.on{visibility:visible;opacity:1;transition:opacity .24s ease}
+.rx-ar-bg{position:absolute;inset:0;border:none;background:rgba(20,12,26,.5);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);cursor:pointer}
+.rx-ar-card{position:relative;background:var(--white);border-radius:24px;padding:30px 24px 22px;width:min(340px,86%);
+  text-align:center;box-shadow:var(--shadow-raised);transform:scale(.9) translateY(10px);transition:transform .3s cubic-bezier(.32,1.35,.5,1)}
+.rx-arrive.on .rx-ar-card{transform:scale(1) translateY(0)}
+.rx-ar-emoji{font-size:66px;line-height:1;animation:celPop .55s cubic-bezier(.3,1.4,.5,1);filter:drop-shadow(0 4px 10px rgba(25,16,34,.18))}
+.rx-ar-msg{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:-.4px;color:var(--ink);margin-top:16px;line-height:1.25}
+.rx-ar-more{font-size:13px;font-weight:600;color:var(--brand-ink);margin-top:7px}
+.rx-ar-tx{font-size:13.5px;color:var(--muted);font-weight:500;margin-top:9px;letter-spacing:-.01em}
+.rx-ar-btns{display:flex;flex-direction:column;gap:9px;margin-top:22px}
+.rx-ar-view{height:48px;border:none;border-radius:9999px;background:var(--brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;cursor:pointer}
+.rx-ar-view:active{transform:scale(.97)}
+.rx-ar-close{height:44px;border:none;border-radius:9999px;background:transparent;color:var(--muted);font-size:15px;font-weight:600;cursor:pointer}
+@media (prefers-reduced-motion:reduce){
+  .rx-pop,.rx-opt,.rx-ar-card,.rx-burst{transition:none}
+  .rx-ar-emoji{animation:none}
+}

@@ -27,7 +27,7 @@
       // Falls back to the legacy multi-query hydrate if the RPC is absent or errors,
       // so an unmigrated env or a bad deploy can never take the app down.
       // p_txn_from stays null today (full ledger); it is the R6 windowing hook.
-      let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg;
+      let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg, rx;
       let snap = null;
       try { const rs = await sb.rpc('get_family_snapshot', { p_txn_from: null }); if (!rs.error && rs.data) snap = rs.data; }
       catch (e) { /* fall through to the multi-query hydrate */ }
@@ -37,6 +37,7 @@
         tx = snap.transactions || []; ev = snap.events || []; ef = snap.event_fundings || [];
         se = snap.savings_entries || []; em = snap.event_memories || [];
         tp = snap.transaction_photos || []; inc = snap.incomes || []; sg = snap.saving_goals || [];
+        rx = snap.reactions || [];                          // reactions arrive in the same payload (0023); [] on a pre-migration RPC
       } else {
         const R = await Promise.all([
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
@@ -52,10 +53,12 @@
           sb.from('event_memories').select('id,event_id,emoji,caption,photo_url,sort_order').eq('family_id', fid).order('sort_order'),
           sb.from('transaction_photos').select('transaction_id,photo_url').eq('family_id', fid),
           sb.from('incomes').select('amount,income_date').eq('family_id', fid),
-          sb.from('saving_goals').select('id,name,emoji,target_amount,target_date,note,occasion_id,achieved,sort_order').eq('family_id', fid).is('archived_at', null).order('sort_order')
+          sb.from('saving_goals').select('id,name,emoji,target_amount,target_date,note,occasion_id,achieved,sort_order').eq('family_id', fid).is('archived_at', null).order('sort_order'),
+          // reactions (0023): a failed query on a pre-migration env resolves {data:null} → [], never throws, so hydrate survives
+          sb.from('reactions').select('id,transaction_id,member_id,emoji,created_at').eq('family_id', fid)
         ]);
         fam = R[0].data; mem = R[1].data || []; cat = R[2].data || []; cb = R[3].data || []; mb = R[4].data || [];
-        tx = R[5].data || []; ev = R[6].data || []; ef = R[7].data || []; se = R[8].data || []; em = R[9].data || []; tp = R[10].data || []; inc = R[11].data || []; sg = R[12].data || [];
+        tx = R[5].data || []; ev = R[6].data || []; ef = R[7].data || []; se = R[8].data || []; em = R[9].data || []; tp = R[10].data || []; inc = R[11].data || []; sg = R[12].data || []; rx = R[13].data || [];
       }
 
       if (fam) { window.FAM.familyName = fam.name; if (fam.currency) window.CUR = fam.currency; if (fam.default_language) window.LANG = fam.default_language; }
@@ -136,6 +139,21 @@
       });
       newTxns.sort(function(a,b){ var ta=a._d?a._d.getTime():Infinity, tb=b._d?b._d.getTime():Infinity; return tb-ta; }); // newest first, globally
       window.txns = newTxns;
+
+      // ── reactions (0023): group by transaction, hang onto each txn, keep a flat feed ──
+      // Each reaction is {id, txId, memberId, emoji, at}. reactionsByTx powers the inline
+      // chip; the flat, newest-first list powers the "Phòng khách" wall + the arrival check.
+      window.DB.reactionsByTx = {};
+      const _rxFlat = [];
+      (rx || []).forEach((r) => {
+        const rec = { id: r.id, txId: r.transaction_id, memberId: r.member_id, emoji: r.emoji, at: r.created_at };
+        (window.DB.reactionsByTx[r.transaction_id] = window.DB.reactionsByTx[r.transaction_id] || []).push(rec);
+        _rxFlat.push(rec);
+      });
+      newTxns.forEach((t) => { t.reactions = (t._dbId && window.DB.reactionsByTx[t._dbId]) || null; });
+      _rxFlat.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));   // newest first
+      window.reactions = _rxFlat;
+
       window.months = byKey;
       window.monthOrder = Object.keys(byKey).sort((a, b) => new Date(byKey[a]._iso) - new Date(byKey[b]._iso));
       window.selMonth = byKey[window.DB.monthKey] ? window.DB.monthKey : (window.monthOrder[window.monthOrder.length - 1] || window.DB.monthKey);
@@ -237,6 +255,7 @@
         window.memberWeather = wmap;
         if (typeof window.renderHome === 'function') window.renderHome();
       } catch (e) { window.memberWeather = window.memberWeather || {}; }
+      try { if (window.rxAfterHydrate) window.rxAfterHydrate(); } catch (e) {}   // reactions: refresh the wall + play any just-arrived reaction moment
       window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
       if (window.fhSaveSnapshot) window.fhSaveSnapshot();   // cache it for the next cold start
       return true;

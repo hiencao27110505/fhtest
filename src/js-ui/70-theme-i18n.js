@@ -104,7 +104,7 @@ var EN_DEFAULT={
   /* home feed */
   comingUp:'Coming up', recent:'Recent', memories:'Memories', seeAll:'See all',
   savedLbl:'Saved', spentLbl:'Spent', poolLbl:'Pool', latestPhotos:'Latest photos',
-  txRecent:'Recent transactions', savingsGoals:'Savings goals', addGoal:'＋ Goal',
+  txRecent:'Recent transactions', savingsGoals:'Savings goals', addGoal:'＋ Goal', rxRoom:'The living room',
   trend6:'6-month trend', vsBudget:'vs budget', trendLegend:"Dashed line = that month's budget",
   /* finance view */
   finHead:'Finance', finSub:"The family's spending, income and savings.", incomeLbl:'In', outLbl:'Out',
@@ -208,7 +208,7 @@ var I18N={
     /* home feed */
     comingUp:'Sắp tới', recent:'Gần đây', memories:'Kỷ niệm', seeAll:'Xem tất cả',
     savedLbl:'Đã để dành', spentLbl:'Đã chi', poolLbl:'Quỹ', latestPhotos:'Ảnh mới nhất',
-    txRecent:'Giao dịch gần đây', savingsGoals:'Mục tiêu tiết kiệm', addGoal:'＋ Mục tiêu',
+    txRecent:'Giao dịch gần đây', savingsGoals:'Mục tiêu tiết kiệm', addGoal:'＋ Mục tiêu', rxRoom:'Phòng khách',
     trend6:'Xu hướng 6 tháng', vsBudget:'so với ngân sách', trendLegend:'Đường nét đứt là ngân sách của tháng đó',
     /* finance view */
     finHead:'Tài chính', finSub:'Chi tiêu, thu nhập và tiết kiệm của cả nhà.', incomeLbl:'Thu', outLbl:'Chi',
