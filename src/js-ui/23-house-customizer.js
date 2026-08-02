@@ -663,6 +663,107 @@ function _houseEntryHTML(){
     + '</button>';
 }
 
+/* ============================================================================
+   TAP DELIGHT — pokePet()/pokeTree(), wired onto the .sc-pet/.sc-tree buttons
+   renderScene() builds. Every tap answers: pets hop + speak (a sleepy Zzz after
+   dark; hearts when you keep petting — the quiet rabbit leads with hearts),
+   trees rustle + shed species-colored leaves (the kumquat drops a fruit), and
+   every 5th shake whispers what the tree means. One-shot DOM particles; a
+   re-render sweeping them early is harmless.
+   ============================================================================ */
+var _PET_SAY = {
+  dog:  ['Gâu gâu!',  'Woof woof!'],
+  cat:  ['Meo meo~',  'Meow~'],
+  bird: ['Chíp chíp!','Tweet tweet!'],
+  duck: ['Cạp cạp!',  'Quack quack!'],
+  rabbit: null                                        // rabbits don't talk — they hop, and hearts do the talking
+};
+function _pokeCls(el, ms){
+  el.classList.remove('poke'); void el.offsetWidth; el.classList.add('poke');
+  clearTimeout(el._pokeT);
+  el._pokeT = setTimeout(function(){ el.classList.remove('poke'); }, ms);
+}
+function _buzz(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){} }
+function _sayBubble(el, txt){
+  var old = el.querySelector('.say'); if(old && old.parentNode) old.parentNode.removeChild(old);
+  var b = document.createElement('span');
+  b.className = 'say'; b.textContent = txt;
+  el.appendChild(b);
+  setTimeout(function(){ if(b.parentNode) b.parentNode.removeChild(b); }, 1600);
+}
+var _HEART_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3C6.4 16.5 2.5 12.9 2.5 8.9 2.5 6 4.7 4 7.3 4c1.9 0 3.6 1 4.7 2.7C13.1 5 14.8 4 16.7 4c2.6 0 4.8 2 4.8 4.9 0 4-3.9 7.6-9.5 11.4z" fill="{c}"/></svg>';
+function _heartBurst(el, n){
+  var cols = ['#e0604c', '#f0784f', '#e88aa0'];
+  for(var i = 0; i < n; i++){
+    var h = document.createElement('i');
+    h.className = 'fx-heart';
+    h.style.left = (14 + Math.random() * 62).toFixed(0) + '%';
+    h.style.top = (-6 + Math.random() * 24).toFixed(0) + 'px';
+    h.style.setProperty('--hr', (Math.random() * 30 - 15).toFixed(0) + 'deg');
+    h.style.animationDelay = (i * 0.12).toFixed(2) + 's';
+    h.innerHTML = _HEART_SVG.replace('{c}', cols[i % cols.length]);
+    el.appendChild(h);
+    (function(p){ setTimeout(function(){ if(p.parentNode) p.parentNode.removeChild(p); }, 1800); })(h);
+  }
+}
+var _petTaps = 0, _petTapAt = 0;
+function pokePet(){
+  var el = document.querySelector('#home-scene .sc-pet'); if(!el) return;
+  var kind = houseCfg().pet;
+  var ph = (typeof _scenePhase === 'function') ? _scenePhase() : 'day';   // react to the painted scene, not the raw clock
+  _pokeCls(el, 950);
+  var now = Date.now();
+  _petTaps = (now - _petTapAt < 2500) ? _petTaps + 1 : 1;
+  _petTapAt = now;
+  if(ph === 'night'){ _sayBubble(el, 'Zzz…'); }        // asleep — let them dream
+  else {
+    var s = _PET_SAY[kind];
+    if(s && typeof L === 'function') _sayBubble(el, L(s[0], s[1]));
+    if(kind === 'rabbit' || _petTaps % 3 === 0) _heartBurst(el, kind === 'rabbit' ? 2 : 3);
+  }
+  _buzz(8);
+}
+var _LEAF_COL = { oak:'var(--brand-2)', cherry:'var(--blossom-pale)', pine:'var(--leaf-2)', willow:'var(--brand-2)', kumquat:'var(--leaf-2)' };
+var _treeTaps = 0;
+function pokeTree(){
+  var el = document.querySelector('#home-scene .sc-tree'); if(!el) return;
+  var kind = houseCfg().tree;
+  _pokeCls(el, 900);
+  for(var i = 0; i < 4; i++){
+    var p = document.createElement('i');
+    p.className = 'fx-leaf' + (kind === 'cherry' ? ' pt' : kind === 'pine' ? ' needle' : '');
+    p.style.left = (16 + Math.random() * 58).toFixed(0) + '%';
+    p.style.top = (10 + Math.random() * 34).toFixed(0) + '%';
+    p.style.background = _LEAF_COL[kind] || 'var(--brand-2)';
+    p.style.setProperty('--lx', (Math.random() * 26 - 8).toFixed(0) + 'px');
+    p.style.animationDelay = (i * 0.09).toFixed(2) + 's';
+    el.appendChild(p);
+    (function(q){ setTimeout(function(){ if(q.parentNode) q.parentNode.removeChild(q); }, 2000); })(p);
+  }
+  if(kind === 'kumquat'){
+    var f = document.createElement('i');
+    f.className = 'fx-fruit';
+    f.style.left = (26 + Math.random() * 34).toFixed(0) + '%';
+    f.style.top = '26%';
+    el.appendChild(f);
+    setTimeout(function(){ if(f.parentNode) f.parentNode.removeChild(f); }, 1400);
+  }
+  _treeTaps++;
+  if(_treeTaps % 5 === 0){                             // now and then, whisper what the tree means
+    var host = document.getElementById('home-scene');
+    if(host && typeof L === 'function'){
+      var note = document.createElement('div');
+      note.className = 'tree-note';
+      note.textContent = L('Cây lớn lên cùng quỹ chung của nhà mình 🌱', 'The tree grows with your shared savings 🌱');
+      host.appendChild(note);
+      setTimeout(function(){ if(note.parentNode) note.parentNode.removeChild(note); }, 3400);
+    }
+  }
+  _buzz(6);
+}
+
+window.pokePet = pokePet;
+window.pokeTree = pokeTree;
 window.buildHouseShell = buildHouseShell;
 window._houseEntryHTML = _houseEntryHTML;
 window.houseCfg = houseCfg;

@@ -64,15 +64,22 @@
 .pol-ph{display:block;width:40px;height:36px;border-radius:1.5px;background-size:cover;background-position:center;position:relative;overflow:hidden}
 .pol-emo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px}
 .sky-night .pol{filter:brightness(.8)}
-/* the savings tree — foliage in the theme's secondary green, grows with progress */
-.sc-tree{position:absolute;left:6%;bottom:42px;width:64px;height:88px;transform-origin:50% 100%}
+/* the savings tree — foliage in the theme's secondary green, grows with progress.
+   Anchored in px (not %) so the yard gap to the right-anchored house is stable. */
+.sc-tree{position:absolute;left:14px;bottom:42px;width:64px;height:88px;transform-origin:50% 100%}
 .tr-tr{position:absolute;left:50%;bottom:0;width:9px;height:34px;margin-left:-4.5px;border-radius:5px;background:linear-gradient(var(--dim),var(--dim)) #7d5f45}
 .tr-f{position:absolute;border-radius:50%;background:linear-gradient(var(--dim),var(--dim)) var(--brand-2)}
 .tr-f.f1{left:8px;top:4px;width:48px;height:48px}
 .tr-f.f2{left:0;top:30px;width:30px;height:30px}
 .tr-f.f3{right:0;top:26px;width:34px;height:34px}
 /* ---------- the house ---------- */
-.sc-house{position:absolute;left:53%;bottom:40px;transform:translateX(-46%);width:max-content;max-width:274px;z-index:2}
+/* right-anchored: a constant margin whatever the family size, so small families
+   don't leave a dead right edge and big houses grow INTO the yard, not off-screen.
+   Tree left + house right + pet measured into the gap = a stable composition.
+   32px because the ROOFS overhang the wall box (cottage -10px, modern -16px,
+   tile -19px, brick -8px) — anchor the wall so even the widest roof keeps a
+   clear ~13px+ of sky to the screen edge. */
+.sc-house{position:absolute;right:32px;bottom:40px;width:max-content;max-width:274px;z-index:2}
 .hs-roofwrap{position:relative;height:40px;margin:0 -10px;z-index:1}
 .hs-chim{position:absolute;top:-14px;right:20%;width:17px;height:30px;border-radius:3px 3px 0 0;background:linear-gradient(var(--dim),var(--dim)) #a8624c}
 .hs-roof{position:absolute;inset:0;background:linear-gradient(var(--dim),var(--dim)) var(--brand-ink);clip-path:polygon(0 100%,16% 0,84% 0,100% 100%)}
@@ -133,8 +140,8 @@
 #home-scene .wx-fx{border-radius:0}
 .hw.fx .hw-pane{animation:wx-pop .9s cubic-bezier(.2,1.4,.35,1) both}
 .hw.fx::after{content:'';position:absolute;top:-6px;left:50%;width:58px;height:58px;margin-left:-29px;border-radius:50%;background:radial-gradient(circle,var(--brand-glow),transparent 66%);animation:wx-aura 1s ease-out both;pointer-events:none}
-/* short phones: trim the sky, keep the house whole */
-@media (max-height:700px){.home-scene{height:212px}.sc-house{bottom:36px}.sc-hill.h1{height:128px}.sc-hill.h2{height:146px}}
+/* short phones: trim the sky, keep the house whole (tree drops with the house base) */
+@media (max-height:700px){.home-scene{height:212px}.sc-house{bottom:36px}.sc-tree{bottom:38px}.sc-hill.h1{height:128px}.sc-hill.h2{height:146px}}
 
 /* body: cards carry their own 16px inset, like the tabs */
 .home-body{padding:0 0 6px}

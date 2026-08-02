@@ -62,6 +62,14 @@ window.setWeather = setWeather; window.clearWeather = clearWeather; window.openW
 /* ---------- the living house scene ---------- */
 /* the sky follows the REAL clock (not the demo's pinned TODAY) */
 function _skyPhase(){ var h = new Date().getHours(); if(h >= 5 && h < 8) return 'dawn'; if(h >= 8 && h < 17) return 'day'; if(h >= 17 && h < 20) return 'dusk'; return 'night'; }
+/* the phase the scene is PAINTED in — may lag the clock until the next render.
+   Tap reactions and re-measures key off this, so they match what's on screen. */
+function _scenePhase(){
+  var sky = document.getElementById('home-sky');
+  var m = sky && /sky-(dawn|day|dusk|night)\b/.exec(sky.className);
+  return m ? m[1] : _skyPhase();
+}
+window._scenePhase = _scenePhase;
 /* fixed star field ([%left, px-top]) — deterministic so re-renders don't shuffle the sky */
 var _STARS = [[6,14],[14,36],[24,8],[33,24],[44,15],[55,6],[63,28],[72,12],[81,32],[88,8],[93,22],[38,40],[68,44],[18,54]];
 /* one member = one window; the pane is the light their mood casts */
@@ -101,10 +109,10 @@ function renderScene(){
     if(!act) act = !!myW;
   }catch(e){}
 
-  // the savings tree grows with total goal progress
+  // the savings tree grows with total goal progress (floor keeps it a tree, not a shrub)
   var goals = window.goals || {}, gord = window.goalOrder || [], tt = 0, ts = 0;
   gord.forEach(function(g){ var e = goals[g]; if(e && e.target > 0){ tt += e.target; ts += Math.min(e.saved || 0, e.target); } });
-  var grow = tt > 0 ? (0.62 + 0.5 * (ts / tt)) : 0.55;
+  var grow = tt > 0 ? (0.7 + 0.42 * (ts / tt)) : 0.62;
 
   // up to two recent memories hang on the clothesline (hidden for big families)
   var pols = '';
@@ -137,15 +145,48 @@ function renderScene(){
     + '<i class="sc-cloud c1"></i><i class="sc-cloud c2"></i>'
     + '<i class="sc-hill h1"></i><i class="sc-hill h2"></i><i class="sc-ground"></i>'
     + pols
-    + '<div class="sc-tree tree-' + cfg.tree + '" style="transform:scale(' + grow.toFixed(2) + ')">'
-      + (window.TREEFN ? TREEFN[cfg.tree](ph) : '<i class="tr-tr"></i><i class="tr-f f1"></i><i class="tr-f f2"></i><i class="tr-f f3"></i>') + '</div>'
+    + '<button class="sc-tree tree-' + cfg.tree + '" style="transform:scale(' + grow.toFixed(2) + ')" onclick="pokeTree()" aria-label="' + escAttr(L('Chạm vào cây', 'Tap the tree')) + '">'
+      + (window.TREEFN ? TREEFN[cfg.tree](ph) : '<i class="tr-tr"></i><i class="tr-f f1"></i><i class="tr-f f2"></i><i class="tr-f f3"></i>') + '</button>'
     + (window.buildHouseShell
         ? buildHouseShell(cfg.house, ph, door + cells, act)
         : '<div class="sc-house"><div class="hs-roofwrap"><i class="hs-chim">' + (act ? '<i class="puff p1"></i><i class="puff p2"></i><i class="puff p3"></i>' : '') + '</i><i class="hs-roof"></i></div>'
           + '<div class="hs-wall"><div class="hs-wins">' + door + cells + '</div></div></div>')
-    + (cfg.pet && window.PETFN ? '<div class="sc-pet spot k-' + cfg.pet + '">' + PETFN[cfg.pet](ph) + '</div>' : '')
+    + (cfg.pet && window.PETFN ? '<button class="sc-pet k-' + cfg.pet + '" onclick="pokePet()" aria-label="' + escAttr(L('Cưng nựng thú cưng', 'Pet your buddy')) + '">' + PETFN[cfg.pet](ph) + '</button>' : '')
     + amb;
 }
+/* place the pet in the REAL yard gap between tree and house. The house width
+   varies with family size and the phone's width varies per device, so a CSS %
+   can't be trusted — measure after paint. Day phases roam the lawn (dawn by the
+   tree, noon mid-lawn, dusk wandering home); night curls up at the doorstep. */
+function _placePet(scene){
+  var pet = scene && scene.querySelector('.sc-pet'); if(!pet) return;
+  var sr = scene.getBoundingClientRect(); if(!sr.width) return;   // hidden view: keep the CSS fallback
+  var house = scene.querySelector('.sc-house'), tree = scene.querySelector('.sc-tree');
+  var pw = pet.getBoundingClientRect().width || 46;
+  var hL = house ? house.getBoundingClientRect().left - sr.left : sr.width;
+  var tR = tree ? tree.getBoundingClientRect().right - sr.left : 0;
+  var ph = _scenePhase(), x;
+  var door = scene.querySelector('.hs-door'), dr = door && door.getBoundingClientRect();
+  var doorstep = dr ? dr.left - sr.left - pw - 5 : hL - pw - 5;   // beside the door, never over it
+  if(ph === 'night'){ x = doorstep; }                             // asleep at the doorstep
+  else {
+    var y0 = tR + 4, y1 = hL - 4, room = y1 - y0 - pw;
+    if(room >= 4) x = ph === 'dawn' ? y0 + Math.min(6, room)      // dawn: out by the tree
+                : ph === 'dusk'  ? y1 - pw - Math.min(6, room)    // dusk: wandering home
+                : y0 + room / 2;                                  // day: mid-lawn
+    else if(y1 - y0 >= pw * 0.55) x = y0 + room / 2;              // snug yard: center, a little overhang is fine
+    else x = doorstep;                                            // no yard at all: waiting by the door
+  }
+  pet.style.left = Math.max(4, Math.min(x, sr.width - pw - 4)) + 'px';
+}
+/* rotation / resize: the house re-anchors instantly (CSS) but the pet's px spot
+   goes stale — re-measure it (debounced; a full re-render isn't needed) */
+try{
+  window.addEventListener('resize', function(){
+    clearTimeout(window._petRsz);
+    window._petRsz = setTimeout(function(){ var s = document.getElementById('home-scene'); if(s) _placePet(s); }, 160);
+  });
+}catch(e){}
 /* the hearth card under the scene: the mood picker until you've lit your window. */
 function renderHearth(){
   var mems = (window.FAM && FAM.members) || [], meName = _meName(), myW = myWeather();
@@ -298,6 +339,7 @@ function renderHome(){
     var _nm = ((window.FAM && FAM.members) || []).length;
     sceneEl.className = 'home-scene' + (_nm >= 4 ? ' big-house' : '') + (_nm >= 5 ? ' full-house' : '');
     setHTMLIf(sceneEl, renderScene());
+    _placePet(sceneEl);                                 // measured yard placement (runs even when HTML is unchanged)
   }
 
   var html = (window._houseEntryHTML ? _houseEntryHTML() : '') + renderHearth();   // "Chăm chút tổ ấm" CTA, then the hearth card
