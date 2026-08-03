@@ -473,7 +473,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <div id="ex-editor">
     <div class="field">
       <label data-t="exWhatFor">What for?</label>
-      <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()"/>
+      <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()" onblur="onExNoteBlur()"/>
       <div class="choices" id="ex-cat" style="margin-top:10px">
         <button class="choice on" data-v="Groceries" onclick="pickExCat(this)">🛒 Groceries</button>
         <button class="choice" data-v="Housing" onclick="pickExCat(this)">🏠 Housing</button>

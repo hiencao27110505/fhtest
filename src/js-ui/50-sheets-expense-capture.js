@@ -386,28 +386,18 @@ function markDuplicates(){
    after the comma) do we peel the completed entries off into parsed cards, and the
    active input keeps the just-started text. So a new card only ever appears with
    real, parsed data, and there's never a stray empty form. */
-function onExNoteInput(){
-  var v=document.getElementById('ex-note').value;
-  // Peel one comma BEHIND: only once there are ≥2 commas is the earliest entry
-  // safely complete (another entry has been finished after it). The most-recent
-  // entry + the in-progress tail stay in the input, so a card never appears beside
-  // half-typed text like "…, c".
-  if(!editingTx && (v.split(',').length-1) >= 2){ handleCommaSplit(); return; }
-  onExInput();
-}
-function handleCommaSplit(){
-  flushActiveRow();
-  var parts=document.getElementById('ex-note').value.split(',');
-  var keep=parts.slice(-2).join(',').replace(/^[\s,]+|[\s,]+$/g,'');   // recent entry (+ any tail) stays in the input, minus the stray trailing comma
-  var done=parts.slice(0,-2).map(function(s){return s.trim();}).filter(function(s){return s!=='';});   // safely-complete entries → cards
-  if(!done.length){ onExInput(); return; }
-  applyParsed(bulkActive, parseBulkLine(done[0]));
-  for(var i=1;i<done.length;i++){ bulkRows.push(rowFromParsed(parseBulkLine(done[i]))); }
-  bulkRows.push(rowFromParsed({note:keep, amt:'', cat:''}));
-  bulkActive=bulkRows.length-1;
-  renderBulk();
-  loadRow(bulkActive);
-  var n=document.getElementById('ex-note'); if(n){ n.focus(); var L2=n.value.length; try{ n.setSelectionRange(L2,L2); }catch(e){} }
+/* No live splitting: commas are just characters while typing, so the user can
+   write the whole line ("cafe 50k, chợ 200k, đi chơi 800k") at their own pace. */
+function onExNoteInput(){ onExInput(); }
+/* Parse when the note field loses focus (or on Save/＋): split any comma-separated
+   entries into their own cards and autofill each one's amount + guessed category.
+   A single "cafe 50k" is parsed in place → note "cafe", amount 50k, category filled. */
+function onExNoteBlur(){
+  if(editingTx) return;
+  var before=bulkRows.length;
+  commitActiveRow();                               // split multi-entry + pull amount out of the note + guess category
+  if(bulkRows.length!==before) renderBulk();       // new cards appeared → rebuild the list
+  loadRow(bulkActive);                             // reflect the parsed values in the fields
 }
 /* Split a raw input string into parsed entries (used when several comma-separated
    entries are still sitting in the input at commit/validation time). */

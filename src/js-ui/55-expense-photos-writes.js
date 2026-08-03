@@ -282,8 +282,12 @@ function fillExpenseFromTx(){
   refreshExCta();                                          // Save stays disabled until the first edit
 }
 function submitExpense(){
-  // Bulk: more than one draft row → save them all in one shot.
-  if(!editingTx && typeof bulkRows!=='undefined' && bulkRows.length>1){ submitBulk(); return; }
+  if(!editingTx){
+    // Parse/split whatever is still in the input (the user may tap Lưu without blurring first).
+    if(typeof commitActiveRow==='function') commitActiveRow();
+    if(typeof bulkRows!=='undefined' && bulkRows.length>1){ submitBulk(); return; }
+    if(typeof loadRow==='function' && bulkRows && bulkRows.length===1) loadRow(0);   // sync the parsed single entry into the fields addExpense reads
+  }
   var adopting = !editingTx && paPending;   // expense created from the bulk-assign screen
   if(editingTx) saveExpenseEdit(); else addExpense();
   // addExpense() bails without closing when the form is invalid; only drop the
