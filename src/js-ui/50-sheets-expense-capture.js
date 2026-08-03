@@ -265,9 +265,9 @@ function bulkSummary(r){
     if(r.cat==='Event') right+='<span class="bs-cat">🎈 Event</span>';
     else { var s=catStyle[r.cat]||['🏷️']; right+='<span class="bs-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
   } else if(note || base>0){                                  // has content but no real category → prompt to pick
-    right+='<span class="bs-cat bs-pick">'+L('Chọn nhóm','Pick a group')+'</span>';
+    right+='<span class="bs-cat bs-pick">'+L('Chọn danh mục','Pick a category')+'</span>';
   }
-  if(r._dup) right+='<span class="bs-dup">'+L('trùng?','dup?')+'</span>';
+  if(r._dup) right+='<span class="bs-dup">'+L('lặp lại','repeat')+'</span>';
   return '<span class="bs-left">'+left+'</span><span class="bs-right">'+right+'</span>';
 }
 /* Rebuild the card list and relocate the single #ex-editor into the active card.
@@ -305,8 +305,8 @@ function renderBulk(){
         +  '</div><div id="ex-editor-mount"></div></div>';
     } else {
       html+='<div class="bulk-card'+inv+'">'
-        +  '<div class="bulk-tap" onclick="setActiveRow('+i+')">'+bulkSummary(r)+'</div>'
-        +  '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá','Remove')+'">✕</button>'
+        +  '<button type="button" class="bulk-tap" onclick="setActiveRow('+i+')" aria-label="'+L('Sửa khoản ','Edit item ')+(i+1)+'">'+bulkSummary(r)+'</button>'
+        +  '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá khoản ','Remove item ')+(i+1)+'">✕</button>'
         +  '</div>';
     }
   }
@@ -332,7 +332,7 @@ function pruneEmptyRows(){
   bulkActive=kept.indexOf(active); if(bulkActive<0) bulkActive=kept.length-1;
   bulkRows=kept;
 }
-/* Flag later rows that repeat an earlier row's note + amount — a gentle "trùng?"
+/* Flag later rows that repeat an earlier row's note + amount — a gentle "lặp lại"
    hint, never blocking (the family may legitimately buy the same thing twice). */
 function markDuplicates(){
   var seen={};
@@ -528,7 +528,7 @@ function submitBulk(){
   if(firstInvalid>=0){
     bulkActive=firstInvalid;
     renderBulk(); loadRow(bulkActive);
-    toast(L('Thiếu số tiền hoặc nhóm ở một khoản','An item is missing amount or category'));
+    toast(L('Còn một khoản thiếu số tiền hoặc danh mục','An item still needs an amount or a category'));
     return;
   }
   var total=0, n=rows.length;
