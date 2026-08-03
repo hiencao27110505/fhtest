@@ -228,7 +228,7 @@ the lawn), the **immersive photo card**
 `_byChip` author chip, optional progress + white CTA pill), **quick actions**
 (`.qgrid`/`.qtile`: SVG glyphs in tinted `.wc-*` chips — the same chip language as
 the widget-tile headers, colors mapped brand/rose/amber/indigo), **grouped goal rows** (`.hgoals`/`.hgoal`: emoji tile, progress bar,
-saved/target, pct — tap = `fundGoal`), and the home **memory strip** (reuses
+saved/target, pct — tap = `openGoalDetail`), and the home **memory strip** (reuses
 `.mem-strip`/`.memory` with `.home-strip` inset).
 
 **Illustrated occasion covers.** When an occasion/memory has no photo, `occCover(name,

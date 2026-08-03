@@ -454,7 +454,7 @@ function renderHome(){
   });
   goalsLive.forEach(function(g){                       // only goals with a due date belong on a timeline
     var e = goals[g]; if(!e.d) return;
-    upAll.push({ kind: 'goal', d: e.d, name: e.name, src: '', target: e.target, saved: e.saved, act: 'fundGoal(&#39;' + escAttr(g) + '&#39;)' });
+    upAll.push({ kind: 'goal', d: e.d, name: e.name, src: '', target: e.target, saved: e.saved, act: 'openGoalDetail(&#39;' + escAttr(g) + '&#39;)' });
   });
   (window.txns || []).forEach(function(t){
     if(!t.future || !t._d) return;
@@ -470,7 +470,7 @@ function renderHome(){
   if(goalsLive.length){
     var gRows = goalsLive.slice(0, 2).map(function(g){
       var e = goals[g], pct = e.target > 0 ? Math.min(100, Math.round(e.saved / e.target * 100)) : 0;
-      return '<button class="hgoal" onclick="fundGoal(&#39;' + escAttr(g) + '&#39;)">'
+      return '<button class="hgoal" onclick="openGoalDetail(&#39;' + escAttr(g) + '&#39;)">'
         + '<div class="hg-ic">' + esc(e.emoji || '🎯') + '</div>'
         + '<div class="hg-b"><div class="hg-t">' + esc(e.name) + '</div>'
         + '<div class="hg-bar"><i style="width:' + pct + '%"></i></div>'
