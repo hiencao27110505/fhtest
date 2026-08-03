@@ -234,12 +234,21 @@ function refreshExCta(){                                    // nav-bar Save butt
     s.disabled = !(editSnap!==null && exFormState()!==editSnap);  // edit mode: enabled only once something changes
     return;
   }
-  // add mode: validate every non-empty draft row (amount + category). Save all when
-  // ≥1 real row exists and none is half-filled.
+  // add mode: validate every non-empty draft row. Save all when ≥1 real row exists
+  // and none is half-filled.
   var rows=(typeof bulkRows!=='undefined')?bulkRows:[];
   var considered=0, allValid=true;
   for(var i=0;i<rows.length;i++){
     var r=rows[i];
+    if(i===bulkActive && !parseAmtBase(r.amt||'') && (r.note||'').trim() && typeof parseEntries==='function'){
+      // the input row: its note may still hold one or more entries whose amount lives
+      // in the text (not the field). Each entry needs an amount; the category can still
+      // be guessed at commit, so don't block Save on a missing category here.
+      var es=parseEntries(r.note);
+      if(!es.length){ considered++; allValid=false; continue; }
+      es.forEach(function(e){ considered++; if(!(parseAmtBase(e.amt||'')>0)) allValid=false; });
+      continue;
+    }
     if(!(r.note||'').trim() && !parseAmtBase(r.amt||'')) continue;   // fully-empty row → ignored
     considered++;
     if(!(parseAmtBase(r.amt||'')>0 && catValid(r.cat))) allValid=false;   // real category required, not just any truthy value
