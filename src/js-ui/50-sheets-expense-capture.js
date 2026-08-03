@@ -398,7 +398,7 @@ function onExNoteInput(){
 function handleCommaSplit(){
   flushActiveRow();
   var parts=document.getElementById('ex-note').value.split(',');
-  var keep=parts.slice(-2).join(',').replace(/^\s+/,'');   // recent (complete) entry + in-progress tail — stays in the input
+  var keep=parts.slice(-2).join(',').replace(/^[\s,]+|[\s,]+$/g,'');   // recent entry (+ any tail) stays in the input, minus the stray trailing comma
   var done=parts.slice(0,-2).map(function(s){return s.trim();}).filter(function(s){return s!=='';});   // safely-complete entries → cards
   if(!done.length){ onExInput(); return; }
   applyParsed(bulkActive, parseBulkLine(done[0]));
