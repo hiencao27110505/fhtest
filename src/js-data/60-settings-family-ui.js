@@ -65,6 +65,7 @@
 
   /* Never show raw PostgREST/Postgres text to a user (DESIGN §6). */
   function _friendly(e) {
+    if (e && e.fhMsg) return e.fhMsg;                       // deliberately localized app errors pass through
     const raw = String((e && (e.message || e.error_description)) || e || '');
     if (/row-level security|permission denied|not authorized/i.test(raw)) return L('Bạn không có quyền cho thao tác này','You don’t have permission for that');
     if (/duplicate key|already exists/i.test(raw)) return L('Mục này đã tồn tại','That already exists');
@@ -264,6 +265,7 @@
       if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = 'Leave this family'; }
       window.toast && window.toast(_friendly(e)); return;
     }
+    try { fhKeyDrop(window.DB.fid); } catch (e) {}          // no lingering family key on a device that left
     window._closeOv(); location.reload();
   };
   window.fhDeleteFamily = async function (btn) {
@@ -283,5 +285,6 @@
       if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = 'Delete family'; }
       window.toast && window.toast(_friendly(e)); return;
     }
+    try { fhKeyDrop(window.DB.fid); } catch (e) {}
     window._closeOv(); location.reload();
   };

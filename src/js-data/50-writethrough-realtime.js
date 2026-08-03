@@ -95,15 +95,28 @@
       // created_by marks a user-proposed occasion (a request). Mirror events (born from
       // an expense) are never proposals, so they carry no creator.
       const _evCb = e._srcTxn ? null : (e._createdBy != null ? e._createdBy : ((window.DB && window.DB.ownerMemberId) || null));
-      const row = { family_id: fid, name: e.name, emoji: e.emoji, cover: e.cov, target_amount: e.target, target_date: iso, achieved: !!e.achieved, sort_order: 0, created_by: _evCb };
+      const row = Object.assign(
+        { family_id: fid, emoji: e.emoji, cover: e.cov, target_date: iso, achieved: !!e.achieved, sort_order: 0, created_by: _evCb },
+        await fhField('name', e.name), await fhField('target_amount', e.target || null));
 
-      /* A mirror event belongs to its transaction. Upserting on source_txn_id
-         means a re-sync that lost the local link can't create a second one —
-         and the partial unique index backs that up at the database level. */
+      /* A mirror event belongs to its transaction. Looking the live mirror up by
+         source_txn_id (rather than a re-insert) means a re-sync that lost the
+         local link can't create a second one.
+         This used to be sb.upsert(row, {onConflict:'source_txn_id'}), which reads as
+         equivalent but silently dropped EVERY mirror-event write: the uniqueness on
+         source_txn_id is a PARTIAL index (WHERE archived_at IS NULL, so an archived
+         mirror frees the slot for a new one), and Postgres can't match a plain
+         ON CONFLICT(source_txn_id) to a partial index — it throws 42P10 ("no unique
+         or exclusion constraint matching"), which the catch below swallowed. Selecting
+         the live row explicitly and updating/inserting by hand sidesteps that entirely. */
       let res;
       if (e._srcTxn) {
         row.source_txn_id = e._srcTxn;
-        res = await sb.from('events').upsert(row, { onConflict: 'source_txn_id' }).select('id').single();
+        const existing = await sb.from('events').select('id').eq('source_txn_id', e._srcTxn).is('archived_at', null).maybeSingle();
+        if (existing.error) throw existing.error;
+        res = existing.data
+          ? await sb.from('events').update(row).eq('id', existing.data.id).select('id').single()
+          : await sb.from('events').insert(row).select('id').single();
       } else {
         res = await sb.from('events').insert(row).select('id').single();
       }
@@ -119,11 +132,11 @@
       // upsert, not insert: one budget reservation per (event, month), so a
       // re-sync can never reserve the same money twice
       if (budgetAmt > 0) await _w(sb.from('event_fundings').upsert(
-        { family_id: fid, event_id: evId, member_id: who, amount: budgetAmt, source: 'budget', month: fMonth },
+        Object.assign({ family_id: fid, event_id: evId, member_id: who, source: 'budget', month: fMonth }, await fhField('amount', budgetAmt)),
         { onConflict: 'event_id,month' }
       ), 'write event_fundings');
       const sp = (e.saved || 0) - (e.setAside || 0);
-      if (sp > 0 && opts.savingsSource) await _w(sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: sp, source: 'savings', month: null }), 'write event_fundings');
+      if (sp > 0 && opts.savingsSource) await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, event_id: evId, member_id: who, source: 'savings', month: null }, await fhField('amount', sp))), 'write event_fundings');
       _syncSoon();
     } catch (e) { _writeErr('event insert failed', e); }
   }
@@ -145,7 +158,7 @@
       (async () => {
         try {
           if (!ev._dbId && ev._dbPending) { try { await ev._dbPending; } catch (e) {} }
-          if (ev._dbId) { await _w(sb.from('event_fundings').insert({ family_id: window.DB.fid, event_id: ev._dbId, member_id: _memberIdForWho(who), amount: applied, source: 'savings', month: null }), 'write event_fundings'); _syncSoon(); }
+          if (ev._dbId) { await _w(sb.from('event_fundings').insert(Object.assign({ family_id: window.DB.fid, event_id: ev._dbId, member_id: _memberIdForWho(who), source: 'savings', month: null }, await fhField('amount', applied))), 'write event_fundings'); _syncSoon(); }
         } catch (e) { _writeErr('funding insert failed', e); }
       })();
     }
@@ -219,12 +232,16 @@
           delete window.DB.catByName[name];
         } catch (e) { _writeErr('category remove failed', e); }
       }
-      await _w(sb.from('monthly_budgets').upsert({ family_id: fid, month: month, budget_total: m.budget || 0 }, { onConflict: 'family_id,month' }), 'write monthly_budgets');
+      // monthly cap: the plaintext column stays NOT NULL (0 = scrubbed placeholder),
+      // so an encrypted-only write still carries budget_total: 0 beside the ciphertext
+      const mbf = await fhField('budget_total', m.budget || 0);
+      if (mbf.budget_total == null) mbf.budget_total = 0;
+      await _w(sb.from('monthly_budgets').upsert(Object.assign({ family_id: fid, month: month }, mbf), { onConflict: 'family_id,month' }), 'write monthly_budgets');
       for (let i = 0; i < window.catOrder.length; i++) {
         const name = window.catOrder[i]; const amt = window.catBudget[name] || 0;
         const cid = window.DB.catByName[name] || await _categoryIdForName(name, (window.catStyle[name] || [])[0], i + 1);
         if (!cid) continue;
-        if (amt > 0) await _w(sb.from('category_budgets').upsert({ family_id: fid, month: month, category_id: cid, amount: amt }, { onConflict: 'family_id,month,category_id' }), 'write category_budgets');
+        if (amt > 0) await _w(sb.from('category_budgets').upsert(Object.assign({ family_id: fid, month: month, category_id: cid }, await fhField('amount', amt)), { onConflict: 'family_id,month,category_id' }), 'write category_budgets');
         else await _w(sb.from('category_budgets').delete().eq('family_id', fid).eq('month', month).eq('category_id', cid), 'clear category budget');
       }
       _syncSoon();
@@ -256,6 +273,23 @@
       if (res && res.error) console.warn('saveWeather', res.error);
       return true;
     } catch (e) { console.warn('saveWeather', e); return false; }
+  };
+
+  // ---- write-through: house customization (one shared {house,tree,pet} per family) ----
+  // Optimistic local echo + set_family_house() RPC, then a debounced reload. Same
+  // fire-and-persist shape as saveWeather; errors go through _writeErr like the rest.
+  window.setFamilyHouse = async function (cfg) {
+    try {
+      const fid = window.DB && window.DB.fid;
+      if (!sb || !fid) return false;
+      window.FAM = window.FAM || {};
+      window.FAM.house = cfg;                            // optimistic
+      window.DB._lastLocalWrite = Date.now();
+      const res = await sb.rpc('set_family_house', { p_house: cfg });
+      if (res && res.error) { _writeErr('house save failed', res.error); return false; }
+      _syncSoon();
+      return true;
+    } catch (e) { _writeErr('house save failed', e); return false; }
   };
 
   // ---- write-through: reactions (collaborative emoji on a transaction) ----
@@ -311,7 +345,7 @@
       // authenticate the realtime socket so RLS-gated postgres_changes are delivered
       try { const { data: { session } } = await sb.auth.getSession(); if (session && sb.realtime && sb.realtime.setAuth) await sb.realtime.setAuth(session.access_token); } catch (e) {}
       const ch = sb.channel('fam-' + fid);
-      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather', 'reactions', 'request_reviews'].forEach((tbl) => {
+      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather', 'reactions', 'request_reviews', 'family_keys'].forEach((tbl) => {
         ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: 'family_id=eq.' + fid }, () => {
           // Echo suppression (R3): our own writes already schedule a _syncSoon reload,
           // and realtime replays them straight back. Ignore ticks inside the local-write
@@ -320,6 +354,11 @@
           if (Date.now() - (window.DB._lastLocalWrite || 0) < 2500) return;
           clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 900);
         });
+      });
+      // the families row itself (house customization lives here) — keyed on id, not family_id
+      ch.on('postgres_changes', { event: '*', schema: 'public', table: 'families', filter: 'id=eq.' + fid }, () => {
+        if (Date.now() - (window.DB._lastLocalWrite || 0) < 2500) return;
+        clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 900);
       });
       ch.subscribe();
     } catch (e) { console.warn('realtime subscribe failed', e); }

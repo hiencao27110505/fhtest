@@ -14,12 +14,12 @@
    one phone appears on the others. The reveal is GATED: until you light your own
    window, the others stay curtained. Offers use the ONE consistent .woffer card. */
 var WEATHER = [
-  { k:'sun',   e:'☀️', vi:'nắng',       en:'sunny',   fvi:'vui',        fen:'happy',    rough:false, oico:'✈️', ovi:'Rủ nhau đi chơi',          oen:'Go somewhere together',                 act:"openSheet(&#39;sheet-event&#39;)" },
-  { k:'fire',  e:'🔥', vi:'bừng',       en:'buzzing', fvi:'hứng khởi',  fen:'inspired', rough:false, oico:'🎯', ovi:'Cùng mơ điều lớn',                   oen:'Dream big together',      act:"openGoal()" },
-  { k:'ok',    e:'⛅', vi:'bình thường', en:'okay',    fvi:'ổn',         fen:'okay',     rough:false, oico:'📸', ovi:'Giữ một khoảnh khắc',   oen:'Save a moment',   act:"openSheet(&#39;sheet-add&#39;)" },
-  { k:'rain',  e:'🌧️', vi:'hơi buồn',   en:'down',    fvi:'hơi buồn',   fen:'down',     rough:true,  oico:'🌤️', ovi:'Hẹn một niềm vui nhỏ',           oen:'Plan a little joy', act:"openSheet(&#39;sheet-event&#39;)" },
-  { k:'tired', e:'🌫️', vi:'mệt',        en:'drained', fvi:'mệt',        fen:'drained',  rough:true,  oico:'🫖', ovi:'Một tối nhẹ nhàng',          oen:'A cozy evening',        act:"openSheet(&#39;sheet-event&#39;)" },
-  { k:'anger', e:'⛈️', vi:'bực bội',    en:'stormy',  fvi:'bực bội',    fen:'upset',    rough:true,  oico:'🕊️', ovi:'Một hũ làm hòa',                     oen:'A make-up jar',          act:"openGoal()" }
+  { k:'sun',   e:'☀️', vi:'nắng',       en:'sunny',   fvi:'vui',        fen:'happy',    rough:false },
+  { k:'fire',  e:'🔥', vi:'bừng',       en:'buzzing', fvi:'hứng khởi',  fen:'inspired', rough:false },
+  { k:'ok',    e:'⛅', vi:'bình thường', en:'okay',    fvi:'ổn',         fen:'okay',     rough:false },
+  { k:'rain',  e:'🌧️', vi:'hơi buồn',   en:'down',    fvi:'hơi buồn',   fen:'down',     rough:true },
+  { k:'tired', e:'🌫️', vi:'mệt',        en:'drained', fvi:'mệt',        fen:'drained',  rough:true },
+  { k:'anger', e:'⛈️', vi:'bực bội',    en:'stormy',  fvi:'bực bội',    fen:'upset',    rough:true }
 ];
 function _wdef(k){ for(var i=0;i<WEATHER.length;i++){ if(WEATHER[i].k===k) return WEATHER[i]; } return null; }
 /* weather is a real daily mood — freshness is judged against the real clock, not the demo's pinned TODAY */
@@ -62,6 +62,14 @@ window.setWeather = setWeather; window.clearWeather = clearWeather; window.openW
 /* ---------- the living house scene ---------- */
 /* the sky follows the REAL clock (not the demo's pinned TODAY) */
 function _skyPhase(){ var h = new Date().getHours(); if(h >= 5 && h < 8) return 'dawn'; if(h >= 8 && h < 17) return 'day'; if(h >= 17 && h < 20) return 'dusk'; return 'night'; }
+/* the phase the scene is PAINTED in — may lag the clock until the next render.
+   Tap reactions and re-measures key off this, so they match what's on screen. */
+function _scenePhase(){
+  var sky = document.getElementById('home-sky');
+  var m = sky && /sky-(dawn|day|dusk|night)\b/.exec(sky.className);
+  return m ? m[1] : _skyPhase();
+}
+window._scenePhase = _scenePhase;
 /* fixed star field ([%left, px-top]) — deterministic so re-renders don't shuffle the sky */
 var _STARS = [[6,14],[14,36],[24,8],[33,24],[44,15],[55,6],[63,28],[72,12],[81,32],[88,8],[93,22],[38,40],[68,44],[18,54]];
 /* one member = one window; the pane is the light their mood casts */
@@ -86,6 +94,7 @@ function _hwCell(m, meName, gate){
 function renderScene(){
   var mems = ((window.FAM && FAM.members) || []).slice(0, 8), meName = _meName(), myW = myWeather();
   var gate = !myW || window._wpick, ph = _skyPhase();
+  var cfg = (window.houseCfg ? houseCfg() : { house: 'cottage', tree: 'oak', pet: null });
 
   // windows + the family door (tap the door → add something to the house)
   var door = '<button class="hs-door" onclick="openSheet(&#39;sheet-add&#39;)" aria-label="' + escAttr(L('Thêm', 'Add')) + '"></button>';
@@ -100,10 +109,10 @@ function renderScene(){
     if(!act) act = !!myW;
   }catch(e){}
 
-  // the savings tree grows with total goal progress
+  // the savings tree grows with total goal progress (floor keeps it a tree, not a shrub)
   var goals = window.goals || {}, gord = window.goalOrder || [], tt = 0, ts = 0;
   gord.forEach(function(g){ var e = goals[g]; if(e && e.target > 0){ tt += e.target; ts += Math.min(e.saved || 0, e.target); } });
-  var grow = tt > 0 ? (0.62 + 0.5 * (ts / tt)) : 0.55;
+  var grow = tt > 0 ? (0.7 + 0.42 * (ts / tt)) : 0.62;
 
   // up to two recent memories hang on the clothesline (hidden for big families)
   var pols = '';
@@ -136,13 +145,49 @@ function renderScene(){
     + '<i class="sc-cloud c1"></i><i class="sc-cloud c2"></i>'
     + '<i class="sc-hill h1"></i><i class="sc-hill h2"></i><i class="sc-ground"></i>'
     + pols
-    + '<div class="sc-tree" style="transform:scale(' + grow.toFixed(2) + ')"><i class="tr-tr"></i><i class="tr-f f1"></i><i class="tr-f f2"></i><i class="tr-f f3"></i></div>'
-    + '<div class="sc-house"><div class="hs-roofwrap"><i class="hs-chim">' + (act ? '<i class="puff p1"></i><i class="puff p2"></i><i class="puff p3"></i>' : '') + '</i><i class="hs-roof"></i></div>'
-    + '<div class="hs-wall"><div class="hs-wins">' + door + cells + '</div></div></div>'
+    + '<button class="sc-tree tree-' + cfg.tree + '" style="transform:scale(' + grow.toFixed(2) + ')" onclick="pokeTree()" aria-label="' + escAttr(L('Chạm vào cây', 'Tap the tree')) + '">'
+      + (window.TREEFN ? TREEFN[cfg.tree](ph) : '<i class="tr-tr"></i><i class="tr-f f1"></i><i class="tr-f f2"></i><i class="tr-f f3"></i>') + '</button>'
+    + (window.buildHouseShell
+        ? buildHouseShell(cfg.house, ph, door + cells, act)
+        : '<div class="sc-house"><div class="hs-roofwrap"><i class="hs-chim">' + (act ? '<i class="puff p1"></i><i class="puff p2"></i><i class="puff p3"></i>' : '') + '</i><i class="hs-roof"></i></div>'
+          + '<div class="hs-wall"><div class="hs-wins">' + door + cells + '</div></div></div>')
+    + (cfg.pet && window.PETFN ? '<button class="sc-pet k-' + cfg.pet + '" onclick="pokePet()" aria-label="' + escAttr(L('Cưng nựng thú cưng', 'Pet your buddy')) + '">' + PETFN[cfg.pet](ph) + '</button>' : '')
     + amb;
 }
-/* the hearth card under the scene: the mood picker until you've lit your window,
-   then the caring offers for whoever's having a rough day. */
+/* place the pet in the REAL yard gap between tree and house. The house width
+   varies with family size and the phone's width varies per device, so a CSS %
+   can't be trusted — measure after paint. Day phases roam the lawn (dawn by the
+   tree, noon mid-lawn, dusk wandering home); night curls up at the doorstep. */
+function _placePet(scene){
+  var pet = scene && scene.querySelector('.sc-pet'); if(!pet) return;
+  var sr = scene.getBoundingClientRect(); if(!sr.width) return;   // hidden view: keep the CSS fallback
+  var house = scene.querySelector('.sc-house'), tree = scene.querySelector('.sc-tree');
+  var pw = pet.getBoundingClientRect().width || 46;
+  var hL = house ? house.getBoundingClientRect().left - sr.left : sr.width;
+  var tR = tree ? tree.getBoundingClientRect().right - sr.left : 0;
+  var ph = _scenePhase(), x;
+  var door = scene.querySelector('.hs-door'), dr = door && door.getBoundingClientRect();
+  var doorstep = dr ? dr.left - sr.left - pw - 5 : hL - pw - 5;   // beside the door, never over it
+  if(ph === 'night'){ x = doorstep; }                             // asleep at the doorstep
+  else {
+    var y0 = tR + 4, y1 = hL - 4, room = y1 - y0 - pw;
+    if(room >= 4) x = ph === 'dawn' ? y0 + Math.min(6, room)      // dawn: out by the tree
+                : ph === 'dusk'  ? y1 - pw - Math.min(6, room)    // dusk: wandering home
+                : y0 + room / 2;                                  // day: mid-lawn
+    else if(y1 - y0 >= pw * 0.55) x = y0 + room / 2;              // snug yard: center, a little overhang is fine
+    else x = doorstep;                                            // no yard at all: waiting by the door
+  }
+  pet.style.left = Math.max(4, Math.min(x, sr.width - pw - 4)) + 'px';
+}
+/* rotation / resize: the house re-anchors instantly (CSS) but the pet's px spot
+   goes stale — re-measure it (debounced; a full re-render isn't needed) */
+try{
+  window.addEventListener('resize', function(){
+    clearTimeout(window._petRsz);
+    window._petRsz = setTimeout(function(){ var s = document.getElementById('home-scene'); if(s) _placePet(s); }, 160);
+  });
+}catch(e){}
+/* the hearth card under the scene: the mood picker until you've lit your window. */
 function renderHearth(){
   var mems = (window.FAM && FAM.members) || [], meName = _meName(), myW = myWeather();
   if(!myW || window._wpick){
@@ -152,20 +197,7 @@ function renderHearth(){
     return '<div class="hearth"><div class="hearth-q">' + L('Thắp đèn phòng bạn nhé. Hôm nay bạn thế nào?', 'Light your window. How are you today?') + '</div>'
       + '<div class="wrow">' + btns + '</div>' + hint + '</div>';
   }
-  var offers = [];
-  mems.forEach(function(m){
-    if(m.name === meName) return;
-    var w = memberWeatherOf(m.name), wd = w && _wdef(w); if(!wd) return;
-    offers.push({ nm: (typeof firstName === 'function') ? firstName(m.name) : m.name, wd: wd });
-  });
-  offers.sort(function(a, b){ return (b.wd.rough ? 1 : 0) - (a.wd.rough ? 1 : 0); });
-  var offHtml = offers.slice(0, 2).map(function(o){
-    var line = L(o.wd.ovi, o.wd.oen).replace(/\{n\}/g, esc(o.nm));   // no "X đang vui" label — the windows already show the mood
-    return '<button class="woffer" onclick="' + o.wd.act + '"><div class="wo-ico">' + o.wd.oico + '</div>'
-      + '<div class="wo-t">' + line + '</div>'
-      + '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
-  }).join('');
-  return offHtml ? '<div class="hearth hearth-off">' + offHtml + '</div>' : '';
+  return '';
 }
 
 /* the collective mood read — shown as the home subtitle under the greeting */
@@ -266,6 +298,24 @@ function qTile(o){      // {ic,chCls,label,act} — quick action, same tinted-ch
     + '<span class="qt-l">' + o.label + '</span></button>';
 }
 function _sectionH(title, link, label){ return '<div class="section-h"><div class="t">' + title + '</div>' + (link ? '<a onclick="' + link + '">' + (label || L('Xem tất cả', 'See all')) + '</a>' : '') + '</div>'; }
+// A Sắp tới card is a smaller bigPhoto: the real uploaded photo when there is
+// one, otherwise the same keyword-matched illustrated cover the rest of the
+// app uses for undefined media (occCover/occHTML — never an emoji icon).
+function upCardHTML(it){      // {kind:occ|goal|exp,d,name,src?,target?,saved?,amt?,act}
+  var dl = daysLeft(it.d);
+  var dlt = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : L('Còn ' + dl + ' ngày', dl + ' days'));
+  var ill = it.src ? null : occCover(it.name, '');
+  var sub, pct;
+  if(it.kind === 'exp'){
+    sub = fmt(it.amt);
+  } else if(it.target > 0){
+    pct = Math.min(100, Math.round((it.saved || 0) / it.target * 100));
+    sub = pct + '% · ' + fmt(it.saved || 0) + '/' + fmt(it.target);
+  } else {
+    sub = L('Kế hoạch', 'Plan');
+  }
+  return bigPhoto({ src: it.src, ill: ill, eye: dlt, title: it.name, sub: sub, pct: pct, act: it.act });
+}
 
 function renderHome(){
   var box = document.getElementById('home-body'); if(!box) return;
@@ -289,9 +339,10 @@ function renderHome(){
     var _nm = ((window.FAM && FAM.members) || []).length;
     sceneEl.className = 'home-scene' + (_nm >= 4 ? ' big-house' : '') + (_nm >= 5 ? ' full-house' : '');
     setHTMLIf(sceneEl, renderScene());
+    _placePet(sceneEl);                                 // measured yard placement (runs even when HTML is unchanged)
   }
 
-  var html = renderHearth();                            // the hearth card under the scene
+  var html = (window._houseEntryHTML ? _houseEntryHTML() : '') + renderHearth();   // "Chăm chút tổ ấm" CTA, then the hearth card
   if(typeof requestsWidgetHTML === 'function') html += requestsWidgetHTML();   // future-expense proposals awaiting my OK
   if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions, right under the hearth
 
@@ -320,7 +371,11 @@ function renderHome(){
       fss = L('Nhẹ nhàng chút là vẫn dư · còn <b>' + fmtK(safe) + '</b>', 'Ease up · <b>' + fmtK(safe) + '</b> left'); }
     else { fmood = 'ok'; fico = '🌿'; ftt = L('Tháng này cả nhà đang thong thả', 'Comfortable this month');
       fss = L('Còn <b>' + fmtK(safe) + '</b> để cả nhà thoải mái tận hưởng', '<b>' + fmtK(safe) + '</b> left to enjoy together'); }
-    finV = { mood: fmood, ico: fico, tt: ftt, ss: fss, safe: safe, overAmt: over ? (m.spent - m.budget) : 0, ps: Math.min(100, Math.round(m.spent / m.budget * 100)), foot: L('Đã tiêu ' + fmtK(m.spent) + ' / ' + fmtK(m.budget), 'Spent ' + fmtK(m.spent) + ' / ' + fmtK(m.budget)) };
+    var spentFoot = L('Đã tiêu ' + fmtK(m.spent) + ' / ' + fmtK(m.budget), 'Spent ' + fmtK(m.spent) + ' / ' + fmtK(m.budget));
+    var foot = reserved > 0                        // spell out the hold so "còn lại" isn't a mystery gap
+      ? spentFoot + ' · ' + L('giữ ' + fmtK(reserved), fmtK(reserved) + ' held')
+      : spentFoot;
+    finV = { mood: fmood, ico: fico, tt: ftt, ss: fss, safe: safe, overAmt: over ? (m.spent - m.budget) : 0, ps: Math.min(100, Math.round(m.spent / m.budget * 100)), foot: foot };
   }
   var mComfortable = !!(finV && finV.mood === 'ok');
 
@@ -390,21 +445,25 @@ function renderHome(){
     + qTile({ ic: _QSVG.pig, chCls: 'wc-indigo', label: L('Góp quỹ', 'Chip in'), act: 'fhSavings()' })
     + '</div>';
 
-  /* ============ SẮP TỚI — the rich anticipation card (when there's a story to tell) ============ */
-  if(up.length){
-    var k = up[0], e = evs[k], dl = daysLeft(e.d);
-    var emm = (e.memories && e.memories[0]) || null, eSrc = (emm && emm.src) ? emm.src : '', eIll = eSrc ? null : occCover(e.name, e.emoji);
-    if(e.target > 0 || emm){
-      var eyeU = dl === 0 ? L('Hôm nay', 'Today') : (dl === 1 ? L('Ngày mai', 'Tomorrow') : L('Còn ' + dl + ' ngày', dl + ' days to go'));
-      if(e.target > 0){
-        var pctU = Math.min(100, Math.round(e.saved / e.target * 100));
-        html += _sectionH(L('Sắp tới', 'Coming up'), 'goMoments(&#39;plans&#39;)')
-          + bigPhoto({ src: eSrc, ill: eIll, subj: eSrc ? e.emoji : '', eye: eyeU, title: e.name, sub: L('Cả nhà đã để dành được ' + pctU + '% rồi', 'Saved ' + pctU + '% together'), pct: pctU, cta: { label: L('Cùng góp thêm', 'Chip in') }, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
-      } else {
-        html += _sectionH(L('Sắp tới', 'Coming up'), 'goMoments(&#39;plans&#39;)')
-          + bigPhoto({ src: eSrc, ill: eIll, subj: eSrc ? e.emoji : '', eye: eyeU, title: e.name, sub: L('Điều cả nhà đang mong', 'Something to look forward to'), cta: { label: L('Xem kế hoạch', 'View plan') }, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
-      }
-    }
+  /* ============ SẮP TỚI — every upcoming thing (occasions, due goals, future expenses),
+     nearest first, as a horizontal carousel — not just the single closest occasion. ============ */
+  var upAll = [];
+  up.forEach(function(k){
+    var e = evs[k], m0 = e.memories && e.memories[0];
+    upAll.push({ kind: 'occ', d: e.d, name: e.name, src: (m0 && m0.src) || '', target: e.target, saved: e.saved, act: 'openEvent(&#39;' + escAttr(k) + '&#39;)' });
+  });
+  goalsLive.forEach(function(g){                       // only goals with a due date belong on a timeline
+    var e = goals[g]; if(!e.d) return;
+    upAll.push({ kind: 'goal', d: e.d, name: e.name, src: '', target: e.target, saved: e.saved, act: 'fundGoal(&#39;' + escAttr(g) + '&#39;)' });
+  });
+  (window.txns || []).forEach(function(t){
+    if(!t.future || !t._d) return;
+    upAll.push({ kind: 'exp', d: t._d, name: t.note || L('Khoản chi', 'Expense'), src: (t.photos && t.photos[0]) || '', amt: t.amt, act: 'openExpenseDetail(&#39;' + escAttr(t.id) + '&#39;)' });
+  });
+  upAll.sort(function(a, b){ return a.d.getTime() - b.d.getTime(); });
+  if(upAll.length){
+    html += _sectionH(L('Sắp tới', 'Coming up') + ' · ' + upAll.length, 'goMoments(&#39;plans&#39;)')
+      + '<div class="up-strip">' + upAll.slice(0, 12).map(upCardHTML).join('') + '</div>';
   }
 
   /* ============ MỤC TIÊU CHUNG — chip in to a shared dream, right here ============ */

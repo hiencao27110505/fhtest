@@ -446,9 +446,16 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <button class="modal-save" id="ex-save" data-t="save" onclick="submitExpense()">Save</button>
   </div>
   <div class="modal-body">
+    <!-- Bulk list: one card per draft row. The active card holds #ex-editor-mount,
+         into which the single #ex-editor block is moved on each render (accordion). -->
+    <div id="bulk-list"></div>
+
+    <!-- The one live editor instance. renderBulk() relocates this node into the
+         active row's mount; in edit mode it renders in place (bulk list stays empty). -->
+    <div id="ex-editor">
     <div class="field">
       <label data-t="exWhatFor">What for?</label>
-      <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExInput()"/>
+      <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()"/>
       <div class="choices" id="ex-cat" style="margin-top:10px">
         <button class="choice on" data-v="Groceries" onclick="pickExCat(this)">🛒 Groceries</button>
         <button class="choice" data-v="Housing" onclick="pickExCat(this)">🏠 Housing</button>
@@ -473,10 +480,13 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
       <button class="choice" data-v="Leo" onclick="pickExWho(this)">Leo</button>
     </div></div>
 
-    <div class="field"><label data-t="photosOptLbl">Photos (optional)</label>
+    <div class="field" id="ex-photofield"><label data-t="photosOptLbl">Photos (optional)</label>
       <label class="mem-upload"><span id="ex-upload-txt" data-t="addPhotosBtn">📷 Add photos</span><input type="file" accept="image/*" multiple onchange="onExPhoto(this)" hidden></label>
       <div class="photo-strip" id="ex-strip"></div>
     </div>
+    </div><!-- /#ex-editor -->
+
+    <button type="button" id="bulk-add" onclick="bulkAddRow()">＋ Thêm khoản</button>
 
     <div class="field-hint" id="ex-whenhint"></div>
 
@@ -684,6 +694,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="set-actions">
     <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t" data-t="setSwitchFamily">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t" data-t="inviteMember2">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhEncryptionSheet()"><span class="set-ic">🔒</span><span class="set-t" data-t="setEncryption">Money encryption</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhManageFamily()"><span class="set-ic">👥</span><span class="set-t" data-t="setManageFamily">Manage family &amp; members</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhSavings()"><span class="set-ic">🐷</span><span class="set-t" data-t="setSavedEvents">Saved for events</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhIncome()"><span class="set-ic">💵</span><span class="set-t" data-t="setIncome">Income</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -811,19 +822,20 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <div class="ob-content">
       <div class="ob-head"><div class="ob-h1" data-t="familyTitle">Your family</div><div class="ob-sub" data-t="familySub">Start a new family, or join one you've been invited to.</div></div>
       <button class="ob-card" onclick="obChoose('create')"><div class="ob-card-em">✨</div><div><div class="ob-card-t" data-t="startFamily">Start a new family</div><div class="ob-card-s" data-t="startFamilyS">You'll name it and invite others</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-      <button class="ob-card" onclick="obChoose('join')"><div class="ob-card-em">🔗</div><div><div class="ob-card-t" data-t="joinFamily">Join a family</div><div class="ob-card-s" data-t="joinFamilyS">Enter an invite code</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+      <button class="ob-card" onclick="obChoose('join')"><div class="ob-card-em">🔗</div><div><div class="ob-card-t" data-t="joinFamily">Join a family</div><div class="ob-card-s" data-t="joinFamilyS">Enter your family’s passcode</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     </div>
   </section>
 
   <section class="ob-screen" data-ob="join">
     <div class="ob-top"><button class="ob-back2" onclick="obGo('choice')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="joinTitle">Enter invite code</div><div class="ob-sub" data-t="joinSub">Ask a family member for the 6-character code from their invite.</div></div>
+      <div class="ob-head"><div class="ob-h1" data-t="joinTitle">Enter the family passcode</div><div class="ob-sub" data-t="joinSub">The owner adds your Google email to the invite list, then tells you the family’s 6-digit code.</div></div>
       <div class="ob-code-wrap">
         <div class="ob-code-boxes" id="ob-code-boxes"></div>
-        <input class="ob-code" id="ob-code" maxlength="6" inputmode="text" autocapitalize="characters" autocomplete="off" oninput="obCodeInput(this)">
+        <input class="ob-code" id="ob-code" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" oninput="obCodeInput(this)">
       </div>
       <div class="ob-preview" id="ob-join-preview" style="display:none"></div>
+      <div class="ob-sub" id="ob-join-hint" style="margin-top:14px"></div>
     </div>
     <div class="ob-foot"><button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta" disabled>Join family</button></div>
   </section>
@@ -865,8 +877,19 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <div class="ob-foot"><button class="cta" onclick="obFamilyNext()">Continue</button></div>
   </section>
 
-  <section class="ob-screen" data-ob="budget">
+  <section class="ob-screen" data-ob="passcode">
     <div class="ob-top"><button class="ob-back2" onclick="obGo('family')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1" data-t="pcTitle">Set your family passcode</div><div class="ob-sub" data-t="pcSub">A 6-digit code, like the door code of your house. Members you invite will enter it to join, and it locks your money data so only your family can read it.</div></div>
+      <div class="field"><label data-t="pcCode">6-digit code</label><input class="num big" id="ob-pc" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" oninput="obPcInput()"></div>
+      <div class="field"><label data-t="pcRepeat">Repeat the code</label><input class="num big" id="ob-pc2" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" oninput="obPcInput()"></div>
+      <div class="ob-sub" data-t="pcWarn" style="margin-top:12px">Encryption is on from the start (you can turn it off later in Settings). If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered — not even by us.</div>
+    </div>
+    <div class="ob-foot"><button class="cta" id="ob-pc-cta" onclick="obPasscodeNext()" disabled>Continue</button></div>
+  </section>
+
+  <section class="ob-screen" data-ob="budget">
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('passcode')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
       <div class="ob-head"><div class="ob-h1" data-t="budgetTitle">Set your budget</div><div class="ob-sub" data-t="budgetSub">A monthly target for the family, then a budget for each category.</div></div>
       <div class="ob-total-card">

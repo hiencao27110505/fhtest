@@ -1,0 +1,29 @@
+-- ============================================================================
+-- FamilyHub — 0027: bank email pipeline — categorization moved to human review
+--
+-- Follow-up to 0025 (bank/transaction email ingestion pipeline), landed as a
+-- new migration rather than an edit to 0025 because 0025 has already been
+-- applied to the live database — corrections to applied migrations go in a
+-- new file, same pattern as 0016 fixing 0015.
+--
+-- Product decision (2026-08-01): categorization is human-driven, not
+-- rule/keyword-based. category_rules was for automated keyword guessing —
+-- dropped rather than left as unused complexity.
+--
+-- Correction to the original plan: category does NOT get cached on
+-- sender_fingerprints either. A single sender+subject_template (e.g. every
+-- MB Bank transfer notification) spans many real categories depending on
+-- the specific transaction's counterparty/amount/note — caching one
+-- category per fingerprint would silently mis-categorize everything except
+-- whichever transaction happened to be reviewed first. Category is a
+-- per-transaction property, not a per-sender one.
+--
+-- So: every promotion into the real ledger needs a human to pick a category
+-- on that specific transaction, regardless of sender_fingerprints.human_verified.
+-- human_verified still gates whether Stage 1 needs to re-call Haiku for that
+-- sender/template (extraction trust) — it no longer gates ledger promotion.
+-- The ingestion pipeline (Apps Script) stops at writing pending rows to
+-- email_transactions; promotion is a separate, not-yet-built review flow.
+-- ============================================================================
+
+drop table if exists category_rules;

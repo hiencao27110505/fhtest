@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tổ ấm · 4 kiểu nhà × 4 thời khắc — batch preview</title>
+<style>
+/* ============================================================================
+   FamilyHub — HOUSE STYLE batch. 4 whole-house looks (cottage default, modern,
+   Vietnamese tile, brick townhouse) × 4 sky phases (dawn/day/dusk/night).
+   Drawn 100% CSS in the SAME language as 21-home-today.css: flat fills, soft
+   same-hue depth, rounded friendly forms, theme --brand-ink on roof & door,
+   NO emoji, NO outlines. Locked tokens from assets-pilot.html reused verbatim.
+   ============================================================================ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --ink:#191022;--muted:#6b6576;--canvas:#efe9f2;
+  /* theme (per-family) — same defaults as the app */
+  --brand-ink:#1F7E52;--brand-2:#5FD3A0;
+  /* ---- locked decor tokens (assets-pilot.html) ---- */
+  --wood:#7d5f45;--wood-2:#8a6844;--leaf-2:#49b183;--gold:#e5b34a;
+  --gshadow:rgba(35,55,35,.16);
+  /* ---- NEW material hues for the house set (soft / desaturated) ---- */
+  --terra:#bf6e4e;        /* mái ngói terracotta — kin to chimney #a8624c */
+  --terra-2:#a55e40;      /* tile shading terracotta */
+  --brick:#c68a71;        /* soft brick */
+  --brick-2:#b97e64;      /* brick shading */
+  --mortar:rgba(250,240,225,.30); /* brick joints */
+  --greige-1:#eae3d4;     /* modern wall top — warm greige, cream family */
+  --greige-2:#d4cab6;     /* modern wall bottom */
+  --flue:#9a8f80;         /* modern metal flue */
+  --oak-1:#d8bd94;        /* light oak slats — modern entry panel */
+  --oak-2:#c9ac7f;        /* oak slat shading */
+}
+body{font-family:var(--text);background:var(--canvas);color:var(--ink);
+  -webkit-font-smoothing:antialiased;padding:30px 24px 70px;line-height:1.5}
+.wrap{max-width:1440px;margin:0 auto}
+.lead{text-align:center;margin-bottom:26px}
+.lead .eyebrow{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--brand-ink)}
+.lead h1{font-family:var(--disp);font-size:30px;font-weight:800;letter-spacing:-.8px;margin:7px 0 5px}
+.lead p{font-size:14px;color:var(--muted)}
+.cols{display:grid;grid-template-columns:150px repeat(4,1fr);gap:12px;align-items:center;margin-bottom:10px}
+.cols .ch{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);text-align:center}
+.row{display:grid;grid-template-columns:150px repeat(4,1fr);gap:12px;margin-bottom:14px;align-items:stretch}
+.rl{display:flex;flex-direction:column;justify-content:center}
+.rl b{font-family:var(--disp);font-size:15.5px;font-weight:800;letter-spacing:-.3px}
+.rl span{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.4}
+
+/* ---------- mini-scene cell: faithful copy of the app sky phases ---------- */
+.cell{position:relative;height:252px;border-radius:16px;overflow:hidden;color:#fff;
+  --sky1:#5fa7d6;--sky2:#cde8f7;--hill1:#86b294;--hill2:#639b7c;
+  --gr1:#9cc98b;--gr2:#77aa67;--dim:rgba(15,20,45,0);
+  background:linear-gradient(180deg,var(--sky1),var(--sky2) 82%);
+  box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 20px rgba(25,16,34,.06)}
+.cell.dawn{--sky1:#d98e6b;--sky2:#ffdfb4;--hill1:#b18a8e;--hill2:#93707e;--gr1:#a8bf7e;--gr2:#87a565;--dim:rgba(80,40,30,.06)}
+.cell.dusk{--sky1:#5d4d8f;--sky2:#f0a172;--hill1:#6d5a80;--hill2:#55486b;--gr1:#69865c;--gr2:#4d6a45;--dim:rgba(35,25,70,.16)}
+.cell.night{--sky1:#121a32;--sky2:#33406b;--hill1:#232b48;--hill2:#1a2138;--gr1:#28403a;--gr2:#1c2f2a;--dim:rgba(10,14,40,.38)}
+.sc-orb{position:absolute;top:12px;right:24px;width:36px;height:36px;border-radius:50%;background:#fff3c9;box-shadow:0 0 30px 9px rgba(255,244,190,.5)}
+.dawn .sc-orb{top:42px;right:auto;left:60%;background:#ffcf7e;box-shadow:0 0 36px 12px rgba(255,190,110,.5)}
+.dusk .sc-orb{top:50px;right:15%;background:#ffc06e;box-shadow:0 0 40px 14px rgba(255,170,90,.55)}
+.night .sc-orb{background:transparent;box-shadow:inset -10px 5px 0 0 #dfe6f5;filter:drop-shadow(0 0 8px rgba(215,228,255,.35))}
+.sc-star{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;opacity:.7}
+.sc-cloud{position:absolute;width:74px;height:19px;border-radius:19px;background:rgba(255,255,255,.55)}
+.sc-cloud::before{content:'';position:absolute;left:13px;top:-10px;width:29px;height:22px;border-radius:50%;background:inherit}
+.sc-cloud::after{content:'';position:absolute;left:36px;top:-7px;width:22px;height:17px;border-radius:50%;background:inherit}
+.sc-cloud.c1{top:18px;left:5%}.sc-cloud.c2{top:52px;left:56%;width:52px;opacity:.6}
+.dusk .sc-cloud{opacity:.4}.night .sc-cloud{opacity:.12}
+.sc-hill{position:absolute;border-radius:50%}
+.sc-hill.h1{left:-100px;bottom:30px;width:330px;height:96px;background:var(--hill1)}
+.sc-hill.h2{right:-120px;bottom:24px;width:380px;height:110px;background:var(--hill2)}
+.sc-ground{position:absolute;left:0;right:0;bottom:0;height:44px;background:linear-gradient(180deg,var(--gr1),var(--gr2))}
+/* the savings oak, verbatim, for palette-harmony judging */
+.sc-tree{position:absolute;left:5%;bottom:42px;width:58px;height:80px;z-index:2}
+.tr-tr{position:absolute;left:50%;bottom:0;width:8px;height:31px;margin-left:-4px;border-radius:5px;background:linear-gradient(var(--dim),var(--dim)) var(--wood)}
+.tr-f{position:absolute;border-radius:50%;background:linear-gradient(var(--dim),var(--dim)) var(--brand-2)}
+.tr-f.f1{left:7px;top:4px;width:44px;height:44px}
+.tr-f.f2{left:0;top:27px;width:27px;height:27px}
+.tr-f.f3{right:0;top:24px;width:31px;height:31px}
+
+/* ============================================================================
+   SHARED HOUSE CORE — exact construction from 21-home-today.css
+   ============================================================================ */
+.sc-house{position:absolute;left:52%;bottom:40px;transform:translateX(-48%);width:max-content;max-width:274px;z-index:3}
+.hs-roofwrap{position:relative;height:40px;margin:0 -10px;z-index:1}
+.hs-chim{position:absolute;top:-14px;right:20%;width:17px;height:30px;border-radius:3px 3px 0 0;background:linear-gradient(var(--dim),var(--dim)) #a8624c}
+.hs-roof{position:absolute;inset:0;background:linear-gradient(var(--dim),var(--dim)) var(--brand-ink);clip-path:polygon(0 100%,16% 0,84% 0,100% 100%)}
+.puff{position:absolute;left:3px;top:-4px;width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.6);opacity:0;animation:hs-puff 3.8s linear infinite}
+.puff{animation-delay:-1s}.puff.p2{animation-delay:-2.3s}.puff.p3{animation-delay:-3.4s}
+@keyframes hs-puff{0%{transform:translate(0,0) scale(.5);opacity:0}18%{opacity:.65}100%{transform:translate(9px,-44px) scale(1.9);opacity:0}}
+.night .puff{background:rgba(210,220,240,.4)}
+.hs-wall{position:relative;border-radius:4px 4px 9px 9px;
+  background:linear-gradient(var(--dim),var(--dim)),linear-gradient(180deg,#fdf4e2,#f0dfc0);
+  box-shadow:inset 0 7px 9px -7px rgba(70,45,20,.4),0 10px 22px rgba(15,15,35,.18);
+  padding:13px 12px 12px}
+.hs-wins{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-end;gap:10px 12px;position:relative;z-index:1}
+.dwrap{position:relative;flex:0 0 auto;align-self:flex-end}
+.hs-door{display:block;width:32px;height:58px;border-radius:16px 16px 4px 4px;background:linear-gradient(var(--dim),var(--dim)) var(--brand-ink);position:relative}
+.hs-door::after{content:'';position:absolute;right:6px;top:28px;width:4px;height:4px;border-radius:50%;background:#ffd98e}
+/* porch light — a tiny wall lamp beside the door; flicks on at dusk */
+.porch{position:absolute;left:-10px;top:8px;width:6px;height:6px;border-radius:50%;background:#6b5f52}
+.porch::before{content:'';position:absolute;left:2px;top:-5px;width:2px;height:5px;border-radius:1px;background:#6b5f52}
+.dusk .porch,.night .porch{background:#ffd98e;box-shadow:0 0 12px 4px rgba(255,205,110,.7)}
+/* member windows */
+.hw{display:flex;flex-direction:column;align-items:center;gap:4px;flex:0 0 auto;position:relative}
+.hw-pane{width:42px;height:46px;border-radius:13px 13px 5px 5px;border:3px solid #e6d2ab;position:relative;background:linear-gradient(var(--dim),var(--dim)) #3a4156}
+.hw-name{font-size:10.5px;font-weight:700;letter-spacing:-.01em;color:#54432e}
+.p-ok{background:linear-gradient(180deg,#fff6dd,#ffe5ae)}
+.p-sun{background:radial-gradient(circle at 50% 36%,#ffeaa6,#ffc75d)}
+.p-wait{background:linear-gradient(115deg,#39415a 42%,#46506e 50%,#39415a 58%)}
+.hw-pane.lit{box-shadow:0 0 12px 1px rgba(255,205,110,.35)}
+.dusk .hw-pane.lit{box-shadow:0 0 18px 3px rgba(255,200,100,.45)}
+.night .hw-pane.lit{box-shadow:0 0 22px 5px rgba(255,200,100,.55)}
+/* dusk golden facade rim — soft wash from the sun side, over the whole face */
+.rim{position:absolute;inset:0;border-radius:inherit;opacity:0;pointer-events:none;z-index:2;
+  background:linear-gradient(215deg,rgba(255,172,92,.3),rgba(255,172,92,0) 58%)}
+.dusk .rim{opacity:1}
+
+/* ============================================================================
+   HOUSE 2 — NHÀ HIỆN ĐẠI (modern): flat roof slab, warm-greige wall,
+   wood-slat accent, squarer frames, slim flue, cool interior glow at night.
+   ============================================================================ */
+.hm-modern .hs-roofwrap{height:15px;margin:0 -16px}
+.hm-modern .hs-roof{clip-path:none;border-radius:4px;box-shadow:0 2px 3px rgba(35,30,20,.2)}
+.hm-modern .hs-chim{display:none}
+.hs-flue{position:absolute;top:-13px;right:13%;width:8px;height:17px;border-radius:3px 3px 0 0;background:linear-gradient(var(--dim),var(--dim)) var(--flue)}
+.hs-flue .puff{left:0}
+.hm-modern .hs-wall{border-radius:3px 3px 8px 8px;padding:14px 16px 12px 16px;
+  background:linear-gradient(var(--dim),var(--dim)),linear-gradient(180deg,var(--greige-1),var(--greige-2));
+  box-shadow:inset 0 9px 10px -7px rgba(60,50,35,.42),0 10px 22px rgba(15,15,35,.18)}
+/* day: the flat-roof eave casts a clean shade band across the facade */
+.day .hm-modern .hs-wall{box-shadow:inset 0 14px 10px -9px rgba(60,50,35,.5),0 10px 22px rgba(15,15,35,.18)}
+/* light-oak slat panel behind the door — the modern entry */
+.slat{position:absolute;left:8px;top:0;bottom:0;width:48px;border-radius:0 0 4px 4px;
+  background:linear-gradient(var(--dim),var(--dim)),repeating-linear-gradient(90deg,var(--oak-1) 0 4px,var(--oak-2) 4px 8px)}
+.hm-modern .hs-door{border-radius:5px 5px 3px 3px}
+.hm-modern .hw-pane{width:46px;height:50px;border-radius:6px;border-color:#ded4be}
+/* cool porch + cooler interior glow */
+.dusk .hm-modern .porch,.night .hm-modern .porch{background:#dfe9ff;box-shadow:0 0 10px 3px rgba(185,205,255,.6)}
+.dusk .hm-modern .hw-pane.lit{box-shadow:0 0 16px 3px rgba(185,210,255,.4)}
+.night .hm-modern .hw-pane.lit{box-shadow:0 0 20px 5px rgba(185,210,255,.5)}
+
+/* ============================================================================
+   HOUSE 3 — NHÀ NGÓI VIỆT (tile): low wide terracotta roof w/ ridge cap,
+   porch eave over the door, hanging red lantern (lit after dark).
+   ============================================================================ */
+.hm-tile .hs-roofwrap{height:33px;margin:0 -19px}
+.hm-tile .hs-roof{clip-path:polygon(0 100%,13% 0,87% 0,100% 100%);border-radius:0 0 3px 3px;
+  background:linear-gradient(var(--dim),var(--dim)),repeating-linear-gradient(90deg,var(--terra) 0 7px,var(--terra-2) 7px 8px)}
+.ridge{position:absolute;left:11%;right:11%;top:-3px;height:6px;border-radius:3px;background:linear-gradient(var(--dim),var(--dim)) var(--terra-2)}
+.hm-tile .hs-chim{right:16%;top:-13px;height:28px}
+.hm-tile .hs-wall{padding:13px 20px 12px}
+/* the porch eave — a small tile shelf over the door */
+.eave{position:absolute;top:3px;left:12px;width:58px;height:7px;border-radius:2px 2px 3px 3px;z-index:2;
+  background:linear-gradient(var(--dim),var(--dim)),repeating-linear-gradient(90deg,var(--terra) 0 6px,var(--terra-2) 6px 7px);
+  box-shadow:0 2px 3px rgba(70,40,20,.2)}
+/* the lantern hangs from the eave's end */
+.lant{position:absolute;top:12px;left:56px;width:9px;height:12px;z-index:2;
+  border-radius:50%/45% 45% 55% 55%;background:radial-gradient(circle at 40% 35%,#e25a50,#b7332e)}
+.lant::before{content:'';position:absolute;left:2px;top:-4px;width:5px;height:3px;border-radius:1px;background:var(--gold)}
+.lant::after{content:'';position:absolute;left:3px;bottom:-5px;width:3px;height:5px;border-radius:1.5px;background:var(--gold)}
+.dusk .lant,.night .lant{box-shadow:0 0 12px 3px rgba(255,140,90,.55)}
+
+/* ============================================================================
+   HOUSE 4 — NHÀ GẠCH PHỐ (brick townhouse): taller & narrower, steep roof,
+   soft brick wall, cream frames, round attic window that lights at night.
+   ============================================================================ */
+.hm-brick .hs-roofwrap{height:52px;margin:0 -8px}
+.hm-brick .hs-roof{clip-path:polygon(0 100%,28% 0,72% 0,100% 100%)}
+.hm-brick .hs-chim{top:-15px;right:23%;height:32px;width:15px}
+.hm-brick .hs-wall{border-radius:3px 3px 8px 8px;padding:30px 9px 12px;
+  background:linear-gradient(var(--dim),var(--dim)),
+    repeating-linear-gradient(90deg,rgba(250,240,225,.13) 0 1.5px,transparent 1.5px 21px),
+    repeating-linear-gradient(90deg,transparent 0 10px,rgba(250,240,225,.1) 10px 11.5px,transparent 11.5px 42px),
+    repeating-linear-gradient(0deg,var(--brick) 0 8px,var(--brick-2) 8px 8.8px,var(--mortar) 8.8px 10px);
+  box-shadow:inset 0 7px 9px -7px rgba(70,35,20,.45),0 10px 22px rgba(15,15,35,.18)}
+.attic{position:absolute;top:6px;left:50%;width:16px;height:16px;margin-left:-8px;border-radius:50%;
+  border:3px solid #f2e6cc;background:linear-gradient(var(--dim),var(--dim)) #3a4156}
+.night .attic{background:radial-gradient(circle at 50% 40%,#ffeaa6,#ffc75d);box-shadow:0 0 10px 2px rgba(255,200,100,.5)}
+.hm-brick .hw-pane{border-color:#f2e6cc}
+.hm-brick .hw-name{color:#f8ecd8;text-shadow:0 1px 2px rgba(80,35,20,.4)}
+.hm-brick .hs-door{border-radius:12px 12px 3px 3px}
+
+.note{font-size:12px;color:var(--muted);text-align:center;margin-top:20px}
+@media (prefers-reduced-motion:reduce){.puff{animation:none;display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="lead">
+    <div class="eyebrow">FamilyHub · House style batch</div>
+    <h1>4 kiểu nhà × 4 thời khắc trong ngày</h1>
+    <p>Cùng một hoạ sĩ: mảng phẳng, khối tròn, bóng cùng-tông; mái &amp; cửa lấy màu --brand-ink theo theme gia đình.</p>
+  </div>
+  <div class="cols"><div></div><div class="ch">Bình minh</div><div class="ch">Ngày</div><div class="ch">Hoàng hôn</div><div class="ch">Đêm</div></div>
+  <div id="rows"></div>
+  <div class="note">Mỗi nhà là một hàm buildHouse(kind, phase) trả về HTML — drop-in cho renderScene().</div>
+</div>
+
+<script>
+/* ============================================================================
+   BUILDERS — drop-in for renderScene(). buildHouse(kind, phase) returns the
+   whole house; phase only changes structure (dawn smoke, waking windows).
+   Everything else (dim tint, glows, porch light, lantern, rim) is driven by
+   the sky-phase ancestor class, exactly like the app.
+   ============================================================================ */
+var HOUSES = [
+  {kind:'cottage', nm:'1 · Nhà ấm', tg:'Cottage mặc định — mái dốc, tường vữa kem, cửa vòm.'},
+  {kind:'modern',  nm:'2 · Nhà hiện đại', tg:'Mái bằng, tường greige ấm, lam gỗ, đèn trong nhà ánh lạnh.'},
+  {kind:'tile',    nm:'3 · Nhà ngói Việt', tg:'Mái ngói terracotta, hiên nhỏ trên cửa, đèn lồng đỏ.'},
+  {kind:'brick',   nm:'4 · Nhà gạch phố', tg:'Cao & hẹp, mái dốc đứng, tường gạch dịu, cửa sổ áp mái.'}
+];
+var PHASES = ['dawn','day','dusk','night'];
+
+function windowsHTML(phase){
+  /* dawn: Cao vừa dậy (lit), Hiền còn ngủ; day: màu mood, không glow; dusk/night: cả nhà thắp đèn */
+  var lit = (phase==='dusk'||phase==='night');
+  var w1 = '<span class="hw"><span class="hw-pane p-ok'+((phase==='dawn'||lit)?' lit':'')+'"></span><span class="hw-name">Cao</span></span>';
+  var w2 = phase==='dawn'
+    ? '<span class="hw"><span class="hw-pane p-wait"></span><span class="hw-name">Hiền</span></span>'
+    : '<span class="hw"><span class="hw-pane p-sun'+(lit?' lit':'')+'"></span><span class="hw-name">Hiền</span></span>';
+  return w1+w2;
+}
+
+function buildHouse(kind, phase){
+  var puffs = phase==='dawn' ? '<i class="puff"></i><i class="puff p2"></i><i class="puff p3"></i>' : '';
+  var roof;
+  if(kind==='modern')     roof = '<i class="hs-flue">'+puffs+'</i><i class="hs-roof"></i>';
+  else if(kind==='tile')  roof = '<i class="hs-chim">'+puffs+'</i><i class="hs-roof"></i><i class="ridge"></i>';
+  else                    roof = '<i class="hs-chim">'+puffs+'</i><i class="hs-roof"></i>';
+  var extra = kind==='modern' ? '<i class="slat"></i>'
+            : kind==='tile'   ? '<i class="eave"></i><i class="lant"></i>'
+            : kind==='brick'  ? '<i class="attic"></i>' : '';
+  return '<div class="sc-house hm-'+kind+'">'
+    + '<div class="hs-roofwrap">'+roof+'</div>'
+    + '<div class="hs-wall">'+extra
+    +   '<div class="hs-wins">'
+    +     '<span class="dwrap"><span class="hs-door"></span><i class="porch"></i></span>'
+    +     windowsHTML(phase)
+    +   '</div><i class="rim"></i>'
+    + '</div></div>';
+}
+
+function sceneBits(phase){
+  var h = '<i class="sc-orb"></i>';
+  if(phase==='night'){
+    var sx=[8,17,26,38,52,63,74,86,93,45], sy=[16,34,10,26,14,32,10,24,38,44];
+    for(var i=0;i<10;i++) h += '<i class="sc-star" style="left:'+sx[i]+'%;top:'+sy[i]+'px"></i>';
+  }
+  h += '<i class="sc-cloud c1"></i><i class="sc-cloud c2"></i>'
+     + '<i class="sc-hill h1"></i><i class="sc-hill h2"></i><i class="sc-ground"></i>'
+     + '<div class="sc-tree"><i class="tr-tr"></i><i class="tr-f f1"></i><i class="tr-f f2"></i><i class="tr-f f3"></i></div>';
+  return h;
+}
+
+var rows = '';
+HOUSES.forEach(function(hh){
+  rows += '<div class="row"><div class="rl"><b>'+hh.nm+'</b><span>'+hh.tg+'</span></div>'
+    + PHASES.map(function(p){
+        return '<div class="cell '+p+'">'+sceneBits(p)+buildHouse(hh.kind,p)+'</div>';
+      }).join('')
+    + '</div>';
+});
+document.getElementById('rows').innerHTML = rows;
+</script>
+</body>
+</html>

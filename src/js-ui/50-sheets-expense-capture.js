@@ -132,6 +132,12 @@ function pick(group,btn){ document.getElementById(group).querySelectorAll('.choi
 function chosen(group){ var b=document.getElementById(group).querySelector('.choice.on'); return b?b.dataset.v:''; }
 /* ---- fast expense capture ---- */
 var lastCat='Groceries', lastWho='Emma';
+/* ---- bulk logging: multiple collapsible forms in one screen ------------------
+   The expense modal scales from 1→N draft rows. One live editor (#ex-editor) is
+   moved into the active row's card (accordion); the rest show a summary card.
+   bulkActive indexes the expanded row bound to the #ex-* fields. BULK_SAVING
+   suppresses addExpense()'s per-row close/toast/nav so submitBulk() can loop it. */
+var bulkRows=[], bulkActive=0, BULK_SAVING=false;
 var exRecents=[
   {note:'Grocery run',cat:'Groceries',who:'Emma'},
   {note:'Coffee',cat:'Dining',who:'James'},
@@ -173,23 +179,259 @@ function updateExWhen(){
   el.textContent='';   // a normal spend → no extra hint
 }
 function prefillExpense(){
-  document.getElementById('ex-note').value='';
-  document.getElementById('ex-amt').value='';
-  var preCat = (exPreset && exPreset.cat && catBudget[exPreset.cat]) ? exPreset.cat : lastCat;
-  selectChipByVal('ex-cat', preCat);
-  selectChipByVal('ex-who', lastWho);
-  var exIso = (exPreset && exPreset.date) || isoDate(TODAY);   // default: today
-  document.getElementById('ex-date').value = exIso;
-  // 24 months of backdating: the memory calendar lets you page back freely, and a
-  // day you can tap has to be a day you can file something on.
-  setDateFloor('ex-date', isoMonthStart(-24), exIso);
+  // Start with a single draft row; the modal grows via "+" or a comma in the note.
+  bulkRows=[blankRow(exPreset)];
+  bulkActive=0;
   // A preset can carry photos (bulk-assign hands off its selection here), so
   // this clears to the preset rather than unconditionally to empty.
   exPhotos = (exPreset && exPreset.photos) ? exPreset.photos.slice() : [];
   renderExPhoto();
   setTxt('ex-title',L('Ghi khoản chi','Log an expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='none';
+  renderBulk();
+  loadRow(0);
   updateExWhen(); refreshExCta();
+}
+/* A fresh draft row. Mirrors the old prefill defaults (last category/payer, today,
+   or a preset's category/date) so a single-row modal behaves exactly as before. */
+function blankRow(preset){
+  var cat = (preset && preset.cat && catBudget[preset.cat]) ? preset.cat : lastCat;
+  var d   = (preset && preset.date) || isoDate(TODAY);
+  return { note:'', amt:'', cat:cat, who:lastWho, date:d, _invalid:false };
+}
+/* Read the live #ex-* fields into the active draft. Called on every edit so the
+   summary cards and Save validation always reflect what's on screen. */
+function flushActiveRow(){
+  if(editingTx || !bulkRows[bulkActive]) return;
+  var r=bulkRows[bulkActive];
+  r.note = document.getElementById('ex-note').value;
+  r.amt  = document.getElementById('ex-amt').value;
+  r.cat  = chosen('ex-cat') || r.cat;
+  r.who  = chosen('ex-who') || r.who;
+  r.date = document.getElementById('ex-date').value || r.date;
+}
+/* Write a draft row into the live #ex-* fields (reuses the single-form controls). */
+function loadRow(i){
+  var r=bulkRows[i]; if(!r) return;
+  document.getElementById('ex-note').value = r.note||'';
+  document.getElementById('ex-amt').value  = r.amt||'';
+  var iso = r.date || isoDate(TODAY);
+  document.getElementById('ex-date').value = iso;
+  setDateFloor('ex-date', isoMonthStart(-24), iso);
+  selectChipByVal('ex-cat', r.cat||lastCat);
+  selectChipByVal('ex-who', r.who||lastWho);
+  updateExWhen(); refreshExCta();
+}
+/* Accordion: expand row i, collapsing the current one (its edits are flushed). */
+function setActiveRow(i){
+  flushActiveRow();
+  bulkActive=i;
+  renderBulk();
+  loadRow(i);
+  var n=document.getElementById('ex-note'); if(n) n.focus();
+}
+function bulkAddRow(){
+  flushActiveRow();
+  bulkRows.push(blankRow());
+  setActiveRow(bulkRows.length-1);
+}
+function bulkRemoveRow(i){
+  if(bulkRows.length<=1) return;                 // always keep at least one form
+  if(i!==bulkActive) flushActiveRow();           // removing a collapsed row — preserve the open one's edits
+  bulkRows.splice(i,1);
+  if(i<bulkActive) bulkActive--;
+  else if(bulkActive>=bulkRows.length) bulkActive=bulkRows.length-1;
+  renderBulk();
+  loadRow(bulkActive);
+}
+/* One-line summary shown on a collapsed card: note · amount · category. */
+function bulkSummary(r){
+  var note=(r.note||'').trim();
+  var left = note
+    ? '<span class="bs-note">'+esc(note)+'</span>'
+    : '<span class="bs-note bs-empty">'+L('(khoản trống)','(empty item)')+'</span>';
+  var right='';
+  var base=parseAmtBase(r.amt||'');
+  if(base>0) right+='<span class="bs-amt">'+fmt(base)+'</span>';
+  if(r.cat && r.cat!=='Event'){ var s=catStyle[r.cat]||['🏷️']; right+='<span class="bs-cat">'+s[0]+' '+r.cat+'</span>'; }
+  else if(r.cat==='Event') right+='<span class="bs-cat">🎈 Event</span>';
+  return '<span class="bs-left">'+left+'</span><span class="bs-right">'+right+'</span>';
+}
+/* Rebuild the card list and relocate the single #ex-editor into the active card.
+   Edit mode (or an empty model) renders the editor in place with no cards/＋. */
+function renderBulk(){
+  var body   = document.querySelector('#expense-modal .modal-body');
+  var list   = document.getElementById('bulk-list');
+  var editor = document.getElementById('ex-editor');
+  var addBtn = document.getElementById('bulk-add');
+  if(!body || !list || !editor) return;
+  if(editingTx || !bulkRows.length){
+    if(editor.parentNode!==body) body.insertBefore(editor, addBtn);   // editor sits directly in the body
+    list.innerHTML='';
+    if(addBtn) addBtn.style.display='none';
+    togglePhotoField(true);
+    return;
+  }
+  // Park the editor outside #bulk-list before the innerHTML rebuild would destroy it.
+  var holder=document.getElementById('bulk-holder');
+  if(!holder){ holder=document.createElement('div'); holder.id='bulk-holder'; holder.style.display='none'; document.getElementById('expense-modal').appendChild(holder); }
+  holder.appendChild(editor);
+  var html='';
+  for(var i=0;i<bulkRows.length;i++){
+    var r=bulkRows[i], inv=r._invalid?' invalid':'';
+    if(i===bulkActive){
+      html+='<div class="bulk-card active'+inv+'">'
+        +  '<div class="bulk-head"><span class="bulk-idx">'+L('Khoản ','Item ')+(i+1)+'</span>'
+        +  (bulkRows.length>1 ? '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá','Remove')+'">✕</button>' : '')
+        +  '</div><div id="ex-editor-mount"></div></div>';
+    } else {
+      html+='<div class="bulk-card'+inv+'">'
+        +  '<div class="bulk-tap" onclick="setActiveRow('+i+')">'+bulkSummary(r)+'</div>'
+        +  '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá','Remove')+'">✕</button>'
+        +  '</div>';
+    }
+  }
+  list.innerHTML=html;
+  var mount=document.getElementById('ex-editor-mount');
+  if(mount) mount.appendChild(editor);
+  if(addBtn){ addBtn.style.display=''; addBtn.textContent=L('＋ Thêm khoản','＋ Add item'); }
+  togglePhotoField(bulkRows.length===1);          // photos only in single-row mode (bulk photos = separate OCR feature)
+}
+function togglePhotoField(show){
+  var f=document.getElementById('ex-photofield'); if(f) f.style.display=show?'':'none';
+}
+/* ---- comma-triggered NL line parsing ---------------------------------------
+   Typing a comma in CHI CHO GÌ? commits the completed segment(s) as rows and
+   opens a fresh form for whatever follows the last comma. */
+function onExNoteInput(){
+  if(!editingTx && document.getElementById('ex-note').value.indexOf(',')>=0){ handleCommaSplit(); return; }
+  onExInput();
+}
+function handleCommaSplit(){
+  flushActiveRow();                                // capture who/date on the active row before we overwrite its note/amt
+  var val=document.getElementById('ex-note').value;
+  var parts=val.split(',');
+  var remainder=parts.pop();                       // text after the final comma stays in-progress
+  var done=parts.map(function(s){return s.trim();}).filter(function(s){return s!=='';});
+  if(!done.length){ onExInput(); return; }         // e.g. a leading comma — nothing to commit yet
+  applyParsed(bulkActive, parseBulkLine(done[0]));      // first segment completes the active row
+  for(var i=1;i<done.length;i++){ bulkRows.push(rowFromParsed(parseBulkLine(done[i]))); }
+  bulkRows.push(rowFromParsed({note:remainder.trim(), amt:'', cat:''}));   // fresh active row seeded with the remainder
+  bulkActive=bulkRows.length-1;
+  renderBulk();
+  loadRow(bulkActive);
+  var n=document.getElementById('ex-note'); if(n){ n.focus(); var L2=n.value.length; try{ n.setSelectionRange(L2,L2); }catch(e){} }
+}
+function applyParsed(i, p){
+  var r=bulkRows[i]; if(!r) return;
+  r.note=p.note;
+  if(p.amt) r.amt=p.amt;
+  if(p.cat) r.cat=p.cat;
+}
+function rowFromParsed(p){
+  var r=blankRow();
+  r.note=p.note||'';
+  if(p.amt) r.amt=p.amt;
+  if(p.cat) r.cat=p.cat;
+  return r;
+}
+/* Parse one segment → {note, amt (display-currency string), cat}. */
+function parseBulkLine(text){
+  var raw=(text||'').trim();
+  var amt='', note=raw;
+  var m=matchAmount(raw);
+  if(m){ amt=String(m.display); note=(raw.slice(0,m.index)+raw.slice(m.index+m.len)).replace(/\s+/g,' ').trim(); }
+  var cat=guessCat(note||raw);
+  return { note:note, amt:amt, cat:cat };
+}
+function _cleanNum(s){ return parseInt((s||'').replace(/[^0-9]/g,''),10)||0; }
+/* Currency-aware amount detection. Returns the DISPLAY-currency integer the user
+   would type into #ex-amt (existing parseAmtBase converts it to the stored base).
+   Handles VN shorthand (k/nghìn/ngàn ×1e3, tr/triệu ×1e6, tỷ/tỉ ×1e9, 1tr2=1.2M)
+   and the bare-number split: USD literal; VND <1000 ⇒ ×1000 (so "45" = 45.000₫). */
+function matchAmount(s){
+  var m;
+  m=s.match(/(\d[\d.,]*)\s*(?:tr(?:iệu|ieu)?)\s*(\d*)/i);          // millions, incl. 1tr2 / 1 triệu 200
+  if(m){
+    var whole=_cleanNum(m[1]), frac=m[2]||'';
+    var val=frac ? parseFloat(whole+'.'+frac)*1000000 : whole*1000000;
+    if(val>0) return { display:Math.round(val), index:m.index, len:m[0].length };
+  }
+  m=s.match(/(\d[\d.,]*)\s*(?:tỷ|tỉ)\b/i);                          // billions
+  if(m && _cleanNum(m[1])>0) return { display:Math.round(_cleanNum(m[1])*1e9), index:m.index, len:m[0].length };
+  m=s.match(/(\d[\d.,]*)\s*(?:k|nghìn|nghin|ngàn|ngan)\b/i);        // thousands
+  if(m && _cleanNum(m[1])>0) return { display:Math.round(_cleanNum(m[1])*1000), index:m.index, len:m[0].length };
+  var re=/\d[\d.,]*/g, mt, last=null;                               // bare number → take the last one in the segment
+  while((mt=re.exec(s))!==null){ last=mt; }
+  if(last){
+    var n=_cleanNum(last[0]);
+    var disp=(CUR==='VND') ? (n<1000 ? n*1000 : n) : n;
+    if(disp>0) return { display:Math.round(disp), index:last.index, len:last[0].length };
+  }
+  return null;
+}
+/* Diacritic-insensitive category guess from note keywords (EN + VN). Only returns
+   a category the family actually has (iterates catOrder); otherwise '' → keep last. */
+function deburr(s){ return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D'); }
+var CAT_KEYWORDS={
+  'Dining':['ca phe','coffee','cafe','tra sua','tra','an','com','pho','bun','mi','nha hang','restaurant','lunch','dinner','breakfast','quan','bia','beer','banh','nhau','do an','food','eat','tea','pizza','ga ran','kfc','lotteria','highland','starbucks','tiem','an sang','an trua','an toi','snack'],
+  'Transport':['xang','gas','grab','taxi','xe','bus','gui xe','parking','petrol','fuel','uber','xe om','gojek','do xang','ferry','ve xe','ve tau','ve may bay','flight','grabbike','grabcar','sua xe','rua xe'],
+  'Groceries':['cho','market','sieu thi','supermarket','rau','thit','ca hoi','ca thu','grocery','groceries','bach hoa','coopmart','bigc','winmart','vinmart','lotte','emart','gao','trai cay','fruit','vegetable','meat','di cho','do kho'],
+  'Housing':['dien','nuoc','internet','wifi','tien nha','rent','thue','electricity','water','quan ly','phi quan ly','tien dien','tien nuoc','tien internet','mang','cap','rac','phi chung cu','sua nha','noi that'],
+  'Fun':['phim','cinema','game','choi','du lich','travel','movie','karaoke','party','net','bi a','billiards','concert','ve xem','giai tri','massage','spa','gym','the thao','sach','book','shopping','mua sam','quan ao','ao quan'],
+  'Others':['khac','other','others','linh tinh','thuoc','pharmacy','y te','benh vien','hoc','tuition','hoc phi']
+};
+function guessCat(note){
+  var t=deburr((note||'').toLowerCase()).replace(/\s+/g,' ').trim();
+  if(!t) return '';
+  var padded=' '+t+' ';
+  for(var i=0;i<catOrder.length;i++){
+    var c=catOrder[i], kws=CAT_KEYWORDS[c]; if(!kws) continue;
+    for(var j=0;j<kws.length;j++){
+      var kw=deburr(kws[j].toLowerCase()).trim();
+      if(kw && padded.indexOf(' '+kw+' ')>=0) return c;
+    }
+  }
+  return '';
+}
+/* Persist every draft row in one shot through the durable public addExpense
+   (its write-through wrapper fires per call). BULK_SAVING mutes each call's own
+   close/toast/nav so the loop can run; the modal closes once at the end. */
+function submitBulk(){
+  flushActiveRow();
+  // parse-on-save: a row whose note still embeds a number but has no amount yet
+  bulkRows.forEach(function(r){
+    if(!parseAmtBase(r.amt||'') && (r.note||'').trim()){
+      var p=parseBulkLine(r.note);
+      if(p.amt){ r.amt=p.amt; if(!r.cat) r.cat=p.cat; r.note=p.note; }
+    }
+  });
+  var rows=bulkRows.filter(function(r){ return (r.note||'').trim() || parseAmtBase(r.amt||''); });  // drop blank rows
+  if(!rows.length){ toast(L('Chưa có khoản nào để lưu','Nothing to save yet')); return; }
+  var firstInvalid=-1;
+  rows.forEach(function(r,i){ r._invalid=!(parseAmtBase(r.amt||'')>0 && r.cat); if(r._invalid && firstInvalid<0) firstInvalid=i; });
+  bulkRows=rows;                                    // keep only the real rows in the model
+  if(firstInvalid>=0){
+    bulkActive=firstInvalid;
+    renderBulk(); loadRow(bulkActive);
+    toast(L('Thiếu số tiền hoặc nhóm ở một khoản','An item is missing amount or category'));
+    return;
+  }
+  var total=0, n=rows.length;
+  var savedPhotos=exPhotos.slice();                 // photos only ride the first row (single-row is the only way to attach them)
+  for(var k=0;k<rows.length;k++){
+    loadRow(k);                                     // push this row into the #ex-* fields addExpense reads
+    exPhotos = (k===0) ? savedPhotos.slice() : [];
+    total+=parseAmtBase(rows[k].amt||'');
+    BULK_SAVING=true;
+    try{ window.addExpense(); } finally{ BULK_SAVING=false; }
+  }
+  exPhotos=[];
+  renderAll(); renderTxns();
+  closeExpense();
+  toast(L('Đã ghi '+n+' khoản · '+fmt(total),'Logged '+n+' · '+fmt(total)));
+  if(typeof floatEmojis==='function') floatEmojis('🎉');
+  go('spending'); if(typeof segTo==='function') segTo('overview');
 }
 /* ---- edit a logged expense ---- */
 var editingTx=null, editSnap=null;

@@ -64,15 +64,22 @@
 .pol-ph{display:block;width:40px;height:36px;border-radius:1.5px;background-size:cover;background-position:center;position:relative;overflow:hidden}
 .pol-emo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px}
 .sky-night .pol{filter:brightness(.8)}
-/* the savings tree — foliage in the theme's secondary green, grows with progress */
-.sc-tree{position:absolute;left:6%;bottom:42px;width:64px;height:88px;transform-origin:50% 100%}
+/* the savings tree — foliage in the theme's secondary green, grows with progress.
+   Anchored in px (not %) so the yard gap to the right-anchored house is stable. */
+.sc-tree{position:absolute;left:14px;bottom:42px;width:64px;height:88px;transform-origin:50% 100%}
 .tr-tr{position:absolute;left:50%;bottom:0;width:9px;height:34px;margin-left:-4.5px;border-radius:5px;background:linear-gradient(var(--dim),var(--dim)) #7d5f45}
 .tr-f{position:absolute;border-radius:50%;background:linear-gradient(var(--dim),var(--dim)) var(--brand-2)}
 .tr-f.f1{left:8px;top:4px;width:48px;height:48px}
 .tr-f.f2{left:0;top:30px;width:30px;height:30px}
 .tr-f.f3{right:0;top:26px;width:34px;height:34px}
 /* ---------- the house ---------- */
-.sc-house{position:absolute;left:53%;bottom:40px;transform:translateX(-46%);width:max-content;max-width:274px;z-index:2}
+/* right-anchored: a constant margin whatever the family size, so small families
+   don't leave a dead right edge and big houses grow INTO the yard, not off-screen.
+   Tree left + house right + pet measured into the gap = a stable composition.
+   32px because the ROOFS overhang the wall box (cottage -10px, modern -16px,
+   tile -19px, brick -8px) — anchor the wall so even the widest roof keeps a
+   clear ~13px+ of sky to the screen edge. */
+.sc-house{position:absolute;right:32px;bottom:40px;width:max-content;max-width:274px;z-index:2}
 .hs-roofwrap{position:relative;height:40px;margin:0 -10px;z-index:1}
 .hs-chim{position:absolute;top:-14px;right:20%;width:17px;height:30px;border-radius:3px 3px 0 0;background:linear-gradient(var(--dim),var(--dim)) #a8624c}
 .hs-roof{position:absolute;inset:0;background:linear-gradient(var(--dim),var(--dim)) var(--brand-ink);clip-path:polygon(0 100%,16% 0,84% 0,100% 100%)}
@@ -133,17 +140,16 @@
 #home-scene .wx-fx{border-radius:0}
 .hw.fx .hw-pane{animation:wx-pop .9s cubic-bezier(.2,1.4,.35,1) both}
 .hw.fx::after{content:'';position:absolute;top:-6px;left:50%;width:58px;height:58px;margin-left:-29px;border-radius:50%;background:radial-gradient(circle,var(--brand-glow),transparent 66%);animation:wx-aura 1s ease-out both;pointer-events:none}
-/* short phones: trim the sky, keep the house whole */
-@media (max-height:700px){.home-scene{height:212px}.sc-house{bottom:36px}.sc-hill.h1{height:128px}.sc-hill.h2{height:146px}}
+/* short phones: trim the sky, keep the house whole (tree drops with the house base) */
+@media (max-height:700px){.home-scene{height:212px}.sc-house{bottom:36px}.sc-tree{bottom:38px}.sc-hill.h1{height:128px}.sc-hill.h2{height:146px}}
 
 /* body: cards carry their own 16px inset, like the tabs */
 .home-body{padding:0 0 6px}
 
-/* ---------- the hearth card (straddles the ground): picker → caring offers ---------- */
+/* ---------- the hearth card (straddles the ground): the mood picker ---------- */
 .hearth{position:relative;z-index:2;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);margin:-26px 16px 14px;padding:15px 16px 13px}
 .hearth-q{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--ink);text-align:center}
 .hearth-hint{margin-top:12px;padding-top:11px;border-top:1px solid var(--divider);text-align:center;font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
-.hearth-off{padding:5px 16px 6px}
 
 /* ============================================================================
    THE FEED — the standard HIG widget kit on the shared canvas. Glanceable
@@ -172,7 +178,7 @@
 .wt-big .u{font-family:var(--text);font-size:12px;font-weight:600;letter-spacing:0;color:var(--muted)}
 .cur-vnd .wt-big{font-size:20px;letter-spacing:-.4px}
 .wt-add{width:30px;height:30px;border-radius:50%;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex:0 0 auto;align-self:center}
-.wt-sub{font-size:12.5px;font-weight:500;color:var(--muted);line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:7px;font-variant-numeric:tabular-nums}
+.wt-sub{font-size:12.5px;font-weight:500;color:var(--muted);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;margin-top:7px;font-variant-numeric:tabular-nums}
 .wt-sub b{color:var(--ink-2);font-weight:650}
 
 /* ---------- quick actions (the add-sheet's icon language, on the wall) ---------- */
@@ -198,6 +204,30 @@
 
 /* home memory strip inset (the strip itself lives in 60-memories.css) */
 .home-strip{padding-left:16px;padding-right:16px}
+
+/* ---------- Sắp tới carousel — occasions, due goals, future expenses, nearest first.
+   Cards ARE bigPhoto (same photo+scrim / illustrated-band system as Khoảnh khắc and the
+   old single hero card) — just resized to sit in a horizontal scroller. No emoji anywhere:
+   a real uploaded photo, or the app's own vector cover illustration, never both, never neither. */
+.up-strip{display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding:2px 0 14px;margin:0 0 -8px;scroll-padding-left:22px}
+.up-strip::before{content:'';flex:0 0 10px}
+.up-strip::after{content:'';flex:0 0 4px}
+.up-strip::-webkit-scrollbar{display:none}
+.up-strip .bigphoto{flex:0 0 208px;width:208px;height:256px;margin:0;min-height:0;scroll-snap-align:start;box-shadow:var(--shadow-card)}
+/* Nested one flex level deeper than the base .occ-card usage (card → horizontal scroll
+   strip), iOS Safari collapses the art band to zero height even with an explicit
+   flex-basis: it's a flex item whose own children are ALL position:absolute, and Safari's
+   auto-size pass fails to find any content to measure through the extra flex context. The
+   base rule's flex-basis fix doesn't reach far enough here — take the band out of flex
+   layout entirely (position:absolute, sized by its own height, never mind flex-basis) and
+   offset the caption below it with a plain margin instead. */
+.up-strip .occ-card .bp-ph.occ{position:absolute;top:0;left:0;right:0;height:126px}
+.up-strip .occ-card .bp-cap{margin-top:126px}
+.up-strip .bp-cap{padding:13px 15px 15px}
+.up-strip .bp-ti{font-size:19px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.up-strip .bp-eye{font-size:10.5px}
+.up-strip .bp-mt{font-size:12.5px}
+.up-strip .bp-prog{margin-top:10px}
 
 /* ---------- immersive photo card (uses the family's real uploaded media) ---------- */
 /* block-level flex + horizontal margin (NO width:100%) — width:auto fills the row minus the

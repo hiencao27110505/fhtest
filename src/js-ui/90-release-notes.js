@@ -35,10 +35,27 @@ var ICO = {
   pie:'<circle cx="12" cy="12" r="8.4"/><path d="M12 12V3.6M12 12l6.2 5.7"/>',
   camera:'<rect x="3" y="6.6" width="18" height="12.9" rx="2.6"/><circle cx="12" cy="13" r="3.4"/><path d="M8.4 6.6 9.6 4.6h4.8l1.2 2"/>',
   grid:'<rect x="4" y="4" width="7" height="7" rx="1.7"/><rect x="13" y="4" width="7" height="7" rx="1.7"/><rect x="4" y="13" width="7" height="7" rx="1.7"/><rect x="13" y="13" width="7" height="7" rx="1.7"/>',
-  envelope:'<rect x="3" y="5.5" width="18" height="13" rx="2.6"/><path d="M3.8 7 12 13l8.2-6"/>'
+  envelope:'<rect x="3" y="5.5" width="18" height="13" rx="2.6"/><path d="M3.8 7 12 13l8.2-6"/>',
+  shield:'<path d="M12 3.2 5 6v5.4c0 4.4 2.9 7.5 7 9.4 4.1-1.9 7-5 7-9.4V6z"/><path d="M9.2 12.2l2 2 3.6-3.9"/>'
 };
 
 var RELEASES = [
+  { id:'2026-08-03-passcode', date:'2026-08-03', time:'12:00', ver:'v246', icon:ICO.shield,
+    vi:{ t:'Mã gia đình 6 số, và mã hóa chuyện tiền nong',
+      problem:'Trước đây ai có mã mời là vào được nhà, và số tiền của nhà mình nằm trên máy chủ ai vận hành cũng đọc được.',
+      sol:'Giờ vào nhà cần được chủ nhà thêm email vào danh sách rồi nhập mã 6 số của gia đình. Trong Cài đặt còn bật được mã hóa tài chính, khi đó số tiền được khóa ngay trên máy bằng mã của nhà mình, đến cả người làm ra app cũng không đọc được.' },
+    en:{ t:'A 6-digit family code, and money encryption',
+      problem:'Anyone with an invite code could walk in, and your amounts sat on the server where an operator could read them.',
+      sol:'Joining now takes both being on the owner’s email list and the family’s 6-digit code. In Settings you can also turn on money encryption, which locks amounts on your device with that code so not even the people who run the app can read them.' } },
+
+  { id:'2026-08-01-house', date:'2026-08-01', time:'19:44', ver:'v236', icon:ICO.house,
+    vi:{ t:'Sửa sang ngôi nhà của nhà mình',
+      problem:'Ngôi nhà trên màn hình chính bấy lâu ai cũng giống ai, muốn đổi chút cho ra chất nhà mình cũng chịu.',
+      sol:'Giờ mở "Chăm chút tổ ấm" là chọn được kiểu nhà, cây trước sân với một bạn thú cưng. Cả nhà thấy chung một cảnh, và cảnh đổi theo sáng trưa chiều tối.' },
+    en:{ t:'Make the house your own',
+      problem:'The house on your home screen looked the same for every family, with no way to make it feel like yours.',
+      sol:'Now open "Chăm chút tổ ấm" to pick a house style, a tree out front, and a pet. Everyone sees the same yard, and it shifts from morning to night.' } },
+
   { id:'2026-08-01-future', date:'2026-08-01', time:'13:42', ver:'v226', icon:ICO.calendar,
     vi:{ t:'Xem trước các khoản sắp chi, cả nhà cùng thấy',
       problem:'Mấy khoản sắp phải chi hay chỉ nằm trong đầu một người trong nhà.',

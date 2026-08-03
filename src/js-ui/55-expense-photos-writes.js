@@ -230,14 +230,25 @@ function exFormState(){                                     // snapshot used to 
 }
 function refreshExCta(){                                    // nav-bar Save button
   var s=document.getElementById('ex-save'); if(!s)return;
-  // add mode: needs an amount and a category before Save means anything
-  if(!editingTx){
-    s.disabled = !(parseAmtBase(document.getElementById('ex-amt').value)>0 && chosen('ex-cat'));
+  if(editingTx){
+    s.disabled = !(editSnap!==null && exFormState()!==editSnap);  // edit mode: enabled only once something changes
     return;
   }
-  s.disabled = !(editSnap!==null && exFormState()!==editSnap);  // edit mode: enabled only once something changes
+  // add mode: validate every non-empty draft row (amount + category). Save all when
+  // ≥1 real row exists and none is half-filled.
+  var rows=(typeof bulkRows!=='undefined')?bulkRows:[];
+  var considered=0, allValid=true;
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i];
+    if(!(r.note||'').trim() && !parseAmtBase(r.amt||'')) continue;   // fully-empty row → ignored
+    considered++;
+    if(!(parseAmtBase(r.amt||'')>0 && r.cat)) allValid=false;
+  }
+  s.disabled = !(considered>=1 && allValid);
+  // Label: keep updateExWhen()'s single-row Lưu/Gửi; only override for a true batch.
+  if(rows.length>1) s.textContent = L('Lưu tất cả ('+considered+')','Save all ('+considered+')');
 }
-function onExInput(){ updateExWhen(); refreshExCta(); }
+function onExInput(){ if(!editingTx) flushActiveRow(); updateExWhen(); refreshExCta(); }
 function openEditExpense(id){
   var t=txById(id); if(!t)return;
   editingTx=id;
@@ -245,6 +256,7 @@ function openEditExpense(id){
 }
 function fillExpenseFromTx(){
   var t=txById(editingTx); if(!t){ editingTx=null; prefillExpense(); return; }
+  if(typeof renderBulk==='function') renderBulk();          // edit mode → single-form: editor back in the body, no cards
   document.getElementById('ex-note').value=t.note||'';
   document.getElementById('ex-amt').value=t.amt?((t.amt*curMult()).toLocaleString(CUR==='VND'?'vi-VN':'en-US')):'';
   var edIso=txDateInput(t);
@@ -261,6 +273,8 @@ function fillExpenseFromTx(){
   refreshExCta();                                          // Save stays disabled until the first edit
 }
 function submitExpense(){
+  // Bulk: more than one draft row → save them all in one shot.
+  if(!editingTx && typeof bulkRows!=='undefined' && bulkRows.length>1){ submitBulk(); return; }
   var adopting = !editingTx && paPending;   // expense created from the bulk-assign screen
   if(editingTx) saveExpenseEdit(); else addExpense();
   // addExpense() bails without closing when the form is invalid; only drop the
