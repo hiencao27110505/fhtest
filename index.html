@@ -1626,25 +1626,25 @@ input{font-family:inherit}
 .bulk-card{border:1.5px solid var(--hairline);border-radius:13px;background:var(--white);overflow:hidden}
 .bulk-card.active{border-color:var(--brand);border-width:2px;background:var(--pearl);animation:fhpop .2s cubic-bezier(.22,1,.36,1) both}
 /* Missing category → a small highlighted label only, not a full-card highlight. Red so it stands out. */
-.bs-pick{font-size:11px;font-weight:700;color:var(--danger);background:var(--danger-tint);padding:3px 8px;border-radius:6px;white-space:nowrap}
-.bs-dup{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
+.bc-pick{font-size:11px;font-weight:700;color:var(--danger);background:var(--danger-tint);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .bulk-card:not(.active){display:flex;align-items:center}
 /* Real <button> so it's focusable and announced by VoiceOver (not a bare div).
-   Two rows: the "Khoản chi N · date" header, then the note · amount · category line. */
-.bulk-tap{flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:5px;min-height:52px;padding:11px 4px 12px 15px;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.bs-body{display:flex;align-items:center;width:100%}
-.bs-body .bs-left{flex:1;min-width:0;display:flex;align-items:center}
-.bs-body .bs-right{display:flex;align-items:center;gap:10px;flex-shrink:0;padding-left:10px}
-.bs-note{font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bs-note.bs-empty{font-weight:500;color:var(--muted)}
-.bs-amt{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
-.bs-cat{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+   Stacked: "Khoản chi N · date" header, then note ↔ amount, then category. */
+.bulk-tap{flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:12px 8px 13px 16px;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.bc-main{display:flex;align-items:baseline;gap:12px}
+.bc-note{flex:1;min-width:0;font-size:15px;font-weight:600;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bc-note.bc-empty{font-weight:500;color:var(--muted);font-style:italic}
+.bc-amt{flex-shrink:0;font-size:16px;font-weight:800;color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
+.bc-catrow{display:flex;align-items:center;gap:8px;min-height:17px}
+.bc-cat{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.bc-dup{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
 /* Shared header — same on collapsed and open cards. */
 .bulk-head{display:flex;align-items:center;gap:8px}
 .bulk-head .bulk-x{margin-left:auto}
 .bulk-card.active>.bulk-head{padding:12px 14px 2px}
-.bulk-idx{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-ink)}
-.bulk-date{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+.bulk-idx{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--brand-ink)}
+.bulk-date{font-size:11px;font-weight:600;color:var(--muted)}
+.bulk-date::before{content:"·";margin-right:7px;color:var(--muted-soft);font-weight:700}
 .bulk-card.active #ex-editor-mount{padding:6px 14px 14px}
 /* 44×44 hit target (HIG) even though the glyph reads smaller — mirrors .photo-thumb .x. */
 .bulk-x{flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--muted);background:transparent;border:none;-webkit-tap-highlight-color:transparent}
@@ -6039,23 +6039,24 @@ function bulkDate(iso){
   var p=iso.split('-'); if(p.length!==3) return '';
   return p[2]+'/'+p[1]+((+p[0]===TODAY.getFullYear())?'':('/'+p[0]));
 }
-/* One-line summary shown on a collapsed card: note · amount · category. */
+/* Collapsed-card body: note ↔ amount on one row (amounts right-align across cards),
+   then the category (or a red "Chọn danh mục" prompt) on its own row below. */
 function bulkSummary(r){
   var note=(r.note||'').trim();
-  var left = note
-    ? '<span class="bs-note">'+esc(note)+'</span>'
-    : '<span class="bs-note bs-empty">'+L('(khoản trống)','(empty item)')+'</span>';
-  var right='';
+  var noteHtml = note
+    ? '<span class="bc-note">'+esc(note)+'</span>'
+    : '<span class="bc-note bc-empty">'+L('(khoản trống)','(empty item)')+'</span>';
   var base=parseAmtBase(r.amt||'');
-  if(base>0) right+='<span class="bs-amt">'+fmt(base)+'</span>';
+  var amtHtml = base>0 ? '<span class="bc-amt">'+fmt(base)+'</span>' : '';
+  var cat='';
   if(catValid(r.cat)){
-    if(r.cat==='Event') right+='<span class="bs-cat">🎈 Event</span>';
-    else { var s=catStyle[r.cat]||['🏷️']; right+='<span class="bs-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
+    if(r.cat==='Event') cat='<span class="bc-cat">🎈 Event</span>';
+    else { var s=catStyle[r.cat]||['🏷️']; cat='<span class="bc-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
   } else if(note || base>0){                                  // has content but no real category → prompt to pick
-    right+='<span class="bs-cat bs-pick">'+L('Chọn danh mục','Pick a category')+'</span>';
+    cat='<span class="bc-pick">'+L('Chọn danh mục','Pick a category')+'</span>';
   }
-  if(r._dup) right+='<span class="bs-dup">'+L('lặp lại','repeat')+'</span>';
-  return '<span class="bs-left">'+left+'</span><span class="bs-right">'+right+'</span>';
+  if(r._dup) cat+='<span class="bc-dup">'+L('lặp lại','repeat')+'</span>';
+  return '<span class="bc-main">'+noteHtml+amtHtml+'</span><span class="bc-catrow">'+cat+'</span>';
 }
 /* Rebuild the card list and relocate the single #ex-editor into the active card.
    Edit mode (or an empty model) renders the editor in place with no cards/＋. */
@@ -6091,7 +6092,7 @@ function renderBulk(){
     } else {
       html+='<div class="bulk-card">'
         +  '<button type="button" class="bulk-tap" onclick="setActiveRow('+i+')" aria-label="'+L('Sửa khoản ','Edit item ')+(i+1)+'">'
-        +    '<span class="bulk-head">'+head+'</span><span class="bs-body">'+bulkSummary(r)+'</span>'
+        +    '<span class="bulk-head">'+head+'</span>'+bulkSummary(r)
         +  '</button>'+rm
         +  '</div>';
     }
@@ -8895,7 +8896,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v262';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v263';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

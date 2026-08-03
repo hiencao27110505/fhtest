@@ -295,23 +295,24 @@ function bulkDate(iso){
   var p=iso.split('-'); if(p.length!==3) return '';
   return p[2]+'/'+p[1]+((+p[0]===TODAY.getFullYear())?'':('/'+p[0]));
 }
-/* One-line summary shown on a collapsed card: note · amount · category. */
+/* Collapsed-card body: note ↔ amount on one row (amounts right-align across cards),
+   then the category (or a red "Chọn danh mục" prompt) on its own row below. */
 function bulkSummary(r){
   var note=(r.note||'').trim();
-  var left = note
-    ? '<span class="bs-note">'+esc(note)+'</span>'
-    : '<span class="bs-note bs-empty">'+L('(khoản trống)','(empty item)')+'</span>';
-  var right='';
+  var noteHtml = note
+    ? '<span class="bc-note">'+esc(note)+'</span>'
+    : '<span class="bc-note bc-empty">'+L('(khoản trống)','(empty item)')+'</span>';
   var base=parseAmtBase(r.amt||'');
-  if(base>0) right+='<span class="bs-amt">'+fmt(base)+'</span>';
+  var amtHtml = base>0 ? '<span class="bc-amt">'+fmt(base)+'</span>' : '';
+  var cat='';
   if(catValid(r.cat)){
-    if(r.cat==='Event') right+='<span class="bs-cat">🎈 Event</span>';
-    else { var s=catStyle[r.cat]||['🏷️']; right+='<span class="bs-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
+    if(r.cat==='Event') cat='<span class="bc-cat">🎈 Event</span>';
+    else { var s=catStyle[r.cat]||['🏷️']; cat='<span class="bc-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
   } else if(note || base>0){                                  // has content but no real category → prompt to pick
-    right+='<span class="bs-cat bs-pick">'+L('Chọn danh mục','Pick a category')+'</span>';
+    cat='<span class="bc-pick">'+L('Chọn danh mục','Pick a category')+'</span>';
   }
-  if(r._dup) right+='<span class="bs-dup">'+L('lặp lại','repeat')+'</span>';
-  return '<span class="bs-left">'+left+'</span><span class="bs-right">'+right+'</span>';
+  if(r._dup) cat+='<span class="bc-dup">'+L('lặp lại','repeat')+'</span>';
+  return '<span class="bc-main">'+noteHtml+amtHtml+'</span><span class="bc-catrow">'+cat+'</span>';
 }
 /* Rebuild the card list and relocate the single #ex-editor into the active card.
    Edit mode (or an empty model) renders the editor in place with no cards/＋. */
@@ -347,7 +348,7 @@ function renderBulk(){
     } else {
       html+='<div class="bulk-card">'
         +  '<button type="button" class="bulk-tap" onclick="setActiveRow('+i+')" aria-label="'+L('Sửa khoản ','Edit item ')+(i+1)+'">'
-        +    '<span class="bulk-head">'+head+'</span><span class="bs-body">'+bulkSummary(r)+'</span>'
+        +    '<span class="bulk-head">'+head+'</span>'+bulkSummary(r)
         +  '</button>'+rm
         +  '</div>';
     }
