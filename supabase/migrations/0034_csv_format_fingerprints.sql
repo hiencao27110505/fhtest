@@ -1,5 +1,5 @@
 -- ============================================================================
--- FamilyHub — 0033: CSV import column-mapping fingerprint cache
+-- FamilyHub — 0034: CSV import column-mapping fingerprint cache
 --
 -- Sibling to the bank-email pipeline's sender_fingerprints (0025), same idea
 -- applied to CSV import: the first file with a given column-header shape gets
