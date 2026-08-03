@@ -114,15 +114,24 @@ function _reqStatusLine(item){
 }
 function _reqTypeChip(item){ var m=_entMeta(item.type); return item.icon+' '+(item.dateTxt||m.unit); }
 
+/* A request card opens the entity's read-first DETAIL screen (not the review picker
+   directly) — the detail surfaces the Review CTA when it's someone else's proposal,
+   so every tap lands on a consistent detail first. */
+function _reqOpenCall(item){
+  var ref=esc(item.ref);
+  if(item.type==='goal')     return 'openGoalDetail(\''+ref+'\')';
+  if(item.type==='occasion') return 'openEvent(\''+ref+'\')';
+  return 'openExpenseDetail(\''+ref+'\')';
+}
 /* ---- the card — one design across widget · hub · both lanes ---- */
 function _reqCard(item, incoming){
   if(incoming){
-    return '<button class="req-card" onclick="openReview(\''+item.type+'\',\''+esc(item.ref)+'\')">'+_entAv(item)
+    return '<button class="req-card" onclick="'+_reqOpenCall(item)+'">'+_entAv(item)
       +'<span class="req-cb"><span class="req-ct">'+esc(_reqName(item.creatorId))+' '+_entMeta(item.type).verb+'</span>'
       +'<span class="req-cs">'+esc(item.title)+' · '+_reqTypeChip(item)+'</span></span>'
       +'<span class="req-amt num">'+fmt(item.amount)+'</span>'+_reqChev()+'</button>';
   }
-  return '<button class="req-card" onclick="openReview(\''+item.type+'\',\''+esc(item.ref)+'\')">'+_entAv(item)
+  return '<button class="req-card" onclick="'+_reqOpenCall(item)+'">'+_entAv(item)
     +'<span class="req-cb"><span class="req-ct">'+esc(item.title)+' · '+fmt(item.amount)+'</span>'
     +_reqStatusLine(item)+'</span>'+_reqChev()+'</button>';
 }
@@ -244,6 +253,10 @@ function submitReview(type, ref, emoji){
   selMonth=curMonthKey();
   try{ if(typeof renderAll==='function') renderAll(); }catch(e){}
   try{ var ov=document.getElementById('requests-overlay'); if(ov && ov.classList.contains('on')) renderRequests(); }catch(e){}
+  // the review was launched FROM a detail screen — refresh whichever is underneath so its CTA flips
+  try{ if(typeof renderExpenseDetailIfOpen==='function') renderExpenseDetailIfOpen(); }catch(e){}
+  try{ if(typeof renderGoalDetailIfOpen==='function') renderGoalDetailIfOpen(); }catch(e){}
+  try{ var eo=document.getElementById('event-overlay'); if(eo && eo.classList.contains('on') && typeof openEvent==='function' && window.curEvent) openEvent(window.curEvent); }catch(e){}
   var nm=_reqName(item.creatorId);
   if(aligned){ if(typeof floatEmojis==='function') floatEmojis('🥰'); toast(L('Đã đồng ý với '+nm+' 🥰','You’re in with '+nm+' 🥰')); }
   else { toast(L('Đã gửi cảm nhận cho '+nm, 'Sent your take to '+nm)); }
@@ -295,6 +308,7 @@ window.reqCheckArrivals=reqCheckArrivals;
 function reqAfterHydrate(){
   try{ renderReqMounts(); }catch(e){}
   try{ var ov=document.getElementById('requests-overlay'); if(ov && ov.classList.contains('on')) renderRequests(); }catch(e){}
+  try{ if(typeof renderExpenseDetailIfOpen==='function') renderExpenseDetailIfOpen(); }catch(e){}   // a review that arrived over realtime → refresh an open detail
   try{ reqCheckArrivals(); }catch(e){}
 }
 window.reqAfterHydrate=reqAfterHydrate;

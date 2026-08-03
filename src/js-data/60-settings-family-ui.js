@@ -155,17 +155,17 @@
     window._fhMembers = mems;
     const rows = mems.map((m) => {
       const isSelf = m.user_id === uid;
-      const tag = m.is_shared ? 'shared' : (m.user_id ? (isSelf ? 'you' : 'member') : 'seat');
+      const tag = m.is_shared ? L('chung','shared') : (m.user_id ? (isSelf ? L('bạn','you') : L('thành viên','member')) : L('chỗ trống','seat'));
       return '<div class="fh-s-row">'
         + '<div class="av av-32" style="background:' + _esc(m.color || '#8f8a99') + '">' + inits(m.name) + '</div>'
         + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(m.name) + '</div><div class="fh-s-meta">' + tag + '</div></div>'
-        + ((owner || isSelf) && !m.is_shared ? _btn('Edit', "fhEditMember('" + m.id + "')", 'fh-s-edit') : '')
+        + ((owner || isSelf) && !m.is_shared ? _btn(L('Sửa','Edit'), "fhEditMember('" + m.id + "')", 'fh-s-edit') : '')
         + (owner && !isSelf && !m.is_shared
             ? _btn(_ICO.trash, "fhArchiveMember('" + m.id + "',this)", 'fh-s-act danger')
             : '')
         + '</div>';
     }).join('');
-    let html = '<div class="fh-s-h">' + _esc(fam ? fam.name : 'Family') + '</div>'
+    let html = '<div class="fh-s-h">' + _esc(fam ? fam.name : L('Gia đình','Family')) + '</div>'
       + '<div class="fh-s-lab" style="margin-top:14px">'+L('Thành viên','Members')+'</div>' + rows;
     if (owner) html += _btn(L('Thêm thành viên','Add member'), 'fhAddMember()', _S.line);
     html += _btn(L('Xong','Done'), '_closeOv()', _S.cta);
@@ -180,14 +180,14 @@
     window._fhMColor = m.color || _pal()[0];
     window._fhMName0 = m.name || '';
     const swatches = _pal().map((c) =>
-      '<button class="fh-s-sw' + (c === window._fhMColor ? ' on' : '') + '" data-c="' + c + '" aria-label="Colour ' + c + '"'
+      '<button class="fh-s-sw' + (c === window._fhMColor ? ' on' : '') + '" data-c="' + c + '" aria-label="' + L('Màu','Colour') + ' ' + c + '"'
       + ' onclick="fhPickMColor(this)"><i style="background:' + c + '"></i></button>').join('');
     _fhModal({
       title: L('Sửa thành viên','Edit member'),
       saveLabel: L('Lưu','Save'),
-      body: '<div class="field"><label>Name</label>'
-        + '<input id="fh-mname" value="' + _esc(m.name) + '" placeholder="Name" oninput="fhModalDirty()"></div>'
-        + '<div class="field"><label>Colour</label><div class="fh-s-swatches" id="fh-mcol">' + swatches + '</div></div>',
+      body: '<div class="field"><label>' + L('Tên','Name') + '</label>'
+        + '<input id="fh-mname" value="' + _esc(m.name) + '" placeholder="' + L('Tên','Name') + '" oninput="fhModalDirty()"></div>'
+        + '<div class="field"><label>' + L('Màu','Colour') + '</label><div class="fh-s-swatches" id="fh-mcol">' + swatches + '</div></div>',
       valid: () => {
         const v = (document.getElementById('fh-mname').value || '').trim();
         return !!v && (v !== window._fhMName0 || window._fhMColor !== (m.color || _pal()[0]));
@@ -210,7 +210,7 @@
   // Removing a member is destructive → arm-then-confirm inline on the row's own button.
   window.fhArchiveMember = async function (id, btn) {
     if (btn && !btn.classList.contains('armed')) {
-      btn.classList.add('armed'); btn.textContent = 'Remove?';
+      btn.classList.add('armed'); btn.textContent = L('Xoá?','Remove?');
       clearTimeout(window._fhMemArmT);
       window._fhMemArmT = setTimeout(() => {
         if (!btn.isConnected) return;
@@ -229,14 +229,14 @@
   window.fhAddMember = function () {
     window._fhNewColor = _pal()[Math.floor(Math.random() * _pal().length)];
     const swatches = _pal().map((c) =>
-      '<button class="fh-s-sw' + (c === window._fhNewColor ? ' on' : '') + '" data-c="' + c + '" aria-label="Colour ' + c + '"'
+      '<button class="fh-s-sw' + (c === window._fhNewColor ? ' on' : '') + '" data-c="' + c + '" aria-label="' + L('Màu','Colour') + ' ' + c + '"'
       + ' onclick="fhPickNewColor(this)"><i style="background:' + c + '"></i></button>').join('');
     _fhModal({
       title: L('Thêm thành viên','Add member'),
       saveLabel: L('Thêm','Add'),
-      body: '<div class="field"><label>Name</label>'
-        + '<input id="fh-newname" placeholder="e.g. Emma" oninput="fhModalDirty()"></div>'
-        + '<div class="field"><label>Colour</label><div class="fh-s-swatches">' + swatches + '</div></div>',
+      body: '<div class="field"><label>' + L('Tên','Name') + '</label>'
+        + '<input id="fh-newname" placeholder="' + L('vd. Mai','e.g. Emma') + '" oninput="fhModalDirty()"></div>'
+        + '<div class="field"><label>' + L('Màu','Colour') + '</label><div class="fh-s-swatches">' + swatches + '</div></div>',
       valid: () => !!(document.getElementById('fh-newname').value || '').trim(),
       after: () => { const i = document.getElementById('fh-newname'); if (i) i.focus(); },
       save: async () => {
@@ -260,7 +260,7 @@
       clearTimeout(window._fhLeaveT);
       window._fhLeaveT = setTimeout(() => {
         if (!btn.isConnected) return;
-        btn.classList.remove('armed'); btn.textContent = 'Leave this family';
+        btn.classList.remove('armed'); btn.textContent = L('Rời gia đình này','Leave this family');
       }, 3000);
       return;
     }
@@ -268,7 +268,7 @@
     if (btn) { btn.textContent = L('Đang rời…','Leaving…'); btn.disabled = true; }
     try { await _rpc('leave_family'); }
     catch (e) {
-      if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = 'Leave this family'; }
+      if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = L('Rời gia đình này','Leave this family'); }
       window.toast && window.toast(_friendly(e)); return;
     }
     try { fhKeyDrop(window.DB.fid); } catch (e) {}          // no lingering family key on a device that left
@@ -280,7 +280,7 @@
       clearTimeout(window._fhDelFamT);
       window._fhDelFamT = setTimeout(() => {
         if (!btn.isConnected) return;
-        btn.classList.remove('armed'); btn.textContent = 'Delete family';
+        btn.classList.remove('armed'); btn.textContent = L('Xoá gia đình','Delete family');
       }, 3000);
       return;
     }
@@ -288,9 +288,42 @@
     if (btn) { btn.textContent = L('Đang xoá…','Deleting…'); btn.disabled = true; }
     try { await _rpc('archive_family', { p_family_id: window.DB.fid }); }
     catch (e) {
-      if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = 'Delete family'; }
+      if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = L('Xoá gia đình','Delete family'); }
       window.toast && window.toast(_friendly(e)); return;
     }
     try { fhKeyDrop(window.DB.fid); } catch (e) {}
     window._closeOv(); location.reload();
+  };
+
+  // ---- Language (per-member display preference) ----
+  /* Language is per-member: it writes profiles.language (self-update is allowed by RLS)
+     and localStorage 'fh-lang', which the hydrate now prefers over the family default.
+     A full re-hydrate repaints every screen — including month labels baked at hydrate —
+     so the switch reads consistently everywhere, not just on static [data-t] labels. */
+  window.fhLanguageSheet = function () {
+    const cur = (window.LANG === 'vi') ? 'vi' : 'en';
+    const opt = (v, label) =>
+      '<button class="choice' + (v === cur ? ' on' : '') + '" onclick="fhPickLanguage(\'' + v + '\')">' + label + '</button>';
+    _fhSheet(
+      '<div class="fh-s-h">' + L('Ngôn ngữ','Language') + '</div>'
+      + '<div class="fh-s-sub">' + L('Chọn ngôn ngữ hiển thị cho riêng bạn — người khác trong nhà không đổi theo.','Choose your own display language — it won’t change it for anyone else in the family.') + '</div>'
+      + '<div class="choices" style="margin-top:6px">' + opt('vi', '🇻🇳 Tiếng Việt') + opt('en', '🇬🇧 English') + '</div>'
+      + _btn(L('Xong','Done'), '_closeOv()', _S.cta)
+    );
+  };
+  window.fhPickLanguage = async function (lang) {
+    if (lang !== 'vi' && lang !== 'en') return;
+    window._closeOv();
+    if (lang === window.LANG) return;
+    window.LANG = lang;
+    try { localStorage.setItem('fh-lang', lang); } catch (e) {}
+    // instant repaint: static [data-t] labels + every dynamic section (they read L()/t())
+    try { window.applyLang && window.applyLang(); } catch (e) {}
+    try { window.applyCurrency && window.applyCurrency(); } catch (e) {}
+    try { window.renderAll && window.renderAll(); } catch (e) {}
+    window.toast && window.toast(L('Đã chuyển sang Tiếng Việt','Switched to English'));
+    // persist per-member so it follows the user across devices — best-effort
+    try { const uid = window.fhUser && window.fhUser.id; if (uid) await sb.from('profiles').update({ language: lang }).eq('id', uid); } catch (e) {}
+    // re-hydrate so month labels (baked in at hydrate) and every surface land in the new language
+    try { if (window.loadFamilyData) await window.loadFamilyData(); } catch (e) {}
   };

@@ -67,7 +67,7 @@
     const ov = document.createElement('div');
     ov.id = 'fh-loading';
     ov.style.cssText = 'position:absolute;inset:0;z-index:66;display:flex;align-items:center;justify-content:center;background:var(--canvas)';
-    ov.innerHTML = '<div style="text-align:center"><div style="width:34px;height:34px;border:3px solid var(--hairline);border-top-color:var(--brand);border-radius:50%;margin:0 auto 14px;animation:fhspin2 .8s linear infinite"></div><div style="font-size:14px;color:var(--muted)">Loading your family…</div></div>';
+    ov.innerHTML = '<div style="text-align:center"><div style="width:34px;height:34px;border:3px solid var(--hairline);border-top-color:var(--brand);border-radius:50%;margin:0 auto 14px;animation:fhspin2 .8s linear infinite"></div><div style="font-size:14px;color:var(--muted)">' + L('Đang tải gia đình của bạn…','Loading your family…') + '</div></div>';
     (document.getElementById('phone') || document.body).appendChild(ov);
   }
   function _hideLoading() { const ov = document.getElementById('fh-loading'); if (ov) ov.remove(); }

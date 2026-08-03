@@ -28,7 +28,7 @@ function renderGoals(){
     var e=goals[g], pct=e.target>0?Math.min(100,Math.round(e.saved/e.target*100)):0, funded=e.saved>=e.target;
     var occ=e.occasion_id?' · 🔗 '+L('dịp','occasion'):'';
     var overdue=(!funded && e.d && e.d<TODAY)?' · <span style="color:var(--amber)">'+L('quá hạn','overdue')+'</span>':'';
-    return '<div class="goal-row" onclick="fundGoal(&#39;'+escAttr(g)+'&#39;)">'
+    return '<div class="goal-row" onclick="openGoalDetail(&#39;'+escAttr(g)+'&#39;)">'
       +'<div class="goal-ico">'+esc(e.emoji)+'</div>'
       +'<div class="goal-mid"><div class="r-t">'+esc(e.name)+(funded?' <span class="ev-ready">✓</span>':'')+'</div>'
         +'<div class="r-s">'+fmt(e.saved)+' / '+fmt(e.target)+occ+overdue+'</div>'

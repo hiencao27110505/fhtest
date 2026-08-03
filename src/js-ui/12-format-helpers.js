@@ -1,7 +1,6 @@
 /* ---------- month name lookups (shared) ---------- */
 var MONF=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var MONA=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-if(events.dinner) events.dinner.date=MONA[TODAY.getMonth()]+' '+TODAY.getDate();   // demo event tracks today
 var WKD=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 /* Vietnamese date lookups + LANG-gated helpers. Vietnamese writes day-before-month
    ("26 thg 7", "Thứ Hai, 26 thg 7") and names months "Tháng 7" — never the English
@@ -11,6 +10,7 @@ var MONA_VI=['Thg 1','Thg 2','Thg 3','Thg 4','Thg 5','Thg 6','Thg 7','Thg 8','Th
 var WKD_VI=['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
 function isVi(){ return LANG==='vi'; }
 function L(vi,en){ return isVi()?vi:en; }                       // inline phrase pick
+function whoName(n){ return n==='Shared'?L('Chung','Shared'):n; }   // localize the collective member label ('Shared' is the internal key)
 function moFull(i){ return isVi()?MONF_VI[i]:MONF[i]; }         // "Tháng 7" / "July"
 function moAbbr(i){ return isVi()?MONA_VI[i]:MONA[i]; }         // "Thg 7" / "Jul"
 function fmtMonYear(i,y){ return isVi()?('Tháng '+(i+1)+' '+y):(MONF[i]+' '+y); }

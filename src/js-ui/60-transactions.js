@@ -30,7 +30,7 @@ function txRow(t){
   var s=catStyle[t.cat]||['🧾','#f2eef6','var(--cat-other)'];
   // Localize the display date/payer; the stored t.date/t.who strings stay as-is
   // (they are parsed by _txnIso / mapped by _memberIdForWho — display only here).
-  var dstr=(t.date==='Today')?L('Hôm nay','Today'):(t.date==='Just now')?L('Vừa xong','Just now'):(t._d?fmtDayMon(t._d):t.date);
+  var dstr=(t.date==='Just now')?L('Vừa xong','Just now'):((t._d?sameDay(t._d,TODAY):(t.date==='Today'))?L('Hôm nay','Today'):(t._d?fmtDayMon(t._d):t.date));
   // data-rxid (only persisted rows) arms the long-press reaction picker; rxChip appends any reactions inline
   var rxid=t._dbId?(' data-rxid="'+escAttr(t._dbId)+'"'):'';
   var chip=(typeof rxChip==='function')?rxChip(t):'';
@@ -56,10 +56,9 @@ function resRow(k){   // an event funded from this month → an "Events" future 
 function futRow(t){   // a standalone future expense logged in the expense sheet
   var today=sameDay(txPhotoDate(t),TODAY);
   var pend=(typeof futurePending==='function')&&futurePending(t);
-  var me=(typeof _futMeId==='function')?_futMeId():'';
-  var creator=(typeof _entCreatorId==='function')?_entCreatorId('expense',t):null;
-  var incoming=pend && creator && creator!==me;             // someone else's proposal → tapping it reviews, not edits
-  var onclick=incoming?('openReview(\'expense\',\''+t.id+'\')'):('openEditExpense(\''+t.id+'\')');
+  // Every future row lands on the read-first expense detail, same as a past row;
+  // the detail decides the CTA (Review for someone else's proposal, Update/Delete for mine).
+  var onclick='openExpenseDetail(\''+t.id+'\')';
   var tag=pend ? '<span class="res-tag pend">'+L('chờ duyệt','in review')+'</span>'
                : '<span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>';
   var sub=pend ? L('Chờ cả nhà duyệt','Waiting for the family')
@@ -177,7 +176,7 @@ function openCat(type,val,month){
     document.getElementById('cd-mark').style.cssText=done?'display:none':('left:'+(pace*100)+'%');
     var ctx=txns.filter(function(t){return !t.future && t.month===selMonth && t.cat===val;}); count=ctx.length; rows=ctx.map(txRow).join('');
   }
-  setTxt('cd-name',val); setTxt('cd-lab',lab); setTxt('cd-num',num); setTxt('cd-listhead',listHead);
+  setTxt('cd-name',whoName(val)); setTxt('cd-lab',lab); setTxt('cd-num',num); setTxt('cd-listhead',listHead);
   setTxt('cd-count', count? (count+' '+unit+(isVi()?'':(count===1?'':'s'))) : '');
   setHTML('cd-line','<span style="color:'+lineCol+';font-weight:600">'+line+'</span>');
   document.getElementById('cd-barbox').style.display=showBar?'':'none';
@@ -196,7 +195,7 @@ function buildCatPicker(){
   if(!curDetail)return; var t=curDetail.type, v=curDetail.val, html='';
   if(t==='mem'){
     setTxt('catpick-h',L('Ai đã trả','Who paid')); setTxt('catpick-sub',L('Xem chi tiêu của người khác.',"Jump to another person's spending."));
-    Object.keys(M().memberSpent).forEach(function(k){ html+='<button class="choice'+(k===v?' on':'')+'" onclick="pickCatFilter(\'mem\',\''+k+'\')">'+k+'</button>'; });
+    Object.keys(M().memberSpent).forEach(function(k){ html+='<button class="choice'+(k===v?' on':'')+'" onclick="pickCatFilter(\'mem\',\''+k+'\')">'+whoName(k)+'</button>'; });
   } else {
     setTxt('catpick-h',L('Danh mục','Category')); setTxt('catpick-sub',L('Chuyển tới giao dịch của danh mục khác.',"Jump to another category's transactions."));
     catOrder.forEach(function(c){ html+='<button class="choice'+(c===v?' on':'')+'" onclick="pickCatFilter(\'cat\',\''+c+'\')">'+((catStyle[c]||[''])[0])+' '+c+'</button>'; });
@@ -233,7 +232,7 @@ function addExpense(){
   if(dObj>TODAY){                                           // future date → a *proposal* (reserves nothing until the family aligns)
     var fwho=chosen('ex-who')||'Emma', fwhoStore=(fwho==='Both')?'Shared':fwho;
     var fby=(typeof _futMeId==='function')?_futMeId():((typeof _meName==='function')?_meName():fwhoStore);   // creator id (live) / name (demo)
-    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:fwhoStore,amt:amt,future:true,by:fby,reviews:[],month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,who:fwhoStore,amt:amt,future:true,by:fby,reviews:[],month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
     renderTxns(); selMonth=curMonthKey(); renderAll();
     if(!BULK_SAVING){                                        // bulk loop → submitBulk() handles the tail
       if(typeof clearDrafts==='function') clearDrafts();
@@ -247,7 +246,7 @@ function addExpense(){
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
   var hadPhoto=exPhotos.length>0;
-  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:whoStore,amt:amt,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,who:whoStore,amt:amt,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
   if(hadPhoto) syncExpenseEvent(txns[0]);                   // photos → a linked event for Events + Memories
   renderTxns();
   var jul=months[curMonthKey()];

@@ -212,4 +212,5 @@ function renderEvents(){
   renderMemoriesTab(mem);
   renderMemCalendar();
   if(typeof renderGoals==='function') renderGoals();   // first-class saving goals (Thu Chi)
+  if(typeof renderGoalDetailIfOpen==='function') renderGoalDetailIfOpen();   // keep an open goal detail in sync (fund/edit/realtime)
 }

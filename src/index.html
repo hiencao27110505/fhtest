@@ -381,6 +381,19 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="cd-cta-bar" id="exd-cta"></div>
 </div>
 
+<!-- GOAL DETAIL — view a saving goal + its review first; Add funds / Edit / Delete from here -->
+<div class="overlay" id="goal-overlay">
+  <div class="safe"></div>
+  <div class="cd-nav">
+    <button class="cd-back" onclick="closeGoalDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="back">Back</span></button>
+  </div>
+  <div class="cd-scroll">
+    <div id="gld-body"></div>
+    <div class="spacer"></div>
+  </div>
+  <div class="cd-cta-bar" id="gld-cta"></div>
+</div>
+
 <!-- SCRIM + SHEETS -->
 <div class="scrim" id="scrim" onclick="closeSheet();closeModals()"></div>
 
@@ -420,7 +433,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="modal-body">
     <div class="sheet-sub" data-t="suggestSub">An idea, a gripe, a feature you wish existed — tell us anything.</div>
     <div class="founder-note">
-      <div class="fn-txt"><span data-t="founderNote">We read every note, and what you tell us shapes what comes next.</span></div>
+      <div class="fn-txt"><span data-t="founderNote">We read every note. Thanks for helping us make it better.</span></div>
     </div>
     <div class="field"><label data-t="sgTypeLbl">What's on your mind</label><div class="choices" id="sg-type">
       <button class="choice on" data-v="Idea" onclick="pick('sg-type',this)" data-t="sgIdea">💡 An idea</button>

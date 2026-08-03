@@ -78,15 +78,38 @@ function renderExpenseDetail(){
     html+=_exdSecH(L('Ảnh','Photos'), ph.length)
       +'<div class="exd-photos">'+ph.map(function(src){ return '<div class="exd-photo" style="background-image:url('+src+')"></div>'; }).join('')+'</div>';
   }
-  html+=_exdReactions(t);
+  // A future expense is a proposal: show the family's REVIEW state (distinct from the
+  // ledger reactions a realized expense carries). incoming = someone else's proposal →
+  // Review is the only action; mine/planned → Update + Delete like a realized row.
+  var isFuture=!!t.future;
+  var item=(isFuture && typeof _entNorm==='function')?_entNorm('expense',t,t.id):null;
+  var incoming=!!(item && typeof _entPending==='function' && _entPending(item) && typeof _isMine==='function' && !_isMine(item));
+  if(isFuture){
+    if(item && item.creatorId && typeof _gldReviewBlock==='function'){
+      html+='<div class="exd-sec-h"><span class="t">'+L('Cả nhà cùng duyệt','Review')+'</span></div>'
+        +'<div style="margin:0 16px">'+_gldReviewBlock(item)+'</div>';
+    }
+  } else {
+    html+=_exdReactions(t);
+  }
   // Delete lives at the foot of the scroll as low-prominence text (arm-then-confirm),
-  // per the destructive-button rule — never a red button in the CTA bar.
-  html+='<button class="exd-del" id="exd-del" onclick="expDetailDelete()">'+L('Xoá khoản chi','Delete expense')+'</button>';
+  // per the destructive-button rule — never a red button in the CTA bar. Someone else's
+  // pending proposal isn't yours to delete, so hide it there (Review only).
+  if(!incoming){
+    html+='<button class="exd-del" id="exd-del" onclick="expDetailDelete()">'+L('Xoá khoản chi','Delete expense')+'</button>';
+  }
   body.innerHTML=html;
   var cta=document.getElementById('exd-cta');
-  if(cta) cta.innerHTML='<button class="cta" onclick="expDetailEdit()">'+L('Cập nhật','Update')+'</button>';   // single bottom-anchored primary
+  if(cta){
+    cta.innerHTML=incoming
+      ? '<button class="cta" onclick="expDetailReview()">'+L('Duyệt','Review')+'</button>'                    // decide someone else's proposal
+      : '<button class="cta" onclick="expDetailEdit()">'+L('Cập nhật','Update')+'</button>';                  // single bottom-anchored primary
+  }
   _resetExdDel();
 }
+/* Review → the existing react-to-align picker (64-requests.js), opened over the detail. */
+function expDetailReview(){ if(_expDetailId!=null && typeof openReview==='function') openReview('expense', _expDetailId); }
+window.expDetailReview=expDetailReview;
 window.renderExpenseDetail=renderExpenseDetail;
 function openExpenseDetail(id){
   var t=(typeof txById==='function')?txById(id):null; if(!t) return;

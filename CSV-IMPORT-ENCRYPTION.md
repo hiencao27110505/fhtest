@@ -99,3 +99,47 @@ adaptation, not a new mechanism.
   flags it needs "its own explicit lane" too, and it's dormant for an unrelated
   reason (never deployed yet). If the shape of the fix is the same for both
   pipelines, worth designing it once, not twice.
+
+## Encryption side: answers to the masking questions
+
+Answering from `15-crypto.js` directly rather than from first principles, since the
+existing design already implies these:
+
+**1. Does masking need to cover description text too?** Yes. The encryption scheme
+doesn't distinguish text from numbers — `fhField`/`fhRead` (`15-crypto.js:131,150`)
+encrypt whatever field name they're given, and `note` sits in the protected-column
+list right next to `amount` on every money table. There's no basis for treating a
+description column as lower-stakes. Practically it's easier than amount-masking:
+Gemini only needs to know "this is a free-text column," so generic placeholder
+phrases (no shape preservation needed) are enough.
+
+**2. Which check gates masking — `fhEncState() !== 'off'` or `fhEncOn()`?** Use
+`fhEncState() !== 'off'`. The reason `fhEncOn()` adds `fhKeyReady()` is specific to
+*writing*: `fhField`'s own comment (`15-crypto.js:123-130`) explains that in `enc`
+state a missing key throws, because writing plaintext there would break the
+promise — that's a capability check, it needs actual key material to produce
+ciphertext. Masking a CSV sample before it leaves the device isn't a capability
+question — it doesn't touch the key at all. What should gate it is the family's
+*intent* ("we turned encryption on"), which `fhEncState()` captures independent of
+whether this device happens to have unwrapped the key this session (e.g. right
+after an iOS IndexedDB eviction, before the unlock prompt has fired). Gating on
+`fhEncOn()` would let an un-unlocked device send real data while a locked family
+"trusts" it not to — backwards.
+
+**3. Existing masking utility to reuse?** No — grepped `src/` and `api/` for
+`mask`/`redact`; the only hits are `scrub_plaintext_amounts` (server-side,
+destructive, unrelated) and the crypto/enc-ui files. `fhField`/`fhRead` encrypt
+real values for storage, they don't redact for third-party sharing — different
+job. Worth writing as one small standalone utility rather than embedding it in
+`45-csv-import.js`, since this doc already flags the bank-email pipeline will need
+the identical fix later — one shared masker, two call sites.
+
+**4. How much shape-leakage is OK?** Keep digit-count and separator style — that's
+literally what `classifyAmount` (`45-csv-import.js:40`) is trying to disambiguate,
+and it's the only reason Gemini gets called on amount columns (only on
+`amountAmbiguous` / unmapped cases). But randomize the actual digits per row rather
+than perturbing the real value, so masked rows can't be diffed against each other
+to infer relative magnitude ("row 3 > row 1"). Flattening further (e.g. a fixed
+`X,XXX` placeholder) would remove the exact signal the Gemini fallback exists to
+resolve, which just pushes this back toward option (b)/skip-Gemini instead of the
+Option A we picked.

@@ -45,6 +45,13 @@
   async function afterLogin(session) {
     if (!session) return;
     window.fhUser = session.user;
+    // Per-member language preference: seed from the profile so a member's choice follows
+    // them to a new device. The in-app switcher (Settings → Language) writes both this and
+    // localStorage 'fh-lang'; the hydrate reads localStorage, so keep them in sync here.
+    try {
+      const { data: _pl } = await sb.from('profiles').select('language').eq('id', session.user.id).maybeSingle();
+      if (_pl && (_pl.language === 'vi' || _pl.language === 'en')) { window.LANG = _pl.language; try { localStorage.setItem('fh-lang', _pl.language); } catch (e) {} }
+    } catch (e) {}
     try {
       const md = session.user.user_metadata || {};
       if (window.FAM) {
@@ -100,8 +107,8 @@
     const cards = (fams || []).map((f) =>
       '<button class="fh-fam-card" data-fid="' + _esc(f.family_id) + '">'
       + '<div class="fh-fam-ico">' + _esc(String(f.name || '?').slice(0, 1).toUpperCase()) + '</div>'
-      + '<div class="fh-fam-grow"><div class="fh-fam-name">' + _esc(f.name || 'Family') + '</div>'
-      + '<div class="fh-fam-meta">' + (f.is_owner ? 'Owner' : 'Member') + (f.is_active ? ' · current' : '') + '</div></div>'
+      + '<div class="fh-fam-grow"><div class="fh-fam-name">' + _esc(f.name || L('Gia đình','Family')) + '</div>'
+      + '<div class="fh-fam-meta">' + (f.is_owner ? L('Chủ nhà','Owner') : L('Thành viên','Member')) + (f.is_active ? L(' · hiện tại',' · current') : '') + '</div></div>'
       + '<svg class="fh-fam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>'
     ).join('');
     ov.innerHTML = '<div class="fh-fam-inner">'
@@ -202,7 +209,7 @@
     if (on) {
       if (!el) {
         el = document.createElement('div'); el.id = 'fh-authbusy';
-        el.innerHTML = '<span class="fu-dot"></span><span>Signing you in…</span>';
+        el.innerHTML = '<span class="fu-dot"></span><span>' + L('Đang đăng nhập…','Signing you in…') + '</span>';
         (g('phone') || document.body).appendChild(el);
       }
       el.style.display = 'flex';

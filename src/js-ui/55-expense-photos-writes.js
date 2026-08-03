@@ -301,7 +301,7 @@ function saveExpenseEdit(){
   var t=txById(editingTx); if(!t){ closeExpense(); return; }
   var amt=parseAmtBase(document.getElementById('ex-amt').value);
   if(!amt){ document.getElementById('ex-amt').focus(); return; }
-  var note=document.getElementById('ex-note').value.trim()||'Expense';
+  var note=document.getElementById('ex-note').value.trim()||L('Khoản chi','Expense');
   var cat=chosen('ex-cat')||'Fun', who=chosen('ex-who')||'Emma';
   var whoStore=(who==='Both')?'Shared':who;
   var dObj=exDate(), dstr=(dObj.getTime()===TODAY.getTime())?'Today':(MONA[dObj.getMonth()]+' '+dObj.getDate());
@@ -313,7 +313,7 @@ function saveExpenseEdit(){
     jul.spent-=t.amt; jul.catSpent[t.cat]=(jul.catSpent[t.cat]||0)-t.amt; jul.memberSpent[oldMk]=(jul.memberSpent[oldMk]||0)-t.amt;
   }
   // write the new values in place (keep the specific icon unless the category changed)
-  t.ico=(cat===t.cat && t.ico)?t.ico:s[0]; t.cat=cat; t.note=note; t.amt=amt; t.who=whoStore; t.date=dstr; t.future=newFuture?true:undefined;
+  t.ico=(cat===t.cat && t.ico)?t.ico:s[0]; t.cat=cat; t.note=note; t.amt=amt; t.who=whoStore; t.date=dstr; t._d=dObj; t.future=newFuture?true:undefined;
   t.photos=exPhotos.slice(); delete t.photo;               // add / keep / remove the memory photos
   syncExpenseEvent(t);                                     // keep the linked event in sync (create/update/remove)
   // apply the NEW contribution only if it is realized

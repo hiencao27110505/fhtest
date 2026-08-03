@@ -1,20 +1,52 @@
 /* ---------- events fund/create ---------- */
-var CIRC=496.4, curEvent='japan';
+var CIRC=496.4, curEvent=null;
 var savings=0; // saved-for-events pool (hydrated from DB)
 function openEvent(id){
   closeCat();
   curEvent=id; var e=events[id], dl=daysLeft(e.d), ach=achievedNow(e);
+  // An occasion can be a proposal awaiting the family's OK (same model as expense/goal
+  // requests) — surface its review state + a Review CTA when it's someone else's.
+  var item=(typeof _entNorm==='function' && typeof _entCreatorId==='function' && _entCreatorId('occasion',e))?_entNorm('occasion',e,id):null;
+  var pending=!!(item && typeof _entPending==='function' && _entPending(item));
+  var incoming=pending && typeof _isMine==='function' && !_isMine(item);
   document.getElementById('ov-hero').className='ov-hero';
   setTxt('ov-em',e.emoji); setTxt('ov-name',e.name);
-  setTxt('ov-meta', ach ? L('Đã đạt · kỷ niệm từ '+(e.d?fmtDayMon(e.d):e.date),'Achieved · a memory from '+e.date) : ((e.d?fmtDayMon(e.d):e.date)+' · '+(dl===0?L('đến hạn hôm nay','due today'):L('còn '+dl+' ngày',dl+' days to go'))));
+  var meta = ach ? L('Đã đạt · kỷ niệm từ '+(e.d?fmtDayMon(e.d):e.date),'Achieved · a memory from '+e.date) : ((e.d?fmtDayMon(e.d):e.date)+' · '+(dl===0?L('đến hạn hôm nay','due today'):L('còn '+dl+' ngày',dl+' days to go')));
+  if(pending) meta += ' · ' + (incoming?L('chờ bạn duyệt','waiting for you'):L('chờ cả nhà duyệt','waiting for the family'));
+  setTxt('ov-meta', meta);
   document.getElementById('ov-funding').style.display=ach?'none':'block';
   document.getElementById('ov-memories').style.display=ach?'block':'none';
   var cta=document.getElementById('ov-cta');
   if(ach){ renderGallery('ov-gallery'); cta.textContent=L('Thêm ảnh & chú thích','Add photos & caption'); cta.setAttribute('onclick','openMemorySheet()'); }
-  else { renderRing(); renderGallery('ov-fund-gallery'); cta.textContent=L('Góp quỹ','Add funds'); cta.setAttribute('onclick','openFund()'); }
-  // photo-events mirror an expense's photos — those are removed from the expense, not here
-  var evd=document.getElementById('ov-del'); if(evd) evd.style.display=e.fromExpense?'none':'block';
+  else {
+    renderRing(); renderContribs(e); renderGallery('ov-fund-gallery');
+    cta.textContent=L('Góp quỹ','Add funds'); cta.setAttribute('onclick','openFund()');
+    // funding history is real + session-live only (never demo): clear stale rows from a
+    // previously-opened event and hide the header until an actual contribution is logged.
+    var _h=document.getElementById('ov-history'); if(_h) _h.innerHTML='';
+    var _hh=document.getElementById('ov-history-h'); if(_hh) _hh.style.display='none';
+  }
+  if(incoming){ cta.textContent=L('Duyệt','Review'); cta.setAttribute('onclick',"openReview('occasion','"+id+"')"); }   // decide someone else's occasion proposal
+  // photo-events mirror an expense's photos — those are removed from the expense, not here;
+  // someone else's pending proposal isn't yours to delete either.
+  var evd=document.getElementById('ov-del'); if(evd) evd.style.display=(e.fromExpense||incoming)?'none':'block';
   document.getElementById('event-overlay').classList.add('on');
+}
+/* Real per-member contributions for this event — from event_fundings, aggregated at
+   hydrate into e.contribs ({memberId: amount}). Replaces the old hardcoded demo rows. */
+function renderContribs(e){
+  var box=document.getElementById('ov-contribs'); if(!box) return;
+  var c=e&&e.contribs, mb=(window.DB&&window.DB.memberById)||{};
+  var ids=c?Object.keys(c).filter(function(id){ return c[id]>0; }):[];
+  if(!ids.length){ box.innerHTML=''; return; }
+  ids.sort(function(a,b){ return c[b]-c[a]; });
+  box.innerHTML=ids.map(function(id){
+    var m=mb[id]||{}, shared=!!m.is_shared;
+    var nm=shared?L('Chung','Shared'):(m.name||L('Thành viên','Member')), col=m.color||'#8f8a99';
+    return '<div class="row"><div class="av av-44" style="background:'+col+';color:#fff">'+(shared?'👥':inits(m.name||nm))+'</div>'
+      +'<div class="r-body"><div class="r-t">'+esc(nm)+'</div><div class="r-s">'+L('đã góp','contributed')+'</div></div>'
+      +'<div class="r-amt num">'+fmt(c[id])+'</div></div>';
+  }).join('');
 }
 function renderGallery(boxId){
   boxId=boxId||'ov-gallery';
@@ -202,7 +234,7 @@ function addFunds(){
   if(e.saved>=e.target){ toast(L(e.name+' đã đủ tiền',e.name+' is already fully funded')); return; }
   if(savings<=0){ toast(L('Chưa có tiền tiết kiệm để dùng','No savings available to allocate')); return; }
   if(amt>savings){ toast(L('Quỹ chỉ còn '+fmt(savings),'Only '+fmt(savings)+' available in savings')); return; }
-  var who=chosen('fn-who')||'Emma', before=e.saved;
+  var who=chosen('fn-who')||window.lastWho||L('Bạn','You'), before=e.saved;
   var applied=Math.min(amt, e.target-e.saved);   // never overfund the event
   savings-=applied; e.saved+=applied;
   var justFunded=before<e.target && e.saved>=e.target;
@@ -210,6 +242,7 @@ function addFunds(){
   var ovOpen=document.getElementById('event-overlay').classList.contains('on') && id===curEvent;
   if(ovOpen && !achievedNow(e)){
     renderRing();
+    var _hh=document.getElementById('ov-history-h'); if(_hh) _hh.style.display='';   // real contribution → reveal the History header
     document.getElementById('ov-history').insertAdjacentHTML('afterbegin','<div class="row"><div class="r-ico" style="background:var(--brand-tint);color:var(--brand)">＋</div><div class="r-body"><div class="r-t">'+who+L(' góp · từ quỹ tiết kiệm',' added · from savings')+'</div><div class="r-s">'+L('Vừa xong','Just now')+'</div></div><div class="r-amt num pos">+'+fmt(applied)+'</div></div>');
   } else if(ovOpen){ openEvent(id); }
   document.getElementById('fn-amt').value='';

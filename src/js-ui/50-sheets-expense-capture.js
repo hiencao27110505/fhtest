@@ -70,7 +70,7 @@ var exPreset=null;
 function buildExCatChips(){                                  // category chips reflect the current (editable) categories
   var box=document.getElementById('ex-cat'); if(!box)return;
   box.innerHTML = catOrder.map(function(c){ var s=catStyle[c]||['🏷️']; return '<button class="choice" data-v="'+c+'" onclick="pickExCat(this)">'+s[0]+' '+c+'</button>'; }).join('')
-    + '<button class="choice" data-v="Event" onclick="pickExCat(this)">🎈 Event</button>';
+    + '<button class="choice" data-v="Event" onclick="pickExCat(this)">🎈 '+L('Sự kiện','Event')+'</button>';
 }
 function openExpense(preset){
   exPreset = preset || null;
@@ -139,12 +139,6 @@ var lastCat='Groceries', lastWho='Emma';
    suppresses addExpense()'s per-row close/toast/nav so submitBulk() can loop it. */
 var bulkRows=[], bulkActive=0, BULK_SAVING=false;
 var bulkSaveTried=false;   // once the user taps Lưu with incomplete rows, those rows show a red border
-var exRecents=[
-  {note:'Grocery run',cat:'Groceries',who:'Emma'},
-  {note:'Coffee',cat:'Dining',who:'James'},
-  {note:'Gas',cat:'Transport',who:'James'},
-  {note:'Pharmacy',cat:'Others',who:'Emma'}
-];
 function selectChipByVal(group,val){
   var picked=false;
   document.getElementById(group).querySelectorAll('.choice').forEach(function(c){
@@ -229,7 +223,7 @@ function loadDrafts(){
   }catch(e){}
   return null;
 }
-function showDraftBanner(){ var b=document.getElementById('draft-banner'); if(b){ setTxt('draft-banner-txt', L('Đã khôi phục bản nháp chưa lưu','Restored your unsaved draft')); b.style.display=''; } }
+function showDraftBanner(){ var b=document.getElementById('draft-banner'); if(b){ setTxt('draft-banner-txt', L('Đã khôi phục bản nháp chưa lưu','Restored your unsaved draft')); var f=b.querySelector('.draft-fresh'); if(f) f.textContent=L('Bắt đầu mới','Start fresh'); b.style.display=''; } }
 function hideDraftBanner(){ var b=document.getElementById('draft-banner'); if(b) b.style.display='none'; }
 /* "Bắt đầu mới" — throw the restored draft away and start clean. */
 function startFreshDrafts(){
@@ -373,7 +367,7 @@ function bulkSummary(r){
   var meta='';
   if(base>0) meta+='<span class="bc-amt">'+fmt(base)+'</span>';
   if(catValid(r.cat)){
-    if(r.cat==='Event') meta+='<span class="bc-cat">🎈 Event</span>';
+    if(r.cat==='Event') meta+='<span class="bc-cat">🎈 '+L('Sự kiện','Event')+'</span>';
     else { var s=catStyle[r.cat]||['🏷️']; meta+='<span class="bc-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
   } else if(note || base>0){                                  // has content but no real category → prompt to pick
     meta+='<span class="bc-pick">'+L('Chọn danh mục','Pick a category')+'</span>';

@@ -106,7 +106,15 @@
         _decRows(sg, ['name', 'target_amount', 'note'])
       ]);
 
-      if (fam) { window.FAM.familyName = fam.name; if (fam.currency) window.CUR = fam.currency; if (fam.default_language) window.LANG = fam.default_language; }
+      if (fam) {
+        window.FAM.familyName = fam.name;
+        if (fam.currency) window.CUR = fam.currency;
+        // Language is a per-member preference: a saved choice (Settings → Language) wins;
+        // the family default only seeds a member who hasn't picked one yet.
+        let _langPref = null; try { _langPref = localStorage.getItem('fh-lang'); } catch (e) {}
+        if (_langPref === 'vi' || _langPref === 'en') window.LANG = _langPref;
+        else if (fam.default_language) window.LANG = fam.default_language;
+      }
       // shared house customization ({house,tree,pet}); [] / null on a pre-migration snapshot → keep whatever we have
       window.FAM.house = (fam && fam.house && typeof fam.house === 'object') ? fam.house : (window.FAM.house || {});
 
@@ -216,13 +224,15 @@
       window.selMonth = byKey[window.DB.monthKey] ? window.DB.monthKey : (window.monthOrder[window.monthOrder.length - 1] || window.DB.monthKey);
 
       // events + fundings + memories
-      const savedByEvent = {}, setAsideByEvent = {}, fromSavingsByEvent = {}, fromBudgetByEvent = {};
+      const savedByEvent = {}, setAsideByEvent = {}, fromSavingsByEvent = {}, fromBudgetByEvent = {}, contribByEvent = {};
       ef.forEach((f) => {
         const amt = Number(f.amount);
         savedByEvent[f.event_id] = (savedByEvent[f.event_id] || 0) + amt;
         if (f.source === 'savings') fromSavingsByEvent[f.event_id] = (fromSavingsByEvent[f.event_id] || 0) + amt;
         else fromBudgetByEvent[f.event_id] = (fromBudgetByEvent[f.event_id] || 0) + amt;
         if (f.source === 'budget' && f.month === monthDate) setAsideByEvent[f.event_id] = (setAsideByEvent[f.event_id] || 0) + amt;
+        // per-member contributions → the event overlay's real contributor rows (replaces the old demo rows)
+        if (f.event_id && f.member_id) { (contribByEvent[f.event_id] = contribByEvent[f.event_id] || {})[f.member_id] = (contribByEvent[f.event_id][f.member_id] || 0) + amt; }
       });
       const memByEvent = {};
       // _id / _path let a single photo be deleted later (row + storage object)
@@ -237,7 +247,7 @@
         const mirrored = e.source_txn_id
           ? (photosByTx[e.source_txn_id] || []).map((src) => ({ src: src, _txn: e.source_txn_id, _path: (window.DB.pathByUrl || {})[src] || null }))
           : null;
-        evObj[e.id] = { _dbId: e.id, name: e.name, emoji: e.emoji || '🎯', cov: e.cover || 'blue', date: e.target_date ? (MO[d.getMonth()] + ' ' + d.getDate()) : '', d: d, target: Number(e.target_amount), saved: savedByEvent[e.id] || 0, setAside: setAsideByEvent[e.id] || 0, fromSavings: fromSavingsByEvent[e.id] || 0, fromBudget: fromBudgetByEvent[e.id] || 0, achieved: !!e.achieved, memories: mirrored || memByEvent[e.id], _srcTxn: e.source_txn_id || null, _createdBy: e.created_by || null };
+        evObj[e.id] = { _dbId: e.id, name: e.name, emoji: e.emoji || '🎯', cov: e.cover || 'blue', date: e.target_date ? (MO[d.getMonth()] + ' ' + d.getDate()) : '', d: d, target: Number(e.target_amount), saved: savedByEvent[e.id] || 0, setAside: setAsideByEvent[e.id] || 0, fromSavings: fromSavingsByEvent[e.id] || 0, fromBudget: fromBudgetByEvent[e.id] || 0, achieved: !!e.achieved, memories: mirrored || memByEvent[e.id], contribs: contribByEvent[e.id] || null, _srcTxn: e.source_txn_id || null, _createdBy: e.created_by || null };
         evOrder.push(e.id);
       });
       window.events = evObj; window.order = evOrder;

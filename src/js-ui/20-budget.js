@@ -179,7 +179,7 @@ function renderMembers(){
   ord.forEach(function(k){
     var v=ms[k], pct=v/total*100, mt=membersMeta[k];
     split+='<i style="width:'+pct+'%;background:'+mt.col+'" onclick="openCat(\'mem\',\''+k+'\')"></i>';
-    legend+='<div class="item wp" onclick="openCat(\'mem\',\''+k+'\')"><span class="dot" style="background:'+mt.col+'"></span>'+k+' <b class="num">'+fmt(v)+'</b></div>';
+    legend+='<div class="item wp" onclick="openCat(\'mem\',\''+k+'\')"><span class="dot" style="background:'+mt.col+'"></span>'+whoName(k)+' <b class="num">'+fmt(v)+'</b></div>';
   });
   setHTML('member-split',split); setHTML('member-legend',legend);
 }

@@ -129,7 +129,7 @@ var EN_DEFAULT={
   csvModalTitle:'Import from file', csvPreviewNote:'Preview only — nothing is saved to your ledger yet.', csvPickLbl:'CSV file',
   /* suggest modal */
   suggestTitle:'We hear you 💛', suggestSub:'An idea, a gripe, a feature you wish existed — tell us anything.',
-  founderNote:'We read every note, and what you tell us shapes what comes next.',
+  founderNote:'We read every note. Thanks for helping us make it better.',
   sgTypeLbl:"What's on your mind", sgIdea:'💡 An idea', sgLove:'💛 Something I love', sgIssue:"🐞 Something's off",
   tellMore:'Tell us more', tellMorePh:'Say it however it comes. No need to be polished.',
   suggestFootHome:"Ideas or gripes? We're always listening",
@@ -238,7 +238,7 @@ var I18N={
     csvModalTitle:'Nhập từ file', csvPreviewNote:'Chỉ xem trước — chưa lưu vào sổ chi tiêu.', csvPickLbl:'File CSV',
     /* suggest modal */
     suggestTitle:'Tụi mình nghe bạn nè 💛', suggestSub:'Một ý tưởng, một điều chưa ưng, hay tính năng bạn ước có — kể tụi mình nghe hết nha.',
-    founderNote:'Tụi mình đọc hết mọi góp ý, và điều bạn chia sẻ định hình những gì sắp tới.',
+    founderNote:'Tụi mình đọc hết mọi góp ý. Cảm ơn bạn đã giúp app tốt hơn nha.',
     sgTypeLbl:'Bạn đang nghĩ gì', sgIdea:'💡 Một ý tưởng', sgLove:'💛 Điều mình thích', sgIssue:'🐞 Có gì đó chưa ổn',
     tellMore:'Kể thêm nha', tellMorePh:'Nói theo cách của bạn thôi, không cần trau chuốt đâu.',
     suggestFootHome:'Có ý tưởng hay muốn góp ý? Kể tụi mình nghe nha 💛',

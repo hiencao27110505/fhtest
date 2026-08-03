@@ -1401,6 +1401,21 @@ input{font-family:inherit}
   .exd-rx-bk{transition:none}
 }
 
+/* ---- goal detail — reuses the expense-detail composition (exd-*) with a progress
+   meter under the focal read-out. Same push-overlay band so the scrim dims it. ---- */
+#goal-overlay{z-index:49}
+#goal-overlay .safe{height:max(env(safe-area-inset-top),16px)}
+.gld-meter{height:8px;border-radius:5px;background:var(--divider);overflow:hidden;margin:22px 16px 0}
+.gld-meter i{display:block;height:100%;background:var(--brand);border-radius:5px;transition:width .4s cubic-bezier(.32,.72,0,1)}
+.gld-meter.done i{background:var(--good)}
+.gld-occ{color:var(--brand-ink);font-weight:700}
+.gld-edit{margin:26px 16px 0}
+.gld-edit .fh-s-line{margin-top:0}
+.gld-del{display:block;margin-top:16px}   /* .exd-del look; not the settings display:none default */
+@media (prefers-reduced-motion:reduce){
+  .gld-meter i{transition:none}
+}
+
 /* ---- collaborative reactions ----
    Inline chip (A), the Phòng khách wall (B), the picker + arrival + burst (C).
    Emoji carry the colour; the surfaces stay neutral (no fills) per the design system,
@@ -2536,6 +2551,19 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="cd-cta-bar" id="exd-cta"></div>
 </div>
 
+<!-- GOAL DETAIL — view a saving goal + its review first; Add funds / Edit / Delete from here -->
+<div class="overlay" id="goal-overlay">
+  <div class="safe"></div>
+  <div class="cd-nav">
+    <button class="cd-back" onclick="closeGoalDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span data-t="back">Back</span></button>
+  </div>
+  <div class="cd-scroll">
+    <div id="gld-body"></div>
+    <div class="spacer"></div>
+  </div>
+  <div class="cd-cta-bar" id="gld-cta"></div>
+</div>
+
 <!-- SCRIM + SHEETS -->
 <div class="scrim" id="scrim" onclick="closeSheet();closeModals()"></div>
 
@@ -2575,7 +2603,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="modal-body">
     <div class="sheet-sub" data-t="suggestSub">An idea, a gripe, a feature you wish existed — tell us anything.</div>
     <div class="founder-note">
-      <div class="fn-txt"><span data-t="founderNote">We read every note, and what you tell us shapes what comes next.</span></div>
+      <div class="fn-txt"><span data-t="founderNote">We read every note. Thanks for helping us make it better.</span></div>
     </div>
     <div class="field"><label data-t="sgTypeLbl">What's on your mind</label><div class="choices" id="sg-type">
       <button class="choice on" data-v="Idea" onclick="pick('sg-type',this)" data-t="sgIdea">💡 An idea</button>
@@ -3235,7 +3263,6 @@ function renderTrend(){
 /* ---------- month name lookups (shared) ---------- */
 var MONF=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var MONA=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-if(events.dinner) events.dinner.date=MONA[TODAY.getMonth()]+' '+TODAY.getDate();   // demo event tracks today
 var WKD=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 /* Vietnamese date lookups + LANG-gated helpers. Vietnamese writes day-before-month
    ("26 thg 7", "Thứ Hai, 26 thg 7") and names months "Tháng 7" — never the English
@@ -3245,6 +3272,7 @@ var MONA_VI=['Thg 1','Thg 2','Thg 3','Thg 4','Thg 5','Thg 6','Thg 7','Thg 8','Th
 var WKD_VI=['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
 function isVi(){ return LANG==='vi'; }
 function L(vi,en){ return isVi()?vi:en; }                       // inline phrase pick
+function whoName(n){ return n==='Shared'?L('Chung','Shared'):n; }   // localize the collective member label ('Shared' is the internal key)
 function moFull(i){ return isVi()?MONF_VI[i]:MONF[i]; }         // "Tháng 7" / "July"
 function moAbbr(i){ return isVi()?MONA_VI[i]:MONA[i]; }         // "Thg 7" / "Jul"
 function fmtMonYear(i,y){ return isVi()?('Tháng '+(i+1)+' '+y):(MONF[i]+' '+y); }
@@ -3465,7 +3493,7 @@ function renderMembers(){
   ord.forEach(function(k){
     var v=ms[k], pct=v/total*100, mt=membersMeta[k];
     split+='<i style="width:'+pct+'%;background:'+mt.col+'" onclick="openCat(\'mem\',\''+k+'\')"></i>';
-    legend+='<div class="item wp" onclick="openCat(\'mem\',\''+k+'\')"><span class="dot" style="background:'+mt.col+'"></span>'+k+' <b class="num">'+fmt(v)+'</b></div>';
+    legend+='<div class="item wp" onclick="openCat(\'mem\',\''+k+'\')"><span class="dot" style="background:'+mt.col+'"></span>'+whoName(k)+' <b class="num">'+fmt(v)+'</b></div>';
   });
   setHTML('member-split',split); setHTML('member-legend',legend);
 }
@@ -5254,6 +5282,7 @@ function renderEvents(){
   renderMemoriesTab(mem);
   renderMemCalendar();
   if(typeof renderGoals==='function') renderGoals();   // first-class saving goals (Thu Chi)
+  if(typeof renderGoalDetailIfOpen==='function') renderGoalDetailIfOpen();   // keep an open goal detail in sync (fund/edit/realtime)
 }
 /* ---------- saving goals (Thu Chi · Tiết kiệm) ---------- */
 // A saving goal is "done" when it's fully FUNDED — never merely because its
@@ -5285,7 +5314,7 @@ function renderGoals(){
     var e=goals[g], pct=e.target>0?Math.min(100,Math.round(e.saved/e.target*100)):0, funded=e.saved>=e.target;
     var occ=e.occasion_id?' · 🔗 '+L('dịp','occasion'):'';
     var overdue=(!funded && e.d && e.d<TODAY)?' · <span style="color:var(--amber)">'+L('quá hạn','overdue')+'</span>':'';
-    return '<div class="goal-row" onclick="fundGoal(&#39;'+escAttr(g)+'&#39;)">'
+    return '<div class="goal-row" onclick="openGoalDetail(&#39;'+escAttr(g)+'&#39;)">'
       +'<div class="goal-ico">'+esc(e.emoji)+'</div>'
       +'<div class="goal-mid"><div class="r-t">'+esc(e.name)+(funded?' <span class="ev-ready">✓</span>':'')+'</div>'
         +'<div class="r-s">'+fmt(e.saved)+' / '+fmt(e.target)+occ+overdue+'</div>'
@@ -5340,6 +5369,131 @@ function submitGoalFund(){
   toast(L('Đã bỏ ống ','Saved ')+fmt(amt)); floatEmojis('🪙');
   if(typeof window.fhFundGoal==='function') window.fhFundGoal(id, amt);
 }
+/* ---------- saving-goal detail — view first, act second ----------
+   The read-first screen a tap on a goal row (or a goal request card) now lands
+   on, mirroring the expense detail (61-expense-detail.js): the goal laid out
+   large with its progress, a light meta list, the family's review takes when it's
+   still a proposal — with Add funds (primary CTA), Edit, and Delete as the actions.
+
+   It reuses the request/review plumbing from 64-requests.js (_entNorm, _entPending,
+   _entAligned, _isMine, _reqStatusLine, _reqReactLabel, _reqName) and hands the
+   money actions to fundGoal (35-goals.js) + the persisting fhEditGoal / fhDeleteGoal
+   (70-goals-income-onboard-ui.js). All js-ui functions share the global scope. */
+var _goalDetailId=null;
+function _gldById(id){ return (window.goals||{})[id]||null; }
+function _gldRow(label, val){
+  return '<div class="exd-mrow"><span class="exd-ml">'+label+'</span><span class="exd-mv">'+val+'</span></div>';
+}
+/* name of the occasion a goal is linked to (occasion_id is a db id; demo events are
+   keyed by name) — best-effort, falls back to a generic label. */
+function _gldOccName(occId){
+  var evs=window.events||{};
+  for(var k in evs){ if(evs[k] && (evs[k]._dbId===occId || k===occId)) return evs[k].name; }
+  return L('dịp liên kết','linked occasion');
+}
+/* the review block — the family's takes on a goal proposal, same vocabulary as the
+   requests follow-view (48-requests.css classes). Only shown when there's a creator. */
+function _gldReviewBlock(item){
+  var rs=(item.reviews||[]).slice();
+  var aligned=(typeof _entAligned==='function')&&_entAligned(item);
+  var banner=aligned
+    ? '<div class="rv-follow ok">✓ '+L('Đã được duyệt','Aligned — a family member is in')+'</div>'
+    : '<div class="rv-follow wait">'+L('Đang chờ ít nhất 1 người trong nhà đồng ý','Waiting for one family member to agree')+'</div>';
+  var list=rs.length
+    ? '<div class="rv-revs" style="margin-top:8px">'+rs.sort(function(a,b){ return a.at<b.at?1:-1; }).map(function(r){
+        return '<div class="rv-rev"><span class="rv-rev-e">'+r.emoji+'</span>'
+          +'<span class="rv-rev-b"><span class="rv-rev-n">'+esc(_reqName(r.by)||r.byName||'')+'</span>'
+          +'<span class="rv-rev-l">'+_reqReactLabel(r.emoji)+'</span></span></div>';
+      }).join('')+'</div>'
+    : '<div class="rv-empty">'+L('Chưa có ai phản hồi. Cả nhà sẽ được nhắc nhẹ nhé.','No responses yet — the family has been nudged.')+'</div>';
+  return banner+list;
+}
+function renderGoalDetail(){
+  var g=_gldById(_goalDetailId); if(!g){ closeGoalDetail(); return; }
+  var body=document.getElementById('gld-body'); if(!body) return;
+  var pct=g.target>0?Math.min(100,Math.round(g.saved/g.target*100)):0;
+  var funded=(typeof achievedGoal==='function')?achievedGoal(g):(g.target>0&&g.saved>=g.target);
+  var still=Math.max(0,g.target-g.saved);
+  var item=(typeof _entNorm==='function')?_entNorm('goal',g,_goalDetailId):null;
+  var pending=!!(item && typeof _entPending==='function' && _entPending(item));
+  var mine=!!(item && typeof _isMine==='function' && _isMine(item));
+  var incoming=pending && !mine;
+
+  var html='<div class="exd-focal">'
+    +'<div class="exd-ico" style="background:var(--brand-tint);color:var(--brand-ink)">'+esc(g.emoji||'🎯')+'</div>'
+    +'<div class="exd-amt num">'+fmt(g.saved)+'</div>'
+    +'<div class="exd-note">'+esc(g.name)+'</div>'
+    +(funded?'<div class="exd-plan">✓ '+L('Đã đủ tiền','Fully funded')+'</div>'
+            :'<div class="exd-plan">🎯 '+L('Đang để dành','Saving up')+'</div>')
+    +'</div>';
+  html+='<div class="gld-meter'+(funded?' done':'')+'"><i style="width:'+pct+'%"></i></div>';
+
+  var dueTxt='';
+  if(g.d){
+    dueTxt=fmtDayMon(g.d);
+    var dl=(typeof daysLeft==='function')?daysLeft(g.d):null;
+    if(!funded && g.d<TODAY) dueTxt+=' · '+L('quá hạn','overdue');
+    else if(dl===0) dueTxt+=' · '+L('đến hạn hôm nay','due today');
+    else if(dl>0) dueTxt+=' · '+L('còn '+dl+' ngày',dl+' days to go');
+  }
+  html+='<div class="exd-meta">'
+    + _gldRow(L('Mục tiêu','Target'), fmt(g.target))
+    + _gldRow(L('Đã để dành','Saved'), fmt(g.saved)+' <span style="color:var(--muted);font-weight:500">('+pct+'%)</span>')
+    + (still>0?_gldRow(L('Còn phải để dành','Still to save'), fmt(still)):'')
+    + (dueTxt?_gldRow(L('Ngày','Date'), esc(dueTxt)):'')
+    + (g.occasion_id?_gldRow(L('Dịp','Occasion'), '<span class="gld-occ">🔗 '+esc(_gldOccName(g.occasion_id))+'</span>'):'')
+    +'</div>';
+
+  if(item && item.creatorId){                                // a goal proposal → show its review state
+    html+='<div class="exd-sec-h"><span class="t">'+L('Cả nhà cùng duyệt','Review')+'</span></div>'
+      +'<div style="margin:0 16px">'+_gldReviewBlock(item)+'</div>';
+  }
+
+  html+='<div class="gld-edit"><button class="fh-s-line" onclick="goalDetailEdit()">'+L('Sửa mục tiêu','Edit goal')+'</button></div>';
+  // Delete opens the persisting confirm sheet (fhDeleteGoal) — it names the funding
+  // reversal and arms-then-confirms there, matching how events are deleted.
+  html+='<button class="exd-del gld-del" id="gld-del" onclick="goalDetailDelete()">'+L('Xoá mục tiêu','Delete goal')+'</button>';
+  body.innerHTML=html;
+
+  var cta=document.getElementById('gld-cta');
+  if(cta){
+    if(incoming) cta.innerHTML='<button class="cta" onclick="goalDetailReview()">'+L('Duyệt','Review')+'</button>';
+    else if(!funded) cta.innerHTML='<button class="cta" onclick="goalDetailFund()">'+L('Góp quỹ','Add funds')+'</button>';
+    else cta.innerHTML='';
+    cta.style.display=cta.innerHTML?'':'none';
+  }
+}
+window.renderGoalDetail=renderGoalDetail;
+function openGoalDetail(id){
+  var g=_gldById(id); if(!g) return;
+  _goalDetailId=id;
+  renderGoalDetail();
+  document.getElementById('goal-overlay').classList.add('on');
+  var sc=document.querySelector('#goal-overlay .cd-scroll'); if(sc) sc.scrollTop=0;
+}
+window.openGoalDetail=openGoalDetail;
+function closeGoalDetail(){
+  var o=document.getElementById('goal-overlay'); if(o) o.classList.remove('on');
+  _goalDetailId=null;
+}
+window.closeGoalDetail=closeGoalDetail;
+/* re-render if the detail is on screen (after a fund, an edit, a review — local or
+   over realtime); if its goal is gone (deleted/archived), back out cleanly. */
+function renderGoalDetailIfOpen(){
+  var o=document.getElementById('goal-overlay'); if(!o || !o.classList.contains('on')) return;
+  if(!_gldById(_goalDetailId)){ closeGoalDetail(); return; }
+  renderGoalDetail();
+}
+window.renderGoalDetailIfOpen=renderGoalDetailIfOpen;
+
+function goalDetailEdit(){ if(_goalDetailId!=null && typeof window.fhEditGoal==='function') window.fhEditGoal(_goalDetailId); }
+window.goalDetailEdit=goalDetailEdit;
+function goalDetailFund(){ if(_goalDetailId!=null && typeof fundGoal==='function') fundGoal(_goalDetailId); }
+window.goalDetailFund=goalDetailFund;
+function goalDetailReview(){ if(_goalDetailId!=null && typeof openReview==='function') openReview('goal', _goalDetailId); }
+window.goalDetailReview=goalDetailReview;
+function goalDetailDelete(){ if(_goalDetailId!=null && typeof window.fhDeleteGoal==='function') window.fhDeleteGoal(_goalDetailId); }
+window.goalDetailDelete=goalDetailDelete;
 /* ---------- memories photo calendar ---------- */
 var mcalY=null, mcalM=null;
 function memCalInit(){
@@ -5842,7 +5996,7 @@ var exPreset=null;
 function buildExCatChips(){                                  // category chips reflect the current (editable) categories
   var box=document.getElementById('ex-cat'); if(!box)return;
   box.innerHTML = catOrder.map(function(c){ var s=catStyle[c]||['🏷️']; return '<button class="choice" data-v="'+c+'" onclick="pickExCat(this)">'+s[0]+' '+c+'</button>'; }).join('')
-    + '<button class="choice" data-v="Event" onclick="pickExCat(this)">🎈 Event</button>';
+    + '<button class="choice" data-v="Event" onclick="pickExCat(this)">🎈 '+L('Sự kiện','Event')+'</button>';
 }
 function openExpense(preset){
   exPreset = preset || null;
@@ -5911,12 +6065,6 @@ var lastCat='Groceries', lastWho='Emma';
    suppresses addExpense()'s per-row close/toast/nav so submitBulk() can loop it. */
 var bulkRows=[], bulkActive=0, BULK_SAVING=false;
 var bulkSaveTried=false;   // once the user taps Lưu with incomplete rows, those rows show a red border
-var exRecents=[
-  {note:'Grocery run',cat:'Groceries',who:'Emma'},
-  {note:'Coffee',cat:'Dining',who:'James'},
-  {note:'Gas',cat:'Transport',who:'James'},
-  {note:'Pharmacy',cat:'Others',who:'Emma'}
-];
 function selectChipByVal(group,val){
   var picked=false;
   document.getElementById(group).querySelectorAll('.choice').forEach(function(c){
@@ -6001,7 +6149,7 @@ function loadDrafts(){
   }catch(e){}
   return null;
 }
-function showDraftBanner(){ var b=document.getElementById('draft-banner'); if(b){ setTxt('draft-banner-txt', L('Đã khôi phục bản nháp chưa lưu','Restored your unsaved draft')); b.style.display=''; } }
+function showDraftBanner(){ var b=document.getElementById('draft-banner'); if(b){ setTxt('draft-banner-txt', L('Đã khôi phục bản nháp chưa lưu','Restored your unsaved draft')); var f=b.querySelector('.draft-fresh'); if(f) f.textContent=L('Bắt đầu mới','Start fresh'); b.style.display=''; } }
 function hideDraftBanner(){ var b=document.getElementById('draft-banner'); if(b) b.style.display='none'; }
 /* "Bắt đầu mới" — throw the restored draft away and start clean. */
 function startFreshDrafts(){
@@ -6145,7 +6293,7 @@ function bulkSummary(r){
   var meta='';
   if(base>0) meta+='<span class="bc-amt">'+fmt(base)+'</span>';
   if(catValid(r.cat)){
-    if(r.cat==='Event') meta+='<span class="bc-cat">🎈 Event</span>';
+    if(r.cat==='Event') meta+='<span class="bc-cat">🎈 '+L('Sự kiện','Event')+'</span>';
     else { var s=catStyle[r.cat]||['🏷️']; meta+='<span class="bc-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
   } else if(note || base>0){                                  // has content but no real category → prompt to pick
     meta+='<span class="bc-pick">'+L('Chọn danh mục','Pick a category')+'</span>';
@@ -6855,7 +7003,7 @@ function saveExpenseEdit(){
   var t=txById(editingTx); if(!t){ closeExpense(); return; }
   var amt=parseAmtBase(document.getElementById('ex-amt').value);
   if(!amt){ document.getElementById('ex-amt').focus(); return; }
-  var note=document.getElementById('ex-note').value.trim()||'Expense';
+  var note=document.getElementById('ex-note').value.trim()||L('Khoản chi','Expense');
   var cat=chosen('ex-cat')||'Fun', who=chosen('ex-who')||'Emma';
   var whoStore=(who==='Both')?'Shared':who;
   var dObj=exDate(), dstr=(dObj.getTime()===TODAY.getTime())?'Today':(MONA[dObj.getMonth()]+' '+dObj.getDate());
@@ -6867,7 +7015,7 @@ function saveExpenseEdit(){
     jul.spent-=t.amt; jul.catSpent[t.cat]=(jul.catSpent[t.cat]||0)-t.amt; jul.memberSpent[oldMk]=(jul.memberSpent[oldMk]||0)-t.amt;
   }
   // write the new values in place (keep the specific icon unless the category changed)
-  t.ico=(cat===t.cat && t.ico)?t.ico:s[0]; t.cat=cat; t.note=note; t.amt=amt; t.who=whoStore; t.date=dstr; t.future=newFuture?true:undefined;
+  t.ico=(cat===t.cat && t.ico)?t.ico:s[0]; t.cat=cat; t.note=note; t.amt=amt; t.who=whoStore; t.date=dstr; t._d=dObj; t.future=newFuture?true:undefined;
   t.photos=exPhotos.slice(); delete t.photo;               // add / keep / remove the memory photos
   syncExpenseEvent(t);                                     // keep the linked event in sync (create/update/remove)
   // apply the NEW contribution only if it is realized
@@ -7064,7 +7212,7 @@ function txRow(t){
   var s=catStyle[t.cat]||['🧾','#f2eef6','var(--cat-other)'];
   // Localize the display date/payer; the stored t.date/t.who strings stay as-is
   // (they are parsed by _txnIso / mapped by _memberIdForWho — display only here).
-  var dstr=(t.date==='Today')?L('Hôm nay','Today'):(t.date==='Just now')?L('Vừa xong','Just now'):(t._d?fmtDayMon(t._d):t.date);
+  var dstr=(t.date==='Just now')?L('Vừa xong','Just now'):((t._d?sameDay(t._d,TODAY):(t.date==='Today'))?L('Hôm nay','Today'):(t._d?fmtDayMon(t._d):t.date));
   // data-rxid (only persisted rows) arms the long-press reaction picker; rxChip appends any reactions inline
   var rxid=t._dbId?(' data-rxid="'+escAttr(t._dbId)+'"'):'';
   var chip=(typeof rxChip==='function')?rxChip(t):'';
@@ -7090,10 +7238,9 @@ function resRow(k){   // an event funded from this month → an "Events" future 
 function futRow(t){   // a standalone future expense logged in the expense sheet
   var today=sameDay(txPhotoDate(t),TODAY);
   var pend=(typeof futurePending==='function')&&futurePending(t);
-  var me=(typeof _futMeId==='function')?_futMeId():'';
-  var creator=(typeof _entCreatorId==='function')?_entCreatorId('expense',t):null;
-  var incoming=pend && creator && creator!==me;             // someone else's proposal → tapping it reviews, not edits
-  var onclick=incoming?('openReview(\'expense\',\''+t.id+'\')'):('openEditExpense(\''+t.id+'\')');
+  // Every future row lands on the read-first expense detail, same as a past row;
+  // the detail decides the CTA (Review for someone else's proposal, Update/Delete for mine).
+  var onclick='openExpenseDetail(\''+t.id+'\')';
   var tag=pend ? '<span class="res-tag pend">'+L('chờ duyệt','in review')+'</span>'
                : '<span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>';
   var sub=pend ? L('Chờ cả nhà duyệt','Waiting for the family')
@@ -7211,7 +7358,7 @@ function openCat(type,val,month){
     document.getElementById('cd-mark').style.cssText=done?'display:none':('left:'+(pace*100)+'%');
     var ctx=txns.filter(function(t){return !t.future && t.month===selMonth && t.cat===val;}); count=ctx.length; rows=ctx.map(txRow).join('');
   }
-  setTxt('cd-name',val); setTxt('cd-lab',lab); setTxt('cd-num',num); setTxt('cd-listhead',listHead);
+  setTxt('cd-name',whoName(val)); setTxt('cd-lab',lab); setTxt('cd-num',num); setTxt('cd-listhead',listHead);
   setTxt('cd-count', count? (count+' '+unit+(isVi()?'':(count===1?'':'s'))) : '');
   setHTML('cd-line','<span style="color:'+lineCol+';font-weight:600">'+line+'</span>');
   document.getElementById('cd-barbox').style.display=showBar?'':'none';
@@ -7230,7 +7377,7 @@ function buildCatPicker(){
   if(!curDetail)return; var t=curDetail.type, v=curDetail.val, html='';
   if(t==='mem'){
     setTxt('catpick-h',L('Ai đã trả','Who paid')); setTxt('catpick-sub',L('Xem chi tiêu của người khác.',"Jump to another person's spending."));
-    Object.keys(M().memberSpent).forEach(function(k){ html+='<button class="choice'+(k===v?' on':'')+'" onclick="pickCatFilter(\'mem\',\''+k+'\')">'+k+'</button>'; });
+    Object.keys(M().memberSpent).forEach(function(k){ html+='<button class="choice'+(k===v?' on':'')+'" onclick="pickCatFilter(\'mem\',\''+k+'\')">'+whoName(k)+'</button>'; });
   } else {
     setTxt('catpick-h',L('Danh mục','Category')); setTxt('catpick-sub',L('Chuyển tới giao dịch của danh mục khác.',"Jump to another category's transactions."));
     catOrder.forEach(function(c){ html+='<button class="choice'+(c===v?' on':'')+'" onclick="pickCatFilter(\'cat\',\''+c+'\')">'+((catStyle[c]||[''])[0])+' '+c+'</button>'; });
@@ -7267,7 +7414,7 @@ function addExpense(){
   if(dObj>TODAY){                                           // future date → a *proposal* (reserves nothing until the family aligns)
     var fwho=chosen('ex-who')||'Emma', fwhoStore=(fwho==='Both')?'Shared':fwho;
     var fby=(typeof _futMeId==='function')?_futMeId():((typeof _meName==='function')?_meName():fwhoStore);   // creator id (live) / name (demo)
-    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:fwhoStore,amt:amt,future:true,by:fby,reviews:[],month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,who:fwhoStore,amt:amt,future:true,by:fby,reviews:[],month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
     renderTxns(); selMonth=curMonthKey(); renderAll();
     if(!BULK_SAVING){                                        // bulk loop → submitBulk() handles the tail
       if(typeof clearDrafts==='function') clearDrafts();
@@ -7281,7 +7428,7 @@ function addExpense(){
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
   var hadPhoto=exPhotos.length>0;
-  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:whoStore,amt:amt,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,who:whoStore,amt:amt,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
   if(hadPhoto) syncExpenseEvent(txns[0]);                   // photos → a linked event for Events + Memories
   renderTxns();
   var jul=months[curMonthKey()];
@@ -7381,15 +7528,38 @@ function renderExpenseDetail(){
     html+=_exdSecH(L('Ảnh','Photos'), ph.length)
       +'<div class="exd-photos">'+ph.map(function(src){ return '<div class="exd-photo" style="background-image:url('+src+')"></div>'; }).join('')+'</div>';
   }
-  html+=_exdReactions(t);
+  // A future expense is a proposal: show the family's REVIEW state (distinct from the
+  // ledger reactions a realized expense carries). incoming = someone else's proposal →
+  // Review is the only action; mine/planned → Update + Delete like a realized row.
+  var isFuture=!!t.future;
+  var item=(isFuture && typeof _entNorm==='function')?_entNorm('expense',t,t.id):null;
+  var incoming=!!(item && typeof _entPending==='function' && _entPending(item) && typeof _isMine==='function' && !_isMine(item));
+  if(isFuture){
+    if(item && item.creatorId && typeof _gldReviewBlock==='function'){
+      html+='<div class="exd-sec-h"><span class="t">'+L('Cả nhà cùng duyệt','Review')+'</span></div>'
+        +'<div style="margin:0 16px">'+_gldReviewBlock(item)+'</div>';
+    }
+  } else {
+    html+=_exdReactions(t);
+  }
   // Delete lives at the foot of the scroll as low-prominence text (arm-then-confirm),
-  // per the destructive-button rule — never a red button in the CTA bar.
-  html+='<button class="exd-del" id="exd-del" onclick="expDetailDelete()">'+L('Xoá khoản chi','Delete expense')+'</button>';
+  // per the destructive-button rule — never a red button in the CTA bar. Someone else's
+  // pending proposal isn't yours to delete, so hide it there (Review only).
+  if(!incoming){
+    html+='<button class="exd-del" id="exd-del" onclick="expDetailDelete()">'+L('Xoá khoản chi','Delete expense')+'</button>';
+  }
   body.innerHTML=html;
   var cta=document.getElementById('exd-cta');
-  if(cta) cta.innerHTML='<button class="cta" onclick="expDetailEdit()">'+L('Cập nhật','Update')+'</button>';   // single bottom-anchored primary
+  if(cta){
+    cta.innerHTML=incoming
+      ? '<button class="cta" onclick="expDetailReview()">'+L('Duyệt','Review')+'</button>'                    // decide someone else's proposal
+      : '<button class="cta" onclick="expDetailEdit()">'+L('Cập nhật','Update')+'</button>';                  // single bottom-anchored primary
+  }
   _resetExdDel();
 }
+/* Review → the existing react-to-align picker (64-requests.js), opened over the detail. */
+function expDetailReview(){ if(_expDetailId!=null && typeof openReview==='function') openReview('expense', _expDetailId); }
+window.expDetailReview=expDetailReview;
 window.renderExpenseDetail=renderExpenseDetail;
 function openExpenseDetail(id){
   var t=(typeof txById==='function')?txById(id):null; if(!t) return;
@@ -7863,15 +8033,24 @@ function _reqStatusLine(item){
 }
 function _reqTypeChip(item){ var m=_entMeta(item.type); return item.icon+' '+(item.dateTxt||m.unit); }
 
+/* A request card opens the entity's read-first DETAIL screen (not the review picker
+   directly) — the detail surfaces the Review CTA when it's someone else's proposal,
+   so every tap lands on a consistent detail first. */
+function _reqOpenCall(item){
+  var ref=esc(item.ref);
+  if(item.type==='goal')     return 'openGoalDetail(\''+ref+'\')';
+  if(item.type==='occasion') return 'openEvent(\''+ref+'\')';
+  return 'openExpenseDetail(\''+ref+'\')';
+}
 /* ---- the card — one design across widget · hub · both lanes ---- */
 function _reqCard(item, incoming){
   if(incoming){
-    return '<button class="req-card" onclick="openReview(\''+item.type+'\',\''+esc(item.ref)+'\')">'+_entAv(item)
+    return '<button class="req-card" onclick="'+_reqOpenCall(item)+'">'+_entAv(item)
       +'<span class="req-cb"><span class="req-ct">'+esc(_reqName(item.creatorId))+' '+_entMeta(item.type).verb+'</span>'
       +'<span class="req-cs">'+esc(item.title)+' · '+_reqTypeChip(item)+'</span></span>'
       +'<span class="req-amt num">'+fmt(item.amount)+'</span>'+_reqChev()+'</button>';
   }
-  return '<button class="req-card" onclick="openReview(\''+item.type+'\',\''+esc(item.ref)+'\')">'+_entAv(item)
+  return '<button class="req-card" onclick="'+_reqOpenCall(item)+'">'+_entAv(item)
     +'<span class="req-cb"><span class="req-ct">'+esc(item.title)+' · '+fmt(item.amount)+'</span>'
     +_reqStatusLine(item)+'</span>'+_reqChev()+'</button>';
 }
@@ -7993,6 +8172,10 @@ function submitReview(type, ref, emoji){
   selMonth=curMonthKey();
   try{ if(typeof renderAll==='function') renderAll(); }catch(e){}
   try{ var ov=document.getElementById('requests-overlay'); if(ov && ov.classList.contains('on')) renderRequests(); }catch(e){}
+  // the review was launched FROM a detail screen — refresh whichever is underneath so its CTA flips
+  try{ if(typeof renderExpenseDetailIfOpen==='function') renderExpenseDetailIfOpen(); }catch(e){}
+  try{ if(typeof renderGoalDetailIfOpen==='function') renderGoalDetailIfOpen(); }catch(e){}
+  try{ var eo=document.getElementById('event-overlay'); if(eo && eo.classList.contains('on') && typeof openEvent==='function' && window.curEvent) openEvent(window.curEvent); }catch(e){}
   var nm=_reqName(item.creatorId);
   if(aligned){ if(typeof floatEmojis==='function') floatEmojis('🥰'); toast(L('Đã đồng ý với '+nm+' 🥰','You’re in with '+nm+' 🥰')); }
   else { toast(L('Đã gửi cảm nhận cho '+nm, 'Sent your take to '+nm)); }
@@ -8044,27 +8227,60 @@ window.reqCheckArrivals=reqCheckArrivals;
 function reqAfterHydrate(){
   try{ renderReqMounts(); }catch(e){}
   try{ var ov=document.getElementById('requests-overlay'); if(ov && ov.classList.contains('on')) renderRequests(); }catch(e){}
+  try{ if(typeof renderExpenseDetailIfOpen==='function') renderExpenseDetailIfOpen(); }catch(e){}   // a review that arrived over realtime → refresh an open detail
   try{ reqCheckArrivals(); }catch(e){}
 }
 window.reqAfterHydrate=reqAfterHydrate;
 
 /* ---------- events fund/create ---------- */
-var CIRC=496.4, curEvent='japan';
+var CIRC=496.4, curEvent=null;
 var savings=0; // saved-for-events pool (hydrated from DB)
 function openEvent(id){
   closeCat();
   curEvent=id; var e=events[id], dl=daysLeft(e.d), ach=achievedNow(e);
+  // An occasion can be a proposal awaiting the family's OK (same model as expense/goal
+  // requests) — surface its review state + a Review CTA when it's someone else's.
+  var item=(typeof _entNorm==='function' && typeof _entCreatorId==='function' && _entCreatorId('occasion',e))?_entNorm('occasion',e,id):null;
+  var pending=!!(item && typeof _entPending==='function' && _entPending(item));
+  var incoming=pending && typeof _isMine==='function' && !_isMine(item);
   document.getElementById('ov-hero').className='ov-hero';
   setTxt('ov-em',e.emoji); setTxt('ov-name',e.name);
-  setTxt('ov-meta', ach ? L('Đã đạt · kỷ niệm từ '+(e.d?fmtDayMon(e.d):e.date),'Achieved · a memory from '+e.date) : ((e.d?fmtDayMon(e.d):e.date)+' · '+(dl===0?L('đến hạn hôm nay','due today'):L('còn '+dl+' ngày',dl+' days to go'))));
+  var meta = ach ? L('Đã đạt · kỷ niệm từ '+(e.d?fmtDayMon(e.d):e.date),'Achieved · a memory from '+e.date) : ((e.d?fmtDayMon(e.d):e.date)+' · '+(dl===0?L('đến hạn hôm nay','due today'):L('còn '+dl+' ngày',dl+' days to go')));
+  if(pending) meta += ' · ' + (incoming?L('chờ bạn duyệt','waiting for you'):L('chờ cả nhà duyệt','waiting for the family'));
+  setTxt('ov-meta', meta);
   document.getElementById('ov-funding').style.display=ach?'none':'block';
   document.getElementById('ov-memories').style.display=ach?'block':'none';
   var cta=document.getElementById('ov-cta');
   if(ach){ renderGallery('ov-gallery'); cta.textContent=L('Thêm ảnh & chú thích','Add photos & caption'); cta.setAttribute('onclick','openMemorySheet()'); }
-  else { renderRing(); renderGallery('ov-fund-gallery'); cta.textContent=L('Góp quỹ','Add funds'); cta.setAttribute('onclick','openFund()'); }
-  // photo-events mirror an expense's photos — those are removed from the expense, not here
-  var evd=document.getElementById('ov-del'); if(evd) evd.style.display=e.fromExpense?'none':'block';
+  else {
+    renderRing(); renderContribs(e); renderGallery('ov-fund-gallery');
+    cta.textContent=L('Góp quỹ','Add funds'); cta.setAttribute('onclick','openFund()');
+    // funding history is real + session-live only (never demo): clear stale rows from a
+    // previously-opened event and hide the header until an actual contribution is logged.
+    var _h=document.getElementById('ov-history'); if(_h) _h.innerHTML='';
+    var _hh=document.getElementById('ov-history-h'); if(_hh) _hh.style.display='none';
+  }
+  if(incoming){ cta.textContent=L('Duyệt','Review'); cta.setAttribute('onclick',"openReview('occasion','"+id+"')"); }   // decide someone else's occasion proposal
+  // photo-events mirror an expense's photos — those are removed from the expense, not here;
+  // someone else's pending proposal isn't yours to delete either.
+  var evd=document.getElementById('ov-del'); if(evd) evd.style.display=(e.fromExpense||incoming)?'none':'block';
   document.getElementById('event-overlay').classList.add('on');
+}
+/* Real per-member contributions for this event — from event_fundings, aggregated at
+   hydrate into e.contribs ({memberId: amount}). Replaces the old hardcoded demo rows. */
+function renderContribs(e){
+  var box=document.getElementById('ov-contribs'); if(!box) return;
+  var c=e&&e.contribs, mb=(window.DB&&window.DB.memberById)||{};
+  var ids=c?Object.keys(c).filter(function(id){ return c[id]>0; }):[];
+  if(!ids.length){ box.innerHTML=''; return; }
+  ids.sort(function(a,b){ return c[b]-c[a]; });
+  box.innerHTML=ids.map(function(id){
+    var m=mb[id]||{}, shared=!!m.is_shared;
+    var nm=shared?L('Chung','Shared'):(m.name||L('Thành viên','Member')), col=m.color||'#8f8a99';
+    return '<div class="row"><div class="av av-44" style="background:'+col+';color:#fff">'+(shared?'👥':inits(m.name||nm))+'</div>'
+      +'<div class="r-body"><div class="r-t">'+esc(nm)+'</div><div class="r-s">'+L('đã góp','contributed')+'</div></div>'
+      +'<div class="r-amt num">'+fmt(c[id])+'</div></div>';
+  }).join('');
 }
 function renderGallery(boxId){
   boxId=boxId||'ov-gallery';
@@ -8252,7 +8468,7 @@ function addFunds(){
   if(e.saved>=e.target){ toast(L(e.name+' đã đủ tiền',e.name+' is already fully funded')); return; }
   if(savings<=0){ toast(L('Chưa có tiền tiết kiệm để dùng','No savings available to allocate')); return; }
   if(amt>savings){ toast(L('Quỹ chỉ còn '+fmt(savings),'Only '+fmt(savings)+' available in savings')); return; }
-  var who=chosen('fn-who')||'Emma', before=e.saved;
+  var who=chosen('fn-who')||window.lastWho||L('Bạn','You'), before=e.saved;
   var applied=Math.min(amt, e.target-e.saved);   // never overfund the event
   savings-=applied; e.saved+=applied;
   var justFunded=before<e.target && e.saved>=e.target;
@@ -8260,6 +8476,7 @@ function addFunds(){
   var ovOpen=document.getElementById('event-overlay').classList.contains('on') && id===curEvent;
   if(ovOpen && !achievedNow(e)){
     renderRing();
+    var _hh=document.getElementById('ov-history-h'); if(_hh) _hh.style.display='';   // real contribution → reveal the History header
     document.getElementById('ov-history').insertAdjacentHTML('afterbegin','<div class="row"><div class="r-ico" style="background:var(--brand-tint);color:var(--brand)">＋</div><div class="r-body"><div class="r-t">'+who+L(' góp · từ quỹ tiết kiệm',' added · from savings')+'</div><div class="r-s">'+L('Vừa xong','Just now')+'</div></div><div class="r-amt num pos">+'+fmt(applied)+'</div></div>');
   } else if(ovOpen){ openEvent(id); }
   document.getElementById('fn-amt').value='';
@@ -8457,7 +8674,7 @@ var EN_DEFAULT={
   csvModalTitle:'Import from file', csvPreviewNote:'Preview only — nothing is saved to your ledger yet.', csvPickLbl:'CSV file',
   /* suggest modal */
   suggestTitle:'We hear you 💛', suggestSub:'An idea, a gripe, a feature you wish existed — tell us anything.',
-  founderNote:'We read every note, and what you tell us shapes what comes next.',
+  founderNote:'We read every note. Thanks for helping us make it better.',
   sgTypeLbl:"What's on your mind", sgIdea:'💡 An idea', sgLove:'💛 Something I love', sgIssue:"🐞 Something's off",
   tellMore:'Tell us more', tellMorePh:'Say it however it comes. No need to be polished.',
   suggestFootHome:"Ideas or gripes? We're always listening",
@@ -8566,7 +8783,7 @@ var I18N={
     csvModalTitle:'Nhập từ file', csvPreviewNote:'Chỉ xem trước — chưa lưu vào sổ chi tiêu.', csvPickLbl:'File CSV',
     /* suggest modal */
     suggestTitle:'Tụi mình nghe bạn nè 💛', suggestSub:'Một ý tưởng, một điều chưa ưng, hay tính năng bạn ước có — kể tụi mình nghe hết nha.',
-    founderNote:'Tụi mình đọc hết mọi góp ý, và điều bạn chia sẻ định hình những gì sắp tới.',
+    founderNote:'Tụi mình đọc hết mọi góp ý. Cảm ơn bạn đã giúp app tốt hơn nha.',
     sgTypeLbl:'Bạn đang nghĩ gì', sgIdea:'💡 Một ý tưởng', sgLove:'💛 Điều mình thích', sgIssue:'🐞 Có gì đó chưa ổn',
     tellMore:'Kể thêm nha', tellMorePh:'Nói theo cách của bạn thôi, không cần trau chuốt đâu.',
     suggestFootHome:'Có ý tưởng hay muốn góp ý? Kể tụi mình nghe nha 💛',
@@ -9018,7 +9235,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v269';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v270';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -9282,6 +9499,13 @@ function openWhatsNew(){
   async function afterLogin(session) {
     if (!session) return;
     window.fhUser = session.user;
+    // Per-member language preference: seed from the profile so a member's choice follows
+    // them to a new device. The in-app switcher (Settings → Language) writes both this and
+    // localStorage 'fh-lang'; the hydrate reads localStorage, so keep them in sync here.
+    try {
+      const { data: _pl } = await sb.from('profiles').select('language').eq('id', session.user.id).maybeSingle();
+      if (_pl && (_pl.language === 'vi' || _pl.language === 'en')) { window.LANG = _pl.language; try { localStorage.setItem('fh-lang', _pl.language); } catch (e) {} }
+    } catch (e) {}
     try {
       const md = session.user.user_metadata || {};
       if (window.FAM) {
@@ -9337,8 +9561,8 @@ function openWhatsNew(){
     const cards = (fams || []).map((f) =>
       '<button class="fh-fam-card" data-fid="' + _esc(f.family_id) + '">'
       + '<div class="fh-fam-ico">' + _esc(String(f.name || '?').slice(0, 1).toUpperCase()) + '</div>'
-      + '<div class="fh-fam-grow"><div class="fh-fam-name">' + _esc(f.name || 'Family') + '</div>'
-      + '<div class="fh-fam-meta">' + (f.is_owner ? 'Owner' : 'Member') + (f.is_active ? ' · current' : '') + '</div></div>'
+      + '<div class="fh-fam-grow"><div class="fh-fam-name">' + _esc(f.name || L('Gia đình','Family')) + '</div>'
+      + '<div class="fh-fam-meta">' + (f.is_owner ? L('Chủ nhà','Owner') : L('Thành viên','Member')) + (f.is_active ? L(' · hiện tại',' · current') : '') + '</div></div>'
       + '<svg class="fh-fam-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>'
     ).join('');
     ov.innerHTML = '<div class="fh-fam-inner">'
@@ -9439,7 +9663,7 @@ function openWhatsNew(){
     if (on) {
       if (!el) {
         el = document.createElement('div'); el.id = 'fh-authbusy';
-        el.innerHTML = '<span class="fu-dot"></span><span>Signing you in…</span>';
+        el.innerHTML = '<span class="fu-dot"></span><span>' + L('Đang đăng nhập…','Signing you in…') + '</span>';
         (g('phone') || document.body).appendChild(el);
       }
       el.style.display = 'flex';
@@ -9729,7 +9953,7 @@ function openWhatsNew(){
     const ov = document.createElement('div');
     ov.id = 'fh-loading';
     ov.style.cssText = 'position:absolute;inset:0;z-index:66;display:flex;align-items:center;justify-content:center;background:var(--canvas)';
-    ov.innerHTML = '<div style="text-align:center"><div style="width:34px;height:34px;border:3px solid var(--hairline);border-top-color:var(--brand);border-radius:50%;margin:0 auto 14px;animation:fhspin2 .8s linear infinite"></div><div style="font-size:14px;color:var(--muted)">Loading your family…</div></div>';
+    ov.innerHTML = '<div style="text-align:center"><div style="width:34px;height:34px;border:3px solid var(--hairline);border-top-color:var(--brand);border-radius:50%;margin:0 auto 14px;animation:fhspin2 .8s linear infinite"></div><div style="font-size:14px;color:var(--muted)">' + L('Đang tải gia đình của bạn…','Loading your family…') + '</div></div>';
     (document.getElementById('phone') || document.body).appendChild(ov);
   }
   function _hideLoading() { const ov = document.getElementById('fh-loading'); if (ov) ov.remove(); }
@@ -9891,7 +10115,15 @@ function openWhatsNew(){
         _decRows(sg, ['name', 'target_amount', 'note'])
       ]);
 
-      if (fam) { window.FAM.familyName = fam.name; if (fam.currency) window.CUR = fam.currency; if (fam.default_language) window.LANG = fam.default_language; }
+      if (fam) {
+        window.FAM.familyName = fam.name;
+        if (fam.currency) window.CUR = fam.currency;
+        // Language is a per-member preference: a saved choice (Settings → Language) wins;
+        // the family default only seeds a member who hasn't picked one yet.
+        let _langPref = null; try { _langPref = localStorage.getItem('fh-lang'); } catch (e) {}
+        if (_langPref === 'vi' || _langPref === 'en') window.LANG = _langPref;
+        else if (fam.default_language) window.LANG = fam.default_language;
+      }
       // shared house customization ({house,tree,pet}); [] / null on a pre-migration snapshot → keep whatever we have
       window.FAM.house = (fam && fam.house && typeof fam.house === 'object') ? fam.house : (window.FAM.house || {});
 
@@ -10001,13 +10233,15 @@ function openWhatsNew(){
       window.selMonth = byKey[window.DB.monthKey] ? window.DB.monthKey : (window.monthOrder[window.monthOrder.length - 1] || window.DB.monthKey);
 
       // events + fundings + memories
-      const savedByEvent = {}, setAsideByEvent = {}, fromSavingsByEvent = {}, fromBudgetByEvent = {};
+      const savedByEvent = {}, setAsideByEvent = {}, fromSavingsByEvent = {}, fromBudgetByEvent = {}, contribByEvent = {};
       ef.forEach((f) => {
         const amt = Number(f.amount);
         savedByEvent[f.event_id] = (savedByEvent[f.event_id] || 0) + amt;
         if (f.source === 'savings') fromSavingsByEvent[f.event_id] = (fromSavingsByEvent[f.event_id] || 0) + amt;
         else fromBudgetByEvent[f.event_id] = (fromBudgetByEvent[f.event_id] || 0) + amt;
         if (f.source === 'budget' && f.month === monthDate) setAsideByEvent[f.event_id] = (setAsideByEvent[f.event_id] || 0) + amt;
+        // per-member contributions → the event overlay's real contributor rows (replaces the old demo rows)
+        if (f.event_id && f.member_id) { (contribByEvent[f.event_id] = contribByEvent[f.event_id] || {})[f.member_id] = (contribByEvent[f.event_id][f.member_id] || 0) + amt; }
       });
       const memByEvent = {};
       // _id / _path let a single photo be deleted later (row + storage object)
@@ -10022,7 +10256,7 @@ function openWhatsNew(){
         const mirrored = e.source_txn_id
           ? (photosByTx[e.source_txn_id] || []).map((src) => ({ src: src, _txn: e.source_txn_id, _path: (window.DB.pathByUrl || {})[src] || null }))
           : null;
-        evObj[e.id] = { _dbId: e.id, name: e.name, emoji: e.emoji || '🎯', cov: e.cover || 'blue', date: e.target_date ? (MO[d.getMonth()] + ' ' + d.getDate()) : '', d: d, target: Number(e.target_amount), saved: savedByEvent[e.id] || 0, setAside: setAsideByEvent[e.id] || 0, fromSavings: fromSavingsByEvent[e.id] || 0, fromBudget: fromBudgetByEvent[e.id] || 0, achieved: !!e.achieved, memories: mirrored || memByEvent[e.id], _srcTxn: e.source_txn_id || null, _createdBy: e.created_by || null };
+        evObj[e.id] = { _dbId: e.id, name: e.name, emoji: e.emoji || '🎯', cov: e.cover || 'blue', date: e.target_date ? (MO[d.getMonth()] + ' ' + d.getDate()) : '', d: d, target: Number(e.target_amount), saved: savedByEvent[e.id] || 0, setAside: setAsideByEvent[e.id] || 0, fromSavings: fromSavingsByEvent[e.id] || 0, fromBudget: fromBudgetByEvent[e.id] || 0, achieved: !!e.achieved, memories: mirrored || memByEvent[e.id], contribs: contribByEvent[e.id] || null, _srcTxn: e.source_txn_id || null, _createdBy: e.created_by || null };
         evOrder.push(e.id);
       });
       window.events = evObj; window.order = evOrder;
@@ -11306,17 +11540,17 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     window._fhMembers = mems;
     const rows = mems.map((m) => {
       const isSelf = m.user_id === uid;
-      const tag = m.is_shared ? 'shared' : (m.user_id ? (isSelf ? 'you' : 'member') : 'seat');
+      const tag = m.is_shared ? L('chung','shared') : (m.user_id ? (isSelf ? L('bạn','you') : L('thành viên','member')) : L('chỗ trống','seat'));
       return '<div class="fh-s-row">'
         + '<div class="av av-32" style="background:' + _esc(m.color || '#8f8a99') + '">' + inits(m.name) + '</div>'
         + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(m.name) + '</div><div class="fh-s-meta">' + tag + '</div></div>'
-        + ((owner || isSelf) && !m.is_shared ? _btn('Edit', "fhEditMember('" + m.id + "')", 'fh-s-edit') : '')
+        + ((owner || isSelf) && !m.is_shared ? _btn(L('Sửa','Edit'), "fhEditMember('" + m.id + "')", 'fh-s-edit') : '')
         + (owner && !isSelf && !m.is_shared
             ? _btn(_ICO.trash, "fhArchiveMember('" + m.id + "',this)", 'fh-s-act danger')
             : '')
         + '</div>';
     }).join('');
-    let html = '<div class="fh-s-h">' + _esc(fam ? fam.name : 'Family') + '</div>'
+    let html = '<div class="fh-s-h">' + _esc(fam ? fam.name : L('Gia đình','Family')) + '</div>'
       + '<div class="fh-s-lab" style="margin-top:14px">'+L('Thành viên','Members')+'</div>' + rows;
     if (owner) html += _btn(L('Thêm thành viên','Add member'), 'fhAddMember()', _S.line);
     html += _btn(L('Xong','Done'), '_closeOv()', _S.cta);
@@ -11331,14 +11565,14 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     window._fhMColor = m.color || _pal()[0];
     window._fhMName0 = m.name || '';
     const swatches = _pal().map((c) =>
-      '<button class="fh-s-sw' + (c === window._fhMColor ? ' on' : '') + '" data-c="' + c + '" aria-label="Colour ' + c + '"'
+      '<button class="fh-s-sw' + (c === window._fhMColor ? ' on' : '') + '" data-c="' + c + '" aria-label="' + L('Màu','Colour') + ' ' + c + '"'
       + ' onclick="fhPickMColor(this)"><i style="background:' + c + '"></i></button>').join('');
     _fhModal({
       title: L('Sửa thành viên','Edit member'),
       saveLabel: L('Lưu','Save'),
-      body: '<div class="field"><label>Name</label>'
-        + '<input id="fh-mname" value="' + _esc(m.name) + '" placeholder="Name" oninput="fhModalDirty()"></div>'
-        + '<div class="field"><label>Colour</label><div class="fh-s-swatches" id="fh-mcol">' + swatches + '</div></div>',
+      body: '<div class="field"><label>' + L('Tên','Name') + '</label>'
+        + '<input id="fh-mname" value="' + _esc(m.name) + '" placeholder="' + L('Tên','Name') + '" oninput="fhModalDirty()"></div>'
+        + '<div class="field"><label>' + L('Màu','Colour') + '</label><div class="fh-s-swatches" id="fh-mcol">' + swatches + '</div></div>',
       valid: () => {
         const v = (document.getElementById('fh-mname').value || '').trim();
         return !!v && (v !== window._fhMName0 || window._fhMColor !== (m.color || _pal()[0]));
@@ -11361,7 +11595,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   // Removing a member is destructive → arm-then-confirm inline on the row's own button.
   window.fhArchiveMember = async function (id, btn) {
     if (btn && !btn.classList.contains('armed')) {
-      btn.classList.add('armed'); btn.textContent = 'Remove?';
+      btn.classList.add('armed'); btn.textContent = L('Xoá?','Remove?');
       clearTimeout(window._fhMemArmT);
       window._fhMemArmT = setTimeout(() => {
         if (!btn.isConnected) return;
@@ -11380,14 +11614,14 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   window.fhAddMember = function () {
     window._fhNewColor = _pal()[Math.floor(Math.random() * _pal().length)];
     const swatches = _pal().map((c) =>
-      '<button class="fh-s-sw' + (c === window._fhNewColor ? ' on' : '') + '" data-c="' + c + '" aria-label="Colour ' + c + '"'
+      '<button class="fh-s-sw' + (c === window._fhNewColor ? ' on' : '') + '" data-c="' + c + '" aria-label="' + L('Màu','Colour') + ' ' + c + '"'
       + ' onclick="fhPickNewColor(this)"><i style="background:' + c + '"></i></button>').join('');
     _fhModal({
       title: L('Thêm thành viên','Add member'),
       saveLabel: L('Thêm','Add'),
-      body: '<div class="field"><label>Name</label>'
-        + '<input id="fh-newname" placeholder="e.g. Emma" oninput="fhModalDirty()"></div>'
-        + '<div class="field"><label>Colour</label><div class="fh-s-swatches">' + swatches + '</div></div>',
+      body: '<div class="field"><label>' + L('Tên','Name') + '</label>'
+        + '<input id="fh-newname" placeholder="' + L('vd. Mai','e.g. Emma') + '" oninput="fhModalDirty()"></div>'
+        + '<div class="field"><label>' + L('Màu','Colour') + '</label><div class="fh-s-swatches">' + swatches + '</div></div>',
       valid: () => !!(document.getElementById('fh-newname').value || '').trim(),
       after: () => { const i = document.getElementById('fh-newname'); if (i) i.focus(); },
       save: async () => {
@@ -11411,7 +11645,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       clearTimeout(window._fhLeaveT);
       window._fhLeaveT = setTimeout(() => {
         if (!btn.isConnected) return;
-        btn.classList.remove('armed'); btn.textContent = 'Leave this family';
+        btn.classList.remove('armed'); btn.textContent = L('Rời gia đình này','Leave this family');
       }, 3000);
       return;
     }
@@ -11419,7 +11653,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     if (btn) { btn.textContent = L('Đang rời…','Leaving…'); btn.disabled = true; }
     try { await _rpc('leave_family'); }
     catch (e) {
-      if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = 'Leave this family'; }
+      if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = L('Rời gia đình này','Leave this family'); }
       window.toast && window.toast(_friendly(e)); return;
     }
     try { fhKeyDrop(window.DB.fid); } catch (e) {}          // no lingering family key on a device that left
@@ -11431,7 +11665,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       clearTimeout(window._fhDelFamT);
       window._fhDelFamT = setTimeout(() => {
         if (!btn.isConnected) return;
-        btn.classList.remove('armed'); btn.textContent = 'Delete family';
+        btn.classList.remove('armed'); btn.textContent = L('Xoá gia đình','Delete family');
       }, 3000);
       return;
     }
@@ -11439,11 +11673,44 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     if (btn) { btn.textContent = L('Đang xoá…','Deleting…'); btn.disabled = true; }
     try { await _rpc('archive_family', { p_family_id: window.DB.fid }); }
     catch (e) {
-      if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = 'Delete family'; }
+      if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = L('Xoá gia đình','Delete family'); }
       window.toast && window.toast(_friendly(e)); return;
     }
     try { fhKeyDrop(window.DB.fid); } catch (e) {}
     window._closeOv(); location.reload();
+  };
+
+  // ---- Language (per-member display preference) ----
+  /* Language is per-member: it writes profiles.language (self-update is allowed by RLS)
+     and localStorage 'fh-lang', which the hydrate now prefers over the family default.
+     A full re-hydrate repaints every screen — including month labels baked at hydrate —
+     so the switch reads consistently everywhere, not just on static [data-t] labels. */
+  window.fhLanguageSheet = function () {
+    const cur = (window.LANG === 'vi') ? 'vi' : 'en';
+    const opt = (v, label) =>
+      '<button class="choice' + (v === cur ? ' on' : '') + '" onclick="fhPickLanguage(\'' + v + '\')">' + label + '</button>';
+    _fhSheet(
+      '<div class="fh-s-h">' + L('Ngôn ngữ','Language') + '</div>'
+      + '<div class="fh-s-sub">' + L('Chọn ngôn ngữ hiển thị cho riêng bạn — người khác trong nhà không đổi theo.','Choose your own display language — it won’t change it for anyone else in the family.') + '</div>'
+      + '<div class="choices" style="margin-top:6px">' + opt('vi', '🇻🇳 Tiếng Việt') + opt('en', '🇬🇧 English') + '</div>'
+      + _btn(L('Xong','Done'), '_closeOv()', _S.cta)
+    );
+  };
+  window.fhPickLanguage = async function (lang) {
+    if (lang !== 'vi' && lang !== 'en') return;
+    window._closeOv();
+    if (lang === window.LANG) return;
+    window.LANG = lang;
+    try { localStorage.setItem('fh-lang', lang); } catch (e) {}
+    // instant repaint: static [data-t] labels + every dynamic section (they read L()/t())
+    try { window.applyLang && window.applyLang(); } catch (e) {}
+    try { window.applyCurrency && window.applyCurrency(); } catch (e) {}
+    try { window.renderAll && window.renderAll(); } catch (e) {}
+    window.toast && window.toast(L('Đã chuyển sang Tiếng Việt','Switched to English'));
+    // persist per-member so it follows the user across devices — best-effort
+    try { const uid = window.fhUser && window.fhUser.id; if (uid) await sb.from('profiles').update({ language: lang }).eq('id', uid); } catch (e) {}
+    // re-hydrate so month labels (baked in at hydrate) and every surface land in the new language
+    try { if (window.loadFamilyData) await window.loadFamilyData(); } catch (e) {}
   };
 
   /* ═══ Passcode door + whitelist UI (0030) ═══════════════════════════════════
@@ -12207,7 +12474,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     } catch (e) {
       if (typeof console !== 'undefined') console.error(e);
       if (/enc_required/i.test(String((e && e.message) || '')) && window._fhEncRecover) { window._fhEncRecover(); if (window.toast) window.toast(_friendly(e)); }
-      else if (window.toast) window.toast('Không lưu được mục tiêu, thử lại');
+      else if (window.toast) window.toast(L('Không lưu được mục tiêu, thử lại','Couldn’t save the goal, try again'));
     }
   };
   // Add money to a goal from the savings pool.
@@ -12220,8 +12487,84 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     } catch (e) {
       if (typeof console !== 'undefined') console.error(e);
       if (/enc_required/i.test(String((e && e.message) || '')) && window._fhEncRecover) { window._fhEncRecover(); if (window.toast) window.toast(_friendly(e)); }
-      else if (window.toast) window.toast('Không bỏ ống được, thử lại');
+      else if (window.toast) window.toast(L('Không bỏ ống được, thử lại','Couldn’t add to savings, try again'));
     }
+  };
+  // Edit a goal's name / target / date. Reuses the existing update RLS policy
+  // (0020); name + target_amount go through fhField so they stay encrypted for
+  // encrypted families, exactly like fhCreateGoal. target_date stays plain.
+  window.fhEditGoal = function (id) {
+    if (!window.DB.fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
+    if (_fhWriteLocked()) return;
+    const g = (window.goals || {})[id]; if (!g) return;
+    const shownAmt = window.amtToInput ? window.amtToInput(g.target) : String(g.target);
+    const shownDate = g.d && window.isoDate ? window.isoDate(g.d) : '';
+    _fhModal({
+      title: L('Sửa mục tiêu','Edit goal'),
+      body: '<div class="field"><label>' + L('Tên mục tiêu','Goal name') + '</label>'
+        + '<input id="fh-eg-name" value="' + _esc(g.name) + '" placeholder="' + _esc(L('vd. Chuyến đi Đà Nẵng','e.g. Trip to Da Nang')) + '" oninput="fhModalDirty()"></div>'
+        + '<div class="field"><label>' + L('Số tiền mục tiêu','Target amount') + '</label>'
+        + '<input id="fh-eg-amt" class="num" inputmode="numeric" value="' + _esc(shownAmt) + '" oninput="fhModalDirty()"></div>'
+        + '<div class="field"><label>' + L('Ngày (không bắt buộc)','Date (optional)') + '</label>'
+        + '<input id="fh-eg-date" type="date" value="' + _esc(shownDate) + '" oninput="fhModalDirty()"></div>',
+      valid: () => {
+        const nm = (document.getElementById('fh-eg-name').value || '').trim();
+        const amt = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-eg-amt').value) : 0;
+        const dt = document.getElementById('fh-eg-date').value || '';
+        if (!nm || !(amt > 0)) return false;
+        return nm !== g.name || amt !== g.target || dt !== shownDate;   // dirty gate
+      },
+      save: async () => {
+        const nm = (document.getElementById('fh-eg-name').value || '').trim();
+        const amt = window.parseAmtBase(document.getElementById('fh-eg-amt').value);
+        const dt = document.getElementById('fh-eg-date').value || null;
+        const row = Object.assign({ target_date: dt }, await fhField('name', nm), await fhField('target_amount', amt));
+        await _w(sb.from('saving_goals').update(row).eq('id', id).eq('family_id', window.DB.fid), 'edit goal');
+        await loadFamilyData();
+        if (window.renderGoalDetailIfOpen) window.renderGoalDetailIfOpen();
+        window.toast && window.toast(L('Đã cập nhật mục tiêu','Goal updated'));
+      }
+    });
+  };
+  // Delete (archive) a goal: soft-delete + full funding reversal via archive_goal
+  // (0037), mirroring fhDeleteEvent. Confirm names the exact consequence.
+  window.fhDeleteGoal = function (id) {
+    const g = (window.goals || {})[id]; if (!g) return;
+    window._fhDelGoalId = id;
+    const f = (n) => (window.fmt ? window.fmt(n) : n);
+    const lines = [];
+    if (g.saved > 0) lines.push('<b>' + f(g.saved) + '</b> ' + L('sẽ trả lại quỹ tiết kiệm.','goes back to your savings.'));
+    else lines.push(L('Chưa có gì được góp cho mục tiêu này.','Nothing has been put toward this goal yet.'));
+    _fhSheet(
+      '<div class="fh-s-h">' + L('Xoá “','Delete “') + _esc(g.name) + '”?</div>'
+      + '<div class="fh-s-sub">' + lines.join('<br>') + '</div>'
+      + _btn(L('Giữ mục tiêu','Keep goal'), '_closeOv()', _S.cta)
+      + _btn(L('Xoá mục tiêu','Delete goal'), 'fhConfirmDeleteGoal(this)', _S.del)
+    );
+  };
+  window.fhConfirmDeleteGoal = async function (btn) {
+    if (btn && !btn.classList.contains('armed')) {          // first tap arms, second confirms
+      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa để xoá','Tap again to delete');
+      clearTimeout(window._fhDelGoalArmT);
+      window._fhDelGoalArmT = setTimeout(() => {
+        if (!btn.isConnected) return;
+        btn.classList.remove('armed'); btn.textContent = L('Xoá mục tiêu','Delete goal');
+      }, 3000);
+      return;
+    }
+    clearTimeout(window._fhDelGoalArmT);
+    const id = window._fhDelGoalId;
+    const g = (window.goals || {})[id]; if (!g) { window._closeOv(); return; }
+    if (btn) { btn.textContent = L('Đang xoá…','Deleting…'); btn.disabled = true; }
+    try { if (g._dbId) await _rpc('archive_goal', { p_goal_id: g._dbId }); }
+    catch (e) {
+      if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = L('Xoá mục tiêu','Delete goal'); }
+      window.toast && window.toast(_friendly(e)); return;
+    }
+    window._closeOv();
+    if (window.closeGoalDetail) window.closeGoalDetail();
+    await window.loadFamilyData();
+    window.toast && window.toast(L('Đã xoá mục tiêu','Goal deleted'));
   };
   window.fhSavings = function () {
     if (!window.DB.fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
@@ -12230,10 +12573,10 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     const shown = window.amtToInput ? window.amtToInput(cur) : String(cur);
     _fhModal({
       title: L('Để dành cho sự kiện','Saved for events'),
-      body: '<div class="fh-s-sub">Money you’ve set aside to fund goals, separate from income.</div>'
-        + '<div class="field"><label>Set the total to</label>'
+      body: '<div class="fh-s-sub">' + L('Tiền bạn để riêng ra để góp cho các mục tiêu, tách khỏi thu nhập.','Money you’ve set aside to fund goals, separate from income.') + '</div>'
+        + '<div class="field"><label>' + L('Đặt tổng quỹ thành','Set the total to') + '</label>'
         + '<input id="fh-sav" class="num big" inputmode="numeric" value="' + _esc(shown) + '" oninput="fhModalDirty()"></div>'
-        + '<div class="field-hint">' + _esc(window.curSym ? window.curSym() : '') + ' · this replaces the pool total, it doesn’t add to it.</div>',
+        + '<div class="field-hint">' + _esc(window.curSym ? window.curSym() : '') + ' · ' + L('số này thay cho tổng quỹ, không cộng thêm.','this replaces the pool total, it doesn’t add to it.') + '</div>',
       valid: () => {
         const v = (document.getElementById('fh-sav').value || '').trim();
         return v !== '' && v !== shown;
@@ -12251,7 +12594,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
             const iso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
             await _w(sb.from('savings_entries').insert(Object.assign(
               { family_id: window.DB.fid, member_id: window.DB.ownerMemberId || null, kind: delta > 0 ? 'deposit' : 'withdrawal', entry_date: iso },
-              await fhField('amount', Math.abs(delta)), await fhField('note', 'Adjust savings'))), 'write savings_entries');
+              await fhField('amount', Math.abs(delta)), await fhField('note', L('Điều chỉnh quỹ tiết kiệm','Adjust savings')))), 'write savings_entries');
           }
         } else {
           await _rpc('set_savings', { p_amount: base || 0 });
@@ -12281,28 +12624,28 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     const f = (n) => (window.fmt ? window.fmt(n) : n);
     const list = inc.map((r) =>
       '<div class="fh-s-row">'
-      + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(r.note || 'Income') + '</div><div class="fh-s-meta">' + _esc(r.income_date) + '</div></div>'
+      + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(r.note || L('Thu nhập','Income')) + '</div><div class="fh-s-meta">' + _esc(r.income_date) + '</div></div>'
       + '<span class="num" style="color:var(--good);font-weight:700;flex:none">+' + f(Number(r.amount)) + '</span>'
       + _btn(_ICO.trash, "fhDelIncome('" + r.id + "',this)", 'fh-s-act danger')
       + '</div>').join('');
     _fhModal({
-      title: 'Income',
+      title: L('Thu nhập','Income'),
       saveLabel: L('Thêm','Add'),
-      body: '<div class="fh-s-sub">Money coming in, tracked on its own, never auto-saved.</div>'
-        + '<div class="fh-s-stat"><div class="k">This month</div><div class="v">' + f(monthTotal) + '</div></div>'
-        + '<div class="field"><label>Amount</label>'
+      body: '<div class="fh-s-sub">' + L('Tiền vào của cả nhà, ghi riêng, không tự động để dành.','Money coming in, tracked on its own, never auto-saved.') + '</div>'
+        + '<div class="fh-s-stat"><div class="k">' + L('Tháng này','This month') + '</div><div class="v">' + f(monthTotal) + '</div></div>'
+        + '<div class="field"><label>' + L('Số tiền','Amount') + '</label>'
         + '<input id="fh-inc-amt" inputmode="numeric" placeholder="' + _esc(window.amtPlaceholder ? window.amtPlaceholder() : '') + '" oninput="fhModalDirty()"></div>'
-        + '<div class="field"><label>Note <span class="opt">optional</span></label>'
-        + '<input id="fh-inc-note" placeholder="e.g. Salary" oninput="fhModalDirty()"></div>'
-        + '<div class="fh-s-lab" style="margin-top:26px">Recent</div>'
-        + (list || '<div class="fh-s-empty">No income logged yet. Add your first above.</div>'),
+        + '<div class="field"><label>' + L('Ghi chú','Note') + ' <span class="opt">' + L('tuỳ chọn','optional') + '</span></label>'
+        + '<input id="fh-inc-note" placeholder="' + _esc(L('vd. Lương','e.g. Salary')) + '" oninput="fhModalDirty()"></div>'
+        + '<div class="fh-s-lab" style="margin-top:26px">' + L('Gần đây','Recent') + '</div>'
+        + (list || '<div class="fh-s-empty">' + L('Chưa ghi khoản thu nào. Thêm khoản đầu tiên ở trên nhé.','No income logged yet. Add your first above.') + '</div>'),
       valid: () => {
         const b = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-inc-amt').value) : 0;
         return b > 0;
       },
       save: async () => {
         const base = window.parseAmtBase(document.getElementById('fh-inc-amt').value);
-        const note = (document.getElementById('fh-inc-note').value || '').trim() || 'Income';
+        const note = (document.getElementById('fh-inc-note').value || '').trim() || L('Thu nhập','Income');
         const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
         const iso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         const { error } = await sb.from('incomes').insert(Object.assign(
@@ -12317,7 +12660,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   // Deleting income is destructive and permanent → arm-then-confirm on the row itself.
   window.fhDelIncome = async function (id, btn) {
     if (btn && !btn.classList.contains('armed')) {
-      btn.classList.add('armed'); btn.textContent = 'Delete?';
+      btn.classList.add('armed'); btn.textContent = L('Xoá?','Delete?');
       clearTimeout(window._fhIncArmT);
       window._fhIncArmT = setTimeout(() => {
         if (!btn.isConnected) return;
@@ -12351,7 +12694,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     const uid = session.user.id;
     // always create a fresh family (multi-family: "create" means a new one)
     const { data: familyId, error } = await sb.rpc('create_family', {
-      p_name: (window.FAM && window.FAM.familyName) || 'My family',
+      p_name: (window.FAM && window.FAM.familyName) || L('Gia đình của mình','My family'),
       p_currency: window.CUR || 'VND',
       p_language: window.LANG || 'vi'
     });
@@ -12440,7 +12783,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   window.finishOnboarding = async function () {
     const btn = document.querySelector('#onboarding .ob-screen[data-ob="done"] .cta');
     const label = btn ? btn.textContent : '';
-    const busy = (on) => { if (btn) { btn.disabled = on; btn.style.opacity = on ? '.7' : ''; btn.textContent = on ? 'Setting up…' : label; } };
+    const busy = (on) => { if (btn) { btn.disabled = on; btn.style.opacity = on ? '.7' : ''; btn.textContent = on ? L('Đang thiết lập…','Setting up…') : label; } };
     try {
       if (window.FAM && window.FAM.mode === 'create') { busy(true); await createFamilyInDB(); }
       else if (window.FAM && window.FAM.mode === 'join') { busy(true); await joinFinalizeDB(); }
