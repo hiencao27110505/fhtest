@@ -80,3 +80,25 @@
 .emoji-pick{display:flex;gap:8px;flex-wrap:wrap}
 .emoji-pick button{width:50px;height:50px;border-radius:14px;background:var(--canvas);font-size:24px;border:2px solid transparent}
 .emoji-pick button.on{border-color:var(--brand);background:var(--brand-tint)}
+/* ---- bulk expense logging: stacked collapsible forms -------------------------
+   Collapsed rows are flat summary cards; the active row's card wraps the single
+   #ex-editor. Flat, borders-not-fills, reuses theme tokens. */
+#bulk-list{display:flex;flex-direction:column;gap:10px}
+.bulk-card{border:1.5px solid var(--hairline);border-radius:14px;background:var(--white);overflow:hidden}
+.bulk-card.active{border-color:var(--brand);border-width:2px;background:var(--pearl)}
+.bulk-card.invalid{border-color:var(--danger);background:var(--danger-tint)}
+.bulk-card:not(.active){display:flex;align-items:center}
+.bulk-tap{flex:1;min-width:0;display:flex;align-items:center;padding:13px 4px 13px 15px;cursor:pointer}
+.bulk-tap .bs-left{flex:1;min-width:0;display:flex;align-items:center}
+.bulk-tap .bs-right{display:flex;align-items:center;gap:10px;flex-shrink:0;padding-left:10px}
+.bs-note{font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bs-note.bs-empty{font-weight:500;color:var(--muted);font-style:italic}
+.bs-amt{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
+.bs-cat{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.bulk-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 2px}
+.bulk-idx{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-ink)}
+.bulk-card.active #ex-editor-mount{padding:6px 14px 14px}
+.bulk-x{flex-shrink:0;width:34px;height:44px;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--muted);background:transparent;border:none}
+.bulk-x:active{color:var(--danger)}
+#bulk-add{width:100%;margin-top:12px;padding:13px;border-radius:13px;background:transparent;border:1.5px dashed var(--hairline);color:var(--brand-ink);font-size:15px;font-weight:600;letter-spacing:-.01em}
+#bulk-add:active{background:var(--brand-tint);border-color:var(--brand)}
