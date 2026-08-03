@@ -227,8 +227,21 @@ function flushActiveRow(){
 function commitActiveRow(){
   flushActiveRow();
   var r=bulkRows[bulkActive]; if(!r) return;
-  if(!parseAmtBase(r.amt||'') && (r.note||'').trim()){       // pull an amount out of the note if none was typed
-    var p=parseBulkLine(r.note);
+  var note=r.note||'';
+  // The input may still hold "recent entry, tail" (one comma behind) — split those
+  // remaining entries into their own rows before committing.
+  if(note.indexOf(',')>=0){
+    var entries=parseEntries(note);
+    if(entries.length){
+      applyParsed(bulkActive, entries[0]);
+      var at=bulkActive+1;
+      for(var i=1;i<entries.length;i++){ bulkRows.splice(at++,0, rowFromParsed(entries[i])); }
+      bulkActive=at-1;
+    } else { r.note=''; }
+    return;
+  }
+  if(!parseAmtBase(r.amt||'') && note.trim()){               // pull an amount out of the note if none was typed
+    var p=parseBulkLine(note);
     if(p.amt){ r.amt=p.amt; r.note=p.note; }
   }
   if(!r._catTouched && (r.note||'').trim()){                 // category not hand-picked → let the note decide, overriding any default
@@ -375,30 +388,31 @@ function markDuplicates(){
    real, parsed data, and there's never a stray empty form. */
 function onExNoteInput(){
   var v=document.getElementById('ex-note').value;
-  if(!editingTx && v.indexOf(',')>=0){
-    var lastSeg=v.slice(v.lastIndexOf(',')+1);     // text after the final comma
-    if(lastSeg.trim()!==''){ handleCommaSplit(); return; }   // next entry has started → peel off the completed ones
-    // comma just typed, nothing after it yet → keep waiting; treat as normal input
-  }
+  // Peel one comma BEHIND: only once there are ≥2 commas is the earliest entry
+  // safely complete (another entry has been finished after it). The most-recent
+  // entry + the in-progress tail stay in the input, so a card never appears beside
+  // half-typed text like "…, c".
+  if(!editingTx && (v.split(',').length-1) >= 2){ handleCommaSplit(); return; }
   onExInput();
 }
 function handleCommaSplit(){
   flushActiveRow();
-  var val=document.getElementById('ex-note').value;
-  var parts=val.split(',');
-  var remainder=parts.pop().trim();                // the next entry, already started (guaranteed non-empty by caller)
-  var done=parts.map(function(s){return s.trim();}).filter(function(s){return s!=='';});
-  if(done.length){
-    applyParsed(bulkActive, parseBulkLine(done[0]));                        // first completed entry fills the current row
-    for(var i=1;i<done.length;i++){ bulkRows.push(rowFromParsed(parseBulkLine(done[i]))); }
-    bulkRows.push(rowFromParsed({note:remainder, amt:'', cat:''}));         // active input carries the just-started entry
-    bulkActive=bulkRows.length-1;
-  } else {
-    bulkRows[bulkActive].note=remainder;           // e.g. ", chợ" — nothing completed, just drop the stray comma
-  }
+  var parts=document.getElementById('ex-note').value.split(',');
+  var keep=parts.slice(-2).join(',').replace(/^\s+/,'');   // recent (complete) entry + in-progress tail — stays in the input
+  var done=parts.slice(0,-2).map(function(s){return s.trim();}).filter(function(s){return s!=='';});   // safely-complete entries → cards
+  if(!done.length){ onExInput(); return; }
+  applyParsed(bulkActive, parseBulkLine(done[0]));
+  for(var i=1;i<done.length;i++){ bulkRows.push(rowFromParsed(parseBulkLine(done[i]))); }
+  bulkRows.push(rowFromParsed({note:keep, amt:'', cat:''}));
+  bulkActive=bulkRows.length-1;
   renderBulk();
   loadRow(bulkActive);
-  var n=document.getElementById('ex-note'); if(n){ n.focus(); var L2=n.value.length; try{ n.setSelectionRange(L2,L2); }catch(e){} }   // keep typing the next entry
+  var n=document.getElementById('ex-note'); if(n){ n.focus(); var L2=n.value.length; try{ n.setSelectionRange(L2,L2); }catch(e){} }
+}
+/* Split a raw input string into parsed entries (used when several comma-separated
+   entries are still sitting in the input at commit/validation time). */
+function parseEntries(note){
+  return (note||'').split(',').map(function(s){return s.trim();}).filter(function(s){return s!=='';}).map(function(s){ return parseBulkLine(s); });
 }
 function applyParsed(i, p){
   var r=bulkRows[i]; if(!r) return;

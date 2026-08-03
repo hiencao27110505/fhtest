@@ -5947,8 +5947,21 @@ function flushActiveRow(){
 function commitActiveRow(){
   flushActiveRow();
   var r=bulkRows[bulkActive]; if(!r) return;
-  if(!parseAmtBase(r.amt||'') && (r.note||'').trim()){       // pull an amount out of the note if none was typed
-    var p=parseBulkLine(r.note);
+  var note=r.note||'';
+  // The input may still hold "recent entry, tail" (one comma behind) — split those
+  // remaining entries into their own rows before committing.
+  if(note.indexOf(',')>=0){
+    var entries=parseEntries(note);
+    if(entries.length){
+      applyParsed(bulkActive, entries[0]);
+      var at=bulkActive+1;
+      for(var i=1;i<entries.length;i++){ bulkRows.splice(at++,0, rowFromParsed(entries[i])); }
+      bulkActive=at-1;
+    } else { r.note=''; }
+    return;
+  }
+  if(!parseAmtBase(r.amt||'') && note.trim()){               // pull an amount out of the note if none was typed
+    var p=parseBulkLine(note);
     if(p.amt){ r.amt=p.amt; r.note=p.note; }
   }
   if(!r._catTouched && (r.note||'').trim()){                 // category not hand-picked → let the note decide, overriding any default
@@ -6095,30 +6108,31 @@ function markDuplicates(){
    real, parsed data, and there's never a stray empty form. */
 function onExNoteInput(){
   var v=document.getElementById('ex-note').value;
-  if(!editingTx && v.indexOf(',')>=0){
-    var lastSeg=v.slice(v.lastIndexOf(',')+1);     // text after the final comma
-    if(lastSeg.trim()!==''){ handleCommaSplit(); return; }   // next entry has started → peel off the completed ones
-    // comma just typed, nothing after it yet → keep waiting; treat as normal input
-  }
+  // Peel one comma BEHIND: only once there are ≥2 commas is the earliest entry
+  // safely complete (another entry has been finished after it). The most-recent
+  // entry + the in-progress tail stay in the input, so a card never appears beside
+  // half-typed text like "…, c".
+  if(!editingTx && (v.split(',').length-1) >= 2){ handleCommaSplit(); return; }
   onExInput();
 }
 function handleCommaSplit(){
   flushActiveRow();
-  var val=document.getElementById('ex-note').value;
-  var parts=val.split(',');
-  var remainder=parts.pop().trim();                // the next entry, already started (guaranteed non-empty by caller)
-  var done=parts.map(function(s){return s.trim();}).filter(function(s){return s!=='';});
-  if(done.length){
-    applyParsed(bulkActive, parseBulkLine(done[0]));                        // first completed entry fills the current row
-    for(var i=1;i<done.length;i++){ bulkRows.push(rowFromParsed(parseBulkLine(done[i]))); }
-    bulkRows.push(rowFromParsed({note:remainder, amt:'', cat:''}));         // active input carries the just-started entry
-    bulkActive=bulkRows.length-1;
-  } else {
-    bulkRows[bulkActive].note=remainder;           // e.g. ", chợ" — nothing completed, just drop the stray comma
-  }
+  var parts=document.getElementById('ex-note').value.split(',');
+  var keep=parts.slice(-2).join(',').replace(/^\s+/,'');   // recent (complete) entry + in-progress tail — stays in the input
+  var done=parts.slice(0,-2).map(function(s){return s.trim();}).filter(function(s){return s!=='';});   // safely-complete entries → cards
+  if(!done.length){ onExInput(); return; }
+  applyParsed(bulkActive, parseBulkLine(done[0]));
+  for(var i=1;i<done.length;i++){ bulkRows.push(rowFromParsed(parseBulkLine(done[i]))); }
+  bulkRows.push(rowFromParsed({note:keep, amt:'', cat:''}));
+  bulkActive=bulkRows.length-1;
   renderBulk();
   loadRow(bulkActive);
-  var n=document.getElementById('ex-note'); if(n){ n.focus(); var L2=n.value.length; try{ n.setSelectionRange(L2,L2); }catch(e){} }   // keep typing the next entry
+  var n=document.getElementById('ex-note'); if(n){ n.focus(); var L2=n.value.length; try{ n.setSelectionRange(L2,L2); }catch(e){} }
+}
+/* Split a raw input string into parsed entries (used when several comma-separated
+   entries are still sitting in the input at commit/validation time). */
+function parseEntries(note){
+  return (note||'').split(',').map(function(s){return s.trim();}).filter(function(s){return s!=='';}).map(function(s){ return parseBulkLine(s); });
 }
 function applyParsed(i, p){
   var r=bulkRows[i]; if(!r) return;
@@ -11435,6 +11449,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
         + '<div class="fh-s-sub">' + L('Bản mã và bản gốc đang tồn tại song song; app tự đối chiếu mỗi lần đọc, và máy chủ đã chặn mọi cách ghi không mã hóa. Khi yên tâm, bấm hoàn tất để xóa bản gốc trên máy chủ. Đây là bước duy nhất không quay lại được nếu cả nhà mất mã.',
                                         'Ciphertext and originals coexist; the app cross-checks them on every read, and the server already refuses any unencrypted write. When confident, finish to erase the plaintext on the server. That’s the one step that can’t be undone if the whole family loses the code.') + '</div>'
         + roster.html + pendWarn
+        + _btn(L('Đối chiếu giải mã toàn bộ', 'Verify all decryption'), 'fhEncVerifyAll(this)', _S.line)
         + (owner ? _btn(L('Hoàn tất và xóa bản gốc trên máy chủ', 'Finish and erase server plaintext'), 'fhEncScrub(this)', _S.del)
                  + _btn(L('Tắt mã hóa', 'Turn encryption off'), 'fhEncDisable(this)', _S.ghost)
                  : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ hoàn tất bước này.', 'The owner finishes this step.') + '</div>');
@@ -11560,6 +11575,41 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       window.toast && window.toast(_friendly(e));
       if (btn) btn.disabled = false;
     } finally { _fhEncBusy = false; }
+  };
+
+  /* One-tap proof before the scrub: decrypt EVERY ciphertext in the family and
+     compare it to the plaintext still sitting beside it. Only 'dual' offers
+     this ground truth, which is exactly why the check lives here. Any device
+     holding the key can run it; a mismatch names itself in the console. */
+  window.fhEncVerifyAll = async function (btn) {
+    if (_fhEncBusy) return;
+    if (!fhKeyReady()) { window.fhUnlockPrompt(); return; }
+    _fhEncBusy = true;
+    if (btn) btn.disabled = true;
+    let ok = 0, bad = 0;
+    try {
+      for (const spec of _ENC_TABLES) {
+        _fhEncProg(L('Đang đối chiếu: ', 'Checking: ') + spec.t + '…');
+        const r = await sb.from(spec.t).select(_encCols(spec)).eq('family_id', window.DB.fid);
+        if (r.error) throw r.error;
+        for (const row of (r.data || [])) {
+          for (const f of spec.num.concat(spec.str)) {
+            const ct = row[f + '_enc'];
+            let pt = row[f];
+            if (spec.t === 'monthly_budgets' && f === 'budget_total' && Number(pt) === 0) pt = null;
+            if (ct == null || pt == null) continue;            // no pair, nothing to compare
+            const dec = await FHCrypto.decVal(_fhSessionDek(), ct).catch(() => null);
+            const same = spec.num.indexOf(f) >= 0 ? Number(dec) === Number(pt) : String(dec) === String(pt);
+            if (same) ok++;
+            else { bad++; console.error('FH VERIFY MISMATCH', spec.t, row.id, f, { plaintext: pt, decrypted: dec }); }
+          }
+        }
+      }
+      _fhEncProg('');
+      if (bad) window.toast && window.toast(L('Có ' + bad + ' giá trị không khớp. Đừng hoàn tất vội, xem console giúp mình nhé.', bad + ' values don’t match. Don’t finish yet, check the console.'));
+      else window.toast && window.toast(L('Đã đối chiếu ' + ok + ' giá trị, khớp toàn bộ. An toàn để hoàn tất.', ok + ' values checked, everything matches. Safe to finish.'));
+    } catch (e) { _fhEncProg(''); window.toast && window.toast(_friendly(e)); }
+    finally { _fhEncBusy = false; if (btn) btn.disabled = false; }
   };
 
   // dual→enc: THE destructive step. Arm-then-confirm, server double-checks owner+state.

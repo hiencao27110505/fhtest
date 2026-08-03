@@ -74,6 +74,7 @@
         + '<div class="fh-s-sub">' + L('Bản mã và bản gốc đang tồn tại song song; app tự đối chiếu mỗi lần đọc, và máy chủ đã chặn mọi cách ghi không mã hóa. Khi yên tâm, bấm hoàn tất để xóa bản gốc trên máy chủ. Đây là bước duy nhất không quay lại được nếu cả nhà mất mã.',
                                         'Ciphertext and originals coexist; the app cross-checks them on every read, and the server already refuses any unencrypted write. When confident, finish to erase the plaintext on the server. That’s the one step that can’t be undone if the whole family loses the code.') + '</div>'
         + roster.html + pendWarn
+        + _btn(L('Đối chiếu giải mã toàn bộ', 'Verify all decryption'), 'fhEncVerifyAll(this)', _S.line)
         + (owner ? _btn(L('Hoàn tất và xóa bản gốc trên máy chủ', 'Finish and erase server plaintext'), 'fhEncScrub(this)', _S.del)
                  + _btn(L('Tắt mã hóa', 'Turn encryption off'), 'fhEncDisable(this)', _S.ghost)
                  : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ hoàn tất bước này.', 'The owner finishes this step.') + '</div>');
@@ -199,6 +200,41 @@
       window.toast && window.toast(_friendly(e));
       if (btn) btn.disabled = false;
     } finally { _fhEncBusy = false; }
+  };
+
+  /* One-tap proof before the scrub: decrypt EVERY ciphertext in the family and
+     compare it to the plaintext still sitting beside it. Only 'dual' offers
+     this ground truth, which is exactly why the check lives here. Any device
+     holding the key can run it; a mismatch names itself in the console. */
+  window.fhEncVerifyAll = async function (btn) {
+    if (_fhEncBusy) return;
+    if (!fhKeyReady()) { window.fhUnlockPrompt(); return; }
+    _fhEncBusy = true;
+    if (btn) btn.disabled = true;
+    let ok = 0, bad = 0;
+    try {
+      for (const spec of _ENC_TABLES) {
+        _fhEncProg(L('Đang đối chiếu: ', 'Checking: ') + spec.t + '…');
+        const r = await sb.from(spec.t).select(_encCols(spec)).eq('family_id', window.DB.fid);
+        if (r.error) throw r.error;
+        for (const row of (r.data || [])) {
+          for (const f of spec.num.concat(spec.str)) {
+            const ct = row[f + '_enc'];
+            let pt = row[f];
+            if (spec.t === 'monthly_budgets' && f === 'budget_total' && Number(pt) === 0) pt = null;
+            if (ct == null || pt == null) continue;            // no pair, nothing to compare
+            const dec = await FHCrypto.decVal(_fhSessionDek(), ct).catch(() => null);
+            const same = spec.num.indexOf(f) >= 0 ? Number(dec) === Number(pt) : String(dec) === String(pt);
+            if (same) ok++;
+            else { bad++; console.error('FH VERIFY MISMATCH', spec.t, row.id, f, { plaintext: pt, decrypted: dec }); }
+          }
+        }
+      }
+      _fhEncProg('');
+      if (bad) window.toast && window.toast(L('Có ' + bad + ' giá trị không khớp. Đừng hoàn tất vội, xem console giúp mình nhé.', bad + ' values don’t match. Don’t finish yet, check the console.'));
+      else window.toast && window.toast(L('Đã đối chiếu ' + ok + ' giá trị, khớp toàn bộ. An toàn để hoàn tất.', ok + ' values checked, everything matches. Safe to finish.'));
+    } catch (e) { _fhEncProg(''); window.toast && window.toast(_friendly(e)); }
+    finally { _fhEncBusy = false; if (btn) btn.disabled = false; }
   };
 
   // dual→enc: THE destructive step. Arm-then-confirm, server double-checks owner+state.
