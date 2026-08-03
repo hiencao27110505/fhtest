@@ -35,6 +35,25 @@
   }
   const _fhErr = (msg) => { const e = new Error(msg); e.fhMsg = msg; return e; };   // survives _friendly()
 
+  /* Recovery for a server-rejected plaintext write (0033 'enc_required'). The
+     goal is that the user continues, not just learns why they failed:
+       1. an immediate SW update check — if this build is stale, the new sw.js
+          installs, controllerchange fires and the app reloads itself into the
+          current build (the queued entry survives the reload in IndexedDB);
+       2. a state refresh — hydrate re-learns enc_state so the client guards
+          and the lock widget engage without waiting for realtime;
+       3. the passcode prompt — after unlock the outbox flush lands anything
+          that was held.
+     Debounced: one recovery per 10s no matter how many writes bounced. */
+  let _fhRecovAt = 0;
+  window._fhEncRecover = async function () {
+    if (Date.now() - _fhRecovAt < 10000) return;
+    _fhRecovAt = Date.now();
+    try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) reg.update(); } catch (e) {}
+    try { if (window.loadFamilyData) await window.loadFamilyData(); } catch (e) {}
+    if (window.DB && window.DB.enc && window.DB.enc.enc_state !== 'off' && !fhKeyReady()) window.fhUnlockPrompt();
+  };
+
   // ── Joiner: prep the join screen from the pending invite for this email ──
   window.obJoinPrep = async function () {
     const pv = document.getElementById('ob-join-preview'), hint = document.getElementById('ob-join-hint');

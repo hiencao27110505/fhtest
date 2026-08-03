@@ -248,8 +248,15 @@
       if (res.data) { t._dbId = res.data.id; if (t.photos && t.photos.length) _dbUploadTxnPhotos(t._dbId, t.photos); }
       _syncSoon();
     } catch (e) {
-      // A connection dropped mid-write is recoverable — queue it; anything else is real.
+      // A connection dropped mid-write is recoverable — queue it. So is an
+      // enc_required rejection (stale build / stale enc state): the entry goes
+      // to the outbox, recovery updates+unlocks the app, and the flush lands
+      // it encrypted — the user's typing is never the thing that gets lost.
       if (_isNetErr(e)) await _obQueueTxn(row, t);
+      else if (/enc_required/i.test(String((e && e.message) || ''))) {
+        await _obQueueTxn(row, t);
+        if (window._fhEncRecover) window._fhEncRecover();
+      }
       else _writeErr('txn insert failed', e);
     }
   }

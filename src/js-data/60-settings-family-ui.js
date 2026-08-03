@@ -53,6 +53,9 @@
     try { then = await ctx.save(); }
     catch (e) {
       save.textContent = ctx.saveLabel || L('Lưu','Save'); save.disabled = false;
+      // enc_required through a modal form (income, savings): keep the form open
+      // as usual AND run recovery so the app updates/unlocks for the retry
+      if (/enc_required/i.test(String((e && e.message) || '')) && window._fhEncRecover) window._fhEncRecover();
       window.toast && window.toast(_friendly(e));         // recoverable: modal stays open
       return;
     }

@@ -86,7 +86,9 @@
 #bulk-list{display:flex;flex-direction:column;gap:10px}
 .bulk-card{border:1.5px solid var(--hairline);border-radius:14px;background:var(--white);overflow:hidden}
 .bulk-card.active{border-color:var(--brand);border-width:2px;background:var(--pearl)}
-.bulk-card.invalid{border-color:var(--danger);background:var(--danger-tint)}
+.bulk-card.invalid{border-color:var(--amber);background:var(--amber-tint)}
+.bs-pick{font-size:12px;font-weight:700;color:var(--amber);white-space:nowrap}
+.bs-dup{font-size:11px;font-weight:600;color:var(--muted);font-style:italic;white-space:nowrap}
 .bulk-card:not(.active){display:flex;align-items:center}
 .bulk-tap{flex:1;min-width:0;display:flex;align-items:center;padding:13px 4px 13px 15px;cursor:pointer}
 .bulk-tap .bs-left{flex:1;min-width:0;display:flex;align-items:center}

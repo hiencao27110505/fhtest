@@ -192,10 +192,18 @@ function prefillExpense(){
   loadRow(0);
   updateExWhen(); refreshExCta();
 }
+/* A category is usable only if it belongs to THIS family's set (or is the special
+   Event). Prevents a stale demo default like 'Groceries'/'Fun' — categories that
+   may not exist on a real account — from being written to the ledger. */
+function catValid(c){ return c==='Event' || (!!c && (catOrder||[]).indexOf(c)>=0); }
+/* The default category for a fresh manual row: the last-used one if it's real,
+   otherwise EMPTY (→ unclassified, the user picks) — never a phantom category. */
+function safeDefaultCat(){ return catValid(lastCat) ? lastCat : ''; }
+function rowHasContent(r){ return !!(r && ((r.note||'').trim() || parseAmtBase(r.amt||'')>0)); }
 /* A fresh draft row. Mirrors the old prefill defaults (last category/payer, today,
    or a preset's category/date) so a single-row modal behaves exactly as before. */
 function blankRow(preset){
-  var cat = (preset && preset.cat && catBudget[preset.cat]) ? preset.cat : lastCat;
+  var cat = (preset && catValid(preset.cat)) ? preset.cat : safeDefaultCat();
   var d   = (preset && preset.date) || isoDate(TODAY);
   return { note:'', amt:'', cat:cat, who:lastWho, date:d, _invalid:false };
 }
@@ -218,7 +226,7 @@ function loadRow(i){
   var iso = r.date || isoDate(TODAY);
   document.getElementById('ex-date').value = iso;
   setDateFloor('ex-date', isoMonthStart(-24), iso);
-  selectChipByVal('ex-cat', r.cat||lastCat);
+  selectChipByVal('ex-cat', catValid(r.cat) ? r.cat : '');   // unclassified → no chip selected
   selectChipByVal('ex-who', r.who||lastWho);
   updateExWhen(); refreshExCta();
 }
@@ -253,8 +261,13 @@ function bulkSummary(r){
   var right='';
   var base=parseAmtBase(r.amt||'');
   if(base>0) right+='<span class="bs-amt">'+fmt(base)+'</span>';
-  if(r.cat && r.cat!=='Event'){ var s=catStyle[r.cat]||['🏷️']; right+='<span class="bs-cat">'+s[0]+' '+r.cat+'</span>'; }
-  else if(r.cat==='Event') right+='<span class="bs-cat">🎈 Event</span>';
+  if(catValid(r.cat)){
+    if(r.cat==='Event') right+='<span class="bs-cat">🎈 Event</span>';
+    else { var s=catStyle[r.cat]||['🏷️']; right+='<span class="bs-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
+  } else if(note || base>0){                                  // has content but no real category → prompt to pick
+    right+='<span class="bs-cat bs-pick">'+L('Chọn nhóm','Pick a group')+'</span>';
+  }
+  if(r._dup) right+='<span class="bs-dup">'+L('trùng?','dup?')+'</span>';
   return '<span class="bs-left">'+left+'</span><span class="bs-right">'+right+'</span>';
 }
 /* Rebuild the card list and relocate the single #ex-editor into the active card.
@@ -277,9 +290,14 @@ function renderBulk(){
   var holder=document.getElementById('bulk-holder');
   if(!holder){ holder=document.createElement('div'); holder.id='bulk-holder'; holder.style.display='none'; document.getElementById('expense-modal').appendChild(holder); }
   holder.appendChild(editor);
+  markDuplicates();                                 // flag same note+amount rows (non-blocking hint)
   var html='';
   for(var i=0;i<bulkRows.length;i++){
-    var r=bulkRows[i], inv=r._invalid?' invalid':'';
+    var r=bulkRows[i];
+    // A card needs attention when it has content but no real category (unclassified),
+    // or was flagged invalid at save time.
+    var needCat = rowHasContent(r) && !catValid(r.cat);
+    var inv=(r._invalid || needCat)?' invalid':'';
     if(i===bulkActive){
       html+='<div class="bulk-card active'+inv+'">'
         +  '<div class="bulk-head"><span class="bulk-idx">'+L('Khoản ','Item ')+(i+1)+'</span>'
@@ -314,6 +332,17 @@ function pruneEmptyRows(){
   bulkActive=kept.indexOf(active); if(bulkActive<0) bulkActive=kept.length-1;
   bulkRows=kept;
 }
+/* Flag later rows that repeat an earlier row's note + amount — a gentle "trùng?"
+   hint, never blocking (the family may legitimately buy the same thing twice). */
+function markDuplicates(){
+  var seen={};
+  bulkRows.forEach(function(r){
+    r._dup=false;
+    var note=(r.note||'').trim(); if(!note) return;
+    var key=deburr(note.toLowerCase())+'|'+parseAmtBase(r.amt||'');
+    if(seen[key]) r._dup=true; else seen[key]=true;
+  });
+}
 /* ---- comma-triggered NL line parsing ---------------------------------------
    Typing a comma in CHI CHO GÌ? commits the completed segment(s) as rows and
    opens a fresh form for whatever follows the last comma. */
@@ -343,13 +372,13 @@ function applyParsed(i, p){
   var r=bulkRows[i]; if(!r) return;
   r.note=p.note;
   if(p.amt) r.amt=p.amt;
-  if(p.cat) r.cat=p.cat;
+  r.cat=catValid(p.cat) ? p.cat : '';        // failed guess → unclassified (the user picks), never a stale default
 }
 function rowFromParsed(p){
   var r=blankRow();
   r.note=p.note||'';
   if(p.amt) r.amt=p.amt;
-  if(p.cat) r.cat=p.cat;
+  r.cat=catValid(p.cat) ? p.cat : '';
   return r;
 }
 /* Parse one segment → {note, amt (display-currency string), cat}. */
@@ -390,39 +419,80 @@ function matchAmount(s){
 /* Diacritic-insensitive category guess from note keywords (EN + VN). Only returns
    a category the family actually has (iterates catOrder); otherwise '' → keep last. */
 function deburr(s){ return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D'); }
-/* Note keywords → an abstract CONCEPT (language-neutral). Word-boundary matched. */
-var CONCEPT_KEYWORDS={
-  'Dining':['ca phe','coffee','cafe','tra sua','tra','an','an uong','com','pho','bun','mi','nha hang','restaurant','lunch','dinner','breakfast','quan','bia','beer','banh','nhau','do an','food','eat','tea','pizza','ga ran','kfc','lotteria','highland','starbucks','tiem','an sang','an trua','an toi','snack'],
-  'Transport':['xang','gas','grab','taxi','xe','bus','gui xe','parking','petrol','fuel','uber','xe om','gojek','do xang','ferry','ve xe','ve tau','ve may bay','flight','grabbike','grabcar','sua xe','rua xe'],
-  'Groceries':['cho','market','sieu thi','supermarket','rau','thit','ca hoi','ca thu','grocery','groceries','bach hoa','coopmart','bigc','winmart','vinmart','lotte','emart','gao','trai cay','fruit','vegetable','meat','di cho','do kho'],
-  'Housing':['dien','nuoc','internet','wifi','tien nha','rent','thue','electricity','water','quan ly','phi quan ly','tien dien','tien nuoc','tien internet','mang','cap','rac','phi chung cu','sua nha','noi that'],
-  'Fun':['phim','cinema','game','choi','du lich','travel','movie','karaoke','party','net','bi a','billiards','concert','ve xem','giai tri','massage','spa','gym','the thao','sach','book','shopping','mua sam','quan ao','ao quan','ao','quan','giay','dep','tui'],
-  'Others':['khac','other','others','linh tinh','thuoc','pharmacy','y te','benh vien','hoc','tuition','hoc phi']
+/* ---- bilingual category guessing -------------------------------------------
+   Two independent axes, deliberately NOT conflated:
+   • note LANGUAGE → tied to the UI language (isVi()). Keyword lists are split so a
+     word that means different things across languages resolves by the user's own
+     language first. Classic trap: "gas" = fuel (Transport) in EN, but cooking gas
+     (Housing) in VN. Brand/loan words (grab, kfc…) live in a SHARED list matched in
+     both. The other language is a best-effort fallback only.
+   • note keywords → an abstract CONCEPT; the CONCEPT then maps to the FAMILY's own
+     category by NAME or EMOJI (see CONCEPT_MATCH), so it works whatever language the
+     family named their categories in, and never invents a category they don't have.
+   (Amount MAGNITUDE is a third axis, tied to CURRENCY not language — see matchAmount.) */
+var KW_SHARED={   // brand / loan words, safe in either language
+  'Transport':['grab','gojek','uber','taxi','grabbike','grabcar'],
+  'Dining':['cafe','kfc','lotteria','starbucks','highland','pizza','burger','sushi'],
+  'Groceries':['coopmart','bigc','winmart','vinmart','emart'],
+  'Fun':['netflix','spotify','karaoke']
 };
-/* CONCEPT → how to recognise the FAMILY's own category for it. Categories are
-   named in the family's language (e.g. "Giải trí", "Ăn uống"), so we match on the
-   category NAME (deburred substring) OR its emoji — never on an English key. */
+var KW_VI={
+  'Housing':['dien','tien dien','nuoc','tien nuoc','internet','wifi','mang','tien nha','thue nha','tien phong','quan ly','phi quan ly','tien internet','cap','rac','phi chung cu','sua nha','noi that','gas','tien gas','binh gas'],
+  'Groceries':['cho','di cho','sieu thi','rau','thit','ca hoi','ca thu','bach hoa','gao','trai cay','do kho','thuc pham','nhu yeu pham','do an'],
+  'Clothing':['quan ao','ao quan','ao','quan jean','quan tay','quan short','vay','ao dai','ao thun','giay','dep','giay dep','thoi trang','tui xach'],
+  'Shopping':['mua sam','sam do','sam sua'],
+  'Transport':['xang','do xang','xe','xe om','xe buyt','bus','gui xe','ve xe','ve tau','ve may bay','sua xe','rua xe','phi cau duong'],
+  'Dining':['ca phe','an','an uong','com','pho','bun','mi','bun bo','nha hang','bia','ruou','banh','nhau','tra sua','tra','tiem','an sang','an trua','an toi','quan an','quan nhau','quan oc','quan cafe','quan bia','lau','nuong','che'],
+  'Fun':['phim','xem phim','choi','di choi','du lich','game','net','bi a','concert','ve xem','giai tri','massage','spa','gym','the thao','sach','ca hat','hat karaoke'],
+  'Others':['khac','linh tinh','thuoc','y te','benh vien','hoc','hoc phi','tien hoc']
+};
+var KW_EN={
+  'Housing':['electricity','water','rent','utilities','bills','gas bill','internet bill','maintenance','furniture','wifi'],
+  'Groceries':['grocery','groceries','market','supermarket','vegetable','vegetables','fruit','fruits','meat','fish','rice'],
+  'Clothing':['clothes','clothing','shirt','tshirt','t-shirt','dress','shoes','jeans','jacket','apparel','skirt','sneakers','bag'],
+  'Shopping':['shopping','mall'],
+  'Transport':['gas','fuel','petrol','bus','parking','fare','flight','train ticket','ride'],
+  'Dining':['coffee','restaurant','lunch','dinner','breakfast','brunch','beer','wine','tea','snack','eat','food','meal','drinks','dining'],
+  'Fun':['movie','cinema','game','games','travel','trip','concert','massage','spa','gym','book','books','music'],
+  'Others':['other','others','misc','medicine','pharmacy','hospital','tuition','school']
+};
+/* CONCEPT → how to recognise the FAMILY's own category for it, by NAME (deburred
+   substring) OR emoji — never by an English key. */
 var CONCEPT_MATCH={
-  'Dining':   {names:['an uong','am thuc','dining','food','eating'],                         emojis:['🍽️','🍜','🍔','☕','🍲','🥘']},
-  'Transport':{names:['di chuyen','di lai','transport','giao thong','commute'],              emojis:['🚗','🚕','🛵','⛽','🚌','✈️']},
+  'Housing':  {names:['nha o','nha cua','housing','sinh hoat','hoa don','tien nha','rent','utilities','bills'], emojis:['🏠','🏡','💡','🧾','🔌']},
   'Groceries':{names:['di cho','cho bua','groceries','grocery','thuc pham','sieu thi','nhu yeu pham'], emojis:['🛒','🥬','🥦']},
-  'Housing':  {names:['nha cua','nha o','housing','sinh hoat','hoa don','tien nha','rent','utilities','bills'], emojis:['🏠','🏡','💡','🧾','🔌']},
-  'Fun':      {names:['giai tri','vui choi','fun','entertainment','leisure','mua sam','shopping'], emojis:['🎉','🎈','🎮','🎬','🎡','🛍️']},
+  'Clothing': {names:['clothing','thoi trang','quan ao','clothes','apparel'],                emojis:['👕','👗','🧥','👖','👚','👟']},
+  'Shopping': {names:['shopping','mua sam','mall'],                                          emojis:['🛍️','🎁']},
+  'Transport':{names:['di chuyen','di lai','transport','transportation','giao thong','commute'], emojis:['🚗','🚕','🛵','⛽','🚌','✈️']},
+  'Dining':   {names:['an uong','am thuc','dining','food','eating'],                         emojis:['🍽️','🍜','🍔','☕','🍲','🥘']},
+  'Fun':      {names:['giai tri','vui choi','fun','entertainment','leisure'],                emojis:['🎉','🎈','🎮','🎬','🎡']},
   'Others':   {names:['khac','other','others','linh tinh','misc'],                           emojis:['🗂️','📦','🏷️']}
 };
-var CONCEPT_ORDER=['Groceries','Housing','Dining','Transport','Fun','Others'];
+/* Specific concepts before broad ones so e.g. "quần áo"→Clothing (not Dining's 'an')
+   and "mua sắm"→Shopping win before Dining/Fun. */
+var CONCEPT_ORDER=['Housing','Groceries','Clothing','Shopping','Transport','Fun','Dining','Others'];
+function _scanConcepts(padded, dicts){
+  for(var k=0;k<CONCEPT_ORDER.length;k++){
+    var cpt=CONCEPT_ORDER[k];
+    for(var d=0;d<dicts.length;d++){
+      var kws=dicts[d][cpt]; if(!kws) continue;
+      for(var j=0;j<kws.length;j++){
+        var kw=deburr(kws[j].toLowerCase()).trim();
+        if(kw && padded.indexOf(' '+kw+' ')>=0) return cpt;
+      }
+    }
+  }
+  return '';
+}
 function conceptFromNote(note){
   var t=deburr((note||'').toLowerCase()).replace(/\s+/g,' ').trim();
   if(!t) return '';
   var padded=' '+t+' ';
-  for(var k=0;k<CONCEPT_ORDER.length;k++){
-    var kws=CONCEPT_KEYWORDS[CONCEPT_ORDER[k]];
-    for(var j=0;j<kws.length;j++){
-      var kw=deburr(kws[j].toLowerCase()).trim();
-      if(kw && padded.indexOf(' '+kw+' ')>=0) return CONCEPT_ORDER[k];
-    }
-  }
-  return '';
+  var vi=(typeof isVi==='function' && isVi());
+  var primary = vi ? KW_VI : KW_EN, secondary = vi ? KW_EN : KW_VI;
+  return _scanConcepts(padded, [KW_SHARED, primary])   // shared + the user's language win
+      || _scanConcepts(padded, [secondary])            // other language: best-effort for cross-language terms
+      || '';
 }
 function familyCatForConcept(concept){
   var m=CONCEPT_MATCH[concept]; if(!m) return '';
@@ -431,9 +501,9 @@ function familyCatForConcept(concept){
     for(var n=0;n<m.names.length;n++){ if(name.indexOf(deburr(m.names[n]))>=0) return c; }
     if(emoji && m.emojis.indexOf(emoji)>=0) return c;
   }
-  return '';   // family has no category for this concept → keep the last-used one
+  return '';   // family has no category for this concept → leave unclassified (user picks)
 }
-/* Guess the family's category from a note. Returns '' (keep lastCat) when unsure. */
+/* Guess the family's category from a note. Returns '' (unclassified) when unsure. */
 function guessCat(note){
   var concept=conceptFromNote(note||'');
   return concept ? familyCatForConcept(concept) : '';
@@ -453,7 +523,7 @@ function submitBulk(){
   var rows=bulkRows.filter(function(r){ return (r.note||'').trim() || parseAmtBase(r.amt||''); });  // drop blank rows
   if(!rows.length){ toast(L('Chưa có khoản nào để lưu','Nothing to save yet')); return; }
   var firstInvalid=-1;
-  rows.forEach(function(r,i){ r._invalid=!(parseAmtBase(r.amt||'')>0 && r.cat); if(r._invalid && firstInvalid<0) firstInvalid=i; });
+  rows.forEach(function(r,i){ r._invalid=!(parseAmtBase(r.amt||'')>0 && catValid(r.cat)); if(r._invalid && firstInvalid<0) firstInvalid=i; });
   bulkRows=rows;                                    // keep only the real rows in the model
   if(firstInvalid>=0){
     bulkActive=firstInvalid;

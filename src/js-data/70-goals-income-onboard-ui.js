@@ -13,7 +13,11 @@
         await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, goal_id: gr.data.id, member_id: window.DB.ownerMemberId || null, source: 'savings', month: null }, await fhField('amount', g.init))), 'fund goal');
       }
       await loadFamilyData();
-    } catch (e) { if (typeof console !== 'undefined') console.error(e); if (window.toast) window.toast('Không lưu được mục tiêu, thử lại'); }
+    } catch (e) {
+      if (typeof console !== 'undefined') console.error(e);
+      if (/enc_required/i.test(String((e && e.message) || '')) && window._fhEncRecover) { window._fhEncRecover(); if (window.toast) window.toast(_friendly(e)); }
+      else if (window.toast) window.toast('Không lưu được mục tiêu, thử lại');
+    }
   };
   // Add money to a goal from the savings pool.
   window.fhFundGoal = async function (goalId, amount) {
@@ -22,7 +26,11 @@
       const fid = window.DB.fid;
       await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, goal_id: goalId, member_id: window.DB.ownerMemberId || null, source: 'savings', month: null }, await fhField('amount', amount))), 'fund goal');
       await loadFamilyData();
-    } catch (e) { if (typeof console !== 'undefined') console.error(e); if (window.toast) window.toast('Không bỏ ống được, thử lại'); }
+    } catch (e) {
+      if (typeof console !== 'undefined') console.error(e);
+      if (/enc_required/i.test(String((e && e.message) || '')) && window._fhEncRecover) { window._fhEncRecover(); if (window.toast) window.toast(_friendly(e)); }
+      else if (window.toast) window.toast('Không bỏ ống được, thử lại');
+    }
   };
   window.fhSavings = function () {
     if (!window.DB.fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
