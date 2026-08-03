@@ -295,24 +295,24 @@ function bulkDate(iso){
   var p=iso.split('-'); if(p.length!==3) return '';
   return p[2]+'/'+p[1]+((+p[0]===TODAY.getFullYear())?'':('/'+p[0]));
 }
-/* Collapsed-card body: note ↔ amount on one row (amounts right-align across cards),
-   then the category (or a red "Chọn danh mục" prompt) on its own row below. */
+/* Collapsed-card body: the note on its own full-width row, then amount + category
+   (or a red "Chọn danh mục" prompt) on the row below. */
 function bulkSummary(r){
   var note=(r.note||'').trim();
   var noteHtml = note
     ? '<span class="bc-note">'+esc(note)+'</span>'
     : '<span class="bc-note bc-empty">'+L('(khoản trống)','(empty item)')+'</span>';
   var base=parseAmtBase(r.amt||'');
-  var amtHtml = base>0 ? '<span class="bc-amt">'+fmt(base)+'</span>' : '';
-  var cat='';
+  var meta='';
+  if(base>0) meta+='<span class="bc-amt">'+fmt(base)+'</span>';
   if(catValid(r.cat)){
-    if(r.cat==='Event') cat='<span class="bc-cat">🎈 Event</span>';
-    else { var s=catStyle[r.cat]||['🏷️']; cat='<span class="bc-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
+    if(r.cat==='Event') meta+='<span class="bc-cat">🎈 Event</span>';
+    else { var s=catStyle[r.cat]||['🏷️']; meta+='<span class="bc-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
   } else if(note || base>0){                                  // has content but no real category → prompt to pick
-    cat='<span class="bc-pick">'+L('Chọn danh mục','Pick a category')+'</span>';
+    meta+='<span class="bc-pick">'+L('Chọn danh mục','Pick a category')+'</span>';
   }
-  if(r._dup) cat+='<span class="bc-dup">'+L('lặp lại','repeat')+'</span>';
-  return '<span class="bc-main">'+noteHtml+amtHtml+'</span><span class="bc-catrow">'+cat+'</span>';
+  if(r._dup) meta+='<span class="bc-dup">'+L('lặp lại','repeat')+'</span>';
+  return noteHtml+'<span class="bc-meta">'+meta+'</span>';
 }
 /* Rebuild the card list and relocate the single #ex-editor into the active card.
    Edit mode (or an empty model) renders the editor in place with no cards/＋. */

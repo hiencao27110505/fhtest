@@ -1630,12 +1630,11 @@ input{font-family:inherit}
 .bulk-card:not(.active){display:flex;align-items:center}
 /* Real <button> so it's focusable and announced by VoiceOver (not a bare div).
    Stacked: "Khoản chi N · date" header, then note ↔ amount, then category. */
-.bulk-tap{flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:12px 8px 13px 16px;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.bc-main{display:flex;align-items:baseline;gap:12px}
-.bc-note{flex:1;min-width:0;font-size:15px;font-weight:600;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bulk-tap{flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:5px;padding:12px 8px 13px 16px;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.bc-note{font-size:15px;font-weight:600;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bc-note.bc-empty{font-weight:500;color:var(--muted);font-style:italic}
-.bc-amt{flex-shrink:0;font-size:16px;font-weight:800;color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
-.bc-catrow{display:flex;align-items:center;gap:8px;min-height:17px}
+.bc-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:17px}
+.bc-amt{font-size:16px;font-weight:800;color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
 .bc-cat{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
 .bc-dup{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
 /* Shared header — same on collapsed and open cards. */
@@ -6039,24 +6038,24 @@ function bulkDate(iso){
   var p=iso.split('-'); if(p.length!==3) return '';
   return p[2]+'/'+p[1]+((+p[0]===TODAY.getFullYear())?'':('/'+p[0]));
 }
-/* Collapsed-card body: note ↔ amount on one row (amounts right-align across cards),
-   then the category (or a red "Chọn danh mục" prompt) on its own row below. */
+/* Collapsed-card body: the note on its own full-width row, then amount + category
+   (or a red "Chọn danh mục" prompt) on the row below. */
 function bulkSummary(r){
   var note=(r.note||'').trim();
   var noteHtml = note
     ? '<span class="bc-note">'+esc(note)+'</span>'
     : '<span class="bc-note bc-empty">'+L('(khoản trống)','(empty item)')+'</span>';
   var base=parseAmtBase(r.amt||'');
-  var amtHtml = base>0 ? '<span class="bc-amt">'+fmt(base)+'</span>' : '';
-  var cat='';
+  var meta='';
+  if(base>0) meta+='<span class="bc-amt">'+fmt(base)+'</span>';
   if(catValid(r.cat)){
-    if(r.cat==='Event') cat='<span class="bc-cat">🎈 Event</span>';
-    else { var s=catStyle[r.cat]||['🏷️']; cat='<span class="bc-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
+    if(r.cat==='Event') meta+='<span class="bc-cat">🎈 Event</span>';
+    else { var s=catStyle[r.cat]||['🏷️']; meta+='<span class="bc-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
   } else if(note || base>0){                                  // has content but no real category → prompt to pick
-    cat='<span class="bc-pick">'+L('Chọn danh mục','Pick a category')+'</span>';
+    meta+='<span class="bc-pick">'+L('Chọn danh mục','Pick a category')+'</span>';
   }
-  if(r._dup) cat+='<span class="bc-dup">'+L('lặp lại','repeat')+'</span>';
-  return '<span class="bc-main">'+noteHtml+amtHtml+'</span><span class="bc-catrow">'+cat+'</span>';
+  if(r._dup) meta+='<span class="bc-dup">'+L('lặp lại','repeat')+'</span>';
+  return noteHtml+'<span class="bc-meta">'+meta+'</span>';
 }
 /* Rebuild the card list and relocate the single #ex-editor into the active card.
    Edit mode (or an empty model) renders the editor in place with no cards/＋. */
@@ -8896,7 +8895,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v263';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v264';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -11569,8 +11568,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
                                         'Not yet entered: ' + roster.pending.join(', ') + '. Their devices ask for the code on open and can’t log money until it’s entered. You can finish anytime. Afterwards they just enter the code to read as usual.') + '</div>'
         : '';
       body = '<div class="fh-s-lab">' + L('Trạng thái: giai đoạn kiểm chứng', 'Status: verification window') + '</div>'
-        + '<div class="fh-s-sub">' + L('Bản mã và bản gốc đang tồn tại song song; app tự đối chiếu mỗi lần đọc, và máy chủ đã chặn mọi cách ghi không mã hóa. Khi yên tâm, bấm hoàn tất để xóa bản gốc trên máy chủ. Đây là bước duy nhất không quay lại được nếu cả nhà mất mã.',
-                                        'Ciphertext and originals coexist; the app cross-checks them on every read, and the server already refuses any unencrypted write. When confident, finish to erase the plaintext on the server. That’s the one step that can’t be undone if the whole family loses the code.') + '</div>'
+        + '<div class="fh-s-sub">' + L('Bản mã và bản gốc đang tồn tại song song; app tự đối chiếu mỗi lần đọc, và máy chủ đã chặn mọi cách ghi không mã hóa. Khi yên tâm, bấm hoàn tất để xóa bản gốc trên máy chủ. Sau bước này không còn đường quay lại bản không mã hóa, với bất kỳ ai.',
+                                        'Ciphertext and originals coexist; the app cross-checks them on every read, and the server already refuses any unencrypted write. When confident, finish to erase the plaintext on the server. After that there is no way back to unencrypted data, for anyone.') + '</div>'
         + roster.html + pendWarn
         + _btn(L('Đối chiếu giải mã toàn bộ', 'Verify all decryption'), 'fhEncVerifyAll(this)', _S.line)
         + (owner ? _btn(L('Hoàn tất và xóa bản gốc trên máy chủ', 'Finish and erase server plaintext'), 'fhEncScrub(this)', _S.del)
@@ -11585,11 +11584,10 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     } else {
       const roster = _fhUnlockRoster();
       body = '<div class="fh-s-lab">' + L('Trạng thái: đang mã hóa đầu-cuối', 'Status: end-to-end encrypted') + '</div>'
-        + '<div class="fh-s-sub">' + L('Máy chủ chỉ còn bản đã khóa. Dữ liệu chỉ mở được bằng mã gia đình trên máy của thành viên.',
-                                        'The server holds only locked values. Data opens only with the family code, on members’ devices.') + '</div>'
+        + '<div class="fh-s-sub">' + L('Máy chủ chỉ còn bản đã khóa. Dữ liệu chỉ mở được bằng mã gia đình trên máy của thành viên. Quyết định này là vĩnh viễn, không ai đưa được bản không mã hóa trở lại máy chủ, kể cả gia đình bạn.',
+                                        'The server holds only locked values. Data opens only with the family code, on members’ devices. This is permanent. No one can put unencrypted data back on the server, not even your family.') + '</div>'
         + roster.html
-        + (fhKeyReady() ? '' : _btn(L('Mở khóa máy này', 'Unlock this device'), '_closeOv();fhUnlockPrompt()', _S.cta))
-        + (owner ? _btn(L('Tắt mã hóa (khôi phục bản gốc)', 'Turn off (restore plaintext)'), 'fhEncDisable(this)', _S.del) : '');
+        + (fhKeyReady() ? '' : _btn(L('Mở khóa máy này', 'Unlock this device'), '_closeOv();fhUnlockPrompt()', _S.cta));
     }
     body += '<div class="fh-s-sub" id="fh-enc-prog" style="min-height:18px"></div>';
     /* Excel-copy CTA temporarily hidden by product decision (2026-08-03) — the
@@ -11871,16 +11869,15 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     window.fhEncryptionSheet();
   };
 
-  /* enc→off (or dual→off): decrypt-back. From 'enc' we first drop to 'dual' so
-     concurrent writers go back to writing both, then restore plaintext from
-     ciphertext row by row (clearing the ciphertext as we go), then land on
-     'off'. Interruption-safe: in dual, readers use plaintext when present and
-     fall back to ciphertext when not. */
+  /* dual→off ONLY: abort the trial window. In dual the plaintext never left
+     the server, so nothing is "restored" — the server just drops the trial's
+     ciphertext (0035 wipes it inside the state change) and the family is back
+     exactly where it started. Once a family COMMITS ('enc'), there is no off
+     switch: 0035 makes 'enc' terminal and this button never renders there. */
   window.fhEncDisable = async function (btn) {
-    if (_fhEncBusy) return;
-    if (!fhKeyReady()) { window.fhUnlockPrompt(); return; }
+    if (_fhEncBusy || fhEncState() !== 'dual') return;
     if (btn && !btn.classList.contains('armed')) {
-      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa để khôi phục bản gốc trên máy chủ', 'Tap again to restore server plaintext');
+      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa để tắt, mọi số liệu giữ nguyên', 'Tap again to turn off, all data stays as it is');
       clearTimeout(window._fhDisArmT);
       window._fhDisArmT = setTimeout(() => {
         if (!btn.isConnected) return;
@@ -11892,37 +11889,11 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     _fhEncBusy = true;
     if (btn) btn.disabled = true;
     try {
-      if (fhEncState() === 'enc') await _rpc('set_family_enc_state', { p_state: 'dual' });
-      let total = 0;
-      for (const spec of _ENC_TABLES) {
-        _fhEncProg(L('Đang khôi phục: ', 'Restoring: ') + spec.t + '…');
-        const r = await sb.from(spec.t).select(_encCols(spec)).eq('family_id', window.DB.fid);
-        if (r.error) throw r.error;
-        for (const row of (r.data || [])) {
-          const patch = {}; let touch = false;
-          for (const f of spec.num.concat(spec.str)) {
-            const ct = row[f + '_enc'];
-            if (ct == null) continue;
-            const v = await FHCrypto.decVal(_fhSessionDek(), ct);
-            patch[f] = spec.num.indexOf(f) >= 0 ? Number(v) : v;
-            if (spec.t === 'monthly_budgets' && f === 'budget_total' && patch[f] == null) patch[f] = 0;
-            patch[f + '_enc'] = null;
-            touch = true;
-          }
-          if (touch) {
-            window.DB._lastLocalWrite = Date.now();
-            await _w(sb.from(spec.t).update(patch).eq('id', row.id), 'restore ' + spec.t);
-            total++;
-          }
-        }
-      }
       await _rpc('set_family_enc_state', { p_state: 'off' });
-      _fhEncProg('');
-      window.toast && window.toast(L('Đã tắt mã hóa, khôi phục ' + total + ' dòng.', 'Encryption off. ' + total + ' rows restored.'));
+      window.toast && window.toast(L('Đã tắt mã hóa, dữ liệu giữ nguyên như cũ.', 'Encryption off. Your data stays as it was.'));
       await window.loadFamilyData();
       window.fhEncryptionSheet();
     } catch (e) {
-      _fhEncProg('');
       window.toast && window.toast(_friendly(e));
       if (btn) { btn.disabled = false; btn.classList.remove('armed'); }
     } finally { _fhEncBusy = false; }

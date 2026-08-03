@@ -71,8 +71,8 @@
                                         'Not yet entered: ' + roster.pending.join(', ') + '. Their devices ask for the code on open and can’t log money until it’s entered. You can finish anytime. Afterwards they just enter the code to read as usual.') + '</div>'
         : '';
       body = '<div class="fh-s-lab">' + L('Trạng thái: giai đoạn kiểm chứng', 'Status: verification window') + '</div>'
-        + '<div class="fh-s-sub">' + L('Bản mã và bản gốc đang tồn tại song song; app tự đối chiếu mỗi lần đọc, và máy chủ đã chặn mọi cách ghi không mã hóa. Khi yên tâm, bấm hoàn tất để xóa bản gốc trên máy chủ. Đây là bước duy nhất không quay lại được nếu cả nhà mất mã.',
-                                        'Ciphertext and originals coexist; the app cross-checks them on every read, and the server already refuses any unencrypted write. When confident, finish to erase the plaintext on the server. That’s the one step that can’t be undone if the whole family loses the code.') + '</div>'
+        + '<div class="fh-s-sub">' + L('Bản mã và bản gốc đang tồn tại song song; app tự đối chiếu mỗi lần đọc, và máy chủ đã chặn mọi cách ghi không mã hóa. Khi yên tâm, bấm hoàn tất để xóa bản gốc trên máy chủ. Sau bước này không còn đường quay lại bản không mã hóa, với bất kỳ ai.',
+                                        'Ciphertext and originals coexist; the app cross-checks them on every read, and the server already refuses any unencrypted write. When confident, finish to erase the plaintext on the server. After that there is no way back to unencrypted data, for anyone.') + '</div>'
         + roster.html + pendWarn
         + _btn(L('Đối chiếu giải mã toàn bộ', 'Verify all decryption'), 'fhEncVerifyAll(this)', _S.line)
         + (owner ? _btn(L('Hoàn tất và xóa bản gốc trên máy chủ', 'Finish and erase server plaintext'), 'fhEncScrub(this)', _S.del)
@@ -87,11 +87,10 @@
     } else {
       const roster = _fhUnlockRoster();
       body = '<div class="fh-s-lab">' + L('Trạng thái: đang mã hóa đầu-cuối', 'Status: end-to-end encrypted') + '</div>'
-        + '<div class="fh-s-sub">' + L('Máy chủ chỉ còn bản đã khóa. Dữ liệu chỉ mở được bằng mã gia đình trên máy của thành viên.',
-                                        'The server holds only locked values. Data opens only with the family code, on members’ devices.') + '</div>'
+        + '<div class="fh-s-sub">' + L('Máy chủ chỉ còn bản đã khóa. Dữ liệu chỉ mở được bằng mã gia đình trên máy của thành viên. Quyết định này là vĩnh viễn, không ai đưa được bản không mã hóa trở lại máy chủ, kể cả gia đình bạn.',
+                                        'The server holds only locked values. Data opens only with the family code, on members’ devices. This is permanent. No one can put unencrypted data back on the server, not even your family.') + '</div>'
         + roster.html
-        + (fhKeyReady() ? '' : _btn(L('Mở khóa máy này', 'Unlock this device'), '_closeOv();fhUnlockPrompt()', _S.cta))
-        + (owner ? _btn(L('Tắt mã hóa (khôi phục bản gốc)', 'Turn off (restore plaintext)'), 'fhEncDisable(this)', _S.del) : '');
+        + (fhKeyReady() ? '' : _btn(L('Mở khóa máy này', 'Unlock this device'), '_closeOv();fhUnlockPrompt()', _S.cta));
     }
     body += '<div class="fh-s-sub" id="fh-enc-prog" style="min-height:18px"></div>';
     /* Excel-copy CTA temporarily hidden by product decision (2026-08-03) — the
@@ -373,16 +372,15 @@
     window.fhEncryptionSheet();
   };
 
-  /* enc→off (or dual→off): decrypt-back. From 'enc' we first drop to 'dual' so
-     concurrent writers go back to writing both, then restore plaintext from
-     ciphertext row by row (clearing the ciphertext as we go), then land on
-     'off'. Interruption-safe: in dual, readers use plaintext when present and
-     fall back to ciphertext when not. */
+  /* dual→off ONLY: abort the trial window. In dual the plaintext never left
+     the server, so nothing is "restored" — the server just drops the trial's
+     ciphertext (0035 wipes it inside the state change) and the family is back
+     exactly where it started. Once a family COMMITS ('enc'), there is no off
+     switch: 0035 makes 'enc' terminal and this button never renders there. */
   window.fhEncDisable = async function (btn) {
-    if (_fhEncBusy) return;
-    if (!fhKeyReady()) { window.fhUnlockPrompt(); return; }
+    if (_fhEncBusy || fhEncState() !== 'dual') return;
     if (btn && !btn.classList.contains('armed')) {
-      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa để khôi phục bản gốc trên máy chủ', 'Tap again to restore server plaintext');
+      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa để tắt, mọi số liệu giữ nguyên', 'Tap again to turn off, all data stays as it is');
       clearTimeout(window._fhDisArmT);
       window._fhDisArmT = setTimeout(() => {
         if (!btn.isConnected) return;
@@ -394,37 +392,11 @@
     _fhEncBusy = true;
     if (btn) btn.disabled = true;
     try {
-      if (fhEncState() === 'enc') await _rpc('set_family_enc_state', { p_state: 'dual' });
-      let total = 0;
-      for (const spec of _ENC_TABLES) {
-        _fhEncProg(L('Đang khôi phục: ', 'Restoring: ') + spec.t + '…');
-        const r = await sb.from(spec.t).select(_encCols(spec)).eq('family_id', window.DB.fid);
-        if (r.error) throw r.error;
-        for (const row of (r.data || [])) {
-          const patch = {}; let touch = false;
-          for (const f of spec.num.concat(spec.str)) {
-            const ct = row[f + '_enc'];
-            if (ct == null) continue;
-            const v = await FHCrypto.decVal(_fhSessionDek(), ct);
-            patch[f] = spec.num.indexOf(f) >= 0 ? Number(v) : v;
-            if (spec.t === 'monthly_budgets' && f === 'budget_total' && patch[f] == null) patch[f] = 0;
-            patch[f + '_enc'] = null;
-            touch = true;
-          }
-          if (touch) {
-            window.DB._lastLocalWrite = Date.now();
-            await _w(sb.from(spec.t).update(patch).eq('id', row.id), 'restore ' + spec.t);
-            total++;
-          }
-        }
-      }
       await _rpc('set_family_enc_state', { p_state: 'off' });
-      _fhEncProg('');
-      window.toast && window.toast(L('Đã tắt mã hóa, khôi phục ' + total + ' dòng.', 'Encryption off. ' + total + ' rows restored.'));
+      window.toast && window.toast(L('Đã tắt mã hóa, dữ liệu giữ nguyên như cũ.', 'Encryption off. Your data stays as it was.'));
       await window.loadFamilyData();
       window.fhEncryptionSheet();
     } catch (e) {
-      _fhEncProg('');
       window.toast && window.toast(_friendly(e));
       if (btn) { btn.disabled = false; btn.classList.remove('armed'); }
     } finally { _fhEncBusy = false; }
