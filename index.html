@@ -729,12 +729,22 @@ input{font-family:inherit}
    TOOLBOX SHEET — the 3-picker ("Chăm chút tổ ấm"). The .sheet / #scrim / .grab
    shell is the app's own (50-sheets-modals.css); these style the inner content.
    ============================================================================ */
-.sheet-house .segs{display:flex;gap:7px;padding:0 0 14px;position:sticky;top:0;background:var(--white);z-index:2}
+/* The base .sheet scrolls itself (50-sheets-modals.css), which buries the
+   grab handle + title under the option grid as soon as it scrolls, and gates
+   drag-to-dismiss on the WHOLE sheet's scrollTop — so dragging only worked
+   at the very top and only from the sliver of non-button space there. Split
+   header (grab/title/segs, never scrolls) from .sh-body (the only scroller)
+   so the header is always reachable and always a valid drag-to-close handle.
+   Needs .sheet.sheet-house to outrank .sheet's own overflow-y — same
+   specificity, and this file loads BEFORE 50-sheets-modals.css. */
+.sheet.sheet-house{display:flex;flex-direction:column;overflow:hidden}
+.sheet-house .grab,.sheet-house .sheet-h,.sheet-house .sheet-sub,.sheet-house .segs{flex:0 0 auto}
+.sheet-house .segs{display:flex;gap:7px;padding:0 0 14px}
 .sheet-house .seg{flex:1;min-height:44px;border:2px solid var(--hairline);background:var(--white);border-radius:12px;padding:9px 8px;font:inherit;font-size:13px;font-weight:650;color:var(--ink-2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
 .sheet-house .seg.on{background:var(--brand-tint);color:var(--brand-ink);border-color:var(--brand)}
 .sheet-house .seg .e{width:16px;height:16px;flex:0 0 auto;display:flex}
 .sheet-house .seg .e svg{width:100%;height:100%;display:block}
-.sheet-house .sh-body{padding:2px 0 4px}
+.sheet-house .sh-body{flex:1;min-height:0;padding:2px 0 4px;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .sheet-house .opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .sheet-house .opt{position:relative;background:var(--white);border:2px solid var(--hairline);border-radius:16px;padding:8px 8px 9px;cursor:pointer;text-align:center;transition:transform .12s;overflow:hidden;font:inherit}
 .sheet-house .opt:active{transform:scale(.97)}
@@ -5851,7 +5861,7 @@ function closeExpense(){ closeModals(); }
 /* Drag a bottom sheet / modal DOWN to dismiss — axis-locked so it never fights scrolling. */
 function initSheetDrag(sheet, closeFn){
   closeFn = closeFn || closeSheet;
-  var scroller = sheet.querySelector('.modal-body') || sheet;   // the modal scrolls its body, not itself
+  var scroller = sheet.querySelector('.modal-body, .sh-body') || sheet;   // scrolls its own body, not the sheet/modal shell
   var x0=0, y0=0, dy=0, active=false, dragging=false, decided=false;
   var scrim=function(){ return document.getElementById('scrim'); };
   sheet.addEventListener('touchstart',function(e){

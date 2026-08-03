@@ -84,7 +84,7 @@ function closeExpense(){ closeModals(); }
 /* Drag a bottom sheet / modal DOWN to dismiss — axis-locked so it never fights scrolling. */
 function initSheetDrag(sheet, closeFn){
   closeFn = closeFn || closeSheet;
-  var scroller = sheet.querySelector('.modal-body') || sheet;   // the modal scrolls its body, not itself
+  var scroller = sheet.querySelector('.modal-body, .sh-body') || sheet;   // scrolls its own body, not the sheet/modal shell
   var x0=0, y0=0, dy=0, active=false, dragging=false, decided=false;
   var scrim=function(){ return document.getElementById('scrim'); };
   sheet.addEventListener('touchstart',function(e){
