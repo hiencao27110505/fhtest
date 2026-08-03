@@ -616,6 +616,9 @@ function _houseSheetEl(){
   var scrim = document.getElementById('scrim');
   if(scrim && scrim.parentNode) scrim.parentNode.appendChild(el);
   else document.body.appendChild(el);
+  // built after boot's one-time `.sheet` sweep (80-onboard-boot.js), so it
+  // never got drag-to-dismiss wired up the way every static sheet does
+  if(typeof initSheetDrag === 'function') initSheetDrag(el, closeSheet);
   return el;
 }
 function _renderHouseToolbox(el){
