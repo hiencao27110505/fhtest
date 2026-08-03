@@ -85,7 +85,7 @@
       }
     } else {
       const roster = _fhUnlockRoster();
-      body = '<div class="fh-s-lab">' + L('Trạng thái: đang mã hóa đầu-cuối 🔒', 'Status: end-to-end encrypted 🔒') + '</div>'
+      body = '<div class="fh-s-lab">' + L('Trạng thái: đang mã hóa đầu-cuối', 'Status: end-to-end encrypted') + '</div>'
         + '<div class="fh-s-sub">' + L('Máy chủ chỉ còn bản đã khóa. Dữ liệu chỉ mở được bằng mã gia đình trên máy của thành viên.',
                                         'The server holds only locked values. Data opens only with the family code, on members’ devices.') + '</div>'
         + roster.html
@@ -228,7 +228,7 @@
       return;
     }
     const n = Object.values(counts || {}).reduce((s, x) => s + (Number(x) || 0), 0);
-    window.toast && window.toast(L('Xong — đã xóa bản gốc của ' + n + ' dòng. Giờ chỉ còn bản mã hóa 🔒', 'Done — plaintext erased on ' + n + ' rows. Only ciphertext remains 🔒'));
+    window.toast && window.toast(L('Xong — đã xóa bản gốc của ' + n + ' dòng, giờ chỉ còn bản mã hóa', 'Done — plaintext erased on ' + n + ' rows, only ciphertext remains'));
     await window.loadFamilyData();
     window.fhEncryptionSheet();
   };

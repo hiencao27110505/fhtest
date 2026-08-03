@@ -307,27 +307,28 @@
     });
   };
 
-  /* Permanent, prominent lock widget — lives in #phone so it rides above EVERY
-     screen and tab until this device holds the key. Brand-filled and gently
-     pulsing so a member who dismissed the modal still can't miss it; tapping
-     anywhere on it opens the passcode prompt. It never auto-hides: only a
-     successful unlock (or encryption turning off) removes it. */
+  /* Permanent lock widget — lives in #phone so it rides above EVERY screen and
+     tab until this device holds the key; tapping it opens the passcode prompt.
+     It never auto-hides: only a successful unlock (or encryption turning off)
+     removes it. Styled to the design system, not ad hoc: brand gradient pill
+     (CTA anatomy), floating shadow with the theme's brand glow, inline-SVG
+     icon (emoji are content marks, never control icons — DESIGN §2.6), the
+     shared `rise` entrance and the standard press scale (§2.5). */
   window.fhLockBanner = function (on, state) {
     let el = document.getElementById('fh-lockbar');
     if (on) {
       if (!document.getElementById('fh-lockbar-css')) {
         const st = document.createElement('style'); st.id = 'fh-lockbar-css';
-        st.textContent = '@keyframes fhlockpulse{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.035)}}'
-          + '#fh-lockbar:active{transform:translateX(-50%) scale(.97)!important;animation:none!important}';
+        st.textContent = '#fh-lockbar:active{transform:scale(.97)}';
         document.head.appendChild(st);
       }
       if (!el) {
-        el = document.createElement('div'); el.id = 'fh-lockbar';
-        el.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom));z-index:64;background:var(--brand,#7a5ae0);color:#fff;box-shadow:0 8px 28px rgba(0,0,0,.28);border-radius:24px;padding:13px 18px;font-size:13.5px;font-weight:700;display:flex;gap:10px;align-items:center;cursor:pointer;max-width:88%;animation:fhlockpulse 2.4s ease-in-out infinite';
+        el = document.createElement('button'); el.id = 'fh-lockbar';
+        el.style.cssText = 'position:absolute;left:16px;right:16px;margin:0 auto;bottom:calc(80px + env(safe-area-inset-bottom));z-index:64;width:max-content;max-width:calc(100% - 32px);background:var(--grad-brand,var(--brand));color:#fff;border:none;box-shadow:0 8px 22px rgba(25,16,34,.14),0 12px 28px var(--brand-glow);border-radius:9999px;padding:14px 20px;font-size:14px;font-weight:700;font-family:inherit;display:flex;gap:9px;align-items:center;cursor:pointer;text-align:left;animation:rise .4s cubic-bezier(.32,.72,0,1);transition:transform .15s cubic-bezier(.4,0,.2,1)';
         el.onclick = () => window.fhUnlockPrompt();
         (document.getElementById('phone') || document.body).appendChild(el);
       }
-      el.innerHTML = '<span style="font-size:17px">🔒</span><span>' + (state === 'dual'
+      el.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="5" y="10.5" width="14" height="9.5" rx="2.6"/><path d="M8 10.5V7.8a4 4 0 018 0v2.7"/></svg><span>' + (state === 'dual'
         ? L('Gia đình đang bật mã hóa — chạm để nhập mã 6 số', 'Your family is turning on encryption — tap to enter the 6-digit code')
         : L('Chạm để nhập mã gia đình và mở số tiền', 'Tap to enter the family code and unlock amounts')) + '</span>';
       el.style.display = 'flex';
