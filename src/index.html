@@ -901,7 +901,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
       <div class="ob-head"><div class="ob-h1" data-t="pcTitle">Set your family passcode</div><div class="ob-sub" data-t="pcSub">A 6-digit code, like the door code of your house. Members you invite will enter it to join, and it locks your money data so only your family can read it.</div></div>
       <div class="field"><label data-t="pcCode">6-digit code</label><input class="num big" id="ob-pc" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" oninput="obPcInput()"></div>
       <div class="field"><label data-t="pcRepeat">Repeat the code</label><input class="num big" id="ob-pc2" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" oninput="obPcInput()"></div>
-      <div class="ob-sub" data-t="pcWarn" style="margin-top:12px">Encryption is on from the start (you can turn it off later in Settings). If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered. Not even by us.</div>
+      <div class="ob-sub" data-t="pcWarn" style="margin-top:12px">Money encryption is permanent and cannot be turned off. If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered. Not even by us.</div>
     </div>
     <div class="ob-foot"><button class="cta" id="ob-pc-cta" onclick="obPasscodeNext()" disabled>Continue</button></div>
   </section>
