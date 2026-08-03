@@ -330,17 +330,15 @@ function renderBulk(){
   var html='';
   for(var i=0;i<bulkRows.length;i++){
     var r=bulkRows[i];
-    // A card needs attention when it has content but no real category (unclassified),
-    // or was flagged invalid at save time.
-    var needCat = rowHasContent(r) && !catValid(r.cat);
-    var inv=(r._invalid || needCat)?' invalid':'';
+    // Missing category is signalled by the "Chọn danh mục" label inside the card, not
+    // by highlighting the whole card — keeps every card visually consistent.
     if(i===bulkActive){
-      html+='<div class="bulk-card active'+inv+'">'
+      html+='<div class="bulk-card active">'
         +  '<div class="bulk-head"><span class="bulk-idx">'+L('Khoản ','Item ')+(i+1)+'</span>'
         +  (bulkRows.length>1 ? '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá','Remove')+'">✕</button>' : '')
         +  '</div><div id="ex-editor-mount"></div></div>';
     } else {
-      html+='<div class="bulk-card'+inv+'">'
+      html+='<div class="bulk-card">'
         +  '<button type="button" class="bulk-tap" onclick="setActiveRow('+i+')" aria-label="'+L('Sửa khoản ','Edit item ')+(i+1)+'">'+bulkSummary(r)+'</button>'
         +  '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá khoản ','Remove item ')+(i+1)+'">✕</button>'
         +  '</div>';
