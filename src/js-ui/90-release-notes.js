@@ -40,6 +40,22 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-08-03-vault', date:'2026-08-03', time:'14:52', ver:'v266', icon:ICO.shield,
+    vi:{ t:'Tiền nong của nhà, chỉ nhà mình đọc được',
+      problem:'Trước nhà mình phải tin là không ai ngó số tiền trên máy chủ, mà tin thì vẫn chỉ là tin.',
+      sol:'Giờ mọi khoản được khóa ngay trên điện thoại, máy chủ chỉ giữ bản đã khóa và không ai mở lại được, kể cả tụi mình. Cả nhà chỉ cần giữ kỹ mã 6 số, còn lại cứ yên tâm.' },
+    en:{ t:'Your money, readable by your family only',
+      problem:'You used to just trust that nobody peeked at your numbers on our server.',
+      sol:'Now every entry locks on your phone before it leaves, and the server keeps only the locked copy that nobody can open, not even us. Keep the 6-digit code safe and it stays that way for good.' } },
+
+  { id:'2026-08-03-bulk', date:'2026-08-03', time:'14:51', ver:'v266', icon:ICO.grid,
+    vi:{ t:'Ghi một lần nhiều khoản chi',
+      problem:'Đi chợ về cầm cả xấp hóa đơn mà phải mở form ghi từng khoản một, hơi cực.',
+      sol:'Giờ màn ghi chép thêm được nhiều khoản cùng lúc, bấm lưu một lần là xong hết.' },
+    en:{ t:'Log several expenses in one go',
+      problem:'Coming home with a stack of receipts meant filling the form once per expense.',
+      sol:'Now the expense screen stacks as many drafts as you need and one Save files them all.' } },
+
   { id:'2026-08-03-passcode', date:'2026-08-03', time:'12:00', ver:'v246', icon:ICO.shield,
     vi:{ t:'Mã gia đình 6 số, và mã hóa chuyện tiền nong',
       problem:'Trước đây ai có mã mời là vào được nhà, và số tiền của nhà mình nằm trên máy chủ ai vận hành cũng đọc được.',

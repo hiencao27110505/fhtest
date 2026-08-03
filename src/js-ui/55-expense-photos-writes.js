@@ -234,26 +234,21 @@ function refreshExCta(){                                    // nav-bar Save butt
     s.disabled = !(editSnap!==null && exFormState()!==editSnap);  // edit mode: enabled only once something changes
     return;
   }
-  // add mode: validate every non-empty draft row. Save all when ≥1 real row exists
-  // and none is half-filled.
+  // add mode: Save stays enabled whenever there's at least one non-empty row. We do
+  // NOT gray it out for incomplete rows — tapping it shakes + red-borders them so the
+  // user learns why (a silently-disabled button explains nothing). Count entries for
+  // the "(N)" label, treating the input row's note as possibly several entries.
   var rows=(typeof bulkRows!=='undefined')?bulkRows:[];
-  var considered=0, allValid=true;
+  var considered=0;
   for(var i=0;i<rows.length;i++){
     var r=rows[i];
     if(i===bulkActive && !parseAmtBase(r.amt||'') && (r.note||'').trim() && typeof parseEntries==='function'){
-      // the input row: its note may still hold one or more entries whose amount lives
-      // in the text (not the field). Each entry needs an amount; the category can still
-      // be guessed at commit, so don't block Save on a missing category here.
-      var es=parseEntries(r.note);
-      if(!es.length){ considered++; allValid=false; continue; }
-      es.forEach(function(e){ considered++; if(!(parseAmtBase(e.amt||'')>0)) allValid=false; });
+      considered += Math.max(1, parseEntries(r.note).length);
       continue;
     }
-    if(!(r.note||'').trim() && !parseAmtBase(r.amt||'')) continue;   // fully-empty row → ignored
-    considered++;
-    if(!(parseAmtBase(r.amt||'')>0 && catValid(r.cat))) allValid=false;   // real category required, not just any truthy value
+    if((r.note||'').trim() || parseAmtBase(r.amt||'')) considered++;
   }
-  s.disabled = !(considered>=1 && allValid);
+  s.disabled = !(considered>=1);
   // Label: keep updateExWhen()'s single-row Lưu/Gửi; only override for a true batch.
   if(rows.length>1) s.textContent = L('Lưu tất cả ('+considered+')','Save all ('+considered+')');
 }
@@ -286,7 +281,15 @@ function submitExpense(){
     // Parse/split whatever is still in the input (the user may tap Lưu without blurring first).
     if(typeof commitActiveRow==='function') commitActiveRow();
     if(typeof bulkRows!=='undefined' && bulkRows.length>1){ submitBulk(); return; }
-    if(typeof loadRow==='function' && bulkRows && bulkRows.length===1) loadRow(0);   // sync the parsed single entry into the fields addExpense reads
+    // Single expense: still block an incomplete row (missing amount or category) — shake it
+    // rather than silently saving a phantom category.
+    if(typeof bulkRows!=='undefined' && bulkRows.length===1){
+      var r=bulkRows[0];
+      if(typeof rowHasContent==='function' && rowHasContent(r) && !(parseAmtBase(r.amt||'')>0 && catValid(r.cat))){
+        if(typeof bulkShowInvalid==='function'){ bulkShowInvalid(); return; }
+      }
+      if(typeof loadRow==='function') loadRow(0);   // sync the parsed single entry into the fields addExpense reads
+    }
   }
   var adopting = !editingTx && paPending;   // expense created from the bulk-assign screen
   if(editingTx) saveExpenseEdit(); else addExpense();

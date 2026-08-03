@@ -138,6 +138,7 @@ var lastCat='Groceries', lastWho='Emma';
    bulkActive indexes the expanded row bound to the #ex-* fields. BULK_SAVING
    suppresses addExpense()'s per-row close/toast/nav so submitBulk() can loop it. */
 var bulkRows=[], bulkActive=0, BULK_SAVING=false;
+var bulkSaveTried=false;   // once the user taps Lưu with incomplete rows, those rows show a red border
 var exRecents=[
   {note:'Grocery run',cat:'Groceries',who:'Emma'},
   {note:'Coffee',cat:'Dining',who:'James'},
@@ -182,6 +183,7 @@ function prefillExpense(){
   // Start with a single draft row; the modal grows via "+" or a comma in the note.
   bulkRows=[blankRow(exPreset)];
   bulkActive=0;
+  bulkSaveTried=false;
   // A preset can carry photos (bulk-assign hands off its selection here), so
   // this clears to the preset rather than unconditionally to empty.
   exPhotos = (exPreset && exPreset.photos) ? exPreset.photos.slice() : [];
@@ -208,7 +210,7 @@ function blankRow(preset){
   var d   = (preset && preset.date) || isoDate(TODAY);
   // _catTouched = the category was set on purpose (a preset or a manual chip tap);
   // an untouched default yields to the note's guess on commit.
-  return { note:'', amt:'', cat:cat, who:lastWho, date:d, _invalid:false, _catTouched:preCat };
+  return { note:'', amt:'', cat:cat, who:lastWho, date:d, _catTouched:preCat };
 }
 /* Read the live #ex-* fields into the active draft. Called on every edit so the
    summary cards and Save validation always reflect what's on screen. */
@@ -343,10 +345,12 @@ function renderBulk(){
     // by highlighting the whole card, so every card stays visually consistent.
     var head='<span class="bulk-idx">'+L('Khoản chi ','Item ')+(i+1)+'</span><span class="bulk-date">'+bulkDate(r.date)+'</span>';
     var rm=(bulkRows.length>1) ? '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá khoản ','Remove item ')+(i+1)+'">✕</button>' : '';
+    // After a save attempt, an incomplete row (no amount or no category) gets a red border.
+    var bad=(bulkSaveTried && rowHasContent(r) && !(parseAmtBase(r.amt||'')>0 && catValid(r.cat)))?' invalid':'';
     if(i===bulkActive){
-      html+='<div class="bulk-card active"><div class="bulk-head">'+head+rm+'</div><div id="ex-editor-mount"></div></div>';
+      html+='<div class="bulk-card active'+bad+'"><div class="bulk-head">'+head+rm+'</div><div id="ex-editor-mount"></div></div>';
     } else {
-      html+='<div class="bulk-card">'
+      html+='<div class="bulk-card'+bad+'">'
         +  '<button type="button" class="bulk-tap" onclick="setActiveRow('+i+')" aria-label="'+L('Sửa khoản ','Edit item ')+(i+1)+'">'
         +    '<span class="bulk-head">'+head+'</span>'+bulkSummary(r)
         +  '</button>'+rm
@@ -576,15 +580,9 @@ function submitBulk(){
   });
   var rows=bulkRows.filter(function(r){ return (r.note||'').trim() || parseAmtBase(r.amt||''); });  // drop blank rows
   if(!rows.length){ toast(L('Chưa có khoản nào để lưu','Nothing to save yet')); return; }
-  var firstInvalid=-1;
-  rows.forEach(function(r,i){ r._invalid=!(parseAmtBase(r.amt||'')>0 && catValid(r.cat)); if(r._invalid && firstInvalid<0) firstInvalid=i; });
   bulkRows=rows;                                    // keep only the real rows in the model
-  if(firstInvalid>=0){
-    bulkActive=firstInvalid;
-    renderBulk(); loadRow(bulkActive);
-    toast(L('Còn một khoản thiếu số tiền hoặc danh mục','An item still needs an amount or a category'));
-    return;
-  }
+  var bad=bulkRows.some(function(r){ return !(parseAmtBase(r.amt||'')>0 && catValid(r.cat)); });
+  if(bad){ bulkShowInvalid(); return; }             // red-border + shake the incomplete cards; don't save
   var total=0, n=rows.length;
   var savedPhotos=exPhotos.slice();                 // photos only ride the first row (single-row is the only way to attach them)
   for(var k=0;k<rows.length;k++){
@@ -595,11 +593,27 @@ function submitBulk(){
     try{ window.addExpense(); } finally{ BULK_SAVING=false; }
   }
   exPhotos=[];
+  bulkSaveTried=false;
   renderAll(); renderTxns();
   closeExpense();
   toast(L('Đã ghi '+n+' khoản · '+fmt(total),'Logged '+n+' · '+fmt(total)));
   if(typeof floatEmojis==='function') floatEmojis('🎉');
   go('spending'); if(typeof segTo==='function') segTo('overview');
+}
+/* Reveal the incomplete cards (missing amount or category) after a failed save:
+   land on the list so every red card is visible, then shake them once. */
+function bulkShowInvalid(){
+  bulkSaveTried=true;
+  if(bulkRows.length>1) bulkActive=-1;              // multi → show the whole list; single → keep the open editor
+  renderBulk();
+  if(typeof refreshExCta==='function') refreshExCta();
+  if(typeof requestAnimationFrame==='function'){
+    requestAnimationFrame(function(){
+      var cards=document.querySelectorAll('#bulk-list .bulk-card.invalid');
+      for(var i=0;i<cards.length;i++){ cards[i].classList.remove('shake'); void cards[i].offsetWidth; cards[i].classList.add('shake'); }
+    });
+  }
+  toast(L('Hãy hoàn tất các khoản được tô đỏ','Please complete the highlighted items'));
 }
 /* ---- edit a logged expense ---- */
 var editingTx=null, editSnap=null;
