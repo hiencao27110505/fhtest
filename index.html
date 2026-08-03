@@ -3003,8 +3003,19 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="ob-foot"><button class="cta" onclick="obFamilyNext()">Continue</button></div>
   </section>
 
-  <section class="ob-screen" data-ob="budget">
+  <section class="ob-screen" data-ob="passcode">
     <div class="ob-top"><button class="ob-back2" onclick="obGo('family')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content">
+      <div class="ob-head"><div class="ob-h1" data-t="pcTitle">Set your family passcode</div><div class="ob-sub" data-t="pcSub">A 6-digit code, like the door code of your house. Members you invite will enter it to join, and it locks your money data so only your family can read it.</div></div>
+      <div class="field"><label data-t="pcCode">6-digit code</label><input class="num big" id="ob-pc" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" oninput="obPcInput()"></div>
+      <div class="field"><label data-t="pcRepeat">Repeat the code</label><input class="num big" id="ob-pc2" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" oninput="obPcInput()"></div>
+      <div class="ob-sub" data-t="pcWarn" style="margin-top:12px">Encryption is on from the start (you can turn it off later in Settings). If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered — not even by us.</div>
+    </div>
+    <div class="ob-foot"><button class="cta" id="ob-pc-cta" onclick="obPasscodeNext()" disabled>Continue</button></div>
+  </section>
+
+  <section class="ob-screen" data-ob="budget">
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('passcode')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
       <div class="ob-head"><div class="ob-h1" data-t="budgetTitle">Set your budget</div><div class="ob-sub" data-t="budgetSub">A monthly target for the family, then a budget for each category.</div></div>
       <div class="ob-total-card">
@@ -8007,6 +8018,7 @@ var EN_DEFAULT={
   familyTitle:'Your family', familySub:"Start a new family, or join one you've been invited to.",
   startFamily:'Start a new family', startFamilyS:"You'll name it and invite others", joinFamily:'Join a family', joinFamilyS:'Enter your family’s passcode',
   joinTitle:'Enter the family passcode', joinSub:'The owner adds your Google email to the invite list, then tells you the family’s 6-digit code.', joinCta:'Join family',
+  pcTitle:'Set your family passcode', pcSub:'A 6-digit code, like the door code of your house. Members you invite will enter it to join, and it locks your money data so only your family can read it.', pcCode:'6-digit code', pcRepeat:'Repeat the code', pcWarn:'Encryption is on from the start (you can turn it off later in Settings). If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered — not even by us.',
   profileTitle:'Set up your profile', profileSub:'This is how your family will see you.', yourName:'Your name', youAreThe:'You are the…', phObName:'e.g. Emma',
   setFamilyTitle:'Set up your family', setFamilySub:"Name it and invite who's in it.", familyName:'Family name', phFamName:'e.g. The Reeds', membersInvites:'Members & invites', inviteMember:'＋ Invite a member',
   budgetTitle:'Set your budget', budgetSub:'A monthly target for the family, then a budget per category.', monthlyBudget:'Monthly budget', categoryBudgets:'Category budgets', categoryBudgetsHint:'Suggested from your total. Adjust anytime.',
@@ -8113,6 +8125,7 @@ var I18N={
     familyTitle:'Gia đình của bạn', familySub:'Tạo gia đình mới, hoặc tham gia gia đình đã mời bạn.',
     startFamily:'Tạo gia đình mới', startFamilyS:'Bạn đặt tên rồi mời mọi người vào', joinFamily:'Tham gia gia đình', joinFamilyS:'Nhập mã gia đình',
     joinTitle:'Nhập mã gia đình', joinSub:'Chủ gia đình thêm email Google của bạn vào danh sách mời, rồi cho bạn mã 6 số.', joinCta:'Tham gia',
+    pcTitle:'Đặt mã gia đình', pcSub:'Mã 6 số, như mã cửa nhà mình. Người thân bạn mời sẽ nhập mã này để vào, và mã cũng khóa dữ liệu tiền nong để chỉ gia đình bạn đọc được.', pcCode:'Mã 6 số', pcRepeat:'Nhập lại mã', pcWarn:'Mã hóa được bật ngay từ đầu (có thể tắt sau trong Cài đặt). Nếu cả nhà quên mã và không còn thiết bị nào đang đăng nhập, dữ liệu tiền đã mã hóa sẽ không thể khôi phục — kể cả chúng tôi.',
     profileTitle:'Thiết lập hồ sơ', profileSub:'Đây là cách cả nhà nhìn thấy bạn.', yourName:'Tên của bạn', youAreThe:'Bạn là…', phObName:'vd. Hân',
     setFamilyTitle:'Thiết lập gia đình', setFamilySub:'Đặt tên và mời mọi người vào nhà.', familyName:'Tên gia đình', phFamName:'vd. Nhà mình', membersInvites:'Thành viên & lời mời', inviteMember:'＋ Mời thành viên',
     budgetTitle:'Đặt ngân sách', budgetSub:'Mục tiêu hằng tháng của cả nhà, rồi ngân sách cho từng danh mục.', monthlyBudget:'Ngân sách hằng tháng', categoryBudgets:'Ngân sách theo danh mục', categoryBudgetsHint:'Tụi mình gợi ý sẵn từ tổng ngân sách, bạn chỉnh lúc nào cũng được.',
@@ -8235,8 +8248,8 @@ var FAM={
 };
 var OB_COLORS=['#6f3fc0','#0e8478','#f0701a','#e03d86','#1e74d0','#B8730B','#7A5AE0','#1a9d5f'];
 var OB_ROLES=['Mom','Dad','Husband','Wife','Boyfriend','Girlfriend','Partner','Sweetheart','Sweetie','Coldheart','Man of steel','Parent','Son','Daughter','Kid','Teen','Sibling','Guardian','Grandma','Grandpa','Other'];
-var obOrder=['welcome','locale','auth','choice','join','profile','family','budget','theme','done'];
-var obProg={welcome:0,locale:.1,auth:.2,choice:.34,join:.52,profile:.6,family:.74,budget:.86,theme:.93,done:1};
+var obOrder=['welcome','locale','auth','choice','join','profile','family','passcode','budget','theme','done'];
+var obProg={welcome:0,locale:.1,auth:.2,choice:.34,join:.52,profile:.6,family:.72,passcode:.79,budget:.86,theme:.93,done:1};
 function obPickLang(btn){ pick('ob-lang',btn); LANG=btn.dataset.v; applyLang(); }
 function obPickCur(btn){ pick('ob-cur',btn); CUR=btn.dataset.v; }
 function inits(n){ return ((n||'').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2)||'?').toUpperCase(); }
@@ -8345,6 +8358,23 @@ function obFamilyNext(){
     mems.push({name:nm, email:(row.querySelector('.ob-memail')||{value:''}).value.trim(), role:row.querySelector('.ob-mrole').value, color:row.querySelector('.ob-mav').style.background||OB_COLORS[i%OB_COLORS.length], me:!!row.querySelector('.ob-mtag')});
   });
   FAM.members=mems.length?mems:[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,role:FAM.user.role,me:true}];
+  var pc=document.getElementById('ob-pc'), pc2=document.getElementById('ob-pc2');
+  if(pc)pc.value=''; if(pc2)pc2.value='';
+  obPcInput(); obGo('passcode');
+  if(pc) setTimeout(function(){ pc.focus(); },320);
+}
+/* Mandatory passcode step (create flow only): 6 digits, typed twice. The code is
+   held in memory (FAM.passcode) until createFamilyInDB uses it, never stored. */
+function obPcInput(){
+  var a=document.getElementById('ob-pc'), b=document.getElementById('ob-pc2'), cta=document.getElementById('ob-pc-cta');
+  if(!a||!b||!cta) return;
+  a.value=a.value.replace(/\D/g,'').slice(0,6); b.value=b.value.replace(/\D/g,'').slice(0,6);
+  cta.disabled=!(/^\d{6}$/.test(a.value) && a.value===b.value);
+}
+function obPasscodeNext(){
+  var a=document.getElementById('ob-pc');
+  if(!a||!/^\d{6}$/.test(a.value)) return;
+  FAM.passcode=a.value;
   obPrefillBudget(); obGo('budget');
 }
 var BUDGET_PROPS={Housing:.30,Groceries:.14,Transport:.10,Others:.08,Dining:.08,Fun:.06};   // best-practice proportions
@@ -8595,7 +8625,7 @@ var ICO = {
 };
 
 var RELEASES = [
-  { id:'2026-08-03-passcode', date:'2026-08-03', time:'12:00', ver:'v245', icon:ICO.shield,
+  { id:'2026-08-03-passcode', date:'2026-08-03', time:'12:00', ver:'v246', icon:ICO.shield,
     vi:{ t:'Mã gia đình 6 số, và mã hóa chuyện tiền nong',
       problem:'Trước đây ai có mã mời là vào được nhà, và số tiền của nhà mình nằm trên máy chủ ai vận hành cũng đọc được.',
       sol:'Giờ vào nhà cần được chủ nhà thêm email vào danh sách rồi nhập mã 6 số của gia đình. Trong Cài đặt còn bật được mã hóa tài chính, khi đó số tiền được khóa ngay trên máy bằng mã của nhà mình, đến cả người làm ra app cũng không đọc được.' },
@@ -9360,7 +9390,7 @@ function openWhatsNew(){
       } else {
         const R = await Promise.all([
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
-          sb.from('members').select('id,name,color,is_shared,user_id,created_at').eq('family_id', fid).is('archived_at', null).order('created_at'),
+          sb.from('members').select('id,name,color,is_shared,user_id,created_at,key_unlocked_at').eq('family_id', fid).is('archived_at', null).order('created_at'),
           // archived ones come along so old transactions still resolve their name; they're kept out of catOrder below
           sb.from('categories').select('id,name,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
           sb.from('category_budgets').select('category_id,amount,amount_enc,month').eq('family_id', fid),
@@ -9391,8 +9421,16 @@ function openWhatsNew(){
          passcode prompt. */
       window.DB.enc = encMeta || null;
       if (encMeta) { try { await fhKeyLoad(fid); } catch (e) {} }
-      const _locked = !!(encMeta && encMeta.enc_state === 'enc' && !fhKeyReady());
-      if (window.fhLockBanner) window.fhLockBanner(_locked);
+      /* Encryption is FAMILY-wide: the moment the owner turns it on, every other
+         device learns it here (realtime on family_keys re-runs this hydrate) and
+         gets nudged for the code — during 'dual' as a banner (numbers still show
+         via plaintext), in 'enc' also auto-opening the prompt once per session. */
+      const _needsKey = !!(encMeta && encMeta.enc_state !== 'off' && !fhKeyReady());
+      if (window.fhLockBanner) window.fhLockBanner(_needsKey, encMeta && encMeta.enc_state);
+      if (_needsKey && encMeta.enc_state === 'enc' && !window.__fhUnlockNudged) {
+        window.__fhUnlockNudged = true;
+        setTimeout(() => { try { window.fhUnlockPrompt && window.fhUnlockPrompt(); } catch (e) {} }, 700);
+      }
       async function _decRows(rows, fields) {
         if (!encMeta) return;                                // no family_keys row → nothing encrypted
         await Promise.all((rows || []).map(async (r) => {
@@ -10647,6 +10685,7 @@ function openWhatsNew(){
       const data = _fhThrowPcError(await _rpc('join_with_passcode', { p_family_id: _fhJoinCtx.family_id, p_k_auth: keys.kAuthHex }));
       const dekRaw = await FHCrypto.unwrapDek(data.wrapped_dek, keys.kWrap);
       await fhKeyAdopt(data.family_id, dekRaw);
+      try { _rpc('mark_key_unlocked'); } catch (e) {}         // joiner's device holds the key now
       if (window.DB) {
         window.DB.fid = data.family_id;
         window.DB.enc = { enc_state: data.enc_state, kdf_salt: data.kdf_salt, kdf_iters: data.kdf_iters, kdf_version: data.kdf_version, wrapped_dek: data.wrapped_dek };
@@ -10836,6 +10875,7 @@ function openWhatsNew(){
         try { dekRaw = await FHCrypto.unwrapDek(enc.wrapped_dek, keys.kWrap); }
         catch (e) { throw _fhErr(L('Mã không đúng', 'That code isn’t right')); }
         await fhKeyAdopt(window.DB.fid, dekRaw);
+        try { _rpc('mark_key_unlocked'); } catch (e) {}       // roster stamp, fire-and-forget
         window.fhLockBanner(false);
         window.toast && window.toast(L('Đã mở khóa ✓', 'Unlocked ✓'));
         if (window.loadFamilyData) window.loadFamilyData();
@@ -10843,17 +10883,21 @@ function openWhatsNew(){
     });
   };
 
-  // Small persistent lock bar shown while encrypted values can't be read yet.
-  window.fhLockBanner = function (on) {
+  // Small persistent lock bar shown while this device lacks the family key.
+  // In 'dual' numbers still display (plaintext is there) — the bar invites the
+  // one-time code entry so this device writes ciphertext BEFORE the scrub.
+  window.fhLockBanner = function (on, state) {
     let el = document.getElementById('fh-lockbar');
     if (on) {
       if (!el) {
         el = document.createElement('div'); el.id = 'fh-lockbar';
-        el.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));z-index:64;background:var(--card,#fff);border:1px solid var(--hairline,#e5e0ea);box-shadow:0 6px 24px rgba(0,0,0,.14);border-radius:22px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;gap:8px;align-items:center;cursor:pointer';
-        el.innerHTML = '🔒 <span>' + L('Nhập mã gia đình để hiện số tiền', 'Enter the family code to show amounts') + '</span>';
+        el.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));z-index:64;background:var(--card,#fff);border:1px solid var(--hairline,#e5e0ea);box-shadow:0 6px 24px rgba(0,0,0,.14);border-radius:22px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;gap:8px;align-items:center;cursor:pointer;max-width:88%';
         el.onclick = () => window.fhUnlockPrompt();
         (document.getElementById('phone') || document.body).appendChild(el);
       }
+      el.innerHTML = '🔒 <span>' + (state === 'dual'
+        ? L('Gia đình đang bật mã hóa — nhập mã 6 số một lần trên máy này', 'Your family is turning on encryption — enter the 6-digit code once on this device')
+        : L('Nhập mã gia đình để hiện số tiền', 'Enter the family code to show amounts')) + '</span>';
       el.style.display = 'flex';
     } else if (el) el.style.display = 'none';
   };
@@ -10889,6 +10933,21 @@ function openWhatsNew(){
     if (el) el.textContent = msg;
   }
 
+  /* Who has entered the code on at least one device (members.key_unlocked_at,
+     stamped by mark_key_unlocked). Informational: it tells the owner when the
+     scrub is comfortable — a member who never unlocked keeps writing plaintext
+     rows during dual, which the "re-encrypt missed rows" pass then covers. */
+  function _fhUnlockRoster() {
+    const mem = Object.values((window.DB && window.DB.memberById) || {})
+      .filter((m) => m && m.user_id && !m.is_shared);
+    if (!mem.length) return { html: '', pending: [] };
+    const pending = mem.filter((m) => !m.key_unlocked_at).map((m) => m.name);
+    const rows = mem.map((m) =>
+      '<div class="fh-s-row"><div class="fh-s-grow"><div class="fh-s-name">' + _esc(m.name) + '</div></div>'
+      + '<span class="fh-s-meta">' + (m.key_unlocked_at ? L('đã nhập mã ✓', 'entered the code ✓') : L('chưa nhập mã', 'not yet')) + '</span></div>').join('');
+    return { html: '<div class="fh-s-lab" style="margin-top:18px">' + L('Thành viên đã nhập mã', 'Members with the code') + '</div>' + rows, pending: pending };
+  }
+
   window.fhEncryptionSheet = async function () {
     const fid = window.DB.fid;
     if (!fid) { window.toast && window.toast(L('Hãy mở một gia đình trước', 'Open a family first')); return; }
@@ -10910,17 +10969,25 @@ function openWhatsNew(){
         + (owner ? _btn(L('Bật mã hóa', 'Turn on encryption'), 'fhEncEnable(this)', _S.cta)
                  : '<div class="fh-s-sub">' + L('Chỉ chủ gia đình bật được.', 'Only the owner can turn this on.') + '</div>');
     } else if (st === 'dual') {
+      const roster = _fhUnlockRoster();
+      const pendWarn = roster.pending.length
+        ? '<div class="fh-s-sub">' + L('Chưa nhập mã: ' + roster.pending.join(', ') + '. Nhắc họ mở app và nhập mã trước khi hoàn tất, rồi bấm "Mã hóa nốt" để phủ các dòng họ đã ghi.',
+                                        'Not yet entered: ' + roster.pending.join(', ') + '. Have them open the app and enter the code before finishing, then tap "Re-encrypt missed rows" to cover their entries.') + '</div>'
+        : '';
       body = '<div class="fh-s-lab">' + L('Trạng thái: giai đoạn kiểm chứng', 'Status: verification window') + '</div>'
         + '<div class="fh-s-sub">' + L('Bản mã và bản gốc đang tồn tại song song; app tự đối chiếu mỗi lần đọc. Dùng thử vài ngày trên đủ các máy. Khi yên tâm, bấm hoàn tất để xóa bản gốc trên máy chủ — bước duy nhất không tự quay lại được nếu cả nhà mất mã.',
                                         'Ciphertext and originals coexist; the app cross-checks them on every read. Use it for a few days on all devices. When confident, finish to erase the plaintext on the server — the one step that can’t be undone if the whole family loses the code.') + '</div>'
+        + roster.html + pendWarn
         + (owner ? _btn(L('Hoàn tất — xóa bản gốc trên máy chủ', 'Finish — erase server plaintext'), 'fhEncScrub(this)', _S.del)
                  + _btn(L('Mã hóa nốt dòng còn thiếu', 'Re-encrypt any missed rows'), 'fhEncEnable(this)', _S.line)
                  + _btn(L('Tắt mã hóa', 'Turn encryption off'), 'fhEncDisable(this)', _S.ghost)
                  : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ hoàn tất bước này.', 'The owner finishes this step.') + '</div>');
     } else {
+      const roster = _fhUnlockRoster();
       body = '<div class="fh-s-lab">' + L('Trạng thái: đang mã hóa đầu-cuối 🔒', 'Status: end-to-end encrypted 🔒') + '</div>'
         + '<div class="fh-s-sub">' + L('Máy chủ chỉ còn bản đã khóa. Dữ liệu chỉ mở được bằng mã gia đình trên máy của thành viên.',
                                         'The server holds only locked values. Data opens only with the family code, on members’ devices.') + '</div>'
+        + roster.html
         + (fhKeyReady() ? '' : _btn(L('Mở khóa máy này', 'Unlock this device'), '_closeOv();fhUnlockPrompt()', _S.cta))
         + (owner ? _btn(L('Tắt mã hóa (khôi phục bản gốc)', 'Turn off (restore plaintext)'), 'fhEncDisable(this)', _S.del) : '');
     }
@@ -11244,6 +11311,11 @@ function openWhatsNew(){
     if (error) throw error;
     const created = true;
     const F = window.FAM || { user: {} };
+    /* The RPC switched the ACTIVE family server-side. Mirror that locally now —
+       a stale DB.enc from a previously-open family must never drive the new
+       family's writes (fhField keys off DB.enc/DB.fid). */
+    window.DB.fid = familyId;
+    window.DB.enc = null;
     // owner member: adopt the name + colour chosen in onboarding
     await _w(sb.from('members').update({ name: F.user.name, color: F.user.color })
       .eq('family_id', familyId).eq('user_id', uid), 'write members');
@@ -11251,6 +11323,26 @@ function openWhatsNew(){
     await _w(sb.from('profiles').update({
       display_name: F.user.name, theme: (window.curTheme || 'sage'), language: window.LANG || 'vi'
     }).eq('id', uid), 'write profiles');
+    /* Default-on encryption (0032): the onboarding passcode step is mandatory,
+       and a brand-new family has no history to migrate — so it starts at
+       enc_state 'enc' and is ciphertext-only from its very first write. The
+       budget writes below therefore run AFTER the key exists. A failure here
+       degrades gracefully: the family works unencrypted and Settings offers
+       the passcode again. */
+    if (F.passcode && window.FHCrypto) {
+      try {
+        const salt = FHCrypto.genSaltHex();
+        const keys = await FHCrypto.deriveKeys(F.passcode, salt, FH_KDF_ITERS, FH_KDF_VERSION);
+        const dekRaw = await FHCrypto.genDekRaw();
+        const wrapped = await FHCrypto.wrapDek(dekRaw, keys.kWrap);
+        await _rpc('set_family_passcode', { p_k_auth: keys.kAuthHex, p_kdf_salt: salt, p_kdf_iters: FH_KDF_ITERS, p_kdf_version: FH_KDF_VERSION, p_wrapped_dek: wrapped, p_enc_state: 'enc' });
+        await fhKeyAdopt(familyId, dekRaw);
+        window.DB.enc = { enc_state: 'enc', kdf_salt: salt, kdf_iters: FH_KDF_ITERS, kdf_version: FH_KDF_VERSION, wrapped_dek: wrapped };
+      } catch (e) {
+        console.warn('passcode setup failed', e);
+        window.toast && window.toast(L('Chưa đặt được mã gia đình — đặt lại trong Cài đặt nhé', 'Couldn’t set the passcode — set it again from Settings'));
+      } finally { F.passcode = null; }
+    }
     if (created) {
       // extra (non-me) members entered during onboarding
       const extras = (F.members || []).filter((m) => !m.me && (m.name || '').trim());
@@ -11259,19 +11351,24 @@ function openWhatsNew(){
           family_id: familyId, name: m.name.trim(), color: m.color || null
         }))), 'write members');
       }
-      // budget: current-month cap + per-category budgets (mapped by sort_order → catOrder)
+      // budget: current-month cap + per-category budgets (mapped by sort_order → catOrder);
+      // fhField makes these ciphertext-only when the family started encrypted
       const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
       const month = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
-      if (F.budget) await _w(sb.from('monthly_budgets')
-        .upsert({ family_id: familyId, month, budget_total: F.budget }, { onConflict: 'family_id,month' }), 'write monthly_budgets');
+      if (F.budget) {
+        const mbf = await fhField('budget_total', F.budget);
+        if (mbf.budget_total == null) mbf.budget_total = 0;   // plaintext cap column stays NOT NULL
+        await _w(sb.from('monthly_budgets')
+          .upsert(Object.assign({ family_id: familyId, month }, mbf), { onConflict: 'family_id,month' }), 'write monthly_budgets');
+      }
       const { data: cats } = await sb.from('categories').select('id, sort_order').eq('family_id', familyId);
       const order = window.catOrder || [];
       const rows = [];
-      (cats || []).forEach((c) => {
+      for (const c of (cats || [])) {
         const key = order[c.sort_order - 1];
         const amt = (key && F.catBudget) ? (F.catBudget[key] || 0) : 0;
-        if (amt > 0) rows.push({ family_id: familyId, month, category_id: c.id, amount: amt });
-      });
+        if (amt > 0) rows.push(Object.assign({ family_id: familyId, month, category_id: c.id }, await fhField('amount', amt)));
+      }
       if (rows.length) await _w(sb.from('category_budgets')
         .upsert(rows, { onConflict: 'family_id,month,category_id' }), 'write category_budgets');
     }

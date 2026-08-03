@@ -85,6 +85,7 @@
       const data = _fhThrowPcError(await _rpc('join_with_passcode', { p_family_id: _fhJoinCtx.family_id, p_k_auth: keys.kAuthHex }));
       const dekRaw = await FHCrypto.unwrapDek(data.wrapped_dek, keys.kWrap);
       await fhKeyAdopt(data.family_id, dekRaw);
+      try { _rpc('mark_key_unlocked'); } catch (e) {}         // joiner's device holds the key now
       if (window.DB) {
         window.DB.fid = data.family_id;
         window.DB.enc = { enc_state: data.enc_state, kdf_salt: data.kdf_salt, kdf_iters: data.kdf_iters, kdf_version: data.kdf_version, wrapped_dek: data.wrapped_dek };
@@ -274,6 +275,7 @@
         try { dekRaw = await FHCrypto.unwrapDek(enc.wrapped_dek, keys.kWrap); }
         catch (e) { throw _fhErr(L('Mã không đúng', 'That code isn’t right')); }
         await fhKeyAdopt(window.DB.fid, dekRaw);
+        try { _rpc('mark_key_unlocked'); } catch (e) {}       // roster stamp, fire-and-forget
         window.fhLockBanner(false);
         window.toast && window.toast(L('Đã mở khóa ✓', 'Unlocked ✓'));
         if (window.loadFamilyData) window.loadFamilyData();
@@ -281,17 +283,21 @@
     });
   };
 
-  // Small persistent lock bar shown while encrypted values can't be read yet.
-  window.fhLockBanner = function (on) {
+  // Small persistent lock bar shown while this device lacks the family key.
+  // In 'dual' numbers still display (plaintext is there) — the bar invites the
+  // one-time code entry so this device writes ciphertext BEFORE the scrub.
+  window.fhLockBanner = function (on, state) {
     let el = document.getElementById('fh-lockbar');
     if (on) {
       if (!el) {
         el = document.createElement('div'); el.id = 'fh-lockbar';
-        el.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));z-index:64;background:var(--card,#fff);border:1px solid var(--hairline,#e5e0ea);box-shadow:0 6px 24px rgba(0,0,0,.14);border-radius:22px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;gap:8px;align-items:center;cursor:pointer';
-        el.innerHTML = '🔒 <span>' + L('Nhập mã gia đình để hiện số tiền', 'Enter the family code to show amounts') + '</span>';
+        el.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));z-index:64;background:var(--card,#fff);border:1px solid var(--hairline,#e5e0ea);box-shadow:0 6px 24px rgba(0,0,0,.14);border-radius:22px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;gap:8px;align-items:center;cursor:pointer;max-width:88%';
         el.onclick = () => window.fhUnlockPrompt();
         (document.getElementById('phone') || document.body).appendChild(el);
       }
+      el.innerHTML = '🔒 <span>' + (state === 'dual'
+        ? L('Gia đình đang bật mã hóa — nhập mã 6 số một lần trên máy này', 'Your family is turning on encryption — enter the 6-digit code once on this device')
+        : L('Nhập mã gia đình để hiện số tiền', 'Enter the family code to show amounts')) + '</span>';
       el.style.display = 'flex';
     } else if (el) el.style.display = 'none';
   };

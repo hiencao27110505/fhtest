@@ -155,6 +155,11 @@
     if (error) throw error;
     const created = true;
     const F = window.FAM || { user: {} };
+    /* The RPC switched the ACTIVE family server-side. Mirror that locally now —
+       a stale DB.enc from a previously-open family must never drive the new
+       family's writes (fhField keys off DB.enc/DB.fid). */
+    window.DB.fid = familyId;
+    window.DB.enc = null;
     // owner member: adopt the name + colour chosen in onboarding
     await _w(sb.from('members').update({ name: F.user.name, color: F.user.color })
       .eq('family_id', familyId).eq('user_id', uid), 'write members');
@@ -162,6 +167,26 @@
     await _w(sb.from('profiles').update({
       display_name: F.user.name, theme: (window.curTheme || 'sage'), language: window.LANG || 'vi'
     }).eq('id', uid), 'write profiles');
+    /* Default-on encryption (0032): the onboarding passcode step is mandatory,
+       and a brand-new family has no history to migrate — so it starts at
+       enc_state 'enc' and is ciphertext-only from its very first write. The
+       budget writes below therefore run AFTER the key exists. A failure here
+       degrades gracefully: the family works unencrypted and Settings offers
+       the passcode again. */
+    if (F.passcode && window.FHCrypto) {
+      try {
+        const salt = FHCrypto.genSaltHex();
+        const keys = await FHCrypto.deriveKeys(F.passcode, salt, FH_KDF_ITERS, FH_KDF_VERSION);
+        const dekRaw = await FHCrypto.genDekRaw();
+        const wrapped = await FHCrypto.wrapDek(dekRaw, keys.kWrap);
+        await _rpc('set_family_passcode', { p_k_auth: keys.kAuthHex, p_kdf_salt: salt, p_kdf_iters: FH_KDF_ITERS, p_kdf_version: FH_KDF_VERSION, p_wrapped_dek: wrapped, p_enc_state: 'enc' });
+        await fhKeyAdopt(familyId, dekRaw);
+        window.DB.enc = { enc_state: 'enc', kdf_salt: salt, kdf_iters: FH_KDF_ITERS, kdf_version: FH_KDF_VERSION, wrapped_dek: wrapped };
+      } catch (e) {
+        console.warn('passcode setup failed', e);
+        window.toast && window.toast(L('Chưa đặt được mã gia đình — đặt lại trong Cài đặt nhé', 'Couldn’t set the passcode — set it again from Settings'));
+      } finally { F.passcode = null; }
+    }
     if (created) {
       // extra (non-me) members entered during onboarding
       const extras = (F.members || []).filter((m) => !m.me && (m.name || '').trim());
@@ -170,19 +195,24 @@
           family_id: familyId, name: m.name.trim(), color: m.color || null
         }))), 'write members');
       }
-      // budget: current-month cap + per-category budgets (mapped by sort_order → catOrder)
+      // budget: current-month cap + per-category budgets (mapped by sort_order → catOrder);
+      // fhField makes these ciphertext-only when the family started encrypted
       const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
       const month = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
-      if (F.budget) await _w(sb.from('monthly_budgets')
-        .upsert({ family_id: familyId, month, budget_total: F.budget }, { onConflict: 'family_id,month' }), 'write monthly_budgets');
+      if (F.budget) {
+        const mbf = await fhField('budget_total', F.budget);
+        if (mbf.budget_total == null) mbf.budget_total = 0;   // plaintext cap column stays NOT NULL
+        await _w(sb.from('monthly_budgets')
+          .upsert(Object.assign({ family_id: familyId, month }, mbf), { onConflict: 'family_id,month' }), 'write monthly_budgets');
+      }
       const { data: cats } = await sb.from('categories').select('id, sort_order').eq('family_id', familyId);
       const order = window.catOrder || [];
       const rows = [];
-      (cats || []).forEach((c) => {
+      for (const c of (cats || [])) {
         const key = order[c.sort_order - 1];
         const amt = (key && F.catBudget) ? (F.catBudget[key] || 0) : 0;
-        if (amt > 0) rows.push({ family_id: familyId, month, category_id: c.id, amount: amt });
-      });
+        if (amt > 0) rows.push(Object.assign({ family_id: familyId, month, category_id: c.id }, await fhField('amount', amt)));
+      }
       if (rows.length) await _w(sb.from('category_budgets')
         .upsert(rows, { onConflict: 'family_id,month,category_id' }), 'write category_budgets');
     }

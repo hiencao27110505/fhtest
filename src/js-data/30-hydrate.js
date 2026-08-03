@@ -43,7 +43,7 @@
       } else {
         const R = await Promise.all([
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
-          sb.from('members').select('id,name,color,is_shared,user_id,created_at').eq('family_id', fid).is('archived_at', null).order('created_at'),
+          sb.from('members').select('id,name,color,is_shared,user_id,created_at,key_unlocked_at').eq('family_id', fid).is('archived_at', null).order('created_at'),
           // archived ones come along so old transactions still resolve their name; they're kept out of catOrder below
           sb.from('categories').select('id,name,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
           sb.from('category_budgets').select('category_id,amount,amount_enc,month').eq('family_id', fid),
@@ -74,8 +74,16 @@
          passcode prompt. */
       window.DB.enc = encMeta || null;
       if (encMeta) { try { await fhKeyLoad(fid); } catch (e) {} }
-      const _locked = !!(encMeta && encMeta.enc_state === 'enc' && !fhKeyReady());
-      if (window.fhLockBanner) window.fhLockBanner(_locked);
+      /* Encryption is FAMILY-wide: the moment the owner turns it on, every other
+         device learns it here (realtime on family_keys re-runs this hydrate) and
+         gets nudged for the code — during 'dual' as a banner (numbers still show
+         via plaintext), in 'enc' also auto-opening the prompt once per session. */
+      const _needsKey = !!(encMeta && encMeta.enc_state !== 'off' && !fhKeyReady());
+      if (window.fhLockBanner) window.fhLockBanner(_needsKey, encMeta && encMeta.enc_state);
+      if (_needsKey && encMeta.enc_state === 'enc' && !window.__fhUnlockNudged) {
+        window.__fhUnlockNudged = true;
+        setTimeout(() => { try { window.fhUnlockPrompt && window.fhUnlockPrompt(); } catch (e) {} }, 700);
+      }
       async function _decRows(rows, fields) {
         if (!encMeta) return;                                // no family_keys row → nothing encrypted
         await Promise.all((rows || []).map(async (r) => {

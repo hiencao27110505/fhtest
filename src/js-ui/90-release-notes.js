@@ -40,7 +40,7 @@ var ICO = {
 };
 
 var RELEASES = [
-  { id:'2026-08-03-passcode', date:'2026-08-03', time:'12:00', ver:'v245', icon:ICO.shield,
+  { id:'2026-08-03-passcode', date:'2026-08-03', time:'12:00', ver:'v246', icon:ICO.shield,
     vi:{ t:'Mã gia đình 6 số, và mã hóa chuyện tiền nong',
       problem:'Trước đây ai có mã mời là vào được nhà, và số tiền của nhà mình nằm trên máy chủ ai vận hành cũng đọc được.',
       sol:'Giờ vào nhà cần được chủ nhà thêm email vào danh sách rồi nhập mã 6 số của gia đình. Trong Cài đặt còn bật được mã hóa tài chính, khi đó số tiền được khóa ngay trên máy bằng mã của nhà mình, đến cả người làm ra app cũng không đọc được.' },

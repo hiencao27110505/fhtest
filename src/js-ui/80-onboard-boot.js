@@ -7,8 +7,8 @@ var FAM={
 };
 var OB_COLORS=['#6f3fc0','#0e8478','#f0701a','#e03d86','#1e74d0','#B8730B','#7A5AE0','#1a9d5f'];
 var OB_ROLES=['Mom','Dad','Husband','Wife','Boyfriend','Girlfriend','Partner','Sweetheart','Sweetie','Coldheart','Man of steel','Parent','Son','Daughter','Kid','Teen','Sibling','Guardian','Grandma','Grandpa','Other'];
-var obOrder=['welcome','locale','auth','choice','join','profile','family','budget','theme','done'];
-var obProg={welcome:0,locale:.1,auth:.2,choice:.34,join:.52,profile:.6,family:.74,budget:.86,theme:.93,done:1};
+var obOrder=['welcome','locale','auth','choice','join','profile','family','passcode','budget','theme','done'];
+var obProg={welcome:0,locale:.1,auth:.2,choice:.34,join:.52,profile:.6,family:.72,passcode:.79,budget:.86,theme:.93,done:1};
 function obPickLang(btn){ pick('ob-lang',btn); LANG=btn.dataset.v; applyLang(); }
 function obPickCur(btn){ pick('ob-cur',btn); CUR=btn.dataset.v; }
 function inits(n){ return ((n||'').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2)||'?').toUpperCase(); }
@@ -117,6 +117,23 @@ function obFamilyNext(){
     mems.push({name:nm, email:(row.querySelector('.ob-memail')||{value:''}).value.trim(), role:row.querySelector('.ob-mrole').value, color:row.querySelector('.ob-mav').style.background||OB_COLORS[i%OB_COLORS.length], me:!!row.querySelector('.ob-mtag')});
   });
   FAM.members=mems.length?mems:[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,role:FAM.user.role,me:true}];
+  var pc=document.getElementById('ob-pc'), pc2=document.getElementById('ob-pc2');
+  if(pc)pc.value=''; if(pc2)pc2.value='';
+  obPcInput(); obGo('passcode');
+  if(pc) setTimeout(function(){ pc.focus(); },320);
+}
+/* Mandatory passcode step (create flow only): 6 digits, typed twice. The code is
+   held in memory (FAM.passcode) until createFamilyInDB uses it, never stored. */
+function obPcInput(){
+  var a=document.getElementById('ob-pc'), b=document.getElementById('ob-pc2'), cta=document.getElementById('ob-pc-cta');
+  if(!a||!b||!cta) return;
+  a.value=a.value.replace(/\D/g,'').slice(0,6); b.value=b.value.replace(/\D/g,'').slice(0,6);
+  cta.disabled=!(/^\d{6}$/.test(a.value) && a.value===b.value);
+}
+function obPasscodeNext(){
+  var a=document.getElementById('ob-pc');
+  if(!a||!/^\d{6}$/.test(a.value)) return;
+  FAM.passcode=a.value;
   obPrefillBudget(); obGo('budget');
 }
 var BUDGET_PROPS={Housing:.30,Groceries:.14,Transport:.10,Others:.08,Dining:.08,Fun:.06};   // best-practice proportions

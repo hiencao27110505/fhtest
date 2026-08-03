@@ -29,6 +29,21 @@
     if (el) el.textContent = msg;
   }
 
+  /* Who has entered the code on at least one device (members.key_unlocked_at,
+     stamped by mark_key_unlocked). Informational: it tells the owner when the
+     scrub is comfortable — a member who never unlocked keeps writing plaintext
+     rows during dual, which the "re-encrypt missed rows" pass then covers. */
+  function _fhUnlockRoster() {
+    const mem = Object.values((window.DB && window.DB.memberById) || {})
+      .filter((m) => m && m.user_id && !m.is_shared);
+    if (!mem.length) return { html: '', pending: [] };
+    const pending = mem.filter((m) => !m.key_unlocked_at).map((m) => m.name);
+    const rows = mem.map((m) =>
+      '<div class="fh-s-row"><div class="fh-s-grow"><div class="fh-s-name">' + _esc(m.name) + '</div></div>'
+      + '<span class="fh-s-meta">' + (m.key_unlocked_at ? L('đã nhập mã ✓', 'entered the code ✓') : L('chưa nhập mã', 'not yet')) + '</span></div>').join('');
+    return { html: '<div class="fh-s-lab" style="margin-top:18px">' + L('Thành viên đã nhập mã', 'Members with the code') + '</div>' + rows, pending: pending };
+  }
+
   window.fhEncryptionSheet = async function () {
     const fid = window.DB.fid;
     if (!fid) { window.toast && window.toast(L('Hãy mở một gia đình trước', 'Open a family first')); return; }
@@ -50,17 +65,25 @@
         + (owner ? _btn(L('Bật mã hóa', 'Turn on encryption'), 'fhEncEnable(this)', _S.cta)
                  : '<div class="fh-s-sub">' + L('Chỉ chủ gia đình bật được.', 'Only the owner can turn this on.') + '</div>');
     } else if (st === 'dual') {
+      const roster = _fhUnlockRoster();
+      const pendWarn = roster.pending.length
+        ? '<div class="fh-s-sub">' + L('Chưa nhập mã: ' + roster.pending.join(', ') + '. Nhắc họ mở app và nhập mã trước khi hoàn tất, rồi bấm "Mã hóa nốt" để phủ các dòng họ đã ghi.',
+                                        'Not yet entered: ' + roster.pending.join(', ') + '. Have them open the app and enter the code before finishing, then tap "Re-encrypt missed rows" to cover their entries.') + '</div>'
+        : '';
       body = '<div class="fh-s-lab">' + L('Trạng thái: giai đoạn kiểm chứng', 'Status: verification window') + '</div>'
         + '<div class="fh-s-sub">' + L('Bản mã và bản gốc đang tồn tại song song; app tự đối chiếu mỗi lần đọc. Dùng thử vài ngày trên đủ các máy. Khi yên tâm, bấm hoàn tất để xóa bản gốc trên máy chủ — bước duy nhất không tự quay lại được nếu cả nhà mất mã.',
                                         'Ciphertext and originals coexist; the app cross-checks them on every read. Use it for a few days on all devices. When confident, finish to erase the plaintext on the server — the one step that can’t be undone if the whole family loses the code.') + '</div>'
+        + roster.html + pendWarn
         + (owner ? _btn(L('Hoàn tất — xóa bản gốc trên máy chủ', 'Finish — erase server plaintext'), 'fhEncScrub(this)', _S.del)
                  + _btn(L('Mã hóa nốt dòng còn thiếu', 'Re-encrypt any missed rows'), 'fhEncEnable(this)', _S.line)
                  + _btn(L('Tắt mã hóa', 'Turn encryption off'), 'fhEncDisable(this)', _S.ghost)
                  : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ hoàn tất bước này.', 'The owner finishes this step.') + '</div>');
     } else {
+      const roster = _fhUnlockRoster();
       body = '<div class="fh-s-lab">' + L('Trạng thái: đang mã hóa đầu-cuối 🔒', 'Status: end-to-end encrypted 🔒') + '</div>'
         + '<div class="fh-s-sub">' + L('Máy chủ chỉ còn bản đã khóa. Dữ liệu chỉ mở được bằng mã gia đình trên máy của thành viên.',
                                         'The server holds only locked values. Data opens only with the family code, on members’ devices.') + '</div>'
+        + roster.html
         + (fhKeyReady() ? '' : _btn(L('Mở khóa máy này', 'Unlock this device'), '_closeOv();fhUnlockPrompt()', _S.cta))
         + (owner ? _btn(L('Tắt mã hóa (khôi phục bản gốc)', 'Turn off (restore plaintext)'), 'fhEncDisable(this)', _S.del) : '');
     }
