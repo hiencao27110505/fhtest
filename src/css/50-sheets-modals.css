@@ -86,8 +86,8 @@
 #bulk-list{display:flex;flex-direction:column;gap:10px}
 .bulk-card{border:1.5px solid var(--hairline);border-radius:13px;background:var(--white);overflow:hidden}
 .bulk-card.active{border-color:var(--brand);border-width:2px;background:var(--pearl);animation:fhpop .2s cubic-bezier(.22,1,.36,1) both}
-/* Missing category → a small highlighted label only, not a full-card highlight. */
-.bs-pick{font-size:11px;font-weight:700;color:var(--amber);background:var(--amber-tint);padding:3px 8px;border-radius:6px;white-space:nowrap}
+/* Missing category → a small highlighted label only, not a full-card highlight. Red so it stands out. */
+.bs-pick{font-size:11px;font-weight:700;color:var(--danger);background:var(--danger-tint);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .bs-dup{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
 .bulk-card:not(.active){display:flex;align-items:center}
 /* Real <button> so it's focusable and announced by VoiceOver (not a bare div).
