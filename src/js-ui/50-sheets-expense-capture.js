@@ -151,7 +151,7 @@ function selectChipByVal(group,val){
   });
   return picked;
 }
-function pickExCat(btn){ pick('ex-cat',btn); lastCat=btn.dataset.v; onExInput(); }
+function pickExCat(btn){ pick('ex-cat',btn); lastCat=btn.dataset.v; if(!editingTx && bulkRows[bulkActive]) bulkRows[bulkActive]._catTouched=true; onExInput(); }
 function pickExWho(btn){ pick('ex-who',btn); lastWho=btn.dataset.v; onExInput(); }
 function setExCta(txt){}   // Save button label is fixed in the modal; the hint below explains the action
 // The date decides the kind of expense: after today = a future expense (set aside), else = spent.
@@ -203,9 +203,12 @@ function rowHasContent(r){ return !!(r && ((r.note||'').trim() || parseAmtBase(r
 /* A fresh draft row. Mirrors the old prefill defaults (last category/payer, today,
    or a preset's category/date) so a single-row modal behaves exactly as before. */
 function blankRow(preset){
-  var cat = (preset && catValid(preset.cat)) ? preset.cat : safeDefaultCat();
+  var preCat = !!(preset && catValid(preset.cat));
+  var cat = preCat ? preset.cat : safeDefaultCat();
   var d   = (preset && preset.date) || isoDate(TODAY);
-  return { note:'', amt:'', cat:cat, who:lastWho, date:d, _invalid:false };
+  // _catTouched = the category was set on purpose (a preset or a manual chip tap);
+  // an untouched default yields to the note's guess on commit.
+  return { note:'', amt:'', cat:cat, who:lastWho, date:d, _invalid:false, _catTouched:preCat };
 }
 /* Read the live #ex-* fields into the active draft. Called on every edit so the
    summary cards and Save validation always reflect what's on screen. */
@@ -217,6 +220,22 @@ function flushActiveRow(){
   r.cat  = chosen('ex-cat') || r.cat;
   r.who  = chosen('ex-who') || r.who;
   r.date = document.getElementById('ex-date').value || r.date;
+}
+/* Commit = flush the live fields AND parse the note if the amount wasn't entered
+   separately. This is what makes "＋ Thêm khoản" (and leaving a row) behave like a
+   comma: "tiền cafe phe 50k" → note "tiền cafe phe", amount 50k, category guessed. */
+function commitActiveRow(){
+  flushActiveRow();
+  var r=bulkRows[bulkActive]; if(!r) return;
+  if(!parseAmtBase(r.amt||'') && (r.note||'').trim()){       // pull an amount out of the note if none was typed
+    var p=parseBulkLine(r.note);
+    if(p.amt){ r.amt=p.amt; r.note=p.note; }
+  }
+  if(!r._catTouched && (r.note||'').trim()){                 // category not hand-picked → let the note decide, overriding any default
+    var g=guessCat(r.note);
+    if(g) r.cat=g;
+    else if(bulkRows.length>1) r.cat='';                     // bulk: fail-safe to "Chọn danh mục"; a lone expense keeps its default
+  }
 }
 /* Write a draft row into the live #ex-* fields (reuses the single-form controls). */
 function loadRow(i){
@@ -230,18 +249,22 @@ function loadRow(i){
   selectChipByVal('ex-who', r.who||lastWho);
   updateExWhen(); refreshExCta();
 }
-/* Accordion: expand row i, collapsing the current one (its edits are flushed). */
+/* Accordion: expand row i, committing (parse+flush) the current one first. */
 function setActiveRow(i){
-  flushActiveRow();
+  commitActiveRow();
   bulkActive=i;
   renderBulk();
   loadRow(i);
   var n=document.getElementById('ex-note'); if(n) n.focus();
 }
 function bulkAddRow(){
-  flushActiveRow();
-  bulkRows.push(blankRow());
-  setActiveRow(bulkRows.length-1);
+  commitActiveRow();                               // parse "note + 50k" into the row we're leaving
+  var nr=blankRow(); nr.cat=''; nr._catTouched=false;   // a new bulk entry starts unclassified — the note decides
+  bulkRows.push(nr);
+  bulkActive=bulkRows.length-1;
+  renderBulk();
+  loadRow(bulkActive);
+  var n=document.getElementById('ex-note'); if(n) n.focus();
 }
 function bulkRemoveRow(i){
   if(bulkRows.length<=1) return;                 // always keep at least one form
@@ -344,29 +367,38 @@ function markDuplicates(){
   });
 }
 /* ---- comma-triggered NL line parsing ---------------------------------------
-   Typing a comma in CHI CHO GÌ? commits the completed segment(s) as rows and
-   opens a fresh form for whatever follows the last comma. */
+   A comma marks the END of an entry, but we DON'T split on it — splitting the
+   moment the comma is typed would drop an empty form on screen with nothing to
+   parse. Instead we wait: only once the user starts the NEXT entry (text appears
+   after the comma) do we peel the completed entries off into parsed cards, and the
+   active input keeps the just-started text. So a new card only ever appears with
+   real, parsed data, and there's never a stray empty form. */
 function onExNoteInput(){
-  if(!editingTx && document.getElementById('ex-note').value.indexOf(',')>=0){ handleCommaSplit(); return; }
+  var v=document.getElementById('ex-note').value;
+  if(!editingTx && v.indexOf(',')>=0){
+    var lastSeg=v.slice(v.lastIndexOf(',')+1);     // text after the final comma
+    if(lastSeg.trim()!==''){ handleCommaSplit(); return; }   // next entry has started → peel off the completed ones
+    // comma just typed, nothing after it yet → keep waiting; treat as normal input
+  }
   onExInput();
 }
 function handleCommaSplit(){
-  flushActiveRow();                                // capture who/date on the active row before we overwrite its note/amt
+  flushActiveRow();
   var val=document.getElementById('ex-note').value;
   var parts=val.split(',');
-  var remainder=parts.pop();                       // text after the final comma stays in-progress
+  var remainder=parts.pop().trim();                // the next entry, already started (guaranteed non-empty by caller)
   var done=parts.map(function(s){return s.trim();}).filter(function(s){return s!=='';});
-  if(!done.length){ onExInput(); return; }         // e.g. a leading comma — nothing to commit yet
-  applyParsed(bulkActive, parseBulkLine(done[0]));      // first segment completes the active row
-  for(var i=1;i<done.length;i++){ bulkRows.push(rowFromParsed(parseBulkLine(done[i]))); }
-  bulkRows.push(rowFromParsed({note:remainder.trim(), amt:'', cat:''}));   // fresh active row seeded with the remainder
-  bulkActive=bulkRows.length-1;
-  // Dismiss the keyboard so the just-parsed rows are visible; the new form is ready
-  // and expanded, the user taps its field to continue. Blur BEFORE render so iOS
-  // doesn't re-anchor the scroll to a field that's about to move in the DOM.
-  var ae=document.activeElement; if(ae && ae.blur) ae.blur();
+  if(done.length){
+    applyParsed(bulkActive, parseBulkLine(done[0]));                        // first completed entry fills the current row
+    for(var i=1;i<done.length;i++){ bulkRows.push(rowFromParsed(parseBulkLine(done[i]))); }
+    bulkRows.push(rowFromParsed({note:remainder, amt:'', cat:''}));         // active input carries the just-started entry
+    bulkActive=bulkRows.length-1;
+  } else {
+    bulkRows[bulkActive].note=remainder;           // e.g. ", chợ" — nothing completed, just drop the stray comma
+  }
   renderBulk();
   loadRow(bulkActive);
+  var n=document.getElementById('ex-note'); if(n){ n.focus(); var L2=n.value.length; try{ n.setSelectionRange(L2,L2); }catch(e){} }   // keep typing the next entry
 }
 function applyParsed(i, p){
   var r=bulkRows[i]; if(!r) return;
@@ -383,7 +415,7 @@ function rowFromParsed(p){
 }
 /* Parse one segment → {note, amt (display-currency string), cat}. */
 function parseBulkLine(text){
-  var raw=(text||'').trim();
+  var raw=(text||'').replace(/^[\s,]+|[\s,]+$/g,'');   // drop stray leading/trailing commas & spaces
   var amt='', note=raw;
   var m=matchAmount(raw);
   if(m){ amt=String(m.display); note=(raw.slice(0,m.index)+raw.slice(m.index+m.len)).replace(/\s+/g,' ').trim(); }
@@ -512,7 +544,7 @@ function guessCat(note){
    (its write-through wrapper fires per call). BULK_SAVING mutes each call's own
    close/toast/nav so the loop can run; the modal closes once at the end. */
 function submitBulk(){
-  flushActiveRow();
+  commitActiveRow();                               // parse the trailing entry still sitting in the input
   // parse-on-save: a row whose note still embeds a number but has no amount yet
   bulkRows.forEach(function(r){
     if(!parseAmtBase(r.amt||'') && (r.note||'').trim()){
