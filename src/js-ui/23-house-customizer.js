@@ -573,14 +573,21 @@ function pickHouse(part, value){
    own .sheet / #scrim scaffolding (created once, opened via openSheet).
    ============================================================================ */
 var _HOUSE_SEG = 'house';
+/* functional control icons are inline SVG (stroke=currentColor), not emoji —
+   emoji stay content-only marks elsewhere (DESIGN.md §2.6) */
+var _HOUSE_SVG = {
+  house: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7"/><path d="M6 10v9a1 1 0 001 1h10a1 1 0 001-1v-9"/><path d="M10 20v-5h4v5"/></svg>',
+  tree:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M12 15v6"/></svg>',
+  pet:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="16" rx="5" ry="4"/><circle cx="6" cy="9" r="2"/><circle cx="11" cy="6" r="2"/><circle cx="16" cy="6.5" r="2"/><circle cx="19.5" cy="10.5" r="2"/></svg>'
+};
 var _HOUSE_CAT = {
-  house: { icon:'🏠', vi:'Kiểu nhà', en:'House', items:[
+  house: { icon:_HOUSE_SVG.house, vi:'Kiểu nhà', en:'House', items:[
     {v:'cottage',vi:'Nhà ấm',en:'Cottage'},{v:'modern',vi:'Hiện đại',en:'Modern'},
     {v:'tile',vi:'Ngói Việt',en:'Tiled'},{v:'brick',vi:'Gạch phố',en:'Brick'} ] },
-  tree:  { icon:'🌳', vi:'Cây', en:'Tree', items:[
+  tree:  { icon:_HOUSE_SVG.tree, vi:'Cây', en:'Tree', items:[
     {v:'oak',vi:'Sồi',en:'Oak'},{v:'cherry',vi:'Anh đào',en:'Cherry'},{v:'pine',vi:'Thông',en:'Pine'},
     {v:'willow',vi:'Liễu',en:'Willow'},{v:'kumquat',vi:'Quất',en:'Kumquat'} ] },
-  pet:   { icon:'🐾', vi:'Thú cưng', en:'Pet', items:[
+  pet:   { icon:_HOUSE_SVG.pet, vi:'Thú cưng', en:'Pet', items:[
     {v:null,vi:'Không',en:'None'},{v:'dog',vi:'Chó',en:'Dog'},{v:'cat',vi:'Mèo',en:'Cat'},
     {v:'rabbit',vi:'Thỏ',en:'Rabbit'},{v:'bird',vi:'Chim',en:'Bird'},{v:'duck',vi:'Vịt',en:'Duck'} ] }
 };
@@ -630,9 +637,9 @@ function _renderHouseToolbox(el){
       + '<div class="nm">' + _L(it.vi, it.en) + '</div></button>';
   }).join('');
   el.innerHTML = '<div class="grab"></div>'
-    + '<div class="sh-hd"><h3>' + _L('Chăm chút tổ ấm', 'Make it home') + '</h3>'
-    + '<p>' + _L('Chọn kiểu nhà, cây tiết kiệm và bạn nhỏ — hiện ngay trên trang chủ.',
-                 'Pick a house, a savings tree and a little friend — it shows on your home at once.') + '</p></div>'
+    + '<div class="sheet-h">' + _L('Chăm chút tổ ấm', 'Make it home') + '</div>'
+    + '<div class="sheet-sub">' + _L('Chọn kiểu nhà, cây tiết kiệm và bạn nhỏ — hiện ngay trên trang chủ.',
+                 'Pick a house, a savings tree and a little friend — it shows on your home at once.') + '</div>'
     + '<div class="segs">' + segs + '</div>'
     + '<div class="sh-body"><div class="opts">' + opts + '</div></div>';
 }
@@ -656,7 +663,7 @@ function openHouseToolbox(){
 function _houseEntryHTML(){
   var _L = (typeof L === 'function') ? L : function(a){ return a; };
   return '<button class="house-entry" onclick="openHouseToolbox()">'
-    + '<span class="he-ic">🛠️</span>'
+    + '<span class="he-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 00-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 005.4-5.4l-2.8 2.8-2-2z"/></svg></span>'
     + '<span class="he-tt"><b>' + _L('Chăm chút tổ ấm', 'Make it home') + '</b>'
     + '<span>' + _L('Đổi nhà · cây · thú cưng cho cả nhà', 'Change your house · tree · pet') + '</span></span>'
     + '<svg class="he-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'

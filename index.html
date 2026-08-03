@@ -729,13 +729,11 @@ input{font-family:inherit}
    TOOLBOX SHEET — the 3-picker ("Chăm chút tổ ấm"). The .sheet / #scrim / .grab
    shell is the app's own (50-sheets-modals.css); these style the inner content.
    ============================================================================ */
-.sheet-house .sh-hd{padding:2px 2px 12px}
-.sheet-house .sh-hd h3{font-family:var(--disp);font-size:22px;font-weight:800;letter-spacing:-.5px;color:var(--ink)}
-.sheet-house .sh-hd p{font-size:13px;color:var(--muted);margin-top:3px;line-height:1.4}
 .sheet-house .segs{display:flex;gap:7px;padding:0 0 14px;position:sticky;top:0;background:var(--white);z-index:2}
-.sheet-house .seg{flex:1;border:1px solid var(--hairline);background:var(--white);border-radius:12px;padding:9px 8px;font:inherit;font-size:13px;font-weight:650;color:var(--ink-2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
-.sheet-house .seg.on{background:var(--brand);color:#fff;border-color:var(--brand)}
-.sheet-house .seg .e{font-size:15px}
+.sheet-house .seg{flex:1;min-height:44px;border:2px solid var(--hairline);background:var(--white);border-radius:12px;padding:9px 8px;font:inherit;font-size:13px;font-weight:650;color:var(--ink-2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.sheet-house .seg.on{background:var(--brand-tint);color:var(--brand-ink);border-color:var(--brand)}
+.sheet-house .seg .e{width:16px;height:16px;flex:0 0 auto;display:flex}
+.sheet-house .seg .e svg{width:100%;height:100%;display:block}
 .sheet-house .sh-body{padding:2px 0 4px}
 .sheet-house .opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .sheet-house .opt{position:relative;background:var(--white);border:2px solid var(--hairline);border-radius:16px;padding:8px 8px 9px;cursor:pointer;text-align:center;transition:transform .12s;overflow:hidden;font:inherit}
@@ -772,7 +770,8 @@ input{font-family:inherit}
 .house-entry:active{transform:scale(.99)}
 .house-entry + .hearth{margin-top:14px}          /* the hearth no longer straddles when the entry precedes it */
 .he-ic{width:44px;height:44px;border-radius:13px;background:var(--grad-brand);color:#fff;display:flex;
-  align-items:center;justify-content:center;font-size:22px;flex:0 0 auto;box-shadow:0 4px 10px var(--brand-glow)}
+  align-items:center;justify-content:center;flex:0 0 auto;box-shadow:0 4px 10px var(--brand-glow)}
+.he-ic svg{width:22px;height:22px;display:block}
 .he-tt{flex:1;min-width:0}
 .he-tt b{font-family:var(--disp);font-size:15.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink);display:block}
 .he-tt span{display:block;font-size:12.5px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -4815,14 +4814,21 @@ function pickHouse(part, value){
    own .sheet / #scrim scaffolding (created once, opened via openSheet).
    ============================================================================ */
 var _HOUSE_SEG = 'house';
+/* functional control icons are inline SVG (stroke=currentColor), not emoji —
+   emoji stay content-only marks elsewhere (DESIGN.md §2.6) */
+var _HOUSE_SVG = {
+  house: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7"/><path d="M6 10v9a1 1 0 001 1h10a1 1 0 001-1v-9"/><path d="M10 20v-5h4v5"/></svg>',
+  tree:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M12 15v6"/></svg>',
+  pet:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="16" rx="5" ry="4"/><circle cx="6" cy="9" r="2"/><circle cx="11" cy="6" r="2"/><circle cx="16" cy="6.5" r="2"/><circle cx="19.5" cy="10.5" r="2"/></svg>'
+};
 var _HOUSE_CAT = {
-  house: { icon:'🏠', vi:'Kiểu nhà', en:'House', items:[
+  house: { icon:_HOUSE_SVG.house, vi:'Kiểu nhà', en:'House', items:[
     {v:'cottage',vi:'Nhà ấm',en:'Cottage'},{v:'modern',vi:'Hiện đại',en:'Modern'},
     {v:'tile',vi:'Ngói Việt',en:'Tiled'},{v:'brick',vi:'Gạch phố',en:'Brick'} ] },
-  tree:  { icon:'🌳', vi:'Cây', en:'Tree', items:[
+  tree:  { icon:_HOUSE_SVG.tree, vi:'Cây', en:'Tree', items:[
     {v:'oak',vi:'Sồi',en:'Oak'},{v:'cherry',vi:'Anh đào',en:'Cherry'},{v:'pine',vi:'Thông',en:'Pine'},
     {v:'willow',vi:'Liễu',en:'Willow'},{v:'kumquat',vi:'Quất',en:'Kumquat'} ] },
-  pet:   { icon:'🐾', vi:'Thú cưng', en:'Pet', items:[
+  pet:   { icon:_HOUSE_SVG.pet, vi:'Thú cưng', en:'Pet', items:[
     {v:null,vi:'Không',en:'None'},{v:'dog',vi:'Chó',en:'Dog'},{v:'cat',vi:'Mèo',en:'Cat'},
     {v:'rabbit',vi:'Thỏ',en:'Rabbit'},{v:'bird',vi:'Chim',en:'Bird'},{v:'duck',vi:'Vịt',en:'Duck'} ] }
 };
@@ -4872,9 +4878,9 @@ function _renderHouseToolbox(el){
       + '<div class="nm">' + _L(it.vi, it.en) + '</div></button>';
   }).join('');
   el.innerHTML = '<div class="grab"></div>'
-    + '<div class="sh-hd"><h3>' + _L('Chăm chút tổ ấm', 'Make it home') + '</h3>'
-    + '<p>' + _L('Chọn kiểu nhà, cây tiết kiệm và bạn nhỏ — hiện ngay trên trang chủ.',
-                 'Pick a house, a savings tree and a little friend — it shows on your home at once.') + '</p></div>'
+    + '<div class="sheet-h">' + _L('Chăm chút tổ ấm', 'Make it home') + '</div>'
+    + '<div class="sheet-sub">' + _L('Chọn kiểu nhà, cây tiết kiệm và bạn nhỏ — hiện ngay trên trang chủ.',
+                 'Pick a house, a savings tree and a little friend — it shows on your home at once.') + '</div>'
     + '<div class="segs">' + segs + '</div>'
     + '<div class="sh-body"><div class="opts">' + opts + '</div></div>';
 }
@@ -4898,7 +4904,7 @@ function openHouseToolbox(){
 function _houseEntryHTML(){
   var _L = (typeof L === 'function') ? L : function(a){ return a; };
   return '<button class="house-entry" onclick="openHouseToolbox()">'
-    + '<span class="he-ic">🛠️</span>'
+    + '<span class="he-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 00-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 005.4-5.4l-2.8 2.8-2-2z"/></svg></span>'
     + '<span class="he-tt"><b>' + _L('Chăm chút tổ ấm', 'Make it home') + '</b>'
     + '<span>' + _L('Đổi nhà · cây · thú cưng cho cả nhà', 'Change your house · tree · pet') + '</span></span>'
     + '<svg class="he-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
@@ -8917,7 +8923,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v266';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v267';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

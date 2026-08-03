@@ -174,13 +174,11 @@
    TOOLBOX SHEET — the 3-picker ("Chăm chút tổ ấm"). The .sheet / #scrim / .grab
    shell is the app's own (50-sheets-modals.css); these style the inner content.
    ============================================================================ */
-.sheet-house .sh-hd{padding:2px 2px 12px}
-.sheet-house .sh-hd h3{font-family:var(--disp);font-size:22px;font-weight:800;letter-spacing:-.5px;color:var(--ink)}
-.sheet-house .sh-hd p{font-size:13px;color:var(--muted);margin-top:3px;line-height:1.4}
 .sheet-house .segs{display:flex;gap:7px;padding:0 0 14px;position:sticky;top:0;background:var(--white);z-index:2}
-.sheet-house .seg{flex:1;border:1px solid var(--hairline);background:var(--white);border-radius:12px;padding:9px 8px;font:inherit;font-size:13px;font-weight:650;color:var(--ink-2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
-.sheet-house .seg.on{background:var(--brand);color:#fff;border-color:var(--brand)}
-.sheet-house .seg .e{font-size:15px}
+.sheet-house .seg{flex:1;min-height:44px;border:2px solid var(--hairline);background:var(--white);border-radius:12px;padding:9px 8px;font:inherit;font-size:13px;font-weight:650;color:var(--ink-2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.sheet-house .seg.on{background:var(--brand-tint);color:var(--brand-ink);border-color:var(--brand)}
+.sheet-house .seg .e{width:16px;height:16px;flex:0 0 auto;display:flex}
+.sheet-house .seg .e svg{width:100%;height:100%;display:block}
 .sheet-house .sh-body{padding:2px 0 4px}
 .sheet-house .opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .sheet-house .opt{position:relative;background:var(--white);border:2px solid var(--hairline);border-radius:16px;padding:8px 8px 9px;cursor:pointer;text-align:center;transition:transform .12s;overflow:hidden;font:inherit}
@@ -217,7 +215,8 @@
 .house-entry:active{transform:scale(.99)}
 .house-entry + .hearth{margin-top:14px}          /* the hearth no longer straddles when the entry precedes it */
 .he-ic{width:44px;height:44px;border-radius:13px;background:var(--grad-brand);color:#fff;display:flex;
-  align-items:center;justify-content:center;font-size:22px;flex:0 0 auto;box-shadow:0 4px 10px var(--brand-glow)}
+  align-items:center;justify-content:center;flex:0 0 auto;box-shadow:0 4px 10px var(--brand-glow)}
+.he-ic svg{width:22px;height:22px;display:block}
 .he-tt{flex:1;min-width:0}
 .he-tt b{font-family:var(--disp);font-size:15.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink);display:block}
 .he-tt span{display:block;font-size:12.5px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
