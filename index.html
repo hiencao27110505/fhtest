@@ -1358,6 +1358,7 @@ input{font-family:inherit}
 .cur-vnd .exd-amt{font-size:34px;letter-spacing:-1.2px}
 .exd-note{font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink-2);margin-top:9px;overflow-wrap:anywhere}
 .exd-plan{display:inline-flex;align-items:center;gap:5px;margin-top:12px;background:var(--brand-tint);color:var(--brand-ink);border-radius:9999px;padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+.exd-plan.ok{background:var(--good-tint);color:var(--good)}   /* success state (fully-funded goal) reads green, not brand */
 
 /* meta list — one grouped white card, one fact per row (no colored fills) */
 .exd-meta{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:24px 16px 0;overflow:hidden}
@@ -2421,6 +2422,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="ov-meta" id="ov-meta">Sep 15 · 64 days to go</div>
   </div>
   <div class="ov-scroll">
+    <div id="ov-review" style="display:none"></div>
     <div id="ov-funding">
       <div class="card">
         <div class="ring-wrap">
@@ -5423,7 +5425,7 @@ function renderGoalDetail(){
     +'<div class="exd-ico" style="background:var(--brand-tint);color:var(--brand-ink)">'+esc(g.emoji||'🎯')+'</div>'
     +'<div class="exd-amt num">'+fmt(g.saved)+'</div>'
     +'<div class="exd-note">'+esc(g.name)+'</div>'
-    +(funded?'<div class="exd-plan">✓ '+L('Đã đủ tiền','Fully funded')+'</div>'
+    +(funded?'<div class="exd-plan ok">✓ '+L('Đã đủ tiền','Fully funded')+'</div>'
             :'<div class="exd-plan">🎯 '+L('Đang để dành','Saving up')+'</div>')
     +'</div>';
   html+='<div class="gld-meter'+(funded?' done':'')+'"><i style="width:'+pct+'%"></i></div>';
@@ -8248,6 +8250,16 @@ function openEvent(id){
   var meta = ach ? L('Đã đạt · kỷ niệm từ '+(e.d?fmtDayMon(e.d):e.date),'Achieved · a memory from '+e.date) : ((e.d?fmtDayMon(e.d):e.date)+' · '+(dl===0?L('đến hạn hôm nay','due today'):L('còn '+dl+' ngày',dl+' days to go')));
   if(pending) meta += ' · ' + (incoming?L('chờ bạn duyệt','waiting for you'):L('chờ cả nhà duyệt','waiting for the family'));
   setTxt('ov-meta', meta);
+  // Review block — the family's takes, same as the expense/goal detail (parity across
+  // all three proposal types). Shown for any occasion proposal (mine or incoming).
+  var rev=document.getElementById('ov-review');
+  if(rev){
+    if(item && item.creatorId && !ach && typeof _gldReviewBlock==='function'){
+      rev.innerHTML='<div class="exd-sec-h" style="margin-top:22px"><span class="t">'+L('Cả nhà cùng duyệt','Review')+'</span></div>'
+        +'<div style="margin:0 16px 6px">'+_gldReviewBlock(item)+'</div>';
+      rev.style.display='';
+    } else { rev.innerHTML=''; rev.style.display='none'; }
+  }
   document.getElementById('ov-funding').style.display=ach?'none':'block';
   document.getElementById('ov-memories').style.display=ach?'block':'none';
   var cta=document.getElementById('ov-cta');
@@ -9235,7 +9247,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v270';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v271';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -12504,7 +12516,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       body: '<div class="field"><label>' + L('Tên mục tiêu','Goal name') + '</label>'
         + '<input id="fh-eg-name" value="' + _esc(g.name) + '" placeholder="' + _esc(L('vd. Chuyến đi Đà Nẵng','e.g. Trip to Da Nang')) + '" oninput="fhModalDirty()"></div>'
         + '<div class="field"><label>' + L('Số tiền mục tiêu','Target amount') + '</label>'
-        + '<input id="fh-eg-amt" class="num" inputmode="numeric" value="' + _esc(shownAmt) + '" oninput="fhModalDirty()"></div>'
+        + '<input id="fh-eg-amt" class="num" inputmode="numeric" value="' + _esc(shownAmt) + '" placeholder="' + _esc(window.amtPlaceholder ? window.amtPlaceholder() : '') + '" oninput="fhModalDirty()" onblur="snapAmtInput(this)"></div>'
         + '<div class="field"><label>' + L('Ngày (không bắt buộc)','Date (optional)') + '</label>'
         + '<input id="fh-eg-date" type="date" value="' + _esc(shownDate) + '" oninput="fhModalDirty()"></div>',
       valid: () => {

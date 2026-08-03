@@ -15,6 +15,7 @@
 .cur-vnd .exd-amt{font-size:34px;letter-spacing:-1.2px}
 .exd-note{font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink-2);margin-top:9px;overflow-wrap:anywhere}
 .exd-plan{display:inline-flex;align-items:center;gap:5px;margin-top:12px;background:var(--brand-tint);color:var(--brand-ink);border-radius:9999px;padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+.exd-plan.ok{background:var(--good-tint);color:var(--good)}   /* success state (fully-funded goal) reads green, not brand */
 
 /* meta list — one grouped white card, one fact per row (no colored fills) */
 .exd-meta{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:24px 16px 0;overflow:hidden}

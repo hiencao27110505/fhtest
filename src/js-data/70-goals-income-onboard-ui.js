@@ -48,7 +48,7 @@
       body: '<div class="field"><label>' + L('Tên mục tiêu','Goal name') + '</label>'
         + '<input id="fh-eg-name" value="' + _esc(g.name) + '" placeholder="' + _esc(L('vd. Chuyến đi Đà Nẵng','e.g. Trip to Da Nang')) + '" oninput="fhModalDirty()"></div>'
         + '<div class="field"><label>' + L('Số tiền mục tiêu','Target amount') + '</label>'
-        + '<input id="fh-eg-amt" class="num" inputmode="numeric" value="' + _esc(shownAmt) + '" oninput="fhModalDirty()"></div>'
+        + '<input id="fh-eg-amt" class="num" inputmode="numeric" value="' + _esc(shownAmt) + '" placeholder="' + _esc(window.amtPlaceholder ? window.amtPlaceholder() : '') + '" oninput="fhModalDirty()" onblur="snapAmtInput(this)"></div>'
         + '<div class="field"><label>' + L('Ngày (không bắt buộc)','Date (optional)') + '</label>'
         + '<input id="fh-eg-date" type="date" value="' + _esc(shownDate) + '" oninput="fhModalDirty()"></div>',
       valid: () => {

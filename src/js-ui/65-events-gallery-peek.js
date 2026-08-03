@@ -14,6 +14,16 @@ function openEvent(id){
   var meta = ach ? L('Đã đạt · kỷ niệm từ '+(e.d?fmtDayMon(e.d):e.date),'Achieved · a memory from '+e.date) : ((e.d?fmtDayMon(e.d):e.date)+' · '+(dl===0?L('đến hạn hôm nay','due today'):L('còn '+dl+' ngày',dl+' days to go')));
   if(pending) meta += ' · ' + (incoming?L('chờ bạn duyệt','waiting for you'):L('chờ cả nhà duyệt','waiting for the family'));
   setTxt('ov-meta', meta);
+  // Review block — the family's takes, same as the expense/goal detail (parity across
+  // all three proposal types). Shown for any occasion proposal (mine or incoming).
+  var rev=document.getElementById('ov-review');
+  if(rev){
+    if(item && item.creatorId && !ach && typeof _gldReviewBlock==='function'){
+      rev.innerHTML='<div class="exd-sec-h" style="margin-top:22px"><span class="t">'+L('Cả nhà cùng duyệt','Review')+'</span></div>'
+        +'<div style="margin:0 16px 6px">'+_gldReviewBlock(item)+'</div>';
+      rev.style.display='';
+    } else { rev.innerHTML=''; rev.style.display='none'; }
+  }
   document.getElementById('ov-funding').style.display=ach?'none':'block';
   document.getElementById('ov-memories').style.display=ach?'block':'none';
   var cta=document.getElementById('ov-cta');

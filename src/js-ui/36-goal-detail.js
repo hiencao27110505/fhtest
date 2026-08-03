@@ -52,7 +52,7 @@ function renderGoalDetail(){
     +'<div class="exd-ico" style="background:var(--brand-tint);color:var(--brand-ink)">'+esc(g.emoji||'🎯')+'</div>'
     +'<div class="exd-amt num">'+fmt(g.saved)+'</div>'
     +'<div class="exd-note">'+esc(g.name)+'</div>'
-    +(funded?'<div class="exd-plan">✓ '+L('Đã đủ tiền','Fully funded')+'</div>'
+    +(funded?'<div class="exd-plan ok">✓ '+L('Đã đủ tiền','Fully funded')+'</div>'
             :'<div class="exd-plan">🎯 '+L('Đang để dành','Saving up')+'</div>')
     +'</div>';
   html+='<div class="gld-meter'+(funded?' done':'')+'"><i style="width:'+pct+'%"></i></div>';
