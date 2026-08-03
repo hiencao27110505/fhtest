@@ -60,8 +60,8 @@
                  : '<div class="fh-s-sub">' + L('Chỉ chủ gia đình đặt được mã.', 'Only the owner can set it.') + '</div>');
     } else if (st === 'off') {
       body = '<div class="fh-s-lab">' + L('Trạng thái: chưa bật', 'Status: off') + '</div>'
-        + '<div class="fh-s-sub">' + L('Khi bật, app tải một bản sao JSON về máy, mã hóa toàn bộ dữ liệu tiền cạnh bản gốc, rồi vào giai đoạn kiểm chứng. Mọi số vẫn hiển thị như cũ, chưa có gì bị xóa.',
-                                        'Turning it on downloads a JSON copy to this device, encrypts all money data alongside the originals, then enters a verification window. Everything still shows as before and nothing is deleted.') + '</div>'
+        + '<div class="fh-s-sub">' + L('Khi bật, app tải một bản sao Excel về máy, mã hóa toàn bộ dữ liệu tiền cạnh bản gốc, rồi vào giai đoạn kiểm chứng. Mọi số vẫn hiển thị như cũ, chưa có gì bị xóa.',
+                                        'Turning it on downloads an Excel copy to this device, encrypts all money data alongside the originals, then enters a verification window. Everything still shows as before and nothing is deleted.') + '</div>'
         + (owner ? _btn(L('Bật mã hóa', 'Turn on encryption'), 'fhEncEnable(this)', _S.cta)
                  : '<div class="fh-s-sub">' + L('Chỉ chủ gia đình bật được.', 'Only the owner can turn this on.') + '</div>');
     } else if (st === 'dual') {
@@ -94,35 +94,75 @@
         + (owner ? _btn(L('Tắt mã hóa (khôi phục bản gốc)', 'Turn off (restore plaintext)'), 'fhEncDisable(this)', _S.del) : '');
     }
     body += '<div class="fh-s-sub" id="fh-enc-prog" style="min-height:18px"></div>';
-    if (enc) body += _btn(L('Tải bản sao JSON', 'Download a JSON copy'), 'fhEncExport(this)', _S.ghost);
+    if (enc) body += _btn(L('Tải bản sao Excel', 'Download an Excel copy'), 'fhEncExport(this)', _S.ghost);
     body += _btn(L('Xong', 'Done'), '_closeOv()', _S.ghost);
     _fhSheet(intro + body);
   };
 
-  // Readable copy of every money table (decrypting where needed) → JSON download.
+  /* Readable family copy → one CSV that opens straight in Excel. UTF-8 BOM so
+     Vietnamese diacritics render, a sep= hint so every Excel locale splits the
+     columns, amounts in full currency units (the app stores VND/1000), and
+     three sections a person can actually read: the ledger, goals, budgets.
+     Decrypts on-device via fhRead, so it works in every enc state. */
+  const _csvCell = (v) => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const _csvRow = (cells) => cells.map(_csvCell).join(',');
   async function _fhExportPlain() {
-    const fid = window.DB.fid, out = { exported_at: new Date().toISOString(), family_id: fid };
-    for (const spec of _ENC_TABLES) {
-      const r = await sb.from(spec.t).select(_encCols(spec)).eq('family_id', fid);
-      if (r.error) throw r.error;
-      const rows = [];
-      for (const row of (r.data || [])) {
-        const o = { id: row.id };
-        for (const f of spec.num.concat(spec.str)) o[f] = await fhRead(row, f);
-        rows.push(o);
-      }
-      out[spec.t] = rows;
+    const fid = window.DB.fid;
+    const mult = (window.CUR === 'VND') ? 1000 : 1;
+    const sym = window.curSym ? window.curSym() : '₫';
+    const money = (v) => (v == null || v === '' ? '' : Math.round(Number(v) * mult));
+    const catName = (id) => { const c = window.DB.catById && window.DB.catById[id]; return c ? c.name : ''; };
+    const memName = (id) => { const m = window.DB.memberById && window.DB.memberById[id]; return m ? (m.is_shared ? L('Chung', 'Shared') : m.name) : ''; };
+    const R = await Promise.all([
+      sb.from('transactions').select('amount,amount_enc,note,note_enc,txn_date,category_id,member_id').eq('family_id', fid),
+      sb.from('incomes').select('amount,amount_enc,note,note_enc,income_date,member_id').eq('family_id', fid),
+      sb.from('savings_entries').select('amount,amount_enc,note,note_enc,kind,entry_date,member_id').eq('family_id', fid),
+      sb.from('event_fundings').select('amount,amount_enc,created_at,event_id,goal_id,member_id').eq('family_id', fid),
+      sb.from('saving_goals').select('name,name_enc,target_amount,target_amount_enc,note,note_enc,achieved').eq('family_id', fid).is('archived_at', null),
+      sb.from('events').select('name,name_enc,target_amount,target_amount_enc,target_date').eq('family_id', fid).is('archived_at', null).not('target_amount_enc', 'is', null),
+      sb.from('monthly_budgets').select('month,budget_total,budget_total_enc').eq('family_id', fid),
+      sb.from('category_budgets').select('month,amount,amount_enc,category_id').eq('family_id', fid)
+    ]);
+    for (const r of R) if (r.error) throw r.error;
+    const [tx, inc, se, ef, sg, ev, mb, cb] = R.map((r) => r.data || []);
+
+    const ledger = [];
+    for (const t of tx) ledger.push([t.txn_date, L('Chi tiêu', 'Expense'), money(await fhRead(t, 'amount')), await fhRead(t, 'note') || '', catName(t.category_id), memName(t.member_id)]);
+    for (const t of inc) ledger.push([t.income_date, L('Thu nhập', 'Income'), money(await fhRead(t, 'amount')), await fhRead(t, 'note') || '', '', memName(t.member_id)]);
+    for (const t of se) ledger.push([t.entry_date, t.kind === 'deposit' ? L('Bỏ ống tiết kiệm', 'Into savings') : L('Rút tiết kiệm', 'Out of savings'), money(await fhRead(t, 'amount')), await fhRead(t, 'note') || '', '', memName(t.member_id)]);
+    for (const t of ef) {
+      const g = (t.goal_id && window.DB.goalById && window.DB.goalById[t.goal_id]) || (t.event_id && window.DB.eventById && window.DB.eventById[t.event_id]) || null;
+      ledger.push([String(t.created_at || '').slice(0, 10), L('Góp mục tiêu', 'Toward a goal'), money(await fhRead(t, 'amount')), (g && g.name) || '', '', memName(t.member_id)]);
     }
-    const blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' });
+    ledger.sort((a, b) => (a[0] < b[0] ? 1 : -1));
+
+    const lines = ['sep=,'];
+    lines.push(_csvRow(['FamilyHub', L('Bản sao ngày', 'Copy of') + ' ' + new Date().toISOString().slice(0, 10)]));
+    lines.push('');
+    lines.push(_csvRow([L('SỔ GHI CHÉP', 'LEDGER')]));
+    lines.push(_csvRow([L('Ngày', 'Date'), L('Loại', 'Type'), L('Số tiền', 'Amount') + ' (' + sym + ')', L('Ghi chú', 'Note'), L('Danh mục', 'Category'), L('Thành viên', 'Member')]));
+    for (const row of ledger) lines.push(_csvRow(row));
+    lines.push('');
+    lines.push(_csvRow([L('MỤC TIÊU', 'GOALS')]));
+    lines.push(_csvRow([L('Tên', 'Name'), L('Mục tiêu', 'Target') + ' (' + sym + ')', L('Ghi chú', 'Note')]));
+    for (const g of sg) lines.push(_csvRow([await fhRead(g, 'name') || '', money(await fhRead(g, 'target_amount')), await fhRead(g, 'note') || '']));
+    for (const e of ev) lines.push(_csvRow([await fhRead(e, 'name') || '', money(await fhRead(e, 'target_amount')), e.target_date || '']));
+    lines.push('');
+    lines.push(_csvRow([L('NGÂN SÁCH', 'BUDGETS')]));
+    lines.push(_csvRow([L('Tháng', 'Month'), L('Danh mục', 'Category'), L('Ngân sách', 'Budget') + ' (' + sym + ')']));
+    for (const m of mb) { const v = await fhRead(m, 'budget_total'); if (Number(v)) lines.push(_csvRow([String(m.month).slice(0, 7), L('Tổng', 'Total'), money(v)])); }
+    for (const c of cb) lines.push(_csvRow([String(c.month).slice(0, 7), catName(c.category_id), money(await fhRead(c, 'amount'))]));
+
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });   // BOM: Excel needs it to read UTF-8 Vietnamese
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'familyhub-money-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.download = 'FamilyHub-' + new Date().toISOString().slice(0, 10) + '.csv';
     document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
   }
   window.fhEncExport = async function (btn) {
     if (btn) btn.disabled = true;
-    try { await _fhExportPlain(); window.toast && window.toast(L('Đã tải bản sao về máy', 'Copy downloaded')); }
+    try { await _fhExportPlain(); window.toast && window.toast(L('Đã tải bản sao về máy, mở được bằng Excel', 'Copy downloaded, opens in Excel')); }
     catch (e) { window.toast && window.toast(_friendly(e)); }
     if (btn) btn.disabled = false;
   };
