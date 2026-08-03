@@ -272,6 +272,7 @@ function renderBulk(){
     togglePhotoField(true);
     return;
   }
+  pruneEmptyRows();                                 // drop leftover empty cards (keeps the active input row)
   // Park the editor outside #bulk-list before the innerHTML rebuild would destroy it.
   var holder=document.getElementById('bulk-holder');
   if(!holder){ holder=document.createElement('div'); holder.id='bulk-holder'; holder.style.display='none'; document.getElementById('expense-modal').appendChild(holder); }
@@ -300,6 +301,19 @@ function renderBulk(){
 function togglePhotoField(show){
   var f=document.getElementById('ex-photofield'); if(f) f.style.display=show?'':'none';
 }
+/* Remove empty draft cards (no note & no amount) except the one being edited, so a
+   comma-then-move-on doesn't leave "(khoản trống)" cards behind. Keeps ≥1 row. */
+function pruneEmptyRows(){
+  if(bulkRows.length<=1) return;
+  var active=bulkRows[bulkActive];
+  var kept=bulkRows.filter(function(r){
+    if(r===active) return true;
+    return (r.note||'').trim() || parseAmtBase(r.amt||'');
+  });
+  if(!kept.length) kept=[active||blankRow()];
+  bulkActive=kept.indexOf(active); if(bulkActive<0) bulkActive=kept.length-1;
+  bulkRows=kept;
+}
 /* ---- comma-triggered NL line parsing ---------------------------------------
    Typing a comma in CHI CHO GÌ? commits the completed segment(s) as rows and
    opens a fresh form for whatever follows the last comma. */
@@ -318,9 +332,12 @@ function handleCommaSplit(){
   for(var i=1;i<done.length;i++){ bulkRows.push(rowFromParsed(parseBulkLine(done[i]))); }
   bulkRows.push(rowFromParsed({note:remainder.trim(), amt:'', cat:''}));   // fresh active row seeded with the remainder
   bulkActive=bulkRows.length-1;
+  // Dismiss the keyboard so the just-parsed rows are visible; the new form is ready
+  // and expanded, the user taps its field to continue. Blur BEFORE render so iOS
+  // doesn't re-anchor the scroll to a field that's about to move in the DOM.
+  var ae=document.activeElement; if(ae && ae.blur) ae.blur();
   renderBulk();
   loadRow(bulkActive);
-  var n=document.getElementById('ex-note'); if(n){ n.focus(); var L2=n.value.length; try{ n.setSelectionRange(L2,L2); }catch(e){} }
 }
 function applyParsed(i, p){
   var r=bulkRows[i]; if(!r) return;
@@ -373,26 +390,53 @@ function matchAmount(s){
 /* Diacritic-insensitive category guess from note keywords (EN + VN). Only returns
    a category the family actually has (iterates catOrder); otherwise '' → keep last. */
 function deburr(s){ return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D'); }
-var CAT_KEYWORDS={
-  'Dining':['ca phe','coffee','cafe','tra sua','tra','an','com','pho','bun','mi','nha hang','restaurant','lunch','dinner','breakfast','quan','bia','beer','banh','nhau','do an','food','eat','tea','pizza','ga ran','kfc','lotteria','highland','starbucks','tiem','an sang','an trua','an toi','snack'],
+/* Note keywords → an abstract CONCEPT (language-neutral). Word-boundary matched. */
+var CONCEPT_KEYWORDS={
+  'Dining':['ca phe','coffee','cafe','tra sua','tra','an','an uong','com','pho','bun','mi','nha hang','restaurant','lunch','dinner','breakfast','quan','bia','beer','banh','nhau','do an','food','eat','tea','pizza','ga ran','kfc','lotteria','highland','starbucks','tiem','an sang','an trua','an toi','snack'],
   'Transport':['xang','gas','grab','taxi','xe','bus','gui xe','parking','petrol','fuel','uber','xe om','gojek','do xang','ferry','ve xe','ve tau','ve may bay','flight','grabbike','grabcar','sua xe','rua xe'],
   'Groceries':['cho','market','sieu thi','supermarket','rau','thit','ca hoi','ca thu','grocery','groceries','bach hoa','coopmart','bigc','winmart','vinmart','lotte','emart','gao','trai cay','fruit','vegetable','meat','di cho','do kho'],
   'Housing':['dien','nuoc','internet','wifi','tien nha','rent','thue','electricity','water','quan ly','phi quan ly','tien dien','tien nuoc','tien internet','mang','cap','rac','phi chung cu','sua nha','noi that'],
-  'Fun':['phim','cinema','game','choi','du lich','travel','movie','karaoke','party','net','bi a','billiards','concert','ve xem','giai tri','massage','spa','gym','the thao','sach','book','shopping','mua sam','quan ao','ao quan'],
+  'Fun':['phim','cinema','game','choi','du lich','travel','movie','karaoke','party','net','bi a','billiards','concert','ve xem','giai tri','massage','spa','gym','the thao','sach','book','shopping','mua sam','quan ao','ao quan','ao','quan','giay','dep','tui'],
   'Others':['khac','other','others','linh tinh','thuoc','pharmacy','y te','benh vien','hoc','tuition','hoc phi']
 };
-function guessCat(note){
+/* CONCEPT → how to recognise the FAMILY's own category for it. Categories are
+   named in the family's language (e.g. "Giải trí", "Ăn uống"), so we match on the
+   category NAME (deburred substring) OR its emoji — never on an English key. */
+var CONCEPT_MATCH={
+  'Dining':   {names:['an uong','am thuc','dining','food','eating'],                         emojis:['🍽️','🍜','🍔','☕','🍲','🥘']},
+  'Transport':{names:['di chuyen','di lai','transport','giao thong','commute'],              emojis:['🚗','🚕','🛵','⛽','🚌','✈️']},
+  'Groceries':{names:['di cho','cho bua','groceries','grocery','thuc pham','sieu thi','nhu yeu pham'], emojis:['🛒','🥬','🥦']},
+  'Housing':  {names:['nha cua','nha o','housing','sinh hoat','hoa don','tien nha','rent','utilities','bills'], emojis:['🏠','🏡','💡','🧾','🔌']},
+  'Fun':      {names:['giai tri','vui choi','fun','entertainment','leisure','mua sam','shopping'], emojis:['🎉','🎈','🎮','🎬','🎡','🛍️']},
+  'Others':   {names:['khac','other','others','linh tinh','misc'],                           emojis:['🗂️','📦','🏷️']}
+};
+var CONCEPT_ORDER=['Groceries','Housing','Dining','Transport','Fun','Others'];
+function conceptFromNote(note){
   var t=deburr((note||'').toLowerCase()).replace(/\s+/g,' ').trim();
   if(!t) return '';
   var padded=' '+t+' ';
-  for(var i=0;i<catOrder.length;i++){
-    var c=catOrder[i], kws=CAT_KEYWORDS[c]; if(!kws) continue;
+  for(var k=0;k<CONCEPT_ORDER.length;k++){
+    var kws=CONCEPT_KEYWORDS[CONCEPT_ORDER[k]];
     for(var j=0;j<kws.length;j++){
       var kw=deburr(kws[j].toLowerCase()).trim();
-      if(kw && padded.indexOf(' '+kw+' ')>=0) return c;
+      if(kw && padded.indexOf(' '+kw+' ')>=0) return CONCEPT_ORDER[k];
     }
   }
   return '';
+}
+function familyCatForConcept(concept){
+  var m=CONCEPT_MATCH[concept]; if(!m) return '';
+  for(var i=0;i<catOrder.length;i++){
+    var c=catOrder[i], name=deburr(String(c).toLowerCase()), emoji=(catStyle[c]||[])[0];
+    for(var n=0;n<m.names.length;n++){ if(name.indexOf(deburr(m.names[n]))>=0) return c; }
+    if(emoji && m.emojis.indexOf(emoji)>=0) return c;
+  }
+  return '';   // family has no category for this concept → keep the last-used one
+}
+/* Guess the family's category from a note. Returns '' (keep lastCat) when unsure. */
+function guessCat(note){
+  var concept=conceptFromNote(note||'');
+  return concept ? familyCatForConcept(concept) : '';
 }
 /* Persist every draft row in one shot through the durable public addExpense
    (its write-through wrapper fires per call). BULK_SAVING mutes each call's own
