@@ -2533,6 +2533,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="sheet-sub" data-t="addSheetSub">Log money, or save a moment.</div>
   <div class="qa-group" data-t="grpFinance">Finance</div>
   <button class="qa" onclick="closeSheet();go('spending');openExpense()"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg></div><div><div class="qt" data-t="qaExpenseT">Log an expense</div><div class="qs" data-t="qaExpenseS">Money you just spent</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();go('spending');openCsvImport()"><div class="qi" style="background:linear-gradient(135deg,#5FC98D,#34B87A)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div><div><div class="qt" data-t="qaCsvT">Import from file</div><div class="qs" data-t="qaCsvS">Bring in a CSV from your bank or another app</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();go('spending');fhIncome()"><div class="qi" style="background:linear-gradient(135deg,#34C77B,#1a9d5f)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div><div><div class="qt" data-t="qaIncomeT">Log income</div><div class="qs" data-t="qaIncomeS">Money coming into the family</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();go('spending');fhSavings()"><div class="qi" style="background:linear-gradient(135deg,#F0B450,#DB8A24)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a5 5 0 015-5h5a6 6 0 016 6 6 6 0 01-3 5.2V20h-3v-2h-2v2H7v-3a6 6 0 01-4-5zM8 9h.01"/></svg></div><div><div class="qt" data-t="qaSaveT">Add to savings</div><div class="qs" data-t="qaSaveS">Add to the family pool</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>  <button class="qa" onclick="closeSheet();go('spending');openGoal()"><div class="qi" style="background:linear-gradient(135deg,#34B87A,#2E9E6B)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg></div><div><div class="qt" data-t="qaGoalT">Create a goal</div><div class="qs" data-t="qaGoalS">Save for something you want to buy or do</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <div class="qa-group" data-t="grpMoments">Moments</div>
@@ -2560,6 +2561,23 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       <button class="choice" data-v="Issue" onclick="pick('sg-type',this)" data-t="sgIssue">🐞 Something's off</button>
     </div></div>
     <div class="field"><label data-t="tellMore">Tell us more</label><textarea id="sg-msg" rows="4" data-tp="tellMorePh" placeholder="Say it however it comes. No need to be polished."></textarea></div>
+  </div>
+</div>
+
+<div class="modal" id="csv-import-modal">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title" data-t="csvModalTitle">Import from file</div>
+    <div style="width:34px"></div>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub" data-t="csvPreviewNote">Preview only — nothing is saved to your ledger yet.</div>
+    <div class="field">
+      <label data-t="csvPickLbl">CSV file</label>
+      <input type="file" id="csv-file-input" accept=".csv,text/csv" onchange="onCsvFileSelected(this)">
+    </div>
+    <div id="csv-result"></div>
   </div>
 </div>
 
@@ -6638,6 +6656,78 @@ function toast(msg){
   el.classList.add('on'); clearTimeout(tt); tt=setTimeout(function(){ el.classList.remove('on'); },2400);
 }
 
+/* ---- CSV import: technical preview -----------------------------------------
+   Wires the already-tested parse → heuristics → Gemini-fallback pipeline
+   (src/js-data/44-csv-parse.js, 45-csv-import.js) into a real screen for the
+   first time. Deliberately NOT the full review UI (merchant grouping,
+   defer-to-queue, category assignment, promotion into `transactions`) — this
+   proves the pipeline end-to-end from a real tap and shows what it resolved,
+   nothing more. Says so on screen so it never reads as a finished import. */
+function openCsvImport(){
+  var input=document.getElementById('csv-file-input'); if(input) input.value='';
+  var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
+  openSheet('csv-import-modal');
+}
+
+function csvFieldLabel(field){
+  var map={
+    occurred_at:L('Ngày','Date'), amount:L('Số tiền','Amount'), description:L('Nội dung','Description'),
+    category:L('Danh mục','Category'), counterparty:L('Đối tác','Counterparty'), currency:L('Tiền tệ','Currency'),
+    paid_by:L('Người trả','Paid by'), split_with:L('Chia với','Split with'), unmapped:L('Không xác định','Unmapped'),
+  };
+  return map[field]||field;
+}
+
+function onCsvFileSelected(input){
+  var file=input.files && input.files[0]; if(!file) return;
+  var out=document.getElementById('csv-result');
+  if(out) out.innerHTML='<div class="sheet-sub">'+L('Đang phân tích…','Analyzing…')+'</div>';
+
+  var reader=new FileReader();
+  reader.onload=function(){
+    var parsed = window.fhParseCsvFile ? window.fhParseCsvFile(reader.result) : null;
+    if(!parsed || !parsed.headers.length){
+      if(out) out.innerHTML='<div class="sheet-sub">'+L('Không đọc được file này.','Could not read this file.')+'</div>';
+      return;
+    }
+    window.fhResolveCsvMapping(parsed.headers, parsed.rows).then(function(result){
+      renderCsvResult(parsed, result);
+    }).catch(function(e){
+      if(out) out.innerHTML='<div class="sheet-sub">'+L('Có lỗi khi phân tích file: ','Something went wrong analyzing this file: ')+esc(String((e&&e.message)||e))+'</div>';
+    });
+  };
+  reader.onerror=function(){
+    if(out) out.innerHTML='<div class="sheet-sub">'+L('Không đọc được file này.','Could not read this file.')+'</div>';
+  };
+  reader.readAsText(file,'utf-8');
+}
+
+function renderCsvResult(parsed, result){
+  var out=document.getElementById('csv-result'); if(!out) return;
+  var byLine = result.resolvedBy==='gemini'
+    ? L('Nhận diện bằng: Gemini (luật có sẵn không đủ tự tin)','Resolved by: Gemini (heuristics weren’t confident enough)')
+    : L('Nhận diện bằng: luật có sẵn, không cần gọi mô hình','Resolved by: heuristics alone, no model call needed');
+
+  var mapping = (result.llm && result.llm.column_mapping) || Object.keys(result.columnMap).map(function(i){
+    return { column_index:+i, field:result.columnMap[i].field, confidence:result.columnMap[i].confidence };
+  });
+
+  var rows = mapping.map(function(m){
+    var header = parsed.headers[m.column_index]||'';
+    return '<div class="row"><div class="r-body"><div class="r-t">'+esc(header)+'</div><div class="r-s">'+esc(csvFieldLabel(m.field))+' · '+esc(m.confidence)+'</div></div></div>';
+  }).join('');
+
+  var dateNote = (result.llm && result.llm.date_convention)
+    ? '<div class="sheet-sub">'+L('Định dạng ngày: ','Date convention: ')+esc(result.llm.date_convention)+'</div>' : '';
+
+  out.innerHTML =
+      '<div class="sheet-sub">'+esc(L(parsed.rows.length+' dòng dữ liệu tìm thấy', parsed.rows.length+' data rows found'))+'</div>'
+    + '<div class="sheet-sub">'+byLine+'</div>'
+    + dateNote
+    + '<div class="card" style="margin:14px 0 0">'+rows+'</div>'
+    + '<div class="sheet-sub" style="margin-top:14px">'+L('Đây là bản xem trước kỹ thuật — màn hình xem lại đầy đủ và ghi vào sổ chi tiêu chưa được xây dựng.','This is a technical preview — the full review screen and ledger write-through aren’t built yet.')+'</div>';
+}
+
 /* ---------- expense ---------- */
 var catStyle={};
 /* ---------- transactions (with spender avatar) ---------- */
@@ -8052,6 +8142,9 @@ var EN_DEFAULT={
   qaPlanT:'Plan something', qaPlanS:'An upcoming family occasion',
   qaPhotoT:'Add a moment', qaPhotoS:'Family photos',
   qaSuggestT:'Share feedback', qaSuggestS:'An idea or something you wish for',
+  qaCsvT:'Import from file', qaCsvS:'Bring in a CSV from your bank or another app',
+  /* csv import modal */
+  csvModalTitle:'Import from file', csvPreviewNote:'Preview only — nothing is saved to your ledger yet.', csvPickLbl:'CSV file',
   /* suggest modal */
   suggestTitle:'We hear you 💛', suggestSub:'An idea, a gripe, a feature you wish existed — tell us anything.',
   founderNote:"We're two parents building FamilyHub for families like yours. Your notes shape what we build next.",
@@ -8159,6 +8252,9 @@ var I18N={
     qaPlanT:'Lên kế hoạch', qaPlanS:'Một dịp sắp tới của cả nhà',
     qaPhotoT:'Thêm khoảnh khắc', qaPhotoS:'Ảnh của gia đình',
     qaSuggestT:'Góp ý', qaSuggestS:'Một ý tưởng hay điều bạn mong muốn',
+    qaCsvT:'Nhập từ file', qaCsvS:'Đưa dữ liệu CSV từ ngân hàng hoặc app khác vào',
+    /* csv import modal */
+    csvModalTitle:'Nhập từ file', csvPreviewNote:'Chỉ xem trước — chưa lưu vào sổ chi tiêu.', csvPickLbl:'File CSV',
     /* suggest modal */
     suggestTitle:'Tụi mình nghe bạn nè 💛', suggestSub:'Một ý tưởng, một điều chưa ưng, hay tính năng bạn ước có — kể tụi mình nghe hết nha.',
     founderNote:'Tụi mình cũng là cha mẹ, làm FamilyHub cho những gia đình như nhà bạn. Góp ý của bạn giúp tụi mình biết nên làm gì tiếp theo.',

@@ -124,6 +124,9 @@ var EN_DEFAULT={
   qaPlanT:'Plan something', qaPlanS:'An upcoming family occasion',
   qaPhotoT:'Add a moment', qaPhotoS:'Family photos',
   qaSuggestT:'Share feedback', qaSuggestS:'An idea or something you wish for',
+  qaCsvT:'Import from file', qaCsvS:'Bring in a CSV from your bank or another app',
+  /* csv import modal */
+  csvModalTitle:'Import from file', csvPreviewNote:'Preview only — nothing is saved to your ledger yet.', csvPickLbl:'CSV file',
   /* suggest modal */
   suggestTitle:'We hear you 💛', suggestSub:'An idea, a gripe, a feature you wish existed — tell us anything.',
   founderNote:"We're two parents building FamilyHub for families like yours. Your notes shape what we build next.",
@@ -231,6 +234,9 @@ var I18N={
     qaPlanT:'Lên kế hoạch', qaPlanS:'Một dịp sắp tới của cả nhà',
     qaPhotoT:'Thêm khoảnh khắc', qaPhotoS:'Ảnh của gia đình',
     qaSuggestT:'Góp ý', qaSuggestS:'Một ý tưởng hay điều bạn mong muốn',
+    qaCsvT:'Nhập từ file', qaCsvS:'Đưa dữ liệu CSV từ ngân hàng hoặc app khác vào',
+    /* csv import modal */
+    csvModalTitle:'Nhập từ file', csvPreviewNote:'Chỉ xem trước — chưa lưu vào sổ chi tiêu.', csvPickLbl:'File CSV',
     /* suggest modal */
     suggestTitle:'Tụi mình nghe bạn nè 💛', suggestSub:'Một ý tưởng, một điều chưa ưng, hay tính năng bạn ước có — kể tụi mình nghe hết nha.',
     founderNote:'Tụi mình cũng là cha mẹ, làm FamilyHub cho những gia đình như nhà bạn. Góp ý của bạn giúp tụi mình biết nên làm gì tiếp theo.',
