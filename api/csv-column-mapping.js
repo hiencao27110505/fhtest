@@ -8,7 +8,7 @@
 // Variables). Never expose this key to the client — that's the only reason this function
 // exists instead of calling Gemini straight from the browser.
 
-const GEMINI_MODEL = 'gemini-2.5-flash'; // verify current free-tier model name/limits at ai.google.dev before relying on this
+const GEMINI_MODEL = 'gemini-flash-latest'; // confirmed working 2026-08-03 against a real key; "-latest" tracks Google's current default, so behavior can shift under us — pin to a dated version if that becomes a problem
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const MAX_SAMPLE_ROWS = 15; // bounds token cost regardless of how large the uploaded file is
