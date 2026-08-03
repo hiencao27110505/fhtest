@@ -365,6 +365,11 @@ function togglePhotoField(show){
    comma-then-move-on doesn't leave "(khoản trống)" cards behind. Keeps ≥1 row. */
 function pruneEmptyRows(){
   if(bulkRows.length<=1) return;
+  if(bulkActive<0){                                 // "nothing open" list — drop empties, keep no active row
+    bulkRows=bulkRows.filter(function(r){ return (r.note||'').trim() || parseAmtBase(r.amt||''); });
+    if(!bulkRows.length){ bulkRows=[blankRow()]; bulkActive=0; }
+    return;
+  }
   var active=bulkRows[bulkActive];
   var kept=bulkRows.filter(function(r){
     if(r===active) return true;
@@ -399,11 +404,17 @@ function onExNoteInput(){ onExInput(); }
    entries into their own cards and autofill each one's amount + guessed category.
    A single "cafe 50k" is parsed in place → note "cafe", amount 50k, category filled. */
 function onExNoteBlur(){
-  if(editingTx) return;
+  if(editingTx || !bulkRows[bulkActive]) return;
   var before=bulkRows.length;
   commitActiveRow();                               // split multi-entry + pull amount out of the note + guess category
-  if(bulkRows.length!==before) renderBulk();       // new cards appeared → rebuild the list
-  loadRow(bulkActive);                             // reflect the parsed values in the fields
+  if(bulkRows.length!==before){                    // a split created several cards → land on the collapsed list
+    bulkActive=-1;                                  // nothing open; the user taps a card to edit it
+    var n=document.getElementById('ex-note'); if(n) n.value='';
+    renderBulk();
+    if(typeof refreshExCta==='function') refreshExCta();
+  } else {
+    loadRow(bulkActive);                            // a single entry parsed in place → stay open with the autofilled fields
+  }
 }
 /* Split a raw input string into parsed entries (used when several comma-separated
    entries are still sitting in the input at commit/validation time). */
