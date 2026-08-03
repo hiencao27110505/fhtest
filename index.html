@@ -2549,9 +2549,16 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <button class="modal-save" id="ex-save" data-t="save" onclick="submitExpense()">Save</button>
   </div>
   <div class="modal-body">
+    <!-- Bulk list: one card per draft row. The active card holds #ex-editor-mount,
+         into which the single #ex-editor block is moved on each render (accordion). -->
+    <div id="bulk-list"></div>
+
+    <!-- The one live editor instance. renderBulk() relocates this node into the
+         active row's mount; in edit mode it renders in place (bulk list stays empty). -->
+    <div id="ex-editor">
     <div class="field">
       <label data-t="exWhatFor">What for?</label>
-      <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExInput()"/>
+      <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()"/>
       <div class="choices" id="ex-cat" style="margin-top:10px">
         <button class="choice on" data-v="Groceries" onclick="pickExCat(this)">🛒 Groceries</button>
         <button class="choice" data-v="Housing" onclick="pickExCat(this)">🏠 Housing</button>
@@ -2576,10 +2583,13 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       <button class="choice" data-v="Leo" onclick="pickExWho(this)">Leo</button>
     </div></div>
 
-    <div class="field"><label data-t="photosOptLbl">Photos (optional)</label>
+    <div class="field" id="ex-photofield"><label data-t="photosOptLbl">Photos (optional)</label>
       <label class="mem-upload"><span id="ex-upload-txt" data-t="addPhotosBtn">📷 Add photos</span><input type="file" accept="image/*" multiple onchange="onExPhoto(this)" hidden></label>
       <div class="photo-strip" id="ex-strip"></div>
     </div>
+    </div><!-- /#ex-editor -->
+
+    <button type="button" id="bulk-add" onclick="bulkAddRow()">＋ Thêm khoản</button>
 
     <div class="field-hint" id="ex-whenhint"></div>
 
@@ -2787,6 +2797,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="set-actions">
     <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t" data-t="setSwitchFamily">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t" data-t="inviteMember2">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhEncryptionSheet()"><span class="set-ic">🔒</span><span class="set-t" data-t="setEncryption">Money encryption</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhManageFamily()"><span class="set-ic">👥</span><span class="set-t" data-t="setManageFamily">Manage family &amp; members</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhSavings()"><span class="set-ic">🐷</span><span class="set-t" data-t="setSavedEvents">Saved for events</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhIncome()"><span class="set-ic">💵</span><span class="set-t" data-t="setIncome">Income</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -2914,19 +2925,20 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="ob-content">
       <div class="ob-head"><div class="ob-h1" data-t="familyTitle">Your family</div><div class="ob-sub" data-t="familySub">Start a new family, or join one you've been invited to.</div></div>
       <button class="ob-card" onclick="obChoose('create')"><div class="ob-card-em">✨</div><div><div class="ob-card-t" data-t="startFamily">Start a new family</div><div class="ob-card-s" data-t="startFamilyS">You'll name it and invite others</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-      <button class="ob-card" onclick="obChoose('join')"><div class="ob-card-em">🔗</div><div><div class="ob-card-t" data-t="joinFamily">Join a family</div><div class="ob-card-s" data-t="joinFamilyS">Enter an invite code</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+      <button class="ob-card" onclick="obChoose('join')"><div class="ob-card-em">🔗</div><div><div class="ob-card-t" data-t="joinFamily">Join a family</div><div class="ob-card-s" data-t="joinFamilyS">Enter your family’s passcode</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     </div>
   </section>
 
   <section class="ob-screen" data-ob="join">
     <div class="ob-top"><button class="ob-back2" onclick="obGo('choice')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="joinTitle">Enter invite code</div><div class="ob-sub" data-t="joinSub">Ask a family member for the 6-character code from their invite.</div></div>
+      <div class="ob-head"><div class="ob-h1" data-t="joinTitle">Enter the family passcode</div><div class="ob-sub" data-t="joinSub">The owner adds your Google email to the invite list, then tells you the family’s 6-digit code.</div></div>
       <div class="ob-code-wrap">
         <div class="ob-code-boxes" id="ob-code-boxes"></div>
-        <input class="ob-code" id="ob-code" maxlength="6" inputmode="text" autocapitalize="characters" autocomplete="off" oninput="obCodeInput(this)">
+        <input class="ob-code" id="ob-code" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" oninput="obCodeInput(this)">
       </div>
       <div class="ob-preview" id="ob-join-preview" style="display:none"></div>
+      <div class="ob-sub" id="ob-join-hint" style="margin-top:14px"></div>
     </div>
     <div class="ob-foot"><button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta" disabled>Join family</button></div>
   </section>
@@ -7708,8 +7720,8 @@ var EN_DEFAULT={
   signinT:'Sign in to FamilyHub', signinS:'Sign in with Google — secure and quick.', continueGoogle:'Continue with Google', signingIn:'Signing in…',
   terms:'By continuing, you agree to our Terms & Privacy Policy.',
   familyTitle:'Your family', familySub:"Start a new family, or join one you've been invited to.",
-  startFamily:'Start a new family', startFamilyS:"You'll name it and invite others", joinFamily:'Join a family', joinFamilyS:'Enter an invite code',
-  joinTitle:'Enter invite code', joinSub:'Ask a family member for the 6-character code from their invite.', joinCta:'Join family',
+  startFamily:'Start a new family', startFamilyS:"You'll name it and invite others", joinFamily:'Join a family', joinFamilyS:'Enter your family’s passcode',
+  joinTitle:'Enter the family passcode', joinSub:'The owner adds your Google email to the invite list, then tells you the family’s 6-digit code.', joinCta:'Join family',
   profileTitle:'Set up your profile', profileSub:'This is how your family will see you.', yourName:'Your name', youAreThe:'You are the…', phObName:'e.g. Emma',
   setFamilyTitle:'Set up your family', setFamilySub:"Name it and invite who's in it.", familyName:'Family name', phFamName:'e.g. The Reeds', membersInvites:'Members & invites', inviteMember:'＋ Invite a member',
   budgetTitle:'Set your budget', budgetSub:'A monthly target for the family, then a budget per category.', monthlyBudget:'Monthly budget', categoryBudgets:'Category budgets', categoryBudgetsHint:'Suggested from your total. Adjust anytime.',
@@ -7783,7 +7795,7 @@ var EN_DEFAULT={
   photoLbl:'Photo', uploadPhotos:'📷 Upload photos', captionOpt:'Caption (optional)', phMemCap:'e.g. Best day of the trip',
   /* settings sheet */
   settingsTitle:'Settings', settingsSub:'Pick a theme. It applies across the whole app.',
-  setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members',
+  setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setEncryption:'Money encryption',
   setSavedEvents:'Saved for events', setIncome:'Income', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out',
   /* generic edit modal */
   fhModalEdit:'Edit',
@@ -7814,8 +7826,8 @@ var I18N={
     signinT:'Đăng nhập FamilyHub', signinS:'Đăng nhập bằng Google — an toàn, nhanh gọn.', continueGoogle:'Tiếp tục với Google', signingIn:'Đang đăng nhập…',
     terms:'Khi tiếp tục, bạn đồng ý với Điều khoản & Chính sách bảo mật.',
     familyTitle:'Gia đình của bạn', familySub:'Tạo gia đình mới, hoặc tham gia gia đình đã mời bạn.',
-    startFamily:'Tạo gia đình mới', startFamilyS:'Bạn đặt tên rồi mời mọi người vào', joinFamily:'Tham gia gia đình', joinFamilyS:'Nhập mã mời',
-    joinTitle:'Nhập mã mời', joinSub:'Xin người thân mã 6 ký tự trong lời mời của họ.', joinCta:'Tham gia',
+    startFamily:'Tạo gia đình mới', startFamilyS:'Bạn đặt tên rồi mời mọi người vào', joinFamily:'Tham gia gia đình', joinFamilyS:'Nhập mã gia đình',
+    joinTitle:'Nhập mã gia đình', joinSub:'Chủ gia đình thêm email Google của bạn vào danh sách mời, rồi cho bạn mã 6 số.', joinCta:'Tham gia',
     profileTitle:'Thiết lập hồ sơ', profileSub:'Đây là cách cả nhà nhìn thấy bạn.', yourName:'Tên của bạn', youAreThe:'Bạn là…', phObName:'vd. Hân',
     setFamilyTitle:'Thiết lập gia đình', setFamilySub:'Đặt tên và mời mọi người vào nhà.', familyName:'Tên gia đình', phFamName:'vd. Nhà mình', membersInvites:'Thành viên & lời mời', inviteMember:'＋ Mời thành viên',
     budgetTitle:'Đặt ngân sách', budgetSub:'Mục tiêu hằng tháng của cả nhà, rồi ngân sách cho từng danh mục.', monthlyBudget:'Ngân sách hằng tháng', categoryBudgets:'Ngân sách theo danh mục', categoryBudgetsHint:'Tụi mình gợi ý sẵn từ tổng ngân sách, bạn chỉnh lúc nào cũng được.',
@@ -7889,7 +7901,7 @@ var I18N={
     photoLbl:'Ảnh', uploadPhotos:'📷 Tải ảnh lên', captionOpt:'Chú thích (tuỳ chọn)', phMemCap:'vd. Ngày vui nhất chuyến đi',
     /* settings sheet */
     settingsTitle:'Cài đặt', settingsSub:'Chọn giao diện, áp dụng cho cả ứng dụng.',
-    setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên',
+    setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setEncryption:'Mã hóa tài chính',
     setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất',
     /* generic edit modal */
     fhModalEdit:'Chỉnh sửa',
@@ -7991,18 +8003,16 @@ function obChoose(mode){
   if(mode==='join'){ obGo('join'); }
   else { document.getElementById('ob-profile-back').setAttribute('onclick',"obGo('choice')"); obPrefillProfile(); obGo('profile'); }
 }
+/* Placeholder pair — the data module (65-passcode-ui) replaces both with the
+   real find-invite + join_with_passcode flow. Offline/CDN-blocked, joining is
+   impossible, so the mock only keeps the input tidy and never fakes a family. */
 function obCodeInput(el){
-  el.value=el.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+  el.value=el.value.replace(/\D/g,'').slice(0,6);
   renderCodeBoxes(el.value);
-  var ok=el.value.length>=6, pv=document.getElementById('ob-join-preview');
-  document.getElementById('ob-join-cta').disabled=!ok;
-  if(ok){ pv.style.display='flex'; pv.innerHTML='<div class="ob-preview-ic">🏡</div><div><div class="ob-preview-fam">The Reeds</div><div class="ob-preview-sub">'+L('4 thành viên · James mời bạn','4 members · invited by James')+'</div></div>'; }
-  else pv.style.display='none';
+  document.getElementById('ob-join-cta').disabled=el.value.length<6;
 }
 function obJoin(){
-  FAM.mode='join'; FAM.familyName='The Reeds';
-  document.getElementById('ob-profile-back').setAttribute('onclick',"obGo('join')");
-  obPrefillProfile(); obGo('profile');
+  toast(L('Không kết nối được máy chủ. Kiểm tra mạng và thử lại','Can’t reach the server. Check your connection and try again'));
 }
 function renderObColors(){
   document.getElementById('ob-colors').innerHTML=OB_COLORS.map(function(c){
@@ -8283,7 +8293,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v244';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v245';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -8295,10 +8305,19 @@ var ICO = {
   pie:'<circle cx="12" cy="12" r="8.4"/><path d="M12 12V3.6M12 12l6.2 5.7"/>',
   camera:'<rect x="3" y="6.6" width="18" height="12.9" rx="2.6"/><circle cx="12" cy="13" r="3.4"/><path d="M8.4 6.6 9.6 4.6h4.8l1.2 2"/>',
   grid:'<rect x="4" y="4" width="7" height="7" rx="1.7"/><rect x="13" y="4" width="7" height="7" rx="1.7"/><rect x="4" y="13" width="7" height="7" rx="1.7"/><rect x="13" y="13" width="7" height="7" rx="1.7"/>',
-  envelope:'<rect x="3" y="5.5" width="18" height="13" rx="2.6"/><path d="M3.8 7 12 13l8.2-6"/>'
+  envelope:'<rect x="3" y="5.5" width="18" height="13" rx="2.6"/><path d="M3.8 7 12 13l8.2-6"/>',
+  shield:'<path d="M12 3.2 5 6v5.4c0 4.4 2.9 7.5 7 9.4 4.1-1.9 7-5 7-9.4V6z"/><path d="M9.2 12.2l2 2 3.6-3.9"/>'
 };
 
 var RELEASES = [
+  { id:'2026-08-03-passcode', date:'2026-08-03', time:'12:00', ver:'v245', icon:ICO.shield,
+    vi:{ t:'Mã gia đình 6 số, và mã hóa chuyện tiền nong',
+      problem:'Trước đây ai có mã mời là vào được nhà, và số tiền của nhà mình nằm trên máy chủ ai vận hành cũng đọc được.',
+      sol:'Giờ vào nhà cần được chủ nhà thêm email vào danh sách rồi nhập mã 6 số của gia đình. Trong Cài đặt còn bật được mã hóa tài chính, khi đó số tiền được khóa ngay trên máy bằng mã của nhà mình, đến cả người làm ra app cũng không đọc được.' },
+    en:{ t:'A 6-digit family code, and money encryption',
+      problem:'Anyone with an invite code could walk in, and your amounts sat on the server where an operator could read them.',
+      sol:'Joining now takes both being on the owner’s email list and the family’s 6-digit code. In Settings you can also turn on money encryption, which locks amounts on your device with that code so not even the people who run the app can read them.' } },
+
   { id:'2026-08-01-house', date:'2026-08-01', time:'19:44', ver:'v236', icon:ICO.house,
     vi:{ t:'Sửa sang ngôi nhà của nhà mình',
       problem:'Ngôi nhà trên màn hình chính bấy lâu ai cũng giống ai, muốn đổi chút cho ra chất nhà mình cũng chịu.',
@@ -8725,6 +8744,172 @@ function openWhatsNew(){
     if (error) { authBusy(false); window.toast && window.toast(_friendly(error)); }
   };
 
+  /* ═══ E2EE crypto core (0030) ═══════════════════════════════════════════════
+     The 6-digit family passcode never leaves the device. It is stretched with
+     PBKDF2-SHA256, then HKDF-split into two independent keys:
+       • K_auth — hex, sent to the server on join/verify; stored there only as a
+         bcrypt hash. Proves "I know the code" without revealing it.
+       • K_wrap — an AES-GCM key that stays on-device and unwraps the family DEK.
+     HKDF domain separation means the server, having seen K_auth, still can't
+     derive K_wrap — verifying the door never opens the safe.
+     The DEK (random 256-bit) encrypts every money value / note / goal name as
+     b64(iv‖AES-GCM ct). It is cached per family in IndexedDB so the passcode is
+     asked for once per device, not per session; iOS storage eviction just means
+     the passcode is asked again. */
+  const FH_KDF_VERSION = 1;
+  const FH_KDF_ITERS = 310000;                 // OWASP-level PBKDF2-SHA256 work factor
+  const _te = new TextEncoder(), _td = new TextDecoder();
+  const _hex = (buf) => Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  const _unhex = (s) => new Uint8Array((s.match(/../g) || []).map((h) => parseInt(h, 16)));
+  const _b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  function _unb64(s) { const bin = atob(s); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
+  function _cat(a, b) { const o = new Uint8Array(a.length + b.length); o.set(a, 0); o.set(b, a.length); return o; }
+
+  const FHCrypto = {
+    genSaltHex() { return _hex(crypto.getRandomValues(new Uint8Array(16))); },
+
+    // passcode + salt → { kAuthHex (to server), kWrap (device-only CryptoKey) }
+    async deriveKeys(passcode, saltHex, iters, version) {
+      if ((version || FH_KDF_VERSION) !== 1) throw new Error('unsupported kdf version ' + version);
+      const base = await crypto.subtle.importKey('raw', _te.encode(String(passcode)), 'PBKDF2', false, ['deriveBits']);
+      const master = await crypto.subtle.deriveBits(
+        { name: 'PBKDF2', hash: 'SHA-256', salt: _unhex(saltHex), iterations: iters || FH_KDF_ITERS }, base, 256);
+      const hk = await crypto.subtle.importKey('raw', master, 'HKDF', false, ['deriveBits', 'deriveKey']);
+      const authBits = await crypto.subtle.deriveBits(
+        { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: _te.encode('fh-auth-v1') }, hk, 256);
+      const kWrap = await crypto.subtle.deriveKey(
+        { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: _te.encode('fh-wrap-v1') }, hk,
+        { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+      return { kAuthHex: _hex(authBits), kWrap: kWrap };
+    },
+
+    async genDekRaw() { return crypto.getRandomValues(new Uint8Array(32)); },
+    async importDek(raw) { return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']); },
+
+    async wrapDek(dekRaw, kWrap) {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, kWrap, dekRaw);
+      return _b64(_cat(iv, new Uint8Array(ct)));
+    },
+    async unwrapDek(wrappedB64, kWrap) {
+      const all = _unb64(wrappedB64);
+      const raw = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, kWrap, all.slice(12));
+      return new Uint8Array(raw);
+    },
+
+    async encVal(dek, value) {
+      if (value === null || value === undefined || value === '') return null;
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, dek, _te.encode(String(value)));
+      return _b64(_cat(iv, new Uint8Array(ct)));
+    },
+    async decVal(dek, b64) {
+      if (!b64) return null;
+      const all = _unb64(b64);
+      const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, dek, all.slice(12));
+      return _td.decode(pt);
+    }
+  };
+  window.FHCrypto = FHCrypto;
+
+  /* ── per-family key session ──
+     _fhDek is the imported CryptoKey for the ACTIVE family; _fhDekRaw keeps the
+     raw bytes only long enough to re-wrap on a passcode change. The IndexedDB
+     cache ('fh-keys') survives app restarts; losing it (logout, iOS eviction)
+     only means the passcode is asked for again. */
+  let _fhDek = null, _fhDekRaw = null, _fhDekFid = null;
+  const _KEYS_DB = 'fh-keys', _KEYS_STORE = 'k';
+  function _keysOpen() {
+    return new Promise((resolve, reject) => {
+      let rq; try { rq = indexedDB.open(_KEYS_DB, 1); } catch (e) { return reject(e); }
+      rq.onupgradeneeded = () => { const db = rq.result; if (!db.objectStoreNames.contains(_KEYS_STORE)) db.createObjectStore(_KEYS_STORE, { keyPath: 'fid' }); };
+      rq.onsuccess = () => resolve(rq.result);
+      rq.onerror = () => reject(rq.error);
+    });
+  }
+  async function _keysPut(fid, raw) {
+    try { const db = await _keysOpen(); await new Promise((res, rej) => { const tx = db.transaction(_KEYS_STORE, 'readwrite'); tx.objectStore(_KEYS_STORE).put({ fid: fid, raw: raw, at: Date.now() }); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); }); } catch (e) {}
+  }
+  async function _keysGet(fid) {
+    try { const db = await _keysOpen(); return await new Promise((res) => { const tx = db.transaction(_KEYS_STORE, 'readonly'); const rq = tx.objectStore(_KEYS_STORE).get(fid); rq.onsuccess = () => res(rq.result ? rq.result.raw : null); rq.onerror = () => res(null); }); } catch (e) { return null; }
+  }
+  async function _keysDel(fid) {
+    try { const db = await _keysOpen(); await new Promise((res) => { const tx = db.transaction(_KEYS_STORE, 'readwrite'); tx.objectStore(_KEYS_STORE).delete(fid); tx.oncomplete = () => res(true); tx.onerror = () => res(false); }); } catch (e) {}
+  }
+
+  // Load the active family's DEK into the session (from cache). True if usable.
+  async function fhKeyLoad(fid) {
+    if (_fhDek && _fhDekFid === fid) return true;
+    const raw = await _keysGet(fid);
+    if (!raw) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; return false; }
+    _fhDekRaw = new Uint8Array(raw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
+    return true;
+  }
+  // Adopt a DEK we just created/unwrapped (set-passcode, join, unlock).
+  async function fhKeyAdopt(fid, dekRaw) {
+    _fhDekRaw = new Uint8Array(dekRaw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
+    await _keysPut(fid, _fhDekRaw);
+  }
+  function fhKeyDrop(fid) { if (_fhDekFid === fid || fid == null) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; } if (fid != null) _keysDel(fid); }
+  function _fhSessionDek() { if (!_fhDek) throw new Error('locked'); return _fhDek; }
+  function fhKeyReady() { return !!(_fhDek && window.DB && _fhDekFid === window.DB.fid); }
+  window.fhKeyReady = fhKeyReady;
+  window.fhKeyDrop = fhKeyDrop;
+
+  // enc profile of the ACTIVE family, refreshed by every hydrate from snap.enc
+  function fhEncState() { return (window.DB && window.DB.enc && window.DB.enc.enc_state) || 'off'; }
+  // Should writes carry ciphertext? (dual = both, enc = ciphertext only)
+  function fhEncOn() { return fhEncState() !== 'off' && fhKeyReady(); }
+  window.fhEncState = fhEncState;
+
+  // Encrypt a value with the session DEK (null-safe; throws if key missing).
+  async function fhEnc(v) { if (!_fhDek) throw new Error('no key'); return FHCrypto.encVal(_fhDek, v); }
+  async function fhDec(b64) { if (!_fhDek) throw new Error('no key'); return FHCrypto.decVal(_fhDek, b64); }
+
+  /* Build the write-shape for one logical field: plaintext / ciphertext / both,
+     driven by enc_state. Usage: Object.assign(row, await fhField('amount', v)).
+     'enc'  → { amount: null, amount_enc: <ct> }   (ciphertext only)
+     'dual' → { amount: v,    amount_enc: <ct> }   (verification window)
+     'off' or key missing → { amount: v }          (today's behaviour)
+     In dual, a missing key degrades to plaintext-only rather than blocking the
+     write — the encrypt-alongside job re-covers the row later. In enc state a
+     missing key throws: writing plaintext there would break the promise. */
+  async function fhField(name, value) {
+    const st = fhEncState(), o = {};
+    if (value === null || value === undefined || value === '') { o[name] = null; return o; }   // empty stays empty in every state
+    if (st === 'enc') {
+      if (!fhKeyReady()) throw new Error('locked');
+      o[name] = null; o[name + '_enc'] = await fhEnc(value);
+      return o;
+    }
+    o[name] = value;
+    if (st === 'dual' && fhKeyReady()) o[name + '_enc'] = await fhEnc(value);
+    return o;
+  }
+  window.fhField = fhField;
+
+  /* Read-side resolver for one row field. Rule:
+       enc state  → prefer ciphertext (plaintext may be scrubbed/placeholder);
+       off/dual   → prefer plaintext; in dual ALSO verify ct==pt and log loudly
+                    on mismatch (the whole point of the verification window).
+     Returns the resolved plaintext value as a string (caller casts) or null. */
+  async function fhRead(row, name) {
+    const pt = row[name], ct = row[name + '_enc'];
+    if (fhEncState() === 'enc') {
+      if (ct != null && fhKeyReady()) { try { return await fhDec(ct); } catch (e) { console.warn('FH decrypt failed', name, e); return null; } }
+      return pt != null ? String(pt) : null;                 // bank-import / legacy rows keep plaintext
+    }
+    if (fhEncState() === 'dual' && ct != null && pt != null && fhKeyReady()) {
+      try {
+        const v = await fhDec(ct);
+        const ptS = String(pt), same = (v === ptS) || (Number(v) === Number(ptS) && v !== '' && ptS !== '');
+        if (!same) console.error('FH DUAL MISMATCH', name, { plaintext: ptS, decrypted: v });
+      } catch (e) { console.error('FH DUAL DECRYPT FAILED', name, e); }
+    }
+    return pt != null ? String(pt) : (ct != null && fhKeyReady() ? await fhDec(ct).catch(() => null) : null);
+  }
+  window.fhRead = fhRead;
+
   // ═══════════════════════════════════════════════════════════════════════════
   //  DATA LAYER — hydrate the app's globals from the DB + write-through mutations
   // ═══════════════════════════════════════════════════════════════════════════
@@ -8874,7 +9059,7 @@ function openWhatsNew(){
       // Falls back to the legacy multi-query hydrate if the RPC is absent or errors,
       // so an unmigrated env or a bad deploy can never take the app down.
       // p_txn_from stays null today (full ledger); it is the R6 windowing hook.
-      let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg, rx, rr;
+      let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg, rx, rr, encMeta;
       let snap = null;
       try { const rs = await sb.rpc('get_family_snapshot', { p_txn_from: null }); if (!rs.error && rs.data) snap = rs.data; }
       catch (e) { /* fall through to the multi-query hydrate */ }
@@ -8886,30 +9071,59 @@ function openWhatsNew(){
         tp = snap.transaction_photos || []; inc = snap.incomes || []; sg = snap.saving_goals || [];
         rx = snap.reactions || [];                          // reactions arrive in the same payload (0023); [] on a pre-migration RPC
         rr = snap.request_reviews || [];                    // request reviews (0024): future-expense / goal / occasion alignment
+        encMeta = snap.enc || null;                         // E2EE recipe (0030): enc_state + kdf + wrapped DEK
       } else {
         const R = await Promise.all([
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
           sb.from('members').select('id,name,color,is_shared,user_id,created_at').eq('family_id', fid).is('archived_at', null).order('created_at'),
           // archived ones come along so old transactions still resolve their name; they're kept out of catOrder below
           sb.from('categories').select('id,name,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
-          sb.from('category_budgets').select('category_id,amount,month').eq('family_id', fid),
-          sb.from('monthly_budgets').select('month,budget_total,closed').eq('family_id', fid),
-          sb.from('transactions').select('id,category_id,member_id,note,amount,txn_date,status,created_by').eq('family_id', fid).order('txn_date', { ascending: false }),
-          sb.from('events').select('id,name,emoji,cover,target_amount,target_date,achieved,sort_order,source_txn_id,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
-          sb.from('event_fundings').select('id,event_id,goal_id,amount,source,month,member_id').eq('family_id', fid),
-          sb.from('savings_entries').select('kind,amount').eq('family_id', fid),
+          sb.from('category_budgets').select('category_id,amount,amount_enc,month').eq('family_id', fid),
+          sb.from('monthly_budgets').select('month,budget_total,budget_total_enc,closed').eq('family_id', fid),
+          sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,txn_date,status,created_by').eq('family_id', fid).order('txn_date', { ascending: false }),
+          sb.from('events').select('id,name,name_enc,emoji,cover,target_amount,target_amount_enc,target_date,achieved,sort_order,source_txn_id,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
+          sb.from('event_fundings').select('id,event_id,goal_id,amount,amount_enc,source,month,member_id').eq('family_id', fid),
+          sb.from('savings_entries').select('kind,amount,amount_enc').eq('family_id', fid),
           sb.from('event_memories').select('id,event_id,emoji,caption,photo_url,sort_order').eq('family_id', fid).order('sort_order'),
           sb.from('transaction_photos').select('transaction_id,photo_url').eq('family_id', fid),
-          sb.from('incomes').select('amount,income_date').eq('family_id', fid),
-          sb.from('saving_goals').select('id,name,emoji,target_amount,target_date,note,occasion_id,achieved,sort_order,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
+          sb.from('incomes').select('amount,amount_enc,income_date').eq('family_id', fid),
+          sb.from('saving_goals').select('id,name,name_enc,emoji,target_amount,target_amount_enc,target_date,note,note_enc,occasion_id,achieved,sort_order,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
           // reactions (0023): a failed query on a pre-migration env resolves {data:null} → [], never throws, so hydrate survives
           sb.from('reactions').select('id,transaction_id,member_id,emoji,created_at').eq('family_id', fid),
           // request_reviews (0024): same fail-safe — [] on a pre-migration env
-          sb.from('request_reviews').select('id,entity_type,entity_id,member_id,emoji,created_at').eq('family_id', fid)
+          sb.from('request_reviews').select('id,entity_type,entity_id,member_id,emoji,created_at').eq('family_id', fid),
+          sb.from('family_keys').select('enc_state,kdf_salt,kdf_iters,kdf_version,wrapped_dek').eq('family_id', fid).maybeSingle()
         ]);
         fam = R[0].data; mem = R[1].data || []; cat = R[2].data || []; cb = R[3].data || []; mb = R[4].data || [];
         tx = R[5].data || []; ev = R[6].data || []; ef = R[7].data || []; se = R[8].data || []; em = R[9].data || []; tp = R[10].data || []; inc = R[11].data || []; sg = R[12].data || []; rx = R[13].data || []; rr = R[14].data || [];
+        encMeta = (R[15] && R[15].data) || null;
       }
+
+      /* ── E2EE (0030): learn the family's enc recipe, load the cached key, then
+         resolve every money/name/note field IN PLACE so the mapping below (and
+         all downstream UI) keeps seeing plain values. Rows the device can't
+         decrypt resolve to null → Number() gives 0, and the lock bar offers the
+         passcode prompt. */
+      window.DB.enc = encMeta || null;
+      if (encMeta) { try { await fhKeyLoad(fid); } catch (e) {} }
+      const _locked = !!(encMeta && encMeta.enc_state === 'enc' && !fhKeyReady());
+      if (window.fhLockBanner) window.fhLockBanner(_locked);
+      async function _decRows(rows, fields) {
+        if (!encMeta) return;                                // no family_keys row → nothing encrypted
+        await Promise.all((rows || []).map(async (r) => {
+          for (const f of fields) r[f] = await fhRead(r, f);
+        }));
+      }
+      await Promise.all([
+        _decRows(tx, ['amount', 'note']),
+        _decRows(cb, ['amount']),
+        _decRows(mb, ['budget_total']),
+        _decRows(ev, ['name', 'target_amount']),
+        _decRows(ef, ['amount']),
+        _decRows(se, ['amount']),
+        _decRows(inc, ['amount']),
+        _decRows(sg, ['name', 'target_amount', 'note'])
+      ]);
 
       if (fam) { window.FAM.familyName = fam.name; if (fam.currency) window.CUR = fam.currency; if (fam.default_language) window.LANG = fam.default_language; }
       // shared house customization ({house,tree,pet}); [] / null on a pre-migration snapshot → keep whatever we have
@@ -9331,15 +9545,29 @@ function openWhatsNew(){
   window.addEventListener('online', () => setTimeout(fhOutboxFlush, 600));
   setTimeout(() => { fhOutboxFlush(); }, 3000);            // catch anything queued from a previous session
 
+  /* Encrypted families must not fall back to plaintext writes: when the family
+     is post-scrub ('enc') and this device hasn't been unlocked, block the write
+     and ask for the passcode instead of quietly leaking a plaintext row. */
+  function _fhWriteLocked() {
+    if (fhEncState() === 'enc' && !fhKeyReady()) {
+      window.toast && window.toast(L('Nhập mã gia đình để ghi chép', 'Enter the family code to log entries'));
+      if (window.fhUnlockPrompt) window.fhUnlockPrompt();
+      return true;
+    }
+    return false;
+  }
   async function _dbInsertTxn(t, exD) {
     const fid = window.DB.fid; if (!fid) return;
+    if (_fhWriteLocked()) return;
     // Resolve the category id from the local map first. Creating a brand-new category
     // needs the network, so offline we fall back to the local maps / the catch-all
     // rather than blocking the queued write on a round trip that can't succeed.
     let catId = window.DB.catByName[t.cat];
     if (!catId && navigator.onLine !== false) { try { catId = await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1); } catch (e) {} }
     if (!catId) catId = window.DB.catByName[CAT_FALLBACK] || Object.values(window.DB.catByName)[0];
-    const row = { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null };
+    const row = Object.assign(
+      { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null },
+      await fhField('amount', t.amt), await fhField('note', t.note));
     // Offline → queue durably instead of losing the write.
     if (navigator.onLine === false) { await _obQueueTxn(row, t); return; }
     try {
@@ -9354,9 +9582,13 @@ function openWhatsNew(){
     }
   }
   async function _dbUpdateTxn(dbId, t, exD) {
+    if (_fhWriteLocked()) return;
     try {
       const catId = window.DB.catByName[t.cat] || await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1);
-      await _w(sb.from('transactions').update({ category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' }).eq('id', dbId), 'write transactions');
+      const patch = Object.assign(
+        { category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' },
+        await fhField('amount', t.amt), await fhField('note', t.note));
+      await _w(sb.from('transactions').update(patch).eq('id', dbId), 'write transactions');
       await _dbSyncTxnPhotos(dbId, t.photos);
       _syncSoon();
     } catch (e) { _writeErr('txn update failed', e); }
@@ -9470,7 +9702,9 @@ function openWhatsNew(){
       // created_by marks a user-proposed occasion (a request). Mirror events (born from
       // an expense) are never proposals, so they carry no creator.
       const _evCb = e._srcTxn ? null : (e._createdBy != null ? e._createdBy : ((window.DB && window.DB.ownerMemberId) || null));
-      const row = { family_id: fid, name: e.name, emoji: e.emoji, cover: e.cov, target_amount: e.target, target_date: iso, achieved: !!e.achieved, sort_order: 0, created_by: _evCb };
+      const row = Object.assign(
+        { family_id: fid, emoji: e.emoji, cover: e.cov, target_date: iso, achieved: !!e.achieved, sort_order: 0, created_by: _evCb },
+        await fhField('name', e.name), await fhField('target_amount', e.target || null));
 
       /* A mirror event belongs to its transaction. Looking the live mirror up by
          source_txn_id (rather than a re-insert) means a re-sync that lost the
@@ -9505,11 +9739,11 @@ function openWhatsNew(){
       // upsert, not insert: one budget reservation per (event, month), so a
       // re-sync can never reserve the same money twice
       if (budgetAmt > 0) await _w(sb.from('event_fundings').upsert(
-        { family_id: fid, event_id: evId, member_id: who, amount: budgetAmt, source: 'budget', month: fMonth },
+        Object.assign({ family_id: fid, event_id: evId, member_id: who, source: 'budget', month: fMonth }, await fhField('amount', budgetAmt)),
         { onConflict: 'event_id,month' }
       ), 'write event_fundings');
       const sp = (e.saved || 0) - (e.setAside || 0);
-      if (sp > 0 && opts.savingsSource) await _w(sb.from('event_fundings').insert({ family_id: fid, event_id: evId, member_id: who, amount: sp, source: 'savings', month: null }), 'write event_fundings');
+      if (sp > 0 && opts.savingsSource) await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, event_id: evId, member_id: who, source: 'savings', month: null }, await fhField('amount', sp))), 'write event_fundings');
       _syncSoon();
     } catch (e) { _writeErr('event insert failed', e); }
   }
@@ -9531,7 +9765,7 @@ function openWhatsNew(){
       (async () => {
         try {
           if (!ev._dbId && ev._dbPending) { try { await ev._dbPending; } catch (e) {} }
-          if (ev._dbId) { await _w(sb.from('event_fundings').insert({ family_id: window.DB.fid, event_id: ev._dbId, member_id: _memberIdForWho(who), amount: applied, source: 'savings', month: null }), 'write event_fundings'); _syncSoon(); }
+          if (ev._dbId) { await _w(sb.from('event_fundings').insert(Object.assign({ family_id: window.DB.fid, event_id: ev._dbId, member_id: _memberIdForWho(who), source: 'savings', month: null }, await fhField('amount', applied))), 'write event_fundings'); _syncSoon(); }
         } catch (e) { _writeErr('funding insert failed', e); }
       })();
     }
@@ -9605,12 +9839,16 @@ function openWhatsNew(){
           delete window.DB.catByName[name];
         } catch (e) { _writeErr('category remove failed', e); }
       }
-      await _w(sb.from('monthly_budgets').upsert({ family_id: fid, month: month, budget_total: m.budget || 0 }, { onConflict: 'family_id,month' }), 'write monthly_budgets');
+      // monthly cap: the plaintext column stays NOT NULL (0 = scrubbed placeholder),
+      // so an encrypted-only write still carries budget_total: 0 beside the ciphertext
+      const mbf = await fhField('budget_total', m.budget || 0);
+      if (mbf.budget_total == null) mbf.budget_total = 0;
+      await _w(sb.from('monthly_budgets').upsert(Object.assign({ family_id: fid, month: month }, mbf), { onConflict: 'family_id,month' }), 'write monthly_budgets');
       for (let i = 0; i < window.catOrder.length; i++) {
         const name = window.catOrder[i]; const amt = window.catBudget[name] || 0;
         const cid = window.DB.catByName[name] || await _categoryIdForName(name, (window.catStyle[name] || [])[0], i + 1);
         if (!cid) continue;
-        if (amt > 0) await _w(sb.from('category_budgets').upsert({ family_id: fid, month: month, category_id: cid, amount: amt }, { onConflict: 'family_id,month,category_id' }), 'write category_budgets');
+        if (amt > 0) await _w(sb.from('category_budgets').upsert(Object.assign({ family_id: fid, month: month, category_id: cid }, await fhField('amount', amt)), { onConflict: 'family_id,month,category_id' }), 'write category_budgets');
         else await _w(sb.from('category_budgets').delete().eq('family_id', fid).eq('month', month).eq('category_id', cid), 'clear category budget');
       }
       _syncSoon();
@@ -9714,7 +9952,7 @@ function openWhatsNew(){
       // authenticate the realtime socket so RLS-gated postgres_changes are delivered
       try { const { data: { session } } = await sb.auth.getSession(); if (session && sb.realtime && sb.realtime.setAuth) await sb.realtime.setAuth(session.access_token); } catch (e) {}
       const ch = sb.channel('fam-' + fid);
-      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather', 'reactions', 'request_reviews'].forEach((tbl) => {
+      ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather', 'reactions', 'request_reviews', 'family_keys'].forEach((tbl) => {
         ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: 'family_id=eq.' + fid }, () => {
           // Echo suppression (R3): our own writes already schedule a _syncSoon reload,
           // and realtime replays them straight back. Ignore ticks inside the local-write
@@ -9813,6 +10051,7 @@ function openWhatsNew(){
 
   /* Never show raw PostgREST/Postgres text to a user (DESIGN §6). */
   function _friendly(e) {
+    if (e && e.fhMsg) return e.fhMsg;                       // deliberately localized app errors pass through
     const raw = String((e && (e.message || e.error_description)) || e || '');
     if (/row-level security|permission denied|not authorized/i.test(raw)) return L('Bạn không có quyền cho thao tác này','You don’t have permission for that');
     if (/duplicate key|already exists/i.test(raw)) return L('Mục này đã tồn tại','That already exists');
@@ -10012,6 +10251,7 @@ function openWhatsNew(){
       if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = 'Leave this family'; }
       window.toast && window.toast(_friendly(e)); return;
     }
+    try { fhKeyDrop(window.DB.fid); } catch (e) {}          // no lingering family key on a device that left
     window._closeOv(); location.reload();
   };
   window.fhDeleteFamily = async function (btn) {
@@ -10031,7 +10271,535 @@ function openWhatsNew(){
       if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = 'Delete family'; }
       window.toast && window.toast(_friendly(e)); return;
     }
+    try { fhKeyDrop(window.DB.fid); } catch (e) {}
     window._closeOv(); location.reload();
+  };
+
+  /* ═══ Passcode door + whitelist UI (0030) ═══════════════════════════════════
+     Joining is strict two-factor: the owner whitelists the invitee's Google
+     email (whitelist_add) AND tells them the 6-digit family passcode. The
+     passcode is derived client-side (15-crypto) — the server only ever sees
+     K_auth. On success the joiner unwraps the family DEK locally and caches it.
+     The owner's "Invite" sheet becomes: manage whitelist + passcode lifecycle. */
+
+  let _fhJoinCtx = null;              // find_my_invite() payload while on the join screen
+
+  const _pcDigits = (el) => { el.value = (el.value || '').replace(/\D/g, '').slice(0, 6); };
+  const _pcField = (id, label) =>
+    '<div class="field"><label>' + label + '</label>'
+    + '<input id="' + id + '" class="num big" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code"'
+    + ' oninput="this.value=this.value.replace(/\\D/g,\'\').slice(0,6);fhModalDirty()"></div>';
+  const _pcVal = (id) => (document.getElementById(id) ? document.getElementById(id).value : '') || '';
+  const _pcOk = (id) => /^\d{6}$/.test(_pcVal(id));
+  // The one honest warning, shown wherever the passcode is created or changed.
+  const _pcWarn = () => '<div class="field-hint" style="margin-top:10px">'
+    + L('Mã này là chìa khóa duy nhất khi bật mã hóa tài chính. Nếu cả nhà quên mã và không còn thiết bị nào đang đăng nhập, dữ liệu đã mã hóa sẽ mất vĩnh viễn — chúng tôi không thể khôi phục.',
+        'This code is the only key once money encryption is on. If everyone forgets it and no signed-in device remains, encrypted money data is gone forever — we cannot recover it.')
+    + '</div>';
+
+  function _fhLockedMsg(secs) {
+    const mins = Math.max(1, Math.ceil((Number(secs) || 900) / 60));
+    return L('Sai mã quá 5 lần. Thử lại sau ' + mins + ' phút.', 'Too many wrong tries. Try again in ' + mins + ' min.');
+  }
+  /* wrong_passcode / locked_out arrive as PAYLOAD values, not thrown errors —
+     the server returns them so the failed-attempt row commits (an exception
+     would roll the throttle's own bookkeeping back). Normalize to throws here. */
+  function _fhThrowPcError(data) {
+    if (!data || !data.error) return data;
+    const err = new Error(data.error);
+    err.retrySecs = data.retry_secs;
+    throw err;
+  }
+  const _fhErr = (msg) => { const e = new Error(msg); e.fhMsg = msg; return e; };   // survives _friendly()
+
+  // ── Joiner: prep the join screen from the pending invite for this email ──
+  window.obJoinPrep = async function () {
+    const pv = document.getElementById('ob-join-preview'), hint = document.getElementById('ob-join-hint');
+    _fhJoinCtx = null;
+    if (pv) pv.style.display = 'none';
+    if (hint) hint.textContent = '';
+    let sessEmail = '';
+    try { const s = (await sb.auth.getSession()).data.session; sessEmail = (s && s.user && s.user.email) || ''; } catch (e) {}
+    let inv = null;
+    try { inv = await _rpc('find_my_invite'); } catch (e) { if (hint) hint.textContent = _friendly(e); return; }
+    if (!inv) {
+      if (hint) hint.innerHTML = L(
+        'Chưa có lời mời nào cho <b>' + _esc(sessEmail) + '</b>.<br>Nhờ chủ gia đình thêm đúng email này vào danh sách mời (Cài đặt → Mời thành viên).',
+        'No invite found for <b>' + _esc(sessEmail) + '</b>.<br>Ask the family owner to add exactly this email (Settings → Invite a member).');
+      return;
+    }
+    _fhJoinCtx = inv;
+    if (pv) {
+      pv.style.display = 'flex';
+      pv.innerHTML = '<div class="ob-preview-ic">🏡</div><div><div class="ob-preview-fam">' + _esc(inv.family_name || 'Family') + '</div>'
+        + '<div class="ob-preview-sub">' + L(_esc(inv.invited_by) + ' mời bạn · nhập mã 6 số của gia đình', 'invited by ' + _esc(inv.invited_by) + ' · enter the family’s 6-digit code') + '</div></div>';
+    }
+    if (!inv.passcode_set && hint) {
+      hint.textContent = L('Gia đình này chưa đặt mã. Nhờ chủ gia đình đặt mã trước.', 'This family has no passcode yet. Ask the owner to set one first.');
+    }
+  };
+
+  // digits-only passcode entry (replaces the 6-char alphanumeric mock)
+  window.obCodeInput = function (el) {
+    el.value = el.value.replace(/\D/g, '').slice(0, 6);
+    if (typeof window.renderCodeBoxes === 'function') window.renderCodeBoxes(el.value);
+    const cta = document.getElementById('ob-join-cta'); if (cta) cta.disabled = el.value.length < 6;
+  };
+
+  window.obJoin = async function () {
+    const el = document.getElementById('ob-code');
+    const code = (el ? el.value : '').trim();
+    if (!/^\d{6}$/.test(code)) return;
+    const hint = document.getElementById('ob-join-hint');
+    const cta = document.getElementById('ob-join-cta');
+    const label = cta ? cta.textContent : '';
+    if (cta) { cta.disabled = true; cta.textContent = L('Đang kiểm tra…', 'Checking…'); }
+    try {
+      if (!_fhJoinCtx) await window.obJoinPrep();
+      if (!_fhJoinCtx) throw new Error('not_whitelisted');
+      if (!_fhJoinCtx.passcode_set) throw new Error('no_passcode');
+      const keys = await FHCrypto.deriveKeys(code, _fhJoinCtx.kdf_salt, _fhJoinCtx.kdf_iters, _fhJoinCtx.kdf_version);
+      const data = _fhThrowPcError(await _rpc('join_with_passcode', { p_family_id: _fhJoinCtx.family_id, p_k_auth: keys.kAuthHex }));
+      const dekRaw = await FHCrypto.unwrapDek(data.wrapped_dek, keys.kWrap);
+      await fhKeyAdopt(data.family_id, dekRaw);
+      if (window.DB) {
+        window.DB.fid = data.family_id;
+        window.DB.enc = { enc_state: data.enc_state, kdf_salt: data.kdf_salt, kdf_iters: data.kdf_iters, kdf_version: data.kdf_version, wrapped_dek: data.wrapped_dek };
+      }
+      if (window.FAM) { window.FAM.mode = 'join'; window.FAM.joinFamilyId = data.family_id; window.FAM.familyName = data.family_name || ''; }
+    } catch (e) {
+      const raw = String((e && e.message) || '');
+      let msg;
+      if (/not_whitelisted|no rows/i.test(raw)) msg = null;                       // hint already explains, refresh it
+      else if (/wrong_passcode/i.test(raw)) msg = L('Mã không đúng. Kiểm tra với chủ gia đình nhé.', 'That code isn’t right. Double-check with the owner.');
+      else if (/locked_out/i.test(raw)) msg = _fhLockedMsg(e.retrySecs);
+      else if (/invite_expired/i.test(raw)) msg = L('Lời mời đã hết hạn. Nhờ chủ gia đình mời lại.', 'The invite expired. Ask the owner to re-add you.');
+      else if (/no_passcode/i.test(raw)) msg = L('Gia đình chưa đặt mã. Nhờ chủ gia đình đặt mã trước.', 'The family has no passcode yet. Ask the owner to set one.');
+      else msg = _friendly(e);
+      if (msg) { window.toast && window.toast(msg); if (hint) hint.textContent = msg; }
+      else await window.obJoinPrep();
+      if (cta) { cta.disabled = false; cta.textContent = label; }
+      return;
+    }
+    if (cta) { cta.disabled = false; cta.textContent = label; }
+    const back = document.getElementById('ob-profile-back'); if (back) back.setAttribute('onclick', "obGo('join')");
+    if (typeof window.obPrefillProfile === 'function') window.obPrefillProfile();
+    window.obGo('profile');
+  };
+
+  // entering the join screen loads the invite (wraps the js-ui obGo)
+  (function () {
+    const _origObGo = window.obGo;
+    if (typeof _origObGo === 'function') window.obGo = function (name) {
+      _origObGo.apply(this, arguments);
+      if (name === 'join') { try { window.obJoinPrep(); } catch (e) {} }
+    };
+  })();
+
+  // ── Owner: invite sheet = passcode + whitelist ──
+  window.fhInvite = async function () {
+    if (!window.DB.fid) { window.toast && window.toast(L('Hãy mở một gia đình trước', 'Open a family first')); return; }
+    if (!window.DB.enc) { window.fhSetPasscode(); return; }        // no passcode yet → create it first
+    let list;
+    try { list = await _rpc('whitelist_list'); }
+    catch (e) { window.toast && window.toast(_friendly(e)); return; }
+    _fhWhitelistSheet(list || []);
+  };
+
+  function _fhWhitelistSheet(list) {
+    const days = (iso) => Math.max(1, Math.ceil((new Date(iso) - Date.now()) / 86400000));
+    const rows = (list || []).map((r) =>
+      '<div class="fh-s-row">'
+      + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(r.email) + '</div>'
+      + '<div class="fh-s-meta">' + L('còn ' + days(r.expires_at) + ' ngày', 'expires in ' + days(r.expires_at) + ' days') + '</div></div>'
+      + _btn(_ICO.trash, "fhWhitelistRemove('" + _esc(r.email) + "',this)", 'fh-s-act danger')
+      + '</div>').join('');
+    _fhSheet(
+      '<div class="fh-s-h">' + L('Mời thành viên', 'Invite a member') + '</div>'
+      + '<div class="fh-s-sub">' + L('Hai bước: thêm email Google của người thân vào danh sách, rồi cho họ biết mã 6 số của gia đình. Họ phải đăng nhập đúng email này.',
+                                     'Two steps: add their Google email to the list, then tell them the family’s 6-digit code. They must sign in with exactly this email.') + '</div>'
+      + '<div class="field"><label>Email</label>'
+      + '<input id="fh-wl-email" type="email" inputmode="email" autocapitalize="off" placeholder="name@gmail.com"></div>'
+      + _btn(L('Thêm vào danh sách', 'Add to the list'), 'fhWhitelistAdd(this)', _S.cta)
+      + (rows ? '<div class="fh-s-lab" style="margin-top:18px">' + L('Đang chờ tham gia', 'Waiting to join') + '</div>' + rows : '')
+      + '<div class="fh-s-lab" style="margin-top:18px">' + L('Mã gia đình', 'Family passcode') + '</div>'
+      + '<div class="fh-s-row"><div class="fh-s-grow"><div class="fh-s-name num">••••••</div>'
+      + '<div class="fh-s-meta">' + L('Chỉ gia đình bạn biết mã này — hệ thống không lưu mã gốc', 'Only your family knows it — the raw code is never stored') + '</div></div>'
+      + _btn(L('Đổi mã', 'Change'), 'fhChangePasscode()', 'fh-s-edit') + '</div>'
+      + _btn(L('Xong', 'Done'), '_closeOv()', _S.ghost)
+    );
+  }
+
+  window.fhWhitelistAdd = async function (btn) {
+    const el = document.getElementById('fh-wl-email');
+    const email = ((el && el.value) || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { window.toast && window.toast(L('Email chưa đúng', 'That email doesn’t look right')); return; }
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang thêm…', 'Adding…'); }
+    let list;
+    try { list = await _rpc('whitelist_add', { p_email: email }); }
+    catch (e) {
+      if (btn) { btn.disabled = false; btn.textContent = L('Thêm vào danh sách', 'Add to the list'); }
+      const raw = String((e && e.message) || '');
+      window.toast && window.toast(
+        /already_member/i.test(raw) ? L('Người này đã ở trong gia đình rồi', 'They’re already in the family')
+        : /no_passcode/i.test(raw) ? L('Hãy đặt mã gia đình trước', 'Set the family passcode first')
+        : /bad_email/i.test(raw) ? L('Email chưa đúng', 'That email doesn’t look right')
+        : _friendly(e));
+      return;
+    }
+    window.toast && window.toast(L('Đã thêm. Giờ cho họ biết mã 6 số nhé.', 'Added. Now tell them the 6-digit code.'));
+    _fhWhitelistSheet(list || []);
+  };
+
+  window.fhWhitelistRemove = async function (email, btn) {
+    if (btn && !btn.classList.contains('armed')) {
+      btn.classList.add('armed'); btn.textContent = L('Xoá?', 'Remove?');
+      clearTimeout(window._fhWlArmT);
+      window._fhWlArmT = setTimeout(() => {
+        if (!btn.isConnected) return;
+        btn.classList.remove('armed'); btn.innerHTML = _ICO.trash;
+      }, 3000);
+      return;
+    }
+    clearTimeout(window._fhWlArmT);
+    let list;
+    try { list = await _rpc('whitelist_remove', { p_email: email }); }
+    catch (e) { window.toast && window.toast(_friendly(e)); return; }
+    _fhWhitelistSheet(list || []);
+  };
+
+  // ── Owner: first-time passcode setup (creates the family DEK) ──
+  window.fhSetPasscode = function () {
+    _fhModal({
+      title: L('Đặt mã gia đình', 'Set the family passcode'),
+      saveLabel: L('Đặt mã', 'Set code'),
+      body: '<div class="fh-s-sub">' + L('Mã 6 số để người thân vào gia đình — như mã cửa nhà. Cả nhà dùng chung một mã.',
+                                          'A 6-digit code your family uses to enter — like the door code of your house. Everyone shares the same code.') + '</div>'
+        + _pcField('fh-pc-new', L('Mã 6 số', '6-digit code'))
+        + _pcField('fh-pc-new2', L('Nhập lại mã', 'Repeat the code'))
+        + _pcWarn(),
+      valid: () => _pcOk('fh-pc-new') && _pcVal('fh-pc-new') === _pcVal('fh-pc-new2'),
+      save: async () => {
+        const code = _pcVal('fh-pc-new');
+        const salt = FHCrypto.genSaltHex();
+        const keys = await FHCrypto.deriveKeys(code, salt, FH_KDF_ITERS, FH_KDF_VERSION);
+        const dekRaw = await FHCrypto.genDekRaw();
+        const wrapped = await FHCrypto.wrapDek(dekRaw, keys.kWrap);
+        await _rpc('set_family_passcode', { p_k_auth: keys.kAuthHex, p_kdf_salt: salt, p_kdf_iters: FH_KDF_ITERS, p_kdf_version: FH_KDF_VERSION, p_wrapped_dek: wrapped });
+        await fhKeyAdopt(window.DB.fid, dekRaw);
+        window.DB.enc = { enc_state: 'off', kdf_salt: salt, kdf_iters: FH_KDF_ITERS, kdf_version: FH_KDF_VERSION, wrapped_dek: wrapped };
+        window.toast && window.toast(L('Đã đặt mã gia đình ✓', 'Family passcode set ✓'));
+        return window.fhInvite;                       // straight into the whitelist sheet
+      }
+    });
+  };
+
+  // ── Owner: change passcode (same DEK, new wrap — instant, nothing re-encrypts) ──
+  window.fhChangePasscode = function () {
+    _fhModal({
+      title: L('Đổi mã gia đình', 'Change the passcode'),
+      saveLabel: L('Đổi mã', 'Change'),
+      body: _pcField('fh-pc-old', L('Mã hiện tại', 'Current code'))
+        + _pcField('fh-pc-new', L('Mã mới', 'New code'))
+        + _pcField('fh-pc-new2', L('Nhập lại mã mới', 'Repeat the new code'))
+        + '<div class="field-hint">' + L('Thành viên đang dùng app không bị ảnh hưởng — chỉ người vào sau cần mã mới.',
+                                          'Members already in the app aren’t affected — only future joins need the new code.') + '</div>'
+        + _pcWarn(),
+      valid: () => _pcOk('fh-pc-old') && _pcOk('fh-pc-new') && _pcVal('fh-pc-new') === _pcVal('fh-pc-new2'),
+      save: async () => {
+        const enc = window.DB.enc; if (!enc) throw new Error('no_passcode');
+        const oldK = await FHCrypto.deriveKeys(_pcVal('fh-pc-old'), enc.kdf_salt, enc.kdf_iters, enc.kdf_version);
+        // recover the DEK: cached raw if we have it, else unwrap with the old code
+        let dekRaw = (fhKeyReady() && _fhDekRaw) ? _fhDekRaw : null;
+        if (!dekRaw) {
+          try { dekRaw = await FHCrypto.unwrapDek(enc.wrapped_dek, oldK.kWrap); }
+          catch (e) { throw _fhErr(L('Mã hiện tại không đúng', 'The current code isn’t right')); }
+        }
+        const salt = FHCrypto.genSaltHex();
+        const newK = await FHCrypto.deriveKeys(_pcVal('fh-pc-new'), salt, FH_KDF_ITERS, FH_KDF_VERSION);
+        const wrapped = await FHCrypto.wrapDek(dekRaw, newK.kWrap);
+        try {
+          _fhThrowPcError(await _rpc('change_family_passcode', { p_old_k_auth: oldK.kAuthHex, p_new_k_auth: newK.kAuthHex, p_new_kdf_salt: salt, p_new_kdf_iters: FH_KDF_ITERS, p_new_kdf_version: FH_KDF_VERSION, p_new_wrapped_dek: wrapped }));
+        } catch (e) {
+          const raw = String((e && e.message) || '');
+          if (/wrong_passcode/i.test(raw)) throw _fhErr(L('Mã hiện tại không đúng', 'The current code isn’t right'));
+          if (/locked_out/i.test(raw)) throw _fhErr(_fhLockedMsg(e.retrySecs));
+          throw e;
+        }
+        await fhKeyAdopt(window.DB.fid, dekRaw);
+        window.DB.enc = Object.assign({}, enc, { kdf_salt: salt, kdf_iters: FH_KDF_ITERS, kdf_version: FH_KDF_VERSION, wrapped_dek: wrapped });
+        window.toast && window.toast(L('Đã đổi mã gia đình ✓', 'Passcode changed ✓'));
+      }
+    });
+  };
+
+  // ── Any member: unlock this device with the passcode (offline-capable —
+  //    a wrong code simply fails the AES-GCM unwrap, no server needed) ──
+  window.fhUnlockPrompt = function () {
+    const enc = window.DB && window.DB.enc;
+    if (!enc || !enc.wrapped_dek) { window.toast && window.toast(L('Gia đình chưa đặt mã', 'No passcode set yet')); return; }
+    _fhModal({
+      title: L('Nhập mã gia đình', 'Enter the family passcode'),
+      saveLabel: L('Mở khóa', 'Unlock'),
+      body: '<div class="fh-s-sub">' + L('Thiết bị này cần mã 6 số của gia đình để hiện số tiền.',
+                                          'This device needs the family’s 6-digit code to show money values.') + '</div>'
+        + _pcField('fh-pc-unlock', L('Mã 6 số', '6-digit code')),
+      valid: () => _pcOk('fh-pc-unlock'),
+      save: async () => {
+        const keys = await FHCrypto.deriveKeys(_pcVal('fh-pc-unlock'), enc.kdf_salt, enc.kdf_iters, enc.kdf_version);
+        let dekRaw;
+        try { dekRaw = await FHCrypto.unwrapDek(enc.wrapped_dek, keys.kWrap); }
+        catch (e) { throw _fhErr(L('Mã không đúng', 'That code isn’t right')); }
+        await fhKeyAdopt(window.DB.fid, dekRaw);
+        window.fhLockBanner(false);
+        window.toast && window.toast(L('Đã mở khóa ✓', 'Unlocked ✓'));
+        if (window.loadFamilyData) window.loadFamilyData();
+      }
+    });
+  };
+
+  // Small persistent lock bar shown while encrypted values can't be read yet.
+  window.fhLockBanner = function (on) {
+    let el = document.getElementById('fh-lockbar');
+    if (on) {
+      if (!el) {
+        el = document.createElement('div'); el.id = 'fh-lockbar';
+        el.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));z-index:64;background:var(--card,#fff);border:1px solid var(--hairline,#e5e0ea);box-shadow:0 6px 24px rgba(0,0,0,.14);border-radius:22px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;gap:8px;align-items:center;cursor:pointer';
+        el.innerHTML = '🔒 <span>' + L('Nhập mã gia đình để hiện số tiền', 'Enter the family code to show amounts') + '</span>';
+        el.onclick = () => window.fhUnlockPrompt();
+        (document.getElementById('phone') || document.body).appendChild(el);
+      }
+      el.style.display = 'flex';
+    } else if (el) el.style.display = 'none';
+  };
+
+  /* ═══ Money-encryption lifecycle (0030) ═════════════════════════════════════
+     Staged, reversible rollout — nothing destructive ever happens as a side
+     effect:
+       off  → [export JSON] → [encrypt alongside, verify-before-upload] → dual
+       dual → run for as long as you like (reads self-check ct==pt loudly)
+       dual → scrub (owner, arm-confirm, THE one destructive step) → enc
+       enc  → decrypt-back (restore plaintext from ciphertext) → dual → off
+     Bank-import / legacy rows without ciphertext are never scrubbed and stay
+     readable in every state. */
+
+  // one logical money field-set per table; the job covers ARCHIVED rows too —
+  // scrub only nulls rows that HAVE ciphertext, so anything missed would keep
+  // plaintext forever.
+  const _ENC_TABLES = [
+    { t: 'transactions',    num: ['amount'],        str: ['note'] },
+    { t: 'incomes',         num: ['amount'],        str: ['note'] },
+    { t: 'savings_entries', num: ['amount'],        str: ['note'] },
+    { t: 'event_fundings',  num: ['amount'],        str: [] },
+    { t: 'category_budgets',num: ['amount'],        str: [] },
+    { t: 'monthly_budgets', num: ['budget_total'],  str: [] },
+    { t: 'events',          num: ['target_amount'], str: ['name'] },
+    { t: 'saving_goals',    num: ['target_amount'], str: ['name', 'note'] }
+  ];
+  const _encCols = (spec) => ['id'].concat(spec.num, spec.str, spec.num.map((f) => f + '_enc'), spec.str.map((f) => f + '_enc')).join(',');
+  let _fhEncBusy = false;
+
+  function _fhEncProg(msg) {
+    const el = document.getElementById('fh-enc-prog');
+    if (el) el.textContent = msg;
+  }
+
+  window.fhEncryptionSheet = async function () {
+    const fid = window.DB.fid;
+    if (!fid) { window.toast && window.toast(L('Hãy mở một gia đình trước', 'Open a family first')); return; }
+    let owner = false;
+    try { const r = await sb.from('families').select('owner_id').eq('id', fid).maybeSingle(); owner = !!(r.data && window.fhUser && r.data.owner_id === window.fhUser.id); } catch (e) {}
+    const enc = window.DB.enc, st = fhEncState();
+    const intro = '<div class="fh-s-h">' + L('Mã hóa tài chính', 'Money encryption') + '</div>'
+      + '<div class="fh-s-sub">' + L('Số tiền, ghi chú và tên mục tiêu được mã hóa ngay trên máy bằng mã gia đình — máy chủ chỉ lưu bản đã khóa, kể cả chúng tôi cũng không đọc được.',
+                                      'Amounts, notes and goal names are encrypted on-device with the family passcode — the server only ever stores locked values; even we can’t read them.') + '</div>';
+    let body = '';
+    if (!enc) {
+      body = '<div class="fh-s-sub">' + L('Bước đầu tiên là đặt mã gia đình 6 số.', 'First, set the family’s 6-digit passcode.') + '</div>'
+        + (owner ? _btn(L('Đặt mã gia đình', 'Set the passcode'), '_closeOv();fhSetPasscode()', _S.cta)
+                 : '<div class="fh-s-sub">' + L('Chỉ chủ gia đình đặt được mã.', 'Only the owner can set it.') + '</div>');
+    } else if (st === 'off') {
+      body = '<div class="fh-s-lab">' + L('Trạng thái: chưa bật', 'Status: off') + '</div>'
+        + '<div class="fh-s-sub">' + L('Khi bật: (1) tải một bản sao JSON về máy, (2) mã hóa toàn bộ dữ liệu tiền cạnh bản gốc, (3) vào giai đoạn kiểm chứng — mọi số vẫn hiển thị như cũ, chưa có gì bị xóa.',
+                                        'Turning on: (1) downloads a JSON copy to this device, (2) encrypts all money data alongside the originals, (3) enters a verification window — everything still shows as before, nothing is deleted.') + '</div>'
+        + (owner ? _btn(L('Bật mã hóa', 'Turn on encryption'), 'fhEncEnable(this)', _S.cta)
+                 : '<div class="fh-s-sub">' + L('Chỉ chủ gia đình bật được.', 'Only the owner can turn this on.') + '</div>');
+    } else if (st === 'dual') {
+      body = '<div class="fh-s-lab">' + L('Trạng thái: giai đoạn kiểm chứng', 'Status: verification window') + '</div>'
+        + '<div class="fh-s-sub">' + L('Bản mã và bản gốc đang tồn tại song song; app tự đối chiếu mỗi lần đọc. Dùng thử vài ngày trên đủ các máy. Khi yên tâm, bấm hoàn tất để xóa bản gốc trên máy chủ — bước duy nhất không tự quay lại được nếu cả nhà mất mã.',
+                                        'Ciphertext and originals coexist; the app cross-checks them on every read. Use it for a few days on all devices. When confident, finish to erase the plaintext on the server — the one step that can’t be undone if the whole family loses the code.') + '</div>'
+        + (owner ? _btn(L('Hoàn tất — xóa bản gốc trên máy chủ', 'Finish — erase server plaintext'), 'fhEncScrub(this)', _S.del)
+                 + _btn(L('Mã hóa nốt dòng còn thiếu', 'Re-encrypt any missed rows'), 'fhEncEnable(this)', _S.line)
+                 + _btn(L('Tắt mã hóa', 'Turn encryption off'), 'fhEncDisable(this)', _S.ghost)
+                 : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ hoàn tất bước này.', 'The owner finishes this step.') + '</div>');
+    } else {
+      body = '<div class="fh-s-lab">' + L('Trạng thái: đang mã hóa đầu-cuối 🔒', 'Status: end-to-end encrypted 🔒') + '</div>'
+        + '<div class="fh-s-sub">' + L('Máy chủ chỉ còn bản đã khóa. Dữ liệu chỉ mở được bằng mã gia đình trên máy của thành viên.',
+                                        'The server holds only locked values. Data opens only with the family code, on members’ devices.') + '</div>'
+        + (fhKeyReady() ? '' : _btn(L('Mở khóa máy này', 'Unlock this device'), '_closeOv();fhUnlockPrompt()', _S.cta))
+        + (owner ? _btn(L('Tắt mã hóa (khôi phục bản gốc)', 'Turn off (restore plaintext)'), 'fhEncDisable(this)', _S.del) : '');
+    }
+    body += '<div class="fh-s-sub" id="fh-enc-prog" style="min-height:18px"></div>';
+    if (enc) body += _btn(L('Tải bản sao JSON', 'Download a JSON copy'), 'fhEncExport(this)', _S.ghost);
+    body += _btn(L('Xong', 'Done'), '_closeOv()', _S.ghost);
+    _fhSheet(intro + body);
+  };
+
+  // Readable copy of every money table (decrypting where needed) → JSON download.
+  async function _fhExportPlain() {
+    const fid = window.DB.fid, out = { exported_at: new Date().toISOString(), family_id: fid };
+    for (const spec of _ENC_TABLES) {
+      const r = await sb.from(spec.t).select(_encCols(spec)).eq('family_id', fid);
+      if (r.error) throw r.error;
+      const rows = [];
+      for (const row of (r.data || [])) {
+        const o = { id: row.id };
+        for (const f of spec.num.concat(spec.str)) o[f] = await fhRead(row, f);
+        rows.push(o);
+      }
+      out[spec.t] = rows;
+    }
+    const blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'familyhub-money-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  }
+  window.fhEncExport = async function (btn) {
+    if (btn) btn.disabled = true;
+    try { await _fhExportPlain(); window.toast && window.toast(L('Đã tải bản sao về máy', 'Copy downloaded')); }
+    catch (e) { window.toast && window.toast(_friendly(e)); }
+    if (btn) btn.disabled = false;
+  };
+
+  /* off→dual (also "re-encrypt missed rows" while dual): downloads the JSON
+     copy, then per table encrypts every row that still lacks ciphertext —
+     verify-before-upload (encrypt → decrypt → compare) so a crypto bug can
+     never silently write garbage. Plaintext is NOT touched here. */
+  window.fhEncEnable = async function (btn) {
+    if (_fhEncBusy) return;
+    if (!fhKeyReady()) { window.fhUnlockPrompt(); return; }
+    _fhEncBusy = true;
+    if (btn) btn.disabled = true;
+    const wasOff = fhEncState() === 'off';
+    try {
+      _fhEncProg(L('Đang tải bản sao…', 'Downloading the copy…'));
+      try { await _fhExportPlain(); } catch (e) { console.warn('export failed', e); }   // job continues; DB backup still exists
+      let total = 0, mismatches = 0;
+      for (const spec of _ENC_TABLES) {
+        _fhEncProg(L('Đang mã hóa: ', 'Encrypting: ') + spec.t + '…');
+        const r = await sb.from(spec.t).select(_encCols(spec)).eq('family_id', window.DB.fid);
+        if (r.error) throw r.error;
+        for (const row of (r.data || [])) {
+          const patch = {};
+          for (const f of spec.num.concat(spec.str)) {
+            const v = row[f];
+            if (v === null || v === undefined || v === '') continue;    // nothing to protect
+            if (row[f + '_enc'] != null) continue;                       // already covered
+            const ct = await FHCrypto.encVal(_fhSessionDek(), v);
+            const back = await FHCrypto.decVal(_fhSessionDek(), ct);
+            const same = back === String(v) || Number(back) === Number(v);
+            if (!same) { mismatches++; console.error('FH ENC VERIFY FAIL', spec.t, row.id, f); continue; }
+            patch[f + '_enc'] = ct;
+          }
+          if (Object.keys(patch).length) {
+            window.DB._lastLocalWrite = Date.now();                      // keep realtime echo suppression on
+            await _w(sb.from(spec.t).update(patch).eq('id', row.id), 'encrypt ' + spec.t);
+            total++;
+          }
+        }
+      }
+      if (mismatches) { const _e = new Error('verify'); _e.fhMsg = L('Có ' + mismatches + ' dòng không kiểm chứng được — chưa bật.', mismatches + ' rows failed verification — not enabled.'); throw _e; }
+      if (wasOff) await _rpc('set_family_enc_state', { p_state: 'dual' });
+      _fhEncProg('');
+      window.toast && window.toast(L('Đã mã hóa ' + total + ' dòng ✓ Giai đoạn kiểm chứng bắt đầu.', total + ' rows encrypted ✓ Verification window started.'));
+      await window.loadFamilyData();
+      window.fhEncryptionSheet();
+    } catch (e) {
+      _fhEncProg('');
+      window.toast && window.toast(_friendly(e));
+      if (btn) btn.disabled = false;
+    } finally { _fhEncBusy = false; }
+  };
+
+  // dual→enc: THE destructive step. Arm-then-confirm, server double-checks owner+state.
+  window.fhEncScrub = async function (btn) {
+    if (btn && !btn.classList.contains('armed')) {
+      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa — bản gốc trên máy chủ sẽ bị xóa vĩnh viễn', 'Tap again — server plaintext is erased for good');
+      clearTimeout(window._fhScrubT);
+      window._fhScrubT = setTimeout(() => {
+        if (!btn.isConnected) return;
+        btn.classList.remove('armed'); btn.textContent = L('Hoàn tất — xóa bản gốc trên máy chủ', 'Finish — erase server plaintext');
+      }, 4000);
+      return;
+    }
+    clearTimeout(window._fhScrubT);
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang xóa bản gốc…', 'Erasing plaintext…'); }
+    let counts;
+    try { counts = await _rpc('scrub_plaintext_amounts'); }
+    catch (e) { window.toast && window.toast(_friendly(e)); if (btn) { btn.disabled = false; btn.classList.remove('armed'); } return; }
+    const n = Object.values(counts || {}).reduce((s, x) => s + (Number(x) || 0), 0);
+    window.toast && window.toast(L('Xong — đã xóa bản gốc của ' + n + ' dòng. Giờ chỉ còn bản mã hóa 🔒', 'Done — plaintext erased on ' + n + ' rows. Only ciphertext remains 🔒'));
+    await window.loadFamilyData();
+    window.fhEncryptionSheet();
+  };
+
+  /* enc→off (or dual→off): decrypt-back. From 'enc' we first drop to 'dual' so
+     concurrent writers go back to writing both, then restore plaintext from
+     ciphertext row by row (clearing the ciphertext as we go), then land on
+     'off'. Interruption-safe: in dual, readers use plaintext when present and
+     fall back to ciphertext when not. */
+  window.fhEncDisable = async function (btn) {
+    if (_fhEncBusy) return;
+    if (!fhKeyReady()) { window.fhUnlockPrompt(); return; }
+    if (btn && !btn.classList.contains('armed')) {
+      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa để khôi phục bản gốc trên máy chủ', 'Tap again to restore server plaintext');
+      clearTimeout(window._fhDisArmT);
+      window._fhDisArmT = setTimeout(() => {
+        if (!btn.isConnected) return;
+        btn.classList.remove('armed'); btn.textContent = L('Tắt mã hóa', 'Turn encryption off');
+      }, 4000);
+      return;
+    }
+    clearTimeout(window._fhDisArmT);
+    _fhEncBusy = true;
+    if (btn) btn.disabled = true;
+    try {
+      if (fhEncState() === 'enc') await _rpc('set_family_enc_state', { p_state: 'dual' });
+      let total = 0;
+      for (const spec of _ENC_TABLES) {
+        _fhEncProg(L('Đang khôi phục: ', 'Restoring: ') + spec.t + '…');
+        const r = await sb.from(spec.t).select(_encCols(spec)).eq('family_id', window.DB.fid);
+        if (r.error) throw r.error;
+        for (const row of (r.data || [])) {
+          const patch = {}; let touch = false;
+          for (const f of spec.num.concat(spec.str)) {
+            const ct = row[f + '_enc'];
+            if (ct == null) continue;
+            const v = await FHCrypto.decVal(_fhSessionDek(), ct);
+            patch[f] = spec.num.indexOf(f) >= 0 ? Number(v) : v;
+            if (spec.t === 'monthly_budgets' && f === 'budget_total' && patch[f] == null) patch[f] = 0;
+            patch[f + '_enc'] = null;
+            touch = true;
+          }
+          if (touch) {
+            window.DB._lastLocalWrite = Date.now();
+            await _w(sb.from(spec.t).update(patch).eq('id', row.id), 'restore ' + spec.t);
+            total++;
+          }
+        }
+      }
+      await _rpc('set_family_enc_state', { p_state: 'off' });
+      _fhEncProg('');
+      window.toast && window.toast(L('Đã tắt mã hóa — khôi phục ' + total + ' dòng.', 'Encryption off — ' + total + ' rows restored.'));
+      await window.loadFamilyData();
+      window.fhEncryptionSheet();
+    } catch (e) {
+      _fhEncProg('');
+      window.toast && window.toast(_friendly(e));
+      if (btn) { btn.disabled = false; btn.classList.remove('armed'); }
+    } finally { _fhEncBusy = false; }
   };
 
   // ---- Saved for events (the savings pool) ----
@@ -10039,10 +10807,13 @@ function openWhatsNew(){
   window.fhCreateGoal = async function (g) {
     try {
       const fid = window.DB.fid;
-      const gr = await sb.from('saving_goals').insert({ family_id: fid, name: g.name, emoji: g.emoji, target_amount: g.target, target_date: g.date || null, created_by: (window.DB && window.DB.ownerMemberId) || null }).select('id').single();
+      const row = Object.assign(
+        { family_id: fid, emoji: g.emoji, target_date: g.date || null, created_by: (window.DB && window.DB.ownerMemberId) || null },
+        await fhField('name', g.name), await fhField('target_amount', g.target));
+      const gr = await sb.from('saving_goals').insert(row).select('id').single();
       if (gr.error) throw gr.error;
       if (g.init > 0) {
-        await _w(sb.from('event_fundings').insert({ family_id: fid, goal_id: gr.data.id, member_id: window.DB.ownerMemberId || null, amount: g.init, source: 'savings', month: null }), 'fund goal');
+        await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, goal_id: gr.data.id, member_id: window.DB.ownerMemberId || null, source: 'savings', month: null }, await fhField('amount', g.init))), 'fund goal');
       }
       await loadFamilyData();
     } catch (e) { if (typeof console !== 'undefined') console.error(e); if (window.toast) window.toast('Không lưu được mục tiêu, thử lại'); }
@@ -10051,7 +10822,7 @@ function openWhatsNew(){
   window.fhFundGoal = async function (goalId, amount) {
     try {
       const fid = window.DB.fid;
-      await _w(sb.from('event_fundings').insert({ family_id: fid, goal_id: goalId, member_id: window.DB.ownerMemberId || null, amount: amount, source: 'savings', month: null }), 'fund goal');
+      await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, goal_id: goalId, member_id: window.DB.ownerMemberId || null, source: 'savings', month: null }, await fhField('amount', amount))), 'fund goal');
       await loadFamilyData();
     } catch (e) { if (typeof console !== 'undefined') console.error(e); if (window.toast) window.toast('Không bỏ ống được, thử lại'); }
   };
@@ -10071,7 +10842,22 @@ function openWhatsNew(){
       },
       save: async () => {
         const base = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-sav').value) : 0;
-        await _rpc('set_savings', { p_amount: base || 0 });
+        /* set_savings computes the pool delta in SQL — impossible once amounts
+           are ciphertext. With encryption on, the client already knows the pool
+           (window.savings, decrypted at hydrate), so it writes the adjusting
+           entry itself; the plain RPC stays for unencrypted families. */
+        if (fhEncState() !== 'off' && fhKeyReady()) {
+          const delta = (base || 0) - (window.savings || 0);
+          if (delta !== 0) {
+            const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
+            const iso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+            await _w(sb.from('savings_entries').insert(Object.assign(
+              { family_id: window.DB.fid, member_id: window.DB.ownerMemberId || null, kind: delta > 0 ? 'deposit' : 'withdrawal', entry_date: iso },
+              await fhField('amount', Math.abs(delta)), await fhField('note', 'Adjust savings'))), 'write savings_entries');
+          }
+        } else {
+          await _rpc('set_savings', { p_amount: base || 0 });
+        }
         await window.loadFamilyData();
         window.toast && window.toast(L('Đã cập nhật quỹ tiết kiệm','Savings updated'));
       }
@@ -10083,9 +10869,13 @@ function openWhatsNew(){
     const fid = window.DB.fid; if (!fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
     let inc = [];
     try {
-      const { data, error } = await sb.from('incomes').select('id,amount,note,income_date').eq('family_id', fid).order('income_date', { ascending: false }).limit(20);
+      const { data, error } = await sb.from('incomes').select('id,amount,amount_enc,note,note_enc,income_date').eq('family_id', fid).order('income_date', { ascending: false }).limit(20);
       if (error) throw error;
       inc = data || [];
+      for (const r of inc) {                                 // resolve ciphertext for display
+        r.amount = Number(await fhRead(r, 'amount')) || 0;
+        r.note = await fhRead(r, 'note');
+      }
     } catch (e) { window.toast && window.toast(_friendly(e)); return; }
     const mk = (window.DB.month || '').slice(0, 7);
     const monthTotal = inc.filter((r) => String(r.income_date).slice(0, 7) === mk).reduce((s, r) => s + Number(r.amount), 0);
@@ -10116,7 +10906,9 @@ function openWhatsNew(){
         const note = (document.getElementById('fh-inc-note').value || '').trim() || 'Income';
         const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
         const iso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-        const { error } = await sb.from('incomes').insert({ family_id: window.DB.fid, member_id: window.DB.ownerMemberId || null, amount: base, note: note, income_date: iso });
+        const { error } = await sb.from('incomes').insert(Object.assign(
+          { family_id: window.DB.fid, member_id: window.DB.ownerMemberId || null, income_date: iso },
+          await fhField('amount', base), await fhField('note', note)));
         if (error) throw error;
         window.toast && window.toast(L('Đã thêm thu nhập','Income added'));
         return window.fhIncome;                            // reopen with the new row in place
@@ -10234,90 +11026,17 @@ function openWhatsNew(){
     if (window.loadFamilyData) { try { await window.loadFamilyData(); } catch (e) {} }
   };
 
-  // ── Owner: generate a shareable invite code (Settings → Invite a member) ──
-  /* Sharing a code is a quick action → bottom sheet, on the app's own layer.
-     The code is stable: opening this screen shows the family's existing code
-     rather than minting another. Rotating is deliberate, via "Generate a new
-     code" — which invalidates whatever was shared before, so it confirms. */
-  window.fhInvite = async function () {
-    let code;
-    try { code = await _rpc('create_invite'); }
-    catch (e) { window.toast && window.toast(_friendly(e)); return; }
-    _fhShowInvite(code);
-  };
-  function _fhShowInvite(code) {
-    window._fhInviteCode = code;
-    _fhSheet(
-      '<div class="fh-s-h">Invite code</div>'
-      + '<div class="fh-s-sub">Share this with your family member. They open FamilyHub, choose “Join a family”, and enter it. It works for 14 days.</div>'
-      + '<div class="fh-code-show">' + _esc(code) + '</div>'
-      + _btn('Copy code', 'fhCopyInvite(this)', _S.cta)
-      + _btn('Done', '_closeOv()', _S.ghost)
-      + _btn('Generate a new code', 'fhRegenInvite(this)', _S.del)
-    );
-  }
-  window.fhCopyInvite = async function (btn) {
-    try { await navigator.clipboard.writeText(window._fhInviteCode || ''); btn.textContent = 'Copied ✓'; }
-    catch (e) { window.toast && window.toast('Couldn’t copy, write it down instead'); }
-  };
-  window.fhRegenInvite = async function (btn) {
-    if (btn && !btn.classList.contains('armed')) {          // rotating kills the shared code
-      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa, mã cũ sẽ ngừng hoạt động','Tap again, the old code stops working');
-      clearTimeout(window._fhRegenT);
-      window._fhRegenT = setTimeout(() => {
-        if (!btn.isConnected) return;
-        btn.classList.remove('armed'); btn.textContent = 'Generate a new code';
-      }, 3000);
-      return;
-    }
-    clearTimeout(window._fhRegenT);
-    btn.textContent = 'Generating…'; btn.disabled = true;
-    let code;
-    try { code = await _rpc('regenerate_invite'); }
-    catch (e) {
-      btn.disabled = false; btn.classList.remove('armed'); btn.textContent = 'Generate a new code';
-      window.toast && window.toast(_friendly(e)); return;
-    }
-    _fhShowInvite(code);
-    window.toast && window.toast('New code, the old one no longer works');
-  };
-
-  // ── Joiner: code input + redeem ──
-  window.obCodeInput = function (el) {
-    el.value = el.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
-    if (typeof window.renderCodeBoxes === 'function') window.renderCodeBoxes(el.value);
-    const cta = document.getElementById('ob-join-cta'); if (cta) cta.disabled = el.value.length < 6;
-    const pv = document.getElementById('ob-join-preview'); if (pv) pv.style.display = 'none';
-  };
-  window.obJoin = async function () {
-    const el = document.getElementById('ob-code');
-    const code = (el ? el.value : '').trim();
-    if (code.length < 6) return;
-    const cta = document.getElementById('ob-join-cta');
-    const label = cta ? cta.textContent : '';
-    if (cta) { cta.disabled = true; cta.textContent = 'Joining…'; }
-    try {
-      const { data, error } = await sb.rpc('redeem_invite', { p_code: code });
-      if (error) throw error;
-      if (window.FAM) { window.FAM.mode = 'join'; window.FAM.joinFamilyId = data.family_id; window.FAM.familyName = data.family_name || ''; }
-    } catch (e) {
-      // Wrong/expired codes are the common case — say so plainly, keep them on the step.
-      const raw = String((e && e.message) || '');
-      window.toast && window.toast(
-        /invalid|not found|expired|no rows/i.test(raw) ? 'That code isn’t valid. Check it and try again' : _friendly(e)
-      );
-      if (cta) { cta.disabled = false; cta.textContent = label; }
-      return;
-    }
-    if (cta) { cta.disabled = false; cta.textContent = label; }
-    const back = document.getElementById('ob-profile-back'); if (back) back.setAttribute('onclick', "obGo('join')");
-    if (typeof window.obPrefillProfile === 'function') window.obPrefillProfile();
-    window.obGo('profile');
-  };
+  /* Invite + join now live in 65-passcode-ui.js (whitelist + 6-digit passcode
+     door, 0030). The old create_invite / redeem_invite code path was retired
+     server-side in the same migration. */
 
   sb.auth.onAuthStateChange(() => {});
   // test helper: run fhSignOut() in the console to switch Google accounts
-  window.fhSignOut = async () => { fhResumeFail(); fhWarmAbandon(); await sb.auth.signOut(); location.reload(); };
+  window.fhSignOut = async () => {
+    fhResumeFail(); fhWarmAbandon();
+    try { fhKeyDrop(null); indexedDB.deleteDatabase('fh-keys'); } catch (e) {}   // cached family keys go with the session
+    await sb.auth.signOut(); location.reload();
+  };
 </script>
 </body>
 </html>

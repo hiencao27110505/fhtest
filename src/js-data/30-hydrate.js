@@ -27,7 +27,7 @@
       // Falls back to the legacy multi-query hydrate if the RPC is absent or errors,
       // so an unmigrated env or a bad deploy can never take the app down.
       // p_txn_from stays null today (full ledger); it is the R6 windowing hook.
-      let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg, rx, rr;
+      let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg, rx, rr, encMeta;
       let snap = null;
       try { const rs = await sb.rpc('get_family_snapshot', { p_txn_from: null }); if (!rs.error && rs.data) snap = rs.data; }
       catch (e) { /* fall through to the multi-query hydrate */ }
@@ -39,30 +39,59 @@
         tp = snap.transaction_photos || []; inc = snap.incomes || []; sg = snap.saving_goals || [];
         rx = snap.reactions || [];                          // reactions arrive in the same payload (0023); [] on a pre-migration RPC
         rr = snap.request_reviews || [];                    // request reviews (0024): future-expense / goal / occasion alignment
+        encMeta = snap.enc || null;                         // E2EE recipe (0030): enc_state + kdf + wrapped DEK
       } else {
         const R = await Promise.all([
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
           sb.from('members').select('id,name,color,is_shared,user_id,created_at').eq('family_id', fid).is('archived_at', null).order('created_at'),
           // archived ones come along so old transactions still resolve their name; they're kept out of catOrder below
           sb.from('categories').select('id,name,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
-          sb.from('category_budgets').select('category_id,amount,month').eq('family_id', fid),
-          sb.from('monthly_budgets').select('month,budget_total,closed').eq('family_id', fid),
-          sb.from('transactions').select('id,category_id,member_id,note,amount,txn_date,status,created_by').eq('family_id', fid).order('txn_date', { ascending: false }),
-          sb.from('events').select('id,name,emoji,cover,target_amount,target_date,achieved,sort_order,source_txn_id,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
-          sb.from('event_fundings').select('id,event_id,goal_id,amount,source,month,member_id').eq('family_id', fid),
-          sb.from('savings_entries').select('kind,amount').eq('family_id', fid),
+          sb.from('category_budgets').select('category_id,amount,amount_enc,month').eq('family_id', fid),
+          sb.from('monthly_budgets').select('month,budget_total,budget_total_enc,closed').eq('family_id', fid),
+          sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,txn_date,status,created_by').eq('family_id', fid).order('txn_date', { ascending: false }),
+          sb.from('events').select('id,name,name_enc,emoji,cover,target_amount,target_amount_enc,target_date,achieved,sort_order,source_txn_id,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
+          sb.from('event_fundings').select('id,event_id,goal_id,amount,amount_enc,source,month,member_id').eq('family_id', fid),
+          sb.from('savings_entries').select('kind,amount,amount_enc').eq('family_id', fid),
           sb.from('event_memories').select('id,event_id,emoji,caption,photo_url,sort_order').eq('family_id', fid).order('sort_order'),
           sb.from('transaction_photos').select('transaction_id,photo_url').eq('family_id', fid),
-          sb.from('incomes').select('amount,income_date').eq('family_id', fid),
-          sb.from('saving_goals').select('id,name,emoji,target_amount,target_date,note,occasion_id,achieved,sort_order,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
+          sb.from('incomes').select('amount,amount_enc,income_date').eq('family_id', fid),
+          sb.from('saving_goals').select('id,name,name_enc,emoji,target_amount,target_amount_enc,target_date,note,note_enc,occasion_id,achieved,sort_order,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
           // reactions (0023): a failed query on a pre-migration env resolves {data:null} → [], never throws, so hydrate survives
           sb.from('reactions').select('id,transaction_id,member_id,emoji,created_at').eq('family_id', fid),
           // request_reviews (0024): same fail-safe — [] on a pre-migration env
-          sb.from('request_reviews').select('id,entity_type,entity_id,member_id,emoji,created_at').eq('family_id', fid)
+          sb.from('request_reviews').select('id,entity_type,entity_id,member_id,emoji,created_at').eq('family_id', fid),
+          sb.from('family_keys').select('enc_state,kdf_salt,kdf_iters,kdf_version,wrapped_dek').eq('family_id', fid).maybeSingle()
         ]);
         fam = R[0].data; mem = R[1].data || []; cat = R[2].data || []; cb = R[3].data || []; mb = R[4].data || [];
         tx = R[5].data || []; ev = R[6].data || []; ef = R[7].data || []; se = R[8].data || []; em = R[9].data || []; tp = R[10].data || []; inc = R[11].data || []; sg = R[12].data || []; rx = R[13].data || []; rr = R[14].data || [];
+        encMeta = (R[15] && R[15].data) || null;
       }
+
+      /* ── E2EE (0030): learn the family's enc recipe, load the cached key, then
+         resolve every money/name/note field IN PLACE so the mapping below (and
+         all downstream UI) keeps seeing plain values. Rows the device can't
+         decrypt resolve to null → Number() gives 0, and the lock bar offers the
+         passcode prompt. */
+      window.DB.enc = encMeta || null;
+      if (encMeta) { try { await fhKeyLoad(fid); } catch (e) {} }
+      const _locked = !!(encMeta && encMeta.enc_state === 'enc' && !fhKeyReady());
+      if (window.fhLockBanner) window.fhLockBanner(_locked);
+      async function _decRows(rows, fields) {
+        if (!encMeta) return;                                // no family_keys row → nothing encrypted
+        await Promise.all((rows || []).map(async (r) => {
+          for (const f of fields) r[f] = await fhRead(r, f);
+        }));
+      }
+      await Promise.all([
+        _decRows(tx, ['amount', 'note']),
+        _decRows(cb, ['amount']),
+        _decRows(mb, ['budget_total']),
+        _decRows(ev, ['name', 'target_amount']),
+        _decRows(ef, ['amount']),
+        _decRows(se, ['amount']),
+        _decRows(inc, ['amount']),
+        _decRows(sg, ['name', 'target_amount', 'note'])
+      ]);
 
       if (fam) { window.FAM.familyName = fam.name; if (fam.currency) window.CUR = fam.currency; if (fam.default_language) window.LANG = fam.default_language; }
       // shared house customization ({house,tree,pet}); [] / null on a pre-migration snapshot → keep whatever we have

@@ -203,15 +203,29 @@
   window.addEventListener('online', () => setTimeout(fhOutboxFlush, 600));
   setTimeout(() => { fhOutboxFlush(); }, 3000);            // catch anything queued from a previous session
 
+  /* Encrypted families must not fall back to plaintext writes: when the family
+     is post-scrub ('enc') and this device hasn't been unlocked, block the write
+     and ask for the passcode instead of quietly leaking a plaintext row. */
+  function _fhWriteLocked() {
+    if (fhEncState() === 'enc' && !fhKeyReady()) {
+      window.toast && window.toast(L('Nhập mã gia đình để ghi chép', 'Enter the family code to log entries'));
+      if (window.fhUnlockPrompt) window.fhUnlockPrompt();
+      return true;
+    }
+    return false;
+  }
   async function _dbInsertTxn(t, exD) {
     const fid = window.DB.fid; if (!fid) return;
+    if (_fhWriteLocked()) return;
     // Resolve the category id from the local map first. Creating a brand-new category
     // needs the network, so offline we fall back to the local maps / the catch-all
     // rather than blocking the queued write on a round trip that can't succeed.
     let catId = window.DB.catByName[t.cat];
     if (!catId && navigator.onLine !== false) { try { catId = await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1); } catch (e) {} }
     if (!catId) catId = window.DB.catByName[CAT_FALLBACK] || Object.values(window.DB.catByName)[0];
-    const row = { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null };
+    const row = Object.assign(
+      { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null },
+      await fhField('amount', t.amt), await fhField('note', t.note));
     // Offline → queue durably instead of losing the write.
     if (navigator.onLine === false) { await _obQueueTxn(row, t); return; }
     try {
@@ -226,9 +240,13 @@
     }
   }
   async function _dbUpdateTxn(dbId, t, exD) {
+    if (_fhWriteLocked()) return;
     try {
       const catId = window.DB.catByName[t.cat] || await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1);
-      await _w(sb.from('transactions').update({ category_id: catId, member_id: _memberIdForWho(t.who), note: t.note, amount: t.amt, txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' }).eq('id', dbId), 'write transactions');
+      const patch = Object.assign(
+        { category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' },
+        await fhField('amount', t.amt), await fhField('note', t.note));
+      await _w(sb.from('transactions').update(patch).eq('id', dbId), 'write transactions');
       await _dbSyncTxnPhotos(dbId, t.photos);
       _syncSoon();
     } catch (e) { _writeErr('txn update failed', e); }

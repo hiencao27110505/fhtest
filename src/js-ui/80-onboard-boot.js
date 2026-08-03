@@ -60,18 +60,16 @@ function obChoose(mode){
   if(mode==='join'){ obGo('join'); }
   else { document.getElementById('ob-profile-back').setAttribute('onclick',"obGo('choice')"); obPrefillProfile(); obGo('profile'); }
 }
+/* Placeholder pair — the data module (65-passcode-ui) replaces both with the
+   real find-invite + join_with_passcode flow. Offline/CDN-blocked, joining is
+   impossible, so the mock only keeps the input tidy and never fakes a family. */
 function obCodeInput(el){
-  el.value=el.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+  el.value=el.value.replace(/\D/g,'').slice(0,6);
   renderCodeBoxes(el.value);
-  var ok=el.value.length>=6, pv=document.getElementById('ob-join-preview');
-  document.getElementById('ob-join-cta').disabled=!ok;
-  if(ok){ pv.style.display='flex'; pv.innerHTML='<div class="ob-preview-ic">🏡</div><div><div class="ob-preview-fam">The Reeds</div><div class="ob-preview-sub">'+L('4 thành viên · James mời bạn','4 members · invited by James')+'</div></div>'; }
-  else pv.style.display='none';
+  document.getElementById('ob-join-cta').disabled=el.value.length<6;
 }
 function obJoin(){
-  FAM.mode='join'; FAM.familyName='The Reeds';
-  document.getElementById('ob-profile-back').setAttribute('onclick',"obGo('join')");
-  obPrefillProfile(); obGo('profile');
+  toast(L('Không kết nối được máy chủ. Kiểm tra mạng và thử lại','Can’t reach the server. Check your connection and try again'));
 }
 function renderObColors(){
   document.getElementById('ob-colors').innerHTML=OB_COLORS.map(function(c){
