@@ -9465,14 +9465,19 @@ function openWhatsNew(){
          passcode prompt. */
       window.DB.enc = encMeta || null;
       if (encMeta) { try { await fhKeyLoad(fid); } catch (e) {} }
-      /* Encryption is FAMILY-wide: the moment the owner turns it on, every other
-         device learns it here (realtime on family_keys re-runs this hydrate) and
-         gets nudged for the code — during 'dual' as a banner (numbers still show
-         via plaintext), in 'enc' also auto-opening the prompt once per session. */
+      /* Encryption is FAMILY-wide and strict (option A): the moment the owner
+         turns it on, every device learns it here (realtime on family_keys
+         re-runs this hydrate). An un-keyed device gets the passcode prompt on
+         app open and on each return to the foreground (re-nudged at most every
+         10 minutes so a deliberate dismissal is respected), plus the permanent
+         lock bar. Money WRITES are hard-blocked elsewhere until unlocked;
+         reading and non-money features stay available, so a member who hasn't
+         received the code yet is never locked out of the family. */
       const _needsKey = !!(encMeta && encMeta.enc_state !== 'off' && !fhKeyReady());
       if (window.fhLockBanner) window.fhLockBanner(_needsKey, encMeta && encMeta.enc_state);
-      if (_needsKey && encMeta.enc_state === 'enc' && !window.__fhUnlockNudged) {
-        window.__fhUnlockNudged = true;
+      const _nudgeDue = _needsKey && (!window.__fhUnlockNudgedAt || Date.now() - window.__fhUnlockNudgedAt > 600000);
+      if (_nudgeDue && window.editingTx == null && !document.querySelector('.sheet.on, .modal.on')) {
+        window.__fhUnlockNudgedAt = Date.now();
         setTimeout(() => { try { window.fhUnlockPrompt && window.fhUnlockPrompt(); } catch (e) {} }, 700);
       }
       async function _decRows(rows, fields) {
@@ -9893,6 +9898,16 @@ function openWhatsNew(){
       for (const it of items) {
         try {
           if (it.kind === 'insertTxn') {
+            /* Entries queued before encryption turned on (or while this device
+               was un-keyed) carry plaintext. Never let the replay bypass the
+               write guard: hold the queue until the device unlocks, then
+               encrypt the payload at flush time. Already-encrypted payloads
+               (queued while keyed, in enc state) pass through untouched. */
+            const row = it.payload.row;
+            if (fhEncState() !== 'off' && row.amount_enc == null && row.amount != null) {
+              if (!fhKeyReady()) break;                      // resume after fhUnlockPrompt succeeds
+              Object.assign(row, await fhField('amount', Number(row.amount)), await fhField('note', row.note));
+            }
             const res = await sb.from('transactions').insert(it.payload.row).select('id').single();
             if (res.error) {
               if (/duplicate key|already exists/i.test(res.error.message || '')) { await _obDel(it.id); continue; }  // a prior replay landed it
@@ -9912,17 +9927,21 @@ function openWhatsNew(){
   window.addEventListener('online', () => setTimeout(fhOutboxFlush, 600));
   setTimeout(() => { fhOutboxFlush(); }, 3000);            // catch anything queued from a previous session
 
-  /* Encrypted families must not fall back to plaintext writes: when the family
-     is post-scrub ('enc') and this device hasn't been unlocked, block the write
-     and ask for the passcode instead of quietly leaking a plaintext row. */
+  /* Once a family's encryption is on ('dual' or 'enc'), a device without the
+     key must not write money rows at all — that's the whole point of the code.
+     Block the write and open the passcode prompt instead; reading (and every
+     non-money feature) stays available. This guard fronts EVERY money write
+     path, so during the dual window no uncovered plaintext rows can be born
+     from an up-to-date client. */
   function _fhWriteLocked() {
-    if (fhEncState() === 'enc' && !fhKeyReady()) {
+    if (fhEncState() !== 'off' && !fhKeyReady()) {
       window.toast && window.toast(L('Nhập mã gia đình để ghi chép', 'Enter the family code to log entries'));
       if (window.fhUnlockPrompt) window.fhUnlockPrompt();
       return true;
     }
     return false;
   }
+  window._fhWriteLocked = _fhWriteLocked;
   async function _dbInsertTxn(t, exD) {
     const fid = window.DB.fid; if (!fid) return;
     if (_fhWriteLocked()) return;
@@ -9974,6 +9993,7 @@ function openWhatsNew(){
 
   const _origAddExpense = window.addExpense;
   window.addExpense = function () {
+    if (_fhWriteLocked()) return;                            // guard BEFORE the optimistic local row exists
     const before = {}; (window.txns || []).forEach((t) => { before[t.id] = 1; });
     const beforeOrder = (window.order || []).slice();
     const exD = (typeof window.exDate === 'function') ? window.exDate() : null;
@@ -9996,6 +10016,7 @@ function openWhatsNew(){
   };
   const _origSaveEdit = window.saveExpenseEdit;
   window.saveExpenseEdit = function () {
+    if (_fhWriteLocked()) return;
     const id = window.editingTx;
     const tx = (id != null && typeof txById === 'function') ? txById(id) : null;
     const dbId = tx ? tx._dbId : null;
@@ -10015,6 +10036,7 @@ function openWhatsNew(){
      fired at close time would be a lie if the upload then failed. */
   const _origPaApply = window.paApply;
   window.paApply = async function (txId, srcs) {
+    if (_fhWriteLocked()) return null;                       // spawns mirror events + fundings — money writes
     const beforeOrder = (window.order || []).slice();
     const t = _origPaApply.apply(this, arguments);
     if (!t) return null;
@@ -10062,6 +10084,7 @@ function openWhatsNew(){
   // ---- write-through: events & funding ----
   async function _dbInsertEvent(localKey, opts) {
     opts = opts || {};
+    if (_fhWriteLocked()) return;
     try {
       const fid = window.DB.fid; if (!fid) return;
       const e = window.events[localKey]; if (!e || e._dbId) return;
@@ -10116,12 +10139,14 @@ function openWhatsNew(){
   }
   const _origAddEvent = window.addEvent;
   window.addEvent = function () {
+    if (_fhWriteLocked()) return;
     const beforeOrder = (window.order || []).slice();
     _origAddEvent.apply(this, arguments);
     (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => { const p = _dbInsertEvent(k, { savingsSource: (window.selSrc === 'savings') }); const ev = window.events[k]; if (ev) ev._dbPending = p; });
   };
   const _origAddFunds = window.addFunds;
   window.addFunds = function () {
+    if (_fhWriteLocked()) return;
     const evKey = (typeof chosen === 'function' && chosen('fn-event')) || window.curEvent || (window.order || [])[0];
     const who = (typeof chosen === 'function' && chosen('fn-who')) || null;
     const savingsBefore = window.savings;
@@ -10222,7 +10247,7 @@ function openWhatsNew(){
     } catch (e) { _writeErr('budget save failed', e); }
   }
   const _origSetBudget = window.setBudget;
-  window.setBudget = function () { _origSetBudget.apply(this, arguments); _dbSaveBudget(); };
+  window.setBudget = function () { if (_fhWriteLocked()) return; _origSetBudget.apply(this, arguments); _dbSaveBudget(); };
 
   // ---- write-through: theme ----
   const _origApplyTheme = window.applyTheme;
@@ -10906,11 +10931,15 @@ function openWhatsNew(){
   window.fhUnlockPrompt = function () {
     const enc = window.DB && window.DB.enc;
     if (!enc || !enc.wrapped_dek) { window.toast && window.toast(L('Gia đình chưa đặt mã', 'No passcode set yet')); return; }
+    const why = enc.enc_state === 'dual'
+      ? L('Gia đình đang bật mã hóa tài chính. Nhập mã 6 số một lần để tiếp tục ghi chép trên máy này.',
+          'Your family is turning on money encryption. Enter the 6-digit code once to keep logging on this device.')
+      : L('Thiết bị này cần mã 6 số của gia đình để hiện số tiền và ghi chép.',
+          'This device needs the family’s 6-digit code to show amounts and log entries.');
     _fhModal({
       title: L('Nhập mã gia đình', 'Enter the family passcode'),
       saveLabel: L('Mở khóa', 'Unlock'),
-      body: '<div class="fh-s-sub">' + L('Thiết bị này cần mã 6 số của gia đình để hiện số tiền.',
-                                          'This device needs the family’s 6-digit code to show money values.') + '</div>'
+      body: '<div class="fh-s-sub">' + why + '</div>'
         + _pcField('fh-pc-unlock', L('Mã 6 số', '6-digit code')),
       valid: () => _pcOk('fh-pc-unlock'),
       save: async () => {
@@ -10922,6 +10951,7 @@ function openWhatsNew(){
         try { _rpc('mark_key_unlocked'); } catch (e) {}       // roster stamp, fire-and-forget
         window.fhLockBanner(false);
         window.toast && window.toast(L('Đã mở khóa ✓', 'Unlocked ✓'));
+        if (window.fhOutboxFlush) setTimeout(() => window.fhOutboxFlush(), 400);   // money rows held for the key can go now
         if (window.loadFamilyData) window.loadFamilyData();
       }
     });
@@ -11015,8 +11045,8 @@ function openWhatsNew(){
     } else if (st === 'dual') {
       const roster = _fhUnlockRoster();
       const pendWarn = roster.pending.length
-        ? '<div class="fh-s-sub">' + L('Chưa nhập mã: ' + roster.pending.join(', ') + '. Nhắc họ mở app và nhập mã trước khi hoàn tất, rồi bấm "Mã hóa nốt" để phủ các dòng họ đã ghi.',
-                                        'Not yet entered: ' + roster.pending.join(', ') + '. Have them open the app and enter the code before finishing, then tap "Re-encrypt missed rows" to cover their entries.') + '</div>'
+        ? '<div class="fh-s-sub">' + L('Chưa nhập mã: ' + roster.pending.join(', ') + '. Máy của họ sẽ hỏi mã khi mở app, và không ghi chép tiền được cho tới khi nhập. Bạn có thể hoàn tất bất cứ lúc nào — sau đó họ nhập mã là xem được như thường.',
+                                        'Not yet entered: ' + roster.pending.join(', ') + '. Their devices ask for the code on open and can’t log money until it’s entered. You can finish anytime — afterwards they just enter the code to read as usual.') + '</div>'
         : '';
       body = '<div class="fh-s-lab">' + L('Trạng thái: giai đoạn kiểm chứng', 'Status: verification window') + '</div>'
         + '<div class="fh-s-sub">' + L('Bản mã và bản gốc đang tồn tại song song; app tự đối chiếu mỗi lần đọc. Dùng thử vài ngày trên đủ các máy. Khi yên tâm, bấm hoàn tất để xóa bản gốc trên máy chủ — bước duy nhất không tự quay lại được nếu cả nhà mất mã.',
@@ -11201,6 +11231,7 @@ function openWhatsNew(){
   // ---- Saved for events (the savings pool) ----
   // Create a pure saving goal (money only) — writes saving_goals, NOT events.
   window.fhCreateGoal = async function (g) {
+    if (_fhWriteLocked()) return;
     try {
       const fid = window.DB.fid;
       const row = Object.assign(
@@ -11216,6 +11247,7 @@ function openWhatsNew(){
   };
   // Add money to a goal from the savings pool.
   window.fhFundGoal = async function (goalId, amount) {
+    if (_fhWriteLocked()) return;
     try {
       const fid = window.DB.fid;
       await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, goal_id: goalId, member_id: window.DB.ownerMemberId || null, source: 'savings', month: null }, await fhField('amount', amount))), 'fund goal');
@@ -11224,6 +11256,7 @@ function openWhatsNew(){
   };
   window.fhSavings = function () {
     if (!window.DB.fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
+    if (_fhWriteLocked()) return;
     const cur = window.savings || 0;
     const shown = window.amtToInput ? window.amtToInput(cur) : String(cur);
     _fhModal({
@@ -11263,6 +11296,7 @@ function openWhatsNew(){
   // ---- Income (separate ledger) ----
   window.fhIncome = async function () {
     const fid = window.DB.fid; if (!fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
+    if (_fhWriteLocked()) return;                            // the sheet both lists and ADDS income
     let inc = [];
     try {
       const { data, error } = await sb.from('incomes').select('id,amount,amount_enc,note,note_enc,income_date').eq('family_id', fid).order('income_date', { ascending: false }).limit(20);

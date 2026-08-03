@@ -262,11 +262,15 @@
   window.fhUnlockPrompt = function () {
     const enc = window.DB && window.DB.enc;
     if (!enc || !enc.wrapped_dek) { window.toast && window.toast(L('Gia đình chưa đặt mã', 'No passcode set yet')); return; }
+    const why = enc.enc_state === 'dual'
+      ? L('Gia đình đang bật mã hóa tài chính. Nhập mã 6 số một lần để tiếp tục ghi chép trên máy này.',
+          'Your family is turning on money encryption. Enter the 6-digit code once to keep logging on this device.')
+      : L('Thiết bị này cần mã 6 số của gia đình để hiện số tiền và ghi chép.',
+          'This device needs the family’s 6-digit code to show amounts and log entries.');
     _fhModal({
       title: L('Nhập mã gia đình', 'Enter the family passcode'),
       saveLabel: L('Mở khóa', 'Unlock'),
-      body: '<div class="fh-s-sub">' + L('Thiết bị này cần mã 6 số của gia đình để hiện số tiền.',
-                                          'This device needs the family’s 6-digit code to show money values.') + '</div>'
+      body: '<div class="fh-s-sub">' + why + '</div>'
         + _pcField('fh-pc-unlock', L('Mã 6 số', '6-digit code')),
       valid: () => _pcOk('fh-pc-unlock'),
       save: async () => {
@@ -278,6 +282,7 @@
         try { _rpc('mark_key_unlocked'); } catch (e) {}       // roster stamp, fire-and-forget
         window.fhLockBanner(false);
         window.toast && window.toast(L('Đã mở khóa ✓', 'Unlocked ✓'));
+        if (window.fhOutboxFlush) setTimeout(() => window.fhOutboxFlush(), 400);   // money rows held for the key can go now
         if (window.loadFamilyData) window.loadFamilyData();
       }
     });

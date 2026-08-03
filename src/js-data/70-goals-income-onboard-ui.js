@@ -1,6 +1,7 @@
   // ---- Saved for events (the savings pool) ----
   // Create a pure saving goal (money only) — writes saving_goals, NOT events.
   window.fhCreateGoal = async function (g) {
+    if (_fhWriteLocked()) return;
     try {
       const fid = window.DB.fid;
       const row = Object.assign(
@@ -16,6 +17,7 @@
   };
   // Add money to a goal from the savings pool.
   window.fhFundGoal = async function (goalId, amount) {
+    if (_fhWriteLocked()) return;
     try {
       const fid = window.DB.fid;
       await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, goal_id: goalId, member_id: window.DB.ownerMemberId || null, source: 'savings', month: null }, await fhField('amount', amount))), 'fund goal');
@@ -24,6 +26,7 @@
   };
   window.fhSavings = function () {
     if (!window.DB.fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
+    if (_fhWriteLocked()) return;
     const cur = window.savings || 0;
     const shown = window.amtToInput ? window.amtToInput(cur) : String(cur);
     _fhModal({
@@ -63,6 +66,7 @@
   // ---- Income (separate ledger) ----
   window.fhIncome = async function () {
     const fid = window.DB.fid; if (!fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
+    if (_fhWriteLocked()) return;                            // the sheet both lists and ADDS income
     let inc = [];
     try {
       const { data, error } = await sb.from('incomes').select('id,amount,amount_enc,note,note_enc,income_date').eq('family_id', fid).order('income_date', { ascending: false }).limit(20);
