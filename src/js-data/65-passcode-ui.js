@@ -288,21 +288,29 @@
     });
   };
 
-  // Small persistent lock bar shown while this device lacks the family key.
-  // In 'dual' numbers still display (plaintext is there) — the bar invites the
-  // one-time code entry so this device writes ciphertext BEFORE the scrub.
+  /* Permanent, prominent lock widget — lives in #phone so it rides above EVERY
+     screen and tab until this device holds the key. Brand-filled and gently
+     pulsing so a member who dismissed the modal still can't miss it; tapping
+     anywhere on it opens the passcode prompt. It never auto-hides: only a
+     successful unlock (or encryption turning off) removes it. */
   window.fhLockBanner = function (on, state) {
     let el = document.getElementById('fh-lockbar');
     if (on) {
+      if (!document.getElementById('fh-lockbar-css')) {
+        const st = document.createElement('style'); st.id = 'fh-lockbar-css';
+        st.textContent = '@keyframes fhlockpulse{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.035)}}'
+          + '#fh-lockbar:active{transform:translateX(-50%) scale(.97)!important;animation:none!important}';
+        document.head.appendChild(st);
+      }
       if (!el) {
         el = document.createElement('div'); el.id = 'fh-lockbar';
-        el.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));z-index:64;background:var(--card,#fff);border:1px solid var(--hairline,#e5e0ea);box-shadow:0 6px 24px rgba(0,0,0,.14);border-radius:22px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;gap:8px;align-items:center;cursor:pointer;max-width:88%';
+        el.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom));z-index:64;background:var(--brand,#7a5ae0);color:#fff;box-shadow:0 8px 28px rgba(0,0,0,.28);border-radius:24px;padding:13px 18px;font-size:13.5px;font-weight:700;display:flex;gap:10px;align-items:center;cursor:pointer;max-width:88%;animation:fhlockpulse 2.4s ease-in-out infinite';
         el.onclick = () => window.fhUnlockPrompt();
         (document.getElementById('phone') || document.body).appendChild(el);
       }
-      el.innerHTML = '🔒 <span>' + (state === 'dual'
-        ? L('Gia đình đang bật mã hóa — nhập mã 6 số một lần trên máy này', 'Your family is turning on encryption — enter the 6-digit code once on this device')
-        : L('Nhập mã gia đình để hiện số tiền', 'Enter the family code to show amounts')) + '</span>';
+      el.innerHTML = '<span style="font-size:17px">🔒</span><span>' + (state === 'dual'
+        ? L('Gia đình đang bật mã hóa — chạm để nhập mã 6 số', 'Your family is turning on encryption — tap to enter the 6-digit code')
+        : L('Chạm để nhập mã gia đình và mở số tiền', 'Tap to enter the family code and unlock amounts')) + '</span>';
       el.style.display = 'flex';
     } else if (el) el.style.display = 'none';
   };
