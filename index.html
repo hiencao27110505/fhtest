@@ -8895,7 +8895,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v259';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v260';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -11596,13 +11596,77 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     _fhSheet(intro + body);
   };
 
-  /* Readable family copy → one CSV that opens straight in Excel. UTF-8 BOM so
-     Vietnamese diacritics render, a sep= hint so every Excel locale splits the
-     columns, amounts in full currency units (the app stores VND/1000), and
-     three sections a person can actually read: the ledger, goals, budgets.
+  /* Readable family copy → a real .xlsx with one tab per section (Sổ ghi chép ·
+     Mục tiêu · Ngân sách), so people scan it the way they scan any spreadsheet.
+     xlsx is just a ZIP of small XML files; a STORED (uncompressed) zip plus
+     inline-string worksheets is ~150 lines and keeps the app dependency-free.
+     Numbers are real number cells (Excel can sum them), text is inline UTF-8
+     (diacritics safe), amounts in full currency units (the app stores VND/1000).
      Decrypts on-device via fhRead, so it works in every enc state. */
-  const _csvCell = (v) => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-  const _csvRow = (cells) => cells.map(_csvCell).join(',');
+  const _xmlEsc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const _CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
+  function _crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = _CRC_T[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  // STORED zip: local headers + central directory + EOCD, no compression
+  function _zipStore(files) {
+    const enc = new TextEncoder(); const chunks = []; const central = []; let off = 0;
+    const le = (n, bytes) => { const a = []; for (let i = 0; i < bytes; i++) a.push((n >>> (8 * i)) & 0xFF); return a; };
+    for (const f of files) {
+      const name = enc.encode(f.name), data = f.u8, crc = _crc32(data);
+      const head = new Uint8Array([0x50, 0x4B, 0x03, 0x04, ...le(20, 2), ...le(0x0800, 2), ...le(0, 2), ...le(0, 2), ...le(0x21, 2),
+        ...le(crc, 4), ...le(data.length, 4), ...le(data.length, 4), ...le(name.length, 2), ...le(0, 2)]);
+      chunks.push(head, name, data);
+      central.push({ name, crc, size: data.length, off });
+      off += head.length + name.length + data.length;
+    }
+    let cdLen = 0; const cdStart = off;
+    for (const c of central) {
+      const rec = new Uint8Array([0x50, 0x4B, 0x01, 0x02, ...le(20, 2), ...le(20, 2), ...le(0x0800, 2), ...le(0, 2), ...le(0, 2), ...le(0x21, 2),
+        ...le(c.crc, 4), ...le(c.size, 4), ...le(c.size, 4), ...le(c.name.length, 2), ...le(0, 2), ...le(0, 2), ...le(0, 2), ...le(0, 2),
+        ...le(0, 4), ...le(c.off, 4)]);
+      chunks.push(rec, c.name); cdLen += rec.length + c.name.length;
+    }
+    chunks.push(new Uint8Array([0x50, 0x4B, 0x05, 0x06, ...le(0, 2), ...le(0, 2), ...le(central.length, 2), ...le(central.length, 2), ...le(cdLen, 4), ...le(cdStart, 4), ...le(0, 2)]));
+    return new Blob(chunks, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+  const _colRef = (i) => { let s = ''; i++; while (i) { s = String.fromCharCode(65 + ((i - 1) % 26)) + s; i = Math.floor((i - 1) / 26); } return s; };
+  function _sheetXml(rows, widths) {
+    let cols = '';
+    if (widths && widths.length) cols = '<cols>' + widths.map((w, i) => '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>').join('') + '</cols>';
+    const body = rows.map((row, r) =>
+      '<row r="' + (r + 1) + '">' + row.map((v, c) => {
+        const ref = _colRef(c) + (r + 1);
+        if (typeof v === 'number' && isFinite(v)) return '<c r="' + ref + '"><v>' + v + '</v></c>';
+        if (v == null || v === '') return '';
+        return '<c r="' + ref + '" t="inlineStr"><is><t xml:space="preserve">' + _xmlEsc(v) + '</t></is></c>';
+      }).join('') + '</row>').join('');
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' + cols + '<sheetData>' + body + '</sheetData></worksheet>';
+  }
+  // sheets: [{name, rows, widths}] → downloadable .xlsx Blob
+  function _fhXlsx(sheets) {
+    const enc = new TextEncoder();
+    const files = [];
+    files.push({ name: '[Content_Types].xml', u8: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      + '<Default Extension="xml" ContentType="application/xml"/>'
+      + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      + sheets.map((s, i) => '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('')
+      + '</Types>') });
+    files.push({ name: '_rels/.rels', u8: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>') });
+    files.push({ name: 'xl/workbook.xml', u8: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
+      + sheets.map((s, i) => '<sheet name="' + _xmlEsc(s.name) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>').join('')
+      + '</sheets></workbook>') });
+    files.push({ name: 'xl/_rels/workbook.xml.rels', u8: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + sheets.map((s, i) => '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>').join('')
+      + '</Relationships>') });
+    sheets.forEach((s, i) => files.push({ name: 'xl/worksheets/sheet' + (i + 1) + '.xml', u8: enc.encode(_sheetXml(s.rows, s.widths)) }));
+    return _zipStore(files);
+  }
   async function _fhExportPlain() {
     const fid = window.DB.fid;
     const mult = (window.CUR === 'VND') ? 1000 : 1;
@@ -11632,28 +11696,24 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       ledger.push([String(t.created_at || '').slice(0, 10), L('Góp mục tiêu', 'Toward a goal'), money(await fhRead(t, 'amount')), (g && g.name) || '', '', memName(t.member_id)]);
     }
     ledger.sort((a, b) => (a[0] < b[0] ? 1 : -1));
+    const ledgerRows = [[L('Ngày', 'Date'), L('Loại', 'Type'), L('Số tiền', 'Amount') + ' (' + sym + ')', L('Ghi chú', 'Note'), L('Danh mục', 'Category'), L('Thành viên', 'Member')]].concat(ledger);
 
-    const lines = ['sep=,'];
-    lines.push(_csvRow(['FamilyHub', L('Bản sao ngày', 'Copy of') + ' ' + new Date().toISOString().slice(0, 10)]));
-    lines.push('');
-    lines.push(_csvRow([L('SỔ GHI CHÉP', 'LEDGER')]));
-    lines.push(_csvRow([L('Ngày', 'Date'), L('Loại', 'Type'), L('Số tiền', 'Amount') + ' (' + sym + ')', L('Ghi chú', 'Note'), L('Danh mục', 'Category'), L('Thành viên', 'Member')]));
-    for (const row of ledger) lines.push(_csvRow(row));
-    lines.push('');
-    lines.push(_csvRow([L('MỤC TIÊU', 'GOALS')]));
-    lines.push(_csvRow([L('Tên', 'Name'), L('Mục tiêu', 'Target') + ' (' + sym + ')', L('Ghi chú', 'Note')]));
-    for (const g of sg) lines.push(_csvRow([await fhRead(g, 'name') || '', money(await fhRead(g, 'target_amount')), await fhRead(g, 'note') || '']));
-    for (const e of ev) lines.push(_csvRow([await fhRead(e, 'name') || '', money(await fhRead(e, 'target_amount')), e.target_date || '']));
-    lines.push('');
-    lines.push(_csvRow([L('NGÂN SÁCH', 'BUDGETS')]));
-    lines.push(_csvRow([L('Tháng', 'Month'), L('Danh mục', 'Category'), L('Ngân sách', 'Budget') + ' (' + sym + ')']));
-    for (const m of mb) { const v = await fhRead(m, 'budget_total'); if (Number(v)) lines.push(_csvRow([String(m.month).slice(0, 7), L('Tổng', 'Total'), money(v)])); }
-    for (const c of cb) lines.push(_csvRow([String(c.month).slice(0, 7), catName(c.category_id), money(await fhRead(c, 'amount'))]));
+    const goalRows = [[L('Tên', 'Name'), L('Mục tiêu', 'Target') + ' (' + sym + ')', L('Ghi chú', 'Note')]];
+    for (const g of sg) goalRows.push([await fhRead(g, 'name') || '', money(await fhRead(g, 'target_amount')), await fhRead(g, 'note') || '']);
+    for (const e of ev) goalRows.push([await fhRead(e, 'name') || '', money(await fhRead(e, 'target_amount')), e.target_date || '']);
 
-    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });   // BOM: Excel needs it to read UTF-8 Vietnamese
+    const budgetRows = [[L('Tháng', 'Month'), L('Danh mục', 'Category'), L('Ngân sách', 'Budget') + ' (' + sym + ')']];
+    for (const m of mb) { const v = await fhRead(m, 'budget_total'); if (Number(v)) budgetRows.push([String(m.month).slice(0, 7), L('Tổng', 'Total'), money(v)]); }
+    for (const c of cb) budgetRows.push([String(c.month).slice(0, 7), catName(c.category_id), money(await fhRead(c, 'amount'))]);
+
+    const blob = _fhXlsx([
+      { name: L('Sổ ghi chép', 'Ledger'), rows: ledgerRows, widths: [12, 16, 14, 42, 16, 14] },
+      { name: L('Mục tiêu', 'Goals'), rows: goalRows, widths: [42, 14, 24] },
+      { name: L('Ngân sách', 'Budgets'), rows: budgetRows, widths: [10, 18, 14] }
+    ]);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'FamilyHub-' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.download = 'FamilyHub-' + new Date().toISOString().slice(0, 10) + '.xlsx';
     document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
   }
