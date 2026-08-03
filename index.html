@@ -8895,7 +8895,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v261';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v262';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -11591,7 +11591,11 @@ window.fhResolveCsvMapping = resolveCsvMapping;
         + (owner ? _btn(L('Tắt mã hóa (khôi phục bản gốc)', 'Turn off (restore plaintext)'), 'fhEncDisable(this)', _S.del) : '');
     }
     body += '<div class="fh-s-sub" id="fh-enc-prog" style="min-height:18px"></div>';
-    if (enc) body += _btn(L('Tải bản sao Excel', 'Download an Excel copy'), 'fhEncExport(this)', _S.ghost);
+    /* Excel-copy CTA temporarily hidden by product decision (2026-08-03) — the
+       entry point will live somewhere better later. fhEncExport() and the
+       whole _fhXlsx writer stay wired; re-exposing is one _btn() line. The
+       automatic safety download inside the enable flow still runs. */
+    // if (enc) body += _btn(L('Tải bản sao Excel', 'Download an Excel copy'), 'fhEncExport(this)', _S.ghost);
     body += _btn(L('Xong', 'Done'), '_closeOv()', _S.ghost);
     _fhSheet(intro + body);
   };

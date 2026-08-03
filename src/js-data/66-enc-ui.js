@@ -94,7 +94,11 @@
         + (owner ? _btn(L('Tắt mã hóa (khôi phục bản gốc)', 'Turn off (restore plaintext)'), 'fhEncDisable(this)', _S.del) : '');
     }
     body += '<div class="fh-s-sub" id="fh-enc-prog" style="min-height:18px"></div>';
-    if (enc) body += _btn(L('Tải bản sao Excel', 'Download an Excel copy'), 'fhEncExport(this)', _S.ghost);
+    /* Excel-copy CTA temporarily hidden by product decision (2026-08-03) — the
+       entry point will live somewhere better later. fhEncExport() and the
+       whole _fhXlsx writer stay wired; re-exposing is one _btn() line. The
+       automatic safety download inside the enable flow still runs. */
+    // if (enc) body += _btn(L('Tải bản sao Excel', 'Download an Excel copy'), 'fhEncExport(this)', _S.ghost);
     body += _btn(L('Xong', 'Done'), '_closeOv()', _S.ghost);
     _fhSheet(intro + body);
   };
