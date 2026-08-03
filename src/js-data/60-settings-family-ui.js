@@ -72,7 +72,7 @@
     const raw = String((e && (e.message || e.error_description)) || e || '');
     // 0033 DB trigger: a plaintext money write reached an encrypted family
     // (stale build or missing key) — tell the user what actually unblocks them.
-    if (/enc_required/i.test(raw)) return L('Gia đình đã bật mã hóa — đóng mở lại app cho bản mới nhất rồi nhập mã 6 số','Encryption is on — reopen the app for the latest version, then enter the 6-digit code');
+    if (/enc_required/i.test(raw)) return L('Gia đình đã bật mã hóa. Đóng mở lại app cho bản mới nhất rồi nhập mã 6 số nhé','Encryption is on. Reopen the app for the latest version, then enter the 6-digit code');
     if (/row-level security|permission denied|not authorized/i.test(raw)) return L('Bạn không có quyền cho thao tác này','You don’t have permission for that');
     if (/duplicate key|already exists/i.test(raw)) return L('Mục này đã tồn tại','That already exists');
     // iOS Safari reports an offline fetch as "Load failed" (not "Failed to fetch"),

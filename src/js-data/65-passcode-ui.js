@@ -16,8 +16,8 @@
   const _pcOk = (id) => /^\d{6}$/.test(_pcVal(id));
   // The one honest warning, shown wherever the passcode is created or changed.
   const _pcWarn = () => '<div class="field-hint" style="margin-top:10px">'
-    + L('Mã này là chìa khóa duy nhất khi bật mã hóa tài chính. Nếu cả nhà quên mã và không còn thiết bị nào đang đăng nhập, dữ liệu đã mã hóa sẽ mất vĩnh viễn — chúng tôi không thể khôi phục.',
-        'This code is the only key once money encryption is on. If everyone forgets it and no signed-in device remains, encrypted money data is gone forever — we cannot recover it.')
+    + L('Mã này là chìa khóa duy nhất khi bật mã hóa tài chính. Nếu cả nhà quên mã và không còn thiết bị nào đang đăng nhập, dữ liệu đã mã hóa sẽ mất vĩnh viễn, chúng tôi cũng không thể khôi phục.',
+        'This code is the only key once money encryption is on. If everyone forgets it and no signed-in device remains, encrypted money data is gone for good. We can’t recover it either.')
     + '</div>';
 
   function _fhLockedMsg(secs) {
@@ -167,7 +167,7 @@
       + (rows ? '<div class="fh-s-lab" style="margin-top:18px">' + L('Đang chờ tham gia', 'Waiting to join') + '</div>' + rows : '')
       + '<div class="fh-s-lab" style="margin-top:18px">' + L('Mã gia đình', 'Family passcode') + '</div>'
       + '<div class="fh-s-row"><div class="fh-s-grow"><div class="fh-s-name num">••••••</div>'
-      + '<div class="fh-s-meta">' + L('Chỉ gia đình bạn biết mã này — hệ thống không lưu mã gốc', 'Only your family knows it — the raw code is never stored') + '</div></div>'
+      + '<div class="fh-s-meta">' + L('Chỉ gia đình bạn biết mã này. Hệ thống không lưu mã gốc', 'Only your family knows it. The raw code is never stored') + '</div></div>'
       + _btn(L('Đổi mã', 'Change'), 'fhChangePasscode()', 'fh-s-edit') + '</div>'
       + _btn(L('Xong', 'Done'), '_closeOv()', _S.ghost)
     );
@@ -216,8 +216,8 @@
     _fhModal({
       title: L('Đặt mã gia đình', 'Set the family passcode'),
       saveLabel: L('Đặt mã', 'Set code'),
-      body: '<div class="fh-s-sub">' + L('Mã 6 số để người thân vào gia đình — như mã cửa nhà. Cả nhà dùng chung một mã.',
-                                          'A 6-digit code your family uses to enter — like the door code of your house. Everyone shares the same code.') + '</div>'
+      body: '<div class="fh-s-sub">' + L('Mã 6 số để người thân vào gia đình, như mã cửa nhà mình. Cả nhà dùng chung một mã.',
+                                          'A 6-digit code your family uses to enter, like the door code of your house. Everyone shares the same code.') + '</div>'
         + _pcField('fh-pc-new', L('Mã 6 số', '6-digit code'))
         + _pcField('fh-pc-new2', L('Nhập lại mã', 'Repeat the code'))
         + _pcWarn(),
@@ -245,8 +245,8 @@
       body: _pcField('fh-pc-old', L('Mã hiện tại', 'Current code'))
         + _pcField('fh-pc-new', L('Mã mới', 'New code'))
         + _pcField('fh-pc-new2', L('Nhập lại mã mới', 'Repeat the new code'))
-        + '<div class="field-hint">' + L('Thành viên đang dùng app không bị ảnh hưởng — chỉ người vào sau cần mã mới.',
-                                          'Members already in the app aren’t affected — only future joins need the new code.') + '</div>'
+        + '<div class="field-hint">' + L('Thành viên đang dùng app không bị ảnh hưởng, chỉ người vào sau cần mã mới.',
+                                          'Members already in the app aren’t affected. Only future joins need the new code.') + '</div>'
         + _pcWarn(),
       valid: () => _pcOk('fh-pc-old') && _pcOk('fh-pc-new') && _pcVal('fh-pc-new') === _pcVal('fh-pc-new2'),
       save: async () => {
@@ -329,7 +329,7 @@
         (document.getElementById('phone') || document.body).appendChild(el);
       }
       el.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="5" y="10.5" width="14" height="9.5" rx="2.6"/><path d="M8 10.5V7.8a4 4 0 018 0v2.7"/></svg><span>' + (state === 'dual'
-        ? L('Gia đình đang bật mã hóa — chạm để nhập mã 6 số', 'Your family is turning on encryption — tap to enter the 6-digit code')
+        ? L('Gia đình đang bật mã hóa, chạm để nhập mã 6 số', 'Your family is turning on encryption. Tap to enter the 6-digit code')
         : L('Chạm để nhập mã gia đình và mở số tiền', 'Tap to enter the family code and unlock amounts')) + '</span>';
       el.style.display = 'flex';
     } else if (el) el.style.display = 'none';

@@ -196,7 +196,7 @@
         window.DB.enc = { enc_state: 'enc', kdf_salt: salt, kdf_iters: FH_KDF_ITERS, kdf_version: FH_KDF_VERSION, wrapped_dek: wrapped };
       } catch (e) {
         console.warn('passcode setup failed', e);
-        window.toast && window.toast(L('Chưa đặt được mã gia đình — đặt lại trong Cài đặt nhé', 'Couldn’t set the passcode — set it again from Settings'));
+        window.toast && window.toast(L('Chưa đặt được mã gia đình, bạn đặt lại trong Cài đặt nhé', 'Couldn’t set the passcode. Set it again from Settings'));
       } finally { F.passcode = null; }
     }
     if (created) {
