@@ -2227,7 +2227,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="safe"></div>
     <div class="hh-row">
       <div class="hh-l">
-        <div class="greet" id="greet">Good evening, Emma</div>
+        <div class="greet" id="greet"></div>
         <div class="greet-sub" id="greet-sub">Another day, together.</div>
       </div>
       <button class="hh-ic" onclick="openSheet('sheet-theme')" aria-label="Theme" data-ta="ariaTheme">
@@ -2422,15 +2422,9 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
           </div>
         </div>
       </div>
-      <div class="rows">
-        <div class="row"><div class="av av-emma av-44">EM</div><div class="r-body"><div class="r-t">Emma</div><div class="r-s">Auto-saves <span data-amt="200" data-amt-suf="/mo"></span></div></div><div class="r-amt num" data-amt="3200"></div></div>
-        <div class="row"><div class="av av-james av-44">JR</div><div class="r-body"><div class="r-t">James</div><div class="r-s">Contributes monthly</div></div><div class="r-amt num" data-amt="2400"></div></div>
-      </div>
-      <div class="section-h"><span class="t" data-t="txnHistory">History</span></div>
-      <div class="rows" id="ov-history">
-        <div class="row"><div class="r-ico" style="background:var(--brand-tint);color:var(--brand)">＋</div><div class="r-body"><div class="r-t">James added</div><div class="r-s">3 days ago</div></div><div class="r-amt num pos" data-amt="200" data-amt-pre="+"></div></div>
-        <div class="row"><div class="r-ico" style="background:var(--brand-tint);color:var(--brand)">↻</div><div class="r-body"><div class="r-t">Emma auto-saved</div><div class="r-s">Jul 1</div></div><div class="r-amt num pos" data-amt="400" data-amt-pre="+"></div></div>
-      </div>
+      <div class="rows" id="ov-contribs"></div>
+      <div class="section-h" id="ov-history-h"><span class="t" data-t="txnHistory">History</span></div>
+      <div class="rows" id="ov-history"></div>
       <div class="section-h" style="margin-top:22px"><span class="t" data-t="memories">Memories</span></div>
       <div class="mgallery" id="ov-fund-gallery" style="margin-bottom:12px"></div>
       <button class="btn-line" onclick="openMemorySheet()" style="margin:0 16px" data-t="addPhotoLine">📷 Add a photo</button>
@@ -2581,8 +2575,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="modal-body">
     <div class="sheet-sub" data-t="suggestSub">An idea, a gripe, a feature you wish existed — tell us anything.</div>
     <div class="founder-note">
-      <div class="fn-avs"><span class="fn-av">👩🏻</span><span class="fn-av">🧑🏻</span></div>
-      <div class="fn-txt"><span data-t="founderNote">We're two parents building FamilyHub for families like yours. Your notes shape what we build next.</span><span class="fn-sig" data-t="founderSig">Mira &amp; Sam, founders</span></div>
+      <div class="fn-txt"><span data-t="founderNote">We read every note, and what you tell us shapes what comes next.</span></div>
     </div>
     <div class="field"><label data-t="sgTypeLbl">What's on your mind</label><div class="choices" id="sg-type">
       <button class="choice on" data-v="Idea" onclick="pick('sg-type',this)" data-t="sgIdea">💡 An idea</button>
@@ -2870,12 +2863,14 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="sheet-sub" data-t="settingsSub">Pick a theme. It applies across the whole app.</div>
   <div class="theme-grid" id="theme-grid"></div>
   <div class="set-actions">
+    <button class="set-row" onclick="closeSheet();fhLanguageSheet()"><span class="set-ic">🌐</span><span class="set-t" data-t="setLanguage">Language</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t" data-t="setSwitchFamily">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t" data-t="inviteMember2">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhEncryptionSheet()"><span class="set-ic">🔒</span><span class="set-t" data-t="setEncryption">Money encryption</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhManageFamily()"><span class="set-ic">👥</span><span class="set-t" data-t="setManageFamily">Manage family &amp; members</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhSavings()"><span class="set-ic">🐷</span><span class="set-t" data-t="setSavedEvents">Saved for events</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhIncome()"><span class="set-ic">💵</span><span class="set-t" data-t="setIncome">Income</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhPushSheet()"><span class="set-ic">🔔</span><span class="set-t" data-t="setNotifications">Notifications</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();openWhatsNew()"><span class="set-ic">✨</span><span class="set-t" data-t="setWhatsNew">What's new</span><span class="wn-dot" id="wn-dot-row" style="display:none"></span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();restartOnboarding()"><span class="set-ic">↻</span><span class="set-t" data-t="setRestartOnboarding">Restart onboarding</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row danger" onclick="closeSheet();fhSignOut()"><span class="set-ic">⎋</span><span class="set-t" data-t="setSignOut">Sign out</span></button>
@@ -7989,6 +7984,9 @@ function submitReview(type, ref, emoji){
   obj._reviews=(_entReviews(type, obj._dbId, obj)||[]).filter(function(r){ return r.by!==me; }).map(function(r){ return {emoji:r.emoji,by:r.by,byName:r.byName,at:r.at}; });
   obj._reviews.push({ emoji:emoji, by:me, byName:_memName(me)||(typeof _meName==='function'?_meName():''), at:new Date().toISOString() });
   if(obj._dbId && typeof window.fhReviewEntity==='function'){ try{ window.fhReviewEntity(type, obj._dbId, emoji); }catch(e){} }
+  /* push the decision to the REQUESTER only (their closed-app devices) — the
+     in-app arrival moment for open apps stays with reqCheckArrivals */
+  if(obj._dbId && item.creatorId && window.fhNotify){ try{ window.fhNotify('request_response', { emoji:emoji, target:item.creatorId }); }catch(e){} }
   var aligned=(emoji==='🥰');
   closeReview();
   try{ if(typeof renderTxns==='function') renderTxns(); }catch(e){}
@@ -8459,8 +8457,7 @@ var EN_DEFAULT={
   csvModalTitle:'Import from file', csvPreviewNote:'Preview only — nothing is saved to your ledger yet.', csvPickLbl:'CSV file',
   /* suggest modal */
   suggestTitle:'We hear you 💛', suggestSub:'An idea, a gripe, a feature you wish existed — tell us anything.',
-  founderNote:"We're two parents building FamilyHub for families like yours. Your notes shape what we build next.",
-  founderSig:'Mira & Sam, founders',
+  founderNote:'We read every note, and what you tell us shapes what comes next.',
   sgTypeLbl:"What's on your mind", sgIdea:'💡 An idea', sgLove:'💛 Something I love', sgIssue:"🐞 Something's off",
   tellMore:'Tell us more', tellMorePh:'Say it however it comes. No need to be polished.',
   suggestFootHome:"Ideas or gripes? We're always listening",
@@ -8497,8 +8494,8 @@ var EN_DEFAULT={
   photoLbl:'Photo', uploadPhotos:'📷 Upload photos', captionOpt:'Caption (optional)', phMemCap:'e.g. Best day of the trip',
   /* settings sheet */
   settingsTitle:'Settings', settingsSub:'Pick a theme. It applies across the whole app.',
-  setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setEncryption:'Money encryption',
-  setSavedEvents:'Saved for events', setIncome:'Income', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out',
+  setLanguage:'Language', setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setEncryption:'Money encryption',
+  setSavedEvents:'Saved for events', setIncome:'Income', setNotifications:'Notifications', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out',
   /* generic edit modal */
   fhModalEdit:'Edit',
   /* celebrate */
@@ -8569,8 +8566,7 @@ var I18N={
     csvModalTitle:'Nhập từ file', csvPreviewNote:'Chỉ xem trước — chưa lưu vào sổ chi tiêu.', csvPickLbl:'File CSV',
     /* suggest modal */
     suggestTitle:'Tụi mình nghe bạn nè 💛', suggestSub:'Một ý tưởng, một điều chưa ưng, hay tính năng bạn ước có — kể tụi mình nghe hết nha.',
-    founderNote:'Tụi mình cũng là cha mẹ, làm FamilyHub cho những gia đình như nhà bạn. Góp ý của bạn giúp tụi mình biết nên làm gì tiếp theo.',
-    founderSig:'Mira & Sam, người sáng lập',
+    founderNote:'Tụi mình đọc hết mọi góp ý, và điều bạn chia sẻ định hình những gì sắp tới.',
     sgTypeLbl:'Bạn đang nghĩ gì', sgIdea:'💡 Một ý tưởng', sgLove:'💛 Điều mình thích', sgIssue:'🐞 Có gì đó chưa ổn',
     tellMore:'Kể thêm nha', tellMorePh:'Nói theo cách của bạn thôi, không cần trau chuốt đâu.',
     suggestFootHome:'Có ý tưởng hay muốn góp ý? Kể tụi mình nghe nha 💛',
@@ -8607,8 +8603,8 @@ var I18N={
     photoLbl:'Ảnh', uploadPhotos:'📷 Tải ảnh lên', captionOpt:'Chú thích (tuỳ chọn)', phMemCap:'vd. Ngày vui nhất chuyến đi',
     /* settings sheet */
     settingsTitle:'Cài đặt', settingsSub:'Chọn giao diện, áp dụng cho cả ứng dụng.',
-    setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setEncryption:'Mã hóa tài chính',
-    setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất',
+    setLanguage:'Ngôn ngữ', setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setEncryption:'Mã hóa tài chính',
+    setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setNotifications:'Thông báo', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất',
     /* generic edit modal */
     fhModalEdit:'Chỉnh sửa',
     /* celebrate */
@@ -8643,6 +8639,12 @@ function applyLang(){
     var k=el.getAttribute('data-ta');
     if(!el.getAttribute('data-ena')) el.setAttribute('data-ena', el.getAttribute('aria-label')||'');
     el.setAttribute('aria-label', (LANG==='vi' && I18N.vi[k]!==undefined) ? I18N.vi[k] : (EN_DEFAULT[k]!==undefined ? EN_DEFAULT[k] : el.getAttribute('data-ena')));
+  });
+  // Onboarding profile role chips carry no data-t (their labels live in OB_ROLE_LABELS,
+  // keyed by data-v) — localize them here so a Vietnamese user sees Vietnamese roles.
+  var _rl=window.OB_ROLE_LABELS;
+  if(_rl) document.querySelectorAll('#ob-role .choice').forEach(function(b){
+    var m=_rl[b.dataset.v]; if(m) b.textContent=(LANG==='vi')?m[0]:m[1];
   });
   document.documentElement.lang = LANG==='vi'?'vi':'en';
   setGreeting();
@@ -9016,7 +9018,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v268';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v269';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -9029,10 +9031,19 @@ var ICO = {
   camera:'<rect x="3" y="6.6" width="18" height="12.9" rx="2.6"/><circle cx="12" cy="13" r="3.4"/><path d="M8.4 6.6 9.6 4.6h4.8l1.2 2"/>',
   grid:'<rect x="4" y="4" width="7" height="7" rx="1.7"/><rect x="13" y="4" width="7" height="7" rx="1.7"/><rect x="4" y="13" width="7" height="7" rx="1.7"/><rect x="13" y="13" width="7" height="7" rx="1.7"/>',
   envelope:'<rect x="3" y="5.5" width="18" height="13" rx="2.6"/><path d="M3.8 7 12 13l8.2-6"/>',
-  shield:'<path d="M12 3.2 5 6v5.4c0 4.4 2.9 7.5 7 9.4 4.1-1.9 7-5 7-9.4V6z"/><path d="M9.2 12.2l2 2 3.6-3.9"/>'
+  shield:'<path d="M12 3.2 5 6v5.4c0 4.4 2.9 7.5 7 9.4 4.1-1.9 7-5 7-9.4V6z"/><path d="M9.2 12.2l2 2 3.6-3.9"/>',
+  bell:'<path d="M12 4.2a5.3 5.3 0 00-5.3 5.3c0 3.9-1.3 5.3-2.2 6.3h15c-.9-1-2.2-2.4-2.2-6.3A5.3 5.3 0 0012 4.2z"/><path d="M9.9 18.9a2.2 2.2 0 004.2 0M12 2.4v1.8"/>'
 };
 
 var RELEASES = [
+  { id:'2026-08-04-push', date:'2026-08-04', time:'00:25', ver:'v269', icon:ICO.bell,
+    vi:{ t:'Điện thoại báo liền khi nhà có chuyện vui',
+      problem:'Ai đó thả tim hay gửi yêu cầu mà mình chưa mở app thì coi như chưa hay biết gì.',
+      sol:'Giờ vào Cài đặt bật Thông báo là máy tự báo khi cả nhà thả cảm xúc, gửi yêu cầu hay chia sẻ tâm trạng, kể cả lúc app đang đóng. Trên iPhone nhớ thêm app vào Màn hình chính trước nha.' },
+    en:{ t:'Your phone now pings you when something happens',
+      problem:'A reaction or a request used to sit quietly until you happened to open the app.',
+      sol:'Turn on Notifications in Settings and your phone tells you when the family reacts, sends a request or shares a mood, even while the app is closed. On iPhone, add the app to your Home Screen first.' } },
+
   { id:'2026-08-03-vault', date:'2026-08-03', time:'14:52', ver:'v266', icon:ICO.shield,
     vi:{ t:'Tiền nong của nhà, chỉ nhà mình đọc được',
       problem:'Trước nhà mình phải tin là không ai ngó số tiền trên máy chủ, mà tin thì vẫn chỉ là tin.',
@@ -10086,6 +10097,7 @@ function openWhatsNew(){
         window.memberWeather = wmap;
         if (typeof window.renderHome === 'function') window.renderHome();
       } catch (e) { window.memberWeather = window.memberWeather || {}; }
+      try { if (window.fhPushResync) window.fhPushResync(); } catch (e) {}   // web push: re-point this device's subscription row (once per session)
       try { if (window.rxAfterHydrate) window.rxAfterHydrate(); } catch (e) {}   // reactions: refresh the wall + play any just-arrived reaction moment
       try { if (window.reqAfterHydrate) window.reqAfterHydrate(); } catch (e) {}   // future-expense requests: refresh mounts/hub + play any just-arrived decision
       window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
@@ -10623,6 +10635,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     let nt = null; for (let i = 0; i < window.txns.length; i++) { if (!before[window.txns[i].id]) { nt = window.txns[i]; break; } }
     const newKeys = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
     const inserted = nt ? _dbInsertTxn(nt, exD) : Promise.resolve();
+    // a future expense is a proposal — nudge the family's closed-app devices to review it
+    if (nt && nt.future) inserted.then(() => { window.fhNotify && window.fhNotify('request_new', {}); });
     if (newKeys.length) {
       // Wait for the transaction's id before writing its mirror event — the
       // event must carry source_txn_id, or the link isn't durable and the next
@@ -10764,7 +10778,11 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     if (_fhWriteLocked()) return;
     const beforeOrder = (window.order || []).slice();
     _origAddEvent.apply(this, arguments);
-    (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => { const p = _dbInsertEvent(k, { savingsSource: (window.selSrc === 'savings') }); const ev = window.events[k]; if (ev) ev._dbPending = p; });
+    (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => {
+      const p = _dbInsertEvent(k, { savingsSource: (window.selSrc === 'savings') }); const ev = window.events[k]; if (ev) ev._dbPending = p;
+      // a future occasion is a proposal (created_by is stamped in _dbInsertEvent) — same nudge as a future expense
+      if (ev && !ev._srcTxn && ev.d && window.TODAY && ev.d > window.TODAY) p.then(() => { window.fhNotify && window.fhNotify('request_new', {}); });
+    });
   };
   const _origAddFunds = window.addFunds;
   window.addFunds = function () {
@@ -10892,6 +10910,10 @@ window.fhResolveCsvMapping = resolveCsvMapping;
         ? await sb.from('member_weather').upsert({ family_id: fid, member_id: mid, weather: weather, updated_at: now }, { onConflict: 'family_id,member_id' })
         : await sb.from('member_weather').delete().eq('family_id', fid).eq('member_id', mid);
       if (res && res.error) console.warn('saveWeather', res.error);
+      if (weather && !(res && res.error) && window.fhNotify) {
+        const wd = window._wdef && window._wdef(weather);            // key → emoji (22-home.js WEATHER table)
+        window.fhNotify('weather', { emoji: (wd && wd.e) || '' });
+      }
       return true;
     } catch (e) { console.warn('saveWeather', e); return false; }
   };
@@ -10931,6 +10953,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
             { onConflict: 'transaction_id,member_id' })
         : await sb.from('reactions').delete().eq('family_id', fid).eq('transaction_id', txDbId).eq('member_id', mid);
       if (res && res.error) { _writeErr('reaction failed', res.error); return false; }
+      if (emoji && window.fhNotify) window.fhNotify('reaction', { emoji: emoji });   // nudge closed-app devices
       _syncSoon();
       return true;
     } catch (e) { _writeErr('reaction failed', e); return false; }
@@ -10997,6 +11020,134 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   }
   document.addEventListener('visibilitychange', _refreshOnResume);
   window.addEventListener('focus', _refreshOnResume);
+
+  // ═══ Web Push: lock-screen notifications when the app is closed ═════════════
+  /* Realtime covers the open app; this covers the pocket. A device opts in from
+     Settings → Notifications: permission → PushManager.subscribe (the VAPID
+     public key below) → one push_subscriptions row per device, upserted on
+     endpoint so switching families re-points the same device. Social writes
+     then call fhNotify(), which invokes the push-send Edge Function
+     fire-and-forget; the server fans out to every other opted-in device in the
+     family and prunes endpoints that have gone stale.
+     iOS only delivers Web Push to a Home-Screen-installed PWA (16.4+), so the
+     sheet shows an install hint instead of the toggle in a plain Safari tab. */
+  const _PUSH_PUB = 'BOOaWs1sTWAdVTud79oSJE0lIgT_3HpH8DGApHSiEkLosfsRI-sekc-m-Nc6d0AFStBR8fN9h8B7FzNTO2mV1qM';
+  function _pushSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+  function _pushIOSNeedsInstall() {
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+    const installed = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+    return ios && !installed;
+  }
+  function _pushB64ToU8(s) {
+    const pad = '='.repeat((4 - (s.length % 4)) % 4);
+    const raw = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    const a = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) a[i] = raw.charCodeAt(i);
+    return a;
+  }
+  async function _pushGetSub() {
+    try { const reg = await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); }
+    catch (e) { return null; }
+  }
+  async function _pushSaveSub(sub) {
+    const fid = window.DB && window.DB.fid, mid = window.DB && window.DB.ownerMemberId;
+    if (!fid || !mid || !sub) return false;
+    const j = sub.toJSON ? sub.toJSON() : sub;
+    const res = await sb.from('push_subscriptions').upsert({
+      family_id: fid, member_id: mid, endpoint: sub.endpoint,
+      p256dh: (j.keys && j.keys.p256dh) || '', auth: (j.keys && j.keys.auth) || '',
+      ua: (navigator.userAgent || '').slice(0, 200)
+    }, { onConflict: 'endpoint' });
+    return !(res && res.error);
+  }
+  // 'unsupported' | 'ios-install' | 'denied' | 'on' | 'off'
+  window.fhPushState = async function () {
+    if (!_pushSupported()) return _pushIOSNeedsInstall() ? 'ios-install' : 'unsupported';
+    if (Notification.permission === 'denied') return 'denied';
+    const sub = await _pushGetSub();
+    return (Notification.permission === 'granted' && sub) ? 'on' : 'off';
+  };
+  window.fhPushEnable = async function () {
+    try {
+      const fid = window.DB && window.DB.fid, mid = window.DB && window.DB.ownerMemberId;
+      if (!fid || !mid) { window.toast && window.toast(L('Hãy mở một gia đình trước', 'Open a family first')); return false; }
+      // permission FIRST: iOS drops the user-gesture context after an await
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { window.fhPushSheet && window.fhPushSheet(); return false; }
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _pushB64ToU8(_PUSH_PUB) });
+      const ok = await _pushSaveSub(sub);
+      if (!ok) { window.toast && window.toast(L('Không lưu được thiết bị này, thử lại', 'Could not save this device, try again')); return false; }
+      window._closeOv && window._closeOv();
+      window.toast && window.toast(L('Đã bật thông báo cho máy này 🔔', 'Notifications are on for this device 🔔'));
+      return true;
+    } catch (e) {
+      console.warn('push enable', e);
+      window.toast && window.toast(_friendly(e));
+      return false;
+    }
+  };
+  window.fhPushDisable = async function () {
+    try {
+      const sub = await _pushGetSub();
+      if (sub) {
+        try { await sb.from('push_subscriptions').delete().eq('endpoint', sub.endpoint); } catch (e) {}
+        try { await sub.unsubscribe(); } catch (e) {}
+      }
+      window._closeOv && window._closeOv();
+      window.toast && window.toast(L('Đã tắt thông báo cho máy này', 'Notifications are off for this device'));
+      return true;
+    } catch (e) { console.warn('push disable', e); return false; }
+  };
+  /* Silent re-sync, once per app session after the first hydrate: endpoints
+     rotate and the active family can change, so an opted-in device re-points
+     its row at whatever family it wakes up in. */
+  window.fhPushResync = async function () {
+    try {
+      if (window._fhPushSynced) return; window._fhPushSynced = true;
+      if (!_pushSupported() || Notification.permission !== 'granted') return;
+      const sub = await _pushGetSub(); if (!sub) return;
+      await _pushSaveSub(sub);
+    } catch (e) {}
+  };
+  // Settings → Notifications sheet: state-aware, one clear action per state
+  window.fhPushSheet = async function () {
+    const st = await window.fhPushState();
+    const h = '<div class="fh-s-h">' + L('Thông báo', 'Notifications') + '</div>';
+    let sub = '', act = '';
+    if (st === 'unsupported') {
+      sub = L('Trình duyệt này chưa hỗ trợ thông báo đẩy.', 'This browser does not support push notifications.');
+      act = _btn(L('Đã hiểu', 'Got it'), '_closeOv()', _S.cta);
+    } else if (st === 'ios-install') {
+      sub = L('Trên iPhone, hãy thêm FamilyHub vào Màn hình chính trước: bấm nút Chia sẻ rồi chọn “Thêm vào MH chính”. Sau đó mở app từ biểu tượng mới và bật thông báo ở đây.', 'On iPhone, first add FamilyHub to your Home Screen: tap Share, then “Add to Home Screen”. Then open the app from its new icon and turn notifications on here.');
+      act = _btn(L('Đã hiểu', 'Got it'), '_closeOv()', _S.cta);
+    } else if (st === 'denied') {
+      sub = L('Thông báo đang bị chặn trong cài đặt hệ thống. Hãy mở Cài đặt của máy, tìm FamilyHub và cho phép thông báo, rồi quay lại đây.', 'Notifications are blocked in system settings. Open your device Settings, find FamilyHub, allow notifications, then come back here.');
+      act = _btn(L('Đã hiểu', 'Got it'), '_closeOv()', _S.cta);
+    } else if (st === 'on') {
+      sub = L('Máy này sẽ nhận thông báo khi cả nhà thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'This device gets a heads-up when the family reacts, sends a request or shares a mood, even with the app closed.');
+      act = _btn(L('Tắt thông báo trên máy này', 'Turn off on this device'), 'fhPushDisable()', _S.line)
+          + _btn(L('Xong', 'Done'), '_closeOv()', _S.cta);
+    } else {
+      sub = L('Nhận thông báo khi cả nhà thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'Get a heads-up when the family reacts, sends a request or shares a mood, even with the app closed.');
+      act = _btn(L('Bật thông báo 🔔', 'Turn on notifications 🔔'), 'fhPushEnable()', _S.cta);
+    }
+    _fhSheet(h + '<div class="fh-s-sub">' + sub + '</div>' + act);
+  };
+  /* Fire-and-forget nudge to the family's other devices after a social write.
+     Never blocks or fails the write it follows; a rapid re-tap REPLACES the
+     row (upsert), so it should not re-buzz — hence the per-kind cooldown. */
+  const _pushLastSent = {};
+  window.fhNotify = function (kind, data) {
+    try {
+      if (!window.DB || !window.DB.fid || !window.fhUser) return;
+      const now = Date.now();
+      if (_pushLastSent[kind] && now - _pushLastSent[kind] < 12000) return;
+      _pushLastSent[kind] = now;
+      sb.functions.invoke('push-send', { body: Object.assign({ kind: kind }, data || {}) }).catch(() => {});
+    } catch (e) {}
+  };
 
   // ═══ feature UIs: manage family/members, saved-for-events, income ═══════════
   /* Settings UI runs on the app's own layers (DESIGN §4), not a bespoke overlay:
@@ -12047,6 +12198,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
         await fhField('name', g.name), await fhField('target_amount', g.target));
       const gr = await sb.from('saving_goals').insert(row).select('id').single();
       if (gr.error) throw gr.error;
+      // a new goal is a proposal — nudge the family's closed-app devices to review it
+      if (window.fhNotify) window.fhNotify('request_new', {});
       if (g.init > 0) {
         await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, goal_id: gr.data.id, member_id: window.DB.ownerMemberId || null, source: 'savings', month: null }, await fhField('amount', g.init))), 'fund goal');
       }

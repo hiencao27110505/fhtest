@@ -72,7 +72,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <div class="safe"></div>
     <div class="hh-row">
       <div class="hh-l">
-        <div class="greet" id="greet">Good evening, Emma</div>
+        <div class="greet" id="greet"></div>
         <div class="greet-sub" id="greet-sub">Another day, together.</div>
       </div>
       <button class="hh-ic" onclick="openSheet('sheet-theme')" aria-label="Theme" data-ta="ariaTheme">
@@ -267,15 +267,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
           </div>
         </div>
       </div>
-      <div class="rows">
-        <div class="row"><div class="av av-emma av-44">EM</div><div class="r-body"><div class="r-t">Emma</div><div class="r-s">Auto-saves <span data-amt="200" data-amt-suf="/mo"></span></div></div><div class="r-amt num" data-amt="3200"></div></div>
-        <div class="row"><div class="av av-james av-44">JR</div><div class="r-body"><div class="r-t">James</div><div class="r-s">Contributes monthly</div></div><div class="r-amt num" data-amt="2400"></div></div>
-      </div>
-      <div class="section-h"><span class="t" data-t="txnHistory">History</span></div>
-      <div class="rows" id="ov-history">
-        <div class="row"><div class="r-ico" style="background:var(--brand-tint);color:var(--brand)">＋</div><div class="r-body"><div class="r-t">James added</div><div class="r-s">3 days ago</div></div><div class="r-amt num pos" data-amt="200" data-amt-pre="+"></div></div>
-        <div class="row"><div class="r-ico" style="background:var(--brand-tint);color:var(--brand)">↻</div><div class="r-body"><div class="r-t">Emma auto-saved</div><div class="r-s">Jul 1</div></div><div class="r-amt num pos" data-amt="400" data-amt-pre="+"></div></div>
-      </div>
+      <div class="rows" id="ov-contribs"></div>
+      <div class="section-h" id="ov-history-h"><span class="t" data-t="txnHistory">History</span></div>
+      <div class="rows" id="ov-history"></div>
       <div class="section-h" style="margin-top:22px"><span class="t" data-t="memories">Memories</span></div>
       <div class="mgallery" id="ov-fund-gallery" style="margin-bottom:12px"></div>
       <button class="btn-line" onclick="openMemorySheet()" style="margin:0 16px" data-t="addPhotoLine">📷 Add a photo</button>
@@ -426,8 +420,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="modal-body">
     <div class="sheet-sub" data-t="suggestSub">An idea, a gripe, a feature you wish existed — tell us anything.</div>
     <div class="founder-note">
-      <div class="fn-avs"><span class="fn-av">👩🏻</span><span class="fn-av">🧑🏻</span></div>
-      <div class="fn-txt"><span data-t="founderNote">We're two parents building FamilyHub for families like yours. Your notes shape what we build next.</span><span class="fn-sig" data-t="founderSig">Mira &amp; Sam, founders</span></div>
+      <div class="fn-txt"><span data-t="founderNote">We read every note, and what you tell us shapes what comes next.</span></div>
     </div>
     <div class="field"><label data-t="sgTypeLbl">What's on your mind</label><div class="choices" id="sg-type">
       <button class="choice on" data-v="Idea" onclick="pick('sg-type',this)" data-t="sgIdea">💡 An idea</button>
@@ -715,12 +708,14 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="sheet-sub" data-t="settingsSub">Pick a theme. It applies across the whole app.</div>
   <div class="theme-grid" id="theme-grid"></div>
   <div class="set-actions">
+    <button class="set-row" onclick="closeSheet();fhLanguageSheet()"><span class="set-ic">🌐</span><span class="set-t" data-t="setLanguage">Language</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t" data-t="setSwitchFamily">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t" data-t="inviteMember2">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhEncryptionSheet()"><span class="set-ic">🔒</span><span class="set-t" data-t="setEncryption">Money encryption</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhManageFamily()"><span class="set-ic">👥</span><span class="set-t" data-t="setManageFamily">Manage family &amp; members</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhSavings()"><span class="set-ic">🐷</span><span class="set-t" data-t="setSavedEvents">Saved for events</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhIncome()"><span class="set-ic">💵</span><span class="set-t" data-t="setIncome">Income</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhPushSheet()"><span class="set-ic">🔔</span><span class="set-t" data-t="setNotifications">Notifications</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();openWhatsNew()"><span class="set-ic">✨</span><span class="set-t" data-t="setWhatsNew">What's new</span><span class="wn-dot" id="wn-dot-row" style="display:none"></span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();restartOnboarding()"><span class="set-ic">↻</span><span class="set-t" data-t="setRestartOnboarding">Restart onboarding</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row danger" onclick="closeSheet();fhSignOut()"><span class="set-ic">⎋</span><span class="set-t" data-t="setSignOut">Sign out</span></button>

@@ -1,5 +1,5 @@
 /* FamilyHub — offline-first service worker */
-const CACHE_NAME = 'familyhub-v268';
+const CACHE_NAME = 'familyhub-v269';
 /* Photos live in their own cache, deliberately NOT tied to CACHE_NAME. Folding
    them together would throw every photo away on each app release, which is the
    exact re-download this cache exists to prevent. Nothing here ever goes stale:
@@ -126,5 +126,32 @@ self.addEventListener('fetch', (e) => {
         return res;
       }).catch(() => cached)
     )
+  );
+});
+
+/* Web Push: the push-send Edge Function fans these out when a family member
+   reacts, sends a request or shares a mood. Payload is generic by design
+   (actor + kind + emoji, never titles or amounts) — the real data stays in the
+   app. showNotification is mandatory on iOS: a push with no visible
+   notification gets the subscription revoked. */
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) {}
+  e.waitUntil(self.registration.showNotification(d.title || 'FamilyHub', {
+    body: d.body || '',
+    icon: './icon.png',
+    badge: './icon.png',
+    tag: d.tag || 'familyhub',   // same-kind pushes collapse instead of stacking
+    data: { url: d.url || './' }
+  }));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) { if ('focus' in c) return c.focus(); }   // the app is open somewhere: bring it forward
+      return clients.openWindow('./');                                // otherwise launch it
+    })
   );
 });

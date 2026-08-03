@@ -235,6 +235,9 @@ function submitReview(type, ref, emoji){
   obj._reviews=(_entReviews(type, obj._dbId, obj)||[]).filter(function(r){ return r.by!==me; }).map(function(r){ return {emoji:r.emoji,by:r.by,byName:r.byName,at:r.at}; });
   obj._reviews.push({ emoji:emoji, by:me, byName:_memName(me)||(typeof _meName==='function'?_meName():''), at:new Date().toISOString() });
   if(obj._dbId && typeof window.fhReviewEntity==='function'){ try{ window.fhReviewEntity(type, obj._dbId, emoji); }catch(e){} }
+  /* push the decision to the REQUESTER only (their closed-app devices) — the
+     in-app arrival moment for open apps stays with reqCheckArrivals */
+  if(obj._dbId && item.creatorId && window.fhNotify){ try{ window.fhNotify('request_response', { emoji:emoji, target:item.creatorId }); }catch(e){} }
   var aligned=(emoji==='🥰');
   closeReview();
   try{ if(typeof renderTxns==='function') renderTxns(); }catch(e){}

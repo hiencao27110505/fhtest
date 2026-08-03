@@ -9,6 +9,8 @@
         await fhField('name', g.name), await fhField('target_amount', g.target));
       const gr = await sb.from('saving_goals').insert(row).select('id').single();
       if (gr.error) throw gr.error;
+      // a new goal is a proposal — nudge the family's closed-app devices to review it
+      if (window.fhNotify) window.fhNotify('request_new', {});
       if (g.init > 0) {
         await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, goal_id: gr.data.id, member_id: window.DB.ownerMemberId || null, source: 'savings', month: null }, await fhField('amount', g.init))), 'fund goal');
       }

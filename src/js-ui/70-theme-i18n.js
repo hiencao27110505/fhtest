@@ -129,8 +129,7 @@ var EN_DEFAULT={
   csvModalTitle:'Import from file', csvPreviewNote:'Preview only — nothing is saved to your ledger yet.', csvPickLbl:'CSV file',
   /* suggest modal */
   suggestTitle:'We hear you 💛', suggestSub:'An idea, a gripe, a feature you wish existed — tell us anything.',
-  founderNote:"We're two parents building FamilyHub for families like yours. Your notes shape what we build next.",
-  founderSig:'Mira & Sam, founders',
+  founderNote:'We read every note, and what you tell us shapes what comes next.',
   sgTypeLbl:"What's on your mind", sgIdea:'💡 An idea', sgLove:'💛 Something I love', sgIssue:"🐞 Something's off",
   tellMore:'Tell us more', tellMorePh:'Say it however it comes. No need to be polished.',
   suggestFootHome:"Ideas or gripes? We're always listening",
@@ -167,8 +166,8 @@ var EN_DEFAULT={
   photoLbl:'Photo', uploadPhotos:'📷 Upload photos', captionOpt:'Caption (optional)', phMemCap:'e.g. Best day of the trip',
   /* settings sheet */
   settingsTitle:'Settings', settingsSub:'Pick a theme. It applies across the whole app.',
-  setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setEncryption:'Money encryption',
-  setSavedEvents:'Saved for events', setIncome:'Income', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out',
+  setLanguage:'Language', setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setEncryption:'Money encryption',
+  setSavedEvents:'Saved for events', setIncome:'Income', setNotifications:'Notifications', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out',
   /* generic edit modal */
   fhModalEdit:'Edit',
   /* celebrate */
@@ -239,8 +238,7 @@ var I18N={
     csvModalTitle:'Nhập từ file', csvPreviewNote:'Chỉ xem trước — chưa lưu vào sổ chi tiêu.', csvPickLbl:'File CSV',
     /* suggest modal */
     suggestTitle:'Tụi mình nghe bạn nè 💛', suggestSub:'Một ý tưởng, một điều chưa ưng, hay tính năng bạn ước có — kể tụi mình nghe hết nha.',
-    founderNote:'Tụi mình cũng là cha mẹ, làm FamilyHub cho những gia đình như nhà bạn. Góp ý của bạn giúp tụi mình biết nên làm gì tiếp theo.',
-    founderSig:'Mira & Sam, người sáng lập',
+    founderNote:'Tụi mình đọc hết mọi góp ý, và điều bạn chia sẻ định hình những gì sắp tới.',
     sgTypeLbl:'Bạn đang nghĩ gì', sgIdea:'💡 Một ý tưởng', sgLove:'💛 Điều mình thích', sgIssue:'🐞 Có gì đó chưa ổn',
     tellMore:'Kể thêm nha', tellMorePh:'Nói theo cách của bạn thôi, không cần trau chuốt đâu.',
     suggestFootHome:'Có ý tưởng hay muốn góp ý? Kể tụi mình nghe nha 💛',
@@ -277,8 +275,8 @@ var I18N={
     photoLbl:'Ảnh', uploadPhotos:'📷 Tải ảnh lên', captionOpt:'Chú thích (tuỳ chọn)', phMemCap:'vd. Ngày vui nhất chuyến đi',
     /* settings sheet */
     settingsTitle:'Cài đặt', settingsSub:'Chọn giao diện, áp dụng cho cả ứng dụng.',
-    setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setEncryption:'Mã hóa tài chính',
-    setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất',
+    setLanguage:'Ngôn ngữ', setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setEncryption:'Mã hóa tài chính',
+    setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setNotifications:'Thông báo', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất',
     /* generic edit modal */
     fhModalEdit:'Chỉnh sửa',
     /* celebrate */
@@ -313,6 +311,12 @@ function applyLang(){
     var k=el.getAttribute('data-ta');
     if(!el.getAttribute('data-ena')) el.setAttribute('data-ena', el.getAttribute('aria-label')||'');
     el.setAttribute('aria-label', (LANG==='vi' && I18N.vi[k]!==undefined) ? I18N.vi[k] : (EN_DEFAULT[k]!==undefined ? EN_DEFAULT[k] : el.getAttribute('data-ena')));
+  });
+  // Onboarding profile role chips carry no data-t (their labels live in OB_ROLE_LABELS,
+  // keyed by data-v) — localize them here so a Vietnamese user sees Vietnamese roles.
+  var _rl=window.OB_ROLE_LABELS;
+  if(_rl) document.querySelectorAll('#ob-role .choice').forEach(function(b){
+    var m=_rl[b.dataset.v]; if(m) b.textContent=(LANG==='vi')?m[0]:m[1];
   });
   document.documentElement.lang = LANG==='vi'?'vi':'en';
   setGreeting();

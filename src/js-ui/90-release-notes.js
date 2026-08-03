@@ -36,10 +36,19 @@ var ICO = {
   camera:'<rect x="3" y="6.6" width="18" height="12.9" rx="2.6"/><circle cx="12" cy="13" r="3.4"/><path d="M8.4 6.6 9.6 4.6h4.8l1.2 2"/>',
   grid:'<rect x="4" y="4" width="7" height="7" rx="1.7"/><rect x="13" y="4" width="7" height="7" rx="1.7"/><rect x="4" y="13" width="7" height="7" rx="1.7"/><rect x="13" y="13" width="7" height="7" rx="1.7"/>',
   envelope:'<rect x="3" y="5.5" width="18" height="13" rx="2.6"/><path d="M3.8 7 12 13l8.2-6"/>',
-  shield:'<path d="M12 3.2 5 6v5.4c0 4.4 2.9 7.5 7 9.4 4.1-1.9 7-5 7-9.4V6z"/><path d="M9.2 12.2l2 2 3.6-3.9"/>'
+  shield:'<path d="M12 3.2 5 6v5.4c0 4.4 2.9 7.5 7 9.4 4.1-1.9 7-5 7-9.4V6z"/><path d="M9.2 12.2l2 2 3.6-3.9"/>',
+  bell:'<path d="M12 4.2a5.3 5.3 0 00-5.3 5.3c0 3.9-1.3 5.3-2.2 6.3h15c-.9-1-2.2-2.4-2.2-6.3A5.3 5.3 0 0012 4.2z"/><path d="M9.9 18.9a2.2 2.2 0 004.2 0M12 2.4v1.8"/>'
 };
 
 var RELEASES = [
+  { id:'2026-08-04-push', date:'2026-08-04', time:'00:25', ver:'v269', icon:ICO.bell,
+    vi:{ t:'Điện thoại báo liền khi nhà có chuyện vui',
+      problem:'Ai đó thả tim hay gửi yêu cầu mà mình chưa mở app thì coi như chưa hay biết gì.',
+      sol:'Giờ vào Cài đặt bật Thông báo là máy tự báo khi cả nhà thả cảm xúc, gửi yêu cầu hay chia sẻ tâm trạng, kể cả lúc app đang đóng. Trên iPhone nhớ thêm app vào Màn hình chính trước nha.' },
+    en:{ t:'Your phone now pings you when something happens',
+      problem:'A reaction or a request used to sit quietly until you happened to open the app.',
+      sol:'Turn on Notifications in Settings and your phone tells you when the family reacts, sends a request or shares a mood, even while the app is closed. On iPhone, add the app to your Home Screen first.' } },
+
   { id:'2026-08-03-vault', date:'2026-08-03', time:'14:52', ver:'v266', icon:ICO.shield,
     vi:{ t:'Tiền nong của nhà, chỉ nhà mình đọc được',
       problem:'Trước nhà mình phải tin là không ai ngó số tiền trên máy chủ, mà tin thì vẫn chỉ là tin.',
