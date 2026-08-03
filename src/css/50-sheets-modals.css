@@ -117,3 +117,8 @@
 #bulk-add{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;padding:15px;border-radius:13px;background:var(--canvas);border:2px dashed #d8d2df;color:var(--brand);font-size:15px;font-weight:700;letter-spacing:-.01em}
 #bulk-add:active{background:var(--brand-tint);border-color:var(--brand)}
 @media (prefers-reduced-motion:reduce){.bulk-card.active{animation:none}}
+/* Restored-draft banner + armed (discard) state on the Cancel button. */
+.draft-banner{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 10px 10px 14px;border-radius:11px;background:var(--brand-tint);color:var(--brand-ink);font-size:13px;font-weight:600}
+#draft-banner-txt{flex:1;min-width:0}
+.draft-fresh{flex-shrink:0;background:none;border:0;color:var(--brand-ink);font-size:13px;font-weight:800;text-decoration:underline;padding:5px 4px;-webkit-tap-highlight-color:transparent}
+.modal-cancel.armed{color:var(--danger)}

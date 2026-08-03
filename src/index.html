@@ -459,11 +459,16 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <div class="modal" id="expense-modal">
   <div class="modal-grip"></div>
   <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeExpense()" data-t="cancel">Cancel</button>
+    <button class="modal-cancel" onclick="cancelExpense()" data-t="cancel">Cancel</button>
     <div class="modal-title" id="ex-title">Log an expense</div>
     <button class="modal-save" id="ex-save" data-t="save" onclick="submitExpense()">Save</button>
   </div>
   <div class="modal-body">
+    <!-- Restored-draft notice (shown when reopening after an accidental close). -->
+    <div id="draft-banner" class="draft-banner" style="display:none">
+      <span id="draft-banner-txt">Đã khôi phục bản nháp chưa lưu</span>
+      <button type="button" class="draft-fresh" onclick="startFreshDrafts()">Bắt đầu mới</button>
+    </div>
     <!-- Bulk list: one card per draft row. The active card holds #ex-editor-mount,
          into which the single #ex-editor block is moved on each render (accordion). -->
     <div id="bulk-list"></div>

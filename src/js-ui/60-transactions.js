@@ -222,6 +222,7 @@ function addExpense(){
     if(exPhotos.length) ev.memories=exPhotos.map(function(s,i){ return i===0?{src:s,caption:note}:{src:s}; }); // photos become memories right away
     events[eid]=ev; order.unshift(eid); renderEvents(); renderTxns(); selMonth=curMonthKey(); renderAll();
     if(!BULK_SAVING){                                        // in a bulk loop, defer close/toast/nav to submitBulk()
+      if(typeof clearDrafts==='function') clearDrafts();
       document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
       closeExpense();
       if(past){ toast(L(note+' đã lưu · thêm ảnh để ghi nhớ nhé 📸',note+' saved · add a photo to remember it 📸')); floatEmojis('📸'); goMoments('memories'); }
@@ -235,6 +236,7 @@ function addExpense(){
     txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,who:fwhoStore,amt:amt,future:true,by:fby,reviews:[],month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
     renderTxns(); selMonth=curMonthKey(); renderAll();
     if(!BULK_SAVING){                                        // bulk loop → submitBulk() handles the tail
+      if(typeof clearDrafts==='function') clearDrafts();
       document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
       closeExpense();
       toast(L('Đã gửi cho cả nhà duyệt · sẽ để dành khi có người đồng ý','Sent to the family · set aside once someone agrees'));
@@ -253,6 +255,7 @@ function addExpense(){
   jul.spent+=amt; jul.catSpent[cat]=(jul.catSpent[cat]||0)+amt; jul.memberSpent[mkey]=(jul.memberSpent[mkey]||0)+amt;
   selMonth=curMonthKey(); renderAll(); if(hadPhoto) renderEvents();   // photo → shows in Memories
   if(!BULK_SAVING){                                          // bulk loop → submitBulk() fires one summary toast + nav
+    if(typeof clearDrafts==='function') clearDrafts();
     document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
     var catOv=document.getElementById('cat-overlay').classList.contains('on');
     closeExpense();

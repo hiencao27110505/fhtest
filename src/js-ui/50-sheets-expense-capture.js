@@ -180,9 +180,20 @@ function updateExWhen(){
   el.textContent='';   // a normal spend → no extra hint
 }
 function prefillExpense(){
-  // Start with a single draft row; the modal grows via "+" or a comma in the note.
-  bulkRows=[blankRow(exPreset)];
-  bulkActive=0;
+  resetCancelArm();
+  // Restore an unsaved draft from a previous (accidental) close — but not when the
+  // sheet was opened for a specific category/date (a preset), which means "log this".
+  var saved = (!exPreset) ? loadDrafts() : null;
+  if(saved){
+    bulkRows = saved.rows.map(function(r){ return {note:r.note||'',amt:r.amt||'',cat:r.cat||'',who:r.who||lastWho,date:r.date||isoDate(TODAY),_catTouched:!!r._catTouched}; });
+    bulkActive = (typeof saved.active==='number' && saved.active<bulkRows.length) ? saved.active : -1;
+    showDraftBanner();
+  } else {
+    // Start with a single draft row; the modal grows via "+" or a comma in the note.
+    bulkRows=[blankRow(exPreset)];
+    bulkActive=0;
+    hideDraftBanner();
+  }
   bulkSaveTried=false;
   // A preset can carry photos (bulk-assign hands off its selection here), so
   // this clears to the preset rather than unconditionally to empty.
@@ -191,8 +202,62 @@ function prefillExpense(){
   setTxt('ex-title',L('Ghi khoản chi','Log an expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='none';
   renderBulk();
-  loadRow(0);
+  if(bulkActive>=0 && bulkRows[bulkActive]) loadRow(bulkActive);
   updateExWhen(); refreshExCta();
+}
+/* ---- draft persistence -------------------------------------------------------
+   bulkRows is auto-saved to localStorage on every change, so closing the sheet
+   (swipe, scrim, an accidental tap) never loses work — reopening restores it.
+   Photos aren't persisted (single-row edge, and data URIs would blow the quota). */
+var FH_DRAFTS='fh-expense-drafts';
+function draftHasContent(){
+  for(var i=0;i<bulkRows.length;i++){ var r=bulkRows[i]; if((r.note||'').trim() || parseAmtBase(r.amt||'')) return true; }
+  return false;
+}
+function persistDrafts(){
+  if(editingTx || exPreset) return;                // editing, or a one-off preset log, is not the bulk draft
+  try{
+    if(!draftHasContent()){ localStorage.removeItem(FH_DRAFTS); return; }
+    var rows=bulkRows.map(function(r){ return {note:r.note||'',amt:r.amt||'',cat:r.cat||'',who:r.who||'',date:r.date||'',_catTouched:!!r._catTouched}; });
+    localStorage.setItem(FH_DRAFTS, JSON.stringify({v:1, cur:CUR, active:bulkActive, rows:rows}));
+  }catch(e){}
+}
+function clearDrafts(){ if(exPreset) return; try{ localStorage.removeItem(FH_DRAFTS); }catch(e){} }   // a preset log must not wipe an unrelated bulk draft
+function loadDrafts(){
+  try{ var d=JSON.parse(localStorage.getItem(FH_DRAFTS)||'null');
+    if(d && d.rows && d.rows.length && d.cur===CUR) return d;   // ignore a draft saved under a different currency
+  }catch(e){}
+  return null;
+}
+function showDraftBanner(){ var b=document.getElementById('draft-banner'); if(b){ setTxt('draft-banner-txt', L('Đã khôi phục bản nháp chưa lưu','Restored your unsaved draft')); b.style.display=''; } }
+function hideDraftBanner(){ var b=document.getElementById('draft-banner'); if(b) b.style.display='none'; }
+/* "Bắt đầu mới" — throw the restored draft away and start clean. */
+function startFreshDrafts(){
+  clearDrafts();
+  bulkRows=[blankRow()]; bulkActive=0; bulkSaveTried=false;
+  hideDraftBanner();
+  renderBulk(); loadRow(0); updateExWhen(); refreshExCta();
+}
+/* Light discard-guard on the explicit Huỷ button (arm-then-confirm, the app's
+   idiom). Swipe/scrim keep the draft; only Huỷ throws it away, and only on a
+   second tap. */
+var cancelArmed=false, cancelTimer=null;
+function resetCancelArm(){
+  cancelArmed=false; clearTimeout(cancelTimer);
+  var b=document.querySelector('#expense-modal .modal-cancel');
+  if(b){ b.classList.remove('armed'); b.textContent=L('Huỷ','Cancel'); }
+}
+function cancelExpense(){
+  if(editingTx || exPreset || !draftHasContent()){ resetCancelArm(); closeExpense(); return; }   // nothing persisted to lose → just close
+  var b=document.querySelector('#expense-modal .modal-cancel');
+  if(!cancelArmed){
+    cancelArmed=true;
+    if(b){ b.classList.add('armed'); b.textContent=L('Bỏ nháp?','Discard?'); }
+    toast(L('Chạm lần nữa để bỏ · hoặc vuốt xuống để giữ nháp','Tap again to discard · or swipe down to keep'));
+    clearTimeout(cancelTimer); cancelTimer=setTimeout(resetCancelArm, 3500);
+    return;
+  }
+  resetCancelArm(); clearDrafts(); closeExpense();
 }
 /* A category is usable only if it belongs to THIS family's set (or is the special
    Event). Prevents a stale demo default like 'Groceries'/'Fun' — categories that
@@ -362,6 +427,7 @@ function renderBulk(){
   if(mount) mount.appendChild(editor);
   if(addBtn){ addBtn.style.display=''; addBtn.textContent=L('＋ Thêm khoản','＋ Add item'); }
   togglePhotoField(bulkRows.length===1);          // photos only in single-row mode (bulk photos = separate OCR feature)
+  persistDrafts();                                 // keep the auto-saved draft in sync with the on-screen state
 }
 function togglePhotoField(show){
   var f=document.getElementById('ex-photofield'); if(f) f.style.display=show?'':'none';
@@ -594,6 +660,7 @@ function submitBulk(){
   }
   exPhotos=[];
   bulkSaveTried=false;
+  clearDrafts();                                   // saved for real → drop the auto-saved draft
   renderAll(); renderTxns();
   closeExpense();
   toast(L('Đã ghi '+n+' khoản · '+fmt(total),'Logged '+n+' · '+fmt(total)));

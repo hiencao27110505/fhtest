@@ -252,7 +252,7 @@ function refreshExCta(){                                    // nav-bar Save butt
   // Label: keep updateExWhen()'s single-row Lưu/Gửi; only override for a true batch.
   if(rows.length>1) s.textContent = L('Lưu tất cả ('+considered+')','Save all ('+considered+')');
 }
-function onExInput(){ if(!editingTx) flushActiveRow(); updateExWhen(); refreshExCta(); }
+function onExInput(){ if(!editingTx){ flushActiveRow(); if(typeof persistDrafts==='function') persistDrafts(); } updateExWhen(); refreshExCta(); }
 function openEditExpense(id){
   var t=txById(id); if(!t)return;
   editingTx=id;
