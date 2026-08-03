@@ -74,14 +74,19 @@
          passcode prompt. */
       window.DB.enc = encMeta || null;
       if (encMeta) { try { await fhKeyLoad(fid); } catch (e) {} }
-      /* Encryption is FAMILY-wide: the moment the owner turns it on, every other
-         device learns it here (realtime on family_keys re-runs this hydrate) and
-         gets nudged for the code — during 'dual' as a banner (numbers still show
-         via plaintext), in 'enc' also auto-opening the prompt once per session. */
+      /* Encryption is FAMILY-wide and strict (option A): the moment the owner
+         turns it on, every device learns it here (realtime on family_keys
+         re-runs this hydrate). An un-keyed device gets the passcode prompt on
+         app open and on each return to the foreground (re-nudged at most every
+         10 minutes so a deliberate dismissal is respected), plus the permanent
+         lock bar. Money WRITES are hard-blocked elsewhere until unlocked;
+         reading and non-money features stay available, so a member who hasn't
+         received the code yet is never locked out of the family. */
       const _needsKey = !!(encMeta && encMeta.enc_state !== 'off' && !fhKeyReady());
       if (window.fhLockBanner) window.fhLockBanner(_needsKey, encMeta && encMeta.enc_state);
-      if (_needsKey && encMeta.enc_state === 'enc' && !window.__fhUnlockNudged) {
-        window.__fhUnlockNudged = true;
+      const _nudgeDue = _needsKey && (!window.__fhUnlockNudgedAt || Date.now() - window.__fhUnlockNudgedAt > 600000);
+      if (_nudgeDue && window.editingTx == null && !document.querySelector('.sheet.on, .modal.on')) {
+        window.__fhUnlockNudgedAt = Date.now();
         setTimeout(() => { try { window.fhUnlockPrompt && window.fhUnlockPrompt(); } catch (e) {} }, 700);
       }
       async function _decRows(rows, fields) {

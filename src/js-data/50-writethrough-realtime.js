@@ -1,5 +1,6 @@
   const _origAddExpense = window.addExpense;
   window.addExpense = function () {
+    if (_fhWriteLocked()) return;                            // guard BEFORE the optimistic local row exists
     const before = {}; (window.txns || []).forEach((t) => { before[t.id] = 1; });
     const beforeOrder = (window.order || []).slice();
     const exD = (typeof window.exDate === 'function') ? window.exDate() : null;
@@ -22,6 +23,7 @@
   };
   const _origSaveEdit = window.saveExpenseEdit;
   window.saveExpenseEdit = function () {
+    if (_fhWriteLocked()) return;
     const id = window.editingTx;
     const tx = (id != null && typeof txById === 'function') ? txById(id) : null;
     const dbId = tx ? tx._dbId : null;
@@ -41,6 +43,7 @@
      fired at close time would be a lie if the upload then failed. */
   const _origPaApply = window.paApply;
   window.paApply = async function (txId, srcs) {
+    if (_fhWriteLocked()) return null;                       // spawns mirror events + fundings — money writes
     const beforeOrder = (window.order || []).slice();
     const t = _origPaApply.apply(this, arguments);
     if (!t) return null;
@@ -88,6 +91,7 @@
   // ---- write-through: events & funding ----
   async function _dbInsertEvent(localKey, opts) {
     opts = opts || {};
+    if (_fhWriteLocked()) return;
     try {
       const fid = window.DB.fid; if (!fid) return;
       const e = window.events[localKey]; if (!e || e._dbId) return;
@@ -142,12 +146,14 @@
   }
   const _origAddEvent = window.addEvent;
   window.addEvent = function () {
+    if (_fhWriteLocked()) return;
     const beforeOrder = (window.order || []).slice();
     _origAddEvent.apply(this, arguments);
     (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => { const p = _dbInsertEvent(k, { savingsSource: (window.selSrc === 'savings') }); const ev = window.events[k]; if (ev) ev._dbPending = p; });
   };
   const _origAddFunds = window.addFunds;
   window.addFunds = function () {
+    if (_fhWriteLocked()) return;
     const evKey = (typeof chosen === 'function' && chosen('fn-event')) || window.curEvent || (window.order || [])[0];
     const who = (typeof chosen === 'function' && chosen('fn-who')) || null;
     const savingsBefore = window.savings;
@@ -248,7 +254,7 @@
     } catch (e) { _writeErr('budget save failed', e); }
   }
   const _origSetBudget = window.setBudget;
-  window.setBudget = function () { _origSetBudget.apply(this, arguments); _dbSaveBudget(); };
+  window.setBudget = function () { if (_fhWriteLocked()) return; _origSetBudget.apply(this, arguments); _dbSaveBudget(); };
 
   // ---- write-through: theme ----
   const _origApplyTheme = window.applyTheme;

@@ -16,8 +16,8 @@
   const _pcOk = (id) => /^\d{6}$/.test(_pcVal(id));
   // The one honest warning, shown wherever the passcode is created or changed.
   const _pcWarn = () => '<div class="field-hint" style="margin-top:10px">'
-    + L('Mã này là chìa khóa duy nhất khi bật mã hóa tài chính. Nếu cả nhà quên mã và không còn thiết bị nào đang đăng nhập, dữ liệu đã mã hóa sẽ mất vĩnh viễn — chúng tôi không thể khôi phục.',
-        'This code is the only key once money encryption is on. If everyone forgets it and no signed-in device remains, encrypted money data is gone forever — we cannot recover it.')
+    + L('Mã này là chìa khóa duy nhất khi bật mã hóa tài chính. Nếu cả nhà quên mã và không còn thiết bị nào đang đăng nhập, dữ liệu đã mã hóa sẽ mất vĩnh viễn, chúng tôi cũng không thể khôi phục.',
+        'This code is the only key once money encryption is on. If everyone forgets it and no signed-in device remains, encrypted money data is gone for good. We can’t recover it either.')
     + '</div>';
 
   function _fhLockedMsg(secs) {
@@ -34,6 +34,25 @@
     throw err;
   }
   const _fhErr = (msg) => { const e = new Error(msg); e.fhMsg = msg; return e; };   // survives _friendly()
+
+  /* Recovery for a server-rejected plaintext write (0033 'enc_required'). The
+     goal is that the user continues, not just learns why they failed:
+       1. an immediate SW update check — if this build is stale, the new sw.js
+          installs, controllerchange fires and the app reloads itself into the
+          current build (the queued entry survives the reload in IndexedDB);
+       2. a state refresh — hydrate re-learns enc_state so the client guards
+          and the lock widget engage without waiting for realtime;
+       3. the passcode prompt — after unlock the outbox flush lands anything
+          that was held.
+     Debounced: one recovery per 10s no matter how many writes bounced. */
+  let _fhRecovAt = 0;
+  window._fhEncRecover = async function () {
+    if (Date.now() - _fhRecovAt < 10000) return;
+    _fhRecovAt = Date.now();
+    try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) reg.update(); } catch (e) {}
+    try { if (window.loadFamilyData) await window.loadFamilyData(); } catch (e) {}
+    if (window.DB && window.DB.enc && window.DB.enc.enc_state !== 'off' && !fhKeyReady()) window.fhUnlockPrompt();
+  };
 
   // ── Joiner: prep the join screen from the pending invite for this email ──
   window.obJoinPrep = async function () {
@@ -148,7 +167,7 @@
       + (rows ? '<div class="fh-s-lab" style="margin-top:18px">' + L('Đang chờ tham gia', 'Waiting to join') + '</div>' + rows : '')
       + '<div class="fh-s-lab" style="margin-top:18px">' + L('Mã gia đình', 'Family passcode') + '</div>'
       + '<div class="fh-s-row"><div class="fh-s-grow"><div class="fh-s-name num">••••••</div>'
-      + '<div class="fh-s-meta">' + L('Chỉ gia đình bạn biết mã này — hệ thống không lưu mã gốc', 'Only your family knows it — the raw code is never stored') + '</div></div>'
+      + '<div class="fh-s-meta">' + L('Chỉ gia đình bạn biết mã này. Hệ thống không lưu mã gốc', 'Only your family knows it. The raw code is never stored') + '</div></div>'
       + _btn(L('Đổi mã', 'Change'), 'fhChangePasscode()', 'fh-s-edit') + '</div>'
       + _btn(L('Xong', 'Done'), '_closeOv()', _S.ghost)
     );
@@ -197,8 +216,8 @@
     _fhModal({
       title: L('Đặt mã gia đình', 'Set the family passcode'),
       saveLabel: L('Đặt mã', 'Set code'),
-      body: '<div class="fh-s-sub">' + L('Mã 6 số để người thân vào gia đình — như mã cửa nhà. Cả nhà dùng chung một mã.',
-                                          'A 6-digit code your family uses to enter — like the door code of your house. Everyone shares the same code.') + '</div>'
+      body: '<div class="fh-s-sub">' + L('Mã 6 số để người thân vào gia đình, như mã cửa nhà mình. Cả nhà dùng chung một mã.',
+                                          'A 6-digit code your family uses to enter, like the door code of your house. Everyone shares the same code.') + '</div>'
         + _pcField('fh-pc-new', L('Mã 6 số', '6-digit code'))
         + _pcField('fh-pc-new2', L('Nhập lại mã', 'Repeat the code'))
         + _pcWarn(),
@@ -226,8 +245,8 @@
       body: _pcField('fh-pc-old', L('Mã hiện tại', 'Current code'))
         + _pcField('fh-pc-new', L('Mã mới', 'New code'))
         + _pcField('fh-pc-new2', L('Nhập lại mã mới', 'Repeat the new code'))
-        + '<div class="field-hint">' + L('Thành viên đang dùng app không bị ảnh hưởng — chỉ người vào sau cần mã mới.',
-                                          'Members already in the app aren’t affected — only future joins need the new code.') + '</div>'
+        + '<div class="field-hint">' + L('Thành viên đang dùng app không bị ảnh hưởng, chỉ người vào sau cần mã mới.',
+                                          'Members already in the app aren’t affected. Only future joins need the new code.') + '</div>'
         + _pcWarn(),
       valid: () => _pcOk('fh-pc-old') && _pcOk('fh-pc-new') && _pcVal('fh-pc-new') === _pcVal('fh-pc-new2'),
       save: async () => {
@@ -262,11 +281,15 @@
   window.fhUnlockPrompt = function () {
     const enc = window.DB && window.DB.enc;
     if (!enc || !enc.wrapped_dek) { window.toast && window.toast(L('Gia đình chưa đặt mã', 'No passcode set yet')); return; }
+    const why = enc.enc_state === 'dual'
+      ? L('Gia đình đang bật mã hóa tài chính. Nhập mã 6 số một lần để tiếp tục ghi chép trên máy này.',
+          'Your family is turning on money encryption. Enter the 6-digit code once to keep logging on this device.')
+      : L('Thiết bị này cần mã 6 số của gia đình để hiện số tiền và ghi chép.',
+          'This device needs the family’s 6-digit code to show amounts and log entries.');
     _fhModal({
       title: L('Nhập mã gia đình', 'Enter the family passcode'),
       saveLabel: L('Mở khóa', 'Unlock'),
-      body: '<div class="fh-s-sub">' + L('Thiết bị này cần mã 6 số của gia đình để hiện số tiền.',
-                                          'This device needs the family’s 6-digit code to show money values.') + '</div>'
+      body: '<div class="fh-s-sub">' + why + '</div>'
         + _pcField('fh-pc-unlock', L('Mã 6 số', '6-digit code')),
       valid: () => _pcOk('fh-pc-unlock'),
       save: async () => {
@@ -278,26 +301,36 @@
         try { _rpc('mark_key_unlocked'); } catch (e) {}       // roster stamp, fire-and-forget
         window.fhLockBanner(false);
         window.toast && window.toast(L('Đã mở khóa ✓', 'Unlocked ✓'));
+        if (window.fhOutboxFlush) setTimeout(() => window.fhOutboxFlush(), 400);   // money rows held for the key can go now
         if (window.loadFamilyData) window.loadFamilyData();
       }
     });
   };
 
-  // Small persistent lock bar shown while this device lacks the family key.
-  // In 'dual' numbers still display (plaintext is there) — the bar invites the
-  // one-time code entry so this device writes ciphertext BEFORE the scrub.
+  /* Permanent lock widget — lives in #phone so it rides above EVERY screen and
+     tab until this device holds the key; tapping it opens the passcode prompt.
+     It never auto-hides: only a successful unlock (or encryption turning off)
+     removes it. Styled to the design system, not ad hoc: brand gradient pill
+     (CTA anatomy), floating shadow with the theme's brand glow, inline-SVG
+     icon (emoji are content marks, never control icons — DESIGN §2.6), the
+     shared `rise` entrance and the standard press scale (§2.5). */
   window.fhLockBanner = function (on, state) {
     let el = document.getElementById('fh-lockbar');
     if (on) {
+      if (!document.getElementById('fh-lockbar-css')) {
+        const st = document.createElement('style'); st.id = 'fh-lockbar-css';
+        st.textContent = '#fh-lockbar:active{transform:scale(.97)}';
+        document.head.appendChild(st);
+      }
       if (!el) {
-        el = document.createElement('div'); el.id = 'fh-lockbar';
-        el.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));z-index:64;background:var(--card,#fff);border:1px solid var(--hairline,#e5e0ea);box-shadow:0 6px 24px rgba(0,0,0,.14);border-radius:22px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;gap:8px;align-items:center;cursor:pointer;max-width:88%';
+        el = document.createElement('button'); el.id = 'fh-lockbar';
+        el.style.cssText = 'position:absolute;left:16px;right:16px;margin:0 auto;bottom:calc(80px + env(safe-area-inset-bottom));z-index:64;width:max-content;max-width:calc(100% - 32px);background:var(--grad-brand,var(--brand));color:#fff;border:none;box-shadow:0 8px 22px rgba(25,16,34,.14),0 12px 28px var(--brand-glow);border-radius:9999px;padding:14px 20px;font-size:14px;font-weight:700;font-family:inherit;display:flex;gap:9px;align-items:center;cursor:pointer;text-align:left;animation:rise .4s cubic-bezier(.32,.72,0,1);transition:transform .15s cubic-bezier(.4,0,.2,1)';
         el.onclick = () => window.fhUnlockPrompt();
         (document.getElementById('phone') || document.body).appendChild(el);
       }
-      el.innerHTML = '🔒 <span>' + (state === 'dual'
-        ? L('Gia đình đang bật mã hóa — nhập mã 6 số một lần trên máy này', 'Your family is turning on encryption — enter the 6-digit code once on this device')
-        : L('Nhập mã gia đình để hiện số tiền', 'Enter the family code to show amounts')) + '</span>';
+      el.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="5" y="10.5" width="14" height="9.5" rx="2.6"/><path d="M8 10.5V7.8a4 4 0 018 0v2.7"/></svg><span>' + (state === 'dual'
+        ? L('Gia đình đang bật mã hóa, chạm để nhập mã 6 số', 'Your family is turning on encryption. Tap to enter the 6-digit code')
+        : L('Chạm để nhập mã gia đình và mở số tiền', 'Tap to enter the family code and unlock amounts')) + '</span>';
       el.style.display = 'flex';
     } else if (el) el.style.display = 'none';
   };

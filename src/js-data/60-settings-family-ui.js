@@ -53,6 +53,9 @@
     try { then = await ctx.save(); }
     catch (e) {
       save.textContent = ctx.saveLabel || L('Lưu','Save'); save.disabled = false;
+      // enc_required through a modal form (income, savings): keep the form open
+      // as usual AND run recovery so the app updates/unlocks for the retry
+      if (/enc_required/i.test(String((e && e.message) || '')) && window._fhEncRecover) window._fhEncRecover();
       window.toast && window.toast(_friendly(e));         // recoverable: modal stays open
       return;
     }
@@ -67,6 +70,9 @@
   function _friendly(e) {
     if (e && e.fhMsg) return e.fhMsg;                       // deliberately localized app errors pass through
     const raw = String((e && (e.message || e.error_description)) || e || '');
+    // 0033 DB trigger: a plaintext money write reached an encrypted family
+    // (stale build or missing key) — tell the user what actually unblocks them.
+    if (/enc_required/i.test(raw)) return L('Gia đình đã bật mã hóa. Đóng mở lại app cho bản mới nhất rồi nhập mã 6 số nhé','Encryption is on. Reopen the app for the latest version, then enter the 6-digit code');
     if (/row-level security|permission denied|not authorized/i.test(raw)) return L('Bạn không có quyền cho thao tác này','You don’t have permission for that');
     if (/duplicate key|already exists/i.test(raw)) return L('Mục này đã tồn tại','That already exists');
     // iOS Safari reports an offline fetch as "Load failed" (not "Failed to fetch"),

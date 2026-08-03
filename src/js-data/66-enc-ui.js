@@ -51,8 +51,8 @@
     try { const r = await sb.from('families').select('owner_id').eq('id', fid).maybeSingle(); owner = !!(r.data && window.fhUser && r.data.owner_id === window.fhUser.id); } catch (e) {}
     const enc = window.DB.enc, st = fhEncState();
     const intro = '<div class="fh-s-h">' + L('Mã hóa tài chính', 'Money encryption') + '</div>'
-      + '<div class="fh-s-sub">' + L('Số tiền, ghi chú và tên mục tiêu được mã hóa ngay trên máy bằng mã gia đình — máy chủ chỉ lưu bản đã khóa, kể cả chúng tôi cũng không đọc được.',
-                                      'Amounts, notes and goal names are encrypted on-device with the family passcode — the server only ever stores locked values; even we can’t read them.') + '</div>';
+      + '<div class="fh-s-sub">' + L('Số tiền, ghi chú và tên mục tiêu được mã hóa ngay trên máy bằng mã gia đình. Máy chủ chỉ lưu bản đã khóa, kể cả chúng tôi cũng không đọc được.',
+                                      'Amounts, notes and goal names are encrypted on your device with the family code. The server only ever stores locked values, and even we can’t read them.') + '</div>';
     let body = '';
     if (!enc) {
       body = '<div class="fh-s-sub">' + L('Bước đầu tiên là đặt mã gia đình 6 số.', 'First, set the family’s 6-digit passcode.') + '</div>'
@@ -60,27 +60,32 @@
                  : '<div class="fh-s-sub">' + L('Chỉ chủ gia đình đặt được mã.', 'Only the owner can set it.') + '</div>');
     } else if (st === 'off') {
       body = '<div class="fh-s-lab">' + L('Trạng thái: chưa bật', 'Status: off') + '</div>'
-        + '<div class="fh-s-sub">' + L('Khi bật: (1) tải một bản sao JSON về máy, (2) mã hóa toàn bộ dữ liệu tiền cạnh bản gốc, (3) vào giai đoạn kiểm chứng — mọi số vẫn hiển thị như cũ, chưa có gì bị xóa.',
-                                        'Turning on: (1) downloads a JSON copy to this device, (2) encrypts all money data alongside the originals, (3) enters a verification window — everything still shows as before, nothing is deleted.') + '</div>'
+        + '<div class="fh-s-sub">' + L('Khi bật, app tải một bản sao JSON về máy, mã hóa toàn bộ dữ liệu tiền cạnh bản gốc, rồi vào giai đoạn kiểm chứng. Mọi số vẫn hiển thị như cũ, chưa có gì bị xóa.',
+                                        'Turning it on downloads a JSON copy to this device, encrypts all money data alongside the originals, then enters a verification window. Everything still shows as before and nothing is deleted.') + '</div>'
         + (owner ? _btn(L('Bật mã hóa', 'Turn on encryption'), 'fhEncEnable(this)', _S.cta)
                  : '<div class="fh-s-sub">' + L('Chỉ chủ gia đình bật được.', 'Only the owner can turn this on.') + '</div>');
     } else if (st === 'dual') {
       const roster = _fhUnlockRoster();
       const pendWarn = roster.pending.length
-        ? '<div class="fh-s-sub">' + L('Chưa nhập mã: ' + roster.pending.join(', ') + '. Nhắc họ mở app và nhập mã trước khi hoàn tất, rồi bấm "Mã hóa nốt" để phủ các dòng họ đã ghi.',
-                                        'Not yet entered: ' + roster.pending.join(', ') + '. Have them open the app and enter the code before finishing, then tap "Re-encrypt missed rows" to cover their entries.') + '</div>'
+        ? '<div class="fh-s-sub">' + L('Chưa nhập mã: ' + roster.pending.join(', ') + '. Máy của họ sẽ hỏi mã khi mở app, và không ghi chép tiền được cho tới khi nhập. Bạn có thể hoàn tất bất cứ lúc nào. Sau đó họ chỉ cần nhập mã là xem được như thường.',
+                                        'Not yet entered: ' + roster.pending.join(', ') + '. Their devices ask for the code on open and can’t log money until it’s entered. You can finish anytime. Afterwards they just enter the code to read as usual.') + '</div>'
         : '';
       body = '<div class="fh-s-lab">' + L('Trạng thái: giai đoạn kiểm chứng', 'Status: verification window') + '</div>'
-        + '<div class="fh-s-sub">' + L('Bản mã và bản gốc đang tồn tại song song; app tự đối chiếu mỗi lần đọc. Dùng thử vài ngày trên đủ các máy. Khi yên tâm, bấm hoàn tất để xóa bản gốc trên máy chủ — bước duy nhất không tự quay lại được nếu cả nhà mất mã.',
-                                        'Ciphertext and originals coexist; the app cross-checks them on every read. Use it for a few days on all devices. When confident, finish to erase the plaintext on the server — the one step that can’t be undone if the whole family loses the code.') + '</div>'
+        + '<div class="fh-s-sub">' + L('Bản mã và bản gốc đang tồn tại song song; app tự đối chiếu mỗi lần đọc, và máy chủ đã chặn mọi cách ghi không mã hóa. Khi yên tâm, bấm hoàn tất để xóa bản gốc trên máy chủ. Đây là bước duy nhất không quay lại được nếu cả nhà mất mã.',
+                                        'Ciphertext and originals coexist; the app cross-checks them on every read, and the server already refuses any unencrypted write. When confident, finish to erase the plaintext on the server. That’s the one step that can’t be undone if the whole family loses the code.') + '</div>'
         + roster.html + pendWarn
-        + (owner ? _btn(L('Hoàn tất — xóa bản gốc trên máy chủ', 'Finish — erase server plaintext'), 'fhEncScrub(this)', _S.del)
-                 + _btn(L('Mã hóa nốt dòng còn thiếu', 'Re-encrypt any missed rows'), 'fhEncEnable(this)', _S.line)
+        + (owner ? _btn(L('Hoàn tất và xóa bản gốc trên máy chủ', 'Finish and erase server plaintext'), 'fhEncScrub(this)', _S.del)
                  + _btn(L('Tắt mã hóa', 'Turn encryption off'), 'fhEncDisable(this)', _S.ghost)
                  : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ hoàn tất bước này.', 'The owner finishes this step.') + '</div>');
+      /* interrupted enable? cover the backlog silently — no button, no step */
+      if (owner && fhKeyReady() && !_fhEncBusy) {
+        _fhUncoveredCount().then((n) => {
+          if (n > 0) { _fhEncProg(L('Đang mã hóa nốt ' + n + ' dòng…', 'Covering ' + n + ' remaining rows…')); window.fhEncEnable(null, { resume: true }); }
+        }).catch(() => {});
+      }
     } else {
       const roster = _fhUnlockRoster();
-      body = '<div class="fh-s-lab">' + L('Trạng thái: đang mã hóa đầu-cuối 🔒', 'Status: end-to-end encrypted 🔒') + '</div>'
+      body = '<div class="fh-s-lab">' + L('Trạng thái: đang mã hóa đầu-cuối', 'Status: end-to-end encrypted') + '</div>'
         + '<div class="fh-s-sub">' + L('Máy chủ chỉ còn bản đã khóa. Dữ liệu chỉ mở được bằng mã gia đình trên máy của thành viên.',
                                         'The server holds only locked values. Data opens only with the family code, on members’ devices.') + '</div>'
         + roster.html
@@ -121,19 +126,45 @@
     if (btn) btn.disabled = false;
   };
 
-  /* off→dual (also "re-encrypt missed rows" while dual): downloads the JSON
-     copy, then per table encrypts every row that still lacks ciphertext —
-     verify-before-upload (encrypt → decrypt → compare) so a crypto bug can
-     never silently write garbage. Plaintext is NOT touched here. */
-  window.fhEncEnable = async function (btn) {
+  /* How many logical fields still lack ciphertext (drives auto-resume; with
+     the 0033 triggers, new uncovered rows can no longer be created, so this
+     can only be a backlog from an interrupted enable). */
+  async function _fhUncoveredCount() {
+    let n = 0;
+    for (const spec of _ENC_TABLES) {
+      const r = await sb.from(spec.t).select(_encCols(spec)).eq('family_id', window.DB.fid);
+      for (const row of ((r && r.data) || [])) {
+        for (const f of spec.num.concat(spec.str)) {
+          let v = row[f];
+          if (spec.t === 'monthly_budgets' && f === 'budget_total' && Number(v) === 0) v = null;
+          if (v !== null && v !== undefined && v !== '' && row[f + '_enc'] == null) { n++; break; }
+        }
+      }
+    }
+    return n;
+  }
+
+  /* off→dual, and the auto-resume worker for an interrupted enable. The state
+     flips to 'dual' FIRST: from that moment the database itself (0033) rejects
+     plaintext-only money writes, so no new uncovered rows can appear while —
+     or after — the backlog below is covered. Then the JSON copy downloads and
+     every row still lacking ciphertext is covered, verify-before-upload.
+     Plaintext is NOT touched here. opts.resume skips the export re-download. */
+  window.fhEncEnable = async function (btn, opts) {
+    opts = opts || {};
     if (_fhEncBusy) return;
     if (!fhKeyReady()) { window.fhUnlockPrompt(); return; }
     _fhEncBusy = true;
     if (btn) btn.disabled = true;
-    const wasOff = fhEncState() === 'off';
     try {
-      _fhEncProg(L('Đang tải bản sao…', 'Downloading the copy…'));
-      try { await _fhExportPlain(); } catch (e) { console.warn('export failed', e); }   // job continues; DB backup still exists
+      if (fhEncState() === 'off') {
+        await _rpc('set_family_enc_state', { p_state: 'dual' });
+        if (window.DB.enc) window.DB.enc.enc_state = 'dual';   // this device writes both from right now
+      }
+      if (!opts.resume) {
+        _fhEncProg(L('Đang tải bản sao…', 'Downloading the copy…'));
+        try { await _fhExportPlain(); } catch (e) { console.warn('export failed', e); }   // job continues; DB backup still exists
+      }
       let total = 0, mismatches = 0;
       for (const spec of _ENC_TABLES) {
         _fhEncProg(L('Đang mã hóa: ', 'Encrypting: ') + spec.t + '…');
@@ -158,10 +189,9 @@
           }
         }
       }
-      if (mismatches) { const _e = new Error('verify'); _e.fhMsg = L('Có ' + mismatches + ' dòng không kiểm chứng được — chưa bật.', mismatches + ' rows failed verification — not enabled.'); throw _e; }
-      if (wasOff) await _rpc('set_family_enc_state', { p_state: 'dual' });
+      if (mismatches) { const _e = new Error('verify'); _e.fhMsg = L('Có ' + mismatches + ' dòng không kiểm chứng được.', mismatches + ' rows failed verification.'); throw _e; }
       _fhEncProg('');
-      window.toast && window.toast(L('Đã mã hóa ' + total + ' dòng ✓ Giai đoạn kiểm chứng bắt đầu.', total + ' rows encrypted ✓ Verification window started.'));
+      if (!opts.resume || total) window.toast && window.toast(L('Đã mã hóa ' + total + ' dòng ✓', total + ' rows encrypted ✓'));
       await window.loadFamilyData();
       window.fhEncryptionSheet();
     } catch (e) {
@@ -174,11 +204,11 @@
   // dual→enc: THE destructive step. Arm-then-confirm, server double-checks owner+state.
   window.fhEncScrub = async function (btn) {
     if (btn && !btn.classList.contains('armed')) {
-      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa — bản gốc trên máy chủ sẽ bị xóa vĩnh viễn', 'Tap again — server plaintext is erased for good');
+      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa, bản gốc trên máy chủ sẽ bị xóa vĩnh viễn', 'Tap again and the server plaintext is erased for good');
       clearTimeout(window._fhScrubT);
       window._fhScrubT = setTimeout(() => {
         if (!btn.isConnected) return;
-        btn.classList.remove('armed'); btn.textContent = L('Hoàn tất — xóa bản gốc trên máy chủ', 'Finish — erase server plaintext');
+        btn.classList.remove('armed'); btn.textContent = L('Hoàn tất và xóa bản gốc trên máy chủ', 'Finish and erase server plaintext');
       }, 4000);
       return;
     }
@@ -186,9 +216,19 @@
     if (btn) { btn.disabled = true; btn.textContent = L('Đang xóa bản gốc…', 'Erasing plaintext…'); }
     let counts;
     try { counts = await _rpc('scrub_plaintext_amounts'); }
-    catch (e) { window.toast && window.toast(_friendly(e)); if (btn) { btn.disabled = false; btn.classList.remove('armed'); } return; }
+    catch (e) {
+      const raw = String((e && e.message) || '');
+      const m = raw.match(/uncovered_rows:(\d+)/);
+      if (m) {
+        // server refused: a backlog exists (interrupted enable) — cover it now
+        window.toast && window.toast(L('Còn ' + m[1] + ' dòng chưa mã hóa, app đang tự xử lý, bạn thử lại sau giây lát nhé', m[1] + ' rows aren’t covered yet. Encrypting them now, try again in a moment'));
+        window.fhEncEnable(null, { resume: true });
+      } else window.toast && window.toast(_friendly(e));
+      if (btn) { btn.disabled = false; btn.classList.remove('armed'); }
+      return;
+    }
     const n = Object.values(counts || {}).reduce((s, x) => s + (Number(x) || 0), 0);
-    window.toast && window.toast(L('Xong — đã xóa bản gốc của ' + n + ' dòng. Giờ chỉ còn bản mã hóa 🔒', 'Done — plaintext erased on ' + n + ' rows. Only ciphertext remains 🔒'));
+    window.toast && window.toast(L('Xong, đã xóa bản gốc của ' + n + ' dòng, giờ chỉ còn bản mã hóa', 'Done. Plaintext erased on ' + n + ' rows, only ciphertext remains'));
     await window.loadFamilyData();
     window.fhEncryptionSheet();
   };
@@ -240,7 +280,7 @@
       }
       await _rpc('set_family_enc_state', { p_state: 'off' });
       _fhEncProg('');
-      window.toast && window.toast(L('Đã tắt mã hóa — khôi phục ' + total + ' dòng.', 'Encryption off — ' + total + ' rows restored.'));
+      window.toast && window.toast(L('Đã tắt mã hóa, khôi phục ' + total + ' dòng.', 'Encryption off. ' + total + ' rows restored.'));
       await window.loadFamilyData();
       window.fhEncryptionSheet();
     } catch (e) {

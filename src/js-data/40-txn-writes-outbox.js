@@ -184,6 +184,16 @@
       for (const it of items) {
         try {
           if (it.kind === 'insertTxn') {
+            /* Entries queued before encryption turned on (or while this device
+               was un-keyed) carry plaintext. Never let the replay bypass the
+               write guard: hold the queue until the device unlocks, then
+               encrypt the payload at flush time. Already-encrypted payloads
+               (queued while keyed, in enc state) pass through untouched. */
+            const row = it.payload.row;
+            if (fhEncState() !== 'off' && row.amount_enc == null && row.amount != null) {
+              if (!fhKeyReady()) break;                      // resume after fhUnlockPrompt succeeds
+              Object.assign(row, await fhField('amount', Number(row.amount)), await fhField('note', row.note));
+            }
             const res = await sb.from('transactions').insert(it.payload.row).select('id').single();
             if (res.error) {
               if (/duplicate key|already exists/i.test(res.error.message || '')) { await _obDel(it.id); continue; }  // a prior replay landed it
@@ -203,17 +213,21 @@
   window.addEventListener('online', () => setTimeout(fhOutboxFlush, 600));
   setTimeout(() => { fhOutboxFlush(); }, 3000);            // catch anything queued from a previous session
 
-  /* Encrypted families must not fall back to plaintext writes: when the family
-     is post-scrub ('enc') and this device hasn't been unlocked, block the write
-     and ask for the passcode instead of quietly leaking a plaintext row. */
+  /* Once a family's encryption is on ('dual' or 'enc'), a device without the
+     key must not write money rows at all — that's the whole point of the code.
+     Block the write and open the passcode prompt instead; reading (and every
+     non-money feature) stays available. This guard fronts EVERY money write
+     path, so during the dual window no uncovered plaintext rows can be born
+     from an up-to-date client. */
   function _fhWriteLocked() {
-    if (fhEncState() === 'enc' && !fhKeyReady()) {
+    if (fhEncState() !== 'off' && !fhKeyReady()) {
       window.toast && window.toast(L('Nhập mã gia đình để ghi chép', 'Enter the family code to log entries'));
       if (window.fhUnlockPrompt) window.fhUnlockPrompt();
       return true;
     }
     return false;
   }
+  window._fhWriteLocked = _fhWriteLocked;
   async function _dbInsertTxn(t, exD) {
     const fid = window.DB.fid; if (!fid) return;
     if (_fhWriteLocked()) return;
@@ -234,8 +248,15 @@
       if (res.data) { t._dbId = res.data.id; if (t.photos && t.photos.length) _dbUploadTxnPhotos(t._dbId, t.photos); }
       _syncSoon();
     } catch (e) {
-      // A connection dropped mid-write is recoverable — queue it; anything else is real.
+      // A connection dropped mid-write is recoverable — queue it. So is an
+      // enc_required rejection (stale build / stale enc state): the entry goes
+      // to the outbox, recovery updates+unlocks the app, and the flush lands
+      // it encrypted — the user's typing is never the thing that gets lost.
       if (_isNetErr(e)) await _obQueueTxn(row, t);
+      else if (/enc_required/i.test(String((e && e.message) || ''))) {
+        await _obQueueTxn(row, t);
+        if (window._fhEncRecover) window._fhEncRecover();
+      }
       else _writeErr('txn insert failed', e);
     }
   }

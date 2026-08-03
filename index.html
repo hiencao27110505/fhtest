@@ -1623,24 +1623,29 @@ input{font-family:inherit}
    Collapsed rows are flat summary cards; the active row's card wraps the single
    #ex-editor. Flat, borders-not-fills, reuses theme tokens. */
 #bulk-list{display:flex;flex-direction:column;gap:10px}
-.bulk-card{border:1.5px solid var(--hairline);border-radius:14px;background:var(--white);overflow:hidden}
-.bulk-card.active{border-color:var(--brand);border-width:2px;background:var(--pearl)}
-.bulk-card.invalid{border-color:var(--danger);background:var(--danger-tint)}
+.bulk-card{border:1.5px solid var(--hairline);border-radius:13px;background:var(--white);overflow:hidden}
+.bulk-card.active{border-color:var(--brand);border-width:2px;background:var(--pearl);animation:fhpop .2s cubic-bezier(.22,1,.36,1) both}
+.bulk-card.invalid{border-color:var(--amber);background:var(--amber-tint)}
+.bs-pick{font-size:12px;font-weight:700;color:var(--amber);white-space:nowrap}
+.bs-dup{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
 .bulk-card:not(.active){display:flex;align-items:center}
-.bulk-tap{flex:1;min-width:0;display:flex;align-items:center;padding:13px 4px 13px 15px;cursor:pointer}
+/* Real <button> so it's focusable and announced by VoiceOver (not a bare div). */
+.bulk-tap{flex:1;min-width:0;display:flex;align-items:center;min-height:52px;padding:11px 4px 11px 15px;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .bulk-tap .bs-left{flex:1;min-width:0;display:flex;align-items:center}
 .bulk-tap .bs-right{display:flex;align-items:center;gap:10px;flex-shrink:0;padding-left:10px}
 .bs-note{font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bs-note.bs-empty{font-weight:500;color:var(--muted);font-style:italic}
+.bs-note.bs-empty{font-weight:500;color:var(--muted)}
 .bs-amt{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
 .bs-cat{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
 .bulk-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 2px}
 .bulk-idx{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-ink)}
 .bulk-card.active #ex-editor-mount{padding:6px 14px 14px}
-.bulk-x{flex-shrink:0;width:34px;height:44px;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--muted);background:transparent;border:none}
+/* 44×44 hit target (HIG) even though the glyph reads smaller — mirrors .photo-thumb .x. */
+.bulk-x{flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--muted);background:transparent;border:none;-webkit-tap-highlight-color:transparent}
 .bulk-x:active{color:var(--danger)}
-#bulk-add{width:100%;margin-top:12px;padding:13px;border-radius:13px;background:transparent;border:1.5px dashed var(--hairline);color:var(--brand-ink);font-size:15px;font-weight:600;letter-spacing:-.01em}
+#bulk-add{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;padding:15px;border-radius:13px;background:var(--canvas);border:2px dashed #d8d2df;color:var(--brand);font-size:15px;font-weight:700;letter-spacing:-.01em}
 #bulk-add:active{background:var(--brand-tint);border-color:var(--brand)}
+@media (prefers-reduced-motion:reduce){.bulk-card.active{animation:none}}
 
 /* new-event sheet — curated layout */
 .name-row{display:flex;gap:10px;align-items:stretch}
@@ -3027,7 +3032,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       <div class="ob-head"><div class="ob-h1" data-t="pcTitle">Set your family passcode</div><div class="ob-sub" data-t="pcSub">A 6-digit code, like the door code of your house. Members you invite will enter it to join, and it locks your money data so only your family can read it.</div></div>
       <div class="field"><label data-t="pcCode">6-digit code</label><input class="num big" id="ob-pc" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" oninput="obPcInput()"></div>
       <div class="field"><label data-t="pcRepeat">Repeat the code</label><input class="num big" id="ob-pc2" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" oninput="obPcInput()"></div>
-      <div class="ob-sub" data-t="pcWarn" style="margin-top:12px">Encryption is on from the start (you can turn it off later in Settings). If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered — not even by us.</div>
+      <div class="ob-sub" data-t="pcWarn" style="margin-top:12px">Encryption is on from the start (you can turn it off later in Settings). If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered. Not even by us.</div>
     </div>
     <div class="ob-foot"><button class="cta" id="ob-pc-cta" onclick="obPasscodeNext()" disabled>Continue</button></div>
   </section>
@@ -5925,10 +5930,18 @@ function prefillExpense(){
   loadRow(0);
   updateExWhen(); refreshExCta();
 }
+/* A category is usable only if it belongs to THIS family's set (or is the special
+   Event). Prevents a stale demo default like 'Groceries'/'Fun' — categories that
+   may not exist on a real account — from being written to the ledger. */
+function catValid(c){ return c==='Event' || (!!c && (catOrder||[]).indexOf(c)>=0); }
+/* The default category for a fresh manual row: the last-used one if it's real,
+   otherwise EMPTY (→ unclassified, the user picks) — never a phantom category. */
+function safeDefaultCat(){ return catValid(lastCat) ? lastCat : ''; }
+function rowHasContent(r){ return !!(r && ((r.note||'').trim() || parseAmtBase(r.amt||'')>0)); }
 /* A fresh draft row. Mirrors the old prefill defaults (last category/payer, today,
    or a preset's category/date) so a single-row modal behaves exactly as before. */
 function blankRow(preset){
-  var cat = (preset && preset.cat && catBudget[preset.cat]) ? preset.cat : lastCat;
+  var cat = (preset && catValid(preset.cat)) ? preset.cat : safeDefaultCat();
   var d   = (preset && preset.date) || isoDate(TODAY);
   return { note:'', amt:'', cat:cat, who:lastWho, date:d, _invalid:false };
 }
@@ -5951,7 +5964,7 @@ function loadRow(i){
   var iso = r.date || isoDate(TODAY);
   document.getElementById('ex-date').value = iso;
   setDateFloor('ex-date', isoMonthStart(-24), iso);
-  selectChipByVal('ex-cat', r.cat||lastCat);
+  selectChipByVal('ex-cat', catValid(r.cat) ? r.cat : '');   // unclassified → no chip selected
   selectChipByVal('ex-who', r.who||lastWho);
   updateExWhen(); refreshExCta();
 }
@@ -5986,8 +5999,13 @@ function bulkSummary(r){
   var right='';
   var base=parseAmtBase(r.amt||'');
   if(base>0) right+='<span class="bs-amt">'+fmt(base)+'</span>';
-  if(r.cat && r.cat!=='Event'){ var s=catStyle[r.cat]||['🏷️']; right+='<span class="bs-cat">'+s[0]+' '+r.cat+'</span>'; }
-  else if(r.cat==='Event') right+='<span class="bs-cat">🎈 Event</span>';
+  if(catValid(r.cat)){
+    if(r.cat==='Event') right+='<span class="bs-cat">🎈 Event</span>';
+    else { var s=catStyle[r.cat]||['🏷️']; right+='<span class="bs-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
+  } else if(note || base>0){                                  // has content but no real category → prompt to pick
+    right+='<span class="bs-cat bs-pick">'+L('Chọn danh mục','Pick a category')+'</span>';
+  }
+  if(r._dup) right+='<span class="bs-dup">'+L('lặp lại','repeat')+'</span>';
   return '<span class="bs-left">'+left+'</span><span class="bs-right">'+right+'</span>';
 }
 /* Rebuild the card list and relocate the single #ex-editor into the active card.
@@ -6005,13 +6023,19 @@ function renderBulk(){
     togglePhotoField(true);
     return;
   }
+  pruneEmptyRows();                                 // drop leftover empty cards (keeps the active input row)
   // Park the editor outside #bulk-list before the innerHTML rebuild would destroy it.
   var holder=document.getElementById('bulk-holder');
   if(!holder){ holder=document.createElement('div'); holder.id='bulk-holder'; holder.style.display='none'; document.getElementById('expense-modal').appendChild(holder); }
   holder.appendChild(editor);
+  markDuplicates();                                 // flag same note+amount rows (non-blocking hint)
   var html='';
   for(var i=0;i<bulkRows.length;i++){
-    var r=bulkRows[i], inv=r._invalid?' invalid':'';
+    var r=bulkRows[i];
+    // A card needs attention when it has content but no real category (unclassified),
+    // or was flagged invalid at save time.
+    var needCat = rowHasContent(r) && !catValid(r.cat);
+    var inv=(r._invalid || needCat)?' invalid':'';
     if(i===bulkActive){
       html+='<div class="bulk-card active'+inv+'">'
         +  '<div class="bulk-head"><span class="bulk-idx">'+L('Khoản ','Item ')+(i+1)+'</span>'
@@ -6019,8 +6043,8 @@ function renderBulk(){
         +  '</div><div id="ex-editor-mount"></div></div>';
     } else {
       html+='<div class="bulk-card'+inv+'">'
-        +  '<div class="bulk-tap" onclick="setActiveRow('+i+')">'+bulkSummary(r)+'</div>'
-        +  '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá','Remove')+'">✕</button>'
+        +  '<button type="button" class="bulk-tap" onclick="setActiveRow('+i+')" aria-label="'+L('Sửa khoản ','Edit item ')+(i+1)+'">'+bulkSummary(r)+'</button>'
+        +  '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá khoản ','Remove item ')+(i+1)+'">✕</button>'
         +  '</div>';
     }
   }
@@ -6032,6 +6056,30 @@ function renderBulk(){
 }
 function togglePhotoField(show){
   var f=document.getElementById('ex-photofield'); if(f) f.style.display=show?'':'none';
+}
+/* Remove empty draft cards (no note & no amount) except the one being edited, so a
+   comma-then-move-on doesn't leave "(khoản trống)" cards behind. Keeps ≥1 row. */
+function pruneEmptyRows(){
+  if(bulkRows.length<=1) return;
+  var active=bulkRows[bulkActive];
+  var kept=bulkRows.filter(function(r){
+    if(r===active) return true;
+    return (r.note||'').trim() || parseAmtBase(r.amt||'');
+  });
+  if(!kept.length) kept=[active||blankRow()];
+  bulkActive=kept.indexOf(active); if(bulkActive<0) bulkActive=kept.length-1;
+  bulkRows=kept;
+}
+/* Flag later rows that repeat an earlier row's note + amount — a gentle "lặp lại"
+   hint, never blocking (the family may legitimately buy the same thing twice). */
+function markDuplicates(){
+  var seen={};
+  bulkRows.forEach(function(r){
+    r._dup=false;
+    var note=(r.note||'').trim(); if(!note) return;
+    var key=deburr(note.toLowerCase())+'|'+parseAmtBase(r.amt||'');
+    if(seen[key]) r._dup=true; else seen[key]=true;
+  });
 }
 /* ---- comma-triggered NL line parsing ---------------------------------------
    Typing a comma in CHI CHO GÌ? commits the completed segment(s) as rows and
@@ -6051,21 +6099,24 @@ function handleCommaSplit(){
   for(var i=1;i<done.length;i++){ bulkRows.push(rowFromParsed(parseBulkLine(done[i]))); }
   bulkRows.push(rowFromParsed({note:remainder.trim(), amt:'', cat:''}));   // fresh active row seeded with the remainder
   bulkActive=bulkRows.length-1;
+  // Dismiss the keyboard so the just-parsed rows are visible; the new form is ready
+  // and expanded, the user taps its field to continue. Blur BEFORE render so iOS
+  // doesn't re-anchor the scroll to a field that's about to move in the DOM.
+  var ae=document.activeElement; if(ae && ae.blur) ae.blur();
   renderBulk();
   loadRow(bulkActive);
-  var n=document.getElementById('ex-note'); if(n){ n.focus(); var L2=n.value.length; try{ n.setSelectionRange(L2,L2); }catch(e){} }
 }
 function applyParsed(i, p){
   var r=bulkRows[i]; if(!r) return;
   r.note=p.note;
   if(p.amt) r.amt=p.amt;
-  if(p.cat) r.cat=p.cat;
+  r.cat=catValid(p.cat) ? p.cat : '';        // failed guess → unclassified (the user picks), never a stale default
 }
 function rowFromParsed(p){
   var r=blankRow();
   r.note=p.note||'';
   if(p.amt) r.amt=p.amt;
-  if(p.cat) r.cat=p.cat;
+  r.cat=catValid(p.cat) ? p.cat : '';
   return r;
 }
 /* Parse one segment → {note, amt (display-currency string), cat}. */
@@ -6106,26 +6157,94 @@ function matchAmount(s){
 /* Diacritic-insensitive category guess from note keywords (EN + VN). Only returns
    a category the family actually has (iterates catOrder); otherwise '' → keep last. */
 function deburr(s){ return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D'); }
-var CAT_KEYWORDS={
-  'Dining':['ca phe','coffee','cafe','tra sua','tra','an','com','pho','bun','mi','nha hang','restaurant','lunch','dinner','breakfast','quan','bia','beer','banh','nhau','do an','food','eat','tea','pizza','ga ran','kfc','lotteria','highland','starbucks','tiem','an sang','an trua','an toi','snack'],
-  'Transport':['xang','gas','grab','taxi','xe','bus','gui xe','parking','petrol','fuel','uber','xe om','gojek','do xang','ferry','ve xe','ve tau','ve may bay','flight','grabbike','grabcar','sua xe','rua xe'],
-  'Groceries':['cho','market','sieu thi','supermarket','rau','thit','ca hoi','ca thu','grocery','groceries','bach hoa','coopmart','bigc','winmart','vinmart','lotte','emart','gao','trai cay','fruit','vegetable','meat','di cho','do kho'],
-  'Housing':['dien','nuoc','internet','wifi','tien nha','rent','thue','electricity','water','quan ly','phi quan ly','tien dien','tien nuoc','tien internet','mang','cap','rac','phi chung cu','sua nha','noi that'],
-  'Fun':['phim','cinema','game','choi','du lich','travel','movie','karaoke','party','net','bi a','billiards','concert','ve xem','giai tri','massage','spa','gym','the thao','sach','book','shopping','mua sam','quan ao','ao quan'],
-  'Others':['khac','other','others','linh tinh','thuoc','pharmacy','y te','benh vien','hoc','tuition','hoc phi']
+/* ---- bilingual category guessing -------------------------------------------
+   Two independent axes, deliberately NOT conflated:
+   • note LANGUAGE → tied to the UI language (isVi()). Keyword lists are split so a
+     word that means different things across languages resolves by the user's own
+     language first. Classic trap: "gas" = fuel (Transport) in EN, but cooking gas
+     (Housing) in VN. Brand/loan words (grab, kfc…) live in a SHARED list matched in
+     both. The other language is a best-effort fallback only.
+   • note keywords → an abstract CONCEPT; the CONCEPT then maps to the FAMILY's own
+     category by NAME or EMOJI (see CONCEPT_MATCH), so it works whatever language the
+     family named their categories in, and never invents a category they don't have.
+   (Amount MAGNITUDE is a third axis, tied to CURRENCY not language — see matchAmount.) */
+var KW_SHARED={   // brand / loan words, safe in either language
+  'Transport':['grab','gojek','uber','taxi','grabbike','grabcar'],
+  'Dining':['cafe','kfc','lotteria','starbucks','highland','pizza','burger','sushi'],
+  'Groceries':['coopmart','bigc','winmart','vinmart','emart'],
+  'Fun':['netflix','spotify','karaoke']
 };
-function guessCat(note){
-  var t=deburr((note||'').toLowerCase()).replace(/\s+/g,' ').trim();
-  if(!t) return '';
-  var padded=' '+t+' ';
-  for(var i=0;i<catOrder.length;i++){
-    var c=catOrder[i], kws=CAT_KEYWORDS[c]; if(!kws) continue;
-    for(var j=0;j<kws.length;j++){
-      var kw=deburr(kws[j].toLowerCase()).trim();
-      if(kw && padded.indexOf(' '+kw+' ')>=0) return c;
+var KW_VI={
+  'Housing':['dien','tien dien','nuoc','tien nuoc','internet','wifi','mang','tien nha','thue nha','tien phong','quan ly','phi quan ly','tien internet','cap','rac','phi chung cu','sua nha','noi that','gas','tien gas','binh gas'],
+  'Groceries':['cho','di cho','sieu thi','rau','thit','ca hoi','ca thu','bach hoa','gao','trai cay','do kho','thuc pham','nhu yeu pham','do an'],
+  'Clothing':['quan ao','ao quan','ao','quan jean','quan tay','quan short','vay','ao dai','ao thun','giay','dep','giay dep','thoi trang','tui xach'],
+  'Shopping':['mua sam','sam do','sam sua'],
+  'Transport':['xang','do xang','xe','xe om','xe buyt','bus','gui xe','ve xe','ve tau','ve may bay','sua xe','rua xe','phi cau duong'],
+  'Dining':['ca phe','an','an uong','com','pho','bun','mi','bun bo','nha hang','bia','ruou','banh','nhau','tra sua','tra','tiem','an sang','an trua','an toi','quan an','quan nhau','quan oc','quan cafe','quan bia','lau','nuong','che'],
+  'Fun':['phim','xem phim','choi','di choi','du lich','game','net','bi a','concert','ve xem','giai tri','massage','spa','gym','the thao','sach','ca hat','hat karaoke'],
+  'Others':['khac','linh tinh','thuoc','y te','benh vien','hoc','hoc phi','tien hoc']
+};
+var KW_EN={
+  'Housing':['electricity','water','rent','utilities','bills','gas bill','internet bill','maintenance','furniture','wifi'],
+  'Groceries':['grocery','groceries','market','supermarket','vegetable','vegetables','fruit','fruits','meat','fish','rice'],
+  'Clothing':['clothes','clothing','shirt','tshirt','t-shirt','dress','shoes','jeans','jacket','apparel','skirt','sneakers','bag'],
+  'Shopping':['shopping','mall'],
+  'Transport':['gas','fuel','petrol','bus','parking','fare','flight','train ticket','ride'],
+  'Dining':['coffee','restaurant','lunch','dinner','breakfast','brunch','beer','wine','tea','snack','eat','food','meal','drinks','dining'],
+  'Fun':['movie','cinema','game','games','travel','trip','concert','massage','spa','gym','book','books','music'],
+  'Others':['other','others','misc','medicine','pharmacy','hospital','tuition','school']
+};
+/* CONCEPT → how to recognise the FAMILY's own category for it, by NAME (deburred
+   substring) OR emoji — never by an English key. */
+var CONCEPT_MATCH={
+  'Housing':  {names:['nha o','nha cua','housing','sinh hoat','hoa don','tien nha','rent','utilities','bills'], emojis:['🏠','🏡','💡','🧾','🔌']},
+  'Groceries':{names:['di cho','cho bua','groceries','grocery','thuc pham','sieu thi','nhu yeu pham'], emojis:['🛒','🥬','🥦']},
+  'Clothing': {names:['clothing','thoi trang','quan ao','clothes','apparel'],                emojis:['👕','👗','🧥','👖','👚','👟']},
+  'Shopping': {names:['shopping','mua sam','mall'],                                          emojis:['🛍️','🎁']},
+  'Transport':{names:['di chuyen','di lai','transport','transportation','giao thong','commute'], emojis:['🚗','🚕','🛵','⛽','🚌','✈️']},
+  'Dining':   {names:['an uong','am thuc','dining','food','eating'],                         emojis:['🍽️','🍜','🍔','☕','🍲','🥘']},
+  'Fun':      {names:['giai tri','vui choi','fun','entertainment','leisure'],                emojis:['🎉','🎈','🎮','🎬','🎡']},
+  'Others':   {names:['khac','other','others','linh tinh','misc'],                           emojis:['🗂️','📦','🏷️']}
+};
+/* Specific concepts before broad ones so e.g. "quần áo"→Clothing (not Dining's 'an')
+   and "mua sắm"→Shopping win before Dining/Fun. */
+var CONCEPT_ORDER=['Housing','Groceries','Clothing','Shopping','Transport','Fun','Dining','Others'];
+function _scanConcepts(padded, dicts){
+  for(var k=0;k<CONCEPT_ORDER.length;k++){
+    var cpt=CONCEPT_ORDER[k];
+    for(var d=0;d<dicts.length;d++){
+      var kws=dicts[d][cpt]; if(!kws) continue;
+      for(var j=0;j<kws.length;j++){
+        var kw=deburr(kws[j].toLowerCase()).trim();
+        if(kw && padded.indexOf(' '+kw+' ')>=0) return cpt;
+      }
     }
   }
   return '';
+}
+function conceptFromNote(note){
+  var t=deburr((note||'').toLowerCase()).replace(/\s+/g,' ').trim();
+  if(!t) return '';
+  var padded=' '+t+' ';
+  var vi=(typeof isVi==='function' && isVi());
+  var primary = vi ? KW_VI : KW_EN, secondary = vi ? KW_EN : KW_VI;
+  return _scanConcepts(padded, [KW_SHARED, primary])   // shared + the user's language win
+      || _scanConcepts(padded, [secondary])            // other language: best-effort for cross-language terms
+      || '';
+}
+function familyCatForConcept(concept){
+  var m=CONCEPT_MATCH[concept]; if(!m) return '';
+  for(var i=0;i<catOrder.length;i++){
+    var c=catOrder[i], name=deburr(String(c).toLowerCase()), emoji=(catStyle[c]||[])[0];
+    for(var n=0;n<m.names.length;n++){ if(name.indexOf(deburr(m.names[n]))>=0) return c; }
+    if(emoji && m.emojis.indexOf(emoji)>=0) return c;
+  }
+  return '';   // family has no category for this concept → leave unclassified (user picks)
+}
+/* Guess the family's category from a note. Returns '' (unclassified) when unsure. */
+function guessCat(note){
+  var concept=conceptFromNote(note||'');
+  return concept ? familyCatForConcept(concept) : '';
 }
 /* Persist every draft row in one shot through the durable public addExpense
    (its write-through wrapper fires per call). BULK_SAVING mutes each call's own
@@ -6142,12 +6261,12 @@ function submitBulk(){
   var rows=bulkRows.filter(function(r){ return (r.note||'').trim() || parseAmtBase(r.amt||''); });  // drop blank rows
   if(!rows.length){ toast(L('Chưa có khoản nào để lưu','Nothing to save yet')); return; }
   var firstInvalid=-1;
-  rows.forEach(function(r,i){ r._invalid=!(parseAmtBase(r.amt||'')>0 && r.cat); if(r._invalid && firstInvalid<0) firstInvalid=i; });
+  rows.forEach(function(r,i){ r._invalid=!(parseAmtBase(r.amt||'')>0 && catValid(r.cat)); if(r._invalid && firstInvalid<0) firstInvalid=i; });
   bulkRows=rows;                                    // keep only the real rows in the model
   if(firstInvalid>=0){
     bulkActive=firstInvalid;
     renderBulk(); loadRow(bulkActive);
-    toast(L('Thiếu số tiền hoặc nhóm ở một khoản','An item is missing amount or category'));
+    toast(L('Còn một khoản thiếu số tiền hoặc danh mục','An item still needs an amount or a category'));
     return;
   }
   var total=0, n=rows.length;
@@ -6508,7 +6627,7 @@ function refreshExCta(){                                    // nav-bar Save butt
     var r=rows[i];
     if(!(r.note||'').trim() && !parseAmtBase(r.amt||'')) continue;   // fully-empty row → ignored
     considered++;
-    if(!(parseAmtBase(r.amt||'')>0 && r.cat)) allValid=false;
+    if(!(parseAmtBase(r.amt||'')>0 && catValid(r.cat))) allValid=false;   // real category required, not just any truthy value
   }
   s.disabled = !(considered>=1 && allValid);
   // Label: keep updateExWhen()'s single-row Lưu/Gửi; only override for a true batch.
@@ -8108,7 +8227,7 @@ var EN_DEFAULT={
   familyTitle:'Your family', familySub:"Start a new family, or join one you've been invited to.",
   startFamily:'Start a new family', startFamilyS:"You'll name it and invite others", joinFamily:'Join a family', joinFamilyS:'Enter your family’s passcode',
   joinTitle:'Enter the family passcode', joinSub:'The owner adds your Google email to the invite list, then tells you the family’s 6-digit code.', joinCta:'Join family',
-  pcTitle:'Set your family passcode', pcSub:'A 6-digit code, like the door code of your house. Members you invite will enter it to join, and it locks your money data so only your family can read it.', pcCode:'6-digit code', pcRepeat:'Repeat the code', pcWarn:'Encryption is on from the start (you can turn it off later in Settings). If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered — not even by us.',
+  pcTitle:'Set your family passcode', pcSub:'A 6-digit code, like the door code of your house. Members you invite will enter it to join, and it locks your money data so only your family can read it.', pcCode:'6-digit code', pcRepeat:'Repeat the code', pcWarn:'Encryption is on from the start (you can turn it off later in Settings). If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered. Not even by us.',
   profileTitle:'Set up your profile', profileSub:'This is how your family will see you.', yourName:'Your name', youAreThe:'You are the…', phObName:'e.g. Emma',
   setFamilyTitle:'Set up your family', setFamilySub:"Name it and invite who's in it.", familyName:'Family name', phFamName:'e.g. The Reeds', membersInvites:'Members & invites', inviteMember:'＋ Invite a member',
   budgetTitle:'Set your budget', budgetSub:'A monthly target for the family, then a budget per category.', monthlyBudget:'Monthly budget', categoryBudgets:'Category budgets', categoryBudgetsHint:'Suggested from your total. Adjust anytime.',
@@ -8218,7 +8337,7 @@ var I18N={
     familyTitle:'Gia đình của bạn', familySub:'Tạo gia đình mới, hoặc tham gia gia đình đã mời bạn.',
     startFamily:'Tạo gia đình mới', startFamilyS:'Bạn đặt tên rồi mời mọi người vào', joinFamily:'Tham gia gia đình', joinFamilyS:'Nhập mã gia đình',
     joinTitle:'Nhập mã gia đình', joinSub:'Chủ gia đình thêm email Google của bạn vào danh sách mời, rồi cho bạn mã 6 số.', joinCta:'Tham gia',
-    pcTitle:'Đặt mã gia đình', pcSub:'Mã 6 số, như mã cửa nhà mình. Người thân bạn mời sẽ nhập mã này để vào, và mã cũng khóa dữ liệu tiền nong để chỉ gia đình bạn đọc được.', pcCode:'Mã 6 số', pcRepeat:'Nhập lại mã', pcWarn:'Mã hóa được bật ngay từ đầu (có thể tắt sau trong Cài đặt). Nếu cả nhà quên mã và không còn thiết bị nào đang đăng nhập, dữ liệu tiền đã mã hóa sẽ không thể khôi phục — kể cả chúng tôi.',
+    pcTitle:'Đặt mã gia đình', pcSub:'Mã 6 số, như mã cửa nhà mình. Người thân bạn mời sẽ nhập mã này để vào, và mã cũng khóa dữ liệu tiền nong để chỉ gia đình bạn đọc được.', pcCode:'Mã 6 số', pcRepeat:'Nhập lại mã', pcWarn:'Mã hóa được bật ngay từ đầu (có thể tắt sau trong Cài đặt). Nếu cả nhà quên mã và không còn thiết bị nào đang đăng nhập, dữ liệu tiền đã mã hóa sẽ không thể khôi phục, kể cả chúng tôi.',
     profileTitle:'Thiết lập hồ sơ', profileSub:'Đây là cách cả nhà nhìn thấy bạn.', yourName:'Tên của bạn', youAreThe:'Bạn là…', phObName:'vd. Hân',
     setFamilyTitle:'Thiết lập gia đình', setFamilySub:'Đặt tên và mời mọi người vào nhà.', familyName:'Tên gia đình', phFamName:'vd. Nhà mình', membersInvites:'Thành viên & lời mời', inviteMember:'＋ Mời thành viên',
     budgetTitle:'Đặt ngân sách', budgetSub:'Mục tiêu hằng tháng của cả nhà, rồi ngân sách cho từng danh mục.', monthlyBudget:'Ngân sách hằng tháng', categoryBudgets:'Ngân sách theo danh mục', categoryBudgetsHint:'Tụi mình gợi ý sẵn từ tổng ngân sách, bạn chỉnh lúc nào cũng được.',
@@ -8704,7 +8823,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v246';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v250';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -9397,6 +9516,9 @@ function openWhatsNew(){
   // surface write failures instead of failing silently
   function _writeErr(what, e) {
     console.warn(what, e);
+    // a rejected plaintext write (0033 'enc_required') self-heals: SW update
+    // check + re-sync + passcode prompt, so the user can retry immediately
+    if (/enc_required/i.test(String((e && (e.message || e.error_description)) || '')) && window._fhEncRecover) window._fhEncRecover();
     // A connection drop isn't "something went wrong": the transaction is already
     // queued (R9) and other writes reconcile on the next hydrate. Staying silent
     // here stops a false error toast from stomping the "Saved on this device" one.
@@ -9517,14 +9639,19 @@ function openWhatsNew(){
          passcode prompt. */
       window.DB.enc = encMeta || null;
       if (encMeta) { try { await fhKeyLoad(fid); } catch (e) {} }
-      /* Encryption is FAMILY-wide: the moment the owner turns it on, every other
-         device learns it here (realtime on family_keys re-runs this hydrate) and
-         gets nudged for the code — during 'dual' as a banner (numbers still show
-         via plaintext), in 'enc' also auto-opening the prompt once per session. */
+      /* Encryption is FAMILY-wide and strict (option A): the moment the owner
+         turns it on, every device learns it here (realtime on family_keys
+         re-runs this hydrate). An un-keyed device gets the passcode prompt on
+         app open and on each return to the foreground (re-nudged at most every
+         10 minutes so a deliberate dismissal is respected), plus the permanent
+         lock bar. Money WRITES are hard-blocked elsewhere until unlocked;
+         reading and non-money features stay available, so a member who hasn't
+         received the code yet is never locked out of the family. */
       const _needsKey = !!(encMeta && encMeta.enc_state !== 'off' && !fhKeyReady());
       if (window.fhLockBanner) window.fhLockBanner(_needsKey, encMeta && encMeta.enc_state);
-      if (_needsKey && encMeta.enc_state === 'enc' && !window.__fhUnlockNudged) {
-        window.__fhUnlockNudged = true;
+      const _nudgeDue = _needsKey && (!window.__fhUnlockNudgedAt || Date.now() - window.__fhUnlockNudgedAt > 600000);
+      if (_nudgeDue && window.editingTx == null && !document.querySelector('.sheet.on, .modal.on')) {
+        window.__fhUnlockNudgedAt = Date.now();
         setTimeout(() => { try { window.fhUnlockPrompt && window.fhUnlockPrompt(); } catch (e) {} }, 700);
       }
       async function _decRows(rows, fields) {
@@ -9945,6 +10072,16 @@ function openWhatsNew(){
       for (const it of items) {
         try {
           if (it.kind === 'insertTxn') {
+            /* Entries queued before encryption turned on (or while this device
+               was un-keyed) carry plaintext. Never let the replay bypass the
+               write guard: hold the queue until the device unlocks, then
+               encrypt the payload at flush time. Already-encrypted payloads
+               (queued while keyed, in enc state) pass through untouched. */
+            const row = it.payload.row;
+            if (fhEncState() !== 'off' && row.amount_enc == null && row.amount != null) {
+              if (!fhKeyReady()) break;                      // resume after fhUnlockPrompt succeeds
+              Object.assign(row, await fhField('amount', Number(row.amount)), await fhField('note', row.note));
+            }
             const res = await sb.from('transactions').insert(it.payload.row).select('id').single();
             if (res.error) {
               if (/duplicate key|already exists/i.test(res.error.message || '')) { await _obDel(it.id); continue; }  // a prior replay landed it
@@ -9964,17 +10101,21 @@ function openWhatsNew(){
   window.addEventListener('online', () => setTimeout(fhOutboxFlush, 600));
   setTimeout(() => { fhOutboxFlush(); }, 3000);            // catch anything queued from a previous session
 
-  /* Encrypted families must not fall back to plaintext writes: when the family
-     is post-scrub ('enc') and this device hasn't been unlocked, block the write
-     and ask for the passcode instead of quietly leaking a plaintext row. */
+  /* Once a family's encryption is on ('dual' or 'enc'), a device without the
+     key must not write money rows at all — that's the whole point of the code.
+     Block the write and open the passcode prompt instead; reading (and every
+     non-money feature) stays available. This guard fronts EVERY money write
+     path, so during the dual window no uncovered plaintext rows can be born
+     from an up-to-date client. */
   function _fhWriteLocked() {
-    if (fhEncState() === 'enc' && !fhKeyReady()) {
+    if (fhEncState() !== 'off' && !fhKeyReady()) {
       window.toast && window.toast(L('Nhập mã gia đình để ghi chép', 'Enter the family code to log entries'));
       if (window.fhUnlockPrompt) window.fhUnlockPrompt();
       return true;
     }
     return false;
   }
+  window._fhWriteLocked = _fhWriteLocked;
   async function _dbInsertTxn(t, exD) {
     const fid = window.DB.fid; if (!fid) return;
     if (_fhWriteLocked()) return;
@@ -9995,8 +10136,15 @@ function openWhatsNew(){
       if (res.data) { t._dbId = res.data.id; if (t.photos && t.photos.length) _dbUploadTxnPhotos(t._dbId, t.photos); }
       _syncSoon();
     } catch (e) {
-      // A connection dropped mid-write is recoverable — queue it; anything else is real.
+      // A connection dropped mid-write is recoverable — queue it. So is an
+      // enc_required rejection (stale build / stale enc state): the entry goes
+      // to the outbox, recovery updates+unlocks the app, and the flush lands
+      // it encrypted — the user's typing is never the thing that gets lost.
       if (_isNetErr(e)) await _obQueueTxn(row, t);
+      else if (/enc_required/i.test(String((e && e.message) || ''))) {
+        await _obQueueTxn(row, t);
+        if (window._fhEncRecover) window._fhEncRecover();
+      }
       else _writeErr('txn insert failed', e);
     }
   }
@@ -10258,6 +10406,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
 
   const _origAddExpense = window.addExpense;
   window.addExpense = function () {
+    if (_fhWriteLocked()) return;                            // guard BEFORE the optimistic local row exists
     const before = {}; (window.txns || []).forEach((t) => { before[t.id] = 1; });
     const beforeOrder = (window.order || []).slice();
     const exD = (typeof window.exDate === 'function') ? window.exDate() : null;
@@ -10280,6 +10429,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   };
   const _origSaveEdit = window.saveExpenseEdit;
   window.saveExpenseEdit = function () {
+    if (_fhWriteLocked()) return;
     const id = window.editingTx;
     const tx = (id != null && typeof txById === 'function') ? txById(id) : null;
     const dbId = tx ? tx._dbId : null;
@@ -10299,6 +10449,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
      fired at close time would be a lie if the upload then failed. */
   const _origPaApply = window.paApply;
   window.paApply = async function (txId, srcs) {
+    if (_fhWriteLocked()) return null;                       // spawns mirror events + fundings — money writes
     const beforeOrder = (window.order || []).slice();
     const t = _origPaApply.apply(this, arguments);
     if (!t) return null;
@@ -10346,6 +10497,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   // ---- write-through: events & funding ----
   async function _dbInsertEvent(localKey, opts) {
     opts = opts || {};
+    if (_fhWriteLocked()) return;
     try {
       const fid = window.DB.fid; if (!fid) return;
       const e = window.events[localKey]; if (!e || e._dbId) return;
@@ -10400,12 +10552,14 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   }
   const _origAddEvent = window.addEvent;
   window.addEvent = function () {
+    if (_fhWriteLocked()) return;
     const beforeOrder = (window.order || []).slice();
     _origAddEvent.apply(this, arguments);
     (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => { const p = _dbInsertEvent(k, { savingsSource: (window.selSrc === 'savings') }); const ev = window.events[k]; if (ev) ev._dbPending = p; });
   };
   const _origAddFunds = window.addFunds;
   window.addFunds = function () {
+    if (_fhWriteLocked()) return;
     const evKey = (typeof chosen === 'function' && chosen('fn-event')) || window.curEvent || (window.order || [])[0];
     const who = (typeof chosen === 'function' && chosen('fn-who')) || null;
     const savingsBefore = window.savings;
@@ -10506,7 +10660,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     } catch (e) { _writeErr('budget save failed', e); }
   }
   const _origSetBudget = window.setBudget;
-  window.setBudget = function () { _origSetBudget.apply(this, arguments); _dbSaveBudget(); };
+  window.setBudget = function () { if (_fhWriteLocked()) return; _origSetBudget.apply(this, arguments); _dbSaveBudget(); };
 
   // ---- write-through: theme ----
   const _origApplyTheme = window.applyTheme;
@@ -10690,6 +10844,9 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     try { then = await ctx.save(); }
     catch (e) {
       save.textContent = ctx.saveLabel || L('Lưu','Save'); save.disabled = false;
+      // enc_required through a modal form (income, savings): keep the form open
+      // as usual AND run recovery so the app updates/unlocks for the retry
+      if (/enc_required/i.test(String((e && e.message) || '')) && window._fhEncRecover) window._fhEncRecover();
       window.toast && window.toast(_friendly(e));         // recoverable: modal stays open
       return;
     }
@@ -10704,6 +10861,9 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   function _friendly(e) {
     if (e && e.fhMsg) return e.fhMsg;                       // deliberately localized app errors pass through
     const raw = String((e && (e.message || e.error_description)) || e || '');
+    // 0033 DB trigger: a plaintext money write reached an encrypted family
+    // (stale build or missing key) — tell the user what actually unblocks them.
+    if (/enc_required/i.test(raw)) return L('Gia đình đã bật mã hóa. Đóng mở lại app cho bản mới nhất rồi nhập mã 6 số nhé','Encryption is on. Reopen the app for the latest version, then enter the 6-digit code');
     if (/row-level security|permission denied|not authorized/i.test(raw)) return L('Bạn không có quyền cho thao tác này','You don’t have permission for that');
     if (/duplicate key|already exists/i.test(raw)) return L('Mục này đã tồn tại','That already exists');
     // iOS Safari reports an offline fetch as "Load failed" (not "Failed to fetch"),
@@ -10944,8 +11104,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   const _pcOk = (id) => /^\d{6}$/.test(_pcVal(id));
   // The one honest warning, shown wherever the passcode is created or changed.
   const _pcWarn = () => '<div class="field-hint" style="margin-top:10px">'
-    + L('Mã này là chìa khóa duy nhất khi bật mã hóa tài chính. Nếu cả nhà quên mã và không còn thiết bị nào đang đăng nhập, dữ liệu đã mã hóa sẽ mất vĩnh viễn — chúng tôi không thể khôi phục.',
-        'This code is the only key once money encryption is on. If everyone forgets it and no signed-in device remains, encrypted money data is gone forever — we cannot recover it.')
+    + L('Mã này là chìa khóa duy nhất khi bật mã hóa tài chính. Nếu cả nhà quên mã và không còn thiết bị nào đang đăng nhập, dữ liệu đã mã hóa sẽ mất vĩnh viễn, chúng tôi cũng không thể khôi phục.',
+        'This code is the only key once money encryption is on. If everyone forgets it and no signed-in device remains, encrypted money data is gone for good. We can’t recover it either.')
     + '</div>';
 
   function _fhLockedMsg(secs) {
@@ -10962,6 +11122,25 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     throw err;
   }
   const _fhErr = (msg) => { const e = new Error(msg); e.fhMsg = msg; return e; };   // survives _friendly()
+
+  /* Recovery for a server-rejected plaintext write (0033 'enc_required'). The
+     goal is that the user continues, not just learns why they failed:
+       1. an immediate SW update check — if this build is stale, the new sw.js
+          installs, controllerchange fires and the app reloads itself into the
+          current build (the queued entry survives the reload in IndexedDB);
+       2. a state refresh — hydrate re-learns enc_state so the client guards
+          and the lock widget engage without waiting for realtime;
+       3. the passcode prompt — after unlock the outbox flush lands anything
+          that was held.
+     Debounced: one recovery per 10s no matter how many writes bounced. */
+  let _fhRecovAt = 0;
+  window._fhEncRecover = async function () {
+    if (Date.now() - _fhRecovAt < 10000) return;
+    _fhRecovAt = Date.now();
+    try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) reg.update(); } catch (e) {}
+    try { if (window.loadFamilyData) await window.loadFamilyData(); } catch (e) {}
+    if (window.DB && window.DB.enc && window.DB.enc.enc_state !== 'off' && !fhKeyReady()) window.fhUnlockPrompt();
+  };
 
   // ── Joiner: prep the join screen from the pending invite for this email ──
   window.obJoinPrep = async function () {
@@ -11076,7 +11255,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       + (rows ? '<div class="fh-s-lab" style="margin-top:18px">' + L('Đang chờ tham gia', 'Waiting to join') + '</div>' + rows : '')
       + '<div class="fh-s-lab" style="margin-top:18px">' + L('Mã gia đình', 'Family passcode') + '</div>'
       + '<div class="fh-s-row"><div class="fh-s-grow"><div class="fh-s-name num">••••••</div>'
-      + '<div class="fh-s-meta">' + L('Chỉ gia đình bạn biết mã này — hệ thống không lưu mã gốc', 'Only your family knows it — the raw code is never stored') + '</div></div>'
+      + '<div class="fh-s-meta">' + L('Chỉ gia đình bạn biết mã này. Hệ thống không lưu mã gốc', 'Only your family knows it. The raw code is never stored') + '</div></div>'
       + _btn(L('Đổi mã', 'Change'), 'fhChangePasscode()', 'fh-s-edit') + '</div>'
       + _btn(L('Xong', 'Done'), '_closeOv()', _S.ghost)
     );
@@ -11125,8 +11304,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     _fhModal({
       title: L('Đặt mã gia đình', 'Set the family passcode'),
       saveLabel: L('Đặt mã', 'Set code'),
-      body: '<div class="fh-s-sub">' + L('Mã 6 số để người thân vào gia đình — như mã cửa nhà. Cả nhà dùng chung một mã.',
-                                          'A 6-digit code your family uses to enter — like the door code of your house. Everyone shares the same code.') + '</div>'
+      body: '<div class="fh-s-sub">' + L('Mã 6 số để người thân vào gia đình, như mã cửa nhà mình. Cả nhà dùng chung một mã.',
+                                          'A 6-digit code your family uses to enter, like the door code of your house. Everyone shares the same code.') + '</div>'
         + _pcField('fh-pc-new', L('Mã 6 số', '6-digit code'))
         + _pcField('fh-pc-new2', L('Nhập lại mã', 'Repeat the code'))
         + _pcWarn(),
@@ -11154,8 +11333,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       body: _pcField('fh-pc-old', L('Mã hiện tại', 'Current code'))
         + _pcField('fh-pc-new', L('Mã mới', 'New code'))
         + _pcField('fh-pc-new2', L('Nhập lại mã mới', 'Repeat the new code'))
-        + '<div class="field-hint">' + L('Thành viên đang dùng app không bị ảnh hưởng — chỉ người vào sau cần mã mới.',
-                                          'Members already in the app aren’t affected — only future joins need the new code.') + '</div>'
+        + '<div class="field-hint">' + L('Thành viên đang dùng app không bị ảnh hưởng, chỉ người vào sau cần mã mới.',
+                                          'Members already in the app aren’t affected. Only future joins need the new code.') + '</div>'
         + _pcWarn(),
       valid: () => _pcOk('fh-pc-old') && _pcOk('fh-pc-new') && _pcVal('fh-pc-new') === _pcVal('fh-pc-new2'),
       save: async () => {
@@ -11190,11 +11369,15 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   window.fhUnlockPrompt = function () {
     const enc = window.DB && window.DB.enc;
     if (!enc || !enc.wrapped_dek) { window.toast && window.toast(L('Gia đình chưa đặt mã', 'No passcode set yet')); return; }
+    const why = enc.enc_state === 'dual'
+      ? L('Gia đình đang bật mã hóa tài chính. Nhập mã 6 số một lần để tiếp tục ghi chép trên máy này.',
+          'Your family is turning on money encryption. Enter the 6-digit code once to keep logging on this device.')
+      : L('Thiết bị này cần mã 6 số của gia đình để hiện số tiền và ghi chép.',
+          'This device needs the family’s 6-digit code to show amounts and log entries.');
     _fhModal({
       title: L('Nhập mã gia đình', 'Enter the family passcode'),
       saveLabel: L('Mở khóa', 'Unlock'),
-      body: '<div class="fh-s-sub">' + L('Thiết bị này cần mã 6 số của gia đình để hiện số tiền.',
-                                          'This device needs the family’s 6-digit code to show money values.') + '</div>'
+      body: '<div class="fh-s-sub">' + why + '</div>'
         + _pcField('fh-pc-unlock', L('Mã 6 số', '6-digit code')),
       valid: () => _pcOk('fh-pc-unlock'),
       save: async () => {
@@ -11206,26 +11389,36 @@ window.fhResolveCsvMapping = resolveCsvMapping;
         try { _rpc('mark_key_unlocked'); } catch (e) {}       // roster stamp, fire-and-forget
         window.fhLockBanner(false);
         window.toast && window.toast(L('Đã mở khóa ✓', 'Unlocked ✓'));
+        if (window.fhOutboxFlush) setTimeout(() => window.fhOutboxFlush(), 400);   // money rows held for the key can go now
         if (window.loadFamilyData) window.loadFamilyData();
       }
     });
   };
 
-  // Small persistent lock bar shown while this device lacks the family key.
-  // In 'dual' numbers still display (plaintext is there) — the bar invites the
-  // one-time code entry so this device writes ciphertext BEFORE the scrub.
+  /* Permanent lock widget — lives in #phone so it rides above EVERY screen and
+     tab until this device holds the key; tapping it opens the passcode prompt.
+     It never auto-hides: only a successful unlock (or encryption turning off)
+     removes it. Styled to the design system, not ad hoc: brand gradient pill
+     (CTA anatomy), floating shadow with the theme's brand glow, inline-SVG
+     icon (emoji are content marks, never control icons — DESIGN §2.6), the
+     shared `rise` entrance and the standard press scale (§2.5). */
   window.fhLockBanner = function (on, state) {
     let el = document.getElementById('fh-lockbar');
     if (on) {
+      if (!document.getElementById('fh-lockbar-css')) {
+        const st = document.createElement('style'); st.id = 'fh-lockbar-css';
+        st.textContent = '#fh-lockbar:active{transform:scale(.97)}';
+        document.head.appendChild(st);
+      }
       if (!el) {
-        el = document.createElement('div'); el.id = 'fh-lockbar';
-        el.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));z-index:64;background:var(--card,#fff);border:1px solid var(--hairline,#e5e0ea);box-shadow:0 6px 24px rgba(0,0,0,.14);border-radius:22px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;gap:8px;align-items:center;cursor:pointer;max-width:88%';
+        el = document.createElement('button'); el.id = 'fh-lockbar';
+        el.style.cssText = 'position:absolute;left:16px;right:16px;margin:0 auto;bottom:calc(80px + env(safe-area-inset-bottom));z-index:64;width:max-content;max-width:calc(100% - 32px);background:var(--grad-brand,var(--brand));color:#fff;border:none;box-shadow:0 8px 22px rgba(25,16,34,.14),0 12px 28px var(--brand-glow);border-radius:9999px;padding:14px 20px;font-size:14px;font-weight:700;font-family:inherit;display:flex;gap:9px;align-items:center;cursor:pointer;text-align:left;animation:rise .4s cubic-bezier(.32,.72,0,1);transition:transform .15s cubic-bezier(.4,0,.2,1)';
         el.onclick = () => window.fhUnlockPrompt();
         (document.getElementById('phone') || document.body).appendChild(el);
       }
-      el.innerHTML = '🔒 <span>' + (state === 'dual'
-        ? L('Gia đình đang bật mã hóa — nhập mã 6 số một lần trên máy này', 'Your family is turning on encryption — enter the 6-digit code once on this device')
-        : L('Nhập mã gia đình để hiện số tiền', 'Enter the family code to show amounts')) + '</span>';
+      el.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="5" y="10.5" width="14" height="9.5" rx="2.6"/><path d="M8 10.5V7.8a4 4 0 018 0v2.7"/></svg><span>' + (state === 'dual'
+        ? L('Gia đình đang bật mã hóa, chạm để nhập mã 6 số', 'Your family is turning on encryption. Tap to enter the 6-digit code')
+        : L('Chạm để nhập mã gia đình và mở số tiền', 'Tap to enter the family code and unlock amounts')) + '</span>';
       el.style.display = 'flex';
     } else if (el) el.style.display = 'none';
   };
@@ -11283,8 +11476,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     try { const r = await sb.from('families').select('owner_id').eq('id', fid).maybeSingle(); owner = !!(r.data && window.fhUser && r.data.owner_id === window.fhUser.id); } catch (e) {}
     const enc = window.DB.enc, st = fhEncState();
     const intro = '<div class="fh-s-h">' + L('Mã hóa tài chính', 'Money encryption') + '</div>'
-      + '<div class="fh-s-sub">' + L('Số tiền, ghi chú và tên mục tiêu được mã hóa ngay trên máy bằng mã gia đình — máy chủ chỉ lưu bản đã khóa, kể cả chúng tôi cũng không đọc được.',
-                                      'Amounts, notes and goal names are encrypted on-device with the family passcode — the server only ever stores locked values; even we can’t read them.') + '</div>';
+      + '<div class="fh-s-sub">' + L('Số tiền, ghi chú và tên mục tiêu được mã hóa ngay trên máy bằng mã gia đình. Máy chủ chỉ lưu bản đã khóa, kể cả chúng tôi cũng không đọc được.',
+                                      'Amounts, notes and goal names are encrypted on your device with the family code. The server only ever stores locked values, and even we can’t read them.') + '</div>';
     let body = '';
     if (!enc) {
       body = '<div class="fh-s-sub">' + L('Bước đầu tiên là đặt mã gia đình 6 số.', 'First, set the family’s 6-digit passcode.') + '</div>'
@@ -11292,27 +11485,32 @@ window.fhResolveCsvMapping = resolveCsvMapping;
                  : '<div class="fh-s-sub">' + L('Chỉ chủ gia đình đặt được mã.', 'Only the owner can set it.') + '</div>');
     } else if (st === 'off') {
       body = '<div class="fh-s-lab">' + L('Trạng thái: chưa bật', 'Status: off') + '</div>'
-        + '<div class="fh-s-sub">' + L('Khi bật: (1) tải một bản sao JSON về máy, (2) mã hóa toàn bộ dữ liệu tiền cạnh bản gốc, (3) vào giai đoạn kiểm chứng — mọi số vẫn hiển thị như cũ, chưa có gì bị xóa.',
-                                        'Turning on: (1) downloads a JSON copy to this device, (2) encrypts all money data alongside the originals, (3) enters a verification window — everything still shows as before, nothing is deleted.') + '</div>'
+        + '<div class="fh-s-sub">' + L('Khi bật, app tải một bản sao JSON về máy, mã hóa toàn bộ dữ liệu tiền cạnh bản gốc, rồi vào giai đoạn kiểm chứng. Mọi số vẫn hiển thị như cũ, chưa có gì bị xóa.',
+                                        'Turning it on downloads a JSON copy to this device, encrypts all money data alongside the originals, then enters a verification window. Everything still shows as before and nothing is deleted.') + '</div>'
         + (owner ? _btn(L('Bật mã hóa', 'Turn on encryption'), 'fhEncEnable(this)', _S.cta)
                  : '<div class="fh-s-sub">' + L('Chỉ chủ gia đình bật được.', 'Only the owner can turn this on.') + '</div>');
     } else if (st === 'dual') {
       const roster = _fhUnlockRoster();
       const pendWarn = roster.pending.length
-        ? '<div class="fh-s-sub">' + L('Chưa nhập mã: ' + roster.pending.join(', ') + '. Nhắc họ mở app và nhập mã trước khi hoàn tất, rồi bấm "Mã hóa nốt" để phủ các dòng họ đã ghi.',
-                                        'Not yet entered: ' + roster.pending.join(', ') + '. Have them open the app and enter the code before finishing, then tap "Re-encrypt missed rows" to cover their entries.') + '</div>'
+        ? '<div class="fh-s-sub">' + L('Chưa nhập mã: ' + roster.pending.join(', ') + '. Máy của họ sẽ hỏi mã khi mở app, và không ghi chép tiền được cho tới khi nhập. Bạn có thể hoàn tất bất cứ lúc nào. Sau đó họ chỉ cần nhập mã là xem được như thường.',
+                                        'Not yet entered: ' + roster.pending.join(', ') + '. Their devices ask for the code on open and can’t log money until it’s entered. You can finish anytime. Afterwards they just enter the code to read as usual.') + '</div>'
         : '';
       body = '<div class="fh-s-lab">' + L('Trạng thái: giai đoạn kiểm chứng', 'Status: verification window') + '</div>'
-        + '<div class="fh-s-sub">' + L('Bản mã và bản gốc đang tồn tại song song; app tự đối chiếu mỗi lần đọc. Dùng thử vài ngày trên đủ các máy. Khi yên tâm, bấm hoàn tất để xóa bản gốc trên máy chủ — bước duy nhất không tự quay lại được nếu cả nhà mất mã.',
-                                        'Ciphertext and originals coexist; the app cross-checks them on every read. Use it for a few days on all devices. When confident, finish to erase the plaintext on the server — the one step that can’t be undone if the whole family loses the code.') + '</div>'
+        + '<div class="fh-s-sub">' + L('Bản mã và bản gốc đang tồn tại song song; app tự đối chiếu mỗi lần đọc, và máy chủ đã chặn mọi cách ghi không mã hóa. Khi yên tâm, bấm hoàn tất để xóa bản gốc trên máy chủ. Đây là bước duy nhất không quay lại được nếu cả nhà mất mã.',
+                                        'Ciphertext and originals coexist; the app cross-checks them on every read, and the server already refuses any unencrypted write. When confident, finish to erase the plaintext on the server. That’s the one step that can’t be undone if the whole family loses the code.') + '</div>'
         + roster.html + pendWarn
-        + (owner ? _btn(L('Hoàn tất — xóa bản gốc trên máy chủ', 'Finish — erase server plaintext'), 'fhEncScrub(this)', _S.del)
-                 + _btn(L('Mã hóa nốt dòng còn thiếu', 'Re-encrypt any missed rows'), 'fhEncEnable(this)', _S.line)
+        + (owner ? _btn(L('Hoàn tất và xóa bản gốc trên máy chủ', 'Finish and erase server plaintext'), 'fhEncScrub(this)', _S.del)
                  + _btn(L('Tắt mã hóa', 'Turn encryption off'), 'fhEncDisable(this)', _S.ghost)
                  : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ hoàn tất bước này.', 'The owner finishes this step.') + '</div>');
+      /* interrupted enable? cover the backlog silently — no button, no step */
+      if (owner && fhKeyReady() && !_fhEncBusy) {
+        _fhUncoveredCount().then((n) => {
+          if (n > 0) { _fhEncProg(L('Đang mã hóa nốt ' + n + ' dòng…', 'Covering ' + n + ' remaining rows…')); window.fhEncEnable(null, { resume: true }); }
+        }).catch(() => {});
+      }
     } else {
       const roster = _fhUnlockRoster();
-      body = '<div class="fh-s-lab">' + L('Trạng thái: đang mã hóa đầu-cuối 🔒', 'Status: end-to-end encrypted 🔒') + '</div>'
+      body = '<div class="fh-s-lab">' + L('Trạng thái: đang mã hóa đầu-cuối', 'Status: end-to-end encrypted') + '</div>'
         + '<div class="fh-s-sub">' + L('Máy chủ chỉ còn bản đã khóa. Dữ liệu chỉ mở được bằng mã gia đình trên máy của thành viên.',
                                         'The server holds only locked values. Data opens only with the family code, on members’ devices.') + '</div>'
         + roster.html
@@ -11353,19 +11551,45 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     if (btn) btn.disabled = false;
   };
 
-  /* off→dual (also "re-encrypt missed rows" while dual): downloads the JSON
-     copy, then per table encrypts every row that still lacks ciphertext —
-     verify-before-upload (encrypt → decrypt → compare) so a crypto bug can
-     never silently write garbage. Plaintext is NOT touched here. */
-  window.fhEncEnable = async function (btn) {
+  /* How many logical fields still lack ciphertext (drives auto-resume; with
+     the 0033 triggers, new uncovered rows can no longer be created, so this
+     can only be a backlog from an interrupted enable). */
+  async function _fhUncoveredCount() {
+    let n = 0;
+    for (const spec of _ENC_TABLES) {
+      const r = await sb.from(spec.t).select(_encCols(spec)).eq('family_id', window.DB.fid);
+      for (const row of ((r && r.data) || [])) {
+        for (const f of spec.num.concat(spec.str)) {
+          let v = row[f];
+          if (spec.t === 'monthly_budgets' && f === 'budget_total' && Number(v) === 0) v = null;
+          if (v !== null && v !== undefined && v !== '' && row[f + '_enc'] == null) { n++; break; }
+        }
+      }
+    }
+    return n;
+  }
+
+  /* off→dual, and the auto-resume worker for an interrupted enable. The state
+     flips to 'dual' FIRST: from that moment the database itself (0033) rejects
+     plaintext-only money writes, so no new uncovered rows can appear while —
+     or after — the backlog below is covered. Then the JSON copy downloads and
+     every row still lacking ciphertext is covered, verify-before-upload.
+     Plaintext is NOT touched here. opts.resume skips the export re-download. */
+  window.fhEncEnable = async function (btn, opts) {
+    opts = opts || {};
     if (_fhEncBusy) return;
     if (!fhKeyReady()) { window.fhUnlockPrompt(); return; }
     _fhEncBusy = true;
     if (btn) btn.disabled = true;
-    const wasOff = fhEncState() === 'off';
     try {
-      _fhEncProg(L('Đang tải bản sao…', 'Downloading the copy…'));
-      try { await _fhExportPlain(); } catch (e) { console.warn('export failed', e); }   // job continues; DB backup still exists
+      if (fhEncState() === 'off') {
+        await _rpc('set_family_enc_state', { p_state: 'dual' });
+        if (window.DB.enc) window.DB.enc.enc_state = 'dual';   // this device writes both from right now
+      }
+      if (!opts.resume) {
+        _fhEncProg(L('Đang tải bản sao…', 'Downloading the copy…'));
+        try { await _fhExportPlain(); } catch (e) { console.warn('export failed', e); }   // job continues; DB backup still exists
+      }
       let total = 0, mismatches = 0;
       for (const spec of _ENC_TABLES) {
         _fhEncProg(L('Đang mã hóa: ', 'Encrypting: ') + spec.t + '…');
@@ -11390,10 +11614,9 @@ window.fhResolveCsvMapping = resolveCsvMapping;
           }
         }
       }
-      if (mismatches) { const _e = new Error('verify'); _e.fhMsg = L('Có ' + mismatches + ' dòng không kiểm chứng được — chưa bật.', mismatches + ' rows failed verification — not enabled.'); throw _e; }
-      if (wasOff) await _rpc('set_family_enc_state', { p_state: 'dual' });
+      if (mismatches) { const _e = new Error('verify'); _e.fhMsg = L('Có ' + mismatches + ' dòng không kiểm chứng được.', mismatches + ' rows failed verification.'); throw _e; }
       _fhEncProg('');
-      window.toast && window.toast(L('Đã mã hóa ' + total + ' dòng ✓ Giai đoạn kiểm chứng bắt đầu.', total + ' rows encrypted ✓ Verification window started.'));
+      if (!opts.resume || total) window.toast && window.toast(L('Đã mã hóa ' + total + ' dòng ✓', total + ' rows encrypted ✓'));
       await window.loadFamilyData();
       window.fhEncryptionSheet();
     } catch (e) {
@@ -11406,11 +11629,11 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   // dual→enc: THE destructive step. Arm-then-confirm, server double-checks owner+state.
   window.fhEncScrub = async function (btn) {
     if (btn && !btn.classList.contains('armed')) {
-      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa — bản gốc trên máy chủ sẽ bị xóa vĩnh viễn', 'Tap again — server plaintext is erased for good');
+      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa, bản gốc trên máy chủ sẽ bị xóa vĩnh viễn', 'Tap again and the server plaintext is erased for good');
       clearTimeout(window._fhScrubT);
       window._fhScrubT = setTimeout(() => {
         if (!btn.isConnected) return;
-        btn.classList.remove('armed'); btn.textContent = L('Hoàn tất — xóa bản gốc trên máy chủ', 'Finish — erase server plaintext');
+        btn.classList.remove('armed'); btn.textContent = L('Hoàn tất và xóa bản gốc trên máy chủ', 'Finish and erase server plaintext');
       }, 4000);
       return;
     }
@@ -11418,9 +11641,19 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     if (btn) { btn.disabled = true; btn.textContent = L('Đang xóa bản gốc…', 'Erasing plaintext…'); }
     let counts;
     try { counts = await _rpc('scrub_plaintext_amounts'); }
-    catch (e) { window.toast && window.toast(_friendly(e)); if (btn) { btn.disabled = false; btn.classList.remove('armed'); } return; }
+    catch (e) {
+      const raw = String((e && e.message) || '');
+      const m = raw.match(/uncovered_rows:(\d+)/);
+      if (m) {
+        // server refused: a backlog exists (interrupted enable) — cover it now
+        window.toast && window.toast(L('Còn ' + m[1] + ' dòng chưa mã hóa, app đang tự xử lý, bạn thử lại sau giây lát nhé', m[1] + ' rows aren’t covered yet. Encrypting them now, try again in a moment'));
+        window.fhEncEnable(null, { resume: true });
+      } else window.toast && window.toast(_friendly(e));
+      if (btn) { btn.disabled = false; btn.classList.remove('armed'); }
+      return;
+    }
     const n = Object.values(counts || {}).reduce((s, x) => s + (Number(x) || 0), 0);
-    window.toast && window.toast(L('Xong — đã xóa bản gốc của ' + n + ' dòng. Giờ chỉ còn bản mã hóa 🔒', 'Done — plaintext erased on ' + n + ' rows. Only ciphertext remains 🔒'));
+    window.toast && window.toast(L('Xong, đã xóa bản gốc của ' + n + ' dòng, giờ chỉ còn bản mã hóa', 'Done. Plaintext erased on ' + n + ' rows, only ciphertext remains'));
     await window.loadFamilyData();
     window.fhEncryptionSheet();
   };
@@ -11472,7 +11705,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       }
       await _rpc('set_family_enc_state', { p_state: 'off' });
       _fhEncProg('');
-      window.toast && window.toast(L('Đã tắt mã hóa — khôi phục ' + total + ' dòng.', 'Encryption off — ' + total + ' rows restored.'));
+      window.toast && window.toast(L('Đã tắt mã hóa, khôi phục ' + total + ' dòng.', 'Encryption off. ' + total + ' rows restored.'));
       await window.loadFamilyData();
       window.fhEncryptionSheet();
     } catch (e) {
@@ -11485,6 +11718,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   // ---- Saved for events (the savings pool) ----
   // Create a pure saving goal (money only) — writes saving_goals, NOT events.
   window.fhCreateGoal = async function (g) {
+    if (_fhWriteLocked()) return;
     try {
       const fid = window.DB.fid;
       const row = Object.assign(
@@ -11496,18 +11730,28 @@ window.fhResolveCsvMapping = resolveCsvMapping;
         await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, goal_id: gr.data.id, member_id: window.DB.ownerMemberId || null, source: 'savings', month: null }, await fhField('amount', g.init))), 'fund goal');
       }
       await loadFamilyData();
-    } catch (e) { if (typeof console !== 'undefined') console.error(e); if (window.toast) window.toast('Không lưu được mục tiêu, thử lại'); }
+    } catch (e) {
+      if (typeof console !== 'undefined') console.error(e);
+      if (/enc_required/i.test(String((e && e.message) || '')) && window._fhEncRecover) { window._fhEncRecover(); if (window.toast) window.toast(_friendly(e)); }
+      else if (window.toast) window.toast('Không lưu được mục tiêu, thử lại');
+    }
   };
   // Add money to a goal from the savings pool.
   window.fhFundGoal = async function (goalId, amount) {
+    if (_fhWriteLocked()) return;
     try {
       const fid = window.DB.fid;
       await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, goal_id: goalId, member_id: window.DB.ownerMemberId || null, source: 'savings', month: null }, await fhField('amount', amount))), 'fund goal');
       await loadFamilyData();
-    } catch (e) { if (typeof console !== 'undefined') console.error(e); if (window.toast) window.toast('Không bỏ ống được, thử lại'); }
+    } catch (e) {
+      if (typeof console !== 'undefined') console.error(e);
+      if (/enc_required/i.test(String((e && e.message) || '')) && window._fhEncRecover) { window._fhEncRecover(); if (window.toast) window.toast(_friendly(e)); }
+      else if (window.toast) window.toast('Không bỏ ống được, thử lại');
+    }
   };
   window.fhSavings = function () {
     if (!window.DB.fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
+    if (_fhWriteLocked()) return;
     const cur = window.savings || 0;
     const shown = window.amtToInput ? window.amtToInput(cur) : String(cur);
     _fhModal({
@@ -11547,6 +11791,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   // ---- Income (separate ledger) ----
   window.fhIncome = async function () {
     const fid = window.DB.fid; if (!fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
+    if (_fhWriteLocked()) return;                            // the sheet both lists and ADDS income
     let inc = [];
     try {
       const { data, error } = await sb.from('incomes').select('id,amount,amount_enc,note,note_enc,income_date').eq('family_id', fid).order('income_date', { ascending: false }).limit(20);
@@ -11668,7 +11913,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
         window.DB.enc = { enc_state: 'enc', kdf_salt: salt, kdf_iters: FH_KDF_ITERS, kdf_version: FH_KDF_VERSION, wrapped_dek: wrapped };
       } catch (e) {
         console.warn('passcode setup failed', e);
-        window.toast && window.toast(L('Chưa đặt được mã gia đình — đặt lại trong Cài đặt nhé', 'Couldn’t set the passcode — set it again from Settings'));
+        window.toast && window.toast(L('Chưa đặt được mã gia đình, bạn đặt lại trong Cài đặt nhé', 'Couldn’t set the passcode. Set it again from Settings'));
       } finally { F.passcode = null; }
     }
     if (created) {

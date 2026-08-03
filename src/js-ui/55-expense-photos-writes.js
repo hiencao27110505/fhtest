@@ -242,7 +242,7 @@ function refreshExCta(){                                    // nav-bar Save butt
     var r=rows[i];
     if(!(r.note||'').trim() && !parseAmtBase(r.amt||'')) continue;   // fully-empty row → ignored
     considered++;
-    if(!(parseAmtBase(r.amt||'')>0 && r.cat)) allValid=false;
+    if(!(parseAmtBase(r.amt||'')>0 && catValid(r.cat))) allValid=false;   // real category required, not just any truthy value
   }
   s.disabled = !(considered>=1 && allValid);
   // Label: keep updateExWhen()'s single-row Lưu/Gửi; only override for a true batch.

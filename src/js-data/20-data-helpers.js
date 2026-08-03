@@ -74,6 +74,9 @@
   // surface write failures instead of failing silently
   function _writeErr(what, e) {
     console.warn(what, e);
+    // a rejected plaintext write (0033 'enc_required') self-heals: SW update
+    // check + re-sync + passcode prompt, so the user can retry immediately
+    if (/enc_required/i.test(String((e && (e.message || e.error_description)) || '')) && window._fhEncRecover) window._fhEncRecover();
     // A connection drop isn't "something went wrong": the transaction is already
     // queued (R9) and other writes reconcile on the next hydrate. Staying silent
     // here stops a false error toast from stomping the "Saved on this device" one.
