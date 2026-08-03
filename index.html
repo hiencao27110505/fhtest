@@ -6079,8 +6079,8 @@ function matchAmount(s){
 function deburr(s){ return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D'); }
 var CAT_KEYWORDS={
   'Dining':['ca phe','coffee','cafe','tra sua','tra','an','com','pho','bun','mi','nha hang','restaurant','lunch','dinner','breakfast','quan','bia','beer','banh','nhau','do an','food','eat','tea','pizza','ga ran','kfc','lotteria','highland','starbucks','tiem','an sang','an trua','an toi','snack'],
-  'Transport':['xang','gas','grab','taxi','xe','bus','gui xe','parking','ve','petrol','fuel','uber','xe om','be','gojek','do xang','ferry','tau','ve xe','ve tau','ve may bay','flight','grabbike','grabcar','sua xe','rua xe'],
-  'Groceries':['cho','market','sieu thi','supermarket','rau','thit','ca','grocery','groceries','bach hoa','coopmart','bigc','winmart','vinmart','lotte','emart','gao','trai cay','fruit','vegetable','meat','di cho','do kho'],
+  'Transport':['xang','gas','grab','taxi','xe','bus','gui xe','parking','petrol','fuel','uber','xe om','gojek','do xang','ferry','ve xe','ve tau','ve may bay','flight','grabbike','grabcar','sua xe','rua xe'],
+  'Groceries':['cho','market','sieu thi','supermarket','rau','thit','ca hoi','ca thu','grocery','groceries','bach hoa','coopmart','bigc','winmart','vinmart','lotte','emart','gao','trai cay','fruit','vegetable','meat','di cho','do kho'],
   'Housing':['dien','nuoc','internet','wifi','tien nha','rent','thue','electricity','water','quan ly','phi quan ly','tien dien','tien nuoc','tien internet','mang','cap','rac','phi chung cu','sua nha','noi that'],
   'Fun':['phim','cinema','game','choi','du lich','travel','movie','karaoke','party','net','bi a','billiards','concert','ve xem','giai tri','massage','spa','gym','the thao','sach','book','shopping','mua sam','quan ao','ao quan'],
   'Others':['khac','other','others','linh tinh','thuoc','pharmacy','y te','benh vien','hoc','tuition','hoc phi']
@@ -8578,7 +8578,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v245';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v246';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

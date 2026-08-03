@@ -375,8 +375,8 @@ function matchAmount(s){
 function deburr(s){ return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D'); }
 var CAT_KEYWORDS={
   'Dining':['ca phe','coffee','cafe','tra sua','tra','an','com','pho','bun','mi','nha hang','restaurant','lunch','dinner','breakfast','quan','bia','beer','banh','nhau','do an','food','eat','tea','pizza','ga ran','kfc','lotteria','highland','starbucks','tiem','an sang','an trua','an toi','snack'],
-  'Transport':['xang','gas','grab','taxi','xe','bus','gui xe','parking','ve','petrol','fuel','uber','xe om','be','gojek','do xang','ferry','tau','ve xe','ve tau','ve may bay','flight','grabbike','grabcar','sua xe','rua xe'],
-  'Groceries':['cho','market','sieu thi','supermarket','rau','thit','ca','grocery','groceries','bach hoa','coopmart','bigc','winmart','vinmart','lotte','emart','gao','trai cay','fruit','vegetable','meat','di cho','do kho'],
+  'Transport':['xang','gas','grab','taxi','xe','bus','gui xe','parking','petrol','fuel','uber','xe om','gojek','do xang','ferry','ve xe','ve tau','ve may bay','flight','grabbike','grabcar','sua xe','rua xe'],
+  'Groceries':['cho','market','sieu thi','supermarket','rau','thit','ca hoi','ca thu','grocery','groceries','bach hoa','coopmart','bigc','winmart','vinmart','lotte','emart','gao','trai cay','fruit','vegetable','meat','di cho','do kho'],
   'Housing':['dien','nuoc','internet','wifi','tien nha','rent','thue','electricity','water','quan ly','phi quan ly','tien dien','tien nuoc','tien internet','mang','cap','rac','phi chung cu','sua nha','noi that'],
   'Fun':['phim','cinema','game','choi','du lich','travel','movie','karaoke','party','net','bi a','billiards','concert','ve xem','giai tri','massage','spa','gym','the thao','sach','book','shopping','mua sam','quan ao','ao quan'],
   'Others':['khac','other','others','linh tinh','thuoc','pharmacy','y te','benh vien','hoc','tuition','hoc phi']
