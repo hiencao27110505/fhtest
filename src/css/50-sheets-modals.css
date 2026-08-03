@@ -90,16 +90,22 @@
 .bs-pick{font-size:11px;font-weight:700;color:var(--amber);background:var(--amber-tint);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .bs-dup{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
 .bulk-card:not(.active){display:flex;align-items:center}
-/* Real <button> so it's focusable and announced by VoiceOver (not a bare div). */
-.bulk-tap{flex:1;min-width:0;display:flex;align-items:center;min-height:52px;padding:11px 4px 11px 15px;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.bulk-tap .bs-left{flex:1;min-width:0;display:flex;align-items:center}
-.bulk-tap .bs-right{display:flex;align-items:center;gap:10px;flex-shrink:0;padding-left:10px}
+/* Real <button> so it's focusable and announced by VoiceOver (not a bare div).
+   Two rows: the "Khoản chi N · date" header, then the note · amount · category line. */
+.bulk-tap{flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:5px;min-height:52px;padding:11px 4px 12px 15px;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.bs-body{display:flex;align-items:center;width:100%}
+.bs-body .bs-left{flex:1;min-width:0;display:flex;align-items:center}
+.bs-body .bs-right{display:flex;align-items:center;gap:10px;flex-shrink:0;padding-left:10px}
 .bs-note{font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bs-note.bs-empty{font-weight:500;color:var(--muted)}
 .bs-amt{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
 .bs-cat{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
-.bulk-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 2px}
+/* Shared header — same on collapsed and open cards. */
+.bulk-head{display:flex;align-items:center;gap:8px}
+.bulk-head .bulk-x{margin-left:auto}
+.bulk-card.active>.bulk-head{padding:12px 14px 2px}
 .bulk-idx{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-ink)}
+.bulk-date{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.01em}
 .bulk-card.active #ex-editor-mount{padding:6px 14px 14px}
 /* 44×44 hit target (HIG) even though the glyph reads smaller — mirrors .photo-thumb .x. */
 .bulk-x{flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--muted);background:transparent;border:none;-webkit-tap-highlight-color:transparent}

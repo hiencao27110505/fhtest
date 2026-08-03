@@ -1629,16 +1629,22 @@ input{font-family:inherit}
 .bs-pick{font-size:11px;font-weight:700;color:var(--amber);background:var(--amber-tint);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .bs-dup{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
 .bulk-card:not(.active){display:flex;align-items:center}
-/* Real <button> so it's focusable and announced by VoiceOver (not a bare div). */
-.bulk-tap{flex:1;min-width:0;display:flex;align-items:center;min-height:52px;padding:11px 4px 11px 15px;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.bulk-tap .bs-left{flex:1;min-width:0;display:flex;align-items:center}
-.bulk-tap .bs-right{display:flex;align-items:center;gap:10px;flex-shrink:0;padding-left:10px}
+/* Real <button> so it's focusable and announced by VoiceOver (not a bare div).
+   Two rows: the "Khoản chi N · date" header, then the note · amount · category line. */
+.bulk-tap{flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:5px;min-height:52px;padding:11px 4px 12px 15px;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.bs-body{display:flex;align-items:center;width:100%}
+.bs-body .bs-left{flex:1;min-width:0;display:flex;align-items:center}
+.bs-body .bs-right{display:flex;align-items:center;gap:10px;flex-shrink:0;padding-left:10px}
 .bs-note{font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bs-note.bs-empty{font-weight:500;color:var(--muted)}
 .bs-amt{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
 .bs-cat{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
-.bulk-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 2px}
+/* Shared header — same on collapsed and open cards. */
+.bulk-head{display:flex;align-items:center;gap:8px}
+.bulk-head .bulk-x{margin-left:auto}
+.bulk-card.active>.bulk-head{padding:12px 14px 2px}
 .bulk-idx{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-ink)}
+.bulk-date{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.01em}
 .bulk-card.active #ex-editor-mount{padding:6px 14px 14px}
 /* 44×44 hit target (HIG) even though the glyph reads smaller — mirrors .photo-thumb .x. */
 .bulk-x{flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--muted);background:transparent;border:none;-webkit-tap-highlight-color:transparent}
@@ -6026,6 +6032,13 @@ function bulkRemoveRow(i){
   renderBulk();
   loadRow(bulkActive);
 }
+/* Compact date for a card header: today → "Hôm nay", this year → dd/mm, else dd/mm/yyyy. */
+function bulkDate(iso){
+  iso = iso || isoDate(TODAY);
+  if(iso===isoDate(TODAY)) return L('Hôm nay','Today');
+  var p=iso.split('-'); if(p.length!==3) return '';
+  return p[2]+'/'+p[1]+((+p[0]===TODAY.getFullYear())?'':('/'+p[0]));
+}
 /* One-line summary shown on a collapsed card: note · amount · category. */
 function bulkSummary(r){
   var note=(r.note||'').trim();
@@ -6068,17 +6081,18 @@ function renderBulk(){
   var html='';
   for(var i=0;i<bulkRows.length;i++){
     var r=bulkRows[i];
+    // Every card — collapsed or open — carries the same header: "Khoản chi N" + date.
     // Missing category is signalled by the "Chọn danh mục" label inside the card, not
-    // by highlighting the whole card — keeps every card visually consistent.
+    // by highlighting the whole card, so every card stays visually consistent.
+    var head='<span class="bulk-idx">'+L('Khoản chi ','Item ')+(i+1)+'</span><span class="bulk-date">'+bulkDate(r.date)+'</span>';
+    var rm=(bulkRows.length>1) ? '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá khoản ','Remove item ')+(i+1)+'">✕</button>' : '';
     if(i===bulkActive){
-      html+='<div class="bulk-card active">'
-        +  '<div class="bulk-head"><span class="bulk-idx">'+L('Khoản ','Item ')+(i+1)+'</span>'
-        +  (bulkRows.length>1 ? '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá','Remove')+'">✕</button>' : '')
-        +  '</div><div id="ex-editor-mount"></div></div>';
+      html+='<div class="bulk-card active"><div class="bulk-head">'+head+rm+'</div><div id="ex-editor-mount"></div></div>';
     } else {
       html+='<div class="bulk-card">'
-        +  '<button type="button" class="bulk-tap" onclick="setActiveRow('+i+')" aria-label="'+L('Sửa khoản ','Edit item ')+(i+1)+'">'+bulkSummary(r)+'</button>'
-        +  '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá khoản ','Remove item ')+(i+1)+'">✕</button>'
+        +  '<button type="button" class="bulk-tap" onclick="setActiveRow('+i+')" aria-label="'+L('Sửa khoản ','Edit item ')+(i+1)+'">'
+        +    '<span class="bulk-head">'+head+'</span><span class="bs-body">'+bulkSummary(r)+'</span>'
+        +  '</button>'+rm
         +  '</div>';
     }
   }
@@ -8870,7 +8884,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v257';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v258';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

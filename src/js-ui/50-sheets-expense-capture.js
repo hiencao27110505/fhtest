@@ -288,6 +288,13 @@ function bulkRemoveRow(i){
   renderBulk();
   loadRow(bulkActive);
 }
+/* Compact date for a card header: today → "Hôm nay", this year → dd/mm, else dd/mm/yyyy. */
+function bulkDate(iso){
+  iso = iso || isoDate(TODAY);
+  if(iso===isoDate(TODAY)) return L('Hôm nay','Today');
+  var p=iso.split('-'); if(p.length!==3) return '';
+  return p[2]+'/'+p[1]+((+p[0]===TODAY.getFullYear())?'':('/'+p[0]));
+}
 /* One-line summary shown on a collapsed card: note · amount · category. */
 function bulkSummary(r){
   var note=(r.note||'').trim();
@@ -330,17 +337,18 @@ function renderBulk(){
   var html='';
   for(var i=0;i<bulkRows.length;i++){
     var r=bulkRows[i];
+    // Every card — collapsed or open — carries the same header: "Khoản chi N" + date.
     // Missing category is signalled by the "Chọn danh mục" label inside the card, not
-    // by highlighting the whole card — keeps every card visually consistent.
+    // by highlighting the whole card, so every card stays visually consistent.
+    var head='<span class="bulk-idx">'+L('Khoản chi ','Item ')+(i+1)+'</span><span class="bulk-date">'+bulkDate(r.date)+'</span>';
+    var rm=(bulkRows.length>1) ? '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá khoản ','Remove item ')+(i+1)+'">✕</button>' : '';
     if(i===bulkActive){
-      html+='<div class="bulk-card active">'
-        +  '<div class="bulk-head"><span class="bulk-idx">'+L('Khoản ','Item ')+(i+1)+'</span>'
-        +  (bulkRows.length>1 ? '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá','Remove')+'">✕</button>' : '')
-        +  '</div><div id="ex-editor-mount"></div></div>';
+      html+='<div class="bulk-card active"><div class="bulk-head">'+head+rm+'</div><div id="ex-editor-mount"></div></div>';
     } else {
       html+='<div class="bulk-card">'
-        +  '<button type="button" class="bulk-tap" onclick="setActiveRow('+i+')" aria-label="'+L('Sửa khoản ','Edit item ')+(i+1)+'">'+bulkSummary(r)+'</button>'
-        +  '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá khoản ','Remove item ')+(i+1)+'">✕</button>'
+        +  '<button type="button" class="bulk-tap" onclick="setActiveRow('+i+')" aria-label="'+L('Sửa khoản ','Edit item ')+(i+1)+'">'
+        +    '<span class="bulk-head">'+head+'</span><span class="bs-body">'+bulkSummary(r)+'</span>'
+        +  '</button>'+rm
         +  '</div>';
     }
   }
