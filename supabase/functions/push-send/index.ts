@@ -4,8 +4,9 @@
    the row lands; this covers the closed-app case that realtime can't reach.
 
    Copy voice: each push reads like a text message from that person, never a
-   system log. Title = "{firstName} + feeling", body = one warm line. Rough
-   moods ask the family to check in. Request responses quote the reviewer's
+   system log. Title = "{firstName} + feeling", body = one warm line. Mood
+   pushes just share the day's weather — no call to action, no repeated name
+   (title + the iOS "from {app}" line already carry it). Request responses quote the reviewer's
    exact in-app words (keep REVIEW_LINES in sync with _reqReviewSet() in
    src/js-ui/64-requests.js).
 
@@ -73,8 +74,8 @@ function buildCopy(
   } else if (kind === "weather") {
     title = `${name} ${emoji}`;
     body = rough
-      ? (vi ? `Hôm nay ${name} không được vui lắm. Hỏi thăm một câu nha.` : `${name} is having a rough day. Maybe ask how they're doing.`)
-      : (vi ? `Hôm nay ${name} thấy vui. Hỏi thử xem có chuyện gì hay ho đi.` : `${name} is having a good day. Ask what the good news is.`);
+      ? (vi ? `Hôm nay là một ngày mưa.` : `It's a rainy one today.`)
+      : (vi ? `Hôm nay là một ngày nắng đẹp.` : `Bright and sunny today.`);
   } else if (kind === "request_new") {
     title = vi ? `${name} cần cả nhà 🙌` : `${name} needs the family 🙌`;
     body = vi
