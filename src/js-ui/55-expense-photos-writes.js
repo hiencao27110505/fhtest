@@ -122,7 +122,7 @@ function paRender(){
   bar.style.display = n ? 'flex' : 'none';
   if(n) setTxt('pa-bar-t', n + L(' đã chọn',' selected'));
   var save = document.getElementById('pa-save');
-  save.disabled = paBusy || !paBatch.some(function(p){ return p.txId; });
+  save.disabled = paBusy;   // only the async-busy gate (DESIGN §4.2); "nothing assigned yet" is caught by paDone()'s toast, not a greyed button (§4.4)
 }
 function paToggle(i){ paSel[i] = !paSel[i]; paRender(); }
 function paClearSel(){ paSel = {}; paRender(); }

@@ -42,6 +42,56 @@ function agoLabel(d){
 }
 function setTxt(id,t){ var e=document.getElementById(id); if(e)e.textContent=t; }
 function setHTML(id,h){ var e=document.getElementById(id); if(e)e.innerHTML=h; }
+/* ---------- required-field validation (DESIGN §4.4) ----------
+   House rule: a submit CTA is NEVER greyed out to signal a missing required field —
+   a disabled button explains nothing, it just leaves the user poking a dead pixel.
+   The CTA stays live; tapping it with an incomplete form flags each missing field
+   (danger border + one shake) + toasts what to finish, then focuses the first.
+   This mirrors the bulk-expense flow (submitBulk/bulkShowInvalid) so every form in
+   the app fails the same, legible way.
+
+   fhFieldWrap(el) → the .field wrapper to flag (or the element itself if it has none,
+   e.g. a bare onboarding input). fhFlagField(el) paints it invalid and (re)plays the
+   shake. fhClearInvalid(scope) wipes flags — call it on input so the red clears as the
+   user fixes things. fhCheck(rules,msg) is the one entry point most callers use. */
+function fhFieldWrap(el){ if(!el) return null; return (el.closest && el.closest('.field')) || el; }
+function fhFlagField(el){
+  var w=fhFieldWrap(el); if(!w) return null;
+  w.classList.add('invalid');
+  w.classList.remove('shake'); void w.offsetWidth; w.classList.add('shake');   // restart the shake even if already flagged
+  return w;
+}
+function fhClearInvalid(scope){
+  var root = !scope ? document
+    : (scope.querySelectorAll ? scope : document.getElementById(scope));
+  if(!root) return;
+  if(root.classList && root.classList.contains('invalid')) root.classList.remove('invalid','shake');   // scope may itself be the flagged element
+  root.querySelectorAll('.invalid').forEach(function(e){ e.classList.remove('invalid','shake'); });
+  if(root.removeAttribute && root.getAttribute && root.getAttribute('aria-invalid')) root.removeAttribute('aria-invalid');
+  root.querySelectorAll('[aria-invalid]').forEach(function(e){ e.removeAttribute('aria-invalid'); });
+}
+/* rules: [{el, ok, focus}] where `el` is a field element or its DOM id, `ok` is
+   truthy (or a function) when satisfied, and focus:false opts a field out of receiving
+   focus. Returns true when every rule passes; otherwise flags the failing fields,
+   focuses/shakes the first, toasts `msg`, and returns false. */
+function fhCheck(rules, msg){
+  var bad=[];
+  (rules||[]).forEach(function(r){
+    var el=(typeof r.el==='string')?document.getElementById(r.el):r.el;
+    var w=el?fhFieldWrap(el):null;
+    if(w) w.classList.remove('invalid','shake');                 // reset before re-evaluating
+    if(el && el.removeAttribute) el.removeAttribute('aria-invalid');
+    var ok=(typeof r.ok==='function')?r.ok():r.ok;
+    if(!ok) bad.push({el:el, w:w, focus:r.focus});
+  });
+  if(!bad.length) return true;
+  bad.forEach(function(b){ if(b.w) fhFlagField(b.el); if(b.el && b.el.setAttribute) b.el.setAttribute('aria-invalid','true'); });
+  var first=bad[0];
+  if(first.el && first.focus!==false && typeof first.el.focus==='function'){ try{ first.el.focus(); }catch(e){} }
+  if(typeof toast==='function') toast(msg || L('Vui lòng điền các mục được tô đỏ','Please fill in the highlighted fields'));
+  return false;
+}
+window.fhCheck=fhCheck; window.fhFlagField=fhFlagField; window.fhClearInvalid=fhClearInvalid;
 /* R5 — dirty-check write. The hydrate re-renders every section on cold start, on
    focus, on realtime and 700ms after every write; most of those produce byte-for-byte
    the same markup. Skipping the innerHTML assignment when the string is unchanged

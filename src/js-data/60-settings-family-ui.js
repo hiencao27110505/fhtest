@@ -22,15 +22,20 @@
     _fhModalCtx = null;
   };
 
-  /* Form modal: Cancel · Title · Save, Save gated until the form is valid AND dirty. */
+  /* Form modal: Cancel · Title · Save. Save stays enabled (DESIGN §4.4) — it is never
+     greyed to signal a missing field. Callers pass:
+       required() → [{el, ok}] rules for fhCheck; on Save it flags+shakes the missing
+                    fields and toasts `reqMsg` instead of the button doing nothing.
+       dirty()    → true when there's a real change worth writing; if it returns false
+                    (and required passes), Save just closes with no pointless RPC. */
   let _fhModalCtx = null;
   function _fhModal(opts) {
-    _fhModalCtx = opts;                                  // {title, body, valid(), save(), saveLabel}
+    _fhModalCtx = opts;                                  // {title, body, required(), reqMsg, dirty(), save(), saveLabel}
     document.getElementById('fh-modal-title').textContent = opts.title;
     document.getElementById('fh-modal-body').innerHTML = opts.body;
     const save = document.getElementById('fh-modal-save');
     save.textContent = opts.saveLabel || L('Lưu','Save');
-    save.disabled = true;
+    save.disabled = false;
     document.getElementById('scrim').classList.add('on');
     const m = document.getElementById('fh-modal');
     m.classList.add('on'); m.style.transform = ''; m.style.transition = '';
@@ -38,16 +43,18 @@
     if (opts.after) opts.after();
     window.fhModalDirty();
   }
-  // Re-evaluate Save on every input — the modal's own inputs call this via oninput.
+  // Called by the form's inputs via oninput — clear any red flag as the user fixes fields.
   window.fhModalDirty = function () {
-    if (!_fhModalCtx) return;
-    const save = document.getElementById('fh-modal-save');
-    save.disabled = !(_fhModalCtx.valid ? _fhModalCtx.valid() : true);
+    if (typeof window.fhClearInvalid === 'function') window.fhClearInvalid('fh-modal-body');
   };
   window.fhModalClose = () => window._closeOv();
   window.fhModalSave = async function () {
     if (!_fhModalCtx || !_fhModalCtx.save) return;
     const save = document.getElementById('fh-modal-save'), ctx = _fhModalCtx;
+    // Required-field gate: flag + shake the missing fields, never a dead button (DESIGN §4.4).
+    if (ctx.required && typeof window.fhCheck === 'function' && !window.fhCheck(ctx.required(), ctx.reqMsg)) return;
+    // Nothing actually changed → dismiss without a redundant write.
+    if (ctx.dirty && !ctx.dirty()) { window._closeOv(); return; }
     save.disabled = true; save.textContent = L('Đang lưu…','Saving…');   // async writes show progress (HIG)
     let then;
     try { then = await ctx.save(); }
@@ -188,9 +195,11 @@
       body: '<div class="field"><label>' + L('Tên','Name') + '</label>'
         + '<input id="fh-mname" value="' + _esc(m.name) + '" placeholder="' + L('Tên','Name') + '" oninput="fhModalDirty()"></div>'
         + '<div class="field"><label>' + L('Màu','Colour') + '</label><div class="fh-s-swatches" id="fh-mcol">' + swatches + '</div></div>',
-      valid: () => {
+      required: () => [{ el: 'fh-mname', ok: !!(document.getElementById('fh-mname').value || '').trim() }],
+      reqMsg: L('Hãy nhập tên thành viên','Add a member name'),
+      dirty: () => {
         const v = (document.getElementById('fh-mname').value || '').trim();
-        return !!v && (v !== window._fhMName0 || window._fhMColor !== (m.color || _pal()[0]));
+        return v !== window._fhMName0 || window._fhMColor !== (m.color || _pal()[0]);
       },
       save: async () => {
         const name = (document.getElementById('fh-mname').value || '').trim();
@@ -237,7 +246,8 @@
       body: '<div class="field"><label>' + L('Tên','Name') + '</label>'
         + '<input id="fh-newname" placeholder="' + L('vd. Mai','e.g. Emma') + '" oninput="fhModalDirty()"></div>'
         + '<div class="field"><label>' + L('Màu','Colour') + '</label><div class="fh-s-swatches">' + swatches + '</div></div>',
-      valid: () => !!(document.getElementById('fh-newname').value || '').trim(),
+      required: () => [{ el: 'fh-newname', ok: !!(document.getElementById('fh-newname').value || '').trim() }],
+      reqMsg: L('Hãy nhập tên thành viên','Add a member name'),
       after: () => { const i = document.getElementById('fh-newname'); if (i) i.focus(); },
       save: async () => {
         const name = (document.getElementById('fh-newname').value || '').trim();

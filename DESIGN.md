@@ -154,8 +154,9 @@ Soft, layered, low-opacity — never a hard drop shadow. Use the token, not a ra
 - **Text link** (`.ob-textlink`): centered brand-ink text, no fill — tertiary ("I already have an account").
 - **Destructive** (`.ex-del`): small, muted, centered text — *low prominence on purpose*. Requires a
   **two-tap arm-then-confirm** ("Delete" → "Tap again to delete", auto-resets ~3s). Never a big red button.
-- **Nav Save** (`.modal-save`): text button in the modal nav bar; **disabled until the form is valid /
-  changed** (grey `--muted-soft`), brand-ink when active.
+- **Nav Save** (`.modal-save`): text button in the modal nav bar; brand-ink, **always live** — it is
+  *not* greyed out to signal a missing field. Tapping an incomplete form flags the fields instead
+  (see §4.4). It only goes grey `--muted-soft` transiently while an async write is in flight (§4.2).
 
 ### Choice chips (`.choices` / `.choice`)
 Wrapping pills, white with hairline border. Selected: brand border (2px), `--brand-tint` fill,
@@ -343,6 +344,51 @@ request then fails — report from the completion handler.
 - Errors must be recoverable: keep the form open, keep their input, offer the retry.
 - Offline is surfaced by the `#fh-offline` banner (`html.fh-offline`), because writes are optimistic.
 
+### 4.4 Required fields & submit validation
+
+**Never grey out a submit CTA to say a required field is missing.** A disabled button explains
+nothing — the user sees a dead control and has no idea *which* field is blocking them. This was a
+real bug (the "Create event" button sat grey with no cue). The rule, app-wide:
+
+- **The CTA stays enabled and tappable.** Validation happens *on tap*, not by disabling.
+- **On an incomplete submit, flag the offending field(s), don't just refuse.** Each missing/invalid
+  field gets a danger-red border (`.field.invalid`) and **one shake**, the first is focused, and a
+  toast names what to finish. This mirrors the bulk-expense flow (`submitBulk` → `bulkShowInvalid`),
+  which is the reference implementation.
+- **Clear the red as they fix it.** The field's `oninput` calls `fhClearInvalid(scope)` so the flag
+  disappears the moment they start typing.
+
+**Use the shared helper — don't re-roll validation:**
+
+```js
+// rules: [{el, ok, focus?}] — el = field element or its id, ok = truthy when satisfied.
+if (!fhCheck([
+  { el: nameEl, ok: !!name },
+  { el: amtEl,  ok: target > 0 }
+], L('Hãy nhập tên dịp và chi phí dự kiến','Add a name and an estimated cost'))) return;
+// ...proceed; fhCheck flagged + shook + focused + toasted and returned false if anything was missing.
+```
+
+`fhCheck(rules, msg)` / `fhFlagField(el)` / `fhClearInvalid(scope)` live in `12-format-helpers.js`
+(global, also on `window` for the data-layer module). They flag a field's `.field` wrapper, or the
+element itself when it has no `.field` (e.g. the onboarding code boxes flag `#ob-code-boxes`, whose
+input is `opacity:0`).
+
+**Accessibility:** because the button is no longer `disabled`, the failure has to be *announced*, not
+just drawn. `fhCheck` sets `aria-invalid="true"` on each bad field (cleared on the next input), and the
+`#toast` is a `role="status" aria-live="polite"` region, so the "what to finish" message is read out.
+If an `#onboarding`- or ID-scoped `:focus` rule out-specifies `.field.invalid`, add a matching
+`#scope .field.invalid input` rule — the red border must win even while the field is focused.
+
+**Dynamic forms (`_fhModal`) don't gate the Save button either.** Pass `required()` → `[{el, ok}]`
+(and an optional `reqMsg`); on Save, `fhModalSave` runs it through `fhCheck` and flags the fields.
+Pass `dirty()` when a no-op save should just dismiss instead of writing — Save that finds nothing
+changed closes quietly rather than firing a redundant RPC. Do **not** pass the old `valid` (removed).
+
+**The only time a CTA goes grey is a live async write** (§4.2: disable + `Saving…`, restore on
+failure). That's progress feedback, not a validity gate — the two are different and must not be
+conflated.
+
 ---
 
 ## 5. Layout shell & PWA (native feel)
@@ -419,7 +465,8 @@ Money inputs are `inputmode="numeric"` (never `type="number"` — the values are
 - [ ] 16px gutters, pill buttons, 13px input radius, soft layered shadows.
 - [ ] Safe-area top **and** bottom; 44×44 targets; edge-to-edge on device.
 - [ ] Primary CTA bottom-anchored; destructive is low-prominence + confirm.
-- [ ] Forms are modals (Cancel · Title · Save, Save gated); pickers are sheets; both drag-to-dismiss.
+- [ ] Forms are modals (Cancel · Title · Save); pickers are sheets; both drag-to-dismiss.
+- [ ] Submit CTA is **never greyed for a missing field** — it stays live and `fhCheck()` flags the field on tap (§4.4).
 - [ ] Hidden layers use `visibility:hidden`; scroll containers don't clip shadows.
 - [ ] Bumped `sw.js` `CACHE_NAME`.
 - [ ] Copy is warm, concise, English; empty states guide the next action.

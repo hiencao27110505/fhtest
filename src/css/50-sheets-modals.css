@@ -91,6 +91,18 @@
 @keyframes bulkshake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}
 .bulk-card.shake{animation:bulkshake .42s cubic-bezier(.36,.07,.19,.97)}
 @media (prefers-reduced-motion:reduce){.bulk-card.shake{animation:none}}
+/* Required-field validation (DESIGN §4.4). A submit CTA is never greyed to flag a
+   missing field — fhCheck() paints the offending .field (or bare input) danger-red and
+   shakes it once. The :focus variants keep the red while the focused field is being fixed
+   (they out-specify .field input:focus); only the border changes, so the field's own bg
+   is untouched — safe on both the white modal surface and the onboarding canvas. */
+.field.invalid>label{color:var(--danger)}
+.field.invalid input,.field.invalid input:focus,
+.field.invalid textarea,.field.invalid textarea:focus,
+input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border-color:var(--danger)}
+.invalid.shake,.field.invalid.shake{animation:fhshake .42s cubic-bezier(.36,.07,.19,.97)}
+@keyframes fhshake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){.invalid.shake,.field.invalid.shake{animation:none}}
 /* Missing category → a small highlighted label only, not a full-card highlight. Red so it stands out. */
 .bc-pick{font-size:11px;font-weight:700;color:var(--danger);background:var(--danger-tint);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .bulk-card:not(.active){display:flex;align-items:center}

@@ -237,8 +237,9 @@ function renderRing(){
 function closeEvent(){ document.getElementById('event-overlay').classList.remove('on'); }
 function addFunds(){
   var id=chosen('fn-event')||curEvent||order[0];
-  var amt=parseAmtBase(document.getElementById('fn-amt').value);
-  if(!amt){ document.getElementById('fn-amt').focus(); return; }
+  var amtEl=document.getElementById('fn-amt');
+  var amt=parseAmtBase(amtEl.value);
+  if(!fhCheck([{el:amtEl, ok:amt>0}], L('Nhập số tiền muốn góp','Enter an amount to add'))) return;
   var e=events[id];
   if(!e){ toast(L('Chọn một sự kiện để góp quỹ','Select an event to fund')); return; }
   if(e.saved>=e.target){ toast(L(e.name+' đã đủ tiền',e.name+' is already fully funded')); return; }
@@ -278,20 +279,20 @@ function updateSrcHint(){
   else if(selSrc==='savings') el.textContent=L('Đủ trọn '+fmt(cost)+' từ quỹ tiết kiệm','Covers the full '+fmt(cost)+' from savings');
   else el.innerHTML=L('Đủ trọn '+fmt(cost)+' · còn '+fmt(safe-cost)+' trong tháng','Covers the full '+fmt(cost)+' · leaves you '+fmt(safe-cost)+' in '+curMoName());
 }
-/* Create is gated on both a name and a real target. The old code defaulted a blank
-   target to 1000 and then immediately moved that much out of savings — a half-filled
-   form could silently spend money. */
-function ngDirty(){
-  var b=document.getElementById('ng-save'); if(!b) return;
-  var name=(document.getElementById('ng-name').value||'').trim();
-  var target=parseAmtBase(document.getElementById('ng-amt').value)||0;
-  b.disabled=!(name && target>0);
-}
+/* Create needs a name AND a real target (the old code defaulted a blank target to
+   1000 and immediately moved that much out of savings — a half-filled form could
+   silently spend money). Create stays enabled (DESIGN §4.4): rather than greying out,
+   ngDirty() just clears any red flag as the user types; addEvent() does the gating on
+   tap, flagging the missing field. */
+function ngDirty(){ fhClearInvalid('event-modal'); }
 function addEvent(){
-  var name=document.getElementById('ng-name').value.trim();
-  if(!name){ document.getElementById('ng-name').focus(); return; }
-  var target=parseAmtBase(document.getElementById('ng-amt').value)||0;
-  if(!target){ document.getElementById('ng-amt').focus(); return; }
+  var nameEl=document.getElementById('ng-name'), amtEl=document.getElementById('ng-amt');
+  var name=(nameEl.value||'').trim();
+  var target=parseAmtBase(amtEl.value)||0;
+  if(!fhCheck([
+    {el:nameEl, ok:!!name},
+    {el:amtEl, ok:target>0}
+  ], L('Hãy nhập tên dịp và chi phí dự kiến','Add a name and an estimated cost'))) return;
   var raw=document.getElementById('ng-date').value;       // "YYYY-MM-DD" from the date picker
   var src=selSrc;
   var id='e'+order.length+Math.floor(target);

@@ -85,13 +85,18 @@
   window.obCodeInput = function (el) {
     el.value = el.value.replace(/\D/g, '').slice(0, 6);
     if (typeof window.renderCodeBoxes === 'function') window.renderCodeBoxes(el.value);
-    const cta = document.getElementById('ob-join-cta'); if (cta) cta.disabled = el.value.length < 6;
+    if (typeof window.fhClearInvalid === 'function') window.fhClearInvalid('ob-code-boxes');   // Join stays enabled; obJoin() gates on tap (DESIGN §4.4)
   };
 
   window.obJoin = async function () {
     const el = document.getElementById('ob-code');
     const code = (el ? el.value : '').trim();
-    if (!/^\d{6}$/.test(code)) return;
+    if (!/^\d{6}$/.test(code)) {
+      if (typeof window.fhFlagField === 'function') window.fhFlagField(document.getElementById('ob-code-boxes'));
+      if (el) el.focus();
+      window.toast && window.toast(L('Nhập đủ 6 chữ số', 'Enter all 6 digits'));
+      return;
+    }
     const hint = document.getElementById('ob-join-hint');
     const cta = document.getElementById('ob-join-cta');
     const label = cta ? cta.textContent : '';
@@ -221,7 +226,14 @@
         + _pcField('fh-pc-new', L('Mã 6 số', '6-digit code'))
         + _pcField('fh-pc-new2', L('Nhập lại mã', 'Repeat the code'))
         + _pcWarn(),
-      valid: () => _pcOk('fh-pc-new') && _pcVal('fh-pc-new') === _pcVal('fh-pc-new2'),
+      required: () => {
+        const full = _pcOk('fh-pc-new');
+        return [
+          { el: 'fh-pc-new', ok: full },
+          { el: 'fh-pc-new2', ok: full && _pcVal('fh-pc-new') === _pcVal('fh-pc-new2') }
+        ];
+      },
+      reqMsg: L('Nhập mã 6 số, giống nhau ở cả hai ô', 'Enter a 6-digit code, the same in both boxes'),
       save: async () => {
         const code = _pcVal('fh-pc-new');
         const salt = FHCrypto.genSaltHex();
@@ -248,7 +260,15 @@
         + '<div class="field-hint">' + L('Thành viên đang dùng app không bị ảnh hưởng, chỉ người vào sau cần mã mới.',
                                           'Members already in the app aren’t affected. Only future joins need the new code.') + '</div>'
         + _pcWarn(),
-      valid: () => _pcOk('fh-pc-old') && _pcOk('fh-pc-new') && _pcVal('fh-pc-new') === _pcVal('fh-pc-new2'),
+      required: () => {
+        const nn = _pcOk('fh-pc-new');
+        return [
+          { el: 'fh-pc-old', ok: _pcOk('fh-pc-old') },
+          { el: 'fh-pc-new', ok: nn },
+          { el: 'fh-pc-new2', ok: nn && _pcVal('fh-pc-new') === _pcVal('fh-pc-new2') }
+        ];
+      },
+      reqMsg: L('Nhập mã hiện tại và mã mới 6 số (giống nhau ở cả hai ô)', 'Enter the current code and a matching 6-digit new code'),
       save: async () => {
         const enc = window.DB.enc; if (!enc) throw new Error('no_passcode');
         const oldK = await FHCrypto.deriveKeys(_pcVal('fh-pc-old'), enc.kdf_salt, enc.kdf_iters, enc.kdf_version);
@@ -291,7 +311,8 @@
       saveLabel: L('Mở khóa', 'Unlock'),
       body: '<div class="fh-s-sub">' + why + '</div>'
         + _pcField('fh-pc-unlock', L('Mã 6 số', '6-digit code')),
-      valid: () => _pcOk('fh-pc-unlock'),
+      required: () => [{ el: 'fh-pc-unlock', ok: _pcOk('fh-pc-unlock') }],
+      reqMsg: L('Nhập mã 6 số', 'Enter the 6-digit code'),
       save: async () => {
         const keys = await FHCrypto.deriveKeys(_pcVal('fh-pc-unlock'), enc.kdf_salt, enc.kdf_iters, enc.kdf_version);
         let dekRaw;

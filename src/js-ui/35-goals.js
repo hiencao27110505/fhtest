@@ -39,21 +39,21 @@ function renderGoals(){
   setHTML('goals-list', rows ? '<div class="goal-group">'+rows+'</div>'
     : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🎯</div><div class="me-t">'+L('Chưa có mục tiêu','No goals yet')+'</div><p>'+L('Để dành tiền cho điều bạn muốn mua hoặc làm.','Save up for something you want to buy or do.')+'</p><button class="empty-cta" style="margin-top:18px" onclick="openGoal()">＋ '+L('Tạo mục tiêu đầu tiên','Create your first goal')+'</button></div>');
 }
-function onGoalInput(){
-  var name=(document.getElementById('goal-name').value||'').trim();
-  var amt=parseAmtBase(document.getElementById('goal-amt').value);
-  var b=document.getElementById('goal-save'); if(b) b.classList.toggle('on', !!(name&&amt>0));
-}
+function onGoalInput(){ if(typeof fhClearInvalid==='function') fhClearInvalid('goal-modal'); }   // Save stays enabled (DESIGN §4.4)
 function openGoal(){
   ['goal-name','goal-amt','goal-date','goal-init'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; });
-  var b=document.getElementById('goal-save'); if(b)b.classList.remove('on');
+  if(typeof fhClearInvalid==='function') fhClearInvalid('goal-modal');
   openSheet('goal-modal');
   setTimeout(function(){ var n=document.getElementById('goal-name'); if(n)n.focus(); },260);
 }
 function submitGoal(){
-  var name=(document.getElementById('goal-name').value||'').trim();
-  var target=parseAmtBase(document.getElementById('goal-amt').value);
-  if(!name||!target){ toast(L('Nhập tên và số tiền mục tiêu','Enter a name and target amount')); return; }
+  var nameEl=document.getElementById('goal-name'), amtEl=document.getElementById('goal-amt');
+  var name=(nameEl.value||'').trim();
+  var target=parseAmtBase(amtEl.value);
+  if(!fhCheck([
+    {el:nameEl, ok:!!name},
+    {el:amtEl, ok:target>0}
+  ], L('Nhập tên và số tiền mục tiêu','Enter a name and target amount'))) return;
   var pool=(window.savings!==undefined?window.savings:savings)||0;
   var data={ name:name, target:target, date:(document.getElementById('goal-date').value||null),
     init:Math.min(parseAmtBase(document.getElementById('goal-init').value)||0, pool),
@@ -68,14 +68,15 @@ function fundGoal(id){
   var g=(window.goals||{})[id]; var pool=(window.savings!==undefined?window.savings:savings)||0;
   if(g) setHTML('gf-sub',L('Thêm vào <b>','Add to <b>')+esc(g.name)+'</b> · '+fmt(pool)+L(' sẵn có trong quỹ.',' available in the fund.'));
   var a=document.getElementById('gf-amt'); if(a)a.value='';
-  var sv=document.getElementById('gf-save'); if(sv)sv.classList.remove('on');
+  if(typeof fhClearInvalid==='function') fhClearInvalid('goal-fund');
   openSheet('goal-fund');
   setTimeout(function(){ var a2=document.getElementById('gf-amt'); if(a2)a2.focus(); },260);
 }
-function onGoalFundInput(){ var amt=parseAmtBase(document.getElementById('gf-amt').value); var b=document.getElementById('gf-save'); if(b) b.classList.toggle('on', amt>0); }
+function onGoalFundInput(){ if(typeof fhClearInvalid==='function') fhClearInvalid('goal-fund'); }
 function submitGoalFund(){
-  var amt=parseAmtBase(document.getElementById('gf-amt').value);
-  if(!amt){ toast(L('Nhập số tiền','Enter an amount')); return; }
+  var amtEl=document.getElementById('gf-amt');
+  var amt=parseAmtBase(amtEl.value);
+  if(!fhCheck([{el:amtEl, ok:amt>0}], L('Nhập số tiền','Enter an amount'))) return;
   var pool=(window.savings!==undefined?window.savings:savings)||0;
   amt=Math.min(amt,pool);
   if(amt<=0){ toast(L('Quỹ tiết kiệm chưa đủ','Not enough in savings')); return; }

@@ -530,7 +530,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="modal-nav">
     <button class="modal-cancel" onclick="closeEventModal()" data-t="cancel">Cancel</button>
     <div class="modal-title" data-t="eventTitle">New event</div>
-    <button class="modal-save" id="ng-save" onclick="addEvent()" data-t="create" disabled>Create</button>
+    <button class="modal-save" id="ng-save" onclick="addEvent()" data-t="create">Create</button>
   </div>
   <div class="modal-body">
     <div class="field">
@@ -678,7 +678,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="modal-nav">
     <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
     <div class="modal-title" data-t="budgetModalTitle">Categories &amp; budget</div>
-    <button class="modal-save" id="bg-save" data-t="save" onclick="setBudget()" disabled>Save</button>
+    <button class="modal-save" id="bg-save" data-t="save" onclick="setBudget()">Save</button>
   </div>
   <div class="modal-body">
     <div class="sheet-sub" data-t="budgetModalSub">Your monthly target, plus the categories your spending is grouped into. Add, rename, re-budget or remove them.</div>
@@ -781,7 +781,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="modal-nav">
     <button class="modal-cancel" onclick="fhModalClose()" data-t="cancel">Cancel</button>
     <div class="modal-title" id="fh-modal-title">Edit</div>
-    <button class="modal-save" id="fh-modal-save" onclick="fhModalSave()" data-t="save" disabled>Save</button>
+    <button class="modal-save" id="fh-modal-save" onclick="fhModalSave()" data-t="save">Save</button>
   </div>
   <div class="modal-body" id="fh-modal-body"></div>
 </div>
@@ -794,7 +794,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <button class="cel-btn" onclick="closeCelebrate()" data-t="celBtn">Woohoo! 🙌</button>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <!-- ONBOARDING -->
 <div id="onboarding">
@@ -869,7 +869,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
       <div class="ob-preview" id="ob-join-preview" style="display:none"></div>
       <div class="ob-sub" id="ob-join-hint" style="margin-top:14px"></div>
     </div>
-    <div class="ob-foot"><button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta" disabled>Join family</button></div>
+    <div class="ob-foot"><button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta">Join family</button></div>
   </section>
 
   <section class="ob-screen" data-ob="profile">
@@ -917,7 +917,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
       <div class="field"><label data-t="pcRepeat">Repeat the code</label><input class="num big" id="ob-pc2" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" oninput="obPcInput()"></div>
       <div class="ob-sub" data-t="pcWarn" style="margin-top:12px">Money encryption is permanent and cannot be turned off. If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered. Not even by us.</div>
     </div>
-    <div class="ob-foot"><button class="cta" id="ob-pc-cta" onclick="obPasscodeNext()" disabled>Continue</button></div>
+    <div class="ob-foot"><button class="cta" id="ob-pc-cta" onclick="obPasscodeNext()">Continue</button></div>
   </section>
 
   <section class="ob-screen" data-ob="budget">

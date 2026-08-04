@@ -66,9 +66,11 @@ function obChoose(mode){
 function obCodeInput(el){
   el.value=el.value.replace(/\D/g,'').slice(0,6);
   renderCodeBoxes(el.value);
-  document.getElementById('ob-join-cta').disabled=el.value.length<6;
+  if(typeof fhClearInvalid==='function') fhClearInvalid('ob-code-boxes');   // clear the red as they type (Join stays enabled, DESIGN §4.4)
 }
 function obJoin(){
+  var el=document.getElementById('ob-code'), code=(el?el.value:'').trim();
+  if(!/^\d{6}$/.test(code)){ if(typeof fhFlagField==='function') fhFlagField(document.getElementById('ob-code-boxes')); if(el)el.focus(); toast(L('Nhập đủ 6 chữ số','Enter all 6 digits')); return; }
   toast(L('Không kết nối được máy chủ. Kiểm tra mạng và thử lại','Can’t reach the server. Check your connection and try again'));
 }
 function renderObColors(){
@@ -125,14 +127,15 @@ function obFamilyNext(){
 /* Mandatory passcode step (create flow only): 6 digits, typed twice. The code is
    held in memory (FAM.passcode) until createFamilyInDB uses it, never stored. */
 function obPcInput(){
-  var a=document.getElementById('ob-pc'), b=document.getElementById('ob-pc2'), cta=document.getElementById('ob-pc-cta');
-  if(!a||!b||!cta) return;
+  var a=document.getElementById('ob-pc'), b=document.getElementById('ob-pc2');
+  if(!a||!b) return;
   a.value=a.value.replace(/\D/g,'').slice(0,6); b.value=b.value.replace(/\D/g,'').slice(0,6);
-  cta.disabled=!(/^\d{6}$/.test(a.value) && a.value===b.value);
+  if(typeof fhClearInvalid==='function') fhClearInvalid(a.closest('.ob-screen'));   // Continue stays enabled; obPasscodeNext() gates on tap (DESIGN §4.4)
 }
 function obPasscodeNext(){
-  var a=document.getElementById('ob-pc');
-  if(!a||!/^\d{6}$/.test(a.value)) return;
+  var a=document.getElementById('ob-pc'), b=document.getElementById('ob-pc2');
+  if(!fhCheck([{el:a, ok:/^\d{6}$/.test(a.value)}], L('Nhập mã gồm 6 chữ số','Enter a 6-digit code'))) return;
+  if(!fhCheck([{el:b, ok:a.value===b.value}], L('Hai mã chưa khớp','The codes don’t match'))) return;
   FAM.passcode=a.value;
   obPrefillBudget(); obGo('budget');
 }

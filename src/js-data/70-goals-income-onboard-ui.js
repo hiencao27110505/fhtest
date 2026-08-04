@@ -51,12 +51,16 @@
         + '<input id="fh-eg-amt" class="num" inputmode="numeric" value="' + _esc(shownAmt) + '" placeholder="' + _esc(window.amtPlaceholder ? window.amtPlaceholder() : '') + '" oninput="fhModalDirty()" onblur="snapAmtInput(this)"></div>'
         + '<div class="field"><label>' + L('Ngày (không bắt buộc)','Date (optional)') + '</label>'
         + '<input id="fh-eg-date" type="date" value="' + _esc(shownDate) + '" oninput="fhModalDirty()"></div>',
-      valid: () => {
+      required: () => [
+        { el: 'fh-eg-name', ok: !!(document.getElementById('fh-eg-name').value || '').trim() },
+        { el: 'fh-eg-amt', ok: (window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-eg-amt').value) : 0) > 0 }
+      ],
+      reqMsg: L('Hãy nhập tên và số tiền mục tiêu','Add a name and target amount'),
+      dirty: () => {                                          // no changes → just dismiss, no redundant write
         const nm = (document.getElementById('fh-eg-name').value || '').trim();
         const amt = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-eg-amt').value) : 0;
         const dt = document.getElementById('fh-eg-date').value || '';
-        if (!nm || !(amt > 0)) return false;
-        return nm !== g.name || amt !== g.target || dt !== shownDate;   // dirty gate
+        return nm !== g.name || amt !== g.target || dt !== shownDate;
       },
       save: async () => {
         const nm = (document.getElementById('fh-eg-name').value || '').trim();
@@ -121,10 +125,9 @@
         + '<div class="field"><label>' + L('Đặt tổng quỹ thành','Set the total to') + '</label>'
         + '<input id="fh-sav" class="num big" inputmode="numeric" value="' + _esc(shown) + '" oninput="fhModalDirty()"></div>'
         + '<div class="field-hint">' + _esc(window.curSym ? window.curSym() : '') + ' · ' + L('số này thay cho tổng quỹ, không cộng thêm.','this replaces the pool total, it doesn’t add to it.') + '</div>',
-      valid: () => {
-        const v = (document.getElementById('fh-sav').value || '').trim();
-        return v !== '' && v !== shown;
-      },
+      required: () => [{ el: 'fh-sav', ok: (document.getElementById('fh-sav').value || '').trim() !== '' }],
+      reqMsg: L('Hãy nhập số tiền quỹ','Add an amount'),
+      dirty: () => (document.getElementById('fh-sav').value || '').trim() !== shown,   // unchanged → just dismiss
       save: async () => {
         const base = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-sav').value) : 0;
         /* set_savings computes the pool delta in SQL — impossible once amounts
@@ -183,10 +186,8 @@
         + '<input id="fh-inc-note" placeholder="' + _esc(L('vd. Lương','e.g. Salary')) + '" oninput="fhModalDirty()"></div>'
         + '<div class="fh-s-lab" style="margin-top:26px">' + L('Gần đây','Recent') + '</div>'
         + (list || '<div class="fh-s-empty">' + L('Chưa ghi khoản thu nào. Thêm khoản đầu tiên ở trên nhé.','No income logged yet. Add your first above.') + '</div>'),
-      valid: () => {
-        const b = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-inc-amt').value) : 0;
-        return b > 0;
-      },
+      required: () => [{ el: 'fh-inc-amt', ok: (window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-inc-amt').value) : 0) > 0 }],
+      reqMsg: L('Hãy nhập số tiền','Add an amount'),
       save: async () => {
         const base = window.parseAmtBase(document.getElementById('fh-inc-amt').value);
         const note = (document.getElementById('fh-inc-note').value || '').trim() || L('Thu nhập','Income');

@@ -1655,6 +1655,18 @@ input{font-family:inherit}
 @keyframes bulkshake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}
 .bulk-card.shake{animation:bulkshake .42s cubic-bezier(.36,.07,.19,.97)}
 @media (prefers-reduced-motion:reduce){.bulk-card.shake{animation:none}}
+/* Required-field validation (DESIGN §4.4). A submit CTA is never greyed to flag a
+   missing field — fhCheck() paints the offending .field (or bare input) danger-red and
+   shakes it once. The :focus variants keep the red while the focused field is being fixed
+   (they out-specify .field input:focus); only the border changes, so the field's own bg
+   is untouched — safe on both the white modal surface and the onboarding canvas. */
+.field.invalid>label{color:var(--danger)}
+.field.invalid input,.field.invalid input:focus,
+.field.invalid textarea,.field.invalid textarea:focus,
+input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border-color:var(--danger)}
+.invalid.shake,.field.invalid.shake{animation:fhshake .42s cubic-bezier(.36,.07,.19,.97)}
+@keyframes fhshake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){.invalid.shake,.field.invalid.shake{animation:none}}
 /* Missing category → a small highlighted label only, not a full-card highlight. Red so it stands out. */
 .bc-pick{font-size:11px;font-weight:700;color:var(--danger);background:var(--danger-tint);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .bulk-card:not(.active){display:flex;align-items:center}
@@ -2007,6 +2019,9 @@ html.fh-stale #fh-updating{display:flex}
 /* onboarding form fields: white so they read on the canvas background (Apple grouped-form look) */
 #onboarding .field input{background:var(--white);border:1px solid var(--hairline)}
 #onboarding .field input:focus{border-color:var(--brand);background:var(--white);box-shadow:0 0 0 3px var(--brand-tint)}
+/* Danger state must out-specify the ID-scoped focus rule above, else a flagged onboarding
+   field (e.g. the passcode step) shows the brand-colored active ring instead of red (DESIGN §4.4). */
+#onboarding .field.invalid input,#onboarding .field.invalid input:focus{border-color:var(--danger);box-shadow:none}
 .ob-progress.show{opacity:1}
 .ob-progress i{display:block;height:100%;width:0;background:var(--brand);border-radius:0 3px 3px 0;transition:width .45s cubic-bezier(.32,.72,0,1)}
 .ob-screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateX(100%);transition:transform .42s cubic-bezier(.32,.72,0,1),opacity .32s;will-change:transform}
@@ -2085,6 +2100,9 @@ html.fh-stale #fh-updating{display:flex}
 .ob-code-box{flex:1;max-width:50px;aspect-ratio:.82;border-radius:13px;background:var(--surface);border:2px solid var(--hairline);display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:700;font-size:24px;color:var(--ink)}
 .ob-code-box.filled{border-color:var(--brand);background:var(--white)}
 .ob-code-box.cursor{border-color:var(--brand)}
+/* Incomplete code on tapping Join → the boxes flag danger + shake (DESIGN §4.4). The real
+   input is opacity:0, so the box row carries the signal. */
+.ob-code-boxes.invalid .ob-code-box{border-color:var(--danger)}
 .ob-code{position:absolute;inset:0;width:100%;opacity:0;font-size:16px}
 .ob-preview{display:flex;align-items:center;gap:13px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:15px;margin-top:20px;box-shadow:0 8px 22px rgba(25,16,34,.05)}
 .ob-preview-ic{width:44px;height:44px;border-radius:12px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
@@ -2701,7 +2719,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="modal-nav">
     <button class="modal-cancel" onclick="closeEventModal()" data-t="cancel">Cancel</button>
     <div class="modal-title" data-t="eventTitle">New event</div>
-    <button class="modal-save" id="ng-save" onclick="addEvent()" data-t="create" disabled>Create</button>
+    <button class="modal-save" id="ng-save" onclick="addEvent()" data-t="create">Create</button>
   </div>
   <div class="modal-body">
     <div class="field">
@@ -2849,7 +2867,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="modal-nav">
     <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
     <div class="modal-title" data-t="budgetModalTitle">Categories &amp; budget</div>
-    <button class="modal-save" id="bg-save" data-t="save" onclick="setBudget()" disabled>Save</button>
+    <button class="modal-save" id="bg-save" data-t="save" onclick="setBudget()">Save</button>
   </div>
   <div class="modal-body">
     <div class="sheet-sub" data-t="budgetModalSub">Your monthly target, plus the categories your spending is grouped into. Add, rename, re-budget or remove them.</div>
@@ -2952,7 +2970,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="modal-nav">
     <button class="modal-cancel" onclick="fhModalClose()" data-t="cancel">Cancel</button>
     <div class="modal-title" id="fh-modal-title">Edit</div>
-    <button class="modal-save" id="fh-modal-save" onclick="fhModalSave()" data-t="save" disabled>Save</button>
+    <button class="modal-save" id="fh-modal-save" onclick="fhModalSave()" data-t="save">Save</button>
   </div>
   <div class="modal-body" id="fh-modal-body"></div>
 </div>
@@ -2965,7 +2983,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <button class="cel-btn" onclick="closeCelebrate()" data-t="celBtn">Woohoo! 🙌</button>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <!-- ONBOARDING -->
 <div id="onboarding">
@@ -3040,7 +3058,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       <div class="ob-preview" id="ob-join-preview" style="display:none"></div>
       <div class="ob-sub" id="ob-join-hint" style="margin-top:14px"></div>
     </div>
-    <div class="ob-foot"><button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta" disabled>Join family</button></div>
+    <div class="ob-foot"><button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta">Join family</button></div>
   </section>
 
   <section class="ob-screen" data-ob="profile">
@@ -3088,7 +3106,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       <div class="field"><label data-t="pcRepeat">Repeat the code</label><input class="num big" id="ob-pc2" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" oninput="obPcInput()"></div>
       <div class="ob-sub" data-t="pcWarn" style="margin-top:12px">Money encryption is permanent and cannot be turned off. If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered. Not even by us.</div>
     </div>
-    <div class="ob-foot"><button class="cta" id="ob-pc-cta" onclick="obPasscodeNext()" disabled>Continue</button></div>
+    <div class="ob-foot"><button class="cta" id="ob-pc-cta" onclick="obPasscodeNext()">Continue</button></div>
   </section>
 
   <section class="ob-screen" data-ob="budget">
@@ -3306,6 +3324,56 @@ function agoLabel(d){
 }
 function setTxt(id,t){ var e=document.getElementById(id); if(e)e.textContent=t; }
 function setHTML(id,h){ var e=document.getElementById(id); if(e)e.innerHTML=h; }
+/* ---------- required-field validation (DESIGN §4.4) ----------
+   House rule: a submit CTA is NEVER greyed out to signal a missing required field —
+   a disabled button explains nothing, it just leaves the user poking a dead pixel.
+   The CTA stays live; tapping it with an incomplete form flags each missing field
+   (danger border + one shake) + toasts what to finish, then focuses the first.
+   This mirrors the bulk-expense flow (submitBulk/bulkShowInvalid) so every form in
+   the app fails the same, legible way.
+
+   fhFieldWrap(el) → the .field wrapper to flag (or the element itself if it has none,
+   e.g. a bare onboarding input). fhFlagField(el) paints it invalid and (re)plays the
+   shake. fhClearInvalid(scope) wipes flags — call it on input so the red clears as the
+   user fixes things. fhCheck(rules,msg) is the one entry point most callers use. */
+function fhFieldWrap(el){ if(!el) return null; return (el.closest && el.closest('.field')) || el; }
+function fhFlagField(el){
+  var w=fhFieldWrap(el); if(!w) return null;
+  w.classList.add('invalid');
+  w.classList.remove('shake'); void w.offsetWidth; w.classList.add('shake');   // restart the shake even if already flagged
+  return w;
+}
+function fhClearInvalid(scope){
+  var root = !scope ? document
+    : (scope.querySelectorAll ? scope : document.getElementById(scope));
+  if(!root) return;
+  if(root.classList && root.classList.contains('invalid')) root.classList.remove('invalid','shake');   // scope may itself be the flagged element
+  root.querySelectorAll('.invalid').forEach(function(e){ e.classList.remove('invalid','shake'); });
+  if(root.removeAttribute && root.getAttribute && root.getAttribute('aria-invalid')) root.removeAttribute('aria-invalid');
+  root.querySelectorAll('[aria-invalid]').forEach(function(e){ e.removeAttribute('aria-invalid'); });
+}
+/* rules: [{el, ok, focus}] where `el` is a field element or its DOM id, `ok` is
+   truthy (or a function) when satisfied, and focus:false opts a field out of receiving
+   focus. Returns true when every rule passes; otherwise flags the failing fields,
+   focuses/shakes the first, toasts `msg`, and returns false. */
+function fhCheck(rules, msg){
+  var bad=[];
+  (rules||[]).forEach(function(r){
+    var el=(typeof r.el==='string')?document.getElementById(r.el):r.el;
+    var w=el?fhFieldWrap(el):null;
+    if(w) w.classList.remove('invalid','shake');                 // reset before re-evaluating
+    if(el && el.removeAttribute) el.removeAttribute('aria-invalid');
+    var ok=(typeof r.ok==='function')?r.ok():r.ok;
+    if(!ok) bad.push({el:el, w:w, focus:r.focus});
+  });
+  if(!bad.length) return true;
+  bad.forEach(function(b){ if(b.w) fhFlagField(b.el); if(b.el && b.el.setAttribute) b.el.setAttribute('aria-invalid','true'); });
+  var first=bad[0];
+  if(first.el && first.focus!==false && typeof first.el.focus==='function'){ try{ first.el.focus(); }catch(e){} }
+  if(typeof toast==='function') toast(msg || L('Vui lòng điền các mục được tô đỏ','Please fill in the highlighted fields'));
+  return false;
+}
+window.fhCheck=fhCheck; window.fhFlagField=fhFlagField; window.fhClearInvalid=fhClearInvalid;
 /* R5 — dirty-check write. The hydrate re-renders every section on cold start, on
    focus, on realtime and 700ms after every write; most of those produce byte-for-byte
    the same markup. Skipping the innerHTML assignment when the string is unchanged
@@ -3599,10 +3667,9 @@ function bgValid(){
   });
   return named>0;
 }
-function bgDirty(){
-  var b=document.getElementById('bg-save'); if(!b) return;
-  b.disabled = !(bgValid() && bgSig()!==bgSnap);
-}
+/* Save stays enabled (DESIGN §4.4): bgDirty() only clears the red flag as the user
+   types; setBudget() gates on tap and flags the monthly-total field if it's empty. */
+function bgDirty(){ if(typeof fhClearInvalid==='function') fhClearInvalid('sheet-budget'); }
 function addCatRow(){                                       // new rows go above the catch-all, which stays last
   var box=document.getElementById('bg-rows'), lock=box.querySelector('.cat-row-lock'), html=catRowHTML('🏷️','','','');
   if(lock) lock.insertAdjacentHTML('beforebegin',html); else box.insertAdjacentHTML('beforeend',html);
@@ -3656,7 +3723,10 @@ function suggestBudgetSplit(){
   syncFallbackRow();
 }
 function setBudget(){
-  var v=parseAmtBase(document.getElementById('bg-amt').value); if(v)M().budget=v;
+  var amtEl=document.getElementById('bg-amt');
+  var v=parseAmtBase(amtEl.value);
+  if(!fhCheck([{el:amtEl, ok:v>0}], L('Hãy nhập ngân sách hằng tháng','Add a monthly budget'))) return;
+  M().budget=v;
   var newOrder=[], newStyle={}, newBudget={}, renames=[], seen={};
   document.querySelectorAll('#sheet-budget .cat-row').forEach(function(row){
     var name=row.querySelector('.cat-name').value.trim(); if(!name || seen[name.toLowerCase()]) return; seen[name.toLowerCase()]=1;
@@ -5327,21 +5397,21 @@ function renderGoals(){
   setHTML('goals-list', rows ? '<div class="goal-group">'+rows+'</div>'
     : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🎯</div><div class="me-t">'+L('Chưa có mục tiêu','No goals yet')+'</div><p>'+L('Để dành tiền cho điều bạn muốn mua hoặc làm.','Save up for something you want to buy or do.')+'</p><button class="empty-cta" style="margin-top:18px" onclick="openGoal()">＋ '+L('Tạo mục tiêu đầu tiên','Create your first goal')+'</button></div>');
 }
-function onGoalInput(){
-  var name=(document.getElementById('goal-name').value||'').trim();
-  var amt=parseAmtBase(document.getElementById('goal-amt').value);
-  var b=document.getElementById('goal-save'); if(b) b.classList.toggle('on', !!(name&&amt>0));
-}
+function onGoalInput(){ if(typeof fhClearInvalid==='function') fhClearInvalid('goal-modal'); }   // Save stays enabled (DESIGN §4.4)
 function openGoal(){
   ['goal-name','goal-amt','goal-date','goal-init'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; });
-  var b=document.getElementById('goal-save'); if(b)b.classList.remove('on');
+  if(typeof fhClearInvalid==='function') fhClearInvalid('goal-modal');
   openSheet('goal-modal');
   setTimeout(function(){ var n=document.getElementById('goal-name'); if(n)n.focus(); },260);
 }
 function submitGoal(){
-  var name=(document.getElementById('goal-name').value||'').trim();
-  var target=parseAmtBase(document.getElementById('goal-amt').value);
-  if(!name||!target){ toast(L('Nhập tên và số tiền mục tiêu','Enter a name and target amount')); return; }
+  var nameEl=document.getElementById('goal-name'), amtEl=document.getElementById('goal-amt');
+  var name=(nameEl.value||'').trim();
+  var target=parseAmtBase(amtEl.value);
+  if(!fhCheck([
+    {el:nameEl, ok:!!name},
+    {el:amtEl, ok:target>0}
+  ], L('Nhập tên và số tiền mục tiêu','Enter a name and target amount'))) return;
   var pool=(window.savings!==undefined?window.savings:savings)||0;
   var data={ name:name, target:target, date:(document.getElementById('goal-date').value||null),
     init:Math.min(parseAmtBase(document.getElementById('goal-init').value)||0, pool),
@@ -5356,14 +5426,15 @@ function fundGoal(id){
   var g=(window.goals||{})[id]; var pool=(window.savings!==undefined?window.savings:savings)||0;
   if(g) setHTML('gf-sub',L('Thêm vào <b>','Add to <b>')+esc(g.name)+'</b> · '+fmt(pool)+L(' sẵn có trong quỹ.',' available in the fund.'));
   var a=document.getElementById('gf-amt'); if(a)a.value='';
-  var sv=document.getElementById('gf-save'); if(sv)sv.classList.remove('on');
+  if(typeof fhClearInvalid==='function') fhClearInvalid('goal-fund');
   openSheet('goal-fund');
   setTimeout(function(){ var a2=document.getElementById('gf-amt'); if(a2)a2.focus(); },260);
 }
-function onGoalFundInput(){ var amt=parseAmtBase(document.getElementById('gf-amt').value); var b=document.getElementById('gf-save'); if(b) b.classList.toggle('on', amt>0); }
+function onGoalFundInput(){ if(typeof fhClearInvalid==='function') fhClearInvalid('goal-fund'); }
 function submitGoalFund(){
-  var amt=parseAmtBase(document.getElementById('gf-amt').value);
-  if(!amt){ toast(L('Nhập số tiền','Enter an amount')); return; }
+  var amtEl=document.getElementById('gf-amt');
+  var amt=parseAmtBase(amtEl.value);
+  if(!fhCheck([{el:amtEl, ok:amt>0}], L('Nhập số tiền','Enter an amount'))) return;
   var pool=(window.savings!==undefined?window.savings:savings)||0;
   amt=Math.min(amt,pool);
   if(amt<=0){ toast(L('Quỹ tiết kiệm chưa đủ','Not enough in savings')); return; }
@@ -6826,7 +6897,7 @@ function paRender(){
   bar.style.display = n ? 'flex' : 'none';
   if(n) setTxt('pa-bar-t', n + L(' đã chọn',' selected'));
   var save = document.getElementById('pa-save');
-  save.disabled = paBusy || !paBatch.some(function(p){ return p.txId; });
+  save.disabled = paBusy;   // only the async-busy gate (DESIGN §4.2); "nothing assigned yet" is caught by paDone()'s toast, not a greyed button (§4.4)
 }
 function paToggle(i){ paSel[i] = !paSel[i]; paRender(); }
 function paClearSel(){ paSel = {}; paRender(); }
@@ -8473,8 +8544,9 @@ function renderRing(){
 function closeEvent(){ document.getElementById('event-overlay').classList.remove('on'); }
 function addFunds(){
   var id=chosen('fn-event')||curEvent||order[0];
-  var amt=parseAmtBase(document.getElementById('fn-amt').value);
-  if(!amt){ document.getElementById('fn-amt').focus(); return; }
+  var amtEl=document.getElementById('fn-amt');
+  var amt=parseAmtBase(amtEl.value);
+  if(!fhCheck([{el:amtEl, ok:amt>0}], L('Nhập số tiền muốn góp','Enter an amount to add'))) return;
   var e=events[id];
   if(!e){ toast(L('Chọn một sự kiện để góp quỹ','Select an event to fund')); return; }
   if(e.saved>=e.target){ toast(L(e.name+' đã đủ tiền',e.name+' is already fully funded')); return; }
@@ -8514,20 +8586,20 @@ function updateSrcHint(){
   else if(selSrc==='savings') el.textContent=L('Đủ trọn '+fmt(cost)+' từ quỹ tiết kiệm','Covers the full '+fmt(cost)+' from savings');
   else el.innerHTML=L('Đủ trọn '+fmt(cost)+' · còn '+fmt(safe-cost)+' trong tháng','Covers the full '+fmt(cost)+' · leaves you '+fmt(safe-cost)+' in '+curMoName());
 }
-/* Create is gated on both a name and a real target. The old code defaulted a blank
-   target to 1000 and then immediately moved that much out of savings — a half-filled
-   form could silently spend money. */
-function ngDirty(){
-  var b=document.getElementById('ng-save'); if(!b) return;
-  var name=(document.getElementById('ng-name').value||'').trim();
-  var target=parseAmtBase(document.getElementById('ng-amt').value)||0;
-  b.disabled=!(name && target>0);
-}
+/* Create needs a name AND a real target (the old code defaulted a blank target to
+   1000 and immediately moved that much out of savings — a half-filled form could
+   silently spend money). Create stays enabled (DESIGN §4.4): rather than greying out,
+   ngDirty() just clears any red flag as the user types; addEvent() does the gating on
+   tap, flagging the missing field. */
+function ngDirty(){ fhClearInvalid('event-modal'); }
 function addEvent(){
-  var name=document.getElementById('ng-name').value.trim();
-  if(!name){ document.getElementById('ng-name').focus(); return; }
-  var target=parseAmtBase(document.getElementById('ng-amt').value)||0;
-  if(!target){ document.getElementById('ng-amt').focus(); return; }
+  var nameEl=document.getElementById('ng-name'), amtEl=document.getElementById('ng-amt');
+  var name=(nameEl.value||'').trim();
+  var target=parseAmtBase(amtEl.value)||0;
+  if(!fhCheck([
+    {el:nameEl, ok:!!name},
+    {el:amtEl, ok:target>0}
+  ], L('Hãy nhập tên dịp và chi phí dự kiến','Add a name and an estimated cost'))) return;
   var raw=document.getElementById('ng-date').value;       // "YYYY-MM-DD" from the date picker
   var src=selSrc;
   var id='e'+order.length+Math.floor(target);
@@ -8946,9 +9018,11 @@ function obChoose(mode){
 function obCodeInput(el){
   el.value=el.value.replace(/\D/g,'').slice(0,6);
   renderCodeBoxes(el.value);
-  document.getElementById('ob-join-cta').disabled=el.value.length<6;
+  if(typeof fhClearInvalid==='function') fhClearInvalid('ob-code-boxes');   // clear the red as they type (Join stays enabled, DESIGN §4.4)
 }
 function obJoin(){
+  var el=document.getElementById('ob-code'), code=(el?el.value:'').trim();
+  if(!/^\d{6}$/.test(code)){ if(typeof fhFlagField==='function') fhFlagField(document.getElementById('ob-code-boxes')); if(el)el.focus(); toast(L('Nhập đủ 6 chữ số','Enter all 6 digits')); return; }
   toast(L('Không kết nối được máy chủ. Kiểm tra mạng và thử lại','Can’t reach the server. Check your connection and try again'));
 }
 function renderObColors(){
@@ -9005,14 +9079,15 @@ function obFamilyNext(){
 /* Mandatory passcode step (create flow only): 6 digits, typed twice. The code is
    held in memory (FAM.passcode) until createFamilyInDB uses it, never stored. */
 function obPcInput(){
-  var a=document.getElementById('ob-pc'), b=document.getElementById('ob-pc2'), cta=document.getElementById('ob-pc-cta');
-  if(!a||!b||!cta) return;
+  var a=document.getElementById('ob-pc'), b=document.getElementById('ob-pc2');
+  if(!a||!b) return;
   a.value=a.value.replace(/\D/g,'').slice(0,6); b.value=b.value.replace(/\D/g,'').slice(0,6);
-  cta.disabled=!(/^\d{6}$/.test(a.value) && a.value===b.value);
+  if(typeof fhClearInvalid==='function') fhClearInvalid(a.closest('.ob-screen'));   // Continue stays enabled; obPasscodeNext() gates on tap (DESIGN §4.4)
 }
 function obPasscodeNext(){
-  var a=document.getElementById('ob-pc');
-  if(!a||!/^\d{6}$/.test(a.value)) return;
+  var a=document.getElementById('ob-pc'), b=document.getElementById('ob-pc2');
+  if(!fhCheck([{el:a, ok:/^\d{6}$/.test(a.value)}], L('Nhập mã gồm 6 chữ số','Enter a 6-digit code'))) return;
+  if(!fhCheck([{el:b, ok:a.value===b.value}], L('Hai mã chưa khớp','The codes don’t match'))) return;
   FAM.passcode=a.value;
   obPrefillBudget(); obGo('budget');
 }
@@ -9247,7 +9322,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v273';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v274';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -11486,15 +11561,20 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     _fhModalCtx = null;
   };
 
-  /* Form modal: Cancel · Title · Save, Save gated until the form is valid AND dirty. */
+  /* Form modal: Cancel · Title · Save. Save stays enabled (DESIGN §4.4) — it is never
+     greyed to signal a missing field. Callers pass:
+       required() → [{el, ok}] rules for fhCheck; on Save it flags+shakes the missing
+                    fields and toasts `reqMsg` instead of the button doing nothing.
+       dirty()    → true when there's a real change worth writing; if it returns false
+                    (and required passes), Save just closes with no pointless RPC. */
   let _fhModalCtx = null;
   function _fhModal(opts) {
-    _fhModalCtx = opts;                                  // {title, body, valid(), save(), saveLabel}
+    _fhModalCtx = opts;                                  // {title, body, required(), reqMsg, dirty(), save(), saveLabel}
     document.getElementById('fh-modal-title').textContent = opts.title;
     document.getElementById('fh-modal-body').innerHTML = opts.body;
     const save = document.getElementById('fh-modal-save');
     save.textContent = opts.saveLabel || L('Lưu','Save');
-    save.disabled = true;
+    save.disabled = false;
     document.getElementById('scrim').classList.add('on');
     const m = document.getElementById('fh-modal');
     m.classList.add('on'); m.style.transform = ''; m.style.transition = '';
@@ -11502,16 +11582,18 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     if (opts.after) opts.after();
     window.fhModalDirty();
   }
-  // Re-evaluate Save on every input — the modal's own inputs call this via oninput.
+  // Called by the form's inputs via oninput — clear any red flag as the user fixes fields.
   window.fhModalDirty = function () {
-    if (!_fhModalCtx) return;
-    const save = document.getElementById('fh-modal-save');
-    save.disabled = !(_fhModalCtx.valid ? _fhModalCtx.valid() : true);
+    if (typeof window.fhClearInvalid === 'function') window.fhClearInvalid('fh-modal-body');
   };
   window.fhModalClose = () => window._closeOv();
   window.fhModalSave = async function () {
     if (!_fhModalCtx || !_fhModalCtx.save) return;
     const save = document.getElementById('fh-modal-save'), ctx = _fhModalCtx;
+    // Required-field gate: flag + shake the missing fields, never a dead button (DESIGN §4.4).
+    if (ctx.required && typeof window.fhCheck === 'function' && !window.fhCheck(ctx.required(), ctx.reqMsg)) return;
+    // Nothing actually changed → dismiss without a redundant write.
+    if (ctx.dirty && !ctx.dirty()) { window._closeOv(); return; }
     save.disabled = true; save.textContent = L('Đang lưu…','Saving…');   // async writes show progress (HIG)
     let then;
     try { then = await ctx.save(); }
@@ -11652,9 +11734,11 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       body: '<div class="field"><label>' + L('Tên','Name') + '</label>'
         + '<input id="fh-mname" value="' + _esc(m.name) + '" placeholder="' + L('Tên','Name') + '" oninput="fhModalDirty()"></div>'
         + '<div class="field"><label>' + L('Màu','Colour') + '</label><div class="fh-s-swatches" id="fh-mcol">' + swatches + '</div></div>',
-      valid: () => {
+      required: () => [{ el: 'fh-mname', ok: !!(document.getElementById('fh-mname').value || '').trim() }],
+      reqMsg: L('Hãy nhập tên thành viên','Add a member name'),
+      dirty: () => {
         const v = (document.getElementById('fh-mname').value || '').trim();
-        return !!v && (v !== window._fhMName0 || window._fhMColor !== (m.color || _pal()[0]));
+        return v !== window._fhMName0 || window._fhMColor !== (m.color || _pal()[0]);
       },
       save: async () => {
         const name = (document.getElementById('fh-mname').value || '').trim();
@@ -11701,7 +11785,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       body: '<div class="field"><label>' + L('Tên','Name') + '</label>'
         + '<input id="fh-newname" placeholder="' + L('vd. Mai','e.g. Emma') + '" oninput="fhModalDirty()"></div>'
         + '<div class="field"><label>' + L('Màu','Colour') + '</label><div class="fh-s-swatches">' + swatches + '</div></div>',
-      valid: () => !!(document.getElementById('fh-newname').value || '').trim(),
+      required: () => [{ el: 'fh-newname', ok: !!(document.getElementById('fh-newname').value || '').trim() }],
+      reqMsg: L('Hãy nhập tên thành viên','Add a member name'),
       after: () => { const i = document.getElementById('fh-newname'); if (i) i.focus(); },
       save: async () => {
         const name = (document.getElementById('fh-newname').value || '').trim();
@@ -11879,13 +11964,18 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   window.obCodeInput = function (el) {
     el.value = el.value.replace(/\D/g, '').slice(0, 6);
     if (typeof window.renderCodeBoxes === 'function') window.renderCodeBoxes(el.value);
-    const cta = document.getElementById('ob-join-cta'); if (cta) cta.disabled = el.value.length < 6;
+    if (typeof window.fhClearInvalid === 'function') window.fhClearInvalid('ob-code-boxes');   // Join stays enabled; obJoin() gates on tap (DESIGN §4.4)
   };
 
   window.obJoin = async function () {
     const el = document.getElementById('ob-code');
     const code = (el ? el.value : '').trim();
-    if (!/^\d{6}$/.test(code)) return;
+    if (!/^\d{6}$/.test(code)) {
+      if (typeof window.fhFlagField === 'function') window.fhFlagField(document.getElementById('ob-code-boxes'));
+      if (el) el.focus();
+      window.toast && window.toast(L('Nhập đủ 6 chữ số', 'Enter all 6 digits'));
+      return;
+    }
     const hint = document.getElementById('ob-join-hint');
     const cta = document.getElementById('ob-join-cta');
     const label = cta ? cta.textContent : '';
@@ -12015,7 +12105,14 @@ window.fhResolveCsvMapping = resolveCsvMapping;
         + _pcField('fh-pc-new', L('Mã 6 số', '6-digit code'))
         + _pcField('fh-pc-new2', L('Nhập lại mã', 'Repeat the code'))
         + _pcWarn(),
-      valid: () => _pcOk('fh-pc-new') && _pcVal('fh-pc-new') === _pcVal('fh-pc-new2'),
+      required: () => {
+        const full = _pcOk('fh-pc-new');
+        return [
+          { el: 'fh-pc-new', ok: full },
+          { el: 'fh-pc-new2', ok: full && _pcVal('fh-pc-new') === _pcVal('fh-pc-new2') }
+        ];
+      },
+      reqMsg: L('Nhập mã 6 số, giống nhau ở cả hai ô', 'Enter a 6-digit code, the same in both boxes'),
       save: async () => {
         const code = _pcVal('fh-pc-new');
         const salt = FHCrypto.genSaltHex();
@@ -12042,7 +12139,15 @@ window.fhResolveCsvMapping = resolveCsvMapping;
         + '<div class="field-hint">' + L('Thành viên đang dùng app không bị ảnh hưởng, chỉ người vào sau cần mã mới.',
                                           'Members already in the app aren’t affected. Only future joins need the new code.') + '</div>'
         + _pcWarn(),
-      valid: () => _pcOk('fh-pc-old') && _pcOk('fh-pc-new') && _pcVal('fh-pc-new') === _pcVal('fh-pc-new2'),
+      required: () => {
+        const nn = _pcOk('fh-pc-new');
+        return [
+          { el: 'fh-pc-old', ok: _pcOk('fh-pc-old') },
+          { el: 'fh-pc-new', ok: nn },
+          { el: 'fh-pc-new2', ok: nn && _pcVal('fh-pc-new') === _pcVal('fh-pc-new2') }
+        ];
+      },
+      reqMsg: L('Nhập mã hiện tại và mã mới 6 số (giống nhau ở cả hai ô)', 'Enter the current code and a matching 6-digit new code'),
       save: async () => {
         const enc = window.DB.enc; if (!enc) throw new Error('no_passcode');
         const oldK = await FHCrypto.deriveKeys(_pcVal('fh-pc-old'), enc.kdf_salt, enc.kdf_iters, enc.kdf_version);
@@ -12085,7 +12190,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       saveLabel: L('Mở khóa', 'Unlock'),
       body: '<div class="fh-s-sub">' + why + '</div>'
         + _pcField('fh-pc-unlock', L('Mã 6 số', '6-digit code')),
-      valid: () => _pcOk('fh-pc-unlock'),
+      required: () => [{ el: 'fh-pc-unlock', ok: _pcOk('fh-pc-unlock') }],
+      reqMsg: L('Nhập mã 6 số', 'Enter the 6-digit code'),
       save: async () => {
         const keys = await FHCrypto.deriveKeys(_pcVal('fh-pc-unlock'), enc.kdf_salt, enc.kdf_iters, enc.kdf_version);
         let dekRaw;
@@ -12586,12 +12692,16 @@ window.fhResolveCsvMapping = resolveCsvMapping;
         + '<input id="fh-eg-amt" class="num" inputmode="numeric" value="' + _esc(shownAmt) + '" placeholder="' + _esc(window.amtPlaceholder ? window.amtPlaceholder() : '') + '" oninput="fhModalDirty()" onblur="snapAmtInput(this)"></div>'
         + '<div class="field"><label>' + L('Ngày (không bắt buộc)','Date (optional)') + '</label>'
         + '<input id="fh-eg-date" type="date" value="' + _esc(shownDate) + '" oninput="fhModalDirty()"></div>',
-      valid: () => {
+      required: () => [
+        { el: 'fh-eg-name', ok: !!(document.getElementById('fh-eg-name').value || '').trim() },
+        { el: 'fh-eg-amt', ok: (window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-eg-amt').value) : 0) > 0 }
+      ],
+      reqMsg: L('Hãy nhập tên và số tiền mục tiêu','Add a name and target amount'),
+      dirty: () => {                                          // no changes → just dismiss, no redundant write
         const nm = (document.getElementById('fh-eg-name').value || '').trim();
         const amt = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-eg-amt').value) : 0;
         const dt = document.getElementById('fh-eg-date').value || '';
-        if (!nm || !(amt > 0)) return false;
-        return nm !== g.name || amt !== g.target || dt !== shownDate;   // dirty gate
+        return nm !== g.name || amt !== g.target || dt !== shownDate;
       },
       save: async () => {
         const nm = (document.getElementById('fh-eg-name').value || '').trim();
@@ -12656,10 +12766,9 @@ window.fhResolveCsvMapping = resolveCsvMapping;
         + '<div class="field"><label>' + L('Đặt tổng quỹ thành','Set the total to') + '</label>'
         + '<input id="fh-sav" class="num big" inputmode="numeric" value="' + _esc(shown) + '" oninput="fhModalDirty()"></div>'
         + '<div class="field-hint">' + _esc(window.curSym ? window.curSym() : '') + ' · ' + L('số này thay cho tổng quỹ, không cộng thêm.','this replaces the pool total, it doesn’t add to it.') + '</div>',
-      valid: () => {
-        const v = (document.getElementById('fh-sav').value || '').trim();
-        return v !== '' && v !== shown;
-      },
+      required: () => [{ el: 'fh-sav', ok: (document.getElementById('fh-sav').value || '').trim() !== '' }],
+      reqMsg: L('Hãy nhập số tiền quỹ','Add an amount'),
+      dirty: () => (document.getElementById('fh-sav').value || '').trim() !== shown,   // unchanged → just dismiss
       save: async () => {
         const base = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-sav').value) : 0;
         /* set_savings computes the pool delta in SQL — impossible once amounts
@@ -12718,10 +12827,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
         + '<input id="fh-inc-note" placeholder="' + _esc(L('vd. Lương','e.g. Salary')) + '" oninput="fhModalDirty()"></div>'
         + '<div class="fh-s-lab" style="margin-top:26px">' + L('Gần đây','Recent') + '</div>'
         + (list || '<div class="fh-s-empty">' + L('Chưa ghi khoản thu nào. Thêm khoản đầu tiên ở trên nhé.','No income logged yet. Add your first above.') + '</div>'),
-      valid: () => {
-        const b = window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-inc-amt').value) : 0;
-        return b > 0;
-      },
+      required: () => [{ el: 'fh-inc-amt', ok: (window.parseAmtBase ? window.parseAmtBase(document.getElementById('fh-inc-amt').value) : 0) > 0 }],
+      reqMsg: L('Hãy nhập số tiền','Add an amount'),
       save: async () => {
         const base = window.parseAmtBase(document.getElementById('fh-inc-amt').value);
         const note = (document.getElementById('fh-inc-note').value || '').trim() || L('Thu nhập','Income');

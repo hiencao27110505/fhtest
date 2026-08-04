@@ -283,10 +283,9 @@ function bgValid(){
   });
   return named>0;
 }
-function bgDirty(){
-  var b=document.getElementById('bg-save'); if(!b) return;
-  b.disabled = !(bgValid() && bgSig()!==bgSnap);
-}
+/* Save stays enabled (DESIGN §4.4): bgDirty() only clears the red flag as the user
+   types; setBudget() gates on tap and flags the monthly-total field if it's empty. */
+function bgDirty(){ if(typeof fhClearInvalid==='function') fhClearInvalid('sheet-budget'); }
 function addCatRow(){                                       // new rows go above the catch-all, which stays last
   var box=document.getElementById('bg-rows'), lock=box.querySelector('.cat-row-lock'), html=catRowHTML('🏷️','','','');
   if(lock) lock.insertAdjacentHTML('beforebegin',html); else box.insertAdjacentHTML('beforeend',html);
@@ -340,7 +339,10 @@ function suggestBudgetSplit(){
   syncFallbackRow();
 }
 function setBudget(){
-  var v=parseAmtBase(document.getElementById('bg-amt').value); if(v)M().budget=v;
+  var amtEl=document.getElementById('bg-amt');
+  var v=parseAmtBase(amtEl.value);
+  if(!fhCheck([{el:amtEl, ok:v>0}], L('Hãy nhập ngân sách hằng tháng','Add a monthly budget'))) return;
+  M().budget=v;
   var newOrder=[], newStyle={}, newBudget={}, renames=[], seen={};
   document.querySelectorAll('#sheet-budget .cat-row').forEach(function(row){
     var name=row.querySelector('.cat-name').value.trim(); if(!name || seen[name.toLowerCase()]) return; seen[name.toLowerCase()]=1;
