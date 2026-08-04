@@ -41,6 +41,14 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-08-04-vault-photos', date:'2026-08-04', time:'21:04', ver:'v277', icon:ICO.shield,
+    vi:{ t:'Ảnh và tên gọi cũng được khóa như tiền',
+      problem:'Đợt trước tiền đã khóa kỹ rồi, nhưng ảnh hóa đơn, ảnh kỷ niệm, chú thích và tên người nhà vẫn nằm mở trên máy chủ.',
+      sol:'Từ nay tất cả dùng chung một chìa với tiền. Máy chủ chỉ giữ bản đã khóa, mã gia đình trong tay nhà mình mới mở được, tụi mình cũng chịu.' },
+    en:{ t:'Photos and names are locked now too',
+      problem:'Money was already locked, but receipts, memory photos, captions and family member names still sat readable on our server.',
+      sol:'From today they all share the one family key. The server keeps only locked copies, and without your code nobody can open them, us included.' } },
+
   { id:'2026-08-04-push-tap', date:'2026-08-04', time:'12:31', ver:'v273', icon:ICO.bell,
     vi:{ t:'Bấm thông báo là tới đúng chỗ',
       problem:'Trước bấm vào thông báo chỉ mở app ở màn hình chính, muốn xem khoản chi hay yêu cầu nào thì phải tự đi tìm.',

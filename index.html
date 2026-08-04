@@ -9376,7 +9376,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v276';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v277';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -9394,6 +9394,14 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-08-04-vault-photos', date:'2026-08-04', time:'21:04', ver:'v277', icon:ICO.shield,
+    vi:{ t:'Ảnh và tên gọi cũng được khóa như tiền',
+      problem:'Đợt trước tiền đã khóa kỹ rồi, nhưng ảnh hóa đơn, ảnh kỷ niệm, chú thích và tên người nhà vẫn nằm mở trên máy chủ.',
+      sol:'Từ nay tất cả dùng chung một chìa với tiền. Máy chủ chỉ giữ bản đã khóa, mã gia đình trong tay nhà mình mới mở được, tụi mình cũng chịu.' },
+    en:{ t:'Photos and names are locked now too',
+      problem:'Money was already locked, but receipts, memory photos, captions and family member names still sat readable on our server.',
+      sol:'From today they all share the one family key. The server keeps only locked copies, and without your code nobody can open them, us included.' } },
+
   { id:'2026-08-04-push-tap', date:'2026-08-04', time:'12:31', ver:'v273', icon:ICO.bell,
     vi:{ t:'Bấm thông báo là tới đúng chỗ',
       problem:'Trước bấm vào thông báo chỉ mở app ở màn hình chính, muốn xem khoản chi hay yêu cầu nào thì phải tự đi tìm.',
