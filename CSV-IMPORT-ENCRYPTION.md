@@ -143,3 +143,24 @@ to infer relative magnitude ("row 3 > row 1"). Flattening further (e.g. a fixed
 `X,XXX` placeholder) would remove the exact signal the Gemini fallback exists to
 resolve, which just pushes this back toward option (b)/skip-Gemini instead of the
 Option A we picked.
+
+## Problem 2 — promotion write: confirmed
+
+Agreed on reusing `addExpense()`/`submitBulk()` per row instead of a bespoke
+insert — it's the only way promotion inherits `fhField`/`_fhWriteLocked`
+correctness for free instead of a second write path that has to be kept in sync
+by hand. The batch-level `_fhWriteLocked()` gate (checked once up front, before
+row 1, rather than per-row) is the only real change needed — no changes needed to
+the write-locking mechanism itself.
+
+## Staging table — encryption columns
+
+On the "also worth deciding" question: yes, give a CSV staging table `_enc`
+sibling columns from day one if it gets built. The "amount sitting in a form's
+`<input>`" analogy undersells the risk — an `<input>` never leaves the device; a
+staging table is a persisted server-side row, reachable through the same API
+surface and backups as every other table. For an encrypted family, a plaintext
+row sitting in a staging table for the review window is exactly the kind of
+server-side exposure `enc_state` exists to prevent — no reason to treat it
+differently just because it's temporary. Same answer applies to the bank-email
+pipeline, per `0033`'s own note that it needs its own lane too.
