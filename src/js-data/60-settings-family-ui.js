@@ -155,9 +155,10 @@
     if (!fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
     const [famR, memR] = await Promise.all([
       sb.from('families').select('owner_id,name').eq('id', fid).maybeSingle(),
-      sb.from('members').select('id,name,color,is_shared,user_id').eq('family_id', fid).is('archived_at', null).order('created_at')
+      sb.from('members').select('id,name,name_enc,color,is_shared,user_id').eq('family_id', fid).is('archived_at', null).order('created_at')
     ]);
     const fam = famR.data, mems = memR.data || [];
+    for (const m of mems) { m.name = (await fhRead(m, 'name')) || (m.is_shared ? 'Shared' : L('Thành viên', 'Member')); }
     const owner = fam && fam.owner_id === uid;
     window._fhMembers = mems;
     const rows = mems.map((m) => {
@@ -203,7 +204,8 @@
       },
       save: async () => {
         const name = (document.getElementById('fh-mname').value || '').trim();
-        await _rpc('update_member', { p_member_id: id, p_name: name, p_color: window._fhMColor || null });
+        const nf = await fhField('name', name);             // enc family → ciphertext travels, plaintext stays home
+        await _rpc('update_member', { p_member_id: id, p_name: nf.name, p_color: window._fhMColor || null, p_name_enc: nf.name_enc || null });
         await window.loadFamilyData();
         window.toast && window.toast(L('Đã cập nhật thành viên','Member updated'));
       }
@@ -251,7 +253,8 @@
       after: () => { const i = document.getElementById('fh-newname'); if (i) i.focus(); },
       save: async () => {
         const name = (document.getElementById('fh-newname').value || '').trim();
-        await _rpc('add_member', { p_name: name, p_color: window._fhNewColor });
+        const nf = await fhField('name', name);
+        await _rpc('add_member', { p_name: nf.name, p_color: window._fhNewColor, p_name_enc: nf.name_enc || null });
         await window.loadFamilyData();
         window.toast && window.toast(L('Đã thêm thành viên','Member added'));
         window.fhManageFamily();

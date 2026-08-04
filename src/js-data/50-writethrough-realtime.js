@@ -232,7 +232,7 @@
       const rn = window.__catRenames || []; window.__catRenames = [];
       for (const pr of rn) {
         const oldId = window.DB.catByName[pr[0]];
-        if (oldId) { try { await _w(sb.from('categories').update({ name: pr[1] }).eq('id', oldId), 'rename category'); window.DB.catByName[pr[1]] = oldId; delete window.DB.catByName[pr[0]]; if (window.DB.catById[oldId]) window.DB.catById[oldId].name = pr[1]; } catch (e) {} }
+        if (oldId) { try { await _w(sb.from('categories').update(await fhField('name', pr[1])).eq('id', oldId), 'rename category'); window.DB.catByName[pr[1]] = oldId; delete window.DB.catByName[pr[0]]; if (window.DB.catById[oldId]) window.DB.catById[oldId].name = pr[1]; } catch (e) {} }
       }
       // removed categories → soft-delete (archived_at); history keeps its category_id, pickers drop it
       const del = window.__catDeletes || []; window.__catDeletes = [];

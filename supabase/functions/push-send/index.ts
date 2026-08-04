@@ -136,7 +136,12 @@ Deno.serve(async (req: Request) => {
     const srv = await getAppServer();
     if (!srv) return json({ error: "push not configured" }, 500);
 
-    const firstName = (actor.name || "").trim().split(/\s+/)[0] || actor.name || "FamilyHub";
+    // E2EE families (0038): members.name is ciphertext-only server-side, so the
+    // actor's device sends its own display name. Accepted ONLY when the DB name
+    // is null — plaintext families keep the server-derived, unspoofable name.
+    let actorName = (actor.name || "").trim();
+    if (!actorName && typeof body.actorName === "string") actorName = body.actorName.trim().slice(0, 40);
+    const firstName = actorName.split(/\s+/)[0] || "FamilyHub";
     const copy = buildCopy(kind, firstName, emoji, rough, lang);
     const payload = JSON.stringify({
       title: copy.title,

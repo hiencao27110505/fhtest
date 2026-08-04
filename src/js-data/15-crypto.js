@@ -62,6 +62,19 @@
       const all = _unb64(b64);
       const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, dek, all.slice(12));
       return _td.decode(pt);
+    },
+
+    /* binary twins of encVal/decVal for photo blobs — same iv‖ct package, kept
+       as raw bytes (a ~200KB image has no business being base64'd twice) */
+    async encBytes(dek, bytes) {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, dek, bytes);
+      return _cat(iv, new Uint8Array(ct));
+    },
+    async decBytes(dek, all) {
+      const u8 = (all instanceof Uint8Array) ? all : new Uint8Array(all);
+      const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: u8.slice(0, 12) }, dek, u8.slice(12));
+      return new Uint8Array(pt);
     }
   };
   window.FHCrypto = FHCrypto;
@@ -104,7 +117,11 @@
     _fhDekRaw = new Uint8Array(dekRaw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
     await _keysPut(fid, _fhDekRaw);
   }
-  function fhKeyDrop(fid) { if (_fhDekFid === fid || fid == null) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; } if (fid != null) _keysDel(fid); }
+  function fhKeyDrop(fid) {
+    if (_fhDekFid === fid || fid == null) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; }
+    if (fid != null) _keysDel(fid);
+    try { if (window.__fhPhotoCachePurge) window.__fhPhotoCachePurge(); } catch (e) {}   // decrypted photo object-URLs die with the key
+  }
   function _fhSessionDek() { if (!_fhDek) throw new Error('locked'); return _fhDek; }
   function fhKeyReady() { return !!(_fhDek && window.DB && _fhDekFid === window.DB.fid); }
   window.fhKeyReady = fhKeyReady;
@@ -119,6 +136,12 @@
   // Encrypt a value with the session DEK (null-safe; throws if key missing).
   async function fhEnc(v) { if (!_fhDek) throw new Error('no key'); return FHCrypto.encVal(_fhDek, v); }
   async function fhDec(b64) { if (!_fhDek) throw new Error('no key'); return FHCrypto.decVal(_fhDek, b64); }
+  async function fhEncBytes(bytes) { if (!_fhDek) throw new Error('no key'); return FHCrypto.encBytes(_fhDek, bytes); }
+  async function fhDecBytes(all) { if (!_fhDek) throw new Error('no key'); return FHCrypto.decBytes(_fhDek, all); }
+  /* string bridges for the classic-script side (drafts, snapshot): resolve null
+     instead of throwing so js-ui callers can degrade gracefully when locked */
+  window.fhEncStr = async function (s) { try { return _fhDek ? await fhEnc(s) : null; } catch (e) { return null; } };
+  window.fhDecStr = async function (b64) { try { return _fhDek ? await fhDec(b64) : null; } catch (e) { return null; } };
 
   /* Build the write-shape for one logical field: plaintext / ciphertext / both,
      driven by enc_state. Usage: Object.assign(row, await fhField('amount', v)).

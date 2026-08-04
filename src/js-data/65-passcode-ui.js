@@ -324,6 +324,8 @@
         window.toast && window.toast(L('Đã mở khóa ✓', 'Unlocked ✓'));
         if (window.fhOutboxFlush) setTimeout(() => window.fhOutboxFlush(), 400);   // money rows held for the key can go now
         if (window.loadFamilyData) window.loadFamilyData();
+        // a fresh key can also retire tolerated plaintext (names, captions, photos)
+        setTimeout(() => { try { window.fhEncCoverSweep && window.fhEncCoverSweep(); } catch (e) {} }, 2500);
       }
     });
   };

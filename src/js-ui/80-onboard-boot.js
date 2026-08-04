@@ -240,21 +240,36 @@ function fhSaveSnapshot(){
   try{
     var ev={};                                          // events carry a live Date — store epoch ms
     Object.keys(events||{}).forEach(function(k){ var e=events[k], c={}; for(var p in e) c[p]=e[p]; c.d=e.d?e.d.getTime():null; ev[k]=c; });
-    localStorage.setItem(FH_SNAP, JSON.stringify({
+    var data={
       v:FH_SNAP_V, at:Date.now(),
       FAM:FAM, membersMeta:membersMeta, catOrder:catOrder, catStyle:catStyle, catBudget:catBudget,
       txns:txns, months:months, monthOrder:monthOrder, selMonth:selMonth,
       events:ev, order:order, savings:savings, curEvent:curEvent,
       LANG:LANG, CUR:CUR, DB:window.DB || null
-    }));
+    };
+    // committed-enc family: the module encrypts the snapshot with the family key
+    // before it touches localStorage (v3 envelope); plaintext shape otherwise
+    if(window.fhSnapStore){ window.fhSnapStore(data); return; }
+    localStorage.setItem(FH_SNAP, JSON.stringify(data));
   }catch(e){}                                            // quota/private-mode: warm start is optional
 }
 function fhRestoreSnapshot(){
   try{
     var raw=localStorage.getItem(FH_SNAP); if(!raw) return false;
     var s=JSON.parse(raw);
+    if(s && s.v===3 && s.ct){                            // encrypted envelope: the module decrypts + applies (17-snap-restore)
+      if(!(s.at && Date.now()-s.at > FH_SNAP_TTL)) window.__fhSnapEnc=s;
+      return false;
+    }
     if(!s || s.v!==FH_SNAP_V || !s.catOrder || !s.months) return false;
     if(s.at && Date.now()-s.at > FH_SNAP_TTL) return false;
+    return fhApplySnapshot(s);
+  }catch(e){ return false; }
+}
+/* apply a parsed snapshot to the app globals — shared by the sync (plaintext)
+   path above and the module's async decrypt path (encrypted families) */
+function fhApplySnapshot(s){
+  try{
     FAM=s.FAM||FAM; membersMeta=s.membersMeta||membersMeta;
     catOrder=s.catOrder; catStyle=s.catStyle||{}; catBudget=s.catBudget||{};
     txns=s.txns||[]; months=s.months||{}; monthOrder=s.monthOrder||[]; selMonth=s.selMonth||selMonth;
@@ -265,6 +280,7 @@ function fhRestoreSnapshot(){
     return true;
   }catch(e){ return false; }
 }
+window.fhApplySnapshot=fhApplySnapshot;
 // fresh data has landed (or we gave up): retire the "Updating…" chip. Defined FIRST so a
 // later boot error can't leave it undefined (the hydrate calls it).
 window.fhFresh=function(){ document.documentElement.classList.remove('fh-stale'); };

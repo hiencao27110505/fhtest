@@ -122,7 +122,16 @@
       const now = Date.now();
       if (_pushLastSent[kind] && now - _pushLastSent[kind] < 12000) return;
       _pushLastSent[kind] = now;
-      sb.functions.invoke('push-send', { body: Object.assign({ kind: kind }, data || {}) }).catch(() => {});
+      const body = Object.assign({ kind: kind }, data || {});
+      /* committed-enc family: members.name is ciphertext server-side, so the
+         edge function can't derive the actor's first name anymore. The sender's
+         device supplies it — same trust boundary as the payload it already
+         builds, and the function only accepts it when the DB name is null. */
+      if (fhEncState() === 'enc') {
+        const me = window.DB.memberById && window.DB.memberById[window.DB.ownerMemberId];
+        if (me && me.name) body.actorName = String(me.name).slice(0, 40);
+      }
+      sb.functions.invoke('push-send', { body: body }).catch(() => {});
     } catch (e) {}
   };
   /* ---- arrival routing: a tapped notification lands on the thing itself ----

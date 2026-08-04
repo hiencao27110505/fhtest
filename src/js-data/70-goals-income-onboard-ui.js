@@ -352,5 +352,7 @@
   window.fhSignOut = async () => {
     fhResumeFail(); fhWarmAbandon();
     try { fhKeyDrop(null); indexedDB.deleteDatabase('fh-keys'); } catch (e) {}   // cached family keys go with the session
+    try { localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-expense-drafts'); } catch (e) {}   // no family data left behind on a shared device
+    try { window.__fhPhotoCachePurge && window.__fhPhotoCachePurge(); } catch (e) {}
     await sb.auth.signOut(); location.reload();
   };

@@ -19,7 +19,12 @@
     { t: 'category_budgets',num: ['amount'],        str: [] },
     { t: 'monthly_budgets', num: ['budget_total'],  str: [] },
     { t: 'events',          num: ['target_amount'], str: ['name'] },
-    { t: 'saving_goals',    num: ['target_amount'], str: ['name', 'note'] }
+    { t: 'saving_goals',    num: ['target_amount'], str: ['name', 'note'] },
+    // 0038: user-typed text joins the same lifecycle (enable covers, verify
+    // compares, scrub retires the plaintext)
+    { t: 'categories',      num: [],                str: ['name'] },
+    { t: 'members',         num: [],                str: ['name'] },
+    { t: 'event_memories',  num: [],                str: ['caption'] }
   ];
   const _encCols = (spec) => ['id'].concat(spec.num, spec.str, spec.num.map((f) => f + '_enc'), spec.str.map((f) => f + '_enc')).join(',');
   let _fhEncBusy = false;
@@ -87,10 +92,14 @@
     } else {
       const roster = _fhUnlockRoster();
       body = '<div class="fh-s-lab">' + L('Trạng thái: đang mã hóa đầu-cuối', 'Status: end-to-end encrypted') + '</div>'
-        + '<div class="fh-s-sub">' + L('Máy chủ chỉ còn bản đã khóa. Dữ liệu chỉ mở được bằng mã gia đình trên máy của thành viên. Quyết định này là vĩnh viễn, không ai đưa được bản không mã hóa trở lại máy chủ, kể cả gia đình bạn.',
-                                        'The server holds only locked values. Data opens only with the family code, on members’ devices. This is permanent. No one can put unencrypted data back on the server, not even your family.') + '</div>'
+        + '<div class="fh-s-sub">' + L('Máy chủ chỉ còn bản đã khóa, gồm cả tên, chú thích và ảnh của gia đình. Dữ liệu chỉ mở được bằng mã gia đình trên máy của thành viên. Quyết định này là vĩnh viễn, không ai đưa được bản không mã hóa trở lại máy chủ, kể cả gia đình bạn.',
+                                        'The server holds only locked values, including names, captions and the family’s photos. Data opens only with the family code, on members’ devices. This is permanent. No one can put unencrypted data back on the server, not even your family.') + '</div>'
         + roster.html
         + (fhKeyReady() ? '' : _btn(L('Mở khóa máy này', 'Unlock this device'), '_closeOv();fhUnlockPrompt()', _S.cta));
+      /* anything the valve tolerated (server-side inserts, pre-0038 rows) plus
+         any not-yet-encrypted photos: cover silently, same shape as the dual
+         resume hook above */
+      if (fhKeyReady()) setTimeout(() => { window.fhEncCoverSweep && window.fhEncCoverSweep(); }, 400);
     }
     body += '<div class="fh-s-sub" id="fh-enc-prog" style="min-height:18px"></div>';
     /* Excel-copy CTA temporarily hidden by product decision (2026-08-03) — the
@@ -370,6 +379,73 @@
     window.toast && window.toast(L('Xong, đã xóa bản gốc của ' + n + ' dòng, giờ chỉ còn bản mã hóa', 'Done. Plaintext erased on ' + n + ' rows, only ciphertext remains'));
     await window.loadFamilyData();
     window.fhEncryptionSheet();
+  };
+
+  /* ═══ Coverage sweep for COMMITTED families ('enc') ═════════════════════════
+     Enc-from-birth families (0032) and server-side flows (redeem_invite,
+     create_family seeding) leave plaintext names/captions the 0038 valve
+     tolerates; and a family that just finished the scrub still has its whole
+     photo history as plaintext objects. This sweep — silent, idempotent,
+     resumable — retires both:
+       text:   pt without ct → write ct; committed → also null the pt
+       photos: plaintext bucket object → fetch → AES-GCM → upload '<path>.enc'
+               → repoint the row → delete the plaintext object
+     Runs from the encryption sheet, after an unlock, and once per session
+     after hydrate. Order inside a photo is safe against interruption: the old
+     object is deleted only after its row points at the encrypted one. */
+  const _TXT_COVER = [
+    { t: 'categories',     f: 'name' },
+    { t: 'members',        f: 'name' },
+    { t: 'event_memories', f: 'caption' }
+  ];
+  let _fhCovBusy = false;
+  window.fhEncCoverSweep = async function () {
+    if (_fhCovBusy || !window.DB || !window.DB.fid) return;
+    if (fhEncState() !== 'enc' || !fhKeyReady()) return;    // dual is covered by the enable/resume job
+    _fhCovBusy = true;
+    const fid = window.DB.fid;
+    let nTxt = 0, nPhoto = 0;
+    try {
+      for (const spec of _TXT_COVER) {
+        const r = await sb.from(spec.t).select('id,' + spec.f + ',' + spec.f + '_enc').eq('family_id', fid);
+        if (r.error) continue;
+        for (const row of (r.data || [])) {
+          const pt = row[spec.f];
+          if (pt === null || pt === undefined || pt === '') continue;
+          const patch = {};
+          patch[spec.f] = null;                              // committed: ciphertext is the only copy
+          patch[spec.f + '_enc'] = row[spec.f + '_enc'] != null ? row[spec.f + '_enc'] : await fhEnc(pt);
+          window.DB._lastLocalWrite = Date.now();
+          try { await _w(sb.from(spec.t).update(patch).eq('id', row.id), 'cover ' + spec.t); nTxt++; } catch (e) {}
+        }
+      }
+      const P = SUPABASE_URL + '/storage/v1/object/public/family-media/';
+      for (const tbl of ['transaction_photos', 'event_memories']) {
+        const r = await sb.from(tbl).select('id,photo_url').eq('family_id', fid);
+        if (r.error) continue;
+        for (const row of (r.data || [])) {
+          const p = row.photo_url;
+          if (!p || p.indexOf('http') === 0 || /\.enc$/.test(p)) continue;
+          try {
+            _fhEncProg(L('Đang bảo vệ ảnh… ', 'Protecting photos… ') + (nPhoto + 1));
+            const resp = await fetch(P + p.split('/').map(encodeURIComponent).join('/'));
+            if (!resp.ok) continue;
+            const ct = await fhEncBytes(new Uint8Array(await resp.arrayBuffer()));
+            const newPath = p + '.enc';
+            const up = await sb.storage.from('family-media').upload(newPath, ct, { contentType: 'application/octet-stream', cacheControl: '31536000' });
+            if (up.error && !/already exists|duplicate/i.test(String(up.error.message || ''))) continue;
+            window.DB._lastLocalWrite = Date.now();
+            await _w(sb.from(tbl).update({ photo_url: newPath }).eq('id', row.id), 'protect photo');
+            try { await sb.storage.from('family-media').remove([p]); } catch (e) {}
+            nPhoto++;
+          } catch (e) { console.warn('photo cover failed', tbl, row.id, e); }
+        }
+      }
+      _fhEncProg('');
+      if (nPhoto) window.toast && window.toast(L('Đã mã hóa ' + nPhoto + ' ảnh của gia đình ✓', nPhoto + ' family photos encrypted ✓'));
+      if (nTxt || nPhoto) { window.DB._lastLocalWrite = 0; window.loadFamilyData && window.loadFamilyData(); }
+    } catch (e) { _fhEncProg(''); console.warn('cover sweep failed', e); }
+    finally { _fhCovBusy = false; }
   };
 
   /* dual→off ONLY: abort the trial window. In dual the plaintext never left

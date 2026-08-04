@@ -21,8 +21,11 @@
             cx.drawImage(img, 0, 0, cw, ch);
             const out = cv.toDataURL('image/jpeg', quality);
             if (!out || out.indexOf('data:image/jpeg') !== 0) return resolve(dataUri);
-            // always take the JPEG for non-web-safe sources (HEIC); otherwise keep whichever is smaller
-            resolve((!webSafe || out.length < dataUri.length) ? out : dataUri);
+            // ALWAYS the canvas re-encode (even when it comes out larger): the
+            // original bytes carry EXIF — including GPS — and this bucket is
+            // public-by-URL. Only undecodable sources and GIFs (kept for their
+            // animation, above) fall back to original bytes.
+            resolve(out);
           } catch (e) { resolve(dataUri); }
         };
         img.onerror = function () { resolve(dataUri); };
@@ -30,20 +33,31 @@
       } catch (e) { resolve(dataUri); }
     });
   }
+  /* Photos are encrypted only once a family COMMITS ('enc' — terminal since
+     0035). In 'dual' the trial is abortable and plaintext stays authoritative,
+     so photo bytes wait for the scrub; the coverage job re-encrypts the whole
+     history right after. */
+  function _fhPhotoEncOn() { return fhEncState() === 'enc' && fhKeyReady(); }
   async function _uploadPhoto(dataUri) {
     try {
       const fid = window.DB.fid; if (!fid || !dataUri || dataUri.indexOf('data:') !== 0) return null;
       dataUri = await _compressImage(dataUri);
       const m = dataUri.match(/^data:([^;]+);base64,(.*)$/); if (!m) return null;
-      const mime = m[1]; const bin = atob(m[2]); const arr = new Uint8Array(bin.length);
+      const mime = m[1]; const bin = atob(m[2]); let arr = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-      const ext = ((mime.split('/')[1]) || 'jpg').replace('jpeg', 'jpg').replace('svg+xml', 'svg');
+      let ext = ((mime.split('/')[1]) || 'jpg').replace('jpeg', 'jpg').replace('svg+xml', 'svg');
+      let ctype = mime;
+      /* E2EE bytes: AES-GCM with the family DEK, '.enc' suffix. The bucket can
+         stay public — the URL now addresses ciphertext, so privacy comes from
+         the key, not from hiding the address, and the immutable-cache model
+         (below) keeps working unchanged. */
+      if (_fhPhotoEncOn()) { arr = await fhEncBytes(arr); ext += '.enc'; ctype = 'application/octet-stream'; }
       const path = fid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
       // Paths embed a timestamp + random suffix and are never overwritten, so the
       // bytes at a given URL are immutable — cache them for a year instead of
       // Supabase's 1h default, which would otherwise force a revalidation round
       // trip per photo every hour.
-      const { error } = await sb.storage.from('family-media').upload(path, arr, { contentType: mime, cacheControl: '31536000' });
+      const { error } = await sb.storage.from('family-media').upload(path, arr, { contentType: ctype, cacheControl: '31536000' });
       if (error) { console.warn('upload failed', error); return null; }
       return path;
     } catch (e) { console.warn('upload err', e); return null; }
@@ -87,7 +101,9 @@
         if (mm.src && mm.src.indexOf('data:') === 0) path = await _uploadPhoto(mm.src);
         else if (mm.src && mm.src.indexOf('http') === 0) path = mm.src;
         if (wantsPhoto && !path) { failed++; continue; }     // upload failed → skip the row (no photoless ghost memory)
-        await _w(sb.from('event_memories').insert({ family_id: window.DB.fid, event_id: eventId, photo_url: path, caption: mm.caption || null, emoji: mm.emoji || null, sort_order: baseSort + i, taken_on: takenOn }), 'write event_memories');
+        await _w(sb.from('event_memories').insert(Object.assign(
+          { family_id: window.DB.fid, event_id: eventId, photo_url: path, emoji: mm.emoji || null, sort_order: baseSort + i, taken_on: takenOn },
+          await fhField('caption', mm.caption || null))), 'write event_memories');
       }
     } catch (e) { console.warn('event memories failed', e); failed++; }
     finally { try { window.fhUploadBusy && window.fhUploadBusy(-memories.length); } catch (e) {} }
@@ -171,6 +187,16 @@
   async function _obQueueTxn(row, t) {
     const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2));
     const payload = { row: Object.assign({ id: id }, row), photos: (t && t.photos) ? t.photos.slice() : [] };
+    /* committed-enc family: the queued receipt photos must not sit as plaintext
+       data URIs in IndexedDB — encrypt each with the session DEK; the flush
+       decrypts them back right before upload (which re-encrypts for storage). */
+    if (fhEncState() === 'enc' && fhKeyReady() && payload.photos.length) {
+      try {
+        payload.photos_enc = [];
+        for (const p of payload.photos) payload.photos_enc.push(await fhEnc(p));
+        payload.photos = [];
+      } catch (e) { payload.photos_enc = null; }           // key raced away: keep plaintext rather than lose the photo
+    }
     if (t) t._dbId = id;                                   // local row now carries its eventual id
     const ok = await _obAdd({ id: id, kind: 'insertTxn', payload: payload, ts: Date.now() });
     _obHadItems = true;
@@ -194,13 +220,20 @@
               if (!fhKeyReady()) break;                      // resume after fhUnlockPrompt succeeds
               Object.assign(row, await fhField('amount', Number(row.amount)), await fhField('note', row.note));
             }
+            // photos queued encrypted need the key back before they can upload
+            let photos = it.payload.photos || [];
+            if (it.payload.photos_enc && it.payload.photos_enc.length) {
+              if (!fhKeyReady()) break;
+              photos = [];
+              for (const ct of it.payload.photos_enc) { const p = await fhDec(ct); if (p) photos.push(p); }
+            }
             const res = await sb.from('transactions').insert(it.payload.row).select('id').single();
             if (res.error) {
               if (/duplicate key|already exists/i.test(res.error.message || '')) { await _obDel(it.id); continue; }  // a prior replay landed it
               throw res.error;                             // still offline / real error → keep, retry later
             }
             const newId = res.data && res.data.id;
-            if (newId && it.payload.photos && it.payload.photos.length) { try { await _dbUploadTxnPhotos(newId, it.payload.photos); } catch (e) {} }
+            if (newId && photos.length) { try { await _dbUploadTxnPhotos(newId, photos); } catch (e) {} }
             await _obDel(it.id);
           } else { await _obDel(it.id); }
         } catch (e) { break; }                             // stop at the first failure; a later online/hydrate retries

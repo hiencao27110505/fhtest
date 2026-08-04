@@ -208,20 +208,50 @@ function draftHasContent(){
   for(var i=0;i<bulkRows.length;i++){ var r=bulkRows[i]; if((r.note||'').trim() || parseAmtBase(r.amt||'')) return true; }
   return false;
 }
+var _draftSeq=0;
 function persistDrafts(){
   if(editingTx || exPreset) return;                // editing, or a one-off preset log, is not the bulk draft
   try{
     if(!draftHasContent()){ localStorage.removeItem(FH_DRAFTS); return; }
     var rows=bulkRows.map(function(r){ return {note:r.note||'',amt:r.amt||'',cat:r.cat||'',who:r.who||'',date:r.date||'',_catTouched:!!r._catTouched}; });
-    localStorage.setItem(FH_DRAFTS, JSON.stringify({v:1, cur:CUR, active:bulkActive, rows:rows}));
+    var data={v:1, cur:CUR, active:bulkActive, rows:rows};
+    // committed-enc family: amounts + notes never touch disk unencrypted. A
+    // locked device just skips persisting (it can't save the expense anyway).
+    if(window.fhEncState && window.fhEncState()==='enc'){
+      if(!(window.fhKeyReady && window.fhKeyReady()) || !window.fhEncStr) return;
+      var seq=++_draftSeq;
+      window.fhEncStr(JSON.stringify(data)).then(function(ct){
+        if(!ct || seq!==_draftSeq) return;           // stale encrypt must not stomp a newer draft
+        try{ localStorage.setItem(FH_DRAFTS, JSON.stringify({v:2, enc:1, cur:CUR, ct:ct})); }catch(e){}
+      });
+      return;
+    }
+    localStorage.setItem(FH_DRAFTS, JSON.stringify(data));
   }catch(e){}
 }
-function clearDrafts(){ if(exPreset) return; try{ localStorage.removeItem(FH_DRAFTS); }catch(e){} }   // a preset log must not wipe an unrelated bulk draft
+function clearDrafts(){ if(exPreset) return; _draftSeq++; try{ localStorage.removeItem(FH_DRAFTS); }catch(e){} }   // a preset log must not wipe an unrelated bulk draft
 function loadDrafts(){
   try{ var d=JSON.parse(localStorage.getItem(FH_DRAFTS)||'null');
+    if(d && d.enc && d.ct){                          // encrypted draft: decrypt off the sync path, apply if still pristine
+      if(d.cur===CUR && window.fhDecStr) window.fhDecStr(d.ct).then(function(pt){
+        try{ var dd=pt?JSON.parse(pt):null; if(dd && dd.rows && dd.rows.length) applyDecryptedDraft(dd); }catch(e){}
+      });
+      return null;
+    }
     if(d && d.rows && d.rows.length && d.cur===CUR) return d;   // ignore a draft saved under a different currency
   }catch(e){}
   return null;
+}
+/* the async twin of prefillExpense's restore branch — only lands on an
+   untouched sheet, so it can never overwrite something the user just typed */
+function applyDecryptedDraft(d){
+  if(editingTx || exPreset || draftHasContent()) return;
+  bulkRows = d.rows.map(function(r){ return {note:r.note||'',amt:r.amt||'',cat:r.cat||'',who:r.who||lastWho,date:r.date||isoDate(TODAY),_catTouched:!!r._catTouched}; });
+  bulkActive = (typeof d.active==='number' && d.active<bulkRows.length) ? d.active : -1;
+  showDraftBanner();
+  renderBulk();
+  if(bulkActive>=0 && bulkRows[bulkActive]) loadRow(bulkActive);
+  updateExWhen(); refreshExCta();
 }
 function showDraftBanner(){ var b=document.getElementById('draft-banner'); if(b){ setTxt('draft-banner-txt', L('Đã khôi phục bản nháp chưa lưu','Restored your unsaved draft')); var f=b.querySelector('.draft-fresh'); if(f) f.textContent=L('Bắt đầu mới','Start fresh'); b.style.display=''; } }
 function hideDraftBanner(){ var b=document.getElementById('draft-banner'); if(b) b.style.display='none'; }

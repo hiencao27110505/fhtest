@@ -30,7 +30,19 @@
     const lower = nm.toLowerCase();                                     // case-insensitive: don't duplicate "Fun" vs "fun"
     for (const k in window.DB.catByName) { if (k.toLowerCase() === lower) return window.DB.catByName[k]; }
     try {
-      // reuse an existing row (including an archived one) before creating a duplicate
+      /* Archived-row revival, decrypted-side first: catById holds every row —
+         archived included — with names already resolved by the hydrate, which
+         is the only place ciphertext names can be matched. The server ilike
+         below still covers plaintext families (and rows this device can't
+         decrypt can't be matched by anyone's query anyway). */
+      for (const id in window.DB.catById) {
+        const c = window.DB.catById[id];
+        if (c && c.archived_at && c.name && String(c.name).toLowerCase() === lower) {
+          await _w(sb.from('categories').update({ archived_at: null }).eq('id', id), 'write categories');
+          window.DB.catByName[nm] = id; c.archived_at = null;
+          return id;
+        }
+      }
       const found = (await sb.from('categories').select('id,name,archived_at').eq('family_id', window.DB.fid).ilike('name', nm).limit(1)).data;
       if (found && found.length) {
         const c = found[0];
@@ -38,7 +50,9 @@
         window.DB.catByName[nm] = c.id; window.DB.catById[c.id] = { id: c.id, name: c.name, emoji: emoji };
         return c.id;
       }
-      const res = await sb.from('categories').insert({ family_id: window.DB.fid, name: nm, emoji: emoji || '🏷️', color: '#8f8a99', sort_order: sort || 99 }).select('id').single();
+      const res = await sb.from('categories').insert(Object.assign(
+        { family_id: window.DB.fid, emoji: emoji || '🏷️', color: '#8f8a99', sort_order: sort || 99 },
+        await fhField('name', nm))).select('id').single();
       if (res.data) { window.DB.catByName[nm] = res.data.id; window.DB.catById[res.data.id] = { id: res.data.id, name: nm, emoji: emoji }; return res.data.id; }
     } catch (e) { console.warn('category create failed', e); }
     return null;

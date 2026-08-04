@@ -43,16 +43,16 @@
       } else {
         const R = await Promise.all([
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
-          sb.from('members').select('id,name,color,is_shared,user_id,created_at,key_unlocked_at').eq('family_id', fid).is('archived_at', null).order('created_at'),
+          sb.from('members').select('id,name,name_enc,color,is_shared,user_id,created_at,key_unlocked_at').eq('family_id', fid).is('archived_at', null).order('created_at'),
           // archived ones come along so old transactions still resolve their name; they're kept out of catOrder below
-          sb.from('categories').select('id,name,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
+          sb.from('categories').select('id,name,name_enc,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
           sb.from('category_budgets').select('category_id,amount,amount_enc,month').eq('family_id', fid),
           sb.from('monthly_budgets').select('month,budget_total,budget_total_enc,closed').eq('family_id', fid),
           sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,txn_date,status,created_by').eq('family_id', fid).order('txn_date', { ascending: false }),
           sb.from('events').select('id,name,name_enc,emoji,cover,target_amount,target_amount_enc,target_date,achieved,sort_order,source_txn_id,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
           sb.from('event_fundings').select('id,event_id,goal_id,amount,amount_enc,source,month,member_id').eq('family_id', fid),
           sb.from('savings_entries').select('kind,amount,amount_enc').eq('family_id', fid),
-          sb.from('event_memories').select('id,event_id,emoji,caption,photo_url,sort_order').eq('family_id', fid).order('sort_order'),
+          sb.from('event_memories').select('id,event_id,emoji,caption,caption_enc,photo_url,sort_order').eq('family_id', fid).order('sort_order'),
           sb.from('transaction_photos').select('transaction_id,photo_url').eq('family_id', fid),
           sb.from('incomes').select('amount,amount_enc,income_date').eq('family_id', fid),
           sb.from('saving_goals').select('id,name,name_enc,emoji,target_amount,target_amount_enc,target_date,note,note_enc,occasion_id,achieved,sort_order,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
@@ -103,8 +103,15 @@
         _decRows(ef, ['amount']),
         _decRows(se, ['amount']),
         _decRows(inc, ['amount']),
-        _decRows(sg, ['name', 'target_amount', 'note'])
+        _decRows(sg, ['name', 'target_amount', 'note']),
+        _decRows(mem, ['name']),                             // 0038: member names
+        _decRows(cat, ['name']),                             // 0038: category names
+        _decRows(em, ['caption'])                            // 0038: photo captions
       ]);
+      /* a member/category the device can't decrypt yet must not render as blank —
+         give it a neutral label until the passcode unlocks the real one */
+      mem.forEach((m) => { if (m.name == null) m.name = m.is_shared ? 'Shared' : L('Thành viên', 'Member'); });
+      cat.forEach((c) => { if (c.name == null) c.name = '•••'; });
 
       if (fam) {
         window.FAM.familyName = fam.name;
@@ -327,6 +334,13 @@
       try { if (window.reqAfterHydrate) window.reqAfterHydrate(); } catch (e) {}   // future-expense requests: refresh mounts/hub + play any just-arrived decision
       window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
       if (window.fhSaveSnapshot) window.fhSaveSnapshot();   // cache it for the next cold start
+      /* committed-enc family with the key: once per session, quietly retire any
+         plaintext the 0038 valve tolerated + any not-yet-encrypted photos */
+      window.__fhCovRan = window.__fhCovRan || {};
+      if (!window.__fhCovRan[fid] && fhEncState() === 'enc' && fhKeyReady()) {
+        window.__fhCovRan[fid] = 1;
+        setTimeout(() => { try { window.fhEncCoverSweep && window.fhEncCoverSweep(); } catch (e) {} }, 3000);
+      }
       return true;
     } catch (e) { console.warn('loadFamilyData failed', e); return false; }
     finally { _hideLoading(); fhFresh(); }     // the chip must clear even if the hydrate failed

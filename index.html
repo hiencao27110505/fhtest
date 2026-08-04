@@ -6207,20 +6207,50 @@ function draftHasContent(){
   for(var i=0;i<bulkRows.length;i++){ var r=bulkRows[i]; if((r.note||'').trim() || parseAmtBase(r.amt||'')) return true; }
   return false;
 }
+var _draftSeq=0;
 function persistDrafts(){
   if(editingTx || exPreset) return;                // editing, or a one-off preset log, is not the bulk draft
   try{
     if(!draftHasContent()){ localStorage.removeItem(FH_DRAFTS); return; }
     var rows=bulkRows.map(function(r){ return {note:r.note||'',amt:r.amt||'',cat:r.cat||'',who:r.who||'',date:r.date||'',_catTouched:!!r._catTouched}; });
-    localStorage.setItem(FH_DRAFTS, JSON.stringify({v:1, cur:CUR, active:bulkActive, rows:rows}));
+    var data={v:1, cur:CUR, active:bulkActive, rows:rows};
+    // committed-enc family: amounts + notes never touch disk unencrypted. A
+    // locked device just skips persisting (it can't save the expense anyway).
+    if(window.fhEncState && window.fhEncState()==='enc'){
+      if(!(window.fhKeyReady && window.fhKeyReady()) || !window.fhEncStr) return;
+      var seq=++_draftSeq;
+      window.fhEncStr(JSON.stringify(data)).then(function(ct){
+        if(!ct || seq!==_draftSeq) return;           // stale encrypt must not stomp a newer draft
+        try{ localStorage.setItem(FH_DRAFTS, JSON.stringify({v:2, enc:1, cur:CUR, ct:ct})); }catch(e){}
+      });
+      return;
+    }
+    localStorage.setItem(FH_DRAFTS, JSON.stringify(data));
   }catch(e){}
 }
-function clearDrafts(){ if(exPreset) return; try{ localStorage.removeItem(FH_DRAFTS); }catch(e){} }   // a preset log must not wipe an unrelated bulk draft
+function clearDrafts(){ if(exPreset) return; _draftSeq++; try{ localStorage.removeItem(FH_DRAFTS); }catch(e){} }   // a preset log must not wipe an unrelated bulk draft
 function loadDrafts(){
   try{ var d=JSON.parse(localStorage.getItem(FH_DRAFTS)||'null');
+    if(d && d.enc && d.ct){                          // encrypted draft: decrypt off the sync path, apply if still pristine
+      if(d.cur===CUR && window.fhDecStr) window.fhDecStr(d.ct).then(function(pt){
+        try{ var dd=pt?JSON.parse(pt):null; if(dd && dd.rows && dd.rows.length) applyDecryptedDraft(dd); }catch(e){}
+      });
+      return null;
+    }
     if(d && d.rows && d.rows.length && d.cur===CUR) return d;   // ignore a draft saved under a different currency
   }catch(e){}
   return null;
+}
+/* the async twin of prefillExpense's restore branch — only lands on an
+   untouched sheet, so it can never overwrite something the user just typed */
+function applyDecryptedDraft(d){
+  if(editingTx || exPreset || draftHasContent()) return;
+  bulkRows = d.rows.map(function(r){ return {note:r.note||'',amt:r.amt||'',cat:r.cat||'',who:r.who||lastWho,date:r.date||isoDate(TODAY),_catTouched:!!r._catTouched}; });
+  bulkActive = (typeof d.active==='number' && d.active<bulkRows.length) ? d.active : -1;
+  showDraftBanner();
+  renderBulk();
+  if(bulkActive>=0 && bulkRows[bulkActive]) loadRow(bulkActive);
+  updateExWhen(); refreshExCta();
 }
 function showDraftBanner(){ var b=document.getElementById('draft-banner'); if(b){ setTxt('draft-banner-txt', L('Đã khôi phục bản nháp chưa lưu','Restored your unsaved draft')); var f=b.querySelector('.draft-fresh'); if(f) f.textContent=L('Bắt đầu mới','Start fresh'); b.style.display=''; } }
 function hideDraftBanner(){ var b=document.getElementById('draft-banner'); if(b) b.style.display='none'; }
@@ -9200,21 +9230,36 @@ function fhSaveSnapshot(){
   try{
     var ev={};                                          // events carry a live Date — store epoch ms
     Object.keys(events||{}).forEach(function(k){ var e=events[k], c={}; for(var p in e) c[p]=e[p]; c.d=e.d?e.d.getTime():null; ev[k]=c; });
-    localStorage.setItem(FH_SNAP, JSON.stringify({
+    var data={
       v:FH_SNAP_V, at:Date.now(),
       FAM:FAM, membersMeta:membersMeta, catOrder:catOrder, catStyle:catStyle, catBudget:catBudget,
       txns:txns, months:months, monthOrder:monthOrder, selMonth:selMonth,
       events:ev, order:order, savings:savings, curEvent:curEvent,
       LANG:LANG, CUR:CUR, DB:window.DB || null
-    }));
+    };
+    // committed-enc family: the module encrypts the snapshot with the family key
+    // before it touches localStorage (v3 envelope); plaintext shape otherwise
+    if(window.fhSnapStore){ window.fhSnapStore(data); return; }
+    localStorage.setItem(FH_SNAP, JSON.stringify(data));
   }catch(e){}                                            // quota/private-mode: warm start is optional
 }
 function fhRestoreSnapshot(){
   try{
     var raw=localStorage.getItem(FH_SNAP); if(!raw) return false;
     var s=JSON.parse(raw);
+    if(s && s.v===3 && s.ct){                            // encrypted envelope: the module decrypts + applies (17-snap-restore)
+      if(!(s.at && Date.now()-s.at > FH_SNAP_TTL)) window.__fhSnapEnc=s;
+      return false;
+    }
     if(!s || s.v!==FH_SNAP_V || !s.catOrder || !s.months) return false;
     if(s.at && Date.now()-s.at > FH_SNAP_TTL) return false;
+    return fhApplySnapshot(s);
+  }catch(e){ return false; }
+}
+/* apply a parsed snapshot to the app globals — shared by the sync (plaintext)
+   path above and the module's async decrypt path (encrypted families) */
+function fhApplySnapshot(s){
+  try{
     FAM=s.FAM||FAM; membersMeta=s.membersMeta||membersMeta;
     catOrder=s.catOrder; catStyle=s.catStyle||{}; catBudget=s.catBudget||{};
     txns=s.txns||[]; months=s.months||{}; monthOrder=s.monthOrder||[]; selMonth=s.selMonth||selMonth;
@@ -9225,6 +9270,7 @@ function fhRestoreSnapshot(){
     return true;
   }catch(e){ return false; }
 }
+window.fhApplySnapshot=fhApplySnapshot;
 // fresh data has landed (or we gave up): retire the "Updating…" chip. Defined FIRST so a
 // later boot error can't leave it undefined (the hydrate calls it).
 window.fhFresh=function(){ document.documentElement.classList.remove('fh-stale'); };
@@ -9330,7 +9376,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v274';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v276';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -9889,6 +9935,19 @@ function openWhatsNew(){
       const all = _unb64(b64);
       const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, dek, all.slice(12));
       return _td.decode(pt);
+    },
+
+    /* binary twins of encVal/decVal for photo blobs — same iv‖ct package, kept
+       as raw bytes (a ~200KB image has no business being base64'd twice) */
+    async encBytes(dek, bytes) {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, dek, bytes);
+      return _cat(iv, new Uint8Array(ct));
+    },
+    async decBytes(dek, all) {
+      const u8 = (all instanceof Uint8Array) ? all : new Uint8Array(all);
+      const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: u8.slice(0, 12) }, dek, u8.slice(12));
+      return new Uint8Array(pt);
     }
   };
   window.FHCrypto = FHCrypto;
@@ -9931,7 +9990,11 @@ function openWhatsNew(){
     _fhDekRaw = new Uint8Array(dekRaw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
     await _keysPut(fid, _fhDekRaw);
   }
-  function fhKeyDrop(fid) { if (_fhDekFid === fid || fid == null) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; } if (fid != null) _keysDel(fid); }
+  function fhKeyDrop(fid) {
+    if (_fhDekFid === fid || fid == null) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; }
+    if (fid != null) _keysDel(fid);
+    try { if (window.__fhPhotoCachePurge) window.__fhPhotoCachePurge(); } catch (e) {}   // decrypted photo object-URLs die with the key
+  }
   function _fhSessionDek() { if (!_fhDek) throw new Error('locked'); return _fhDek; }
   function fhKeyReady() { return !!(_fhDek && window.DB && _fhDekFid === window.DB.fid); }
   window.fhKeyReady = fhKeyReady;
@@ -9946,6 +10009,12 @@ function openWhatsNew(){
   // Encrypt a value with the session DEK (null-safe; throws if key missing).
   async function fhEnc(v) { if (!_fhDek) throw new Error('no key'); return FHCrypto.encVal(_fhDek, v); }
   async function fhDec(b64) { if (!_fhDek) throw new Error('no key'); return FHCrypto.decVal(_fhDek, b64); }
+  async function fhEncBytes(bytes) { if (!_fhDek) throw new Error('no key'); return FHCrypto.encBytes(_fhDek, bytes); }
+  async function fhDecBytes(all) { if (!_fhDek) throw new Error('no key'); return FHCrypto.decBytes(_fhDek, all); }
+  /* string bridges for the classic-script side (drafts, snapshot): resolve null
+     instead of throwing so js-ui callers can degrade gracefully when locked */
+  window.fhEncStr = async function (s) { try { return _fhDek ? await fhEnc(s) : null; } catch (e) { return null; } };
+  window.fhDecStr = async function (b64) { try { return _fhDek ? await fhDec(b64) : null; } catch (e) { return null; } };
 
   /* Build the write-shape for one logical field: plaintext / ciphertext / both,
      driven by enc_state. Usage: Object.assign(row, await fhField('amount', v)).
@@ -9991,6 +10060,56 @@ function openWhatsNew(){
   }
   window.fhRead = fhRead;
 
+  /* ═══ Encrypted warm-boot snapshot (device-at-rest hardening) ═══════════════
+     fh-snap holds the whole decrypted family (amounts, notes, names) so the
+     app can open on real data. For a committed-enc family that plaintext must
+     not sit on disk: fhSnapStore wraps the snapshot in a v3 envelope —
+     AES-GCM under the cached family DEK — and this restore path unwraps it.
+     Decryption is async by nature, so the encrypted warm boot is a two-step:
+     the sync js-ui boot stashes the envelope (window.__fhSnapEnc) and paints
+     the splash; this module then decrypts (~tens of ms), applies the same
+     fhApplySnapshot the plaintext path uses, and repaints. Deliberately NOT
+     top-level awaited: an auth callback interleaving into a blocked module
+     would meet half-initialized state. The only cost is that the DB maps from
+     the snapshot land a beat later, which the merge below handles. */
+  window.fhSnapStore = async function (data) {
+    try {
+      if (fhEncState() === 'enc') {
+        if (!fhKeyReady()) return;                       // locked: better no snapshot than a plaintext one
+        const ct = await fhEnc(JSON.stringify(data));
+        if (ct) localStorage.setItem('fh-snap', JSON.stringify({ v: 3, at: data.at, fid: window.DB.fid, ct: ct }));
+        return;
+      }
+      localStorage.setItem('fh-snap', JSON.stringify(data));
+    } catch (e) {}                                       // quota/private-mode: warm start is optional
+  };
+  (async () => {
+    const rec = window.__fhSnapEnc; window.__fhSnapEnc = null;
+    if (!rec || !rec.fid || !rec.ct) return;
+    try {
+      if (!(await fhKeyLoad(rec.fid))) return;           // no cached key on this device: cold start, unlock later
+      const s = JSON.parse(await fhDec(rec.ct));
+      if (!s || !s.catOrder || !s.months) return;
+      if (!(window.fhApplySnapshot && window.fhApplySnapshot(s))) return;
+      // the module's DB was initialized before this decrypt finished — merge the
+      // snapshot maps in unless a real hydrate already replaced them
+      if (window.DB && !window.DB._hydrated && s.DB) {
+        const keep = { rtFid: window.DB.rtFid, fid: window.DB.fid || s.DB.fid };
+        Object.assign(window.DB, s.DB, keep);
+      }
+      try { window.applyFam && window.applyFam(); window.applyLang && window.applyLang(); } catch (e) {}
+      const ob = document.getElementById('onboarding'); if (ob) ob.classList.add('done');
+      document.documentElement.classList.add('fh-warm', 'fh-stale');   // "Updating…" until fresh data lands
+      try { window.setGreeting && window.setGreeting(); } catch (e) {}
+      try {
+        window.renderEvents && window.renderEvents();
+        window.renderAll && window.renderAll();
+        window.renderTxns && window.renderTxns();
+        window.applyCurrency && window.applyCurrency();
+      } catch (e) { console.warn('enc warm render failed', e); }
+    } catch (e) {}                                       // wrong/stale envelope: the hydrate takes it from here
+  })();
+
   // ═══════════════════════════════════════════════════════════════════════════
   //  DATA LAYER — hydrate the app's globals from the DB + write-through mutations
   // ═══════════════════════════════════════════════════════════════════════════
@@ -10023,7 +10142,19 @@ function openWhatsNew(){
     const lower = nm.toLowerCase();                                     // case-insensitive: don't duplicate "Fun" vs "fun"
     for (const k in window.DB.catByName) { if (k.toLowerCase() === lower) return window.DB.catByName[k]; }
     try {
-      // reuse an existing row (including an archived one) before creating a duplicate
+      /* Archived-row revival, decrypted-side first: catById holds every row —
+         archived included — with names already resolved by the hydrate, which
+         is the only place ciphertext names can be matched. The server ilike
+         below still covers plaintext families (and rows this device can't
+         decrypt can't be matched by anyone's query anyway). */
+      for (const id in window.DB.catById) {
+        const c = window.DB.catById[id];
+        if (c && c.archived_at && c.name && String(c.name).toLowerCase() === lower) {
+          await _w(sb.from('categories').update({ archived_at: null }).eq('id', id), 'write categories');
+          window.DB.catByName[nm] = id; c.archived_at = null;
+          return id;
+        }
+      }
       const found = (await sb.from('categories').select('id,name,archived_at').eq('family_id', window.DB.fid).ilike('name', nm).limit(1)).data;
       if (found && found.length) {
         const c = found[0];
@@ -10031,7 +10162,9 @@ function openWhatsNew(){
         window.DB.catByName[nm] = c.id; window.DB.catById[c.id] = { id: c.id, name: c.name, emoji: emoji };
         return c.id;
       }
-      const res = await sb.from('categories').insert({ family_id: window.DB.fid, name: nm, emoji: emoji || '🏷️', color: '#8f8a99', sort_order: sort || 99 }).select('id').single();
+      const res = await sb.from('categories').insert(Object.assign(
+        { family_id: window.DB.fid, emoji: emoji || '🏷️', color: '#8f8a99', sort_order: sort || 99 },
+        await fhField('name', nm))).select('id').single();
       if (res.data) { window.DB.catByName[nm] = res.data.id; window.DB.catById[res.data.id] = { id: res.data.id, name: nm, emoji: emoji }; return res.data.id; }
     } catch (e) { console.warn('category create failed', e); }
     return null;
@@ -10159,16 +10292,16 @@ function openWhatsNew(){
       } else {
         const R = await Promise.all([
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
-          sb.from('members').select('id,name,color,is_shared,user_id,created_at,key_unlocked_at').eq('family_id', fid).is('archived_at', null).order('created_at'),
+          sb.from('members').select('id,name,name_enc,color,is_shared,user_id,created_at,key_unlocked_at').eq('family_id', fid).is('archived_at', null).order('created_at'),
           // archived ones come along so old transactions still resolve their name; they're kept out of catOrder below
-          sb.from('categories').select('id,name,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
+          sb.from('categories').select('id,name,name_enc,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
           sb.from('category_budgets').select('category_id,amount,amount_enc,month').eq('family_id', fid),
           sb.from('monthly_budgets').select('month,budget_total,budget_total_enc,closed').eq('family_id', fid),
           sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,txn_date,status,created_by').eq('family_id', fid).order('txn_date', { ascending: false }),
           sb.from('events').select('id,name,name_enc,emoji,cover,target_amount,target_amount_enc,target_date,achieved,sort_order,source_txn_id,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
           sb.from('event_fundings').select('id,event_id,goal_id,amount,amount_enc,source,month,member_id').eq('family_id', fid),
           sb.from('savings_entries').select('kind,amount,amount_enc').eq('family_id', fid),
-          sb.from('event_memories').select('id,event_id,emoji,caption,photo_url,sort_order').eq('family_id', fid).order('sort_order'),
+          sb.from('event_memories').select('id,event_id,emoji,caption,caption_enc,photo_url,sort_order').eq('family_id', fid).order('sort_order'),
           sb.from('transaction_photos').select('transaction_id,photo_url').eq('family_id', fid),
           sb.from('incomes').select('amount,amount_enc,income_date').eq('family_id', fid),
           sb.from('saving_goals').select('id,name,name_enc,emoji,target_amount,target_amount_enc,target_date,note,note_enc,occasion_id,achieved,sort_order,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
@@ -10219,8 +10352,15 @@ function openWhatsNew(){
         _decRows(ef, ['amount']),
         _decRows(se, ['amount']),
         _decRows(inc, ['amount']),
-        _decRows(sg, ['name', 'target_amount', 'note'])
+        _decRows(sg, ['name', 'target_amount', 'note']),
+        _decRows(mem, ['name']),                             // 0038: member names
+        _decRows(cat, ['name']),                             // 0038: category names
+        _decRows(em, ['caption'])                            // 0038: photo captions
       ]);
+      /* a member/category the device can't decrypt yet must not render as blank —
+         give it a neutral label until the passcode unlocks the real one */
+      mem.forEach((m) => { if (m.name == null) m.name = m.is_shared ? 'Shared' : L('Thành viên', 'Member'); });
+      cat.forEach((c) => { if (c.name == null) c.name = '•••'; });
 
       if (fam) {
         window.FAM.familyName = fam.name;
@@ -10443,6 +10583,13 @@ function openWhatsNew(){
       try { if (window.reqAfterHydrate) window.reqAfterHydrate(); } catch (e) {}   // future-expense requests: refresh mounts/hub + play any just-arrived decision
       window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
       if (window.fhSaveSnapshot) window.fhSaveSnapshot();   // cache it for the next cold start
+      /* committed-enc family with the key: once per session, quietly retire any
+         plaintext the 0038 valve tolerated + any not-yet-encrypted photos */
+      window.__fhCovRan = window.__fhCovRan || {};
+      if (!window.__fhCovRan[fid] && fhEncState() === 'enc' && fhKeyReady()) {
+        window.__fhCovRan[fid] = 1;
+        setTimeout(() => { try { window.fhEncCoverSweep && window.fhEncCoverSweep(); } catch (e) {} }, 3000);
+      }
       return true;
     } catch (e) { console.warn('loadFamilyData failed', e); return false; }
     finally { _hideLoading(); fhFresh(); }     // the chip must clear even if the hydrate failed
@@ -10471,8 +10618,11 @@ function openWhatsNew(){
             cx.drawImage(img, 0, 0, cw, ch);
             const out = cv.toDataURL('image/jpeg', quality);
             if (!out || out.indexOf('data:image/jpeg') !== 0) return resolve(dataUri);
-            // always take the JPEG for non-web-safe sources (HEIC); otherwise keep whichever is smaller
-            resolve((!webSafe || out.length < dataUri.length) ? out : dataUri);
+            // ALWAYS the canvas re-encode (even when it comes out larger): the
+            // original bytes carry EXIF — including GPS — and this bucket is
+            // public-by-URL. Only undecodable sources and GIFs (kept for their
+            // animation, above) fall back to original bytes.
+            resolve(out);
           } catch (e) { resolve(dataUri); }
         };
         img.onerror = function () { resolve(dataUri); };
@@ -10480,20 +10630,31 @@ function openWhatsNew(){
       } catch (e) { resolve(dataUri); }
     });
   }
+  /* Photos are encrypted only once a family COMMITS ('enc' — terminal since
+     0035). In 'dual' the trial is abortable and plaintext stays authoritative,
+     so photo bytes wait for the scrub; the coverage job re-encrypts the whole
+     history right after. */
+  function _fhPhotoEncOn() { return fhEncState() === 'enc' && fhKeyReady(); }
   async function _uploadPhoto(dataUri) {
     try {
       const fid = window.DB.fid; if (!fid || !dataUri || dataUri.indexOf('data:') !== 0) return null;
       dataUri = await _compressImage(dataUri);
       const m = dataUri.match(/^data:([^;]+);base64,(.*)$/); if (!m) return null;
-      const mime = m[1]; const bin = atob(m[2]); const arr = new Uint8Array(bin.length);
+      const mime = m[1]; const bin = atob(m[2]); let arr = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-      const ext = ((mime.split('/')[1]) || 'jpg').replace('jpeg', 'jpg').replace('svg+xml', 'svg');
+      let ext = ((mime.split('/')[1]) || 'jpg').replace('jpeg', 'jpg').replace('svg+xml', 'svg');
+      let ctype = mime;
+      /* E2EE bytes: AES-GCM with the family DEK, '.enc' suffix. The bucket can
+         stay public — the URL now addresses ciphertext, so privacy comes from
+         the key, not from hiding the address, and the immutable-cache model
+         (below) keeps working unchanged. */
+      if (_fhPhotoEncOn()) { arr = await fhEncBytes(arr); ext += '.enc'; ctype = 'application/octet-stream'; }
       const path = fid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
       // Paths embed a timestamp + random suffix and are never overwritten, so the
       // bytes at a given URL are immutable — cache them for a year instead of
       // Supabase's 1h default, which would otherwise force a revalidation round
       // trip per photo every hour.
-      const { error } = await sb.storage.from('family-media').upload(path, arr, { contentType: mime, cacheControl: '31536000' });
+      const { error } = await sb.storage.from('family-media').upload(path, arr, { contentType: ctype, cacheControl: '31536000' });
       if (error) { console.warn('upload failed', error); return null; }
       return path;
     } catch (e) { console.warn('upload err', e); return null; }
@@ -10537,7 +10698,9 @@ function openWhatsNew(){
         if (mm.src && mm.src.indexOf('data:') === 0) path = await _uploadPhoto(mm.src);
         else if (mm.src && mm.src.indexOf('http') === 0) path = mm.src;
         if (wantsPhoto && !path) { failed++; continue; }     // upload failed → skip the row (no photoless ghost memory)
-        await _w(sb.from('event_memories').insert({ family_id: window.DB.fid, event_id: eventId, photo_url: path, caption: mm.caption || null, emoji: mm.emoji || null, sort_order: baseSort + i, taken_on: takenOn }), 'write event_memories');
+        await _w(sb.from('event_memories').insert(Object.assign(
+          { family_id: window.DB.fid, event_id: eventId, photo_url: path, emoji: mm.emoji || null, sort_order: baseSort + i, taken_on: takenOn },
+          await fhField('caption', mm.caption || null))), 'write event_memories');
       }
     } catch (e) { console.warn('event memories failed', e); failed++; }
     finally { try { window.fhUploadBusy && window.fhUploadBusy(-memories.length); } catch (e) {} }
@@ -10621,6 +10784,16 @@ function openWhatsNew(){
   async function _obQueueTxn(row, t) {
     const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2));
     const payload = { row: Object.assign({ id: id }, row), photos: (t && t.photos) ? t.photos.slice() : [] };
+    /* committed-enc family: the queued receipt photos must not sit as plaintext
+       data URIs in IndexedDB — encrypt each with the session DEK; the flush
+       decrypts them back right before upload (which re-encrypts for storage). */
+    if (fhEncState() === 'enc' && fhKeyReady() && payload.photos.length) {
+      try {
+        payload.photos_enc = [];
+        for (const p of payload.photos) payload.photos_enc.push(await fhEnc(p));
+        payload.photos = [];
+      } catch (e) { payload.photos_enc = null; }           // key raced away: keep plaintext rather than lose the photo
+    }
     if (t) t._dbId = id;                                   // local row now carries its eventual id
     const ok = await _obAdd({ id: id, kind: 'insertTxn', payload: payload, ts: Date.now() });
     _obHadItems = true;
@@ -10644,13 +10817,20 @@ function openWhatsNew(){
               if (!fhKeyReady()) break;                      // resume after fhUnlockPrompt succeeds
               Object.assign(row, await fhField('amount', Number(row.amount)), await fhField('note', row.note));
             }
+            // photos queued encrypted need the key back before they can upload
+            let photos = it.payload.photos || [];
+            if (it.payload.photos_enc && it.payload.photos_enc.length) {
+              if (!fhKeyReady()) break;
+              photos = [];
+              for (const ct of it.payload.photos_enc) { const p = await fhDec(ct); if (p) photos.push(p); }
+            }
             const res = await sb.from('transactions').insert(it.payload.row).select('id').single();
             if (res.error) {
               if (/duplicate key|already exists/i.test(res.error.message || '')) { await _obDel(it.id); continue; }  // a prior replay landed it
               throw res.error;                             // still offline / real error → keep, retry later
             }
             const newId = res.data && res.data.id;
-            if (newId && it.payload.photos && it.payload.photos.length) { try { await _dbUploadTxnPhotos(newId, it.payload.photos); } catch (e) {} }
+            if (newId && photos.length) { try { await _dbUploadTxnPhotos(newId, photos); } catch (e) {} }
             await _obDel(it.id);
           } else { await _obDel(it.id); }
         } catch (e) { break; }                             // stop at the first failure; a later online/hydrate retries
@@ -11200,7 +11380,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       const rn = window.__catRenames || []; window.__catRenames = [];
       for (const pr of rn) {
         const oldId = window.DB.catByName[pr[0]];
-        if (oldId) { try { await _w(sb.from('categories').update({ name: pr[1] }).eq('id', oldId), 'rename category'); window.DB.catByName[pr[1]] = oldId; delete window.DB.catByName[pr[0]]; if (window.DB.catById[oldId]) window.DB.catById[oldId].name = pr[1]; } catch (e) {} }
+        if (oldId) { try { await _w(sb.from('categories').update(await fhField('name', pr[1])).eq('id', oldId), 'rename category'); window.DB.catByName[pr[1]] = oldId; delete window.DB.catByName[pr[0]]; if (window.DB.catById[oldId]) window.DB.catById[oldId].name = pr[1]; } catch (e) {} }
       }
       // removed categories → soft-delete (archived_at); history keeps its category_id, pickers drop it
       const del = window.__catDeletes || []; window.__catDeletes = [];
@@ -11486,7 +11666,16 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       const now = Date.now();
       if (_pushLastSent[kind] && now - _pushLastSent[kind] < 12000) return;
       _pushLastSent[kind] = now;
-      sb.functions.invoke('push-send', { body: Object.assign({ kind: kind }, data || {}) }).catch(() => {});
+      const body = Object.assign({ kind: kind }, data || {});
+      /* committed-enc family: members.name is ciphertext server-side, so the
+         edge function can't derive the actor's first name anymore. The sender's
+         device supplies it — same trust boundary as the payload it already
+         builds, and the function only accepts it when the DB name is null. */
+      if (fhEncState() === 'enc') {
+        const me = window.DB.memberById && window.DB.memberById[window.DB.ownerMemberId];
+        if (me && me.name) body.actorName = String(me.name).slice(0, 40);
+      }
+      sb.functions.invoke('push-send', { body: body }).catch(() => {});
     } catch (e) {}
   };
   /* ---- arrival routing: a tapped notification lands on the thing itself ----
@@ -11548,6 +11737,92 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       window.fhNavTo(_nav);
     }
   } catch (e) {}
+
+  /* ═══ Encrypted-photo rendering (0039) ══════════════════════════════════════
+     Photo bytes for committed-enc families live in the public bucket as
+     AES-GCM ciphertext under '<path>.enc'. The data model keeps carrying the
+     stable public URL (snapshots, pathByUrl, delete paths all stay untouched);
+     THIS layer alone turns those URLs into pixels: a MutationObserver watches
+     every render, and whenever a '.enc' URL lands in an <img src> or an inline
+     background-image it fetches the ciphertext (the SW media cache serves it
+     like any photo), decrypts with the session DEK, and swaps in a local
+     object URL. Decrypted bytes exist only in memory — never in Cache API,
+     IndexedDB or localStorage — and every object URL dies with the key
+     (fhKeyDrop → __fhPhotoCachePurge).
+     No render site knows any of this is happening, which is the point: future
+     surfaces get encrypted photos for free. */
+  const _PH_BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+  const _PH_MAX = 150;                                     // object-URL LRU cap (~30-45MB of decoded images)
+  const _phCache = new Map();                              // publicUrl → {p: Promise<objUrl|null>, u: objUrl|null}
+  function _phMime(url) {
+    const m = String(url).match(/\.(\w+)\.enc(?:$|\?)/);
+    const ext = (m && m[1] || 'jpg').toLowerCase();
+    return ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
+  }
+  function _phTrim() {
+    while (_phCache.size > _PH_MAX) {
+      const k = _phCache.keys().next().value;
+      const e = _phCache.get(k); _phCache.delete(k);
+      if (e && e.u) { try { URL.revokeObjectURL(e.u) } catch (x) {} }
+    }
+  }
+  function _phResolve(url) {
+    const hit = _phCache.get(url);
+    if (hit) { _phCache.delete(url); _phCache.set(url, hit); return hit.p; }   // LRU refresh
+    const entry = {
+      u: null,
+      p: (async () => {
+        try {
+          if (!fhKeyReady()) return null;                  // locked: placeholder stays until the post-unlock re-render
+          const resp = await fetch(url);
+          if (!resp.ok) return null;
+          const pt = await fhDecBytes(new Uint8Array(await resp.arrayBuffer()));
+          entry.u = URL.createObjectURL(new Blob([pt], { type: _phMime(url) }));
+          return entry.u;
+        } catch (e) { return null; }
+      })()
+    };
+    _phCache.set(url, entry); _phTrim();
+    return entry.p;
+  }
+  function _phSwapImg(img) {
+    const raw = img.getAttribute('src') || '';
+    if (raw.indexOf('.enc') < 0 || raw.indexOf('blob:') === 0 || raw.indexOf('data:') === 0) return;
+    img.setAttribute('data-fhenc', raw);
+    img.src = _PH_BLANK;                                   // no broken-image flash while we decrypt
+    _phResolve(raw).then((u) => { if (u && img.getAttribute('data-fhenc') === raw) img.src = u; });
+  }
+  function _phSwapBg(el) {
+    const st = el.getAttribute('style') || '';
+    const m = st.match(/url\((["']?)([^"')]+\.enc)\1\)/);
+    if (!m) return;
+    const raw = m[2];
+    el.setAttribute('data-fhenc', raw);
+    el.style.backgroundImage = 'none';
+    _phResolve(raw).then((u) => { if (u && el.getAttribute('data-fhenc') === raw) el.style.backgroundImage = 'url(' + u + ')'; });
+  }
+  function _phSweep(root) {
+    if (!root || !root.querySelectorAll) return;
+    if (root.matches) {
+      if (root.matches('img[src*=".enc"]')) _phSwapImg(root);
+      if (root.matches('[style*=".enc"]')) _phSwapBg(root);
+    }
+    root.querySelectorAll('img[src*=".enc"]').forEach(_phSwapImg);
+    root.querySelectorAll('[style*=".enc"]').forEach(_phSwapBg);
+  }
+  try {
+    new MutationObserver((muts) => {
+      for (const mu of muts) {
+        if (mu.type === 'attributes') { if (mu.target && mu.target.tagName === 'IMG') _phSwapImg(mu.target); continue; }
+        mu.addedNodes && mu.addedNodes.forEach((n) => { if (n.nodeType === 1) _phSweep(n); });
+      }
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+  } catch (e) { console.warn('photo observer failed', e); }
+  _phSweep(document.body);                                 // anything rendered before this module loaded (warm boot)
+  window.__fhPhotoCachePurge = function () {
+    _phCache.forEach((e) => { if (e.u) { try { URL.revokeObjectURL(e.u) } catch (x) {} } });
+    _phCache.clear();
+  };
 
   // ═══ feature UIs: manage family/members, saved-for-events, income ═══════════
   /* Settings UI runs on the app's own layers (DESIGN §4), not a bespoke overlay:
@@ -11706,9 +11981,10 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     if (!fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
     const [famR, memR] = await Promise.all([
       sb.from('families').select('owner_id,name').eq('id', fid).maybeSingle(),
-      sb.from('members').select('id,name,color,is_shared,user_id').eq('family_id', fid).is('archived_at', null).order('created_at')
+      sb.from('members').select('id,name,name_enc,color,is_shared,user_id').eq('family_id', fid).is('archived_at', null).order('created_at')
     ]);
     const fam = famR.data, mems = memR.data || [];
+    for (const m of mems) { m.name = (await fhRead(m, 'name')) || (m.is_shared ? 'Shared' : L('Thành viên', 'Member')); }
     const owner = fam && fam.owner_id === uid;
     window._fhMembers = mems;
     const rows = mems.map((m) => {
@@ -11754,7 +12030,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       },
       save: async () => {
         const name = (document.getElementById('fh-mname').value || '').trim();
-        await _rpc('update_member', { p_member_id: id, p_name: name, p_color: window._fhMColor || null });
+        const nf = await fhField('name', name);             // enc family → ciphertext travels, plaintext stays home
+        await _rpc('update_member', { p_member_id: id, p_name: nf.name, p_color: window._fhMColor || null, p_name_enc: nf.name_enc || null });
         await window.loadFamilyData();
         window.toast && window.toast(L('Đã cập nhật thành viên','Member updated'));
       }
@@ -11802,7 +12079,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       after: () => { const i = document.getElementById('fh-newname'); if (i) i.focus(); },
       save: async () => {
         const name = (document.getElementById('fh-newname').value || '').trim();
-        await _rpc('add_member', { p_name: name, p_color: window._fhNewColor });
+        const nf = await fhField('name', name);
+        await _rpc('add_member', { p_name: nf.name, p_color: window._fhNewColor, p_name_enc: nf.name_enc || null });
         await window.loadFamilyData();
         window.toast && window.toast(L('Đã thêm thành viên','Member added'));
         window.fhManageFamily();
@@ -12215,6 +12493,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
         window.toast && window.toast(L('Đã mở khóa ✓', 'Unlocked ✓'));
         if (window.fhOutboxFlush) setTimeout(() => window.fhOutboxFlush(), 400);   // money rows held for the key can go now
         if (window.loadFamilyData) window.loadFamilyData();
+        // a fresh key can also retire tolerated plaintext (names, captions, photos)
+        setTimeout(() => { try { window.fhEncCoverSweep && window.fhEncCoverSweep(); } catch (e) {} }, 2500);
       }
     });
   };
@@ -12268,7 +12548,12 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     { t: 'category_budgets',num: ['amount'],        str: [] },
     { t: 'monthly_budgets', num: ['budget_total'],  str: [] },
     { t: 'events',          num: ['target_amount'], str: ['name'] },
-    { t: 'saving_goals',    num: ['target_amount'], str: ['name', 'note'] }
+    { t: 'saving_goals',    num: ['target_amount'], str: ['name', 'note'] },
+    // 0038: user-typed text joins the same lifecycle (enable covers, verify
+    // compares, scrub retires the plaintext)
+    { t: 'categories',      num: [],                str: ['name'] },
+    { t: 'members',         num: [],                str: ['name'] },
+    { t: 'event_memories',  num: [],                str: ['caption'] }
   ];
   const _encCols = (spec) => ['id'].concat(spec.num, spec.str, spec.num.map((f) => f + '_enc'), spec.str.map((f) => f + '_enc')).join(',');
   let _fhEncBusy = false;
@@ -12336,10 +12621,14 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     } else {
       const roster = _fhUnlockRoster();
       body = '<div class="fh-s-lab">' + L('Trạng thái: đang mã hóa đầu-cuối', 'Status: end-to-end encrypted') + '</div>'
-        + '<div class="fh-s-sub">' + L('Máy chủ chỉ còn bản đã khóa. Dữ liệu chỉ mở được bằng mã gia đình trên máy của thành viên. Quyết định này là vĩnh viễn, không ai đưa được bản không mã hóa trở lại máy chủ, kể cả gia đình bạn.',
-                                        'The server holds only locked values. Data opens only with the family code, on members’ devices. This is permanent. No one can put unencrypted data back on the server, not even your family.') + '</div>'
+        + '<div class="fh-s-sub">' + L('Máy chủ chỉ còn bản đã khóa, gồm cả tên, chú thích và ảnh của gia đình. Dữ liệu chỉ mở được bằng mã gia đình trên máy của thành viên. Quyết định này là vĩnh viễn, không ai đưa được bản không mã hóa trở lại máy chủ, kể cả gia đình bạn.',
+                                        'The server holds only locked values, including names, captions and the family’s photos. Data opens only with the family code, on members’ devices. This is permanent. No one can put unencrypted data back on the server, not even your family.') + '</div>'
         + roster.html
         + (fhKeyReady() ? '' : _btn(L('Mở khóa máy này', 'Unlock this device'), '_closeOv();fhUnlockPrompt()', _S.cta));
+      /* anything the valve tolerated (server-side inserts, pre-0038 rows) plus
+         any not-yet-encrypted photos: cover silently, same shape as the dual
+         resume hook above */
+      if (fhKeyReady()) setTimeout(() => { window.fhEncCoverSweep && window.fhEncCoverSweep(); }, 400);
     }
     body += '<div class="fh-s-sub" id="fh-enc-prog" style="min-height:18px"></div>';
     /* Excel-copy CTA temporarily hidden by product decision (2026-08-03) — the
@@ -12619,6 +12908,73 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     window.toast && window.toast(L('Xong, đã xóa bản gốc của ' + n + ' dòng, giờ chỉ còn bản mã hóa', 'Done. Plaintext erased on ' + n + ' rows, only ciphertext remains'));
     await window.loadFamilyData();
     window.fhEncryptionSheet();
+  };
+
+  /* ═══ Coverage sweep for COMMITTED families ('enc') ═════════════════════════
+     Enc-from-birth families (0032) and server-side flows (redeem_invite,
+     create_family seeding) leave plaintext names/captions the 0038 valve
+     tolerates; and a family that just finished the scrub still has its whole
+     photo history as plaintext objects. This sweep — silent, idempotent,
+     resumable — retires both:
+       text:   pt without ct → write ct; committed → also null the pt
+       photos: plaintext bucket object → fetch → AES-GCM → upload '<path>.enc'
+               → repoint the row → delete the plaintext object
+     Runs from the encryption sheet, after an unlock, and once per session
+     after hydrate. Order inside a photo is safe against interruption: the old
+     object is deleted only after its row points at the encrypted one. */
+  const _TXT_COVER = [
+    { t: 'categories',     f: 'name' },
+    { t: 'members',        f: 'name' },
+    { t: 'event_memories', f: 'caption' }
+  ];
+  let _fhCovBusy = false;
+  window.fhEncCoverSweep = async function () {
+    if (_fhCovBusy || !window.DB || !window.DB.fid) return;
+    if (fhEncState() !== 'enc' || !fhKeyReady()) return;    // dual is covered by the enable/resume job
+    _fhCovBusy = true;
+    const fid = window.DB.fid;
+    let nTxt = 0, nPhoto = 0;
+    try {
+      for (const spec of _TXT_COVER) {
+        const r = await sb.from(spec.t).select('id,' + spec.f + ',' + spec.f + '_enc').eq('family_id', fid);
+        if (r.error) continue;
+        for (const row of (r.data || [])) {
+          const pt = row[spec.f];
+          if (pt === null || pt === undefined || pt === '') continue;
+          const patch = {};
+          patch[spec.f] = null;                              // committed: ciphertext is the only copy
+          patch[spec.f + '_enc'] = row[spec.f + '_enc'] != null ? row[spec.f + '_enc'] : await fhEnc(pt);
+          window.DB._lastLocalWrite = Date.now();
+          try { await _w(sb.from(spec.t).update(patch).eq('id', row.id), 'cover ' + spec.t); nTxt++; } catch (e) {}
+        }
+      }
+      const P = SUPABASE_URL + '/storage/v1/object/public/family-media/';
+      for (const tbl of ['transaction_photos', 'event_memories']) {
+        const r = await sb.from(tbl).select('id,photo_url').eq('family_id', fid);
+        if (r.error) continue;
+        for (const row of (r.data || [])) {
+          const p = row.photo_url;
+          if (!p || p.indexOf('http') === 0 || /\.enc$/.test(p)) continue;
+          try {
+            _fhEncProg(L('Đang bảo vệ ảnh… ', 'Protecting photos… ') + (nPhoto + 1));
+            const resp = await fetch(P + p.split('/').map(encodeURIComponent).join('/'));
+            if (!resp.ok) continue;
+            const ct = await fhEncBytes(new Uint8Array(await resp.arrayBuffer()));
+            const newPath = p + '.enc';
+            const up = await sb.storage.from('family-media').upload(newPath, ct, { contentType: 'application/octet-stream', cacheControl: '31536000' });
+            if (up.error && !/already exists|duplicate/i.test(String(up.error.message || ''))) continue;
+            window.DB._lastLocalWrite = Date.now();
+            await _w(sb.from(tbl).update({ photo_url: newPath }).eq('id', row.id), 'protect photo');
+            try { await sb.storage.from('family-media').remove([p]); } catch (e) {}
+            nPhoto++;
+          } catch (e) { console.warn('photo cover failed', tbl, row.id, e); }
+        }
+      }
+      _fhEncProg('');
+      if (nPhoto) window.toast && window.toast(L('Đã mã hóa ' + nPhoto + ' ảnh của gia đình ✓', nPhoto + ' family photos encrypted ✓'));
+      if (nTxt || nPhoto) { window.DB._lastLocalWrite = 0; window.loadFamilyData && window.loadFamilyData(); }
+    } catch (e) { _fhEncProg(''); console.warn('cover sweep failed', e); }
+    finally { _fhCovBusy = false; }
   };
 
   /* dual→off ONLY: abort the trial window. In dual the plaintext never left
@@ -13005,6 +13361,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   window.fhSignOut = async () => {
     fhResumeFail(); fhWarmAbandon();
     try { fhKeyDrop(null); indexedDB.deleteDatabase('fh-keys'); } catch (e) {}   // cached family keys go with the session
+    try { localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-expense-drafts'); } catch (e) {}   // no family data left behind on a shared device
+    try { window.__fhPhotoCachePurge && window.__fhPhotoCachePurge(); } catch (e) {}
     await sb.auth.signOut(); location.reload();
   };
 </script>
