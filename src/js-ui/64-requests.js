@@ -85,10 +85,18 @@ function reqPendingAll(){
     .sort(function(a,b){ return ((a.creatorId===me)?1:0) - ((b.creatorId===me)?1:0); });
 }
 
-/* demo seed (signed-out preview only): a couple of incoming expense requests. */
+/* demo seed (signed-out preview only): a couple of incoming expense requests.
+   _wIsReal() alone isn't enough to tell "signed-out preview" apart from "signed-in
+   user whose DB hasn't hydrated yet" — both read as false in the first render tick
+   of a cold start. Seeding on that false positive mutates the real txns array with
+   fake requests that briefly render as if genuine before the hydrate replaces the
+   array. The fh-resume flag (localStorage, set once a family has ever been opened)
+   is the actual "we expect a real session" signal, so gate on it too: a returning
+   user never gets seeded, even mid-load; only a genuinely signed-out visitor does. */
 function _reqEnsureSeed(){
   if(window._reqSeeded) return;
   if(typeof _wIsReal==='function' && _wIsReal()){ window._reqSeeded=true; return; }
+  if(document.documentElement.classList.contains('fh-resume')) return;   // real session still loading — wait, don't seed
   if(!window.txns || typeof txSeq==='undefined'){ return; }
   window._reqSeeded=true;
   var dim=new Date(TODAY.getFullYear(),TODAY.getMonth()+1,0).getDate();

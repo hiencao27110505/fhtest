@@ -28,7 +28,11 @@
   // Warm start was wrong (no session / no family): the cached screen has to go, and
   // onboarding — which the warm start hid — has to come back, or there's no way to sign in.
   function fhWarmAbandon() {
-    try { localStorage.removeItem('fh-snap'); } catch (e) {}
+    // fh-fam/fh-onboarded are a second, independent warm cache (read by obInit()
+    // before any session check) — leaving them behind after sign-out let a
+    // previous account's family name/members render on the next cold start,
+    // on a device where two accounts actually sign in and out of the same app.
+    try { localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-onboarded'); } catch (e) {}
     document.documentElement.classList.remove('fh-warm', 'fh-stale', 'fh-warm-boot');
     const onb = g('onboarding'); if (onb) onb.classList.remove('done');
   }
