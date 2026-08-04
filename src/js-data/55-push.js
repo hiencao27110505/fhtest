@@ -125,3 +125,62 @@
       sb.functions.invoke('push-send', { body: Object.assign({ kind: kind }, data || {}) }).catch(() => {});
     } catch (e) {}
   };
+  /* ---- arrival routing: a tapped notification lands on the thing itself ----
+     Warm path: sw.js posts {type:'fh-nav', nav} into the already-open page.
+     Cold path: sw.js launches ./#n=<nav>; we read the hash at boot and strip it
+     so a manual reload never replays the jump. Either way the nav WAITS for the
+     first hydrate: a cold start can't open a detail screen before the family
+     data exists. Routes mirror _reqOpenCall (64-requests.js), so a notification
+     tap lands exactly where the matching in-app card would go. */
+  function _fhNavGo(nav) {
+    try {
+      if (!nav || !nav.k) return;
+      if (nav.k === 'weather') { window.go && window.go('home'); return; }   // moods live on the home sky
+      if (nav.k === 'reaction') {
+        const t = (window.txns || []).find((x) => x._dbId === nav.tx);
+        if (t && window.openExpenseDetail) { window.openExpenseDetail(t.id); return; }
+        if (window.go) window.go('spending');                                // expense gone: the ledger is next best
+        return;
+      }
+      const eid = nav.eid;                                                    // request_new / request_response
+      if (nav.et === 'expense') {
+        const tx = (window.txns || []).find((x) => x._dbId === eid);
+        if (tx && window.openExpenseDetail) { window.openExpenseDetail(tx.id); return; }
+      } else if (nav.et === 'goal') {
+        const gs = window.goals || {};
+        const gk = (window.goalOrder || []).find((k) => gs[k] && (gs[k]._dbId === eid || k === eid));
+        if (gk && window.openGoalDetail) { window.openGoalDetail(gk); return; }
+      } else if (nav.et === 'occasion') {
+        const evs = window.events || {};
+        const ek = (window.order || []).find((k) => evs[k] && (evs[k]._dbId === eid || k === eid));
+        if (ek && window.openEvent) { window.openEvent(ek); return; }
+      }
+      if (window.openRequests) window.openRequests();                         // entity gone or unknown: the hub explains itself
+    } catch (e) {}
+  }
+  let _navTimer = null;
+  window.fhNavTo = function (nav) {
+    clearTimeout(_navTimer);
+    const t0 = Date.now();
+    (function _wait() {
+      if (window.DB && window.DB._hydrated) { _fhNavGo(nav); return; }
+      if (Date.now() - t0 > 20000) return;                                    // data never came: stay put
+      _navTimer = setTimeout(_wait, 300);
+    })();
+  };
+  // warm path: the service worker relays the tapped notification's destination
+  try {
+    if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', (ev) => {
+      const d = ev && ev.data;
+      if (d && d.type === 'fh-nav') window.fhNavTo(d.nav);
+    });
+  } catch (e) {}
+  // cold path: the destination rode in on the launch URL's hash
+  try {
+    const _nm = /[#&]n=([^&]+)/.exec(location.hash || '');
+    if (_nm) {
+      const _nav = JSON.parse(decodeURIComponent(_nm[1]));
+      history.replaceState(null, '', location.pathname + location.search);
+      window.fhNavTo(_nav);
+    }
+  } catch (e) {}

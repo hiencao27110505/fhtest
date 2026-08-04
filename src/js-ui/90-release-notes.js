@@ -41,6 +41,14 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-08-04-push-tap', date:'2026-08-04', time:'12:31', ver:'v273', icon:ICO.bell,
+    vi:{ t:'Bấm thông báo là tới đúng chỗ',
+      problem:'Trước bấm vào thông báo chỉ mở app ở màn hình chính, muốn xem khoản chi hay yêu cầu nào thì phải tự đi tìm.',
+      sol:'Giờ bấm phát là tới thẳng khoản chi, mục tiêu hay yêu cầu đang được nhắc. Lời nhắn cũng đọc ấm hơn, như tin nhắn của người nhà.' },
+    en:{ t:'Tap a notification, land on the thing',
+      problem:'Tapping a notification used to drop you on the home screen and you had to hunt for what it was about.',
+      sol:'Now a tap takes you straight to that expense, goal or request. The messages read warmer too, like a text from family.' } },
+
   { id:'2026-08-04-push', date:'2026-08-04', time:'00:25', ver:'v269', icon:ICO.bell,
     vi:{ t:'Điện thoại báo liền khi nhà có chuyện vui',
       problem:'Ai đó thả tim hay gửi yêu cầu mà mình chưa mở app thì coi như chưa hay biết gì.',

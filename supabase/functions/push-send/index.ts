@@ -1,10 +1,16 @@
-/* FamilyHub — push-send Edge Function.
+/* FamilyHub — push-send Edge Function (v2: emotional copy + tap routing).
    Fans a VAPID-signed Web Push out to the caller's family after a social write
    (reaction, mood, request). The client invokes it fire-and-forget right after
    the row lands; this covers the closed-app case that realtime can't reach.
 
-   Privacy: the payload carries only actor name + kind + emoji. Never titles,
-   never amounts — E2EE families' plaintext must not transit the server.
+   Copy voice: each push reads like a text message from that person, never a
+   system log. Title = "{firstName} + feeling", body = one warm line. Rough
+   moods ask the family to check in. Request responses quote the reviewer's
+   exact in-app words (keep REVIEW_LINES in sync with _reqReviewSet() in
+   src/js-ui/64-requests.js).
+
+   Privacy: payloads carry actor name + kind + emoji + opaque row ids for tap
+   routing. Never titles, never amounts — E2EE plaintext must not transit here.
 
    VAPID keys live in public.push_config (RLS locked, service-role only) so the
    whole pipeline deploys via MCP without a secrets CLI. Deployed with
@@ -41,22 +47,50 @@ async function getAppServer(): Promise<webpush.ApplicationServer | null> {
 }
 
 const KINDS = ["reaction", "weather", "request_new", "request_response"];
+const ENTITY_TYPES = ["expense", "goal", "occasion"];
 
-function copyFor(kind: string, name: string, emoji: string, lang: string): string {
+// The reviewer's exact in-app words (64-requests.js _reqReviewSet), label + line.
+const REVIEW_LINES: Record<string, { vi: string; en: string }> = {
+  "😂": { vi: "Vui ghê. Thích cái vụ này.", en: "Ha, love it. Love the energy." },
+  "😱": { vi: "Bất ngờ. Hơi bất ngờ đấy.", en: "Whoa. That’s a surprise." },
+  "🤨": { vi: "Nghĩ đã. Bàn thêm chút nha.", en: "Hmm. Let’s talk first." },
+  "😤": { vi: "Chưa nên. Chưa hợp lúc này.", en: "Not now. Not right now." },
+};
+
+function buildCopy(
+  kind: string, name: string, emoji: string, rough: boolean, lang: string,
+): { title: string; body: string } {
   const vi = lang !== "en";
-  let t: string;
+  let title: string, body: string;
   if (kind === "reaction") {
-    t = vi ? `${name} thả ${emoji} cho một khoản chi` : `${name} reacted ${emoji} to an expense`;
+    if (emoji === "🥰") {
+      title = `${name} 🥰`;
+      body = vi ? "Vừa thả tim cho một khoản chi của nhà nè." : "Just dropped a heart on one of the family's expenses.";
+    } else {
+      title = `${name} ${emoji}`;
+      body = vi ? `Vừa thả ${emoji} cho một khoản chi. Vào xem là khoản nào.` : `Left ${emoji} on an expense. Come see which one.`;
+    }
   } else if (kind === "weather") {
-    t = vi ? `${name} vừa chia sẻ cảm xúc hôm nay ${emoji}` : `${name} shared today's mood ${emoji}`;
+    title = `${name} ${emoji}`;
+    body = rough
+      ? (vi ? `Hôm nay ${name} không được vui lắm. Hỏi thăm một câu nha.` : `${name} is having a rough day. Maybe ask how they're doing.`)
+      : (vi ? `Hôm nay ${name} thấy vui. Hỏi thử xem có chuyện gì hay ho đi.` : `${name} is having a good day. Ask what the good news is.`);
   } else if (kind === "request_new") {
-    t = vi ? `${name} có một yêu cầu cần bạn duyệt 🙌` : `${name} sent a request for you to review 🙌`;
+    title = vi ? `${name} cần cả nhà 🙌` : `${name} needs the family 🙌`;
+    body = vi
+      ? `Có một dự định mới chờ bạn duyệt. Xem rồi cho ${name} biết ý nhé.`
+      : `A new plan is waiting for your OK. Tell ${name} what you think.`;
   } else if (emoji === "🥰") {
-    t = vi ? `${name} đã đồng ý với yêu cầu của bạn 🥰` : `${name} is in on your request 🥰`;
+    title = vi ? `${name} đồng ý rồi 🥰` : `${name} said yes 🥰`;
+    body = vi ? "Yêu cầu của bạn được chốt. Triển thôi." : "Your request is a go.";
   } else {
-    t = vi ? `${name} vừa phản hồi yêu cầu của bạn ${emoji}` : `${name} responded to your request ${emoji}`;
+    title = `${name} ${emoji}`;
+    const q = REVIEW_LINES[emoji];
+    body = q
+      ? (vi ? q.vi : q.en)
+      : (vi ? `Vào xem ${name} nói gì nhé.` : "Come see what they said.");
   }
-  return t.replace(/\s+/g, " ").trim();
+  return { title: title.replace(/\s+/g, " ").trim(), body: body.replace(/\s+/g, " ").trim() };
 }
 
 Deno.serve(async (req: Request) => {
@@ -70,7 +104,14 @@ Deno.serve(async (req: Request) => {
     const kind = String(body.kind || "");
     const emoji = typeof body.emoji === "string" ? body.emoji.slice(0, 8) : "";
     const target = typeof body.target === "string" ? body.target : null;
+    const rough = body.rough === true;
     if (KINDS.indexOf(kind) < 0) return json({ error: "bad kind" }, 400);
+
+    // tap-routing context: opaque row ids only, sanity-capped
+    const nav: Record<string, string> = { k: kind };
+    if (typeof body.tx === "string" && body.tx.length < 64) nav.tx = body.tx;
+    if (typeof body.et === "string" && ENTITY_TYPES.indexOf(body.et) >= 0) nav.et = body.et;
+    if (typeof body.eid === "string" && body.eid.length < 64) nav.eid = body.eid;
 
     // the caller's active family + member seat (server-derived, never trusted from the body)
     const { data: prof } = await admin.from("profiles").select("family_id").eq("id", user.id).maybeSingle();
@@ -95,11 +136,13 @@ Deno.serve(async (req: Request) => {
     if (!srv) return json({ error: "push not configured" }, 500);
 
     const firstName = (actor.name || "").trim().split(/\s+/)[0] || actor.name || "FamilyHub";
+    const copy = buildCopy(kind, firstName, emoji, rough, lang);
     const payload = JSON.stringify({
-      title: "FamilyHub",
-      body: copyFor(kind, firstName, emoji, lang),
+      title: copy.title,
+      body: copy.body,
       tag: "fh-" + kind,
       url: "./",
+      nav,
     });
 
     let sent = 0;

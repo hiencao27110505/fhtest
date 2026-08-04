@@ -246,7 +246,7 @@ function submitReview(type, ref, emoji){
   if(obj._dbId && typeof window.fhReviewEntity==='function'){ try{ window.fhReviewEntity(type, obj._dbId, emoji); }catch(e){} }
   /* push the decision to the REQUESTER only (their closed-app devices) — the
      in-app arrival moment for open apps stays with reqCheckArrivals */
-  if(obj._dbId && item.creatorId && window.fhNotify){ try{ window.fhNotify('request_response', { emoji:emoji, target:item.creatorId }); }catch(e){} }
+  if(obj._dbId && item.creatorId && window.fhNotify){ try{ window.fhNotify('request_response', { emoji:emoji, target:item.creatorId, et:type, eid:obj._dbId }); }catch(e){} }
   var aligned=(emoji==='🥰');
   closeReview();
   try{ if(typeof renderTxns==='function') renderTxns(); }catch(e){}

@@ -8167,7 +8167,7 @@ function submitReview(type, ref, emoji){
   if(obj._dbId && typeof window.fhReviewEntity==='function'){ try{ window.fhReviewEntity(type, obj._dbId, emoji); }catch(e){} }
   /* push the decision to the REQUESTER only (their closed-app devices) — the
      in-app arrival moment for open apps stays with reqCheckArrivals */
-  if(obj._dbId && item.creatorId && window.fhNotify){ try{ window.fhNotify('request_response', { emoji:emoji, target:item.creatorId }); }catch(e){} }
+  if(obj._dbId && item.creatorId && window.fhNotify){ try{ window.fhNotify('request_response', { emoji:emoji, target:item.creatorId, et:type, eid:obj._dbId }); }catch(e){} }
   var aligned=(emoji==='🥰');
   closeReview();
   try{ if(typeof renderTxns==='function') renderTxns(); }catch(e){}
@@ -9247,7 +9247,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v272';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v273';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -9265,6 +9265,14 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-08-04-push-tap', date:'2026-08-04', time:'12:31', ver:'v273', icon:ICO.bell,
+    vi:{ t:'Bấm thông báo là tới đúng chỗ',
+      problem:'Trước bấm vào thông báo chỉ mở app ở màn hình chính, muốn xem khoản chi hay yêu cầu nào thì phải tự đi tìm.',
+      sol:'Giờ bấm phát là tới thẳng khoản chi, mục tiêu hay yêu cầu đang được nhắc. Lời nhắn cũng đọc ấm hơn, như tin nhắn của người nhà.' },
+    en:{ t:'Tap a notification, land on the thing',
+      problem:'Tapping a notification used to drop you on the home screen and you had to hunt for what it was about.',
+      sol:'Now a tap takes you straight to that expense, goal or request. The messages read warmer too, like a text from family.' } },
+
   { id:'2026-08-04-push', date:'2026-08-04', time:'00:25', ver:'v269', icon:ICO.bell,
     vi:{ t:'Điện thoại báo liền khi nhà có chuyện vui',
       problem:'Ai đó thả tim hay gửi yêu cầu mà mình chưa mở app thì coi như chưa hay biết gì.',
@@ -10882,7 +10890,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     const newKeys = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
     const inserted = nt ? _dbInsertTxn(nt, exD) : Promise.resolve();
     // a future expense is a proposal — nudge the family's closed-app devices to review it
-    if (nt && nt.future) inserted.then(() => { window.fhNotify && window.fhNotify('request_new', {}); });
+    if (nt && nt.future) inserted.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'expense', eid: nt._dbId || null }); });
     if (newKeys.length) {
       // Wait for the transaction's id before writing its mirror event — the
       // event must carry source_txn_id, or the link isn't durable and the next
@@ -11027,7 +11035,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => {
       const p = _dbInsertEvent(k, { savingsSource: (window.selSrc === 'savings') }); const ev = window.events[k]; if (ev) ev._dbPending = p;
       // a future occasion is a proposal (created_by is stamped in _dbInsertEvent) — same nudge as a future expense
-      if (ev && !ev._srcTxn && ev.d && window.TODAY && ev.d > window.TODAY) p.then(() => { window.fhNotify && window.fhNotify('request_new', {}); });
+      if (ev && !ev._srcTxn && ev.d && window.TODAY && ev.d > window.TODAY) p.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'occasion', eid: ev._dbId || null }); });
     });
   };
   const _origAddFunds = window.addFunds;
@@ -11157,8 +11165,8 @@ window.fhResolveCsvMapping = resolveCsvMapping;
         : await sb.from('member_weather').delete().eq('family_id', fid).eq('member_id', mid);
       if (res && res.error) console.warn('saveWeather', res.error);
       if (weather && !(res && res.error) && window.fhNotify) {
-        const wd = window._wdef && window._wdef(weather);            // key → emoji (22-home.js WEATHER table)
-        window.fhNotify('weather', { emoji: (wd && wd.e) || '' });
+        const wd = window._wdef && window._wdef(weather);            // key → emoji + rough flag (22-home.js WEATHER table)
+        window.fhNotify('weather', { emoji: (wd && wd.e) || '', rough: !!(wd && wd.rough) });
       }
       return true;
     } catch (e) { console.warn('saveWeather', e); return false; }
@@ -11199,7 +11207,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
             { onConflict: 'transaction_id,member_id' })
         : await sb.from('reactions').delete().eq('family_id', fid).eq('transaction_id', txDbId).eq('member_id', mid);
       if (res && res.error) { _writeErr('reaction failed', res.error); return false; }
-      if (emoji && window.fhNotify) window.fhNotify('reaction', { emoji: emoji });   // nudge closed-app devices
+      if (emoji && window.fhNotify) window.fhNotify('reaction', { emoji: emoji, tx: txDbId });   // nudge closed-app devices; tx routes the tap
       _syncSoon();
       return true;
     } catch (e) { _writeErr('reaction failed', e); return false; }
@@ -11394,6 +11402,65 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       sb.functions.invoke('push-send', { body: Object.assign({ kind: kind }, data || {}) }).catch(() => {});
     } catch (e) {}
   };
+  /* ---- arrival routing: a tapped notification lands on the thing itself ----
+     Warm path: sw.js posts {type:'fh-nav', nav} into the already-open page.
+     Cold path: sw.js launches ./#n=<nav>; we read the hash at boot and strip it
+     so a manual reload never replays the jump. Either way the nav WAITS for the
+     first hydrate: a cold start can't open a detail screen before the family
+     data exists. Routes mirror _reqOpenCall (64-requests.js), so a notification
+     tap lands exactly where the matching in-app card would go. */
+  function _fhNavGo(nav) {
+    try {
+      if (!nav || !nav.k) return;
+      if (nav.k === 'weather') { window.go && window.go('home'); return; }   // moods live on the home sky
+      if (nav.k === 'reaction') {
+        const t = (window.txns || []).find((x) => x._dbId === nav.tx);
+        if (t && window.openExpenseDetail) { window.openExpenseDetail(t.id); return; }
+        if (window.go) window.go('spending');                                // expense gone: the ledger is next best
+        return;
+      }
+      const eid = nav.eid;                                                    // request_new / request_response
+      if (nav.et === 'expense') {
+        const tx = (window.txns || []).find((x) => x._dbId === eid);
+        if (tx && window.openExpenseDetail) { window.openExpenseDetail(tx.id); return; }
+      } else if (nav.et === 'goal') {
+        const gs = window.goals || {};
+        const gk = (window.goalOrder || []).find((k) => gs[k] && (gs[k]._dbId === eid || k === eid));
+        if (gk && window.openGoalDetail) { window.openGoalDetail(gk); return; }
+      } else if (nav.et === 'occasion') {
+        const evs = window.events || {};
+        const ek = (window.order || []).find((k) => evs[k] && (evs[k]._dbId === eid || k === eid));
+        if (ek && window.openEvent) { window.openEvent(ek); return; }
+      }
+      if (window.openRequests) window.openRequests();                         // entity gone or unknown: the hub explains itself
+    } catch (e) {}
+  }
+  let _navTimer = null;
+  window.fhNavTo = function (nav) {
+    clearTimeout(_navTimer);
+    const t0 = Date.now();
+    (function _wait() {
+      if (window.DB && window.DB._hydrated) { _fhNavGo(nav); return; }
+      if (Date.now() - t0 > 20000) return;                                    // data never came: stay put
+      _navTimer = setTimeout(_wait, 300);
+    })();
+  };
+  // warm path: the service worker relays the tapped notification's destination
+  try {
+    if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', (ev) => {
+      const d = ev && ev.data;
+      if (d && d.type === 'fh-nav') window.fhNavTo(d.nav);
+    });
+  } catch (e) {}
+  // cold path: the destination rode in on the launch URL's hash
+  try {
+    const _nm = /[#&]n=([^&]+)/.exec(location.hash || '');
+    if (_nm) {
+      const _nav = JSON.parse(decodeURIComponent(_nm[1]));
+      history.replaceState(null, '', location.pathname + location.search);
+      window.fhNavTo(_nav);
+    }
+  } catch (e) {}
 
   // ═══ feature UIs: manage family/members, saved-for-events, income ═══════════
   /* Settings UI runs on the app's own layers (DESIGN §4), not a bespoke overlay:
@@ -12478,7 +12545,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       const gr = await sb.from('saving_goals').insert(row).select('id').single();
       if (gr.error) throw gr.error;
       // a new goal is a proposal — nudge the family's closed-app devices to review it
-      if (window.fhNotify) window.fhNotify('request_new', {});
+      if (window.fhNotify) window.fhNotify('request_new', { et: 'goal', eid: gr.data.id });
       if (g.init > 0) {
         await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, goal_id: gr.data.id, member_id: window.DB.ownerMemberId || null, source: 'savings', month: null }, await fhField('amount', g.init))), 'fund goal');
       }

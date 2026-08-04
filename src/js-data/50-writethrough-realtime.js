@@ -9,7 +9,7 @@
     const newKeys = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
     const inserted = nt ? _dbInsertTxn(nt, exD) : Promise.resolve();
     // a future expense is a proposal — nudge the family's closed-app devices to review it
-    if (nt && nt.future) inserted.then(() => { window.fhNotify && window.fhNotify('request_new', {}); });
+    if (nt && nt.future) inserted.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'expense', eid: nt._dbId || null }); });
     if (newKeys.length) {
       // Wait for the transaction's id before writing its mirror event — the
       // event must carry source_txn_id, or the link isn't durable and the next
@@ -154,7 +154,7 @@
     (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => {
       const p = _dbInsertEvent(k, { savingsSource: (window.selSrc === 'savings') }); const ev = window.events[k]; if (ev) ev._dbPending = p;
       // a future occasion is a proposal (created_by is stamped in _dbInsertEvent) — same nudge as a future expense
-      if (ev && !ev._srcTxn && ev.d && window.TODAY && ev.d > window.TODAY) p.then(() => { window.fhNotify && window.fhNotify('request_new', {}); });
+      if (ev && !ev._srcTxn && ev.d && window.TODAY && ev.d > window.TODAY) p.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'occasion', eid: ev._dbId || null }); });
     });
   };
   const _origAddFunds = window.addFunds;
@@ -284,8 +284,8 @@
         : await sb.from('member_weather').delete().eq('family_id', fid).eq('member_id', mid);
       if (res && res.error) console.warn('saveWeather', res.error);
       if (weather && !(res && res.error) && window.fhNotify) {
-        const wd = window._wdef && window._wdef(weather);            // key → emoji (22-home.js WEATHER table)
-        window.fhNotify('weather', { emoji: (wd && wd.e) || '' });
+        const wd = window._wdef && window._wdef(weather);            // key → emoji + rough flag (22-home.js WEATHER table)
+        window.fhNotify('weather', { emoji: (wd && wd.e) || '', rough: !!(wd && wd.rough) });
       }
       return true;
     } catch (e) { console.warn('saveWeather', e); return false; }
@@ -326,7 +326,7 @@
             { onConflict: 'transaction_id,member_id' })
         : await sb.from('reactions').delete().eq('family_id', fid).eq('transaction_id', txDbId).eq('member_id', mid);
       if (res && res.error) { _writeErr('reaction failed', res.error); return false; }
-      if (emoji && window.fhNotify) window.fhNotify('reaction', { emoji: emoji });   // nudge closed-app devices
+      if (emoji && window.fhNotify) window.fhNotify('reaction', { emoji: emoji, tx: txDbId });   // nudge closed-app devices; tx routes the tap
       _syncSoon();
       return true;
     } catch (e) { _writeErr('reaction failed', e); return false; }

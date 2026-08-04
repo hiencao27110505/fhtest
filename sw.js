@@ -1,5 +1,5 @@
 /* FamilyHub — offline-first service worker */
-const CACHE_NAME = 'familyhub-v272';
+const CACHE_NAME = 'familyhub-v273';
 /* Photos live in their own cache, deliberately NOT tied to CACHE_NAME. Folding
    them together would throw every photo away on each app release, which is the
    exact re-download this cache exists to prevent. Nothing here ever goes stale:
@@ -142,16 +142,24 @@ self.addEventListener('push', (e) => {
     icon: './icon.png',
     badge: './icon.png',
     tag: d.tag || 'familyhub',   // same-kind pushes collapse instead of stacking
-    data: { url: d.url || './' }
+    data: { url: d.url || './', nav: d.nav || null }   // nav = where the tap should land (55-push.js routes it)
   }));
 });
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
+  const nav = e.notification.data && e.notification.data.nav;
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      for (const c of list) { if ('focus' in c) return c.focus(); }   // the app is open somewhere: bring it forward
-      return clients.openWindow('./');                                // otherwise launch it
+      for (const c of list) {
+        if ('focus' in c) {
+          // warm path: the app is open somewhere — hand it the destination, then bring it forward
+          if (nav) { try { c.postMessage({ type: 'fh-nav', nav: nav }); } catch (err) {} }
+          return c.focus();
+        }
+      }
+      // cold path: launch with the destination in the hash; the app consumes it after hydrate
+      return clients.openWindow(nav ? ('./#n=' + encodeURIComponent(JSON.stringify(nav))) : './');
     })
   );
 });
