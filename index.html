@@ -2642,7 +2642,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div style="width:34px"></div>
   </div>
   <div class="modal-body">
-    <div class="sheet-sub" data-t="csvPreviewNote">Preview only — nothing is saved to your ledger yet.</div>
+    <div class="sheet-sub" data-t="csvIntroNote">Choose a CSV — we'll sort out the columns, then you review before anything's added.</div>
     <div class="field">
       <label data-t="csvPickLbl">CSV file</label>
       <input type="file" id="csv-file-input" accept=".csv,text/csv" onchange="onCsvFileSelected(this)">
@@ -7211,26 +7211,22 @@ function toast(msg){
   el.classList.add('on'); clearTimeout(tt); tt=setTimeout(function(){ el.classList.remove('on'); },2400);
 }
 
-/* ---- CSV import: technical preview -----------------------------------------
-   Wires the already-tested parse → heuristics → Gemini-fallback pipeline
-   (src/js-data/44-csv-parse.js, 45-csv-import.js) into a real screen for the
-   first time. Deliberately NOT the full review UI (merchant grouping,
-   defer-to-queue, category assignment, promotion into `transactions`) — this
-   proves the pipeline end-to-end from a real tap and shows what it resolved,
-   nothing more. Says so on screen so it never reads as a finished import. */
+/* ---- CSV import: pick a file, review, promote into the real ledger --------
+   Parse (44-csv-parse.js) -> map columns (45-csv-import.js, masked via
+   43-redact-for-sharing.js for encrypted families) -> build + bucket
+   candidates (57-csv-import-review.js) -> this file renders the review and
+   promotes approved rows by feeding bulkRows into the existing submitBulk()
+   machinery (50-sheets-expense-capture.js) rather than a bespoke insert --
+   inherits fhField()/_fhWriteLocked() correctness for free. Expense-only
+   this pass: transactions has no direction column, income lives in a
+   separate table this doesn't write to (see 57's header comment). */
+var csvReview = null; // { ready, groups: {key:{items,catName}}, dup, deferred }
+
 function openCsvImport(){
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
+  csvReview = null;
   openSheet('csv-import-modal');
-}
-
-function csvFieldLabel(field){
-  var map={
-    occurred_at:L('Ngày','Date'), amount:L('Số tiền','Amount'), description:L('Nội dung','Description'),
-    category:L('Danh mục','Category'), counterparty:L('Đối tác','Counterparty'), currency:L('Tiền tệ','Currency'),
-    paid_by:L('Người trả','Paid by'), split_with:L('Chia với','Split with'), unmapped:L('Không xác định','Unmapped'),
-  };
-  return map[field]||field;
 }
 
 function onCsvFileSelected(input){
@@ -7246,7 +7242,17 @@ function onCsvFileSelected(input){
       return;
     }
     window.fhResolveCsvMapping(parsed.headers, parsed.rows).then(function(result){
-      renderCsvResult(parsed, result);
+      var candidates = buildCsvCandidates(parsed, result);
+      var mixed = csvColumnHasMixedSigns(candidates);
+      var buckets = bucketCsvCandidates(candidates, mixed);
+      csvReview = {
+        ready: buckets.ready,
+        groups: Object.keys(buckets.needsCategoryGroups).map(function(k){ return { key:k, items:buckets.needsCategoryGroups[k], catName:null }; }),
+        dup: buckets.possibleDuplicate.map(function(c){ return { c:c, resolved:null }; }), // resolved: null | 'include' | 'skip'
+        deferred: buckets.deferred,
+        mixedSignsNote: mixed,
+      };
+      renderCsvReview();
     }).catch(function(e){
       if(out) out.innerHTML='<div class="sheet-sub">'+L('Có lỗi khi phân tích file: ','Something went wrong analyzing this file: ')+esc(String((e&&e.message)||e))+'</div>';
     });
@@ -7257,30 +7263,269 @@ function onCsvFileSelected(input){
   reader.readAsText(file,'utf-8');
 }
 
-function renderCsvResult(parsed, result){
-  var out=document.getElementById('csv-result'); if(!out) return;
-  var byLine = result.resolvedBy==='gemini'
-    ? L('Nhận diện bằng: Gemini (luật có sẵn không đủ tự tin)','Resolved by: Gemini (heuristics weren’t confident enough)')
-    : L('Nhận diện bằng: luật có sẵn, không cần gọi mô hình','Resolved by: heuristics alone, no model call needed');
+function csvIncludedCount(){
+  if(!csvReview) return 0;
+  var n = csvReview.ready.length;
+  csvReview.groups.forEach(function(g){ if(g.catName) n += g.items.length; });
+  csvReview.dup.forEach(function(d){ if(d.resolved==='include') n += 1; });
+  return n;
+}
 
+function csvAmtDisplay(n){
+  return (window.fmt ? window.fmt(n) : n) + '';
+}
+
+function csvCatChip(name, onclick, selected){
+  var s = (window.catStyle && window.catStyle[name]) || ['🏷️'];
+  return '<button type="button" class="choice'+(selected?' on':'')+'" onclick="'+onclick+'">'+s[0]+' '+esc(name)+'</button>';
+}
+
+function renderCsvReview(){
+  var out=document.getElementById('csv-result'); if(!out || !csvReview) return;
+  var r = csvReview;
+  var total = r.ready.length + r.groups.reduce(function(n,g){return n+g.items.length;},0) + r.dup.length + r.deferred.length;
+
+  var html = '';
+
+  if(r.mixedSignsNote){
+    html += '<div class="notice-card"><svg class="notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>'
+      + '<div class="notice-text">'+L('File này có cả số dương và âm trong cột số tiền — có thể lẫn cả thu lẫn chi. Tụi mình chưa tự động phân biệt được, nên mọi giao dịch đều chuyển vào mục xem sau để bạn tự kiểm tra.','This file mixes positive and negative amounts — possibly income and expenses together. We can\'t reliably tell them apart yet, so every row is set aside for you to check.')+'</div></div>';
+  }
+
+  html += '<div class="review-summary">'+esc(L(total+' giao dịch tìm thấy', total+' transactions found'))+'</div>';
+  html += '<div id="bulk-list">';
+
+  r.ready.forEach(function(c, i){
+    html += '<div class="bulk-card"><button class="bulk-tap"><span class="bs-left"><span class="bs-note">'+esc(c.description)+'</span></span>'
+      + '<span class="bs-right">'+(c.categoryName?'<span class="bs-cat">'+csvChipEmoji(c.categoryName)+' '+esc(c.categoryName)+'</span>':'')+'<span class="bs-amt">-'+csvAmtDisplay(c.amount)+'</span></span></button>'
+      + '<button class="bulk-x" aria-label="'+L('Bỏ khoản này','Remove')+'" onclick="csvRemoveReady('+i+')">✕</button></div>';
+  });
+
+  r.groups.forEach(function(g, gi){
+    if(g.catName){
+      html += '<div class="bulk-card"><button class="bulk-tap"><span class="bs-left"><span class="bs-note">'+esc(g.items[0].description)+'</span></span>'
+        + '<span class="bs-right"><span class="bs-cat">'+csvChipEmoji(g.catName)+' '+esc(g.catName)+'</span><span class="bs-amt">'+g.items.length+' × </span></span></button>'
+        + '<button class="bulk-x" aria-label="'+L('Bỏ nhóm này','Remove')+'" onclick="csvUngroupCategory('+gi+')">✕</button></div>';
+      return;
+    }
+    var chips = (window.catOrder||[]).map(function(name){ return csvCatChip(name, 'csvPickGroupCategory('+gi+',\''+escAttr(name)+'\')', false); }).join('');
+    html += '<div class="bulk-card active invalid"><div class="bulk-head"><span class="bulk-idx">'+esc(g.items[0].description)+' · '+g.items.length+' '+L('giao dịch','txns')+'</span></div>'
+      + '<div class="bulk-body"><div class="field-label-mini">'+L('Chọn danh mục','Pick a category')+'</div><div class="choices">'+chips+'</div></div></div>';
+  });
+
+  r.dup.forEach(function(d, di){
+    if(d.resolved==='skip') return;
+    var existingLine = d.c.duplicateOfExisting
+      ? L('Trùng với một giao dịch đã có trong sổ, cùng số tiền, trong vòng 3 ngày.','Matches a transaction already in your ledger, same amount, within 3 days.')
+      : L('Xuất hiện 2 lần trong file này với cùng nội dung và số tiền.','Appears twice in this file with the same description and amount.');
+    if(d.resolved==='include'){
+      html += '<div class="bulk-card"><button class="bulk-tap"><span class="bs-left"><span class="bs-note">'+esc(d.c.description)+'</span></span>'
+        + '<span class="bs-right"><span class="bs-amt">-'+csvAmtDisplay(d.c.amount)+'</span></span></button>'
+        + '<button class="bulk-x" aria-label="'+L('Bỏ khoản này','Remove')+'" onclick="csvDuplicateSkip('+di+')">✕</button></div>';
+      return;
+    }
+    html += '<div class="bulk-card active invalid"><div class="bulk-head"><span class="bulk-idx">'+esc(d.c.description)+' · -'+csvAmtDisplay(d.c.amount)+'</span></div>'
+      + '<div class="bulk-body"><div class="dup-note">'+existingLine+'</div><div class="dup-actions">'
+      + '<button type="button" class="btn-line" onclick="csvDuplicateInclude('+di+')">'+L('Vẫn nhập','Import anyway')+'</button>'
+      + '<button type="button" class="btn-text-quiet" onclick="csvDuplicateSkip('+di+')">'+L('Bỏ qua','Skip')+'</button>'
+      + '</div></div></div>';
+  });
+
+  html += '</div>';
+
+  if(r.deferred.length){
+    html += '<div class="group-h defer">'+L('Cần xem lại sau','Set aside for later')+'</div>';
+    r.deferred.forEach(function(c){
+      var why = c.flags.indexOf('date_missing')>=0 ? L('thiếu ngày','missing date')
+        : c.flags.indexOf('amount_missing')>=0 ? L('không đọc được số tiền','unreadable amount')
+        : r.mixedSignsNote ? L('có thể là thu nhập','possibly income') : L('cần kiểm tra','needs a look');
+      html += '<div class="bulk-card defer-card"><div class="bulk-tap" style="cursor:default"><span class="bs-left"><span class="bs-note">'+esc(c.description||c.raw.join(', '))
+        + '<span class="flag-badge neutral">'+esc(why)+'</span></span></span>'
+        + '<span class="bs-right">'+(c.amount?'<span class="bs-amt">-'+csvAmtDisplay(c.amount)+'</span>':'')+'</span></div></div>';
+    });
+  }
+
+  var n = csvIncludedCount();
+  html += '<div class="cta-wrap"><button class="cta" onclick="csvPromote()"'+(n===0?' disabled style="opacity:.5"':'')+'>'+esc(L('Nhập '+n+' giao dịch','Import '+n+' transactions'))+'</button></div>';
+
+  out.innerHTML = html;
+}
+
+function csvChipEmoji(name){ var s=(window.catStyle && window.catStyle[name])||['🏷️']; return s[0]; }
+
+function csvRemoveReady(i){ csvReview.ready.splice(i,1); renderCsvReview(); }
+function csvPickGroupCategory(gi, name){ csvReview.groups[gi].catName = name; renderCsvReview(); }
+function csvUngroupCategory(gi){ csvReview.groups[gi].catName = null; renderCsvReview(); }
+function csvDuplicateInclude(di){ csvReview.dup[di].resolved = 'include'; renderCsvReview(); }
+function csvDuplicateSkip(di){ csvReview.dup[di].resolved = 'skip'; renderCsvReview(); }
+
+/* Feeds every included candidate into bulkRows + submitBulk() (bulk expense
+   logging's own machinery) instead of a bespoke insert -- the actual write
+   goes through _dbInsertTxn() -> fhField()/_fhWriteLocked(), same as any
+   other expense, so this doesn't need to re-derive encryption correctness. */
+function csvPromote(){
+  if(!csvReview) return;
+  var included = csvReview.ready.slice();
+  csvReview.groups.forEach(function(g){ if(g.catName) g.items.forEach(function(c){ c.categoryName = g.catName; included.push(c); }); });
+  csvReview.dup.forEach(function(d){ if(d.resolved==='include') included.push(d.c); });
+  if(!included.length) return;
+
+  bulkRows = included.map(function(c){
+    return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName, who: lastWho, date: c.dateDisplay, _invalid: false };
+  });
+  bulkActive = 0;
+  exPhotos = [];
+  renderBulk();
+  loadRow(0);
+  submitBulk();
+}
+
+/* ---- CSV import: row-level parsing, grouping, dedup, promotion -------------
+   Turns a resolved column mapping (45-csv-import.js) + every real row into
+   candidate transactions, buckets them (ready / needs-category / possible
+   duplicate / deferred), and promotes approved ones by feeding the existing
+   bulk-expense-logging machinery (bulkRows + submitBulk()) rather than a
+   bespoke insert -- inherits fhField()/_fhWriteLocked() encryption-
+   correctness for free, per CSV-IMPORT-ENCRYPTION.md.
+
+   Scope for this pass: EXPENSE rows only. transactions has no direction
+   column -- income lives in a separate `incomes` table this doesn't write
+   to. A row is only treated as an expense when every amount in the source
+   column was consistently unsigned or consistently negative; a column that
+   mixes signs (a real income-and-expense statement) gets every row deferred
+   rather than guessed at, since mis-filing income as an expense corrupts
+   the ledger, not just mis-categorizes it. */
+
+var MONTH_ABBR = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+
+function parseCsvDateValue(raw, format, convention) {
+  var v = (raw || '').trim();
+  if (!v) return null;
+  var m;
+  if (format === 'iso') {
+    m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  }
+  if (format === 'month_name') {
+    m = v.match(/^([A-Za-z]{3})[a-z]*\s+(\d{1,2})\s+(\d{4})$/);
+    if (m) { var mi = MONTH_ABBR[m[1].toLowerCase()]; if (mi !== undefined) return new Date(+m[3], mi, +m[2]); }
+  }
+  var mmFirst = convention === 'mm/dd/yyyy';
+  if (format === 'slash_4' || format === 'dash_4') {
+    m = v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+    if (m) { var a=+m[1], b=+m[2], y=+m[3]; return mmFirst ? new Date(y,a-1,b) : new Date(y,b-1,a); }
+  }
+  if (format === 'slash_2' || format === 'dash_2') {
+    m = v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2})$/);
+    if (m) { var a2=+m[1], b2=+m[2], y2=2000+ +m[3]; return mmFirst ? new Date(y2,a2-1,b2) : new Date(y2,b2-1,a2); }
+  }
+  if (format === 'slash_noyear' || format === 'dash_noyear') {
+    m = v.match(/^(\d{1,2})[\/-](\d{1,2})$/);
+    if (m) { var a3=+m[1], b3=+m[2], y3=(new Date()).getFullYear(); return mmFirst ? new Date(y3,a3-1,b3) : new Date(y3,b3-1,a3); }
+  }
+  return null;
+}
+
+// Fuzzy-match a CSV category string against the family's real category names
+// (window.catOrder). Exact-after-normalization only -- a wrong guess is worse
+// than no guess, since a mismatched category is harder for the reviewer to
+// notice than an empty one.
+function matchCategoryName(guess) {
+  var g = deburr((guess || '').trim().toLowerCase());
+  if (!g) return null;
+  var order = window.catOrder || [];
+  for (var i = 0; i < order.length; i++) {
+    if (deburr(order[i].toLowerCase()) === g) return order[i];
+  }
+  return null;
+}
+
+/* One candidate per data row. Never throws on a bad row -- flags it and
+   moves on, so one malformed line can't abort the whole import. */
+function buildCsvCandidates(parsed, result) {
   var mapping = (result.llm && result.llm.column_mapping) || Object.keys(result.columnMap).map(function(i){
     return { column_index:+i, field:result.columnMap[i].field, confidence:result.columnMap[i].confidence };
   });
+  var colFor = {};
+  mapping.forEach(function(m){ colFor[m.field] = m.column_index; });
+  var convention = result.llm && result.llm.date_convention;
 
-  var rows = mapping.map(function(m){
-    var header = parsed.headers[m.column_index]||'';
-    return '<div class="row"><div class="r-body"><div class="r-t">'+esc(header)+'</div><div class="r-s">'+esc(csvFieldLabel(m.field))+' · '+esc(m.confidence)+'</div></div></div>';
-  }).join('');
+  return parsed.rows.map(function(row, i) {
+    var flags = [];
+    var dateRaw = colFor.occurred_at !== undefined ? row[colFor.occurred_at] : '';
+    var amtRaw = colFor.amount !== undefined ? row[colFor.amount] : '';
+    var desc = colFor.description !== undefined ? (row[colFor.description] || '').trim() : '';
+    var catGuess = colFor.category !== undefined ? (row[colFor.category] || '').trim() : '';
 
-  var dateNote = (result.llm && result.llm.date_convention)
-    ? '<div class="sheet-sub">'+L('Định dạng ngày: ','Date convention: ')+esc(result.llm.date_convention)+'</div>' : '';
+    var dclass = classifyDate(dateRaw);
+    var date = dclass.status === 'matched' ? parseCsvDateValue(dateRaw, dclass.format, convention) : null;
+    if (!date) flags.push('date_missing');
 
-  out.innerHTML =
-      '<div class="sheet-sub">'+esc(L(parsed.rows.length+' dòng dữ liệu tìm thấy', parsed.rows.length+' data rows found'))+'</div>'
-    + '<div class="sheet-sub">'+byLine+'</div>'
-    + dateNote
-    + '<div class="card" style="margin:14px 0 0">'+rows+'</div>'
-    + '<div class="sheet-sub" style="margin-top:14px">'+L('Đây là bản xem trước kỹ thuật — màn hình xem lại đầy đủ và ghi vào sổ chi tiêu chưa được xây dựng.','This is a technical preview — the full review screen and ledger write-through aren’t built yet.')+'</div>';
+    var aclass = classifyAmount(amtRaw);
+    var amount = (aclass.status === 'ok') ? Math.abs(aclass.value) : null;
+    if (amount === null) flags.push('amount_missing');
+
+    if (!desc) flags.push('description_missing');
+
+    var catName = matchCategoryName(catGuess);
+    if (!catName) flags.push('needs_category');
+
+    return {
+      rowIndex: i, raw: row, flags: flags,
+      date: date, dateDisplay: date ? (date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0')) : '',
+      amount: amount, negative: aclass.status === 'ok' && String(amtRaw).trim().indexOf('-') === 0,
+      description: desc || catGuess || L('(không có mô tả)','(no description)'),
+      categoryGuess: catGuess, categoryName: catName,
+    };
+  });
+}
+
+// A column that mixes signed and unsigned amounts is a real bank statement
+// (income + expense together) -- this pass doesn't distinguish them, so
+// every row gets deferred rather than silently filed as an expense.
+function csvColumnHasMixedSigns(candidates) {
+  var seenNeg = false, seenPos = false;
+  candidates.forEach(function(c){ if (c.amount === null) return; if (c.negative) seenNeg = true; else seenPos = true; });
+  return seenNeg && seenPos;
+}
+
+function normDescForDedup(s) { return deburr((s||'').trim().toLowerCase()).replace(/\s+/g,' '); }
+
+/* Buckets: ready / needsCategory (grouped by merchant) / possibleDuplicate /
+   deferred. Self-dedup and cross-source dedup both happen here, before
+   bucketing, so a row can't land in "ready" while also being a duplicate. */
+function bucketCsvCandidates(candidates, mixedSigns) {
+  var seen = {}; // normDesc+amount -> first candidate seen
+  var existingTxns = window.txns || [];
+
+  var ready = [], needsCategoryGroups = {}, possibleDuplicate = [], deferred = [];
+
+  candidates.forEach(function(c) {
+    if (mixedSigns || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
+      deferred.push(c); return;
+    }
+
+    var key = normDescForDedup(c.description) + '|' + c.amount;
+    if (seen[key]) { c.duplicateOfBatch = true; possibleDuplicate.push(c); return; }
+    seen[key] = c;
+
+    var crossMatch = existingTxns.find(function(t) {
+      if (!t._d || !c.date) return false;
+      var daysApart = Math.abs(t._d.getTime() - c.date.getTime()) / 86400000;
+      return daysApart <= 3 && Math.abs(Number(t.amt) - c.amount) < 1;
+    });
+    if (crossMatch) { c.duplicateOfExisting = crossMatch; possibleDuplicate.push(c); return; }
+
+    if (!c.categoryName) {
+      var gkey = normDescForDedup(c.description);
+      (needsCategoryGroups[gkey] = needsCategoryGroups[gkey] || []).push(c);
+      return;
+    }
+
+    ready.push(c);
+  });
+
+  return { ready: ready, needsCategoryGroups: needsCategoryGroups, possibleDuplicate: possibleDuplicate, deferred: deferred };
 }
 
 /* ---------- expense ---------- */
