@@ -3110,7 +3110,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   </section>
 
   <section class="ob-screen" data-ob="budget">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('passcode')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('family')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
       <div class="ob-head"><div class="ob-h1" data-t="budgetTitle">Set your budget</div><div class="ob-sub" data-t="budgetSub">A monthly target for the family, then a budget for each category.</div></div>
       <div class="ob-total-card">
@@ -8997,7 +8997,7 @@ var FAM={
 };
 var OB_COLORS=['#6f3fc0','#0e8478','#f0701a','#e03d86','#1e74d0','#B8730B','#7A5AE0','#1a9d5f'];
 var OB_ROLES=['Mom','Dad','Husband','Wife','Boyfriend','Girlfriend','Partner','Sweetheart','Sweetie','Coldheart','Man of steel','Parent','Son','Daughter','Kid','Teen','Sibling','Guardian','Grandma','Grandpa','Other'];
-var obOrder=['welcome','locale','auth','choice','join','profile','family','passcode','budget','theme','done'];
+var obOrder=['welcome','locale','auth','choice','join','profile','family','budget','theme','done'];   // 'passcode' retired — new families are born on the Key Card (0043), introduced after onboarding
 var obProg={welcome:0,locale:.1,auth:.2,choice:.34,join:.52,profile:.6,family:.72,passcode:.79,budget:.86,theme:.93,done:1};
 function obPickLang(btn){ pick('ob-lang',btn); LANG=btn.dataset.v; applyLang(); }
 function obPickCur(btn){ pick('ob-cur',btn); CUR=btn.dataset.v; }
@@ -9109,10 +9109,9 @@ function obFamilyNext(){
     mems.push({name:nm, email:(row.querySelector('.ob-memail')||{value:''}).value.trim(), role:row.querySelector('.ob-mrole').value, color:row.querySelector('.ob-mav').style.background||OB_COLORS[i%OB_COLORS.length], me:!!row.querySelector('.ob-mtag')});
   });
   FAM.members=mems.length?mems:[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,role:FAM.user.role,me:true}];
-  var pc=document.getElementById('ob-pc'), pc2=document.getElementById('ob-pc2');
-  if(pc)pc.value=''; if(pc2)pc2.value='';
-  obPcInput(); obGo('passcode');
-  if(pc) setTimeout(function(){ pc.focus(); },320);
+  // passcode step retired: go straight to budget. The Key Card is generated on
+  // create and introduced after onboarding (0043).
+  obPrefillBudget(); obGo('budget');
 }
 /* Mandatory passcode step (create flow only): 6 digits, typed twice. The code is
    held in memory (FAM.passcode) until createFamilyInDB uses it, never stored. */
@@ -12399,12 +12398,19 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       return;
     }
     _fhJoinCtx = inv;
+    // Card family: no code to enter — hide the code boxes; the door is just the
+    // whitelist + Google SSO, and the card unlocks the data after joining.
+    const codeWrap = document.querySelector('#onboarding [data-ob="join"] .ob-code-wrap');
+    if (codeWrap) codeWrap.style.display = inv.card_only ? 'none' : '';
     if (pv) {
       pv.style.display = 'flex';
+      const sub = inv.card_only
+        ? L(_esc(inv.invited_by) + ' mời bạn · bấm tham gia, nhập thẻ khóa sau', 'invited by ' + _esc(inv.invited_by) + ' · tap join, enter the Key Card after')
+        : L(_esc(inv.invited_by) + ' mời bạn · nhập mã 6 số của gia đình', 'invited by ' + _esc(inv.invited_by) + ' · enter the family’s 6-digit code');
       pv.innerHTML = '<div class="ob-preview-ic">🏡</div><div><div class="ob-preview-fam">' + _esc(inv.family_name || 'Family') + '</div>'
-        + '<div class="ob-preview-sub">' + L(_esc(inv.invited_by) + ' mời bạn · nhập mã 6 số của gia đình', 'invited by ' + _esc(inv.invited_by) + ' · enter the family’s 6-digit code') + '</div></div>';
+        + '<div class="ob-preview-sub">' + sub + '</div></div>';
     }
-    if (!inv.passcode_set && hint) {
+    if (!inv.passcode_set && !inv.card_only && hint) {
       hint.textContent = L('Gia đình này chưa đặt mã. Nhờ chủ gia đình đặt mã trước.', 'This family has no passcode yet. Ask the owner to set one first.');
     }
   };
@@ -12417,6 +12423,33 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   };
 
   window.obJoin = async function () {
+    if (!_fhJoinCtx) { try { await window.obJoinPrep(); } catch (e) {} }
+    // ── Card family: no code. Whitelist + Google SSO is the door; the card
+    //    (to read data) comes separately and unlocks after joining. ──
+    if (_fhJoinCtx && _fhJoinCtx.card_only) {
+      const cta0 = document.getElementById('ob-join-cta'); const label0 = cta0 ? cta0.textContent : '';
+      const hint0 = document.getElementById('ob-join-hint');
+      if (cta0) { cta0.disabled = true; cta0.textContent = L('Đang tham gia…', 'Joining…'); }
+      try {
+        const data = await _rpc('join_with_whitelist', { p_family_id: _fhJoinCtx.family_id });
+        if (window.DB) { window.DB.fid = data.family_id; window.DB.enc = null; window.DB.keyWraps = []; }
+        if (window.FAM) { window.FAM.mode = 'join'; window.FAM.joinFamilyId = data.family_id; window.FAM.familyName = data.family_name || ''; }
+      } catch (e) {
+        const raw = String((e && e.message) || ''); let msg;
+        if (/not_whitelisted|no rows/i.test(raw)) msg = null;
+        else if (/invite_expired/i.test(raw)) msg = L('Lời mời đã hết hạn. Nhờ chủ gia đình mời lại.', 'The invite expired. Ask the owner to re-add you.');
+        else if (/passcode_required/i.test(raw)) msg = L('Gia đình này dùng mã 6 số. Nhập mã để vào nhé.', 'This family uses a 6-digit code. Enter it to join.');
+        else msg = _friendly(e);
+        if (msg) { window.toast && window.toast(msg); if (hint0) hint0.textContent = msg; } else await window.obJoinPrep();
+        if (cta0) { cta0.disabled = false; cta0.textContent = label0; }
+        return;
+      }
+      if (cta0) { cta0.disabled = false; cta0.textContent = label0; }
+      const back0 = document.getElementById('ob-profile-back'); if (back0) back0.setAttribute('onclick', "obGo('join')");
+      if (typeof window.obPrefillProfile === 'function') window.obPrefillProfile();
+      window.obGo('profile');
+      return;
+    }
     const el = document.getElementById('ob-code');
     const code = (el ? el.value : '').trim();
     if (!/^\d{6}$/.test(code)) {
@@ -12791,10 +12824,15 @@ window.fhResolveCsvMapping = resolveCsvMapping;
          upgrades (adds a card wrap beside the passcode, both keep working — no
          lockout, nothing re-encrypts). Card exists → view/regenerate it. */
       if (fhKeyReady() && window.fhHasCard) {
-        body += window.fhHasCard()
-          ? _btn(L('Xem hoặc tạo lại thẻ khóa', 'View or remake the Key Card'), '_closeOv();fhCardShowCached()', _S.line)
-          : (owner ? _btn(L('Nâng cấp lên thẻ khóa của nhà', 'Upgrade to a family Key Card'), 'fhCardMigrate(this)', _S.cta)
-                   : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ tạo thẻ khóa cho nhà.', 'The owner will create the family’s card.') + '</div>');
+        if (window.fhHasCard()) {
+          body += _btn(L('Xem hoặc tạo lại thẻ khóa', 'View or remake the Key Card'), '_closeOv();fhCardShowCached()', _S.line);
+          // Phase D: once on the card, the owner can retire the old 6-digit code.
+          // Shown only while a passcode still exists (enc.wrapped_dek non-null).
+          if (owner && enc && enc.wrapped_dek) body += _btn(L('Gỡ mã 6 số cũ', 'Remove the old 6-digit code'), 'fhDropPasscode(this)', _S.del);
+        } else {
+          body += (owner ? _btn(L('Nâng cấp lên thẻ khóa của nhà', 'Upgrade to a family Key Card'), 'fhCardMigrate(this)', _S.cta)
+                         : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ tạo thẻ khóa cho nhà.', 'The owner will create the family’s card.') + '</div>');
+        }
       }
       /* anything the valve tolerated (server-side inserts, pre-0038 rows) plus
          any not-yet-encrypted photos: cover silently, same shape as the dual
@@ -13229,6 +13267,7 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     try { const db = await _cardDbOpen(); await new Promise((res) => { const tx = db.transaction(_CARD_STORE, 'readwrite'); tx.objectStore(_CARD_STORE).delete(fid); tx.oncomplete = () => res(true); tx.onerror = () => res(false); }); } catch (e) {}
   }
   window.fhCardCacheDrop = function (fid) { if (fid != null) _cardCacheDel(fid); };   // called from fhKeyDrop path (leave/delete family)
+  window.fhCardCacheStore = function (fid, display) { if (fid != null && display) _cardCachePut(fid, display); };   // onboarding caches the new card on the creating device
 
   /* ── Create / rotate the family card (needs the DEK; produces a wrap) ──
      rpcName = 'set_family_card' (owner, creation/migration) or
@@ -13378,6 +13417,28 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     } catch (e) {
       if (btn) { btn.disabled = false; btn.textContent = L('Nâng cấp lên thẻ khóa của nhà', 'Upgrade to a family Key Card'); }
       window.toast && window.toast(_friendly(e));
+    }
+  };
+
+  /* Retire the old 6-digit passcode (owner, after the family is on the card).
+     Arm-then-confirm; server refuses unless a live card wrap exists. */
+  window.fhDropPasscode = async function (btn) {
+    if (btn && !btn.classList.contains('armed')) {
+      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa để gỡ mã 6 số', 'Tap again to remove the 6-digit code');
+      clearTimeout(window._fhDropT);
+      window._fhDropT = setTimeout(() => { if (!btn.isConnected) return; btn.classList.remove('armed'); btn.textContent = L('Gỡ mã 6 số cũ', 'Remove the old 6-digit code'); }, 4000);
+      return;
+    }
+    clearTimeout(window._fhDropT);
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang gỡ…', 'Removing…'); }
+    try {
+      await _rpc('drop_family_passcode');
+      await window.loadFamilyData();
+      window.fhEncryptionSheet && window.fhEncryptionSheet();
+      window.toast && window.toast(L('Đã gỡ mã 6 số. Giờ nhà mình chỉ mở bằng thẻ khóa.', 'Old code removed. Your family now opens with the Key Card only.'));
+    } catch (e) {
+      if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = L('Gỡ mã 6 số cũ', 'Remove the old 6-digit code'); }
+      window.toast && window.toast(/no_card/i.test(String((e && e.message) || '')) ? L('Hãy tạo thẻ khóa trước khi gỡ mã.', 'Create the Key Card before removing the code.') : _friendly(e));
     }
   };
 
@@ -13712,25 +13773,30 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     await _w(sb.from('profiles').update({
       display_name: F.user.name, theme: (window.curTheme || 'sage'), language: window.LANG || 'vi'
     }).eq('id', uid), 'write profiles');
-    /* Default-on encryption (0032): the onboarding passcode step is mandatory,
-       and a brand-new family has no history to migrate — so it starts at
-       enc_state 'enc' and is ciphertext-only from its very first write. The
-       budget writes below therefore run AFTER the key exists. A failure here
-       degrades gracefully: the family works unencrypted and Settings offers
-       the passcode again. */
-    if (F.passcode && window.FHCrypto) {
+    /* Key Card (0042/0043): a brand-new family is born on the CARD, not a
+       passcode — no history to migrate, ciphertext-only from its first write.
+       Generate a card, wrap a fresh DEK, create the enc row + card wrap in one
+       RPC (init_family_card), adopt the key, cache the card on this device, and
+       stash it for the intro screen the finish handler shows next. The budget
+       writes below run AFTER the key exists, so they are ciphertext. A failure
+       degrades gracefully: Settings can create the card later. */
+    if (window.FHCrypto && FHCrypto.genCard) {
       try {
+        const card = FHCrypto.genCard();
         const salt = FHCrypto.genSaltHex();
-        const keys = await FHCrypto.deriveKeys(F.passcode, salt, FH_KDF_ITERS, FH_KDF_VERSION);
+        const keys = await FHCrypto.deriveKeys(card.key, salt, FH_KDF_ITERS_CARD, FH_KDF_VERSION);
         const dekRaw = await FHCrypto.genDekRaw();
         const wrapped = await FHCrypto.wrapDek(dekRaw, keys.kWrap);
-        await _rpc('set_family_passcode', { p_k_auth: keys.kAuthHex, p_kdf_salt: salt, p_kdf_iters: FH_KDF_ITERS, p_kdf_version: FH_KDF_VERSION, p_wrapped_dek: wrapped, p_enc_state: 'enc' });
+        await _rpc('init_family_card', { p_kdf_salt: salt, p_kdf_iters: FH_KDF_ITERS_CARD, p_kdf_version: FH_KDF_VERSION, p_wrapped_dek: wrapped });
         await fhKeyAdopt(familyId, dekRaw);
-        window.DB.enc = { enc_state: 'enc', kdf_salt: salt, kdf_iters: FH_KDF_ITERS, kdf_version: FH_KDF_VERSION, wrapped_dek: wrapped };
+        if (window.fhCardCacheStore) window.fhCardCacheStore(familyId, card.display);
+        window.DB.enc = { enc_state: 'enc', kdf_salt: null, kdf_iters: null, kdf_version: null, wrapped_dek: null };
+        window.DB.keyWraps = [{ kind: 'card', kdf_salt: salt, kdf_iters: FH_KDF_ITERS_CARD, kdf_version: FH_KDF_VERSION, wrapped_dek: wrapped }];
+        window.__fhNewCard = card;   // the intro screen (shown after onboarding) saves it
       } catch (e) {
-        console.warn('passcode setup failed', e);
-        window.toast && window.toast(L('Chưa đặt được mã gia đình, bạn đặt lại trong Cài đặt nhé', 'Couldn’t set the passcode. Set it again from Settings'));
-      } finally { F.passcode = null; }
+        console.warn('card setup failed', e);
+        window.toast && window.toast(L('Chưa tạo được thẻ khóa, bạn tạo lại trong Cài đặt nhé', 'Couldn’t create the Key Card. Make it again from Settings'));
+      }
     }
     if (created) {
       // extra (non-me) members entered during onboarding
@@ -13795,6 +13861,11 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     busy(false);
     if (typeof _origFinish === 'function') _origFinish();
     if (window.loadFamilyData) { try { await window.loadFamilyData(); } catch (e) {} }
+    // proactively introduce + save the new family's Key Card (the USP moment)
+    if (window.__fhNewCard && window.fhCardShow) {
+      const _c = window.__fhNewCard; window.__fhNewCard = null;
+      setTimeout(() => { try { window.fhCardShow(_c); } catch (e) {} }, 700);
+    }
   };
 
   /* Invite + join now live in 65-passcode-ui.js (whitelist + 6-digit passcode

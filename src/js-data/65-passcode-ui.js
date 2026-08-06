@@ -71,12 +71,19 @@
       return;
     }
     _fhJoinCtx = inv;
+    // Card family: no code to enter — hide the code boxes; the door is just the
+    // whitelist + Google SSO, and the card unlocks the data after joining.
+    const codeWrap = document.querySelector('#onboarding [data-ob="join"] .ob-code-wrap');
+    if (codeWrap) codeWrap.style.display = inv.card_only ? 'none' : '';
     if (pv) {
       pv.style.display = 'flex';
+      const sub = inv.card_only
+        ? L(_esc(inv.invited_by) + ' mời bạn · bấm tham gia, nhập thẻ khóa sau', 'invited by ' + _esc(inv.invited_by) + ' · tap join, enter the Key Card after')
+        : L(_esc(inv.invited_by) + ' mời bạn · nhập mã 6 số của gia đình', 'invited by ' + _esc(inv.invited_by) + ' · enter the family’s 6-digit code');
       pv.innerHTML = '<div class="ob-preview-ic">🏡</div><div><div class="ob-preview-fam">' + _esc(inv.family_name || 'Family') + '</div>'
-        + '<div class="ob-preview-sub">' + L(_esc(inv.invited_by) + ' mời bạn · nhập mã 6 số của gia đình', 'invited by ' + _esc(inv.invited_by) + ' · enter the family’s 6-digit code') + '</div></div>';
+        + '<div class="ob-preview-sub">' + sub + '</div></div>';
     }
-    if (!inv.passcode_set && hint) {
+    if (!inv.passcode_set && !inv.card_only && hint) {
       hint.textContent = L('Gia đình này chưa đặt mã. Nhờ chủ gia đình đặt mã trước.', 'This family has no passcode yet. Ask the owner to set one first.');
     }
   };
@@ -89,6 +96,33 @@
   };
 
   window.obJoin = async function () {
+    if (!_fhJoinCtx) { try { await window.obJoinPrep(); } catch (e) {} }
+    // ── Card family: no code. Whitelist + Google SSO is the door; the card
+    //    (to read data) comes separately and unlocks after joining. ──
+    if (_fhJoinCtx && _fhJoinCtx.card_only) {
+      const cta0 = document.getElementById('ob-join-cta'); const label0 = cta0 ? cta0.textContent : '';
+      const hint0 = document.getElementById('ob-join-hint');
+      if (cta0) { cta0.disabled = true; cta0.textContent = L('Đang tham gia…', 'Joining…'); }
+      try {
+        const data = await _rpc('join_with_whitelist', { p_family_id: _fhJoinCtx.family_id });
+        if (window.DB) { window.DB.fid = data.family_id; window.DB.enc = null; window.DB.keyWraps = []; }
+        if (window.FAM) { window.FAM.mode = 'join'; window.FAM.joinFamilyId = data.family_id; window.FAM.familyName = data.family_name || ''; }
+      } catch (e) {
+        const raw = String((e && e.message) || ''); let msg;
+        if (/not_whitelisted|no rows/i.test(raw)) msg = null;
+        else if (/invite_expired/i.test(raw)) msg = L('Lời mời đã hết hạn. Nhờ chủ gia đình mời lại.', 'The invite expired. Ask the owner to re-add you.');
+        else if (/passcode_required/i.test(raw)) msg = L('Gia đình này dùng mã 6 số. Nhập mã để vào nhé.', 'This family uses a 6-digit code. Enter it to join.');
+        else msg = _friendly(e);
+        if (msg) { window.toast && window.toast(msg); if (hint0) hint0.textContent = msg; } else await window.obJoinPrep();
+        if (cta0) { cta0.disabled = false; cta0.textContent = label0; }
+        return;
+      }
+      if (cta0) { cta0.disabled = false; cta0.textContent = label0; }
+      const back0 = document.getElementById('ob-profile-back'); if (back0) back0.setAttribute('onclick', "obGo('join')");
+      if (typeof window.obPrefillProfile === 'function') window.obPrefillProfile();
+      window.obGo('profile');
+      return;
+    }
     const el = document.getElementById('ob-code');
     const code = (el ? el.value : '').trim();
     if (!/^\d{6}$/.test(code)) {

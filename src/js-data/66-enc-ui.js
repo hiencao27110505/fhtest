@@ -100,10 +100,15 @@
          upgrades (adds a card wrap beside the passcode, both keep working — no
          lockout, nothing re-encrypts). Card exists → view/regenerate it. */
       if (fhKeyReady() && window.fhHasCard) {
-        body += window.fhHasCard()
-          ? _btn(L('Xem hoặc tạo lại thẻ khóa', 'View or remake the Key Card'), '_closeOv();fhCardShowCached()', _S.line)
-          : (owner ? _btn(L('Nâng cấp lên thẻ khóa của nhà', 'Upgrade to a family Key Card'), 'fhCardMigrate(this)', _S.cta)
-                   : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ tạo thẻ khóa cho nhà.', 'The owner will create the family’s card.') + '</div>');
+        if (window.fhHasCard()) {
+          body += _btn(L('Xem hoặc tạo lại thẻ khóa', 'View or remake the Key Card'), '_closeOv();fhCardShowCached()', _S.line);
+          // Phase D: once on the card, the owner can retire the old 6-digit code.
+          // Shown only while a passcode still exists (enc.wrapped_dek non-null).
+          if (owner && enc && enc.wrapped_dek) body += _btn(L('Gỡ mã 6 số cũ', 'Remove the old 6-digit code'), 'fhDropPasscode(this)', _S.del);
+        } else {
+          body += (owner ? _btn(L('Nâng cấp lên thẻ khóa của nhà', 'Upgrade to a family Key Card'), 'fhCardMigrate(this)', _S.cta)
+                         : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ tạo thẻ khóa cho nhà.', 'The owner will create the family’s card.') + '</div>');
+        }
       }
       /* anything the valve tolerated (server-side inserts, pre-0038 rows) plus
          any not-yet-encrypted photos: cover silently, same shape as the dual

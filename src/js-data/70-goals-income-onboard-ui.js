@@ -258,25 +258,30 @@
     await _w(sb.from('profiles').update({
       display_name: F.user.name, theme: (window.curTheme || 'sage'), language: window.LANG || 'vi'
     }).eq('id', uid), 'write profiles');
-    /* Default-on encryption (0032): the onboarding passcode step is mandatory,
-       and a brand-new family has no history to migrate — so it starts at
-       enc_state 'enc' and is ciphertext-only from its very first write. The
-       budget writes below therefore run AFTER the key exists. A failure here
-       degrades gracefully: the family works unencrypted and Settings offers
-       the passcode again. */
-    if (F.passcode && window.FHCrypto) {
+    /* Key Card (0042/0043): a brand-new family is born on the CARD, not a
+       passcode — no history to migrate, ciphertext-only from its first write.
+       Generate a card, wrap a fresh DEK, create the enc row + card wrap in one
+       RPC (init_family_card), adopt the key, cache the card on this device, and
+       stash it for the intro screen the finish handler shows next. The budget
+       writes below run AFTER the key exists, so they are ciphertext. A failure
+       degrades gracefully: Settings can create the card later. */
+    if (window.FHCrypto && FHCrypto.genCard) {
       try {
+        const card = FHCrypto.genCard();
         const salt = FHCrypto.genSaltHex();
-        const keys = await FHCrypto.deriveKeys(F.passcode, salt, FH_KDF_ITERS, FH_KDF_VERSION);
+        const keys = await FHCrypto.deriveKeys(card.key, salt, FH_KDF_ITERS_CARD, FH_KDF_VERSION);
         const dekRaw = await FHCrypto.genDekRaw();
         const wrapped = await FHCrypto.wrapDek(dekRaw, keys.kWrap);
-        await _rpc('set_family_passcode', { p_k_auth: keys.kAuthHex, p_kdf_salt: salt, p_kdf_iters: FH_KDF_ITERS, p_kdf_version: FH_KDF_VERSION, p_wrapped_dek: wrapped, p_enc_state: 'enc' });
+        await _rpc('init_family_card', { p_kdf_salt: salt, p_kdf_iters: FH_KDF_ITERS_CARD, p_kdf_version: FH_KDF_VERSION, p_wrapped_dek: wrapped });
         await fhKeyAdopt(familyId, dekRaw);
-        window.DB.enc = { enc_state: 'enc', kdf_salt: salt, kdf_iters: FH_KDF_ITERS, kdf_version: FH_KDF_VERSION, wrapped_dek: wrapped };
+        if (window.fhCardCacheStore) window.fhCardCacheStore(familyId, card.display);
+        window.DB.enc = { enc_state: 'enc', kdf_salt: null, kdf_iters: null, kdf_version: null, wrapped_dek: null };
+        window.DB.keyWraps = [{ kind: 'card', kdf_salt: salt, kdf_iters: FH_KDF_ITERS_CARD, kdf_version: FH_KDF_VERSION, wrapped_dek: wrapped }];
+        window.__fhNewCard = card;   // the intro screen (shown after onboarding) saves it
       } catch (e) {
-        console.warn('passcode setup failed', e);
-        window.toast && window.toast(L('Chưa đặt được mã gia đình, bạn đặt lại trong Cài đặt nhé', 'Couldn’t set the passcode. Set it again from Settings'));
-      } finally { F.passcode = null; }
+        console.warn('card setup failed', e);
+        window.toast && window.toast(L('Chưa tạo được thẻ khóa, bạn tạo lại trong Cài đặt nhé', 'Couldn’t create the Key Card. Make it again from Settings'));
+      }
     }
     if (created) {
       // extra (non-me) members entered during onboarding
@@ -341,6 +346,11 @@
     busy(false);
     if (typeof _origFinish === 'function') _origFinish();
     if (window.loadFamilyData) { try { await window.loadFamilyData(); } catch (e) {} }
+    // proactively introduce + save the new family's Key Card (the USP moment)
+    if (window.__fhNewCard && window.fhCardShow) {
+      const _c = window.__fhNewCard; window.__fhNewCard = null;
+      setTimeout(() => { try { window.fhCardShow(_c); } catch (e) {} }, 700);
+    }
   };
 
   /* Invite + join now live in 65-passcode-ui.js (whitelist + 6-digit passcode

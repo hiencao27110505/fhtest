@@ -49,6 +49,7 @@
     try { const db = await _cardDbOpen(); await new Promise((res) => { const tx = db.transaction(_CARD_STORE, 'readwrite'); tx.objectStore(_CARD_STORE).delete(fid); tx.oncomplete = () => res(true); tx.onerror = () => res(false); }); } catch (e) {}
   }
   window.fhCardCacheDrop = function (fid) { if (fid != null) _cardCacheDel(fid); };   // called from fhKeyDrop path (leave/delete family)
+  window.fhCardCacheStore = function (fid, display) { if (fid != null && display) _cardCachePut(fid, display); };   // onboarding caches the new card on the creating device
 
   /* ── Create / rotate the family card (needs the DEK; produces a wrap) ──
      rpcName = 'set_family_card' (owner, creation/migration) or
@@ -198,6 +199,28 @@
     } catch (e) {
       if (btn) { btn.disabled = false; btn.textContent = L('Nâng cấp lên thẻ khóa của nhà', 'Upgrade to a family Key Card'); }
       window.toast && window.toast(_friendly(e));
+    }
+  };
+
+  /* Retire the old 6-digit passcode (owner, after the family is on the card).
+     Arm-then-confirm; server refuses unless a live card wrap exists. */
+  window.fhDropPasscode = async function (btn) {
+    if (btn && !btn.classList.contains('armed')) {
+      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa để gỡ mã 6 số', 'Tap again to remove the 6-digit code');
+      clearTimeout(window._fhDropT);
+      window._fhDropT = setTimeout(() => { if (!btn.isConnected) return; btn.classList.remove('armed'); btn.textContent = L('Gỡ mã 6 số cũ', 'Remove the old 6-digit code'); }, 4000);
+      return;
+    }
+    clearTimeout(window._fhDropT);
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang gỡ…', 'Removing…'); }
+    try {
+      await _rpc('drop_family_passcode');
+      await window.loadFamilyData();
+      window.fhEncryptionSheet && window.fhEncryptionSheet();
+      window.toast && window.toast(L('Đã gỡ mã 6 số. Giờ nhà mình chỉ mở bằng thẻ khóa.', 'Old code removed. Your family now opens with the Key Card only.'));
+    } catch (e) {
+      if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = L('Gỡ mã 6 số cũ', 'Remove the old 6-digit code'); }
+      window.toast && window.toast(/no_card/i.test(String((e && e.message) || '')) ? L('Hãy tạo thẻ khóa trước khi gỡ mã.', 'Create the Key Card before removing the code.') : _friendly(e));
     }
   };
 
