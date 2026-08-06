@@ -1,5 +1,5 @@
 -- ============================================================================
--- FamilyHub — 0044: seed known_provider_domains with major VN bank senders
+-- FamilyHub — 0048: seed known_provider_domains with major VN bank senders
 --
 -- Drives the bank-email pipeline's onboarding bank-picker UI and the (not yet
 -- built) backfill triage. Domains verified against each bank's own site
