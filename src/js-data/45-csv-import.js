@@ -132,11 +132,19 @@ function resolveCsvHeuristically(headers, sampleRows) {
   };
 }
 
+// Masking happens right here, at the actual network boundary, rather than
+// relying on every caller to remember to mask before invoking this — the
+// data leaves the device at this line, so this is where the guard has to
+// live. See CSV-IMPORT-ENCRYPTION.md / 43-redact-for-sharing.js.
 async function callCsvMappingFallback(headers, sampleRows) {
+  const capped = sampleRows.slice(0, 15);
+  const outbound = (typeof fhShouldMaskForSharing === 'function' && fhShouldMaskForSharing())
+    ? fhMaskSampleRowsForSharing(capped)
+    : capped;
   const res = await fetch('/api/csv-column-mapping', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ headers, sampleRows: sampleRows.slice(0, 15) }),
+    body: JSON.stringify({ headers, sampleRows: outbound }),
   });
   if (!res.ok) {
     throw new Error(`csv-column-mapping failed: ${res.status} ${await res.text()}`);
@@ -157,3 +165,9 @@ async function resolveCsvMapping(headers, sampleRows) {
 }
 
 window.fhResolveCsvMapping = resolveCsvMapping;
+// classifyDate/classifyAmount are also called from 57-csv-import-review.js
+// (js-ui, global scope) to parse actual row values, not just classify a
+// column's format -- js-data is module scope, so these need the same
+// window bridge as resolveCsvMapping above.
+window.classifyDate = classifyDate;
+window.classifyAmount = classifyAmount;

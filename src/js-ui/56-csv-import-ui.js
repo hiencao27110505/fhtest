@@ -1,23 +1,19 @@
-/* ---- CSV import: technical preview -----------------------------------------
-   Wires the already-tested parse → heuristics → Gemini-fallback pipeline
-   (src/js-data/44-csv-parse.js, 45-csv-import.js) into a real screen for the
-   first time. Deliberately NOT the full review UI (merchant grouping,
-   defer-to-queue, category assignment, promotion into `transactions`) — this
-   proves the pipeline end-to-end from a real tap and shows what it resolved,
-   nothing more. Says so on screen so it never reads as a finished import. */
+/* ---- CSV import: pick a file, review, promote into the real ledger --------
+   Parse (44-csv-parse.js) -> map columns (45-csv-import.js, masked via
+   43-redact-for-sharing.js for encrypted families) -> build + bucket
+   candidates (57-csv-import-review.js) -> this file renders the review and
+   promotes approved rows by feeding bulkRows into the existing submitBulk()
+   machinery (50-sheets-expense-capture.js) rather than a bespoke insert --
+   inherits fhField()/_fhWriteLocked() correctness for free. Expense-only
+   this pass: transactions has no direction column, income lives in a
+   separate table this doesn't write to (see 57's header comment). */
+var csvReview = null; // { ready, groups: {key:{items,catName}}, dup, deferred }
+
 function openCsvImport(){
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
+  csvReview = null;
   openSheet('csv-import-modal');
-}
-
-function csvFieldLabel(field){
-  var map={
-    occurred_at:L('Ngày','Date'), amount:L('Số tiền','Amount'), description:L('Nội dung','Description'),
-    category:L('Danh mục','Category'), counterparty:L('Đối tác','Counterparty'), currency:L('Tiền tệ','Currency'),
-    paid_by:L('Người trả','Paid by'), split_with:L('Chia với','Split with'), unmapped:L('Không xác định','Unmapped'),
-  };
-  return map[field]||field;
 }
 
 function onCsvFileSelected(input){
@@ -33,7 +29,17 @@ function onCsvFileSelected(input){
       return;
     }
     window.fhResolveCsvMapping(parsed.headers, parsed.rows).then(function(result){
-      renderCsvResult(parsed, result);
+      var candidates = buildCsvCandidates(parsed, result);
+      var mixed = csvColumnHasMixedSigns(candidates);
+      var buckets = bucketCsvCandidates(candidates, mixed);
+      csvReview = {
+        ready: buckets.ready,
+        groups: Object.keys(buckets.needsCategoryGroups).map(function(k){ return { key:k, items:buckets.needsCategoryGroups[k], catName:null, skipped:false }; }),
+        dup: buckets.possibleDuplicate.map(function(c){ return { c:c, resolved:null }; }), // resolved: null | 'include' | 'skip'
+        deferred: buckets.deferred,
+        mixedSignsNote: mixed,
+      };
+      renderCsvReview();
     }).catch(function(e){
       if(out) out.innerHTML='<div class="sheet-sub">'+L('Có lỗi khi phân tích file: ','Something went wrong analyzing this file: ')+esc(String((e&&e.message)||e))+'</div>';
     });
@@ -44,28 +50,183 @@ function onCsvFileSelected(input){
   reader.readAsText(file,'utf-8');
 }
 
-function renderCsvResult(parsed, result){
-  var out=document.getElementById('csv-result'); if(!out) return;
-  var byLine = result.resolvedBy==='gemini'
-    ? L('Nhận diện bằng: Gemini (luật có sẵn không đủ tự tin)','Resolved by: Gemini (heuristics weren’t confident enough)')
-    : L('Nhận diện bằng: luật có sẵn, không cần gọi mô hình','Resolved by: heuristics alone, no model call needed');
+function csvIncludedCount(){
+  if(!csvReview) return 0;
+  var n = csvReview.ready.length;
+  csvReview.groups.forEach(function(g){ if(g.catName && !g.skipped) n += g.items.length; });
+  csvReview.dup.forEach(function(d){ if(d.resolved==='include' && d.c.categoryName) n += 1; });
+  return n;
+}
 
-  var mapping = (result.llm && result.llm.column_mapping) || Object.keys(result.columnMap).map(function(i){
-    return { column_index:+i, field:result.columnMap[i].field, confidence:result.columnMap[i].confidence };
+function csvCatChip(name, onclick, selected){
+  var s = (window.catStyle && window.catStyle[name]) || ['🏷️'];
+  return '<button type="button" class="choice'+(selected?' on':'')+'" onclick="'+onclick+'">'+s[0]+' '+esc(name)+'</button>';
+}
+
+/* Reuses the real bulkSummary() (50-sheets-expense-capture.js) instead of a
+   parallel reimplementation -- same note/amount/category markup the actual
+   bulk-logging cards use, so this can't quietly drift out of sync with that
+   component the way an earlier version of this file already did once. */
+function csvCardSummary(description, amount, categoryName){
+  return bulkSummary({ note: description, amt: amount != null ? String(Math.round(amount)) : '', cat: categoryName || '' });
+}
+
+// Collapsed, read-only card: matches renderBulk()'s non-active card shape --
+// bulk-head + summary inside .bulk-tap, .bulk-x as a sibling after it.
+function csvCollapsedCard(label, description, amount, categoryName, removeFn){
+  return '<div class="bulk-card"><button type="button" class="bulk-tap">'
+    + '<span class="bulk-head"><span class="bulk-idx">'+esc(label)+'</span></span>'
+    + csvCardSummary(description, amount, categoryName)
+    + '</button><button type="button" class="bulk-x" onclick="'+removeFn+'" aria-label="'+L('Bỏ khoản này','Remove')+'">✕</button></div>';
+}
+
+function renderCsvReview(){
+  var out=document.getElementById('csv-result'); if(!out || !csvReview) return;
+  var r = csvReview;
+  var total = r.ready.length + r.groups.reduce(function(n,g){return n+g.items.length;},0) + r.dup.length + r.deferred.length;
+
+  var html = '';
+
+  if(r.mixedSignsNote){
+    html += '<div class="notice-card"><svg class="notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>'
+      + '<div class="notice-text">'+L('File này có cả số dương và âm trong cột số tiền — có thể lẫn cả thu lẫn chi, nên tụi mình không tự nhập khoản nào. Khoản nào đúng là khoản chi, bạn bấm “Đây là khoản chi” để đưa vào.','This file mixes positive and negative amounts — possibly income and expenses together, so nothing was imported automatically. For any row that really is an expense, tap “This is an expense” to bring it in.')+'</div></div>';
+  }
+
+  html += '<div class="review-summary">'+esc(L(total+' giao dịch tìm thấy', total+' transactions found'))+'</div>';
+  html += '<div id="bulk-list">';
+
+  r.ready.forEach(function(c, i){
+    html += csvCollapsedCard(c.dateDisplay || c.description, c.description, c.amount, c.categoryName, 'csvRemoveReady('+i+')');
   });
 
-  var rows = mapping.map(function(m){
-    var header = parsed.headers[m.column_index]||'';
-    return '<div class="row"><div class="r-body"><div class="r-t">'+esc(header)+'</div><div class="r-s">'+esc(csvFieldLabel(m.field))+' · '+esc(m.confidence)+'</div></div></div>';
-  }).join('');
+  r.groups.forEach(function(g, gi){
+    if(g.skipped) return;
+    if(g.catName){
+      var sum = g.items.reduce(function(s,it){return s+it.amount;},0);
+      html += csvCollapsedCard(g.items[0].description+' · '+g.items.length+' '+L('giao dịch','txns'), g.items[0].description, sum, g.catName, 'csvSkipGroup('+gi+')');
+      return;
+    }
+    var chips = (window.catOrder||[]).map(function(name){ return csvCatChip(name, 'csvPickGroupCategory('+gi+',\''+escAttr(name)+'\')', false); }).join('');
+    html += '<div class="bulk-card active"><div class="bulk-head"><span class="bulk-idx">'+esc(g.items[0].description)+' · '+g.items.length+' '+L('giao dịch','txns')+'</span>'
+      + '<button type="button" class="bulk-x" onclick="csvSkipGroup('+gi+')" aria-label="'+L('Bỏ nhóm này','Remove')+'">✕</button></div>'
+      + '<div class="bulk-body"><div class="field-label-mini">'+L('Chọn danh mục','Pick a category')+'</div><div class="choices">'+chips+'</div></div></div>';
+  });
 
-  var dateNote = (result.llm && result.llm.date_convention)
-    ? '<div class="sheet-sub">'+L('Định dạng ngày: ','Date convention: ')+esc(result.llm.date_convention)+'</div>' : '';
+  r.dup.forEach(function(d, di){
+    if(d.resolved==='skip') return;
+    var existingLine = d.c.duplicateOfExisting
+      ? L('Trùng với một giao dịch đã có trong sổ, cùng số tiền, trong vòng 3 ngày.','Matches a transaction already in your ledger, same amount, within 3 days.')
+      : L('Xuất hiện 2 lần trong file này với cùng nội dung và số tiền.','Appears twice in this file with the same description and amount.');
+    if(d.resolved==='include' && d.c.categoryName){
+      html += csvCollapsedCard(d.c.dateDisplay || d.c.description, d.c.description, d.c.amount, d.c.categoryName, 'csvDuplicateSkip('+di+')');
+      return;
+    }
+    if(d.resolved==='include'){
+      // Included, but this row's source category never matched a real one --
+      // same situation as a needs-category group, just for a single row, so
+      // it gets the same picker instead of silently blocking submitBulk()'s
+      // own validation later with no clue which row was the problem.
+      var dchips = (window.catOrder||[]).map(function(name){ return csvCatChip(name, 'csvPickDuplicateCategory('+di+',\''+escAttr(name)+'\')', false); }).join('');
+      html += '<div class="bulk-card active"><div class="bulk-head"><span class="bulk-idx">'+esc(d.c.description)+'</span>'
+        + '<button type="button" class="bulk-x" onclick="csvDuplicateSkip('+di+')" aria-label="'+L('Bỏ khoản này','Remove')+'">✕</button></div>'
+        + '<div class="bulk-body"><div class="field-label-mini">'+L('Chọn danh mục','Pick a category')+'</div><div class="choices">'+dchips+'</div></div></div>';
+      return;
+    }
+    html += '<div class="bulk-card active"><div class="bulk-head"><span class="bulk-idx">'+esc(d.c.description)+' · -'+esc(String(Math.round(d.c.amount)))+'</span></div>'
+      + '<div class="bulk-body"><div class="dup-note">'+existingLine+'</div><div class="dup-actions">'
+      + '<button type="button" class="btn-line" onclick="csvDuplicateInclude('+di+')">'+L('Vẫn nhập','Import anyway')+'</button>'
+      + '<button type="button" class="btn-text-quiet" onclick="csvDuplicateSkip('+di+')">'+L('Bỏ qua','Skip')+'</button>'
+      + '</div></div></div>';
+  });
 
-  out.innerHTML =
-      '<div class="sheet-sub">'+esc(L(parsed.rows.length+' dòng dữ liệu tìm thấy', parsed.rows.length+' data rows found'))+'</div>'
-    + '<div class="sheet-sub">'+byLine+'</div>'
-    + dateNote
-    + '<div class="card" style="margin:14px 0 0">'+rows+'</div>'
-    + '<div class="sheet-sub" style="margin-top:14px">'+L('Đây là bản xem trước kỹ thuật — màn hình xem lại đầy đủ và ghi vào sổ chi tiêu chưa được xây dựng.','This is a technical preview — the full review screen and ledger write-through aren’t built yet.')+'</div>';
+  html += '</div>';
+
+  if(r.deferred.length){
+    html += '<div class="group-h defer">'+L('Cần xem lại','Needs your look')+'</div><div id="bulk-list">';
+    r.deferred.forEach(function(c, di){
+      // A row is only stuck for real when its date or amount is unreadable.
+      // A row deferred purely on the mixed-signs suspicion has everything a
+      // valid expense needs -- the user can confirm it with one tap instead
+      // of hitting a dead end with no action at all.
+      var rescuable = c.date && c.amount !== null
+        && c.flags.indexOf('date_missing')<0 && c.flags.indexOf('amount_missing')<0;
+      var why = c.flags.indexOf('date_missing')>=0 ? L('thiếu ngày','missing date')
+        : c.flags.indexOf('amount_missing')>=0 ? L('không đọc được số tiền','unreadable amount')
+        : L('có thể là thu nhập','possibly income');
+      // bc-pick ("Pick a category") is deliberately suppressed here -- these
+      // cards have no category picker, so bulkSummary()'s badge would dangle.
+      var summary = '<span class="bc-note">'+esc(c.description||c.raw.join(', '))+'</span>'
+        + '<span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+fmt(c.amount)+'</span>':'')+'</span>';
+      if(rescuable){
+        html += '<div class="bulk-card active"><div class="bulk-head"><span class="bulk-idx">'+esc(why)+'</span></div>'
+          + '<div class="bulk-body">'+summary
+          + '<div class="dup-actions" style="margin-top:10px"><button type="button" class="btn-line" onclick="csvRescueDeferred('+di+')">'+L('Đây là khoản chi — nhập','This is an expense — import')+'</button></div>'
+          + '</div></div>';
+      } else {
+        html += '<div class="bulk-card defer-card"><div class="bulk-tap"><span class="bulk-head"><span class="bulk-idx">'+esc(why)+'</span></span>'+summary+'</div></div>';
+      }
+    });
+    html += '</div>';
+  }
+
+  var n = csvIncludedCount();
+  html += '<div class="cta-wrap"><button class="cta" onclick="csvPromote()"'+(n===0?' disabled style="opacity:.5"':'')+'>'+esc(L('Nhập '+n+' giao dịch','Import '+n+' transactions'))+'</button></div>';
+
+  out.innerHTML = html;
+}
+
+function csvRemoveReady(i){ csvReview.ready.splice(i,1); renderCsvReview(); }
+function csvPickGroupCategory(gi, name){ csvReview.groups[gi].catName = name; renderCsvReview(); }
+function csvSkipGroup(gi){ csvReview.groups[gi].skipped = true; renderCsvReview(); }
+function csvDuplicateInclude(di){ csvReview.dup[di].resolved = 'include'; renderCsvReview(); }
+function csvDuplicateSkip(di){ csvReview.dup[di].resolved = 'skip'; renderCsvReview(); }
+function csvPickDuplicateCategory(di, name){ csvReview.dup[di].c.categoryName = name; renderCsvReview(); }
+
+/* User confirmed a mixed-signs-deferred row really is an expense. It re-enters
+   the normal flow -- INCLUDING the dedup checks, which the mixed-signs early
+   exit in bucketCsvCandidates() skipped for the whole file, so a rescued row
+   must not bypass them now. */
+function csvRescueDeferred(di){
+  var c = csvReview.deferred.splice(di,1)[0]; if(!c) return;
+
+  // within-review duplicate: same description+amount as anything already included
+  var key = normDescForDedup(c.description)+'|'+c.amount;
+  var already = csvReview.ready.some(function(x){ return normDescForDedup(x.description)+'|'+x.amount === key; })
+    || csvReview.groups.some(function(g){ return !g.skipped && g.items.some(function(x){ return normDescForDedup(x.description)+'|'+x.amount === key; }); });
+  // cross-source: same amount within ±3 days of an existing ledger transaction
+  var crossMatch = !already && (window.txns||[]).find(function(t){
+    if(!t._d || !c.date) return false;
+    return Math.abs(t._d.getTime()-c.date.getTime())/86400000 <= 3 && Math.abs(Number(t.amt)-c.amount) < 1;
+  });
+  if(already){ c.duplicateOfBatch = true; csvReview.dup.push({ c:c, resolved:null }); }
+  else if(crossMatch){ c.duplicateOfExisting = crossMatch; csvReview.dup.push({ c:c, resolved:null }); }
+  else if(c.categoryName){ csvReview.ready.push(c); }
+  else {
+    var gkey = normDescForDedup(c.description);
+    var g = csvReview.groups.find(function(x){ return x.key===gkey && !x.skipped; });
+    if(g) g.items.push(c);
+    else csvReview.groups.push({ key:gkey, items:[c], catName:null, skipped:false });
+  }
+  renderCsvReview();
+}
+
+/* Feeds every included candidate into bulkRows + submitBulk() (bulk expense
+   logging's own machinery) instead of a bespoke insert -- the actual write
+   goes through _dbInsertTxn() -> fhField()/_fhWriteLocked(), same as any
+   other expense, so this doesn't need to re-derive encryption correctness. */
+function csvPromote(){
+  if(!csvReview) return;
+  var included = csvReview.ready.slice();
+  csvReview.groups.forEach(function(g){ if(g.catName && !g.skipped) g.items.forEach(function(c){ c.categoryName = g.catName; included.push(c); }); });
+  csvReview.dup.forEach(function(d){ if(d.resolved==='include' && d.c.categoryName) included.push(d.c); });
+  if(!included.length) return;
+
+  bulkRows = included.map(function(c){
+    return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName, who: lastWho, date: c.dateDisplay, _invalid: false };
+  });
+  bulkActive = 0;
+  exPhotos = [];
+  renderBulk();
+  loadRow(0);
+  submitBulk();
 }
