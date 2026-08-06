@@ -96,6 +96,15 @@
                                         'The server holds only locked values, including names, captions and the family’s photos. Data opens only with the family code, on members’ devices. This is permanent. No one can put unencrypted data back on the server, not even your family.') + '</div>'
         + roster.html
         + (fhKeyReady() ? '' : _btn(L('Mở khóa máy này', 'Unlock this device'), '_closeOv();fhUnlockPrompt()', _S.cta));
+      /* Key Card (0042): once unlocked, offer the card. No card yet → the owner
+         upgrades (adds a card wrap beside the passcode, both keep working — no
+         lockout, nothing re-encrypts). Card exists → view/regenerate it. */
+      if (fhKeyReady() && window.fhHasCard) {
+        body += window.fhHasCard()
+          ? _btn(L('Xem hoặc tạo lại thẻ khóa', 'View or remake the Key Card'), '_closeOv();fhCardShowCached()', _S.line)
+          : (owner ? _btn(L('Nâng cấp lên thẻ khóa của nhà', 'Upgrade to a family Key Card'), 'fhCardMigrate(this)', _S.cta)
+                   : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ tạo thẻ khóa cho nhà.', 'The owner will create the family’s card.') + '</div>');
+      }
       /* anything the valve tolerated (server-side inserts, pre-0038 rows) plus
          any not-yet-encrypted photos: cover silently, same shape as the dual
          resume hook above */

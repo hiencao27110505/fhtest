@@ -156,6 +156,24 @@
       + _btn(L('Đóng', 'Close'), '_closeOv()', _S.ghost));
   };
 
+  /* Migrate the family onto the card (owner, one tap, on an unlocked device).
+     Adds a card wrap BESIDE the existing passcode wrap — both keep working, so
+     no device is locked out — and re-wraps the SAME DEK, so nothing
+     re-encrypts. Then shows the intro + the card to save. */
+  window.fhCardMigrate = async function (btn) {
+    if (!fhKeyReady()) { window.fhUnlockPrompt && window.fhUnlockPrompt(); return; }
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang tạo…', 'Making…'); }
+    try {
+      const card = await fhCardCreate('set_family_card');
+      await window.loadFamilyData();
+      window.fhCardShow(card);
+      window.toast && window.toast(L('Đã tạo thẻ khóa cho nhà ✓. Lưu lại và đưa cho người thân nha.', 'Your family Key Card is ready ✓. Save it and share with your family.'));
+    } catch (e) {
+      if (btn) { btn.disabled = false; btn.textContent = L('Nâng cấp lên thẻ khóa của nhà', 'Upgrade to a family Key Card'); }
+      window.toast && window.toast(_friendly(e));
+    }
+  };
+
   // Regenerate (any keyed member): rotate the wrap, show + cache the new card.
   window.fhCardRegenerate = async function (btn) {
     if (!fhKeyReady()) { window.fhUnlockPrompt && window.fhUnlockPrompt(); return; }

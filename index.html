@@ -9376,7 +9376,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v278';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v279';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -12554,6 +12554,9 @@ window.fhResolveCsvMapping = resolveCsvMapping;
   // ── Any member: unlock this device with the passcode (offline-capable —
   //    a wrong code simply fails the AES-GCM unwrap, no server needed) ──
   window.fhUnlockPrompt = function () {
+    // Key Card families (0042) unlock with the card, not the 6-digit passcode.
+    // Delegating here routes every existing caller (lock bar, write-lock, nudge).
+    if (window.fhHasCard && window.fhHasCard() && window.fhCardEnterPrompt) { return window.fhCardEnterPrompt(); }
     const enc = window.DB && window.DB.enc;
     if (!enc || !enc.wrapped_dek) { window.toast && window.toast(L('Gia đình chưa đặt mã', 'No passcode set yet')); return; }
     const why = enc.enc_state === 'dual'
@@ -12711,6 +12714,15 @@ window.fhResolveCsvMapping = resolveCsvMapping;
                                         'The server holds only locked values, including names, captions and the family’s photos. Data opens only with the family code, on members’ devices. This is permanent. No one can put unencrypted data back on the server, not even your family.') + '</div>'
         + roster.html
         + (fhKeyReady() ? '' : _btn(L('Mở khóa máy này', 'Unlock this device'), '_closeOv();fhUnlockPrompt()', _S.cta));
+      /* Key Card (0042): once unlocked, offer the card. No card yet → the owner
+         upgrades (adds a card wrap beside the passcode, both keep working — no
+         lockout, nothing re-encrypts). Card exists → view/regenerate it. */
+      if (fhKeyReady() && window.fhHasCard) {
+        body += window.fhHasCard()
+          ? _btn(L('Xem hoặc tạo lại thẻ khóa', 'View or remake the Key Card'), '_closeOv();fhCardShowCached()', _S.line)
+          : (owner ? _btn(L('Nâng cấp lên thẻ khóa của nhà', 'Upgrade to a family Key Card'), 'fhCardMigrate(this)', _S.cta)
+                   : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ tạo thẻ khóa cho nhà.', 'The owner will create the family’s card.') + '</div>');
+      }
       /* anything the valve tolerated (server-side inserts, pre-0038 rows) plus
          any not-yet-encrypted photos: cover silently, same shape as the dual
          resume hook above */
@@ -13249,6 +13261,24 @@ window.fhResolveCsvMapping = resolveCsvMapping;
                                      'This device doesn’t hold a copy of the card. You can make a fresh one (the old card stops working), then save and share it.') + '</div>'
       + _btn(L('Tạo lại thẻ khóa', 'Make a new card'), 'fhCardRegenerate(this)', _S.cta)
       + _btn(L('Đóng', 'Close'), '_closeOv()', _S.ghost));
+  };
+
+  /* Migrate the family onto the card (owner, one tap, on an unlocked device).
+     Adds a card wrap BESIDE the existing passcode wrap — both keep working, so
+     no device is locked out — and re-wraps the SAME DEK, so nothing
+     re-encrypts. Then shows the intro + the card to save. */
+  window.fhCardMigrate = async function (btn) {
+    if (!fhKeyReady()) { window.fhUnlockPrompt && window.fhUnlockPrompt(); return; }
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang tạo…', 'Making…'); }
+    try {
+      const card = await fhCardCreate('set_family_card');
+      await window.loadFamilyData();
+      window.fhCardShow(card);
+      window.toast && window.toast(L('Đã tạo thẻ khóa cho nhà ✓. Lưu lại và đưa cho người thân nha.', 'Your family Key Card is ready ✓. Save it and share with your family.'));
+    } catch (e) {
+      if (btn) { btn.disabled = false; btn.textContent = L('Nâng cấp lên thẻ khóa của nhà', 'Upgrade to a family Key Card'); }
+      window.toast && window.toast(_friendly(e));
+    }
   };
 
   // Regenerate (any keyed member): rotate the wrap, show + cache the new card.
