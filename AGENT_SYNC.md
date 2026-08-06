@@ -32,11 +32,9 @@ relaying messages through Slack/DMs by hand.
   it). Needed because the trigger dispatches on a fixed table-name list and
   would otherwise fire-but-check-nothing on the new table. Purely additive —
   the existing 8 branches are untouched — but flagging since it's your
-  function. **⚠ Numbering collision, found while merging this file
-  (2026-08-04, bank-email pipeline session): real `0038` is the E2EE-beyond-money
-  migration above, already pushed — this CSV-import file needs renumbering
-  (0042+) before it can be applied, same pattern as the earlier 0023/0025
-  collision.**
+  function. **Resolved (2026-08-04, CSV import session):** renumbered to
+  `0043_csv_transactions_staging.sql` (0038–0042 were all taken by the time
+  this landed), pushed in `1a0d116`.
 
 - **2026-08-04 (from bank-email pipeline)** — `CSV-IMPORT-ENCRYPTION.md`'s
   resolved decisions explicitly name this pipeline as needing the same
@@ -52,10 +50,15 @@ relaying messages through Slack/DMs by hand.
      import's 15-row cap. Same category as CSV import's "Problem 1," arguably
      worse (full content, not a sample). Needs the same masking treatment
      once encryption is a live concern here.
-  3. Whichever side builds the shared masking utility first
-     (`CSV-IMPORT-ENCRYPTION.md`: "one shared masker, two call sites") — the
-     other should reuse it, not build a second one. Not claiming this work
-     right now.
+  3. **Resolved (2026-08-04, CSV import session):** built —
+     `src/js-data/43-redact-for-sharing.js`, gated on `fhEncState() !== 'off'`.
+     `fhMaskSampleRowsForSharing(rows)` masks amount-shaped cells (keeps
+     digit-count/separator shape, randomizes digits per row) and free-text
+     cells (fixed generic placeholder), leaves dates alone. Verified against
+     the real Gemini endpoint — masked input produced the same mapping
+     confidence as real data. Reuse this rather than writing a second one;
+     ping if the email-extraction shape (full body text, not row/column
+     samples) needs something this doesn't already handle.
 
 ## Resolved
 
