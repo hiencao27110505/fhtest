@@ -135,12 +135,22 @@
       const budgetAmt = e.achieved ? (e.saved || 0) : (e.setAside || 0);
       // tag budget-sourced funding with the month being viewed, not always "today's" month
       const _vm = window.months[window.selMonth] || {}; const fMonth = _vm._iso || window.DB.month;
-      // upsert, not insert: one budget reservation per (event, month), so a
-      // re-sync can never reserve the same money twice
-      if (budgetAmt > 0) await _w(sb.from('event_fundings').upsert(
-        Object.assign({ family_id: fid, event_id: evId, member_id: who, source: 'budget', month: fMonth }, await fhField('amount', budgetAmt)),
-        { onConflict: 'event_id,month' }
-      ), 'write event_fundings');
+      // One budget reservation per (event, month), so a re-sync can't reserve
+      // the same money twice. This CANNOT be a plain upsert(onConflict:
+      // 'event_id,month'): the uniqueness is a PARTIAL index
+      // (event_fundings_budget_uniq WHERE source='budget', 0015), and Postgres
+      // can't match ON CONFLICT to a partial index — it throws 42P10 ("no unique
+      // or exclusion constraint matching"), which surfaced as a spurious "Có lỗi
+      // xảy ra" toast on every photo-expense whose mirror event carries a budget.
+      // Select the live budget row explicitly, then update or insert — same
+      // shape the mirror-event write above uses for its own partial-index case.
+      if (budgetAmt > 0) {
+        const bf = await fhField('amount', budgetAmt);
+        const ex = await sb.from('event_fundings').select('id').eq('event_id', evId).eq('month', fMonth).eq('source', 'budget').maybeSingle();
+        if (ex.error) throw ex.error;
+        if (ex.data) await _w(sb.from('event_fundings').update(bf).eq('id', ex.data.id), 'write event_fundings');
+        else await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, event_id: evId, member_id: who, source: 'budget', month: fMonth }, bf)), 'write event_fundings');
+      }
       const sp = (e.saved || 0) - (e.setAside || 0);
       if (sp > 0 && opts.savingsSource) await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, event_id: evId, member_id: who, source: 'savings', month: null }, await fhField('amount', sp))), 'write event_fundings');
       _syncSoon();

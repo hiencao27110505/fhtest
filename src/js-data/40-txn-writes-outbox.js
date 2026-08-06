@@ -45,13 +45,14 @@
       const m = dataUri.match(/^data:([^;]+);base64,(.*)$/); if (!m) return null;
       const mime = m[1]; const bin = atob(m[2]); let arr = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const plain = arr;                                     // keep the plaintext to seed the render cache
       let ext = ((mime.split('/')[1]) || 'jpg').replace('jpeg', 'jpg').replace('svg+xml', 'svg');
-      let ctype = mime;
+      let ctype = mime, enc = false;
       /* E2EE bytes: AES-GCM with the family DEK, '.enc' suffix. The bucket can
          stay public — the URL now addresses ciphertext, so privacy comes from
          the key, not from hiding the address, and the immutable-cache model
          (below) keeps working unchanged. */
-      if (_fhPhotoEncOn()) { arr = await fhEncBytes(arr); ext += '.enc'; ctype = 'application/octet-stream'; }
+      if (_fhPhotoEncOn()) { arr = await fhEncBytes(arr); ext += '.enc'; ctype = 'application/octet-stream'; enc = true; }
       const path = fid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
       // Paths embed a timestamp + random suffix and are never overwritten, so the
       // bytes at a given URL are immutable — cache them for a year instead of
@@ -59,6 +60,13 @@
       // trip per photo every hour.
       const { error } = await sb.storage.from('family-media').upload(path, arr, { contentType: ctype, cacheControl: '31536000' });
       if (error) { console.warn('upload failed', error); return null; }
+      /* Seed the render cache with the plaintext we already hold, keyed by the
+         public URL the render will use, so a freshly-uploaded encrypted photo
+         shows instantly instead of flashing blank while it re-fetches + decrypts
+         itself back from storage. */
+      if (enc && window.__fhPhotoSeed) {
+        try { const pub = SUPABASE_URL + '/storage/v1/object/public/family-media/' + path.split('/').map(encodeURIComponent).join('/'); window.__fhPhotoSeed(pub, plain, mime); } catch (e) {}
+      }
       return path;
     } catch (e) { console.warn('upload err', e); return null; }
   }

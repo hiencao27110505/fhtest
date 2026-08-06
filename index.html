@@ -9779,7 +9779,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v284';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v285';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -11218,13 +11218,14 @@ function openWhatsNew(){
       const m = dataUri.match(/^data:([^;]+);base64,(.*)$/); if (!m) return null;
       const mime = m[1]; const bin = atob(m[2]); let arr = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const plain = arr;                                     // keep the plaintext to seed the render cache
       let ext = ((mime.split('/')[1]) || 'jpg').replace('jpeg', 'jpg').replace('svg+xml', 'svg');
-      let ctype = mime;
+      let ctype = mime, enc = false;
       /* E2EE bytes: AES-GCM with the family DEK, '.enc' suffix. The bucket can
          stay public — the URL now addresses ciphertext, so privacy comes from
          the key, not from hiding the address, and the immutable-cache model
          (below) keeps working unchanged. */
-      if (_fhPhotoEncOn()) { arr = await fhEncBytes(arr); ext += '.enc'; ctype = 'application/octet-stream'; }
+      if (_fhPhotoEncOn()) { arr = await fhEncBytes(arr); ext += '.enc'; ctype = 'application/octet-stream'; enc = true; }
       const path = fid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
       // Paths embed a timestamp + random suffix and are never overwritten, so the
       // bytes at a given URL are immutable — cache them for a year instead of
@@ -11232,6 +11233,13 @@ function openWhatsNew(){
       // trip per photo every hour.
       const { error } = await sb.storage.from('family-media').upload(path, arr, { contentType: ctype, cacheControl: '31536000' });
       if (error) { console.warn('upload failed', error); return null; }
+      /* Seed the render cache with the plaintext we already hold, keyed by the
+         public URL the render will use, so a freshly-uploaded encrypted photo
+         shows instantly instead of flashing blank while it re-fetches + decrypts
+         itself back from storage. */
+      if (enc && window.__fhPhotoSeed) {
+        try { const pub = SUPABASE_URL + '/storage/v1/object/public/family-media/' + path.split('/').map(encodeURIComponent).join('/'); window.__fhPhotoSeed(pub, plain, mime); } catch (e) {}
+      }
       return path;
     } catch (e) { console.warn('upload err', e); return null; }
   }
@@ -11943,12 +11951,22 @@ window.classifyAmount = classifyAmount;
       const budgetAmt = e.achieved ? (e.saved || 0) : (e.setAside || 0);
       // tag budget-sourced funding with the month being viewed, not always "today's" month
       const _vm = window.months[window.selMonth] || {}; const fMonth = _vm._iso || window.DB.month;
-      // upsert, not insert: one budget reservation per (event, month), so a
-      // re-sync can never reserve the same money twice
-      if (budgetAmt > 0) await _w(sb.from('event_fundings').upsert(
-        Object.assign({ family_id: fid, event_id: evId, member_id: who, source: 'budget', month: fMonth }, await fhField('amount', budgetAmt)),
-        { onConflict: 'event_id,month' }
-      ), 'write event_fundings');
+      // One budget reservation per (event, month), so a re-sync can't reserve
+      // the same money twice. This CANNOT be a plain upsert(onConflict:
+      // 'event_id,month'): the uniqueness is a PARTIAL index
+      // (event_fundings_budget_uniq WHERE source='budget', 0015), and Postgres
+      // can't match ON CONFLICT to a partial index — it throws 42P10 ("no unique
+      // or exclusion constraint matching"), which surfaced as a spurious "Có lỗi
+      // xảy ra" toast on every photo-expense whose mirror event carries a budget.
+      // Select the live budget row explicitly, then update or insert — same
+      // shape the mirror-event write above uses for its own partial-index case.
+      if (budgetAmt > 0) {
+        const bf = await fhField('amount', budgetAmt);
+        const ex = await sb.from('event_fundings').select('id').eq('event_id', evId).eq('month', fMonth).eq('source', 'budget').maybeSingle();
+        if (ex.error) throw ex.error;
+        if (ex.data) await _w(sb.from('event_fundings').update(bf).eq('id', ex.data.id), 'write event_fundings');
+        else await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, event_id: evId, member_id: who, source: 'budget', month: fMonth }, bf)), 'write event_fundings');
+      }
       const sp = (e.saved || 0) - (e.setAside || 0);
       if (sp > 0 && opts.savingsSource) await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, event_id: evId, member_id: who, source: 'savings', month: null }, await fhField('amount', sp))), 'write event_fundings');
       _syncSoon();
@@ -12451,6 +12469,8 @@ window.classifyAmount = classifyAmount;
     const raw = img.getAttribute('src') || '';
     if (raw.indexOf('.enc') < 0 || raw.indexOf('blob:') === 0 || raw.indexOf('data:') === 0) return;
     img.setAttribute('data-fhenc', raw);
+    const hit = _phCache.get(raw);
+    if (hit && hit.u) { img.src = hit.u; return; }         // already decrypted/seeded → set it, no blank
     img.src = _PH_BLANK;                                   // no broken-image flash while we decrypt
     _phResolve(raw).then((u) => { if (u && img.getAttribute('data-fhenc') === raw) img.src = u; });
   }
@@ -12460,6 +12480,8 @@ window.classifyAmount = classifyAmount;
     if (!m) return;
     const raw = m[2];
     el.setAttribute('data-fhenc', raw);
+    const hit = _phCache.get(raw);
+    if (hit && hit.u) { el.style.backgroundImage = 'url(' + hit.u + ')'; return; }
     el.style.backgroundImage = 'none';
     _phResolve(raw).then((u) => { if (u && el.getAttribute('data-fhenc') === raw) el.style.backgroundImage = 'url(' + u + ')'; });
   }
@@ -12484,6 +12506,16 @@ window.classifyAmount = classifyAmount;
   window.__fhPhotoCachePurge = function () {
     _phCache.forEach((e) => { if (e.u) { try { URL.revokeObjectURL(e.u) } catch (x) {} } });
     _phCache.clear();
+  };
+  /* Seed the cache for a just-uploaded photo (plaintext bytes we already hold),
+     keyed by the public .enc URL the render will use. Lets the fresh photo show
+     instantly instead of blank→fetch→decrypt. */
+  window.__fhPhotoSeed = function (url, bytes, mime) {
+    try {
+      if (!url || _phCache.get(url)) return;
+      const u = URL.createObjectURL(new Blob([bytes], { type: mime || _phMime(url) }));
+      _phCache.delete(url); _phCache.set(url, { u: u, p: Promise.resolve(u) }); _phTrim();
+    } catch (e) {}
   };
   /* Key just became available (device unlocked mid-session with the card/code):
      re-decrypt every encrypted photo already on screen — their <img src> and
