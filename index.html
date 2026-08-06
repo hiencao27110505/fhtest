@@ -9708,7 +9708,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v281';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v282';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -10400,6 +10400,8 @@ function openWhatsNew(){
   async function fhKeyAdopt(fid, dekRaw) {
     _fhDekRaw = new Uint8Array(dekRaw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
     await _keysPut(fid, _fhDekRaw);
+    // photos that rendered blank while this device was locked can decrypt now
+    try { if (window.__fhPhotoRefresh) window.__fhPhotoRefresh(); } catch (e) {}
   }
   function fhKeyDrop(fid) {
     if (_fhDekFid === fid || fid == null) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; }
@@ -12345,13 +12347,15 @@ window.classifyAmount = classifyAmount;
     }
   }
   function _phResolve(url) {
+    // Locked: return null WITHOUT caching, so the very next attempt (after the
+    // key is entered) retries instead of being pinned to this null forever.
+    if (!fhKeyReady()) return Promise.resolve(null);
     const hit = _phCache.get(url);
     if (hit) { _phCache.delete(url); _phCache.set(url, hit); return hit.p; }   // LRU refresh
     const entry = {
       u: null,
       p: (async () => {
         try {
-          if (!fhKeyReady()) return null;                  // locked: placeholder stays until the post-unlock re-render
           const resp = await fetch(url);
           if (!resp.ok) return null;
           const pt = await fhDecBytes(new Uint8Array(await resp.arrayBuffer()));
@@ -12400,6 +12404,22 @@ window.classifyAmount = classifyAmount;
   window.__fhPhotoCachePurge = function () {
     _phCache.forEach((e) => { if (e.u) { try { URL.revokeObjectURL(e.u) } catch (x) {} } });
     _phCache.clear();
+  };
+  /* Key just became available (device unlocked mid-session with the card/code):
+     re-decrypt every encrypted photo already on screen — their <img src> and
+     background-image were blanked while locked and, without this, stay blank
+     until the app is killed and reopened. Called from fhKeyAdopt. */
+  window.__fhPhotoRefresh = function () {
+    try {
+      document.querySelectorAll('[data-fhenc]').forEach((el) => {
+        const raw = el.getAttribute('data-fhenc'); if (!raw) return;
+        _phResolve(raw).then((u) => {
+          if (!u || el.getAttribute('data-fhenc') !== raw) return;
+          if (el.tagName === 'IMG') el.src = u; else el.style.backgroundImage = 'url(' + u + ')';
+        });
+      });
+      _phSweep(document.body);   // and any still-raw .enc that never got swapped
+    } catch (e) {}
   };
 
   // ═══ feature UIs: manage family/members, saved-for-events, income ═══════════

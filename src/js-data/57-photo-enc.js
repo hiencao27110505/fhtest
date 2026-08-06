@@ -27,13 +27,15 @@
     }
   }
   function _phResolve(url) {
+    // Locked: return null WITHOUT caching, so the very next attempt (after the
+    // key is entered) retries instead of being pinned to this null forever.
+    if (!fhKeyReady()) return Promise.resolve(null);
     const hit = _phCache.get(url);
     if (hit) { _phCache.delete(url); _phCache.set(url, hit); return hit.p; }   // LRU refresh
     const entry = {
       u: null,
       p: (async () => {
         try {
-          if (!fhKeyReady()) return null;                  // locked: placeholder stays until the post-unlock re-render
           const resp = await fetch(url);
           if (!resp.ok) return null;
           const pt = await fhDecBytes(new Uint8Array(await resp.arrayBuffer()));
@@ -82,4 +84,20 @@
   window.__fhPhotoCachePurge = function () {
     _phCache.forEach((e) => { if (e.u) { try { URL.revokeObjectURL(e.u) } catch (x) {} } });
     _phCache.clear();
+  };
+  /* Key just became available (device unlocked mid-session with the card/code):
+     re-decrypt every encrypted photo already on screen — their <img src> and
+     background-image were blanked while locked and, without this, stay blank
+     until the app is killed and reopened. Called from fhKeyAdopt. */
+  window.__fhPhotoRefresh = function () {
+    try {
+      document.querySelectorAll('[data-fhenc]').forEach((el) => {
+        const raw = el.getAttribute('data-fhenc'); if (!raw) return;
+        _phResolve(raw).then((u) => {
+          if (!u || el.getAttribute('data-fhenc') !== raw) return;
+          if (el.tagName === 'IMG') el.src = u; else el.style.backgroundImage = 'url(' + u + ')';
+        });
+      });
+      _phSweep(document.body);   // and any still-raw .enc that never got swapped
+    } catch (e) {}
   };
