@@ -356,7 +356,7 @@
           try {
             window.fhCardUnlock && window.fhCardUnlock(_pc).then(() => {
               window.fhLockBanner && window.fhLockBanner(false);
-              window.toast && window.toast(L('Đã mở khóa bằng thẻ khóa ✓', 'Unlocked with your Key Card ✓'));
+              window.toast && window.toast(L('Đã mở khóa bằng mã khóa ✓', 'Unlocked with your code ✓'));
               window.loadFamilyData && window.loadFamilyData();
             }).catch(() => {});
           } catch (e) {}
