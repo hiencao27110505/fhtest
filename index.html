@@ -10007,53 +10007,25 @@ function openWhatsNew(){
       if (check !== _cardCheck(key.slice(0, 16))) return { ok: false, error: 'checksum' };
       return { ok: true, key: body, raw: s, display: _fmtCard(s) };
     },
+    // Self-contained card URL. The fragment is base64url of the card (opaque —
+    // not the raw FH-XXXX in the bar), but it IS the key: whoever has the link
+    // recovers the card. Durable, offline, no server. Regenerate to kill a leak.
     cardUrl(rawOrDisplay) {
       const p = FHCrypto.parseCard(rawOrDisplay);
       const disp = p.ok ? p.display : String(rawOrDisplay);
+      const b = _b64(_te.encode(disp)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
       const origin = (typeof location !== 'undefined' && location.origin) ? location.origin : '';
-      return origin + '/#fh-key=' + encodeURIComponent(disp);
+      return origin + '/#fh-k=' + b;
     },
-    // Pull a card out of a URL or hash fragment (#fh-key=…). Null if absent/invalid.
+    // Pull a card out of a URL/fragment — the opaque #fh-k=<b64> form or the
+    // legacy readable #fh-key=<FH-…>. Null if absent/invalid.
     parseKeyFragment(src) {
-      const m = String(src == null ? '' : src).match(/[#&]fh-key=([^&\s]+)/i);
-      if (!m) return null;
-      let tok; try { tok = decodeURIComponent(m[1]); } catch (e) { tok = m[1]; }
-      const p = FHCrypto.parseCard(tok);
-      return p.ok ? p : null;
-    },
-
-    /* ── one-time claim link (opaque shareable URL, 0044) ──
-       encrypt the card under a random link-key; the server stores only the
-       ciphertext (keyed by a random token), the link-key rides the URL fragment
-       and never reaches the server. */
-    async encWithKey(rawKey, str) {
-      const key = await crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, false, ['encrypt']);
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, _te.encode(String(str)));
-      return _b64(_cat(iv, new Uint8Array(ct)));
-    },
-    async decWithKey(rawKey, b64) {
-      const key = await crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, false, ['decrypt']);
-      const all = _unb64(b64);
-      const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, key, all.slice(12));
-      return _td.decode(pt);
-    },
-    // { token, ciphertext (park server-side), fragment (token.linkKey for the URL) }
-    async makeClaim(cardDisplay) {
-      const linkKey = crypto.getRandomValues(new Uint8Array(16));
-      const ciphertext = await FHCrypto.encWithKey(linkKey, cardDisplay);
-      const token = 'c' + _hex(crypto.getRandomValues(new Uint8Array(16)));
-      const keyUrl = _b64(linkKey).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-      return { token: token, ciphertext: ciphertext, fragment: token + '.' + keyUrl };
-    },
-    // parse #fh-claim=<token>.<linkKey> → { token, linkKey } or null
-    parseClaimFragment(src) {
-      const m = String(src == null ? '' : src).match(/[#&]fh-claim=([^&\s]+)/i);
-      if (!m) return null;
-      const dot = m[1].indexOf('.'); if (dot < 0) return null;
-      const token = m[1].slice(0, dot);
-      let k = m[1].slice(dot + 1).replace(/-/g, '+').replace(/_/g, '/'); while (k.length % 4) k += '=';
-      try { return { token: token, linkKey: _unb64(k) }; } catch (e) { return null; }
+      const s = String(src == null ? '' : src);
+      let m = s.match(/[#&]fh-k=([^&\s]+)/i);
+      if (m) { let b = m[1].replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '='; try { const p = FHCrypto.parseCard(_td.decode(_unb64(b))); return p.ok ? p : null; } catch (e) { return null; } }
+      m = s.match(/[#&]fh-key=([^&\s]+)/i);
+      if (m) { let tok; try { tok = decodeURIComponent(m[1]); } catch (e) { tok = m[1]; } const p = FHCrypto.parseCard(tok); return p.ok ? p : null; }
+      return null;
     }
   };
   window.FHCrypto = FHCrypto;
@@ -10776,10 +10748,6 @@ function openWhatsNew(){
       if (window.__fhPendingCard && window.fhHasCard && window.fhHasCard() && !fhKeyReady()) {
         const _pc = window.__fhPendingCard; window.__fhPendingCard = null;
         setTimeout(() => { try { window.fhCardUnlock && window.fhCardUnlock(_pc); } catch (e) {} }, 300);
-      }
-      // opaque claim link (#fh-claim=) stashed at boot: redeem it now that we're authenticated
-      if (window.__fhPendingClaim && window.fhRedeemPendingClaim) {
-        setTimeout(() => { try { window.fhRedeemPendingClaim(); } catch (e) {} }, 400);
       }
       return true;
     } catch (e) { console.warn('loadFamilyData failed', e); return false; }
@@ -13322,37 +13290,24 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
     } catch (e) {}
   };
-  // Build a one-time opaque claim link for the shown card (park ciphertext, keep the link-key in the fragment).
-  async function _cardClaimUrl() {
-    if (!_cardShown) return null;
-    const c = await FHCrypto.makeClaim(_cardShown.display);
-    await _rpc('create_card_claim', { p_token: c.token, p_ciphertext: c.ciphertext, p_ttl: 900 });
-    const origin = (typeof location !== 'undefined' && location.origin) ? location.origin : '';
-    return origin + '/#fh-claim=' + c.fragment;
-  }
-  window.fhCardCopyLink = async function (btn) {
-    if (btn) btn.disabled = true;
-    try { const url = await _cardClaimUrl(); if (url) { await navigator.clipboard.writeText(url); window.toast && window.toast(L('Đã sao chép link mời (dùng trong 15 phút)', 'Invite link copied (valid 15 min)')); } }
-    catch (e) { window.toast && window.toast(_friendly(e)); }
-    if (btn) btn.disabled = false;
-  };
-  // QR sheet: render the one-time claim link as a scannable code, with share + save-photo.
-  window.fhCardQrSheet = async function () {
+  window.fhCardCopyLink = function () {
     if (!_cardShown) return;
-    window.__fhQrCanvas = null;
-    _fhSheet('<div class="fh-s-h">' + L('Mã QR để mời', 'Invite QR') + '</div>'
-      + '<div id="fh-qr-wrap" class="fh-s-sub" style="text-align:center">' + L('Đang tạo mã…', 'Making the code…') + '</div>'
+    try { navigator.clipboard.writeText(_cardShown.url || FHCrypto.cardUrl(_cardShown.display)); window.toast && window.toast(L('Đã sao chép link thẻ khóa', 'Card link copied')); } catch (e) {}
+  };
+  // QR sheet: the self-contained card as a scannable code, with share + save-photo.
+  window.fhCardQrSheet = function () {
+    if (!_cardShown) return;
+    const url = _cardShown.url || FHCrypto.cardUrl(_cardShown.display);
+    const cv = window.fhQrCanvas(url, 6, 4);
+    cv.style.cssText = 'width:220px;height:220px;image-rendering:pixelated;border-radius:8px;display:block;margin:8px auto';
+    window.__fhQrCanvas = cv;
+    _fhSheet('<div class="fh-s-h">' + L('Mã QR thẻ khóa', 'Key Card QR') + '</div>'
+      + '<div id="fh-qr-wrap" style="text-align:center"></div>'
+      + '<div class="fh-s-sub" style="text-align:center">' + L('Cho người nhà quét để nhận thẻ khóa. Đây là chìa khóa, giữ kỹ như tấm thẻ.', 'Have your family scan it to get the card. This is the key, keep it as safe as the card.') + '</div>'
       + _btn(L('Chia sẻ ảnh', 'Share image'), 'fhCardQrShare(this)', _S.line)
       + _btn(L('Lưu ảnh', 'Save image'), 'fhCardQrSave()', _S.line)
       + _btn(L('Xong', 'Done'), '_closeOv()', _S.ghost));
-    let url;
-    try { url = await _cardClaimUrl(); } catch (e) { const w = document.getElementById('fh-qr-wrap'); if (w) w.textContent = _friendly(e); return; }
-    if (!url) return;
-    const cv = window.fhQrCanvas(url, 6, 4);
-    cv.style.cssText = 'width:220px;height:220px;image-rendering:pixelated;border-radius:8px;display:block;margin:6px auto 8px';
-    window.__fhQrCanvas = cv;
-    const wrap = document.getElementById('fh-qr-wrap');
-    if (wrap) { wrap.innerHTML = ''; wrap.appendChild(cv); const n = document.createElement('div'); n.textContent = L('Cho người nhà quét trong 15 phút. Mỗi mã dùng một lần.', 'Have your family scan it within 15 minutes. Each code works once.'); wrap.appendChild(n); }
+    const wrap = document.getElementById('fh-qr-wrap'); if (wrap) wrap.appendChild(cv);
   };
   function _qrBlob() { return new Promise((res) => { try { window.__fhQrCanvas.toBlob((b) => res(b), 'image/png'); } catch (e) { res(null); } }); }
   window.fhCardQrSave = async function () {
@@ -13374,9 +13329,9 @@ window.fhResolveCsvMapping = resolveCsvMapping;
       + '<div class="fh-s-lab" style="margin-top:14px">' + L('Giữ cho nhà mình', 'Keep for your family') + '</div>'
       + _btn(L('Sao chép chữ', 'Copy text'), 'fhCardCopyText()', _S.line)
       + _btn(L('Lưu file', 'Save file'), 'fhCardSaveFile()', _S.line)
-      + '<div class="fh-s-lab" style="margin-top:14px">' + L('Mời người nhà', 'Invite your family') + '</div>'
+      + '<div class="fh-s-lab" style="margin-top:14px">' + L('Chia sẻ với người nhà', 'Share with your family') + '</div>'
       + _btn(L('Mã QR', 'QR code'), 'fhCardQrSheet()', _S.cta)
-      + _btn(L('Sao chép link mời', 'Copy invite link'), 'fhCardCopyLink(this)', _S.line);
+      + _btn(L('Sao chép link', 'Copy link'), 'fhCardCopyLink()', _S.line);
   }
 
   /* ── Intro / display sheet (Appendix A copy) ──
@@ -13462,53 +13417,15 @@ window.fhResolveCsvMapping = resolveCsvMapping;
     });
   };
 
-  /* Redeem a stashed claim (#fh-claim=) after hydrate: fetch the ciphertext,
-     decrypt with the fragment's link-key, then unlock (or cache for later).
-     Single-use + 15-min; on expiry/use it fails silently and the durable card
-     stays the fallback. */
-  window.fhRedeemPendingClaim = async function () {
-    const c = window.__fhPendingClaim; if (!c) return;
-    window.__fhPendingClaim = null;
-    try {
-      const res = await _rpc('redeem_card_claim', { p_token: c.token });
-      if (!res || !res.ciphertext) return;
-      const display = await FHCrypto.decWithKey(c.linkKey, res.ciphertext);
-      const p = FHCrypto.parseCard(display); if (!p.ok) return;
-      if (window.fhHasCard && window.fhHasCard() && !fhKeyReady()) {
-        await fhCardUnlock(p.display);
-        window.fhLockBanner && window.fhLockBanner(false);
-        window.toast && window.toast(L('Đã mở khóa ✓', 'Unlocked ✓'));
-        window.loadFamilyData && window.loadFamilyData();
-      } else if (window.fhCardCacheStore && window.DB && window.DB.fid) {
-        window.fhCardCacheStore(window.DB.fid, p.display);   // already unlocked → keep the card for a future device
-      }
-    } catch (e) { /* expired/used → the durable card is the fallback */ }
-  };
-
-  /* ── #fh-key= landing (runs once at module load; FHCrypto is defined here) ──
+  /* ── #fh-k= landing (runs once at module load; FHCrypto is defined here) ──
      A card link opens the app with #fh-key=… . Grab it, EAT it from the URL
      (never leave a secret in the bar/history/share sheet), then either stash it
      for post-hydrate unlock (installed PWA) or show the iOS Safari handoff. */
   (function _fhBootCard() {
     try {
       const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
-      // opaque one-time claim link (#fh-claim=<token>.<linkKey>): redeem happens
-      // post-hydrate (needs auth). Eat the fragment; stash for the standalone app.
-      const claim = FHCrypto.parseClaimFragment(location.hash) || FHCrypto.parseClaimFragment(location.href);
-      if (claim) {
-        try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
-        if (standalone) { window.__fhPendingClaim = claim; }
-        else {
-          const ov2 = document.createElement('div');
-          ov2.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--canvas,#f2eff0);display:flex;align-items:center;justify-content:center;padding:24px;font-family:inherit;text-align:center';
-          ov2.innerHTML = '<div style="max-width:420px"><div style="font-size:19px;font-weight:700;margin-bottom:12px">' + L('Mở app FamilyHub để nhận', 'Open the FamilyHub app to join') + '</div><div style="color:var(--muted,#7a5a6e);line-height:1.6">' + L('Thêm FamilyHub vào Màn hình chính rồi mở lại link này trong app nha. Hoặc nhờ người nhà đưa thẻ khóa trực tiếp.', 'Add FamilyHub to your Home Screen, then open this link inside the app. Or ask your family for the card directly.') + '</div><button onclick="this.closest(\'div\').parentNode.remove()" style="margin-top:18px;background:var(--brand,#ae2070);color:#fff;border:none;border-radius:9999px;padding:12px 22px;font-weight:700;font-family:inherit;cursor:pointer">' + L('Đóng', 'Close') + '</button></div>';
-          const m2 = () => document.body.appendChild(ov2);
-          if (document.body) m2(); else document.addEventListener('DOMContentLoaded', m2);
-        }
-        return;
-      }
       const parsed = FHCrypto.parseKeyFragment(location.hash) || FHCrypto.parseKeyFragment(location.href);
-      const hadFrag = /[#&]fh-key=/i.test(location.hash) || /[#&]fh-key=/i.test(location.href);
+      const hadFrag = /[#&]fh-k=|[#&]fh-key=/i.test(location.hash) || /[#&]fh-k=|[#&]fh-key=/i.test(location.href);
       if (hadFrag) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }   // eat-on-arrival
       if (!parsed) return;
       if (standalone) {

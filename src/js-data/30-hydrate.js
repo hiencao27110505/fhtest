@@ -353,10 +353,6 @@
         const _pc = window.__fhPendingCard; window.__fhPendingCard = null;
         setTimeout(() => { try { window.fhCardUnlock && window.fhCardUnlock(_pc); } catch (e) {} }, 300);
       }
-      // opaque claim link (#fh-claim=) stashed at boot: redeem it now that we're authenticated
-      if (window.__fhPendingClaim && window.fhRedeemPendingClaim) {
-        setTimeout(() => { try { window.fhRedeemPendingClaim(); } catch (e) {} }, 400);
-      }
       return true;
     } catch (e) { console.warn('loadFamilyData failed', e); return false; }
     finally { _hideLoading(); fhFresh(); }     // the chip must clear even if the hydrate failed

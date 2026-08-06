@@ -126,53 +126,25 @@
       if (check !== _cardCheck(key.slice(0, 16))) return { ok: false, error: 'checksum' };
       return { ok: true, key: body, raw: s, display: _fmtCard(s) };
     },
+    // Self-contained card URL. The fragment is base64url of the card (opaque —
+    // not the raw FH-XXXX in the bar), but it IS the key: whoever has the link
+    // recovers the card. Durable, offline, no server. Regenerate to kill a leak.
     cardUrl(rawOrDisplay) {
       const p = FHCrypto.parseCard(rawOrDisplay);
       const disp = p.ok ? p.display : String(rawOrDisplay);
+      const b = _b64(_te.encode(disp)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
       const origin = (typeof location !== 'undefined' && location.origin) ? location.origin : '';
-      return origin + '/#fh-key=' + encodeURIComponent(disp);
+      return origin + '/#fh-k=' + b;
     },
-    // Pull a card out of a URL or hash fragment (#fh-key=…). Null if absent/invalid.
+    // Pull a card out of a URL/fragment — the opaque #fh-k=<b64> form or the
+    // legacy readable #fh-key=<FH-…>. Null if absent/invalid.
     parseKeyFragment(src) {
-      const m = String(src == null ? '' : src).match(/[#&]fh-key=([^&\s]+)/i);
-      if (!m) return null;
-      let tok; try { tok = decodeURIComponent(m[1]); } catch (e) { tok = m[1]; }
-      const p = FHCrypto.parseCard(tok);
-      return p.ok ? p : null;
-    },
-
-    /* ── one-time claim link (opaque shareable URL, 0044) ──
-       encrypt the card under a random link-key; the server stores only the
-       ciphertext (keyed by a random token), the link-key rides the URL fragment
-       and never reaches the server. */
-    async encWithKey(rawKey, str) {
-      const key = await crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, false, ['encrypt']);
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, _te.encode(String(str)));
-      return _b64(_cat(iv, new Uint8Array(ct)));
-    },
-    async decWithKey(rawKey, b64) {
-      const key = await crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, false, ['decrypt']);
-      const all = _unb64(b64);
-      const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, key, all.slice(12));
-      return _td.decode(pt);
-    },
-    // { token, ciphertext (park server-side), fragment (token.linkKey for the URL) }
-    async makeClaim(cardDisplay) {
-      const linkKey = crypto.getRandomValues(new Uint8Array(16));
-      const ciphertext = await FHCrypto.encWithKey(linkKey, cardDisplay);
-      const token = 'c' + _hex(crypto.getRandomValues(new Uint8Array(16)));
-      const keyUrl = _b64(linkKey).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-      return { token: token, ciphertext: ciphertext, fragment: token + '.' + keyUrl };
-    },
-    // parse #fh-claim=<token>.<linkKey> → { token, linkKey } or null
-    parseClaimFragment(src) {
-      const m = String(src == null ? '' : src).match(/[#&]fh-claim=([^&\s]+)/i);
-      if (!m) return null;
-      const dot = m[1].indexOf('.'); if (dot < 0) return null;
-      const token = m[1].slice(0, dot);
-      let k = m[1].slice(dot + 1).replace(/-/g, '+').replace(/_/g, '/'); while (k.length % 4) k += '=';
-      try { return { token: token, linkKey: _unb64(k) }; } catch (e) { return null; }
+      const s = String(src == null ? '' : src);
+      let m = s.match(/[#&]fh-k=([^&\s]+)/i);
+      if (m) { let b = m[1].replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '='; try { const p = FHCrypto.parseCard(_td.decode(_unb64(b))); return p.ok ? p : null; } catch (e) { return null; } }
+      m = s.match(/[#&]fh-key=([^&\s]+)/i);
+      if (m) { let tok; try { tok = decodeURIComponent(m[1]); } catch (e) { tok = m[1]; } const p = FHCrypto.parseCard(tok); return p.ok ? p : null; }
+      return null;
     }
   };
   window.FHCrypto = FHCrypto;
