@@ -27,7 +27,7 @@
       // Falls back to the legacy multi-query hydrate if the RPC is absent or errors,
       // so an unmigrated env or a bad deploy can never take the app down.
       // p_txn_from stays null today (full ledger); it is the R6 windowing hook.
-      let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg, rx, rr, encMeta;
+      let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg, rx, rr, encMeta, keyWraps;
       let snap = null;
       try { const rs = await sb.rpc('get_family_snapshot', { p_txn_from: null }); if (!rs.error && rs.data) snap = rs.data; }
       catch (e) { /* fall through to the multi-query hydrate */ }
@@ -40,6 +40,7 @@
         rx = snap.reactions || [];                          // reactions arrive in the same payload (0023); [] on a pre-migration RPC
         rr = snap.request_reviews || [];                    // request reviews (0024): future-expense / goal / occasion alignment
         encMeta = snap.enc || null;                         // E2EE recipe (0030): enc_state + kdf + wrapped DEK
+        keyWraps = snap.key_wraps || [];                    // Key Card wraps (0042): [] on a pre-migration RPC → dormant
       } else {
         const R = await Promise.all([
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
@@ -60,11 +61,14 @@
           sb.from('reactions').select('id,transaction_id,member_id,emoji,created_at').eq('family_id', fid),
           // request_reviews (0024): same fail-safe — [] on a pre-migration env
           sb.from('request_reviews').select('id,entity_type,entity_id,member_id,emoji,created_at').eq('family_id', fid),
-          sb.from('family_keys').select('enc_state,kdf_salt,kdf_iters,kdf_version,wrapped_dek').eq('family_id', fid).maybeSingle()
+          sb.from('family_keys').select('enc_state,kdf_salt,kdf_iters,kdf_version,wrapped_dek').eq('family_id', fid).maybeSingle(),
+          // family_key_wraps (0042): [] on a pre-migration env (table absent → error → null), never throws
+          sb.from('family_key_wraps').select('id,kind,kdf_salt,kdf_iters,kdf_version,wrapped_dek').eq('family_id', fid).is('rotated_at', null)
         ]);
         fam = R[0].data; mem = R[1].data || []; cat = R[2].data || []; cb = R[3].data || []; mb = R[4].data || [];
         tx = R[5].data || []; ev = R[6].data || []; ef = R[7].data || []; se = R[8].data || []; em = R[9].data || []; tp = R[10].data || []; inc = R[11].data || []; sg = R[12].data || []; rx = R[13].data || []; rr = R[14].data || [];
         encMeta = (R[15] && R[15].data) || null;
+        keyWraps = (R[16] && R[16].data) || [];
       }
 
       /* ── E2EE (0030): learn the family's enc recipe, load the cached key, then
@@ -73,6 +77,7 @@
          decrypt resolve to null → Number() gives 0, and the lock bar offers the
          passcode prompt. */
       window.DB.enc = encMeta || null;
+      window.DB.keyWraps = keyWraps || [];                  // Key Card wraps (0042); [] keeps the card flow dormant
       if (encMeta) { try { await fhKeyLoad(fid); } catch (e) {} }
       /* Encryption is FAMILY-wide and strict (option A): the moment the owner
          turns it on, every device learns it here (realtime on family_keys
@@ -340,6 +345,13 @@
       if (!window.__fhCovRan[fid] && fhEncState() === 'enc' && fhKeyReady()) {
         window.__fhCovRan[fid] = 1;
         setTimeout(() => { try { window.fhEncCoverSweep && window.fhEncCoverSweep(); } catch (e) {} }, 3000);
+      }
+      /* a card link (#fh-key=) opened the app on this installed PWA: now that the
+         family + its wraps are loaded, unlock with the stashed card if it fits.
+         Guarded by __fhPendingCard, so this is inert in normal boots. */
+      if (window.__fhPendingCard && window.fhHasCard && window.fhHasCard() && !fhKeyReady()) {
+        const _pc = window.__fhPendingCard; window.__fhPendingCard = null;
+        setTimeout(() => { try { window.fhCardUnlock && window.fhCardUnlock(_pc); } catch (e) {} }, 300);
       }
       return true;
     } catch (e) { console.warn('loadFamilyData failed', e); return false; }

@@ -11,13 +11,36 @@
      asked for once per device, not per session; iOS storage eviction just means
      the passcode is asked again. */
   const FH_KDF_VERSION = 1;
-  const FH_KDF_ITERS = 310000;                 // OWASP-level PBKDF2-SHA256 work factor
+  const FH_KDF_ITERS = 310000;                 // OWASP-level PBKDF2-SHA256 work factor (6-digit era)
+  const FH_KDF_ITERS_CARD = 600000;            // used for card-derived wraps (free defense-in-depth; card entropy already carries it)
   const _te = new TextEncoder(), _td = new TextDecoder();
   const _hex = (buf) => Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
   const _unhex = (s) => new Uint8Array((s.match(/../g) || []).map((h) => parseInt(h, 16)));
   const _b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
   function _unb64(s) { const bin = atob(s); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
   function _cat(a, b) { const o = new Uint8Array(a.length + b.length); o.set(a, 0); o.set(b, a.length); return o; }
+
+  /* ── Key Card encoding (Crockford Base32 + CRC checksum) ──
+     A 128-bit random key printed as 26 Base32 chars + a 2-char checksum group,
+     shown FH-XXXX-…; the alphabet excludes I/L/O/U so handwriting, phone lines
+     and reading glasses can't confuse a character. The 26-char body IS the
+     secret fed to deriveKeys; the checksum only catches typos at entry time. */
+  const _B32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+  const _B32MAP = (() => { const m = {}; for (let i = 0; i < _B32.length; i++) m[_B32[i]] = i; m.I = 1; m.L = 1; m.O = 0; return m; })();
+  function _b32enc(bytes) {
+    let bits = 0, val = 0, out = '';
+    for (let i = 0; i < bytes.length; i++) { val = (val << 8) | bytes[i]; bits += 8; while (bits >= 5) { out += _B32[(val >>> (bits - 5)) & 31]; bits -= 5; } }
+    if (bits > 0) out += _B32[(val << (5 - bits)) & 31];
+    return out;
+  }
+  function _b32dec(str) {
+    let bits = 0, val = 0; const out = [];
+    for (const ch of str) { const v = _B32MAP[ch]; if (v === undefined) return null; val = (val << 5) | v; bits += 5; if (bits >= 8) { out.push((val >>> (bits - 8)) & 255); bits -= 8; } }
+    return new Uint8Array(out);
+  }
+  function _crc16(bytes) { let c = 0xFFFF; for (let i = 0; i < bytes.length; i++) { c ^= bytes[i] << 8; for (let k = 0; k < 8; k++) c = (c & 0x8000) ? ((c << 1) ^ 0x1021) & 0xFFFF : (c << 1) & 0xFFFF; } return c; }
+  function _cardCheck(key16) { const c = _crc16(key16) & 0x3FF; return _B32[(c >>> 5) & 31] + _B32[c & 31]; }
+  function _fmtCard(raw) { return 'FH-' + ((String(raw).match(/.{1,4}/g)) || []).join('-'); }
 
   const FHCrypto = {
     genSaltHex() { return _hex(crypto.getRandomValues(new Uint8Array(16))); },
@@ -75,9 +98,51 @@
       const u8 = (all instanceof Uint8Array) ? all : new Uint8Array(all);
       const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: u8.slice(0, 12) }, dek, u8.slice(12));
       return new Uint8Array(pt);
+    },
+
+    /* ── Key Card (0042): the safe key, replacing the 6-digit passcode ──
+       genCard() → a fresh 128-bit card; parseCard() validates + normalizes any
+       typed/scanned/pasted form back to the canonical 26-char key body that
+       deriveKeys() consumes (pass it exactly where the passcode used to go, with
+       iters = FH_KDF_ITERS_CARD). */
+    genCard() {
+      const key = crypto.getRandomValues(new Uint8Array(16));
+      const raw = _b32enc(key) + _cardCheck(key);          // 26 body + 2 check
+      return { key: _b32enc(key), raw: raw, display: _fmtCard(raw), url: FHCrypto.cardUrl(raw) };
+    },
+    // Accepts FH-…, bare chars, lowercase, dashes/spaces, or Crockford-confused
+    // I/L/O. → { ok, key, raw, display } or { ok:false, error:'length'|'chars'|'checksum' }.
+    parseCard(input) {
+      let s = String(input == null ? '' : input).trim().toUpperCase().replace(/[\s\-]/g, '').replace(/[IL]/g, '1').replace(/O/g, '0');
+      // length-gated prefix strip: a valid body+check is exactly 28 chars, so a
+      // 30/31-char string opening FH/FH2 is unambiguously prefixed (works whether
+      // or not the dash survived). Can't false-strip a real body (never 30/31).
+      if (s.length === 31 && s.startsWith('FH2')) s = s.slice(3);
+      else if (s.length === 30 && s.startsWith('FH')) s = s.slice(2);
+      if (s.length !== 28) return { ok: false, error: 'length' };
+      const body = s.slice(0, 26), check = s.slice(26);
+      const key = _b32dec(body);
+      if (!key || key.length < 16) return { ok: false, error: 'chars' };
+      if (check !== _cardCheck(key.slice(0, 16))) return { ok: false, error: 'checksum' };
+      return { ok: true, key: body, raw: s, display: _fmtCard(s) };
+    },
+    cardUrl(rawOrDisplay) {
+      const p = FHCrypto.parseCard(rawOrDisplay);
+      const disp = p.ok ? p.display : String(rawOrDisplay);
+      const origin = (typeof location !== 'undefined' && location.origin) ? location.origin : '';
+      return origin + '/#fh-key=' + encodeURIComponent(disp);
+    },
+    // Pull a card out of a URL or hash fragment (#fh-key=…). Null if absent/invalid.
+    parseKeyFragment(src) {
+      const m = String(src == null ? '' : src).match(/[#&]fh-key=([^&\s]+)/i);
+      if (!m) return null;
+      let tok; try { tok = decodeURIComponent(m[1]); } catch (e) { tok = m[1]; }
+      const p = FHCrypto.parseCard(tok);
+      return p.ok ? p : null;
     }
   };
   window.FHCrypto = FHCrypto;
+  window.FH_KDF_ITERS_CARD = FH_KDF_ITERS_CARD;
 
   /* ── per-family key session ──
      _fhDek is the imported CryptoKey for the ACTIVE family; _fhDekRaw keeps the
@@ -121,6 +186,7 @@
     if (_fhDekFid === fid || fid == null) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; }
     if (fid != null) _keysDel(fid);
     try { if (window.__fhPhotoCachePurge) window.__fhPhotoCachePurge(); } catch (e) {}   // decrypted photo object-URLs die with the key
+    try { if (window.fhCardCacheDrop && fid != null) window.fhCardCacheDrop(fid); } catch (e) {}   // local card copy leaves with the family
   }
   function _fhSessionDek() { if (!_fhDek) throw new Error('locked'); return _fhDek; }
   function fhKeyReady() { return !!(_fhDek && window.DB && _fhDekFid === window.DB.fid); }
