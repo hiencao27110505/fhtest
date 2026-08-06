@@ -90,6 +90,20 @@ relaying messages through Slack/DMs by hand.
      import's 15-row cap. Same category as CSV import's "Problem 1," arguably
      worse (full content, not a sample). Needs the same masking treatment
      once encryption is a live concern here.
+     **Resolved (2026-08-06, bank-email session):** built into
+     `bank-email-pipeline.gs` (Apps Script side) — `maskForSharing()` +
+     `unmaskExtraction()`, wired into both LLM paths, **unconditional** (no
+     enc-state gate, per the encryption-by-default product stance). Reversible
+     shape-preserving masking: the LLM extracts against fake tokens, real
+     values swapped back locally from the token map; dates stay real like the
+     CSV masker. Verified against the live Gemini API on the real MB Bank
+     sample — identical extraction quality, zero real values sent. Note re
+     item 3's "ping if the email shape needs more": it did — full unstructured
+     text needed regex passes over prose plus reversibility (values must come
+     BACK out of the model's answer), so this is an adapted sibling of
+     `43-redact-for-sharing.js` living in the Apps Script codebase, not a
+     second copy competing with it. Algorithm notes in
+     `bank-email-pipeline-extraction.md` (Downloads) → "Masking" section.
   3. **Resolved (2026-08-04, CSV import session):** built —
      `src/js-data/43-redact-for-sharing.js`, gated on `fhEncState() !== 'off'`.
      `fhMaskSampleRowsForSharing(rows)` masks amount-shaped cells (keeps

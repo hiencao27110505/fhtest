@@ -159,3 +159,7 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .defer-card{opacity:.6}
 .cta-wrap{margin-top:18px}
 .csv-list{display:flex;flex-direction:column;gap:10px;margin-bottom:4px}
+/* .rows normally carries the tab gutter (margin 0 16px); the modal body
+   already pads 20px, so inside the import modal it goes full-width. */
+.csv-rows{margin:0 0 14px}
+.csv-rows .defer-card{opacity:.55}
