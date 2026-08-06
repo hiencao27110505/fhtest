@@ -9790,7 +9790,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v281';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v285';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -10482,6 +10482,8 @@ function openWhatsNew(){
   async function fhKeyAdopt(fid, dekRaw) {
     _fhDekRaw = new Uint8Array(dekRaw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
     await _keysPut(fid, _fhDekRaw);
+    // photos that rendered blank while this device was locked can decrypt now
+    try { if (window.__fhPhotoRefresh) window.__fhPhotoRefresh(); } catch (e) {}
   }
   function fhKeyDrop(fid) {
     if (_fhDekFid === fid || fid == null) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; }
@@ -11156,12 +11158,21 @@ function openWhatsNew(){
         window.__fhCovRan[fid] = 1;
         setTimeout(() => { try { window.fhEncCoverSweep && window.fhEncCoverSweep(); } catch (e) {} }, 3000);
       }
-      /* a card link (#fh-key=) opened the app on this installed PWA: now that the
-         family + its wraps are loaded, unlock with the stashed card if it fits.
-         Guarded by __fhPendingCard, so this is inert in normal boots. */
+      /* a card link (#fh-k=) opened the app (installed PWA or a browser tab where
+         the person then signed in): now that the family + its wraps are loaded,
+         unlock with the stashed card, then hide the lock bar and re-render so the
+         now-decryptable amounts/names/photos appear. Guarded by __fhPendingCard. */
       if (window.__fhPendingCard && window.fhHasCard && window.fhHasCard() && !fhKeyReady()) {
         const _pc = window.__fhPendingCard; window.__fhPendingCard = null;
-        setTimeout(() => { try { window.fhCardUnlock && window.fhCardUnlock(_pc); } catch (e) {} }, 300);
+        setTimeout(() => {
+          try {
+            window.fhCardUnlock && window.fhCardUnlock(_pc).then(() => {
+              window.fhLockBanner && window.fhLockBanner(false);
+              window.toast && window.toast(L('Đã mở khóa bằng thẻ khóa ✓', 'Unlocked with your Key Card ✓'));
+              window.loadFamilyData && window.loadFamilyData();
+            }).catch(() => {});
+          } catch (e) {}
+        }, 300);
       }
       // proactively surface the Key Card migration (owner, enc, no card yet) —
       // the USP moment on open, not a buried Settings button. Once per session.
@@ -11218,13 +11229,14 @@ function openWhatsNew(){
       const m = dataUri.match(/^data:([^;]+);base64,(.*)$/); if (!m) return null;
       const mime = m[1]; const bin = atob(m[2]); let arr = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const plain = arr;                                     // keep the plaintext to seed the render cache
       let ext = ((mime.split('/')[1]) || 'jpg').replace('jpeg', 'jpg').replace('svg+xml', 'svg');
-      let ctype = mime;
+      let ctype = mime, enc = false;
       /* E2EE bytes: AES-GCM with the family DEK, '.enc' suffix. The bucket can
          stay public — the URL now addresses ciphertext, so privacy comes from
          the key, not from hiding the address, and the immutable-cache model
          (below) keeps working unchanged. */
-      if (_fhPhotoEncOn()) { arr = await fhEncBytes(arr); ext += '.enc'; ctype = 'application/octet-stream'; }
+      if (_fhPhotoEncOn()) { arr = await fhEncBytes(arr); ext += '.enc'; ctype = 'application/octet-stream'; enc = true; }
       const path = fid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
       // Paths embed a timestamp + random suffix and are never overwritten, so the
       // bytes at a given URL are immutable — cache them for a year instead of
@@ -11232,6 +11244,13 @@ function openWhatsNew(){
       // trip per photo every hour.
       const { error } = await sb.storage.from('family-media').upload(path, arr, { contentType: ctype, cacheControl: '31536000' });
       if (error) { console.warn('upload failed', error); return null; }
+      /* Seed the render cache with the plaintext we already hold, keyed by the
+         public URL the render will use, so a freshly-uploaded encrypted photo
+         shows instantly instead of flashing blank while it re-fetches + decrypts
+         itself back from storage. */
+      if (enc && window.__fhPhotoSeed) {
+        try { const pub = SUPABASE_URL + '/storage/v1/object/public/family-media/' + path.split('/').map(encodeURIComponent).join('/'); window.__fhPhotoSeed(pub, plain, mime); } catch (e) {}
+      }
       return path;
     } catch (e) { console.warn('upload err', e); return null; }
   }
@@ -11943,12 +11962,22 @@ window.classifyAmount = classifyAmount;
       const budgetAmt = e.achieved ? (e.saved || 0) : (e.setAside || 0);
       // tag budget-sourced funding with the month being viewed, not always "today's" month
       const _vm = window.months[window.selMonth] || {}; const fMonth = _vm._iso || window.DB.month;
-      // upsert, not insert: one budget reservation per (event, month), so a
-      // re-sync can never reserve the same money twice
-      if (budgetAmt > 0) await _w(sb.from('event_fundings').upsert(
-        Object.assign({ family_id: fid, event_id: evId, member_id: who, source: 'budget', month: fMonth }, await fhField('amount', budgetAmt)),
-        { onConflict: 'event_id,month' }
-      ), 'write event_fundings');
+      // One budget reservation per (event, month), so a re-sync can't reserve
+      // the same money twice. This CANNOT be a plain upsert(onConflict:
+      // 'event_id,month'): the uniqueness is a PARTIAL index
+      // (event_fundings_budget_uniq WHERE source='budget', 0015), and Postgres
+      // can't match ON CONFLICT to a partial index — it throws 42P10 ("no unique
+      // or exclusion constraint matching"), which surfaced as a spurious "Có lỗi
+      // xảy ra" toast on every photo-expense whose mirror event carries a budget.
+      // Select the live budget row explicitly, then update or insert — same
+      // shape the mirror-event write above uses for its own partial-index case.
+      if (budgetAmt > 0) {
+        const bf = await fhField('amount', budgetAmt);
+        const ex = await sb.from('event_fundings').select('id').eq('event_id', evId).eq('month', fMonth).eq('source', 'budget').maybeSingle();
+        if (ex.error) throw ex.error;
+        if (ex.data) await _w(sb.from('event_fundings').update(bf).eq('id', ex.data.id), 'write event_fundings');
+        else await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, event_id: evId, member_id: who, source: 'budget', month: fMonth }, bf)), 'write event_fundings');
+      }
       const sp = (e.saved || 0) - (e.setAside || 0);
       if (sp > 0 && opts.savingsSource) await _w(sb.from('event_fundings').insert(Object.assign({ family_id: fid, event_id: evId, member_id: who, source: 'savings', month: null }, await fhField('amount', sp))), 'write event_fundings');
       _syncSoon();
@@ -12427,13 +12456,15 @@ window.classifyAmount = classifyAmount;
     }
   }
   function _phResolve(url) {
+    // Locked: return null WITHOUT caching, so the very next attempt (after the
+    // key is entered) retries instead of being pinned to this null forever.
+    if (!fhKeyReady()) return Promise.resolve(null);
     const hit = _phCache.get(url);
     if (hit) { _phCache.delete(url); _phCache.set(url, hit); return hit.p; }   // LRU refresh
     const entry = {
       u: null,
       p: (async () => {
         try {
-          if (!fhKeyReady()) return null;                  // locked: placeholder stays until the post-unlock re-render
           const resp = await fetch(url);
           if (!resp.ok) return null;
           const pt = await fhDecBytes(new Uint8Array(await resp.arrayBuffer()));
@@ -12449,6 +12480,8 @@ window.classifyAmount = classifyAmount;
     const raw = img.getAttribute('src') || '';
     if (raw.indexOf('.enc') < 0 || raw.indexOf('blob:') === 0 || raw.indexOf('data:') === 0) return;
     img.setAttribute('data-fhenc', raw);
+    const hit = _phCache.get(raw);
+    if (hit && hit.u) { img.src = hit.u; return; }         // already decrypted/seeded → set it, no blank
     img.src = _PH_BLANK;                                   // no broken-image flash while we decrypt
     _phResolve(raw).then((u) => { if (u && img.getAttribute('data-fhenc') === raw) img.src = u; });
   }
@@ -12458,6 +12491,8 @@ window.classifyAmount = classifyAmount;
     if (!m) return;
     const raw = m[2];
     el.setAttribute('data-fhenc', raw);
+    const hit = _phCache.get(raw);
+    if (hit && hit.u) { el.style.backgroundImage = 'url(' + hit.u + ')'; return; }
     el.style.backgroundImage = 'none';
     _phResolve(raw).then((u) => { if (u && el.getAttribute('data-fhenc') === raw) el.style.backgroundImage = 'url(' + u + ')'; });
   }
@@ -12482,6 +12517,32 @@ window.classifyAmount = classifyAmount;
   window.__fhPhotoCachePurge = function () {
     _phCache.forEach((e) => { if (e.u) { try { URL.revokeObjectURL(e.u) } catch (x) {} } });
     _phCache.clear();
+  };
+  /* Seed the cache for a just-uploaded photo (plaintext bytes we already hold),
+     keyed by the public .enc URL the render will use. Lets the fresh photo show
+     instantly instead of blank→fetch→decrypt. */
+  window.__fhPhotoSeed = function (url, bytes, mime) {
+    try {
+      if (!url || _phCache.get(url)) return;
+      const u = URL.createObjectURL(new Blob([bytes], { type: mime || _phMime(url) }));
+      _phCache.delete(url); _phCache.set(url, { u: u, p: Promise.resolve(u) }); _phTrim();
+    } catch (e) {}
+  };
+  /* Key just became available (device unlocked mid-session with the card/code):
+     re-decrypt every encrypted photo already on screen — their <img src> and
+     background-image were blanked while locked and, without this, stay blank
+     until the app is killed and reopened. Called from fhKeyAdopt. */
+  window.__fhPhotoRefresh = function () {
+    try {
+      document.querySelectorAll('[data-fhenc]').forEach((el) => {
+        const raw = el.getAttribute('data-fhenc'); if (!raw) return;
+        _phResolve(raw).then((u) => {
+          if (!u || el.getAttribute('data-fhenc') !== raw) return;
+          if (el.tagName === 'IMG') el.src = u; else el.style.backgroundImage = 'url(' + u + ')';
+        });
+      });
+      _phSweep(document.body);   // and any still-raw .enc that never got swapped
+    } catch (e) {}
   };
 
   // ═══ feature UIs: manage family/members, saved-for-events, income ═══════════
@@ -13796,14 +13857,23 @@ window.classifyAmount = classifyAmount;
   }
   window.fhCardCreate = fhCardCreate;
 
+  // Accept either the raw card (FH-…) OR a pasted card link/URL (#fh-k=…), so
+  // "copy from the handoff, paste in the app" works and a stray URL still opens.
+  function _parseCardInput(input) {
+    const s = String(input == null ? '' : input);
+    if (/#|fh-k=|https?:/i.test(s)) { const f = FHCrypto.parseKeyFragment(s); if (f && f.ok) return f; }
+    return FHCrypto.parseCard(s);
+  }
+  window.fhParseCardInput = _parseCardInput;
+
   /* ── Unlock this device with a card (adopt the DEK) ──
      Offline-capable: a wrong card simply fails the AES-GCM unwrap, no server
      needed. On success the card is cached locally so this device can show it. */
   async function fhCardUnlock(input) {
     const wrap = _fhCardWrap();
     if (!wrap) throw _cardErr('wrong');
-    const p = FHCrypto.parseCard(input);
-    if (!p.ok) throw _cardErr(p.error);
+    const p = _parseCardInput(input);
+    if (!p || !p.ok) throw _cardErr((p && p.error) || 'checksum');
     const keys = await FHCrypto.deriveKeys(p.key, wrap.kdf_salt, wrap.kdf_iters, wrap.kdf_version);
     let dekRaw;
     try { dekRaw = await FHCrypto.unwrapDek(wrap.wrapped_dek, keys.kWrap); }
@@ -14010,7 +14080,7 @@ window.classifyAmount = classifyAmount;
         + ((window.DB && window.DB.enc && window.DB.enc.wrapped_dek)
             ? '<div style="text-align:center;margin-top:4px"><button class="fh-s-ghost" onclick="_closeOv();fhPasscodeUnlockPrompt()">' + L('Hoặc dùng mã 6 số', 'Or use the 6-digit code') + '</button></div>'
             : ''),
-      required: () => [{ el: 'fh-card-in', ok: FHCrypto.parseCard((document.getElementById('fh-card-in') || {}).value || '').ok }],
+      required: () => [{ el: 'fh-card-in', ok: _parseCardInput((document.getElementById('fh-card-in') || {}).value || '').ok }],
       reqMsg: L('Thẻ khóa chưa đúng, kiểm tra lại nha', 'That card doesn’t look right, check it again'),
       save: async () => {
         await fhCardUnlock((document.getElementById('fh-card-in').value || ''));
@@ -14033,26 +14103,30 @@ window.classifyAmount = classifyAmount;
       const hadFrag = /[#&]fh-k=|[#&]fh-key=/i.test(location.hash) || /[#&]fh-k=|[#&]fh-key=/i.test(location.href);
       if (hadFrag) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }   // eat-on-arrival
       if (!parsed) return;
-      if (standalone) {
-        window.__fhPendingCard = parsed.display;               // applied at the end of the next hydrate
-        return;
-      }
-      // Browser tab (iOS Safari): the installed PWA has separate storage, so the
-      // card can't ride the link in. Hand it off by copy-paste.
+      // Stash in EVERY context (installed PWA or a plain browser tab): once the
+      // person signs in HERE and the family hydrates, the post-hydrate hook
+      // unlocks with it automatically. Sign-in is in-app (no page reload), so a
+      // window var survives it. The card is the safe key, not a login — this is
+      // what makes "scan → sign in → you're in" work for a signed-out user.
+      window.__fhPendingCard = parsed.display;
+      if (standalone) return;
+      /* Plain browser tab: show a light, dismissible sheet. Primary path is
+         "sign in here" (the stashed card then auto-applies); the copy button is
+         the fallback for someone who will instead open the INSTALLED app, whose
+         storage this tab can't reach. */
       const ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--canvas);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:24px;font-family:inherit';
       ov.innerHTML = '<div style="max-width:420px;text-align:center">'
-        + '<div style="font-size:19px;font-weight:700;margin-bottom:14px">' + L('Mở FamilyHub để nhận thẻ khóa', 'Open FamilyHub to add the card') + '</div>'
-        + '<div style="color:var(--muted);line-height:1.6;margin-bottom:18px">' + L('Thêm FamilyHub vào Màn hình chính, mở app rồi dán thẻ khóa này vào.', 'Add FamilyHub to your Home Screen, open it, then paste this card in.') + '</div>'
-        + '<div style="font-family:monospace;font-size:16px;letter-spacing:1px;word-break:break-all;padding:12px;border:1px solid var(--hairline);border-radius:6px;background:var(--white);margin-bottom:16px">' + _esc(parsed.display) + '</div>'
-        + '<button id="fh-handoff-copy" style="background:var(--brand);color:var(--white);border:none;border-radius:9999px;padding:13px 22px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">' + L('Sao chép thẻ khóa', 'Copy the card') + '</button>'
-        + '<div><button id="fh-handoff-close" style="background:none;border:none;color:var(--muted);margin-top:14px;font-size:14px;font-family:inherit;cursor:pointer">' + L('Đóng', 'Close') + '</button></div>'
+        + '<div style="font-size:19px;font-weight:700;margin-bottom:14px">' + L('Đã nhận thẻ khóa của nhà', 'Got your family Key Card') + '</div>'
+        + '<div style="color:var(--muted);line-height:1.6;margin-bottom:20px">' + L('Đăng nhập bằng Google để vào nhà — thẻ khóa đã sẵn trên máy này rồi.', 'Sign in with Google to enter — the key is already saved on this device.') + '</div>'
+        + '<button id="fh-handoff-go" style="background:var(--brand);color:var(--white);border:none;border-radius:9999px;padding:13px 22px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">' + L('Tiếp tục đăng nhập', 'Continue to sign in') + '</button>'
+        + '<div><button id="fh-handoff-copy" style="background:none;border:none;color:var(--muted);margin-top:16px;font-size:13px;font-family:inherit;cursor:pointer;text-decoration:underline">' + L('Hoặc chép thẻ để dán vào app đã cài', 'Or copy the card to paste into the installed app') + '</button></div>'
         + '</div>';
       const mount = () => {
         document.body.appendChild(ov);
+        const go = document.getElementById('fh-handoff-go'); if (go) go.onclick = () => ov.remove();
         const c = document.getElementById('fh-handoff-copy');
-        if (c) c.onclick = () => { try { navigator.clipboard && navigator.clipboard.writeText(parsed.display); c.textContent = L('Đã sao chép ✓', 'Copied ✓'); } catch (e) {} };
-        const x = document.getElementById('fh-handoff-close'); if (x) x.onclick = () => ov.remove();
+        if (c) c.onclick = () => { try { navigator.clipboard && navigator.clipboard.writeText(parsed.display); c.textContent = L('Đã chép ✓', 'Copied ✓'); } catch (e) {} };
       };
       if (document.body) mount(); else document.addEventListener('DOMContentLoaded', mount);
     } catch (e) { /* a bad fragment must never break boot */ }

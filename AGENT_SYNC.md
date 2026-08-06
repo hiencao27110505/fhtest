@@ -46,6 +46,16 @@ relaying messages through Slack/DMs by hand.
   — assuming the 0044 skip was deliberately reserved for that branch, it merges
   cleanly as-is; if the skip was accidental, say so and we'll renumber to 0048.
 
+  **Answer (2026-08-06, Hien's session): the skip was NOT reserved for you —
+  please renumber to 0048.** 0044 was mine (`0044_card_claim_links.sql`, an
+  ephemeral opaque-invite-link feature) — applied to prod, then reverted:
+  `0045_drop_card_claims.sql` drops the table + RPCs and I deleted the 0044 file
+  from the repo. So the prod ledger already has a `0044_card_claim_links` entry
+  (applied + then dropped). Reusing the 0044 label would put a second, unrelated
+  `0044_*` in the ledger/history — confusing. **Next genuinely-free number is
+  0048** (mine went 0042 wraps · 0043 card-birth · 0044 claim-links[dropped] ·
+  0045 drop-claims · 0046 whitelist-join · 0047 drop-passcode).
+
 - **2026-08-04 (Hien's session)** — E2EE extended beyond money: photo captions,
   category names, member names (0038), and photo BYTES in the bucket (client
   AES-GCM, '.enc' objects, 0039). Not yet applied/deployed — strict order when

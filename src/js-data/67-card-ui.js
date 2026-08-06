@@ -70,14 +70,23 @@
   }
   window.fhCardCreate = fhCardCreate;
 
+  // Accept either the raw card (FH-…) OR a pasted card link/URL (#fh-k=…), so
+  // "copy from the handoff, paste in the app" works and a stray URL still opens.
+  function _parseCardInput(input) {
+    const s = String(input == null ? '' : input);
+    if (/#|fh-k=|https?:/i.test(s)) { const f = FHCrypto.parseKeyFragment(s); if (f && f.ok) return f; }
+    return FHCrypto.parseCard(s);
+  }
+  window.fhParseCardInput = _parseCardInput;
+
   /* ── Unlock this device with a card (adopt the DEK) ──
      Offline-capable: a wrong card simply fails the AES-GCM unwrap, no server
      needed. On success the card is cached locally so this device can show it. */
   async function fhCardUnlock(input) {
     const wrap = _fhCardWrap();
     if (!wrap) throw _cardErr('wrong');
-    const p = FHCrypto.parseCard(input);
-    if (!p.ok) throw _cardErr(p.error);
+    const p = _parseCardInput(input);
+    if (!p || !p.ok) throw _cardErr((p && p.error) || 'checksum');
     const keys = await FHCrypto.deriveKeys(p.key, wrap.kdf_salt, wrap.kdf_iters, wrap.kdf_version);
     let dekRaw;
     try { dekRaw = await FHCrypto.unwrapDek(wrap.wrapped_dek, keys.kWrap); }
@@ -284,7 +293,7 @@
         + ((window.DB && window.DB.enc && window.DB.enc.wrapped_dek)
             ? '<div style="text-align:center;margin-top:4px"><button class="fh-s-ghost" onclick="_closeOv();fhPasscodeUnlockPrompt()">' + L('Hoặc dùng mã 6 số', 'Or use the 6-digit code') + '</button></div>'
             : ''),
-      required: () => [{ el: 'fh-card-in', ok: FHCrypto.parseCard((document.getElementById('fh-card-in') || {}).value || '').ok }],
+      required: () => [{ el: 'fh-card-in', ok: _parseCardInput((document.getElementById('fh-card-in') || {}).value || '').ok }],
       reqMsg: L('Thẻ khóa chưa đúng, kiểm tra lại nha', 'That card doesn’t look right, check it again'),
       save: async () => {
         await fhCardUnlock((document.getElementById('fh-card-in').value || ''));
@@ -307,26 +316,30 @@
       const hadFrag = /[#&]fh-k=|[#&]fh-key=/i.test(location.hash) || /[#&]fh-k=|[#&]fh-key=/i.test(location.href);
       if (hadFrag) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }   // eat-on-arrival
       if (!parsed) return;
-      if (standalone) {
-        window.__fhPendingCard = parsed.display;               // applied at the end of the next hydrate
-        return;
-      }
-      // Browser tab (iOS Safari): the installed PWA has separate storage, so the
-      // card can't ride the link in. Hand it off by copy-paste.
+      // Stash in EVERY context (installed PWA or a plain browser tab): once the
+      // person signs in HERE and the family hydrates, the post-hydrate hook
+      // unlocks with it automatically. Sign-in is in-app (no page reload), so a
+      // window var survives it. The card is the safe key, not a login — this is
+      // what makes "scan → sign in → you're in" work for a signed-out user.
+      window.__fhPendingCard = parsed.display;
+      if (standalone) return;
+      /* Plain browser tab: show a light, dismissible sheet. Primary path is
+         "sign in here" (the stashed card then auto-applies); the copy button is
+         the fallback for someone who will instead open the INSTALLED app, whose
+         storage this tab can't reach. */
       const ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--canvas);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:24px;font-family:inherit';
       ov.innerHTML = '<div style="max-width:420px;text-align:center">'
-        + '<div style="font-size:19px;font-weight:700;margin-bottom:14px">' + L('Mở FamilyHub để nhận thẻ khóa', 'Open FamilyHub to add the card') + '</div>'
-        + '<div style="color:var(--muted);line-height:1.6;margin-bottom:18px">' + L('Thêm FamilyHub vào Màn hình chính, mở app rồi dán thẻ khóa này vào.', 'Add FamilyHub to your Home Screen, open it, then paste this card in.') + '</div>'
-        + '<div style="font-family:monospace;font-size:16px;letter-spacing:1px;word-break:break-all;padding:12px;border:1px solid var(--hairline);border-radius:6px;background:var(--white);margin-bottom:16px">' + _esc(parsed.display) + '</div>'
-        + '<button id="fh-handoff-copy" style="background:var(--brand);color:var(--white);border:none;border-radius:9999px;padding:13px 22px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">' + L('Sao chép thẻ khóa', 'Copy the card') + '</button>'
-        + '<div><button id="fh-handoff-close" style="background:none;border:none;color:var(--muted);margin-top:14px;font-size:14px;font-family:inherit;cursor:pointer">' + L('Đóng', 'Close') + '</button></div>'
+        + '<div style="font-size:19px;font-weight:700;margin-bottom:14px">' + L('Đã nhận thẻ khóa của nhà', 'Got your family Key Card') + '</div>'
+        + '<div style="color:var(--muted);line-height:1.6;margin-bottom:20px">' + L('Đăng nhập bằng Google để vào nhà — thẻ khóa đã sẵn trên máy này rồi.', 'Sign in with Google to enter — the key is already saved on this device.') + '</div>'
+        + '<button id="fh-handoff-go" style="background:var(--brand);color:var(--white);border:none;border-radius:9999px;padding:13px 22px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">' + L('Tiếp tục đăng nhập', 'Continue to sign in') + '</button>'
+        + '<div><button id="fh-handoff-copy" style="background:none;border:none;color:var(--muted);margin-top:16px;font-size:13px;font-family:inherit;cursor:pointer;text-decoration:underline">' + L('Hoặc chép thẻ để dán vào app đã cài', 'Or copy the card to paste into the installed app') + '</button></div>'
         + '</div>';
       const mount = () => {
         document.body.appendChild(ov);
+        const go = document.getElementById('fh-handoff-go'); if (go) go.onclick = () => ov.remove();
         const c = document.getElementById('fh-handoff-copy');
-        if (c) c.onclick = () => { try { navigator.clipboard && navigator.clipboard.writeText(parsed.display); c.textContent = L('Đã sao chép ✓', 'Copied ✓'); } catch (e) {} };
-        const x = document.getElementById('fh-handoff-close'); if (x) x.onclick = () => ov.remove();
+        if (c) c.onclick = () => { try { navigator.clipboard && navigator.clipboard.writeText(parsed.display); c.textContent = L('Đã chép ✓', 'Copied ✓'); } catch (e) {} };
       };
       if (document.body) mount(); else document.addEventListener('DOMContentLoaded', mount);
     } catch (e) { /* a bad fragment must never break boot */ }

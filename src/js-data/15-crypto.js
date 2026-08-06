@@ -187,6 +187,8 @@
   async function fhKeyAdopt(fid, dekRaw) {
     _fhDekRaw = new Uint8Array(dekRaw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
     await _keysPut(fid, _fhDekRaw);
+    // photos that rendered blank while this device was locked can decrypt now
+    try { if (window.__fhPhotoRefresh) window.__fhPhotoRefresh(); } catch (e) {}
   }
   function fhKeyDrop(fid) {
     if (_fhDekFid === fid || fid == null) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; }

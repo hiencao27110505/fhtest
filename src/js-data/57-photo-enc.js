@@ -27,13 +27,15 @@
     }
   }
   function _phResolve(url) {
+    // Locked: return null WITHOUT caching, so the very next attempt (after the
+    // key is entered) retries instead of being pinned to this null forever.
+    if (!fhKeyReady()) return Promise.resolve(null);
     const hit = _phCache.get(url);
     if (hit) { _phCache.delete(url); _phCache.set(url, hit); return hit.p; }   // LRU refresh
     const entry = {
       u: null,
       p: (async () => {
         try {
-          if (!fhKeyReady()) return null;                  // locked: placeholder stays until the post-unlock re-render
           const resp = await fetch(url);
           if (!resp.ok) return null;
           const pt = await fhDecBytes(new Uint8Array(await resp.arrayBuffer()));
@@ -49,6 +51,8 @@
     const raw = img.getAttribute('src') || '';
     if (raw.indexOf('.enc') < 0 || raw.indexOf('blob:') === 0 || raw.indexOf('data:') === 0) return;
     img.setAttribute('data-fhenc', raw);
+    const hit = _phCache.get(raw);
+    if (hit && hit.u) { img.src = hit.u; return; }         // already decrypted/seeded → set it, no blank
     img.src = _PH_BLANK;                                   // no broken-image flash while we decrypt
     _phResolve(raw).then((u) => { if (u && img.getAttribute('data-fhenc') === raw) img.src = u; });
   }
@@ -58,6 +62,8 @@
     if (!m) return;
     const raw = m[2];
     el.setAttribute('data-fhenc', raw);
+    const hit = _phCache.get(raw);
+    if (hit && hit.u) { el.style.backgroundImage = 'url(' + hit.u + ')'; return; }
     el.style.backgroundImage = 'none';
     _phResolve(raw).then((u) => { if (u && el.getAttribute('data-fhenc') === raw) el.style.backgroundImage = 'url(' + u + ')'; });
   }
@@ -82,4 +88,30 @@
   window.__fhPhotoCachePurge = function () {
     _phCache.forEach((e) => { if (e.u) { try { URL.revokeObjectURL(e.u) } catch (x) {} } });
     _phCache.clear();
+  };
+  /* Seed the cache for a just-uploaded photo (plaintext bytes we already hold),
+     keyed by the public .enc URL the render will use. Lets the fresh photo show
+     instantly instead of blank→fetch→decrypt. */
+  window.__fhPhotoSeed = function (url, bytes, mime) {
+    try {
+      if (!url || _phCache.get(url)) return;
+      const u = URL.createObjectURL(new Blob([bytes], { type: mime || _phMime(url) }));
+      _phCache.delete(url); _phCache.set(url, { u: u, p: Promise.resolve(u) }); _phTrim();
+    } catch (e) {}
+  };
+  /* Key just became available (device unlocked mid-session with the card/code):
+     re-decrypt every encrypted photo already on screen — their <img src> and
+     background-image were blanked while locked and, without this, stay blank
+     until the app is killed and reopened. Called from fhKeyAdopt. */
+  window.__fhPhotoRefresh = function () {
+    try {
+      document.querySelectorAll('[data-fhenc]').forEach((el) => {
+        const raw = el.getAttribute('data-fhenc'); if (!raw) return;
+        _phResolve(raw).then((u) => {
+          if (!u || el.getAttribute('data-fhenc') !== raw) return;
+          if (el.tagName === 'IMG') el.src = u; else el.style.backgroundImage = 'url(' + u + ')';
+        });
+      });
+      _phSweep(document.body);   // and any still-raw .enc that never got swapped
+    } catch (e) {}
   };
