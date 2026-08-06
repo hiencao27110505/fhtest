@@ -34,7 +34,7 @@ function onCsvFileSelected(input){
       var buckets = bucketCsvCandidates(candidates, mixed);
       csvReview = {
         ready: buckets.ready,
-        groups: Object.keys(buckets.needsCategoryGroups).map(function(k){ return { key:k, items:buckets.needsCategoryGroups[k], catName:null }; }),
+        groups: Object.keys(buckets.needsCategoryGroups).map(function(k){ return { key:k, items:buckets.needsCategoryGroups[k], catName:null, skipped:false }; }),
         dup: buckets.possibleDuplicate.map(function(c){ return { c:c, resolved:null }; }), // resolved: null | 'include' | 'skip'
         deferred: buckets.deferred,
         mixedSignsNote: mixed,
@@ -53,18 +53,31 @@ function onCsvFileSelected(input){
 function csvIncludedCount(){
   if(!csvReview) return 0;
   var n = csvReview.ready.length;
-  csvReview.groups.forEach(function(g){ if(g.catName) n += g.items.length; });
-  csvReview.dup.forEach(function(d){ if(d.resolved==='include') n += 1; });
+  csvReview.groups.forEach(function(g){ if(g.catName && !g.skipped) n += g.items.length; });
+  csvReview.dup.forEach(function(d){ if(d.resolved==='include' && d.c.categoryName) n += 1; });
   return n;
-}
-
-function csvAmtDisplay(n){
-  return (window.fmt ? window.fmt(n) : n) + '';
 }
 
 function csvCatChip(name, onclick, selected){
   var s = (window.catStyle && window.catStyle[name]) || ['🏷️'];
   return '<button type="button" class="choice'+(selected?' on':'')+'" onclick="'+onclick+'">'+s[0]+' '+esc(name)+'</button>';
+}
+
+/* Reuses the real bulkSummary() (50-sheets-expense-capture.js) instead of a
+   parallel reimplementation -- same note/amount/category markup the actual
+   bulk-logging cards use, so this can't quietly drift out of sync with that
+   component the way an earlier version of this file already did once. */
+function csvCardSummary(description, amount, categoryName){
+  return bulkSummary({ note: description, amt: amount != null ? String(Math.round(amount)) : '', cat: categoryName || '' });
+}
+
+// Collapsed, read-only card: matches renderBulk()'s non-active card shape --
+// bulk-head + summary inside .bulk-tap, .bulk-x as a sibling after it.
+function csvCollapsedCard(label, description, amount, categoryName, removeFn){
+  return '<div class="bulk-card"><button type="button" class="bulk-tap">'
+    + '<span class="bulk-head"><span class="bulk-idx">'+esc(label)+'</span></span>'
+    + csvCardSummary(description, amount, categoryName)
+    + '</button><button type="button" class="bulk-x" onclick="'+removeFn+'" aria-label="'+L('Bỏ khoản này','Remove')+'">✕</button></div>';
 }
 
 function renderCsvReview(){
@@ -83,20 +96,19 @@ function renderCsvReview(){
   html += '<div id="bulk-list">';
 
   r.ready.forEach(function(c, i){
-    html += '<div class="bulk-card"><button class="bulk-tap"><span class="bs-left"><span class="bs-note">'+esc(c.description)+'</span></span>'
-      + '<span class="bs-right">'+(c.categoryName?'<span class="bs-cat">'+csvChipEmoji(c.categoryName)+' '+esc(c.categoryName)+'</span>':'')+'<span class="bs-amt">-'+csvAmtDisplay(c.amount)+'</span></span></button>'
-      + '<button class="bulk-x" aria-label="'+L('Bỏ khoản này','Remove')+'" onclick="csvRemoveReady('+i+')">✕</button></div>';
+    html += csvCollapsedCard(c.dateDisplay || c.description, c.description, c.amount, c.categoryName, 'csvRemoveReady('+i+')');
   });
 
   r.groups.forEach(function(g, gi){
+    if(g.skipped) return;
     if(g.catName){
-      html += '<div class="bulk-card"><button class="bulk-tap"><span class="bs-left"><span class="bs-note">'+esc(g.items[0].description)+'</span></span>'
-        + '<span class="bs-right"><span class="bs-cat">'+csvChipEmoji(g.catName)+' '+esc(g.catName)+'</span><span class="bs-amt">-'+csvAmtDisplay(g.items.reduce(function(s,it){return s+it.amount;},0))+'</span></span></button>'
-        + '<button class="bulk-x" aria-label="'+L('Bỏ nhóm này','Remove')+'" onclick="csvUngroupCategory('+gi+')">✕</button></div>';
+      var sum = g.items.reduce(function(s,it){return s+it.amount;},0);
+      html += csvCollapsedCard(g.items[0].description+' · '+g.items.length+' '+L('giao dịch','txns'), g.items[0].description, sum, g.catName, 'csvSkipGroup('+gi+')');
       return;
     }
     var chips = (window.catOrder||[]).map(function(name){ return csvCatChip(name, 'csvPickGroupCategory('+gi+',\''+escAttr(name)+'\')', false); }).join('');
-    html += '<div class="bulk-card active invalid"><div class="bulk-head"><span class="bulk-idx">'+esc(g.items[0].description)+' · '+g.items.length+' '+L('giao dịch','txns')+'</span></div>'
+    html += '<div class="bulk-card active"><div class="bulk-head"><span class="bulk-idx">'+esc(g.items[0].description)+' · '+g.items.length+' '+L('giao dịch','txns')+'</span>'
+      + '<button type="button" class="bulk-x" onclick="csvSkipGroup('+gi+')" aria-label="'+L('Bỏ nhóm này','Remove')+'">✕</button></div>'
       + '<div class="bulk-body"><div class="field-label-mini">'+L('Chọn danh mục','Pick a category')+'</div><div class="choices">'+chips+'</div></div></div>';
   });
 
@@ -105,13 +117,22 @@ function renderCsvReview(){
     var existingLine = d.c.duplicateOfExisting
       ? L('Trùng với một giao dịch đã có trong sổ, cùng số tiền, trong vòng 3 ngày.','Matches a transaction already in your ledger, same amount, within 3 days.')
       : L('Xuất hiện 2 lần trong file này với cùng nội dung và số tiền.','Appears twice in this file with the same description and amount.');
-    if(d.resolved==='include'){
-      html += '<div class="bulk-card"><button class="bulk-tap"><span class="bs-left"><span class="bs-note">'+esc(d.c.description)+'</span></span>'
-        + '<span class="bs-right"><span class="bs-amt">-'+csvAmtDisplay(d.c.amount)+'</span></span></button>'
-        + '<button class="bulk-x" aria-label="'+L('Bỏ khoản này','Remove')+'" onclick="csvDuplicateSkip('+di+')">✕</button></div>';
+    if(d.resolved==='include' && d.c.categoryName){
+      html += csvCollapsedCard(d.c.dateDisplay || d.c.description, d.c.description, d.c.amount, d.c.categoryName, 'csvDuplicateSkip('+di+')');
       return;
     }
-    html += '<div class="bulk-card active invalid"><div class="bulk-head"><span class="bulk-idx">'+esc(d.c.description)+' · -'+csvAmtDisplay(d.c.amount)+'</span></div>'
+    if(d.resolved==='include'){
+      // Included, but this row's source category never matched a real one --
+      // same situation as a needs-category group, just for a single row, so
+      // it gets the same picker instead of silently blocking submitBulk()'s
+      // own validation later with no clue which row was the problem.
+      var dchips = (window.catOrder||[]).map(function(name){ return csvCatChip(name, 'csvPickDuplicateCategory('+di+',\''+escAttr(name)+'\')', false); }).join('');
+      html += '<div class="bulk-card active"><div class="bulk-head"><span class="bulk-idx">'+esc(d.c.description)+'</span>'
+        + '<button type="button" class="bulk-x" onclick="csvDuplicateSkip('+di+')" aria-label="'+L('Bỏ khoản này','Remove')+'">✕</button></div>'
+        + '<div class="bulk-body"><div class="field-label-mini">'+L('Chọn danh mục','Pick a category')+'</div><div class="choices">'+dchips+'</div></div></div>';
+      return;
+    }
+    html += '<div class="bulk-card active"><div class="bulk-head"><span class="bulk-idx">'+esc(d.c.description)+' · -'+esc(String(Math.round(d.c.amount)))+'</span></div>'
       + '<div class="bulk-body"><div class="dup-note">'+existingLine+'</div><div class="dup-actions">'
       + '<button type="button" class="btn-line" onclick="csvDuplicateInclude('+di+')">'+L('Vẫn nhập','Import anyway')+'</button>'
       + '<button type="button" class="btn-text-quiet" onclick="csvDuplicateSkip('+di+')">'+L('Bỏ qua','Skip')+'</button>'
@@ -121,15 +142,15 @@ function renderCsvReview(){
   html += '</div>';
 
   if(r.deferred.length){
-    html += '<div class="group-h defer">'+L('Cần xem lại sau','Set aside for later')+'</div>';
+    html += '<div class="group-h defer">'+L('Cần xem lại sau','Set aside for later')+'</div><div id="bulk-list">';
     r.deferred.forEach(function(c){
       var why = c.flags.indexOf('date_missing')>=0 ? L('thiếu ngày','missing date')
         : c.flags.indexOf('amount_missing')>=0 ? L('không đọc được số tiền','unreadable amount')
         : r.mixedSignsNote ? L('có thể là thu nhập','possibly income') : L('cần kiểm tra','needs a look');
-      html += '<div class="bulk-card defer-card"><div class="bulk-tap" style="cursor:default"><span class="bs-left"><span class="bs-note">'+esc(c.description||c.raw.join(', '))
-        + '<span class="flag-badge neutral">'+esc(why)+'</span></span></span>'
-        + '<span class="bs-right">'+(c.amount?'<span class="bs-amt">-'+csvAmtDisplay(c.amount)+'</span>':'')+'</span></div></div>';
+      html += '<div class="bulk-card defer-card"><div class="bulk-tap"><span class="bulk-head"><span class="bulk-idx">'+esc(why)+'</span></span>'
+        + csvCardSummary(c.description||c.raw.join(', '), c.amount, null) + '</div></div>';
     });
+    html += '</div>';
   }
 
   var n = csvIncludedCount();
@@ -138,13 +159,12 @@ function renderCsvReview(){
   out.innerHTML = html;
 }
 
-function csvChipEmoji(name){ var s=(window.catStyle && window.catStyle[name])||['🏷️']; return s[0]; }
-
 function csvRemoveReady(i){ csvReview.ready.splice(i,1); renderCsvReview(); }
 function csvPickGroupCategory(gi, name){ csvReview.groups[gi].catName = name; renderCsvReview(); }
-function csvUngroupCategory(gi){ csvReview.groups[gi].catName = null; renderCsvReview(); }
+function csvSkipGroup(gi){ csvReview.groups[gi].skipped = true; renderCsvReview(); }
 function csvDuplicateInclude(di){ csvReview.dup[di].resolved = 'include'; renderCsvReview(); }
 function csvDuplicateSkip(di){ csvReview.dup[di].resolved = 'skip'; renderCsvReview(); }
+function csvPickDuplicateCategory(di, name){ csvReview.dup[di].c.categoryName = name; renderCsvReview(); }
 
 /* Feeds every included candidate into bulkRows + submitBulk() (bulk expense
    logging's own machinery) instead of a bespoke insert -- the actual write
@@ -153,8 +173,8 @@ function csvDuplicateSkip(di){ csvReview.dup[di].resolved = 'skip'; renderCsvRev
 function csvPromote(){
   if(!csvReview) return;
   var included = csvReview.ready.slice();
-  csvReview.groups.forEach(function(g){ if(g.catName) g.items.forEach(function(c){ c.categoryName = g.catName; included.push(c); }); });
-  csvReview.dup.forEach(function(d){ if(d.resolved==='include') included.push(d.c); });
+  csvReview.groups.forEach(function(g){ if(g.catName && !g.skipped) g.items.forEach(function(c){ c.categoryName = g.catName; included.push(c); }); });
+  csvReview.dup.forEach(function(d){ if(d.resolved==='include' && d.c.categoryName) included.push(d.c); });
   if(!included.length) return;
 
   bulkRows = included.map(function(c){
