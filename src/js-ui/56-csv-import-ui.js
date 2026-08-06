@@ -13,6 +13,7 @@ function openCsvImport(){
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
   csvReview = null;
+  var save=document.getElementById('csv-save'); if(save){ save.disabled=true; save.textContent=L('Nhập','Import'); }
   openSheet('csv-import-modal');
 }
 
@@ -72,14 +73,17 @@ function csvCardSummary(description, amount, categoryName){
   return bulkSummary({ note: description, amt: amount != null ? String(Math.round(amount)) : '', cat: categoryName || '' });
 }
 
-// Collapsed card: matches renderBulk()'s non-active card shape -- bulk-head +
-// summary inside .bulk-tap, .bulk-x as a sibling after it. tapFn (optional)
-// makes the card body tappable, e.g. to correct a guessed category.
-function csvCollapsedCard(label, description, amount, categoryName, removeFn, tapFn){
-  return '<div class="bulk-card"><button type="button" class="bulk-tap"'+(tapFn?' onclick="'+tapFn+'"':'')+'>'
-    + '<span class="bulk-head"><span class="bulk-idx">'+esc(label)+'</span></span>'
-    + csvCardSummary(description, amount, categoryName)
-    + '</button><button type="button" class="bulk-x" onclick="'+removeFn+'" aria-label="'+L('Bỏ khoản này','Remove')+'">✕</button></div>';
+/* Dense row -- the SAME .row component the Finance tab's transaction list
+   uses (60-transactions.js), so the ready list reads like the ledger it's
+   about to become: emoji tile, title, date · category subtitle, right-aligned
+   amount. One line per transaction instead of a chunky card each. */
+function csvDenseRow(cat, title, sub, amount, onclick, extraClass){
+  var s = (window.catStyle && window.catStyle[cat]) || ['🧾','#f2eef6','var(--cat-other)'];
+  return '<div class="row'+(onclick?' tap':'')+(extraClass?' '+extraClass:'')+'"'+(onclick?' onclick="'+onclick+'"':'')+'>'
+    + '<div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</div></div>'
+    + '<div class="r-body"><div class="r-t">'+esc(title)+'</div><div class="r-s">'+esc(sub)+'</div></div>'
+    + (amount!=null?'<div class="r-amt num">'+fmt(amount)+'</div>':'')
+    + '</div>';
 }
 
 function renderCsvReview(){
@@ -96,28 +100,33 @@ function renderCsvReview(){
 
   /* Two lists, decisions FIRST: on a 100-row file where 95 sorted themselves,
      the 5 that need a human must not be buried under the 95 that don't. The
-     ready list below is a scannable receipt of what the guessing already did,
-     not a to-do. */
-  var decisionsHtml = '', readyHtml = '';
+     decisions keep prominent picker cards; the ready list below is the app's
+     own dense transaction-row list -- a scannable receipt, not a to-do.
+     readyChunks alternates .rows containers and (when a row is being edited)
+     a full-width picker card, since a bulk-card can't sit inside .rows. */
+  var decisionsHtml = '';
+  var readyChunks = [], rowBuf = [];
+  function flushRows(){ if(rowBuf.length){ readyChunks.push('<div class="rows csv-rows">'+rowBuf.join('')+'</div>'); rowBuf = []; } }
 
   r.ready.forEach(function(c, i){
     if(r.editingReady === i){
+      flushRows();
       // Correcting a guessed category: same picker card a needs-category
       // group gets, with the current guess pre-selected.
       var echips = (window.catOrder||[]).map(function(name){ return csvCatChip(name, 'csvSetReadyCategory('+i+',\''+escAttr(name)+'\')', name===c.categoryName); }).join('');
-      readyHtml += '<div class="bulk-card active"><div class="bulk-head"><span class="bulk-idx">'+esc(c.description)+'</span>'
+      readyChunks.push('<div class="bulk-card active"><div class="bulk-head"><span class="bulk-idx">'+esc(c.description)+'</span>'
         + '<button type="button" class="bulk-x" onclick="csvRemoveReady('+i+')" aria-label="'+L('Bỏ khoản này','Remove')+'">✕</button></div>'
-        + '<div class="bulk-body"><div class="field-label-mini">'+L('Chọn danh mục','Pick a category')+'</div><div class="choices">'+echips+'</div></div></div>';
+        + '<div class="bulk-body"><div class="field-label-mini">'+L('Chọn danh mục','Pick a category')+'</div><div class="choices">'+echips+'</div></div></div>');
       return;
     }
-    readyHtml += csvCollapsedCard(c.dateDisplay || c.description, c.description, c.amount, c.categoryName, 'csvRemoveReady('+i+')', 'csvEditReady('+i+')');
+    rowBuf.push(csvDenseRow(c.categoryName, c.description, (c.dateDisplay||'')+' · '+c.categoryName, c.amount, 'csvEditReady('+i+')'));
   });
 
   r.groups.forEach(function(g, gi){
     if(g.skipped) return;
     if(g.catName){
       var sum = g.items.reduce(function(s,it){return s+it.amount;},0);
-      readyHtml += csvCollapsedCard(g.items[0].description+' · '+g.items.length+' '+L('giao dịch','txn'+(g.items.length===1?'':'s')), g.items[0].description, sum, g.catName, 'csvSkipGroup('+gi+')', 'csvUngroupCategory('+gi+')');
+      rowBuf.push(csvDenseRow(g.catName, g.items[0].description, g.items.length+' '+L('giao dịch','txn'+(g.items.length===1?'':'s'))+' · '+g.catName, sum, 'csvUngroupCategory('+gi+')'));
       return;
     }
     var chips = (window.catOrder||[]).map(function(name){ return csvCatChip(name, 'csvPickGroupCategory('+gi+',\''+escAttr(name)+'\')', false); }).join('');
@@ -132,7 +141,7 @@ function renderCsvReview(){
       ? L('Trùng với một giao dịch đã có trong sổ, cùng số tiền, trong vòng 3 ngày.','Matches a transaction already in your ledger, same amount, within 3 days.')
       : L('Xuất hiện 2 lần trong file này với cùng nội dung và số tiền.','Appears twice in this file with the same description and amount.');
     if(d.resolved==='include' && d.c.categoryName){
-      readyHtml += csvCollapsedCard(d.c.dateDisplay || d.c.description, d.c.description, d.c.amount, d.c.categoryName, 'csvDuplicateSkip('+di+')');
+      rowBuf.push(csvDenseRow(d.c.categoryName, d.c.description, (d.c.dateDisplay||'')+' · '+d.c.categoryName, d.c.amount, 'csvDuplicateReopen('+di+')'));
       return;
     }
     if(d.resolved==='include'){
@@ -152,6 +161,7 @@ function renderCsvReview(){
       + '<button type="button" class="btn-text-quiet" onclick="csvDuplicateSkip('+di+')">'+L('Bỏ qua','Skip')+'</button>'
       + '</div></div></div>';
   });
+  flushRows();
 
   // Lead with the win, not the workload. The summary is the "magic moment"
   // line: most of the file sorted itself; here's the little that didn't.
@@ -167,42 +177,38 @@ function renderCsvReview(){
   if(decisionsHtml){
     html += '<div class="group-h">'+L('Cần bạn xem','Needs your eye')+'</div><div class="csv-list">'+decisionsHtml+'</div>';
   }
-  if(readyHtml){
-    html += '<div class="group-h">'+L('Sẵn sàng','Ready')+' · '+readyCount+'</div><div class="csv-list">'+readyHtml+'</div>';
+  if(readyChunks.length){
+    html += '<div class="group-h">'+L('Sẵn sàng','Ready')+' · '+readyCount+'</div>'+readyChunks.join('');
   }
 
   if(r.deferred.length){
-    html += '<div class="group-h defer">'+L('Cần xem lại','Needs your look')+'</div><div class="csv-list">';
+    html += '<div class="group-h defer">'+L('Cần xem lại','Needs your look')+'</div><div class="rows csv-rows">';
     r.deferred.forEach(function(c, di){
       // A row is only stuck for real when its date or amount is unreadable.
       // A row deferred purely on the mixed-signs suspicion has everything a
-      // valid expense needs -- the user can confirm it with one tap instead
-      // of hitting a dead end with no action at all.
+      // valid expense needs -- one tap on the row confirms it's an expense
+      // and pulls it into the normal flow, instead of a dead end.
       var rescuable = c.date && c.amount !== null
         && c.flags.indexOf('date_missing')<0 && c.flags.indexOf('amount_missing')<0;
-      var why = c.flags.indexOf('date_missing')>=0 ? L('thiếu ngày','missing date')
-        : c.flags.indexOf('amount_missing')>=0 ? L('không đọc được số tiền','unreadable amount')
-        : L('có thể là thu nhập','possibly income');
-      // bc-pick ("Pick a category") is deliberately suppressed here -- these
-      // cards have no category picker, so bulkSummary()'s badge would dangle.
-      var summary = '<span class="bc-note">'+esc(c.description||c.raw.join(', '))+'</span>'
-        + '<span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+fmt(c.amount)+'</span>':'')+'</span>';
+      var title = c.description||c.raw.join(', ');
       if(rescuable){
-        html += '<div class="bulk-card active"><div class="bulk-head"><span class="bulk-idx">'+esc(why)+'</span></div>'
-          + '<div class="bulk-body">'+summary
-          + '<div class="dup-actions" style="margin-top:10px"><button type="button" class="btn-line" onclick="csvRescueDeferred('+di+')">'+L('Đây là khoản chi — nhập','This is an expense — import')+'</button></div>'
-          + '</div></div>';
+        html += csvDenseRow(null, title, L('Có thể là thu nhập? Chạm nếu là khoản chi','Possibly income? Tap if it\'s an expense'), c.amount, 'csvRescueDeferred('+di+')');
       } else {
-        html += '<div class="bulk-card defer-card"><div class="bulk-tap"><span class="bulk-head"><span class="bulk-idx">'+esc(why)+'</span></span>'+summary+'</div></div>';
+        var why = c.flags.indexOf('date_missing')>=0 ? L('thiếu ngày','missing date') : L('không đọc được số tiền','unreadable amount');
+        html += csvDenseRow(null, title, why, c.amount, null, 'defer-card');
       }
     });
     html += '</div>';
   }
 
-  var n = csvIncludedCount();
-  html += '<div class="cta-wrap"><button class="cta" onclick="csvPromote()"'+(n===0?' disabled style="opacity:.5"':'')+'>'+esc(L('Nhập '+n+' giao dịch','Import '+n+' transactions'))+'</button></div>';
-
   out.innerHTML = html;
+
+  // Nav-bar Save, gated -- the app's form-modal convention (Cancel · Title ·
+  // Save, DESIGN.md §3 Buttons) rather than a big CTA at the bottom of a long
+  // scroll: always reachable, disabled grey until something is importable.
+  var n = csvIncludedCount();
+  var save = document.getElementById('csv-save');
+  if(save){ save.disabled = (n===0); save.textContent = n>0 ? L('Nhập '+n,'Import '+n) : L('Nhập','Import'); }
 }
 
 function csvRemoveReady(i){ csvReview.ready.splice(i,1); csvReview.editingReady = null; renderCsvReview(); }
@@ -213,6 +219,7 @@ function csvSkipGroup(gi){ csvReview.groups[gi].skipped = true; renderCsvReview(
 function csvUngroupCategory(gi){ csvReview.groups[gi].catName = null; renderCsvReview(); }
 function csvDuplicateInclude(di){ csvReview.dup[di].resolved = 'include'; renderCsvReview(); }
 function csvDuplicateSkip(di){ csvReview.dup[di].resolved = 'skip'; renderCsvReview(); }
+function csvDuplicateReopen(di){ csvReview.dup[di].resolved = null; renderCsvReview(); }
 function csvPickDuplicateCategory(di, name){ csvReview.dup[di].c.categoryName = name; renderCsvReview(); }
 
 /* User confirmed a mixed-signs-deferred row really is an expense. It re-enters
