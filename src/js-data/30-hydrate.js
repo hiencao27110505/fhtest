@@ -346,12 +346,21 @@
         window.__fhCovRan[fid] = 1;
         setTimeout(() => { try { window.fhEncCoverSweep && window.fhEncCoverSweep(); } catch (e) {} }, 3000);
       }
-      /* a card link (#fh-key=) opened the app on this installed PWA: now that the
-         family + its wraps are loaded, unlock with the stashed card if it fits.
-         Guarded by __fhPendingCard, so this is inert in normal boots. */
+      /* a card link (#fh-k=) opened the app (installed PWA or a browser tab where
+         the person then signed in): now that the family + its wraps are loaded,
+         unlock with the stashed card, then hide the lock bar and re-render so the
+         now-decryptable amounts/names/photos appear. Guarded by __fhPendingCard. */
       if (window.__fhPendingCard && window.fhHasCard && window.fhHasCard() && !fhKeyReady()) {
         const _pc = window.__fhPendingCard; window.__fhPendingCard = null;
-        setTimeout(() => { try { window.fhCardUnlock && window.fhCardUnlock(_pc); } catch (e) {} }, 300);
+        setTimeout(() => {
+          try {
+            window.fhCardUnlock && window.fhCardUnlock(_pc).then(() => {
+              window.fhLockBanner && window.fhLockBanner(false);
+              window.toast && window.toast(L('Đã mở khóa bằng thẻ khóa ✓', 'Unlocked with your Key Card ✓'));
+              window.loadFamilyData && window.loadFamilyData();
+            }).catch(() => {});
+          } catch (e) {}
+        }, 300);
       }
       // proactively surface the Key Card migration (owner, enc, no card yet) —
       // the USP moment on open, not a buried Settings button. Once per session.
