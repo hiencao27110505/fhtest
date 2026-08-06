@@ -9814,7 +9814,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v286';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v287';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -14090,15 +14090,26 @@ window.classifyAmount = classifyAmount;
     }
   };
 
+  // One-tap paste into the card field (reads the clipboard — the button tap is
+  // the user gesture iOS requires). Fills, validates, and clears any red flag.
+  window.fhCardPasteInput = async function (btn) {
+    try {
+      const t = await navigator.clipboard.readText();
+      const el = document.getElementById('fh-card-in');
+      if (el && t) { el.value = t.trim(); window.fhModalDirty && window.fhModalDirty(); el.focus(); }
+    } catch (e) { window.toast && window.toast(L('Chưa dán được, thử gõ tay nhé', 'Couldn’t paste, try typing it')); }
+  };
+
   // Card entry modal (the unlock prompt for a card family). Plain forgiving
   // input; validation + friendly error on submit.
   window.fhCardEnterPrompt = function () {
     _fhModal({
       title: L('Nhập thẻ khóa của nhà', 'Enter your family’s Key Card'),
       saveLabel: L('Mở khóa', 'Unlock'),
-      body: '<div class="fh-s-sub">' + L('Máy này cần thẻ khóa của nhà để mở dữ liệu. Dán, quét hoặc gõ tấm thẻ vào đây.',
-                                         'This device needs your family’s card to open the data. Paste, scan or type it here.') + '</div>'
+      body: '<div class="fh-s-sub">' + L('Dán thẻ khóa vào đây để mở dữ liệu của nhà.',
+                                         'Paste your family key here to open the data.') + '</div>'
         + '<div class="field"><input id="fh-card-in" placeholder="FH-XXXX-XXXX-…" autocapitalize="characters" autocomplete="off" spellcheck="false" oninput="fhModalDirty()"></div>'
+        + _btn(L('Dán thẻ khóa', 'Paste'), 'fhCardPasteInput(this)', _S.line)
         // dual-wrap fallback: while the family still has a 6-digit code, offer it
         // so nobody is ever stuck mid-migration before they've received the card
         + ((window.DB && window.DB.enc && window.DB.enc.wrapped_dek)
@@ -14140,11 +14151,14 @@ window.classifyAmount = classifyAmount;
          storage this tab can't reach. */
       const ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--canvas);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:24px;font-family:inherit';
-      ov.innerHTML = '<div style="max-width:420px;text-align:center">'
-        + '<div style="font-size:19px;font-weight:700;margin-bottom:14px">' + L('Đã nhận thẻ khóa của nhà', 'Got your family Key Card') + '</div>'
-        + '<div style="color:var(--muted);line-height:1.6;margin-bottom:20px">' + L('Đăng nhập bằng Google để vào nhà — thẻ khóa đã sẵn trên máy này rồi.', 'Sign in with Google to enter — the key is already saved on this device.') + '</div>'
-        + '<button id="fh-handoff-go" style="background:var(--brand);color:var(--white);border:none;border-radius:9999px;padding:13px 22px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">' + L('Tiếp tục đăng nhập', 'Continue to sign in') + '</button>'
-        + '<div><button id="fh-handoff-copy" style="background:none;border:none;color:var(--muted);margin-top:16px;font-size:13px;font-family:inherit;cursor:pointer;text-decoration:underline">' + L('Hoặc chép thẻ để dán vào app đã cài', 'Or copy the card to paste into the installed app') + '</button></div>'
+      const _hbtn = 'width:100%;border-radius:12px;padding:14px 22px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;box-sizing:border-box';
+      ov.innerHTML = '<div style="max-width:420px;width:100%;text-align:center">'
+        + '<div style="font-size:19px;font-weight:700;margin-bottom:12px">' + L('Đã nhận thẻ khóa của nhà', 'Got your family Key Card') + '</div>'
+        + '<div style="color:var(--muted);line-height:1.6;margin-bottom:22px">' + L('Thẻ khóa đã lưu trên máy này. Chọn cách bạn muốn vào nhà.', 'The key is saved on this device. Choose how you’d like to get in.') + '</div>'
+        + '<button id="fh-handoff-go" style="' + _hbtn + ';background:var(--brand);color:var(--white);border:none">' + L('Đăng nhập bằng Google', 'Sign in with Google') + '</button>'
+        + '<div style="height:12px"></div>'
+        + '<button id="fh-handoff-copy" style="' + _hbtn + ';background:none;color:var(--brand);border:1.5px solid var(--brand)">' + L('Chép thẻ khóa', 'Copy the key') + '</button>'
+        + '<div style="color:var(--muted);font-size:12px;line-height:1.5;margin-top:14px">' + L('Dùng “Chép thẻ khóa” nếu bạn sẽ mở app đã cài trên máy.', 'Use “Copy the key” if you’ll open the installed app instead.') + '</div>'
         + '</div>';
       const mount = () => {
         document.body.appendChild(ov);
