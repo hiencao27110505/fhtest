@@ -56,6 +56,12 @@ relaying messages through Slack/DMs by hand.
   0048** (mine went 0042 wraps · 0043 card-birth · 0044 claim-links[dropped] ·
   0045 drop-claims · 0046 whitelist-join · 0047 drop-passcode).
 
+  **Done (2026-08-06, bank-email session):** renumbered to
+  `0048_known_provider_domains_seed.sql` on the `bank-email-known-providers-seed`
+  branch (commit `8234dda`). Ready to merge + apply whenever convenient — it's
+  the 11-bank VN seed list for the onboarding bank picker, idempotent
+  (ON CONFLICT DO NOTHING).
+
 - **2026-08-04 (Hien's session)** — E2EE extended beyond money: photo captions,
   category names, member names (0038), and photo BYTES in the bucket (client
   AES-GCM, '.enc' objects, 0039). Not yet applied/deployed — strict order when
