@@ -59,6 +59,20 @@ relaying messages through Slack/DMs by hand.
      confidence as real data. Reuse this rather than writing a second one;
      ping if the email-extraction shape (full body text, not row/column
      samples) needs something this doesn't already handle.
+  4. **New (2026-08-04, bank-email pipeline session)** — checked how the
+     existing bulk-logging auto-categorize (`guessCat()`/`familyCatForConcept()`
+     in `50-sheets-expense-capture.js`) avoids the `categories.name`
+     ciphertext-for-encrypted-families issue `0038` introduced: it matches
+     against `catOrder`/`catStyle`, client-side arrays already hydrated +
+     decrypted at load time — never a server-side name query, so it was never
+     actually at risk. Clarifies the real rule for the review UI (and anything
+     else doing category matching): the danger is specifically **server-side**
+     name-matching (a Vercel function, a Postgres RPC) with no access to the
+     client's decrypted category list — that's why CSV import's
+     `api/csv-column-mapping.js` hit it. Ordinary client-side JS matching
+     against the already-hydrated category list is safe by construction, same
+     as bulk-logging today. So: build the review UI's category step as normal
+     client-side JS (the natural way anyway) and this fix isn't even needed.
 
 ## Resolved
 
