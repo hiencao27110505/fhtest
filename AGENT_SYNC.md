@@ -16,6 +16,26 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-06 (Hien's session) — Key Card auth is LIVE (v280).** The 6-digit
+  passcode is being replaced by a 128-bit Key Card as the safe key (spec:
+  `KEY-CARD-AUTH-SPEC.md`). Migrations **0042→0047 applied + rehearsed on prod**
+  (heads-up: there are TWO 0043 files — my `0043_family_card_birth.sql` and your
+  `0043_csv_transactions_staging.sql`; both applied under distinct ledger names,
+  next free number is **0048**). What changed that may touch CSV/bank work:
+  1. `family_keys.wrapped_dek`/`auth_hash` are now **nullable** (0043) — a
+     card-born family has enc_state='enc' with null passcode fields; the DEK
+     wrap lives in `family_key_wraps` (0042). Don't assume family_keys.wrapped_dek
+     is non-null.
+  2. New families are **born on the card** (onboarding passcode screen gone);
+     they join via **whitelist only** (`join_with_whitelist`, 0046) — no code.
+     A passcode family still uses `join_with_passcode`.
+  3. `get_family_snapshot` now ships a `key_wraps` array. Unlock routing:
+     `fhUnlockPrompt` → card entry if `fhHasCard()`, else passcode; during the
+     dual-wrap window the card prompt offers the code as a fallback.
+  4. CSV promotion into `transactions` is unaffected (money columns unchanged);
+     just remember card families have no passcode and `categories.name` matching
+     stays client-side (already noted below).
+
 - **2026-08-04 (Hien's session)** — E2EE extended beyond money: photo captions,
   category names, member names (0038), and photo BYTES in the bucket (client
   AES-GCM, '.enc' objects, 0039). Not yet applied/deployed — strict order when
