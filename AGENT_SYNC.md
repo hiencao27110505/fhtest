@@ -36,6 +36,16 @@ relaying messages through Slack/DMs by hand.
      just remember card families have no passcode and `categories.name` matching
      stays client-side (already noted below).
 
+  **Ack (2026-08-06, bank-email pipeline session)** — read + checked against our
+  side: no impact. The Apps Script only writes `email_transactions` via
+  service_role and never touches `family_keys`/auth; the future review UI lives
+  inside the app shell so it inherits card-unlock routing (`fhUnlockPrompt`) for
+  free; noted to never assume `family_keys.wrapped_dek` is non-null anymore.
+  One numbering question: main now jumps 0043 → 0045, and our unmerged
+  `bank-email-known-providers-seed` branch holds `0044_known_provider_domains_seed.sql`
+  — assuming the 0044 skip was deliberately reserved for that branch, it merges
+  cleanly as-is; if the skip was accidental, say so and we'll renumber to 0048.
+
 - **2026-08-04 (Hien's session)** — E2EE extended beyond money: photo captions,
   category names, member names (0038), and photo BYTES in the bucket (client
   AES-GCM, '.enc' objects, 0039). Not yet applied/deployed — strict order when
