@@ -41,13 +41,13 @@ var ICO = {
 };
 
 var RELEASES = [
-  { id:'2026-08-06-family-code', date:'2026-08-06', time:'20:30', ver:'v287', icon:ICO.shield,
+  { id:'2026-08-06-family-code', date:'2026-08-06', time:'20:30', ver:'v288', icon:ICO.shield,
     vi:{ t:'Nhà mình có mã khóa riêng, tụi mình cũng không đọc được',
       problem:'Tiền thì khóa kỹ rồi, nhưng mã 6 số vẫn đủ ngắn để bị dò. Về lý thuyết, người nắm máy chủ vẫn còn đường mở.',
-      sol:'Giờ mỗi nhà một mã khóa riêng, dài và ngẫu nhiên, chỉ nhà mình cầm. Tạo mã là toàn bộ dữ liệu khóa chặt, thiếu nó thì không ai mở được, kể cả tụi mình. Vào app bấm tạo mã khóa của nhà là xong.' },
+      sol:'Giờ mỗi nhà một mã khóa riêng 128-bit, ngẫu nhiên tới mức không dò ra nổi. Toàn bộ dữ liệu được mã hóa đầu-cuối bằng AES-256, chuẩn mã hóa ngân hàng đang dùng. Máy chủ chỉ thấy bản đã khóa, thiếu mã thì không ai mở được, kể cả tụi mình. Vào app bấm tạo mã khóa của nhà là xong.' },
     en:{ t:'Your family has its own code now, unreadable even to us',
       problem:'Money was locked, but the old 6-digit code was short enough to guess. In theory anyone with the server could still get in.',
-      sol:'Now each family gets one long random code that only you hold. Create it and everything seals shut, unopenable without it, us included. Open the app and tap to create your family code.' } },
+      sol:'Now each family gets its own random 128-bit code, far too large to guess. Everything is end-to-end encrypted with AES-256, the standard banks run on. The server only ever sees the locked copy, and without the code nobody opens it, us included. Open the app and tap to create your family code.' } },
 
   { id:'2026-08-04-vault-photos', date:'2026-08-04', time:'21:04', ver:'v277', icon:ICO.shield,
     vi:{ t:'Ảnh và tên gọi cũng được khóa như tiền',
