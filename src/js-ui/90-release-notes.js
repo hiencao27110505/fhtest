@@ -41,6 +41,14 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-08-06-family-code', date:'2026-08-06', time:'20:30', ver:'v287', icon:ICO.shield,
+    vi:{ t:'Nhà mình có mã khóa riêng, tụi mình cũng không đọc được',
+      problem:'Tiền thì khóa kỹ rồi, nhưng mã 6 số vẫn đủ ngắn để bị dò. Về lý thuyết, người nắm máy chủ vẫn còn đường mở.',
+      sol:'Giờ mỗi nhà một mã khóa riêng, dài và ngẫu nhiên, chỉ nhà mình cầm. Tạo mã là toàn bộ dữ liệu khóa chặt, thiếu nó thì không ai mở được, kể cả tụi mình. Vào app bấm tạo mã khóa của nhà là xong.' },
+    en:{ t:'Your family has its own code now, unreadable even to us',
+      problem:'Money was locked, but the old 6-digit code was short enough to guess. In theory anyone with the server could still get in.',
+      sol:'Now each family gets one long random code that only you hold. Create it and everything seals shut, unopenable without it, us included. Open the app and tap to create your family code.' } },
+
   { id:'2026-08-04-vault-photos', date:'2026-08-04', time:'21:04', ver:'v277', icon:ICO.shield,
     vi:{ t:'Ảnh và tên gọi cũng được khóa như tiền',
       problem:'Đợt trước tiền đã khóa kỹ rồi, nhưng ảnh hóa đơn, ảnh kỷ niệm, chú thích và tên người nhà vẫn nằm mở trên máy chủ.',
