@@ -91,7 +91,7 @@ function renderCsvReview(){
   r.groups.forEach(function(g, gi){
     if(g.catName){
       html += '<div class="bulk-card"><button class="bulk-tap"><span class="bs-left"><span class="bs-note">'+esc(g.items[0].description)+'</span></span>'
-        + '<span class="bs-right"><span class="bs-cat">'+csvChipEmoji(g.catName)+' '+esc(g.catName)+'</span><span class="bs-amt">'+g.items.length+' × </span></span></button>'
+        + '<span class="bs-right"><span class="bs-cat">'+csvChipEmoji(g.catName)+' '+esc(g.catName)+'</span><span class="bs-amt">-'+csvAmtDisplay(g.items.reduce(function(s,it){return s+it.amount;},0))+'</span></span></button>'
         + '<button class="bulk-x" aria-label="'+L('Bỏ nhóm này','Remove')+'" onclick="csvUngroupCategory('+gi+')">✕</button></div>';
       return;
     }

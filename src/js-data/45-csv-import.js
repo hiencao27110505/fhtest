@@ -165,3 +165,9 @@ async function resolveCsvMapping(headers, sampleRows) {
 }
 
 window.fhResolveCsvMapping = resolveCsvMapping;
+// classifyDate/classifyAmount are also called from 57-csv-import-review.js
+// (js-ui, global scope) to parse actual row values, not just classify a
+// column's format -- js-data is module scope, so these need the same
+// window bridge as resolveCsvMapping above.
+window.classifyDate = classifyDate;
+window.classifyAmount = classifyAmount;
