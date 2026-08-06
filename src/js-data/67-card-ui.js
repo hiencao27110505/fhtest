@@ -70,14 +70,23 @@
   }
   window.fhCardCreate = fhCardCreate;
 
+  // Accept either the raw card (FH-…) OR a pasted card link/URL (#fh-k=…), so
+  // "copy from the handoff, paste in the app" works and a stray URL still opens.
+  function _parseCardInput(input) {
+    const s = String(input == null ? '' : input);
+    if (/#|fh-k=|https?:/i.test(s)) { const f = FHCrypto.parseKeyFragment(s); if (f && f.ok) return f; }
+    return FHCrypto.parseCard(s);
+  }
+  window.fhParseCardInput = _parseCardInput;
+
   /* ── Unlock this device with a card (adopt the DEK) ──
      Offline-capable: a wrong card simply fails the AES-GCM unwrap, no server
      needed. On success the card is cached locally so this device can show it. */
   async function fhCardUnlock(input) {
     const wrap = _fhCardWrap();
     if (!wrap) throw _cardErr('wrong');
-    const p = FHCrypto.parseCard(input);
-    if (!p.ok) throw _cardErr(p.error);
+    const p = _parseCardInput(input);
+    if (!p || !p.ok) throw _cardErr((p && p.error) || 'checksum');
     const keys = await FHCrypto.deriveKeys(p.key, wrap.kdf_salt, wrap.kdf_iters, wrap.kdf_version);
     let dekRaw;
     try { dekRaw = await FHCrypto.unwrapDek(wrap.wrapped_dek, keys.kWrap); }
@@ -284,7 +293,7 @@
         + ((window.DB && window.DB.enc && window.DB.enc.wrapped_dek)
             ? '<div style="text-align:center;margin-top:4px"><button class="fh-s-ghost" onclick="_closeOv();fhPasscodeUnlockPrompt()">' + L('Hoặc dùng mã 6 số', 'Or use the 6-digit code') + '</button></div>'
             : ''),
-      required: () => [{ el: 'fh-card-in', ok: FHCrypto.parseCard((document.getElementById('fh-card-in') || {}).value || '').ok }],
+      required: () => [{ el: 'fh-card-in', ok: _parseCardInput((document.getElementById('fh-card-in') || {}).value || '').ok }],
       reqMsg: L('Thẻ khóa chưa đúng, kiểm tra lại nha', 'That card doesn’t look right, check it again'),
       save: async () => {
         await fhCardUnlock((document.getElementById('fh-card-in').value || ''));
@@ -316,8 +325,8 @@
       const ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--canvas);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:24px;font-family:inherit';
       ov.innerHTML = '<div style="max-width:420px;text-align:center">'
-        + '<div style="font-size:19px;font-weight:700;margin-bottom:14px">' + L('Mở FamilyHub để nhận thẻ khóa', 'Open FamilyHub to add the card') + '</div>'
-        + '<div style="color:var(--muted);line-height:1.6;margin-bottom:18px">' + L('Thêm FamilyHub vào Màn hình chính, mở app rồi dán thẻ khóa này vào.', 'Add FamilyHub to your Home Screen, open it, then paste this card in.') + '</div>'
+        + '<div style="font-size:19px;font-weight:700;margin-bottom:14px">' + L('Thẻ khóa của nhà', 'Your family Key Card') + '</div>'
+        + '<div style="color:var(--muted);line-height:1.6;margin-bottom:18px">' + L('Chép thẻ khóa này, mở app FamilyHub, đăng nhập bằng Google rồi dán vào chỗ hỏi thẻ khóa. (Quét mã không tự đăng nhập được.)', 'Copy this card, open the FamilyHub app, sign in with Google, then paste it where it asks for the key. (Scanning can’t sign you in.)') + '</div>'
         + '<div style="font-family:monospace;font-size:16px;letter-spacing:1px;word-break:break-all;padding:12px;border:1px solid var(--hairline);border-radius:6px;background:var(--white);margin-bottom:16px">' + _esc(parsed.display) + '</div>'
         + '<button id="fh-handoff-copy" style="background:var(--brand);color:var(--white);border:none;border-radius:9999px;padding:13px 22px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">' + L('Sao chép thẻ khóa', 'Copy the card') + '</button>'
         + '<div><button id="fh-handoff-close" style="background:none;border:none;color:var(--muted);margin-top:14px;font-size:14px;font-family:inherit;cursor:pointer">' + L('Đóng', 'Close') + '</button></div>'
