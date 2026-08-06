@@ -124,7 +124,7 @@
     window.__fhQrCanvas = cv;
     _fhSheet('<div class="fh-s-h">' + L('Mã QR thẻ khóa', 'Key Card QR') + '</div>'
       + '<div id="fh-qr-wrap" style="text-align:center"></div>'
-      + '<div class="fh-s-sub" style="text-align:center">' + L('Cho người nhà quét để nhận thẻ khóa. Đây là chìa khóa, giữ kỹ như tấm thẻ.', 'Have your family scan it to get the card. This is the key, keep it as safe as the card.') + '</div>'
+      + '<div class="fh-s-sub" style="text-align:center">' + L('Cho người nhà quét để nhận. Mã này cũng là chìa khóa, giữ kỹ nha.', 'Have your family scan it. This is your key too, so keep it safe.') + '</div>'
       + _btn(L('Chia sẻ ảnh', 'Share image'), 'fhCardQrShare(this)', _S.line)
       + _btn(L('Lưu ảnh', 'Save image'), 'fhCardQrSave()', _S.line)
       + _btn(L('Xong', 'Done'), '_closeOv()', _S.ghost));
@@ -248,7 +248,7 @@
       await _rpc('drop_family_passcode');
       await window.loadFamilyData();
       window.fhEncryptionSheet && window.fhEncryptionSheet();
-      window.toast && window.toast(L('Đã gỡ mã 6 số. Giờ nhà mình chỉ mở bằng thẻ khóa.', 'Old code removed. Your family now opens with the Key Card only.'));
+      window.toast && window.toast(L('Đã gỡ mã 6 số. Giờ nhà mình chỉ dùng thẻ khóa.', 'Code removed. Your family now uses just the Key Card.'));
     } catch (e) {
       if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = L('Gỡ mã 6 số cũ', 'Remove the old 6-digit code'); }
       window.toast && window.toast(/no_card/i.test(String((e && e.message) || '')) ? L('Hãy tạo thẻ khóa trước khi gỡ mã.', 'Create the Key Card before removing the code.') : _friendly(e));
@@ -314,13 +314,13 @@
       // Browser tab (iOS Safari): the installed PWA has separate storage, so the
       // card can't ride the link in. Hand it off by copy-paste.
       const ov = document.createElement('div');
-      ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--canvas,#f2eff0);display:flex;align-items:center;justify-content:center;padding:24px;font-family:inherit';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--canvas);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:24px;font-family:inherit';
       ov.innerHTML = '<div style="max-width:420px;text-align:center">'
         + '<div style="font-size:19px;font-weight:700;margin-bottom:14px">' + L('Mở FamilyHub để nhận thẻ khóa', 'Open FamilyHub to add the card') + '</div>'
-        + '<div style="color:var(--muted,#7a5a6e);line-height:1.6;margin-bottom:18px">' + L('Thêm FamilyHub vào Màn hình chính, mở app rồi dán thẻ khóa này vào.', 'Add FamilyHub to your Home Screen, open it, then paste this card in.') + '</div>'
-        + '<div style="font-family:monospace;font-size:16px;letter-spacing:1px;word-break:break-all;padding:12px;border:1px solid var(--hairline,#e4dbe0);border-radius:6px;background:#fff;margin-bottom:16px">' + _esc(parsed.display) + '</div>'
-        + '<button id="fh-handoff-copy" style="background:var(--brand,#ae2070);color:#fff;border:none;border-radius:9999px;padding:13px 22px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">' + L('Sao chép thẻ khóa', 'Copy the card') + '</button>'
-        + '<div><button id="fh-handoff-close" style="background:none;border:none;color:var(--muted,#7a5a6e);margin-top:14px;font-size:14px;font-family:inherit;cursor:pointer">' + L('Đóng', 'Close') + '</button></div>'
+        + '<div style="color:var(--muted);line-height:1.6;margin-bottom:18px">' + L('Thêm FamilyHub vào Màn hình chính, mở app rồi dán thẻ khóa này vào.', 'Add FamilyHub to your Home Screen, open it, then paste this card in.') + '</div>'
+        + '<div style="font-family:monospace;font-size:16px;letter-spacing:1px;word-break:break-all;padding:12px;border:1px solid var(--hairline);border-radius:6px;background:var(--white);margin-bottom:16px">' + _esc(parsed.display) + '</div>'
+        + '<button id="fh-handoff-copy" style="background:var(--brand);color:var(--white);border:none;border-radius:9999px;padding:13px 22px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">' + L('Sao chép thẻ khóa', 'Copy the card') + '</button>'
+        + '<div><button id="fh-handoff-close" style="background:none;border:none;color:var(--muted);margin-top:14px;font-size:14px;font-family:inherit;cursor:pointer">' + L('Đóng', 'Close') + '</button></div>'
         + '</div>';
       const mount = () => {
         document.body.appendChild(ov);
