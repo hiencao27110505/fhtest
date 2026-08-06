@@ -58,15 +58,43 @@ function matchCategoryName(guess) {
   return null;
 }
 
+/* The family's own history is the strongest category signal there is: if a
+   description was categorized by a human before, a new row with the same
+   description almost certainly belongs there too. window.txns is newest-first
+   and already client-side-decrypted, so the first hit per description is the
+   most recent human choice. */
+function csvHistoryCategoryMap() {
+  var map = {};
+  (window.txns || []).forEach(function(t) {
+    if (!t.note || !catValid(t.cat)) return;
+    var k = normDescForDedup(t.note);
+    if (!map[k]) map[k] = t.cat;
+  });
+  return map;
+}
+
 /* One candidate per data row. Never throws on a bad row -- flags it and
-   moves on, so one malformed line can't abort the whole import. */
+   moves on, so one malformed line can't abort the whole import.
+
+   Category resolution tries three signals in confidence order: the file's
+   own category column (exact after normalization), then the family's history
+   (same description, previously categorized by a human), then guessCat()'s
+   keyword matching (the same guesser bulk logging uses). All three only ever
+   produce categories the family actually has, and a guess is never silently
+   final -- it lands as a visible, tappable-to-change default on the review
+   screen, which is the human gate before anything writes. */
 function buildCsvCandidates(parsed, result) {
   var mapping = (result.llm && result.llm.column_mapping) || Object.keys(result.columnMap).map(function(i){
     return { column_index:+i, field:result.columnMap[i].field, confidence:result.columnMap[i].confidence };
   });
+  // First-wins: a file can have two columns mapping to the same field (e.g.
+  // "description" AND "note" are both description aliases) -- the earlier
+  // column is the primary one; last-wins silently swapped every description
+  // for the note text.
   var colFor = {};
-  mapping.forEach(function(m){ colFor[m.field] = m.column_index; });
+  mapping.forEach(function(m){ if(colFor[m.field] === undefined) colFor[m.field] = m.column_index; });
   var convention = result.llm && result.llm.date_convention;
+  var historyMap = csvHistoryCategoryMap();
 
   return parsed.rows.map(function(row, i) {
     var flags = [];
@@ -86,6 +114,15 @@ function buildCsvCandidates(parsed, result) {
     if (!desc) flags.push('description_missing');
 
     var catName = matchCategoryName(catGuess);
+    var catSource = catName ? 'file' : null;
+    if (!catName && desc) {
+      var h = historyMap[normDescForDedup(desc)];
+      if (h) { catName = h; catSource = 'history'; }
+    }
+    if (!catName && desc && typeof guessCat === 'function') {
+      var g = guessCat(desc);
+      if (g && catValid(g)) { catName = g; catSource = 'keyword'; }
+    }
     if (!catName) flags.push('needs_category');
 
     return {
@@ -93,7 +130,7 @@ function buildCsvCandidates(parsed, result) {
       date: date, dateDisplay: date ? (date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0')) : '',
       amount: amount, negative: aclass.status === 'ok' && String(amtRaw).trim().indexOf('-') === 0,
       description: desc || catGuess || L('(không có mô tả)','(no description)'),
-      categoryGuess: catGuess, categoryName: catName,
+      categoryGuess: catGuess, categoryName: catName, catSource: catSource,
     };
   });
 }
