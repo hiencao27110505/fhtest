@@ -333,9 +333,15 @@
   // ── Any member: unlock this device with the passcode (offline-capable —
   //    a wrong code simply fails the AES-GCM unwrap, no server needed) ──
   window.fhUnlockPrompt = function () {
-    // Key Card families (0042) unlock with the card, not the 6-digit passcode.
-    // Delegating here routes every existing caller (lock bar, write-lock, nudge).
+    // Card families unlock with the card; passcode families with the code. This
+    // routes every caller (lock bar, write-lock, nudge). During the dual-wrap
+    // window the card prompt itself links to the code as a fallback.
     if (window.fhHasCard && window.fhHasCard() && window.fhCardEnterPrompt) { return window.fhCardEnterPrompt(); }
+    return window.fhPasscodeUnlockPrompt();
+  };
+  // The 6-digit passcode unlock — used directly for passcode families, and as the
+  // dual-wrap fallback the card prompt links to while a passcode still exists.
+  window.fhPasscodeUnlockPrompt = function () {
     const enc = window.DB && window.DB.enc;
     if (!enc || !enc.wrapped_dek) { window.toast && window.toast(L('Gia đình chưa đặt mã', 'No passcode set yet')); return; }
     const why = enc.enc_state === 'dual'

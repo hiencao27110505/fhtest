@@ -353,6 +353,9 @@
         const _pc = window.__fhPendingCard; window.__fhPendingCard = null;
         setTimeout(() => { try { window.fhCardUnlock && window.fhCardUnlock(_pc); } catch (e) {} }, 300);
       }
+      // proactively surface the Key Card migration (owner, enc, no card yet) —
+      // the USP moment on open, not a buried Settings button. Once per session.
+      setTimeout(() => { try { window.fhCardProactive && window.fhCardProactive(); } catch (e) {} }, 3500);
       return true;
     } catch (e) { console.warn('loadFamilyData failed', e); return false; }
     finally { _hideLoading(); fhFresh(); }     // the chip must clear even if the hydrate failed

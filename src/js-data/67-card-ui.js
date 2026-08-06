@@ -202,6 +202,37 @@
     }
   };
 
+  /* Proactive migration intro (returning owner, no card yet) — the USP moment,
+     surfaced on open instead of buried in Settings. Tapping mints + shows the
+     card to save; the old 6-digit code keeps working until Phase D removes it. */
+  window.fhCardMigrateIntro = function () {
+    _fhSheet('<div class="fh-s-h">' + L('Nhà mình vừa có thẻ khóa riêng', 'Your family just got its own Key Card') + '</div>'
+      + '<div class="fh-s-sub">' + L('Trước giờ tiền nong đã được khóa. Giờ có một tấm thẻ khóa mạnh hơn nhiều, khóa hết mọi thứ và không ai bẻ được, kể cả tụi mình.',
+                                     'Your money was already locked. Now there’s a much stronger card that locks everything, one nobody can break, us included.') + '</div>'
+      + '<div class="fh-s-sub">' + L('Bấm để tạo thẻ khóa của nhà rồi lưu lại. Mã 6 số cũ vẫn dùng được cho tới khi bạn gỡ.',
+                                     'Tap to create your family’s card and save it. The old 6-digit code keeps working until you remove it.') + '</div>'
+      + _btn(L('Tạo thẻ khóa của nhà', 'Create the family Key Card'), 'fhCardMigrate(this)', _S.cta)
+      + _btn(L('Để sau', 'Later'), '_fhCardLater();_closeOv()', _S.ghost));
+  };
+  window._fhCardLater = function () { try { localStorage.setItem('fh-card-later', String(Date.now())); } catch (e) {} };
+  // Once per session, surface the intro for an owner whose family has no card
+  // yet. "Để sau" snoozes it ~5 days. Members can't mint, so they're skipped
+  // (their locked devices already get the card prompt via the lock bar).
+  window.fhCardProactive = async function () {
+    try {
+      if (fhEncState() === 'off' || !fhKeyReady()) return;
+      if (window.fhHasCard && window.fhHasCard()) return;
+      if (window.__fhCardPromptShown) return; window.__fhCardPromptShown = 1;
+      let later = 0; try { later = Number(localStorage.getItem('fh-card-later') || 0); } catch (e) {}
+      if (later && Date.now() - later < 5 * 86400000) return;
+      let owner = false;
+      try { const r = await sb.from('families').select('owner_id').eq('id', window.DB.fid).maybeSingle(); owner = !!(r.data && window.fhUser && r.data.owner_id === window.fhUser.id); } catch (e) {}
+      if (!owner) return;
+      if (document.querySelector('.sheet.on, .modal.on')) return;
+      window.fhCardMigrateIntro();
+    } catch (e) {}
+  };
+
   /* Retire the old 6-digit passcode (owner, after the family is on the card).
      Arm-then-confirm; server refuses unless a live card wrap exists. */
   window.fhDropPasscode = async function (btn) {
@@ -247,7 +278,12 @@
       saveLabel: L('Mở khóa', 'Unlock'),
       body: '<div class="fh-s-sub">' + L('Máy này cần thẻ khóa của nhà để mở dữ liệu. Dán, quét hoặc gõ tấm thẻ vào đây.',
                                          'This device needs your family’s card to open the data. Paste, scan or type it here.') + '</div>'
-        + '<div class="field"><input id="fh-card-in" placeholder="FH-XXXX-XXXX-…" autocapitalize="characters" autocomplete="off" spellcheck="false" oninput="fhModalDirty()"></div>',
+        + '<div class="field"><input id="fh-card-in" placeholder="FH-XXXX-XXXX-…" autocapitalize="characters" autocomplete="off" spellcheck="false" oninput="fhModalDirty()"></div>'
+        // dual-wrap fallback: while the family still has a 6-digit code, offer it
+        // so nobody is ever stuck mid-migration before they've received the card
+        + ((window.DB && window.DB.enc && window.DB.enc.wrapped_dek)
+            ? '<div style="text-align:center;margin-top:4px"><button class="fh-s-ghost" onclick="_closeOv();fhPasscodeUnlockPrompt()">' + L('Hoặc dùng mã 6 số', 'Or use the 6-digit code') + '</button></div>'
+            : ''),
       required: () => [{ el: 'fh-card-in', ok: FHCrypto.parseCard((document.getElementById('fh-card-in') || {}).value || '').ok }],
       reqMsg: L('Thẻ khóa chưa đúng, kiểm tra lại nha', 'That card doesn’t look right, check it again'),
       save: async () => {
