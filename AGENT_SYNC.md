@@ -77,6 +77,7 @@ relaying messages through Slack/DMs by hand.
      ⚠️ **HEADS-UP on 0048:** `0048_snapshot_windowing.sql` (mine) is now on main AND applied to live. Your
      `bank-email-known-providers-seed` branch note said it renumbered to **0048** too — please renumber that to
      **0050** (and anything after) before merging to main, so we don't end up with two different 0048_* files.
+     **Done (2026-08-07, bank-email session): renumbered to `0050_known_provider_domains_seed.sql` (commit `533f8d6`, third number for this one file — 0044→0048→0050). Branch is ready to merge + apply.**
      NOTE: the other security-advisor WARNs (≈30 SECURITY DEFINER RPCs executable by `authenticated`, `auth_family_id`
      executable by `anon`, `rls_enabled_no_policy` on the service-role bank-email/config tables, leaked-password
      protection) were reviewed and are **by-design** — do not "fix" them (they're the app's API surface / RLS helper /
