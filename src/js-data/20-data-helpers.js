@@ -69,8 +69,8 @@
   function updateHeroFam() {
     const box = document.getElementById('hero-fam');
     if (box && window.FAM) box.innerHTML = (window.FAM.members || []).slice(0, 5).map((mm) =>
-      '<div class="av av-hero" style="background:' + mm.color + '">' + inits(mm.name) + '</div>').join('') +
-      '<span class="hero-fam-cap">' + (window.FAM.familyName || '') + '</span>';
+      '<div class="av av-hero" style="background:' + mm.color + '">' + window.esc(inits(mm.name)) + '</div>').join('') +
+      '<span class="hero-fam-cap">' + window.esc(window.FAM.familyName || '') + '</span>';
   }
 
   // first-load spinner (so the app never flashes empty/mock before real data arrives)
@@ -106,9 +106,20 @@
     if (error) { console.warn(what || 'write failed', error); throw error; }
     return data;
   }
-  // re-fetch everything shortly after any write so every screen stays consistent
+  // re-fetch shortly after any write so every screen stays consistent. R6: default to a
+  // WINDOWED refresh (recent txns/photos/reactions merged onto what we hold); pass
+  // full=true for a write that can touch an out-of-window row (txn edit/delete, a
+  // reaction on an old txn), so the change can't be silently dropped by the window.
   let _syncTimer = null;
-  function _syncSoon() { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} clearTimeout(_syncTimer); _syncTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 700); }
+  function _syncSoon(full) { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} clearTimeout(_syncTimer); _syncTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(full ? {} : { windowed: true }); }, 700); }
+  // Is a loaded transaction (by DB id) older than the current refresh window? Unknown
+  // id → treated as old (forces full) so an out-of-window change is never missed.
+  function _isOldTxnById(dbId) {
+    if (!window.DB._winBoundMs) return false;                  // no window in effect → windowed == full, doesn't matter
+    const arr = window.txns || [];
+    for (let i = 0; i < arr.length; i++) { if (arr[i]._dbId === dbId) return !!(arr[i]._d && arr[i]._d.getTime() < window.DB._winBoundMs); }
+    return true;
+  }
 
   // colored txn-row avatars from the real member palette (overrides the mock spMap version)
   window.spAv = function (who) {
@@ -116,17 +127,16 @@
     if (key === 'both' || key === 'shared') mm = window.membersMeta && window.membersMeta['Shared'];
     else if (window.membersMeta) { for (const n in window.membersMeta) { if (n.toLowerCase() === key) { mm = window.membersMeta[n]; break; } } }
     const col = mm ? mm.col : '#8f8a99', ini = mm ? mm.ini : '👥';
-    return '<div class="r-sp av" style="background:' + col + ';color:#fff">' + ini + '</div>';
+    return '<div class="r-sp av" style="background:' + col + ';color:#fff">' + window.esc(ini) + '</div>';
   };
 
   // rebuild the "who paid" / "added by" chips from the real family (replaces mock Emma/James/…)
   function _rebuildWhoChips() {
     const mems = (window.FAM && window.FAM.members) || [];
     const bothLabel = (window.LANG === 'vi') ? 'Chung' : 'Both';
-    const esc = (s) => String(s || '').replace(/"/g, '&quot;');
     function fill(id, onclick) {
       const box = document.getElementById(id); if (!box) return;
-      let html = mems.map((m, i) => '<button class="choice' + (i === 0 ? ' on' : '') + '" data-v="' + esc(m.name) + '" onclick="' + onclick + '">' + m.name + '</button>').join('');
+      let html = mems.map((m, i) => '<button class="choice' + (i === 0 ? ' on' : '') + '" data-v="' + window.esc(m.name) + '" onclick="' + onclick + '">' + window.esc(m.name) + '</button>').join('');
       html += '<button class="choice" data-v="Both" onclick="' + onclick + '">' + bothLabel + '</button>';
       box.innerHTML = html;
     }

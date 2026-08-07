@@ -24,6 +24,19 @@ html.fh-stale #fh-updating{display:flex}
 @keyframes fhspin2{to{transform:rotate(360deg)}}
 @keyframes fh-up-in{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){#fh-updating{animation:none}#fh-updating .fu-dot{animation-duration:2s}}
+/* New-build chip: a quiet, tappable prompt at the bottom. Unlike the old silent
+   mid-session reload, the swap only happens when the user taps here (or when the
+   app is next hidden with nothing in flight). Bottom-anchored so it never collides
+   with the top "Updating…" chip. */
+#fh-newver{position:fixed;left:50%;transform:translateX(-50%);z-index:61;display:none;align-items:center;gap:8px;
+  bottom:calc(max(env(safe-area-inset-bottom),0px) + 16px);padding:9px 16px;border-radius:100px;border:none;
+  background:var(--brand);color:#fff;font-family:inherit;font-size:13px;font-weight:700;letter-spacing:-.01em;
+  box-shadow:0 8px 24px var(--brand-glow,rgba(26,17,23,.28));cursor:pointer;animation:fh-nv-in .32s cubic-bezier(.32,.72,0,1) both}
+html.fh-newver #fh-newver{display:flex}
+#fh-newver:active{transform:translateX(-50%) scale(.96)}
+#fh-newver svg{width:15px;height:15px;flex-shrink:0}
+@keyframes fh-nv-in{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+@media (prefers-reduced-motion:reduce){#fh-newver{animation:none}}
 .ob-progress{position:absolute;top:max(env(safe-area-inset-top),0px);left:0;right:0;height:3px;background:var(--divider);z-index:6;opacity:0;transition:opacity .3s}
 /* onboarding form fields: white so they read on the canvas background (Apple grouped-form look) */
 #onboarding .field input{background:var(--white);border:1px solid var(--hairline)}
@@ -148,3 +161,7 @@ html.fh-stale #fh-updating{display:flex}
 .set-row.danger{color:var(--danger)}
 .set-row.danger .set-ic{background:var(--danger-tint);color:var(--danger)}
 .set-row .chev{margin-left:auto;color:var(--chev);flex-shrink:0}
+/* Install row: only meaningful when the app isn't already installed and an install
+   path exists (85-install.js toggles html.fh-can-install). */
+.set-row.set-install{display:none}
+html.fh-can-install .set-row.set-install{display:flex}

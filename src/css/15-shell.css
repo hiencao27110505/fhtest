@@ -1,6 +1,9 @@
 /* iOS PWA shell — mirrors momo/prototypes/createbank so the app fills the screen and text never auto-scales */
 html{height:100%;min-height:calc(100% + env(safe-area-inset-top));overflow:hidden;background:var(--canvas);-webkit-text-size-adjust:100%;text-size-adjust:100%}
-body{height:100%;overflow:hidden;font-family:var(--text);color:var(--ink);background:var(--canvas);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{height:100%;overflow:hidden;font-family:var(--text);color:var(--ink);background:var(--canvas);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;touch-action:manipulation}
+/* touch-action:manipulation kills the double-tap-to-zoom gesture (and its 300ms tap
+   delay) now that zoom is re-enabled in the viewport — pinch-to-zoom still works, so
+   accessibility is preserved without stray zooms while tapping fast. */
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;transition:transform .18s cubic-bezier(.4,0,.2,1)}
 button:active{transform:scale(.95)}
 input{font-family:inherit}

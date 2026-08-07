@@ -177,7 +177,7 @@ var EN_DEFAULT={
   /* category detail */
   cdSpentThisMonth:'Spent this month', cdTransactions:'Transactions', logExpenseBtn:'Log expense',
   /* status & misc */
-  savingPhoto:'Saving photo…', updating:'Updating…', offline:"Offline. Changes save here, sync when you're back",
+  savingPhoto:'Saving photo…', updating:'Updating…', offline:"Offline. Changes save here, sync when you're back", newVersion:'New version — tap to update', setInstall:'Add to Home Screen',
   deletePhoto:'Delete photo', addPhotoLine:'📷 Add a photo', namePh:'Name',
   /* aria labels */
   ariaTheme:'Theme', ariaPrevMonth:'Previous month', ariaNextMonth:'Next month', ariaAdd:'Add', ariaPhoto:'Photo',
@@ -286,7 +286,7 @@ var I18N={
     /* category detail */
     cdSpentThisMonth:'Đã chi tháng này', cdTransactions:'Giao dịch', logExpenseBtn:'Ghi khoản chi',
     /* status & misc */
-    savingPhoto:'Đang lưu ảnh…', updating:'Đang cập nhật…', offline:'Đang ngoại tuyến. Thay đổi vẫn lưu ở đây, có mạng lại là tự đồng bộ.',
+    savingPhoto:'Đang lưu ảnh…', updating:'Đang cập nhật…', offline:'Đang ngoại tuyến. Thay đổi vẫn lưu ở đây, có mạng lại là tự đồng bộ.', newVersion:'Có bản mới — chạm để cập nhật', setInstall:'Thêm vào màn hình chính',
     deletePhoto:'Xoá ảnh', addPhotoLine:'📷 Thêm ảnh', namePh:'Tên',
     /* aria labels */
     ariaTheme:'Giao diện', ariaPrevMonth:'Tháng trước', ariaNextMonth:'Tháng sau', ariaAdd:'Thêm', ariaPhoto:'Ảnh',

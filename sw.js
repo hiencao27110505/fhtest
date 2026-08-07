@@ -1,5 +1,5 @@
 /* FamilyHub — offline-first service worker */
-const CACHE_NAME = 'familyhub-v289';
+const CACHE_NAME = 'familyhub-v296';
 /* Photos live in their own cache, deliberately NOT tied to CACHE_NAME. Folding
    them together would throw every photo away on each app release, which is the
    exact re-download this cache exists to prevent. Nothing here ever goes stale:
@@ -18,6 +18,8 @@ const ASSETS = [
   './manifest.json',
   './icon.svg',
   './icon.png',
+  './icon-512.png',
+  './icon-maskable.png',
   // Vendored so cold start has no cross-origin dependency (see index.html). These are
   // version-pinned and content-stable, so they ride the normal per-release cache bump.
   './vendor/supabase.js',
@@ -26,10 +28,19 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  self.skipWaiting();
+  // NOTE: no skipWaiting() here. A new build now WAITS until the page tells it to
+  // take over (SKIP_WAITING below), so the app is never reloaded out from under a
+  // user mid-edit. The page shows a "new version" chip and applies it on tap, or
+  // silently when it's next hidden and nothing is in flight (see 80-onboard-boot.js).
   e.waitUntil(
     caches.open(CACHE_NAME).then((c) => c.addAll(ASSETS)).catch(() => {})
   );
+});
+
+// The page posts this when the user taps "update", when it's safe to swap in the
+// background, or from enc-recovery (which needs an immediate self-heal reload).
+self.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
@@ -38,7 +49,12 @@ self.addEventListener('activate', (e) => {
       // MEDIA_CACHE must survive the sweep — it is not versioned, so it would
       // otherwise be deleted on every release.
       Promise.all(keys.filter((k) => k !== CACHE_NAME && k !== MEDIA_CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    )
+    // Navigation preload: let the browser start fetching the document IN PARALLEL with
+    // booting this worker, instead of waiting for the worker then fetching. Shaves the
+    // SW-startup latency off every cold navigation. Consumed in the navigate handler below.
+    .then(() => (self.registration.navigationPreload ? self.registration.navigationPreload.enable().catch(() => {}) : undefined))
+    .then(() => self.clients.claim())
   );
 });
 
@@ -106,15 +122,20 @@ self.addEventListener('fetch', (e) => {
   // first response, so every write appeared to revert after loadFamilyData re-read.
   // Let them go straight to the network — always fresh.
   if (url.origin !== self.location.origin) return;
-  // Network-first for the document so edits show up; cache fallback offline.
+  // Network-first for the document so edits show up; cache fallback offline. Uses the
+  // navigation preload response (fetched in parallel with worker startup) when present.
   if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req).then((res) => {
+    e.respondWith((async () => {
+      try {
+        const res = (await e.preloadResponse) || await fetch(req);
         const copy = res.clone();
         caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
         return res;
-      }).catch(() => caches.match(req).then((r) => r || caches.match('./index.html')))
-    );
+      } catch (err) {
+        const cached = await caches.match(req);
+        return cached || caches.match('./index.html');
+      }
+    })());
     return;
   }
   // Cache-first for everything else.

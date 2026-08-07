@@ -101,8 +101,8 @@ function renderEvents(){
     var dueTxt=(dl===0?L('hôm nay','today'):L('còn '+dl+' ngày','in '+dl+' day'+(dl!==1?'s':'')));
     rows+='<div class="ev-row" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+thumb
       +(funded
-        ? '<div class="evb"><div class="evt"><span>'+e.name+'</span><span class="ev-ready">✓ '+L('Sẵn sàng','Ready')+'</span></div><div class="evs">'+L('Đã đủ tiền','Fully funded')+' · '+dueTxt+'</div></div></div>'
-        : '<div class="evb"><div class="evt"><span>'+e.name+'</span><span class="p num">'+pct+'%</span></div>'
+        ? '<div class="evb"><div class="evt"><span>'+esc(e.name)+'</span><span class="ev-ready">✓ '+L('Sẵn sàng','Ready')+'</span></div><div class="evs">'+L('Đã đủ tiền','Fully funded')+' · '+dueTxt+'</div></div></div>'
+        : '<div class="evb"><div class="evt"><span>'+esc(e.name)+'</span><span class="p num">'+pct+'%</span></div>'
           +'<div class="evs">'+dueTxt+' · '+fmt(Math.max(0,e.target-e.saved))+L(' còn lại',' to go')+'</div>'
           +'<div class="evbar"><i style="width:'+pct+'%"></i></div></div></div>');
   });

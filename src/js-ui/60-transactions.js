@@ -34,8 +34,8 @@ function txRow(t){
   // data-rxid (only persisted rows) arms the long-press reaction picker; rxChip appends any reactions inline
   var rxid=t._dbId?(' data-rxid="'+escAttr(t._dbId)+'"'):'';
   var chip=(typeof rxChip==='function')?rxChip(t):'';
-  return '<div class="row tap'+(chip?' has-rx':'')+'"'+rxid+' onclick="openExpenseDetail(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+t.ico+'</div>'+spAv(t.who)+'</div>'
-    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s">'+dstr+' · '+t.cat+'</div></div>'
+  return '<div class="row tap'+(chip?' has-rx':'')+'"'+rxid+' onclick="openExpenseDetail(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico)+'</div>'+spAv(t.who)+'</div>'
+    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+dstr+' · '+esc(t.cat)+'</div></div>'
     +'<div class="r-amt num">'+fmt(t.amt)+'</div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
@@ -49,8 +49,8 @@ function txMatch(t){
 // Unrealized "set aside" row — money reserved from this month's budget toward an event.
 function resRow(k){   // an event funded from this month → an "Events" future item
   var e=events[k], today=sameDay(e.d,TODAY);
-  return '<div class="row res" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="r-ico-wrap"><div class="r-ico">'+e.emoji+'</div></div>'
-    +'<div class="r-body"><div class="r-t">'+e.name+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>'+L('Sự kiện','Events')+' · '+(today?L('hôm nay','today'):curMoTxt())+'</div></div>'
+  return '<div class="row res" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="r-ico-wrap"><div class="r-ico">'+esc(e.emoji)+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+esc(e.name)+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>'+L('Sự kiện','Events')+' · '+(today?L('hôm nay','today'):curMoTxt())+'</div></div>'
     +'<div class="r-amt num">'+fmt(e.setAside)+'</div></div>';
 }
 function futRow(t){   // a standalone future expense logged in the expense sheet
@@ -63,8 +63,8 @@ function futRow(t){   // a standalone future expense logged in the expense sheet
                : '<span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>';
   var sub=pend ? L('Chờ cả nhà duyệt','Waiting for the family')
                : (today?L('Chi tiêu dự kiến · hôm nay','Planned expense · today'):L('Chi tiêu tương lai','Future expense')+' · '+curMoTxt());
-  return '<div class="row res" onclick="'+onclick+'"><div class="r-ico-wrap"><div class="r-ico">'+(t.ico||'📅')+'</div></div>'
-    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s">'+tag+sub+'</div></div>'
+  return '<div class="row res" onclick="'+onclick+'"><div class="r-ico-wrap"><div class="r-ico">'+esc(t.ico||'📅')+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+tag+sub+'</div></div>'
     +'<div class="r-amt num">'+fmt(t.amt)+'</div></div>';
 }
 function renderTxns(){
@@ -85,7 +85,7 @@ function renderTxns(){
   }
   var af=document.getElementById('act-filter');
   if(af){
-    af.innerHTML=txFilter?('<div class="filter-chip">'+txFilter.val+'<button onclick="clearFilter()" aria-label="'+L('Xoá','Clear')+'">&times;</button></div>'):'';
+    af.innerHTML=txFilter?('<div class="filter-chip">'+esc(txFilter.val)+'<button onclick="clearFilter()" aria-label="'+L('Xoá','Clear')+'">&times;</button></div>'):'';
   }
   var htx=document.getElementById('home-tx'); if(htx)setHTMLIf(htx, txns.filter(function(t){return !t.future;}).slice(0,3).map(txRow).join(''));
   if(typeof renderRxWall==='function') renderRxWall();   // keep the Phòng khách feed in sync with the ledger
@@ -224,8 +224,8 @@ function addExpense(){
       if(typeof clearDrafts==='function') clearDrafts();
       document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
       closeExpense();
-      if(past){ toast(L(note+' đã lưu · thêm ảnh để ghi nhớ nhé 📸',note+' saved · add a photo to remember it 📸')); floatEmojis('📸'); goMoments('memories'); }
-      else { toast(L(note+' đã thêm vào Sự kiện · còn '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' an toàn để tiêu',note+' added to Events · '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' safe to spend')); floatEmojis('🎈'); goMoments('plans'); }
+      if(past){ toast(L(esc(note)+' đã lưu · thêm ảnh để ghi nhớ nhé 📸',esc(note)+' saved · add a photo to remember it 📸')); floatEmojis('📸'); goMoments('memories'); }
+      else { toast(L(esc(note)+' đã thêm vào Sự kiện · còn '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' an toàn để tiêu',esc(note)+' added to Events · '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' safe to spend')); floatEmojis('🎈'); goMoments('plans'); }
     }
     return;
   }
@@ -259,7 +259,7 @@ function addExpense(){
     var catOv=document.getElementById('cat-overlay').classList.contains('on');
     closeExpense();
     if(hadPhoto){ toast(L('Đã ghi '+fmt(amt)+' · lưu vào Kỷ niệm 📸','Logged '+fmt(amt)+' · saved to Memories 📸')); floatEmojis('📸'); }
-    else if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast(L('Lưu ý: '+cat+' đã vượt ngân sách','Heads up: '+cat+' is now over budget'));
+    else if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast(L('Lưu ý: '+esc(cat)+' đã vượt ngân sách','Heads up: '+esc(cat)+' is now over budget'));
     else toast(L('Đã ghi '+fmt(amt)+' · còn '+fmt(Math.max(0,months[curMonthKey()].budget-jul.spent))+' an toàn để tiêu','Logged '+fmt(amt)+' · '+fmt(Math.max(0,months[curMonthKey()].budget-jul.spent))+' safe to spend'));
     if(catOv && curDetail){ openCat(curDetail.type,curDetail.val); }   // logged from a category detail → refresh it
     else { go('spending'); segTo('overview'); }

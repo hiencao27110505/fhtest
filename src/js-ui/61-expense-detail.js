@@ -63,7 +63,7 @@ function renderExpenseDetail(){
   var body=document.getElementById('exd-body'); if(!body) return;
   var s=catStyle[t.cat]||['🧾','#f2eef6','var(--cat-other)'], wd=_whoDisp(t.who);
   var html='<div class="exd-focal">'
-    +'<div class="exd-ico" style="background:'+s[1]+';color:'+s[2]+'">'+t.ico+'</div>'
+    +'<div class="exd-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico)+'</div>'
     +'<div class="exd-amt num">'+fmt(t.amt)+'</div>'
     +'<div class="exd-note">'+esc(t.note||L('Khoản chi','Expense'))+'</div>'
     +(t.future?('<div class="exd-plan">📅 '+L('Chi tiêu dự kiến','Planned')+'</div>'):'')

@@ -266,8 +266,8 @@ function submitReview(type, ref, emoji){
   try{ if(typeof renderGoalDetailIfOpen==='function') renderGoalDetailIfOpen(); }catch(e){}
   try{ var eo=document.getElementById('event-overlay'); if(eo && eo.classList.contains('on') && typeof openEvent==='function' && window.curEvent) openEvent(window.curEvent); }catch(e){}
   var nm=_reqName(item.creatorId);
-  if(aligned){ if(typeof floatEmojis==='function') floatEmojis('🥰'); toast(L('Đã đồng ý với '+nm+' 🥰','You’re in with '+nm+' 🥰')); }
-  else { toast(L('Đã gửi cảm nhận cho '+nm, 'Sent your take to '+nm)); }
+  if(aligned){ if(typeof floatEmojis==='function') floatEmojis('🥰'); toast(L('Đã đồng ý với '+esc(nm)+' 🥰','You’re in with '+esc(nm)+' 🥰')); }
+  else { toast(L('Đã gửi cảm nhận cho '+esc(nm), 'Sent your take to '+esc(nm))); }
 }
 window.submitReview=submitReview;
 
@@ -307,8 +307,8 @@ function reqCheckArrivals(){
   var lead=fresh[0], who=_reqName(lead.r.by)||lead.r.byName, isYes=(lead.r.emoji==='🥰');
   if(typeof floatEmojis==='function') floatEmojis(lead.r.emoji);
   if(typeof toast==='function'){
-    if(isYes) toast(L(who+' đã đồng ý với “'+lead.i.title+'” 🥰', who+' is in on “'+lead.i.title+'” 🥰'));
-    else      toast(L(who+' vừa phản hồi “'+lead.i.title+'”', who+' responded to “'+lead.i.title+'”'));
+    if(isYes) toast(L(esc(who)+' đã đồng ý với “'+esc(lead.i.title)+'” 🥰', esc(who)+' is in on “'+esc(lead.i.title)+'” 🥰'));
+    else      toast(L(esc(who)+' vừa phản hồi “'+esc(lead.i.title)+'”', esc(who)+' responded to “'+esc(lead.i.title)+'”'));
   }
 }
 window.reqCheckArrivals=reqCheckArrivals;

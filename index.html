@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<!-- zoom stays ENABLED (WCAG 1.4.4): no maximum-scale / user-scalable=no. iOS may zoom
+     a <16px input on focus; touch-action:manipulation (CSS) removes double-tap zoom. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>FamilyHub</title>
+<meta name="description" content="One place for your family's money — a shared pool, bills, goals and allowances, private by design."/>
+<!-- Light-only design: declare it so the browser doesn't auto-darken form controls/colours. -->
+<meta name="color-scheme" content="light"/>
 <meta name="theme-color" content="#2E9E6B"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -88,7 +93,10 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
 /* iOS PWA shell — mirrors momo/prototypes/createbank so the app fills the screen and text never auto-scales */
 html{height:100%;min-height:calc(100% + env(safe-area-inset-top));overflow:hidden;background:var(--canvas);-webkit-text-size-adjust:100%;text-size-adjust:100%}
-body{height:100%;overflow:hidden;font-family:var(--text);color:var(--ink);background:var(--canvas);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{height:100%;overflow:hidden;font-family:var(--text);color:var(--ink);background:var(--canvas);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;touch-action:manipulation}
+/* touch-action:manipulation kills the double-tap-to-zoom gesture (and its 300ms tap
+   delay) now that zoom is re-enabled in the viewport — pinch-to-zoom still works, so
+   accessibility is preserved without stray zooms while tapping fast. */
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;transition:transform .18s cubic-bezier(.4,0,.2,1)}
 button:active{transform:scale(.95)}
 input{font-family:inherit}
@@ -2067,6 +2075,19 @@ html.fh-stale #fh-updating{display:flex}
 @keyframes fhspin2{to{transform:rotate(360deg)}}
 @keyframes fh-up-in{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){#fh-updating{animation:none}#fh-updating .fu-dot{animation-duration:2s}}
+/* New-build chip: a quiet, tappable prompt at the bottom. Unlike the old silent
+   mid-session reload, the swap only happens when the user taps here (or when the
+   app is next hidden with nothing in flight). Bottom-anchored so it never collides
+   with the top "Updating…" chip. */
+#fh-newver{position:fixed;left:50%;transform:translateX(-50%);z-index:61;display:none;align-items:center;gap:8px;
+  bottom:calc(max(env(safe-area-inset-bottom),0px) + 16px);padding:9px 16px;border-radius:100px;border:none;
+  background:var(--brand);color:#fff;font-family:inherit;font-size:13px;font-weight:700;letter-spacing:-.01em;
+  box-shadow:0 8px 24px var(--brand-glow,rgba(26,17,23,.28));cursor:pointer;animation:fh-nv-in .32s cubic-bezier(.32,.72,0,1) both}
+html.fh-newver #fh-newver{display:flex}
+#fh-newver:active{transform:translateX(-50%) scale(.96)}
+#fh-newver svg{width:15px;height:15px;flex-shrink:0}
+@keyframes fh-nv-in{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+@media (prefers-reduced-motion:reduce){#fh-newver{animation:none}}
 .ob-progress{position:absolute;top:max(env(safe-area-inset-top),0px);left:0;right:0;height:3px;background:var(--divider);z-index:6;opacity:0;transition:opacity .3s}
 /* onboarding form fields: white so they read on the canvas background (Apple grouped-form look) */
 #onboarding .field input{background:var(--white);border:1px solid var(--hairline)}
@@ -2191,6 +2212,10 @@ html.fh-stale #fh-updating{display:flex}
 .set-row.danger{color:var(--danger)}
 .set-row.danger .set-ic{background:var(--danger-tint);color:var(--danger)}
 .set-row .chev{margin-left:auto;color:var(--chev);flex-shrink:0}
+/* Install row: only meaningful when the app isn't already installed and an install
+   path exists (85-install.js toggles html.fh-can-install). */
+.set-row.set-install{display:none}
+html.fh-can-install .set-row.set-install{display:flex}
 
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
@@ -2302,6 +2327,8 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 <div id="fh-updating" role="status" aria-live="polite"><span class="fu-dot"></span><span data-t="updating">Updating…</span></div>
 <div id="fh-uploading" role="status" aria-live="polite"><span class="fu-dot"></span><span class="fu-txt" data-t="savingPhoto">Saving photo…</span></div>
 <div id="fh-offline" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22M16.7 16.7A6 6 0 007 8.3M5 12.5a10 10 0 013-2.3M2 8.8a15 15 0 014.2-2.7M12 20h.01"/></svg><span data-t="offline">Offline. Changes save here, sync when you’re back</span></div>
+<!-- new-build chip: shown by fhUpdateReady() when a fresh service worker is waiting; tap applies it -->
+<button id="fh-newver" type="button" onclick="fhApplyUpdate()" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0115-6.7L21 8M3 22v-6h6M21 12a9 9 0 01-15 6.7L3 16"/></svg><span data-t="newVersion">New version — tap to update</span></button>
 <div class="phone t-sage" id="phone">
 <div class="scroll" id="scroll">
 
@@ -2975,6 +3002,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <button class="set-row" onclick="closeSheet();fhManageFamily()"><span class="set-ic">👥</span><span class="set-t" data-t="setManageFamily">Manage family &amp; members</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhSavings()"><span class="set-ic">🐷</span><span class="set-t" data-t="setSavedEvents">Saved for events</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhIncome()"><span class="set-ic">💵</span><span class="set-t" data-t="setIncome">Income</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row set-install" onclick="closeSheet();fhInstallSheet()"><span class="set-ic">📲</span><span class="set-t" data-t="setInstall">Add to Home Screen</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhPushSheet()"><span class="set-ic">🔔</span><span class="set-t" data-t="setNotifications">Notifications</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();openWhatsNew()"><span class="set-ic">✨</span><span class="set-t" data-t="setWhatsNew">What's new</span><span class="wn-dot" id="wn-dot-row" style="display:none"></span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();restartOnboarding()"><span class="set-ic">↻</span><span class="set-t" data-t="setRestartOnboarding">Restart onboarding</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -3201,6 +3229,38 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 </div><!-- /phone -->
 
 <script>
+/* ---------- global error visibility ----------
+   The app is ~11k lines of inline JS across two scopes; an unexpected throw or
+   promise rejection would otherwise vanish into a console the family never opens.
+   Keep a small ring buffer (last 20, stamped with the running build) for debugging,
+   and surface a toast ONLY when the error lands right after a user gesture — so
+   boot-time noise stays quiet, but a tap that visibly failed gets acknowledged.
+   Defined FIRST (05-) so it is armed before any later module can throw. */
+window.__fhErrs = window.__fhErrs || [];
+var __fhLastGesture = 0;
+['pointerdown', 'keydown', 'touchstart'].forEach(function (evt) {
+  try { window.addEventListener(evt, function () { __fhLastGesture = Date.now(); }, { passive: true, capture: true }); } catch (e) {}
+});
+function fhLogErr(err) {
+  try {
+    var rec = {
+      t: Date.now(),
+      v: (typeof FH_VERSION !== 'undefined' && FH_VERSION) ? FH_VERSION : (window.FH_VERSION || '?'),
+      msg: (err && (err.message || err.reason)) ? String(err.message || err.reason) : String(err || 'unknown'),
+      stack: (err && err.stack) ? String(err.stack).slice(0, 800) : null
+    };
+    window.__fhErrs.push(rec);
+    if (window.__fhErrs.length > 20) window.__fhErrs.shift();
+    if (typeof console !== 'undefined') console.error('fhLogErr', rec.msg, err);
+    // Only bother the user if this immediately followed something they did.
+    if (Date.now() - __fhLastGesture < 3000 && typeof toast === 'function') {
+      toast((typeof L === 'function') ? L('Có lỗi xảy ra, thử lại', 'Something went wrong, try again') : 'Something went wrong, try again');
+    }
+  } catch (e) {}
+}
+window.fhLogErr = fhLogErr;
+window.addEventListener('error', function (e) { fhLogErr(e.error || e.message); });
+window.addEventListener('unhandledrejection', function (e) { fhLogErr(e.reason); });
 function go(name){
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('on'); });
   document.getElementById('v-'+name).classList.add('on');
@@ -3438,6 +3498,18 @@ window.fhCheck=fhCheck; window.fhFlagField=fhFlagField; window.fhClearInvalid=fh
    Renders are pure functions of state, so identical html ⇒ identical DOM ⇒ safe to skip.
    Accepts an id or an element; returns true if it actually wrote. */
 function setHTMLIf(idOrEl,h){ var e=(typeof idOrEl==='string')?document.getElementById(idOrEl):idOrEl; if(!e)return false; if(e.__sig===h)return false; e.__sig=h; e.innerHTML=h; return true; }
+/* ---------- HTML escaping (single source of truth) ----------
+   User text (names, notes, category/event/goal names, captions, emails, CSV cells)
+   flows into innerHTML strings and into inline onclick attributes all over the app.
+   Because decrypted E2EE fields also render through these same paths, an unescaped
+   value is not just a broken apostrophe — it is script running with the family key
+   unlocked. Escape EVERYTHING user-authored on the way out: esc() in text position,
+   escAttr() for a value sitting inside a quoted on*="fn('…')" handler.
+   Defined here (early) so every js-ui builder sees them; mirrored onto window so the
+   js-data module (which runs after this classic script) shares the exact same pair. */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function escAttr(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+window.esc=esc; window.escAttr=escAttr;
 
 /* ---------- budget + run-rate ---------- */
 function renderBudget(){
@@ -3657,7 +3729,7 @@ function catRowHTML(emoji,name,budget,orig){
   var lock=isFallbackCat(name);
   return '<div class="cat-row'+(lock?' cat-row-lock':'')+'" data-orig="'+(orig||'')+'">'
     +'<input class="cat-emoji" maxlength="2" value="'+(emoji||'🏷️')+'" oninput="bgDirty()">'
-    +'<input class="cat-name" placeholder="'+L('Tên','Name')+'" value="'+String(name||'').replace(/"/g,'&quot;')+'"'+(lock?' readonly':' oninput="bgDirty()"')+'>'
+    +'<input class="cat-name" placeholder="'+L('Tên','Name')+'" value="'+esc(name)+'"'+(lock?' readonly':' oninput="bgDirty()"')+'>'
     // symbol sits on the same side as fmt() puts it: ₫ after, $ before
     +'<span class="cat-bud-wrap">'+(CUR==='VND'?'':curSym())
       +'<input class="cat-bud num" inputmode="numeric" placeholder="0" value="'+amtToInput(budget)+'"'
@@ -5300,8 +5372,8 @@ function renderEvents(){
     var dueTxt=(dl===0?L('hôm nay','today'):L('còn '+dl+' ngày','in '+dl+' day'+(dl!==1?'s':'')));
     rows+='<div class="ev-row" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+thumb
       +(funded
-        ? '<div class="evb"><div class="evt"><span>'+e.name+'</span><span class="ev-ready">✓ '+L('Sẵn sàng','Ready')+'</span></div><div class="evs">'+L('Đã đủ tiền','Fully funded')+' · '+dueTxt+'</div></div></div>'
-        : '<div class="evb"><div class="evt"><span>'+e.name+'</span><span class="p num">'+pct+'%</span></div>'
+        ? '<div class="evb"><div class="evt"><span>'+esc(e.name)+'</span><span class="ev-ready">✓ '+L('Sẵn sàng','Ready')+'</span></div><div class="evs">'+L('Đã đủ tiền','Fully funded')+' · '+dueTxt+'</div></div></div>'
+        : '<div class="evb"><div class="evt"><span>'+esc(e.name)+'</span><span class="p num">'+pct+'%</span></div>'
           +'<div class="evs">'+dueTxt+' · '+fmt(Math.max(0,e.target-e.saved))+L(' còn lại',' to go')+'</div>'
           +'<div class="evbar"><i style="width:'+pct+'%"></i></div></div></div>');
   });
@@ -7238,12 +7310,8 @@ function sendSuggestion(){
   floatEmojis('💛');
 }
 
-/* User text (event names, captions, notes) goes into innerHTML and into inline
-   onclick attributes all over this file. An apostrophe — "Emma's party" — was
-   enough to break the markup or the handler, so everything user-authored is
-   escaped on the way out. esc() for text nodes, escAttr() for quoted attributes. */
-function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-function escAttr(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+/* esc() / escAttr() now live in 12-format-helpers.js (single source of truth, shared
+   with the js-data module via window). They used to be defined here. */
 
 /* Photo uploads compress + POST each image; on cellular that's tens of seconds.
    The app used to toast "Memory saved 📸" the instant the modal closed, before
@@ -7908,8 +7976,8 @@ function txRow(t){
   // data-rxid (only persisted rows) arms the long-press reaction picker; rxChip appends any reactions inline
   var rxid=t._dbId?(' data-rxid="'+escAttr(t._dbId)+'"'):'';
   var chip=(typeof rxChip==='function')?rxChip(t):'';
-  return '<div class="row tap'+(chip?' has-rx':'')+'"'+rxid+' onclick="openExpenseDetail(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+t.ico+'</div>'+spAv(t.who)+'</div>'
-    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s">'+dstr+' · '+t.cat+'</div></div>'
+  return '<div class="row tap'+(chip?' has-rx':'')+'"'+rxid+' onclick="openExpenseDetail(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico)+'</div>'+spAv(t.who)+'</div>'
+    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+dstr+' · '+esc(t.cat)+'</div></div>'
     +'<div class="r-amt num">'+fmt(t.amt)+'</div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
@@ -7923,8 +7991,8 @@ function txMatch(t){
 // Unrealized "set aside" row — money reserved from this month's budget toward an event.
 function resRow(k){   // an event funded from this month → an "Events" future item
   var e=events[k], today=sameDay(e.d,TODAY);
-  return '<div class="row res" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="r-ico-wrap"><div class="r-ico">'+e.emoji+'</div></div>'
-    +'<div class="r-body"><div class="r-t">'+e.name+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>'+L('Sự kiện','Events')+' · '+(today?L('hôm nay','today'):curMoTxt())+'</div></div>'
+  return '<div class="row res" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="r-ico-wrap"><div class="r-ico">'+esc(e.emoji)+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+esc(e.name)+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>'+L('Sự kiện','Events')+' · '+(today?L('hôm nay','today'):curMoTxt())+'</div></div>'
     +'<div class="r-amt num">'+fmt(e.setAside)+'</div></div>';
 }
 function futRow(t){   // a standalone future expense logged in the expense sheet
@@ -7937,8 +8005,8 @@ function futRow(t){   // a standalone future expense logged in the expense sheet
                : '<span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>';
   var sub=pend ? L('Chờ cả nhà duyệt','Waiting for the family')
                : (today?L('Chi tiêu dự kiến · hôm nay','Planned expense · today'):L('Chi tiêu tương lai','Future expense')+' · '+curMoTxt());
-  return '<div class="row res" onclick="'+onclick+'"><div class="r-ico-wrap"><div class="r-ico">'+(t.ico||'📅')+'</div></div>'
-    +'<div class="r-body"><div class="r-t">'+t.note+'</div><div class="r-s">'+tag+sub+'</div></div>'
+  return '<div class="row res" onclick="'+onclick+'"><div class="r-ico-wrap"><div class="r-ico">'+esc(t.ico||'📅')+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+tag+sub+'</div></div>'
     +'<div class="r-amt num">'+fmt(t.amt)+'</div></div>';
 }
 function renderTxns(){
@@ -7959,7 +8027,7 @@ function renderTxns(){
   }
   var af=document.getElementById('act-filter');
   if(af){
-    af.innerHTML=txFilter?('<div class="filter-chip">'+txFilter.val+'<button onclick="clearFilter()" aria-label="'+L('Xoá','Clear')+'">&times;</button></div>'):'';
+    af.innerHTML=txFilter?('<div class="filter-chip">'+esc(txFilter.val)+'<button onclick="clearFilter()" aria-label="'+L('Xoá','Clear')+'">&times;</button></div>'):'';
   }
   var htx=document.getElementById('home-tx'); if(htx)setHTMLIf(htx, txns.filter(function(t){return !t.future;}).slice(0,3).map(txRow).join(''));
   if(typeof renderRxWall==='function') renderRxWall();   // keep the Phòng khách feed in sync with the ledger
@@ -8098,8 +8166,8 @@ function addExpense(){
       if(typeof clearDrafts==='function') clearDrafts();
       document.getElementById('ex-amt').value=''; document.getElementById('ex-note').value=''; exPhotos=[];
       closeExpense();
-      if(past){ toast(L(note+' đã lưu · thêm ảnh để ghi nhớ nhé 📸',note+' saved · add a photo to remember it 📸')); floatEmojis('📸'); goMoments('memories'); }
-      else { toast(L(note+' đã thêm vào Sự kiện · còn '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' an toàn để tiêu',note+' added to Events · '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' safe to spend')); floatEmojis('🎈'); goMoments('plans'); }
+      if(past){ toast(L(esc(note)+' đã lưu · thêm ảnh để ghi nhớ nhé 📸',esc(note)+' saved · add a photo to remember it 📸')); floatEmojis('📸'); goMoments('memories'); }
+      else { toast(L(esc(note)+' đã thêm vào Sự kiện · còn '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' an toàn để tiêu',esc(note)+' added to Events · '+fmt(Math.max(0,months[curMonthKey()].budget-months[curMonthKey()].spent-monthReserved()))+' safe to spend')); floatEmojis('🎈'); goMoments('plans'); }
     }
     return;
   }
@@ -8133,7 +8201,7 @@ function addExpense(){
     var catOv=document.getElementById('cat-overlay').classList.contains('on');
     closeExpense();
     if(hadPhoto){ toast(L('Đã ghi '+fmt(amt)+' · lưu vào Kỷ niệm 📸','Logged '+fmt(amt)+' · saved to Memories 📸')); floatEmojis('📸'); }
-    else if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast(L('Lưu ý: '+cat+' đã vượt ngân sách','Heads up: '+cat+' is now over budget'));
+    else if(catBudget[cat] && wasUnder && jul.catSpent[cat]>catBudget[cat]) toast(L('Lưu ý: '+esc(cat)+' đã vượt ngân sách','Heads up: '+esc(cat)+' is now over budget'));
     else toast(L('Đã ghi '+fmt(amt)+' · còn '+fmt(Math.max(0,months[curMonthKey()].budget-jul.spent))+' an toàn để tiêu','Logged '+fmt(amt)+' · '+fmt(Math.max(0,months[curMonthKey()].budget-jul.spent))+' safe to spend'));
     if(catOv && curDetail){ openCat(curDetail.type,curDetail.val); }   // logged from a category detail → refresh it
     else { go('spending'); segTo('overview'); }
@@ -8205,7 +8273,7 @@ function renderExpenseDetail(){
   var body=document.getElementById('exd-body'); if(!body) return;
   var s=catStyle[t.cat]||['🧾','#f2eef6','var(--cat-other)'], wd=_whoDisp(t.who);
   var html='<div class="exd-focal">'
-    +'<div class="exd-ico" style="background:'+s[1]+';color:'+s[2]+'">'+t.ico+'</div>'
+    +'<div class="exd-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico)+'</div>'
     +'<div class="exd-amt num">'+fmt(t.amt)+'</div>'
     +'<div class="exd-note">'+esc(t.note||L('Khoản chi','Expense'))+'</div>'
     +(t.future?('<div class="exd-plan">📅 '+L('Chi tiêu dự kiến','Planned')+'</div>'):'')
@@ -8877,8 +8945,8 @@ function submitReview(type, ref, emoji){
   try{ if(typeof renderGoalDetailIfOpen==='function') renderGoalDetailIfOpen(); }catch(e){}
   try{ var eo=document.getElementById('event-overlay'); if(eo && eo.classList.contains('on') && typeof openEvent==='function' && window.curEvent) openEvent(window.curEvent); }catch(e){}
   var nm=_reqName(item.creatorId);
-  if(aligned){ if(typeof floatEmojis==='function') floatEmojis('🥰'); toast(L('Đã đồng ý với '+nm+' 🥰','You’re in with '+nm+' 🥰')); }
-  else { toast(L('Đã gửi cảm nhận cho '+nm, 'Sent your take to '+nm)); }
+  if(aligned){ if(typeof floatEmojis==='function') floatEmojis('🥰'); toast(L('Đã đồng ý với '+esc(nm)+' 🥰','You’re in with '+esc(nm)+' 🥰')); }
+  else { toast(L('Đã gửi cảm nhận cho '+esc(nm), 'Sent your take to '+esc(nm))); }
 }
 window.submitReview=submitReview;
 
@@ -8918,8 +8986,8 @@ function reqCheckArrivals(){
   var lead=fresh[0], who=_reqName(lead.r.by)||lead.r.byName, isYes=(lead.r.emoji==='🥰');
   if(typeof floatEmojis==='function') floatEmojis(lead.r.emoji);
   if(typeof toast==='function'){
-    if(isYes) toast(L(who+' đã đồng ý với “'+lead.i.title+'” 🥰', who+' is in on “'+lead.i.title+'” 🥰'));
-    else      toast(L(who+' vừa phản hồi “'+lead.i.title+'”', who+' responded to “'+lead.i.title+'”'));
+    if(isYes) toast(L(esc(who)+' đã đồng ý với “'+esc(lead.i.title)+'” 🥰', esc(who)+' is in on “'+esc(lead.i.title)+'” 🥰'));
+    else      toast(L(esc(who)+' vừa phản hồi “'+esc(lead.i.title)+'”', esc(who)+' responded to “'+esc(lead.i.title)+'”'));
   }
 }
 window.reqCheckArrivals=reqCheckArrivals;
@@ -8987,7 +9055,7 @@ function renderContribs(e){
   box.innerHTML=ids.map(function(id){
     var m=mb[id]||{}, shared=!!m.is_shared;
     var nm=shared?L('Chung','Shared'):(m.name||L('Thành viên','Member')), col=m.color||'#8f8a99';
-    return '<div class="row"><div class="av av-44" style="background:'+col+';color:#fff">'+(shared?'👥':inits(m.name||nm))+'</div>'
+    return '<div class="row"><div class="av av-44" style="background:'+col+';color:#fff">'+(shared?'👥':esc(inits(m.name||nm)))+'</div>'
       +'<div class="r-body"><div class="r-t">'+esc(nm)+'</div><div class="r-s">'+L('đã góp','contributed')+'</div></div>'
       +'<div class="r-amt num">'+fmt(c[id])+'</div></div>';
   }).join('');
@@ -9433,7 +9501,7 @@ var EN_DEFAULT={
   /* category detail */
   cdSpentThisMonth:'Spent this month', cdTransactions:'Transactions', logExpenseBtn:'Log expense',
   /* status & misc */
-  savingPhoto:'Saving photo…', updating:'Updating…', offline:"Offline. Changes save here, sync when you're back",
+  savingPhoto:'Saving photo…', updating:'Updating…', offline:"Offline. Changes save here, sync when you're back", newVersion:'New version — tap to update', setInstall:'Add to Home Screen',
   deletePhoto:'Delete photo', addPhotoLine:'📷 Add a photo', namePh:'Name',
   /* aria labels */
   ariaTheme:'Theme', ariaPrevMonth:'Previous month', ariaNextMonth:'Next month', ariaAdd:'Add', ariaPhoto:'Photo',
@@ -9542,7 +9610,7 @@ var I18N={
     /* category detail */
     cdSpentThisMonth:'Đã chi tháng này', cdTransactions:'Giao dịch', logExpenseBtn:'Ghi khoản chi',
     /* status & misc */
-    savingPhoto:'Đang lưu ảnh…', updating:'Đang cập nhật…', offline:'Đang ngoại tuyến. Thay đổi vẫn lưu ở đây, có mạng lại là tự đồng bộ.',
+    savingPhoto:'Đang lưu ảnh…', updating:'Đang cập nhật…', offline:'Đang ngoại tuyến. Thay đổi vẫn lưu ở đây, có mạng lại là tự đồng bộ.', newVersion:'Có bản mới — chạm để cập nhật', setInstall:'Thêm vào màn hình chính',
     deletePhoto:'Xoá ảnh', addPhotoLine:'📷 Thêm ảnh', namePh:'Tên',
     /* aria labels */
     ariaTheme:'Giao diện', ariaPrevMonth:'Tháng trước', ariaNextMonth:'Tháng sau', ariaAdd:'Thêm', ariaPhoto:'Ảnh',
@@ -9671,12 +9739,12 @@ function obProfileNext(){
 }
 function obMemberRowHTML(name,email,role,color,me){
   return '<div class="ob-mcard">'
-    +'<div class="ob-mrow"><div class="ob-mav" style="background:'+color+'">'+inits(name)+'</div>'
-    +'<input class="ob-mname" value="'+String(name||'').replace(/"/g,'&quot;')+'" placeholder="'+L('vd. Mai','e.g. Emma')+'"'+(me?' readonly':'')+' oninput="obSyncMav(this)">'
+    +'<div class="ob-mrow"><div class="ob-mav" style="background:'+color+'">'+esc(inits(name))+'</div>'
+    +'<input class="ob-mname" value="'+esc(name)+'" placeholder="'+L('vd. Mai','e.g. Emma')+'"'+(me?' readonly':'')+' oninput="obSyncMav(this)">'
     +(me?'<span class="ob-mtag">'+t('you')+'</span>':'<button class="ob-mdel" onclick="this.closest(\'.ob-mcard\').remove()" aria-label="'+L('Xoá','Remove')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
     +'</div>'
     +'<div class="ob-mfields">'
-    +'<input class="ob-memail" type="email" inputmode="email" autocapitalize="off" placeholder="name@gmail.com" value="'+String(email||'').replace(/"/g,'&quot;')+'"'+(me?' readonly':'')+'>'
+    +'<input class="ob-memail" type="email" inputmode="email" autocapitalize="off" placeholder="name@gmail.com" value="'+esc(email)+'"'+(me?' readonly':'')+'>'
     +'<select class="ob-mrole">'+roleOpts(role)+'</select>'
     +'</div></div>';
 }
@@ -9781,7 +9849,7 @@ function applyFam(){
   if(FAM.budget) months[curMonthKey()].budget=FAM.budget;
   if(FAM.catBudget) Object.keys(FAM.catBudget).forEach(function(c){ if(FAM.catBudget[c]) catBudget[c]=FAM.catBudget[c]; });
   var box=document.getElementById('hero-fam');
-  if(box) box.innerHTML=FAM.members.slice(0,5).map(function(mm){ return '<div class="av av-hero" style="background:'+mm.color+'">'+inits(mm.name)+'</div>'; }).join('')+'<span class="hero-fam-cap">'+FAM.familyName+'</span>';
+  if(box) box.innerHTML=FAM.members.slice(0,5).map(function(mm){ return '<div class="av av-hero" style="background:'+mm.color+'">'+esc(inits(mm.name))+'</div>'; }).join('')+'<span class="hero-fam-cap">'+esc(FAM.familyName)+'</span>';
   setGreeting(); renderAll();
   try{ localStorage.setItem('fh-fam',JSON.stringify(FAM)); }catch(e){}
 }
@@ -9804,6 +9872,7 @@ function finishOnboarding(){
   try{ if(window.fhMarkReleasesSeen) fhMarkReleasesSeen(); }catch(e){}   // fresh user starts clean — no past-release backlog
   document.getElementById('onboarding').classList.add('done');
   go('home');
+  try{ if(window.fhInstallNudge) window.fhInstallNudge(); }catch(e){}   // earned-moment install nudge (once, dismissible, only if installable)
 }
 function restartOnboarding(){
   try{ localStorage.removeItem('fh-onboarded'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-lang'); localStorage.removeItem('fh-cur'); }catch(e){}
@@ -9838,7 +9907,13 @@ function obInit(){
 // broken images now that photos resolve to stable public URLs. Bumping discards
 // them — one cold start for existing users, then clean.
 var FH_SNAP='fh-snap', FH_SNAP_V=2, FH_SNAP_TTL=14*86400000;   // a fortnight of staleness is plenty
+var _snapSaveAt=0;
 function fhSaveSnapshot(){
+  // Hydrate now runs often (windowed refresh on focus/realtime/every write), so coalesce
+  // save bursts — warm-boot data is allowed to be seconds stale, and this avoids
+  // re-serializing (and, for a large family, re-writing to IndexedDB) on every tick.
+  if(Date.now()-_snapSaveAt < 2500) return;
+  _snapSaveAt=Date.now();
   try{
     var ev={};                                          // events carry a live Date — store epoch ms
     Object.keys(events||{}).forEach(function(k){ var e=events[k], c={}; for(var p in e) c[p]=e[p]; c.d=e.d?e.d.getTime():null; ev[k]=c; });
@@ -9849,23 +9924,31 @@ function fhSaveSnapshot(){
       events:ev, order:order, savings:savings, curEvent:curEvent,
       LANG:LANG, CUR:CUR, DB:window.DB || null
     };
-    // committed-enc family: the module encrypts the snapshot with the family key
-    // before it touches localStorage (v3 envelope); plaintext shape otherwise
+    // The module writer (17-snap-restore) chooses the tier: small plaintext →
+    // localStorage (sync warm boot), large plaintext or committed-enc → IndexedDB
+    // (async restore; enc is a v3 AES-GCM envelope so plaintext never hits disk).
     if(window.fhSnapStore){ window.fhSnapStore(data); return; }
-    localStorage.setItem(FH_SNAP, JSON.stringify(data));
+    localStorage.setItem(FH_SNAP, JSON.stringify(data));   // fallback only if the module hasn't loaded
   }catch(e){}                                            // quota/private-mode: warm start is optional
 }
 function fhRestoreSnapshot(){
   try{
-    var raw=localStorage.getItem(FH_SNAP); if(!raw) return false;
-    var s=JSON.parse(raw);
-    if(s && s.v===3 && s.ct){                            // encrypted envelope: the module decrypts + applies (17-snap-restore)
-      if(!(s.at && Date.now()-s.at > FH_SNAP_TTL)) window.__fhSnapEnc=s;
-      return false;
+    var raw=localStorage.getItem(FH_SNAP);
+    if(raw){                                             // small plaintext (or a legacy v3 enc envelope) in localStorage
+      var s=JSON.parse(raw);
+      if(s && s.v===3 && s.ct){                          // legacy enc envelope in LS → module decrypts + applies async
+        if(!(s.at && Date.now()-s.at > FH_SNAP_TTL)) window.__fhSnapEnc=s;
+        return false;
+      }
+      if(!s || s.v!==FH_SNAP_V || !s.catOrder || !s.months) return false;
+      if(s.at && Date.now()-s.at > FH_SNAP_TTL) return false;
+      return fhApplySnapshot(s);                          // SYNC apply → instant, no splash (the common case)
     }
-    if(!s || s.v!==FH_SNAP_V || !s.catOrder || !s.months) return false;
-    if(s.at && Date.now()-s.at > FH_SNAP_TTL) return false;
-    return fhApplySnapshot(s);
+    // Spilled to IndexedDB (large plaintext or committed-enc): hand the marker to the
+    // module's async restore; the splash covers the read. Returns false (not sync-ready).
+    var m=localStorage.getItem('fh-snap-idb');
+    if(m){ var mm=JSON.parse(m); if(mm && !(mm.at && Date.now()-mm.at > FH_SNAP_TTL)) window.__fhSnapIdb=mm; }
+    return false;
   }catch(e){ return false; }
 }
 /* apply a parsed snapshot to the app globals — shared by the sync (plaintext)
@@ -9953,16 +10036,89 @@ window.addEventListener('online', fhSyncOnline);
 window.addEventListener('offline', fhSyncOnline);
 fhSyncOnline();
 
+/* ---------- service worker + updates ----------
+   A new build no longer reloads the page mid-session. It installs and WAITS; we
+   show the #fh-newver chip and let the user tap to apply — or apply it silently the
+   next time the app is hidden with nothing in flight. enc-recovery is the one
+   exception: it forces an immediate swap (65-passcode-ui.js) to self-heal a stale
+   build. reg.waiting.postMessage('SKIP_WAITING') → the SW activates → controllerchange
+   → reload into the new build. */
+var __fhSWReg=null, __fhSwapping=false;
+function fhUpdateReady(reg){
+  __fhSWReg=reg||__fhSWReg;
+  if(__fhSWReg && __fhSWReg.waiting) document.documentElement.classList.add('fh-newver');   // reveal the chip
+}
+function fhApplyUpdate(){
+  var reg=__fhSWReg;
+  document.documentElement.classList.remove('fh-newver');
+  if(!reg || !reg.waiting){ return; }
+  __fhSwapping=true;
+  document.documentElement.classList.add('fh-stale');   // reuse the quiet "Updating…" chip while the swap + reload happens
+  try{ reg.waiting.postMessage({type:'SKIP_WAITING'}); }catch(e){ location.reload(); }
+}
+window.fhUpdateReady=fhUpdateReady;
+window.fhApplyUpdate=fhApplyUpdate;
+/* Apply a waiting update silently when the app goes to the background — but only if
+   nothing is mid-edit, no sheet/modal/overlay is open, and no offline write is still
+   queued (fhOutboxEmpty). The user just comes back to the new build, no chip needed. */
+function fhMaybeAutoSwap(){
+  if(__fhSwapping || !__fhSWReg || !__fhSWReg.waiting) return;
+  if(window.editingTx!=null) return;
+  if(document.querySelector('.sheet.on, .modal.on, .overlay.on')) return;
+  var apply=function(){ if(!__fhSwapping && __fhSWReg && __fhSWReg.waiting){ __fhSwapping=true; try{ __fhSWReg.waiting.postMessage({type:'SKIP_WAITING'}); }catch(e){} } };
+  if(typeof window.fhOutboxEmpty==='function') window.fhOutboxEmpty().then(function(empty){ if(empty) apply(); });
+  else apply();
+}
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
+    try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}   // keep the offline outbox + crypto keys from being evicted
+    var hadController=!!navigator.serviceWorker.controller;   // false on the very first install → don't reload for that one
     var refreshing=false;
-    navigator.serviceWorker.addEventListener('controllerchange',function(){ if(refreshing)return; refreshing=true; location.reload(); });   // new build activated → reload into it
+    navigator.serviceWorker.addEventListener('controllerchange',function(){
+      if(refreshing) return; refreshing=true;
+      if(hadController) location.reload();   // a real update took over → reload into it; first-ever install just claims control silently
+    });
     navigator.serviceWorker.register('sw.js').then(function(reg){
+      __fhSWReg=reg;
+      if(reg.waiting && navigator.serviceWorker.controller) fhUpdateReady(reg);   // an update was already waiting from a previous visit
+      reg.addEventListener('updatefound',function(){
+        var sw=reg.installing; if(!sw) return;
+        sw.addEventListener('statechange',function(){
+          if(sw.state==='installed' && navigator.serviceWorker.controller) fhUpdateReady(reg);   // installed beside a live controller = an update (not first install)
+        });
+      });
       reg.update();
-      document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') reg.update(); });   // check for updates on foreground
+      document.addEventListener('visibilitychange',function(){
+        if(document.visibilityState==='visible') reg.update();   // check for updates on foreground
+        else fhMaybeAutoSwap();                                  // …and quietly apply a pending one on background
+      });
     }).catch(function(){});
   });
 }
+/* ---------- install-to-home-screen capture ----------
+   Chromium fires `beforeinstallprompt` when the app is installable; we
+   preventDefault + stash it so our OWN affordance (a Settings row + a one-time
+   post-onboarding nudge) can trigger the native prompt on demand, instead of the
+   browser's mini-infobar. iOS has no such event — install there is a manual "Add to
+   Home Screen", so the affordance shows an explainer. Everything is gated on the app
+   not already running standalone. Captured here in js-ui (classic script, runs before
+   the deferred data module) so the event isn't missed. */
+window.__fhBip = null;
+function fhIsStandalone(){ return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true; }
+function fhIsIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent || ''); }
+// An install affordance is worth showing when we're not already installed AND either the
+// browser gave us a prompt to fire, or it's iOS Safari (where A2HS is manual).
+function fhCanInstall(){ return !fhIsStandalone() && (!!window.__fhBip || fhIsIOS()); }
+function _fhInstallReveal(){ if(fhCanInstall()) document.documentElement.classList.add('fh-can-install'); else document.documentElement.classList.remove('fh-can-install'); }
+window.fhIsStandalone = fhIsStandalone; window.fhIsIOS = fhIsIOS; window.fhCanInstall = fhCanInstall;
+
+window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); window.__fhBip = e; _fhInstallReveal(); });
+window.addEventListener('appinstalled', function(){
+  window.__fhBip = null;
+  document.documentElement.classList.remove('fh-can-install');
+  try{ if(window.toast) toast(L('Đã thêm FamilyHub vào màn hình chính 🎉','FamilyHub added to your home screen 🎉')); }catch(e){}
+});
+_fhInstallReveal();   // iOS reveals immediately (no event); Android reveals when the prompt lands above
 /* ---------- What's new (release notes) ----------
    A hand-curated log, NOT a commit feed. Deploys land all day from several
    people; an entry here exists only when someone decides a change is worth
@@ -9988,7 +10144,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v289';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v296';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -10263,7 +10419,7 @@ function openWhatsNew(){
     // before any session check) — leaving them behind after sign-out let a
     // previous account's family name/members render on the next cold start,
     // on a device where two accounts actually sign in and out of the same app.
-    try { localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-onboarded'); } catch (e) {}
+    try { if (window.fhSnapClear) window.fhSnapClear(); else localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-onboarded'); } catch (e) {}
     document.documentElement.classList.remove('fh-warm', 'fh-stale', 'fh-warm-boot');
     const onb = g('onboarding'); if (onb) onb.classList.remove('done');
   }
@@ -10829,56 +10985,117 @@ function openWhatsNew(){
     for (let r = 0; r < q.size; r++) for (let c = 0; c < q.size; c++) if (q.matrix[r][c]) cx.fillRect((c + quiet) * scale, (r + quiet) * scale, scale, scale);
     return cv;
   };
-  /* ═══ Encrypted warm-boot snapshot (device-at-rest hardening) ═══════════════
-     fh-snap holds the whole decrypted family (amounts, notes, names) so the
-     app can open on real data. For a committed-enc family that plaintext must
-     not sit on disk: fhSnapStore wraps the snapshot in a v3 envelope —
-     AES-GCM under the cached family DEK — and this restore path unwraps it.
-     Decryption is async by nature, so the encrypted warm boot is a two-step:
-     the sync js-ui boot stashes the envelope (window.__fhSnapEnc) and paints
-     the splash; this module then decrypts (~tens of ms), applies the same
-     fhApplySnapshot the plaintext path uses, and repaints. Deliberately NOT
-     top-level awaited: an auth callback interleaving into a blocked module
-     would meet half-initialized state. The only cost is that the DB maps from
-     the snapshot land a beat later, which the merge below handles. */
+  /* ═══ Warm-boot snapshot storage (localStorage → IndexedDB spill) ═══════════
+     fh-snap holds the whole decrypted family (amounts, notes, names) so the app
+     can open on real data. Two storage tiers:
+
+       • SMALL + plaintext → localStorage key 'fh-snap' (a JSON object). The
+         pre-paint gate sees it and the js-ui boot restores it SYNCHRONOUSLY, so a
+         returning user opens straight onto real data with no splash. This is the
+         common case and its instant paint is preserved exactly.
+
+       • LARGE plaintext, or ANY committed-enc family → IndexedDB (store 'snap',
+         key 'current'), with a tiny 'fh-snap-idb' marker left in localStorage so
+         the gate/boot know a snapshot exists. Restore is async (IDB read, plus an
+         AES-GCM decrypt for enc), so a brief splash covers the read — the same UX
+         encrypted families already had. Spilling to IDB avoids the ~5MB
+         localStorage quota cliff (which would otherwise silently kill warm boot for
+         a heavy multi-year family) and the main-thread cost of parsing a big JSON.
+
+     For a committed-enc family the on-disk bytes are a v3 envelope (AES-GCM under
+     the cached DEK) — plaintext family data never touches disk. Migration is
+     automatic: a legacy 'fh-snap' (plaintext v2, or a v3 enc envelope) still
+     restores, and the next save rewrites it into the right tier. */
+  const _SNAP_LS_MAX = 1200000;                            // chars; well under the localStorage budget shared with fh-fam/etc.
+  const _SNAP_DB = 'fh-snap', _SNAP_STORE = 'snap', _SNAP_KEY = 'current';
+
+  function _snapIdbOpen() {
+    return new Promise((res, rej) => {
+      let rq; try { rq = indexedDB.open(_SNAP_DB, 1); } catch (e) { return rej(e); }
+      rq.onupgradeneeded = () => { const db = rq.result; if (!db.objectStoreNames.contains(_SNAP_STORE)) db.createObjectStore(_SNAP_STORE); };
+      rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
+    });
+  }
+  async function _snapIdbPut(val) { const db = await _snapIdbOpen(); return new Promise((res, rej) => { const tx = db.transaction(_SNAP_STORE, 'readwrite'); tx.objectStore(_SNAP_STORE).put(val, _SNAP_KEY); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); }); }
+  async function _snapIdbGet() { try { const db = await _snapIdbOpen(); return await new Promise((res) => { const tx = db.transaction(_SNAP_STORE, 'readonly'); const rq = tx.objectStore(_SNAP_STORE).get(_SNAP_KEY); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); } catch (e) { return null; } }
+  async function _snapIdbDel() { try { const db = await _snapIdbOpen(); return await new Promise((res) => { const tx = db.transaction(_SNAP_STORE, 'readwrite'); tx.objectStore(_SNAP_STORE).delete(_SNAP_KEY); tx.oncomplete = () => res(true); tx.onerror = () => res(false); }); } catch (e) { return false; } }
+
   window.fhSnapStore = async function (data) {
     try {
-      if (fhEncState() === 'enc') {
-        if (!fhKeyReady()) return;                       // locked: better no snapshot than a plaintext one
-        const ct = await fhEnc(JSON.stringify(data));
-        if (ct) localStorage.setItem('fh-snap', JSON.stringify({ v: 3, at: data.at, fid: window.DB.fid, ct: ct }));
-        return;
+      const enc = fhEncState() === 'enc';
+      if (enc && !fhKeyReady()) return;                    // locked: better no snapshot than a plaintext one
+      let payload, isEnc = false;
+      if (enc) {
+        const ct = await fhEnc(JSON.stringify(data)); if (!ct) return;
+        payload = { v: 3, at: data.at, fid: window.DB.fid, ct: ct }; isEnc = true;
+      } else {
+        payload = data;
       }
-      localStorage.setItem('fh-snap', JSON.stringify(data));
-    } catch (e) {}                                       // quota/private-mode: warm start is optional
+      // Plaintext + small enough → keep it in localStorage for a SYNC (no-splash) warm boot.
+      if (!isEnc) {
+        const str = JSON.stringify(payload);
+        if (str.length <= _SNAP_LS_MAX) {
+          try { localStorage.setItem('fh-snap', str); localStorage.removeItem('fh-snap-idb'); _snapIdbDel(); return; }
+          catch (e) { /* quota exceeded → fall through to IndexedDB */ }
+        }
+      }
+      // Large plaintext, encrypted, or localStorage full → IndexedDB + a tiny marker.
+      try {
+        await _snapIdbPut(payload);
+        localStorage.setItem('fh-snap-idb', JSON.stringify({ v: 4, at: data.at, fid: window.DB.fid, enc: isEnc ? 1 : 0 }));
+        localStorage.removeItem('fh-snap');
+      } catch (e) { }
+    } catch (e) { }                                        // quota/private-mode/no-key: warm start is optional
   };
-  (async () => {
-    const rec = window.__fhSnapEnc; window.__fhSnapEnc = null;
-    if (!rec || !rec.fid || !rec.ct) return;
+
+  // Wipe every snapshot copy (both localStorage keys + the IndexedDB store). Called on
+  // sign-out and leave-family so no decrypted family data is left behind on a shared
+  // device — the plain localStorage.removeItem('fh-snap') the callers used to do would
+  // miss the IndexedDB tier entirely.
+  window.fhSnapClear = async function () {
+    try { localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-snap-idb'); } catch (e) { }
+    try { await _snapIdbDel(); } catch (e) { }
+  };
+
+  /* Async warm restore — handles both the legacy in-localStorage enc envelope
+     (window.__fhSnapEnc, stashed by the sync boot) and the IndexedDB tier
+     (window.__fhSnapIdb marker). Deliberately NOT top-level awaited: an auth
+     callback interleaving into a blocked module would meet half-initialized state.
+     The DB maps land a beat after the js-ui boot initialized window.DB, so we merge
+     them in unless a real hydrate already replaced them. */
+  async function _snapAsyncRestore() {
     try {
-      if (!(await fhKeyLoad(rec.fid))) return;           // no cached key on this device: cold start, unlock later
-      const s = JSON.parse(await fhDec(rec.ct));
+      let payload = null;
+      if (window.__fhSnapEnc) { payload = window.__fhSnapEnc; window.__fhSnapEnc = null; }   // legacy: enc envelope was in localStorage
+      else if (window.__fhSnapIdb) { window.__fhSnapIdb = null; payload = await _snapIdbGet(); }
+      if (!payload) return;
+
+      let s = null;
+      if (payload.v === 3 && payload.ct) {                 // encrypted envelope → unwrap
+        if (!payload.fid || !(await fhKeyLoad(payload.fid))) return;   // no cached key on this device: cold start, unlock later
+        s = JSON.parse(await fhDec(payload.ct));
+      } else {
+        s = payload;                                       // plaintext object spilled to IndexedDB
+      }
       if (!s || !s.catOrder || !s.months) return;
       if (!(window.fhApplySnapshot && window.fhApplySnapshot(s))) return;
-      // the module's DB was initialized before this decrypt finished — merge the
-      // snapshot maps in unless a real hydrate already replaced them
       if (window.DB && !window.DB._hydrated && s.DB) {
         const keep = { rtFid: window.DB.rtFid, fid: window.DB.fid || s.DB.fid };
         Object.assign(window.DB, s.DB, keep);
       }
-      try { window.applyFam && window.applyFam(); window.applyLang && window.applyLang(); } catch (e) {}
+      try { window.applyFam && window.applyFam(); window.applyLang && window.applyLang(); } catch (e) { }
       const ob = document.getElementById('onboarding'); if (ob) ob.classList.add('done');
       document.documentElement.classList.add('fh-warm', 'fh-stale');   // "Updating…" until fresh data lands
-      try { window.setGreeting && window.setGreeting(); } catch (e) {}
+      try { window.setGreeting && window.setGreeting(); } catch (e) { }
       try {
         window.renderEvents && window.renderEvents();
         window.renderAll && window.renderAll();
         window.renderTxns && window.renderTxns();
         window.applyCurrency && window.applyCurrency();
-      } catch (e) { console.warn('enc warm render failed', e); }
-    } catch (e) {}                                       // wrong/stale envelope: the hydrate takes it from here
-  })();
-
+      } catch (e) { console.warn('warm render failed', e); }
+    } catch (e) { }                                        // wrong/stale/absent snapshot: the hydrate takes it from here
+  }
+  _snapAsyncRestore();
   // ═══════════════════════════════════════════════════════════════════════════
   //  DATA LAYER — hydrate the app's globals from the DB + write-through mutations
   // ═══════════════════════════════════════════════════════════════════════════
@@ -10950,8 +11167,8 @@ function openWhatsNew(){
   function updateHeroFam() {
     const box = document.getElementById('hero-fam');
     if (box && window.FAM) box.innerHTML = (window.FAM.members || []).slice(0, 5).map((mm) =>
-      '<div class="av av-hero" style="background:' + mm.color + '">' + inits(mm.name) + '</div>').join('') +
-      '<span class="hero-fam-cap">' + (window.FAM.familyName || '') + '</span>';
+      '<div class="av av-hero" style="background:' + mm.color + '">' + window.esc(inits(mm.name)) + '</div>').join('') +
+      '<span class="hero-fam-cap">' + window.esc(window.FAM.familyName || '') + '</span>';
   }
 
   // first-load spinner (so the app never flashes empty/mock before real data arrives)
@@ -10987,9 +11204,20 @@ function openWhatsNew(){
     if (error) { console.warn(what || 'write failed', error); throw error; }
     return data;
   }
-  // re-fetch everything shortly after any write so every screen stays consistent
+  // re-fetch shortly after any write so every screen stays consistent. R6: default to a
+  // WINDOWED refresh (recent txns/photos/reactions merged onto what we hold); pass
+  // full=true for a write that can touch an out-of-window row (txn edit/delete, a
+  // reaction on an old txn), so the change can't be silently dropped by the window.
   let _syncTimer = null;
-  function _syncSoon() { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} clearTimeout(_syncTimer); _syncTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 700); }
+  function _syncSoon(full) { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} clearTimeout(_syncTimer); _syncTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(full ? {} : { windowed: true }); }, 700); }
+  // Is a loaded transaction (by DB id) older than the current refresh window? Unknown
+  // id → treated as old (forces full) so an out-of-window change is never missed.
+  function _isOldTxnById(dbId) {
+    if (!window.DB._winBoundMs) return false;                  // no window in effect → windowed == full, doesn't matter
+    const arr = window.txns || [];
+    for (let i = 0; i < arr.length; i++) { if (arr[i]._dbId === dbId) return !!(arr[i]._d && arr[i]._d.getTime() < window.DB._winBoundMs); }
+    return true;
+  }
 
   // colored txn-row avatars from the real member palette (overrides the mock spMap version)
   window.spAv = function (who) {
@@ -10997,17 +11225,16 @@ function openWhatsNew(){
     if (key === 'both' || key === 'shared') mm = window.membersMeta && window.membersMeta['Shared'];
     else if (window.membersMeta) { for (const n in window.membersMeta) { if (n.toLowerCase() === key) { mm = window.membersMeta[n]; break; } } }
     const col = mm ? mm.col : '#8f8a99', ini = mm ? mm.ini : '👥';
-    return '<div class="r-sp av" style="background:' + col + ';color:#fff">' + ini + '</div>';
+    return '<div class="r-sp av" style="background:' + col + ';color:#fff">' + window.esc(ini) + '</div>';
   };
 
   // rebuild the "who paid" / "added by" chips from the real family (replaces mock Emma/James/…)
   function _rebuildWhoChips() {
     const mems = (window.FAM && window.FAM.members) || [];
     const bothLabel = (window.LANG === 'vi') ? 'Chung' : 'Both';
-    const esc = (s) => String(s || '').replace(/"/g, '&quot;');
     function fill(id, onclick) {
       const box = document.getElementById(id); if (!box) return;
-      let html = mems.map((m, i) => '<button class="choice' + (i === 0 ? ' on' : '') + '" data-v="' + esc(m.name) + '" onclick="' + onclick + '">' + m.name + '</button>').join('');
+      let html = mems.map((m, i) => '<button class="choice' + (i === 0 ? ' on' : '') + '" data-v="' + window.esc(m.name) + '" onclick="' + onclick + '">' + window.esc(m.name) + '</button>').join('');
       html += '<button class="choice" data-v="Both" onclick="' + onclick + '">' + bothLabel + '</button>';
       box.innerHTML = html;
     }
@@ -11016,8 +11243,10 @@ function openWhatsNew(){
     if (mems[0]) window.lastWho = mems[0].name;
   }
 
-  // ---- THE hydrate: pull the whole active family into the app's globals ----
-  window.loadFamilyData = async function loadFamilyData() {
+  // ---- THE hydrate: pull the active family into the app's globals ----
+  // opts.windowed → R6 windowed refresh (recent slice merged onto the baseline);
+  // no opts / {} → full ledger (the default every existing caller keeps using).
+  window.loadFamilyData = async function loadFamilyData(opts) {
     // "have we ever finished a hydrate" needs its own flag now — DB.fid is seeded
     // at login, so it no longer doubles as one.
     if (!window.DB._hydrated) _showLoading();
@@ -11040,14 +11269,31 @@ function openWhatsNew(){
       const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now()); now.setHours(0, 0, 0, 0);
       const monthDate = _isoMonth(now); window.DB.month = monthDate; window.DB.monthKey = MO[now.getMonth()];
 
+      /* ── R6 windowed refresh boundary ─────────────────────────────────────────
+         A windowed hydrate refetches only the last WINDOW_MONTHS+1 months of
+         transactions/photos/reactions (0048) and merges them onto the rows we
+         already hold, so month totals + history stay correct without shipping the
+         full ledger on every focus/realtime/post-write refresh. FULL_EVERY caps how
+         long an out-of-window REMOTE edit can stay unseen during active use; realtime
+         and local edit/delete escalate to a full hydrate immediately. The very first
+         hydrate (and any caller passing no opts) is always full — it seeds the
+         baseline the windowed path merges onto. */
+      const WINDOW_MONTHS = 2, FULL_EVERY = 5 * 60 * 1000;
+      const _winBoundDate = new Date(now.getFullYear(), now.getMonth() - WINDOW_MONTHS, 1);
+      window.DB._winBound = _isoDate(_winBoundDate);          // 'YYYY-MM-01'; realtime compares txn_date strings to this
+      window.DB._winBoundMs = _winBoundDate.getTime();
+      const _canWindow = !!(opts && opts.windowed) && window.DB._hydrated && window.DB._rawFid === fid
+        && window.DB._rawTx && (Date.now() - (window.DB._lastFullAt || 0) < FULL_EVERY);
+      const _winFrom = _canWindow ? window.DB._winBound : null;
+
       // R2: one round trip via get_family_snapshot() instead of 13 parallel table
       // reads. It runs SECURITY DEFINER, so the reads pay zero per-row RLS cost.
       // Falls back to the legacy multi-query hydrate if the RPC is absent or errors,
       // so an unmigrated env or a bad deploy can never take the app down.
-      // p_txn_from stays null today (full ledger); it is the R6 windowing hook.
+      // p_txn_from = _winFrom windows the ledger (null → full, exact prior behaviour).
       let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg, rx, rr, encMeta, keyWraps;
       let snap = null;
-      try { const rs = await sb.rpc('get_family_snapshot', { p_txn_from: null }); if (!rs.error && rs.data) snap = rs.data; }
+      try { const rs = await sb.rpc('get_family_snapshot', { p_txn_from: _winFrom }); if (!rs.error && rs.data) snap = rs.data; }
       catch (e) { /* fall through to the multi-query hydrate */ }
       if (snap) {
         fam = snap.family; mem = snap.members || []; cat = snap.categories || [];
@@ -11135,6 +11381,27 @@ function openWhatsNew(){
          give it a neutral label until the passcode unlocks the real one */
       mem.forEach((m) => { if (m.name == null) m.name = m.is_shared ? 'Shared' : L('Thành viên', 'Member'); });
       cat.forEach((c) => { if (c.name == null) c.name = '•••'; });
+
+      /* ── R6 merge ──────────────────────────────────────────────────────────────
+         Reconstitute the FULL raw txn/photo/reaction arrays from our baseline + the
+         fresh windowed slice, so every computation below runs identically to a full
+         hydrate. Only fires when the RPC actually returned a window — the multi-query
+         fallback ignores _winFrom and hands back the full ledger, which must NOT be
+         merged (it would duplicate the kept rows). Fresh in-window rows were just
+         decrypted above; the kept older rows come from the previous full hydrate
+         already decrypted, so no row is decrypted twice. */
+      const _wasWindowed = !!(_winFrom && snap);
+      if (_wasWindowed) {
+        const keepTx = (window.DB._rawTx || []).filter((r) => r.txn_date < _winFrom);
+        const keptIds = new Set(keepTx.map((r) => r.id));
+        tx = keepTx.concat(tx);
+        tp = (window.DB._rawTp || []).filter((p) => keptIds.has(p.transaction_id)).concat(tp);
+        rx = (window.DB._rawRx || []).filter((r) => keptIds.has(r.transaction_id)).concat(rx);
+      }
+      // Stash the (now full) raw arrays as the baseline for the next windowed refresh.
+      // A full result also resets the "last full hydrate" clock that FULL_EVERY checks.
+      window.DB._rawFid = fid; window.DB._rawTx = tx; window.DB._rawTp = tp; window.DB._rawRx = rx;
+      if (!_wasWindowed) window.DB._lastFullAt = Date.now();
 
       if (fam) {
         window.FAM.familyName = fam.name;
@@ -11641,6 +11908,9 @@ function openWhatsNew(){
     if (!left && _obHadItems) { _obHadItems = false; window.toast && window.toast(L('Đã đồng bộ thay đổi ngoại tuyến ✓','Offline changes synced ✓')); if (window.loadFamilyData) window.loadFamilyData(); }
   }
   window.fhOutboxFlush = fhOutboxFlush;
+  // True when nothing is waiting to sync — the SW-update auto-apply gate consults
+  // this so a background swap never discards an unsynced write mid-flight.
+  window.fhOutboxEmpty = async function () { try { return (await _obAll()).length === 0; } catch (e) { return true; } };
   window.addEventListener('online', () => setTimeout(fhOutboxFlush, 600));
   setTimeout(() => { fhOutboxFlush(); }, 3000);            // catch anything queued from a previous session
 
@@ -11700,7 +11970,7 @@ function openWhatsNew(){
         await fhField('amount', t.amt), await fhField('note', t.note));
       await _w(sb.from('transactions').update(patch).eq('id', dbId), 'write transactions');
       await _dbSyncTxnPhotos(dbId, t.photos);
-      _syncSoon();
+      _syncSoon(true);   // edit may target/move an out-of-window row → full hydrate (edits are infrequent)
     } catch (e) { _writeErr('txn update failed', e); }
   }
   async function _dbDeleteTxn(dbId) {
@@ -11711,7 +11981,7 @@ function openWhatsNew(){
         if (files.length) await sb.storage.from('family-media').remove(files);
       } catch (e) {}
       await _w(sb.from('transactions').delete().eq('id', dbId), 'delete transaction');  // transaction_photos rows cascade on delete
-      _syncSoon();
+      _syncSoon(true);   // deleted row may be out-of-window → full hydrate (deletes are infrequent)
     } catch (e) { _writeErr('txn delete failed', e); }
   }
 
@@ -12000,9 +12270,14 @@ async function callCsvMappingFallback(headers, sampleRows) {
   const outbound = (typeof fhShouldMaskForSharing === 'function' && fhShouldMaskForSharing())
     ? fhMaskSampleRowsForSharing(capped)
     : capped;
+  // Attach the caller's Supabase access token so the serverless proxy can verify a
+  // real signed-in user before spending a Gemini call (the endpoint is otherwise
+  // open to the internet and could be farmed against our key).
+  let _tok = '';
+  try { _tok = ((await sb.auth.getSession()).data.session || {}).access_token || ''; } catch (e) {}
   const res = await fetch('/api/csv-column-mapping', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: Object.assign({ 'Content-Type': 'application/json' }, _tok ? { Authorization: 'Bearer ' + _tok } : {}),
     body: JSON.stringify({ headers, sampleRows: outbound }),
   });
   if (!res.ok) {
@@ -12370,7 +12645,7 @@ window.classifyAmount = classifyAmount;
         : await sb.from('reactions').delete().eq('family_id', fid).eq('transaction_id', txDbId).eq('member_id', mid);
       if (res && res.error) { _writeErr('reaction failed', res.error); return false; }
       if (emoji && window.fhNotify) window.fhNotify('reaction', { emoji: emoji, tx: txDbId });   // nudge closed-app devices; tx routes the tap
-      _syncSoon();
+      _syncSoon(_isOldTxnById(txDbId));   // reactions are windowed (0048): a reaction on an out-of-window txn needs a full hydrate to survive the merge
       return true;
     } catch (e) { _writeErr('reaction failed', e); return false; }
   };
@@ -12398,6 +12673,20 @@ window.classifyAmount = classifyAmount;
 
   // ---- realtime: reload on any change to this family's rows ----
   let _rtTimer = null;
+  /* A realtime change to a transaction OLDER than our loaded window can't be captured
+     by a windowed refresh, so force a full hydrate for it. INSERT/UPDATE carry the row
+     (txn_date on payload.new); DELETE carries only the replica-identity columns (the PK
+     by default), so txn_date is absent → be safe and go full. Non-transaction tables
+     come back full in the snapshot regardless, so they can always refresh windowed. */
+  function _rtTxnOutOfWindow(payload) {
+    const wf = window.DB._winBound; if (!wf) return true;
+    const nd = payload && payload.new && payload.new.txn_date;
+    const od = payload && payload.old && payload.old.txn_date;
+    if (payload && payload.eventType === 'DELETE' && !od) return true;
+    if (nd && nd < wf) return true;
+    if (od && od < wf) return true;
+    return false;
+  }
   async function _subscribeRealtime(fid) {
     if (window.DB.rtFid === fid || !sb.channel) return;
     window.DB.rtFid = fid;
@@ -12406,19 +12695,22 @@ window.classifyAmount = classifyAmount;
       try { const { data: { session } } = await sb.auth.getSession(); if (session && sb.realtime && sb.realtime.setAuth) await sb.realtime.setAuth(session.access_token); } catch (e) {}
       const ch = sb.channel('fam-' + fid);
       ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather', 'reactions', 'request_reviews', 'family_keys'].forEach((tbl) => {
-        ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: 'family_id=eq.' + fid }, () => {
+        ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: 'family_id=eq.' + fid }, (payload) => {
           // Echo suppression (R3): our own writes already schedule a _syncSoon reload,
           // and realtime replays them straight back. Ignore ticks inside the local-write
           // window so a local change causes ONE reload, not two. Remote changes (no recent
           // local write) fall through and reload as before.
           if (Date.now() - (window.DB._lastLocalWrite || 0) < 2500) return;
-          clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 900);
+          // R6: a remote change to an out-of-window transaction needs a full hydrate;
+          // everything else refreshes windowed (all other tables come back full anyway).
+          const full = (tbl === 'transactions') && _rtTxnOutOfWindow(payload);
+          clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(full ? {} : { windowed: true }); }, 900);
         });
       });
       // the families row itself (house customization lives here) — keyed on id, not family_id
       ch.on('postgres_changes', { event: '*', schema: 'public', table: 'families', filter: 'id=eq.' + fid }, () => {
         if (Date.now() - (window.DB._lastLocalWrite || 0) < 2500) return;
-        clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 900);
+        clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData({ windowed: true }); }, 900);
       });
       ch.subscribe();
     } catch (e) { console.warn('realtime subscribe failed', e); }
@@ -12432,7 +12724,7 @@ window.classifyAmount = classifyAmount;
     const now = Date.now();
     if (now - _lastRefresh < 2000) return;
     _lastRefresh = now;
-    window.loadFamilyData && window.loadFamilyData();
+    window.loadFamilyData && window.loadFamilyData({ windowed: true });   // R6: focus refresh is windowed; FULL_EVERY caps out-of-window staleness
   }
   document.addEventListener('visibilitychange', _refreshOnResume);
   window.addEventListener('focus', _refreshOnResume);
@@ -12757,7 +13049,11 @@ window.classifyAmount = classifyAmount;
      Both live inside .phone, so they stay in the device frame on desktop, inherit
      drag-to-dismiss from initSheetDrag, and sit *below* the toast (z-80) so errors
      raised from inside them are actually visible. */
-  const _esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // Shared with js-ui: the canonical escapers live in 12-format-helpers.js and are
+  // mirrored onto window by the classic script that runs before this module. Delegate
+  // (arrow, resolved at call-time) so there is exactly one escaping implementation.
+  const _esc = (s) => window.esc(s);
+  const _escAttr = (s) => window.escAttr(s);
   const _pal = () => window.OB_COLORS || ['#6f3fc0', '#0e8478', '#f0701a', '#e03d86', '#1e74d0', '#B8730B', '#7A5AE0', '#1a9d5f'];
 
   function _fhSheet(inner) {
@@ -12918,7 +13214,7 @@ window.classifyAmount = classifyAmount;
       const isSelf = m.user_id === uid;
       const tag = m.is_shared ? L('chung','shared') : (m.user_id ? (isSelf ? L('bạn','you') : L('thành viên','member')) : L('chỗ trống','seat'));
       return '<div class="fh-s-row">'
-        + '<div class="av av-32" style="background:' + _esc(m.color || '#8f8a99') + '">' + inits(m.name) + '</div>'
+        + '<div class="av av-32" style="background:' + _esc(m.color || '#8f8a99') + '">' + _esc(inits(m.name)) + '</div>'
         + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(m.name) + '</div><div class="fh-s-meta">' + tag + '</div></div>'
         + ((owner || isSelf) && !m.is_shared ? _btn(L('Sửa','Edit'), "fhEditMember('" + m.id + "')", 'fh-s-edit') : '')
         + (owner && !isSelf && !m.is_shared
@@ -13094,6 +13390,58 @@ window.classifyAmount = classifyAmount;
     try { if (window.loadFamilyData) await window.loadFamilyData(); } catch (e) {}
   };
 
+  // ═══ Install to Home Screen ═══════════════════════════════════════════════
+  /* Reuses the app's dynamic sheet (_fhSheet/_btn/_S from 60-settings). On Android/
+     desktop we fire the stashed beforeinstallprompt directly; on iOS (or when no
+     prompt was captured) we show an explainer. Entry points: a Settings row and a
+     one-time gentle nudge after onboarding. Install matters especially on iOS, where
+     Web Push only reaches an installed PWA. */
+  window.fhInstall = async function () {
+    const bip = window.__fhBip;
+    if (bip) {
+      try {
+        bip.prompt();
+        const r = await bip.userChoice;
+        window.__fhBip = null;
+        document.documentElement.classList.remove('fh-can-install');
+        return;                                            // accepted or dismissed — nothing more to show
+      } catch (e) { /* fall through to the explainer */ }
+    }
+    window.fhInstallSheet();                               // iOS, or no captured prompt
+  };
+
+  window.fhInstallSheet = function () {
+    const h = '<div class="fh-s-h">' + L('Thêm vào màn hình chính', 'Add to Home Screen') + '</div>';
+    let sub, act;
+    if (window.fhIsStandalone && window.fhIsStandalone()) {
+      sub = L('FamilyHub đã ở trên máy này rồi. 🎉', 'FamilyHub is already on this device. 🎉');
+      act = _btn(L('Xong', 'Done'), '_closeOv()', _S.cta);
+    } else if (window.__fhBip) {
+      sub = L('Cài FamilyHub như một app riêng: mở nhanh từ màn hình chính, chạy toàn màn hình và nhận thông báo.',
+              'Install FamilyHub as its own app: open it fast from your home screen, run full-screen, and get notifications.');
+      act = _btn(L('Cài đặt', 'Install'), '_closeOv();fhInstall()', _S.cta) + _btn(L('Để sau', 'Not now'), '_closeOv()', _S.ghost);
+    } else if (window.fhIsIOS && window.fhIsIOS()) {
+      sub = L('Mở nhanh như một app riêng và nhận thông báo: bấm nút Chia sẻ ở thanh dưới Safari, rồi chọn “Thêm vào MH chính”.',
+              'Open it like its own app and get notifications: tap the Share button in Safari’s bottom bar, then choose “Add to Home Screen”.');
+      act = _btn(L('Đã hiểu', 'Got it'), '_closeOv()', _S.cta);
+    } else {
+      sub = L('Để cài, mở menu trình duyệt rồi chọn “Cài đặt” hoặc “Thêm vào màn hình chính”.',
+              'To install, open your browser menu and choose “Install” or “Add to Home Screen”.');
+      act = _btn(L('Đã hiểu', 'Got it'), '_closeOv()', _S.cta);
+    }
+    _fhSheet(h + '<div class="fh-s-sub">' + sub + '</div>' + act);
+  };
+
+  // One-time gentle nudge after onboarding finishes (an earned moment, not a boot popup).
+  // Only when installable and not already shown; the sheet itself is fully dismissible.
+  window.fhInstallNudge = function () {
+    try {
+      if (!(window.fhCanInstall && window.fhCanInstall())) return;
+      if (localStorage.getItem('fh-install-nudged') === '1') return;
+      localStorage.setItem('fh-install-nudged', '1');
+      setTimeout(function () { try { window.fhInstallSheet(); } catch (e) {} }, 1200);
+    } catch (e) {}
+  };
   /* ═══ Passcode door + whitelist UI (0030) ═══════════════════════════════════
      Joining is strict two-factor: the owner whitelists the invitee's Google
      email (whitelist_add) AND tells them the 6-digit family passcode. The
@@ -13145,7 +13493,21 @@ window.classifyAmount = classifyAmount;
   window._fhEncRecover = async function () {
     if (Date.now() - _fhRecovAt < 10000) return;
     _fhRecovAt = Date.now();
-    try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) reg.update(); } catch (e) {}
+    /* Builds now WAIT by default (no skipWaiting) — but recovery MUST self-heal now,
+       not on the next tap, so force the freshly-installed worker to take over: it
+       activates, controllerchange fires, and the app reloads into the current build.
+       The queued write survives the reload in IndexedDB and lands on the flush. */
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        try { await reg.update(); } catch (e) {}
+        const force = () => { if (reg.waiting) { try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {} return true; } return false; };
+        if (!force() && reg.installing) {
+          const sw = reg.installing;
+          sw.addEventListener('statechange', () => { if (sw.state === 'installed') force(); });
+        }
+      }
+    } catch (e) {}
     try { if (window.loadFamilyData) await window.loadFamilyData(); } catch (e) {}
     if (window.DB && window.DB.enc && window.DB.enc.enc_state !== 'off' && !fhKeyReady()) window.fhUnlockPrompt();
   };
@@ -14713,7 +15075,7 @@ window.classifyAmount = classifyAmount;
   window.fhSignOut = async () => {
     fhResumeFail(); fhWarmAbandon();
     try { fhKeyDrop(null); indexedDB.deleteDatabase('fh-keys'); } catch (e) {}   // cached family keys go with the session
-    try { localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-expense-drafts'); } catch (e) {}   // no family data left behind on a shared device
+    try { if (window.fhSnapClear) await window.fhSnapClear(); else localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-expense-drafts'); } catch (e) {}   // no family data left behind on a shared device (awaited so the IndexedDB copy is gone before the reload below)
     try { window.__fhPhotoCachePurge && window.__fhPhotoCachePurge(); } catch (e) {}
     await sb.auth.signOut(); location.reload();
   };

@@ -376,12 +376,8 @@ function sendSuggestion(){
   floatEmojis('💛');
 }
 
-/* User text (event names, captions, notes) goes into innerHTML and into inline
-   onclick attributes all over this file. An apostrophe — "Emma's party" — was
-   enough to break the markup or the handler, so everything user-authored is
-   escaped on the way out. esc() for text nodes, escAttr() for quoted attributes. */
-function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-function escAttr(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+/* esc() / escAttr() now live in 12-format-helpers.js (single source of truth, shared
+   with the js-data module via window). They used to be defined here. */
 
 /* Photo uploads compress + POST each image; on cellular that's tens of seconds.
    The app used to toast "Memory saved 📸" the instant the modal closed, before

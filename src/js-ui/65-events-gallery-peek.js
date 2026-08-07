@@ -53,7 +53,7 @@ function renderContribs(e){
   box.innerHTML=ids.map(function(id){
     var m=mb[id]||{}, shared=!!m.is_shared;
     var nm=shared?L('Chung','Shared'):(m.name||L('Thành viên','Member')), col=m.color||'#8f8a99';
-    return '<div class="row"><div class="av av-44" style="background:'+col+';color:#fff">'+(shared?'👥':inits(m.name||nm))+'</div>'
+    return '<div class="row"><div class="av av-44" style="background:'+col+';color:#fff">'+(shared?'👥':esc(inits(m.name||nm)))+'</div>'
       +'<div class="r-body"><div class="r-t">'+esc(nm)+'</div><div class="r-s">'+L('đã góp','contributed')+'</div></div>'
       +'<div class="r-amt num">'+fmt(c[id])+'</div></div>';
   }).join('');

@@ -84,7 +84,7 @@ The classic block and the module block have **different scopes** — this is the
 
 ## 4. Service worker & caching — `sw.js` (critical)
 
-- **Bump `CACHE_NAME`** (currently `familyhub-v166`) when you change any **precached asset**:
+- **Bump `CACHE_NAME`** (currently `familyhub-v296`) when you change any **precached asset**:
   `vendor/supabase.js`, the two woff2 fonts, `manifest.json`, or the icons. Without a bump, clients keep
   the old cached bytes.
 - **Editing `sw.js` itself does NOT need a bump** — it is not in the precache `ASSETS` list; the browser
@@ -105,13 +105,23 @@ The classic block and the module block have **different scopes** — this is the
 ## 5. Backend — Supabase (critical)
 
 The project is **live with real family data.** Never run destructive or casual SQL against it.
-- **Schema changes are append-only migrations** in `supabase/migrations/` (latest `0022_perf_hardening.sql`;
-  next is `0023_*`). Add a new numbered file; **never rewrite an already-applied migration (0001–0022).**
+- **Schema changes are append-only migrations** in `supabase/migrations/` (latest `0049_pin_enc_pair_search_path.sql`;
+  next is `0050_*` — but confirm the free number in `AGENT_SYNC.md`, two sessions share this range). Add a new
+  numbered file; **never rewrite an already-applied migration.**
 - **`get_family_snapshot(p_txn_from date)` is THE hydrate** — one `SECURITY DEFINER` RPC returning the
   whole family as one JSON payload. The client destructures it by exact key/column names, and the legacy
   13-query fallback must select the identical columns. Change both sides together or hydrate breaks
   silently. Keep its grants locked: `SECURITY DEFINER`, `set search_path = public`, execute granted only
-  to `authenticated`.
+  to `authenticated`. **Windowing (0048):** `p_txn_from` NULL = full ledger; non-NULL windows
+  `transactions` + `transaction_photos` + `reactions` to `txn_date >= p_txn_from`. The client uses this
+  for windowed refreshes and merges the slice onto cached raw baselines (`30-hydrate.js`); NULL must stay
+  byte-identical to the full result so old clients / the fallback never break.
+- **Media bucket is public-by-URL (0017), a deliberate trade-off.** `family-media` object bytes are
+  fetchable by anyone holding the exact `{family_id}/{ts}_{rand}.ext` path (RLS still gates list/insert/
+  update/delete, not byte GET). For non-enc families this is unlisted-link privacy; for enc families the
+  bytes are AES-GCM `.enc` ciphertext, so the URL reveals nothing. It was flipped from private because
+  re-signing every photo on every hydrate defeated browser caching. Don't "fix" it back to private without
+  restoring signed-URL caching (SW media cache keyed by pathname, not full URL).
 - **RLS uses the initplan form.** Every family-scoped policy keys on `family_id = (select auth_family_id())`.
   Any new policy in a new migration MUST wrap auth helpers as `(select auth_family_id())` / `(select
   auth.uid())` / `(select auth_email())`, never bare calls — 0022 rewrote all existing policies to that
@@ -163,6 +173,6 @@ blocks (borders + a single left-accent per view instead).
 | Marker replacement + concat order | `build.js` |
 | One-time carve (line-range manifest, tiling/byte asserts) | `tools/split.js` |
 | Service-worker cache logic + `CACHE_NAME` | `sw.js` |
-| Schema/RLS/RPC (append-only) + the hydrate RPC | `supabase/migrations/` (latest `0022_perf_hardening.sql`) |
+| Schema/RLS/RPC (append-only) + the hydrate RPC | `supabase/migrations/` (latest `0049_pin_enc_pair_search_path.sql`) |
 | i18n helpers (`I18N.vi`, `L`, date helpers) | `src/js-ui/70-theme-i18n.js`, `src/js-ui/12-format-helpers.js` |
 | Write wrapper `_w()` + `_friendly()` error mapping | `src/js-data/20-data-helpers.js`, `40-txn-writes-outbox.js` |

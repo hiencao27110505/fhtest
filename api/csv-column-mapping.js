@@ -13,6 +13,36 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GE
 
 const MAX_SAMPLE_ROWS = 15; // bounds token cost regardless of how large the uploaded file is
 
+// Public Supabase config (same values shipped in the client; safe to embed — RLS protects
+// data). Used only to verify the caller's access token before spending a Gemini call.
+const SUPABASE_URL = 'https://iizyukzfsbdkbrgfupwq.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_KQnm-h0bn3gCa1i_dlkapw_7b8kPRDD';
+
+// Best-effort in-memory throttle. Vercel functions are per-instance and short-lived, so
+// this is a backstop, not a hard guarantee — the JWT check is the real gate. Caps calls
+// per user (by token subject) and globally per warm instance, over a rolling minute.
+const _hits = new Map();           // key -> [timestamps]
+const _WINDOW_MS = 60000, _PER_USER = 12, _GLOBAL = 60;
+function _rateLimited(key) {
+  const now = Date.now();
+  const prune = (arr) => arr.filter((t) => now - t < _WINDOW_MS);
+  const u = prune(_hits.get(key) || []); const g = prune(_hits.get('*') || []);
+  if (u.length >= _PER_USER || g.length >= _GLOBAL) { _hits.set(key, u); _hits.set('*', g); return true; }
+  u.push(now); g.push(now); _hits.set(key, u); _hits.set('*', g);
+  return false;
+}
+
+// Verify a Supabase access token → returns the user id (sub) or null.
+async function _verifyUser(token) {
+  if (!token) return null;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + token } });
+    if (!r.ok) return null;
+    const u = await r.json();
+    return (u && u.id) || null;
+  } catch (e) { return null; }
+}
+
 const SYSTEM_PROMPT = `You map spreadsheet columns from a personal/family finance CSV export to a fixed schema.
 The file may be in Vietnamese, English, or mixed, and may come from a bank, an e-wallet, or a shared-expense app.
 
@@ -67,6 +97,19 @@ module.exports = async (req, res) => {
     return;
   }
 
+  // Gate on a real signed-in user before spending a Gemini call.
+  const authz = req.headers['authorization'] || req.headers['Authorization'] || '';
+  const token = authz.replace(/^Bearer\s+/i, '');
+  const uid = await _verifyUser(token);
+  if (!uid) {
+    res.status(401).json({ error: 'sign-in required' });
+    return;
+  }
+  if (_rateLimited(uid)) {
+    res.status(429).json({ error: 'rate limited — try again in a minute' });
+    return;
+  }
+
   const { headers, sampleRows } = req.body || {};
   if (!Array.isArray(headers) || !Array.isArray(sampleRows)) {
     res.status(400).json({ error: 'body must be { headers: string[], sampleRows: string[][] }' });
@@ -100,11 +143,9 @@ module.exports = async (req, res) => {
 
   if (!geminiRes.ok) {
     const detail = await geminiRes.text();
-    // Gemini's own free-tier rate limit (429) surfaces here — there is no additional
-    // client-side or server-side throttle in front of it yet. See handoff notes: the
-    // email pipeline has explicit per-run/per-day caps for this reason; this endpoint
-    // doesn't, since call volume here is per-file-shape and expected to be much lower,
-    // but that's an assumption worth revisiting once real usage is observed.
+    // Gemini's own free-tier rate limit (429) can still surface here even though we now
+    // require a signed-in user and apply a best-effort per-user/global throttle above
+    // (the throttle is per warm instance, so it's a backstop, not a hard cap).
     res.status(502).json({ error: `Gemini returned ${geminiRes.status}`, detail });
     return;
   }

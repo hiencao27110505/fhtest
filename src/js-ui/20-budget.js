@@ -216,7 +216,7 @@ function catRowHTML(emoji,name,budget,orig){
   var lock=isFallbackCat(name);
   return '<div class="cat-row'+(lock?' cat-row-lock':'')+'" data-orig="'+(orig||'')+'">'
     +'<input class="cat-emoji" maxlength="2" value="'+(emoji||'🏷️')+'" oninput="bgDirty()">'
-    +'<input class="cat-name" placeholder="'+L('Tên','Name')+'" value="'+String(name||'').replace(/"/g,'&quot;')+'"'+(lock?' readonly':' oninput="bgDirty()"')+'>'
+    +'<input class="cat-name" placeholder="'+L('Tên','Name')+'" value="'+esc(name)+'"'+(lock?' readonly':' oninput="bgDirty()"')+'>'
     // symbol sits on the same side as fmt() puts it: ₫ after, $ before
     +'<span class="cat-bud-wrap">'+(CUR==='VND'?'':curSym())
       +'<input class="cat-bud num" inputmode="numeric" placeholder="0" value="'+amtToInput(budget)+'"'

@@ -49,7 +49,21 @@
   window._fhEncRecover = async function () {
     if (Date.now() - _fhRecovAt < 10000) return;
     _fhRecovAt = Date.now();
-    try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) reg.update(); } catch (e) {}
+    /* Builds now WAIT by default (no skipWaiting) — but recovery MUST self-heal now,
+       not on the next tap, so force the freshly-installed worker to take over: it
+       activates, controllerchange fires, and the app reloads into the current build.
+       The queued write survives the reload in IndexedDB and lands on the flush. */
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        try { await reg.update(); } catch (e) {}
+        const force = () => { if (reg.waiting) { try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {} return true; } return false; };
+        if (!force() && reg.installing) {
+          const sw = reg.installing;
+          sw.addEventListener('statechange', () => { if (sw.state === 'installed') force(); });
+        }
+      }
+    } catch (e) {}
     try { if (window.loadFamilyData) await window.loadFamilyData(); } catch (e) {}
     if (window.DB && window.DB.enc && window.DB.enc.enc_state !== 'off' && !fhKeyReady()) window.fhUnlockPrompt();
   };

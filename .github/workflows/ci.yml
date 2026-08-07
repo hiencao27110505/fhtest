@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci || npm install
+      # Syntax gate: each concatenated region (js-ui, js-data, css) + sw.js must parse.
+      - run: npm run parse
+      # The committed index.html must be exactly what `node build.js` regenerates from src/
+      # (the modular split is lossless). Catches hand-edits to index.html and stale rebuilds.
+      - run: npm run check

@@ -4,7 +4,11 @@
      Both live inside .phone, so they stay in the device frame on desktop, inherit
      drag-to-dismiss from initSheetDrag, and sit *below* the toast (z-80) so errors
      raised from inside them are actually visible. */
-  const _esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // Shared with js-ui: the canonical escapers live in 12-format-helpers.js and are
+  // mirrored onto window by the classic script that runs before this module. Delegate
+  // (arrow, resolved at call-time) so there is exactly one escaping implementation.
+  const _esc = (s) => window.esc(s);
+  const _escAttr = (s) => window.escAttr(s);
   const _pal = () => window.OB_COLORS || ['#6f3fc0', '#0e8478', '#f0701a', '#e03d86', '#1e74d0', '#B8730B', '#7A5AE0', '#1a9d5f'];
 
   function _fhSheet(inner) {
@@ -165,7 +169,7 @@
       const isSelf = m.user_id === uid;
       const tag = m.is_shared ? L('chung','shared') : (m.user_id ? (isSelf ? L('bạn','you') : L('thành viên','member')) : L('chỗ trống','seat'));
       return '<div class="fh-s-row">'
-        + '<div class="av av-32" style="background:' + _esc(m.color || '#8f8a99') + '">' + inits(m.name) + '</div>'
+        + '<div class="av av-32" style="background:' + _esc(m.color || '#8f8a99') + '">' + _esc(inits(m.name)) + '</div>'
         + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(m.name) + '</div><div class="fh-s-meta">' + tag + '</div></div>'
         + ((owner || isSelf) && !m.is_shared ? _btn(L('Sửa','Edit'), "fhEditMember('" + m.id + "')", 'fh-s-edit') : '')
         + (owner && !isSelf && !m.is_shared

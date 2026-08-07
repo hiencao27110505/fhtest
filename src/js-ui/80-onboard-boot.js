@@ -92,12 +92,12 @@ function obProfileNext(){
 }
 function obMemberRowHTML(name,email,role,color,me){
   return '<div class="ob-mcard">'
-    +'<div class="ob-mrow"><div class="ob-mav" style="background:'+color+'">'+inits(name)+'</div>'
-    +'<input class="ob-mname" value="'+String(name||'').replace(/"/g,'&quot;')+'" placeholder="'+L('vd. Mai','e.g. Emma')+'"'+(me?' readonly':'')+' oninput="obSyncMav(this)">'
+    +'<div class="ob-mrow"><div class="ob-mav" style="background:'+color+'">'+esc(inits(name))+'</div>'
+    +'<input class="ob-mname" value="'+esc(name)+'" placeholder="'+L('vd. Mai','e.g. Emma')+'"'+(me?' readonly':'')+' oninput="obSyncMav(this)">'
     +(me?'<span class="ob-mtag">'+t('you')+'</span>':'<button class="ob-mdel" onclick="this.closest(\'.ob-mcard\').remove()" aria-label="'+L('Xoá','Remove')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
     +'</div>'
     +'<div class="ob-mfields">'
-    +'<input class="ob-memail" type="email" inputmode="email" autocapitalize="off" placeholder="name@gmail.com" value="'+String(email||'').replace(/"/g,'&quot;')+'"'+(me?' readonly':'')+'>'
+    +'<input class="ob-memail" type="email" inputmode="email" autocapitalize="off" placeholder="name@gmail.com" value="'+esc(email)+'"'+(me?' readonly':'')+'>'
     +'<select class="ob-mrole">'+roleOpts(role)+'</select>'
     +'</div></div>';
 }
@@ -202,7 +202,7 @@ function applyFam(){
   if(FAM.budget) months[curMonthKey()].budget=FAM.budget;
   if(FAM.catBudget) Object.keys(FAM.catBudget).forEach(function(c){ if(FAM.catBudget[c]) catBudget[c]=FAM.catBudget[c]; });
   var box=document.getElementById('hero-fam');
-  if(box) box.innerHTML=FAM.members.slice(0,5).map(function(mm){ return '<div class="av av-hero" style="background:'+mm.color+'">'+inits(mm.name)+'</div>'; }).join('')+'<span class="hero-fam-cap">'+FAM.familyName+'</span>';
+  if(box) box.innerHTML=FAM.members.slice(0,5).map(function(mm){ return '<div class="av av-hero" style="background:'+mm.color+'">'+esc(inits(mm.name))+'</div>'; }).join('')+'<span class="hero-fam-cap">'+esc(FAM.familyName)+'</span>';
   setGreeting(); renderAll();
   try{ localStorage.setItem('fh-fam',JSON.stringify(FAM)); }catch(e){}
 }
@@ -225,6 +225,7 @@ function finishOnboarding(){
   try{ if(window.fhMarkReleasesSeen) fhMarkReleasesSeen(); }catch(e){}   // fresh user starts clean — no past-release backlog
   document.getElementById('onboarding').classList.add('done');
   go('home');
+  try{ if(window.fhInstallNudge) window.fhInstallNudge(); }catch(e){}   // earned-moment install nudge (once, dismissible, only if installable)
 }
 function restartOnboarding(){
   try{ localStorage.removeItem('fh-onboarded'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-lang'); localStorage.removeItem('fh-cur'); }catch(e){}
@@ -259,7 +260,13 @@ function obInit(){
 // broken images now that photos resolve to stable public URLs. Bumping discards
 // them — one cold start for existing users, then clean.
 var FH_SNAP='fh-snap', FH_SNAP_V=2, FH_SNAP_TTL=14*86400000;   // a fortnight of staleness is plenty
+var _snapSaveAt=0;
 function fhSaveSnapshot(){
+  // Hydrate now runs often (windowed refresh on focus/realtime/every write), so coalesce
+  // save bursts — warm-boot data is allowed to be seconds stale, and this avoids
+  // re-serializing (and, for a large family, re-writing to IndexedDB) on every tick.
+  if(Date.now()-_snapSaveAt < 2500) return;
+  _snapSaveAt=Date.now();
   try{
     var ev={};                                          // events carry a live Date — store epoch ms
     Object.keys(events||{}).forEach(function(k){ var e=events[k], c={}; for(var p in e) c[p]=e[p]; c.d=e.d?e.d.getTime():null; ev[k]=c; });
@@ -270,23 +277,31 @@ function fhSaveSnapshot(){
       events:ev, order:order, savings:savings, curEvent:curEvent,
       LANG:LANG, CUR:CUR, DB:window.DB || null
     };
-    // committed-enc family: the module encrypts the snapshot with the family key
-    // before it touches localStorage (v3 envelope); plaintext shape otherwise
+    // The module writer (17-snap-restore) chooses the tier: small plaintext →
+    // localStorage (sync warm boot), large plaintext or committed-enc → IndexedDB
+    // (async restore; enc is a v3 AES-GCM envelope so plaintext never hits disk).
     if(window.fhSnapStore){ window.fhSnapStore(data); return; }
-    localStorage.setItem(FH_SNAP, JSON.stringify(data));
+    localStorage.setItem(FH_SNAP, JSON.stringify(data));   // fallback only if the module hasn't loaded
   }catch(e){}                                            // quota/private-mode: warm start is optional
 }
 function fhRestoreSnapshot(){
   try{
-    var raw=localStorage.getItem(FH_SNAP); if(!raw) return false;
-    var s=JSON.parse(raw);
-    if(s && s.v===3 && s.ct){                            // encrypted envelope: the module decrypts + applies (17-snap-restore)
-      if(!(s.at && Date.now()-s.at > FH_SNAP_TTL)) window.__fhSnapEnc=s;
-      return false;
+    var raw=localStorage.getItem(FH_SNAP);
+    if(raw){                                             // small plaintext (or a legacy v3 enc envelope) in localStorage
+      var s=JSON.parse(raw);
+      if(s && s.v===3 && s.ct){                          // legacy enc envelope in LS → module decrypts + applies async
+        if(!(s.at && Date.now()-s.at > FH_SNAP_TTL)) window.__fhSnapEnc=s;
+        return false;
+      }
+      if(!s || s.v!==FH_SNAP_V || !s.catOrder || !s.months) return false;
+      if(s.at && Date.now()-s.at > FH_SNAP_TTL) return false;
+      return fhApplySnapshot(s);                          // SYNC apply → instant, no splash (the common case)
     }
-    if(!s || s.v!==FH_SNAP_V || !s.catOrder || !s.months) return false;
-    if(s.at && Date.now()-s.at > FH_SNAP_TTL) return false;
-    return fhApplySnapshot(s);
+    // Spilled to IndexedDB (large plaintext or committed-enc): hand the marker to the
+    // module's async restore; the splash covers the read. Returns false (not sync-ready).
+    var m=localStorage.getItem('fh-snap-idb');
+    if(m){ var mm=JSON.parse(m); if(mm && !(mm.at && Date.now()-mm.at > FH_SNAP_TTL)) window.__fhSnapIdb=mm; }
+    return false;
   }catch(e){ return false; }
 }
 /* apply a parsed snapshot to the app globals — shared by the sync (plaintext)
@@ -374,13 +389,62 @@ window.addEventListener('online', fhSyncOnline);
 window.addEventListener('offline', fhSyncOnline);
 fhSyncOnline();
 
+/* ---------- service worker + updates ----------
+   A new build no longer reloads the page mid-session. It installs and WAITS; we
+   show the #fh-newver chip and let the user tap to apply — or apply it silently the
+   next time the app is hidden with nothing in flight. enc-recovery is the one
+   exception: it forces an immediate swap (65-passcode-ui.js) to self-heal a stale
+   build. reg.waiting.postMessage('SKIP_WAITING') → the SW activates → controllerchange
+   → reload into the new build. */
+var __fhSWReg=null, __fhSwapping=false;
+function fhUpdateReady(reg){
+  __fhSWReg=reg||__fhSWReg;
+  if(__fhSWReg && __fhSWReg.waiting) document.documentElement.classList.add('fh-newver');   // reveal the chip
+}
+function fhApplyUpdate(){
+  var reg=__fhSWReg;
+  document.documentElement.classList.remove('fh-newver');
+  if(!reg || !reg.waiting){ return; }
+  __fhSwapping=true;
+  document.documentElement.classList.add('fh-stale');   // reuse the quiet "Updating…" chip while the swap + reload happens
+  try{ reg.waiting.postMessage({type:'SKIP_WAITING'}); }catch(e){ location.reload(); }
+}
+window.fhUpdateReady=fhUpdateReady;
+window.fhApplyUpdate=fhApplyUpdate;
+/* Apply a waiting update silently when the app goes to the background — but only if
+   nothing is mid-edit, no sheet/modal/overlay is open, and no offline write is still
+   queued (fhOutboxEmpty). The user just comes back to the new build, no chip needed. */
+function fhMaybeAutoSwap(){
+  if(__fhSwapping || !__fhSWReg || !__fhSWReg.waiting) return;
+  if(window.editingTx!=null) return;
+  if(document.querySelector('.sheet.on, .modal.on, .overlay.on')) return;
+  var apply=function(){ if(!__fhSwapping && __fhSWReg && __fhSWReg.waiting){ __fhSwapping=true; try{ __fhSWReg.waiting.postMessage({type:'SKIP_WAITING'}); }catch(e){} } };
+  if(typeof window.fhOutboxEmpty==='function') window.fhOutboxEmpty().then(function(empty){ if(empty) apply(); });
+  else apply();
+}
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
+    try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}   // keep the offline outbox + crypto keys from being evicted
+    var hadController=!!navigator.serviceWorker.controller;   // false on the very first install → don't reload for that one
     var refreshing=false;
-    navigator.serviceWorker.addEventListener('controllerchange',function(){ if(refreshing)return; refreshing=true; location.reload(); });   // new build activated → reload into it
+    navigator.serviceWorker.addEventListener('controllerchange',function(){
+      if(refreshing) return; refreshing=true;
+      if(hadController) location.reload();   // a real update took over → reload into it; first-ever install just claims control silently
+    });
     navigator.serviceWorker.register('sw.js').then(function(reg){
+      __fhSWReg=reg;
+      if(reg.waiting && navigator.serviceWorker.controller) fhUpdateReady(reg);   // an update was already waiting from a previous visit
+      reg.addEventListener('updatefound',function(){
+        var sw=reg.installing; if(!sw) return;
+        sw.addEventListener('statechange',function(){
+          if(sw.state==='installed' && navigator.serviceWorker.controller) fhUpdateReady(reg);   // installed beside a live controller = an update (not first install)
+        });
+      });
       reg.update();
-      document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') reg.update(); });   // check for updates on foreground
+      document.addEventListener('visibilitychange',function(){
+        if(document.visibilityState==='visible') reg.update();   // check for updates on foreground
+        else fhMaybeAutoSwap();                                  // …and quietly apply a pending one on background
+      });
     }).catch(function(){});
   });
 }

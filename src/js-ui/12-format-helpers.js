@@ -99,3 +99,15 @@ window.fhCheck=fhCheck; window.fhFlagField=fhFlagField; window.fhClearInvalid=fh
    Renders are pure functions of state, so identical html ⇒ identical DOM ⇒ safe to skip.
    Accepts an id or an element; returns true if it actually wrote. */
 function setHTMLIf(idOrEl,h){ var e=(typeof idOrEl==='string')?document.getElementById(idOrEl):idOrEl; if(!e)return false; if(e.__sig===h)return false; e.__sig=h; e.innerHTML=h; return true; }
+/* ---------- HTML escaping (single source of truth) ----------
+   User text (names, notes, category/event/goal names, captions, emails, CSV cells)
+   flows into innerHTML strings and into inline onclick attributes all over the app.
+   Because decrypted E2EE fields also render through these same paths, an unescaped
+   value is not just a broken apostrophe — it is script running with the family key
+   unlocked. Escape EVERYTHING user-authored on the way out: esc() in text position,
+   escAttr() for a value sitting inside a quoted on*="fn('…')" handler.
+   Defined here (early) so every js-ui builder sees them; mirrored onto window so the
+   js-data module (which runs after this classic script) shares the exact same pair. */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function escAttr(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+window.esc=esc; window.escAttr=escAttr;

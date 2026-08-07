@@ -32,7 +32,7 @@
     // before any session check) — leaving them behind after sign-out let a
     // previous account's family name/members render on the next cold start,
     // on a device where two accounts actually sign in and out of the same app.
-    try { localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-onboarded'); } catch (e) {}
+    try { if (window.fhSnapClear) window.fhSnapClear(); else localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-onboarded'); } catch (e) {}
     document.documentElement.classList.remove('fh-warm', 'fh-stale', 'fh-warm-boot');
     const onb = g('onboarding'); if (onb) onb.classList.remove('done');
   }

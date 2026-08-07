@@ -337,7 +337,7 @@
         : await sb.from('reactions').delete().eq('family_id', fid).eq('transaction_id', txDbId).eq('member_id', mid);
       if (res && res.error) { _writeErr('reaction failed', res.error); return false; }
       if (emoji && window.fhNotify) window.fhNotify('reaction', { emoji: emoji, tx: txDbId });   // nudge closed-app devices; tx routes the tap
-      _syncSoon();
+      _syncSoon(_isOldTxnById(txDbId));   // reactions are windowed (0048): a reaction on an out-of-window txn needs a full hydrate to survive the merge
       return true;
     } catch (e) { _writeErr('reaction failed', e); return false; }
   };
@@ -365,6 +365,20 @@
 
   // ---- realtime: reload on any change to this family's rows ----
   let _rtTimer = null;
+  /* A realtime change to a transaction OLDER than our loaded window can't be captured
+     by a windowed refresh, so force a full hydrate for it. INSERT/UPDATE carry the row
+     (txn_date on payload.new); DELETE carries only the replica-identity columns (the PK
+     by default), so txn_date is absent → be safe and go full. Non-transaction tables
+     come back full in the snapshot regardless, so they can always refresh windowed. */
+  function _rtTxnOutOfWindow(payload) {
+    const wf = window.DB._winBound; if (!wf) return true;
+    const nd = payload && payload.new && payload.new.txn_date;
+    const od = payload && payload.old && payload.old.txn_date;
+    if (payload && payload.eventType === 'DELETE' && !od) return true;
+    if (nd && nd < wf) return true;
+    if (od && od < wf) return true;
+    return false;
+  }
   async function _subscribeRealtime(fid) {
     if (window.DB.rtFid === fid || !sb.channel) return;
     window.DB.rtFid = fid;
@@ -373,19 +387,22 @@
       try { const { data: { session } } = await sb.auth.getSession(); if (session && sb.realtime && sb.realtime.setAuth) await sb.realtime.setAuth(session.access_token); } catch (e) {}
       const ch = sb.channel('fam-' + fid);
       ['transactions', 'events', 'event_fundings', 'savings_entries', 'category_budgets', 'monthly_budgets', 'members', 'categories', 'event_memories', 'transaction_photos', 'incomes', 'saving_goals', 'member_weather', 'reactions', 'request_reviews', 'family_keys'].forEach((tbl) => {
-        ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: 'family_id=eq.' + fid }, () => {
+        ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: 'family_id=eq.' + fid }, (payload) => {
           // Echo suppression (R3): our own writes already schedule a _syncSoon reload,
           // and realtime replays them straight back. Ignore ticks inside the local-write
           // window so a local change causes ONE reload, not two. Remote changes (no recent
           // local write) fall through and reload as before.
           if (Date.now() - (window.DB._lastLocalWrite || 0) < 2500) return;
-          clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 900);
+          // R6: a remote change to an out-of-window transaction needs a full hydrate;
+          // everything else refreshes windowed (all other tables come back full anyway).
+          const full = (tbl === 'transactions') && _rtTxnOutOfWindow(payload);
+          clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(full ? {} : { windowed: true }); }, 900);
         });
       });
       // the families row itself (house customization lives here) — keyed on id, not family_id
       ch.on('postgres_changes', { event: '*', schema: 'public', table: 'families', filter: 'id=eq.' + fid }, () => {
         if (Date.now() - (window.DB._lastLocalWrite || 0) < 2500) return;
-        clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(); }, 900);
+        clearTimeout(_rtTimer); _rtTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData({ windowed: true }); }, 900);
       });
       ch.subscribe();
     } catch (e) { console.warn('realtime subscribe failed', e); }
@@ -399,7 +416,7 @@
     const now = Date.now();
     if (now - _lastRefresh < 2000) return;
     _lastRefresh = now;
-    window.loadFamilyData && window.loadFamilyData();
+    window.loadFamilyData && window.loadFamilyData({ windowed: true });   // R6: focus refresh is windowed; FULL_EVERY caps out-of-window staleness
   }
   document.addEventListener('visibilitychange', _refreshOnResume);
   window.addEventListener('focus', _refreshOnResume);

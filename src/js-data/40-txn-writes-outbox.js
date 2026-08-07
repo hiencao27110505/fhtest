@@ -251,6 +251,9 @@
     if (!left && _obHadItems) { _obHadItems = false; window.toast && window.toast(L('Đã đồng bộ thay đổi ngoại tuyến ✓','Offline changes synced ✓')); if (window.loadFamilyData) window.loadFamilyData(); }
   }
   window.fhOutboxFlush = fhOutboxFlush;
+  // True when nothing is waiting to sync — the SW-update auto-apply gate consults
+  // this so a background swap never discards an unsynced write mid-flight.
+  window.fhOutboxEmpty = async function () { try { return (await _obAll()).length === 0; } catch (e) { return true; } };
   window.addEventListener('online', () => setTimeout(fhOutboxFlush, 600));
   setTimeout(() => { fhOutboxFlush(); }, 3000);            // catch anything queued from a previous session
 
@@ -310,7 +313,7 @@
         await fhField('amount', t.amt), await fhField('note', t.note));
       await _w(sb.from('transactions').update(patch).eq('id', dbId), 'write transactions');
       await _dbSyncTxnPhotos(dbId, t.photos);
-      _syncSoon();
+      _syncSoon(true);   // edit may target/move an out-of-window row → full hydrate (edits are infrequent)
     } catch (e) { _writeErr('txn update failed', e); }
   }
   async function _dbDeleteTxn(dbId) {
@@ -321,6 +324,6 @@
         if (files.length) await sb.storage.from('family-media').remove(files);
       } catch (e) {}
       await _w(sb.from('transactions').delete().eq('id', dbId), 'delete transaction');  // transaction_photos rows cascade on delete
-      _syncSoon();
+      _syncSoon(true);   // deleted row may be out-of-window → full hydrate (deletes are infrequent)
     } catch (e) { _writeErr('txn delete failed', e); }
   }

@@ -141,9 +141,14 @@ async function callCsvMappingFallback(headers, sampleRows) {
   const outbound = (typeof fhShouldMaskForSharing === 'function' && fhShouldMaskForSharing())
     ? fhMaskSampleRowsForSharing(capped)
     : capped;
+  // Attach the caller's Supabase access token so the serverless proxy can verify a
+  // real signed-in user before spending a Gemini call (the endpoint is otherwise
+  // open to the internet and could be farmed against our key).
+  let _tok = '';
+  try { _tok = ((await sb.auth.getSession()).data.session || {}).access_token || ''; } catch (e) {}
   const res = await fetch('/api/csv-column-mapping', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: Object.assign({ 'Content-Type': 'application/json' }, _tok ? { Authorization: 'Bearer ' + _tok } : {}),
     body: JSON.stringify({ headers, sampleRows: outbound }),
   });
   if (!res.ok) {

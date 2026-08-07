@@ -1,5 +1,7 @@
-  // ---- THE hydrate: pull the whole active family into the app's globals ----
-  window.loadFamilyData = async function loadFamilyData() {
+  // ---- THE hydrate: pull the active family into the app's globals ----
+  // opts.windowed → R6 windowed refresh (recent slice merged onto the baseline);
+  // no opts / {} → full ledger (the default every existing caller keeps using).
+  window.loadFamilyData = async function loadFamilyData(opts) {
     // "have we ever finished a hydrate" needs its own flag now — DB.fid is seeded
     // at login, so it no longer doubles as one.
     if (!window.DB._hydrated) _showLoading();
@@ -22,14 +24,31 @@
       const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now()); now.setHours(0, 0, 0, 0);
       const monthDate = _isoMonth(now); window.DB.month = monthDate; window.DB.monthKey = MO[now.getMonth()];
 
+      /* ── R6 windowed refresh boundary ─────────────────────────────────────────
+         A windowed hydrate refetches only the last WINDOW_MONTHS+1 months of
+         transactions/photos/reactions (0048) and merges them onto the rows we
+         already hold, so month totals + history stay correct without shipping the
+         full ledger on every focus/realtime/post-write refresh. FULL_EVERY caps how
+         long an out-of-window REMOTE edit can stay unseen during active use; realtime
+         and local edit/delete escalate to a full hydrate immediately. The very first
+         hydrate (and any caller passing no opts) is always full — it seeds the
+         baseline the windowed path merges onto. */
+      const WINDOW_MONTHS = 2, FULL_EVERY = 5 * 60 * 1000;
+      const _winBoundDate = new Date(now.getFullYear(), now.getMonth() - WINDOW_MONTHS, 1);
+      window.DB._winBound = _isoDate(_winBoundDate);          // 'YYYY-MM-01'; realtime compares txn_date strings to this
+      window.DB._winBoundMs = _winBoundDate.getTime();
+      const _canWindow = !!(opts && opts.windowed) && window.DB._hydrated && window.DB._rawFid === fid
+        && window.DB._rawTx && (Date.now() - (window.DB._lastFullAt || 0) < FULL_EVERY);
+      const _winFrom = _canWindow ? window.DB._winBound : null;
+
       // R2: one round trip via get_family_snapshot() instead of 13 parallel table
       // reads. It runs SECURITY DEFINER, so the reads pay zero per-row RLS cost.
       // Falls back to the legacy multi-query hydrate if the RPC is absent or errors,
       // so an unmigrated env or a bad deploy can never take the app down.
-      // p_txn_from stays null today (full ledger); it is the R6 windowing hook.
+      // p_txn_from = _winFrom windows the ledger (null → full, exact prior behaviour).
       let fam, mem, cat, cb, mb, tx, ev, ef, se, em, tp, inc, sg, rx, rr, encMeta, keyWraps;
       let snap = null;
-      try { const rs = await sb.rpc('get_family_snapshot', { p_txn_from: null }); if (!rs.error && rs.data) snap = rs.data; }
+      try { const rs = await sb.rpc('get_family_snapshot', { p_txn_from: _winFrom }); if (!rs.error && rs.data) snap = rs.data; }
       catch (e) { /* fall through to the multi-query hydrate */ }
       if (snap) {
         fam = snap.family; mem = snap.members || []; cat = snap.categories || [];
@@ -117,6 +136,27 @@
          give it a neutral label until the passcode unlocks the real one */
       mem.forEach((m) => { if (m.name == null) m.name = m.is_shared ? 'Shared' : L('Thành viên', 'Member'); });
       cat.forEach((c) => { if (c.name == null) c.name = '•••'; });
+
+      /* ── R6 merge ──────────────────────────────────────────────────────────────
+         Reconstitute the FULL raw txn/photo/reaction arrays from our baseline + the
+         fresh windowed slice, so every computation below runs identically to a full
+         hydrate. Only fires when the RPC actually returned a window — the multi-query
+         fallback ignores _winFrom and hands back the full ledger, which must NOT be
+         merged (it would duplicate the kept rows). Fresh in-window rows were just
+         decrypted above; the kept older rows come from the previous full hydrate
+         already decrypted, so no row is decrypted twice. */
+      const _wasWindowed = !!(_winFrom && snap);
+      if (_wasWindowed) {
+        const keepTx = (window.DB._rawTx || []).filter((r) => r.txn_date < _winFrom);
+        const keptIds = new Set(keepTx.map((r) => r.id));
+        tx = keepTx.concat(tx);
+        tp = (window.DB._rawTp || []).filter((p) => keptIds.has(p.transaction_id)).concat(tp);
+        rx = (window.DB._rawRx || []).filter((r) => keptIds.has(r.transaction_id)).concat(rx);
+      }
+      // Stash the (now full) raw arrays as the baseline for the next windowed refresh.
+      // A full result also resets the "last full hydrate" clock that FULL_EVERY checks.
+      window.DB._rawFid = fid; window.DB._rawTx = tx; window.DB._rawTp = tp; window.DB._rawRx = rx;
+      if (!_wasWindowed) window.DB._lastFullAt = Date.now();
 
       if (fam) {
         window.FAM.familyName = fam.name;
