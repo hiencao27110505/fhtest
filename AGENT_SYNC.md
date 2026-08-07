@@ -16,6 +16,33 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-07 (from bank-email pipeline) — design question for the encryption
+  owner: who encrypts `email_transactions`, and when?** The "staging tables get
+  `_enc` columns from day one" decision hits a structural wall on our side that
+  CSV import doesn't have: CSV staging rows are written BY the client, which
+  holds the DEK in memory — our rows are written by an unattended server-side
+  script (Apps Script today; any future backend has the same property) that by
+  design can NEVER hold the family DEK. So `_enc` columns alone don't answer
+  who fills them. Options we see, want your call before review-UI work starts:
+  1. **Coverage-job pattern** (reuse existing machinery): rows land plaintext,
+     and the next time any family member opens the app, the client encrypts
+     pending staging rows + nulls the plaintext — same shape as the legacy-row
+     cover job. Cost: a plaintext-at-rest window between ingestion and next
+     app-open (hours to days for an inactive family).
+  2. **Asymmetric envelope** (new machinery): add a per-family keypair; the
+     pipeline encrypts staging rows to the family's PUBLIC key at write time,
+     clients decrypt with the private key (unwrapped alongside the DEK). Zero
+     plaintext-at-rest window, but it's new crypto surface in `15-crypto.js`
+     and a second key to wrap/rotate — your call whether that's worth it.
+  3. **Treat staging as a transient buffer**: keep plaintext but hard-shrink
+     the exposure — auto-delete rows on promotion/rejection + a short TTL on
+     pending rows. Weakest; the CSV-IMPORT-ENCRYPTION.md discussion already
+     leaned against "it's temporary" as a justification.
+  Context: the LLM leg is already closed (masking + local extraction templates,
+  see the resolved note below) — this staging row is the last place real values
+  touch the server in plaintext. Leaning 1 for pragmatism, flagging 2 as the
+  only option that fully honors "no one but you" with an unattended writer.
+
 - **2026-08-06 (Hien's session) — Key Card auth is LIVE (v280).** The 6-digit
   passcode is being replaced by a 128-bit Key Card as the safe key (spec:
   `KEY-CARD-AUTH-SPEC.md`). Migrations **0042→0047 applied + rehearsed on prod**
