@@ -37,10 +37,28 @@ var ICO = {
   grid:'<rect x="4" y="4" width="7" height="7" rx="1.7"/><rect x="13" y="4" width="7" height="7" rx="1.7"/><rect x="4" y="13" width="7" height="7" rx="1.7"/><rect x="13" y="13" width="7" height="7" rx="1.7"/>',
   envelope:'<rect x="3" y="5.5" width="18" height="13" rx="2.6"/><path d="M3.8 7 12 13l8.2-6"/>',
   shield:'<path d="M12 3.2 5 6v5.4c0 4.4 2.9 7.5 7 9.4 4.1-1.9 7-5 7-9.4V6z"/><path d="M9.2 12.2l2 2 3.6-3.9"/>',
-  bell:'<path d="M12 4.2a5.3 5.3 0 00-5.3 5.3c0 3.9-1.3 5.3-2.2 6.3h15c-.9-1-2.2-2.4-2.2-6.3A5.3 5.3 0 0012 4.2z"/><path d="M9.9 18.9a2.2 2.2 0 004.2 0M12 2.4v1.8"/>'
+  bell:'<path d="M12 4.2a5.3 5.3 0 00-5.3 5.3c0 3.9-1.3 5.3-2.2 6.3h15c-.9-1-2.2-2.4-2.2-6.3A5.3 5.3 0 0012 4.2z"/><path d="M9.9 18.9a2.2 2.2 0 004.2 0M12 2.4v1.8"/>',
+  install:'<path d="M12 3v10.5M8 9.7l4 4 4-4"/><path d="M4.5 15v2.7A2.3 2.3 0 006.8 20h10.4a2.3 2.3 0 002.3-2.3V15"/>',
+  bolt:'<path d="M13 2.7 5.8 12.6a.6.6 0 00.5 1H10l-1 7.7 7.2-9.9a.6.6 0 00-.5-1H12l1-7.7z"/>'
 };
 
 var RELEASES = [
+  { id:'2026-08-07-install', date:'2026-08-07', time:'17:06', ver:'v297', icon:ICO.install,
+    vi:{ t:'Thêm FamilyHub vào màn hình chính',
+      problem:'Trên điện thoại app mở trong trình duyệt nên cứ như một trang web, mà trên iPhone chưa thêm vào màn hình chính thì thông báo cũng chưa chạy.',
+      sol:'Giờ trong Cài đặt có nút Thêm vào màn hình chính. Thêm xong app mở toàn màn hình như một app riêng, giữ biểu tượng một lát là nhảy thẳng vào phần ghi chi tiêu.' },
+    en:{ t:'Add FamilyHub to your Home Screen',
+      problem:'On your phone it opened inside the browser like a website, and on iPhone notifications only work once it is added to the Home Screen.',
+      sol:'Settings has an Add to Home Screen button now. Once it is on, the app opens full screen on its own, and pressing and holding the icon jumps straight to logging an expense.' } },
+
+  { id:'2026-08-07-faster', date:'2026-08-07', time:'17:06', ver:'v297', icon:ICO.bolt,
+    vi:{ t:'Mở nhanh hơn, nhẹ dữ liệu hơn',
+      problem:'Càng dùng lâu dữ liệu càng nhiều, mỗi lần mở hay làm mới lại tải kha khá, tốn thời gian với dung lượng mạng.',
+      sol:'Giờ làm mới chỉ tải phần gần đây, mở lên là thấy số liệu lần trước ngay rồi cập nhật ngầm phía sau. Bản app cũng gọn hơn nên mở nhanh, nhất là khi máy yếu hay mạng chậm.' },
+    en:{ t:'Opens faster, lighter on data',
+      problem:'The longer you used it, the more data piled up, and every open or refresh pulled a lot down, costing time and mobile data.',
+      sol:'Now a refresh only pulls the recent stuff, the app shows your last numbers the moment it opens and updates quietly after. The build is smaller too, so it opens quickly even on older phones or a slow connection.' } },
+
   { id:'2026-08-06-family-code', date:'2026-08-06', time:'20:30', ver:'v289', icon:ICO.shield,
     vi:{ t:'Nhà mình có mã khóa riêng, tụi mình cũng không đọc được',
       problem:'Tiền thì khóa kỹ rồi, nhưng mã 6 số vẫn đủ ngắn để bị dò. Về lý thuyết, người nắm máy chủ vẫn còn đường mở.',
