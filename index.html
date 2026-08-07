@@ -9564,8 +9564,32 @@ function obPasscodeNext(){
   FAM.passcode=a.value;
   obPrefillBudget(); obGo('budget');
 }
-var BUDGET_PROPS={Housing:.30,Groceries:.14,Transport:.10,Others:.08,Dining:.08,Fun:.06};   // best-practice proportions
+var BUDGET_PROPS={Housing:.30,Groceries:.14,Transport:.10,Dining:.08,Fun:.06,Kids:.08,Others:.08};   // best-practice proportions (by concept)
+/* The default categories a brand-new family gets. MUST mirror
+   seed_default_categories() (0003) in the SAME ORDER — the server seeds these at
+   create_family and createFamilyInDB attaches the budgets by sort_order → so the
+   onboarding budget step needs them client-side (catOrder starts empty). */
+var DEFAULT_CATS=[
+  {concept:'Housing',   vi:'Nhà ở',   en:'Housing',   emoji:'🏠', color:'#7E6BE0'},
+  {concept:'Groceries', vi:'Đi chợ',  en:'Groceries', emoji:'🛒', color:'#1FA971'},
+  {concept:'Dining',    vi:'Ăn ngoài',en:'Dining',    emoji:'🍽️', color:'#E14B8A'},
+  {concept:'Transport', vi:'Đi lại',  en:'Transport', emoji:'🚗', color:'#12B5A6'},
+  {concept:'Fun',       vi:'Giải trí',en:'Fun',       emoji:'🎉', color:'#9D4EFF'},
+  {concept:'Kids',      vi:'Con cái', en:'Kids',      emoji:'🎒', color:'#F0701A'}
+];
+var _obCatConcept={};   // display name → concept, for BUDGET_PROPS lookup regardless of language
 function obPrefillBudget(){
+  // New family: the DB seeds default categories at create_family, but they don't
+  // exist client-side yet (catOrder starts empty → only the "Others" catch-all).
+  // Mirror the seed here, in the same order, so the budget step shows all of
+  // them and createFamilyInDB can attach each budget by sort_order.
+  if(FAM.mode==='create'){
+    _obCatConcept={};
+    var names=DEFAULT_CATS.map(function(d){ var n=(LANG==='vi'?d.vi:d.en); _obCatConcept[n]=d.concept; return n; });
+    catOrder=names.slice(); catStyle={};
+    DEFAULT_CATS.forEach(function(d,i){ catStyle[names[i]]=[d.emoji,'#f2eef6',d.color]; });
+    ensureFallbackCat(catOrder,catStyle,catBudget||(catBudget={}));   // append the "Others" catch-all
+  }
   var sym=document.getElementById('ob-budget-sym'); if(sym) sym.textContent=curSym();
   document.getElementById('ob-budget').setAttribute('placeholder', CUR==='VND'?'30.000.000':'9,000');
   document.getElementById('ob-catbudgets').innerHTML = catOrder.map(function(c){
@@ -9578,7 +9602,7 @@ function obSuggestBudgets(){
   var total=parseAmtBase(document.getElementById('ob-budget').value); if(!total) return;   // total in base units
   var loc = CUR==='VND'?'vi-VN':'en-US';
   document.querySelectorAll('#ob-catbudgets .cat-bud').forEach(function(inp){
-    var c=inp.getAttribute('data-cat'), prop=(BUDGET_PROPS[c]!==undefined)?BUDGET_PROPS[c]:(0.7/Math.max(1,catOrder.length));
+    var c=inp.getAttribute('data-cat'), concept=_obCatConcept[c]||c, prop=(BUDGET_PROPS[concept]!==undefined)?BUDGET_PROPS[concept]:(0.7/Math.max(1,catOrder.length));
     var base=Math.round(total*prop/10)*10;                        // round base value
     inp.value = base ? (base*curMult()).toLocaleString(loc) : '';  // shown in the display currency
   });
@@ -9811,7 +9835,7 @@ if('serviceWorker' in navigator){
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v285';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v289';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -9829,6 +9853,14 @@ var ICO = {
 };
 
 var RELEASES = [
+  { id:'2026-08-06-family-code', date:'2026-08-06', time:'20:30', ver:'v289', icon:ICO.shield,
+    vi:{ t:'Nhà mình có mã khóa riêng, tụi mình cũng không đọc được',
+      problem:'Tiền thì khóa kỹ rồi, nhưng mã 6 số vẫn đủ ngắn để bị dò. Về lý thuyết, người nắm máy chủ vẫn còn đường mở.',
+      sol:'Giờ mỗi nhà một mã khóa riêng 128-bit, ngẫu nhiên tới mức không dò ra nổi. Toàn bộ dữ liệu được mã hóa đầu-cuối bằng AES-256, gom hết máy tính trên đời lại dò cả tỉ năm cũng không ra. Máy chủ chỉ thấy bản đã khóa, thiếu mã thì không ai mở được, kể cả tụi mình. Vào app bấm tạo mã khóa của nhà là xong.' },
+    en:{ t:'Your family has its own code now, unreadable even to us',
+      problem:'Money was locked, but the old 6-digit code was short enough to guess. In theory anyone with the server could still get in.',
+      sol:'Now each family gets its own random 128-bit code, far too large to guess. Everything is end-to-end encrypted with AES-256, so far beyond reach that every computer on earth working together could not crack it in billions of years. The server only ever sees the locked copy, and without the code nobody opens it, us included. Open the app and tap to create your family code.' } },
+
   { id:'2026-08-04-vault-photos', date:'2026-08-04', time:'21:04', ver:'v277', icon:ICO.shield,
     vi:{ t:'Ảnh và tên gọi cũng được khóa như tiền',
       problem:'Đợt trước tiền đã khóa kỹ rồi, nhưng ảnh hóa đơn, ảnh kỷ niệm, chú thích và tên người nhà vẫn nằm mở trên máy chủ.',
@@ -11189,7 +11221,7 @@ function openWhatsNew(){
           try {
             window.fhCardUnlock && window.fhCardUnlock(_pc).then(() => {
               window.fhLockBanner && window.fhLockBanner(false);
-              window.toast && window.toast(L('Đã mở khóa bằng thẻ khóa ✓', 'Unlocked with your Key Card ✓'));
+              window.toast && window.toast(L('Đã mở khóa bằng mã khóa ✓', 'Unlocked with your code ✓'));
               window.loadFamilyData && window.loadFamilyData();
             }).catch(() => {});
           } catch (e) {}
@@ -12989,7 +13021,7 @@ window.classifyAmount = classifyAmount;
     if (pv) {
       pv.style.display = 'flex';
       const sub = inv.card_only
-        ? L(_esc(inv.invited_by) + ' mời bạn · bấm tham gia, nhập thẻ khóa sau', 'invited by ' + _esc(inv.invited_by) + ' · tap join, enter the Key Card after')
+        ? L(_esc(inv.invited_by) + ' mời bạn · bấm tham gia, nhập mã khóa sau', 'invited by ' + _esc(inv.invited_by) + ' · tap join, enter the code after')
         : L(_esc(inv.invited_by) + ' mời bạn · nhập mã 6 số của gia đình', 'invited by ' + _esc(inv.invited_by) + ' · enter the family’s 6-digit code');
       pv.innerHTML = '<div class="ob-preview-ic">🏡</div><div><div class="ob-preview-fam">' + _esc(inv.family_name || 'Family') + '</div>'
         + '<div class="ob-preview-sub">' + sub + '</div></div>';
@@ -13415,13 +13447,13 @@ window.classifyAmount = classifyAmount;
          lockout, nothing re-encrypts). Card exists → view/regenerate it. */
       if (fhKeyReady() && window.fhHasCard) {
         if (window.fhHasCard()) {
-          body += _btn(L('Xem hoặc tạo lại thẻ khóa', 'View or remake the Key Card'), '_closeOv();fhCardShowCached()', _S.line);
+          body += _btn(L('Xem hoặc tạo lại mã khóa', 'View or remake the code'), '_closeOv();fhCardShowCached()', _S.line);
           // Phase D: once on the card, the owner can retire the old 6-digit code.
           // Shown only while a passcode still exists (enc.wrapped_dek non-null).
           if (owner && enc && enc.wrapped_dek) body += _btn(L('Gỡ mã 6 số cũ', 'Remove the old 6-digit code'), 'fhDropPasscode(this)', _S.del);
         } else {
-          body += (owner ? _btn(L('Nâng cấp lên thẻ khóa của nhà', 'Upgrade to a family Key Card'), 'fhCardMigrate(this)', _S.cta)
-                         : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ tạo thẻ khóa cho nhà.', 'The owner will create the family’s card.') + '</div>');
+          body += (owner ? _btn(L('Nâng cấp lên mã khóa của nhà', 'Upgrade to a family code'), 'fhCardMigrate(this)', _S.cta)
+                         : '<div class="fh-s-sub">' + L('Chủ gia đình sẽ tạo mã khóa cho nhà.', 'The owner will create the family code.') + '</div>');
         }
       }
       /* anything the valve tolerated (server-side inserts, pre-0038 rows) plus
@@ -13826,10 +13858,10 @@ window.classifyAmount = classifyAmount;
   window.fhHasCard = function () { return !!_fhCardWrap(); };
 
   function _cardErr(kind) {
-    const m = kind === 'checksum' ? L('Thẻ khóa nhập chưa đúng, kiểm tra lại giúp mình', 'That card doesn’t look right, check it again')
-      : kind === 'length' ? L('Thẻ khóa chưa đủ, nhập hoặc quét lại nha', 'That card looks incomplete, enter or scan it again')
-      : kind === 'wrong' ? L('Thẻ khóa không mở được dữ liệu của nhà này', 'That card doesn’t open this family’s data')
-      : L('Thẻ khóa không hợp lệ', 'That card isn’t valid');
+    const m = kind === 'checksum' ? L('Mã khóa nhập chưa đúng, kiểm tra lại giúp mình', 'That code doesn’t look right, check it again')
+      : kind === 'length' ? L('Mã khóa chưa đủ, nhập hoặc quét lại nha', 'That code looks incomplete, enter or scan it again')
+      : kind === 'wrong' ? L('Mã khóa không mở được dữ liệu của nhà này', 'That code doesn’t open this family’s data')
+      : L('Mã khóa không hợp lệ', 'That code isn’t valid');
     const e = new Error('card_' + kind); e.fhMsg = m; return e;
   }
 
@@ -13913,24 +13945,24 @@ window.classifyAmount = classifyAmount;
      expires in 15 min). The card the owner is looking at is remembered for the
      QR/link actions so the onclicks stay tiny. */
   let _cardShown = null;   // the card object currently on screen
-  window.fhCardCopyText = function () { try { if (_cardShown) navigator.clipboard.writeText(_cardShown.display); window.toast && window.toast(L('Đã sao chép thẻ khóa', 'Card copied')); } catch (e) {} };
+  window.fhCardCopyText = function () { try { if (_cardShown) navigator.clipboard.writeText(_cardShown.display); window.toast && window.toast(L('Đã sao chép mã khóa', 'Code copied')); } catch (e) {} };
   window.fhCardSaveFile = function () {
     if (!_cardShown) return;
     try {
-      const body = 'FamilyHub — Thẻ khóa của nhà / Family Key Card\n\n' + _cardShown.display + '\n\n'
-        + 'Đây là chìa khóa duy nhất mở dữ liệu của nhà mình.\n'
-        + 'Mất thẻ và mất hết điện thoại là mất dữ liệu, không ai lấy lại được.\n'
+      const body = 'FamilyHub — Mã khóa của nhà / Family code\n\n' + _cardShown.display + '\n\n'
+        + 'Đây là mã duy nhất mở dữ liệu của nhà mình.\n'
+        + 'Mất mã và mất hết điện thoại là mất dữ liệu, không ai lấy lại được.\n'
         + 'Giữ kỹ như giữ sổ đỏ.\n';
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([body], { type: 'text/plain' }));
-      a.download = 'FamilyHub-KeyCard.txt';
+      a.download = 'FamilyHub-code.txt';
       document.body.appendChild(a); a.click();
       setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
     } catch (e) {}
   };
   window.fhCardCopyLink = function () {
     if (!_cardShown) return;
-    try { navigator.clipboard.writeText(_cardShown.url || FHCrypto.cardUrl(_cardShown.display)); window.toast && window.toast(L('Đã sao chép link thẻ khóa', 'Card link copied')); } catch (e) {}
+    try { navigator.clipboard.writeText(_cardShown.url || FHCrypto.cardUrl(_cardShown.display)); window.toast && window.toast(L('Đã sao chép link mã khóa', 'Code link copied')); } catch (e) {}
   };
   // QR sheet: the self-contained card as a scannable code, with share + save-photo.
   window.fhCardQrSheet = function () {
@@ -13939,7 +13971,7 @@ window.classifyAmount = classifyAmount;
     const cv = window.fhQrCanvas(url, 6, 4);
     cv.style.cssText = 'width:220px;height:220px;image-rendering:pixelated;border-radius:8px;display:block;margin:8px auto';
     window.__fhQrCanvas = cv;
-    _fhSheet('<div class="fh-s-h">' + L('Mã QR thẻ khóa', 'Key Card QR') + '</div>'
+    _fhSheet('<div class="fh-s-h">' + L('Mã khóa dạng QR', 'Your code as a QR') + '</div>'
       + '<div id="fh-qr-wrap" style="text-align:center"></div>'
       + '<div class="fh-s-sub" style="text-align:center">' + L('Cho người nhà quét để nhận. Mã này cũng là chìa khóa, giữ kỹ nha.', 'Have your family scan it. This is your key too, so keep it safe.') + '</div>'
       + _btn(L('Chia sẻ ảnh', 'Share image'), 'fhCardQrShare(this)', _S.line)
@@ -13957,7 +13989,7 @@ window.classifyAmount = classifyAmount;
     const b = await _qrBlob(); if (!b) return;
     try {
       const file = new File([b], 'FamilyHub-invite-QR.png', { type: 'image/png' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: L('Thẻ khóa của nhà', 'Family Key Card') }); }
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: L('Mã khóa của nhà', 'Family code') }); }
       else { window.fhCardQrSave(); }   // no file share (desktop) → fall back to saving
     } catch (e) {}
   };
@@ -13976,28 +14008,26 @@ window.classifyAmount = classifyAmount;
      Shown proactively at onboarding + on return (wired in Phase B/C). In Phase A
      it is reachable only via fhCardShow() for testing. */
   function _cardIntroCopy() {
-    return '<div class="fh-s-h">' + L('Thẻ khóa của nhà mình', 'Your family’s Key Card') + '</div>'
-      + '<div class="fh-s-sub">' + L('Mọi thứ nhà mình ghi lại, từ tiền nong, hình ảnh tới tên gọi, đều được khóa bằng tấm thẻ này.',
-                                     'Everything your family logs, money, photos, names, is locked with this one card.') + '</div>'
-      + '<div class="fh-s-sub">' + L('Máy chủ chỉ giữ bản đã khóa. Không ai mở được nếu không có thẻ, kể cả tụi mình làm ra app.',
-                                     'Our server only keeps the locked copy. Without the card nobody can open it, not even us who built the app.') + '</div>'
-      + '<div class="fh-s-sub">' + L('Giữ thẻ kỹ nha. Mất thẻ và mất hết điện thoại là mất luôn dữ liệu, không ai lấy lại được. Đó cũng chính là lý do không ai ngoài nhà mình đọc được.',
-                                     'Keep it safe. Lose the card and all your phones and the data is gone for good, nobody can bring it back. That is exactly why nobody outside your family can read it.') + '</div>';
+    return '<div class="fh-s-h">' + L('Lưu mã khóa của nhà', 'Save your family code') + '</div>'
+      + '<div class="fh-s-sub">' + L('Chỉ nhà mình mở được, tụi mình cũng chịu.',
+                                     'Only your family can open it, us included.') + '</div>'
+      + '<div class="fh-s-sub">' + L('Giữ kỹ. Mã mở mọi thứ, không có bản sao. Mất là mất luôn.',
+                                     'Keep it safe. It opens everything and there is no backup. Lose it and it is gone.') + '</div>';
   }
   // Show a specific card object (post-create/regenerate) with the save actions.
   window.fhCardShow = function (card) {
     if (!card || !card.display) return;
     _fhSheet(_cardIntroCopy() + _cardActions(card) + _btn(L('Xong', 'Done'), '_closeOv()', _S.ghost));
   };
-  // Show the card cached on THIS device (Settings → "Xem thẻ khóa"). If this
+  // Show the card cached on THIS device (Settings → "Xem mã khóa"). If this
   // device never held the card, offer regenerate instead.
   window.fhCardShowCached = async function () {
     const disp = await _cardCacheGet(window.DB.fid);
     if (disp) { const p = FHCrypto.parseCard(disp); return window.fhCardShow(p.ok ? { display: p.display, url: FHCrypto.cardUrl(p.display) } : { display: disp, url: FHCrypto.cardUrl(disp) }); }
-    _fhSheet('<div class="fh-s-h">' + L('Thẻ khóa của nhà', 'Family Key Card') + '</div>'
-      + '<div class="fh-s-sub">' + L('Máy này chưa giữ bản thẻ khóa. Bạn có thể tạo lại một tấm mới (tấm cũ sẽ ngừng dùng), rồi lưu và đưa cho người nhà.',
-                                     'This device doesn’t hold a copy of the card. You can make a fresh one (the old card stops working), then save and share it.') + '</div>'
-      + _btn(L('Tạo lại thẻ khóa', 'Make a new card'), 'fhCardRegenerate(this)', _S.cta)
+    _fhSheet('<div class="fh-s-h">' + L('Mã khóa của nhà', 'Family code') + '</div>'
+      + '<div class="fh-s-sub">' + L('Máy này chưa giữ mã khóa. Bạn có thể tạo mã mới (mã cũ sẽ ngừng dùng), rồi lưu và đưa cho người nhà.',
+                                     'This device doesn’t hold the code. You can make a new one (the old code stops working), then save and share it.') + '</div>'
+      + _btn(L('Tạo lại mã khóa', 'Make a new code'), 'fhCardRegenerate(this)', _S.cta)
       + _btn(L('Đóng', 'Close'), '_closeOv()', _S.ghost));
   };
 
@@ -14012,9 +14042,9 @@ window.classifyAmount = classifyAmount;
       const card = await fhCardCreate('set_family_card');
       await window.loadFamilyData();
       window.fhCardShow(card);
-      window.toast && window.toast(L('Đã tạo thẻ khóa cho nhà ✓. Lưu lại và đưa cho người thân nha.', 'Your family Key Card is ready ✓. Save it and share with your family.'));
+      window.toast && window.toast(L('Đã tạo mã khóa cho nhà ✓. Lưu lại và đưa cho người thân nha.', 'Your family code is ready ✓. Save it and share with your family.'));
     } catch (e) {
-      if (btn) { btn.disabled = false; btn.textContent = L('Nâng cấp lên thẻ khóa của nhà', 'Upgrade to a family Key Card'); }
+      if (btn) { btn.disabled = false; btn.textContent = L('Nâng cấp lên mã khóa của nhà', 'Upgrade to a family code'); }
       window.toast && window.toast(_friendly(e));
     }
   };
@@ -14023,12 +14053,12 @@ window.classifyAmount = classifyAmount;
      surfaced on open instead of buried in Settings. Tapping mints + shows the
      card to save; the old 6-digit code keeps working until Phase D removes it. */
   window.fhCardMigrateIntro = function () {
-    _fhSheet('<div class="fh-s-h">' + L('Nhà mình vừa có thẻ khóa riêng', 'Your family just got its own Key Card') + '</div>'
-      + '<div class="fh-s-sub">' + L('Trước giờ tiền nong đã được khóa. Giờ có một tấm thẻ khóa mạnh hơn nhiều, khóa hết mọi thứ và không ai bẻ được, kể cả tụi mình.',
-                                     'Your money was already locked. Now there’s a much stronger card that locks everything, one nobody can break, us included.') + '</div>'
-      + '<div class="fh-s-sub">' + L('Bấm để tạo thẻ khóa của nhà rồi lưu lại. Mã 6 số cũ vẫn dùng được cho tới khi bạn gỡ.',
-                                     'Tap to create your family’s card and save it. The old 6-digit code keeps working until you remove it.') + '</div>'
-      + _btn(L('Tạo thẻ khóa của nhà', 'Create the family Key Card'), 'fhCardMigrate(this)', _S.cta)
+    _fhSheet('<div class="fh-s-h">' + L('Khóa dữ liệu bằng mã riêng', 'Lock your data with your own code') + '</div>'
+      + '<div class="fh-s-sub">' + L('Một mã khóa hết tiền, ảnh và tên. Chỉ nhà mình có, tụi mình cũng chịu.',
+                                     'One code locks money, photos and names. Only your family holds it, us included.') + '</div>'
+      + '<div class="fh-s-sub">' + L('Mã 6 số cũ vẫn dùng được cho tới khi bạn gỡ.',
+                                     'Your old 6-digit code keeps working until you remove it.') + '</div>'
+      + _btn(L('Tạo mã khóa', 'Create the code'), 'fhCardMigrate(this)', _S.cta)
       + _btn(L('Để sau', 'Later'), '_fhCardLater();_closeOv()', _S.ghost));
   };
   window._fhCardLater = function () { try { localStorage.setItem('fh-card-later', String(Date.now())); } catch (e) {} };
@@ -14065,10 +14095,10 @@ window.classifyAmount = classifyAmount;
       await _rpc('drop_family_passcode');
       await window.loadFamilyData();
       window.fhEncryptionSheet && window.fhEncryptionSheet();
-      window.toast && window.toast(L('Đã gỡ mã 6 số. Giờ nhà mình chỉ dùng thẻ khóa.', 'Code removed. Your family now uses just the Key Card.'));
+      window.toast && window.toast(L('Đã gỡ mã 6 số. Giờ nhà mình chỉ dùng mã khóa.', 'Code removed. Your family now uses just the code.'));
     } catch (e) {
       if (btn) { btn.disabled = false; btn.classList.remove('armed'); btn.textContent = L('Gỡ mã 6 số cũ', 'Remove the old 6-digit code'); }
-      window.toast && window.toast(/no_card/i.test(String((e && e.message) || '')) ? L('Hãy tạo thẻ khóa trước khi gỡ mã.', 'Create the Key Card before removing the code.') : _friendly(e));
+      window.toast && window.toast(/no_card/i.test(String((e && e.message) || '')) ? L('Hãy tạo mã khóa trước khi gỡ mã.', 'Create the family code before removing the 6-digit code.') : _friendly(e));
     }
   };
 
@@ -14080,29 +14110,40 @@ window.classifyAmount = classifyAmount;
       const card = await fhCardCreate('rotate_family_card');
       await window.loadFamilyData();
       window.fhCardShow(card);
-      window.toast && window.toast(L('Đã tạo thẻ khóa mới. Tấm cũ ngừng dùng.', 'New card made. The old one no longer works.'));
+      window.toast && window.toast(L('Đã tạo mã khóa mới. Tấm cũ ngừng dùng.', 'New code made. The old one no longer works.'));
     } catch (e) {
-      if (btn) { btn.disabled = false; btn.textContent = L('Tạo lại thẻ khóa', 'Make a new card'); }
+      if (btn) { btn.disabled = false; btn.textContent = L('Tạo lại mã khóa', 'Make a new code'); }
       window.toast && window.toast(_friendly(e));
     }
+  };
+
+  // One-tap paste into the card field (reads the clipboard — the button tap is
+  // the user gesture iOS requires). Fills, validates, and clears any red flag.
+  window.fhCardPasteInput = async function (btn) {
+    try {
+      const t = await navigator.clipboard.readText();
+      const el = document.getElementById('fh-card-in');
+      if (el && t) { el.value = t.trim(); window.fhModalDirty && window.fhModalDirty(); el.focus(); }
+    } catch (e) { window.toast && window.toast(L('Chưa dán được, thử gõ tay nhé', 'Couldn’t paste, try typing it')); }
   };
 
   // Card entry modal (the unlock prompt for a card family). Plain forgiving
   // input; validation + friendly error on submit.
   window.fhCardEnterPrompt = function () {
     _fhModal({
-      title: L('Nhập thẻ khóa của nhà', 'Enter your family’s Key Card'),
+      title: L('Nhập mã khóa của nhà', 'Enter your family code'),
       saveLabel: L('Mở khóa', 'Unlock'),
-      body: '<div class="fh-s-sub">' + L('Máy này cần thẻ khóa của nhà để mở dữ liệu. Dán, quét hoặc gõ tấm thẻ vào đây.',
-                                         'This device needs your family’s card to open the data. Paste, scan or type it here.') + '</div>'
+      body: '<div class="fh-s-sub">' + L('Dán mã khóa vào đây để mở dữ liệu của nhà.',
+                                         'Paste your family code here to open the data.') + '</div>'
         + '<div class="field"><input id="fh-card-in" placeholder="FH-XXXX-XXXX-…" autocapitalize="characters" autocomplete="off" spellcheck="false" oninput="fhModalDirty()"></div>'
+        + _btn(L('Dán mã khóa', 'Paste'), 'fhCardPasteInput(this)', _S.line)
         // dual-wrap fallback: while the family still has a 6-digit code, offer it
         // so nobody is ever stuck mid-migration before they've received the card
         + ((window.DB && window.DB.enc && window.DB.enc.wrapped_dek)
             ? '<div style="text-align:center;margin-top:4px"><button class="fh-s-ghost" onclick="_closeOv();fhPasscodeUnlockPrompt()">' + L('Hoặc dùng mã 6 số', 'Or use the 6-digit code') + '</button></div>'
             : ''),
       required: () => [{ el: 'fh-card-in', ok: _parseCardInput((document.getElementById('fh-card-in') || {}).value || '').ok }],
-      reqMsg: L('Thẻ khóa chưa đúng, kiểm tra lại nha', 'That card doesn’t look right, check it again'),
+      reqMsg: L('Mã khóa chưa đúng, kiểm tra lại nha', 'That code doesn’t look right, check it again'),
       save: async () => {
         await fhCardUnlock((document.getElementById('fh-card-in').value || ''));
         window.fhLockBanner && window.fhLockBanner(false);
@@ -14137,11 +14178,14 @@ window.classifyAmount = classifyAmount;
          storage this tab can't reach. */
       const ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--canvas);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:24px;font-family:inherit';
-      ov.innerHTML = '<div style="max-width:420px;text-align:center">'
-        + '<div style="font-size:19px;font-weight:700;margin-bottom:14px">' + L('Đã nhận thẻ khóa của nhà', 'Got your family Key Card') + '</div>'
-        + '<div style="color:var(--muted);line-height:1.6;margin-bottom:20px">' + L('Đăng nhập bằng Google để vào nhà — thẻ khóa đã sẵn trên máy này rồi.', 'Sign in with Google to enter — the key is already saved on this device.') + '</div>'
-        + '<button id="fh-handoff-go" style="background:var(--brand);color:var(--white);border:none;border-radius:9999px;padding:13px 22px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">' + L('Tiếp tục đăng nhập', 'Continue to sign in') + '</button>'
-        + '<div><button id="fh-handoff-copy" style="background:none;border:none;color:var(--muted);margin-top:16px;font-size:13px;font-family:inherit;cursor:pointer;text-decoration:underline">' + L('Hoặc chép thẻ để dán vào app đã cài', 'Or copy the card to paste into the installed app') + '</button></div>'
+      const _hbtn = 'width:100%;border-radius:12px;padding:14px 22px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;box-sizing:border-box';
+      ov.innerHTML = '<div style="max-width:420px;width:100%;text-align:center">'
+        + '<div style="font-size:19px;font-weight:700;margin-bottom:12px">' + L('Đã nhận mã khóa của nhà', 'Got your family code') + '</div>'
+        + '<div style="color:var(--muted);line-height:1.6;margin-bottom:22px">' + L('Mã khóa đã lưu trên máy này. Chọn cách bạn muốn vào nhà.', 'Your code is saved on this device. Choose how you’d like to get in.') + '</div>'
+        + '<button id="fh-handoff-go" style="' + _hbtn + ';background:var(--brand);color:var(--white);border:none">' + L('Đăng nhập bằng Google', 'Sign in with Google') + '</button>'
+        + '<div style="height:12px"></div>'
+        + '<button id="fh-handoff-copy" style="' + _hbtn + ';background:none;color:var(--brand);border:1.5px solid var(--brand)">' + L('Chép mã khóa', 'Copy the code') + '</button>'
+        + '<div style="color:var(--muted);font-size:12px;line-height:1.5;margin-top:14px">' + L('Dùng “Chép mã khóa” nếu bạn sẽ mở app đã cài trên máy.', 'Use “Copy the code” if you’ll open the installed app instead.') + '</div>'
         + '</div>';
       const mount = () => {
         document.body.appendChild(ov);
@@ -14434,7 +14478,7 @@ window.classifyAmount = classifyAmount;
         window.__fhNewCard = card;   // the intro screen (shown after onboarding) saves it
       } catch (e) {
         console.warn('card setup failed', e);
-        window.toast && window.toast(L('Chưa tạo được thẻ khóa, bạn tạo lại trong Cài đặt nhé', 'Couldn’t create the Key Card. Make it again from Settings'));
+        window.toast && window.toast(L('Chưa tạo được mã khóa, bạn tạo lại trong Cài đặt nhé', 'Couldn’t create the family code. Make it again from Settings'));
       }
     }
     if (created) {

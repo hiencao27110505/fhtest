@@ -78,7 +78,7 @@
     if (pv) {
       pv.style.display = 'flex';
       const sub = inv.card_only
-        ? L(_esc(inv.invited_by) + ' mời bạn · bấm tham gia, nhập thẻ khóa sau', 'invited by ' + _esc(inv.invited_by) + ' · tap join, enter the Key Card after')
+        ? L(_esc(inv.invited_by) + ' mời bạn · bấm tham gia, nhập mã khóa sau', 'invited by ' + _esc(inv.invited_by) + ' · tap join, enter the code after')
         : L(_esc(inv.invited_by) + ' mời bạn · nhập mã 6 số của gia đình', 'invited by ' + _esc(inv.invited_by) + ' · enter the family’s 6-digit code');
       pv.innerHTML = '<div class="ob-preview-ic">🏡</div><div><div class="ob-preview-fam">' + _esc(inv.family_name || 'Family') + '</div>'
         + '<div class="ob-preview-sub">' + sub + '</div></div>';

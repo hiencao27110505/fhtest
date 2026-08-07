@@ -138,8 +138,32 @@ function obPasscodeNext(){
   FAM.passcode=a.value;
   obPrefillBudget(); obGo('budget');
 }
-var BUDGET_PROPS={Housing:.30,Groceries:.14,Transport:.10,Others:.08,Dining:.08,Fun:.06};   // best-practice proportions
+var BUDGET_PROPS={Housing:.30,Groceries:.14,Transport:.10,Dining:.08,Fun:.06,Kids:.08,Others:.08};   // best-practice proportions (by concept)
+/* The default categories a brand-new family gets. MUST mirror
+   seed_default_categories() (0003) in the SAME ORDER — the server seeds these at
+   create_family and createFamilyInDB attaches the budgets by sort_order → so the
+   onboarding budget step needs them client-side (catOrder starts empty). */
+var DEFAULT_CATS=[
+  {concept:'Housing',   vi:'Nhà ở',   en:'Housing',   emoji:'🏠', color:'#7E6BE0'},
+  {concept:'Groceries', vi:'Đi chợ',  en:'Groceries', emoji:'🛒', color:'#1FA971'},
+  {concept:'Dining',    vi:'Ăn ngoài',en:'Dining',    emoji:'🍽️', color:'#E14B8A'},
+  {concept:'Transport', vi:'Đi lại',  en:'Transport', emoji:'🚗', color:'#12B5A6'},
+  {concept:'Fun',       vi:'Giải trí',en:'Fun',       emoji:'🎉', color:'#9D4EFF'},
+  {concept:'Kids',      vi:'Con cái', en:'Kids',      emoji:'🎒', color:'#F0701A'}
+];
+var _obCatConcept={};   // display name → concept, for BUDGET_PROPS lookup regardless of language
 function obPrefillBudget(){
+  // New family: the DB seeds default categories at create_family, but they don't
+  // exist client-side yet (catOrder starts empty → only the "Others" catch-all).
+  // Mirror the seed here, in the same order, so the budget step shows all of
+  // them and createFamilyInDB can attach each budget by sort_order.
+  if(FAM.mode==='create'){
+    _obCatConcept={};
+    var names=DEFAULT_CATS.map(function(d){ var n=(LANG==='vi'?d.vi:d.en); _obCatConcept[n]=d.concept; return n; });
+    catOrder=names.slice(); catStyle={};
+    DEFAULT_CATS.forEach(function(d,i){ catStyle[names[i]]=[d.emoji,'#f2eef6',d.color]; });
+    ensureFallbackCat(catOrder,catStyle,catBudget||(catBudget={}));   // append the "Others" catch-all
+  }
   var sym=document.getElementById('ob-budget-sym'); if(sym) sym.textContent=curSym();
   document.getElementById('ob-budget').setAttribute('placeholder', CUR==='VND'?'30.000.000':'9,000');
   document.getElementById('ob-catbudgets').innerHTML = catOrder.map(function(c){
@@ -152,7 +176,7 @@ function obSuggestBudgets(){
   var total=parseAmtBase(document.getElementById('ob-budget').value); if(!total) return;   // total in base units
   var loc = CUR==='VND'?'vi-VN':'en-US';
   document.querySelectorAll('#ob-catbudgets .cat-bud').forEach(function(inp){
-    var c=inp.getAttribute('data-cat'), prop=(BUDGET_PROPS[c]!==undefined)?BUDGET_PROPS[c]:(0.7/Math.max(1,catOrder.length));
+    var c=inp.getAttribute('data-cat'), concept=_obCatConcept[c]||c, prop=(BUDGET_PROPS[concept]!==undefined)?BUDGET_PROPS[concept]:(0.7/Math.max(1,catOrder.length));
     var base=Math.round(total*prop/10)*10;                        // round base value
     inp.value = base ? (base*curMult()).toLocaleString(loc) : '';  // shown in the display currency
   });

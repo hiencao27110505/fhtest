@@ -280,7 +280,7 @@
         window.__fhNewCard = card;   // the intro screen (shown after onboarding) saves it
       } catch (e) {
         console.warn('card setup failed', e);
-        window.toast && window.toast(L('Chưa tạo được thẻ khóa, bạn tạo lại trong Cài đặt nhé', 'Couldn’t create the Key Card. Make it again from Settings'));
+        window.toast && window.toast(L('Chưa tạo được mã khóa, bạn tạo lại trong Cài đặt nhé', 'Couldn’t create the family code. Make it again from Settings'));
       }
     }
     if (created) {
