@@ -666,6 +666,25 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div id="month-list"></div>
 </div>
 
+<!-- CSV import pickers — launched from INSIDE the import modal, so they carry
+     .over-modal (z above the modal; plain sheets sit underneath it). -->
+<div class="sheet over-modal" id="sheet-csvcat">
+  <div class="grab"></div>
+  <div class="sheet-h" id="csvcat-h">Category</div>
+  <div class="sheet-sub" id="csvcat-sub"></div>
+  <div class="choices" id="csvcat-list"></div>
+  <button class="btn-text-quiet" id="csvcat-remove" style="margin-top:14px" onclick="csvCatSheetRemove()">Remove</button>
+</div>
+<div class="sheet over-modal" id="sheet-csvdup">
+  <div class="grab"></div>
+  <div class="sheet-h" id="csvdup-h">Possible duplicate</div>
+  <div class="sheet-sub" id="csvdup-note"></div>
+  <div class="dup-actions" style="padding-bottom:6px">
+    <button class="btn-line" id="csvdup-include" onclick="csvDupSheetInclude()">Import anyway</button>
+    <button class="btn-text-quiet" id="csvdup-skip" onclick="csvDupSheetSkip()">Skip</button>
+  </div>
+</div>
+
 <div class="sheet" id="sheet-catpick">
   <div class="grab"></div>
   <div class="sheet-h" id="catpick-h">Category</div>

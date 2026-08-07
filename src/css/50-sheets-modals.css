@@ -163,3 +163,5 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
    already pads 20px, so inside the import modal it goes full-width. */
 .csv-rows{margin:0 0 14px}
 .csv-rows .defer-card{opacity:.55}
+/* A sheet opened from INSIDE a modal (z 62) must rise above it. */
+.sheet.over-modal{z-index:70}
