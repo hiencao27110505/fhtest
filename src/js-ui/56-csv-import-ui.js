@@ -65,11 +65,31 @@ function onCsvFileSelected(input){
 
 function csvIncludedCount(){ return csvReview ? csvReview.ready.length : 0; }
 
-/* Builds (or REbuilds, after adopting the file's categories) the whole review
-   state from the parsed file + resolved mapping, which stay stored so
-   adoption can re-run categorization from scratch. */
-function csvBuildReview(parsed, result){
+/* Builds (or REbuilds) the whole review state from the parsed file + resolved
+   mapping, which stay stored so category adoption can re-run categorization
+   from scratch.
+
+   The file's category names ARE the family's own naming -- carried over from
+   whatever they used before -- so any name we don't have is adopted
+   AUTOMATICALLY rather than offered: for a family whose only categories are
+   the seeded defaults, being asked to map their own history onto our words is
+   a question with one sensible answer. It's disclosed (never silent) and
+   undoable, which is what keeps auto-adoption honest rather than presumptuous.
+   opts.declined re-runs without adopting, after an undo. */
+function csvBuildReview(parsed, result, opts){
+  opts = opts || {};
   var candidates = buildCsvCandidates(parsed, result);
+  var unknown = csvUnknownFileCategories(candidates);
+  var adopted = [];
+
+  if(unknown.length && !opts.declined){
+    adopted = csvAdoptCategories(unknown);
+    if(adopted.length){                       // re-categorize against the now-richer list
+      candidates = buildCsvCandidates(parsed, result);
+      unknown = csvUnknownFileCategories(candidates);
+    }
+  }
+
   var mixed = csvColumnHasMixedSigns(candidates);
   var buckets = bucketCsvCandidates(candidates, mixed);
   csvReview = {
@@ -79,9 +99,48 @@ function csvBuildReview(parsed, result){
     dup: buckets.possibleDuplicate.map(function(c){ return { c:c, resolved:null }; }), // null | 'skip' | 'done' (moved on)
     deferred: buckets.deferred,
     mixedSignsNote: mixed,
-    fileCats: csvUnknownFileCategories(candidates),
+    fileCats: unknown,        // still-unknown names (only non-empty after an undo)
+    adoptedCats: adopted,     // what we added this build, for the disclosure + undo
+    declinedAdopt: !!opts.declined,
   };
   csvExpand = null;
+}
+
+/* Adds category names to the family's client-side list (DB rows are created
+   lazily at promote time by _categoryIdForName(), the same path any new
+   category takes). Returns the names actually added. */
+function csvAdoptCategories(names){
+  var added = [];
+  names.forEach(function(name){
+    if(catValid(name)) return;
+    catOrder.push(name);
+    catStyle[name] = [csvCatEmoji(name)].concat(CATPAL[catOrder.length % CATPAL.length]);
+    if(typeof catBudget !== 'undefined') catBudget[name] = catBudget[name] || 0;
+    added.push(name);
+  });
+  return added;
+}
+
+/* Undo: drop the categories this import added and re-bucket without them.
+   Safe because nothing has been written yet -- these exist only client-side
+   until Import, and only names WE added this build are removed. */
+function csvUndoAdopt(){
+  if(!csvReview || !csvReview.adoptedCats.length) return;
+  csvReview.adoptedCats.forEach(function(name){
+    var i = catOrder.indexOf(name);
+    if(i >= 0) catOrder.splice(i, 1);
+    delete catStyle[name];
+    if(typeof catBudget !== 'undefined') delete catBudget[name];
+  });
+  csvBuildReview(csvReview.parsed, csvReview.mapResult, { declined:true });
+  renderCsvReview();
+}
+
+// Re-adopt after an undo (the offer card's action).
+function csvAdoptFileCategories(){
+  if(!csvReview) return;
+  csvBuildReview(csvReview.parsed, csvReview.mapResult);
+  renderCsvReview();
 }
 
 /* Distinct category names the FILE uses that the family doesn't have yet --
@@ -122,22 +181,6 @@ function csvCatEmoji(name){
   if(n.indexOf('suc khoe')>=0 || n.indexOf('y te')>=0) return '💊';
   if(n.indexOf('hoc')>=0) return '📚';
   return '🏷️';
-}
-
-/* One tap: the family adopts the file's own categories, then everything
-   re-categorizes -- a first import arrives not just populated but organized,
-   with the structure carried over from the old app. Client-side only here;
-   the DB rows are created lazily at promote time by _categoryIdForName(). */
-function csvAdoptFileCategories(){
-  if(!csvReview || !csvReview.fileCats.length) return;
-  csvReview.fileCats.forEach(function(name){
-    if(catValid(name)) return;
-    catOrder.push(name);
-    catStyle[name] = [csvCatEmoji(name)].concat(CATPAL[catOrder.length % CATPAL.length]);
-    if(typeof catBudget !== 'undefined') catBudget[name] = catBudget[name] || 0;
-  });
-  csvBuildReview(csvReview.parsed, csvReview.mapResult);
-  renderCsvReview();
 }
 
 /* Dense row -- the SAME .row component the Finance tab's transaction list
@@ -198,7 +241,17 @@ function renderCsvReview(){
       + '<div class="notice-text">'+L('File này có cả số dương và âm trong cột số tiền — có thể lẫn cả thu lẫn chi, nên tụi mình không tự nhập khoản nào. Khoản nào đúng là khoản chi, bạn chạm vào để xác nhận.','This file mixes positive and negative amounts — possibly income and expenses together, so nothing was imported automatically. Tap any row that really is an expense to confirm it.')+'</div></div>';
   }
 
-  if(!r.mixedSignsNote && r.fileCats && r.fileCats.length){
+  /* Category disclosure. Default path: we already adopted the file's own
+     names -- say so plainly, with an undo. After an undo it flips back to an
+     offer, so the choice is never one-way. */
+  if(r.adoptedCats && r.adoptedCats.length){
+    html += '<div class="notice-card stack">'
+      + '<div class="notice-text"><b>'+esc(L('Đã dùng '+r.adoptedCats.length+' danh mục từ file của bạn:','Kept '+r.adoptedCats.length+(r.adoptedCats.length===1?' category':' categories')+' from your file:'))+'</b> '
+      + esc(r.adoptedCats.map(function(n){ return csvCatEmoji(n)+' '+n; }).join(' · '))
+      + ' — '+esc(L('tên của bạn, giữ nguyên.','your names, kept as they are.'))+'</div>'
+      + '<button type="button" class="btn-text-quiet" style="width:100%;margin:6px 0 0" onclick="csvUndoAdopt()">'+L('Đừng thêm danh mục mới','Don\'t add new categories')+'</button>'
+      + '</div>';
+  } else if(!r.mixedSignsNote && r.fileCats && r.fileCats.length){
     html += '<div class="notice-card stack">'
       + '<div class="notice-text"><b>'+esc(L('File này dùng '+r.fileCats.length+' danh mục bạn chưa có:','This file uses '+r.fileCats.length+(r.fileCats.length===1?' category':' categories')+' you don\'t have yet:'))+'</b> '
       + esc(r.fileCats.map(function(n){ return csvCatEmoji(n)+' '+n; }).join(' · '))+'</div>'
