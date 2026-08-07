@@ -165,3 +165,5 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .csv-rows .defer-card{opacity:.55}
 /* A sheet opened from INSIDE a modal (z 62) must rise above it. */
 .sheet.over-modal{z-index:70}
+.csv-2col{display:flex;gap:10px}
+.csv-2col .field{flex:1;min-width:0}

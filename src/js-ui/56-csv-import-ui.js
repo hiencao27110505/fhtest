@@ -38,16 +38,7 @@ function onCsvFileSelected(input){
       return;
     }
     window.fhResolveCsvMapping(parsed.headers, parsed.rows).then(function(result){
-      var candidates = buildCsvCandidates(parsed, result);
-      var mixed = csvColumnHasMixedSigns(candidates);
-      var buckets = bucketCsvCandidates(candidates, mixed);
-      csvReview = {
-        ready: buckets.ready,
-        groups: Object.keys(buckets.needsCategoryGroups).map(function(k){ return { key:k, items:buckets.needsCategoryGroups[k] }; }),
-        dup: buckets.possibleDuplicate.map(function(c){ return { c:c, resolved:null }; }), // null | 'skip' | 'done' (moved to ready)
-        deferred: buckets.deferred,
-        mixedSignsNote: mixed,
-      };
+      csvBuildReview(parsed, result);
       renderCsvReview();
     }).catch(function(e){
       if(out) out.innerHTML='<div class="sheet-sub">'+L('Có lỗi khi phân tích file: ','Something went wrong analyzing this file: ')+esc(String((e&&e.message)||e))+'</div>';
@@ -60,6 +51,83 @@ function onCsvFileSelected(input){
 }
 
 function csvIncludedCount(){ return csvReview ? csvReview.ready.length : 0; }
+
+/* Builds (or REbuilds, after adopting the file's categories) the whole review
+   state from the parsed file + resolved mapping, which stay stored so
+   adoption can re-run categorization from scratch. */
+function csvBuildReview(parsed, result){
+  var candidates = buildCsvCandidates(parsed, result);
+  var mixed = csvColumnHasMixedSigns(candidates);
+  var buckets = bucketCsvCandidates(candidates, mixed);
+  csvReview = {
+    parsed: parsed, mapResult: result,
+    ready: buckets.ready,
+    groups: Object.keys(buckets.needsCategoryGroups).map(function(k){ return { key:k, items:buckets.needsCategoryGroups[k] }; }),
+    dup: buckets.possibleDuplicate.map(function(c){ return { c:c, resolved:null }; }), // null | 'skip' | 'done' (moved to ready)
+    deferred: buckets.deferred,
+    mixedSignsNote: mixed,
+    fileCats: csvUnknownFileCategories(candidates),
+  };
+}
+
+/* Distinct category names the FILE uses that the family doesn't have yet --
+   the raw material for the first-run magic. Deduped diacritic-insensitively
+   ("Nha cua" / "nha cua" / "NHA CUA" collapse to one), preferring the variant
+   that carries diacritics, then the most frequent spelling. */
+function csvUnknownFileCategories(candidates){
+  var seen = {};
+  candidates.forEach(function(c){
+    var g = (c.categoryGuess||'').trim();
+    if(!g || matchCategoryName(g)) return;
+    var k = deburr(g.toLowerCase());
+    var e = (seen[k] = seen[k] || {});
+    e[g] = (e[g]||0) + 1;
+  });
+  return Object.keys(seen).map(function(k){
+    var best = null;
+    Object.keys(seen[k]).forEach(function(v){
+      if(best===null){ best=v; return; }
+      var vD = /[^\x00-\x7f]/.test(v), bD = /[^\x00-\x7f]/.test(best);
+      if(vD && !bD) best = v;
+      else if(vD===bD && seen[k][v] > seen[k][best]) best = v;
+    });
+    return best;
+  });
+}
+
+// A reasonable starter emoji per adopted category -- editable later in the
+// budget editor, same as any other category.
+function csvCatEmoji(name){
+  var n = deburr(name.toLowerCase());
+  if(n.indexOf('nha')>=0) return '🏠';
+  if(n.indexOf('an ngoai')>=0 || n.indexOf('quan')>=0) return '🍽️';
+  if(n.indexOf('an uong')>=0 || n.indexOf('cho')>=0 || n.indexOf('thuc pham')>=0) return '🛒';
+  if(n.indexOf('di chuyen')>=0 || n.indexOf('xe')>=0 || n.indexOf('xang')>=0) return '🛵';
+  if(n.indexOf('giai tri')>=0 || n.indexOf('vui')>=0) return '🎬';
+  if(n.indexOf('mua sam')>=0) return '🛍️';
+  if(n.indexOf('suc khoe')>=0 || n.indexOf('y te')>=0) return '💊';
+  if(n.indexOf('hoc')>=0) return '📚';
+  return '🏷️';
+}
+
+/* One tap: the family adopts the file's own categories, then everything
+   re-categorizes -- a first import arrives not just populated but organized,
+   with the structure carried over from the old app. Client-side only here;
+   the DB rows are created lazily at promote time by _categoryIdForName(),
+   the same path any brand-new category takes. Rebuilds the whole review, so
+   decisions made before adopting reset -- the card sits at the very top, so
+   in practice nothing has been decided yet when it's tapped. */
+function csvAdoptFileCategories(){
+  if(!csvReview || !csvReview.fileCats.length) return;
+  csvReview.fileCats.forEach(function(name){
+    if(catValid(name)) return;
+    catOrder.push(name);
+    catStyle[name] = [csvCatEmoji(name)].concat(CATPAL[catOrder.length % CATPAL.length]);
+    if(typeof catBudget !== 'undefined') catBudget[name] = catBudget[name] || 0;
+  });
+  csvBuildReview(csvReview.parsed, csvReview.mapResult);
+  renderCsvReview();
+}
 
 /* Dense row -- the SAME .row component the Finance tab's transaction list
    uses (60-transactions.js): emoji tile, title, subtitle, right-aligned
@@ -86,6 +154,17 @@ function renderCsvReview(){
   if(r.mixedSignsNote){
     html += '<div class="notice-card"><svg class="notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>'
       + '<div class="notice-text">'+L('File này có cả số dương và âm trong cột số tiền — có thể lẫn cả thu lẫn chi, nên tụi mình không tự nhập khoản nào. Khoản nào đúng là khoản chi, bạn chạm vào để đưa vào.','This file mixes positive and negative amounts — possibly income and expenses together, so nothing was imported automatically. Tap any row that really is an expense to bring it in.')+'</div></div>';
+  }
+
+  /* First-run magic: the file's own categories, offered in one tap. Shown
+     above everything -- for a brand-new family this single button turns a
+     wall of "needs your eye" into a sorted, organized ledger. */
+  if(!r.mixedSignsNote && r.fileCats && r.fileCats.length){
+    html += '<div class="notice-card" style="flex-direction:column">'
+      + '<div class="notice-text"><b>'+esc(L('File này dùng '+r.fileCats.length+' danh mục bạn chưa có:','This file uses '+r.fileCats.length+(r.fileCats.length===1?' category':' categories')+' you don\'t have yet:'))+'</b> '
+      + esc(r.fileCats.map(function(n){ return csvCatEmoji(n)+' '+n; }).join(' · '))+'</div>'
+      + '<button type="button" class="btn-line" style="width:100%;margin:10px 0 0" onclick="csvAdoptFileCategories()">'+L('✨ Thêm và tự xếp giúp tôi','✨ Add them and sort for me')+'</button>'
+      + '</div>';
   }
 
   /* Decisions FIRST -- a handful of tappable rows, each opening a sheet. */
@@ -160,34 +239,66 @@ function renderCsvReview(){
   if(save){ save.disabled = (readyCount===0); save.textContent = readyCount>0 ? L('Nhập '+readyCount,'Import '+readyCount) : L('Nhập','Import'); }
 }
 
-/* ---- category sheet: ONE picker for every case ---------------------------- */
+/* ---- edit sheet: ONE surface for every correction -------------------------
+   For a single row (ready / duplicate) it's a compact full editor --
+   description, amount, date, category chips -- so anything the parser got
+   wrong is fixable in one place. For a merchant group it collapses to just
+   the category chips (per-row fields don't apply to N rows at once).
+   Chips select only; Done commits everything at once. */
+function csvAmtInputVal(n){ return Number(n).toLocaleString(CUR==='VND'?'vi-VN':'en-US'); }
+
 function csvOpenCatSheet(type, idx){
   csvPickTarget = { type:type, idx:idx };
-  var cur=null, subject='', removeLbl='';
-  if(type==='ready'){ var c=csvReview.ready[idx]; cur=c.categoryName; subject=c.description; removeLbl=L('Bỏ khoản này','Don\'t import this one'); }
-  else if(type==='group'){ var g=csvReview.groups[idx]; subject=g.items[0].description+(g.items.length>1?' · '+g.items.length+' '+L('giao dịch','txns'):''); removeLbl=L('Bỏ nhóm này','Don\'t import these'); }
-  else { var d=csvReview.dup[idx]; cur=d.c.categoryName; subject=d.c.description; removeLbl=L('Bỏ khoản này','Don\'t import this one'); }
-  setTxt('csvcat-h', L('Chọn danh mục','Pick a category'));
-  setTxt('csvcat-sub', subject);
+  var isGroup = (type==='group');
+  var c = type==='ready' ? csvReview.ready[idx] : type==='dup' ? csvReview.dup[idx].c : null;
+  var g = isGroup ? csvReview.groups[idx] : null;
+  setTxt('csvcat-h', isGroup ? L('Chọn danh mục','Pick a category') : L('Sửa khoản chi','Edit expense'));
+  setTxt('csvcat-sub', isGroup ? g.items[0].description+(g.items.length>1?' · '+g.items.length+' '+L('giao dịch','txns'):'') : '');
+  var f=document.getElementById('csvcat-fields'); if(f) f.style.display = isGroup ? 'none' : '';
+  if(c){
+    setV('csvedit-note', c.description||'');
+    setV('csvedit-amt', c.amount!=null ? csvAmtInputVal(c.amount) : '');
+    setV('csvedit-date', c.dateDisplay||'');
+  }
+  var cur = c ? c.categoryName : null;
   var list=document.getElementById('csvcat-list');
   if(list) list.innerHTML = (window.catOrder||[]).map(function(name){
     var s=(window.catStyle&&window.catStyle[name])||['🏷️'];
-    return '<button class="choice'+(name===cur?' on':'')+'" onclick="csvCatSheetPick(\''+escAttr(name)+'\')">'+s[0]+' '+esc(name)+'</button>';
+    return '<button class="choice'+(name===cur?' on':'')+'" data-v="'+escAttr(name)+'" onclick="pick(\'csvcat-list\',this)">'+s[0]+' '+esc(name)+'</button>';
   }).join('');
-  var rm=document.getElementById('csvcat-remove'); if(rm) rm.textContent=removeLbl;
+  setTxt('csvcat-done', L('Xong','Done'));
+  setTxt('csvcat-remove', isGroup ? L('Bỏ nhóm này','Don\'t import these') : L('Bỏ khoản này','Don\'t import this one'));
   openSheet('sheet-csvcat');
 }
 
-function csvCatSheetPick(name){
+// Applies a single row's edited fields back onto its candidate.
+function csvApplyEditFields(c){
+  var note=(document.getElementById('csvedit-note')||{}).value;
+  if(note && note.trim()) c.description = note.trim();
+  var amt = parseAmt((document.getElementById('csvedit-amt')||{}).value||'');
+  if(amt > 0) c.amount = amt;
+  var dv=(document.getElementById('csvedit-date')||{}).value;
+  if(dv){ c.dateDisplay = dv; c.date = new Date(dv+'T00:00:00'); }
+}
+
+function csvEditSheetDone(){
   var t=csvPickTarget; if(!t||!csvReview) return;
+  var cat = chosen('csvcat-list');
   if(t.type==='ready'){
-    var c=csvReview.ready[t.idx]; if(c){ c.categoryName=name; c.catSource='user'; }
+    var c=csvReview.ready[t.idx];
+    if(c){ csvApplyEditFields(c); if(cat){ c.categoryName=cat; c.catSource='user'; } }
   } else if(t.type==='group'){
-    var g=csvReview.groups.splice(t.idx,1)[0];
-    if(g) g.items.forEach(function(c){ c.categoryName=name; c.catSource='user'; csvReview.ready.push(c); });
+    if(cat){
+      var g=csvReview.groups.splice(t.idx,1)[0];
+      if(g) g.items.forEach(function(it){ it.categoryName=cat; it.catSource='user'; csvReview.ready.push(it); });
+    }
   } else {
     var d=csvReview.dup[t.idx];
-    if(d){ d.c.categoryName=name; d.c.catSource='user'; d.resolved='done'; csvReview.ready.push(d.c); }
+    if(d){
+      csvApplyEditFields(d.c);
+      if(cat){ d.c.categoryName=cat; d.c.catSource='user'; }
+      if(d.c.categoryName){ d.resolved='done'; csvReview.ready.push(d.c); }
+    }
   }
   csvPickTarget=null; closeSheet(); renderCsvReview();
 }
@@ -266,6 +377,7 @@ function csvPromote(){
   });
   bulkActive = 0;
   exPhotos = [];
+  buildExCatChips();   // adopted-from-file categories must exist as chips before loadRow() selects them
   renderBulk();
   loadRow(0);
   submitBulk();

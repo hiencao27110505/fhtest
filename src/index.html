@@ -670,10 +670,18 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
      .over-modal (z above the modal; plain sheets sit underneath it). -->
 <div class="sheet over-modal" id="sheet-csvcat">
   <div class="grab"></div>
-  <div class="sheet-h" id="csvcat-h">Category</div>
+  <div class="sheet-h" id="csvcat-h">Edit</div>
   <div class="sheet-sub" id="csvcat-sub"></div>
-  <div class="choices" id="csvcat-list"></div>
-  <button class="btn-text-quiet" id="csvcat-remove" style="margin-top:14px" onclick="csvCatSheetRemove()">Remove</button>
+  <div id="csvcat-fields">
+    <div class="field"><label data-t="csvFDesc">Description</label><input id="csvedit-note"></div>
+    <div class="csv-2col">
+      <div class="field"><label data-t="csvFAmt">Amount</label><input id="csvedit-amt" inputmode="numeric" onblur="snapAmtInput(this)"></div>
+      <div class="field"><label data-t="csvFDate">Date</label><input type="date" id="csvedit-date"></div>
+    </div>
+  </div>
+  <div class="field"><label data-t="csvFCat">Category</label><div class="choices" id="csvcat-list"></div></div>
+  <button class="btn-line" id="csvcat-done" style="width:100%;margin:8px 0 0" onclick="csvEditSheetDone()">Done</button>
+  <button class="btn-text-quiet" id="csvcat-remove" style="width:100%;margin-top:4px" onclick="csvCatSheetRemove()">Remove</button>
 </div>
 <div class="sheet over-modal" id="sheet-csvdup">
   <div class="grab"></div>
