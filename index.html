@@ -1704,6 +1704,17 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .notice-icon{width:19px;height:19px;flex-shrink:0;color:var(--brand-ink);margin-top:1px}
 .notice-text{font-size:12.5px;line-height:1.5;color:var(--ink-2)}
 .notice-text b{color:var(--ink);font-weight:600}
+.notice-card.stack{flex-direction:column;align-items:stretch}
+/* CSV import: empty-state picker (DESIGN &sect;3 empty states -- emoji + title +
+   hint + a real next action; the native file input stays hidden). */
+.csv-empty{background:var(--canvas);border-radius:20px;padding:30px 22px 22px;text-align:center}
+.csv-empty-emoji{font-size:44px;line-height:1;margin-bottom:12px}
+.csv-empty-t{font-family:var(--disp);font-size:20px;font-weight:700;letter-spacing:-.4px;color:var(--ink);margin-bottom:6px}
+.csv-empty-s{font-size:14.5px;color:var(--muted);line-height:1.5;max-width:270px;margin:0 auto}
+.csv-empty-hint{font-size:12.5px;color:var(--muted-soft);margin-top:12px}
+@keyframes csvpulse{0%,100%{opacity:.55}50%{opacity:1}}
+.csv-reading{animation:csvpulse 1.4s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.csv-reading{animation:none}}
 /* CSV import: review screen. Section labels reuse .qa-group's numbers. */
 .group-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 2px 8px}
 .group-h.defer{color:var(--muted)}
@@ -1711,9 +1722,6 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 /* Same padding as the real #ex-editor-mount inside an active bulk-card, for
    visual consistency -- this holds different content (category chips /
    duplicate actions) so it can't reuse that id-scoped rule directly. */
-.bulk-body{padding:6px 14px 14px}
-.field-label-mini{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;margin-bottom:8px}
-.dup-note{font-size:13px;color:var(--ink-2);line-height:1.5;margin-bottom:10px}
 .dup-actions{display:flex;gap:8px}
 /* .btn-line is normally a full-width block button (memory calendar) -- these
    two need to sit side by side, so width/margin are overridden here only. */
@@ -1722,7 +1730,6 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .flag-badge.neutral{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;background:var(--fill-neutral);color:var(--muted);padding:2px 6px;border-radius:5px;margin-left:6px}
 .defer-card{opacity:.6}
 .cta-wrap{margin-top:18px}
-.csv-list{display:flex;flex-direction:column;gap:10px;margin-bottom:4px}
 /* .rows normally carries the tab gutter (margin 0 16px); the modal body
    already pads 20px, so inside the import modal it goes full-width. */
 .csv-rows{margin:0 0 14px}
@@ -2675,10 +2682,15 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <button class="modal-save" id="csv-save" onclick="csvPromote()" disabled data-t="csvSave">Import</button>
   </div>
   <div class="modal-body">
-    <div class="sheet-sub" data-t="csvIntroNote">Choose a CSV — we'll sort out the columns, then you review before anything's added.</div>
-    <div class="field">
-      <label data-t="csvPickLbl">CSV file</label>
-      <input type="file" id="csv-file-input" accept=".csv,text/csv" onchange="onCsvFileSelected(this)">
+    <div id="csv-pick">
+      <div class="csv-empty">
+        <div class="csv-empty-emoji">📄✨</div>
+        <div class="csv-empty-t" data-t="csvEmptyT">Bring your history along</div>
+        <div class="csv-empty-s" data-t="csvEmptyS">A CSV from your bank or your old expense app — we'll read it, sort it, and you check before anything's added.</div>
+        <button type="button" class="btn-line" style="width:100%;margin:16px 0 0" onclick="document.getElementById('csv-file-input').click()" data-t="csvChoose">Choose a file</button>
+        <div class="csv-empty-hint" data-t="csvHint">Vietcombank · MB Bank · Money Lover · Misa · Excel</div>
+      </div>
+      <input type="file" id="csv-file-input" accept=".csv,text/csv" onchange="onCsvFileSelected(this)" style="display:none">
     </div>
     <div id="csv-result"></div>
   </div>
@@ -7294,6 +7306,7 @@ function openCsvImport(){
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
   csvReview = null; csvPickTarget = null;
+  var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='';
   var save=document.getElementById('csv-save'); if(save){ save.disabled=true; save.textContent=L('Nhập','Import'); }
   openSheet('csv-import-modal');
 }
@@ -7301,7 +7314,7 @@ function openCsvImport(){
 function onCsvFileSelected(input){
   var file=input.files && input.files[0]; if(!file) return;
   var out=document.getElementById('csv-result');
-  if(out) out.innerHTML='<div class="sheet-sub">'+L('✨ Đang đọc file của bạn…','✨ Reading your file…')+'</div>';
+  if(out) out.innerHTML='<div class="sheet-sub csv-reading">'+L('✨ Đang đọc file của bạn…','✨ Reading your file…')+'</div>';
 
   var reader=new FileReader();
   reader.onload=function(){
@@ -7324,6 +7337,15 @@ function onCsvFileSelected(input){
 }
 
 function csvIncludedCount(){ return csvReview ? csvReview.ready.length : 0; }
+
+// Back to the picker without closing the modal (the quiet escape under the review).
+function csvPickAnother(){
+  var input=document.getElementById('csv-file-input'); if(input) input.value='';
+  var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
+  csvReview = null; csvPickTarget = null;
+  var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='';
+  var save=document.getElementById('csv-save'); if(save){ save.disabled=true; save.textContent=L('Nhập','Import'); }
+}
 
 /* Builds (or REbuilds, after adopting the file's categories) the whole review
    state from the parsed file + resolved mapping, which stay stored so
@@ -7433,7 +7455,7 @@ function renderCsvReview(){
      above everything -- for a brand-new family this single button turns a
      wall of "needs your eye" into a sorted, organized ledger. */
   if(!r.mixedSignsNote && r.fileCats && r.fileCats.length){
-    html += '<div class="notice-card" style="flex-direction:column">'
+    html += '<div class="notice-card stack">'
       + '<div class="notice-text"><b>'+esc(L('File này dùng '+r.fileCats.length+' danh mục bạn chưa có:','This file uses '+r.fileCats.length+(r.fileCats.length===1?' category':' categories')+' you don\'t have yet:'))+'</b> '
       + esc(r.fileCats.map(function(n){ return csvCatEmoji(n)+' '+n; }).join(' · '))+'</div>'
       + '<button type="button" class="btn-line" style="width:100%;margin:10px 0 0" onclick="csvAdoptFileCategories()">'+L('✨ Thêm và tự xếp giúp tôi','✨ Add them and sort for me')+'</button>'
@@ -7479,7 +7501,7 @@ function renderCsvReview(){
       var label = k ? fmtDayMon(buckets[k][0].c.date) : L('Không rõ ngày','No date');
       html += '<div class="group-h" style="margin-top:10px">'+esc(label)+'</div><div class="rows csv-rows">';
       buckets[k].forEach(function(e){
-        html += csvDenseRow(e.c.categoryName, e.c.description, e.c.categoryName, e.c.amount, 'csvOpenCatSheet(\'ready\','+e.i+')');
+        html += csvDenseRow(e.c.categoryName, e.c.description, e.c.categoryName, e.c.amount, 'csvOpenCatSheet(\'ready\','+e.i+')', null, true);
       });
       html += '</div>';
     });
@@ -7504,7 +7526,10 @@ function renderCsvReview(){
     html += '</div>';
   }
 
+  html += '<button type="button" class="btn-text-quiet" style="width:100%;margin-top:10px" onclick="csvPickAnother()">'+L('Chọn file khác','Choose a different file')+'</button>';
+
   out.innerHTML = html;
+  var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='none';
 
   // Nav-bar Save, gated -- the app's form-modal convention (Cancel · Title ·
   // Save, DESIGN.md &sect;3 Buttons): always reachable, grey until importable.
@@ -7535,13 +7560,28 @@ function csvOpenCatSheet(type, idx){
   }
   var cur = c ? c.categoryName : null;
   var list=document.getElementById('csvcat-list');
+  // Pure picker (group) -> a chip tap applies instantly and closes, same as
+  // every other quick-pick sheet in the app. Form variant (fields + chips)
+  // selects only; Done commits everything at once, same as the expense modal.
   if(list) list.innerHTML = (window.catOrder||[]).map(function(name){
     var s=(window.catStyle&&window.catStyle[name])||['🏷️'];
-    return '<button class="choice'+(name===cur?' on':'')+'" data-v="'+escAttr(name)+'" onclick="pick(\'csvcat-list\',this)">'+s[0]+' '+esc(name)+'</button>';
+    var act = isGroup ? 'csvGroupSheetPick(\''+escAttr(name)+'\')' : 'pick(\'csvcat-list\',this)';
+    return '<button class="choice'+(name===cur?' on':'')+'" data-v="'+escAttr(name)+'" onclick="'+act+'">'+s[0]+' '+esc(name)+'</button>';
   }).join('');
+  var doneBtn=document.getElementById('csvcat-done');
+  if(doneBtn){ doneBtn.style.display = isGroup ? 'none' : ''; }
   setTxt('csvcat-done', L('Xong','Done'));
+  var amtEl=document.getElementById('csvedit-amt'); if(amtEl) amtEl.placeholder = amtPlaceholder();
   setTxt('csvcat-remove', isGroup ? L('Bỏ nhóm này','Don\'t import these') : L('Bỏ khoản này','Don\'t import this one'));
   openSheet('sheet-csvcat');
+}
+
+// Instant apply for the pure-picker (group) variant.
+function csvGroupSheetPick(name){
+  var t=csvPickTarget; if(!t||t.type!=='group'||!csvReview) return;
+  var g=csvReview.groups.splice(t.idx,1)[0];
+  if(g) g.items.forEach(function(it){ it.categoryName=name; it.catSource='user'; csvReview.ready.push(it); });
+  csvPickTarget=null; closeSheet(); renderCsvReview();
 }
 
 // Applies a single row's edited fields back onto its candidate.
@@ -9351,7 +9391,7 @@ var EN_DEFAULT={
   qaSuggestT:'Share feedback', qaSuggestS:'An idea or something you wish for',
   qaCsvT:'Import from file', qaCsvS:'Bring in a CSV from your bank or another app',
   /* csv import modal */
-  csvModalTitle:'Import from file', csvIntroNote:'Choose a CSV — we\'ll sort out the columns, then you review before anything\'s added.', csvPickLbl:'CSV file', csvSave:'Import', csvFDesc:'Description', csvFAmt:'Amount', csvFDate:'Date', csvFCat:'Category',
+  csvModalTitle:'Import from file', csvEmptyT:'Bring your history along', csvEmptyS:'A CSV from your bank or your old expense app — we\'ll read it, sort it, and you check before anything\'s added.', csvChoose:'Choose a file', csvHint:'Vietcombank · MB Bank · Money Lover · Misa · Excel', csvPickAgain:'Choose a different file', csvSave:'Import', csvFDesc:'Description', csvFAmt:'Amount', csvFDate:'Date', csvFCat:'Category',
   /* suggest modal */
   suggestTitle:'We hear you 💛', suggestSub:'An idea, a gripe, a feature you wish existed — tell us anything.',
   founderNote:'We read every note. Thanks for helping us make it better.',
@@ -9460,7 +9500,7 @@ var I18N={
     qaSuggestT:'Góp ý', qaSuggestS:'Một ý tưởng hay điều bạn mong muốn',
     qaCsvT:'Nhập từ file', qaCsvS:'Đưa dữ liệu CSV từ ngân hàng hoặc app khác vào',
     /* csv import modal */
-    csvModalTitle:'Nhập từ file', csvIntroNote:'Chọn file CSV — tụi mình tự xếp cột, bạn xem lại rồi mới nhập.', csvPickLbl:'File CSV', csvSave:'Nhập', csvFDesc:'Nội dung', csvFAmt:'Số tiền', csvFDate:'Ngày', csvFCat:'Danh mục',
+    csvModalTitle:'Nhập từ file', csvEmptyT:'Mang cả lịch sử chi tiêu theo nhé', csvEmptyS:'File CSV từ ngân hàng hay app chi tiêu cũ — tụi mình đọc và tự xếp, bạn xem lại rồi mới nhập.', csvChoose:'Chọn file', csvHint:'Vietcombank · MB Bank · Money Lover · Misa · Excel', csvPickAgain:'Chọn file khác', csvSave:'Nhập', csvFDesc:'Nội dung', csvFAmt:'Số tiền', csvFDate:'Ngày', csvFCat:'Danh mục',
     /* suggest modal */
     suggestTitle:'Tụi mình nghe bạn nè 💛', suggestSub:'Một ý tưởng, một điều chưa ưng, hay tính năng bạn ước có — kể tụi mình nghe hết nha.',
     founderNote:'Tụi mình đọc hết mọi góp ý. Cảm ơn bạn đã giúp app tốt hơn nha.',

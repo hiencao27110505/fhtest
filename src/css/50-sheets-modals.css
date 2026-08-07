@@ -140,6 +140,17 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .notice-icon{width:19px;height:19px;flex-shrink:0;color:var(--brand-ink);margin-top:1px}
 .notice-text{font-size:12.5px;line-height:1.5;color:var(--ink-2)}
 .notice-text b{color:var(--ink);font-weight:600}
+.notice-card.stack{flex-direction:column;align-items:stretch}
+/* CSV import: empty-state picker (DESIGN &sect;3 empty states -- emoji + title +
+   hint + a real next action; the native file input stays hidden). */
+.csv-empty{background:var(--canvas);border-radius:20px;padding:30px 22px 22px;text-align:center}
+.csv-empty-emoji{font-size:44px;line-height:1;margin-bottom:12px}
+.csv-empty-t{font-family:var(--disp);font-size:20px;font-weight:700;letter-spacing:-.4px;color:var(--ink);margin-bottom:6px}
+.csv-empty-s{font-size:14.5px;color:var(--muted);line-height:1.5;max-width:270px;margin:0 auto}
+.csv-empty-hint{font-size:12.5px;color:var(--muted-soft);margin-top:12px}
+@keyframes csvpulse{0%,100%{opacity:.55}50%{opacity:1}}
+.csv-reading{animation:csvpulse 1.4s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.csv-reading{animation:none}}
 /* CSV import: review screen. Section labels reuse .qa-group's numbers. */
 .group-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 2px 8px}
 .group-h.defer{color:var(--muted)}
@@ -147,9 +158,6 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 /* Same padding as the real #ex-editor-mount inside an active bulk-card, for
    visual consistency -- this holds different content (category chips /
    duplicate actions) so it can't reuse that id-scoped rule directly. */
-.bulk-body{padding:6px 14px 14px}
-.field-label-mini{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;margin-bottom:8px}
-.dup-note{font-size:13px;color:var(--ink-2);line-height:1.5;margin-bottom:10px}
 .dup-actions{display:flex;gap:8px}
 /* .btn-line is normally a full-width block button (memory calendar) -- these
    two need to sit side by side, so width/margin are overridden here only. */
@@ -158,7 +166,6 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .flag-badge.neutral{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;background:var(--fill-neutral);color:var(--muted);padding:2px 6px;border-radius:5px;margin-left:6px}
 .defer-card{opacity:.6}
 .cta-wrap{margin-top:18px}
-.csv-list{display:flex;flex-direction:column;gap:10px;margin-bottom:4px}
 /* .rows normally carries the tab gutter (margin 0 16px); the modal body
    already pads 20px, so inside the import modal it goes full-width. */
 .csv-rows{margin:0 0 14px}

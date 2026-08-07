@@ -126,7 +126,7 @@ var EN_DEFAULT={
   qaSuggestT:'Share feedback', qaSuggestS:'An idea or something you wish for',
   qaCsvT:'Import from file', qaCsvS:'Bring in a CSV from your bank or another app',
   /* csv import modal */
-  csvModalTitle:'Import from file', csvIntroNote:'Choose a CSV — we\'ll sort out the columns, then you review before anything\'s added.', csvPickLbl:'CSV file', csvSave:'Import', csvFDesc:'Description', csvFAmt:'Amount', csvFDate:'Date', csvFCat:'Category',
+  csvModalTitle:'Import from file', csvEmptyT:'Bring your history along', csvEmptyS:'A CSV from your bank or your old expense app — we\'ll read it, sort it, and you check before anything\'s added.', csvChoose:'Choose a file', csvHint:'Vietcombank · MB Bank · Money Lover · Misa · Excel', csvPickAgain:'Choose a different file', csvSave:'Import', csvFDesc:'Description', csvFAmt:'Amount', csvFDate:'Date', csvFCat:'Category',
   /* suggest modal */
   suggestTitle:'We hear you 💛', suggestSub:'An idea, a gripe, a feature you wish existed — tell us anything.',
   founderNote:'We read every note. Thanks for helping us make it better.',
@@ -235,7 +235,7 @@ var I18N={
     qaSuggestT:'Góp ý', qaSuggestS:'Một ý tưởng hay điều bạn mong muốn',
     qaCsvT:'Nhập từ file', qaCsvS:'Đưa dữ liệu CSV từ ngân hàng hoặc app khác vào',
     /* csv import modal */
-    csvModalTitle:'Nhập từ file', csvIntroNote:'Chọn file CSV — tụi mình tự xếp cột, bạn xem lại rồi mới nhập.', csvPickLbl:'File CSV', csvSave:'Nhập', csvFDesc:'Nội dung', csvFAmt:'Số tiền', csvFDate:'Ngày', csvFCat:'Danh mục',
+    csvModalTitle:'Nhập từ file', csvEmptyT:'Mang cả lịch sử chi tiêu theo nhé', csvEmptyS:'File CSV từ ngân hàng hay app chi tiêu cũ — tụi mình đọc và tự xếp, bạn xem lại rồi mới nhập.', csvChoose:'Chọn file', csvHint:'Vietcombank · MB Bank · Money Lover · Misa · Excel', csvPickAgain:'Chọn file khác', csvSave:'Nhập', csvFDesc:'Nội dung', csvFAmt:'Số tiền', csvFDate:'Ngày', csvFCat:'Danh mục',
     /* suggest modal */
     suggestTitle:'Tụi mình nghe bạn nè 💛', suggestSub:'Một ý tưởng, một điều chưa ưng, hay tính năng bạn ước có — kể tụi mình nghe hết nha.',
     founderNote:'Tụi mình đọc hết mọi góp ý. Cảm ơn bạn đã giúp app tốt hơn nha.',

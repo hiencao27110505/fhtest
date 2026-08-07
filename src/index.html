@@ -453,10 +453,15 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <button class="modal-save" id="csv-save" onclick="csvPromote()" disabled data-t="csvSave">Import</button>
   </div>
   <div class="modal-body">
-    <div class="sheet-sub" data-t="csvIntroNote">Choose a CSV — we'll sort out the columns, then you review before anything's added.</div>
-    <div class="field">
-      <label data-t="csvPickLbl">CSV file</label>
-      <input type="file" id="csv-file-input" accept=".csv,text/csv" onchange="onCsvFileSelected(this)">
+    <div id="csv-pick">
+      <div class="csv-empty">
+        <div class="csv-empty-emoji">📄✨</div>
+        <div class="csv-empty-t" data-t="csvEmptyT">Bring your history along</div>
+        <div class="csv-empty-s" data-t="csvEmptyS">A CSV from your bank or your old expense app — we'll read it, sort it, and you check before anything's added.</div>
+        <button type="button" class="btn-line" style="width:100%;margin:16px 0 0" onclick="document.getElementById('csv-file-input').click()" data-t="csvChoose">Choose a file</button>
+        <div class="csv-empty-hint" data-t="csvHint">Vietcombank · MB Bank · Money Lover · Misa · Excel</div>
+      </div>
+      <input type="file" id="csv-file-input" accept=".csv,text/csv" onchange="onCsvFileSelected(this)" style="display:none">
     </div>
     <div id="csv-result"></div>
   </div>

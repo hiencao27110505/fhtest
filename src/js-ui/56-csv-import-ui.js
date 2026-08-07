@@ -21,6 +21,7 @@ function openCsvImport(){
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
   csvReview = null; csvPickTarget = null;
+  var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='';
   var save=document.getElementById('csv-save'); if(save){ save.disabled=true; save.textContent=L('Nhập','Import'); }
   openSheet('csv-import-modal');
 }
@@ -28,7 +29,7 @@ function openCsvImport(){
 function onCsvFileSelected(input){
   var file=input.files && input.files[0]; if(!file) return;
   var out=document.getElementById('csv-result');
-  if(out) out.innerHTML='<div class="sheet-sub">'+L('✨ Đang đọc file của bạn…','✨ Reading your file…')+'</div>';
+  if(out) out.innerHTML='<div class="sheet-sub csv-reading">'+L('✨ Đang đọc file của bạn…','✨ Reading your file…')+'</div>';
 
   var reader=new FileReader();
   reader.onload=function(){
@@ -51,6 +52,15 @@ function onCsvFileSelected(input){
 }
 
 function csvIncludedCount(){ return csvReview ? csvReview.ready.length : 0; }
+
+// Back to the picker without closing the modal (the quiet escape under the review).
+function csvPickAnother(){
+  var input=document.getElementById('csv-file-input'); if(input) input.value='';
+  var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
+  csvReview = null; csvPickTarget = null;
+  var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='';
+  var save=document.getElementById('csv-save'); if(save){ save.disabled=true; save.textContent=L('Nhập','Import'); }
+}
 
 /* Builds (or REbuilds, after adopting the file's categories) the whole review
    state from the parsed file + resolved mapping, which stay stored so
@@ -160,7 +170,7 @@ function renderCsvReview(){
      above everything -- for a brand-new family this single button turns a
      wall of "needs your eye" into a sorted, organized ledger. */
   if(!r.mixedSignsNote && r.fileCats && r.fileCats.length){
-    html += '<div class="notice-card" style="flex-direction:column">'
+    html += '<div class="notice-card stack">'
       + '<div class="notice-text"><b>'+esc(L('File này dùng '+r.fileCats.length+' danh mục bạn chưa có:','This file uses '+r.fileCats.length+(r.fileCats.length===1?' category':' categories')+' you don\'t have yet:'))+'</b> '
       + esc(r.fileCats.map(function(n){ return csvCatEmoji(n)+' '+n; }).join(' · '))+'</div>'
       + '<button type="button" class="btn-line" style="width:100%;margin:10px 0 0" onclick="csvAdoptFileCategories()">'+L('✨ Thêm và tự xếp giúp tôi','✨ Add them and sort for me')+'</button>'
@@ -206,7 +216,7 @@ function renderCsvReview(){
       var label = k ? fmtDayMon(buckets[k][0].c.date) : L('Không rõ ngày','No date');
       html += '<div class="group-h" style="margin-top:10px">'+esc(label)+'</div><div class="rows csv-rows">';
       buckets[k].forEach(function(e){
-        html += csvDenseRow(e.c.categoryName, e.c.description, e.c.categoryName, e.c.amount, 'csvOpenCatSheet(\'ready\','+e.i+')');
+        html += csvDenseRow(e.c.categoryName, e.c.description, e.c.categoryName, e.c.amount, 'csvOpenCatSheet(\'ready\','+e.i+')', null, true);
       });
       html += '</div>';
     });
@@ -231,7 +241,10 @@ function renderCsvReview(){
     html += '</div>';
   }
 
+  html += '<button type="button" class="btn-text-quiet" style="width:100%;margin-top:10px" onclick="csvPickAnother()">'+L('Chọn file khác','Choose a different file')+'</button>';
+
   out.innerHTML = html;
+  var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='none';
 
   // Nav-bar Save, gated -- the app's form-modal convention (Cancel · Title ·
   // Save, DESIGN.md &sect;3 Buttons): always reachable, grey until importable.
@@ -262,13 +275,28 @@ function csvOpenCatSheet(type, idx){
   }
   var cur = c ? c.categoryName : null;
   var list=document.getElementById('csvcat-list');
+  // Pure picker (group) -> a chip tap applies instantly and closes, same as
+  // every other quick-pick sheet in the app. Form variant (fields + chips)
+  // selects only; Done commits everything at once, same as the expense modal.
   if(list) list.innerHTML = (window.catOrder||[]).map(function(name){
     var s=(window.catStyle&&window.catStyle[name])||['🏷️'];
-    return '<button class="choice'+(name===cur?' on':'')+'" data-v="'+escAttr(name)+'" onclick="pick(\'csvcat-list\',this)">'+s[0]+' '+esc(name)+'</button>';
+    var act = isGroup ? 'csvGroupSheetPick(\''+escAttr(name)+'\')' : 'pick(\'csvcat-list\',this)';
+    return '<button class="choice'+(name===cur?' on':'')+'" data-v="'+escAttr(name)+'" onclick="'+act+'">'+s[0]+' '+esc(name)+'</button>';
   }).join('');
+  var doneBtn=document.getElementById('csvcat-done');
+  if(doneBtn){ doneBtn.style.display = isGroup ? 'none' : ''; }
   setTxt('csvcat-done', L('Xong','Done'));
+  var amtEl=document.getElementById('csvedit-amt'); if(amtEl) amtEl.placeholder = amtPlaceholder();
   setTxt('csvcat-remove', isGroup ? L('Bỏ nhóm này','Don\'t import these') : L('Bỏ khoản này','Don\'t import this one'));
   openSheet('sheet-csvcat');
+}
+
+// Instant apply for the pure-picker (group) variant.
+function csvGroupSheetPick(name){
+  var t=csvPickTarget; if(!t||t.type!=='group'||!csvReview) return;
+  var g=csvReview.groups.splice(t.idx,1)[0];
+  if(g) g.items.forEach(function(it){ it.categoryName=name; it.catSource='user'; csvReview.ready.push(it); });
+  csvPickTarget=null; closeSheet(); renderCsvReview();
 }
 
 // Applies a single row's edited fields back onto its candidate.
