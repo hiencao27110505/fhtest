@@ -43,6 +43,26 @@ relaying messages through Slack/DMs by hand.
   touch the server in plaintext. Leaning 1 for pragmatism, flagging 2 as the
   only option that fully honors "no one but you" with an unattended writer.
 
+  **Update (2026-08-07, same session) — sharper framing after more analysis:**
+  - Option 2 is cheaper than first framed: sealed-box writes (TweetNaCl-style
+    ephemeral box to a family public key) run fine as pure JS inside Apps
+    Script — no backend change needed, no cost. The private key can be
+    DEK-wrapped (`encVal(dek, priv)`), so unlock/recovery/Key-Card migration
+    all ride your existing machinery; no new unlock ceremony.
+  - The real dependency is the **review UI**, not any backend: encrypting
+    staging before a decrypt-capable reader exists makes the pending queue
+    unreadable by everything. So the proposal is now: **Option 2 ships WITH
+    the review UI** (its decrypt side + keypair gen in 15-crypto.js is where
+    we'd want your hand), and the only open question is whether the gap until
+    then needs Option 1 as a stopgap at all.
+  - Two design consequences either way, flagging now: (a) **server-side dedup
+    dies** once amount is ciphertext — findDuplicate() queries `amount=eq.X`;
+    any server-computable blind index over VND amounts is dictionary-attackable,
+    so dedup should move client-side into the review step (where it works
+    better anyway); (b) **raw_body should be deleted at promotion/rejection**
+    regardless of option — it's the fattest sensitive payload and only needed
+    while a row is pending.
+
 - **2026-08-06 (Hien's session) — Key Card auth is LIVE (v280).** The 6-digit
   passcode is being replaced by a 128-bit Key Card as the safe key (spec:
   `KEY-CARD-AUTH-SPEC.md`). Migrations **0042→0047 applied + rehearsed on prod**
