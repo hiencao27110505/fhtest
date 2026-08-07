@@ -16,53 +16,6 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
-- **2026-08-07 (from bank-email pipeline) — design question for the encryption
-  owner: who encrypts `email_transactions`, and when?** The "staging tables get
-  `_enc` columns from day one" decision hits a structural wall on our side that
-  CSV import doesn't have: CSV staging rows are written BY the client, which
-  holds the DEK in memory — our rows are written by an unattended server-side
-  script (Apps Script today; any future backend has the same property) that by
-  design can NEVER hold the family DEK. So `_enc` columns alone don't answer
-  who fills them. Options we see, want your call before review-UI work starts:
-  1. **Coverage-job pattern** (reuse existing machinery): rows land plaintext,
-     and the next time any family member opens the app, the client encrypts
-     pending staging rows + nulls the plaintext — same shape as the legacy-row
-     cover job. Cost: a plaintext-at-rest window between ingestion and next
-     app-open (hours to days for an inactive family).
-  2. **Asymmetric envelope** (new machinery): add a per-family keypair; the
-     pipeline encrypts staging rows to the family's PUBLIC key at write time,
-     clients decrypt with the private key (unwrapped alongside the DEK). Zero
-     plaintext-at-rest window, but it's new crypto surface in `15-crypto.js`
-     and a second key to wrap/rotate — your call whether that's worth it.
-  3. **Treat staging as a transient buffer**: keep plaintext but hard-shrink
-     the exposure — auto-delete rows on promotion/rejection + a short TTL on
-     pending rows. Weakest; the CSV-IMPORT-ENCRYPTION.md discussion already
-     leaned against "it's temporary" as a justification.
-  Context: the LLM leg is already closed (masking + local extraction templates,
-  see the resolved note below) — this staging row is the last place real values
-  touch the server in plaintext. Leaning 1 for pragmatism, flagging 2 as the
-  only option that fully honors "no one but you" with an unattended writer.
-
-  **Update (2026-08-07, same session) — sharper framing after more analysis:**
-  - Option 2 is cheaper than first framed: sealed-box writes (TweetNaCl-style
-    ephemeral box to a family public key) run fine as pure JS inside Apps
-    Script — no backend change needed, no cost. The private key can be
-    DEK-wrapped (`encVal(dek, priv)`), so unlock/recovery/Key-Card migration
-    all ride your existing machinery; no new unlock ceremony.
-  - The real dependency is the **review UI**, not any backend: encrypting
-    staging before a decrypt-capable reader exists makes the pending queue
-    unreadable by everything. So the proposal is now: **Option 2 ships WITH
-    the review UI** (its decrypt side + keypair gen in 15-crypto.js is where
-    we'd want your hand), and the only open question is whether the gap until
-    then needs Option 1 as a stopgap at all.
-  - Two design consequences either way, flagging now: (a) **server-side dedup
-    dies** once amount is ciphertext — findDuplicate() queries `amount=eq.X`;
-    any server-computable blind index over VND amounts is dictionary-attackable,
-    so dedup should move client-side into the review step (where it works
-    better anyway); (b) **raw_body should be deleted at promotion/rejection**
-    regardless of option — it's the fattest sensitive payload and only needed
-    while a row is pending.
-
 - **2026-08-07 (Hien's session) — PWA hardening Phase 6 landed (v296): platform hardening. HAS migration 0049.**
   1. **a11y:** zoom re-enabled (viewport dropped `maximum-scale`/`user-scalable=no`, WCAG 1.4.4);
      `touch-action:manipulation` on body kills double-tap zoom. Added `<meta name="color-scheme" content="light">`
@@ -329,6 +282,22 @@ relaying messages through Slack/DMs by hand.
      client-side JS (the natural way anyway) and this fix isn't even needed.
 
 ## Resolved
+
+- **2026-08-07** — Staging encryption for `email_transactions`: DECIDED (Hien,
+  via DM). Sealed-box envelope (Option 2), shipped together with the review UI —
+  no Option-1 stopgap. Ownership: Hien specs + builds the 15-crypto.js side and
+  provides an exact construction spec + test vector; bank-email side implements
+  the Apps Script seal against that vector (one format, two implementations).
+  His four build constraints, recorded verbatim-ish: (1) bind family_id + row id
+  INSIDE the sealed payload and verify on open (stops ciphertext relocation);
+  (2) dedup moves client-side, no server-side amount index; (3) family keypair
+  generated on-device with the DEK present — pub stored clear, priv stored as
+  encVal(dek, priv); (4) TweetNaCl on both ends for the envelope, WebCrypto only
+  for the priv-key wrap.
+
+- **2026-08-07** — `0050_known_provider_domains_seed`: reviewed + approved
+  ("zero-risk, merge & apply, go ahead"), merged to main. Live-DB apply +
+  ledger entry: pending (Supabase MCP auth on our side, or SQL-editor paste).
 
 - **2026-08-04** — CSV import × encryption compatibility (Gemini masking
   approach, promotion-write reuse, staging-table encryption columns). See
