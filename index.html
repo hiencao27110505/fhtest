@@ -7797,6 +7797,15 @@ function csvDeferDrop(di){ csvReview.deferred.splice(di,1); csvExpand = null; re
    other expense. Only ready[] promotes. */
 function csvPromote(){
   if(!csvReview || !csvReview.ready.length) return;
+  /* Encryption gate, checked ONCE for the whole batch. _dbInsertTxn() carries
+     its own per-row _fhWriteLocked() guard, but that guard silently returns
+     per row -- so on a locked device the loop would write nothing while
+     submitBulk() still fired its success toast (and the guard would stack one
+     unlock prompt per row). Every card-born family is enc-from-birth, so this
+     is the default path on a device that hasn't unlocked yet, not an edge
+     case. Bail before touching bulkRows: the review stays intact behind the
+     prompt, so Import just works after unlocking. */
+  if(window._fhWriteLocked && window._fhWriteLocked()) return;
   bulkRows = csvReview.ready.map(function(c){
     return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName, who: lastWho, date: c.dateDisplay, _invalid: false };
   });
