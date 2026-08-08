@@ -2725,11 +2725,11 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       <div class="csv-empty">
         <div class="csv-empty-emoji">📄✨</div>
         <div class="csv-empty-t" data-t="csvEmptyT">Bring your history along</div>
-        <div class="csv-empty-s" data-t="csvEmptyS">A CSV from your bank or your old expense app — we'll read it, sort it, and you check before anything's added.</div>
+        <div class="csv-empty-s" data-t="csvEmptyS">A CSV or Excel file from your bank or your old expense app — we'll read it, sort it, and you check before anything's added.</div>
         <button type="button" class="btn-line" style="width:100%;margin:16px 0 0" onclick="document.getElementById('csv-file-input').click()" data-t="csvChoose">Choose a file</button>
-        <div class="csv-empty-hint" data-t="csvHint">Vietcombank · MB Bank · Money Lover · Misa · Excel</div>
+        <div class="csv-empty-hint" data-t="csvHint">CSV or Excel (.xlsx) · Vietcombank · MB Bank · Money Lover · Misa</div>
       </div>
-      <input type="file" id="csv-file-input" accept=".csv,text/csv" onchange="onCsvFileSelected(this)" style="display:none">
+      <input type="file" id="csv-file-input" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="onCsvFileSelected(this)" style="display:none">
     </div>
     <div id="csv-result"></div>
   </div>
@@ -7379,6 +7379,33 @@ function csvPickAnother(){
 function onCsvFileSelected(input){
   var file=input.files && input.files[0]; if(!file) return;
   var out=document.getElementById('csv-result');
+  /* .xlsx is read natively (42-xlsx-parse.js). The other spreadsheet formats
+     are different beasts -- .xls is old binary BIFF, .numbers and .ods are
+     their own zip layouts -- so name the one-step fix instead of failing with
+     "couldn't read this file", which tells the user nothing. */
+  if(/\.(xls|numbers|ods)$/i.test(file.name)){
+    if(out) out.innerHTML='<div class="sheet-sub">'+L('Tụi mình đọc được file CSV và Excel (.xlsx). Với định dạng này, bạn mở ra rồi chọn File → Lưu dưới dạng (Save as) → CSV hoặc .xlsx nhé.','We can read CSV and Excel (.xlsx) files. For this format, open it and choose File → Save As → CSV or .xlsx.')+'</div>';
+    input.value='';
+    return;
+  }
+  if(/\.xlsx$/i.test(file.name)){
+    if(!(window.fhXlsxSupported && window.fhXlsxSupported())){
+      if(out) out.innerHTML='<div class="sheet-sub">'+L('Trình duyệt này chưa đọc được file Excel. Bạn lưu thành CSV rồi tải lại giúp nhé.','This browser can\'t open Excel files yet. Save it as CSV and try again.')+'</div>';
+      input.value='';
+      return;
+    }
+    if(out) out.innerHTML='<div class="sheet-sub csv-reading">'+L('✨ Đang đọc file của bạn…','✨ Reading your file…')+'</div>';
+    window.fhParseXlsxFile(file).then(function(parsed){
+      if(!parsed || !parsed.headers.length){
+        if(out) out.innerHTML='<div class="sheet-sub">'+L('Sheet đầu tiên trong file này trống.','The first sheet in this file is empty.')+'</div>';
+        return;
+      }
+      return csvResolveAndRender(parsed, out);
+    }).catch(function(e){
+      if(out) out.innerHTML='<div class="sheet-sub">'+L('Không đọc được file Excel này. Bạn thử lưu thành CSV giúp nhé.','Couldn\'t read this Excel file. Try saving it as CSV instead.')+'</div>';
+    });
+    return;
+  }
   if(out) out.innerHTML='<div class="sheet-sub csv-reading">'+L('✨ Đang đọc file của bạn…','✨ Reading your file…')+'</div>';
 
   var reader=new FileReader();
@@ -7388,17 +7415,23 @@ function onCsvFileSelected(input){
       if(out) out.innerHTML='<div class="sheet-sub">'+L('Không đọc được file này.','Could not read this file.')+'</div>';
       return;
     }
-    window.fhResolveCsvMapping(parsed.headers, parsed.rows).then(function(result){
-      csvBuildReview(parsed, result);
-      renderCsvReview();
-    }).catch(function(e){
-      if(out) out.innerHTML='<div class="sheet-sub">'+L('Có lỗi khi phân tích file: ','Something went wrong analyzing this file: ')+esc(String((e&&e.message)||e))+'</div>';
-    });
+    csvResolveAndRender(parsed, out);
   };
   reader.onerror=function(){
     if(out) out.innerHTML='<div class="sheet-sub">'+L('Không đọc được file này.','Could not read this file.')+'</div>';
   };
   reader.readAsText(file,'utf-8');
+}
+
+/* Shared tail for both readers: once a file is {headers, rows}, CSV and xlsx
+   are indistinguishable from here on -- same column mapping, same review. */
+function csvResolveAndRender(parsed, out){
+  return window.fhResolveCsvMapping(parsed.headers, parsed.rows).then(function(result){
+    csvBuildReview(parsed, result);
+    renderCsvReview();
+  }).catch(function(e){
+    if(out) out.innerHTML='<div class="sheet-sub">'+L('Có lỗi khi phân tích file: ','Something went wrong analyzing this file: ')+esc(String((e&&e.message)||e))+'</div>';
+  });
 }
 
 function csvIncludedCount(){ return csvReview ? csvReview.ready.length : 0; }
@@ -7530,12 +7563,21 @@ function csvDenseRow(cat, title, sub, amount, onclick, extraClass, open){
   return '<div class="row'+(onclick?' tap':'')+(extraClass?' '+extraClass:'')+(open?' csv-open':'')+'"'+(onclick?' onclick="'+onclick+'"':'')+'>'
     + '<div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</div></div>'
     + '<div class="r-body"><div class="r-t">'+esc(title)+'</div><div class="r-s">'+esc(sub)+'</div></div>'
-    + (amount!=null?'<div class="r-amt num">'+fmt(amount)+'</div>':'')
+    + (amount!=null?'<div class="r-amt num">'+csvFmt(amount)+'</div>':'')
     + (onclick?'<svg class="chev csv-chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>':'')
     + '</div>';
 }
 
 function csvAmtInputVal(n){ return Number(n).toLocaleString(CUR==='VND'?'vi-VN':'en-US'); }
+
+/* A file's amounts are DISPLAY currency (45000 in the file means 45.000 d),
+   but fmt() takes the STORED base and multiplies by curMult() -- 1000 for
+   VND. Feeding it a display number rendered every VND row 1000x too big.
+   csvBaseAmt does the display->base conversion the write path does
+   (parseAmtBase), so the review shows exactly what will be saved, rounding
+   included. */
+function csvBaseAmt(n){ return Math.round(Number(n||0)/curMult()); }
+function csvFmt(n){ return fmt(csvBaseAmt(n)); }
 
 /* The inline editor, unfolded beneath its row inside the .rows container.
    fields:false gives the chips-only variant (merchant groups -- pure picker,
@@ -7677,12 +7719,12 @@ function renderCsvReview(){
      decision: what's going in (count, total, date span), what was read from
      the file, and what's being left out. Nothing is ever dropped silently. */
   if(readyCount > 0 || decisionCount > 0){
-    var sum = r.ready.reduce(function(s,c){ return s + (c.amount||0); }, 0);
+    var sumBase = r.ready.reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
     var dates = r.ready.map(function(c){ return c.date; }).filter(Boolean).sort(function(a,b){ return a-b; });
     var span = dates.length ? (fmtDayMon(dates[0]) + (dates.length>1 ? ' – ' + fmtDayMon(dates[dates.length-1]) : '')) : '';
     var skippedDup = r.dup.filter(function(d){ return d.resolved==='skip'; }).length;
     html += '<div class="csv-check">'
-      + '<div class="csv-check-main">'+esc(L('Sẽ nhập '+readyCount+' khoản · tổng '+fmt(sum), 'Importing '+readyCount+' · total '+fmt(sum)))+'</div>'
+      + '<div class="csv-check-main">'+esc(L('Sẽ nhập '+readyCount+' khoản · tổng '+fmt(sumBase), 'Importing '+readyCount+' · total '+fmt(sumBase)))+'</div>'
       + (span ? '<div class="csv-check-sub">'+esc(span)+' · '+esc(L('đọc '+r.parsed.rows.length+' dòng từ file','read '+r.parsed.rows.length+' rows from the file'))+'</div>' : '')
       + (decisionCount+skippedDup > 0
           ? '<div class="csv-check-sub">'+esc(L('Không nhập: ','Not importing: '))
@@ -9512,7 +9554,7 @@ var EN_DEFAULT={
   qaSuggestT:'Share feedback', qaSuggestS:'An idea or something you wish for',
   qaCsvT:'Import from file', qaCsvS:'Bring in a CSV from your bank or another app',
   /* csv import modal */
-  csvModalTitle:'Import from file', csvEmptyT:'Bring your history along', csvEmptyS:'A CSV from your bank or your old expense app — we\'ll read it, sort it, and you check before anything\'s added.', csvChoose:'Choose a file', csvHint:'Vietcombank · MB Bank · Money Lover · Misa · Excel', csvPickAgain:'Choose a different file', csvSave:'Import',
+  csvModalTitle:'Import from file', csvEmptyT:'Bring your history along', csvEmptyS:'A CSV or Excel file from your bank or your old expense app — we\'ll read it, sort it, and you check before anything\'s added.', csvChoose:'Choose a file', csvHint:'CSV or Excel (.xlsx) · Vietcombank · MB Bank · Money Lover · Misa', csvPickAgain:'Choose a different file', csvSave:'Import',
   /* suggest modal */
   suggestTitle:'We hear you 💛', suggestSub:'An idea, a gripe, a feature you wish existed — tell us anything.',
   founderNote:'We read every note. Thanks for helping us make it better.',
@@ -9621,7 +9663,7 @@ var I18N={
     qaSuggestT:'Góp ý', qaSuggestS:'Một ý tưởng hay điều bạn mong muốn',
     qaCsvT:'Nhập từ file', qaCsvS:'Đưa dữ liệu CSV từ ngân hàng hoặc app khác vào',
     /* csv import modal */
-    csvModalTitle:'Nhập từ file', csvEmptyT:'Mang cả lịch sử chi tiêu theo nhé', csvEmptyS:'File CSV từ ngân hàng hay app chi tiêu cũ — tụi mình đọc và tự xếp, bạn xem lại rồi mới nhập.', csvChoose:'Chọn file', csvHint:'Vietcombank · MB Bank · Money Lover · Misa · Excel', csvPickAgain:'Chọn file khác', csvSave:'Nhập',
+    csvModalTitle:'Nhập từ file', csvEmptyT:'Mang cả lịch sử chi tiêu theo nhé', csvEmptyS:'File CSV hoặc Excel từ ngân hàng hay app chi tiêu cũ — tụi mình đọc và tự xếp, bạn xem lại rồi mới nhập.', csvChoose:'Chọn file', csvHint:'File CSV hoặc Excel (.xlsx) · Vietcombank · MB Bank · Money Lover · Misa', csvPickAgain:'Chọn file khác', csvSave:'Nhập',
     /* suggest modal */
     suggestTitle:'Tụi mình nghe bạn nè 💛', suggestSub:'Một ý tưởng, một điều chưa ưng, hay tính năng bạn ước có — kể tụi mình nghe hết nha.',
     founderNote:'Tụi mình đọc hết mọi góp ý. Cảm ơn bạn đã giúp app tốt hơn nha.',
@@ -12064,6 +12106,203 @@ function openWhatsNew(){
       _syncSoon(true);   // deleted row may be out-of-window → full hydrate (deletes are infrequent)
     } catch (e) { _writeErr('txn delete failed', e); }
   }
+
+  /* ═══ .xlsx reader — no library, no CDN ═══════════════════════════════════
+     An .xlsx is a ZIP of XML parts, and the browser can already do both jobs:
+     DecompressionStream('deflate-raw') inflates, DOMParser reads the XML. So
+     this ships as ~150 lines instead of a ~900 KB spreadsheet library, adds
+     nothing to the precache, works offline, and -- the reason it isn't a CDN
+     script -- never tells a third party that this family is importing their
+     finances. Same instinct as masking the Gemini sample.
+
+     Scope is deliberately narrow: the FIRST worksheet of a normal export
+     (bank / Money Lover / Misa / "Save as .xlsx"). Not a spreadsheet engine
+     -- no formulas (their cached results are read), no multi-sheet picking,
+     no charts. That is exactly the shape a transaction export has.
+
+     Requires DecompressionStream (Safari 16.4+, Chrome 80+). Callers get a
+     clear "save it as CSV instead" message when it's missing, rather than a
+     silent failure. */
+
+  function _xlsxSupported() { return typeof DecompressionStream === 'function'; }
+
+  // --- ZIP: central directory -> { name: Uint8Array } for the parts we need ---
+  async function _zipEntries(buf, wanted) {
+    const dv = new DataView(buf), u8 = new Uint8Array(buf);
+    // End of Central Directory: scan back from the tail for its signature.
+    let eocd = -1;
+    for (let i = u8.length - 22; i >= 0 && i > u8.length - 66000; i--) {
+      if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) throw new Error('not a zip');
+    const count = dv.getUint16(eocd + 10, true);
+    let p = dv.getUint32(eocd + 16, true);           // central directory offset
+
+    const out = {};
+    const dec = new TextDecoder();
+    for (let i = 0; i < count && p + 46 <= u8.length; i++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) break;
+      const method = dv.getUint16(p + 10, true);
+      const compSize = dv.getUint32(p + 20, true);
+      const nameLen = dv.getUint16(p + 28, true);
+      const extraLen = dv.getUint16(p + 30, true);
+      const cmtLen = dv.getUint16(p + 32, true);
+      const localOff = dv.getUint32(p + 42, true);
+      const name = dec.decode(u8.subarray(p + 46, p + 46 + nameLen));
+      p += 46 + nameLen + extraLen + cmtLen;
+      if (!wanted(name)) continue;
+      // Local header: name/extra lengths there can differ from the central copy.
+      if (dv.getUint32(localOff, true) !== 0x04034b50) continue;
+      const lNameLen = dv.getUint16(localOff + 26, true);
+      const lExtraLen = dv.getUint16(localOff + 28, true);
+      const start = localOff + 30 + lNameLen + lExtraLen;
+      const raw = u8.subarray(start, start + compSize);
+      out[name] = (method === 0) ? raw : await _inflateRaw(raw);
+    }
+    return out;
+  }
+
+  async function _inflateRaw(bytes) {
+    const ds = new DecompressionStream('deflate-raw');
+    const stream = new Blob([bytes]).stream().pipeThrough(ds);
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+
+  function _xml(bytes) {
+    if (!bytes) return null;
+    return new DOMParser().parseFromString(new TextDecoder().decode(bytes), 'application/xml');
+  }
+
+  // "BC" -> 54. Cell refs carry their column, so sparse rows stay aligned.
+  function _colIndex(ref) {
+    let n = 0;
+    for (let i = 0; i < ref.length; i++) {
+      const c = ref.charCodeAt(i);
+      if (c < 65 || c > 90) break;
+      n = n * 26 + (c - 64);
+    }
+    return n - 1;
+  }
+
+  /* Excel serial -> 'YYYY-MM-DD'. Day 1 is 1900-01-01 but Excel also counts a
+     phantom 1900-02-29, which the 1899-12-30 epoch absorbs for every date from
+     1900-03-01 on -- i.e. every date a transaction export will ever hold. */
+  function _serialToISO(n) {
+    const ms = Math.round((n - 25569) * 86400000);   // 25569 = days 1899-12-30 -> 1970-01-01
+    const d = new Date(ms);
+    if (isNaN(d)) return String(n);
+    const p = (x) => String(x).padStart(2, '0');
+    return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate());
+  }
+
+  /* Which style indexes format their number as a date? Built-ins 14-22 and
+     45-47 are date/time; custom formats are date-ish if their code has d/m/y
+     tokens outside quoted literals. Without this every date cell would arrive
+     as "45870" and fail date detection on every row. */
+  function _dateStyles(stylesDoc) {
+    const isDate = {};
+    if (!stylesDoc) return isDate;
+    const custom = {};
+    stylesDoc.querySelectorAll('numFmts > numFmt').forEach((n) => {
+      const id = n.getAttribute('numFmtId');
+      const code = (n.getAttribute('formatCode') || '').replace(/"[^"]*"/g, '').replace(/\[[^\]]*\]/g, '');
+      custom[id] = /[dmyhs]/i.test(code);
+    });
+    const xfs = stylesDoc.querySelector('cellXfs');
+    if (!xfs) return isDate;
+    Array.prototype.forEach.call(xfs.children, (xf, i) => {
+      const id = xf.getAttribute('numFmtId');
+      if (id == null) return;
+      const num = +id;
+      isDate[i] = (num >= 14 && num <= 22) || (num >= 45 && num <= 47) || !!custom[id];
+    });
+    return isDate;
+  }
+
+  // Path of the first worksheet, resolved through the workbook's relationships.
+  function _firstSheetPath(wbDoc, relsDoc) {
+    try {
+      const sheet = wbDoc && wbDoc.querySelector('sheets > sheet');
+      const rid = sheet && (sheet.getAttribute('r:id') || sheet.getAttribute('id'));
+      if (rid && relsDoc) {
+        const rel = relsDoc.querySelector('Relationship[Id="' + rid + '"]');
+        let target = rel && rel.getAttribute('Target');
+        if (target) {
+          target = target.replace(/^\//, '');
+          return target.indexOf('xl/') === 0 ? target : 'xl/' + target;
+        }
+      }
+    } catch (e) {}
+    return 'xl/worksheets/sheet1.xml';
+  }
+
+  /* ArrayBuffer -> string[][], the same shape the CSV parser produces, so the
+     rest of the import pipeline can't tell the two apart. */
+  async function fhParseXlsxBuffer(buf) {
+    if (!_xlsxSupported()) throw new Error('xlsx_unsupported');
+
+    // First pass: the parts whose names are fixed.
+    const meta = await _zipEntries(buf, (n) =>
+      n === 'xl/workbook.xml' || n === 'xl/_rels/workbook.xml.rels' ||
+      n === 'xl/sharedStrings.xml' || n === 'xl/styles.xml');
+
+    const sheetPath = _firstSheetPath(_xml(meta['xl/workbook.xml']), _xml(meta['xl/_rels/workbook.xml.rels']));
+    const sheetPart = await _zipEntries(buf, (n) => n === sheetPath);
+    const sheetDoc = _xml(sheetPart[sheetPath]);
+    if (!sheetDoc) throw new Error('no_sheet');
+
+    const sst = [];
+    const sstDoc = _xml(meta['xl/sharedStrings.xml']);
+    if (sstDoc) {
+      sstDoc.querySelectorAll('sst > si').forEach((si) => {
+        // Rich text splits one string across several <t> runs.
+        let s = '';
+        si.querySelectorAll('t').forEach((t) => { s += t.textContent; });
+        sst.push(s);
+      });
+    }
+    const dateStyle = _dateStyles(_xml(meta['xl/styles.xml']));
+
+    const rows = [];
+    sheetDoc.querySelectorAll('sheetData > row').forEach((row) => {
+      const cells = [];
+      row.querySelectorAll('c').forEach((c) => {
+        const ref = c.getAttribute('r') || '';
+        const idx = ref ? _colIndex(ref) : cells.length;
+        const type = c.getAttribute('t');
+        const vEl = c.querySelector('v');
+        let val = '';
+        if (type === 's') {
+          const i = vEl ? +vEl.textContent : -1;
+          val = (sst[i] != null) ? sst[i] : '';
+        } else if (type === 'inlineStr') {
+          const t = c.querySelector('is');
+          val = t ? t.textContent : '';
+        } else if (type === 'b') {
+          val = (vEl && vEl.textContent === '1') ? 'TRUE' : 'FALSE';
+        } else if (vEl) {
+          const raw = vEl.textContent;
+          const sIdx = c.getAttribute('s');
+          val = (sIdx != null && dateStyle[+sIdx] && raw !== '' && !isNaN(+raw)) ? _serialToISO(+raw) : raw;
+        }
+        while (cells.length < idx) cells.push('');   // keep sparse rows aligned
+        cells[idx] = val;
+      });
+      rows.push(cells);
+    });
+    return rows;
+  }
+
+  // File -> { headers, rows }, matching fhParseCsvFile's contract.
+  async function fhParseXlsxFile(file) {
+    const rows = (await fhParseXlsxBuffer(await file.arrayBuffer()))
+      .filter((r) => r.some((cell) => String(cell).trim() !== ''));
+    const [headers, ...dataRows] = rows;
+    return { headers: (headers || []).map(function (h) { return String(h); }), rows: dataRows };
+  }
+
+  window.fhParseXlsxFile = fhParseXlsxFile;
+  window.fhXlsxSupported = _xlsxSupported;
 
 /* ═══ Redact-before-sharing (CSV-IMPORT-ENCRYPTION.md) ═══════════════════════
    One shared utility for masking sample data before it leaves the device to

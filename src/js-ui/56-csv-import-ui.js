@@ -41,6 +41,33 @@ function csvPickAnother(){
 function onCsvFileSelected(input){
   var file=input.files && input.files[0]; if(!file) return;
   var out=document.getElementById('csv-result');
+  /* .xlsx is read natively (42-xlsx-parse.js). The other spreadsheet formats
+     are different beasts -- .xls is old binary BIFF, .numbers and .ods are
+     their own zip layouts -- so name the one-step fix instead of failing with
+     "couldn't read this file", which tells the user nothing. */
+  if(/\.(xls|numbers|ods)$/i.test(file.name)){
+    if(out) out.innerHTML='<div class="sheet-sub">'+L('Tụi mình đọc được file CSV và Excel (.xlsx). Với định dạng này, bạn mở ra rồi chọn File → Lưu dưới dạng (Save as) → CSV hoặc .xlsx nhé.','We can read CSV and Excel (.xlsx) files. For this format, open it and choose File → Save As → CSV or .xlsx.')+'</div>';
+    input.value='';
+    return;
+  }
+  if(/\.xlsx$/i.test(file.name)){
+    if(!(window.fhXlsxSupported && window.fhXlsxSupported())){
+      if(out) out.innerHTML='<div class="sheet-sub">'+L('Trình duyệt này chưa đọc được file Excel. Bạn lưu thành CSV rồi tải lại giúp nhé.','This browser can\'t open Excel files yet. Save it as CSV and try again.')+'</div>';
+      input.value='';
+      return;
+    }
+    if(out) out.innerHTML='<div class="sheet-sub csv-reading">'+L('✨ Đang đọc file của bạn…','✨ Reading your file…')+'</div>';
+    window.fhParseXlsxFile(file).then(function(parsed){
+      if(!parsed || !parsed.headers.length){
+        if(out) out.innerHTML='<div class="sheet-sub">'+L('Sheet đầu tiên trong file này trống.','The first sheet in this file is empty.')+'</div>';
+        return;
+      }
+      return csvResolveAndRender(parsed, out);
+    }).catch(function(e){
+      if(out) out.innerHTML='<div class="sheet-sub">'+L('Không đọc được file Excel này. Bạn thử lưu thành CSV giúp nhé.','Couldn\'t read this Excel file. Try saving it as CSV instead.')+'</div>';
+    });
+    return;
+  }
   if(out) out.innerHTML='<div class="sheet-sub csv-reading">'+L('✨ Đang đọc file của bạn…','✨ Reading your file…')+'</div>';
 
   var reader=new FileReader();
@@ -50,17 +77,23 @@ function onCsvFileSelected(input){
       if(out) out.innerHTML='<div class="sheet-sub">'+L('Không đọc được file này.','Could not read this file.')+'</div>';
       return;
     }
-    window.fhResolveCsvMapping(parsed.headers, parsed.rows).then(function(result){
-      csvBuildReview(parsed, result);
-      renderCsvReview();
-    }).catch(function(e){
-      if(out) out.innerHTML='<div class="sheet-sub">'+L('Có lỗi khi phân tích file: ','Something went wrong analyzing this file: ')+esc(String((e&&e.message)||e))+'</div>';
-    });
+    csvResolveAndRender(parsed, out);
   };
   reader.onerror=function(){
     if(out) out.innerHTML='<div class="sheet-sub">'+L('Không đọc được file này.','Could not read this file.')+'</div>';
   };
   reader.readAsText(file,'utf-8');
+}
+
+/* Shared tail for both readers: once a file is {headers, rows}, CSV and xlsx
+   are indistinguishable from here on -- same column mapping, same review. */
+function csvResolveAndRender(parsed, out){
+  return window.fhResolveCsvMapping(parsed.headers, parsed.rows).then(function(result){
+    csvBuildReview(parsed, result);
+    renderCsvReview();
+  }).catch(function(e){
+    if(out) out.innerHTML='<div class="sheet-sub">'+L('Có lỗi khi phân tích file: ','Something went wrong analyzing this file: ')+esc(String((e&&e.message)||e))+'</div>';
+  });
 }
 
 function csvIncludedCount(){ return csvReview ? csvReview.ready.length : 0; }
@@ -192,12 +225,21 @@ function csvDenseRow(cat, title, sub, amount, onclick, extraClass, open){
   return '<div class="row'+(onclick?' tap':'')+(extraClass?' '+extraClass:'')+(open?' csv-open':'')+'"'+(onclick?' onclick="'+onclick+'"':'')+'>'
     + '<div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</div></div>'
     + '<div class="r-body"><div class="r-t">'+esc(title)+'</div><div class="r-s">'+esc(sub)+'</div></div>'
-    + (amount!=null?'<div class="r-amt num">'+fmt(amount)+'</div>':'')
+    + (amount!=null?'<div class="r-amt num">'+csvFmt(amount)+'</div>':'')
     + (onclick?'<svg class="chev csv-chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>':'')
     + '</div>';
 }
 
 function csvAmtInputVal(n){ return Number(n).toLocaleString(CUR==='VND'?'vi-VN':'en-US'); }
+
+/* A file's amounts are DISPLAY currency (45000 in the file means 45.000 d),
+   but fmt() takes the STORED base and multiplies by curMult() -- 1000 for
+   VND. Feeding it a display number rendered every VND row 1000x too big.
+   csvBaseAmt does the display->base conversion the write path does
+   (parseAmtBase), so the review shows exactly what will be saved, rounding
+   included. */
+function csvBaseAmt(n){ return Math.round(Number(n||0)/curMult()); }
+function csvFmt(n){ return fmt(csvBaseAmt(n)); }
 
 /* The inline editor, unfolded beneath its row inside the .rows container.
    fields:false gives the chips-only variant (merchant groups -- pure picker,
@@ -339,12 +381,12 @@ function renderCsvReview(){
      decision: what's going in (count, total, date span), what was read from
      the file, and what's being left out. Nothing is ever dropped silently. */
   if(readyCount > 0 || decisionCount > 0){
-    var sum = r.ready.reduce(function(s,c){ return s + (c.amount||0); }, 0);
+    var sumBase = r.ready.reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
     var dates = r.ready.map(function(c){ return c.date; }).filter(Boolean).sort(function(a,b){ return a-b; });
     var span = dates.length ? (fmtDayMon(dates[0]) + (dates.length>1 ? ' – ' + fmtDayMon(dates[dates.length-1]) : '')) : '';
     var skippedDup = r.dup.filter(function(d){ return d.resolved==='skip'; }).length;
     html += '<div class="csv-check">'
-      + '<div class="csv-check-main">'+esc(L('Sẽ nhập '+readyCount+' khoản · tổng '+fmt(sum), 'Importing '+readyCount+' · total '+fmt(sum)))+'</div>'
+      + '<div class="csv-check-main">'+esc(L('Sẽ nhập '+readyCount+' khoản · tổng '+fmt(sumBase), 'Importing '+readyCount+' · total '+fmt(sumBase)))+'</div>'
       + (span ? '<div class="csv-check-sub">'+esc(span)+' · '+esc(L('đọc '+r.parsed.rows.length+' dòng từ file','read '+r.parsed.rows.length+' rows from the file'))+'</div>' : '')
       + (decisionCount+skippedDup > 0
           ? '<div class="csv-check-sub">'+esc(L('Không nhập: ','Not importing: '))
