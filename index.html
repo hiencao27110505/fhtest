@@ -7752,7 +7752,12 @@ function csvApplyEditFields(c){
   var noteEl=document.getElementById('csvedit-note');
   if(noteEl && noteEl.value.trim()) c.description = noteEl.value.trim();
   var amtEl=document.getElementById('csvedit-amt');
-  if(amtEl){ var amt = parseAmt(amtEl.value||''); if(amt > 0) c.amount = amt; }
+  if(amtEl){
+    // Same parser the file goes through, so "45k" typed here means what it
+    // means in a cell -- and a bare number stays literal.
+    var a = window.classifyAmount ? window.classifyAmount(amtEl.value||'') : null;
+    if(a && a.status==='ok' && a.value > 0) c.amount = a.value;
+  }
   var dEl=document.getElementById('csvedit-date');
   if(dEl && dEl.value){ c.dateDisplay = dEl.value; c.date = new Date(dEl.value+'T00:00:00'); }
   var catsEl=document.getElementById('csvedit-cats');
@@ -12343,7 +12348,7 @@ function fhMaskDescriptionText() {
 function fhLooksAmountShaped(raw) {
   const v = String(raw || '').trim();
   if (!v) return false;
-  return /^-?[\d.,\s₫$]+$/.test(v) && /\d/.test(v);
+  return /^-?[\d.,\s₫$]*\d[\d.,\s₫$]*(k|tr|ty|ti|trieu|nghin|ngan|triệu|nghìn|ngàn|tỷ|tỉ)?\s*\d*$/i.test(v);
 }
 
 // Free-text-shaped: long enough and has letters — distinguishes a
@@ -12494,8 +12499,24 @@ function classifyAmount(raw) {
     v = v.replace(/đ/gi, '').replace(/vnd/gi, '').trim();
   }
   const negative = v.startsWith('-');
-  const core = negative ? v.slice(1) : v;
+  let core = negative ? v.slice(1) : v;
   if (negative) flags.push('negative_sign');
+
+  /* VN shorthand: "45k" = 45.000, "1tr2" = 1.200.000, "2 ty" = 2.000.000.000.
+     A number carrying NO marker is taken literally -- 45000 means 45000, never
+     45 million. (The bulk-logging composer additionally promotes a bare VND
+     number under 1000, because the ledger stores VND in units of 1.000d and a
+     hand-typed "45" can't otherwise be represented; a file's amounts are real
+     figures, so no such promotion happens here.) */
+  let mult = 1, fracTail = '';
+  const sm = stripDiacritics(core).match(/^([\d.,\s]*\d)\s*(ty|ti|tr|trieu|k|nghin|ngan)\s*(\d*)$/i);
+  if (sm) {
+    const unit = sm[2].toLowerCase();
+    mult = (unit === 'ty' || unit === 'ti') ? 1e9 : (unit === 'tr' || unit === 'trieu') ? 1e6 : 1e3;
+    fracTail = sm[3] || '';
+    core = sm[1].trim();
+    flags.push('shorthand_suffix');
+  }
 
   const hasDot = core.includes('.');
   const hasComma = core.includes(',');
@@ -12512,8 +12533,10 @@ function classifyAmount(raw) {
   }
 
   const cleaned = style === 'decimal_2dp' ? core.replace(/,/g, '') : core.replace(/[.,]/g, '');
-  const value = Number(cleaned);
+  let value = Number(cleaned);
   if (Number.isNaN(value)) return { status: 'unparseable', flags };
+  // "1tr2" is one-and-two-tenths million, not 1 million then a stray 2.
+  if (mult > 1) value = Math.round((fracTail ? Number(String(value) + '.' + fracTail) : value) * mult);
   return { status: 'ok', style, value, flags };
 }
 

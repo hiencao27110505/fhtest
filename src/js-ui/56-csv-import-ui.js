@@ -414,7 +414,12 @@ function csvApplyEditFields(c){
   var noteEl=document.getElementById('csvedit-note');
   if(noteEl && noteEl.value.trim()) c.description = noteEl.value.trim();
   var amtEl=document.getElementById('csvedit-amt');
-  if(amtEl){ var amt = parseAmt(amtEl.value||''); if(amt > 0) c.amount = amt; }
+  if(amtEl){
+    // Same parser the file goes through, so "45k" typed here means what it
+    // means in a cell -- and a bare number stays literal.
+    var a = window.classifyAmount ? window.classifyAmount(amtEl.value||'') : null;
+    if(a && a.status==='ok' && a.value > 0) c.amount = a.value;
+  }
   var dEl=document.getElementById('csvedit-date');
   if(dEl && dEl.value){ c.dateDisplay = dEl.value; c.date = new Date(dEl.value+'T00:00:00'); }
   var catsEl=document.getElementById('csvedit-cats');

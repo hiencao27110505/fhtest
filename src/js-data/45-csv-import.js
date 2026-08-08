@@ -46,8 +46,24 @@ function classifyAmount(raw) {
     v = v.replace(/đ/gi, '').replace(/vnd/gi, '').trim();
   }
   const negative = v.startsWith('-');
-  const core = negative ? v.slice(1) : v;
+  let core = negative ? v.slice(1) : v;
   if (negative) flags.push('negative_sign');
+
+  /* VN shorthand: "45k" = 45.000, "1tr2" = 1.200.000, "2 ty" = 2.000.000.000.
+     A number carrying NO marker is taken literally -- 45000 means 45000, never
+     45 million. (The bulk-logging composer additionally promotes a bare VND
+     number under 1000, because the ledger stores VND in units of 1.000d and a
+     hand-typed "45" can't otherwise be represented; a file's amounts are real
+     figures, so no such promotion happens here.) */
+  let mult = 1, fracTail = '';
+  const sm = stripDiacritics(core).match(/^([\d.,\s]*\d)\s*(ty|ti|tr|trieu|k|nghin|ngan)\s*(\d*)$/i);
+  if (sm) {
+    const unit = sm[2].toLowerCase();
+    mult = (unit === 'ty' || unit === 'ti') ? 1e9 : (unit === 'tr' || unit === 'trieu') ? 1e6 : 1e3;
+    fracTail = sm[3] || '';
+    core = sm[1].trim();
+    flags.push('shorthand_suffix');
+  }
 
   const hasDot = core.includes('.');
   const hasComma = core.includes(',');
@@ -64,8 +80,10 @@ function classifyAmount(raw) {
   }
 
   const cleaned = style === 'decimal_2dp' ? core.replace(/,/g, '') : core.replace(/[.,]/g, '');
-  const value = Number(cleaned);
+  let value = Number(cleaned);
   if (Number.isNaN(value)) return { status: 'unparseable', flags };
+  // "1tr2" is one-and-two-tenths million, not 1 million then a stray 2.
+  if (mult > 1) value = Math.round((fracTail ? Number(String(value) + '.' + fracTail) : value) * mult);
   return { status: 'ok', style, value, flags };
 }
 
