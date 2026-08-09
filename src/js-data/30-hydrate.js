@@ -20,6 +20,10 @@
         fid = prof && prof.family_id;
       }
       if (!fid) return false;
+      // A real family switch (not a same-family refresh) resets the per-session
+      // "browse read-only" choice, so a freshly-entered locked family still auto-
+      // raises the wall. _rawFid still holds the prior fid at this point.
+      if (window.DB._rawFid && window.DB._rawFid !== fid) window.__fhLockBrowsed = 0;
       window.DB.fid = fid;
       const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now()); now.setHours(0, 0, 0, 0);
       const monthDate = _isoMonth(now); window.DB.month = monthDate; window.DB.monthKey = MO[now.getMonth()];
@@ -108,10 +112,12 @@
          received the code yet is never locked out of the family. */
       const _needsKey = !!(encMeta && encMeta.enc_state !== 'off' && !fhKeyReady());
       if (window.fhLockBanner) window.fhLockBanner(_needsKey, encMeta && encMeta.enc_state);
-      const _nudgeDue = _needsKey && (!window.__fhUnlockNudgedAt || Date.now() - window.__fhUnlockNudgedAt > 600000);
-      if (_nudgeDue && window.editingTx == null && !document.querySelector('.sheet.on, .modal.on')) {
-        window.__fhUnlockNudgedAt = Date.now();
-        setTimeout(() => { try { window.fhUnlockPrompt && window.fhUnlockPrompt(); } catch (e) {} }, 700);
+      // Locked device → raise the fullscreen unlock wall (auto = respects a
+      // deliberate "browse read-only" choice this session, and never covers a
+      // live onboarding screen). The wall itself no-ops if already keyed, if a
+      // #fh-k= link is pending, or if there is no recipe on device (offline).
+      if (_needsKey && window.editingTx == null) {
+        setTimeout(() => { try { window.fhLockWall && window.fhLockWall({ auto: true }); } catch (e) {} }, 700);
       }
       async function _decRows(rows, fields) {
         if (!encMeta) return;                                // no family_keys row → nothing encrypted
@@ -390,17 +396,24 @@
          the person then signed in): now that the family + its wraps are loaded,
          unlock with the stashed card, then hide the lock bar and re-render so the
          now-decryptable amounts/names/photos appear. Guarded by __fhPendingCard. */
-      if (window.__fhPendingCard && window.fhHasCard && window.fhHasCard() && !fhKeyReady()) {
+      if (window.__fhPendingCard && !fhKeyReady()) {
+        // Consume the flag NO MATTER WHAT — even if this family can't use it
+        // (passcode-only / no card wrap) — so a leftover pending card can never
+        // wedge the lock wall's auto path for the rest of the session.
         const _pc = window.__fhPendingCard; window.__fhPendingCard = null;
-        setTimeout(() => {
-          try {
-            window.fhCardUnlock && window.fhCardUnlock(_pc).then(() => {
-              window.fhLockBanner && window.fhLockBanner(false);
-              window.toast && window.toast(L('Đã mở khóa bằng mã khóa ✓', 'Unlocked with your code ✓'));
-              window.loadFamilyData && window.loadFamilyData();
-            }).catch(() => {});
-          } catch (e) {}
-        }, 300);
+        if (window.fhHasCard && window.fhHasCard()) {
+          setTimeout(() => {
+            try {
+              window.fhCardUnlock && window.fhCardUnlock(_pc).then(() => {
+                window.toast && window.toast(L('Đã mở khóa bằng mã khóa ✓', 'Unlocked with your code ✓'));
+                // shared teardown: closes the wall if the +700ms auto-wall raced
+                // up on a slow device, flushes held writes, refreshes, sweeps.
+                if (window.fhAfterUnlock) window.fhAfterUnlock();
+                else { window.fhLockBanner && window.fhLockBanner(false); window.loadFamilyData && window.loadFamilyData(); }
+              }).catch(() => {});
+            } catch (e) {}
+          }, 300);
+        }
       }
       // proactively surface the Key Card migration (owner, enc, no card yet) —
       // the USP moment on open, not a buried Settings button. Once per session.

@@ -1,0 +1,62 @@
+/* ── Fullscreen unlock wall (68-lock-wall.js) ────────────────────────────────
+   A device that is signed in but has no key is genuinely locked: the unlock is
+   NOT a dismissible sheet but a full-screen wall that owns the app until the mã
+   khóa (or 6-digit code) is entered. It still has explicit escapes — browse
+   read-only, sign out, help — so a member who hasn't received the code yet is
+   never trapped. Lives inside #phone (desktop device frame). z 75: above the
+   lock bar (64), below the toast (80) so unlock errors still surface, though we
+   also render them inline. */
+#fh-lockwall{
+  position:absolute; inset:0; z-index:75; background:var(--canvas); color:var(--ink);
+  display:flex; flex-direction:column; overflow-y:auto; font-family:inherit;
+  padding:calc(env(safe-area-inset-top) + 30px) 24px calc(env(safe-area-inset-bottom) + 22px);
+  animation:fhLwIn .28s cubic-bezier(.32,.72,0,1);
+}
+@keyframes fhLwIn{ from{opacity:0; transform:scale(.985)} to{opacity:1; transform:none} }
+.fh-lw-inner{ margin:auto; width:100%; max-width:420px; }
+.fh-lw-hero{ text-align:center; margin-bottom:26px; }
+.fh-lw-badge{
+  width:64px; height:64px; border-radius:20px; margin:0 auto 18px;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--surface); color:var(--brand);
+}
+.fh-lw-badge svg{ width:30px; height:30px; }
+.fh-lw-title{ font-size:23px; font-weight:800; letter-spacing:-.4px; margin-bottom:8px; }
+.fh-lw-sub{ font-size:14.5px; line-height:1.55; color:var(--muted); }
+.fh-lw-field{ display:flex; gap:8px; margin-bottom:6px; }
+#fh-lw-input{
+  flex:1; min-width:0; background:var(--surface); border:1.5px solid var(--hairline);
+  border-radius:13px; padding:14px 16px; font-size:16px; font-family:inherit;
+  color:var(--ink); outline:none; transition:border-color .15s;
+}
+#fh-lw-input:focus{ border-color:var(--brand); }
+#fh-lw-input.pc{ text-align:center; letter-spacing:.45em; font-weight:700; font-size:22px; padding-left:.45em; }
+.fh-lw-paste{
+  flex:none; background:var(--surface); border:1.5px solid var(--hairline);
+  border-radius:13px; padding:0 16px; font-size:14px; font-weight:700;
+  font-family:inherit; color:var(--ink); cursor:pointer;
+}
+.fh-lw-paste:active{ transform:scale(.97); }
+.fh-lw-err{ min-height:17px; font-size:13px; color:var(--red,#c0392b); margin:6px 2px 12px; text-align:center; line-height:1.4; }
+.fh-lw-cta{
+  width:100%; background:var(--grad-brand,var(--brand)); color:#fff; border:none;
+  border-radius:9999px; padding:16px; font-size:15px; font-weight:700;
+  font-family:inherit; cursor:pointer; box-shadow:0 8px 22px var(--brand-glow);
+  transition:transform .15s;
+}
+.fh-lw-cta:active{ transform:scale(.99); }
+.fh-lw-cta:disabled{ opacity:.7; }
+.fh-lw-alt{
+  display:block; margin:16px auto 0; background:none; border:none; color:var(--brand);
+  font-size:13.5px; font-weight:600; font-family:inherit; cursor:pointer; text-align:center;
+}
+.fh-lw-foot{ margin-top:28px; text-align:center; }
+.fh-lw-browse{
+  width:100%; background:none; border:1.5px solid var(--hairline); border-radius:9999px;
+  padding:14px; font-size:14px; font-weight:600; font-family:inherit; color:var(--ink); cursor:pointer;
+}
+.fh-lw-browse:active{ transform:scale(.99); }
+.fh-lw-links{ margin-top:18px; display:flex; gap:10px; align-items:center; justify-content:center; }
+.fh-lw-links button{ background:none; border:none; color:var(--muted); font-size:12.5px; font-family:inherit; cursor:pointer; text-decoration:underline; }
+.fh-lw-help{ font-size:12.5px; color:var(--muted); line-height:1.5; margin:14px auto 0; max-width:340px; display:none; }
+.fh-lw-help.on{ display:block; }
