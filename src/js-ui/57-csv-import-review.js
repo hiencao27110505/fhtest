@@ -408,6 +408,14 @@ function buildCsvCandidates(parsed, result) {
     }
     // Machine labels some exports use for direction, e.g. "transfer_in".
     if (/^(transfer_in|income|credit|thu nhap|tien vao)$/i.test(deburr((catGuess||'').trim().toLowerCase()))) isIncome = true;
+    /* Some exports put everything in one column, so the words have to carry
+       it: a salary run, an incoming transfer, a refund or interest is money
+       IN. Filing a salary as spending would corrupt the month badly, so this
+       leans towards holding a row back for review rather than importing it. */
+    if (!isIncome) {
+      var dtext = deburr(String(desc || '').toLowerCase());
+      if (/\b(thanh toan luong|tra luong|chi luong|luong thang|ck den|nhan tien|tien ve|hoan tien|lai suat|interest|salary|payroll|refund)\b/.test(dtext)) isIncome = true;
+    }
 
     var aclass = classifyAmount(amtRaw);
     var amount = (aclass.status === 'ok') ? Math.abs(aclass.value) : null;
@@ -417,6 +425,20 @@ function buildCsvCandidates(parsed, result) {
     if (isIncome) flags.push('income_row');
 
     var party = colFor.counterparty !== undefined ? (row[colFor.counterparty] || '').trim() : '';
+
+    /* The file often records who paid, and the ledger has that field too --
+       match it to a real member so nobody re-enters what the export knew.
+       An unrecognised name falls back to the importer, never invents a member. */
+    var paidRaw = colFor.paid_by !== undefined ? (row[colFor.paid_by] || '').trim() : '';
+    var who = null;
+    if (paidRaw) {
+      var pn = deburr(paidRaw.toLowerCase());
+      var mems = (window.FAM && window.FAM.members) || [];
+      for (var mi = 0; mi < mems.length; mi++) {
+        if (deburr(String(mems[mi].name).toLowerCase()) === pn) { who = mems[mi].name; break; }
+      }
+      if (!who && /^(chung|both|ca hai)$/.test(pn)) who = 'Both';
+    }
     var catName = isIncome ? null : matchCategoryName(catGuess);
     var catSource = catName ? 'file' : null;
     if (!catName && desc) {
@@ -451,6 +473,7 @@ function buildCsvCandidates(parsed, result) {
       amount: amount, negative: aclass.status === 'ok' && String(amtRaw).trim().indexOf('-') === 0,
       description: desc || catGuess || L('(không có mô tả)','(no description)'),
       categoryGuess: catGuess, categoryName: catName, catSource: catSource,
+      counterparty: party, who: who, isIncome: isIncome,
     };
   });
 }

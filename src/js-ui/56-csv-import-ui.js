@@ -373,7 +373,10 @@ function csvCollapsedCard(c, opts){
   var rm = opts.removeFn ? '<button type="button" class="bulk-x" onclick="'+opts.removeFn+'" aria-label="'+L('Xoá khoản này','Remove this item')+'">✕</button>' : '';
   return '<div class="bulk-card'+(opts.invalid?' invalid':'')+'">'
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
-    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid) + bulkSummary(csvRowShape(c, opts.isDup))
+    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid)
+    + (opts.noPick
+        ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+'</span>'
+        : bulkSummary(csvRowShape(c, opts.isDup)))
     + '</button>' + rm + '</div>';
 }
 
@@ -514,17 +517,20 @@ function renderCsvReview(){
              + '<button type="button" class="btn-text-quiet" onclick="csvDupSkip('+di+')">'+L('Bỏ qua','Skip')+'</button>' }));
   });
   r.deferred.forEach(function(c, di){
-    var why = c.flags.indexOf('date_missing')>=0 ? L('Thiếu ngày','Missing date')
+    var why = c.isIncome ? L('Tiền vào — không nhập','Money in — not imported')
+      : c.flags.indexOf('date_missing')>=0 ? L('Thiếu ngày','Missing date')
       : c.flags.indexOf('amount_missing')>=0 ? L('Thiếu số tiền','Missing amount')
       : L('Có thể là thu nhập','Possibly income');
-    var o = { label:why, dateIso:c.dateDisplay, invalid:true,
+    var o = { label:why, dateIso:c.dateDisplay, invalid:true, noPick:!!c.isIncome,
               tapFn:"csvToggleExpand('defer',"+di+")", removeFn:"csvDeferDrop("+di+")" };
     if(!csvIsOpen('defer', di)){ attnHtml += csvCollapsedCard(c, o); return; }
-    attnHtml += csvActiveCard(c, Object.assign({}, o, { fields:true,
-      note: (c.flags.indexOf('date_missing')<0 && c.flags.indexOf('amount_missing')<0)
+    attnHtml += csvActiveCard(c, Object.assign({}, o, { fields: !c.isIncome,
+      note: c.isIncome
+        ? esc(L('Khoản này là tiền vào (lương, hoàn tiền, chuyển đến) nên tụi mình không nhập vào chi tiêu. Bạn có thể bỏ khỏi danh sách.','This is money coming in (salary, refund, incoming transfer), so it isn\'t imported as spending. You can drop it from the list.'))
+        : (c.flags.indexOf('date_missing')<0 && c.flags.indexOf('amount_missing')<0)
         ? esc(L('File này có thể lẫn thu nhập. Nếu đây đúng là khoản chi, kiểm tra rồi bấm Nhập khoản này.','This file may mix in income. If this really is an expense, check it over and tap Import this one.')) : null,
-      buttons: '<button type="button" class="btn-line" onclick="csvDeferConfirm('+di+')">'+L('Nhập khoản này','Import this one')+'</button>'
-             + '<button type="button" class="btn-text-quiet" onclick="csvDeferDrop('+di+')">'+L('Bỏ qua','Skip')+'</button>' }));
+      buttons: (c.isIncome ? '' : '<button type="button" class="btn-line" onclick="csvDeferConfirm('+di+')">'+L('Nhập khoản này','Import this one')+'</button>')
+             + '<button type="button" class="btn-text-quiet" onclick="csvDeferDrop('+di+')">'+L('Bỏ khỏi danh sách','Remove from list')+'</button>' }));
   });
   /* Anything we had to GUESS at joins the review section, even though it's
      importable: a catch-all default or a pattern hunch is exactly what someone
@@ -649,6 +655,7 @@ function csvLearnFromOpen(){
   if(c && typeof csvLearnFrom === 'function') csvLearnFrom(c);
 }
 
+function csvSkipGroup(gi){ if(!csvReview) return; csvReview.groups.splice(gi,1); csvExpand=null; renderCsvReview(); }
 function csvReadyRemove(i){ csvReview.ready.splice(i,1); csvExpand = null; renderCsvReview(); }
 
 // Group expansion: pure picker, so a chip tap applies instantly (house rule).
