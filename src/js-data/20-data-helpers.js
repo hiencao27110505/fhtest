@@ -23,6 +23,7 @@
     for (const n in window.DB.memberByAppName) { if (n.toLowerCase() === key) return window.DB.memberByAppName[n]; }
     return window.DB.ownerMemberId || window.DB.sharedId;
   }
+  window._categoryIdForName = (n, e, so) => _categoryIdForName(n, e, so);
   async function _categoryIdForName(name, emoji, sort) {
     const nm = String(name == null ? '' : name).trim();
     if (!nm) return null;

@@ -261,52 +261,61 @@ function csvCollapsedCard(c, opts){
     + '</button>' + rm + '</div>';
 }
 
-/* Active card: the composer's expanded shape, mounting the composer's OWN
-   editor node (#ex-editor) via #ex-editor-mount -- the exact technique
-   renderBulk() uses to move that single live editor between cards. Not a
-   rebuild of the fields: the same inputs, the same category chips, the same
-   who-paid chips, the same photo row, because it is the same DOM. Rebuilding
-   them would have been a lookalike that drifts the first time that editor
-   changes. */
+/* Active card: the composer's expanded layout, rebuilt with its own fields.
+
+   An earlier version MOUNTED the composer's live #ex-editor node here. That
+   was elegant on paper and fragile in practice: one node, two modals, and
+   promoting yanks it away mid-review (renderBulk() reclaims it), which left
+   an expanded card with nothing in it. Same classes, same order, same look --
+   but its own inputs, so neither surface can empty the other. */
 function csvActiveCard(c, opts){
   var rm = opts.removeFn ? '<button type="button" class="bulk-x" onclick="'+opts.removeFn+'" aria-label="'+L('Xoá khoản này','Remove this item')+'">✕</button>' : '';
+  var catChips = (window.catOrder||[]).map(function(name){
+    var st=(window.catStyle&&window.catStyle[name])||['🏷️'];
+    var act = opts.instantChips ? 'csvGroupPick(\''+escAttr(name)+'\')' : 'pick(\'csvedit-cats\',this)';
+    return '<button type="button" class="choice'+(c && name===c.categoryName?' on':'')+'" data-v="'+escAttr(name)+'" onclick="'+act+'">'+st[0]+' '+esc(name)+'</button>';
+  }).join('');
+
   var body = '';
   if(opts.note) body += '<div class="csv-expand-note">'+opts.note+'</div>';
-  body += '<div id="ex-editor-mount"></div>';
-  if(opts.buttons) body += '<div class="dup-actions" style="margin:4px 14px 14px">'+opts.buttons+'</div>';
+  if(opts.fields){
+    var mems = (window.FAM && window.FAM.members) || [];
+    var whoSel = (c && c.who) || window.lastWho;
+    var whoChips = mems.map(function(m){
+      return '<button type="button" class="choice'+(m.name===whoSel?' on':'')+'" data-v="'+escAttr(m.name)+'" onclick="pick(\'csvedit-who\',this)">'+esc(m.name)+'</button>';
+    }).join('') + '<button type="button" class="choice'+(whoSel==='Both'?' on':'')+'" data-v="Both" onclick="pick(\'csvedit-who\',this)">'+esc(LANG==='vi'?'Chung':'Both')+'</button>';
+
+    body += '<div class="field"><label>'+L('Chi cho gì?','What for?')+'</label>'
+      + '<input id="csvedit-note" value="'+escAttr(c.description||'')+'"/>'
+      + '<div class="choices" id="csvedit-cats" style="margin-top:10px">'+catChips+'</div></div>'
+      + '<div class="field-row">'
+      + '<div class="field"><label>'+L('Số tiền','Amount')+'</label><input class="num" id="csvedit-amt" inputmode="numeric" onblur="snapAmtInput(this)" placeholder="'+escAttr(amtPlaceholder())+'" value="'+escAttr(c.amount!=null?csvAmtInputVal(c.amount):'')+'"/></div>'
+      + '<div class="field"><label>'+L('Khi nào','When')+'</label><input type="date" id="csvedit-date" value="'+escAttr(c.dateDisplay||'')+'"/></div>'
+      + '</div>'
+      + (mems.length ? '<div class="field" style="margin-bottom:0"><label>'+L('Ai trả','Who paid')+'</label><div class="choices" id="csvedit-who">'+whoChips+'</div></div>' : '');
+  } else {
+    body += '<div class="field" style="margin-bottom:0"><label>'+L('Danh mục','Category')+'</label>'
+      + '<div class="choices" id="csvedit-cats">'+catChips+'</div></div>';
+  }
+  if(opts.buttons) body += '<div class="dup-actions" style="margin-top:14px">'+opts.buttons+'</div>';
+
   return '<div class="bulk-card active'+(opts.invalid?' invalid':'')+'">'
     + '<div class="bulk-head">'+csvCardHead(opts.label, opts.dateIso)+rm+'</div>'
-    + body + '</div>';
+    + '<div class="csv-card-body">'+body+'</div></div>';
 }
 
-/* Binds the mounted editor to one candidate by borrowing the composer's own
-   row model: bulkRows becomes this single candidate, so every existing
-   handler (pickExCat, pickExWho, onExInput, flushActiveRow) works untouched. */
-function csvBindEditor(c){
-  var editor = document.getElementById('ex-editor');
-  var mount  = document.getElementById('ex-editor-mount');
-  if(!editor || !mount) return;
-  mount.appendChild(editor);
-  bulkRows = [{ note: c.description || '', amt: c.amount != null ? csvAmtInputVal(c.amount) : '',
-                cat: c.categoryName || '', who: c.who || lastWho,
-                date: c.dateDisplay || isoDate(TODAY), _invalid:false }];
-  bulkActive = 0;
-  buildExCatChips();          // chips must exist before loadRow selects one
-  loadRow(0);
-  togglePhotoField(false);    // a CSV row has no photos to attach
-}
-
-// Reads the mounted editor back onto the candidate (the composer's own flush).
+// Reads the expanded card's fields back onto its candidate.
 function csvReadEditor(c){
-  if(!document.getElementById('ex-editor-mount') || !bulkRows.length) return;
-  flushActiveRow();
-  var r = bulkRows[0];
-  if(r.note && r.note.trim()) c.description = r.note.trim();
-  var a = window.classifyAmount ? window.classifyAmount(r.amt||'') : null;
-  if(a && a.status==='ok' && a.value > 0) c.amount = a.value;
-  if(r.date){ c.dateDisplay = r.date; c.date = new Date(r.date+'T00:00:00'); }
-  if(r.cat && catValid(r.cat)){ c.categoryName = r.cat; c.catSource = 'user'; }
-  if(r.who) c.who = r.who;
+  if(!c) return;
+  var n=document.getElementById('csvedit-note');
+  if(n && n.value.trim()) c.description = n.value.trim();
+  var a=document.getElementById('csvedit-amt');
+  if(a){ var v = window.classifyAmount ? window.classifyAmount(a.value||'') : null;
+         if(v && v.status==='ok' && v.value > 0) c.amount = v.value; }
+  var d=document.getElementById('csvedit-date');
+  if(d && d.value){ c.dateDisplay = d.value; c.date = new Date(d.value+'T00:00:00'); }
+  if(document.getElementById('csvedit-cats')){ var cat = chosen('csvedit-cats'); if(cat){ c.categoryName = cat; c.catSource='user'; } }
+  if(document.getElementById('csvedit-who')){ var w = chosen('csvedit-who'); if(w) c.who = w; }
 }
 
 function csvIsOpen(kind, idx){ return csvExpand && csvExpand.kind===kind && csvExpand.idx===idx; }
@@ -448,26 +457,8 @@ function renderCsvReview(){
 
   html += '<button type="button" class="btn-text-quiet" style="width:100%;margin-top:10px" onclick="csvPickAnother()">'+L('Chọn file khác','Choose a different file')+'</button>';
 
-  /* Park the live editor before innerHTML would destroy it -- the same
-     hidden holder renderBulk() uses, so both surfaces hand it back and forth
-     safely. */
-  var _ed = document.getElementById('ex-editor');
-  if(_ed){
-    var holder = document.getElementById('bulk-holder');
-    if(!holder){ holder = document.createElement('div'); holder.id='bulk-holder'; holder.style.display='none'; document.body.appendChild(holder); }
-    holder.appendChild(_ed);
-  }
-
   out.innerHTML = html;
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='none';
-
-  if(csvExpand){
-    var openC = csvExpand.kind==='ready' ? r.ready[csvExpand.idx]
-              : csvExpand.kind==='dup'   ? (r.dup[csvExpand.idx]||{}).c
-              : csvExpand.kind==='defer' ? r.deferred[csvExpand.idx]
-              : null;                                    // groups use chips only
-    if(openC) csvBindEditor(openC);
-  }
 
   // Nav-bar Save, gated -- always reachable, grey until importable.
   var save = document.getElementById('csv-save');
@@ -561,22 +552,36 @@ function csvDeferDrop(di){ csvReview.deferred.splice(di,1); csvExpand = null; re
    other expense. Only ready[] promotes. */
 function csvPromote(){
   if(!csvReview || !csvReview.ready.length) return;
-  /* Encryption gate, checked ONCE for the whole batch. _dbInsertTxn() carries
-     its own per-row _fhWriteLocked() guard, but that guard silently returns
-     per row -- so on a locked device the loop would write nothing while
-     submitBulk() still fired its success toast (and the guard would stack one
-     unlock prompt per row). Every card-born family is enc-from-birth, so this
-     is the default path on a device that hasn't unlocked yet, not an edge
-     case. Bail before touching bulkRows: the review stays intact behind the
-     prompt, so Import just works after unlocking. */
   if(window._fhWriteLocked && window._fhWriteLocked()) return;
-  bulkRows = csvReview.ready.map(function(c){
-    return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName, who: lastWho, date: c.dateDisplay, _invalid: false };
+
+  /* submitBulk() fires addExpense() per row WITHOUT awaiting -- fine for the
+     2-3 rows someone hand-types, fatal for an import: 59 rows all miss the
+     category cache at once and every one of them tries to CREATE the same
+     category, which collides and fails the batch. Resolving each distinct
+     category once, up front, fills window.DB.catByName so the writes find it
+     instead of racing. */
+  var names = [];
+  csvReview.ready.forEach(function(c){ if(c.categoryName && names.indexOf(c.categoryName)<0) names.push(c.categoryName); });
+
+  var chain = Promise.resolve();
+  if(window._categoryIdForName && navigator.onLine !== false){
+    names.forEach(function(name){
+      chain = chain.then(function(){
+        return window._categoryIdForName(name, (window.catStyle[name]||[])[0], (window.catOrder||[]).indexOf(name)+1);
+      }).catch(function(e){ console.warn('category pre-resolve failed', name, e); });
+    });
+  }
+
+  chain.then(function(){
+    bulkRows = csvReview.ready.map(function(c){
+      return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName,
+               who: c.who || lastWho, date: c.dateDisplay, _invalid: false };
+    });
+    bulkActive = 0;
+    exPhotos = [];
+    buildExCatChips();
+    renderBulk();
+    loadRow(0);
+    submitBulk();
   });
-  bulkActive = 0;
-  exPhotos = [];
-  buildExCatChips();   // adopted-from-file categories must exist as chips before loadRow() selects them
-  renderBulk();
-  loadRow(0);
-  submitBulk();
 }
