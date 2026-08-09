@@ -1745,6 +1745,9 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
    as #bulk-list. The cards, their summaries and .invalid come from
    50-sheets-modals.css untouched -- nothing is restyled here. */
 .csv-cards{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.csv-files{margin-bottom:12px}
+.csv-files-list{font-size:12px;color:var(--muted);margin-bottom:8px;word-break:break-word}
+.csv-files .dup-actions .btn-line{width:auto;margin:0;padding:9px 16px;font-size:14px;display:inline-flex;align-items:center;justify-content:center}
 .csv-linkbtn{background:none;border:0;padding:0;color:var(--brand-ink);font-weight:700;font-size:12.5px;text-decoration:underline}
 .csv-card-body{padding:6px 14px 14px}
 .csv-expand-note{font-size:13px;color:var(--amber);font-weight:600;line-height:1.5;margin-bottom:12px}
@@ -2729,7 +2732,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
         <button type="button" class="btn-line" style="width:100%;margin:16px 0 0" onclick="document.getElementById('csv-file-input').click()" data-t="csvChoose">Choose a file</button>
         <div class="csv-empty-hint" data-t="csvHint">CSV or Excel (.xlsx) · Vietcombank · MB Bank · Money Lover · Misa</div>
       </div>
-      <input type="file" id="csv-file-input" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="onCsvFileSelected(this)" style="display:none">
+      <input type="file" id="csv-file-input" multiple accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="onCsvFileSelected(this)" style="display:none">
     </div>
     <div id="csv-result"></div>
   </div>
@@ -7374,8 +7377,8 @@ function openCsvImport(){
    so a lesson that generalised badly can be undone in one tap. */
 function csvForgetLearned(){
   if(typeof csvLearnForget === 'function') csvLearnForget();
-  if(csvReview && csvReview.parsed && csvReview.mapResult){
-    csvBuildReview(csvReview.parsed, csvReview.mapResult);
+  if(csvReview && csvReview.sources){
+    csvBuildReview(csvReview.sources);
     renderCsvReview();
   }
 }
@@ -7389,51 +7392,69 @@ function csvPickAnother(){
   var save=document.getElementById('csv-save'); if(save){ save.disabled=true; save.textContent=L('Nhập','Import'); }
 }
 
-function onCsvFileSelected(input){
-  var file=input.files && input.files[0]; if(!file) return;
-  var out=document.getElementById('csv-result');
-  /* .xlsx is read natively (42-xlsx-parse.js). The other spreadsheet formats
-     are different beasts -- .xls is old binary BIFF, .numbers and .ods are
-     their own zip layouts -- so name the one-step fix instead of failing with
-     "couldn't read this file", which tells the user nothing. */
-  if(/\.(xls|numbers|ods)$/i.test(file.name)){
-    if(out) out.innerHTML='<div class="sheet-sub">'+L('Tụi mình đọc được file CSV và Excel (.xlsx). Với định dạng này, bạn mở ra rồi chọn File → Lưu dưới dạng (Save as) → CSV hoặc .xlsx nhé.','We can read CSV and Excel (.xlsx) files. For this format, open it and choose File → Save As → CSV or .xlsx.')+'</div>';
-    input.value='';
-    return;
-  }
-  if(/\.xlsx$/i.test(file.name)){
-    if(!(window.fhXlsxSupported && window.fhXlsxSupported())){
-      if(out) out.innerHTML='<div class="sheet-sub">'+L('Trình duyệt này chưa đọc được file Excel. Bạn lưu thành CSV rồi tải lại giúp nhé.','This browser can\'t open Excel files yet. Save it as CSV and try again.')+'</div>';
-      input.value='';
+/* Reads ONE file to {headers, rows}. .xlsx goes through the native reader
+   (42-xlsx-parse.js); everything else is read as text. */
+function csvReadOneFile(file){
+  return new Promise(function(resolve, reject){
+    if(/\.(xls|numbers|ods)$/i.test(file.name)){
+      reject(new Error(L('Tụi mình đọc được file CSV và Excel (.xlsx). Với định dạng này, bạn mở ra rồi lưu thành CSV hoặc .xlsx nhé.','We can read CSV and Excel (.xlsx). For this format, open it and save as CSV or .xlsx.')));
       return;
     }
-    if(out) out.innerHTML='<div class="sheet-sub csv-reading">'+L('✨ Đang đọc file của bạn…','✨ Reading your file…')+'</div>';
-    window.fhParseXlsxFile(file).then(function(parsed){
-      if(!parsed || !parsed.headers.length){
-        if(out) out.innerHTML='<div class="sheet-sub">'+L('Sheet đầu tiên trong file này trống.','The first sheet in this file is empty.')+'</div>';
+    if(/\.xlsx$/i.test(file.name)){
+      if(!(window.fhXlsxSupported && window.fhXlsxSupported())){
+        reject(new Error(L('Trình duyệt này chưa đọc được file Excel. Bạn lưu thành CSV giúp nhé.','This browser can\'t open Excel files yet. Save it as CSV instead.')));
         return;
       }
-      return csvResolveAndRender(parsed, out);
-    }).catch(function(e){
-      if(out) out.innerHTML='<div class="sheet-sub">'+L('Không đọc được file Excel này. Bạn thử lưu thành CSV giúp nhé.','Couldn\'t read this Excel file. Try saving it as CSV instead.')+'</div>';
-    });
-    return;
-  }
-  if(out) out.innerHTML='<div class="sheet-sub csv-reading">'+L('✨ Đang đọc file của bạn…','✨ Reading your file…')+'</div>';
-
-  var reader=new FileReader();
-  reader.onload=function(){
-    var parsed = window.fhParseCsvFile ? window.fhParseCsvFile(reader.result) : null;
-    if(!parsed || !parsed.headers.length){
-      if(out) out.innerHTML='<div class="sheet-sub">'+L('Không đọc được file này.','Could not read this file.')+'</div>';
+      window.fhParseXlsxFile(file).then(resolve, function(){
+        reject(new Error(L('Không đọc được file Excel này.','Couldn\'t read this Excel file.')));
+      });
       return;
     }
-    csvResolveAndRender(parsed, out);
-  };
-  reader.onerror=function(){
-    if(out) out.innerHTML='<div class="sheet-sub">'+L('Không đọc được file này.','Could not read this file.')+'</div>';
-  };
-  reader.readAsText(file,'utf-8');
+    var reader = new FileReader();
+    reader.onload = function(){
+      var parsed = window.fhParseCsvFile ? window.fhParseCsvFile(reader.result) : null;
+      if(!parsed || !parsed.headers.length) reject(new Error(L('Không đọc được file này.','Could not read this file.')));
+      else resolve(parsed);
+    };
+    reader.onerror = function(){ reject(new Error(L('Không đọc được file này.','Could not read this file.'))); };
+    reader.readAsText(file, 'utf-8');
+  });
+}
+
+/* Several files at once, or more files added to a review already open.
+
+   Each file keeps its OWN column mapping -- a bank export and a budgeting-app
+   export have nothing in common -- but they land in a single candidate list,
+   which is what makes cross-file duplicates catchable: exported statements
+   very often overlap by a few days, and importing both would otherwise double
+   those transactions. */
+function onCsvFileSelected(input){
+  var files = Array.prototype.slice.call((input && input.files) || []);
+  if(!files.length) return;
+  var out = document.getElementById('csv-result');
+  var appending = !!(csvReview && csvReview.sources && csvReview.sources.length);
+  if(out) out.innerHTML = '<div class="sheet-sub csv-reading">'
+    + esc(files.length > 1 ? L('✨ Đang đọc '+files.length+' file…','✨ Reading '+files.length+' files…')
+                           : L('✨ Đang đọc file của bạn…','✨ Reading your file…')) + '</div>';
+
+  var problems = [];
+  Promise.all(files.map(function(f){
+    return csvReadOneFile(f)
+      .then(function(parsed){ return window.fhResolveCsvMapping(parsed.headers, parsed.rows)
+        .then(function(result){ return { parsed:parsed, result:result, name:f.name }; }); })
+      .catch(function(e){ problems.push(f.name + ' — ' + ((e && e.message) || e)); return null; });
+  })).then(function(loaded){
+    var sources = loaded.filter(Boolean);
+    if(appending) sources = csvReview.sources.concat(sources);
+    if(!sources.length){
+      if(out) out.innerHTML = '<div class="sheet-sub">'+esc(problems.join(' · ') || L('Không đọc được file này.','Could not read this file.'))+'</div>';
+      return;
+    }
+    csvBuildReview(sources);
+    csvReview.problems = problems;      // named, never swallowed
+    renderCsvReview();
+    if(input) input.value = '';          // so re-picking the same file still fires
+  });
 }
 
 /* Shared tail for both readers: once a file is {headers, rows}, CSV and xlsx
@@ -7538,35 +7559,45 @@ function csvIncludedCount(){ return csvReview ? csvReview.ready.length : 0; }
    a question with one sensible answer. It's disclosed (never silent) and
    undoable, which is what keeps auto-adoption honest rather than presumptuous.
    opts.declined re-runs without adopting, after an undo. */
-function csvBuildReview(parsed, result, opts){
+function csvBuildReview(sources, opts){
   opts = opts || {};
-  csvCatMerges = {}; csvCatAmbiguous = {};  // recomputed every build
-  csvFuzzyCats = !opts.declined;           // undo also turns off name-merging
-  var candidates = buildCsvCandidates(parsed, result);
+  csvCatMerges = {}; csvCatAmbiguous = {};   // recomputed every build
+  csvFuzzyCats = !opts.declined;             // undo also turns off name-merging
+
+  var build = function(){
+    var all = [];
+    sources.forEach(function(src){
+      var part = buildCsvCandidates(src.parsed, src.result);
+      part.forEach(function(c){ c.sourceName = src.name; });
+      all = all.concat(part);
+    });
+    return all;
+  };
+
+  var candidates = build();
   var unknown = csvUnknownFileCategories(candidates);
   var adopted = [];
-
   if(unknown.length && !opts.declined){
     adopted = csvAdoptCategories(unknown);
-    if(adopted.length){                       // re-categorize against the now-richer list
-      candidates = buildCsvCandidates(parsed, result);
-      unknown = csvUnknownFileCategories(candidates);
-    }
+    if(adopted.length){ candidates = build(); unknown = csvUnknownFileCategories(candidates); }
   }
 
   csvMarkSummaryRows(candidates);      // a trailing total is not a transaction
   csvPatternPass(candidates);          // habits the dictionary can't name
   var mixed = csvColumnHasMixedSigns(candidates);
   var buckets = bucketCsvCandidates(candidates, mixed);
+  var rowsRead = sources.reduce(function(n, src){ return n + src.parsed.rows.length; }, 0);
+
   csvReview = {
-    parsed: parsed, mapResult: result,
+    sources: sources,
+    parsed: { headers:[], rows:new Array(rowsRead) },   // trust strip reads .rows.length
     ready: buckets.ready,
     groups: Object.keys(buckets.needsCategoryGroups).map(function(k){ return { key:k, items:buckets.needsCategoryGroups[k] }; }),
-    dup: buckets.possibleDuplicate.map(function(c){ return { c:c, resolved:null }; }), // null | 'skip' | 'done' (moved on)
+    dup: buckets.possibleDuplicate.map(function(c){ return { c:c, resolved:null }; }),
     deferred: buckets.deferred.filter(function(c){ return !c.isSummaryRow; }),
     mixedSignsNote: mixed,
-    fileCats: unknown,        // still-unknown names (only non-empty after an undo)
-    adoptedCats: adopted,     // what we added this build, for the disclosure + undo
+    fileCats: unknown,
+    adoptedCats: adopted,
     catMerges: Object.keys(csvCatMerges).map(function(k){ return { from:k, to:csvCatMerges[k] }; }),
     summaryCount: candidates.filter(function(c){ return c.isSummaryRow; }).length,
     fallbackCount: buckets.ready.filter(function(c){ return c.catSource === 'fallback'; }).length,
@@ -7604,14 +7635,14 @@ function csvUndoAdopt(){
     delete catStyle[name];
     if(typeof catBudget !== 'undefined') delete catBudget[name];
   });
-  csvBuildReview(csvReview.parsed, csvReview.mapResult, { declined:true });
+  csvBuildReview(csvReview.sources, { declined:true });
   renderCsvReview();
 }
 
 // Re-adopt after an undo (the offer card's action).
 function csvAdoptFileCategories(){
-  if(!csvReview) return;
-  csvBuildReview(csvReview.parsed, csvReview.mapResult);
+  if(!csvReview || !csvReview.sources) return;
+  csvBuildReview(csvReview.sources);
   renderCsvReview();
 }
 
@@ -7784,7 +7815,16 @@ function renderCsvReview(){
   var total = r.ready.length + r.groups.reduce(function(n,g){return n+g.items.length;},0)
     + unresolvedDup.length + r.deferred.length;
 
-  var html = '<button type="button" class="btn-text-quiet" style="width:100%;margin:0 0 12px" onclick="csvPickAnother()">'+L('Chọn file khác','Choose a different file')+'</button>';
+  var fileNames = (r.sources||[]).map(function(s){ return s.name; }).filter(Boolean);
+  var html = '<div class="csv-files">'
+    + (fileNames.length ? '<div class="csv-files-list">'+esc(fileNames.join(' · '))+'</div>' : '')
+    + '<div class="dup-actions">'
+    + '<button type="button" class="btn-line" onclick="document.getElementById(\'csv-file-input\').click()">'+L('Thêm file','Add another file')+'</button>'
+    + '<button type="button" class="btn-text-quiet" onclick="csvPickAnother()">'+L('Bắt đầu lại','Start over')+'</button>'
+    + '</div></div>';
+  if(r.problems && r.problems.length){
+    html += '<div class="notice-card stack"><div class="notice-text"><b>'+esc(L('Không đọc được:','Couldn\'t read:'))+'</b> '+esc(r.problems.join(' · '))+'</div></div>';
+  }
 
   if(r.mixedSignsNote){
     html += '<div class="notice-card"><svg class="notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>'
@@ -7939,7 +7979,9 @@ function renderCsvReview(){
     var skippedDup = r.dup.filter(function(d){ return d.resolved==='skip'; }).length;
     html += '<div class="csv-check">'
       + '<div class="csv-check-main">'+esc(L('Sẽ nhập '+readyCount+' khoản · tổng '+fmt(sumBase), 'Importing '+readyCount+' · total '+fmt(sumBase)))+'</div>'
-      + (span ? '<div class="csv-check-sub">'+esc(span)+' · '+esc(L('đọc '+r.parsed.rows.length+' dòng từ file','read '+r.parsed.rows.length+' rows from the file'))+'</div>' : '')
+      + (span ? '<div class="csv-check-sub">'+esc(span)+' · '+esc((r.sources&&r.sources.length>1)
+        ? L('đọc '+r.parsed.rows.length+' dòng từ '+r.sources.length+' file','read '+r.parsed.rows.length+' rows from '+r.sources.length+' files')
+        : L('đọc '+r.parsed.rows.length+' dòng từ file','read '+r.parsed.rows.length+' rows from the file'))+'</div>' : '')
       + (decisionCount+skippedDup > 0
           ? '<div class="csv-check-sub">'+esc(L('Không nhập: ','Not importing: '))
             + esc([ decisionCount ? decisionCount+' '+L('chưa quyết định','undecided') : null,

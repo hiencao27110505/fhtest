@@ -468,7 +468,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
         <button type="button" class="btn-line" style="width:100%;margin:16px 0 0" onclick="document.getElementById('csv-file-input').click()" data-t="csvChoose">Choose a file</button>
         <div class="csv-empty-hint" data-t="csvHint">CSV or Excel (.xlsx) · Vietcombank · MB Bank · Money Lover · Misa</div>
       </div>
-      <input type="file" id="csv-file-input" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="onCsvFileSelected(this)" style="display:none">
+      <input type="file" id="csv-file-input" multiple accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="onCsvFileSelected(this)" style="display:none">
     </div>
     <div id="csv-result"></div>
   </div>
