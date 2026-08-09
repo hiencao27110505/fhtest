@@ -169,16 +169,12 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 /* .rows normally carries the tab gutter (margin 0 16px); the modal body
    already pads 20px, so inside the import modal it goes full-width. */
 .csv-rows{margin:0 0 14px}
-/* Inline expansion beneath a row (accordion, like bulk logging): quiet inset
-   surface, top hairline so it reads as the row's own drawer. */
-.csv-expand{padding:14px 18px 16px;background:var(--surface);border-top:1px solid var(--divider)}
+/* CSV review: a stack of the composer's own .bulk-card rows, same 10px gap
+   as #bulk-list. The cards, their summaries and .invalid come from
+   50-sheets-modals.css untouched -- nothing is restyled here. */
+.csv-cards{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.csv-card-body{padding:6px 14px 14px}
 .csv-expand-note{font-size:13px;color:var(--ink-2);line-height:1.5;margin-bottom:12px}
-/* Needs-attention rows: amber left accent line (accent, never a fill). */
-.row.attn{box-shadow:inset 3px 0 0 var(--amber)}
-.row.attn .r-s{color:var(--amber);font-weight:600}
-/* Chevron points down while the row's drawer is open. */
-.csv-chev{transition:transform .2s cubic-bezier(.4,0,.2,1)}
-.row.csv-open .csv-chev{transform:rotate(90deg)}
 /* Trust strip above Import: count + total + span + what's left out. */
 .csv-check{background:var(--canvas);border-radius:16px;padding:14px 16px;margin-top:14px}
 .csv-check-main{font-family:var(--disp);font-size:15.5px;font-weight:700;letter-spacing:-.2px;color:var(--ink)}

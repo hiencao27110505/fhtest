@@ -19,43 +19,110 @@ var MONTH_ABBR = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8
 function parseCsvDateValue(raw, format, convention) {
   var v = (raw || '').trim();
   if (!v) return null;
-  var m;
-  if (format === 'iso') {
-    m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
-  }
-  if (format === 'month_name') {
-    m = v.match(/^([A-Za-z]{3})[a-z]*\s+(\d{1,2})\s+(\d{4})$/);
-    if (m) { var mi = MONTH_ABBR[m[1].toLowerCase()]; if (mi !== undefined) return new Date(+m[3], mi, +m[2]); }
-  }
   var mmFirst = convention === 'mm/dd/yyyy';
-  if (format === 'slash_4' || format === 'dash_4') {
-    m = v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
-    if (m) { var a=+m[1], b=+m[2], y=+m[3]; return mmFirst ? new Date(y,a-1,b) : new Date(y,b-1,a); }
+  var m;
+
+  // Strip a trailing time — "2026-08-01 14:30:00" is still 1 Aug.
+  v = v.replace(/[ T]\d{1,2}:\d{2}(:\d{2})?(\s*[AaPp][Mm])?(\s*Z)?.*$/, '').trim();
+
+  if (format === 'iso' || format === 'iso_slash') {
+    m = v.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+    if (m) return _csvDate(+m[1], +m[2], +m[3]);
   }
-  if (format === 'slash_2' || format === 'dash_2') {
-    m = v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2})$/);
-    if (m) { var a2=+m[1], b2=+m[2], y2=2000+ +m[3]; return mmFirst ? new Date(y2,a2-1,b2) : new Date(y2,b2-1,a2); }
+  if (format === 'compact') {
+    m = v.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (m) return _csvDate(+m[1], +m[2], +m[3]);
   }
-  if (format === 'slash_noyear' || format === 'dash_noyear') {
-    m = v.match(/^(\d{1,2})[\/-](\d{1,2})$/);
-    if (m) { var a3=+m[1], b3=+m[2], y3=(new Date()).getFullYear(); return mmFirst ? new Date(y3,a3-1,b3) : new Date(y3,b3-1,a3); }
+  if (format === 'd_mon_y') {
+    m = v.match(/^(\d{1,2})[ -]([A-Za-z]{3,})[ -](\d{4})$/);
+    if (m) { var mi1 = _csvMonth(m[2]); if (mi1 != null) return _csvDate(+m[3], mi1 + 1, +m[1]); }
+  }
+  if (format === 'mon_d_y') {
+    m = v.match(/^([A-Za-z]{3,})\s+(\d{1,2}),?\s+(\d{4})$/);
+    if (m) { var mi2 = _csvMonth(m[1]); if (mi2 != null) return _csvDate(+m[3], mi2 + 1, +m[2]); }
+  }
+  if (format === 'vi_thg') {
+    m = v.match(/^(\d{1,2})\s*(?:thg|thang)\s*(\d{1,2}),?\s*(\d{4})$/i);
+    if (m) return _csvDate(+m[3], +m[2], +m[1]);
+  }
+  if (format === 'dmy_4' || format === 'dmy_2') {
+    m = v.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+    if (m) {
+      var a = +m[1], b = +m[2], y = +m[3];
+      if (y < 100) y += 2000;
+      // A value over 12 can only be the day, whichever order the file uses --
+      // that beats the file-level convention, which is only a best guess.
+      if (a > 12) return _csvDate(y, b, a);
+      if (b > 12) return _csvDate(y, a, b);
+      return mmFirst ? _csvDate(y, a, b) : _csvDate(y, b, a);
+    }
+  }
+  if (format === 'dm_noyear') {
+    m = v.match(/^(\d{1,2})[\/.-](\d{1,2})$/);
+    if (m) {
+      var a2 = +m[1], b2 = +m[2], y2 = (new Date()).getFullYear();
+      if (a2 > 12) return _csvDate(y2, b2, a2);
+      if (b2 > 12) return _csvDate(y2, a2, b2);
+      return mmFirst ? _csvDate(y2, a2, b2) : _csvDate(y2, b2, a2);
+    }
   }
   return null;
 }
 
-// Fuzzy-match a CSV category string against the family's real category names
-// (window.catOrder). Exact-after-normalization only -- a wrong guess is worse
-// than no guess, since a mismatched category is harder for the reviewer to
-// notice than an empty one.
+// Rejects impossible dates (13th month, 31 Feb) instead of letting Date roll
+// them into the next month, which would silently file a row on the wrong day.
+function _csvDate(y, mo, d) {
+  if (!(mo >= 1 && mo <= 12) || !(d >= 1 && d <= 31)) return null;
+  var dt = new Date(y, mo - 1, d);
+  return (dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d) ? dt : null;
+}
+
+function _csvMonth(name) {
+  var n = deburr(String(name || '').toLowerCase()).slice(0, 3);
+  var i = MONTH_ABBR[n];
+  return i === undefined ? null : i;
+}
+
+var csvFuzzyCats = true;   // false while an undo is in effect
+var csvCatMerges = {};     // file name (normalized) -> the family category it merged into
+var csvCatAmbiguous = {};  // file names that matched 2+ existing categories
+
+/* Match a file's category name against the family's own categories.
+
+   Exact-after-normalization first ("NHA CUA" == "Nhà cửa"). Then the case a
+   real ledger hits constantly: people abbreviate. A file saying "Ăn" means
+   the family's existing "Ăn uống" -- inventing a second, near-duplicate
+   category would quietly split their history in two. So a name that is a
+   whole-word prefix of (or contains) exactly ONE existing category merges
+   into it, and the merge is reported so it can be reversed.
+
+   "Exactly one" is the safety rule: "Ăn" against BOTH "Ăn uống" and "Ăn
+   ngoài" is genuinely ambiguous, and guessing there would file real money
+   under the wrong heading -- those fall through to the review for a human. */
 function matchCategoryName(guess) {
   var g = deburr((guess || '').trim().toLowerCase());
   if (!g) return null;
-  var order = window.catOrder || [];
-  for (var i = 0; i < order.length; i++) {
+  var order = window.catOrder || [], i;
+  for (i = 0; i < order.length; i++) {
     if (deburr(order[i].toLowerCase()) === g) return order[i];
   }
+  if (!csvFuzzyCats) return null;
+  var hits = [];
+  for (i = 0; i < order.length; i++) {
+    var n = deburr(order[i].toLowerCase());
+    if (_csvWordIn(g, n) || _csvWordIn(n, g)) hits.push(order[i]);
+  }
+  if (hits.length === 1) { csvCatMerges[String(guess).trim()] = hits[0]; return hits[0]; }
+  // 2+ hits: "Ăn" could be "Ăn uống" OR "Ăn ngoài". Creating an "Ăn" category
+  // would be as wrong as picking one at random, so mark it and let the review
+  // ask -- csvUnknownFileCategories skips these when auto-creating.
+  if (hits.length > 1) csvCatAmbiguous[g] = true;
   return null;
+}
+
+// whole-word containment, so "an" matches "an uong" but not "banh"
+function _csvWordIn(needle, hay) {
+  return new RegExp('(^|\\s)' + String(needle).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|\\s)').test(hay);
 }
 
 /* The family's own history is the strongest category signal there is: if a

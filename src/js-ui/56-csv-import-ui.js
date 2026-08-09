@@ -111,6 +111,8 @@ function csvIncludedCount(){ return csvReview ? csvReview.ready.length : 0; }
    opts.declined re-runs without adopting, after an undo. */
 function csvBuildReview(parsed, result, opts){
   opts = opts || {};
+  csvCatMerges = {}; csvCatAmbiguous = {};  // recomputed every build
+  csvFuzzyCats = !opts.declined;           // undo also turns off name-merging
   var candidates = buildCsvCandidates(parsed, result);
   var unknown = csvUnknownFileCategories(candidates);
   var adopted = [];
@@ -134,6 +136,7 @@ function csvBuildReview(parsed, result, opts){
     mixedSignsNote: mixed,
     fileCats: unknown,        // still-unknown names (only non-empty after an undo)
     adoptedCats: adopted,     // what we added this build, for the disclosure + undo
+    catMerges: Object.keys(csvCatMerges).map(function(k){ return { from:k, to:csvCatMerges[k] }; }),
     declinedAdopt: !!opts.declined,
   };
   csvExpand = null;
@@ -158,8 +161,10 @@ function csvAdoptCategories(names){
    Safe because nothing has been written yet -- these exist only client-side
    until Import, and only names WE added this build are removed. */
 function csvUndoAdopt(){
-  if(!csvReview || !csvReview.adoptedCats.length) return;
-  csvReview.adoptedCats.forEach(function(name){
+  // Also reachable when only MERGES happened (nothing was added) -- the undo
+  // turns off name-merging too, so the guard can't require adoptedCats.
+  if(!csvReview) return;
+  (csvReview.adoptedCats||[]).forEach(function(name){
     var i = catOrder.indexOf(name);
     if(i >= 0) catOrder.splice(i, 1);
     delete catStyle[name];
@@ -185,6 +190,7 @@ function csvUnknownFileCategories(candidates){
   candidates.forEach(function(c){
     var g = (c.categoryGuess||'').trim();
     if(!g || matchCategoryName(g)) return;
+    if(csvCatAmbiguous[deburr(g.toLowerCase())]) return;   // needs a human, not a new category
     var k = deburr(g.toLowerCase());
     var e = (seen[k] = seen[k] || {});
     e[g] = (e[g]||0) + 1;
@@ -216,55 +222,75 @@ function csvCatEmoji(name){
   return '🏷️';
 }
 
-/* Dense row -- the SAME .row component the Finance tab's transaction list
-   uses. attn carries the amber left-accent for rows needing attention
-   (accent line, not a fill, per the info-card rule). Tap toggles the inline
-   editor; the chevron marks expandable rows and rotates while open. */
-function csvDenseRow(cat, title, sub, amount, onclick, extraClass, open){
-  var s = (cat && window.catStyle && window.catStyle[cat]) || ['🧾','#f2eef6','var(--cat-other)'];
-  return '<div class="row'+(onclick?' tap':'')+(extraClass?' '+extraClass:'')+(open?' csv-open':'')+'"'+(onclick?' onclick="'+onclick+'"':'')+'>'
-    + '<div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</div></div>'
-    + '<div class="r-body"><div class="r-t">'+esc(title)+'</div><div class="r-s">'+esc(sub)+'</div></div>'
-    + (amount!=null?'<div class="r-amt num">'+csvFmt(amount)+'</div>':'')
-    + (onclick?'<svg class="chev csv-chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>':'')
-    + '</div>';
-}
-
-function csvAmtInputVal(n){ return Number(n).toLocaleString(CUR==='VND'?'vi-VN':'en-US'); }
-
-/* A file's amounts are DISPLAY currency (45000 in the file means 45.000 d),
-   but fmt() takes the STORED base and multiplies by curMult() -- 1000 for
-   VND. Feeding it a display number rendered every VND row 1000x too big.
-   csvBaseAmt does the display->base conversion the write path does
-   (parseAmtBase), so the review shows exactly what will be saved, rounding
-   included. */
+/* A file's amounts are DISPLAY currency (45000 in a cell means 45.000 d), but
+   fmt() takes the STORED base and multiplies by curMult() -- 1000 for VND.
+   csvBaseAmt does the display->base conversion the write path does, so what
+   the review shows is exactly what will be saved, rounding included. */
 function csvBaseAmt(n){ return Math.round(Number(n||0)/curMult()); }
 function csvFmt(n){ return fmt(csvBaseAmt(n)); }
+function csvAmtInputVal(n){ return Number(n).toLocaleString(CUR==='VND'?'vi-VN':'en-US'); }
 
-/* The inline editor, unfolded beneath its row inside the .rows container.
-   fields:false gives the chips-only variant (merchant groups -- pure picker,
-   chips apply instantly per the house rule); with fields, chips select and
-   the primary button commits, same as the expense modal. */
-function csvExpandHtml(c, opts){
-  var h = '<div class="csv-expand">';
-  if(opts.note) h += '<div class="csv-expand-note">'+opts.note+'</div>';
+/* EXACT bulk-logging card (renderBulk/bulkSummary, 50-sheets-expense-capture.js).
+   Same markup, same classes, same summary function -- so the import review and
+   the multi-expense composer are literally one component, and a change to that
+   card lands here for free instead of drifting into a lookalike.
+
+   Collapsed: .bulk-card > .bulk-tap(.bulk-head + summary) + .bulk-x
+   Active:    .bulk-card.active > .bulk-head + the editor fields
+   .invalid is the composer's own "this card isn't complete" red border. */
+
+// A candidate rendered as one of the composer's row objects, so bulkSummary()
+// produces byte-identical markup (bc-note / bc-amt / bc-cat / bc-pick / bc-dup).
+function csvRowShape(c, isDup){
+  return { note: c.description || '', amt: c.amount != null ? String(Math.round(c.amount)) : '',
+           cat: c.categoryName || '', _dup: !!isDup };
+}
+
+function csvCardHead(label, dateIso, removeFn){
+  return '<span class="bulk-head"><span class="bulk-idx">'+esc(label)+'</span>'
+    + (dateIso ? '<span class="bulk-date">'+esc(bulkDate(dateIso))+'</span>' : '')
+    + '</span>';
+}
+
+function csvCollapsedCard(c, opts){
+  var rm = opts.removeFn ? '<button type="button" class="bulk-x" onclick="'+opts.removeFn+'" aria-label="'+L('Xoá khoản này','Remove this item')+'">✕</button>' : '';
+  return '<div class="bulk-card'+(opts.invalid?' invalid':'')+'">'
+    + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
+    + csvCardHead(opts.label, opts.dateIso) + bulkSummary(csvRowShape(c, opts.isDup))
+    + '</button>' + rm + '</div>';
+}
+
+/* Active card: the composer's expanded shape. Its editor is the live #ex-editor
+   moved between cards; that node belongs to the expense modal and its fields
+   drive addExpense(), so this mirrors the same field layout with its own ids
+   instead of stealing the node out from under that modal. */
+function csvActiveCard(c, opts){
+  var rm = opts.removeFn ? '<button type="button" class="bulk-x" onclick="'+opts.removeFn+'" aria-label="'+L('Xoá khoản này','Remove this item')+'">✕</button>' : '';
+  var chips = (window.catOrder||[]).map(function(name){
+    var st=(window.catStyle&&window.catStyle[name])||['🏷️'];
+    var act = opts.instantChips ? 'csvGroupPick(\''+escAttr(name)+'\')' : 'pick(\'csvedit-cats\',this)';
+    return '<button class="choice'+(c && name===c.categoryName?' on':'')+'" data-v="'+escAttr(name)+'" onclick="'+act+'">'+st[0]+' '+esc(name)+'</button>';
+  }).join('');
+
+  var body = '';
+  if(opts.note) body += '<div class="csv-expand-note">'+opts.note+'</div>';
   if(opts.fields){
-    h += '<div class="field"><label>'+L('Nội dung','Description')+'</label><input id="csvedit-note" value="'+escAttr(c.description||'')+'"></div>'
-      + '<div class="csv-2col">'
-      + '<div class="field"><label>'+L('Số tiền','Amount')+'</label><input id="csvedit-amt" inputmode="numeric" onblur="snapAmtInput(this)" placeholder="'+escAttr(amtPlaceholder())+'" value="'+escAttr(c.amount!=null?csvAmtInputVal(c.amount):'')+'"></div>'
-      + '<div class="field"><label>'+L('Ngày','Date')+'</label><input type="date" id="csvedit-date" value="'+escAttr(c.dateDisplay||'')+'"></div>'
+    body += '<div class="field"><label>'+L('Chi cho gì?','What for?')+'</label>'
+      + '<input id="csvedit-note" value="'+escAttr(c.description||'')+'"/>'
+      + '<div class="choices" id="csvedit-cats" style="margin-top:10px">'+chips+'</div></div>'
+      + '<div class="field-row">'
+      + '<div class="field"><label>'+L('Số tiền','Amount')+'</label><input class="num" id="csvedit-amt" inputmode="numeric" onblur="snapAmtInput(this)" placeholder="'+escAttr(amtPlaceholder())+'" value="'+escAttr(c.amount!=null?csvAmtInputVal(c.amount):'')+'"/></div>'
+      + '<div class="field"><label>'+L('Ngày','When')+'</label><input type="date" id="csvedit-date" value="'+escAttr(c.dateDisplay||'')+'"/></div>'
       + '</div>';
+  } else {
+    body += '<div class="field" style="margin-bottom:0"><label>'+L('Danh mục','Category')+'</label>'
+      + '<div class="choices" id="csvedit-cats">'+chips+'</div></div>';
   }
-  h += '<div class="field" style="margin-bottom:0"><label>'+L('Danh mục','Category')+'</label><div class="choices" id="csvedit-cats">'
-    + (window.catOrder||[]).map(function(name){
-        var s=(window.catStyle&&window.catStyle[name])||['🏷️'];
-        var act = opts.instantChips ? 'csvGroupPick(\''+escAttr(name)+'\')' : 'pick(\'csvedit-cats\',this)';
-        return '<button class="choice'+(c && name===c.categoryName?' on':'')+'" data-v="'+escAttr(name)+'" onclick="'+act+'">'+s[0]+' '+esc(name)+'</button>';
-      }).join('')
-    + '</div></div>';
-  if(opts.buttons) h += '<div class="dup-actions" style="margin-top:14px">'+opts.buttons+'</div>';
-  h += '</div>';
-  return h;
+  if(opts.buttons) body += '<div class="dup-actions" style="margin-top:14px">'+opts.buttons+'</div>';
+
+  return '<div class="bulk-card active'+(opts.invalid?' invalid':'')+'">'
+    + '<div class="bulk-head">'+csvCardHead(opts.label, opts.dateIso)+rm+'</div>'
+    + '<div class="csv-card-body">'+body+'</div></div>';
 }
 
 function csvIsOpen(kind, idx){ return csvExpand && csvExpand.kind===kind && csvExpand.idx===idx; }
@@ -286,12 +312,17 @@ function renderCsvReview(){
   /* Category disclosure. Default path: we already adopted the file's own
      names -- say so plainly, with an undo. After an undo it flips back to an
      offer, so the choice is never one-way. */
-  if(r.adoptedCats && r.adoptedCats.length){
-    html += '<div class="notice-card stack">'
-      + '<div class="notice-text"><b>'+esc(L('Đã dùng '+r.adoptedCats.length+' danh mục từ file của bạn:','Kept '+r.adoptedCats.length+(r.adoptedCats.length===1?' category':' categories')+' from your file:'))+'</b> '
-      + esc(r.adoptedCats.map(function(n){ return csvCatEmoji(n)+' '+n; }).join(' · '))
-      + ' — '+esc(L('tên của bạn, giữ nguyên.','your names, kept as they are.'))+'</div>'
-      + '<button type="button" class="btn-text-quiet" style="width:100%;margin:6px 0 0" onclick="csvUndoAdopt()">'+L('Đừng thêm danh mục mới','Don\'t add new categories')+'</button>'
+  var didMerge = (r.catMerges||[]).length, didAdd = (r.adoptedCats||[]).length;
+  if(didMerge || didAdd){
+    var lines = [];
+    if(didMerge) lines.push('<div class="notice-text">'
+      + '<b>'+esc(L('Đã gộp vào danh mục sẵn có:','Merged into categories you already have:'))+'</b> '
+      + esc(r.catMerges.map(function(m){ return '"'+m.from+'" → '+m.to; }).join(' · '))+'</div>');
+    if(didAdd) lines.push('<div class="notice-text"'+(didMerge?' style="margin-top:6px"':'')+'>'
+      + '<b>'+esc(L('Đã thêm danh mục mới từ file:','Added new categories from your file:'))+'</b> '
+      + esc(r.adoptedCats.map(function(n){ return csvCatEmoji(n)+' '+n; }).join(' · '))+'</div>');
+    html += '<div class="notice-card stack">' + lines.join('')
+      + '<button type="button" class="btn-text-quiet" style="width:100%;margin:6px 0 0" onclick="csvUndoAdopt()">'+L('Để tôi tự chọn danh mục','Let me pick categories myself')+'</button>'
       + '</div>';
   } else if(!r.mixedSignsNote && r.fileCats && r.fileCats.length){
     html += '<div class="notice-card stack">'
@@ -302,43 +333,43 @@ function renderCsvReview(){
   }
 
   /* ONE attention section, always on top: unresolved categories, duplicates,
-     and every deferred row -- stuck ones included, now fixable inline (fill
-     in the missing date or amount and confirm). */
+     and every deferred row -- stuck ones included, fixable inline. Each is a
+     bulk-card; .invalid gives them the composer's own incomplete-card border,
+     and bulkSummary's bc-pick / bc-dup badges say why. */
   var attnHtml = '';
   r.groups.forEach(function(g, gi){
-    var sum = g.items.reduce(function(s,it){return s+it.amount;},0);
-    var open = csvIsOpen('group', gi);
-    attnHtml += csvDenseRow(null, g.items[0].description,
-      (g.items.length>1? g.items.length+' '+L('giao dịch · ','txns · '):'')+L('chưa có danh mục','no category yet'),
-      sum, 'csvToggleExpand(\'group\','+gi+')', 'attn', open);
-    if(open) attnHtml += csvExpandHtml(null, { instantChips:true });
+    var head = g.items[0].description + (g.items.length>1 ? ' · '+g.items.length+' '+L('khoản','items') : '');
+    var proxy = { description:g.items[0].description, amount:g.items.reduce(function(s,it){return s+it.amount;},0), categoryName:null, dateDisplay:g.items[0].dateDisplay };
+    var o = { label:head, dateIso:g.items[0].dateDisplay, invalid:true,
+              tapFn:"csvToggleExpand('group',"+gi+")", removeFn:"csvSkipGroup("+gi+")" };
+    attnHtml += csvIsOpen('group', gi)
+      ? csvActiveCard(proxy, Object.assign({}, o, { instantChips:true }))
+      : csvCollapsedCard(proxy, o);
   });
   r.dup.forEach(function(d, di){
     if(d.resolved!==null) return;
-    var open = csvIsOpen('dup', di);
-    attnHtml += csvDenseRow(d.c.categoryName, d.c.description, L('Có thể trùng lặp','Possible duplicate'), d.c.amount, 'csvToggleExpand(\'dup\','+di+')', 'attn', open);
-    if(open){
-      var why = d.c.duplicateOfExisting
-        ? L('Trùng với một giao dịch đã có trong sổ — cùng số tiền, trong vòng 3 ngày.','Matches a transaction already in your ledger — same amount, within 3 days.')
-        : L('Xuất hiện 2 lần trong file này với cùng nội dung và số tiền.','Appears twice in this file with the same description and amount.');
-      attnHtml += csvExpandHtml(d.c, { note: esc(why), fields:true,
-        buttons: '<button type="button" class="btn-line" onclick="csvDupInclude('+di+')">'+L('Vẫn nhập','Import anyway')+'</button>'
-               + '<button type="button" class="btn-text-quiet" onclick="csvDupSkip('+di+')">'+L('Bỏ qua','Skip')+'</button>' });
-    }
+    var o = { label:L('Có thể trùng','Possible duplicate'), dateIso:d.c.dateDisplay, invalid:true, isDup:true,
+              tapFn:"csvToggleExpand('dup',"+di+")", removeFn:"csvDupSkip("+di+")" };
+    if(!csvIsOpen('dup', di)){ attnHtml += csvCollapsedCard(d.c, o); return; }
+    var why = d.c.duplicateOfExisting
+      ? L('Trùng với một giao dịch đã có trong sổ — cùng số tiền, trong vòng 3 ngày.','Matches a transaction already in your ledger — same amount, within 3 days.')
+      : L('Xuất hiện 2 lần trong file này với cùng nội dung và số tiền.','Appears twice in this file with the same description and amount.');
+    attnHtml += csvActiveCard(d.c, Object.assign({}, o, { fields:true, note:esc(why),
+      buttons: '<button type="button" class="btn-line" onclick="csvDupInclude('+di+')">'+L('Vẫn nhập','Import anyway')+'</button>'
+             + '<button type="button" class="btn-text-quiet" onclick="csvDupSkip('+di+')">'+L('Bỏ qua','Skip')+'</button>' }));
   });
   r.deferred.forEach(function(c, di){
-    var open = csvIsOpen('defer', di);
-    var stuckWhy = c.flags.indexOf('date_missing')>=0 ? L('thiếu ngày — chạm để bổ sung','missing date — tap to fill it in')
-      : c.flags.indexOf('amount_missing')>=0 ? L('không đọc được số tiền — chạm để bổ sung','unreadable amount — tap to fill it in')
-      : L('có thể là thu nhập — chạm để xác nhận','possibly income — tap to confirm');
-    attnHtml += csvDenseRow(null, c.description||c.raw.join(', '), stuckWhy, c.amount, 'csvToggleExpand(\'defer\','+di+')', 'attn', open);
-    if(open){
-      attnHtml += csvExpandHtml(c, { fields:true,
-        note: c.flags.indexOf('date_missing')<0 && c.flags.indexOf('amount_missing')<0
-          ? esc(L('File này có thể lẫn thu nhập. Nếu đây đúng là khoản chi, kiểm tra rồi bấm Nhập khoản này.','This file may mix in income. If this really is an expense, check it over and tap Import this one.')) : null,
-        buttons: '<button type="button" class="btn-line" onclick="csvDeferConfirm('+di+')">'+L('Nhập khoản này','Import this one')+'</button>'
-               + '<button type="button" class="btn-text-quiet" onclick="csvDeferDrop('+di+')">'+L('Bỏ qua','Skip')+'</button>' });
-    }
+    var why = c.flags.indexOf('date_missing')>=0 ? L('Thiếu ngày','Missing date')
+      : c.flags.indexOf('amount_missing')>=0 ? L('Thiếu số tiền','Missing amount')
+      : L('Có thể là thu nhập','Possibly income');
+    var o = { label:why, dateIso:c.dateDisplay, invalid:true,
+              tapFn:"csvToggleExpand('defer',"+di+")", removeFn:"csvDeferDrop("+di+")" };
+    if(!csvIsOpen('defer', di)){ attnHtml += csvCollapsedCard(c, o); return; }
+    attnHtml += csvActiveCard(c, Object.assign({}, o, { fields:true,
+      note: (c.flags.indexOf('date_missing')<0 && c.flags.indexOf('amount_missing')<0)
+        ? esc(L('File này có thể lẫn thu nhập. Nếu đây đúng là khoản chi, kiểm tra rồi bấm Nhập khoản này.','This file may mix in income. If this really is an expense, check it over and tap Import this one.')) : null,
+      buttons: '<button type="button" class="btn-line" onclick="csvDeferConfirm('+di+')">'+L('Nhập khoản này','Import this one')+'</button>'
+             + '<button type="button" class="btn-text-quiet" onclick="csvDeferDrop('+di+')">'+L('Bỏ qua','Skip')+'</button>' }));
   });
   var decisionCount = r.groups.length + unresolvedDup.length + r.deferred.length;
 
@@ -352,10 +383,10 @@ function renderCsvReview(){
   html += '<div class="review-summary">'+summaryLine+'</div>';
 
   if(attnHtml){
-    html += '<div class="group-h">'+L('Cần bạn xem','Needs your eye')+'</div><div class="rows csv-rows">'+attnHtml+'</div>';
+    html += '<div class="group-h">'+L('Cần bạn xem','Needs your eye')+'</div><div class="csv-cards">'+attnHtml+'</div>';
   }
 
-  /* Ready list, grouped by date (newest first), like the ledger it becomes. */
+  /* Ready list, grouped by date (newest first) -- same cards, no red border. */
   if(r.ready.length){
     var dateBuckets = {};
     r.ready.forEach(function(c, i){ var k = c.dateDisplay || ''; (dateBuckets[k] = dateBuckets[k] || []).push({ c:c, i:i }); });
@@ -363,15 +394,14 @@ function renderCsvReview(){
     html += '<div class="group-h">'+L('Sẵn sàng','Ready')+' · '+readyCount+'</div>';
     keys.forEach(function(k){
       var label = k ? fmtDayMon(dateBuckets[k][0].c.date) : L('Không rõ ngày','No date');
-      html += '<div class="group-h" style="margin-top:10px">'+esc(label)+'</div><div class="rows csv-rows">';
+      html += '<div class="group-h" style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
       dateBuckets[k].forEach(function(e){
-        var open = csvIsOpen('ready', e.i);
-        html += csvDenseRow(e.c.categoryName, e.c.description, e.c.categoryName, e.c.amount, 'csvToggleExpand(\'ready\','+e.i+')', null, open);
-        if(open){
-          html += csvExpandHtml(e.c, { fields:true,
-            buttons: '<button type="button" class="btn-line" onclick="csvExpandDone()">'+L('Xong','Done')+'</button>'
-                   + '<button type="button" class="btn-text-quiet" onclick="csvReadyRemove('+e.i+')">'+L('Bỏ khoản này','Don\'t import this one')+'</button>' });
-        }
+        var o = { label:L('Khoản chi ','Item ')+(e.i+1), dateIso:e.c.dateDisplay,
+                  tapFn:"csvToggleExpand('ready',"+e.i+")", removeFn:"csvReadyRemove("+e.i+")" };
+        html += csvIsOpen('ready', e.i)
+          ? csvActiveCard(e.c, Object.assign({}, o, { fields:true,
+              buttons:'<button type="button" class="btn-line" onclick="csvExpandDone()">'+L('Xong','Done')+'</button>' }))
+          : csvCollapsedCard(e.c, o);
       });
       html += '</div>';
     });

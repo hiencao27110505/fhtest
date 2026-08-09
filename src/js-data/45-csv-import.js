@@ -18,14 +18,18 @@ const CSV_HEADER_ALIASES = {
 };
 
 const CSV_DATE_PATTERNS = [
-  [/^\d{4}-\d{2}-\d{2}$/, 'iso'],
-  [/^\d{1,2}\/\d{1,2}\/\d{4}$/, 'slash_4'],
-  [/^\d{1,2}\/\d{1,2}\/\d{2}$/, 'slash_2'],
-  [/^\d{1,2}-\d{1,2}-\d{4}$/, 'dash_4'],
-  [/^\d{1,2}-\d{1,2}-\d{2}$/, 'dash_2'],
-  [/^\d{1,2}\/\d{1,2}$/, 'slash_noyear'],
-  [/^\d{1,2}-\d{1,2}$/, 'dash_noyear'],
-  [/^[A-Za-z]{3}\s+\d{1,2}\s+\d{4}$/, 'month_name'],
+  // Everyone records dates differently, and a bank export often carries a
+  // time too. Order matters: unambiguous shapes first, so a file that mixes
+  // conventions still resolves from the rows that CAN'T be misread.
+  [/^\d{4}-\d{1,2}-\d{1,2}([ T].*)?$/, 'iso'],              // 2026-08-01, or with a time
+  [/^\d{4}\/\d{1,2}\/\d{1,2}([ T].*)?$/, 'iso_slash'],     // 2026/08/01
+  [/^\d{8}$/, 'compact'],                                    // 20260801
+  [/^\d{1,2}[\/.-]\d{1,2}[\/.-]\d{4}([ T].*)?$/, 'dmy_4'], // 01/08/2026 · 01.08.2026 · 01-08-2026
+  [/^\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2}([ T].*)?$/, 'dmy_2'], // 01/08/26
+  [/^\d{1,2}[\/.-]\d{1,2}$/, 'dm_noyear'],                  // 1/8 — year assumed
+  [/^\d{1,2}[ -][A-Za-z]{3,}[ -]\d{4}$/, 'd_mon_y'],         // 01 Aug 2026 · 01-Aug-2026
+  [/^[A-Za-z]{3,}\s+\d{1,2},?\s+\d{4}$/, 'mon_d_y'],        // Aug 1 2026 · August 1, 2026
+  [/^\d{1,2}\s*(thg|thang)\s*\d{1,2},?\s*\d{4}$/i, 'vi_thg'], // 01 thg 8, 2026
 ];
 
 function classifyDate(raw) {
@@ -183,8 +187,18 @@ async function resolveCsvMapping(headers, sampleRows) {
   if (!heuristic.needsLLM) {
     return { ...heuristic, resolvedBy: 'heuristics' };
   }
-  const llm = await callCsvMappingFallback(headers, sampleRows);
-  return { ...heuristic, llm, resolvedBy: 'gemini' };
+  /* The model is a CONFIDENCE booster, never a gate. If the call fails --
+     rate limited, offline, signed out, provider down -- fall back to what the
+     heuristics already worked out rather than refusing the whole file. Rows
+     the heuristics can't place then surface in the review for a human, which
+     is the same safety net every other uncertain row uses. */
+  try {
+    const llm = await callCsvMappingFallback(headers, sampleRows);
+    return { ...heuristic, llm, resolvedBy: 'gemini' };
+  } catch (e) {
+    console.warn('CSV column-mapping fallback unavailable; using heuristics', e);
+    return { ...heuristic, resolvedBy: 'heuristics', llmFailed: true };
+  }
 }
 
 window.fhResolveCsvMapping = resolveCsvMapping;
