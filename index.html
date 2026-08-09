@@ -7648,6 +7648,15 @@ function csvCatEmoji(name){
    the review shows is exactly what will be saved, rounding included. */
 function csvBaseAmt(n){ return Math.round(Number(n||0)/curMult()); }
 function csvFmt(n){ return fmt(csvBaseAmt(n)); }
+/* Whoever is importing is the payer, unless the file says otherwise.
+   lastWho is the wrong default here -- it's the first member in the family
+   list (or whoever logged an expense last), so an import by Trang could land
+   on Hiền. _meName() is the signed-in member. Still just a default: the file's
+   own "Ai trả" column wins, and every row's chip is editable. */
+function csvDefaultWho(){
+  return (typeof _meName === 'function' && _meName()) || window.lastWho || '';
+}
+
 function csvAmtInputVal(n){ return Number(n).toLocaleString(CUR==='VND'?'vi-VN':'en-US'); }
 
 /* EXACT bulk-logging card (renderBulk/bulkSummary, 50-sheets-expense-capture.js).
@@ -7699,7 +7708,7 @@ function csvActiveCard(c, opts){
   if(opts.note) body += '<div class="csv-expand-note">'+opts.note+'</div>';
   if(opts.fields){
     var mems = (window.FAM && window.FAM.members) || [];
-    var whoSel = (c && c.who) || window.lastWho;
+    var whoSel = (c && c.who) || csvDefaultWho();
     var whoChips = mems.map(function(m){
       return '<button type="button" class="choice'+(m.name===whoSel?' on':'')+'" data-v="'+escAttr(m.name)+'" onclick="pick(\'csvedit-who\',this)">'+esc(m.name)+'</button>';
     }).join('') + '<button type="button" class="choice'+(whoSel==='Both'?' on':'')+'" data-v="Both" onclick="pick(\'csvedit-who\',this)">'+esc(LANG==='vi'?'Chung':'Both')+'</button>';
@@ -7999,7 +8008,7 @@ function csvPromote(){
   chain.then(function(){
     bulkRows = csvReview.ready.map(function(c){
       return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName,
-               who: c.who || lastWho, date: c.dateDisplay, _invalid: false };
+               who: c.who || csvDefaultWho(), date: c.dateDisplay, _invalid: false };
     });
     bulkActive = 0;
     exPhotos = [];
