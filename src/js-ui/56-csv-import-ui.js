@@ -137,6 +137,7 @@ function csvBuildReview(parsed, result, opts){
     fileCats: unknown,        // still-unknown names (only non-empty after an undo)
     adoptedCats: adopted,     // what we added this build, for the disclosure + undo
     catMerges: Object.keys(csvCatMerges).map(function(k){ return { from:k, to:csvCatMerges[k] }; }),
+    fallbackCount: buckets.ready.filter(function(c){ return c.catSource === 'fallback'; }).length,
     declinedAdopt: !!opts.declined,
   };
   csvExpand = null;
@@ -260,37 +261,52 @@ function csvCollapsedCard(c, opts){
     + '</button>' + rm + '</div>';
 }
 
-/* Active card: the composer's expanded shape. Its editor is the live #ex-editor
-   moved between cards; that node belongs to the expense modal and its fields
-   drive addExpense(), so this mirrors the same field layout with its own ids
-   instead of stealing the node out from under that modal. */
+/* Active card: the composer's expanded shape, mounting the composer's OWN
+   editor node (#ex-editor) via #ex-editor-mount -- the exact technique
+   renderBulk() uses to move that single live editor between cards. Not a
+   rebuild of the fields: the same inputs, the same category chips, the same
+   who-paid chips, the same photo row, because it is the same DOM. Rebuilding
+   them would have been a lookalike that drifts the first time that editor
+   changes. */
 function csvActiveCard(c, opts){
   var rm = opts.removeFn ? '<button type="button" class="bulk-x" onclick="'+opts.removeFn+'" aria-label="'+L('Xoá khoản này','Remove this item')+'">✕</button>' : '';
-  var chips = (window.catOrder||[]).map(function(name){
-    var st=(window.catStyle&&window.catStyle[name])||['🏷️'];
-    var act = opts.instantChips ? 'csvGroupPick(\''+escAttr(name)+'\')' : 'pick(\'csvedit-cats\',this)';
-    return '<button class="choice'+(c && name===c.categoryName?' on':'')+'" data-v="'+escAttr(name)+'" onclick="'+act+'">'+st[0]+' '+esc(name)+'</button>';
-  }).join('');
-
   var body = '';
   if(opts.note) body += '<div class="csv-expand-note">'+opts.note+'</div>';
-  if(opts.fields){
-    body += '<div class="field"><label>'+L('Chi cho gì?','What for?')+'</label>'
-      + '<input id="csvedit-note" value="'+escAttr(c.description||'')+'"/>'
-      + '<div class="choices" id="csvedit-cats" style="margin-top:10px">'+chips+'</div></div>'
-      + '<div class="field-row">'
-      + '<div class="field"><label>'+L('Số tiền','Amount')+'</label><input class="num" id="csvedit-amt" inputmode="numeric" onblur="snapAmtInput(this)" placeholder="'+escAttr(amtPlaceholder())+'" value="'+escAttr(c.amount!=null?csvAmtInputVal(c.amount):'')+'"/></div>'
-      + '<div class="field"><label>'+L('Ngày','When')+'</label><input type="date" id="csvedit-date" value="'+escAttr(c.dateDisplay||'')+'"/></div>'
-      + '</div>';
-  } else {
-    body += '<div class="field" style="margin-bottom:0"><label>'+L('Danh mục','Category')+'</label>'
-      + '<div class="choices" id="csvedit-cats">'+chips+'</div></div>';
-  }
-  if(opts.buttons) body += '<div class="dup-actions" style="margin-top:14px">'+opts.buttons+'</div>';
-
+  body += '<div id="ex-editor-mount"></div>';
+  if(opts.buttons) body += '<div class="dup-actions" style="margin:4px 14px 14px">'+opts.buttons+'</div>';
   return '<div class="bulk-card active'+(opts.invalid?' invalid':'')+'">'
     + '<div class="bulk-head">'+csvCardHead(opts.label, opts.dateIso)+rm+'</div>'
-    + '<div class="csv-card-body">'+body+'</div></div>';
+    + body + '</div>';
+}
+
+/* Binds the mounted editor to one candidate by borrowing the composer's own
+   row model: bulkRows becomes this single candidate, so every existing
+   handler (pickExCat, pickExWho, onExInput, flushActiveRow) works untouched. */
+function csvBindEditor(c){
+  var editor = document.getElementById('ex-editor');
+  var mount  = document.getElementById('ex-editor-mount');
+  if(!editor || !mount) return;
+  mount.appendChild(editor);
+  bulkRows = [{ note: c.description || '', amt: c.amount != null ? csvAmtInputVal(c.amount) : '',
+                cat: c.categoryName || '', who: c.who || lastWho,
+                date: c.dateDisplay || isoDate(TODAY), _invalid:false }];
+  bulkActive = 0;
+  buildExCatChips();          // chips must exist before loadRow selects one
+  loadRow(0);
+  togglePhotoField(false);    // a CSV row has no photos to attach
+}
+
+// Reads the mounted editor back onto the candidate (the composer's own flush).
+function csvReadEditor(c){
+  if(!document.getElementById('ex-editor-mount') || !bulkRows.length) return;
+  flushActiveRow();
+  var r = bulkRows[0];
+  if(r.note && r.note.trim()) c.description = r.note.trim();
+  var a = window.classifyAmount ? window.classifyAmount(r.amt||'') : null;
+  if(a && a.status==='ok' && a.value > 0) c.amount = a.value;
+  if(r.date){ c.dateDisplay = r.date; c.date = new Date(r.date+'T00:00:00'); }
+  if(r.cat && catValid(r.cat)){ c.categoryName = r.cat; c.catSource = 'user'; }
+  if(r.who) c.who = r.who;
 }
 
 function csvIsOpen(kind, idx){ return csvExpand && csvExpand.kind===kind && csvExpand.idx===idx; }
@@ -313,16 +329,19 @@ function renderCsvReview(){
      names -- say so plainly, with an undo. After an undo it flips back to an
      offer, so the choice is never one-way. */
   var didMerge = (r.catMerges||[]).length, didAdd = (r.adoptedCats||[]).length;
-  if(didMerge || didAdd){
+  if(didMerge || didAdd || r.fallbackCount){
     var lines = [];
     if(didMerge) lines.push('<div class="notice-text">'
       + '<b>'+esc(L('Đã gộp vào danh mục sẵn có:','Merged into categories you already have:'))+'</b> '
       + esc(r.catMerges.map(function(m){ return '"'+m.from+'" → '+m.to; }).join(' · '))+'</div>');
+    if(r.fallbackCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
+      + '<b>'+esc(L(r.fallbackCount+' khoản chưa rõ danh mục', r.fallbackCount+(r.fallbackCount===1?' row':' rows')+' had no clear category'))+'</b> '
+      + esc(L('— tạm để ở "'+CAT_FALLBACK+'", chạm vào khoản để đổi.','— filed under "'+CAT_FALLBACK+'" for now; tap a row to change it.'))+'</div>');
     if(didAdd) lines.push('<div class="notice-text"'+(didMerge?' style="margin-top:6px"':'')+'>'
       + '<b>'+esc(L('Đã thêm danh mục mới từ file:','Added new categories from your file:'))+'</b> '
       + esc(r.adoptedCats.map(function(n){ return csvCatEmoji(n)+' '+n; }).join(' · '))+'</div>');
     html += '<div class="notice-card stack">' + lines.join('')
-      + '<button type="button" class="btn-text-quiet" style="width:100%;margin:6px 0 0" onclick="csvUndoAdopt()">'+L('Để tôi tự chọn danh mục','Let me pick categories myself')+'</button>'
+      + ((didMerge||didAdd) ? '<button type="button" class="btn-text-quiet" style="width:100%;margin:6px 0 0" onclick="csvUndoAdopt()">'+L('Để tôi tự chọn danh mục','Let me pick categories myself')+'</button>' : '')
       + '</div>';
   } else if(!r.mixedSignsNote && r.fileCats && r.fileCats.length){
     html += '<div class="notice-card stack">'
@@ -429,8 +448,26 @@ function renderCsvReview(){
 
   html += '<button type="button" class="btn-text-quiet" style="width:100%;margin-top:10px" onclick="csvPickAnother()">'+L('Chọn file khác','Choose a different file')+'</button>';
 
+  /* Park the live editor before innerHTML would destroy it -- the same
+     hidden holder renderBulk() uses, so both surfaces hand it back and forth
+     safely. */
+  var _ed = document.getElementById('ex-editor');
+  if(_ed){
+    var holder = document.getElementById('bulk-holder');
+    if(!holder){ holder = document.createElement('div'); holder.id='bulk-holder'; holder.style.display='none'; document.body.appendChild(holder); }
+    holder.appendChild(_ed);
+  }
+
   out.innerHTML = html;
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='none';
+
+  if(csvExpand){
+    var openC = csvExpand.kind==='ready' ? r.ready[csvExpand.idx]
+              : csvExpand.kind==='dup'   ? (r.dup[csvExpand.idx]||{}).c
+              : csvExpand.kind==='defer' ? r.deferred[csvExpand.idx]
+              : null;                                    // groups use chips only
+    if(openC) csvBindEditor(openC);
+  }
 
   // Nav-bar Save, gated -- always reachable, grey until importable.
   var save = document.getElementById('csv-save');
@@ -440,29 +477,17 @@ function renderCsvReview(){
 /* ---- inline expansion handlers ------------------------------------------- */
 
 // Reads the expansion's fields back onto a candidate (only values that parse).
-function csvApplyEditFields(c){
-  var noteEl=document.getElementById('csvedit-note');
-  if(noteEl && noteEl.value.trim()) c.description = noteEl.value.trim();
-  var amtEl=document.getElementById('csvedit-amt');
-  if(amtEl){
-    // Same parser the file goes through, so "45k" typed here means what it
-    // means in a cell -- and a bare number stays literal.
-    var a = window.classifyAmount ? window.classifyAmount(amtEl.value||'') : null;
-    if(a && a.status==='ok' && a.value > 0) c.amount = a.value;
-  }
-  var dEl=document.getElementById('csvedit-date');
-  if(dEl && dEl.value){ c.dateDisplay = dEl.value; c.date = new Date(dEl.value+'T00:00:00'); }
-  var catsEl=document.getElementById('csvedit-cats');
-  if(catsEl){ var cat = chosen('csvedit-cats'); if(cat){ c.categoryName = cat; c.catSource = 'user'; } }
-}
-
 /* Commits the open READY row's edits when focus moves (accordion flush, like
    bulk logging). Decision rows (group/dup/defer) only commit through their
    explicit buttons -- flushing a half-made decision would resolve rows the
    user never confirmed. */
 function csvFlushExpand(){
   if(!csvExpand || !csvReview) return;
-  if(csvExpand.kind==='ready'){ var c=csvReview.ready[csvExpand.idx]; if(c) csvApplyEditFields(c); }
+  var c = csvExpand.kind==='ready' ? csvReview.ready[csvExpand.idx]
+        : csvExpand.kind==='dup'   ? (csvReview.dup[csvExpand.idx]||{}).c
+        : csvExpand.kind==='defer' ? csvReview.deferred[csvExpand.idx]
+        : null;
+  if(c) csvReadEditor(c);
 }
 
 function csvToggleExpand(kind, idx){
@@ -485,7 +510,7 @@ function csvGroupPick(name){
 
 function csvDupInclude(di){
   var d=csvReview.dup[di]; if(!d) return;
-  csvApplyEditFields(d.c);
+  csvReadEditor(d.c);
   if(d.c.categoryName){ d.resolved='done'; csvReview.ready.push(d.c); }
   else {
     // still uncategorized -- joins (or starts) a needs-category group
@@ -505,7 +530,7 @@ function csvDupSkip(di){ csvReview.dup[di].resolved='skip'; csvExpand = null; re
    Incomplete rows stay put with the editor open rather than half-importing. */
 function csvDeferConfirm(di){
   var c = csvReview.deferred[di]; if(!c) return;
-  csvApplyEditFields(c);
+  csvReadEditor(c);
   if(!(c.amount > 0) || !c.date){ renderCsvReview(); return; }
   csvReview.deferred.splice(di,1);
 

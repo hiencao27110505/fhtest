@@ -190,6 +190,12 @@ function buildCsvCandidates(parsed, result) {
       var g = guessCat(desc);
       if (g && catValid(g)) { catName = g; catSource = 'keyword'; }
     }
+    /* Least steps wins: if the file's own label, the family's history and the
+       keyword guess all come up empty, file it under the catch-all rather
+       than making someone tap a category for every row. It's disclosed in the
+       summary and one tap on the row changes it -- an editable default beats
+       a blocking question. */
+    if (!catName && catValid(CAT_FALLBACK)) { catName = CAT_FALLBACK; catSource = 'fallback'; }
     if (!catName) flags.push('needs_category');
 
     return {
