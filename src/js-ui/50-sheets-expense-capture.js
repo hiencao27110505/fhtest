@@ -608,7 +608,7 @@ var KW_EN={
    substring) OR emoji — never by an English key. */
 var CONCEPT_MATCH={
   'Housing':  {names:['nha o','nha cua','housing','sinh hoat','hoa don','tien nha','rent','utilities','bills'], emojis:['🏠','🏡','💡','🧾','🔌']},
-  'Groceries':{names:['di cho','cho bua','groceries','grocery','thuc pham','sieu thi','nhu yeu pham'], emojis:['🛒','🥬','🥦']},
+  'Groceries':{names:['di cho','cho bua','groceries','grocery','thuc pham','sieu thi','nhu yeu pham','mart','market','minimart','tap hoa'], emojis:['🛒','🥬','🥦']},
   'Clothing': {names:['clothing','thoi trang','quan ao','clothes','apparel'],                emojis:['👕','👗','🧥','👖','👚','👟']},
   'Shopping': {names:['shopping','mua sam','mall'],                                          emojis:['🛍️','🎁']},
   'Transport':{names:['di chuyen','di lai','transport','transportation','giao thong','commute'], emojis:['🚗','🚕','🛵','⛽','🚌','✈️']},

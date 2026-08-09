@@ -113,6 +113,26 @@ function matchCategoryName(guess) {
     if (_csvWordIn(g, n) || _csvWordIn(n, g)) hits.push(order[i]);
   }
   if (hits.length === 1) { csvCatMerges[String(guess).trim()] = hits[0]; return hits[0]; }
+
+  /* Same meaning, different word. A file saying "Food" or "Mart" means the
+     family's "Ăn uống" and "Đi chợ" -- string matching can't see that, and
+     creating an English twin of a category they already have quietly splits
+     their history in two. So the file's label is resolved to a CONCEPT
+     (CONCEPT_MATCH, the composer's own map, which already lists food/dining/
+     groceries/mart together) and then back to whichever category this family
+     actually uses for it. An existing category always wins over a new one. */
+  if (hits.length === 0 && typeof CONCEPT_MATCH === 'object' && typeof familyCatForConcept === 'function') {
+    for (var cpt in CONCEPT_MATCH) {
+      var names = (CONCEPT_MATCH[cpt] && CONCEPT_MATCH[cpt].names) || [];
+      for (var n = 0; n < names.length; n++) {
+        var nm = deburr(String(names[n]).toLowerCase());
+        if (g === nm || _csvWordIn(nm, g) || _csvWordIn(g, nm)) {
+          var fam = familyCatForConcept(cpt);
+          if (fam && catValid(fam)) { csvCatMerges[String(guess).trim()] = fam; return fam; }
+        }
+      }
+    }
+  }
   // 2+ hits: "Ăn" could be "Ăn uống" OR "Ăn ngoài". Creating an "Ăn" category
   // would be as wrong as picking one at random, so mark it and let the review
   // ask -- csvUnknownFileCategories skips these when auto-creating.
