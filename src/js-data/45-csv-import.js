@@ -7,11 +7,16 @@ function norm(s) {
 }
 
 const CSV_HEADER_ALIASES = {
-  occurred_at: ['date', 'ngay', 'ngay giao dich', 'transaction date', 'posted date', 'txn date'],
-  amount: ['amount', 'so tien', 'value', 'so tien giao dich'],
-  description: ['description', 'noi dung', 'dien giai', 'memo', 'note'],
+  occurred_at: ['date', 'ngay', 'ngay giao dich', 'transaction date', 'posted date', 'txn date', 'ngay gd'],
+  // A real bank statement has no single "amount": it has a debit column and a
+  // credit column, and a running balance that must NEVER be mistaken for
+  // either ("so du luy ke" is deliberately absent from every list here).
+  amount: ['amount', 'so tien', 'value', 'so tien giao dich', 'phat sinh no', 'ghi no', 'debit', 'withdrawal', 'money out', 'tien ra'],
+  credit: ['phat sinh co', 'ghi co', 'credit', 'deposit', 'money in', 'tien vao'],
+  description: ['description', 'noi dung', 'dien giai', 'memo', 'note', 'noi dung giao dich'],
   category: ['category', 'loai', 'danh muc'],
-  counterparty: ['payee', 'doi tac', 'merchant', 'nguoi nhan', 'nguoi gui'],
+  counterparty: ['payee', 'doi tac', 'merchant', 'nguoi nhan', 'nguoi gui', 'don vi thu huong', 'don vi chuyen',
+                 'don vi thu huong/ don vi chuyen', 'don vi thu huong / don vi chuyen', 'ben nhan', 'nguoi huong'],
   currency: ['currency', 'loai tien', 'don vi'],
   paid_by: ['ai tra', 'paid by'],
   split_with: ['chia voi', 'split with'],

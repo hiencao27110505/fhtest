@@ -228,13 +228,29 @@ function buildCsvCandidates(parsed, result) {
     var date = dclass.status === 'matched' ? parseCsvDateValue(dateRaw, dclass.format, convention) : null;
     if (!date) flags.push('date_missing');
 
+    /* A statement's credit column is money IN. This importer writes expenses
+       only (transactions has no direction), so a credit row is held back for
+       the person to look at rather than silently filed as spending -- the
+       same rule the mixed-signs guard applies to a single signed column. */
+    var creditRaw = colFor.credit !== undefined ? (row[colFor.credit] || '').trim() : '';
+    var isIncome = false;
+    if (creditRaw && classifyAmount(creditRaw).status === 'ok' && classifyAmount(creditRaw).value > 0
+        && !(amtRaw && classifyAmount(amtRaw).status === 'ok' && classifyAmount(amtRaw).value > 0)) {
+      isIncome = true;
+      amtRaw = creditRaw;                       // show the real figure while it waits
+    }
+    // Machine labels some exports use for direction, e.g. "transfer_in".
+    if (/^(transfer_in|income|credit|thu nhap|tien vao)$/i.test(deburr((catGuess||'').trim().toLowerCase()))) isIncome = true;
+
     var aclass = classifyAmount(amtRaw);
     var amount = (aclass.status === 'ok') ? Math.abs(aclass.value) : null;
     if (amount === null) flags.push('amount_missing');
 
     if (!desc) flags.push('description_missing');
+    if (isIncome) flags.push('income_row');
 
-    var catName = matchCategoryName(catGuess);
+    var party = colFor.counterparty !== undefined ? (row[colFor.counterparty] || '').trim() : '';
+    var catName = isIncome ? null : matchCategoryName(catGuess);
     var catSource = catName ? 'file' : null;
     if (!catName && desc) {
       var h = historyMap[normDescForDedup(desc)];
@@ -251,10 +267,11 @@ function buildCsvCandidates(parsed, result) {
        a blocking question. */
     // bank-memo merchant recognition, before giving up on the row
     if (!catName && desc && typeof familyCatForConcept === 'function') {
-      var mc = csvMerchantConcept(desc);
+      // the counterparty column names the merchant plainly; the memo buries it
+      var mc = csvMerchantConcept(party) || csvMerchantConcept(desc);
       if (mc) { var fc = familyCatForConcept(mc); if (fc && catValid(fc)) { catName = fc; catSource = 'merchant'; } }
     }
-    if (!catName && catValid(CAT_FALLBACK)) { catName = CAT_FALLBACK; catSource = 'fallback'; }
+    if (!catName && !isIncome && catValid(CAT_FALLBACK)) { catName = CAT_FALLBACK; catSource = 'fallback'; }
     if (!catName) flags.push('needs_category');
 
     return {
@@ -288,7 +305,7 @@ function bucketCsvCandidates(candidates, mixedSigns) {
   var ready = [], needsCategoryGroups = {}, possibleDuplicate = [], deferred = [];
 
   candidates.forEach(function(c) {
-    if (mixedSigns || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
+    if (mixedSigns || c.isIncome || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
       deferred.push(c); return;
     }
 
