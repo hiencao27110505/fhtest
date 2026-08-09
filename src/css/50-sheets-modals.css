@@ -169,16 +169,19 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 /* .rows normally carries the tab gutter (margin 0 16px); the modal body
    already pads 20px, so inside the import modal it goes full-width. */
 .csv-rows{margin:0 0 14px}
-/* Inline expansion beneath a row (accordion, like bulk logging): quiet inset
-   surface, top hairline so it reads as the row's own drawer. */
-.csv-expand{padding:14px 18px 16px;background:var(--surface);border-top:1px solid var(--divider)}
-.csv-expand-note{font-size:13px;color:var(--ink-2);line-height:1.5;margin-bottom:12px}
-/* Needs-attention rows: amber left accent line (accent, never a fill). */
-.row.attn{box-shadow:inset 3px 0 0 var(--amber)}
-.row.attn .r-s{color:var(--amber);font-weight:600}
-/* Chevron points down while the row's drawer is open. */
-.csv-chev{transition:transform .2s cubic-bezier(.4,0,.2,1)}
-.row.csv-open .csv-chev{transform:rotate(90deg)}
+/* CSV review: a stack of the composer's own .bulk-card rows, same 10px gap
+   as #bulk-list. The cards, their summaries and .invalid come from
+   50-sheets-modals.css untouched -- nothing is restyled here. */
+.csv-cards{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.csv-files{margin-bottom:12px}
+.csv-files-list{font-size:12px;color:var(--muted);margin-bottom:8px;word-break:break-word}
+.csv-files .dup-actions .btn-line{width:auto;margin:0;padding:9px 16px;font-size:14px;display:inline-flex;align-items:center;justify-content:center}
+.csv-linkbtn{background:none;border:0;padding:0;color:var(--brand-ink);font-weight:700;font-size:12.5px;text-decoration:underline}
+.csv-card-body{padding:6px 14px 14px}
+.csv-expand-note{font-size:13px;color:var(--amber);font-weight:600;line-height:1.5;margin-bottom:12px}
+/* "Cần bạn xem" reads as a call to action, not a neutral section label. */
+.group-h.attn{color:var(--danger)}
+.bulk-card .bulk-idx.attn{color:var(--danger)}
 /* Trust strip above Import: count + total + span + what's left out. */
 .csv-check{background:var(--canvas);border-radius:16px;padding:14px 16px;margin-top:14px}
 .csv-check-main{font-family:var(--disp);font-size:15.5px;font-weight:700;letter-spacing:-.2px;color:var(--ink)}

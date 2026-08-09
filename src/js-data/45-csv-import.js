@@ -7,25 +7,34 @@ function norm(s) {
 }
 
 const CSV_HEADER_ALIASES = {
-  occurred_at: ['date', 'ngay', 'ngay giao dich', 'transaction date', 'posted date', 'txn date'],
-  amount: ['amount', 'so tien', 'value', 'so tien giao dich'],
-  description: ['description', 'noi dung', 'dien giai', 'memo', 'note'],
+  occurred_at: ['date', 'ngay', 'ngay giao dich', 'transaction date', 'posted date', 'txn date', 'ngay gd'],
+  // A real bank statement has no single "amount": it has a debit column and a
+  // credit column, and a running balance that must NEVER be mistaken for
+  // either ("so du luy ke" is deliberately absent from every list here).
+  amount: ['amount', 'so tien', 'value', 'so tien giao dich', 'phat sinh no', 'ghi no', 'debit', 'withdrawal', 'money out', 'tien ra'],
+  credit: ['phat sinh co', 'ghi co', 'credit', 'deposit', 'money in', 'tien vao'],
+  description: ['description', 'noi dung', 'dien giai', 'memo', 'note', 'noi dung giao dich'],
   category: ['category', 'loai', 'danh muc'],
-  counterparty: ['payee', 'doi tac', 'merchant', 'nguoi nhan', 'nguoi gui'],
+  counterparty: ['payee', 'doi tac', 'merchant', 'nguoi nhan', 'nguoi gui', 'don vi thu huong', 'don vi chuyen',
+                 'don vi thu huong/ don vi chuyen', 'don vi thu huong / don vi chuyen', 'ben nhan', 'nguoi huong'],
   currency: ['currency', 'loai tien', 'don vi'],
   paid_by: ['ai tra', 'paid by'],
   split_with: ['chia voi', 'split with'],
 };
 
 const CSV_DATE_PATTERNS = [
-  [/^\d{4}-\d{2}-\d{2}$/, 'iso'],
-  [/^\d{1,2}\/\d{1,2}\/\d{4}$/, 'slash_4'],
-  [/^\d{1,2}\/\d{1,2}\/\d{2}$/, 'slash_2'],
-  [/^\d{1,2}-\d{1,2}-\d{4}$/, 'dash_4'],
-  [/^\d{1,2}-\d{1,2}-\d{2}$/, 'dash_2'],
-  [/^\d{1,2}\/\d{1,2}$/, 'slash_noyear'],
-  [/^\d{1,2}-\d{1,2}$/, 'dash_noyear'],
-  [/^[A-Za-z]{3}\s+\d{1,2}\s+\d{4}$/, 'month_name'],
+  // Everyone records dates differently, and a bank export often carries a
+  // time too. Order matters: unambiguous shapes first, so a file that mixes
+  // conventions still resolves from the rows that CAN'T be misread.
+  [/^\d{4}-\d{1,2}-\d{1,2}([ T].*)?$/, 'iso'],              // 2026-08-01, or with a time
+  [/^\d{4}\/\d{1,2}\/\d{1,2}([ T].*)?$/, 'iso_slash'],     // 2026/08/01
+  [/^\d{8}$/, 'compact'],                                    // 20260801
+  [/^\d{1,2}[\/.-]\d{1,2}[\/.-]\d{4}([ T].*)?$/, 'dmy_4'], // 01/08/2026 · 01.08.2026 · 01-08-2026
+  [/^\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2}([ T].*)?$/, 'dmy_2'], // 01/08/26
+  [/^\d{1,2}[\/.-]\d{1,2}$/, 'dm_noyear'],                  // 1/8 — year assumed
+  [/^\d{1,2}[ -][A-Za-z]{3,}[ -]\d{4}$/, 'd_mon_y'],         // 01 Aug 2026 · 01-Aug-2026
+  [/^[A-Za-z]{3,}\s+\d{1,2},?\s+\d{4}$/, 'mon_d_y'],        // Aug 1 2026 · August 1, 2026
+  [/^\d{1,2}\s*(thg|thang)\s*\d{1,2},?\s*\d{4}$/i, 'vi_thg'], // 01 thg 8, 2026
 ];
 
 function classifyDate(raw) {
@@ -46,8 +55,24 @@ function classifyAmount(raw) {
     v = v.replace(/đ/gi, '').replace(/vnd/gi, '').trim();
   }
   const negative = v.startsWith('-');
-  const core = negative ? v.slice(1) : v;
+  let core = negative ? v.slice(1) : v;
   if (negative) flags.push('negative_sign');
+
+  /* VN shorthand: "45k" = 45.000, "1tr2" = 1.200.000, "2 ty" = 2.000.000.000.
+     A number carrying NO marker is taken literally -- 45000 means 45000, never
+     45 million. (The bulk-logging composer additionally promotes a bare VND
+     number under 1000, because the ledger stores VND in units of 1.000d and a
+     hand-typed "45" can't otherwise be represented; a file's amounts are real
+     figures, so no such promotion happens here.) */
+  let mult = 1, fracTail = '';
+  const sm = stripDiacritics(core).match(/^([\d.,\s]*\d)\s*(ty|ti|tr|trieu|k|nghin|ngan)\s*(\d*)$/i);
+  if (sm) {
+    const unit = sm[2].toLowerCase();
+    mult = (unit === 'ty' || unit === 'ti') ? 1e9 : (unit === 'tr' || unit === 'trieu') ? 1e6 : 1e3;
+    fracTail = sm[3] || '';
+    core = sm[1].trim();
+    flags.push('shorthand_suffix');
+  }
 
   const hasDot = core.includes('.');
   const hasComma = core.includes(',');
@@ -64,8 +89,10 @@ function classifyAmount(raw) {
   }
 
   const cleaned = style === 'decimal_2dp' ? core.replace(/,/g, '') : core.replace(/[.,]/g, '');
-  const value = Number(cleaned);
+  let value = Number(cleaned);
   if (Number.isNaN(value)) return { status: 'unparseable', flags };
+  // "1tr2" is one-and-two-tenths million, not 1 million then a stray 2.
+  if (mult > 1) value = Math.round((fracTail ? Number(String(value) + '.' + fracTail) : value) * mult);
   return { status: 'ok', style, value, flags };
 }
 
@@ -165,8 +192,18 @@ async function resolveCsvMapping(headers, sampleRows) {
   if (!heuristic.needsLLM) {
     return { ...heuristic, resolvedBy: 'heuristics' };
   }
-  const llm = await callCsvMappingFallback(headers, sampleRows);
-  return { ...heuristic, llm, resolvedBy: 'gemini' };
+  /* The model is a CONFIDENCE booster, never a gate. If the call fails --
+     rate limited, offline, signed out, provider down -- fall back to what the
+     heuristics already worked out rather than refusing the whole file. Rows
+     the heuristics can't place then surface in the review for a human, which
+     is the same safety net every other uncertain row uses. */
+  try {
+    const llm = await callCsvMappingFallback(headers, sampleRows);
+    return { ...heuristic, llm, resolvedBy: 'gemini' };
+  } catch (e) {
+    console.warn('CSV column-mapping fallback unavailable; using heuristics', e);
+    return { ...heuristic, resolvedBy: 'heuristics', llmFailed: true };
+  }
 }
 
 window.fhResolveCsvMapping = resolveCsvMapping;

@@ -37,7 +37,7 @@ function fhMaskDescriptionText() {
 function fhLooksAmountShaped(raw) {
   const v = String(raw || '').trim();
   if (!v) return false;
-  return /^-?[\d.,\s₫$]+$/.test(v) && /\d/.test(v);
+  return /^-?[\d.,\s₫$]*\d[\d.,\s₫$]*(k|tr|ty|ti|trieu|nghin|ngan|triệu|nghìn|ngàn|tỷ|tỉ)?\s*\d*$/i.test(v);
 }
 
 // Free-text-shaped: long enough and has letters — distinguishes a

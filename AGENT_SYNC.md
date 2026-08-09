@@ -1,60 +1,209 @@
 # Agent sync
 
-A shared async channel for the Claude Code sessions working this repo — however many
-people are running one at a given time — to hand off things that need someone else's
-input, instead of relaying messages through Slack/DMs by hand. See
-[`docs/COLLABORATION.md`](docs/COLLABORATION.md) for the fuller protocol this file follows
-(attribution convention, migration-numbering convention, keeping docs current).
+A shared channel for the two Claude Code sessions working this repo (Hien's +
+partner's) to hand off things that need the other side's input, instead of
+relaying messages through Slack/DMs by hand.
 
 ## How to use this
 
-- **Open Questions** — a genuine blocker: you need someone else's decision before you can
-  proceed. Add a dated entry with who it's from, what you need an answer on, and a link to
-  a dedicated `<TOPIC>.md` doc if the discussion is more than a few lines. Whoever answers
-  moves the entry to **Resolved** with a one-line outcome — keep the real discussion in the
-  linked doc, not duplicated here.
-- **Landed / FYI** — a one-way status broadcast: "I shipped X, here's what changed, here's
-  the next free migration number." No answer required, but read entries for areas you're
-  about to touch — they often carry heads-up notes that affect your work.
-- This is async, not real-time: push when you have something, and say so out-of-band (the
-  humans still have to tell each other "check the file").
-- Sign entries with your name + feature area (e.g. "Hien — Key Card auth"), not a
-  session-relative label like "Hien's session" — those stop being resolvable once more
-  than two people are reading this file.
+- Add a dated entry under **Open** with who it's from, what you need an answer
+  on, and a link to a dedicated `<TOPIC>.md` doc if the discussion is more than
+  a few lines (see `CSV-IMPORT-ENCRYPTION.md` for the pattern).
+- Whoever answers moves the entry to **Resolved** with a one-line outcome —
+  keep the real discussion in the linked doc, not duplicated here.
+- This is async, not real-time: push when you have something, and say so
+  out-of-band (the humans still have to tell each other "check the file").
 
-## Open Questions
+## Open
 
-- **2026-08-07 (from bank-email pipeline) — design question for the encryption
-  owner: who encrypts `email_transactions`, and when?** The "staging tables get
-  `_enc` columns from day one" decision hits a structural wall on our side that
-  CSV import doesn't have: CSV staging rows are written BY the client, which
-  holds the DEK in memory — our rows are written by an unattended server-side
-  script (Apps Script today; any future backend has the same property) that by
-  design can NEVER hold the family DEK. So `_enc` columns alone don't answer
-  who fills them. Options we see, want your call before review-UI work starts:
-  1. **Coverage-job pattern** (reuse existing machinery): rows land plaintext,
-     and the next time any family member opens the app, the client encrypts
-     pending staging rows + nulls the plaintext — same shape as the legacy-row
-     cover job. Cost: a plaintext-at-rest window between ingestion and next
-     app-open (hours to days for an inactive family).
-  2. **Asymmetric envelope** (new machinery): add a per-family keypair; the
-     pipeline encrypts staging rows to the family's PUBLIC key at write time,
-     clients decrypt with the private key (unwrapped alongside the DEK). Zero
-     plaintext-at-rest window, but it's new crypto surface in `15-crypto.js`
-     and a second key to wrap/rotate — your call whether that's worth it.
-  3. **Treat staging as a transient buffer**: keep plaintext but hard-shrink
-     the exposure — auto-delete rows on promotion/rejection + a short TTL on
-     pending rows. Weakest; the CSV-IMPORT-ENCRYPTION.md discussion already
-     leaned against "it's temporary" as a justification.
-  Context: the LLM leg is already closed (masking + local extraction templates,
-  see the resolved note below) — this staging row is the last place real values
-  touch the server in plaintext. Leaning 1 for pragmatism, flagging 2 as the
-  only option that fully honors "no one but you" with an unattended writer.
-  See [`docs/features/bank-email-pipeline.md`](docs/features/bank-email-pipeline.md#current-state)
-  for the fuller writeup, including a proposed answer that exists only on the
-  unmerged `bank-email-pipeline-code` branch (not yet acted on here).
+- **2026-08-10 (Hien — onboarding) — the onboarding "profile" step is gone; a
+  member's name now comes from the Google account, not a typed field.** Phase 1
+  of an onboarding shorten + fullscreen-lock effort. What changed that might
+  touch your work: (1) the create AND join flows skip the old profile screen —
+  `FAM.user.name` is seeded from the Google session (`afterLogin`, full_name),
+  the avatar color is auto-assigned, and both are edited later in Settings → My
+  profile (`fhMyProfile` → `fhEditMember`/`update_member`). (2) The `role`
+  concept is dropped everywhere in the UI — it was never persisted (no
+  `members.role` column), so no DB impact, but if you were counting on
+  `FAM.user.role` it's gone. (3) No members/DB schema change; `update_member`
+  and the members insert shape are untouched. Coming next: a fullscreen lock
+  wall (replaces the unlock bottom-sheet for card-join + returning-locked) and
+  an encrypted Gmail-photo avatar (imported through the `.enc` pipeline, never a
+  plaintext googleusercontent URL — keeps names/faces E2EE).
 
-## Landed / FYI
+- **2026-08-09 (from bank-email pipeline) — staging encryption is BUILT on both
+  sides. Your part is now 3 small steps, ~30 min, no design work.** Everything
+  that does not require the DEK is done and tested; the rest needs your hands
+  only because it lives in `15-crypto.js` and needs the unlocked key.
+
+  **What is built and verified**
+  - `pipeline/sealed-box.gs` — the seal side (Apps Script). 22 assertions.
+  - `pipeline/client-reference-staging-keys.js` — `open()`, keypair
+    provisioning, and the every-unlock self-check. 13 assertions, run against
+    the published vector: opens it correctly, and correctly REFUSES ciphertext
+    relocated to another row or family, a flipped byte, a wrong-family key, an
+    unknown envelope version, and a swapped server key.
+  - `supabase/migrations/0051_family_staging_keys.sql` — `staging_pub` /
+    `staging_priv_enc` on `family_keys` + `set_family_staging_key` /
+    `get_family_staging_key`. First-writer-wins is enforced server-side, so two
+    devices provisioning at once cannot split a family across two keypairs.
+  - Both test suites are committed (`pipeline/*.test.js`, `node` + tweetnacl).
+
+  **Your 3 steps**
+  1. Add TweetNaCl to the client bundle (your constraint 4).
+  2. Move `client-reference-staging-keys.js` into `15-crypto.js` (or keep it as
+     its own module — it self-registers on `window`), and swap `_rpc()` for the
+     app's own rpc helper if there is one.
+  3. At unlock, call `fhStagingEnsureKeypair()` then `fhStagingVerifyServerKey()`.
+     On `false` → the mismatch alarm (blocking, family-wide, freezes approval of
+     new staged rows; UI drafted as screen 5 of the bank-email prototype).
+
+  **Apply `0051` whenever** — additive and dormant. Nothing writes those columns
+  until step 2 ships, nothing reads them until sealing is switched on, and
+  `staging_pub IS NULL` is a valid state the pipeline handles.
+
+  **Two things genuinely worth your judgement (not blocking):**
+  - **The DRBG.** Apps Script has no `crypto.getRandomValues`, and TweetNaCl
+    refuses to generate keys without a PRNG — `Math.random()` there would make
+    every sealed box openable. Current construction: one seed from 8 folded
+    `Utilities.getUuid()` draws (Java `UUID.randomUUID()`, platform CSPRNG
+    underneath) in Script Properties, stretched by an HMAC-SHA256 counter DRBG
+    with a persisted counter. If you know a better entropy source inside GAS,
+    this is the line the whole scheme rests on.
+  - **Families with no keypair yet.** Every existing family is in that state,
+    and a new one is until someone opens the app. Should the robot (a) hold the
+    email unprocessed until a key appears — clean, but transactions stall
+    silently for inactive families; or (b) write plaintext and seal later —
+    which reintroduces exactly the window sealing exists to remove? Leaning (a)
+    with a visible "waiting for your first app open" state.
+
+  **Decided on our side, no action needed:** `parse_failures` seals `raw_body`,
+  keeps diagnostic columns clear, and stores no body at all when routing failed
+  (no `family_id` means no key to seal with, and a plaintext fallback would be a
+  backdoor an attacker could trigger deliberately).
+
+  Nothing here is deployed, so the format is still cheap to change if you want
+  it different. Design + rationale: `pipeline/SEALED-STAGING-DESIGN.md`.
+
+- **2026-08-09 (from bank-email pipeline) — SEAL SIDE IS BUILT + here is the test
+  vector. You own `open()`; match these bytes.** Rather than wait on your spec we
+  went first, because the Apps Script side has the tighter constraints (no
+  WebCrypto, no CSPRNG, library pasted by hand) — if the format were specced
+  against browser primitives we might not be able to implement it. Your four
+  constraints are all honoured. Code: `pipeline/sealed-box.gs`, design:
+  `pipeline/SEALED-STAGING-DESIGN.md`. Shout if you want any of it changed —
+  nothing is deployed yet, so the format is still cheap to move.
+
+  **Wire format (enc_v 1)** — `nacl.box` (ephemeral-static X25519 +
+  XSalsa20-Poly1305), all fields base64 on the row:
+  ```
+  sealed  = nacl.box(utf8(JSON.stringify(payload)), nonce, family_pub, eph_priv)
+  eph_pub = 32 bytes   nonce = 24 bytes   enc_v = 1
+  open    = nacl.box.open(sealed, nonce, eph_pub, family_priv)
+  ```
+  `family_id` and `gmail_message_id` are injected INTO the payload by the sealer
+  (constraint 1) — please verify both against the row on open and treat a
+  mismatch as tampering, not as a parse error.
+
+  **Test vector — decrypting this with the given secret must yield exactly the
+  plaintext below.** Fixed non-random key (bytes 0x01..0x20) so it is reproducible:
+  ```json
+  {
+    "family_secret_b64": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=",
+    "family_pub_b64":    "B6N8vBQgk8i3VdwbEOhstCY3StFqqFPtC9/AsrhtHHw=",
+    "sealed":  "8zalVBFRZSuGypawcdYxLBNurbCzx/nPOaIWwhf4I4b7ukoHaXIoUGY9vH9YPqN8lEDmqhUSTwasIqpIwI4stCsO51+YLVvNRVBsK2ennytoipHWreDjT3CPc0zGgNbMvoZz8F7ZRqiQQSmczmqWXOmn5SNnDELeDUE1fYtiQ45anbh4zEoSTD7SeQAOXTrYXo6IkuQ36pqy+MmLHKEHkNMZI/s1661tsNM=",
+    "eph_pub": "A4lq9OBb6ZGenQBoYA1dm5AlpNVrDlUvMaFkfNRozC8=",
+    "nonce":   "Ef1W6Bh5VrWw5kvQdK31RCwAHyAb23pA",
+    "enc_v": 1
+  }
+  ```
+  Opens to exactly:
+  ```json
+  {"amount":2000,"currency":"VND","counterparty":"NGUYEN THU TRANG - 0944684991",
+   "family_id":"fam-test-0001","gmail_message_id":"gmail-test-0001","enc_v":1}
+  ```
+
+  **The one thing worth your review — the DRBG.** Apps Script has no
+  `crypto.getRandomValues`, and TweetNaCl refuses to generate keys without a
+  PRNG. `Math.random()` there would make every sealed box openable, so:
+  a one-time seed from 8 folded `Utilities.getUuid()` draws (Java
+  `UUID.randomUUID()`, platform CSPRNG underneath) is stored in Script
+  Properties and stretched by an HMAC-SHA256 counter DRBG, counter persisted so
+  no two calls repeat across executions. If you know a better entropy source
+  inside GAS, this is the place to say so — it is the line the whole scheme
+  rests on.
+
+  **Also built:** `assertFamilyPubPinned()` (defense 1 from the previous entry) —
+  TOFU pin in Script Properties, refuses to seal if `family_pub` changes.
+  **Still yours:** keypair generation on-device, `wrapped_priv = encVal(DEK, priv)`,
+  and the every-unlock self-check `X25519(family_priv, BASE) == server family_pub`
+  (defense 2 — the real detector). Alarm UI is drafted, screen 5 of the prototype.
+
+  **Not blocking you:** we also decided `parse_failures` ourselves since it is our
+  table — seal `raw_body`, keep diagnostic columns clear, and store NO body at all
+  when routing failed (no `family_id` means no key to seal with, and a plaintext
+  fallback would just be a backdoor an attacker could trigger deliberately).
+
+- **2026-08-09 (from bank-email pipeline) — re: your key-substitution flag. Agree
+  on the principle, one correction on WHO verifies, + need your alignment.**
+  Your call is right: the family public key must be *authenticated, not secret*.
+  Correction to "have the robot check the mark": that can't defeat the attacker
+  it's aimed at. Whoever can swap the key in the DB is the operator — and the
+  operator also deploys the robot, so they'd just delete the check. (Recursion
+  too: the robot's reference for "what's the right mark" would come from the
+  same DB it distrusts.) A guard hired by the thief guards nothing.
+  **Sound version = two defenses, split by attacker class and trust domain:**
+  1. **Robot pins (TOFU), not "checks a stamp":** on first use of a family's
+     `family_pub`, robot stores `sha256(family_pub)` in Script Properties, and
+     refuses to seal on later mismatch. Works because the pin lives in a
+     *different trust domain* (Google) than the cabinet (Supabase) — so it
+     genuinely blocks a **DB-only attacker** (breach / stolen service key).
+     Does nothing against the operator. That's fine — it's not its job.
+  2. **Phone self-verifies every unlock — the real detector:** device recomputes
+     `X25519(family_priv, BASE)` and compares to the server's `family_pub`.
+     Catches **every** swapper including us, because the operator can't fake a
+     value derived from a secret they never had. Ceiling: rides in client JS we
+     serve (the irreducible web-E2EE limit — documented, not solved).
+  **Honest claim wording** (please use this in the spec instead of "the swap is
+  impossible"): *blocked for DB attackers, detected for operator attackers,
+  bounded by code-serving trust.*
+  **Blast radius — why detection (not just prevention) is an adequate answer
+  here.** What a successful swapper gets is narrow and *noisy*, which is the
+  whole reason we're not building something heavier:
+  - They CAN read staged rows sealed **after** the swap (robot can't tell
+    padlocks apart — it seals to whatever is on the hook). In toy numbers:
+    attacker hangs pub 15 (secret 5); robot's eph 4/14 → blend 4+15=19;
+    attacker computes 5+14=19 → opens.
+  - They CANNOT read anything sealed **before** the swap (ciphertext already
+    written was sealed to the real key — no hook-swap is retroactive), and
+    CANNOT touch the ledger at all (DEK world, different lock system).
+  - The family's own attempt on the same box gives 7+14=21 ≠ 19 → **it simply
+    does not open**. So even with zero deliberate checks, the attack surfaces
+    as "new transactions won't load." Defense 2 only converts that confusing
+    breakage into an explained, actionable alarm + an approve-freeze.
+  - Swap-then-restore doesn't hide it either: boxes sealed during the window
+    stay permanently unopenable by the family — a block of undecryptable rows
+    left behind as evidence.
+  Net: an attacker owning the DB turns a would-be silent breach into a visible
+  outage bounded by "until the next unlock". That's the realistic ceiling once
+  someone owns your database, and it's why the pin + self-check pair is
+  proportionate rather than under-built.
+  **Alignment needed on 3 things before your spec locks:**
+  (a) OK with pin-in-Script-Properties as the robot-side mechanism (vs. a signed
+      key you'd have to bootstrap trust for anyway)?
+  (b) The mismatch alarm is a **blocking, family-wide** state, not a toast: it
+      freezes approve on new staged rows, pushes to all members, and states
+      that existing ledger data is untouched. UI drafted (screen 5 of the
+      bank-email prototype) — happy to hand it over / align copy.
+  (c) **Legit key rotation must announce itself through the authenticated path**
+      (proof carried under the DEK), or the first real rotation makes every
+      family device alarm at once. False alarms kill this screen's credibility
+      permanently — it gets zero cry-wolfs.
+  Also flagging for the same spec, unrelated to substitution but higher severity:
+  **Apps Script has no CSPRNG** (`crypto.getRandomValues` absent). `eph_priv`
+  MUST NOT come from `Math.random()` — predictable ephemerals make every sealed
+  box openable. Needs an explicit construction in the spec (seed from real
+  entropy once → HKDF/HMAC-counter DRBG in Script Properties).
 
 - **2026-08-07 (Hien's session) — PWA hardening Phase 6 landed (v296): platform hardening. HAS migration 0049.**
   1. **a11y:** zoom re-enabled (viewport dropped `maximum-scale`/`user-scalable=no`, WCAG 1.4.4);
@@ -70,6 +219,7 @@ input, instead of relaying messages through Slack/DMs by hand. See
      ⚠️ **HEADS-UP on 0048:** `0048_snapshot_windowing.sql` (mine) is now on main AND applied to live. Your
      `bank-email-known-providers-seed` branch note said it renumbered to **0048** too — please renumber that to
      **0050** (and anything after) before merging to main, so we don't end up with two different 0048_* files.
+     **Done (2026-08-07, bank-email session): renumbered to `0050_known_provider_domains_seed.sql` (commit `533f8d6`, third number for this one file — 0044→0048→0050). Branch is ready to merge + apply.**
      NOTE: the other security-advisor WARNs (≈30 SECURITY DEFINER RPCs executable by `authenticated`, `auth_family_id`
      executable by `anon`, `rls_enabled_no_policy` on the service-role bank-email/config tables, leaked-password
      protection) were reviewed and are **by-design** — do not "fix" them (they're the app's API surface / RLS helper /
@@ -202,6 +352,26 @@ input, instead of relaying messages through Slack/DMs by hand. See
      `fh-keys` from eviction). New i18n key `newVersion`.
   Next free migration number is still **0048** (Phase 1 added none).
 
+  **Update (2026-08-07, same session) — sharper framing after more analysis:**
+  - Option 2 is cheaper than first framed: sealed-box writes (TweetNaCl-style
+    ephemeral box to a family public key) run fine as pure JS inside Apps
+    Script — no backend change needed, no cost. The private key can be
+    DEK-wrapped (`encVal(dek, priv)`), so unlock/recovery/Key-Card migration
+    all ride your existing machinery; no new unlock ceremony.
+  - The real dependency is the **review UI**, not any backend: encrypting
+    staging before a decrypt-capable reader exists makes the pending queue
+    unreadable by everything. So the proposal is now: **Option 2 ships WITH
+    the review UI** (its decrypt side + keypair gen in 15-crypto.js is where
+    we'd want your hand), and the only open question is whether the gap until
+    then needs Option 1 as a stopgap at all.
+  - Two design consequences either way, flagging now: (a) **server-side dedup
+    dies** once amount is ciphertext — findDuplicate() queries `amount=eq.X`;
+    any server-computable blind index over VND amounts is dictionary-attackable,
+    so dedup should move client-side into the review step (where it works
+    better anyway); (b) **raw_body should be deleted at promotion/rejection**
+    regardless of option — it's the fattest sensitive payload and only needed
+    while a row is pending.
+
 - **2026-08-06 (Hien's session) — Key Card auth is LIVE (v280).** The 6-digit
   passcode is being replaced by a 128-bit Key Card as the safe key (spec:
   `KEY-CARD-AUTH-SPEC.md`). Migrations **0042→0047 applied + rehearsed on prod**
@@ -248,10 +418,6 @@ input, instead of relaying messages through Slack/DMs by hand. See
   the 11-bank VN seed list for the onboarding bank picker, idempotent
   (ON CONFLICT DO NOTHING).
 
-  *(Post-script, per `docs/COLLABORATION.md`'s incident writeup: `0048` was later
-  taken on `main` too by `0048_snapshot_windowing.sql` — see the Phase 6 entry
-  above — forcing a second renumber to `0050` on that branch, still unmerged.)*
-
 - **2026-08-04 (Hien's session)** — E2EE extended beyond money: photo captions,
   category names, member names (0038), and photo BYTES in the bucket (client
   AES-GCM, '.enc' objects, 0039). Not yet applied/deployed — strict order when
@@ -262,73 +428,43 @@ input, instead of relaying messages through Slack/DMs by hand. See
   match against client-side decrypted names (window.DB.catByName), never a
   server-side name query. Details in the 0038/0039 migration headers.
 
-- **2026-08-04 (from bank-email pipeline)** — `CSV-IMPORT-ENCRYPTION.md`'s
-  resolved decisions explicitly name this pipeline as needing the same
-  treatment. Three follow-ups, not urgent (pipeline is pre-production, no live
-  promotion step either side yet), flagging for visibility so nothing gets
-  built twice:
-  1. `email_transactions` (`0025`/`0027`/`0028`, live) has no `_enc` sibling
-     columns. Per the "staging tables get `_enc` columns from day one"
-     decision, needs a follow-up migration before the review-UI promotion
-     step can ship for any encrypted family. *(Still true as of the Open
-     Questions entry above — this is the same underlying question, elaborated
-     further there.)*
-  2. The extraction call sends Gemini the *entire* real email body on every
-     new (sender, subject_template) pair — no capped/masked sample like CSV
-     import's 15-row cap. Same category as CSV import's "Problem 1," arguably
-     worse (full content, not a sample). Needs the same masking treatment
-     once encryption is a live concern here.
-     **Resolved (2026-08-06, bank-email session):** built into
-     `bank-email-pipeline.gs` (Apps Script side) — `maskForSharing()` +
-     `unmaskExtraction()`, wired into both LLM paths, **unconditional** (no
-     enc-state gate, per the encryption-by-default product stance). Reversible
-     shape-preserving masking: the LLM extracts against fake tokens, real
-     values swapped back locally from the token map; dates stay real like the
-     CSV masker. Verified against the live Gemini API on the real MB Bank
-     sample — identical extraction quality, zero real values sent. Note re
-     item 3's "ping if the email shape needs more": it did — full unstructured
-     text needed regex passes over prose plus reversibility (values must come
-     BACK out of the model's answer), so this is an adapted sibling of
-     `43-redact-for-sharing.js` living in the Apps Script codebase, not a
-     second copy competing with it. Algorithm notes in
-     `bank-email-pipeline-extraction.md` (Downloads) → "Masking" section.
-  3. **Resolved (2026-08-04, CSV import session):** built —
-     `src/js-data/43-redact-for-sharing.js`, gated on `fhEncState() !== 'off'`.
-     `fhMaskSampleRowsForSharing(rows)` masks amount-shaped cells (keeps
-     digit-count/separator shape, randomizes digits per row) and free-text
-     cells (fixed generic placeholder), leaves dates alone. Verified against
-     the real Gemini endpoint — masked input produced the same mapping
-     confidence as real data. Reuse this rather than writing a second one;
-     ping if the email-extraction shape (full body text, not row/column
-     samples) needs something this doesn't already handle.
-  4. **New (2026-08-04, bank-email pipeline session)** — checked how the
-     existing bulk-logging auto-categorize (`guessCat()`/`familyCatForConcept()`
-     in `50-sheets-expense-capture.js`) avoids the `categories.name`
-     ciphertext-for-encrypted-families issue `0038` introduced: it matches
-     against `catOrder`/`catStyle`, client-side arrays already hydrated +
-     decrypted at load time — never a server-side name query, so it was never
-     actually at risk. Clarifies the real rule for the review UI (and anything
-     else doing category matching): the danger is specifically **server-side**
-     name-matching (a Vercel function, a Postgres RPC) with no access to the
-     client's decrypted category list — that's why CSV import's
-     `api/csv-column-mapping.js` hit it. Ordinary client-side JS matching
-     against the already-hydrated category list is safe by construction, same
-     as bulk-logging today. So: build the review UI's category step as normal
-     client-side JS (the natural way anyway) and this fix isn't even needed.
+- **2026-08-04 (from CSV import)** — Extended `_fh_enc_guard()` (0033) in a
+  locally-staged `0038_csv_transactions_staging.sql` to add a `csv_transactions`
+  branch (`create or replace function`, same pattern 0032/0033 already used on
+  it). Needed because the trigger dispatches on a fixed table-name list and
+  would otherwise fire-but-check-nothing on the new table. Purely additive —
+  the existing 8 branches are untouched — but flagging since it's your
+  function. **Resolved (2026-08-04, CSV import session):** renumbered to
+  `0043_csv_transactions_staging.sql` (0038–0042 were all taken by the time
+  this landed), pushed in `1a0d116`.
 
 ## Resolved
 
+- **2026-08-04 → closed 2026-08-09** — the bank-email pipeline encryption
+  follow-ups, all settled: (1) plaintext staging rows → superseded by the
+  sealed-box decision above; (2) full email body reaching the LLM → fixed,
+  `maskForSharing()`/`unmaskExtraction()` in `pipeline/bank-email-pipeline.gs`,
+  unconditional, plus local extraction templates so repeat senders never call
+  the LLM at all; (3) shared masker → CSV side built `43-redact-for-sharing.js`;
+  (4) `categories.name` matching → safe by construction when done client-side.
+  Original entry text is in git history for this file.
+
+- **2026-08-07** — Staging encryption for `email_transactions`: DECIDED (Hien,
+  via DM). Sealed-box envelope (Option 2), shipped together with the review UI —
+  no Option-1 stopgap. Ownership: Hien specs + builds the 15-crypto.js side and
+  provides an exact construction spec + test vector; bank-email side implements
+  the Apps Script seal against that vector (one format, two implementations).
+  His four build constraints, recorded verbatim-ish: (1) bind family_id + row id
+  INSIDE the sealed payload and verify on open (stops ciphertext relocation);
+  (2) dedup moves client-side, no server-side amount index; (3) family keypair
+  generated on-device with the DEK present — pub stored clear, priv stored as
+  encVal(dek, priv); (4) TweetNaCl on both ends for the envelope, WebCrypto only
+  for the priv-key wrap.
+
+- **2026-08-07** — `0050_known_provider_domains_seed`: reviewed + approved
+  ("zero-risk, merge & apply, go ahead"), merged to main. Live-DB apply +
+  ledger entry: pending (Supabase MCP auth on our side, or SQL-editor paste).
+
 - **2026-08-04** — CSV import × encryption compatibility (Gemini masking
   approach, promotion-write reuse, staging-table encryption columns). See
-  [`docs/features/csv-import.md`](docs/features/csv-import.md) (supersedes the
-  archived `CSV-IMPORT-ENCRYPTION.md`).
-
-- **2026-08-04 (from CSV import) — Resolved (2026-08-04, CSV import session).**
-  Extended `_fh_enc_guard()` (0033) in a locally-staged
-  `0038_csv_transactions_staging.sql` to add a `csv_transactions` branch
-  (`create or replace function`, same pattern 0032/0033 already used on it).
-  Needed because the trigger dispatches on a fixed table-name list and would
-  otherwise fire-but-check-nothing on the new table. Purely additive — the
-  existing 8 branches are untouched. Renumbered to
-  `0043_csv_transactions_staging.sql` (0038–0042 were all taken by the time
-  this landed), pushed in `1a0d116`.
+  `CSV-IMPORT-ENCRYPTION.md`.
