@@ -27,10 +27,12 @@ function openCsvImport(){
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='';
   var save=document.getElementById('csv-save'); if(save){ save.disabled=true; save.textContent=L('Nhập','Import'); }
   openSheet('csv-import-modal');
+  csvTryRestoreDraft();          // pick up a review left behind by an accidental close
 }
 
 // Back to the picker without closing the modal (the quiet escape under the review).
 function csvPickAnother(){
+  csvClearDraft();               // deliberately starting over
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
   csvReview = null; csvExpand = null;
@@ -94,6 +96,84 @@ function csvResolveAndRender(parsed, out){
   }).catch(function(e){
     if(out) out.innerHTML='<div class="sheet-sub">'+L('Có lỗi khi phân tích file: ','Something went wrong analyzing this file: ')+esc(String((e&&e.message)||e))+'</div>';
   });
+}
+
+/* ---- draft, mirroring the composer's persistDrafts() ----------------------
+   A 59-row review is real work; closing the modal by accident shouldn't lose
+   it. Same shape as bulk logging's draft: on-device only, and for a
+   committed-enc family the payload is ENCRYPTED before it touches
+   localStorage (a locked device simply doesn't persist, since it couldn't
+   import anyway). Cleared once the rows are actually imported. */
+var FH_CSV_DRAFT = 'fh-csv-import-draft';
+var _csvDraftSeq = 0;
+
+function csvDraftPayload(){
+  if(!csvReview) return null;
+  var slim = function(c){ return { description:c.description, amount:c.amount, dateDisplay:c.dateDisplay,
+    categoryName:c.categoryName, catSource:c.catSource, who:c.who, flags:c.flags||[], raw:c.raw||[] }; };
+  return { v:1, cur:CUR,
+    ready: csvReview.ready.map(slim),
+    groups: csvReview.groups.map(function(g){ return { key:g.key, items:g.items.map(slim) }; }),
+    dup: csvReview.dup.map(function(d){ return { c:slim(d.c), resolved:d.resolved,
+      hadExisting:!!d.c.duplicateOfExisting, hadBatch:!!d.c.duplicateOfBatch }; }),
+    deferred: csvReview.deferred.map(slim),
+    mixedSignsNote: csvReview.mixedSignsNote, rowsRead: (csvReview.parsed&&csvReview.parsed.rows.length)||0 };
+}
+
+function csvPersistDraft(){
+  try{
+    var data = csvDraftPayload();
+    if(!data || (!data.ready.length && !data.groups.length && !data.dup.length && !data.deferred.length)){
+      localStorage.removeItem(FH_CSV_DRAFT); return;
+    }
+    if(window.fhEncState && window.fhEncState()==='enc'){
+      if(!(window.fhKeyReady && window.fhKeyReady()) || !window.fhEncStr) return;
+      var seq = ++_csvDraftSeq;
+      window.fhEncStr(JSON.stringify(data)).then(function(ct){
+        if(!ct || seq!==_csvDraftSeq) return;          // a stale encrypt must not stomp a newer draft
+        try{ localStorage.setItem(FH_CSV_DRAFT, JSON.stringify({ v:2, enc:1, cur:CUR, ct:ct })); }catch(e){}
+      });
+      return;
+    }
+    localStorage.setItem(FH_CSV_DRAFT, JSON.stringify(data));
+  }catch(e){}
+}
+
+function csvClearDraft(){ try{ localStorage.removeItem(FH_CSV_DRAFT); }catch(e){} }
+
+function csvHydrateDraft(d){
+  if(!d || d.cur !== CUR) return false;
+  var thaw = function(c){ if(c.dateDisplay) c.date = new Date(c.dateDisplay+'T00:00:00'); return c; };
+  csvReview = {
+    parsed: { headers:[], rows:new Array(d.rowsRead||0) }, mapResult: null,
+    ready: (d.ready||[]).map(thaw),
+    groups: (d.groups||[]).map(function(g){ return { key:g.key, items:g.items.map(thaw) }; }),
+    dup: (d.dup||[]).map(function(x){ var c=thaw(x.c);
+      if(x.hadExisting) c.duplicateOfExisting = true; if(x.hadBatch) c.duplicateOfBatch = true;
+      return { c:c, resolved:x.resolved }; }),
+    deferred: (d.deferred||[]).map(thaw),
+    mixedSignsNote: !!d.mixedSignsNote,
+    fileCats: [], adoptedCats: [], catMerges: [], fallbackCount: 0, declinedAdopt: true,
+  };
+  csvExpand = null;
+  renderCsvReview();
+  return true;
+}
+
+// Restores a previous review if one was left behind. Returns true if it did.
+function csvTryRestoreDraft(){
+  var raw; try{ raw = localStorage.getItem(FH_CSV_DRAFT); }catch(e){ return false; }
+  if(!raw) return false;
+  var d; try{ d = JSON.parse(raw); }catch(e){ csvClearDraft(); return false; }
+  if(d && d.enc){
+    if(d.cur!==CUR || !window.fhDecStr) return false;
+    window.fhDecStr(d.ct).then(function(pt){
+      if(!pt) return;
+      try{ csvHydrateDraft(JSON.parse(pt)); }catch(e){}
+    });
+    return true;
+  }
+  return csvHydrateDraft(d);
 }
 
 function csvIncludedCount(){ return csvReview ? csvReview.ready.length : 0; }
@@ -247,8 +327,8 @@ function csvRowShape(c, isDup){
            cat: c.categoryName || '', _dup: !!isDup };
 }
 
-function csvCardHead(label, dateIso, removeFn){
-  return '<span class="bulk-head"><span class="bulk-idx">'+esc(label)+'</span>'
+function csvCardHead(label, dateIso, removeFn, attn){
+  return '<span class="bulk-head"><span class="bulk-idx'+(attn?' attn':'')+'">'+esc(label)+'</span>'
     + (dateIso ? '<span class="bulk-date">'+esc(bulkDate(dateIso))+'</span>' : '')
     + '</span>';
 }
@@ -257,7 +337,7 @@ function csvCollapsedCard(c, opts){
   var rm = opts.removeFn ? '<button type="button" class="bulk-x" onclick="'+opts.removeFn+'" aria-label="'+L('Xoá khoản này','Remove this item')+'">✕</button>' : '';
   return '<div class="bulk-card'+(opts.invalid?' invalid':'')+'">'
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
-    + csvCardHead(opts.label, opts.dateIso) + bulkSummary(csvRowShape(c, opts.isDup))
+    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid) + bulkSummary(csvRowShape(c, opts.isDup))
     + '</button>' + rm + '</div>';
 }
 
@@ -300,7 +380,7 @@ function csvActiveCard(c, opts){
   if(opts.buttons) body += '<div class="dup-actions" style="margin-top:14px">'+opts.buttons+'</div>';
 
   return '<div class="bulk-card active'+(opts.invalid?' invalid':'')+'">'
-    + '<div class="bulk-head">'+csvCardHead(opts.label, opts.dateIso)+rm+'</div>'
+    + '<div class="bulk-head">'+csvCardHead(opts.label, opts.dateIso, null, opts.invalid)+rm+'</div>'
     + '<div class="csv-card-body">'+body+'</div></div>';
 }
 
@@ -411,7 +491,7 @@ function renderCsvReview(){
   html += '<div class="review-summary">'+summaryLine+'</div>';
 
   if(attnHtml){
-    html += '<div class="group-h">'+L('Cần bạn xem','Needs your eye')+'</div><div class="csv-cards">'+attnHtml+'</div>';
+    html += '<div class="group-h attn">'+L('Cần bạn xem','Needs your eye')+'</div><div class="csv-cards">'+attnHtml+'</div>';
   }
 
   /* Ready list, grouped by date (newest first) -- same cards, no red border. */
@@ -459,6 +539,8 @@ function renderCsvReview(){
 
   out.innerHTML = html;
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='none';
+
+  csvPersistDraft();
 
   // Nav-bar Save, gated -- always reachable, grey until importable.
   var save = document.getElementById('csv-save');
@@ -579,6 +661,7 @@ function csvPromote(){
     });
     bulkActive = 0;
     exPhotos = [];
+    csvClearDraft();             // these rows are becoming real transactions now
     buildExCatChips();
     renderBulk();
     loadRow(0);

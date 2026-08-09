@@ -174,7 +174,10 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
    50-sheets-modals.css untouched -- nothing is restyled here. */
 .csv-cards{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
 .csv-card-body{padding:6px 14px 14px}
-.csv-expand-note{font-size:13px;color:var(--ink-2);line-height:1.5;margin-bottom:12px}
+.csv-expand-note{font-size:13px;color:var(--amber);font-weight:600;line-height:1.5;margin-bottom:12px}
+/* "Cần bạn xem" reads as a call to action, not a neutral section label. */
+.group-h.attn{color:var(--danger)}
+.bulk-card .bulk-idx.attn{color:var(--danger)}
 /* Trust strip above Import: count + total + span + what's left out. */
 .csv-check{background:var(--canvas);border-radius:16px;padding:14px 16px;margin-top:14px}
 .csv-check-main{font-family:var(--disp);font-size:15.5px;font-weight:700;letter-spacing:-.2px;color:var(--ink)}

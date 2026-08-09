@@ -151,10 +151,29 @@ var CSV_MERCHANTS = [
 function csvMerchantConcept(desc) {
   var t = ' ' + deburr(String(desc || '').toLowerCase()).replace(CSV_BANK_NOISE, ' ').replace(/\s+/g, ' ') + ' ';
   if (t.trim().length < 2) return '';
-  for (var i = 0; i < CSV_MERCHANTS.length; i++) {
+  var i, j;
+  for (i = 0; i < CSV_MERCHANTS.length; i++) {
     var concept = CSV_MERCHANTS[i][0], toks = CSV_MERCHANTS[i][1];
-    for (var j = 0; j < toks.length; j++) {
+    for (j = 0; j < toks.length; j++) {
       if (t.indexOf(deburr(toks[j])) >= 0) return concept;
+    }
+  }
+  /* Then the composer's OWN dictionary (KW_SHARED / KW_VI / KW_EN, the same
+     words bulk logging guesses from) applied as substrings. guessCat already
+     tried them whole-word and failed, because a bank memo glues tokens
+     together ("MBCTMoMo", "GRABVN"). One dictionary, two matching strictnesses
+     -- a word added there improves both surfaces. */
+  var dicts = [];
+  if (typeof KW_SHARED === 'object') dicts.push(KW_SHARED);
+  if (typeof KW_VI === 'object') dicts.push(KW_VI);
+  if (typeof KW_EN === 'object') dicts.push(KW_EN);
+  for (i = 0; i < dicts.length; i++) {
+    for (var cpt in dicts[i]) {
+      var list = dicts[i][cpt];
+      for (j = 0; j < list.length; j++) {
+        var w = deburr(String(list[j]).toLowerCase());
+        if (w.length >= 3 && t.indexOf(w) >= 0) return cpt;   // >=3 chars: "an"/"xe" would match anything
+      }
     }
   }
   return '';
