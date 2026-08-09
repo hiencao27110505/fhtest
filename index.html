@@ -7598,7 +7598,12 @@ function csvBuildReview(sources, opts){
     mixedSignsNote: mixed,
     fileCats: unknown,
     adoptedCats: adopted,
-    catMerges: Object.keys(csvCatMerges).map(function(k){ return { from:k, to:csvCatMerges[k] }; }),
+    /* Only report a merge into a category that already existed. After
+       adoption the second pass legitimately "merges" into a name we just
+       created, which is true but reads as a contradiction next to "added". */
+    catMerges: Object.keys(csvCatMerges)
+      .filter(function(k){ return adopted.indexOf(csvCatMerges[k]) < 0; })
+      .map(function(k){ return { from:k, to:csvCatMerges[k] }; }),
     summaryCount: candidates.filter(function(c){ return c.isSummaryRow; }).length,
     fallbackCount: buckets.ready.filter(function(c){ return c.catSource === 'fallback'; }).length,
     patternCount: buckets.ready.filter(function(c){ return c.catSource === 'pattern'; }).length,
@@ -7612,7 +7617,10 @@ function csvBuildReview(sources, opts){
    category takes). Returns the names actually added. */
 function csvAdoptCategories(names){
   var added = [];
-  names.forEach(function(name){
+  names.forEach(function(raw){
+    // Create it under the app's language, so a Vietnamese family never ends up
+    // with an English category just because their export was labelled that way.
+    var name = (typeof csvLocalizedCatName === 'function' && csvLocalizedCatName(raw)) || raw;
     if(catValid(name)) return;
     catOrder.push(name);
     catStyle[name] = [csvCatEmoji(name)].concat(CATPAL[catOrder.length % CATPAL.length]);
@@ -8221,6 +8229,50 @@ function _csvMonth(name) {
   return i === undefined ? null : i;
 }
 
+/* A family whose app is in Vietnamese shouldn't end up with an English
+   category because their export happened to be labelled that way. Names that
+   have a real equivalent are created in the app's language; anything genuinely
+   untranslatable keeps the file's own wording rather than getting a clumsy
+   invented name. Bilingual so it also works the other way round. */
+var CSV_CAT_NAMES = [
+  { vi:'Ăn uống',     en:'Dining',        match:['an uong','dining','food','eating','restaurant','ăn uống'] },
+  { vi:'Đi chợ',      en:'Groceries',     match:['di cho','groceries','grocery','mart','market','supermarket'] },
+  { vi:'Đi lại',      en:'Transport',     match:['di lai','di chuyen','transport','transportation','commute'] },
+  { vi:'Nhà ở',       en:'Housing',       match:['nha o','housing','rent','utilities','tien nha'] },
+  { vi:'Giải trí',    en:'Fun',           match:['giai tri','fun','entertainment','leisure'] },
+  { vi:'Mua sắm',     en:'Shopping',      match:['mua sam','shopping'] },
+  { vi:'Quần áo',     en:'Clothing',      match:['quan ao','clothing','clothes','apparel','fashion','thoi trang'] },
+  { vi:'Sức khỏe',    en:'Health',        match:['suc khoe','health','medical','healthcare','pharmacy','thuoc','y te'] },
+  { vi:'Học hành',    en:'Education',     match:['hoc hanh','education','tuition','school','hoc phi','courses'] },
+  { vi:'Bảo hiểm',    en:'Insurance',     match:['bao hiem','insurance'] },
+  { vi:'Du lịch',     en:'Travel',        match:['du lich','travel','trip','holiday','vacation'] },
+  { vi:'Thể thao',    en:'Sports',        match:['the thao','sports','gym','fitness'] },
+  { vi:'Làm đẹp',     en:'Beauty',        match:['lam dep','beauty','cosmetics','salon','spa','my pham'] },
+  { vi:'Thú cưng',    en:'Pets',          match:['thu cung','pets','pet'] },
+  { vi:'Quà tặng',    en:'Gifts',         match:['qua tang','gifts','gift','qua'] },
+  { vi:'Con cái',     en:'Kids',          match:['con cai','kids','children','baby','tre em'] },
+  { vi:'Dịch vụ số',  en:'Subscriptions', match:['dich vu so','subscriptions','subscription','streaming'] },
+  { vi:'Xăng xe',     en:'Fuel',          match:['xang xe','fuel','petrol','gas station','do xang'] },
+  { vi:'Điện thoại',  en:'Phone',         match:['dien thoai','phone','mobile','topup','nap the'] },
+  { vi:'Từ thiện',    en:'Charity',       match:['tu thien','charity','donation','quyen gop'] },
+  { vi:'Tiết kiệm',   en:'Savings',       match:['tiet kiem','savings','saving'] },
+  { vi:'Đầu tư',      en:'Investment',    match:['dau tu','investment','invest'] },
+  { vi:'Khác',        en:'Others',        match:['khac','other','others','misc','linh tinh'] },
+];
+
+// The app-language name for a file's category label, or '' when we have none.
+function csvLocalizedCatName(name) {
+  var g = deburr(String(name || '').trim().toLowerCase());
+  if (!g) return '';
+  for (var i = 0; i < CSV_CAT_NAMES.length; i++) {
+    var row = CSV_CAT_NAMES[i];
+    for (var j = 0; j < row.match.length; j++) {
+      if (g === deburr(row.match[j])) return (window.LANG === 'vi' || LANG === 'vi') ? row.vi : row.en;
+    }
+  }
+  return '';
+}
+
 var csvFuzzyCats = true;   // false while an undo is in effect
 var csvCatMerges = {};     // file name (normalized) -> the family category it merged into
 var csvCatAmbiguous = {};  // file names that matched 2+ existing categories
@@ -8259,6 +8311,16 @@ function matchCategoryName(guess) {
      (CONCEPT_MATCH, the composer's own map, which already lists food/dining/
      groceries/mart together) and then back to whichever category this family
      actually uses for it. An existing category always wins over a new one. */
+  var loc = csvLocalizedCatName(guess);
+  if (loc) {
+    for (i = 0; i < order.length; i++) {
+      if (deburr(order[i].toLowerCase()) === deburr(loc.toLowerCase())) {
+        csvCatMerges[String(guess).trim()] = order[i];
+        return order[i];
+      }
+    }
+  }
+
   if (hits.length === 0 && typeof CONCEPT_MATCH === 'object' && typeof familyCatForConcept === 'function') {
     for (var cpt in CONCEPT_MATCH) {
       var names = (CONCEPT_MATCH[cpt] && CONCEPT_MATCH[cpt].names) || [];

@@ -257,7 +257,12 @@ function csvBuildReview(sources, opts){
     mixedSignsNote: mixed,
     fileCats: unknown,
     adoptedCats: adopted,
-    catMerges: Object.keys(csvCatMerges).map(function(k){ return { from:k, to:csvCatMerges[k] }; }),
+    /* Only report a merge into a category that already existed. After
+       adoption the second pass legitimately "merges" into a name we just
+       created, which is true but reads as a contradiction next to "added". */
+    catMerges: Object.keys(csvCatMerges)
+      .filter(function(k){ return adopted.indexOf(csvCatMerges[k]) < 0; })
+      .map(function(k){ return { from:k, to:csvCatMerges[k] }; }),
     summaryCount: candidates.filter(function(c){ return c.isSummaryRow; }).length,
     fallbackCount: buckets.ready.filter(function(c){ return c.catSource === 'fallback'; }).length,
     patternCount: buckets.ready.filter(function(c){ return c.catSource === 'pattern'; }).length,
@@ -271,7 +276,10 @@ function csvBuildReview(sources, opts){
    category takes). Returns the names actually added. */
 function csvAdoptCategories(names){
   var added = [];
-  names.forEach(function(name){
+  names.forEach(function(raw){
+    // Create it under the app's language, so a Vietnamese family never ends up
+    // with an English category just because their export was labelled that way.
+    var name = (typeof csvLocalizedCatName === 'function' && csvLocalizedCatName(raw)) || raw;
     if(catValid(name)) return;
     catOrder.push(name);
     catStyle[name] = [csvCatEmoji(name)].concat(CATPAL[catOrder.length % CATPAL.length]);
