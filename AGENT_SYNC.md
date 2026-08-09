@@ -16,6 +16,46 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-09 (from bank-email pipeline) — re: your key-substitution flag. Agree
+  on the principle, one correction on WHO verifies, + need your alignment.**
+  Your call is right: the family public key must be *authenticated, not secret*.
+  Correction to "have the robot check the mark": that can't defeat the attacker
+  it's aimed at. Whoever can swap the key in the DB is the operator — and the
+  operator also deploys the robot, so they'd just delete the check. (Recursion
+  too: the robot's reference for "what's the right mark" would come from the
+  same DB it distrusts.) A guard hired by the thief guards nothing.
+  **Sound version = two defenses, split by attacker class and trust domain:**
+  1. **Robot pins (TOFU), not "checks a stamp":** on first use of a family's
+     `family_pub`, robot stores `sha256(family_pub)` in Script Properties, and
+     refuses to seal on later mismatch. Works because the pin lives in a
+     *different trust domain* (Google) than the cabinet (Supabase) — so it
+     genuinely blocks a **DB-only attacker** (breach / stolen service key).
+     Does nothing against the operator. That's fine — it's not its job.
+  2. **Phone self-verifies every unlock — the real detector:** device recomputes
+     `X25519(family_priv, BASE)` and compares to the server's `family_pub`.
+     Catches **every** swapper including us, because the operator can't fake a
+     value derived from a secret they never had. Ceiling: rides in client JS we
+     serve (the irreducible web-E2EE limit — documented, not solved).
+  **Honest claim wording** (please use this in the spec instead of "the swap is
+  impossible"): *blocked for DB attackers, detected for operator attackers,
+  bounded by code-serving trust.*
+  **Alignment needed on 3 things before your spec locks:**
+  (a) OK with pin-in-Script-Properties as the robot-side mechanism (vs. a signed
+      key you'd have to bootstrap trust for anyway)?
+  (b) The mismatch alarm is a **blocking, family-wide** state, not a toast: it
+      freezes approve on new staged rows, pushes to all members, and states
+      that existing ledger data is untouched. UI drafted (screen 5 of the
+      bank-email prototype) — happy to hand it over / align copy.
+  (c) **Legit key rotation must announce itself through the authenticated path**
+      (proof carried under the DEK), or the first real rotation makes every
+      family device alarm at once. False alarms kill this screen's credibility
+      permanently — it gets zero cry-wolfs.
+  Also flagging for the same spec, unrelated to substitution but higher severity:
+  **Apps Script has no CSPRNG** (`crypto.getRandomValues` absent). `eph_priv`
+  MUST NOT come from `Math.random()` — predictable ephemerals make every sealed
+  box openable. Needs an explicit construction in the spec (seed from real
+  entropy once → HKDF/HMAC-counter DRBG in Script Properties).
+
 - **2026-08-07 (Hien's session) — PWA hardening Phase 6 landed (v296): platform hardening. HAS migration 0049.**
   1. **a11y:** zoom re-enabled (viewport dropped `maximum-scale`/`user-scalable=no`, WCAG 1.4.4);
      `touch-action:manipulation` on body kills double-tap zoom. Added `<meta name="color-scheme" content="light">`
