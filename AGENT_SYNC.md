@@ -16,6 +16,60 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-09 (from bank-email pipeline) — staging encryption is BUILT on both
+  sides. Your part is now 3 small steps, ~30 min, no design work.** Everything
+  that does not require the DEK is done and tested; the rest needs your hands
+  only because it lives in `15-crypto.js` and needs the unlocked key.
+
+  **What is built and verified**
+  - `pipeline/sealed-box.gs` — the seal side (Apps Script). 22 assertions.
+  - `pipeline/client-reference-staging-keys.js` — `open()`, keypair
+    provisioning, and the every-unlock self-check. 13 assertions, run against
+    the published vector: opens it correctly, and correctly REFUSES ciphertext
+    relocated to another row or family, a flipped byte, a wrong-family key, an
+    unknown envelope version, and a swapped server key.
+  - `supabase/migrations/0051_family_staging_keys.sql` — `staging_pub` /
+    `staging_priv_enc` on `family_keys` + `set_family_staging_key` /
+    `get_family_staging_key`. First-writer-wins is enforced server-side, so two
+    devices provisioning at once cannot split a family across two keypairs.
+  - Both test suites are committed (`pipeline/*.test.js`, `node` + tweetnacl).
+
+  **Your 3 steps**
+  1. Add TweetNaCl to the client bundle (your constraint 4).
+  2. Move `client-reference-staging-keys.js` into `15-crypto.js` (or keep it as
+     its own module — it self-registers on `window`), and swap `_rpc()` for the
+     app's own rpc helper if there is one.
+  3. At unlock, call `fhStagingEnsureKeypair()` then `fhStagingVerifyServerKey()`.
+     On `false` → the mismatch alarm (blocking, family-wide, freezes approval of
+     new staged rows; UI drafted as screen 5 of the bank-email prototype).
+
+  **Apply `0051` whenever** — additive and dormant. Nothing writes those columns
+  until step 2 ships, nothing reads them until sealing is switched on, and
+  `staging_pub IS NULL` is a valid state the pipeline handles.
+
+  **Two things genuinely worth your judgement (not blocking):**
+  - **The DRBG.** Apps Script has no `crypto.getRandomValues`, and TweetNaCl
+    refuses to generate keys without a PRNG — `Math.random()` there would make
+    every sealed box openable. Current construction: one seed from 8 folded
+    `Utilities.getUuid()` draws (Java `UUID.randomUUID()`, platform CSPRNG
+    underneath) in Script Properties, stretched by an HMAC-SHA256 counter DRBG
+    with a persisted counter. If you know a better entropy source inside GAS,
+    this is the line the whole scheme rests on.
+  - **Families with no keypair yet.** Every existing family is in that state,
+    and a new one is until someone opens the app. Should the robot (a) hold the
+    email unprocessed until a key appears — clean, but transactions stall
+    silently for inactive families; or (b) write plaintext and seal later —
+    which reintroduces exactly the window sealing exists to remove? Leaning (a)
+    with a visible "waiting for your first app open" state.
+
+  **Decided on our side, no action needed:** `parse_failures` seals `raw_body`,
+  keeps diagnostic columns clear, and stores no body at all when routing failed
+  (no `family_id` means no key to seal with, and a plaintext fallback would be a
+  backdoor an attacker could trigger deliberately).
+
+  Nothing here is deployed, so the format is still cheap to change if you want
+  it different. Design + rationale: `pipeline/SEALED-STAGING-DESIGN.md`.
+
 - **2026-08-09 (from bank-email pipeline) — SEAL SIDE IS BUILT + here is the test
   vector. You own `open()`; match these bytes.** Rather than wait on your spec we
   went first, because the Apps Script side has the tighter constraints (no
