@@ -290,59 +290,16 @@ relaying messages through Slack/DMs by hand.
   `0043_csv_transactions_staging.sql` (0038–0042 were all taken by the time
   this landed), pushed in `1a0d116`.
 
-- **2026-08-04 (from bank-email pipeline)** — `CSV-IMPORT-ENCRYPTION.md`'s
-  resolved decisions explicitly name this pipeline as needing the same
-  treatment. Three follow-ups, not urgent (pipeline is pre-production, no live
-  promotion step either side yet), flagging for visibility so nothing gets
-  built twice:
-  1. `email_transactions` (`0025`/`0027`/`0028`, live) has no `_enc` sibling
-     columns. Per the "staging tables get `_enc` columns from day one"
-     decision, needs a follow-up migration before the review-UI promotion
-     step can ship for any encrypted family.
-  2. The extraction call sends Gemini the *entire* real email body on every
-     new (sender, subject_template) pair — no capped/masked sample like CSV
-     import's 15-row cap. Same category as CSV import's "Problem 1," arguably
-     worse (full content, not a sample). Needs the same masking treatment
-     once encryption is a live concern here.
-     **Resolved (2026-08-06, bank-email session):** built into
-     `bank-email-pipeline.gs` (Apps Script side) — `maskForSharing()` +
-     `unmaskExtraction()`, wired into both LLM paths, **unconditional** (no
-     enc-state gate, per the encryption-by-default product stance). Reversible
-     shape-preserving masking: the LLM extracts against fake tokens, real
-     values swapped back locally from the token map; dates stay real like the
-     CSV masker. Verified against the live Gemini API on the real MB Bank
-     sample — identical extraction quality, zero real values sent. Note re
-     item 3's "ping if the email shape needs more": it did — full unstructured
-     text needed regex passes over prose plus reversibility (values must come
-     BACK out of the model's answer), so this is an adapted sibling of
-     `43-redact-for-sharing.js` living in the Apps Script codebase, not a
-     second copy competing with it. Algorithm notes in
-     `bank-email-pipeline-extraction.md` (Downloads) → "Masking" section.
-  3. **Resolved (2026-08-04, CSV import session):** built —
-     `src/js-data/43-redact-for-sharing.js`, gated on `fhEncState() !== 'off'`.
-     `fhMaskSampleRowsForSharing(rows)` masks amount-shaped cells (keeps
-     digit-count/separator shape, randomizes digits per row) and free-text
-     cells (fixed generic placeholder), leaves dates alone. Verified against
-     the real Gemini endpoint — masked input produced the same mapping
-     confidence as real data. Reuse this rather than writing a second one;
-     ping if the email-extraction shape (full body text, not row/column
-     samples) needs something this doesn't already handle.
-  4. **New (2026-08-04, bank-email pipeline session)** — checked how the
-     existing bulk-logging auto-categorize (`guessCat()`/`familyCatForConcept()`
-     in `50-sheets-expense-capture.js`) avoids the `categories.name`
-     ciphertext-for-encrypted-families issue `0038` introduced: it matches
-     against `catOrder`/`catStyle`, client-side arrays already hydrated +
-     decrypted at load time — never a server-side name query, so it was never
-     actually at risk. Clarifies the real rule for the review UI (and anything
-     else doing category matching): the danger is specifically **server-side**
-     name-matching (a Vercel function, a Postgres RPC) with no access to the
-     client's decrypted category list — that's why CSV import's
-     `api/csv-column-mapping.js` hit it. Ordinary client-side JS matching
-     against the already-hydrated category list is safe by construction, same
-     as bulk-logging today. So: build the review UI's category step as normal
-     client-side JS (the natural way anyway) and this fix isn't even needed.
-
 ## Resolved
+
+- **2026-08-04 → closed 2026-08-09** — the bank-email pipeline encryption
+  follow-ups, all settled: (1) plaintext staging rows → superseded by the
+  sealed-box decision above; (2) full email body reaching the LLM → fixed,
+  `maskForSharing()`/`unmaskExtraction()` in `pipeline/bank-email-pipeline.gs`,
+  unconditional, plus local extraction templates so repeat senders never call
+  the LLM at all; (3) shared masker → CSV side built `43-redact-for-sharing.js`;
+  (4) `categories.name` matching → safe by construction when done client-side.
+  Original entry text is in git history for this file.
 
 - **2026-08-07** — Staging encryption for `email_transactions`: DECIDED (Hien,
   via DM). Sealed-box envelope (Option 2), shipped together with the review UI —
