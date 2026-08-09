@@ -39,6 +39,27 @@ relaying messages through Slack/DMs by hand.
   **Honest claim wording** (please use this in the spec instead of "the swap is
   impossible"): *blocked for DB attackers, detected for operator attackers,
   bounded by code-serving trust.*
+  **Blast radius — why detection (not just prevention) is an adequate answer
+  here.** What a successful swapper gets is narrow and *noisy*, which is the
+  whole reason we're not building something heavier:
+  - They CAN read staged rows sealed **after** the swap (robot can't tell
+    padlocks apart — it seals to whatever is on the hook). In toy numbers:
+    attacker hangs pub 15 (secret 5); robot's eph 4/14 → blend 4+15=19;
+    attacker computes 5+14=19 → opens.
+  - They CANNOT read anything sealed **before** the swap (ciphertext already
+    written was sealed to the real key — no hook-swap is retroactive), and
+    CANNOT touch the ledger at all (DEK world, different lock system).
+  - The family's own attempt on the same box gives 7+14=21 ≠ 19 → **it simply
+    does not open**. So even with zero deliberate checks, the attack surfaces
+    as "new transactions won't load." Defense 2 only converts that confusing
+    breakage into an explained, actionable alarm + an approve-freeze.
+  - Swap-then-restore doesn't hide it either: boxes sealed during the window
+    stay permanently unopenable by the family — a block of undecryptable rows
+    left behind as evidence.
+  Net: an attacker owning the DB turns a would-be silent breach into a visible
+  outage bounded by "until the next unlock". That's the realistic ceiling once
+  someone owns your database, and it's why the pin + self-check pair is
+  proportionate rather than under-built.
   **Alignment needed on 3 things before your spec locks:**
   (a) OK with pin-in-Script-Properties as the robot-side mechanism (vs. a signed
       key you'd have to bootstrap trust for anyway)?
