@@ -1,3 +1,8 @@
+> **Archived — superseded by [`docs/features/key-card-auth.md`](docs/features/key-card-auth.md).**
+> Kept for historical reference; not maintained. The status line below ("proposal, not
+> built") is stale — Key Card auth has been live since v280; see the new doc for current
+> state.
+
 # FamilyHub — Key Card authentication (spec + migration plan)
 
 Status: **proposal, not built.** Supersedes the 6-digit passcode as the "safe key."

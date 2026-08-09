@@ -186,8 +186,24 @@
     _fhSheet(html);
   };
 
+  /* Settings → My profile: edit your own name + color (avatar picker added in a
+     later phase). Onboarding no longer asks for these — the name is seeded from
+     the Google account — so this is where a member changes how the family sees
+     them. Opens the shared member editor pointed at the current user's own row. */
+  window.fhMyProfile = async function () {
+    const fid = window.DB && window.DB.fid, uid = window.fhUser && window.fhUser.id;
+    if (!fid || !uid) { window.toast && window.toast(L('Hãy mở một gia đình trước', 'Open a family first')); return; }
+    const { data: me } = await sb.from('members')
+      .select('id,name,name_enc,color,is_shared,user_id')
+      .eq('family_id', fid).eq('user_id', uid).eq('is_shared', false).maybeSingle();
+    if (!me) { window.toast && window.toast(L('Không tìm thấy hồ sơ của bạn', 'Couldn’t find your profile')); return; }
+    me.name = (await fhRead(me, 'name')) || L('Thành viên', 'Member');
+    window._fhMembers = [me];
+    window.fhEditMember(me.id, L('Hồ sơ của tôi', 'My profile'));
+  };
+
   /* Editing a member is a form → modal with Cancel · Title · Save (DESIGN §4). */
-  window.fhEditMember = function (id) {
+  window.fhEditMember = function (id, title) {
     const m = (window._fhMembers || []).find((x) => x.id === id) || { name: '', color: '' };
     window._fhMColor = m.color || _pal()[0];
     window._fhMName0 = m.name || '';
@@ -195,7 +211,7 @@
       '<button class="fh-s-sw' + (c === window._fhMColor ? ' on' : '') + '" data-c="' + c + '" aria-label="' + L('Màu','Colour') + ' ' + c + '"'
       + ' onclick="fhPickMColor(this)"><i style="background:' + c + '"></i></button>').join('');
     _fhModal({
-      title: L('Sửa thành viên','Edit member'),
+      title: title || L('Sửa thành viên','Edit member'),
       saveLabel: L('Lưu','Save'),
       body: '<div class="field"><label>' + L('Tên','Name') + '</label>'
         + '<input id="fh-mname" value="' + _esc(m.name) + '" placeholder="' + L('Tên','Name') + '" oninput="fhModalDirty()"></div>'

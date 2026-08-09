@@ -109,6 +109,17 @@
     if (typeof window.fhClearInvalid === 'function') window.fhClearInvalid('ob-code-boxes');   // Join stays enabled; obJoin() gates on tap (DESIGN §4.4)
   };
 
+  // Joiner identity comes from the Google account now (the profile step was
+  // retired): seed the single "you" member with the Google name + auto color and
+  // advance straight to the theme step. Name/color are editable later in Settings.
+  function _obJoinToTheme() {
+    if (window.obEnsureUserIdentity) window.obEnsureUserIdentity();
+    const u = (window.FAM && window.FAM.user) || {};
+    if (window.FAM) window.FAM.members = [{ name: u.name || '', email: u.email || '', color: u.color, me: true }];
+    const tb = document.getElementById('ob-theme-back'); if (tb) tb.setAttribute('onclick', "obGo('join')");
+    window.obGo('theme');
+  }
+
   window.obJoin = async function () {
     if (!_fhJoinCtx) { try { await window.obJoinPrep(); } catch (e) {} }
     // ── Card family: no code. Whitelist + Google SSO is the door; the card
@@ -132,9 +143,7 @@
         return;
       }
       if (cta0) { cta0.disabled = false; cta0.textContent = label0; }
-      const back0 = document.getElementById('ob-profile-back'); if (back0) back0.setAttribute('onclick', "obGo('join')");
-      if (typeof window.obPrefillProfile === 'function') window.obPrefillProfile();
-      window.obGo('profile');
+      _obJoinToTheme();
       return;
     }
     const el = document.getElementById('ob-code');
@@ -178,9 +187,7 @@
       return;
     }
     if (cta) { cta.disabled = false; cta.textContent = label; }
-    const back = document.getElementById('ob-profile-back'); if (back) back.setAttribute('onclick', "obGo('join')");
-    if (typeof window.obPrefillProfile === 'function') window.obPrefillProfile();
-    window.obGo('profile');
+    _obJoinToTheme();
   };
 
   // entering the join screen loads the invite (wraps the js-ui obGo)

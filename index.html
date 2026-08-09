@@ -2995,6 +2995,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="sheet-sub" data-t="settingsSub">Pick a theme. It applies across the whole app.</div>
   <div class="theme-grid" id="theme-grid"></div>
   <div class="set-actions">
+    <button class="set-row" onclick="closeSheet();fhMyProfile()"><span class="set-ic">🙂</span><span class="set-t" data-t="setMyProfile">My profile</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhLanguageSheet()"><span class="set-ic">🌐</span><span class="set-t" data-t="setLanguage">Language</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t" data-t="setSwitchFamily">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t" data-t="inviteMember2">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -3146,32 +3147,8 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="ob-foot"><button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta">Join family</button></div>
   </section>
 
-  <section class="ob-screen" data-ob="profile">
-    <div class="ob-top"><button class="ob-back2" id="ob-profile-back" onclick="obGo('choice')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="profileTitle">Set up your profile</div><div class="ob-sub" data-t="profileSub">This is how your family will see you.</div></div>
-      <div class="ob-avatar" id="ob-avatar">?</div>
-      <div class="ob-colors" id="ob-colors"></div>
-      <div class="field"><label data-t="yourName">Your name</label><input id="ob-name" data-tp="phObName" placeholder="e.g. Emma" oninput="obNameInput()"></div>
-      <div class="field"><label data-t="youAreThe">You are the…</label><div class="choices" id="ob-role">
-        <button class="choice on" data-v="Mom" onclick="pick('ob-role',this)">Mom</button>
-        <button class="choice" data-v="Dad" onclick="pick('ob-role',this)">Dad</button>
-        <button class="choice" data-v="Husband" onclick="pick('ob-role',this)">Husband</button>
-        <button class="choice" data-v="Wife" onclick="pick('ob-role',this)">Wife</button>
-        <button class="choice" data-v="Boyfriend" onclick="pick('ob-role',this)">Boyfriend</button>
-        <button class="choice" data-v="Sweetheart" onclick="pick('ob-role',this)">Sweetheart</button>
-        <button class="choice" data-v="Coldheart" onclick="pick('ob-role',this)">Coldheart</button>
-        <button class="choice" data-v="Man of steel" onclick="pick('ob-role',this)">Man of steel</button>
-        <button class="choice" data-v="Partner" onclick="pick('ob-role',this)">Partner</button>
-        <button class="choice" data-v="Parent" onclick="pick('ob-role',this)">Parent</button>
-        <button class="choice" data-v="Guardian" onclick="pick('ob-role',this)">Guardian</button>
-      </div></div>
-    </div>
-    <div class="ob-foot"><button class="cta" onclick="obProfileNext()">Continue</button></div>
-  </section>
-
   <section class="ob-screen" data-ob="family">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('profile')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('choice')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
       <div class="ob-head"><div class="ob-h1" data-t="setFamilyTitle">Set up your family</div><div class="ob-sub" data-t="setFamilySub">Name it and invite who's in it.</div></div>
       <div class="field"><label data-t="familyName">Family name</label><input id="ob-famname" data-tp="phFamName" placeholder="e.g. The Reeds"></div>
@@ -9490,7 +9467,7 @@ var EN_DEFAULT={
   photoLbl:'Photo', uploadPhotos:'📷 Upload photos', captionOpt:'Caption (optional)', phMemCap:'e.g. Best day of the trip',
   /* settings sheet */
   settingsTitle:'Settings', settingsSub:'Pick a theme. It applies across the whole app.',
-  setLanguage:'Language', setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setEncryption:'Money encryption',
+  setMyProfile:'My profile', setLanguage:'Language', setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setEncryption:'Money encryption',
   setSavedEvents:'Saved for events', setIncome:'Income', setNotifications:'Notifications', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out',
   /* generic edit modal */
   fhModalEdit:'Edit',
@@ -9599,7 +9576,7 @@ var I18N={
     photoLbl:'Ảnh', uploadPhotos:'📷 Tải ảnh lên', captionOpt:'Chú thích (tuỳ chọn)', phMemCap:'vd. Ngày vui nhất chuyến đi',
     /* settings sheet */
     settingsTitle:'Cài đặt', settingsSub:'Chọn giao diện, áp dụng cho cả ứng dụng.',
-    setLanguage:'Ngôn ngữ', setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setEncryption:'Mã hóa tài chính',
+    setMyProfile:'Hồ sơ của tôi', setLanguage:'Ngôn ngữ', setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setEncryption:'Mã hóa tài chính',
     setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setNotifications:'Thông báo', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất',
     /* generic edit modal */
     fhModalEdit:'Chỉnh sửa',
@@ -9636,12 +9613,6 @@ function applyLang(){
     if(!el.getAttribute('data-ena')) el.setAttribute('data-ena', el.getAttribute('aria-label')||'');
     el.setAttribute('aria-label', (LANG==='vi' && I18N.vi[k]!==undefined) ? I18N.vi[k] : (EN_DEFAULT[k]!==undefined ? EN_DEFAULT[k] : el.getAttribute('data-ena')));
   });
-  // Onboarding profile role chips carry no data-t (their labels live in OB_ROLE_LABELS,
-  // keyed by data-v) — localize them here so a Vietnamese user sees Vietnamese roles.
-  var _rl=window.OB_ROLE_LABELS;
-  if(_rl) document.querySelectorAll('#ob-role .choice').forEach(function(b){
-    var m=_rl[b.dataset.v]; if(m) b.textContent=(LANG==='vi')?m[0]:m[1];
-  });
   document.documentElement.lang = LANG==='vi'?'vi':'en';
   setGreeting();
 }
@@ -9654,8 +9625,8 @@ var FAM={
 };
 var OB_COLORS=['#6f3fc0','#0e8478','#f0701a','#e03d86','#1e74d0','#B8730B','#7A5AE0','#1a9d5f'];
 var OB_ROLES=['Mom','Dad','Husband','Wife','Boyfriend','Girlfriend','Partner','Sweetheart','Sweetie','Coldheart','Man of steel','Parent','Son','Daughter','Kid','Teen','Sibling','Guardian','Grandma','Grandpa','Other'];
-var obOrder=['welcome','locale','auth','choice','join','profile','family','budget','theme','done'];   // 'passcode' retired — new families are born on the Key Card (0043), introduced after onboarding
-var obProg={welcome:0,locale:.1,auth:.2,choice:.34,join:.52,profile:.6,family:.72,passcode:.79,budget:.86,theme:.93,done:1};
+var obOrder=['welcome','locale','auth','choice','join','family','budget','theme','done'];   // 'profile' + 'passcode' retired — name/avatar come from the Google account (edited later in Settings → My profile); families are born on the Key Card (0043)
+var obProg={welcome:0,locale:.12,auth:.24,choice:.4,join:.56,family:.72,budget:.86,theme:.94,done:1};
 function obPickLang(btn){ pick('ob-lang',btn); LANG=btn.dataset.v; applyLang(); }
 function obPickCur(btn){ pick('ob-cur',btn); CUR=btn.dataset.v; }
 function inits(n){ return ((n||'').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2)||'?').toUpperCase(); }
@@ -9668,7 +9639,7 @@ function obGo(name){
     var i=obOrder.indexOf(s.dataset.ob);
     s.classList.toggle('on', i===ci); s.classList.toggle('past', i<ci);
   });
-  var p = (name==='profile' && FAM.mode==='join') ? .78 : (obProg[name]||0);
+  var p = obProg[name]||0;
   document.getElementById('ob-bar').style.width=(p*100)+'%';
   document.getElementById('ob-progress').classList.toggle('show', name!=='welcome');
   if(name==='join'){ var c=document.getElementById('ob-code'); renderCodeBoxes(c.value); setTimeout(function(){ c.focus(); },320); }
@@ -9705,7 +9676,15 @@ function obGoogle(){
 function obChoose(mode){
   FAM.mode=mode;
   if(mode==='join'){ obGo('join'); }
-  else { document.getElementById('ob-profile-back').setAttribute('onclick',"obGo('choice')"); obPrefillProfile(); obGo('profile'); }
+  else { obEnsureUserIdentity(); obPrefillFamily(); obGo('family'); }   // profile step retired — name from Google, color auto-assigned
+}
+// Identity now comes from the Google account (afterLogin seeds FAM.user.name).
+// Give the member a stable avatar color derived from the email/name; both are
+// editable later in Settings → My profile. Onboarding never asks for name/role/color.
+function obUserColor(){ var s=(FAM.user.email||FAM.user.name||'x'), h=0,i; for(i=0;i<s.length;i++){ h=((h*31)+s.charCodeAt(i))>>>0; } return OB_COLORS[h%OB_COLORS.length]; }
+function obEnsureUserIdentity(){
+  if(!FAM.user.name){ var em=FAM.user.email||''; FAM.user.name = em ? em.split('@')[0] : L('Tôi','Me'); }
+  FAM.user.color = obUserColor();
 }
 /* Placeholder pair — the data module (65-passcode-ui) replaces both with the
    real find-invite + join_with_passcode flow. Offline/CDN-blocked, joining is
@@ -9720,24 +9699,7 @@ function obJoin(){
   if(!/^\d{6}$/.test(code)){ if(typeof fhFlagField==='function') fhFlagField(document.getElementById('ob-code-boxes')); if(el)el.focus(); toast(L('Nhập đủ 6 chữ số','Enter all 6 digits')); return; }
   toast(L('Không kết nối được máy chủ. Kiểm tra mạng và thử lại','Can’t reach the server. Check your connection and try again'));
 }
-function renderObColors(){
-  document.getElementById('ob-colors').innerHTML=OB_COLORS.map(function(c){
-    return '<button class="ob-swatch'+(c===FAM.user.color?' on':'')+'" style="background:'+c+'" onclick="obPickColor(\''+c+'\')"></button>';
-  }).join('');
-}
-function obPickColor(c){ FAM.user.color=c; renderObColors(); obNameInput(); }
-function obNameInput(){
-  var a=document.getElementById('ob-avatar'), n=document.getElementById('ob-name').value;
-  a.textContent=inits(n); a.style.background=FAM.user.color;
-}
-function obPrefillProfile(){ document.getElementById('ob-name').value=''; renderObColors(); obNameInput(); }
-function obProfileNext(){
-  var n=document.getElementById('ob-name').value.trim(); if(!n){ document.getElementById('ob-name').focus(); return; }
-  FAM.user.name=n; FAM.user.role=chosen('ob-role')||'Parent';
-  if(FAM.mode==='create'){ obPrefillFamily(); obGo('family'); }
-  else { FAM.members=[{name:n,email:FAM.user.email||'',color:FAM.user.color,role:FAM.user.role,me:true}]; document.getElementById('ob-theme-back').setAttribute('onclick',"obGo('profile')"); obGo('theme'); }
-}
-function obMemberRowHTML(name,email,role,color,me){
+function obMemberRowHTML(name,email,color,me){
   return '<div class="ob-mcard">'
     +'<div class="ob-mrow"><div class="ob-mav" style="background:'+color+'">'+esc(inits(name))+'</div>'
     +'<input class="ob-mname" value="'+esc(name)+'" placeholder="'+L('vd. Mai','e.g. Emma')+'"'+(me?' readonly':'')+' oninput="obSyncMav(this)">'
@@ -9745,17 +9707,16 @@ function obMemberRowHTML(name,email,role,color,me){
     +'</div>'
     +'<div class="ob-mfields">'
     +'<input class="ob-memail" type="email" inputmode="email" autocapitalize="off" placeholder="name@gmail.com" value="'+esc(email)+'"'+(me?' readonly':'')+'>'
-    +'<select class="ob-mrole">'+roleOpts(role)+'</select>'
     +'</div></div>';
 }
 function obSyncMav(inp){ var av=inp.previousElementSibling; if(av) av.textContent=inits(inp.value); }
 function obPrefillFamily(){
   document.getElementById('ob-famname').value='';                 // start empty — the user names it
-  document.getElementById('ob-members').innerHTML=obMemberRowHTML(FAM.user.name,FAM.user.email||'',FAM.user.role,FAM.user.color,true);
+  document.getElementById('ob-members').innerHTML=obMemberRowHTML(FAM.user.name,FAM.user.email||'',FAM.user.color,true);
 }
 function obAddMember(){
   var used=document.querySelectorAll('#ob-members .ob-mcard').length;
-  document.getElementById('ob-members').insertAdjacentHTML('beforeend', obMemberRowHTML('','','Kid',OB_COLORS[(used+2)%OB_COLORS.length],false));
+  document.getElementById('ob-members').insertAdjacentHTML('beforeend', obMemberRowHTML('','',OB_COLORS[(used+2)%OB_COLORS.length],false));
 }
 function obFamilyNext(){
   var fn=document.getElementById('ob-famname').value.trim(); if(!fn){ document.getElementById('ob-famname').focus(); return; }
@@ -9763,9 +9724,9 @@ function obFamilyNext(){
   var mems=[];
   document.querySelectorAll('#ob-members .ob-mcard').forEach(function(row,i){
     var nm=row.querySelector('.ob-mname').value.trim(); if(!nm)return;
-    mems.push({name:nm, email:(row.querySelector('.ob-memail')||{value:''}).value.trim(), role:row.querySelector('.ob-mrole').value, color:row.querySelector('.ob-mav').style.background||OB_COLORS[i%OB_COLORS.length], me:!!row.querySelector('.ob-mtag')});
+    mems.push({name:nm, email:(row.querySelector('.ob-memail')||{value:''}).value.trim(), color:row.querySelector('.ob-mav').style.background||OB_COLORS[i%OB_COLORS.length], me:!!row.querySelector('.ob-mtag')});
   });
-  FAM.members=mems.length?mems:[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,role:FAM.user.role,me:true}];
+  FAM.members=mems.length?mems:[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,me:true}];
   // passcode step retired: go straight to budget. The Key Card is generated on
   // create and introduced after onboarding (0043).
   obPrefillBudget(); obGo('budget');
@@ -9877,10 +9838,9 @@ function finishOnboarding(){
 function restartOnboarding(){
   try{ localStorage.removeItem('fh-onboarded'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-lang'); localStorage.removeItem('fh-cur'); }catch(e){}
   LANG='en'; CUR='USD'; applyLang();
-  FAM={ user:{name:'',email:'',role:'Mom',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };
+  FAM={ user:{name:'',email:'',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };
   document.querySelectorAll('#ob-lang .choice').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='en'); });
   document.querySelectorAll('#ob-cur .choice').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='USD'); });
-  document.querySelectorAll('#ob-role .choice').forEach(function(b,i){ b.classList.toggle('on',i===0); });
   document.getElementById('onboarding').classList.remove('done'); obGo('welcome');
 }
 function obInit(){
@@ -9892,7 +9852,7 @@ function obInit(){
     applyFam(); applyLang(); applyCurrency();
     document.getElementById('onboarding').classList.add('done');
   } else {
-    FAM={ user:{name:'',email:'',role:'Mom',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };  // fresh: everything entered manually
+    FAM={ user:{name:'',email:'',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };  // fresh: name/color seeded from the Google account after sign-in
   }
 }
 
@@ -10144,7 +10104,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v297';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v298';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -13249,8 +13209,24 @@ window.classifyAmount = classifyAmount;
     _fhSheet(html);
   };
 
+  /* Settings → My profile: edit your own name + color (avatar picker added in a
+     later phase). Onboarding no longer asks for these — the name is seeded from
+     the Google account — so this is where a member changes how the family sees
+     them. Opens the shared member editor pointed at the current user's own row. */
+  window.fhMyProfile = async function () {
+    const fid = window.DB && window.DB.fid, uid = window.fhUser && window.fhUser.id;
+    if (!fid || !uid) { window.toast && window.toast(L('Hãy mở một gia đình trước', 'Open a family first')); return; }
+    const { data: me } = await sb.from('members')
+      .select('id,name,name_enc,color,is_shared,user_id')
+      .eq('family_id', fid).eq('user_id', uid).eq('is_shared', false).maybeSingle();
+    if (!me) { window.toast && window.toast(L('Không tìm thấy hồ sơ của bạn', 'Couldn’t find your profile')); return; }
+    me.name = (await fhRead(me, 'name')) || L('Thành viên', 'Member');
+    window._fhMembers = [me];
+    window.fhEditMember(me.id, L('Hồ sơ của tôi', 'My profile'));
+  };
+
   /* Editing a member is a form → modal with Cancel · Title · Save (DESIGN §4). */
-  window.fhEditMember = function (id) {
+  window.fhEditMember = function (id, title) {
     const m = (window._fhMembers || []).find((x) => x.id === id) || { name: '', color: '' };
     window._fhMColor = m.color || _pal()[0];
     window._fhMName0 = m.name || '';
@@ -13258,7 +13234,7 @@ window.classifyAmount = classifyAmount;
       '<button class="fh-s-sw' + (c === window._fhMColor ? ' on' : '') + '" data-c="' + c + '" aria-label="' + L('Màu','Colour') + ' ' + c + '"'
       + ' onclick="fhPickMColor(this)"><i style="background:' + c + '"></i></button>').join('');
     _fhModal({
-      title: L('Sửa thành viên','Edit member'),
+      title: title || L('Sửa thành viên','Edit member'),
       saveLabel: L('Lưu','Save'),
       body: '<div class="field"><label>' + L('Tên','Name') + '</label>'
         + '<input id="fh-mname" value="' + _esc(m.name) + '" placeholder="' + L('Tên','Name') + '" oninput="fhModalDirty()"></div>'
@@ -13571,6 +13547,17 @@ window.classifyAmount = classifyAmount;
     if (typeof window.fhClearInvalid === 'function') window.fhClearInvalid('ob-code-boxes');   // Join stays enabled; obJoin() gates on tap (DESIGN §4.4)
   };
 
+  // Joiner identity comes from the Google account now (the profile step was
+  // retired): seed the single "you" member with the Google name + auto color and
+  // advance straight to the theme step. Name/color are editable later in Settings.
+  function _obJoinToTheme() {
+    if (window.obEnsureUserIdentity) window.obEnsureUserIdentity();
+    const u = (window.FAM && window.FAM.user) || {};
+    if (window.FAM) window.FAM.members = [{ name: u.name || '', email: u.email || '', color: u.color, me: true }];
+    const tb = document.getElementById('ob-theme-back'); if (tb) tb.setAttribute('onclick', "obGo('join')");
+    window.obGo('theme');
+  }
+
   window.obJoin = async function () {
     if (!_fhJoinCtx) { try { await window.obJoinPrep(); } catch (e) {} }
     // ── Card family: no code. Whitelist + Google SSO is the door; the card
@@ -13594,9 +13581,7 @@ window.classifyAmount = classifyAmount;
         return;
       }
       if (cta0) { cta0.disabled = false; cta0.textContent = label0; }
-      const back0 = document.getElementById('ob-profile-back'); if (back0) back0.setAttribute('onclick', "obGo('join')");
-      if (typeof window.obPrefillProfile === 'function') window.obPrefillProfile();
-      window.obGo('profile');
+      _obJoinToTheme();
       return;
     }
     const el = document.getElementById('ob-code');
@@ -13640,9 +13625,7 @@ window.classifyAmount = classifyAmount;
       return;
     }
     if (cta) { cta.disabled = false; cta.textContent = label; }
-    const back = document.getElementById('ob-profile-back'); if (back) back.setAttribute('onclick', "obGo('join')");
-    if (typeof window.obPrefillProfile === 'function') window.obPrefillProfile();
-    window.obGo('profile');
+    _obJoinToTheme();
   };
 
   // entering the join screen loads the invite (wraps the js-ui obGo)

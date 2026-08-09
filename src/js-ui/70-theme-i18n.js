@@ -166,7 +166,7 @@ var EN_DEFAULT={
   photoLbl:'Photo', uploadPhotos:'📷 Upload photos', captionOpt:'Caption (optional)', phMemCap:'e.g. Best day of the trip',
   /* settings sheet */
   settingsTitle:'Settings', settingsSub:'Pick a theme. It applies across the whole app.',
-  setLanguage:'Language', setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setEncryption:'Money encryption',
+  setMyProfile:'My profile', setLanguage:'Language', setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setEncryption:'Money encryption',
   setSavedEvents:'Saved for events', setIncome:'Income', setNotifications:'Notifications', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out',
   /* generic edit modal */
   fhModalEdit:'Edit',
@@ -275,7 +275,7 @@ var I18N={
     photoLbl:'Ảnh', uploadPhotos:'📷 Tải ảnh lên', captionOpt:'Chú thích (tuỳ chọn)', phMemCap:'vd. Ngày vui nhất chuyến đi',
     /* settings sheet */
     settingsTitle:'Cài đặt', settingsSub:'Chọn giao diện, áp dụng cho cả ứng dụng.',
-    setLanguage:'Ngôn ngữ', setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setEncryption:'Mã hóa tài chính',
+    setMyProfile:'Hồ sơ của tôi', setLanguage:'Ngôn ngữ', setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setEncryption:'Mã hóa tài chính',
     setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setNotifications:'Thông báo', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất',
     /* generic edit modal */
     fhModalEdit:'Chỉnh sửa',
@@ -311,12 +311,6 @@ function applyLang(){
     var k=el.getAttribute('data-ta');
     if(!el.getAttribute('data-ena')) el.setAttribute('data-ena', el.getAttribute('aria-label')||'');
     el.setAttribute('aria-label', (LANG==='vi' && I18N.vi[k]!==undefined) ? I18N.vi[k] : (EN_DEFAULT[k]!==undefined ? EN_DEFAULT[k] : el.getAttribute('data-ena')));
-  });
-  // Onboarding profile role chips carry no data-t (their labels live in OB_ROLE_LABELS,
-  // keyed by data-v) — localize them here so a Vietnamese user sees Vietnamese roles.
-  var _rl=window.OB_ROLE_LABELS;
-  if(_rl) document.querySelectorAll('#ob-role .choice').forEach(function(b){
-    var m=_rl[b.dataset.v]; if(m) b.textContent=(LANG==='vi')?m[0]:m[1];
   });
   document.documentElement.lang = LANG==='vi'?'vi':'en';
   setGreeting();

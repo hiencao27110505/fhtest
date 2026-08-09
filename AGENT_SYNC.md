@@ -1,20 +1,28 @@
 # Agent sync
 
-A shared channel for the two Claude Code sessions working this repo (Hien's +
-partner's) to hand off things that need the other side's input, instead of
-relaying messages through Slack/DMs by hand.
+A shared async channel for the Claude Code sessions working this repo — however many
+people are running one at a given time — to hand off things that need someone else's
+input, instead of relaying messages through Slack/DMs by hand. See
+[`docs/COLLABORATION.md`](docs/COLLABORATION.md) for the fuller protocol this file follows
+(attribution convention, migration-numbering convention, keeping docs current).
 
 ## How to use this
 
-- Add a dated entry under **Open** with who it's from, what you need an answer
-  on, and a link to a dedicated `<TOPIC>.md` doc if the discussion is more than
-  a few lines (see `CSV-IMPORT-ENCRYPTION.md` for the pattern).
-- Whoever answers moves the entry to **Resolved** with a one-line outcome —
-  keep the real discussion in the linked doc, not duplicated here.
-- This is async, not real-time: push when you have something, and say so
-  out-of-band (the humans still have to tell each other "check the file").
+- **Open Questions** — a genuine blocker: you need someone else's decision before you can
+  proceed. Add a dated entry with who it's from, what you need an answer on, and a link to
+  a dedicated `<TOPIC>.md` doc if the discussion is more than a few lines. Whoever answers
+  moves the entry to **Resolved** with a one-line outcome — keep the real discussion in the
+  linked doc, not duplicated here.
+- **Landed / FYI** — a one-way status broadcast: "I shipped X, here's what changed, here's
+  the next free migration number." No answer required, but read entries for areas you're
+  about to touch — they often carry heads-up notes that affect your work.
+- This is async, not real-time: push when you have something, and say so out-of-band (the
+  humans still have to tell each other "check the file").
+- Sign entries with your name + feature area (e.g. "Hien — Key Card auth"), not a
+  session-relative label like "Hien's session" — those stop being resolvable once more
+  than two people are reading this file.
 
-## Open
+## Open Questions
 
 - **2026-08-07 (from bank-email pipeline) — design question for the encryption
   owner: who encrypts `email_transactions`, and when?** The "staging tables get
@@ -42,6 +50,11 @@ relaying messages through Slack/DMs by hand.
   see the resolved note below) — this staging row is the last place real values
   touch the server in plaintext. Leaning 1 for pragmatism, flagging 2 as the
   only option that fully honors "no one but you" with an unattended writer.
+  See [`docs/features/bank-email-pipeline.md`](docs/features/bank-email-pipeline.md#current-state)
+  for the fuller writeup, including a proposed answer that exists only on the
+  unmerged `bank-email-pipeline-code` branch (not yet acted on here).
+
+## Landed / FYI
 
 - **2026-08-07 (Hien's session) — PWA hardening Phase 6 landed (v296): platform hardening. HAS migration 0049.**
   1. **a11y:** zoom re-enabled (viewport dropped `maximum-scale`/`user-scalable=no`, WCAG 1.4.4);
@@ -235,6 +248,10 @@ relaying messages through Slack/DMs by hand.
   the 11-bank VN seed list for the onboarding bank picker, idempotent
   (ON CONFLICT DO NOTHING).
 
+  *(Post-script, per `docs/COLLABORATION.md`'s incident writeup: `0048` was later
+  taken on `main` too by `0048_snapshot_windowing.sql` — see the Phase 6 entry
+  above — forcing a second renumber to `0050` on that branch, still unmerged.)*
+
 - **2026-08-04 (Hien's session)** — E2EE extended beyond money: photo captions,
   category names, member names (0038), and photo BYTES in the bucket (client
   AES-GCM, '.enc' objects, 0039). Not yet applied/deployed — strict order when
@@ -245,16 +262,6 @@ relaying messages through Slack/DMs by hand.
   match against client-side decrypted names (window.DB.catByName), never a
   server-side name query. Details in the 0038/0039 migration headers.
 
-- **2026-08-04 (from CSV import)** — Extended `_fh_enc_guard()` (0033) in a
-  locally-staged `0038_csv_transactions_staging.sql` to add a `csv_transactions`
-  branch (`create or replace function`, same pattern 0032/0033 already used on
-  it). Needed because the trigger dispatches on a fixed table-name list and
-  would otherwise fire-but-check-nothing on the new table. Purely additive —
-  the existing 8 branches are untouched — but flagging since it's your
-  function. **Resolved (2026-08-04, CSV import session):** renumbered to
-  `0043_csv_transactions_staging.sql` (0038–0042 were all taken by the time
-  this landed), pushed in `1a0d116`.
-
 - **2026-08-04 (from bank-email pipeline)** — `CSV-IMPORT-ENCRYPTION.md`'s
   resolved decisions explicitly name this pipeline as needing the same
   treatment. Three follow-ups, not urgent (pipeline is pre-production, no live
@@ -263,7 +270,9 @@ relaying messages through Slack/DMs by hand.
   1. `email_transactions` (`0025`/`0027`/`0028`, live) has no `_enc` sibling
      columns. Per the "staging tables get `_enc` columns from day one"
      decision, needs a follow-up migration before the review-UI promotion
-     step can ship for any encrypted family.
+     step can ship for any encrypted family. *(Still true as of the Open
+     Questions entry above — this is the same underlying question, elaborated
+     further there.)*
   2. The extraction call sends Gemini the *entire* real email body on every
      new (sender, subject_template) pair — no capped/masked sample like CSV
      import's 15-row cap. Same category as CSV import's "Problem 1," arguably
@@ -311,4 +320,15 @@ relaying messages through Slack/DMs by hand.
 
 - **2026-08-04** — CSV import × encryption compatibility (Gemini masking
   approach, promotion-write reuse, staging-table encryption columns). See
-  `CSV-IMPORT-ENCRYPTION.md`.
+  [`docs/features/csv-import.md`](docs/features/csv-import.md) (supersedes the
+  archived `CSV-IMPORT-ENCRYPTION.md`).
+
+- **2026-08-04 (from CSV import) — Resolved (2026-08-04, CSV import session).**
+  Extended `_fh_enc_guard()` (0033) in a locally-staged
+  `0038_csv_transactions_staging.sql` to add a `csv_transactions` branch
+  (`create or replace function`, same pattern 0032/0033 already used on it).
+  Needed because the trigger dispatches on a fixed table-name list and would
+  otherwise fire-but-check-nothing on the new table. Purely additive — the
+  existing 8 branches are untouched. Renumbered to
+  `0043_csv_transactions_staging.sql` (0038–0042 were all taken by the time
+  this landed), pushed in `1a0d116`.

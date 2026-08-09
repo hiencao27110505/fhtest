@@ -7,8 +7,8 @@ var FAM={
 };
 var OB_COLORS=['#6f3fc0','#0e8478','#f0701a','#e03d86','#1e74d0','#B8730B','#7A5AE0','#1a9d5f'];
 var OB_ROLES=['Mom','Dad','Husband','Wife','Boyfriend','Girlfriend','Partner','Sweetheart','Sweetie','Coldheart','Man of steel','Parent','Son','Daughter','Kid','Teen','Sibling','Guardian','Grandma','Grandpa','Other'];
-var obOrder=['welcome','locale','auth','choice','join','profile','family','budget','theme','done'];   // 'passcode' retired — new families are born on the Key Card (0043), introduced after onboarding
-var obProg={welcome:0,locale:.1,auth:.2,choice:.34,join:.52,profile:.6,family:.72,passcode:.79,budget:.86,theme:.93,done:1};
+var obOrder=['welcome','locale','auth','choice','join','family','budget','theme','done'];   // 'profile' + 'passcode' retired — name/avatar come from the Google account (edited later in Settings → My profile); families are born on the Key Card (0043)
+var obProg={welcome:0,locale:.12,auth:.24,choice:.4,join:.56,family:.72,budget:.86,theme:.94,done:1};
 function obPickLang(btn){ pick('ob-lang',btn); LANG=btn.dataset.v; applyLang(); }
 function obPickCur(btn){ pick('ob-cur',btn); CUR=btn.dataset.v; }
 function inits(n){ return ((n||'').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2)||'?').toUpperCase(); }
@@ -21,7 +21,7 @@ function obGo(name){
     var i=obOrder.indexOf(s.dataset.ob);
     s.classList.toggle('on', i===ci); s.classList.toggle('past', i<ci);
   });
-  var p = (name==='profile' && FAM.mode==='join') ? .78 : (obProg[name]||0);
+  var p = obProg[name]||0;
   document.getElementById('ob-bar').style.width=(p*100)+'%';
   document.getElementById('ob-progress').classList.toggle('show', name!=='welcome');
   if(name==='join'){ var c=document.getElementById('ob-code'); renderCodeBoxes(c.value); setTimeout(function(){ c.focus(); },320); }
@@ -58,7 +58,15 @@ function obGoogle(){
 function obChoose(mode){
   FAM.mode=mode;
   if(mode==='join'){ obGo('join'); }
-  else { document.getElementById('ob-profile-back').setAttribute('onclick',"obGo('choice')"); obPrefillProfile(); obGo('profile'); }
+  else { obEnsureUserIdentity(); obPrefillFamily(); obGo('family'); }   // profile step retired — name from Google, color auto-assigned
+}
+// Identity now comes from the Google account (afterLogin seeds FAM.user.name).
+// Give the member a stable avatar color derived from the email/name; both are
+// editable later in Settings → My profile. Onboarding never asks for name/role/color.
+function obUserColor(){ var s=(FAM.user.email||FAM.user.name||'x'), h=0,i; for(i=0;i<s.length;i++){ h=((h*31)+s.charCodeAt(i))>>>0; } return OB_COLORS[h%OB_COLORS.length]; }
+function obEnsureUserIdentity(){
+  if(!FAM.user.name){ var em=FAM.user.email||''; FAM.user.name = em ? em.split('@')[0] : L('Tôi','Me'); }
+  FAM.user.color = obUserColor();
 }
 /* Placeholder pair — the data module (65-passcode-ui) replaces both with the
    real find-invite + join_with_passcode flow. Offline/CDN-blocked, joining is
@@ -73,24 +81,7 @@ function obJoin(){
   if(!/^\d{6}$/.test(code)){ if(typeof fhFlagField==='function') fhFlagField(document.getElementById('ob-code-boxes')); if(el)el.focus(); toast(L('Nhập đủ 6 chữ số','Enter all 6 digits')); return; }
   toast(L('Không kết nối được máy chủ. Kiểm tra mạng và thử lại','Can’t reach the server. Check your connection and try again'));
 }
-function renderObColors(){
-  document.getElementById('ob-colors').innerHTML=OB_COLORS.map(function(c){
-    return '<button class="ob-swatch'+(c===FAM.user.color?' on':'')+'" style="background:'+c+'" onclick="obPickColor(\''+c+'\')"></button>';
-  }).join('');
-}
-function obPickColor(c){ FAM.user.color=c; renderObColors(); obNameInput(); }
-function obNameInput(){
-  var a=document.getElementById('ob-avatar'), n=document.getElementById('ob-name').value;
-  a.textContent=inits(n); a.style.background=FAM.user.color;
-}
-function obPrefillProfile(){ document.getElementById('ob-name').value=''; renderObColors(); obNameInput(); }
-function obProfileNext(){
-  var n=document.getElementById('ob-name').value.trim(); if(!n){ document.getElementById('ob-name').focus(); return; }
-  FAM.user.name=n; FAM.user.role=chosen('ob-role')||'Parent';
-  if(FAM.mode==='create'){ obPrefillFamily(); obGo('family'); }
-  else { FAM.members=[{name:n,email:FAM.user.email||'',color:FAM.user.color,role:FAM.user.role,me:true}]; document.getElementById('ob-theme-back').setAttribute('onclick',"obGo('profile')"); obGo('theme'); }
-}
-function obMemberRowHTML(name,email,role,color,me){
+function obMemberRowHTML(name,email,color,me){
   return '<div class="ob-mcard">'
     +'<div class="ob-mrow"><div class="ob-mav" style="background:'+color+'">'+esc(inits(name))+'</div>'
     +'<input class="ob-mname" value="'+esc(name)+'" placeholder="'+L('vd. Mai','e.g. Emma')+'"'+(me?' readonly':'')+' oninput="obSyncMav(this)">'
@@ -98,17 +89,16 @@ function obMemberRowHTML(name,email,role,color,me){
     +'</div>'
     +'<div class="ob-mfields">'
     +'<input class="ob-memail" type="email" inputmode="email" autocapitalize="off" placeholder="name@gmail.com" value="'+esc(email)+'"'+(me?' readonly':'')+'>'
-    +'<select class="ob-mrole">'+roleOpts(role)+'</select>'
     +'</div></div>';
 }
 function obSyncMav(inp){ var av=inp.previousElementSibling; if(av) av.textContent=inits(inp.value); }
 function obPrefillFamily(){
   document.getElementById('ob-famname').value='';                 // start empty — the user names it
-  document.getElementById('ob-members').innerHTML=obMemberRowHTML(FAM.user.name,FAM.user.email||'',FAM.user.role,FAM.user.color,true);
+  document.getElementById('ob-members').innerHTML=obMemberRowHTML(FAM.user.name,FAM.user.email||'',FAM.user.color,true);
 }
 function obAddMember(){
   var used=document.querySelectorAll('#ob-members .ob-mcard').length;
-  document.getElementById('ob-members').insertAdjacentHTML('beforeend', obMemberRowHTML('','','Kid',OB_COLORS[(used+2)%OB_COLORS.length],false));
+  document.getElementById('ob-members').insertAdjacentHTML('beforeend', obMemberRowHTML('','',OB_COLORS[(used+2)%OB_COLORS.length],false));
 }
 function obFamilyNext(){
   var fn=document.getElementById('ob-famname').value.trim(); if(!fn){ document.getElementById('ob-famname').focus(); return; }
@@ -116,9 +106,9 @@ function obFamilyNext(){
   var mems=[];
   document.querySelectorAll('#ob-members .ob-mcard').forEach(function(row,i){
     var nm=row.querySelector('.ob-mname').value.trim(); if(!nm)return;
-    mems.push({name:nm, email:(row.querySelector('.ob-memail')||{value:''}).value.trim(), role:row.querySelector('.ob-mrole').value, color:row.querySelector('.ob-mav').style.background||OB_COLORS[i%OB_COLORS.length], me:!!row.querySelector('.ob-mtag')});
+    mems.push({name:nm, email:(row.querySelector('.ob-memail')||{value:''}).value.trim(), color:row.querySelector('.ob-mav').style.background||OB_COLORS[i%OB_COLORS.length], me:!!row.querySelector('.ob-mtag')});
   });
-  FAM.members=mems.length?mems:[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,role:FAM.user.role,me:true}];
+  FAM.members=mems.length?mems:[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,me:true}];
   // passcode step retired: go straight to budget. The Key Card is generated on
   // create and introduced after onboarding (0043).
   obPrefillBudget(); obGo('budget');
@@ -230,10 +220,9 @@ function finishOnboarding(){
 function restartOnboarding(){
   try{ localStorage.removeItem('fh-onboarded'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-lang'); localStorage.removeItem('fh-cur'); }catch(e){}
   LANG='en'; CUR='USD'; applyLang();
-  FAM={ user:{name:'',email:'',role:'Mom',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };
+  FAM={ user:{name:'',email:'',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };
   document.querySelectorAll('#ob-lang .choice').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='en'); });
   document.querySelectorAll('#ob-cur .choice').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='USD'); });
-  document.querySelectorAll('#ob-role .choice').forEach(function(b,i){ b.classList.toggle('on',i===0); });
   document.getElementById('onboarding').classList.remove('done'); obGo('welcome');
 }
 function obInit(){
@@ -245,7 +234,7 @@ function obInit(){
     applyFam(); applyLang(); applyCurrency();
     document.getElementById('onboarding').classList.add('done');
   } else {
-    FAM={ user:{name:'',email:'',role:'Mom',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };  // fresh: everything entered manually
+    FAM={ user:{name:'',email:'',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };  // fresh: name/color seeded from the Google account after sign-in
   }
 }
 
