@@ -32,6 +32,16 @@ function openCsvImport(){
 }
 
 // Back to the picker without closing the modal (the quiet escape under the review).
+/* Drops everything learned on this device and re-reads the file from scratch,
+   so a lesson that generalised badly can be undone in one tap. */
+function csvForgetLearned(){
+  if(typeof csvLearnForget === 'function') csvLearnForget();
+  if(csvReview && csvReview.parsed && csvReview.mapResult){
+    csvBuildReview(csvReview.parsed, csvReview.mapResult);
+    renderCsvReview();
+  }
+}
+
 function csvPickAnother(){
   csvClearDraft();               // deliberately starting over
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
@@ -452,7 +462,8 @@ function renderCsvReview(){
     var learnedCount = (csvReview.ready||[]).filter(function(c){ return c.catSource==='learned'; }).length;
     if(learnedCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
       + '<b>'+esc(L(learnedCount+' khoản xếp theo lần bạn sửa trước','Reused your past corrections for '+learnedCount))+'</b> '
-      + esc(L('— tụi mình nhớ trên máy bạn thôi, không gửi đi đâu cả.','— remembered on this device only, never sent anywhere.'))+'</div>');
+      + esc(L('— tụi mình nhớ trên máy bạn thôi, không gửi đi đâu cả.','— remembered on this device only, never sent anywhere.'))
+      + ' <button type="button" class="csv-linkbtn" onclick="csvForgetLearned()">'+L('Quên đi','Forget these')+'</button></div>');
     if(r.summaryCount) lines.push('<div class="notice-text"'+((didMerge||didAdd||learnedCount)?' style="margin-top:6px"':'')+'>'
       + '<b>'+esc(L(r.summaryCount+' dòng tổng cuối file','Skipped '+r.summaryCount+' total row'+(r.summaryCount===1?'':'s')))+'</b> '
       + esc(L('— đã bỏ qua, không phải giao dịch.','at the end of the file — not transactions.'))+'</div>');

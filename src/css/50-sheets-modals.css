@@ -173,6 +173,7 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
    as #bulk-list. The cards, their summaries and .invalid come from
    50-sheets-modals.css untouched -- nothing is restyled here. */
 .csv-cards{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.csv-linkbtn{background:none;border:0;padding:0;color:var(--brand-ink);font-weight:700;font-size:12.5px;text-decoration:underline}
 .csv-card-body{padding:6px 14px 14px}
 .csv-expand-note{font-size:13px;color:var(--amber);font-weight:600;line-height:1.5;margin-bottom:12px}
 /* "Cần bạn xem" reads as a call to action, not a neutral section label. */

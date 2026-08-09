@@ -158,21 +158,21 @@ function csvMerchantConcept(desc) {
       if (t.indexOf(deburr(toks[j])) >= 0) return concept;
     }
   }
-  /* Then the composer's OWN dictionary (KW_SHARED / KW_VI / KW_EN, the same
-     words bulk logging guesses from) applied as substrings. guessCat already
-     tried them whole-word and failed, because a bank memo glues tokens
-     together ("MBCTMoMo", "GRABVN"). One dictionary, two matching strictnesses
-     -- a word added there improves both surfaces. */
-  var dicts = [];
-  if (typeof KW_SHARED === 'object') dicts.push(KW_SHARED);
-  if (typeof KW_VI === 'object') dicts.push(KW_VI);
-  if (typeof KW_EN === 'object') dicts.push(KW_EN);
-  for (i = 0; i < dicts.length; i++) {
-    for (var cpt in dicts[i]) {
-      var list = dicts[i][cpt];
+  /* Then the composer's BRAND words (KW_SHARED) only -- 'grab', 'netflix',
+     'highlands' -- still as substrings, because a bank memo glues them to
+     other tokens ("MBCTMoMo", "GRABVN").
+
+     KW_VI / KW_EN are deliberately NOT scanned here. They're ordinary
+     vocabulary, and a substring match on ordinary words is dangerous in a
+     memo full of names: "tra" (tea) sits inside "TRANG", so every transfer
+     this family made was being labelled food because of a person's name.
+     guessCat already tried those words the safe way, with word boundaries. */
+  if (typeof KW_SHARED === 'object') {
+    for (var cpt in KW_SHARED) {
+      var list = KW_SHARED[cpt];
       for (j = 0; j < list.length; j++) {
         var w = deburr(String(list[j]).toLowerCase());
-        if (w.length >= 3 && t.indexOf(w) >= 0) return cpt;   // >=3 chars: "an"/"xe" would match anything
+        if (w.length >= 4 && t.indexOf(w) >= 0) return cpt;
       }
     }
   }
@@ -234,10 +234,18 @@ function csvMarkSummaryRows(candidates) {
 
    These are marked catSource:'pattern' -- a weaker signal than a named
    merchant, disclosed as a guess so it's checked rather than trusted. */
+/* Payment gateways sit between the family and the shop, and the bank writes
+   whichever one handled it: the same coffee shop arrives as "REVI PHU MY HUNG
+   TOWER" one week and "PAYOO REVICOFFEEHCM" the next. Stripping the gateway
+   name keeps the merchant recognisable across both, so a lesson taught once
+   isn't asked again the next month. */
+var CSV_GATEWAYS = /\b(payoo|mpos|vnpay|onepay|napas|ecpay|appota|zalopay|shopeepay|viettelpay|smartpay|nganluong|baokim)\b/g;
+
 function csvPatternKey(c) {
   var base = (c.counterparty || c.description || '');
   return deburr(String(base).toLowerCase())
     .replace(CSV_BANK_NOISE, ' ')
+    .replace(CSV_GATEWAYS, ' ')
     .replace(/[^a-z\s]/g, ' ')
     .replace(/\s+/g, ' ').trim().slice(0, 40);
 }
@@ -319,13 +327,38 @@ function csvLearnSave(){
 // Called when a person picks a category themselves -- the only signal strong
 // enough to learn from. Guesses are never fed back, or a wrong guess would
 // cement itself.
+/* A payee key alone is too coarse for bank transfers: the SAME string --
+   "nguyen thu trang chuyen tien" -- covers a 35k coffee and a 7.000.000 rent.
+   Learning from one then silently relabels the other (this is exactly how a
+   rent row turned into "Ăn uống"). So a lesson is scoped to the size of the
+   payment as well as the payee: a correction on a small transfer never
+   reaches a large one. */
+function csvAmountBand(a){
+  a = Number(a) || 0;
+  if (a < 50000) return 'a';
+  if (a < 500000) return 'b';
+  if (a < 5000000) return 'c';
+  return 'd';
+}
+
+function csvLearnKey(c){
+  var k = csvPatternKey(c);
+  return k ? (k + '|' + csvAmountBand(c.amount)) : '';
+}
+
 function csvLearnFrom(c){
   if(!c || !c.categoryName || c.catSource !== 'user') return;
-  var k = csvPatternKey(c);
-  if(!k || k.length < 4) return;
+  var k = csvLearnKey(c);
+  if(!k || k.length < 6) return;
   if(csvLearned[k] === c.categoryName) return;
   csvLearned[k] = c.categoryName;
   csvLearnSave();
+}
+
+// Wipes what this device has learned -- a bad lesson shouldn't be permanent.
+function csvLearnForget(){
+  csvLearned = {};
+  try{ localStorage.removeItem(FH_CSV_LEARNED); }catch(e){}
 }
 
 /* One candidate per data row. Never throws on a bad row -- flags it and
@@ -391,7 +424,7 @@ function buildCsvCandidates(parsed, result) {
       if (h) { catName = h; catSource = 'history'; }
     }
     if (!catName) {
-      var lk = csvPatternKey({ counterparty: party, description: desc });
+      var lk = csvLearnKey({ counterparty: party, description: desc, amount: amount });
       if (lk && csvLearned[lk] && catValid(csvLearned[lk])) { catName = csvLearned[lk]; catSource = 'learned'; }
     }
     if (!catName && desc && typeof guessCat === 'function') {
