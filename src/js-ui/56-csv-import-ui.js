@@ -320,6 +320,18 @@ function csvFmt(n){ return fmt(csvBaseAmt(n)); }
    on Hiền. _meName() is the signed-in member. Still just a default: the file's
    own "Ai trả" column wins, and every row's chip is editable. */
 function csvDefaultWho(){
+  /* Resolve the signed-in member the way hydrate records it: ownerMemberId is
+     set from m.user_id === auth uid. _meName() looks for a `me` flag that
+     hydrate never sets, so it silently fell through to FAM.user.name (the
+     Google display name, which needn't match a member) or members[0] -- which
+     is how an import by one person landed on another. */
+  try{
+    var db = window.DB;
+    if(db && db.ownerMemberId && db.memberById){
+      var m = db.memberById[db.ownerMemberId];
+      if(m && m.name) return m.name;
+    }
+  }catch(e){}
   return (typeof _meName === 'function' && _meName()) || window.lastWho || '';
 }
 
@@ -421,7 +433,7 @@ function renderCsvReview(){
   var total = r.ready.length + r.groups.reduce(function(n,g){return n+g.items.length;},0)
     + unresolvedDup.length + r.deferred.length;
 
-  var html = '';
+  var html = '<button type="button" class="btn-text-quiet" style="width:100%;margin:0 0 12px" onclick="csvPickAnother()">'+L('Chọn file khác','Choose a different file')+'</button>';
 
   if(r.mixedSignsNote){
     html += '<div class="notice-card"><svg class="notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>'
@@ -503,7 +515,27 @@ function renderCsvReview(){
       buttons: '<button type="button" class="btn-line" onclick="csvDeferConfirm('+di+')">'+L('Nhập khoản này','Import this one')+'</button>'
              + '<button type="button" class="btn-text-quiet" onclick="csvDeferDrop('+di+')">'+L('Bỏ qua','Skip')+'</button>' }));
   });
-  var decisionCount = r.groups.length + unresolvedDup.length + r.deferred.length;
+  /* Anything we had to GUESS at joins the review section, even though it's
+     importable: a catch-all default or a pattern hunch is exactly what someone
+     wants to glance at, and burying it under 40 confident rows hides it.
+     Confidence decides WHERE a row renders, never whether it imports. */
+  var lowConf = [];
+  r.ready.forEach(function(c, i){
+    if(c.catSource === 'fallback' || c.catSource === 'pattern') lowConf.push({ c:c, i:i });
+  });
+  lowConf.forEach(function(e){
+    var why = e.c.catSource === 'fallback'
+      ? L('Chưa rõ danh mục — tạm để '+e.c.categoryName, 'No clear category — set to '+e.c.categoryName)
+      : L('Đoán theo thói quen — kiểm tra giúp nhé','Guessed from your habits — worth a check');
+    var o = { label:why, dateIso:e.c.dateDisplay, invalid:true,
+              tapFn:"csvToggleExpand('ready',"+e.i+")", removeFn:"csvReadyRemove("+e.i+")" };
+    attnHtml += csvIsOpen('ready', e.i)
+      ? csvActiveCard(e.c, Object.assign({}, o, { fields:true,
+          buttons:'<button type="button" class="btn-line" onclick="csvExpandDone()">'+L('Xong','Done')+'</button>' }))
+      : csvCollapsedCard(e.c, o);
+  });
+
+  var decisionCount = r.groups.length + unresolvedDup.length + r.deferred.length + lowConf.length;
 
   // Lead with the win, not the workload.
   var readyCount = r.ready.length;
@@ -519,11 +551,14 @@ function renderCsvReview(){
   }
 
   /* Ready list, grouped by date (newest first) -- same cards, no red border. */
-  if(r.ready.length){
+  if(r.ready.length > lowConf.length){
     var dateBuckets = {};
-    r.ready.forEach(function(c, i){ var k = c.dateDisplay || ''; (dateBuckets[k] = dateBuckets[k] || []).push({ c:c, i:i }); });
+    r.ready.forEach(function(c, i){
+      if(c.catSource === 'fallback' || c.catSource === 'pattern') return;   // shown in the review section
+      var k = c.dateDisplay || ''; (dateBuckets[k] = dateBuckets[k] || []).push({ c:c, i:i });
+    });
     var keys = Object.keys(dateBuckets).sort().reverse();
-    html += '<div class="group-h">'+L('Sẵn sàng','Ready')+' · '+readyCount+'</div>';
+    html += '<div class="group-h">'+L('Sẵn sàng','Ready')+' · '+(readyCount - lowConf.length)+'</div>';
     keys.forEach(function(k){
       var label = k ? fmtDayMon(dateBuckets[k][0].c.date) : L('Không rõ ngày','No date');
       html += '<div class="group-h" style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
@@ -558,8 +593,6 @@ function renderCsvReview(){
           : '')
       + '</div>';
   }
-
-  html += '<button type="button" class="btn-text-quiet" style="width:100%;margin-top:10px" onclick="csvPickAnother()">'+L('Chọn file khác','Choose a different file')+'</button>';
 
   out.innerHTML = html;
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='none';
