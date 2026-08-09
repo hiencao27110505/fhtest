@@ -26,6 +26,7 @@ function openCsvImport(){
   csvReview = null; csvExpand = null;
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='';
   var save=document.getElementById('csv-save'); if(save){ save.disabled=true; save.textContent=L('Nhập','Import'); }
+  csvLearnLoad();                      // corrections this family made before
   openSheet('csv-import-modal');
   csvTryRestoreDraft();          // pick up a review left behind by an accidental close
 }
@@ -205,6 +206,7 @@ function csvBuildReview(parsed, result, opts){
     }
   }
 
+  csvMarkSummaryRows(candidates);      // a trailing total is not a transaction
   csvPatternPass(candidates);          // habits the dictionary can't name
   var mixed = csvColumnHasMixedSigns(candidates);
   var buckets = bucketCsvCandidates(candidates, mixed);
@@ -213,11 +215,12 @@ function csvBuildReview(parsed, result, opts){
     ready: buckets.ready,
     groups: Object.keys(buckets.needsCategoryGroups).map(function(k){ return { key:k, items:buckets.needsCategoryGroups[k] }; }),
     dup: buckets.possibleDuplicate.map(function(c){ return { c:c, resolved:null }; }), // null | 'skip' | 'done' (moved on)
-    deferred: buckets.deferred,
+    deferred: buckets.deferred.filter(function(c){ return !c.isSummaryRow; }),
     mixedSignsNote: mixed,
     fileCats: unknown,        // still-unknown names (only non-empty after an undo)
     adoptedCats: adopted,     // what we added this build, for the disclosure + undo
     catMerges: Object.keys(csvCatMerges).map(function(k){ return { from:k, to:csvCatMerges[k] }; }),
+    summaryCount: candidates.filter(function(c){ return c.isSummaryRow; }).length,
     fallbackCount: buckets.ready.filter(function(c){ return c.catSource === 'fallback'; }).length,
     patternCount: buckets.ready.filter(function(c){ return c.catSource === 'pattern'; }).length,
     declinedAdopt: !!opts.declined,
@@ -429,11 +432,18 @@ function renderCsvReview(){
      names -- say so plainly, with an undo. After an undo it flips back to an
      offer, so the choice is never one-way. */
   var didMerge = (r.catMerges||[]).length, didAdd = (r.adoptedCats||[]).length;
-  if(didMerge || didAdd || r.fallbackCount || r.patternCount){
+  if(didMerge || didAdd || r.fallbackCount || r.patternCount || r.summaryCount || (csvReview.ready||[]).some(function(c){return c.catSource==='learned';})){
     var lines = [];
     if(didMerge) lines.push('<div class="notice-text">'
       + '<b>'+esc(L('Đã gộp vào danh mục sẵn có:','Merged into categories you already have:'))+'</b> '
       + esc(r.catMerges.map(function(m){ return '"'+m.from+'" → '+m.to; }).join(' · '))+'</div>');
+    var learnedCount = (csvReview.ready||[]).filter(function(c){ return c.catSource==='learned'; }).length;
+    if(learnedCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
+      + '<b>'+esc(L(learnedCount+' khoản xếp theo lần bạn sửa trước','Reused your past corrections for '+learnedCount))+'</b> '
+      + esc(L('— tụi mình nhớ trên máy bạn thôi, không gửi đi đâu cả.','— remembered on this device only, never sent anywhere.'))+'</div>');
+    if(r.summaryCount) lines.push('<div class="notice-text"'+((didMerge||didAdd||learnedCount)?' style="margin-top:6px"':'')+'>'
+      + '<b>'+esc(L(r.summaryCount+' dòng tổng cuối file','Skipped '+r.summaryCount+' total row'+(r.summaryCount===1?'':'s')))+'</b> '
+      + esc(L('— đã bỏ qua, không phải giao dịch.','at the end of the file — not transactions.'))+'</div>');
     if(r.patternCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
       + '<b>'+esc(L(r.patternCount+' khoản đoán theo thói quen chi tiêu','Guessed '+r.patternCount+' from your spending pattern'))+'</b> '
       + esc(L('— ví dụ khoản nhỏ lặp lại ở cùng một chỗ, hay khoản lớn lặp hằng tháng. Ngó qua giúp nhé.','— e.g. small repeats at one place, or a large monthly repeat. Worth a glance.'))+'</div>');
@@ -574,7 +584,7 @@ function csvFlushExpand(){
         : csvExpand.kind==='dup'   ? (csvReview.dup[csvExpand.idx]||{}).c
         : csvExpand.kind==='defer' ? csvReview.deferred[csvExpand.idx]
         : null;
-  if(c) csvReadEditor(c);
+  if(c){ csvReadEditor(c); if(typeof csvLearnFrom === 'function') csvLearnFrom(c); }
 }
 
 function csvToggleExpand(kind, idx){
@@ -585,13 +595,25 @@ function csvToggleExpand(kind, idx){
 
 function csvExpandDone(){ csvFlushExpand(); csvExpand = null; renderCsvReview(); }
 
+/* Learning happens on the way OUT of an edit, and only from an explicit pick
+   -- csvReadEditor stamps catSource:'user' when the person chose a chip. */
+function csvLearnFromOpen(){
+  if(!csvExpand || !csvReview) return;
+  var c = csvExpand.kind==='ready' ? csvReview.ready[csvExpand.idx]
+        : csvExpand.kind==='dup'   ? (csvReview.dup[csvExpand.idx]||{}).c
+        : csvExpand.kind==='defer' ? csvReview.deferred[csvExpand.idx] : null;
+  if(c && typeof csvLearnFrom === 'function') csvLearnFrom(c);
+}
+
 function csvReadyRemove(i){ csvReview.ready.splice(i,1); csvExpand = null; renderCsvReview(); }
 
 // Group expansion: pure picker, so a chip tap applies instantly (house rule).
 function csvGroupPick(name){
   var t=csvExpand; if(!t||t.kind!=='group'||!csvReview) return;
   var g=csvReview.groups.splice(t.idx,1)[0];
-  if(g) g.items.forEach(function(it){ it.categoryName=name; it.catSource='user'; csvReview.ready.push(it); });
+  if(g) g.items.forEach(function(it){ it.categoryName=name; it.catSource='user';
+    if(typeof csvLearnFrom === 'function') csvLearnFrom(it);
+    csvReview.ready.push(it); });
   csvExpand = null; renderCsvReview();
 }
 

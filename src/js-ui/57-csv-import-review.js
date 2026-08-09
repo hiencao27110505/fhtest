@@ -194,6 +194,34 @@ function csvHistoryCategoryMap() {
   return map;
 }
 
+/* A statement usually ends with a total, not a transaction: no date, and an
+   amount far larger than anything above it (your file's last line was
+   28.725.893 with no date). Calling that "missing date" invites someone to
+   "fix" a number that was never a purchase, so it's identified and set aside
+   with an honest label instead.
+
+   Deliberately narrow: only the LAST few rows, only without a date, and only
+   when the amount is an outlier or the text says so. A genuinely dateless
+   transaction mid-file is still a transaction. */
+function csvMarkSummaryRows(candidates) {
+  if (!candidates.length) return;
+  var amounts = candidates.map(function (c) { return c.amount || 0; }).filter(function (a) { return a > 0; });
+  if (!amounts.length) return;
+  var sorted = amounts.slice().sort(function (a, b) { return a - b; });
+  var median = sorted[Math.floor(sorted.length / 2)] || 0;
+
+  var tailStart = Math.max(0, candidates.length - 3);
+  for (var i = tailStart; i < candidates.length; i++) {
+    var c = candidates[i];
+    var saysTotal = /\b(tong|tong cong|cong|total|sum|so du|balance)\b/.test(deburr(String(c.description || '').toLowerCase()));
+    var outlier = median > 0 && c.amount != null && c.amount > median * 8;
+    if ((!c.date && (outlier || saysTotal || !c.description)) || (saysTotal && !c.date)) {
+      c.isSummaryRow = true;
+      c.flags.push('summary_row');
+    }
+  }
+}
+
 /* ---- pattern pass: what the SHAPE of the spending says ---------------------
    Some rows name nothing a dictionary can know -- a transfer to a person, a
    venue we've never heard of. But a month of statements has shape, and two
@@ -247,6 +275,57 @@ function csvPatternPass(candidates) {
       });
     });
   }
+}
+
+/* ---- on-device learning ----------------------------------------------------
+   Every correction the family makes is the best possible signal about their
+   own spending, and it never has to leave the device to be useful. A fix like
+   "this payee is Ăn ngoài" is remembered against the payee's normalized key,
+   so the next import gets it right without asking again.
+
+   Stored locally, encrypted for a committed-enc family exactly like the draft
+   is; nothing is sent anywhere and no model is trained on anyone's data. */
+var FH_CSV_LEARNED = 'fh-csv-learned';
+var csvLearned = {};        // key -> category name (in memory for the sync tiers)
+var _learnSeq = 0;
+
+function csvLearnLoad(){
+  var raw; try{ raw = localStorage.getItem(FH_CSV_LEARNED); }catch(e){ return; }
+  if(!raw) return;
+  var d; try{ d = JSON.parse(raw); }catch(e){ return; }
+  if(d && d.enc){
+    if(!window.fhDecStr) return;
+    window.fhDecStr(d.ct).then(function(pt){ if(pt){ try{ csvLearned = JSON.parse(pt) || {}; }catch(e){} } });
+    return;
+  }
+  csvLearned = (d && d.map) || {};
+}
+
+function csvLearnSave(){
+  try{
+    if(window.fhEncState && window.fhEncState()==='enc'){
+      if(!(window.fhKeyReady && window.fhKeyReady()) || !window.fhEncStr) return;
+      var seq = ++_learnSeq;
+      window.fhEncStr(JSON.stringify(csvLearned)).then(function(ct){
+        if(!ct || seq!==_learnSeq) return;
+        try{ localStorage.setItem(FH_CSV_LEARNED, JSON.stringify({ v:1, enc:1, ct:ct })); }catch(e){}
+      });
+      return;
+    }
+    localStorage.setItem(FH_CSV_LEARNED, JSON.stringify({ v:1, map:csvLearned }));
+  }catch(e){}
+}
+
+// Called when a person picks a category themselves -- the only signal strong
+// enough to learn from. Guesses are never fed back, or a wrong guess would
+// cement itself.
+function csvLearnFrom(c){
+  if(!c || !c.categoryName || c.catSource !== 'user') return;
+  var k = csvPatternKey(c);
+  if(!k || k.length < 4) return;
+  if(csvLearned[k] === c.categoryName) return;
+  csvLearned[k] = c.categoryName;
+  csvLearnSave();
 }
 
 /* One candidate per data row. Never throws on a bad row -- flags it and
@@ -310,6 +389,10 @@ function buildCsvCandidates(parsed, result) {
     if (!catName && desc) {
       var h = historyMap[normDescForDedup(desc)];
       if (h) { catName = h; catSource = 'history'; }
+    }
+    if (!catName) {
+      var lk = csvPatternKey({ counterparty: party, description: desc });
+      if (lk && csvLearned[lk] && catValid(csvLearned[lk])) { catName = csvLearned[lk]; catSource = 'learned'; }
     }
     if (!catName && desc && typeof guessCat === 'function') {
       var g = guessCat(desc);

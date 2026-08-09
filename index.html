@@ -7363,6 +7363,7 @@ function openCsvImport(){
   csvReview = null; csvExpand = null;
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='';
   var save=document.getElementById('csv-save'); if(save){ save.disabled=true; save.textContent=L('Nhập','Import'); }
+  csvLearnLoad();                      // corrections this family made before
   openSheet('csv-import-modal');
   csvTryRestoreDraft();          // pick up a review left behind by an accidental close
 }
@@ -7542,6 +7543,7 @@ function csvBuildReview(parsed, result, opts){
     }
   }
 
+  csvMarkSummaryRows(candidates);      // a trailing total is not a transaction
   csvPatternPass(candidates);          // habits the dictionary can't name
   var mixed = csvColumnHasMixedSigns(candidates);
   var buckets = bucketCsvCandidates(candidates, mixed);
@@ -7550,11 +7552,12 @@ function csvBuildReview(parsed, result, opts){
     ready: buckets.ready,
     groups: Object.keys(buckets.needsCategoryGroups).map(function(k){ return { key:k, items:buckets.needsCategoryGroups[k] }; }),
     dup: buckets.possibleDuplicate.map(function(c){ return { c:c, resolved:null }; }), // null | 'skip' | 'done' (moved on)
-    deferred: buckets.deferred,
+    deferred: buckets.deferred.filter(function(c){ return !c.isSummaryRow; }),
     mixedSignsNote: mixed,
     fileCats: unknown,        // still-unknown names (only non-empty after an undo)
     adoptedCats: adopted,     // what we added this build, for the disclosure + undo
     catMerges: Object.keys(csvCatMerges).map(function(k){ return { from:k, to:csvCatMerges[k] }; }),
+    summaryCount: candidates.filter(function(c){ return c.isSummaryRow; }).length,
     fallbackCount: buckets.ready.filter(function(c){ return c.catSource === 'fallback'; }).length,
     patternCount: buckets.ready.filter(function(c){ return c.catSource === 'pattern'; }).length,
     declinedAdopt: !!opts.declined,
@@ -7766,11 +7769,18 @@ function renderCsvReview(){
      names -- say so plainly, with an undo. After an undo it flips back to an
      offer, so the choice is never one-way. */
   var didMerge = (r.catMerges||[]).length, didAdd = (r.adoptedCats||[]).length;
-  if(didMerge || didAdd || r.fallbackCount || r.patternCount){
+  if(didMerge || didAdd || r.fallbackCount || r.patternCount || r.summaryCount || (csvReview.ready||[]).some(function(c){return c.catSource==='learned';})){
     var lines = [];
     if(didMerge) lines.push('<div class="notice-text">'
       + '<b>'+esc(L('Đã gộp vào danh mục sẵn có:','Merged into categories you already have:'))+'</b> '
       + esc(r.catMerges.map(function(m){ return '"'+m.from+'" → '+m.to; }).join(' · '))+'</div>');
+    var learnedCount = (csvReview.ready||[]).filter(function(c){ return c.catSource==='learned'; }).length;
+    if(learnedCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
+      + '<b>'+esc(L(learnedCount+' khoản xếp theo lần bạn sửa trước','Reused your past corrections for '+learnedCount))+'</b> '
+      + esc(L('— tụi mình nhớ trên máy bạn thôi, không gửi đi đâu cả.','— remembered on this device only, never sent anywhere.'))+'</div>');
+    if(r.summaryCount) lines.push('<div class="notice-text"'+((didMerge||didAdd||learnedCount)?' style="margin-top:6px"':'')+'>'
+      + '<b>'+esc(L(r.summaryCount+' dòng tổng cuối file','Skipped '+r.summaryCount+' total row'+(r.summaryCount===1?'':'s')))+'</b> '
+      + esc(L('— đã bỏ qua, không phải giao dịch.','at the end of the file — not transactions.'))+'</div>');
     if(r.patternCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
       + '<b>'+esc(L(r.patternCount+' khoản đoán theo thói quen chi tiêu','Guessed '+r.patternCount+' from your spending pattern'))+'</b> '
       + esc(L('— ví dụ khoản nhỏ lặp lại ở cùng một chỗ, hay khoản lớn lặp hằng tháng. Ngó qua giúp nhé.','— e.g. small repeats at one place, or a large monthly repeat. Worth a glance.'))+'</div>');
@@ -7911,7 +7921,7 @@ function csvFlushExpand(){
         : csvExpand.kind==='dup'   ? (csvReview.dup[csvExpand.idx]||{}).c
         : csvExpand.kind==='defer' ? csvReview.deferred[csvExpand.idx]
         : null;
-  if(c) csvReadEditor(c);
+  if(c){ csvReadEditor(c); if(typeof csvLearnFrom === 'function') csvLearnFrom(c); }
 }
 
 function csvToggleExpand(kind, idx){
@@ -7922,13 +7932,25 @@ function csvToggleExpand(kind, idx){
 
 function csvExpandDone(){ csvFlushExpand(); csvExpand = null; renderCsvReview(); }
 
+/* Learning happens on the way OUT of an edit, and only from an explicit pick
+   -- csvReadEditor stamps catSource:'user' when the person chose a chip. */
+function csvLearnFromOpen(){
+  if(!csvExpand || !csvReview) return;
+  var c = csvExpand.kind==='ready' ? csvReview.ready[csvExpand.idx]
+        : csvExpand.kind==='dup'   ? (csvReview.dup[csvExpand.idx]||{}).c
+        : csvExpand.kind==='defer' ? csvReview.deferred[csvExpand.idx] : null;
+  if(c && typeof csvLearnFrom === 'function') csvLearnFrom(c);
+}
+
 function csvReadyRemove(i){ csvReview.ready.splice(i,1); csvExpand = null; renderCsvReview(); }
 
 // Group expansion: pure picker, so a chip tap applies instantly (house rule).
 function csvGroupPick(name){
   var t=csvExpand; if(!t||t.kind!=='group'||!csvReview) return;
   var g=csvReview.groups.splice(t.idx,1)[0];
-  if(g) g.items.forEach(function(it){ it.categoryName=name; it.catSource='user'; csvReview.ready.push(it); });
+  if(g) g.items.forEach(function(it){ it.categoryName=name; it.catSource='user';
+    if(typeof csvLearnFrom === 'function') csvLearnFrom(it);
+    csvReview.ready.push(it); });
   csvExpand = null; renderCsvReview();
 }
 
@@ -8216,6 +8238,34 @@ function csvHistoryCategoryMap() {
   return map;
 }
 
+/* A statement usually ends with a total, not a transaction: no date, and an
+   amount far larger than anything above it (your file's last line was
+   28.725.893 with no date). Calling that "missing date" invites someone to
+   "fix" a number that was never a purchase, so it's identified and set aside
+   with an honest label instead.
+
+   Deliberately narrow: only the LAST few rows, only without a date, and only
+   when the amount is an outlier or the text says so. A genuinely dateless
+   transaction mid-file is still a transaction. */
+function csvMarkSummaryRows(candidates) {
+  if (!candidates.length) return;
+  var amounts = candidates.map(function (c) { return c.amount || 0; }).filter(function (a) { return a > 0; });
+  if (!amounts.length) return;
+  var sorted = amounts.slice().sort(function (a, b) { return a - b; });
+  var median = sorted[Math.floor(sorted.length / 2)] || 0;
+
+  var tailStart = Math.max(0, candidates.length - 3);
+  for (var i = tailStart; i < candidates.length; i++) {
+    var c = candidates[i];
+    var saysTotal = /\b(tong|tong cong|cong|total|sum|so du|balance)\b/.test(deburr(String(c.description || '').toLowerCase()));
+    var outlier = median > 0 && c.amount != null && c.amount > median * 8;
+    if ((!c.date && (outlier || saysTotal || !c.description)) || (saysTotal && !c.date)) {
+      c.isSummaryRow = true;
+      c.flags.push('summary_row');
+    }
+  }
+}
+
 /* ---- pattern pass: what the SHAPE of the spending says ---------------------
    Some rows name nothing a dictionary can know -- a transfer to a person, a
    venue we've never heard of. But a month of statements has shape, and two
@@ -8269,6 +8319,57 @@ function csvPatternPass(candidates) {
       });
     });
   }
+}
+
+/* ---- on-device learning ----------------------------------------------------
+   Every correction the family makes is the best possible signal about their
+   own spending, and it never has to leave the device to be useful. A fix like
+   "this payee is Ăn ngoài" is remembered against the payee's normalized key,
+   so the next import gets it right without asking again.
+
+   Stored locally, encrypted for a committed-enc family exactly like the draft
+   is; nothing is sent anywhere and no model is trained on anyone's data. */
+var FH_CSV_LEARNED = 'fh-csv-learned';
+var csvLearned = {};        // key -> category name (in memory for the sync tiers)
+var _learnSeq = 0;
+
+function csvLearnLoad(){
+  var raw; try{ raw = localStorage.getItem(FH_CSV_LEARNED); }catch(e){ return; }
+  if(!raw) return;
+  var d; try{ d = JSON.parse(raw); }catch(e){ return; }
+  if(d && d.enc){
+    if(!window.fhDecStr) return;
+    window.fhDecStr(d.ct).then(function(pt){ if(pt){ try{ csvLearned = JSON.parse(pt) || {}; }catch(e){} } });
+    return;
+  }
+  csvLearned = (d && d.map) || {};
+}
+
+function csvLearnSave(){
+  try{
+    if(window.fhEncState && window.fhEncState()==='enc'){
+      if(!(window.fhKeyReady && window.fhKeyReady()) || !window.fhEncStr) return;
+      var seq = ++_learnSeq;
+      window.fhEncStr(JSON.stringify(csvLearned)).then(function(ct){
+        if(!ct || seq!==_learnSeq) return;
+        try{ localStorage.setItem(FH_CSV_LEARNED, JSON.stringify({ v:1, enc:1, ct:ct })); }catch(e){}
+      });
+      return;
+    }
+    localStorage.setItem(FH_CSV_LEARNED, JSON.stringify({ v:1, map:csvLearned }));
+  }catch(e){}
+}
+
+// Called when a person picks a category themselves -- the only signal strong
+// enough to learn from. Guesses are never fed back, or a wrong guess would
+// cement itself.
+function csvLearnFrom(c){
+  if(!c || !c.categoryName || c.catSource !== 'user') return;
+  var k = csvPatternKey(c);
+  if(!k || k.length < 4) return;
+  if(csvLearned[k] === c.categoryName) return;
+  csvLearned[k] = c.categoryName;
+  csvLearnSave();
 }
 
 /* One candidate per data row. Never throws on a bad row -- flags it and
@@ -8332,6 +8433,10 @@ function buildCsvCandidates(parsed, result) {
     if (!catName && desc) {
       var h = historyMap[normDescForDedup(desc)];
       if (h) { catName = h; catSource = 'history'; }
+    }
+    if (!catName) {
+      var lk = csvPatternKey({ counterparty: party, description: desc });
+      if (lk && csvLearned[lk] && catValid(csvLearned[lk])) { catName = csvLearned[lk]; catSource = 'learned'; }
     }
     if (!catName && desc && typeof guessCat === 'function') {
       var g = guessCat(desc);
