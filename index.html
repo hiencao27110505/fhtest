@@ -8047,6 +8047,41 @@ function _csvWordIn(needle, hay) {
   return new RegExp('(^|\\s)' + String(needle).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|\\s)').test(hay);
 }
 
+/* ---- bank-statement merchant recognition ---------------------------------
+   guessCat() reads human notes ("đi chợ", "tiền điện"). A bank export doesn't
+   write like that: it writes "CUSTOMER MBCT NGUYEN THU TRANG chuyen tien" or
+   "CUSTOMER RetailMastercard.PBA-765078" -- protocol noise wrapped around a
+   merchant name that may not even be there. So before giving up and filing a
+   row under the catch-all, strip the bank's boilerplate and look for a
+   merchant SUBSTRING (not whole-word: "momo" hides inside "MBCTMoMo").
+
+   The concept it returns is fed through the app's own familyCatForConcept(),
+   so it always lands on a category the family actually has, under their name
+   for it -- never a category we invented. */
+var CSV_BANK_NOISE = /\b(customer|khach hang|mbct|mbvcb|vcb|tcb|acb|bidv|vietinbank|agribank|napas|ib|ibft|ift|ft|trace|ref|pba|pos|atm|retailmastercard|mastercard|visa|jcb|napas247|ck|tk|stk|so tk|noi dung|nd|gd|tt)\b|[0-9]{4,}|[-_.]{2,}/g;
+
+var CSV_MERCHANTS = [
+  ['Transport', ['grab','gojek','be group','beamin','baemin','xanh sm','vinasun','mai linh','uber','vato','petrolimex','pvoil','xang dau','vetc','epass','parking']],
+  ['Dining',    ['highlands','phuc long','trung nguyen','katinat','the coffee house','tch','starbucks','passio','cong caphe','coffee','cafe','ca phe','kfc','lotteria','jollibee','mcdonald','burger','pizza','domino','texas chicken','popeyes','sushi','bbq','buffet','nha hang','restaurant','shopeefood','grabfood','now.vn','beefood','bun','pho ','com tam','tra sua','gong cha','tocotoco','phuc tea','mixue']],
+  ['Groceries', ['bach hoa xanh','bhx','winmart','vinmart','coopmart','co.opmart','co opmart','big c','go mall','emart','aeon','mega market','lotte mart','satra','circle k','gs25','familymart','ministop','7-eleven','cheers','sieu thi','farmers market','annam']],
+  ['Housing',   ['evn','dien luc','sawaco','cap nuoc','fpt telecom','viettel','vnpt','vinaphone','mobifone','internet','tien dien','tien nuoc','chung cu','ban quan ly','quan ly toa nha','pccc','gas','pgas','petrolgas']],
+  ['Fun',       ['cgv','lotte cinema','bhd star','galaxy cinema','beta cinema','netflix','spotify','youtube premium','fpt play','vieon','k+','steam','playstation','nintendo','gym','california fitness','citigym','yoga','kara','massage','spa','du lich','booking.com','agoda','traveloka','vietjet','vietnam airlines','bamboo airways','vexere']],
+  ['Shopping',  ['shopee','lazada','tiki','sendo','tiktok shop','amazon','apple.com','itunes','icloud','google','play store','uniqlo','zara','h&m','muji','decathlon','nguyen kim','dien may xanh','the gioi di dong','tgdd','fpt shop','cellphones']],
+  ['Others',    ['pharmacity','long chau','an khang','guardian','watsons','nha thuoc','benh vien','phong kham','vinmec','medlatec','hoan my','bao hiem','insurance','hoc phi','tuition','truong']],
+];
+
+function csvMerchantConcept(desc) {
+  var t = ' ' + deburr(String(desc || '').toLowerCase()).replace(CSV_BANK_NOISE, ' ').replace(/\s+/g, ' ') + ' ';
+  if (t.trim().length < 2) return '';
+  for (var i = 0; i < CSV_MERCHANTS.length; i++) {
+    var concept = CSV_MERCHANTS[i][0], toks = CSV_MERCHANTS[i][1];
+    for (var j = 0; j < toks.length; j++) {
+      if (t.indexOf(deburr(toks[j])) >= 0) return concept;
+    }
+  }
+  return '';
+}
+
 /* The family's own history is the strongest category signal there is: if a
    description was categorized by a human before, a new row with the same
    description almost certainly belongs there too. window.txns is newest-first
@@ -8117,6 +8152,11 @@ function buildCsvCandidates(parsed, result) {
        than making someone tap a category for every row. It's disclosed in the
        summary and one tap on the row changes it -- an editable default beats
        a blocking question. */
+    // bank-memo merchant recognition, before giving up on the row
+    if (!catName && desc && typeof familyCatForConcept === 'function') {
+      var mc = csvMerchantConcept(desc);
+      if (mc) { var fc = familyCatForConcept(mc); if (fc && catValid(fc)) { catName = fc; catSource = 'merchant'; } }
+    }
     if (!catName && catValid(CAT_FALLBACK)) { catName = CAT_FALLBACK; catSource = 'fallback'; }
     if (!catName) flags.push('needs_category');
 
