@@ -205,6 +205,7 @@ function csvBuildReview(parsed, result, opts){
     }
   }
 
+  csvPatternPass(candidates);          // habits the dictionary can't name
   var mixed = csvColumnHasMixedSigns(candidates);
   var buckets = bucketCsvCandidates(candidates, mixed);
   csvReview = {
@@ -218,6 +219,7 @@ function csvBuildReview(parsed, result, opts){
     adoptedCats: adopted,     // what we added this build, for the disclosure + undo
     catMerges: Object.keys(csvCatMerges).map(function(k){ return { from:k, to:csvCatMerges[k] }; }),
     fallbackCount: buckets.ready.filter(function(c){ return c.catSource === 'fallback'; }).length,
+    patternCount: buckets.ready.filter(function(c){ return c.catSource === 'pattern'; }).length,
     declinedAdopt: !!opts.declined,
   };
   csvExpand = null;
@@ -418,11 +420,14 @@ function renderCsvReview(){
      names -- say so plainly, with an undo. After an undo it flips back to an
      offer, so the choice is never one-way. */
   var didMerge = (r.catMerges||[]).length, didAdd = (r.adoptedCats||[]).length;
-  if(didMerge || didAdd || r.fallbackCount){
+  if(didMerge || didAdd || r.fallbackCount || r.patternCount){
     var lines = [];
     if(didMerge) lines.push('<div class="notice-text">'
       + '<b>'+esc(L('Đã gộp vào danh mục sẵn có:','Merged into categories you already have:'))+'</b> '
       + esc(r.catMerges.map(function(m){ return '"'+m.from+'" → '+m.to; }).join(' · '))+'</div>');
+    if(r.patternCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
+      + '<b>'+esc(L(r.patternCount+' khoản đoán theo thói quen chi tiêu','Guessed '+r.patternCount+' from your spending pattern'))+'</b> '
+      + esc(L('— ví dụ khoản nhỏ lặp lại ở cùng một chỗ, hay khoản lớn lặp hằng tháng. Ngó qua giúp nhé.','— e.g. small repeats at one place, or a large monthly repeat. Worth a glance.'))+'</div>');
     if(r.fallbackCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
       + '<b>'+esc(L(r.fallbackCount+' khoản chưa rõ danh mục', r.fallbackCount+(r.fallbackCount===1?' row':' rows')+' had no clear category'))+'</b> '
       + esc(L('— tạm để ở "'+CAT_FALLBACK+'", chạm vào khoản để đổi.','— filed under "'+CAT_FALLBACK+'" for now; tap a row to change it.'))+'</div>');

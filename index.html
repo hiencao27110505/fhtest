@@ -7542,6 +7542,7 @@ function csvBuildReview(parsed, result, opts){
     }
   }
 
+  csvPatternPass(candidates);          // habits the dictionary can't name
   var mixed = csvColumnHasMixedSigns(candidates);
   var buckets = bucketCsvCandidates(candidates, mixed);
   csvReview = {
@@ -7555,6 +7556,7 @@ function csvBuildReview(parsed, result, opts){
     adoptedCats: adopted,     // what we added this build, for the disclosure + undo
     catMerges: Object.keys(csvCatMerges).map(function(k){ return { from:k, to:csvCatMerges[k] }; }),
     fallbackCount: buckets.ready.filter(function(c){ return c.catSource === 'fallback'; }).length,
+    patternCount: buckets.ready.filter(function(c){ return c.catSource === 'pattern'; }).length,
     declinedAdopt: !!opts.declined,
   };
   csvExpand = null;
@@ -7755,11 +7757,14 @@ function renderCsvReview(){
      names -- say so plainly, with an undo. After an undo it flips back to an
      offer, so the choice is never one-way. */
   var didMerge = (r.catMerges||[]).length, didAdd = (r.adoptedCats||[]).length;
-  if(didMerge || didAdd || r.fallbackCount){
+  if(didMerge || didAdd || r.fallbackCount || r.patternCount){
     var lines = [];
     if(didMerge) lines.push('<div class="notice-text">'
       + '<b>'+esc(L('Đã gộp vào danh mục sẵn có:','Merged into categories you already have:'))+'</b> '
       + esc(r.catMerges.map(function(m){ return '"'+m.from+'" → '+m.to; }).join(' · '))+'</div>');
+    if(r.patternCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
+      + '<b>'+esc(L(r.patternCount+' khoản đoán theo thói quen chi tiêu','Guessed '+r.patternCount+' from your spending pattern'))+'</b> '
+      + esc(L('— ví dụ khoản nhỏ lặp lại ở cùng một chỗ, hay khoản lớn lặp hằng tháng. Ngó qua giúp nhé.','— e.g. small repeats at one place, or a large monthly repeat. Worth a glance.'))+'</div>');
     if(r.fallbackCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
       + '<b>'+esc(L(r.fallbackCount+' khoản chưa rõ danh mục', r.fallbackCount+(r.fallbackCount===1?' row':' rows')+' had no clear category'))+'</b> '
       + esc(L('— tạm để ở "'+CAT_FALLBACK+'", chạm vào khoản để đổi.','— filed under "'+CAT_FALLBACK+'" for now; tap a row to change it.'))+'</div>');
@@ -8149,10 +8154,10 @@ var CSV_BANK_NOISE = /\b(customer|khach hang|mbct|mbvcb|vcb|tcb|acb|bidv|vietinb
 var CSV_MERCHANTS = [
   ['Transport', ['grab','gojek','be group','beamin','baemin','xanh sm','vinasun','mai linh','uber','vato','petrolimex','pvoil','xang dau','vetc','epass','parking']],
   ['Dining',    ['highlands','phuc long','trung nguyen','katinat','the coffee house','tch','starbucks','passio','cong caphe','coffee','cafe','ca phe','kfc','lotteria','jollibee','mcdonald','burger','pizza','domino','texas chicken','popeyes','sushi','bbq','buffet','nha hang','restaurant','shopeefood','grabfood','now.vn','beefood','bun','pho ','com tam','tra sua','gong cha','tocotoco','phuc tea','mixue']],
-  ['Groceries', ['bach hoa xanh','bhx','winmart','vinmart','coopmart','co.opmart','co opmart','big c','go mall','emart','aeon','mega market','lotte mart','satra','circle k','gs25','familymart','ministop','7-eleven','cheers','sieu thi','farmers market','annam']],
+  ['Groceries', ['quick save','minimart','mini mart','tap hoa','bach hoa xanh','bhx','winmart','vinmart','coopmart','co.opmart','co opmart','big c','go mall','emart','aeon','mega market','lotte mart','satra','circle k','gs25','familymart','ministop','7-eleven','cheers','sieu thi','farmers market','annam']],
   ['Housing',   ['evn','dien luc','sawaco','cap nuoc','fpt telecom','viettel','vnpt','vinaphone','mobifone','internet','tien dien','tien nuoc','chung cu','ban quan ly','quan ly toa nha','pccc','gas','pgas','petrolgas']],
   ['Fun',       ['cgv','lotte cinema','bhd star','galaxy cinema','beta cinema','netflix','spotify','youtube premium','fpt play','vieon','k+','steam','playstation','nintendo','gym','california fitness','citigym','yoga','kara','massage','spa','du lich','booking.com','agoda','traveloka','vietjet','vietnam airlines','bamboo airways','vexere']],
-  ['Shopping',  ['shopee','lazada','tiki','sendo','tiktok shop','amazon','apple.com','itunes','icloud','google','play store','uniqlo','zara','h&m','muji','decathlon','nguyen kim','dien may xanh','the gioi di dong','tgdd','fpt shop','cellphones']],
+  ['Shopping',  ['crescent mall','vincom','parkson','takashimaya','saigon centre','saigon center','gigamall','van hanh mall','estella place','vivocity','diamond plaza','aeon mall','shopee','lazada','tiki','sendo','tiktok shop','amazon','apple.com','itunes','icloud','google','play store','uniqlo','zara','h&m','muji','decathlon','nguyen kim','dien may xanh','the gioi di dong','tgdd','fpt shop','cellphones']],
   ['Others',    ['pharmacity','long chau','an khang','guardian','watsons','nha thuoc','benh vien','phong kham','vinmec','medlatec','hoan my','bao hiem','insurance','hoc phi','tuition','truong']],
 ];
 
@@ -8200,6 +8205,61 @@ function csvHistoryCategoryMap() {
     if (!map[k]) map[k] = t.cat;
   });
   return map;
+}
+
+/* ---- pattern pass: what the SHAPE of the spending says ---------------------
+   Some rows name nothing a dictionary can know -- a transfer to a person, a
+   venue we've never heard of. But a month of statements has shape, and two
+   patterns are unambiguous enough to act on:
+
+     · the same payee, three or more times, never above ~50k
+       -> a small daily habit. Coffee/food is what that is in practice.
+     · the same large round amount, repeating across months
+       -> rent. Nothing else in a household ledger looks like that.
+
+   These are marked catSource:'pattern' -- a weaker signal than a named
+   merchant, disclosed as a guess so it's checked rather than trusted. */
+function csvPatternKey(c) {
+  var base = (c.counterparty || c.description || '');
+  return deburr(String(base).toLowerCase())
+    .replace(CSV_BANK_NOISE, ' ')
+    .replace(/[^a-z\s]/g, ' ')
+    .replace(/\s+/g, ' ').trim().slice(0, 40);
+}
+
+function csvPatternPass(candidates) {
+  if (typeof familyCatForConcept !== 'function') return;
+  var byKey = {}, byAmount = {};
+  candidates.forEach(function (c) {
+    if (c.amount == null || c.isIncome) return;
+    var k = csvPatternKey(c);
+    if (k) (byKey[k] = byKey[k] || []).push(c);
+    (byAmount[c.amount] = byAmount[c.amount] || []).push(c);
+  });
+
+  var dining = familyCatForConcept('Dining');
+  if (dining && catValid(dining)) {
+    Object.keys(byKey).forEach(function (k) {
+      var g = byKey[k];
+      if (g.length < 3) return;
+      if (!g.every(function (c) { return c.amount <= 50000; })) return;
+      g.forEach(function (c) {
+        if (c.catSource === 'fallback' || !c.categoryName) { c.categoryName = dining; c.catSource = 'pattern'; }
+      });
+    });
+  }
+
+  var housing = familyCatForConcept('Housing');
+  if (housing && catValid(housing)) {
+    Object.keys(byAmount).forEach(function (a) {
+      var g = byAmount[a];
+      if (g.length < 2 || +a < 3000000) return;          // recurring AND large
+      if (+a % 100000 !== 0) return;                      // rent is a round figure
+      g.forEach(function (c) {
+        if (c.catSource === 'fallback' || !c.categoryName) { c.categoryName = housing; c.catSource = 'pattern'; }
+      });
+    });
+  }
 }
 
 /* One candidate per data row. Never throws on a bad row -- flags it and
