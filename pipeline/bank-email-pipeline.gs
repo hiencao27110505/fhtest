@@ -29,8 +29,23 @@ function processEmails() {
       try {
         runCallCount = processOneMessage(messages[m], runCallCount);
       } catch (err) {
-        // One bad message shouldn't stop the run — log and relabel as failed.
-        insertParseFailure(messages[m], String(err));
+        // Two very different failures land here, and treating them alike loses data:
+        //   • Supabase unreachable/erroring — nothing to do with THIS email. Leave it
+        //     labeled txn/inbox so the next run retries it. Relabelling it failed here
+        //     would drop a perfectly good transaction because the database blinked
+        //     (and insertParseFailure would fail too, so there'd be no record at all).
+        //   • Anything else — genuinely this message's problem. Record and stop retrying.
+        if (String(err).indexOf('SUPABASE_') !== -1) {
+          Logger.log('Supabase unavailable, leaving ' + messages[m].getId() + ' queued: ' + err);
+          continue;
+        }
+        try {
+          insertParseFailure(messages[m], String(err));
+        } catch (e2) {
+          // Can't even record it — leave it queued rather than silently burning it.
+          Logger.log('parse_failures write failed for ' + messages[m].getId() + ': ' + e2);
+          continue;
+        }
         relabelThread(threads[t], 'txn/parse-failed');
       }
     }
@@ -742,6 +757,28 @@ function testGeminiOnRealEmail() {
 
 // ---------- Supabase REST helpers ----------
 
+// All Supabase traffic goes through here so an HTTP failure can never be mistaken
+// for a result. PostgREST answers errors with a JSON *object* ({code, message,...}),
+// which is truthy and parses fine — so callers checking `if (!result)` or reading
+// `rows.length` silently treated outages and schema mismatches as success/empty.
+// Failures throw with a SUPABASE_ prefix so processEmails() can tell "the database
+// is unhappy" (retry later, keep the message queued) apart from "this email is
+// unparseable" (record it, stop retrying).
+function _supabaseFetch(url, options) {
+  var response = UrlFetchApp.fetch(url, options);
+  var code = response.getResponseCode();
+  var text = response.getContentText();
+  if (code < 200 || code >= 300) {
+    throw new Error('SUPABASE_HTTP_' + code + ': ' + String(text).slice(0, 300));
+  }
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error('SUPABASE_BAD_JSON: ' + String(text).slice(0, 300));
+  }
+}
+
 function supabaseGet(table, filters) {
   var base = PropertiesService.getScriptProperties().getProperty('SUPABASE_URL');
   var key = PropertiesService.getScriptProperties().getProperty('SUPABASE_SERVICE_ROLE_KEY');
@@ -749,11 +786,13 @@ function supabaseGet(table, filters) {
   for (var k in filters) params.push(k + '=' + encodeURIComponent(filters[k]));
   var url = base + '/rest/v1/' + table + '?' + params.join('&');
 
-  var response = UrlFetchApp.fetch(url, {
+  var result = _supabaseFetch(url, {
     headers: { apikey: key, Authorization: 'Bearer ' + key },
     muteHttpExceptions: true,
   });
-  return JSON.parse(response.getContentText());
+  // A successful PostgREST select is always an array; anything else means the
+  // shape changed underneath us and callers doing rows.length would misread it.
+  return Array.isArray(result) ? result : [];
 }
 
 function supabasePost(table, row, onConflict) {
@@ -768,13 +807,12 @@ function supabasePost(table, row, onConflict) {
     Prefer: onConflict ? 'resolution=merge-duplicates,return=representation' : 'return=representation',
   };
 
-  var response = UrlFetchApp.fetch(url, {
+  var result = _supabaseFetch(url, {
     method: 'post',
     headers: headers,
     payload: JSON.stringify(row),
     muteHttpExceptions: true,
   });
-  var result = JSON.parse(response.getContentText());
   return Array.isArray(result) ? result[0] : result;
 }
 
@@ -785,7 +823,7 @@ function supabasePatch(table, filters, updates) {
   for (var k in filters) params.push(k + '=' + encodeURIComponent(filters[k]));
   var url = base + '/rest/v1/' + table + '?' + params.join('&');
 
-  UrlFetchApp.fetch(url, {
+  _supabaseFetch(url, {
     method: 'patch',
     headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
     payload: JSON.stringify(updates),
