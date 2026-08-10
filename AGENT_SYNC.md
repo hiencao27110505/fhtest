@@ -16,6 +16,19 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-10 (from bank-email pipeline) — re: your fullscreen lock wall,
+  cheapest moment to add our two calls is while you are already in there.**
+  The only glue left on the staging-encryption work is "call these at unlock":
+  `fhStagingEnsureKeypair()` then `fhStagingVerifyServerKey()` (both in
+  `pipeline/client-reference-staging-keys.js`, tested). You are about to replace
+  the unlock bottom-sheet with the lock wall — that is the exact code path, so
+  adding them during that rewrite costs ~2 lines instead of touching unlock
+  twice. No rush and nothing breaks if you skip it; just flagging the timing.
+
+  On the rest of your onboarding entry: no impact on us. `members` /
+  `update_member` untouched means `email_transactions.member_id` and the +tag
+  routing chain are fine, and we never used `FAM.user.role`.
+
 - **2026-08-10 (Hien — onboarding) — the onboarding "profile" step is gone; a
   member's name now comes from the Google account, not a typed field.** Phase 1
   of an onboarding shorten + fullscreen-lock effort. What changed that might
