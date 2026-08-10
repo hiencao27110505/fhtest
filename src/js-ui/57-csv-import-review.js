@@ -127,6 +127,17 @@ function csvLocalizedCatName(name) {
   return '';
 }
 
+/* Categories the file introduced, held PENDING until Import.
+
+   These used to be pushed straight into the app's live catOrder, which the
+   budget editor, the expense composer and the transaction list all read -- so
+   merely opening a file made a category appear across the whole app, and
+   cancelling the review left it behind. Nothing global is touched now until
+   the rows are actually written. */
+var csvPendingCats = [];
+function csvAllCats(){ return (window.catOrder || []).concat(csvPendingCats); }
+function csvCatOk(c){ return !!c && (catValid(c) || csvPendingCats.indexOf(c) >= 0); }
+
 var csvFuzzyCats = true;   // false while an undo is in effect
 var csvCatMerges = {};     // file name (normalized) -> the family category it merged into
 var csvCatAmbiguous = {};  // file names that matched 2+ existing categories
@@ -146,7 +157,7 @@ var csvCatAmbiguous = {};  // file names that matched 2+ existing categories
 function matchCategoryName(guess) {
   var g = deburr((guess || '').trim().toLowerCase());
   if (!g) return null;
-  var order = window.catOrder || [], i;
+  var order = csvAllCats(), i;
   for (i = 0; i < order.length; i++) {
     if (deburr(order[i].toLowerCase()) === g) return order[i];
   }
@@ -182,7 +193,7 @@ function matchCategoryName(guess) {
         var nm = deburr(String(names[n]).toLowerCase());
         if (g === nm || _csvWordIn(nm, g) || _csvWordIn(g, nm)) {
           var fam = familyCatForConcept(cpt);
-          if (fam && catValid(fam)) { csvCatMerges[String(guess).trim()] = fam; return fam; }
+          if (fam && csvCatOk(fam)) { csvCatMerges[String(guess).trim()] = fam; return fam; }
         }
       }
     }
@@ -335,7 +346,7 @@ function csvPatternPass(candidates) {
   });
 
   var dining = familyCatForConcept('Dining');
-  if (dining && catValid(dining)) {
+  if (dining && csvCatOk(dining)) {
     Object.keys(byKey).forEach(function (k) {
       var g = byKey[k];
       if (g.length < 3) return;
@@ -347,7 +358,7 @@ function csvPatternPass(candidates) {
   }
 
   var housing = familyCatForConcept('Housing');
-  if (housing && catValid(housing)) {
+  if (housing && csvCatOk(housing)) {
     Object.keys(byAmount).forEach(function (a) {
       var g = byAmount[a];
       if (g.length < 2 || +a < 3000000) return;          // recurring AND large
@@ -521,11 +532,11 @@ function buildCsvCandidates(parsed, result) {
     }
     if (!catName) {
       var lk = csvLearnKey({ counterparty: party, description: desc, amount: amount });
-      if (lk && csvLearned[lk] && catValid(csvLearned[lk])) { catName = csvLearned[lk]; catSource = 'learned'; }
+      if (lk && csvLearned[lk] && csvCatOk(csvLearned[lk])) { catName = csvLearned[lk]; catSource = 'learned'; }
     }
     if (!catName && desc && typeof guessCat === 'function') {
       var g = guessCat(desc);
-      if (g && catValid(g)) { catName = g; catSource = 'keyword'; }
+      if (g && csvCatOk(g)) { catName = g; catSource = 'keyword'; }
     }
     /* Least steps wins: if the file's own label, the family's history and the
        keyword guess all come up empty, file it under the catch-all rather
@@ -536,9 +547,9 @@ function buildCsvCandidates(parsed, result) {
     if (!catName && desc && typeof familyCatForConcept === 'function') {
       // the counterparty column names the merchant plainly; the memo buries it
       var mc = csvMerchantConcept(party) || csvMerchantConcept(desc);
-      if (mc) { var fc = familyCatForConcept(mc); if (fc && catValid(fc)) { catName = fc; catSource = 'merchant'; } }
+      if (mc) { var fc = familyCatForConcept(mc); if (fc && csvCatOk(fc)) { catName = fc; catSource = 'merchant'; } }
     }
-    if (!catName && !isIncome && catValid(CAT_FALLBACK)) { catName = CAT_FALLBACK; catSource = 'fallback'; }
+    if (!catName && !isIncome && csvCatOk(CAT_FALLBACK)) { catName = CAT_FALLBACK; catSource = 'fallback'; }
     if (!catName) flags.push('needs_category');
 
     return {

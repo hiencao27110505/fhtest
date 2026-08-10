@@ -221,6 +221,7 @@ function csvIncludedCount(){ return csvReview ? csvReview.ready.length : 0; }
 function csvBuildReview(sources, opts){
   opts = opts || {};
   csvCatMerges = {}; csvCatAmbiguous = {};   // recomputed every build
+  csvPendingCats = [];                       // adoption is re-decided each build
   csvFuzzyCats = !opts.declined;             // undo also turns off name-merging
 
   var build = function(){
@@ -280,10 +281,9 @@ function csvAdoptCategories(names){
     // Create it under the app's language, so a Vietnamese family never ends up
     // with an English category just because their export was labelled that way.
     var name = (typeof csvLocalizedCatName === 'function' && csvLocalizedCatName(raw)) || raw;
-    if(catValid(name)) return;
-    catOrder.push(name);
-    catStyle[name] = [csvCatEmoji(name)].concat(CATPAL[catOrder.length % CATPAL.length]);
-    if(typeof catBudget !== 'undefined') catBudget[name] = catBudget[name] || 0;
+    if(csvCatOk(name)) return;
+    csvPendingCats.push(name);                       // pending, NOT the live list
+    catStyle[name] = [csvCatEmoji(name)].concat(CATPAL[(csvAllCats().length) % CATPAL.length]);
     added.push(name);
   });
   return added;
@@ -293,15 +293,8 @@ function csvAdoptCategories(names){
    Safe because nothing has been written yet -- these exist only client-side
    until Import, and only names WE added this build are removed. */
 function csvUndoAdopt(){
-  // Also reachable when only MERGES happened (nothing was added) -- the undo
-  // turns off name-merging too, so the guard can't require adoptedCats.
   if(!csvReview) return;
-  (csvReview.adoptedCats||[]).forEach(function(name){
-    var i = catOrder.indexOf(name);
-    if(i >= 0) catOrder.splice(i, 1);
-    delete catStyle[name];
-    if(typeof catBudget !== 'undefined') delete catBudget[name];
-  });
+  csvPendingCats = [];                               // nothing global to unwind
   csvBuildReview(csvReview.sources, { declined:true });
   renderCsvReview();
 }
@@ -425,7 +418,7 @@ function csvCollapsedCard(c, opts){
    but its own inputs, so neither surface can empty the other. */
 function csvActiveCard(c, opts){
   var rm = opts.removeFn ? '<button type="button" class="bulk-x" onclick="'+opts.removeFn+'" aria-label="'+L('Xoá khoản này','Remove this item')+'">✕</button>' : '';
-  var catChips = (window.catOrder||[]).map(function(name){
+  var catChips = csvAllCats().map(function(name){
     var st=(window.catStyle&&window.catStyle[name])||['🏷️'];
     var act = opts.instantChips ? 'csvGroupPick(\''+escAttr(name)+'\')' : 'pick(\'csvedit-cats\',this)';
     return '<button type="button" class="choice'+(c && name===c.categoryName?' on':'')+'" data-v="'+escAttr(name)+'" onclick="'+act+'">'+st[0]+' '+esc(name)+'</button>';
@@ -776,6 +769,16 @@ function csvPromote(){
      category, which collides and fails the batch. Resolving each distinct
      category once, up front, fills window.DB.catByName so the writes find it
      instead of racing. */
+  /* Now -- and only now -- do the file's new categories join the real list.
+     Up to this point they existed only inside the review. */
+  csvPendingCats.forEach(function(name){
+    if((window.catOrder||[]).indexOf(name) < 0){
+      catOrder.push(name);
+      if(typeof catBudget !== 'undefined') catBudget[name] = catBudget[name] || 0;
+    }
+  });
+  csvPendingCats = [];
+
   var names = [];
   csvReview.ready.forEach(function(c){ if(c.categoryName && names.indexOf(c.categoryName)<0) names.push(c.categoryName); });
 
