@@ -67,10 +67,12 @@
     return _isoDate(now);
   }
 
+  // fhAvStyle / fhAvIni now live in the classic js-ui layer (10-nav-model.js) so
+  // they exist at parse-time boot render; used here for the hero + spender rows.
   function updateHeroFam() {
     const box = document.getElementById('hero-fam');
     if (box && window.FAM) box.innerHTML = (window.FAM.members || []).slice(0, 5).map((mm) =>
-      '<div class="av av-hero" style="background:' + mm.color + '">' + window.esc(inits(mm.name)) + '</div>').join('') +
+      '<div class="av av-hero" style="' + window.fhAvStyle(mm) + '">' + (mm.av ? '' : window.esc(inits(mm.name))) + '</div>').join('') +
       '<span class="hero-fam-cap">' + window.esc(window.FAM.familyName || '') + '</span>';
   }
 
@@ -127,8 +129,8 @@
     const key = (who || '').toLowerCase(); let mm = null;
     if (key === 'both' || key === 'shared') mm = window.membersMeta && window.membersMeta['Shared'];
     else if (window.membersMeta) { for (const n in window.membersMeta) { if (n.toLowerCase() === key) { mm = window.membersMeta[n]; break; } } }
-    const col = mm ? mm.col : '#8f8a99', ini = mm ? mm.ini : '👥';
-    return '<div class="r-sp av" style="background:' + col + ';color:#fff">' + window.esc(ini) + '</div>';
+    mm = mm || { col: '#8f8a99', ini: '👥' };
+    return '<div class="r-sp av" style="' + window.fhAvStyle(mm) + '">' + window.esc(window.fhAvIni(mm)) + '</div>';
   };
 
   // rebuild the "who paid" / "added by" chips from the real family (replaces mock Emma/James/…)

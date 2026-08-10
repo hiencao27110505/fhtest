@@ -67,7 +67,7 @@
       } else {
         const R = await Promise.all([
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
-          sb.from('members').select('id,name,name_enc,color,is_shared,user_id,created_at,key_unlocked_at').eq('family_id', fid).is('archived_at', null).order('created_at'),
+          sb.from('members').select('id,name,name_enc,color,is_shared,user_id,created_at,key_unlocked_at,avatar_url').eq('family_id', fid).is('archived_at', null).order('created_at'),
           // archived ones come along so old transactions still resolve their name; they're kept out of catOrder below
           sb.from('categories').select('id,name,name_enc,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
           sb.from('category_budgets').select('category_id,amount,amount_enc,month').eq('family_id', fid),
@@ -179,17 +179,22 @@
       // members → membersMeta + maps
       window.DB.memberById = {}; window.DB.memberByAppName = {}; window.DB.sharedId = null; window.DB.ownerMemberId = null;
       const mm = {};
+      // avatar_url holds a storage PATH to an AES-GCM '.enc' object → build the
+      // public URL; the photo-render observer (57-photo-enc.js) decrypts it in
+      // place. Empty when the member has no photo (→ colour+initials fallback).
+      const _AVPUB = SUPABASE_URL + '/storage/v1/object/public/family-media/';
+      const _avUrl = (p) => p ? (p.indexOf('http') === 0 ? p : (_AVPUB + p.split('/').map(encodeURIComponent).join('/'))) : '';
       mem.forEach((m) => {
         window.DB.memberById[m.id] = m;
         const appName = m.is_shared ? 'Shared' : m.name;
-        mm[appName] = { av: '', ini: inits(m.name), col: m.color || '#8f8a99' };
+        mm[appName] = { av: _avUrl(m.avatar_url), ini: inits(m.name), col: m.color || '#8f8a99' };
         window.DB.memberByAppName[appName] = m.id;
         if (m.is_shared) window.DB.sharedId = m.id;
         if (m.user_id === uid && !m.is_shared) window.DB.ownerMemberId = m.id;
       });
       if (!mm['Shared']) mm['Shared'] = { av: '', ini: '👥', col: '#8f8a99' };
       window.membersMeta = mm;
-      window.FAM.members = mem.filter((m) => !m.is_shared).map((m) => ({ name: m.name, color: m.color || '#8f8a99', me: m.user_id === uid }));
+      window.FAM.members = mem.filter((m) => !m.is_shared).map((m) => ({ name: m.name, color: m.color || '#8f8a99', av: _avUrl(m.avatar_url), me: m.user_id === uid }));
       _rebuildWhoChips();
 
       // categories → catOrder / catStyle
@@ -418,6 +423,8 @@
       // proactively surface the Key Card migration (owner, enc, no card yet) —
       // the USP moment on open, not a buried Settings button. Once per session.
       setTimeout(() => { try { window.fhCardProactive && window.fhCardProactive(); } catch (e) {} }, 3500);
+      // best-effort: seed my avatar from my Google photo once, if I have none yet
+      setTimeout(() => { try { window.fhAvatarSeedFromGoogle && window.fhAvatarSeedFromGoogle(); } catch (e) {} }, 1800);
       return true;
     } catch (e) { console.warn('loadFamilyData failed', e); return false; }
     finally { _hideLoading(); fhFresh(); }     // the chip must clear even if the hydrate failed

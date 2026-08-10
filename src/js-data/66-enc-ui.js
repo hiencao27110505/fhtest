@@ -455,6 +455,34 @@
           } catch (e) { console.warn('photo cover failed', tbl, row.id, e); }
         }
       }
+      /* member avatars (0052): a face set while the family was 'off'/'dual' is a
+         plaintext bucket object — same treatment as photos. Repoint via
+         update_member, which authorises owner-or-self; only sweep rows this device
+         can actually update (the owner, enabling encryption, covers everyone). */
+      {
+        const _uid = window.fhUser && window.fhUser.id;
+        const _own = (await sb.from('families').select('owner_id').eq('id', fid).maybeSingle()).data;
+        const _isOwner = !!(_own && _uid && _own.owner_id === _uid);
+        const rm = await sb.from('members').select('id,user_id,avatar_url').eq('family_id', fid).is('archived_at', null);
+        if (!rm.error) for (const row of (rm.data || [])) {
+          const p = row.avatar_url;
+          if (!p || p.indexOf('http') === 0 || /\.enc$/.test(p)) continue;
+          if (!_isOwner && row.user_id !== _uid) continue;                  // can't update this row → skip (owner's sweep covers it)
+          try {
+            _fhEncProg(L('Đang bảo vệ ảnh… ', 'Protecting photos… ') + (nPhoto + 1));
+            const resp = await fetch(P + p.split('/').map(encodeURIComponent).join('/'));
+            if (!resp.ok) continue;
+            const ct = await fhEncBytes(new Uint8Array(await resp.arrayBuffer()));
+            const newPath = p + '.enc';
+            const up = await sb.storage.from('family-media').upload(newPath, ct, { contentType: 'application/octet-stream', cacheControl: '31536000' });
+            if (up.error && !/already exists|duplicate/i.test(String(up.error.message || ''))) continue;
+            window.DB._lastLocalWrite = Date.now();
+            await _rpc('update_member', { p_member_id: row.id, p_avatar_url: newPath });
+            try { await sb.storage.from('family-media').remove([p]); } catch (e) {}
+            nPhoto++;
+          } catch (e) { console.warn('avatar cover failed', row.id, e); }
+        }
+      }
       _fhEncProg('');
       if (nPhoto) window.toast && window.toast(L('Đã mã hóa ' + nPhoto + ' ảnh của gia đình ✓', nPhoto + ' family photos encrypted ✓'));
       if (nTxt || nPhoto) { window.DB._lastLocalWrite = 0; window.loadFamilyData && window.loadFamilyData(); }

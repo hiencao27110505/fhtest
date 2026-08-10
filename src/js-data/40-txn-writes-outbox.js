@@ -41,6 +41,10 @@
   async function _uploadPhoto(dataUri) {
     try {
       const fid = window.DB.fid; if (!fid || !dataUri || dataUri.indexOf('data:') !== 0) return null;
+      // Never persist a plaintext image in a committed-encryption family: if the
+      // device holds no key we can't produce '.enc' bytes, so refuse rather than
+      // silently store the face/photo in the clear.
+      if (window.fhEncState && window.fhEncState() === 'enc' && !(window.fhKeyReady && window.fhKeyReady())) return null;
       dataUri = await _compressImage(dataUri);
       const m = dataUri.match(/^data:([^;]+);base64,(.*)$/); if (!m) return null;
       const mime = m[1]; const bin = atob(m[2]); let arr = new Uint8Array(bin.length);
@@ -70,6 +74,9 @@
       return path;
     } catch (e) { console.warn('upload err', e); return null; }
   }
+  // Shared with the avatar module (69-avatar.js): encrypt+upload any data-URL
+  // image through the same '.enc' pipeline, returning the storage path.
+  window.fhUploadEncImage = _uploadPhoto;
   /* EXIF capture date for a pre-compression data URI, recorded by readPhoto().
      Photos that predate the parser, or that carried no usable EXIF, return null
      and are stored as "date unknown" rather than guessed at. */

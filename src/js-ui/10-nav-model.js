@@ -1,3 +1,19 @@
+/* Shared avatar rendering. Defined here in the classic js-ui layer so it is
+   available at parse-time boot render (before the js-data module loads). A
+   member with an encrypted photo (mm.av = the '.enc' public URL, decrypted in
+   place by the photo observer) shows the photo; the initials stay as a genuine
+   fallback and are hidden (color:transparent) ONLY once the photo actually
+   paints — see _phSwapBg — so a locked device or a failed decrypt still shows
+   initials, never a blank disc. Accepts a membersMeta entry ({col,av,ini}) or a
+   FAM.members entry ({color,av}). */
+window.fhAvStyle = function(mm){
+  var c = (mm && (mm.col || mm.color)) || '#8f8a99';
+  return (mm && mm.av)
+    ? ('background:' + c + ';background-image:url(' + mm.av + ');background-size:cover;background-position:center')
+    : ('background:' + c);
+};
+window.fhAvIni = function(mm){ return (mm && mm.ini) || ''; };
+
 function go(name){
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('on'); });
   document.getElementById('v-'+name).classList.add('on');

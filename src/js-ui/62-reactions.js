@@ -47,8 +47,10 @@ function rxMessage(rec, tx){
 }
 function _rxFace(mid){
   var m=window.DB && window.DB.memberById && window.DB.memberById[mid];
-  var col=(m&&m.color)||'#8f8a99', ini=(m && typeof inits==='function')?inits(m.name):'👤';
-  return '<span class="rx-av av" style="background:'+col+'">'+esc(ini)+'</span>';
+  var key=m?(m.is_shared?'Shared':m.name):null;
+  var mm=(key && window.membersMeta)?window.membersMeta[key]:null;
+  mm=mm || { col:(m&&m.color)||'#8f8a99', ini:(m && typeof inits==='function')?inits(m.name):'👤' };
+  return '<span class="rx-av av" style="'+window.fhAvStyle(mm)+'">'+esc(window.fhAvIni(mm))+'</span>';
 }
 function rxTxByDbId(id){ var a=window.txns||[]; for(var i=0;i<a.length;i++){ if(a[i]._dbId===id) return a[i]; } return null; }
 function _rxMineOn(txDbId){

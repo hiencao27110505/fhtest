@@ -3379,6 +3379,22 @@ function fhLogErr(err) {
 window.fhLogErr = fhLogErr;
 window.addEventListener('error', function (e) { fhLogErr(e.error || e.message); });
 window.addEventListener('unhandledrejection', function (e) { fhLogErr(e.reason); });
+/* Shared avatar rendering. Defined here in the classic js-ui layer so it is
+   available at parse-time boot render (before the js-data module loads). A
+   member with an encrypted photo (mm.av = the '.enc' public URL, decrypted in
+   place by the photo observer) shows the photo; the initials stay as a genuine
+   fallback and are hidden (color:transparent) ONLY once the photo actually
+   paints — see _phSwapBg — so a locked device or a failed decrypt still shows
+   initials, never a blank disc. Accepts a membersMeta entry ({col,av,ini}) or a
+   FAM.members entry ({color,av}). */
+window.fhAvStyle = function(mm){
+  var c = (mm && (mm.col || mm.color)) || '#8f8a99';
+  return (mm && mm.av)
+    ? ('background:' + c + ';background-image:url(' + mm.av + ');background-size:cover;background-position:center')
+    : ('background:' + c);
+};
+window.fhAvIni = function(mm){ return (mm && mm.ini) || ''; };
+
 function go(name){
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('on'); });
   document.getElementById('v-'+name).classList.add('on');
@@ -4256,10 +4272,11 @@ function _byChip(who){
   if(!who) return '';
   var w = ('' + who).toLowerCase();
   if(w === 'both' || w === 'shared' || w === 'chung') return '';        // collective → no single face
-  var nm = who, col = '#8f8a99', ini = (typeof inits === 'function') ? inits(who) : ('' + who).charAt(0).toUpperCase();
-  if(typeof membersMeta !== 'undefined' && membersMeta){ for(var n in membersMeta){ if(n.toLowerCase() === w){ col = membersMeta[n].col; ini = membersMeta[n].ini; nm = n; break; } } }
+  var nm = who, col = '#8f8a99', ini = (typeof inits === 'function') ? inits(who) : ('' + who).charAt(0).toUpperCase(), mmx = null;
+  if(typeof membersMeta !== 'undefined' && membersMeta){ for(var n in membersMeta){ if(n.toLowerCase() === w){ mmx = membersMeta[n]; col = mmx.col; ini = mmx.ini; nm = n; break; } } }
   var fn = (typeof firstName === 'function') ? firstName(nm) : nm;
-  return '<div class="bp-by"><span class="av" style="background:' + col + '">' + esc(ini) + '</span><span>' + esc(fn) + '</span></div>';
+  var _pm = mmx || { col: col, ini: ini };
+  return '<div class="bp-by"><span class="av" style="' + window.fhAvStyle(_pm) + '">' + esc(window.fhAvIni(_pm)) + '</span><span>' + esc(fn) + '</span></div>';
 }
 /* which scene-style cover fits an occasion? keyword + emoji matched, vi + en */
 function occCover(name, emoji){
@@ -9251,7 +9268,7 @@ function _whoDisp(who){
   var col=mm?mm.col:(isShared?'#8f8a99':(demoCol[lk]||'#8a8494'));
   var ini=mm?mm.ini:((typeof inits==='function')?inits(key||'?'):(key.slice(0,2).toUpperCase()||'?'));
   var name=isShared?L('Chi tiêu chung','Shared'):(key||L('Ai đó','Someone'));
-  return { name:name, ini:ini, col:col };
+  return { name:name, ini:ini, col:col, av:mm?mm.av:'' };
 }
 function _exdDate(t){
   if(t._d) return fmtDateLong(t._d);                       // LANG-gated: "Thứ Ba, 26 thg 7" / "Tuesday, July 26"
@@ -9301,7 +9318,7 @@ function renderExpenseDetail(){
     +'</div>';
   html+='<div class="exd-meta">'
     + _exdMetaRow(L('Danh mục','Category'), '<span class="exd-catico">'+s[0]+'</span>'+esc(t.cat))
-    + _exdMetaRow(L('Người trả','Paid by'), '<span class="exd-av" style="background:'+wd.col+'">'+esc(wd.ini)+'</span>'+esc(wd.name))
+    + _exdMetaRow(L('Người trả','Paid by'), '<span class="exd-av" style="'+window.fhAvStyle(wd)+'">'+esc(window.fhAvIni(wd))+'</span>'+esc(wd.name))
     + _exdMetaRow(L('Ngày','Date'), esc(_exdDate(t)))
     +'</div>';
   var ph=t.photos||(t.photo?[t.photo]:[]);
@@ -9445,8 +9462,10 @@ function rxMessage(rec, tx){
 }
 function _rxFace(mid){
   var m=window.DB && window.DB.memberById && window.DB.memberById[mid];
-  var col=(m&&m.color)||'#8f8a99', ini=(m && typeof inits==='function')?inits(m.name):'👤';
-  return '<span class="rx-av av" style="background:'+col+'">'+esc(ini)+'</span>';
+  var key=m?(m.is_shared?'Shared':m.name):null;
+  var mm=(key && window.membersMeta)?window.membersMeta[key]:null;
+  mm=mm || { col:(m&&m.color)||'#8f8a99', ini:(m && typeof inits==='function')?inits(m.name):'👤' };
+  return '<span class="rx-av av" style="'+window.fhAvStyle(mm)+'">'+esc(window.fhAvIni(mm))+'</span>';
 }
 function rxTxByDbId(id){ var a=window.txns||[]; for(var i=0;i<a.length;i++){ if(a[i]._dbId===id) return a[i]; } return null; }
 function _rxMineOn(txDbId){
@@ -9790,7 +9809,8 @@ function _entPending(item){ return !!(item.creatorId && !_entAligned(item)); }
 function _isMine(item){ var c=item.creatorId; return c!=null && c===_futMeId(); }
 function _creatorName(item){ return _memName(item.creatorId) || item.creatorId || ''; }
 function _entAv(item,cls){ var col=_memColor(item.creatorId), nm=_creatorName(item);
-  return '<span class="req-av'+(cls?' '+cls:'')+'" style="background:'+col+'">'+esc((typeof inits==='function')?inits(nm||'?'):'?')+'</span>'; }
+  var mm=(nm && window.membersMeta && window.membersMeta[nm]) || { col:col, ini:(typeof inits==='function')?inits(nm||'?'):'?' };
+  return '<span class="req-av'+(cls?' '+cls:'')+'" style="'+window.fhAvStyle(mm)+'">'+esc(window.fhAvIni(mm))+'</span>'; }
 
 /* ---- gather all proposals across the three types ---- */
 function _reqItems(){
@@ -12218,10 +12238,12 @@ function openWhatsNew(){
     return _isoDate(now);
   }
 
+  // fhAvStyle / fhAvIni now live in the classic js-ui layer (10-nav-model.js) so
+  // they exist at parse-time boot render; used here for the hero + spender rows.
   function updateHeroFam() {
     const box = document.getElementById('hero-fam');
     if (box && window.FAM) box.innerHTML = (window.FAM.members || []).slice(0, 5).map((mm) =>
-      '<div class="av av-hero" style="background:' + mm.color + '">' + window.esc(inits(mm.name)) + '</div>').join('') +
+      '<div class="av av-hero" style="' + window.fhAvStyle(mm) + '">' + (mm.av ? '' : window.esc(inits(mm.name))) + '</div>').join('') +
       '<span class="hero-fam-cap">' + window.esc(window.FAM.familyName || '') + '</span>';
   }
 
@@ -12278,8 +12300,8 @@ function openWhatsNew(){
     const key = (who || '').toLowerCase(); let mm = null;
     if (key === 'both' || key === 'shared') mm = window.membersMeta && window.membersMeta['Shared'];
     else if (window.membersMeta) { for (const n in window.membersMeta) { if (n.toLowerCase() === key) { mm = window.membersMeta[n]; break; } } }
-    const col = mm ? mm.col : '#8f8a99', ini = mm ? mm.ini : '👥';
-    return '<div class="r-sp av" style="background:' + col + ';color:#fff">' + window.esc(ini) + '</div>';
+    mm = mm || { col: '#8f8a99', ini: '👥' };
+    return '<div class="r-sp av" style="' + window.fhAvStyle(mm) + '">' + window.esc(window.fhAvIni(mm)) + '</div>';
   };
 
   // rebuild the "who paid" / "added by" chips from the real family (replaces mock Emma/James/…)
@@ -12366,7 +12388,7 @@ function openWhatsNew(){
       } else {
         const R = await Promise.all([
           sb.from('families').select('name,currency,default_language').eq('id', fid).maybeSingle(),
-          sb.from('members').select('id,name,name_enc,color,is_shared,user_id,created_at,key_unlocked_at').eq('family_id', fid).is('archived_at', null).order('created_at'),
+          sb.from('members').select('id,name,name_enc,color,is_shared,user_id,created_at,key_unlocked_at,avatar_url').eq('family_id', fid).is('archived_at', null).order('created_at'),
           // archived ones come along so old transactions still resolve their name; they're kept out of catOrder below
           sb.from('categories').select('id,name,name_enc,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
           sb.from('category_budgets').select('category_id,amount,amount_enc,month').eq('family_id', fid),
@@ -12478,17 +12500,22 @@ function openWhatsNew(){
       // members → membersMeta + maps
       window.DB.memberById = {}; window.DB.memberByAppName = {}; window.DB.sharedId = null; window.DB.ownerMemberId = null;
       const mm = {};
+      // avatar_url holds a storage PATH to an AES-GCM '.enc' object → build the
+      // public URL; the photo-render observer (57-photo-enc.js) decrypts it in
+      // place. Empty when the member has no photo (→ colour+initials fallback).
+      const _AVPUB = SUPABASE_URL + '/storage/v1/object/public/family-media/';
+      const _avUrl = (p) => p ? (p.indexOf('http') === 0 ? p : (_AVPUB + p.split('/').map(encodeURIComponent).join('/'))) : '';
       mem.forEach((m) => {
         window.DB.memberById[m.id] = m;
         const appName = m.is_shared ? 'Shared' : m.name;
-        mm[appName] = { av: '', ini: inits(m.name), col: m.color || '#8f8a99' };
+        mm[appName] = { av: _avUrl(m.avatar_url), ini: inits(m.name), col: m.color || '#8f8a99' };
         window.DB.memberByAppName[appName] = m.id;
         if (m.is_shared) window.DB.sharedId = m.id;
         if (m.user_id === uid && !m.is_shared) window.DB.ownerMemberId = m.id;
       });
       if (!mm['Shared']) mm['Shared'] = { av: '', ini: '👥', col: '#8f8a99' };
       window.membersMeta = mm;
-      window.FAM.members = mem.filter((m) => !m.is_shared).map((m) => ({ name: m.name, color: m.color || '#8f8a99', me: m.user_id === uid }));
+      window.FAM.members = mem.filter((m) => !m.is_shared).map((m) => ({ name: m.name, color: m.color || '#8f8a99', av: _avUrl(m.avatar_url), me: m.user_id === uid }));
       _rebuildWhoChips();
 
       // categories → catOrder / catStyle
@@ -12717,6 +12744,8 @@ function openWhatsNew(){
       // proactively surface the Key Card migration (owner, enc, no card yet) —
       // the USP moment on open, not a buried Settings button. Once per session.
       setTimeout(() => { try { window.fhCardProactive && window.fhCardProactive(); } catch (e) {} }, 3500);
+      // best-effort: seed my avatar from my Google photo once, if I have none yet
+      setTimeout(() => { try { window.fhAvatarSeedFromGoogle && window.fhAvatarSeedFromGoogle(); } catch (e) {} }, 1800);
       return true;
     } catch (e) { console.warn('loadFamilyData failed', e); return false; }
     finally { _hideLoading(); fhFresh(); }     // the chip must clear even if the hydrate failed
@@ -12765,6 +12794,10 @@ function openWhatsNew(){
   async function _uploadPhoto(dataUri) {
     try {
       const fid = window.DB.fid; if (!fid || !dataUri || dataUri.indexOf('data:') !== 0) return null;
+      // Never persist a plaintext image in a committed-encryption family: if the
+      // device holds no key we can't produce '.enc' bytes, so refuse rather than
+      // silently store the face/photo in the clear.
+      if (window.fhEncState && window.fhEncState() === 'enc' && !(window.fhKeyReady && window.fhKeyReady())) return null;
       dataUri = await _compressImage(dataUri);
       const m = dataUri.match(/^data:([^;]+);base64,(.*)$/); if (!m) return null;
       const mime = m[1]; const bin = atob(m[2]); let arr = new Uint8Array(bin.length);
@@ -12794,6 +12827,9 @@ function openWhatsNew(){
       return path;
     } catch (e) { console.warn('upload err', e); return null; }
   }
+  // Shared with the avatar module (69-avatar.js): encrypt+upload any data-URL
+  // image through the same '.enc' pipeline, returning the storage path.
+  window.fhUploadEncImage = _uploadPhoto;
   /* EXIF capture date for a pre-compression data URI, recorded by readPhoto().
      Photos that predate the parser, or that carried no usable EXIF, return null
      and are stored as "date unknown" rather than guessed at. */
@@ -14291,9 +14327,11 @@ window.classifyAmount = classifyAmount;
     const raw = m[2];
     el.setAttribute('data-fhenc', raw);
     const hit = _phCache.get(raw);
-    if (hit && hit.u) { el.style.backgroundImage = 'url(' + hit.u + ')'; return; }
+    // color:transparent hides an avatar's initials fallback, but ONLY once the
+    // photo actually paints — so a locked device / failed decrypt keeps them.
+    if (hit && hit.u) { el.style.backgroundImage = 'url(' + hit.u + ')'; el.style.color = 'transparent'; return; }
     el.style.backgroundImage = 'none';
-    _phResolve(raw).then((u) => { if (u && el.getAttribute('data-fhenc') === raw) el.style.backgroundImage = 'url(' + u + ')'; });
+    _phResolve(raw).then((u) => { if (u && el.getAttribute('data-fhenc') === raw) { el.style.backgroundImage = 'url(' + u + ')'; el.style.color = 'transparent'; } });
   }
   function _phSweep(root) {
     if (!root || !root.querySelectorAll) return;
@@ -14337,7 +14375,7 @@ window.classifyAmount = classifyAmount;
         const raw = el.getAttribute('data-fhenc'); if (!raw) return;
         _phResolve(raw).then((u) => {
           if (!u || el.getAttribute('data-fhenc') !== raw) return;
-          if (el.tagName === 'IMG') el.src = u; else el.style.backgroundImage = 'url(' + u + ')';
+          if (el.tagName === 'IMG') el.src = u; else { el.style.backgroundImage = 'url(' + u + ')'; el.style.color = 'transparent'; }
         });
       });
       _phSweep(document.body);   // and any still-raw .enc that never got swapped
@@ -14514,8 +14552,9 @@ window.classifyAmount = classifyAmount;
     const rows = mems.map((m) => {
       const isSelf = m.user_id === uid;
       const tag = m.is_shared ? L('chung','shared') : (m.user_id ? (isSelf ? L('bạn','you') : L('thành viên','member')) : L('chỗ trống','seat'));
+      const _mm = (window.membersMeta && window.membersMeta[m.is_shared ? 'Shared' : m.name]) || { col: m.color || '#8f8a99', ini: inits(m.name) };
       return '<div class="fh-s-row">'
-        + '<div class="av av-32" style="background:' + _esc(m.color || '#8f8a99') + '">' + _esc(inits(m.name)) + '</div>'
+        + '<div class="av av-32" style="' + window.fhAvStyle(_mm) + '">' + _esc(window.fhAvIni(_mm)) + '</div>'
         + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(m.name) + '</div><div class="fh-s-meta">' + tag + '</div></div>'
         + ((owner || isSelf) && !m.is_shared ? _btn(L('Sửa','Edit'), "fhEditMember('" + m.id + "')", 'fh-s-edit') : '')
         + (owner && !isSelf && !m.is_shared
@@ -14556,10 +14595,22 @@ window.classifyAmount = classifyAmount;
     const swatches = _pal().map((c) =>
       '<button class="fh-s-sw' + (c === window._fhMColor ? ' on' : '') + '" data-c="' + c + '" aria-label="' + L('Màu','Colour') + ' ' + c + '"'
       + ' onclick="fhPickMColor(this)"><i style="background:' + c + '"></i></button>').join('');
+    // Avatar row: photo preview (or colour+initials) + change / use-Google / remove.
+    // Photo actions apply immediately (upload + re-hydrate), separate from the
+    // name/colour Save. "Use Google photo" only for the current user's own row.
+    const _avm = (window.membersMeta && window.membersMeta[m.is_shared ? 'Shared' : m.name]) || { col: m.color || '#8f8a99', ini: inits(m.name) };
+    const isSelf = m.user_id && window.fhUser && m.user_id === window.fhUser.id;
+    const avActions = _btn(L('Đổi ảnh','Change'), "fhAvatarPickFor('" + id + "')", 'fh-s-edit')
+      + ((isSelf && window.fhHasGooglePic && window.fhHasGooglePic()) ? _btn(L('Dùng ảnh Google','Use Google photo'), "fhAvatarFromGoogle('" + id + "')", 'fh-s-edit') : '')
+      + (_avm.av ? _btn(L('Gỡ ảnh','Remove'), "fhAvatarClear('" + id + "')", 'fh-s-edit') : '');
     _fhModal({
       title: title || L('Sửa thành viên','Edit member'),
       saveLabel: L('Lưu','Save'),
-      body: '<div class="field"><label>' + L('Tên','Name') + '</label>'
+      body: '<div class="field"><label>' + L('Ảnh đại diện','Photo') + '</label>'
+        + '<div style="display:flex;align-items:center;gap:12px">'
+        + '<div class="av" style="' + window.fhAvStyle(_avm) + ';width:54px;height:54px;font-size:19px;flex:none">' + _esc(window.fhAvIni(_avm)) + '</div>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap">' + avActions + '</div></div></div>'
+        + '<div class="field"><label>' + L('Tên','Name') + '</label>'
         + '<input id="fh-mname" value="' + _esc(m.name) + '" placeholder="' + L('Tên','Name') + '" oninput="fhModalDirty()"></div>'
         + '<div class="field"><label>' + L('Màu','Colour') + '</label><div class="fh-s-swatches" id="fh-mcol">' + swatches + '</div></div>',
       required: () => [{ el: 'fh-mname', ok: !!(document.getElementById('fh-mname').value || '').trim() }],
@@ -15657,6 +15708,34 @@ window.classifyAmount = classifyAmount;
           } catch (e) { console.warn('photo cover failed', tbl, row.id, e); }
         }
       }
+      /* member avatars (0052): a face set while the family was 'off'/'dual' is a
+         plaintext bucket object — same treatment as photos. Repoint via
+         update_member, which authorises owner-or-self; only sweep rows this device
+         can actually update (the owner, enabling encryption, covers everyone). */
+      {
+        const _uid = window.fhUser && window.fhUser.id;
+        const _own = (await sb.from('families').select('owner_id').eq('id', fid).maybeSingle()).data;
+        const _isOwner = !!(_own && _uid && _own.owner_id === _uid);
+        const rm = await sb.from('members').select('id,user_id,avatar_url').eq('family_id', fid).is('archived_at', null);
+        if (!rm.error) for (const row of (rm.data || [])) {
+          const p = row.avatar_url;
+          if (!p || p.indexOf('http') === 0 || /\.enc$/.test(p)) continue;
+          if (!_isOwner && row.user_id !== _uid) continue;                  // can't update this row → skip (owner's sweep covers it)
+          try {
+            _fhEncProg(L('Đang bảo vệ ảnh… ', 'Protecting photos… ') + (nPhoto + 1));
+            const resp = await fetch(P + p.split('/').map(encodeURIComponent).join('/'));
+            if (!resp.ok) continue;
+            const ct = await fhEncBytes(new Uint8Array(await resp.arrayBuffer()));
+            const newPath = p + '.enc';
+            const up = await sb.storage.from('family-media').upload(newPath, ct, { contentType: 'application/octet-stream', cacheControl: '31536000' });
+            if (up.error && !/already exists|duplicate/i.test(String(up.error.message || ''))) continue;
+            window.DB._lastLocalWrite = Date.now();
+            await _rpc('update_member', { p_member_id: row.id, p_avatar_url: newPath });
+            try { await sb.storage.from('family-media').remove([p]); } catch (e) {}
+            nPhoto++;
+          } catch (e) { console.warn('avatar cover failed', row.id, e); }
+        }
+      }
       _fhEncProg('');
       if (nPhoto) window.toast && window.toast(L('Đã mã hóa ' + nPhoto + ' ảnh của gia đình ✓', nPhoto + ' family photos encrypted ✓'));
       if (nTxt || nPhoto) { window.DB._lastLocalWrite = 0; window.loadFamilyData && window.loadFamilyData(); }
@@ -16265,6 +16344,127 @@ window.classifyAmount = classifyAmount;
   // Every explicit "you need the key" entry point (lock bar tap, blocked write,
   // Settings unlock, card migrate/regenerate) routes here → the wall, always.
   window.fhUnlockPrompt = function () { return window.fhLockWall(); };
+
+  /* ═══ Member avatars (0052) ══════════════════════════════════════════════════
+     A member photo is imported ONCE from the Google account (best-effort) or
+     uploaded in Settings → My profile, then stored as an AES-GCM '.enc' object
+     through the shared photo pipeline (fhUploadEncImage). members.avatar_url
+     holds the storage PATH; hydrate turns it into membersMeta.av (the decrypt
+     URL the render observer swaps). For an encrypted family the FACE is E2EE —
+     the server never sees the pixels or a plaintext googleusercontent URL. */
+
+  // Encrypt+upload a data-URL image and point a member row at it. memberId
+  // defaults to the current user's own member. Re-hydrates so the new avatar
+  // appears everywhere. Returns true on success.
+  window.fhAvatarSet = async function (memberId, dataUrl) {
+    const id = memberId || (window.DB && window.DB.ownerMemberId);
+    if (!id) { window.toast && window.toast(L('Không tìm thấy hồ sơ', 'Profile not found')); return false; }
+    if (!window.fhUploadEncImage || !dataUrl) return false;
+    // In an encrypting family the face must be encrypted → refuse when this
+    // device has no key, and raise the unlock wall, rather than storing a
+    // plaintext photo in the public bucket.
+    if (window.fhEncState && window.fhEncState() !== 'off' && !(window.fhKeyReady && window.fhKeyReady())) {
+      window.toast && window.toast(L('Mở khóa để đổi ảnh', 'Unlock to change the photo'));
+      window.fhLockWall && window.fhLockWall();
+      return false;
+    }
+    const path = await window.fhUploadEncImage(dataUrl);
+    if (!path) { window.toast && window.toast(L('Chưa lưu được ảnh, thử lại', 'Couldn’t save the photo, try again')); return false; }
+    try { await _rpc('update_member', { p_member_id: id, p_avatar_url: path }); }
+    catch (e) { window.toast && window.toast(_friendly(e)); return false; }
+    if (window.loadFamilyData) await window.loadFamilyData();
+    return true;
+  };
+
+  window.fhAvatarRemove = async function (memberId) {
+    const id = memberId || (window.DB && window.DB.ownerMemberId);
+    if (!id) return false;
+    try { await _rpc('update_member', { p_member_id: id, p_avatar_url: '' }); }   // '' = clear
+    catch (e) { window.toast && window.toast(_friendly(e)); return false; }
+    if (window.loadFamilyData) await window.loadFamilyData();
+    return true;
+  };
+
+  // The current user's Google photo URL, normalized to a reasonable size.
+  function _googlePic() {
+    try {
+      const md = (window.fhUser && window.fhUser.user_metadata) || {};
+      let u = md.avatar_url || md.picture || '';
+      if (!u) return '';
+      u = u.replace(/=s\d+(-c)?$/, '');                 // strip any existing size hint
+      return u + (u.indexOf('=') < 0 ? '=s256-c' : '');
+    } catch (e) { return ''; }
+  }
+
+  // Fetch a Google image → data URL. Returns null on CORS/network failure (the
+  // manual uploader is always available as the reliable path).
+  async function _fetchAsDataUrl(url) {
+    try {
+      const resp = await fetch(url, { mode: 'cors', credentials: 'omit' });
+      if (!resp || !resp.ok) return null;
+      const blob = await resp.blob();
+      return await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+    } catch (e) { return null; }
+  }
+
+  // Best-effort one-time seed of my avatar from my Google photo, on first keyed
+  // hydrate when I have no photo yet. Silent on any failure.
+  window.fhAvatarSeedFromGoogle = async function () {
+    try {
+      if (window.__fhAvatarSeeded) return;                                   // already attempted this session
+      // An encrypting family needs the DEK to encrypt the face; a plaintext
+      // ('off') family seeds fine via the plaintext upload path. Don't burn the
+      // once-guard while still locked, or the post-unlock re-run would skip.
+      if (window.fhEncState && window.fhEncState() !== 'off' && !(window.fhKeyReady && window.fhKeyReady())) return;
+      const id = window.DB && window.DB.ownerMemberId; if (!id) return;
+      const me = window.DB.memberById && window.DB.memberById[id];
+      if (!me || me.avatar_url) return;                                      // already has a photo
+      const url = _googlePic(); if (!url) return;
+      window.__fhAvatarSeeded = 1;                                           // eligible → burn the once-guard before the await
+      const dataUrl = await _fetchAsDataUrl(url);
+      if (dataUrl && String(dataUrl).indexOf('data:image') === 0) await window.fhAvatarSet(id, dataUrl);
+    } catch (e) {}
+  };
+
+  /* ── Settings → My profile pickers (wired into fhEditMember's avatar row) ── */
+
+  // Upload a photo from the device for this member.
+  window.fhAvatarPickFor = function (id) {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
+    inp.onchange = async () => {
+      const f = inp.files && inp.files[0]; try { inp.remove(); } catch (e) {}
+      if (!f) return;
+      const dataUrl = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => res(null); r.readAsDataURL(f); });
+      if (!dataUrl) return;
+      window.toast && window.toast(L('Đang lưu ảnh…', 'Saving photo…'));
+      if (window._closeOv) window._closeOv();
+      const ok = await window.fhAvatarSet(id, dataUrl);
+      if (ok) window.toast && window.toast(L('Đã cập nhật ảnh ✓', 'Photo updated ✓'));
+    };
+    (document.body || document.documentElement).appendChild(inp); inp.click();
+  };
+
+  // Re-pull the current user's Google photo (self only).
+  window.fhAvatarFromGoogle = async function (id) {
+    const url = _googlePic();
+    if (!url) { window.toast && window.toast(L('Không có ảnh Google', 'No Google photo on this account')); return; }
+    window.toast && window.toast(L('Đang lấy ảnh Google…', 'Fetching your Google photo…'));
+    const dataUrl = await _fetchAsDataUrl(url);
+    if (!dataUrl) { window.toast && window.toast(L('Không lấy được ảnh Google, hãy tải ảnh lên', 'Couldn’t fetch the Google photo — upload one instead')); return; }
+    if (window._closeOv) window._closeOv();
+    const ok = await window.fhAvatarSet(id, dataUrl);
+    if (ok) window.toast && window.toast(L('Đã cập nhật ảnh ✓', 'Photo updated ✓'));
+  };
+
+  window.fhAvatarClear = async function (id) {
+    if (window._closeOv) window._closeOv();
+    const ok = await window.fhAvatarRemove(id);
+    if (ok) window.toast && window.toast(L('Đã gỡ ảnh', 'Photo removed'));
+  };
+
+  // True when the account has a Google photo we could offer (self editor only).
+  window.fhHasGooglePic = function () { return !!_googlePic(); };
 
   // ---- Saved for events (the savings pool) ----
   // Create a pure saving goal (money only) — writes saving_goals, NOT events.

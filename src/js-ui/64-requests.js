@@ -59,7 +59,8 @@ function _entPending(item){ return !!(item.creatorId && !_entAligned(item)); }
 function _isMine(item){ var c=item.creatorId; return c!=null && c===_futMeId(); }
 function _creatorName(item){ return _memName(item.creatorId) || item.creatorId || ''; }
 function _entAv(item,cls){ var col=_memColor(item.creatorId), nm=_creatorName(item);
-  return '<span class="req-av'+(cls?' '+cls:'')+'" style="background:'+col+'">'+esc((typeof inits==='function')?inits(nm||'?'):'?')+'</span>'; }
+  var mm=(nm && window.membersMeta && window.membersMeta[nm]) || { col:col, ini:(typeof inits==='function')?inits(nm||'?'):'?' };
+  return '<span class="req-av'+(cls?' '+cls:'')+'" style="'+window.fhAvStyle(mm)+'">'+esc(window.fhAvIni(mm))+'</span>'; }
 
 /* ---- gather all proposals across the three types ---- */
 function _reqItems(){

@@ -168,8 +168,9 @@
     const rows = mems.map((m) => {
       const isSelf = m.user_id === uid;
       const tag = m.is_shared ? L('chung','shared') : (m.user_id ? (isSelf ? L('bạn','you') : L('thành viên','member')) : L('chỗ trống','seat'));
+      const _mm = (window.membersMeta && window.membersMeta[m.is_shared ? 'Shared' : m.name]) || { col: m.color || '#8f8a99', ini: inits(m.name) };
       return '<div class="fh-s-row">'
-        + '<div class="av av-32" style="background:' + _esc(m.color || '#8f8a99') + '">' + _esc(inits(m.name)) + '</div>'
+        + '<div class="av av-32" style="' + window.fhAvStyle(_mm) + '">' + _esc(window.fhAvIni(_mm)) + '</div>'
         + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(m.name) + '</div><div class="fh-s-meta">' + tag + '</div></div>'
         + ((owner || isSelf) && !m.is_shared ? _btn(L('Sửa','Edit'), "fhEditMember('" + m.id + "')", 'fh-s-edit') : '')
         + (owner && !isSelf && !m.is_shared
@@ -210,10 +211,22 @@
     const swatches = _pal().map((c) =>
       '<button class="fh-s-sw' + (c === window._fhMColor ? ' on' : '') + '" data-c="' + c + '" aria-label="' + L('Màu','Colour') + ' ' + c + '"'
       + ' onclick="fhPickMColor(this)"><i style="background:' + c + '"></i></button>').join('');
+    // Avatar row: photo preview (or colour+initials) + change / use-Google / remove.
+    // Photo actions apply immediately (upload + re-hydrate), separate from the
+    // name/colour Save. "Use Google photo" only for the current user's own row.
+    const _avm = (window.membersMeta && window.membersMeta[m.is_shared ? 'Shared' : m.name]) || { col: m.color || '#8f8a99', ini: inits(m.name) };
+    const isSelf = m.user_id && window.fhUser && m.user_id === window.fhUser.id;
+    const avActions = _btn(L('Đổi ảnh','Change'), "fhAvatarPickFor('" + id + "')", 'fh-s-edit')
+      + ((isSelf && window.fhHasGooglePic && window.fhHasGooglePic()) ? _btn(L('Dùng ảnh Google','Use Google photo'), "fhAvatarFromGoogle('" + id + "')", 'fh-s-edit') : '')
+      + (_avm.av ? _btn(L('Gỡ ảnh','Remove'), "fhAvatarClear('" + id + "')", 'fh-s-edit') : '');
     _fhModal({
       title: title || L('Sửa thành viên','Edit member'),
       saveLabel: L('Lưu','Save'),
-      body: '<div class="field"><label>' + L('Tên','Name') + '</label>'
+      body: '<div class="field"><label>' + L('Ảnh đại diện','Photo') + '</label>'
+        + '<div style="display:flex;align-items:center;gap:12px">'
+        + '<div class="av" style="' + window.fhAvStyle(_avm) + ';width:54px;height:54px;font-size:19px;flex:none">' + _esc(window.fhAvIni(_avm)) + '</div>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap">' + avActions + '</div></div></div>'
+        + '<div class="field"><label>' + L('Tên','Name') + '</label>'
         + '<input id="fh-mname" value="' + _esc(m.name) + '" placeholder="' + L('Tên','Name') + '" oninput="fhModalDirty()"></div>'
         + '<div class="field"><label>' + L('Màu','Colour') + '</label><div class="fh-s-swatches" id="fh-mcol">' + swatches + '</div></div>',
       required: () => [{ el: 'fh-mname', ok: !!(document.getElementById('fh-mname').value || '').trim() }],

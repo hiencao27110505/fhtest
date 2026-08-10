@@ -253,10 +253,11 @@ function _byChip(who){
   if(!who) return '';
   var w = ('' + who).toLowerCase();
   if(w === 'both' || w === 'shared' || w === 'chung') return '';        // collective → no single face
-  var nm = who, col = '#8f8a99', ini = (typeof inits === 'function') ? inits(who) : ('' + who).charAt(0).toUpperCase();
-  if(typeof membersMeta !== 'undefined' && membersMeta){ for(var n in membersMeta){ if(n.toLowerCase() === w){ col = membersMeta[n].col; ini = membersMeta[n].ini; nm = n; break; } } }
+  var nm = who, col = '#8f8a99', ini = (typeof inits === 'function') ? inits(who) : ('' + who).charAt(0).toUpperCase(), mmx = null;
+  if(typeof membersMeta !== 'undefined' && membersMeta){ for(var n in membersMeta){ if(n.toLowerCase() === w){ mmx = membersMeta[n]; col = mmx.col; ini = mmx.ini; nm = n; break; } } }
   var fn = (typeof firstName === 'function') ? firstName(nm) : nm;
-  return '<div class="bp-by"><span class="av" style="background:' + col + '">' + esc(ini) + '</span><span>' + esc(fn) + '</span></div>';
+  var _pm = mmx || { col: col, ini: ini };
+  return '<div class="bp-by"><span class="av" style="' + window.fhAvStyle(_pm) + '">' + esc(window.fhAvIni(_pm)) + '</span><span>' + esc(fn) + '</span></div>';
 }
 /* which scene-style cover fits an occasion? keyword + emoji matched, vi + en */
 function occCover(name, emoji){

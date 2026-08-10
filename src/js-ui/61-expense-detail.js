@@ -20,7 +20,7 @@ function _whoDisp(who){
   var col=mm?mm.col:(isShared?'#8f8a99':(demoCol[lk]||'#8a8494'));
   var ini=mm?mm.ini:((typeof inits==='function')?inits(key||'?'):(key.slice(0,2).toUpperCase()||'?'));
   var name=isShared?L('Chi tiêu chung','Shared'):(key||L('Ai đó','Someone'));
-  return { name:name, ini:ini, col:col };
+  return { name:name, ini:ini, col:col, av:mm?mm.av:'' };
 }
 function _exdDate(t){
   if(t._d) return fmtDateLong(t._d);                       // LANG-gated: "Thứ Ba, 26 thg 7" / "Tuesday, July 26"
@@ -70,7 +70,7 @@ function renderExpenseDetail(){
     +'</div>';
   html+='<div class="exd-meta">'
     + _exdMetaRow(L('Danh mục','Category'), '<span class="exd-catico">'+s[0]+'</span>'+esc(t.cat))
-    + _exdMetaRow(L('Người trả','Paid by'), '<span class="exd-av" style="background:'+wd.col+'">'+esc(wd.ini)+'</span>'+esc(wd.name))
+    + _exdMetaRow(L('Người trả','Paid by'), '<span class="exd-av" style="'+window.fhAvStyle(wd)+'">'+esc(window.fhAvIni(wd))+'</span>'+esc(wd.name))
     + _exdMetaRow(L('Ngày','Date'), esc(_exdDate(t)))
     +'</div>';
   var ph=t.photos||(t.photo?[t.photo]:[]);

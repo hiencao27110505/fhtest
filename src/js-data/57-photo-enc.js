@@ -63,9 +63,11 @@
     const raw = m[2];
     el.setAttribute('data-fhenc', raw);
     const hit = _phCache.get(raw);
-    if (hit && hit.u) { el.style.backgroundImage = 'url(' + hit.u + ')'; return; }
+    // color:transparent hides an avatar's initials fallback, but ONLY once the
+    // photo actually paints — so a locked device / failed decrypt keeps them.
+    if (hit && hit.u) { el.style.backgroundImage = 'url(' + hit.u + ')'; el.style.color = 'transparent'; return; }
     el.style.backgroundImage = 'none';
-    _phResolve(raw).then((u) => { if (u && el.getAttribute('data-fhenc') === raw) el.style.backgroundImage = 'url(' + u + ')'; });
+    _phResolve(raw).then((u) => { if (u && el.getAttribute('data-fhenc') === raw) { el.style.backgroundImage = 'url(' + u + ')'; el.style.color = 'transparent'; } });
   }
   function _phSweep(root) {
     if (!root || !root.querySelectorAll) return;
@@ -109,7 +111,7 @@
         const raw = el.getAttribute('data-fhenc'); if (!raw) return;
         _phResolve(raw).then((u) => {
           if (!u || el.getAttribute('data-fhenc') !== raw) return;
-          if (el.tagName === 'IMG') el.src = u; else el.style.backgroundImage = 'url(' + u + ')';
+          if (el.tagName === 'IMG') el.src = u; else { el.style.backgroundImage = 'url(' + u + ')'; el.style.color = 'transparent'; }
         });
       });
       _phSweep(document.body);   // and any still-raw .enc that never got swapped
