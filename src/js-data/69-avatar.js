@@ -9,22 +9,24 @@
   // Encrypt+upload a data-URL image and point a member row at it. memberId
   // defaults to the current user's own member. Re-hydrates so the new avatar
   // appears everywhere. Returns true on success.
-  window.fhAvatarSet = async function (memberId, dataUrl) {
+  // opts.silent: suppress all user-facing toasts/prompts (for the best-effort
+  // Google auto-seed, which is invisible and must never nag on a failure).
+  window.fhAvatarSet = async function (memberId, dataUrl, opts) {
+    opts = opts || {};
     const id = memberId || (window.DB && window.DB.ownerMemberId);
-    if (!id) { window.toast && window.toast(L('Không tìm thấy hồ sơ', 'Profile not found')); return false; }
+    if (!id) { if (!opts.silent) window.toast && window.toast(L('Không tìm thấy hồ sơ', 'Profile not found')); return false; }
     if (!window.fhUploadEncImage || !dataUrl) return false;
     // In an encrypting family the face must be encrypted → refuse when this
     // device has no key, and raise the unlock wall, rather than storing a
     // plaintext photo in the public bucket.
     if (window.fhEncState && window.fhEncState() !== 'off' && !(window.fhKeyReady && window.fhKeyReady())) {
-      window.toast && window.toast(L('Mở khóa để đổi ảnh', 'Unlock to change the photo'));
-      window.fhLockWall && window.fhLockWall();
+      if (!opts.silent) { window.toast && window.toast(L('Mở khóa để đổi ảnh', 'Unlock to change the photo')); window.fhLockWall && window.fhLockWall(); }
       return false;
     }
     const path = await window.fhUploadEncImage(dataUrl);
-    if (!path) { window.toast && window.toast(L('Chưa lưu được ảnh, thử lại', 'Couldn’t save the photo, try again')); return false; }
+    if (!path) { if (!opts.silent) window.toast && window.toast(L('Chưa lưu được ảnh, thử lại', 'Couldn’t save the photo, try again')); return false; }
     try { await _rpc('update_member', { p_member_id: id, p_avatar_url: path }); }
-    catch (e) { window.toast && window.toast(_friendly(e)); return false; }
+    catch (e) { if (!opts.silent) window.toast && window.toast(_friendly(e)); return false; }
     if (window.loadFamilyData) await window.loadFamilyData();
     return true;
   };
@@ -75,7 +77,7 @@
       const url = _googlePic(); if (!url) return;
       window.__fhAvatarSeeded = 1;                                           // eligible → burn the once-guard before the await
       const dataUrl = await _fetchAsDataUrl(url);
-      if (dataUrl && String(dataUrl).indexOf('data:image') === 0) await window.fhAvatarSet(id, dataUrl);
+      if (dataUrl && String(dataUrl).indexOf('data:image') === 0) await window.fhAvatarSet(id, dataUrl, { silent: true });
     } catch (e) {}
   };
 
