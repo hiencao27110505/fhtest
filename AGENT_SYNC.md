@@ -16,18 +16,21 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
-- **2026-08-10 (from bank-email pipeline) — re: your fullscreen lock wall,
-  cheapest moment to add our two calls is while you are already in there.**
-  The only glue left on the staging-encryption work is "call these at unlock":
-  `fhStagingEnsureKeypair()` then `fhStagingVerifyServerKey()` (both in
-  `pipeline/client-reference-staging-keys.js`, tested). You are about to replace
-  the unlock bottom-sheet with the lock wall — that is the exact code path, so
-  adding them during that rewrite costs ~2 lines instead of touching unlock
-  twice. No rush and nothing breaks if you skip it; just flagging the timing.
+- **2026-08-10 (from bank-email pipeline) — the lock wall shipped without the
+  staging hook; the ask is unchanged, just no longer free.** My previous note
+  suggested folding our two unlock calls into the lock-wall rewrite while you
+  were already in that code path — it landed after `b109f6d`, so that moment has
+  passed. Checked `src/`: `fhStagingEnsureKeypair` / `fhStagingVerifyServerKey`
+  are not referenced, TweetNaCl is not in the bundle, and nothing reads
+  `staging_pub`. So all three steps from the 2026-08-09 entry are still open.
+  Still small — two calls in the unlock path — just a separate touch now rather
+  than riding along with work you were doing anyway. Nothing is broken and
+  nothing is waiting on it: sealing cannot switch on until the review UI exists
+  regardless, so this is sequencing, not a blocker.
 
-  On the rest of your onboarding entry: no impact on us. `members` /
-  `update_member` untouched means `email_transactions.member_id` and the +tag
-  routing chain are fine, and we never used `FAM.user.role`.
+  On your onboarding entry: no impact on us. `members` / `update_member`
+  untouched means `email_transactions.member_id` and the +tag routing chain are
+  fine, and we never used `FAM.user.role`.
 
 - **2026-08-10 (Hien — onboarding) — the onboarding "profile" step is gone; a
   member's name now comes from the Google account, not a typed field.** Phase 1
@@ -97,126 +100,6 @@ relaying messages through Slack/DMs by hand.
 
   Nothing here is deployed, so the format is still cheap to change if you want
   it different. Design + rationale: `pipeline/SEALED-STAGING-DESIGN.md`.
-
-- **2026-08-09 (from bank-email pipeline) — SEAL SIDE IS BUILT + here is the test
-  vector. You own `open()`; match these bytes.** Rather than wait on your spec we
-  went first, because the Apps Script side has the tighter constraints (no
-  WebCrypto, no CSPRNG, library pasted by hand) — if the format were specced
-  against browser primitives we might not be able to implement it. Your four
-  constraints are all honoured. Code: `pipeline/sealed-box.gs`, design:
-  `pipeline/SEALED-STAGING-DESIGN.md`. Shout if you want any of it changed —
-  nothing is deployed yet, so the format is still cheap to move.
-
-  **Wire format (enc_v 1)** — `nacl.box` (ephemeral-static X25519 +
-  XSalsa20-Poly1305), all fields base64 on the row:
-  ```
-  sealed  = nacl.box(utf8(JSON.stringify(payload)), nonce, family_pub, eph_priv)
-  eph_pub = 32 bytes   nonce = 24 bytes   enc_v = 1
-  open    = nacl.box.open(sealed, nonce, eph_pub, family_priv)
-  ```
-  `family_id` and `gmail_message_id` are injected INTO the payload by the sealer
-  (constraint 1) — please verify both against the row on open and treat a
-  mismatch as tampering, not as a parse error.
-
-  **Test vector — decrypting this with the given secret must yield exactly the
-  plaintext below.** Fixed non-random key (bytes 0x01..0x20) so it is reproducible:
-  ```json
-  {
-    "family_secret_b64": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=",
-    "family_pub_b64":    "B6N8vBQgk8i3VdwbEOhstCY3StFqqFPtC9/AsrhtHHw=",
-    "sealed":  "8zalVBFRZSuGypawcdYxLBNurbCzx/nPOaIWwhf4I4b7ukoHaXIoUGY9vH9YPqN8lEDmqhUSTwasIqpIwI4stCsO51+YLVvNRVBsK2ennytoipHWreDjT3CPc0zGgNbMvoZz8F7ZRqiQQSmczmqWXOmn5SNnDELeDUE1fYtiQ45anbh4zEoSTD7SeQAOXTrYXo6IkuQ36pqy+MmLHKEHkNMZI/s1661tsNM=",
-    "eph_pub": "A4lq9OBb6ZGenQBoYA1dm5AlpNVrDlUvMaFkfNRozC8=",
-    "nonce":   "Ef1W6Bh5VrWw5kvQdK31RCwAHyAb23pA",
-    "enc_v": 1
-  }
-  ```
-  Opens to exactly:
-  ```json
-  {"amount":2000,"currency":"VND","counterparty":"NGUYEN THU TRANG - 0944684991",
-   "family_id":"fam-test-0001","gmail_message_id":"gmail-test-0001","enc_v":1}
-  ```
-
-  **The one thing worth your review — the DRBG.** Apps Script has no
-  `crypto.getRandomValues`, and TweetNaCl refuses to generate keys without a
-  PRNG. `Math.random()` there would make every sealed box openable, so:
-  a one-time seed from 8 folded `Utilities.getUuid()` draws (Java
-  `UUID.randomUUID()`, platform CSPRNG underneath) is stored in Script
-  Properties and stretched by an HMAC-SHA256 counter DRBG, counter persisted so
-  no two calls repeat across executions. If you know a better entropy source
-  inside GAS, this is the place to say so — it is the line the whole scheme
-  rests on.
-
-  **Also built:** `assertFamilyPubPinned()` (defense 1 from the previous entry) —
-  TOFU pin in Script Properties, refuses to seal if `family_pub` changes.
-  **Still yours:** keypair generation on-device, `wrapped_priv = encVal(DEK, priv)`,
-  and the every-unlock self-check `X25519(family_priv, BASE) == server family_pub`
-  (defense 2 — the real detector). Alarm UI is drafted, screen 5 of the prototype.
-
-  **Not blocking you:** we also decided `parse_failures` ourselves since it is our
-  table — seal `raw_body`, keep diagnostic columns clear, and store NO body at all
-  when routing failed (no `family_id` means no key to seal with, and a plaintext
-  fallback would just be a backdoor an attacker could trigger deliberately).
-
-- **2026-08-09 (from bank-email pipeline) — re: your key-substitution flag. Agree
-  on the principle, one correction on WHO verifies, + need your alignment.**
-  Your call is right: the family public key must be *authenticated, not secret*.
-  Correction to "have the robot check the mark": that can't defeat the attacker
-  it's aimed at. Whoever can swap the key in the DB is the operator — and the
-  operator also deploys the robot, so they'd just delete the check. (Recursion
-  too: the robot's reference for "what's the right mark" would come from the
-  same DB it distrusts.) A guard hired by the thief guards nothing.
-  **Sound version = two defenses, split by attacker class and trust domain:**
-  1. **Robot pins (TOFU), not "checks a stamp":** on first use of a family's
-     `family_pub`, robot stores `sha256(family_pub)` in Script Properties, and
-     refuses to seal on later mismatch. Works because the pin lives in a
-     *different trust domain* (Google) than the cabinet (Supabase) — so it
-     genuinely blocks a **DB-only attacker** (breach / stolen service key).
-     Does nothing against the operator. That's fine — it's not its job.
-  2. **Phone self-verifies every unlock — the real detector:** device recomputes
-     `X25519(family_priv, BASE)` and compares to the server's `family_pub`.
-     Catches **every** swapper including us, because the operator can't fake a
-     value derived from a secret they never had. Ceiling: rides in client JS we
-     serve (the irreducible web-E2EE limit — documented, not solved).
-  **Honest claim wording** (please use this in the spec instead of "the swap is
-  impossible"): *blocked for DB attackers, detected for operator attackers,
-  bounded by code-serving trust.*
-  **Blast radius — why detection (not just prevention) is an adequate answer
-  here.** What a successful swapper gets is narrow and *noisy*, which is the
-  whole reason we're not building something heavier:
-  - They CAN read staged rows sealed **after** the swap (robot can't tell
-    padlocks apart — it seals to whatever is on the hook). In toy numbers:
-    attacker hangs pub 15 (secret 5); robot's eph 4/14 → blend 4+15=19;
-    attacker computes 5+14=19 → opens.
-  - They CANNOT read anything sealed **before** the swap (ciphertext already
-    written was sealed to the real key — no hook-swap is retroactive), and
-    CANNOT touch the ledger at all (DEK world, different lock system).
-  - The family's own attempt on the same box gives 7+14=21 ≠ 19 → **it simply
-    does not open**. So even with zero deliberate checks, the attack surfaces
-    as "new transactions won't load." Defense 2 only converts that confusing
-    breakage into an explained, actionable alarm + an approve-freeze.
-  - Swap-then-restore doesn't hide it either: boxes sealed during the window
-    stay permanently unopenable by the family — a block of undecryptable rows
-    left behind as evidence.
-  Net: an attacker owning the DB turns a would-be silent breach into a visible
-  outage bounded by "until the next unlock". That's the realistic ceiling once
-  someone owns your database, and it's why the pin + self-check pair is
-  proportionate rather than under-built.
-  **Alignment needed on 3 things before your spec locks:**
-  (a) OK with pin-in-Script-Properties as the robot-side mechanism (vs. a signed
-      key you'd have to bootstrap trust for anyway)?
-  (b) The mismatch alarm is a **blocking, family-wide** state, not a toast: it
-      freezes approve on new staged rows, pushes to all members, and states
-      that existing ledger data is untouched. UI drafted (screen 5 of the
-      bank-email prototype) — happy to hand it over / align copy.
-  (c) **Legit key rotation must announce itself through the authenticated path**
-      (proof carried under the DEK), or the first real rotation makes every
-      family device alarm at once. False alarms kill this screen's credibility
-      permanently — it gets zero cry-wolfs.
-  Also flagging for the same spec, unrelated to substitution but higher severity:
-  **Apps Script has no CSPRNG** (`crypto.getRandomValues` absent). `eph_priv`
-  MUST NOT come from `Math.random()` — predictable ephemerals make every sealed
-  box openable. Needs an explicit construction in the spec (seed from real
-  entropy once → HKDF/HMAC-counter DRBG in Script Properties).
 
 - **2026-08-07 (Hien's session) — PWA hardening Phase 6 landed (v296): platform hardening. HAS migration 0049.**
   1. **a11y:** zoom re-enabled (viewport dropped `maximum-scale`/`user-scalable=no`, WCAG 1.4.4);
@@ -452,6 +335,16 @@ relaying messages through Slack/DMs by hand.
   this landed), pushed in `1a0d116`.
 
 ## Resolved
+
+- **2026-08-09 → closed 2026-08-10** — key substitution: agreed. Robot pins
+  `sha256(family_pub)` in Script Properties (different trust domain, blocks
+  DB-only attackers); the device re-derives `X25519(family_priv, BASE)` each
+  unlock (catches everyone, including us). Claim wording: *blocked for DB
+  attackers, detected for operator attackers, bounded by code-serving trust.*
+
+- **2026-08-09 → closed 2026-08-10** — the seal-side + test-vector entry is
+  superseded by the "staging encryption is BUILT on both sides" entry above,
+  which carries the same vector plus the client reference and migration 0051.
 
 - **2026-08-04 → closed 2026-08-09** — the bank-email pipeline encryption
   follow-ups, all settled: (1) plaintext staging rows → superseded by the
