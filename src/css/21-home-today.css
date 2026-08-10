@@ -1,21 +1,23 @@
 /* ============================================================================
-   HOME — "Ngôi nhà": a living house hero. The sky follows the real clock
-   (dawn / day / dusk / night); every member is a window lit by their mood;
-   recent memories hang as polaroids on the clothesline; the tree grows with the
-   family's savings; the chimney smokes when someone added something today. The
-   roof and door take the family's theme color, so each theme paints the house.
-   Under the scene: the hearth card (mood picker → caring offers) + the feed.
+   HOME — "Hơi thở của gió": a pure-nature living hero. Nothing man-made —
+   sky · far ridges · one big grassy crest · the savings tree on the slope ·
+   the pet. The sky follows the real clock (dawn / day / dusk / night); the
+   tree grows with the family's savings; the family's moods drift over the
+   scene as anonymous WEATHER (.amb + the FX replay). Every app open rolls a
+   WIND level (wind-calm/-breeze/-gust on #home-scene) that retunes how the
+   tree, grass and clouds breathe, plus one welcome gust (.gustnow) — so no
+   two opens move alike. Under the scene: the hearth card + the feed.
    This file loads after 20-hero.css and overrides the old gradient-hero home.
    ============================================================================ */
 
 /* ---------- the sky: phase-tinted container (greeting + scene) ---------- */
 .home-sky{position:relative;overflow:hidden;color:#fff;
-  --sky1:#5fa7d6;--sky2:#cde8f7;--hill1:#86b294;--hill2:#639b7c;
-  --gr1:#9cc98b;--gr2:#77aa67;--dim:rgba(15,20,45,0);--linec:rgba(255,255,255,.5);
+  --sky1:#5fa7d6;--sky2:#cde8f7;--hillfar:#a7c9b0;
+  --gr1:#9cc98b;--gr2:#77aa67;--dim:rgba(15,20,45,0);
   background:linear-gradient(180deg,var(--sky1),var(--sky2) 82%)}
-.home-sky.sky-dawn{--sky1:#d98e6b;--sky2:#ffdfb4;--hill1:#b18a8e;--hill2:#93707e;--gr1:#a8bf7e;--gr2:#87a565;--dim:rgba(80,40,30,.06)}
-.home-sky.sky-dusk{--sky1:#5d4d8f;--sky2:#f0a172;--hill1:#6d5a80;--hill2:#55486b;--gr1:#69865c;--gr2:#4d6a45;--dim:rgba(35,25,70,.16)}
-.home-sky.sky-night{--sky1:#121a32;--sky2:#33406b;--hill1:#232b48;--hill2:#1a2138;--gr1:#28403a;--gr2:#1c2f2a;--dim:rgba(10,14,40,.38);--linec:rgba(255,255,255,.22)}
+.home-sky.sky-dawn{--sky1:#d98e6b;--sky2:#ffdfb4;--hillfar:#d3a893;--gr1:#a8bf7e;--gr2:#87a565;--dim:rgba(80,40,30,.06)}
+.home-sky.sky-dusk{--sky1:#5d4d8f;--sky2:#f0a172;--hillfar:#8a6f92;--gr1:#69865c;--gr2:#4d6a45;--dim:rgba(35,25,70,.16)}
+.home-sky.sky-night{--sky1:#121a32;--sky2:#33406b;--hillfar:#2b3454;--gr1:#28403a;--gr2:#1c2f2a;--dim:rgba(10,14,40,.38)}
 /* status-bar zone stays legible over any sky */
 .home-sky::before{content:'';position:absolute;top:0;left:0;right:0;height:104px;background:linear-gradient(180deg,rgba(0,0,0,.26),rgba(0,0,0,0));pointer-events:none;z-index:0}
 .home-sky .safe{height:max(env(safe-area-inset-top),16px)}
@@ -49,78 +51,110 @@
 @keyframes sc-drift{from{transform:translateX(-90px)}to{transform:translateX(440px)}}
 .sky-dusk .sc-cloud{opacity:.4}
 .sky-night .sc-cloud{opacity:.13}
-/* horizon hills (phase-tinted) + ground */
-.sc-hill{position:absolute;border-radius:50%}
-.sc-hill.h1{left:-100px;bottom:30px;width:360px;height:104px;background:var(--hill1)}
-.sc-hill.h2{right:-130px;bottom:24px;width:420px;height:120px;background:var(--hill2)}
-.sc-ground{position:absolute;left:0;right:0;bottom:0;height:44px;background:linear-gradient(180deg,var(--gr1),var(--gr2))}
-/* the clothesline of memories */
-.sc-line{position:absolute;left:0;top:2px;width:60%;height:60px;z-index:1;pointer-events:none}
-.sc-line path{stroke:var(--linec)}
-.pol{position:absolute;z-index:2;width:46px;padding:3px 3px 11px;background:#fff;border:0;border-radius:2.5px;box-shadow:0 3px 9px rgba(15,15,35,.22);transform:rotate(var(--r,0deg));transform-origin:50% 0;cursor:pointer;font:inherit;animation:pol-sway 5.5s ease-in-out infinite alternate}
-@keyframes pol-sway{from{transform:rotate(calc(var(--r,0deg) - 1.5deg))}to{transform:rotate(calc(var(--r,0deg) + 1.5deg))}}
-.pol::before{content:'';position:absolute;top:-4px;left:50%;width:7px;height:9px;margin-left:-3.5px;border-radius:2px;background:#caa36b}
-.pol:active{opacity:.75}
-.pol-ph{display:block;width:40px;height:36px;border-radius:1.5px;background-size:cover;background-position:center;position:relative;overflow:hidden}
-.pol-emo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px}
-.sky-night .pol{filter:brightness(.8)}
-/* the savings tree — foliage in the theme's secondary green, grows with progress.
-   Anchored in px (not %) so the yard gap to the right-anchored house is stable. */
-.sc-tree{position:absolute;left:14px;bottom:42px;width:64px;height:88px;transform-origin:50% 100%}
+/* ---------- the land: two hazy far ridges + the one big crest ---------- */
+/* the crest is a wide ellipse whose HEIGHT is fixed px, so the surface line
+   sits at the same height on every phone width — %-x + px-bottom decor holds */
+.sc-far{position:absolute;border-radius:50%;background:var(--hillfar)}
+.sc-far.f1{left:-40px;bottom:56px;width:280px;height:64px;opacity:.5}
+.sc-far.f2{right:-70px;bottom:60px;width:320px;height:74px;opacity:.35}
+.sc-crest{position:absolute;left:-12%;bottom:-66px;width:124%;height:158px;border-radius:50%;background:linear-gradient(180deg,var(--gr1),var(--gr2))}
+/* a cloud's shadow sweeping the slope (day only) */
+.sc-cshadow{position:absolute;left:-30px;bottom:34px;width:130px;height:24px;border-radius:50%;background:rgba(30,45,30,.13);filter:blur(6px);animation:fh-cshadow 30s linear infinite}
+@keyframes fh-cshadow{from{transform:translateX(-160px)}to{transform:translateX(560px)}}
+/* rolling dawn mist */
+.sc-mist{position:absolute;left:-8%;right:-8%;bottom:44px;height:44px;border-radius:50%;background:rgba(236,225,214,.4);filter:blur(9px);z-index:2;animation:fh-mist 11s ease-in-out infinite alternate}
+@keyframes fh-mist{from{transform:translateX(-13px)}to{transform:translateX(16px)}}
+/* the savings tree — foliage in the theme's secondary green, grows with
+   progress. On the crest just right of the summit; % x holds on every width. */
+.sc-tree{position:absolute;left:54%;bottom:44px;width:64px;height:88px;transform-origin:50% 100%;z-index:2}
 .tr-tr{position:absolute;left:50%;bottom:0;width:9px;height:34px;margin-left:-4.5px;border-radius:5px;background:linear-gradient(var(--dim),var(--dim)) #7d5f45}
 .tr-f{position:absolute;border-radius:50%;background:linear-gradient(var(--dim),var(--dim)) var(--brand-2)}
 .tr-f.f1{left:8px;top:4px;width:48px;height:48px}
 .tr-f.f2{left:0;top:30px;width:30px;height:30px}
 .tr-f.f3{right:0;top:26px;width:34px;height:34px}
-/* ---------- the house ---------- */
-/* right-anchored: a constant margin whatever the family size, so small families
-   don't leave a dead right edge and big houses grow INTO the yard, not off-screen.
-   Tree left + house right + pet measured into the gap = a stable composition.
-   32px because the ROOFS overhang the wall box (cottage -10px, modern -16px,
-   tile -19px, brick -8px) — anchor the wall so even the widest roof keeps a
-   clear ~13px+ of sky to the screen edge. */
-.sc-house{position:absolute;right:32px;bottom:40px;width:max-content;max-width:274px;z-index:2}
-.hs-roofwrap{position:relative;height:40px;margin:0 -10px;z-index:1}
-.hs-chim{position:absolute;top:-14px;right:20%;width:17px;height:30px;border-radius:3px 3px 0 0;background:linear-gradient(var(--dim),var(--dim)) #a8624c}
-.hs-roof{position:absolute;inset:0;background:linear-gradient(var(--dim),var(--dim)) var(--brand-ink);clip-path:polygon(0 100%,16% 0,84% 0,100% 100%)}
-.puff{position:absolute;left:3px;top:-4px;width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.6);opacity:0;animation:hs-puff 3.8s linear infinite}
-.puff.p2{animation-delay:1.3s}.puff.p3{animation-delay:2.6s}
-@keyframes hs-puff{0%{transform:translate(0,0) scale(.5);opacity:0}18%{opacity:.65}100%{transform:translate(9px,-44px) scale(1.9);opacity:0}}
-.sky-night .puff{background:rgba(210,220,240,.4)}
-.hs-wall{position:relative;border-radius:4px 4px 9px 9px;background:linear-gradient(var(--dim),var(--dim)),linear-gradient(180deg,#fdf4e2,#f0dfc0);box-shadow:inset 0 7px 9px -7px rgba(70,45,20,.4),0 10px 22px rgba(15,15,35,.18);padding:13px 12px 12px}
-.hs-wins{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-end;gap:10px 12px}
-.hs-door{display:block;width:32px;height:58px;border:0;border-radius:16px 16px 4px 4px;background:linear-gradient(var(--dim),var(--dim)) var(--brand-ink);position:relative;cursor:pointer;flex:0 0 auto;padding:0;align-self:flex-end}
-.hs-door::after{content:'';position:absolute;right:6px;top:28px;width:4px;height:4px;border-radius:50%;background:#ffd98e}
-.hs-door:active{transform:scale(.96)}
-/* a member's window: the pane is their light, the name is the room plate */
-.hw{display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:0;padding:0;font:inherit;flex:0 0 auto;position:relative}
-.hw.me{cursor:pointer}
-.hw.me:active .hw-pane{transform:scale(.93)}
-.hw-pane{width:42px;height:46px;border-radius:13px 13px 5px 5px;border:3px solid #e6d2ab;display:flex;align-items:center;justify-content:center;font-size:19px;line-height:1;transition:transform .15s;position:relative;background:linear-gradient(var(--dim),var(--dim)) #3a4156}
-.hw-name{font-size:10.5px;font-weight:700;letter-spacing:-.01em;color:#54432e;max-width:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hw.waiting .hw-name{opacity:.55}
-.p-sun{background:radial-gradient(circle at 50% 36%,#ffeaa6,#ffc75d)}
-.p-fire{background:radial-gradient(circle at 50% 36%,#ffd9a0,#ff9c4b)}
-.p-ok{background:linear-gradient(180deg,#fff6dd,#ffe5ae)}
-.p-rain{background:linear-gradient(180deg,#b7c8e4,#8ba3c9)}
-.p-tired{background:linear-gradient(180deg,#ccd2dc,#a7b0bf)}
-.p-anger{background:linear-gradient(180deg,#7b6ba0,#4e4370);animation:hw-flick 5s steps(1) infinite}
-@keyframes hw-flick{0%,88%,92%,100%{filter:brightness(1)}90%{filter:brightness(1.5)}}
-/* my unlit window — a candle waits, a soft invite pulses */
-.p-ask{background:linear-gradient(180deg,#4a5068,#343a4e)}
-.p-ask::after{content:'';position:absolute;inset:5px;border-radius:9px 9px 3px 3px;animation:hw-invite 2.6s ease-in-out infinite}
-@keyframes hw-invite{0%,100%{box-shadow:0 0 2px 0 rgba(255,215,130,.15)}50%{box-shadow:0 0 14px 3px rgba(255,215,130,.5)}}
-/* curtained (share yours first) · unlit (they haven't shared yet) */
-.p-cur{background:repeating-linear-gradient(90deg,#efd3ad 0 7px,#e2bd8e 7px 14px)}
-.p-wait{background:linear-gradient(115deg,#39415a 42%,#46506e 50%,#39415a 58%)}
-/* lit windows glow — strongest after dark */
-.hw-pane.lit{box-shadow:0 0 12px 1px rgba(255,205,110,.35)}
-.sky-dusk .hw-pane.lit{box-shadow:0 0 18px 3px rgba(255,200,100,.45)}
-.sky-night .hw-pane.lit{box-shadow:0 0 22px 5px rgba(255,200,100,.55)}
-/* 4+ members: tighter windows so the row stays single; 5+ also clears the clothesline */
-.full-house .sc-line,.full-house .pol{display:none}
-.big-house .hw-pane{width:36px;height:40px;font-size:16px;border-width:2.5px}
-.big-house .hs-door{height:50px;width:28px}
+/* ---------- the wind — every element breathes to the same weather ----------
+   Base rules are the "breeze" tempo; wind-calm / wind-gust (set per app open on
+   #home-scene) swap in softer/harder keyframes and retune durations. Explicit
+   classes, no calc()-division — bulletproof on old WebKit. */
+.home-scene .sc-tree svg{transform-origin:50% 100%;animation:fh-sway 6.5s ease-in-out infinite alternate}
+@keyframes fh-sway{from{transform:rotate(-.7deg)}to{transform:rotate(.7deg)}}
+@keyframes fh-sway-soft{from{transform:rotate(-.3deg)}to{transform:rotate(.3deg)}}
+@keyframes fh-sway-hard{from{transform:rotate(-1.5deg)}to{transform:rotate(1.5deg)}}
+.wind-calm .sc-tree svg{animation-name:fh-sway-soft;animation-duration:10.5s}
+.wind-gust .sc-tree svg{animation-name:fh-sway-hard;animation-duration:3s}
+.wind-calm .sc-cloud.c1{animation-duration:130s}.wind-calm .sc-cloud.c2{animation-duration:170s}
+.wind-gust .sc-cloud.c1{animation-duration:42s}.wind-gust .sc-cloud.c2{animation-duration:58s}
+/* grass tufts — four capsule blades, swaying from the roots */
+.tuft{position:absolute;width:18px;height:17px;z-index:1;transform-origin:50% 100%;animation:fh-tuft 3.8s ease-in-out infinite alternate}
+.tuft i{position:absolute;bottom:0;width:3.5px;border-radius:2px 2px 0 0;background:linear-gradient(var(--dim),var(--dim)),linear-gradient(rgba(25,60,30,.26),rgba(25,60,30,.26)) var(--gr2);transform-origin:50% 100%}
+.tuft i:nth-child(1){left:1px;height:11px;transform:rotate(-16deg)}
+.tuft i:nth-child(2){left:6px;height:16px;transform:rotate(-5deg)}
+.tuft i:nth-child(3){left:10.5px;height:13px;transform:rotate(7deg)}
+.tuft i:nth-child(4){left:14px;height:10px;transform:rotate(18deg)}
+.tuft.tall i:nth-child(1){height:15px}.tuft.tall i:nth-child(2){height:22px}
+.tuft.tall i:nth-child(3){height:18px}.tuft.tall i:nth-child(4){height:13px}
+@keyframes fh-tuft{from{transform:rotate(-2.5deg)}to{transform:rotate(2.5deg)}}
+@keyframes fh-tuft-soft{from{transform:rotate(-1.1deg)}to{transform:rotate(1.1deg)}}
+@keyframes fh-tuft-hard{from{transform:rotate(-5deg)}to{transform:rotate(5deg)}}
+.wind-calm .tuft,.wind-calm .dande{animation-name:fh-tuft-soft;animation-duration:6.5s}
+.wind-gust .tuft,.wind-gust .dande{animation-name:fh-tuft-hard;animation-duration:1.7s}
+/* one welcome gust ripples through right after the scene paints */
+@keyframes fh-gust{0%{transform:rotate(0)}30%{transform:rotate(2.8deg)}60%{transform:rotate(-1.5deg)}100%{transform:rotate(0)}}
+.home-scene.gustnow .sc-tree svg,.gustnow .tuft,.gustnow .dande{animation:fh-gust 1.2s ease-in-out 1}
+/* wildflowers — a stem and a dot of color (--c set inline) */
+.wfl{position:absolute;width:8px;height:15px;z-index:1}
+.wfl::before{content:'';position:absolute;left:3px;bottom:0;width:2px;height:9px;border-radius:1px;background:linear-gradient(var(--dim),var(--dim)) #57a86a}
+.wfl::after{content:'';position:absolute;left:1px;top:0;width:6px;height:6px;border-radius:50%;background:linear-gradient(var(--dim),var(--dim)) var(--c,#f2b3c9)}
+/* dandelion seedheads — gusts set their seeds flying */
+.dande{position:absolute;width:12px;height:24px;z-index:1;transform-origin:50% 100%;animation:fh-tuft 4.6s ease-in-out infinite alternate;animation-delay:-1.6s}
+.dande::before{content:'';position:absolute;left:5px;bottom:0;width:1.8px;height:15px;background:linear-gradient(var(--dim),var(--dim)) #57a86a}
+.dande::after{content:'';position:absolute;left:1px;top:0;width:10px;height:10px;border-radius:50%;
+  background:radial-gradient(circle at 38% 38%,rgba(255,255,255,.95) 1px,transparent 1.6px),
+             radial-gradient(circle at 68% 30%,rgba(255,255,255,.9) 1px,transparent 1.6px),
+             radial-gradient(circle at 55% 62%,rgba(255,255,255,.9) 1px,transparent 1.6px),
+             radial-gradient(circle at 30% 66%,rgba(255,255,255,.85) 1px,transparent 1.6px),
+             rgba(255,255,255,.35)}
+.seed{display:none;position:absolute;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.85);z-index:2;opacity:0;animation:fh-seed 5.5s linear infinite}
+.seed.sd2{animation-delay:-1.8s}.seed.sd3{animation-delay:-3.4s}
+/* seeds fly when it's gusty — and at dusk, when the golden-hour breeze carries them */
+.wind-gust .seed,.sky-dusk .seed{display:block}
+@keyframes fh-seed{0%{opacity:0;transform:translate(0,0)}8%{opacity:.9}80%{opacity:.7}100%{opacity:0;transform:translate(84px,-38px)}}
+/* ---------- phase wildlife ---------- */
+/* wild grey rabbits grazing the slope (day) — kin of, not copies of, a pet rabbit */
+.graze{position:absolute;width:20px;height:13px;z-index:1}
+.graze.g2{transform:scale(.8) scaleX(-1)}
+.graze::before{content:'';position:absolute;left:3px;bottom:0;width:14px;height:8.5px;border-radius:50% 50% 42% 42%;background:linear-gradient(var(--dim),var(--dim)) #b9b0a4}
+.graze::after{content:'';position:absolute;left:0;bottom:1px;width:7px;height:6px;border-radius:50%;background:linear-gradient(var(--dim),var(--dim)) #b9b0a4;animation:fh-nibble 2.8s ease-in-out infinite}
+.graze i{position:absolute;left:2.4px;bottom:6.4px;width:2.2px;height:6px;border-radius:2px;background:linear-gradient(var(--dim),var(--dim)) #b9b0a4;transform:rotate(-14deg)}
+.graze i+i{left:5px;transform:rotate(6deg)}
+.graze u{position:absolute;right:2px;bottom:6px;width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.8)}
+@keyframes fh-nibble{0%,60%,100%{transform:translateY(0)}70%,85%{transform:translateY(1.6px)}}
+/* swifts crossing the dusk sky — two wing arcs, three sizes */
+.swifts{position:absolute;top:26px;left:0;width:100%;height:40px;pointer-events:none}
+.swift{position:absolute;width:11px;height:5px;animation:fh-swift 15s linear infinite}
+.swift::before,.swift::after{content:'';position:absolute;top:0;width:6px;height:5px;border:1.6px solid rgba(40,28,60,.6);border-bottom:0;border-left:0;border-radius:0 100% 0 0;transform:skewX(-12deg)}
+.swift::after{left:5px;transform:scaleX(-1) skewX(-12deg)}
+.swift.s2{animation-delay:-1.1s;top:9px;transform:scale(.8)}
+.swift.s3{animation-delay:-2.3s;top:17px;transform:scale(.65)}
+.swift.s4{animation-delay:-3.1s;top:3px;transform:scale(.72)}
+@keyframes fh-swift{from{left:106%}to{left:-10%}}
+/* a shooting star, rarely, for whoever opens the app at night */
+.shoot{position:absolute;top:18px;left:20%;width:44px;height:2px;border-radius:2px;background:linear-gradient(90deg,rgba(255,255,255,0),#fff);opacity:0;transform:rotate(24deg);animation:fh-shoot 13s linear infinite}
+@keyframes fh-shoot{0%,91%{opacity:0;transform:rotate(24deg) translate(0,0)}93%{opacity:.95}96%,100%{opacity:0;transform:rotate(24deg) translate(90px,40px)}}
+/* fireflies around the tree after dark (more when the family was active today) */
+.ffly{position:absolute;width:4px;height:4px;border-radius:50%;background:#ffe08a;box-shadow:0 0 7px 2.5px rgba(255,224,138,.55);z-index:3;animation:fh-ffd 6s ease-in-out infinite alternate,fh-ffb 2.4s ease-in-out infinite}
+.ffly.f2{animation-delay:-1.4s,-.9s}.ffly.f3{animation-delay:-3s,-1.7s}
+.ffly.f4{animation-delay:-4.4s,-.5s;width:3px;height:3px}.ffly.f5{animation-delay:-2.2s,-1.3s;width:3px;height:3px}
+@keyframes fh-ffd{from{transform:translate(0,0)}to{transform:translate(15px,-13px)}}
+@keyframes fh-ffb{0%,100%{opacity:.35}50%{opacity:1}}
+/* butterflies over the flowers when the family did something today */
+.bfly{position:absolute;width:14px;height:12px;z-index:3;animation:fh-bfp 9s ease-in-out infinite alternate}
+.bfly.b2{animation-duration:11s;animation-delay:-4s}
+.bfly i{position:absolute;top:2px;width:6px;height:8px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:var(--c,#f2b3c9);animation:fh-bfw .34s ease-in-out infinite alternate;transform-origin:100% 50%}
+.bfly i+i{left:6.6px;transform-origin:0 50%}
+.bfly u{position:absolute;left:5.6px;top:3px;width:2.4px;height:8px;border-radius:2px;background:#5a4636}
+@keyframes fh-bfw{from{transform:scaleX(1)}to{transform:scaleX(.25)}}
+@keyframes fh-bfp{0%{transform:translate(0,0)}25%{transform:translate(14px,-9px)}55%{transform:translate(30px,2px)}80%{transform:translate(44px,-7px)}100%{transform:translate(58px,-2px)}}
 /* ---------- ambient weather: the house feels the family ---------- */
 .amb{position:absolute;inset:0;pointer-events:none;z-index:3}
 .a-drop{position:absolute;top:-14px;width:1.5px;height:13px;border-radius:1px;background:rgba(205,220,245,.6);animation:a-fall 1.7s linear infinite}
@@ -138,10 +172,8 @@
 .a-beam.b2{right:26%;transform:rotate(22deg);opacity:.7}
 /* weather FX retarget (particles defined in 20-hero.css play over the scene) */
 #home-scene .wx-fx{border-radius:0}
-.hw.fx .hw-pane{animation:wx-pop .9s cubic-bezier(.2,1.4,.35,1) both}
-.hw.fx::after{content:'';position:absolute;top:-6px;left:50%;width:58px;height:58px;margin-left:-29px;border-radius:50%;background:radial-gradient(circle,var(--brand-glow),transparent 66%);animation:wx-aura 1s ease-out both;pointer-events:none}
-/* short phones: trim the sky, keep the house whole (tree drops with the house base) */
-@media (max-height:700px){.home-scene{height:212px}.sc-house{bottom:36px}.sc-tree{bottom:38px}.sc-hill.h1{height:128px}.sc-hill.h2{height:146px}}
+/* short phones: trim the sky, keep the slope whole */
+@media (max-height:700px){.home-scene{height:212px}.sc-tree{bottom:40px}}
 
 /* body: cards carry their own 16px inset, like the tabs */
 .home-body{padding:0 0 6px}
@@ -331,6 +363,6 @@
    animation are gated here (the weather FX and .view fade are gated elsewhere). */
 @media (prefers-reduced-motion:reduce){
   #v-home.on .home-sky .greet,#v-home.on .home-sky .greet-sub{animation:none}
-  .sc-cloud,.sc-star,.pol,.p-anger,.p-ask::after,.hw.fx .hw-pane{animation:none}
-  .amb,.puff,.hw.fx::after{display:none}
+  .sc-cloud,.sc-star,.home-scene .sc-tree svg,.tuft,.dande,.sc-cshadow,.sc-mist,.graze::after,.bfly,.bfly i{animation:none}
+  .amb,.swifts,.seed,.ffly,.shoot{display:none}
 }

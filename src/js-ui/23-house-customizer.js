@@ -126,6 +126,8 @@ function svgWillow(phase){
   return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+body+extra+'</svg>';
 }
 function svgKumquat(phase){
+  /* planted in the ground like every other tree — the Tết pot was the one
+     man-made prop left in the nature scene, so it's gone */
   var fruit='<circle cx="23" cy="20" r="2.7" fill="var(--kumquat)"/>'
    +'<circle cx="40" cy="15" r="2.6" fill="var(--kumquat)"/>'
    +'<circle cx="31" cy="33" r="2.7" fill="var(--kumquat)"/>'
@@ -133,10 +135,7 @@ function svgKumquat(phase){
    +'<circle cx="48" cy="37" r="2.5" fill="var(--kumquat)"/>'
    +'<circle cx="42" cy="45" r="2.4" fill="var(--kumquat)"/>'
    +'<circle cx="22" cy="46" r="2.3" fill="var(--kumquat)"/>';
-  var body=P('<path d="M23 76 L41 76 L39.6 89 Q39.2 92 36.4 92 L27.6 92 Q24.8 92 24.4 89 Z" fill="var(--pot)"/>')
-   +'<path d="M24.5 78.5 L39.5 78.5" stroke="rgba(55,25,15,.14)" stroke-width="3" stroke-linecap="round" fill="none"/>'
-   +P('<rect x="20.5" y="70" width="23" height="6" rx="2.6" fill="var(--pot)"/>')
-   +P('<rect x="29.5" y="52" width="5" height="22" rx="2.5" fill="var(--wood)"/>')
+  var body=P('<rect x="29.5" y="52" width="5" height="40" rx="2.5" fill="var(--wood)"/>')
    +P('<circle cx="32" cy="31" r="20" fill="var(--leaf-2)"/>')
    +P('<circle cx="17" cy="43" r="11" fill="var(--leaf-2)"/>')
    +P('<circle cx="47" cy="41" r="12" fill="var(--leaf-2)"/>')
@@ -145,6 +144,51 @@ function svgKumquat(phase){
   var extra='';
   if(phase==='dusk') extra=rimArc(32,31,20);
   if(phase==='dawn') extra=dew([[27,22],[42,28]])+bird(26,0);
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+body+extra+'</svg>';
+}
+/* mango — the classic Vietnamese yard tree: a broad theme-green crown with
+   golden fruit hanging off the lower arc (same oak geometry, fruit like the
+   kumquat's but pendant ellipses) */
+function svgMango(phase){
+  var fruit='<ellipse cx="19" cy="49" rx="2.6" ry="3.4" fill="var(--mango)"/>'
+   +'<ellipse cx="31" cy="52" rx="2.7" ry="3.5" fill="var(--mango)"/>'
+   +'<ellipse cx="44" cy="49" rx="2.6" ry="3.4" fill="var(--mango)"/>'
+   +'<ellipse cx="53" cy="43" rx="2.4" ry="3.2" fill="var(--mango)"/>'
+   +'<ellipse cx="12" cy="46" rx="2.3" ry="3.1" fill="var(--mango)"/>';
+  var body=P('<rect x="27.5" y="58" width="9" height="34" rx="4.5" fill="var(--wood)"/>')
+   +P('<circle cx="32" cy="27" r="21" fill="var(--brand-2)"/>')
+   +P('<circle cx="13" cy="38" r="13" fill="var(--brand-2)"/>')
+   +P('<circle cx="51" cy="36" r="14" fill="var(--brand-2)"/>')
+   +'<path d="M12 44 A24 24 0 0 0 52 43" fill="none" stroke="rgba(26,90,60,.10)" stroke-width="5" stroke-linecap="round"/>'
+   +P(fruit);
+  var extra='';
+  if(phase==='dusk') extra=rimArc(32,27,21);
+  if(phase==='dawn') extra=dew([[22,15],[42,11],[30,34]])+bird(33,-5);
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+body+extra+'</svg>';
+}
+/* coconut palm — a whole different silhouette: a gently curving trunk with
+   ring marks, eight capsule fronds fanned from one crown point (alternating
+   the two greens like the willow), and a cluster of husks at the heart */
+function svgCoconut(phase){
+  function frond(ang,len,col){
+    return '<rect x="36" y="27.5" width="'+len+'" height="5" rx="2.5" fill="var(--'+col+')" transform="rotate('+ang+' 36 30)"/>';
+  }
+  var fronds=P(frond(-62,19,'leaf-2')+frond(242,19,'brand-2')
+   +frond(-18,23,'brand-2')+frond(198,23,'leaf-2')
+   +frond(14,24,'leaf-2')+frond(166,24,'brand-2')
+   +frond(46,21,'brand-2')+frond(134,21,'leaf-2'));
+  var body=P('<path d="M29 92 Q27 60 33 32 L38.5 33 Q34 62 37 92 Z" fill="var(--wood)"/>')
+   +'<path d="M30.6 76 L36.3 76.6" stroke="rgba(55,35,20,.20)" stroke-width="2" stroke-linecap="round"/>'
+   +'<path d="M31.4 62 L36.6 62.6" stroke="rgba(55,35,20,.20)" stroke-width="2" stroke-linecap="round"/>'
+   +'<path d="M32.4 48 L37 48.5" stroke="rgba(55,35,20,.20)" stroke-width="2" stroke-linecap="round"/>'
+   +fronds
+   +P('<circle cx="32" cy="35.5" r="3.1" fill="var(--wood-2)"/>')
+   +P('<circle cx="39" cy="36.5" r="3" fill="var(--wood-2)"/>')
+   +P('<circle cx="35.5" cy="40" r="2.9" fill="var(--wood-2)"/>');
+  var extra='';
+  if(phase==='dusk') extra='<path d="M40 24 Q52 20 58 29" stroke="rgba(255,185,95,.55)" stroke-width="3" stroke-linecap="round" fill="none"/>'
+   +'<path d="M42 32 Q53 34 57 42" stroke="rgba(255,185,95,.4)" stroke-width="3" stroke-linecap="round" fill="none"/>';
+  if(phase==='dawn') extra=dew([[24,22],[46,26]])+bird(40,12);
   return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+body+extra+'</svg>';
 }
 
@@ -513,7 +557,7 @@ function svgDuck(phase){
 }
 
 /* catalog maps (verbatim) */
-var TREEFN = {oak:svgOak, cherry:svgCherry, pine:svgPine, willow:svgWillow, kumquat:svgKumquat};
+var TREEFN = {oak:svgOak, cherry:svgCherry, pine:svgPine, willow:svgWillow, kumquat:svgKumquat, mango:svgMango, coconut:svgCoconut};
 var PETFN  = {dog:svgDog, cat:svgCat, rabbit:svgRabbit, bird:svgBird, duck:svgDuck};
 var PETW   = {dog:46, cat:42, rabbit:38, bird:23, duck:46};
 
@@ -544,7 +588,7 @@ function buildHouseShell(kind, phase, winsInner, act){
    ============================================================================ */
 var HOUSE_KEYS = {
   house: ['cottage','modern','tile','brick'],
-  tree:  ['oak','cherry','pine','willow','kumquat'],
+  tree:  ['oak','cherry','pine','willow','kumquat','mango','coconut'],
   pet:   ['dog','cat','rabbit','bird','duck']
 };
 function _houseValid(part, v){ return !!(v && HOUSE_KEYS[part] && HOUSE_KEYS[part].indexOf(v) >= 0); }
@@ -572,7 +616,7 @@ function pickHouse(part, value){
    TOOLBOX — the 3-picker bottom sheet ("Chăm chút tổ ấm"). Reuses the app's
    own .sheet / #scrim scaffolding (created once, opened via openSheet).
    ============================================================================ */
-var _HOUSE_SEG = 'house';
+var _HOUSE_SEG = 'tree';   // the hero is pure nature now — no house segment in the picker
 /* functional control icons are inline SVG (stroke=currentColor), not emoji —
    emoji stay content-only marks elsewhere (DESIGN.md §2.6) */
 var _HOUSE_SVG = {
@@ -580,13 +624,14 @@ var _HOUSE_SVG = {
   tree:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M12 15v6"/></svg>',
   pet:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="16" rx="5" ry="4"/><circle cx="6" cy="9" r="2"/><circle cx="11" cy="6" r="2"/><circle cx="16" cy="6.5" r="2"/><circle cx="19.5" cy="10.5" r="2"/></svg>'
 };
+/* NOTE: the scene went nature-only (Hơi thở của gió) — the house segment left
+   the picker, but families.house's `house` key stays in the config store so
+   nothing migrates and an older build still reads its saved value. */
 var _HOUSE_CAT = {
-  house: { icon:_HOUSE_SVG.house, vi:'Kiểu nhà', en:'House', items:[
-    {v:'cottage',vi:'Nhà ấm',en:'Cottage'},{v:'modern',vi:'Hiện đại',en:'Modern'},
-    {v:'tile',vi:'Ngói Việt',en:'Tiled'},{v:'brick',vi:'Gạch phố',en:'Brick'} ] },
   tree:  { icon:_HOUSE_SVG.tree, vi:'Cây', en:'Tree', items:[
     {v:'oak',vi:'Sồi',en:'Oak'},{v:'cherry',vi:'Anh đào',en:'Cherry'},{v:'pine',vi:'Thông',en:'Pine'},
-    {v:'willow',vi:'Liễu',en:'Willow'},{v:'kumquat',vi:'Quất',en:'Kumquat'} ] },
+    {v:'willow',vi:'Liễu',en:'Willow'},{v:'kumquat',vi:'Quất',en:'Kumquat'},
+    {v:'mango',vi:'Xoài',en:'Mango'},{v:'coconut',vi:'Dừa',en:'Coconut'} ] },
   pet:   { icon:_HOUSE_SVG.pet, vi:'Thú cưng', en:'Pet', items:[
     {v:null,vi:'Không',en:'None'},{v:'dog',vi:'Chó',en:'Dog'},{v:'cat',vi:'Mèo',en:'Cat'},
     {v:'rabbit',vi:'Thỏ',en:'Rabbit'},{v:'bird',vi:'Chim',en:'Bird'},{v:'duck',vi:'Vịt',en:'Duck'} ] }
@@ -641,8 +686,8 @@ function _renderHouseToolbox(el){
   }).join('');
   el.innerHTML = '<div class="grab"></div>'
     + '<div class="sheet-h">' + _L('Chăm chút tổ ấm', 'Make it home') + '</div>'
-    + '<div class="sheet-sub">' + _L('Chọn kiểu nhà, cây tiết kiệm và bạn nhỏ — hiện ngay trên trang chủ.',
-                 'Pick a house, a savings tree and a little friend — it shows on your home at once.') + '</div>'
+    + '<div class="sheet-sub">' + _L('Chọn cây tiết kiệm và bạn nhỏ — hiện ngay trên khung trời trang chủ.',
+                 'Pick a savings tree and a little friend — they appear in your home sky at once.') + '</div>'
     + '<div class="segs">' + segs + '</div>'
     + '<div class="sh-body"><div class="opts">' + opts + '</div></div>';
 }
@@ -668,7 +713,7 @@ function _houseEntryHTML(){
   return '<button class="house-entry" onclick="openHouseToolbox()">'
     + '<span class="he-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 00-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 005.4-5.4l-2.8 2.8-2-2z"/></svg></span>'
     + '<span class="he-tt"><b>' + _L('Chăm chút tổ ấm', 'Make it home') + '</b>'
-    + '<span>' + _L('Đổi nhà · cây · thú cưng cho cả nhà', 'Change your house · tree · pet') + '</span></span>'
+    + '<span>' + _L('Đổi cây · thú cưng cho cả nhà', 'Change your tree · pet') + '</span></span>'
     + '<svg class="he-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'
     + '</button>';
 }
@@ -733,7 +778,7 @@ function pokePet(){
   }
   _buzz(8);
 }
-var _LEAF_COL = { oak:'var(--brand-2)', cherry:'var(--blossom-pale)', pine:'var(--leaf-2)', willow:'var(--brand-2)', kumquat:'var(--leaf-2)' };
+var _LEAF_COL = { oak:'var(--brand-2)', cherry:'var(--blossom-pale)', pine:'var(--leaf-2)', willow:'var(--brand-2)', kumquat:'var(--leaf-2)', mango:'var(--brand-2)', coconut:'var(--leaf-2)' };
 var _treeTaps = 0;
 function pokeTree(){
   var el = document.querySelector('#home-scene .sc-tree'); if(!el) return;
@@ -750,9 +795,9 @@ function pokeTree(){
     el.appendChild(p);
     (function(q){ setTimeout(function(){ if(q.parentNode) q.parentNode.removeChild(q); }, 2000); })(p);
   }
-  if(kind === 'kumquat'){
+  if(kind === 'kumquat' || kind === 'mango'){                 // fruit trees drop a fruit
     var f = document.createElement('i');
-    f.className = 'fx-fruit';
+    f.className = 'fx-fruit' + (kind === 'mango' ? ' mg' : '');
     f.style.left = (26 + Math.random() * 34).toFixed(0) + '%';
     f.style.top = '26%';
     el.appendChild(f);

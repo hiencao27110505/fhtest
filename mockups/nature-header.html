@@ -1,0 +1,1378 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tổ ấm · Khung trời thiên nhiên — 4 phương án × 4 thời điểm</title>
+<style>
+/* ============================================================================
+   FamilyHub — NATURE-ONLY HERO. 4 phương án thay ngôi nhà bằng thiên nhiên
+   thuần khiết (trời · cây · thú), 4 thời điểm mỗi phương án.
+   Cùng một họa sĩ với 21-home-today.css + assets-pilot.html: hình học tròn/
+   con nhộng, mảng màu phẳng, chiều sâu bằng lớp phủ cùng tông độ mờ thấp,
+   KHÔNG emoji, KHÔNG viền cứng. Mỗi phương án trả lời câu hỏi tích hợp:
+   "cửa sổ tâm trạng của từng người sống ở đâu khi không còn ngôi nhà?"
+   ============================================================================ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --ink:#191022;--muted:#6b6576;--canvas:#efe9f2;--card:#fff;
+  /* theme (per-family) — same defaults as the app */
+  --brand:#2E9E6B;--brand-ink:#1F7E52;--brand-2:#5FD3A0;
+  /* ---- LOCKED decor tokens (assets-pilot.html) ---- */
+  --wood:#7d5f45;--wood-2:#8a6844;--leaf-2:#49b183;--gold:#e5b34a;
+  --gshadow:rgba(35,55,35,.16);
+  --water-1:#a9dbe9;--water-2:#69a7ca;--sand:#d9c9a0;
+  --coat:#c99e6f;--coat-cream:#f4e7cf;--snout:#3a2a22;
+  --cat:#b9a89c;--ear-blush:#eebfae;--bird:#c9785a;--bird-deep:#a85a40;
+  --perch-bird:#e0604c;
+  /* ---- mood palette (đúng màu ô cửa sổ trong app) ---- */
+  --m-sun:#ffc75d;--m-sun-hi:#ffeaa6;--m-sun-glow:rgba(255,205,110,.55);
+  --m-ok:#ffe5ae;--m-ok-hi:#fff6dd;--m-ok-glow:rgba(255,220,150,.4);
+  --m-rain:#8ba3c9;--m-rain-hi:#b7c8e4;
+  --m-wait:#4a5068;
+  /* ---- flora mới (file này) ---- */
+  --stem:#57a86a;--stem-2:#3f8f68;--bud:#7fa06b;
+}
+body{font-family:var(--text);background:var(--canvas);color:var(--ink);
+  -webkit-font-smoothing:antialiased;padding:34px 20px 80px;line-height:1.5}
+.wrap{max-width:1420px;margin:0 auto}
+.lead{text-align:center;margin-bottom:34px}
+.lead .eyebrow{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--brand-ink)}
+.lead h1{font-family:var(--disp);font-size:30px;font-weight:800;letter-spacing:-.7px;margin:7px 0 6px}
+.lead p{font-size:14px;color:var(--muted);max-width:660px;margin:0 auto}
+
+/* ---------- option sections ---------- */
+.opt{background:var(--card);border-radius:22px;padding:22px 22px 18px;margin-bottom:26px;
+  box-shadow:0 1px 3px rgba(25,16,34,.05),0 10px 30px rgba(25,16,34,.06)}
+.opt-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:4px}
+.opt-num{font-family:var(--disp);font-size:13px;font-weight:800;letter-spacing:1.6px;color:var(--brand-ink)}
+.opt-head h2{font-family:var(--disp);font-size:22px;font-weight:800;letter-spacing:-.5px}
+.opt-head .sub{font-size:13px;color:var(--muted)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 16px}
+.chip{font-size:11.5px;font-weight:650;color:#3d4a3f;background:#eef3ec;border-radius:9999px;padding:5px 12px}
+.chip b{font-weight:800;color:var(--brand-ink)}
+.phasegrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media (max-width:980px){.phasegrid{grid-template-columns:repeat(2,1fr)}}
+.pcol .plabel{font-family:var(--disp);font-size:12.5px;font-weight:800;text-align:center;margin-bottom:7px;letter-spacing:-.2px}
+.pcol .plabel small{font-weight:600;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;font-size:10px;margin-left:5px}
+.cell{position:relative;height:216px;border-radius:16px;overflow:hidden;
+  box-shadow:0 1px 3px rgba(25,16,34,.07),0 8px 22px rgba(25,16,34,.08)}
+.opt-notes{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:9px}
+@media (max-width:980px){.opt-notes{grid-template-columns:repeat(2,1fr)}}
+.opt-notes div{font-size:11.5px;color:var(--muted);line-height:1.45;padding:0 3px}
+.opt-notes b{color:#3d4a3f;font-weight:700}
+
+/* ============================================================================
+   MINI-SCENE — the living-scene shell, verbatim vars from 21-home-today.css,
+   evolved: a third FAR hill (--hillfar) for atmospheric depth.
+   ============================================================================ */
+.mini-scene{position:absolute;inset:0;color:#fff;
+  --sky1:#5fa7d6;--sky2:#cde8f7;--hill1:#86b294;--hill2:#639b7c;--hillfar:#a7c9b0;
+  --gr1:#9cc98b;--gr2:#77aa67;--dim:rgba(15,20,45,0);
+  --label:rgba(43,58,36,.85);--labelsh:none;
+  --w1:#a9dbe9;--w2:#69a7ca;--glint:rgba(255,255,255,.65);
+  background:linear-gradient(180deg,var(--sky1),var(--sky2) 82%)}
+.mini-scene.sky-dawn{--sky1:#d98e6b;--sky2:#ffdfb4;--hill1:#b18a8e;--hill2:#93707e;--hillfar:#d3a893;
+  --gr1:#a8bf7e;--gr2:#87a565;--dim:rgba(80,40,30,.06);
+  --w1:#f5cfae;--w2:#c78e77;--glint:rgba(255,200,130,.75)}
+.mini-scene.sky-dusk{--sky1:#5d4d8f;--sky2:#f0a172;--hill1:#6d5a80;--hill2:#55486b;--hillfar:#8a6f92;
+  --gr1:#69865c;--gr2:#4d6a45;--dim:rgba(35,25,70,.16);
+  --label:rgba(255,244,225,.92);--labelsh:0 1px 2px rgba(30,20,50,.45);
+  --w1:#e8a37c;--w2:#7a5d84;--glint:rgba(255,180,100,.75)}
+.mini-scene.sky-night{--sky1:#121a32;--sky2:#33406b;--hill1:#232b48;--hill2:#1a2138;--hillfar:#2b3454;
+  --gr1:#28403a;--gr2:#1c2f2a;--dim:rgba(10,14,40,.38);
+  --label:rgba(230,238,255,.85);--labelsh:0 1px 2px rgba(5,10,30,.6);
+  --w1:#2a3554;--w2:#17203a;--glint:rgba(220,232,255,.6)}
+.sc-orb{position:absolute;top:9px;right:24px;width:36px;height:36px;border-radius:50%;background:#fff3c9;box-shadow:0 0 30px 9px rgba(255,244,190,.5);z-index:1}
+.sky-dawn .sc-orb{top:36px;right:auto;left:56%;background:#ffcf7e;box-shadow:0 0 36px 13px rgba(255,190,110,.5)}
+.sky-dusk .sc-orb{top:46px;right:14%;background:#ffc06e;box-shadow:0 0 40px 15px rgba(255,170,90,.55)}
+.sky-night .sc-orb{background:transparent;box-shadow:inset -10px 4px 0 0 #dfe6f5;filter:drop-shadow(0 0 8px rgba(215,228,255,.35))}
+.sc-star{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;animation:sc-tw 3.2s ease-in-out infinite;z-index:1}
+@keyframes sc-tw{0%,100%{opacity:.3}50%{opacity:.95}}
+.sc-cloud{position:absolute;width:70px;height:18px;border-radius:18px;background:rgba(255,255,255,.55);z-index:1}
+.sc-cloud::before{content:'';position:absolute;left:13px;top:-10px;width:28px;height:21px;border-radius:50%;background:inherit}
+.sc-cloud::after{content:'';position:absolute;left:34px;top:-6px;width:21px;height:16px;border-radius:50%;background:inherit}
+.sc-cloud.c1{top:14px;left:6%;animation:sc-drift 70s linear infinite}
+.sc-cloud.c2{top:44px;left:54%;width:50px;opacity:.65;animation:sc-drift 95s linear infinite}
+@keyframes sc-drift{from{transform:translateX(-80px)}to{transform:translateX(380px)}}
+.sky-dusk .sc-cloud{opacity:.4}
+.sky-night .sc-cloud{opacity:.13}
+.sc-hill{position:absolute;border-radius:50%;z-index:1}
+.sc-hill.h0{left:8%;bottom:32px;width:66%;height:44px;background:var(--hillfar);opacity:.6}
+.sc-hill.h1{left:-18%;bottom:28px;width:74%;height:76px;background:var(--hill1)}
+.sc-hill.h2{right:-20%;bottom:24px;width:80%;height:88px;background:var(--hill2)}
+.sc-ground{position:absolute;left:0;right:0;bottom:0;height:42px;background:linear-gradient(180deg,var(--gr1),var(--gr2));z-index:1}
+/* mọi thứ đứng trên đất nằm z 2-4 */
+.sc-tree{position:absolute;width:64px;height:92px;transform-origin:50% 100%;z-index:3}
+.sc-tree svg{display:block;width:100%;height:100%;overflow:visible}
+.sc-pet{position:absolute;z-index:4}
+.sc-pet svg{display:block;width:100%;height:auto;overflow:visible}
+/* hơi thở của tán lá — cả khung cảnh không bao giờ đứng im hẳn */
+.sc-tree .sway{animation:leaf-sway 6.5s ease-in-out infinite alternate;transform-origin:32px 92px}
+@keyframes leaf-sway{from{transform:rotate(-.7deg)}to{transform:rotate(.7deg)}}
+
+/* ---------- shared ambient bits ---------- */
+.mist{position:absolute;left:-8%;right:-8%;height:44px;border-radius:50%;background:rgba(236,225,214,.4);filter:blur(9px);z-index:4;animation:mist-d 11s ease-in-out infinite alternate}
+.sky-night .mist{background:rgba(200,212,235,.22)}
+@keyframes mist-d{from{transform:translateX(-13px)}to{transform:translateX(16px)}}
+.beam{position:absolute;top:-26px;width:84px;height:150px;background:linear-gradient(195deg,rgba(255,242,190,.32),rgba(255,242,190,0) 72%);filter:blur(2px);z-index:2}
+.beam.moon{background:linear-gradient(195deg,rgba(205,222,255,.2),rgba(205,222,255,0) 70%)}
+.ff{position:absolute;width:4px;height:4px;border-radius:50%;background:#ffe08a;
+  box-shadow:0 0 7px 2.5px rgba(255,224,138,.55);z-index:5;
+  animation:ff-drift 6s ease-in-out infinite alternate,ff-blink 2.4s ease-in-out infinite}
+.ff.f2{animation-delay:-1.4s,-.9s}.ff.f3{animation-delay:-3s,-1.7s}
+.ff.f4{animation-delay:-4.4s,-.5s;width:3px;height:3px}.ff.f5{animation-delay:-2.2s,-1.3s;width:3px;height:3px}
+@keyframes ff-drift{from{transform:translate(0,0)}to{transform:translate(15px,-13px)}}
+@keyframes ff-blink{0%,100%{opacity:.35}50%{opacity:1}}
+.dapple{position:absolute;height:10px;border-radius:50%;background:rgba(255,246,205,.32);filter:blur(2px);z-index:2;animation:dap 7s ease-in-out infinite alternate}
+@keyframes dap{from{opacity:.5;transform:translateX(0)}to{opacity:.9;transform:translateX(7px)}}
+/* đàn én chiều — vài nét cong nhỏ lướt ngang trời */
+.swifts{position:absolute;top:26px;left:0;width:100%;height:40px;z-index:1;pointer-events:none}
+.swift{position:absolute;width:11px;height:5px;animation:swift-x 15s linear infinite}
+.swift::before,.swift::after{content:'';position:absolute;top:0;width:6px;height:5px;border:1.6px solid rgba(50,45,70,.55);border-bottom:0;border-left:0;border-radius:0 100% 0 0;transform:skewX(-12deg)}
+.swift::after{left:5px;transform:scaleX(-1) skewX(-12deg)}
+.sky-dusk .swift::before,.sky-dusk .swift::after{border-color:rgba(40,28,60,.6)}
+.swift.s2{animation-delay:-1.1s;top:9px;transform:scale(.8)}
+.swift.s3{animation-delay:-2.3s;top:17px;transform:scale(.65)}
+.swift.s4{animation-delay:-3.1s;top:3px;transform:scale(.72)}
+@keyframes swift-x{from{left:106%}to{left:-10%}}
+/* sao băng — hiếm hoi, phần thưởng cho người mở app buổi tối */
+.shoot{position:absolute;top:18px;left:20%;width:44px;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,rgba(255,255,255,0),#fff);opacity:0;z-index:1;
+  transform:rotate(24deg);animation:shoot-a 13s linear infinite}
+@keyframes shoot-a{0%,91%{opacity:0;transform:rotate(24deg) translate(0,0)}93%{opacity:.95}96%,100%{opacity:0;transform:rotate(24deg) translate(90px,40px)}}
+
+/* ---------- flora ---------- */
+.tuft{position:absolute;width:18px;height:17px;z-index:3;transform-origin:50% 100%;animation:tuft-sway calc(3.6s/var(--wk,1)) ease-in-out infinite alternate}
+.tuft i{position:absolute;bottom:0;width:3.5px;border-radius:2px 2px 0 0;background:linear-gradient(var(--dim),var(--dim)),linear-gradient(rgba(25,60,30,.26),rgba(25,60,30,.26)) var(--gr2);transform-origin:50% 100%}
+.tuft i:nth-child(1){left:1px;height:11px;transform:rotate(-16deg)}
+.tuft i:nth-child(2){left:6px;height:16px;transform:rotate(-5deg)}
+.tuft i:nth-child(3){left:10.5px;height:13px;transform:rotate(7deg)}
+.tuft i:nth-child(4){left:14px;height:10px;transform:rotate(18deg)}
+.tuft.tall{transform:scale(1.35)}
+@keyframes tuft-sway{from{transform:rotate(calc(-2.5deg*var(--wk,1)))}to{transform:rotate(calc(2.5deg*var(--wk,1)))}}
+.tuft.tall{animation-name:tuft-sway-t}
+@keyframes tuft-sway-t{from{transform:scale(1.35) rotate(calc(-2.5deg*var(--wk,1)))}to{transform:scale(1.35) rotate(calc(2.5deg*var(--wk,1)))}}
+/* hoa dại nhỏ — chấm màu trên cỏ */
+.wfl{position:absolute;width:8px;height:15px;z-index:3}
+.wfl::before{content:'';position:absolute;left:3px;bottom:0;width:2px;height:9px;border-radius:1px;background:linear-gradient(var(--dim),var(--dim)) var(--stem)}
+.wfl::after{content:'';position:absolute;left:1px;top:0;width:6px;height:6px;border-radius:50%;background:linear-gradient(var(--dim),var(--dim)) var(--c,#f2b3c9)}
+/* bồ công anh — quả cầu hạt trắng, gió mạnh thì thả hạt */
+.dande{position:absolute;width:12px;height:24px;z-index:3;transform-origin:50% 100%;animation:tuft-sway calc(4.2s/var(--wk,1)) ease-in-out infinite alternate}
+.dande::before{content:'';position:absolute;left:5px;bottom:0;width:1.8px;height:15px;background:linear-gradient(var(--dim),var(--dim)) var(--stem)}
+.dande::after{content:'';position:absolute;left:1px;top:0;width:10px;height:10px;border-radius:50%;
+  background:radial-gradient(circle at 38% 38%,rgba(255,255,255,.95) 1px,transparent 1.6px),
+             radial-gradient(circle at 68% 30%,rgba(255,255,255,.9) 1px,transparent 1.6px),
+             radial-gradient(circle at 55% 62%,rgba(255,255,255,.9) 1px,transparent 1.6px),
+             radial-gradient(circle at 30% 66%,rgba(255,255,255,.85) 1px,transparent 1.6px),
+             rgba(255,255,255,.35)}
+.seed{position:absolute;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.85);z-index:5;opacity:0;animation:seed-fly 5.5s linear infinite}
+.seed.sd2{animation-delay:-1.8s}.seed.sd3{animation-delay:-3.4s}
+@keyframes seed-fly{0%{opacity:0;transform:translate(0,0)}8%{opacity:.9}80%{opacity:.7}100%{opacity:0;transform:translate(72px,-34px)}}
+/* lau sậy ven hồ */
+.reed{position:absolute;width:14px;height:34px;z-index:3;transform-origin:50% 100%;animation:tuft-sway calc(4.4s/var(--wk,1)) ease-in-out infinite alternate}
+.reed i{position:absolute;bottom:0;width:2.2px;border-radius:2px;background:linear-gradient(var(--dim),var(--dim)) var(--stem-2);transform-origin:50% 100%}
+.reed i:nth-child(1){left:2px;height:24px;transform:rotate(-7deg)}
+.reed i:nth-child(2){left:7px;height:32px}
+.reed i:nth-child(3){left:11px;height:22px;transform:rotate(9deg)}
+.reed b{position:absolute;left:5.4px;top:0;width:5px;height:11px;border-radius:3px;background:linear-gradient(var(--dim),var(--dim)) var(--wood-2)}
+/* đá cuội */
+.stone{position:absolute;z-index:3}
+.stone i{position:absolute;bottom:0;border-radius:50% 50% 42% 42%;background:linear-gradient(var(--dim),var(--dim)) #a9a29b}
+.stone i:nth-child(1){left:0;width:14px;height:9px}
+.stone i:nth-child(2){left:10px;width:9px;height:6px;background:linear-gradient(var(--dim),var(--dim)) #948d86}
+/* dương xỉ */
+.fern{position:absolute;width:20px;height:16px;z-index:3}
+.fern i{position:absolute;bottom:0;width:9px;height:14px;border-radius:0 100% 0 0;border-top:2.4px solid;border-right:2.4px solid;border-color:var(--stem-2);opacity:.9;transform-origin:0 100%}
+.fern i:nth-child(1){left:0;transform:rotate(-24deg)}
+.fern i:nth-child(2){left:5px;transform:rotate(-2deg) scale(1.1)}
+.fern i:nth-child(3){left:10px;transform:rotate(22deg) scaleX(-1)}
+/* nấm — đêm phát sáng dịu dưới mũ */
+.mush{position:absolute;width:12px;height:11px;z-index:3}
+.mush::before{content:'';position:absolute;left:4px;bottom:0;width:3.6px;height:6px;border-radius:2px;background:linear-gradient(var(--dim),var(--dim)) #e8dcc4}
+.mush::after{content:'';position:absolute;left:0;top:0;width:12px;height:7px;border-radius:7px 7px 3px 3px;background:linear-gradient(var(--dim),var(--dim)) #c96b52}
+.mush b{position:absolute;left:2px;top:1.6px;width:2.6px;height:2.6px;border-radius:50%;background:rgba(255,244,220,.8);z-index:1}
+.mush b+b{left:7px;top:2.8px;width:2px;height:2px}
+.sky-night .mush i{position:absolute;left:1px;bottom:-1px;width:10px;height:4px;border-radius:50%;background:rgba(255,224,138,.4);filter:blur(2px);animation:ff-blink 3.4s ease-in-out infinite}
+
+/* ---------- fauna ---------- */
+/* bươm bướm — hai cánh ellipse, vỗ bằng scaleX, lượn theo đường trôi */
+.bfly{position:absolute;width:14px;height:12px;z-index:5;animation:bf-path 9s ease-in-out infinite alternate}
+.bfly i{position:absolute;top:2px;width:6px;height:8px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:var(--c,#f2b3c9);animation:bf-wing .34s ease-in-out infinite alternate;transform-origin:100% 50%}
+.bfly i+i{left:6.6px;transform-origin:0 50%;animation-name:bf-wing2}
+.bfly u{position:absolute;left:5.6px;top:3px;width:2.4px;height:8px;border-radius:2px;background:#5a4636}
+@keyframes bf-wing{from{transform:scaleX(1)}to{transform:scaleX(.25)}}
+@keyframes bf-wing2{from{transform:scaleX(1)}to{transform:scaleX(.25)}}
+@keyframes bf-path{0%{transform:translate(0,0)}25%{transform:translate(14px,-9px)}55%{transform:translate(30px,2px)}80%{transform:translate(44px,-7px)}100%{transform:translate(58px,-2px)}}
+.bfly.b2{animation-duration:11s;animation-delay:-4s}
+/* chuồn chuồn ớt — thân mảnh đỏ, cánh mờ rung */
+.dfly{position:absolute;width:20px;height:10px;z-index:5;animation:df-hover 3.2s ease-in-out infinite alternate}
+.dfly u{position:absolute;left:2px;top:4.4px;width:15px;height:2.4px;border-radius:2px;background:#d8543e}
+.dfly u::before{content:'';position:absolute;right:-2px;top:-.6px;width:4px;height:3.6px;border-radius:50%;background:#c0392b}
+.dfly i{position:absolute;left:5px;top:0;width:9px;height:3.4px;border-radius:50%;background:rgba(255,255,255,.55);animation:df-wing .12s linear infinite alternate}
+.dfly i+i{top:6.4px;animation-delay:-.06s}
+@keyframes df-wing{from{opacity:.3}to{opacity:.75}}
+@keyframes df-hover{0%{transform:translate(0,0)}50%{transform:translate(-8px,-5px)}100%{transform:translate(4px,-2px)}}
+/* thỏ hoang xám gặm cỏ (khác thỏ cưng màu kem) */
+.graze{position:absolute;width:20px;height:13px;z-index:3}
+.graze::before{content:'';position:absolute;left:3px;bottom:0;width:14px;height:8.5px;border-radius:50% 50% 42% 42%;background:linear-gradient(var(--dim),var(--dim)) #b9b0a4}
+.graze::after{content:'';position:absolute;left:0;bottom:1px;width:7px;height:6px;border-radius:50%;background:linear-gradient(var(--dim),var(--dim)) #b9b0a4;animation:nibble 2.8s ease-in-out infinite}
+.graze i{position:absolute;left:2.4px;bottom:6.4px;width:2.2px;height:6px;border-radius:2px;background:linear-gradient(var(--dim),var(--dim)) #b9b0a4;transform:rotate(-14deg)}
+.graze i+i{left:5px;transform:rotate(6deg)}
+.graze u{position:absolute;right:2px;bottom:6px;width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.8)}
+@keyframes nibble{0%,60%,100%{transform:translateY(0)}70%,85%{transform:translateY(1.6px)}}
+/* sóc trên thân cây — vẽ trong SVG của cây (svg group), chỉ cần keyframe đuôi */
+.sq-tail{transform-box:fill-box;transform-origin:20% 80%;animation:sq-t 3.4s ease-in-out infinite alternate}
+@keyframes sq-t{from{transform:rotate(-4deg)}to{transform:rotate(5deg)}}
+/* cú đêm trong tán thông — đôi mắt vàng chớp */
+.owl-eye{animation:owl-b 6s steps(1) infinite}
+@keyframes owl-b{0%,88%,94%,100%{opacity:1}90%,92%{opacity:.1}}
+/* ếch trên lá súng — bụng phập phồng */
+.frog{position:absolute;width:12px;height:8px;z-index:5}
+.frog::before{content:'';position:absolute;left:1px;bottom:0;width:10px;height:6.4px;border-radius:50% 50% 40% 40%;background:#5f9e59}
+.frog i{position:absolute;left:1.6px;top:-1px;width:3.4px;height:3.4px;border-radius:50%;background:#5f9e59}
+.frog i::before{content:'';position:absolute;left:1px;top:.6px;width:1.6px;height:1.6px;border-radius:50%;background:#26331f}
+.frog i+i{left:6.6px}
+.frog u{position:absolute;left:3.4px;bottom:.4px;width:4.6px;height:3px;border-radius:50%;background:rgba(240,248,225,.85);animation:croak 2.6s ease-in-out infinite}
+@keyframes croak{0%,55%,100%{transform:scale(1)}70%{transform:scale(1.45)}}
+/* cá quẫy — vòng sóng loang định kỳ */
+.ripple{position:absolute;width:26px;height:9px;z-index:4;pointer-events:none}
+.ripple i{position:absolute;inset:0;border-radius:50%;border:1.6px solid var(--glint);opacity:0;animation:rip 6s ease-out infinite}
+.ripple i+i{animation-delay:.45s}
+@keyframes rip{0%,58%{opacity:0;transform:scale(.25)}64%{opacity:.8}86%,100%{opacity:0;transform:scale(1.15)}}
+.koi{position:absolute;width:14px;height:7px;z-index:4;overflow:visible;pointer-events:none}
+.koi i{position:absolute;left:0;bottom:0;width:13px;height:6px;border-radius:50% 60% 20% 50%;background:#f09a45;opacity:0;animation:koi-j 6s ease-in-out infinite}
+@keyframes koi-j{0%,56%{opacity:0;transform:translateY(4px) rotate(0)}62%{opacity:1;transform:translateY(-4px) rotate(-16deg)}70%,100%{opacity:0;transform:translateY(5px) rotate(-38deg)}}
+
+/* ---------- MẶT HỒ (phương án 2) ---------- */
+.pond{position:absolute;z-index:2}
+.pond .sand{position:absolute;inset:0;border-radius:50%;background:linear-gradient(var(--dim),var(--dim)) var(--sand)}
+.pond .water{position:absolute;inset:3px 5px 2px;border-radius:50%;background:radial-gradient(ellipse at 44% 32%,var(--w1),var(--w2))}
+.pond .shore-r{position:absolute;left:14%;top:22%;width:34%;height:16%;border-radius:50%;border-top:1.4px solid rgba(255,255,255,.4);border-left:1.4px solid rgba(255,255,255,.2);border-bottom:0;border-right:0}
+.pond .shore-r2{position:absolute;right:16%;bottom:24%;width:28%;height:14%;border-radius:50%;background:rgba(255,255,255,.14)}
+.glint{position:absolute;width:30px;height:54%;bottom:12%;border-radius:50%;
+  background:linear-gradient(180deg,var(--glint),rgba(255,255,255,0));filter:blur(1.5px);
+  animation:glint-sh 4.5s ease-in-out infinite alternate}
+@keyframes glint-sh{from{opacity:.5;transform:scaleX(.85)}to{opacity:.95;transform:scaleX(1.12)}}
+/* lá súng */
+.pad{position:absolute;width:20px;height:8px;z-index:4}
+.pad::before{content:'';position:absolute;inset:0;border-radius:50%;background:linear-gradient(var(--dim),var(--dim)) #3f8f68;
+  clip-path:polygon(0 0,100% 0,100% 100%,58% 100%,48% 46%,38% 100%,0 100%)}
+
+/* ---------- GIA ĐÌNH TRONG THIÊN NHIÊN — 4 cách hiện diện ---------- */
+/* tên thành viên — mảnh, đổi màu theo pha trời */
+.mname{position:absolute;font-size:9px;font-weight:750;letter-spacing:-.01em;color:var(--label);text-shadow:var(--labelsh);white-space:nowrap;transform:translateX(-50%);z-index:6}
+/* (1) HOA TÂM TRẠNG — mỗi người một bông trên thảm cỏ */
+.mfl{position:absolute;width:26px;z-index:4;transform-origin:50% 100%}
+.mfl .stem{position:absolute;left:12px;bottom:0;width:2.6px;height:var(--sh,20px);border-radius:2px;background:linear-gradient(var(--dim),var(--dim)) var(--stem)}
+.mfl .leaf{position:absolute;left:6px;bottom:7px;width:7px;height:4px;border-radius:50% 50% 50% 0;background:linear-gradient(var(--dim),var(--dim)) var(--stem);transform:rotate(-20deg)}
+.mfl .leaf.r{left:14px;transform:scaleX(-1) rotate(-20deg)}
+.mfl .head{position:absolute;left:13.3px;bottom:var(--sh,20px);width:0;height:0}
+.mfl .pt{position:absolute;left:-4.5px;top:-4.5px;width:9px;height:9px;border-radius:50% 50% 50% 0;background:linear-gradient(var(--dim),var(--dim)) var(--mc,#f2b3c9);transform:rotate(var(--pr)) translateY(-5.6px) rotate(45deg)}
+.mfl .core{position:absolute;left:-3.2px;top:-3.2px;width:6.4px;height:6.4px;border-radius:50%;background:linear-gradient(var(--dim),var(--dim)) var(--gold);z-index:1}
+.mfl .halo{position:absolute;left:-11px;top:-11px;width:22px;height:22px;border-radius:50%;box-shadow:0 0 13px 5px var(--mg,transparent);animation:halo-p 3.2s ease-in-out infinite}
+@keyframes halo-p{0%,100%{opacity:.55}50%{opacity:1}}
+.mfl.rain{transform:rotate(10deg)}
+.mfl.rain .drip{position:absolute;left:-1px;top:2px;width:1.6px;height:5px;border-radius:1px;background:rgba(160,185,220,.85);animation:drip-f 2.4s linear infinite}
+@keyframes drip-f{0%{opacity:0;transform:translateY(0)}22%{opacity:.9}80%{opacity:.8}100%{opacity:0;transform:translateY(13px)}}
+/* nụ chưa nở (chưa chia sẻ) + nụ của MÌNH mời gọi */
+.mbud{position:absolute;width:14px;z-index:4}
+.mbud::before{content:'';position:absolute;left:6px;bottom:0;width:2.4px;height:var(--sh,14px);border-radius:2px;background:linear-gradient(var(--dim),var(--dim)) var(--stem)}
+.mbud::after{content:'';position:absolute;left:2.6px;bottom:calc(var(--sh,14px) - 2px);width:9px;height:12px;border-radius:50% 50% 50% 50%/62% 62% 38% 38%;background:linear-gradient(var(--dim),var(--dim)) var(--bud)}
+.mbud.ask i{position:absolute;left:0;bottom:var(--sh,14px);width:14px;height:14px;border-radius:50%;box-shadow:0 0 12px 4px rgba(255,215,130,.5);animation:halo-p 2.6s ease-in-out infinite}
+/* (2) SEN TÂM TRẠNG — bông sen nổi trên mặt hồ */
+.mlt{position:absolute;width:26px;height:22px;z-index:5;transform:scale(1.18);transform-origin:50% 100%}
+.mlt .pad2{position:absolute;left:1px;bottom:0;width:24px;height:8px;border-radius:50%;background:linear-gradient(var(--dim),var(--dim)) #3f8f68;
+  clip-path:polygon(0 0,100% 0,100% 100%,60% 100%,50% 40%,40% 100%,0 100%)}
+.mlt .pl{position:absolute;bottom:4px;width:8px;height:13px;border-radius:50% 50% 50% 50%/72% 72% 28% 28%;background:linear-gradient(var(--dim),var(--dim)) var(--mc,#f2b3c9);transform-origin:50% 100%}
+.mlt .pl.p1{left:9px}
+.mlt .pl.p2{left:4.6px;transform:rotate(-26deg);height:11.5px}
+.mlt .pl.p3{left:13.4px;transform:rotate(26deg);height:11.5px}
+.mlt .pl.p4{left:1px;transform:rotate(-52deg);height:9.5px;opacity:.9}
+.mlt .pl.p5{left:17px;transform:rotate(52deg);height:9.5px;opacity:.9}
+.mlt .core{position:absolute;left:10.2px;bottom:8.6px;width:5.6px;height:5px;border-radius:50%;background:linear-gradient(var(--dim),var(--dim)) var(--gold)}
+.mlt .halo{position:absolute;left:2px;bottom:2px;width:22px;height:18px;border-radius:50%;box-shadow:0 0 13px 5px var(--mg,transparent);animation:halo-p 3.2s ease-in-out infinite}
+.mlt.bud .pl{display:none}
+.mlt.bud .core{display:none}
+.mlt.bud::after{content:'';position:absolute;left:8.4px;bottom:5px;width:9px;height:13px;border-radius:50% 50% 50% 50%/64% 64% 36% 36%;background:linear-gradient(var(--dim),var(--dim)) var(--mc,#e8b8cb)}
+.mlt .refl{position:absolute;left:6px;bottom:-5px;width:14px;height:4px;border-radius:50%;background:var(--mg,rgba(255,255,255,.18));filter:blur(2px);opacity:.6}
+/* (3) CHIM TÂM TRẠNG — vẽ trong SVG cây (fill lấy từ biến mood) */
+.mbird-halo{transform-box:fill-box;animation:halo-p 3.2s ease-in-out infinite}
+/* (4) MÂY & SAO TÂM TRẠNG */
+.mcl{position:absolute;width:46px;height:13px;z-index:1}
+.mcl .body{position:absolute;inset:0;border-radius:13px;background:var(--mc,#fff)}
+.mcl .body::before{content:'';position:absolute;left:8px;top:-8px;width:19px;height:16px;border-radius:50%;background:inherit}
+.mcl .body::after{content:'';position:absolute;left:23px;top:-5px;width:14px;height:12px;border-radius:50%;background:inherit}
+.mcl.sun .body{box-shadow:0 0 14px 3px var(--m-sun-glow)}
+.mcl.wait .body{opacity:.32}
+.mcl .mdrop{position:absolute;top:14px;width:1.6px;height:6px;border-radius:1px;background:rgba(190,208,235,.85);animation:mdrop-f 1.9s linear infinite}
+.mcl .mdrop.d2{left:16px;animation-delay:-.7s}.mcl .mdrop.d3{left:30px;animation-delay:-1.3s}.mcl .mdrop{left:8px}
+@keyframes mdrop-f{0%{opacity:0;transform:translateY(0)}20%{opacity:.9}85%{opacity:.7}100%{opacity:0;transform:translateY(15px)}}
+.mcl .mname{top:26px;left:50%}
+.mstar{position:absolute;width:7px;height:7px;z-index:1}
+.mstar i{position:absolute;inset:0;border-radius:50%;background:#fff;box-shadow:0 0 10px 3px var(--mg,rgba(255,255,255,.4));animation:sc-tw 3.4s ease-in-out infinite}
+.mstar.wait i{opacity:.3;box-shadow:none;animation:none}
+.mstar .mname{top:11px;left:50%}
+
+/* ============================================================================
+   PHẦN 2 — 4 GỢI Ý GIỮ KHUNG CẢNH SỐNG ĐỘNG (demo tương tác)
+   ============================================================================ */
+.live{margin-top:44px}
+.live-head{text-align:center;margin-bottom:22px}
+.live-head .eyebrow{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--brand-ink)}
+.live-head h2{font-family:var(--disp);font-size:25px;font-weight:800;letter-spacing:-.6px;margin-top:6px}
+.live-head p{font-size:13.5px;color:var(--muted);max-width:640px;margin:6px auto 0}
+.recgrid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:900px){.recgrid{grid-template-columns:1fr}}
+.rec{background:var(--card);border-radius:20px;padding:18px 18px 16px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 10px 30px rgba(25,16,34,.06)}
+.rec-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px}
+.rec h3{font-family:var(--disp);font-size:17px;font-weight:800;letter-spacing:-.35px}
+.rec .rnum{font-size:11px;font-weight:800;letter-spacing:1.4px;color:var(--brand-ink)}
+.rec p{font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:12px}
+.rec p b{color:#3d4a3f;font-weight:700}
+.demo{position:relative;height:196px;border-radius:14px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(25,16,34,.05),0 6px 18px rgba(25,16,34,.07)}
+.rec-bar{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+.rbtn{font:inherit;font-size:12.5px;font-weight:700;color:#fff;background:var(--brand);border:0;border-radius:11px;padding:9px 15px;cursor:pointer;letter-spacing:-.01em}
+.rbtn:active{transform:scale(.97)}
+.rchip{font-size:12px;font-weight:650;color:#3d4a3f;background:#eef3ec;border-radius:9999px;padding:6px 12px;border:0;cursor:pointer;font-family:inherit}
+.rchip.on{background:var(--brand-ink);color:#fff}
+.rstate{font-size:12px;font-weight:650;color:var(--muted)}
+.rstate b{color:var(--ink);font-weight:750}
+.rare-tag{font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#b06a10;background:#fdf1dc;border-radius:9999px;padding:3px 9px}
+.impl{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.5;border-top:1px solid #eee7ee;padding-top:9px}
+.impl b{color:#3d4a3f;font-weight:700}
+
+/* --- demo 1: khách ghé thăm --- */
+.visitor-layer{position:absolute;inset:0;z-index:6;pointer-events:none}
+.sqrl{position:absolute;width:22px;height:14px;z-index:5}
+.sqrl::before{content:'';position:absolute;left:6px;bottom:0;width:11px;height:8.5px;border-radius:50% 50% 42% 42%;background:#a86a44}
+.sqrl::after{content:'';position:absolute;left:2.6px;bottom:2.4px;width:6.4px;height:6px;border-radius:50%;background:#a86a44}
+.sqrl i{position:absolute;right:0;bottom:1px;width:8px;height:12px;border-radius:60% 60% 50% 50%;background:#8a5334;transform:rotate(14deg);transform-origin:20% 90%;animation:sq-t 1.2s ease-in-out infinite alternate}
+.sqrl u{position:absolute;left:3.4px;bottom:6.6px;width:1.5px;height:1.5px;border-radius:50%;background:#2c1c12}
+.sqrl.dash{animation:sq-dash 3.6s ease-in-out infinite}
+@keyframes sq-dash{0%{transform:translateX(0) scaleX(1)}34%{transform:translateX(84px) scaleX(1)}42%,58%{transform:translateX(84px) scaleX(-1)}92%,100%{transform:translateX(0) scaleX(-1)}}
+.vbird{position:absolute;width:17px;height:15px;z-index:5;animation:vb-land 4.5s cubic-bezier(.2,.7,.3,1) infinite}
+@keyframes vb-land{0%{transform:translate(46px,-70px);opacity:0}10%{opacity:1}26%{transform:translate(0,2px)}32%{transform:translate(0,-1px)}36%,86%{transform:translate(0,0)}96%{transform:translate(-40px,-56px);opacity:0}100%{opacity:0}}
+.rainbow{position:absolute;top:26px;left:12%;width:150px;height:75px;overflow:hidden;opacity:.65}
+.rainbow i{position:absolute;left:0;width:150px;height:150px;border-radius:50%;border:5px solid #e0604c;border-bottom-color:transparent;border-left-color:transparent;border-right-color:transparent;transform:rotate(-45deg) scale(1)}
+.rainbow i+i{inset:5px;width:140px;height:140px;border-top-color:#e5b34a}
+.rainbow i+i+i{inset:10px;width:130px;height:130px;border-top-color:#5FD3A0}
+.ladyb{position:absolute;width:8px;height:6px;z-index:5;animation:lb-walk 7s linear infinite alternate}
+.ladyb::before{content:'';position:absolute;inset:0;border-radius:50% 50% 45% 45%;background:#d8543e}
+.ladyb::after{content:'';position:absolute;left:0;top:1px;width:2.6px;height:3.4px;border-radius:50%;background:#2c1c12}
+.ladyb i{position:absolute;left:3.6px;top:1px;width:1.4px;height:1.4px;border-radius:50%;background:#2c1c12}
+.ladyb i+i{left:5.6px;top:2.4px}
+@keyframes lb-walk{from{transform:translateX(0)}to{transform:translateX(26px)}}
+
+/* ô demo rộng gấp đôi ô phương án — đồi giữ CHIỀU CAO px nên phải hạ thấp lại
+   cho tỉ lệ ngang/dọc khớp, kẻo thành bức tường xanh */
+.demo .sc-hill.h0{height:32px;bottom:30px;opacity:.5}
+.demo .sc-hill.h1{height:52px}
+.demo .sc-hill.h2{height:60px}
+
+/* --- demo 2: gió --- */
+.demo[data-wind="calm"]{--wk:.45}
+.demo[data-wind="breeze"]{--wk:1}
+.demo[data-wind="gust"]{--wk:2}
+.demo[data-wind="calm"] .sc-cloud.c1{animation-duration:110s}
+.demo[data-wind="gust"] .sc-cloud.c1{animation-duration:34s}
+.demo[data-wind="gust"] .sc-cloud.c2{animation-duration:48s}
+.demo .seed{display:none}
+.demo[data-wind="gust"] .seed{display:block}
+.demo[data-wind="calm"] .sc-tree .sway{animation-duration:9s}
+.demo[data-wind="gust"] .sc-tree .sway{animation:leaf-sway 2.6s ease-in-out infinite alternate;transform-origin:32px 92px}
+@keyframes gust-once{0%{transform:rotate(0)}30%{transform:rotate(2.6deg)}60%{transform:rotate(-1.4deg)}100%{transform:rotate(0)}}
+.demo.gustnow .sc-tree .sway{animation:gust-once 1.1s ease-in-out 1}
+.demo.gustnow .tuft,.demo.gustnow .dande{animation:gust-once .9s ease-in-out 1!important;transform-origin:50% 100%}
+
+/* --- demo 3: lịch trời --- */
+.tet-bloom{position:absolute;width:7px;height:7px;border-radius:50%;background:#f5c64f;box-shadow:0 0 5px 1px rgba(245,198,79,.4);z-index:4}
+.tet-bloom::before{content:'';position:absolute;left:2.1px;top:2.1px;width:2.8px;height:2.8px;border-radius:50%;background:#d88f2a}
+.fallp{position:absolute;width:6px;height:4.5px;border-radius:50% 50% 50% 0;z-index:5;opacity:0;animation:fallp-a 5.5s linear infinite}
+.fallp.f2{animation-delay:-2s}.fallp.f3{animation-delay:-3.6s}.fallp.f4{animation-delay:-4.6s}
+@keyframes fallp-a{0%{opacity:0;transform:translate(0,0) rotate(0)}8%{opacity:.95}55%{transform:translate(9px,26px) rotate(80deg);opacity:.9}100%{opacity:0;transform:translate(19px,54px) rotate(165deg)}}
+.moon-full{position:absolute;top:10px;right:22px;width:44px;height:44px;border-radius:50%;background:#f4f0dc;box-shadow:0 0 36px 12px rgba(235,240,210,.45);z-index:1}
+.moon-full::before{content:'';position:absolute;left:9px;top:12px;width:9px;height:9px;border-radius:50%;background:rgba(190,188,160,.5)}
+.moon-full::after{content:'';position:absolute;left:24px;top:22px;width:6px;height:6px;border-radius:50%;background:rgba(190,188,160,.4)}
+
+/* --- demo 4: màn chào ---
+   pet trượt vào từ mép phải → nhún chào → chim sà xuống tán cây → lá lay */
+.demo .hello-pet{opacity:0}
+.demo.hello .hello-pet{animation:pet-in 2.2s cubic-bezier(.2,.7,.3,1) forwards}
+@keyframes pet-in{0%{opacity:0;transform:translateX(64px)}12%{opacity:1}46%{transform:translateX(0)}58%{transform:translateX(0) translateY(-7px)}66%{transform:translateX(0) translateY(0)}76%{transform:translateX(0) translateY(-4px)}84%,100%{opacity:1;transform:translateX(0)}}
+.demo .hello-bird{opacity:0}
+.demo.hello .hello-bird{animation:vb-land2 2.6s cubic-bezier(.2,.7,.3,1) .9s forwards}
+@keyframes vb-land2{0%{opacity:0;transform:translate(40px,-64px)}12%{opacity:1}42%{transform:translate(0,2px)}52%{transform:translate(0,-1.4px)}62%,100%{opacity:1;transform:translate(0,0)}}
+.demo.hello .sc-tree .sway{animation:gust-once 1s ease-in-out 1.6s 1}
+.demo .glintdot{position:absolute;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.95);box-shadow:0 0 8px 2px rgba(255,246,205,.7);opacity:0;z-index:6}
+.demo.hello .glintdot{animation:gd 1s ease-out 1.9s 1}
+.demo.hello .glintdot.g2{animation-delay:2.15s}
+@keyframes gd{0%{opacity:0;transform:scale(.3)}35%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.4)}}
+
+/* ---------- footer ---------- */
+.foot{margin-top:40px;background:var(--card);border-radius:20px;padding:20px 22px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 10px 30px rgba(25,16,34,.06)}
+.foot h3{font-family:var(--disp);font-size:16px;font-weight:800;letter-spacing:-.3px;margin-bottom:9px}
+.foot ul{list-style:none}
+.foot li{font-size:12.5px;color:var(--muted);line-height:1.55;padding-left:16px;position:relative;margin-bottom:6px}
+.foot li::before{content:'';position:absolute;left:2px;top:8px;width:5px;height:5px;border-radius:50%;background:var(--brand-2)}
+.foot li b{color:#3d4a3f;font-weight:700}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="lead">
+    <div class="eyebrow">FamilyHub · Tổ ấm</div>
+    <h1>Khung trời thiên nhiên — 4 phương án × 4 thời điểm</h1>
+    <p>Bỏ mọi thứ nhân tạo, giữ lại đúng thiên nhiên: trời · cây · muông thú. Cây tiết kiệm vẫn lớn theo mục tiêu chung, thú cưng vẫn tự do đi lại — và mỗi phương án trả lời một cách khác nhau cho câu hỏi: <b>“ô cửa tâm trạng của từng người sẽ sống ở đâu?”</b> (Bố ☼ nắng · Mẹ dịu · Na mưa · Bin chưa thắp)</p>
+  </div>
+
+  <!-- ============ PHƯƠNG ÁN 1 — ĐỒNG HOA ============ -->
+  <section class="opt" id="opt1">
+    <div class="opt-head">
+      <span class="opt-num">PHƯƠNG ÁN 1</span>
+      <h2>Đồng hoa</h2>
+      <span class="sub">Thảm cỏ mở, thoáng và bình yên nhất — gần nhất với khung cảnh hiện tại</span>
+    </div>
+    <div class="chips">
+      <span class="chip">Gia đình = <b>mỗi người một bông hoa</b>, nở &amp; sáng theo tâm trạng, chưa chia sẻ là nụ còn khép</span>
+      <span class="chip">Cây: sồi (giữ scale tiết kiệm)</span>
+      <span class="chip">Thú: thỏ + bướm, đom đóm</span>
+      <span class="chip">Bố cục: cây trái · hoa giữa · trời phải thoáng cho lời chào</span>
+    </div>
+    <div class="phasegrid">
+      <div class="pcol"><div class="plabel">Bình minh <small>dawn</small></div><div class="cell"><div class="mini-scene sky-dawn" data-scene="meadow" data-phase="dawn"></div></div></div>
+      <div class="pcol"><div class="plabel">Ban ngày <small>day</small></div><div class="cell"><div class="mini-scene sky-day" data-scene="meadow" data-phase="day"></div></div></div>
+      <div class="pcol"><div class="plabel">Hoàng hôn <small>dusk</small></div><div class="cell"><div class="mini-scene sky-dusk" data-scene="meadow" data-phase="dusk"></div></div></div>
+      <div class="pcol"><div class="plabel">Đêm <small>night</small></div><div class="cell"><div class="mini-scene sky-night" data-scene="meadow" data-phase="night"></div></div></div>
+    </div>
+    <div class="opt-notes">
+      <div><b>Bình minh:</b> sương mỏng lướt qua thảm cỏ, giọt sương đọng trên tán, chim sẻ ghé cành.</div>
+      <div><b>Ngày:</b> bướm lượn quanh khóm hoa, thỏ rong chơi giữa đồng, hoa của ai đang vui thì ánh lên.</div>
+      <div><b>Hoàng hôn:</b> viền nắng cam trên tán sồi, én liệng ngang trời, thỏ thong thả về gốc cây.</div>
+      <div><b>Đêm:</b> hoa thành đèn lồng nhỏ — ai đã thắp thì tỏa sáng dịu; đom đóm thay đèn hiên; thỏ cuộn mình ngủ dưới tán.</div>
+    </div>
+  </section>
+
+  <!-- ============ PHƯƠNG ÁN 2 — BÊN HỒ ============ -->
+  <section class="opt" id="opt2">
+    <div class="opt-head">
+      <span class="opt-num">PHƯƠNG ÁN 2</span>
+      <h2>Bên hồ</h2>
+      <span class="sub">Mặt nước soi trời — mỗi thời điểm một tấm gương màu, giàu “khoảnh khắc đẹp” nhất</span>
+    </div>
+    <div class="chips">
+      <span class="chip">Gia đình = <b>mỗi người một đóa sen</b> trên mặt hồ, chưa chia sẻ là búp sen còn khép</span>
+      <span class="chip">Cây: liễu nghiêng soi bóng nước</span>
+      <span class="chip">Thú: vịt bơi + chuồn chuồn, cá quẫy, ếch con</span>
+      <span class="chip">Bố cục: liễu trái · hồ phải · vệt nắng/trăng đổ trên nước</span>
+    </div>
+    <div class="phasegrid">
+      <div class="pcol"><div class="plabel">Bình minh <small>dawn</small></div><div class="cell"><div class="mini-scene sky-dawn" data-scene="lake" data-phase="dawn"></div></div></div>
+      <div class="pcol"><div class="plabel">Ban ngày <small>day</small></div><div class="cell"><div class="mini-scene sky-day" data-scene="lake" data-phase="day"></div></div></div>
+      <div class="pcol"><div class="plabel">Hoàng hôn <small>dusk</small></div><div class="cell"><div class="mini-scene sky-dusk" data-scene="lake" data-phase="dusk"></div></div></div>
+      <div class="pcol"><div class="plabel">Đêm <small>night</small></div><div class="cell"><div class="mini-scene sky-night" data-scene="lake" data-phase="night"></div></div></div>
+    </div>
+    <div class="opt-notes">
+      <div><b>Bình minh:</b> sương là là mặt nước, vệt nắng hồng đổ dài, vịt khoan thai rẽ nước.</div>
+      <div><b>Ngày:</b> chuồn chuồn ớt đậu ngọn lau, sen của ai đang vui thì bừng sắc, sóng lăn tăn.</div>
+      <div><b>Hoàng hôn:</b> hồ hóa gương cam tím, cá quẫy để lại vòng sóng loang.</div>
+      <div><b>Đêm:</b> vệt trăng trải trên nước, sen khép thành búp còn ai đã thắp thì sáng như hoa đăng; ếch con phập phồng trên lá súng.</div>
+    </div>
+  </section>
+
+  <!-- ============ PHƯƠNG ÁN 3 — VÒM CÂY ============ -->
+  <section class="opt" id="opt3">
+    <div class="opt-head">
+      <span class="opt-num">PHƯƠNG ÁN 3</span>
+      <h2>Vòm cây</h2>
+      <span class="sub">Cả nhà đậu trên cây của nhà mình — giữ trọn chức năng “ô cửa” cũ, một tiêu điểm duy nhất</span>
+    </div>
+    <div class="chips">
+      <span class="chip">Gia đình = <b>mỗi người một chú chim</b> đậu trên cây tiết kiệm, ức chim sáng theo tâm trạng</span>
+      <span class="chip">Cây: sồi chủ thể + thông làm nền sâu</span>
+      <span class="chip">Thú: mèo dưới gốc + sóc, cú đêm</span>
+      <span class="chip">Bố cục: rừng thưa nhiều lớp, vệt nắng xiên giữa các thân cây</span>
+    </div>
+    <div class="phasegrid">
+      <div class="pcol"><div class="plabel">Bình minh <small>dawn</small></div><div class="cell"><div class="mini-scene sky-dawn" data-scene="grove" data-phase="dawn"></div></div></div>
+      <div class="pcol"><div class="plabel">Ban ngày <small>day</small></div><div class="cell"><div class="mini-scene sky-day" data-scene="grove" data-phase="day"></div></div></div>
+      <div class="pcol"><div class="plabel">Hoàng hôn <small>dusk</small></div><div class="cell"><div class="mini-scene sky-dusk" data-scene="grove" data-phase="dusk"></div></div></div>
+      <div class="pcol"><div class="plabel">Đêm <small>night</small></div><div class="cell"><div class="mini-scene sky-night" data-scene="grove" data-phase="night"></div></div></div>
+    </div>
+    <div class="opt-notes">
+      <div><b>Bình minh:</b> hai vệt nắng vàng xiên qua thân cây, chim rũ cánh thức dậy, sương đọng trên dương xỉ.</div>
+      <div><b>Ngày:</b> đốm nắng lọt tán nhảy múa trên cỏ, sóc nâu thoăn thoắt trên thân sồi.</div>
+      <div><b>Hoàng hôn:</b> viền nắng rực trên cả hai tán, chim gọi nhau về đậu — nhà đông đủ nhất là lúc này.</div>
+      <div><b>Đêm:</b> chim cuộn thành nắm tròn ngủ trên cành — ai đã thắp thì quầng sáng ấm còn ôm quanh; mắt cú chớp trong tán thông, nấm dưới gốc phát sáng dịu.</div>
+    </div>
+  </section>
+
+  <!-- ============ PHƯƠNG ÁN 4 — ĐỒI GIÓ ============ -->
+  <section class="opt" id="opt4">
+    <div class="opt-head">
+      <span class="opt-num">PHƯƠNG ÁN 4</span>
+      <h2>Đồi gió</h2>
+      <span class="sub">Trời là nhân vật chính — đúng tinh thần “thời tiết cảm xúc”, thoáng nhất cho lời chào</span>
+    </div>
+    <div class="chips">
+      <span class="chip">Gia đình = <b>ban ngày mỗi người một đám mây</b> (mây ai buồn thì mưa nhỏ tưới đồi) · <b>ban đêm mỗi người một vì sao</b></span>
+      <span class="chip">Cây: sồi đơn độc trên đỉnh đồi</span>
+      <span class="chip">Thú: chó bên gốc + thỏ hoang gặm cỏ, đàn én</span>
+      <span class="chip">Bố cục: một triền đồi lớn, cỏ lau rạp theo gió, tầng đồi xa mờ sương</span>
+    </div>
+    <div class="phasegrid">
+      <div class="pcol"><div class="plabel">Bình minh <small>dawn</small></div><div class="cell"><div class="mini-scene sky-dawn" data-scene="hill" data-phase="dawn"></div></div></div>
+      <div class="pcol"><div class="plabel">Ban ngày <small>day</small></div><div class="cell"><div class="mini-scene sky-day" data-scene="hill" data-phase="day"></div></div></div>
+      <div class="pcol"><div class="plabel">Hoàng hôn <small>dusk</small></div><div class="cell"><div class="mini-scene sky-dusk" data-scene="hill" data-phase="dusk"></div></div></div>
+      <div class="pcol"><div class="plabel">Đêm <small>night</small></div><div class="cell"><div class="mini-scene sky-night" data-scene="hill" data-phase="night"></div></div></div>
+    </div>
+    <div class="opt-notes">
+      <div><b>Bình minh:</b> sương cuộn từ chân đồi, mây của cả nhà nhuộm hồng, chim sẻ ghé cành sớm.</div>
+      <div><b>Ngày:</b> bóng mây lướt trên triền cỏ, thỏ hoang gặm cỏ, mây ai đang buồn thì rơi mưa nhỏ — cả nhà đều thấy.</div>
+      <div><b>Hoàng hôn:</b> đàn én chao ngang mặt trời, hạt bồ công anh bay theo gió.</div>
+      <div><b>Đêm:</b> cả nhà thành chòm sao ngay trên tán cây — ai đã thắp thì lấp lánh; thi thoảng một vì sao băng ngang.</div>
+    </div>
+  </section>
+
+  <!-- ============ 4 GỢI Ý SỐNG ĐỘNG ============ -->
+  <section class="live" id="live">
+    <div class="live-head">
+      <div class="eyebrow">Để mỗi lần mở là một lần khác</div>
+      <h2>4 lớp sống động — chạm để xem thử</h2>
+      <p>Bốn lớp độc lập, xếp chồng lên nhau được: <b>khách ghé thăm</b> (nhân vật) · <b>hơi thở của gió</b> (vật lý) · <b>lịch trời</b> (mùa &amp; trăng) · <b>màn chào</b> (2 giây đầu). Mỗi lớp đều rẻ — chỉ transform/opacity — và tắt gọn khi máy bật Giảm chuyển động.</p>
+    </div>
+    <div class="recgrid">
+
+      <div class="rec">
+        <div class="rec-top"><h3>Khách ghé thăm</h3><span class="rnum">GỢI Ý 1</span></div>
+        <p>Mỗi lần mở app, khung cảnh <b>bốc thăm một vị khách nhỏ</b> theo ngày + số lần mở: bướm đôi, chuồn chuồn ớt, sóc nâu, chim sẻ… Thi thoảng — rất hiếm — một vị khách đặc biệt xuất hiện (cầu vồng sau mưa, sao băng lúc đêm) tạo khoảnh khắc “ơ, hôm nay có…!” đáng kể cho nhau nghe.</p>
+        <div class="demo" id="demo-visitor"><div class="mini-scene sky-day" data-scene="meadow-demo" data-phase="day"></div><div class="visitor-layer" id="visitor-layer"></div></div>
+        <div class="rec-bar">
+          <button class="rbtn" id="btn-visitor">Mở app lần nữa ↻</button>
+          <span class="rstate">Hôm nay có: <b id="visitor-name">bướm đôi ghé khóm hoa</b></span>
+          <span class="rare-tag" id="visitor-rare" hidden>Hiếm · ~1/20</span>
+        </div>
+        <div class="impl"><b>Cách làm:</b> chọn khách bằng seed <b>ngày + số lần mở</b> (không cần server); mỗi khách là một lớp overlay ~30 dòng CSS. Bảng tỉ lệ: thường 70% · thi thoảng 25% · hiếm 5%.</div>
+      </div>
+
+      <div class="rec">
+        <div class="rec-top"><h3>Hơi thở của gió</h3><span class="rnum">GỢI Ý 2</span></div>
+        <p>Mỗi lần mở, trời <b>bốc một cấp gió</b>: lặng — hiu hiu — lộng gió. Một biến CSS <b>--wk</b> duy nhất chỉnh biên độ cỏ lau, nhịp xào xạc của tán, tốc độ mây, hạt bồ công anh bay. Cùng một khung cảnh nhưng không lần nào chuyển động giống lần nào.</p>
+        <div class="demo" id="demo-wind" data-wind="breeze"><div class="mini-scene sky-day" data-scene="hill-demo" data-phase="day"></div></div>
+        <div class="rec-bar">
+          <button class="rbtn" id="btn-wind">Đổi gió ↻</button>
+          <span class="rstate">Gió hôm nay: <b id="wind-name">hiu hiu</b></span>
+        </div>
+        <div class="impl"><b>Cách làm:</b> <code>--wk</code> nhân vào duration/amplitude của mọi animation sẵn có; thêm một “cơn gió thoảng” chạy 1 lần lúc mở (class <b>gustnow</b>). Zero JS mới ngoài 3 dòng seed.</div>
+      </div>
+
+      <div class="rec">
+        <div class="rec-top"><h3>Lịch trời — mùa &amp; trăng thật</h3><span class="rnum">GỢI Ý 3</span></div>
+        <p>Khung cảnh theo <b>lịch thật</b>: giáp Tết cây trổ mai vàng, thu về lá ngả cam rơi nhẹ, <b>đêm rằm</b> trăng tròn và sáng hơn hẳn (tính theo âm lịch — đúng chất Việt Nam). Người dùng mở app tuần này thấy khác tuần trước mà không ai phải cấu hình gì.</p>
+        <div class="demo" id="demo-season"><div class="mini-scene sky-day" data-scene="meadow-demo2" data-phase="day"></div><div class="visitor-layer" id="season-layer"></div></div>
+        <div class="rec-bar">
+          <button class="rchip on" data-season="today">Hôm nay</button>
+          <button class="rchip" data-season="tet">Giáp Tết</button>
+          <button class="rchip" data-season="fall">Thu</button>
+          <button class="rchip" data-season="ram">Đêm rằm</button>
+        </div>
+        <div class="impl"><b>Cách làm:</b> hàm âm lịch ~30 dòng (đã đủ chính xác cho pha trăng); mỗi mùa là một lớp phủ lên cây + vài hạt rơi. Có thể nối thêm thời tiết thật (mưa rào) sau, không bắt buộc.</div>
+      </div>
+
+      <div class="rec">
+        <div class="rec-top"><h3>Màn chào 2 giây đầu</h3><span class="rnum">GỢI Ý 4</span></div>
+        <p>Khoảnh khắc mở app được <b>dàn dựng như một lời chào</b>: thú cưng chạy ra đón, nhún một cái, một chú chim sà xuống tán cây, lá lay khẽ, vài giọt sương lóe. Đêm thì ngược lại — mèo đang ngủ chỉ hé mắt, cựa mình rồi cuộn lại. Nhỏ thôi, nhưng lần mở nào cũng có ai đó <b>nhận ra mình về</b>.</p>
+        <div class="demo hello" id="demo-hello"><div class="mini-scene sky-day" data-scene="meadow-demo3" data-phase="day"></div></div>
+        <div class="rec-bar">
+          <button class="rbtn" id="btn-hello">Mở app ↻</button>
+          <span class="rstate">Chó chạy ra đón → chim sà xuống → lá lay → sương lóe</span>
+        </div>
+        <div class="impl"><b>Cách làm:</b> một class <b>.hello</b> gắn lúc render đầu phiên, choreography thuần CSS delay (2.2s, forwards); biến thể theo pha trời + loài thú. Giảm chuyển động → chỉ fade nhẹ.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="foot">
+    <h3>Ghi chú tích hợp (giữ nguyên những gì đang chạy tốt)</h3>
+    <ul>
+      <li><b>Cây tiết kiệm giữ nguyên hợp đồng scale</b> — footprint 64×92, transform-origin 50% 100%, vẫn lớn theo tiến độ mục tiêu; chạm vẫn xào xạc rơi lá.</li>
+      <li><b>Thú cưng giữ nguyên _placePet()</b> — đo khoảng trống thật rồi đặt chỗ; ban đêm ngủ <b>dưới tán cây</b> thay vì bậc cửa (hồ: ngủ trên bờ cỏ).</li>
+      <li><b>Nút “thêm” của cánh cửa cũ</b> chuyển về thẻ “Chăm chút tổ ấm” + tab bar — khung cảnh không cần nút, chỉ cần sống.</li>
+      <li><b>“Nhà có hoạt động hôm nay”</b> (khói bếp cũ): đàn bướm/đom đóm đông hơn một nhịp — tín hiệu sống thay tín hiệu khói.</li>
+      <li><b>Tâm trạng đầy đủ 6 mức</b> như ô cửa: nắng ấm rực · bừng cam · dịu kem · mưa xanh xám (rủ xuống, nhỏ giọt) · mệt xám nhạt · bão tím (chớp khẽ); <b>chưa chia sẻ = nụ khép/bóng mờ</b>, <b>của mình chưa thắp = quầng mời gọi</b> phập phồng.</li>
+      <li><b>Tán lá &amp; hoa ăn theo theme gia đình</b> (--brand-2) như hiện tại — đổi theme, cả khung trời đổi tông theo.</li>
+      <li><b>Reduce Motion:</b> mọi lớp sống động rút về ảnh tĩnh + fade; đom đóm/én/hạt bay ẩn hẳn.</li>
+    </ul>
+  </div>
+
+</div>
+<script>
+/* =========================================================================
+   BUILDERS — trees + pets ported VERBATIM from 23-house-customizer.js
+   ========================================================================= */
+function P(s){return s + s.replace(/(fill|stroke)="[^"]*"/g,'$1="var(--dim)"');}
+function rimArc(cx,cy,r){
+  var rr=r-1.5;
+  var x1=cx+rr*.42, y1=cy-rr*.91, x2=cx+rr*.91, y2=cy+rr*.42;
+  return '<path d="M'+x1.toFixed(1)+' '+y1.toFixed(1)+' A'+rr+' '+rr+' 0 0 1 '+x2.toFixed(1)+' '+y2.toFixed(1)+'" '
+   +'fill="none" stroke="rgba(255,185,95,.55)" stroke-width="3" stroke-linecap="round"/>';
+}
+function roundPoly(pts,r){
+  function off(a,b){var dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);return[a[0]+dx/L*r,a[1]+dy/L*r];}
+  var d='';
+  for(var i=0;i<pts.length;i++){
+    var p=pts[i],prev=pts[(i-1+pts.length)%pts.length],next=pts[(i+1)%pts.length];
+    var pin=off(p,prev),pout=off(p,next);
+    d+=(i?'L':'M')+pin[0].toFixed(1)+' '+pin[1].toFixed(1)
+      +' Q'+p[0]+' '+p[1]+' '+pout[0].toFixed(1)+' '+pout[1].toFixed(1)+' ';
+  }
+  return d+'Z';
+}
+function shadowOf(phase){
+  if(phase==='dusk')  return '<ellipse cx="18" cy="90" rx="30" ry="2.6" fill="rgba(60,42,52,.20)"/>';
+  if(phase==='night') return '<ellipse cx="32" cy="90" rx="14" ry="2.1" fill="rgba(10,15,35,.25)"/>';
+  return '<ellipse cx="32" cy="90" rx="16" ry="2.3" fill="var(--gshadow)"/>';
+}
+function dew(pts){
+  return pts.map(function(p){return '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="1.3" fill="rgba(255,255,255,.55)"/>';}).join('');
+}
+function bird(x,y){
+  return '<g transform="translate('+x+','+y+')">'
+   +'<rect x="3.2" y="4.2" width="8" height="6.2" rx="3.1" fill="var(--perch-bird)"/>'
+   +'<path d="M10.6 6 L14.6 4.2 L11.8 8.6 Z" fill="#c94f3e"/>'
+   +'<ellipse cx="7.4" cy="7" rx="2.5" ry="1.7" fill="rgba(70,20,14,.18)"/>'
+   +'<circle cx="3.6" cy="3.6" r="3" fill="var(--perch-bird)"/>'
+   +'<path d="M1 3.2 L-1.8 4.1 L1 5.1 Z" fill="var(--gold)"/>'
+   +'<circle cx="2.8" cy="3" r=".75" fill="#3a2a22"/>'
+   +'</g>';
+}
+/* extras = chuỗi SVG chèn thêm (chim tâm trạng, sóc…) vẽ TRONG hệ tọa độ 64×92 */
+function svgOak(phase, extras, noBird){
+  var body=P('<rect x="27.5" y="58" width="9" height="34" rx="4.5" fill="var(--wood)"/>')
+   +P('<circle cx="32" cy="28" r="24" fill="var(--brand-2)"/>')
+   +P('<circle cx="15" cy="45" r="15" fill="var(--brand-2)"/>')
+   +P('<circle cx="47" cy="43" r="17" fill="var(--brand-2)"/>')
+   +'<path d="M14 51 A22 22 0 0 0 50 50" fill="none" stroke="rgba(26,90,60,.10)" stroke-width="5" stroke-linecap="round"/>';
+  var extra='';
+  if(phase==='dusk') extra=rimArc(32,28,24);
+  if(phase==='dawn') extra=dew([[21,16],[41,11],[30,37]])+(noBird?'':bird(33,-4));
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+'<g class="sway">'+body+extra+(extras||'')+'</g></svg>';
+}
+function svgWillow(phase){
+  var fronds=[
+    [ 2.5,6,26,71,1],[ 9.5,7,30,78,0],[17.5,6,34,68,1],[24.5,6,36,60,0],
+    [33.5,6,36,58,1],[40.5,6,34,72,0],[47.5,7,30,79,1],[55.5,6,26,72,0]
+  ].map(function(f){
+    return '<rect x="'+f[0]+'" y="'+f[2]+'" width="'+f[1]+'" height="'+(f[3]-f[2])
+     +'" rx="'+(f[1]/2)+'" fill="var(--'+(f[4]?'leaf-2':'brand-2')+')"/>';
+  }).join('');
+  var body=P('<rect x="28" y="52" width="8" height="40" rx="4" fill="var(--wood)"/>')
+   +P(fronds)
+   +P('<circle cx="16" cy="29" r="13" fill="var(--brand-2)"/>')
+   +P('<circle cx="48" cy="27" r="14" fill="var(--brand-2)"/>')
+   +P('<circle cx="32" cy="21" r="20" fill="var(--brand-2)"/>');
+  var extra='';
+  if(phase==='dusk') extra=rimArc(32,21,20);
+  if(phase==='dawn') extra=dew([[24,14],[42,20]])+bird(33,-7);
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+'<g class="sway">'+body+extra+'</g></svg>';
+}
+function svgPine(phase, extras){
+  function tier(ay,by,hw){
+    return '<path d="'+roundPoly([[32,ay],[32+hw,by],[32-hw,by]],4.5)+'" fill="var(--leaf-2)"/>';
+  }
+  var body=P('<rect x="28.5" y="72" width="7" height="20" rx="3.5" fill="var(--wood)"/>')
+   +P(tier(29,76,26.5))
+   +'<rect x="15" y="58.5" width="34" height="3" rx="1.5" fill="rgba(18,68,46,.14)"/>'
+   +P(tier(15,57,21.5))
+   +'<rect x="19" y="39.5" width="26" height="3" rx="1.5" fill="rgba(18,68,46,.14)"/>'
+   +P(tier(3,38,16.5));
+  var extra='';
+  if(phase==='dusk') extra='<path d="M36.3 15.3 L44 31" stroke="rgba(255,185,95,.55)" stroke-width="3" stroke-linecap="round" fill="none"/>'
+   +'<path d="M37 27.6 L46.6 46.5" stroke="rgba(255,185,95,.45)" stroke-width="3" stroke-linecap="round" fill="none"/>'
+   +'<path d="M37.1 40.8 L47.7 59.6" stroke="rgba(255,185,95,.36)" stroke-width="3" stroke-linecap="round" fill="none"/>';
+  if(phase==='dawn') extra=dew([[26,30],[37,48]]);
+  return '<svg viewBox="0 0 64 92" aria-hidden="true">'+shadowOf(phase)+'<g class="sway">'+body+extra+(extras||'')+'</g></svg>';
+}
+function zz(x,y,s){
+  s = s || 1;
+  return '<g transform="translate('+x+' '+y+') scale('+s+')"><g class="zz">'
+    + '<path d="M0 3 C2.6 -1.8 8.6 -1 8 2.6 C7.5 5.6 3.4 6 2.5 3.6 C1.8 1.7 3.6 .4 5.2 1.1" '
+    + 'fill="none" stroke="rgba(255,255,255,.85)" stroke-width="1.6" stroke-linecap="round"/>'
+    + '<circle cx="11.5" cy="-2.5" r="1.15" fill="rgba(255,255,255,.7)"/>'
+    + '</g></g>';
+}
+function svgDog(phase){
+  var b = '';
+  if(phase === 'day'){
+    b = '<ellipse cx="25" cy="42" rx="15" ry="2.4" fill="var(--gshadow)"/>'
+      + '<rect x="36.5" y="13" width="4.8" height="13" rx="2.4" fill="var(--coat)" transform="rotate(30 38.9 19.5)"/>'
+      + '<circle cx="30" cy="30" r="11.5" fill="var(--coat)"/>'
+      + '<ellipse cx="20" cy="26" rx="9" ry="13" fill="var(--coat)" transform="rotate(-10 20 26)"/>'
+      + '<ellipse cx="17.5" cy="28" rx="4.6" ry="8.5" fill="var(--coat-cream)"/>'
+      + '<rect x="13.5" y="30" width="4.6" height="11.5" rx="2.3" fill="var(--coat)"/>'
+      + '<rect x="20" y="30" width="4.6" height="11.5" rx="2.3" fill="var(--coat)"/>'
+      + '<rect x="9.5" y="17.5" width="13.5" height="3.6" rx="1.8" fill="var(--brand-ink)" transform="rotate(-9 16 19.5)"/>'
+      + '<circle cx="16.9" cy="21.9" r="1.35" fill="var(--gold)"/>'
+      + '<circle cx="16" cy="11" r="9.2" fill="var(--coat)"/>'
+      + '<ellipse cx="10.3" cy="14" rx="5" ry="3.9" fill="var(--coat-cream)"/>'
+      + '<circle cx="6.9" cy="12.6" r="2" fill="var(--snout)"/>'
+      + '<circle cx="13.8" cy="9" r="1.7" fill="var(--snout)"/>'
+      + '<ellipse cx="21.8" cy="13.5" rx="3.8" ry="7" fill="var(--wood-2)" transform="rotate(10 21.8 13.5)"/>';
+  }
+  else if(phase === 'dawn'){
+    b = '<ellipse cx="24" cy="42" rx="16" ry="2.4" fill="var(--gshadow)"/>'
+      + '<rect x="37" y="7" width="4.6" height="12.5" rx="2.3" fill="var(--coat)" transform="rotate(38 39.3 13.2)"/>'
+      + '<circle cx="33.5" cy="28" r="10" fill="var(--coat)"/>'
+      + '<rect x="31" y="31" width="4.6" height="10.5" rx="2.3" fill="var(--coat)"/>'
+      + '<ellipse cx="23" cy="32.5" rx="11" ry="7.2" fill="var(--coat)" transform="rotate(12 23 32.5)"/>'
+      + '<ellipse cx="15.5" cy="35" rx="5" ry="4" fill="var(--coat-cream)"/>'
+      + '<rect x="2.5" y="37.4" width="13" height="4.4" rx="2.2" fill="var(--coat)"/>'
+      + '<rect x="5.5" y="38.6" width="12" height="4" rx="2" fill="var(--coat)"/>'
+      + '<rect x="7" y="26" width="12.5" height="3.4" rx="1.7" fill="var(--brand-ink)" transform="rotate(20 13 27.5)"/>'
+      + '<circle cx="12.2" cy="30.6" r="1.3" fill="var(--gold)"/>'
+      + '<circle cx="11" cy="21" r="8.4" fill="var(--coat)"/>'
+      + '<ellipse cx="5.8" cy="24" rx="4.6" ry="3.6" fill="var(--coat-cream)"/>'
+      + '<circle cx="2.9" cy="22.6" r="1.9" fill="var(--snout)"/>'
+      + '<circle cx="8.8" cy="19" r="1.6" fill="var(--snout)"/>'
+      + '<ellipse cx="16.5" cy="23" rx="3.6" ry="6.6" fill="var(--wood-2)" transform="rotate(14 16.5 23)"/>';
+  }
+  else if(phase === 'dusk'){
+    b = '<g transform="translate(48 0) scale(-1 1)">'
+      + '<ellipse cx="25" cy="42" rx="15" ry="2.3" fill="var(--gshadow)"/>'
+      + '<rect x="37" y="13" width="4.6" height="12" rx="2.3" fill="var(--coat)" transform="rotate(46 39.3 19)"/>'
+      + '<ellipse cx="25" cy="26.5" rx="13" ry="8.6" fill="var(--coat)"/>'
+      + '<rect x="15" y="31" width="4.4" height="11" rx="2.2" fill="var(--coat)"/>'
+      + '<rect x="21.5" y="32.5" width="4.4" height="9.5" rx="2.2" fill="var(--coat)"/>'
+      + '<rect x="29" y="31" width="4.4" height="11" rx="2.2" fill="var(--coat)"/>'
+      + '<rect x="34" y="32.5" width="4.4" height="9.5" rx="2.2" fill="var(--coat)"/>'
+      + '<ellipse cx="15.5" cy="27.5" rx="4" ry="6" fill="var(--coat-cream)"/>'
+      + '<rect x="8.5" y="16.5" width="12.5" height="3.4" rx="1.7" fill="var(--brand-ink)" transform="rotate(-24 14.7 18.2)"/>'
+      + '<circle cx="14.6" cy="21.2" r="1.3" fill="var(--gold)"/>'
+      + '<circle cx="11.5" cy="12" r="8.6" fill="var(--coat)"/>'
+      + '<ellipse cx="5.8" cy="15" rx="4.8" ry="3.7" fill="var(--coat-cream)"/>'
+      + '<circle cx="2.7" cy="13.5" r="1.9" fill="var(--snout)"/>'
+      + '<circle cx="9" cy="10" r="1.6" fill="var(--snout)"/>'
+      + '<ellipse cx="17" cy="14.5" rx="3.7" ry="6.8" fill="var(--wood-2)" transform="rotate(10 17 14.5)"/>'
+      + '</g>';
+  }
+  else{
+    b = '<ellipse cx="23" cy="41.5" rx="14" ry="2.2" fill="var(--gshadow)"/>'
+      + '<circle cx="24" cy="30.5" r="11.5" fill="var(--coat)"/>'
+      + '<circle cx="30.5" cy="32.5" r="6.5" fill="rgba(90,60,35,.12)"/>'
+      + '<rect x="10.5" y="34.6" width="18" height="5.4" rx="2.7" fill="var(--coat)"/>'
+      + '<ellipse cx="12.5" cy="37.3" rx="3" ry="2.4" fill="var(--coat-cream)"/>'
+      + '<rect x="14.5" y="31.6" width="9" height="3" rx="1.5" fill="var(--brand-ink)" transform="rotate(-14 19 33)"/>'
+      + '<circle cx="14.3" cy="33.6" r="1.2" fill="var(--gold)"/>'
+      + '<circle cx="14.5" cy="26.5" r="7.8" fill="var(--coat)"/>'
+      + '<ellipse cx="9.6" cy="29.4" rx="4.2" ry="3.3" fill="var(--coat-cream)"/>'
+      + '<circle cx="6.7" cy="28" r="1.7" fill="var(--snout)"/>'
+      + '<path d="M10.6 25.2 q1.6 1.7 3.2 0" fill="none" stroke="var(--snout)" stroke-width="1.3" stroke-linecap="round"/>'
+      + '<ellipse cx="19.8" cy="27.5" rx="3.4" ry="6" fill="var(--wood-2)" transform="rotate(20 19.8 27.5)"/>';
+  }
+  return '<svg viewBox="0 0 48 44" aria-hidden="true"><g class="pb">'+b+'</g>'
+    + (phase==='night' ? zz(6,11,1) : '') + '</svg>';
+}
+function svgCat(phase){
+  var b = '';
+  var earL = '<path d="M9 8.5 L10.6 1.4 L15.4 5.6 Z" fill="var(--cat)"/>'
+           + '<path d="M10.4 7.2 L11.2 3.6 L13.6 5.8 Z" fill="var(--ear-blush)"/>';
+  var earR = '<path d="M15.8 5.6 L20.6 1.4 L22.2 8.5 Z" fill="var(--cat)"/>'
+           + '<path d="M17.6 5.8 L20 3.6 L20.8 7.2 Z" fill="var(--ear-blush)"/>';
+  if(phase === 'day'){
+    b = '<ellipse cx="22" cy="42" rx="13" ry="2.2" fill="var(--gshadow)"/>'
+      + '<path d="M29 40 Q38.5 39.5 37 30.5" fill="none" stroke="var(--cat)" stroke-width="4.6" stroke-linecap="round"/>'
+      + '<circle cx="37" cy="31" r="2.3" fill="var(--cat)"/>'
+      + '<circle cx="27.5" cy="31.5" r="9" fill="var(--cat)"/>'
+      + '<ellipse cx="19.5" cy="27" rx="8.6" ry="12" fill="var(--cat)" transform="rotate(-6 19.5 27)"/>'
+      + '<ellipse cx="17.5" cy="29.5" rx="4.2" ry="7.6" fill="var(--coat-cream)"/>'
+      + '<rect x="13.5" y="30" width="4.2" height="11.5" rx="2.1" fill="var(--cat)"/>'
+      + '<rect x="19.5" y="30" width="4.2" height="11.5" rx="2.1" fill="var(--cat)"/>'
+      + '<rect x="23.5" y="20.8" width="6" height="2" rx="1" fill="rgba(88,66,58,.17)" transform="rotate(42 26.5 21.8)"/>'
+      + '<rect x="26.5" y="25.5" width="5.5" height="2" rx="1" fill="rgba(88,66,58,.17)" transform="rotate(42 29.2 26.5)"/>'
+      + '<rect x="9.5" y="17.4" width="12.5" height="3.4" rx="1.7" fill="var(--brand-ink)" transform="rotate(-8 15.7 19.1)"/>'
+      + '<circle cx="16" cy="21.4" r="1.3" fill="var(--gold)"/>'
+      + earL + earR
+      + '<circle cx="15.5" cy="11.5" r="7.8" fill="var(--cat)"/>'
+      + '<rect x="12.6" y="4.6" width="1.8" height="3.6" rx=".9" fill="rgba(88,66,58,.2)"/>'
+      + '<rect x="16.4" y="4.2" width="1.8" height="3.8" rx=".9" fill="rgba(88,66,58,.2)"/>'
+      + '<circle cx="12.6" cy="10.8" r="1.45" fill="var(--snout)"/>'
+      + '<circle cx="18.4" cy="10.8" r="1.45" fill="var(--snout)"/>'
+      + '<path d="M14.8 13.6 L16.4 13.6 L15.6 14.9 Z" fill="var(--snout)"/>';
+  }
+  else if(phase === 'dawn'){
+    b = '<ellipse cx="21" cy="42" rx="14.5" ry="2.3" fill="var(--gshadow)"/>'
+      + '<path d="M33.5 26.5 Q41.8 20 37 10.5" fill="none" stroke="var(--cat)" stroke-width="4.6" stroke-linecap="round"/>'
+      + '<circle cx="30.5" cy="29.5" r="8.6" fill="var(--cat)"/>'
+      + '<rect x="28" y="32" width="4.2" height="9.5" rx="2.1" fill="var(--cat)"/>'
+      + '<ellipse cx="21" cy="33.5" rx="10.5" ry="6.2" fill="var(--cat)" transform="rotate(10 21 33.5)"/>'
+      + '<rect x="3" y="37.8" width="12" height="4" rx="2" fill="var(--cat)"/>'
+      + '<rect x="26" y="25.5" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(26 29 26.5)"/>'
+      + '<rect x="24" y="30" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(26 27 31)"/>'
+      + '<rect x="6" y="30.5" width="11.5" height="3.2" rx="1.6" fill="var(--brand-ink)" transform="rotate(22 11.7 32)"/>'
+      + '<circle cx="10.4" cy="34.8" r="1.25" fill="var(--gold)"/>'
+      + '<path d="M4.2 23.6 L4.6 16.6 L9.4 20.4 Z" fill="var(--cat)"/>'
+      + '<path d="M10.6 19.8 L15.4 16.9 L14.6 23.4 Z" fill="var(--cat)"/>'
+      + '<circle cx="9.5" cy="27" r="7" fill="var(--cat)"/>'
+      + '<circle cx="6.6" cy="26.2" r="1.4" fill="var(--snout)"/>'
+      + '<circle cx="12" cy="25.6" r="1.4" fill="var(--snout)"/>'
+      + '<path d="M8.6 29.2 L10.2 29.2 L9.4 30.5 Z" fill="var(--snout)"/>';
+  }
+  else if(phase === 'dusk'){
+    b = '<g transform="translate(44 0) scale(-1 1)">'
+      + '<ellipse cx="22" cy="42" rx="14" ry="2.2" fill="var(--gshadow)"/>'
+      + '<path d="M36 27.5 Q42.5 22 39.5 14" fill="none" stroke="var(--cat)" stroke-width="4" stroke-linecap="round"/>'
+      + '<ellipse cx="24" cy="29" rx="13" ry="6.8" fill="var(--cat)"/>'
+      + '<rect x="14" y="32" width="3.8" height="10" rx="1.9" fill="var(--cat)"/>'
+      + '<rect x="20" y="33.5" width="3.8" height="8.5" rx="1.9" fill="var(--cat)"/>'
+      + '<rect x="28" y="32" width="3.8" height="10" rx="1.9" fill="var(--cat)"/>'
+      + '<rect x="33.5" y="33.5" width="3.8" height="8.5" rx="1.9" fill="var(--cat)"/>'
+      + '<ellipse cx="14" cy="28" rx="3.6" ry="4.8" fill="var(--coat-cream)"/>'
+      + '<rect x="22" y="24.6" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(8 25 25.6)"/>'
+      + '<rect x="28.5" y="26" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(8 31.5 27)"/>'
+      + '<rect x="6.5" y="21.5" width="11" height="3.2" rx="1.6" fill="var(--brand-ink)" transform="rotate(-30 12 23)"/>'
+      + '<circle cx="11.5" cy="25.6" r="1.25" fill="var(--gold)"/>'
+      + '<path d="M4.6 16.6 L5.6 9.6 L10.2 13.6 Z" fill="var(--cat)"/>'
+      + '<path d="M11.4 13.2 L16 10 L15.6 16.8 Z" fill="var(--cat)"/>'
+      + '<circle cx="10.5" cy="19.5" r="7" fill="var(--cat)"/>'
+      + '<circle cx="7.4" cy="18.4" r="1.4" fill="var(--snout)"/>'
+      + '<circle cx="13" cy="18" r="1.4" fill="var(--snout)"/>'
+      + '<path d="M9.2 21.4 L10.8 21.4 L10 22.7 Z" fill="var(--snout)"/>'
+      + '</g>';
+  }
+  else{
+    b = '<ellipse cx="22" cy="41.5" rx="13" ry="2.1" fill="var(--gshadow)"/>'
+      + '<circle cx="23" cy="31.5" r="10.5" fill="var(--cat)"/>'
+      + '<circle cx="28.5" cy="33.5" r="6" fill="rgba(88,66,58,.1)"/>'
+      + '<rect x="21" y="24" width="6.5" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(24 24 25)"/>'
+      + '<rect x="25" y="28" width="6" height="2" rx="1" fill="rgba(88,66,58,.2)" transform="rotate(24 28 29)"/>'
+      + '<path d="M12 36 Q22.5 41.5 33 35.8" fill="none" stroke="var(--cat)" stroke-width="4.4" stroke-linecap="round"/>'
+      + '<path d="M6.2 26.2 L7.4 20.2 L11.4 23.8 Z" fill="var(--cat)"/>'
+      + '<path d="M12.4 23.4 L16.6 20.6 L16.2 26.2 Z" fill="var(--cat)"/>'
+      + '<circle cx="14" cy="28.5" r="6.8" fill="var(--cat)"/>'
+      + '<ellipse cx="11.6" cy="31.2" rx="3.7" ry="2.7" fill="var(--coat-cream)"/>'
+      + '<path d="M9.8 27.4 q1.4 1.5 2.8 0" fill="none" stroke="var(--snout)" stroke-width="1.2" stroke-linecap="round"/>'
+      + '<path d="M15.4 27 q1.4 1.5 2.8 0" fill="none" stroke="var(--snout)" stroke-width="1.2" stroke-linecap="round"/>'
+      + '<path d="M11.9 29.9 L13.5 29.9 L12.7 31.2 Z" fill="var(--snout)"/>'
+      + '<rect x="17.5" y="32.8" width="6.5" height="2.8" rx="1.4" fill="var(--brand-ink)" transform="rotate(-18 20.7 34.2)"/>'
+      + '<circle cx="17.4" cy="34.6" r="1.15" fill="var(--gold)"/>';
+  }
+  return '<svg viewBox="0 0 44 44" aria-hidden="true"><g class="pb">'+b+'</g>'
+    + (phase==='night' ? zz(5,12,.95) : '') + '</svg>';
+}
+function svgRabbit(phase){
+  var b = '';
+  if(phase === 'day'){
+    b = '<ellipse cx="19" cy="44" rx="13" ry="2.2" fill="var(--gshadow)"/>'
+      + '<ellipse cx="22" cy="34.5" rx="11.5" ry="9.5" fill="var(--coat-cream)"/>'
+      + '<circle cx="27.5" cy="35.5" r="7" fill="rgba(120,95,70,.12)"/>'
+      + '<circle cx="33" cy="30.5" r="3.4" fill="#fdf4e2"/>'
+      + '<rect x="2" y="14" width="5" height="15" rx="2.5" fill="var(--coat-cream)" transform="rotate(-40 4.5 21.5)"/>'
+      + '<rect x="8.5" y="12" width="5" height="15.5" rx="2.5" fill="var(--coat-cream)" transform="rotate(-22 11 19.8)"/>'
+      + '<rect x="9.8" y="14.4" width="2.3" height="10.5" rx="1.15" fill="var(--ear-blush)" transform="rotate(-22 11 19.8)"/>'
+      + '<rect x="7" y="24.5" width="10.5" height="3.2" rx="1.6" fill="var(--brand-ink)" transform="rotate(14 12 26)"/>'
+      + '<circle cx="9.6" cy="27.6" r="1.25" fill="var(--gold)"/>'
+      + '<circle cx="9.5" cy="32.5" r="7" fill="var(--coat-cream)"/>'
+      + '<circle cx="7.2" cy="30.8" r="1.4" fill="var(--snout)"/>'
+      + '<circle cx="3.2" cy="33.4" r="1.25" fill="var(--snout)"/>'
+      + '<rect x="10" y="39.5" width="8" height="4" rx="2" fill="var(--coat-cream)"/>'
+      + '<rect x="10" y="39.5" width="8" height="4" rx="2" fill="rgba(120,95,70,.08)"/>'
+      + '<rect x="1.6" y="39" width="1.4" height="4.5" rx=".7" fill="#57a86a"/>'
+      + '<circle cx="1.4" cy="38" r="1.5" fill="#57a86a"/><circle cx="3.4" cy="37.6" r="1.5" fill="#57a86a"/><circle cx="2.4" cy="36.2" r="1.5" fill="#57a86a"/>';
+  }
+  else if(phase === 'dawn'){
+    b = '<ellipse cx="20" cy="44" rx="15" ry="2.3" fill="var(--gshadow)"/>'
+      + '<circle cx="30" cy="34.5" r="7.5" fill="var(--coat-cream)"/>'
+      + '<circle cx="30" cy="34.5" r="7.5" fill="rgba(120,95,70,.07)"/>'
+      + '<circle cx="34.5" cy="28.5" r="3.2" fill="#fdf4e2"/>'
+      + '<ellipse cx="20" cy="37" rx="13" ry="6.6" fill="var(--coat-cream)"/>'
+      + '<rect x="2.5" y="39.6" width="11" height="4" rx="2" fill="var(--coat-cream)"/>'
+      + '<rect x="2.5" y="39.6" width="11" height="4" rx="2" fill="rgba(120,95,70,.07)"/>'
+      + '<rect x="11" y="16.5" width="4.8" height="16" rx="2.4" fill="var(--coat-cream)" transform="rotate(-54 13.4 24.5)"/>'
+      + '<rect x="12" y="18.5" width="2.2" height="11" rx="1.1" fill="var(--ear-blush)" transform="rotate(-54 13.4 24.5)"/>'
+      + '<rect x="12.5" y="22.5" width="4.8" height="14" rx="2.4" fill="var(--coat-cream)" transform="rotate(-76 14.9 29.5)"/>'
+      + '<rect x="12.5" y="22.5" width="4.8" height="14" rx="2.4" fill="rgba(120,95,70,.08)" transform="rotate(-76 14.9 29.5)"/>'
+      + '<rect x="6" y="30.5" width="10" height="3" rx="1.5" fill="var(--brand-ink)" transform="rotate(18 11 32)"/>'
+      + '<circle cx="8.8" cy="33.6" r="1.2" fill="var(--gold)"/>'
+      + '<circle cx="8.5" cy="30.5" r="6.6" fill="var(--coat-cream)"/>'
+      + '<circle cx="6.2" cy="28.9" r="1.35" fill="var(--snout)"/>'
+      + '<circle cx="2.6" cy="31.4" r="1.2" fill="var(--snout)"/>';
+  }
+  else if(phase === 'dusk'){
+    b = '<ellipse cx="20" cy="44" rx="9" ry="1.8" fill="var(--gshadow)" opacity=".85"/>'
+      + '<circle cx="10" cy="25" r="3.2" fill="#fdf4e2"/>'
+      + '<ellipse cx="19" cy="28" rx="11" ry="8.5" fill="var(--coat-cream)" transform="rotate(-16 19 28)"/>'
+      + '<circle cx="14" cy="29.5" r="6.4" fill="rgba(120,95,70,.1)"/>'
+      + '<rect x="5.5" y="32" width="11" height="4.2" rx="2.1" fill="var(--coat-cream)" transform="rotate(26 8 34)"/>'
+      + '<rect x="5.5" y="32" width="11" height="4.2" rx="2.1" fill="rgba(120,95,70,.08)" transform="rotate(26 8 34)"/>'
+      + '<circle cx="26" cy="31.5" r="2.3" fill="var(--coat-cream)"/>'
+      + '<circle cx="29.5" cy="30" r="2.3" fill="var(--coat-cream)"/>'
+      + '<rect x="17" y="6" width="4.8" height="14" rx="2.4" fill="var(--coat-cream)" transform="rotate(38 19.4 13)"/>'
+      + '<rect x="18.1" y="8" width="2.2" height="10" rx="1.1" fill="var(--ear-blush)" transform="rotate(38 19.4 13)"/>'
+      + '<rect x="13" y="6.5" width="4.8" height="13.5" rx="2.4" fill="var(--coat-cream)" transform="rotate(52 15.4 13.2)"/>'
+      + '<rect x="13" y="6.5" width="4.8" height="13.5" rx="2.4" fill="rgba(120,95,70,.08)" transform="rotate(52 15.4 13.2)"/>'
+      + '<rect x="22.5" y="22" width="10" height="3" rx="1.5" fill="var(--brand-ink)" transform="rotate(-18 27.5 23.5)"/>'
+      + '<circle cx="30.4" cy="24.4" r="1.2" fill="var(--gold)"/>'
+      + '<circle cx="29" cy="17.5" r="6.6" fill="var(--coat-cream)"/>'
+      + '<circle cx="31.6" cy="15.9" r="1.35" fill="var(--snout)"/>'
+      + '<circle cx="35.3" cy="18.3" r="1.2" fill="var(--snout)"/>';
+  }
+  else{
+    b = '<ellipse cx="20" cy="44" rx="13.5" ry="2.2" fill="var(--gshadow)"/>'
+      + '<ellipse cx="21" cy="35" rx="12.5" ry="9" fill="var(--coat-cream)"/>'
+      + '<circle cx="27" cy="36" r="6.6" fill="rgba(120,95,70,.1)"/>'
+      + '<circle cx="32.5" cy="31.5" r="3.4" fill="#fdf4e2"/>'
+      + '<rect x="12.5" y="23.5" width="4.6" height="14" rx="2.3" fill="var(--coat-cream)" transform="rotate(-74 14.8 30.5)"/>'
+      + '<rect x="13.6" y="25.5" width="2.1" height="9.5" rx="1.05" fill="var(--ear-blush)" transform="rotate(-74 14.8 30.5)"/>'
+      + '<rect x="13" y="27" width="4.6" height="13.5" rx="2.3" fill="var(--coat-cream)" transform="rotate(-86 15.3 33.7)"/>'
+      + '<rect x="13" y="27" width="4.6" height="13.5" rx="2.3" fill="rgba(120,95,70,.16)" transform="rotate(-86 15.3 33.7)"/>'
+      + '<rect x="8" y="34" width="9" height="2.8" rx="1.4" fill="var(--brand-ink)" transform="rotate(10 12.5 35.4)"/>'
+      + '<circle cx="9.9" cy="36.9" r="1.15" fill="var(--gold)"/>'
+      + '<circle cx="10.5" cy="33" r="6.4" fill="var(--coat-cream)"/>'
+      + '<path d="M6.9 31.6 q1.4 1.5 2.8 0" fill="none" stroke="var(--snout)" stroke-width="1.2" stroke-linecap="round"/>'
+      + '<circle cx="4.6" cy="34.2" r="1.15" fill="var(--snout)"/>';
+  }
+  return '<svg viewBox="0 0 40 46" aria-hidden="true"><g class="pb">'+b+'</g>'
+    + (phase==='night' ? zz(3,16,.9) : '') + '</svg>';
+}
+/* vịt BƠI — dáng ngày của svgDuck nhưng KHÔNG kèm ao riêng (hồ đã có sẵn) */
+function svgDuckSwim(){
+  var b = '<ellipse cx="27" cy="29.5" rx="13" ry="2.6" fill="rgba(255,255,255,.28)"/>'
+    + '<path d="M22 27 Q22 21.5 28.5 21.5 Q34 21.5 35.5 24.5 L40 21.5 Q41 26.5 36 28.5 Q32.5 30 27 29.5 Q22.5 29 22 27 Z" fill="var(--coat-cream)"/>'
+    + '<ellipse cx="31" cy="25.5" rx="4" ry="2.6" fill="#e7dcc0"/>'
+    + '<rect x="20.2" y="16" width="5" height="8.5" rx="2.5" fill="var(--coat-cream)"/>'
+    + '<circle cx="22.5" cy="17" r="4.6" fill="var(--coat-cream)"/>'
+    + '<path d="M18.4 15.9 L13.6 17.2 L18.4 18.7 Q19.3 17.3 18.4 15.9 Z" fill="#e8a24c"/>'
+    + '<circle cx="21" cy="15.8" r="1" fill="var(--snout)"/>';
+  return '<svg viewBox="0 0 46 36" aria-hidden="true"><g class="pb">'+b+'</g></svg>';
+}
+/* vịt NGỦ trên bờ (dáng night gốc) */
+function svgDuckSleep(){
+  var b = '<ellipse cx="23" cy="34" rx="12" ry="2" fill="var(--gshadow)"/>'
+    + '<ellipse cx="23" cy="26.5" rx="10" ry="7.4" fill="var(--coat-cream)"/>'
+    + '<path d="M13.4 23 Q10 21 11 25.5 Q11.6 27.5 13.6 26.8 Z" fill="var(--coat-cream)"/>'
+    + '<ellipse cx="26" cy="26.5" rx="5.6" ry="3.8" fill="#e7dcc0"/>'
+    + '<ellipse cx="29" cy="24.8" rx="4.2" ry="2" fill="rgba(120,95,70,.08)"/>'
+    + '<circle cx="30" cy="20.5" r="4.8" fill="var(--coat-cream)"/>'
+    + '<path d="M27 22.4 L23.6 24.8 L27.4 25.6 Q28.2 24 27 22.4 Z" fill="#e8a24c"/>'
+    + '<path d="M30.4 19.6 q1.3 1.4 2.6 0" fill="none" stroke="var(--snout)" stroke-width="1.1" stroke-linecap="round"/>';
+  return '<svg viewBox="0 0 46 36" aria-hidden="true"><g class="pb">'+b+'</g>' + zz(26,7,.85) + '</svg>';
+}
+
+/* =========================================================================
+   GIA ĐÌNH — bảng mood + chim tâm trạng (vẽ trong SVG cây, hệ 64×92)
+   ========================================================================= */
+var MOODS = {
+  sun:  { c:'#ffc75d', hi:'#ffeaa6', glow:'rgba(255,205,110,.55)' },
+  ok:   { c:'#ffe5ae', hi:'#fff6dd', glow:'rgba(255,220,150,.4)'  },
+  rain: { c:'#8ba3c9', hi:'#b7c8e4', glow:null },
+  wait: { c:'#4a5068', hi:'#5a6178', glow:null }
+};
+var FAMILY = [
+  { name:'Bố', mood:'sun'  },
+  { name:'Mẹ', mood:'ok'   },
+  { name:'Na', mood:'rain' },
+  { name:'Bin', mood:'wait' }
+];
+/* chim tâm trạng đậu trên tán — thân nâu ấm trung tính, ỨC là màu mood
+   (đúng vai ô kính cửa sổ cũ); đêm = cuộn tròn ngủ, ai đã thắp còn quầng ấm */
+function moodBird(x, y, mood, phase, flip){
+  var m = MOODS[mood] || MOODS.wait;
+  var wait = (mood === 'wait');
+  var body = wait ? '#3d4356' : '#b9a58e';
+  var wing = wait ? '#333950' : '#a08a70';
+  var s = '<g transform="translate('+x+','+y+')'+(flip?' scale(-1,1)':'')+'"'+(wait?' opacity=".5"':'')+'>';
+  if(m.glow) s += '<circle class="mbird-halo" cx="5" cy="4" r="9.5" fill="'+m.glow+'" opacity=".5"/>';
+  if(phase === 'night'){
+    s += '<ellipse cx="5" cy="5.6" rx="5.6" ry="4.8" fill="'+body+'"/>'
+      +  '<circle cx="1.4" cy="3.2" r="3.1" fill="'+body+'"/>'
+      +  (wait ? '' : '<ellipse cx="6.2" cy="6.6" rx="3.2" ry="2.6" fill="'+m.c+'" opacity=".55"/>')
+      +  '<ellipse cx="6.8" cy="4.4" rx="3" ry="2.2" fill="'+wing+'"/>'
+      +  '<path d="M.2 3 q1 .9 2 0" fill="none" stroke="#241a14" stroke-width=".7" stroke-linecap="round"/>';
+  } else {
+    s += '<rect x="1.4" y="2.6" width="8.4" height="6.6" rx="3.3" fill="'+body+'"/>'
+      +  '<path d="M9.2 4.6 L12.8 3 L10.4 7.4 Z" fill="'+wing+'"/>'
+      +  '<ellipse cx="5.2" cy="6.4" rx="3" ry="2.3" fill="'+m.c+'"/>'
+      +  '<ellipse cx="4.4" cy="5.7" rx="1.5" ry="1" fill="'+m.hi+'" opacity=".8"/>'
+      +  '<ellipse cx="7.6" cy="4.2" rx="2.5" ry="1.8" fill="'+wing+'"/>'
+      +  '<circle cx="1.8" cy="2.2" r="2.9" fill="'+body+'"/>'
+      +  '<path d="M-.8 1.8 L-3.2 2.6 L-.8 3.6 Z" fill="var(--gold)"/>'
+      +  '<circle cx="1.2" cy="1.7" r=".7" fill="#241a14"/>';
+  }
+  return s + '</g>';
+}
+/* sóc nâu ôm thân sồi (hệ 64×92, ngày) */
+function sqOnTrunk(){
+  return '<g transform="translate(35,60)">'
+    + '<path class="sq-tail" d="M8.5 8 Q14 8.5 13.5 2.2 Q13.2 -2.6 9.2 -1.6 Q6.4 -.9 7.4 2.4" fill="#8a5334"/>'
+    + '<ellipse cx="4.2" cy="5.2" rx="4.6" ry="3.6" fill="#a86a44"/>'
+    + '<circle cx="1" cy="2.6" r="2.6" fill="#a86a44"/>'
+    + '<circle cx="-.2" cy="1" r="1" fill="#8a5334"/>'
+    + '<circle cx=".4" cy="2.2" r=".65" fill="#2c1c12"/>'
+    + '<ellipse cx="5" cy="6.4" rx="2.2" ry="1.5" fill="#c98e60"/>'
+    + '</g>';
+}
+/* cú trong tán thông (đêm) — khuôn mặt mờ + đôi mắt vàng chớp */
+function owlInPine(){
+  return '<g transform="translate(32,22)">'
+    + '<ellipse cx="0" cy="0" rx="6.5" ry="5.6" fill="rgba(20,32,26,.55)"/>'
+    + '<circle class="owl-eye" cx="-2.4" cy="-.6" r="1.7" fill="#f5c64f"/>'
+    + '<circle class="owl-eye" cx="2.4" cy="-.6" r="1.7" fill="#f5c64f"/>'
+    + '<circle cx="-2.4" cy="-.6" r=".7" fill="#241a14"/>'
+    + '<circle cx="2.4" cy="-.6" r=".7" fill="#241a14"/>'
+    + '<path d="M-1 1.8 L1 1.8 L0 3 Z" fill="#e8a24c"/>'
+    + '</g>';
+}
+/* =========================================================================
+   SCENES — 4 phương án, mỗi cái một hàm build(phase) trả HTML string
+   ========================================================================= */
+document.head.insertAdjacentHTML('beforeend','<style>'
+ +'.cshadow{position:absolute;height:24px;border-radius:50%;background:rgba(30,45,30,.13);filter:blur(6px);z-index:2;animation:csh 26s linear infinite}'
+ +'@keyframes csh{from{transform:translateX(-150px)}to{transform:translateX(430px)}}'
+ +'</style>');
+
+var STARS = [[6,14],[14,36],[24,8],[33,24],[44,15],[55,6],[63,28],[72,12],[81,32],[88,8],[93,22],[38,40]];
+function starsHTML(){
+  return STARS.map(function(s,i){
+    return '<i class="sc-star" style="left:'+s[0]+'%;top:'+s[1]+'px;animation-delay:'+((i%5)*.6).toFixed(1)+'s"></i>';
+  }).join('');
+}
+function chrome(ph, o){
+  o = o || {};
+  var s = '<i class="sc-orb"></i>';
+  if(ph === 'night') s += starsHTML();
+  if(o.clouds !== 'none'){
+    s += '<i class="sc-cloud c1"'+(o.clouds==='min'?' style="opacity:.35"':'')+'></i>';
+    if(o.clouds !== 'min') s += '<i class="sc-cloud c2"></i>';
+  }
+  if(o.far !== false) s += '<i class="sc-hill h0"></i>';
+  if(o.hills !== false) s += '<i class="sc-hill h1"></i><i class="sc-hill h2"></i>';
+  if(o.ground !== false) s += '<i class="sc-ground"></i>';
+  return s;
+}
+function tree(builder, ph, style, extras, noBird){
+  return '<div class="sc-tree" style="'+style+'">'+builder(ph, extras, noBird)+'</div>';
+}
+function pet(svg, style, w, cls){
+  return '<div class="sc-pet'+(cls?' '+cls:'')+'" style="width:'+w+'px;'+style+'">'+svg+'</div>';
+}
+function mistAt(b){ return '<i class="mist" style="bottom:'+b+'px"></i>'; }
+function ffs(pos){
+  return pos.map(function(p,i){
+    return '<i class="ff f'+(i+1)+'" style="left:'+p[0]+'%;top:'+p[1]+'px"></i>';
+  }).join('');
+}
+function swiftsHTML(){
+  return '<div class="swifts"><i class="swift"></i><i class="swift s2"></i><i class="swift s3"></i><i class="swift s4"></i></div>';
+}
+function tuft(x,b,tall){ return '<div class="tuft'+(tall?' tall':'')+'" style="left:'+x+'%;bottom:'+b+'px"><i></i><i></i><i></i><i></i></div>'; }
+function wfl(x,b,c){ return '<div class="wfl" style="left:'+x+'%;bottom:'+b+'px;--c:'+c+'"></div>'; }
+function dande(x,b){ return '<div class="dande" style="left:'+x+'%;bottom:'+b+'px"></div>'; }
+function name(x,b,txt,cx){ return '<div class="mname" style="left:calc('+x+'% + '+(cx||13)+'px);bottom:'+b+'px">'+txt+'</div>'; }
+
+/* --- (1) hoa tâm trạng --- */
+function moodFlower(x, b, sh, person){
+  var m = MOODS[person.mood];
+  if(person.mood === 'wait'){
+    return '<div class="mbud" style="left:'+x+'%;bottom:'+b+'px;--sh:'+sh+'px"></div>'
+      + name(x, b-13, person.name, 7);
+  }
+  var pts = '';
+  for(var i=0;i<5;i++) pts += '<i class="pt" style="--pr:'+(i*72)+'deg;--mc:'+m.c+'"></i>';
+  var cls = 'mfl' + (person.mood==='rain' ? ' rain' : '');
+  return '<div class="'+cls+'" style="left:'+x+'%;bottom:'+b+'px;--sh:'+sh+'px;--mc:'+m.c+';--mg:'+(m.glow||'transparent')+'">'
+    + '<i class="stem"></i><i class="leaf"></i><i class="leaf r"></i>'
+    + '<span class="head">'+(m.glow?'<i class="halo"></i>':'')+pts+'<i class="core"></i>'
+    + (person.mood==='rain'?'<i class="drip"></i>':'')+'</span></div>'
+    + name(x, b-13, person.name);
+}
+/* --- (2) sen tâm trạng --- */
+function moodLotus(x, b, person){
+  var m = MOODS[person.mood];
+  if(person.mood === 'wait'){
+    return '<div class="mlt bud" style="left:'+x+'%;bottom:'+b+'px;--mc:#e8b8cb"><i class="pad2"></i></div>'
+      + name(x, b-9, person.name);
+  }
+  return '<div class="mlt" style="left:'+x+'%;bottom:'+b+'px;--mc:'+m.c+';--mg:'+(m.glow||'transparent')+'">'
+    + (m.glow?'<i class="halo"></i>':'')+'<i class="refl"></i><i class="pad2"></i>'
+    + '<i class="pl p4"></i><i class="pl p5"></i><i class="pl p2"></i><i class="pl p3"></i><i class="pl p1"></i><i class="core"></i>'
+    + '</div>' + name(x, b-9, person.name);
+}
+/* --- (4) mây & sao tâm trạng --- */
+function moodCloud(x, t, person){
+  var m = person.mood, tint = m==='rain' ? '#9db2d3' : '#fff';
+  var s = '<div class="mcl '+m+'" style="left:'+x+'%;top:'+t+'px;--mc:'+tint+'">'
+    + '<i class="body"></i>';
+  if(m === 'rain') s += '<i class="mdrop"></i><i class="mdrop d2"></i><i class="mdrop d3"></i>';
+  s += '<div class="mname" style="left:50%;top:26px">'+person.name+'</div></div>';
+  return s;
+}
+function moodStar(x, t, person){
+  var m = MOODS[person.mood];
+  return '<div class="mstar'+(person.mood==='wait'?' wait':'')+'" style="left:'+x+'%;top:'+t+'px;--mg:'+(m.glow||'rgba(255,255,255,.35)')+'">'
+    + '<i></i><div class="mname" style="left:50%;top:11px">'+person.name+'</div></div>';
+}
+
+/* ============ PHƯƠNG ÁN 1 — ĐỒNG HOA ============ */
+function sceneMeadow(ph, o){
+  o = o || {};
+  var s = chrome(ph, {});
+  s += tree(svgOak, ph, 'left:12px;bottom:36px;transform:scale(.92)');
+  /* khóm hoa gia đình */
+  s += moodFlower(34, 26, 22, FAMILY[0]);
+  s += moodFlower(45, 32, 26, FAMILY[1]);
+  s += moodFlower(56, 24, 19, FAMILY[2]);
+  s += moodFlower(67, 30, 15, FAMILY[3]);
+  /* hoa dại + cỏ */
+  s += wfl(28, 20, '#fbd9e4') + wfl(50, 16, '#f5c64f') + wfl(62, 34, '#f2b3c9') + wfl(76, 22, '#fbd9e4') + wfl(87, 32, '#f5c64f');
+  s += tuft(7, 22, false) + tuft(24, 30, true) + tuft(61, 18, false) + tuft(74, 30, false) + tuft(90, 20, true);
+  s += dande(82, 24) + dande(93, 16);
+  /* thú */
+  if(!o.noPet){
+    if((o.pet || 'rabbit') === 'dog'){
+      var dppos = { dawn:'left:30%;bottom:16px', day:'left:56%;bottom:14px', dusk:'left:64%;bottom:16px', night:'left:60px;bottom:15px' };
+      s += pet(svgDog(ph), dppos[ph], 46, o.hello ? 'hello-pet' : '');
+    } else {
+      var rpos = { dawn:'left:24%;bottom:16px', day:'left:52%;bottom:14px', dusk:'left:66%;bottom:16px', night:'left:56px;bottom:15px' };
+      s += pet(svgRabbit(ph), rpos[ph], 38);
+    }
+  }
+  if(ph === 'day' && !o.quiet){
+    s += '<div class="bfly" style="left:36%;bottom:62px;--c:#f2b3c9"><i></i><i></i><u></u></div>'
+      +  '<div class="bfly b2" style="left:55%;bottom:74px;--c:#f5c64f"><i></i><i></i><u></u></div>';
+  }
+  if(ph === 'dusk') s += swiftsHTML();
+  if(ph === 'night') s += ffs([[16,118],[30,138],[46,128],[63,146],[24,152]]);
+  if(ph === 'dawn') s += mistAt(30);
+  if(o.hello){
+    s += '<i class="glintdot" style="left:20%;top:96px"></i><i class="glintdot g2" style="left:30%;top:78px"></i>'
+      +  '<div class="sc-pet hello-bird" style="width:15px;left:56px;top:63px">'
+      +  '<svg viewBox="0 0 16 12">'+bird(2,0)+'</svg></div>';
+  }
+  return s;
+}
+
+/* ============ PHƯƠNG ÁN 2 — BÊN HỒ ============ */
+function sceneLake(ph){
+  var s = chrome(ph, {far:false});
+  /* mặt hồ */
+  var glintPos = { dawn:'left:26%', day:'right:9%', dusk:'right:20%', night:'right:20%' }[ph];
+  s += '<div class="pond" style="left:28%;right:-30px;bottom:-8px;height:66px">'
+    +  '<i class="sand"></i><i class="water"></i><i class="shore-r"></i><i class="shore-r2"></i>'
+    +  '<i class="glint" style="'+glintPos+'"></i></div>';
+  s += tree(svgWillow, ph, 'left:6px;bottom:36px;transform:scale(.98)');
+  /* bờ: lau sậy + đá */
+  s += '<div class="reed" style="left:30%;bottom:30px"><i></i><i></i><i></i><b></b></div>'
+    +  '<div class="reed" style="left:34%;bottom:24px;transform:scale(.78)"><i></i><i></i><i></i><b></b></div>'
+    +  '<div class="reed" style="left:91%;bottom:24px;transform:scale(.9)"><i></i><i></i><i></i><b></b></div>'
+    +  '<div class="stone" style="left:27%;bottom:24px"><i></i><i></i></div>';
+  /* lá súng nền */
+  s += '<div class="pad" style="left:49%;bottom:18px"></div><div class="pad" style="left:77%;bottom:34px;transform:scale(.8)"></div>';
+  /* sen gia đình */
+  s += moodLotus(44, 28, FAMILY[0]);
+  s += moodLotus(57, 20, FAMILY[1]);
+  s += moodLotus(69, 31, FAMILY[2]);
+  s += moodLotus(82, 22, FAMILY[3]);
+  /* vịt */
+  if(ph === 'night') s += pet(svgDuckSleep(), 'left:14%;bottom:15px', 46);
+  else {
+    var dpos = { dawn:'left:50%;bottom:22px', day:'left:52%;bottom:21px', dusk:'left:43%;bottom:25px' }[ph];
+    s += pet(svgDuckSwim(), dpos, 46);
+  }
+  if(ph === 'day'){
+    s += '<div class="dfly" style="left:31%;bottom:60px"><u></u><i></i><i></i></div>'
+      +  '<div class="ripple" style="left:76%;bottom:24px"><i></i><i></i></div>';
+  }
+  if(ph === 'dusk'){
+    s += '<div class="koi" style="left:62%;bottom:30px"><i></i></div>'
+      +  '<div class="ripple" style="left:60%;bottom:26px"><i></i><i></i></div>' + swiftsHTML();
+  }
+  if(ph === 'night'){
+    s += '<div class="frog" style="left:50%;bottom:22px"><i></i><i></i><u></u></div>'
+      +  ffs([[36,120],[58,136],[74,124]]);
+  }
+  if(ph === 'dawn') s += mistAt(26);
+  return s;
+}
+
+/* ============ PHƯƠNG ÁN 3 — VÒM CÂY ============ */
+function sceneGrove(ph){
+  var s = chrome(ph, {clouds:'min'});
+  /* vệt nắng / trăng xiên */
+  if(ph === 'dawn') s += '<i class="beam" style="left:28%;transform:rotate(16deg)"></i><i class="beam" style="left:46%;transform:rotate(23deg);opacity:.7"></i>';
+  if(ph === 'day')  s += '<i class="beam" style="left:44%;transform:rotate(18deg);opacity:.55"></i>';
+  if(ph === 'night') s += '<i class="beam moon" style="left:38%;transform:rotate(18deg)"></i>';
+  /* thông nền (cú đêm) + sồi chủ thể (chim gia đình) + sồi non mép phải */
+  s += tree(svgPine, ph, 'left:-6px;bottom:36px;transform:scale(.9);opacity:.97', ph==='night' ? owlInPine() : '');
+  var birds = '';
+  var slots = [[19,3,false],[46,11,true],[6,33,false],[54,36,true]];
+  for(var i=0;i<4;i++) birds += moodBird(slots[i][0], slots[i][1], FAMILY[i].mood, ph, slots[i][2]);
+  if(ph === 'day') birds += sqOnTrunk();
+  var labels = ['<i class="mname" style="left:38%;top:20%;font-size:7px">Bố</i>',
+                '<i class="mname" style="left:64%;top:29%;font-size:7px">Mẹ</i>',
+                '<i class="mname" style="left:17%;top:52%;font-size:7px">Na</i>',
+                '<i class="mname" style="left:76%;top:56%;font-size:7px">Bin</i>'].join('');
+  s += '<div class="sc-tree" style="left:34%;bottom:34px;transform:scale(1.45)">'+svgOak(ph, birds, true)+labels+'</div>';
+  s += tree(svgOak, ph, 'right:-26px;bottom:40px;transform:scale(.58);opacity:.92', '', true);
+  /* thảm rừng */
+  s += '<div class="fern" style="left:30%;bottom:28px"><i></i><i></i><i></i></div>'
+    +  '<div class="fern" style="left:80%;bottom:26px;transform:scale(.85)"><i></i><i></i><i></i></div>'
+    +  '<div class="mush" style="left:49%;bottom:27px"><b></b><b></b><i></i></div>'
+    +  '<div class="mush" style="left:53%;bottom:25px;transform:scale(.75)"><b></b><b></b><i></i></div>'
+    +  '<div class="stone" style="left:22%;bottom:26px"><i></i><i></i></div>';
+  s += tuft(26, 24, false) + tuft(68, 20, false) + tuft(88, 30, false);
+  if(ph === 'day') s += '<i class="dapple" style="left:42%;bottom:16px;width:26px"></i><i class="dapple" style="left:57%;bottom:22px;width:18px;animation-delay:-3s"></i><i class="dapple" style="left:50%;bottom:10px;width:15px;animation-delay:-5s"></i>';
+  /* mèo */
+  var cpos = { dawn:'left:64%;bottom:15px', day:'left:70%;bottom:14px', dusk:'left:28%;bottom:15px', night:'left:52%;bottom:14px' };
+  s += pet(svgCat(ph), cpos[ph], 40);
+  if(ph === 'dusk') s += swiftsHTML();
+  if(ph === 'night') s += ffs([[24,130],[34,150],[58,140],[70,124],[46,156]]);
+  if(ph === 'dawn') s += mistAt(28);
+  return s;
+}
+
+/* ============ PHƯƠNG ÁN 4 — ĐỒI GIÓ ============ */
+function sceneHill(ph, o){
+  o = o || {};
+  var s = chrome(ph, {clouds:'min', far:false, hills:false, ground:false});
+  /* tầng đồi xa mờ + triền đồi chính */
+  s += '<i class="sc-hill" style="left:-40px;bottom:56px;width:280px;height:64px;background:var(--hillfar);opacity:.5"></i>'
+    +  '<i class="sc-hill" style="right:-70px;bottom:60px;width:320px;height:74px;background:var(--hillfar);opacity:.35"></i>'
+    +  '<i class="sc-hill" style="left:-12%;bottom:-66px;width:124%;height:158px;background:linear-gradient(180deg,var(--gr1),var(--gr2))"></i>';
+  if(ph === 'day' && !o.quiet) s += '<i class="cshadow" style="left:-30px;bottom:34px;width:120px"></i>';
+  s += tree(svgOak, ph, 'left:54%;bottom:44px;transform:scale(.9)');
+  /* cỏ lau theo triền */
+  s += tuft(14, 26, false) + tuft(21, 32, false) + tuft(27, 36, true) + tuft(39, 42, false) + tuft(49, 46, true)
+    +  tuft(58, 46, false) + tuft(66, 44, false) + tuft(77, 38, true) + tuft(89, 26, false);
+  s += wfl(33, 40, '#fbd9e4') + wfl(59, 46, '#f5c64f') + wfl(84, 32, '#f2b3c9');
+  s += dande(71, 44) + dande(81, 36);
+  if(ph === 'dusk' || o.wind) s += '<i class="seed" style="left:72%;bottom:62px"></i><i class="seed sd2" style="left:82%;bottom:54px"></i><i class="seed sd3" style="left:75%;bottom:58px"></i>';
+  /* gia đình trên trời */
+  if(ph === 'night'){
+    s += moodStar(13, 24, FAMILY[0]) + moodStar(32, 44, FAMILY[1]) + moodStar(50, 26, FAMILY[2]) + moodStar(68, 40, FAMILY[3]);
+    s += '<i class="shoot"></i>';
+  } else if(!o.noClouds){
+    s += moodCloud(7, 14, FAMILY[0]) + moodCloud(26, 36, FAMILY[1]) + moodCloud(45, 8, FAMILY[2]) + moodCloud(66, 28, FAMILY[3]);
+  }
+  /* thú */
+  if(ph === 'day') s += '<div class="graze" style="left:20%;bottom:30px"><i></i><i></i><u></u></div>'
+    + '<div class="graze" style="left:28%;bottom:25px;transform:scale(.8) scaleX(-1)"><i></i><i></i><u></u></div>';
+  var dpos = { dawn:'left:36%;bottom:36px', day:'left:70%;bottom:36px', dusk:'left:64%;bottom:39px', night:'left:60%;bottom:38px' };
+  s += pet(svgDog(ph), dpos[ph], 44);
+  if(ph === 'dusk') s += swiftsHTML();
+  if(ph === 'dawn') s += mistAt(44);
+  return s;
+}
+
+/* ============ mount ============ */
+var SCENE_FN = {
+  'meadow': function(ph){ return sceneMeadow(ph); },
+  'lake':   sceneLake,
+  'grove':  sceneGrove,
+  'hill':   function(ph){ return sceneHill(ph); },
+  'meadow-demo':  function(ph){ return sceneMeadow(ph, {quiet:true}); },
+  'hill-demo':    function(ph){ return sceneHill(ph, {noClouds:true, wind:true, quiet:true}); },
+  'meadow-demo2': function(ph){ return sceneMeadow(ph, {quiet:true}); },
+  'meadow-demo3': function(ph){ return sceneMeadow(ph, {pet:'dog', hello:true, quiet:true}); }
+};
+function paintScenes(){
+  document.querySelectorAll('[data-scene]').forEach(function(n){
+    n.innerHTML = SCENE_FN[n.dataset.scene](n.dataset.phase);
+  });
+}
+paintScenes();
+/* =========================================================================
+   DEMOS — 4 lớp sống động
+   ========================================================================= */
+/* --- 1 · khách ghé thăm --- */
+var VISITORS = [
+  { n:'bướm đôi ghé khóm hoa', rare:false, h:
+    '<div class="bfly" style="left:38%;bottom:60px;--c:#f2b3c9"><i></i><i></i><u></u></div>'
+   +'<div class="bfly b2" style="left:54%;bottom:72px;--c:#f5c64f"><i></i><i></i><u></u></div>' },
+  { n:'chuồn chuồn ớt đậu ngọn cỏ', rare:false, h:
+    '<div class="dfly" style="left:60%;bottom:52px"><u></u><i></i><i></i></div>' },
+  { n:'sóc nâu chạy ngang bãi cỏ', rare:false, h:
+    '<div class="sqrl dash" style="left:30%;bottom:16px"><i></i><u></u></div>' },
+  { n:'chim sẻ sà xuống tán cây', rare:false, h:
+    '<div class="vbird" style="left:34px;top:64px"><svg viewBox="0 0 16 12" style="width:15px;overflow:visible">'+'__BIRD__'+'</svg></div>' },
+  { n:'bọ rùa dạo trên phiến cỏ', rare:false, h:
+    '<div class="ladyb" style="left:70%;bottom:30px"></div>' },
+  { n:'cầu vồng sau cơn mưa sớm', rare:true, h:
+    '<div class="rainbow"><i></i><i></i><i></i></div>' }
+];
+var vIdx = 0;
+function showVisitor(i){
+  var v = VISITORS[i];
+  document.getElementById('visitor-layer').innerHTML = v.h.replace('__BIRD__', bird(2,0));
+  document.getElementById('visitor-name').textContent = v.n;
+  document.getElementById('visitor-rare').hidden = !v.rare;
+}
+document.getElementById('btn-visitor').addEventListener('click', function(){
+  vIdx = (vIdx + 1) % VISITORS.length;
+  showVisitor(vIdx);
+});
+showVisitor(0);
+
+/* --- 2 · hơi thở của gió --- */
+var WINDS = [ ['calm','lặng — chỉ mây trôi chậm'], ['breeze','hiu hiu'], ['gust','lộng gió — hạt bồ công anh bay'] ];
+var wIdx = 1;
+document.getElementById('btn-wind').addEventListener('click', function(){
+  wIdx = (wIdx + 1) % WINDS.length;
+  var d = document.getElementById('demo-wind');
+  d.dataset.wind = WINDS[wIdx][0];
+  document.getElementById('wind-name').textContent = WINDS[wIdx][1];
+  d.classList.remove('gustnow'); void d.offsetWidth;
+  if(WINDS[wIdx][0] === 'gust') d.classList.add('gustnow');
+});
+
+/* --- 3 · lịch trời --- */
+var SEASONS = {
+  today: function(){ return ''; },
+  tet: function(){
+    var blooms = [[24,90],[42,98],[58,86],[30,112],[50,116],[64,102],[18,104]];
+    var s = blooms.map(function(b){ return '<i class="tet-bloom" style="left:'+b[0]+'px;top:'+b[1]+'px"></i>'; }).join('');
+    ['','f2','f3','f4'].forEach(function(c,i){
+      s += '<i class="fallp '+c+'" style="left:'+(24+i*13)+'px;top:'+(112+(i%2)*10)+'px;background:#f5c64f"></i>';
+    });
+    return s;
+  },
+  fall: function(){
+    var s = '';
+    ['','f2','f3','f4'].forEach(function(c,i){
+      s += '<i class="fallp '+c+'" style="left:'+(20+i*14)+'px;top:'+(96+(i%3)*9)+'px;background:'+(i%2?'#d98e4a':'#c96b52')+'"></i>';
+    });
+    s += '<i class="fallp f2" style="left:52px;top:90px;background:#d98e4a"></i>';
+    return s;
+  },
+  ram: function(){ return '<div class="moon-full"></div>'; }
+};
+document.querySelectorAll('[data-season]').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('[data-season]').forEach(function(b){ b.classList.toggle('on', b === btn); });
+    var k = btn.dataset.season;
+    var scene = document.querySelector('#demo-season .mini-scene');
+    var ph = (k === 'ram') ? 'night' : 'day';
+    scene.className = 'mini-scene sky-' + ph;
+    scene.dataset.phase = ph;
+    scene.innerHTML = SCENE_FN['meadow-demo2'](ph);
+    if(k === 'ram'){ var orb = scene.querySelector('.sc-orb'); if(orb) orb.style.display = 'none'; }
+    document.getElementById('season-layer').innerHTML = SEASONS[k]();
+  });
+});
+
+/* --- 4 · màn chào --- */
+document.getElementById('btn-hello').addEventListener('click', function(){
+  var d = document.getElementById('demo-hello');
+  d.classList.remove('hello'); void d.offsetWidth;
+  d.classList.add('hello');
+});
+</script>
+</body>
+</html>
