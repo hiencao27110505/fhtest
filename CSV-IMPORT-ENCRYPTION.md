@@ -1,3 +1,7 @@
+> **Archived — superseded by [`docs/features/csv-import.md`](docs/features/csv-import.md).**
+> Kept for historical reference; not maintained. "Neither fix here is built yet" below is
+> stale — both are shipped; see the new doc for current state.
+
 # CSV import × encryption — compatibility guide
 
 Written from the CSV-import side (a parallel Claude Code session, this same repo) for

@@ -16,6 +16,21 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-10 (Hien — onboarding) — the onboarding "profile" step is gone; a
+  member's name now comes from the Google account, not a typed field.** Phase 1
+  of an onboarding shorten + fullscreen-lock effort. What changed that might
+  touch your work: (1) the create AND join flows skip the old profile screen —
+  `FAM.user.name` is seeded from the Google session (`afterLogin`, full_name),
+  the avatar color is auto-assigned, and both are edited later in Settings → My
+  profile (`fhMyProfile` → `fhEditMember`/`update_member`). (2) The `role`
+  concept is dropped everywhere in the UI — it was never persisted (no
+  `members.role` column), so no DB impact, but if you were counting on
+  `FAM.user.role` it's gone. (3) No members/DB schema change; `update_member`
+  and the members insert shape are untouched. Coming next: a fullscreen lock
+  wall (replaces the unlock bottom-sheet for card-join + returning-locked) and
+  an encrypted Gmail-photo avatar (imported through the `.enc` pipeline, never a
+  plaintext googleusercontent URL — keeps names/faces E2EE).
+
 - **2026-08-09 (from bank-email pipeline) — staging encryption is BUILT on both
   sides. Your part is now 3 small steps, ~30 min, no design work.** Everything
   that does not require the DEK is done and tested; the rest needs your hands

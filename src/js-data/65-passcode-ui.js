@@ -65,7 +65,7 @@
       }
     } catch (e) {}
     try { if (window.loadFamilyData) await window.loadFamilyData(); } catch (e) {}
-    if (window.DB && window.DB.enc && window.DB.enc.enc_state !== 'off' && !fhKeyReady()) window.fhUnlockPrompt();
+    if (window.DB && window.DB.enc && window.DB.enc.enc_state !== 'off' && !fhKeyReady()) { if (window.fhLockWall) window.fhLockWall({ auto: true }); }
   };
 
   // ── Joiner: prep the join screen from the pending invite for this email ──
@@ -109,6 +109,17 @@
     if (typeof window.fhClearInvalid === 'function') window.fhClearInvalid('ob-code-boxes');   // Join stays enabled; obJoin() gates on tap (DESIGN §4.4)
   };
 
+  // Joiner identity comes from the Google account now (the profile step was
+  // retired): seed the single "you" member with the Google name + auto color and
+  // advance straight to the theme step. Name/color are editable later in Settings.
+  function _obJoinToTheme() {
+    if (window.obEnsureUserIdentity) window.obEnsureUserIdentity();
+    const u = (window.FAM && window.FAM.user) || {};
+    if (window.FAM) window.FAM.members = [{ name: u.name || '', email: u.email || '', color: u.color, me: true }];
+    const tb = document.getElementById('ob-theme-back'); if (tb) tb.setAttribute('onclick', "obGo('join')");
+    window.obGo('theme');
+  }
+
   window.obJoin = async function () {
     if (!_fhJoinCtx) { try { await window.obJoinPrep(); } catch (e) {} }
     // ── Card family: no code. Whitelist + Google SSO is the door; the card
@@ -132,9 +143,7 @@
         return;
       }
       if (cta0) { cta0.disabled = false; cta0.textContent = label0; }
-      const back0 = document.getElementById('ob-profile-back'); if (back0) back0.setAttribute('onclick', "obGo('join')");
-      if (typeof window.obPrefillProfile === 'function') window.obPrefillProfile();
-      window.obGo('profile');
+      _obJoinToTheme();
       return;
     }
     const el = document.getElementById('ob-code');
@@ -178,9 +187,7 @@
       return;
     }
     if (cta) { cta.disabled = false; cta.textContent = label; }
-    const back = document.getElementById('ob-profile-back'); if (back) back.setAttribute('onclick', "obGo('join')");
-    if (typeof window.obPrefillProfile === 'function') window.obPrefillProfile();
-    window.obGo('profile');
+    _obJoinToTheme();
   };
 
   // entering the join screen loads the invite (wraps the js-ui obGo)
@@ -353,8 +360,34 @@
     if (window.fhHasCard && window.fhHasCard() && window.fhCardEnterPrompt) { return window.fhCardEnterPrompt(); }
     return window.fhPasscodeUnlockPrompt();
   };
-  // The 6-digit passcode unlock — used directly for passcode families, and as the
-  // dual-wrap fallback the card prompt links to while a passcode still exists.
+  /* Reusable 6-digit unlock (offline AES-GCM unwrap — no server, no throttle).
+     Adopts the DEK on success; throws a friendly _fhErr on a wrong code. Shared
+     by the passcode sheet and the fullscreen lock wall. */
+  window.fhPasscodeUnlock = async function (code) {
+    const enc = window.DB && window.DB.enc;
+    if (!enc || !enc.wrapped_dek) throw _fhErr(L('Gia đình chưa đặt mã', 'No passcode set yet'));
+    const keys = await FHCrypto.deriveKeys(code, enc.kdf_salt, enc.kdf_iters, enc.kdf_version);
+    let dekRaw;
+    try { dekRaw = await FHCrypto.unwrapDek(enc.wrapped_dek, keys.kWrap); }
+    catch (e) { throw _fhErr(L('Mã không đúng', 'That code isn’t right')); }
+    await fhKeyAdopt(window.DB.fid, dekRaw);
+    try { _rpc('mark_key_unlocked'); } catch (e) {}          // roster stamp, fire-and-forget
+    return true;
+  };
+
+  /* Shared post-unlock teardown for BOTH paths (card or passcode, sheet or wall):
+     drop every lock affordance (banner + wall), flush money rows held for the
+     key, refresh, then let a fresh key retire tolerated plaintext. */
+  window.fhAfterUnlock = function () {
+    window.fhLockBanner && window.fhLockBanner(false);
+    if (window.fhLockWallClose) window.fhLockWallClose();
+    if (window.fhOutboxFlush) setTimeout(() => window.fhOutboxFlush(), 400);
+    if (window.loadFamilyData) window.loadFamilyData();
+    setTimeout(() => { try { window.fhEncCoverSweep && window.fhEncCoverSweep(); } catch (e) {} }, 2500);
+  };
+
+  // The 6-digit passcode unlock sheet — kept for reference/back-compat; the
+  // fullscreen wall is now the primary surface (fhUnlockPrompt → fhLockWall).
   window.fhPasscodeUnlockPrompt = function () {
     const enc = window.DB && window.DB.enc;
     if (!enc || !enc.wrapped_dek) { window.toast && window.toast(L('Gia đình chưa đặt mã', 'No passcode set yet')); return; }
@@ -371,18 +404,9 @@
       required: () => [{ el: 'fh-pc-unlock', ok: _pcOk('fh-pc-unlock') }],
       reqMsg: L('Nhập mã 6 số', 'Enter the 6-digit code'),
       save: async () => {
-        const keys = await FHCrypto.deriveKeys(_pcVal('fh-pc-unlock'), enc.kdf_salt, enc.kdf_iters, enc.kdf_version);
-        let dekRaw;
-        try { dekRaw = await FHCrypto.unwrapDek(enc.wrapped_dek, keys.kWrap); }
-        catch (e) { throw _fhErr(L('Mã không đúng', 'That code isn’t right')); }
-        await fhKeyAdopt(window.DB.fid, dekRaw);
-        try { _rpc('mark_key_unlocked'); } catch (e) {}       // roster stamp, fire-and-forget
-        window.fhLockBanner(false);
+        await window.fhPasscodeUnlock(_pcVal('fh-pc-unlock'));
         window.toast && window.toast(L('Đã mở khóa ✓', 'Unlocked ✓'));
-        if (window.fhOutboxFlush) setTimeout(() => window.fhOutboxFlush(), 400);   // money rows held for the key can go now
-        if (window.loadFamilyData) window.loadFamilyData();
-        // a fresh key can also retire tolerated plaintext (names, captions, photos)
-        setTimeout(() => { try { window.fhEncCoverSweep && window.fhEncCoverSweep(); } catch (e) {} }, 2500);
+        window.fhAfterUnlock();
       }
     });
   };

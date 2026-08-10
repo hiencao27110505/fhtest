@@ -6,9 +6,14 @@ data**. As of the Phase-1 modularization, `index.html` is **generated** from con
 under `src/`. Read this file before editing anything here; the rules below are ordered by how much
 damage a violation does.
 
-The two companion docs are the source of truth for their areas. **Point to them; do not restate them.**
+The companion docs below are the source of truth for their areas. **Point to them; do not restate them.**
 - **`BUILD.md`** — the build/edit/commit workflow and why the split is safe.
 - **`DESIGN.md`** — all UI/UX rules (tokens, type scale, components, motion, voice, currency, checklist).
+- **`docs/ARCHITECTURE.md`** + **`docs/features/*.md`** — system-level architecture, and why each
+  feature exists + how it works (Problem/Why, Architecture/How, Current State).
+- **`CHANGELOG.md`** — dev-facing history of what shipped and why.
+- **`docs/COLLABORATION.md`** — the protocol for `AGENT_SYNC.md`, attribution, migration numbering,
+  and keeping docs current across concurrent Claude Code sessions.
 
 ---
 
@@ -168,6 +173,10 @@ blocks (borders + a single left-accent per view instead).
 ### Pointers (don't restate — read these when relevant)
 | Topic | Where |
 |---|---|
+| System-level architecture (data flow, security model, cross-cutting patterns) | `docs/ARCHITECTURE.md` |
+| Why a specific feature exists + how it works (Problem/Why, Architecture/How, Current State) | `docs/features/*.md` |
+| Dev-facing history of what shipped and why (full backfill from repo start) | `CHANGELOG.md` |
+| Cross-session collaboration protocol (AGENT_SYNC usage, attribution, migration numbering, keeping docs current) | `docs/COLLABORATION.md` |
 | Build/edit/commit workflow + why byte-identical is safe | `BUILD.md` |
 | All UI/UX rules (tokens, type, components, voice, currency, checklist) | `DESIGN.md` |
 | Marker replacement + concat order | `build.js` |

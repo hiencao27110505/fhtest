@@ -280,7 +280,7 @@
   window.fhEncEnable = async function (btn, opts) {
     opts = opts || {};
     if (_fhEncBusy) return;
-    if (!fhKeyReady()) { window.fhUnlockPrompt(); return; }
+    if (!fhKeyReady()) { window.fhLockWall ? window.fhLockWall({ force: true }) : window.fhUnlockPrompt(); return; }   // force: reach the passcode input even in 'off' state
     _fhEncBusy = true;
     if (btn) btn.disabled = true;
     try {
@@ -334,7 +334,7 @@
      holding the key can run it; a mismatch names itself in the console. */
   window.fhEncVerifyAll = async function (btn) {
     if (_fhEncBusy) return;
-    if (!fhKeyReady()) { window.fhUnlockPrompt(); return; }
+    if (!fhKeyReady()) { window.fhLockWall ? window.fhLockWall({ force: true }) : window.fhUnlockPrompt(); return; }   // force: reach the passcode input even in 'off' state
     _fhEncBusy = true;
     if (btn) btn.disabled = true;
     let ok = 0, bad = 0;

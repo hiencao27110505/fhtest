@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net">
+  <diagram name="FamilyHub — Encryption mechanics (granular + authenticity fixes)" id="fh-enc-granular">
+    <mxGraphModel dx="-858" dy="-6169" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="2" parent="1" style="swimlane;html=1;childLayout=stackLayout;resizeParent=1;resizeParentMax=0;startSize=20;whiteSpace=wrap;strokeWidth=5;fontSize=16;" value="FamilyHub — Cơ chế mã hóa chi tiết. ★ = bước bổ sung đảm bảo tính xác thực (authenticity). Vàng = việc/bí mật trên máy · Xanh = bản khóa · Trắng = công khai · Xanh lá = pipeline · Xám = dừng/lỗi." vertex="1">
+          <mxGeometry height="3020" width="600" x="0" y="0" as="geometry" />
+        </mxCell>
+
+        <mxCell id="3" parent="2" style="swimlane;html=1;startSize=20;strokeWidth=4;" value="Trên máy (bí mật, không rời máy)" vertex="1">
+          <mxGeometry height="3000" width="200" x="0" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="4" parent="2" style="swimlane;html=1;startSize=20;strokeWidth=4;" value="Máy chủ / DB" vertex="1">
+          <mxGeometry height="3000" width="200" x="200" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="5" parent="2" style="swimlane;html=1;startSize=20;strokeWidth=4;" value="Pipeline (Apps Script)" vertex="1">
+          <mxGeometry height="3000" width="200" x="400" y="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="11" parent="3" style="ellipse;fillColor=#000000;html=1;" value="" vertex="1"><mxGeometry height="40" width="40" x="80" y="60" as="geometry" /></mxCell>
+        <mxCell id="12" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="① Thẻ Khóa&lt;div&gt;16 byte (128-bit)&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="140" as="geometry" /></mxCell>
+        <mxCell id="13" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Base32 + CRC&lt;div&gt;→ FH-XXXX (nhà giữ)&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="240" as="geometry" /></mxCell>
+        <mxCell id="14" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="salt&lt;div&gt;16 byte ngẫu nhiên&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="340" as="geometry" /></mxCell>
+        <mxCell id="15" parent="4" style="rounded=1;whiteSpace=wrap;html=1;" value="salt (công khai)" vertex="1"><mxGeometry height="60" width="120" x="40" y="340" as="geometry" /></mxCell>
+        <mxCell id="16" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="PBKDF2-SHA256&lt;div&gt;600k → master 256b&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="440" as="geometry" /></mxCell>
+        <mxCell id="17" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="HKDF → K_wrap&lt;div&gt;(AES-256)&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="540" as="geometry" /></mxCell>
+        <mxCell id="18" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="② DEK&lt;div&gt;32 byte ngẫu nhiên&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="640" as="geometry" /></mxCell>
+        <mxCell id="19" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Bọc DEK&lt;div&gt;AES-GCM(K_wrap)&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="740" as="geometry" /></mxCell>
+        <mxCell id="20" parent="4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="wrapped_dek&lt;div&gt;IV‖ct‖tag&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="740" as="geometry" /></mxCell>
+        <mxCell id="21" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Mã hóa dữ liệu AES-GCM(DEK)&lt;div&gt;★ + AAD(family_id, row)&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="840" as="geometry" /></mxCell>
+        <mxCell id="22" parent="4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="amount_enc&lt;div&gt;IV‖ct‖tag (buộc AAD)&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="840" as="geometry" /></mxCell>
+        <mxCell id="23" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="③ X25519&lt;div&gt;priv = 32 byte&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="940" as="geometry" /></mxCell>
+        <mxCell id="24" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="pub = priv × G&lt;div&gt;(1 chiều)&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="1040" as="geometry" /></mxCell>
+        <mxCell id="25" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="★ Ký pubkey&lt;div&gt;(chữ ký của nhà)&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="1140" as="geometry" /></mxCell>
+        <mxCell id="26" parent="4" style="rounded=1;whiteSpace=wrap;html=1;" value="pubkey + chữ ký&lt;div&gt;(công khai)&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="1140" as="geometry" /></mxCell>
+        <mxCell id="27" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Bọc priv bằng DEK&lt;div&gt;→ priv_enc&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="1240" as="geometry" /></mxCell>
+        <mxCell id="28" parent="4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="priv_enc&lt;div&gt;(bản khóa)&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="1240" as="geometry" /></mxCell>
+
+        <mxCell id="29" parent="5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="④ Lấy pubkey&lt;div&gt;+ chữ ký&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="1340" as="geometry" /></mxCell>
+        <mxCell id="30" parent="5" style="rhombus;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="★ Chữ ký&#10;hợp lệ?" vertex="1"><mxGeometry height="60" width="60" x="70" y="1440" as="geometry" /></mxCell>
+        <mxCell id="31" parent="4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" value="Dừng: khóa giả&lt;div&gt;(không seal)&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="1440" as="geometry" /></mxCell>
+        <mxCell id="32" parent="5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="eph_priv&lt;div&gt;32 byte, 1-lần&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="1540" as="geometry" /></mxCell>
+        <mxCell id="33" parent="5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="eph_pub&lt;div&gt;= eph_priv × G&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="1640" as="geometry" /></mxCell>
+        <mxCell id="34" parent="5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="ECDH shared&lt;div&gt;= eph_priv × pub&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="1740" as="geometry" /></mxCell>
+        <mxCell id="35" parent="5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="KDF → k, nonce" vertex="1"><mxGeometry height="60" width="120" x="40" y="1840" as="geometry" /></mxCell>
+        <mxCell id="36" parent="5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="AEAD mã hóa → ct+tag&lt;div&gt;★ + AAD(family_id, row)&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="1940" as="geometry" /></mxCell>
+        <mxCell id="37" parent="5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="sealed_ct = eph_pub‖ct‖tag&lt;div&gt;VỨT eph_priv&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="2040" as="geometry" /></mxCell>
+        <mxCell id="38" parent="4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="email_transactions&lt;div&gt;sealed_ct (ko mở được)&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="2040" as="geometry" /></mxCell>
+
+        <mxCell id="39" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="⑤ Mở DEK&lt;div&gt;Thẻ Khóa → DEK&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="2140" as="geometry" /></mxCell>
+        <mxCell id="40" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Giải priv&lt;div&gt;dec(DEK, priv_enc)&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="2240" as="geometry" /></mxCell>
+        <mxCell id="41" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Lấy eph_pub&lt;div&gt;từ sealed_ct&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="2340" as="geometry" /></mxCell>
+        <mxCell id="42" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="ECDH shared&lt;div&gt;= priv × eph_pub&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="2440" as="geometry" /></mxCell>
+        <mxCell id="43" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="KDF → k, nonce" vertex="1"><mxGeometry height="60" width="120" x="40" y="2540" as="geometry" /></mxCell>
+        <mxCell id="44" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="AEAD-decrypt&lt;div&gt;→ giao dịch rõ&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="2640" as="geometry" /></mxCell>
+        <mxCell id="45" parent="3" style="rhombus;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="★ Tag+AAD&#10;khớp row?" vertex="1"><mxGeometry height="60" width="60" x="70" y="2740" as="geometry" /></mxCell>
+        <mxCell id="46" parent="4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" value="Từ chối: bị đổi chỗ&lt;div&gt;/ replay&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="2740" as="geometry" /></mxCell>
+        <mxCell id="47" parent="3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Mã hóa lại AES-GCM(DEK)&lt;div&gt;+ AAD → sổ&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="2840" as="geometry" /></mxCell>
+        <mxCell id="48" parent="4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="transactions&lt;div&gt;amount_enc&lt;/div&gt;" vertex="1"><mxGeometry height="60" width="120" x="40" y="2840" as="geometry" /></mxCell>
+        <mxCell id="49" parent="3" style="ellipse;html=1;shape=endState;fillColor=#000000;" value="" vertex="1"><mxGeometry height="40" width="40" x="80" y="2940" as="geometry" /></mxCell>
+
+        <mxCell id="60" parent="3" source="11" target="12" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="61" parent="3" source="12" target="13" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="62" parent="3" source="13" target="14" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="63" parent="3" source="14" target="16" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="64" parent="3" source="16" target="17" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="65" parent="3" source="17" target="18" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="66" parent="3" source="18" target="19" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="67" parent="3" source="19" target="21" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="68" parent="3" source="21" target="23" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="69" parent="3" source="23" target="24" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="70" parent="3" source="24" target="25" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="71" parent="3" source="25" target="27" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="72" parent="2" source="27" target="29" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="sang pipeline"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="73" parent="5" source="29" target="30" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="74" parent="5" source="30" target="32" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value="hợp lệ"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="75" parent="2" source="30" target="31" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="else · khóa giả"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="76" parent="5" source="32" target="33" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="77" parent="5" source="33" target="34" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="78" parent="5" source="34" target="35" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="79" parent="5" source="35" target="36" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="80" parent="5" source="36" target="37" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="81" parent="2" source="37" target="39" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="về máy của nhà"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="82" parent="3" source="39" target="40" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="83" parent="3" source="40" target="41" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="84" parent="3" source="41" target="42" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="85" parent="3" source="42" target="43" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="86" parent="3" source="43" target="44" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="87" parent="3" source="44" target="45" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="88" parent="3" source="45" target="47" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value="khớp"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="89" parent="2" source="45" target="46" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="else · đổi chỗ"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="90" parent="3" source="47" target="49" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value=""><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="91" parent="2" source="14" target="15" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="lưu"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="92" parent="2" source="19" target="20" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="lưu"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="93" parent="2" source="21" target="22" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="lưu"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="94" parent="2" source="25" target="26" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="lưu"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="95" parent="2" source="27" target="28" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="lưu"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="96" parent="2" source="37" target="38" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="lưu"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="97" parent="2" source="47" target="48" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="lưu"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="98" parent="2" source="26" target="29" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="pubkey+chữ ký"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="99" parent="2" source="20" target="39" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;" value="wrapped_dek"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="100" parent="2" source="28" target="40" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;" value="priv_enc"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="101" parent="2" source="38" target="41" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;" value="sealed_ct"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

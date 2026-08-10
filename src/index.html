@@ -734,6 +734,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="sheet-sub" data-t="settingsSub">Pick a theme. It applies across the whole app.</div>
   <div class="theme-grid" id="theme-grid"></div>
   <div class="set-actions">
+    <button class="set-row" onclick="closeSheet();fhMyProfile()"><span class="set-ic">🙂</span><span class="set-t" data-t="setMyProfile">My profile</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhLanguageSheet()"><span class="set-ic">🌐</span><span class="set-t" data-t="setLanguage">Language</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t" data-t="setSwitchFamily">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t" data-t="inviteMember2">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -885,32 +886,8 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <div class="ob-foot"><button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta">Join family</button></div>
   </section>
 
-  <section class="ob-screen" data-ob="profile">
-    <div class="ob-top"><button class="ob-back2" id="ob-profile-back" onclick="obGo('choice')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="profileTitle">Set up your profile</div><div class="ob-sub" data-t="profileSub">This is how your family will see you.</div></div>
-      <div class="ob-avatar" id="ob-avatar">?</div>
-      <div class="ob-colors" id="ob-colors"></div>
-      <div class="field"><label data-t="yourName">Your name</label><input id="ob-name" data-tp="phObName" placeholder="e.g. Emma" oninput="obNameInput()"></div>
-      <div class="field"><label data-t="youAreThe">You are the…</label><div class="choices" id="ob-role">
-        <button class="choice on" data-v="Mom" onclick="pick('ob-role',this)">Mom</button>
-        <button class="choice" data-v="Dad" onclick="pick('ob-role',this)">Dad</button>
-        <button class="choice" data-v="Husband" onclick="pick('ob-role',this)">Husband</button>
-        <button class="choice" data-v="Wife" onclick="pick('ob-role',this)">Wife</button>
-        <button class="choice" data-v="Boyfriend" onclick="pick('ob-role',this)">Boyfriend</button>
-        <button class="choice" data-v="Sweetheart" onclick="pick('ob-role',this)">Sweetheart</button>
-        <button class="choice" data-v="Coldheart" onclick="pick('ob-role',this)">Coldheart</button>
-        <button class="choice" data-v="Man of steel" onclick="pick('ob-role',this)">Man of steel</button>
-        <button class="choice" data-v="Partner" onclick="pick('ob-role',this)">Partner</button>
-        <button class="choice" data-v="Parent" onclick="pick('ob-role',this)">Parent</button>
-        <button class="choice" data-v="Guardian" onclick="pick('ob-role',this)">Guardian</button>
-      </div></div>
-    </div>
-    <div class="ob-foot"><button class="cta" onclick="obProfileNext()">Continue</button></div>
-  </section>
-
   <section class="ob-screen" data-ob="family">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('profile')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('choice')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
       <div class="ob-head"><div class="ob-h1" data-t="setFamilyTitle">Set up your family</div><div class="ob-sub" data-t="setFamilySub">Name it and invite who's in it.</div></div>
       <div class="field"><label data-t="familyName">Family name</label><input id="ob-famname" data-tp="phFamName" placeholder="e.g. The Reeds"></div>

@@ -16,7 +16,7 @@
   --flue:#9a8f80;--oak-1:#d8bd94;--oak-2:#c9ac7f;
   /* tree species — --bird belongs to the pet robin, so the tree's perched bird is --perch-bird */
   --blossom:#f2b3c9;--blossom-pale:#fbd9e4;--blossom-moon:#decbdd;
-  --kumquat:#f09a45;--pot:#a8624c;--perch-bird:#e0604c;
+  --kumquat:#f09a45;--mango:#f2ab4d;--pot:#a8624c;--perch-bird:#e0604c;
   /* pets */
   --water-1:#a9dbe9;--water-2:#69a7ca;--sand:#d9c9a0;
   --coat:#c99e6f;--coat-cream:#f4e7cf;--snout:#3a2a22;
@@ -110,18 +110,18 @@
    ============================================================================ */
 /* The horizontal spot is set by _placePet() (22-home.js), measured into the real
    yard gap between tree and house — left:26% is only the pre-measure fallback. */
-.sc-pet{position:absolute;bottom:44px;left:26%;z-index:2}
+.sc-pet{position:absolute;bottom:36px;left:26%;z-index:3}
 .sc-pet svg{display:block;width:100%;height:auto}
 .sc-pet.k-dog{width:53px}.sc-pet.k-cat{width:48px}.sc-pet.k-rabbit{width:44px}
 .sc-pet.k-bird{width:26px}.sc-pet.k-duck{width:53px}
-.home-scene .sc-pet.k-duck{bottom:42px}
-/* night: curled up on the doorstep (x from _placePet) */
-.home-sky.sky-night .home-scene .sc-pet{bottom:47px}
-/* short phones: follow the house base down (mirrors 21-home-today.css's media block) */
+.home-scene .sc-pet.k-duck{bottom:34px}
+/* night: curled up at the tree's trunk (x from _placePet), a step up the slope */
+.home-sky.sky-night .home-scene .sc-pet{bottom:39px}
+/* short phones: follow the tree base down (mirrors 21-home-today.css's media block) */
 @media (max-height:700px){
-  .home-scene .sc-pet{bottom:40px}
-  .home-scene .sc-pet.k-duck{bottom:38px}
-  .home-sky.sky-night .home-scene .sc-pet{bottom:43px}
+  .home-scene .sc-pet{bottom:33px}
+  .home-scene .sc-pet.k-duck{bottom:31px}
+  .home-sky.sky-night .home-scene .sc-pet{bottom:36px}
 }
 /* pets take the same phase tint as everything else (the sleep swirl stays luminous) */
 .home-sky.sky-dawn .pb,.thumb.sky-dawn .pb{filter:brightness(1)}
@@ -164,6 +164,7 @@
 .fx-leaf.needle{width:2.5px;height:7px;border-radius:2px}
 @keyframes leaf-fall{0%{opacity:0;transform:translate(0,0) rotate(0)}12%{opacity:.95}100%{opacity:0;transform:translate(var(--lx,10px),48px) rotate(160deg)}}
 .fx-fruit{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--kumquat);pointer-events:none;z-index:3;opacity:0;animation:fruit-drop 1.1s ease-in forwards}
+.fx-fruit.mg{width:7px;height:9px;border-radius:50% 50% 55% 45%/45% 45% 55% 55%;background:var(--mango)}
 @keyframes fruit-drop{0%{opacity:0;transform:translateY(0)}10%{opacity:1}62%{transform:translateY(46px)}78%{transform:translateY(39px)}90%{opacity:1;transform:translateY(46px)}100%{opacity:0;transform:translateY(46px)}}
 /* the every-5th-tap meaning note — its OWN class (not .wx-note, which reduced
    motion hides entirely): same pill look, opacity-only fade, and it stays

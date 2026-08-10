@@ -6,8 +6,9 @@
    Facilitator ethic: warmth, never streaks / guilt / scores. */
 
 /* ---------- Thời tiết cảm xúc — a two-sided emotional loop ----------
-   (1) Anyone sets today's weather in one tap. (2) EVERYONE sees it in the house:
-   each member is a WINDOW, lit by their mood. (3) When someone you love is having
+   (1) Anyone sets today's weather in one tap. (2) EVERYONE feels it in the sky:
+   the scene takes on the family's weather (ambient rain/storm/mist/sunbeams —
+   anonymous, like real weather). (3) When someone you love is having
    a rough day, you're handed a caring, BUILD-something action FOR them
    (⛈️ upset → a make-up jar; 🌧️ down → plan a treat they'll look forward to).
    (4) They feel seen. Backed by the realtime member_weather table so a mood set on
@@ -59,7 +60,7 @@ function clearWeather(){                       // signed-out reset (kept for com
 function openWeatherPick(){ window._wpick = true; if(typeof renderHome === 'function') renderHome(); }
 window.setWeather = setWeather; window.clearWeather = clearWeather; window.openWeatherPick = openWeatherPick;
 
-/* ---------- the living house scene ---------- */
+/* ---------- the living hillside scene ---------- */
 /* the sky follows the REAL clock (not the demo's pinned TODAY) */
 function _skyPhase(){ var h = new Date().getHours(); if(h >= 5 && h < 8) return 'dawn'; if(h >= 8 && h < 17) return 'day'; if(h >= 17 && h < 20) return 'dusk'; return 'night'; }
 /* the phase the scene is PAINTED in — may lag the clock until the next render.
@@ -72,35 +73,30 @@ function _scenePhase(){
 window._scenePhase = _scenePhase;
 /* fixed star field ([%left, px-top]) — deterministic so re-renders don't shuffle the sky */
 var _STARS = [[6,14],[14,36],[24,8],[33,24],[44,15],[55,6],[63,28],[72,12],[81,32],[88,8],[93,22],[38,40],[68,44],[18,54]];
-/* one member = one window; the pane is the light their mood casts */
-function _hwCell(m, meName, gate){
-  var mine = (m.name === meName);
-  var w = memberWeatherOf(m.name), wd = w && _wdef(w);
-  var pane, emo = '';
-  if(mine && gate){ pane = 'ask'; emo = '🕯️'; }
-  else if(gate){ pane = 'cur'; }                       // curtained until you light yours
-  else if(wd){ pane = wd.k; emo = wd.e; }
-  else { pane = 'wait'; }                              // they haven't shared — light's off
-  var lit = (pane === 'sun' || pane === 'fire' || pane === 'ok');
-  var nm = esc((typeof firstName === 'function') ? firstName(m.name) : m.name);
-  var inner = '<span class="hw-pane p-' + pane + (lit ? ' lit' : '') + '">' + emo + '</span><span class="hw-name">' + nm + '</span>';
-  var dn = ' data-name="' + escAttr(m.name) + '"';
-  return mine
-    ? '<button class="hw me"' + dn + ' onclick="openWeatherPick()" aria-label="' + escAttr(L('Đổi cảm xúc', 'Change your mood')) + '">' + inner + '</button>'
-    : '<span class="hw' + (pane === 'wait' ? ' waiting' : '') + '"' + dn + '>' + inner + '</span>';
+/* GIÓ — mỗi lần mở app trời bốc một cấp gió (lặng / hiu hiu / lộng gió).
+   Một lớp .wind-* trên #home-scene chỉnh nhịp đưa của tán cây, cỏ lau, mây;
+   lộng gió thì hạt bồ công anh bay. Cùng một khung cảnh nhưng không lần mở
+   nào chuyển động giống lần nào. Reset khi rời app đủ lâu (cùng nhịp với
+   weather-FX replay ở cuối file). */
+function _windLevel(){
+  if(!window._windK){
+    var r = Math.random();
+    window._windK = r < .3 ? 'calm' : (r < .82 ? 'breeze' : 'gust');
+  }
+  return window._windK;
 }
-/* the whole scene: sky bits → hills/ground → clothesline memories → tree → house.
-   Expects buildMemRecords() to have run (renderHome does). */
+/* the whole scene — pure nature, no man-made props: sky bits → far hills →
+   the big crest → grass & flowers breathing in the wind → the savings tree on
+   the slope → phase wildlife → the pet. The family's moods still live here,
+   anonymously, as WEATHER over the scene (amb + the weather FX replay) behind
+   the same share-first gate. Expects buildMemRecords() to have run. */
 function renderScene(){
-  var mems = ((window.FAM && FAM.members) || []).slice(0, 8), meName = _meName(), myW = myWeather();
+  var mems = ((window.FAM && FAM.members) || []), myW = myWeather();
   var gate = !myW || window._wpick, ph = _skyPhase();
-  var cfg = (window.houseCfg ? houseCfg() : { house: 'cottage', tree: 'oak', pet: null });
+  var cfg = (window.houseCfg ? houseCfg() : { tree: 'oak', pet: null });
 
-  // windows + the family door (tap the door → add something to the house)
-  var door = '<button class="hs-door" onclick="openSheet(&#39;sheet-add&#39;)" aria-label="' + escAttr(L('Thêm', 'Add')) + '"></button>';
-  var cells = mems.map(function(m){ return _hwCell(m, meName, gate); }).join('');
-
-  // chimney smokes when the family added something today (memory, mood…)
+  // "the family did something today" — the old chimney smoke, now a livelier
+  // meadow: butterflies by day, more fireflies after dark
   var act = false;
   try{
     var n = new Date();
@@ -114,23 +110,10 @@ function renderScene(){
   gord.forEach(function(g){ var e = goals[g]; if(e && e.target > 0){ tt += e.target; ts += Math.min(e.saved || 0, e.target); } });
   var grow = tt > 0 ? (0.7 + 0.42 * (ts / tt)) : 0.62;
 
-  // up to two recent memories hang on the clothesline (hidden for big families)
-  var pols = '';
-  if(mems.length < 5){                                   // 5+: the wide house needs the sky (.full-house also hides via CSS)
-    var hang = (window.memRecords || []).slice(0, 2), POS = [[5, 14, -6], [24, 26, 4]];
-    hang.forEach(function(r, i){
-      var idx = memRecords.indexOf(r), p = POS[i];
-      var st = r.src ? ' style="background-image:url(' + escAttr(r.src) + ')"' : '';
-      pols += '<button class="pol" style="left:' + p[0] + '%;top:' + p[1] + 'px;--r:' + p[2] + 'deg" onclick="openMemory(' + idx + ')" aria-label="' + escAttr(L('Kỷ niệm', 'Memory')) + '">'
-        + '<span class="pol-ph ' + (r.src ? '' : esc(r.cls || 'ph-park')) + '"' + st + '>' + (r.src ? '' : '<span class="pol-emo">' + esc(r.emoji || '📸') + '</span>') + '</span></button>';
-    });
-    if(pols) pols = '<svg class="sc-line" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 8 Q 55 44 100 34" fill="none" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>' + pols;
-  }
-
   var stars = '';
   if(ph === 'night'){ _STARS.forEach(function(s, i){ stars += '<i class="sc-star" style="left:' + s[0] + '%;top:' + s[1] + 'px;animation-delay:' + ((i % 5) * 0.6).toFixed(1) + 's"></i>'; }); }
 
-  // ambient weather over the scene — the house feels whoever's having a day
+  // ambient weather over the scene — the hillside feels whoever's having a day
   var amb = '';
   if(!gate){
     var shared = []; mems.forEach(function(m){ var w = memberWeatherOf(m.name); if(w) shared.push(w); });
@@ -141,43 +124,67 @@ function renderScene(){
     else if(shared.length >= 2 && shared.every(function(w){ return w === 'sun' || w === 'fire'; })) amb = '<div class="amb"><i class="a-beam b1"></i><i class="a-beam b2"></i></div>';
   }
 
+  // the land: two hazy far ridges behind one big near crest
+  var land = '<i class="sc-far f1"></i><i class="sc-far f2"></i><i class="sc-crest"></i>'
+    + (ph === 'day' ? '<i class="sc-cshadow"></i>' : '');
+
+  // grass tufts, wildflowers, dandelions — % positions hold on every phone width
+  // (the crest's surface height is width-independent: its height is fixed px)
+  var T = [[8,26,0],[16,32,0],[24,37,1],[37,43,0],[47,46,1],[58,46,0],[67,44,0],[78,38,1],[90,26,0]];
+  var flora = T.map(function(t, i){       // staggered delays so the grass ripples, not marches
+    return '<i class="tuft' + (t[2] ? ' tall' : '') + '" style="left:' + t[0] + '%;bottom:' + t[1] + 'px;animation-delay:-' + (i * .53).toFixed(2) + 's"><i></i><i></i><i></i><i></i></i>';
+  }).join('')
+    + '<i class="wfl" style="left:31%;bottom:40px;--c:#fbd9e4"></i>'
+    + '<i class="wfl" style="left:65%;bottom:46px;--c:#f5c64f"></i>'
+    + '<i class="wfl" style="left:85%;bottom:31px;--c:#f2b3c9"></i>'
+    + '<i class="dande" style="left:72%;bottom:44px"></i>'
+    + '<i class="dande" style="left:82%;bottom:35px"></i>'
+    + '<i class="seed" style="left:73%;bottom:62px"></i>'
+    + '<i class="seed sd2" style="left:83%;bottom:54px"></i>'
+    + '<i class="seed sd3" style="left:76%;bottom:58px"></i>';
+
+  // phase wildlife: grazing wild rabbits by day, swifts at dusk, fireflies +
+  // the occasional shooting star at night, rolling mist at dawn
+  var life = '';
+  if(ph === 'day') life += '<i class="graze" style="left:20%;bottom:31px"><i></i><i></i><u></u></i>'
+    + '<i class="graze g2" style="left:28%;bottom:26px"><i></i><i></i><u></u></i>';
+  if(ph === 'dusk') life += '<i class="swifts"><i class="swift"></i><i class="swift s2"></i><i class="swift s3"></i><i class="swift s4"></i></i>';
+  if(ph === 'night'){
+    life += '<i class="shoot"></i>'
+      + '<i class="ffly" style="left:48%;top:118px"></i><i class="ffly f2" style="left:61%;top:136px"></i><i class="ffly f3" style="left:70%;top:124px"></i>'
+      + (act ? '<i class="ffly f4" style="left:42%;top:142px"></i><i class="ffly f5" style="left:55%;top:150px"></i>' : '');
+  }
+  if(act && (ph === 'day' || ph === 'dawn')){
+    life += '<i class="bfly" style="left:38%;bottom:70px;--c:#f2b3c9"><i></i><i></i><u></u></i>'
+      + '<i class="bfly b2" style="left:66%;bottom:88px;--c:#f5c64f"><i></i><i></i><u></u></i>';
+  }
+  if(ph === 'dawn') life += '<i class="sc-mist"></i>';
+
   return '<i class="sc-orb"></i>' + stars
     + '<i class="sc-cloud c1"></i><i class="sc-cloud c2"></i>'
-    + '<i class="sc-hill h1"></i><i class="sc-hill h2"></i><i class="sc-ground"></i>'
-    + pols
+    + land + flora + life
     + '<button class="sc-tree tree-' + cfg.tree + '" style="transform:scale(' + grow.toFixed(2) + ')" onclick="pokeTree()" aria-label="' + escAttr(L('Chạm vào cây', 'Tap the tree')) + '">'
       + (window.TREEFN ? TREEFN[cfg.tree](ph) : '<i class="tr-tr"></i><i class="tr-f f1"></i><i class="tr-f f2"></i><i class="tr-f f3"></i>') + '</button>'
-    + (window.buildHouseShell
-        ? buildHouseShell(cfg.house, ph, door + cells, act)
-        : '<div class="sc-house"><div class="hs-roofwrap"><i class="hs-chim">' + (act ? '<i class="puff p1"></i><i class="puff p2"></i><i class="puff p3"></i>' : '') + '</i><i class="hs-roof"></i></div>'
-          + '<div class="hs-wall"><div class="hs-wins">' + door + cells + '</div></div></div>')
     + (cfg.pet && window.PETFN ? '<button class="sc-pet k-' + cfg.pet + '" onclick="pokePet()" aria-label="' + escAttr(L('Cưng nựng thú cưng', 'Pet your buddy')) + '">' + PETFN[cfg.pet](ph) + '</button>' : '')
     + amb;
 }
-/* place the pet in the REAL yard gap between tree and house. The house width
-   varies with family size and the phone's width varies per device, so a CSS %
-   can't be trusted — measure after paint. Day phases roam the lawn (dawn by the
-   tree, noon mid-lawn, dusk wandering home); night curls up at the doorstep. */
+/* place the pet on the slope relative to the REAL tree rect (its x shifts with
+   the savings scale and the phone's width, so a CSS % can't be trusted —
+   measure after paint). Dawn greets the sun left of the tree, day roams the
+   open slope to the right, dusk wanders back, night curls up at the trunk. */
 function _placePet(scene){
   var pet = scene && scene.querySelector('.sc-pet'); if(!pet) return;
   var sr = scene.getBoundingClientRect(); if(!sr.width) return;   // hidden view: keep the CSS fallback
-  var house = scene.querySelector('.sc-house'), tree = scene.querySelector('.sc-tree');
+  var tree = scene.querySelector('.sc-tree');
   var pw = pet.getBoundingClientRect().width || 46;
-  var hL = house ? house.getBoundingClientRect().left - sr.left : sr.width;
-  var tR = tree ? tree.getBoundingClientRect().right - sr.left : 0;
+  var tL = tree ? tree.getBoundingClientRect().left - sr.left : sr.width * .5;
+  var tR = tree ? tree.getBoundingClientRect().right - sr.left : sr.width * .62;
   var ph = _scenePhase(), x;
-  var door = scene.querySelector('.hs-door'), dr = door && door.getBoundingClientRect();
-  var doorstep = dr ? dr.left - sr.left - pw - 5 : hL - pw - 5;   // beside the door, never over it
-  if(ph === 'night'){ x = doorstep; }                             // asleep at the doorstep
-  else {
-    var y0 = tR + 4, y1 = hL - 4, room = y1 - y0 - pw;
-    if(room >= 4) x = ph === 'dawn' ? y0 + Math.min(6, room)      // dawn: out by the tree
-                : ph === 'dusk'  ? y1 - pw - Math.min(6, room)    // dusk: wandering home
-                : y0 + room / 2;                                  // day: mid-lawn
-    else if(y1 - y0 >= pw * 0.55) x = y0 + room / 2;              // snug yard: center, a little overhang is fine
-    else x = doorstep;                                            // no yard at all: waiting by the door
-  }
-  pet.style.left = Math.max(4, Math.min(x, sr.width - pw - 4)) + 'px';
+  if(ph === 'night')     x = tR - pw * .55;                       // asleep against the trunk
+  else if(ph === 'dawn') x = tL - pw - 12;                        // catching first light, left of the tree
+  else if(ph === 'dusk') x = tR + 10;                             // drifting home to the tree
+  else                   x = tR + Math.max(18, (sr.width - tR - pw) * .42);  // day: out on the open slope
+  pet.style.left = Math.max(6, Math.min(x, sr.width - pw - 6)) + 'px';
 }
 /* rotation / resize: the house re-anchors instantly (CSS) but the pet's px spot
    goes stale — re-measure it (debounced; a full re-render isn't needed) */
@@ -193,8 +200,8 @@ function renderHearth(){
   if(!myW || window._wpick){
     var btns = WEATHER.map(function(w){ return '<button class="wpk" onclick="setWeather(&#39;' + w.k + '&#39;)" aria-label="' + escAttr(L(w.vi, w.en)) + '">' + w.e + '</button>'; }).join('');
     var others = mems.filter(function(m){ return m.name !== meName; });
-    var hint = others.length ? '<div class="hearth-hint">' + L('Thắp đèn rồi sẽ thấy đèn của cả nhà', 'Light yours to see everyone’s windows') + '</div>' : '';
-    return '<div class="hearth"><div class="hearth-q">' + L('Thắp đèn phòng bạn nhé. Hôm nay bạn thế nào?', 'Light your window. How are you today?') + '</div>'
+    var hint = others.length ? '<div class="hearth-hint">' + L('Chia sẻ rồi sẽ thấy bầu trời của cả nhà', 'Share yours to see the family’s sky') + '</div>' : '';
+    return '<div class="hearth"><div class="hearth-q">' + L('Trời trong bạn hôm nay thế nào?', 'How’s your weather today?') + '</div>'
       + '<div class="wrow">' + btns + '</div>' + hint + '</div>';
   }
   return '';
@@ -331,15 +338,19 @@ function renderHome(){
   // subtitle under the greeting = the family mood read (the hearth card asks the question)
   setTxt('greet-sub', (!myW || window._wpick) ? L('Một ngày nữa bên nhau 🌿', 'Another day, together 🌿') : moodRead());
 
-  // the living house: phase the sky from the real clock, then paint the scene
+  // the living hillside: phase the sky from the real clock, then paint the scene
   var skyEl = document.getElementById('home-sky');
   if(skyEl) skyEl.className = 'home-sky sky-' + _skyPhase();
   var sceneEl = document.getElementById('home-scene');
   if(sceneEl){
-    var _nm = ((window.FAM && FAM.members) || []).length;
-    sceneEl.className = 'home-scene' + (_nm >= 4 ? ' big-house' : '') + (_nm >= 5 ? ' full-house' : '');
+    sceneEl.className = 'home-scene wind-' + _windLevel();   // today's wind level (per app open)
     setHTMLIf(sceneEl, renderScene());
-    _placePet(sceneEl);                                 // measured yard placement (runs even when HTML is unchanged)
+    _placePet(sceneEl);                                 // measured slope placement (runs even when HTML is unchanged)
+    if(!window._gustDone){                              // one welcome gust ripples through on open
+      window._gustDone = true;
+      sceneEl.classList.add('gustnow');
+      setTimeout(function(){ var s = document.getElementById('home-scene'); if(s) s.classList.remove('gustnow'); }, 1400);
+    }
   }
 
   var html = (window._houseEntryHTML ? _houseEntryHTML() : '') + renderHearth();   // "Chăm chút tổ ấm" CTA, then the hearth card
@@ -593,6 +604,7 @@ try{
     if(document.hidden){ window._wxHidAt = Date.now(); }
     else if(window._wxHidAt && Date.now() - window._wxHidAt > 15 * 60 * 1000){
       window._wxSeen = undefined;
+      window._windK = null; window._gustDone = false;   // a fresh open rolls fresh wind + welcome gust
       if(typeof renderHome === 'function') renderHome();
     }
   });
