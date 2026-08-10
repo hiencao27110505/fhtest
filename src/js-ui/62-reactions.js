@@ -231,12 +231,43 @@ function renderRxWall(){
   box.innerHTML=items.slice(0,12).map(function(it){ return rxCard(it,false); }).join('');
 }
 window.renderRxWall=renderRxWall;
+/* the home strip is a horizontal RAIL of light, member-colored cards — the big
+   reaction emoji, a thumbnail of WHAT was reacted to, and the family's faces.
+   No gray emoji tile, no chevron: that notification chrome was what made the
+   living room read like a system log instead of people hanging out. */
+function rxHomeCard(it){
+  var tx=it.tx, rs=it.rs, lead=it.lead;
+  var m=window.DB && window.DB.memberById && window.DB.memberById[lead.memberId];
+  var col=(m&&m.color)||'#8f8a99';                          // the speaker's colour rings the emoji + tints the card
+  var faces='', sm={}, nExtra=0;
+  rs.forEach(function(r){ if(!sm[r.memberId]){ sm[r.memberId]=1; if(Object.keys(sm).length<=3) faces+=_rxFace(r.memberId); else nExtra++; } });
+  if(nExtra>0) faces+='<span class="rx-more">+'+nExtra+'</span>';
+  var note=esc(tx.note||L('Khoản chi','Expense')), amt=(typeof fmt==='function')?fmt(tx.amt):tx.amt, when=rxAgo(lead.at);
+  var thumb=(tx.photos&&tx.photos[0])                       // #4: show the thing they reacted to
+    ? '<span class="rxh-photo" style="background-image:url('+escAttr(tx.photos[0])+')"></span>'
+    : '<span class="rxh-photo rxh-ph">'+esc(tx.ico||'🧾')+'</span>';
+  return '<button class="rxh-card" style="--rxc:'+col+'" onclick="rxJumpTo(\''+tx._dbId+'\')">'
+    +'<span class="rxh-thumb">'+thumb+'<span class="rxh-emoji">'+lead.emoji+'</span></span>'
+    +'<span class="rxh-msg">'+rxMessage(lead,tx)+'</span>'
+    +'<span class="rxh-tx">'+note+' · '+amt+'</span>'
+    +'<span class="rxh-foot"><span class="rx-faces">'+faces+'</span>'+(when?'<span class="rxh-when">'+when+'</span>':'')+'</span>'
+    +'</button>';
+}
 function rxHomeStripHTML(){
   var items=_rxWallItems(); if(!items.length) return '';
   var head=(typeof _sectionH==='function')?_sectionH(L('Phòng khách','The living room'),'go(&#39;spending&#39;)'):'';
-  return head+'<div class="rx-home">'+items.slice(0,3).map(function(it){ return rxCard(it,true); }).join('')+'</div>';
+  return head+'<div class="rx-home">'+items.slice(0,8).map(rxHomeCard).join('')+'</div>';
 }
 window.rxHomeStripHTML=rxHomeStripHTML;
+/* the newest reaction, only if it's fresh enough to feel like live chatter —
+   feeds the little speech bubble that drifts up from the pet/tree in the scene */
+function rxNewestForScene(){
+  var items=_rxWallItems(); if(!items.length) return null;
+  var it=items[0], lead=it.lead;
+  try{ if((Date.now()-new Date(lead.at).getTime())/3600000 >= 12) return null; }catch(e){}
+  return { emoji:lead.emoji, txDbId:it.tx._dbId };
+}
+window.rxNewestForScene=rxNewestForScene;
 function rxJumpTo(txDbId){ closeRxArrive(); var tx=rxTxByDbId(txDbId); if(tx && typeof openExpenseDetail==='function') openExpenseDetail(tx.id); }
 window.rxJumpTo=rxJumpTo;
 

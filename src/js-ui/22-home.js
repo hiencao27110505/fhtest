@@ -160,13 +160,25 @@ function renderScene(){
   }
   if(ph === 'dawn') life += '<i class="sc-mist"></i>';
 
-  return '<i class="sc-orb"></i>' + stars
+  // Phòng khách #8: the newest family reaction drifts up as a small speech
+  // bubble by the tree — the living room breathing inside the scene. Tap → jump.
+  var say = '';
+  try{
+    var rn = window.rxNewestForScene && window.rxNewestForScene();
+    if(rn) say = '<button class="sc-say" onclick="rxJumpTo(&#39;' + rn.txDbId + '&#39;)" aria-label="' + escAttr(L('Xem phòng khách', 'See the living room')) + '"><span class="sc-say-e">' + rn.emoji + '</span></button>';
+  }catch(e){}
+
+  // gesture-native mood: a transparent full-scene layer (behind the tree/pet)
+  // opens the mood picker — the only way to CHANGE your mood now the windows
+  // are gone. Decor is pointer-events:none in CSS so empty-area taps reach it.
+  return '<button class="sc-tap" onclick="openWeatherPick()" aria-label="' + escAttr(L('Đổi tâm trạng của bạn', 'Change your mood')) + '"></button>'
+    + '<i class="sc-orb"></i>' + stars
     + '<i class="sc-cloud c1"></i><i class="sc-cloud c2"></i>'
     + land + flora + life
     + '<button class="sc-tree tree-' + cfg.tree + '" style="transform:scale(' + grow.toFixed(2) + ')" onclick="pokeTree()" aria-label="' + escAttr(L('Chạm vào cây', 'Tap the tree')) + '">'
       + (window.TREEFN ? TREEFN[cfg.tree](ph) : '<i class="tr-tr"></i><i class="tr-f f1"></i><i class="tr-f f2"></i><i class="tr-f f3"></i>') + '</button>'
     + (cfg.pet && window.PETFN ? '<button class="sc-pet k-' + cfg.pet + '" onclick="pokePet()" aria-label="' + escAttr(L('Cưng nựng thú cưng', 'Pet your buddy')) + '">' + PETFN[cfg.pet](ph) + '</button>' : '')
-    + amb;
+    + say + amb;
 }
 /* place the pet on the slope relative to the REAL tree rect (its x shifts with
    the savings scale and the phone's width, so a CSS % can't be trusted —
@@ -194,18 +206,27 @@ try{
     window._petRsz = setTimeout(function(){ var s = document.getElementById('home-scene'); if(s) _placePet(s); }, 160);
   });
 }catch(e){}
-/* the hearth card under the scene: the mood picker until you've lit your window. */
+/* ONE time-shared strip under the scene (the old mood card + the "Chăm chút
+   tổ ấm" entry were two fragmented cards competing for the prime slot). Before
+   you've checked in today it's the mood picker; once you've shared, the SAME
+   slot yields to the tổ-ấm (tree/pet) nudge. Mood itself is re-openable any
+   time by tapping the scene — openWeatherPick() flips _wpick and re-renders. */
 function renderHearth(){
   var mems = (window.FAM && FAM.members) || [], meName = _meName(), myW = myWeather();
   if(!myW || window._wpick){
     var btns = WEATHER.map(function(w){ return '<button class="wpk" onclick="setWeather(&#39;' + w.k + '&#39;)" aria-label="' + escAttr(L(w.vi, w.en)) + '">' + w.e + '</button>'; }).join('');
     var others = mems.filter(function(m){ return m.name !== meName; });
     var hint = others.length ? '<div class="hearth-hint">' + L('Chia sẻ rồi sẽ thấy bầu trời của cả nhà', 'Share yours to see the family’s sky') + '</div>' : '';
-    return '<div class="hearth"><div class="hearth-q">' + L('Trời trong bạn hôm nay thế nào?', 'How’s your weather today?') + '</div>'
+    // re-opening an already-set mood → a quiet way back to the tổ-ấm nudge
+    var later = myW ? '<button class="hearth-later" onclick="closeWeatherPick()">' + L('Để sau', 'Later') + '</button>' : '';
+    return '<div class="hearth"><div class="hearth-q">' + L('Trời trong bạn hôm nay thế nào?', 'How’s your weather today?') + later + '</div>'
       + '<div class="wrow">' + btns + '</div>' + hint + '</div>';
   }
-  return '';
+  return (window._houseEntryHTML ? _houseEntryHTML() : '');   // mood shared → the strip becomes the tổ-ấm nudge
 }
+/* the escape hatch when you tapped the scene but didn't want to change your mood */
+function closeWeatherPick(){ window._wpick = false; if(typeof renderHome === 'function') renderHome(); }
+window.closeWeatherPick = closeWeatherPick;
 
 /* the collective mood read — shown as the home subtitle under the greeting */
 function moodRead(){
@@ -353,9 +374,16 @@ function renderHome(){
     }
   }
 
-  var html = (window._houseEntryHTML ? _houseEntryHTML() : '') + renderHearth();   // "Chăm chút tổ ấm" CTA, then the hearth card
+  var html = renderHearth();   // ONE time-shared strip: mood picker until you check in, then the "Chăm chút tổ ấm" nudge
   if(typeof requestsWidgetHTML === 'function') html += requestsWidgetHTML();   // future-expense proposals awaiting my OK
-  if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions, right under the hearth
+  // one-time nudge so the tap-to-change-mood gesture is discoverable
+  try{
+    if(myW && !window._wpick && !localStorage.getItem('fh-moodtap')){
+      localStorage.setItem('fh-moodtap', '1');
+      if(typeof toast === 'function') setTimeout(function(){ toast(L('Chạm vào khung cảnh để đổi tâm trạng 🌤️', 'Tap the scene to change your mood 🌤️')); }, 900);
+    }
+  }catch(e){}
+  // Phòng khách moves BELOW the four stat tiles (the wgrid) — appended after it
 
   /* ---- signals from the active user's + relatives' data ---- */
   var up = ord.filter(function(k){ return evs[k] && evs[k].d && !isMirrorK(k) && !achievedNow(evs[k]); })
@@ -427,6 +455,7 @@ function renderHome(){
   }
 
   html += '<div class="wgrid">' + tiles + '</div>';
+  if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions, now under the stat tiles
 
   /* ============ KHOẢNH KHẮC — the featured photo card + the memory strip ============ */
   var kh = '', centerRef = null;

@@ -261,6 +261,22 @@ input{font-family:inherit}
 
 /* ---------- the scene ---------- */
 .home-scene{position:relative;height:238px;margin-top:4px;z-index:1}
+/* gesture-native mood: a transparent full-scene tap layer BEHIND the tree/pet
+   opens the mood picker (the only way to change your mood now the windows are
+   gone). Scene decor is click-through so only empty sky/grass taps trigger it;
+   the tree, pet and reaction bubble keep their own taps. */
+.sc-tap{position:absolute;inset:0;z-index:0;border:0;margin:0;padding:0;background:transparent;cursor:pointer;font:inherit;-webkit-tap-highlight-color:transparent}
+#home-scene > *{pointer-events:none}
+#home-scene > .sc-tap,#home-scene > .sc-tree,#home-scene > .sc-pet,#home-scene > .sc-say{pointer-events:auto}
+/* #8: the newest family reaction as a small speech bubble by the tree */
+.sc-say{position:absolute;left:56%;bottom:138px;z-index:5;border:0;padding:0;margin:0;background:none;cursor:pointer;
+  animation:sc-say-in .5s cubic-bezier(.2,1.3,.4,1) both,sc-say-bob 3.4s ease-in-out .6s infinite alternate}
+.sc-say-e{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:14px 14px 14px 4px;
+  background:var(--white);box-shadow:0 3px 10px rgba(25,16,34,.2);font-size:17px;line-height:1}
+.sc-say::after{content:'';position:absolute;left:6px;bottom:-2px;width:8px;height:8px;background:var(--white);
+  transform:rotate(45deg);border-bottom-right-radius:3px;box-shadow:2px 2px 5px rgba(25,16,34,.08)}
+@keyframes sc-say-in{from{opacity:0;transform:translateY(6px) scale(.7)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes sc-say-bob{from{transform:translateY(0)}to{transform:translateY(-4px)}}
 /* sun / moon */
 .sc-orb{position:absolute;top:10px;right:26px;width:42px;height:42px;border-radius:50%;background:#fff3c9;box-shadow:0 0 34px 10px rgba(255,244,190,.5)}
 .sky-dawn .sc-orb{top:44px;right:auto;left:60%;background:#ffcf7e;box-shadow:0 0 40px 14px rgba(255,190,110,.5)}
@@ -408,6 +424,8 @@ input{font-family:inherit}
 .hearth{position:relative;z-index:2;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);margin:-26px 16px 14px;padding:15px 16px 13px}
 .hearth-q{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--ink);text-align:center}
 .hearth-hint{margin-top:12px;padding-top:11px;border-top:1px solid var(--divider);text-align:center;font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
+/* "Để sau" — quiet escape when you re-opened the picker but don't want to change */
+.hearth-later{position:absolute;top:12px;right:13px;background:none;border:0;font:inherit;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;padding:4px 6px;letter-spacing:-.01em}
 
 /* ============================================================================
    THE FEED — the standard HIG widget kit on the shared canvas. Glanceable
@@ -589,7 +607,7 @@ input{font-family:inherit}
    animation are gated here (the weather FX and .view fade are gated elsewhere). */
 @media (prefers-reduced-motion:reduce){
   #v-home.on .home-sky .greet,#v-home.on .home-sky .greet-sub{animation:none}
-  .sc-cloud,.sc-star,.home-scene .sc-tree svg,.tuft,.dande,.sc-cshadow,.sc-mist,.graze::after,.bfly,.bfly i{animation:none}
+  .sc-cloud,.sc-star,.home-scene .sc-tree svg,.tuft,.dande,.sc-cshadow,.sc-mist,.graze::after,.bfly,.bfly i,.sc-say{animation:none}
   .amb,.swifts,.seed,.ffly,.shoot{display:none}
 }
 
@@ -1496,7 +1514,31 @@ input{font-family:inherit}
 /* B · the wall (finance) + home strip — one card per reacted transaction, .woffer-style */
 .rx-count{font-size:11px;font-weight:700;color:var(--white);background:var(--brand);border-radius:9999px;
   padding:1px 7px;letter-spacing:.02em;vertical-align:middle;margin-left:2px}
-#rx-wall,.rx-home{display:flex;flex-direction:column;gap:10px;margin:0 16px 14px}
+#rx-wall{display:flex;flex-direction:column;gap:10px;margin:0 16px 14px}
+/* the home "Phòng khách" is a horizontal RAIL, not a stacked list */
+.rx-home{display:flex;gap:11px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;
+  margin:0 0 14px;padding:2px 0 6px;scroll-padding-left:16px}
+.rx-home::before{content:'';flex:0 0 16px}
+.rx-home::after{content:'';flex:0 0 6px}
+.rx-home::-webkit-scrollbar{display:none}
+/* one light, member-colored card — emoji + thumbnail of the reacted-to thing */
+.rxh-card{flex:0 0 158px;width:158px;scroll-snap-align:start;display:flex;flex-direction:column;
+  background:var(--white);border:0;border-radius:16px;box-shadow:var(--shadow-card);
+  padding:0 0 11px;text-align:left;font:inherit;cursor:pointer;overflow:hidden}
+.rxh-card:active{transform:scale(.98)}
+.rxh-thumb{position:relative;height:84px;display:block}
+.rxh-photo{position:absolute;inset:0;background-size:cover;background-position:center}
+.rxh-photo.rxh-ph{display:flex;align-items:center;justify-content:center;font-size:32px;
+  background:linear-gradient(160deg,var(--surface),var(--fill-neutral))}
+.rxh-emoji{position:absolute;left:9px;bottom:-15px;width:34px;height:34px;border-radius:50%;background:var(--white);
+  display:flex;align-items:center;justify-content:center;font-size:19px;line-height:1;
+  box-shadow:0 2px 7px rgba(25,16,34,.2);border:2px solid var(--rxc,#8f8a99)}
+.rxh-msg{font-family:var(--disp);font-size:13px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.3;
+  margin:21px 12px 0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.rxh-tx{font-size:11px;color:var(--muted);font-weight:500;letter-spacing:-.01em;margin:5px 12px 0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rxh-foot{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:9px 12px 0}
+.rxh-when{font-size:10.5px;color:var(--chev);font-weight:600;flex:0 0 auto}
 .rx-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);overflow:hidden}
 .rx-card-main{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;background:none;border:0;text-align:left;cursor:pointer;font:inherit}
 .rx-card-main:active{background:var(--surface)}
@@ -4121,13 +4163,25 @@ function renderScene(){
   }
   if(ph === 'dawn') life += '<i class="sc-mist"></i>';
 
-  return '<i class="sc-orb"></i>' + stars
+  // Phòng khách #8: the newest family reaction drifts up as a small speech
+  // bubble by the tree — the living room breathing inside the scene. Tap → jump.
+  var say = '';
+  try{
+    var rn = window.rxNewestForScene && window.rxNewestForScene();
+    if(rn) say = '<button class="sc-say" onclick="rxJumpTo(&#39;' + rn.txDbId + '&#39;)" aria-label="' + escAttr(L('Xem phòng khách', 'See the living room')) + '"><span class="sc-say-e">' + rn.emoji + '</span></button>';
+  }catch(e){}
+
+  // gesture-native mood: a transparent full-scene layer (behind the tree/pet)
+  // opens the mood picker — the only way to CHANGE your mood now the windows
+  // are gone. Decor is pointer-events:none in CSS so empty-area taps reach it.
+  return '<button class="sc-tap" onclick="openWeatherPick()" aria-label="' + escAttr(L('Đổi tâm trạng của bạn', 'Change your mood')) + '"></button>'
+    + '<i class="sc-orb"></i>' + stars
     + '<i class="sc-cloud c1"></i><i class="sc-cloud c2"></i>'
     + land + flora + life
     + '<button class="sc-tree tree-' + cfg.tree + '" style="transform:scale(' + grow.toFixed(2) + ')" onclick="pokeTree()" aria-label="' + escAttr(L('Chạm vào cây', 'Tap the tree')) + '">'
       + (window.TREEFN ? TREEFN[cfg.tree](ph) : '<i class="tr-tr"></i><i class="tr-f f1"></i><i class="tr-f f2"></i><i class="tr-f f3"></i>') + '</button>'
     + (cfg.pet && window.PETFN ? '<button class="sc-pet k-' + cfg.pet + '" onclick="pokePet()" aria-label="' + escAttr(L('Cưng nựng thú cưng', 'Pet your buddy')) + '">' + PETFN[cfg.pet](ph) + '</button>' : '')
-    + amb;
+    + say + amb;
 }
 /* place the pet on the slope relative to the REAL tree rect (its x shifts with
    the savings scale and the phone's width, so a CSS % can't be trusted —
@@ -4155,18 +4209,27 @@ try{
     window._petRsz = setTimeout(function(){ var s = document.getElementById('home-scene'); if(s) _placePet(s); }, 160);
   });
 }catch(e){}
-/* the hearth card under the scene: the mood picker until you've lit your window. */
+/* ONE time-shared strip under the scene (the old mood card + the "Chăm chút
+   tổ ấm" entry were two fragmented cards competing for the prime slot). Before
+   you've checked in today it's the mood picker; once you've shared, the SAME
+   slot yields to the tổ-ấm (tree/pet) nudge. Mood itself is re-openable any
+   time by tapping the scene — openWeatherPick() flips _wpick and re-renders. */
 function renderHearth(){
   var mems = (window.FAM && FAM.members) || [], meName = _meName(), myW = myWeather();
   if(!myW || window._wpick){
     var btns = WEATHER.map(function(w){ return '<button class="wpk" onclick="setWeather(&#39;' + w.k + '&#39;)" aria-label="' + escAttr(L(w.vi, w.en)) + '">' + w.e + '</button>'; }).join('');
     var others = mems.filter(function(m){ return m.name !== meName; });
     var hint = others.length ? '<div class="hearth-hint">' + L('Chia sẻ rồi sẽ thấy bầu trời của cả nhà', 'Share yours to see the family’s sky') + '</div>' : '';
-    return '<div class="hearth"><div class="hearth-q">' + L('Trời trong bạn hôm nay thế nào?', 'How’s your weather today?') + '</div>'
+    // re-opening an already-set mood → a quiet way back to the tổ-ấm nudge
+    var later = myW ? '<button class="hearth-later" onclick="closeWeatherPick()">' + L('Để sau', 'Later') + '</button>' : '';
+    return '<div class="hearth"><div class="hearth-q">' + L('Trời trong bạn hôm nay thế nào?', 'How’s your weather today?') + later + '</div>'
       + '<div class="wrow">' + btns + '</div>' + hint + '</div>';
   }
-  return '';
+  return (window._houseEntryHTML ? _houseEntryHTML() : '');   // mood shared → the strip becomes the tổ-ấm nudge
 }
+/* the escape hatch when you tapped the scene but didn't want to change your mood */
+function closeWeatherPick(){ window._wpick = false; if(typeof renderHome === 'function') renderHome(); }
+window.closeWeatherPick = closeWeatherPick;
 
 /* the collective mood read — shown as the home subtitle under the greeting */
 function moodRead(){
@@ -4314,9 +4377,16 @@ function renderHome(){
     }
   }
 
-  var html = (window._houseEntryHTML ? _houseEntryHTML() : '') + renderHearth();   // "Chăm chút tổ ấm" CTA, then the hearth card
+  var html = renderHearth();   // ONE time-shared strip: mood picker until you check in, then the "Chăm chút tổ ấm" nudge
   if(typeof requestsWidgetHTML === 'function') html += requestsWidgetHTML();   // future-expense proposals awaiting my OK
-  if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions, right under the hearth
+  // one-time nudge so the tap-to-change-mood gesture is discoverable
+  try{
+    if(myW && !window._wpick && !localStorage.getItem('fh-moodtap')){
+      localStorage.setItem('fh-moodtap', '1');
+      if(typeof toast === 'function') setTimeout(function(){ toast(L('Chạm vào khung cảnh để đổi tâm trạng 🌤️', 'Tap the scene to change your mood 🌤️')); }, 900);
+    }
+  }catch(e){}
+  // Phòng khách moves BELOW the four stat tiles (the wgrid) — appended after it
 
   /* ---- signals from the active user's + relatives' data ---- */
   var up = ord.filter(function(k){ return evs[k] && evs[k].d && !isMirrorK(k) && !achievedNow(evs[k]); })
@@ -4388,6 +4458,7 @@ function renderHome(){
   }
 
   html += '<div class="wgrid">' + tiles + '</div>';
+  if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions, now under the stat tiles
 
   /* ============ KHOẢNH KHẮC — the featured photo card + the memory strip ============ */
   var kh = '', centerRef = null;
@@ -9558,12 +9629,43 @@ function renderRxWall(){
   box.innerHTML=items.slice(0,12).map(function(it){ return rxCard(it,false); }).join('');
 }
 window.renderRxWall=renderRxWall;
+/* the home strip is a horizontal RAIL of light, member-colored cards — the big
+   reaction emoji, a thumbnail of WHAT was reacted to, and the family's faces.
+   No gray emoji tile, no chevron: that notification chrome was what made the
+   living room read like a system log instead of people hanging out. */
+function rxHomeCard(it){
+  var tx=it.tx, rs=it.rs, lead=it.lead;
+  var m=window.DB && window.DB.memberById && window.DB.memberById[lead.memberId];
+  var col=(m&&m.color)||'#8f8a99';                          // the speaker's colour rings the emoji + tints the card
+  var faces='', sm={}, nExtra=0;
+  rs.forEach(function(r){ if(!sm[r.memberId]){ sm[r.memberId]=1; if(Object.keys(sm).length<=3) faces+=_rxFace(r.memberId); else nExtra++; } });
+  if(nExtra>0) faces+='<span class="rx-more">+'+nExtra+'</span>';
+  var note=esc(tx.note||L('Khoản chi','Expense')), amt=(typeof fmt==='function')?fmt(tx.amt):tx.amt, when=rxAgo(lead.at);
+  var thumb=(tx.photos&&tx.photos[0])                       // #4: show the thing they reacted to
+    ? '<span class="rxh-photo" style="background-image:url('+escAttr(tx.photos[0])+')"></span>'
+    : '<span class="rxh-photo rxh-ph">'+esc(tx.ico||'🧾')+'</span>';
+  return '<button class="rxh-card" style="--rxc:'+col+'" onclick="rxJumpTo(\''+tx._dbId+'\')">'
+    +'<span class="rxh-thumb">'+thumb+'<span class="rxh-emoji">'+lead.emoji+'</span></span>'
+    +'<span class="rxh-msg">'+rxMessage(lead,tx)+'</span>'
+    +'<span class="rxh-tx">'+note+' · '+amt+'</span>'
+    +'<span class="rxh-foot"><span class="rx-faces">'+faces+'</span>'+(when?'<span class="rxh-when">'+when+'</span>':'')+'</span>'
+    +'</button>';
+}
 function rxHomeStripHTML(){
   var items=_rxWallItems(); if(!items.length) return '';
   var head=(typeof _sectionH==='function')?_sectionH(L('Phòng khách','The living room'),'go(&#39;spending&#39;)'):'';
-  return head+'<div class="rx-home">'+items.slice(0,3).map(function(it){ return rxCard(it,true); }).join('')+'</div>';
+  return head+'<div class="rx-home">'+items.slice(0,8).map(rxHomeCard).join('')+'</div>';
 }
 window.rxHomeStripHTML=rxHomeStripHTML;
+/* the newest reaction, only if it's fresh enough to feel like live chatter —
+   feeds the little speech bubble that drifts up from the pet/tree in the scene */
+function rxNewestForScene(){
+  var items=_rxWallItems(); if(!items.length) return null;
+  var it=items[0], lead=it.lead;
+  try{ if((Date.now()-new Date(lead.at).getTime())/3600000 >= 12) return null; }catch(e){}
+  return { emoji:lead.emoji, txDbId:it.tx._dbId };
+}
+window.rxNewestForScene=rxNewestForScene;
 function rxJumpTo(txDbId){ closeRxArrive(); var tx=rxTxByDbId(txDbId); if(tx && typeof openExpenseDetail==='function') openExpenseDetail(tx.id); }
 window.rxJumpTo=rxJumpTo;
 
@@ -11077,7 +11179,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v301';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v303';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
