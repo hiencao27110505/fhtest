@@ -225,6 +225,8 @@ function csvRenderUnlock(files, problems){
 
 var csvUnlockFiles = null;
 var csvSkipLocked = false;
+var csvInflowOpen = false;
+function csvToggleInflow(){ csvInflowOpen = !csvInflowOpen; renderCsvReview(); }
 
 function csvSkipLockedFiles(){
   var drop = {};
@@ -770,24 +772,27 @@ function renderCsvReview(){
       buttons: '<button type="button" class="btn-line" onclick="csvDupInclude('+di+')">'+L('Vẫn nhập','Import anyway')+'</button>'
              + '<button type="button" class="btn-text-quiet" onclick="csvDupSkip('+di+')">'+L('Bỏ qua','Skip')+'</button>' }));
   });
+  /* Money in doesn't get cards at all. The ledger records expenses only, so
+     there is no decision to put in front of anyone -- a stack of bordered
+     cards implied one. One quiet line says what was left out and expands to
+     show the rows; a mislabelled expense has its own way back in there. */
+  var inflow = [];
   r.deferred.forEach(function(c, di){
-    var why = c.isIncome ? L('Tiền vào, không nhập','Money in, not imported')
-      : c.flags.indexOf('date_missing')>=0 ? L('Thiếu ngày','Missing date')
+    if(c.isIncome){ inflow.push({ c:c, di:di }); return; }
+    var why = c.flags.indexOf('date_missing')>=0 ? L('Thiếu ngày','Missing date')
       : c.flags.indexOf('amount_missing')>=0 ? L('Thiếu số tiền','Missing amount')
       : L('Chờ bạn xác nhận','Waiting on you');
     var blocking = c.flags.indexOf('date_missing')>=0 || c.flags.indexOf('amount_missing')>=0;
-    var o = { label:why, dateIso:c.dateDisplay, invalid:blocking, attn:!blocking, noPick:!!c.isIncome,
+    var o = { label:why, dateIso:c.dateDisplay, invalid:blocking, attn:!blocking,
               tapFn:"csvToggleExpand('defer',"+di+")", removeFn:"csvDeferDrop("+di+")" };
     if(!csvIsOpen('defer', di)){
       if(blocking) attnHtml += csvCollapsedCard(c, o); else handledHtml += csvCollapsedCard(c, o);
       return;
     }
-    var card = csvActiveCard(c, Object.assign({}, o, { fields: !c.isIncome,
-      note: c.isIncome
-        ? esc(L('Khoản này là tiền vào (lương, hoàn tiền, chuyển đến) nên tụi mình không nhập vào chi tiêu. Bạn có thể bỏ khỏi danh sách.','This is money coming in (salary, refund, incoming transfer), so it isn\'t imported as spending. You can drop it from the list.'))
-        : (c.flags.indexOf('date_missing')<0 && c.flags.indexOf('amount_missing')<0)
+    var card = csvActiveCard(c, Object.assign({}, o, { fields: true,
+      note: (c.flags.indexOf('date_missing')<0 && c.flags.indexOf('amount_missing')<0)
         ? esc(L('Cột số tiền trong file này vừa có số dương vừa có số âm, nên tụi mình chưa rõ khoản nào là chi. Nếu đây là khoản chi, bấm Nhập khoản này.','This file\'s amount column mixes positive and negative numbers, so we can\'t tell which rows are spending. If this one is, tap Import this one.')) : null,
-      buttons: (c.isIncome ? '' : '<button type="button" class="btn-line" onclick="csvDeferConfirm('+di+')">'+L('Nhập khoản này','Import this one')+'</button>')
+      buttons: '<button type="button" class="btn-line" onclick="csvDeferConfirm('+di+')">'+L('Nhập khoản này','Import this one')+'</button>'
              + '<button type="button" class="btn-text-quiet" onclick="csvDeferDrop('+di+')">'+L('Bỏ khỏi danh sách','Remove from list')+'</button>' }));
     if(blocking) attnHtml += card; else handledHtml += card;
   });
@@ -810,7 +815,8 @@ function renderCsvReview(){
     return c.flags.indexOf('date_missing')>=0 || c.flags.indexOf('amount_missing')>=0;
   }).length;
   var decisionCount = r.groups.length + blockedCount;
-  var handledCount = unresolvedDup.length + (r.deferred.length - blockedCount);
+  var inflowCount = r.deferred.filter(function(c){ return c.isIncome; }).length;
+  var handledCount = unresolvedDup.length + (r.deferred.length - blockedCount - inflowCount);
 
   // Lead with the win, not the workload.
   var readyCount = r.ready.length;
@@ -830,6 +836,27 @@ function renderCsvReview(){
   if(handledHtml){
     html += '<div class="group-h">'+L('Tụi mình để riêng','Set aside')+' · '+handledCount+'</div>'
           + '<div class="csv-cards">'+handledHtml+'</div>';
+  }
+  if(inflow.length){
+    var inflowSum = inflow.reduce(function(t,e){ return t + csvBaseAmt(e.c.amount); }, 0);
+    html += '<div class="csv-inflow">'
+      + '<button type="button" class="csv-inflow-head" onclick="csvToggleInflow()">'
+        + '<span class="csv-inflow-txt"><span class="csv-inflow-t">'+esc(L('Tiền vào · '+inflow.length+' khoản','Money in · '+inflow.length))+'</span>'
+        + '<span class="csv-inflow-s">'+esc(L('Không nhập — tụi mình chỉ ghi khoản chi','Not imported — spending only'))+'</span></span>'
+        + '<span class="csv-inflow-amt">'+esc(fmt(inflowSum))+'</span>'
+        + '<span class="csv-inflow-chev">'+(csvInflowOpen?'▴':'▾')+'</span>'
+      + '</button>';
+    if(csvInflowOpen){
+      inflow.forEach(function(e){
+        html += '<div class="csv-inflow-row">'
+          + '<span class="csv-inflow-d">'+esc(e.c.dateDisplay ? fmtDayMon(e.c.date) : '')+'</span>'
+          + '<span class="csv-inflow-n">'+esc(e.c.description)+'</span>'
+          + '<span class="csv-inflow-a">'+esc(csvFmt(e.c.amount))+'</span>'
+          + '<button type="button" class="csv-linkbtn" onclick="csvDeferConfirm('+e.di+')">'+L('Là khoản chi','It\'s spending')+'</button>'
+        + '</div>';
+      });
+    }
+    html += '</div>';
   }
 
   /* Ready list, grouped by date (newest first) -- same cards, no red border. */
@@ -869,9 +896,10 @@ function renderCsvReview(){
       + (span ? '<div class="csv-check-sub">'+esc(span)+' · '+esc((r.sources&&r.sources.length>1)
         ? L('đọc '+r.parsed.rows.length+' dòng từ '+r.sources.length+' file','read '+r.parsed.rows.length+' rows from '+r.sources.length+' files')
         : L('đọc '+r.parsed.rows.length+' dòng từ file','read '+r.parsed.rows.length+' rows from the file'))+'</div>' : '')
-      + (decisionCount+skippedDup > 0
+      + (decisionCount+skippedDup+inflowCount > 0
           ? '<div class="csv-check-sub">'+esc(L('Không nhập: ','Not importing: '))
             + esc([ decisionCount ? decisionCount+' '+L('chưa quyết định','undecided') : null,
+                    inflowCount ? inflowCount+' '+L('tiền vào','money in') : null,
                     skippedDup ? skippedDup+' '+L('bỏ qua vì trùng','skipped as duplicates') : null ]
                   .filter(Boolean).join(' · '))+'</div>'
           : '')
@@ -957,8 +985,14 @@ function csvDupSkip(di){ csvReview.dup[di].resolved='skip'; csvExpand = null; re
    Incomplete rows stay put with the editor open rather than half-importing. */
 function csvDeferConfirm(di){
   var c = csvReview.deferred[di]; if(!c) return;
-  csvReadEditor(c);
+  // Only read the editor back when one is actually open for this row -- the
+  // inflow list confirms rows with no editor mounted, and reading absent
+  // fields onto the candidate would blank the very row being rescued.
+  if(csvIsOpen('defer', di)) csvReadEditor(c);
   if(!(c.amount > 0) || !c.date){ renderCsvReview(); return; }
+  // "Là khoản chi" is the person overruling the income call -- clear it.
+  c.isIncome = false;
+  var fi = c.flags.indexOf('income_row'); if(fi >= 0) c.flags.splice(fi, 1);
   csvReview.deferred.splice(di,1);
 
   var key = normDescForDedup(c.description)+'|'+c.amount;

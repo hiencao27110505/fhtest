@@ -178,14 +178,16 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .csv-files .dup-actions .btn-line{width:auto;margin:0;padding:9px 16px;font-size:14px;display:inline-flex;align-items:center;justify-content:center}
 .csv-linkbtn{background:none;border:0;padding:0;color:var(--brand-ink);font-weight:700;font-size:12.5px;text-decoration:underline}
 .csv-card-body{padding:6px 14px 14px}
-.csv-expand-note{font-size:13px;color:var(--amber);font-weight:600;line-height:1.5;margin-bottom:12px}
-/* "Cần bạn xem" reads as a call to action, not a neutral section label -- and
-   red stays for rows that genuinely can't be imported, so a decision or a
-   suggestion gets amber rather than reading as a list of failures. */
-.group-h.attn{color:var(--amber)}
+.csv-expand-note{font-size:13px;color:var(--ink-2);font-weight:500;line-height:1.5;margin-bottom:12px}
+/* Red stays for rows that genuinely can't be imported. Everything else --
+   guesses, duplicates, decisions -- reads in the neutral text colours: an
+   amber border per card turned a mostly-fine import into a wall of caution
+   tape, and a warning colour nobody acts on just teaches the eye to skip
+   warning colours. The LABEL says why a row is here; the border stays quiet. */
+.group-h.attn{color:var(--ink-2)}
 .bulk-card .bulk-idx.attn{color:var(--danger)}
-.bulk-card .bulk-idx.warn{color:var(--amber)}
-.bulk-card.attn{border-color:var(--amber);border-width:1.5px}
+.bulk-card .bulk-idx.warn{color:var(--muted)}
+.bulk-card.attn{border-color:var(--hairline)}
 /* Trust strip above Import: count + total + span + what's left out. */
 .csv-check{background:var(--canvas);border-radius:16px;padding:14px 16px;margin-top:14px}
 .csv-check-main{font-family:var(--disp);font-size:15.5px;font-weight:700;letter-spacing:-.2px;color:var(--ink)}
@@ -222,3 +224,16 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .csv-unlock-note{font-size:11.5px;line-height:1.5;color:var(--muted);margin-top:10px}
 .csv-unlock-skip{display:block;margin-top:12px}
 .notice-text.notice-tip{color:var(--muted);margin-top:8px}
+
+/* Money in — one quiet line, not a stack of cards. Expands to plain rows. */
+.csv-inflow{background:var(--canvas);border-radius:14px;padding:4px 0;margin-top:12px}
+.csv-inflow-head{display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:none;border:none;text-align:left;cursor:pointer}
+.csv-inflow-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.csv-inflow-t{font-size:13.5px;font-weight:600;color:var(--ink-2)}
+.csv-inflow-s{font-size:11.5px;color:var(--muted)}
+.csv-inflow-amt{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
+.csv-inflow-chev{color:var(--muted);font-size:11px}
+.csv-inflow-row{display:flex;align-items:baseline;gap:8px;padding:7px 14px;border-top:1px solid var(--divider);font-size:12.5px}
+.csv-inflow-d{color:var(--muted);flex:0 0 44px}
+.csv-inflow-n{flex:1;min-width:0;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csv-inflow-a{color:var(--muted);white-space:nowrap}
