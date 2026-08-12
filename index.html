@@ -11661,9 +11661,11 @@ function obAcctLine(){
     : '';
 }
 /* The default categories a brand-new family gets. MUST mirror
-   seed_default_categories() (0003) in the SAME ORDER — the server seeds these at
-   create_family, and the app renders from catOrder until the first hydrate lands
-   (catOrder starts empty otherwise). */
+   seed_default_categories() (latest: migration 0055) in the SAME ORDER, names,
+   emojis and colors — the server seeds these at create_family, the onboarding
+   budget step maps its per-category amounts back onto them by sort_order, and the
+   first hydrate replaces catOrder with the seeded rows. Drift here desyncs the
+   onboarding categories/budget from what Settings shows. */
 var DEFAULT_CATS=[
   {concept:'Housing',   vi:'Nhà ở',   en:'Housing',   emoji:'🏠', color:'#7E6BE0'},
   {concept:'Groceries', vi:'Đi chợ',  en:'Groceries', emoji:'🛒', color:'#1FA971'},
