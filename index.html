@@ -1122,6 +1122,17 @@ input{font-family:inherit}
 .tl-flag{width:13px;height:13px;flex-shrink:0;margin-left:auto;color:var(--brand)}
 .btn-line:active{transform:scale(.99)}
 /* spending revamp */
+/* First-run budget nudge — a compact CTA card at the top of the tab (above the
+   still-empty hero), brand-tinted so it reads as "do this first". Clears once a
+   monthly budget exists. Aligned to the .fin-hero 16px gutter. */
+.fin-setup-card{display:flex;align-items:center;gap:13px;text-align:left;background:var(--white);border:1px solid var(--brand-tint);border-radius:16px;padding:14px 15px;margin:2px 16px 12px;box-shadow:var(--shadow-card);font:inherit;cursor:pointer;transition:transform .16s cubic-bezier(.4,0,.2,1)}
+.fin-setup-card:active{transform:scale(.985)}
+.fin-setup-card .fsc-ic{width:40px;height:40px;flex-shrink:0;border-radius:12px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center}
+.fin-setup-card .fsc-ic svg{width:21px;height:21px}
+.fin-setup-card .fsc-txt{flex:1;min-width:0;display:flex;flex-direction:column}
+.fin-setup-card .fsc-t{font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.fin-setup-card .fsc-s{font-size:12.5px;line-height:1.35;color:var(--muted);margin-top:2px}
+.fin-setup-card .fsc-chev{width:20px;height:20px;flex-shrink:0;color:var(--chev)}
 /* Finance hero — one allocation ring reading spending vs saving at a glance ("the whole").
    Warm arcs = đã chi (gone), green = quỹ (kept); a notch marks the budget. */
 .fin-hero{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:14px 16px 6px;margin:2px 16px 12px}
@@ -2628,6 +2639,9 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     </div>
   </div>
 
+  <!-- first-run nudge: no monthly budget yet → set up categories + budget (renderBudget) -->
+  <div id="fin-setup"></div>
+
   <!-- future-expense proposals awaiting my OK (filled by renderReqMounts) -->
   <div id="fin-requests"></div>
 
@@ -3778,6 +3792,15 @@ window.esc=esc; window.escAttr=escAttr;
 function renderBudget(){
   syncFallbackBudget();                                  // catch-all always holds the unallocated remainder
   var m=M(), done=m.done, spent=m.spent, dim=m.dim, dom=m.dom, budget=m.budget;
+  // First-run nudge, top of the tab (above the still-empty hero): no monthly
+  // budget yet → set up categories + budget. Clears itself the moment one exists.
+  var _fs=document.getElementById('fin-setup');
+  if(_fs) _fs.innerHTML = (budget>0) ? '' :
+    '<button class="fin-setup-card" onclick="openSheet(&#39;sheet-budget&#39;)">'
+    + '<span class="fsc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></span>'
+    + '<span class="fsc-txt"><span class="fsc-t">'+L('Lập ngân sách cho cả nhà','Set up your budget')+'</span>'
+    + '<span class="fsc-s">'+L('Đặt hạn mức cho từng hạng mục để theo dõi chi tiêu','A limit per category to track your spending')+'</span></span>'
+    + '<svg class="fsc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg></button>';
   var reserved=done?0:monthReserved();                 // set-aside for events (unrealized)
   var pctSpent=budget>0?Math.min(100,spent/budget*100):0;
   var pctRes=budget>0?Math.max(0,Math.min(100-pctSpent, reserved/budget*100)):0;
@@ -4070,10 +4093,10 @@ function addCatRow(){                                       // new rows go above
   if(rows.length) rows[rows.length-1].focus();               // land the cursor in the new row
 }
 // best-practice weights (EN + seeded VI names); unknown categories default to 0.08, then normalised.
-// The five default categories (housing, groceries, transport, dining, fun) sum to 1.0 — Kids is no
-// longer a default, so its old 0.08 share is folded into the essentials (mostly housing/groceries).
-// kids/con cái are omitted here on purpose: if re-added by hand they take the 0.08 unknown-default.
-var CATW={housing:.35,'nhà ở':.35,rent:.35,groceries:.22,'đi chợ':.22,transport:.16,'đi lại':.16,dining:.15,'ăn ngoài':.15,fun:.12,'giải trí':.12,others:.08,shopping:.10,clothing:.06};
+// The six default categories (housing, groceries, transport, dining, shopping, fun) sum to 1.0.
+// "Others" is excluded from the split (the catch-all takes the remainder), so it carries no weight.
+// clothing is a hint for a hand-added category; kids/con cái omitted (take the 0.08 unknown-default).
+var CATW={housing:.32,'nhà ở':.32,rent:.32,groceries:.20,'đi chợ':.20,transport:.15,'đi lại':.15,dining:.13,'ăn ngoài':.13,shopping:.10,'mua sắm':.10,fun:.10,'giải trí':.10,clothing:.06};
 /* Auto-split fills in categories the user hasn't set themselves. It must never
    overwrite a hand-typed figure: editing the monthly total after tuning categories
    used to wipe that work on every keystroke, with no undo. A row is "touched" once
@@ -4482,6 +4505,17 @@ function qTile(o){      // {ic,chCls,label,act} — quick action, same tinted-ch
    app's own illustration language: a receipt + ₫ coin for logging spend, a polaroid
    of a tiny meadow + heart for saving a moment. */
 var _GS_ILL = {
+  budget: '<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
+    + '<rect width="200" height="120" fill="#eef1fc"/>'
+    + '<ellipse cx="100" cy="144" rx="150" ry="52" fill="#5E5CE6" opacity=".13"/>'
+    + '<rect x="58" y="66" width="17" height="30" rx="4.5" fill="#7E6BE0"/>'
+    + '<rect x="81" y="52" width="17" height="44" rx="4.5" fill="#1FA971"/>'
+    + '<rect x="104" y="60" width="17" height="36" rx="4.5" fill="#E14B8A"/>'
+    + '<rect x="127" y="44" width="17" height="52" rx="4.5" fill="#F0701A"/>'
+    + '<line x1="52" y1="97" x2="150" y2="97" stroke="#c9cff0" stroke-width="2.5" stroke-linecap="round"/>'
+    + '<circle cx="150" cy="40" r="16" fill="#F5C061" stroke="#E0951E" stroke-width="2.5"/>'
+    + '<text x="150" y="46" font-size="16" font-weight="800" text-anchor="middle" fill="#8A5A12" font-family="Arial,sans-serif">₫</text>'
+    + '</svg>',
   expense: '<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
     + '<rect width="200" height="120" fill="var(--brand-tint)"/>'
     + '<ellipse cx="100" cy="142" rx="150" ry="56" fill="var(--brand-2)" opacity=".30"/>'
@@ -4665,10 +4699,17 @@ function renderHome(){
   }
   var momentCard = gsCard({ ill: 'moment', title: L('Lưu khoảnh khắc', 'Add a moment'), sub: L('Tấm ảnh đầu tiên bắt đầu từ đây', 'Your first photo starts here'), act: 'openMomentModal()' });
   if(gettingStarted){
-    // Two illustrated prompts side by side, each opening its own modal — one for the
-    // first expense, one for the first moment. Replaces the old single blank-cover card.
-    html += _sectionH(L('Bắt đầu', 'Getting started'))
-      + '<div class="gs-grid">'
+    // The three first-run setup tasks. Budget comes first (it powers the finance
+    // view) as a full-width card, shown until a monthly budget exists; then the
+    // first-expense and first-moment pair, each opening its own modal.
+    var noBudget = !(typeof M === 'function' && M() && M().budget > 0);
+    html += _sectionH(L('Bắt đầu', 'Getting started'));
+    if(noBudget){
+      html += '<div class="gs-grid solo">'
+        + gsCard({ ill: 'budget', title: L('Lập ngân sách', 'Set up your budget'), sub: L('Đặt hạn mức cho từng hạng mục của cả nhà', 'Set spending limits for each category'), act: 'go(&#39;spending&#39;);openSheet(&#39;sheet-budget&#39;)' })
+        + '</div>';
+    }
+    html += '<div class="gs-grid">'
       + gsCard({ ill: 'expense', title: L('Ghi khoản chi', 'Log an expense'), sub: L('Khoản chi đầu tiên của cả nhà', 'Your family’s first spend'), act: 'go(&#39;spending&#39;);openExpense()' })
       + momentCard + '</div>';
   } else {
@@ -11550,7 +11591,8 @@ var DEFAULT_CATS=[
   {concept:'Groceries', vi:'Đi chợ',  en:'Groceries', emoji:'🛒', color:'#1FA971'},
   {concept:'Dining',    vi:'Ăn ngoài',en:'Dining',    emoji:'🍽️', color:'#E14B8A'},
   {concept:'Transport', vi:'Đi lại',  en:'Transport', emoji:'🚗', color:'#12B5A6'},
-  {concept:'Fun',       vi:'Giải trí',en:'Fun',       emoji:'🎉', color:'#9D4EFF'}
+  {concept:'Fun',       vi:'Giải trí',en:'Fun',       emoji:'🎉', color:'#9D4EFF'},
+  {concept:'Shopping',  vi:'Mua sắm', en:'Shopping',  emoji:'🛍️', color:'#E8843C'}
 ];
 // "Con cái"/Kids is intentionally NOT a default category — a family without kids
 // shouldn't start with an empty kids line, and those who want it can add it. Kids
@@ -11887,7 +11929,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v313';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v314';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

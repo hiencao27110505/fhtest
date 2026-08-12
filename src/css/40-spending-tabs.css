@@ -1,4 +1,15 @@
 /* spending revamp */
+/* First-run budget nudge — a compact CTA card at the top of the tab (above the
+   still-empty hero), brand-tinted so it reads as "do this first". Clears once a
+   monthly budget exists. Aligned to the .fin-hero 16px gutter. */
+.fin-setup-card{display:flex;align-items:center;gap:13px;text-align:left;background:var(--white);border:1px solid var(--brand-tint);border-radius:16px;padding:14px 15px;margin:2px 16px 12px;box-shadow:var(--shadow-card);font:inherit;cursor:pointer;transition:transform .16s cubic-bezier(.4,0,.2,1)}
+.fin-setup-card:active{transform:scale(.985)}
+.fin-setup-card .fsc-ic{width:40px;height:40px;flex-shrink:0;border-radius:12px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center}
+.fin-setup-card .fsc-ic svg{width:21px;height:21px}
+.fin-setup-card .fsc-txt{flex:1;min-width:0;display:flex;flex-direction:column}
+.fin-setup-card .fsc-t{font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.fin-setup-card .fsc-s{font-size:12.5px;line-height:1.35;color:var(--muted);margin-top:2px}
+.fin-setup-card .fsc-chev{width:20px;height:20px;flex-shrink:0;color:var(--chev)}
 /* Finance hero — one allocation ring reading spending vs saving at a glance ("the whole").
    Warm arcs = đã chi (gone), green = quỹ (kept); a notch marks the budget. */
 .fin-hero{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:14px 16px 6px;margin:2px 16px 12px}

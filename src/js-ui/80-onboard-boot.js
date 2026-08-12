@@ -88,7 +88,8 @@ var DEFAULT_CATS=[
   {concept:'Groceries', vi:'Đi chợ',  en:'Groceries', emoji:'🛒', color:'#1FA971'},
   {concept:'Dining',    vi:'Ăn ngoài',en:'Dining',    emoji:'🍽️', color:'#E14B8A'},
   {concept:'Transport', vi:'Đi lại',  en:'Transport', emoji:'🚗', color:'#12B5A6'},
-  {concept:'Fun',       vi:'Giải trí',en:'Fun',       emoji:'🎉', color:'#9D4EFF'}
+  {concept:'Fun',       vi:'Giải trí',en:'Fun',       emoji:'🎉', color:'#9D4EFF'},
+  {concept:'Shopping',  vi:'Mua sắm', en:'Shopping',  emoji:'🛍️', color:'#E8843C'}
 ];
 // "Con cái"/Kids is intentionally NOT a default category — a family without kids
 // shouldn't start with an empty kids line, and those who want it can add it. Kids

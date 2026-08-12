@@ -331,6 +331,17 @@ function qTile(o){      // {ic,chCls,label,act} — quick action, same tinted-ch
    app's own illustration language: a receipt + ₫ coin for logging spend, a polaroid
    of a tiny meadow + heart for saving a moment. */
 var _GS_ILL = {
+  budget: '<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
+    + '<rect width="200" height="120" fill="#eef1fc"/>'
+    + '<ellipse cx="100" cy="144" rx="150" ry="52" fill="#5E5CE6" opacity=".13"/>'
+    + '<rect x="58" y="66" width="17" height="30" rx="4.5" fill="#7E6BE0"/>'
+    + '<rect x="81" y="52" width="17" height="44" rx="4.5" fill="#1FA971"/>'
+    + '<rect x="104" y="60" width="17" height="36" rx="4.5" fill="#E14B8A"/>'
+    + '<rect x="127" y="44" width="17" height="52" rx="4.5" fill="#F0701A"/>'
+    + '<line x1="52" y1="97" x2="150" y2="97" stroke="#c9cff0" stroke-width="2.5" stroke-linecap="round"/>'
+    + '<circle cx="150" cy="40" r="16" fill="#F5C061" stroke="#E0951E" stroke-width="2.5"/>'
+    + '<text x="150" y="46" font-size="16" font-weight="800" text-anchor="middle" fill="#8A5A12" font-family="Arial,sans-serif">₫</text>'
+    + '</svg>',
   expense: '<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
     + '<rect width="200" height="120" fill="var(--brand-tint)"/>'
     + '<ellipse cx="100" cy="142" rx="150" ry="56" fill="var(--brand-2)" opacity=".30"/>'
@@ -514,10 +525,17 @@ function renderHome(){
   }
   var momentCard = gsCard({ ill: 'moment', title: L('Lưu khoảnh khắc', 'Add a moment'), sub: L('Tấm ảnh đầu tiên bắt đầu từ đây', 'Your first photo starts here'), act: 'openMomentModal()' });
   if(gettingStarted){
-    // Two illustrated prompts side by side, each opening its own modal — one for the
-    // first expense, one for the first moment. Replaces the old single blank-cover card.
-    html += _sectionH(L('Bắt đầu', 'Getting started'))
-      + '<div class="gs-grid">'
+    // The three first-run setup tasks. Budget comes first (it powers the finance
+    // view) as a full-width card, shown until a monthly budget exists; then the
+    // first-expense and first-moment pair, each opening its own modal.
+    var noBudget = !(typeof M === 'function' && M() && M().budget > 0);
+    html += _sectionH(L('Bắt đầu', 'Getting started'));
+    if(noBudget){
+      html += '<div class="gs-grid solo">'
+        + gsCard({ ill: 'budget', title: L('Lập ngân sách', 'Set up your budget'), sub: L('Đặt hạn mức cho từng hạng mục của cả nhà', 'Set spending limits for each category'), act: 'go(&#39;spending&#39;);openSheet(&#39;sheet-budget&#39;)' })
+        + '</div>';
+    }
+    html += '<div class="gs-grid">'
       + gsCard({ ill: 'expense', title: L('Ghi khoản chi', 'Log an expense'), sub: L('Khoản chi đầu tiên của cả nhà', 'Your family’s first spend'), act: 'go(&#39;spending&#39;);openExpense()' })
       + momentCard + '</div>';
   } else {

@@ -2,6 +2,15 @@
 function renderBudget(){
   syncFallbackBudget();                                  // catch-all always holds the unallocated remainder
   var m=M(), done=m.done, spent=m.spent, dim=m.dim, dom=m.dom, budget=m.budget;
+  // First-run nudge, top of the tab (above the still-empty hero): no monthly
+  // budget yet → set up categories + budget. Clears itself the moment one exists.
+  var _fs=document.getElementById('fin-setup');
+  if(_fs) _fs.innerHTML = (budget>0) ? '' :
+    '<button class="fin-setup-card" onclick="openSheet(&#39;sheet-budget&#39;)">'
+    + '<span class="fsc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></span>'
+    + '<span class="fsc-txt"><span class="fsc-t">'+L('Lập ngân sách cho cả nhà','Set up your budget')+'</span>'
+    + '<span class="fsc-s">'+L('Đặt hạn mức cho từng hạng mục để theo dõi chi tiêu','A limit per category to track your spending')+'</span></span>'
+    + '<svg class="fsc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg></button>';
   var reserved=done?0:monthReserved();                 // set-aside for events (unrealized)
   var pctSpent=budget>0?Math.min(100,spent/budget*100):0;
   var pctRes=budget>0?Math.max(0,Math.min(100-pctSpent, reserved/budget*100)):0;
@@ -294,10 +303,10 @@ function addCatRow(){                                       // new rows go above
   if(rows.length) rows[rows.length-1].focus();               // land the cursor in the new row
 }
 // best-practice weights (EN + seeded VI names); unknown categories default to 0.08, then normalised.
-// The five default categories (housing, groceries, transport, dining, fun) sum to 1.0 — Kids is no
-// longer a default, so its old 0.08 share is folded into the essentials (mostly housing/groceries).
-// kids/con cái are omitted here on purpose: if re-added by hand they take the 0.08 unknown-default.
-var CATW={housing:.35,'nhà ở':.35,rent:.35,groceries:.22,'đi chợ':.22,transport:.16,'đi lại':.16,dining:.15,'ăn ngoài':.15,fun:.12,'giải trí':.12,others:.08,shopping:.10,clothing:.06};
+// The six default categories (housing, groceries, transport, dining, shopping, fun) sum to 1.0.
+// "Others" is excluded from the split (the catch-all takes the remainder), so it carries no weight.
+// clothing is a hint for a hand-added category; kids/con cái omitted (take the 0.08 unknown-default).
+var CATW={housing:.32,'nhà ở':.32,rent:.32,groceries:.20,'đi chợ':.20,transport:.15,'đi lại':.15,dining:.13,'ăn ngoài':.13,shopping:.10,'mua sắm':.10,fun:.10,'giải trí':.10,clothing:.06};
 /* Auto-split fills in categories the user hasn't set themselves. It must never
    overwrite a hand-typed figure: editing the monthly total after tuning categories
    used to wipe that work on every keystroke, with no undo. A row is "touched" once
