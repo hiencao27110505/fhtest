@@ -1833,8 +1833,11 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
    warning colours. The LABEL says why a row is here; the border stays quiet. */
 .group-h.attn{color:var(--ink-2)}
 .bulk-card .bulk-idx.attn{color:var(--danger)}
-.bulk-card .bulk-idx.warn{color:var(--muted)}
-.bulk-card.attn{border-color:var(--hairline)}
+.bulk-card .bulk-idx.warn{color:var(--ink-2)}
+/* Parked cards (duplicates, decisions) sit on the recessed canvas tone while
+   ready rows keep the white card -- the surface says "not going in yet"
+   without borrowing a warning colour for it. Editing (.active) still wins. */
+.bulk-card.attn:not(.active){background:var(--canvas);border-color:transparent}
 /* Trust strip above Import: count + total + span + what's left out. */
 .csv-check{background:var(--canvas);border-radius:16px;padding:14px 16px;margin-top:14px}
 .csv-check-main{font-family:var(--disp);font-size:15.5px;font-weight:700;letter-spacing:-.2px;color:var(--ink)}
@@ -1866,7 +1869,7 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .csv-unlock-sub{font-size:12.5px;color:var(--muted);margin-top:2px;word-break:break-all}
 .csv-pw{width:100%;margin-top:12px;padding:12px 13px;font-size:16px;border:1.5px solid var(--hairline);border-radius:12px;background:var(--canvas);color:var(--ink)}
 .csv-pw:focus{outline:none;border-color:var(--brand);background:var(--white)}
-.csv-unlock-go{width:100%;margin-top:10px}
+.csv-unlock-go{width:100%;margin:10px 0 0}
 .csv-unlock-err{font-size:12.5px;color:var(--danger);font-weight:600;margin-top:8px}
 .csv-unlock-note{font-size:11.5px;line-height:1.5;color:var(--muted);margin-top:10px}
 .csv-unlock-skip{display:block;margin-top:12px}
