@@ -187,11 +187,16 @@ Small uppercase pills: `--brand-tint`/`--brand-ink` (info, "future"), `--good-ti
 
 ### Onboarding (curated 2-step)
 Intro (meadow-scene SVG hero in the app's flat nature style + two promises: private / effortless +
-Google sign-in) → "Your family" (pending invite block if `find_my_invite` returns one, or name a new
-home) → straight to Home. No progress bar — two steps don't need one. Locale is device-detected
-(`vi` → VND, else USD); budget, members and theme are set later, in the app. Screen content enters
-with a soft 70ms stagger (`.st`, `--i`); screens cross-fade instead of sliding under
-`prefers-reduced-motion`.
+Google sign-in) → "Your family" → straight to Home. No progress bar — two steps don't need one.
+Locale is device-detected (`vi` → VND, else legacy USD render); budget, members and theme are set
+later, in the app. Screen content enters with a soft 70ms stagger (`.st`, `--i`); screens cross-fade
+instead of sliding under `prefers-reduced-motion`.
+
+"Your family" (rendered by `obRenderStart`, 65-passcode-ui) keeps **one primary CTA at all times**.
+`find_my_invites()` returns every pending invite: with ≥1 it shows a selectable radio-list of invite
+cards (the 6-digit code unfolds under the picked passcode-invite), "create a new family" demoted to a
+ghost button, footer CTA reads **Join**; switching to "start a new family" shows a name field with the
+footer CTA reading **Create**. Never two filled primaries competing.
 
 ### Toast (`.toast`)
 Dark pill, bottom-center, check icon, auto-dismiss ~2.4s. For lightweight confirmations.

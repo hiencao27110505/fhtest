@@ -321,8 +321,19 @@
     const uid = session.user.id;
     const F = window.FAM || { user: {} };
     if (F.joinFamilyId && F.user) {
-      await _w(sb.from('members').update({ name: F.user.name, color: F.user.color })
-        .eq('family_id', F.joinFamilyId).eq('user_id', uid), 'write members');
+      /* members.name is encrypted for an encrypted family — writing plaintext there
+         trips the 0033 enc-text guard (enc_required). color is never encrypted, so
+         it always rides along. The name:
+           • non-enc family  → plaintext, as before;
+           • enc + key ready (passcode join) → fhField gives {name:null, name_enc};
+           • enc + no key (card join, key comes later) → skip it. The RPC already
+             seeded a name, and the joiner can set theirs in Settings → My profile
+             once the card unlocks the family. */
+      const enc = !!(F.joinEncState && F.joinEncState !== 'off');
+      const row = { color: F.user.color };
+      if (!enc) row.name = F.user.name;
+      else if (window.fhKeyReady && window.fhKeyReady() && window.fhField) Object.assign(row, await window.fhField('name', F.user.name));
+      await _w(sb.from('members').update(row).eq('family_id', F.joinFamilyId).eq('user_id', uid), 'write members');
     }
     await _w(sb.from('profiles').update({
       display_name: F.user.name, theme: (window.curTheme || 'sage'), language: window.LANG || 'vi'
@@ -331,9 +342,9 @@
 
   const _origFinish = window.finishOnboarding;
   window.finishOnboarding = async function () {
-    // The busy state lands on whichever CTA the user just tapped: Join (invite
-    // path) or Create (new-family path) — the done screen is gone (0050).
-    const btn = document.getElementById((window.FAM && window.FAM.mode === 'join') ? 'ob-join-cta' : 'ob-create-cta');
+    // One primary CTA drives both paths now (Join in invite mode, Create in create
+    // mode) — #ob-primary-cta. The done screen is gone (0050).
+    const btn = document.getElementById('ob-primary-cta');
     const label = btn ? btn.textContent : '';
     const busy = (on) => { if (btn) { btn.disabled = on; btn.style.opacity = on ? '.7' : ''; btn.textContent = on ? L('Đang thiết lập…','Setting up…') : label; } };
     try {

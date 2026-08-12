@@ -68,51 +68,109 @@
     if (window.DB && window.DB.enc && window.DB.enc.enc_state !== 'off' && !fhKeyReady()) { if (window.fhLockWall) window.fhLockWall({ auto: true }); }
   };
 
-  // ── Joiner: prep the "Your family" screen from the pending invite for this email ──
-  // The invite (if any) and the create-a-family form share one screen now: the
-  // invite block appears above the name field with an "or start your own" divider.
+  // ── Joiner: the "Your family" screen — every pending invite for this email
+  //    (0-3+), plus a create path. Rendered by obRenderStart(); the footer holds
+  //    exactly ONE primary CTA (Join in invite mode, Create in create mode). ──
   const _obTreeMark = '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="var(--brand-tint)"/><ellipse cx="32" cy="50" rx="14" ry="2.4" fill="var(--gshadow)"/><rect x="29.2" y="34" width="5.6" height="15" rx="2.8" fill="var(--wood)"/><circle cx="32" cy="24" r="11.5" fill="var(--brand-2)"/><circle cx="23" cy="31" r="7" fill="var(--brand-2)"/><circle cx="41.5" cy="30" r="8" fill="var(--brand-2)"/><path d="M23 34 A13 13 0 0 0 41 33.5" fill="none" stroke="rgba(26,90,60,.10)" stroke-width="3" stroke-linecap="round"/></svg>';
+  const _obCheck = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>';
+  let _obInvites = [], _obMode = 'create', _obSel = 0, _obEmail = '', _obChecking = false;
+  const _g = (id) => document.getElementById(id);
+
+  function _obInviteCard(inv, i, on) {
+    const by = _esc(inv.invited_by || L('chủ gia đình', 'the owner'));
+    const sub = L('Mời bởi ' + by, 'Invited by ' + by);   // passcode vs card is conveyed by the code row that unfolds under the picked one
+    return '<button type="button" class="ob-invcard' + (on ? ' on' : '') + '" role="radio" aria-checked="' + (on ? 'true' : 'false') + '" onclick="obSelInvite(' + i + ')">'
+      + '<span class="ob-preview-ic">' + _obTreeMark + '</span>'
+      + '<span class="ob-invcard-txt"><span class="ob-preview-fam">' + _esc(inv.family_name || 'Family') + '</span>'
+      + '<span class="ob-preview-sub">' + sub + '</span></span>'
+      + '<span class="ob-invcard-tick">' + _obCheck + '</span></button>';
+  }
+  function _obCodeBlock() {
+    const lbl = _escAttr(L('Mã gia đình 6 số', '6-digit family passcode'));
+    return '<div class="ob-code-wrap" id="ob-code-wrap">'
+      + '<div class="ob-code-boxes" id="ob-code-boxes" role="group" aria-label="' + lbl + '"></div>'
+      + '<input class="ob-code" id="ob-code" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" oninput="obCodeInput(this)" aria-label="' + lbl + '"></div>';
+  }
+  // Paint the body + primary CTA for the current mode. Idempotent — called on
+  // entry, on invite selection, and on the create/invite toggle.
+  window.obRenderStart = function () {
+    const body = _g('ob-start-body'), sub = _g('ob-start-sub'), cta = _g('ob-primary-cta'), hint = _g('ob-join-hint');
+    if (!body || !cta) return;
+    if (_obMode === 'create') {
+      if (sub) sub.textContent = _obInvites.length
+        ? L('Đặt tên cho tổ ấm mới của bạn.', 'Name your new home.')
+        : L('Đặt tên cho tổ ấm của mình để bắt đầu.', 'Name your home and you’re in.');
+      body.innerHTML =
+        '<div class="field"><label>' + L('Tên gia đình', 'Family name') + '</label>'
+        + '<input id="ob-famname" placeholder="' + _escAttr(L('vd. Nhà mình', 'e.g. The Reeds')) + '" maxlength="40" enterkeyhint="done" autocomplete="off"></div>'
+        + (_obInvites.length ? '<button type="button" class="ob-linkback" onclick="obShowInvites()">' + L('Quay lại lời mời', 'Back to your invites') + '</button>' : '');
+      cta.textContent = L('Tạo gia đình', 'Create family');
+      if (hint) {
+        if (_obChecking) hint.textContent = L('Đang tìm lời mời cho bạn…', 'Checking for an invite…');
+        else if (_obInvites.length) hint.textContent = '';
+        else hint.innerHTML = L(
+          'Được người thân mời? Nhờ họ thêm đúng email <b>' + _esc(_obEmail) + '</b> vào danh sách mời (Cài đặt → Mời thành viên), lời mời sẽ hiện ở đây. ',
+          'Expecting an invite? Ask them to add exactly <b>' + _esc(_obEmail) + '</b> to the invite list (Settings → Invite a member) and it shows up here. ')
+          + '<button class="ob-hint-link" onclick="obJoinPrep()">' + L('Kiểm tra lại', 'Check again') + '</button>';
+      }
+    } else {
+      const sel = _obInvites[_obSel] || {};
+      if (sub) sub.textContent = _obInvites.length > 1
+        ? L('Chọn gia đình để tham gia, hoặc tạo tổ ấm riêng.', 'Pick a family to join, or start your own.')
+        : L('Tham gia gia đình đang mời bạn, hoặc tạo tổ ấm riêng.', 'Join the family that invited you, or start your own.');
+      // the 6-digit code row unfolds directly beneath the PICKED passcode invite,
+      // so with several invites it's never ambiguous which family it belongs to
+      const list = _obInvites.map(function (inv, i) {
+        return _obInviteCard(inv, i, i === _obSel) + (i === _obSel && !inv.card_only ? _obCodeBlock() : '');
+      }).join('');
+      body.innerHTML =
+        '<div class="ob-lab">' + (_obInvites.length > 1 ? L('Lời mời cho bạn', 'Your invites') : L('Lời mời cho bạn', 'Your invite')) + '</div>'
+        + '<div id="ob-invite-list" role="radiogroup">' + list + '</div>'
+        + '<div class="ob-or"><span>' + L('hoặc', 'or') + '</span></div>'
+        + '<button type="button" class="ob-ghost-btn" onclick="obShowCreate()">' + L('Tạo gia đình mới', 'Create a new family') + '</button>';
+      cta.textContent = L('Tham gia', 'Join family');
+      if (hint) hint.textContent = (!sel.card_only && sel.passcode_set === false)
+        ? L('Gia đình này chưa đặt mã. Nhờ chủ gia đình đặt mã trước.', 'This family has no passcode yet. Ask the owner to set one first.')
+        : '';
+      if (!sel.card_only) { if (window.renderCodeBoxes) window.renderCodeBoxes(''); setTimeout(function () { const c = _g('ob-code'); if (c) c.focus(); }, 80); }
+    }
+    const back = _g('ob-start-back'); if (back) back.style.visibility = window.__obFromPicker ? 'visible' : 'hidden';
+  };
+
+  window.obSelInvite = function (i) {
+    if (i < 0 || i >= _obInvites.length) return;
+    _obSel = i; _fhJoinCtx = _obInvites[i] || null;
+    if (window.obBuzz) window.obBuzz(6);
+    window.obRenderStart();
+  };
+  window.obShowCreate = function () { _obMode = 'create'; window.obRenderStart(); setTimeout(function () { const f = _g('ob-famname'); if (f) f.focus(); }, 80); };
+  window.obShowInvites = function () { if (!_obInvites.length) return; _obMode = 'invite'; window.obRenderStart(); };
+  // The single footer CTA dispatches by mode.
+  window.obPrimary = function () { if (_obMode === 'create') { if (window.obCreateFamily) window.obCreateFamily(); } else { window.obJoin(); } };
+
   window.obJoinPrep = async function () {
-    const block = document.getElementById('ob-invite'), pv = document.getElementById('ob-join-preview');
-    const hint = document.getElementById('ob-join-hint'), sub = document.getElementById('ob-start-sub');
-    _fhJoinCtx = null;
-    if (block) block.style.display = 'none';
-    if (sub) sub.textContent = L('Đặt tên cho tổ ấm của mình để bắt đầu.', 'Name your home and you’re in.');
-    if (hint) hint.textContent = L('Đang tìm lời mời cho bạn…', 'Checking for an invite…');
-    let sessEmail = '';
-    try { const s = (await sb.auth.getSession()).data.session; sessEmail = (s && s.user && s.user.email) || ''; } catch (e) {}
-    let inv = null;
-    try { inv = await _rpc('find_my_invite'); }
-    catch (e) {   // a transient lookup failure must not be terminal — offer the same retry as the no-invite state
-      if (hint) hint.innerHTML = _esc(_friendly(e)) + ' <button class="ob-hint-link" onclick="obJoinPrep()">' + L('Thử lại', 'Try again') + '</button>';
-      return;
+    const hint = _g('ob-join-hint');
+    _obChecking = true;
+    if (_obMode !== 'invite') _obMode = 'create';     // paint something immediately (no blank flash) while the lookup runs
+    window.obRenderStart();
+    try { const s = (await sb.auth.getSession()).data.session; _obEmail = (s && s.user && s.user.email) || ''; } catch (e) {}
+    let invs = null;
+    try { invs = await _rpc('find_my_invites'); }
+    catch (e) {
+      // plural RPC not on this DB yet (older deploy) → fall back to the singular one
+      try { const one = await _rpc('find_my_invite'); invs = one ? [one] : []; }
+      catch (e2) {
+        _obChecking = false; _obInvites = []; _obMode = 'create'; window.obRenderStart();
+        if (hint) hint.innerHTML = _esc(_friendly(e2)) + ' <button class="ob-hint-link" onclick="obJoinPrep()">' + L('Thử lại', 'Try again') + '</button>';
+        return;
+      }
     }
-    if (!inv) {
-      if (hint) hint.innerHTML = L(
-        'Được người thân mời? Nhờ họ thêm đúng email <b>' + _esc(sessEmail) + '</b> vào danh sách mời (Cài đặt → Mời thành viên), lời mời sẽ hiện ở đây. ',
-        'Expecting an invite? Ask them to add exactly <b>' + _esc(sessEmail) + '</b> to the invite list (Settings → Invite a member) and it shows up here. ')
-        + '<button class="ob-hint-link" onclick="obJoinPrep()">' + L('Kiểm tra lại', 'Check again') + '</button>';
-      return;
-    }
-    _fhJoinCtx = inv;
-    if (hint) hint.textContent = '';
-    if (sub) sub.textContent = L('Có người đang đợi bạn. Tham gia ngay, hoặc tạo tổ ấm riêng.', 'Someone is waiting for you. Join them, or start your own.');
-    // Card family: no code to enter — hide the code boxes; the door is just the
-    // whitelist + Google SSO, and the card unlocks the data after joining.
-    const codeWrap = document.getElementById('ob-code-wrap');
-    if (codeWrap) codeWrap.style.display = inv.card_only ? 'none' : '';
-    if (pv) {
-      const psub = inv.card_only
-        ? L(_esc(inv.invited_by) + ' mời bạn · bấm tham gia, nhập mã khóa sau', 'invited by ' + _esc(inv.invited_by) + ' · tap join, enter the code after')
-        : L(_esc(inv.invited_by) + ' mời bạn · nhập mã 6 số của gia đình', 'invited by ' + _esc(inv.invited_by) + ' · enter the family’s 6-digit code');
-      pv.innerHTML = '<div class="ob-preview-ic">' + _obTreeMark + '</div><div><div class="ob-preview-fam">' + _esc(inv.family_name || 'Family') + '</div>'
-        + '<div class="ob-preview-sub">' + psub + '</div></div>';
-    }
-    if (!inv.card_only && typeof window.renderCodeBoxes === 'function') window.renderCodeBoxes((document.getElementById('ob-code') || {}).value || '');
-    if (block) block.style.display = '';
-    if (!inv.passcode_set && !inv.card_only && hint) {
-      hint.textContent = L('Gia đình này chưa đặt mã. Nhờ chủ gia đình đặt mã trước.', 'This family has no passcode yet. Ask the owner to set one first.');
-    }
+    _obChecking = false;
+    _obInvites = Array.isArray(invs) ? invs : (invs ? [invs] : []);
+    _obSel = 0;
+    _obMode = _obInvites.length ? 'invite' : 'create';
+    _fhJoinCtx = _obInvites.length ? _obInvites[0] : null;
+    window.obRenderStart();
   };
 
   // digits-only passcode entry (replaces the 6-char alphanumeric mock)
@@ -122,10 +180,22 @@
     if (typeof window.fhClearInvalid === 'function') window.fhClearInvalid('ob-code-boxes');   // Join stays enabled; obJoin() gates on tap (DESIGN §4.4)
   };
 
+  // A stale JWT (its user/profile was deleted server-side, e.g. after a test-user
+  // reset, but the browser kept the session) surfaces as an auth/foreign-key error
+  // no message-mapping can "fix" — the only cure is to sign out and back in. Detect
+  // it and recover instead of showing the opaque "something went wrong".
+  function _obStaleSession(raw) {
+    return /members_user_id_fkey|violates foreign key|not authenticated|profiles?_id_fkey|invalid claim|jwt|stale_session|user.*not.*found/i.test(raw || '');
+  }
+  function _obRecoverStale() {
+    window.toast && window.toast(L('Phiên đăng nhập không còn hợp lệ. Đang đưa bạn về đăng nhập lại…', 'Your sign-in is no longer valid. Taking you back to sign in…'));
+    setTimeout(function () { if (window.fhSignOut) window.fhSignOut(); }, 1700);
+  }
+
   // Joiner identity comes from the Google account (the profile step was retired):
   // seed the single "you" member with the Google name + auto color, then finish —
-  // finishOnboarding runs joinFinalizeDB and lands on Home. The budget and theme
-  // steps are gone; Settings owns both now.
+  // finishOnboarding runs joinFinalizeDB and lands on Home. Budget and theme are
+  // Settings' job now.
   function _obJoinFinish() {
     if (window.obEnsureUserIdentity) window.obEnsureUserIdentity();
     const u = (window.FAM && window.FAM.user) || {};
@@ -135,42 +205,42 @@
 
   window.obJoin = async function () {
     if (!_fhJoinCtx) { try { await window.obJoinPrep(); } catch (e) {} }
+    const cta = _g('ob-primary-cta'), hint = _g('ob-join-hint');
+    const label = cta ? cta.textContent : '';
+    const busy = (on) => { if (cta) { cta.disabled = on; cta.textContent = on ? L('Đang tham gia…', 'Joining…') : label; } };
     // ── Card family: no code. Whitelist + Google SSO is the door; the card
     //    (to read data) comes separately and unlocks after joining. ──
     if (_fhJoinCtx && _fhJoinCtx.card_only) {
-      const cta0 = document.getElementById('ob-join-cta'); const label0 = cta0 ? cta0.textContent : '';
-      const hint0 = document.getElementById('ob-join-hint');
-      if (cta0) { cta0.disabled = true; cta0.textContent = L('Đang tham gia…', 'Joining…'); }
+      busy(true);
       try {
         const data = await _rpc('join_with_whitelist', { p_family_id: _fhJoinCtx.family_id });
         if (window.DB) { window.DB.fid = data.family_id; window.DB.enc = null; window.DB.keyWraps = []; }
-        if (window.FAM) { window.FAM.mode = 'join'; window.FAM.joinFamilyId = data.family_id; window.FAM.familyName = data.family_name || ''; }
+        if (window.FAM) { window.FAM.mode = 'join'; window.FAM.joinFamilyId = data.family_id; window.FAM.familyName = data.family_name || ''; window.FAM.joinEncState = data.enc_state || 'off'; }
       } catch (e) {
-        const raw = String((e && e.message) || ''); let msg;
+        const raw = String((e && e.message) || '');
+        if (_obStaleSession(raw)) { busy(false); _obRecoverStale(); return; }
+        let msg;
         if (/not_whitelisted|no rows/i.test(raw)) msg = null;
         else if (/invite_expired/i.test(raw)) msg = L('Lời mời đã hết hạn. Nhờ chủ gia đình mời lại.', 'The invite expired. Ask the owner to re-add you.');
         else if (/passcode_required/i.test(raw)) msg = L('Gia đình này dùng mã 6 số. Nhập mã để vào nhé.', 'This family uses a 6-digit code. Enter it to join.');
         else msg = _friendly(e);
-        if (msg) { window.toast && window.toast(msg); if (hint0) hint0.textContent = msg; } else await window.obJoinPrep();
-        if (cta0) { cta0.disabled = false; cta0.textContent = label0; }
+        if (msg) { window.toast && window.toast(msg); if (hint) hint.textContent = msg; } else await window.obJoinPrep();
+        busy(false);
         return;
       }
-      if (cta0) { cta0.disabled = false; cta0.textContent = label0; }
+      busy(false);
       _obJoinFinish();
       return;
     }
-    const el = document.getElementById('ob-code');
+    const el = _g('ob-code');
     const code = (el ? el.value : '').trim();
     if (!/^\d{6}$/.test(code)) {
-      if (typeof window.fhFlagField === 'function') window.fhFlagField(document.getElementById('ob-code-boxes'));
+      if (typeof window.fhFlagField === 'function') window.fhFlagField(_g('ob-code-boxes'));
       if (el) el.focus();
       window.toast && window.toast(L('Nhập đủ 6 chữ số', 'Enter all 6 digits'));
       return;
     }
-    const hint = document.getElementById('ob-join-hint');
-    const cta = document.getElementById('ob-join-cta');
-    const label = cta ? cta.textContent : '';
-    if (cta) { cta.disabled = true; cta.textContent = L('Đang kiểm tra…', 'Checking…'); }
+    busy(true);
     try {
       if (!_fhJoinCtx) await window.obJoinPrep();
       if (!_fhJoinCtx) throw new Error('not_whitelisted');
@@ -184,9 +254,10 @@
         window.DB.fid = data.family_id;
         window.DB.enc = { enc_state: data.enc_state, kdf_salt: data.kdf_salt, kdf_iters: data.kdf_iters, kdf_version: data.kdf_version, wrapped_dek: data.wrapped_dek };
       }
-      if (window.FAM) { window.FAM.mode = 'join'; window.FAM.joinFamilyId = data.family_id; window.FAM.familyName = data.family_name || ''; }
+      if (window.FAM) { window.FAM.mode = 'join'; window.FAM.joinFamilyId = data.family_id; window.FAM.familyName = data.family_name || ''; window.FAM.joinEncState = data.enc_state || 'off'; }
     } catch (e) {
       const raw = String((e && e.message) || '');
+      if (_obStaleSession(raw)) { busy(false); _obRecoverStale(); return; }
       let msg;
       if (/not_whitelisted|no rows/i.test(raw)) msg = null;                       // hint already explains, refresh it
       else if (/wrong_passcode/i.test(raw)) msg = L('Mã không đúng. Kiểm tra với chủ gia đình nhé.', 'That code isn’t right. Double-check with the owner.');
@@ -196,10 +267,10 @@
       else msg = _friendly(e);
       if (msg) { window.toast && window.toast(msg); if (hint) hint.textContent = msg; }
       else await window.obJoinPrep();
-      if (cta) { cta.disabled = false; cta.textContent = label; }
+      busy(false);
       return;
     }
-    if (cta) { cta.disabled = false; cta.textContent = label; }
+    busy(false);
     _obJoinFinish();
   };
 

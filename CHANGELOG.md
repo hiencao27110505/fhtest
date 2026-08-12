@@ -46,6 +46,31 @@ defer the setup":
   invite rows, role list, budget-proportion table and onboarding theme grid are
   gone from `80-onboard-boot.js`; onboarding i18n keys replaced in both tables.
 
+### Onboarding follow-ups: multi-invite picker, VND-only, join self-heal (08-12)
+
+Three fixes on top of the 2-step flow:
+
+- **Intro** drops the "FAMILYHUB" eyebrow — the wordmark was redundant over the
+  hero + title.
+- **"Your family" handles multiple invites.** `find_my_invite()` only ever
+  returned the newest row, so a user invited to 2–3 families saw one. New
+  `find_my_invites()` (migration `0054`, JSON array, same per-invite shape,
+  SECURITY DEFINER + `auth_email()` filter) backs a redesigned screen: a
+  selectable radio-list of invite cards with the 6-digit code unfolding under the
+  picked passcode-invite, "create a new family" demoted to a ghost button, and a
+  single contextual primary CTA (Join in invite mode, Create in create mode) —
+  fixing the old two-competing-primaries confusion. Client falls back to the
+  singular RPC if the plural one isn't deployed.
+- **Join no longer dies on "something went wrong".** The real error was a
+  `members_user_id_fkey` violation from a stale JWT (the signed-in user's
+  `profiles` row was gone — e.g. after a test-user reset — but the browser kept
+  the session), which `_friendly()` didn't recognise. `obJoin` now detects the
+  stale-session/FK shape and recovers by signing out for a clean re-auth.
+  `joinFinalizeDB` also stopped writing a plaintext `members.name` to an
+  encrypted family (it tripped the 0033 enc-text guard): name goes through
+  `fhField` when the key is ready, is skipped for a card-join with no key yet, and
+  stays plaintext only for non-encrypted families. `color` always rides along.
+
 ### Frontend goes VND-only (08-12)
 
 `CUR` now defaults to `'VND'` (`10-nav-model.js`); onboarding no longer detects

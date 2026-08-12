@@ -16,6 +16,20 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-12 (Hien — onboarding) — FYI: migration `0054_find_my_invites_plural`
+  landed + applied; next free migration number is `0055`.** Adds
+  `find_my_invites()` (SECURITY DEFINER, JSON array of every pending invite for
+  the caller's email — same per-invite shape as the singular `find_my_invite()`,
+  which is unchanged and kept for back-compat). Backs the redesigned "Your family"
+  screen (selectable multi-invite list). No table/RLS change. Also in this batch,
+  client-only: `join_with_whitelist`/`join_with_passcode` calls are unchanged, but
+  the client now (a) detects a stale-JWT/`members_user_id_fkey` join failure and
+  recovers via sign-out, and (b) stopped writing a plaintext `members.name` to an
+  encrypted family in `joinFinalizeDB` (routes through `fhField`, or skips when the
+  card-join key isn't ready). If you touch the join RPCs, note the client leans on
+  their existing error strings (`not_whitelisted`/`wrong_passcode`/`invite_expired`/
+  `passcode_required`/`no_passcode`/`locked_out`).
+
 - **2026-08-12 (Hien — onboarding) — FYI: onboarding is now a curated 2-step
   flow; the locale, choice, join, family-setup, passcode, budget, theme and
   done screens are all gone.** Screen 1 = intro (meadow-scene SVG hero, two

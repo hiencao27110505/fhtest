@@ -860,14 +860,13 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
           </g>
         </svg>
       </div>
-      <div class="ob-brandline st" style="--i:1">FamilyHub</div>
-      <h1 class="ob-h1 ob-h1-intro st" style="--i:2" data-t="introTitle">One home for the family&rsquo;s money</h1>
+      <h1 class="ob-h1 ob-h1-intro st" style="--i:1" data-t="introTitle">One home for the family&rsquo;s money</h1>
       <div class="ob-sells">
-        <div class="ob-sell st" style="--i:3">
+        <div class="ob-sell st" style="--i:2">
           <div class="ob-sell-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2.6"/><path d="M8 10.5V7.8a4 4 0 018 0v2.7"/><circle cx="12" cy="15.2" r="1.3" fill="currentColor" stroke="none"/></svg></div>
           <div><div class="ob-sell-t" data-t="sellPrivT">Truly private</div><div class="ob-sell-s" data-t="sellPrivS">End-to-end encrypted, so only your family can read it. Even we can&rsquo;t look.</div></div>
         </div>
-        <div class="ob-sell st" style="--i:4">
+        <div class="ob-sell st" style="--i:3">
           <div class="ob-sell-ic ic-auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3L5 13.5h5L11 21l8-10.5h-5z"/></svg></div>
           <div><div class="ob-sell-t" data-t="sellAutoT">Effortless</div><div class="ob-sell-s" data-t="sellAutoS">Transactions log themselves. Nobody has to type them in.</div></div>
         </div>
@@ -879,28 +878,18 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     </div>
   </section>
 
-  <!-- ═ Screen 2 · Your family — the invite waiting for you (if any), or name a new home ═ -->
+  <!-- ═ Screen 2 · Your family — invites waiting for you (0-3), or name a new home.
+       The body is rendered by obRenderStart() (65-passcode-ui): a selectable invite
+       list in 'invite' mode, or the name field in 'create' mode. One primary CTA. ═ -->
   <section class="ob-screen" data-ob="start">
     <div class="ob-top"><button class="ob-back2" id="ob-start-back" style="visibility:hidden" onclick="obStartBack()" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
       <div class="ob-head st" style="--i:0"><h1 class="ob-h1" data-t="startTitle">Your family</h1><div class="ob-sub" id="ob-start-sub" data-t="startSubNew">Name your home and you&rsquo;re in.</div></div>
-      <div class="ob-invite st" id="ob-invite" style="display:none;--i:1">
-        <div class="ob-lab" data-t="inviteForYou">Your invite</div>
-        <div class="ob-preview" id="ob-join-preview"></div>
-        <div class="ob-code-wrap" id="ob-code-wrap">
-          <div class="ob-code-boxes" id="ob-code-boxes" role="group" aria-label="6-digit family passcode" data-ta="ariaCode"></div>
-          <input class="ob-code" id="ob-code" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" oninput="obCodeInput(this)" aria-label="6-digit family passcode" data-ta="ariaCode">
-        </div>
-        <button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta">Join family</button>
-        <div class="ob-or"><span data-t="orCreate">or start your own</span></div>
-      </div>
-      <div class="st" style="--i:2">
-        <div class="field"><label data-t="familyName">Family name</label><input id="ob-famname" data-tp="phFamName" placeholder="e.g. The Reeds" maxlength="40" enterkeyhint="done" autocomplete="off"></div>
-      </div>
-      <div class="ob-hint st" id="ob-join-hint" style="--i:3"></div>
+      <div id="ob-start-body" class="st" style="--i:1"></div>
+      <div class="ob-hint st" id="ob-join-hint" style="--i:2"></div>
     </div>
     <div class="ob-foot">
-      <button class="cta" id="ob-create-cta" onclick="obCreateFamily()" data-t="createFamilyCta">Create family</button>
+      <button class="cta" id="ob-primary-cta" onclick="obPrimary()" data-t="createFamilyCta">Create family</button>
       <div class="ob-note" id="ob-acct"></div>
     </div>
   </section>
