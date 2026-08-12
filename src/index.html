@@ -946,6 +946,17 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
       <div class="ob-note" id="ob-acct"></div>
     </div>
   </section>
+
+  <!-- ═ Screen 3 · Budget + categories (create flow only) — the body is rendered by
+       obPrefillBudget(); a monthly target + per-category split that auto-suggests. ═ -->
+  <section class="ob-screen" data-ob="budget">
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('start')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content"><div id="ob-budget-body"></div></div>
+    <div class="ob-foot">
+      <button class="cta" id="ob-budget-cta" onclick="obBudgetNext()">Continue</button>
+      <button class="ob-textlink" id="ob-budget-skip" onclick="obBudgetSkip()">Set up later</button>
+    </div>
+  </section>
 </div>
 </div><!-- /phone -->
 

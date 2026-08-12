@@ -179,6 +179,36 @@
     if (!card || !card.display) return;
     _fhSheet(_cardIntroCopy() + _cardActions(card) + _btn(L('Xong', 'Done'), '_closeOv()', _S.ghost));
   };
+
+  /* ── Fullscreen "save your family code" intro (post-onboarding) ──
+     A brand-new owner has never seen the key before, so it owns the whole screen
+     (not a dismissible sheet) the first time. It shows ONLY the save-it-for-yourself
+     actions — copy / save a file — because the one thing a new owner must do is
+     secure the key; inviting the rest of the family (QR, link) waits for Settings,
+     once it's safe. Modeled on the lock wall's fullscreen scaffold. */
+  const _CI_KEY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.5 12.5L21 21M17.5 17.5l2.2-2.2M14.5 14.5l2.2-2.2"/></svg>';
+  const _CI_WARN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>';
+  window.fhCardIntro = function (card) {
+    if (!card || !card.display) return;
+    if (document.getElementById('fh-cardintro')) return;
+    _cardShown = card;
+    const el = document.createElement('div');
+    el.id = 'fh-cardintro';
+    el.innerHTML = '<div class="fh-ci-inner">'
+      + '<div class="fh-ci-hero"><div class="fh-ci-badge">' + _CI_KEY + '</div>'
+      + '<div class="fh-ci-title">' + L('Lưu mã khóa của nhà', 'Save your family code') + '</div>'
+      + '<div class="fh-ci-sub">' + L('Đây là chìa khóa mở dữ liệu của nhà mình. Chỉ nhà mình mở được, tụi mình cũng chịu.',
+                                       'This is the key to your family’s data. Only your family can open it, us included.') + '</div></div>'
+      + '<div class="fh-ci-code">' + _esc(card.display) + '</div>'
+      + '<div class="fh-ci-warn">' + _CI_WARN + '<span>' + L('Giữ kỹ nha. Mã mở mọi thứ và không có bản sao, mất mã là mất dữ liệu.',
+                                                              'Keep it safe. It opens everything and there is no backup, so lose it and the data is gone.') + '</span></div>'
+      + '<button class="fh-ci-cta" type="button" onclick="fhCardCopyText()">' + L('Sao chép mã khóa', 'Copy the code') + '</button>'
+      + '<button class="fh-ci-line" type="button" onclick="fhCardSaveFile()">' + L('Lưu thành file', 'Save it as a file') + '</button>'
+      + '<button class="fh-ci-done" type="button" onclick="fhCardIntroClose()">' + L('Đã lưu, vào nhà mình', 'Saved it, enter home') + '</button>'
+      + '</div>';
+    (document.getElementById('phone') || document.body).appendChild(el);
+  };
+  window.fhCardIntroClose = function () { const el = document.getElementById('fh-cardintro'); if (el) el.remove(); };
   // Show the card cached on THIS device (Settings → "Xem mã khóa"). If this
   // device never held the card, offer regenerate instead.
   window.fhCardShowCached = async function () {

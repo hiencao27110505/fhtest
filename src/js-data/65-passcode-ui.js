@@ -102,7 +102,7 @@
         : L('Đặt tên cho tổ ấm của mình để bắt đầu.', 'Name your home and you’re in.');
       body.innerHTML =
         '<div class="field"><label>' + L('Tên gia đình', 'Family name') + '</label>'
-        + '<input id="ob-famname" placeholder="' + _escAttr(L('vd. Nhà mình', 'e.g. The Reeds')) + '" maxlength="40" enterkeyhint="done" autocomplete="off"></div>'
+        + '<input id="ob-famname" value="' + _escAttr((window.FAM && window.FAM.familyName) || '') + '" placeholder="' + _escAttr(L('vd. Nhà mình', 'e.g. The Reeds')) + '" maxlength="40" enterkeyhint="done" autocomplete="off"></div>'
         + (_obInvites.length ? '<button type="button" class="ob-linkback" onclick="obShowInvites()">' + L('Quay lại lời mời', 'Back to your invites') + '</button>' : '');
       cta.textContent = L('Tạo gia đình', 'Create family');
       if (hint) {

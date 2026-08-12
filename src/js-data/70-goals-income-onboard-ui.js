@@ -363,10 +363,11 @@
     busy(false);
     if (typeof _origFinish === 'function') _origFinish();
     if (window.loadFamilyData) { try { await window.loadFamilyData(); } catch (e) {} }
-    // proactively introduce + save the new family's Key Card (the USP moment)
-    if (window.__fhNewCard && window.fhCardShow) {
+    // proactively introduce + save the new family's Key Card (the USP moment) —
+    // fullscreen, save-focused (fhCardIntro), not the Settings sheet
+    if (window.__fhNewCard && (window.fhCardIntro || window.fhCardShow)) {
       const _c = window.__fhNewCard; window.__fhNewCard = null;
-      setTimeout(() => { try { window.fhCardShow(_c); } catch (e) {} }, 700);
+      setTimeout(() => { try { (window.fhCardIntro || window.fhCardShow)(_c); } catch (e) {} }, 700);
     }
   };
 

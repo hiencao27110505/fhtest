@@ -46,6 +46,23 @@ defer the setup":
   invite rows, role list, budget-proportion table and onboarding theme grid are
   gone from `80-onboard-boot.js`; onboarding i18n keys replaced in both tables.
 
+### Budget step back in onboarding + fullscreen Key Card intro (08-12)
+
+- **Onboarding regains a budget/categories step.** After naming the family (create
+  flow only — joiners inherit), a third screen sets a monthly budget with a
+  per-category split that auto-suggests from the total using the app's own weights
+  (`CATW`, so onboarding and the in-app editor agree). Everything is optional:
+  Continue with an empty budget, or "Set up later", both leave the home/finance
+  nudges to catch it. `obOrder` is now `['welcome','start','budget']`; the family
+  name is preserved on back-nav. Budgets still persist via `createFamilyInDB`
+  reading `FAM.budget`/`FAM.catBudget`.
+- **Key Card intro is now fullscreen, not a bottom sheet.** A brand-new owner sees
+  a full-screen "Save your family code" (`fhCardIntro`, modeled on the lock wall)
+  the first time, with **save-only actions** — copy the code, save a file — and no
+  invite/share options (QR + link stay in Settings, once the key is safe). The
+  Settings "view code" path keeps the sheet. `finishOnboarding` calls the fullscreen
+  intro; styles in `72-lock-wall.css`.
+
 ### First-run budget/category setup nudges (08-12)
 
 A first-time family had no obvious path to set up categories + budget (the finance

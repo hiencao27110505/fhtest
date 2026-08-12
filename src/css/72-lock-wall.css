@@ -60,3 +60,53 @@
 .fh-lw-links button{ background:none; border:none; color:var(--muted); font-size:12.5px; font-family:inherit; cursor:pointer; text-decoration:underline; }
 .fh-lw-help{ font-size:12.5px; color:var(--muted); line-height:1.5; margin:14px auto 0; max-width:340px; display:none; }
 .fh-lw-help.on{ display:block; }
+
+/* ── Fullscreen "save your family code" intro (67-card-ui.js fhCardIntro) ──
+   Shown once, right after a family is created. Same fullscreen scaffold as the
+   lock wall; save-only actions (the invite/share options wait for Settings). */
+#fh-cardintro{
+  position:absolute; inset:0; z-index:76; background:var(--canvas); color:var(--ink);
+  display:flex; flex-direction:column; overflow-y:auto; font-family:inherit;
+  padding:calc(env(safe-area-inset-top) + 30px) 24px calc(env(safe-area-inset-bottom) + 22px);
+  animation:fhLwIn .3s cubic-bezier(.32,.72,0,1);
+}
+.fh-ci-inner{ margin:auto; width:100%; max-width:420px; }
+.fh-ci-hero{ text-align:center; margin-bottom:22px; }
+.fh-ci-badge{
+  width:64px; height:64px; border-radius:20px; margin:0 auto 18px;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--brand-tint); color:var(--brand-ink);
+}
+.fh-ci-badge svg{ width:30px; height:30px; }
+.fh-ci-title{ font-size:23px; font-weight:800; letter-spacing:-.4px; margin-bottom:8px; }
+.fh-ci-sub{ font-size:14.5px; line-height:1.55; color:var(--muted); }
+.fh-ci-code{
+  font-family:"SF Mono",ui-monospace,Menlo,monospace; font-size:18px; font-weight:600;
+  letter-spacing:1px; word-break:break-all; text-align:center; color:var(--ink);
+  background:var(--white); border:1px solid var(--hairline); border-radius:14px;
+  padding:16px; margin:0 0 14px; box-shadow:var(--shadow-card);
+}
+.fh-ci-warn{
+  display:flex; gap:9px; align-items:flex-start; text-align:left;
+  font-size:12.5px; line-height:1.5; color:var(--muted); margin:0 2px 22px;
+}
+.fh-ci-warn svg{ width:17px; height:17px; flex-shrink:0; color:var(--amber); margin-top:1px; }
+.fh-ci-cta{
+  width:100%; background:var(--grad-brand,var(--brand)); color:#fff; border:none;
+  border-radius:9999px; padding:16px; font-size:15px; font-weight:700;
+  font-family:inherit; cursor:pointer; box-shadow:0 8px 22px var(--brand-glow);
+  transition:transform .15s;
+}
+.fh-ci-cta:active{ transform:scale(.99); }
+.fh-ci-line{
+  width:100%; margin-top:10px; background:var(--white); border:1.5px solid var(--hairline);
+  border-radius:9999px; padding:14px; font-size:14px; font-weight:600;
+  font-family:inherit; color:var(--ink); cursor:pointer; transition:transform .15s;
+}
+.fh-ci-line:active{ transform:scale(.99); }
+.fh-ci-done{
+  display:block; width:100%; margin-top:24px; background:none; border:none;
+  color:var(--brand-ink); font-size:15px; font-weight:700; font-family:inherit;
+  letter-spacing:-.01em; cursor:pointer; padding:6px;
+}
+.fh-ci-done:active{ opacity:.55; }

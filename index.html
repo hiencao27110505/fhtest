@@ -2350,6 +2350,23 @@ html.fh-newver #fh-newver{display:flex}
 .ob-google{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;background:var(--white);border:1px solid var(--hairline);border-radius:14px;padding:16px;font-size:16px;font-weight:600;letter-spacing:-.01em;color:#3c4043;box-shadow:var(--shadow-card)}
 .ob-google:active{background:var(--surface)}
 .ob-gicon{width:20px;height:20px;flex-shrink:0}
+/* ── budget step: one monthly-total card + a grouped per-category list ── */
+.ob-total-card{background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px 16px 15px;box-shadow:var(--shadow-card);margin:0 0 22px}
+.ob-total-card label{display:block;font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted-soft);margin-bottom:7px}
+.ob-total-in{display:flex;align-items:baseline;gap:6px}
+.ob-total-sym{font-family:var(--disp);font-weight:700;font-size:24px;letter-spacing:-1px;color:var(--muted-soft);flex-shrink:0}
+.ob-total-input{flex:1;min-width:0;border:none;background:none;outline:none;font-family:var(--disp);font-weight:800;font-size:32px;letter-spacing:-1.2px;color:var(--ink);padding:0}
+.ob-total-input::placeholder{color:#cfc8d6;font-weight:700}
+.ob-catbud-lead{margin:0 2px 11px}
+.ob-catbud-hint{font-size:12.5px;line-height:1.4;letter-spacing:-.01em;color:var(--muted-soft);margin-top:3px}
+.ob-group{background:var(--white);border:1px solid var(--hairline);border-radius:16px;overflow:hidden;box-shadow:var(--shadow-card)}
+.ob-catbud{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--divider)}
+.ob-catbud:last-child{border-bottom:none}
+.ob-catbud-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.ob-catbud-n{flex:1;min-width:0;font-size:15.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.ob-catbud-in{display:flex;align-items:baseline;gap:3px;font-size:13px;font-weight:600;color:var(--muted-soft);flex-shrink:0}
+.ob-catbud-in input{width:100px;text-align:right;border:none;background:none;outline:none;font-family:var(--text);font-weight:700;font-size:15.5px;color:var(--ink);padding:4px 0}
+.ob-catbud-in input::placeholder{color:var(--chev);font-weight:600}
 /* ── your family: the invites waiting for you (0-3), or name a new home ── */
 .ob-lab{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted-soft);margin:0 2px 9px}
 .ob-preview-ic{width:44px;height:44px;border-radius:50%;background:var(--brand-tint);flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
@@ -2482,6 +2499,56 @@ html.fh-can-install .set-row.set-install{display:flex}
 .fh-lw-links button{ background:none; border:none; color:var(--muted); font-size:12.5px; font-family:inherit; cursor:pointer; text-decoration:underline; }
 .fh-lw-help{ font-size:12.5px; color:var(--muted); line-height:1.5; margin:14px auto 0; max-width:340px; display:none; }
 .fh-lw-help.on{ display:block; }
+
+/* ── Fullscreen "save your family code" intro (67-card-ui.js fhCardIntro) ──
+   Shown once, right after a family is created. Same fullscreen scaffold as the
+   lock wall; save-only actions (the invite/share options wait for Settings). */
+#fh-cardintro{
+  position:absolute; inset:0; z-index:76; background:var(--canvas); color:var(--ink);
+  display:flex; flex-direction:column; overflow-y:auto; font-family:inherit;
+  padding:calc(env(safe-area-inset-top) + 30px) 24px calc(env(safe-area-inset-bottom) + 22px);
+  animation:fhLwIn .3s cubic-bezier(.32,.72,0,1);
+}
+.fh-ci-inner{ margin:auto; width:100%; max-width:420px; }
+.fh-ci-hero{ text-align:center; margin-bottom:22px; }
+.fh-ci-badge{
+  width:64px; height:64px; border-radius:20px; margin:0 auto 18px;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--brand-tint); color:var(--brand-ink);
+}
+.fh-ci-badge svg{ width:30px; height:30px; }
+.fh-ci-title{ font-size:23px; font-weight:800; letter-spacing:-.4px; margin-bottom:8px; }
+.fh-ci-sub{ font-size:14.5px; line-height:1.55; color:var(--muted); }
+.fh-ci-code{
+  font-family:"SF Mono",ui-monospace,Menlo,monospace; font-size:18px; font-weight:600;
+  letter-spacing:1px; word-break:break-all; text-align:center; color:var(--ink);
+  background:var(--white); border:1px solid var(--hairline); border-radius:14px;
+  padding:16px; margin:0 0 14px; box-shadow:var(--shadow-card);
+}
+.fh-ci-warn{
+  display:flex; gap:9px; align-items:flex-start; text-align:left;
+  font-size:12.5px; line-height:1.5; color:var(--muted); margin:0 2px 22px;
+}
+.fh-ci-warn svg{ width:17px; height:17px; flex-shrink:0; color:var(--amber); margin-top:1px; }
+.fh-ci-cta{
+  width:100%; background:var(--grad-brand,var(--brand)); color:#fff; border:none;
+  border-radius:9999px; padding:16px; font-size:15px; font-weight:700;
+  font-family:inherit; cursor:pointer; box-shadow:0 8px 22px var(--brand-glow);
+  transition:transform .15s;
+}
+.fh-ci-cta:active{ transform:scale(.99); }
+.fh-ci-line{
+  width:100%; margin-top:10px; background:var(--white); border:1.5px solid var(--hairline);
+  border-radius:9999px; padding:14px; font-size:14px; font-weight:600;
+  font-family:inherit; color:var(--ink); cursor:pointer; transition:transform .15s;
+}
+.fh-ci-line:active{ transform:scale(.99); }
+.fh-ci-done{
+  display:block; width:100%; margin-top:24px; background:none; border:none;
+  color:var(--brand-ink); font-size:15px; font-weight:700; font-family:inherit;
+  letter-spacing:-.01em; cursor:pointer; padding:6px;
+}
+.fh-ci-done:active{ opacity:.55; }
 
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
@@ -3471,6 +3538,17 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="ob-foot">
       <button class="cta" id="ob-primary-cta" onclick="obPrimary()" data-t="createFamilyCta">Create family</button>
       <div class="ob-note" id="ob-acct"></div>
+    </div>
+  </section>
+
+  <!-- ═ Screen 3 · Budget + categories (create flow only) — the body is rendered by
+       obPrefillBudget(); a monthly target + per-category split that auto-suggests. ═ -->
+  <section class="ob-screen" data-ob="budget">
+    <div class="ob-top"><button class="ob-back2" onclick="obGo('start')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="ob-content"><div id="ob-budget-body"></div></div>
+    <div class="ob-foot">
+      <button class="cta" id="ob-budget-cta" onclick="obBudgetNext()">Continue</button>
+      <button class="ob-textlink" id="ob-budget-skip" onclick="obBudgetSkip()">Set up later</button>
     </div>
   </section>
 </div>
@@ -11513,7 +11591,7 @@ var FAM={
   budget:9000
 };
 var OB_COLORS=['#6f3fc0','#0e8478','#f0701a','#e03d86','#1e74d0','#B8730B','#7A5AE0','#1a9d5f'];
-var obOrder=['welcome','start'];
+var obOrder=['welcome','start','budget'];
 function inits(n){ return ((n||'').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2)||'?').toUpperCase(); }
 /* light tactile tick — vibration is a no-op where unsupported (iOS Safari) */
 function obBuzz(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} }
@@ -11604,18 +11682,72 @@ function obSeedCats(){
   DEFAULT_CATS.forEach(function(d,i){ catStyle[names[i]]=[d.emoji,'#f2eef6',d.color]; });
   ensureFallbackCat(catOrder,catStyle,catBudget||(catBudget={}));   // append the "Others" catch-all
 }
-/* Create = the whole setup now: validate the name, seed the member + categories,
-   and hand over to finishOnboarding (the data module wraps it → create_family →
-   Key Card intro). Budget and theme start at their defaults; Settings owns them. */
+/* Create: validate the name + seed the member/categories, then step into the
+   budget setup screen (obBudgetNext/obBudgetSkip finish from there → create_family
+   → fullscreen Key Card intro). A joiner never sees this — they inherit the
+   family's categories + budget. */
 function obCreateFamily(){
   var inp=document.getElementById('ob-famname'), fn=(inp?inp.value:'').trim();
   if(!fhCheck([{el:inp, ok:!!fn}], L('Đặt tên cho gia đình đã nhé','Give your family a name first'))) return;
   obEnsureUserIdentity();
   FAM.mode='create'; FAM.familyName=fn;
   FAM.members=[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,me:true}];
-  FAM.budget=0; FAM.catBudget=null;      // set later in the app — the budget tab suggests a split
+  FAM.catBudget=null;
   obSeedCats();
+  obPrefillBudget();
+  obGo('budget');
+  return;
+}
+/* Budget setup step (create only). Categories are already seeded (obSeedCats);
+   this renders one budget field + a per-category list that auto-splits from the
+   total using the app's own weights (CATW, 20-budget.js), so onboarding and the
+   in-app editor suggest the same thing. Everything is optional — Continue with an
+   empty budget (or "Set up later") just leaves the home/finance nudges to catch it. */
+function obPrefillBudget(){
+  var body=document.getElementById('ob-budget-body'); if(!body) return;
+  var sym=curSym();
+  var rows=catOrder.filter(function(c){ return !isFallbackCat(c); }).map(function(c){
+    var s=catStyle[c]||['🏷️','#f2eef6','#7a5a6e'];
+    return '<div class="ob-catbud"><span class="ob-catbud-ic" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</span>'
+      +'<span class="ob-catbud-n">'+esc(c)+'</span>'
+      +'<span class="ob-catbud-in">'+sym+'<input class="ob-cat-bud num" data-cat="'+escAttr(c)+'" inputmode="numeric" placeholder="0" oninput="this.dataset.touched=\'1\'"></span></div>';
+  }).join('');
+  body.innerHTML =
+    '<div class="ob-head st" style="--i:0"><h1 class="ob-h1">'+L('Ngân sách của nhà','Your budget')+'</h1>'
+    +'<div class="ob-sub">'+L('Đặt mục tiêu chi tiêu hằng tháng cho cả nhà. Chỉnh lúc nào cũng được.','A monthly spending target for the family. Change it anytime.')+'</div></div>'
+    +'<div class="ob-total-card st" style="--i:1"><label>'+L('Ngân sách hằng tháng','Monthly budget')+'</label>'
+    +'<div class="ob-total-in"><span class="ob-total-sym" id="ob-budget-sym">'+sym+'</span>'
+    +'<input class="ob-total-input num" id="ob-budget" inputmode="numeric" enterkeyhint="done" placeholder="'+(CUR==='VND'?'20.000.000':'9,000')+'" oninput="obSuggestBudgets()"></div></div>'
+    +'<div class="ob-catbud-lead st" style="--i:2"><div class="ob-lab">'+L('Ngân sách theo hạng mục','Category budgets')+'</div>'
+    +'<div class="ob-catbud-hint">'+L('Tụi mình gợi ý sẵn từ tổng, chỉnh thoải mái nha.','We suggest a split from your total. Adjust freely.')+'</div></div>'
+    +'<div class="ob-group st" id="ob-catbudgets" style="--i:3">'+rows+'</div>';
+  var cta=document.getElementById('ob-budget-cta'); if(cta) cta.textContent=L('Tiếp tục','Continue');
+  var sk=document.getElementById('ob-budget-skip'); if(sk) sk.textContent=L('Để sau','Set up later');
+  setTimeout(function(){ var b=document.getElementById('ob-budget'); if(b) try{ b.focus(); }catch(e){} }, 460);
+}
+/* Auto-split the monthly total across untouched categories (touched ones are left
+   as the user set them). Mirrors suggestBudgetSplit() in 20-budget.js. */
+function obSuggestBudgets(){
+  var el=document.getElementById('ob-budget'); if(!el) return;
+  var total=parseAmtBase(el.value); if(!total) return;
+  var inputs=[].slice.call(document.querySelectorAll('#ob-catbudgets .ob-cat-bud'));
+  var free=inputs.filter(function(i){ return i.dataset.touched!=='1'; });
+  if(!free.length) return;
+  var spoken=0; inputs.forEach(function(i){ if(i.dataset.touched==='1') spoken+=parseAmtBase(i.value)||0; });
+  var pool=Math.max(0,total-spoken);
+  var ws=free.map(function(i){ var n=(i.getAttribute('data-cat')||'').trim().toLowerCase(); return (typeof CATW!=='undefined'&&CATW[n]!==undefined)?CATW[n]:0.08; });
+  var sum=ws.reduce(function(a,b){return a+b;},0)||1;
+  free.forEach(function(i,k){ var base=Math.round(pool*(ws[k]/sum)/10)*10; i.value=base?amtToInput(base):''; });
+}
+function obBudgetNext(){
+  FAM.budget=parseAmtBase((document.getElementById('ob-budget')||{value:''}).value)||0;
+  FAM.catBudget={};
+  document.querySelectorAll('#ob-catbudgets .ob-cat-bud').forEach(function(inp){
+    var c=inp.getAttribute('data-cat'), v=parseAmtBase(inp.value)||0; if(v>0) FAM.catBudget[c]=v;
+  });
   finishOnboarding();
+}
+function obBudgetSkip(){ FAM.budget=0; FAM.catBudget=null; finishOnboarding();
 }
 function applyFam(){
   if(FAM.budget) months[curMonthKey()].budget=FAM.budget;
@@ -16062,7 +16194,7 @@ window.classifyAmount = classifyAmount;
         : L('Đặt tên cho tổ ấm của mình để bắt đầu.', 'Name your home and you’re in.');
       body.innerHTML =
         '<div class="field"><label>' + L('Tên gia đình', 'Family name') + '</label>'
-        + '<input id="ob-famname" placeholder="' + _escAttr(L('vd. Nhà mình', 'e.g. The Reeds')) + '" maxlength="40" enterkeyhint="done" autocomplete="off"></div>'
+        + '<input id="ob-famname" value="' + _escAttr((window.FAM && window.FAM.familyName) || '') + '" placeholder="' + _escAttr(L('vd. Nhà mình', 'e.g. The Reeds')) + '" maxlength="40" enterkeyhint="done" autocomplete="off"></div>'
         + (_obInvites.length ? '<button type="button" class="ob-linkback" onclick="obShowInvites()">' + L('Quay lại lời mời', 'Back to your invites') + '</button>' : '');
       cta.textContent = L('Tạo gia đình', 'Create family');
       if (hint) {
@@ -17186,6 +17318,36 @@ window.classifyAmount = classifyAmount;
     if (!card || !card.display) return;
     _fhSheet(_cardIntroCopy() + _cardActions(card) + _btn(L('Xong', 'Done'), '_closeOv()', _S.ghost));
   };
+
+  /* ── Fullscreen "save your family code" intro (post-onboarding) ──
+     A brand-new owner has never seen the key before, so it owns the whole screen
+     (not a dismissible sheet) the first time. It shows ONLY the save-it-for-yourself
+     actions — copy / save a file — because the one thing a new owner must do is
+     secure the key; inviting the rest of the family (QR, link) waits for Settings,
+     once it's safe. Modeled on the lock wall's fullscreen scaffold. */
+  const _CI_KEY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M12.5 12.5L21 21M17.5 17.5l2.2-2.2M14.5 14.5l2.2-2.2"/></svg>';
+  const _CI_WARN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>';
+  window.fhCardIntro = function (card) {
+    if (!card || !card.display) return;
+    if (document.getElementById('fh-cardintro')) return;
+    _cardShown = card;
+    const el = document.createElement('div');
+    el.id = 'fh-cardintro';
+    el.innerHTML = '<div class="fh-ci-inner">'
+      + '<div class="fh-ci-hero"><div class="fh-ci-badge">' + _CI_KEY + '</div>'
+      + '<div class="fh-ci-title">' + L('Lưu mã khóa của nhà', 'Save your family code') + '</div>'
+      + '<div class="fh-ci-sub">' + L('Đây là chìa khóa mở dữ liệu của nhà mình. Chỉ nhà mình mở được, tụi mình cũng chịu.',
+                                       'This is the key to your family’s data. Only your family can open it, us included.') + '</div></div>'
+      + '<div class="fh-ci-code">' + _esc(card.display) + '</div>'
+      + '<div class="fh-ci-warn">' + _CI_WARN + '<span>' + L('Giữ kỹ nha. Mã mở mọi thứ và không có bản sao, mất mã là mất dữ liệu.',
+                                                              'Keep it safe. It opens everything and there is no backup, so lose it and the data is gone.') + '</span></div>'
+      + '<button class="fh-ci-cta" type="button" onclick="fhCardCopyText()">' + L('Sao chép mã khóa', 'Copy the code') + '</button>'
+      + '<button class="fh-ci-line" type="button" onclick="fhCardSaveFile()">' + L('Lưu thành file', 'Save it as a file') + '</button>'
+      + '<button class="fh-ci-done" type="button" onclick="fhCardIntroClose()">' + L('Đã lưu, vào nhà mình', 'Saved it, enter home') + '</button>'
+      + '</div>';
+    (document.getElementById('phone') || document.body).appendChild(el);
+  };
+  window.fhCardIntroClose = function () { const el = document.getElementById('fh-cardintro'); if (el) el.remove(); };
   // Show the card cached on THIS device (Settings → "Xem mã khóa"). If this
   // device never held the card, offer regenerate instead.
   window.fhCardShowCached = async function () {
@@ -18065,10 +18227,11 @@ window.classifyAmount = classifyAmount;
     busy(false);
     if (typeof _origFinish === 'function') _origFinish();
     if (window.loadFamilyData) { try { await window.loadFamilyData(); } catch (e) {} }
-    // proactively introduce + save the new family's Key Card (the USP moment)
-    if (window.__fhNewCard && window.fhCardShow) {
+    // proactively introduce + save the new family's Key Card (the USP moment) —
+    // fullscreen, save-focused (fhCardIntro), not the Settings sheet
+    if (window.__fhNewCard && (window.fhCardIntro || window.fhCardShow)) {
       const _c = window.__fhNewCard; window.__fhNewCard = null;
-      setTimeout(() => { try { window.fhCardShow(_c); } catch (e) {} }, 700);
+      setTimeout(() => { try { (window.fhCardIntro || window.fhCardShow)(_c); } catch (e) {} }, 700);
     }
   };
 

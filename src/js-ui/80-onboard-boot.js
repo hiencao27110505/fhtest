@@ -10,7 +10,7 @@ var FAM={
   budget:9000
 };
 var OB_COLORS=['#6f3fc0','#0e8478','#f0701a','#e03d86','#1e74d0','#B8730B','#7A5AE0','#1a9d5f'];
-var obOrder=['welcome','start'];
+var obOrder=['welcome','start','budget'];
 function inits(n){ return ((n||'').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2)||'?').toUpperCase(); }
 /* light tactile tick — vibration is a no-op where unsupported (iOS Safari) */
 function obBuzz(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} }
@@ -101,18 +101,72 @@ function obSeedCats(){
   DEFAULT_CATS.forEach(function(d,i){ catStyle[names[i]]=[d.emoji,'#f2eef6',d.color]; });
   ensureFallbackCat(catOrder,catStyle,catBudget||(catBudget={}));   // append the "Others" catch-all
 }
-/* Create = the whole setup now: validate the name, seed the member + categories,
-   and hand over to finishOnboarding (the data module wraps it → create_family →
-   Key Card intro). Budget and theme start at their defaults; Settings owns them. */
+/* Create: validate the name + seed the member/categories, then step into the
+   budget setup screen (obBudgetNext/obBudgetSkip finish from there → create_family
+   → fullscreen Key Card intro). A joiner never sees this — they inherit the
+   family's categories + budget. */
 function obCreateFamily(){
   var inp=document.getElementById('ob-famname'), fn=(inp?inp.value:'').trim();
   if(!fhCheck([{el:inp, ok:!!fn}], L('Đặt tên cho gia đình đã nhé','Give your family a name first'))) return;
   obEnsureUserIdentity();
   FAM.mode='create'; FAM.familyName=fn;
   FAM.members=[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,me:true}];
-  FAM.budget=0; FAM.catBudget=null;      // set later in the app — the budget tab suggests a split
+  FAM.catBudget=null;
   obSeedCats();
+  obPrefillBudget();
+  obGo('budget');
+  return;
+}
+/* Budget setup step (create only). Categories are already seeded (obSeedCats);
+   this renders one budget field + a per-category list that auto-splits from the
+   total using the app's own weights (CATW, 20-budget.js), so onboarding and the
+   in-app editor suggest the same thing. Everything is optional — Continue with an
+   empty budget (or "Set up later") just leaves the home/finance nudges to catch it. */
+function obPrefillBudget(){
+  var body=document.getElementById('ob-budget-body'); if(!body) return;
+  var sym=curSym();
+  var rows=catOrder.filter(function(c){ return !isFallbackCat(c); }).map(function(c){
+    var s=catStyle[c]||['🏷️','#f2eef6','#7a5a6e'];
+    return '<div class="ob-catbud"><span class="ob-catbud-ic" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</span>'
+      +'<span class="ob-catbud-n">'+esc(c)+'</span>'
+      +'<span class="ob-catbud-in">'+sym+'<input class="ob-cat-bud num" data-cat="'+escAttr(c)+'" inputmode="numeric" placeholder="0" oninput="this.dataset.touched=\'1\'"></span></div>';
+  }).join('');
+  body.innerHTML =
+    '<div class="ob-head st" style="--i:0"><h1 class="ob-h1">'+L('Ngân sách của nhà','Your budget')+'</h1>'
+    +'<div class="ob-sub">'+L('Đặt mục tiêu chi tiêu hằng tháng cho cả nhà. Chỉnh lúc nào cũng được.','A monthly spending target for the family. Change it anytime.')+'</div></div>'
+    +'<div class="ob-total-card st" style="--i:1"><label>'+L('Ngân sách hằng tháng','Monthly budget')+'</label>'
+    +'<div class="ob-total-in"><span class="ob-total-sym" id="ob-budget-sym">'+sym+'</span>'
+    +'<input class="ob-total-input num" id="ob-budget" inputmode="numeric" enterkeyhint="done" placeholder="'+(CUR==='VND'?'20.000.000':'9,000')+'" oninput="obSuggestBudgets()"></div></div>'
+    +'<div class="ob-catbud-lead st" style="--i:2"><div class="ob-lab">'+L('Ngân sách theo hạng mục','Category budgets')+'</div>'
+    +'<div class="ob-catbud-hint">'+L('Tụi mình gợi ý sẵn từ tổng, chỉnh thoải mái nha.','We suggest a split from your total. Adjust freely.')+'</div></div>'
+    +'<div class="ob-group st" id="ob-catbudgets" style="--i:3">'+rows+'</div>';
+  var cta=document.getElementById('ob-budget-cta'); if(cta) cta.textContent=L('Tiếp tục','Continue');
+  var sk=document.getElementById('ob-budget-skip'); if(sk) sk.textContent=L('Để sau','Set up later');
+  setTimeout(function(){ var b=document.getElementById('ob-budget'); if(b) try{ b.focus(); }catch(e){} }, 460);
+}
+/* Auto-split the monthly total across untouched categories (touched ones are left
+   as the user set them). Mirrors suggestBudgetSplit() in 20-budget.js. */
+function obSuggestBudgets(){
+  var el=document.getElementById('ob-budget'); if(!el) return;
+  var total=parseAmtBase(el.value); if(!total) return;
+  var inputs=[].slice.call(document.querySelectorAll('#ob-catbudgets .ob-cat-bud'));
+  var free=inputs.filter(function(i){ return i.dataset.touched!=='1'; });
+  if(!free.length) return;
+  var spoken=0; inputs.forEach(function(i){ if(i.dataset.touched==='1') spoken+=parseAmtBase(i.value)||0; });
+  var pool=Math.max(0,total-spoken);
+  var ws=free.map(function(i){ var n=(i.getAttribute('data-cat')||'').trim().toLowerCase(); return (typeof CATW!=='undefined'&&CATW[n]!==undefined)?CATW[n]:0.08; });
+  var sum=ws.reduce(function(a,b){return a+b;},0)||1;
+  free.forEach(function(i,k){ var base=Math.round(pool*(ws[k]/sum)/10)*10; i.value=base?amtToInput(base):''; });
+}
+function obBudgetNext(){
+  FAM.budget=parseAmtBase((document.getElementById('ob-budget')||{value:''}).value)||0;
+  FAM.catBudget={};
+  document.querySelectorAll('#ob-catbudgets .ob-cat-bud').forEach(function(inp){
+    var c=inp.getAttribute('data-cat'), v=parseAmtBase(inp.value)||0; if(v>0) FAM.catBudget[c]=v;
+  });
   finishOnboarding();
+}
+function obBudgetSkip(){ FAM.budget=0; FAM.catBudget=null; finishOnboarding();
 }
 function applyFam(){
   if(FAM.budget) months[curMonthKey()].budget=FAM.budget;

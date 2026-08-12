@@ -85,6 +85,23 @@ html.fh-newver #fh-newver{display:flex}
 .ob-google{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;background:var(--white);border:1px solid var(--hairline);border-radius:14px;padding:16px;font-size:16px;font-weight:600;letter-spacing:-.01em;color:#3c4043;box-shadow:var(--shadow-card)}
 .ob-google:active{background:var(--surface)}
 .ob-gicon{width:20px;height:20px;flex-shrink:0}
+/* ── budget step: one monthly-total card + a grouped per-category list ── */
+.ob-total-card{background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px 16px 15px;box-shadow:var(--shadow-card);margin:0 0 22px}
+.ob-total-card label{display:block;font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted-soft);margin-bottom:7px}
+.ob-total-in{display:flex;align-items:baseline;gap:6px}
+.ob-total-sym{font-family:var(--disp);font-weight:700;font-size:24px;letter-spacing:-1px;color:var(--muted-soft);flex-shrink:0}
+.ob-total-input{flex:1;min-width:0;border:none;background:none;outline:none;font-family:var(--disp);font-weight:800;font-size:32px;letter-spacing:-1.2px;color:var(--ink);padding:0}
+.ob-total-input::placeholder{color:#cfc8d6;font-weight:700}
+.ob-catbud-lead{margin:0 2px 11px}
+.ob-catbud-hint{font-size:12.5px;line-height:1.4;letter-spacing:-.01em;color:var(--muted-soft);margin-top:3px}
+.ob-group{background:var(--white);border:1px solid var(--hairline);border-radius:16px;overflow:hidden;box-shadow:var(--shadow-card)}
+.ob-catbud{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--divider)}
+.ob-catbud:last-child{border-bottom:none}
+.ob-catbud-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.ob-catbud-n{flex:1;min-width:0;font-size:15.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.ob-catbud-in{display:flex;align-items:baseline;gap:3px;font-size:13px;font-weight:600;color:var(--muted-soft);flex-shrink:0}
+.ob-catbud-in input{width:100px;text-align:right;border:none;background:none;outline:none;font-family:var(--text);font-weight:700;font-size:15.5px;color:var(--ink);padding:4px 0}
+.ob-catbud-in input::placeholder{color:var(--chev);font-weight:600}
 /* ── your family: the invites waiting for you (0-3), or name a new home ── */
 .ob-lab{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted-soft);margin:0 2px 9px}
 .ob-preview-ic{width:44px;height:44px;border-radius:50%;background:var(--brand-tint);flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
