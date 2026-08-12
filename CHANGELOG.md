@@ -46,6 +46,19 @@ defer the setup":
   invite rows, role list, budget-proportion table and onboarding theme grid are
   gone from `80-onboard-boot.js`; onboarding i18n keys replaced in both tables.
 
+### First-run home: "Getting started" pair replaces the blank-cover prompt (08-12)
+
+The empty-family Moments section was a single "Your family's story · Add a moment"
+card whose illustrated cover **rendered blank on iOS Safari** — the `.occ` art band
+is `flex:0 0 128px` with all-absolute children, so flex-basis resolves to 0 and the
+band collapses. It's now a **"Getting started" (Bắt đầu)** section with two
+side-by-side cards — *Log an expense* (→ `openExpense`) and *Add a moment* (→
+`openMomentModal`) — each with a self-contained inline-SVG cover (a receipt + ₫ coin;
+a polaroid of a tiny meadow + heart) that carries its own `viewBox`, so it can't
+collapse. Shown only for a brand-new family (no photos, no spend); a family that has
+logged spend but no photo yet gets the single moment card (`.gs-grid.solo`), never a
+blank one. `renderHome` in `22-home.js`, styles in `21-home-today.css`.
+
 ### Onboarding follow-ups: multi-invite picker, VND-only, join self-heal (08-12)
 
 Three fixes on top of the 2-step flow:

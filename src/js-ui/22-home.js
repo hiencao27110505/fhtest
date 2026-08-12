@@ -326,6 +326,44 @@ function qTile(o){      // {ic,chCls,label,act} — quick action, same tinted-ch
   return '<button class="qtile" onclick="' + o.act + '"><span class="qt-ic ' + o.chCls + '">' + o.ic + '</span>'
     + '<span class="qt-l">' + o.label + '</span></button>';
 }
+/* First-run "Getting started" covers — self-contained inline SVG (no dependency on
+   the .oc-* shape CSS, which is why these never paint blank). Flat, soft, in the
+   app's own illustration language: a receipt + ₫ coin for logging spend, a polaroid
+   of a tiny meadow + heart for saving a moment. */
+var _GS_ILL = {
+  expense: '<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
+    + '<rect width="200" height="120" fill="var(--brand-tint)"/>'
+    + '<ellipse cx="100" cy="142" rx="150" ry="56" fill="var(--brand-2)" opacity=".30"/>'
+    + '<g transform="rotate(-7 90 60)">'
+    + '<rect x="62" y="22" width="56" height="74" rx="7" fill="#fff" stroke="var(--hairline)" stroke-width="1.5"/>'
+    + '<rect x="71" y="34" width="38" height="5" rx="2.5" fill="var(--brand-2)"/>'
+    + '<rect x="71" y="46" width="30" height="4" rx="2" fill="var(--hairline)"/>'
+    + '<rect x="71" y="56" width="34" height="4" rx="2" fill="var(--hairline)"/>'
+    + '<rect x="71" y="66" width="22" height="4" rx="2" fill="var(--hairline)"/>'
+    + '<rect x="71" y="80" width="20" height="6" rx="3" fill="var(--brand)"/></g>'
+    + '<circle cx="142" cy="74" r="19" fill="#F5C061" stroke="#E0951E" stroke-width="2.5"/>'
+    + '<text x="142" y="81.5" font-size="19" font-weight="800" text-anchor="middle" fill="#8A5A12" font-family="Arial,sans-serif">₫</text>'
+    + '</svg>',
+  moment: '<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
+    + '<defs><clipPath id="gs-ph"><rect x="68" y="28" width="64" height="50" rx="5"/></clipPath></defs>'
+    + '<rect width="200" height="120" fill="#fdeef4"/>'
+    + '<g transform="rotate(5 100 60)">'
+    + '<rect x="60" y="20" width="80" height="84" rx="8" fill="#fff" stroke="#F0D9E2" stroke-width="1.5"/>'
+    + '<g clip-path="url(#gs-ph)">'
+    + '<rect x="68" y="28" width="64" height="50" fill="#cfe9fb"/>'
+    + '<circle cx="120" cy="41" r="7" fill="#fff3c9"/>'
+    + '<ellipse cx="100" cy="84" rx="44" ry="20" fill="var(--brand-2)"/>'
+    + '<rect x="84" y="58" width="4.5" height="14" rx="2.2" fill="var(--wood)"/>'
+    + '<circle cx="86.2" cy="56" r="9" fill="var(--brand)"/></g>'
+    + '<circle cx="100" cy="91" r="3" fill="#F0D9E2"/></g>'
+    + '<path d="M150 40 C147 34 138 35 138 42 C138 48 145 52 150 56 C155 52 162 48 162 42 C162 35 153 34 150 40 Z" fill="#E0567F"/>'
+    + '</svg>'
+};
+function gsCard(o){     // {ill,title,sub,act} — a first-run prompt card with an illustrated cover
+  return '<button class="gs-card" onclick="' + o.act + '">'
+    + '<div class="gs-cover">' + _GS_ILL[o.ill] + '</div>'
+    + '<div class="gs-body"><div class="gs-t">' + o.title + '</div><div class="gs-s">' + o.sub + '</div></div></button>';
+}
 function _sectionH(title, link, label){ return '<div class="section-h"><div class="t">' + title + '</div>' + (link ? '<a onclick="' + link + '">' + (label || L('Xem tất cả', 'See all')) + '</a>' : '') + '</div>'; }
 // A Sắp tới card is a smaller bigPhoto: the real uploaded photo when there is
 // one, otherwise the same keyword-matched illustrated cover the rest of the
@@ -459,7 +497,7 @@ function renderHome(){
   if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions, now under the stat tiles
 
   /* ============ KHOẢNH KHẮC — the featured photo card + the memory strip ============ */
-  var kh = '', centerRef = null;
+  var kh = '', centerRef = null, gettingStarted = false;
   if(fresh && homeVis){                                 // a shared dream reached — celebrated once
     milestones.forEach(function(mi){ celebrated[mi.key] = 1; });
     try{ localStorage.setItem('fh-celebrated', JSON.stringify(celebrated)); }catch(e){}
@@ -468,14 +506,28 @@ function renderHome(){
     var r0 = memRecords[0], i0 = memRecords.indexOf(r0); centerRef = r0.type + ':' + r0.ref;
     var isExp0 = r0.type === 'expense';
     kh += bigPhoto({ src: r0.src, ill: r0.src ? null : occCover(r0.cap, r0.emoji), subj: r0.src ? r0.emoji : '', who: r0.who, eye: isExp0 ? L('Một khoản chi thành kỷ niệm', 'A spend, remembered') : L('Khoảnh khắc gần đây', 'A recent moment'), title: r0.cap, sub: esc(r0.meta || ''), tall: true, act: 'openMemory(' + i0 + ')' });
-  } else {                                              // a new family — a warm, photo-shaped invitation
-    kh += bigPhoto({ ill: 'outing', eye: L('Bắt đầu', 'Begin'), title: L('Câu chuyện của cả nhà', 'Your family’s story'), sub: L('Tấm ảnh đầu tiên bắt đầu từ đây', 'Your first photo starts here'), tall: true, cta: { label: '＋ ' + L('Thêm khoảnh khắc', 'Add a moment') }, act: 'openMomentModal()' });
+  } else {
+    // no moments yet: a brand-new family (no spends either) gets the two-card
+    // "Getting started"; one that has logged spend but no photo just gets nudged
+    // for its first moment (handled in the else branch below).
+    gettingStarted = !(window.txns || []).length;
   }
-  var grps = (typeof memGroups === 'function') ? memGroups() : [];
-  if(grps.length >= 2){                                 // more covers to browse, iOS-Photos style
-    kh += '<div class="mem-strip home-strip">' + grps.slice(0, 6).map(memCoverHTML).join('') + '</div>';
+  var momentCard = gsCard({ ill: 'moment', title: L('Lưu khoảnh khắc', 'Add a moment'), sub: L('Tấm ảnh đầu tiên bắt đầu từ đây', 'Your first photo starts here'), act: 'openMomentModal()' });
+  if(gettingStarted){
+    // Two illustrated prompts side by side, each opening its own modal — one for the
+    // first expense, one for the first moment. Replaces the old single blank-cover card.
+    html += _sectionH(L('Bắt đầu', 'Getting started'))
+      + '<div class="gs-grid">'
+      + gsCard({ ill: 'expense', title: L('Ghi khoản chi', 'Log an expense'), sub: L('Khoản chi đầu tiên của cả nhà', 'Your family’s first spend'), act: 'go(&#39;spending&#39;);openExpense()' })
+      + momentCard + '</div>';
+  } else {
+    var grps = (typeof memGroups === 'function') ? memGroups() : [];
+    if(grps.length >= 2){                               // more covers to browse, iOS-Photos style
+      kh += '<div class="mem-strip home-strip">' + grps.slice(0, 6).map(memCoverHTML).join('') + '</div>';
+    }
+    if(!kh) kh = '<div class="gs-grid solo">' + momentCard + '</div>';   // spends but no photo yet → just the moment nudge (never a blank card)
+    html += _sectionH(L('Khoảnh khắc', 'Moments'), 'goMoments()') + kh;
   }
-  html += _sectionH(L('Khoảnh khắc', 'Moments'), 'goMoments()') + kh;
 
   /* ============ CÙNG NHAU — quick actions for the family ============ */
   html += _sectionH(L('Cùng nhau', 'Together'))

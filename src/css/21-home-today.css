@@ -302,6 +302,22 @@
 .bp-prog i{display:block;height:100%;border-radius:9999px;background:#fff}
 .bp-cta{display:inline-flex;align-items:center;gap:7px;margin-top:14px;background:rgba(255,255,255,.96);color:var(--brand-ink);border-radius:14px;padding:12px 18px;font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.01em;align-self:flex-start;box-shadow:0 3px 12px rgba(0,0,0,.22)}
 
+/* ---------- Getting-started prompt cards (first-run home) ----------
+   Two illustrated cards (log a spend / save a moment). The cover is a fixed-height
+   band holding an inline SVG with its own viewBox — unlike the .occ band above it
+   can't collapse to 0 on iOS Safari (that band's children are all absolutely
+   positioned, so flex-basis:auto resolves to 0; here the SVG carries intrinsic
+   size). This is why these covers never render blank. */
+.gs-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gs-grid.solo{grid-template-columns:1fr}
+.gs-card{display:flex;flex-direction:column;text-align:left;background:var(--white);border:1px solid var(--hairline);border-radius:18px;overflow:hidden;box-shadow:var(--shadow-card);transition:transform .16s cubic-bezier(.4,0,.2,1)}
+.gs-card:active{transform:scale(.98)}
+.gs-cover{height:96px;overflow:hidden}
+.gs-grid.solo .gs-cover{height:112px}
+.gs-cover svg{display:block;width:100%;height:100%}
+.gs-body{padding:12px 13px 14px}
+.gs-t{font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.gs-s{font-size:12.5px;line-height:1.36;color:var(--muted);margin-top:3px}
 /* ---------- illustrated occasion covers (scene-style, keyword-matched) ----------
    Photo cards keep text-over-image + dark scrim. Illustrated cards use an ART
    BAND on top and the caption below it (Journal/Invites-style) — no collision,
