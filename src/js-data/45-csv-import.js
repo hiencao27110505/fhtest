@@ -12,9 +12,17 @@ const CSV_HEADER_ALIASES = {
   // A real bank statement has no single "amount": it has a debit column and a
   // credit column, and a running balance that must NEVER be mistaken for
   // either ("so du luy ke" is deliberately absent from every list here).
-  amount: ['amount', 'so tien', 'value', 'so tien giao dich', 'phat sinh no', 'ghi no', 'debit', 'withdrawal', 'money out', 'tien ra'],
-  credit: ['phat sinh co', 'ghi co', 'credit', 'deposit', 'money in', 'tien vao'],
-  description: ['description', 'noi dung', 'dien giai', 'memo', 'note', 'noi dung giao dich'],
+  amount: ['amount', 'so tien', 'value', 'so tien giao dich', 'phat sinh no', 'ghi no', 'debit', 'withdrawal', 'money out', 'tien ra',
+           // Agribank abbreviates; VPBank writes the full phrase. The full
+           // phrases MUST be listed: containment takes the longest alias, and
+           // without them "so tien ghi co" would win as "so tien" -> amount,
+           // quietly importing card payments as spending.
+           'ps no', 'so tien ghi no', 'so tien no', 'rut ra'],
+  credit: ['phat sinh co', 'ghi co', 'credit', 'deposit', 'money in', 'tien vao',
+           'ps co', 'so tien ghi co', 'so tien co', 'gui vao'],
+  description: ['description', 'noi dung', 'dien giai', 'memo', 'note', 'noi dung giao dich',
+                'mo ta', 'mo ta giao dich', 'chi tiet giao dich', 'transactions in detail', 'details',
+                'don hang', 'order', 'san pham'],   // BNPL exports name the purchase, not a "description" 
   category: ['category', 'loai', 'danh muc', 'nhom', 'group'],
   // A credit-card statement names every merchant's line of business in MCC
   // codes -- a gift for categorisation nothing else in the file provides.
@@ -187,6 +195,18 @@ function resolveCsvHeuristically(headers, sampleRows) {
     const field = matchHeaderField(norm(h));
     if (field) columnMap[i] = { field, confidence: 'high', source: 'header_alias' };
   });
+
+  /* Sacombank heads its columns with just "Nợ" and "Có". Those normalise to
+     'no' and 'co' -- two letters that also mean a row-number column ("No.")
+     in English, so they are far too dangerous as ordinary aliases. But the
+     PAIR is unambiguous: a lone "no" column is anyone's guess, a "no" AND a
+     "co" side by side is a bank's debit and credit. Only the pair maps. */
+  const bareNo = headers.findIndex((h) => norm(h) === 'no');
+  const bareCo = headers.findIndex((h) => norm(h) === 'co');
+  if (bareNo >= 0 && bareCo >= 0) {
+    if (!columnMap[bareNo]) columnMap[bareNo] = { field: 'amount', confidence: 'high', source: 'header_alias' };
+    if (!columnMap[bareCo]) columnMap[bareCo] = { field: 'credit', confidence: 'high', source: 'header_alias' };
+  }
 
   const fieldCol = (field) => {
     const entry = Object.entries(columnMap).find(([, m]) => m.field === field);

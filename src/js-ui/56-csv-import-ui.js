@@ -778,7 +778,7 @@ function renderCsvReview(){
      show the rows; a mislabelled expense has its own way back in there. */
   var inflow = [];
   r.deferred.forEach(function(c, di){
-    if(c.isIncome){ inflow.push({ c:c, di:di }); return; }
+    if(c.isIncome || c.isTransfer){ inflow.push({ c:c, di:di }); return; }
     var why = c.flags.indexOf('date_missing')>=0 ? L('Thiếu ngày','Missing date')
       : c.flags.indexOf('amount_missing')>=0 ? L('Thiếu số tiền','Missing amount')
       : L('Chờ bạn xác nhận','Waiting on you');
@@ -815,7 +815,7 @@ function renderCsvReview(){
     return c.flags.indexOf('date_missing')>=0 || c.flags.indexOf('amount_missing')>=0;
   }).length;
   var decisionCount = r.groups.length + blockedCount;
-  var inflowCount = r.deferred.filter(function(c){ return c.isIncome; }).length;
+  var inflowCount = r.deferred.filter(function(c){ return c.isIncome || c.isTransfer; }).length;
   var handledCount = unresolvedDup.length + (r.deferred.length - blockedCount - inflowCount);
 
   // Lead with the win, not the workload.
@@ -839,10 +839,18 @@ function renderCsvReview(){
   }
   if(inflow.length){
     var inflowSum = inflow.reduce(function(t,e){ return t + csvBaseAmt(e.c.amount); }, 0);
+    var nIn = inflow.filter(function(e){ return e.c.isIncome; }).length;
+    var nTr = inflow.length - nIn;
+    var inflowTitle = nIn && nTr ? L('Tiền vào & trả nợ thẻ · '+inflow.length+' khoản','Money in & card payments · '+inflow.length)
+                    : nTr ? L('Trả nợ thẻ · '+nTr+' khoản','Card payments · '+nTr)
+                    : L('Tiền vào · '+nIn+' khoản','Money in · '+nIn);
+    var inflowSub = nTr
+      ? L('Không nhập — khoản chi thật nằm trong sao kê thẻ, nhập cả hai sẽ bị tính hai lần','Not imported — the real spending is on the card statement; importing both counts it twice')
+      : L('Không nhập — tụi mình chỉ ghi khoản chi','Not imported — spending only');
     html += '<div class="csv-inflow">'
       + '<button type="button" class="csv-inflow-head" onclick="csvToggleInflow()">'
-        + '<span class="csv-inflow-txt"><span class="csv-inflow-t">'+esc(L('Tiền vào · '+inflow.length+' khoản','Money in · '+inflow.length))+'</span>'
-        + '<span class="csv-inflow-s">'+esc(L('Không nhập — tụi mình chỉ ghi khoản chi','Not imported — spending only'))+'</span></span>'
+        + '<span class="csv-inflow-txt"><span class="csv-inflow-t">'+esc(inflowTitle)+'</span>'
+        + '<span class="csv-inflow-s">'+esc(inflowSub)+'</span></span>'
         + '<span class="csv-inflow-amt">'+esc(fmt(inflowSum))+'</span>'
         + '<span class="csv-inflow-chev">'+(csvInflowOpen?'▴':'▾')+'</span>'
       + '</button>';
@@ -899,7 +907,7 @@ function renderCsvReview(){
       + (decisionCount+skippedDup+inflowCount > 0
           ? '<div class="csv-check-sub">'+esc(L('Không nhập: ','Not importing: '))
             + esc([ decisionCount ? decisionCount+' '+L('chưa quyết định','undecided') : null,
-                    inflowCount ? inflowCount+' '+L('tiền vào','money in') : null,
+                    inflowCount ? inflowCount+' '+L('tiền vào / trả thẻ','money in / card payments') : null,
                     skippedDup ? skippedDup+' '+L('bỏ qua vì trùng','skipped as duplicates') : null ]
                   .filter(Boolean).join(' · '))+'</div>'
           : '')
@@ -990,8 +998,8 @@ function csvDeferConfirm(di){
   // fields onto the candidate would blank the very row being rescued.
   if(csvIsOpen('defer', di)) csvReadEditor(c);
   if(!(c.amount > 0) || !c.date){ renderCsvReview(); return; }
-  // "Là khoản chi" is the person overruling the income call -- clear it.
-  c.isIncome = false;
+  // "Là khoản chi" is the person overruling the income/transfer call.
+  c.isIncome = false; c.isTransfer = false;
   var fi = c.flags.indexOf('income_row'); if(fi >= 0) c.flags.splice(fi, 1);
   csvReview.deferred.splice(di,1);
 

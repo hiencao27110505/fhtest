@@ -8591,7 +8591,7 @@ function renderCsvReview(){
      show the rows; a mislabelled expense has its own way back in there. */
   var inflow = [];
   r.deferred.forEach(function(c, di){
-    if(c.isIncome){ inflow.push({ c:c, di:di }); return; }
+    if(c.isIncome || c.isTransfer){ inflow.push({ c:c, di:di }); return; }
     var why = c.flags.indexOf('date_missing')>=0 ? L('Thiếu ngày','Missing date')
       : c.flags.indexOf('amount_missing')>=0 ? L('Thiếu số tiền','Missing amount')
       : L('Chờ bạn xác nhận','Waiting on you');
@@ -8628,7 +8628,7 @@ function renderCsvReview(){
     return c.flags.indexOf('date_missing')>=0 || c.flags.indexOf('amount_missing')>=0;
   }).length;
   var decisionCount = r.groups.length + blockedCount;
-  var inflowCount = r.deferred.filter(function(c){ return c.isIncome; }).length;
+  var inflowCount = r.deferred.filter(function(c){ return c.isIncome || c.isTransfer; }).length;
   var handledCount = unresolvedDup.length + (r.deferred.length - blockedCount - inflowCount);
 
   // Lead with the win, not the workload.
@@ -8652,10 +8652,18 @@ function renderCsvReview(){
   }
   if(inflow.length){
     var inflowSum = inflow.reduce(function(t,e){ return t + csvBaseAmt(e.c.amount); }, 0);
+    var nIn = inflow.filter(function(e){ return e.c.isIncome; }).length;
+    var nTr = inflow.length - nIn;
+    var inflowTitle = nIn && nTr ? L('Tiền vào & trả nợ thẻ · '+inflow.length+' khoản','Money in & card payments · '+inflow.length)
+                    : nTr ? L('Trả nợ thẻ · '+nTr+' khoản','Card payments · '+nTr)
+                    : L('Tiền vào · '+nIn+' khoản','Money in · '+nIn);
+    var inflowSub = nTr
+      ? L('Không nhập — khoản chi thật nằm trong sao kê thẻ, nhập cả hai sẽ bị tính hai lần','Not imported — the real spending is on the card statement; importing both counts it twice')
+      : L('Không nhập — tụi mình chỉ ghi khoản chi','Not imported — spending only');
     html += '<div class="csv-inflow">'
       + '<button type="button" class="csv-inflow-head" onclick="csvToggleInflow()">'
-        + '<span class="csv-inflow-txt"><span class="csv-inflow-t">'+esc(L('Tiền vào · '+inflow.length+' khoản','Money in · '+inflow.length))+'</span>'
-        + '<span class="csv-inflow-s">'+esc(L('Không nhập — tụi mình chỉ ghi khoản chi','Not imported — spending only'))+'</span></span>'
+        + '<span class="csv-inflow-txt"><span class="csv-inflow-t">'+esc(inflowTitle)+'</span>'
+        + '<span class="csv-inflow-s">'+esc(inflowSub)+'</span></span>'
         + '<span class="csv-inflow-amt">'+esc(fmt(inflowSum))+'</span>'
         + '<span class="csv-inflow-chev">'+(csvInflowOpen?'▴':'▾')+'</span>'
       + '</button>';
@@ -8712,7 +8720,7 @@ function renderCsvReview(){
       + (decisionCount+skippedDup+inflowCount > 0
           ? '<div class="csv-check-sub">'+esc(L('Không nhập: ','Not importing: '))
             + esc([ decisionCount ? decisionCount+' '+L('chưa quyết định','undecided') : null,
-                    inflowCount ? inflowCount+' '+L('tiền vào','money in') : null,
+                    inflowCount ? inflowCount+' '+L('tiền vào / trả thẻ','money in / card payments') : null,
                     skippedDup ? skippedDup+' '+L('bỏ qua vì trùng','skipped as duplicates') : null ]
                   .filter(Boolean).join(' · '))+'</div>'
           : '')
@@ -8803,8 +8811,8 @@ function csvDeferConfirm(di){
   // fields onto the candidate would blank the very row being rescued.
   if(csvIsOpen('defer', di)) csvReadEditor(c);
   if(!(c.amount > 0) || !c.date){ renderCsvReview(); return; }
-  // "Là khoản chi" is the person overruling the income call -- clear it.
-  c.isIncome = false;
+  // "Là khoản chi" is the person overruling the income/transfer call.
+  c.isIncome = false; c.isTransfer = false;
   var fi = c.flags.indexOf('income_row'); if(fi >= 0) c.flags.splice(fi, 1);
   csvReview.deferred.splice(di,1);
 
@@ -9413,6 +9421,17 @@ function buildCsvCandidates(parsed, result) {
     if (!desc) flags.push('description_missing');
     if (isIncome) flags.push('income_row');
 
+    /* Paying off your own credit card is money leaving the account, but it
+       is not consumption -- the purchases it covers live on the CARD's
+       statement, and a family importing both files would count the same
+       month twice. Held out like income: named, totalled, one tap back in
+       if the call is wrong. */
+    var isTransfer = false;
+    if (!isIncome) {
+      var ttext = ' ' + deburr((desc || '').toLowerCase()) + ' ';
+      if (/thanh toan (sao ke |du no )?the( tin dung)?|tt the tin dung|tra no the|thanh toan the (visa|master|jcb)|credit card payment|tra tien the tin dung/.test(ttext)) isTransfer = true;
+    }
+
     var party = colFor.counterparty !== undefined ? (row[colFor.counterparty] || '').trim() : '';
 
     /* The file often records who paid, and the ledger has that field too --
@@ -9428,7 +9447,7 @@ function buildCsvCandidates(parsed, result) {
       }
       if (!who && /^(chung|both|ca hai)$/.test(pn)) who = 'Both';
     }
-    var catName = isIncome ? null : matchCategoryName(catGuess);
+    var catName = (isIncome || isTransfer) ? null : matchCategoryName(catGuess);
     var catSource = catName ? 'file' : null;
     if (!catName && desc) {
       var h = historyMap[normDescForDedup(desc)];
@@ -9438,15 +9457,6 @@ function buildCsvCandidates(parsed, result) {
       var lk = csvLearnKey({ counterparty: party, description: desc, amount: amount });
       if (lk && csvLearned[lk] && csvCatOk(csvLearned[lk])) { catName = csvLearned[lk]; catSource = 'learned'; }
     }
-    if (!catName && desc && typeof guessCat === 'function') {
-      var g = guessCat(desc);
-      if (g && csvCatOk(g)) { catName = g; catSource = 'keyword'; }
-    }
-    /* Least steps wins: if the file's own label, the family's history and the
-       keyword guess all come up empty, file it under the catch-all rather
-       than making someone tap a category for every row. It's disclosed in the
-       summary and one tap on the row changes it -- an editable default beats
-       a blocking question. */
     /* The MCC column, when a credit-card statement has one, is the cleanest
        signal in the whole file: "5411-Grocery Stores" is the network telling
        us the merchant's line of business. Only the leading code is read --
@@ -9459,11 +9469,26 @@ function buildCsvCandidates(parsed, result) {
         if (mfc && csvCatOk(mfc)) { catName = mfc; catSource = 'merchant'; }
       }
     }
-    // bank-memo merchant recognition, before giving up on the row
+    /* Merchant names next -- and only THEN generic keywords. A brand is
+       specific evidence; a keyword is a guess about vocabulary, and "COFFEE
+       HOUSE" filed under Housing is what happens when the guess goes first. */
     if (!catName && desc && typeof familyCatForConcept === 'function') {
       // the counterparty column names the merchant plainly; the memo buries it
       var mc = csvMerchantConcept(party) || csvMerchantConcept(desc);
       if (mc) { var fc = familyCatForConcept(mc); if (fc && csvCatOk(fc)) { catName = fc; catSource = 'merchant'; } }
+    }
+    /* Least steps wins: if the file's own label, the family's history and the
+       keyword guess all come up empty, file it under the catch-all rather
+       than making someone tap a category for every row. It's disclosed in the
+       summary and one tap on the row changes it -- an editable default beats
+       a blocking question. */
+    if (!catName && desc && typeof guessCat === 'function') {
+      /* "Chuyển tiền cho X" is transfer phrasing, and after deburring, its
+         "cho" (for) is the same word as "chợ" (market) -- which filed every
+         P2P transfer under groceries. The phrase says nothing about what the
+         money bought, so it is removed before the keyword pass reads it. */
+      var g = guessCat(desc.replace(/chuy[eể\u1ec3\u00ea]n\s+(ti[eề\u1ec1\u00ea]n|kho[aả\u1ea3]n)\s+(cho|den|đến|toi|tới)\b/i, ' '));
+      if (g && csvCatOk(g)) { catName = g; catSource = 'keyword'; }
     }
     if (!catName && !isIncome && csvCatOk(CAT_FALLBACK)) { catName = CAT_FALLBACK; catSource = 'fallback'; }
     if (!catName) flags.push('needs_category');
@@ -9474,7 +9499,7 @@ function buildCsvCandidates(parsed, result) {
       amount: amount, negative: aclass.status === 'ok' && String(amtRaw).trim().indexOf('-') === 0,
       description: desc || catGuess || L('(không có mô tả)','(no description)'),
       categoryGuess: catGuess, categoryName: catName, catSource: catSource,
-      counterparty: party, who: who, isIncome: isIncome,
+      counterparty: party, who: who, isIncome: isIncome, isTransfer: isTransfer,
     };
   });
 }
@@ -9559,7 +9584,7 @@ function bucketCsvCandidates(candidates, mixedSigns) {
   var ready = [], needsCategoryGroups = {}, possibleDuplicate = [], deferred = [];
 
   candidates.forEach(function(c) {
-    if (mixedSigns || c.isIncome || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
+    if (mixedSigns || c.isIncome || c.isTransfer || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
       deferred.push(c); return;
     }
 
@@ -14279,9 +14304,17 @@ const CSV_HEADER_ALIASES = {
   // A real bank statement has no single "amount": it has a debit column and a
   // credit column, and a running balance that must NEVER be mistaken for
   // either ("so du luy ke" is deliberately absent from every list here).
-  amount: ['amount', 'so tien', 'value', 'so tien giao dich', 'phat sinh no', 'ghi no', 'debit', 'withdrawal', 'money out', 'tien ra'],
-  credit: ['phat sinh co', 'ghi co', 'credit', 'deposit', 'money in', 'tien vao'],
-  description: ['description', 'noi dung', 'dien giai', 'memo', 'note', 'noi dung giao dich'],
+  amount: ['amount', 'so tien', 'value', 'so tien giao dich', 'phat sinh no', 'ghi no', 'debit', 'withdrawal', 'money out', 'tien ra',
+           // Agribank abbreviates; VPBank writes the full phrase. The full
+           // phrases MUST be listed: containment takes the longest alias, and
+           // without them "so tien ghi co" would win as "so tien" -> amount,
+           // quietly importing card payments as spending.
+           'ps no', 'so tien ghi no', 'so tien no', 'rut ra'],
+  credit: ['phat sinh co', 'ghi co', 'credit', 'deposit', 'money in', 'tien vao',
+           'ps co', 'so tien ghi co', 'so tien co', 'gui vao'],
+  description: ['description', 'noi dung', 'dien giai', 'memo', 'note', 'noi dung giao dich',
+                'mo ta', 'mo ta giao dich', 'chi tiet giao dich', 'transactions in detail', 'details',
+                'don hang', 'order', 'san pham'],   // BNPL exports name the purchase, not a "description" 
   category: ['category', 'loai', 'danh muc', 'nhom', 'group'],
   // A credit-card statement names every merchant's line of business in MCC
   // codes -- a gift for categorisation nothing else in the file provides.
@@ -14454,6 +14487,18 @@ function resolveCsvHeuristically(headers, sampleRows) {
     const field = matchHeaderField(norm(h));
     if (field) columnMap[i] = { field, confidence: 'high', source: 'header_alias' };
   });
+
+  /* Sacombank heads its columns with just "Nợ" and "Có". Those normalise to
+     'no' and 'co' -- two letters that also mean a row-number column ("No.")
+     in English, so they are far too dangerous as ordinary aliases. But the
+     PAIR is unambiguous: a lone "no" column is anyone's guess, a "no" AND a
+     "co" side by side is a bank's debit and credit. Only the pair maps. */
+  const bareNo = headers.findIndex((h) => norm(h) === 'no');
+  const bareCo = headers.findIndex((h) => norm(h) === 'co');
+  if (bareNo >= 0 && bareCo >= 0) {
+    if (!columnMap[bareNo]) columnMap[bareNo] = { field: 'amount', confidence: 'high', source: 'header_alias' };
+    if (!columnMap[bareCo]) columnMap[bareCo] = { field: 'credit', confidence: 'high', source: 'header_alias' };
+  }
 
   const fieldCol = (field) => {
     const entry = Object.entries(columnMap).find(([, m]) => m.field === field);

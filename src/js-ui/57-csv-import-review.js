@@ -531,6 +531,17 @@ function buildCsvCandidates(parsed, result) {
     if (!desc) flags.push('description_missing');
     if (isIncome) flags.push('income_row');
 
+    /* Paying off your own credit card is money leaving the account, but it
+       is not consumption -- the purchases it covers live on the CARD's
+       statement, and a family importing both files would count the same
+       month twice. Held out like income: named, totalled, one tap back in
+       if the call is wrong. */
+    var isTransfer = false;
+    if (!isIncome) {
+      var ttext = ' ' + deburr((desc || '').toLowerCase()) + ' ';
+      if (/thanh toan (sao ke |du no )?the( tin dung)?|tt the tin dung|tra no the|thanh toan the (visa|master|jcb)|credit card payment|tra tien the tin dung/.test(ttext)) isTransfer = true;
+    }
+
     var party = colFor.counterparty !== undefined ? (row[colFor.counterparty] || '').trim() : '';
 
     /* The file often records who paid, and the ledger has that field too --
@@ -546,7 +557,7 @@ function buildCsvCandidates(parsed, result) {
       }
       if (!who && /^(chung|both|ca hai)$/.test(pn)) who = 'Both';
     }
-    var catName = isIncome ? null : matchCategoryName(catGuess);
+    var catName = (isIncome || isTransfer) ? null : matchCategoryName(catGuess);
     var catSource = catName ? 'file' : null;
     if (!catName && desc) {
       var h = historyMap[normDescForDedup(desc)];
@@ -556,15 +567,6 @@ function buildCsvCandidates(parsed, result) {
       var lk = csvLearnKey({ counterparty: party, description: desc, amount: amount });
       if (lk && csvLearned[lk] && csvCatOk(csvLearned[lk])) { catName = csvLearned[lk]; catSource = 'learned'; }
     }
-    if (!catName && desc && typeof guessCat === 'function') {
-      var g = guessCat(desc);
-      if (g && csvCatOk(g)) { catName = g; catSource = 'keyword'; }
-    }
-    /* Least steps wins: if the file's own label, the family's history and the
-       keyword guess all come up empty, file it under the catch-all rather
-       than making someone tap a category for every row. It's disclosed in the
-       summary and one tap on the row changes it -- an editable default beats
-       a blocking question. */
     /* The MCC column, when a credit-card statement has one, is the cleanest
        signal in the whole file: "5411-Grocery Stores" is the network telling
        us the merchant's line of business. Only the leading code is read --
@@ -577,11 +579,26 @@ function buildCsvCandidates(parsed, result) {
         if (mfc && csvCatOk(mfc)) { catName = mfc; catSource = 'merchant'; }
       }
     }
-    // bank-memo merchant recognition, before giving up on the row
+    /* Merchant names next -- and only THEN generic keywords. A brand is
+       specific evidence; a keyword is a guess about vocabulary, and "COFFEE
+       HOUSE" filed under Housing is what happens when the guess goes first. */
     if (!catName && desc && typeof familyCatForConcept === 'function') {
       // the counterparty column names the merchant plainly; the memo buries it
       var mc = csvMerchantConcept(party) || csvMerchantConcept(desc);
       if (mc) { var fc = familyCatForConcept(mc); if (fc && csvCatOk(fc)) { catName = fc; catSource = 'merchant'; } }
+    }
+    /* Least steps wins: if the file's own label, the family's history and the
+       keyword guess all come up empty, file it under the catch-all rather
+       than making someone tap a category for every row. It's disclosed in the
+       summary and one tap on the row changes it -- an editable default beats
+       a blocking question. */
+    if (!catName && desc && typeof guessCat === 'function') {
+      /* "Chuyển tiền cho X" is transfer phrasing, and after deburring, its
+         "cho" (for) is the same word as "chợ" (market) -- which filed every
+         P2P transfer under groceries. The phrase says nothing about what the
+         money bought, so it is removed before the keyword pass reads it. */
+      var g = guessCat(desc.replace(/chuy[eể\u1ec3\u00ea]n\s+(ti[eề\u1ec1\u00ea]n|kho[aả\u1ea3]n)\s+(cho|den|đến|toi|tới)\b/i, ' '));
+      if (g && csvCatOk(g)) { catName = g; catSource = 'keyword'; }
     }
     if (!catName && !isIncome && csvCatOk(CAT_FALLBACK)) { catName = CAT_FALLBACK; catSource = 'fallback'; }
     if (!catName) flags.push('needs_category');
@@ -592,7 +609,7 @@ function buildCsvCandidates(parsed, result) {
       amount: amount, negative: aclass.status === 'ok' && String(amtRaw).trim().indexOf('-') === 0,
       description: desc || catGuess || L('(không có mô tả)','(no description)'),
       categoryGuess: catGuess, categoryName: catName, catSource: catSource,
-      counterparty: party, who: who, isIncome: isIncome,
+      counterparty: party, who: who, isIncome: isIncome, isTransfer: isTransfer,
     };
   });
 }
@@ -677,7 +694,7 @@ function bucketCsvCandidates(candidates, mixedSigns) {
   var ready = [], needsCategoryGroups = {}, possibleDuplicate = [], deferred = [];
 
   candidates.forEach(function(c) {
-    if (mixedSigns || c.isIncome || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
+    if (mixedSigns || c.isIncome || c.isTransfer || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
       deferred.push(c); return;
     }
 
