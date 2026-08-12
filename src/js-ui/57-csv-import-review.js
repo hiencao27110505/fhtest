@@ -233,6 +233,21 @@ var CSV_MERCHANTS = [
   ['Others',    ['pharmacity','long chau','an khang','guardian','watsons','nha thuoc','benh vien','phong kham','vinmec','medlatec','hoan my','bao hiem','insurance','hoc phi','tuition','truong']],
 ];
 
+/* MCC -> concept. Codes are ISO 18245 -- the same everywhere, unlike
+   merchant names -- so a short table covers the spending a family statement
+   actually contains. Codes not listed simply fall through to the next tier. */
+var CSV_MCC_CONCEPT = {
+  '5411':'Groceries','5422':'Groceries','5451':'Groceries','5462':'Groceries','5499':'Groceries',
+  '5811':'Dining','5812':'Dining','5813':'Dining','5814':'Dining',
+  '4111':'Transport','4121':'Transport','4131':'Transport','5541':'Transport','5542':'Transport','7523':'Transport',
+  '5912':'Health','8011':'Health','8021':'Health','8062':'Health',
+  '5651':'Clothing','5691':'Clothing','5661':'Clothing',
+  '5262':'Shopping','5311':'Shopping','5399':'Shopping','5964':'Shopping','5999':'Shopping',
+  '7832':'Fun','7841':'Fun','7994':'Fun','7996':'Fun',
+  '4899':'Housing','4900':'Housing',
+  '8211':'Education','8220':'Education','8299':'Education',
+};
+
 function csvMerchantConcept(desc) {
   var t = ' ' + deburr(String(desc || '').toLowerCase()).replace(CSV_BANK_NOISE, ' ').replace(/\s+/g, ' ') + ' ';
   if (t.trim().length < 2) return '';
@@ -491,8 +506,15 @@ function buildCsvCandidates(parsed, result) {
       isIncome = true;
       amtRaw = creditRaw;                       // show the real figure while it waits
     }
-    // Machine labels some exports use for direction, e.g. "transfer_in".
-    if (/^(transfer_in|income|credit|thu nhap|tien vao)$/i.test(deburr((catGuess||'').trim().toLowerCase()))) isIncome = true;
+    /* Sổ-thu-chi apps put direction in the "category" column: Loại = Chi or
+       Thu. Those words are an instruction, not a category -- turning them
+       into categories gives the family a category literally named "Chi" and
+       imports their salary as spending. Thu-side words mark income; chi-side
+       words are consumed (the row's real category comes from the other
+       tiers). */
+    var dirWord = deburr((catGuess||'').trim().toLowerCase());
+    if (/^(transfer_in|income|credit|thu nhap|tien vao|thu|khoan thu)$/.test(dirWord)) { isIncome = true; catGuess = ''; }
+    else if (/^(expense|debit|chi|chi tieu|khoan chi|tien ra)$/.test(dirWord)) catGuess = '';
     /* Some exports put everything in one column, so the words have to carry
        it: a salary run, an incoming transfer, a refund or interest is money
        IN. Filing a salary as spending would corrupt the month badly, so this
@@ -543,6 +565,18 @@ function buildCsvCandidates(parsed, result) {
        than making someone tap a category for every row. It's disclosed in the
        summary and one tap on the row changes it -- an editable default beats
        a blocking question. */
+    /* The MCC column, when a credit-card statement has one, is the cleanest
+       signal in the whole file: "5411-Grocery Stores" is the network telling
+       us the merchant's line of business. Only the leading code is read --
+       the wording after the dash varies by bank. */
+    if (!catName && colFor.mcc !== undefined && typeof familyCatForConcept === 'function') {
+      var mccCode = String(row[colFor.mcc] || '').trim().slice(0, 4);
+      var mccConcept = CSV_MCC_CONCEPT[mccCode];
+      if (mccConcept) {
+        var mfc = familyCatForConcept(mccConcept);
+        if (mfc && csvCatOk(mfc)) { catName = mfc; catSource = 'merchant'; }
+      }
+    }
     // bank-memo merchant recognition, before giving up on the row
     if (!catName && desc && typeof familyCatForConcept === 'function') {
       // the counterparty column names the merchant plainly; the memo buries it
@@ -618,8 +652,12 @@ function csvResolveSignMode(candidates) {
 function csvDropBlankRows(candidates) {
   var kept = [], dropped = 0;
   candidates.forEach(function(c){
-    var blank = c.flags.indexOf('description_missing') >= 0
-             && c.flags.indexOf('amount_missing') >= 0
+    /* No date AND no amount -- with or without text. A spacer row is empty;
+       a statement's section banner ("Số thẻ/Số tài khoản 513892...") has
+       words but is equally not a transaction, and "fixing" one would mean
+       typing an entire transaction from scratch into a row the bank never
+       meant as one. Both are structure, not data. */
+    var blank = c.flags.indexOf('amount_missing') >= 0
              && c.flags.indexOf('date_missing') >= 0;
     if (blank) { dropped++; return; }
     kept.push(c);

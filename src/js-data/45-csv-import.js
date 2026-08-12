@@ -7,14 +7,18 @@ function norm(s) {
 }
 
 const CSV_HEADER_ALIASES = {
-  occurred_at: ['date', 'ngay', 'ngay giao dich', 'transaction date', 'posted date', 'txn date', 'ngay gd'],
+  occurred_at: ['date', 'ngay', 'ngay giao dich', 'transaction date', 'posted date', 'txn date', 'ngay gd',
+                'timestamp', 'time', 'thoi gian'],
   // A real bank statement has no single "amount": it has a debit column and a
   // credit column, and a running balance that must NEVER be mistaken for
   // either ("so du luy ke" is deliberately absent from every list here).
   amount: ['amount', 'so tien', 'value', 'so tien giao dich', 'phat sinh no', 'ghi no', 'debit', 'withdrawal', 'money out', 'tien ra'],
   credit: ['phat sinh co', 'ghi co', 'credit', 'deposit', 'money in', 'tien vao'],
   description: ['description', 'noi dung', 'dien giai', 'memo', 'note', 'noi dung giao dich'],
-  category: ['category', 'loai', 'danh muc'],
+  category: ['category', 'loai', 'danh muc', 'nhom', 'group'],
+  // A credit-card statement names every merchant's line of business in MCC
+  // codes -- a gift for categorisation nothing else in the file provides.
+  mcc: ['mcc', 'mcc code', 'mcc mcc'],
   counterparty: ['payee', 'doi tac', 'merchant', 'nguoi nhan', 'nguoi gui', 'don vi thu huong', 'don vi chuyen',
                  'don vi thu huong/ don vi chuyen', 'don vi thu huong / don vi chuyen', 'ben nhan', 'nguoi huong'],
   currency: ['currency', 'loai tien', 'don vi'],
@@ -74,25 +78,41 @@ function classifyAmount(raw) {
     flags.push('shorthand_suffix');
   }
 
+  /* Both separators present means one is grouping and one is decimals, and
+     the LAST one is the decimal mark: "1.234.567,00" (VN banks, EU locales)
+     against "1,234,567.89". Stripping both -- what this did before -- read a
+     574.195,00đ purchase as 57 million: a 100x error on every row of a VIB
+     statement. A lone comma with one or two digits after it is a decimal
+     comma for the same reason. */
   const hasDot = core.includes('.');
   const hasComma = core.includes(',');
   let style;
-  if (hasDot && hasComma) style = 'mixed_separators';
-  else if (hasDot) {
+  if (hasDot && hasComma) {
+    style = (core.lastIndexOf(',') > core.lastIndexOf('.')) ? 'eu_decimal' : 'decimal_2dp';
+  } else if (hasDot) {
     const parts = core.split('.');
     style = parts[parts.length - 1].length === 3 ? 'vn_grouped' : 'decimal_2dp';
   } else if (hasComma) {
     const parts = core.split(',');
-    style = parts[parts.length - 1].length === 3 ? 'en_grouped' : 'comma_unclear';
+    style = (parts.length === 2 && parts[1].length <= 2) ? 'eu_decimal'
+          : parts[parts.length - 1].length === 3 ? 'en_grouped' : 'comma_unclear';
   } else {
     style = 'plain';
   }
 
-  const cleaned = style === 'decimal_2dp' ? core.replace(/,/g, '') : core.replace(/[.,]/g, '');
+  const cleaned = style === 'decimal_2dp' ? core.replace(/,/g, '')
+                : style === 'eu_decimal'  ? core.replace(/\./g, '').replace(',', '.')
+                : core.replace(/[.,]/g, '');
   let value = Number(cleaned);
   if (Number.isNaN(value)) return { status: 'unparseable', flags };
+  value = Math.round(value);   // the ledger holds whole dong; ,00 tails are formatting
   // "1tr2" is one-and-two-tenths million, not 1 million then a stray 2.
-  if (mult > 1) value = Math.round((fracTail ? Number(String(value) + '.' + fracTail) : value) * mult);
+  if (mult > 1) value = Math.round((fracTail ? Number(String(cleaned)) : value) * mult);
+  /* A statement writes "0,00" in the debit column of every credit row and
+     vice versa. That zero is the ABSENCE of a figure, not a free purchase --
+     letting it through as ok turns half the rows of any two-column statement
+     into phantom transactions. */
+  if (value === 0) return { status: 'zero', flags };
   return { status: 'ok', style, value, flags };
 }
 
@@ -114,16 +134,14 @@ function fhFindHeaderRow(headers, rows) {
   const score = (cells) => {
     if (!cells) return 0;
     let hits = 0;
-    cells.forEach((c) => {
-      const hn = norm(c);
-      if (!hn) return;
-      if (Object.keys(CSV_HEADER_ALIASES).some((f) => CSV_HEADER_ALIASES[f].includes(hn))) hits++;
-    });
+    cells.forEach((c) => { if (matchHeaderField(norm(c))) hits++; });
     return hits;
   };
 
   const best = { at: -1, hits: score(headers) };
-  const look = Math.min(rows.length, 15);        // no real statement buries it deeper
+  // A VIB credit-card statement puts ~26 rows of card metadata above its
+  // table; 40 covers what banks actually do without scanning the whole file.
+  const look = Math.min(rows.length, 40);
   for (let i = 0; i < look; i++) {
     const hits = score(rows[i]);
     if (hits > best.hits) { best.at = i; best.hits = hits; }
@@ -138,11 +156,35 @@ function fhFindHeaderRow(headers, rows) {
 // A column can be correctly identified (high mapping confidence) while its values still
 // disagree on format (low format confidence) — that split, not the mapping itself, is
 // what decides whether this file needs the Gemini fallback.
+/* Exact alias first; then the alias as a bounded phrase inside the cell.
+   A VIB statement writes every header bilingually in one cell -- "Ngày giao
+   dịch\nTransaction date", "Ghi nợ/Debit (VND)" -- so exact matching sees
+   nothing and the whole statement fails to map. The containment pass wants
+   the longest alias it can find (so "ngay giao dich" beats "ngay") and only
+   at word boundaries (so "date" never fires inside "update"). */
+function matchHeaderField(hn) {
+  if (!hn) return undefined;
+  const exact = Object.keys(CSV_HEADER_ALIASES).find((f) => CSV_HEADER_ALIASES[f].includes(hn));
+  if (exact) return exact;
+  let best, bestLen = 0;
+  Object.keys(CSV_HEADER_ALIASES).forEach((f) => {
+    CSV_HEADER_ALIASES[f].forEach((alias) => {
+      if (alias.length <= bestLen || alias.length < 4) return;
+      const at = hn.indexOf(alias);
+      if (at < 0) return;
+      const before = at === 0 ? '' : hn[at - 1];
+      const after = hn[at + alias.length] || '';
+      if (/[a-z0-9]/.test(before) || /[a-z0-9]/.test(after)) return;
+      best = f; bestLen = alias.length;
+    });
+  });
+  return best;
+}
+
 function resolveCsvHeuristically(headers, sampleRows) {
   const columnMap = {};
   headers.forEach((h, i) => {
-    const hn = norm(h);
-    const field = Object.keys(CSV_HEADER_ALIASES).find((f) => CSV_HEADER_ALIASES[f].includes(hn));
+    const field = matchHeaderField(norm(h));
     if (field) columnMap[i] = { field, confidence: 'high', source: 'header_alias' };
   });
 

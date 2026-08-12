@@ -89,14 +89,30 @@ function csvReadOneFile(file, password){
       });
       return;
     }
+    /* Read bytes first and let the BOM say what the text is. Excel's
+       "Unicode Text" export is UTF-16, and forcing utf-8 onto it turns every
+       header into noise -- the file then fails with no hint why. */
     var reader = new FileReader();
     reader.onload = function(){
-      var parsed = window.fhParseCsvFile ? window.fhParseCsvFile(reader.result) : null;
+      var u = new Uint8Array(reader.result), encoding = 'utf-8';
+      if(u.length >= 2 && u[0] === 0xFF && u[1] === 0xFE) encoding = 'utf-16le';
+      else if(u.length >= 2 && u[0] === 0xFE && u[1] === 0xFF) encoding = 'utf-16be';
+      else {
+        // No BOM, but NUL bytes: text never contains them, UTF-16 is half them.
+        var zeroEven = 0, zeroOdd = 0, scan = Math.min(u.length, 512);
+        for(var zi = 0; zi < scan; zi++){ if(u[zi] === 0){ if(zi % 2) zeroOdd++; else zeroEven++; } }
+        if(zeroOdd + zeroEven > scan / 8) encoding = (zeroOdd > zeroEven) ? 'utf-16le' : 'utf-16be';
+      }
+      var text;
+      try { text = new TextDecoder(encoding).decode(u); }
+      catch(e){ text = new TextDecoder('utf-8').decode(u); }
+      if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1);   // strip any BOM
+      var parsed = window.fhParseCsvFile ? window.fhParseCsvFile(text) : null;
       if(!parsed || !parsed.headers.length) reject(new Error(L('Không đọc được file này.','Could not read this file.')));
       else resolve(parsed);
     };
     reader.onerror = function(){ reject(new Error(L('Không đọc được file này.','Could not read this file.'))); };
-    reader.readAsText(file, 'utf-8');
+    reader.readAsArrayBuffer(file);
   });
 }
 
@@ -119,6 +135,24 @@ function onCsvFileSelected(input){
 }
 
 function csvImportFiles(files, input){
+  /* The same statement picked twice -- in one selection, or added again with
+     "Thêm file" -- would flag every single row as a cross-file duplicate.
+     One copy is kept and the double pick is named, since silently reading a
+     file the person deliberately chose twice would look like a bug too. */
+  var have = {};
+  ((csvReview && csvReview.sources) || []).forEach(function(src){ have[src.name] = 1; });
+  var uniq = [], doubled = [];
+  files.forEach(function(f){
+    var k = f.name + '|' + f.size;
+    if (have[k] || have[f.name]) { doubled.push(f.name); return; }
+    have[k] = 1; uniq.push(f);
+  });
+  files = uniq;
+  if(doubled.length && !files.length){
+    var out0 = document.getElementById('csv-result');
+    if(out0 && csvReview) { renderCsvReview(); }
+    return;
+  }
   var out = document.getElementById('csv-result');
   var appending = !!(csvReview && csvReview.sources && csvReview.sources.length);
   if(out) out.innerHTML = '<div class="sheet-sub csv-reading">'
@@ -126,6 +160,7 @@ function csvImportFiles(files, input){
                            : L('Đang đọc file…','Reading your file…')) + '</div>';
 
   var problems = [];
+  doubled.forEach(function(n){ problems.push(n + ' — ' + L('đã chọn 2 lần, tụi mình đọc một lần thôi','picked twice, read once')); });
   csvLocked = [];
   csvSkipLocked = false;
   Promise.all(files.map(function(f){
@@ -180,7 +215,9 @@ function csvRenderUnlock(files, problems){
     + '</button>'
     + (problems && problems.length ? '<div class="csv-unlock-err">' + esc(problems.join(' · ')) + '</div>' : '')
     + '</div>';
-  csvReview = null;
+  /* Deliberately NOT clearing csvReview: when the locked file was added to
+     an already-open review with "Thêm file", that review -- possibly edited
+     -- must survive both the prompt and a "skip it" answer. */
   var pick = document.getElementById('csv-pick'); if(pick) pick.style.display = 'none';
   var f = document.getElementById('csv-pw'); if(f) f.focus();
   csvUnlockFiles = files;
@@ -194,6 +231,11 @@ function csvSkipLockedFiles(){
   csvLocked.forEach(function(l){ drop[l.file.name] = 1; });
   var rest = (csvUnlockFiles || []).filter(function(f){ return !drop[f.name]; });
   csvSkipLocked = true;
+  if(!rest.length && csvReview && csvReview.sources && csvReview.sources.length){
+    csvLocked = []; csvSkipLocked = false;
+    renderCsvReview();          // the review that was open before the locked pick
+    return;
+  }
   if(!rest.length){
     var out = document.getElementById('csv-result');
     if(out) out.innerHTML = '<div class="sheet-sub">'+esc(L('Chưa có file nào để nhập. Bạn chọn file khác nhé.','Nothing to import yet. Pick another file.'))+'</div>';
@@ -679,7 +721,7 @@ function renderCsvReview(){
     if(r.patternCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
       + esc(L(r.patternCount+' khoản xếp theo thói quen chi tiêu của bạn.',r.patternCount+' filed from your spending habits.'))+'</div>');
     if(r.blankCount) lines.push('<div class="notice-text"'+(lines.length?' style="margin-top:6px"':'')+'>'
-      + esc(L('Bỏ qua '+r.blankCount+' dòng trống trong file.','Skipped '+r.blankCount+' empty row'+(r.blankCount===1?'':'s')+' in the file.'))+'</div>');
+      + esc(L('Bỏ qua '+r.blankCount+' dòng không phải giao dịch (dòng trống, dòng tiêu đề).','Skipped '+r.blankCount+' non-transaction row'+(r.blankCount===1?'':'s')+' (blanks, section headings).'))+'</div>');
     if(r.fallbackCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
       + esc(L(r.fallbackCount+' khoản chưa rõ danh mục, tạm để ở "'+CAT_FALLBACK+'".', r.fallbackCount+(r.fallbackCount===1?' row':' rows')+' had no clear category, filed under "'+CAT_FALLBACK+'".'))+'</div>');
     if(didAdd) lines.push('<div class="notice-text"'+(didMerge?' style="margin-top:6px"':'')+'>'

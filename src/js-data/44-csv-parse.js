@@ -2,7 +2,29 @@
 // "" as an escaped quote. Hand-rolled rather than a dependency — this repo has none,
 // and a naive `line.split(',')` breaks on real exports (e.g. a VN bank amount written
 // as "520,000" with the thousands comma inside quotes).
+/* Which character actually separates the columns?
+
+   Comma is only the default. Excel on a Vietnamese or European locale writes
+   ';' (because ',' is its decimal mark), and its "Unicode Text" export is
+   tab-separated. Counting candidate separators on the first line -- outside
+   quotes -- and taking the winner handles all three without a setting anyone
+   has to find. Comma wins ties, so a normal file can't be misread. */
+function detectDelim(text) {
+  const counts = { ',': 0, ';': 0, '\t': 0 };
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') { inQuotes = !inQuotes; continue; }
+    if (!inQuotes && c === '\n') break;
+    if (!inQuotes && counts[c] !== undefined) counts[c]++;
+  }
+  if (counts[';'] > counts[',']) return ';';
+  if (counts['\t'] > counts[',']) return '\t';
+  return ',';
+}
+
 function parseCsv(text) {
+  const delim = detectDelim(text);
   const rows = [];
   let row = [];
   let field = '';
@@ -32,7 +54,7 @@ function parseCsv(text) {
       i += 1;
       continue;
     }
-    if (c === ',') {
+    if (c === delim) {
       row.push(field);
       field = '';
       i += 1;

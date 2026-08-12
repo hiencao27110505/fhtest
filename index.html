@@ -7630,14 +7630,30 @@ function csvReadOneFile(file, password){
       });
       return;
     }
+    /* Read bytes first and let the BOM say what the text is. Excel's
+       "Unicode Text" export is UTF-16, and forcing utf-8 onto it turns every
+       header into noise -- the file then fails with no hint why. */
     var reader = new FileReader();
     reader.onload = function(){
-      var parsed = window.fhParseCsvFile ? window.fhParseCsvFile(reader.result) : null;
+      var u = new Uint8Array(reader.result), encoding = 'utf-8';
+      if(u.length >= 2 && u[0] === 0xFF && u[1] === 0xFE) encoding = 'utf-16le';
+      else if(u.length >= 2 && u[0] === 0xFE && u[1] === 0xFF) encoding = 'utf-16be';
+      else {
+        // No BOM, but NUL bytes: text never contains them, UTF-16 is half them.
+        var zeroEven = 0, zeroOdd = 0, scan = Math.min(u.length, 512);
+        for(var zi = 0; zi < scan; zi++){ if(u[zi] === 0){ if(zi % 2) zeroOdd++; else zeroEven++; } }
+        if(zeroOdd + zeroEven > scan / 8) encoding = (zeroOdd > zeroEven) ? 'utf-16le' : 'utf-16be';
+      }
+      var text;
+      try { text = new TextDecoder(encoding).decode(u); }
+      catch(e){ text = new TextDecoder('utf-8').decode(u); }
+      if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1);   // strip any BOM
+      var parsed = window.fhParseCsvFile ? window.fhParseCsvFile(text) : null;
       if(!parsed || !parsed.headers.length) reject(new Error(L('Không đọc được file này.','Could not read this file.')));
       else resolve(parsed);
     };
     reader.onerror = function(){ reject(new Error(L('Không đọc được file này.','Could not read this file.'))); };
-    reader.readAsText(file, 'utf-8');
+    reader.readAsArrayBuffer(file);
   });
 }
 
@@ -7660,6 +7676,24 @@ function onCsvFileSelected(input){
 }
 
 function csvImportFiles(files, input){
+  /* The same statement picked twice -- in one selection, or added again with
+     "Thêm file" -- would flag every single row as a cross-file duplicate.
+     One copy is kept and the double pick is named, since silently reading a
+     file the person deliberately chose twice would look like a bug too. */
+  var have = {};
+  ((csvReview && csvReview.sources) || []).forEach(function(src){ have[src.name] = 1; });
+  var uniq = [], doubled = [];
+  files.forEach(function(f){
+    var k = f.name + '|' + f.size;
+    if (have[k] || have[f.name]) { doubled.push(f.name); return; }
+    have[k] = 1; uniq.push(f);
+  });
+  files = uniq;
+  if(doubled.length && !files.length){
+    var out0 = document.getElementById('csv-result');
+    if(out0 && csvReview) { renderCsvReview(); }
+    return;
+  }
   var out = document.getElementById('csv-result');
   var appending = !!(csvReview && csvReview.sources && csvReview.sources.length);
   if(out) out.innerHTML = '<div class="sheet-sub csv-reading">'
@@ -7667,6 +7701,7 @@ function csvImportFiles(files, input){
                            : L('Đang đọc file…','Reading your file…')) + '</div>';
 
   var problems = [];
+  doubled.forEach(function(n){ problems.push(n + ' — ' + L('đã chọn 2 lần, tụi mình đọc một lần thôi','picked twice, read once')); });
   csvLocked = [];
   csvSkipLocked = false;
   Promise.all(files.map(function(f){
@@ -7721,7 +7756,9 @@ function csvRenderUnlock(files, problems){
     + '</button>'
     + (problems && problems.length ? '<div class="csv-unlock-err">' + esc(problems.join(' · ')) + '</div>' : '')
     + '</div>';
-  csvReview = null;
+  /* Deliberately NOT clearing csvReview: when the locked file was added to
+     an already-open review with "Thêm file", that review -- possibly edited
+     -- must survive both the prompt and a "skip it" answer. */
   var pick = document.getElementById('csv-pick'); if(pick) pick.style.display = 'none';
   var f = document.getElementById('csv-pw'); if(f) f.focus();
   csvUnlockFiles = files;
@@ -7735,6 +7772,11 @@ function csvSkipLockedFiles(){
   csvLocked.forEach(function(l){ drop[l.file.name] = 1; });
   var rest = (csvUnlockFiles || []).filter(function(f){ return !drop[f.name]; });
   csvSkipLocked = true;
+  if(!rest.length && csvReview && csvReview.sources && csvReview.sources.length){
+    csvLocked = []; csvSkipLocked = false;
+    renderCsvReview();          // the review that was open before the locked pick
+    return;
+  }
   if(!rest.length){
     var out = document.getElementById('csv-result');
     if(out) out.innerHTML = '<div class="sheet-sub">'+esc(L('Chưa có file nào để nhập. Bạn chọn file khác nhé.','Nothing to import yet. Pick another file.'))+'</div>';
@@ -8220,7 +8262,7 @@ function renderCsvReview(){
     if(r.patternCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
       + esc(L(r.patternCount+' khoản xếp theo thói quen chi tiêu của bạn.',r.patternCount+' filed from your spending habits.'))+'</div>');
     if(r.blankCount) lines.push('<div class="notice-text"'+(lines.length?' style="margin-top:6px"':'')+'>'
-      + esc(L('Bỏ qua '+r.blankCount+' dòng trống trong file.','Skipped '+r.blankCount+' empty row'+(r.blankCount===1?'':'s')+' in the file.'))+'</div>');
+      + esc(L('Bỏ qua '+r.blankCount+' dòng không phải giao dịch (dòng trống, dòng tiêu đề).','Skipped '+r.blankCount+' non-transaction row'+(r.blankCount===1?'':'s')+' (blanks, section headings).'))+'</div>');
     if(r.fallbackCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
       + esc(L(r.fallbackCount+' khoản chưa rõ danh mục, tạm để ở "'+CAT_FALLBACK+'".', r.fallbackCount+(r.fallbackCount===1?' row':' rows')+' had no clear category, filed under "'+CAT_FALLBACK+'".'))+'</div>');
     if(didAdd) lines.push('<div class="notice-text"'+(didMerge?' style="margin-top:6px"':'')+'>'
@@ -8767,6 +8809,21 @@ var CSV_MERCHANTS = [
   ['Others',    ['pharmacity','long chau','an khang','guardian','watsons','nha thuoc','benh vien','phong kham','vinmec','medlatec','hoan my','bao hiem','insurance','hoc phi','tuition','truong']],
 ];
 
+/* MCC -> concept. Codes are ISO 18245 -- the same everywhere, unlike
+   merchant names -- so a short table covers the spending a family statement
+   actually contains. Codes not listed simply fall through to the next tier. */
+var CSV_MCC_CONCEPT = {
+  '5411':'Groceries','5422':'Groceries','5451':'Groceries','5462':'Groceries','5499':'Groceries',
+  '5811':'Dining','5812':'Dining','5813':'Dining','5814':'Dining',
+  '4111':'Transport','4121':'Transport','4131':'Transport','5541':'Transport','5542':'Transport','7523':'Transport',
+  '5912':'Health','8011':'Health','8021':'Health','8062':'Health',
+  '5651':'Clothing','5691':'Clothing','5661':'Clothing',
+  '5262':'Shopping','5311':'Shopping','5399':'Shopping','5964':'Shopping','5999':'Shopping',
+  '7832':'Fun','7841':'Fun','7994':'Fun','7996':'Fun',
+  '4899':'Housing','4900':'Housing',
+  '8211':'Education','8220':'Education','8299':'Education',
+};
+
 function csvMerchantConcept(desc) {
   var t = ' ' + deburr(String(desc || '').toLowerCase()).replace(CSV_BANK_NOISE, ' ').replace(/\s+/g, ' ') + ' ';
   if (t.trim().length < 2) return '';
@@ -9025,8 +9082,15 @@ function buildCsvCandidates(parsed, result) {
       isIncome = true;
       amtRaw = creditRaw;                       // show the real figure while it waits
     }
-    // Machine labels some exports use for direction, e.g. "transfer_in".
-    if (/^(transfer_in|income|credit|thu nhap|tien vao)$/i.test(deburr((catGuess||'').trim().toLowerCase()))) isIncome = true;
+    /* Sổ-thu-chi apps put direction in the "category" column: Loại = Chi or
+       Thu. Those words are an instruction, not a category -- turning them
+       into categories gives the family a category literally named "Chi" and
+       imports their salary as spending. Thu-side words mark income; chi-side
+       words are consumed (the row's real category comes from the other
+       tiers). */
+    var dirWord = deburr((catGuess||'').trim().toLowerCase());
+    if (/^(transfer_in|income|credit|thu nhap|tien vao|thu|khoan thu)$/.test(dirWord)) { isIncome = true; catGuess = ''; }
+    else if (/^(expense|debit|chi|chi tieu|khoan chi|tien ra)$/.test(dirWord)) catGuess = '';
     /* Some exports put everything in one column, so the words have to carry
        it: a salary run, an incoming transfer, a refund or interest is money
        IN. Filing a salary as spending would corrupt the month badly, so this
@@ -9077,6 +9141,18 @@ function buildCsvCandidates(parsed, result) {
        than making someone tap a category for every row. It's disclosed in the
        summary and one tap on the row changes it -- an editable default beats
        a blocking question. */
+    /* The MCC column, when a credit-card statement has one, is the cleanest
+       signal in the whole file: "5411-Grocery Stores" is the network telling
+       us the merchant's line of business. Only the leading code is read --
+       the wording after the dash varies by bank. */
+    if (!catName && colFor.mcc !== undefined && typeof familyCatForConcept === 'function') {
+      var mccCode = String(row[colFor.mcc] || '').trim().slice(0, 4);
+      var mccConcept = CSV_MCC_CONCEPT[mccCode];
+      if (mccConcept) {
+        var mfc = familyCatForConcept(mccConcept);
+        if (mfc && csvCatOk(mfc)) { catName = mfc; catSource = 'merchant'; }
+      }
+    }
     // bank-memo merchant recognition, before giving up on the row
     if (!catName && desc && typeof familyCatForConcept === 'function') {
       // the counterparty column names the merchant plainly; the memo buries it
@@ -9152,8 +9228,12 @@ function csvResolveSignMode(candidates) {
 function csvDropBlankRows(candidates) {
   var kept = [], dropped = 0;
   candidates.forEach(function(c){
-    var blank = c.flags.indexOf('description_missing') >= 0
-             && c.flags.indexOf('amount_missing') >= 0
+    /* No date AND no amount -- with or without text. A spacer row is empty;
+       a statement's section banner ("Số thẻ/Số tài khoản 513892...") has
+       words but is equally not a transaction, and "fixing" one would mean
+       typing an entire transaction from scratch into a row the bank never
+       meant as one. Both are structure, not data. */
+    var blank = c.flags.indexOf('amount_missing') >= 0
              && c.flags.indexOf('date_missing') >= 0;
     if (blank) { dropped++; return; }
     kept.push(c);
@@ -13788,7 +13868,29 @@ window.fhMaskSampleRowsForSharing = fhMaskSampleRowsForSharing;
 // "" as an escaped quote. Hand-rolled rather than a dependency — this repo has none,
 // and a naive `line.split(',')` breaks on real exports (e.g. a VN bank amount written
 // as "520,000" with the thousands comma inside quotes).
+/* Which character actually separates the columns?
+
+   Comma is only the default. Excel on a Vietnamese or European locale writes
+   ';' (because ',' is its decimal mark), and its "Unicode Text" export is
+   tab-separated. Counting candidate separators on the first line -- outside
+   quotes -- and taking the winner handles all three without a setting anyone
+   has to find. Comma wins ties, so a normal file can't be misread. */
+function detectDelim(text) {
+  const counts = { ',': 0, ';': 0, '\t': 0 };
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') { inQuotes = !inQuotes; continue; }
+    if (!inQuotes && c === '\n') break;
+    if (!inQuotes && counts[c] !== undefined) counts[c]++;
+  }
+  if (counts[';'] > counts[',']) return ';';
+  if (counts['\t'] > counts[',']) return '\t';
+  return ',';
+}
+
 function parseCsv(text) {
+  const delim = detectDelim(text);
   const rows = [];
   let row = [];
   let field = '';
@@ -13818,7 +13920,7 @@ function parseCsv(text) {
       i += 1;
       continue;
     }
-    if (c === ',') {
+    if (c === delim) {
       row.push(field);
       field = '';
       i += 1;
@@ -13865,14 +13967,18 @@ function norm(s) {
 }
 
 const CSV_HEADER_ALIASES = {
-  occurred_at: ['date', 'ngay', 'ngay giao dich', 'transaction date', 'posted date', 'txn date', 'ngay gd'],
+  occurred_at: ['date', 'ngay', 'ngay giao dich', 'transaction date', 'posted date', 'txn date', 'ngay gd',
+                'timestamp', 'time', 'thoi gian'],
   // A real bank statement has no single "amount": it has a debit column and a
   // credit column, and a running balance that must NEVER be mistaken for
   // either ("so du luy ke" is deliberately absent from every list here).
   amount: ['amount', 'so tien', 'value', 'so tien giao dich', 'phat sinh no', 'ghi no', 'debit', 'withdrawal', 'money out', 'tien ra'],
   credit: ['phat sinh co', 'ghi co', 'credit', 'deposit', 'money in', 'tien vao'],
   description: ['description', 'noi dung', 'dien giai', 'memo', 'note', 'noi dung giao dich'],
-  category: ['category', 'loai', 'danh muc'],
+  category: ['category', 'loai', 'danh muc', 'nhom', 'group'],
+  // A credit-card statement names every merchant's line of business in MCC
+  // codes -- a gift for categorisation nothing else in the file provides.
+  mcc: ['mcc', 'mcc code', 'mcc mcc'],
   counterparty: ['payee', 'doi tac', 'merchant', 'nguoi nhan', 'nguoi gui', 'don vi thu huong', 'don vi chuyen',
                  'don vi thu huong/ don vi chuyen', 'don vi thu huong / don vi chuyen', 'ben nhan', 'nguoi huong'],
   currency: ['currency', 'loai tien', 'don vi'],
@@ -13932,25 +14038,41 @@ function classifyAmount(raw) {
     flags.push('shorthand_suffix');
   }
 
+  /* Both separators present means one is grouping and one is decimals, and
+     the LAST one is the decimal mark: "1.234.567,00" (VN banks, EU locales)
+     against "1,234,567.89". Stripping both -- what this did before -- read a
+     574.195,00đ purchase as 57 million: a 100x error on every row of a VIB
+     statement. A lone comma with one or two digits after it is a decimal
+     comma for the same reason. */
   const hasDot = core.includes('.');
   const hasComma = core.includes(',');
   let style;
-  if (hasDot && hasComma) style = 'mixed_separators';
-  else if (hasDot) {
+  if (hasDot && hasComma) {
+    style = (core.lastIndexOf(',') > core.lastIndexOf('.')) ? 'eu_decimal' : 'decimal_2dp';
+  } else if (hasDot) {
     const parts = core.split('.');
     style = parts[parts.length - 1].length === 3 ? 'vn_grouped' : 'decimal_2dp';
   } else if (hasComma) {
     const parts = core.split(',');
-    style = parts[parts.length - 1].length === 3 ? 'en_grouped' : 'comma_unclear';
+    style = (parts.length === 2 && parts[1].length <= 2) ? 'eu_decimal'
+          : parts[parts.length - 1].length === 3 ? 'en_grouped' : 'comma_unclear';
   } else {
     style = 'plain';
   }
 
-  const cleaned = style === 'decimal_2dp' ? core.replace(/,/g, '') : core.replace(/[.,]/g, '');
+  const cleaned = style === 'decimal_2dp' ? core.replace(/,/g, '')
+                : style === 'eu_decimal'  ? core.replace(/\./g, '').replace(',', '.')
+                : core.replace(/[.,]/g, '');
   let value = Number(cleaned);
   if (Number.isNaN(value)) return { status: 'unparseable', flags };
+  value = Math.round(value);   // the ledger holds whole dong; ,00 tails are formatting
   // "1tr2" is one-and-two-tenths million, not 1 million then a stray 2.
-  if (mult > 1) value = Math.round((fracTail ? Number(String(value) + '.' + fracTail) : value) * mult);
+  if (mult > 1) value = Math.round((fracTail ? Number(String(cleaned)) : value) * mult);
+  /* A statement writes "0,00" in the debit column of every credit row and
+     vice versa. That zero is the ABSENCE of a figure, not a free purchase --
+     letting it through as ok turns half the rows of any two-column statement
+     into phantom transactions. */
+  if (value === 0) return { status: 'zero', flags };
   return { status: 'ok', style, value, flags };
 }
 
@@ -13972,16 +14094,14 @@ function fhFindHeaderRow(headers, rows) {
   const score = (cells) => {
     if (!cells) return 0;
     let hits = 0;
-    cells.forEach((c) => {
-      const hn = norm(c);
-      if (!hn) return;
-      if (Object.keys(CSV_HEADER_ALIASES).some((f) => CSV_HEADER_ALIASES[f].includes(hn))) hits++;
-    });
+    cells.forEach((c) => { if (matchHeaderField(norm(c))) hits++; });
     return hits;
   };
 
   const best = { at: -1, hits: score(headers) };
-  const look = Math.min(rows.length, 15);        // no real statement buries it deeper
+  // A VIB credit-card statement puts ~26 rows of card metadata above its
+  // table; 40 covers what banks actually do without scanning the whole file.
+  const look = Math.min(rows.length, 40);
   for (let i = 0; i < look; i++) {
     const hits = score(rows[i]);
     if (hits > best.hits) { best.at = i; best.hits = hits; }
@@ -13996,11 +14116,35 @@ function fhFindHeaderRow(headers, rows) {
 // A column can be correctly identified (high mapping confidence) while its values still
 // disagree on format (low format confidence) — that split, not the mapping itself, is
 // what decides whether this file needs the Gemini fallback.
+/* Exact alias first; then the alias as a bounded phrase inside the cell.
+   A VIB statement writes every header bilingually in one cell -- "Ngày giao
+   dịch\nTransaction date", "Ghi nợ/Debit (VND)" -- so exact matching sees
+   nothing and the whole statement fails to map. The containment pass wants
+   the longest alias it can find (so "ngay giao dich" beats "ngay") and only
+   at word boundaries (so "date" never fires inside "update"). */
+function matchHeaderField(hn) {
+  if (!hn) return undefined;
+  const exact = Object.keys(CSV_HEADER_ALIASES).find((f) => CSV_HEADER_ALIASES[f].includes(hn));
+  if (exact) return exact;
+  let best, bestLen = 0;
+  Object.keys(CSV_HEADER_ALIASES).forEach((f) => {
+    CSV_HEADER_ALIASES[f].forEach((alias) => {
+      if (alias.length <= bestLen || alias.length < 4) return;
+      const at = hn.indexOf(alias);
+      if (at < 0) return;
+      const before = at === 0 ? '' : hn[at - 1];
+      const after = hn[at + alias.length] || '';
+      if (/[a-z0-9]/.test(before) || /[a-z0-9]/.test(after)) return;
+      best = f; bestLen = alias.length;
+    });
+  });
+  return best;
+}
+
 function resolveCsvHeuristically(headers, sampleRows) {
   const columnMap = {};
   headers.forEach((h, i) => {
-    const hn = norm(h);
-    const field = Object.keys(CSV_HEADER_ALIASES).find((f) => CSV_HEADER_ALIASES[f].includes(hn));
+    const field = matchHeaderField(norm(h));
     if (field) columnMap[i] = { field, confidence: 'high', source: 'header_alias' };
   });
 
