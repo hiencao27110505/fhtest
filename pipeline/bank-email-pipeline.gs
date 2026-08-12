@@ -92,9 +92,23 @@ function processOneMessage(message, runCallCount) {
     upsertFingerprint(sender, template, true, extraction.transaction_type, derivedRegex);
   }
 
+  var auth = checkSenderAuthenticity(message, sender);
+  if (!auth.ok) {
+    Logger.log('sender auth ' + (senderAuthEnforced() ? 'REJECTED' : 'flagged') +
+      ' for ' + gmailMessageId + ': ' + auth.reasons.join('; '));
+    if (senderAuthEnforced()) {
+      // Not a parse failure — the email may be perfectly well-formed and still
+      // forged. Record it as such so it is reviewable, never silently dropped.
+      insertParseFailure(message, 'sender_auth_failed: ' + auth.reasons.join('; '));
+      relabelMessageThread(message, 'txn/parse-failed');
+      return runCallCount;
+    }
+  }
+
   var dup = findDuplicate(extraction.amount, extraction.direction, extraction.occurred_at, extraction.source_provider);
   var memberId = resolveMemberId(message);
   var row = buildEmailTransactionRow(gmailMessageId, sender, extraction, body, dup, memberId);
+  row.raw_extracted = Object.assign({}, row.raw_extracted, { _sender_auth: auth });
 
   var inserted = insertEmailTransaction(row);
   if (!inserted) {
@@ -283,6 +297,14 @@ var EXTRACTION_SYSTEM_PROMPT =
   '+07:00. Never output a bare timestamp with no offset.\n\n' +
   'counterparty: copy the full counterparty string exactly as written in the email, including any ' +
   'account number, phone number, or identifier alongside the name — do not shorten or summarize it.\n\n' +
+  'memo: the free-text note the payer attached to the transaction — the transfer message, payment ' +
+  'reference, order description, or item name. In Vietnamese bank emails this is usually labelled ' +
+  '"Nội dung chuyển tiền", "Nội dung giao dịch", "Diễn giải" or similar. Copy it verbatim. This is ' +
+  'the only field that can carry the payer\'s own words about WHY the money moved, so never ' +
+  'paraphrase it and never substitute a description of your own. Many banks auto-generate this ' +
+  'field from the sender name and it carries no real meaning (e.g. "NGUYEN VAN A chuyen tien", ' +
+  '"TRANSFER FROM ..."); extract it as written either way and do not try to judge whether it is ' +
+  'meaningful — a human reviews it downstream.\n\n' +
   'Amounts must be the raw number with no currency symbol or thousands separators. If the email ' +
   'states a status (success/failed/pending), extract it; otherwise null.';
 
@@ -300,13 +322,14 @@ var EXTRACTION_SCHEMA = {
     currency: { type: ['string', 'null'] },
     direction: { type: ['string', 'null'], enum: ['debit', 'credit', null] },
     counterparty: { type: ['string', 'null'] },
+    memo: { type: ['string', 'null'] },
     reference_number: { type: ['string', 'null'] },
     status: { type: ['string', 'null'] },
     account_masked: { type: ['string', 'null'] },
   },
   required: [
     'is_transaction', 'transaction_type', 'source_provider', 'occurred_at',
-    'amount', 'currency', 'direction', 'counterparty', 'reference_number',
+    'amount', 'currency', 'direction', 'counterparty', 'memo', 'reference_number',
     'status', 'account_masked',
   ],
   additionalProperties: false,
@@ -418,7 +441,7 @@ function stripNullsForGemini(schema) {
 // (different amount/name/ref/time), reject-different-structure, reject-stale-
 // version, reject-legacy-placeholder, self-reproduction — all pass.
 
-var EXTRACTION_LOGIC_VERSION = 2;
+var EXTRACTION_LOGIC_VERSION = 3;
 
 function _escRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
@@ -622,6 +645,104 @@ function upsertFingerprint(sender, template, isSource, txnType, regex) {
   }, 'sender_address,subject_template'); // on conflict, upsert
 }
 
+// ---------- Sender authenticity ----------
+//
+// Routing (+tag) answers "whose queue is this?" — it does NOT answer "is this
+// real?". Anyone who learns a user's alias can post a hand-written "MB Bank"
+// email to it and, before these checks, it would stage like any other
+// transaction. Human review is a seatbelt, not a lock: approval fatigue is
+// real, and a fake row that looks ordinary is exactly what gets waved through.
+//
+// Two independent signals, both already computed for us before the message
+// lands, both free to read:
+//
+//   1. DKIM — the bank cryptographically signs its own outbound mail. Gmail
+//      verifies that signature on arrival and records the verdict in the
+//      Authentication-Results header. A forger cannot produce the bank's
+//      signature, so "dkim=pass with header.d under the sender's domain" is a
+//      genuine authenticity proof, not a heuristic. Survives forwarding intact
+//      (unlike SPF, which is exactly why forwarded mail trips spam filters).
+//
+//   2. X-Forwarded-For — Gmail stamps the forwarding account on auto-forwarded
+//      mail. Compared against mailbox_connections.personal_email (captured at
+//      onboarding while the user was authenticated), this proves the message
+//      came through the mailbox the alias was issued for, rather than being
+//      posted straight at the alias by someone who learned it.
+//
+// ROLLOUT: advisory by default. Both verdicts are recorded on every row, but
+// nothing is blocked until SENDER_AUTH_ENFORCE is set to 'true' in Script
+// Properties. A check that can reject real transactions should earn its
+// enforcement on observed data first — some banks legitimately sign with an ESP
+// domain, and not every forwarding path stamps X-Forwarded-For. Watch the
+// recorded verdicts, then turn it on.
+
+function senderAuthEnforced() {
+  return PropertiesService.getScriptProperties().getProperty('SENDER_AUTH_ENFORCE') === 'true';
+}
+
+function _domainOf(address) {
+  var m = String(address || '').match(/@([^@>\s]+)/);
+  return m ? m[1].toLowerCase().replace(/\.$/, '') : null;
+}
+
+// true when signing domain == sender domain, or is a parent of it
+// (mb.com.vn signing mail from mbebanking.mb.com.vn is legitimate).
+function _domainAligned(signingDomain, senderDomain) {
+  if (!signingDomain || !senderDomain) return false;
+  if (signingDomain === senderDomain) return true;
+  return senderDomain.length > signingDomain.length &&
+         senderDomain.slice(-(signingDomain.length + 1)) === '.' + signingDomain;
+}
+
+function checkSenderAuthenticity(message, sender) {
+  var results = { dkim: 'unknown', forwarder: 'unknown', ok: true, reasons: [] };
+
+  // ── DKIM ──
+  var authResults = '';
+  try { authResults = message.getHeader('Authentication-Results') || ''; } catch (e) { /* header absent */ }
+  if (!authResults) {
+    results.dkim = 'absent';
+    results.reasons.push('no Authentication-Results header');
+  } else {
+    var m = authResults.match(/dkim=(\w+)/i);
+    var verdict = m ? m[1].toLowerCase() : null;
+    var dm = authResults.match(/header\.d=([^\s;]+)/i);
+    var signing = dm ? dm[1].toLowerCase() : null;
+    if (verdict !== 'pass') {
+      results.dkim = 'fail';
+      results.reasons.push('dkim=' + (verdict || 'missing'));
+    } else if (!_domainAligned(signing, _domainOf(sender))) {
+      // Signed, but by someone else — common for legitimate ESP-sent mail, which
+      // is why this is recorded rather than fatal until enforcement is on.
+      results.dkim = 'misaligned';
+      results.reasons.push('dkim=pass but header.d=' + signing + ' != sender ' + _domainOf(sender));
+    } else {
+      results.dkim = 'pass';
+    }
+  }
+
+  // ── forwarder ──
+  var mailbox = resolveMailbox(message);
+  var fwd = '';
+  try { fwd = message.getHeader('X-Forwarded-For') || ''; } catch (e2) { /* header absent */ }
+  if (!mailbox) {
+    results.forwarder = 'no_mailbox';
+    results.reasons.push('alias not found in mailbox_connections');
+  } else if (!fwd) {
+    results.forwarder = 'absent';
+    results.reasons.push('no X-Forwarded-For header');
+  } else if (mailbox.personal_email &&
+             fwd.toLowerCase().indexOf(String(mailbox.personal_email).toLowerCase()) === -1) {
+    results.forwarder = 'mismatch';
+    results.reasons.push('forwarded by ' + fwd + ', alias belongs to ' + mailbox.personal_email);
+  } else {
+    results.forwarder = 'pass';
+  }
+
+  results.ok = (results.dkim === 'pass' && results.forwarder === 'pass');
+  return results;
+}
+
 // ---------- Stage 2 helpers ----------
 
 function findDuplicate(amount, direction, occurredAt, sourceProvider) {
@@ -680,11 +801,16 @@ function insertEmailTransaction(row) {
 // for any promotion decision. Returns null if the tag is missing or unrecognized;
 // the row still gets written, just without routing info until mailbox_connections
 // has a matching entry.
-function resolveMemberId(message) {
+function resolveMailbox(message) {
   var alias = extractPlusTag(message.getTo());
   if (!alias) return null;
-  var mailbox = supabaseGet('mailbox_connections', { forwarding_alias: 'eq.' + alias });
-  return mailbox.length ? mailbox[0].member_id : null;
+  var rows = supabaseGet('mailbox_connections', { forwarding_alias: 'eq.' + alias });
+  return rows.length ? rows[0] : null;
+}
+
+function resolveMemberId(message) {
+  var mailbox = resolveMailbox(message);
+  return mailbox ? mailbox.member_id : null;
 }
 
 function extractPlusTag(toHeader) {
