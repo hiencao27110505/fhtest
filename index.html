@@ -2550,6 +2550,20 @@ html.fh-can-install .set-row.set-install{display:flex}
 }
 .fh-ci-done:active{ opacity:.55; }
 
+/* ---------- photo-picker permission recovery hint ---------- */
+.fh-photo-hint{ position:fixed; left:12px; right:12px; bottom:calc(14px + env(safe-area-inset-bottom,0)); z-index:9999;
+  transform:translateY(160%); transition:transform .28s cubic-bezier(.32,.72,0,1); pointer-events:none; }
+.fh-photo-hint.on{ transform:translateY(0); pointer-events:auto; }
+.fh-photo-hint .fph-in{ display:flex; align-items:center; gap:10px; max-width:520px; margin:0 auto;
+  background:var(--ink); color:#fff; border-radius:14px; padding:11px 11px 11px 14px;
+  box-shadow:0 12px 34px rgba(0,0,0,.30); }
+.fph-ic{ font-size:18px; line-height:1; flex:0 0 auto; }
+.fph-tx{ flex:1; font-size:12.5px; line-height:1.4; }
+.fph-retry{ flex:0 0 auto; background:var(--brand); color:#fff; border:none; border-radius:9px;
+  padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer; }
+.fph-x{ flex:0 0 auto; background:transparent; border:none; color:rgba(255,255,255,.65);
+  font-size:13px; line-height:1; cursor:pointer; padding:8px 6px; }
+
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
 .fh-s-cta{width:100%;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;padding:15px;border-radius:9999px;box-shadow:0 8px 20px var(--brand-glow);margin-top:6px}
@@ -9856,6 +9870,75 @@ function bucketCsvCandidates(candidates, mixedSigns) {
   return { ready: ready, needsCategoryGroups: needsCategoryGroups, possibleDuplicate: possibleDuplicate, deferred: deferred };
 }
 
+/* ---------- photo-picker permission recovery ----------
+   If the OS camera/photo permission was dismissed or denied, tapping an
+   <input type=file accept=image/*> silently does nothing — the OS won't re-prompt,
+   and a web page cannot force the prompt back. So instead of trying to re-trigger it
+   (impossible), we detect the "picker never opened" case and surface a dismissible
+   hint that points to device Settings, with a one-tap retry.
+
+   Signal: opening a real picker HIDES or BLURS the page; a blocked one does not. On
+   the FIRST tap the OS shows its permission dialog (which blurs) — we don't nag then.
+   On the SECOND tap, already-denied, no dialog and no picker open → no blur → that's
+   the stuck state we catch.
+
+   Gated hard so a normal cancel never nags:
+     • only for users who have NEVER successfully added a photo,
+     • once per session, dismissible,
+     • skipped on iOS — its file action sheet always reaches the Photo Library, so
+       there is nothing to unblock (the hard block is an Android / installed-PWA case). */
+(function(){
+  var isIOS = /iP(hone|od|ad)/.test(navigator.userAgent || '')
+           || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // iPadOS masquerades as Mac
+  var OK = 'fh-photo-ok';
+  function everOk(){ try { return localStorage.getItem(OK) === '1'; } catch(e){ return false; } }
+  window.fhPhotoMarkOk = function(){ try { localStorage.setItem(OK, '1'); } catch(e){} hide(); };
+
+  var pending = false, opened = false, shown = false, lastInput = null;
+
+  // Picker/permission dialog took over the screen → it opened, so a later empty
+  // return is a normal cancel, not a block.
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'hidden') opened = true; }, true);
+  window.addEventListener('blur', function(){ opened = true; }, true);
+
+  // A photo actually came back on ANY image picker → success, remember it forever.
+  document.addEventListener('change', function(e){
+    var t = e.target;
+    if(t && t.tagName === 'INPUT' && t.type === 'file' && String(t.accept || '').indexOf('image') >= 0 && t.files && t.files.length){
+      pending = false; window.fhPhotoMarkOk();
+    }
+  }, true);
+
+  if(!isIOS) document.addEventListener('click', function(e){
+    var el = e.target;                                  // label taps arrive here as a synthetic click on the input
+    if(!el || el.tagName !== 'INPUT' || el.type !== 'file') return;
+    if(String(el.accept || '').indexOf('image') < 0) return;
+    lastInput = el; opened = false; pending = true;
+    setTimeout(function(){
+      if(!pending) return; pending = false;
+      if(opened) return;                                // picker (or perm dialog) opened → user's own cancel, don't nag
+      if(everOk() || shown) return;                     // never nag someone who has added photos before
+      show();
+    }, 900);
+  }, true);
+
+  function show(){
+    shown = true;
+    var el = document.getElementById('fh-photo-hint');
+    if(!el){ el = document.createElement('div'); el.id = 'fh-photo-hint'; el.className = 'fh-photo-hint'; (document.body || document.documentElement).appendChild(el); }
+    var _L = window.L || function(a){ return a; };
+    el.innerHTML = '<div class="fph-in"><span class="fph-ic">📷</span>'
+      + '<span class="fph-tx">' + _L('Không mở được ảnh? Quyền Ảnh/Máy ảnh có thể đang tắt — bật trong Cài đặt rồi thử lại.',
+                                      'Photos won’t open? Camera/Photos access may be off — turn it on in Settings, then retry.') + '</span>'
+      + '<button class="fph-retry" onclick="fhPhotoRetry()">' + _L('Thử lại','Retry') + '</button>'
+      + '<button class="fph-x" aria-label="' + _L('Đóng','Close') + '" onclick="fhPhotoHintClose()">✕</button></div>';
+    void el.offsetWidth; el.classList.add('on');
+  }
+  function hide(){ var el = document.getElementById('fh-photo-hint'); if(el) el.classList.remove('on'); }
+  window.fhPhotoHintClose = hide;
+  window.fhPhotoRetry = function(){ hide(); if(lastInput){ try { lastInput.click(); } catch(e){} } };
+})();
+
 /* ---------- expense ---------- */
 var catStyle={};
 /* ---------- transactions (with spender avatar) ---------- */
@@ -12063,7 +12146,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v314';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v315';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

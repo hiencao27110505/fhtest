@@ -1,0 +1,13 @@
+/* ---------- photo-picker permission recovery hint ---------- */
+.fh-photo-hint{ position:fixed; left:12px; right:12px; bottom:calc(14px + env(safe-area-inset-bottom,0)); z-index:9999;
+  transform:translateY(160%); transition:transform .28s cubic-bezier(.32,.72,0,1); pointer-events:none; }
+.fh-photo-hint.on{ transform:translateY(0); pointer-events:auto; }
+.fh-photo-hint .fph-in{ display:flex; align-items:center; gap:10px; max-width:520px; margin:0 auto;
+  background:var(--ink); color:#fff; border-radius:14px; padding:11px 11px 11px 14px;
+  box-shadow:0 12px 34px rgba(0,0,0,.30); }
+.fph-ic{ font-size:18px; line-height:1; flex:0 0 auto; }
+.fph-tx{ flex:1; font-size:12.5px; line-height:1.4; }
+.fph-retry{ flex:0 0 auto; background:var(--brand); color:#fff; border:none; border-radius:9px;
+  padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer; }
+.fph-x{ flex:0 0 auto; background:transparent; border:none; color:rgba(255,255,255,.65);
+  font-size:13px; line-height:1; cursor:pointer; padding:8px 6px; }
