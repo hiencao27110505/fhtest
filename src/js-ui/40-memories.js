@@ -356,14 +356,19 @@ function renderMemoriesTab(){
   var box=document.getElementById('mem-grid'); if(!box)return;
   buildMemRecords();
   if(mcalY===null) memCalInit();
-  var monthRecs=memRecords.filter(function(r){ return r.d && r.d.getFullYear()===mcalY && r.d.getMonth()===mcalM; });
+  // The Album holds only photo-ONLY moments — plain snapshots. A photographed expense
+  // (including a moment logged with an expense) is an expense-with-photo and lives in
+  // the Timeline story above, so it is NOT repeated here: one memory, one place.
+  var isMoment=function(r){ return r.type==='event' && events[r.ref] && typeof isMomentEvent==='function' && isMomentEvent(events[r.ref]); };
+  var monthRecs=memRecords.filter(function(r){ return r.d && r.d.getFullYear()===mcalY && r.d.getMonth()===mcalM && isMoment(r); });
   // Album section title states the hero month (G3 scope) + a count.
   var at=document.getElementById('album-title');
   if(at) at.textContent = isVi()
-    ? ('Ảnh ' + moFull(mcalM).toLowerCase() + (monthRecs.length ? ' · ' + monthRecs.length : ''))
-    : ((MONF[mcalM]) + ' photos' + (monthRecs.length ? ' · ' + monthRecs.length : ''));
+    ? ('Khoảnh khắc ' + moFull(mcalM).toLowerCase() + (monthRecs.length ? ' · ' + monthRecs.length : ''))
+    : ((MONF[mcalM]) + ' moments' + (monthRecs.length ? ' · ' + monthRecs.length : ''));
   if(!monthRecs.length){
-    box.innerHTML='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">'+L('Chưa có ảnh trong '+moFull(mcalM).toLowerCase(),'No photos in '+MONF[mcalM])+'</div><p>'+(memRecords.length?L('Dùng lịch để xem tháng khác.','Use the calendar to browse another month.'):L('Thêm ảnh khi bạn ghi một khoản chi, hoặc vào một sự kiện.','Add a photo when you log an expense, or to a saved event.'))+'</p></div>';
+    var anyMoments=memRecords.some(isMoment);
+    box.innerHTML='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">'+L('Chưa có khoảnh khắc trong '+moFull(mcalM).toLowerCase(),'No moments in '+MONF[mcalM])+'</div><p>'+(anyMoments?L('Dùng lịch để xem tháng khác.','Use the calendar to browse another month.'):L('Chạm ＋ để lưu một khoảnh khắc chỉ có ảnh.','Tap ＋ to save a photo-only moment.'))+'</p></div>';
     return;
   }
   box.innerHTML=photoSectionsByDate(monthRecs);
