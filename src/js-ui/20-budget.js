@@ -293,8 +293,11 @@ function addCatRow(){                                       // new rows go above
   var rows=box.querySelectorAll('.cat-row:not(.cat-row-lock) .cat-name');
   if(rows.length) rows[rows.length-1].focus();               // land the cursor in the new row
 }
-// best-practice weights (EN + seeded VI names); unknown categories default to 0.08, then normalised
-var CATW={housing:.30,'nhà ở':.30,rent:.30,groceries:.14,'đi chợ':.14,dining:.08,'ăn ngoài':.08,transport:.10,'đi lại':.10,fun:.06,'giải trí':.06,kids:.08,'con cái':.08,others:.08,shopping:.10,clothing:.06};
+// best-practice weights (EN + seeded VI names); unknown categories default to 0.08, then normalised.
+// The five default categories (housing, groceries, transport, dining, fun) sum to 1.0 — Kids is no
+// longer a default, so its old 0.08 share is folded into the essentials (mostly housing/groceries).
+// kids/con cái are omitted here on purpose: if re-added by hand they take the 0.08 unknown-default.
+var CATW={housing:.35,'nhà ở':.35,rent:.35,groceries:.22,'đi chợ':.22,transport:.16,'đi lại':.16,dining:.15,'ăn ngoài':.15,fun:.12,'giải trí':.12,others:.08,shopping:.10,clothing:.06};
 /* Auto-split fills in categories the user hasn't set themselves. It must never
    overwrite a hand-typed figure: editing the monthly total after tuning categories
    used to wipe that work on every keystroke, with no undo. A row is "touched" once

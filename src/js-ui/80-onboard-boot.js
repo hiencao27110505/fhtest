@@ -88,9 +88,12 @@ var DEFAULT_CATS=[
   {concept:'Groceries', vi:'Đi chợ',  en:'Groceries', emoji:'🛒', color:'#1FA971'},
   {concept:'Dining',    vi:'Ăn ngoài',en:'Dining',    emoji:'🍽️', color:'#E14B8A'},
   {concept:'Transport', vi:'Đi lại',  en:'Transport', emoji:'🚗', color:'#12B5A6'},
-  {concept:'Fun',       vi:'Giải trí',en:'Fun',       emoji:'🎉', color:'#9D4EFF'},
-  {concept:'Kids',      vi:'Con cái', en:'Kids',      emoji:'🎒', color:'#F0701A'}
+  {concept:'Fun',       vi:'Giải trí',en:'Fun',       emoji:'🎉', color:'#9D4EFF'}
 ];
+// "Con cái"/Kids is intentionally NOT a default category — a family without kids
+// shouldn't start with an empty kids line, and those who want it can add it. Kids
+// spending falls under Groceries/Fun/Others until then. Its old budget weight is
+// reallocated to the remaining defaults in CATW (20-budget.js).
 function obSeedCats(){
   var names=DEFAULT_CATS.map(function(d){ return (LANG==='vi'?d.vi:d.en); });
   catOrder=names.slice(); catStyle={};
