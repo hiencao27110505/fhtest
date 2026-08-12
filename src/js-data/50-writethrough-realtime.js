@@ -168,14 +168,20 @@
     });
   };
   /* Photos-only moment: saveMoment() mints a standalone achieved event (target-less)
-     whose photos are its event_memories. The expense path (amount filled) reuses the
-     wrapped addExpense above and needs nothing here — only the pure-memory branch
-     inserts a bare event, so persist exactly the new event keys, like addEvent. */
+     whose photos are its event_memories — persist it, like addEvent.
+     The expense path (amount filled) instead calls the WRAPPED window.addExpense above,
+     which already persists the transaction AND its mirror event. So if a new txn
+     appeared, we must NOT also diff `order` here: that mirror event would be inserted a
+     second time (before the txn has an id, so it loses its source_txn_id link and
+     hydrates as a duplicate, photoless "occasion" with the same note). Skip it. */
   const _origSaveMoment = window.saveMoment;
   if (typeof _origSaveMoment === 'function') window.saveMoment = function () {
     if (_fhWriteLocked()) return;
+    const beforeTx = {}; (window.txns || []).forEach((t) => { beforeTx[t.id] = 1; });
     const beforeOrder = (window.order || []).slice();
     _origSaveMoment.apply(this, arguments);
+    const madeExpense = (window.txns || []).some((t) => !beforeTx[t.id]);
+    if (madeExpense) return;   // expense path → addExpense's wrapper owns the txn + its mirror event
     (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => {
       const p = _dbInsertEvent(k); const ev = window.events[k]; if (ev) ev._dbPending = p;
     });

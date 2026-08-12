@@ -6466,19 +6466,17 @@ function renderMemoriesTab(){
   var box=document.getElementById('mem-grid'); if(!box)return;
   buildMemRecords();
   if(mcalY===null) memCalInit();
-  // The Album holds only photo-ONLY moments — plain snapshots. A photographed expense
-  // (including a moment logged with an expense) is an expense-with-photo and lives in
-  // the Timeline story above, so it is NOT repeated here: one memory, one place.
-  var isMoment=function(r){ return r.type==='event' && events[r.ref] && typeof isMomentEvent==='function' && isMomentEvent(events[r.ref]); };
-  var monthRecs=memRecords.filter(function(r){ return r.d && r.d.getFullYear()===mcalY && r.d.getMonth()===mcalM && isMoment(r); });
+  // The Album is the family's photo gallery — EVERY photo of the month: plain moments
+  // AND the photos attached to expenses. (The Timeline above is the story feed of cards;
+  // the Album is the grid of the photos themselves — a photo naturally appears in both.)
+  var monthRecs=memRecords.filter(function(r){ return r.d && r.d.getFullYear()===mcalY && r.d.getMonth()===mcalM; });
   // Album section title states the hero month (G3 scope) + a count.
   var at=document.getElementById('album-title');
   if(at) at.textContent = isVi()
-    ? ('Khoảnh khắc ' + moFull(mcalM).toLowerCase() + (monthRecs.length ? ' · ' + monthRecs.length : ''))
-    : ((MONF[mcalM]) + ' moments' + (monthRecs.length ? ' · ' + monthRecs.length : ''));
+    ? ('Ảnh ' + moFull(mcalM).toLowerCase() + (monthRecs.length ? ' · ' + monthRecs.length : ''))
+    : ((MONF[mcalM]) + ' photos' + (monthRecs.length ? ' · ' + monthRecs.length : ''));
   if(!monthRecs.length){
-    var anyMoments=memRecords.some(isMoment);
-    box.innerHTML='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">'+L('Chưa có khoảnh khắc trong '+moFull(mcalM).toLowerCase(),'No moments in '+MONF[mcalM])+'</div><p>'+(anyMoments?L('Dùng lịch để xem tháng khác.','Use the calendar to browse another month.'):L('Chạm ＋ để lưu một khoảnh khắc chỉ có ảnh.','Tap ＋ to save a photo-only moment.'))+'</p></div>';
+    box.innerHTML='<div class="mem-empty"><div class="me-emoji">📸</div><div class="me-t">'+L('Chưa có ảnh trong '+moFull(mcalM).toLowerCase(),'No photos in '+MONF[mcalM])+'</div><p>'+(memRecords.length?L('Dùng lịch để xem tháng khác.','Use the calendar to browse another month.'):L('Thêm ảnh khi bạn ghi một khoản chi, hoặc lưu một khoảnh khắc.','Add a photo when you log an expense, or save a moment.'))+'</p></div>';
     return;
   }
   box.innerHTML=photoSectionsByDate(monthRecs);
@@ -11883,7 +11881,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v311';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v312';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -14896,14 +14894,20 @@ window.classifyAmount = classifyAmount;
     });
   };
   /* Photos-only moment: saveMoment() mints a standalone achieved event (target-less)
-     whose photos are its event_memories. The expense path (amount filled) reuses the
-     wrapped addExpense above and needs nothing here — only the pure-memory branch
-     inserts a bare event, so persist exactly the new event keys, like addEvent. */
+     whose photos are its event_memories — persist it, like addEvent.
+     The expense path (amount filled) instead calls the WRAPPED window.addExpense above,
+     which already persists the transaction AND its mirror event. So if a new txn
+     appeared, we must NOT also diff `order` here: that mirror event would be inserted a
+     second time (before the txn has an id, so it loses its source_txn_id link and
+     hydrates as a duplicate, photoless "occasion" with the same note). Skip it. */
   const _origSaveMoment = window.saveMoment;
   if (typeof _origSaveMoment === 'function') window.saveMoment = function () {
     if (_fhWriteLocked()) return;
+    const beforeTx = {}; (window.txns || []).forEach((t) => { beforeTx[t.id] = 1; });
     const beforeOrder = (window.order || []).slice();
     _origSaveMoment.apply(this, arguments);
+    const madeExpense = (window.txns || []).some((t) => !beforeTx[t.id]);
+    if (madeExpense) return;   // expense path → addExpense's wrapper owns the txn + its mirror event
     (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => {
       const p = _dbInsertEvent(k); const ev = window.events[k]; if (ev) ev._dbPending = p;
     });
