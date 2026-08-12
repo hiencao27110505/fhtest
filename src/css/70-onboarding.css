@@ -65,7 +65,12 @@ html.fh-newver #fh-newver{display:flex}
 .ob-foot .cta{margin-top:0}
 .ob-note{text-align:center;font-size:12.5px;line-height:1.45;color:var(--muted-soft);letter-spacing:-.01em;margin-top:13px;padding:0 8px}
 .ob-textlink{display:block;width:100%;text-align:center;color:var(--brand-ink);font-size:15px;font-weight:600;letter-spacing:-.01em;padding:15px 0 2px}
-/* ── intro: meadow scene + the two promises ── */
+/* ── intro: meadow scene + the two promises ──
+   The intro reads as a marketing/first-run screen, so it gets a clean full white
+   background (not the grouped-form grey the rest of onboarding uses); the footer
+   fade tracks it to white so nothing greys out under the sign-in button. */
+.ob-screen[data-ob="welcome"]{background:var(--white)}
+.ob-screen[data-ob="welcome"] .ob-foot{background:linear-gradient(180deg,transparent,var(--white) 34%)}
 .ob-hero{text-align:center;padding-top:min(3vh,20px)}
 .ob-scene{display:block;width:100%;max-width:340px;margin:0 auto;filter:drop-shadow(0 10px 24px rgba(25,16,34,.10))}
 .ob-h1-intro{margin-top:26px;text-align:center;font-size:29px;line-height:1.16;letter-spacing:-.7px;padding:0 6px}
