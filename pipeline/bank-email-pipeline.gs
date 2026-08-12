@@ -16,6 +16,10 @@
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
 var DEDUPE_WINDOW_DAYS = 3;
+// How long to keep retrying an email whose +tag matches no mailbox_connections
+// row. Long enough to cover "set up forwarding, onboard the app a few days
+// later"; short enough that a genuine misconfiguration surfaces.
+var ROUTING_GRACE_DAYS = 14;
 
 function processEmails() {
   var threads = GmailApp.search('label:txn/inbox');
@@ -105,8 +109,36 @@ function processOneMessage(message, runCallCount) {
     }
   }
 
+  // ── routing gate ──────────────────────────────────────────────────────────
+  // A row's ONLY link to a family is member_id -> members.family_id. With no
+  // member_id there is no family linkage at all, so such a row can never be
+  // shown to anyone: scoping it to a family is impossible, and showing it
+  // family-wide would mean showing one household's transaction to every other.
+  // Staging it anyway just accumulates data that is permanently unsurfaceable.
+  //
+  // So: hold it in txn/inbox instead. The overwhelmingly likely cause is that
+  // the user has not finished mailbox onboarding yet (nothing writes
+  // mailbox_connections today), and the moment they do, the next run routes
+  // this same email correctly — no re-forwarding needed, nothing lost.
+  //
+  // Bounded so it cannot queue forever: past ROUTING_GRACE_DAYS we stop hoping,
+  // record it, and move it out of the queue so the backlog cannot grow without
+  // limit or hide a real misconfiguration.
+  var mailbox = resolveMailbox(message);
+  if (!mailbox) {
+    var ageDays = (new Date().getTime() - message.getDate().getTime()) / 86400000;
+    if (ageDays < ROUTING_GRACE_DAYS) {
+      Logger.log('unroutable (no mailbox_connections for its +tag), holding for retry: ' + gmailMessageId);
+      return runCallCount;   // stays labeled txn/inbox
+    }
+    insertParseFailure(message, 'unroutable_after_grace: no mailbox_connections match after ' +
+      ROUTING_GRACE_DAYS + ' days — mailbox onboarding likely never completed');
+    relabelMessageThread(message, 'txn/parse-failed');
+    return runCallCount;
+  }
+
   var dup = findDuplicate(extraction.amount, extraction.direction, extraction.occurred_at, extraction.source_provider);
-  var memberId = resolveMemberId(message);
+  var memberId = mailbox.member_id;
   var row = buildEmailTransactionRow(gmailMessageId, sender, extraction, body, dup, memberId);
   row.raw_extracted = Object.assign({}, row.raw_extracted, { _sender_auth: auth });
 
