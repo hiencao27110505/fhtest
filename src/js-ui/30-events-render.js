@@ -178,10 +178,15 @@ function renderEvents(){
     var rx=(typeof memRxLineHTML==='function')?memRxLineHTML(t):'';
     return '<div class="tl-card" onclick="openMemoryByRef(&#39;expense&#39;,&#39;'+escAttr(t.id)+'&#39;)"><div class="tl-top"><span class="tl-emoji">'+esc(t.ico||'📸')+'</span><span class="tl-name">'+esc(t.note||L('Khoản chi','Expense'))+'</span></div>'+photoStrip(t.photos, t.note)+rx+'</div>';
   }
+  // The Timeline rail is the OCCASION story — upcoming plans + achieved occasions.
+  // Individual photo-memories (a photographed expense, a standalone moment) are NOT
+  // occasions: they live once, in the Album + calendar below (buildMemRecords), so a
+  // single snapshot is never shown as both a timeline card and an album block. A
+  // moment logged with an expense is therefore indistinguishable from any logged
+  // expense-with-photo — one post, in the Album.
   var memNodes=[];
   upS.forEach(function(k){ memNodes.push({ d: events[k].d, card: planCard(k), future:true }); });
   mem.forEach(function(k){ memNodes.push({ d: events[k].d, card: occasionCard(k), future:false }); });
-  (window.txns||[]).forEach(function(t){ if(t.photos && t.photos.length) memNodes.push({ d: txPhotoDate(t), card: expenseCard(t), future:false }); });
   memNodes.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });   // furthest-future → today → oldest-past
   var dayGroups=[], byDay={};
   memNodes.forEach(function(n){
