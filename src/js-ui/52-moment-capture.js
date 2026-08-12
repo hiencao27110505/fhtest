@@ -63,14 +63,23 @@ function onMomPhoto(input){
 }
 function removeMomPhoto(i){ momPhotos.splice(i,1); renderMomPhotos(); refreshMomCta(); }
 function renderMomPhotos(){
-  var empty=document.getElementById('mom-drop-empty'), strip=document.getElementById('mom-strip');
-  if(empty) empty.style.display = momPhotos.length ? 'none' : '';
-  if(strip){
-    strip.style.display = momPhotos.length ? '' : 'none';
-    strip.innerHTML = momPhotos.map(function(src,i){
-      return '<div class="photo-thumb" style="background-image:url('+src+')"><button type="button" class="x" onclick="removeMomPhoto('+i+')">✕</button></div>';
-    }).join('') + '<label class="mom-add-more"><span>＋</span><input type="file" accept="image/*" multiple onchange="onMomPhoto(this)" hidden></label>';
-  }
+  // Empty → the big dropzone. One or more photos → the photo IS the hero (large, on
+  // top), with a "＋ add more" row beneath it (plus small thumbs for any extra photos).
+  var drop=document.getElementById('mom-drop'), gal=document.getElementById('mom-strip');
+  var has=momPhotos.length>0;
+  if(drop) drop.style.display = has ? 'none' : '';
+  if(!gal) return;
+  gal.style.display = has ? '' : 'none';
+  if(!has){ gal.innerHTML=''; return; }
+  var hero='<div class="mom-hero" style="background-image:url('+momPhotos[0]+')">'
+    +'<button type="button" class="mom-hero-x" onclick="removeMomPhoto(0)" aria-label="'+L('Xoá ảnh','Remove photo')+'">✕</button>'
+    +(momPhotos.length>1?'<span class="mom-hero-n">1 / '+momPhotos.length+'</span>':'')+'</div>';
+  var thumbs=momPhotos.slice(1).map(function(src,i){
+    var idx=i+1;
+    return '<div class="photo-thumb mom-th" style="background-image:url('+src+')"><button type="button" class="x" onclick="removeMomPhoto('+idx+')">✕</button></div>';
+  }).join('');
+  var add='<label class="mom-add-more" aria-label="'+L('Thêm ảnh','Add photo')+'"><span>＋</span><input type="file" accept="image/*" multiple onchange="onMomPhoto(this)" hidden></label>';
+  gal.innerHTML = hero + '<div class="mom-thumbrow">'+thumbs+add+'</div>';
 }
 
 function momToggleExp(){ momExpOpen=!momExpOpen; renderMomExpSection(); if(momExpOpen){ var a=document.getElementById('mom-amt'); if(a) setTimeout(function(){ a.focus(); },80); } }

@@ -56,7 +56,12 @@ function renderEvents(){
   // CREATED under the hood (syncExpenseEvent) — only its display here is suppressed.
   var isMirror=function(k){ var e=events[k]; return !!(e&&(e._srcTxn||e.fromExpense)); };
   var up=order.filter(function(k){return !isMirror(k)&&!achievedNow(events[k]);});
-  var mem=order.filter(function(k){return !isMirror(k)&&achievedNow(events[k]);});
+  // A pure photographed moment (no occasion, no money) belongs ONLY in the Album +
+  // calendar below — surfacing it here too would show the same photo twice on the tab
+  // (once as a timeline occasion card, once as an album block). It is not an occasion,
+  // so it is excluded from the memory-story rail; buildMemRecords still lists it.
+  var isMoment=function(k){ return typeof isMomentEvent==='function' && isMomentEvent(events[k]); };
+  var mem=order.filter(function(k){return !isMirror(k)&&achievedNow(events[k])&&!isMoment(k);});
   var upS=up.slice().sort(function(a,b){return events[a].d-events[b].d;});
   // compact stats summary (home)
   var toSave=upS.reduce(function(s,k){return s+Math.max(0,events[k].target-events[k].saved);},0);

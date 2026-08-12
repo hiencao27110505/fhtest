@@ -1899,24 +1899,35 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .mom-drop.shake{ animation:fhshake .42s cubic-bezier(.36,.07,.19,.97); border-color:var(--danger); }
 @media (prefers-reduced-motion:reduce){ .mom-drop.shake{ animation:none } }
 
-/* Thumb strip reuses .photo-strip/.photo-thumb; the add-more tile closes the loop. */
-.mom-thumbs{ margin-bottom:16px; }
+/* Filled state: the photo is the hero, an "＋ add more" row sits beneath it. */
+.mom-gallery{ margin-bottom:16px; }
+.mom-hero{ position:relative; width:100%; height:200px; border-radius:16px;
+  background-size:cover; background-position:center; background-color:var(--canvas); }
+.mom-hero-x{ position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%;
+  border:none; background:rgba(0,0,0,.55); color:#fff; font-size:14px; line-height:1;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.mom-hero-n{ position:absolute; bottom:8px; right:10px; padding:2px 8px; border-radius:9999px;
+  background:rgba(0,0,0,.55); color:#fff; font-size:11px; font-weight:600; }
+.mom-thumbrow{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.mom-th{ width:56px; height:56px; }
 .mom-add-more{ display:inline-flex; align-items:center; justify-content:center;
-  width:64px; height:64px; border-radius:12px; border:1.5px dashed var(--hairline);
-  background:var(--canvas); color:var(--muted); font-size:26px; font-weight:300;
+  width:56px; height:56px; border-radius:12px; border:1.5px dashed var(--hairline);
+  background:var(--canvas); color:var(--muted); font-size:24px; font-weight:300;
   cursor:pointer; flex:0 0 auto; }
 
-/* Optional-expense toggle — a quiet row that opens the secondary JTBD. */
+/* Optional-expense: one card. The toggle is its header; the revealed fields sit
+   inside the same border, divided by a hairline — never loose beneath the box. */
+.mom-exp-card{ margin-top:6px; border:1px solid var(--hairline); border-radius:12px;
+  background:var(--white); overflow:hidden; }
 .mom-exp-toggle{ display:flex; align-items:center; gap:12px; width:100%;
-  padding:14px 14px; margin-top:6px; border:1px solid var(--hairline); border-radius:12px;
-  background:var(--white); text-align:left; cursor:pointer; }
+  padding:14px 14px; border:none; background:transparent; text-align:left; cursor:pointer; }
 .mom-exp-toggle .mxt-plus{ font-size:20px; color:var(--muted); width:20px; text-align:center; }
 .mom-exp-toggle .mxt-b{ display:flex; flex-direction:column; flex:1; min-width:0; }
 .mom-exp-toggle .mxt-t{ font-weight:600; font-size:14px; color:var(--ink); }
 .mom-exp-toggle .mxt-s{ font-size:12px; color:var(--muted); margin-top:1px; }
 .mom-exp-toggle .mxt-chev{ width:18px; height:18px; color:var(--muted); transition:transform .18s ease; }
 .mom-exp-toggle.open .mxt-chev{ transform:rotate(180deg); }
-.mom-exp-body{ padding-top:14px; }
+.mom-exp-body{ padding:14px; border-top:1px solid var(--hairline); }
 
 /* new-event sheet — curated layout */
 .name-row{display:flex;gap:10px;align-items:stretch}
@@ -3061,7 +3072,8 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <button class="modal-save" id="mom-save" onclick="saveMoment()">Save</button>
   </div>
   <div class="modal-body">
-    <!-- The hero: photos come first. Empty = a big dropzone; filled = a thumb strip. -->
+    <!-- The hero: photos come first. Empty = a big dropzone; filled = the photo as a
+         large hero with an "＋ add more" row beneath (see renderMomPhotos). -->
     <label class="mom-drop" id="mom-drop">
       <div class="mom-drop-empty" id="mom-drop-empty">
         <div class="mom-drop-ico">📸</div>
@@ -3069,7 +3081,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       </div>
       <input type="file" accept="image/*" multiple onchange="onMomPhoto(this)" hidden>
     </label>
-    <div class="photo-strip mom-thumbs" id="mom-strip" style="display:none"></div>
+    <div class="mom-gallery" id="mom-strip" style="display:none"></div>
 
     <div class="field">
       <label id="mom-cap-lbl">Say a little about this moment</label>
@@ -3085,15 +3097,18 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       <button class="choice" data-v="Both" onclick="pickMomWho(this)">Both</button>
     </div></div>
 
-    <!-- Secondary JTBD: a related expense, revealed only on demand. -->
-    <button type="button" class="mom-exp-toggle" id="mom-exp-toggle" onclick="momToggleExp()">
-      <span class="mxt-plus">＋</span>
-      <span class="mxt-b"><span class="mxt-t" id="mom-exp-toggle-t">Add a related expense</span><span class="mxt-s" id="mom-exp-toggle-s">Optional</span></span>
-      <svg class="mxt-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-    <div class="mom-exp-body" id="mom-exp-body" style="display:none">
-      <div class="field"><label id="mom-amt-lbl">Amount</label><input class="num" id="mom-amt" inputmode="numeric" placeholder="0" oninput="momDirty()"/></div>
-      <div class="field"><label id="mom-cat-lbl">Category</label><div class="choices" id="mom-cat"></div></div>
+    <!-- Secondary JTBD: a related expense. Toggle + fields live in ONE card so the
+         revealed fields read as part of the box, not floating loose beneath it. -->
+    <div class="mom-exp-card" id="mom-exp-card">
+      <button type="button" class="mom-exp-toggle" id="mom-exp-toggle" onclick="momToggleExp()">
+        <span class="mxt-plus">＋</span>
+        <span class="mxt-b"><span class="mxt-t" id="mom-exp-toggle-t">Add a related expense</span><span class="mxt-s" id="mom-exp-toggle-s">Optional</span></span>
+        <svg class="mxt-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="mom-exp-body" id="mom-exp-body" style="display:none">
+        <div class="field"><label id="mom-amt-lbl">Amount</label><input class="num" id="mom-amt" inputmode="numeric" placeholder="0" oninput="momDirty()"/></div>
+        <div class="field" style="margin-bottom:0"><label id="mom-cat-lbl">Category</label><div class="choices" id="mom-cat"></div></div>
+      </div>
     </div>
   </div>
 </div>
@@ -5624,7 +5639,12 @@ function renderEvents(){
   // CREATED under the hood (syncExpenseEvent) — only its display here is suppressed.
   var isMirror=function(k){ var e=events[k]; return !!(e&&(e._srcTxn||e.fromExpense)); };
   var up=order.filter(function(k){return !isMirror(k)&&!achievedNow(events[k]);});
-  var mem=order.filter(function(k){return !isMirror(k)&&achievedNow(events[k]);});
+  // A pure photographed moment (no occasion, no money) belongs ONLY in the Album +
+  // calendar below — surfacing it here too would show the same photo twice on the tab
+  // (once as a timeline occasion card, once as an album block). It is not an occasion,
+  // so it is excluded from the memory-story rail; buildMemRecords still lists it.
+  var isMoment=function(k){ return typeof isMomentEvent==='function' && isMomentEvent(events[k]); };
+  var mem=order.filter(function(k){return !isMirror(k)&&achievedNow(events[k])&&!isMoment(k);});
   var upS=up.slice().sort(function(a,b){return events[a].d-events[b].d;});
   // compact stats summary (home)
   var toSave=upS.reduce(function(s,k){return s+Math.max(0,events[k].target-events[k].saved);},0);
@@ -7298,14 +7318,23 @@ function onMomPhoto(input){
 }
 function removeMomPhoto(i){ momPhotos.splice(i,1); renderMomPhotos(); refreshMomCta(); }
 function renderMomPhotos(){
-  var empty=document.getElementById('mom-drop-empty'), strip=document.getElementById('mom-strip');
-  if(empty) empty.style.display = momPhotos.length ? 'none' : '';
-  if(strip){
-    strip.style.display = momPhotos.length ? '' : 'none';
-    strip.innerHTML = momPhotos.map(function(src,i){
-      return '<div class="photo-thumb" style="background-image:url('+src+')"><button type="button" class="x" onclick="removeMomPhoto('+i+')">✕</button></div>';
-    }).join('') + '<label class="mom-add-more"><span>＋</span><input type="file" accept="image/*" multiple onchange="onMomPhoto(this)" hidden></label>';
-  }
+  // Empty → the big dropzone. One or more photos → the photo IS the hero (large, on
+  // top), with a "＋ add more" row beneath it (plus small thumbs for any extra photos).
+  var drop=document.getElementById('mom-drop'), gal=document.getElementById('mom-strip');
+  var has=momPhotos.length>0;
+  if(drop) drop.style.display = has ? 'none' : '';
+  if(!gal) return;
+  gal.style.display = has ? '' : 'none';
+  if(!has){ gal.innerHTML=''; return; }
+  var hero='<div class="mom-hero" style="background-image:url('+momPhotos[0]+')">'
+    +'<button type="button" class="mom-hero-x" onclick="removeMomPhoto(0)" aria-label="'+L('Xoá ảnh','Remove photo')+'">✕</button>'
+    +(momPhotos.length>1?'<span class="mom-hero-n">1 / '+momPhotos.length+'</span>':'')+'</div>';
+  var thumbs=momPhotos.slice(1).map(function(src,i){
+    var idx=i+1;
+    return '<div class="photo-thumb mom-th" style="background-image:url('+src+')"><button type="button" class="x" onclick="removeMomPhoto('+idx+')">✕</button></div>';
+  }).join('');
+  var add='<label class="mom-add-more" aria-label="'+L('Thêm ảnh','Add photo')+'"><span>＋</span><input type="file" accept="image/*" multiple onchange="onMomPhoto(this)" hidden></label>';
+  gal.innerHTML = hero + '<div class="mom-thumbrow">'+thumbs+add+'</div>';
 }
 
 function momToggleExp(){ momExpOpen=!momExpOpen; renderMomExpSection(); if(momExpOpen){ var a=document.getElementById('mom-amt'); if(a) setTimeout(function(){ a.focus(); },80); } }
@@ -11710,7 +11739,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v307';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v308';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
