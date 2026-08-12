@@ -432,6 +432,7 @@
   // showing as active), then wipe everything local and reload to the sign-in screen.
   // test helper: run fhSignOut() in the console to switch Google accounts.
   window.fhSignOut = async () => {
+    try { if (window.fhPushTeardown) await window.fhPushTeardown(); } catch (e) {}   // stop this device receiving the leaving family's pushes (delete while still authed)
     try { if (window.fhDeviceId) await _rpc('revoke_device', { p_device_id: window.fhDeviceId() }); } catch (e) {}
     await _fhLocalWipe();
     await sb.auth.signOut(); location.reload();
@@ -442,6 +443,7 @@
      revoke RPC (used when a remote revocation already triggered this locally). */
   window.fhWipeDevice = async function (opts) {
     opts = opts || {};
+    try { if (window.fhPushTeardown) await window.fhPushTeardown(); } catch (e) {}   // clear this device's push row before we drop auth
     if (opts.revokeRemote !== false) { try { if (window.fhDeviceId) await _rpc('revoke_device', { p_device_id: window.fhDeviceId() }); } catch (e) {} }
     await _fhLocalWipe();
     // forget the device identity itself → a reinstall/re-sign-in is a fresh device row

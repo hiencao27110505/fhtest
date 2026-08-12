@@ -14006,7 +14006,7 @@ function openWhatsNew(){
         window.memberWeather = wmap;
         if (typeof window.renderHome === 'function') window.renderHome();
       } catch (e) { window.memberWeather = window.memberWeather || {}; }
-      try { if (window.fhPushResync) window.fhPushResync(); } catch (e) {}   // web push: re-point this device's subscription row (once per session)
+      try { if (window.fhPushResync) window.fhPushResync(); } catch (e) {}   // web push: re-point this device's subscription row at the active family (per-family, self-heals on switch)
       try { if (window.rxAfterHydrate) window.rxAfterHydrate(); } catch (e) {}   // reactions: refresh the wall + play any just-arrived reaction moment
       try { if (window.reqAfterHydrate) window.reqAfterHydrate(); } catch (e) {}   // future-expense requests: refresh mounts/hub + play any just-arrived decision
       window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
@@ -15816,8 +15816,28 @@ window.classifyAmount = classifyAmount;
       p256dh: (j.keys && j.keys.p256dh) || '', auth: (j.keys && j.keys.auth) || '',
       ua: (navigator.userAgent || '').slice(0, 200)
     }, { onConflict: 'endpoint' });
-    return !(res && res.error);
+    // RLS blocks re-pointing a row owned by another account's member seat (a
+    // shared device that switched accounts): surface it instead of failing mute.
+    if (res && res.error) { console.warn('push save', res.error); return false; }
+    return true;
   }
+  /* Sign-out / account-switch teardown. The subscription row is keyed on this
+     device's endpoint and carries the leaving family + member; if it survives,
+     that family keeps pushing here after the next account logs in — and RLS
+     forbids the new account from re-pointing a row it doesn't own. So we clear
+     it HERE, while the leaving account's auth still satisfies the delete policy,
+     and drop the browser subscription too: a shared device shouldn't inherit
+     the previous person's opt-in. Must run BEFORE sb.auth.signOut(). */
+  window.fhPushTeardown = async function () {
+    try {
+      const sub = await _pushGetSub();
+      if (sub) {
+        try { await sb.from('push_subscriptions').delete().eq('endpoint', sub.endpoint); } catch (e) {}
+        try { await sub.unsubscribe(); } catch (e) {}
+      }
+      window._fhPushSyncedFid = null;
+    } catch (e) {}
+  };
   // 'unsupported' | 'ios-install' | 'denied' | 'on' | 'off'
   window.fhPushState = async function () {
     if (!_pushSupported()) return _pushIOSNeedsInstall() ? 'ios-install' : 'unsupported';
@@ -15858,15 +15878,19 @@ window.classifyAmount = classifyAmount;
       return true;
     } catch (e) { console.warn('push disable', e); return false; }
   };
-  /* Silent re-sync, once per app session after the first hydrate: endpoints
-     rotate and the active family can change, so an opted-in device re-points
-     its row at whatever family it wakes up in. */
+  /* Silent re-sync after each hydrate: endpoints rotate and the active family
+     can change (a same-account family switch, or a fresh sign-in after reload),
+     so an opted-in device re-points its row at whatever family it wakes up in.
+     Keyed on the active family, not once-per-session, so switching families
+     without a reload still re-points. Cross-account switches can't self-heal
+     here (RLS owns that boundary) — fhPushTeardown clears the old row instead. */
   window.fhPushResync = async function () {
     try {
-      if (window._fhPushSynced) return; window._fhPushSynced = true;
+      const fid = window.DB && window.DB.fid; if (!fid) return;
+      if (window._fhPushSyncedFid === fid) return;
       if (!_pushSupported() || Notification.permission !== 'granted') return;
       const sub = await _pushGetSub(); if (!sub) return;
-      await _pushSaveSub(sub);
+      if (await _pushSaveSub(sub)) window._fhPushSyncedFid = fid;
     } catch (e) {}
   };
   // Settings → Notifications sheet: state-aware, one clear action per state
@@ -18770,6 +18794,7 @@ window.classifyAmount = classifyAmount;
   // showing as active), then wipe everything local and reload to the sign-in screen.
   // test helper: run fhSignOut() in the console to switch Google accounts.
   window.fhSignOut = async () => {
+    try { if (window.fhPushTeardown) await window.fhPushTeardown(); } catch (e) {}   // stop this device receiving the leaving family's pushes (delete while still authed)
     try { if (window.fhDeviceId) await _rpc('revoke_device', { p_device_id: window.fhDeviceId() }); } catch (e) {}
     await _fhLocalWipe();
     await sb.auth.signOut(); location.reload();
@@ -18780,6 +18805,7 @@ window.classifyAmount = classifyAmount;
      revoke RPC (used when a remote revocation already triggered this locally). */
   window.fhWipeDevice = async function (opts) {
     opts = opts || {};
+    try { if (window.fhPushTeardown) await window.fhPushTeardown(); } catch (e) {}   // clear this device's push row before we drop auth
     if (opts.revokeRemote !== false) { try { if (window.fhDeviceId) await _rpc('revoke_device', { p_device_id: window.fhDeviceId() }); } catch (e) {} }
     await _fhLocalWipe();
     // forget the device identity itself → a reinstall/re-sign-in is a fresh device row

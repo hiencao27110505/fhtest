@@ -385,7 +385,7 @@
         window.memberWeather = wmap;
         if (typeof window.renderHome === 'function') window.renderHome();
       } catch (e) { window.memberWeather = window.memberWeather || {}; }
-      try { if (window.fhPushResync) window.fhPushResync(); } catch (e) {}   // web push: re-point this device's subscription row (once per session)
+      try { if (window.fhPushResync) window.fhPushResync(); } catch (e) {}   // web push: re-point this device's subscription row at the active family (per-family, self-heals on switch)
       try { if (window.rxAfterHydrate) window.rxAfterHydrate(); } catch (e) {}   // reactions: refresh the wall + play any just-arrived reaction moment
       try { if (window.reqAfterHydrate) window.reqAfterHydrate(); } catch (e) {}   // future-expense requests: refresh mounts/hub + play any just-arrived decision
       window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
