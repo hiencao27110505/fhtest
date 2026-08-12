@@ -16,6 +16,29 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-12 (Hien — onboarding) — FYI: onboarding is now a curated 2-step
+  flow; the locale, choice, join, family-setup, passcode, budget, theme and
+  done screens are all gone.** Screen 1 = intro (meadow-scene SVG hero, two
+  promises: E2E-private / auto transaction logging) with Google sign-in in the
+  footer; screen 2 = "Your family" (the pending `find_my_invite` invite —
+  preview + 6-digit boxes unless `card_only` — merged onto the same screen as
+  the name-a-new-family field). After create/join the user lands straight on
+  Home; the Key Card intro still pops ~700ms later. What might touch your work:
+  (1) `finishOnboarding`'s busy state now targets `#ob-join-cta` /
+  `#ob-create-cta` (the done screen no longer exists); (2) locale is
+  device-detected (`vi` device → VI + VND, else EN + USD) — `create_family`
+  still receives `p_currency`/`p_language` the same way; (3) new families are
+  created with NO monthly/category budget rows (budget moved into the app) and
+  profiles.theme starts 'sage'; (4) no DB/RPC change anywhere — this is UI +
+  routing only. `my_families`/`find_my_invite`/`join_with_*` call shapes are
+  untouched. (5) **Frontend is now VND-only:** `CUR` defaults to `'VND'` and
+  `create_family` is always called with `p_currency:'VND'`. The USD helper branch
+  stays only as a render fallback for the 2 legacy `families.currency='USD'` test
+  rows ("73", "The creeps"); if your amount handling assumed a user could still be
+  on USD for a *new* family, they can't. Base storage is unchanged (currency is a
+  ×1000 display multiplier), so no amount data moved.
+
+
 - **2026-08-10 (from bank-email pipeline) — the lock wall shipped without the
   staging hook; the ask is unchanged, just no longer free.** My previous note
   suggested folding our two unlock calls into the lock-wall rewrite while you

@@ -93,7 +93,8 @@
       showFamilyPicker(fams);                    // in families but none active → pick one
     } else if (onb && typeof window.obGo === 'function') {
       fhResumeFail(); fhWarmAbandon();
-      onb.classList.remove('done'); window.obGo('choice');   // brand-new → onboarding
+      window.__obFromPicker = false;
+      onb.classList.remove('done'); window.obGo('start');   // brand-new → name a family / take the waiting invite
     } else {
       fhResumeFail(); fhWarmAbandon();
     }
@@ -149,13 +150,15 @@
       ov.remove();
       if (onb) onb.classList.remove('done');
       if (window.FAM) { window.FAM.mode = 'create'; window.FAM.familyName = ''; window.FAM.members = []; window.FAM.budget = 0; window.FAM.catBudget = null; }
+      window.__obFromPicker = true;                        // back arrow on "Your family" reopens this picker
       if (typeof window.obChoose === 'function') window.obChoose('create');
     };
     document.getElementById('fh-fam-join').onclick = () => {
       ov.remove();
       if (onb) onb.classList.remove('done');
       if (window.FAM) window.FAM.mode = 'join';
-      if (typeof window.obGo === 'function') window.obGo('join');
+      window.__obFromPicker = true;
+      if (typeof window.obGo === 'function') window.obGo('start');
     };
   }
   // First real read: pull the active family's name + members from the DB into the header.
@@ -245,7 +248,7 @@
       use_fedcm_for_prompt: true
     });
     const custom = g('ob-gbtn'); if (custom) custom.style.display = 'none';
-    const foot = document.querySelector('#onboarding .ob-screen[data-ob="auth"] .ob-foot');
+    const foot = g('ob-auth-foot');                       // the intro screen's footer (sign-in lives on screen 1 now)
     let holder = g('ob-gholder');
     if (!holder && foot) {
       holder = document.createElement('div');
@@ -254,7 +257,8 @@
       foot.insertBefore(holder, foot.firstChild);
     }
     if (holder) google.accounts.id.renderButton(holder, {
-      type: 'standard', shape: 'pill', theme: 'outline', text: 'continue_with', size: 'large'
+      type: 'standard', shape: 'pill', theme: 'outline', text: 'continue_with', size: 'large',
+      width: String(Math.min(400, Math.max(240, foot ? foot.clientWidth - 48 : 368)))   // fill the footer like the custom button did
     });
     return true;
   }

@@ -78,25 +78,17 @@ var LANG=(function(){
 })();
 
 var EN_DEFAULT={
-  /* onboarding */
-  welcomeTitle:'Welcome to',
-  tagPool:'One shared pool', tagPoolS:"See your family's money in one place — budgets and spending together.",
-  tagGoals:'Goals & events', tagGoalsS:'Save toward trips, birthdays and the things that matter.',
-  tagMem:'Memories together', tagMemS:'Turn everyday moments into a shared family album.',
-  getStarted:'Get started', haveAccount:'I already have an account',
-  localeTitle:'Language & currency', localeSub:'Choose how FamilyHub speaks and shows money.', langLabel:'Language', curLabel:'Currency',
-  signinT:'Sign in to FamilyHub', signinS:'Sign in with Google — secure and quick.', continueGoogle:'Continue with Google', signingIn:'Signing in…',
+  /* onboarding — curated 2-step flow: intro + sign-in → your family */
+  introTitle:'One home for the family’s money',
+  sellPrivT:'Truly private', sellPrivS:'End-to-end encrypted, so only your family can read it. Even we can’t look.',
+  sellAutoT:'Effortless', sellAutoS:'Transactions log themselves. Nobody has to type them in.',
+  continueGoogle:'Continue with Google', signingIn:'Signing in…',
   terms:'By continuing, you agree to our Terms & Privacy Policy.',
-  familyTitle:'Your family', familySub:"Start a new family, or join one you've been invited to.",
-  startFamily:'Start a new family', startFamilyS:"You'll name it and invite others", joinFamily:'Join a family', joinFamilyS:'Enter your family’s passcode',
-  joinTitle:'Enter the family passcode', joinSub:'The owner adds your Google email to the invite list, then tells you the family’s 6-digit code.', joinCta:'Join family',
-  pcTitle:'Set your family passcode', pcSub:'A 6-digit code, like the door code of your house. Members you invite will enter it to join, and it locks your money data so only your family can read it.', pcCode:'6-digit code', pcRepeat:'Repeat the code', pcWarn:'Money encryption is permanent and cannot be turned off. If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered. Not even by us.',
-  profileTitle:'Set up your profile', profileSub:'This is how your family will see you.', yourName:'Your name', youAreThe:'You are the…', phObName:'e.g. Emma',
-  setFamilyTitle:'Set up your family', setFamilySub:"Name it and invite who's in it.", familyName:'Family name', phFamName:'e.g. The Reeds', membersInvites:'Members & invites', inviteMember:'＋ Invite a member',
-  budgetTitle:'Set your budget', budgetSub:'A monthly target for the family, then a budget per category.', monthlyBudget:'Monthly budget', categoryBudgets:'Category budgets', categoryBudgetsHint:'Suggested from your total. Adjust anytime.',
-  themeTitle:'Pick your look', themeSub:"Choose a color theme for your family's hub. Change it anytime.",
-  enterApp:'Enter FamilyHub', continue:'Continue', you:'You',
-  doneTitle:"You're all set!", doneSub:'Welcome to FamilyHub.',
+  startTitle:'Your family', startSubNew:'Name your home and you’re in.',
+  inviteForYou:'Your invite', joinCta:'Join family', orCreate:'or start your own',
+  familyName:'Family name', phFamName:'e.g. The Reeds', createFamilyCta:'Create family',
+  ariaCode:'6-digit family passcode',
+  monthlyBudget:'Monthly budget',
   /* tabs */
   tabHome:'Home', tabMoney:'Finance', tabMoments:'Moments',
   /* greeting */
@@ -187,25 +179,17 @@ var EN_DEFAULT={
 
 var I18N={
   vi:{
-    /* onboarding */
-    welcomeTitle:'Chào mừng đến với',
-    tagPool:'Một ví chung của cả nhà', tagPoolS:'Tiền của cả nhà gom về một chỗ: ngân sách với chi tiêu, xem là thấy hết.',
-    tagGoals:'Mục tiêu & sự kiện', tagGoalsS:'Để dành cho những chuyến đi, sinh nhật và những điều quan trọng.',
-    tagMem:'Kỷ niệm cùng nhau', tagMemS:'Gom những khoảnh khắc thường ngày thành album của cả nhà.',
-    getStarted:'Bắt đầu nào', haveAccount:'Mình đã có tài khoản rồi',
-    localeTitle:'Ngôn ngữ & tiền tệ', localeSub:'Chọn ngôn ngữ và cách hiển thị tiền cho FamilyHub.', langLabel:'Ngôn ngữ', curLabel:'Tiền tệ',
-    signinT:'Đăng nhập FamilyHub', signinS:'Đăng nhập bằng Google — an toàn, nhanh gọn.', continueGoogle:'Tiếp tục với Google', signingIn:'Đang đăng nhập…',
+    /* onboarding — curated 2-step flow: intro + sign-in → your family */
+    introTitle:'Một tổ ấm cho tiền nong của cả nhà',
+    sellPrivT:'Riêng tư tuyệt đối', sellPrivS:'Mã hóa đầu cuối, chỉ gia đình bạn đọc được. Tụi mình cũng không xem được.',
+    sellAutoT:'Nhẹ tênh', sellAutoS:'Giao dịch tự vào sổ, cả nhà khỏi nhập tay từng khoản.',
+    continueGoogle:'Tiếp tục với Google', signingIn:'Đang đăng nhập…',
     terms:'Khi tiếp tục, bạn đồng ý với Điều khoản & Chính sách bảo mật.',
-    familyTitle:'Gia đình của bạn', familySub:'Tạo gia đình mới, hoặc tham gia gia đình đã mời bạn.',
-    startFamily:'Tạo gia đình mới', startFamilyS:'Bạn đặt tên rồi mời mọi người vào', joinFamily:'Tham gia gia đình', joinFamilyS:'Nhập mã gia đình',
-    joinTitle:'Nhập mã gia đình', joinSub:'Chủ gia đình thêm email Google của bạn vào danh sách mời, rồi cho bạn mã 6 số.', joinCta:'Tham gia',
-    pcTitle:'Đặt mã gia đình', pcSub:'Mã 6 số, như mã cửa nhà mình. Người thân bạn mời sẽ nhập mã này để vào, và mã cũng khóa dữ liệu tiền nong để chỉ gia đình bạn đọc được.', pcCode:'Mã 6 số', pcRepeat:'Nhập lại mã', pcWarn:'Mã hóa tài chính là vĩnh viễn, không thể tắt. Nếu cả nhà quên mã và không còn thiết bị nào đang đăng nhập, dữ liệu tiền đã mã hóa sẽ không thể khôi phục, kể cả chúng tôi.',
-    profileTitle:'Thiết lập hồ sơ', profileSub:'Đây là cách cả nhà nhìn thấy bạn.', yourName:'Tên của bạn', youAreThe:'Bạn là…', phObName:'vd. Hân',
-    setFamilyTitle:'Thiết lập gia đình', setFamilySub:'Đặt tên và mời mọi người vào nhà.', familyName:'Tên gia đình', phFamName:'vd. Nhà mình', membersInvites:'Thành viên & lời mời', inviteMember:'＋ Mời thành viên',
-    budgetTitle:'Đặt ngân sách', budgetSub:'Mục tiêu hằng tháng của cả nhà, rồi ngân sách cho từng danh mục.', monthlyBudget:'Ngân sách hằng tháng', categoryBudgets:'Ngân sách theo danh mục', categoryBudgetsHint:'Tụi mình gợi ý sẵn từ tổng ngân sách, bạn chỉnh lúc nào cũng được.',
-    themeTitle:'Chọn giao diện', themeSub:'Chọn màu chủ đề cho nhà mình, đổi lúc nào cũng được.',
-    enterApp:'Vào FamilyHub', continue:'Tiếp tục', you:'Bạn',
-    doneTitle:'Xong hết rồi!', doneSub:'Chào mừng bạn đến với FamilyHub.',
+    startTitle:'Nhà của bạn', startSubNew:'Đặt tên cho tổ ấm của mình để bắt đầu.',
+    inviteForYou:'Lời mời cho bạn', joinCta:'Tham gia', orCreate:'hoặc tạo tổ ấm riêng',
+    familyName:'Tên gia đình', phFamName:'vd. Nhà mình', createFamilyCta:'Tạo gia đình',
+    ariaCode:'Mã gia đình 6 số',
+    monthlyBudget:'Ngân sách hằng tháng',
     /* tabs */
     tabHome:'Nhà', tabMoney:'Tài chính', tabMoments:'Khoảnh khắc',
     /* greeting */

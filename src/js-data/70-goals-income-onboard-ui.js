@@ -240,7 +240,7 @@
     // always create a fresh family (multi-family: "create" means a new one)
     const { data: familyId, error } = await sb.rpc('create_family', {
       p_name: (window.FAM && window.FAM.familyName) || L('Gia đình của mình','My family'),
-      p_currency: window.CUR || 'VND',
+      p_currency: 'VND',                             // VND-only frontend — every new family is created in VND
       p_language: window.LANG || 'vi'
     });
     if (error) throw error;
@@ -331,7 +331,9 @@
 
   const _origFinish = window.finishOnboarding;
   window.finishOnboarding = async function () {
-    const btn = document.querySelector('#onboarding .ob-screen[data-ob="done"] .cta');
+    // The busy state lands on whichever CTA the user just tapped: Join (invite
+    // path) or Create (new-family path) — the done screen is gone (0050).
+    const btn = document.getElementById((window.FAM && window.FAM.mode === 'join') ? 'ob-join-cta' : 'ob-create-cta');
     const label = btn ? btn.textContent : '';
     const busy = (on) => { if (btn) { btn.disabled = on; btn.style.opacity = on ? '.7' : ''; btn.textContent = on ? L('Đang thiết lập…','Setting up…') : label; } };
     try {
@@ -339,9 +341,13 @@
       else if (window.FAM && window.FAM.mode === 'join') { busy(true); await joinFinalizeDB(); }
     } catch (e) {
       busy(false);
-      // Stay on the step so the user can retry — their answers are still in the form.
       window.toast && window.toast(_friendly(e));
-      return;
+      /* Create: stay on the step so the user can retry — the name is still in the form.
+         Join: the join itself already COMMITTED (join_with_* succeeded before this ran;
+         only the cosmetic member/profile finalize failed). Staying would dead-end them —
+         find_my_invite now returns nothing, and the screen would read "start your own",
+         inviting a duplicate family. Enter the app; name/theme self-heal in Settings. */
+      if (!(window.FAM && window.FAM.mode === 'join' && window.FAM.joinFamilyId)) return;
     }
     busy(false);
     if (typeof _origFinish === 'function') _origFinish();

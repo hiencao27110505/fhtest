@@ -1,4 +1,8 @@
-/* ---------- onboarding ---------- */
+/* ---------- onboarding ----------
+   Curated 2-step flow (0050): intro + Google sign-in → your family (join the
+   invite waiting for you, or name a new home) → straight into the app. Locale
+   is device-detected (no picker); budget, members, theme all moved into the
+   app where they belong. The Key Card intro still lands right after create. */
 var FAM={
   user:{name:'Emma',role:'Parent',color:'#6f3fc0'},
   familyName:'The Reeds', mode:'create',
@@ -6,39 +10,28 @@ var FAM={
   budget:9000
 };
 var OB_COLORS=['#6f3fc0','#0e8478','#f0701a','#e03d86','#1e74d0','#B8730B','#7A5AE0','#1a9d5f'];
-var OB_ROLES=['Mom','Dad','Husband','Wife','Boyfriend','Girlfriend','Partner','Sweetheart','Sweetie','Coldheart','Man of steel','Parent','Son','Daughter','Kid','Teen','Sibling','Guardian','Grandma','Grandpa','Other'];
-var obOrder=['welcome','locale','auth','choice','join','family','budget','theme','done'];   // 'profile' + 'passcode' retired — name/avatar come from the Google account (edited later in Settings → My profile); families are born on the Key Card (0043)
-var obProg={welcome:0,locale:.12,auth:.24,choice:.4,join:.56,family:.72,budget:.86,theme:.94,done:1};
-function obPickLang(btn){ pick('ob-lang',btn); LANG=btn.dataset.v; applyLang(); }
-function obPickCur(btn){ pick('ob-cur',btn); CUR=btn.dataset.v; }
+var obOrder=['welcome','start'];
 function inits(n){ return ((n||'').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2)||'?').toUpperCase(); }
-var OB_ROLE_LABELS={Mom:['Mẹ','Mom'],Dad:['Bố','Dad'],Husband:['Chồng','Husband'],Wife:['Vợ','Wife'],Boyfriend:['Bạn trai','Boyfriend'],Girlfriend:['Bạn gái','Girlfriend'],Partner:['Bạn đời','Partner'],Sweetheart:['Người thương','Sweetheart'],Sweetie:['Cưng','Sweetie'],Coldheart:['Tảng băng','Coldheart'],'Man of steel':['Người sắt','Man of steel'],Parent:['Phụ huynh','Parent'],Son:['Con trai','Son'],Daughter:['Con gái','Daughter'],Kid:['Nhóc','Kid'],Teen:['Tuổi teen','Teen'],Sibling:['Anh chị em','Sibling'],Guardian:['Người giám hộ','Guardian'],Grandma:['Bà','Grandma'],Grandpa:['Ông','Grandpa'],Other:['Khác','Other']};
-function roleLabel(r){ var m=OB_ROLE_LABELS[r]; return m?L(m[0],m[1]):r; }   // localized display; value stays English (data)
-function roleOpts(sel){ return OB_ROLES.map(function(r){ return '<option value="'+r+'"'+(r===sel?' selected':'')+'>'+roleLabel(r)+'</option>'; }).join(''); }
+/* light tactile tick — vibration is a no-op where unsupported (iOS Safari) */
+function obBuzz(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} }
 function obGo(name){
   var ci=obOrder.indexOf(name);
   document.querySelectorAll('#onboarding .ob-screen').forEach(function(s){
     var i=obOrder.indexOf(s.dataset.ob);
     s.classList.toggle('on', i===ci); s.classList.toggle('past', i<ci);
   });
-  var p = obProg[name]||0;
-  document.getElementById('ob-bar').style.width=(p*100)+'%';
-  document.getElementById('ob-progress').classList.toggle('show', name!=='welcome');
-  if(name==='join'){ var c=document.getElementById('ob-code'); renderCodeBoxes(c.value); setTimeout(function(){ c.focus(); },320); }
-  if(name==='theme') buildObThemes();
+  if(name==='start'){
+    obAcctLine();
+    var bk=document.getElementById('ob-start-back');
+    if(bk) bk.style.visibility = window.__obFromPicker ? 'visible' : 'hidden';   // back only leads somewhere when the picker opened us
+  }
 }
+/* back from "Your family" → the family picker that opened it (multi-family only) */
+function obStartBack(){ if(window.fhSwitchFamily) window.fhSwitchFamily(); }
 function renderCodeBoxes(val){
   val=val||''; var box=document.getElementById('ob-code-boxes'); if(!box)return;
   var html=''; for(var i=0;i<6;i++){ var ch=val[i]||''; html+='<div class="ob-code-box'+(ch?' filled':(i===val.length?' cursor':''))+'">'+ch+'</div>'; }
   box.innerHTML=html;
-}
-function buildObThemes(){
-  var box=document.getElementById('ob-theme-grid'); if(!box)return;
-  box.innerHTML=THEMES.map(function(t){
-    return '<div class="theme-opt'+(t.k===curTheme?' on':'')+'" onclick="applyTheme(\''+t.k+'\');buildObThemes()">'
-      +'<div class="sw" style="background:'+t.grad+'"><div class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#191022" stroke-width="3.2"><path d="M5 12l5 5L20 7"/></svg></div></div>'
-      +'<div class="nm">'+t.name+'</div></div>';
-  }).join('');
 }
 /* Placeholder only. The auth module replaces this with the real Supabase flow as
    soon as it loads. If it never does (offline, CDN blocked), this must NOT wave the
@@ -55,12 +48,9 @@ function obGoogle(){
     toast(L('Không kết nối được máy chủ. Kiểm tra mạng và thử lại','Can’t reach the server. Check your connection and try again'));
   }, 1200);
 }
-function obChoose(mode){
-  FAM.mode=mode;
-  if(mode==='join'){ obGo('join'); }
-  else { obEnsureUserIdentity(); obPrefillFamily(); obGo('family'); }   // profile step retired — name from Google, color auto-assigned
-}
-// Identity now comes from the Google account (afterLogin seeds FAM.user.name).
+/* kept for the family-picker "create another family" path (10-client-auth) */
+function obChoose(mode){ FAM.mode=mode||'create'; obGo('start'); }
+// Identity comes from the Google account (afterLogin seeds FAM.user.name/email).
 // Give the member a stable avatar color derived from the email/name; both are
 // editable later in Settings → My profile. Onboarding never asks for name/role/color.
 function obUserColor(){ var s=(FAM.user.email||FAM.user.name||'x'), h=0,i; for(i=0;i<s.length;i++){ h=((h*31)+s.charCodeAt(i))>>>0; } return OB_COLORS[h%OB_COLORS.length]; }
@@ -81,58 +71,18 @@ function obJoin(){
   if(!/^\d{6}$/.test(code)){ if(typeof fhFlagField==='function') fhFlagField(document.getElementById('ob-code-boxes')); if(el)el.focus(); toast(L('Nhập đủ 6 chữ số','Enter all 6 digits')); return; }
   toast(L('Không kết nối được máy chủ. Kiểm tra mạng và thử lại','Can’t reach the server. Check your connection and try again'));
 }
-function obMemberRowHTML(name,email,color,me){
-  return '<div class="ob-mcard">'
-    +'<div class="ob-mrow"><div class="ob-mav" style="background:'+color+'">'+esc(inits(name))+'</div>'
-    +'<input class="ob-mname" value="'+esc(name)+'" placeholder="'+L('vd. Mai','e.g. Emma')+'"'+(me?' readonly':'')+' oninput="obSyncMav(this)">'
-    +(me?'<span class="ob-mtag">'+t('you')+'</span>':'<button class="ob-mdel" onclick="this.closest(\'.ob-mcard\').remove()" aria-label="'+L('Xoá','Remove')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
-    +'</div>'
-    +'<div class="ob-mfields">'
-    +'<input class="ob-memail" type="email" inputmode="email" autocapitalize="off" placeholder="name@gmail.com" value="'+esc(email)+'"'+(me?' readonly':'')+'>'
-    +'</div></div>';
+/* quiet footer line: which Google account this home will belong to */
+function obAcctLine(){
+  var el=document.getElementById('ob-acct'); if(!el) return;
+  var em=(FAM.user&&FAM.user.email)||'';
+  el.innerHTML = em
+    ? esc(em)+' · <button class="ob-acct-link" onclick="if(window.fhSignOut)fhSignOut()">'+L('Đổi tài khoản','Switch account')+'</button>'
+    : '';
 }
-function obSyncMav(inp){ var av=inp.previousElementSibling; if(av) av.textContent=inits(inp.value); }
-function obPrefillFamily(){
-  document.getElementById('ob-famname').value='';                 // start empty — the user names it
-  document.getElementById('ob-members').innerHTML=obMemberRowHTML(FAM.user.name,FAM.user.email||'',FAM.user.color,true);
-}
-function obAddMember(){
-  var used=document.querySelectorAll('#ob-members .ob-mcard').length;
-  document.getElementById('ob-members').insertAdjacentHTML('beforeend', obMemberRowHTML('','',OB_COLORS[(used+2)%OB_COLORS.length],false));
-}
-function obFamilyNext(){
-  var fn=document.getElementById('ob-famname').value.trim(); if(!fn){ document.getElementById('ob-famname').focus(); return; }
-  FAM.familyName=fn;
-  var mems=[];
-  document.querySelectorAll('#ob-members .ob-mcard').forEach(function(row,i){
-    var nm=row.querySelector('.ob-mname').value.trim(); if(!nm)return;
-    mems.push({name:nm, email:(row.querySelector('.ob-memail')||{value:''}).value.trim(), color:row.querySelector('.ob-mav').style.background||OB_COLORS[i%OB_COLORS.length], me:!!row.querySelector('.ob-mtag')});
-  });
-  FAM.members=mems.length?mems:[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,me:true}];
-  // passcode step retired: go straight to budget. The Key Card is generated on
-  // create and introduced after onboarding (0043).
-  obPrefillBudget(); obGo('budget');
-}
-/* Mandatory passcode step (create flow only): 6 digits, typed twice. The code is
-   held in memory (FAM.passcode) until createFamilyInDB uses it, never stored. */
-function obPcInput(){
-  var a=document.getElementById('ob-pc'), b=document.getElementById('ob-pc2');
-  if(!a||!b) return;
-  a.value=a.value.replace(/\D/g,'').slice(0,6); b.value=b.value.replace(/\D/g,'').slice(0,6);
-  if(typeof fhClearInvalid==='function') fhClearInvalid(a.closest('.ob-screen'));   // Continue stays enabled; obPasscodeNext() gates on tap (DESIGN §4.4)
-}
-function obPasscodeNext(){
-  var a=document.getElementById('ob-pc'), b=document.getElementById('ob-pc2');
-  if(!fhCheck([{el:a, ok:/^\d{6}$/.test(a.value)}], L('Nhập mã gồm 6 chữ số','Enter a 6-digit code'))) return;
-  if(!fhCheck([{el:b, ok:a.value===b.value}], L('Hai mã chưa khớp','The codes don’t match'))) return;
-  FAM.passcode=a.value;
-  obPrefillBudget(); obGo('budget');
-}
-var BUDGET_PROPS={Housing:.30,Groceries:.14,Transport:.10,Dining:.08,Fun:.06,Kids:.08,Others:.08};   // best-practice proportions (by concept)
 /* The default categories a brand-new family gets. MUST mirror
    seed_default_categories() (0003) in the SAME ORDER — the server seeds these at
-   create_family and createFamilyInDB attaches the budgets by sort_order → so the
-   onboarding budget step needs them client-side (catOrder starts empty). */
+   create_family, and the app renders from catOrder until the first hydrate lands
+   (catOrder starts empty otherwise). */
 var DEFAULT_CATS=[
   {concept:'Housing',   vi:'Nhà ở',   en:'Housing',   emoji:'🏠', color:'#7E6BE0'},
   {concept:'Groceries', vi:'Đi chợ',  en:'Groceries', emoji:'🛒', color:'#1FA971'},
@@ -141,52 +91,24 @@ var DEFAULT_CATS=[
   {concept:'Fun',       vi:'Giải trí',en:'Fun',       emoji:'🎉', color:'#9D4EFF'},
   {concept:'Kids',      vi:'Con cái', en:'Kids',      emoji:'🎒', color:'#F0701A'}
 ];
-var _obCatConcept={};   // display name → concept, for BUDGET_PROPS lookup regardless of language
-function obPrefillBudget(){
-  // New family: the DB seeds default categories at create_family, but they don't
-  // exist client-side yet (catOrder starts empty → only the "Others" catch-all).
-  // Mirror the seed here, in the same order, so the budget step shows all of
-  // them and createFamilyInDB can attach each budget by sort_order.
-  if(FAM.mode==='create'){
-    _obCatConcept={};
-    var names=DEFAULT_CATS.map(function(d){ var n=(LANG==='vi'?d.vi:d.en); _obCatConcept[n]=d.concept; return n; });
-    catOrder=names.slice(); catStyle={};
-    DEFAULT_CATS.forEach(function(d,i){ catStyle[names[i]]=[d.emoji,'#f2eef6',d.color]; });
-    ensureFallbackCat(catOrder,catStyle,catBudget||(catBudget={}));   // append the "Others" catch-all
-  }
-  var sym=document.getElementById('ob-budget-sym'); if(sym) sym.textContent=curSym();
-  document.getElementById('ob-budget').setAttribute('placeholder', CUR==='VND'?'30.000.000':'9,000');
-  document.getElementById('ob-catbudgets').innerHTML = catOrder.map(function(c){
-    var s=catStyle[c]||['🏷️'];
-    return '<div class="ob-catbud"><span class="ob-catbud-ic" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</span><span class="ob-catbud-n">'+c+'</span>'
-      +'<span class="cat-bud-wrap">'+curSym()+'<input class="cat-bud num" data-cat="'+c+'" inputmode="numeric" placeholder="0"></span></div>';
-  }).join('');
+function obSeedCats(){
+  var names=DEFAULT_CATS.map(function(d){ return (LANG==='vi'?d.vi:d.en); });
+  catOrder=names.slice(); catStyle={};
+  DEFAULT_CATS.forEach(function(d,i){ catStyle[names[i]]=[d.emoji,'#f2eef6',d.color]; });
+  ensureFallbackCat(catOrder,catStyle,catBudget||(catBudget={}));   // append the "Others" catch-all
 }
-function obSuggestBudgets(){
-  var total=parseAmtBase(document.getElementById('ob-budget').value); if(!total) return;   // total in base units
-  var loc = CUR==='VND'?'vi-VN':'en-US';
-  document.querySelectorAll('#ob-catbudgets .cat-bud').forEach(function(inp){
-    var c=inp.getAttribute('data-cat'), concept=_obCatConcept[c]||c, prop=(BUDGET_PROPS[concept]!==undefined)?BUDGET_PROPS[concept]:(0.7/Math.max(1,catOrder.length));
-    var base=Math.round(total*prop/10)*10;                        // round base value
-    inp.value = base ? (base*curMult()).toLocaleString(loc) : '';  // shown in the display currency
-  });
-}
-function obBudgetNext(){
-  FAM.budget=parseAmtBase(document.getElementById('ob-budget').value)||9000;
-  FAM.catBudget={};
-  document.querySelectorAll('#ob-catbudgets .cat-bud').forEach(function(inp){
-    var c=inp.getAttribute('data-cat'), v=parseAmtBase(inp.value)||catBudget[c]||0; FAM.catBudget[c]=v;
-  });
-  document.getElementById('ob-theme-back').setAttribute('onclick',"obGo('budget')");
-  obGo('theme');
-}
-function obThemeNext(){ obPrepDone(); obGo('done'); }
-function obPrepDone(){
-  var nm=firstName(FAM.user.name), n=FAM.members.length, vi=(LANG==='vi');
-  setTxt('ob-done-title', vi ? ('Chào mừng, '+nm+'!') : ('Welcome, '+nm+'!'));
-  setTxt('ob-done-sub', FAM.mode==='join'
-    ? (vi ? ('Bạn đã tham gia '+FAM.familyName+'.') : ('You\'ve joined '+FAM.familyName+'.'))
-    : (vi ? (FAM.familyName+' đã sẵn sàng với '+n+' thành viên.') : (FAM.familyName+' is ready with '+n+' member'+(n!==1?'s':'')+'.')));
+/* Create = the whole setup now: validate the name, seed the member + categories,
+   and hand over to finishOnboarding (the data module wraps it → create_family →
+   Key Card intro). Budget and theme start at their defaults; Settings owns them. */
+function obCreateFamily(){
+  var inp=document.getElementById('ob-famname'), fn=(inp?inp.value:'').trim();
+  if(!fhCheck([{el:inp, ok:!!fn}], L('Đặt tên cho gia đình đã nhé','Give your family a name first'))) return;
+  obEnsureUserIdentity();
+  FAM.mode='create'; FAM.familyName=fn;
+  FAM.members=[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,me:true}];
+  FAM.budget=0; FAM.catBudget=null;      // set later in the app — the budget tab suggests a split
+  obSeedCats();
+  finishOnboarding();
 }
 function applyFam(){
   if(FAM.budget) months[curMonthKey()].budget=FAM.budget;
@@ -200,7 +122,7 @@ function applyCurrency(){                         // re-render every money figur
   document.documentElement.classList.toggle('cur-vnd', CUR==='VND');   // longer VND figures → tighter hero type
   renderBudget(); renderEvents(); renderTxns(); renderMembers();
   try{ renderHome(); }catch(e){ if(typeof console!=='undefined') console.error('renderHome', e); }
-  document.querySelectorAll('[data-amt]').forEach(function(el){         // static demo amounts (base USD units)
+  document.querySelectorAll('[data-amt]').forEach(function(el){         // static demo amounts (base units → display currency)
     var base=parseFloat(el.getAttribute('data-amt'))||0;
     el.textContent=(el.getAttribute('data-amt-pre')||'')+fmt(base)+(el.getAttribute('data-amt-suf')||'');
   });
@@ -213,16 +135,23 @@ function finishOnboarding(){
   applyFam(); applyLang(); applyCurrency();
   try{ localStorage.setItem('fh-onboarded','1'); localStorage.setItem('fh-lang',LANG); localStorage.setItem('fh-cur',CUR); }catch(e){}
   try{ if(window.fhMarkReleasesSeen) fhMarkReleasesSeen(); }catch(e){}   // fresh user starts clean — no past-release backlog
+  obBuzz([10,40,16]);                                                    // the "you're in" moment
   document.getElementById('onboarding').classList.add('done');
   go('home');
   try{ if(window.fhInstallNudge) window.fhInstallNudge(); }catch(e){}   // earned-moment install nudge (once, dismissible, only if installable)
 }
+/* device locale, re-derived (mirrors the LANG bootstrap in 70-theme-i18n) */
+function obDeviceLang(){
+  try{
+    var n=(navigator.language||navigator.userLanguage||navigator.languages&&navigator.languages[0]||'').toLowerCase();
+    return n.indexOf('vi')===0 ? 'vi' : 'en';
+  }catch(e){ return 'en'; }
+}
 function restartOnboarding(){
   try{ localStorage.removeItem('fh-onboarded'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-lang'); localStorage.removeItem('fh-cur'); }catch(e){}
-  LANG='en'; CUR='USD'; applyLang();
+  LANG=obDeviceLang(); CUR='VND'; applyLang();   // VND-only frontend (USD is a legacy-render fallback, never produced here)
   FAM={ user:{name:'',email:'',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };
-  document.querySelectorAll('#ob-lang .choice').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='en'); });
-  document.querySelectorAll('#ob-cur .choice').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='USD'); });
+  window.__obFromPicker=false;
   document.getElementById('onboarding').classList.remove('done'); obGo('welcome');
 }
 function obInit(){
@@ -235,8 +164,15 @@ function obInit(){
     document.getElementById('onboarding').classList.add('done');
   } else {
     FAM={ user:{name:'',email:'',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };  // fresh: name/color seeded from the Google account after sign-in
+    CUR='VND';                       // VND-only frontend — every new family is VND (no locale picker; LANG still follows the device)
+    try{ applyLang(); }catch(e){}    // a Vietnamese device reads the intro in Vietnamese
   }
 }
+/* haptics: a light tick on every onboarding button press (Android; iOS ignores) */
+(function(){
+  var ob=document.getElementById('onboarding');
+  if(ob) ob.addEventListener('pointerdown',function(ev){ if(ev.target && ev.target.closest && ev.target.closest('button')) obBuzz(6); },{passive:true});
+})();
 
 /* ---------- warm start ----------
    The DB hydrate needs a module import + ~10 network round-trips, so a signed-in

@@ -76,7 +76,7 @@ each category has a `[emoji, tint-bg, text-color]` triple in `catStyle`. New cat
 palette (`CATPAL`). **Member/person colors** are per-member, stored on the member.
 
 **Themes:** `Sage, Ocean, Lavender, Blossom, Twilight` — each overrides the brand ramp via a
-`.phone.t-<name>` class; chosen in onboarding + Settings, persisted to `localStorage: fh-theme`.
+`.phone.t-<name>` class; chosen in Settings (every family starts on Sage), persisted to `localStorage: fh-theme`.
 
 **Rules:** No colored fills on info cards, quote cards, table headers or stat blocks — use borders
 and left-accent lines. No gradients except the brand hero/CTA. One accent per view. The finance
@@ -185,9 +185,13 @@ Small uppercase pills: `--brand-tint`/`--brand-ink` (info, "future"), `--good-ti
 
 ### Overlays, modals, sheets, tab bar — see §4.
 
-### Progress bar (onboarding)
-Thin (3px) track `--divider`, brand fill, positioned **below the safe-area inset** (never under the
-status bar). Shows from step 2 onward.
+### Onboarding (curated 2-step)
+Intro (meadow-scene SVG hero in the app's flat nature style + two promises: private / effortless +
+Google sign-in) → "Your family" (pending invite block if `find_my_invite` returns one, or name a new
+home) → straight to Home. No progress bar — two steps don't need one. Locale is device-detected
+(`vi` → VND, else USD); budget, members and theme are set later, in the app. Screen content enters
+with a soft 70ms stagger (`.st`, `--i`); screens cross-fade instead of sliding under
+`prefers-reduced-motion`.
 
 ### Toast (`.toast`)
 Dark pill, bottom-center, check icon, auto-dismiss ~2.4s. For lightweight confirmations.
@@ -424,7 +428,10 @@ conflated.
 
 ### 6.1 Currency
 
-The app is bi-currency (`CUR` = `'USD'` | `'VND'`, chosen in onboarding). **Never format an
+The frontend is **VND-only** (2026-08-12): `CUR` defaults to `'VND'`, every new family is created in VND,
+and nothing in the UI offers or writes USD. `CUR` still accepts `'USD'` and the helpers below keep their
+USD branch **purely as a render fallback** for a few legacy families whose stored `families.currency` is
+`'USD'` (hydrate sets `CUR` from the DB). Full USD removal + data migration is deferred. **Never format an
 amount by hand and never hardcode a symbol** — every rule below is already encoded in a helper.
 
 | Helper | USD | VND | Use |

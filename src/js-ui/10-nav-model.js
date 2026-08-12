@@ -99,8 +99,14 @@ function futureAligned(t){ return _entAlignedBy('expense', t); }
 function futurePending(t){ return !!(t && t.future && _entCreatorId('expense',t) && !futureAligned(t)); }
 function futureExpReserved(){ return txns.reduce(function(s,t){ return s+((t.future && (_entCreatorId('expense',t) ? futureAligned(t) : true))?t.amt:0); },0); }
 function monthReserved(){ return eventsReserved()+futureExpReserved(); }
-/* ---- currency (USD $ · VND ₫, VND display ×1000 so amounts read realistically) ---- */
-var CUR='USD';
+/* ---- currency ----
+   VND-only on the frontend now: the app defaults to and only ever creates VND
+   families (base amounts stored ×1, shown ×1000 so ₫ figures read realistically).
+   The USD branch below stays purely as a RENDER fallback for a handful of legacy
+   families whose `families.currency` is still 'USD' (hydrate sets CUR from the DB);
+   nothing in the UI offers, defaults to, or writes USD anymore. Full removal +
+   data migration is deferred. */
+var CUR='VND';
 function curMult(){ return CUR==='VND'?1000:1; }
 function curSym(){ return CUR==='VND'?'₫':'$'; }
 function fmt(n){
@@ -132,8 +138,15 @@ function snapAmtInput(el){
 function amtPlaceholder(){ return CUR==='VND' ? (9000000).toLocaleString('vi-VN') : (9000).toLocaleString('en-US'); }
 function renderTrend(){
   var box=document.getElementById('trend-chart'); if(!box)return;
+  // A brand-new family has logged nothing yet — an all-flat "6-month trend" reads as broken,
+  // not empty. Keep the whole section hidden until there's at least one month with real
+  // spending to trend; it appears on its own the moment the first expense lands.
+  var sec=document.getElementById('trend-sec');
+  var anySpend=monthOrder.some(function(k){return months[k].spent>0;});
+  if(sec) sec.style.display=anySpend?'':'none';
+  if(!anySpend) return;
   var maxV=Math.max.apply(null, monthOrder.map(function(k){return Math.max(months[k].spent,months[k].budget);}));
-  var scale=maxV*1.14;
+  var scale=(maxV*1.14)||1;   // a brand-new family has no budget and no spending yet — 0/0 painted NaN% bars
   var html='';
   monthOrder.forEach(function(k){
     var mo=months[k], pct=mo.spent/scale*100, budPct=mo.budget/scale*100;

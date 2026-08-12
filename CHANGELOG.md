@@ -18,6 +18,44 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-08-08 – 2026-08-12
+
+### Onboarding becomes a curated 2-step flow (08-12)
+
+The 9-screen wizard (welcome → locale → auth → choice → join/family → budget →
+theme → done) collapses into two screens, on the principle "show the product,
+defer the setup":
+
+- **Screen 1 — intro + sign-in.** A meadow-scene inline SVG (the home hero's
+  nature style: crest, oak, robin, wildflowers — decor tokens from
+  `23-house-customizer.css`) replaces the 🏡 emoji everywhere (splash, hero,
+  invite preview). Two selling points (E2E-private, auto transaction logging)
+  and the Google button on the same screen.
+- **Screen 2 — "Your family".** `find_my_invite` renders the pending invite
+  (preview card + 6-digit boxes unless `card_only`) above an "or start your
+  own" divider and the family-name field. Join and Create both finish straight
+  to Home; the Key Card intro still follows create.
+- **Locale step deleted** — device-detected (`vi` → VI + VND, else EN + USD);
+  budget/members/theme steps deleted — the app owns them (Settings, budget tab).
+- **Polish pass:** staggered content entrance (`.st`/`--i`), press-scale springs
+  on CTAs, `prefers-reduced-motion` cross-fade fallback for screen slides,
+  vibration ticks (button press + a success pattern on entry), `--shadow-card`
+  token instead of bespoke double shadows, `:focus-visible` rings, localized
+  aria labels on the code input.
+- Cleanup: `obOrder` is now `['welcome','start']`; the progress bar, member
+  invite rows, role list, budget-proportion table and onboarding theme grid are
+  gone from `80-onboard-boot.js`; onboarding i18n keys replaced in both tables.
+
+### Frontend goes VND-only (08-12)
+
+`CUR` now defaults to `'VND'` (`10-nav-model.js`); onboarding no longer detects
+or produces a currency, and `create_family` is always called with `p_currency:'VND'`.
+The USD branch in the currency helpers (`fmt`/`fmtK`/`curSym`/`curMult`/…) stays
+**only** as a render fallback for the two legacy `families.currency='USD'` rows
+(hydrate still honors the DB value); nothing user-facing offers USD. Base amounts
+are stored currency-agnostic (VND is a ×1000 display multiplier), so this is a
+display-default change, not a data migration — full USD removal is deferred.
+
 ## 2026-08-01 – 2026-08-07
 
 ### PWA hardening, Phases 1–6 (08-07)

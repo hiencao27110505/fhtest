@@ -81,7 +81,13 @@ function renderTxns(){
     else if(f && f.type==='cat' && f.val==='Future expenses') out=futHtml;           // standalone future items
     else if(f) out=realAll.filter(txMatch).map(txRow).join('');                      // realized, filtered
     else out=evHtml+futHtml+realAll.slice(0,8).map(txRow).join('');                  // preview — full list is the Giao dịch drill-in (openTxns)
-    setHTMLIf(tx, out||'<div class="empty-note">'+L('Chưa có giao dịch nào ở đây.','No transactions here yet.')+'</div>');
+    // Two empty shapes: a filter that matched nothing → a plain note; a brand-new family
+    // with no ledger at all → a first-run prompt inviting the first expense (mirrors the
+    // "Tạo mục tiêu đầu tiên" goal empty-state).
+    var emptyHTML=txFilter
+      ? '<div class="empty-note">'+L('Không có giao dịch phù hợp.','No transactions match this filter.')+'</div>'
+      : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🧾</div><div class="me-t">'+L('Ghi khoản chi đầu tiên','Log your first expense')+'</div><p>'+L('Thêm một khoản chi để cả nhà cùng nắm được tiền đang đi đâu.','Add an expense so the family can see where the money goes.')+'</p><button class="empty-cta" style="margin-top:18px" onclick="openExpense()">＋ '+L('Thêm khoản chi','Add expense')+'</button></div>';
+    setHTMLIf(tx, out||emptyHTML);
   }
   var af=document.getElementById('act-filter');
   if(af){

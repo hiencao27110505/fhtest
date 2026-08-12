@@ -2136,7 +2136,8 @@ button.photo-sec-title:active,.photo-sec-ev:active{opacity:.55}
   flex-direction:column;align-items:center;justify-content:center;gap:18px;
   transition:opacity .28s ease;opacity:1}
 #fh-splash.gone{opacity:0;pointer-events:none}
-#fh-splash .fs-logo{font-size:44px;line-height:1;animation:fs-breathe 1.6s ease-in-out infinite}
+#fh-splash .fs-logo{line-height:0;animation:fs-breathe 1.6s ease-in-out infinite}
+#fh-splash .fs-logo svg{display:block}
 #fh-splash .fs-name{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.4px;color:var(--ink)}
 @keyframes fs-breathe{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.06);opacity:1}}
 @media (prefers-reduced-motion:reduce){#fh-splash .fs-logo{animation:none}}
@@ -2166,15 +2167,13 @@ html.fh-newver #fh-newver{display:flex}
 #fh-newver svg{width:15px;height:15px;flex-shrink:0}
 @keyframes fh-nv-in{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){#fh-newver{animation:none}}
-.ob-progress{position:absolute;top:max(env(safe-area-inset-top),0px);left:0;right:0;height:3px;background:var(--divider);z-index:6;opacity:0;transition:opacity .3s}
 /* onboarding form fields: white so they read on the canvas background (Apple grouped-form look) */
 #onboarding .field input{background:var(--white);border:1px solid var(--hairline)}
 #onboarding .field input:focus{border-color:var(--brand);background:var(--white);box-shadow:0 0 0 3px var(--brand-tint)}
 /* Danger state must out-specify the ID-scoped focus rule above, else a flagged onboarding
-   field (e.g. the passcode step) shows the brand-colored active ring instead of red (DESIGN §4.4). */
+   field shows the brand-colored active ring instead of red (DESIGN §4.4). */
 #onboarding .field.invalid input,#onboarding .field.invalid input:focus{border-color:var(--danger);box-shadow:none}
-.ob-progress.show{opacity:1}
-.ob-progress i{display:block;height:100%;width:0;background:var(--brand);border-radius:0 3px 3px 0;transition:width .45s cubic-bezier(.32,.72,0,1)}
+/* screens slide like a native push; reduced motion gets a plain cross-fade */
 .ob-screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateX(100%);transition:transform .42s cubic-bezier(.32,.72,0,1),opacity .32s;will-change:transform}
 .ob-screen.on{opacity:1;pointer-events:auto;transform:none}
 .ob-screen.past{opacity:0;transform:translateX(-32px);pointer-events:none}
@@ -2184,69 +2183,43 @@ html.fh-newver #fh-newver{display:flex}
 .ob-back2 svg{width:26px;height:26px}
 .ob-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 24px 12px}
 .ob-content::-webkit-scrollbar{display:none}
-.ob-content.center{display:flex;flex-direction:column;justify-content:center;padding-top:calc(max(env(safe-area-inset-top),0px) + 16px)}
-.ob-head{margin:6px 0 28px}
+/* spacers, not justify-content:center — a centered flex column clips its top
+   unreachably once content overflows (short phones); spacers collapse to 0 instead */
+.ob-content.center{display:flex;flex-direction:column;padding-top:calc(max(env(safe-area-inset-top),0px) + 16px)}
+.ob-content.center::before,.ob-content.center::after{content:'';flex:1 0 0}
+.ob-head{margin:6px 0 24px}
 .ob-h1{font-family:var(--disp);font-weight:700;font-size:30px;line-height:1.1;letter-spacing:-.8px;color:var(--ink)}
 .ob-sub{font-size:16px;line-height:1.5;letter-spacing:-.01em;color:var(--muted);margin-top:11px}
 .ob-foot{flex-shrink:0;padding:12px 24px calc(20px + env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,var(--canvas) 34%)}
 .ob-foot .cta{margin-top:0}
 .ob-note{text-align:center;font-size:12.5px;line-height:1.45;color:var(--muted-soft);letter-spacing:-.01em;margin-top:13px;padding:0 8px}
 .ob-textlink{display:block;width:100%;text-align:center;color:var(--brand-ink);font-size:15px;font-weight:600;letter-spacing:-.01em;padding:15px 0 2px}
-/* welcome — app mark + feature list */
-.ob-brand{text-align:center;padding-top:min(6vh,44px)}
-.ob-logo{width:88px;height:88px;border-radius:24px;background:var(--grad-hero);display:inline-flex;align-items:center;justify-content:center;font-size:46px;box-shadow:0 16px 38px var(--brand-glow)}
-.ob-welcome-t{font-family:var(--disp);font-weight:700;font-size:29px;line-height:1.14;letter-spacing:-.7px;color:var(--ink);margin-top:18px}
-.ob-welcome-t em{font-style:normal;color:var(--brand-ink)}
-.ob-feats{margin-top:34px;display:flex;flex-direction:column;gap:24px}
-.ob-feat{display:flex;gap:15px;align-items:flex-start;text-align:left}
-.ob-feat-ic{width:44px;height:44px;border-radius:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px}
-.ob-feat-t{font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
-.ob-feat-s{font-size:14px;line-height:1.42;color:var(--muted);margin-top:2px}
-/* sign-in hero */
-.ob-signin-hero{text-align:center;margin-bottom:8px}
-.ob-signin-hero .ob-logo{width:76px;height:76px;font-size:38px;border-radius:22px}
-.ob-signin-t{font-family:var(--disp);font-weight:700;font-size:26px;letter-spacing:-.6px;color:var(--ink);margin-top:20px}
-.ob-signin-s{font-size:15.5px;line-height:1.5;color:var(--muted);margin-top:9px}
+/* ── intro: meadow scene + wordmark + the two promises ── */
+.ob-hero{text-align:center;padding-top:min(3vh,20px)}
+.ob-scene{display:block;width:100%;max-width:340px;margin:0 auto;filter:drop-shadow(0 10px 24px rgba(25,16,34,.10))}
+.ob-brandline{margin-top:22px;font-size:11px;font-weight:800;letter-spacing:2.2px;text-transform:uppercase;color:var(--brand-ink);text-align:center}
+.ob-h1-intro{margin-top:8px;text-align:center;font-size:29px;line-height:1.16;letter-spacing:-.7px;padding:0 6px}
+.ob-sells{margin-top:30px;display:flex;flex-direction:column;gap:22px;padding:0 4px}
+.ob-sell{display:flex;gap:15px;align-items:flex-start;text-align:left}
+.ob-sell-ic{width:44px;height:44px;border-radius:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--brand-tint);color:var(--brand-ink)}
+.ob-sell-ic svg{width:23px;height:23px}
+.ob-sell-ic.ic-auto{background:var(--amber-tint);color:var(--amber)}
+.ob-sell-t{font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.ob-sell-s{font-size:14px;line-height:1.45;color:var(--muted);margin-top:2px}
 /* google button (real mark) */
-.ob-google{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;background:var(--white);border:1px solid var(--hairline);border-radius:14px;padding:16px;font-size:16px;font-weight:600;letter-spacing:-.01em;color:#3c4043;box-shadow:0 2px 10px rgba(25,16,34,.06)}
+.ob-google{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;background:var(--white);border:1px solid var(--hairline);border-radius:14px;padding:16px;font-size:16px;font-weight:600;letter-spacing:-.01em;color:#3c4043;box-shadow:var(--shadow-card)}
 .ob-google:active{background:var(--surface)}
 .ob-gicon{width:20px;height:20px;flex-shrink:0}
-.ob-gacct{display:flex;align-items:center;gap:12px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:13px 15px}
-.ob-gacct-av{width:40px;height:40px;border-radius:50%;background:var(--emma-b);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;flex-shrink:0}
-.ob-gacct-n{font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
-.ob-gacct-e{font-size:13px;color:var(--muted)}
-.ob-gacct .chk{margin-left:auto;width:22px;height:22px;color:var(--good)}
-/* google email entry (manual) */
-.ob-gform{margin-top:26px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:16px;box-shadow:0 2px 12px rgba(25,16,34,.06);text-align:left}
-.ob-gform-head{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--muted);margin-bottom:12px}
-.ob-gmail{width:100%;background:var(--surface);border:1.5px solid var(--hairline);border-radius:12px;padding:14px;font-size:16px;letter-spacing:-.01em;color:var(--ink);outline:none}
-.ob-gmail:focus{border-color:var(--brand);background:#fff}
-.ob-gform-note{font-size:12.5px;line-height:1.4;color:var(--muted-soft);margin-top:10px}
-/* budget step — total amount card */
-.ob-total-card{background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px 16px 15px;box-shadow:0 1px 3px rgba(25,16,34,.04);margin-bottom:24px}
-.ob-total-card label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.03em;text-transform:uppercase;margin-bottom:7px}
-.ob-total-in{display:flex;align-items:baseline;gap:6px}
-.ob-total-sym{font-family:var(--disp);font-weight:700;font-size:25px;letter-spacing:-1px;color:var(--muted-soft);flex-shrink:0}
-.ob-total-input{flex:1;min-width:0;border:none;background:none;outline:none;font-family:var(--disp);font-weight:700;font-size:32px;letter-spacing:-1.2px;color:var(--ink);padding:0}
-.ob-total-input::placeholder{color:#cfc8d6;font-weight:700}
-/* category budgets (onboarding) — grouped inset list */
-.ob-catbud-lead{margin:0 2px 11px}
-.ob-catbud-lead .bg-sub{margin:0}
-.ob-catbud-hint{font-size:12.5px;line-height:1.4;letter-spacing:-.01em;color:var(--muted-soft);margin-top:3px}
-.ob-group{background:var(--white);border:1px solid var(--hairline);border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(25,16,34,.04)}
-.ob-catbud{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--divider)}
-.ob-catbud:last-child{border-bottom:none}
-.ob-catbud-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-.ob-catbud-n{flex:1;min-width:0;font-size:15.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
-/* choice cards */
-.ob-card{display:flex;align-items:center;gap:15px;width:100%;text-align:left;background:var(--white);border:1px solid var(--hairline);border-radius:18px;padding:18px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(25,16,34,.04),0 10px 24px rgba(25,16,34,.05)}
-.ob-card:active{transform:scale(.985)}
-.ob-card-em{width:48px;height:48px;border-radius:14px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
-.ob-card-t{font-size:16.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
-.ob-card-s{font-size:13.5px;line-height:1.35;color:var(--muted);margin-top:2px}
-.ob-card .chev{margin-left:auto;color:var(--chev);flex-shrink:0}
+/* ── your family: the invite waiting for you, or name a new home ── */
+.ob-lab{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted-soft);margin:0 2px 9px}
+.ob-invite{margin-bottom:4px}
+.ob-preview{display:flex;align-items:center;gap:13px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:15px;box-shadow:var(--shadow-card)}
+.ob-preview-ic{width:44px;height:44px;border-radius:50%;background:var(--brand-tint);flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ob-preview-ic svg{display:block;width:100%;height:100%}
+.ob-preview-fam{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.4px;color:var(--ink)}
+.ob-preview-sub{font-size:13.5px;color:var(--muted);margin-top:2px}
 /* segmented code input */
-.ob-code-wrap{position:relative;margin-top:4px}
+.ob-code-wrap{position:relative;margin-top:16px}
 .ob-code-boxes{display:flex;gap:9px;justify-content:center;pointer-events:none}
 .ob-code-box{flex:1;max-width:50px;aspect-ratio:.82;border-radius:13px;background:var(--surface);border:2px solid var(--hairline);display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:700;font-size:24px;color:var(--ink)}
 .ob-code-box.filled{border-color:var(--brand);background:var(--white)}
@@ -2255,33 +2228,33 @@ html.fh-newver #fh-newver{display:flex}
    input is opacity:0, so the box row carries the signal. */
 .ob-code-boxes.invalid .ob-code-box{border-color:var(--danger)}
 .ob-code{position:absolute;inset:0;width:100%;opacity:0;font-size:16px}
-.ob-preview{display:flex;align-items:center;gap:13px;background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:15px;margin-top:20px;box-shadow:0 8px 22px rgba(25,16,34,.05)}
-.ob-preview-ic{width:44px;height:44px;border-radius:12px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
-.ob-preview-fam{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.4px;color:var(--ink)}
-.ob-preview-sub{font-size:13.5px;color:var(--muted);margin-top:2px}
-/* profile avatar + colours */
-.ob-avatar{width:96px;height:96px;border-radius:50%;margin:4px auto 18px;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:700;font-size:36px;letter-spacing:-1px;color:#fff;box-shadow:0 12px 30px rgba(25,16,34,.18)}
-.ob-colors{display:flex;justify-content:center;flex-wrap:wrap;gap:14px;margin-bottom:28px}
-.ob-swatch{width:34px;height:34px;border-radius:50%;position:relative;transition:transform .15s;box-shadow:0 2px 6px rgba(25,16,34,.14)}
-.ob-swatch.on{transform:scale(1.12)}
-.ob-swatch.on::after{content:'';position:absolute;inset:0;border-radius:50%;border:2.5px solid var(--white);box-shadow:0 0 0 2px currentColor}
-/* member / invite cards */
-.ob-mcard{background:var(--white);border:1px solid var(--hairline);border-radius:15px;padding:11px 13px 12px;margin-bottom:10px;box-shadow:0 1px 3px rgba(25,16,34,.04)}
-.ob-mrow{display:flex;align-items:center;gap:11px;padding:0 0 9px}
-.ob-mrow .ob-mav{width:40px;height:40px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
-.ob-mname{flex:1;min-width:0;background:none;border:none;font-size:15.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);outline:none;padding:2px}
-.ob-mfields{display:flex;align-items:center;gap:9px}
-.ob-memail{flex:1;min-width:0;background:var(--surface);border:1px solid var(--hairline);border-radius:10px;padding:9px 11px;font-size:14px;letter-spacing:-.01em;color:var(--ink);outline:none}
-.ob-memail:focus{border-color:var(--brand);background:#fff}
-.ob-memail[readonly]{opacity:.55}
-.ob-mrole{flex-shrink:0;background:var(--surface);border:1px solid var(--hairline);border-radius:10px;padding:9px 26px 9px 11px;font-size:13.5px;font-weight:600;color:var(--ink);font-family:inherit;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a5a6e' stroke-width='2.6'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
-.ob-mdel{flex-shrink:0;width:30px;height:30px;color:var(--muted-soft);display:flex;align-items:center;justify-content:center;border-radius:8px}
-.ob-mdel:active{color:var(--danger);background:var(--danger-tint)}
-.ob-mdel svg{width:16px;height:16px}
-.ob-mtag{flex-shrink:0;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:4px 8px}
-/* done */
-.ob-done-badge{width:104px;height:104px;border-radius:50%;background:var(--good-tint);color:var(--good);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 14px 34px rgba(26,157,95,.22)}
-.ob-done-badge svg{width:52px;height:52px}
+/* the real input is invisible — surface its keyboard focus on the box row */
+.ob-code-wrap:has(.ob-code:focus-visible){outline:2.5px solid var(--brand);outline-offset:4px;border-radius:14px}
+.ob-invite .cta{margin-top:18px}
+/* "or start your own" — hairline divider with a quiet word resting on it */
+.ob-or{display:flex;align-items:center;gap:12px;margin:22px 0 20px;color:var(--muted-soft);font-size:13px;font-weight:600;letter-spacing:-.01em}
+.ob-or::before,.ob-or::after{content:'';flex:1;height:1px;background:var(--hairline)}
+/* quiet helper text (invite lookup states) — never a card, never a fill */
+.ob-hint{font-size:13.5px;line-height:1.5;color:var(--muted);margin-top:16px;padding:0 2px}
+.ob-hint b{color:var(--ink-2);font-weight:600;word-break:break-all}
+/* inline text buttons still need a 44px hit area — the hero's .section-h a trick:
+   inline-flex + min-height, negative margins so the line box doesn't grow */
+.ob-hint-link,.ob-acct-link{display:inline-flex;align-items:center;min-height:44px;margin:-14px -4px;padding:0 4px;background:none;border:none;font-family:inherit;font-size:inherit;font-weight:700;color:var(--brand-ink);cursor:pointer}
+.ob-hint-link:active,.ob-acct-link:active{opacity:.5}
+#ob-acct{min-height:18px}
+/* ── polish: staggered entrance, springs, focus, reduced motion ── */
+.ob-screen .st{opacity:0}
+.ob-screen.on .st{animation:ob-in .55s cubic-bezier(.32,.72,0,1) both;animation-delay:calc(60ms + var(--i,0)*70ms)}
+@keyframes ob-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+#onboarding .cta,#onboarding .ob-google{transition:transform .16s cubic-bezier(.4,0,.2,1),opacity .2s}
+#onboarding .cta:active,#onboarding .ob-google:active{transform:scale(.97)}
+#onboarding button:focus-visible{outline:2.5px solid var(--brand);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){
+  .ob-screen{transform:none;transition:opacity .25s ease}
+  .ob-screen.past{transform:none}
+  .ob-screen .st{opacity:1}
+  .ob-screen.on .st{animation:none}
+}
 /* settings actions (Personalize sheet) */
 .set-actions{margin-top:20px}
 .set-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:15px 2px;font-size:16px;font-weight:600;letter-spacing:-.01em;color:var(--ink);border-top:1px solid var(--divider)}
@@ -2464,7 +2437,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 </head>
 <body>
 <!-- static so it paints on the first frame — see the returning-user gate in <head> -->
-<div id="fh-splash" aria-hidden="true"><div class="fs-logo">🏡</div><div class="fs-name">FamilyHub</div></div>
+<div id="fh-splash" aria-hidden="true"><div class="fs-logo"><svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="var(--brand-tint)"/><ellipse cx="32" cy="50" rx="14" ry="2.4" fill="var(--gshadow)"/><rect x="29.2" y="34" width="5.6" height="15" rx="2.8" fill="var(--wood)"/><circle cx="32" cy="24" r="11.5" fill="var(--brand-2)"/><circle cx="23" cy="31" r="7" fill="var(--brand-2)"/><circle cx="41.5" cy="30" r="8" fill="var(--brand-2)"/><path d="M23 34 A13 13 0 0 0 41 33.5" fill="none" stroke="rgba(26,90,60,.10)" stroke-width="3" stroke-linecap="round"/></svg></div><div class="fs-name">FamilyHub</div></div>
 <div id="fh-updating" role="status" aria-live="polite"><span class="fu-dot"></span><span data-t="updating">Updating…</span></div>
 <div id="fh-uploading" role="status" aria-live="polite"><span class="fu-dot"></span><span class="fu-txt" data-t="savingPhoto">Saving photo…</span></div>
 <div id="fh-offline" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22M16.7 16.7A6 6 0 007 8.3M5 12.5a10 10 0 013-2.3M2 8.8a15 15 0 014.2-2.7M12 20h.01"/></svg><span data-t="offline">Offline. Changes save here, sync when you’re back</span></div>
@@ -2578,12 +2551,14 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   </div>
   <div id="goals-list"></div>
 
-  <!-- XU HƯỚNG -->
-  <div class="section-h"><span class="t" data-t="trend6">6-month trend</span><span class="sh-note" data-t="vsBudget">vs budget</span></div>
-  <div class="card" style="padding:18px 18px 16px">
-    <div class="trend-chart" id="trend-chart"></div>
-    <div class="trend-labels" id="trend-labels"></div>
-    <div class="trend-legend"><span class="dash"></span> <span data-t="trendLegend">Dashed line = that month's budget</span></div>
+  <!-- XU HƯỚNG — hidden until there's real spending history to trend (renderTrend) -->
+  <div id="trend-sec" style="display:none">
+    <div class="section-h"><span class="t" data-t="trend6">6-month trend</span><span class="sh-note" data-t="vsBudget">vs budget</span></div>
+    <div class="card" style="padding:18px 18px 16px">
+      <div class="trend-chart" id="trend-chart"></div>
+      <div class="trend-labels" id="trend-labels"></div>
+      <div class="trend-legend"><span class="dash"></span> <span data-t="trendLegend">Dashed line = that month's budget</span></div>
+    </div>
   </div>
 
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
@@ -3214,134 +3189,95 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 
 <!-- ONBOARDING -->
 <div id="onboarding">
-  <div class="ob-progress" id="ob-progress"><i id="ob-bar"></i></div>
 
+  <!-- ═ Screen 1 · Intro + sign-in — the meadow scene, two promises, one tap ═ -->
   <section class="ob-screen on" data-ob="welcome">
     <div class="ob-content center">
-      <div class="ob-brand">
-        <div class="ob-logo">🏡</div>
-        <div class="ob-welcome-t"><span data-t="welcomeTitle">Welcome to</span><br><em>FamilyHub</em></div>
+      <div class="ob-hero st" style="--i:0">
+        <svg class="ob-scene" viewBox="0 0 320 168" aria-hidden="true">
+          <defs>
+            <linearGradient id="ob-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fc3e4"/><stop offset="1" stop-color="#e6f3fa"/></linearGradient>
+            <linearGradient id="ob-grass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9cc98b"/><stop offset="1" stop-color="#77aa67"/></linearGradient>
+            <clipPath id="ob-clip"><rect x="0" y="0" width="320" height="168" rx="26"/></clipPath>
+          </defs>
+          <g clip-path="url(#ob-clip)">
+            <rect x="0" y="0" width="320" height="168" fill="url(#ob-sky)"/>
+            <circle cx="258" cy="38" r="26" fill="rgba(255,244,190,.5)"/>
+            <circle cx="258" cy="38" r="15" fill="#fff3c9"/>
+            <g fill="rgba(255,255,255,.85)"><ellipse cx="66" cy="34" rx="17" ry="7"/><ellipse cx="80" cy="30" rx="12" ry="6"/><ellipse cx="53" cy="31" rx="9" ry="5"/></g>
+            <ellipse cx="76" cy="132" rx="150" ry="36" fill="#a7c9b0" opacity=".5"/>
+            <ellipse cx="252" cy="138" rx="170" ry="42" fill="#a7c9b0" opacity=".35"/>
+            <ellipse cx="160" cy="196" rx="230" ry="78" fill="url(#ob-grass)"/>
+            <g transform="translate(104,44)">
+              <ellipse cx="32" cy="90" rx="17" ry="2.6" fill="var(--gshadow)"/>
+              <rect x="27.5" y="58" width="9" height="34" rx="4.5" fill="var(--wood)"/>
+              <circle cx="32" cy="28" r="24" fill="var(--brand-2)"/>
+              <circle cx="15" cy="45" r="15" fill="var(--brand-2)"/>
+              <circle cx="47" cy="43" r="17" fill="var(--brand-2)"/>
+              <path d="M14 51 A22 22 0 0 0 50 50" fill="none" stroke="rgba(26,90,60,.10)" stroke-width="5" stroke-linecap="round"/>
+              <g transform="translate(33,-4)">
+                <rect x="3.2" y="4.2" width="8" height="6.2" rx="3.1" fill="var(--perch-bird)"/>
+                <path d="M10.6 6 L14.6 4.2 L11.8 8.6 Z" fill="#c94f3e"/>
+                <ellipse cx="7.4" cy="7" rx="2.5" ry="1.7" fill="rgba(70,20,14,.18)"/>
+                <circle cx="3.6" cy="3.6" r="3" fill="var(--perch-bird)"/>
+                <path d="M1 3.2 L-1.8 4.1 L1 5.1 Z" fill="var(--gold)"/>
+                <circle cx="2.8" cy="3" r=".75" fill="#3a2a22"/>
+              </g>
+            </g>
+            <path d="M60 140v-12" stroke="#5d8a50" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="60" cy="126" r="4" fill="#f2b3c9"/><circle cx="60" cy="126" r="1.6" fill="#fff"/>
+            <path d="M216 146v-13" stroke="#5d8a50" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="216" cy="131" r="4.4" fill="#f5c64f"/><circle cx="216" cy="131" r="1.7" fill="#fff"/>
+            <path d="M246 152v-10" stroke="#5d8a50" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="246" cy="140" r="3.4" fill="#fbd9e4"/><circle cx="246" cy="140" r="1.3" fill="#fff"/>
+            <path d="M92 152q-2-8-6-10M92 152q0-9 0-11M92 152q2-8 6-10" stroke="#6a9a5c" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+            <path d="M188 158q-2-8-6-10M188 158q0-9 0-11M188 158q2-8 6-10" stroke="#6a9a5c" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+          </g>
+        </svg>
       </div>
-      <div class="ob-feats">
-        <div class="ob-feat"><div class="ob-feat-ic" style="background:#e9f7f0;color:#1a9d5f">💰</div><div><div class="ob-feat-t" data-t="tagPool">One shared pool</div><div class="ob-feat-s" data-t="tagPoolS">See your family's money together: budgets and spending in one place.</div></div></div>
-        <div class="ob-feat"><div class="ob-feat-ic" style="background:#eef1fc;color:#5E5CE6">🎯</div><div><div class="ob-feat-t" data-t="tagGoals">Goals &amp; events</div><div class="ob-feat-s" data-t="tagGoalsS">Save toward trips, birthdays and the things that matter.</div></div></div>
-        <div class="ob-feat"><div class="ob-feat-ic" style="background:#fdeef4;color:#FF375F">📸</div><div><div class="ob-feat-t" data-t="tagMem">Memories together</div><div class="ob-feat-s" data-t="tagMemS">Turn everyday moments into a shared family album.</div></div></div>
+      <div class="ob-brandline st" style="--i:1">FamilyHub</div>
+      <h1 class="ob-h1 ob-h1-intro st" style="--i:2" data-t="introTitle">One home for the family&rsquo;s money</h1>
+      <div class="ob-sells">
+        <div class="ob-sell st" style="--i:3">
+          <div class="ob-sell-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2.6"/><path d="M8 10.5V7.8a4 4 0 018 0v2.7"/><circle cx="12" cy="15.2" r="1.3" fill="currentColor" stroke="none"/></svg></div>
+          <div><div class="ob-sell-t" data-t="sellPrivT">Truly private</div><div class="ob-sell-s" data-t="sellPrivS">End-to-end encrypted, so only your family can read it. Even we can&rsquo;t look.</div></div>
+        </div>
+        <div class="ob-sell st" style="--i:4">
+          <div class="ob-sell-ic ic-auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3L5 13.5h5L11 21l8-10.5h-5z"/></svg></div>
+          <div><div class="ob-sell-t" data-t="sellAutoT">Effortless</div><div class="ob-sell-s" data-t="sellAutoS">Transactions log themselves. Nobody has to type them in.</div></div>
+        </div>
       </div>
     </div>
-    <div class="ob-foot">
-      <button class="cta" data-t="getStarted" onclick="obGo('locale')">Get started</button>
-      <button class="ob-textlink" data-t="haveAccount" onclick="obGo('locale')">I already have an account</button>
-    </div>
-  </section>
-
-  <section class="ob-screen" data-ob="locale">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('welcome')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="localeTitle">Language & currency</div><div class="ob-sub" data-t="localeSub">Choose how FamilyHub speaks and shows money.</div></div>
-      <div class="field"><label data-t="langLabel">Language</label><div class="choices" id="ob-lang">
-        <button class="choice on" data-v="en" onclick="obPickLang(this)">🇬🇧 English</button>
-        <button class="choice" data-v="vi" onclick="obPickLang(this)">🇻🇳 Tiếng Việt</button>
-      </div></div>
-      <div class="field"><label data-t="curLabel">Currency</label><div class="choices" id="ob-cur">
-        <button class="choice on" data-v="USD" onclick="obPickCur(this)">$ USD</button>
-        <button class="choice" data-v="VND" onclick="obPickCur(this)">₫ VND</button>
-      </div></div>
-    </div>
-    <div class="ob-foot"><button class="cta" data-t="continue" onclick="obGo('auth')">Continue</button></div>
-  </section>
-
-  <section class="ob-screen" data-ob="auth">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('welcome')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content center">
-      <div class="ob-signin-hero">
-        <div class="ob-logo">🏡</div>
-        <div class="ob-signin-t" data-t="signinT">Sign in to FamilyHub</div>
-        <div class="ob-signin-s" data-t="signinS">Continue with your Google account. Secure, and just one tap.</div>
-      </div>
-    </div>
-    <div class="ob-foot">
+    <div class="ob-foot" id="ob-auth-foot">
       <button class="ob-google" id="ob-gbtn" onclick="obGoogle()"><svg class="ob-gicon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span data-t="continueGoogle">Continue with Google</span></button>
       <div class="ob-note" data-t="terms">By continuing, you agree to our Terms &amp; Privacy Policy.</div>
     </div>
   </section>
 
-  <section class="ob-screen" data-ob="choice">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('auth')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+  <!-- ═ Screen 2 · Your family — the invite waiting for you (if any), or name a new home ═ -->
+  <section class="ob-screen" data-ob="start">
+    <div class="ob-top"><button class="ob-back2" id="ob-start-back" style="visibility:hidden" onclick="obStartBack()" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="familyTitle">Your family</div><div class="ob-sub" data-t="familySub">Start a new family, or join one you've been invited to.</div></div>
-      <button class="ob-card" onclick="obChoose('create')"><div class="ob-card-em">✨</div><div><div class="ob-card-t" data-t="startFamily">Start a new family</div><div class="ob-card-s" data-t="startFamilyS">You'll name it and invite others</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-      <button class="ob-card" onclick="obChoose('join')"><div class="ob-card-em">🔗</div><div><div class="ob-card-t" data-t="joinFamily">Join a family</div><div class="ob-card-s" data-t="joinFamilyS">Enter your family’s passcode</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-    </div>
-  </section>
-
-  <section class="ob-screen" data-ob="join">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('choice')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="joinTitle">Enter the family passcode</div><div class="ob-sub" data-t="joinSub">The owner adds your Google email to the invite list, then tells you the family’s 6-digit code.</div></div>
-      <div class="ob-code-wrap">
-        <div class="ob-code-boxes" id="ob-code-boxes"></div>
-        <input class="ob-code" id="ob-code" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" oninput="obCodeInput(this)">
+      <div class="ob-head st" style="--i:0"><h1 class="ob-h1" data-t="startTitle">Your family</h1><div class="ob-sub" id="ob-start-sub" data-t="startSubNew">Name your home and you&rsquo;re in.</div></div>
+      <div class="ob-invite st" id="ob-invite" style="display:none;--i:1">
+        <div class="ob-lab" data-t="inviteForYou">Your invite</div>
+        <div class="ob-preview" id="ob-join-preview"></div>
+        <div class="ob-code-wrap" id="ob-code-wrap">
+          <div class="ob-code-boxes" id="ob-code-boxes" role="group" aria-label="6-digit family passcode" data-ta="ariaCode"></div>
+          <input class="ob-code" id="ob-code" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" oninput="obCodeInput(this)" aria-label="6-digit family passcode" data-ta="ariaCode">
+        </div>
+        <button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta">Join family</button>
+        <div class="ob-or"><span data-t="orCreate">or start your own</span></div>
       </div>
-      <div class="ob-preview" id="ob-join-preview" style="display:none"></div>
-      <div class="ob-sub" id="ob-join-hint" style="margin-top:14px"></div>
-    </div>
-    <div class="ob-foot"><button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta">Join family</button></div>
-  </section>
-
-  <section class="ob-screen" data-ob="family">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('choice')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="setFamilyTitle">Set up your family</div><div class="ob-sub" data-t="setFamilySub">Name it and invite who's in it.</div></div>
-      <div class="field"><label data-t="familyName">Family name</label><input id="ob-famname" data-tp="phFamName" placeholder="e.g. The Reeds"></div>
-      <div class="field"><label data-t="membersInvites">Members &amp; invites</label>
-        <div id="ob-members"></div>
-        <button class="btn-line" onclick="obAddMember()" data-t="inviteMember" style="margin:12px 0 0;width:100%">＋ Invite a member</button>
+      <div class="st" style="--i:2">
+        <div class="field"><label data-t="familyName">Family name</label><input id="ob-famname" data-tp="phFamName" placeholder="e.g. The Reeds" maxlength="40" enterkeyhint="done" autocomplete="off"></div>
       </div>
+      <div class="ob-hint st" id="ob-join-hint" style="--i:3"></div>
     </div>
-    <div class="ob-foot"><button class="cta" onclick="obFamilyNext()">Continue</button></div>
-  </section>
-
-  <section class="ob-screen" data-ob="passcode">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('family')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="pcTitle">Set your family passcode</div><div class="ob-sub" data-t="pcSub">A 6-digit code, like the door code of your house. Members you invite will enter it to join, and it locks your money data so only your family can read it.</div></div>
-      <div class="field"><label data-t="pcCode">6-digit code</label><input class="num big" id="ob-pc" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" oninput="obPcInput()"></div>
-      <div class="field"><label data-t="pcRepeat">Repeat the code</label><input class="num big" id="ob-pc2" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" oninput="obPcInput()"></div>
-      <div class="ob-sub" data-t="pcWarn" style="margin-top:12px">Money encryption is permanent and cannot be turned off. If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered. Not even by us.</div>
+    <div class="ob-foot">
+      <button class="cta" id="ob-create-cta" onclick="obCreateFamily()" data-t="createFamilyCta">Create family</button>
+      <div class="ob-note" id="ob-acct"></div>
     </div>
-    <div class="ob-foot"><button class="cta" id="ob-pc-cta" onclick="obPasscodeNext()">Continue</button></div>
-  </section>
-
-  <section class="ob-screen" data-ob="budget">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('family')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="budgetTitle">Set your budget</div><div class="ob-sub" data-t="budgetSub">A monthly target for the family, then a budget for each category.</div></div>
-      <div class="ob-total-card">
-        <label data-t="monthlyBudget">Monthly budget</label>
-        <div class="ob-total-in"><span class="ob-total-sym" id="ob-budget-sym">$</span><input class="ob-total-input num" id="ob-budget" inputmode="numeric" placeholder="9,000" oninput="obSuggestBudgets()"></div>
-      </div>
-      <div class="ob-catbud-lead"><div class="bg-sub" data-t="categoryBudgets">Category budgets</div><div class="ob-catbud-hint" data-t="categoryBudgetsHint">Suggested from your total. Adjust anytime.</div></div>
-      <div class="ob-group" id="ob-catbudgets"></div>
-    </div>
-    <div class="ob-foot"><button class="cta" onclick="obBudgetNext()">Continue</button></div>
-  </section>
-
-  <section class="ob-screen" data-ob="theme">
-    <div class="ob-top"><button class="ob-back2" id="ob-theme-back" onclick="obGo('family')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="themeTitle">Pick your look</div><div class="ob-sub" data-t="themeSub">Choose a color theme for your family's hub. You can change it anytime.</div></div>
-      <div class="theme-grid" id="ob-theme-grid"></div>
-    </div>
-    <div class="ob-foot"><button class="cta" onclick="obThemeNext()">Continue</button></div>
-  </section>
-
-  <section class="ob-screen" data-ob="done">
-    <div class="ob-content center" style="align-items:center;text-align:center">
-      <div class="ob-done-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
-      <div class="ob-welcome-t" id="ob-done-title" style="margin-top:26px">You're all set!</div>
-      <div class="ob-signin-s" id="ob-done-sub" style="max-width:300px;margin-top:10px">Welcome to FamilyHub.</div>
-    </div>
-    <div class="ob-foot"><button class="cta" data-t="enterApp" onclick="finishOnboarding()">Enter FamilyHub</button></div>
   </section>
 </div>
 </div><!-- /phone -->
@@ -3480,8 +3416,14 @@ function futureAligned(t){ return _entAlignedBy('expense', t); }
 function futurePending(t){ return !!(t && t.future && _entCreatorId('expense',t) && !futureAligned(t)); }
 function futureExpReserved(){ return txns.reduce(function(s,t){ return s+((t.future && (_entCreatorId('expense',t) ? futureAligned(t) : true))?t.amt:0); },0); }
 function monthReserved(){ return eventsReserved()+futureExpReserved(); }
-/* ---- currency (USD $ · VND ₫, VND display ×1000 so amounts read realistically) ---- */
-var CUR='USD';
+/* ---- currency ----
+   VND-only on the frontend now: the app defaults to and only ever creates VND
+   families (base amounts stored ×1, shown ×1000 so ₫ figures read realistically).
+   The USD branch below stays purely as a RENDER fallback for a handful of legacy
+   families whose `families.currency` is still 'USD' (hydrate sets CUR from the DB);
+   nothing in the UI offers, defaults to, or writes USD anymore. Full removal +
+   data migration is deferred. */
+var CUR='VND';
 function curMult(){ return CUR==='VND'?1000:1; }
 function curSym(){ return CUR==='VND'?'₫':'$'; }
 function fmt(n){
@@ -3513,8 +3455,15 @@ function snapAmtInput(el){
 function amtPlaceholder(){ return CUR==='VND' ? (9000000).toLocaleString('vi-VN') : (9000).toLocaleString('en-US'); }
 function renderTrend(){
   var box=document.getElementById('trend-chart'); if(!box)return;
+  // A brand-new family has logged nothing yet — an all-flat "6-month trend" reads as broken,
+  // not empty. Keep the whole section hidden until there's at least one month with real
+  // spending to trend; it appears on its own the moment the first expense lands.
+  var sec=document.getElementById('trend-sec');
+  var anySpend=monthOrder.some(function(k){return months[k].spent>0;});
+  if(sec) sec.style.display=anySpend?'':'none';
+  if(!anySpend) return;
   var maxV=Math.max.apply(null, monthOrder.map(function(k){return Math.max(months[k].spent,months[k].budget);}));
-  var scale=maxV*1.14;
+  var scale=(maxV*1.14)||1;   // a brand-new family has no budget and no spending yet — 0/0 painted NaN% bars
   var html='';
   monthOrder.forEach(function(k){
     var mo=months[k], pct=mo.spent/scale*100, budPct=mo.budget/scale*100;
@@ -9061,7 +9010,13 @@ function renderTxns(){
     else if(f && f.type==='cat' && f.val==='Future expenses') out=futHtml;           // standalone future items
     else if(f) out=realAll.filter(txMatch).map(txRow).join('');                      // realized, filtered
     else out=evHtml+futHtml+realAll.slice(0,8).map(txRow).join('');                  // preview — full list is the Giao dịch drill-in (openTxns)
-    setHTMLIf(tx, out||'<div class="empty-note">'+L('Chưa có giao dịch nào ở đây.','No transactions here yet.')+'</div>');
+    // Two empty shapes: a filter that matched nothing → a plain note; a brand-new family
+    // with no ledger at all → a first-run prompt inviting the first expense (mirrors the
+    // "Tạo mục tiêu đầu tiên" goal empty-state).
+    var emptyHTML=txFilter
+      ? '<div class="empty-note">'+L('Không có giao dịch phù hợp.','No transactions match this filter.')+'</div>'
+      : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🧾</div><div class="me-t">'+L('Ghi khoản chi đầu tiên','Log your first expense')+'</div><p>'+L('Thêm một khoản chi để cả nhà cùng nắm được tiền đang đi đâu.','Add an expense so the family can see where the money goes.')+'</p><button class="empty-cta" style="margin-top:18px" onclick="openExpense()">＋ '+L('Thêm khoản chi','Add expense')+'</button></div>';
+    setHTMLIf(tx, out||emptyHTML);
   }
   var af=document.getElementById('act-filter');
   if(af){
@@ -10474,25 +10429,17 @@ var LANG=(function(){
 })();
 
 var EN_DEFAULT={
-  /* onboarding */
-  welcomeTitle:'Welcome to',
-  tagPool:'One shared pool', tagPoolS:"See your family's money in one place — budgets and spending together.",
-  tagGoals:'Goals & events', tagGoalsS:'Save toward trips, birthdays and the things that matter.',
-  tagMem:'Memories together', tagMemS:'Turn everyday moments into a shared family album.',
-  getStarted:'Get started', haveAccount:'I already have an account',
-  localeTitle:'Language & currency', localeSub:'Choose how FamilyHub speaks and shows money.', langLabel:'Language', curLabel:'Currency',
-  signinT:'Sign in to FamilyHub', signinS:'Sign in with Google — secure and quick.', continueGoogle:'Continue with Google', signingIn:'Signing in…',
+  /* onboarding — curated 2-step flow: intro + sign-in → your family */
+  introTitle:'One home for the family’s money',
+  sellPrivT:'Truly private', sellPrivS:'End-to-end encrypted, so only your family can read it. Even we can’t look.',
+  sellAutoT:'Effortless', sellAutoS:'Transactions log themselves. Nobody has to type them in.',
+  continueGoogle:'Continue with Google', signingIn:'Signing in…',
   terms:'By continuing, you agree to our Terms & Privacy Policy.',
-  familyTitle:'Your family', familySub:"Start a new family, or join one you've been invited to.",
-  startFamily:'Start a new family', startFamilyS:"You'll name it and invite others", joinFamily:'Join a family', joinFamilyS:'Enter your family’s passcode',
-  joinTitle:'Enter the family passcode', joinSub:'The owner adds your Google email to the invite list, then tells you the family’s 6-digit code.', joinCta:'Join family',
-  pcTitle:'Set your family passcode', pcSub:'A 6-digit code, like the door code of your house. Members you invite will enter it to join, and it locks your money data so only your family can read it.', pcCode:'6-digit code', pcRepeat:'Repeat the code', pcWarn:'Money encryption is permanent and cannot be turned off. If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered. Not even by us.',
-  profileTitle:'Set up your profile', profileSub:'This is how your family will see you.', yourName:'Your name', youAreThe:'You are the…', phObName:'e.g. Emma',
-  setFamilyTitle:'Set up your family', setFamilySub:"Name it and invite who's in it.", familyName:'Family name', phFamName:'e.g. The Reeds', membersInvites:'Members & invites', inviteMember:'＋ Invite a member',
-  budgetTitle:'Set your budget', budgetSub:'A monthly target for the family, then a budget per category.', monthlyBudget:'Monthly budget', categoryBudgets:'Category budgets', categoryBudgetsHint:'Suggested from your total. Adjust anytime.',
-  themeTitle:'Pick your look', themeSub:"Choose a color theme for your family's hub. Change it anytime.",
-  enterApp:'Enter FamilyHub', continue:'Continue', you:'You',
-  doneTitle:"You're all set!", doneSub:'Welcome to FamilyHub.',
+  startTitle:'Your family', startSubNew:'Name your home and you’re in.',
+  inviteForYou:'Your invite', joinCta:'Join family', orCreate:'or start your own',
+  familyName:'Family name', phFamName:'e.g. The Reeds', createFamilyCta:'Create family',
+  ariaCode:'6-digit family passcode',
+  monthlyBudget:'Monthly budget',
   /* tabs */
   tabHome:'Home', tabMoney:'Finance', tabMoments:'Moments',
   /* greeting */
@@ -10583,25 +10530,17 @@ var EN_DEFAULT={
 
 var I18N={
   vi:{
-    /* onboarding */
-    welcomeTitle:'Chào mừng đến với',
-    tagPool:'Một ví chung của cả nhà', tagPoolS:'Tiền của cả nhà gom về một chỗ: ngân sách với chi tiêu, xem là thấy hết.',
-    tagGoals:'Mục tiêu & sự kiện', tagGoalsS:'Để dành cho những chuyến đi, sinh nhật và những điều quan trọng.',
-    tagMem:'Kỷ niệm cùng nhau', tagMemS:'Gom những khoảnh khắc thường ngày thành album của cả nhà.',
-    getStarted:'Bắt đầu nào', haveAccount:'Mình đã có tài khoản rồi',
-    localeTitle:'Ngôn ngữ & tiền tệ', localeSub:'Chọn ngôn ngữ và cách hiển thị tiền cho FamilyHub.', langLabel:'Ngôn ngữ', curLabel:'Tiền tệ',
-    signinT:'Đăng nhập FamilyHub', signinS:'Đăng nhập bằng Google — an toàn, nhanh gọn.', continueGoogle:'Tiếp tục với Google', signingIn:'Đang đăng nhập…',
+    /* onboarding — curated 2-step flow: intro + sign-in → your family */
+    introTitle:'Một tổ ấm cho tiền nong của cả nhà',
+    sellPrivT:'Riêng tư tuyệt đối', sellPrivS:'Mã hóa đầu cuối, chỉ gia đình bạn đọc được. Tụi mình cũng không xem được.',
+    sellAutoT:'Nhẹ tênh', sellAutoS:'Giao dịch tự vào sổ, cả nhà khỏi nhập tay từng khoản.',
+    continueGoogle:'Tiếp tục với Google', signingIn:'Đang đăng nhập…',
     terms:'Khi tiếp tục, bạn đồng ý với Điều khoản & Chính sách bảo mật.',
-    familyTitle:'Gia đình của bạn', familySub:'Tạo gia đình mới, hoặc tham gia gia đình đã mời bạn.',
-    startFamily:'Tạo gia đình mới', startFamilyS:'Bạn đặt tên rồi mời mọi người vào', joinFamily:'Tham gia gia đình', joinFamilyS:'Nhập mã gia đình',
-    joinTitle:'Nhập mã gia đình', joinSub:'Chủ gia đình thêm email Google của bạn vào danh sách mời, rồi cho bạn mã 6 số.', joinCta:'Tham gia',
-    pcTitle:'Đặt mã gia đình', pcSub:'Mã 6 số, như mã cửa nhà mình. Người thân bạn mời sẽ nhập mã này để vào, và mã cũng khóa dữ liệu tiền nong để chỉ gia đình bạn đọc được.', pcCode:'Mã 6 số', pcRepeat:'Nhập lại mã', pcWarn:'Mã hóa tài chính là vĩnh viễn, không thể tắt. Nếu cả nhà quên mã và không còn thiết bị nào đang đăng nhập, dữ liệu tiền đã mã hóa sẽ không thể khôi phục, kể cả chúng tôi.',
-    profileTitle:'Thiết lập hồ sơ', profileSub:'Đây là cách cả nhà nhìn thấy bạn.', yourName:'Tên của bạn', youAreThe:'Bạn là…', phObName:'vd. Hân',
-    setFamilyTitle:'Thiết lập gia đình', setFamilySub:'Đặt tên và mời mọi người vào nhà.', familyName:'Tên gia đình', phFamName:'vd. Nhà mình', membersInvites:'Thành viên & lời mời', inviteMember:'＋ Mời thành viên',
-    budgetTitle:'Đặt ngân sách', budgetSub:'Mục tiêu hằng tháng của cả nhà, rồi ngân sách cho từng danh mục.', monthlyBudget:'Ngân sách hằng tháng', categoryBudgets:'Ngân sách theo danh mục', categoryBudgetsHint:'Tụi mình gợi ý sẵn từ tổng ngân sách, bạn chỉnh lúc nào cũng được.',
-    themeTitle:'Chọn giao diện', themeSub:'Chọn màu chủ đề cho nhà mình, đổi lúc nào cũng được.',
-    enterApp:'Vào FamilyHub', continue:'Tiếp tục', you:'Bạn',
-    doneTitle:'Xong hết rồi!', doneSub:'Chào mừng bạn đến với FamilyHub.',
+    startTitle:'Nhà của bạn', startSubNew:'Đặt tên cho tổ ấm của mình để bắt đầu.',
+    inviteForYou:'Lời mời cho bạn', joinCta:'Tham gia', orCreate:'hoặc tạo tổ ấm riêng',
+    familyName:'Tên gia đình', phFamName:'vd. Nhà mình', createFamilyCta:'Tạo gia đình',
+    ariaCode:'Mã gia đình 6 số',
+    monthlyBudget:'Ngân sách hằng tháng',
     /* tabs */
     tabHome:'Nhà', tabMoney:'Tài chính', tabMoments:'Khoảnh khắc',
     /* greeting */
@@ -10711,7 +10650,11 @@ function applyLang(){
   document.documentElement.lang = LANG==='vi'?'vi':'en';
   setGreeting();
 }
-/* ---------- onboarding ---------- */
+/* ---------- onboarding ----------
+   Curated 2-step flow (0050): intro + Google sign-in → your family (join the
+   invite waiting for you, or name a new home) → straight into the app. Locale
+   is device-detected (no picker); budget, members, theme all moved into the
+   app where they belong. The Key Card intro still lands right after create. */
 var FAM={
   user:{name:'Emma',role:'Parent',color:'#6f3fc0'},
   familyName:'The Reeds', mode:'create',
@@ -10719,39 +10662,28 @@ var FAM={
   budget:9000
 };
 var OB_COLORS=['#6f3fc0','#0e8478','#f0701a','#e03d86','#1e74d0','#B8730B','#7A5AE0','#1a9d5f'];
-var OB_ROLES=['Mom','Dad','Husband','Wife','Boyfriend','Girlfriend','Partner','Sweetheart','Sweetie','Coldheart','Man of steel','Parent','Son','Daughter','Kid','Teen','Sibling','Guardian','Grandma','Grandpa','Other'];
-var obOrder=['welcome','locale','auth','choice','join','family','budget','theme','done'];   // 'profile' + 'passcode' retired — name/avatar come from the Google account (edited later in Settings → My profile); families are born on the Key Card (0043)
-var obProg={welcome:0,locale:.12,auth:.24,choice:.4,join:.56,family:.72,budget:.86,theme:.94,done:1};
-function obPickLang(btn){ pick('ob-lang',btn); LANG=btn.dataset.v; applyLang(); }
-function obPickCur(btn){ pick('ob-cur',btn); CUR=btn.dataset.v; }
+var obOrder=['welcome','start'];
 function inits(n){ return ((n||'').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2)||'?').toUpperCase(); }
-var OB_ROLE_LABELS={Mom:['Mẹ','Mom'],Dad:['Bố','Dad'],Husband:['Chồng','Husband'],Wife:['Vợ','Wife'],Boyfriend:['Bạn trai','Boyfriend'],Girlfriend:['Bạn gái','Girlfriend'],Partner:['Bạn đời','Partner'],Sweetheart:['Người thương','Sweetheart'],Sweetie:['Cưng','Sweetie'],Coldheart:['Tảng băng','Coldheart'],'Man of steel':['Người sắt','Man of steel'],Parent:['Phụ huynh','Parent'],Son:['Con trai','Son'],Daughter:['Con gái','Daughter'],Kid:['Nhóc','Kid'],Teen:['Tuổi teen','Teen'],Sibling:['Anh chị em','Sibling'],Guardian:['Người giám hộ','Guardian'],Grandma:['Bà','Grandma'],Grandpa:['Ông','Grandpa'],Other:['Khác','Other']};
-function roleLabel(r){ var m=OB_ROLE_LABELS[r]; return m?L(m[0],m[1]):r; }   // localized display; value stays English (data)
-function roleOpts(sel){ return OB_ROLES.map(function(r){ return '<option value="'+r+'"'+(r===sel?' selected':'')+'>'+roleLabel(r)+'</option>'; }).join(''); }
+/* light tactile tick — vibration is a no-op where unsupported (iOS Safari) */
+function obBuzz(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} }
 function obGo(name){
   var ci=obOrder.indexOf(name);
   document.querySelectorAll('#onboarding .ob-screen').forEach(function(s){
     var i=obOrder.indexOf(s.dataset.ob);
     s.classList.toggle('on', i===ci); s.classList.toggle('past', i<ci);
   });
-  var p = obProg[name]||0;
-  document.getElementById('ob-bar').style.width=(p*100)+'%';
-  document.getElementById('ob-progress').classList.toggle('show', name!=='welcome');
-  if(name==='join'){ var c=document.getElementById('ob-code'); renderCodeBoxes(c.value); setTimeout(function(){ c.focus(); },320); }
-  if(name==='theme') buildObThemes();
+  if(name==='start'){
+    obAcctLine();
+    var bk=document.getElementById('ob-start-back');
+    if(bk) bk.style.visibility = window.__obFromPicker ? 'visible' : 'hidden';   // back only leads somewhere when the picker opened us
+  }
 }
+/* back from "Your family" → the family picker that opened it (multi-family only) */
+function obStartBack(){ if(window.fhSwitchFamily) window.fhSwitchFamily(); }
 function renderCodeBoxes(val){
   val=val||''; var box=document.getElementById('ob-code-boxes'); if(!box)return;
   var html=''; for(var i=0;i<6;i++){ var ch=val[i]||''; html+='<div class="ob-code-box'+(ch?' filled':(i===val.length?' cursor':''))+'">'+ch+'</div>'; }
   box.innerHTML=html;
-}
-function buildObThemes(){
-  var box=document.getElementById('ob-theme-grid'); if(!box)return;
-  box.innerHTML=THEMES.map(function(t){
-    return '<div class="theme-opt'+(t.k===curTheme?' on':'')+'" onclick="applyTheme(\''+t.k+'\');buildObThemes()">'
-      +'<div class="sw" style="background:'+t.grad+'"><div class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#191022" stroke-width="3.2"><path d="M5 12l5 5L20 7"/></svg></div></div>'
-      +'<div class="nm">'+t.name+'</div></div>';
-  }).join('');
 }
 /* Placeholder only. The auth module replaces this with the real Supabase flow as
    soon as it loads. If it never does (offline, CDN blocked), this must NOT wave the
@@ -10768,12 +10700,9 @@ function obGoogle(){
     toast(L('Không kết nối được máy chủ. Kiểm tra mạng và thử lại','Can’t reach the server. Check your connection and try again'));
   }, 1200);
 }
-function obChoose(mode){
-  FAM.mode=mode;
-  if(mode==='join'){ obGo('join'); }
-  else { obEnsureUserIdentity(); obPrefillFamily(); obGo('family'); }   // profile step retired — name from Google, color auto-assigned
-}
-// Identity now comes from the Google account (afterLogin seeds FAM.user.name).
+/* kept for the family-picker "create another family" path (10-client-auth) */
+function obChoose(mode){ FAM.mode=mode||'create'; obGo('start'); }
+// Identity comes from the Google account (afterLogin seeds FAM.user.name/email).
 // Give the member a stable avatar color derived from the email/name; both are
 // editable later in Settings → My profile. Onboarding never asks for name/role/color.
 function obUserColor(){ var s=(FAM.user.email||FAM.user.name||'x'), h=0,i; for(i=0;i<s.length;i++){ h=((h*31)+s.charCodeAt(i))>>>0; } return OB_COLORS[h%OB_COLORS.length]; }
@@ -10794,58 +10723,18 @@ function obJoin(){
   if(!/^\d{6}$/.test(code)){ if(typeof fhFlagField==='function') fhFlagField(document.getElementById('ob-code-boxes')); if(el)el.focus(); toast(L('Nhập đủ 6 chữ số','Enter all 6 digits')); return; }
   toast(L('Không kết nối được máy chủ. Kiểm tra mạng và thử lại','Can’t reach the server. Check your connection and try again'));
 }
-function obMemberRowHTML(name,email,color,me){
-  return '<div class="ob-mcard">'
-    +'<div class="ob-mrow"><div class="ob-mav" style="background:'+color+'">'+esc(inits(name))+'</div>'
-    +'<input class="ob-mname" value="'+esc(name)+'" placeholder="'+L('vd. Mai','e.g. Emma')+'"'+(me?' readonly':'')+' oninput="obSyncMav(this)">'
-    +(me?'<span class="ob-mtag">'+t('you')+'</span>':'<button class="ob-mdel" onclick="this.closest(\'.ob-mcard\').remove()" aria-label="'+L('Xoá','Remove')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>')
-    +'</div>'
-    +'<div class="ob-mfields">'
-    +'<input class="ob-memail" type="email" inputmode="email" autocapitalize="off" placeholder="name@gmail.com" value="'+esc(email)+'"'+(me?' readonly':'')+'>'
-    +'</div></div>';
+/* quiet footer line: which Google account this home will belong to */
+function obAcctLine(){
+  var el=document.getElementById('ob-acct'); if(!el) return;
+  var em=(FAM.user&&FAM.user.email)||'';
+  el.innerHTML = em
+    ? esc(em)+' · <button class="ob-acct-link" onclick="if(window.fhSignOut)fhSignOut()">'+L('Đổi tài khoản','Switch account')+'</button>'
+    : '';
 }
-function obSyncMav(inp){ var av=inp.previousElementSibling; if(av) av.textContent=inits(inp.value); }
-function obPrefillFamily(){
-  document.getElementById('ob-famname').value='';                 // start empty — the user names it
-  document.getElementById('ob-members').innerHTML=obMemberRowHTML(FAM.user.name,FAM.user.email||'',FAM.user.color,true);
-}
-function obAddMember(){
-  var used=document.querySelectorAll('#ob-members .ob-mcard').length;
-  document.getElementById('ob-members').insertAdjacentHTML('beforeend', obMemberRowHTML('','',OB_COLORS[(used+2)%OB_COLORS.length],false));
-}
-function obFamilyNext(){
-  var fn=document.getElementById('ob-famname').value.trim(); if(!fn){ document.getElementById('ob-famname').focus(); return; }
-  FAM.familyName=fn;
-  var mems=[];
-  document.querySelectorAll('#ob-members .ob-mcard').forEach(function(row,i){
-    var nm=row.querySelector('.ob-mname').value.trim(); if(!nm)return;
-    mems.push({name:nm, email:(row.querySelector('.ob-memail')||{value:''}).value.trim(), color:row.querySelector('.ob-mav').style.background||OB_COLORS[i%OB_COLORS.length], me:!!row.querySelector('.ob-mtag')});
-  });
-  FAM.members=mems.length?mems:[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,me:true}];
-  // passcode step retired: go straight to budget. The Key Card is generated on
-  // create and introduced after onboarding (0043).
-  obPrefillBudget(); obGo('budget');
-}
-/* Mandatory passcode step (create flow only): 6 digits, typed twice. The code is
-   held in memory (FAM.passcode) until createFamilyInDB uses it, never stored. */
-function obPcInput(){
-  var a=document.getElementById('ob-pc'), b=document.getElementById('ob-pc2');
-  if(!a||!b) return;
-  a.value=a.value.replace(/\D/g,'').slice(0,6); b.value=b.value.replace(/\D/g,'').slice(0,6);
-  if(typeof fhClearInvalid==='function') fhClearInvalid(a.closest('.ob-screen'));   // Continue stays enabled; obPasscodeNext() gates on tap (DESIGN §4.4)
-}
-function obPasscodeNext(){
-  var a=document.getElementById('ob-pc'), b=document.getElementById('ob-pc2');
-  if(!fhCheck([{el:a, ok:/^\d{6}$/.test(a.value)}], L('Nhập mã gồm 6 chữ số','Enter a 6-digit code'))) return;
-  if(!fhCheck([{el:b, ok:a.value===b.value}], L('Hai mã chưa khớp','The codes don’t match'))) return;
-  FAM.passcode=a.value;
-  obPrefillBudget(); obGo('budget');
-}
-var BUDGET_PROPS={Housing:.30,Groceries:.14,Transport:.10,Dining:.08,Fun:.06,Kids:.08,Others:.08};   // best-practice proportions (by concept)
 /* The default categories a brand-new family gets. MUST mirror
    seed_default_categories() (0003) in the SAME ORDER — the server seeds these at
-   create_family and createFamilyInDB attaches the budgets by sort_order → so the
-   onboarding budget step needs them client-side (catOrder starts empty). */
+   create_family, and the app renders from catOrder until the first hydrate lands
+   (catOrder starts empty otherwise). */
 var DEFAULT_CATS=[
   {concept:'Housing',   vi:'Nhà ở',   en:'Housing',   emoji:'🏠', color:'#7E6BE0'},
   {concept:'Groceries', vi:'Đi chợ',  en:'Groceries', emoji:'🛒', color:'#1FA971'},
@@ -10854,52 +10743,24 @@ var DEFAULT_CATS=[
   {concept:'Fun',       vi:'Giải trí',en:'Fun',       emoji:'🎉', color:'#9D4EFF'},
   {concept:'Kids',      vi:'Con cái', en:'Kids',      emoji:'🎒', color:'#F0701A'}
 ];
-var _obCatConcept={};   // display name → concept, for BUDGET_PROPS lookup regardless of language
-function obPrefillBudget(){
-  // New family: the DB seeds default categories at create_family, but they don't
-  // exist client-side yet (catOrder starts empty → only the "Others" catch-all).
-  // Mirror the seed here, in the same order, so the budget step shows all of
-  // them and createFamilyInDB can attach each budget by sort_order.
-  if(FAM.mode==='create'){
-    _obCatConcept={};
-    var names=DEFAULT_CATS.map(function(d){ var n=(LANG==='vi'?d.vi:d.en); _obCatConcept[n]=d.concept; return n; });
-    catOrder=names.slice(); catStyle={};
-    DEFAULT_CATS.forEach(function(d,i){ catStyle[names[i]]=[d.emoji,'#f2eef6',d.color]; });
-    ensureFallbackCat(catOrder,catStyle,catBudget||(catBudget={}));   // append the "Others" catch-all
-  }
-  var sym=document.getElementById('ob-budget-sym'); if(sym) sym.textContent=curSym();
-  document.getElementById('ob-budget').setAttribute('placeholder', CUR==='VND'?'30.000.000':'9,000');
-  document.getElementById('ob-catbudgets').innerHTML = catOrder.map(function(c){
-    var s=catStyle[c]||['🏷️'];
-    return '<div class="ob-catbud"><span class="ob-catbud-ic" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</span><span class="ob-catbud-n">'+c+'</span>'
-      +'<span class="cat-bud-wrap">'+curSym()+'<input class="cat-bud num" data-cat="'+c+'" inputmode="numeric" placeholder="0"></span></div>';
-  }).join('');
+function obSeedCats(){
+  var names=DEFAULT_CATS.map(function(d){ return (LANG==='vi'?d.vi:d.en); });
+  catOrder=names.slice(); catStyle={};
+  DEFAULT_CATS.forEach(function(d,i){ catStyle[names[i]]=[d.emoji,'#f2eef6',d.color]; });
+  ensureFallbackCat(catOrder,catStyle,catBudget||(catBudget={}));   // append the "Others" catch-all
 }
-function obSuggestBudgets(){
-  var total=parseAmtBase(document.getElementById('ob-budget').value); if(!total) return;   // total in base units
-  var loc = CUR==='VND'?'vi-VN':'en-US';
-  document.querySelectorAll('#ob-catbudgets .cat-bud').forEach(function(inp){
-    var c=inp.getAttribute('data-cat'), concept=_obCatConcept[c]||c, prop=(BUDGET_PROPS[concept]!==undefined)?BUDGET_PROPS[concept]:(0.7/Math.max(1,catOrder.length));
-    var base=Math.round(total*prop/10)*10;                        // round base value
-    inp.value = base ? (base*curMult()).toLocaleString(loc) : '';  // shown in the display currency
-  });
-}
-function obBudgetNext(){
-  FAM.budget=parseAmtBase(document.getElementById('ob-budget').value)||9000;
-  FAM.catBudget={};
-  document.querySelectorAll('#ob-catbudgets .cat-bud').forEach(function(inp){
-    var c=inp.getAttribute('data-cat'), v=parseAmtBase(inp.value)||catBudget[c]||0; FAM.catBudget[c]=v;
-  });
-  document.getElementById('ob-theme-back').setAttribute('onclick',"obGo('budget')");
-  obGo('theme');
-}
-function obThemeNext(){ obPrepDone(); obGo('done'); }
-function obPrepDone(){
-  var nm=firstName(FAM.user.name), n=FAM.members.length, vi=(LANG==='vi');
-  setTxt('ob-done-title', vi ? ('Chào mừng, '+nm+'!') : ('Welcome, '+nm+'!'));
-  setTxt('ob-done-sub', FAM.mode==='join'
-    ? (vi ? ('Bạn đã tham gia '+FAM.familyName+'.') : ('You\'ve joined '+FAM.familyName+'.'))
-    : (vi ? (FAM.familyName+' đã sẵn sàng với '+n+' thành viên.') : (FAM.familyName+' is ready with '+n+' member'+(n!==1?'s':'')+'.')));
+/* Create = the whole setup now: validate the name, seed the member + categories,
+   and hand over to finishOnboarding (the data module wraps it → create_family →
+   Key Card intro). Budget and theme start at their defaults; Settings owns them. */
+function obCreateFamily(){
+  var inp=document.getElementById('ob-famname'), fn=(inp?inp.value:'').trim();
+  if(!fhCheck([{el:inp, ok:!!fn}], L('Đặt tên cho gia đình đã nhé','Give your family a name first'))) return;
+  obEnsureUserIdentity();
+  FAM.mode='create'; FAM.familyName=fn;
+  FAM.members=[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,me:true}];
+  FAM.budget=0; FAM.catBudget=null;      // set later in the app — the budget tab suggests a split
+  obSeedCats();
+  finishOnboarding();
 }
 function applyFam(){
   if(FAM.budget) months[curMonthKey()].budget=FAM.budget;
@@ -10913,7 +10774,7 @@ function applyCurrency(){                         // re-render every money figur
   document.documentElement.classList.toggle('cur-vnd', CUR==='VND');   // longer VND figures → tighter hero type
   renderBudget(); renderEvents(); renderTxns(); renderMembers();
   try{ renderHome(); }catch(e){ if(typeof console!=='undefined') console.error('renderHome', e); }
-  document.querySelectorAll('[data-amt]').forEach(function(el){         // static demo amounts (base USD units)
+  document.querySelectorAll('[data-amt]').forEach(function(el){         // static demo amounts (base units → display currency)
     var base=parseFloat(el.getAttribute('data-amt'))||0;
     el.textContent=(el.getAttribute('data-amt-pre')||'')+fmt(base)+(el.getAttribute('data-amt-suf')||'');
   });
@@ -10926,16 +10787,23 @@ function finishOnboarding(){
   applyFam(); applyLang(); applyCurrency();
   try{ localStorage.setItem('fh-onboarded','1'); localStorage.setItem('fh-lang',LANG); localStorage.setItem('fh-cur',CUR); }catch(e){}
   try{ if(window.fhMarkReleasesSeen) fhMarkReleasesSeen(); }catch(e){}   // fresh user starts clean — no past-release backlog
+  obBuzz([10,40,16]);                                                    // the "you're in" moment
   document.getElementById('onboarding').classList.add('done');
   go('home');
   try{ if(window.fhInstallNudge) window.fhInstallNudge(); }catch(e){}   // earned-moment install nudge (once, dismissible, only if installable)
 }
+/* device locale, re-derived (mirrors the LANG bootstrap in 70-theme-i18n) */
+function obDeviceLang(){
+  try{
+    var n=(navigator.language||navigator.userLanguage||navigator.languages&&navigator.languages[0]||'').toLowerCase();
+    return n.indexOf('vi')===0 ? 'vi' : 'en';
+  }catch(e){ return 'en'; }
+}
 function restartOnboarding(){
   try{ localStorage.removeItem('fh-onboarded'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-lang'); localStorage.removeItem('fh-cur'); }catch(e){}
-  LANG='en'; CUR='USD'; applyLang();
+  LANG=obDeviceLang(); CUR='VND'; applyLang();   // VND-only frontend (USD is a legacy-render fallback, never produced here)
   FAM={ user:{name:'',email:'',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };
-  document.querySelectorAll('#ob-lang .choice').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='en'); });
-  document.querySelectorAll('#ob-cur .choice').forEach(function(b){ b.classList.toggle('on',b.dataset.v==='USD'); });
+  window.__obFromPicker=false;
   document.getElementById('onboarding').classList.remove('done'); obGo('welcome');
 }
 function obInit(){
@@ -10948,8 +10816,15 @@ function obInit(){
     document.getElementById('onboarding').classList.add('done');
   } else {
     FAM={ user:{name:'',email:'',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };  // fresh: name/color seeded from the Google account after sign-in
+    CUR='VND';                       // VND-only frontend — every new family is VND (no locale picker; LANG still follows the device)
+    try{ applyLang(); }catch(e){}    // a Vietnamese device reads the intro in Vietnamese
   }
 }
+/* haptics: a light tick on every onboarding button press (Android; iOS ignores) */
+(function(){
+  var ob=document.getElementById('onboarding');
+  if(ob) ob.addEventListener('pointerdown',function(ev){ if(ev.target && ev.target.closest && ev.target.closest('button')) obBuzz(6); },{passive:true});
+})();
 
 /* ---------- warm start ----------
    The DB hydrate needs a module import + ~10 network round-trips, so a signed-in
@@ -11199,7 +11074,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v304';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v306';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -11553,7 +11428,8 @@ function openWhatsNew(){
       showFamilyPicker(fams);                    // in families but none active → pick one
     } else if (onb && typeof window.obGo === 'function') {
       fhResumeFail(); fhWarmAbandon();
-      onb.classList.remove('done'); window.obGo('choice');   // brand-new → onboarding
+      window.__obFromPicker = false;
+      onb.classList.remove('done'); window.obGo('start');   // brand-new → name a family / take the waiting invite
     } else {
       fhResumeFail(); fhWarmAbandon();
     }
@@ -11609,13 +11485,15 @@ function openWhatsNew(){
       ov.remove();
       if (onb) onb.classList.remove('done');
       if (window.FAM) { window.FAM.mode = 'create'; window.FAM.familyName = ''; window.FAM.members = []; window.FAM.budget = 0; window.FAM.catBudget = null; }
+      window.__obFromPicker = true;                        // back arrow on "Your family" reopens this picker
       if (typeof window.obChoose === 'function') window.obChoose('create');
     };
     document.getElementById('fh-fam-join').onclick = () => {
       ov.remove();
       if (onb) onb.classList.remove('done');
       if (window.FAM) window.FAM.mode = 'join';
-      if (typeof window.obGo === 'function') window.obGo('join');
+      window.__obFromPicker = true;
+      if (typeof window.obGo === 'function') window.obGo('start');
     };
   }
   // First real read: pull the active family's name + members from the DB into the header.
@@ -11705,7 +11583,7 @@ function openWhatsNew(){
       use_fedcm_for_prompt: true
     });
     const custom = g('ob-gbtn'); if (custom) custom.style.display = 'none';
-    const foot = document.querySelector('#onboarding .ob-screen[data-ob="auth"] .ob-foot');
+    const foot = g('ob-auth-foot');                       // the intro screen's footer (sign-in lives on screen 1 now)
     let holder = g('ob-gholder');
     if (!holder && foot) {
       holder = document.createElement('div');
@@ -11714,7 +11592,8 @@ function openWhatsNew(){
       foot.insertBefore(holder, foot.firstChild);
     }
     if (holder) google.accounts.id.renderButton(holder, {
-      type: 'standard', shape: 'pill', theme: 'outline', text: 'continue_with', size: 'large'
+      type: 'standard', shape: 'pill', theme: 'outline', text: 'continue_with', size: 'large',
+      width: String(Math.min(400, Math.max(240, foot ? foot.clientWidth - 48 : 368)))   // fill the footer like the custom button did
     });
     return true;
   }
@@ -14880,35 +14759,48 @@ window.classifyAmount = classifyAmount;
     if (window.DB && window.DB.enc && window.DB.enc.enc_state !== 'off' && !fhKeyReady()) { if (window.fhLockWall) window.fhLockWall({ auto: true }); }
   };
 
-  // ── Joiner: prep the join screen from the pending invite for this email ──
+  // ── Joiner: prep the "Your family" screen from the pending invite for this email ──
+  // The invite (if any) and the create-a-family form share one screen now: the
+  // invite block appears above the name field with an "or start your own" divider.
+  const _obTreeMark = '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="var(--brand-tint)"/><ellipse cx="32" cy="50" rx="14" ry="2.4" fill="var(--gshadow)"/><rect x="29.2" y="34" width="5.6" height="15" rx="2.8" fill="var(--wood)"/><circle cx="32" cy="24" r="11.5" fill="var(--brand-2)"/><circle cx="23" cy="31" r="7" fill="var(--brand-2)"/><circle cx="41.5" cy="30" r="8" fill="var(--brand-2)"/><path d="M23 34 A13 13 0 0 0 41 33.5" fill="none" stroke="rgba(26,90,60,.10)" stroke-width="3" stroke-linecap="round"/></svg>';
   window.obJoinPrep = async function () {
-    const pv = document.getElementById('ob-join-preview'), hint = document.getElementById('ob-join-hint');
+    const block = document.getElementById('ob-invite'), pv = document.getElementById('ob-join-preview');
+    const hint = document.getElementById('ob-join-hint'), sub = document.getElementById('ob-start-sub');
     _fhJoinCtx = null;
-    if (pv) pv.style.display = 'none';
-    if (hint) hint.textContent = '';
+    if (block) block.style.display = 'none';
+    if (sub) sub.textContent = L('Đặt tên cho tổ ấm của mình để bắt đầu.', 'Name your home and you’re in.');
+    if (hint) hint.textContent = L('Đang tìm lời mời cho bạn…', 'Checking for an invite…');
     let sessEmail = '';
     try { const s = (await sb.auth.getSession()).data.session; sessEmail = (s && s.user && s.user.email) || ''; } catch (e) {}
     let inv = null;
-    try { inv = await _rpc('find_my_invite'); } catch (e) { if (hint) hint.textContent = _friendly(e); return; }
+    try { inv = await _rpc('find_my_invite'); }
+    catch (e) {   // a transient lookup failure must not be terminal — offer the same retry as the no-invite state
+      if (hint) hint.innerHTML = _esc(_friendly(e)) + ' <button class="ob-hint-link" onclick="obJoinPrep()">' + L('Thử lại', 'Try again') + '</button>';
+      return;
+    }
     if (!inv) {
       if (hint) hint.innerHTML = L(
-        'Chưa có lời mời nào cho <b>' + _esc(sessEmail) + '</b>.<br>Nhờ chủ gia đình thêm đúng email này vào danh sách mời (Cài đặt → Mời thành viên).',
-        'No invite found for <b>' + _esc(sessEmail) + '</b>.<br>Ask the family owner to add exactly this email (Settings → Invite a member).');
+        'Được người thân mời? Nhờ họ thêm đúng email <b>' + _esc(sessEmail) + '</b> vào danh sách mời (Cài đặt → Mời thành viên), lời mời sẽ hiện ở đây. ',
+        'Expecting an invite? Ask them to add exactly <b>' + _esc(sessEmail) + '</b> to the invite list (Settings → Invite a member) and it shows up here. ')
+        + '<button class="ob-hint-link" onclick="obJoinPrep()">' + L('Kiểm tra lại', 'Check again') + '</button>';
       return;
     }
     _fhJoinCtx = inv;
+    if (hint) hint.textContent = '';
+    if (sub) sub.textContent = L('Có người đang đợi bạn. Tham gia ngay, hoặc tạo tổ ấm riêng.', 'Someone is waiting for you. Join them, or start your own.');
     // Card family: no code to enter — hide the code boxes; the door is just the
     // whitelist + Google SSO, and the card unlocks the data after joining.
-    const codeWrap = document.querySelector('#onboarding [data-ob="join"] .ob-code-wrap');
+    const codeWrap = document.getElementById('ob-code-wrap');
     if (codeWrap) codeWrap.style.display = inv.card_only ? 'none' : '';
     if (pv) {
-      pv.style.display = 'flex';
-      const sub = inv.card_only
+      const psub = inv.card_only
         ? L(_esc(inv.invited_by) + ' mời bạn · bấm tham gia, nhập mã khóa sau', 'invited by ' + _esc(inv.invited_by) + ' · tap join, enter the code after')
         : L(_esc(inv.invited_by) + ' mời bạn · nhập mã 6 số của gia đình', 'invited by ' + _esc(inv.invited_by) + ' · enter the family’s 6-digit code');
-      pv.innerHTML = '<div class="ob-preview-ic">🏡</div><div><div class="ob-preview-fam">' + _esc(inv.family_name || 'Family') + '</div>'
-        + '<div class="ob-preview-sub">' + sub + '</div></div>';
+      pv.innerHTML = '<div class="ob-preview-ic">' + _obTreeMark + '</div><div><div class="ob-preview-fam">' + _esc(inv.family_name || 'Family') + '</div>'
+        + '<div class="ob-preview-sub">' + psub + '</div></div>';
     }
+    if (!inv.card_only && typeof window.renderCodeBoxes === 'function') window.renderCodeBoxes((document.getElementById('ob-code') || {}).value || '');
+    if (block) block.style.display = '';
     if (!inv.passcode_set && !inv.card_only && hint) {
       hint.textContent = L('Gia đình này chưa đặt mã. Nhờ chủ gia đình đặt mã trước.', 'This family has no passcode yet. Ask the owner to set one first.');
     }
@@ -14921,15 +14813,15 @@ window.classifyAmount = classifyAmount;
     if (typeof window.fhClearInvalid === 'function') window.fhClearInvalid('ob-code-boxes');   // Join stays enabled; obJoin() gates on tap (DESIGN §4.4)
   };
 
-  // Joiner identity comes from the Google account now (the profile step was
-  // retired): seed the single "you" member with the Google name + auto color and
-  // advance straight to the theme step. Name/color are editable later in Settings.
-  function _obJoinToTheme() {
+  // Joiner identity comes from the Google account (the profile step was retired):
+  // seed the single "you" member with the Google name + auto color, then finish —
+  // finishOnboarding runs joinFinalizeDB and lands on Home. The budget and theme
+  // steps are gone; Settings owns both now.
+  function _obJoinFinish() {
     if (window.obEnsureUserIdentity) window.obEnsureUserIdentity();
     const u = (window.FAM && window.FAM.user) || {};
     if (window.FAM) window.FAM.members = [{ name: u.name || '', email: u.email || '', color: u.color, me: true }];
-    const tb = document.getElementById('ob-theme-back'); if (tb) tb.setAttribute('onclick', "obGo('join')");
-    window.obGo('theme');
+    window.finishOnboarding();
   }
 
   window.obJoin = async function () {
@@ -14955,7 +14847,7 @@ window.classifyAmount = classifyAmount;
         return;
       }
       if (cta0) { cta0.disabled = false; cta0.textContent = label0; }
-      _obJoinToTheme();
+      _obJoinFinish();
       return;
     }
     const el = document.getElementById('ob-code');
@@ -14999,15 +14891,15 @@ window.classifyAmount = classifyAmount;
       return;
     }
     if (cta) { cta.disabled = false; cta.textContent = label; }
-    _obJoinToTheme();
+    _obJoinFinish();
   };
 
-  // entering the join screen loads the invite (wraps the js-ui obGo)
+  // entering the family screen loads the pending invite (wraps the js-ui obGo)
   (function () {
     const _origObGo = window.obGo;
     if (typeof _origObGo === 'function') window.obGo = function (name) {
       _origObGo.apply(this, arguments);
-      if (name === 'join') { try { window.obJoinPrep(); } catch (e) {} }
+      if (name === 'start') { try { window.obJoinPrep(); } catch (e) {} }
     };
   })();
 
@@ -16710,7 +16602,7 @@ window.classifyAmount = classifyAmount;
     // always create a fresh family (multi-family: "create" means a new one)
     const { data: familyId, error } = await sb.rpc('create_family', {
       p_name: (window.FAM && window.FAM.familyName) || L('Gia đình của mình','My family'),
-      p_currency: window.CUR || 'VND',
+      p_currency: 'VND',                             // VND-only frontend — every new family is created in VND
       p_language: window.LANG || 'vi'
     });
     if (error) throw error;
@@ -16801,7 +16693,9 @@ window.classifyAmount = classifyAmount;
 
   const _origFinish = window.finishOnboarding;
   window.finishOnboarding = async function () {
-    const btn = document.querySelector('#onboarding .ob-screen[data-ob="done"] .cta');
+    // The busy state lands on whichever CTA the user just tapped: Join (invite
+    // path) or Create (new-family path) — the done screen is gone (0050).
+    const btn = document.getElementById((window.FAM && window.FAM.mode === 'join') ? 'ob-join-cta' : 'ob-create-cta');
     const label = btn ? btn.textContent : '';
     const busy = (on) => { if (btn) { btn.disabled = on; btn.style.opacity = on ? '.7' : ''; btn.textContent = on ? L('Đang thiết lập…','Setting up…') : label; } };
     try {
@@ -16809,9 +16703,13 @@ window.classifyAmount = classifyAmount;
       else if (window.FAM && window.FAM.mode === 'join') { busy(true); await joinFinalizeDB(); }
     } catch (e) {
       busy(false);
-      // Stay on the step so the user can retry — their answers are still in the form.
       window.toast && window.toast(_friendly(e));
-      return;
+      /* Create: stay on the step so the user can retry — the name is still in the form.
+         Join: the join itself already COMMITTED (join_with_* succeeded before this ran;
+         only the cosmetic member/profile finalize failed). Staying would dead-end them —
+         find_my_invite now returns nothing, and the screen would read "start your own",
+         inviting a duplicate family. Enter the app; name/theme self-heal in Settings. */
+      if (!(window.FAM && window.FAM.mode === 'join' && window.FAM.joinFamilyId)) return;
     }
     busy(false);
     if (typeof _origFinish === 'function') _origFinish();

@@ -62,7 +62,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 </head>
 <body>
 <!-- static so it paints on the first frame — see the returning-user gate in <head> -->
-<div id="fh-splash" aria-hidden="true"><div class="fs-logo">🏡</div><div class="fs-name">FamilyHub</div></div>
+<div id="fh-splash" aria-hidden="true"><div class="fs-logo"><svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="var(--brand-tint)"/><ellipse cx="32" cy="50" rx="14" ry="2.4" fill="var(--gshadow)"/><rect x="29.2" y="34" width="5.6" height="15" rx="2.8" fill="var(--wood)"/><circle cx="32" cy="24" r="11.5" fill="var(--brand-2)"/><circle cx="23" cy="31" r="7" fill="var(--brand-2)"/><circle cx="41.5" cy="30" r="8" fill="var(--brand-2)"/><path d="M23 34 A13 13 0 0 0 41 33.5" fill="none" stroke="rgba(26,90,60,.10)" stroke-width="3" stroke-linecap="round"/></svg></div><div class="fs-name">FamilyHub</div></div>
 <div id="fh-updating" role="status" aria-live="polite"><span class="fu-dot"></span><span data-t="updating">Updating…</span></div>
 <div id="fh-uploading" role="status" aria-live="polite"><span class="fu-dot"></span><span class="fu-txt" data-t="savingPhoto">Saving photo…</span></div>
 <div id="fh-offline" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22M16.7 16.7A6 6 0 007 8.3M5 12.5a10 10 0 013-2.3M2 8.8a15 15 0 014.2-2.7M12 20h.01"/></svg><span data-t="offline">Offline. Changes save here, sync when you’re back</span></div>
@@ -176,12 +176,14 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </div>
   <div id="goals-list"></div>
 
-  <!-- XU HƯỚNG -->
-  <div class="section-h"><span class="t" data-t="trend6">6-month trend</span><span class="sh-note" data-t="vsBudget">vs budget</span></div>
-  <div class="card" style="padding:18px 18px 16px">
-    <div class="trend-chart" id="trend-chart"></div>
-    <div class="trend-labels" id="trend-labels"></div>
-    <div class="trend-legend"><span class="dash"></span> <span data-t="trendLegend">Dashed line = that month's budget</span></div>
+  <!-- XU HƯỚNG — hidden until there's real spending history to trend (renderTrend) -->
+  <div id="trend-sec" style="display:none">
+    <div class="section-h"><span class="t" data-t="trend6">6-month trend</span><span class="sh-note" data-t="vsBudget">vs budget</span></div>
+    <div class="card" style="padding:18px 18px 16px">
+      <div class="trend-chart" id="trend-chart"></div>
+      <div class="trend-labels" id="trend-labels"></div>
+      <div class="trend-legend"><span class="dash"></span> <span data-t="trendLegend">Dashed line = that month's budget</span></div>
+    </div>
   </div>
 
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
@@ -812,134 +814,95 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 
 <!-- ONBOARDING -->
 <div id="onboarding">
-  <div class="ob-progress" id="ob-progress"><i id="ob-bar"></i></div>
 
+  <!-- ═ Screen 1 · Intro + sign-in — the meadow scene, two promises, one tap ═ -->
   <section class="ob-screen on" data-ob="welcome">
     <div class="ob-content center">
-      <div class="ob-brand">
-        <div class="ob-logo">🏡</div>
-        <div class="ob-welcome-t"><span data-t="welcomeTitle">Welcome to</span><br><em>FamilyHub</em></div>
+      <div class="ob-hero st" style="--i:0">
+        <svg class="ob-scene" viewBox="0 0 320 168" aria-hidden="true">
+          <defs>
+            <linearGradient id="ob-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fc3e4"/><stop offset="1" stop-color="#e6f3fa"/></linearGradient>
+            <linearGradient id="ob-grass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9cc98b"/><stop offset="1" stop-color="#77aa67"/></linearGradient>
+            <clipPath id="ob-clip"><rect x="0" y="0" width="320" height="168" rx="26"/></clipPath>
+          </defs>
+          <g clip-path="url(#ob-clip)">
+            <rect x="0" y="0" width="320" height="168" fill="url(#ob-sky)"/>
+            <circle cx="258" cy="38" r="26" fill="rgba(255,244,190,.5)"/>
+            <circle cx="258" cy="38" r="15" fill="#fff3c9"/>
+            <g fill="rgba(255,255,255,.85)"><ellipse cx="66" cy="34" rx="17" ry="7"/><ellipse cx="80" cy="30" rx="12" ry="6"/><ellipse cx="53" cy="31" rx="9" ry="5"/></g>
+            <ellipse cx="76" cy="132" rx="150" ry="36" fill="#a7c9b0" opacity=".5"/>
+            <ellipse cx="252" cy="138" rx="170" ry="42" fill="#a7c9b0" opacity=".35"/>
+            <ellipse cx="160" cy="196" rx="230" ry="78" fill="url(#ob-grass)"/>
+            <g transform="translate(104,44)">
+              <ellipse cx="32" cy="90" rx="17" ry="2.6" fill="var(--gshadow)"/>
+              <rect x="27.5" y="58" width="9" height="34" rx="4.5" fill="var(--wood)"/>
+              <circle cx="32" cy="28" r="24" fill="var(--brand-2)"/>
+              <circle cx="15" cy="45" r="15" fill="var(--brand-2)"/>
+              <circle cx="47" cy="43" r="17" fill="var(--brand-2)"/>
+              <path d="M14 51 A22 22 0 0 0 50 50" fill="none" stroke="rgba(26,90,60,.10)" stroke-width="5" stroke-linecap="round"/>
+              <g transform="translate(33,-4)">
+                <rect x="3.2" y="4.2" width="8" height="6.2" rx="3.1" fill="var(--perch-bird)"/>
+                <path d="M10.6 6 L14.6 4.2 L11.8 8.6 Z" fill="#c94f3e"/>
+                <ellipse cx="7.4" cy="7" rx="2.5" ry="1.7" fill="rgba(70,20,14,.18)"/>
+                <circle cx="3.6" cy="3.6" r="3" fill="var(--perch-bird)"/>
+                <path d="M1 3.2 L-1.8 4.1 L1 5.1 Z" fill="var(--gold)"/>
+                <circle cx="2.8" cy="3" r=".75" fill="#3a2a22"/>
+              </g>
+            </g>
+            <path d="M60 140v-12" stroke="#5d8a50" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="60" cy="126" r="4" fill="#f2b3c9"/><circle cx="60" cy="126" r="1.6" fill="#fff"/>
+            <path d="M216 146v-13" stroke="#5d8a50" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="216" cy="131" r="4.4" fill="#f5c64f"/><circle cx="216" cy="131" r="1.7" fill="#fff"/>
+            <path d="M246 152v-10" stroke="#5d8a50" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="246" cy="140" r="3.4" fill="#fbd9e4"/><circle cx="246" cy="140" r="1.3" fill="#fff"/>
+            <path d="M92 152q-2-8-6-10M92 152q0-9 0-11M92 152q2-8 6-10" stroke="#6a9a5c" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+            <path d="M188 158q-2-8-6-10M188 158q0-9 0-11M188 158q2-8 6-10" stroke="#6a9a5c" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+          </g>
+        </svg>
       </div>
-      <div class="ob-feats">
-        <div class="ob-feat"><div class="ob-feat-ic" style="background:#e9f7f0;color:#1a9d5f">💰</div><div><div class="ob-feat-t" data-t="tagPool">One shared pool</div><div class="ob-feat-s" data-t="tagPoolS">See your family's money together: budgets and spending in one place.</div></div></div>
-        <div class="ob-feat"><div class="ob-feat-ic" style="background:#eef1fc;color:#5E5CE6">🎯</div><div><div class="ob-feat-t" data-t="tagGoals">Goals &amp; events</div><div class="ob-feat-s" data-t="tagGoalsS">Save toward trips, birthdays and the things that matter.</div></div></div>
-        <div class="ob-feat"><div class="ob-feat-ic" style="background:#fdeef4;color:#FF375F">📸</div><div><div class="ob-feat-t" data-t="tagMem">Memories together</div><div class="ob-feat-s" data-t="tagMemS">Turn everyday moments into a shared family album.</div></div></div>
+      <div class="ob-brandline st" style="--i:1">FamilyHub</div>
+      <h1 class="ob-h1 ob-h1-intro st" style="--i:2" data-t="introTitle">One home for the family&rsquo;s money</h1>
+      <div class="ob-sells">
+        <div class="ob-sell st" style="--i:3">
+          <div class="ob-sell-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2.6"/><path d="M8 10.5V7.8a4 4 0 018 0v2.7"/><circle cx="12" cy="15.2" r="1.3" fill="currentColor" stroke="none"/></svg></div>
+          <div><div class="ob-sell-t" data-t="sellPrivT">Truly private</div><div class="ob-sell-s" data-t="sellPrivS">End-to-end encrypted, so only your family can read it. Even we can&rsquo;t look.</div></div>
+        </div>
+        <div class="ob-sell st" style="--i:4">
+          <div class="ob-sell-ic ic-auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3L5 13.5h5L11 21l8-10.5h-5z"/></svg></div>
+          <div><div class="ob-sell-t" data-t="sellAutoT">Effortless</div><div class="ob-sell-s" data-t="sellAutoS">Transactions log themselves. Nobody has to type them in.</div></div>
+        </div>
       </div>
     </div>
-    <div class="ob-foot">
-      <button class="cta" data-t="getStarted" onclick="obGo('locale')">Get started</button>
-      <button class="ob-textlink" data-t="haveAccount" onclick="obGo('locale')">I already have an account</button>
-    </div>
-  </section>
-
-  <section class="ob-screen" data-ob="locale">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('welcome')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="localeTitle">Language & currency</div><div class="ob-sub" data-t="localeSub">Choose how FamilyHub speaks and shows money.</div></div>
-      <div class="field"><label data-t="langLabel">Language</label><div class="choices" id="ob-lang">
-        <button class="choice on" data-v="en" onclick="obPickLang(this)">🇬🇧 English</button>
-        <button class="choice" data-v="vi" onclick="obPickLang(this)">🇻🇳 Tiếng Việt</button>
-      </div></div>
-      <div class="field"><label data-t="curLabel">Currency</label><div class="choices" id="ob-cur">
-        <button class="choice on" data-v="USD" onclick="obPickCur(this)">$ USD</button>
-        <button class="choice" data-v="VND" onclick="obPickCur(this)">₫ VND</button>
-      </div></div>
-    </div>
-    <div class="ob-foot"><button class="cta" data-t="continue" onclick="obGo('auth')">Continue</button></div>
-  </section>
-
-  <section class="ob-screen" data-ob="auth">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('welcome')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content center">
-      <div class="ob-signin-hero">
-        <div class="ob-logo">🏡</div>
-        <div class="ob-signin-t" data-t="signinT">Sign in to FamilyHub</div>
-        <div class="ob-signin-s" data-t="signinS">Continue with your Google account. Secure, and just one tap.</div>
-      </div>
-    </div>
-    <div class="ob-foot">
+    <div class="ob-foot" id="ob-auth-foot">
       <button class="ob-google" id="ob-gbtn" onclick="obGoogle()"><svg class="ob-gicon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span data-t="continueGoogle">Continue with Google</span></button>
       <div class="ob-note" data-t="terms">By continuing, you agree to our Terms &amp; Privacy Policy.</div>
     </div>
   </section>
 
-  <section class="ob-screen" data-ob="choice">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('auth')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+  <!-- ═ Screen 2 · Your family — the invite waiting for you (if any), or name a new home ═ -->
+  <section class="ob-screen" data-ob="start">
+    <div class="ob-top"><button class="ob-back2" id="ob-start-back" style="visibility:hidden" onclick="obStartBack()" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="familyTitle">Your family</div><div class="ob-sub" data-t="familySub">Start a new family, or join one you've been invited to.</div></div>
-      <button class="ob-card" onclick="obChoose('create')"><div class="ob-card-em">✨</div><div><div class="ob-card-t" data-t="startFamily">Start a new family</div><div class="ob-card-s" data-t="startFamilyS">You'll name it and invite others</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-      <button class="ob-card" onclick="obChoose('join')"><div class="ob-card-em">🔗</div><div><div class="ob-card-t" data-t="joinFamily">Join a family</div><div class="ob-card-s" data-t="joinFamilyS">Enter your family’s passcode</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-    </div>
-  </section>
-
-  <section class="ob-screen" data-ob="join">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('choice')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="joinTitle">Enter the family passcode</div><div class="ob-sub" data-t="joinSub">The owner adds your Google email to the invite list, then tells you the family’s 6-digit code.</div></div>
-      <div class="ob-code-wrap">
-        <div class="ob-code-boxes" id="ob-code-boxes"></div>
-        <input class="ob-code" id="ob-code" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" oninput="obCodeInput(this)">
+      <div class="ob-head st" style="--i:0"><h1 class="ob-h1" data-t="startTitle">Your family</h1><div class="ob-sub" id="ob-start-sub" data-t="startSubNew">Name your home and you&rsquo;re in.</div></div>
+      <div class="ob-invite st" id="ob-invite" style="display:none;--i:1">
+        <div class="ob-lab" data-t="inviteForYou">Your invite</div>
+        <div class="ob-preview" id="ob-join-preview"></div>
+        <div class="ob-code-wrap" id="ob-code-wrap">
+          <div class="ob-code-boxes" id="ob-code-boxes" role="group" aria-label="6-digit family passcode" data-ta="ariaCode"></div>
+          <input class="ob-code" id="ob-code" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" oninput="obCodeInput(this)" aria-label="6-digit family passcode" data-ta="ariaCode">
+        </div>
+        <button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta">Join family</button>
+        <div class="ob-or"><span data-t="orCreate">or start your own</span></div>
       </div>
-      <div class="ob-preview" id="ob-join-preview" style="display:none"></div>
-      <div class="ob-sub" id="ob-join-hint" style="margin-top:14px"></div>
-    </div>
-    <div class="ob-foot"><button class="cta" id="ob-join-cta" onclick="obJoin()" data-t="joinCta">Join family</button></div>
-  </section>
-
-  <section class="ob-screen" data-ob="family">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('choice')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="setFamilyTitle">Set up your family</div><div class="ob-sub" data-t="setFamilySub">Name it and invite who's in it.</div></div>
-      <div class="field"><label data-t="familyName">Family name</label><input id="ob-famname" data-tp="phFamName" placeholder="e.g. The Reeds"></div>
-      <div class="field"><label data-t="membersInvites">Members &amp; invites</label>
-        <div id="ob-members"></div>
-        <button class="btn-line" onclick="obAddMember()" data-t="inviteMember" style="margin:12px 0 0;width:100%">＋ Invite a member</button>
+      <div class="st" style="--i:2">
+        <div class="field"><label data-t="familyName">Family name</label><input id="ob-famname" data-tp="phFamName" placeholder="e.g. The Reeds" maxlength="40" enterkeyhint="done" autocomplete="off"></div>
       </div>
+      <div class="ob-hint st" id="ob-join-hint" style="--i:3"></div>
     </div>
-    <div class="ob-foot"><button class="cta" onclick="obFamilyNext()">Continue</button></div>
-  </section>
-
-  <section class="ob-screen" data-ob="passcode">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('family')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="pcTitle">Set your family passcode</div><div class="ob-sub" data-t="pcSub">A 6-digit code, like the door code of your house. Members you invite will enter it to join, and it locks your money data so only your family can read it.</div></div>
-      <div class="field"><label data-t="pcCode">6-digit code</label><input class="num big" id="ob-pc" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" oninput="obPcInput()"></div>
-      <div class="field"><label data-t="pcRepeat">Repeat the code</label><input class="num big" id="ob-pc2" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" oninput="obPcInput()"></div>
-      <div class="ob-sub" data-t="pcWarn" style="margin-top:12px">Money encryption is permanent and cannot be turned off. If the whole family forgets the code and no signed-in device remains, encrypted money data cannot be recovered. Not even by us.</div>
+    <div class="ob-foot">
+      <button class="cta" id="ob-create-cta" onclick="obCreateFamily()" data-t="createFamilyCta">Create family</button>
+      <div class="ob-note" id="ob-acct"></div>
     </div>
-    <div class="ob-foot"><button class="cta" id="ob-pc-cta" onclick="obPasscodeNext()">Continue</button></div>
-  </section>
-
-  <section class="ob-screen" data-ob="budget">
-    <div class="ob-top"><button class="ob-back2" onclick="obGo('family')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="budgetTitle">Set your budget</div><div class="ob-sub" data-t="budgetSub">A monthly target for the family, then a budget for each category.</div></div>
-      <div class="ob-total-card">
-        <label data-t="monthlyBudget">Monthly budget</label>
-        <div class="ob-total-in"><span class="ob-total-sym" id="ob-budget-sym">$</span><input class="ob-total-input num" id="ob-budget" inputmode="numeric" placeholder="9,000" oninput="obSuggestBudgets()"></div>
-      </div>
-      <div class="ob-catbud-lead"><div class="bg-sub" data-t="categoryBudgets">Category budgets</div><div class="ob-catbud-hint" data-t="categoryBudgetsHint">Suggested from your total. Adjust anytime.</div></div>
-      <div class="ob-group" id="ob-catbudgets"></div>
-    </div>
-    <div class="ob-foot"><button class="cta" onclick="obBudgetNext()">Continue</button></div>
-  </section>
-
-  <section class="ob-screen" data-ob="theme">
-    <div class="ob-top"><button class="ob-back2" id="ob-theme-back" onclick="obGo('family')" aria-label="Back" data-ta="ariaBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
-    <div class="ob-content">
-      <div class="ob-head"><div class="ob-h1" data-t="themeTitle">Pick your look</div><div class="ob-sub" data-t="themeSub">Choose a color theme for your family's hub. You can change it anytime.</div></div>
-      <div class="theme-grid" id="ob-theme-grid"></div>
-    </div>
-    <div class="ob-foot"><button class="cta" onclick="obThemeNext()">Continue</button></div>
-  </section>
-
-  <section class="ob-screen" data-ob="done">
-    <div class="ob-content center" style="align-items:center;text-align:center">
-      <div class="ob-done-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
-      <div class="ob-welcome-t" id="ob-done-title" style="margin-top:26px">You're all set!</div>
-      <div class="ob-signin-s" id="ob-done-sub" style="max-width:300px;margin-top:10px">Welcome to FamilyHub.</div>
-    </div>
-    <div class="ob-foot"><button class="cta" data-t="enterApp" onclick="finishOnboarding()">Enter FamilyHub</button></div>
   </section>
 </div>
 </div><!-- /phone -->
