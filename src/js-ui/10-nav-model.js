@@ -136,6 +136,39 @@ function snapAmtInput(el){
 /* One placeholder source, so the separator always matches what the field produces
    (vi-VN uses dots, en-US commas — hardcoding either taught the wrong format). */
 function amtPlaceholder(){ return CUR==='VND' ? (9000000).toLocaleString('vi-VN') : (9000).toLocaleString('en-US'); }
+/* ---- live thousands-grouping while typing --------------------------------
+   snapAmtInput() only groups on blur, so mid-type a field reads as a bare digit
+   run (150000) — at the exact moment the user is deciding "enough zeros?" they
+   get no help. This regroups every amount field (input.num — the class every
+   money field carries, and only they do) on each keystroke, so 150000 reads as
+   150.000 live. One capture-phase listener covers static markup AND fields built
+   later (bulk rows, budget categories, CSV edit, onboarding) with no per-callsite
+   wiring. Capture phase runs BEFORE the field's own oninput, so downstream
+   handlers read the grouped value; parseAmtBase strips separators regardless.
+   Caret is preserved by counting digits left of it and re-seeking that many after
+   reformatting, so insert / delete / mid-string edits land the cursor where the
+   user expects. Deleting a separator re-adds it and holds the caret — the next
+   backspace removes the digit (standard grouped-input behaviour). */
+function amtGroupSep(){ return CUR==='VND' ? '.' : ','; }
+function groupAmtDigits(d){ return d.replace(/\B(?=(\d{3})+(?!\d))/g, amtGroupSep()); }
+function liveGroupAmtInput(el){
+  var val=el.value, sel=el.selectionStart;
+  if(sel==null) sel=val.length;                                   // some mobile IMEs report null mid-compose
+  var digitsLeft=val.slice(0,sel).replace(/\D/g,'').length;       // how many real digits sit left of the caret
+  var digits=val.replace(/\D/g,'').replace(/^0+(?=\d)/,'');       // integer VND: strip separators + leading zeros, keep one
+  var grouped=digits?groupAmtDigits(digits):'';
+  if(grouped===val) return;                                       // nothing changed → don't disturb the caret
+  el.value=grouped;                                               // programmatic set does NOT re-fire input → no loop
+  var pos=0, seen=0;
+  while(pos<grouped.length && seen<digitsLeft){ var c=grouped.charCodeAt(pos); if(c>=48 && c<=57) seen++; pos++; }
+  try{ el.setSelectionRange(pos,pos); }catch(e){}                 // guard browsers that block selection on some inputs
+}
+if(typeof document!=='undefined'){
+  document.addEventListener('input', function(e){
+    var t=e.target;
+    if(t && t.tagName==='INPUT' && t.classList && t.classList.contains('num')) liveGroupAmtInput(t);
+  }, true);
+}
 function renderTrend(){
   var box=document.getElementById('trend-chart'); if(!box)return;
   // A brand-new family has logged nothing yet — an all-flat "6-month trend" reads as broken,
