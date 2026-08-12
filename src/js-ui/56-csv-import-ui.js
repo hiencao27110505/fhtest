@@ -226,7 +226,9 @@ function csvRenderUnlock(files, problems){
 var csvUnlockFiles = null;
 var csvSkipLocked = false;
 var csvInflowOpen = false;
-function csvToggleInflow(){ csvInflowOpen = !csvInflowOpen; renderCsvReview(); }
+var csvInflowDetail = null;
+function csvToggleInflow(){ csvInflowOpen = !csvInflowOpen; csvInflowDetail = null; renderCsvReview(); }
+function csvInflowToggle(di){ csvInflowDetail = (csvInflowDetail === di) ? null : di; renderCsvReview(); }
 
 function csvSkipLockedFiles(){
   var drop = {};
@@ -370,6 +372,7 @@ function csvIncludedCount(){ return csvReview ? csvReview.ready.length : 0; }
    opts.declined re-runs without adopting, after an undo. */
 function csvBuildReview(sources, opts){
   csvInflowOpen = false;   // a fresh review starts with the money-in line folded
+  csvInflowDetail = null;
 
   opts = opts || {};
   csvCatMerges = {}; csvCatAmbiguous = {};   // recomputed every build
@@ -850,8 +853,8 @@ function renderCsvReview(){
                     : nTr ? L('Trả nợ thẻ · '+nTr+' khoản','Card payments · '+nTr)
                     : L('Tiền vào · '+nIn+' khoản','Money in · '+nIn);
     var inflowSub = nTr
-      ? L('Không nhập — khoản chi thật nằm trong sao kê thẻ, nhập cả hai sẽ bị tính hai lần','Not imported — the real spending is on the card statement; importing both counts it twice')
-      : L('Không nhập — tụi mình chỉ ghi khoản chi','Not imported — spending only');
+      ? L('Không nhập, vì khoản chi thật nằm trong sao kê thẻ. Nhập cả hai sẽ bị tính hai lần.','Not imported: the real spending is on the card statement, and importing both counts it twice.')
+      : L('Không nhập, tụi mình chỉ ghi khoản chi','Not imported, spending only');
     html += '<div class="csv-inflow">'
       + '<button type="button" class="csv-inflow-head" onclick="csvToggleInflow()">'
         + '<span class="csv-inflow-txt"><span class="csv-inflow-t">'+esc(inflowTitle)+'</span>'
@@ -861,12 +864,21 @@ function renderCsvReview(){
       + '</button>';
     if(csvInflowOpen){
       inflow.forEach(function(e){
-        html += '<div class="csv-inflow-row">'
+        var open = csvInflowDetail === e.di;
+        html += '<button type="button" class="csv-inflow-row'+(open?' open':'')+'" onclick="csvInflowToggle('+e.di+')">'
           + '<span class="csv-inflow-d">'+esc(e.c.dateDisplay ? fmtDayMon(e.c.date) : '')+'</span>'
           + '<span class="csv-inflow-n">'+esc(e.c.description)+'</span>'
           + '<span class="csv-inflow-a">'+esc(csvFmt(e.c.amount))+'</span>'
-          + '<button type="button" class="csv-linkbtn" onclick="csvDeferConfirm('+e.di+')">'+L('Là khoản chi','It\'s spending')+'</button>'
-        + '</div>';
+        + '</button>';
+        if(open){
+          html += '<div class="csv-inflow-detail">'
+            + '<div class="csv-inflow-full">'+esc(e.c.description)+'</div>'
+            + (e.c.counterparty ? '<div class="csv-inflow-meta">'+esc(e.c.counterparty)+'</div>' : '')
+            + '<div class="csv-inflow-meta">'+esc((e.c.dateDisplay ? fmtDayMon(e.c.date)+' · ' : '')+csvFmt(e.c.amount))
+              + (e.c.isTransfer ? ' · '+esc(L('trả nợ thẻ','card payment')) : ' · '+esc(L('tiền vào','money in')))+'</div>'
+            + '<button type="button" class="btn-line csv-inflow-take" onclick="csvDeferConfirm('+e.di+')">'+L('Đây là khoản chi, nhập vào','This is spending, import it')+'</button>'
+          + '</div>';
+        }
       });
     }
     html += '</div>';
