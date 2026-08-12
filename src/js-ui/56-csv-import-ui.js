@@ -369,6 +369,8 @@ function csvIncludedCount(){ return csvReview ? csvReview.ready.length : 0; }
    undoable, which is what keeps auto-adoption honest rather than presumptuous.
    opts.declined re-runs without adopting, after an undo. */
 function csvBuildReview(sources, opts){
+  csvInflowOpen = false;   // a fresh review starts with the money-in line folded
+
   opts = opts || {};
   csvCatMerges = {}; csvCatAmbiguous = {};   // recomputed every build
   csvPendingCats = [];                       // adoption is re-decided each build
