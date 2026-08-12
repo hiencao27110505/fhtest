@@ -9,7 +9,9 @@
  *      (ANTHROPIC_API_KEY + classifyAndExtractViaHaiku() left in place below, unused —
  *      swapping the model back later is a one-line change, see processOneMessage)
  *   2. Gmail labels created: txn/inbox, txn/processed, txn/parse-failed (done — see gichisreading@gmail.com)
- *   3. Time-based trigger: processEmails, every 1 minute
+ *   3. Time-based triggers: processEmails every 1 minute, and
+ *      confirmPendingForwarding every 5 minutes (auto-clicks Gmail's
+ *      forwarding confirmation so onboarding does not ask the user to)
  *   4. Supabase schema applied (bank-email-pipeline-schema.sql) — 0025 is live; 0026/0027 still pending
  */
 
@@ -911,6 +913,94 @@ function testGeminiOnRealEmail() {
 
   var result = classifyAndExtractViaGemini(sender, subject, body);
   Logger.log('Extraction result:\n' + JSON.stringify(result, null, 2));
+}
+
+
+// ============================================================================
+// Auto-confirm forwarding verification
+//
+// When a user tells their Gmail to forward to their alias, Google emails a
+// confirmation link to that alias and refuses to forward anything until it is
+// clicked. The alias is a +tag on the shared inbox this script is bound to, so
+// the confirmation lands somewhere we can already read — meaning we can click
+// it for them. That is the whole reason onboarding can promise "we handle the
+// confirmation email" instead of "go find an email from Google".
+//
+// Runs on its own trigger (every 5 min is plenty — this only matters during the
+// minutes after someone sets up forwarding), NOT inside processEmails(): these
+// confirmations arrive at the inbox unlabelled, and coupling them to the
+// transaction loop would mean a failure in one stalls the other.
+//
+// Idempotent and self-limiting: it only looks at unread confirmations from
+// Google, marks each read once handled, and never touches anything else.
+// ============================================================================
+
+var FORWARDING_CONFIRM_SENDER = 'forwarding-noreply@google.com';
+
+function confirmPendingForwarding() {
+  // Unread only: a handled confirmation is marked read, so this naturally stops
+  // reprocessing without needing its own state.
+  var threads = GmailApp.search('from:' + FORWARDING_CONFIRM_SENDER + ' is:unread newer_than:7d');
+  for (var t = 0; t < threads.length; t++) {
+    var messages = threads[t].getMessages();
+    for (var m = 0; m < messages.length; m++) {
+      try {
+        handleForwardingConfirmation(messages[m]);
+      } catch (err) {
+        // Never let one bad confirmation stop the rest. Left unread so the next
+        // run retries — Google's links stay valid for days.
+        Logger.log('forwarding confirmation failed for ' + messages[m].getId() + ': ' + err);
+      }
+    }
+  }
+}
+
+function handleForwardingConfirmation(message) {
+  // Which alias is being confirmed? The confirmation is addressed TO the alias,
+  // so the +tag identifies whose setup this is. Without it we cannot attribute
+  // the confirmation and must not click blindly — clicking would enable
+  // forwarding for an address we cannot account for.
+  var alias = extractPlusTag(message.getTo());
+  if (!alias) {
+    Logger.log('forwarding confirmation with no +tag, ignoring: ' + message.getTo());
+    return;
+  }
+
+  var rows = supabaseGet('mailbox_connections', { forwarding_alias: 'eq.' + alias });
+  if (!rows.length) {
+    // A confirmation for an alias we never issued. Do NOT click: that would let
+    // anyone who guesses the inbox address get forwarding switched on.
+    Logger.log('forwarding confirmation for unknown alias ' + alias + ', ignoring');
+    return;
+  }
+
+  var link = extractForwardingConfirmLink(message.getBody() || message.getPlainBody() || '');
+  if (!link) {
+    Logger.log('no confirmation link found in message ' + message.getId());
+    return;
+  }
+
+  // Clicking is a plain GET. muteHttpExceptions so a non-200 is inspected rather
+  // than thrown — Google answers 200 for an already-confirmed link too, which is
+  // why re-running is harmless.
+  var response = UrlFetchApp.fetch(link, { muteHttpExceptions: true, followRedirects: true });
+  var code = response.getResponseCode();
+  if (code < 200 || code >= 400) {
+    throw new Error('confirm link returned HTTP ' + code);
+  }
+
+  supabasePatch('mailbox_connections', { forwarding_alias: 'eq.' + alias }, { verified: true });
+  message.markRead();
+  Logger.log('forwarding confirmed for alias ' + alias);
+}
+
+// Google's confirmation body carries a vf- link. Matching on that path segment
+// rather than "any google.com URL" keeps us from following the unsubscribe/help
+// links that share the same email.
+function extractForwardingConfirmLink(body) {
+  var m = String(body).match(/https:\/\/mail\.google\.com\/mail\/[^\s"'<>]*vf-[^\s"'<>]*/);
+  if (m) return m[0].replace(/&amp;/g, '&');
+  return null;
 }
 
 // ---------- Supabase REST helpers ----------
