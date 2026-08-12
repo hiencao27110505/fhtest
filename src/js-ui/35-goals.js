@@ -4,6 +4,9 @@
 function achievedGoal(g){ return !!(g && (g.achieved || (g.target>0 && g.saved>=g.target))); }
 function renderGoals(){
   var goals=window.goals||{}, ord=window.goalOrder||[];
+  // First-time user (no goals yet): hide the progress-bar summary — it's all zeros and
+  // says nothing. Leave only the empty-state prompt that invites creating a first goal.
+  var summ=document.getElementById('sav-summary'); if(summ) summ.style.display=ord.length?'':'none';
   var live=ord.filter(function(g){ return !achievedGoal(goals[g]); });   // active goals only
   var pool=(window.savings!==undefined?window.savings:savings)||0;
   var totalTarget=live.reduce(function(s,g){return s+(goals[g].target||0);},0);
