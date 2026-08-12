@@ -102,6 +102,11 @@ html.fh-newver #fh-newver{display:flex}
 .ob-catbud-in{display:flex;align-items:baseline;gap:3px;font-size:13px;font-weight:600;color:var(--muted-soft);flex-shrink:0}
 .ob-catbud-in input{width:100px;text-align:right;border:none;background:none;outline:none;font-family:var(--text);font-weight:700;font-size:15.5px;color:var(--ink);padding:4px 0}
 .ob-catbud-in input::placeholder{color:var(--chev);font-weight:600}
+/* Others = the read-only balancer row (total − the rest); reads as derived, not editable */
+.ob-catbud-fb .ob-catbud-n{color:var(--muted)}
+.ob-catbud-tag{font-size:11px;font-weight:600;letter-spacing:-.01em;color:var(--muted-soft)}
+.ob-catbud-ro{color:var(--muted-soft)}
+.ob-catbud-ro .ob-others-val{display:inline-block;min-width:100px;text-align:right;font-family:var(--text);font-weight:700;font-size:15.5px;color:var(--muted)}
 /* ── your family: the invites waiting for you (0-3), or name a new home ── */
 .ob-lab{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted-soft);margin:0 2px 9px}
 .ob-preview-ic{width:44px;height:44px;border-radius:50%;background:var(--brand-tint);flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden}

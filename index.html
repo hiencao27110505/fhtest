@@ -2374,6 +2374,11 @@ html.fh-newver #fh-newver{display:flex}
 .ob-catbud-in{display:flex;align-items:baseline;gap:3px;font-size:13px;font-weight:600;color:var(--muted-soft);flex-shrink:0}
 .ob-catbud-in input{width:100px;text-align:right;border:none;background:none;outline:none;font-family:var(--text);font-weight:700;font-size:15.5px;color:var(--ink);padding:4px 0}
 .ob-catbud-in input::placeholder{color:var(--chev);font-weight:600}
+/* Others = the read-only balancer row (total − the rest); reads as derived, not editable */
+.ob-catbud-fb .ob-catbud-n{color:var(--muted)}
+.ob-catbud-tag{font-size:11px;font-weight:600;letter-spacing:-.01em;color:var(--muted-soft)}
+.ob-catbud-ro{color:var(--muted-soft)}
+.ob-catbud-ro .ob-others-val{display:inline-block;min-width:100px;text-align:right;font-family:var(--text);font-weight:700;font-size:15.5px;color:var(--muted)}
 /* ── your family: the invites waiting for you (0-3), or name a new home ── */
 .ob-lab{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted-soft);margin:0 2px 9px}
 .ob-preview-ic{width:44px;height:44px;border-radius:50%;background:var(--brand-tint);flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
@@ -11963,9 +11968,11 @@ function obCreateFamily(){
 }
 /* Budget setup step (create only). Categories are already seeded (obSeedCats);
    this renders one budget field + a per-category list that auto-splits from the
-   total using the app's own weights (CATW, 20-budget.js), so onboarding and the
-   in-app editor suggest the same thing. Everything is optional — Continue with an
-   empty budget (or "Set up later") just leaves the home/finance nudges to catch it. */
+   total using the app's own weights (CATW, 20-budget.js). "Khác/Others" is a real,
+   always-present row, but it's the BALANCER: read-only, showing total − sum(the
+   rest), floored at 0. The named rows are clamped so they can never out-allocate
+   the total, so the categories ALWAYS add up to exactly the monthly budget.
+   Everything is optional — Continue with an empty budget (or "Set up later"). */
 function obPrefillBudget(){
   var body=document.getElementById('ob-budget-body'); if(!body) return;
   var sym=curSym();
@@ -11973,41 +11980,83 @@ function obPrefillBudget(){
     var s=catStyle[c]||['🏷️','#f2eef6','#7a5a6e'];
     return '<div class="ob-catbud"><span class="ob-catbud-ic" style="background:'+s[1]+';color:'+s[2]+'">'+s[0]+'</span>'
       +'<span class="ob-catbud-n">'+esc(c)+'</span>'
-      +'<span class="ob-catbud-in">'+sym+'<input class="ob-cat-bud num" data-cat="'+escAttr(c)+'" inputmode="numeric" placeholder="0" oninput="this.dataset.touched=\'1\'"></span></div>';
+      +'<span class="ob-catbud-in">'+sym+'<input class="ob-cat-bud num" data-cat="'+escAttr(c)+'" inputmode="numeric" placeholder="0" oninput="obCatEdit(this)" onblur="snapAmtInput(this);obCatEdit(this)"></span></div>';
   }).join('');
+  // Others — the read-only catch-all that soaks up whatever's left, so the sum stays exact
+  var fs=catStyle[CAT_FALLBACK]||['🗂️','#eef4fb','var(--cat-other)'];
+  rows += '<div class="ob-catbud ob-catbud-fb"><span class="ob-catbud-ic" style="background:'+fs[1]+';color:'+fs[2]+'">'+fs[0]+'</span>'
+    +'<span class="ob-catbud-n">'+esc(L('Khác','Others'))+' <span class="ob-catbud-tag">'+L('còn lại','left')+'</span></span>'
+    +'<span class="ob-catbud-in ob-catbud-ro">'+sym+'<span class="ob-others-val" id="ob-others-val">0</span></span></div>';
   body.innerHTML =
     '<div class="ob-head st" style="--i:0"><h1 class="ob-h1">'+L('Ngân sách của nhà','Your budget')+'</h1>'
     +'<div class="ob-sub">'+L('Đặt mục tiêu chi tiêu hằng tháng cho cả nhà. Chỉnh lúc nào cũng được.','A monthly spending target for the family. Change it anytime.')+'</div></div>'
     +'<div class="ob-total-card st" style="--i:1"><label>'+L('Ngân sách hằng tháng','Monthly budget')+'</label>'
     +'<div class="ob-total-in"><span class="ob-total-sym" id="ob-budget-sym">'+sym+'</span>'
-    +'<input class="ob-total-input num" id="ob-budget" inputmode="numeric" enterkeyhint="done" placeholder="'+(CUR==='VND'?'20.000.000':'9,000')+'" oninput="obSuggestBudgets()"></div></div>'
+    +'<input class="ob-total-input num" id="ob-budget" inputmode="numeric" enterkeyhint="done" placeholder="'+(CUR==='VND'?'20.000.000':'9,000')+'" oninput="obTotalChange()"></div></div>'
     +'<div class="ob-catbud-lead st" style="--i:2"><div class="ob-lab">'+L('Ngân sách theo hạng mục','Category budgets')+'</div>'
-    +'<div class="ob-catbud-hint">'+L('Tụi mình gợi ý sẵn từ tổng, chỉnh thoải mái nha.','We suggest a split from your total. Adjust freely.')+'</div></div>'
+    +'<div class="ob-catbud-hint">'+L('Tụi mình gợi ý sẵn từ tổng. Các danh mục luôn cộng đúng bằng tổng, phần dư nằm ở “Khác”.','We suggest a split from your total. The categories always add up to it, with the rest in “Others”.')+'</div></div>'
     +'<div class="ob-group st" id="ob-catbudgets" style="--i:3">'+rows+'</div>';
   var cta=document.getElementById('ob-budget-cta'); if(cta) cta.textContent=L('Tiếp tục','Continue');
   var sk=document.getElementById('ob-budget-skip'); if(sk) sk.textContent=L('Để sau','Set up later');
+  obSyncOthers();
   setTimeout(function(){ var b=document.getElementById('ob-budget'); if(b) try{ b.focus(); }catch(e){} }, 460);
 }
-/* Auto-split the monthly total across untouched categories (touched ones are left
-   as the user set them). Mirrors suggestBudgetSplit() in 20-budget.js. */
+function obBudgetTotal(){ var el=document.getElementById('ob-budget'); return el?(parseAmtBase(el.value)||0):0; }
+function obCatInputs(){ return [].slice.call(document.querySelectorAll('#ob-catbudgets .ob-cat-bud')); }
+function obNamedSum(except){ var s=0; obCatInputs().forEach(function(i){ if(i!==except) s+=parseAmtBase(i.value)||0; }); return s; }
+/* Repaint the read-only "Others" balancer = total − sum(named), floored at 0. */
+function obSyncOthers(){
+  var ov=document.getElementById('ob-others-val'); if(!ov) return;
+  var left=Math.max(0, obBudgetTotal()-obNamedSum(null));
+  ov.textContent=left?amtToInput(left):'0';
+}
+/* A named category was edited: clamp it so the named rows can never sum past the
+   total (Others can't go negative), then repaint Others. The sum is always exact. */
+function obCatEdit(inp){
+  inp.dataset.touched='1';
+  var total=obBudgetTotal();
+  if(total>0){
+    var room=Math.max(0, total-obNamedSum(inp));      // what's free once the OTHER named rows are counted
+    if((parseAmtBase(inp.value)||0)>room) inp.value = room?amtToInput(room):'';
+  }
+  obSyncOthers();
+}
+/* Total changed: re-suggest the untouched rows from the new total, then — if the
+   hand-set rows now overflow it — scale every named row down to fit, so the sum is
+   still exactly the total (with Others at 0). */
+function obTotalChange(){
+  obSuggestBudgets();
+  var total=obBudgetTotal(), used=obNamedSum(null);
+  if(total>0 && used>total){
+    var scale=total/used;
+    obCatInputs().forEach(function(i){ var v=Math.round((parseAmtBase(i.value)||0)*scale/10)*10; i.value=v?amtToInput(v):''; });
+  }
+  obSyncOthers();
+}
+/* Auto-split the total across untouched named rows by the app's CATW weights,
+   reserving a slice for Others so it starts with a sensible default too. */
 function obSuggestBudgets(){
-  var el=document.getElementById('ob-budget'); if(!el) return;
-  var total=parseAmtBase(el.value); if(!total) return;
-  var inputs=[].slice.call(document.querySelectorAll('#ob-catbudgets .ob-cat-bud'));
+  var total=obBudgetTotal(); if(!total){ obSyncOthers(); return; }
+  var inputs=obCatInputs();
   var free=inputs.filter(function(i){ return i.dataset.touched!=='1'; });
-  if(!free.length) return;
+  if(!free.length){ obSyncOthers(); return; }
   var spoken=0; inputs.forEach(function(i){ if(i.dataset.touched==='1') spoken+=parseAmtBase(i.value)||0; });
   var pool=Math.max(0,total-spoken);
+  var OTHERS_W=0.10;                                   // Others keeps ~10% by default
   var ws=free.map(function(i){ var n=(i.getAttribute('data-cat')||'').trim().toLowerCase(); return (typeof CATW!=='undefined'&&CATW[n]!==undefined)?CATW[n]:0.08; });
-  var sum=ws.reduce(function(a,b){return a+b;},0)||1;
+  var sum=ws.reduce(function(a,b){return a+b;},0)+OTHERS_W;
   free.forEach(function(i,k){ var base=Math.round(pool*(ws[k]/sum)/10)*10; i.value=base?amtToInput(base):''; });
+  obSyncOthers();
 }
 function obBudgetNext(){
-  FAM.budget=parseAmtBase((document.getElementById('ob-budget')||{value:''}).value)||0;
-  FAM.catBudget={};
-  document.querySelectorAll('#ob-catbudgets .ob-cat-bud').forEach(function(inp){
-    var c=inp.getAttribute('data-cat'), v=parseAmtBase(inp.value)||0; if(v>0) FAM.catBudget[c]=v;
-  });
+  obTotalChange();                                    // final reconcile: named rows are clamped/scaled to the total
+  FAM.budget=obBudgetTotal();
+  if(FAM.budget>0){
+    FAM.catBudget={};
+    obCatInputs().forEach(function(inp){ var c=inp.getAttribute('data-cat'), v=parseAmtBase(inp.value)||0; if(v>0) FAM.catBudget[c]=v; });
+  } else {
+    FAM.catBudget=null;                               // no total → don't persist orphan category budgets
+  }
   finishOnboarding();
 }
 function obBudgetSkip(){ FAM.budget=0; FAM.catBudget=null; finishOnboarding();
@@ -12324,7 +12373,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v319';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v320';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

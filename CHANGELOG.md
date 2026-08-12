@@ -46,6 +46,20 @@ defer the setup":
   invite rows, role list, budget-proportion table and onboarding theme grid are
   gone from `80-onboard-boot.js`; onboarding i18n keys replaced in both tables.
 
+### Onboarding budget: "Others" is a real balancer, categories always sum to the total (08-12)
+
+The onboarding budget step now shows the "Khác/Others" catch-all as its own row —
+read-only, displaying `total − sum(the named categories)`, floored at 0 — and it
+keeps the categories adding up to **exactly** the monthly budget at all times:
+- auto-split reserves ~10% for Others so it starts with a sensible default;
+- editing a named category **clamps** it so the named rows can never out-allocate
+  the total (Others can't go negative);
+- lowering the total scales the named rows down proportionally to fit.
+So the sum is always the total, and Others soaks up whatever's left. Persistence is
+unchanged (Others is client-side only — the server seeds the 6 named categories; a
+zero/empty total saves no orphan category budgets). `obPrefillBudget` +
+`obCatEdit`/`obTotalChange`/`obSyncOthers` in `80-onboard-boot.js`.
+
 ### Budget step back in onboarding + fullscreen Key Card intro (08-12)
 
 - **Onboarding regains a budget/categories step.** After naming the family (create
