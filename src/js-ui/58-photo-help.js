@@ -50,19 +50,66 @@
     }, 900);
   }, true);
 
+  function _l(){ return window.L || function(a){ return a; }; }
   function show(){
     shown = true;
     var el = document.getElementById('fh-photo-hint');
     if(!el){ el = document.createElement('div'); el.id = 'fh-photo-hint'; el.className = 'fh-photo-hint'; (document.body || document.documentElement).appendChild(el); }
-    var _L = window.L || function(a){ return a; };
+    var _L = _l();
     el.innerHTML = '<div class="fph-in"><span class="fph-ic">📷</span>'
-      + '<span class="fph-tx">' + _L('Không mở được ảnh? Vào Cài đặt điện thoại → Ứng dụng → FamilyHub → Quyền, bật Máy ảnh và Ảnh/Bộ nhớ, rồi bấm Thử lại.',
-                                      'Photos won’t open? Open Settings → Apps → FamilyHub → Permissions, allow Camera and Photos/Files, then tap Retry.') + '</span>'
-      + '<button class="fph-retry" onclick="fhPhotoRetry()">' + _L('Thử lại','Retry') + '</button>'
+      + '<span class="fph-tx">' + _L('Không mở được ảnh? Quyền Ảnh/Máy ảnh có thể đang tắt.',
+                                      'Photos won’t open? Camera/Photos access may be off.') + '</span>'
+      + '<button class="fph-fix" onclick="fhPhotoGuide()">' + _L('Khắc phục','Fix it') + '</button>'
       + '<button class="fph-x" aria-label="' + _L('Đóng','Close') + '" onclick="fhPhotoHintClose()">✕</button></div>';
     void el.offsetWidth; el.classList.add('on');
   }
   function hide(){ var el = document.getElementById('fh-photo-hint'); if(el) el.classList.remove('on'); }
+
+  /* The "Fix it" guide. A one-tap link to Chrome's site-settings page is impossible —
+     chrome:// URLs are blocked from web content, and a standalone PWA has no address
+     bar to reach them anyway — so this shows the reachable route (Android app
+     permissions) step by step, plus the browser route with a copy-address helper,
+     and ends on Retry. Reinstalling is called out as a non-fix (the permission is
+     remembered per origin, so a WebAPK reinstall reuses the same denied state). */
+  function guide(){
+    var _L = _l();
+    var g = document.getElementById('fh-photo-guide');
+    if(!g){ g = document.createElement('div'); g.id = 'fh-photo-guide'; g.className = 'fh-photo-guide'; (document.body || document.documentElement).appendChild(g); }
+    var origin = '';
+    try { origin = location.origin; } catch(e){}
+    g.innerHTML =
+      '<div class="fpg-scrim" onclick="fhPhotoGuideClose()"></div>'
+      + '<div class="fpg-card" role="dialog" aria-modal="true">'
+      +   '<div class="fpg-h">' + _L('Bật lại quyền ảnh','Re-enable photo access') + '</div>'
+      +   '<p class="fpg-note">' + _L('Gỡ rồi cài lại ứng dụng sẽ KHÔNG đặt lại quyền này — quyền được nhớ theo trang web. Hãy làm theo cách dưới.',
+                                      'Uninstalling and reinstalling will NOT reset this — the permission is remembered per site. Do this instead.') + '</p>'
+      +   '<div class="fpg-way">' + _L('Trên điện thoại','On your phone') + '</div>'
+      +   '<ol class="fpg-steps">'
+      +     '<li>' + _L('Mở <b>Cài đặt</b> của điện thoại','Open your phone’s <b>Settings</b>') + '</li>'
+      +     '<li>' + _L('<b>Ứng dụng</b> → <b>FamilyHub</b>','<b>Apps</b> → <b>FamilyHub</b>') + '</li>'
+      +     '<li>' + _L('<b>Quyền</b> → bật <b>Máy ảnh</b> và <b>Ảnh/Bộ nhớ</b>','<b>Permissions</b> → allow <b>Camera</b> and <b>Photos/Files</b>') + '</li>'
+      +     '<li>' + _L('Quay lại đây và bấm <b>Thử lại</b>','Come back here and tap <b>Retry</b>') + '</li>'
+      +   '</ol>'
+      +   '<div class="fpg-way">' + _L('Hoặc trong Chrome','Or in Chrome') + '</div>'
+      +   '<p class="fpg-alt">' + _L('Mở trang trong trình duyệt Chrome → chạm ⋮ → <b>Cài đặt trang (Site settings)</b> → <b>Đặt lại quyền (Reset permissions)</b>.',
+                                     'Open the site in the Chrome browser → tap ⋮ → <b>Site settings</b> → <b>Reset permissions</b>.') + '</p>'
+      +   (origin ? '<button class="fpg-copy" onclick="fhPhotoCopyOrigin()">' + _L('Sao chép địa chỉ trang','Copy site address') + '</button>' : '')
+      +   '<div class="fpg-actions">'
+      +     '<button class="fpg-close" onclick="fhPhotoGuideClose()">' + _L('Đóng','Close') + '</button>'
+      +     '<button class="fpg-retry" onclick="fhPhotoGuideClose();fhPhotoRetry()">' + _L('Thử lại','Retry') + '</button>'
+      +   '</div>'
+      + '</div>';
+    void g.offsetWidth; g.classList.add('on');
+  }
+  window.fhPhotoGuide = guide;
+  window.fhPhotoGuideClose = function(){ var g = document.getElementById('fh-photo-guide'); if(g) g.classList.remove('on'); };
+  window.fhPhotoCopyOrigin = function(){
+    var _L = _l(), o = '';
+    try { o = location.origin; } catch(e){}
+    var done = function(){ if(window.toast) window.toast(_L('Đã sao chép địa chỉ trang','Site address copied')); };
+    try { if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(o).then(done, done); return; } } catch(e){}
+    try { var ta = document.createElement('textarea'); ta.value = o; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); } catch(e){}
+  };
   window.fhPhotoHintClose = hide;
   window.fhPhotoRetry = function(){ hide(); if(lastInput){ try { lastInput.click(); } catch(e){} } };
 })();

@@ -7,7 +7,31 @@
   box-shadow:0 12px 34px rgba(0,0,0,.30); }
 .fph-ic{ font-size:18px; line-height:1; flex:0 0 auto; }
 .fph-tx{ flex:1; font-size:12.5px; line-height:1.4; }
-.fph-retry{ flex:0 0 auto; background:var(--brand); color:#fff; border:none; border-radius:9px;
+.fph-fix{ flex:0 0 auto; background:var(--brand); color:#fff; border:none; border-radius:9px;
   padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer; }
 .fph-x{ flex:0 0 auto; background:transparent; border:none; color:rgba(255,255,255,.65);
   font-size:13px; line-height:1; cursor:pointer; padding:8px 6px; }
+
+/* "Fix it" guide overlay */
+.fh-photo-guide{ position:fixed; inset:0; z-index:10000; display:flex; align-items:flex-end; justify-content:center;
+  opacity:0; pointer-events:none; transition:opacity .2s ease; }
+.fh-photo-guide.on{ opacity:1; pointer-events:auto; }
+.fpg-scrim{ position:absolute; inset:0; background:rgba(20,12,26,.55); }
+.fpg-card{ position:relative; width:100%; max-width:480px; background:var(--white); color:var(--ink);
+  border-radius:20px 20px 0 0; padding:22px 20px calc(20px + env(safe-area-inset-bottom,0)); z-index:1;
+  transform:translateY(16px); transition:transform .26s cubic-bezier(.32,.72,0,1); max-height:86vh; overflow:auto; }
+.fh-photo-guide.on .fpg-card{ transform:translateY(0); }
+@media(min-width:520px){ .fh-photo-guide{ align-items:center; } .fpg-card{ border-radius:20px; } }
+.fpg-h{ font-family:var(--disp,inherit); font-weight:800; font-size:19px; letter-spacing:-.3px; }
+.fpg-note{ margin:8px 0 14px; font-size:13.5px; line-height:1.5; color:var(--muted); }
+.fpg-way{ font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--muted); margin:14px 0 8px; }
+.fpg-steps{ margin:0; padding-left:22px; display:flex; flex-direction:column; gap:8px; font-size:14.5px; line-height:1.45; }
+.fpg-steps b{ font-weight:700; }
+.fpg-alt{ margin:0; font-size:13.5px; line-height:1.5; color:var(--ink-2,var(--ink)); }
+.fpg-copy{ margin-top:12px; width:100%; background:var(--surface,#f4f1f6); color:var(--ink); border:1px solid var(--hairline);
+  border-radius:11px; padding:11px; font-size:14px; font-weight:600; cursor:pointer; }
+.fpg-actions{ display:flex; gap:10px; margin-top:18px; }
+.fpg-close{ flex:1; background:var(--surface,#f4f1f6); color:var(--ink); border:1px solid var(--hairline);
+  border-radius:12px; padding:13px; font-size:15px; font-weight:600; cursor:pointer; }
+.fpg-retry{ flex:1; background:var(--brand); color:#fff; border:none; border-radius:12px;
+  padding:13px; font-size:15px; font-weight:700; cursor:pointer; }

@@ -2559,10 +2559,34 @@ html.fh-can-install .set-row.set-install{display:flex}
   box-shadow:0 12px 34px rgba(0,0,0,.30); }
 .fph-ic{ font-size:18px; line-height:1; flex:0 0 auto; }
 .fph-tx{ flex:1; font-size:12.5px; line-height:1.4; }
-.fph-retry{ flex:0 0 auto; background:var(--brand); color:#fff; border:none; border-radius:9px;
+.fph-fix{ flex:0 0 auto; background:var(--brand); color:#fff; border:none; border-radius:9px;
   padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer; }
 .fph-x{ flex:0 0 auto; background:transparent; border:none; color:rgba(255,255,255,.65);
   font-size:13px; line-height:1; cursor:pointer; padding:8px 6px; }
+
+/* "Fix it" guide overlay */
+.fh-photo-guide{ position:fixed; inset:0; z-index:10000; display:flex; align-items:flex-end; justify-content:center;
+  opacity:0; pointer-events:none; transition:opacity .2s ease; }
+.fh-photo-guide.on{ opacity:1; pointer-events:auto; }
+.fpg-scrim{ position:absolute; inset:0; background:rgba(20,12,26,.55); }
+.fpg-card{ position:relative; width:100%; max-width:480px; background:var(--white); color:var(--ink);
+  border-radius:20px 20px 0 0; padding:22px 20px calc(20px + env(safe-area-inset-bottom,0)); z-index:1;
+  transform:translateY(16px); transition:transform .26s cubic-bezier(.32,.72,0,1); max-height:86vh; overflow:auto; }
+.fh-photo-guide.on .fpg-card{ transform:translateY(0); }
+@media(min-width:520px){ .fh-photo-guide{ align-items:center; } .fpg-card{ border-radius:20px; } }
+.fpg-h{ font-family:var(--disp,inherit); font-weight:800; font-size:19px; letter-spacing:-.3px; }
+.fpg-note{ margin:8px 0 14px; font-size:13.5px; line-height:1.5; color:var(--muted); }
+.fpg-way{ font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--muted); margin:14px 0 8px; }
+.fpg-steps{ margin:0; padding-left:22px; display:flex; flex-direction:column; gap:8px; font-size:14.5px; line-height:1.45; }
+.fpg-steps b{ font-weight:700; }
+.fpg-alt{ margin:0; font-size:13.5px; line-height:1.5; color:var(--ink-2,var(--ink)); }
+.fpg-copy{ margin-top:12px; width:100%; background:var(--surface,#f4f1f6); color:var(--ink); border:1px solid var(--hairline);
+  border-radius:11px; padding:11px; font-size:14px; font-weight:600; cursor:pointer; }
+.fpg-actions{ display:flex; gap:10px; margin-top:18px; }
+.fpg-close{ flex:1; background:var(--surface,#f4f1f6); color:var(--ink); border:1px solid var(--hairline);
+  border-radius:12px; padding:13px; font-size:15px; font-weight:600; cursor:pointer; }
+.fpg-retry{ flex:1; background:var(--brand); color:#fff; border:none; border-radius:12px;
+  padding:13px; font-size:15px; font-weight:700; cursor:pointer; }
 
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
@@ -9922,19 +9946,66 @@ function bucketCsvCandidates(candidates, mixedSigns) {
     }, 900);
   }, true);
 
+  function _l(){ return window.L || function(a){ return a; }; }
   function show(){
     shown = true;
     var el = document.getElementById('fh-photo-hint');
     if(!el){ el = document.createElement('div'); el.id = 'fh-photo-hint'; el.className = 'fh-photo-hint'; (document.body || document.documentElement).appendChild(el); }
-    var _L = window.L || function(a){ return a; };
+    var _L = _l();
     el.innerHTML = '<div class="fph-in"><span class="fph-ic">📷</span>'
-      + '<span class="fph-tx">' + _L('Không mở được ảnh? Vào Cài đặt điện thoại → Ứng dụng → FamilyHub → Quyền, bật Máy ảnh và Ảnh/Bộ nhớ, rồi bấm Thử lại.',
-                                      'Photos won’t open? Open Settings → Apps → FamilyHub → Permissions, allow Camera and Photos/Files, then tap Retry.') + '</span>'
-      + '<button class="fph-retry" onclick="fhPhotoRetry()">' + _L('Thử lại','Retry') + '</button>'
+      + '<span class="fph-tx">' + _L('Không mở được ảnh? Quyền Ảnh/Máy ảnh có thể đang tắt.',
+                                      'Photos won’t open? Camera/Photos access may be off.') + '</span>'
+      + '<button class="fph-fix" onclick="fhPhotoGuide()">' + _L('Khắc phục','Fix it') + '</button>'
       + '<button class="fph-x" aria-label="' + _L('Đóng','Close') + '" onclick="fhPhotoHintClose()">✕</button></div>';
     void el.offsetWidth; el.classList.add('on');
   }
   function hide(){ var el = document.getElementById('fh-photo-hint'); if(el) el.classList.remove('on'); }
+
+  /* The "Fix it" guide. A one-tap link to Chrome's site-settings page is impossible —
+     chrome:// URLs are blocked from web content, and a standalone PWA has no address
+     bar to reach them anyway — so this shows the reachable route (Android app
+     permissions) step by step, plus the browser route with a copy-address helper,
+     and ends on Retry. Reinstalling is called out as a non-fix (the permission is
+     remembered per origin, so a WebAPK reinstall reuses the same denied state). */
+  function guide(){
+    var _L = _l();
+    var g = document.getElementById('fh-photo-guide');
+    if(!g){ g = document.createElement('div'); g.id = 'fh-photo-guide'; g.className = 'fh-photo-guide'; (document.body || document.documentElement).appendChild(g); }
+    var origin = '';
+    try { origin = location.origin; } catch(e){}
+    g.innerHTML =
+      '<div class="fpg-scrim" onclick="fhPhotoGuideClose()"></div>'
+      + '<div class="fpg-card" role="dialog" aria-modal="true">'
+      +   '<div class="fpg-h">' + _L('Bật lại quyền ảnh','Re-enable photo access') + '</div>'
+      +   '<p class="fpg-note">' + _L('Gỡ rồi cài lại ứng dụng sẽ KHÔNG đặt lại quyền này — quyền được nhớ theo trang web. Hãy làm theo cách dưới.',
+                                      'Uninstalling and reinstalling will NOT reset this — the permission is remembered per site. Do this instead.') + '</p>'
+      +   '<div class="fpg-way">' + _L('Trên điện thoại','On your phone') + '</div>'
+      +   '<ol class="fpg-steps">'
+      +     '<li>' + _L('Mở <b>Cài đặt</b> của điện thoại','Open your phone’s <b>Settings</b>') + '</li>'
+      +     '<li>' + _L('<b>Ứng dụng</b> → <b>FamilyHub</b>','<b>Apps</b> → <b>FamilyHub</b>') + '</li>'
+      +     '<li>' + _L('<b>Quyền</b> → bật <b>Máy ảnh</b> và <b>Ảnh/Bộ nhớ</b>','<b>Permissions</b> → allow <b>Camera</b> and <b>Photos/Files</b>') + '</li>'
+      +     '<li>' + _L('Quay lại đây và bấm <b>Thử lại</b>','Come back here and tap <b>Retry</b>') + '</li>'
+      +   '</ol>'
+      +   '<div class="fpg-way">' + _L('Hoặc trong Chrome','Or in Chrome') + '</div>'
+      +   '<p class="fpg-alt">' + _L('Mở trang trong trình duyệt Chrome → chạm ⋮ → <b>Cài đặt trang (Site settings)</b> → <b>Đặt lại quyền (Reset permissions)</b>.',
+                                     'Open the site in the Chrome browser → tap ⋮ → <b>Site settings</b> → <b>Reset permissions</b>.') + '</p>'
+      +   (origin ? '<button class="fpg-copy" onclick="fhPhotoCopyOrigin()">' + _L('Sao chép địa chỉ trang','Copy site address') + '</button>' : '')
+      +   '<div class="fpg-actions">'
+      +     '<button class="fpg-close" onclick="fhPhotoGuideClose()">' + _L('Đóng','Close') + '</button>'
+      +     '<button class="fpg-retry" onclick="fhPhotoGuideClose();fhPhotoRetry()">' + _L('Thử lại','Retry') + '</button>'
+      +   '</div>'
+      + '</div>';
+    void g.offsetWidth; g.classList.add('on');
+  }
+  window.fhPhotoGuide = guide;
+  window.fhPhotoGuideClose = function(){ var g = document.getElementById('fh-photo-guide'); if(g) g.classList.remove('on'); };
+  window.fhPhotoCopyOrigin = function(){
+    var _L = _l(), o = '';
+    try { o = location.origin; } catch(e){}
+    var done = function(){ if(window.toast) window.toast(_L('Đã sao chép địa chỉ trang','Site address copied')); };
+    try { if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(o).then(done, done); return; } } catch(e){}
+    try { var ta = document.createElement('textarea'); ta.value = o; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); } catch(e){}
+  };
   window.fhPhotoHintClose = hide;
   window.fhPhotoRetry = function(){ hide(); if(lastInput){ try { lastInput.click(); } catch(e){} } };
 })();
@@ -12146,7 +12217,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v316';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v317';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
