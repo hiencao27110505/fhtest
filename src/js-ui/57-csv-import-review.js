@@ -566,10 +566,65 @@ function buildCsvCandidates(parsed, result) {
 // A column that mixes signed and unsigned amounts is a real bank statement
 // (income + expense together) -- this pass doesn't distinguish them, so
 // every row gets deferred rather than silently filed as an expense.
-function csvColumnHasMixedSigns(candidates) {
-  var seenNeg = false, seenPos = false;
-  candidates.forEach(function(c){ if (c.amount === null) return; if (c.negative) seenNeg = true; else seenPos = true; });
-  return seenNeg && seenPos;
+/* One amount column carrying both signs means one of two conventions, and
+   which one it is decides whether a row is money out or money in:
+
+     A. negative = spending, positive = income   (most bank exports)
+     B. positive = spending, negative = a refund (most budgeting apps)
+
+   The tell is which sign is in the majority. A family spends many times a
+   month and gets paid once or twice, so the dominant sign is the spending
+   one and the rare sign is the exception. That reading also survives the
+   awkward cases: an all-negative column is convention A at 100%, and a lone
+   refund among fifty purchases is convention B.
+
+   Only a genuinely even split is ambiguous -- with the signs near 50/50
+   there's no majority to read, and guessing would silently mislabel half the
+   file. That case still goes to review, which is where this used to send
+   every mixed file regardless.
+
+   Sign decides the file's CONVENTION. It does not decide what a row IS.
+   A minus sign in a spending export means too many different things -- a
+   refund, a correction, a bookkeeping habit, a hand-typed column -- to carry
+   that weight alone. Calling those rows income labels real spending "Có thể
+   là thu nhập" and drops it from the import, which is worse than the
+   ambiguity it was resolving: the money was spent either way, and leaving it
+   out understates the month. What a row IS comes from meaning -- a type
+   column, a credit column, or wording that names it (lương, CK đến, hoàn
+   tiền, salary, refund). */
+var CSV_SIGN_MINORITY_MAX = 0.35;
+
+function csvResolveSignMode(candidates) {
+  var neg = 0, pos = 0;
+  candidates.forEach(function(c){
+    if (c.amount === null || c.isSummaryRow) return;
+    if (c.negative) neg++; else pos++;
+  });
+  if (!neg || !pos) return 'none';                  // one sign only; nothing to resolve
+  var total = neg + pos, minority = Math.min(neg, pos) / total;
+  if (minority > CSV_SIGN_MINORITY_MAX) return 'ambiguous';
+  return (neg > pos) ? 'neg_is_spend' : 'pos_is_spend';
+}
+
+
+/* Rows with nothing in them at all.
+
+   Files arrive with spacer rows, and a bank statement's account header block
+   (bank name, account number, the reporting period) parses as data because it
+   sits above the real header row. None of it is a transaction, and none of it
+   can be repaired -- there is no date to supply, no amount to correct. Putting
+   those in front of someone as "Thiếu ngày" asks them to fix a row that was
+   never theirs. Drop them, say how many, and move on. */
+function csvDropBlankRows(candidates) {
+  var kept = [], dropped = 0;
+  candidates.forEach(function(c){
+    var blank = c.flags.indexOf('description_missing') >= 0
+             && c.flags.indexOf('amount_missing') >= 0
+             && c.flags.indexOf('date_missing') >= 0;
+    if (blank) { dropped++; return; }
+    kept.push(c);
+  });
+  return { kept: kept, dropped: dropped };
 }
 
 function normDescForDedup(s) { return deburr((s||'').trim().toLowerCase()).replace(/\s+/g,' '); }
@@ -588,7 +643,13 @@ function bucketCsvCandidates(candidates, mixedSigns) {
       deferred.push(c); return;
     }
 
-    var key = normDescForDedup(c.description) + '|' + c.amount;
+    /* Within one file, the same description and amount on the SAME DAY is a
+       double entry. On different days it's a habit -- the same coffee at the
+       same place three times a month is the most ordinary row a Vietnamese
+       spending file contains, and flagging those as duplicates buries real
+       spending under a decision nobody should have to make. The date is what
+       separates the two, so it belongs in the key. */
+    var key = normDescForDedup(c.description) + '|' + c.amount + '|' + (c.dateDisplay || '');
     if (seen[key]) { c.duplicateOfBatch = true; possibleDuplicate.push(c); return; }
     seen[key] = c;
 

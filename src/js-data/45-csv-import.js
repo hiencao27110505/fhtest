@@ -97,6 +97,44 @@ function classifyAmount(raw) {
 }
 
 // Stage 1 (header alias) + Stage 2 (content sniff). Free, no network call.
+/* Find the row the table actually starts on.
+
+   A bank statement doesn't begin with its column names. It begins with the
+   bank's name, the account number, the holder, the reporting period -- and
+   only then the header row. Taking row 1 on faith makes "NGÂN HÀNG TMCP QUÂN
+   ĐỘI" the header, so every column fails to map and every transaction lands
+   as a row with nothing in it. That is the single biggest reason a real
+   statement imports as a screen full of "Thiếu ngày".
+
+   So score the first handful of rows by how many cells are recognisable
+   column names, and start there instead. A preamble line scores zero -- it is
+   prose, not headers -- and a genuine header row scores at least two, which
+   is what keeps this from firing on a file that simply has no preamble. */
+function fhFindHeaderRow(headers, rows) {
+  const score = (cells) => {
+    if (!cells) return 0;
+    let hits = 0;
+    cells.forEach((c) => {
+      const hn = norm(c);
+      if (!hn) return;
+      if (Object.keys(CSV_HEADER_ALIASES).some((f) => CSV_HEADER_ALIASES[f].includes(hn))) hits++;
+    });
+    return hits;
+  };
+
+  const best = { at: -1, hits: score(headers) };
+  const look = Math.min(rows.length, 15);        // no real statement buries it deeper
+  for (let i = 0; i < look; i++) {
+    const hits = score(rows[i]);
+    if (hits > best.hits) { best.at = i; best.hits = hits; }
+  }
+  // Row 0 already won, or nothing looked like a header at all.
+  if (best.at < 0 || best.hits < 2) return { headers, rows, skipped: 0 };
+  return { headers: rows[best.at].map((c) => String(c == null ? '' : c)),
+           rows: rows.slice(best.at + 1),
+           skipped: best.at + 1 };
+}
+
 // A column can be correctly identified (high mapping confidence) while its values still
 // disagree on format (low format confidence) — that split, not the mapping itself, is
 // what decides whether this file needs the Gemini fallback.
@@ -207,6 +245,7 @@ async function resolveCsvMapping(headers, sampleRows) {
 }
 
 window.fhResolveCsvMapping = resolveCsvMapping;
+window.fhFindHeaderRow = fhFindHeaderRow;
 // classifyDate/classifyAmount are also called from 57-csv-import-review.js
 // (js-ui, global scope) to parse actual row values, not just classify a
 // column's format -- js-data is module scope, so these need the same
