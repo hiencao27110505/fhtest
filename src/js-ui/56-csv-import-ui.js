@@ -871,12 +871,14 @@ function renderCsvReview(){
           + '<span class="csv-inflow-a">'+esc(csvFmt(e.c.amount))+'</span>'
         + '</button>';
         if(open){
+          /* The open row above already shows date, memo (now unclipped) and
+             amount -- the detail only ADDS what the row can't: who the money
+             went to, why it was held (only when that isn't the section's own
+             title), and the way back in. */
           html += '<div class="csv-inflow-detail">'
-            + '<div class="csv-inflow-full">'+esc(e.c.description)+'</div>'
             + (e.c.counterparty ? '<div class="csv-inflow-meta">'+esc(e.c.counterparty)+'</div>' : '')
-            + '<div class="csv-inflow-meta">'+esc((e.c.dateDisplay ? fmtDayMon(e.c.date)+' · ' : '')+csvFmt(e.c.amount))
-              + (e.c.isTransfer ? ' · '+esc(L('trả nợ thẻ','card payment')) : ' · '+esc(L('tiền vào','money in')))+'</div>'
-            + '<button type="button" class="btn-line csv-inflow-take" onclick="csvDeferConfirm('+e.di+')">'+L('Đây là khoản chi, nhập vào','This is spending, import it')+'</button>'
+            + (e.c.isTransfer && nIn ? '<div class="csv-inflow-meta">'+esc(L('Giữ lại vì là khoản trả nợ thẻ','Held as a card payment'))+'</div>' : '')
+            + '<button type="button" class="csv-linkbtn csv-inflow-take" onclick="csvDeferConfirm('+e.di+')">'+L('Là khoản chi, nhập vào','It\'s spending, import it')+'</button>'
           + '</div>';
         }
       });

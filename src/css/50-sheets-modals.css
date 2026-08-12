@@ -245,8 +245,9 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .csv-inflow-n{flex:1;min-width:0;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .csv-inflow-a{color:var(--muted);white-space:nowrap}
 .csv-inflow-row{width:100%;background:none;border:none;border-top:1px solid var(--divider);text-align:left;cursor:pointer}
-.csv-inflow-row.open{background:var(--white)}
-.csv-inflow-detail{padding:2px 14px 12px;background:var(--white)}
-.csv-inflow-full{font-size:13px;line-height:1.5;color:var(--ink);word-break:break-word}
-.csv-inflow-meta{font-size:12px;color:var(--muted);margin-top:4px}
-.csv-inflow-take{width:100%;margin:10px 0 0;padding:11px;font-size:14.5px}
+.csv-inflow-row.open{background:var(--white);align-items:flex-start}
+/* The open row IS the detail's first line: the memo simply stops truncating. */
+.csv-inflow-row.open .csv-inflow-n{white-space:normal;overflow:visible;text-overflow:clip;color:var(--ink)}
+.csv-inflow-detail{padding:0 14px 10px 66px;background:var(--white)}
+.csv-inflow-meta{font-size:12px;color:var(--muted);margin-top:2px}
+.csv-inflow-take{display:inline-block;margin:8px 0 2px;font-size:13px;font-weight:600}
