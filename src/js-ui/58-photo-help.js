@@ -56,8 +56,8 @@
     if(!el){ el = document.createElement('div'); el.id = 'fh-photo-hint'; el.className = 'fh-photo-hint'; (document.body || document.documentElement).appendChild(el); }
     var _L = window.L || function(a){ return a; };
     el.innerHTML = '<div class="fph-in"><span class="fph-ic">📷</span>'
-      + '<span class="fph-tx">' + _L('Không mở được ảnh? Quyền Ảnh/Máy ảnh có thể đang tắt — bật trong Cài đặt rồi thử lại.',
-                                      'Photos won’t open? Camera/Photos access may be off — turn it on in Settings, then retry.') + '</span>'
+      + '<span class="fph-tx">' + _L('Không mở được ảnh? Vào Cài đặt điện thoại → Ứng dụng → FamilyHub → Quyền, bật Máy ảnh và Ảnh/Bộ nhớ, rồi bấm Thử lại.',
+                                      'Photos won’t open? Open Settings → Apps → FamilyHub → Permissions, allow Camera and Photos/Files, then tap Retry.') + '</span>'
       + '<button class="fph-retry" onclick="fhPhotoRetry()">' + _L('Thử lại','Retry') + '</button>'
       + '<button class="fph-x" aria-label="' + _L('Đóng','Close') + '" onclick="fhPhotoHintClose()">✕</button></div>';
     void el.offsetWidth; el.classList.add('on');
