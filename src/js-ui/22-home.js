@@ -483,10 +483,10 @@ function renderHome(){
     tiles += wTile({ ch: 'budget', chCls: 'wc-brand', label: L('Ngân sách', 'Budget'), val: '<span class="wt-add">＋</span>', foot: L('Đặt ngân sách tháng này', 'Set this month’s budget'), act: 'openSheet(&#39;sheet-budget&#39;)' });
   }
   if(tTarget > 0){
-    tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Nhà mình', 'Our house'),
+    tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Mục tiêu', 'Goals'),
       val: fmtK(tSaved), foot: Math.round(tSaved / tTarget * 100) + '% ' + L('mục tiêu chung', 'of shared goals'), act: 'go(&#39;spending&#39;)' });
   } else {
-    tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Nhà mình', 'Our house'), val: '<span class="wt-add">＋</span>', foot: L('Trồng một mục tiêu chung', 'Plant a shared goal'), act: 'openGoal()' });
+    tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Mục tiêu', 'Goals'), val: '<span class="wt-add">＋</span>', foot: L('mục tiêu chung', 'shared goals'), act: 'openGoal()' });
   }
   if(up.length){
     var k0 = up[0], e0 = evs[k0], dl0 = daysLeft(e0.d);
