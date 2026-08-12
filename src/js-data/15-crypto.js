@@ -152,9 +152,19 @@
 
   /* ── per-family key session ──
      _fhDek is the imported CryptoKey for the ACTIVE family; _fhDekRaw keeps the
-     raw bytes only long enough to re-wrap on a passcode change. The IndexedDB
-     cache ('fh-keys') survives app restarts; losing it (logout, iOS eviction)
-     only means the passcode is asked for again. */
+     raw bytes IN MEMORY ONLY, long enough to re-wrap on a passcode/card change —
+     it is NEVER persisted.
+
+     At-rest hardening (trust rec #2): the IndexedDB cache ('fh-keys') stores the
+     DEK as a NON-EXTRACTABLE CryptoKey (structured-cloned), not its raw bytes. A
+     forensic dump of that store — the real risk on Android, where uninstalling
+     the PWA does NOT clear origin storage — yields a key handle usable only inside
+     this origin's browser, whose bytes cannot be exported. Legacy records held
+     {raw:Uint8Array}; fhKeyLoad upgrades those to {key} on first read.
+
+     The cache survives app restarts; losing it (logout, iOS eviction) only means
+     the code is asked for again. On a cold start we recover only the CryptoKey, so
+     _fhDekRaw is null until the next unlock — a re-wrap then re-enters the code. */
   let _fhDek = null, _fhDekRaw = null, _fhDekFid = null;
   const _KEYS_DB = 'fh-keys', _KEYS_STORE = 'k';
   function _keysOpen() {
@@ -165,11 +175,13 @@
       rq.onerror = () => reject(rq.error);
     });
   }
-  async function _keysPut(fid, raw) {
-    try { const db = await _keysOpen(); await new Promise((res, rej) => { const tx = db.transaction(_KEYS_STORE, 'readwrite'); tx.objectStore(_KEYS_STORE).put({ fid: fid, raw: raw, at: Date.now() }); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); }); } catch (e) {}
+  // Persist the DEK as a non-extractable CryptoKey (never raw bytes).
+  async function _keysPut(fid, key) {
+    try { const db = await _keysOpen(); await new Promise((res, rej) => { const tx = db.transaction(_KEYS_STORE, 'readwrite'); tx.objectStore(_KEYS_STORE).put({ fid: fid, key: key, at: Date.now() }); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); }); } catch (e) {}
   }
+  // Returns the whole record ({key} | legacy {raw}) so fhKeyLoad can branch/upgrade.
   async function _keysGet(fid) {
-    try { const db = await _keysOpen(); return await new Promise((res) => { const tx = db.transaction(_KEYS_STORE, 'readonly'); const rq = tx.objectStore(_KEYS_STORE).get(fid); rq.onsuccess = () => res(rq.result ? rq.result.raw : null); rq.onerror = () => res(null); }); } catch (e) { return null; }
+    try { const db = await _keysOpen(); return await new Promise((res) => { const tx = db.transaction(_KEYS_STORE, 'readonly'); const rq = tx.objectStore(_KEYS_STORE).get(fid); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); } catch (e) { return null; }
   }
   async function _keysDel(fid) {
     try { const db = await _keysOpen(); await new Promise((res) => { const tx = db.transaction(_KEYS_STORE, 'readwrite'); tx.objectStore(_KEYS_STORE).delete(fid); tx.oncomplete = () => res(true); tx.onerror = () => res(false); }); } catch (e) {}
@@ -178,15 +190,25 @@
   // Load the active family's DEK into the session (from cache). True if usable.
   async function fhKeyLoad(fid) {
     if (_fhDek && _fhDekFid === fid) return true;
-    const raw = await _keysGet(fid);
-    if (!raw) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; return false; }
-    _fhDekRaw = new Uint8Array(raw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
-    return true;
+    const rec = await _keysGet(fid);
+    if (!rec) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; return false; }
+    if (rec.key) {                                    // preferred: non-extractable CryptoKey at rest
+      _fhDek = rec.key; _fhDekRaw = null; _fhDekFid = fid;   // no raw on a cold start — a re-wrap re-enters the code
+      return true;
+    }
+    if (rec.raw) {                                    // legacy {raw} record → import, upgrade the store to {key}
+      _fhDekRaw = new Uint8Array(rec.raw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
+      try { await _keysPut(fid, _fhDek); } catch (e) {}      // overwrite the plaintext bytes with the CryptoKey handle
+      return true;                                    // keep raw in MEMORY this session (never re-persisted)
+    }
+    _fhDek = null; _fhDekRaw = null; _fhDekFid = null; return false;
   }
-  // Adopt a DEK we just created/unwrapped (set-passcode, join, unlock).
+  // Adopt a DEK we just created/unwrapped (set-passcode, join, unlock). We keep the
+  // raw bytes in memory for the session (re-wrap on a code change) but persist only
+  // the non-extractable CryptoKey.
   async function fhKeyAdopt(fid, dekRaw) {
     _fhDekRaw = new Uint8Array(dekRaw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
-    await _keysPut(fid, _fhDekRaw);
+    await _keysPut(fid, _fhDek);
     // photos that rendered blank while this device was locked can decrypt now
     try { if (window.__fhPhotoRefresh) window.__fhPhotoRefresh(); } catch (e) {}
   }

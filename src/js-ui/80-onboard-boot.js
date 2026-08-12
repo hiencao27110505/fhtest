@@ -111,6 +111,11 @@ function obCreateFamily(){
   var inp=document.getElementById('ob-famname'), fn=(inp?inp.value:'').trim();
   if(!fhCheck([{el:inp, ok:!!fn}], L('Đặt tên cho gia đình đã nhé','Give your family a name first'))) return;
   obEnsureUserIdentity();
+  // One idempotency key per create ATTEMPT: create_family dedupes on it, so any
+  // double-tap / retry / offline replay of the finish CTA lands ONE family, never
+  // three (the duplicate-families bug). Minted here as the user commits a name;
+  // cleared on success so a later "create another family" gets a fresh key.
+  try{ window.__obCreateKey = (crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(16).slice(2))); }catch(e){ window.__obCreateKey=null; }
   FAM.mode='create'; FAM.familyName=fn;
   FAM.members=[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,me:true}];
   FAM.catBudget=null;
@@ -211,7 +216,7 @@ function restartOnboarding(){
   try{ localStorage.removeItem('fh-onboarded'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-lang'); localStorage.removeItem('fh-cur'); }catch(e){}
   LANG=obDeviceLang(); CUR='VND'; applyLang();   // VND-only frontend (USD is a legacy-render fallback, never produced here)
   FAM={ user:{name:'',email:'',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };
-  window.__obFromPicker=false;
+  window.__obFromPicker=false; window.__obCreateKey=null;   // fresh attempt → fresh idempotency key (minted at obCreateFamily)
   document.getElementById('onboarding').classList.remove('done'); obGo('welcome');
 }
 function obInit(){

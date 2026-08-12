@@ -36,3 +36,10 @@ input{font-family:inherit}
 .hdr{padding:10px 22px 6px}
 .h-title{font-family:var(--disp);font-weight:700;font-size:34px;line-height:1.06;letter-spacing:-1px;color:var(--ink);margin-top:5px}
 .h-sub{font-size:16px;line-height:1.45;letter-spacing:-.01em;color:var(--muted);margin-top:8px}
+
+/* fhCTA busy state (06-cta.js) — instant, universal "pressed & working" feedback
+   for async buttons. Deliberately style-agnostic (dim + pointer-block + a hair of
+   scale) so it reads on gradient pills, outline pills and plain rows alike, with
+   no spinner to collide with a swapped "Đang…" label. */
+.fh-busy{pointer-events:none;opacity:.68;transform:scale(.985);transition:opacity .12s ease,transform .12s ease}
+@media (prefers-reduced-motion:reduce){.fh-busy{transform:none;transition:none}}

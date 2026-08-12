@@ -60,6 +60,7 @@
     // Nothing actually changed → dismiss without a redundant write.
     if (ctx.dirty && !ctx.dirty()) { window._closeOv(); return; }
     save.disabled = true; save.textContent = L('Đang lưu…','Saving…');   // async writes show progress (HIG)
+    try { if (navigator.vibrate) navigator.vibrate(10); } catch (e) {}    // instant tactile ack, same frame as the tap
     let then;
     try { then = await ctx.save(); }
     catch (e) {

@@ -26,10 +26,18 @@
   }
 
   /* ── Local card cache ──
-     We never store the card on the server (only its wrap). A device that HAS
-     the card (created it, or entered it to unlock) caches the string locally so
-     "xem/lưu thẻ" works on that device later. Same sensitivity as the DEK, so
-     it lives in IndexedDB, never localStorage, and is dropped on key-drop. */
+     We never store the card on the server (only its wrap). A device that HAS the
+     card (created it, or entered it to unlock) caches the string locally so
+     "xem/lưu thẻ" works on that device later.
+
+     At rest it is ENCRYPTED under the family DEK (fhEnc), never plaintext: the DEK
+     is a non-extractable CryptoKey (0057), so an offline IndexedDB dump yields only
+     ciphertext + an unexportable key handle — it can't recover the card, and thus
+     can't re-derive the DEK. This closes the last plaintext-key-at-rest hole. The
+     key is always present when we cache (right after create/adopt/unlock); if it
+     somehow isn't, we skip caching rather than write the card in the clear. Legacy
+     {card:<plaintext>} rows are upgraded to {enc:<ct>} on first read. Dropped on
+     key-drop. */
   const _CARD_DB = 'fh-card', _CARD_STORE = 'c';
   function _cardDbOpen() {
     return new Promise((resolve, reject) => {
@@ -40,10 +48,23 @@
     });
   }
   async function _cardCachePut(fid, display) {
-    try { const db = await _cardDbOpen(); await new Promise((res, rej) => { const tx = db.transaction(_CARD_STORE, 'readwrite'); tx.objectStore(_CARD_STORE).put({ fid: fid, card: display, at: Date.now() }); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); }); } catch (e) {}
+    if (fid == null || !display) return;
+    let ct = null;
+    try { if (fhKeyReady()) ct = await fhEnc(display); } catch (e) { ct = null; }
+    if (!ct) return;                                   // no key to protect it → don't cache in the clear
+    try { const db = await _cardDbOpen(); await new Promise((res, rej) => { const tx = db.transaction(_CARD_STORE, 'readwrite'); tx.objectStore(_CARD_STORE).put({ fid: fid, enc: ct, at: Date.now() }); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); }); } catch (e) {}
   }
   async function _cardCacheGet(fid) {
-    try { const db = await _cardDbOpen(); return await new Promise((res) => { const tx = db.transaction(_CARD_STORE, 'readonly'); const rq = tx.objectStore(_CARD_STORE).get(fid); rq.onsuccess = () => res(rq.result ? rq.result.card : null); rq.onerror = () => res(null); }); } catch (e) { return null; }
+    let rec = null;
+    try { const db = await _cardDbOpen(); rec = await new Promise((res) => { const tx = db.transaction(_CARD_STORE, 'readonly'); const rq = tx.objectStore(_CARD_STORE).get(fid); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); } catch (e) { return null; }
+    if (!rec) return null;
+    if (rec.enc) { try { return fhKeyReady() ? await fhDec(rec.enc) : null; } catch (e) { return null; } }
+    if (rec.card) {                                    // legacy plaintext → return it and silently re-store encrypted
+      const disp = rec.card;
+      try { if (fhKeyReady()) await _cardCachePut(fid, disp); } catch (e) {}
+      return disp;
+    }
+    return null;
   }
   async function _cardCacheDel(fid) {
     try { const db = await _cardDbOpen(); await new Promise((res) => { const tx = db.transaction(_CARD_STORE, 'readwrite'); tx.objectStore(_CARD_STORE).delete(fid); tx.oncomplete = () => res(true); tx.onerror = () => res(false); }); } catch (e) {}
@@ -57,7 +78,26 @@
      card object so the caller can display it. The plaintext card exists only
      here, at generation time; only the wrap reaches the server. */
   async function fhCardCreate(rpcName) {
-    if (!fhKeyReady() || !_fhDekRaw) throw new Error('locked');
+    if (!fhKeyReady()) throw new Error('locked');
+    // Re-wrapping needs the raw DEK, which now lives in memory only (0057: the DEK
+    // is cached as a non-extractable CryptoKey, so a cold start has no raw bytes).
+    // Recover them transparently from THIS device's cached card + current wrap so
+    // rotate still works cold; only if the card isn't cached here do we ask for it.
+    if (!_fhDekRaw) {
+      try {
+        const disp = await _cardCacheGet(window.DB.fid);
+        const wrap = _fhCardWrap();
+        if (disp && wrap) {
+          const p = _parseCardInput(disp);
+          if (p && p.ok) {
+            const k = await FHCrypto.deriveKeys(p.key, wrap.kdf_salt, wrap.kdf_iters, wrap.kdf_version);
+            const raw = await FHCrypto.unwrapDek(wrap.wrapped_dek, k.kWrap);
+            await fhKeyAdopt(window.DB.fid, raw);   // repopulates _fhDekRaw for the re-wrap below
+          }
+        }
+      } catch (e) {}
+    }
+    if (!_fhDekRaw) { const e = new Error('need_reunlock'); e.fhMsg = L('Mở khoá lại bằng mã khóa hiện tại của nhà một lần, rồi đổi mã nhé', 'Unlock once with your current family code, then change it'); throw e; }
     const card = FHCrypto.genCard();
     const salt = FHCrypto.genSaltHex();
     const keys = await FHCrypto.deriveKeys(card.key, salt, FH_KDF_ITERS_CARD, FH_KDF_VERSION);

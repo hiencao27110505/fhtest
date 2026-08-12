@@ -79,3 +79,15 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 /* invite code — bordered, not filled, per the no-colored-fills rule */
 .fh-code-show{font-family:ui-monospace,Menlo,monospace;font-size:31px;font-weight:700;letter-spacing:6px;
   color:var(--brand-ink);text-align:center;border:1.5px solid var(--hairline);border-radius:14px;padding:18px 0;margin-bottom:18px}
+/* Signed-in devices (12-device-sessions.js) — plain rows, hairline separators,
+   no colored fills (DESIGN). Revoked rows read muted; "this device" is a quiet tag. */
+.fh-dev-list{margin:6px 0 18px}
+.fh-dev-row{display:flex;align-items:center;gap:12px;padding:13px 2px;border-bottom:1px solid var(--hairline)}
+.fh-dev-row:last-child{border-bottom:0}
+.fh-dev-row.rev{opacity:.5}
+.fh-dev-main{flex:1;min-width:0}
+.fh-dev-name{font-weight:600;font-size:15px;color:var(--ink);display:flex;align-items:center;gap:8px}
+.fh-dev-me{font-weight:600;font-size:11px;letter-spacing:.02em;color:var(--brand-ink);border:1px solid var(--hairline);border-radius:3px;padding:1px 6px}
+.fh-dev-meta{font-size:13px;color:var(--muted);margin-top:2px}
+.fh-dev-revoke{flex-shrink:0;font-weight:600;font-size:13px;color:var(--danger,#c0392b);background:none;border:1px solid var(--hairline);border-radius:8px;padding:7px 12px;cursor:pointer}
+.fh-dev-revoke:active{opacity:.6}

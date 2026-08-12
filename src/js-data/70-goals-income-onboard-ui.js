@@ -237,12 +237,24 @@
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return;
     const uid = session.user.id;
-    // always create a fresh family (multi-family: "create" means a new one)
-    const { data: familyId, error } = await sb.rpc('create_family', {
-      p_name: (window.FAM && window.FAM.familyName) || L('Gia đình của mình','My family'),
-      p_currency: 'VND',                             // VND-only frontend — every new family is created in VND
-      p_language: window.LANG || 'vi'
-    });
+    // always create a fresh family (multi-family: "create" means a new one).
+    // p_idempotency_key makes create_family dedupe rapid double-taps / retries to a
+    // single family (server backstop to the client re-entrancy guard). Lazily mint
+    // one if the entry point didn't (defensive), so this attempt still has a stable key.
+    let idem = window.__obCreateKey;
+    if (!idem) { try { idem = window.__obCreateKey = (crypto.randomUUID ? crypto.randomUUID() : null); } catch (e) { idem = null; } }
+    const _name = (window.FAM && window.FAM.familyName) || L('Gia đình của mình','My family');
+    const _lang = window.LANG || 'vi';
+    // Prefer the idempotent 4-arg overload; if it isn't deployed yet (migration
+    // 0056 not applied), PostgREST reports the function as missing — fall back to
+    // the original 3-arg create_family so onboarding never breaks on the rollout gap.
+    let familyId, error;
+    ({ data: familyId, error } = await sb.rpc('create_family', {
+      p_name: _name, p_currency: 'VND', p_language: _lang, p_idempotency_key: idem
+    }));
+    if (error && /PGRST202|could not find the function|function .*create_family.* does not exist|schema cache/i.test(String(error.message || error))) {
+      ({ data: familyId, error } = await sb.rpc('create_family', { p_name: _name, p_currency: 'VND', p_language: _lang }));
+    }
     if (error) throw error;
     const created = true;
     const F = window.FAM || { user: {} };
@@ -341,27 +353,45 @@
   }
 
   const _origFinish = window.finishOnboarding;
+  let _obFinishing = false;
   window.finishOnboarding = async function () {
-    // One primary CTA drives both paths now (Join in invite mode, Create in create
-    // mode) — #ob-primary-cta. The done screen is gone (0050).
-    const btn = document.getElementById('ob-primary-cta');
-    const label = btn ? btn.textContent : '';
-    const busy = (on) => { if (btn) { btn.disabled = on; btn.style.opacity = on ? '.7' : ''; btn.textContent = on ? L('Đang thiết lập…','Setting up…') : label; } };
+    // Hard re-entrancy guard: the create/join server writes take seconds on a slow
+    // phone, so this is the real fix for the duplicate-families bug — the SAME tap
+    // can't run twice and a user's repeat taps are swallowed here, whatever button
+    // they hit. (The old guard disabled #ob-primary-cta, which on the budget step is
+    // an off-screen button — the tapped #ob-budget-cta / -skip was never blocked.)
+    if (_obFinishing) return;
+    _obFinishing = true;
+    // Feedback lands on the button the user ACTUALLY tapped: the budget step's
+    // Continue/"Set up later", or the invite primary. Disable + dim every live
+    // candidate and swap the primary's label — instant, same frame as the tap.
+    const btns = ['ob-budget-cta', 'ob-budget-skip', 'ob-primary-cta'].map((id) => document.getElementById(id)).filter(Boolean);
+    const labels = btns.map((b) => b.textContent);
+    const busy = (on) => btns.forEach((b, i) => {
+      b.disabled = on; b.classList.toggle('fh-busy', on);
+      if (b.id !== 'ob-budget-skip') b.textContent = on ? L('Đang thiết lập…', 'Setting up…') : labels[i];
+    });
+    try { if (navigator.vibrate) navigator.vibrate(10); } catch (e) {}   // tactile "got it", instantly
+    let ok = true;
     try {
       if (window.FAM && window.FAM.mode === 'create') { busy(true); await createFamilyInDB(); }
       else if (window.FAM && window.FAM.mode === 'join') { busy(true); await joinFinalizeDB(); }
     } catch (e) {
-      busy(false);
       window.toast && window.toast(_friendly(e));
-      /* Create: stay on the step so the user can retry — the name is still in the form.
-         Join: the join itself already COMMITTED (join_with_* succeeded before this ran;
-         only the cosmetic member/profile finalize failed). Staying would dead-end them —
-         find_my_invite now returns nothing, and the screen would read "start your own",
-         inviting a duplicate family. Enter the app; name/theme self-heal in Settings. */
-      if (!(window.FAM && window.FAM.mode === 'join' && window.FAM.joinFamilyId)) return;
+      /* Create: stay on the step so the user can retry — the name is still in the
+         form, and the idempotency key means a retry can't double-create. Join: the
+         join itself already COMMITTED (join_with_* succeeded before this ran; only
+         the cosmetic member/profile finalize failed). Staying would dead-end them —
+         find_my_invite now returns nothing, and the screen would read "start your
+         own", inviting a duplicate family. Enter the app; name/theme self-heal. */
+      ok = !!(window.FAM && window.FAM.mode === 'join' && window.FAM.joinFamilyId);
     }
-    busy(false);
-    if (typeof _origFinish === 'function') _origFinish();
+    if (!ok) { busy(false); _obFinishing = false; return; }   // retry path: hand the button back
+    busy(false);                                               // clear the busy state before we navigate away, so a
+                                                               // later return to the budget step (create-another / restart)
+                                                               // never finds a stale disabled "Đang thiết lập…" button
+    window.__obCreateKey = null;                               // attempt succeeded → next create mints a fresh key
+    if (typeof _origFinish === 'function') _origFinish();      // adds .done + go('home') — the screen navigates away
     if (window.loadFamilyData) { try { await window.loadFamilyData(); } catch (e) {} }
     // proactively introduce + save the new family's Key Card (the USP moment) —
     // fullscreen, save-focused (fhCardIntro), not the Settings sheet
@@ -369,6 +399,7 @@
       const _c = window.__fhNewCard; window.__fhNewCard = null;
       setTimeout(() => { try { (window.fhCardIntro || window.fhCardShow)(_c); } catch (e) {} }, 700);
     }
+    _obFinishing = false;   // stayed locked through the whole success tail; released once we're home
   };
 
   /* Invite + join now live in 65-passcode-ui.js (whitelist + 6-digit passcode
@@ -376,11 +407,45 @@
      server-side in the same migration. */
 
   sb.auth.onAuthStateChange(() => {});
-  // test helper: run fhSignOut() in the console to switch Google accounts
-  window.fhSignOut = async () => {
+
+  /* Full local wipe (trust rec #7). On Android, uninstalling the PWA does NOT
+     clear origin storage, so signing out must itself remove every local trace —
+     the cached family key (DEK), the cached Key Card, the decrypted snapshot
+     (plaintext amounts/notes/names!), drafts, photo blobs and boot flags —
+     otherwise the next person on the phone, or a reinstall, walks straight back in.
+     Awaited so the IndexedDB copies are gone before the reload. */
+  async function _fhLocalWipe() {
     fhResumeFail(); fhWarmAbandon();
-    try { fhKeyDrop(null); indexedDB.deleteDatabase('fh-keys'); } catch (e) {}   // cached family keys go with the session
-    try { if (window.fhSnapClear) await window.fhSnapClear(); else localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-expense-drafts'); } catch (e) {}   // no family data left behind on a shared device (awaited so the IndexedDB copy is gone before the reload below)
+    try { fhKeyDrop(null); } catch (e) {}
+    try { if (window.fhSnapClear) await window.fhSnapClear(); } catch (e) {}
+    // IndexedDB stores holding secrets or decrypted data
+    ['fh-keys', 'fh-card', 'fh-snap'].forEach((db) => { try { indexedDB.deleteDatabase(db); } catch (e) {} });
     try { window.__fhPhotoCachePurge && window.__fhPhotoCachePurge(); } catch (e) {}
+    // Cache Storage: drop the photo/media cache (leave the app shell so an offline
+    // reload still works — the shell holds no account data).
+    try { if (window.caches && caches.keys) { const ks = await caches.keys(); await Promise.all(ks.filter((k) => /media|photo/i.test(k)).map((k) => caches.delete(k))); } } catch (e) {}
+    // residual localStorage flags / plaintext snapshot
+    ['fh-snap', 'fh-snap-idb', 'fh-expense-drafts', 'fh-fam', 'fh-onboarded', 'fh-resume', 'fh-lang', 'fh-cur'].forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
+  }
+
+  // Sign out: remove this device from the account's device list too (so it stops
+  // showing as active), then wipe everything local and reload to the sign-in screen.
+  // test helper: run fhSignOut() in the console to switch Google accounts.
+  window.fhSignOut = async () => {
+    try { if (window.fhDeviceId) await _rpc('revoke_device', { p_device_id: window.fhDeviceId() }); } catch (e) {}
+    await _fhLocalWipe();
     await sb.auth.signOut(); location.reload();
+  };
+
+  /* "Sign out & wipe this device" — what people reach for uninstall EXPECTING.
+     Same as sign-out but framed as a clean wipe; opts.revokeRemote=false skips the
+     revoke RPC (used when a remote revocation already triggered this locally). */
+  window.fhWipeDevice = async function (opts) {
+    opts = opts || {};
+    if (opts.revokeRemote !== false) { try { if (window.fhDeviceId) await _rpc('revoke_device', { p_device_id: window.fhDeviceId() }); } catch (e) {} }
+    await _fhLocalWipe();
+    // forget the device identity itself → a reinstall/re-sign-in is a fresh device row
+    try { localStorage.removeItem('fh-device-id'); } catch (e) {}
+    try { await sb.auth.signOut(); } catch (e) {}
+    location.reload();
   };

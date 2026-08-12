@@ -130,6 +130,13 @@ input{font-family:inherit}
 .h-title{font-family:var(--disp);font-weight:700;font-size:34px;line-height:1.06;letter-spacing:-1px;color:var(--ink);margin-top:5px}
 .h-sub{font-size:16px;line-height:1.45;letter-spacing:-.01em;color:var(--muted);margin-top:8px}
 
+/* fhCTA busy state (06-cta.js) — instant, universal "pressed & working" feedback
+   for async buttons. Deliberately style-agnostic (dim + pointer-block + a hair of
+   scale) so it reads on gradient pills, outline pills and plain rows alike, with
+   no spinner to collide with a swapped "Đang…" label. */
+.fh-busy{pointer-events:none;opacity:.68;transform:scale(.985);transition:opacity .12s ease,transform .12s ease}
+@media (prefers-reduced-motion:reduce){.fh-busy{transform:none;transition:none}}
+
 /* ---------- HERO = month budget dashboard ---------- */
 .hero{background:var(--grad-hero);color:#fff;padding:0 24px 44px;position:relative;overflow:hidden}
 .hero::after{content:'';position:absolute;top:-70px;right:-50px;width:230px;height:230px;border-radius:50%;
@@ -2669,6 +2676,19 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 /* invite code — bordered, not filled, per the no-colored-fills rule */
 .fh-code-show{font-family:ui-monospace,Menlo,monospace;font-size:31px;font-weight:700;letter-spacing:6px;
   color:var(--brand-ink);text-align:center;border:1.5px solid var(--hairline);border-radius:14px;padding:18px 0;margin-bottom:18px}
+/* Signed-in devices (12-device-sessions.js) — plain rows, hairline separators,
+   no colored fills (DESIGN). Revoked rows read muted; "this device" is a quiet tag. */
+.fh-dev-list{margin:6px 0 18px}
+.fh-dev-row{display:flex;align-items:center;gap:12px;padding:13px 2px;border-bottom:1px solid var(--hairline)}
+.fh-dev-row:last-child{border-bottom:0}
+.fh-dev-row.rev{opacity:.5}
+.fh-dev-main{flex:1;min-width:0}
+.fh-dev-name{font-weight:600;font-size:15px;color:var(--ink);display:flex;align-items:center;gap:8px}
+.fh-dev-me{font-weight:600;font-size:11px;letter-spacing:.02em;color:var(--brand-ink);border:1px solid var(--hairline);border-radius:3px;padding:1px 6px}
+.fh-dev-meta{font-size:13px;color:var(--muted);margin-top:2px}
+.fh-dev-revoke{flex-shrink:0;font-weight:600;font-size:13px;color:var(--danger,#c0392b);background:none;border:1px solid var(--hairline);border-radius:8px;padding:7px 12px;cursor:pointer}
+.fh-dev-revoke:active{opacity:.6}
+
 /* ---------- What's new (release notes) — Apple "What's New" pattern ---------- */
 .wn-intro{font-family:var(--text);font-size:15px;line-height:1.45;color:var(--muted);letter-spacing:-.01em;margin:-2px 0 24px}
 .wn-list{display:flex;flex-direction:column;gap:28px}
@@ -3427,6 +3447,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t" data-t="inviteMember2">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhEncryptionSheet()"><span class="set-ic">🔒</span><span class="set-t" data-t="setEncryption">Money encryption</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhManageFamily()"><span class="set-ic">👥</span><span class="set-t" data-t="setManageFamily">Manage family &amp; members</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="set-row" onclick="closeSheet();fhDevicesSheet()"><span class="set-ic">📱</span><span class="set-t" data-t="setDevices">Signed-in devices</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhSavings()"><span class="set-ic">🐷</span><span class="set-t" data-t="setSavedEvents">Saved for events</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhIncome()"><span class="set-ic">💵</span><span class="set-t" data-t="setIncome">Income</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row set-install" onclick="closeSheet();fhInstallSheet()"><span class="set-ic">📲</span><span class="set-t" data-t="setInstall">Add to Home Screen</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -3434,6 +3455,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <button class="set-row" onclick="closeSheet();openWhatsNew()"><span class="set-ic">✨</span><span class="set-t" data-t="setWhatsNew">What's new</span><span class="wn-dot" id="wn-dot-row" style="display:none"></span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();restartOnboarding()"><span class="set-ic">↻</span><span class="set-t" data-t="setRestartOnboarding">Restart onboarding</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row danger" onclick="closeSheet();fhSignOut()"><span class="set-ic">⎋</span><span class="set-t" data-t="setSignOut">Sign out</span></button>
+    <button class="set-row danger" onclick="closeSheet();fhWipeDeviceConfirm()"><span class="set-ic">🧹</span><span class="set-t" data-t="setWipeDevice">Sign out &amp; wipe this device</span></button>
   </div>
 </div>
 
@@ -3625,6 +3647,53 @@ function fhLogErr(err) {
 window.fhLogErr = fhLogErr;
 window.addEventListener('error', function (e) { fhLogErr(e.error || e.message); });
 window.addEventListener('unhandledrejection', function (e) { fhLogErr(e.reason); });
+/* ---------- fhCTA: instant, Apple-grade feedback for async buttons ----------
+   Any button that starts an await — create family, unlock, switch family, a modal
+   save — MUST change state on the same frame as the tap, before the first await,
+   or a low-end phone feels dead and the user taps again. Repeat taps on the
+   onboarding CTA is exactly what minted duplicate families. fhCTA(el, fn, opts):
+     • synchronously fires a 10ms haptic, disables the button, marks it busy
+       (.fh-busy → dim + pointer-blocked) and, if opts.busyText is given, swaps the
+       label ("Đang lưu…") — all instant acknowledgement;
+     • runs fn(); restores the button when the promise settles, UNLESS its text was
+       already changed by the handler (a success that closed a modal leaves it torn
+       down, which is fine — the node is gone);
+     • is re-entrant-safe: a second tap while in flight is ignored and resolves to
+       undefined, so no double-submit can slip through even if a caller forgets its
+       own guard.
+   Returns a promise of fn's result. Defined at 06- so every later handler can wrap
+   its async work in it. */
+function fhCTA(el, fn, opts) {
+  el = (typeof el === 'string') ? document.getElementById(el) : el;
+  opts = opts || {};
+  if (!el) { return Promise.resolve(fn ? fn() : undefined); }
+  if (el.dataset.fhBusy === '1') return Promise.resolve(undefined);   // in flight → drop the repeat tap
+  el.dataset.fhBusy = '1';
+  var wasDisabled = !!el.disabled;
+  var prevText = el.textContent;
+  el.classList.add('fh-busy');
+  el.setAttribute('aria-busy', 'true');
+  if (opts.busyText != null) el.textContent = opts.busyText;
+  try { el.disabled = true; } catch (e) {}
+  try { if (navigator.vibrate) navigator.vibrate(10); } catch (e) {}   // a tiny tactile "got it"
+  var restore = function () {
+    if (!el) return;
+    delete el.dataset.fhBusy;
+    el.classList.remove('fh-busy');
+    el.removeAttribute('aria-busy');
+    // only restore the label we set — never stomp text the handler itself changed
+    if (opts.busyText != null && el.textContent === opts.busyText) el.textContent = prevText;
+    if (!wasDisabled) { try { el.disabled = false; } catch (e) {} }
+  };
+  var out;
+  try { out = fn ? fn() : undefined; }
+  catch (e) { restore(); throw e; }
+  if (out && typeof out.then === 'function') return out.then(function (r) { restore(); return r; }, function (e) { restore(); throw e; });
+  restore();
+  return Promise.resolve(out);
+}
+window.fhCTA = fhCTA;
+
 /* Shared avatar rendering. Defined here in the classic js-ui layer so it is
    available at parse-time boot render (before the js-data module loads). A
    member with an encrypted photo (mm.av = the '.enc' public URL, decrypted in
@@ -11592,8 +11661,8 @@ var EN_DEFAULT={
   photoLbl:'Photo', uploadPhotos:'📷 Upload photos', captionOpt:'Caption (optional)', phMemCap:'e.g. Best day of the trip',
   /* settings sheet */
   settingsTitle:'Settings', settingsSub:'Pick a theme. It applies across the whole app.',
-  setMyProfile:'My profile', setLanguage:'Language', setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setEncryption:'Money encryption',
-  setSavedEvents:'Saved for events', setIncome:'Income', setNotifications:'Notifications', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out',
+  setMyProfile:'My profile', setLanguage:'Language', setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setDevices:'Signed-in devices', setEncryption:'Money encryption',
+  setSavedEvents:'Saved for events', setIncome:'Income', setNotifications:'Notifications', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out', setWipeDevice:'Sign out & wipe this device',
   /* generic edit modal */
   fhModalEdit:'Edit',
   /* celebrate */
@@ -11693,8 +11762,8 @@ var I18N={
     photoLbl:'Ảnh', uploadPhotos:'📷 Tải ảnh lên', captionOpt:'Chú thích (tuỳ chọn)', phMemCap:'vd. Ngày vui nhất chuyến đi',
     /* settings sheet */
     settingsTitle:'Cài đặt', settingsSub:'Chọn giao diện, áp dụng cho cả ứng dụng.',
-    setMyProfile:'Hồ sơ của tôi', setLanguage:'Ngôn ngữ', setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setEncryption:'Mã hóa tài chính',
-    setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setNotifications:'Thông báo', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất',
+    setMyProfile:'Hồ sơ của tôi', setLanguage:'Ngôn ngữ', setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setDevices:'Thiết bị đăng nhập', setEncryption:'Mã hóa tài chính',
+    setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setNotifications:'Thông báo', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất', setWipeDevice:'Đăng xuất & xoá dữ liệu máy này',
     /* generic edit modal */
     fhModalEdit:'Chỉnh sửa',
     /* celebrate */
@@ -11846,6 +11915,11 @@ function obCreateFamily(){
   var inp=document.getElementById('ob-famname'), fn=(inp?inp.value:'').trim();
   if(!fhCheck([{el:inp, ok:!!fn}], L('Đặt tên cho gia đình đã nhé','Give your family a name first'))) return;
   obEnsureUserIdentity();
+  // One idempotency key per create ATTEMPT: create_family dedupes on it, so any
+  // double-tap / retry / offline replay of the finish CTA lands ONE family, never
+  // three (the duplicate-families bug). Minted here as the user commits a name;
+  // cleared on success so a later "create another family" gets a fresh key.
+  try{ window.__obCreateKey = (crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(16).slice(2))); }catch(e){ window.__obCreateKey=null; }
   FAM.mode='create'; FAM.familyName=fn;
   FAM.members=[{name:FAM.user.name,email:FAM.user.email||'',color:FAM.user.color,me:true}];
   FAM.catBudget=null;
@@ -11946,7 +12020,7 @@ function restartOnboarding(){
   try{ localStorage.removeItem('fh-onboarded'); localStorage.removeItem('fh-fam'); localStorage.removeItem('fh-lang'); localStorage.removeItem('fh-cur'); }catch(e){}
   LANG=obDeviceLang(); CUR='VND'; applyLang();   // VND-only frontend (USD is a legacy-render fallback, never produced here)
   FAM={ user:{name:'',email:'',color:OB_COLORS[0]}, familyName:'', mode:'create', members:[], budget:0, catBudget:null };
-  window.__obFromPicker=false;
+  window.__obFromPicker=false; window.__obCreateKey=null;   // fresh attempt → fresh idempotency key (minted at obCreateFamily)
   document.getElementById('onboarding').classList.remove('done'); obGo('welcome');
 }
 function obInit(){
@@ -12217,7 +12291,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v317';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v318';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -12527,6 +12601,11 @@ function openWhatsNew(){
   async function afterLogin(session) {
     if (!session) return;
     window.fhUser = session.user;
+    // Device gate (trust rec #6): a remotely-revoked device signs itself out right
+    // here, before any family data loads. Fail-open on any error so a transient
+    // check failure never strands a legitimate user. Registers this device + arms
+    // its foreground revocation heartbeat on the way through.
+    try { if (window.fhDeviceCheck && (await window.fhDeviceCheck()) === false) return; } catch (e) {}
     // Per-member language preference: seed from the profile so a member's choice follows
     // them to a new device. The in-app switcher (Settings → Language) writes both this and
     // localStorage 'fh-lang'; the hydrate reads localStorage, so keep them in sync here.
@@ -12750,6 +12829,149 @@ function openWhatsNew(){
     if (error) { authBusy(false); window.toast && window.toast(_friendly(error)); }
   };
 
+  /* ═══ Device session registry + cooperative revocation (trust rec #6) ═══════
+     Every signed-in device registers under the account so the owner can see it in
+     Settings → "Thiết bị đăng nhập" and cut off a lost / lent / sold phone. Supabase
+     JWTs are stateless, so a revoked device can't be force-killed from the client —
+     instead each device re-checks device_active() on resume AND on foreground and
+     signs ITSELF out (+ wipes local secrets) the instant it sees a revocation. The
+     stable per-device id lives in localStorage; clearing it just mints a new row on
+     the next sign-in. Shares the js-data module scope (sb, _rpc). */
+  const _DEV_ID_KEY = 'fh-device-id';
+  function fhDeviceId() {
+    let id = null;
+    try { id = localStorage.getItem(_DEV_ID_KEY); } catch (e) {}
+    if (!id) {
+      try { id = (crypto.randomUUID ? crypto.randomUUID() : ('dev-' + Date.now() + '-' + Math.floor(Math.random() * 1e9).toString(16))); }
+      catch (e) { id = 'dev-' + Date.now(); }
+      try { localStorage.setItem(_DEV_ID_KEY, id); } catch (e) {}
+    }
+    return id;
+  }
+  window.fhDeviceId = fhDeviceId;
+
+  function _devStandalone() {
+    try { return !!((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone); } catch (e) { return false; }
+  }
+  // A coarse, privacy-light label ("Android · Chrome · App"). No fingerprinting.
+  function _devLabel() {
+    const ua = navigator.userAgent || '';
+    let os = L('Thiết bị', 'Device');
+    if (/android/i.test(ua)) os = 'Android';
+    else if (/iphone/i.test(ua)) os = 'iPhone';
+    else if (/ipad/i.test(ua)) os = 'iPad';
+    else if (/mac os x|macintosh/i.test(ua)) os = 'Mac';
+    else if (/windows/i.test(ua)) os = 'Windows';
+    else if (/linux/i.test(ua)) os = 'Linux';
+    let br = '';
+    if (/edg\//i.test(ua)) br = 'Edge';
+    else if (/opr\/|opera/i.test(ua)) br = 'Opera';
+    else if (/chrome|crios/i.test(ua)) br = 'Chrome';
+    else if (/firefox|fxios/i.test(ua)) br = 'Firefox';
+    else if (/safari/i.test(ua)) br = 'Safari';
+    return os + (br ? ' · ' + br : '') + (_devStandalone() ? ' · App' : '');
+  }
+
+  async function _devActive() {
+    // Unknown / offline / RPC-missing → fail-open (true): never lock out a legit
+    // user because the check couldn't run. Only an explicit false revokes.
+    try { const a = await _rpc('device_active', { p_device_id: fhDeviceId() }); return a !== false; }
+    catch (e) { return true; }
+  }
+  async function _devEnforce() {
+    if (await _devActive()) return true;
+    window.toast && window.toast(L('Thiết bị này đã được đăng xuất từ xa', 'This device was signed out remotely'));
+    if (window.fhWipeDevice) { try { await window.fhWipeDevice({ revokeRemote: false }); return false; } catch (e) {} }
+    if (window.fhSignOut) await window.fhSignOut();
+    return false;
+  }
+
+  function fhDeviceRegister() {
+    try { _rpc('register_device', { p_device_id: fhDeviceId(), p_label: _devLabel(), p_user_agent: (navigator.userAgent || '').slice(0, 300), p_platform: _devStandalone() ? 'pwa' : 'browser' }); } catch (e) {}
+  }
+  window.fhDeviceRegister = fhDeviceRegister;
+
+  let _devHbArmed = false;
+  function _devArmHeartbeat() {
+    if (_devHbArmed) return; _devHbArmed = true;
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState !== 'visible') return;
+      try { _rpc('touch_device', { p_device_id: fhDeviceId() }); } catch (e) {}   // "seen recently"
+      await _devEnforce();                                                         // revoked while backgrounded → out now
+    });
+  }
+
+  /* Boot/resume gate — called from afterLogin BEFORE the app lands on Home.
+     Returns false (and signs the device out) if this device was revoked; true to
+     proceed. Registers the device + arms the heartbeat on the way through. */
+  window.fhDeviceCheck = async function () {
+    const ok = await _devEnforce();
+    if (!ok) return false;
+    fhDeviceRegister();
+    _devArmHeartbeat();
+    return true;
+  };
+
+  // ── Settings → "Signed-in devices" ─────────────────────────────────────────
+  function _devWhen(ts) {
+    if (!ts) return '';
+    const t = new Date(ts).getTime(); if (!t) return '';
+    const s = Math.max(0, (Date.now() - t) / 1000);
+    if (s < 90) return L('vừa xong', 'just now');
+    if (s < 3600) return L('' + Math.round(s / 60) + ' phút trước', Math.round(s / 60) + ' min ago');
+    if (s < 86400) return L('' + Math.round(s / 3600) + ' giờ trước', Math.round(s / 3600) + 'h ago');
+    return L('' + Math.round(s / 86400) + ' ngày trước', Math.round(s / 86400) + 'd ago');
+  }
+  window.fhDevicesSheet = async function () {
+    let devs = [];
+    try { devs = (await _rpc('my_devices')) || []; }
+    catch (e) { window.toast && window.toast(window._fhFriendly ? window._fhFriendly(e) : L('Không tải được danh sách thiết bị', 'Couldn’t load your devices')); return; }
+    const meId = fhDeviceId();
+    const rows = (devs || []).map((d) => {
+      const me = d.device_id === meId, rev = !!d.revoked_at;
+      return '<div class="fh-dev-row' + (rev ? ' rev' : '') + '">'
+        + '<div class="fh-dev-main"><div class="fh-dev-name">' + window.esc(d.label || L('Thiết bị', 'Device'))
+        + (me ? '<span class="fh-dev-me">' + L('máy này', 'this device') + '</span>' : '') + '</div>'
+        + '<div class="fh-dev-meta">' + (rev ? L('Đã đăng xuất', 'Signed out') : (L('Hoạt động ', 'Active ') + _devWhen(d.last_seen_at))) + '</div></div>'
+        + ((!me && !rev) ? '<button class="fh-dev-revoke" onclick="fhRevokeDevice(\'' + window.esc(d.device_id) + '\',this)">' + L('Đăng xuất', 'Sign out') + '</button>' : '')
+        + '</div>';
+    }).join('');
+    _fhSheet('<div class="fh-s-h">' + L('Thiết bị đăng nhập', 'Signed-in devices') + '</div>'
+      + '<div class="fh-s-sub">' + L('Những máy đang đăng nhập vào tài khoản này. Thấy máy lạ thì đăng xuất để cắt quyền truy cập của nó.',
+          'Devices signed in to this account. Sign out any you don’t recognise to cut its access.') + '</div>'
+      + '<div class="fh-dev-list">' + (rows || ('<div class="fh-s-sub">' + L('Chưa có thiết bị nào', 'No devices yet') + '</div>')) + '</div>'
+      + '<button class="fh-s-cta" onclick="_closeOv()">' + L('Xong', 'Done') + '</button>');
+  };
+  window.fhRevokeDevice = async function (id, btn) {
+    if (btn) { btn.disabled = true; btn.classList.add('fh-busy'); }
+    try { await _rpc('revoke_device', { p_device_id: id }); }
+    catch (e) { if (btn) { btn.disabled = false; btn.classList.remove('fh-busy'); } window.toast && window.toast(window._fhFriendly ? window._fhFriendly(e) : L('Không thực hiện được, thử lại', 'Couldn’t do that, try again')); return; }
+    window.toast && window.toast(L('Đã đăng xuất thiết bị đó', 'That device was signed out'));
+    if (window.fhDevicesSheet) window.fhDevicesSheet();   // refresh
+  };
+
+  /* "Sign out & wipe this device" — the clean-exit people expect uninstall to be.
+     Names the consequence (local data cleared) and arms-then-confirms, since it
+     erases this device's cached key + snapshot. */
+  window.fhWipeDeviceConfirm = function () {
+    _fhSheet('<div class="fh-s-h">' + L('Đăng xuất & xoá dữ liệu trên máy này', 'Sign out & wipe this device') + '</div>'
+      + '<div class="fh-s-sub">' + L('Đăng xuất khỏi máy này và xoá sạch dữ liệu đã lưu trên máy: mã khóa, bản lưu tạm, ảnh. Dữ liệu của nhà trên máy chủ vẫn còn — đăng nhập lại và nhập mã khóa là mở lại được.',
+          'Sign out of this device and erase everything cached here — the family code, the local copy, photos. Your family’s data on the server is untouched; sign back in with the code to restore it.') + '</div>'
+      + '<button class="fh-s-cta" onclick="_closeOv()">' + L('Ở lại', 'Stay signed in') + '</button>'
+      + '<button class="ex-del fh-s-del" onclick="fhWipeDeviceArm(this)">' + L('Đăng xuất & xoá', 'Sign out & wipe') + '</button>');
+  };
+  window.fhWipeDeviceArm = function (btn) {
+    if (btn && !btn.classList.contains('armed')) {
+      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa để xoá', 'Tap again to wipe');
+      clearTimeout(window._fhWipeArmT);
+      window._fhWipeArmT = setTimeout(() => { if (!btn.isConnected) return; btn.classList.remove('armed'); btn.textContent = L('Đăng xuất & xoá', 'Sign out & wipe'); }, 3000);
+      return;
+    }
+    clearTimeout(window._fhWipeArmT);
+    if (btn) { btn.disabled = true; btn.classList.add('fh-busy'); btn.textContent = L('Đang xoá…', 'Wiping…'); }
+    if (window.fhWipeDevice) window.fhWipeDevice();
+  };
+
   /* ═══ E2EE crypto core (0030) ═══════════════════════════════════════════════
      The 6-digit family passcode never leaves the device. It is stretched with
      PBKDF2-SHA256, then HKDF-split into two independent keys:
@@ -12904,9 +13126,19 @@ function openWhatsNew(){
 
   /* ── per-family key session ──
      _fhDek is the imported CryptoKey for the ACTIVE family; _fhDekRaw keeps the
-     raw bytes only long enough to re-wrap on a passcode change. The IndexedDB
-     cache ('fh-keys') survives app restarts; losing it (logout, iOS eviction)
-     only means the passcode is asked for again. */
+     raw bytes IN MEMORY ONLY, long enough to re-wrap on a passcode/card change —
+     it is NEVER persisted.
+
+     At-rest hardening (trust rec #2): the IndexedDB cache ('fh-keys') stores the
+     DEK as a NON-EXTRACTABLE CryptoKey (structured-cloned), not its raw bytes. A
+     forensic dump of that store — the real risk on Android, where uninstalling
+     the PWA does NOT clear origin storage — yields a key handle usable only inside
+     this origin's browser, whose bytes cannot be exported. Legacy records held
+     {raw:Uint8Array}; fhKeyLoad upgrades those to {key} on first read.
+
+     The cache survives app restarts; losing it (logout, iOS eviction) only means
+     the code is asked for again. On a cold start we recover only the CryptoKey, so
+     _fhDekRaw is null until the next unlock — a re-wrap then re-enters the code. */
   let _fhDek = null, _fhDekRaw = null, _fhDekFid = null;
   const _KEYS_DB = 'fh-keys', _KEYS_STORE = 'k';
   function _keysOpen() {
@@ -12917,11 +13149,13 @@ function openWhatsNew(){
       rq.onerror = () => reject(rq.error);
     });
   }
-  async function _keysPut(fid, raw) {
-    try { const db = await _keysOpen(); await new Promise((res, rej) => { const tx = db.transaction(_KEYS_STORE, 'readwrite'); tx.objectStore(_KEYS_STORE).put({ fid: fid, raw: raw, at: Date.now() }); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); }); } catch (e) {}
+  // Persist the DEK as a non-extractable CryptoKey (never raw bytes).
+  async function _keysPut(fid, key) {
+    try { const db = await _keysOpen(); await new Promise((res, rej) => { const tx = db.transaction(_KEYS_STORE, 'readwrite'); tx.objectStore(_KEYS_STORE).put({ fid: fid, key: key, at: Date.now() }); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); }); } catch (e) {}
   }
+  // Returns the whole record ({key} | legacy {raw}) so fhKeyLoad can branch/upgrade.
   async function _keysGet(fid) {
-    try { const db = await _keysOpen(); return await new Promise((res) => { const tx = db.transaction(_KEYS_STORE, 'readonly'); const rq = tx.objectStore(_KEYS_STORE).get(fid); rq.onsuccess = () => res(rq.result ? rq.result.raw : null); rq.onerror = () => res(null); }); } catch (e) { return null; }
+    try { const db = await _keysOpen(); return await new Promise((res) => { const tx = db.transaction(_KEYS_STORE, 'readonly'); const rq = tx.objectStore(_KEYS_STORE).get(fid); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); } catch (e) { return null; }
   }
   async function _keysDel(fid) {
     try { const db = await _keysOpen(); await new Promise((res) => { const tx = db.transaction(_KEYS_STORE, 'readwrite'); tx.objectStore(_KEYS_STORE).delete(fid); tx.oncomplete = () => res(true); tx.onerror = () => res(false); }); } catch (e) {}
@@ -12930,15 +13164,25 @@ function openWhatsNew(){
   // Load the active family's DEK into the session (from cache). True if usable.
   async function fhKeyLoad(fid) {
     if (_fhDek && _fhDekFid === fid) return true;
-    const raw = await _keysGet(fid);
-    if (!raw) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; return false; }
-    _fhDekRaw = new Uint8Array(raw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
-    return true;
+    const rec = await _keysGet(fid);
+    if (!rec) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; return false; }
+    if (rec.key) {                                    // preferred: non-extractable CryptoKey at rest
+      _fhDek = rec.key; _fhDekRaw = null; _fhDekFid = fid;   // no raw on a cold start — a re-wrap re-enters the code
+      return true;
+    }
+    if (rec.raw) {                                    // legacy {raw} record → import, upgrade the store to {key}
+      _fhDekRaw = new Uint8Array(rec.raw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
+      try { await _keysPut(fid, _fhDek); } catch (e) {}      // overwrite the plaintext bytes with the CryptoKey handle
+      return true;                                    // keep raw in MEMORY this session (never re-persisted)
+    }
+    _fhDek = null; _fhDekRaw = null; _fhDekFid = null; return false;
   }
-  // Adopt a DEK we just created/unwrapped (set-passcode, join, unlock).
+  // Adopt a DEK we just created/unwrapped (set-passcode, join, unlock). We keep the
+  // raw bytes in memory for the session (re-wrap on a code change) but persist only
+  // the non-extractable CryptoKey.
   async function fhKeyAdopt(fid, dekRaw) {
     _fhDekRaw = new Uint8Array(dekRaw); _fhDek = await FHCrypto.importDek(_fhDekRaw); _fhDekFid = fid;
-    await _keysPut(fid, _fhDekRaw);
+    await _keysPut(fid, _fhDek);
     // photos that rendered blank while this device was locked can decrypt now
     try { if (window.__fhPhotoRefresh) window.__fhPhotoRefresh(); } catch (e) {}
   }
@@ -15880,6 +16124,7 @@ window.classifyAmount = classifyAmount;
     // Nothing actually changed → dismiss without a redundant write.
     if (ctx.dirty && !ctx.dirty()) { window._closeOv(); return; }
     save.disabled = true; save.textContent = L('Đang lưu…','Saving…');   // async writes show progress (HIG)
+    try { if (navigator.vibrate) navigator.vibrate(10); } catch (e) {}    // instant tactile ack, same frame as the tap
     let then;
     try { then = await ctx.save(); }
     catch (e) {
@@ -17321,10 +17566,18 @@ window.classifyAmount = classifyAmount;
   }
 
   /* ── Local card cache ──
-     We never store the card on the server (only its wrap). A device that HAS
-     the card (created it, or entered it to unlock) caches the string locally so
-     "xem/lưu thẻ" works on that device later. Same sensitivity as the DEK, so
-     it lives in IndexedDB, never localStorage, and is dropped on key-drop. */
+     We never store the card on the server (only its wrap). A device that HAS the
+     card (created it, or entered it to unlock) caches the string locally so
+     "xem/lưu thẻ" works on that device later.
+
+     At rest it is ENCRYPTED under the family DEK (fhEnc), never plaintext: the DEK
+     is a non-extractable CryptoKey (0057), so an offline IndexedDB dump yields only
+     ciphertext + an unexportable key handle — it can't recover the card, and thus
+     can't re-derive the DEK. This closes the last plaintext-key-at-rest hole. The
+     key is always present when we cache (right after create/adopt/unlock); if it
+     somehow isn't, we skip caching rather than write the card in the clear. Legacy
+     {card:<plaintext>} rows are upgraded to {enc:<ct>} on first read. Dropped on
+     key-drop. */
   const _CARD_DB = 'fh-card', _CARD_STORE = 'c';
   function _cardDbOpen() {
     return new Promise((resolve, reject) => {
@@ -17335,10 +17588,23 @@ window.classifyAmount = classifyAmount;
     });
   }
   async function _cardCachePut(fid, display) {
-    try { const db = await _cardDbOpen(); await new Promise((res, rej) => { const tx = db.transaction(_CARD_STORE, 'readwrite'); tx.objectStore(_CARD_STORE).put({ fid: fid, card: display, at: Date.now() }); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); }); } catch (e) {}
+    if (fid == null || !display) return;
+    let ct = null;
+    try { if (fhKeyReady()) ct = await fhEnc(display); } catch (e) { ct = null; }
+    if (!ct) return;                                   // no key to protect it → don't cache in the clear
+    try { const db = await _cardDbOpen(); await new Promise((res, rej) => { const tx = db.transaction(_CARD_STORE, 'readwrite'); tx.objectStore(_CARD_STORE).put({ fid: fid, enc: ct, at: Date.now() }); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); }); } catch (e) {}
   }
   async function _cardCacheGet(fid) {
-    try { const db = await _cardDbOpen(); return await new Promise((res) => { const tx = db.transaction(_CARD_STORE, 'readonly'); const rq = tx.objectStore(_CARD_STORE).get(fid); rq.onsuccess = () => res(rq.result ? rq.result.card : null); rq.onerror = () => res(null); }); } catch (e) { return null; }
+    let rec = null;
+    try { const db = await _cardDbOpen(); rec = await new Promise((res) => { const tx = db.transaction(_CARD_STORE, 'readonly'); const rq = tx.objectStore(_CARD_STORE).get(fid); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); } catch (e) { return null; }
+    if (!rec) return null;
+    if (rec.enc) { try { return fhKeyReady() ? await fhDec(rec.enc) : null; } catch (e) { return null; } }
+    if (rec.card) {                                    // legacy plaintext → return it and silently re-store encrypted
+      const disp = rec.card;
+      try { if (fhKeyReady()) await _cardCachePut(fid, disp); } catch (e) {}
+      return disp;
+    }
+    return null;
   }
   async function _cardCacheDel(fid) {
     try { const db = await _cardDbOpen(); await new Promise((res) => { const tx = db.transaction(_CARD_STORE, 'readwrite'); tx.objectStore(_CARD_STORE).delete(fid); tx.oncomplete = () => res(true); tx.onerror = () => res(false); }); } catch (e) {}
@@ -17352,7 +17618,26 @@ window.classifyAmount = classifyAmount;
      card object so the caller can display it. The plaintext card exists only
      here, at generation time; only the wrap reaches the server. */
   async function fhCardCreate(rpcName) {
-    if (!fhKeyReady() || !_fhDekRaw) throw new Error('locked');
+    if (!fhKeyReady()) throw new Error('locked');
+    // Re-wrapping needs the raw DEK, which now lives in memory only (0057: the DEK
+    // is cached as a non-extractable CryptoKey, so a cold start has no raw bytes).
+    // Recover them transparently from THIS device's cached card + current wrap so
+    // rotate still works cold; only if the card isn't cached here do we ask for it.
+    if (!_fhDekRaw) {
+      try {
+        const disp = await _cardCacheGet(window.DB.fid);
+        const wrap = _fhCardWrap();
+        if (disp && wrap) {
+          const p = _parseCardInput(disp);
+          if (p && p.ok) {
+            const k = await FHCrypto.deriveKeys(p.key, wrap.kdf_salt, wrap.kdf_iters, wrap.kdf_version);
+            const raw = await FHCrypto.unwrapDek(wrap.wrapped_dek, k.kWrap);
+            await fhKeyAdopt(window.DB.fid, raw);   // repopulates _fhDekRaw for the re-wrap below
+          }
+        }
+      } catch (e) {}
+    }
+    if (!_fhDekRaw) { const e = new Error('need_reunlock'); e.fhMsg = L('Mở khoá lại bằng mã khóa hiện tại của nhà một lần, rồi đổi mã nhé', 'Unlock once with your current family code, then change it'); throw e; }
     const card = FHCrypto.genCard();
     const salt = FHCrypto.genSaltHex();
     const keys = await FHCrypto.deriveKeys(card.key, salt, FH_KDF_ITERS_CARD, FH_KDF_VERSION);
@@ -18257,12 +18542,24 @@ window.classifyAmount = classifyAmount;
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return;
     const uid = session.user.id;
-    // always create a fresh family (multi-family: "create" means a new one)
-    const { data: familyId, error } = await sb.rpc('create_family', {
-      p_name: (window.FAM && window.FAM.familyName) || L('Gia đình của mình','My family'),
-      p_currency: 'VND',                             // VND-only frontend — every new family is created in VND
-      p_language: window.LANG || 'vi'
-    });
+    // always create a fresh family (multi-family: "create" means a new one).
+    // p_idempotency_key makes create_family dedupe rapid double-taps / retries to a
+    // single family (server backstop to the client re-entrancy guard). Lazily mint
+    // one if the entry point didn't (defensive), so this attempt still has a stable key.
+    let idem = window.__obCreateKey;
+    if (!idem) { try { idem = window.__obCreateKey = (crypto.randomUUID ? crypto.randomUUID() : null); } catch (e) { idem = null; } }
+    const _name = (window.FAM && window.FAM.familyName) || L('Gia đình của mình','My family');
+    const _lang = window.LANG || 'vi';
+    // Prefer the idempotent 4-arg overload; if it isn't deployed yet (migration
+    // 0056 not applied), PostgREST reports the function as missing — fall back to
+    // the original 3-arg create_family so onboarding never breaks on the rollout gap.
+    let familyId, error;
+    ({ data: familyId, error } = await sb.rpc('create_family', {
+      p_name: _name, p_currency: 'VND', p_language: _lang, p_idempotency_key: idem
+    }));
+    if (error && /PGRST202|could not find the function|function .*create_family.* does not exist|schema cache/i.test(String(error.message || error))) {
+      ({ data: familyId, error } = await sb.rpc('create_family', { p_name: _name, p_currency: 'VND', p_language: _lang }));
+    }
     if (error) throw error;
     const created = true;
     const F = window.FAM || { user: {} };
@@ -18361,27 +18658,45 @@ window.classifyAmount = classifyAmount;
   }
 
   const _origFinish = window.finishOnboarding;
+  let _obFinishing = false;
   window.finishOnboarding = async function () {
-    // One primary CTA drives both paths now (Join in invite mode, Create in create
-    // mode) — #ob-primary-cta. The done screen is gone (0050).
-    const btn = document.getElementById('ob-primary-cta');
-    const label = btn ? btn.textContent : '';
-    const busy = (on) => { if (btn) { btn.disabled = on; btn.style.opacity = on ? '.7' : ''; btn.textContent = on ? L('Đang thiết lập…','Setting up…') : label; } };
+    // Hard re-entrancy guard: the create/join server writes take seconds on a slow
+    // phone, so this is the real fix for the duplicate-families bug — the SAME tap
+    // can't run twice and a user's repeat taps are swallowed here, whatever button
+    // they hit. (The old guard disabled #ob-primary-cta, which on the budget step is
+    // an off-screen button — the tapped #ob-budget-cta / -skip was never blocked.)
+    if (_obFinishing) return;
+    _obFinishing = true;
+    // Feedback lands on the button the user ACTUALLY tapped: the budget step's
+    // Continue/"Set up later", or the invite primary. Disable + dim every live
+    // candidate and swap the primary's label — instant, same frame as the tap.
+    const btns = ['ob-budget-cta', 'ob-budget-skip', 'ob-primary-cta'].map((id) => document.getElementById(id)).filter(Boolean);
+    const labels = btns.map((b) => b.textContent);
+    const busy = (on) => btns.forEach((b, i) => {
+      b.disabled = on; b.classList.toggle('fh-busy', on);
+      if (b.id !== 'ob-budget-skip') b.textContent = on ? L('Đang thiết lập…', 'Setting up…') : labels[i];
+    });
+    try { if (navigator.vibrate) navigator.vibrate(10); } catch (e) {}   // tactile "got it", instantly
+    let ok = true;
     try {
       if (window.FAM && window.FAM.mode === 'create') { busy(true); await createFamilyInDB(); }
       else if (window.FAM && window.FAM.mode === 'join') { busy(true); await joinFinalizeDB(); }
     } catch (e) {
-      busy(false);
       window.toast && window.toast(_friendly(e));
-      /* Create: stay on the step so the user can retry — the name is still in the form.
-         Join: the join itself already COMMITTED (join_with_* succeeded before this ran;
-         only the cosmetic member/profile finalize failed). Staying would dead-end them —
-         find_my_invite now returns nothing, and the screen would read "start your own",
-         inviting a duplicate family. Enter the app; name/theme self-heal in Settings. */
-      if (!(window.FAM && window.FAM.mode === 'join' && window.FAM.joinFamilyId)) return;
+      /* Create: stay on the step so the user can retry — the name is still in the
+         form, and the idempotency key means a retry can't double-create. Join: the
+         join itself already COMMITTED (join_with_* succeeded before this ran; only
+         the cosmetic member/profile finalize failed). Staying would dead-end them —
+         find_my_invite now returns nothing, and the screen would read "start your
+         own", inviting a duplicate family. Enter the app; name/theme self-heal. */
+      ok = !!(window.FAM && window.FAM.mode === 'join' && window.FAM.joinFamilyId);
     }
-    busy(false);
-    if (typeof _origFinish === 'function') _origFinish();
+    if (!ok) { busy(false); _obFinishing = false; return; }   // retry path: hand the button back
+    busy(false);                                               // clear the busy state before we navigate away, so a
+                                                               // later return to the budget step (create-another / restart)
+                                                               // never finds a stale disabled "Đang thiết lập…" button
+    window.__obCreateKey = null;                               // attempt succeeded → next create mints a fresh key
+    if (typeof _origFinish === 'function') _origFinish();      // adds .done + go('home') — the screen navigates away
     if (window.loadFamilyData) { try { await window.loadFamilyData(); } catch (e) {} }
     // proactively introduce + save the new family's Key Card (the USP moment) —
     // fullscreen, save-focused (fhCardIntro), not the Settings sheet
@@ -18389,6 +18704,7 @@ window.classifyAmount = classifyAmount;
       const _c = window.__fhNewCard; window.__fhNewCard = null;
       setTimeout(() => { try { (window.fhCardIntro || window.fhCardShow)(_c); } catch (e) {} }, 700);
     }
+    _obFinishing = false;   // stayed locked through the whole success tail; released once we're home
   };
 
   /* Invite + join now live in 65-passcode-ui.js (whitelist + 6-digit passcode
@@ -18396,13 +18712,47 @@ window.classifyAmount = classifyAmount;
      server-side in the same migration. */
 
   sb.auth.onAuthStateChange(() => {});
-  // test helper: run fhSignOut() in the console to switch Google accounts
-  window.fhSignOut = async () => {
+
+  /* Full local wipe (trust rec #7). On Android, uninstalling the PWA does NOT
+     clear origin storage, so signing out must itself remove every local trace —
+     the cached family key (DEK), the cached Key Card, the decrypted snapshot
+     (plaintext amounts/notes/names!), drafts, photo blobs and boot flags —
+     otherwise the next person on the phone, or a reinstall, walks straight back in.
+     Awaited so the IndexedDB copies are gone before the reload. */
+  async function _fhLocalWipe() {
     fhResumeFail(); fhWarmAbandon();
-    try { fhKeyDrop(null); indexedDB.deleteDatabase('fh-keys'); } catch (e) {}   // cached family keys go with the session
-    try { if (window.fhSnapClear) await window.fhSnapClear(); else localStorage.removeItem('fh-snap'); localStorage.removeItem('fh-expense-drafts'); } catch (e) {}   // no family data left behind on a shared device (awaited so the IndexedDB copy is gone before the reload below)
+    try { fhKeyDrop(null); } catch (e) {}
+    try { if (window.fhSnapClear) await window.fhSnapClear(); } catch (e) {}
+    // IndexedDB stores holding secrets or decrypted data
+    ['fh-keys', 'fh-card', 'fh-snap'].forEach((db) => { try { indexedDB.deleteDatabase(db); } catch (e) {} });
     try { window.__fhPhotoCachePurge && window.__fhPhotoCachePurge(); } catch (e) {}
+    // Cache Storage: drop the photo/media cache (leave the app shell so an offline
+    // reload still works — the shell holds no account data).
+    try { if (window.caches && caches.keys) { const ks = await caches.keys(); await Promise.all(ks.filter((k) => /media|photo/i.test(k)).map((k) => caches.delete(k))); } } catch (e) {}
+    // residual localStorage flags / plaintext snapshot
+    ['fh-snap', 'fh-snap-idb', 'fh-expense-drafts', 'fh-fam', 'fh-onboarded', 'fh-resume', 'fh-lang', 'fh-cur'].forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
+  }
+
+  // Sign out: remove this device from the account's device list too (so it stops
+  // showing as active), then wipe everything local and reload to the sign-in screen.
+  // test helper: run fhSignOut() in the console to switch Google accounts.
+  window.fhSignOut = async () => {
+    try { if (window.fhDeviceId) await _rpc('revoke_device', { p_device_id: window.fhDeviceId() }); } catch (e) {}
+    await _fhLocalWipe();
     await sb.auth.signOut(); location.reload();
+  };
+
+  /* "Sign out & wipe this device" — what people reach for uninstall EXPECTING.
+     Same as sign-out but framed as a clean wipe; opts.revokeRemote=false skips the
+     revoke RPC (used when a remote revocation already triggered this locally). */
+  window.fhWipeDevice = async function (opts) {
+    opts = opts || {};
+    if (opts.revokeRemote !== false) { try { if (window.fhDeviceId) await _rpc('revoke_device', { p_device_id: window.fhDeviceId() }); } catch (e) {} }
+    await _fhLocalWipe();
+    // forget the device identity itself → a reinstall/re-sign-in is a fresh device row
+    try { localStorage.removeItem('fh-device-id'); } catch (e) {}
+    try { await sb.auth.signOut(); } catch (e) {}
+    location.reload();
   };
 </script>
 </body>

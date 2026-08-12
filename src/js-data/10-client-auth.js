@@ -49,6 +49,11 @@
   async function afterLogin(session) {
     if (!session) return;
     window.fhUser = session.user;
+    // Device gate (trust rec #6): a remotely-revoked device signs itself out right
+    // here, before any family data loads. Fail-open on any error so a transient
+    // check failure never strands a legitimate user. Registers this device + arms
+    // its foreground revocation heartbeat on the way through.
+    try { if (window.fhDeviceCheck && (await window.fhDeviceCheck()) === false) return; } catch (e) {}
     // Per-member language preference: seed from the profile so a member's choice follows
     // them to a new device. The in-app switcher (Settings → Language) writes both this and
     // localStorage 'fh-lang'; the hydrate reads localStorage, so keep them in sync here.
