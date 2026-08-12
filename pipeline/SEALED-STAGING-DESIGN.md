@@ -118,6 +118,17 @@ Live today. Gmail filter labels the forwarded email `txn/inbox`; the Apps Script
 time trigger (every 1 min) picks it up; the `+tag` on the receiving address
 resolves through `mailbox_connections` to `member_id` and `family_id`.
 
+**Routing gate (added 2026-08-12).** Before anything is staged, the `+tag` must
+resolve to a `mailbox_connections` row. If it does not, the mail is HELD in
+`txn/inbox` rather than staged, bounded by `ROUTING_GRACE_DAYS` (14). The reason
+is structural: `email_transactions` has no `family_id` column, so `member_id ->
+members.family_id` is the only family linkage a row has. A row with no
+`member_id` therefore has no family at all — it cannot be scoped to one, and
+showing it family-wide would expose one household's transaction to every other.
+Staging it would accumulate data that is permanently unsurfaceable. Holding it
+costs nothing: the moment mailbox onboarding writes the row, the next run routes
+the same email correctly, no re-forwarding needed.
+
 Extraction is two-path, and this is a privacy mechanism as much as a cost one:
 
 - **Known (sender, subject_template) with a stored template** → parsed entirely
@@ -130,6 +141,20 @@ Extraction is two-path, and this is a privacy mechanism as much as a cost one:
   against the LLM's own output, and stored — so that sender never needs the LLM
   again. Templates carry `EXTRACTION_LOGIC_VERSION`, so improving the prompt
   auto-invalidates stale templates and forces one clean re-derivation.
+
+The extraction also captures **`memo`** — the payer's own free-text note ("tra
+tien an trua thu 6"). It is the only field carrying why the money moved, and the
+seed for the description a human writes at review; it lives in `raw_extracted`,
+no column of its own (same treatment as `status`/`account_masked`).
+
+**Sender authenticity** runs on every message: DKIM (`Authentication-Results`,
+verified by Gmail before we see it — a forger cannot sign as the bank, and unlike
+SPF it survives forwarding) and `X-Forwarded-For` against the `personal_email`
+bound to the alias. Advisory by default; verdicts are recorded on every row in
+`raw_extracted._sender_auth`, and nothing is blocked until
+`SENDER_AUTH_ENFORCE=true`. Known limit, not papered over: DKIM proves a domain
+owns its mail, not that the domain is the real bank — a lookalike passes for
+itself, which is what `known_provider_domains` is for.
 
 Masking is **unconditional** — no encryption-state gate — because encryption is
 default-on product-wide.
@@ -312,7 +337,11 @@ and silently loses the row. Check `response.getResponseCode()` for 2xx.
 | Ingestion, fingerprints, templates, masking | ✅ live |
 | Staging schema (`0025`/`0027`/`0028`) | ✅ live |
 | `known_provider_domains` seed (`0050`) | ✅ merged · 🟡 live-DB apply pending |
-| Sender/forwarder authentication (DKIM + `X-Forwarded-For` checks) | 🟡 designed |
+| Sender/forwarder authentication (DKIM + `X-Forwarded-For`) | ✅ built, advisory until `SENDER_AUTH_ENFORCE=true` |
+| `memo` extraction (seed for the human's description) | ✅ built, verified against live Gemini |
+| Routing gate — hold unroutable mail rather than stage it | ✅ built |
+| `0058` review read policy (own rows only) | 🟡 written, not applied |
+| **Mailbox onboarding (writes `mailbox_connections`)** | ⛔ **not built — nothing writes it, so every row is unrouted today. This now gates the review UI.** |
 | Keypair generation, `wrapped_priv`, sealing, opening | 🟡 decided, ships with review UI |
 | Key-substitution pin + device self-check | 🟡 agreed both sessions |
 | Mismatch alarm UI | ✅ prototyped · 🟡 copy needs native-speaker review |
