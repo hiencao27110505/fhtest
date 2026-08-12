@@ -46,6 +46,18 @@ defer the setup":
   invite rows, role list, budget-proportion table and onboarding theme grid are
   gone from `80-onboard-boot.js`; onboarding i18n keys replaced in both tables.
 
+### First-run budget/category setup nudges (08-12)
+
+A first-time family had no obvious path to set up categories + budget (the finance
+tab just showed an empty "0k of 0k" hero). Two entry points now trigger it, both
+opening `sheet-budget` (which owns categories + per-category limits):
+- **Home "Bắt đầu"** gains a full-width illustrated **Set up your budget** card
+  (bar-chart + ₫), shown above the log-expense / add-moment pair until a monthly
+  budget exists.
+- **Finance tab** gets a compact brand-tinted **Set up your budget** CTA card at
+  the very top, above the still-empty hero; it clears itself the moment
+  `M().budget > 0`. (`renderBudget`, `22-home.js`, styles in `40-spending-tabs.css`.)
+
 ### First-run home: "Getting started" pair replaces the blank-cover prompt (08-12)
 
 The empty-family Moments section was a single "Your family's story · Add a moment"
