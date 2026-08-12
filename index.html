@@ -1862,9 +1862,13 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .csv-2col{display:flex;gap:10px}
 .csv-2col .field{flex:1;min-width:0}
 
-/* File summary — the "where did it go" answer, above the row-by-row review. */
-.csv-sum{background:var(--canvas);border-radius:18px;padding:16px 16px 14px;margin-bottom:14px}
-.csv-sum-cap{font-size:11.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+/* File summary — the "where did it go" answer, above the row-by-row review.
+   Brand tint, not canvas gray: this panel celebrates what's going IN, and it
+   must not share a surface with the parked/"set aside" zone, which owns the
+   recessed gray. Three surfaces, three meanings — tint: the story of this
+   import · white: rows going in · gray: rows held out. */
+.csv-sum{background:var(--brand-tint);border-radius:18px;padding:16px 16px 14px;margin-bottom:14px}
+.csv-sum-cap{font-size:11.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--brand-ink)}
 .csv-sum-total{font-family:var(--disp);font-size:30px;font-weight:800;letter-spacing:-.8px;color:var(--ink);margin-top:3px;line-height:1.1}
 .csv-sum-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
 .csv-sum-bars{margin-top:13px;display:flex;flex-direction:column;gap:9px}
@@ -8593,28 +8597,31 @@ function renderCsvReview(){
      offer, so the choice is never one-way. */
   var didMerge = (r.catMerges||[]).length, didAdd = (r.adoptedCats||[]).length;
   if(didMerge || didAdd || r.fallbackCount || r.patternCount || r.summaryCount || (csvReview.ready||[]).some(function(c){return c.catSource==='learned';})){
+    /* Two volumes only. The bold line is what CHANGED the family's data --
+       categories merged or created -- because that's the one auto-applied
+       decision someone might want to reverse, and the undo sits under it.
+       Every routine mechanic (skipped totals, blanks, learned repeats,
+       pattern guesses, Others fallbacks) collapses to one muted line of
+       counts: disclosed, never dropped, but no longer shouting. */
     var lines = [];
-    if(didMerge) lines.push('<div class="notice-text">'
-      + '<b>'+esc(L('Đã gộp vào danh mục sẵn có:','Merged into categories you already have:'))+'</b> '
-      + esc(r.catMerges.map(function(m){ return '"'+m.from+'" → '+m.to; }).join(' · '))+'</div>');
+    if(didMerge || didAdd){
+      var catBits = [];
+      if(didMerge) catBits.push(esc(L('Đã gộp: ','Merged: ')) + esc(r.catMerges.map(function(m){ return '"'+m.from+'" → '+m.to; }).join(' · ')));
+      if(didAdd) catBits.push(esc(L('Thêm mới: ','Added: ')) + esc(r.adoptedCats.map(function(n){ return csvCatEmoji(n)+' '+n; }).join(' · ')));
+      lines.push('<div class="notice-text"><b>'+catBits.join('&ensp;·&ensp;')+'</b></div>');
+    }
     var learnedCount = (csvReview.ready||[]).filter(function(c){ return c.catSource==='learned'; }).length;
-    if(learnedCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
-      + '<b>'+esc(L(learnedCount+' khoản xếp theo lần bạn sửa trước','Reused your past corrections for '+learnedCount))+'</b>'
-      + esc(L(' (nhớ trên máy bạn thôi).',' (kept on your device only).'))
-      + ' <button type="button" class="csv-linkbtn" onclick="csvForgetLearned()">'+L('Quên đi','Forget these')+'</button></div>');
-    if(r.summaryCount) lines.push('<div class="notice-text"'+((didMerge||didAdd||learnedCount)?' style="margin-top:6px"':'')+'>'
-      + esc(L('Bỏ qua '+r.summaryCount+' dòng tổng cuối file.','Skipped '+r.summaryCount+' total row'+(r.summaryCount===1?'':'s')+' at the end of the file.'))+'</div>');
-    if(r.patternCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
-      + esc(L(r.patternCount+' khoản xếp theo thói quen chi tiêu của bạn.',r.patternCount+' filed from your spending habits.'))+'</div>');
-    if(r.blankCount) lines.push('<div class="notice-text"'+(lines.length?' style="margin-top:6px"':'')+'>'
-      + esc(L('Bỏ qua '+r.blankCount+' dòng không phải giao dịch (dòng trống, dòng tiêu đề).','Skipped '+r.blankCount+' non-transaction row'+(r.blankCount===1?'':'s')+' (blanks, section headings).'))+'</div>');
-    if(r.fallbackCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
-      + esc(L(r.fallbackCount+' khoản chưa rõ danh mục, tạm để ở "'+CAT_FALLBACK+'".', r.fallbackCount+(r.fallbackCount===1?' row':' rows')+' had no clear category, filed under "'+CAT_FALLBACK+'".'))+'</div>');
-    if(didAdd) lines.push('<div class="notice-text"'+(didMerge?' style="margin-top:6px"':'')+'>'
-      + '<b>'+esc(L('Đã thêm danh mục mới từ file:','Added new categories from your file:'))+'</b> '
-      + esc(r.adoptedCats.map(function(n){ return csvCatEmoji(n)+' '+n; }).join(' · '))+'</div>');
+    var mech = [];
+    if(r.summaryCount) mech.push(esc(L(r.summaryCount+' dòng tổng', r.summaryCount+' total row'+(r.summaryCount===1?'':'s'))));
+    if(r.blankCount) mech.push(esc(L(r.blankCount+' dòng không phải giao dịch', r.blankCount+' non-transaction row'+(r.blankCount===1?'':'s'))));
+    if(r.summaryCount || r.blankCount) mech[0] = esc(L('bỏ qua ','skipped ')) + mech[0];
+    if(learnedCount) mech.push(esc(L(learnedCount+' khoản xếp theo lần sửa trước', learnedCount+' from your past corrections'))
+      + ' <button type="button" class="csv-linkbtn" onclick="csvForgetLearned()">'+L('quên đi','forget')+'</button>');
+    if(r.patternCount) mech.push(esc(L(r.patternCount+' theo thói quen', r.patternCount+' from habits')));
+    if(r.fallbackCount) mech.push(esc(L(r.fallbackCount+' chưa rõ, tạm để '+CAT_FALLBACK, r.fallbackCount+' unclear, filed under '+CAT_FALLBACK)));
+    if(mech.length) lines.push('<div class="notice-text notice-tip"'+(lines.length?' style="margin-top:6px"':'')+'>'
+      + mech.join(' · ') + '</div>');
     html += '<div class="notice-card stack">' + lines.join('')
-      + '<div class="notice-text notice-tip">'+esc(L('Chạm vào khoản bất kỳ để sửa lại.','Tap any item to change it.'))+'</div>'
       + ((didMerge||didAdd) ? '<button type="button" class="btn-text-quiet" style="width:100%;margin:6px 0 0" onclick="csvUndoAdopt()">'+L('Để tôi tự chọn danh mục','Let me pick categories myself')+'</button>' : '')
       + '</div>';
   } else if(!r.mixedSignsNote && r.fileCats && r.fileCats.length){

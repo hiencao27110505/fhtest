@@ -199,9 +199,13 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .csv-2col{display:flex;gap:10px}
 .csv-2col .field{flex:1;min-width:0}
 
-/* File summary — the "where did it go" answer, above the row-by-row review. */
-.csv-sum{background:var(--canvas);border-radius:18px;padding:16px 16px 14px;margin-bottom:14px}
-.csv-sum-cap{font-size:11.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+/* File summary — the "where did it go" answer, above the row-by-row review.
+   Brand tint, not canvas gray: this panel celebrates what's going IN, and it
+   must not share a surface with the parked/"set aside" zone, which owns the
+   recessed gray. Three surfaces, three meanings — tint: the story of this
+   import · white: rows going in · gray: rows held out. */
+.csv-sum{background:var(--brand-tint);border-radius:18px;padding:16px 16px 14px;margin-bottom:14px}
+.csv-sum-cap{font-size:11.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--brand-ink)}
 .csv-sum-total{font-family:var(--disp);font-size:30px;font-weight:800;letter-spacing:-.8px;color:var(--ink);margin-top:3px;line-height:1.1}
 .csv-sum-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
 .csv-sum-bars{margin-top:13px;display:flex;flex-direction:column;gap:9px}
