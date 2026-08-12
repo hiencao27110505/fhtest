@@ -59,10 +59,12 @@ DELETE FROM family_key_wraps   WHERE family_id IN (SELECT id FROM _purge);
 DELETE FROM family_keys        WHERE family_id IN (SELECT id FROM _purge);
 DELETE FROM members            WHERE family_id IN (SELECT id FROM _purge);
 
--- Media objects stored under each purged family's {family_id}/... prefix.
-DELETE FROM storage.objects
-  WHERE bucket_id = 'family-media'
-    AND split_part(name, '/', 1) IN (SELECT id::text FROM _purge);
+-- NOTE: media blobs in the `family-media` bucket ({family_id}/... prefix) are NOT
+-- deleted here. Direct DELETE on storage.objects is blocked by the storage.protect_delete()
+-- trigger ("Direct deletion from storage tables is not allowed"), and would roll back this
+-- whole transaction. Media is purged out-of-band via the Storage API — see SKILL.md step 3.5.
+-- (Orphaned blobs under a deleted family_id are harmless for test resets; most test
+--  families have 0 photos anyway — the dry run's `photos` count tells you.)
 
 -- Detach the profile from any purged family, then drop the families themselves.
 UPDATE profiles SET family_id = NULL WHERE family_id IN (SELECT id FROM _purge);

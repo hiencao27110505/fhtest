@@ -1,6 +1,6 @@
 ---
 name: familyhub-reset-test-user
-description: Reset a FamilyHub test account back to a brand-new user so the same Gmail can re-run onboarding. Triggers on "reset test user", "reset onboarding", "delete user", "wipe my account", "test onboarding again", "brand new user", "xóa user test", "reset tài khoản test", or any request to re-test the FamilyHub new-user / create-family flow. Deletes every family the account SOLELY owns (plus all its data + media), and by default deletes the auth.users account too. Requires an email argument; protects real/shared families.
+description: Reset a FamilyHub test account back to a brand-new user so the same Gmail can re-run onboarding. Triggers on "reset test user", "reset onboarding", "delete user", "wipe my account", "test onboarding again", "brand new user", "xóa user test", "reset tài khoản test", or any request to re-test the FamilyHub new-user / create-family flow. Deletes every family the account SOLELY owns (all its data + media-metadata rows; media blobs purged out-of-band via the Storage API), and by default deletes the auth.users account too. Requires an email argument; protects real/shared families.
 ---
 
 # FamilyHub — Reset a test user for onboarding
@@ -49,6 +49,30 @@ Read `reset.sql`, replace every `__EMAIL__`. **For `--soft`, delete the lines be
 send the file as-is (markers are SQL comments, harmless). Run the whole thing in one
 `execute_sql` call — it is a single `BEGIN … COMMIT` transaction, so it all lands or none does.
 
+`reset.sql` deletes the `transaction_photos` **rows** but does NOT delete the media **blobs** in
+storage — a direct `DELETE FROM storage.objects` is blocked by the `storage.protect_delete()`
+trigger and would roll the whole transaction back. Handle media in step 3.5.
+
+### 3.5. Purge media blobs (only if the dry run showed `photos` > 0)
+Skip entirely when every purged family had `photos: 0` (the common case for throwaway test
+families) — orphaned blobs under a deleted `family_id` are harmless, just wasted storage.
+
+When there IS media, delete it out-of-band via the **Storage API** (not SQL). List the object
+names first (read-only, allowed):
+```sql
+SELECT name FROM storage.objects
+WHERE bucket_id = 'family-media'
+  AND split_part(name, '/', 1) IN ( <purged family_ids> );
+```
+Then delete each object through the Storage REST API with the service-role key:
+```
+curl -X DELETE "$SUPABASE_URL/storage/v1/object/family-media/<name>" \
+  -H "Authorization: Bearer $SERVICE_ROLE_KEY"
+```
+(or remove the whole `{family_id}/` prefix from the bucket in the Supabase Dashboard → Storage).
+If you can't reach the Storage API in this context, say so and leave the blobs orphaned — note it
+in the report so the user can clean up later.
+
 ### 4. Report + client reset
 State what was deleted. Then give the on-device step, because the PWA caches state locally:
 - **hard:** Settings → **Sign out** (or clear site data), then sign in again → full first-run.
@@ -66,6 +90,9 @@ State what was deleted. Then give the on-device step, because the PWA caches sta
 - **Leaf-first delete order** in `reset.sql` respects the RESTRICT/NO-ACTION foreign keys
   (`transaction_photos → transactions → categories`, `event_fundings → events/saving_goals`,
   `savings_entries → members`, etc.). Do not reorder without re-checking the FK graph.
+- **No direct storage-table writes:** `reset.sql` never touches `storage.objects` — that is
+  blocked by the `storage.protect_delete()` trigger and would roll the transaction back. Media
+  blobs are purged out-of-band (step 3.5), so a family with photos still resets cleanly.
 - Leaves **no schema footprint** — no persistent function, just DELETEs in a transaction.
 
 ## Notes
