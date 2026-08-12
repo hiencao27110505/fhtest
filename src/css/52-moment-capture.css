@@ -1,0 +1,32 @@
+/* ---------- Log a moment (photo-first) ---------- */
+/* The photo dropzone is the modal's hero — larger and warmer than a field, so the
+   eye lands on "add photos" before anything else (mirror of expense = amount-first). */
+.mom-drop{ display:flex; align-items:center; justify-content:center; width:100%;
+  min-height:150px; border:1.5px dashed var(--hairline); border-radius:16px;
+  background:var(--canvas); cursor:pointer; margin-bottom:16px;
+  transition:border-color .15s ease, background .15s ease; }
+.mom-drop:active{ border-color:var(--brand); }
+.mom-drop-empty{ text-align:center; padding:24px 16px; }
+.mom-drop-ico{ font-size:40px; line-height:1; }
+.mom-drop-t{ margin-top:10px; font-weight:600; font-size:14px; color:var(--ink); }
+.mom-drop.shake{ animation:fhshake .42s cubic-bezier(.36,.07,.19,.97); border-color:var(--danger); }
+@media (prefers-reduced-motion:reduce){ .mom-drop.shake{ animation:none } }
+
+/* Thumb strip reuses .photo-strip/.photo-thumb; the add-more tile closes the loop. */
+.mom-thumbs{ margin-bottom:16px; }
+.mom-add-more{ display:inline-flex; align-items:center; justify-content:center;
+  width:64px; height:64px; border-radius:12px; border:1.5px dashed var(--hairline);
+  background:var(--canvas); color:var(--muted); font-size:26px; font-weight:300;
+  cursor:pointer; flex:0 0 auto; }
+
+/* Optional-expense toggle — a quiet row that opens the secondary JTBD. */
+.mom-exp-toggle{ display:flex; align-items:center; gap:12px; width:100%;
+  padding:14px 14px; margin-top:6px; border:1px solid var(--hairline); border-radius:12px;
+  background:var(--white); text-align:left; cursor:pointer; }
+.mom-exp-toggle .mxt-plus{ font-size:20px; color:var(--muted); width:20px; text-align:center; }
+.mom-exp-toggle .mxt-b{ display:flex; flex-direction:column; flex:1; min-width:0; }
+.mom-exp-toggle .mxt-t{ font-weight:600; font-size:14px; color:var(--ink); }
+.mom-exp-toggle .mxt-s{ font-size:12px; color:var(--muted); margin-top:1px; }
+.mom-exp-toggle .mxt-chev{ width:18px; height:18px; color:var(--muted); transition:transform .18s ease; }
+.mom-exp-toggle.open .mxt-chev{ transform:rotate(180deg); }
+.mom-exp-body{ padding-top:14px; }

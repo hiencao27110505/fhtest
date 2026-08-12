@@ -1870,6 +1870,39 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .csv-unlock-skip{display:block;margin-top:12px}
 .notice-text.notice-tip{color:var(--muted);margin-top:8px}
 
+/* ---------- Log a moment (photo-first) ---------- */
+/* The photo dropzone is the modal's hero — larger and warmer than a field, so the
+   eye lands on "add photos" before anything else (mirror of expense = amount-first). */
+.mom-drop{ display:flex; align-items:center; justify-content:center; width:100%;
+  min-height:150px; border:1.5px dashed var(--hairline); border-radius:16px;
+  background:var(--canvas); cursor:pointer; margin-bottom:16px;
+  transition:border-color .15s ease, background .15s ease; }
+.mom-drop:active{ border-color:var(--brand); }
+.mom-drop-empty{ text-align:center; padding:24px 16px; }
+.mom-drop-ico{ font-size:40px; line-height:1; }
+.mom-drop-t{ margin-top:10px; font-weight:600; font-size:14px; color:var(--ink); }
+.mom-drop.shake{ animation:fhshake .42s cubic-bezier(.36,.07,.19,.97); border-color:var(--danger); }
+@media (prefers-reduced-motion:reduce){ .mom-drop.shake{ animation:none } }
+
+/* Thumb strip reuses .photo-strip/.photo-thumb; the add-more tile closes the loop. */
+.mom-thumbs{ margin-bottom:16px; }
+.mom-add-more{ display:inline-flex; align-items:center; justify-content:center;
+  width:64px; height:64px; border-radius:12px; border:1.5px dashed var(--hairline);
+  background:var(--canvas); color:var(--muted); font-size:26px; font-weight:300;
+  cursor:pointer; flex:0 0 auto; }
+
+/* Optional-expense toggle — a quiet row that opens the secondary JTBD. */
+.mom-exp-toggle{ display:flex; align-items:center; gap:12px; width:100%;
+  padding:14px 14px; margin-top:6px; border:1px solid var(--hairline); border-radius:12px;
+  background:var(--white); text-align:left; cursor:pointer; }
+.mom-exp-toggle .mxt-plus{ font-size:20px; color:var(--muted); width:20px; text-align:center; }
+.mom-exp-toggle .mxt-b{ display:flex; flex-direction:column; flex:1; min-width:0; }
+.mom-exp-toggle .mxt-t{ font-weight:600; font-size:14px; color:var(--ink); }
+.mom-exp-toggle .mxt-s{ font-size:12px; color:var(--muted); margin-top:1px; }
+.mom-exp-toggle .mxt-chev{ width:18px; height:18px; color:var(--muted); transition:transform .18s ease; }
+.mom-exp-toggle.open .mxt-chev{ transform:rotate(180deg); }
+.mom-exp-body{ padding-top:14px; }
+
 /* new-event sheet — curated layout */
 .name-row{display:flex;gap:10px;align-items:stretch}
 .name-row input{flex:1;min-width:0}
@@ -2647,7 +2680,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 
   <!-- Ảnh tháng … — the month's photos; the title carries the month so the calendar's
        scope reads clearly (it governs these photos). -->
-  <div class="section-h"><span class="t" id="album-title">Ảnh</span><a onclick="paOpen()" data-t="addPhotos">Add photos</a></div>
+  <div class="section-h"><span class="t" id="album-title">Ảnh</span><a onclick="openMomentModal()" data-t="addPhotos">Add photos</a></div>
   <div id="mem-grid"></div>
 
   <button class="suggest-foot" onclick="openSheet('sheet-suggest')">
@@ -2848,7 +2881,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <button class="qa" onclick="closeSheet();go('spending');fhSavings()"><div class="qi" style="background:linear-gradient(135deg,#F0B450,#DB8A24)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a5 5 0 015-5h5a6 6 0 016 6 6 6 0 01-3 5.2V20h-3v-2h-2v2H7v-3a6 6 0 01-4-5zM8 9h.01"/></svg></div><div><div class="qt" data-t="qaSaveT">Add to savings</div><div class="qs" data-t="qaSaveS">Add to the family pool</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>  <button class="qa" onclick="closeSheet();go('spending');openGoal()"><div class="qi" style="background:linear-gradient(135deg,#34B87A,#2E9E6B)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg></div><div><div class="qt" data-t="qaGoalT">Create a goal</div><div class="qs" data-t="qaGoalS">Save for something you want to buy or do</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <div class="qa-group" data-t="grpMoments">Moments</div>
   <button class="qa" onclick="closeSheet();goMoments('plans');openSheet('sheet-event')"><div class="qi" style="background:linear-gradient(135deg,#9D4EFF,#E14BF0)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div><div><div class="qt" data-t="qaPlanT">Plan something</div><div class="qs" data-t="qaPlanS">An upcoming family occasion</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();goMoments('album');paOpen()"><div class="qi" style="background:linear-gradient(135deg,#FF8FB1,#F0567F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg></div><div><div class="qt" data-t="qaPhotoT">Add a moment</div><div class="qs" data-t="qaPhotoS">Family photos</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();openMomentModal()"><div class="qi" style="background:linear-gradient(135deg,#FF8FB1,#F0567F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg></div><div><div class="qt" data-t="qaPhotoT">Add a moment</div><div class="qs" data-t="qaPhotoS">Family photos</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();openSheet('sheet-suggest')"><div class="qi" style="background:linear-gradient(135deg,#B9B2C6,#8a8494)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20s-7-4.4-9.3-8.7C1.2 8 2.7 4.6 6 4.6c2 0 3.2 1.3 4 2.6.8-1.3 2-2.6 4-2.6 3.3 0 4.8 3.4 3.3 6.7C19 15.6 12 20 12 20z"/></svg></div><div><div class="qt" data-t="qaSuggestT">Share feedback</div><div class="qs" data-t="qaSuggestS">An idea or something you wish for</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
 </div>
 
@@ -3000,6 +3033,52 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="field"><label data-t="photosOptLbl">Photos (optional)</label>
       <label class="mem-upload"><span id="ev-upload-txt" data-t="addPhotosBtn">📷 Add photos</span><input type="file" accept="image/*" multiple onchange="onEvPhoto(this)" hidden></label>
       <div class="photo-strip" id="ev-strip"></div>
+    </div>
+  </div>
+</div>
+
+<!-- LOG A MOMENT — photo-first (mirror of the expense form). See 52-moment-capture.js. -->
+<div class="modal" id="moment-modal">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeMomentModal()" data-t="cancel">Cancel</button>
+    <div class="modal-title" id="mom-title">New moment</div>
+    <button class="modal-save" id="mom-save" onclick="saveMoment()">Save</button>
+  </div>
+  <div class="modal-body">
+    <!-- The hero: photos come first. Empty = a big dropzone; filled = a thumb strip. -->
+    <label class="mom-drop" id="mom-drop">
+      <div class="mom-drop-empty" id="mom-drop-empty">
+        <div class="mom-drop-ico">📸</div>
+        <div class="mom-drop-t" id="mom-drop-t">Thêm ảnh khoảnh khắc</div>
+      </div>
+      <input type="file" accept="image/*" multiple onchange="onMomPhoto(this)" hidden>
+    </label>
+    <div class="photo-strip mom-thumbs" id="mom-strip" style="display:none"></div>
+
+    <div class="field">
+      <label id="mom-cap-lbl">Say a little about this moment</label>
+      <input id="mom-cap" oninput="momDirty()" placeholder="e.g. Sunday dinner"/>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label id="mom-when-lbl">When</label><input type="date" id="mom-date" onchange="momDirty()"/></div>
+    </div>
+
+    <div class="field"><label id="mom-who-lbl">Who</label><div class="choices" id="mom-who">
+      <button class="choice on" data-v="Emma" onclick="pickMomWho(this)">Emma</button>
+      <button class="choice" data-v="Both" onclick="pickMomWho(this)">Both</button>
+    </div></div>
+
+    <!-- Secondary JTBD: a related expense, revealed only on demand. -->
+    <button type="button" class="mom-exp-toggle" id="mom-exp-toggle" onclick="momToggleExp()">
+      <span class="mxt-plus">＋</span>
+      <span class="mxt-b"><span class="mxt-t" id="mom-exp-toggle-t">Add a related expense</span><span class="mxt-s" id="mom-exp-toggle-s">Optional</span></span>
+      <svg class="mxt-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="mom-exp-body" id="mom-exp-body" style="display:none">
+      <div class="field"><label id="mom-amt-lbl">Amount</label><input class="num" id="mom-amt" inputmode="numeric" placeholder="0" oninput="momDirty()"/></div>
+      <div class="field"><label id="mom-cat-lbl">Category</label><div class="choices" id="mom-cat"></div></div>
     </div>
   </div>
 </div>
@@ -4453,7 +4532,7 @@ function renderHome(){
       val: memRecords.length + ' <span class="u">' + L('ảnh', 'photos') + '</span>',
       foot: phThis.length ? L('Thêm ' + phThis.length + ' trong tháng này', phThis.length + ' new this month') : L('Kỷ niệm của cả nhà', 'The family’s memories'), act: 'goMoments(&#39;album&#39;)' });
   } else {
-    tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'), val: '<span class="wt-add">＋</span>', foot: L('Thêm tấm ảnh đầu tiên', 'Add the first photo'), act: 'openSheet(&#39;sheet-add&#39;)' });
+    tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'), val: '<span class="wt-add">＋</span>', foot: L('Thêm tấm ảnh đầu tiên', 'Add the first photo'), act: 'openMomentModal()' });
   }
 
   html += '<div class="wgrid">' + tiles + '</div>';
@@ -4470,7 +4549,7 @@ function renderHome(){
     var isExp0 = r0.type === 'expense';
     kh += bigPhoto({ src: r0.src, ill: r0.src ? null : occCover(r0.cap, r0.emoji), subj: r0.src ? r0.emoji : '', who: r0.who, eye: isExp0 ? L('Một khoản chi thành kỷ niệm', 'A spend, remembered') : L('Khoảnh khắc gần đây', 'A recent moment'), title: r0.cap, sub: esc(r0.meta || ''), tall: true, act: 'openMemory(' + i0 + ')' });
   } else {                                              // a new family — a warm, photo-shaped invitation
-    kh += bigPhoto({ ill: 'outing', eye: L('Bắt đầu', 'Begin'), title: L('Câu chuyện của cả nhà', 'Your family’s story'), sub: L('Tấm ảnh đầu tiên bắt đầu từ đây', 'Your first photo starts here'), tall: true, cta: { label: '＋ ' + L('Thêm khoảnh khắc', 'Add a moment') }, act: 'openSheet(&#39;sheet-add&#39;)' });
+    kh += bigPhoto({ ill: 'outing', eye: L('Bắt đầu', 'Begin'), title: L('Câu chuyện của cả nhà', 'Your family’s story'), sub: L('Tấm ảnh đầu tiên bắt đầu từ đây', 'Your first photo starts here'), tall: true, cta: { label: '＋ ' + L('Thêm khoảnh khắc', 'Add a moment') }, act: 'openMomentModal()' });
   }
   var grps = (typeof memGroups === 'function') ? memGroups() : [];
   if(grps.length >= 2){                                 // more covers to browse, iOS-Photos style
@@ -4482,7 +4561,7 @@ function renderHome(){
   html += _sectionH(L('Cùng nhau', 'Together'))
     + '<div class="qgrid">'
     + qTile({ ic: _QSVG.exp, chCls: 'wc-brand', label: L('Chi tiêu', 'Expense'), act: 'go(&#39;spending&#39;);openExpense()' })
-    + qTile({ ic: _QSVG.cam, chCls: 'wc-rose', label: L('Khoảnh khắc', 'Moment'), act: 'goMoments(&#39;album&#39;);paOpen()' })
+    + qTile({ ic: _QSVG.cam, chCls: 'wc-rose', label: L('Khoảnh khắc', 'Moment'), act: 'openMomentModal()' })
     + qTile({ ic: _QSVG.cal, chCls: 'wc-amber', label: L('Kế hoạch', 'Plan'), act: 'goMoments(&#39;plans&#39;);openSheet(&#39;sheet-event&#39;)' })
     + qTile({ ic: _QSVG.pig, chCls: 'wc-indigo', label: L('Góp quỹ', 'Chip in'), act: 'fhSavings()' })
     + '</div>';
@@ -6322,9 +6401,13 @@ function _renderMemoryDetail(){
   var rxBox=document.getElementById('mo-rx');
   if(rxBox){ var mtx=memTxFor(r); rxBox.innerHTML=mtx?memReactionsHTML(mtx):''; rxBox.style.display=mtx?'':'none'; }
   var act=document.getElementById('mo-action'), chev=' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
-  if(r.type==='event' && ev && ev.fromExpense){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openExpenseDetail(\''+ev.fromExpense+'\')'); }
-  else if(r.type==='expense'){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openExpenseDetail(\''+r.ref+'\')'); }
-  else { act.innerHTML=L('Mở sự kiện','Open event')+chev; act.setAttribute('onclick','closeMemory();openEvent(\''+r.ref+'\')'); }
+  if(r.type==='event' && (ev.momentOnly || (typeof isMomentEvent==='function' && isMomentEvent(ev)))){
+    // A pure photographed moment has no richer source to open — the memory IS the thing.
+    act.style.display='none';
+  }
+  else if(r.type==='event' && ev && ev.fromExpense){ act.style.display=''; act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openExpenseDetail(\''+ev.fromExpense+'\')'); }
+  else if(r.type==='expense'){ act.style.display=''; act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openExpenseDetail(\''+r.ref+'\')'); }
+  else { act.style.display=''; act.innerHTML=L('Mở sự kiện','Open event')+chev; act.setAttribute('onclick','closeMemory();openEvent(\''+r.ref+'\')'); }
 }
 function openMemoryByRef(type,ref){ for(var i=0;i<memRecords.length;i++){ if(memRecords[i].type===type&&memRecords[i].ref===ref){ openMemory(i); return; } } }
 function closeMemory(){ document.getElementById('memory-overlay').classList.remove('on'); }
@@ -7135,6 +7218,151 @@ function readPhoto(file, cb){
   };
   fr.readAsArrayBuffer(file.slice(0, 262144));                           // EXIF sits in the first bytes
 }
+/* ---------- Log a moment (photo-first) ----------
+   The mirror image of the expense form. An expense is money-first with optional
+   photos; a moment is PHOTOS-first with an optional related expense.
+
+     • Photos only            → a standalone memory: an achieved, money-less event
+                                whose photos live in event_memories (buildMemRecords
+                                step 1 surfaces them into Album / calendar / timeline).
+     • Photos + amount + cat  → a real expense carrying those photos, logged through
+                                the proven addExpense() path (which itself becomes a
+                                memory via syncExpenseEvent). No new money plumbing.
+
+   Kept deliberately OUT of the bulk expense modal: that form is coupled to bulkRows,
+   draft persistence and the Event/future-proposal branches, and threading a "moment
+   mode" through all of it would risk the expense flow. This is its own small modal. */
+var momPhotos = [];                         // data-URIs held in memory until Save (like exPhotos)
+var momExpOpen = false;                     // is the optional-expense section revealed?
+
+// A pure photographed memory is an achieved, target-less, non-mirror event. Used post-hydrate
+// (where the session-only intent flag is gone) to tell a moment apart from a savings occasion.
+function isMomentEvent(e){ return !!(e && e.achieved && !e._srcTxn && !e.fromExpense && !(e.target > 0) && e.memories && e.memories.length); }
+
+function openMomentModal(preset){
+  preset = preset || {};
+  momPhotos = (preset.photos || []).slice();
+  momExpOpen = false;
+  // date: a moment is something that happened → default today, backdatable, never future.
+  var iso = preset.date || isoDate(TODAY);
+  var dEl = document.getElementById('mom-date'); if(dEl){ dEl.value = iso; setDateFloor('mom-date', isoMonthStart(-24), iso); dEl.max = isoDate(TODAY); }
+  document.getElementById('mom-cap').value = preset.caption || '';
+  document.getElementById('mom-amt').value = '';
+  buildMomCatChips();
+  // labels are set here (not via data-t) so the modal stays self-contained — see file note in build.js
+  setTxt('mom-title', L('Khoảnh khắc mới','New moment'));
+  setTxt('mom-drop-t', L('Thêm ảnh khoảnh khắc','Add moment photos'));
+  setTxt('mom-cap-lbl', L('Kể đôi lời về khoảnh khắc này','Say a little about this moment'));
+  setTxt('mom-when-lbl', L('Khi nào','When'));
+  setTxt('mom-who-lbl', L('Ai trong ảnh / ai thêm','Who'));
+  setTxt('mom-exp-toggle-t', L('Gắn một khoản chi','Add a related expense'));
+  setTxt('mom-exp-toggle-s', L('Không bắt buộc','Optional'));
+  setTxt('mom-amt-lbl', L('Số tiền','Amount'));
+  setTxt('mom-cat-lbl', L('Hạng mục','Category'));
+  document.getElementById('mom-save').textContent = L('Lưu','Save');
+  document.getElementById('mom-cap').placeholder = L('VD: Bữa tối cuối tuần','e.g. Sunday dinner');
+  renderMomExpSection();
+  renderMomPhotos();
+  fhClearInvalid('moment-modal');
+  document.getElementById('scrim').classList.add('on');
+  var m = document.getElementById('moment-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
+  var body = m.querySelector('.modal-body'); if(body) body.scrollTop = 0;
+  refreshMomCta();
+}
+function closeMomentModal(){ closeModals(); momPhotos=[]; momExpOpen=false; }
+
+/* Photos are the hero. The picker is a big dropzone until the first photo lands,
+   then a thumbnail strip + an "add more" affordance. */
+function onMomPhoto(input){
+  var files = Array.prototype.slice.call(input.files||[]);
+  files.forEach(function(f){
+    if(momPhotos.length>=10){ toast(L('Tối đa 10 ảnh','Up to 10 photos')); return; }
+    readPhoto(f, function(src){ if(src && momPhotos.length<10){ momPhotos.push(src); renderMomPhotos(); refreshMomCta(); } });
+  });
+  input.value='';
+}
+function removeMomPhoto(i){ momPhotos.splice(i,1); renderMomPhotos(); refreshMomCta(); }
+function renderMomPhotos(){
+  var empty=document.getElementById('mom-drop-empty'), strip=document.getElementById('mom-strip');
+  if(empty) empty.style.display = momPhotos.length ? 'none' : '';
+  if(strip){
+    strip.style.display = momPhotos.length ? '' : 'none';
+    strip.innerHTML = momPhotos.map(function(src,i){
+      return '<div class="photo-thumb" style="background-image:url('+src+')"><button type="button" class="x" onclick="removeMomPhoto('+i+')">✕</button></div>';
+    }).join('') + '<label class="mom-add-more"><span>＋</span><input type="file" accept="image/*" multiple onchange="onMomPhoto(this)" hidden></label>';
+  }
+}
+
+function momToggleExp(){ momExpOpen=!momExpOpen; renderMomExpSection(); if(momExpOpen){ var a=document.getElementById('mom-amt'); if(a) setTimeout(function(){ a.focus(); },80); } }
+function renderMomExpSection(){
+  var body=document.getElementById('mom-exp-body'), tog=document.getElementById('mom-exp-toggle');
+  if(body) body.style.display = momExpOpen ? '' : 'none';
+  if(tog) tog.classList.toggle('open', momExpOpen);
+}
+function buildMomCatChips(){
+  var box=document.getElementById('mom-cat'); if(!box)return;
+  box.innerHTML = (catOrder||[]).map(function(c,i){ var s=catStyle[c]||['🏷️']; return '<button type="button" class="choice'+(i===0?' on':'')+'" data-v="'+esc(c)+'" onclick="pick(\'mom-cat\',this)">'+s[0]+' '+esc(c)+'</button>'; }).join('');
+}
+function pickMomWho(btn){ pick('mom-who',btn); }
+function momDirty(){ fhClearInvalid('moment-modal'); refreshMomCta(); }
+function refreshMomCta(){
+  // Save stays enabled once there's at least one photo. An empty amount is fine
+  // (photos-only moment); a filled amount with no category is caught on submit
+  // (shake), never a silently-disabled button — same stance as the expense form.
+  var s=document.getElementById('mom-save'); if(!s)return;
+  s.disabled = !(momPhotos.length>0);
+}
+function momDateObj(){ var v=document.getElementById('mom-date').value; if(!v)return TODAY; var p=v.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
+
+function saveMoment(){
+  if(!momPhotos.length){
+    var drop=document.getElementById('mom-drop');
+    if(drop){ drop.classList.remove('shake'); void drop.offsetWidth; drop.classList.add('shake'); }
+    toast(L('Thêm ít nhất một tấm ảnh','Add at least one photo')); return;
+  }
+  var d=momDateObj(), iso=isoDate(d);
+  var cap=(document.getElementById('mom-cap').value||'').trim();
+  var whoRaw=chosen('mom-who')||(window.lastWho||'Emma');
+  var whoStore=(whoRaw==='Both'||whoRaw==='Chung')?'Shared':whoRaw;
+  var amt=momExpOpen?parseAmtBase(document.getElementById('mom-amt').value):0;
+
+  // --- optional related expense: hand off to the proven expense path -----------
+  if(amt>0){
+    var catEl=document.getElementById('mom-cat'), cat=chosen('mom-cat');
+    if(!cat){ if(catEl){ catEl.classList.remove('shake'); void catEl.offsetWidth; catEl.classList.add('shake'); } toast(L('Chọn một hạng mục','Pick a category')); return; }
+    // Populate the (hidden) expense form and reuse addExpense — it logs the txn,
+    // attaches the photos, and mirrors them into Memories, with real budget math.
+    editingTx=null; exPreset=null; buildExCatChips();
+    document.getElementById('ex-note').value = cap || L('Khoản chi','Expense');
+    document.getElementById('ex-amt').value  = (amt*curMult()).toLocaleString(CUR==='VND'?'vi-VN':'en-US');
+    document.getElementById('ex-date').value = iso;
+    setDateFloor('ex-date', isoMonthStart(-24), iso);
+    selectChipByVal('ex-cat', cat);
+    selectChipByVal('ex-who', whoToChip(whoStore));
+    exPhotos = momPhotos.slice();
+    momPhotos=[]; momExpOpen=false;
+    window.addExpense();                       // wrapped in js-data → persists txn + photos + mirror event
+    // addExpense navigates to Finance; a moment save belongs on the Album.
+    requestAnimationFrame(function(){ goMoments('album'); });
+    return;
+  }
+
+  // --- photos-only: a standalone, money-less memory ----------------------------
+  var name=cap||L('Khoảnh khắc','A moment');
+  var id='m'+order.length+Date.now();
+  var ev={ name:name, emoji:'📸', cov:'sun', date:(MONA[d.getMonth()]+' '+d.getDate()), d:d,
+    target:0, saved:0, setAside:0, achieved:true, momentOnly:true, who:whoStore,
+    memories: momPhotos.map(function(s,i){ return i===0?{src:s,caption:name}:{src:s}; }) };
+  var n=momPhotos.length;
+  events[id]=ev; order.unshift(id);
+  momPhotos=[]; momExpOpen=false;
+  renderEvents(); renderAll(); renderTxns();
+  closeMomentModal();
+  toast(n>1?L(n+' ảnh đã lưu 📸',n+' photos saved 📸'):L('Đã lưu khoảnh khắc 📸','Moment saved 📸'));
+  floatEmojis('📸'); goMoments('album');
+}
+window.openMomentModal=openMomentModal; window.saveMoment=saveMoment;
+
 /* ---- expense photos → memories (multi, max 10) ---- */
 var exPhotos=[];
 function onExPhoto(input){
@@ -11433,7 +11661,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v306';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v307';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -12554,6 +12782,7 @@ function openWhatsNew(){
     }
     fill('ex-who', 'pickExWho(this)');
     fill('fn-who', "pick('fn-who',this)");
+    fill('mom-who', 'pickMomWho(this)');
     if (mems[0]) window.lastWho = mems[0].name;
   }
 
@@ -14422,6 +14651,19 @@ window.classifyAmount = classifyAmount;
       const p = _dbInsertEvent(k, { savingsSource: (window.selSrc === 'savings') }); const ev = window.events[k]; if (ev) ev._dbPending = p;
       // a future occasion is a proposal (created_by is stamped in _dbInsertEvent) — same nudge as a future expense
       if (ev && !ev._srcTxn && ev.d && window.TODAY && ev.d > window.TODAY) p.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'occasion', eid: ev._dbId || null }); });
+    });
+  };
+  /* Photos-only moment: saveMoment() mints a standalone achieved event (target-less)
+     whose photos are its event_memories. The expense path (amount filled) reuses the
+     wrapped addExpense above and needs nothing here — only the pure-memory branch
+     inserts a bare event, so persist exactly the new event keys, like addEvent. */
+  const _origSaveMoment = window.saveMoment;
+  if (typeof _origSaveMoment === 'function') window.saveMoment = function () {
+    if (_fhWriteLocked()) return;
+    const beforeOrder = (window.order || []).slice();
+    _origSaveMoment.apply(this, arguments);
+    (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => {
+      const p = _dbInsertEvent(k); const ev = window.events[k]; if (ev) ev._dbPending = p;
     });
   };
   const _origAddFunds = window.addFunds;

@@ -452,7 +452,7 @@ function renderHome(){
       val: memRecords.length + ' <span class="u">' + L('ảnh', 'photos') + '</span>',
       foot: phThis.length ? L('Thêm ' + phThis.length + ' trong tháng này', phThis.length + ' new this month') : L('Kỷ niệm của cả nhà', 'The family’s memories'), act: 'goMoments(&#39;album&#39;)' });
   } else {
-    tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'), val: '<span class="wt-add">＋</span>', foot: L('Thêm tấm ảnh đầu tiên', 'Add the first photo'), act: 'openSheet(&#39;sheet-add&#39;)' });
+    tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'), val: '<span class="wt-add">＋</span>', foot: L('Thêm tấm ảnh đầu tiên', 'Add the first photo'), act: 'openMomentModal()' });
   }
 
   html += '<div class="wgrid">' + tiles + '</div>';
@@ -469,7 +469,7 @@ function renderHome(){
     var isExp0 = r0.type === 'expense';
     kh += bigPhoto({ src: r0.src, ill: r0.src ? null : occCover(r0.cap, r0.emoji), subj: r0.src ? r0.emoji : '', who: r0.who, eye: isExp0 ? L('Một khoản chi thành kỷ niệm', 'A spend, remembered') : L('Khoảnh khắc gần đây', 'A recent moment'), title: r0.cap, sub: esc(r0.meta || ''), tall: true, act: 'openMemory(' + i0 + ')' });
   } else {                                              // a new family — a warm, photo-shaped invitation
-    kh += bigPhoto({ ill: 'outing', eye: L('Bắt đầu', 'Begin'), title: L('Câu chuyện của cả nhà', 'Your family’s story'), sub: L('Tấm ảnh đầu tiên bắt đầu từ đây', 'Your first photo starts here'), tall: true, cta: { label: '＋ ' + L('Thêm khoảnh khắc', 'Add a moment') }, act: 'openSheet(&#39;sheet-add&#39;)' });
+    kh += bigPhoto({ ill: 'outing', eye: L('Bắt đầu', 'Begin'), title: L('Câu chuyện của cả nhà', 'Your family’s story'), sub: L('Tấm ảnh đầu tiên bắt đầu từ đây', 'Your first photo starts here'), tall: true, cta: { label: '＋ ' + L('Thêm khoảnh khắc', 'Add a moment') }, act: 'openMomentModal()' });
   }
   var grps = (typeof memGroups === 'function') ? memGroups() : [];
   if(grps.length >= 2){                                 // more covers to browse, iOS-Photos style
@@ -481,7 +481,7 @@ function renderHome(){
   html += _sectionH(L('Cùng nhau', 'Together'))
     + '<div class="qgrid">'
     + qTile({ ic: _QSVG.exp, chCls: 'wc-brand', label: L('Chi tiêu', 'Expense'), act: 'go(&#39;spending&#39;);openExpense()' })
-    + qTile({ ic: _QSVG.cam, chCls: 'wc-rose', label: L('Khoảnh khắc', 'Moment'), act: 'goMoments(&#39;album&#39;);paOpen()' })
+    + qTile({ ic: _QSVG.cam, chCls: 'wc-rose', label: L('Khoảnh khắc', 'Moment'), act: 'openMomentModal()' })
     + qTile({ ic: _QSVG.cal, chCls: 'wc-amber', label: L('Kế hoạch', 'Plan'), act: 'goMoments(&#39;plans&#39;);openSheet(&#39;sheet-event&#39;)' })
     + qTile({ ic: _QSVG.pig, chCls: 'wc-indigo', label: L('Góp quỹ', 'Chip in'), act: 'fhSavings()' })
     + '</div>';

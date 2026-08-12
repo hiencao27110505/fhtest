@@ -421,9 +421,13 @@ function _renderMemoryDetail(){
   var rxBox=document.getElementById('mo-rx');
   if(rxBox){ var mtx=memTxFor(r); rxBox.innerHTML=mtx?memReactionsHTML(mtx):''; rxBox.style.display=mtx?'':'none'; }
   var act=document.getElementById('mo-action'), chev=' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
-  if(r.type==='event' && ev && ev.fromExpense){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openExpenseDetail(\''+ev.fromExpense+'\')'); }
-  else if(r.type==='expense'){ act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openExpenseDetail(\''+r.ref+'\')'); }
-  else { act.innerHTML=L('Mở sự kiện','Open event')+chev; act.setAttribute('onclick','closeMemory();openEvent(\''+r.ref+'\')'); }
+  if(r.type==='event' && (ev.momentOnly || (typeof isMomentEvent==='function' && isMomentEvent(ev)))){
+    // A pure photographed moment has no richer source to open — the memory IS the thing.
+    act.style.display='none';
+  }
+  else if(r.type==='event' && ev && ev.fromExpense){ act.style.display=''; act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openExpenseDetail(\''+ev.fromExpense+'\')'); }
+  else if(r.type==='expense'){ act.style.display=''; act.innerHTML=L('Mở khoản chi','Open expense')+chev; act.setAttribute('onclick','closeMemory();openExpenseDetail(\''+r.ref+'\')'); }
+  else { act.style.display=''; act.innerHTML=L('Mở sự kiện','Open event')+chev; act.setAttribute('onclick','closeMemory();openEvent(\''+r.ref+'\')'); }
 }
 function openMemoryByRef(type,ref){ for(var i=0;i<memRecords.length;i++){ if(memRecords[i].type===type&&memRecords[i].ref===ref){ openMemory(i); return; } } }
 function closeMemory(){ document.getElementById('memory-overlay').classList.remove('on'); }

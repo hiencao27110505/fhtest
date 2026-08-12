@@ -167,6 +167,19 @@
       if (ev && !ev._srcTxn && ev.d && window.TODAY && ev.d > window.TODAY) p.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'occasion', eid: ev._dbId || null }); });
     });
   };
+  /* Photos-only moment: saveMoment() mints a standalone achieved event (target-less)
+     whose photos are its event_memories. The expense path (amount filled) reuses the
+     wrapped addExpense above and needs nothing here — only the pure-memory branch
+     inserts a bare event, so persist exactly the new event keys, like addEvent. */
+  const _origSaveMoment = window.saveMoment;
+  if (typeof _origSaveMoment === 'function') window.saveMoment = function () {
+    if (_fhWriteLocked()) return;
+    const beforeOrder = (window.order || []).slice();
+    _origSaveMoment.apply(this, arguments);
+    (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => {
+      const p = _dbInsertEvent(k); const ev = window.events[k]; if (ev) ev._dbPending = p;
+    });
+  };
   const _origAddFunds = window.addFunds;
   window.addFunds = function () {
     if (_fhWriteLocked()) return;
