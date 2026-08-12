@@ -53,9 +53,15 @@ function csvPickAnother(){
 
 /* Reads ONE file to {headers, rows}. .xlsx goes through the native reader
    (42-xlsx-parse.js); everything else is read as text. */
-function csvReadOneFile(file){
+function csvReadOneFile(file, password){
   return new Promise(function(resolve, reject){
-    if(/\.(xls|numbers|ods)$/i.test(file.name)){
+    // .xls is the common one (old Excel, and some bank exports), so it gets
+    // its own line instead of a generic "unsupported format".
+    if(/\.xls$/i.test(file.name)){
+      reject(new Error(L('File này ở định dạng Excel đời cũ (.xls). Bạn mở ra rồi lưu lại thành .xlsx hoặc CSV là tụi mình đọc được nhé.','This is an older Excel format (.xls). Open it and save it again as .xlsx or CSV and we can read it.')));
+      return;
+    }
+    if(/\.(numbers|ods)$/i.test(file.name)){
       reject(new Error(L('Tụi mình đọc được file CSV và Excel (.xlsx). Với định dạng này, bạn mở ra rồi lưu thành CSV hoặc .xlsx nhé.','We can read CSV and Excel (.xlsx). For this format, open it and save as CSV or .xlsx.')));
       return;
     }
@@ -64,7 +70,21 @@ function csvReadOneFile(file){
         reject(new Error(L('Trình duyệt này chưa đọc được file Excel. Bạn lưu thành CSV giúp nhé.','This browser can\'t open Excel files yet. Save it as CSV instead.')));
         return;
       }
-      window.fhParseXlsxFile(file).then(resolve, function(){
+      window.fhParseXlsxFile(file, password).then(resolve, function(err){
+        var code = (err && err.message) || '';
+        // Not an error yet -- the caller turns this into a password prompt.
+        if(code === 'xlsx_encrypted'){ var e2 = new Error('xlsx_encrypted'); e2.locked = true; reject(e2); return; }
+        if(code === 'bad_password'){ var e3 = new Error('bad_password'); e3.locked = true; e3.wrong = true; reject(e3); return; }
+        if(code === 'xlsx_enc_unsupported'){
+          reject(new Error(L('File này được khoá bằng một kiểu mã hoá tụi mình chưa mở được. Bạn mở bằng Excel rồi lưu một bản không đặt mật khẩu giúp nhé.','This file uses an encryption scheme we can\'t open yet. Open it in Excel and save a copy without the password.')));
+          return;
+        }
+        // Locked workbooks are common here -- banks send statements protected
+        // with a phone number or date of birth. Say so, and say what to do.
+        if(code === 'xls_legacy'){
+          reject(new Error(L('File này ở định dạng Excel đời cũ (.xls). Bạn mở ra rồi lưu lại thành .xlsx hoặc CSV giúp nhé.','This is an older Excel format (.xls). Open it and save it again as .xlsx or CSV.')));
+          return;
+        }
         reject(new Error(L('Không đọc được file Excel này.','Couldn\'t read this Excel file.')));
       });
       return;
@@ -87,33 +107,112 @@ function csvReadOneFile(file){
    which is what makes cross-file duplicates catchable: exported statements
    very often overlap by a few days, and importing both would otherwise double
    those transactions. */
+/* Files still waiting on a password, and the passwords already accepted.
+   csvPasswords lives for this import only -- never persisted, never sent. */
+var csvLocked = [];
+var csvPasswords = {};
+
 function onCsvFileSelected(input){
   var files = Array.prototype.slice.call((input && input.files) || []);
   if(!files.length) return;
+  csvImportFiles(files, input);
+}
+
+function csvImportFiles(files, input){
   var out = document.getElementById('csv-result');
   var appending = !!(csvReview && csvReview.sources && csvReview.sources.length);
   if(out) out.innerHTML = '<div class="sheet-sub csv-reading">'
-    + esc(files.length > 1 ? L('✨ Đang đọc '+files.length+' file…','✨ Reading '+files.length+' files…')
-                           : L('✨ Đang đọc file của bạn…','✨ Reading your file…')) + '</div>';
+    + esc(files.length > 1 ? L('Đang đọc '+files.length+' file…','Reading '+files.length+' files…')
+                           : L('Đang đọc file…','Reading your file…')) + '</div>';
 
   var problems = [];
+  csvLocked = [];
+  csvSkipLocked = false;
   Promise.all(files.map(function(f){
-    return csvReadOneFile(f)
+    return csvReadOneFile(f, csvPasswords[f.name])
       .then(function(parsed){ return window.fhResolveCsvMapping(parsed.headers, parsed.rows)
         .then(function(result){ return { parsed:parsed, result:result, name:f.name }; }); })
-      .catch(function(e){ problems.push(f.name + ' — ' + ((e && e.message) || e)); return null; });
+      .catch(function(e){
+        // A locked file isn't a failure -- it's a question we haven't asked yet.
+        if(e && e.locked){ csvLocked.push({ file:f, wrong:!!e.wrong }); return null; }
+        problems.push(f.name + ' — ' + ((e && e.message) || e)); return null;
+      });
   })).then(function(loaded){
     var sources = loaded.filter(Boolean);
     if(appending) sources = csvReview.sources.concat(sources);
+    if(csvLocked.length && !csvSkipLocked){ csvRenderUnlock(files, problems); return; }
     if(!sources.length){
       if(out) out.innerHTML = '<div class="sheet-sub">'+esc(problems.join(' · ') || L('Không đọc được file này.','Could not read this file.'))+'</div>';
       return;
     }
     csvBuildReview(sources);
     csvReview.problems = problems;      // named, never swallowed
+    csvReview.pending = files;          // so a password can re-read the locked ones
     renderCsvReview();
     if(input) input.value = '';          // so re-picking the same file still fires
   });
+}
+
+/* The unlock prompt.
+
+   Everything here happens on the device: the password derives a key, opens the
+   file, and is dropped. It is never stored and never sent -- worth saying on
+   the screen, because being asked for a bank password is exactly the moment a
+   person should be suspicious. */
+function csvRenderUnlock(files, problems){
+  var out = document.getElementById('csv-result'); if(!out) return;
+  var names = csvLocked.map(function(l){ return l.file.name; });
+  var wrong = csvLocked.some(function(l){ return l.wrong; });
+  var others = (files || []).length - csvLocked.length;
+  out.innerHTML = '<div class="csv-unlock">'
+    + '<div class="csv-unlock-title">' + esc(L('File này có mật khẩu','This file needs a password')) + '</div>'
+    + '<div class="csv-unlock-sub">' + esc(names.join(', ')) + '</div>'
+    + '<input id="csv-pw" type="password" class="csv-pw" autocomplete="off" '
+      + 'placeholder="' + escAttr(L('Nhập mật khẩu mở file','Enter the password')) + '" '
+      + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();csvUnlock();}">'
+    + (wrong ? '<div class="csv-unlock-err">' + esc(L('Mật khẩu chưa đúng, thử lại nhé','That password didn\'t work, try again')) + '</div>' : '')
+    + '<button type="button" class="btn-line csv-unlock-go" onclick="csvUnlock()">' + L('Mở file','Unlock') + '</button>'
+    + '<div class="csv-unlock-note">' + esc(L('Mật khẩu chỉ dùng ngay trên máy bạn để mở file, tụi mình không lưu và không gửi đi đâu.','The password is used on your device to open the file. We do not store it or send it anywhere.')) + '</div>'
+    + '<button type="button" class="csv-linkbtn csv-unlock-skip" onclick="csvSkipLockedFiles()">'
+      + esc(others > 0
+          ? L('Không biết mật khẩu, nhập '+others+' file còn lại','Skip it and import the other '+others)
+          : L('Không biết mật khẩu, bỏ qua file này','Skip this file'))
+    + '</button>'
+    + (problems && problems.length ? '<div class="csv-unlock-err">' + esc(problems.join(' · ')) + '</div>' : '')
+    + '</div>';
+  csvReview = null;
+  var pick = document.getElementById('csv-pick'); if(pick) pick.style.display = 'none';
+  var f = document.getElementById('csv-pw'); if(f) f.focus();
+  csvUnlockFiles = files;
+}
+
+var csvUnlockFiles = null;
+var csvSkipLocked = false;
+
+function csvSkipLockedFiles(){
+  var drop = {};
+  csvLocked.forEach(function(l){ drop[l.file.name] = 1; });
+  var rest = (csvUnlockFiles || []).filter(function(f){ return !drop[f.name]; });
+  csvSkipLocked = true;
+  if(!rest.length){
+    var out = document.getElementById('csv-result');
+    if(out) out.innerHTML = '<div class="sheet-sub">'+esc(L('Chưa có file nào để nhập. Bạn chọn file khác nhé.','Nothing to import yet. Pick another file.'))+'</div>';
+    var pick = document.getElementById('csv-pick'); if(pick) pick.style.display='';
+    csvSkipLocked = false; csvLocked = [];
+    return;
+  }
+  csvImportFiles(rest, null);
+}
+
+function csvUnlock(){
+  var f = document.getElementById('csv-pw');
+  var pw = f ? f.value : '';
+  if(!pw) { if(f) f.focus(); return; }
+  csvLocked.forEach(function(l){ csvPasswords[l.file.name] = pw; });
+  var go = document.querySelector('.csv-unlock-go');
+  if(go){ go.disabled = true; go.textContent = L('Đang mở…','Unlocking…'); }
+  // Let the button paint before the key derivation takes the thread.
+  setTimeout(function(){ csvImportFiles(csvUnlockFiles || [], null); }, 30);
 }
 
 /* Shared tail for both readers: once a file is {headers, rows}, CSV and xlsx
@@ -376,6 +475,60 @@ function csvDefaultWho(){
 
 function csvAmtInputVal(n){ return Number(n).toLocaleString(CUR==='VND'?'vi-VN':'en-US'); }
 
+/* What the file adds up to, shown before the row-by-row work.
+   The rows below answer "is each one right?"; this answers the question people
+   actually opened the file for -- where did the money go. It reads only rows
+   that are going in, so the number always matches the Import button. */
+function csvSpendPanel(r){
+  var rows = (r.ready || []);
+  if(rows.length < 3) return '';                    // two rows don't need a breakdown
+
+  var byCat = {}, totalBase = 0;
+  rows.forEach(function(c){
+    var b = csvBaseAmt(c.amount);
+    if(!(b > 0)) return;
+    totalBase += b;
+    var k = c.categoryName || CAT_FALLBACK;
+    byCat[k] = (byCat[k] || 0) + b;
+  });
+  if(!totalBase) return '';
+
+  var cats = Object.keys(byCat).map(function(k){ return { name:k, base:byCat[k] }; })
+                   .sort(function(a,b){ return b.base - a.base; });
+  var top = cats.slice(0, 3), max = top[0].base;
+
+  // Months covered, so a 3-month statement doesn't read as one month of spending.
+  var months = {};
+  rows.forEach(function(c){ if(c.date) months[c.date.getFullYear()+'-'+c.date.getMonth()] = 1; });
+  var nMonths = Object.keys(months).length;
+  var sub = nMonths > 1
+    ? L('trong ' + nMonths + ' tháng, ' + rows.length + ' khoản', 'across ' + nMonths + ' months, ' + rows.length + ' items')
+    : L(rows.length + ' khoản', rows.length + ' items');
+
+  var bars = top.map(function(t){
+    var st = (window.catStyle && window.catStyle[t.name]) || ['\ud83c\udff7\ufe0f'];
+    var pct = Math.round(t.base / totalBase * 100);
+    return '<div class="csv-sum-row">'
+      + '<div class="csv-sum-ico">' + st[0] + '</div>'
+      + '<div class="csv-sum-body">'
+        + '<div class="csv-sum-line"><span class="csv-sum-name">' + esc(t.name) + '</span>'
+        + '<span class="csv-sum-amt">' + fmt(t.base) + '</span></div>'
+        + '<div class="csv-sum-track"><i style="width:' + Math.max(6, Math.round(t.base / max * 100)) + '%"></i></div>'
+      + '</div>'
+      + '<div class="csv-sum-pct">' + pct + '%</div>'
+    + '</div>';
+  }).join('');
+
+  var rest = cats.length - top.length;
+  return '<div class="csv-sum">'
+    + '<div class="csv-sum-cap">' + esc(L('Tổng chi trong file này','Total spending in this file')) + '</div>'
+    + '<div class="csv-sum-total">' + fmt(totalBase) + '</div>'
+    + '<div class="csv-sum-sub">' + esc(sub) + '</div>'
+    + '<div class="csv-sum-bars">' + bars + '</div>'
+    + (rest > 0 ? '<div class="csv-sum-rest">' + esc(L('và ' + rest + ' danh mục khác', 'and ' + rest + ' more categories')) + '</div>' : '')
+    + '</div>';
+}
+
 /* EXACT bulk-logging card (renderBulk/bulkSummary, 50-sheets-expense-capture.js).
    Same markup, same classes, same summary function -- so the import review and
    the multi-expense composer are literally one component, and a change to that
@@ -392,17 +545,20 @@ function csvRowShape(c, isDup){
            cat: c.categoryName || '', _dup: !!isDup };
 }
 
-function csvCardHead(label, dateIso, removeFn, attn){
-  return '<span class="bulk-head"><span class="bulk-idx'+(attn?' attn':'')+'">'+esc(label)+'</span>'
+/* isError separates "this can't go in" (red) from "worth a glance" (amber).
+   Both live in the same section, but only one of them is a problem. */
+function csvCardHead(label, dateIso, removeFn, attn, isError){
+  var tone = isError ? ' attn' : (attn ? ' warn' : '');
+  return '<span class="bulk-head"><span class="bulk-idx'+tone+'">'+esc(label)+'</span>'
     + (dateIso ? '<span class="bulk-date">'+esc(bulkDate(dateIso))+'</span>' : '')
     + '</span>';
 }
 
 function csvCollapsedCard(c, opts){
   var rm = opts.removeFn ? '<button type="button" class="bulk-x" onclick="'+opts.removeFn+'" aria-label="'+L('Xoá khoản này','Remove this item')+'">✕</button>' : '';
-  return '<div class="bulk-card'+(opts.invalid?' invalid':'')+'">'
+  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">'
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
-    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid)
+    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid)
     + (opts.noPick
         ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+'</span>'
         : bulkSummary(csvRowShape(c, opts.isDup)))
@@ -447,8 +603,8 @@ function csvActiveCard(c, opts){
   }
   if(opts.buttons) body += '<div class="dup-actions" style="margin-top:14px">'+opts.buttons+'</div>';
 
-  return '<div class="bulk-card active'+(opts.invalid?' invalid':'')+'">'
-    + '<div class="bulk-head">'+csvCardHead(opts.label, opts.dateIso, null, opts.invalid)+rm+'</div>'
+  return '<div class="bulk-card active'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">'
+    + '<div class="bulk-head">'+csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid)+rm+'</div>'
     + '<div class="csv-card-body">'+body+'</div></div>';
 }
 
@@ -488,7 +644,7 @@ function renderCsvReview(){
 
   if(r.mixedSignsNote){
     html += '<div class="notice-card"><svg class="notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>'
-      + '<div class="notice-text">'+L('File này có cả số dương và âm trong cột số tiền — có thể lẫn cả thu lẫn chi, nên tụi mình không tự nhập khoản nào. Khoản nào đúng là khoản chi, bạn chạm vào để xác nhận.','This file mixes positive and negative amounts — possibly income and expenses together, so nothing was imported automatically. Tap any row that really is an expense to confirm it.')+'</div></div>';
+      + '<div class="notice-text">'+L('Cột số tiền có cả số dương và số âm, nên file này có thể lẫn cả tiền vào lẫn tiền ra. Tụi mình chưa nhập khoản nào. Khoản nào đúng là khoản chi, bạn chạm để xác nhận.','The amount column has both positive and negative numbers, so this file may mix money in with money out. Nothing was imported. Tap any row that really is an expense to confirm it.')+'</div></div>';
   }
 
   /* Category disclosure. Default path: we already adopted the file's own
@@ -502,18 +658,18 @@ function renderCsvReview(){
       + esc(r.catMerges.map(function(m){ return '"'+m.from+'" → '+m.to; }).join(' · '))+'</div>');
     var learnedCount = (csvReview.ready||[]).filter(function(c){ return c.catSource==='learned'; }).length;
     if(learnedCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
-      + '<b>'+esc(L(learnedCount+' khoản xếp theo lần bạn sửa trước','Reused your past corrections for '+learnedCount))+'</b> '
-      + esc(L('— tụi mình nhớ trên máy bạn thôi, không gửi đi đâu cả.','— remembered on this device only, never sent anywhere.'))
+      + '<b>'+esc(L(learnedCount+' khoản xếp theo lần bạn sửa trước','Reused your past corrections for '+learnedCount))+'</b>'
+      + esc(L(', nhớ trên máy bạn thôi, không gửi đi đâu.',', remembered on this device only, never sent anywhere.'))
       + ' <button type="button" class="csv-linkbtn" onclick="csvForgetLearned()">'+L('Quên đi','Forget these')+'</button></div>');
     if(r.summaryCount) lines.push('<div class="notice-text"'+((didMerge||didAdd||learnedCount)?' style="margin-top:6px"':'')+'>'
-      + '<b>'+esc(L(r.summaryCount+' dòng tổng cuối file','Skipped '+r.summaryCount+' total row'+(r.summaryCount===1?'':'s')))+'</b> '
-      + esc(L('— đã bỏ qua, không phải giao dịch.','at the end of the file — not transactions.'))+'</div>');
+      + '<b>'+esc(L(r.summaryCount+' dòng tổng cuối file','Skipped '+r.summaryCount+' total row'+(r.summaryCount===1?'':'s')))+'</b>'
+      + esc(L(', đã bỏ qua vì không phải giao dịch.',' at the end of the file, skipped as they are not transactions.'))+'</div>');
     if(r.patternCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
-      + '<b>'+esc(L(r.patternCount+' khoản đoán theo thói quen chi tiêu','Guessed '+r.patternCount+' from your spending pattern'))+'</b> '
-      + esc(L('— ví dụ khoản nhỏ lặp lại ở cùng một chỗ, hay khoản lớn lặp hằng tháng. Ngó qua giúp nhé.','— e.g. small repeats at one place, or a large monthly repeat. Worth a glance.'))+'</div>');
+      + '<b>'+esc(L(r.patternCount+' khoản đoán theo thói quen chi tiêu','Guessed '+r.patternCount+' from your spending pattern'))+'</b>'
+      + esc(L('. Ví dụ khoản nhỏ hay lặp ở cùng một chỗ, hay khoản lớn lặp hằng tháng. Bạn ngó qua nhé.','. For example small repeats at one place, or a large monthly repeat. Worth a glance.'))+'</div>');
     if(r.fallbackCount) lines.push('<div class="notice-text"'+((didMerge||didAdd)?' style="margin-top:6px"':'')+'>'
-      + '<b>'+esc(L(r.fallbackCount+' khoản chưa rõ danh mục', r.fallbackCount+(r.fallbackCount===1?' row':' rows')+' had no clear category'))+'</b> '
-      + esc(L('— tạm để ở "'+CAT_FALLBACK+'", chạm vào khoản để đổi.','— filed under "'+CAT_FALLBACK+'" for now; tap a row to change it.'))+'</div>');
+      + '<b>'+esc(L(r.fallbackCount+' khoản chưa rõ danh mục', r.fallbackCount+(r.fallbackCount===1?' row':' rows')+' had no clear category'))+'</b>'
+      + esc(L(', tạm để ở "'+CAT_FALLBACK+'". Chạm vào khoản để đổi.',', filed under "'+CAT_FALLBACK+'" for now. Tap a row to change it.'))+'</div>');
     if(didAdd) lines.push('<div class="notice-text"'+(didMerge?' style="margin-top:6px"':'')+'>'
       + '<b>'+esc(L('Đã thêm danh mục mới từ file:','Added new categories from your file:'))+'</b> '
       + esc(r.adoptedCats.map(function(n){ return csvCatEmoji(n)+' '+n; }).join(' · '))+'</div>');
@@ -524,7 +680,7 @@ function renderCsvReview(){
     html += '<div class="notice-card stack">'
       + '<div class="notice-text"><b>'+esc(L('File này dùng '+r.fileCats.length+' danh mục bạn chưa có:','This file uses '+r.fileCats.length+(r.fileCats.length===1?' category':' categories')+' you don\'t have yet:'))+'</b> '
       + esc(r.fileCats.map(function(n){ return csvCatEmoji(n)+' '+n; }).join(' · '))+'</div>'
-      + '<button type="button" class="btn-line" style="width:100%;margin:10px 0 0" onclick="csvAdoptFileCategories()">'+L('✨ Thêm và tự xếp giúp tôi','✨ Add them and sort for me')+'</button>'
+      + '<button type="button" class="btn-line" style="width:100%;margin:10px 0 0" onclick="csvAdoptFileCategories()">'+L('Thêm và xếp giúp tôi','Add them and sort for me')+'</button>'
       + '</div>';
   }
 
@@ -536,7 +692,7 @@ function renderCsvReview(){
   r.groups.forEach(function(g, gi){
     var head = g.items[0].description + (g.items.length>1 ? ' · '+g.items.length+' '+L('khoản','items') : '');
     var proxy = { description:g.items[0].description, amount:g.items.reduce(function(s,it){return s+it.amount;},0), categoryName:null, dateDisplay:g.items[0].dateDisplay };
-    var o = { label:head, dateIso:g.items[0].dateDisplay, invalid:true,
+    var o = { label:head, dateIso:g.items[0].dateDisplay, attn:true,
               tapFn:"csvToggleExpand('group',"+gi+")", removeFn:"csvSkipGroup("+gi+")" };
     attnHtml += csvIsOpen('group', gi)
       ? csvActiveCard(proxy, Object.assign({}, o, { instantChips:true }))
@@ -544,22 +700,23 @@ function renderCsvReview(){
   });
   r.dup.forEach(function(d, di){
     if(d.resolved!==null) return;
-    var o = { label:L('Có thể trùng','Possible duplicate'), dateIso:d.c.dateDisplay, invalid:true, isDup:true,
+    var o = { label:L('Có thể trùng','Possible duplicate'), dateIso:d.c.dateDisplay, attn:true, isDup:true,
               tapFn:"csvToggleExpand('dup',"+di+")", removeFn:"csvDupSkip("+di+")" };
     if(!csvIsOpen('dup', di)){ attnHtml += csvCollapsedCard(d.c, o); return; }
     var why = d.c.duplicateOfExisting
-      ? L('Trùng với một giao dịch đã có trong sổ — cùng số tiền, trong vòng 3 ngày.','Matches a transaction already in your ledger — same amount, within 3 days.')
+      ? L('Trùng với một giao dịch đã có trong sổ: cùng số tiền, trong vòng 3 ngày.','Matches a transaction already in your ledger: same amount, within 3 days.')
       : L('Xuất hiện 2 lần trong file này với cùng nội dung và số tiền.','Appears twice in this file with the same description and amount.');
     attnHtml += csvActiveCard(d.c, Object.assign({}, o, { fields:true, note:esc(why),
       buttons: '<button type="button" class="btn-line" onclick="csvDupInclude('+di+')">'+L('Vẫn nhập','Import anyway')+'</button>'
              + '<button type="button" class="btn-text-quiet" onclick="csvDupSkip('+di+')">'+L('Bỏ qua','Skip')+'</button>' }));
   });
   r.deferred.forEach(function(c, di){
-    var why = c.isIncome ? L('Tiền vào — không nhập','Money in — not imported')
+    var why = c.isIncome ? L('Tiền vào, không nhập','Money in, not imported')
       : c.flags.indexOf('date_missing')>=0 ? L('Thiếu ngày','Missing date')
       : c.flags.indexOf('amount_missing')>=0 ? L('Thiếu số tiền','Missing amount')
       : L('Có thể là thu nhập','Possibly income');
-    var o = { label:why, dateIso:c.dateDisplay, invalid:true, noPick:!!c.isIncome,
+    var blocking = c.flags.indexOf('date_missing')>=0 || c.flags.indexOf('amount_missing')>=0;
+    var o = { label:why, dateIso:c.dateDisplay, invalid:blocking, attn:!blocking, noPick:!!c.isIncome,
               tapFn:"csvToggleExpand('defer',"+di+")", removeFn:"csvDeferDrop("+di+")" };
     if(!csvIsOpen('defer', di)){ attnHtml += csvCollapsedCard(c, o); return; }
     attnHtml += csvActiveCard(c, Object.assign({}, o, { fields: !c.isIncome,
@@ -580,9 +737,9 @@ function renderCsvReview(){
   });
   lowConf.forEach(function(e){
     var why = e.c.catSource === 'fallback'
-      ? L('Chưa rõ danh mục — tạm để '+e.c.categoryName, 'No clear category — set to '+e.c.categoryName)
-      : L('Đoán theo thói quen — kiểm tra giúp nhé','Guessed from your habits — worth a check');
-    var o = { label:why, dateIso:e.c.dateDisplay, invalid:true,
+      ? L('Chưa rõ danh mục','No clear category')
+      : L('Đoán theo thói quen, bạn xem lại nhé','Guessed from your habits, worth a check');
+    var o = { label:why, dateIso:e.c.dateDisplay, attn:true,
               tapFn:"csvToggleExpand('ready',"+e.i+")", removeFn:"csvReadyRemove("+e.i+")" };
     attnHtml += csvIsOpen('ready', e.i)
       ? csvActiveCard(e.c, Object.assign({}, o, { fields:true,
@@ -596,13 +753,14 @@ function renderCsvReview(){
   var readyCount = r.ready.length;
   var summaryLine;
   if(r.mixedSignsNote) summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
-  else if(decisionCount===0 && readyCount>0) summaryLine = esc(L('✨ Cả '+readyCount+' khoản đã xếp xong — lướt qua rồi nhập thôi','✨ All '+readyCount+' sorted — skim and import'));
-  else if(readyCount>0) summaryLine = esc(L('✨ Đã tự xếp '+readyCount+' khoản — chỉ còn '+decisionCount+' cần bạn xem','✨ '+readyCount+' sorted automatically — just '+decisionCount+(decisionCount===1?' needs':' need')+' your eye'));
+  else if(decisionCount===0 && readyCount>0) summaryLine = esc(L('Đã xếp xong cả '+readyCount+' khoản. Lướt qua rồi nhập thôi.','All '+readyCount+' sorted. Skim and import.'));
+  else if(readyCount>0) summaryLine = esc(L('Đã xếp '+readyCount+' khoản, còn '+decisionCount+' cần bạn xem.',readyCount+' sorted, '+decisionCount+' left for you to check.'));
   else summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
   html += '<div class="review-summary">'+summaryLine+'</div>';
+  html += csvSpendPanel(r);
 
   if(attnHtml){
-    html += '<div class="group-h attn">'+L('Cần bạn xem','Needs your eye')+'</div><div class="csv-cards">'+attnHtml+'</div>';
+    html += '<div class="group-h attn">'+L('Cần bạn xem','Needs a look')+'</div><div class="csv-cards">'+attnHtml+'</div>';
   }
 
   /* Ready list, grouped by date (newest first) -- same cards, no red border. */

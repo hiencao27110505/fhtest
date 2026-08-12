@@ -129,8 +129,35 @@
 
   /* ArrayBuffer -> string[][], the same shape the CSV parser produces, so the
      rest of the import pipeline can't tell the two apart. */
-  async function fhParseXlsxBuffer(buf) {
+  /* A password-protected workbook isn't a ZIP at all -- Office wraps the
+     encrypted package in an OLE2 compound file, which starts with this magic.
+     Without this check the reader just reports "not a zip", which tells nobody
+     anything; banks here routinely send statements locked with a phone number
+     or a date of birth, so this is a case worth naming precisely. */
+  function _isOleContainer(buf) {
+    const u = new Uint8Array(buf, 0, Math.min(8, buf.byteLength));
+    const magic = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
+    if (u.length < 8) return false;
+    for (let i = 0; i < 8; i++) if (u[i] !== magic[i]) return false;
+    return true;
+  }
+
+  /* Legacy .xls uses that same container, so the magic alone can't tell a
+     locked file from an old one -- and telling someone their file has a
+     password when it doesn't sends them hunting for a password that never
+     existed. 41-xlsx-decrypt.js reads the container properly and says which
+     it is; with a password in hand it also hands back a plain .xlsx, so
+     everything below this point is unaware the file was ever locked. */
+  async function fhParseXlsxBuffer(buf, password) {
     if (!_xlsxSupported()) throw new Error('xlsx_unsupported');
+    if (_isOleContainer(buf)) {
+      let kind = 'unsupported';
+      try { kind = window.fhXlsxEncryptionKind(buf); } catch (e) { kind = 'none'; }
+      if (kind === 'none') throw new Error('xls_legacy');              // an old .xls
+      if (kind !== 'agile') throw new Error('xlsx_enc_unsupported');   // a scheme we don't open
+      if (!password) throw new Error('xlsx_encrypted');                // ask, then come back
+      buf = await window.fhDecryptXlsx(buf, password);
+    }
 
     // First pass: the parts whose names are fixed.
     const meta = await _zipEntries(buf, (n) =>
@@ -185,8 +212,8 @@
   }
 
   // File -> { headers, rows }, matching fhParseCsvFile's contract.
-  async function fhParseXlsxFile(file) {
-    const rows = (await fhParseXlsxBuffer(await file.arrayBuffer()))
+  async function fhParseXlsxFile(file, password) {
+    const rows = (await fhParseXlsxBuffer(await file.arrayBuffer(), password))
       .filter((r) => r.some((cell) => String(cell).trim() !== ''));
     const [headers, ...dataRows] = rows;
     return { headers: (headers || []).map(function (h) { return String(h); }), rows: dataRows };
