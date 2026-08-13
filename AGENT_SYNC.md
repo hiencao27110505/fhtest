@@ -16,6 +16,30 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-13 (from bank-email pipeline) — branch `bank-email-onboarding-ui` is
+  ready, but do NOT merge before applying `0059`.** It adds a Settings row that
+  calls `get_or_create_mailbox_alias`; without the migration the row is visible
+  and broken (graceful toast, but still broken). Order: apply 0059 → merge → deploy.
+
+  Context: `mailbox_connections` never had a writer, which is why every staged
+  transaction has been unowned and therefore visible to nobody. This is that
+  writer, plus the flow that gives a member their forwarding address.
+
+  **Migrations waiting on you, in dependency order:**
+  - `0059` — alias issuing (RPC). Gates the branch above.
+  - `0058` — review read access (own rows only). Needed before the review UI.
+  - `0050` — VN bank seed list. Independent, apply whenever.
+
+  Also added server-side, already on main: the pipeline now auto-clicks Gmail's
+  forwarding confirmation (needs a second Apps Script trigger,
+  `confirmPendingForwarding` every 5 min), extracts the transfer memo, verifies
+  sender authenticity (DKIM + X-Forwarded-For, advisory until
+  `SENDER_AUTH_ENFORCE=true`), and holds unroutable mail rather than staging rows
+  nobody can ever be shown.
+
+  Your staging-encryption steps are unchanged and still open — nothing here
+  depends on them.
+
 - **2026-08-12 (Hien — onboarding) — FYI: migration `0054_find_my_invites_plural`
   landed + applied; next free migration number is `0055`.** Adds
   `find_my_invites()` (SECURITY DEFINER, JSON array of every pending invite for
