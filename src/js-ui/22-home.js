@@ -523,7 +523,7 @@ function renderHome(){
     // for its first moment (handled in the else branch below).
     gettingStarted = !(window.txns || []).length;
   }
-  var momentCard = gsCard({ ill: 'moment', title: L('Lưu khoảnh khắc', 'Add a moment'), sub: L('Tấm ảnh đầu tiên bắt đầu từ đây', 'Your first photo starts here'), act: 'openMomentModal()' });
+  var momentCard = gsCard({ ill: 'moment', title: L('Lưu khoảnh khắc', 'Add a moment'), sub: L('Tấm ảnh đầu tiên', 'Your first photo'), act: 'openMomentModal()' });
   if(gettingStarted){
     // The three first-run setup tasks. Budget comes first (it powers the finance
     // view) as a full-width card, shown until a monthly budget exists; then the
@@ -536,7 +536,7 @@ function renderHome(){
         + '</div>';
     }
     html += '<div class="gs-grid">'
-      + gsCard({ ill: 'expense', title: L('Ghi khoản chi', 'Log an expense'), sub: L('Khoản chi đầu tiên của cả nhà', 'Your family’s first spend'), act: 'go(&#39;spending&#39;);openExpense()' })
+      + gsCard({ ill: 'expense', title: L('Ghi khoản chi', 'Log an expense'), sub: L('Khoản chi đầu tiên', 'Your first spend'), act: 'go(&#39;spending&#39;);openExpense()' })
       + momentCard + '</div>';
   } else {
     var grps = (typeof memGroups === 'function') ? memGroups() : [];
