@@ -1022,7 +1022,7 @@ function handleForwardingConfirmation(message) {
     return;
   }
 
-  var link = extractForwardingConfirmLink(message.getBody() || message.getPlainBody() || '');
+  var link = extractForwardingConfirmLink(message);
   if (!link) {
     Logger.log('no confirmation link found in message ' + message.getId());
     return;
@@ -1047,32 +1047,59 @@ function handleForwardingConfirmation(message) {
 // The real email (captured 2026-08-13) carries TWO links on the same host:
 //   confirm:  https://mail-settings.google.com/mail/vf-<token>
 //   cancel:   https://mail-settings.google.com/mail/uf-<token>
-// The cancel link REVOKES the forwarding request. Clicking it instead of the
-// confirm link would silently undo the setup the user just completed, and the
-// failure would look like "forwarding mysteriously never worked".
+// The cancel link REVOKES the request. Clicking it instead would silently undo
+// the setup the user just completed and present as "forwarding never worked".
+// So this matches the /mail/vf- PATH SEGMENT — not merely a URL containing
+// "vf-", since those tokens are random and hyphenated and a cancel link's token
+// could contain that sequence.
 //
-// So this matches the /mail/vf- PATH SEGMENT, not merely a URL containing
-// "vf-": those tokens are random and hyphenated, so a substring test could
-// match a cancel link whose token happens to contain that sequence.
-//
-// The host is not hard-coded to mail.google.com — the first version assumed
-// that and failed in production, because Google serves these from
-// mail-settings.google.com. Any google.com host is accepted; nothing else is.
-function extractForwardingConfirmLink(body) {
-  var text = String(body || '').replace(/&amp;/g, '&');
-  var m = text.match(/https:\/\/[a-z0-9.-]*google\.com\/mail\/vf-[^\s"'<>)]+/i);
-  if (m) return m[0];
+// Reads BOTH body formats. The HTML body can break a long URL with tags or
+// entities, and the plain body can wrap it across lines; neither is reliable
+// alone, so each is tried and the HTML one is also stripped of tags and
+// un-wrapped before matching. The host is not hard-coded — assuming
+// mail.google.com is what broke the first version in production; Google sends
+// these from mail-settings.google.com.
+function extractForwardingConfirmLink(message) {
+  var candidates = [];
+  try { candidates.push(message.getPlainBody() || ''); } catch (e) { /* absent */ }
+  try {
+    var html = message.getBody() || '';
+    candidates.push(html);
+    // tags out, entities decoded, then joined so a URL split across lines or
+    // interrupted by markup becomes matchable again
+    // tags removed, for the case where the link appears only as visible text
+    // and markup sits inside it. NOT whitespace-stripped: joining every gap
+    // would glue the following prose onto the URL and win on length.
+    candidates.push(html.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&'));
+  } catch (e2) { /* absent */ }
 
-  // Nothing matched: log google.com candidates (paths only, never query
-  // strings — those carry the token) so the real shape is visible next run
-  // without writing a usable confirmation link into the logs.
-  var urls = text.match(/https?:\/\/[^\s"'<>)]+/g) || [];
-  var seen = [];
-  for (var j = 0; j < urls.length && seen.length < 6; j++) {
-    if (!/google\.com/i.test(urls[j])) continue;
-    seen.push(urls[j].split('?')[0].slice(0, 120));
+  // LONGEST match wins, not the first. A URL interrupted by markup or wrapped
+  // across lines still matches its opening fragment, so "first match" would
+  // happily return a truncated link and we would click something broken. The
+  // intact copy is by definition the longest one seen across the variants.
+  var re = /https:\/\/[a-z0-9.-]*google\.com\/mail\/vf-[^\s"'<>)]+/i;
+  var best = null;
+  for (var i = 0; i < candidates.length; i++) {
+    var m = String(candidates[i]).replace(/&amp;/g, '&').match(re);
+    if (m && (!best || m[0].length > best.length)) best = m[0];
   }
-  if (seen.length) Logger.log('confirmation candidates seen: ' + seen.join(' | '));
+  if (best) return best;
+
+  // Still nothing: report what was actually there so this stops being guesswork.
+  // Query strings are stripped — they carry the token, and a working
+  // confirmation link must never be written into logs.
+  var lens = candidates.map(function (c) { return String(c).length; }).join('/');
+  var seen = [];
+  for (var j = 0; j < candidates.length && seen.length < 8; j++) {
+    var urls = String(candidates[j]).match(/https?:\/\/[^\s"'<>)]+/g) || [];
+    for (var k = 0; k < urls.length && seen.length < 8; k++) {
+      if (!/google\.com/i.test(urls[k])) continue;
+      var u = urls[k].split('?')[0].slice(0, 100);
+      if (seen.indexOf(u) === -1) seen.push(u);
+    }
+  }
+  Logger.log('no vf- link. body lengths=' + lens + '; google urls seen: ' +
+    (seen.length ? seen.join(' | ') : 'NONE'));
   return null;
 }
 
