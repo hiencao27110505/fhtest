@@ -1191,6 +1191,40 @@ function extractForwardingConfirmLink(message) {
   return null;
 }
 
+// ---------- One-off diagnostic ----------
+// Run manually from the editor when routing or sender-auth fails on a specific
+// message and the reason is not obvious. Prints the header block only — stops at
+// the blank line that separates headers from the body, so no transaction content
+// reaches the logs. Safe to leave in place; nothing calls it on a schedule.
+function debugMessageHeaders() {
+  var id = '19ffa1dc1b8fc981';                 // <- the message id from the failing log line
+  var m = GmailApp.getMessageById(id);
+  if (!m) { Logger.log('no message with id ' + id); return; }
+
+  Logger.log('getTo():        ' + m.getTo());
+  Logger.log('getFrom():      ' + m.getFrom());
+  ['Delivered-To', 'X-Forwarded-To', 'X-Original-To', 'X-Forwarded-For', 'Authentication-Results']
+    .forEach(function (h) {
+      var v = '';
+      try { v = m.getHeader(h); } catch (e) { v = '<getHeader threw: ' + e + '>'; }
+      Logger.log('header ' + h + ': ' + (v === '' ? '<empty>' : v));
+    });
+
+  // Ground truth: every header actually present, straight off the wire.
+  var raw = m.getRawContent() || '';
+  var end = raw.indexOf('\r\n\r\n');
+  if (end === -1) end = raw.indexOf('\n\n');
+  var headerBlock = end === -1 ? raw.slice(0, 4000) : raw.slice(0, end);
+  var names = [];
+  headerBlock.split(/\r?\n/).forEach(function (line) {
+    var m2 = line.match(/^([A-Za-z0-9-]+):/);
+    if (m2 && names.indexOf(m2[1]) === -1) names.push(m2[1]);
+  });
+  Logger.log('ALL header names present: ' + names.join(', '));
+  Logger.log('--- header block (first 2500 chars) ---');
+  Logger.log(headerBlock.slice(0, 2500));
+}
+
 // ---------- Supabase REST helpers ----------
 
 // All Supabase traffic goes through here so an HTTP failure can never be mistaken
