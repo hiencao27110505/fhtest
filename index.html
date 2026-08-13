@@ -1347,7 +1347,6 @@ input{font-family:inherit}
 .gs-hero em{font-style:normal;color:var(--brand-ink)}
 .gs-track{position:relative;height:8px;border-radius:5px;background:var(--divider)}
 .gs-track i{display:block;height:100%;border-radius:5px;background:var(--grad-brand);min-width:5px;transition:width .5s cubic-bezier(.32,.72,0,1)}
-.gs-flag{position:absolute;right:-2px;top:-9px;font-size:15px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.15))}
 .gs-foot{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:10px}
 .gs-foot b{color:var(--ink);font-weight:700}
 /* goals list — body of the same card; chrome-less, inset dividers align to the titles (grouped-list feel) */
@@ -2930,7 +2929,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="gsum" id="sav-summary">
       <div class="gs-lab" id="sav-lab">—</div>
       <div class="gs-hero" id="sav-hero">—</div>
-      <div class="gs-track"><i id="sav-fill" style="width:0%"></i><span class="gs-flag" id="sav-flag">🏁</span></div>
+      <div class="gs-track"><i id="sav-fill" style="width:0%"></i></div>
       <div class="gs-foot"><span id="sav-foot-l">—</span><span id="sav-foot-r">—</span></div>
     </div>
     <div id="goals-list"></div>
@@ -6283,28 +6282,26 @@ function renderGoals(){
   var totalSaved=live.reduce(function(s,g){return s+(goals[g].saved||0);},0);
   var totSav=totalSaved+pool, goal=totalTarget, still=Math.max(0,goal-totSav);
   var savPct=goal?Math.min(100,Math.round(totSav/goal*100)):0;
-  // --- Brief: goal-gradient framing. Lead with the ONE motivating number — how much the
-  // family still needs to reach EVERY goal — instead of a wall of six figures. ---
+  // --- Brief: lead with the one number that matters — how much is still needed to reach
+  // every goal — kept terse. The bar and % carry progress, so the words stay short. ---
   var labTxt, labDue=false, heroHTML, fillPct;
-  if(goal<=0){                       // only fully-funded goals remain: celebrate, don't show 0đ
-    labTxt=L('Đã hoàn thành','All done');
-    heroHTML=L('Hoàn thành mọi mục tiêu 🎉','Every goal complete 🎉'); fillPct=100;
+  if(goal<=0){                       // only fully-funded goals remain — don't show "0đ left"
+    labTxt=L('Hoàn tất','Done'); heroHTML=L('Đã hoàn thành tất cả','All goals complete'); fillPct=100;
   } else if(still<=0){               // enough saved to cover every active goal
-    labTxt=L('Tuyệt vời','Nicely done');
-    heroHTML=L('Đã đủ cho mọi mục tiêu 🎉','Every goal is funded 🎉'); fillPct=100;
+    labTxt=L('Hoàn tất','Done'); heroHTML=L('Đã đủ mọi mục tiêu','All goals funded'); fillPct=100;
   } else {
     fillPct=savPct;
     var dueSoon=live.filter(function(g){var e=goals[g]; return e.d&&daysLeft(e.d)<=30;})
                     .reduce(function(s,g){return s+Math.max(0,goals[g].target-goals[g].saved);},0);
-    if(dueSoon>0){ labDue=true; labTxt='🔔 '+fmtK(dueSoon)+' '+L('sắp đến hạn','due soon'); }
-    else labTxt=L('Cả nhà chỉ còn','Just a little more —');
-    heroHTML='<em>'+fmtK(still)+'</em> '+L('là chạm mọi mục tiêu','to reach every goal');
+    if(dueSoon>0){ labDue=true; labTxt=fmtK(dueSoon)+' '+L('sắp đến hạn','due soon'); }
+    else labTxt=L('Cần thêm','To go');
+    heroHTML='<em>'+fmtK(still)+'</em>';
   }
   var lab=document.getElementById('sav-lab'); if(lab){ lab.className='gs-lab'+(labDue?' due':''); lab.textContent=labTxt; }
   setHTML('sav-hero',heroHTML);
   var sf=document.getElementById('sav-fill'); if(sf)sf.style.width=fillPct+'%';
   setHTML('sav-foot-l',L('Đã để dành ','Saved ')+'<b>'+fmtK(totSav)+'</b>');
-  setHTML('sav-foot-r','<b>'+fillPct+'%</b> '+L('chặng đường','of the way'));
+  setHTML('sav-foot-r','<b>'+fillPct+'%</b>');
   // show every goal (active first, then fully-funded) — nothing a user makes vanishes
   var listed=ord.slice().sort(function(a,b){
     var aa=achievedGoal(goals[a])?1:0, bb=achievedGoal(goals[b])?1:0; if(aa!==bb) return aa-bb;
@@ -12519,7 +12516,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v329';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v330';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

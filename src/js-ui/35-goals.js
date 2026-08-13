@@ -14,28 +14,26 @@ function renderGoals(){
   var totalSaved=live.reduce(function(s,g){return s+(goals[g].saved||0);},0);
   var totSav=totalSaved+pool, goal=totalTarget, still=Math.max(0,goal-totSav);
   var savPct=goal?Math.min(100,Math.round(totSav/goal*100)):0;
-  // --- Brief: goal-gradient framing. Lead with the ONE motivating number — how much the
-  // family still needs to reach EVERY goal — instead of a wall of six figures. ---
+  // --- Brief: lead with the one number that matters — how much is still needed to reach
+  // every goal — kept terse. The bar and % carry progress, so the words stay short. ---
   var labTxt, labDue=false, heroHTML, fillPct;
-  if(goal<=0){                       // only fully-funded goals remain: celebrate, don't show 0đ
-    labTxt=L('Đã hoàn thành','All done');
-    heroHTML=L('Hoàn thành mọi mục tiêu 🎉','Every goal complete 🎉'); fillPct=100;
+  if(goal<=0){                       // only fully-funded goals remain — don't show "0đ left"
+    labTxt=L('Hoàn tất','Done'); heroHTML=L('Đã hoàn thành tất cả','All goals complete'); fillPct=100;
   } else if(still<=0){               // enough saved to cover every active goal
-    labTxt=L('Tuyệt vời','Nicely done');
-    heroHTML=L('Đã đủ cho mọi mục tiêu 🎉','Every goal is funded 🎉'); fillPct=100;
+    labTxt=L('Hoàn tất','Done'); heroHTML=L('Đã đủ mọi mục tiêu','All goals funded'); fillPct=100;
   } else {
     fillPct=savPct;
     var dueSoon=live.filter(function(g){var e=goals[g]; return e.d&&daysLeft(e.d)<=30;})
                     .reduce(function(s,g){return s+Math.max(0,goals[g].target-goals[g].saved);},0);
-    if(dueSoon>0){ labDue=true; labTxt='🔔 '+fmtK(dueSoon)+' '+L('sắp đến hạn','due soon'); }
-    else labTxt=L('Cả nhà chỉ còn','Just a little more —');
-    heroHTML='<em>'+fmtK(still)+'</em> '+L('là chạm mọi mục tiêu','to reach every goal');
+    if(dueSoon>0){ labDue=true; labTxt=fmtK(dueSoon)+' '+L('sắp đến hạn','due soon'); }
+    else labTxt=L('Cần thêm','To go');
+    heroHTML='<em>'+fmtK(still)+'</em>';
   }
   var lab=document.getElementById('sav-lab'); if(lab){ lab.className='gs-lab'+(labDue?' due':''); lab.textContent=labTxt; }
   setHTML('sav-hero',heroHTML);
   var sf=document.getElementById('sav-fill'); if(sf)sf.style.width=fillPct+'%';
   setHTML('sav-foot-l',L('Đã để dành ','Saved ')+'<b>'+fmtK(totSav)+'</b>');
-  setHTML('sav-foot-r','<b>'+fillPct+'%</b> '+L('chặng đường','of the way'));
+  setHTML('sav-foot-r','<b>'+fillPct+'%</b>');
   // show every goal (active first, then fully-funded) — nothing a user makes vanishes
   var listed=ord.slice().sort(function(a,b){
     var aa=achievedGoal(goals[a])?1:0, bb=achievedGoal(goals[b])?1:0; if(aa!==bb) return aa-bb;
