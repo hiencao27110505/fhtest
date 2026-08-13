@@ -1,17 +1,22 @@
-/* compact goals summary (demoted from a second hero card) */
-.gsum{background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px 16px;margin:0 16px 12px;box-shadow:var(--shadow-card)}
-.gsum-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.gsum-lab{font-size:13.5px;font-weight:600;color:var(--ink-2)}
-.gsum-lab b{font-family:var(--disp);font-weight:700;font-size:16px;color:var(--ink);letter-spacing:-.02em}
-.gsum-lab .of{color:var(--muted);font-weight:500}
-.gsum-bar{height:6px;border-radius:4px;background:var(--divider);overflow:hidden;margin:11px 0 9px}
-.gsum-bar i{display:block;height:100%;background:var(--brand);border-radius:4px}
-.gsum-foot{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}
-.gsum-foot b{color:var(--ink);font-weight:700}
-/* goals as one grouped list (single list paradigm, slim meters) */
-.goal-group{background:var(--white);border:1px solid var(--hairline);border-radius:16px;margin:0 16px;overflow:hidden;box-shadow:var(--shadow-card)}
-.goal-row{display:flex;align-items:center;gap:13px;padding:13px 15px;border-bottom:1px solid var(--divider);cursor:pointer}
-.goal-row:last-child{border-bottom:none}
+/* Savings goals — ONE grouped card: the brief (goal-gradient framing) is the header,
+   the goal list its body. A single border + shadow makes the whole thing read as one object. */
+.goal-card{background:var(--white);border:1px solid var(--hairline);border-radius:18px;margin:0 16px 12px;overflow:hidden;box-shadow:var(--shadow-card)}
+/* brief: lead with how much the family still needs to reach every goal (the motivating number) */
+.gsum{padding:15px 16px;border-bottom:1px solid var(--hairline)}
+.gs-lab{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
+.gs-lab.due{color:var(--amber)}
+.gs-hero{font-family:var(--disp);font-weight:800;font-size:25px;line-height:1.14;letter-spacing:-.03em;color:var(--ink);margin:3px 0 14px}
+.gs-hero em{font-style:normal;color:var(--brand-ink)}
+.gs-track{position:relative;height:8px;border-radius:5px;background:var(--divider)}
+.gs-track i{display:block;height:100%;border-radius:5px;background:var(--grad-brand);min-width:5px;transition:width .5s cubic-bezier(.32,.72,0,1)}
+.gs-flag{position:absolute;right:-2px;top:-9px;font-size:15px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.15))}
+.gs-foot{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:10px}
+.gs-foot b{color:var(--ink);font-weight:700}
+/* goals list — body of the same card; chrome-less, inset dividers align to the titles (grouped-list feel) */
+.goal-group{background:var(--white)}
+.goal-row{display:flex;align-items:center;gap:13px;padding:13px 15px;cursor:pointer;position:relative}
+.goal-row::after{content:"";position:absolute;left:66px;right:0;bottom:0;height:1px;background:var(--divider)}
+.goal-row:last-child::after{display:none}
 .goal-row:active{background:var(--canvas)}
 .goal-ico{width:38px;height:38px;border-radius:11px;background:var(--surface);display:grid;place-items:center;font-size:19px;flex:0 0 auto}
 .goal-mid{flex:1;min-width:0}

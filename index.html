@@ -1336,20 +1336,25 @@ input{font-family:inherit}
 .cash3 .c3 .k{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--muted);display:flex;align-items:center;gap:5px}
 .cash3 .c3 .k .ar{font-size:13px;font-weight:700}
 .cash3 .c3 .v{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.04em;color:var(--ink);margin-top:7px;font-variant-numeric:tabular-nums}
-/* compact goals summary (demoted from a second hero card) */
-.gsum{background:var(--white);border:1px solid var(--hairline);border-radius:16px;padding:14px 16px;margin:0 16px 12px;box-shadow:var(--shadow-card)}
-.gsum-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.gsum-lab{font-size:13.5px;font-weight:600;color:var(--ink-2)}
-.gsum-lab b{font-family:var(--disp);font-weight:700;font-size:16px;color:var(--ink);letter-spacing:-.02em}
-.gsum-lab .of{color:var(--muted);font-weight:500}
-.gsum-bar{height:6px;border-radius:4px;background:var(--divider);overflow:hidden;margin:11px 0 9px}
-.gsum-bar i{display:block;height:100%;background:var(--brand);border-radius:4px}
-.gsum-foot{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}
-.gsum-foot b{color:var(--ink);font-weight:700}
-/* goals as one grouped list (single list paradigm, slim meters) */
-.goal-group{background:var(--white);border:1px solid var(--hairline);border-radius:16px;margin:0 16px;overflow:hidden;box-shadow:var(--shadow-card)}
-.goal-row{display:flex;align-items:center;gap:13px;padding:13px 15px;border-bottom:1px solid var(--divider);cursor:pointer}
-.goal-row:last-child{border-bottom:none}
+/* Savings goals — ONE grouped card: the brief (goal-gradient framing) is the header,
+   the goal list its body. A single border + shadow makes the whole thing read as one object. */
+.goal-card{background:var(--white);border:1px solid var(--hairline);border-radius:18px;margin:0 16px 12px;overflow:hidden;box-shadow:var(--shadow-card)}
+/* brief: lead with how much the family still needs to reach every goal (the motivating number) */
+.gsum{padding:15px 16px;border-bottom:1px solid var(--hairline)}
+.gs-lab{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
+.gs-lab.due{color:var(--amber)}
+.gs-hero{font-family:var(--disp);font-weight:800;font-size:25px;line-height:1.14;letter-spacing:-.03em;color:var(--ink);margin:3px 0 14px}
+.gs-hero em{font-style:normal;color:var(--brand-ink)}
+.gs-track{position:relative;height:8px;border-radius:5px;background:var(--divider)}
+.gs-track i{display:block;height:100%;border-radius:5px;background:var(--grad-brand);min-width:5px;transition:width .5s cubic-bezier(.32,.72,0,1)}
+.gs-flag{position:absolute;right:-2px;top:-9px;font-size:15px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.15))}
+.gs-foot{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:10px}
+.gs-foot b{color:var(--ink);font-weight:700}
+/* goals list — body of the same card; chrome-less, inset dividers align to the titles (grouped-list feel) */
+.goal-group{background:var(--white)}
+.goal-row{display:flex;align-items:center;gap:13px;padding:13px 15px;cursor:pointer;position:relative}
+.goal-row::after{content:"";position:absolute;left:66px;right:0;bottom:0;height:1px;background:var(--divider)}
+.goal-row:last-child::after{display:none}
 .goal-row:active{background:var(--canvas)}
 .goal-ico{width:38px;height:38px;border-radius:11px;background:var(--surface);display:grid;place-items:center;font-size:19px;flex:0 0 auto}
 .goal-mid{flex:1;min-width:0}
@@ -2920,15 +2925,17 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 
   <!-- MỤC TIÊU TIẾT KIỆM -->
   <div class="section-h"><span class="t" data-t="savingsGoals">Savings goals</span><a onclick="openGoal()" data-t="addGoal">＋ Goal</a></div>
-  <div class="gsum" id="sav-summary">
-    <div class="gsum-top">
-      <div class="gsum-lab"><span data-t="savedLbl">Saved</span> <b class="num" id="sav-total">—</b> <span class="of">/ <span id="ev-goal">—</span></span></div>
-      <span class="b-badge over" id="ev-badge">—</span>
+  <div class="goal-card" id="goal-card">
+    <!-- Brief — goal-gradient framing: lead with the motivating number (how much more to reach every goal) -->
+    <div class="gsum" id="sav-summary">
+      <div class="gs-lab" id="sav-lab">—</div>
+      <div class="gs-hero" id="sav-hero">—</div>
+      <div class="gs-track"><i id="sav-fill" style="width:0%"></i><span class="gs-flag" id="sav-flag">🏁</span></div>
+      <div class="gs-foot"><span id="sav-foot-l">—</span><span id="sav-foot-r">—</span></div>
     </div>
-    <div class="gsum-bar"><i id="sav-fill" style="width:0%"></i></div>
-    <div class="gsum-foot"><span id="ev-tosave">—</span><span id="sav-avail-lbl">—</span></div>
+    <div id="goals-list"></div>
   </div>
-  <div id="goals-list"></div>
+  <div id="goals-empty"></div>
 
   <!-- XU HƯỚNG — hidden until there's real spending history to trend (renderTrend) -->
   <div id="trend-sec" style="display:none">
@@ -6266,24 +6273,38 @@ function renderEvents(){
 function achievedGoal(g){ return !!(g && (g.achieved || (g.target>0 && g.saved>=g.target))); }
 function renderGoals(){
   var goals=window.goals||{}, ord=window.goalOrder||[];
-  // First-time user (no goals yet): hide the progress-bar summary — it's all zeros and
-  // says nothing. Leave only the empty-state prompt that invites creating a first goal.
-  var summ=document.getElementById('sav-summary'); if(summ) summ.style.display=ord.length?'':'none';
+  var hasGoals=ord.length>0;
+  // First-time user (no goals): hide the whole summary+list card; the standalone empty
+  // prompt below invites creating a first goal. Nothing here is all-zeros noise.
+  var gc=document.getElementById('goal-card'); if(gc) gc.style.display=hasGoals?'':'none';
   var live=ord.filter(function(g){ return !achievedGoal(goals[g]); });   // active goals only
   var pool=(window.savings!==undefined?window.savings:savings)||0;
   var totalTarget=live.reduce(function(s,g){return s+(goals[g].target||0);},0);
   var totalSaved=live.reduce(function(s,g){return s+(goals[g].saved||0);},0);
   var totSav=totalSaved+pool, goal=totalTarget, still=Math.max(0,goal-totSav);
-  var savPct=goal?Math.min(100,totSav/goal*100):0;
-  setTxt('sav-total',fmt(totSav)); setTxt('ev-goal',fmt(goal));
-  var sf=document.getElementById('sav-fill'); if(sf)sf.style.width=savPct+'%';
-  setHTML('ev-tosave','<b>'+fmt(still)+'</b> '+L('còn phải để dành','left to save'));
-  setTxt('sav-avail-lbl',fmt(pool)+' '+L('sẵn có','available'));
-  var eb=document.getElementById('ev-badge');
-  if(eb){ var dueSoon=live.filter(function(g){var e=goals[g]; return e.d&&daysLeft(e.d)<=30;})
-            .reduce(function(s,g){return s+Math.max(0,goals[g].target-goals[g].saved);},0);
-          if(dueSoon>0){ eb.className='b-badge over'; eb.textContent=fmt(dueSoon)+' '+L('sắp đến hạn','due soon'); }
-          else { eb.className='b-badge ok'; eb.textContent=L('không có hạn gấp','nothing due soon'); } }
+  var savPct=goal?Math.min(100,Math.round(totSav/goal*100)):0;
+  // --- Brief: goal-gradient framing. Lead with the ONE motivating number — how much the
+  // family still needs to reach EVERY goal — instead of a wall of six figures. ---
+  var labTxt, labDue=false, heroHTML, fillPct;
+  if(goal<=0){                       // only fully-funded goals remain: celebrate, don't show 0đ
+    labTxt=L('Đã hoàn thành','All done');
+    heroHTML=L('Hoàn thành mọi mục tiêu 🎉','Every goal complete 🎉'); fillPct=100;
+  } else if(still<=0){               // enough saved to cover every active goal
+    labTxt=L('Tuyệt vời','Nicely done');
+    heroHTML=L('Đã đủ cho mọi mục tiêu 🎉','Every goal is funded 🎉'); fillPct=100;
+  } else {
+    fillPct=savPct;
+    var dueSoon=live.filter(function(g){var e=goals[g]; return e.d&&daysLeft(e.d)<=30;})
+                    .reduce(function(s,g){return s+Math.max(0,goals[g].target-goals[g].saved);},0);
+    if(dueSoon>0){ labDue=true; labTxt='🔔 '+fmtK(dueSoon)+' '+L('sắp đến hạn','due soon'); }
+    else labTxt=L('Cả nhà chỉ còn','Just a little more —');
+    heroHTML='<em>'+fmtK(still)+'</em> '+L('là chạm mọi mục tiêu','to reach every goal');
+  }
+  var lab=document.getElementById('sav-lab'); if(lab){ lab.className='gs-lab'+(labDue?' due':''); lab.textContent=labTxt; }
+  setHTML('sav-hero',heroHTML);
+  var sf=document.getElementById('sav-fill'); if(sf)sf.style.width=fillPct+'%';
+  setHTML('sav-foot-l',L('Đã để dành ','Saved ')+'<b>'+fmtK(totSav)+'</b>');
+  setHTML('sav-foot-r','<b>'+fillPct+'%</b> '+L('chặng đường','of the way'));
   // show every goal (active first, then fully-funded) — nothing a user makes vanishes
   var listed=ord.slice().sort(function(a,b){
     var aa=achievedGoal(goals[a])?1:0, bb=achievedGoal(goals[b])?1:0; if(aa!==bb) return aa-bb;
@@ -6301,7 +6322,9 @@ function renderGoals(){
       +'<div class="goal-pct">'+pct+'%</div>'
     +'</div>';
   }).join('');
-  setHTML('goals-list', rows ? '<div class="goal-group">'+rows+'</div>'
+  setHTML('goals-list', rows ? '<div class="goal-group">'+rows+'</div>' : '');
+  // Standalone prompt (outside the merged card) for the first-time, no-goals state.
+  setHTML('goals-empty', hasGoals ? ''
     : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🎯</div><div class="me-t">'+L('Chưa có mục tiêu','No goals yet')+'</div><p>'+L('Để dành tiền cho điều bạn muốn mua hoặc làm.','Save up for something you want to buy or do.')+'</p><button class="empty-cta" style="margin-top:18px" onclick="openGoal()">＋ '+L('Tạo mục tiêu đầu tiên','Create your first goal')+'</button></div>');
 }
 function onGoalInput(){ if(typeof fhClearInvalid==='function') fhClearInvalid('goal-modal'); }   // Save stays enabled (DESIGN §4.4)
@@ -12496,7 +12519,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v328';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v329';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

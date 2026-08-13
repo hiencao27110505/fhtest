@@ -4,24 +4,38 @@
 function achievedGoal(g){ return !!(g && (g.achieved || (g.target>0 && g.saved>=g.target))); }
 function renderGoals(){
   var goals=window.goals||{}, ord=window.goalOrder||[];
-  // First-time user (no goals yet): hide the progress-bar summary — it's all zeros and
-  // says nothing. Leave only the empty-state prompt that invites creating a first goal.
-  var summ=document.getElementById('sav-summary'); if(summ) summ.style.display=ord.length?'':'none';
+  var hasGoals=ord.length>0;
+  // First-time user (no goals): hide the whole summary+list card; the standalone empty
+  // prompt below invites creating a first goal. Nothing here is all-zeros noise.
+  var gc=document.getElementById('goal-card'); if(gc) gc.style.display=hasGoals?'':'none';
   var live=ord.filter(function(g){ return !achievedGoal(goals[g]); });   // active goals only
   var pool=(window.savings!==undefined?window.savings:savings)||0;
   var totalTarget=live.reduce(function(s,g){return s+(goals[g].target||0);},0);
   var totalSaved=live.reduce(function(s,g){return s+(goals[g].saved||0);},0);
   var totSav=totalSaved+pool, goal=totalTarget, still=Math.max(0,goal-totSav);
-  var savPct=goal?Math.min(100,totSav/goal*100):0;
-  setTxt('sav-total',fmt(totSav)); setTxt('ev-goal',fmt(goal));
-  var sf=document.getElementById('sav-fill'); if(sf)sf.style.width=savPct+'%';
-  setHTML('ev-tosave','<b>'+fmt(still)+'</b> '+L('còn phải để dành','left to save'));
-  setTxt('sav-avail-lbl',fmt(pool)+' '+L('sẵn có','available'));
-  var eb=document.getElementById('ev-badge');
-  if(eb){ var dueSoon=live.filter(function(g){var e=goals[g]; return e.d&&daysLeft(e.d)<=30;})
-            .reduce(function(s,g){return s+Math.max(0,goals[g].target-goals[g].saved);},0);
-          if(dueSoon>0){ eb.className='b-badge over'; eb.textContent=fmt(dueSoon)+' '+L('sắp đến hạn','due soon'); }
-          else { eb.className='b-badge ok'; eb.textContent=L('không có hạn gấp','nothing due soon'); } }
+  var savPct=goal?Math.min(100,Math.round(totSav/goal*100)):0;
+  // --- Brief: goal-gradient framing. Lead with the ONE motivating number — how much the
+  // family still needs to reach EVERY goal — instead of a wall of six figures. ---
+  var labTxt, labDue=false, heroHTML, fillPct;
+  if(goal<=0){                       // only fully-funded goals remain: celebrate, don't show 0đ
+    labTxt=L('Đã hoàn thành','All done');
+    heroHTML=L('Hoàn thành mọi mục tiêu 🎉','Every goal complete 🎉'); fillPct=100;
+  } else if(still<=0){               // enough saved to cover every active goal
+    labTxt=L('Tuyệt vời','Nicely done');
+    heroHTML=L('Đã đủ cho mọi mục tiêu 🎉','Every goal is funded 🎉'); fillPct=100;
+  } else {
+    fillPct=savPct;
+    var dueSoon=live.filter(function(g){var e=goals[g]; return e.d&&daysLeft(e.d)<=30;})
+                    .reduce(function(s,g){return s+Math.max(0,goals[g].target-goals[g].saved);},0);
+    if(dueSoon>0){ labDue=true; labTxt='🔔 '+fmtK(dueSoon)+' '+L('sắp đến hạn','due soon'); }
+    else labTxt=L('Cả nhà chỉ còn','Just a little more —');
+    heroHTML='<em>'+fmtK(still)+'</em> '+L('là chạm mọi mục tiêu','to reach every goal');
+  }
+  var lab=document.getElementById('sav-lab'); if(lab){ lab.className='gs-lab'+(labDue?' due':''); lab.textContent=labTxt; }
+  setHTML('sav-hero',heroHTML);
+  var sf=document.getElementById('sav-fill'); if(sf)sf.style.width=fillPct+'%';
+  setHTML('sav-foot-l',L('Đã để dành ','Saved ')+'<b>'+fmtK(totSav)+'</b>');
+  setHTML('sav-foot-r','<b>'+fillPct+'%</b> '+L('chặng đường','of the way'));
   // show every goal (active first, then fully-funded) — nothing a user makes vanishes
   var listed=ord.slice().sort(function(a,b){
     var aa=achievedGoal(goals[a])?1:0, bb=achievedGoal(goals[b])?1:0; if(aa!==bb) return aa-bb;
@@ -39,7 +53,9 @@ function renderGoals(){
       +'<div class="goal-pct">'+pct+'%</div>'
     +'</div>';
   }).join('');
-  setHTML('goals-list', rows ? '<div class="goal-group">'+rows+'</div>'
+  setHTML('goals-list', rows ? '<div class="goal-group">'+rows+'</div>' : '');
+  // Standalone prompt (outside the merged card) for the first-time, no-goals state.
+  setHTML('goals-empty', hasGoals ? ''
     : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🎯</div><div class="me-t">'+L('Chưa có mục tiêu','No goals yet')+'</div><p>'+L('Để dành tiền cho điều bạn muốn mua hoặc làm.','Save up for something you want to buy or do.')+'</p><button class="empty-cta" style="margin-top:18px" onclick="openGoal()">＋ '+L('Tạo mục tiêu đầu tiên','Create your first goal')+'</button></div>');
 }
 function onGoalInput(){ if(typeof fhClearInvalid==='function') fhClearInvalid('goal-modal'); }   // Save stays enabled (DESIGN §4.4)
