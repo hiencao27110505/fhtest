@@ -137,6 +137,7 @@
     // screen works in its own candidate objects and does not carry them.
     window._fhStagedIds = readable.map(function (r) { return r.id; });
 
+    window.csvStagedMode = true;   // reuse the review engine, drop its file-only chrome
     csvLearnLoad();
     csvBuildReview([fhStagedAsCsvSource(readable)], {});
     renderCsvReview();

@@ -19,8 +19,15 @@
    writes: count, total, date span, rows read, and what's being left out. */
 var csvReview = null;   // { parsed, mapResult, ready[], groups[], dup[], deferred[], mixedSignsNote, fileCats[] }
 var csvExpand = null;   // { kind:'ready'|'group'|'dup'|'defer', idx } -- the one open row
+/* The bank-email "Review transactions" modal reuses this whole review engine
+   (72-txn-review). When true, renderCsvReview drops the file-only chrome (add-a-
+   file / start-over / filename chip) and swaps "file" wording for "email", so the
+   shared screen reads as a transaction review rather than a half-dressed importer.
+   Every file entry point (openCsvImport / csvPickAnother) clears it. */
+var csvStagedMode = false;
 
 function openCsvImport(){
+  csvStagedMode = false;               // this is the file flow, not the staged review
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
   csvReview = null; csvExpand = null;
@@ -43,6 +50,7 @@ function csvForgetLearned(){
 }
 
 function csvPickAnother(){
+  csvStagedMode = false;         // back to the file picker -> leave staged mode
   csvClearDraft();               // deliberately starting over
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
@@ -302,6 +310,11 @@ function csvDraftPayload(){
 }
 
 function csvPersistDraft(){
+  // Never persist a staged bank-email review as a "file import draft": it would
+  // be restored later by openCsvImport into the file flow, rendering staged rows
+  // with file chrome and an Import button wired to the wrong promote path. The
+  // staged queue is re-fetched from the server each time anyway.
+  if(csvStagedMode){ return; }
   try{
     var data = csvDraftPayload();
     if(!data || (!data.ready.length && !data.groups.length && !data.dup.length && !data.deferred.length)){
@@ -693,20 +706,26 @@ function renderCsvReview(){
   var total = r.ready.length + r.groups.reduce(function(n,g){return n+g.items.length;},0)
     + unresolvedDup.length + r.deferred.length;
 
-  var fileNames = (r.sources||[]).map(function(s){ return s.name; }).filter(Boolean);
-  var html = '<div class="csv-files">'
+  // File-only header (filename chip + Add-another-file + Start-over). Staged bank-
+  // email review has no file to add or re-pick, so this whole block is suppressed
+  // there -- leaving it in put a file picker and a flow-resetting "Start over" in
+  // a screen that has neither, which is what read as broken.
+  var fileNames = csvStagedMode ? [] : (r.sources||[]).map(function(s){ return s.name; }).filter(Boolean);
+  var html = csvStagedMode ? '' : ('<div class="csv-files">'
     + (fileNames.length ? '<div class="csv-files-list">'+esc(fileNames.join(' · '))+'</div>' : '')
     + '<div class="dup-actions">'
     + '<button type="button" class="btn-line" onclick="document.getElementById(\'csv-file-input\').click()">'+L('Thêm file','Add another file')+'</button>'
     + '<button type="button" class="btn-text-quiet" onclick="csvPickAnother()">'+L('Bắt đầu lại','Start over')+'</button>'
-    + '</div></div>';
+    + '</div></div>');
   if(r.problems && r.problems.length){
     html += '<div class="notice-card stack"><div class="notice-text"><b>'+esc(L('Không đọc được:','Couldn\'t read:'))+'</b> '+esc(r.problems.join(' · '))+'</div></div>';
   }
 
   if(r.mixedSignsNote){
     html += '<div class="notice-card"><svg class="notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>'
-      + '<div class="notice-text">'+L('Cột số tiền có cả số dương và số âm, nên file này có thể lẫn cả tiền vào lẫn tiền ra. Tụi mình chưa nhập khoản nào. Khoản nào đúng là khoản chi, bạn chạm để xác nhận.','The amount column has both positive and negative numbers, so this file may mix money in with money out. Nothing was imported. Tap any row that really is an expense to confirm it.')+'</div></div>';
+      + '<div class="notice-text">'+(csvStagedMode
+          ? L('Có cả số tiền dương và âm, nên có thể lẫn cả tiền vào lẫn tiền ra. Tụi mình chưa nhập khoản nào. Khoản nào đúng là khoản chi, bạn chạm để xác nhận.','These have both positive and negative amounts, so money in may be mixed with money out. Nothing was imported. Tap any row that really is an expense to confirm it.')
+          : L('Cột số tiền có cả số dương và số âm, nên file này có thể lẫn cả tiền vào lẫn tiền ra. Tụi mình chưa nhập khoản nào. Khoản nào đúng là khoản chi, bạn chạm để xác nhận.','The amount column has both positive and negative numbers, so this file may mix money in with money out. Nothing was imported. Tap any row that really is an expense to confirm it.'))+'</div></div>';
   }
 
   /* Category disclosure. Default path: we already adopted the file's own
@@ -775,7 +794,9 @@ function renderCsvReview(){
     if(!csvIsOpen('dup', di)){ handledHtml += csvCollapsedCard(d.c, o); return; }
     var why = d.c.duplicateOfExisting
       ? L('Trùng với một giao dịch đã có trong sổ: cùng số tiền, trong vòng 3 ngày.','Matches a transaction already in your ledger: same amount, within 3 days.')
-      : L('Xuất hiện 2 lần trong file này với cùng nội dung và số tiền.','Appears twice in this file with the same description and amount.');
+      : csvStagedMode
+        ? L('Xuất hiện 2 lần với cùng nội dung và số tiền.','Appears twice with the same description and amount.')
+        : L('Xuất hiện 2 lần trong file này với cùng nội dung và số tiền.','Appears twice in this file with the same description and amount.');
     handledHtml += csvActiveCard(d.c, Object.assign({}, o, { fields:true, note:esc(why),
       buttons: '<button type="button" class="btn-line" onclick="csvDupInclude('+di+')">'+L('Vẫn nhập','Import anyway')+'</button>'
              + '<button type="button" class="btn-text-quiet" onclick="csvDupSkip('+di+')">'+L('Bỏ qua','Skip')+'</button>' }));
@@ -799,7 +820,9 @@ function renderCsvReview(){
     }
     var card = csvActiveCard(c, Object.assign({}, o, { fields: true,
       note: (c.flags.indexOf('date_missing')<0 && c.flags.indexOf('amount_missing')<0)
-        ? esc(L('Cột số tiền trong file này vừa có số dương vừa có số âm, nên tụi mình chưa rõ khoản nào là chi. Nếu đây là khoản chi, bấm Nhập khoản này.','This file\'s amount column mixes positive and negative numbers, so we can\'t tell which rows are spending. If this one is, tap Import this one.')) : null,
+        ? esc(csvStagedMode
+            ? L('Có cả số tiền dương và âm, nên tụi mình chưa rõ khoản nào là chi. Nếu đây là khoản chi, bấm Nhập khoản này.','The amounts are both positive and negative, so we can\'t tell which rows are spending. If this one is, tap Import this one.')
+            : L('Cột số tiền trong file này vừa có số dương vừa có số âm, nên tụi mình chưa rõ khoản nào là chi. Nếu đây là khoản chi, bấm Nhập khoản này.','This file\'s amount column mixes positive and negative numbers, so we can\'t tell which rows are spending. If this one is, tap Import this one.')) : null,
       buttons: '<button type="button" class="btn-line" onclick="csvDeferConfirm('+di+')">'+L('Nhập khoản này','Import this one')+'</button>'
              + '<button type="button" class="btn-text-quiet" onclick="csvDeferDrop('+di+')">'+L('Bỏ khỏi danh sách','Remove from list')+'</button>' }));
     if(blocking) attnHtml += card; else handledHtml += card;
@@ -920,9 +943,11 @@ function renderCsvReview(){
     var skippedDup = r.dup.filter(function(d){ return d.resolved==='skip'; }).length;
     html += '<div class="csv-check">'
       + '<div class="csv-check-main">'+esc(L('Sẽ nhập '+readyCount+' khoản · tổng '+fmt(sumBase), 'Importing '+readyCount+' · total '+fmt(sumBase)))+'</div>'
-      + (span ? '<div class="csv-check-sub">'+esc(span)+' · '+esc((r.sources&&r.sources.length>1)
-        ? L('đọc '+r.parsed.rows.length+' dòng từ '+r.sources.length+' file','read '+r.parsed.rows.length+' rows from '+r.sources.length+' files')
-        : L('đọc '+r.parsed.rows.length+' dòng từ file','read '+r.parsed.rows.length+' rows from the file'))+'</div>' : '')
+      + (span ? '<div class="csv-check-sub">'+esc(span)+' · '+esc(csvStagedMode
+        ? L('từ '+r.parsed.rows.length+' email','from '+r.parsed.rows.length+' email'+(r.parsed.rows.length===1?'':'s'))
+        : (r.sources&&r.sources.length>1)
+          ? L('đọc '+r.parsed.rows.length+' dòng từ '+r.sources.length+' file','read '+r.parsed.rows.length+' rows from '+r.sources.length+' files')
+          : L('đọc '+r.parsed.rows.length+' dòng từ file','read '+r.parsed.rows.length+' rows from the file'))+'</div>' : '')
       + (decisionCount+skippedDup+inflowCount > 0
           ? '<div class="csv-check-sub">'+esc(L('Không nhập: ','Not importing: '))
             + esc([ decisionCount ? decisionCount+' '+L('chưa quyết định','undecided') : null,

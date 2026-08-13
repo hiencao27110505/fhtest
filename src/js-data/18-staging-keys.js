@@ -144,24 +144,29 @@
     }
     function fhStagingAlarmShow() {
       if (document.getElementById('fh-staging-alarm')) return;
+      // Mount inside .phone so it stays in the device frame on desktop and below
+      // the toast, per DESIGN §4.1 -- not bare on document.body.
+      var mount = document.querySelector('.phone') || document.body;
       var d = document.createElement('div');
       d.id = 'fh-staging-alarm';
-      d.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(15,23,20,.55);' +
-        'display:flex;align-items:center;justify-content:center;padding:24px;';
+      d.className = 'fsa';
       d.innerHTML =
-        '<div style="background:var(--card,#fff);border-radius:16px;max-width:340px;padding:22px 20px;text-align:left;box-shadow:0 12px 40px rgba(0,0,0,.25);">' +
-          '<div style="font-size:17px;font-weight:800;margin-bottom:10px;">' +
-            esc(L('Khoá niêm phong không khớp', 'Sealing key mismatch')) + '</div>' +
-          '<div style="font-size:14px;line-height:1.55;color:var(--ink-2,#3d4a44);margin-bottom:8px;">' +
-            esc(L('Khoá dùng để niêm phong giao dịch từ email ngân hàng không khớp với khoá do thiết bị này tạo ra. Để an toàn, việc duyệt các giao dịch chờ đã được tạm dừng cho cả nhà.',
-                  'The key used to seal transactions from bank email does not match the one this device created. To be safe, reviewing pending transactions has been paused for the whole family.')) + '</div>' +
-          '<div style="font-size:14px;line-height:1.55;color:var(--ink-2,#3d4a44);margin-bottom:16px;">' +
-            esc(L('Sổ chi tiêu của gia đình KHÔNG bị ảnh hưởng — dữ liệu hiện có vẫn nguyên vẹn và dùng khoá khác hoàn toàn.',
-                  'Your family ledger is NOT affected — existing data is intact and protected by an entirely separate key.')) + '</div>' +
-          '<button class="btn-primary" style="width:100%;" onclick="document.getElementById(\'fh-staging-alarm\').remove()">' +
+        '<div class="fsa-scrim"></div>' +
+        '<div class="fsa-card" role="alertdialog" aria-labelledby="fsa-h">' +
+          '<div class="fsa-ic">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18.5A2 2 0 0 0 3.5 21.5h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9.5v4"/><path d="M12 17h.01"/></svg>' +
+          '</div>' +
+          '<div class="fsa-h" id="fsa-h">' + esc(L('Khoá niêm phong không khớp', 'Sealing key mismatch')) + '</div>' +
+          '<div class="fsa-p">' +
+            esc(L('Khoá dùng để niêm phong giao dịch từ email ngân hàng không khớp với khoá thiết bị này tạo ra. Để an toàn, việc duyệt giao dịch chờ đã tạm dừng cho cả nhà.',
+                  'The key used to seal your bank-email transactions doesn’t match the one this device created. To be safe, reviewing pending transactions is paused for the whole family.')) + '</div>' +
+          '<div class="fsa-p">' +
+            esc(L('Sổ chi tiêu của gia đình không bị ảnh hưởng — dữ liệu hiện có vẫn nguyên vẹn và dùng một khoá khác hoàn toàn.',
+                  'Your family ledger is not affected — existing data is intact and protected by an entirely separate key.')) + '</div>' +
+          '<button class="cta" onclick="var a=document.getElementById(\'fh-staging-alarm\');if(a)a.remove()">' +
             esc(L('Đã hiểu', 'Got it')) + '</button>' +
         '</div>';
-      document.body.appendChild(d);
+      mount.appendChild(d);
     }
 
     /* ── unlock orchestration ────────────────────────────────────────────────

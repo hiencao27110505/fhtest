@@ -50,3 +50,24 @@
 .mbx-status.wait code{color:var(--ink-2)}
 @keyframes mbxPulse{0%,100%{opacity:.35}50%{opacity:1}}
 @media (prefers-reduced-motion:reduce){.mbx-status.wait .mbx-status-dot{animation:none;opacity:.6}}
+
+/* ---------- sealed-staging key-mismatch alarm ---------- */
+/* Blocking, family-wide dialog raised at unlock when the device's staging key
+   no longer matches the server's (key substitution). Mounts inside .phone
+   (DESIGN §4.1), rises like a modal, uses tokens + the real .cta -- the first
+   pass hand-rolled inline styles and an undefined .btn-primary. */
+.fsa{position:absolute;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:24px}
+.fsa-scrim{position:absolute;inset:0;background:rgba(25,16,34,.42);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.fsa-card{position:relative;z-index:1;width:100%;max-width:340px;background:var(--white);
+  border-radius:22px;padding:24px 22px calc(22px + env(safe-area-inset-bottom,0));
+  box-shadow:0 -12px 44px rgba(25,16,34,.22);text-align:left;
+  animation:fsaRise .3s cubic-bezier(.32,.72,0,1)}
+.fsa-ic{width:46px;height:46px;border-radius:14px;background:var(--amber-tint);color:var(--amber);
+  display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.fsa-ic svg{width:26px;height:26px;display:block}
+.fsa-h{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:-.4px;color:var(--ink);margin-bottom:8px}
+.fsa-p{font-size:14px;line-height:1.5;color:var(--ink-2);margin-bottom:10px}
+.fsa-p:last-of-type{margin-bottom:18px}
+.fsa .cta{margin-top:0}
+@keyframes fsaRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){.fsa-card{animation:none}}
