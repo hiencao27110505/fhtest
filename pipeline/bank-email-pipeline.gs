@@ -1055,8 +1055,8 @@ function handleForwardingConfirmation(message) {
 //
 // Reads BOTH body formats. The HTML body can break a long URL with tags or
 // entities, and the plain body can wrap it across lines; neither is reliable
-// alone, so each is tried and the HTML one is also stripped of tags and
-// un-wrapped before matching. The host is not hard-coded — assuming
+// alone, so each is tried, plus a tag-stripped variant. The host is not
+// hard-coded — assuming
 // mail.google.com is what broke the first version in production; Google sends
 // these from mail-settings.google.com.
 function extractForwardingConfirmLink(message) {
@@ -1065,8 +1065,6 @@ function extractForwardingConfirmLink(message) {
   try {
     var html = message.getBody() || '';
     candidates.push(html);
-    // tags out, entities decoded, then joined so a URL split across lines or
-    // interrupted by markup becomes matchable again
     // tags removed, for the case where the link appears only as visible text
     // and markup sits inside it. NOT whitespace-stripped: joining every gap
     // would glue the following prose onto the URL and win on length.
