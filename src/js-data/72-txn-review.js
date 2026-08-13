@@ -140,18 +140,28 @@
   window.fhPromoteStaged = async function () {
     var ids = (window._fhStagedIds || []).slice();
     try {
+      // csvPromote() returns its promise chain, so this genuinely waits for the
+      // ledger writes. It did not always: an earlier version assumed a promise
+      // and resolved instantly, which meant the delete below could race the
+      // write and destroy a staged row whose transaction never landed.
       await csvPromote();
     } catch (e) {
       window.toast && window.toast(L('Chưa lưu được', 'Could not save'));
       return;
     }
     if (!ids.length) return;
+
     try {
-      await _rpc('resolve_email_transactions', { p_ids: ids });   // 0060
+      var removed = await _rpc('resolve_email_transactions', { p_ids: ids });   // 0060
       window._fhStagedIds = [];
+      if (!removed) {
+        // The RPC ran but matched nothing — usually 0060 is not applied, or the
+        // rows belong to a different member. Silence here would look like
+        // success and the queue would quietly refill.
+        window.toast && window.toast(L('Đã lưu — nhưng chưa dọn được danh sách',
+                                       'Saved — but the queue did not clear'));
+      }
     } catch (e2) {
-      // The money is safely in the ledger; these rows will simply be offered
-      // again. Say so rather than reporting a clean success.
       window.toast && window.toast(L('Đã lưu, nhưng danh sách chưa dọn — sẽ hiện lại',
                                      'Saved, but the queue did not clear — these may reappear'));
     }

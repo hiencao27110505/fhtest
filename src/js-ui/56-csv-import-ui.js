@@ -1079,7 +1079,7 @@ function csvPromote(){
     });
   }
 
-  chain.then(function(){
+  return chain.then(function(){
     bulkRows = csvReview.ready.map(function(c){
       return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName,
                who: c.who || csvDefaultWho(), date: c.dateDisplay, _invalid: false };
