@@ -74,10 +74,21 @@
 
     var out = rows.map(function (r) {
       var x = r.raw_extracted || {};
-      // memo is the payer's own words ("tra tien an trua thu 6") and the best
-      // description we will ever have. Card purchases have no memo — there the
-      // merchant IS the description, so counterparty stands in.
-      var description = x.memo || r.counterparty || r.source_provider || '';
+      // "Chi cho gì" asks what the money was FOR, and the answer depends on the
+      // kind of transaction:
+      //   • memo is the payer's own words ("tra tien an trua thu 6") — always the
+      //     best answer when it exists.
+      //   • a card purchase has no memo, but its counterparty IS the merchant, so
+      //     "REVI PHU MY HUNG TOWER" genuinely is what was spent on.
+      //   • a p2p transfer's counterparty is a PERSON. "LE VAN HOANG -
+      //     0912345678" answers "who received it", not "what for" — filling the
+      //     description with it looks answered while telling you nothing, and a
+      //     pre-filled wrong answer is worse than an empty field, because it gets
+      //     accepted rather than corrected.
+      // So a memo-less transfer is left blank for the human, which is the one
+      // thing only they know.
+      var isPerson = x.transaction_type === 'p2p_transfer';
+      var description = x.memo || (isPerson ? '' : (r.counterparty || r.source_provider || ''));
       var amt = (r.direction === 'credit' ? '' : '-') + String(r.amount);
       return [r.occurred_at, description, amt, r.counterparty || ''];
     });
