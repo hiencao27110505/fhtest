@@ -240,7 +240,12 @@ function buildInboxQuery() {
     props.setProperty(ALIAS_CACHE_AT_PROP, String(new Date().getTime()));
   }
 
-  var confirmPart = '(from:' + FORWARDING_CONFIRM_SENDER + ' is:unread newer_than:7d)';
+  // NOT is:unread. Read-state is a terrible record of "have I handled this" — a
+  // human glancing at the message silently removes it from the search forever,
+  // which happened during testing. The same labels that gate transactions gate
+  // these, so opening one is harmless.
+  var confirmPart = '(from:' + FORWARDING_CONFIRM_SENDER +
+    ' newer_than:7d -label:txn/processed -label:txn/parse-failed)';
   if (!aliasPart) return confirmPart;   // no mailboxes yet: still confirm new ones
 
   return '((' + aliasPart + ') -label:txn/processed -label:txn/parse-failed) OR ' + confirmPart;
@@ -1169,7 +1174,11 @@ function handleForwardingConfirmation(message) {
   // works is a forwarded message actually arriving at this alias, which
   // processOneMessage records when it routes one (see markMailboxVerified).
   // Leaving it false keeps the UI honestly in "waiting" until that happens.
+  //
+  // Labelled rather than marked read: the label is what the search excludes, so
+  // handling survives a human opening the message.
   message.markRead();
+  relabelMessageThread(message, 'txn/processed');
 }
 
 // Finds the confirmation link in Google's forwarding email.
