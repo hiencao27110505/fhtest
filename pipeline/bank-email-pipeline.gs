@@ -1042,12 +1042,37 @@ function handleForwardingConfirmation(message) {
   Logger.log('forwarding confirmed for alias ' + alias);
 }
 
-// Google's confirmation body carries a vf- link. Matching on that path segment
-// rather than "any google.com URL" keeps us from following the unsubscribe/help
-// links that share the same email.
+// Finds the confirmation link in Google's forwarding email.
+//
+// The real email (captured 2026-08-13) carries TWO links on the same host:
+//   confirm:  https://mail-settings.google.com/mail/vf-<token>
+//   cancel:   https://mail-settings.google.com/mail/uf-<token>
+// The cancel link REVOKES the forwarding request. Clicking it instead of the
+// confirm link would silently undo the setup the user just completed, and the
+// failure would look like "forwarding mysteriously never worked".
+//
+// So this matches the /mail/vf- PATH SEGMENT, not merely a URL containing
+// "vf-": those tokens are random and hyphenated, so a substring test could
+// match a cancel link whose token happens to contain that sequence.
+//
+// The host is not hard-coded to mail.google.com — the first version assumed
+// that and failed in production, because Google serves these from
+// mail-settings.google.com. Any google.com host is accepted; nothing else is.
 function extractForwardingConfirmLink(body) {
-  var m = String(body).match(/https:\/\/mail\.google\.com\/mail\/[^\s"'<>]*vf-[^\s"'<>]*/);
-  if (m) return m[0].replace(/&amp;/g, '&');
+  var text = String(body || '').replace(/&amp;/g, '&');
+  var m = text.match(/https:\/\/[a-z0-9.-]*google\.com\/mail\/vf-[^\s"'<>)]+/i);
+  if (m) return m[0];
+
+  // Nothing matched: log google.com candidates (paths only, never query
+  // strings — those carry the token) so the real shape is visible next run
+  // without writing a usable confirmation link into the logs.
+  var urls = text.match(/https?:\/\/[^\s"'<>)]+/g) || [];
+  var seen = [];
+  for (var j = 0; j < urls.length && seen.length < 6; j++) {
+    if (!/google\.com/i.test(urls[j])) continue;
+    seen.push(urls[j].split('?')[0].slice(0, 120));
+  }
+  if (seen.length) Logger.log('confirmation candidates seen: ' + seen.join(' | '));
   return null;
 }
 
