@@ -32,13 +32,33 @@ function processEmails() {
   // the budget that transaction processing needs. Wrapped so a confirmation
   // failure can never stop the transaction loop, which was the only reason to
   // keep them on separate triggers in the first place.
-  try {
-    confirmPendingForwarding();
-  } catch (err) {
-    Logger.log('confirmPendingForwarding failed, continuing to transactions: ' + err);
+  // ONE search covering both jobs. A Gmail search is the dominant cost of an idle
+  // tick, and this runs 1,440 times a day against a 90-minute daily budget — two
+  // searches per tick spends roughly half that budget finding nothing. Combining
+  // them means an idle tick costs one round trip instead of two.
+  var threads = GmailApp.search(
+    'label:txn/inbox OR (from:' + FORWARDING_CONFIRM_SENDER + ' is:unread newer_than:7d)');
+  if (threads.length === 0) return;
+
+  var txnLabel = GmailApp.getUserLabelByName('txn/inbox');
+  var txnThreads = [];
+  for (var i = 0; i < threads.length; i++) {
+    if (_threadHasLabel(threads[i], txnLabel)) {
+      txnThreads.push(threads[i]);
+    } else {
+      // A forwarding confirmation. Wrapped per-thread so one bad confirmation
+      // cannot stop the transactions in the same batch — the reason these were
+      // once on separate triggers.
+      try {
+        var cms = threads[i].getMessages();
+        for (var c = 0; c < cms.length; c++) handleForwardingConfirmation(cms[c]);
+      } catch (err) {
+        Logger.log('forwarding confirmation failed: ' + err);
+      }
+    }
   }
 
-  var threads = GmailApp.search('label:txn/inbox');
+  threads = txnThreads;
   if (threads.length === 0) return;
 
   var runCallCount = 0;
@@ -951,6 +971,20 @@ function testGeminiOnRealEmail() {
 
 var FORWARDING_CONFIRM_SENDER = 'forwarding-noreply@google.com';
 
+// A thread carries the label object itself, so this is a local comparison rather
+// than another Gmail query.
+function _threadHasLabel(thread, label) {
+  if (!label) return false;
+  var labels = thread.getLabels();
+  for (var i = 0; i < labels.length; i++) {
+    if (labels[i].getName() === label.getName()) return true;
+  }
+  return false;
+}
+
+// Kept as a standalone entry point for manual runs and debugging. The scheduled
+// path does NOT call this — processEmails() folds the same work into its single
+// combined search so an idle tick costs one Gmail round trip, not two.
 function confirmPendingForwarding() {
   // Unread only: a handled confirmation is marked read, so this naturally stops
   // reprocessing without needing its own state.
