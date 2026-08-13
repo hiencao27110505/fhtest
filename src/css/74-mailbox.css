@@ -1,0 +1,47 @@
+/* ---------- bank-email: connect a mailbox ---------- */
+/* Sheet-based flow (DESIGN §4). Built from the existing tokens only — no new
+   colours, no new radii — so it reads as part of Settings rather than a bolted-on
+   feature. */
+
+.mbx-points{display:flex;flex-direction:column;gap:16px;margin:4px 0 24px}
+.mbx-point{display:flex;gap:13px;align-items:flex-start}
+.mbx-point-ic{width:38px;height:38px;border-radius:12px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.mbx-point-t{font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.mbx-point-s{font-size:13.5px;line-height:1.45;color:var(--muted);margin-top:2px}
+
+/* The address is the one thing the user must carry into Gmail, so it is a
+   button, not text: the whole row copies. Dashed border marks it copyable
+   without needing an icon that competes with the label. */
+.mbx-addr{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  background:var(--surface);border:1.5px dashed var(--hairline);border-radius:14px;
+  padding:14px 15px;margin-bottom:22px}
+.mbx-addr:active{background:var(--brand-tint);border-color:var(--brand)}
+.mbx-addr code{flex:1;min-width:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:13.5px;color:var(--ink);overflow-wrap:anywhere}
+.mbx-copy{flex-shrink:0;font-size:13px;font-weight:700;color:var(--brand-ink);letter-spacing:-.01em}
+
+.mbx-steps{display:flex;flex-direction:column;gap:2px;margin-bottom:16px}
+.mbx-step{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--divider)}
+.mbx-step:last-child{border-bottom:none}
+.mbx-step-n{width:23px;height:23px;border-radius:50%;background:var(--brand-tint);color:var(--brand-ink);
+  font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mbx-step-t{font-size:14.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.mbx-step-s{font-size:12.5px;line-height:1.45;color:var(--muted);margin-top:2px}
+
+.mbx-note{font-size:12.5px;line-height:1.5;color:var(--muted-soft);background:var(--surface);
+  border-radius:12px;padding:11px 13px;margin-bottom:16px}
+
+.mbx-status{display:flex;align-items:center;gap:11px;border-radius:14px;padding:13px 15px;margin-bottom:18px}
+.mbx-status code{flex:1;min-width:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:13px;overflow-wrap:anywhere}
+.mbx-status-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.mbx-status.ok{background:var(--good-tint);color:var(--good)}
+.mbx-status.ok .mbx-status-dot{background:var(--good)}
+.mbx-status.ok code{color:var(--ink)}
+/* Waiting is a neutral state, not a warning: the user has done nothing wrong
+   and there is nothing to fix, so it must not read as an error. */
+.mbx-status.wait{background:var(--surface);color:var(--muted)}
+.mbx-status.wait .mbx-status-dot{background:var(--muted-soft);animation:mbxPulse 1.8s ease-in-out infinite}
+.mbx-status.wait code{color:var(--ink-2)}
+@keyframes mbxPulse{0%,100%{opacity:.35}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.mbx-status.wait .mbx-status-dot{animation:none;opacity:.6}}
