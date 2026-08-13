@@ -166,6 +166,26 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .flag-badge.neutral{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;background:var(--fill-neutral);color:var(--muted);padding:2px 6px;border-radius:5px;margin-left:6px}
 .defer-card{opacity:.6}
 .cta-wrap{margin-top:18px}
+
+/* ---------- sheet buttons (canonical, DESIGN §3) ---------- */
+/* Quiet dismiss/secondary text button for _fhSheet flows ("Not now", "Close",
+   "I've set it up"). Was used by the bank-email sheets and txn-review with no
+   style at all -- i.e. a raw browser button. This is the house equivalent: a
+   centered, muted, full-width text control with a real 44px+ target and an
+   iOS press. Never a filled second primary (DESIGN §3: one CTA per screen). */
+.btn-skip{display:block;width:100%;text-align:center;background:none;border:0;
+  color:var(--muted);font-size:15px;font-weight:600;letter-spacing:-.01em;
+  padding:14px 0;min-height:44px;margin-top:2px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;transition:transform .12s cubic-bezier(.4,0,.2,1),opacity .12s}
+.btn-skip:active{transform:scale(.98);opacity:.6}
+/* .btn-line is authored full-bleed (calc(100% - 32px) + side margin) for the
+   memory-calendar canvas; inside a sheet the body already pads, so it must go
+   full-width to align with the .cta above it. */
+#fh-sheet-body .btn-line{width:100%;margin:0 0 2px;transition:transform .12s cubic-bezier(.4,0,.2,1)}
+#fh-sheet-body .btn-line:active{transform:scale(.98)}
+/* .cta is authored for <button> (inline-block honours width:100%); as an <a> it
+   needs block + centered + no underline to render as the full-width pill. */
+#fh-sheet-body a.cta{display:block;text-align:center;text-decoration:none}
 /* .rows normally carries the tab gutter (margin 0 16px); the modal body
    already pads 20px, so inside the import modal it goes full-width. */
 .csv-rows{margin:0 0 14px}

@@ -5,7 +5,12 @@
 
 .mbx-points{display:flex;flex-direction:column;gap:16px;margin:4px 0 24px}
 .mbx-point{display:flex;gap:13px;align-items:flex-start}
-.mbx-point-ic{width:38px;height:38px;border-radius:12px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+/* Icon tile follows the app's glyph-chip language (widget/quick-action chips):
+   a neutral wash with an inline-SVG line glyph -- never an emoji as a UI icon
+   (DESIGN §2.6). Brand-ink glyph keeps the one accent on the CTA, not a fill. */
+.mbx-point-ic{width:38px;height:38px;border-radius:12px;background:var(--fill-neutral);
+  color:var(--brand-ink);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mbx-point-ic svg{width:22px;height:22px;display:block}
 .mbx-point-t{font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
 .mbx-point-s{font-size:13.5px;line-height:1.45;color:var(--muted);margin-top:2px}
 

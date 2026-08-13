@@ -19,6 +19,14 @@
 
   const FH_TXN_INBOX = 'gichisreading@gmail.com';   // shared receiving inbox; swap for the owned domain when it exists
 
+  /* Inline SVG line glyphs (DESIGN §2.6: UI icons are SVG, stroke 1.9–2.4, round
+     caps — never emoji as a UI icon). currentColor inherits the tile's tint. */
+  const _MBX_SVG = {
+    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.6"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/><circle cx="12" cy="15.4" r="1.15" fill="currentColor" stroke="none"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.4 12.3l2.5 2.5 4.7-5.1"/></svg>',
+    mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="6" width="17" height="12" rx="2.6"/><path d="M4.5 8.2l7.5 5 7.5-5"/></svg>',
+  };
+
   function fhAliasAddress(tag) {
     if (!tag) return null;
     const [user, domain] = FH_TXN_INBOX.split('@');
@@ -47,13 +55,13 @@
         'Ngân hàng gửi email mỗi lần bạn giao dịch. Chuyển tiếp những email đó cho Earthy, tụi mình đọc giúp và bạn chỉ cần duyệt lại.',
         'Your bank emails you after each transaction. Forward those to Earthy and we read them for you — you just review.')) + '</div>' +
       '<div class="mbx-points">' +
-        _mbxPoint('🔒', L('Chỉ mình bạn đọc được', 'Only you can read it'),
+        _mbxPoint('lock', L('Chỉ mình bạn đọc được', 'Only you can read it'),
                   L('Nội dung được mã hoá, kể cả tụi mình cũng không xem được.',
                     'Contents are encrypted — not even we can read them.')) +
-        _mbxPoint('✋', L('Bạn duyệt trước khi vào sổ', 'Nothing is added without you'),
+        _mbxPoint('check', L('Bạn duyệt trước khi vào sổ', 'Nothing is added without you'),
                   L('Không giao dịch nào tự động vào sổ chi tiêu.',
                     'No transaction enters your ledger until you approve it.')) +
-        _mbxPoint('📥', L('Chỉ email bạn chuyển tiếp', 'Only what you forward'),
+        _mbxPoint('mail', L('Chỉ email bạn chuyển tiếp', 'Only what you forward'),
                   L('Tụi mình không đọc hộp thư của bạn — chỉ những email bạn chủ động chuyển.',
                     'We never read your mailbox — only the emails you choose to forward.')) +
       '</div>' +
@@ -62,8 +70,8 @@
     );
   }
 
-  function _mbxPoint(emoji, title, sub) {
-    return '<div class="mbx-point"><div class="mbx-point-ic">' + emoji + '</div><div>' +
+  function _mbxPoint(icon, title, sub) {
+    return '<div class="mbx-point"><div class="mbx-point-ic">' + (_MBX_SVG[icon] || '') + '</div><div>' +
       '<div class="mbx-point-t">' + _esc(title) + '</div>' +
       '<div class="mbx-point-s">' + _esc(sub) + '</div></div></div>';
   }
@@ -154,7 +162,7 @@
           'Chưa thiết lập trong Gmail? Mở lại hướng dẫn bên dưới.',
           'Haven’t set it up in Gmail yet? Reopen the steps below.')) + '</div>') +
 
-      '<button class="cta line" onclick="fhMailboxSetup(\'' + _escAttr(st.forwarding_alias) + '\')">' +
+      '<button class="btn-line" onclick="fhMailboxSetup(\'' + _escAttr(st.forwarding_alias) + '\')">' +
         _esc(L('Xem lại hướng dẫn', 'Show the steps again')) + '</button>' +
       '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
     );
