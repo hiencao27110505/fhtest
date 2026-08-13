@@ -7,6 +7,16 @@ none of the context. If you are that session: read this file, then
 
 Status: **nothing built.** This is a starting brief, not a design.
 
+> **Update 2026-08-13 — §3.1 and §3.2 have been answered.** See
+> `pipeline/OAUTH-COMPLIANCE-FINDINGS.md`. Short version: CASA is ~$540/yr at
+> this size and restricted-scope verification is ~6 weeks, so the lead time does
+> **not** change the plan; the Testing-mode 7-day refresh-token limit is real and
+> confirmed, but appears tied to *Testing* status rather than to being
+> unverified, so a published-unverified 100-user beta may need no assessment at
+> all (one experiment settles it). `gmail.metadata` is a dead end — restricted
+> *and* body-less. The live risks are Google's Appropriate Access list, not the
+> price, and §3.2 below is stale: Decree 13/2023 was superseded on 2026-01-01.
+
 ---
 
 ## 0. Read this first — you are reversing a decision

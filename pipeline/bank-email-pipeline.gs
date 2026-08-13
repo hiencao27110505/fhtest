@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-13-g';
+var PIPELINE_VERSION = '2026-08-13-h';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -62,21 +62,19 @@ function processEmails() {
   Logger.log('v' + PIPELINE_VERSION + ' | ' + threads.length + ' thread(s) | q=' + q);
   if (threads.length === 0) return;
 
-  var txnLabel = GmailApp.getUserLabelByName('txn/inbox');
   var txnThreads = [];
   for (var i = 0; i < threads.length; i++) {
-    if (_threadHasLabel(threads[i], txnLabel)) {
-      txnThreads.push(threads[i]);
-    } else {
-      // A forwarding confirmation. Wrapped per-thread so one bad confirmation
-      // cannot stop the transactions in the same batch — the reason these were
-      // once on separate triggers.
+    if (isForwardingConfirmationThread(threads[i])) {
+      // Wrapped per-thread so one bad confirmation cannot stop the transactions
+      // in the same batch — the reason these were once on separate triggers.
       try {
         var cms = threads[i].getMessages();
         for (var c = 0; c < cms.length; c++) handleForwardingConfirmation(cms[c]);
       } catch (err) {
         Logger.log('forwarding confirmation failed: ' + err);
       }
+    } else {
+      txnThreads.push(threads[i]);
     }
   }
 
@@ -112,6 +110,28 @@ function processEmails() {
       }
     }
   }
+}
+
+// A forwarding confirmation is identified by its SENDER — never by the absence
+// of a label.
+//
+// The dispatch above used to read "labelled txn/inbox => transaction, otherwise
+// => confirmation". That was safe only while the search could return exactly two
+// kinds of mail. Adding `to:<alias>` introduced a THIRD kind: hand-forwarded
+// transactions, which carry no label at all. They landed in the confirmation
+// branch, which looked for a vf- link, found none, and dropped them — observed
+// live on 2026-08-13 as "no confirmation link found in message
+// 19ffaddc4d60c6da", where that id was a real VCB transaction.
+function isForwardingConfirmationThread(thread) {
+  var msgs = thread.getMessages();
+  var want = String(FORWARDING_CONFIRM_SENDER).toLowerCase();
+  for (var i = 0; i < msgs.length; i++) {
+    var from = '';
+    try { from = String(extractEmailAddress(String(msgs[i].getFrom() || ''))).toLowerCase(); }
+    catch (e) { /* unreadable header — treat as not-a-confirmation */ }
+    if (from === want) return true;
+  }
+  return false;
 }
 
 function processOneMessage(message, runCallCount) {

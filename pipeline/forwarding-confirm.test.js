@@ -33,5 +33,27 @@ t('does not match a non-vf gmail URL', extractForwardingConfirmLink(asMessage('h
 t('extracts the alias from the To: header', extractPlusTag('gichisreading+ab3kd9x2mq@gmail.com')==='ab3kd9x2mq');
 t('null when the address carries no tag', extractPlusTag('gichisreading@gmail.com')===null);
 
+// ---- dispatch: confirmation vs transaction --------------------------------
+// The search returns THREE kinds of mail, not two: labelled auto-forwards,
+// unlabelled hand-forwards, and confirmations. Dispatching on "has no label =>
+// confirmation" fed a real VCB transaction to the confirmation handler on
+// 2026-08-13, which found no vf- link and dropped it. Sender is the only
+// signal that actually distinguishes them.
+eval(src.slice(src.indexOf('var FORWARDING_CONFIRM_SENDER'),src.indexOf('var FORWARDING_CONFIRM_SENDER')+80).split('\n')[0]);
+eval(src.slice(src.indexOf('function extractEmailAddress'),src.indexOf('function normalizeSubjectTemplate')));
+eval(src.slice(src.indexOf('function isForwardingConfirmationThread'),src.indexOf('function processOneMessage')));
+const thread=(...froms)=>({getMessages:()=>froms.map(f=>({getFrom:()=>f}))});
+
+t('Google confirmation is a confirmation',
+  isForwardingConfirmationThread(thread('Gmail Team <forwarding-noreply@google.com>'))===true);
+t('UNLABELLED hand-forward is a TRANSACTION, not a confirmation',
+  isForwardingConfirmationThread(thread('Cao Hien <hiencao27110505@gmail.com>'))===false);
+t('auto-forwarded bank mail is a transaction',
+  isForwardingConfirmationThread(thread('<VCBDigibank@info.vietcombank.com.vn>'))===false);
+t('a lookalike sender is not mistaken for Google',
+  isForwardingConfirmationThread(thread('forwarding-noreply@google.com.evil.tld'))===false);
+t('unreadable From: is treated as a transaction, not silently confirmed',
+  isForwardingConfirmationThread({getMessages:()=>[{getFrom:()=>{throw new Error('boom')}}]})===false);
+
 console.log('\n'+(fail===0?'ALL '+pass+' PASSED':pass+' passed, '+fail+' FAILED'));
 process.exit(fail?1:0);
