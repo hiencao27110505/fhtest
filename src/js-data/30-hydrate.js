@@ -102,6 +102,10 @@
       window.DB.enc = encMeta || null;
       window.DB.keyWraps = keyWraps || [];                  // Key Card wraps (0042); [] keeps the card flow dormant
       if (encMeta) { try { await fhKeyLoad(fid); } catch (e) {} }
+      // sealed staging (18-staging-keys): a cached key on boot is an unlock too —
+      // ensure the keypair exists + verify the server's copy. Fire-and-forget;
+      // internally once-per-family-per-session, so hot-path re-hydrates are free.
+      try { if (window.fhStagingAfterUnlock) window.fhStagingAfterUnlock(); } catch (e) {}
       /* Encryption is FAMILY-wide and strict (option A): the moment the owner
          turns it on, every device learns it here (realtime on family_keys
          re-runs this hydrate). An un-keyed device gets the passcode prompt on

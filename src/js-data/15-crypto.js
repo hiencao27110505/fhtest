@@ -211,12 +211,16 @@
     await _keysPut(fid, _fhDek);
     // photos that rendered blank while this device was locked can decrypt now
     try { if (window.__fhPhotoRefresh) window.__fhPhotoRefresh(); } catch (e) {}
+    // sealed staging (18-staging-keys): provision the keypair on first unlock,
+    // verify the server's copy on every one. Fire-and-forget — never blocks unlock.
+    try { if (window.fhStagingAfterUnlock) window.fhStagingAfterUnlock(); } catch (e) {}
   }
   function fhKeyDrop(fid) {
     if (_fhDekFid === fid || fid == null) { _fhDek = null; _fhDekRaw = null; _fhDekFid = null; }
     if (fid != null) _keysDel(fid);
     try { if (window.__fhPhotoCachePurge) window.__fhPhotoCachePurge(); } catch (e) {}   // decrypted photo object-URLs die with the key
     try { if (window.fhCardCacheDrop && fid != null) window.fhCardCacheDrop(fid); } catch (e) {}   // local card copy leaves with the family
+    try { if (window.fhStagingKeysForget) window.fhStagingKeysForget(); } catch (e) {}   // staging keypair cache leaves with the DEK
   }
   function _fhSessionDek() { if (!_fhDek) throw new Error('locked'); return _fhDek; }
   function fhKeyReady() { return !!(_fhDek && window.DB && _fhDekFid === window.DB.fid); }

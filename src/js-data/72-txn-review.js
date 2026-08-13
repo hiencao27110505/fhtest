@@ -98,6 +98,13 @@
   }
 
   window.fhTxnReviewSheet = async function () {
+    // Key-mismatch alarm latched (18-staging-keys): approval is frozen for the
+    // whole family until a verify passes again. Re-show the explanation rather
+    // than a dead queue — the freeze must never look like a bug.
+    if (window.fhStagingAlarmActive && window.fhStagingAlarmActive()) {
+      window.fhStagingAlarmShow && window.fhStagingAlarmShow();
+      return;
+    }
     var raw;
     try {
       raw = await fhFetchStagedTxns();
@@ -149,6 +156,12 @@
      a transaction outright if the write failed. Duplicating one is recoverable;
      losing one is not. */
   window.fhPromoteStaged = async function () {
+    // Same freeze as fhTxnReviewSheet — belt and braces in case the alarm
+    // latched between opening the sheet and pressing import.
+    if (window.fhStagingAlarmActive && window.fhStagingAlarmActive()) {
+      window.fhStagingAlarmShow && window.fhStagingAlarmShow();
+      return;
+    }
     var ids = (window._fhStagedIds || []).slice();
     try {
       // csvPromote() returns its promise chain, so this genuinely waits for the

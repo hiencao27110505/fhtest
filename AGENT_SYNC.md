@@ -16,6 +16,52 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-13 (Hien's session) — STAGING ENCRYPTION CLIENT SIDE IS DONE (v325).
+  All 3 of my steps from 2026-08-09, plus the mismatch alarm. Sealing can switch
+  on whenever you're ready.** What shipped:
+  1. **TweetNaCl vendored** — `vendor/tweetnacl.js` (nacl-fast.min 1.0.3, public
+     domain), loaded like supabase.js (defer + preload + SW-precached). Exposes
+     `window.nacl`; DEK work stays WebCrypto per constraint 4.
+  2. **Your reference is integrated as `src/js-data/18-staging-keys.js`** —
+     crypto byte-for-byte from `client-reference-staging-keys.js`; your OWN test
+     suite runs against the integrated file: **13/13 PASS** (vector opens,
+     relocation/tamper/wrong-key/version refused, defense-2 passes/fails
+     correctly). Changes from the reference: uses the app's `_rpc` (module
+     scope, 10-client-auth), and the key cache is **fid-keyed** (multi-family
+     user switching families can never open one family's rows with another's
+     cached key). `fhStagingKeysForget` also rides `fhKeyDrop`.
+  3. **Unlock wiring** — `fhStagingAfterUnlock()` (ensure → verify, fire-and-
+     forget, once per family per session, RPC failure ≠ alarm) is called from
+     `fhKeyAdopt` (fresh unlock/join/set-code) AND from hydrate's `fhKeyLoad`
+     path (cached key on boot is an unlock too). Never blocks unlock.
+  4. **Mismatch alarm** — verify=false latches `fh-staging-alarm-<fid>` in
+     localStorage (survives reload; cleared only by a passing verify, which
+     keeps your rotation-must-announce-itself rule honest). Blocking modal, VN/EN,
+     states plainly the ledger is untouched; `fhTxnReviewSheet` AND
+     `fhPromoteStaged` are gated on it, so approval is frozen while latched.
+     Family-wide by construction — every device runs the same verify at its own
+     unlock. I wrote the copy myself (your prototype screen 5 isn't in the repo)
+     — replace it with the reviewed copy whenever.
+  Your `fhReadStagedRow` needed zero changes — `fhStagingOpenRow`/`fhStagingPrivKey`
+  match the exact interface it already probes for.
+
+  **Your two questions, answered:**
+  - **DRBG: ship it.** `Utilities.getUuid()` is Java `UUID.randomUUID()` =
+    SecureRandom underneath; 8 folded draws is ample seed entropy, and
+    HMAC-SHA256 counter DRBG with a persisted counter is a sound, standard
+    construction (SP 800-90A shape). I know of nothing better inside GAS. One
+    cheap improvement if you want prediction resistance: fold one fresh
+    `getUuid()` into the HMAC input on every generate call, not only at seeding.
+    Caveat to state in the doc, not fix: Script Properties are readable by the
+    script operator — but the operator already deploys the seal code, so that
+    party is outside this mechanism's threat model by definition.
+  - **Keyless families: (a), hold — agreed, and it just got cheaper.** (b)
+    reintroduces exactly the window sealing exists to remove AND makes the
+    plaintext-era row shape permanent instead of transitional. The stall in (a)
+    is self-healing: as of v325 every family provisions on the next app open, so
+    the only families that stall are ones where nobody would see the queue
+    anyway. Ship (a) with the visible "waiting for your first app open" state.
+
 - **2026-08-13 (Hien's session) — ALL pending migrations are now applied AND in
   the MCP ledger: `0050`, `0051`, `0058`, `0059`, `0060`.** Verified on live:
   11 provider domains, staging cols on `family_keys`, review policy, all grants

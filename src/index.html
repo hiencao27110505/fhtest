@@ -21,6 +21,7 @@
      host still needs an early handshake. Fonts are self-hosted too (@font-face below). -->
 <link rel="preconnect" href="https://iizyukzfsbdkbrgfupwq.supabase.co" crossorigin>
 <link rel="preload" href="vendor/supabase.js" as="script">
+<link rel="preload" href="vendor/tweetnacl.js" as="script">
 <link rel="preload" href="vendor/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <script>
 /* Returning-user gate — runs before the first paint, with no network involved.
@@ -974,6 +975,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
      parser's critical path yet guarantees it runs before the module below, which
      reads window.supabase. No esm.sh, no CDN module waterfall on cold start. -->
 <script defer src="vendor/supabase.js"></script>
+<!-- TweetNaCl (exposes window.nacl) — sealed-staging envelope only (bank-email
+     pipeline). Same vendoring rationale as supabase.js above. -->
+<script defer src="vendor/tweetnacl.js"></script>
 <script type="module">
 //@build:js-data@
 </script>
