@@ -16,6 +16,11 @@
  *   4. Supabase schema applied (bank-email-pipeline-schema.sql) — 0025 is live; 0026/0027 still pending
  */
 
+// Bumped on every change that gets pasted into Apps Script. Logged on each run
+// so "which code is actually live" is never again something to infer from the
+// wording of an error — several hours went into that guess this session.
+var PIPELINE_VERSION = '2026-08-13-f';
+
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
 var DEDUPE_WINDOW_DAYS = 3;
@@ -49,8 +54,12 @@ function processEmails() {
   // message being reprocessed, so the state machine still works — it just no
   // longer depends on anything being labelled on arrival.
   var q = buildInboxQuery();
-  if (!q) return;                        // nobody has connected a mailbox yet
+  if (!q) { Logger.log('v' + PIPELINE_VERSION + ' | no mailboxes connected'); return; }
   var threads = GmailApp.search(q);
+  // Always logged: this one line answers "is my paste live", "what did it ask
+  // Gmail", and "did Gmail return anything" — the three questions that cost the
+  // most time when this was silent on success.
+  Logger.log('v' + PIPELINE_VERSION + ' | ' + threads.length + ' thread(s) | q=' + q);
   if (threads.length === 0) return;
 
   var txnLabel = GmailApp.getUserLabelByName('txn/inbox');
