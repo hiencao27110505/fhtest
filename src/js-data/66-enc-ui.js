@@ -242,7 +242,7 @@
     ]);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'FamilyHub-' + new Date().toISOString().slice(0, 10) + '.xlsx';
+    a.download = 'Earthy-' + new Date().toISOString().slice(0, 10) + '.xlsx';
     document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
   }

@@ -22,11 +22,11 @@
     const h = '<div class="fh-s-h">' + L('Thêm vào màn hình chính', 'Add to Home Screen') + '</div>';
     let sub, act;
     if (window.fhIsStandalone && window.fhIsStandalone()) {
-      sub = L('FamilyHub đã ở trên máy này rồi. 🎉', 'FamilyHub is already on this device. 🎉');
+      sub = L('Earthy đã ở trên máy này rồi. 🎉', 'Earthy is already on this device. 🎉');
       act = _btn(L('Xong', 'Done'), '_closeOv()', _S.cta);
     } else if (window.__fhBip) {
-      sub = L('Cài FamilyHub như một app riêng: mở nhanh từ màn hình chính, chạy toàn màn hình và nhận thông báo.',
-              'Install FamilyHub as its own app: open it fast from your home screen, run full-screen, and get notifications.');
+      sub = L('Cài Earthy như một app riêng: mở nhanh từ màn hình chính, chạy toàn màn hình và nhận thông báo.',
+              'Install Earthy as its own app: open it fast from your home screen, run full-screen, and get notifications.');
       act = _btn(L('Cài đặt', 'Install'), '_closeOv();fhInstall()', _S.cta) + _btn(L('Để sau', 'Not now'), '_closeOv()', _S.ghost);
     } else if (window.fhIsIOS && window.fhIsIOS()) {
       sub = L('Mở nhanh như một app riêng và nhận thông báo: bấm nút Chia sẻ ở thanh dưới Safari, rồi chọn “Thêm vào MH chính”.',

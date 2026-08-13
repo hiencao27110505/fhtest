@@ -44,10 +44,10 @@ var ICO = {
 
 var RELEASES = [
   { id:'2026-08-07-install', date:'2026-08-07', time:'17:06', ver:'v297', icon:ICO.install,
-    vi:{ t:'Thêm FamilyHub vào màn hình chính',
+    vi:{ t:'Thêm Earthy vào màn hình chính',
       problem:'Trên điện thoại app mở trong trình duyệt nên cứ như một trang web, mà trên iPhone chưa thêm vào màn hình chính thì thông báo cũng chưa chạy.',
       sol:'Giờ trong Cài đặt có nút Thêm vào màn hình chính. Thêm xong app mở toàn màn hình như một app riêng, giữ biểu tượng một lát là nhảy thẳng vào phần ghi chi tiêu.' },
-    en:{ t:'Add FamilyHub to your Home Screen',
+    en:{ t:'Add Earthy to your Home Screen',
       problem:'On your phone it opened inside the browser like a website, and on iPhone notifications only work once it is added to the Home Screen.',
       sol:'Settings has an Add to Home Screen button now. Once it is on, the app opens full screen on its own, and pressing and holding the icon jumps straight to logging an expense.' } },
 

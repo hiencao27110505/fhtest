@@ -149,13 +149,13 @@
   window.fhCardSaveFile = function () {
     if (!_cardShown) return;
     try {
-      const body = 'FamilyHub — Mã khóa của nhà / Family code\n\n' + _cardShown.display + '\n\n'
+      const body = 'Earthy — Mã khóa của nhà / Family code\n\n' + _cardShown.display + '\n\n'
         + 'Đây là mã duy nhất mở dữ liệu của nhà mình.\n'
         + 'Mất mã và mất hết điện thoại là mất dữ liệu, không ai lấy lại được.\n'
         + 'Giữ kỹ như giữ sổ đỏ.\n';
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([body], { type: 'text/plain' }));
-      a.download = 'FamilyHub-code.txt';
+      a.download = 'Earthy-code.txt';
       document.body.appendChild(a); a.click();
       setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
     } catch (e) {}
@@ -182,13 +182,13 @@
   function _qrBlob() { return new Promise((res) => { try { window.__fhQrCanvas.toBlob((b) => res(b), 'image/png'); } catch (e) { res(null); } }); }
   window.fhCardQrSave = async function () {
     const b = await _qrBlob(); if (!b) return;
-    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'FamilyHub-invite-QR.png';
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'Earthy-invite-QR.png';
     document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
   };
   window.fhCardQrShare = async function (btn) {
     const b = await _qrBlob(); if (!b) return;
     try {
-      const file = new File([b], 'FamilyHub-invite-QR.png', { type: 'image/png' });
+      const file = new File([b], 'Earthy-invite-QR.png', { type: 'image/png' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: L('Mã khóa của nhà', 'Family code') }); }
       else { window.fhCardQrSave(); }   // no file share (desktop) → fall back to saving
     } catch (e) {}

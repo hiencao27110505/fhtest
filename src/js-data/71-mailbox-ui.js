@@ -44,8 +44,8 @@
       '<div class="grab"></div>' +
       '<div class="sheet-h">' + _esc(L('Tự động ghi chi tiêu từ email', 'Log spending from email')) + '</div>' +
       '<div class="sheet-sub">' + _esc(L(
-        'Ngân hàng gửi email mỗi lần bạn giao dịch. Chuyển tiếp những email đó cho Family Hub, tụi mình đọc giúp và bạn chỉ cần duyệt lại.',
-        'Your bank emails you after each transaction. Forward those to Family Hub and we read them for you — you just review.')) + '</div>' +
+        'Ngân hàng gửi email mỗi lần bạn giao dịch. Chuyển tiếp những email đó cho Earthy, tụi mình đọc giúp và bạn chỉ cần duyệt lại.',
+        'Your bank emails you after each transaction. Forward those to Earthy and we read them for you — you just review.')) + '</div>' +
       '<div class="mbx-points">' +
         _mbxPoint('🔒', L('Chỉ mình bạn đọc được', 'Only you can read it'),
                   L('Nội dung được mã hoá, kể cả tụi mình cũng không xem được.',

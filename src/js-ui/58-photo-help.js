@@ -86,7 +86,7 @@
       +   '<div class="fpg-way">' + _L('Trên điện thoại','On your phone') + '</div>'
       +   '<ol class="fpg-steps">'
       +     '<li>' + _L('Mở <b>Cài đặt</b> của điện thoại','Open your phone’s <b>Settings</b>') + '</li>'
-      +     '<li>' + _L('<b>Ứng dụng</b> → <b>FamilyHub</b>','<b>Apps</b> → <b>FamilyHub</b>') + '</li>'
+      +     '<li>' + _L('<b>Ứng dụng</b> → <b>Earthy</b>','<b>Apps</b> → <b>Earthy</b>') + '</li>'
       +     '<li>' + _L('<b>Quyền</b> → bật <b>Máy ảnh</b> và <b>Ảnh/Bộ nhớ</b>','<b>Permissions</b> → allow <b>Camera</b> and <b>Photos/Files</b>') + '</li>'
       +     '<li>' + _L('Quay lại đây và bấm <b>Thử lại</b>','Come back here and tap <b>Retry</b>') + '</li>'
       +   '</ol>'

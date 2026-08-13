@@ -19,6 +19,6 @@ window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); 
 window.addEventListener('appinstalled', function(){
   window.__fhBip = null;
   document.documentElement.classList.remove('fh-can-install');
-  try{ if(window.toast) toast(L('Đã thêm FamilyHub vào màn hình chính 🎉','FamilyHub added to your home screen 🎉')); }catch(e){}
+  try{ if(window.toast) toast(L('Đã thêm Earthy vào màn hình chính 🎉','Earthy added to your home screen 🎉')); }catch(e){}
 });
 _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals when the prompt lands above

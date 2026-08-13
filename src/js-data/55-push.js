@@ -121,10 +121,10 @@
       sub = L('Trình duyệt này chưa hỗ trợ thông báo đẩy.', 'This browser does not support push notifications.');
       act = _btn(L('Đã hiểu', 'Got it'), '_closeOv()', _S.cta);
     } else if (st === 'ios-install') {
-      sub = L('Trên iPhone, hãy thêm FamilyHub vào Màn hình chính trước: bấm nút Chia sẻ rồi chọn “Thêm vào MH chính”. Sau đó mở app từ biểu tượng mới và bật thông báo ở đây.', 'On iPhone, first add FamilyHub to your Home Screen: tap Share, then “Add to Home Screen”. Then open the app from its new icon and turn notifications on here.');
+      sub = L('Trên iPhone, hãy thêm Earthy vào Màn hình chính trước: bấm nút Chia sẻ rồi chọn “Thêm vào MH chính”. Sau đó mở app từ biểu tượng mới và bật thông báo ở đây.', 'On iPhone, first add Earthy to your Home Screen: tap Share, then “Add to Home Screen”. Then open the app from its new icon and turn notifications on here.');
       act = _btn(L('Đã hiểu', 'Got it'), '_closeOv()', _S.cta);
     } else if (st === 'denied') {
-      sub = L('Thông báo đang bị chặn trong cài đặt hệ thống. Hãy mở Cài đặt của máy, tìm FamilyHub và cho phép thông báo, rồi quay lại đây.', 'Notifications are blocked in system settings. Open your device Settings, find FamilyHub, allow notifications, then come back here.');
+      sub = L('Thông báo đang bị chặn trong cài đặt hệ thống. Hãy mở Cài đặt của máy, tìm Earthy và cho phép thông báo, rồi quay lại đây.', 'Notifications are blocked in system settings. Open your device Settings, find Earthy, allow notifications, then come back here.');
       act = _btn(L('Đã hiểu', 'Got it'), '_closeOv()', _S.cta);
     } else if (st === 'on') {
       sub = L('Máy này sẽ nhận thông báo khi cả nhà thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'This device gets a heads-up when the family reacts, sends a request or shares a mood, even with the app closed.');

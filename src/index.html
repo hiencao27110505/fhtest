@@ -5,14 +5,14 @@
 <!-- zoom stays ENABLED (WCAG 1.4.4): no maximum-scale / user-scalable=no. iOS may zoom
      a <16px input on focus; touch-action:manipulation (CSS) removes double-tap zoom. -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-<title>FamilyHub</title>
+<title>Earthy</title>
 <meta name="description" content="One place for your family's money — a shared pool, bills, goals and allowances, private by design."/>
 <!-- Light-only design: declare it so the browser doesn't auto-darken form controls/colours. -->
 <meta name="color-scheme" content="light"/>
 <meta name="theme-color" content="#2E9E6B"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="FamilyHub"/>
+<meta name="apple-mobile-web-app-title" content="Earthy"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="icon.png"/>
@@ -63,7 +63,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 </head>
 <body>
 <!-- static so it paints on the first frame — see the returning-user gate in <head> -->
-<div id="fh-splash" aria-hidden="true"><div class="fs-logo"><svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="var(--brand-tint)"/><ellipse cx="32" cy="50" rx="14" ry="2.4" fill="var(--gshadow)"/><rect x="29.2" y="34" width="5.6" height="15" rx="2.8" fill="var(--wood)"/><circle cx="32" cy="24" r="11.5" fill="var(--brand-2)"/><circle cx="23" cy="31" r="7" fill="var(--brand-2)"/><circle cx="41.5" cy="30" r="8" fill="var(--brand-2)"/><path d="M23 34 A13 13 0 0 0 41 33.5" fill="none" stroke="rgba(26,90,60,.10)" stroke-width="3" stroke-linecap="round"/></svg></div><div class="fs-name">FamilyHub</div></div>
+<div id="fh-splash" aria-hidden="true"><div class="fs-logo"><svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="var(--brand-tint)"/><ellipse cx="32" cy="50" rx="14" ry="2.4" fill="var(--gshadow)"/><rect x="29.2" y="34" width="5.6" height="15" rx="2.8" fill="var(--wood)"/><circle cx="32" cy="24" r="11.5" fill="var(--brand-2)"/><circle cx="23" cy="31" r="7" fill="var(--brand-2)"/><circle cx="41.5" cy="30" r="8" fill="var(--brand-2)"/><path d="M23 34 A13 13 0 0 0 41 33.5" fill="none" stroke="rgba(26,90,60,.10)" stroke-width="3" stroke-linecap="round"/></svg></div><div class="fs-name">Earthy</div></div>
 <div id="fh-updating" role="status" aria-live="polite"><span class="fu-dot"></span><span data-t="updating">Updating…</span></div>
 <div id="fh-uploading" role="status" aria-live="polite"><span class="fu-dot"></span><span class="fu-txt" data-t="savingPhoto">Saving photo…</span></div>
 <div id="fh-offline" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22M16.7 16.7A6 6 0 007 8.3M5 12.5a10 10 0 013-2.3M2 8.8a15 15 0 014.2-2.7M12 20h.01"/></svg><span data-t="offline">Offline. Changes save here, sync when you’re back</span></div>

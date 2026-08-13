@@ -159,7 +159,7 @@ self.addEventListener('fetch', (e) => {
 self.addEventListener('push', (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (err) {}
-  e.waitUntil(self.registration.showNotification(d.title || 'FamilyHub', {
+  e.waitUntil(self.registration.showNotification(d.title || 'Earthy', {
     body: d.body || '',
     icon: './icon.png',
     badge: './icon.png',

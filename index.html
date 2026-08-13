@@ -5,14 +5,14 @@
 <!-- zoom stays ENABLED (WCAG 1.4.4): no maximum-scale / user-scalable=no. iOS may zoom
      a <16px input on focus; touch-action:manipulation (CSS) removes double-tap zoom. -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-<title>FamilyHub</title>
+<title>Earthy</title>
 <meta name="description" content="One place for your family's money — a shared pool, bills, goals and allowances, private by design."/>
 <!-- Light-only design: declare it so the browser doesn't auto-darken form controls/colours. -->
 <meta name="color-scheme" content="light"/>
 <meta name="theme-color" content="#2E9E6B"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="FamilyHub"/>
+<meta name="apple-mobile-web-app-title" content="Earthy"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="icon.png"/>
@@ -2767,7 +2767,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 </head>
 <body>
 <!-- static so it paints on the first frame — see the returning-user gate in <head> -->
-<div id="fh-splash" aria-hidden="true"><div class="fs-logo"><svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="var(--brand-tint)"/><ellipse cx="32" cy="50" rx="14" ry="2.4" fill="var(--gshadow)"/><rect x="29.2" y="34" width="5.6" height="15" rx="2.8" fill="var(--wood)"/><circle cx="32" cy="24" r="11.5" fill="var(--brand-2)"/><circle cx="23" cy="31" r="7" fill="var(--brand-2)"/><circle cx="41.5" cy="30" r="8" fill="var(--brand-2)"/><path d="M23 34 A13 13 0 0 0 41 33.5" fill="none" stroke="rgba(26,90,60,.10)" stroke-width="3" stroke-linecap="round"/></svg></div><div class="fs-name">FamilyHub</div></div>
+<div id="fh-splash" aria-hidden="true"><div class="fs-logo"><svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="var(--brand-tint)"/><ellipse cx="32" cy="50" rx="14" ry="2.4" fill="var(--gshadow)"/><rect x="29.2" y="34" width="5.6" height="15" rx="2.8" fill="var(--wood)"/><circle cx="32" cy="24" r="11.5" fill="var(--brand-2)"/><circle cx="23" cy="31" r="7" fill="var(--brand-2)"/><circle cx="41.5" cy="30" r="8" fill="var(--brand-2)"/><path d="M23 34 A13 13 0 0 0 41 33.5" fill="none" stroke="rgba(26,90,60,.10)" stroke-width="3" stroke-linecap="round"/></svg></div><div class="fs-name">Earthy</div></div>
 <div id="fh-updating" role="status" aria-live="polite"><span class="fu-dot"></span><span data-t="updating">Updating…</span></div>
 <div id="fh-uploading" role="status" aria-live="polite"><span class="fu-dot"></span><span class="fu-txt" data-t="savingPhoto">Saving photo…</span></div>
 <div id="fh-offline" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l22 22M16.7 16.7A6 6 0 007 8.3M5 12.5a10 10 0 013-2.3M2 8.8a15 15 0 014.2-2.7M12 20h.01"/></svg><span data-t="offline">Offline. Changes save here, sync when you’re back</span></div>
@@ -10142,7 +10142,7 @@ function bucketCsvCandidates(candidates, mixedSigns) {
       +   '<div class="fpg-way">' + _L('Trên điện thoại','On your phone') + '</div>'
       +   '<ol class="fpg-steps">'
       +     '<li>' + _L('Mở <b>Cài đặt</b> của điện thoại','Open your phone’s <b>Settings</b>') + '</li>'
-      +     '<li>' + _L('<b>Ứng dụng</b> → <b>FamilyHub</b>','<b>Apps</b> → <b>FamilyHub</b>') + '</li>'
+      +     '<li>' + _L('<b>Ứng dụng</b> → <b>Earthy</b>','<b>Apps</b> → <b>Earthy</b>') + '</li>'
       +     '<li>' + _L('<b>Quyền</b> → bật <b>Máy ảnh</b> và <b>Ảnh/Bộ nhớ</b>','<b>Permissions</b> → allow <b>Camera</b> and <b>Photos/Files</b>') + '</li>'
       +     '<li>' + _L('Quay lại đây và bấm <b>Thử lại</b>','Come back here and tap <b>Retry</b>') + '</li>'
       +   '</ol>'
@@ -12397,7 +12397,7 @@ window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); 
 window.addEventListener('appinstalled', function(){
   window.__fhBip = null;
   document.documentElement.classList.remove('fh-can-install');
-  try{ if(window.toast) toast(L('Đã thêm FamilyHub vào màn hình chính 🎉','FamilyHub added to your home screen 🎉')); }catch(e){}
+  try{ if(window.toast) toast(L('Đã thêm Earthy vào màn hình chính 🎉','Earthy added to your home screen 🎉')); }catch(e){}
 });
 _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals when the prompt lands above
 /* ---------- What's new (release notes) ----------
@@ -12446,10 +12446,10 @@ var ICO = {
 
 var RELEASES = [
   { id:'2026-08-07-install', date:'2026-08-07', time:'17:06', ver:'v297', icon:ICO.install,
-    vi:{ t:'Thêm FamilyHub vào màn hình chính',
+    vi:{ t:'Thêm Earthy vào màn hình chính',
       problem:'Trên điện thoại app mở trong trình duyệt nên cứ như một trang web, mà trên iPhone chưa thêm vào màn hình chính thì thông báo cũng chưa chạy.',
       sol:'Giờ trong Cài đặt có nút Thêm vào màn hình chính. Thêm xong app mở toàn màn hình như một app riêng, giữ biểu tượng một lát là nhảy thẳng vào phần ghi chi tiêu.' },
-    en:{ t:'Add FamilyHub to your Home Screen',
+    en:{ t:'Add Earthy to your Home Screen',
       problem:'On your phone it opened inside the browser like a website, and on iPhone notifications only work once it is added to the Home Screen.',
       sol:'Settings has an Add to Home Screen button now. Once it is on, the app opens full screen on its own, and pressing and holding the icon jumps straight to logging an expense.' } },
 
@@ -16217,10 +16217,10 @@ window.classifyAmount = classifyAmount;
       sub = L('Trình duyệt này chưa hỗ trợ thông báo đẩy.', 'This browser does not support push notifications.');
       act = _btn(L('Đã hiểu', 'Got it'), '_closeOv()', _S.cta);
     } else if (st === 'ios-install') {
-      sub = L('Trên iPhone, hãy thêm FamilyHub vào Màn hình chính trước: bấm nút Chia sẻ rồi chọn “Thêm vào MH chính”. Sau đó mở app từ biểu tượng mới và bật thông báo ở đây.', 'On iPhone, first add FamilyHub to your Home Screen: tap Share, then “Add to Home Screen”. Then open the app from its new icon and turn notifications on here.');
+      sub = L('Trên iPhone, hãy thêm Earthy vào Màn hình chính trước: bấm nút Chia sẻ rồi chọn “Thêm vào MH chính”. Sau đó mở app từ biểu tượng mới và bật thông báo ở đây.', 'On iPhone, first add Earthy to your Home Screen: tap Share, then “Add to Home Screen”. Then open the app from its new icon and turn notifications on here.');
       act = _btn(L('Đã hiểu', 'Got it'), '_closeOv()', _S.cta);
     } else if (st === 'denied') {
-      sub = L('Thông báo đang bị chặn trong cài đặt hệ thống. Hãy mở Cài đặt của máy, tìm FamilyHub và cho phép thông báo, rồi quay lại đây.', 'Notifications are blocked in system settings. Open your device Settings, find FamilyHub, allow notifications, then come back here.');
+      sub = L('Thông báo đang bị chặn trong cài đặt hệ thống. Hãy mở Cài đặt của máy, tìm Earthy và cho phép thông báo, rồi quay lại đây.', 'Notifications are blocked in system settings. Open your device Settings, find Earthy, allow notifications, then come back here.');
       act = _btn(L('Đã hiểu', 'Got it'), '_closeOv()', _S.cta);
     } else if (st === 'on') {
       sub = L('Máy này sẽ nhận thông báo khi cả nhà thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'This device gets a heads-up when the family reacts, sends a request or shares a mood, even with the app closed.');
@@ -16835,11 +16835,11 @@ window.classifyAmount = classifyAmount;
     const h = '<div class="fh-s-h">' + L('Thêm vào màn hình chính', 'Add to Home Screen') + '</div>';
     let sub, act;
     if (window.fhIsStandalone && window.fhIsStandalone()) {
-      sub = L('FamilyHub đã ở trên máy này rồi. 🎉', 'FamilyHub is already on this device. 🎉');
+      sub = L('Earthy đã ở trên máy này rồi. 🎉', 'Earthy is already on this device. 🎉');
       act = _btn(L('Xong', 'Done'), '_closeOv()', _S.cta);
     } else if (window.__fhBip) {
-      sub = L('Cài FamilyHub như một app riêng: mở nhanh từ màn hình chính, chạy toàn màn hình và nhận thông báo.',
-              'Install FamilyHub as its own app: open it fast from your home screen, run full-screen, and get notifications.');
+      sub = L('Cài Earthy như một app riêng: mở nhanh từ màn hình chính, chạy toàn màn hình và nhận thông báo.',
+              'Install Earthy as its own app: open it fast from your home screen, run full-screen, and get notifications.');
       act = _btn(L('Cài đặt', 'Install'), '_closeOv();fhInstall()', _S.cta) + _btn(L('Để sau', 'Not now'), '_closeOv()', _S.ghost);
     } else if (window.fhIsIOS && window.fhIsIOS()) {
       sub = L('Mở nhanh như một app riêng và nhận thông báo: bấm nút Chia sẻ ở thanh dưới Safari, rồi chọn “Thêm vào MH chính”.',
@@ -17632,7 +17632,7 @@ window.classifyAmount = classifyAmount;
     ]);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'FamilyHub-' + new Date().toISOString().slice(0, 10) + '.xlsx';
+    a.download = 'Earthy-' + new Date().toISOString().slice(0, 10) + '.xlsx';
     document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
   }
@@ -18061,13 +18061,13 @@ window.classifyAmount = classifyAmount;
   window.fhCardSaveFile = function () {
     if (!_cardShown) return;
     try {
-      const body = 'FamilyHub — Mã khóa của nhà / Family code\n\n' + _cardShown.display + '\n\n'
+      const body = 'Earthy — Mã khóa của nhà / Family code\n\n' + _cardShown.display + '\n\n'
         + 'Đây là mã duy nhất mở dữ liệu của nhà mình.\n'
         + 'Mất mã và mất hết điện thoại là mất dữ liệu, không ai lấy lại được.\n'
         + 'Giữ kỹ như giữ sổ đỏ.\n';
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([body], { type: 'text/plain' }));
-      a.download = 'FamilyHub-code.txt';
+      a.download = 'Earthy-code.txt';
       document.body.appendChild(a); a.click();
       setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
     } catch (e) {}
@@ -18094,13 +18094,13 @@ window.classifyAmount = classifyAmount;
   function _qrBlob() { return new Promise((res) => { try { window.__fhQrCanvas.toBlob((b) => res(b), 'image/png'); } catch (e) { res(null); } }); }
   window.fhCardQrSave = async function () {
     const b = await _qrBlob(); if (!b) return;
-    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'FamilyHub-invite-QR.png';
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'Earthy-invite-QR.png';
     document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
   };
   window.fhCardQrShare = async function (btn) {
     const b = await _qrBlob(); if (!b) return;
     try {
-      const file = new File([b], 'FamilyHub-invite-QR.png', { type: 'image/png' });
+      const file = new File([b], 'Earthy-invite-QR.png', { type: 'image/png' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: L('Mã khóa của nhà', 'Family code') }); }
       else { window.fhCardQrSave(); }   // no file share (desktop) → fall back to saving
     } catch (e) {}
@@ -19174,8 +19174,8 @@ window.classifyAmount = classifyAmount;
       '<div class="grab"></div>' +
       '<div class="sheet-h">' + _esc(L('Tự động ghi chi tiêu từ email', 'Log spending from email')) + '</div>' +
       '<div class="sheet-sub">' + _esc(L(
-        'Ngân hàng gửi email mỗi lần bạn giao dịch. Chuyển tiếp những email đó cho Family Hub, tụi mình đọc giúp và bạn chỉ cần duyệt lại.',
-        'Your bank emails you after each transaction. Forward those to Family Hub and we read them for you — you just review.')) + '</div>' +
+        'Ngân hàng gửi email mỗi lần bạn giao dịch. Chuyển tiếp những email đó cho Earthy, tụi mình đọc giúp và bạn chỉ cần duyệt lại.',
+        'Your bank emails you after each transaction. Forward those to Earthy and we read them for you — you just review.')) + '</div>' +
       '<div class="mbx-points">' +
         _mbxPoint('🔒', L('Chỉ mình bạn đọc được', 'Only you can read it'),
                   L('Nội dung được mã hoá, kể cả tụi mình cũng không xem được.',
