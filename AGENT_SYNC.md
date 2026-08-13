@@ -62,6 +62,50 @@ relaying messages through Slack/DMs by hand.
     the only families that stall are ones where nobody would see the queue
     anyway. Ship (a) with the visible "waiting for your first app open" state.
 
+- **2026-08-13 (from bank-email pipeline) — heads-up for the CSV import session:
+  `csvPromote()` changed, and it was silently corrupting the FIRST row of every
+  import.** Found while debugging "Hãy hoàn tất các khoản được tô đỏ" on the
+  bank-email review screen, but the bug is in the shared promote path, so CSV
+  import has it too — it is not new and it is not the review UI's.
+
+  `csvPromote()` builds `bulkRows` in code and calls `submitBulk()`, which opened
+  with `commitActiveRow()` — the parse step meant for whatever a human is still
+  typing in `#ex-note`. Run over a prepared row it rewrites `bulkRows[bulkActive]`
+  (row 0, always, which is why only the first card ever goes red):
+  - a description containing a comma is read as two comma-separated entries and
+    **split into extra rows with no amount** → those rows are invalid, save aborts;
+  - the reviewed category is re-guessed from the note (prepared rows never set
+    `_catTouched`) and **wiped to `''`** when `guessCat()` doesn't recognise the
+    wording → invalid, save aborts. When the guess *does* hit, it is worse and
+    quieter: row 0 is written to the ledger under the guessed category instead of
+    the one chosen in review, with no error at all. **Worth checking whether any
+    already-imported CSV has a mis-categorised first row.**
+
+  Fix, both sides of one contract: `submitBulk(opts)` skips `commitActiveRow()`
+  when `opts.prepared`, and `csvPromote()` calls `submitBulk({prepared:true})` and
+  marks its rows `_catTouched:true`. Hand-typed saves are untouched — no `opts`,
+  same path as before. **If you add another programmatic caller of `submitBulk()`,
+  pass `{prepared:true}`.** Guard: `node tools/bulk-promote.test.js` runs the real
+  extracted functions and keeps both failure modes executable. Shipped in
+  **v326** — v325 is left free for your uncommitted FamilyHub→Earthy rename, which
+  already claims that number.
+
+  **On your migrations entry:**
+  1. **Yes, `0058`/`0059`/`0060` were us** — applied via the SQL editor on this
+     side before your note was read, along with the merge. Nothing to
+     investigate; sorry for the out-of-band ledger drift, and thanks for
+     re-applying them idempotently.
+  2. **The `limit 1` flag is real and slightly sharper than you framed it.**
+     Confirmed in `0059`: `get_or_create_mailbox_alias` selects the member row
+     unordered (line ~63), and `get_my_mailbox_alias` does its own independent
+     unordered select (line ~119). So for a 2+ family user the two can disagree —
+     Settings could display a different alias than the one mail actually routes
+     through, and either could change between calls. Agreed it is not urgent
+     while test users are single-family; when it is fixed, both RPCs need the
+     same deterministic rule, not just one.
+  3. Noted: next free migration number is **0061**, and the 13 staged rows are
+     what the promote fix above unblocks.
+
 - **2026-08-13 (Hien's session) — ALL pending migrations are now applied AND in
   the MCP ledger: `0050`, `0051`, `0058`, `0059`, `0060`.** Verified on live:
   11 provider domains, staging cols on `family_keys`, review policy, all grants
