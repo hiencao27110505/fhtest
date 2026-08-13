@@ -16,29 +16,30 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
-- **2026-08-13 (from bank-email pipeline) — branch `bank-email-onboarding-ui` is
-  ready, but do NOT merge before applying `0059`.** It adds a Settings row that
-  calls `get_or_create_mailbox_alias`; without the migration the row is visible
-  and broken (graceful toast, but still broken). Order: apply 0059 → merge → deploy.
+- **2026-08-13 (Hien's session) — ALL pending migrations are now applied AND in
+  the MCP ledger: `0050`, `0051`, `0058`, `0059`, `0060`.** Verified on live:
+  11 provider domains, staging cols on `family_keys`, review policy, all grants
+  correct (`_fh_gen_mailbox_tag` internal-only, user RPCs → authenticated only).
+  Three notes:
+  1. **`0058`/`0059`/`0060` were already live but NOT in the ledger** when I
+     got here — someone applied them via SQL editor (you, presumably, since the
+     branch was also already merged despite the "0059 before merge" order in
+     your note). I re-applied them idempotently through the MCP so
+     `list_migrations` reflects reality again. If that wasn't you, say so —
+     that would be worth investigating.
+  2. **`0051` is applied too** (additive/dormant as designed) — so my 3
+     staging-encryption client steps are now unblocked on the DB side. Still on
+     my plate, still open.
+  3. **Small flag on `0059` for multi-family users:** `get_or_create_mailbox_alias`
+     picks the caller's member row with `limit 1` and no deterministic order.
+     For a user in 2+ families, which member row owns the alias is arbitrary —
+     and `email_transactions.member_id` routing therefore lands their bank mail
+     in an arbitrary one of their families. Fine for now (test users are
+     single-family), but worth deciding intent before a real multi-family user
+     connects a bank. Same `limit 1` pattern in `get_my_mailbox_alias`.
 
-  Context: `mailbox_connections` never had a writer, which is why every staged
-  transaction has been unowned and therefore visible to nobody. This is that
-  writer, plus the flow that gives a member their forwarding address.
-
-  **Migrations waiting on you, in dependency order:**
-  - `0059` — alias issuing (RPC). Gates the branch above.
-  - `0058` — review read access (own rows only). Needed before the review UI.
-  - `0050` — VN bank seed list. Independent, apply whenever.
-
-  Also added server-side, already on main: the pipeline now auto-clicks Gmail's
-  forwarding confirmation (needs a second Apps Script trigger,
-  `confirmPendingForwarding` every 5 min), extracts the transfer memo, verifies
-  sender authenticity (DKIM + X-Forwarded-For, advisory until
-  `SENDER_AUTH_ENFORCE=true`), and holds unroutable mail rather than staging rows
-  nobody can ever be shown.
-
-  Your staging-encryption steps are unchanged and still open — nothing here
-  depends on them.
+  Live data at time of writing: 1 alias issued, 13 staged rows. **Next free
+  migration number: 0061.**
 
 - **2026-08-12 (Hien — onboarding) — FYI: migration `0054_find_my_invites_plural`
   landed + applied; next free migration number is `0055`.** Adds
@@ -396,6 +397,13 @@ relaying messages through Slack/DMs by hand.
   this landed), pushed in `1a0d116`.
 
 ## Resolved
+
+- **2026-08-13 → closed 2026-08-13** — "do NOT merge before applying 0059":
+  overtaken by events (merge had already landed as `73e8d3a`); Hien's session
+  applied + ledgered all five pending migrations the same day (see Open entry
+  above). The `confirmPendingForwarding` second-trigger ask was also obsoleted
+  on your own side by `3eb4d1b` ("One trigger, not two: confirmation checks
+  ride the 1-minute tick").
 
 - **2026-08-09 → closed 2026-08-10** — key substitution: agreed. Robot pins
   `sha256(family_pub)` in Script Properties (different trust domain, blocks
