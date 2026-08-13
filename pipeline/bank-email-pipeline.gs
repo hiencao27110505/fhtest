@@ -834,8 +834,19 @@ function checkSenderAuthenticity(message, sender) {
   } else {
     var m = authResults.match(/dkim=(\w+)/i);
     var verdict = m ? m[1].toLowerCase() : null;
+    // Gmail reports the signing identity as header.i=@domain at least as often
+    // as header.d=domain; accepting only the latter made every real message look
+    // misaligned. header.i carries a leading @ (and may be a full address).
     var dm = authResults.match(/header\.d=([^\s;]+)/i);
     var signing = dm ? dm[1].toLowerCase() : null;
+    if (!signing) {
+      var im = authResults.match(/header\.i=@?([^\s;]+)/i);
+      if (im) {
+        signing = im[1].toLowerCase();
+        var at = signing.lastIndexOf('@');
+        if (at !== -1) signing = signing.slice(at + 1);   // user@domain -> domain
+      }
+    }
     if (verdict !== 'pass') {
       results.dkim = 'fail';
       results.reasons.push('dkim=' + (verdict || 'missing'));
@@ -930,7 +941,7 @@ function insertEmailTransaction(row) {
 // the row still gets written, just without routing info until mailbox_connections
 // has a matching entry.
 function resolveMailbox(message) {
-  var alias = extractPlusTag(message.getTo());
+  var alias = extractPlusTag(recipientForRouting(message));
   if (!alias) return null;
   var rows = supabaseGet('mailbox_connections', { forwarding_alias: 'eq.' + alias });
   return rows.length ? rows[0] : null;
@@ -939,6 +950,25 @@ function resolveMailbox(message) {
 function resolveMemberId(message) {
   var mailbox = resolveMailbox(message);
   return mailbox ? mailbox.member_id : null;
+}
+
+// Which address did this actually arrive at?
+//
+// Gmail forwarding preserves the ORIGINAL To: header — it still reads
+// trang.nguyen.wh@gmail.com, not the alias — and only records the real
+// destination in Delivered-To. Reading To: therefore finds no +tag on exactly
+// the mail this pipeline exists to process, which is what happened on the first
+// real end-to-end run. (Google's own confirmation email is a special case: it is
+// addressed directly to the alias, so To: worked there and hid the bug.)
+function recipientForRouting(message) {
+  var candidates = ['Delivered-To', 'X-Forwarded-To', 'X-Original-To'];
+  for (var i = 0; i < candidates.length; i++) {
+    try {
+      var v = message.getHeader(candidates[i]);
+      if (v && v.indexOf('+') !== -1) return v;
+    } catch (e) { /* header absent */ }
+  }
+  return message.getTo() || '';
 }
 
 function extractPlusTag(toHeader) {
