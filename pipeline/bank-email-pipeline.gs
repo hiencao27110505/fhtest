@@ -106,6 +106,24 @@ function processEmails() {
 }
 
 function processOneMessage(message, runCallCount) {
+  // Route FIRST. The inbox search is coarse (everything delivered here), so this
+  // is what separates a forwarded transaction from anything else that lands in
+  // the shared mailbox — and doing it before extraction means unroutable mail
+  // never reaches the LLM. Held rather than failed: the usual cause is that
+  // mailbox onboarding has not finished yet.
+  var _routedMailbox = resolveMailbox(message);
+  if (!_routedMailbox) {
+    var _age = (new Date().getTime() - message.getDate().getTime()) / 86400000;
+    if (_age < ROUTING_GRACE_DAYS) {
+      Logger.log('no known alias on ' + message.getId() + ', holding for retry');
+      return runCallCount;
+    }
+    insertParseFailure(message, 'unroutable_after_grace: no mailbox_connections match after ' +
+      ROUTING_GRACE_DAYS + ' days');
+    relabelMessageThread(message, 'txn/parse-failed');
+    return runCallCount;
+  }
+
   var sender = extractEmailAddress(message.getFrom());
   var subject = message.getSubject();
   var body = message.getPlainBody();
@@ -158,37 +176,7 @@ function processOneMessage(message, runCallCount) {
     }
   }
 
-  // ── routing gate ──────────────────────────────────────────────────────────
-  // A row's ONLY link to a family is member_id -> members.family_id. With no
-  // member_id there is no family linkage at all, so such a row can never be
-  // shown to anyone: scoping it to a family is impossible, and showing it
-  // family-wide would mean showing one household's transaction to every other.
-  // Staging it anyway just accumulates data that is permanently unsurfaceable.
-  //
-  // So: hold it in txn/inbox instead. The overwhelmingly likely cause is that
-  // the user has not finished mailbox onboarding yet (nothing writes
-  // mailbox_connections today), and the moment they do, the next run routes
-  // this same email correctly — no re-forwarding needed, nothing lost.
-  //
-  // Bounded so it cannot queue forever: past ROUTING_GRACE_DAYS we stop hoping,
-  // record it, and move it out of the queue so the backlog cannot grow without
-  // limit or hide a real misconfiguration.
-  var mailbox = resolveMailbox(message);
-  if (!mailbox) {
-    var ageDays = (new Date().getTime() - message.getDate().getTime()) / 86400000;
-    if (ageDays < ROUTING_GRACE_DAYS) {
-      Logger.log('unroutable (no mailbox_connections for its +tag), holding for retry: ' + gmailMessageId);
-      return runCallCount;   // stays labeled txn/inbox
-    }
-    insertParseFailure(message, 'unroutable_after_grace: no mailbox_connections match after ' +
-      ROUTING_GRACE_DAYS + ' days — mailbox onboarding likely never completed');
-    relabelMessageThread(message, 'txn/parse-failed');
-    return runCallCount;
-  }
-
-  // Ground truth for "is forwarding working": a message actually arrived here.
-  // Nothing else — not a confirmation click, not a 200 — proves it.
-  if (mailbox.verified === false) markMailboxVerified(mailbox.forwarding_alias);
+  var mailbox = _routedMailbox;
 
   var dup = findDuplicate(extraction.amount, extraction.direction, extraction.occurred_at, extraction.source_provider);
   var memberId = mailbox.member_id;
@@ -224,13 +212,14 @@ function buildInboxQuery() {
   var aliasPart = fresh ? props.getProperty(ALIAS_CACHE_PROP) : null;
 
   if (aliasPart === null) {
+    // Gmail rewrites Delivered-To to the BARE inbox address — the +tag survives
+    // only in X-Forwarded-To, which Gmail search cannot query. So the search is
+    // deliberately coarse (everything delivered here) and the +tag is matched
+    // per-message afterwards. Safe because processOneMessage now routes BEFORE
+    // extracting: anything without a known alias is skipped without ever
+    // reaching the LLM.
     var rows = supabaseGet('mailbox_connections', { select: 'forwarding_alias' });
-    var terms = [];
-    for (var i = 0; i < rows.length; i++) {
-      var a = rows[i].forwarding_alias;
-      if (a) terms.push('deliveredto:' + aliasAddress(a));
-    }
-    aliasPart = terms.join(' OR ');
+    aliasPart = rows.length ? 'deliveredto:' + TXN_INBOX : '';
     props.setProperty(ALIAS_CACHE_PROP, aliasPart);
     props.setProperty(ALIAS_CACHE_AT_PROP, String(new Date().getTime()));
   }
