@@ -1106,8 +1106,11 @@ function csvPromote(){
 
   return chain.then(function(){
     bulkRows = csvReview.ready.map(function(c){
+      // _catTouched: the category came out of review (cascade or a human tap), so
+      // it is deliberate — never something for the note-keyword guesser to revise.
       return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName,
-               who: c.who || csvDefaultWho(), date: c.dateDisplay, _invalid: false };
+               who: c.who || csvDefaultWho(), date: c.dateDisplay, _invalid: false,
+               _catTouched: true };
     });
     bulkActive = 0;
     exPhotos = [];
@@ -1115,6 +1118,6 @@ function csvPromote(){
     buildExCatChips();
     renderBulk();
     loadRow(0);
-    submitBulk();
+    submitBulk({ prepared: true });
   });
 }

@@ -659,8 +659,19 @@ function guessCat(note){
 /* Persist every draft row in one shot through the durable public addExpense
    (its write-through wrapper fires per call). BULK_SAVING mutes each call's own
    close/toast/nav so the loop can run; the modal closes once at the end. */
-function submitBulk(){
-  commitActiveRow();                               // parse the trailing entry still sitting in the input
+function submitBulk(opts){
+  /* opts.prepared = the rows were built in code (CSV import / bank-email review),
+     not typed here. Only a hand-typed save has a trailing entry sitting in the
+     input to commit; running the interactive parse over prepared rows CORRUPTS
+     bulkRows[bulkActive] two ways, both of which surface as "hoàn tất các khoản
+     được tô đỏ" on a screen where every field was visibly filled:
+       • a description containing a comma ("CHUYEN TIEN, CAM ON") is treated as
+         "note, note" and split into extra amount-less rows;
+       • the reviewed category is re-guessed from the note (these rows never set
+         _catTouched) and, when the keyword dictionary doesn't recognise a bank
+         memo, wiped to '' — see the bulkRows.length>1 branch in commitActiveRow.
+     Both hit row 0 only, which is why the first card is the red one. */
+  if(!(opts && opts.prepared)) commitActiveRow();  // parse the trailing entry still sitting in the input
   // parse-on-save: a row whose note still embeds a number but has no amount yet
   bulkRows.forEach(function(r){
     if(!parseAmtBase(r.amt||'') && (r.note||'').trim()){

@@ -161,8 +161,13 @@ default-on product-wide.
 
 ### 4.3 Seal 🟡
 
-Ships with the review UI (§4.4). Until it does, rows are plaintext behind RLS
-deny-all — that is the known, accepted interim gap.
+Built and tested, but **`sealForFamily()` is deliberately never called yet.** The
+review UI (§4.4) now exists, so the remaining gate is the decrypt side: rows must
+stay readable until `fhStagingOpenRow`/`fhStagingPrivKey` are wired in
+`15-crypto.js` (the three steps in `AGENT_SYNC.md`), otherwise the queue becomes
+unreadable by everything. Until then rows are plaintext behind RLS deny-all —
+the known, accepted interim gap. `fhReadStagedRow()` already handles both shapes,
+so switching sealing on is a one-line change on this side.
 
 1. Build `payload`, **including `family_id` and `gmail_message_id` inside it**.
    This is the anti-relocation binding: without it, someone with DB write access
@@ -336,16 +341,16 @@ and silently loses the row. Check `response.getResponseCode()` for 2xx.
 |---|---|
 | Ingestion, fingerprints, templates, masking | ✅ live |
 | Staging schema (`0025`/`0027`/`0028`) | ✅ live |
-| `known_provider_domains` seed (`0050`) | ✅ merged · 🟡 live-DB apply pending |
+| `known_provider_domains` seed (`0050`) | ✅ merged + applied |
 | Sender/forwarder authentication (DKIM + `X-Forwarded-For`) | ✅ built, advisory until `SENDER_AUTH_ENFORCE=true` |
 | `memo` extraction (seed for the human's description) | ✅ built, verified against live Gemini |
 | Routing gate — hold unroutable mail rather than stage it | ✅ built |
-| `0058` review read policy (own rows only) | 🟡 written, not applied |
-| **Mailbox onboarding (writes `mailbox_connections`)** | ⛔ **not built — nothing writes it, so every row is unrouted today. This now gates the review UI.** |
-| Keypair generation, `wrapped_priv`, sealing, opening | 🟡 decided, ships with review UI |
+| `0058` review read policy · `0059` alias issuing · `0060` resolve-on-import | ✅ applied |
+| Mailbox onboarding (writes `mailbox_connections`) | ✅ built — Settings row → `get_or_create_mailbox_alias`, Gmail confirmation handled |
+| Keypair generation, `wrapped_priv`, sealing, opening | 🟡 seal side built + tested; `sealForFamily()` is deliberately never called until the decrypt side lands |
 | Key-substitution pin + device self-check | 🟡 agreed both sessions |
 | Mismatch alarm UI | ✅ prototyped · 🟡 copy needs native-speaker review |
-| Review UI (approve, categorize, promote, client-side dedup) | 🟡 next build |
+| Review UI (approve, categorize, promote, client-side dedup) | ✅ built — reuses the CSV import screen (`src/js-data/72-txn-review.js`); promote fixed in v326, see `AGENT_SYNC.md` |
 | `parse_failures` sealing decision | 🟡 open |
 | Backend rewrite (owned domain + inbound service) | 🟡 deferred to multi-family |
 
