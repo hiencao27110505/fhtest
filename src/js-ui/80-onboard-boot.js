@@ -151,8 +151,7 @@ function obPrefillBudget(){
     +'<div class="ob-total-card st" style="--i:1"><label>'+L('Ngân sách hằng tháng','Monthly budget')+'</label>'
     +'<div class="ob-total-in"><span class="ob-total-sym" id="ob-budget-sym">'+sym+'</span>'
     +'<input class="ob-total-input num" id="ob-budget" inputmode="numeric" enterkeyhint="done" placeholder="'+(CUR==='VND'?'20.000.000':'9,000')+'" oninput="obTotalChange()"></div></div>'
-    +'<div class="ob-catbud-lead st" style="--i:2"><div class="ob-lab">'+L('Ngân sách theo hạng mục','Category budgets')+'</div>'
-    +'<div class="ob-catbud-hint">'+L('Tụi mình gợi ý sẵn từ tổng. Các danh mục luôn cộng đúng bằng tổng, phần dư nằm ở “Khác”.','We suggest a split from your total. The categories always add up to it, with the rest in “Others”.')+'</div></div>'
+    +'<div class="ob-catbud-lead st" style="--i:2"><div class="ob-lab">'+L('Ngân sách theo hạng mục','Category budgets')+'</div></div>'
     +'<div class="ob-group st" id="ob-catbudgets" style="--i:3">'+rows+'</div>';
   var cta=document.getElementById('ob-budget-cta'); if(cta) cta.textContent=L('Tiếp tục','Continue');
   var sk=document.getElementById('ob-budget-skip'); if(sk) sk.textContent=L('Để sau','Set up later');

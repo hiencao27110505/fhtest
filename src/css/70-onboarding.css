@@ -93,7 +93,6 @@ html.fh-newver #fh-newver{display:flex}
 .ob-total-input{flex:1;min-width:0;border:none;background:none;outline:none;font-family:var(--disp);font-weight:800;font-size:32px;letter-spacing:-1.2px;color:var(--ink);padding:0}
 .ob-total-input::placeholder{color:#cfc8d6;font-weight:700}
 .ob-catbud-lead{margin:0 2px 11px}
-.ob-catbud-hint{font-size:12.5px;line-height:1.4;letter-spacing:-.01em;color:var(--muted-soft);margin-top:3px}
 .ob-group{background:var(--white);border:1px solid var(--hairline);border-radius:16px;overflow:hidden;box-shadow:var(--shadow-card)}
 .ob-catbud{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--divider)}
 .ob-catbud:last-child{border-bottom:none}
