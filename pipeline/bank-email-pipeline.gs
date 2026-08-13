@@ -36,8 +36,21 @@ function processEmails() {
   // tick, and this runs 1,440 times a day against a 90-minute daily budget — two
   // searches per tick spends roughly half that budget finding nothing. Combining
   // them means an idle tick costs one round trip instead of two.
-  var threads = GmailApp.search(
-    'label:txn/inbox OR (from:' + FORWARDING_CONFIRM_SENDER + ' is:unread newer_than:7d)');
+  //
+  // Finds forwarded mail by the alias it was DELIVERED to, not by a label. The
+  // label approach needed a hand-made Gmail filter in the shared inbox for every
+  // user — a manual step that silently drops transactions when forgotten, which
+  // is exactly what happened on the first real end-to-end run. The aliases are
+  // already in mailbox_connections, so the pipeline can just ask.
+  //
+  // deliveredto: matches the envelope recipient, so it still matches when the
+  // visible To: header carries the user's own address (which is the normal shape
+  // of Gmail-forwarded mail). Excluding the two terminal labels is what stops a
+  // message being reprocessed, so the state machine still works — it just no
+  // longer depends on anything being labelled on arrival.
+  var q = buildInboxQuery();
+  if (!q) return;                        // nobody has connected a mailbox yet
+  var threads = GmailApp.search(q);
   if (threads.length === 0) return;
 
   var txnLabel = GmailApp.getUserLabelByName('txn/inbox');
@@ -192,6 +205,48 @@ function processOneMessage(message, runCallCount) {
 
 // ---------- Stage 0 helpers ----------
 
+// Builds the search from the aliases actually issued. Cached in Script Properties
+// for a few minutes: mailbox_connections changes only when someone onboards, and
+// re-reading it 1,440 times a day would spend the Supabase round trip that the
+// single-search optimisation just saved.
+var ALIAS_CACHE_PROP = 'ALIAS_QUERY_CACHE';
+var ALIAS_CACHE_AT_PROP = 'ALIAS_QUERY_CACHE_AT';
+var ALIAS_CACHE_MINUTES = 5;
+
+function buildInboxQuery() {
+  var props = PropertiesService.getScriptProperties();
+  var cachedAt = Number(props.getProperty(ALIAS_CACHE_AT_PROP) || '0');
+  var fresh = (new Date().getTime() - cachedAt) < ALIAS_CACHE_MINUTES * 60000;
+  var aliasPart = fresh ? props.getProperty(ALIAS_CACHE_PROP) : null;
+
+  if (aliasPart === null) {
+    var rows = supabaseGet('mailbox_connections', { select: 'forwarding_alias' });
+    var terms = [];
+    for (var i = 0; i < rows.length; i++) {
+      var a = rows[i].forwarding_alias;
+      if (a) terms.push('deliveredto:' + aliasAddress(a));
+    }
+    aliasPart = terms.join(' OR ');
+    props.setProperty(ALIAS_CACHE_PROP, aliasPart);
+    props.setProperty(ALIAS_CACHE_AT_PROP, String(new Date().getTime()));
+  }
+
+  var confirmPart = '(from:' + FORWARDING_CONFIRM_SENDER + ' is:unread newer_than:7d)';
+  if (!aliasPart) return confirmPart;   // no mailboxes yet: still confirm new ones
+
+  return '((' + aliasPart + ') -label:txn/processed -label:txn/parse-failed) OR ' + confirmPart;
+}
+
+// Mirrors the client's address assembly (71-mailbox-ui.js). Kept as a constant
+// here rather than derived, so moving to an owned domain is a one-line change on
+// each side rather than a data migration.
+var TXN_INBOX = 'gichisreading@gmail.com';
+function aliasAddress(tag) {
+  var at = TXN_INBOX.indexOf('@');
+  return TXN_INBOX.slice(0, at) + '+' + tag + TXN_INBOX.slice(at);
+}
+
+
 function extractEmailAddress(fromHeader) {
   var match = fromHeader.match(/<(.+)>/);
   return match ? match[1] : fromHeader;
@@ -213,7 +268,12 @@ function relabelMessageThread(message, labelName) {
 }
 
 function relabelThread(thread, labelName) {
-  thread.removeLabel(GmailApp.getUserLabelByName('txn/inbox'));
+  // txn/inbox may never have been applied — mail is now found by delivery
+  // address, not by label — so removing it is best-effort.
+  try {
+    var inbox = GmailApp.getUserLabelByName('txn/inbox');
+    if (inbox) thread.removeLabel(inbox);
+  } catch (e) { /* not labelled; nothing to remove */ }
   thread.addLabel(GmailApp.getUserLabelByName(labelName));
 }
 
