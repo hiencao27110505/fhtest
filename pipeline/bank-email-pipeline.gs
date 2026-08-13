@@ -201,7 +201,8 @@ function processOneMessage(message, runCallCount) {
 // for a few minutes: mailbox_connections changes only when someone onboards, and
 // re-reading it 1,440 times a day would spend the Supabase round trip that the
 // single-search optimisation just saved.
-var ALIAS_CACHE_PROP = 'ALIAS_QUERY_CACHE';
+var ALIAS_CACHE_PROP = 'ALIAS_QUERY_CACHE_V2';   // bump when the query shape changes,
+                                                 // or a cached old query outlives the code
 var ALIAS_CACHE_AT_PROP = 'ALIAS_QUERY_CACHE_AT';
 var ALIAS_CACHE_MINUTES = 5;
 
@@ -219,7 +220,13 @@ function buildInboxQuery() {
     // extracting: anything without a known alias is skipped without ever
     // reaching the LLM.
     var rows = supabaseGet('mailbox_connections', { select: 'forwarding_alias' });
-    aliasPart = rows.length ? 'deliveredto:' + TXN_INBOX : '';
+    // Not deliveredto:<bare inbox> — that matches the entire mailbox (measured:
+    // 500 threads), so every personal email would be walked every minute.
+    // And not deliveredto:<alias> either: Gmail strips the +tag from
+    // Delivered-To, so it only ever matches mail addressed directly to the
+    // alias (the confirmation), never forwarded mail. The label stays the
+    // narrow signal; one filter on the shared inbox applies it.
+    aliasPart = rows.length ? 'label:txn/inbox' : '';
     props.setProperty(ALIAS_CACHE_PROP, aliasPart);
     props.setProperty(ALIAS_CACHE_AT_PROP, String(new Date().getTime()));
   }
@@ -934,10 +941,12 @@ function insertEmailTransaction(row) {
 // the row still gets written, just without routing info until mailbox_connections
 // has a matching entry.
 function resolveMailbox(message) {
-  var alias = extractPlusTag(recipientForRouting(message));
-  if (!alias) return null;
-  var rows = supabaseGet('mailbox_connections', { forwarding_alias: 'eq.' + alias });
-  return rows.length ? rows[0] : null;
+  var tags = extractPlusTags(recipientForRouting(message));
+  for (var i = 0; i < tags.length; i++) {
+    var rows = supabaseGet('mailbox_connections', { forwarding_alias: 'eq.' + tags[i] });
+    if (rows.length) return rows[0];
+  }
+  return null;
 }
 
 function resolveMemberId(message) {
@@ -965,8 +974,24 @@ function recipientForRouting(message) {
 }
 
 function extractPlusTag(toHeader) {
-  var match = toHeader.match(/\+([^@]+)@/);
-  return match ? match[1] : null;
+  var all = extractPlusTags(toHeader);
+  return all.length ? all[0] : null;
+}
+
+// A forwarded message can carry SEVERAL aliases in one header — mail that passed
+// through two forwarding rules shows up as
+//   "gichisreading+trang@gmail.com, gichisreading+8xr4ed9vr8@gmail.com, ..."
+// Taking the first meant an old, retired alias shadowed the live one and the
+// message was held as unroutable. Return them all; the caller picks the one it
+// actually knows.
+function extractPlusTags(header) {
+  var out = [];
+  var re = /\+([^@,\s]+)@/g;
+  var m;
+  while ((m = re.exec(String(header || ''))) !== null) {
+    if (out.indexOf(m[1]) === -1) out.push(m[1]);
+  }
+  return out;
 }
 
 function markMailboxVerified(alias) {
