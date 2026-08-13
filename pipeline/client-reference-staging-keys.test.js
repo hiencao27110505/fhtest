@@ -10,7 +10,7 @@ global.btoa = s => Buffer.from(s, 'binary').toString('base64');
 global.TextDecoder = require('util').TextDecoder;
 global.window = {};
 
-eval(fs.readFileSync('/Users/thutrang290902gmail.com/Desktop/Projects/fhtest/pipeline/client-reference-staging-keys.js', 'utf8'));
+eval(fs.readFileSync(require('path').join(__dirname,'client-reference-staging-keys.js'), 'utf8'));
 
 let pass = 0, fail = 0;
 const t = (name, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + name + (!ok && d ? '  -> ' + d : '')); ok ? pass++ : fail++; };

@@ -19,3 +19,8 @@ jobs:
       # The committed index.html must be exactly what `node build.js` regenerates from src/
       # (the modular split is lossless). Catches hand-edits to index.html and stale rebuilds.
       - run: npm run check
+      # Pipeline + promote suites. Added 2026-08-13 after finding they had silently rotted:
+      # forwarding-confirm.test.js was calling a signature that had changed underneath it,
+      # and the two crypto suites (35 assertions) could not run at all because tweetnacl
+      # was never a declared dependency. Tests nobody runs are not tests.
+      - run: npm test

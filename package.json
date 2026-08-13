@@ -8,9 +8,11 @@
     "build:deploy": "node build.js --deploy",
     "split": "node tools/split.js",
     "parse": "node tools/parse-check.js",
+    "test": "node pipeline/sender-auth.test.js && node pipeline/forwarding-confirm.test.js && node pipeline/sealed-box.test.js && node pipeline/client-reference-staging-keys.test.js && node tools/bulk-promote.test.js",
     "check": "node build.js && git diff --exit-code -- index.html && echo 'index.html is in sync with src/'"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "tweetnacl": "^1.0.3"
   }
 }

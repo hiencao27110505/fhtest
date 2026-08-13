@@ -56,10 +56,38 @@ Every one of these cost real debugging time because it was assumed rather than
 checked. If you are touching the pipeline, read this before theorising.
 
 - **`Delivered-To` does NOT carry the `+tag`.** Gmail rewrites it to the bare
-  inbox address. The tag survives only in `X-Forwarded-To`, which Gmail *search*
-  cannot query. So no delivery-address search can find forwarded mail — the
-  `txn/inbox` label is the only narrow signal available, and the Gmail filter
-  that applies it is load-bearing, not a workaround.
+  inbox address. On AUTO-forwarded mail the tag survives only in
+  `X-Forwarded-To`, which Gmail *search* cannot query — so for that mail the
+  `txn/inbox` label really is the only narrow signal, and the Gmail filter that
+  applies it is load-bearing.
+- **But `to:<alias>` DOES work — this file said otherwise until 2026-08-13.**
+  `to:` is a different operator from `deliveredto:`: it reads the `To:` *header*,
+  where the `+tag` survives intact. Measured on the live inbox:
+  `to:gichisreading+<tag>` returned 4 threads out of 3,558 messages, all
+  genuinely that alias's, zero false positives. The earlier blanket claim that
+  "no delivery-address search can find forwarded mail" was wrong, and it cost us
+  a silent ingestion hole (below).
+- **AUTO-forward and HAND-forward need DIFFERENT search terms.** They are not
+  variations of one thing:
+  - *Auto-forward* — Gmail preserves the bank's original `From:` **and** the
+    original `To:` (the person's own address). So the sender-based filter labels
+    it, and `to:<alias>` can never match it.
+  - *Hand-forward* — the person pressed Forward, so `From:` is **them**, `To:`
+    **is** the alias, and the bank's address exists only as quoted body text.
+    No sender-based filter can label it. Until `to:<alias>` was added to
+    `buildInboxQuery()`, every hand-forwarded email was invisible to the pipeline
+    forever — it just sat in the inbox unlabelled. That is how a real VCB test
+    forward went missing on 2026-08-13.
+- **A hand-forward cannot be sender-authenticated, and it looks like it can.**
+  DKIM reports **pass** on one — legitimately, because the forwarder's own domain
+  signed it and the sender genuinely is the forwarder. That pass authenticates
+  the wrapper, not the bank; the bank's content is quoted text the forwarder
+  could have typed. `checkSenderAuthenticity` now names this case
+  (`forward_mode:'manual'`, `forwarder:'manual'`,
+  `dkim_authenticates:'forwarder_not_bank'`) instead of reporting a bare missing
+  header. It does **not** count as authenticated, so switching
+  `SENDER_AUTH_ENFORCE=true` will block hand-forwards. That is a decision to make
+  deliberately, not to discover in production.
 - **`deliveredto:<bare inbox>` matches the entire mailbox** (measured: 500
   threads). Never search on it.
 - **A forwarded message can carry SEVERAL aliases in one header** when it passed
@@ -74,7 +102,10 @@ checked. If you are touching the pipeline, read this before theorising.
   ("Please confirm forwarding mail of…"). A 200 is not approval. `verified` is
   therefore set by a real forwarded message arriving, never by the fetch.
 - **Read-state is not a record of work done.** A human opening a message removes
-  it from any `is:unread` search forever. Use labels.
+  it from any `is:unread` search forever. Use labels. (`confirmPendingForwarding`
+  was still doing this on 2026-08-13 — three real confirmation emails sat
+  unhandled in the shared inbox because someone had opened them. Now excluded by
+  label, like everything else.)
 - **The confirmation email is addressed directly to the alias**, so `To:` works
   there — which masks the fact that `To:` is wrong for forwarded mail.
 

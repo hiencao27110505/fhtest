@@ -1,5 +1,5 @@
 const fs=require('fs');
-const src=fs.readFileSync('/Users/thutrang290902gmail.com/Desktop/Projects/fhtest/pipeline/bank-email-pipeline.gs','utf8');
+const src=fs.readFileSync(require('path').join(__dirname,'bank-email-pipeline.gs'),'utf8');
 // load just the auth helpers + their deps
 const start=src.indexOf('function senderAuthEnforced');
 const end=src.indexOf('// ---------- Stage 2 helpers ----------');
@@ -8,6 +8,8 @@ global.PropertiesService={getScriptProperties:()=>({getProperty:k=>_props[k]||nu
 global.Logger={log:()=>{}};
 let MAILBOX=null;
 global.resolveMailbox=()=>MAILBOX;
+// hand-forward detection calls extractEmailAddress, which lives further up
+eval(src.slice(src.indexOf('function extractEmailAddress'),src.indexOf('function normalizeSubjectTemplate')));
 eval(src.slice(start,end));
 
 let pass=0,fail=0;
@@ -44,6 +46,24 @@ r=checkSenderAuthenticity(msg({...GOOD,'Authentication-Results':'dkim=pass heade
 t('attacker-owned lookalike is DKIM-valid for ITS OWN domain', r.dkim==='pass');
 console.log('        ^ expected: DKIM proves the domain, not that it is the real bank —');
 console.log('          known_provider_domains is what pins WHICH domain is MB Bank.');
+
+console.log('\n-- hand-forward (a person pressing Forward, not Gmail auto-forwarding) --');
+// Gmail signs the forwarder's own outbound mail, and the sender IS the forwarder,
+// so DKIM legitimately passes — while proving nothing about the bank.
+const HAND={'Authentication-Results':'mx.google.com; dkim=pass header.i=@gmail.com header.d=gmail.com'};
+r=checkSenderAuthenticity(msg(HAND),'Trang <trang.nguyen.wh@gmail.com>');
+t('recognised as a hand-forward, not a generic missing header', r.forwarder==='manual', JSON.stringify(r));
+t('forward_mode records it', r.forward_mode==='manual');
+t('DKIM still reports pass — the trap this exists to label', r.dkim==='pass');
+t('but it is recorded as authenticating the forwarder, not the bank', r.dkim_authenticates==='forwarder_not_bank');
+t('so it does NOT count as authenticated', r.ok===false);
+
+// Somebody else's hand-forward is not the owner's, and must not be excused.
+r=checkSenderAuthenticity(msg(HAND),'stranger@gmail.com');
+t('a stranger posting at the alias is not treated as a hand-forward', r.forwarder==='absent' && r.forward_mode==='unknown', JSON.stringify(r));
+
+r=checkSenderAuthenticity(msg(GOOD),'mbebanking@mbbank.com.vn');
+t('real auto-forwarded mail is still forward_mode=auto', r.forward_mode==='auto' && r.ok===true);
 
 console.log('\n-- enforcement flag --');
 t('advisory by default', senderAuthEnforced()===false);

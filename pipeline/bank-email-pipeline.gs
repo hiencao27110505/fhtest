@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-13-f';
+var PIPELINE_VERSION = '2026-08-13-g';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -210,7 +210,7 @@ function processOneMessage(message, runCallCount) {
 // for a few minutes: mailbox_connections changes only when someone onboards, and
 // re-reading it 1,440 times a day would spend the Supabase round trip that the
 // single-search optimisation just saved.
-var ALIAS_CACHE_PROP = 'ALIAS_QUERY_CACHE_V2';   // bump when the query shape changes,
+var ALIAS_CACHE_PROP = 'ALIAS_QUERY_CACHE_V3';   // bump when the query shape changes,
                                                  // or a cached old query outlives the code
 var ALIAS_CACHE_AT_PROP = 'ALIAS_QUERY_CACHE_AT';
 var ALIAS_CACHE_MINUTES = 5;
@@ -233,9 +233,27 @@ function buildInboxQuery() {
     // 500 threads), so every personal email would be walked every minute.
     // And not deliveredto:<alias> either: Gmail strips the +tag from
     // Delivered-To, so it only ever matches mail addressed directly to the
-    // alias (the confirmation), never forwarded mail. The label stays the
-    // narrow signal; one filter on the shared inbox applies it.
-    aliasPart = rows.length ? 'label:txn/inbox' : '';
+    // alias.
+    //
+    // But `to:<alias>` DOES work, and it is a different operator from
+    // deliveredto: — it reads the To: HEADER, where the +tag survives intact.
+    // Measured 2026-08-13 against the live inbox: `to:gichisreading+<tag>` in a
+    // 3,558-message mailbox returned 4 threads, all genuinely that alias's, zero
+    // false positives.
+    //
+    // The two terms catch DIFFERENT mail and are both needed:
+    //   • label:txn/inbox  — AUTO-forwarded mail. Gmail preserves the bank's
+    //     original To:, so `to:<alias>` can never match it; the filter that
+    //     applies the label is the only signal.
+    //   • to:<alias>       — HAND-forwarded mail (and confirmations), where To:
+    //     IS the alias. These carry the bank's address only as quoted body text,
+    //     so a sender-based filter cannot label them and they were previously
+    //     invisible to the pipeline forever.
+    var terms = ['label:txn/inbox'];
+    for (var r = 0; r < rows.length; r++) {
+      if (rows[r].forwarding_alias) terms.push('to:' + aliasAddress(rows[r].forwarding_alias));
+    }
+    aliasPart = rows.length ? terms.join(' OR ') : '';
     props.setProperty(ALIAS_CACHE_PROP, aliasPart);
     props.setProperty(ALIAS_CACHE_AT_PROP, String(new Date().getTime()));
   }
@@ -878,9 +896,34 @@ function checkSenderAuthenticity(message, sender) {
   var mailbox = resolveMailbox(message);
   var fwd = '';
   try { fwd = message.getHeader('X-Forwarded-For') || ''; } catch (e2) { /* header absent */ }
+
+  // HAND-forward detection. Gmail stamps X-Forwarded-For only on AUTO-forwards,
+  // so its absence together with a From: that IS the alias owner identifies the
+  // case exactly: the person pressed Forward themselves.
+  //
+  // This is named rather than lumped in with a failure because of a trap in the
+  // DKIM block above. A hand-forward is genuinely signed by the forwarder's own
+  // domain, and the sender genuinely IS the forwarder — so DKIM reports PASS.
+  // That pass authenticates the WRAPPER, not the bank: the bank's content is now
+  // quoted body text that the forwarder could have typed. A hand-forward is
+  // therefore structurally unauthenticatable, and recording it as 'pass' would
+  // claim a verification nobody performed.
+  var senderAddr = String(extractEmailAddress(String(sender || ''))).toLowerCase();
+  var ownerAddr = String((mailbox && mailbox.personal_email) || '').toLowerCase();
+  var isManual = !!(ownerAddr && !fwd && senderAddr === ownerAddr);
+  results.forward_mode = fwd ? 'auto' : (isManual ? 'manual' : 'unknown');
+  if (isManual) results.dkim_authenticates = 'forwarder_not_bank';
+
   if (!mailbox) {
     results.forwarder = 'no_mailbox';
     results.reasons.push('alias not found in mailbox_connections');
+  } else if (isManual) {
+    // Deliberately not 'pass'. Enforcement therefore blocks hand-forwards by
+    // default — a decision, not an accident. Allowing them means accepting bank
+    // content nobody can verify; see pipeline/README.md.
+    results.forwarder = 'manual';
+    results.reasons.push('hand-forwarded by ' + senderAddr +
+      ' — bank content is unverified quoted text, not a signed bank message');
   } else if (!fwd) {
     results.forwarder = 'absent';
     results.reasons.push('no X-Forwarded-For header');
@@ -1118,9 +1161,13 @@ function _threadHasLabel(thread, label) {
 // path does NOT call this — processEmails() folds the same work into its single
 // combined search so an idle tick costs one Gmail round trip, not two.
 function confirmPendingForwarding() {
-  // Unread only: a handled confirmation is marked read, so this naturally stops
-  // reprocessing without needing its own state.
-  var threads = GmailApp.search('from:' + FORWARDING_CONFIRM_SENDER + ' is:unread newer_than:7d');
+  // NOT is:unread. handleForwardingConfirmation relabels to txn/processed, and
+  // the label is what marks the work done — read-state does not, because a human
+  // opening the confirmation removes it from an is:unread search forever. That
+  // is exactly how three real confirmations sat unhandled in the shared inbox on
+  // 2026-08-13. Same exclusion the scheduled path in buildInboxQuery() uses.
+  var threads = GmailApp.search('from:' + FORWARDING_CONFIRM_SENDER +
+    ' newer_than:7d -label:txn/processed -label:txn/parse-failed');
   for (var t = 0; t < threads.length; t++) {
     var messages = threads[t].getMessages();
     for (var m = 0; m < messages.length; m++) {

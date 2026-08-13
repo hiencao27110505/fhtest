@@ -28,7 +28,7 @@ global.nacl = nacl;
 
 // ── load the module under test ──────────────────────────────────────────────
 const fs = require('fs');
-const src = fs.readFileSync('/Users/thutrang290902gmail.com/Desktop/Projects/fhtest/pipeline/sealed-box.gs', 'utf8');
+const src = fs.readFileSync(require('path').join(__dirname,'sealed-box.gs'), 'utf8');
 eval(src);
 
 let pass = 0, fail = 0;
