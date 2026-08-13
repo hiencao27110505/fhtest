@@ -186,6 +186,10 @@ function processOneMessage(message, runCallCount) {
     return runCallCount;
   }
 
+  // Ground truth for "is forwarding working": a message actually arrived here.
+  // Nothing else — not a confirmation click, not a 200 — proves it.
+  if (mailbox.verified === false) markMailboxVerified(mailbox.forwarding_alias);
+
   var dup = findDuplicate(extraction.amount, extraction.direction, extraction.occurred_at, extraction.source_provider);
   var memberId = mailbox.member_id;
   var row = buildEmailTransactionRow(gmailMessageId, sender, extraction, body, dup, memberId);
@@ -976,6 +980,16 @@ function extractPlusTag(toHeader) {
   return match ? match[1] : null;
 }
 
+function markMailboxVerified(alias) {
+  try {
+    supabasePatch('mailbox_connections', { forwarding_alias: 'eq.' + alias }, { verified: true });
+    Logger.log('mailbox ' + alias + ' verified by a real forwarded message');
+  } catch (e) {
+    // Cosmetic only — the transaction still processes. Next message retries.
+    Logger.log('could not mark ' + alias + ' verified: ' + e);
+  }
+}
+
 function insertParseFailure(message, reason) {
   supabasePost('parse_failures', {
     gmail_message_id: message.getId(),
@@ -1118,18 +1132,21 @@ function handleForwardingConfirmation(message) {
     return;
   }
 
-  // Clicking is a plain GET. muteHttpExceptions so a non-200 is inspected rather
-  // than thrown — Google answers 200 for an already-confirmed link too, which is
-  // why re-running is harmless.
+  // Fetching the link is a best-effort nudge, NOT proof of anything. Google
+  // answers 200 for an interstitial that still expects a human click, so an
+  // earlier version marked the mailbox verified on a bare 200 — and the app
+  // cheerfully reported "Connected" while Gmail still showed the address as
+  // unverified. Claiming success we cannot observe is worse than failing.
   var response = UrlFetchApp.fetch(link, { muteHttpExceptions: true, followRedirects: true });
   var code = response.getResponseCode();
-  if (code < 200 || code >= 400) {
-    throw new Error('confirm link returned HTTP ' + code);
-  }
+  var body = String(response.getContentText() || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  Logger.log('confirm fetch for ' + alias + ': HTTP ' + code + ' | ' + body.slice(0, 300));
 
-  supabasePatch('mailbox_connections', { forwarding_alias: 'eq.' + alias }, { verified: true });
+  // verified is NOT set here. The only trustworthy evidence that forwarding
+  // works is a forwarded message actually arriving at this alias, which
+  // processOneMessage records when it routes one (see markMailboxVerified).
+  // Leaving it false keeps the UI honestly in "waiting" until that happens.
   message.markRead();
-  Logger.log('forwarding confirmed for alias ' + alias);
 }
 
 // Finds the confirmation link in Google's forwarding email.
