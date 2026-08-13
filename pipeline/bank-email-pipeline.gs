@@ -1231,6 +1231,36 @@ function debugMessageHeaders() {
   Logger.log(headerBlock.slice(0, 2500));
 }
 
+// One-off: which Gmail query actually finds the forwarded transactions?
+// Run manually. Prints the hit count for each variant so the real search can be
+// chosen from evidence instead of assumptions about Gmail's operator semantics.
+function debugSearch() {
+  var qs = [
+    buildInboxQuery(),
+    'deliveredto:' + TXN_INBOX,
+    'deliveredto:' + TXN_INBOX + ' -label:txn/processed -label:txn/parse-failed',
+    'from:mbcard@mbbank.com.vn',
+    'from:mbbank.com.vn',
+    'in:inbox',
+    'in:inbox -label:txn/processed -label:txn/parse-failed',
+    'label:txn/inbox'
+  ];
+  for (var i = 0; i < qs.length; i++) {
+    var n = -1;
+    try { n = GmailApp.search(qs[i]).length; } catch (e) { Logger.log('QUERY ERROR: ' + qs[i] + ' -> ' + e); continue; }
+    Logger.log(n + ' thread(s)  <-  ' + qs[i]);
+  }
+  // And what the pipeline would decide about the newest inbox thread
+  var t = GmailApp.search('in:inbox', 0, 3);
+  for (var j = 0; j < t.length; j++) {
+    var m = t[j].getMessages()[0];
+    Logger.log('inbox[' + j + '] from=' + m.getFrom() +
+      ' | routed=' + JSON.stringify(recipientForRouting(m)) +
+      ' | tag=' + extractPlusTag(recipientForRouting(m)) +
+      ' | labels=' + t[j].getLabels().map(function (l) { return l.getName(); }).join(','));
+  }
+}
+
 // ---------- Supabase REST helpers ----------
 
 // All Supabase traffic goes through here so an HTTP failure can never be mistaken
