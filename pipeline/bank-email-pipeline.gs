@@ -9,9 +9,10 @@
  *      (ANTHROPIC_API_KEY + classifyAndExtractViaHaiku() left in place below, unused —
  *      swapping the model back later is a one-line change, see processOneMessage)
  *   2. Gmail labels created: txn/inbox, txn/processed, txn/parse-failed (done — see gichisreading@gmail.com)
- *   3. Time-based triggers: processEmails every 1 minute, and
- *      confirmPendingForwarding every 5 minutes (auto-clicks Gmail's
- *      forwarding confirmation so onboarding does not ask the user to)
+ *   3. Time-based trigger: processEmails, every 1 minute. ONE trigger only —
+ *      it also runs confirmPendingForwarding (auto-clicks Gmail's forwarding
+ *      confirmation so onboarding never asks the user to). Do not add a second
+ *      trigger for it: same latency, double the daily runtime quota.
  *   4. Supabase schema applied (bank-email-pipeline-schema.sql) — 0025 is live; 0026/0027 still pending
  */
 
@@ -24,6 +25,19 @@ var DEDUPE_WINDOW_DAYS = 3;
 var ROUTING_GRACE_DAYS = 14;
 
 function processEmails() {
+  // Confirmations ride the same 1-minute tick rather than a second trigger.
+  // Latency matters here — someone is watching a "waiting for Gmail" screen while
+  // this decides whether their setup worked — and Apps Script only allows ~90
+  // minutes of trigger runtime per day, so a second 1-minute trigger would eat
+  // the budget that transaction processing needs. Wrapped so a confirmation
+  // failure can never stop the transaction loop, which was the only reason to
+  // keep them on separate triggers in the first place.
+  try {
+    confirmPendingForwarding();
+  } catch (err) {
+    Logger.log('confirmPendingForwarding failed, continuing to transactions: ' + err);
+  }
+
   var threads = GmailApp.search('label:txn/inbox');
   if (threads.length === 0) return;
 
