@@ -2713,9 +2713,15 @@ html.fh-can-install .set-row.set-install{display:flex}
    attention state. In an email review that's the *normal* case, not a warning —
    so we give it the app's plain white bordered row instead. */
 #csv-result.staged .bulk-card.attn:not(.active){background:var(--white);border-color:var(--hairline)}
-/* The bottom total strip is a neutral confirmation here, not a filled stat block:
-   hairline border, no --canvas fill (DESIGN §2.1 — no colored fills on stat blocks). */
-#csv-result.staged .csv-check{background:transparent;border:1px solid var(--hairline)}
+
+/* The single summary — count + total, at the top. It is SUMMARY type, not a card:
+   no box, no fill, no border, so it never competes with the draft-expense cards
+   below it. Hierarchy comes from weight + a tabular figure (DESIGN §2.2), the way
+   a grouped-list header carries its value. */
+#csv-result.staged .csv-staged-sum{margin:2px 2px 20px}
+#csv-result.staged .csv-staged-sum-main{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.3px;color:var(--ink)}
+#csv-result.staged .csv-staged-sum-main .num{color:var(--ink)}
+#csv-result.staged .csv-staged-sum-sub{font-size:13px;color:var(--muted);margin-top:3px;letter-spacing:-.01em}
 
 /* ---------- sealed-staging key-mismatch alarm ---------- */
 /* Blocking, family-wide dialog raised at unlock when the device's staging key
@@ -9212,15 +9218,28 @@ function renderCsvReview(){
 
   // Lead with the win, not the workload.
   var readyCount = r.ready.length;
-  var summaryLine;
-  // Staged mode: one calm line of context, not a chatty status report.
-  if(csvStagedMode) summaryLine = esc(L(readyCount+' giao dịch từ email ngân hàng', readyCount+' transaction'+(readyCount===1?'':'s')+' from bank email'));
-  else if(r.mixedSignsNote) summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
-  else if(decisionCount===0 && readyCount>0) summaryLine = esc(L('Đã xếp xong cả '+readyCount+' khoản. Lướt qua rồi nhập thôi.','All '+readyCount+' sorted. Skim and import.'));
-  else if(readyCount>0) summaryLine = esc(L('Đã xếp '+readyCount+' khoản, còn '+decisionCount+' khoản thiếu thông tin.',readyCount+' sorted, '+decisionCount+' missing something.'));
-  else summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
-  html += '<div class="review-summary">'+summaryLine+'</div>';
-  html += csvStagedMode ? '' : csvSpendPanel(r);   // the file breakdown panel is import-only
+  if(csvStagedMode){
+    // ONE consolidated summary at the top — count + total — as summary type, not a
+    // boxed card (a box here reads as yet another draft row). This replaces BOTH the
+    // old top context line and the bottom csv-check strip, which stated the same
+    // "what am I about to import" twice. Recomputed each render, so removing a row
+    // (the × on a card) keeps the count and total honest.
+    if(readyCount > 0){
+      var stagedSum = r.ready.reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
+      html += '<div class="csv-staged-sum">'
+        + '<div class="csv-staged-sum-main">'+esc(L('Sẽ nhập '+readyCount+' khoản','Importing '+readyCount))+' · <span class="num">'+esc(fmt(stagedSum))+'</span></div>'
+        + '<div class="csv-staged-sum-sub">'+esc(L('từ email ngân hàng','from bank email'))+'</div>'
+        + '</div>';
+    }
+  } else {
+    var summaryLine;
+    if(r.mixedSignsNote) summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
+    else if(decisionCount===0 && readyCount>0) summaryLine = esc(L('Đã xếp xong cả '+readyCount+' khoản. Lướt qua rồi nhập thôi.','All '+readyCount+' sorted. Skim and import.'));
+    else if(readyCount>0) summaryLine = esc(L('Đã xếp '+readyCount+' khoản, còn '+decisionCount+' khoản thiếu thông tin.',readyCount+' sorted, '+decisionCount+' missing something.'));
+    else summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
+    html += '<div class="review-summary">'+summaryLine+'</div>';
+    html += csvSpendPanel(r);   // the file breakdown panel is import-only
+  }
 
   if(attnHtml){
     html += '<div class="group-h attn">'+L('Cần bạn xem','Needs a look')+'</div><div class="csv-cards">'+attnHtml+'</div>';
@@ -9301,7 +9320,9 @@ function renderCsvReview(){
   /* Trust strip -- the "am I safe to press Import?" answer, right before the
      decision: what's going in (count, total, date span), what was read from
      the file, and what's being left out. Nothing is ever dropped silently. */
-  if(readyCount > 0 || decisionCount > 0){
+  // Staged mode shows its single summary at the TOP (csv-staged-sum) instead, so
+  // the bottom trust strip — a second box saying the same count + total — is gone.
+  if(!csvStagedMode && (readyCount > 0 || decisionCount > 0)){
     var sumBase = r.ready.reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
     var dates = r.ready.map(function(c){ return c.date; }).filter(Boolean).sort(function(a,b){ return a-b; });
     var span = dates.length ? (fmtDayMon(dates[0]) + (dates.length>1 ? ' – ' + fmtDayMon(dates[dates.length-1]) : '')) : '';
@@ -12590,7 +12611,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v334';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v335';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

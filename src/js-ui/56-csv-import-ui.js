@@ -865,15 +865,28 @@ function renderCsvReview(){
 
   // Lead with the win, not the workload.
   var readyCount = r.ready.length;
-  var summaryLine;
-  // Staged mode: one calm line of context, not a chatty status report.
-  if(csvStagedMode) summaryLine = esc(L(readyCount+' giao dịch từ email ngân hàng', readyCount+' transaction'+(readyCount===1?'':'s')+' from bank email'));
-  else if(r.mixedSignsNote) summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
-  else if(decisionCount===0 && readyCount>0) summaryLine = esc(L('Đã xếp xong cả '+readyCount+' khoản. Lướt qua rồi nhập thôi.','All '+readyCount+' sorted. Skim and import.'));
-  else if(readyCount>0) summaryLine = esc(L('Đã xếp '+readyCount+' khoản, còn '+decisionCount+' khoản thiếu thông tin.',readyCount+' sorted, '+decisionCount+' missing something.'));
-  else summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
-  html += '<div class="review-summary">'+summaryLine+'</div>';
-  html += csvStagedMode ? '' : csvSpendPanel(r);   // the file breakdown panel is import-only
+  if(csvStagedMode){
+    // ONE consolidated summary at the top — count + total — as summary type, not a
+    // boxed card (a box here reads as yet another draft row). This replaces BOTH the
+    // old top context line and the bottom csv-check strip, which stated the same
+    // "what am I about to import" twice. Recomputed each render, so removing a row
+    // (the × on a card) keeps the count and total honest.
+    if(readyCount > 0){
+      var stagedSum = r.ready.reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
+      html += '<div class="csv-staged-sum">'
+        + '<div class="csv-staged-sum-main">'+esc(L('Sẽ nhập '+readyCount+' khoản','Importing '+readyCount))+' · <span class="num">'+esc(fmt(stagedSum))+'</span></div>'
+        + '<div class="csv-staged-sum-sub">'+esc(L('từ email ngân hàng','from bank email'))+'</div>'
+        + '</div>';
+    }
+  } else {
+    var summaryLine;
+    if(r.mixedSignsNote) summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
+    else if(decisionCount===0 && readyCount>0) summaryLine = esc(L('Đã xếp xong cả '+readyCount+' khoản. Lướt qua rồi nhập thôi.','All '+readyCount+' sorted. Skim and import.'));
+    else if(readyCount>0) summaryLine = esc(L('Đã xếp '+readyCount+' khoản, còn '+decisionCount+' khoản thiếu thông tin.',readyCount+' sorted, '+decisionCount+' missing something.'));
+    else summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
+    html += '<div class="review-summary">'+summaryLine+'</div>';
+    html += csvSpendPanel(r);   // the file breakdown panel is import-only
+  }
 
   if(attnHtml){
     html += '<div class="group-h attn">'+L('Cần bạn xem','Needs a look')+'</div><div class="csv-cards">'+attnHtml+'</div>';
@@ -954,7 +967,9 @@ function renderCsvReview(){
   /* Trust strip -- the "am I safe to press Import?" answer, right before the
      decision: what's going in (count, total, date span), what was read from
      the file, and what's being left out. Nothing is ever dropped silently. */
-  if(readyCount > 0 || decisionCount > 0){
+  // Staged mode shows its single summary at the TOP (csv-staged-sum) instead, so
+  // the bottom trust strip — a second box saying the same count + total — is gone.
+  if(!csvStagedMode && (readyCount > 0 || decisionCount > 0)){
     var sumBase = r.ready.reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
     var dates = r.ready.map(function(c){ return c.date; }).filter(Boolean).sort(function(a,b){ return a-b; });
     var span = dates.length ? (fmtDayMon(dates[0]) + (dates.length>1 ? ' – ' + fmtDayMon(dates[dates.length-1]) : '')) : '';

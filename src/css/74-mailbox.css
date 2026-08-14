@@ -87,9 +87,15 @@
    attention state. In an email review that's the *normal* case, not a warning —
    so we give it the app's plain white bordered row instead. */
 #csv-result.staged .bulk-card.attn:not(.active){background:var(--white);border-color:var(--hairline)}
-/* The bottom total strip is a neutral confirmation here, not a filled stat block:
-   hairline border, no --canvas fill (DESIGN §2.1 — no colored fills on stat blocks). */
-#csv-result.staged .csv-check{background:transparent;border:1px solid var(--hairline)}
+
+/* The single summary — count + total, at the top. It is SUMMARY type, not a card:
+   no box, no fill, no border, so it never competes with the draft-expense cards
+   below it. Hierarchy comes from weight + a tabular figure (DESIGN §2.2), the way
+   a grouped-list header carries its value. */
+#csv-result.staged .csv-staged-sum{margin:2px 2px 20px}
+#csv-result.staged .csv-staged-sum-main{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.3px;color:var(--ink)}
+#csv-result.staged .csv-staged-sum-main .num{color:var(--ink)}
+#csv-result.staged .csv-staged-sum-sub{font-size:13px;color:var(--muted);margin-top:3px;letter-spacing:-.01em}
 
 /* ---------- sealed-staging key-mismatch alarm ---------- */
 /* Blocking, family-wide dialog raised at unlock when the device's staging key
