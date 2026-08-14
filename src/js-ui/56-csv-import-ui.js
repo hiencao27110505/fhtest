@@ -688,8 +688,20 @@ function csvActiveCard(c, opts){
   }
   if(opts.buttons) body += '<div class="dup-actions" style="margin-top:14px">'+opts.buttons+'</div>';
 
+  // Tapping the header of an OPEN card collapses it — opts.tapFn is the same
+  // csvToggleExpand that opened it, and it toggles, so re-firing it closes.
+  // Expanding was tappable but collapsing wasn't; an up-chevron marks the header
+  // as the way back. The × (remove) stays a separate sibling so the two 44px
+  // targets never overlap.
+  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid);
+  var head = opts.tapFn
+    ? '<button type="button" class="bulk-collapse" onclick="'+opts.tapFn+'" aria-expanded="true" aria-label="'+escAttr(L('Thu gọn','Collapse'))+'">'
+        + headInner
+        + '<span class="bulk-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></span>'
+      + '</button>'
+    : headInner;
   return '<div class="bulk-card active'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">'
-    + '<div class="bulk-head">'+csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid)+rm+'</div>'
+    + '<div class="bulk-head">'+head+rm+'</div>'
     + '<div class="csv-card-body">'+body+'</div></div>';
 }
 

@@ -1808,6 +1808,16 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .bulk-head{display:flex;align-items:center;gap:8px}
 .bulk-head .bulk-x{margin-left:auto}
 .bulk-card.active>.bulk-head{padding:12px 14px 2px}
+/* Expanded-card header doubles as the collapse control (tap to close). Button
+   reset so it reads as the header, not a control; the up-chevron is the only
+   added mark. Tall enough (with the head padding) to clear a 44px tap target. */
+.bulk-collapse{flex:1;min-width:0;display:flex;align-items:center;gap:8px;min-height:30px;
+  background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;
+  cursor:pointer;-webkit-tap-highlight-color:transparent}
+.bulk-collapse>.bulk-head{flex:1;min-width:0;padding:0}
+.bulk-collapse:active{opacity:.6}
+.bulk-chev{flex-shrink:0;display:flex;align-items:center;color:var(--chev)}
+.bulk-chev svg{width:18px;height:18px;display:block}
 .bulk-idx{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--brand-ink)}
 .bulk-date{font-size:11px;font-weight:600;color:var(--muted)}
 .bulk-date::before{content:"·";margin-right:7px;color:var(--muted-soft);font-weight:700}
@@ -9041,8 +9051,20 @@ function csvActiveCard(c, opts){
   }
   if(opts.buttons) body += '<div class="dup-actions" style="margin-top:14px">'+opts.buttons+'</div>';
 
+  // Tapping the header of an OPEN card collapses it — opts.tapFn is the same
+  // csvToggleExpand that opened it, and it toggles, so re-firing it closes.
+  // Expanding was tappable but collapsing wasn't; an up-chevron marks the header
+  // as the way back. The × (remove) stays a separate sibling so the two 44px
+  // targets never overlap.
+  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid);
+  var head = opts.tapFn
+    ? '<button type="button" class="bulk-collapse" onclick="'+opts.tapFn+'" aria-expanded="true" aria-label="'+escAttr(L('Thu gọn','Collapse'))+'">'
+        + headInner
+        + '<span class="bulk-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></span>'
+      + '</button>'
+    : headInner;
   return '<div class="bulk-card active'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">'
-    + '<div class="bulk-head">'+csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid)+rm+'</div>'
+    + '<div class="bulk-head">'+head+rm+'</div>'
     + '<div class="csv-card-body">'+body+'</div></div>';
 }
 
@@ -12611,7 +12633,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v335';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v336';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
