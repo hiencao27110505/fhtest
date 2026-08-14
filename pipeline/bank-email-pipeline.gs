@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-14-c';
+var PIPELINE_VERSION = '2026-08-14-d';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -222,6 +222,7 @@ function processOneMessage(message, runCallCount) {
     return runCallCount;
   }
 
+  queueReviewNotice(row);            // only now that the row is really written
   relabelMessageThread(message, 'txn/processed');
 
   return runCallCount;
@@ -1051,9 +1052,30 @@ function buildEmailTransactionRow(gmailMessageId, sender, extraction, body, dup,
 }
 
 function insertEmailTransaction(row) {
-  var res = supabasePost('email_transactions', row, null);
-  if (row.member_id) _PENDING_NOTIFY[row.member_id] = (_PENDING_NOTIFY[row.member_id] || 0) + 1;
-  return res;
+  return supabasePost('email_transactions', row, null);
+}
+
+// Queue a review notice for a row that will ACTUALLY appear in the review queue.
+// Called by the caller only after the insert is confirmed — counting inside
+// insertEmailTransaction promised a banner even when the write failed, and
+// supabasePost returns PostgREST's error OBJECT on failure (truthy), which is the
+// trap SEALED-STAGING-DESIGN.md §8 warns about.
+//
+// Two rows are silently excluded, and both matter more than they look:
+//   • no member_id — unrouted, so 0058 shows it to nobody. There is no audience.
+//   • duplicate_of_id set — fhFetchStagedTxns filters merged duplicates out
+//     (`.is('duplicate_of_id', null)`), so notifying for one promises a queue
+//     entry that does not exist. A notification that opens an empty screen is the
+//     cry-wolf the alarm design goes out of its way to avoid; it teaches people
+//     that the banner is noise.
+//
+// Both fields survive sealing: member_id is a luggage tag (§3), and once dedup
+// moves client-side (§7) duplicate_of_id simply stops being set, which leaves this
+// rule true rather than broken. Nothing here reads a field that becomes ciphertext.
+function queueReviewNotice(row) {
+  if (!row || !row.member_id) return;
+  if (row.duplicate_of_id) return;
+  _PENDING_NOTIFY[row.member_id] = (_PENDING_NOTIFY[row.member_id] || 0) + 1;
 }
 
 // ---------- review notifications ----------

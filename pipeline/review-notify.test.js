@@ -32,9 +32,38 @@ global.UrlFetchApp = {
   },
 };
 
-eval(gs.slice(gs.indexOf('var _PENDING_NOTIFY'), gs.indexOf('// Resolves which family member')));
+eval(gs.slice(gs.indexOf('function queueReviewNotice'), gs.indexOf('// Resolves which family member')));
+eval(gs.slice(gs.indexOf('var _PENDING_NOTIFY'), gs.indexOf('function queueReviewNotice')));
 
-function stage(memberId, times) { for (let i = 0; i < times; i++) _PENDING_NOTIFY[memberId] = (_PENDING_NOTIFY[memberId] || 0) + 1; }
+const MEMBER = '11111111-1111-1111-1111-111111111111';
+function stage(memberId, times) { for (let i = 0; i < times; i++) queueReviewNotice({ member_id: memberId }); }
+
+// ── which rows earn a notice ────────────────────────────────────────────────
+// A row the review screen will never show must not produce a banner: an empty
+// queue after a tap teaches people the notification is noise.
+_PENDING_NOTIFY = {};
+queueReviewNotice({ member_id: MEMBER, duplicate_of_id: 'dup-1' });
+t('a merged duplicate does NOT notify (fhFetchStagedTxns filters it out)',
+  Object.keys(_PENDING_NOTIFY).length === 0, JSON.stringify(_PENDING_NOTIFY));
+
+_PENDING_NOTIFY = {};
+queueReviewNotice({ member_id: null });
+queueReviewNotice({});
+t('an unrouted row does NOT notify (0058 shows it to nobody)',
+  Object.keys(_PENDING_NOTIFY).length === 0);
+
+/* Post-sealing shape: everything sensitive is ciphertext in `sealed`, and only
+   the luggage tags remain readable. The notice rule must still work on that row
+   — if it ever needed amount or counterparty, switching sealing on would break
+   notifications silently. */
+_PENDING_NOTIFY = {};
+queueReviewNotice({
+  gmail_message_id: 'abc', member_id: MEMBER, source_provider: 'Vietcombank',
+  occurred_at: '2026-08-14T00:00:00+07:00', review_status: 'pending',
+  sealed: '<ciphertext>', eph_pub: '<pub>', nonce: '<nonce>',
+});
+t('a SEALED row still notifies — the rule reads only luggage tags',
+  _PENDING_NOTIFY[MEMBER] === 1, JSON.stringify(_PENDING_NOTIFY));
 
 // Five emails in one run is one banner, not five.
 CALLS = []; _PENDING_NOTIFY = {};
