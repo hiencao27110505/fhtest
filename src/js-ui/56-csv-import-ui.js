@@ -741,8 +741,12 @@ function renderCsvReview(){
   /* Category disclosure. Default path: we already adopted the file's own
      names -- say so plainly, with an undo. After an undo it flips back to an
      offer, so the choice is never one-way. */
+  // Staged bank-email review is a short, human list, not a file-import workbench:
+  // the whole category-disclosure notice (merges / adds / "N unclear, filed under
+  // Others") is import-batch bookkeeping. Each card already carries its own status
+  // label, so this block is pure noise here — suppress it entirely in staged mode.
   var didMerge = (r.catMerges||[]).length, didAdd = (r.adoptedCats||[]).length;
-  if(didMerge || didAdd || r.fallbackCount || r.patternCount || r.summaryCount || (csvReview.ready||[]).some(function(c){return c.catSource==='learned';})){
+  if(!csvStagedMode && (didMerge || didAdd || r.fallbackCount || r.patternCount || r.summaryCount || (csvReview.ready||[]).some(function(c){return c.catSource==='learned';}))){
     /* Two volumes only. The bold line is what CHANGED the family's data --
        categories merged or created -- because that's the one auto-applied
        decision someone might want to reverse, and the undo sits under it.
@@ -770,7 +774,7 @@ function renderCsvReview(){
     html += '<div class="notice-card stack">' + lines.join('')
       + ((didMerge||didAdd) ? '<button type="button" class="btn-text-quiet" style="width:100%;margin:6px 0 0" onclick="csvUndoAdopt()">'+L('Để tôi tự chọn danh mục','Let me pick categories myself')+'</button>' : '')
       + '</div>';
-  } else if(!r.mixedSignsNote && r.fileCats && r.fileCats.length){
+  } else if(!csvStagedMode && !r.mixedSignsNote && r.fileCats && r.fileCats.length){
     html += '<div class="notice-card stack">'
       + '<div class="notice-text"><b>'+esc(L('File này dùng '+r.fileCats.length+' danh mục bạn chưa có:','This file uses '+r.fileCats.length+(r.fileCats.length===1?' category':' categories')+' you don\'t have yet:'))+'</b> '
       + esc(r.fileCats.map(function(n){ return csvCatEmoji(n)+' '+n; }).join(' · '))+'</div>'
@@ -862,12 +866,14 @@ function renderCsvReview(){
   // Lead with the win, not the workload.
   var readyCount = r.ready.length;
   var summaryLine;
-  if(r.mixedSignsNote) summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
+  // Staged mode: one calm line of context, not a chatty status report.
+  if(csvStagedMode) summaryLine = esc(L(readyCount+' giao dịch từ email ngân hàng', readyCount+' transaction'+(readyCount===1?'':'s')+' from bank email'));
+  else if(r.mixedSignsNote) summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
   else if(decisionCount===0 && readyCount>0) summaryLine = esc(L('Đã xếp xong cả '+readyCount+' khoản. Lướt qua rồi nhập thôi.','All '+readyCount+' sorted. Skim and import.'));
   else if(readyCount>0) summaryLine = esc(L('Đã xếp '+readyCount+' khoản, còn '+decisionCount+' khoản thiếu thông tin.',readyCount+' sorted, '+decisionCount+' missing something.'));
   else summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
   html += '<div class="review-summary">'+summaryLine+'</div>';
-  html += csvSpendPanel(r);
+  html += csvStagedMode ? '' : csvSpendPanel(r);   // the file breakdown panel is import-only
 
   if(attnHtml){
     html += '<div class="group-h attn">'+L('Cần bạn xem','Needs a look')+'</div><div class="csv-cards">'+attnHtml+'</div>';
@@ -926,7 +932,9 @@ function renderCsvReview(){
       var k = c.dateDisplay || ''; (dateBuckets[k] = dateBuckets[k] || []).push({ c:c, i:i });
     });
     var keys = Object.keys(dateBuckets).sort().reverse();
-    html += '<div class="group-h">'+L('Sẵn sàng','Ready')+' · '+readyCount+'</div>';
+    // The "Ready · N" banner is import-batch framing; staged review is already all
+    // ready, so it just adds a count nobody needs. Keep the per-date headers only.
+    if(!csvStagedMode) html += '<div class="group-h">'+L('Sẵn sàng','Ready')+' · '+readyCount+'</div>';
     keys.forEach(function(k){
       var label = k ? fmtDayMon(dateBuckets[k][0].c.date) : L('Không rõ ngày','No date');
       html += '<div class="group-h" style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
@@ -951,23 +959,26 @@ function renderCsvReview(){
     var dates = r.ready.map(function(c){ return c.date; }).filter(Boolean).sort(function(a,b){ return a-b; });
     var span = dates.length ? (fmtDayMon(dates[0]) + (dates.length>1 ? ' – ' + fmtDayMon(dates[dates.length-1]) : '')) : '';
     var skippedDup = r.dup.filter(function(d){ return d.resolved==='skip'; }).length;
+    // Staged mode gets the total line only — the "read N rows from the file" and
+    // "not importing…" disclosures are file-import accounting, and the nav Save
+    // already says "Nhập N", so anything more is the exact clutter to cut.
     html += '<div class="csv-check">'
       + '<div class="csv-check-main">'+esc(L('Sẽ nhập '+readyCount+' khoản · tổng '+fmt(sumBase), 'Importing '+readyCount+' · total '+fmt(sumBase)))+'</div>'
-      + (span ? '<div class="csv-check-sub">'+esc(span)+' · '+esc(csvStagedMode
-        ? L('từ '+r.parsed.rows.length+' email','from '+r.parsed.rows.length+' email'+(r.parsed.rows.length===1?'':'s'))
-        : (r.sources&&r.sources.length>1)
-          ? L('đọc '+r.parsed.rows.length+' dòng từ '+r.sources.length+' file','read '+r.parsed.rows.length+' rows from '+r.sources.length+' files')
-          : L('đọc '+r.parsed.rows.length+' dòng từ file','read '+r.parsed.rows.length+' rows from the file'))+'</div>' : '')
-      + (decisionCount+skippedDup+inflowCount > 0
-          ? '<div class="csv-check-sub">'+esc(L('Không nhập: ','Not importing: '))
-            + esc([ decisionCount ? decisionCount+' '+L('chưa quyết định','undecided') : null,
-                    inflowCount ? inflowCount+' '+L('tiền vào / trả thẻ','money in / card payments') : null,
-                    skippedDup ? skippedDup+' '+L('bỏ qua vì trùng','skipped as duplicates') : null ]
-                  .filter(Boolean).join(' · '))+'</div>'
-          : '')
+      + (csvStagedMode ? '' : (
+          (span ? '<div class="csv-check-sub">'+esc(span)+' · '+esc((r.sources&&r.sources.length>1)
+            ? L('đọc '+r.parsed.rows.length+' dòng từ '+r.sources.length+' file','read '+r.parsed.rows.length+' rows from '+r.sources.length+' files')
+            : L('đọc '+r.parsed.rows.length+' dòng từ file','read '+r.parsed.rows.length+' rows from the file'))+'</div>' : '')
+        + (decisionCount+skippedDup+inflowCount > 0
+            ? '<div class="csv-check-sub">'+esc(L('Không nhập: ','Not importing: '))
+              + esc([ decisionCount ? decisionCount+' '+L('chưa quyết định','undecided') : null,
+                      inflowCount ? inflowCount+' '+L('tiền vào / trả thẻ','money in / card payments') : null,
+                      skippedDup ? skippedDup+' '+L('bỏ qua vì trùng','skipped as duplicates') : null ]
+                    .filter(Boolean).join(' · '))+'</div>'
+            : '')))
       + '</div>';
   }
 
+  out.classList.toggle('staged', !!csvStagedMode);   // scopes the calm-list CSS overrides (74-mailbox.css)
   out.innerHTML = html;
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='none';
 

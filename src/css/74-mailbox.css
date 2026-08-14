@@ -75,6 +75,22 @@
 @keyframes mbxPulse{0%,100%{opacity:.35}50%{opacity:1}}
 @media (prefers-reduced-motion:reduce){.mbx-conn.wait .mbx-conn-dot{animation:none;opacity:.6}}
 
+/* ---------- bank-email: staged-review restyle ---------- */
+/* The "Duyệt giao dịch" screen reuses the CSV import review engine (renderCsvReview),
+   which is built for a file-import workbench. For a short list of forwarded bank
+   emails that reads as too heavy: the js side (56-csv-import-ui.js) already drops
+   the import-only chrome in csvStagedMode; these rules, scoped to #csv-result.staged,
+   fix the remaining visual "not us" — nothing here touches the file-import flow.
+
+   The main offender is the .attn wash: every emailed row lands without a category,
+   so the shared engine paints the whole card grey (--canvas, no border) as an
+   attention state. In an email review that's the *normal* case, not a warning —
+   so we give it the app's plain white bordered row instead. */
+#csv-result.staged .bulk-card.attn:not(.active){background:var(--white);border-color:var(--hairline)}
+/* The bottom total strip is a neutral confirmation here, not a filled stat block:
+   hairline border, no --canvas fill (DESIGN §2.1 — no colored fills on stat blocks). */
+#csv-result.staged .csv-check{background:transparent;border:1px solid var(--hairline)}
+
 /* ---------- sealed-staging key-mismatch alarm ---------- */
 /* Blocking, family-wide dialog raised at unlock when the device's staging key
    no longer matches the server's (key substitution). Mounts inside .phone
