@@ -109,6 +109,48 @@ checked. If you are touching the pipeline, read this before theorising.
 - **The confirmation email is addressed directly to the alias**, so `To:` works
   there — which masks the fact that `To:` is wrong for forwarded mail.
 
+## Review notifications
+
+When a run stages rows, the member who owns them gets one push: *"Có giao dịch
+mới cần bạn duyệt."* Tapping it opens the review queue.
+
+Two things about it are deliberate and easy to undo by accident:
+
+- **Only the owning member is told, never the family.** Staged rows are scoped to
+  their own member (`0058`). The social kinds in `push-send` fan out to everyone
+  *except* the actor; this one does the opposite, because the person who has to
+  act is exactly the one that path excludes, and telling the family would leak
+  the thing `0058` exists to keep private.
+- **The payload is `{kind, member_id, count}` and nothing else.** No amount, no
+  merchant, no bank name. Push transits a third party, and once sealing is on the
+  robot could not read those values to send them anyway. The count is the only
+  number allowed through; `push-send` composes the wording itself.
+
+`notifyStagedReviews()` batches per run — five emails in one tick is one banner,
+not five. A failed notification is logged and dropped: the row is already
+written, and the queue is there whenever the app is next opened.
+
+Guard: `node pipeline/review-notify.test.js` (18 assertions — batching, per-member
+targeting, the payload shape, the service-role gate, and that no copy variant can
+carry money).
+
+### Deploying it — three parts, in any order
+
+1. **Apps Script** — paste `bank-email-pipeline.gs` (`PIPELINE_VERSION` ≥
+   `2026-08-14-c`). Each attempt logs `notify <member> xN -> HTTP <code>`, which
+   is how you tell whether the function is live.
+2. **Edge function** — `supabase functions deploy push-send`. It gains a
+   service-role entrance; the existing user-JWT path is untouched. Needs Supabase
+   access, so it is the one step the pipeline owner may not be able to do alone.
+3. **Client** — the `txn_review` route in `src/js-data/55-push.js`, then a normal
+   build + deploy. Without it a tapped notification opens the app but lands
+   nowhere in particular.
+
+**Known gap:** push is only ever offered at Settings → Notifications. A member who
+connects a mailbox but never enables notifications gets nothing, silently, and
+nothing in the mailbox onboarding tells them. The onboarding should nudge
+`fhPushSheet()` once the alias is issued — not built.
+
 ### Deploy
 
 The script is pasted into the Apps Script editor by hand. Two consequences:

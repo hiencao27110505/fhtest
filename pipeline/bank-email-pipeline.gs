@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-14-b';
+var PIPELINE_VERSION = '2026-08-14-c';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -110,6 +110,9 @@ function processEmails() {
       }
     }
   }
+
+  // One notification per member per run, after every row is safely written.
+  notifyStagedReviews();
 }
 
 // A forwarding confirmation is identified by its SENDER — never by the absence
@@ -1048,7 +1051,51 @@ function buildEmailTransactionRow(gmailMessageId, sender, extraction, body, dup,
 }
 
 function insertEmailTransaction(row) {
-  return supabasePost('email_transactions', row, null);
+  var res = supabasePost('email_transactions', row, null);
+  if (row.member_id) _PENDING_NOTIFY[row.member_id] = (_PENDING_NOTIFY[row.member_id] || 0) + 1;
+  return res;
+}
+
+// ---------- review notifications ----------
+//
+// Counted per run, sent once at the end. The trigger fires every minute and a
+// forwarding burst can stage several rows in one pass; notifying per insert
+// would put five identical banners in the tray for one trip to the shop.
+//
+// Only the OWNING member is told. Staged rows are scoped to their own member
+// (0058) — telling the family that someone has a bank transaction waiting would
+// leak the thing that policy exists to keep private, and would not reach the one
+// person who can act on it.
+var _PENDING_NOTIFY = {};
+
+function notifyStagedReviews() {
+  var members = Object.keys(_PENDING_NOTIFY);
+  if (!members.length) return;
+  var props = PropertiesService.getScriptProperties();
+  var base = props.getProperty('SUPABASE_URL');
+  var key = props.getProperty('SUPABASE_SERVICE_ROLE_KEY');
+  for (var i = 0; i < members.length; i++) {
+    var count = _PENDING_NOTIFY[members[i]];
+    try {
+      // Deliberately no amount, merchant or bank name in the body — push transits
+      // a third party, and once sealing is on the robot cannot read those values
+      // anyway. The function composes count-only copy from this.
+      var resp = UrlFetchApp.fetch(base + '/functions/v1/push-send', {
+        method: 'post',
+        contentType: 'application/json',
+        headers: { Authorization: 'Bearer ' + key },
+        payload: JSON.stringify({ kind: 'txn_review', member_id: members[i], count: count }),
+        muteHttpExceptions: true,
+      });
+      Logger.log('notify ' + members[i] + ' x' + count + ' -> HTTP ' +
+        resp.getResponseCode() + ' ' + String(resp.getContentText() || '').slice(0, 120));
+    } catch (e) {
+      // A failed notification must never cost a staged row: the transaction is
+      // already written and will be reviewed whenever the app is next opened.
+      Logger.log('notify failed for ' + members[i] + ': ' + e);
+    }
+  }
+  _PENDING_NOTIFY = {};
 }
 
 // Resolves which family member this email belongs to via the +tag on the receiving
