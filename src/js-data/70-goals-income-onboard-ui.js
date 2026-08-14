@@ -428,26 +428,20 @@
     ['fh-snap', 'fh-snap-idb', 'fh-expense-drafts', 'fh-fam', 'fh-onboarded', 'fh-resume', 'fh-lang', 'fh-cur'].forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
   }
 
-  // Sign out: remove this device from the account's device list too (so it stops
-  // showing as active), then wipe everything local and reload to the sign-in screen.
-  // test helper: run fhSignOut() in the console to switch Google accounts.
+  /* The one and only sign-out. It ALWAYS erases this device's local copy — the
+     cached key, Key Card, decrypted snapshot, drafts, photo blobs, boot flags
+     (_fhLocalWipe, rec #7) — there is no "sign out but keep data" path anymore.
+     The erase is silent: to the user this is simply "Sign out".
+
+     It also drops this device from the account's device list by DELETING its row
+     (not revoking it) — so a later sign-in on this same device re-registers cleanly
+     instead of being kicked by a lingering revoked flag, while the stable device-id
+     is kept so it stays one logical device across sign-out/in cycles. (Remote
+     revocation from another device still uses revoke_device → cooperative sign-out.)
+     test helper: run fhSignOut() in the console to switch Google accounts. */
   window.fhSignOut = async () => {
     try { if (window.fhPushTeardown) await window.fhPushTeardown(); } catch (e) {}   // stop this device receiving the leaving family's pushes (delete while still authed)
-    try { if (window.fhDeviceId) await _rpc('revoke_device', { p_device_id: window.fhDeviceId() }); } catch (e) {}
+    try { if (window.fhDeviceId) await sb.from('device_sessions').delete().eq('device_id', window.fhDeviceId()); } catch (e) {}   // remove this device's row while still authenticated (RLS scopes to own rows)
     await _fhLocalWipe();
     await sb.auth.signOut(); location.reload();
-  };
-
-  /* "Sign out & wipe this device" — what people reach for uninstall EXPECTING.
-     Same as sign-out but framed as a clean wipe; opts.revokeRemote=false skips the
-     revoke RPC (used when a remote revocation already triggered this locally). */
-  window.fhWipeDevice = async function (opts) {
-    opts = opts || {};
-    try { if (window.fhPushTeardown) await window.fhPushTeardown(); } catch (e) {}   // clear this device's push row before we drop auth
-    if (opts.revokeRemote !== false) { try { if (window.fhDeviceId) await _rpc('revoke_device', { p_device_id: window.fhDeviceId() }); } catch (e) {} }
-    await _fhLocalWipe();
-    // forget the device identity itself → a reinstall/re-sign-in is a fresh device row
-    try { localStorage.removeItem('fh-device-id'); } catch (e) {}
-    try { await sb.auth.signOut(); } catch (e) {}
-    location.reload();
   };

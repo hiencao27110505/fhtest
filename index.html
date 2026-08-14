@@ -3617,7 +3617,6 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <button class="set-row" onclick="closeSheet();openWhatsNew()"><span class="set-ic">✨</span><span class="set-t" data-t="setWhatsNew">What's new</span><span class="wn-dot" id="wn-dot-row" style="display:none"></span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();restartOnboarding()"><span class="set-ic">↻</span><span class="set-t" data-t="setRestartOnboarding">Restart onboarding</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row danger" onclick="closeSheet();fhSignOut()"><span class="set-ic">⎋</span><span class="set-t" data-t="setSignOut">Sign out</span></button>
-    <button class="set-row danger" onclick="closeSheet();fhWipeDeviceConfirm()"><span class="set-ic">🧹</span><span class="set-t" data-t="setWipeDevice">Sign out &amp; wipe this device</span></button>
   </div>
 </div>
 
@@ -11961,7 +11960,7 @@ var EN_DEFAULT={
   /* settings sheet */
   settingsTitle:'Settings', settingsSub:'Pick a theme. It applies across the whole app.',
   setMyProfile:'My profile', setLanguage:'Language', setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setDevices:'Signed-in devices', setEncryption:'Money encryption', setMailbox:'Connect bank email', setReviewTxns:'Review transactions',
-  setSavedEvents:'Saved for events', setIncome:'Income', setNotifications:'Notifications', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out', setWipeDevice:'Sign out & wipe this device',
+  setSavedEvents:'Saved for events', setIncome:'Income', setNotifications:'Notifications', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out',
   /* generic edit modal */
   fhModalEdit:'Edit',
   /* celebrate */
@@ -12062,7 +12061,7 @@ var I18N={
     /* settings sheet */
     settingsTitle:'Cài đặt', settingsSub:'Chọn giao diện, áp dụng cho cả ứng dụng.',
     setMyProfile:'Hồ sơ của tôi', setLanguage:'Ngôn ngữ', setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setDevices:'Thiết bị đăng nhập', setEncryption:'Mã hóa tài chính', setMailbox:'Kết nối email ngân hàng', setReviewTxns:'Duyệt giao dịch',
-    setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setNotifications:'Thông báo', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất', setWipeDevice:'Đăng xuất & xoá dữ liệu máy này',
+    setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setNotifications:'Thông báo', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất',
     /* generic edit modal */
     fhModalEdit:'Chỉnh sửa',
     /* celebrate */
@@ -12633,7 +12632,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v336';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v337';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -13226,8 +13225,7 @@ function openWhatsNew(){
   async function _devEnforce() {
     if (await _devActive()) return true;
     window.toast && window.toast(L('Thiết bị này đã được đăng xuất từ xa', 'This device was signed out remotely'));
-    if (window.fhWipeDevice) { try { await window.fhWipeDevice({ revokeRemote: false }); return false; } catch (e) {} }
-    if (window.fhSignOut) await window.fhSignOut();
+    if (window.fhSignOut) await window.fhSignOut();   // the single sign-out: erases local data + drops this device
     return false;
   }
 
@@ -13293,28 +13291,6 @@ function openWhatsNew(){
     catch (e) { if (btn) { btn.disabled = false; btn.classList.remove('fh-busy'); } window.toast && window.toast(window._fhFriendly ? window._fhFriendly(e) : L('Không thực hiện được, thử lại', 'Couldn’t do that, try again')); return; }
     window.toast && window.toast(L('Đã đăng xuất thiết bị đó', 'That device was signed out'));
     if (window.fhDevicesSheet) window.fhDevicesSheet();   // refresh
-  };
-
-  /* "Sign out & wipe this device" — the clean-exit people expect uninstall to be.
-     Names the consequence (local data cleared) and arms-then-confirms, since it
-     erases this device's cached key + snapshot. */
-  window.fhWipeDeviceConfirm = function () {
-    _fhSheet('<div class="fh-s-h">' + L('Đăng xuất & xoá dữ liệu trên máy này', 'Sign out & wipe this device') + '</div>'
-      + '<div class="fh-s-sub">' + L('Đăng xuất khỏi máy này và xoá sạch dữ liệu đã lưu trên máy: mã khóa, bản lưu tạm, ảnh. Dữ liệu của nhà trên máy chủ vẫn còn — đăng nhập lại và nhập mã khóa là mở lại được.',
-          'Sign out of this device and erase everything cached here — the family code, the local copy, photos. Your family’s data on the server is untouched; sign back in with the code to restore it.') + '</div>'
-      + '<button class="fh-s-cta" onclick="_closeOv()">' + L('Ở lại', 'Stay signed in') + '</button>'
-      + '<button class="ex-del fh-s-del" onclick="fhWipeDeviceArm(this)">' + L('Đăng xuất & xoá', 'Sign out & wipe') + '</button>');
-  };
-  window.fhWipeDeviceArm = function (btn) {
-    if (btn && !btn.classList.contains('armed')) {
-      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa để xoá', 'Tap again to wipe');
-      clearTimeout(window._fhWipeArmT);
-      window._fhWipeArmT = setTimeout(() => { if (!btn.isConnected) return; btn.classList.remove('armed'); btn.textContent = L('Đăng xuất & xoá', 'Sign out & wipe'); }, 3000);
-      return;
-    }
-    clearTimeout(window._fhWipeArmT);
-    if (btn) { btn.disabled = true; btn.classList.add('fh-busy'); btn.textContent = L('Đang xoá…', 'Wiping…'); }
-    if (window.fhWipeDevice) window.fhWipeDevice();
   };
 
   /* ═══ E2EE crypto core (0030) ═══════════════════════════════════════════════
@@ -19318,28 +19294,22 @@ window.classifyAmount = classifyAmount;
     ['fh-snap', 'fh-snap-idb', 'fh-expense-drafts', 'fh-fam', 'fh-onboarded', 'fh-resume', 'fh-lang', 'fh-cur'].forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
   }
 
-  // Sign out: remove this device from the account's device list too (so it stops
-  // showing as active), then wipe everything local and reload to the sign-in screen.
-  // test helper: run fhSignOut() in the console to switch Google accounts.
+  /* The one and only sign-out. It ALWAYS erases this device's local copy — the
+     cached key, Key Card, decrypted snapshot, drafts, photo blobs, boot flags
+     (_fhLocalWipe, rec #7) — there is no "sign out but keep data" path anymore.
+     The erase is silent: to the user this is simply "Sign out".
+
+     It also drops this device from the account's device list by DELETING its row
+     (not revoking it) — so a later sign-in on this same device re-registers cleanly
+     instead of being kicked by a lingering revoked flag, while the stable device-id
+     is kept so it stays one logical device across sign-out/in cycles. (Remote
+     revocation from another device still uses revoke_device → cooperative sign-out.)
+     test helper: run fhSignOut() in the console to switch Google accounts. */
   window.fhSignOut = async () => {
     try { if (window.fhPushTeardown) await window.fhPushTeardown(); } catch (e) {}   // stop this device receiving the leaving family's pushes (delete while still authed)
-    try { if (window.fhDeviceId) await _rpc('revoke_device', { p_device_id: window.fhDeviceId() }); } catch (e) {}
+    try { if (window.fhDeviceId) await sb.from('device_sessions').delete().eq('device_id', window.fhDeviceId()); } catch (e) {}   // remove this device's row while still authenticated (RLS scopes to own rows)
     await _fhLocalWipe();
     await sb.auth.signOut(); location.reload();
-  };
-
-  /* "Sign out & wipe this device" — what people reach for uninstall EXPECTING.
-     Same as sign-out but framed as a clean wipe; opts.revokeRemote=false skips the
-     revoke RPC (used when a remote revocation already triggered this locally). */
-  window.fhWipeDevice = async function (opts) {
-    opts = opts || {};
-    try { if (window.fhPushTeardown) await window.fhPushTeardown(); } catch (e) {}   // clear this device's push row before we drop auth
-    if (opts.revokeRemote !== false) { try { if (window.fhDeviceId) await _rpc('revoke_device', { p_device_id: window.fhDeviceId() }); } catch (e) {} }
-    await _fhLocalWipe();
-    // forget the device identity itself → a reinstall/re-sign-in is a fresh device row
-    try { localStorage.removeItem('fh-device-id'); } catch (e) {}
-    try { await sb.auth.signOut(); } catch (e) {}
-    location.reload();
   };
   // ═══ bank-email: connect a mailbox ════════════════════════════════════════
   /* Settings → "Connect bank email". Gives a member their own forwarding alias

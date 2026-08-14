@@ -50,8 +50,7 @@
   async function _devEnforce() {
     if (await _devActive()) return true;
     window.toast && window.toast(L('Thiết bị này đã được đăng xuất từ xa', 'This device was signed out remotely'));
-    if (window.fhWipeDevice) { try { await window.fhWipeDevice({ revokeRemote: false }); return false; } catch (e) {} }
-    if (window.fhSignOut) await window.fhSignOut();
+    if (window.fhSignOut) await window.fhSignOut();   // the single sign-out: erases local data + drops this device
     return false;
   }
 
@@ -117,26 +116,4 @@
     catch (e) { if (btn) { btn.disabled = false; btn.classList.remove('fh-busy'); } window.toast && window.toast(window._fhFriendly ? window._fhFriendly(e) : L('Không thực hiện được, thử lại', 'Couldn’t do that, try again')); return; }
     window.toast && window.toast(L('Đã đăng xuất thiết bị đó', 'That device was signed out'));
     if (window.fhDevicesSheet) window.fhDevicesSheet();   // refresh
-  };
-
-  /* "Sign out & wipe this device" — the clean-exit people expect uninstall to be.
-     Names the consequence (local data cleared) and arms-then-confirms, since it
-     erases this device's cached key + snapshot. */
-  window.fhWipeDeviceConfirm = function () {
-    _fhSheet('<div class="fh-s-h">' + L('Đăng xuất & xoá dữ liệu trên máy này', 'Sign out & wipe this device') + '</div>'
-      + '<div class="fh-s-sub">' + L('Đăng xuất khỏi máy này và xoá sạch dữ liệu đã lưu trên máy: mã khóa, bản lưu tạm, ảnh. Dữ liệu của nhà trên máy chủ vẫn còn — đăng nhập lại và nhập mã khóa là mở lại được.',
-          'Sign out of this device and erase everything cached here — the family code, the local copy, photos. Your family’s data on the server is untouched; sign back in with the code to restore it.') + '</div>'
-      + '<button class="fh-s-cta" onclick="_closeOv()">' + L('Ở lại', 'Stay signed in') + '</button>'
-      + '<button class="ex-del fh-s-del" onclick="fhWipeDeviceArm(this)">' + L('Đăng xuất & xoá', 'Sign out & wipe') + '</button>');
-  };
-  window.fhWipeDeviceArm = function (btn) {
-    if (btn && !btn.classList.contains('armed')) {
-      btn.classList.add('armed'); btn.textContent = L('Chạm lần nữa để xoá', 'Tap again to wipe');
-      clearTimeout(window._fhWipeArmT);
-      window._fhWipeArmT = setTimeout(() => { if (!btn.isConnected) return; btn.classList.remove('armed'); btn.textContent = L('Đăng xuất & xoá', 'Sign out & wipe'); }, 3000);
-      return;
-    }
-    clearTimeout(window._fhWipeArmT);
-    if (btn) { btn.disabled = true; btn.classList.add('fh-busy'); btn.textContent = L('Đang xoá…', 'Wiping…'); }
-    if (window.fhWipeDevice) window.fhWipeDevice();
   };
