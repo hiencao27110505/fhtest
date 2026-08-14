@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-14-c';
+var PIPELINE_VERSION = '2026-08-14-e';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -222,6 +222,7 @@ function processOneMessage(message, runCallCount) {
     return runCallCount;
   }
 
+  queueReviewNotice(row);            // only now that the row is really written
   relabelMessageThread(message, 'txn/processed');
 
   return runCallCount;
@@ -1031,6 +1032,127 @@ function findDuplicate(amount, direction, occurredAt, sourceProvider) {
   return earliest;
 }
 
+// ---------- memo tidying ----------
+//
+// What a bank writes in "Nội dung chuyển tiền" is usually not what the money was
+// FOR. Measured against a real corpus (11 samples, MB + VCB, 2026-08-14) there
+// are three shapes and only one of them is worth showing a person:
+//
+//   NGUYEN THU TRANG chuyen tien              bank auto-fill    → say nothing
+//   Thu Trang chuyen khoan nhanh qua Zalo     app auto-fill     → say nothing
+//   email trans live  iu anh                  a human wrote it  → KEEP
+//   MB.5153-…20260814.NAP TIEN DIEN THOAI.0944684991.MOBILETOPUP.…   → extract
+//
+// The auto-fills are the dangerous case, not the structured reference. They pass
+// any "looks like prose" test — spaces, letters, several words — while carrying
+// nothing, and 72-txn-review.js already says why that is worse than blank: a
+// pre-filled wrong answer gets accepted rather than corrected.
+//
+// Detecting them needs no dictionary. Remove the account holder's own name (the
+// email states it) and the generic banking verbs, and see whether anything is
+// left. That generalises across banks — it caught VCB's "CAO THAI DUY HIEN
+// chuyen tien" without knowing that name in advance.
+//
+// Runs locally on plaintext already in hand: no LLM, no network, and identical
+// before or after sealing.
+
+var MEMO_FILLER = ['chuyen tien', 'chuyen khoan', 'thanh toan', 'nhanh', 'qua zalo',
+  'qua momo', 'ck', 'tt', 'transfer', 'payment'];
+// Payment aggregators that prefix the merchant that was actually paid.
+var MERCHANT_AGGREGATOR_RE = /^(MPOS|PAYOO|VNPAY|MOMO|ZALOPAY|SHOPEEPAY|NAPAS)[\s*_-]+/i;
+
+function _memoNorm(s) { return deburrAscii(s).toLowerCase().replace(/\s+/g, ' ').trim(); }
+function deburrAscii(s) {
+  return String(s == null ? '' : s).normalize('NFD')
+    .replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+}
+
+function _isRefSegment(seg) {
+  var s = String(seg || '').trim();
+  if (!s) return true;
+  if (/^\d+$/.test(s)) return true;                  // pure digits, incl. dates/times
+  if (/^[A-Z]{2,3}$/.test(s)) return true;           // bank code
+  if (/\d/.test(s) && !/\s/.test(s)) return true;    // alphanumeric reference
+  return false;
+}
+
+// A structured reference carries BOTH a prose part and a machine type code.
+// The code (MOBILETOPUP, POS, ATM…) is a closed vocabulary the banks publish and
+// a better category signal than any keyword guess — it is a fact about the
+// transaction, not about the family, so it can be shared freely.
+function splitStructuredMemo(raw) {
+  var segs = String(raw || '').split(/[.|_]/).map(function (x) { return x.trim(); })
+    .filter(function (x) { return x; });
+  if (segs.length < 3) return { prose: raw, code: null };
+  var kept = segs.filter(function (s) { return !_isRefSegment(s); });
+  var words = kept.filter(function (s) { return /\s/.test(s); })
+    .sort(function (a, b) { return b.length - a.length; });
+  var codes = kept.filter(function (s) { return !/\s/.test(s) && /^[A-Z]{4,}$/.test(s); })
+    .sort(function (a, b) { return b.length - a.length; });
+  var longest = kept.slice().sort(function (a, b) { return b.length - a.length; })[0];
+  return { prose: words[0] || longest || raw, code: codes[0] || null };
+}
+
+// Which leading words of the memo are the account holder's name?
+//
+// The name is never in the extraction schema, and adding it would mean a new LLM
+// field plus a template anchor for something the email already states three
+// different ways ("Tài khoản trích nợ", "Tên người chuyển tiền", "Kính gửi Quý
+// khách"). Instead, use the property that distinguishes a name from a message:
+// the holder's name appears ELSEWHERE in the email as well, while the words
+// someone typed appear once. So a leading n-gram occurring twice or more in the
+// body is the name; "email trans live" occurs once and survives.
+function _repeatedLeadingName(prose, body) {
+  var nb = _memoNorm(body);
+  var words = _memoNorm(prose).split(' ').filter(function (w) { return w; });
+  for (var n = Math.min(4, words.length); n >= 2; n--) {
+    var gram = words.slice(0, n).join(' ');
+    if (!gram) continue;
+    var hits = nb.split(gram).length - 1;
+    if (hits >= 2) return gram;
+  }
+  return '';
+}
+
+function isMemoBoilerplate(text, body) {
+  var t = _memoNorm(text);
+  var name = _repeatedLeadingName(text, body || '');
+  if (name) t = t.split(name).join(' ');
+  MEMO_FILLER.forEach(function (f) { t = t.replace(new RegExp('\\b' + f + '\\b', 'g'), ' '); });
+  return t.split(/\s+/).filter(function (w) { return w.length > 1; }).length < 2;
+}
+
+// Returns {description, code}. description '' means "this memo says nothing" —
+// the caller falls back to the counterparty, exactly as it does for a memo-less
+// card purchase. The raw memo is never modified; it stays in raw_extracted.
+function tidyMemo(raw, body) {
+  if (!raw) return { description: '', code: null };
+  var split = splitStructuredMemo(raw);
+  if (isMemoBoilerplate(split.prose, body)) return { description: '', code: split.code };
+  return { description: String(split.prose).replace(/\s+/g, ' ').trim(), code: split.code };
+}
+
+// Strips the aggregator prefix so "MPOS*QUICK SAVE MARKET" reads as the shop the
+// person actually visited. Deliberately does NOT try to derive a brand key:
+// tested against the corpus, no token-count rule can find the boundary between
+// brand and branch — AEON is one word, QUICK SAVE MARKET is three, and nothing in
+// the string says which. Grouping branches needs a merchant dictionary, not a
+// heuristic; until that exists the full string stays the learning key.
+function tidyMerchant(raw) {
+  return String(raw || '').replace(MERCHANT_AGGREGATOR_RE, '').replace(/\s+/g, ' ').trim();
+}
+
+// Adds memo_display + type_code without touching memo. Both are additive, so an
+// older client that knows nothing about them keeps working unchanged.
+function _withTidyMemo(extraction, body) {
+  var tidy = tidyMemo(extraction && extraction.memo, body);
+  var out = {};
+  for (var k in extraction) out[k] = extraction[k];
+  out.memo_display = tidy.description;
+  if (tidy.code) out.type_code = tidy.code;
+  return out;
+}
+
 function buildEmailTransactionRow(gmailMessageId, sender, extraction, body, dup, memberId) {
   return {
     gmail_message_id: gmailMessageId,
@@ -1040,10 +1162,12 @@ function buildEmailTransactionRow(gmailMessageId, sender, extraction, body, dup,
     amount: extraction.amount,
     currency: extraction.currency,
     direction: extraction.direction,
-    counterparty: extraction.counterparty,
+    counterparty: tidyMerchant(extraction.counterparty) || extraction.counterparty,
     reference_number: extraction.reference_number,
     raw_body: body,
-    raw_extracted: extraction,
+    // memo stays exactly as extracted; the tidied reading is added alongside it,
+    // so a misjudged heuristic is always recoverable from the original.
+    raw_extracted: _withTidyMemo(extraction, body),
     review_status: 'pending',
     duplicate_of_id: dup ? dup.id : null,
     member_id: memberId,  // null if unresolved — row still gets written, just orphaned until a mailbox_connections match exists
@@ -1051,9 +1175,30 @@ function buildEmailTransactionRow(gmailMessageId, sender, extraction, body, dup,
 }
 
 function insertEmailTransaction(row) {
-  var res = supabasePost('email_transactions', row, null);
-  if (row.member_id) _PENDING_NOTIFY[row.member_id] = (_PENDING_NOTIFY[row.member_id] || 0) + 1;
-  return res;
+  return supabasePost('email_transactions', row, null);
+}
+
+// Queue a review notice for a row that will ACTUALLY appear in the review queue.
+// Called by the caller only after the insert is confirmed — counting inside
+// insertEmailTransaction promised a banner even when the write failed, and
+// supabasePost returns PostgREST's error OBJECT on failure (truthy), which is the
+// trap SEALED-STAGING-DESIGN.md §8 warns about.
+//
+// Two rows are silently excluded, and both matter more than they look:
+//   • no member_id — unrouted, so 0058 shows it to nobody. There is no audience.
+//   • duplicate_of_id set — fhFetchStagedTxns filters merged duplicates out
+//     (`.is('duplicate_of_id', null)`), so notifying for one promises a queue
+//     entry that does not exist. A notification that opens an empty screen is the
+//     cry-wolf the alarm design goes out of its way to avoid; it teaches people
+//     that the banner is noise.
+//
+// Both fields survive sealing: member_id is a luggage tag (§3), and once dedup
+// moves client-side (§7) duplicate_of_id simply stops being set, which leaves this
+// rule true rather than broken. Nothing here reads a field that becomes ciphertext.
+function queueReviewNotice(row) {
+  if (!row || !row.member_id) return;
+  if (row.duplicate_of_id) return;
+  _PENDING_NOTIFY[row.member_id] = (_PENDING_NOTIFY[row.member_id] || 0) + 1;
 }
 
 // ---------- review notifications ----------
