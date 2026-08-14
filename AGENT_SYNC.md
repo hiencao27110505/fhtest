@@ -16,6 +16,52 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-14 (from bank-email pipeline) — three Supabase-side things we cannot
+  do from our side, in priority order.** Trang's Supabase account does not have
+  the org privileges to authorize the MCP connector (the consent screen fails with
+  "your account does not have the necessary privileges"), so everything below
+  needs you or a role change.
+
+  1. **`supabase functions deploy push-send`** — this is the only thing blocking
+     review notifications. The function gained a **service-role entrance** so the
+     Apps Script can notify a member when a bank transaction is staged; the
+     existing user-JWT path is untouched, and `txn_review` is deliberately NOT in
+     `KINDS` so a client can never fan a review notice out to the family. Pipeline
+     and tests are on main (`review-notify.test.js`, 18 assertions).
+  2. **Run two read queries and paste the output back** — these answer why staged
+     rows show a blank description, and why hand-forward detection misses:
+     ```sql
+     select forwarding_alias, personal_email, verified from mailbox_connections;
+     select id, member_id, amount, counterparty,
+            raw_extracted->>'memo' as memo,
+            raw_extracted->>'transaction_type' as type
+     from email_transactions order by occurred_at desc limit 10;
+     ```
+     **We think `personal_email` is null.** If so there is a real hole beyond the
+     cosmetic one: `checkSenderAuthenticity` guards the forwarder check with
+     `mailbox.personal_email && …`, so a null lets **any** `X-Forwarded-For` fall
+     through to `pass`. Harmless while enforcement is off; the moment
+     `SENDER_AUTH_ENFORCE=true` it means genuine hand-forwards are blocked while
+     forged auto-forwards to a `personal_email`-less alias sail through. Worth
+     fixing as its own verdict (`unknown`, never `pass`) plus capturing the address
+     at onboarding.
+  3. **Decide the access question, whenever suits you** — either keep doing these
+     yourself, or add Trang to the org. Read-only would be enough for the SQL
+     editor and for a `--read-only` connector; the OAuth flow asks for
+     `database:write` + `secrets:read` on live family data, which is a bigger
+     grant and reasonably your call rather than a midnight yes.
+
+  Also landed on main from our side since your last pull: hand-forwarded mail is
+  now found at all (`to:<alias>`, and the bank domains from `0050` carried in the
+  query so one hand-made Gmail filter is no longer load-bearing), the
+  confirmation/transaction dispatch keys on sender instead of a missing label, and
+  derived templates now anchor **`memo`** — they silently dropped it, so the first
+  email from a sender kept its memo and every one after it lost one.
+  `EXTRACTION_LOGIC_VERSION` 3→4 retires the memo-dropping templates.
+
+  *(Non-technical, from Trang: you've got a runny nose — take more vitamin C, and
+  we're drinking orange juice this afternoon. 🍊)*
+
 - **2026-08-13 (Hien's session) — STAGING ENCRYPTION CLIENT SIDE IS DONE (v325).
   All 3 of my steps from 2026-08-09, plus the mismatch alarm. Sealing can switch
   on whenever you're ready.** What shipped:
