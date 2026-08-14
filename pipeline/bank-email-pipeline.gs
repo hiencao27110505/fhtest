@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-14-a';
+var PIPELINE_VERSION = '2026-08-14-b';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -652,7 +652,7 @@ function stripNullsForGemini(schema) {
 // (different amount/name/ref/time), reject-different-structure, reject-stale-
 // version, reject-legacy-placeholder, self-reproduction — all pass.
 
-var EXTRACTION_LOGIC_VERSION = 3;
+var EXTRACTION_LOGIC_VERSION = 4;   // 4: memo is anchored + verified (3 silently dropped it)
 
 function _escRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
@@ -795,7 +795,12 @@ function deriveExtractionTemplate(body, extraction) {
 
   // varying string fields — anchored if present; a present-but-unanchorable
   // value fails the whole derivation (never silently degrade vs the LLM path)
-  var strFields = ['counterparty', 'reference_number', 'account_masked'];
+  // memo belongs here even though it is the hardest to anchor: it is the only
+  // field carrying WHY the money moved, and the seed for the description a human
+  // writes at review. Leaving it out meant the FIRST email from a sender kept its
+  // memo (LLM path) and every email after it lost one (template path) — silently,
+  // and on the path that carries most volume permanently.
+  var strFields = ['counterparty', 'reference_number', 'account_masked', 'memo'];
   for (var f = 0; f < strFields.length; f++) {
     var name = strFields[f], val = extraction[name];
     if (val === null || val === undefined || val === '') { tpl.static[name] = null; continue; }
@@ -807,7 +812,10 @@ function deriveExtractionTemplate(body, extraction) {
   // final proof: the template must reproduce the LLM's extraction exactly
   var check = applyExtractionTemplate(JSON.stringify(tpl), body);
   if (!check) return null;
-  var keys = ['transaction_type', 'source_provider', 'occurred_at', 'amount', 'currency', 'direction', 'counterparty', 'reference_number', 'status', 'account_masked'];
+  // memo is checked here too. It was missing, which is why the derivation above
+  // could drop it and still pass its own "reproduces the LLM exactly" proof — a
+  // verification that does not cover a field cannot protect it.
+  var keys = ['transaction_type', 'source_provider', 'occurred_at', 'amount', 'currency', 'direction', 'counterparty', 'reference_number', 'status', 'account_masked', 'memo'];
   for (var i = 0; i < keys.length; i++) {
     var a2 = check[keys[i]], b2 = extraction[keys[i]];
     if (String(a2 === undefined ? null : a2) !== String(b2 === undefined ? null : b2)) return null;
