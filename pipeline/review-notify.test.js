@@ -1,0 +1,118 @@
+#!/usr/bin/env node
+/* Review notifications: batching, targeting, and copy.
+ * `node pipeline/review-notify.test.js`
+ *
+ * These two halves cannot be exercised together anywhere but production — the
+ * Apps Script side runs in GAS and the copy side runs in Deno — so each is
+ * pulled out and run here against stubs. The parts that matter are the ones a
+ * deploy would not catch until a real family got a wrong or leaky banner.
+ */
+// NOT 'use strict': the eval'd .gs/.ts declarations must land in this scope.
+const fs = require('fs');
+const path = require('path');
+const esbuild = require('esbuild');
+
+let pass = 0, fail = 0;
+const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok && d ? '  -> ' + d : '')); ok ? pass++ : fail++; };
+
+// ── pipeline side: batching + targeting ─────────────────────────────────────
+const gs = fs.readFileSync(path.join(__dirname, 'bank-email-pipeline.gs'), 'utf8');
+
+let _props = { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'srv-key' };
+global.PropertiesService = { getScriptProperties: () => ({ getProperty: (k) => _props[k] || null }) };
+global.Logger = { log: () => {} };
+
+let CALLS = [];
+let THROW_ON = null;
+global.UrlFetchApp = {
+  fetch: (url, opts) => {
+    if (THROW_ON && url.indexOf(THROW_ON) >= 0) throw new Error('network down');
+    CALLS.push({ url, opts, body: JSON.parse(opts.payload) });
+    return { getResponseCode: () => 200, getContentText: () => '{"sent":1}' };
+  },
+};
+
+eval(gs.slice(gs.indexOf('var _PENDING_NOTIFY'), gs.indexOf('// Resolves which family member')));
+
+function stage(memberId, times) { for (let i = 0; i < times; i++) _PENDING_NOTIFY[memberId] = (_PENDING_NOTIFY[memberId] || 0) + 1; }
+
+// Five emails in one run is one banner, not five.
+CALLS = []; _PENDING_NOTIFY = {};
+stage('11111111-1111-1111-1111-111111111111', 5);
+notifyStagedReviews();
+t('a burst of 5 sends ONE notification', CALLS.length === 1, JSON.stringify(CALLS.length));
+t('and carries the count', CALLS[0] && CALLS[0].body.count === 5, CALLS[0] && JSON.stringify(CALLS[0].body));
+
+// Two members in one run get one each — never each other's.
+CALLS = []; _PENDING_NOTIFY = {};
+stage('11111111-1111-1111-1111-111111111111', 2);
+stage('22222222-2222-2222-2222-222222222222', 1);
+notifyStagedReviews();
+t('two members get one notification each', CALLS.length === 2);
+const byMember = {}; CALLS.forEach((c) => { byMember[c.body.member_id] = c.body.count; });
+t('each carries only its own count',
+  byMember['11111111-1111-1111-1111-111111111111'] === 2 && byMember['22222222-2222-2222-2222-222222222222'] === 1,
+  JSON.stringify(byMember));
+
+// The payload must not be able to leak money detail into a push service.
+CALLS = []; _PENDING_NOTIFY = {};
+stage('11111111-1111-1111-1111-111111111111', 1);
+notifyStagedReviews();
+const keys = CALLS[0] ? Object.keys(CALLS[0].body).sort() : [];
+t('payload is exactly {kind, member_id, count} — no amount, merchant or bank',
+  JSON.stringify(keys) === JSON.stringify(['count', 'kind', 'member_id']), JSON.stringify(keys));
+t('authenticated with the service-role key',
+  CALLS[0] && CALLS[0].opts.headers.Authorization === 'Bearer srv-key');
+
+// The queue must not resend on the next tick.
+CALLS = [];
+notifyStagedReviews();
+t('a second run with nothing staged sends nothing', CALLS.length === 0);
+
+// A failed notification must never cost a staged row.
+CALLS = []; _PENDING_NOTIFY = {}; THROW_ON = 'push-send';
+stage('11111111-1111-1111-1111-111111111111', 1);
+let threw = false;
+try { notifyStagedReviews(); } catch (e) { threw = true; }
+t('a network failure does not throw into the caller', !threw);
+THROW_ON = null;
+
+// Unrouted rows have no member and therefore no audience.
+CALLS = []; _PENDING_NOTIFY = {};
+notifyStagedReviews();
+t('a run that staged only unrouted rows notifies nobody', CALLS.length === 0);
+
+// ── edge-function side: copy + the service-role gate ─────────────────────────
+const ts = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'push-send', 'index.ts'), 'utf8');
+/* Brace-matching from the first '{' breaks on a TS return type that is itself an
+   object ({ title: string; body: string }). These are top-level declarations, so
+   the closing brace is the next one in column 0. */
+const grab = (header) => {
+  const at = ts.indexOf(header);
+  if (at < 0) throw new Error('not found: ' + header);
+  const end = ts.indexOf('\n}', at);
+  return ts.slice(at, end + 2);
+};
+const DenoEnv = { SUPABASE_SERVICE_ROLE_KEY: 'srv-key' };
+global.Deno = { env: { get: (k) => DenoEnv[k] } };
+eval(esbuild.transformSync(grab('function isServiceRole') + '\n' + grab('function buildReviewCopy'), { loader: 'ts' }).code);
+
+t('the service-role key opens the pipeline entrance', isServiceRole('srv-key') === true);
+t('a user JWT does not', isServiceRole('eyJhbGciOi.some.jwt') === false);
+t('a prefix of the key does not', isServiceRole('srv') === false);
+t('an empty bearer does not', isServiceRole('') === false);
+
+const vi1 = buildReviewCopy(1, 'vi'), vi3 = buildReviewCopy(3, 'vi'), en3 = buildReviewCopy(3, 'en');
+t('VN singular reads naturally', vi1.body.indexOf('Một giao dịch') === 0, vi1.body);
+t('VN plural carries the number', vi3.body.indexOf('3 giao dịch') === 0, vi3.body);
+t('EN follows the family language', en3.body.indexOf('3 transactions') === 0, en3.body);
+t('an unknown language falls back to Vietnamese', buildReviewCopy(1, 'fr').title === vi1.title);
+
+// Currency markers and bank/merchant names only — a bare \d would hit the count,
+// which is the one number these are allowed to carry.
+const money = /VND|₫|\bđ\b|\bmbbank\b|\bvietcombank\b|REVI PHU/i;
+t('no copy variant can carry an amount or a merchant',
+  !money.test(vi1.title + vi1.body + vi3.title + vi3.body + en3.title + en3.body));
+
+console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
+process.exit(fail ? 1 : 0);

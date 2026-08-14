@@ -47,7 +47,55 @@ async function getAppServer(): Promise<webpush.ApplicationServer | null> {
   return _srv;
 }
 
+// Deliberately WITHOUT txn_review: this list guards the user-JWT path, and a
+// client must never be able to fan a review notice out to the family. The
+// service-role branch checks that kind itself.
 const KINDS = ["reaction", "weather", "request_new", "request_response"];
+
+/* txn_review is the one kind with no human actor and no family audience.
+ *
+ * Every other kind is invoked by a member's device right after that member does
+ * something social, and fans out to the REST of the family. A staged bank
+ * transaction is the inverse on both counts: it is produced by the Apps Script
+ * with nobody's browser open, and migration 0058 scopes staged rows to their own
+ * member — so the family must NOT be told, and the one person who has to act is
+ * exactly the one the normal path excludes.
+ *
+ * Hence a second entrance, reachable only with the service-role key, that takes
+ * a member id and notifies that member alone. Compared in constant time so the
+ * key cannot be discovered a byte at a time.
+ */
+function isServiceRole(jwt: string): boolean {
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  if (!key || jwt.length !== key.length) return false;
+  let diff = 0;
+  for (let i = 0; i < key.length; i++) diff |= jwt.charCodeAt(i) ^ key.charCodeAt(i);
+  return diff === 0;
+}
+
+/* Count only — never the amount, the merchant, or the bank.
+ * The file's standing rule is that E2EE plaintext must not transit a push
+ * service, and once sealing is switched on the pipeline could not read those
+ * values to send them even if it wanted to. The notification's whole job is
+ * "there is something here for you", and the app shows the rest behind the lock. */
+function buildReviewCopy(count: number, lang: string): { title: string; body: string } {
+  const vi = lang !== "en";
+  const n = count > 1 ? count : 1;
+  if (vi) {
+    return {
+      title: "Có giao dịch mới cần bạn duyệt",
+      body: n > 1
+        ? `${n} giao dịch từ email ngân hàng đang chờ bạn xem và phân loại.`
+        : "Một giao dịch từ email ngân hàng đang chờ bạn xem và phân loại.",
+    };
+  }
+  return {
+    title: "New transactions to review",
+    body: n > 1
+      ? `${n} transactions from your bank email are waiting for you to check and categorise.`
+      : "A transaction from your bank email is waiting for you to check and categorise.",
+  };
+}
 const ENTITY_TYPES = ["expense", "goal", "occasion"];
 
 // The reviewer's exact in-app words (64-requests.js _reqReviewSet), label + line.
@@ -98,6 +146,50 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
     const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+
+    // ── service-role entrance: the bank-email pipeline, notifying one member ──
+    if (isServiceRole(jwt)) {
+      const b = await req.json().catch(() => ({}));
+      if (String(b.kind || "") !== "txn_review") return json({ error: "bad kind" }, 400);
+      const memberId = typeof b.member_id === "string" ? b.member_id : "";
+      if (!/^[0-9a-f-]{36}$/i.test(memberId)) return json({ error: "bad member" }, 400);
+      const count = Math.max(1, Math.min(99, Number(b.count) || 1));
+
+      // family is derived from the member row, never taken from the body
+      const { data: mem } = await admin.from("members").select("family_id")
+        .eq("id", memberId).is("archived_at", null).maybeSingle();
+      if (!mem || !mem.family_id) return json({ error: "no member" }, 400);
+      const { data: f } = await admin.from("families").select("default_language")
+        .eq("id", mem.family_id).maybeSingle();
+      const lg = f && f.default_language === "en" ? "en" : "vi";
+
+      // ONLY this member's devices. The inverse of the social path's fan-out.
+      const { data: own } = await admin.from("push_subscriptions")
+        .select("id,endpoint,p256dh,auth")
+        .eq("family_id", mem.family_id).eq("member_id", memberId);
+      if (!own || !own.length) return json({ sent: 0, pruned: 0 });
+
+      const srv2 = await getAppServer();
+      if (!srv2) return json({ error: "push not configured" }, 500);
+      const c = buildReviewCopy(count, lg);
+      // tag collapses a burst: three emails in one run replace each other in the
+      // tray rather than stacking three identical rows.
+      const pl = JSON.stringify({ title: c.title, body: c.body, tag: "fh-txn_review", url: "./", nav: { k: "txn_review" } });
+
+      let n = 0; const gone: string[] = [];
+      await Promise.all(own.map(async (s: { id: string; endpoint: string; p256dh: string; auth: string }) => {
+        try {
+          await srv2.subscribe({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } })
+            .pushTextMessage(pl, { ttl: 3600 });
+          n++;
+        } catch (err) {
+          if (err instanceof webpush.PushMessageError && err.isGone()) gone.push(s.id);
+        }
+      }));
+      if (gone.length) await admin.from("push_subscriptions").delete().in("id", gone);
+      return json({ sent: n, pruned: gone.length });
+    }
+
     const { data: { user } } = await admin.auth.getUser(jwt);
     if (!user) return json({ error: "unauthorized" }, 401);
 
