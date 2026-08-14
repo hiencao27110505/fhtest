@@ -26,12 +26,22 @@ var csvExpand = null;   // { kind:'ready'|'group'|'dup'|'defer', idx } -- the on
    Every file entry point (openCsvImport / csvPickAnother) clears it. */
 var csvStagedMode = false;
 
+/* One Save button, two flows: the file import (csvPromote) and the bank-email
+   staged review (fhPromoteStaged). The button's onclick is FIXED to this
+   dispatcher — never rewired per entry — so a stale handler can't bleed from one
+   flow into the other (a file import must never run the staged-promote path,
+   which would delete un-reviewed email rows). The mode is the single source. */
+function csvSaveDispatch(){ return csvStagedMode ? fhPromoteStaged() : csvPromote(); }
+
 function openCsvImport(){
   csvStagedMode = false;               // this is the file flow, not the staged review
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
   csvReview = null; csvExpand = null;
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='';
+  // Restore this flow's own title — the staged review borrows the same modal and
+  // retitles it, so the file entry must reclaim its title rather than inherit it.
+  var ttl=document.querySelector('#csv-import-modal .modal-title'); if(ttl) ttl.textContent=L('Nhập từ file','Import from file');
   var save=document.getElementById('csv-save'); if(save){ save.disabled=true; save.textContent=L('Nhập','Import'); }
   csvLearnLoad();                      // corrections this family made before
   openSheet('csv-import-modal');

@@ -122,7 +122,7 @@
     }
 
     if (!readable.length) {
-      _fhSheet('<div class="grab"></div>' +
+      _fhSheet('<div class="mbx-hero">' + _mbxGlyph('mail') + '</div>' +
         '<div class="sheet-h">' + _esc(L('Chưa có giao dịch mới', 'Nothing to review')) + '</div>' +
         '<div class="sheet-sub">' + _esc(locked
           ? L('Có giao dịch đang khoá — mở khoá ứng dụng để xem.',
@@ -143,12 +143,12 @@
     renderCsvReview();
 
     // Same screen, different framing: no file to pick, and the title should say
-    // where these came from.
+    // where these came from. The Save button's onclick is NOT rewired here — it's
+    // a fixed dispatcher (csvSaveDispatch) that branches on csvStagedMode, so the
+    // file flow can never inherit fhPromoteStaged (which would delete staged rows).
     var pick = document.getElementById('csv-pick'); if (pick) pick.style.display = 'none';
     var title = document.querySelector('#csv-import-modal .modal-title');
     if (title) title.textContent = L('Duyệt giao dịch', 'Review transactions');
-    var save = document.getElementById('csv-save');
-    if (save) save.setAttribute('onclick', 'fhPromoteStaged()');
     openSheet('csv-import-modal');
   };
 

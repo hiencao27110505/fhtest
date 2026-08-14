@@ -2625,63 +2625,86 @@ html.fh-can-install .set-row.set-install{display:flex}
   padding:13px; font-size:15px; font-weight:700; cursor:pointer; }
 
 /* ---------- bank-email: connect a mailbox ---------- */
-/* Sheet-based flow (DESIGN §4). Built from the existing tokens only — no new
-   colours, no new radii — so it reads as part of Settings rather than a bolted-on
-   feature. */
+/* Bottom-sheet journey (DESIGN §4), built from existing tokens only — no new
+   colours, no new radii — so it reads as part of Settings, not a bolted-on
+   feature. Three sheets share this vocabulary: a feature glyph, reassurance
+   rows, the focal copyable address, numbered steps, and the connection dot. */
 
-.mbx-points{display:flex;flex-direction:column;gap:16px;margin:4px 0 24px}
-.mbx-point{display:flex;gap:13px;align-items:flex-start}
-/* Icon tile follows the app's glyph-chip language (widget/quick-action chips):
-   a neutral wash with an inline-SVG line glyph -- never an emoji as a UI icon
-   (DESIGN §2.6). Brand-ink glyph keeps the one accent on the CTA, not a fill. */
-.mbx-point-ic{width:38px;height:38px;border-radius:12px;background:var(--fill-neutral);
-  color:var(--brand-ink);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.mbx-point-ic svg{width:22px;height:22px;display:block}
-.mbx-point-t{font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
-.mbx-point-s{font-size:13.5px;line-height:1.45;color:var(--muted);margin-top:2px}
+/* Feature identity mark at the top of the offer sheet — a brand-tinted mail
+   glyph so the journey has a face, the way the safe has one in Money encryption.
+   Brand-tint fill is sanctioned here (a feature mark, one per view), and it
+   keeps the accent off the body so the CTA still leads. */
+.mbx-hero{width:52px;height:52px;border-radius:15px;background:var(--brand-tint);color:var(--brand-ink);
+  display:flex;align-items:center;justify-content:center;margin:2px 0 16px}
+.mbx-hero svg{width:27px;height:27px;display:block}
 
-/* The address is the one thing the user must carry into Gmail, so it is a
-   button, not text: the whole row copies. Dashed border marks it copyable
-   without needing an icon that competes with the label. */
-.mbx-addr{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
-  background:var(--surface);border:1.5px dashed var(--hairline);border-radius:14px;
-  padding:14px 15px;margin-bottom:22px}
-.mbx-addr:active{background:var(--brand-tint);border-color:var(--brand)}
-.mbx-addr code{flex:1;min-width:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-  font-size:13.5px;color:var(--ink);overflow-wrap:anywhere}
-.mbx-copy{flex-shrink:0;font-size:13px;font-weight:700;color:var(--brand-ink);letter-spacing:-.01em}
+/* Reassurance rows: glyph chip + title + one calm line. The chip follows the
+   app's glyph-chip language (widget / quick-action headers) — a neutral wash
+   with a brand-ink line glyph, never an emoji as a UI icon (DESIGN §2.6). */
+.mbx-assure{display:flex;flex-direction:column;gap:15px;margin:8px 0 24px}
+.mbx-assure-row{display:flex;gap:13px;align-items:flex-start}
+.mbx-ic{width:38px;height:38px;border-radius:11px;background:var(--fill-neutral);color:var(--brand-ink);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mbx-ic svg{width:21px;height:21px;display:block}
+.mbx-txt{min-width:0}
+.mbx-rt{font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink);line-height:1.3}
+.mbx-rs{font-size:13.5px;line-height:1.45;color:var(--muted);margin-top:2px}
 
-.mbx-steps{display:flex;flex-direction:column;gap:2px;margin-bottom:16px}
-.mbx-step{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--divider)}
+/* The address is the one thing the user must carry into Gmail, so it is the
+   focal element of its sheet: the whole card is a button that copies. A dashed
+   border marks it copyable without an icon competing with the label; the copy
+   pill on the right carries the state (Copy → Copied, and turns positive-green
+   on success so the confirmation is felt, not just read). */
+.mbx-addr{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  background:var(--surface);border:1.5px dashed var(--hairline);border-radius:15px;
+  padding:15px 16px;margin-bottom:20px;
+  transition:transform .12s cubic-bezier(.4,0,.2,1),background .18s,border-color .18s}
+.mbx-addr:active{transform:scale(.99);background:var(--brand-tint);border-color:var(--brand)}
+.mbx-addr-val{flex:1;min-width:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:13.5px;line-height:1.4;color:var(--ink);overflow-wrap:anywhere}
+.mbx-addr-copy{display:flex;align-items:center;gap:5px;flex-shrink:0;color:var(--brand-ink);
+  font-size:13px;font-weight:700;letter-spacing:-.01em}
+.mbx-addr-copy svg{width:16px;height:16px;display:block}
+.mbx-addr.is-copied{background:var(--good-tint);border-color:var(--good);border-style:solid}
+.mbx-addr.is-copied .mbx-addr-copy{color:var(--good)}
+
+/* Numbered Gmail steps — quiet, hairline-separated rows; the number chip reuses
+   the brand-tint / brand-ink pairing so it belongs to the same family. */
+.mbx-steps{display:flex;flex-direction:column;margin-bottom:18px}
+.mbx-step{display:flex;gap:13px;padding:12px 0;border-bottom:1px solid var(--divider)}
 .mbx-step:last-child{border-bottom:none}
-.mbx-step-n{width:23px;height:23px;border-radius:50%;background:var(--brand-tint);color:var(--brand-ink);
-  font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.mbx-step-t{font-size:14.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.mbx-step-n{width:24px;height:24px;border-radius:50%;background:var(--brand-tint);color:var(--brand-ink);
+  font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mbx-step-t{font-size:14.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);line-height:1.35}
 .mbx-step-s{font-size:12.5px;line-height:1.45;color:var(--muted);margin-top:2px}
 
-.mbx-note{font-size:12.5px;line-height:1.5;color:var(--muted-soft);background:var(--surface);
-  border-radius:12px;padding:11px 13px;margin-bottom:16px}
+/* Calm inset note (auto-confirm reassurance / "reopen the steps"). Neutral
+   surface, never a warning tint — the user has nothing to fix. */
+.mbx-note{display:flex;gap:9px;align-items:flex-start;background:var(--surface);border-radius:12px;
+  padding:11px 13px;margin-bottom:18px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.mbx-note svg{width:17px;height:17px;flex-shrink:0;color:var(--brand-ink);margin-top:1px}
+.mbx-note span{flex:1}
 
-.mbx-status{display:flex;align-items:center;gap:11px;border-radius:14px;padding:13px 15px;margin-bottom:18px}
-.mbx-status code{flex:1;min-width:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+/* Connection status row: a dot + the address. Connected is positive-green;
+   waiting is neutral (not amber) with a gentle pulse, because waiting is a
+   normal state and nothing has gone wrong. */
+.mbx-conn{display:flex;align-items:center;gap:11px;border-radius:14px;padding:13px 15px;margin-bottom:16px}
+.mbx-conn code{flex:1;min-width:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
   font-size:13px;overflow-wrap:anywhere}
-.mbx-status-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
-.mbx-status.ok{background:var(--good-tint);color:var(--good)}
-.mbx-status.ok .mbx-status-dot{background:var(--good)}
-.mbx-status.ok code{color:var(--ink)}
-/* Waiting is a neutral state, not a warning: the user has done nothing wrong
-   and there is nothing to fix, so it must not read as an error. */
-.mbx-status.wait{background:var(--surface);color:var(--muted)}
-.mbx-status.wait .mbx-status-dot{background:var(--muted-soft);animation:mbxPulse 1.8s ease-in-out infinite}
-.mbx-status.wait code{color:var(--ink-2)}
+.mbx-conn-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.mbx-conn.ok{background:var(--good-tint);color:var(--good)}
+.mbx-conn.ok .mbx-conn-dot{background:var(--good)}
+.mbx-conn.ok code{color:var(--ink)}
+.mbx-conn.wait{background:var(--surface);color:var(--muted)}
+.mbx-conn.wait .mbx-conn-dot{background:var(--muted-soft);animation:mbxPulse 1.8s ease-in-out infinite}
+.mbx-conn.wait code{color:var(--ink-2)}
 @keyframes mbxPulse{0%,100%{opacity:.35}50%{opacity:1}}
-@media (prefers-reduced-motion:reduce){.mbx-status.wait .mbx-status-dot{animation:none;opacity:.6}}
+@media (prefers-reduced-motion:reduce){.mbx-conn.wait .mbx-conn-dot{animation:none;opacity:.6}}
 
 /* ---------- sealed-staging key-mismatch alarm ---------- */
 /* Blocking, family-wide dialog raised at unlock when the device's staging key
    no longer matches the server's (key substitution). Mounts inside .phone
-   (DESIGN §4.1), rises like a modal, uses tokens + the real .cta -- the first
-   pass hand-rolled inline styles and an undefined .btn-primary. */
+   (DESIGN §4.1), rises like a modal, uses tokens + the real .cta. */
 .fsa{position:absolute;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:24px}
 .fsa-scrim{position:absolute;inset:0;background:rgba(25,16,34,.42);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 .fsa-card{position:relative;z-index:1;width:100%;max-width:340px;background:var(--white);
@@ -3219,7 +3242,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="modal-nav">
     <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
     <div class="modal-title" data-t="csvModalTitle">Import from file</div>
-    <button class="modal-save" id="csv-save" onclick="csvPromote()" disabled data-t="csvSave">Import</button>
+    <button class="modal-save" id="csv-save" onclick="csvSaveDispatch()" disabled data-t="csvSave">Import</button>
   </div>
   <div class="modal-body">
     <div id="csv-pick">
@@ -8334,12 +8357,22 @@ var csvExpand = null;   // { kind:'ready'|'group'|'dup'|'defer', idx } -- the on
    Every file entry point (openCsvImport / csvPickAnother) clears it. */
 var csvStagedMode = false;
 
+/* One Save button, two flows: the file import (csvPromote) and the bank-email
+   staged review (fhPromoteStaged). The button's onclick is FIXED to this
+   dispatcher — never rewired per entry — so a stale handler can't bleed from one
+   flow into the other (a file import must never run the staged-promote path,
+   which would delete un-reviewed email rows). The mode is the single source. */
+function csvSaveDispatch(){ return csvStagedMode ? fhPromoteStaged() : csvPromote(); }
+
 function openCsvImport(){
   csvStagedMode = false;               // this is the file flow, not the staged review
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
   csvReview = null; csvExpand = null;
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='';
+  // Restore this flow's own title — the staged review borrows the same modal and
+  // retitles it, so the file entry must reclaim its title rather than inherit it.
+  var ttl=document.querySelector('#csv-import-modal .modal-title'); if(ttl) ttl.textContent=L('Nhập từ file','Import from file');
   var save=document.getElementById('csv-save'); if(save){ save.disabled=true; save.textContent=L('Nhập','Import'); }
   csvLearnLoad();                      // corrections this family made before
   openSheet('csv-import-modal');
@@ -12530,7 +12563,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v331';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v333';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -19239,19 +19272,20 @@ window.classifyAmount = classifyAmount;
     location.reload();
   };
   // ═══ bank-email: connect a mailbox ════════════════════════════════════════
-  /* Gives a member their forwarding alias and walks them through pointing Gmail
-     at it. Once connected, bank/receipt emails they forward are extracted and
-     land in their review queue.
+  /* Settings → "Connect bank email". Gives a member their own forwarding alias
+     and walks them through pointing Gmail at it; once connected, bank/receipt
+     emails they forward are extracted and land in their review queue.
 
-     Runs on the app's own layers (DESIGN §4): the flow is a multi-step explainer
-     with a copyable address, so it uses #fh-sheet like the other Settings
-     journeys rather than a bespoke overlay.
+     Runs on the app's own bottom sheet (DESIGN §4) — the same layer every other
+     Settings sub-journey uses (Money encryption, Devices, Install), so it reads
+     as one of the family rather than a bolted-on wizard. Three sheets, one job
+     each: the offer → the address → the status. Each _fhSheet call replaces the
+     body, so the journey is a sequence of full sheets, not nested panels.
 
-     Server side (all live): 0059 issues the alias, the Apps Script auto-clicks
-     Gmail's confirmation email, and the pipeline routes on the +tag. Nothing
-     here needs the user to handle a confirmation email — that is the whole
-     point of the auto-confirm step, so the copy must not tell them to go
-     looking for one.
+     Server side (all live): 0059 issues the alias, an Apps Script auto-clicks
+     Gmail's confirmation email, and the pipeline routes on the +tag. The user
+     never handles a confirmation email — that is the whole point of auto-confirm,
+     so the copy must never send them looking for one.
 
      The address is assembled HERE from tag + inbox domain, deliberately: the
      shared Gmail inbox is temporary, and moving to an owned domain later should
@@ -19259,13 +19293,18 @@ window.classifyAmount = classifyAmount;
 
   const FH_TXN_INBOX = 'gichisreading@gmail.com';   // shared receiving inbox; swap for the owned domain when it exists
 
-  /* Inline SVG line glyphs (DESIGN §2.6: UI icons are SVG, stroke 1.9–2.4, round
-     caps — never emoji as a UI icon). currentColor inherits the tile's tint. */
+  /* Inline SVG line glyphs — DESIGN §2.6 (UI icons are SVG, stroke 1.9–2.4,
+     round caps; never emoji as a functional icon). currentColor inherits the
+     chip's tint so one glyph set works on every surface. */
   const _MBX_SVG = {
-    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.6"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/><circle cx="12" cy="15.4" r="1.15" fill="currentColor" stroke="none"/></svg>',
-    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.4 12.3l2.5 2.5 4.7-5.1"/></svg>',
-    mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="6" width="17" height="12" rx="2.6"/><path d="M4.5 8.2l7.5 5 7.5-5"/></svg>',
+    mail:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="5.5" width="17.6" height="13" rx="2.8"/><path d="M4.4 7.8 12 13l7.6-5.2"/></svg>',
+    lock:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.6"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/><circle cx="12" cy="15.4" r="1.15" fill="currentColor" stroke="none"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="m8.4 12.3 2.5 2.5 4.7-5.1"/></svg>',
+    fwd:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6.5 19 12l-6 5.5"/><path d="M19 12H8.5a4.5 4.5 0 0 0-4.5 4.5V18"/></svg>',
+    copy:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.4"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg>',
+    done:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4 4 10-10.5"/></svg>',
   };
+  const _mbxGlyph = (k) => _MBX_SVG[k] || '';
 
   function fhAliasAddress(tag) {
     if (!tag) return null;
@@ -19278,85 +19317,94 @@ window.classifyAmount = classifyAmount;
     catch (e) { return null; }
   }
 
-  /* Entry point (Settings → Connect bank email). Reads state first so a member
-     who already connected sees status rather than being walked through setup
-     again. */
+  /* Entry point. Reads state first so a member who already connected lands on
+     status, not back at the top of setup. */
   window.fhMailboxSheet = async function () {
     const st = await fhMailboxState();
     if (st && st.forwarding_alias) return fhMailboxStatus(st);
     return fhMailboxIntro();
   };
 
+  // ── Sheet 1 · the offer ────────────────────────────────────────────────────
   function fhMailboxIntro() {
     _fhSheet(
-      '<div class="grab"></div>' +
+      '<div class="mbx-hero">' + _mbxGlyph('mail') + '</div>' +
       '<div class="sheet-h">' + _esc(L('Tự động ghi chi tiêu từ email', 'Log spending from email')) + '</div>' +
       '<div class="sheet-sub">' + _esc(L(
-        'Ngân hàng gửi email mỗi lần bạn giao dịch. Chuyển tiếp những email đó cho Earthy, tụi mình đọc giúp và bạn chỉ cần duyệt lại.',
-        'Your bank emails you after each transaction. Forward those to Earthy and we read them for you — you just review.')) + '</div>' +
-      '<div class="mbx-points">' +
-        _mbxPoint('lock', L('Chỉ mình bạn đọc được', 'Only you can read it'),
-                  L('Nội dung được mã hoá, kể cả tụi mình cũng không xem được.',
-                    'Contents are encrypted — not even we can read them.')) +
-        _mbxPoint('check', L('Bạn duyệt trước khi vào sổ', 'Nothing is added without you'),
-                  L('Không giao dịch nào tự động vào sổ chi tiêu.',
-                    'No transaction enters your ledger until you approve it.')) +
-        _mbxPoint('mail', L('Chỉ email bạn chuyển tiếp', 'Only what you forward'),
-                  L('Tụi mình không đọc hộp thư của bạn — chỉ những email bạn chủ động chuyển.',
-                    'We never read your mailbox — only the emails you choose to forward.')) +
+        'Ngân hàng gửi email sau mỗi giao dịch. Chuyển tiếp những email đó cho Earthy — tụi mình đọc giúp, bạn chỉ việc duyệt.',
+        'Your bank emails you after each transaction. Forward those to Earthy — we read them for you, and you just review.')) + '</div>' +
+
+      '<div class="mbx-assure">' +
+        _mbxAssure('lock', L('Chỉ mình bạn đọc được', 'Only you can read it'),
+          L('Nội dung được mã hoá — kể cả tụi mình cũng không xem được.',
+            'Contents are encrypted — not even we can read them.')) +
+        _mbxAssure('check', L('Bạn duyệt trước khi vào sổ', 'Nothing is added without you'),
+          L('Không khoản nào tự động vào sổ chi tiêu của gia đình.',
+            'No transaction enters your family ledger until you approve it.')) +
+        _mbxAssure('fwd', L('Chỉ những email bạn chuyển', 'Only what you forward'),
+          L('Tụi mình không đụng vào hộp thư của bạn.',
+            'We never touch your mailbox — only the emails you send us.')) +
       '</div>' +
-      '<button class="cta" onclick="fhMailboxStart()">' + _esc(L('Bắt đầu', 'Get started')) + '</button>' +
+
+      '<button class="cta" onclick="fhMailboxStart(this)">' + _esc(L('Bắt đầu', 'Get started')) + '</button>' +
       '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
     );
   }
 
-  function _mbxPoint(icon, title, sub) {
-    return '<div class="mbx-point"><div class="mbx-point-ic">' + (_MBX_SVG[icon] || '') + '</div><div>' +
-      '<div class="mbx-point-t">' + _esc(title) + '</div>' +
-      '<div class="mbx-point-s">' + _esc(sub) + '</div></div></div>';
+  function _mbxAssure(icon, title, sub) {
+    return '<div class="mbx-assure-row">' +
+      '<div class="mbx-ic">' + _mbxGlyph(icon) + '</div>' +
+      '<div class="mbx-txt"><div class="mbx-rt">' + _esc(title) + '</div>' +
+      '<div class="mbx-rs">' + _esc(sub) + '</div></div></div>';
   }
 
-  /* Issues the alias (idempotent server-side) and shows the address to forward
-     to. personal_email is passed so the pipeline can check that forwarded mail
-     really came through this member's mailbox. */
-  window.fhMailboxStart = async function () {
+  /* Issues the alias (idempotent server-side) and moves to the address sheet.
+     personal_email lets the pipeline confirm forwarded mail really came through
+     this member's mailbox. Shows progress on the tapped CTA — the RPC is a real
+     round trip and must not look frozen (DESIGN §4.2). */
+  window.fhMailboxStart = async function (btn) {
     const email = (window.FAM && window.FAM.user && window.FAM.user.email) || null;
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang tạo địa chỉ…', 'Creating your address…'); }
     let res;
     try {
       res = await _rpc('get_or_create_mailbox_alias', { p_personal_email: email });
     } catch (e) {
+      if (btn) { btn.disabled = false; btn.textContent = L('Bắt đầu', 'Get started'); }
       window.toast && window.toast(L('Chưa tạo được địa chỉ, thử lại nhé', 'Could not create your address — try again'));
       return;
     }
     fhMailboxSetup(res.forwarding_alias);
   };
 
+  // ── Sheet 2 · the address ──────────────────────────────────────────────────
   function fhMailboxSetup(tag) {
     const addr = fhAliasAddress(tag);
     _fhSheet(
-      '<div class="grab"></div>' +
-      '<div class="sheet-h">' + _esc(L('Địa chỉ của bạn', 'Your address')) + '</div>' +
+      '<div class="sheet-h">' + _esc(L('Địa chỉ riêng của bạn', 'Your private address')) + '</div>' +
       '<div class="sheet-sub">' + _esc(L(
-        'Trong Gmail, chuyển tiếp email ngân hàng tới địa chỉ này. Địa chỉ này là của riêng bạn.',
+        'Trong Gmail, chuyển tiếp email ngân hàng tới địa chỉ này. Nó là của riêng bạn.',
         'In Gmail, forward your bank emails to this address. It belongs to you alone.')) + '</div>' +
 
-      '<button class="mbx-addr" onclick="fhMailboxCopy(\'' + _escAttr(addr) + '\')">' +
-        '<code>' + _esc(addr) + '</code>' +
-        '<span class="mbx-copy" id="mbx-copy">' + _esc(L('Sao chép', 'Copy')) + '</span>' +
+      '<button class="mbx-addr" onclick="fhMailboxCopy(this,\'' + _escAttr(addr) + '\')">' +
+        '<code class="mbx-addr-val">' + _esc(addr) + '</code>' +
+        '<span class="mbx-addr-copy" id="mbx-copy">' +
+          '<span class="mbx-addr-ic">' + _mbxGlyph('copy') + '</span>' +
+          '<span class="mbx-addr-lbl">' + _esc(L('Sao chép', 'Copy')) + '</span>' +
+        '</span>' +
       '</button>' +
 
       '<div class="mbx-steps">' +
         _mbxStep(1, L('Mở Cài đặt Gmail → Chuyển tiếp', 'Open Gmail Settings → Forwarding'),
-                    L('Dán địa chỉ trên vào ô "Thêm địa chỉ chuyển tiếp".',
-                      'Paste the address into "Add a forwarding address".')) +
+          L('Dán địa chỉ trên vào ô "Thêm địa chỉ chuyển tiếp".',
+            'Paste the address into "Add a forwarding address".')) +
         _mbxStep(2, L('Tạo bộ lọc cho email ngân hàng', 'Create a filter for bank emails'),
-                    L('Lọc theo địa chỉ ngân hàng, rồi chọn "Chuyển tiếp tới" địa chỉ trên.',
-                      'Filter by your bank’s address, then choose "Forward it to" the address above.')) +
+          L('Lọc theo địa chỉ ngân hàng, rồi chọn "Chuyển tiếp tới" địa chỉ trên.',
+            'Filter by your bank’s address, then "Forward it to" the address above.')) +
       '</div>' +
 
-      '<div class="mbx-note">' + _esc(L(
-        'Gmail sẽ gửi một email xác nhận — tụi mình tự xác nhận giúp bạn, không cần làm gì thêm.',
-        'Gmail will send a confirmation email — we confirm it for you, nothing more to do.')) + '</div>' +
+      '<div class="mbx-note">' + _mbxGlyph('check') + '<span>' + _esc(L(
+        'Gmail sẽ gửi một email xác nhận — tụi mình tự xác nhận giúp, bạn không cần làm gì thêm.',
+        'Gmail sends a confirmation email — we confirm it for you, nothing more to do.')) + '</span></div>' +
 
       '<a class="cta" href="https://mail.google.com/mail/u/0/#settings/fwdandpop" target="_blank" rel="noopener">' +
         _esc(L('Mở cài đặt Gmail', 'Open Gmail settings')) + '</a>' +
@@ -19365,42 +19413,53 @@ window.classifyAmount = classifyAmount;
   }
 
   function _mbxStep(n, title, sub) {
-    return '<div class="mbx-step"><div class="mbx-step-n">' + n + '</div><div>' +
-      '<div class="mbx-step-t">' + _esc(title) + '</div>' +
+    return '<div class="mbx-step"><div class="mbx-step-n">' + n + '</div>' +
+      '<div class="mbx-txt"><div class="mbx-step-t">' + _esc(title) + '</div>' +
       '<div class="mbx-step-s">' + _esc(sub) + '</div></div></div>';
   }
 
-  window.fhMailboxCopy = async function (addr) {
-    try { await navigator.clipboard.writeText(addr); } catch (e) { /* fall through to the label */ }
+  window.fhMailboxCopy = async function (btn, addr) {
+    try { await navigator.clipboard.writeText(addr); } catch (e) { /* fall through to the label swap */ }
+    try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {}
     const el = document.getElementById('mbx-copy');
-    if (el) { el.textContent = L('Đã sao chép', 'Copied'); setTimeout(() => { el.textContent = L('Sao chép', 'Copy'); }, 1600); }
+    if (btn) btn.classList.add('is-copied');
+    if (el) {
+      el.innerHTML = '<span class="mbx-addr-ic">' + _mbxGlyph('done') + '</span>' +
+        '<span class="mbx-addr-lbl">' + _esc(L('Đã sao chép', 'Copied')) + '</span>';
+      setTimeout(() => {
+        if (btn) btn.classList.remove('is-copied');
+        const e2 = document.getElementById('mbx-copy');
+        if (e2) e2.innerHTML = '<span class="mbx-addr-ic">' + _mbxGlyph('copy') + '</span>' +
+          '<span class="mbx-addr-lbl">' + _esc(L('Sao chép', 'Copy')) + '</span>';
+      }, 1700);
+    }
   };
 
-  /* Already connected. `verified` is set by the Apps Script once it has clicked
-     Gmail's confirmation, so an unverified state means either the user has not
-     finished the Gmail side yet or the confirmation has not arrived — both are
-     "keep waiting", not errors, and the copy says so rather than alarming. */
+  // ── Sheet 3 · the status ───────────────────────────────────────────────────
+  /* `verified` is set by the Apps Script once it has clicked Gmail's confirmation.
+     Unverified = "keep waiting" (user hasn't finished the Gmail side, or the
+     confirmation hasn't arrived) — both are normal, neither is an error, and the
+     copy must stay calm rather than alarm. */
   function fhMailboxStatus(st) {
     const addr = fhAliasAddress(st.forwarding_alias);
     const ok = !!st.verified;
     _fhSheet(
-      '<div class="grab"></div>' +
       '<div class="sheet-h">' + _esc(ok ? L('Đã kết nối', 'Connected') : L('Đang chờ Gmail', 'Waiting for Gmail')) + '</div>' +
       '<div class="sheet-sub">' + _esc(ok
-        ? L('Email giao dịch bạn chuyển tiếp sẽ tự động xuất hiện trong mục duyệt.',
-            'Transaction emails you forward will appear in your review queue.')
-        : L('Tụi mình đang chờ email xác nhận từ Gmail. Việc này thường mất vài phút.',
-            'We’re waiting for Gmail’s confirmation email. This usually takes a few minutes.')) + '</div>' +
+        ? L('Email giao dịch bạn chuyển tiếp sẽ tự động xuất hiện trong mục Duyệt giao dịch.',
+            'Transaction emails you forward will appear in Review transactions, ready for you.')
+        : L('Tụi mình đang chờ Gmail xác nhận. Việc này thường mất vài phút.',
+            'We’re waiting on Gmail’s confirmation. This usually takes a few minutes.')) + '</div>' +
 
-      '<div class="mbx-status ' + (ok ? 'ok' : 'wait') + '">' +
-        '<span class="mbx-status-dot"></span>' +
+      '<div class="mbx-conn ' + (ok ? 'ok' : 'wait') + '">' +
+        '<span class="mbx-conn-dot"></span>' +
         '<code>' + _esc(addr) + '</code>' +
       '</div>' +
 
       (ok ? '' :
-        '<div class="mbx-note">' + _esc(L(
+        '<div class="mbx-note"><span>' + _esc(L(
           'Chưa thiết lập trong Gmail? Mở lại hướng dẫn bên dưới.',
-          'Haven’t set it up in Gmail yet? Reopen the steps below.')) + '</div>') +
+          'Haven’t set it up in Gmail yet? Reopen the steps below.')) + '</span></div>') +
 
       '<button class="btn-line" onclick="fhMailboxSetup(\'' + _escAttr(st.forwarding_alias) + '\')">' +
         _esc(L('Xem lại hướng dẫn', 'Show the steps again')) + '</button>' +
@@ -19532,7 +19591,7 @@ window.classifyAmount = classifyAmount;
     }
 
     if (!readable.length) {
-      _fhSheet('<div class="grab"></div>' +
+      _fhSheet('<div class="mbx-hero">' + _mbxGlyph('mail') + '</div>' +
         '<div class="sheet-h">' + _esc(L('Chưa có giao dịch mới', 'Nothing to review')) + '</div>' +
         '<div class="sheet-sub">' + _esc(locked
           ? L('Có giao dịch đang khoá — mở khoá ứng dụng để xem.',
@@ -19553,12 +19612,12 @@ window.classifyAmount = classifyAmount;
     renderCsvReview();
 
     // Same screen, different framing: no file to pick, and the title should say
-    // where these came from.
+    // where these came from. The Save button's onclick is NOT rewired here — it's
+    // a fixed dispatcher (csvSaveDispatch) that branches on csvStagedMode, so the
+    // file flow can never inherit fhPromoteStaged (which would delete staged rows).
     var pick = document.getElementById('csv-pick'); if (pick) pick.style.display = 'none';
     var title = document.querySelector('#csv-import-modal .modal-title');
     if (title) title.textContent = L('Duyệt giao dịch', 'Review transactions');
-    var save = document.getElementById('csv-save');
-    if (save) save.setAttribute('onclick', 'fhPromoteStaged()');
     openSheet('csv-import-modal');
   };
 
