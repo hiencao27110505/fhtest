@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-13-h';
+var PIPELINE_VERSION = '2026-08-14-a';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -230,7 +230,8 @@ function processOneMessage(message, runCallCount) {
 // for a few minutes: mailbox_connections changes only when someone onboards, and
 // re-reading it 1,440 times a day would spend the Supabase round trip that the
 // single-search optimisation just saved.
-var ALIAS_CACHE_PROP = 'ALIAS_QUERY_CACHE_V3';   // bump when the query shape changes,
+var PROVIDER_LOOKBACK_DAYS = 7;   // how far back the known-bank-domain term reaches
+var ALIAS_CACHE_PROP = 'ALIAS_QUERY_CACHE_V4';   // bump when the query shape changes,
                                                  // or a cached old query outlives the code
 var ALIAS_CACHE_AT_PROP = 'ALIAS_QUERY_CACHE_AT';
 var ALIAS_CACHE_MINUTES = 5;
@@ -273,6 +274,36 @@ function buildInboxQuery() {
     for (var r = 0; r < rows.length; r++) {
       if (rows[r].forwarding_alias) terms.push('to:' + aliasAddress(rows[r].forwarding_alias));
     }
+
+    // Third term: the banks themselves.
+    //
+    // The label is applied by ONE hand-made Gmail filter on the shared inbox, and
+    // on 2026-08-14 that filter turned out to cover MB Bank but not Vietcombank —
+    // so a real auto-forwarded VCB transaction sat in the inbox unlabelled and
+    // unseen. `to:<alias>` cannot rescue it either: an auto-forward preserves the
+    // person's own address in To:, which is exactly the asymmetry documented in
+    // README.md. A bank nobody remembered to add to the filter simply never works,
+    // silently, and the only symptom is a missing transaction.
+    //
+    // known_provider_domains already knows which domains are banks (0050), so the
+    // query can carry them and stop depending on a filter staying hand-maintained.
+    // Measured 2026-08-14: `from:vietcombank.com.vn` DOES match a sender at the
+    // subdomain VCBDigibank@info.vietcombank.com.vn — Gmail matches the parent.
+    //
+    // Bounded by newer_than so switching this on does not sweep years of archived
+    // bank mail into the LLM on the first tick. Backfill is a separate feature and
+    // should be a deliberate one.
+    var domains = [];
+    try { domains = supabaseGet('known_provider_domains', { select: 'domain_or_address' }) || []; }
+    catch (e) { Logger.log('known_provider_domains unreadable, falling back to label+alias: ' + e); }
+    var froms = [];
+    for (var d = 0; d < domains.length; d++) {
+      if (domains[d].domain_or_address) froms.push('from:' + domains[d].domain_or_address);
+    }
+    // Parenthesised deliberately: inside Gmail parens a space means AND, so
+    // `(from:a OR from:b newer_than:7d)` would bind the date to from:b alone.
+    if (froms.length) terms.push('((' + froms.join(' OR ') + ') newer_than:' + PROVIDER_LOOKBACK_DAYS + 'd)');
+
     aliasPart = rows.length ? terms.join(' OR ') : '';
     props.setProperty(ALIAS_CACHE_PROP, aliasPart);
     props.setProperty(ALIAS_CACHE_AT_PROP, String(new Date().getTime()));
