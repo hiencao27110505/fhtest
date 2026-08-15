@@ -233,31 +233,26 @@ function renderRxWall(){
   box.innerHTML=items.slice(0,12).map(function(it){ return rxCard(it,false); }).join('');
 }
 window.renderRxWall=renderRxWall;
-/* the home strip is a horizontal RAIL of "emoji rain" tiles — a living moment,
-   not a notification. The reacted-to photo becomes a blurred backdrop under a
-   white glass layer (member-colour blur when there's no photo, or the photo
-   fails to load), the lead emoji bobs, and small companion emoji drift around
-   the card. No avatar chip: the one-liner already names the reactor. */
-var RXH_SLOTS=[                                              // 6 fixed drift slots — deterministic, never reshuffles
-  { x:'58%', y:'8%',  s:13, o:.55, r:'14deg',  t:'3.6s', d:'0s'   },
-  { x:'79%', y:'52%', s:16, o:.7,  r:'-12deg', t:'4.4s', d:'.6s'  },
-  { x:'91%', y:'12%', s:11, o:.45, r:'8deg',   t:'3.1s', d:'1.1s' },
-  { x:'45%', y:'67%', s:10, o:.4,  r:'-16deg', t:'5s',   d:'.3s'  },
-  { x:'68%', y:'-4%', s:12, o:.5,  r:'10deg',  t:'4s',   d:'1.6s' },
-  { x:'95%', y:'68%', s:12, o:.5,  r:'-8deg',  t:'3.4s', d:'.9s'  }
+/* the home strip is a horizontal RAIL of "emoji rain" posters — a living moment,
+   not a notification. The reacted-to photo IS the card (sharp, full-bleed, under
+   a neutral dark scrim just strong enough for white text), the lead emoji bobs
+   in the top corner, and small companion emoji drift over the photo. No avatar
+   chip (the one-liner names the reactor) and no member-colour washes — the
+   photo carries the card. No photo, or a photo that fails to load → neutral
+   dark gradient with the reaction as a big corner watermark. */
+var RXH_SLOTS=[                                              // fixed drift slots for the 150×200 poster — deterministic, never reshuffles
+  { x:'64%', y:'14%', s:14, o:.65, r:'14deg',  t:'3.6s', d:'0s'   },
+  { x:'78%', y:'40%', s:17, o:.75, r:'-12deg', t:'4.4s', d:'.6s'  },
+  { x:'24%', y:'32%', s:12, o:.5,  r:'8deg',   t:'3.1s', d:'1.1s' },
+  { x:'56%', y:'60%', s:11, o:.5,  r:'-16deg', t:'5s',   d:'.3s'  },
+  { x:'84%', y:'6%',  s:12, o:.55, r:'10deg',  t:'4s',   d:'1.6s' }
 ];
 var RXH_PALS={                                               // companions per reaction — mostly echoes + one accent
   '😱':['😱','😵','⚡','✨'], '🤨':['🤨','🧐','❓','✨'], '😂':['😂','🤣','😂','✨'],
   '🥰':['🥰','💗','🥰','✨'], '😤':['😤','💢','😤','✨']
 };
-function rxGlow(col){                                        // member hex → translucent drop-shadow colour
-  if(/^#[0-9a-fA-F]{6}$/.test(col||'')) return 'rgba('+parseInt(col.slice(1,3),16)+','+parseInt(col.slice(3,5),16)+','+parseInt(col.slice(5,7),16)+',.5)';
-  return 'rgba(25,16,34,.3)';
-}
 function rxHomeCard(it){
   var tx=it.tx, lead=it.lead;
-  var m=window.DB && window.DB.memberById && window.DB.memberById[lead.memberId];
-  var col=(m&&m.color)||'#8f8a99';
   var note=esc(tx.note||L('Khoản chi','Expense')), amt=(typeof fmt==='function')?fmt(tx.amt):tx.amt, when=rxAgo(lead.at);
   var bg=(tx.photos&&tx.photos[0])
     ? '<span class="rxh-bg"><img class="rxh-bgim" src="'+escAttr(tx.photos[0])+'" alt="" onerror="var c=this.closest(\'.rxh-card\');if(c)c.classList.add(\'nophoto\')"></span>'
@@ -266,11 +261,11 @@ function rxHomeCard(it){
   for(var i=0;i<RXH_SLOTS.length;i++){ var sl=RXH_SLOTS[i];
     floats+='<span class="rxh-fe" style="--x:'+sl.x+';--y:'+sl.y+';--s:'+sl.s+'px;--o:'+sl.o+';--r:'+sl.r+';--t:'+sl.t+';--d:'+sl.d+'">'+pals[(start+i)%pals.length]+'</span>';
   }
-  return '<button class="rxh-card" style="--rxc:'+col+';--rxglow:'+rxGlow(col)+'" onclick="rxJumpTo(\''+tx._dbId+'\')">'
+  return '<button class="rxh-card" style="--we:\''+lead.emoji+'\'" onclick="rxJumpTo(\''+tx._dbId+'\')">'
     +bg+floats
     +'<span class="rxh-in"><span class="rxh-emoji">'+lead.emoji+'</span>'
-    +'<span class="rxh-b"><span class="rxh-msg">'+rxMessage(lead,tx)+'</span>'
-    +'<span class="rxh-tx">'+note+' · '+amt+(when?' · '+when:'')+'</span></span></span>'
+    +'<span class="rxh-msg">'+rxMessage(lead,tx)+'</span>'
+    +'<span class="rxh-tx">'+note+' · '+amt+(when?' · '+when:'')+'</span></span>'
     +'</button>';
 }
 function rxHomeStripHTML(){
