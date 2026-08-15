@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-14-e';
+var PIPELINE_VERSION = '2026-08-15-a';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -160,6 +160,21 @@ function processOneMessage(message, runCallCount) {
   var subject = message.getSubject();
   var body = message.getPlainBody();
   var gmailMessageId = message.getId();
+
+  // Message-level idempotency. "Have I handled this?" was answered only by a
+  // THREAD label, while the work is per MESSAGE — so the two disagreed whenever
+  // Gmail grouped several notifications under one subject, and the only way to
+  // answer "did this email land?" was to go read the database by hand.
+  //
+  // One cheap lookup fixes both halves. Reprocessing becomes free and safe, so a
+  // thread can be relabelled to force a re-run; and a duplicate insert can no
+  // longer reach unique(gmail_message_id), whose 409 the caller would otherwise
+  // read as a transient SUPABASE_ error and retry forever.
+  if (isAlreadyStaged(gmailMessageId)) {
+    Logger.log('already staged, skipping ' + gmailMessageId);
+    relabelMessageThread(message, 'txn/processed');
+    return runCallCount;
+  }
   var template = normalizeSubjectTemplate(subject);
 
   var fingerprint = findFingerprint(sender, template);
@@ -1178,6 +1193,22 @@ function insertEmailTransaction(row) {
   return supabasePost('email_transactions', row, null);
 }
 
+// Has this exact Gmail message already been staged? Selects one column by the
+// unique key, so the answer costs almost nothing on a table of any size.
+//
+// A throw here is deliberately NOT swallowed: if Supabase is unreachable we must
+// not conclude "not staged" and go on to extract and insert a second copy. The
+// SUPABASE_ token carries it up to processEmails, which leaves the message
+// queued for the next run.
+function isAlreadyStaged(gmailMessageId) {
+  if (!gmailMessageId) return false;
+  var rows = supabaseGet('email_transactions', {
+    gmail_message_id: 'eq.' + gmailMessageId,
+    select: 'id',
+  });
+  return rows.length > 0;
+}
+
 // Queue a review notice for a row that will ACTUALLY appear in the review queue.
 // Called by the caller only after the insert is confirmed — counting inside
 // insertEmailTransaction promised a banner even when the write failed, and
@@ -1612,7 +1643,21 @@ function debugSearch() {
 // is unhappy" (retry later, keep the message queued) apart from "this email is
 // unparseable" (record it, stop retrying).
 function _supabaseFetch(url, options) {
-  var response = UrlFetchApp.fetch(url, options);
+  var response;
+  try {
+    response = UrlFetchApp.fetch(url, options);
+  } catch (e) {
+    // UrlFetchApp throws for transport-level failures BEFORE any response
+    // exists — "Address unavailable", "Bandwidth quota exceeded", DNS, timeout.
+    // None of those strings contain SUPABASE_, and processEmails decides whether
+    // a failure is transient by looking for exactly that token. So an outage was
+    // being read as "this message is bad": a parse_failure was written and the
+    // thread relabelled txn/parse-failed, which the query excludes forever.
+    // A perfectly good bank email was discarded because the database was briefly
+    // over quota — observed 2026-08-15, three rows in parse_failures.
+    // Tagging them here is what makes transient reliably mean transient.
+    throw new Error('SUPABASE_NET: ' + String((e && e.message) || e).slice(0, 300));
+  }
   var code = response.getResponseCode();
   var text = response.getContentText();
   if (code < 200 || code >= 300) {
