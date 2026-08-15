@@ -242,7 +242,13 @@ async function waitGIS(ms) {
   while (!gisReady()) { if (Date.now() - t0 > (ms || 5000)) return false; await new Promise((r) => setTimeout(r, 80)); }
   return true;
 }
+/* DISABLED: the GIS pre-built button hid our own #ob-gbtn and rendered on top of the
+   footer. Everyone now goes through the custom button → obGoogle() redirect flow below.
+   The ID-token path is kept intact (handleSignInWithGoogle still works) — to bring the
+   pre-built button back, delete the early return on the next line. */
 async function mountGoogleButton() {
+  return false;
+  /* eslint-disable no-unreachable */
   if (!(await waitGIS())) return false;         // GIS blocked/offline → keep the redirect fallback
   const hashedNonce = await makeNonce();
   google.accounts.id.initialize({
@@ -266,6 +272,7 @@ async function mountGoogleButton() {
     width: String(Math.min(400, Math.max(240, foot ? foot.clientWidth - 48 : 368)))   // fill the footer like the custom button did
   });
   return true;
+  /* eslint-enable no-unreachable */
 }
 
 // Fallback (desktop / GIS unavailable): the redirect flow, still on the original custom button.

@@ -970,8 +970,12 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 //@build:js-ui@
 </script>
 
-<!-- ═══ FamilyHub × Supabase — Google auth (ID-token flow, PWA-safe) ═══════ -->
-<script src="https://accounts.google.com/gsi/client" async></script>
+<!-- ═══ FamilyHub × Supabase — Google auth ═════════════════════════════════ -->
+<!-- GIS pre-built button disabled (see mountGoogleButton in 10-client-auth.js):
+     sign-in goes through our own #ob-gbtn → obGoogle() redirect flow, so the
+     Identity Services script is not loaded. Uncomment to restore the ID-token popup.
+<script src="https://accounts.google.com/gsi/client" async></script> -->
+
 <!-- Vendored supabase-js UMD (exposes window.supabase). `defer` keeps it off the
      parser's critical path yet guarantees it runs before the module below, which
      reads window.supabase. No esm.sh, no CDN module waterfall on cold start. -->
