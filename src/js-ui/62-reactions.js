@@ -253,7 +253,8 @@ var RXH_PALS={                                               // companions per r
 };
 function rxHomeCard(it){
   var tx=it.tx, lead=it.lead;
-  var note=esc(tx.note||L('Khoản chi','Expense')), amt=(typeof fmt==='function')?fmt(tx.amt):tx.amt, when=rxAgo(lead.at);
+  var note=esc(tx.note||L('Khoản chi','Expense')), when=rxAgo(lead.at);
+  var amt=(typeof fmtK==='function')?fmtK(tx.amt):((typeof fmt==='function')?fmt(tx.amt):tx.amt);   // compact — the full amount never fits a 150px line
   var bg=(tx.photos&&tx.photos[0])
     ? '<span class="rxh-bg"><img class="rxh-bgim" src="'+escAttr(tx.photos[0])+'" alt="" onerror="var c=this.closest(\'.rxh-card\');if(c)c.classList.add(\'nophoto\')"></span>'
     : '<span class="rxh-bg none"></span>';
@@ -265,7 +266,7 @@ function rxHomeCard(it){
     +bg+floats
     +'<span class="rxh-in"><span class="rxh-emoji">'+lead.emoji+'</span>'
     +'<span class="rxh-msg">'+rxMessage(lead,tx)+'</span>'
-    +'<span class="rxh-tx">'+note+' · '+amt+(when?' · '+when:'')+'</span></span>'
+    +'<span class="rxh-tx"><span class="rxh-note">'+note+'</span><span class="rxh-amt"> · '+amt+(when?' · '+when:'')+'</span></span></span>'
     +'</button>';
 }
 function rxHomeStripHTML(){

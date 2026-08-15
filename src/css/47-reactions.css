@@ -66,14 +66,21 @@
   from{transform:translateY(3px) rotate(var(--r,-10deg))}
   to{transform:translateY(-5px) rotate(calc(var(--r,-10deg) * -1)) scale(1.12)}
 }
-.rxh-in{position:relative;z-index:3;display:flex;flex-direction:column;height:100%;min-width:0}
+/* absolutely anchored to the card's padding box — NOT a flex child of the
+   <button>: percentage heights and flex sizing inside buttons are flaky on
+   iOS WebKit, which clumped emoji+text at the top of the card. inset gives
+   .rxh-in a definite height, so the msg's margin-top:auto always lands. */
+.rxh-in{position:absolute;inset:12px;z-index:3;display:flex;flex-direction:column;min-width:0}
 .rxh-emoji{align-self:flex-start;font-size:34px;line-height:1;
   filter:drop-shadow(0 3px 7px rgba(20,12,26,.45));animation:rxh-lead 3.2s ease-in-out infinite}
 @keyframes rxh-lead{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(4deg) translateY(-3px)}}
 .rxh-msg{font-family:var(--disp);font-size:13.5px;font-weight:700;letter-spacing:-.02em;line-height:1.3;margin-top:auto;
   text-shadow:0 1px 4px rgba(20,12,26,.5);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-.rxh-tx{font-size:10.5px;font-weight:500;letter-spacing:-.01em;margin-top:4px;opacity:.85;
-  text-shadow:0 1px 3px rgba(20,12,26,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* the note gives way; the amount + time never truncate */
+.rxh-tx{display:flex;font-size:10.5px;font-weight:500;letter-spacing:-.01em;margin-top:4px;opacity:.85;
+  text-shadow:0 1px 3px rgba(20,12,26,.45)}
+.rxh-note{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rxh-amt{flex:0 0 auto;white-space:pre}
 .rx-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);overflow:hidden}
 .rx-card-main{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;background:none;border:0;text-align:left;cursor:pointer;font:inherit}
 .rx-card-main:active{background:var(--surface)}
