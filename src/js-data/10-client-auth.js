@@ -290,3 +290,45 @@ window.obGoogle = async function () {
   });
   if (error) { authBusy(false); window.toast && window.toast(_friendly(error)); }
 };
+
+/* ── Google provider tokens → localStorage (TEST ONLY, not the shipping design) ──
+   Supabase does NOT persist provider_token / provider_refresh_token: they are on the
+   session object only for the SIGNED_IN event right after the redirect, and are gone
+   from every later getSession()/refresh. So capture them here or they're unrecoverable
+   without sending the user back through consent.
+
+   provider_refresh_token arrives ONLY on the first consent for a given Google account
+   (that's what access_type=offline + prompt=consent in obGoogle above are buying), so
+   never overwrite a stored one with the undefined of a subsequent sign-in.
+
+   SECURITY: localStorage is readable by any script on this origin and survives sign-out,
+   and these grant Gmail-read access to the user's mailbox. This is a scaffold for testing
+   the Gmail scope only — before shipping, move the exchange server-side (store the refresh
+   token in a service-role-only table, never hand the client a long-lived Google token).
+   window.fhClearGoogleTokens() wipes them; _fhLocalWipe (70-goals-income-onboard-ui)
+   should clear 'fh-gtok' too once this stops being test-only. */
+const _GTOK_KEY = 'fh-gtok';
+window.fhGoogleTokens = function () {
+  try { return JSON.parse(localStorage.getItem(_GTOK_KEY) || 'null'); } catch (e) { return null; }
+};
+window.fhClearGoogleTokens = function () {
+  try { localStorage.removeItem(_GTOK_KEY); } catch (e) { }
+};
+function _saveGoogleTokens(session) {
+  if (!session || !session.provider_token) return;          // nothing new to keep
+  const prev = window.fhGoogleTokens() || {};
+  const rec = {
+    access_token: session.provider_token,
+    // keep the old refresh token when this sign-in didn't reissue one
+    refresh_token: session.provider_refresh_token || prev.refresh_token || null,
+    // Google access tokens last ~1h; the session's expiry is the closest marker we have
+    saved_at: Math.floor(Date.now() / 1000),
+    expires_at: session.expires_at || null,
+    email: (session.user && session.user.email) || null
+  };
+  try { localStorage.setItem(_GTOK_KEY, JSON.stringify(rec)); } catch (e) { }
+}
+sb.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') _saveGoogleTokens(session);
+  if (event === 'SIGNED_OUT') window.fhClearGoogleTokens();
+});
