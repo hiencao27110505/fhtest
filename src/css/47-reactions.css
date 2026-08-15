@@ -43,24 +43,35 @@
 .rx-home::before{content:'';flex:0 0 16px}
 .rx-home::after{content:'';flex:0 0 6px}
 .rx-home::-webkit-scrollbar{display:none}
-/* one light, member-colored card — emoji + thumbnail of the reacted-to thing */
-.rxh-card{flex:0 0 158px;width:158px;scroll-snap-align:start;display:flex;flex-direction:column;
-  background:var(--white);border:0;border-radius:16px;box-shadow:var(--shadow-card);
-  padding:0 0 11px;text-align:left;font:inherit;cursor:pointer;overflow:hidden}
+/* one "emoji rain" tile — blurred photo backdrop under white glass, the lead
+   emoji bobbing over it, companion emoji drifting around. Layering: backdrop
+   (0) → glass ::before (1) → drifting .rxh-fe (2) → content .rxh-in (3). */
+.rxh-card{position:relative;flex:0 0 224px;width:224px;min-height:70px;scroll-snap-align:start;
+  display:flex;align-items:center;background:var(--white);border:0;border-radius:18px;
+  box-shadow:var(--shadow-card);padding:12px;text-align:left;font:inherit;cursor:pointer;overflow:hidden}
 .rxh-card:active{transform:scale(.98)}
-.rxh-thumb{position:relative;height:84px;display:block}
-.rxh-photo{position:absolute;inset:0;background-size:cover;background-position:center}
-.rxh-photo.rxh-ph{display:flex;align-items:center;justify-content:center;font-size:32px;
-  background:linear-gradient(160deg,var(--surface),var(--fill-neutral))}
-.rxh-emoji{position:absolute;left:9px;bottom:-15px;width:34px;height:34px;border-radius:50%;background:var(--white);
-  display:flex;align-items:center;justify-content:center;font-size:19px;line-height:1;
-  box-shadow:0 2px 7px rgba(25,16,34,.2);border:2px solid var(--rxc,#8f8a99)}
-.rxh-msg{font-family:var(--disp);font-size:13px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.3;
-  margin:21px 12px 0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-.rxh-tx{font-size:11px;color:var(--muted);font-weight:500;letter-spacing:-.01em;margin:5px 12px 0;
+.rxh-bg{position:absolute;inset:-22px;pointer-events:none}
+.rxh-bgim{width:100%;height:100%;object-fit:cover;filter:blur(16px) saturate(1.25);transform:scale(1.18)}
+.rxh-bg.none,.rxh-card.nophoto .rxh-bg{filter:blur(14px);
+  background:radial-gradient(110% 120% at 25% 15%,rgba(255,255,255,.5),transparent 70%),var(--rxc,#8f8a99)}
+.rxh-card.nophoto .rxh-bgim{display:none}
+.rxh-card::before{content:'';position:absolute;inset:0;z-index:1;
+  background:linear-gradient(100deg,rgba(255,255,255,.93) 42%,rgba(255,255,255,.55))}
+.rxh-fe{position:absolute;z-index:2;left:var(--x);top:var(--y);font-size:var(--s,13px);opacity:var(--o,.5);
+  line-height:1;pointer-events:none;animation:rxh-drift var(--t,4s) ease-in-out var(--d,0s) infinite alternate}
+@keyframes rxh-drift{
+  from{transform:translateY(3px) rotate(var(--r,-10deg))}
+  to{transform:translateY(-5px) rotate(calc(var(--r,-10deg) * -1)) scale(1.12)}
+}
+.rxh-in{position:relative;z-index:3;display:flex;align-items:center;gap:11px;flex:1;min-width:0}
+.rxh-emoji{flex:0 0 auto;font-size:32px;line-height:1;
+  filter:drop-shadow(0 3px 6px var(--rxglow,rgba(25,16,34,.3)));animation:rxh-lead 3.2s ease-in-out infinite}
+@keyframes rxh-lead{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(4deg) translateY(-3px)}}
+.rxh-b{flex:1;min-width:0}
+.rxh-msg{font-family:var(--disp);font-size:13px;font-weight:650;letter-spacing:-.02em;color:var(--ink);line-height:1.3;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.rxh-tx{font-size:10.5px;color:var(--muted);font-weight:500;letter-spacing:-.01em;margin-top:3px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rxh-foot{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:9px 12px 0}
-.rxh-when{font-size:10.5px;color:var(--chev);font-weight:600;flex:0 0 auto}
 .rx-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);overflow:hidden}
 .rx-card-main{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;background:none;border:0;text-align:left;cursor:pointer;font:inherit}
 .rx-card-main:active{background:var(--surface)}
@@ -98,4 +109,5 @@
 .rx-toast .chev{width:16px;height:16px;color:rgba(255,255,255,.55);flex:0 0 auto}
 @media (prefers-reduced-motion:reduce){
   .rx-pop,.rx-opt,.rx-burst,.rx-toast{transition:none}
+  .rxh-emoji,.rxh-fe{animation:none}
 }

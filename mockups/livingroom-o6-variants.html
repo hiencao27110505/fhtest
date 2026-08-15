@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phòng khách — Option 6, 4 biến thể cảm xúc</title>
+<style>
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-tint:#e9f7f0;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --chev:#cfc8d6;
+  --white:#fff; --canvas:#f4f1f6;
+  --hairline:#e9e4ee; --surface:#f9f7f8;
+  --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+  --shadow-focal:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09);
+  --trang-a:#25b3a3; --trang-b:#0e8478;
+  --hien-a:#a074e0; --hien-b:#6f3fc0;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:#e9e5ed;font-family:var(--text);color:var(--ink);padding:34px 0 90px}
+.page{max-width:520px;margin:0 auto;padding:0 18px}
+h1{font-family:var(--disp);font-size:25px;letter-spacing:-.03em;margin-bottom:6px}
+.lede{font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:30px}
+.opt{margin-bottom:44px}
+.opt-tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:3px 8px;margin-bottom:7px}
+.opt h2{font-family:var(--disp);font-size:19px;letter-spacing:-.02em;margin-bottom:3px}
+.opt .why{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:14px}
+.phone{background:var(--canvas);border-radius:26px;padding:20px 0 22px;box-shadow:0 2px 8px rgba(25,16,34,.08)}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;padding:0 18px;margin-bottom:12px}
+.sec-h b{font-family:var(--disp);font-size:21px;letter-spacing:-.03em;font-weight:800}
+.sec-h a{font-size:14px;font-weight:600;color:var(--brand);text-decoration:none}
+.rail{display:flex;gap:11px;overflow-x:auto;padding:8px 18px 10px;scroll-snap-type:x proximity}
+.rail::-webkit-scrollbar{display:none}
+
+/* shared */
+.av{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:800;color:#fff;box-shadow:0 0 0 1.5px var(--white);flex:0 0 auto}
+.av.t{background:linear-gradient(135deg,var(--trang-a),var(--trang-b))}
+.av.h{background:linear-gradient(135deg,var(--hien-a),var(--hien-b))}
+.when{font-size:10.5px;color:var(--chev);font-weight:600}
+.ph{position:relative;overflow:hidden;background-size:cover;background-position:center}
+.phA{background:
+  radial-gradient(60% 45% at 32% 38%, rgba(120,124,130,.55), rgba(120,124,130,0) 70%),
+  linear-gradient(180deg,#fdfdfc 0%,#f2f1ef 78%,#e8e6e2 100%)}
+.phA::after{content:'🛒';position:absolute;left:14%;top:22%;font-size:30px;filter:saturate(.4) opacity(.9)}
+.phB{background:
+  radial-gradient(90% 70% at 30% 28%, #e8a95f 0%, rgba(232,169,95,0) 60%),
+  radial-gradient(110% 90% at 72% 75%, #7c3c22 0%, #58281a 70%),
+  linear-gradient(160deg,#a05530,#5c2e1a)}
+.phB::after{content:'🥩';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:34px}
+
+/* the shared TILE SHAPE — horizontal, 224px, rounded 18 */
+.tile{position:relative;flex:0 0 224px;width:224px;min-height:70px;scroll-snap-align:start;
+  display:flex;align-items:center;gap:11px;border-radius:18px;padding:12px;overflow:hidden;
+  box-shadow:var(--shadow-card);cursor:pointer}
+.tile .bg{position:absolute;inset:-22px;background-size:cover;background-position:center;
+  filter:blur(16px) saturate(1.25);transform:scale(1.18)}
+.tile .bg.none{background:radial-gradient(110% 120% at 25% 15%, color-mix(in srgb, var(--mc) 46%, #fff), color-mix(in srgb, var(--mc) 78%, #fff));filter:blur(14px)}
+.tile .in{position:relative;display:flex;align-items:center;gap:11px;flex:1;min-width:0}
+.msg{font-family:var(--disp);font-size:13px;font-weight:650;letter-spacing:-.02em;line-height:1.3;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.tx{font-size:10.5px;color:var(--muted);font-weight:500;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b{flex:1;min-width:0}
+
+/* ============ V1 · GLASS GLOW ============ */
+.v1 .tile::before{content:'';position:absolute;inset:0;background:linear-gradient(100deg,rgba(255,255,255,.94) 40%,rgba(255,255,255,.72));z-index:1}
+.v1 .tile::after{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--mc);opacity:.85;z-index:2}
+.v1 .in{z-index:2}
+.v1 .emoji{position:relative;width:46px;height:46px;border-radius:50%;background:var(--white);flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;font-size:24px;
+  box-shadow:0 2px 10px color-mix(in srgb, var(--mc) 38%, transparent), inset 0 0 0 2px var(--mc)}
+.v1 .emoji .av{position:absolute;right:-4px;bottom:-3px;width:18px;height:18px;font-size:8px}
+
+/* ============ V2 · SPEECH ============ */
+.v2 .tile::before{content:'';position:absolute;inset:0;background:linear-gradient(100deg,rgba(255,255,255,.9) 35%,rgba(255,255,255,.6));z-index:1}
+.v2 .in{z-index:2}
+.v2 .emoji{position:relative;flex:0 0 auto;font-size:34px;line-height:1;transform:rotate(-8deg);
+  filter:drop-shadow(0 3px 6px color-mix(in srgb, var(--mc) 55%, transparent))}
+.v2 .emoji .av{position:absolute;right:-8px;bottom:-4px}
+.v2 .msg{font-size:13.5px;font-weight:700;font-style:italic;letter-spacing:-.02em}
+.v2 .msg::before{content:'“';color:var(--mc);font-weight:800;font-style:normal}
+.v2 .msg::after{content:'”';color:var(--mc);font-weight:800;font-style:normal}
+
+/* ============ V3 · WARM DUOTONE ============ */
+.v3 .tile{box-shadow:var(--shadow-focal)}
+.v3 .tile::before{content:'';position:absolute;inset:0;z-index:1;
+  background:linear-gradient(100deg, color-mix(in srgb, var(--mc) 82%, #191022) 0%, color-mix(in srgb, var(--mc) 55%, #191022) 55%, color-mix(in srgb, var(--mc) 70%, transparent) 100%);
+  opacity:.82}
+.v3 .in{z-index:2;color:#fff}
+.v3 .emoji{position:relative;flex:0 0 auto;width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:28px}
+.v3 .emoji::before{content:'';position:absolute;inset:0;border-radius:50%;background:rgba(255,255,255,.22);
+  animation:halo 2.6s ease-out infinite}
+@keyframes halo{0%{transform:scale(.75);opacity:.9}70%{transform:scale(1.25);opacity:0}100%{transform:scale(1.25);opacity:0}}
+.v3 .emoji .av{position:absolute;right:-3px;bottom:-2px;box-shadow:0 0 0 1.5px rgba(255,255,255,.9)}
+.v3 .msg{color:#fff;text-shadow:0 1px 3px rgba(20,12,26,.3);font-weight:700}
+.v3 .tx{color:rgba(255,255,255,.82)}
+.v3 .when{color:rgba(255,255,255,.66)}
+
+/* ============ V4 · EMOJI RAIN ============ */
+.v4 .tile::before{content:'';position:absolute;inset:0;background:linear-gradient(100deg,rgba(255,255,255,.93) 42%,rgba(255,255,255,.55));z-index:1}
+.v4 .in{z-index:3}
+.v4 .emoji{position:relative;flex:0 0 auto;font-size:32px;line-height:1;
+  filter:drop-shadow(0 3px 6px color-mix(in srgb, var(--mc) 50%, transparent));
+  animation:lead 3.2s ease-in-out infinite}
+@keyframes lead{0%,100%{transform:rotate(-6deg) translateY(0)}50%{transform:rotate(4deg) translateY(-3px)}}
+.v4 .emoji .av{position:absolute;right:-7px;bottom:-3px}
+.fe{position:absolute;z-index:2;line-height:1;pointer-events:none;opacity:var(--o,.5);font-size:var(--s,13px);
+  left:var(--x);top:var(--y);animation:drift var(--t,4s) ease-in-out var(--d,0s) infinite alternate}
+@keyframes drift{from{transform:translateY(3px) rotate(var(--r,-10deg)) scale(1)}to{transform:translateY(-5px) rotate(calc(var(--r,-10deg) * -1)) scale(1.12)}}
+@media (prefers-reduced-motion:reduce){.v3 .emoji::before,.v4 .emoji,.fe{animation:none}}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Option 6 — 4 biến thể cảm xúc</h1>
+  <p class="lede">Giữ nguyên khối thẻ ngang 224px bo 18px. Bỏ thumb/cate icon — ảnh (nếu có) trở thành nền blur của cả thẻ; không ảnh → blur màu thành viên. Độ "cảm xúc" tăng dần từ V1 → V4. Mỗi rail: ảnh trắng · không ảnh · ảnh màu.</p>
+
+  <!-- V1 -->
+  <div class="opt v1">
+    <span class="opt-tag">V1 · Glass glow</span>
+    <h2>Kính mờ + vòng emoji phát sáng</h2>
+    <p class="why">Gần bản gốc nhất: lớp kính trắng 90% phủ trên ảnh blur nên ảnh chỉ là "hơi ấm" thoáng qua bên phải, mép trái có thanh màu thành viên, vòng emoji đổ bóng màu người nói. Tinh tế, hợp tổng thể app.</p>
+    <div class="phone">
+      <div class="sec-h"><b>Phòng khách</b><a>Xem tất cả</a></div>
+      <div class="rail">
+        <div class="tile" style="--mc:var(--trang-a)">
+          <div class="bg ph phA"></div>
+          <div class="in"><div class="emoji">🥰<span class="av t">T</span></div>
+            <div class="b"><div class="msg">Trang duyệt khoản này liền</div><div class="tx">Đi chợ AEON · 1,25tr · 17 giờ</div></div></div>
+        </div>
+        <div class="tile" style="--mc:var(--hien-a)">
+          <div class="bg none"></div>
+          <div class="in"><div class="emoji">😂<span class="av h">H</span></div>
+            <div class="b"><div class="msg">Hiển thấy vụ này hài dễ sợ</div><div class="tx">Anh Hiển ăn bò · 150k · 1 ngày</div></div></div>
+        </div>
+        <div class="tile" style="--mc:var(--trang-a)">
+          <div class="bg ph phB"></div>
+          <div class="in"><div class="emoji">🤨<span class="av t">T</span></div>
+            <div class="b"><div class="msg">Trang đang nhìn khoản này</div><div class="tx">Cà phê · 85k · 2 ngày</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- V2 -->
+  <div class="opt v2">
+    <span class="opt-tag">V2 · Speech</span>
+    <h2>Emoji trần + lời trong ngoặc kép</h2>
+    <p class="why">Bỏ vòng tròn — emoji 34px đứng trần, nghiêng nhẹ, đổ bóng màu thành viên. Lời nói in nghiêng trong ngoặc kép màu người nói → đọc như câu thoại thật. Kính mỏng hơn nên ảnh blur lộ rõ hơn V1.</p>
+    <div class="phone">
+      <div class="sec-h"><b>Phòng khách</b><a>Xem tất cả</a></div>
+      <div class="rail">
+        <div class="tile" style="--mc:var(--trang-a)">
+          <div class="bg ph phA"></div>
+          <div class="in"><div class="emoji">🥰<span class="av t">T</span></div>
+            <div class="b"><div class="msg">Trang duyệt khoản này liền</div><div class="tx">Đi chợ AEON · 1,25tr · 17 giờ</div></div></div>
+        </div>
+        <div class="tile" style="--mc:var(--hien-a)">
+          <div class="bg none"></div>
+          <div class="in"><div class="emoji">😂<span class="av h">H</span></div>
+            <div class="b"><div class="msg">Hiển thấy vụ này hài dễ sợ</div><div class="tx">Anh Hiển ăn bò · 150k · 1 ngày</div></div></div>
+        </div>
+        <div class="tile" style="--mc:var(--trang-a)">
+          <div class="bg ph phB"></div>
+          <div class="in"><div class="emoji">🤨<span class="av t">T</span></div>
+            <div class="b"><div class="msg">Trang đang nhìn khoản này</div><div class="tx">Cà phê · 85k · 2 ngày</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- V3 -->
+  <div class="opt v3">
+    <span class="opt-tag">V3 · Warm duotone</span>
+    <h2>Nhuộm màu thành viên + halo tim đập</h2>
+    <p class="why">Đậm hẳn: ảnh blur nhuộm duotone màu người nói, chữ trắng, emoji có vòng halo lan toả như nhịp thở. Thẻ nào cũng rực và "thuộc về" người vừa thả cảm xúc — nhìn xa vẫn biết ai đang nói.</p>
+    <div class="phone">
+      <div class="sec-h"><b>Phòng khách</b><a>Xem tất cả</a></div>
+      <div class="rail">
+        <div class="tile" style="--mc:var(--trang-a)">
+          <div class="bg ph phA"></div>
+          <div class="in"><div class="emoji">🥰<span class="av t">T</span></div>
+            <div class="b"><div class="msg">Trang duyệt khoản này liền</div><div class="tx">Đi chợ AEON · 1,25tr · 17 giờ</div></div></div>
+        </div>
+        <div class="tile" style="--mc:var(--hien-a)">
+          <div class="bg none"></div>
+          <div class="in"><div class="emoji">😂<span class="av h">H</span></div>
+            <div class="b"><div class="msg">Hiển thấy vụ này hài dễ sợ</div><div class="tx">Anh Hiển ăn bò · 150k · 1 ngày</div></div></div>
+        </div>
+        <div class="tile" style="--mc:var(--trang-a)">
+          <div class="bg ph phB"></div>
+          <div class="in"><div class="emoji">🤨<span class="av t">T</span></div>
+            <div class="b"><div class="msg">Trang đang nhìn khoản này</div><div class="tx">Cà phê · 85k · 2 ngày</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- V4 -->
+  <div class="opt v4">
+    <span class="opt-tag">V4 · Emoji rain</span>
+    <h2>Cơn mưa emoji lơ lửng</h2>
+    <p class="why">Cảm xúc nhất: emoji chính nhún nhảy, xung quanh 5–6 bản sao nhỏ + tia sáng trôi lơ lửng khắp thẻ với nhịp lệch nhau, vài cái tràn sát mép như đang bay ra ngoài. Thẻ trông "đang sống" — như tiếng cười còn vang trong phòng khách.</p>
+    <div class="phone">
+      <div class="sec-h"><b>Phòng khách</b><a>Xem tất cả</a></div>
+      <div class="rail">
+        <div class="tile" style="--mc:var(--trang-a)">
+          <div class="bg ph phA"></div>
+          <span class="fe" style="--x:58%;--y:8%;--s:13px;--o:.55;--r:14deg;--t:3.6s">🥰</span>
+          <span class="fe" style="--x:78%;--y:52%;--s:16px;--o:.7;--r:-12deg;--t:4.4s;--d:.6s">🥰</span>
+          <span class="fe" style="--x:90%;--y:14%;--s:11px;--o:.45;--r:8deg;--t:3.1s;--d:1.1s">🥰</span>
+          <span class="fe" style="--x:44%;--y:66%;--s:10px;--o:.4;--r:-16deg;--t:5s;--d:.3s">💗</span>
+          <span class="fe" style="--x:68%;--y:-4%;--s:12px;--o:.5;--r:10deg;--t:4s;--d:1.6s">💗</span>
+          <span class="fe" style="--x:95%;--y:70%;--s:12px;--o:.5;--r:-8deg;--t:3.4s;--d:.9s">✨</span>
+          <div class="in"><div class="emoji">🥰<span class="av t">T</span></div>
+            <div class="b"><div class="msg">Trang duyệt khoản này liền</div><div class="tx">Đi chợ AEON · 1,25tr · 17 giờ</div></div></div>
+        </div>
+        <div class="tile" style="--mc:var(--hien-a)">
+          <div class="bg none"></div>
+          <span class="fe" style="--x:56%;--y:6%;--s:14px;--o:.6;--r:-14deg;--t:3.8s">😂</span>
+          <span class="fe" style="--x:80%;--y:48%;--s:17px;--o:.7;--r:12deg;--t:4.6s;--d:.4s">😂</span>
+          <span class="fe" style="--x:92%;--y:10%;--s:11px;--o:.45;--r:-6deg;--t:3.2s;--d:1.3s">😂</span>
+          <span class="fe" style="--x:46%;--y:70%;--s:10px;--o:.4;--r:18deg;--t:5.2s;--d:.8s">🤣</span>
+          <span class="fe" style="--x:70%;--y:-5%;--s:12px;--o:.5;--r:-10deg;--t:4.2s;--d:1.8s">✨</span>
+          <span class="fe" style="--x:96%;--y:66%;--s:13px;--o:.55;--r:8deg;--t:3.5s;--d:.2s">😂</span>
+          <div class="in"><div class="emoji">😂<span class="av h">H</span></div>
+            <div class="b"><div class="msg">Hiển thấy vụ này hài dễ sợ</div><div class="tx">Anh Hiển ăn bò · 150k · 1 ngày</div></div></div>
+        </div>
+        <div class="tile" style="--mc:var(--trang-a)">
+          <div class="bg ph phB"></div>
+          <span class="fe" style="--x:58%;--y:10%;--s:13px;--o:.55;--r:10deg;--t:3.7s">🤨</span>
+          <span class="fe" style="--x:79%;--y:54%;--s:15px;--o:.65;--r:-12deg;--t:4.3s;--d:.7s">🤨</span>
+          <span class="fe" style="--x:91%;--y:12%;--s:11px;--o:.45;--r:6deg;--t:3.3s;--d:1.2s">🧐</span>
+          <span class="fe" style="--x:47%;--y:68%;--s:10px;--o:.4;--r:-14deg;--t:5.1s;--d:.5s">❓</span>
+          <span class="fe" style="--x:95%;--y:68%;--s:12px;--o:.5;--r:8deg;--t:3.6s;--d:1s">✨</span>
+          <div class="in"><div class="emoji">🤨<span class="av t">T</span></div>
+            <div class="b"><div class="msg">Trang đang nhìn khoản này</div><div class="tx">Cà phê · 85k · 2 ngày</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

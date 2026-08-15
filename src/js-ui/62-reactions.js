@@ -233,26 +233,44 @@ function renderRxWall(){
   box.innerHTML=items.slice(0,12).map(function(it){ return rxCard(it,false); }).join('');
 }
 window.renderRxWall=renderRxWall;
-/* the home strip is a horizontal RAIL of light, member-colored cards — the big
-   reaction emoji, a thumbnail of WHAT was reacted to, and the family's faces.
-   No gray emoji tile, no chevron: that notification chrome was what made the
-   living room read like a system log instead of people hanging out. */
+/* the home strip is a horizontal RAIL of "emoji rain" tiles — a living moment,
+   not a notification. The reacted-to photo becomes a blurred backdrop under a
+   white glass layer (member-colour blur when there's no photo, or the photo
+   fails to load), the lead emoji bobs, and small companion emoji drift around
+   the card. No avatar chip: the one-liner already names the reactor. */
+var RXH_SLOTS=[                                              // 6 fixed drift slots — deterministic, never reshuffles
+  { x:'58%', y:'8%',  s:13, o:.55, r:'14deg',  t:'3.6s', d:'0s'   },
+  { x:'79%', y:'52%', s:16, o:.7,  r:'-12deg', t:'4.4s', d:'.6s'  },
+  { x:'91%', y:'12%', s:11, o:.45, r:'8deg',   t:'3.1s', d:'1.1s' },
+  { x:'45%', y:'67%', s:10, o:.4,  r:'-16deg', t:'5s',   d:'.3s'  },
+  { x:'68%', y:'-4%', s:12, o:.5,  r:'10deg',  t:'4s',   d:'1.6s' },
+  { x:'95%', y:'68%', s:12, o:.5,  r:'-8deg',  t:'3.4s', d:'.9s'  }
+];
+var RXH_PALS={                                               // companions per reaction — mostly echoes + one accent
+  '😱':['😱','😵','⚡','✨'], '🤨':['🤨','🧐','❓','✨'], '😂':['😂','🤣','😂','✨'],
+  '🥰':['🥰','💗','🥰','✨'], '😤':['😤','💢','😤','✨']
+};
+function rxGlow(col){                                        // member hex → translucent drop-shadow colour
+  if(/^#[0-9a-fA-F]{6}$/.test(col||'')) return 'rgba('+parseInt(col.slice(1,3),16)+','+parseInt(col.slice(3,5),16)+','+parseInt(col.slice(5,7),16)+',.5)';
+  return 'rgba(25,16,34,.3)';
+}
 function rxHomeCard(it){
-  var tx=it.tx, rs=it.rs, lead=it.lead;
+  var tx=it.tx, lead=it.lead;
   var m=window.DB && window.DB.memberById && window.DB.memberById[lead.memberId];
-  var col=(m&&m.color)||'#8f8a99';                          // the speaker's colour rings the emoji + tints the card
-  var faces='', sm={}, nExtra=0;
-  rs.forEach(function(r){ if(!sm[r.memberId]){ sm[r.memberId]=1; if(Object.keys(sm).length<=3) faces+=_rxFace(r.memberId); else nExtra++; } });
-  if(nExtra>0) faces+='<span class="rx-more">+'+nExtra+'</span>';
+  var col=(m&&m.color)||'#8f8a99';
   var note=esc(tx.note||L('Khoản chi','Expense')), amt=(typeof fmt==='function')?fmt(tx.amt):tx.amt, when=rxAgo(lead.at);
-  var thumb=(tx.photos&&tx.photos[0])                       // #4: show the thing they reacted to
-    ? '<span class="rxh-photo" style="background-image:url('+escAttr(tx.photos[0])+')"></span>'
-    : '<span class="rxh-photo rxh-ph">'+esc(tx.ico||'🧾')+'</span>';
-  return '<button class="rxh-card" style="--rxc:'+col+'" onclick="rxJumpTo(\''+tx._dbId+'\')">'
-    +'<span class="rxh-thumb">'+thumb+'<span class="rxh-emoji">'+lead.emoji+'</span></span>'
-    +'<span class="rxh-msg">'+rxMessage(lead,tx)+'</span>'
-    +'<span class="rxh-tx">'+note+' · '+amt+'</span>'
-    +'<span class="rxh-foot"><span class="rx-faces">'+faces+'</span>'+(when?'<span class="rxh-when">'+when+'</span>':'')+'</span>'
+  var bg=(tx.photos&&tx.photos[0])
+    ? '<span class="rxh-bg"><img class="rxh-bgim" src="'+escAttr(tx.photos[0])+'" alt="" onerror="var c=this.closest(\'.rxh-card\');if(c)c.classList.add(\'nophoto\')"></span>'
+    : '<span class="rxh-bg none"></span>';
+  var pals=RXH_PALS[lead.emoji]||RXH_PALS['🤨'], start=rxHash(tx._dbId||'')%pals.length, floats='';
+  for(var i=0;i<RXH_SLOTS.length;i++){ var sl=RXH_SLOTS[i];
+    floats+='<span class="rxh-fe" style="--x:'+sl.x+';--y:'+sl.y+';--s:'+sl.s+'px;--o:'+sl.o+';--r:'+sl.r+';--t:'+sl.t+';--d:'+sl.d+'">'+pals[(start+i)%pals.length]+'</span>';
+  }
+  return '<button class="rxh-card" style="--rxc:'+col+';--rxglow:'+rxGlow(col)+'" onclick="rxJumpTo(\''+tx._dbId+'\')">'
+    +bg+floats
+    +'<span class="rxh-in"><span class="rxh-emoji">'+lead.emoji+'</span>'
+    +'<span class="rxh-b"><span class="rxh-msg">'+rxMessage(lead,tx)+'</span>'
+    +'<span class="rxh-tx">'+note+' · '+amt+(when?' · '+when:'')+'</span></span></span>'
     +'</button>';
 }
 function rxHomeStripHTML(){

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phòng khách — 8 card options</title>
+<style>
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0; --brand-tint:#e9f7f0;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --chev:#cfc8d6;
+  --white:#fff; --canvas:#f4f1f6; --pearl:#fbfafc;
+  --hairline:#e9e4ee; --divider:#f1edf4; --surface:#f9f7f8; --fill-neutral:rgba(138,132,148,.14);
+  --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+  --shadow-focal:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09);
+  --trang-a:#25b3a3; --trang-b:#0e8478;
+  --hien-a:#a074e0; --hien-b:#6f3fc0;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:#e9e5ed;font-family:var(--text);color:var(--ink);padding:34px 0 90px}
+.page{max-width:520px;margin:0 auto;padding:0 18px}
+h1{font-family:var(--disp);font-size:26px;letter-spacing:-.03em;margin-bottom:6px}
+.lede{font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:30px}
+.opt{margin-bottom:44px}
+.opt-tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:3px 8px;margin-bottom:7px}
+.opt-tag.cur{color:#a33;background:#fdecec}
+.opt h2{font-family:var(--disp);font-size:19px;letter-spacing:-.02em;margin-bottom:3px}
+.opt .why{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:14px}
+/* the phone canvas each option renders inside */
+.phone{background:var(--canvas);border-radius:26px;padding:20px 0 22px;box-shadow:0 2px 8px rgba(25,16,34,.08)}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;padding:0 18px;margin-bottom:12px}
+.sec-h b{font-family:var(--disp);font-size:21px;letter-spacing:-.03em;font-weight:800}
+.sec-h a{font-size:14px;font-weight:600;color:var(--brand);text-decoration:none}
+.rail{display:flex;gap:11px;overflow-x:auto;padding:4px 18px 8px;scroll-snap-type:x proximity}
+.rail::-webkit-scrollbar{display:none}
+.stack{display:flex;flex-direction:column;gap:10px;padding:0 18px}
+
+/* ---- shared bits ---- */
+.av{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:800;color:#fff;box-shadow:0 0 0 1.5px var(--white);flex:0 0 auto}
+.av.t{background:linear-gradient(135deg,var(--trang-a),var(--trang-b))}
+.av.h{background:linear-gradient(135deg,var(--hien-a),var(--hien-b))}
+.faces{display:inline-flex}.faces .av+.av{margin-left:-6px}
+.when{font-size:10.5px;color:var(--chev);font-weight:600}
+/* simulated photos: A = pathological white-bg product shot, B = warm food photo */
+.ph{background-size:cover;background-position:center}
+.phA{background:
+  radial-gradient(60% 45% at 32% 38%, rgba(120,124,130,.55), rgba(120,124,130,0) 70%),
+  linear-gradient(180deg,#fdfdfc 0%,#f2f1ef 78%,#e8e6e2 100%)}
+.phA::after{content:'🛒';position:absolute;left:14%;top:22%;font-size:30px;filter:saturate(.4) opacity(.9)}
+.phB{background:
+  radial-gradient(90% 70% at 30% 28%, #e8a95f 0%, rgba(232,169,95,0) 60%),
+  radial-gradient(110% 90% at 72% 75%, #7c3c22 0%, #58281a 70%),
+  linear-gradient(160deg,#a05530,#5c2e1a)}
+.phB::after{content:'🥩';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:34px}
+.ph{position:relative;overflow:hidden}
+
+/* ================= CURRENT (for comparison) ================= */
+.cur-card{flex:0 0 158px;width:158px;display:flex;flex-direction:column;background:var(--white);
+  border-radius:16px;box-shadow:var(--shadow-card);padding:0 0 11px;overflow:hidden;text-align:left}
+.cur-thumb{position:relative;height:84px}
+.cur-thumb .ph{position:absolute;inset:0}
+.cur-thumb .blank{position:absolute;inset:0;background:#fff}
+.cur-emoji{position:absolute;left:9px;bottom:-15px;width:34px;height:34px;border-radius:50%;background:var(--white);
+  display:flex;align-items:center;justify-content:center;font-size:19px;box-shadow:0 2px 7px rgba(25,16,34,.2);
+  border:2px solid var(--mc,#8f8a99);z-index:2}
+.cur-msg{font-family:var(--disp);font-size:13px;font-weight:600;letter-spacing:-.02em;line-height:1.3;margin:21px 12px 0;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.cur-tx{font-size:11px;color:var(--muted);font-weight:500;margin:5px 12px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cur-foot{display:flex;align-items:center;justify-content:space-between;margin:9px 12px 0}
+
+/* ================= 1 · TAPBACK ================= */
+.o1-card{flex:0 0 auto;max-width:246px;display:flex;flex-direction:column;gap:8px;scroll-snap-align:start}
+.o1-row{display:flex;gap:9px;align-items:flex-end}
+.o1-row .av{width:28px;height:28px;font-size:11px;box-shadow:none;margin-bottom:2px}
+.o1-bub{position:relative;background:var(--white);border-radius:18px 18px 18px 5px;box-shadow:var(--shadow-card);
+  padding:11px 14px 12px;min-width:0}
+.o1-tap{position:absolute;top:-14px;right:-8px;width:32px;height:32px;border-radius:50%;
+  background:var(--mc,#8f8a99);display:flex;align-items:center;justify-content:center;font-size:17px;
+  box-shadow:0 3px 8px rgba(25,16,34,.18)}
+.o1-msg{font-family:var(--disp);font-size:13.5px;font-weight:600;letter-spacing:-.02em;line-height:1.35}
+.o1-meta{display:flex;align-items:center;gap:7px;margin-left:37px}
+.o1-meta .thumb{width:34px;height:34px;border-radius:10px;flex:0 0 auto;box-shadow:0 1px 4px rgba(25,16,34,.12)}
+.o1-meta .thumb::after{font-size:15px}
+.o1-meta .txt{font-size:11px;color:var(--muted);font-weight:500;line-height:1.35;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o1-meta .txt b{display:block;color:var(--ink-2);font-weight:600}
+
+/* ================= 2 · PHOTO HERO + SCRIM ================= */
+.o2-card{position:relative;flex:0 0 156px;width:156px;height:196px;border-radius:18px;overflow:hidden;
+  box-shadow:var(--shadow-focal);scroll-snap-align:start;display:flex;flex-direction:column;justify-content:flex-end}
+.o2-card .ph{position:absolute;inset:0}
+.o2-none{position:absolute;inset:0;background:
+  radial-gradient(120% 90% at 20% 0%, color-mix(in srgb, var(--mc) 26%, #fff) 0%, transparent 60%),
+  linear-gradient(165deg, color-mix(in srgb, var(--mc) 40%, #fff), color-mix(in srgb, var(--mc) 82%, #3a2f45))}
+.o2-none::after{content:var(--we);position:absolute;right:-16px;bottom:22px;font-size:88px;opacity:.2;transform:rotate(-12deg)}
+.o2-scrim{position:absolute;inset:auto 0 0 0;height:72%;background:linear-gradient(180deg,transparent,rgba(20,12,26,.72))}
+.o2-emoji{position:absolute;top:10px;left:10px;width:34px;height:34px;border-radius:50%;
+  background:rgba(255,255,255,.92);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;
+  font-size:19px;box-shadow:0 2px 8px rgba(25,16,34,.25)}
+.o2-body{position:relative;padding:0 12px 11px;color:#fff}
+.o2-msg{font-family:var(--disp);font-size:13.5px;font-weight:700;letter-spacing:-.02em;line-height:1.3;
+  text-shadow:0 1px 4px rgba(20,12,26,.4);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.o2-tx{font-size:10.5px;font-weight:500;opacity:.85;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o2-foot{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.o2-foot .when{color:rgba(255,255,255,.75)}
+.o2-foot .av{box-shadow:0 0 0 1.5px rgba(255,255,255,.9)}
+
+/* ================= 3 · POLAROID ================= */
+.o3-card{flex:0 0 150px;width:150px;background:var(--white);border-radius:6px;box-shadow:var(--shadow-focal);
+  padding:8px 8px 10px;scroll-snap-align:start;transform:rotate(var(--rot,-1.5deg))}
+.o3-photo{position:relative;height:110px;border-radius:3px;overflow:hidden;background:var(--surface)}
+.o3-photo .ph{position:absolute;inset:0}
+.o3-paper{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:40px;
+  background:repeating-linear-gradient(0deg, color-mix(in srgb, var(--mc) 10%, #fff) 0 26px, color-mix(in srgb, var(--mc) 16%, #fff) 26px 27px)}
+.o3-sticker{position:absolute;right:-7px;bottom:-9px;font-size:32px;transform:rotate(9deg);
+  filter:drop-shadow(0 3px 5px rgba(25,16,34,.28));z-index:2}
+.o3-cap{font-family:var(--disp);font-style:italic;font-size:12.5px;font-weight:600;letter-spacing:-.01em;
+  color:var(--ink-2);line-height:1.35;margin:10px 2px 0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.o3-foot{display:flex;align-items:center;justify-content:space-between;margin:7px 2px 0}
+.o3-foot .tx{font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:6px}
+
+/* ================= 4 · EMOJI HERO ================= */
+.o4-card{flex:0 0 138px;width:138px;background:var(--white);border-radius:18px;box-shadow:var(--shadow-card);
+  padding:14px 13px 12px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:flex-start}
+.o4-blob{position:relative;width:52px;height:52px;border-radius:18px;
+  background:color-mix(in srgb, var(--mc) 14%, #fff);display:flex;align-items:center;justify-content:center;font-size:30px}
+.o4-blob .mini{position:absolute;right:-6px;bottom:-6px}
+.o4-blob .mini.pic{width:24px;height:24px;border-radius:8px;box-shadow:0 0 0 2px var(--white)}
+.o4-blob .mini.pic::after{font-size:11px}
+.o4-msg{font-family:var(--disp);font-size:13px;font-weight:650;letter-spacing:-.02em;line-height:1.35;margin-top:11px;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.o4-foot{display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px}
+
+/* ================= 5 · BUBBLE OVER PHOTO ================= */
+.o5-card{flex:0 0 172px;width:172px;scroll-snap-align:start;display:flex;flex-direction:column}
+.o5-photo{position:relative;height:118px;border-radius:18px;overflow:hidden;box-shadow:var(--shadow-card)}
+.o5-photo .ph{position:absolute;inset:0}
+.o5-none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:44px;
+  background:linear-gradient(150deg, color-mix(in srgb, var(--mc) 22%, #fff), color-mix(in srgb, var(--mc) 46%, #fff))}
+.o5-bub{position:relative;margin:-20px 8px 0;background:var(--white);border-radius:15px;box-shadow:var(--shadow-focal);
+  padding:9px 11px 10px;z-index:2}
+.o5-bub::before{content:'';position:absolute;top:-6px;left:22px;width:12px;height:12px;background:var(--white);
+  transform:rotate(45deg);border-radius:2px}
+.o5-line{display:flex;align-items:flex-start;gap:7px}
+.o5-line .e{font-size:20px;line-height:1.2;flex:0 0 auto}
+.o5-msg{font-family:var(--disp);font-size:12.5px;font-weight:650;letter-spacing:-.02em;line-height:1.3;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.o5-foot{display:flex;align-items:center;justify-content:space-between;margin-top:7px}
+.o5-foot .tx{font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:6px}
+
+/* ================= 6 · HOME TILE ================= */
+.o6-card{flex:0 0 224px;width:224px;scroll-snap-align:start;display:flex;align-items:center;gap:11px;
+  border-radius:18px;padding:12px;box-shadow:var(--shadow-card);
+  background:linear-gradient(135deg, color-mix(in srgb, var(--mc) 10%, #fff), #fff 70%)}
+.o6-emoji{position:relative;width:46px;height:46px;border-radius:50%;background:var(--white);flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;font-size:24px;
+  box-shadow:0 2px 8px rgba(25,16,34,.12), inset 0 0 0 2px var(--mc)}
+.o6-emoji .av{position:absolute;right:-4px;bottom:-3px;width:18px;height:18px;font-size:8px}
+.o6-b{flex:1;min-width:0}
+.o6-msg{font-family:var(--disp);font-size:13px;font-weight:650;letter-spacing:-.02em;line-height:1.3;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.o6-tx{font-size:10.5px;color:var(--muted);font-weight:500;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o6-thumb{width:44px;height:44px;border-radius:12px;flex:0 0 auto;box-shadow:0 1px 5px rgba(25,16,34,.14)}
+.o6-thumb::after{font-size:18px}
+
+/* ================= 7 · AMBIENT BLUR ================= */
+.o7-card{position:relative;flex:0 0 160px;width:160px;height:172px;border-radius:18px;overflow:hidden;
+  box-shadow:var(--shadow-focal);scroll-snap-align:start}
+.o7-bg{position:absolute;inset:-24px;filter:blur(18px) saturate(1.3);transform:scale(1.2)}
+.o7-bg.none{background:radial-gradient(100% 100% at 30% 20%, color-mix(in srgb, var(--mc) 55%, #fff), var(--mc))}
+.o7-dim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,12,26,.18),rgba(20,12,26,.52))}
+.o7-in{position:relative;height:100%;display:flex;flex-direction:column;padding:13px 13px 12px;color:#fff}
+.o7-e{font-size:34px;line-height:1;filter:drop-shadow(0 2px 6px rgba(20,12,26,.3))}
+.o7-msg{font-family:var(--disp);font-size:13.5px;font-weight:700;letter-spacing:-.02em;line-height:1.3;margin-top:auto;
+  text-shadow:0 1px 4px rgba(20,12,26,.35);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.o7-tx{font-size:10.5px;font-weight:500;opacity:.85;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o7-foot{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.o7-foot .when{color:rgba(255,255,255,.75)}
+.o7-foot .av{box-shadow:0 0 0 1.5px rgba(255,255,255,.85)}
+
+/* ================= 8 · GROUP-CHAT FEED ================= */
+.o8-row{display:flex;align-items:center;gap:11px;background:var(--white);border-radius:16px;
+  box-shadow:var(--shadow-card);padding:11px 12px}
+.o8-lock{position:relative;flex:0 0 auto}
+.o8-lock .av{width:36px;height:36px;font-size:13px;box-shadow:none}
+.o8-lock .e{position:absolute;right:-7px;bottom:-5px;width:22px;height:22px;border-radius:50%;background:var(--white);
+  display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 1px 4px rgba(25,16,34,.18)}
+.o8-b{flex:1;min-width:0}
+.o8-msg{font-family:var(--disp);font-size:13.5px;font-weight:600;letter-spacing:-.02em;line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o8-tx{font-size:11px;color:var(--muted);font-weight:500;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o8-tx .when{margin-left:5px}
+.o8-thumb{width:42px;height:42px;border-radius:12px;flex:0 0 auto;box-shadow:0 1px 5px rgba(25,16,34,.12)}
+.o8-thumb::after{font-size:17px}
+.o8-thumb.none{background:color-mix(in srgb, var(--mc) 12%, #fff);display:flex;align-items:center;justify-content:center;font-size:18px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Phòng khách — 8 hướng thiết kế card</h1>
+  <p class="lede">Mỗi option render đúng 3 trạng thái thực tế: <b>①</b> ảnh nền trắng (case AEON đang bị "blank"), <b>②</b> ảnh màu đẹp, <b>③</b> không có ảnh. Cuộn ngang trong từng khung để xem hết.</p>
+
+  <!-- CURRENT -->
+  <div class="opt">
+    <span class="opt-tag cur">Hiện tại (để so sánh)</span>
+    <h2>Card hiện tại</h2>
+    <p class="why">Ảnh trắng chiếm 84px trên đầu card → nhìn như card trống. Emoji nhỏ, 4 tầng thông tin xếp chồng — đọc như notification log.</p>
+    <div class="phone">
+      <div class="sec-h"><b>Phòng khách</b><a>Xem tất cả</a></div>
+      <div class="rail">
+        <div class="cur-card" style="--mc:var(--trang-a)">
+          <div class="cur-thumb"><div class="ph phA"></div><div class="cur-emoji">🥰</div></div>
+          <div class="cur-msg">Trang duyệt khoản này liền</div>
+          <div class="cur-tx">Đi chợ AEON · 1.250.000 đ</div>
+          <div class="cur-foot"><span class="faces"><span class="av t">T</span></span><span class="when">17 giờ</span></div>
+        </div>
+        <div class="cur-card" style="--mc:var(--hien-a)">
+          <div class="cur-thumb"><div class="blank"></div><div class="cur-emoji">😂</div></div>
+          <div class="cur-msg">Hiển thấy vụ này hài dễ sợ</div>
+          <div class="cur-tx">Anh Hiển ăn bò · 150.000 đ</div>
+          <div class="cur-foot"><span class="faces"><span class="av h">H</span></span><span class="when">1 ngày</span></div>
+        </div>
+        <div class="cur-card" style="--mc:var(--trang-a)">
+          <div class="cur-thumb"><div class="ph phB"></div><div class="cur-emoji">🤨</div></div>
+          <div class="cur-msg">Trang đang nhìn khoản này</div>
+          <div class="cur-tx">Cà phê · 85.000 đ</div>
+          <div class="cur-foot"><span class="faces"><span class="av t">T</span></span><span class="when">2 ngày</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1 -->
+  <div class="opt">
+    <span class="opt-tag">Option 1</span>
+    <h2>Tapback — bong bóng chat kiểu iMessage</h2>
+    <p class="why">Reaction vốn là lời nói → cho nó ở trong bong bóng chat, emoji đè góc như tapback của iMessage. Ảnh chỉ là thumbnail nhỏ bên dưới nên ảnh trắng/thiếu ảnh không phá layout. Cảm giác: người thân đang nói chuyện.</p>
+    <div class="phone">
+      <div class="sec-h"><b>Phòng khách</b><a>Xem tất cả</a></div>
+      <div class="rail">
+        <div class="o1-card" style="--mc:var(--trang-a)">
+          <div class="o1-row"><span class="av t">T</span>
+            <div class="o1-bub"><span class="o1-tap">🥰</span><div class="o1-msg">Trang duyệt khoản này liền</div></div></div>
+          <div class="o1-meta"><span class="thumb ph phA"></span><span class="txt"><b>Đi chợ AEON · 1.250.000 đ</b>17 giờ trước</span></div>
+        </div>
+        <div class="o1-card" style="--mc:var(--hien-a)">
+          <div class="o1-row"><span class="av h">H</span>
+            <div class="o1-bub"><span class="o1-tap">😂</span><div class="o1-msg">Hiển thấy vụ này hài dễ sợ</div></div></div>
+          <div class="o1-meta"><span class="txt"><b>Anh Hiển ăn bò · 150.000 đ</b>1 ngày trước</span></div>
+        </div>
+        <div class="o1-card" style="--mc:var(--trang-a)">
+          <div class="o1-row"><span class="av t">T</span>
+            <div class="o1-bub"><span class="o1-tap">🤨</span><div class="o1-msg">Trang đang nhìn khoản này</div></div></div>
+          <div class="o1-meta"><span class="thumb ph phB"></span><span class="txt"><b>Cà phê · 85.000 đ</b>2 ngày trước</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="opt">
+    <span class="opt-tag">Option 2</span>
+    <h2>Photo hero — ảnh tràn card + scrim tối</h2>
+    <p class="why">Ảnh phủ kín card (không còn dải trắng), chữ trắng trên scrim gradient — ngôn ngữ Apple Photos/Memories. Không có ảnh → gradient màu thành viên + emoji watermark lớn, không bao giờ trống.</p>
+    <div class="phone">
+      <div class="sec-h"><b>Phòng khách</b><a>Xem tất cả</a></div>
+      <div class="rail">
+        <div class="o2-card" style="--mc:var(--trang-a)">
+          <div class="ph phA"></div><div class="o2-scrim"></div>
+          <span class="o2-emoji">🥰</span>
+          <div class="o2-body"><div class="o2-msg">Trang duyệt khoản này liền</div><div class="o2-tx">Đi chợ AEON · 1.250.000 đ</div>
+            <div class="o2-foot"><span class="faces"><span class="av t">T</span></span><span class="when">17 giờ</span></div></div>
+        </div>
+        <div class="o2-card" style="--mc:var(--hien-a);--we:'😂'">
+          <div class="o2-none"></div><div class="o2-scrim"></div>
+          <span class="o2-emoji">😂</span>
+          <div class="o2-body"><div class="o2-msg">Hiển thấy vụ này hài dễ sợ</div><div class="o2-tx">Anh Hiển ăn bò · 150.000 đ</div>
+            <div class="o2-foot"><span class="faces"><span class="av h">H</span></span><span class="when">1 ngày</span></div></div>
+        </div>
+        <div class="o2-card" style="--mc:var(--trang-a)">
+          <div class="ph phB"></div><div class="o2-scrim"></div>
+          <span class="o2-emoji">🤨</span>
+          <div class="o2-body"><div class="o2-msg">Trang đang nhìn khoản này</div><div class="o2-tx">Cà phê · 85.000 đ</div>
+            <div class="o2-foot"><span class="faces"><span class="av t">T</span></span><span class="when">2 ngày</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="opt">
+    <span class="opt-tag">Option 3</span>
+    <h2>Polaroid — ảnh dán album + sticker emoji</h2>
+    <p class="why">Card nghiêng nhẹ như ảnh polaroid dán tường, emoji là sticker "dán đè" lên góc ảnh, caption chữ nghiêng như viết tay. Ấm và kỷ niệm — hợp metaphor phòng khách. Không có ảnh → tờ giấy kẻ dòng màu thành viên.</p>
+    <div class="phone">
+      <div class="sec-h"><b>Phòng khách</b><a>Xem tất cả</a></div>
+      <div class="rail" style="padding-top:10px;padding-bottom:12px">
+        <div class="o3-card" style="--mc:var(--trang-a);--rot:-1.5deg">
+          <div class="o3-photo"><div class="ph phA"></div><span class="o3-sticker">🥰</span></div>
+          <div class="o3-cap">Trang duyệt khoản này liền</div>
+          <div class="o3-foot"><span class="tx">Đi chợ AEON · 1,25tr</span><span class="when">17 giờ</span></div>
+        </div>
+        <div class="o3-card" style="--mc:var(--hien-a);--rot:1.8deg">
+          <div class="o3-photo"><div class="o3-paper">😂</div><span class="o3-sticker">😂</span></div>
+          <div class="o3-cap">Hiển thấy vụ này hài dễ sợ</div>
+          <div class="o3-foot"><span class="tx">Anh Hiển ăn bò · 150k</span><span class="when">1 ngày</span></div>
+        </div>
+        <div class="o3-card" style="--mc:var(--trang-a);--rot:-1deg">
+          <div class="o3-photo"><div class="ph phB"></div><span class="o3-sticker">🤨</span></div>
+          <div class="o3-cap">Trang đang nhìn khoản này</div>
+          <div class="o3-foot"><span class="tx">Cà phê · 85k</span><span class="when">2 ngày</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="opt">
+    <span class="opt-tag">Option 4</span>
+    <h2>Emoji hero — cảm xúc là nhân vật chính</h2>
+    <p class="why">Bỏ hẳn dải ảnh: emoji 30px ngồi trên blob màu thành viên là hero, ảnh (nếu có) chỉ là huy hiệu 24px góc blob. Card nhỏ gọn nhất, không bao giờ có vùng trống, cảm xúc đập vào mắt đầu tiên.</p>
+    <div class="phone">
+      <div class="sec-h"><b>Phòng khách</b><a>Xem tất cả</a></div>
+      <div class="rail">
+        <div class="o4-card" style="--mc:var(--trang-a)">
+          <div class="o4-blob">🥰<span class="mini pic ph phA"></span></div>
+          <div class="o4-msg">Trang duyệt khoản này liền</div>
+          <div class="o4-foot"><span class="faces"><span class="av t">T</span></span><span class="when">17 giờ</span></div>
+        </div>
+        <div class="o4-card" style="--mc:var(--hien-a)">
+          <div class="o4-blob">😂</div>
+          <div class="o4-msg">Hiển thấy vụ này hài dễ sợ</div>
+          <div class="o4-foot"><span class="faces"><span class="av h">H</span></span><span class="when">1 ngày</span></div>
+        </div>
+        <div class="o4-card" style="--mc:var(--trang-a)">
+          <div class="o4-blob">🤨<span class="mini pic ph phB"></span></div>
+          <div class="o4-msg">Trang đang nhìn khoản này</div>
+          <div class="o4-foot"><span class="faces"><span class="av t">T</span></span><span class="when">2 ngày</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="opt">
+    <span class="opt-tag">Option 5</span>
+    <h2>Story reply — bong bóng nói đè lên ảnh</h2>
+    <p class="why">Ảnh vuông bo tròn phía trên, bong bóng trắng có đuôi "mọc" đè lên mép ảnh chứa emoji + lời — như reply story Instagram. Ảnh và cảm xúc gắn vật lý với nhau. Không có ảnh → nền màu thành viên với emoji lớn.</p>
+    <div class="phone">
+      <div class="sec-h"><b>Phòng khách</b><a>Xem tất cả</a></div>
+      <div class="rail">
+        <div class="o5-card" style="--mc:var(--trang-a)">
+          <div class="o5-photo"><div class="ph phA"></div></div>
+          <div class="o5-bub"><div class="o5-line"><span class="e">🥰</span><div class="o5-msg">Trang duyệt khoản này liền</div></div>
+            <div class="o5-foot"><span class="tx">Đi chợ AEON · 1,25tr</span><span class="when">17 giờ</span></div></div>
+        </div>
+        <div class="o5-card" style="--mc:var(--hien-a)">
+          <div class="o5-photo"><div class="o5-none">😂</div></div>
+          <div class="o5-bub"><div class="o5-line"><span class="e">😂</span><div class="o5-msg">Hiển thấy vụ này hài dễ sợ</div></div>
+            <div class="o5-foot"><span class="tx">Anh Hiển ăn bò · 150k</span><span class="when">1 ngày</span></div></div>
+        </div>
+        <div class="o5-card" style="--mc:var(--trang-a)">
+          <div class="o5-photo"><div class="ph phB"></div></div>
+          <div class="o5-bub"><div class="o5-line"><span class="e">🤨</span><div class="o5-msg">Trang đang nhìn khoản này</div></div>
+            <div class="o5-foot"><span class="tx">Cà phê · 85k</span><span class="when">2 ngày</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="opt">
+    <span class="opt-tag">Option 6</span>
+    <h2>Home tile — thẻ ngang kiểu Apple Home</h2>
+    <p class="why">Card ngang một dòng: emoji trong vòng màu thành viên + avatar nhỏ, lời ở giữa, ảnh là thumb vuông bên phải. Nền tint 10% màu người nói. Gọn, quét mắt nhanh, ảnh xấu/thiếu ảnh gần như vô hại.</p>
+    <div class="phone">
+      <div class="sec-h"><b>Phòng khách</b><a>Xem tất cả</a></div>
+      <div class="rail">
+        <div class="o6-card" style="--mc:var(--trang-a)">
+          <div class="o6-emoji">🥰<span class="av t">T</span></div>
+          <div class="o6-b"><div class="o6-msg">Trang duyệt khoản này liền</div><div class="o6-tx">Đi chợ AEON · 1,25tr · 17 giờ</div></div>
+          <span class="o6-thumb ph phA"></span>
+        </div>
+        <div class="o6-card" style="--mc:var(--hien-a)">
+          <div class="o6-emoji">😂<span class="av h">H</span></div>
+          <div class="o6-b"><div class="o6-msg">Hiển thấy vụ này hài dễ sợ</div><div class="o6-tx">Anh Hiển ăn bò · 150k · 1 ngày</div></div>
+        </div>
+        <div class="o6-card" style="--mc:var(--trang-a)">
+          <div class="o6-emoji">🤨<span class="av t">T</span></div>
+          <div class="o6-b"><div class="o6-msg">Trang đang nhìn khoản này</div><div class="o6-tx">Cà phê · 85k · 2 ngày</div></div>
+          <span class="o6-thumb ph phB"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="opt">
+    <span class="opt-tag">Option 7</span>
+    <h2>Ambient blur — ảnh làm không khí, không làm nội dung</h2>
+    <p class="why">Ảnh bị blur mạnh thành "ánh sáng nền" (kiểu App Store Today / Now Playing), emoji lớn nổi trên, chữ trắng. Ảnh trắng blur ra nền sáng dịu vẫn đẹp; không có ảnh → blur màu thành viên. Mọi card đều rực và đều nhau.</p>
+    <div class="phone">
+      <div class="sec-h"><b>Phòng khách</b><a>Xem tất cả</a></div>
+      <div class="rail">
+        <div class="o7-card" style="--mc:var(--trang-a)">
+          <div class="o7-bg ph phA"></div><div class="o7-dim"></div>
+          <div class="o7-in"><span class="o7-e">🥰</span>
+            <div class="o7-msg">Trang duyệt khoản này liền</div><div class="o7-tx">Đi chợ AEON · 1.250.000 đ</div>
+            <div class="o7-foot"><span class="faces"><span class="av t">T</span></span><span class="when">17 giờ</span></div></div>
+        </div>
+        <div class="o7-card" style="--mc:var(--hien-a)">
+          <div class="o7-bg none"></div><div class="o7-dim"></div>
+          <div class="o7-in"><span class="o7-e">😂</span>
+            <div class="o7-msg">Hiển thấy vụ này hài dễ sợ</div><div class="o7-tx">Anh Hiển ăn bò · 150.000 đ</div>
+            <div class="o7-foot"><span class="faces"><span class="av h">H</span></span><span class="when">1 ngày</span></div></div>
+        </div>
+        <div class="o7-card" style="--mc:var(--trang-a)">
+          <div class="o7-bg ph phB"></div><div class="o7-dim"></div>
+          <div class="o7-in"><span class="o7-e">🤨</span>
+            <div class="o7-msg">Trang đang nhìn khoản này</div><div class="o7-tx">Cà phê · 85.000 đ</div>
+            <div class="o7-foot"><span class="faces"><span class="av t">T</span></span><span class="when">2 ngày</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="opt">
+    <span class="opt-tag">Option 8</span>
+    <h2>Group-chat feed — dọc, như tin nhắn gia đình</h2>
+    <p class="why">Bỏ rail ngang: 2–3 dòng dọc như log chat gia đình. Avatar to có emoji đè góc (lockup kiểu Messages), lời một dòng, thumb ảnh bên phải. Phòng khách literally đọc như cuộc trò chuyện đang diễn ra.</p>
+    <div class="phone">
+      <div class="sec-h"><b>Phòng khách</b><a>Xem tất cả</a></div>
+      <div class="stack">
+        <div class="o8-row" style="--mc:var(--trang-a)">
+          <div class="o8-lock"><span class="av t">T</span><span class="e">🥰</span></div>
+          <div class="o8-b"><div class="o8-msg">Trang duyệt khoản này liền</div><div class="o8-tx">Đi chợ AEON · 1.250.000 đ<span class="when">17 giờ</span></div></div>
+          <span class="o8-thumb ph phA"></span>
+        </div>
+        <div class="o8-row" style="--mc:var(--hien-a)">
+          <div class="o8-lock"><span class="av h">H</span><span class="e">😂</span></div>
+          <div class="o8-b"><div class="o8-msg">Hiển thấy vụ này hài dễ sợ</div><div class="o8-tx">Anh Hiển ăn bò · 150.000 đ<span class="when">1 ngày</span></div></div>
+          <span class="o8-thumb none">😂</span>
+        </div>
+        <div class="o8-row" style="--mc:var(--trang-a)">
+          <div class="o8-lock"><span class="av t">T</span><span class="e">🤨</span></div>
+          <div class="o8-b"><div class="o8-msg">Trang đang nhìn khoản này</div><div class="o8-tx">Cà phê · 85.000 đ<span class="when">2 ngày</span></div></div>
+          <span class="o8-thumb ph phB"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
