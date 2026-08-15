@@ -127,11 +127,11 @@
       sub = L('Thông báo đang bị chặn trong cài đặt hệ thống. Hãy mở Cài đặt của máy, tìm Earthy và cho phép thông báo, rồi quay lại đây.', 'Notifications are blocked in system settings. Open your device Settings, find Earthy, allow notifications, then come back here.');
       act = _btn(L('Đã hiểu', 'Got it'), '_closeOv()', _S.cta);
     } else if (st === 'on') {
-      sub = L('Máy này sẽ nhận thông báo khi cả nhà thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'This device gets a heads-up when the family reacts, sends a request or shares a mood, even with the app closed.');
+      sub = L('Máy này sẽ nhận thông báo khi cả nhà ghi một khoản, thêm ảnh, thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'This device gets a heads-up when the family logs an expense, adds a photo, reacts, sends a request or shares a mood, even with the app closed.');
       act = _btn(L('Tắt thông báo trên máy này', 'Turn off on this device'), 'fhPushDisable()', _S.line)
           + _btn(L('Xong', 'Done'), '_closeOv()', _S.cta);
     } else {
-      sub = L('Nhận thông báo khi cả nhà thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'Get a heads-up when the family reacts, sends a request or shares a mood, even with the app closed.');
+      sub = L('Nhận thông báo khi cả nhà ghi một khoản, thêm ảnh, thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'Get a heads-up when the family logs an expense, adds a photo, reacts, sends a request or shares a mood, even with the app closed.');
       act = _btn(L('Bật thông báo 🔔', 'Turn on notifications 🔔'), 'fhPushEnable()', _S.cta);
     }
     _fhSheet(h + '<div class="fh-s-sub">' + sub + '</div>' + act);
@@ -169,13 +169,15 @@
     try {
       if (!nav || !nav.k) return;
       if (nav.k === 'weather') { window.go && window.go('home'); return; }   // moods live on the home sky
-      if (nav.k === 'reaction') {
+      if (nav.k === 'expense_bulk') { window.go && window.go('spending'); return; }   // a batch → the ledger
+      // an expense to open: a reaction, a freshly logged expense, or a photo-expense (memory carries tx)
+      if (nav.tx && (nav.k === 'reaction' || nav.k === 'expense_new' || nav.k === 'memory_new')) {
         const t = (window.txns || []).find((x) => x._dbId === nav.tx);
         if (t && window.openExpenseDetail) { window.openExpenseDetail(t.id); return; }
         if (window.go) window.go('spending');                                // expense gone: the ledger is next best
         return;
       }
-      const eid = nav.eid;                                                    // request_new / request_response
+      const eid = nav.eid;                                                    // request_new / request_response / memory_new (event)
       if (nav.et === 'expense') {
         const tx = (window.txns || []).find((x) => x._dbId === eid);
         if (tx && window.openExpenseDetail) { window.openExpenseDetail(tx.id); return; }

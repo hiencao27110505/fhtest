@@ -1,7 +1,8 @@
 /* FamilyHub — push-send Edge Function (v2: emotional copy + tap routing).
-   Fans a VAPID-signed Web Push out to the caller's family after a social write
-   (reaction, mood, request). The client invokes it fire-and-forget right after
-   the row lands; this covers the closed-app case that realtime can't reach.
+   Fans a VAPID-signed Web Push out to the caller's family after a family write
+   (reaction, mood, request, a logged expense, or added photos). The client
+   invokes it fire-and-forget right after the row lands; this covers the
+   closed-app case that realtime can't reach.
 
    Copy voice: each push reads like a text message from that person, never a
    system log. Title = "{firstName} + feeling", body = one warm line. Mood
@@ -50,7 +51,7 @@ async function getAppServer(): Promise<webpush.ApplicationServer | null> {
 // Deliberately WITHOUT txn_review: this list guards the user-JWT path, and a
 // client must never be able to fan a review notice out to the family. The
 // service-role branch checks that kind itself.
-const KINDS = ["reaction", "weather", "request_new", "request_response"];
+const KINDS = ["reaction", "weather", "request_new", "request_response", "expense_new", "expense_bulk", "memory_new"];
 
 /* txn_review is the one kind with no human actor and no family audience.
  *
@@ -107,11 +108,22 @@ const REVIEW_LINES: Record<string, { vi: string; en: string }> = {
 };
 
 function buildCopy(
-  kind: string, name: string, emoji: string, rough: boolean, lang: string,
+  kind: string, name: string, emoji: string, rough: boolean, lang: string, count: number,
 ): { title: string; body: string } {
   const vi = lang !== "en";
   let title: string, body: string;
-  if (kind === "reaction") {
+  if (kind === "expense_new") {
+    // a plain everyday log — content-free by rule (no amount, no note, no merchant)
+    title = `${name} 🧾`;
+    body = vi ? "Vừa ghi một khoản mới cho nhà." : "Just logged a new expense.";
+  } else if (kind === "expense_bulk") {
+    const n = count > 1 ? count : 2;
+    title = `${name} 🧾`;
+    body = vi ? `Vừa ghi ${n} khoản mới cho nhà.` : `Just logged ${n} new expenses.`;
+  } else if (kind === "memory_new") {
+    title = `${name} 📸`;
+    body = vi ? "Vừa thêm ảnh mới cho nhà." : "Just added new photos.";
+  } else if (kind === "reaction") {
     if (emoji === "🥰") {
       title = `${name} 🥰`;
       body = vi ? "Vừa thả tim cho một khoản chi của nhà nè." : "Just dropped a heart on one of the family's expenses.";
@@ -198,6 +210,7 @@ Deno.serve(async (req: Request) => {
     const emoji = typeof body.emoji === "string" ? body.emoji.slice(0, 8) : "";
     const target = typeof body.target === "string" ? body.target : null;
     const rough = body.rough === true;
+    const count = Math.max(1, Math.min(99, Number(body.n) || 1));   // expense_bulk row count
     if (KINDS.indexOf(kind) < 0) return json({ error: "bad kind" }, 400);
 
     // tap-routing context: opaque row ids only, sanity-capped
@@ -234,7 +247,7 @@ Deno.serve(async (req: Request) => {
     let actorName = (actor.name || "").trim();
     if (!actorName && typeof body.actorName === "string") actorName = body.actorName.trim().slice(0, 40);
     const firstName = actorName.split(/\s+/)[0] || "FamilyHub";
-    const copy = buildCopy(kind, firstName, emoji, rough, lang);
+    const copy = buildCopy(kind, firstName, emoji, rough, lang, count);
     const payload = JSON.stringify({
       title: copy.title,
       body: copy.body,

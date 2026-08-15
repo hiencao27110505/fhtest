@@ -7702,6 +7702,9 @@ function submitBulk(opts){
     try{ window.addExpense(); } finally{ BULK_SAVING=false; }
   }
   exPhotos=[];
+  // one summary push for the whole batch — each row's own addExpense() stayed silent
+  // under BULK_SAVING, so the family gets "logged N expenses" instead of N buzzes.
+  if(n>0 && window.fhNotify) window.fhNotify('expense_bulk', { n:n });
   bulkSaveTried=false;
   clearDrafts();                                   // saved for real → drop the auto-saved draft
   renderAll(); renderTxns();
@@ -15947,7 +15950,15 @@ window.classifyAmount = classifyAmount;
     const newKeys = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
     const inserted = nt ? _dbInsertTxn(nt, exD) : Promise.resolve();
     // a future expense is a proposal — nudge the family's closed-app devices to review it
-    if (nt && nt.future) inserted.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'expense', eid: nt._dbId || null }); });
+    if (nt && nt.future) {
+      inserted.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'expense', eid: nt._dbId || null }); });
+    } else if (nt && !window.BULK_SAVING) {
+      // a normal log → nudge the rest of the family. A photo-expense (mirror event spawned)
+      // reads as "added new photos"; a plain one as "logged an expense". Bulk saves stay
+      // silent here and submitBulk() sends one summary instead. Tap routes to the expense.
+      const _k = newKeys.length ? 'memory_new' : 'expense_new';
+      inserted.then(() => { window.fhNotify && window.fhNotify(_k, { tx: nt._dbId || null }); });
+    }
     if (newKeys.length) {
       // Wait for the transaction's id before writing its mirror event — the
       // event must carry source_txn_id, or the link isn't durable and the next
@@ -16003,6 +16014,7 @@ window.classifyAmount = classifyAmount;
       fresh.forEach((k) => { const e = window.events[k]; if (e) e._srcTxn = dbId; });
       for (const k of fresh) await _dbInsertEvent(k);
       await _dbSyncTxnPhotos(dbId, t.photos);
+      if (!window.BULK_SAVING) window.fhNotify && window.fhNotify('memory_new', { tx: dbId });   // photos landed → nudge the family
       _syncSoon();
     }
     return t;
@@ -16102,7 +16114,12 @@ window.classifyAmount = classifyAmount;
     (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => {
       const p = _dbInsertEvent(k, { savingsSource: (window.selSrc === 'savings') }); const ev = window.events[k]; if (ev) ev._dbPending = p;
       // a future occasion is a proposal (created_by is stamped in _dbInsertEvent) — same nudge as a future expense
-      if (ev && !ev._srcTxn && ev.d && window.TODAY && ev.d > window.TODAY) p.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'occasion', eid: ev._dbId || null }); });
+      if (ev && !ev._srcTxn && ev.d && window.TODAY && ev.d > window.TODAY) {
+        p.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'occasion', eid: ev._dbId || null }); });
+      } else if (ev && !ev._srcTxn && !window.BULK_SAVING && ev.memories && ev.memories.length) {
+        // a non-future occasion carrying photos reads as a shared memory
+        p.then(() => { window.fhNotify && window.fhNotify('memory_new', { et: 'occasion', eid: ev._dbId || null }); });
+      }
     });
   };
   /* Photos-only moment: saveMoment() mints a standalone achieved event (target-less)
@@ -16122,6 +16139,7 @@ window.classifyAmount = classifyAmount;
     if (madeExpense) return;   // expense path → addExpense's wrapper owns the txn + its mirror event
     (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => {
       const p = _dbInsertEvent(k); const ev = window.events[k]; if (ev) ev._dbPending = p;
+      if (ev) p.then(() => { window.fhNotify && window.fhNotify('memory_new', { et: 'occasion', eid: ev._dbId || null }); });   // photos-only moment → nudge the family
     });
   };
   const _origAddFunds = window.addFunds;
@@ -16154,7 +16172,7 @@ window.classifyAmount = classifyAmount;
     (async () => {
       try {
         if (!ev._dbId && ev._dbPending) { try { await ev._dbPending; } catch (e) {} }
-        if (ev._dbId) await _dbUploadEventMemories(ev._dbId, added, before);
+        if (ev._dbId) { await _dbUploadEventMemories(ev._dbId, added, before); window.fhNotify && window.fhNotify('memory_new', { et: 'occasion', eid: ev._dbId }); }
       } catch (e) { _writeErr('memory save failed', e); }
     })();
   };
@@ -16507,11 +16525,11 @@ window.classifyAmount = classifyAmount;
       sub = L('Thông báo đang bị chặn trong cài đặt hệ thống. Hãy mở Cài đặt của máy, tìm Earthy và cho phép thông báo, rồi quay lại đây.', 'Notifications are blocked in system settings. Open your device Settings, find Earthy, allow notifications, then come back here.');
       act = _btn(L('Đã hiểu', 'Got it'), '_closeOv()', _S.cta);
     } else if (st === 'on') {
-      sub = L('Máy này sẽ nhận thông báo khi cả nhà thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'This device gets a heads-up when the family reacts, sends a request or shares a mood, even with the app closed.');
+      sub = L('Máy này sẽ nhận thông báo khi cả nhà ghi một khoản, thêm ảnh, thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'This device gets a heads-up when the family logs an expense, adds a photo, reacts, sends a request or shares a mood, even with the app closed.');
       act = _btn(L('Tắt thông báo trên máy này', 'Turn off on this device'), 'fhPushDisable()', _S.line)
           + _btn(L('Xong', 'Done'), '_closeOv()', _S.cta);
     } else {
-      sub = L('Nhận thông báo khi cả nhà thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'Get a heads-up when the family reacts, sends a request or shares a mood, even with the app closed.');
+      sub = L('Nhận thông báo khi cả nhà ghi một khoản, thêm ảnh, thả cảm xúc, gửi yêu cầu hoặc chia sẻ tâm trạng, kể cả khi app đang đóng.', 'Get a heads-up when the family logs an expense, adds a photo, reacts, sends a request or shares a mood, even with the app closed.');
       act = _btn(L('Bật thông báo 🔔', 'Turn on notifications 🔔'), 'fhPushEnable()', _S.cta);
     }
     _fhSheet(h + '<div class="fh-s-sub">' + sub + '</div>' + act);
@@ -16549,13 +16567,15 @@ window.classifyAmount = classifyAmount;
     try {
       if (!nav || !nav.k) return;
       if (nav.k === 'weather') { window.go && window.go('home'); return; }   // moods live on the home sky
-      if (nav.k === 'reaction') {
+      if (nav.k === 'expense_bulk') { window.go && window.go('spending'); return; }   // a batch → the ledger
+      // an expense to open: a reaction, a freshly logged expense, or a photo-expense (memory carries tx)
+      if (nav.tx && (nav.k === 'reaction' || nav.k === 'expense_new' || nav.k === 'memory_new')) {
         const t = (window.txns || []).find((x) => x._dbId === nav.tx);
         if (t && window.openExpenseDetail) { window.openExpenseDetail(t.id); return; }
         if (window.go) window.go('spending');                                // expense gone: the ledger is next best
         return;
       }
-      const eid = nav.eid;                                                    // request_new / request_response
+      const eid = nav.eid;                                                    // request_new / request_response / memory_new (event)
       if (nav.et === 'expense') {
         const tx = (window.txns || []).find((x) => x._dbId === eid);
         if (tx && window.openExpenseDetail) { window.openExpenseDetail(tx.id); return; }

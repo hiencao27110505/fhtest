@@ -9,7 +9,15 @@
     const newKeys = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
     const inserted = nt ? _dbInsertTxn(nt, exD) : Promise.resolve();
     // a future expense is a proposal — nudge the family's closed-app devices to review it
-    if (nt && nt.future) inserted.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'expense', eid: nt._dbId || null }); });
+    if (nt && nt.future) {
+      inserted.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'expense', eid: nt._dbId || null }); });
+    } else if (nt && !window.BULK_SAVING) {
+      // a normal log → nudge the rest of the family. A photo-expense (mirror event spawned)
+      // reads as "added new photos"; a plain one as "logged an expense". Bulk saves stay
+      // silent here and submitBulk() sends one summary instead. Tap routes to the expense.
+      const _k = newKeys.length ? 'memory_new' : 'expense_new';
+      inserted.then(() => { window.fhNotify && window.fhNotify(_k, { tx: nt._dbId || null }); });
+    }
     if (newKeys.length) {
       // Wait for the transaction's id before writing its mirror event — the
       // event must carry source_txn_id, or the link isn't durable and the next
@@ -65,6 +73,7 @@
       fresh.forEach((k) => { const e = window.events[k]; if (e) e._srcTxn = dbId; });
       for (const k of fresh) await _dbInsertEvent(k);
       await _dbSyncTxnPhotos(dbId, t.photos);
+      if (!window.BULK_SAVING) window.fhNotify && window.fhNotify('memory_new', { tx: dbId });   // photos landed → nudge the family
       _syncSoon();
     }
     return t;
@@ -164,7 +173,12 @@
     (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => {
       const p = _dbInsertEvent(k, { savingsSource: (window.selSrc === 'savings') }); const ev = window.events[k]; if (ev) ev._dbPending = p;
       // a future occasion is a proposal (created_by is stamped in _dbInsertEvent) — same nudge as a future expense
-      if (ev && !ev._srcTxn && ev.d && window.TODAY && ev.d > window.TODAY) p.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'occasion', eid: ev._dbId || null }); });
+      if (ev && !ev._srcTxn && ev.d && window.TODAY && ev.d > window.TODAY) {
+        p.then(() => { window.fhNotify && window.fhNotify('request_new', { et: 'occasion', eid: ev._dbId || null }); });
+      } else if (ev && !ev._srcTxn && !window.BULK_SAVING && ev.memories && ev.memories.length) {
+        // a non-future occasion carrying photos reads as a shared memory
+        p.then(() => { window.fhNotify && window.fhNotify('memory_new', { et: 'occasion', eid: ev._dbId || null }); });
+      }
     });
   };
   /* Photos-only moment: saveMoment() mints a standalone achieved event (target-less)
@@ -184,6 +198,7 @@
     if (madeExpense) return;   // expense path → addExpense's wrapper owns the txn + its mirror event
     (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0).forEach((k) => {
       const p = _dbInsertEvent(k); const ev = window.events[k]; if (ev) ev._dbPending = p;
+      if (ev) p.then(() => { window.fhNotify && window.fhNotify('memory_new', { et: 'occasion', eid: ev._dbId || null }); });   // photos-only moment → nudge the family
     });
   };
   const _origAddFunds = window.addFunds;
@@ -216,7 +231,7 @@
     (async () => {
       try {
         if (!ev._dbId && ev._dbPending) { try { await ev._dbPending; } catch (e) {} }
-        if (ev._dbId) await _dbUploadEventMemories(ev._dbId, added, before);
+        if (ev._dbId) { await _dbUploadEventMemories(ev._dbId, added, before); window.fhNotify && window.fhNotify('memory_new', { et: 'occasion', eid: ev._dbId }); }
       } catch (e) { _writeErr('memory save failed', e); }
     })();
   };

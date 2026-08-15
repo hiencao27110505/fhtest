@@ -694,6 +694,9 @@ function submitBulk(opts){
     try{ window.addExpense(); } finally{ BULK_SAVING=false; }
   }
   exPhotos=[];
+  // one summary push for the whole batch — each row's own addExpense() stayed silent
+  // under BULK_SAVING, so the family gets "logged N expenses" instead of N buzzes.
+  if(n>0 && window.fhNotify) window.fhNotify('expense_bulk', { n:n });
   bulkSaveTried=false;
   clearDrafts();                                   // saved for real → drop the auto-saved draft
   renderAll(); renderTxns();
