@@ -7,6 +7,7 @@ import viteReact, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
 import { nitro } from 'nitro/vite'
+import { serwist } from './vite/plugins/serwist.ts'
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
@@ -17,6 +18,8 @@ const config = defineConfig({
     tanstackStart(),
     viteReact(),
     babel({ presets: [reactCompilerPreset()] }),
+    // Last: it globs the finished client output to build the precache manifest.
+    serwist(),
   ],
 })
 
