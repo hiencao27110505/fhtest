@@ -1,6 +1,14 @@
-  // ═══ bank-email onboarding: show the entry only to people who can use it ═══
-  /* The Settings row "Connect bank email" is hidden in index.html and revealed
-     here, once can_use_mailbox() (0067) says this account may connect.
+  // ═══ bank-email onboarding: show the entries only to people who can use them ═══
+  /* Both Settings rows of the bank-email feature — "Connect bank email" and
+     "Review transactions" — are hidden in index.html and revealed here, once
+     can_use_mailbox() (0067) says this account may connect.
+
+     WHY THE REVIEW ROW IS ON THE SAME ANSWER: staged rows are routed by
+     member_id from mailbox_connections, and 0058's read policy returns a member
+     only their own rows. So "can connect" and "could ever have something to
+     review" are the same set of people, and one call settles both. Gating the
+     review row on an actual row count instead would mean a second query, and a
+     row that appears and disappears as mail arrives — worse, for no gain.
 
      WHY HIDE RATHER THAN LET IT FAIL: the RPC refuses with 'mailbox_not_in_beta',
      so the data is safe either way — but offering a thing and then refusing it
@@ -12,20 +20,28 @@
      that function is what actually stops a mailbox being issued. This is the
      manners; that is the lock.
 
-     FAIL-CLOSED: the row starts hidden and is only ever revealed on an explicit
+     FAIL-CLOSED: the rows start hidden and are only ever revealed on an explicit
      true. Offline, a slow boot, an RPC error, an older database without 0067 —
-     all leave it hidden. The failure people notice is a missing menu row; the
+     all leave them hidden. The failure people notice is a missing menu row; the
      failure they don't is a stranger's bank mail arriving in our inbox. */
 
+  var _MB_GATE_ROWS = ['set-mailbox-row', 'set-review-row'];
   var _mbGateDone = false;
 
   async function _mailboxGateApply() {
     if (_mbGateDone) return;
-    var row = document.getElementById('set-mailbox-row');
-    if (!row) return;
+    var rows = _MB_GATE_ROWS
+      .map(function (id) { return document.getElementById(id); })
+      .filter(Boolean);
+    // Not yet in the DOM (or an older shell that predates the ids) — try again
+    // on the next tick rather than latching done against nothing.
+    if (!rows.length) return;
     try {
       var ok = await _rpc('can_use_mailbox');
-      if (ok === true) { row.style.display = ''; _mbGateDone = true; }
+      if (ok === true) {
+        rows.forEach(function (row) { row.style.display = ''; });
+        _mbGateDone = true;
+      }
     } catch (e) {
       // Includes the pre-0067 case, where the function does not exist yet.
       // Staying hidden is the right answer there too: on a database without the

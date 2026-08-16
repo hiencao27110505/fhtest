@@ -797,11 +797,19 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t" data-t="setSwitchFamily">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t" data-t="inviteMember2">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhEncryptionSheet()"><span class="set-ic">🔒</span><span class="set-t" data-t="setEncryption">Money encryption</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-    <!-- Hidden until can_use_mailbox() says yes (73-mailbox-gate.js). Hidden by
-         default on purpose: if the check is slow, fails, or the user is offline,
-         the row stays away rather than flashing in and refusing on tap. -->
+    <!-- BOTH rows are the bank-email feature, so both are hidden until
+         can_use_mailbox() says yes (73-mailbox-gate.js). Hidden by default on
+         purpose: if the check is slow, fails, or the user is offline, the rows
+         stay away rather than flashing in and refusing on tap.
+
+         The review row is gated on the same answer, not on "do I have staged
+         rows", because the two sets are the same by construction: staging
+         routes by member_id from mailbox_connections, and 0058's read policy
+         only ever returns a member their own rows. Someone who cannot connect
+         a mailbox can never have a row to review, so this hides an empty
+         screen from them and nothing else. -->
     <button id="set-mailbox-row" class="set-row" style="display:none" onclick="closeSheet();fhMailboxSheet()"><span class="set-ic">📧</span><span class="set-t" data-t="setMailbox">Connect bank email</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-    <button class="set-row" onclick="closeSheet();fhTxnReviewSheet()"><span class="set-ic">📥</span><span class="set-t" data-t="setReviewTxns">Review transactions</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button id="set-review-row" class="set-row" style="display:none" onclick="closeSheet();fhTxnReviewSheet()"><span class="set-ic">📥</span><span class="set-t" data-t="setReviewTxns">Review transactions</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhManageFamily()"><span class="set-ic">👥</span><span class="set-t" data-t="setManageFamily">Manage family &amp; members</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhDevicesSheet()"><span class="set-ic">📱</span><span class="set-t" data-t="setDevices">Signed-in devices</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhSavings()"><span class="set-ic">🐷</span><span class="set-t" data-t="setSavedEvents">Saved for events</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
