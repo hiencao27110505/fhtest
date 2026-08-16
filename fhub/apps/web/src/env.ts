@@ -1,20 +1,29 @@
-import { createEnv } from '@t3-oss/env-core'
-import { z } from 'zod'
+import { createEnv } from "@t3-oss/env-core";
+import { z } from "zod";
 
 export const env = createEnv({
   server: {
+    NODE_ENV: z
+      .enum(["development", "production", "test"])
+      .default("development"),
     SERVER_URL: z.url().optional(),
-    DATABASE_URL: z.string().startsWith('postgresql'),
+    DATABASE_URL: z.string().startsWith("postgresql"),
   },
 
   /**
    * The prefix that client-side variables must have. This is enforced both at
    * a type-level and at runtime.
    */
-  clientPrefix: 'VITE_',
+  clientPrefix: "VITE_",
 
   client: {
-    VITE_APP_TITLE: z.string().min(1).optional(),
+    /**
+     * The browser client needs these too, and Vite only exposes `VITE_`-prefixed
+     * vars to the bundle. Both are safe to ship publicly: the anon key is
+     * designed to be public and is gated by RLS.
+     */
+    VITE_SUPABASE_URL: z.url(),
+    VITE_SUPABASE_ANON_KEY: z.string().nonempty(),
   },
 
   /**
@@ -44,4 +53,18 @@ export const env = createEnv({
    * explicitly specify this option as true.
    */
   emptyStringAsUndefined: true,
-})
+});
+
+/**
+ * Mode flags, read from Vite rather than from `env` above.
+ *
+ * `NODE_ENV` is declared server-only, so reading it through the t3-env proxy
+ * throws on the client — and because `__root.tsx` renders in the browser, that
+ * throw happened during hydration and took the whole client render down with
+ * it (a permanently "loading" auth state was the visible symptom).
+ *
+ * `import.meta.env.DEV`/`.PROD` are statically replaced by Vite in both
+ * bundles, so they are safe everywhere and cost nothing at runtime.
+ */
+export const isProduction = import.meta.env.PROD;
+export const isDevelopment = import.meta.env.DEV;
