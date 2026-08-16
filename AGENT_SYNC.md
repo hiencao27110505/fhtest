@@ -16,6 +16,144 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-14 (from bank-email pipeline) — direct mailbox read (OAuth) is built,
+  sealed by default, and has a connect UI; your v325 work is what let it be.
+  ONE THING NEEDS YOU: sign off on refresh-token storage (§2). The memo bug I
+  was about to report, you fixed mid-write — see §3.**
+  Nothing deployed, nothing connected, forwarding untouched and still carrying
+  all real traffic. Migrations `0062_mailbox_oauth` + `0063_email_transactions_sealed`
+  are written but **NOT applied** — next free number after them is **0064**.
+  Apply in order: `0062` then `0063`. (Renumbered from 0061/0062 before commit —
+  `0061_founder_telegram_notify` reached main first and keeps 0061. That is the
+  third collision in this range after the two 0043s and the two 0048s, so I am
+  now checking `git ls-tree origin/main supabase/migrations/` for the real
+  high-water mark rather than trusting the number written here, which is only as
+  fresh as the last person to update it.)
+
+  Context: the "forwarding, not OAuth" decision was reversed deliberately, and I
+  re-priced CASA before writing any code (`pipeline/OAUTH-COMPLIANCE-FINDINGS.md`).
+  It is ~$540/yr at AL1 and Google's own published lead time for restricted-scope
+  verification is 6 weeks, not months — so the cost objection that drove the
+  original decision no longer holds. The live risk is now *approval* (Google
+  limits Gmail scopes to four named use cases; a spending ledger is only adjacent
+  to the fourth), not price.
+
+  **1. Sealing — your timing was perfect, and 0063 is the last piece.**
+  I had this written up as "sealed staging is now on the critical path, and it is
+  blocked on your three steps." Then v325 landed the same day. So instead:
+  **direct read seals by default.** `pipeline/lib/sealed-box.js` is the Node seal
+  side, pinned to the SAME published vector your client passed — three
+  implementations (GAS, browser, Node), one format, one vector, all executable
+  (`node pipeline/sealed-box-node.test.js`, 28 assertions).
+  - **`0063` adds the columns sealing has always needed:** `sealed / eph_pub /
+    nonce / enc_v` on `email_transactions`, plus dropping NOT NULL on
+    amount/currency/direction/raw_body/raw_extracted. Your `72-txn-review.js` has
+    branched on `row.sealed` since it was written — **the columns simply never
+    existed**, so sealing could not have been switched on. There is a CHECK
+    constraint making half-sealed rows impossible (ciphertext written *and*
+    plaintext amount left behind is the failure mode that would make the whole
+    thing pointless, silently).
+  - `occurred_at` + `source_provider` stay clear so a locked device still renders
+    the row, exactly as your review code expects.
+  - **Keyless families HOLD** — option (a), as you agreed. Deferred, never
+    written as plaintext, self-healing on next app open.
+  - The GAS DRBG is gone on this path: Node has a real CSPRNG. Your "ship it"
+    verdict still stands for the Apps Script side, which is unchanged.
+  - **Known consequence, flagged not fixed:** server-side dedup dies with sealing
+    (`findDuplicate()` queries `amount=eq.X`). It still runs against
+    plaintext-era rows and finds nothing among sealed ones. Dedup should move
+    into the review step, as you called out on 2026-08-07.
+
+  **2. Refresh-token storage — the part that is genuinely yours to approve.**
+  A Gmail refresh token is standing access to a user's whole mailbox until they
+  revoke. Bigger than anything this project currently holds, and unlike ledger
+  data it **cannot be E2EE**: sync must run while every family member is asleep,
+  so the server has to decrypt it unattended. No construction avoids that and
+  still delivers background sync.
+  What I built (`pipeline/lib/token-crypto.js`, 31 assertions):
+  - AES-256-GCM, key in the **Vercel env only** (`MAILBOX_TOKEN_KEY`) — never in
+    Supabase, never in the repo. Key and ciphertext in different systems is the
+    entire protection.
+  - Connection id + member id in **GCM AAD**, not the plaintext, so a ciphertext
+    moved to another row or member fails its tag check. Same property your build
+    constraint 1 required of the sealed-box envelope, same reason.
+  - Key id in the envelope, so rotation is a re-encrypt pass, not a migration.
+  - Claim, deliberately narrower than the staging one: **blocked for a
+    database-only attacker, blocked for relocation, NOT blocked for an attacker
+    holding both the database and the server env.** If you want that worded
+    differently, say so before anything is connected.
+  - One place I could not match your design: the GAS key pin lives in Script
+    Properties (different trust domain from Supabase). Serverless has no local
+    store, so `STAGING_PUB_PINS` in the Vercel env is the equivalent split, and
+    it is optional. With it unset, TOFU is a no-op here and
+    `fhStagingVerifyServerKey` is the detector — which it is either way.
+
+  **3. `memo` — you fixed it while I was writing this. Crossed off, with one
+  note.** I had this as a defect report: `deriveExtractionTemplate` anchored
+  `counterparty`/`reference_number`/`account_masked` but not `memo`, so every
+  **template-parsed** email (most volume, by design) reached review with a blank
+  description — `72-txn-review.js` line ~91 uses `x.memo` as the description, so
+  p2p transfers arrived with the one field that says *why* the money moved
+  missing. Your `EXTRACTION_LOGIC_VERSION = 4` + `memo` in `strFields` is exactly
+  the fix, including adding memo to the derive-time verification keys, which I
+  had not thought to mention. Nothing needed from you.
+
+  **Still worth a look:** the 13 already-staged rows were parsed under v3 and
+  have no memo. The bodies are still in `raw_body`, so they can be re-parsed —
+  your call whether that is worth doing before the queue is cleared.
+
+  **Interop is now clean, and I simplified my side to match.** Both pipelines are
+  v4 and share `sender_fingerprints` on (sender_address, subject_template), so
+  templates are mutually applicable — I verified both directions in
+  `pipeline/lib-extract.test.js` (the port applies your templates and gets the
+  memo; the .gs applies the port's and gets the same amount). My side had a guard
+  refusing to overwrite v3 templates, written when the versions differed; it is
+  now narrowed to only refuse a version *newer* than itself. Stale v3 templates
+  still apply and report `memo: null` explicitly rather than omitting the key,
+  since they are still sitting in the table.
+
+  **One deliberate difference, not worth changing unless you disagree:** at
+  derive time your side requires memo to anchor for every transaction type,
+  mine requires it only for `p2p_transfer` and lets a subscription or card
+  receipt template without one (they carry meaning in `counterparty` /
+  `source_provider`, and card purchases legitimately have no memo). Stored
+  formats are identical either way, so this only affects how often each side
+  falls back to the LLM.
+
+  **4. The one thing blocking a real beta, flagged not built: there is no way to
+  dismiss a staged row.** `resolve_email_transactions` (0060) deletes on
+  promote, and `fhPromoteStaged` is its only caller. A row nobody approves — a
+  duplicate, a non-transaction, a transfer they don't want in the ledger — stays
+  pending forever holding its body. Fine for one test mailbox; for 100 users the
+  queue stops being reviewable, retention becomes unbounded, and the privacy
+  policy cannot honestly describe it (there is a matching TODO in
+  `privacy.html`). Direct read makes it sharper than forwarding did, since we
+  now fetch mail nobody hand-picked, so "ignored" is the common case. The fix is
+  small — a dismiss action calling the same RPC, which already deletes and is
+  already scoped to the caller's rows. **I did not build it**: the review screen
+  is the one piece proven against real staged rows and I was not going to risk it
+  on the last lap. Happy to, or it is yours if you are already in that file.
+
+  **Everything else:** new files only, plus `package.json` (test wiring, and
+  tweetnacl moved to `dependencies` since API code now requires it at runtime)
+  and `src/js-data/71-mailbox-ui.js` + the rebuilt `index.html` (the connect UI —
+  Settings → Connect bank email now offers direct Gmail connect first,
+  forwarding second, with copy that says plainly that Google's only mail scope
+  covers the whole mailbox and our sender restriction is self-imposed).
+  `pipeline/lib/{extract,gmail,ingest,llm,sealed-box,supabase,oauth-state,token-crypto}.js`,
+  `api/gmail-{connect,callback,sync}.js`, 7 new suites — `npm test` is 12 suites
+  / 324 assertions green. Masking is pinned by a test that intercepts the
+  outbound Gemini request and asserts no real amount, name, account, ref, phone
+  or email is in it. `gmail.readonly` covers the whole mailbox, so the
+  restriction to bank senders is enforced in code and tested: `buildProviderQuery`
+  can only emit a sender-pinned query and `assertRestrictedQuery` throws before
+  any fetch without one — "no banks configured" reads **nothing**, never
+  everything.
+
+  Human steps code cannot do — the published-unverified experiment that decides
+  whether a 100-user beta needs CASA at all, verification submission, env vars,
+  applying 0062/0063: `pipeline/OAUTH-RUNBOOK.md`.
+
 - **2026-08-13 (Hien's session) — STAGING ENCRYPTION CLIENT SIDE IS DONE (v325).
   All 3 of my steps from 2026-08-09, plus the mismatch alarm. Sealing can switch
   on whenever you're ready.** What shipped:

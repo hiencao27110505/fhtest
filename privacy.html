@@ -1,0 +1,218 @@
+<!doctype html>
+<!--
+  Privacy policy — served statically at /privacy.html (vercel.json outputDirectory ".").
+
+  WHY THIS FILE EXISTS: Google's restricted-scope verification requires a
+  PUBLISHED privacy policy that discloses the Gmail access, and requires that
+  actual use never exceeds what it discloses. It is also the page the Limited
+  Use commitment has to appear on, verbatim enough to be checked.
+
+  BEFORE PUBLISHING: fill every [[PLACEHOLDER]] and delete the .draft banner.
+  Placeholders are legal-entity details this file must not invent.
+
+  KEEP IT TRUE: every sentence here is a claim about what the code does. If the
+  pipeline changes, this changes in the same commit. The specific claims are
+  enforced in pipeline/lib/gmail.js (sender restriction), pipeline/lib/llm.js
+  (masking), pipeline/lib/sealed-box.js (encryption at rest) and are covered by
+  tests in pipeline/*.test.js.
+-->
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chính sách quyền riêng tư — FamilyHub</title>
+<style>
+  :root { --ink:#22212a; --soft:#6a6675; --line:#e6e3ea; --bg:#fdfcfb; --accent:#3f7d6a; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:2.5rem 1.25rem 5rem; background:var(--bg); color:var(--ink);
+         font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:44rem; margin:0 auto; }
+  h1 { font-size:1.75rem; line-height:1.25; margin:0 0 .35rem; letter-spacing:-.01em; }
+  h2 { font-size:1.15rem; margin:2.5rem 0 .6rem; letter-spacing:-.005em; }
+  h3 { font-size:1rem; margin:1.5rem 0 .4rem; }
+  p, li { color:#33313c; }
+  .sub { color:var(--soft); margin:0 0 2rem; }
+  ul { padding-left:1.15rem; }
+  li { margin:.35rem 0; }
+  .box { border:1px solid var(--line); border-left:3px solid var(--accent);
+         border-radius:10px; padding:1rem 1.15rem; margin:1.25rem 0; background:#fff; }
+  .draft { border-left-color:#c0392b; background:#fff8f7; }
+  code { background:#f2f0f5; padding:.1em .35em; border-radius:5px; font-size:.9em; }
+  .en { color:var(--soft); font-size:.95rem; }
+  hr { border:0; border-top:1px solid var(--line); margin:3rem 0; }
+  footer { color:var(--soft); font-size:.9rem; margin-top:3rem; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+
+<div class="box draft">
+  <strong>BẢN NHÁP — chưa công bố.</strong> Điền hết các mục <code>[[…]]</code> và xoá khối này trước khi đăng.
+  <span class="en">Draft. Fill every <code>[[…]]</code> placeholder and delete this box before publishing.</span>
+</div>
+
+<h1>Chính sách quyền riêng tư</h1>
+<p class="sub">FamilyHub · Cập nhật [[NGÀY]] <span class="en">· Privacy Policy</span></p>
+
+<p>FamilyHub giúp gia đình ghi lại chi tiêu chung. Tài liệu này nói rõ tụi mình
+lấy dữ liệu gì, dùng để làm gì, giữ ở đâu, và bạn gỡ bằng cách nào.</p>
+<p class="en">FamilyHub helps families keep a shared spending ledger. This
+document states what data we access, what we use it for, where it is kept, and
+how you remove it.</p>
+
+<h2>1. Kết nối hộp thư <span class="en">— Mailbox access</span></h2>
+
+<p>Nếu bạn chọn kết nối Gmail, tụi mình dùng quyền
+<code>gmail.readonly</code> của Google để đọc email thông báo giao dịch từ ngân
+hàng, rồi biến chúng thành các khoản chi chờ bạn duyệt.</p>
+
+<div class="box">
+  <p><strong>Nói thẳng về phạm vi quyền.</strong> Google chỉ có duy nhất một
+  quyền cho phép đọc nội dung thư, và quyền đó bao trùm toàn bộ hộp thư của bạn.
+  Không có quyền nào hẹp hơn để tụi mình chọn.</p>
+  <p>Việc chỉ tải email từ ngân hàng là <em>giới hạn do tụi mình tự đặt ra trong
+  mã nguồn</em>, không phải ranh giới mà Google áp đặt — nên bạn không thể kiểm
+  chứng nó từ màn hình cấp quyền của Google. Tụi mình nói rõ điều này thay vì
+  ngụ ý một ranh giới không tồn tại.</p>
+  <p class="en"><strong>Plainly, on scope.</strong> Google offers exactly one
+  permission that can read message content, and it covers your entire mailbox.
+  There is no narrower one available to us. Fetching only bank mail is a
+  restriction we impose on ourselves in code, not a boundary Google enforces, so
+  you cannot verify it from Google's consent screen. We say so rather than imply
+  a boundary that does not exist.</p>
+</div>
+
+<h3>Tụi mình thực sự lấy gì <span class="en">— What we actually fetch</span></h3>
+<ul>
+  <li>Chỉ email từ những tên miền ngân hàng/nhà cung cấp trong danh sách của
+    FamilyHub. <span class="en">Only mail from bank/provider domains on our list.</span></li>
+  <li>Chỉ trong khoảng thời gian giới hạn (mặc định 6 tháng gần nhất khi kết nối
+    lần đầu). <span class="en">Only within a bounded time window (by default the
+    last 6 months on first connect).</span></li>
+  <li>Không thư cá nhân, không thư công việc, không danh bạ, không tệp đính kèm.
+    <span class="en">No personal mail, no work mail, no contacts, no attachments.</span></li>
+  <li>Tụi mình <strong>không bao giờ</strong> gửi, xoá, gắn nhãn hay thay đổi bất
+    cứ thứ gì trong hộp thư. Quyền được cấp là chỉ-đọc.
+    <span class="en">We never send, delete, label or modify anything. The grant
+    is read-only.</span></li>
+</ul>
+
+<h3>Nếu bạn không muốn cấp quyền đó <span class="en">— If you would rather not</span></h3>
+<p>Bạn vẫn dùng được FamilyHub đầy đủ: chuyển tiếp thủ công email ngân hàng tới
+địa chỉ riêng của bạn, hoặc nhập file sao kê, hoặc ghi tay. Tụi mình không đặt
+bạn vào thế "cho đọc hết hoặc không dùng được".</p>
+<p class="en">You can use FamilyHub fully without this: forward bank emails
+yourself, import a statement file, or enter spending by hand. We do not put you
+in a "grant everything or get nothing" position.</p>
+
+<h2>2. Dữ liệu được giữ thế nào <span class="en">— How data is held</span></h2>
+<ul>
+  <li><strong>Mã hoá đầu-cuối.</strong> Nội dung giao dịch được mã hoá bằng khoá
+    của gia đình bạn ngay khi lấy về. Khoá giải mã chỉ nằm trên thiết bị của
+    thành viên trong gia đình. Máy chủ của FamilyHub — và cả nhân viên
+    FamilyHub — không đọc được.
+    <span class="en"><strong>End-to-end encrypted.</strong> Transaction content
+    is encrypted to your family's key as it arrives. The decryption key exists
+    only on family members' devices. FamilyHub's servers, and FamilyHub's
+    people, cannot read it.</span></li>
+  <li><strong>Không ai ở FamilyHub đọc thư của bạn.</strong> Không có quy trình
+    nội bộ nào cho phép nhân viên xem nội dung email, kể cả để hỗ trợ kỹ thuật.
+    <span class="en">No one at FamilyHub reads your mail. There is no internal
+    process that exposes message content to staff, including for support.</span></li>
+  <li><strong>Nội dung email gốc bị xoá</strong> ngay khi bạn duyệt khoản chi đó —
+    cả dòng dữ liệu tạm bị xoá hẳn, không chỉ ẩn đi.
+    <span class="en">The original message body is deleted the moment you approve
+    the row — the whole staging row is removed, not just hidden.</span></li>
+  <!--
+    TODO before publishing: there is currently no "dismiss" action, so a row the
+    user never approves is retained indefinitely. Either ship the dismiss path
+    (resolve_email_transactions already deletes, so it is a small change) or add
+    a retention limit here and enforce it. Do not describe a deletion that does
+    not happen. Tracked in pipeline/OAUTH-RUNBOOK.md.
+  -->
+  <li><strong>Không có gì tự vào sổ.</strong> Mọi khoản đều chờ một người trong
+    gia đình duyệt.
+    <span class="en">Nothing is added automatically. Every row waits for a human
+    in your family to approve it.</span></li>
+</ul>
+
+<h3>Xử lý tự động <span class="en">— Automated processing</span></h3>
+<p>Để đọc được số tiền và nội dung từ email, tụi mình dùng một mô hình ngôn ngữ
+(Google Gemini). Trước khi gửi đi, mọi giá trị thật đều được thay bằng giá trị
+giả cùng hình dạng: số tiền, tên người, số tài khoản, mã giao dịch, số điện
+thoại, địa chỉ email. Mô hình chỉ thấy dữ liệu giả; giá trị thật được ghép lại
+trên hệ thống của tụi mình. Với những ngân hàng gửi email theo mẫu cố định,
+không có lần gọi mô hình nào cả.</p>
+<p class="en">To read amounts and descriptions we use a language model (Google
+Gemini). Before anything is sent, every real value is replaced with a
+shape-preserving fake: amounts, names, account numbers, references, phone
+numbers, email addresses. The model only ever sees fakes; real values are
+substituted back on our side. For banks that send a consistent format, no model
+call happens at all.</p>
+
+<h2>3. Cam kết Limited Use của Google
+  <span class="en">— Google Limited Use commitment</span></h2>
+<div class="box">
+  <p>Việc FamilyHub sử dụng thông tin nhận được từ Google APIs tuân thủ
+  <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Chính
+  sách Dữ liệu Người dùng của Google API Services</a>, bao gồm các yêu cầu
+  Limited Use. Cụ thể:</p>
+  <ul>
+    <li>Không dùng dữ liệu Gmail cho quảng cáo dưới bất kỳ hình thức nào.</li>
+    <li>Không bán, không chuyển giao dữ liệu Gmail, trừ khi cần thiết để cung
+      cấp chính tính năng này, vì lý do bảo mật, hoặc khi luật yêu cầu.</li>
+    <li>Không cho phép con người đọc dữ liệu Gmail, trừ khi bạn đồng ý rõ ràng,
+      vì lý do bảo mật, hoặc khi luật yêu cầu.</li>
+    <li>Không dùng dữ liệu Gmail để huấn luyện mô hình AI/ML tổng quát.</li>
+  </ul>
+  <p class="en">FamilyHub's use of information received from Google APIs adheres
+  to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google
+  API Services User Data Policy</a>, including the Limited Use requirements. We
+  do not use Gmail data for advertising; we do not sell or transfer it except as
+  necessary to provide this feature, for security, or where required by law; we
+  do not allow humans to read it except with your explicit consent, for security,
+  or where required by law; and we do not use it to train generalised AI/ML
+  models.</p>
+</div>
+
+<h2>4. Gỡ quyền và xoá dữ liệu <span class="en">— Revoking and deleting</span></h2>
+<ul>
+  <li>Trong FamilyHub: <em>Cài đặt → Kết nối email → Ngắt kết nối</em>. Tụi mình
+    xoá ngay bản sao quyền truy cập đã lưu và ngừng đọc thêm email.
+    <span class="en">In the app: Settings → Email connection → Disconnect. We
+    immediately delete our saved credential and read no further mail.</span></li>
+  <li>Tại Google:
+    <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>.
+    Chỉ Google mới thu hồi được quyền ở phía Google — tụi mình không làm thay
+    bạn được, nên bạn nên làm cả hai bước.
+    <span class="en">At Google: only Google can revoke the grant on their side —
+    we cannot do it for you, so do both.</span></li>
+  <li>Xoá toàn bộ dữ liệu gia đình: [[HƯỚNG DẪN XOÁ TÀI KHOẢN]].
+    <span class="en">Full account deletion: [[ACCOUNT DELETION PROCESS]].</span></li>
+</ul>
+
+<h2>5. Dữ liệu cá nhân theo pháp luật Việt Nam
+  <span class="en">— Vietnamese data protection</span></h2>
+<p>Dữ liệu tài chính — bao gồm lịch sử giao dịch — được xếp là <strong>dữ liệu cá
+nhân nhạy cảm</strong> theo Luật Bảo vệ dữ liệu cá nhân (Luật số 91/2025/QH15) và
+Nghị định 356/2025/NĐ-CP. Tụi mình xin sự đồng ý riêng, rõ ràng cho việc xử lý
+dữ liệu này, tách khỏi các điều khoản chung.</p>
+<p class="en">Financial data, including transaction history, is classified as
+sensitive personal data under Vietnam's Personal Data Protection Law
+(91/2025/QH15) and Decree 356/2025/ND-CP. We collect separate, explicit consent
+for processing it, not bundled into general terms.</p>
+<p>Đơn vị chịu trách nhiệm: [[TÊN PHÁP NHÂN]], [[ĐỊA CHỈ]].
+Liên hệ về dữ liệu cá nhân: [[EMAIL LIÊN HỆ]].</p>
+
+<hr>
+<footer>
+  <p>Có câu hỏi, hoặc muốn biết chính xác tụi mình giữ gì về bạn:
+    [[EMAIL LIÊN HỆ]].</p>
+  <p class="en">Questions, or want to know exactly what we hold about you:
+    [[CONTACT EMAIL]].</p>
+</footer>
+
+</main>
+</body>
+</html>

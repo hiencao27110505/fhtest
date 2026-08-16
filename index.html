@@ -16375,6 +16375,16 @@ window.classifyAmount = classifyAmount;
     try {
       if (!nav || !nav.k) return;
       if (nav.k === 'weather') { window.go && window.go('home'); return; }   // moods live on the home sky
+      /* Staged bank transactions: the notification says only that something is
+         waiting, so the tap has to land on the queue itself for it to mean
+         anything. fhTxnReviewSheet fetches fresh — no row id is carried in the
+         payload, deliberately, since it would be a plaintext handle to a private
+         row travelling through a push service. */
+      if (nav.k === 'txn_review') {
+        if (window.fhTxnReviewSheet) { window.fhTxnReviewSheet(); return; }
+        if (window.go) window.go('spending');
+        return;
+      }
       if (nav.k === 'reaction') {
         const t = (window.txns || []).find((x) => x._dbId === nav.tx);
         if (t && window.openExpenseDetail) { window.openExpenseDetail(t.id); return; }
@@ -19280,8 +19290,18 @@ window.classifyAmount = classifyAmount;
 
   /* Entry point (Settings → Connect bank email). Reads state first so a member
      who already connected sees status rather than being walked through setup
-     again. */
+     again.
+
+     Two mechanisms now. Direct connect (OAuth) is offered first — it proves
+     mailbox ownership by the grant, so there is no alias, no filter to set up,
+     and it can read the last six months rather than starting from today.
+     Forwarding stays, deliberately: the direct path is capped while the app is
+     unverified, and "read everything or get nothing" is a bad place to put a
+     privacy-first product. Some people will not grant a whole-mailbox scope,
+     and they should still be able to use this. */
   window.fhMailboxSheet = async function () {
+    const conn = await fhMailboxOauthState();
+    if (conn) return fhMailboxOauthStatus(conn);
     const st = await fhMailboxState();
     if (st && st.forwarding_alias) return fhMailboxStatus(st);
     return fhMailboxIntro();
@@ -19292,23 +19312,202 @@ window.classifyAmount = classifyAmount;
       '<div class="grab"></div>' +
       '<div class="sheet-h">' + _esc(L('Tự động ghi chi tiêu từ email', 'Log spending from email')) + '</div>' +
       '<div class="sheet-sub">' + _esc(L(
-        'Ngân hàng gửi email mỗi lần bạn giao dịch. Chuyển tiếp những email đó cho Earthy, tụi mình đọc giúp và bạn chỉ cần duyệt lại.',
-        'Your bank emails you after each transaction. Forward those to Earthy and we read them for you — you just review.')) + '</div>' +
+        'Ngân hàng gửi email mỗi lần bạn giao dịch. Tụi mình đọc giúp và bạn chỉ cần duyệt lại.',
+        'Your bank emails you after each transaction. We read them for you — you just review.')) + '</div>' +
       '<div class="mbx-points">' +
         _mbxPoint('lock', L('Chỉ mình bạn đọc được', 'Only you can read it'),
-                  L('Nội dung được mã hoá, kể cả tụi mình cũng không xem được.',
-                    'Contents are encrypted — not even we can read them.')) +
+                  L('Nội dung được mã hoá bằng khoá của gia đình, kể cả tụi mình cũng không xem được.',
+                    'Contents are encrypted to your family’s key — not even we can read them.')) +
         _mbxPoint('check', L('Bạn duyệt trước khi vào sổ', 'Nothing is added without you'),
                   L('Không giao dịch nào tự động vào sổ chi tiêu.',
                     'No transaction enters your ledger until you approve it.')) +
-        _mbxPoint('mail', L('Chỉ email bạn chuyển tiếp', 'Only what you forward'),
-                  L('Tụi mình không đọc hộp thư của bạn — chỉ những email bạn chủ động chuyển.',
-                    'We never read your mailbox — only the emails you choose to forward.')) +
       '</div>' +
-      '<button class="cta" onclick="fhMailboxStart()">' + _esc(L('Bắt đầu', 'Get started')) + '</button>' +
+      '<button class="cta" onclick="fhMailboxConnectGmail()">' + _esc(L('Kết nối Gmail', 'Connect Gmail')) + '</button>' +
+      '<button class="btn-line" onclick="fhMailboxStart()">' + _esc(L('Hoặc chuyển tiếp email thủ công', 'Or forward emails instead')) + '</button>' +
       '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
     );
   }
+
+  // ── direct connect (OAuth) ─────────────────────────────────────────────────
+  /* The consent screen Google shows says "read your email". That is literally
+     what the grant covers — there is no narrower Gmail scope that still returns
+     a message body, so the restriction to bank senders is ours, enforced in
+     pipeline/lib/gmail.js, and NOT something the user can verify from Google's
+     screen. The copy below says exactly that, because the alternative is
+     implying a boundary that does not exist. Reviewed against
+     pipeline/OAUTH-COMPLIANCE-FINDINGS.md §3.3 — do not soften it. */
+  async function fhMailboxOauthState() {
+    try {
+      const rows = await _rpc('get_my_mailbox_connections', {});
+      const list = Array.isArray(rows) ? rows : [];
+      return list.filter((r) => r.connection_source === 'oauth' &&
+        (r.oauth_status === 'active' || r.oauth_status === 'needs_reconnect'))[0] || null;
+    } catch (e) { return null; }
+  }
+
+  window.fhMailboxConnectGmail = function () {
+    _fhSheet(
+      '<div class="grab"></div>' +
+      '<div class="sheet-h">' + _esc(L('Kết nối Gmail', 'Connect Gmail')) + '</div>' +
+      '<div class="sheet-sub">' + _esc(L(
+        'Google chỉ có một quyền đọc thư duy nhất, và nó bao trùm toàn bộ hộp thư của bạn — không có quyền nào hẹp hơn.',
+        'Google offers only one mail-reading permission, and it covers your whole mailbox — there is no narrower one.')) + '</div>' +
+      '<div class="mbx-points">' +
+        _mbxPoint('mail', L('Tụi mình chỉ tải email ngân hàng', 'We only fetch bank email'),
+                  L('Chỉ email từ những ngân hàng trong danh sách mới được tải về. Phần còn lại không bao giờ rời hộp thư của bạn.',
+                    'Only mail from the banks on our list is fetched. The rest never leaves your mailbox.')) +
+        _mbxPoint('lock', L('Tải về là mã hoá ngay', 'Encrypted on arrival'),
+                  L('Nội dung được mã hoá bằng khoá của gia đình ngay khi lấy về — FamilyHub không đọc được.',
+                    'Contents are encrypted to your family’s key as they arrive — FamilyHub cannot read them.')) +
+        _mbxPoint('check', L('Gỡ bất cứ lúc nào', 'Revoke any time'),
+                  L('Bạn gỡ quyền trong tài khoản Google bất cứ lúc nào, không cần hỏi tụi mình.',
+                    'You can revoke access in your Google account at any time, without asking us.')) +
+      '</div>' +
+      '<button class="cta" id="mbx-oauth-go" onclick="fhMailboxOauthGo()">' + _esc(L('Tiếp tục với Google', 'Continue with Google')) + '</button>' +
+      '<button class="btn-skip" onclick="fhMailboxSheet()">' + _esc(L('Quay lại', 'Back')) + '</button>'
+    );
+  };
+
+  window.fhMailboxOauthGo = async function () {
+    const btn = document.getElementById('mbx-oauth-go');
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang mở…', 'Opening…'); }
+    const mid = window.DB && window.DB.ownerMemberId;
+    if (!mid) {
+      window.toast && window.toast(L('Chưa xác định được thành viên, thử lại nhé', 'Could not identify your member — try again'));
+      if (btn) { btn.disabled = false; btn.textContent = L('Tiếp tục với Google', 'Continue with Google'); }
+      return;
+    }
+    let tok = '';
+    try { tok = ((await sb.auth.getSession()).data.session || {}).access_token || ''; } catch (e) { /* handled below */ }
+    try {
+      const r = await fetch('/api/gmail-connect', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, tok ? { Authorization: 'Bearer ' + tok } : {}),
+        body: JSON.stringify({ memberId: mid, email: (window.FAM && window.FAM.user && window.FAM.user.email) || '' }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.url) throw new Error(data.error || 'no url');
+      // Full navigation, not a popup: iOS Safari blocks popups opened after an
+      // await, and the consent flow has to come back to a real page anyway.
+      window.location.href = data.url;
+    } catch (e) {
+      window.toast && window.toast(L('Chưa mở được Google, thử lại nhé', 'Could not open Google — try again'));
+      if (btn) { btn.disabled = false; btn.textContent = L('Tiếp tục với Google', 'Continue with Google'); }
+    }
+  };
+
+  /* Connected, or asking to reconnect. Revocation is a NORMAL state — the user
+     may have revoked from their Google account, or the grant may have aged out
+     while the app is unverified. Either way this is a reconnect prompt, never
+     an error screen. */
+  function fhMailboxOauthStatus(c) {
+    const stale = c.oauth_status === 'needs_reconnect';
+    const last = c.last_sync_at ? new Date(c.last_sync_at) : null;
+    const backfilling = c.backfill_status === 'pending' || c.backfill_status === 'running';
+    _fhSheet(
+      '<div class="grab"></div>' +
+      '<div class="sheet-h">' + _esc(stale ? L('Cần kết nối lại', 'Reconnect needed') : L('Đã kết nối', 'Connected')) + '</div>' +
+      '<div class="sheet-sub">' + _esc(stale
+        ? L('Quyền truy cập đã bị gỡ hoặc hết hạn. Sổ chi tiêu của bạn vẫn nguyên vẹn — chỉ cần kết nối lại để tiếp tục.',
+            'Access was revoked or expired. Your ledger is untouched — reconnect to resume.')
+        : backfilling
+          ? L('Đang đọc lại email cũ của bạn. Việc này có thể mất vài phút.',
+              'We’re reading your older email now. This can take a few minutes.')
+          : L('Email giao dịch mới sẽ tự động xuất hiện trong mục duyệt.',
+              'New transaction emails will appear in your review queue.')) + '</div>' +
+
+      '<div class="mbx-status ' + (stale ? 'wait' : 'ok') + '">' +
+        '<span class="mbx-status-dot"></span>' +
+        '<code>' + _esc(c.oauth_email || '') + '</code>' +
+      '</div>' +
+
+      (last && !stale ? '<div class="mbx-note">' + _esc(L('Lần đọc gần nhất: ', 'Last checked: ') + _mbxWhen(last)) + '</div>' : '') +
+
+      (stale
+        ? '<button class="cta" onclick="fhMailboxConnectGmail()">' + _esc(L('Kết nối lại', 'Reconnect')) + '</button>'
+        : '<button class="btn-line" onclick="fhMailboxSyncNow()">' + _esc(L('Kiểm tra ngay', 'Check now')) + '</button>') +
+      '<button class="btn-line" onclick="fhMailboxDisconnect(\'' + _escAttr(c.id) + '\')">' +
+        _esc(L('Ngắt kết nối', 'Disconnect')) + '</button>' +
+      '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
+    );
+  }
+
+  function _mbxWhen(d) {
+    const mins = Math.round((Date.now() - d.getTime()) / 60000);
+    if (mins < 2) return L('vừa xong', 'just now');
+    if (mins < 60) return L(mins + ' phút trước', mins + ' min ago');
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return L(hrs + ' giờ trước', hrs + 'h ago');
+    return window.fmtDayMon ? window.fmtDayMon(d) : d.toLocaleDateString();
+  }
+
+  window.fhMailboxSyncNow = async function () {
+    window.toast && window.toast(L('Đang kiểm tra…', 'Checking…'));
+    let tok = '';
+    try { tok = ((await sb.auth.getSession()).data.session || {}).access_token || ''; } catch (e) { /* handled below */ }
+    try {
+      const r = await fetch('/api/gmail-sync', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, tok ? { Authorization: 'Bearer ' + tok } : {}),
+        body: '{}',
+      });
+      if (!r.ok) throw new Error('sync failed');
+      const data = await r.json();
+      const staged = (data.synced || []).reduce((n, s) => n + (s.staged || 0), 0);
+      window.toast && window.toast(staged
+        ? L('Tìm thấy ' + staged + ' giao dịch mới', 'Found ' + staged + ' new transaction' + (staged === 1 ? '' : 's'))
+        : L('Chưa có gì mới', 'Nothing new yet'));
+      if (staged && window.fhTxnReviewSheet) window.fhTxnReviewSheet();
+    } catch (e) {
+      window.toast && window.toast(L('Chưa kiểm tra được, thử lại sau nhé', 'Could not check — try again later'));
+    }
+  };
+
+  /* Clears our copy of the credential. It does NOT revoke the grant at Google —
+     only Google can do that — so the copy says so instead of implying we did
+     something we cannot. */
+  window.fhMailboxDisconnect = async function (id) {
+    try {
+      await _rpc('disconnect_mailbox', { p_connection_id: id });
+    } catch (e) {
+      window.toast && window.toast(L('Chưa ngắt được, thử lại nhé', 'Could not disconnect — try again'));
+      return;
+    }
+    _fhSheet(
+      '<div class="grab"></div>' +
+      '<div class="sheet-h">' + _esc(L('Đã ngắt kết nối', 'Disconnected')) + '</div>' +
+      '<div class="sheet-sub">' + _esc(L(
+        'Tụi mình đã xoá quyền truy cập đã lưu và sẽ không đọc thêm email nào. Để gỡ hẳn ở phía Google, bạn vào phần quyền truy cập trong tài khoản Google.',
+        'We’ve deleted the saved access and will read no further email. To remove it on Google’s side too, visit the permissions page in your Google account.')) + '</div>' +
+      '<a class="btn-line" href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">' +
+        _esc(L('Mở quyền truy cập Google', 'Open Google permissions')) + '</a>' +
+      '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
+    );
+  };
+
+  /* The OAuth callback comes back to the app as #mailbox-<status>. Read it once,
+     clear it so a reload does not re-announce, and tell the user what happened.
+     Statuses come from api/gmail-callback.js. */
+  (function _mbxHandleReturn() {
+    const m = String(location.hash || '').match(/^#mailbox-([a-z]+)$/);
+    if (!m) return;
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { location.hash = ''; }
+    const status = m[1];
+    setTimeout(function () {
+      if (status === 'connected') {
+        window.toast && window.toast(L('Đã kết nối Gmail', 'Gmail connected'));
+        if (window.fhMailboxSheet) window.fhMailboxSheet();
+        if (window.fhMailboxSyncNow) window.fhMailboxSyncNow();
+        return;
+      }
+      if (status === 'cancelled') return;                       // they chose not to; say nothing
+      window.toast && window.toast(
+        status === 'norefresh' ? L('Google không cấp quyền nền, thử lại nhé', 'Google withheld background access — try again')
+        : status === 'scope'   ? L('Quyền được cấp không đúng, thử lại nhé', 'The granted permission was not the one requested')
+        : status === 'expired' ? L('Phiên kết nối đã hết hạn, thử lại nhé', 'That connection attempt expired — try again')
+        : L('Chưa kết nối được, thử lại nhé', 'Could not connect — try again'));
+    }, 900);   // after hydrate, so the sheet has state to render
+  })();
 
   function _mbxPoint(icon, title, sub) {
     return '<div class="mbx-point"><div class="mbx-point-ic">' + (_MBX_SVG[icon] || '') + '</div><div>' +

@@ -213,7 +213,11 @@ Two Claude sessions share this repo, plus a human partner
 in `AGENT_SYNC.md` — dated entry under **Open**, moved to **Resolved** by
 whoever answers. Read it before starting; it is the live channel.
 
-- **Next free migration number: 0061.**
+- **Next free migration number: 0064** (was 0061 when this brief was written;
+  `0061_founder_telegram_notify` took 0061, and direct read now holds `0062`
+  mailbox-oauth + `0063` sealed-staging). Confirm against
+  `git ls-tree origin/main supabase/migrations/` before claiming one — this
+  range has collided three times.
 - **Open and unblocked:** the partner's three staging-encryption client steps
   (TweetNaCl into the bundle, `client-reference-staging-keys.js` into
   `15-crypto.js`, two calls at unlock). Migration `0051` is applied, so the DB

@@ -8,11 +8,13 @@
     "build:deploy": "node build.js --deploy",
     "split": "node tools/split.js",
     "parse": "node tools/parse-check.js",
-    "test": "node pipeline/sender-auth.test.js && node pipeline/forwarding-confirm.test.js && node pipeline/sealed-box.test.js && node pipeline/client-reference-staging-keys.test.js && node tools/bulk-promote.test.js",
+    "test": "node pipeline/sender-auth.test.js && node pipeline/forwarding-confirm.test.js && node pipeline/extraction-template.test.js && node pipeline/sealed-box.test.js && node pipeline/client-reference-staging-keys.test.js && node tools/bulk-promote.test.js && node pipeline/lib-extract.test.js && node pipeline/token-crypto.test.js && node pipeline/gmail-parse.test.js && node pipeline/ingest.test.js && node pipeline/llm-masking.test.js && node pipeline/oauth-state.test.js && node pipeline/sealed-box-node.test.js",
     "check": "node build.js && git diff --exit-code -- index.html && echo 'index.html is in sync with src/'"
   },
-  "devDependencies": {
-    "esbuild": "^0.28.1",
+  "dependencies": {
     "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
   }
 }
