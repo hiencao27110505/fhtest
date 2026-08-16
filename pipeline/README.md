@@ -1,5 +1,11 @@
 # Bank-email ingestion pipeline
 
+> **Picking this up after a break? Start with
+> [`FORWARDING-HANDOFF.md`](FORWARDING-HANDOFF.md), not this file.** It says what
+> is applied, what is deployed, why onboarding is currently closed to new users,
+> and what to do next in the order that reduces risk. This file explains how the
+> machine works; that one explains where it was left.
+
 Reads forwarded bank/provider transaction emails and writes pending rows to
 `email_transactions` (staging — never the real ledger). Promotion into
 `transactions` is a human review step (approve + categorize), not built yet.
