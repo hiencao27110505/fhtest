@@ -16,6 +16,163 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-16 (forwarding session, later) — SEALING IS WIRED END TO END, gated
+  off. Full-flow review done first; it found two crypto-relevant defects that
+  would have shipped. Hien: items 2 and 3 supersede recorded agreements of
+  yours — please read those two even if nothing else.**
+
+  **0. WHERE THE CODE IS — branch `bank-email-sealing`, in its own worktree,
+  deliberately NOT on main.** Not just tidiness: the client half changes the
+  review fetch to name its columns, four of which (`sealed`/`eph_pub`/`nonce`/
+  `enc_v`) do not exist until `0065` is applied. Merging to main deploys via
+  Vercel immediately, and a deploy before the migrations breaks the review
+  queue for all four grandfathered users with a column-not-found error. **The
+  merge IS step 4 of the choreography in item 6 — never earlier.** This entry
+  rides main so the channel stays current; everything else is on the branch.
+
+  **1. What landed (all tested, `npm test` 12 files green, `sealing.test.js` is
+  new with 53 assertions incl. GAS-seal → shipped-client-open round trips):**
+  - `0068_sealed_staging_hardening.sql` — `dedup_fp` column + index, a tighter
+    sealed-or-plain CHECK (0065's forgot `raw_extracted` + `transaction_type`),
+    `parse_failures.raw_body` nullable. Apply AFTER 0065. **This takes 0068.**
+  - Pipeline `v2026-08-16-b`: `trySealRow()` (seal or HOLD, no plaintext path),
+    §6 pin enforced, `sealingPreflight()` (read-only go/no-go), script lock on
+    `processEmails`, `dedup_fp` dual-written in both eras, `parse_failures`
+    stores metadata only (bodies stay in Gmail under `txn/parse-failed`).
+  - Client (sw v345): review fetch names columns (no more `raw_body` egress —
+    this was the bandwidth overage), the sealed-open identity fix (below), a
+    visible locked-rows count, keyless connect gate, honest assurance copy
+    (VN copy needs Trang's native read: "niêm phong khi lưu trữ" / "hộp thư
+    trung gian").
+
+  **2. SUPERSEDED (Trang, 2026-08-16): dedup stays SERVER-side.** Your recorded
+  agreement (2026-08-07, restated in sealed-box.gs header constraint 2) moved it
+  client-side because "no server-computable blind index is safe". That holds for
+  an unkeyed hash; what shipped is `HMAC-SHA256(DEDUP_FP_KEY, 'v1|amount|
+  direction|currency')` with the key in Script Properties — the same
+  Google-vs-Supabase split as your TOFU pin, so a DB attacker cannot run the VND
+  dictionary. Accepted leak, stated plainly: equal fingerprints reveal rows
+  sharing amount+direction+currency (classes, not values). Provider is excluded
+  so the cross-source `neq` filter keeps working. If you veto, the unwind is:
+  drop the column, delete `dedupFingerprint`, revert `findDuplicate` to the
+  client-side plan — nothing else depends on it.
+
+  **3. Also for you: the DRBG counter now RESERVES BEFORE generating, and
+  `processEmails` holds a script lock (`tryLock(0)`).** Your reviewed
+  DRBG persisted the counter after output: a crash mid-generation, or two
+  overlapping executions (runs with LLM calls exceed the 1-minute trigger),
+  replays a counter — same `eph_priv` AND same nonce on two rows, i.e.
+  XSalsa20-Poly1305 keystream reuse. Write-ahead burns counter values on a
+  crash instead. Shape unchanged, ordering fixed; `sealed-box.test.js` still
+  passes untouched. Worth your re-ack since the DRBG was your review.
+
+  **4. Found in review, fixed — the one that would have eaten the launch:**
+  `fhStagingOpenRow` verifies `payload.family_id === row.family_id`, but
+  `email_transactions` has NO family_id column. Undefined ≠ bound value → every
+  sealed row ever written would have thrown `staging_identity_mismatch` — and
+  the review sheet counted those into a `locked` bucket it only mentioned when
+  the WHOLE queue was locked. Sealing would have gone live and every
+  transaction would have silently vanished from review. Fix: `fhReadStagedRow`
+  sets `row.family_id = window.DB.fid` (verifying against the ACTIVE family,
+  which is the correct anti-relocation semantics), and a partly-locked queue
+  now renders its locked count.
+
+  **5. Two deviations from the design doc, recorded there too:** `raw_body` is
+  not in the sealed payload (nothing reads it back; Gmail retention covers
+  debugging; ~20KB/row saved), and keyless families are GATED at connect +
+  HELD at the pipeline (Trang: "keyless family simply cannot touch email flow"
+  — replaces option (a)'s write-later semantics with never-write).
+
+  **6. The flip choreography, in order — nothing is live yet:**
+  1. SQL editor: apply `0065`, then `0068`; ledger both into
+     `supabase_migrations.schema_migrations`.
+  2. Apps Script: the project needs THREE files — `bank-email-pipeline.gs`
+     (paste), `sealed-box.gs` (paste — the DRBG fix is in it), and
+     `nacl-fast.js` (TweetNaCl v1.0.3, add as its own file if absent).
+  3. Run `sealingPreflight()` from the editor; the log must show
+     `staging_pub=present` for all four connections and no `pin=MISMATCH`.
+     (Families get keys when a member unlocks the app — `fhStagingAfterUnlock`
+     — so a MISSING here means that family has not opened the app since v325;
+     have them open it once.)
+  4. Deploy the client: merge `bank-email-sealing` into main and push (sw
+     v345). ONLY after step 1 — see item 0 for why the order is load-bearing.
+  5. Script Properties: `SEALED_STAGING_ENABLED=true`. Watch the log for
+     `v2026-08-16-b` and the first sealed row; verify in the SQL editor that
+     `sealed is not null and amount is null`, then open the review queue on a
+     real device.
+  6. Separately, whenever ready: `INBOX_RETENTION_ENABLED=true` (see the
+     retention entry below).
+  7. Optional cleanup, Trang's call, destructive: existing plaintext bodies —
+     `update parse_failures set raw_body = null;` (sources for still-queued
+     failures remain in Gmail).
+
+- **2026-08-16 (forwarding session) — `personal_email` is the wrong field for the
+  forwarder check, and it goes off the day enforcement does. Also: inbox
+  retention + the `markMailboxVerified` fix are written and tested but NOT
+  deployed (the `.gs` is hand-pasted — see 3).**
+
+  **1. The forwarder check compares an account email against a forwarding
+  address.** The entry below closes "is `personal_email` null" correctly: it is
+  populated, and the fall-through-to-`pass` hole does not exist. But the value it
+  holds is the address the member *signed up* with, while `checkSenderAuthenticity`
+  compares it against `X-Forwarded-For`, which carries the address whose Gmail
+  filter actually did the forwarding. Those match only when someone forwards from
+  the same Gmail they logged in with.
+
+  Live case: alias `8xr4ed9vr8` has `personal_email = gichisreading@gmail.com` (a
+  real app account), but the forwarding into it comes from `trang.nguyen.wh@`. So
+  `fwd.indexOf(personal_email) === -1` → `forwarder = 'mismatch'` → `auth.ok`
+  false. Harmless today because enforcement is off and it only logs `flagged`.
+  The moment `SENDER_AUTH_ENFORCE=true`, every message on that alias becomes a
+  `parse_failures` row labelled `txn/parse-failed` and is **never staged**. It is
+  also the only connection showing `verified = true`, so it is the last one
+  anyone would think to check.
+
+  **This is not one bad row.** Anyone forwarding from a work address, a second
+  Gmail or an alias hits it. Correcting that row does not fix the class.
+
+  **2. Decided (Trang): `personal_email` means the FORWARDING address, not the
+  login address.** Default it to the login email, and at the point someone turns
+  forwarding on, ask whether they will forward from that address or a different
+  one, with a field to paste the different one. That is the connect flow in
+  `71-mailbox-ui.js`, which is behind the beta gate right now, so it can be built
+  and ship dark. Bilingual, per DESIGN.md.
+  - Known limit this does not solve: one member forwarding from several addresses
+    still mismatches on all but the one they typed. Worth pairing with learning
+    the address from the first forwarded message and pre-filling it.
+  - Do this before `SENDER_AUTH_ENFORCE=true`, alongside the
+    `unknown`-instead-of-`pass` hardening in the entry below.
+
+  **3. Inbox retention is written, tested, and switched OFF.** `sweepProcessedMail`
+  in `bank-email-pipeline.gs` (+ `pipeline/retention.test.js`, 38 assertions,
+  unioned into `npm test`). Hourly, batch-capped at 50 threads, called at the top
+  of `processEmails` inside `try/catch` so it still runs when the inbox is idle,
+  which is exactly when the backlog needs draining.
+  Four refusals, because it deletes other people's banking: **off** until
+  `INBOX_RETENTION_ENABLED='true'`; **trash, never a hard delete** (Gmail purges
+  after ~30 days, so the archive becomes bounded but recoverable); **only
+  `txn/processed`**, never `txn/parse-failed`; and **`older_than:7d
+  -newer_than:7d` together**, because `older_than` alone matches a thread on its
+  *oldest* message and would take live threads with one ancient message.
+  `PIPELINE_VERSION` is `'2026-08-16-a'` — **nothing above is live until someone
+  pastes the `.gs` into the Apps Script editor and sees that version in the log.**
+
+  Same paste carries the **`markMailboxVerified` fix**: the function existed and
+  was documented as being called from `processOneMessage`, and nothing called it.
+  So `verified` was false for every connection ever made, the connect screen sat
+  on "waiting for Gmail" forever while mail routed fine behind it, and the two
+  founder views that join `where c.verified is true` (`0063`, `0064`) counted one
+  connection instead of four. Now called, guarded on `!mailbox.verified`, after
+  the insert is confirmed. Existing rows self-heal on their next forwarded
+  message; a backfill is defensible for any alias that already has
+  `email_transactions` rows.
+
+  **4. The bandwidth overage is probably NOT fixed by 3.** The handoff's step 3
+  folds two different retentions into one line. What landed is the **Gmail** side.
+  The **Supabase** side — `raw_body` holding full email HTML at ~20KB/row, which
+  `SEALED-STAGING-DESIGN.md` §7 says should be dropped at promotion — is untouched,
+  and that is the likely driver of the free-tier overage. Still open.
+
 - **2026-08-16 — Trang, bank-email notifications. Review notifications are now
   end to end. Two entries below are answered and have moved to Resolved.**
 
