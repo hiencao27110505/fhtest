@@ -22,10 +22,16 @@
 
   /* Fetches this member's pending rows. 0058 scopes SELECT to own rows, so no
      filtering is needed here — the database decides what is visible, which is
-     also why an empty result is a real answer and not a permissions bug. */
+     also why an empty result is a real answer and not a permissions bug.
+
+     Columns are named, not '*', for one reason: raw_body. It holds the full
+     email HTML at ~20KB a row, nothing on this screen reads it, and pulling it
+     on every open of the queue is what was eating the Supabase bandwidth quota.
+     Everything else the two row shapes carry is listed — including
+     gmail_message_id, which the sealed path verifies against the payload. */
   async function fhFetchStagedTxns() {
     var res = await sb.from('email_transactions')
-      .select('*')
+      .select('id,member_id,gmail_message_id,source_provider,occurred_at,amount,currency,direction,counterparty,reference_number,transaction_type,raw_extracted,duplicate_of_id,sealed,eph_pub,nonce,enc_v,created_at')
       .eq('review_status', 'pending')
       .is('duplicate_of_id', null)          // merged duplicates are never promoted
       .order('occurred_at', { ascending: false })
@@ -45,6 +51,12 @@
     if (!row.sealed) return row;                       // plaintext era
     if (!window.fhStagingOpenRow) return null;         // sealed, no decryptor wired yet
     try {
+      /* The table has no family_id column (rows scope through member_id — see
+         SEALED-STAGING-DESIGN §4.2), but the opener verifies the family_id the
+         SEALER bound inside the box. The value it must match is OURS: the
+         active family. Without this line row.family_id is undefined, the check
+         throws on every row ever sealed, and the whole queue reads as locked. */
+      row.family_id = window.DB && window.DB.fid;
       var priv = await window.fhStagingPrivKey();
       var payload = window.fhStagingOpenRow(row, priv);
       return {
@@ -149,6 +161,26 @@
     var pick = document.getElementById('csv-pick'); if (pick) pick.style.display = 'none';
     var title = document.querySelector('#csv-import-modal .modal-title');
     if (title) title.textContent = L('Duyệt giao dịch', 'Review transactions');
+
+    /* A partly-locked queue must SAY so. Before this, unopenable rows were
+       counted and then shown to no one unless the whole queue was locked — so
+       the first symptom of a locked device, a stale shell, or a real integrity
+       failure would have been transactions quietly missing from a list that
+       looks complete. The design promise is "degrades to a visible locked row,
+       never silently vanishing" — this is the visible half. Same element is
+       removed and re-added each open so the count never goes stale. */
+    var oldNote = document.getElementById('fh-txn-locked-note');
+    if (oldNote) oldNote.remove();
+    if (locked > 0) {
+      var note = document.createElement('div');
+      note.id = 'fh-txn-locked-note';
+      note.className = 'mbx-locked-note';
+      note.textContent = L(
+        locked + ' giao dịch chưa mở khoá được. Hãy mở khoá ứng dụng hoặc tải lại trang, rồi mở lại mục này.',
+        locked + (locked === 1 ? ' transaction' : ' transactions') + ' could not be unlocked. Unlock the app or reload, then open this again.');
+      var modalTitle = document.querySelector('#csv-import-modal .modal-title');
+      if (modalTitle && modalTitle.parentNode) modalTitle.parentNode.insertBefore(note, modalTitle.nextSibling);
+    }
     openSheet('csv-import-modal');
   };
 

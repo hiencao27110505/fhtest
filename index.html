@@ -2774,6 +2774,12 @@ html.fh-can-install .set-row.set-install{display:flex}
 @keyframes fsaRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 @media (prefers-reduced-motion:reduce){.fsa-card{animation:none}}
 
+/* Locked-rows notice on the review queue (72-txn-review). Border + left accent
+   per DESIGN — no colored fill; it states a condition, it is not an alert. */
+.mbx-locked-note{margin:10px 16px 0;padding:10px 12px;border:1px solid var(--hairline);
+  border-left:3px solid var(--brand);border-radius:10px;
+  font-size:13.5px;line-height:1.45;color:var(--ink-2)}
+
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
 .fh-s-cta{width:100%;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;padding:15px;border-radius:9999px;box-shadow:0 8px 20px var(--brand-glow);margin-top:6px}
@@ -12681,7 +12687,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v344';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v345';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -19516,9 +19522,15 @@ window.classifyAmount = classifyAmount;
         'Your bank emails you after each transaction. Forward those to Earthy — we read them for you, and you just review.')) + '</div>' +
 
       '<div class="mbx-assure">' +
-        _mbxAssure('lock', L('Chỉ mình bạn đọc được', 'Only you can read it'),
-          L('Nội dung được mã hoá — kể cả tụi mình cũng không xem được.',
-            'Contents are encrypted — not even we can read them.')) +
+        /* Worded to the honest ceiling in SEALED-STAGING-DESIGN §1, not past
+           it. "Not even we can read them" claimed more than web-delivered E2EE
+           can deliver (operator key swaps are DETECTED, not prevented, and the
+           forwarded email transits a shared inbox before it is sealed and the
+           inbox copy is deleted). What is true: stored transactions are sealed
+           to keys only the family's devices hold. Say that. */
+        _mbxAssure('lock', L('Chỉ gia đình bạn mở được', 'Only your family can open it'),
+          L('Giao dịch được niêm phong khi lưu trữ, chỉ thiết bị của gia đình bạn mở được. Email đã xử lý sẽ được xoá khỏi hộp thư trung gian.',
+            'Transactions are sealed in storage, and only your family\'s devices can open them. Processed emails are deleted from the relay inbox.')) +
         _mbxAssure('check', L('Bạn duyệt trước khi vào sổ', 'Nothing is added without you'),
           L('Không khoản nào tự động vào sổ chi tiêu của gia đình.',
             'No transaction enters your family ledger until you approve it.')) +
@@ -19546,6 +19558,30 @@ window.classifyAmount = classifyAmount;
   window.fhMailboxStart = async function (btn) {
     const email = (window.FAM && window.FAM.user && window.FAM.user.email) || null;
     if (btn) { btn.disabled = true; btn.textContent = L('Đang tạo địa chỉ…', 'Creating your address…'); }
+
+    /* A family without a staging keypair cannot use this flow — decided
+       2026-08-16: the pipeline HOLDS mail for keyless families rather than ever
+       writing it readable, so connecting before keys exist would only queue
+       mail into limbo. Provisioning needs the unlocked DEK (the one moment the
+       private key can be wrapped), so a locked device stops here with the
+       honest reason instead of handing out an address that cannot work yet. */
+    if (window.fhStagingEnsureKeypair) {
+      try {
+        if (!window.fhKeyReady || !window.fhKeyReady()) {
+          if (btn) { btn.disabled = false; btn.textContent = L('Bắt đầu', 'Get started'); }
+          window.toast && window.toast(L('Hãy mở khoá ứng dụng trước, rồi thử lại nhé',
+                                         'Unlock the app first, then try again'));
+          return;
+        }
+        await window.fhStagingEnsureKeypair();
+      } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = L('Bắt đầu', 'Get started'); }
+        window.toast && window.toast(L('Chưa chuẩn bị được khoá bảo mật, thử lại nhé',
+                                       'Could not prepare your security keys, try again'));
+        return;
+      }
+    }
+
     let res;
     try {
       res = await _rpc('get_or_create_mailbox_alias', { p_personal_email: email });
@@ -19739,10 +19775,16 @@ window.classifyAmount = classifyAmount;
 
   /* Fetches this member's pending rows. 0058 scopes SELECT to own rows, so no
      filtering is needed here — the database decides what is visible, which is
-     also why an empty result is a real answer and not a permissions bug. */
+     also why an empty result is a real answer and not a permissions bug.
+
+     Columns are named, not '*', for one reason: raw_body. It holds the full
+     email HTML at ~20KB a row, nothing on this screen reads it, and pulling it
+     on every open of the queue is what was eating the Supabase bandwidth quota.
+     Everything else the two row shapes carry is listed — including
+     gmail_message_id, which the sealed path verifies against the payload. */
   async function fhFetchStagedTxns() {
     var res = await sb.from('email_transactions')
-      .select('*')
+      .select('id,member_id,gmail_message_id,source_provider,occurred_at,amount,currency,direction,counterparty,reference_number,transaction_type,raw_extracted,duplicate_of_id,sealed,eph_pub,nonce,enc_v,created_at')
       .eq('review_status', 'pending')
       .is('duplicate_of_id', null)          // merged duplicates are never promoted
       .order('occurred_at', { ascending: false })
@@ -19762,6 +19804,12 @@ window.classifyAmount = classifyAmount;
     if (!row.sealed) return row;                       // plaintext era
     if (!window.fhStagingOpenRow) return null;         // sealed, no decryptor wired yet
     try {
+      /* The table has no family_id column (rows scope through member_id — see
+         SEALED-STAGING-DESIGN §4.2), but the opener verifies the family_id the
+         SEALER bound inside the box. The value it must match is OURS: the
+         active family. Without this line row.family_id is undefined, the check
+         throws on every row ever sealed, and the whole queue reads as locked. */
+      row.family_id = window.DB && window.DB.fid;
       var priv = await window.fhStagingPrivKey();
       var payload = window.fhStagingOpenRow(row, priv);
       return {
@@ -19866,6 +19914,26 @@ window.classifyAmount = classifyAmount;
     var pick = document.getElementById('csv-pick'); if (pick) pick.style.display = 'none';
     var title = document.querySelector('#csv-import-modal .modal-title');
     if (title) title.textContent = L('Duyệt giao dịch', 'Review transactions');
+
+    /* A partly-locked queue must SAY so. Before this, unopenable rows were
+       counted and then shown to no one unless the whole queue was locked — so
+       the first symptom of a locked device, a stale shell, or a real integrity
+       failure would have been transactions quietly missing from a list that
+       looks complete. The design promise is "degrades to a visible locked row,
+       never silently vanishing" — this is the visible half. Same element is
+       removed and re-added each open so the count never goes stale. */
+    var oldNote = document.getElementById('fh-txn-locked-note');
+    if (oldNote) oldNote.remove();
+    if (locked > 0) {
+      var note = document.createElement('div');
+      note.id = 'fh-txn-locked-note';
+      note.className = 'mbx-locked-note';
+      note.textContent = L(
+        locked + ' giao dịch chưa mở khoá được. Hãy mở khoá ứng dụng hoặc tải lại trang, rồi mở lại mục này.',
+        locked + (locked === 1 ? ' transaction' : ' transactions') + ' could not be unlocked. Unlock the app or reload, then open this again.');
+      var modalTitle = document.querySelector('#csv-import-modal .modal-title');
+      if (modalTitle && modalTitle.parentNode) modalTitle.parentNode.insertBefore(note, modalTitle.nextSibling);
+    }
     openSheet('csv-import-modal');
   };
 

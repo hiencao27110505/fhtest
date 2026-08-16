@@ -63,9 +63,15 @@
         'Your bank emails you after each transaction. Forward those to Earthy — we read them for you, and you just review.')) + '</div>' +
 
       '<div class="mbx-assure">' +
-        _mbxAssure('lock', L('Chỉ mình bạn đọc được', 'Only you can read it'),
-          L('Nội dung được mã hoá — kể cả tụi mình cũng không xem được.',
-            'Contents are encrypted — not even we can read them.')) +
+        /* Worded to the honest ceiling in SEALED-STAGING-DESIGN §1, not past
+           it. "Not even we can read them" claimed more than web-delivered E2EE
+           can deliver (operator key swaps are DETECTED, not prevented, and the
+           forwarded email transits a shared inbox before it is sealed and the
+           inbox copy is deleted). What is true: stored transactions are sealed
+           to keys only the family's devices hold. Say that. */
+        _mbxAssure('lock', L('Chỉ gia đình bạn mở được', 'Only your family can open it'),
+          L('Giao dịch được niêm phong khi lưu trữ, chỉ thiết bị của gia đình bạn mở được. Email đã xử lý sẽ được xoá khỏi hộp thư trung gian.',
+            'Transactions are sealed in storage, and only your family\'s devices can open them. Processed emails are deleted from the relay inbox.')) +
         _mbxAssure('check', L('Bạn duyệt trước khi vào sổ', 'Nothing is added without you'),
           L('Không khoản nào tự động vào sổ chi tiêu của gia đình.',
             'No transaction enters your family ledger until you approve it.')) +
@@ -93,6 +99,30 @@
   window.fhMailboxStart = async function (btn) {
     const email = (window.FAM && window.FAM.user && window.FAM.user.email) || null;
     if (btn) { btn.disabled = true; btn.textContent = L('Đang tạo địa chỉ…', 'Creating your address…'); }
+
+    /* A family without a staging keypair cannot use this flow — decided
+       2026-08-16: the pipeline HOLDS mail for keyless families rather than ever
+       writing it readable, so connecting before keys exist would only queue
+       mail into limbo. Provisioning needs the unlocked DEK (the one moment the
+       private key can be wrapped), so a locked device stops here with the
+       honest reason instead of handing out an address that cannot work yet. */
+    if (window.fhStagingEnsureKeypair) {
+      try {
+        if (!window.fhKeyReady || !window.fhKeyReady()) {
+          if (btn) { btn.disabled = false; btn.textContent = L('Bắt đầu', 'Get started'); }
+          window.toast && window.toast(L('Hãy mở khoá ứng dụng trước, rồi thử lại nhé',
+                                         'Unlock the app first, then try again'));
+          return;
+        }
+        await window.fhStagingEnsureKeypair();
+      } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = L('Bắt đầu', 'Get started'); }
+        window.toast && window.toast(L('Chưa chuẩn bị được khoá bảo mật, thử lại nhé',
+                                       'Could not prepare your security keys, try again'));
+        return;
+      }
+    }
+
     let res;
     try {
       res = await _rpc('get_or_create_mailbox_alias', { p_personal_email: email });
