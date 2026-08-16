@@ -75,10 +75,22 @@ function _drbgSeedBytes() {
 // Returns n cryptographically-suitable random bytes as a Uint8Array.
 // Each call advances a persistent counter, so two calls never produce the same
 // output even within the same millisecond or across executions.
+//
+// The counter is RESERVED BEFORE any output is produced (write-ahead), not
+// persisted after. The after-ordering had a replay: a crash between generating
+// and setProperty — or two overlapping executions reading the same value —
+// hands two different rows the same counter, which means the same eph_priv AND
+// the same nonce. Same key + same nonce across two XSalsa20-Poly1305 boxes is
+// keystream reuse: the payloads XOR out and the auth key is recoverable. With
+// write-ahead, a crash merely burns a few counter values, which costs nothing.
+// (Cross-execution overlap is additionally excluded by the script lock in
+// processEmails — this ordering is the defense that does not depend on it.)
 function sealedBoxRandomBytes(n) {
   var props = PropertiesService.getScriptProperties();
   var seed = _drbgSeedBytes();
   var counter = Number(props.getProperty(_DRBG_CTR_PROP) || '0');
+  var blocks = Math.ceil(n / 32);
+  props.setProperty(_DRBG_CTR_PROP, String(counter + blocks));   // reserve first
 
   var out = new Uint8Array(n);
   var filled = 0;
@@ -92,7 +104,6 @@ function sealedBoxRandomBytes(n) {
       out[filled++] = block[i] & 0xff;
     }
   }
-  props.setProperty(_DRBG_CTR_PROP, String(counter));
   return out;
 }
 

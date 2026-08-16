@@ -86,7 +86,7 @@ handshake legible to non-cryptographers.
 | `eph_pub` (14) | `X25519(eph_priv, BASE)`. Stored openly **on the row** so the family can rebuild `K_box`. Harmless alone. |
 | `K_box` (21) | Per-row symmetric key. `DH(eph_priv, family_pub)` == `DH(family_priv, eph_pub)`. **Never stored, never transmitted.** |
 | `nonce` | Per-row random, never reused. Stored openly on the row. |
-| `payload` | The sensitive JSON: amount, currency, direction, counterparty, reference_number, raw_body, raw_extracted, **plus `family_id` and `gmail_message_id`** (see §4.3). |
+| `payload` | The sensitive JSON: amount, currency, direction, counterparty, reference_number, transaction_type, everything in raw_extracted, **plus `family_id` and `gmail_message_id`** (see §4.3). `raw_body` is deliberately NOT in it (2026-08-16): nothing ever reads it back, it is ~20KB of dead ciphertext per row, and the source email stays in Gmail for the retention window if debugging needs it. |
 | `sealed` | `XSalsa20Poly1305(K_box, nonce, payload)`. The locked box. |
 | *luggage tag* | The deliberately-plaintext columns: `gmail_message_id`, `member_id`, `source_provider`, `occurred_at`, `review_status`. Routing and pre-unlock queue display only. |
 
@@ -159,15 +159,17 @@ itself, which is what `known_provider_domains` is for.
 Masking is **unconditional** — no encryption-state gate — because encryption is
 default-on product-wide.
 
-### 4.3 Seal 🟡
+### 4.3 Seal 🟡 wired, gated off
 
-Built and tested, but **`sealForFamily()` is deliberately never called yet.** The
-review UI (§4.4) now exists, so the remaining gate is the decrypt side: rows must
-stay readable until `fhStagingOpenRow`/`fhStagingPrivKey` are wired in
-`15-crypto.js` (the three steps in `AGENT_SYNC.md`), otherwise the queue becomes
-unreadable by everything. Until then rows are plaintext behind RLS deny-all —
-the known, accepted interim gap. `fhReadStagedRow()` already handles both shapes,
-so switching sealing on is a one-line change on this side.
+**Wired end to end 2026-08-16, behind `SEALED_STAGING_ENABLED` (Script Property,
+off until flipped).** `processOneMessage` builds the plaintext row exactly as
+before, then — with sealing on — `trySealRow()` resolves member → family →
+`family_keys.staging_pub`, checks the §6 pin, seals, and strips every sensitive
+column. A row that cannot be sealed (keyless family, missing TweetNaCl/sealed-box
+paste, pin mismatch) is **HELD for retry, never written readable** — there is no
+plaintext fallback path. Run `sealingPreflight()` (read-only) before flipping;
+it reports per-connection key and pin readiness. Until the flip, rows are
+plaintext behind RLS deny-all — the known, accepted interim gap.
 
 1. Build `payload`, **including `family_id` and `gmail_message_id` inside it**.
    This is the anti-relocation binding: without it, someone with DB write access
@@ -289,11 +291,18 @@ alarm is noise, and the mechanism is dead. This screen gets zero cry-wolfs.
 
 ## 7. Consequences to remember
 
-- **Server-side dedup dies.** `findDuplicate()` currently queries `amount=eq.X`.
-  Once amounts are sealed, that stops working, and no server-computable blind
-  index is safe (VND amounts sit in a small, dictionary-attackable range). Dedup
-  **moves client-side into review**, where everything is decrypted and it works
-  better than it does today.
+- **Server-side dedup — SUPERSEDED 2026-08-16 (Trang): dedup stays server-side,
+  on a keyed fingerprint.** The original note here said no server-computable
+  blind index is safe because VND amounts are dictionary-attackable — which is
+  true of an unkeyed hash, and not of `dedup_fp = HMAC-SHA256(DEDUP_FP_KEY,
+  'v1|amount|direction|currency')` with the key in Script Properties: the same
+  Google-vs-Supabase trust split as the §6 pin, so a database attacker holds
+  fingerprints they cannot enumerate against. What it still leaks, on purpose
+  and on record: equal fingerprints reveal that two rows share an
+  amount+direction+currency (equality classes, never values). Written for both
+  eras from `0068` on, so dedup is continuous across the flip. `findDuplicate()`
+  queries the fingerprint when sealing is on and the amount as before while it
+  is off.
 - **`raw_body` must be deleted** at promotion or rejection, regardless of anything
   else. It is the fattest sensitive payload and is only needed while a row is
   pending.
@@ -347,11 +356,11 @@ and silently loses the row. Check `response.getResponseCode()` for 2xx.
 | Routing gate — hold unroutable mail rather than stage it | ✅ built |
 | `0058` review read policy · `0059` alias issuing · `0060` resolve-on-import | ✅ applied |
 | Mailbox onboarding (writes `mailbox_connections`) | ✅ built — Settings row → `get_or_create_mailbox_alias`, Gmail confirmation handled |
-| Keypair generation, `wrapped_priv`, sealing, opening | 🟡 seal side built + tested; `sealForFamily()` is deliberately never called until the decrypt side lands |
-| Key-substitution pin + device self-check | 🟡 agreed both sessions |
+| Keypair generation, `wrapped_priv`, sealing, opening | ✅ wired end to end (0051 + 0065 + 0068), gated behind `SEALED_STAGING_ENABLED` — off until `sealingPreflight()` is clean |
+| Key-substitution pin + device self-check | ✅ built both sides — pin enforced in `trySealRow`, self-check + alarm in `18-staging-keys.js` |
 | Mismatch alarm UI | ✅ prototyped · 🟡 copy needs native-speaker review |
 | Review UI (approve, categorize, promote, client-side dedup) | ✅ built — reuses the CSV import screen (`src/js-data/72-txn-review.js`); promote fixed in v326, see `AGENT_SYNC.md` |
-| `parse_failures` sealing decision | 🟡 open |
+| `parse_failures` sealing decision | ✅ resolved 2026-08-16: error metadata only, no bodies — the source email stays in Gmail under `txn/parse-failed` (0068) |
 | Backend rewrite (owned domain + inbound service) | 🟡 deferred to multi-family |
 
 ---

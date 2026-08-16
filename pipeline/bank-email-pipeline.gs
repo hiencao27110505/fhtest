@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-15-a';
+var PIPELINE_VERSION = '2026-08-16-b';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -28,8 +28,50 @@ var DEDUPE_WINDOW_DAYS = 3;
 // row. Long enough to cover "set up forwarding, onboard the app a few days
 // later"; short enough that a genuine misconfiguration surfaces.
 var ROUTING_GRACE_DAYS = 14;
+// Inbox retention — see sweepProcessedMail. Trash staged mail once it is this
+// old: long enough that a staged row can still be read against the email it came
+// from, short enough that the mailbox stops being an archive of other people's
+// banking. The sweep interval exists because this tick runs 1,440 times a day.
+var RETENTION_DAYS = 7;
+var RETENTION_SWEEP_INTERVAL_MIN = 60;
+var RETENTION_MAX_THREADS_PER_SWEEP = 50;
+
+// Sealed staging (SEALED-STAGING-DESIGN.md §4.3). Lands switched OFF and gets
+// flipped deliberately, once, after 0065+0068 are applied and sealingPreflight()
+// reports every connection's family holds a staging key. While off, behavior is
+// unchanged. While on, there is NO plaintext fallback anywhere in this file:
+// a message that cannot be sealed is HELD for retry, never written readable.
+function sealedStagingEnabled() {
+  return PropertiesService.getScriptProperties().getProperty('SEALED_STAGING_ENABLED') === 'true';
+}
 
 function processEmails() {
+  // ONE run at a time, enforced, not assumed. The trigger fires every minute and
+  // a run with LLM calls can exceed a minute, so overlap is a matter of time.
+  // Two overlapping runs are how the DRBG hands two rows the same counter —
+  // same eph_priv, same nonce, keystream reuse (see sealedBoxRandomBytes) — and
+  // even without sealing they race isAlreadyStaged into double LLM spend.
+  // tryLock(0), not waitLock: the next tick is 60 seconds away, so waiting here
+  // only stacks executions against the daily runtime budget.
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(0)) {
+    Logger.log('v' + PIPELINE_VERSION + ' | previous run still holds the lock, skipping this tick');
+    return;
+  }
+  try {
+    _processEmailsLocked();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function _processEmailsLocked() {
+  // Retention runs BEFORE the two early returns below. An inbox with nothing new
+  // is exactly when the backlog still needs draining, and both of those returns
+  // would skip it — "no mailboxes connected" most of all. Wrapped for the same
+  // reason confirmations are: a sweep failure must never stop transactions.
+  try { sweepProcessedMail(); } catch (e) { Logger.log('retention sweep failed: ' + e); }
+
   // Confirmations ride the same 1-minute tick rather than a second trigger.
   // Latency matters here — someone is watching a "waiting for Gmail" screen while
   // this decides whether their setup worked — and Apps Script only allows ~90
@@ -225,10 +267,24 @@ function processOneMessage(message, runCallCount) {
 
   var mailbox = _routedMailbox;
 
-  var dup = findDuplicate(extraction.amount, extraction.direction, extraction.occurred_at, extraction.source_provider);
+  var dup = findDuplicate(extraction.amount, extraction.direction, extraction.occurred_at,
+    extraction.source_provider, extraction.currency);
   var memberId = mailbox.member_id;
   var row = buildEmailTransactionRow(gmailMessageId, sender, extraction, body, dup, memberId);
   row.raw_extracted = Object.assign({}, row.raw_extracted, { _sender_auth: auth });
+  // Written in BOTH eras — that is what keeps dedup continuous across the flip:
+  // rows staged plaintext this week still match rows staged sealed next week.
+  row.dedup_fp = dedupFingerprint(extraction.amount, extraction.direction, extraction.currency);
+
+  // The plaintext row above never reaches the database with sealing on — it is
+  // the input to the seal, built by the same code both eras so the two extract
+  // identically. trySealRow returning null means HOLD: leave the message queued
+  // (no relabel), retry next run. Never fall through to a plaintext insert.
+  if (sealedStagingEnabled()) {
+    var sealedRow = trySealRow(row);
+    if (!sealedRow) return runCallCount;
+    row = sealedRow;
+  }
 
   var inserted = insertEmailTransaction(row);
   if (!inserted) {
@@ -238,6 +294,17 @@ function processOneMessage(message, runCallCount) {
   }
 
   queueReviewNotice(row);            // only now that the row is really written
+
+  // A forwarded message actually arriving is the only trustworthy evidence that
+  // forwarding works — confirmPendingForwarding says so and deliberately does not
+  // set this, pointing here instead. The call it points at was never made, so
+  // `verified` stayed false for every connection ever made and the connect screen
+  // sat on "waiting for Gmail" forever while the mail routed fine behind it.
+  // Guarded because this runs per staged message and the flag only ever goes
+  // one way: without it, every message for the life of the connection spends a
+  // PATCH to rewrite true as true.
+  if (!mailbox.verified) markMailboxVerified(mailbox.forwarding_alias);
+
   relabelMessageThread(message, 'txn/processed');
 
   return runCallCount;
@@ -377,6 +444,76 @@ function relabelThread(thread, labelName) {
     if (inbox) thread.removeLabel(inbox);
   } catch (e) { /* not labelled; nothing to remove */ }
   thread.addLabel(GmailApp.getUserLabelByName(labelName));
+}
+
+// ---------- Inbox retention ----------
+//
+// The shared inbox was a permanent plaintext archive. The pipeline labelled mail
+// txn/processed and nothing ever removed it, so every bank email anyone had ever
+// forwarded stayed sitting there, readable by whoever holds the mailbox. Staging
+// IS the point of the forward; keeping the source afterwards buys nothing and
+// costs the one promise this feature makes.
+//
+// Four deliberate limits, because this deletes other people's banking:
+//
+//   * TRASH, never a permanent delete. Gmail empties trash on its own after ~30
+//     days, which turns a permanent archive into a bounded window while leaving
+//     a recovery path for the weeks when someone might still need it. A hard
+//     delete buys ~30 days of exposure and costs every mistake being final.
+//   * Only txn/processed. txn/parse-failed is the reviewable record of what went
+//     wrong and must survive; anything carrying neither label is still in flight.
+//   * Only threads that are old END TO END. `older_than:` alone matches a thread
+//     on its OLDEST message, so a live thread with one ancient message would be
+//     trashed along with everything newer in it — the same hidden-later-message
+//     trap the label exclusion already has. `-newer_than:` is what makes the
+//     window mean the whole thread.
+//   * Off until INBOX_RETENTION_ENABLED is 'true'. It lands switched off and gets
+//     turned on deliberately, once, by someone who has read this.
+function retentionEnabled() {
+  return PropertiesService.getScriptProperties().getProperty('INBOX_RETENTION_ENABLED') === 'true';
+}
+
+function retentionDays() {
+  var raw = PropertiesService.getScriptProperties().getProperty('INBOX_RETENTION_DAYS');
+  var n = parseInt(raw, 10);
+  // Anything unusable falls back to the constant rather than to what parseInt
+  // returned: a typo'd property must not widen the window to 0 days and take
+  // this morning's mail with it.
+  return (isFinite(n) && n > 0) ? n : RETENTION_DAYS;
+}
+
+function sweepProcessedMail() {
+  if (!retentionEnabled()) return 0;
+
+  // A Gmail search is the dominant cost of an idle tick (see processEmails), and
+  // this runs 1,440 times a day against a ~90-minute daily budget. Mail ages in
+  // days, so an hourly sweep drains the backlog just as fast for 1/60th of the
+  // searches. The timestamp is written BEFORE the work: a sweep that dies partway
+  // must not retry every minute for the rest of the day.
+  var props = PropertiesService.getScriptProperties();
+  var last = parseInt(props.getProperty('INBOX_RETENTION_LAST_RUN'), 10);
+  var now = new Date().getTime();
+  if (isFinite(last) && (now - last) < RETENTION_SWEEP_INTERVAL_MIN * 60000) return 0;
+  props.setProperty('INBOX_RETENTION_LAST_RUN', String(now));
+
+  var days = retentionDays();
+  var q = 'label:txn/processed older_than:' + days + 'd -newer_than:' + days + 'd';
+  var threads = GmailApp.search(q, 0, RETENTION_MAX_THREADS_PER_SWEEP);
+  if (!threads.length) {
+    Logger.log('v' + PIPELINE_VERSION + ' | retention: nothing older than ' + days + 'd');
+    return 0;
+  }
+
+  var trashed = 0;
+  for (var i = 0; i < threads.length; i++) {
+    // Per-thread, so one thread that will not move cannot strand the rest of the
+    // batch behind it every hour forever.
+    try { threads[i].moveToTrash(); trashed++; }
+    catch (e) { Logger.log('retention: could not trash a thread: ' + e); }
+  }
+  Logger.log('v' + PIPELINE_VERSION + ' | retention: trashed ' + trashed + '/' + threads.length +
+    ' thread(s) older than ' + days + 'd | q=' + q);
+  return trashed;
 }
 
 // ---------- Stage 1 helpers ----------
@@ -1019,7 +1156,7 @@ function checkSenderAuthenticity(message, sender) {
 
 // ---------- Stage 2 helpers ----------
 
-function findDuplicate(amount, direction, occurredAt, sourceProvider) {
+function findDuplicate(amount, direction, occurredAt, sourceProvider, currency) {
   if (!amount || !occurredAt) return null;
   var occurred = new Date(occurredAt);
   var windowStart = new Date(occurred.getTime() - DEDUPE_WINDOW_DAYS * 86400000).toISOString();
@@ -1031,13 +1168,26 @@ function findDuplicate(amount, direction, occurredAt, sourceProvider) {
   // and reference_number, so same-provider + same-amount + same-day is a real,
   // separate transaction (e.g. two same-amount transfers made minutes apart),
   // not a re-report of one event.
-  var rows = supabaseGet('email_transactions', {
-    amount: 'eq.' + amount,
-    direction: 'eq.' + direction,
+  //
+  // Two query shapes, one semantics. Sealed rows have no amount column, so with
+  // sealing on the match key is dedup_fp — the keyed fingerprint every row gets
+  // at insert (0068; Trang's 2026-08-16 decision that dedup stays server-side,
+  // superseding the move-client-side plan). The fingerprint deliberately covers
+  // amount|direction|currency and NOT provider, so the cross-source filter stays
+  // a visible query term here in both modes. While sealing is off, the amount
+  // query keeps matching rows from before dedup_fp existed.
+  var filters = {
     occurred_at: 'gte.' + windowStart,
     source_provider: 'neq.' + sourceProvider,
     duplicate_of_id: 'is.null',
-  });
+  };
+  if (sealedStagingEnabled()) {
+    filters.dedup_fp = 'eq.' + dedupFingerprint(amount, direction, currency);
+  } else {
+    filters.amount = 'eq.' + amount;
+    filters.direction = 'eq.' + direction;
+  }
+  var rows = supabaseGet('email_transactions', filters);
   var earliest = null;
   for (var i = 0; i < rows.length; i++) {
     if (rows[i].occurred_at <= windowEnd) {
@@ -1045,6 +1195,157 @@ function findDuplicate(amount, direction, occurredAt, sourceProvider) {
     }
   }
   return earliest;
+}
+
+// ---------- sealed staging (SEALED-STAGING-DESIGN.md §4.3, 0065 + 0068) ----------
+
+// Keyed dedup fingerprint. HMAC-SHA256 over 'v1|amount|direction|currency',
+// keyed by DEDUP_FP_KEY — minted once, lives in Script Properties (Google's
+// trust domain), NEVER in Supabase. That split is the whole construction: a
+// database attacker holds fingerprints they cannot run a VND dictionary
+// against, which is the attack that made an unkeyed index unshippable (§7).
+// What equal fingerprints still reveal — that two rows share an amount and
+// direction — is accepted and recorded in 0068's column comment.
+// Provider is left out on purpose: dedup is cross-source, and the query needs
+// provider as its own clear filter (see findDuplicate).
+var _DEDUP_FP_KEY_PROP = 'DEDUP_FP_KEY';
+
+function dedupFingerprint(amount, direction, currency) {
+  var props = PropertiesService.getScriptProperties();
+  var keyB64 = props.getProperty(_DEDUP_FP_KEY_PROP);
+  if (!keyB64) {
+    // Same minting pattern as the DRBG seed: platform CSPRNG via UUIDs, folded
+    // through SHA-256. Losing this key only costs dedup continuity (old
+    // fingerprints stop matching new ones) — nothing becomes readable.
+    var material = '';
+    for (var i = 0; i < 8; i++) material += Utilities.getUuid() + ':' + i + ';';
+    keyB64 = Utilities.base64Encode(
+      Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, material, Utilities.Charset.UTF_8));
+    props.setProperty(_DEDUP_FP_KEY_PROP, keyB64);
+  }
+  var msg = 'v1|' + amount + '|' + direction + '|' + (currency || '');
+  var mac = Utilities.computeHmacSha256Signature(
+    Utilities.newBlob(msg).getBytes(), Utilities.base64Decode(keyB64));
+  return Utilities.base64Encode(mac);
+}
+
+// member_id -> family_id -> staging_pub, cached per execution. Globals in Apps
+// Script live for one execution only, so this never goes stale across runs.
+var _FAMILY_ID_CACHE = {};
+var _STAGING_PUB_CACHE = {};
+
+function familyIdForMember(memberId) {
+  if (_FAMILY_ID_CACHE[memberId] !== undefined) return _FAMILY_ID_CACHE[memberId];
+  var rows = supabaseGet('members', { id: 'eq.' + memberId, select: 'family_id' });
+  var fid = rows.length ? rows[0].family_id : null;
+  _FAMILY_ID_CACHE[memberId] = fid;
+  return fid;
+}
+
+function stagingPubForFamily(familyId) {
+  if (_STAGING_PUB_CACHE[familyId] !== undefined) return _STAGING_PUB_CACHE[familyId];
+  var rows = supabaseGet('family_keys', { family_id: 'eq.' + familyId, select: 'staging_pub' });
+  var pub = (rows.length && rows[0].staging_pub) || null;
+  _STAGING_PUB_CACHE[familyId] = pub;
+  return pub;
+}
+
+// Turns a plaintext staging row into its sealed form, or returns null meaning
+// HOLD — leave the message queued and try again next run. Null is the ONLY
+// failure shape: there is no code path from "could not seal" to a plaintext
+// insert, which is the invariant the whole feature stands on.
+//
+// Holds, and why each one is a hold and not a parse-failure:
+//   • no family / no staging key — a keyless family cannot receive sealed rows
+//     and must never receive plaintext ones. Connect gates on key provisioning
+//     (71-mailbox-ui), so in practice this is a startup-ordering safety net.
+//   • sealed-box.gs or TweetNaCl not pasted into the Apps Script project —
+//     a deploy mistake; the mail is fine.
+//   • SEALED_BOX_PIN_MISMATCH — the family key CHANGED under TOFU. Possibly a
+//     legitimate rotation, possibly an interception attempt (§6). Either way,
+//     sealing to the new key would hand rows to whoever holds it, and a
+//     parse-failure would dump metadata about mail we deliberately did not
+//     process. Hold, log CRITICAL, let a human look.
+function trySealRow(row) {
+  if (typeof sealForFamily === 'undefined' || typeof nacl === 'undefined') {
+    Logger.log('CRITICAL: sealing is ON but sealed-box.gs/TweetNaCl are not in this project — holding ' +
+      row.gmail_message_id);
+    return null;
+  }
+  var familyId = familyIdForMember(row.member_id);
+  if (!familyId) {
+    Logger.log('sealing: no family for member ' + row.member_id + ', holding ' + row.gmail_message_id);
+    return null;
+  }
+  var pub = stagingPubForFamily(familyId);
+  if (!pub) {
+    Logger.log('sealing: family ' + familyId + ' has no staging key yet, holding ' + row.gmail_message_id);
+    return null;
+  }
+  try {
+    assertFamilyPubPinned(familyId, pub);
+    // Everything sensitive rides INSIDE the box, flat, because the client's
+    // sealed branch reads payload.amount and payload.memo alike (72-txn-review
+    // fhReadStagedRow). raw_body is deliberately NOT in the payload — nothing
+    // ever reads it back, it is ~20KB of dead ciphertext per row, and the
+    // source email stays in Gmail for the retention window if debugging needs
+    // it. (Deviation from the §3 payload list, recorded in AGENT_SYNC.)
+    var payload = Object.assign({}, row.raw_extracted, {
+      amount: row.amount,
+      currency: row.currency,
+      direction: row.direction,
+      counterparty: row.counterparty,
+      reference_number: row.reference_number,
+      transaction_type: row.transaction_type,
+    });
+    var envelope = sealForFamily(payload, pub, familyId, row.gmail_message_id);
+    return {
+      gmail_message_id: row.gmail_message_id,
+      source_provider: row.source_provider,
+      occurred_at: row.occurred_at,
+      review_status: row.review_status,
+      duplicate_of_id: row.duplicate_of_id,
+      member_id: row.member_id,
+      dedup_fp: row.dedup_fp,
+      sealed: envelope.sealed,
+      eph_pub: envelope.eph_pub,
+      nonce: envelope.nonce,
+      enc_v: envelope.enc_v,
+    };
+  } catch (e) {
+    Logger.log('CRITICAL: sealing failed for ' + row.gmail_message_id + ' — holding. ' + e);
+    return null;
+  }
+}
+
+// Manual preflight — run by hand from the editor BEFORE flipping
+// SEALED_STAGING_ENABLED, and read the log. Read-only: mints nothing, seals
+// nothing, changes nothing. Answers the four questions that decide whether the
+// flip is safe: is the code all here, are the keys all minted, does every
+// connection's family hold a staging key, and do the pins agree.
+function sealingPreflight() {
+  Logger.log('preflight v' + PIPELINE_VERSION +
+    ' | SEALED_STAGING_ENABLED=' + PropertiesService.getScriptProperties().getProperty('SEALED_STAGING_ENABLED') +
+    ' | nacl=' + (typeof nacl !== 'undefined') +
+    ' | sealed-box.gs=' + (typeof sealForFamily !== 'undefined') +
+    ' | drbg_seed=' + !!PropertiesService.getScriptProperties().getProperty('SEALED_BOX_DRBG_SEED') +
+    ' | dedup_key=' + !!PropertiesService.getScriptProperties().getProperty(_DEDUP_FP_KEY_PROP));
+  var conns = supabaseGet('mailbox_connections', { select: 'forwarding_alias,member_id' });
+  for (var i = 0; i < conns.length; i++) {
+    var fid = familyIdForMember(conns[i].member_id);
+    var pub = fid ? stagingPubForFamily(fid) : null;
+    var pin = fid ? PropertiesService.getScriptProperties().getProperty('FAMILY_PUB_PIN_' + fid) : null;
+    var pinState = 'none';
+    if (pin && pub) {
+      var digest = Utilities.base64Encode(
+        Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pub, Utilities.Charset.UTF_8));
+      pinState = (pin === digest) ? 'match' : 'MISMATCH';
+    }
+    Logger.log('preflight | ' + conns[i].forwarding_alias +
+      ' | family=' + (fid || 'MISSING') +
+      ' | staging_pub=' + (pub ? 'present' : 'MISSING') +
+      ' | pin=' + pinState);
+  }
 }
 
 // ---------- memo tidying ----------
@@ -1344,11 +1645,15 @@ function markMailboxVerified(alias) {
 }
 
 function insertParseFailure(message, reason) {
+  // No raw_body — deliberately (0068). Storing the full plaintext email on
+  // every failure was a side door around whatever the sealed table protects
+  // (SEALED-STAGING-DESIGN §7). The email itself is still in Gmail, labelled
+  // txn/parse-failed, which the retention sweep never touches — so debugging a
+  // failure means opening the mailbox, an auditable act, not SELECTing a table.
   supabasePost('parse_failures', {
     gmail_message_id: message.getId(),
     sender: extractEmailAddress(message.getFrom()),
     subject: message.getSubject(),
-    raw_body: message.getPlainBody(),
     error_reason: reason,
   }, null);
 }
