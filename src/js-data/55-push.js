@@ -169,6 +169,20 @@
     try {
       if (!nav || !nav.k) return;
       if (nav.k === 'weather') { window.go && window.go('home'); return; }   // moods live on the home sky
+      /* Staged bank transactions: the notification says only that something is
+         waiting, so the tap has to land on the queue itself for it to mean
+         anything. fhTxnReviewSheet fetches fresh — no row id is carried in the
+         payload, deliberately, since it would be a plaintext handle to a private
+         row travelling through a push service.
+
+         Sits above the tx routes on purpose: a staged row is not in window.txns
+         and has no _dbId to find, so it must be answered before anything tries
+         to look one up. */
+      if (nav.k === 'txn_review') {
+        if (window.fhTxnReviewSheet) { window.fhTxnReviewSheet(); return; }
+        if (window.go) window.go('spending');                                 // not yet loaded: the ledger is next best
+        return;
+      }
       if (nav.k === 'expense_bulk') { window.go && window.go('spending'); return; }   // a batch → the ledger
       // an expense to open: a reaction, a freshly logged expense, or a photo-expense (memory carries tx)
       if (nav.tx && (nav.k === 'reaction' || nav.k === 'expense_new' || nav.k === 'memory_new')) {

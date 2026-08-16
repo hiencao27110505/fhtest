@@ -16,6 +16,72 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-16 (from bank-email pipeline) — PAUSING THIS THREAD. Read this before
+  you touch migrations or `package.json`.** Trang is moving to another project,
+  so this is a stopping point, not a handover of work in flight. Everything below
+  is either done and pushed, or written down so it is not lost.
+
+  **1. Bank-email onboarding is now allowlist-only — `0067` IS APPLIED to prod.**
+  This is the one thing here that changes live behaviour, so it needs saying
+  plainly. `get_or_create_mailbox_alias` now refuses with `mailbox_not_in_beta`
+  unless the caller is in `mailbox_beta_access`, and both Settings rows of the
+  feature ("Connect bank email" + "Review transactions") are hidden behind
+  `can_use_mailbox()` (`73-mailbox-gate.js`, fail-closed, asserted by
+  `tools/mailbox-gate.test.js`). Shipped v344.
+
+  Why: we promise the family is the only reader, and on this path that is not
+  true yet — staged rows are still written in plaintext and every forwarded
+  email accumulates in an operator-readable inbox we never delete from.
+  Collecting a stranger's bank mail under a promise we are not keeping is the
+  part that cannot be undone later, so new mailboxes stop until it is true.
+
+  **It does not revoke anyone.** Routing reads `mailbox_connections`, not the
+  allowlist, so the four existing connections keep flowing exactly as before —
+  and all four were seeded into the allowlist, including at least one person who
+  is not a founder. If you want that stopped rather than paused, the lever is
+  `delete from mailbox_connections where forwarding_alias = '<tag>';` and the
+  person should be told first. **That is a product call and nobody has made it.**
+
+  **2. MIGRATION NUMBERS: the 2026-08-14 entry below is STALE — do not follow
+  its numbering.** It says `0062` / `0063` and "next free is 0064". Those files
+  were renumbered before commit because 0061–0064 were already taken on main:
+
+  | was | is now | state |
+  |---|---|---|
+  | `0062_mailbox_oauth` | **`0066_mailbox_oauth`** | written, NOT applied, still untracked in Trang's tree |
+  | `0063_email_transactions_sealed` | **`0065_email_transactions_sealed`** | written, **NOT applied**, now committed |
+  | — | **`0067_mailbox_beta_gate`** | **APPLIED to prod + ledgered** |
+
+  **Next free number is `0068`.** Check `git ls-tree origin/main
+  supabase/migrations/` rather than trusting this table — that is the fifth
+  collision in this range and the reason this note exists.
+
+  **3. `package.json` — an uncommitted edit in Trang's tree will silently drop a
+  test.** Her working copy of the `test` script was written before
+  `tools/mailbox-gate.test.js` landed on main, so committing it as-is removes
+  that test from CI. Both sides edited the same line; when you merge, **union
+  the two lists** rather than taking either whole. The gate test is the one
+  proving the fail-closed property, so losing it is not cosmetic.
+
+  **4. Still open, in the order that actually reduces risk** — none started:
+  - Apply `0065`, then wire `sealForFamily()` into the pipeline and stop writing
+    `raw_body` in the clear. The review screen has branched on `row.sealed`
+    since it was written; the columns simply never existed.
+  - **Retention on the shared inbox** — delete forwarded mail after staging.
+    This is the biggest single reduction available and nothing depends on it.
+    Today the inbox is a permanent plaintext archive of other people's banking.
+  - `supabase functions deploy push-send` — still `HTTP 401`, still the only
+    thing blocking review notifications (see the 2026-08-14 entry). The client
+    tap route for `txn_review` is now on main, inert until this deploys.
+  - Trang's own forwarding points at the bare inbox, not her `+tag`, so her
+    transactions never route. Unfixed.
+  - Supabase free-tier bandwidth quota was exceeded; the likely driver is
+    `raw_body` storing full email HTML (~20KB/message), which the sealed-staging
+    design says should be deleted at promotion anyway. Fixing the retention step
+    above probably fixes this too.
+
+  **5. Nothing here is blocked on you.** This is a pause, not a request.
+
 - **2026-08-14 (from bank-email pipeline) — three Supabase-side things we cannot
   do from our side, in priority order.** Trang's Supabase account does not have
   the org privileges to authorize the MCP connector (the consent screen fails with
