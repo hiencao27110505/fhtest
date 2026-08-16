@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Tài chính · 6 phương án màn hình chính</title>
+<style>
+  :root{
+    --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+    --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+    --brand-tint:#e9f7f0; --brand-glow:rgba(46,158,107,.32);
+    --ink:#191022; --ink-2:#3a2f45; --muted:#8a8494; --muted-soft:#a29caa;
+    --canvas:#f4f1f6; --white:#fff; --surface:#f9f7f8;
+    --fill-neutral:rgba(138,132,148,.14); --chev:#cfc8d6;
+    --hairline:#e9e4ee; --divider:#f1edf4;
+    --good:#1a9d5f; --good-tint:#e7f5ee; --danger:#E0322F; --danger-tint:#fdecef;
+    --amber:#B8730B; --amber-tint:#fbefda;
+    --indigo:#5E5CE6; --indigo-tint:#ecebfb; --rose:#FF375F; --rose-tint:#ffe9ee;
+    --purple:#BF5AF2; --purple-tint:#f6ebfd;
+    --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui;
+    --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui;
+    --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+    --shadow-focal:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:#e9e5ec;color:var(--ink);font-family:var(--text);padding:40px 20px 80px}
+  .num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+
+  .page-head{max-width:900px;margin:0 auto 34px;text-align:center}
+  .page-head h1{font-family:var(--disp);font-size:32px;font-weight:800;letter-spacing:-.8px;margin:0 0 8px}
+  .page-head p{color:var(--ink-2);font-size:15.5px;line-height:1.6;margin:0 auto;max-width:620px}
+  .page-head .leg{margin-top:14px;font-size:13px;color:var(--muted)}
+
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:34px 26px;max-width:1520px;margin:0 auto;justify-items:center}
+  .mock{width:360px}
+  .cap{margin:0 4px 12px}
+  .cap .n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:7px;background:var(--ink);color:#fff;font-family:var(--disp);font-weight:700;font-size:12px;margin-right:8px;vertical-align:1px}
+  .cap .t{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px}
+  .cap .d{color:var(--muted);font-size:13px;margin-top:5px;line-height:1.5}
+
+  /* phone frame */
+  .frame{width:360px;height:782px;background:var(--canvas);border-radius:44px;
+    box-shadow:0 0 0 10px #17171c,0 22px 60px rgba(0,0,0,.28);overflow:hidden;position:relative;display:flex;flex-direction:column}
+  .status{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 30px 0 34px;flex-shrink:0}
+  .status .tm{font-family:var(--disp);font-weight:600;font-size:15px;letter-spacing:.2px}
+  .status .ic{display:flex;gap:6px;align-items:center}
+  .status .ic svg{display:block}
+  .fhead{padding:6px 20px 10px;display:flex;align-items:flex-end;justify-content:space-between;flex-shrink:0}
+  .fhead h2{font-family:var(--disp);font-size:30px;font-weight:700;letter-spacing:-.9px;margin:0}
+  .pill{font-size:12.5px;font-weight:600;color:var(--ink-2);background:var(--white);border:1px solid var(--hairline);border-radius:9999px;padding:6px 12px;display:flex;gap:5px;align-items:center}
+  .body{flex:1;overflow:hidden;padding:2px 16px 0}
+  .tabbar{height:60px;flex-shrink:0;background:rgba(255,255,255,.88);backdrop-filter:blur(18px);border-top:1px solid var(--hairline);display:flex;align-items:center;padding-bottom:4px}
+  .tabbar .tb{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted-soft);font-size:10px;font-weight:600}
+  .tabbar .tb.on{color:var(--brand)}
+  .tabbar .tb svg{width:23px;height:23px}
+
+  /* shared bits */
+  .chip{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .chip svg{width:18px;height:18px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .c-brand{background:var(--brand-tint)} .c-brand svg{stroke:var(--brand-ink)}
+  .c-amber{background:var(--amber-tint)} .c-amber svg{stroke:var(--amber)}
+  .c-indigo{background:var(--indigo-tint)} .c-indigo svg{stroke:var(--indigo)}
+  .c-green{background:var(--good-tint)} .c-green svg{stroke:var(--good)}
+  .c-rose{background:var(--rose-tint)} .c-rose svg{stroke:var(--rose)}
+  .c-purple{background:var(--purple-tint)} .c-purple svg{stroke:var(--purple)}
+  .eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+  .bar{height:7px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;display:flex}
+  .bar > i{height:100%;display:block}
+  .pos{color:var(--good)} .neg{color:var(--amber)}
+
+  .card{background:var(--white);border-radius:18px;box-shadow:var(--shadow-card)}
+  .focal{background:var(--white);border-radius:22px;box-shadow:var(--shadow-focal)}
+
+  /* ledger rows */
+  .lrow{display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid var(--divider)}
+  .lrow:last-child{border-bottom:none}
+  .lrow .lt{flex:1;min-width:0}
+  .lrow .ln{font-size:14.5px;font-weight:600;letter-spacing:-.2px}
+  .lrow .ls{font-size:11.5px;color:var(--muted);margin-top:1px}
+  .lrow .lv{font-family:var(--disp);font-size:14.5px;font-weight:700;letter-spacing:-.3px}
+
+  /* bento */
+  .bento{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .tile{background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);padding:13px 14px;min-height:96px;display:flex;flex-direction:column}
+  .tile.wide{grid-column:span 2;min-height:auto}
+  .tile .th{display:flex;align-items:center;gap:8px}
+  .tile .tl{font-size:11.5px;font-weight:600;color:var(--ink-2)}
+  .tile .big{font-family:var(--disp);font-weight:700;letter-spacing:-.6px;margin-top:auto;line-height:1}
+  .tile .ft{font-size:11px;color:var(--muted);margin-top:5px;font-weight:500}
+
+  svg.ring{transform:rotate(-90deg)}
+  svg.ring .trk{fill:none;stroke:var(--fill-neutral)}
+  svg.ring .arc{fill:none;stroke-linecap:round}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Tài chính · 6 phương án màn hình chính</h1>
+  <p>Mỗi phương án là một cách “collage” các mảnh tài chính của một cá nhân (theo bảng 17 phần) để khi mở tab Tài chính, người dùng <b>liếc một cái là nắm được toàn cảnh</b>. Cùng một bộ số liệu, sáu bố cục khác nhau — số dẫn đầu, lưới thẻ, dòng chảy, mốc thời gian, của-mình/của-chung, và vòng trạng thái.</p>
+  <div class="leg">Sage theme · SF Pro · VND · Human Interface Guidelines. Số liệu minh hoạ, cùng một người dùng.</div>
+</div>
+
+<div class="gallery">
+
+  <!-- ============ 1 · HERO + LEDGER ============ -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">1</span><span class="t">Số dư an tâm dẫn đầu</span></div>
+      <div class="d">Một con số lớn trả lời “tiêu được bao nhiêu”, phần còn lại gói thành một sổ tóm tắt sạch sẽ. An toàn, dễ đọc nhất.</div></div>
+    <div class="frame">
+      <div class="status"><span class="tm">9:41</span><span class="ic">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#191022"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".3"/></g></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="none" stroke="#191022" stroke-width="1.6"><path d="M1 4.5C4.5 1.5 12.5 1.5 16 4.5M3.5 7C6 5 11 5 13.5 7M6 9.3c1.5-1.2 3.5-1.2 5 0"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1.5" width="21" height="10" rx="2.6" fill="none" stroke="#191022" stroke-opacity=".4"/><rect x="3" y="3.5" width="15" height="6" rx="1.2" fill="#191022"/><rect x="23.5" y="4.5" width="1.8" height="4" rx="1" fill="#191022" opacity=".4"/></svg>
+      </span></div>
+      <div class="fhead"><h2>Tài chính</h2><span class="pill">Tháng 8 ▾</span></div>
+      <div class="body">
+        <div class="focal" style="padding:20px 20px 18px">
+          <div class="eyebrow">An tâm chi tiêu</div>
+          <div class="num" style="font-size:40px;font-weight:700;letter-spacing:-1.4px;margin:5px 0 3px">6.150.000 <span style="font-size:22px;color:var(--muted)">₫</span></div>
+          <div style="font-size:12.5px;color:var(--muted);font-weight:500;margin-bottom:14px">còn lại tự do trong tháng này</div>
+          <div class="bar"><i style="width:26%;background:var(--amber)"></i><i style="width:9%;background:var(--indigo)"></i><i style="width:37%;background:var(--grad-brand)"></i></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:8px;font-weight:500">
+            <span>Đã có chủ 8,2tr</span><span>Để dành 2tr</span><span class="pos" style="font-weight:700">Còn tiêu 6,15tr</span></div>
+        </div>
+        <div class="card" style="margin-top:13px">
+          <div class="lrow"><div class="chip c-brand"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/></svg></div>
+            <div class="lt"><div class="ln">Số dư thật</div><div class="ls">Tiền mặt · VCB · MoMo</div></div><div class="lv num">14.350.000</div></div>
+          <div class="lrow"><div class="chip c-amber"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+            <div class="lt"><div class="ln">Đã có chủ tháng này</div><div class="ls">Hoá đơn · trả góp · gửi nhà</div></div><div class="lv num neg">−8.200.000</div></div>
+          <div class="lrow"><div class="chip c-indigo"><svg viewBox="0 0 24 24"><path d="M12 3v6"/><circle cx="12" cy="14" r="6"/></svg></div>
+            <div class="lt"><div class="ln">Để dành &amp; mục tiêu</div><div class="ls">Du lịch 8/12tr · Dự phòng</div></div><div class="lv num">2.000.000</div></div>
+          <div class="lrow"><div class="chip c-green"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 8h5M18.5 5.5v5"/></svg></div>
+            <div class="lt"><div class="ln">Nhóm nợ bạn</div><div class="ls">Đà Lạt 3/2026</div></div><div class="lv num pos">+1.600.000</div></div>
+          <div class="lrow"><div class="chip c-rose"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2.5"/><path d="M4 9h16M8 3v4M16 3v4"/></svg></div>
+            <div class="lt"><div class="ln">Sắp tới · Tết</div><div class="ls">còn 5 tháng · thiếu 12,5tr</div></div><div class="lv num">15.000.000</div></div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>
+        <div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 2 · BENTO WIDGETS ============ -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">2</span><span class="t">Lưới thẻ (bento)</span></div>
+      <div class="d">Mỗi mảng tài chính là một ô widget — glyph, một số lớn, một dòng chú thích. Liếc phát thấy hết, đúng nghĩa collage.</div></div>
+    <div class="frame">
+      <div class="status"><span class="tm">9:41</span><span class="ic">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#191022"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".3"/></g></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="none" stroke="#191022" stroke-width="1.6"><path d="M1 4.5C4.5 1.5 12.5 1.5 16 4.5M3.5 7C6 5 11 5 13.5 7M6 9.3c1.5-1.2 3.5-1.2 5 0"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1.5" width="21" height="10" rx="2.6" fill="none" stroke="#191022" stroke-opacity=".4"/><rect x="3" y="3.5" width="15" height="6" rx="1.2" fill="#191022"/><rect x="23.5" y="4.5" width="1.8" height="4" rx="1" fill="#191022" opacity=".4"/></svg>
+      </span></div>
+      <div class="fhead"><h2>Tài chính</h2><span class="pill">Tháng 8 ▾</span></div>
+      <div class="body">
+        <div class="bento">
+          <div class="tile wide">
+            <div class="th"><div class="chip c-brand"><svg viewBox="0 0 24 24"><path d="M4 12h16M13 5l7 7-7 7"/></svg></div><div class="tl" style="font-size:12.5px">An tâm chi tiêu</div></div>
+            <div class="num" style="font-size:34px;font-weight:700;letter-spacing:-1px;margin-top:9px">6.150.000 <span style="font-size:18px;color:var(--muted)">₫</span></div>
+            <div class="bar" style="margin-top:11px"><i style="width:26%;background:var(--amber)"></i><i style="width:9%;background:var(--indigo)"></i><i style="width:37%;background:var(--grad-brand)"></i></div>
+          </div>
+          <div class="tile"><div class="th"><div class="chip c-brand"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/></svg></div><div class="tl">Có sẵn</div></div>
+            <div class="big" style="font-size:24px">14,35tr</div><div class="ft">3 ví · tiền thật</div></div>
+          <div class="tile"><div class="th"><div class="chip c-amber"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div><div class="tl">Đã cam kết</div></div>
+            <div class="big" style="font-size:24px;color:var(--amber)">8,2tr</div><div class="ft">hoá đơn · nợ · gửi nhà</div></div>
+          <div class="tile"><div class="th"><div class="chip c-indigo"><svg viewBox="0 0 24 24"><path d="M12 3v6"/><circle cx="12" cy="14" r="6"/></svg></div><div class="tl">Để dành</div></div>
+            <div class="big" style="font-size:24px">2tr</div><div class="ft">Du lịch · 67% mục tiêu</div></div>
+          <div class="tile"><div class="th"><div class="chip c-green"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 8h5M18.5 5.5v5"/></svg></div><div class="tl">Nhóm</div></div>
+            <div class="big" style="font-size:24px;color:var(--good)">+1,6tr</div><div class="ft">nhóm nợ bạn</div></div>
+          <div class="tile"><div class="th"><div class="chip c-rose"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2.5"/><path d="M4 9h16M8 3v4M16 3v4"/></svg></div><div class="tl">Tết</div></div>
+            <div class="big" style="font-size:24px">còn 5 th.</div><div class="ft">thiếu 12,5tr</div></div>
+          <div class="tile"><div class="th"><div class="chip c-purple"><svg viewBox="0 0 24 24"><path d="M4 15l5-5 4 4 7-8"/><path d="M20 6h-4M20 6v4"/></svg></div><div class="tl">Giữ hộ</div></div>
+            <div class="big" style="font-size:24px;color:var(--muted)">2,4tr</div><div class="ft">quỹ team · không của mình</div></div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>
+        <div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 3 · WATERFALL / EQUATION ============ -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">3</span><span class="t">Dòng chảy</span></div>
+      <div class="d">Thu nhập trừ dần các phần đã có chủ để lộ ra “còn tiêu”. Thấy rõ con số đến từ đâu — hợp người thích hiểu nguồn cơn.</div></div>
+    <div class="frame">
+      <div class="status"><span class="tm">9:41</span><span class="ic">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#191022"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".3"/></g></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="none" stroke="#191022" stroke-width="1.6"><path d="M1 4.5C4.5 1.5 12.5 1.5 16 4.5M3.5 7C6 5 11 5 13.5 7M6 9.3c1.5-1.2 3.5-1.2 5 0"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1.5" width="21" height="10" rx="2.6" fill="none" stroke="#191022" stroke-opacity=".4"/><rect x="3" y="3.5" width="15" height="6" rx="1.2" fill="#191022"/><rect x="23.5" y="4.5" width="1.8" height="4" rx="1" fill="#191022" opacity=".4"/></svg>
+      </span></div>
+      <div class="fhead"><h2>Tài chính</h2><span class="pill">Tháng 8 ▾</span></div>
+      <div class="body">
+        <div class="focal" style="padding:19px 20px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="eyebrow">Thu nhập tháng</div><div class="num" style="font-weight:700;font-size:17px;letter-spacing:-.4px">22.000.000 ₫</div></div>
+          <!-- vertical waterfall -->
+          <div style="margin-top:16px;display:flex;flex-direction:column;gap:0">
+            <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--divider)">
+              <div class="bar" style="flex:1;height:12px"><i style="width:100%;background:var(--fill-neutral)"></i></div>
+              <div style="width:120px;text-align:right"><div style="font-size:12px;color:var(--muted)">Vào</div><div class="num pos" style="font-weight:700;font-size:15px">+22.000.000</div></div></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--divider)">
+              <div class="bar" style="flex:1;height:12px"><i style="width:55%;background:var(--amber)"></i></div>
+              <div style="width:120px;text-align:right"><div style="font-size:12px;color:var(--muted)">Đã có chủ</div><div class="num neg" style="font-weight:700;font-size:15px">−12.200.000</div></div></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--divider)">
+              <div class="bar" style="flex:1;height:12px"><i style="width:9%;background:var(--indigo)"></i></div>
+              <div style="width:120px;text-align:right"><div style="font-size:12px;color:var(--muted)">Để dành</div><div class="num" style="font-weight:700;font-size:15px;color:var(--indigo)">−2.000.000</div></div></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:11px 0">
+              <div class="bar" style="flex:1;height:12px"><i style="width:7.5%;background:var(--muted-soft)"></i></div>
+              <div style="width:120px;text-align:right"><div style="font-size:12px;color:var(--muted)">Đã tiêu</div><div class="num" style="font-weight:700;font-size:15px;color:var(--ink-2)">−1.650.000</div></div></div>
+          </div>
+          <div style="margin-top:6px;padding-top:15px;border-top:2px solid var(--ink);display:flex;justify-content:space-between;align-items:flex-end">
+            <div><div class="eyebrow" style="color:var(--brand-ink)">Còn tiêu</div><div style="font-size:12px;color:var(--muted);margin-top:2px">tự do, an tâm</div></div>
+            <div class="num" style="font-size:32px;font-weight:800;letter-spacing:-1px;color:var(--brand-ink)">6.150.000</div></div>
+        </div>
+        <div class="card" style="margin-top:12px;display:flex;padding:4px 0">
+          <div style="flex:1;text-align:center;padding:11px 4px;border-right:1px solid var(--divider)"><div class="num" style="font-weight:700;font-size:15px">18tr</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">Lương cứng</div></div>
+          <div style="flex:1;text-align:center;padding:11px 4px;border-right:1px solid var(--divider)"><div class="num" style="font-weight:700;font-size:15px;color:var(--good)">+1,6tr</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">Nhóm nợ bạn</div></div>
+          <div style="flex:1;text-align:center;padding:11px 4px"><div class="num" style="font-weight:700;font-size:15px">28%</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">còn tự do</div></div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>
+        <div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 4 · HORIZON TIMELINE ============ -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">4</span><span class="t">Theo mốc thời gian</span></div>
+      <div class="d">Bây giờ · Tháng này · Sắp tới — sắp tiền theo trục thời gian, thấy được cái gì đang thật và cái gì đang chờ.</div></div>
+    <div class="frame">
+      <div class="status"><span class="tm">9:41</span><span class="ic">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#191022"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".3"/></g></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="none" stroke="#191022" stroke-width="1.6"><path d="M1 4.5C4.5 1.5 12.5 1.5 16 4.5M3.5 7C6 5 11 5 13.5 7M6 9.3c1.5-1.2 3.5-1.2 5 0"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1.5" width="21" height="10" rx="2.6" fill="none" stroke="#191022" stroke-opacity=".4"/><rect x="3" y="3.5" width="15" height="6" rx="1.2" fill="#191022"/><rect x="23.5" y="4.5" width="1.8" height="4" rx="1" fill="#191022" opacity=".4"/></svg>
+      </span></div>
+      <div class="fhead"><h2>Tài chính</h2><span class="pill">Tháng 8 ▾</span></div>
+      <div class="body" style="padding-left:16px">
+        <div style="position:relative;padding-left:22px">
+          <div style="position:absolute;left:5px;top:8px;bottom:8px;width:2px;background:var(--hairline)"></div>
+
+          <div style="position:absolute;left:0;top:6px;width:12px;height:12px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 3px var(--brand-tint)"></div>
+          <div class="eyebrow" style="margin-bottom:8px">Bây giờ</div>
+          <div class="card" style="padding:14px 15px;margin-bottom:18px">
+            <div style="font-size:12px;color:var(--muted);font-weight:600">Trong tay</div>
+            <div class="num" style="font-size:26px;font-weight:700;letter-spacing:-.7px;margin:3px 0 10px">14.350.000 ₫</div>
+            <div style="display:flex;gap:7px">
+              <div style="flex:1;background:var(--surface);border:1px solid var(--hairline);border-radius:11px;padding:8px 9px"><div style="font-size:10px;color:var(--muted)">Mặt</div><div class="num" style="font-weight:600;font-size:12.5px">850k</div></div>
+              <div style="flex:1;background:var(--surface);border:1px solid var(--hairline);border-radius:11px;padding:8px 9px"><div style="font-size:10px;color:var(--muted)">VCB</div><div class="num" style="font-weight:600;font-size:12.5px">12,4tr</div></div>
+              <div style="flex:1;background:var(--surface);border:1px solid var(--hairline);border-radius:11px;padding:8px 9px"><div style="font-size:10px;color:var(--muted)">MoMo</div><div class="num" style="font-weight:600;font-size:12.5px">1,1tr</div></div>
+            </div>
+          </div>
+
+          <div style="position:absolute;left:0;top:198px;width:12px;height:12px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 3px var(--amber-tint)"></div>
+          <div class="eyebrow" style="margin-bottom:8px">Tháng này</div>
+          <div class="card" style="padding:6px 0;margin-bottom:18px;display:flex">
+            <div style="flex:1;text-align:center;padding:10px 4px;border-right:1px solid var(--divider)"><div class="num pos" style="font-weight:700;font-size:15px">+22tr</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">Vào</div></div>
+            <div style="flex:1;text-align:center;padding:10px 4px;border-right:1px solid var(--divider)"><div class="num neg" style="font-weight:700;font-size:15px">−14,2tr</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">Ra + để dành</div></div>
+            <div style="flex:1;text-align:center;padding:10px 4px"><div class="num" style="font-weight:800;font-size:15px;color:var(--brand-ink)">6,15tr</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">Còn tiêu</div></div>
+          </div>
+
+          <div style="position:absolute;left:0;top:330px;width:12px;height:12px;border-radius:50%;background:var(--indigo);box-shadow:0 0 0 3px var(--indigo-tint)"></div>
+          <div class="eyebrow" style="margin-bottom:8px">Sắp tới</div>
+          <div class="card">
+            <div class="lrow"><div class="chip c-rose"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2.5"/><path d="M4 9h16M8 3v4M16 3v4"/></svg></div>
+              <div class="lt"><div class="ln">Tết Nguyên Đán</div><div class="ls">còn ~5 tháng</div></div><div style="text-align:right"><div class="lv num neg">thiếu 12,5tr</div><div style="font-size:10.5px;color:var(--muted)">đã để 2,5/15tr</div></div></div>
+            <div class="lrow"><div class="chip c-indigo"><svg viewBox="0 0 24 24"><path d="M12 3v6"/><circle cx="12" cy="14" r="6"/></svg></div>
+              <div class="lt"><div class="ln">Quỹ Du lịch</div><div class="ls">mục tiêu 12tr</div></div><div style="text-align:right"><div class="lv num">8.000.000</div><div style="font-size:10.5px;color:var(--good)">67%</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>
+        <div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 5 · MINE vs SHARED ============ -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">5</span><span class="t">Của mình ↔ Của chung</span></div>
+      <div class="d">Tách rõ tiền cá nhân và tiền quan hệ — đúng “đường nối” sang lớp gia đình/nhóm. Đậm chất Earthy.</div></div>
+    <div class="frame">
+      <div class="status"><span class="tm">9:41</span><span class="ic">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#191022"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".3"/></g></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="none" stroke="#191022" stroke-width="1.6"><path d="M1 4.5C4.5 1.5 12.5 1.5 16 4.5M3.5 7C6 5 11 5 13.5 7M6 9.3c1.5-1.2 3.5-1.2 5 0"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1.5" width="21" height="10" rx="2.6" fill="none" stroke="#191022" stroke-opacity=".4"/><rect x="3" y="3.5" width="15" height="6" rx="1.2" fill="#191022"/><rect x="23.5" y="4.5" width="1.8" height="4" rx="1" fill="#191022" opacity=".4"/></svg>
+      </span></div>
+      <div class="fhead"><h2>Tài chính</h2><span class="pill">Tháng 8 ▾</span></div>
+      <div class="body">
+        <div class="eyebrow" style="margin:4px 4px 9px">Của mình</div>
+        <div class="focal" style="padding:16px 18px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end">
+            <div><div style="font-size:12px;color:var(--muted);font-weight:600">An tâm chi tiêu</div>
+              <div class="num" style="font-size:30px;font-weight:700;letter-spacing:-.9px;margin-top:2px">6.150.000 ₫</div></div>
+            <div style="text-align:right;font-size:11.5px;color:var(--muted);line-height:1.7">
+              <div>Thật <b class="num" style="color:var(--ink)">14,35tr</b></div><div>Đã có chủ <b class="num" style="color:var(--amber)">8,2tr</b></div></div>
+          </div>
+          <div class="bar" style="margin-top:13px"><i style="width:57%;background:var(--amber)"></i><i style="width:43%;background:var(--grad-brand)"></i></div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:9px;margin:20px 4px 9px">
+          <span class="eyebrow">Giữa người với người</span><span style="flex:1;height:1px;background:var(--hairline)"></span>
+          <span class="num pos" style="font-weight:700;font-size:13px">ròng +1,6tr</span></div>
+        <div class="card">
+          <div class="lrow"><div class="chip c-brand" style="border-radius:50%"><svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10.5V19h12v-8.5"/></svg></div>
+            <div class="lt"><div class="ln">Gia đình</div><div class="ls">quỹ chung · 4 thành viên</div></div>
+            <div style="text-align:right"><div class="lv num">đã góp 3,2tr</div><div style="font-size:10.5px;color:var(--muted)">tháng này</div></div></div>
+          <div class="lrow"><div class="chip c-green" style="border-radius:50%"><svg viewBox="0 0 24 24"><path d="m4 15 4-5 4 3 8-9"/></svg></div>
+            <div class="lt"><div class="ln">Đà Lạt 3/2026</div><div class="ls">chuyến đi · 5 người</div></div>
+            <div style="text-align:right"><div class="lv num pos">nhóm nợ bạn</div><div class="num pos" style="font-size:12px">+1.600.000</div></div></div>
+          <div class="lrow"><div class="chip c-purple" style="border-radius:50%"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M9 7V5.5A2.5 2.5 0 0 1 15 5.5V7"/></svg></div>
+            <div class="lt"><div class="ln">Giữ hộ · Quỹ team</div><div class="ls">bạn đang giữ, không phải của mình</div></div>
+            <div style="text-align:right"><div class="lv num" style="color:var(--muted)">2.400.000</div><div style="font-size:10.5px;color:var(--muted)">tách khỏi số dư</div></div></div>
+        </div>
+        <div style="font-size:11.5px;color:var(--muted);margin:10px 6px 0;line-height:1.5">Tiền “của chung” và “giữ hộ” <b>không cộng</b> vào số an tâm ở trên — chúng thuộc về quan hệ, không phải ví bạn.</div>
+      </div>
+      <div class="tabbar">
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>
+        <div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 6 · RINGS / STATUS DIAL ============ -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">6</span><span class="t">Vòng trạng thái</span></div>
+      <div class="d">Một vòng lớn cho “còn tiêu”, ba vòng nhỏ cho chi tiêu · mục tiêu · Tết. Biểu cảm hơn, vẫn tiết chế.</div></div>
+    <div class="frame">
+      <div class="status"><span class="tm">9:41</span><span class="ic">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#191022"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".3"/></g></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="none" stroke="#191022" stroke-width="1.6"><path d="M1 4.5C4.5 1.5 12.5 1.5 16 4.5M3.5 7C6 5 11 5 13.5 7M6 9.3c1.5-1.2 3.5-1.2 5 0"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1.5" width="21" height="10" rx="2.6" fill="none" stroke="#191022" stroke-opacity=".4"/><rect x="3" y="3.5" width="15" height="6" rx="1.2" fill="#191022"/><rect x="23.5" y="4.5" width="1.8" height="4" rx="1" fill="#191022" opacity=".4"/></svg>
+      </span></div>
+      <div class="fhead"><h2>Tài chính</h2><span class="pill">Tháng 8 ▾</span></div>
+      <div class="body">
+        <div class="focal" style="padding:20px 18px 18px">
+          <div style="position:relative;width:188px;height:188px;margin:0 auto">
+            <svg width="188" height="188" viewBox="0 0 140 140" class="ring" style="display:block">
+              <circle class="trk" cx="70" cy="70" r="58" stroke-width="13"/>
+              <circle class="arc" cx="70" cy="70" r="58" stroke-width="13" stroke="#2E9E6B" stroke-dasharray="102 364" stroke-linecap="round"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+              <div class="eyebrow" style="color:var(--brand-ink)">Còn tiêu</div>
+              <div class="num" style="font-size:29px;font-weight:800;letter-spacing:-1px;margin-top:4px">6.150.000</div>
+              <div style="font-size:11.5px;color:var(--muted);margin-top:3px">28% của 22tr thu nhập</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:11px;margin-top:13px">
+          <div class="card" style="flex:1;padding:13px 8px;text-align:center">
+            <div style="position:relative;width:56px;height:56px;margin:0 auto">
+              <svg width="56" height="56" viewBox="0 0 60 60" class="ring"><circle class="trk" cx="30" cy="30" r="24" stroke-width="7"/><circle class="arc" cx="30" cy="30" r="24" stroke-width="7" stroke="#B8730B" stroke-dasharray="112 151"/></svg>
+              <div class="num" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">74%</div></div>
+            <div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:7px">Chi tiêu</div><div style="font-size:10px;color:var(--muted-soft)">5,8/7,8tr</div></div>
+          <div class="card" style="flex:1;padding:13px 8px;text-align:center">
+            <div style="position:relative;width:56px;height:56px;margin:0 auto">
+              <svg width="56" height="56" viewBox="0 0 60 60" class="ring"><circle class="trk" cx="30" cy="30" r="24" stroke-width="7"/><circle class="arc" cx="30" cy="30" r="24" stroke-width="7" stroke="#5E5CE6" stroke-dasharray="101 151"/></svg>
+              <div class="num" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">67%</div></div>
+            <div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:7px">Du lịch</div><div style="font-size:10px;color:var(--muted-soft)">8/12tr</div></div>
+          <div class="card" style="flex:1;padding:13px 8px;text-align:center">
+            <div style="position:relative;width:56px;height:56px;margin:0 auto">
+              <svg width="56" height="56" viewBox="0 0 60 60" class="ring"><circle class="trk" cx="30" cy="30" r="24" stroke-width="7"/><circle class="arc" cx="30" cy="30" r="24" stroke-width="7" stroke="#FF375F" stroke-dasharray="26 151"/></svg>
+              <div class="num" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">17%</div></div>
+            <div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:7px">Tết</div><div style="font-size:10px;color:var(--muted-soft)">2,5/15tr</div></div>
+        </div>
+        <div class="card" style="margin-top:11px;display:flex;align-items:center;gap:10px;padding:12px 15px">
+          <div class="chip c-green"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 8h5M18.5 5.5v5"/></svg></div>
+          <div style="flex:1;font-size:13px;font-weight:600">Nhóm nợ bạn</div><div class="num pos" style="font-weight:700;font-size:14px">+1.600.000</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>
+        <div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
