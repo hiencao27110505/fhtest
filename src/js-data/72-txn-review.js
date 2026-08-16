@@ -190,4 +190,11 @@
       window.toast && window.toast(L('Đã lưu, nhưng danh sách chưa dọn — sẽ hiện lại',
                                      'Saved, but the queue did not clear — these may reappear'));
     }
+
+    /* They have just reviewed real transactions by hand, which is exactly the
+       evidence that nothing told them the queue had filled. Offered here, once,
+       and only if this member has never been asked (71-mailbox-ui). Placed after
+       the cleanup rather than inside the success branch: the ledger write landed
+       either way, so the moment is earned either way. */
+    _mbxPushOfferOnce();
   };

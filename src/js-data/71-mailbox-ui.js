@@ -30,6 +30,7 @@
     fwd:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6.5 19 12l-6 5.5"/><path d="M19 12H8.5a4.5 4.5 0 0 0-4.5 4.5V18"/></svg>',
     copy:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.4"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg>',
     done:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4 4 10-10.5"/></svg>',
+    bell:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15.4V11a6 6 0 1 0-12 0v4.4L4.6 17.9h14.8z"/><path d="M10 20.4a2.2 2.2 0 0 0 4 0"/></svg>',
   };
   const _mbxGlyph = (k) => _MBX_SVG[k] || '';
 
@@ -145,6 +146,12 @@
       '<div class="mbx-step-s">' + _esc(sub) + '</div></div></div>';
   }
 
+  /* This file is js-data (ES module scope), so a bare function is NOT a global —
+     and the status sheet reaches this one from an inline onclick. Without the
+     bridge "Show the steps again" threw ReferenceError and did nothing, for every
+     member who had already connected. See CLAUDE.md §3. */
+  window.fhMailboxSetup = fhMailboxSetup;
+
   window.fhMailboxCopy = async function (btn, addr) {
     try { await navigator.clipboard.writeText(addr); } catch (e) { /* fall through to the label swap */ }
     try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {}
@@ -162,14 +169,73 @@
     }
   };
 
+  /* ── telling them it arrived ────────────────────────────────────────────────
+     A connected mailbox that cannot tell you anything is half a feature: mail
+     lands, the queue fills, and nothing says so. Push is only ever offered at
+     Settings → Notifications, so a member who connected here and never went
+     there hears nothing at all — silently, which is the worst version. These two
+     offer it at the moments this feature earns the right to ask.
+
+     Both only ever OFFER. Neither subscribes anything on the member's behalf:
+     fhPushEnable must stay behind a real tap, because iOS drops the user-gesture
+     context and a permission prompt nobody asked for is the fastest way to a
+     permanent 'denied'. */
+
+  // Inline row for the status sheet. 'denied' and 'unsupported' are left alone —
+  // there is nothing to offer, and saying so here would just be noise on a screen
+  // about something else. 'ios-install' IS offered: fhPushSheet explains the
+  // Home-Screen step, which is the real answer for that member.
+  async function _mbxPushRow() {
+    try {
+      if (!window.fhPushState || !window.fhPushSheet) return '';
+      const ps = await window.fhPushState();
+      if (ps !== 'off' && ps !== 'ios-install') return '';
+      return '<div class="mbx-note">' + _mbxGlyph('bell') + '<span>' + _esc(L(
+        'Bật thông báo để biết ngay khi có giao dịch mới chờ bạn duyệt.',
+        'Turn on notifications and you’ll know as soon as a transaction is waiting for you.')) + '</span></div>' +
+        '<button class="btn-line" onclick="fhPushSheet()">' +
+          _esc(L('Bật thông báo 🔔', 'Turn on notifications 🔔')) + '</button>';
+    } catch (e) { return ''; }
+  }
+
+  /* One-time offer after a member has actually reviewed something (72-txn-review
+     calls this once the promote lands). Mirrors fhInstallNudge: an earned moment,
+     not a boot popup. That timing is the whole point for the members who
+     connected before notifications existed — they never see a setup screen again,
+     but they do reach the end of a review, and reaching it by hand is the proof
+     that nothing told them the queue had filled.
+
+     Keyed per member, not per device: two seats sharing a phone are two separate
+     push subscriptions, so each deserves the question once. Flag is set BEFORE
+     the sheet opens, so a throw mid-render cannot turn this into a loop. */
+  async function _mbxPushOfferOnce() {
+    try {
+      if (!window.fhPushState || !window.fhPushSheet) return;
+      const mid = window.DB && window.DB.ownerMemberId;
+      if (!mid) return;
+      const key = 'fh-mbx-push-nudged:' + mid;
+      if (localStorage.getItem(key) === '1') return;
+      // Only the actionable state. 'ios-install' is deliberately excluded here,
+      // unlike the row above: interrupting someone who just finished a task with
+      // a multi-step install errand is a worse trade than staying quiet.
+      if ((await window.fhPushState()) !== 'off') return;
+      localStorage.setItem(key, '1');
+      setTimeout(function () { try { window.fhPushSheet(); } catch (e) {} }, 1200);
+    } catch (e) {}
+  }
+
   // ── Sheet 3 · the status ───────────────────────────────────────────────────
   /* `verified` is set by the Apps Script once it has clicked Gmail's confirmation.
      Unverified = "keep waiting" (user hasn't finished the Gmail side, or the
      confirmation hasn't arrived) — both are normal, neither is an error, and the
      copy must stay calm rather than alarm. */
-  function fhMailboxStatus(st) {
+  async function fhMailboxStatus(st) {
     const addr = fhAliasAddress(st.forwarding_alias);
     const ok = !!st.verified;
+    // Resolved before the sheet renders rather than patched in after: the row
+    // changes what this screen is offering, and a control that appears a beat
+    // late reads as a glitch on a screen the member is already reading.
+    const pushRow = await _mbxPushRow();
     _fhSheet(
       '<div class="sheet-h">' + _esc(ok ? L('Đã kết nối', 'Connected') : L('Đang chờ Gmail', 'Waiting for Gmail')) + '</div>' +
       '<div class="sheet-sub">' + _esc(ok
@@ -187,6 +253,8 @@
         '<div class="mbx-note"><span>' + _esc(L(
           'Chưa thiết lập trong Gmail? Mở lại hướng dẫn bên dưới.',
           'Haven’t set it up in Gmail yet? Reopen the steps below.')) + '</span></div>') +
+
+      pushRow +
 
       '<button class="btn-line" onclick="fhMailboxSetup(\'' + _escAttr(st.forwarding_alias) + '\')">' +
         _esc(L('Xem lại hướng dẫn', 'Show the steps again')) + '</button>' +
