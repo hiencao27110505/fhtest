@@ -230,8 +230,14 @@ applied currently has its new messages hidden forever.
 **Tests** (`npm test`, all executable, no mocks of the code under test — real
 functions are extracted from the `.gs` by name so they fail if the source
 changes): `sender-auth`, `forwarding-confirm`, `extraction-template`,
-`memo-tidy`, `review-notify`, `resilience`, `sealed-box`,
+`memo-tidy`, `review-notify`, `resilience`, `retention`, `sealed-box`,
 `client-reference-staging-keys`, `bulk-promote`, `mailbox-gate`.
+
+**`npm test` discovers these, it does not list them** (`tools/run-tests.js`, since
+2026-08-16). Drop a `*.test.js` into `pipeline/` or `tools/` and it runs. Do not
+reintroduce a hand-maintained list in `package.json` — that line lost four test
+files to a merge twice, `review-notify` among them, and a test that stops being
+run does not fail, it just goes quiet. See `docs/COLLABORATION.md`.
 
 `memo-tidy.test.js` is worth reading before touching extraction: every string in
 it is verbatim from a real bank email, and the case that matters is the memo that

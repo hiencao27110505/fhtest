@@ -8,8 +8,9 @@
     "build:deploy": "node build.js --deploy",
     "split": "node tools/split.js",
     "parse": "node tools/parse-check.js",
-    "test": "node pipeline/sender-auth.test.js && node pipeline/forwarding-confirm.test.js && node pipeline/extraction-template.test.js && node pipeline/memo-tidy.test.js && node pipeline/review-notify.test.js && node pipeline/resilience.test.js && node pipeline/sealed-box.test.js && node pipeline/client-reference-staging-keys.test.js && node tools/bulk-promote.test.js && node tools/mailbox-gate.test.js",
-    "check": "node build.js && git diff --exit-code -- index.html && echo 'index.html is in sync with src/'"
+    "test": "node tools/run-tests.js",
+    "check": "node build.js && git diff --exit-code -- index.html && echo 'index.html is in sync with src/'",
+    "resolve": "node build.js && git add index.html && echo 'index.html rebuilt from src/ and staged'"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",

@@ -28,6 +28,82 @@ to act, or just know?"* — act → Open Questions, know → Landed/FYI.
 This is **async, not real-time**: push an entry when you have something, and say so
 out-of-band (Slack/DM) — the file doesn't notify anyone by itself.
 
+## Working concurrently: one agent, one worktree
+
+**The rule: never run two agents in the same working directory.** Same repo is fine and
+expected. Same *checkout* is not.
+
+This is written down because it happened, on 2026-08-16, and produced four distinct
+failures inside a single afternoon:
+
+1. A `git reset --hard origin/main` ran that neither the session nor its human issued.
+   A backup branch created seconds later captured the *post-reset* commit, so the
+   insurance taken out immediately before a destructive operation silently protected
+   nothing. (The commits survived in the reflog, but only by luck.)
+2. `pipeline/bank-email-pipeline.gs` was rewritten mid-task by the other session —
+   ~95 lines of inbox-retention work appearing in a file the first session had already
+   verified as clean and was reasoning about.
+3. `package.json`'s `test` script was edited by both sessions within minutes.
+4. Both sessions appended to `AGENT_SYNC.md` in the same window.
+
+None of these is a mistake anyone made. They are all the same structural fact: git's
+unit of isolation is the worktree, and two writers sharing one have no isolation at
+all. Branches do not help, because a branch is a pointer and both agents are moving
+files under the same one.
+
+**Use `git worktree`.** Each agent gets its own directory and its own index, sharing
+one object store and one history:
+
+```sh
+git worktree add ../fh-notifications -b notifications main
+git worktree add ../fh-retention     -b retention     main
+git worktree list                       # who is where
+git worktree remove ../fh-notifications # when done
+```
+
+Integration then happens through branches and merges, which is the thing git is
+actually built to arbitrate.
+
+**If you truly must share a tree** (a human and one agent, say), then: scope every
+commit explicitly (`git add <paths>`, never `git add -A` or `git commit -a`), and
+re-check `git status` immediately before committing rather than trusting a reading
+from earlier in the task. Anything you did not write is not yours to commit, and
+sweeping it in misattributes someone else's half-finished work under your message.
+
+### Claim territory before you edit, not after
+
+`AGENT_SYNC.md` already requires announcing a migration number *before* writing the
+migration. The same rule earns its keep for files: post the paths you are about to
+work in before the first edit. It costs one line and it is the only thing that turns
+"we both edited that" into "I saw your claim."
+
+### Remove the collision surface instead of coordinating around it
+
+Two of the four failures above were **structural**, and structure is cheaper to fix
+than vigilance:
+
+- **`npm test` no longer lists tests** — `tools/run-tests.js` discovers every
+  `pipeline/*.test.js` and `tools/*.test.js`. The old single-line `&&` chain was a
+  merge magnet, and losing a test from it does not fail: the suite just quietly stops
+  running it. That is not hypothetical — it happened twice, and the second time took
+  `review-notify.test.js` with it, the guard for the exact feature being shipped that
+  day. A new test is now a new *file*, which git merges cleanly. The runner exits 1 on
+  an empty discovery, because a green tick over zero tests would recreate the bug.
+- **`index.html` is never hand-merged** — see [`../.gitattributes`](../.gitattributes).
+  On a conflict, `npm run resolve` rebuilds it from `src/` and stages it. Correct
+  whichever side "won", because `src/` is the truth.
+
+When a coordination rule keeps getting broken, prefer deleting the thing being
+coordinated over writing a firmer rule about it.
+
+### Keep the shared log append-friendly
+
+Add new `AGENT_SYNC.md` entries at the **top** of their section. Two agents appending
+to the same region conflict; two agents inserting at a known boundary usually do not.
+If entries start conflicting anyway, the next step is one file per entry in a
+directory — deliberately not done yet, because restructuring a file another session
+is actively writing is the same mistake in a new costume.
+
 ## Attribution
 
 Sign entries with your name + the feature area you're working on (e.g. "Hien — Key Card
