@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<title>Earthy — Mô hình Tài chính (bản thử)</title>
+<style>
+  :root{
+    --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+    --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+    --brand-tint:#e9f7f0; --brand-glow:rgba(46,158,107,.32);
+    --ink:#191022; --ink-2:#3a2f45; --muted:#8a8494; --muted-soft:#a29caa;
+    --canvas:#f4f1f6; --white:#fff; --surface:#f9f7f8;
+    --fill-neutral:rgba(138,132,148,.14); --chev:#cfc8d6;
+    --hairline:#e9e4ee; --divider:#f1edf4;
+    --good:#1a9d5f; --good-tint:#e7f5ee; --danger:#E0322F; --danger-tint:#fdecef;
+    --amber:#B8730B; --amber-tint:#fbefda;
+    --cat-housing:#5E5CE6; --cat-food:#34C759; --cat-dining:#FF375F; --cat-fun:#BF5AF2;
+    --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui;
+    --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui;
+    --r-card-lg:22px;
+    --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+    --shadow-focal:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09);
+    --shadow-modal:0 -12px 44px rgba(25,16,34,.22);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:#e7e3ea;font-family:var(--text);color:var(--ink);-webkit-text-size-adjust:100%}
+  .num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+  /* device frame */
+  .phone{position:fixed;inset:0;background:var(--canvas);display:flex;flex-direction:column;overflow:hidden}
+  @media (min-width:440px) and (pointer:fine){
+    .phone{position:relative;width:390px;height:844px;margin:22px auto;border-radius:46px;
+      box-shadow:0 0 0 11px #1b1b20,0 30px 80px rgba(0,0,0,.4);overflow:hidden}
+    body{display:flex;align-items:center;justify-content:center}
+  }
+  .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:118px}
+  .scroll::-webkit-scrollbar{display:none}
+
+  /* header */
+  .top{padding:64px 20px 6px;display:flex;align-items:flex-end;justify-content:space-between}
+  .h-title{font-family:var(--disp);font-size:32px;font-weight:700;letter-spacing:-1px;margin:0}
+  .top .pill{font-size:13px;font-weight:600;color:var(--ink-2);background:var(--white);
+    border:1px solid var(--hairline);border-radius:9999px;padding:7px 13px;display:flex;gap:5px;align-items:center}
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+  /* cards */
+  .card{background:var(--white);border-radius:20px;box-shadow:var(--shadow-card);margin:0 16px 14px;overflow:hidden}
+  .section-h{display:flex;align-items:baseline;justify-content:space-between;margin:24px 22px 12px}
+  .section-h h2{font-family:var(--disp);font-size:20px;font-weight:700;letter-spacing:-.4px;margin:0}
+  .section-h .lnk{font-size:14px;font-weight:600;color:var(--brand-ink)}
+
+  /* MY MONEY hero */
+  .money{margin:8px 16px 14px;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:22px 20px}
+  .money .lab{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .money .big{font-family:var(--disp);font-size:38px;font-weight:700;letter-spacing:-1.2px;margin:4px 0 2px;color:var(--ink)}
+  .money .sub{font-size:13.5px;color:var(--muted);font-weight:500}
+  .money .sub b{color:var(--good);font-weight:700}
+  .wallets{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+  .wchip{flex:1;min-width:96px;background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:11px 12px}
+  .wchip .wn{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:3px}
+  .wchip .wv{font-family:var(--disp);font-size:15px;font-weight:600;letter-spacing:-.2px}
+
+  /* circle rows */
+  .crow{display:flex;align-items:center;gap:13px;padding:15px 18px;border-bottom:1px solid var(--divider);width:100%;text-align:left;background:none}
+  .crow:last-child{border-bottom:none}
+  .crow:active{background:var(--canvas)}
+  .cico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;background:var(--fill-neutral)}
+  .crow .ct{flex:1;min-width:0}
+  .crow .cn{font-size:16px;font-weight:600;letter-spacing:-.2px;display:flex;align-items:center;gap:7px}
+  .crow .cs{font-size:13px;color:var(--muted);margin-top:2px}
+  .crow .cr{text-align:right;flex-shrink:0}
+  .crow .camt{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.2px}
+  .crow .clab{font-size:11px;color:var(--muted);margin-top:1px}
+  .owe{color:var(--good)} .owed{color:var(--amber)}
+  .tag{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:9999px}
+  .tag.mem{background:var(--brand-tint);color:var(--brand-ink)}
+  .tag.perm{background:var(--fill-neutral);color:var(--muted)}
+  .chev{color:var(--chev);flex-shrink:0}
+
+  .note{font-size:12.5px;color:var(--muted);margin:2px 22px 0;line-height:1.5}
+  .divlab{display:flex;align-items:center;gap:9px;margin:2px 22px 10px}
+  .divlab .ln{flex:1;height:1px;background:var(--hairline)}
+  .divlab .tx{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-soft)}
+
+  /* home + moments light views */
+  .lite{padding:20px 22px;color:var(--muted);font-size:15px;line-height:1.6}
+  .lite h3{font-family:var(--disp);color:var(--ink);font-size:19px;margin:0 0 6px}
+  .hero-scene{margin:8px 16px 18px;height:186px;border-radius:var(--r-card-lg);background:linear-gradient(#bfe3f4,#e8f5e5);
+    display:flex;align-items:flex-end;justify-content:center;overflow:hidden;box-shadow:var(--shadow-card);position:relative}
+  .hero-scene .sun{position:absolute;top:22px;right:30px;width:44px;height:44px;border-radius:50%;background:#ffe08a;box-shadow:0 0 30px #ffe9a8}
+  .cottage{width:120px;height:96px;margin-bottom:24px;position:relative}
+  .cottage .body{position:absolute;bottom:0;left:18px;width:84px;height:56px;background:#fff;border-radius:4px;box-shadow:var(--shadow-card)}
+  .cottage .roof{position:absolute;top:14px;left:6px;width:108px;height:34px;background:var(--brand-ink);clip-path:polygon(50% 0,100% 100%,0 100%)}
+  .cottage .door{position:absolute;bottom:0;left:52px;width:16px;height:30px;background:var(--brand-ink);border-radius:3px 3px 0 0}
+  .cottage .win{position:absolute;bottom:26px;width:14px;height:14px;background:#ffe08a;border-radius:2px}
+  .cottage .w1{left:30px} .cottage .w2{right:30px}
+
+  /* tab bar */
+  .tabbar{position:absolute;left:0;right:0;bottom:0;height:calc(74px + env(safe-area-inset-bottom));
+    padding-bottom:env(safe-area-inset-bottom);background:rgba(255,255,255,.86);backdrop-filter:blur(20px);
+    border-top:1px solid var(--hairline);display:flex;z-index:40}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:10.5px;font-weight:600}
+  .tab.on{color:var(--brand)}
+  .tab svg{width:25px;height:25px}
+  .fab{position:absolute;right:18px;bottom:calc(90px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;
+    background:var(--grad-brand);box-shadow:0 8px 22px var(--brand-glow);display:flex;align-items:center;justify-content:center;z-index:41}
+  .fab svg{width:26px;height:26px;stroke:#fff;stroke-width:2.4}
+
+  /* overlay (space / memory) */
+  .overlay{position:absolute;inset:0;background:var(--canvas);z-index:50;transform:translateX(100%);
+    transition:transform .38s cubic-bezier(.32,.72,0,1);visibility:hidden;display:flex;flex-direction:column}
+  .overlay.on{transform:none;visibility:visible}
+  .ov-nav{padding:56px 16px 8px;display:flex;align-items:center;gap:6px;background:var(--canvas)}
+  .ov-nav button{display:flex;align-items:center;gap:2px;color:var(--brand-ink);font-size:16px;font-weight:600}
+  .ov-nav .t{flex:1;text-align:center;font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.3px;margin-right:56px}
+  .space-head{margin:6px 16px 4px;padding:20px;background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal)}
+  .space-head .em{font-size:34px}
+  .space-head .nm{font-family:var(--disp);font-size:23px;font-weight:700;letter-spacing:-.5px;margin:6px 0 2px}
+  .space-head .mm{font-size:13px;color:var(--muted);font-weight:500}
+  .bal{display:flex;gap:10px;margin-top:16px}
+  .bal .b{flex:1;background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:12px}
+  .bal .b .bl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .bal .b .bv{font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.4px;margin-top:3px}
+  .feed{margin:6px 16px}
+  .fitem{display:flex;gap:13px;padding:14px 4px;border-bottom:1px solid var(--divider);align-items:center}
+  .fitem:last-child{border-bottom:none}
+  .fico{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;background:var(--fill-neutral);flex-shrink:0}
+  .fitem .ft{flex:1;min-width:0}
+  .fitem .fn{font-size:15px;font-weight:600;letter-spacing:-.2px}
+  .fitem .fs{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .fitem .fa{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.2px}
+  .fmoment{border-radius:14px;overflow:hidden;margin:8px 0;height:150px;background:linear-gradient(120deg,#f4d9c4,#d9c4ea);position:relative;display:flex;align-items:flex-end}
+  .fmoment .cap{padding:12px 14px;color:#fff;font-weight:600;font-size:14px;text-shadow:0 1px 8px rgba(0,0,0,.4)}
+  .fmoment .scr{position:absolute;inset:0;background:linear-gradient(transparent 45%,rgba(0,0,0,.4))}
+
+  /* cta */
+  .cta{display:block;width:calc(100% - 32px);margin:16px;padding:17px;border-radius:9999px;background:var(--grad-brand);
+    color:#fff;font-size:17px;font-weight:700;box-shadow:0 8px 22px var(--brand-glow);text-align:center}
+  .cta:active{transform:scale(.98)}
+  .cta.ghost{background:var(--white);color:var(--brand-ink);border:1.5px solid var(--brand);box-shadow:none}
+
+  /* modal */
+  .scrim{position:absolute;inset:0;background:rgba(25,16,34,.34);opacity:0;visibility:hidden;transition:opacity .3s;z-index:59}
+  .scrim.on{opacity:1;visibility:visible}
+  .modal{position:absolute;left:0;right:0;bottom:0;background:var(--white);border-radius:22px 22px 0 0;z-index:62;
+    transform:translateY(100%);transition:transform .42s cubic-bezier(.32,.72,0,1);padding-bottom:env(safe-area-inset-bottom);max-height:92%;display:flex;flex-direction:column}
+  .modal.on{transform:none}
+  .m-nav{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 4px}
+  .m-nav .c{color:var(--muted);font-size:16px;font-weight:500}
+  .m-nav .s{color:var(--brand-ink);font-size:16px;font-weight:700}
+  .m-nav .tt{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.3px}
+  .m-body{padding:8px 18px 18px;overflow-y:auto}
+  .grip{width:38px;height:5px;border-radius:9999px;background:#e2dce8;margin:8px auto 0}
+  .field{margin-top:16px}
+  .field label{display:block;font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .field input{width:100%;border:2px solid transparent;background:var(--canvas);border-radius:13px;padding:15px;font-size:17px;font-family:inherit;color:var(--ink);outline:none}
+  .field input.big{font-family:var(--disp);font-size:30px;font-weight:700;letter-spacing:-.5px;text-align:left}
+  .field input:focus{border-color:var(--brand);background:var(--white)}
+  .choices{display:flex;flex-wrap:wrap;gap:9px}
+  .choice{border:1.5px solid var(--hairline);background:var(--white);border-radius:9999px;padding:10px 15px;font-size:14px;font-weight:600;color:var(--ink-2);display:flex;align-items:center;gap:6px}
+  .choice.on{border:2px solid var(--brand);background:var(--brand-tint);color:var(--brand-ink);font-weight:700}
+  .choice .lk{font-size:12px}
+  .privacy{margin-top:12px;background:var(--brand-tint);border-radius:13px;padding:12px 14px;font-size:13px;color:var(--brand-ink);font-weight:500;line-height:1.5;display:none}
+  .privacy.on{display:block}
+  .privacy b{font-weight:700}
+
+  /* toast */
+  .toast{position:absolute;left:50%;bottom:calc(150px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(14px);
+    background:#241a2c;color:#fff;padding:12px 18px;border-radius:9999px;font-size:14px;font-weight:600;
+    display:flex;align-items:center;gap:9px;opacity:0;visibility:hidden;transition:.28s;z-index:80;max-width:88%;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+  .toast.on{opacity:1;visibility:visible;transform:translateX(-50%)}
+  .toast svg{width:18px;height:18px;stroke:var(--brand-2);stroke-width:2.6;flex-shrink:0}
+  .hide{display:none!important}
+</style>
+</head>
+<body>
+<div class="phone t-sage">
+
+  <!-- ===== HOME ===== -->
+  <div class="scroll view" id="v-home">
+    <div class="top"><h1 class="h-title">Ngôi nhà</h1><div class="pill">🌤️ Chiều</div></div>
+    <div class="hero-scene">
+      <div class="sun"></div>
+      <div class="cottage"><div class="roof"></div><div class="body"></div><div class="win w1"></div><div class="win w2"></div><div class="door"></div></div>
+    </div>
+    <div class="lite"><h3>Bản thử — mô hình Tài chính</h3>
+      Đây là bản mẫu tương tác để cả nhóm cùng cảm nhận cấu trúc đề xuất. Mở tab <b>Tài chính</b> ở dưới để bắt đầu: bạn sẽ thấy <b>tiền thật của mình</b> ở trên và các <b>nhóm</b> (không gian chung) ở dưới. Chạm ＋ để ghi một khoản và chọn <b>phạm vi</b>.</div>
+  </div>
+
+  <!-- ===== FINANCE ===== -->
+  <div class="scroll view hide" id="v-fin">
+    <div class="top"><h1 class="h-title">Tài chính</h1><div class="pill" id="monthpill">Tháng 8 ▾</div></div>
+
+    <div class="divlab"><span class="tx">Tiền của tôi</span><span class="ln"></span></div>
+    <div class="money">
+      <div class="lab">An tâm chi tiêu tháng này</div>
+      <div class="big num" id="safe">6.150.000 ₫</div>
+      <div class="sub">Đã chi <b class="num" id="spent">8.200.000 ₫</b> · thường lệ 7.5tr</div>
+      <div class="wallets" id="wallets"></div>
+    </div>
+    <div class="note">Đây là <b>số dư thật</b> — tiền thực sự tiêu được. Các khoản nhóm ứng trước vẫn nằm ở đây cho tới khi được hoàn.</div>
+
+    <div class="divlab" style="margin-top:22px"><span class="tx">Nhóm của tôi</span><span class="ln"></span></div>
+    <div class="card" id="circles"></div>
+    <div class="note" id="netnote"></div>
+  </div>
+
+  <!-- ===== MOMENTS ===== -->
+  <div class="scroll view hide" id="v-mom">
+    <div class="top"><h1 class="h-title">Khoảnh khắc</h1></div>
+    <div class="lite"><h3>Nơi tiền và kỷ niệm gặp nhau</h3>
+      Khi một chuyến đi <b>tất toán</b>, không gian nhóm của nó khép lại và <b>trở thành một kỷ niệm</b> ở đây — giữ lại ảnh và hành trình, buông đi các khoản nợ. Hãy thử tất toán “Đà Lạt 3/2026” trong tab Tài chính.</div>
+    <div class="card" id="memories" style="margin-top:8px"></div>
+  </div>
+
+  <!-- ===== SPACE / MEMORY OVERLAY ===== -->
+  <div class="overlay" id="ov">
+    <div class="ov-nav"><button onclick="closeOv()">‹ Tài chính</button><div class="t" id="ovt"></div></div>
+    <div class="scroll" style="padding-bottom:40px" id="ovbody"></div>
+  </div>
+
+  <!-- ===== TAB BAR ===== -->
+  <div class="tabbar">
+    <button class="tab on" id="t-home" onclick="go('home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</button>
+    <button class="tab" id="t-fin" onclick="go('fin')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/><circle cx="17" cy="14.5" r="1.4" fill="currentColor" stroke="none"/></svg>Tài chính</button>
+    <button class="tab" id="t-mom" onclick="go('mom')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</button>
+  </div>
+  <button class="fab hide" id="fab" onclick="openCap()"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+
+  <!-- ===== CAPTURE MODAL ===== -->
+  <div class="scrim" id="scrim" onclick="closeCap()"></div>
+  <div class="modal" id="cap">
+    <div class="grip"></div>
+    <div class="m-nav"><button class="c" onclick="closeCap()">Huỷ</button><span class="tt">Ghi chi tiêu</span><button class="s" onclick="saveCap()">Lưu</button></div>
+    <div class="m-body">
+      <div class="field"><label>Số tiền</label><input class="big num" id="amt" inputmode="numeric" placeholder="0" /></div>
+      <div class="field"><label>Nội dung</label><input id="note" placeholder="VD: Cọc villa, ăn tối…" /></div>
+      <div class="field"><label>Nguồn tiền (ví của bạn)</label>
+        <div class="choices" id="srcs"></div></div>
+      <div class="field"><label>Phạm vi — khoản này thuộc về ai?</label>
+        <div class="choices" id="scopes"></div>
+        <div class="privacy" id="privacy">🔒 <b>Riêng tư.</b> Khoản cá nhân được mã hoá bằng khoá của riêng bạn — không thành viên nào khác đọc được. Cùng một app, cùng một thói quen, hai “sổ” tách bạch.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"><svg viewBox="0 0 24 24" fill="none" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg><span id="toastmsg"></span></div>
+</div>
+
+<script>
+const VND = n => n.toLocaleString('vi-VN') + ' ₫';
+const $ = id => document.getElementById(id);
+
+const state = {
+  spentBase: 8200000,
+  wallets:[
+    {id:'cash', n:'Tiền mặt', bal:850000},
+    {id:'vcb',  n:'Vietcombank', bal:12400000},
+    {id:'momo', n:'MoMo', bal:1100000},
+  ],
+  circles:[
+    {id:'fam', em:'🏡', n:'Gia đình', kind:'perm', members:'4 thành viên', line:'bạn đã góp 3.2tr tháng này',
+     net:0, permanent:true,
+     feed:[
+       {em:'🧾',n:'Hoá đơn điện',s:'Ba ứng · 12 thg 8',a:820000},
+       {em:'🛒',n:'Đi chợ tuần',s:'Mẹ ứng · 13 thg 8',a:640000},
+       {moment:true,cap:'Bữa tối cả nhà 🍲'},
+     ]},
+    {id:'trip', em:'⛰️', n:'Đà Lạt 3/2026', kind:'trip', members:'5 người · đang mở', line:'nhóm nợ bạn',
+     net:1600000, advance:2600000, permanent:false, archived:false,
+     feed:[
+       {em:'🏠',n:'Cọc villa',s:'Bạn ứng · 3 thg 3',a:2000000,me:true},
+       {em:'🍜',n:'Ăn tối lẩu',s:'Lan ứng · 3 thg 3',a:850000},
+       {moment:true,cap:'Săn mây Cầu Đất ☁️'},
+       {em:'🎟️',n:'Vé tham quan',s:'Bạn ứng · 4 thg 3',a:600000,me:true},
+     ]},
+    {id:'team', em:'💼', n:'Quỹ team', kind:'team', members:'6 đồng nghiệp', line:'đến hạn góp',
+     net:-200000, permanent:true, archived:false,
+     feed:[
+       {em:'☕',n:'Cà phê team',s:'Quỹ chi · 10 thg 8',a:480000},
+       {em:'🎂',n:'Sinh nhật Huy',s:'Bạn ứng · 11 thg 8',a:350000,me:true},
+     ]},
+  ],
+  cap:{src:'vcb', scope:'trip'},
+};
+
+/* ---------- navigation ---------- */
+function go(v){
+  ['home','fin','mom'].forEach(x=>{
+    $('v-'+x).classList.toggle('hide', x!==v);
+    $('t-'+x).classList.toggle('on', x===v);
+  });
+  $('fab').classList.toggle('hide', v!=='fin');
+  if(v==='fin') renderFin();
+  if(v==='mom') renderMem();
+  $('v-'+v).scrollTop = 0;
+}
+
+/* ---------- finance tab ---------- */
+function renderFin(){
+  const total = state.wallets.reduce((s,w)=>s+w.bal,0);
+  const RESERVED = 8200000; // hoá đơn + quỹ đã dành riêng cho tháng
+  $('spent').textContent = VND(state.spentBase);
+  $('safe').textContent = VND(Math.max(0, total - RESERVED));
+  $('wallets').innerHTML = state.wallets.map(w=>
+    `<div class="wchip"><div class="wn">${w.n}</div><div class="wv num">${VND(w.bal)}</div></div>`).join('');
+
+  $('circles').innerHTML = state.circles.map(c=>{
+    let amt, lab, cls='';
+    if(c.archived){ amt='Kỷ niệm'; lab='đã tất toán'; }
+    else if(c.net>0){ amt=VND(c.net); lab=c.line; cls='owe'; }
+    else if(c.net<0){ amt=VND(-c.net); lab=c.line; cls='owed'; }
+    else { amt=VND(0); lab=c.line; }
+    const tag = c.archived?'<span class="tag mem">Kỷ niệm</span>' : (c.permanent?'<span class="tag perm">Thường trực</span>':'');
+    return `<button class="crow" onclick="openSpace('${c.id}')">
+      <div class="cico">${c.em}</div>
+      <div class="ct"><div class="cn">${c.n} ${tag}</div><div class="cs">${c.members}</div></div>
+      <div class="cr"><div class="camt num ${cls}">${amt}</div><div class="clab">${c.archived?lab:lab}</div></div>
+      <svg class="chev" width="9" height="15" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M1.5 1.5 7 7.5l-5.5 6"/></svg>
+    </button>`;
+  }).join('');
+
+  const net = state.circles.filter(c=>!c.archived).reduce((s,c)=>s+c.net,0);
+  $('netnote').innerHTML = net>0
+    ? `Các con số nhóm là <b>chỉ số dẫn xuất</b>, không phải tiền trong ví. Tổng cộng, <b style="color:var(--good)">nhóm đang nợ bạn ${VND(net)}</b>.`
+    : `Các con số nhóm là <b>chỉ số dẫn xuất</b>, tách bạch với số dư thật ở trên.`;
+}
+
+/* ---------- space / memory overlay ---------- */
+let curSpace = null;
+function openSpace(id){
+  const c = state.circles.find(x=>x.id===id); curSpace=c;
+  $('ovt').textContent = c.archived ? 'Kỷ niệm' : 'Không gian';
+  let head, cta='';
+  if(c.archived){
+    head = `<div class="space-head"><div class="em">📸</div><div class="nm">${c.n}</div>
+      <div class="mm">${c.members} · đã khép lại thành kỷ niệm</div></div>`;
+  } else {
+    const bal = c.net>0
+      ? `<div class="bal"><div class="b"><div class="bl">Bạn đã ứng</div><div class="bv num owe">${VND(c.advance||c.net)}</div></div>
+         <div class="b"><div class="bl">Nhóm nợ bạn</div><div class="bv num owe">${VND(c.net)}</div></div></div>`
+      : c.net<0
+      ? `<div class="bal"><div class="b"><div class="bl">Bạn cần góp</div><div class="bv num owed">${VND(-c.net)}</div></div>
+         <div class="b"><div class="bl">Trạng thái</div><div class="bv" style="font-size:15px">Đang mở</div></div></div>`
+      : `<div class="bal"><div class="b"><div class="bl">Số dư</div><div class="bv num">${VND(0)}</div></div>
+         <div class="b"><div class="bl">Quỹ chung</div><div class="bv" style="font-size:15px">Cân bằng</div></div></div>`;
+    head = `<div class="space-head"><div class="em">${c.em}</div><div class="nm">${c.n}</div>
+      <div class="mm">${c.members}</div>${bal}</div>`;
+    if(c.kind==='trip') cta = `<button class="cta" onclick="settle('${c.id}')">Tất toán &amp; lưu thành kỷ niệm</button>`;
+  }
+  const feed = `<div class="feed">${c.feed.map(f=> f.moment
+    ? `<div class="fmoment"><div class="scr"></div><div class="cap">${f.cap}</div></div>`
+    : `<div class="fitem"><div class="fico">${f.em}</div><div class="ft"><div class="fn">${f.n}</div><div class="fs">${f.s}</div></div><div class="fa num">${VND(f.a)}</div></div>`
+  ).join('')}</div>`;
+  const intro = c.archived ? `<div class="note" style="margin:14px 22px">Nợ đã về 0. Còn lại là ảnh và hành trình của chuyến đi — một khoảnh khắc, không phải một sổ nợ.</div>` : '';
+  $('ovbody').innerHTML = head + feed + intro + cta;
+  $('ov').classList.add('on');
+}
+function closeOv(){ $('ov').classList.remove('on'); }
+
+function settle(id){
+  const c = state.circles.find(x=>x.id===id);
+  c.net=0; c.archived=true; c.line='đã tất toán';
+  c.feed.push({em:'✅',n:'Tất toán',s:'2 lượt chuyển · cân bằng về 0',a:0});
+  closeOv();
+  toast('Đã tất toán · “'+c.n+'” trở thành Kỷ niệm');
+  renderFin(); renderMem();
+}
+
+/* ---------- memories tab ---------- */
+function renderMem(){
+  const archived = state.circles.filter(c=>c.archived);
+  if(!archived.length){
+    $('memories').innerHTML = `<div style="padding:30px 20px;text-align:center;color:var(--muted)">
+      <div style="font-size:34px">🗺️</div><div style="font-weight:600;color:var(--ink);margin-top:8px">Chưa có kỷ niệm nào</div>
+      <div style="font-size:13px;margin-top:4px">Tất toán một chuyến đi để nó xuất hiện ở đây.</div></div>`;
+    return;
+  }
+  $('memories').innerHTML = archived.map(c=>
+    `<button class="crow" onclick="openSpace('${c.id}')">
+      <div class="cico">📸</div>
+      <div class="ct"><div class="cn">${c.n} <span class="tag mem">Kỷ niệm</span></div><div class="cs">${c.members}</div></div>
+      <svg class="chev" width="9" height="15" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M1.5 1.5 7 7.5l-5.5 6"/></svg>
+    </button>`).join('');
+}
+
+/* ---------- capture modal ---------- */
+function openCap(){
+  state.cap={src:'vcb', scope:'trip'};
+  $('amt').value=''; $('note').value='';
+  $('srcs').innerHTML = state.wallets.map(w=>
+    `<button class="choice ${w.id==='vcb'?'on':''}" data-src="${w.id}" onclick="pickSrc('${w.id}')">${w.n}</button>`).join('');
+  const scopeOpts=[
+    {id:'personal',lab:'🔒 Cá nhân'},{id:'fam',lab:'🏡 Gia đình'},
+    {id:'trip',lab:'⛰️ Đà Lạt 3/2026'},{id:'team',lab:'💼 Quỹ team'}];
+  $('scopes').innerHTML = scopeOpts.map(o=>
+    `<button class="choice ${o.id==='trip'?'on':''}" data-scope="${o.id}" onclick="pickScope('${o.id}')">${o.lab}</button>`).join('');
+  $('privacy').classList.remove('on');
+  $('scrim').classList.add('on'); $('cap').classList.add('on');
+  setTimeout(()=>$('amt').focus(),260);
+}
+function closeCap(){ $('scrim').classList.remove('on'); $('cap').classList.remove('on'); }
+function pickSrc(id){ state.cap.src=id; document.querySelectorAll('[data-src]').forEach(b=>b.classList.toggle('on',b.dataset.src===id)); }
+function pickScope(id){
+  state.cap.scope=id;
+  document.querySelectorAll('[data-scope]').forEach(b=>b.classList.toggle('on',b.dataset.scope===id));
+  $('privacy').classList.toggle('on', id==='personal');
+}
+$('amt').addEventListener('input',e=>{
+  const raw=e.target.value.replace(/\D/g,'');
+  e.target.value = raw? Number(raw).toLocaleString('vi-VN') : '';
+});
+
+function saveCap(){
+  const amt = Number($('amt').value.replace(/\D/g,''));
+  if(!amt){ $('amt').focus(); toast('Hãy nhập số tiền'); return; }
+  const note = $('note').value.trim() || 'Chi tiêu';
+  const w = state.wallets.find(x=>x.id===state.cap.src);
+  w.bal = Math.max(0, w.bal - amt);          // one row: money leaves YOUR wallet
+  state.spentBase += amt;
+  const sc = state.cap.scope;
+  if(sc==='personal'){
+    closeCap(); toast('Đã ghi riêng tư 🔒 — chỉ mình bạn thấy'); renderFin(); return;
+  }
+  const c = state.circles.find(x=>x.id===sc);
+  c.feed.unshift({em:'🧾',n:note,s:'Bạn ứng · Hôm nay',a:amt,me:true});
+  if(c.id==='team'){ c.net -= 0; }           // team fund: keep simple
+  else { c.advance=(c.advance||0)+amt; c.net += amt; c.line='nhóm nợ bạn'; }
+  closeCap();
+  toast('Đã ghi vào “'+c.n+'” · nhóm nợ bạn +'+VND(amt));
+  renderFin();
+}
+
+/* ---------- toast ---------- */
+let tt;
+function toast(m){ $('toastmsg').textContent=m; $('toast').classList.add('on'); clearTimeout(tt); tt=setTimeout(()=>$('toast').classList.remove('on'),2600); }
+
+renderFin();
+</script>
+</body>
+</html>
