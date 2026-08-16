@@ -1,0 +1,24 @@
+{
+  "name": "@fhub",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @fhub/web dev",
+    "build": "pnpm --filter @fhub/web build",
+    "db:generate": "pnpm --filter @fhub/db db:generate",
+    "db:migrate": "dotenv -e apps/web/.env.local -- pnpm --filter @fhub/db db:migrate",
+    "db:push": "dotenv -e apps/web/.env.local -- pnpm --filter @fhub/db db:push",
+    "db:pull": "dotenv -e apps/web/.env.local -- pnpm --filter @fhub/db db:pull",
+    "db:studio": "dotenv -e apps/web/.env.local -- pnpm --filter @fhub/db db:studio",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "dotenv-cli": "^10.0.0"
+  },
+  "packageManager": "pnpm@10.33.4"
+}
