@@ -121,6 +121,67 @@ Organize by what money is *for* — chi tiêu hằng ngày, hóa đơn, quỹ du
 - **Finance tab presented hub-and-spoke** (Model 1): my real balances and cash flow on top, my circles below, with "net owed across circles" as its own clearly-labeled derived line.
 - **Friend spaces are event-scoped and archivable** — a trip space closes after settle-up. The family space is permanent. This lifespan difference is the deepest structural truth the interviews surfaced.
 
+## The recommended model, explained
+
+The model is three separate answers to three separate questions. The pocket model tries to answer all three with one structure — containers inside containers — which is why it strains.
+
+1. **What IS a transaction?** (data model)
+2. **Where do I GO in the app?** (navigation)
+3. **What do I SEE first?** (the Finance tab)
+
+### 1. Data: a transaction is one row with two independent dimensions
+
+Every transaction records:
+
+- **Source** — which of *my* wallets the money physically left (cash, VCB, MoMo). Always personal. Money only ever moves between real accounts owned by real individuals.
+- **Scope** — who the spending *belongs to*: `personal`, `gia đình`, or `Đà Lạt 3/2026`. A label, not a place.
+
+Key property: **one purchase = one row, never two.** When Minh pays 1.2M for a family dinner, there is no "family transaction" plus a "personal transaction." There is one row: source = Minh's VCB account, scope = gia đình. That single row simultaneously means "1.2M left Minh's money this month" *and* "the family spent 1.2M on ăn uống" *and* "Minh has advanced 1.2M toward shared costs." Three meanings, one fact. The pocket model forces a choice of *which container the transaction lives in* — and whichever is picked, the other views go stale or need syncing.
+
+E2EE falls out naturally: **scope = encryption audience.** Personal scope → encrypted to the member's own key. Family scope → family key. A trip space gets its own key when created. The privacy model and the data model are the same field.
+
+### 2. Navigation: scopes that involve other people appear as spaces
+
+A scope with members is presented as a **space** — and a space looks and behaves like a group chat: it has people, a timeline of activity (expenses *and* moments, interleaved), its own fairness math, and its own settings.
+
+- **Personal** — your private space: your stream, filtered to scope = personal.
+- **Gia đình** — permanent space. Today's FamilyHub, unchanged in spirit: moments, expenses, the family fund.
+- **Đà Lạt 3/2026** — a temporary space with friends. Same anatomy as the family space, but with a lifecycle: created for an occasion, alive while the occasion lives, and after settle-up it **archives** — the debts zero out, and what remains is the photos, the moments, the record of the trip. It literally turns into a memory.
+
+Crucially, a space doesn't *contain* transactions the way a folder contains files. A space is a **shared lens** over the members' streams: it shows every transaction whose scope points to it. The Gmail-labels idea wearing a group-chat costume — users get the social "this is our place" feeling, while underneath nothing is duplicated or moved.
+
+### 3. The Finance tab: my money on top, my obligations below, never mixed
+
+```
+MY MONEY                          ← real, spendable
+  Wallets: Cash 850k · VCB 12.4M · MoMo 1.1M
+  Tháng này: chi 8.2M / thường lệ 7.5M
+
+MY CIRCLES                        ← derived, not spendable
+  Gia đình        bạn đã góp 3.2M tháng này
+  Đà Lạt 3/2026   nhóm nợ bạn 400k        [Settle up]
+  Quỹ team        đến hạn góp 200k
+```
+
+The top block answers JTBD 4 ("can I afford this?") with **real balances only**. The bottom block shows each circle with its **derived number** — contributed, owed — visually and semantically separated from money. Tapping a circle opens its space. The user never wonders "is this number cash or an IOU?" because the layout itself is the answer. That ambiguity is Splitwise's biggest usability wound, and the pocket model would import it.
+
+### End-to-end scenario
+
+Minh is on the Đà Lạt trip and pays 2M for the villa deposit:
+
+1. **Capture (JTBD 1):** quick-add, 2M. The scope selector suggests "Đà Lạt 3/2026" because Minh is in that space's active window. One extra tap at most. Source defaults to his usual wallet.
+2. **Privacy (JTBD 2):** that evening he buys a gift for his partner — scope = personal. Same stream, encrypted to his key alone. Trip friends and family structurally cannot see it. One app, one habit, two audiences.
+3. **Fairness (JTBD 3):** in the Đà Lạt space the villa expense shows "Minh đã ứng 2M"; the space's balance updates for all five members. After the trip: settle-up, two transfers recorded, balances zero, space archives into a memory with its photos.
+4. **Planning (JTBD 4):** Minh's Finance tab shows the full 2M in his month's outflow immediately (it is his real cash until reimbursed), and "nhóm nợ bạn 1.6M" as a derived line — the "can I afford things" picture stays honest mid-trip.
+
+### Why this beats the pocket model
+
+- **No double entry** — a shared expense is one row seen through many lenses, not a copy in each pocket.
+- **No money/IOU confusion** — real balances and derived obligations never share a container or a visual block.
+- **Friend finance gets a lifecycle** — occasions open and close; labels are cheap to create and archive, containers aren't.
+- **Family stays special** — the one permanent space with the deepest moments history, not one pocket among peers.
+- **E2EE for free** — scope and encryption audience are the same concept, already supported per-entry by the architecture.
+
 ---
 
 # Next steps
