@@ -184,6 +184,82 @@ Minh is on the Đà Lạt trip and pays 2M for the villa deposit:
 
 ---
 
+# Part 3 — The user's finance mental model (what a complete picture contains)
+
+Before deciding what to build, it's worth mapping how an ordinary person (mass-market, Vietnamese context) actually holds their finances in their head — because Part 1's four jobs all serve *that* picture, and if we miss parts of it, Earthy stays the second app.
+
+## The folk model, not the accountant's model
+
+In the ordinary person's head there is no balance sheet. There is one nagging question — **"how much can I actually spend right now without getting into trouble?"** — and a set of mental shelves arranged around it. People do **not** chunk money by merchant category (food / transport / shopping — that is an app imposition). They chunk it by **purpose and how free it is**, and each shelf carries a *feeling*, not just a figure (bills = dread, savings = pride, debt = pressure, daily spend = guilt, vàng = safety). The folk model is emotional before it is numerical.
+
+## First pass — parts by time-horizon
+
+- **Money now (the pocket)** — "còn nhiêu đây": cash + bank + e-wallet blurred into one spendable pool.
+- **Money in motion this month (the flow)** — what's coming in (income, felt as a rhythm/event), what's already promised out (bills, trả góp — spent in spirit the moment earned), and what leaks daily (ăn uống, cà phê — the fuzzy, uncounted part).
+- **Money parked (the shelves)** — purposeful savings (a jar with a name: cưới, xe, du lịch), the just-in-case buffer (phòng thân), and stored wealth (vàng, đất, sổ tiết kiệm, đầu tư — a "don't touch" shelf).
+- **Money between people (the social ledger)** — owed and owing (nợ, mượn, "trả sau", hụi), and "ours not mine" (quỹ gia đình, tiền chung nhóm).
+
+## Second pass — the parts we almost missed
+
+These share a trait: they are irregular, socially tangled, or only *half* real — which is exactly why people keep them in their head or a Notes app, and why a first enumeration skips them.
+
+- **Calendar-shaped, not salary-shaped** — big seasonal lumps (Tết, đầu năm học, bảo hiểm năm, giỗ) that are neither monthly bills nor aspirational savings; and the split between reliable base income (lương cứng) and variable income (thưởng / tăng ca / tay trái), which people budget very differently.
+- **Socially entangled** — reciprocal "có đi có lại" money (mừng cưới, phúng điếu, lì xì — a give-now-with-a-memory ledger, not a formal debt); money sent to family / dependents (biếu bố mẹ, lo cho con — duty money, often paid first); and custodian float (ôm hụi, thủ quỹ, cầm giùm — sits in your account but isn't yours).
+- **Almost-real** — borrowing capacity used as a cushion ("hết tiền nhưng còn thẻ", trả sau); pending income (invoice chưa trả, lương bị nợ); and semi-liquid things you could sell or pawn (cầm xe, bán đồ).
+
+## The MECE problem — these parts are not a clean partition
+
+The time-horizon groups above are **not MECE**, and neither are the irregular parts a tidy fifth sibling. The reason: the first list secretly mixed two different cuts — "now / this-month / parked" is a **liquidity** axis, while "between people" is an **ownership** axis. Stacking a time axis and an ownership axis as if they were one list guarantees overlap.
+
+A person's finance picture is really a **multi-axis space**; any single part is a *point* located by several independent coordinates:
+
+1. **Liquidity** — trong tay → tháng này → cất giữ → khoá chặt
+2. **Freedom** — tự do tiêu ↔ đã có chủ
+3. **Ownership** — của mình ↔ của chung ↔ của người khác (giữ hộ) ↔ nợ qua lại
+4. **Certainty** — tiền thật ↔ trông chờ ↔ tiềm năng
+5. **Timing** — đều đặn ↔ theo mùa ↔ một lần
+
+The irregular parts only *feel* like new categories because they take unusual values on axes 3–5. Proof of non-exclusivity: **tiền giữ hộ** is the same money that reads as "in hand" by liquidity but "someone else's" by ownership — one amount, two groups. **Tiền gửi về nhà** is a committed monthly outflow *and* socially directed at once.
+
+**Resolution:** MECE only exists *within a single axis*. Pick one axis as the **spine** (partition once, no overlap) and demote the rest to **tags**. This is the same reason the "pocket" folder model fails (Part 2): a folder forces one home, but reality needs a part to hold coordinates on several axes at once — which is exactly what "one transaction row with independent facets (source · scope · …)" delivers.
+
+## The master table — a complete individual finance picture
+
+Spine = the **role** the money plays (each part filed once by its primary role); other axes compressed into a coordinates column as tags; the "safe to spend" number kept as a derived footer, not a row.
+
+| Vai trò | Phần | Người ta gọi / nghĩ | Toạ độ (sở hữu · nhịp · độ thật) | Với "tiêu được" | Cảm giác |
+|---|---|---|---|---|---|
+| **1. Có sẵn** | Tiền trong tay | "Còn nhiêu đây" — mặt + bank + ví gộp | của mình · tức thời · thật | ➕ Nền của phép tính | Trung tính |
+| **2. Đã bị trừ trước** | Hoá đơn & chi phí cố định | Nhà, điện nước, internet, thuê bao | của mình · hàng tháng · thật | ➖ Trừ thẳng | Lo, "không được thiếu" |
+| | Trả góp / nợ định kỳ | Trả góp xe, thẻ tín dụng, khoản vay | mình → chủ nợ · hàng tháng · thật | ➖ Trừ thẳng | Áp lực |
+| | Gửi về nhà / người phụ thuộc | Biếu bố mẹ, lo cho con | của mình · hàng tháng · thật | ➖ Trừ trước tiên | Bổn phận, thương |
+| | Khoản lớn theo mùa | Tết, đầu năm học, bảo hiểm, giỗ | của mình · **theo mùa** · thật | ➖ Nên trích trước mỗi tháng | Lo xa, hay hụt |
+| **3. Tiêu vào đời sống** | Chi tiêu hằng ngày | Ăn uống, cà phê, chi vặt | của mình · liên tục · thật | ➖ Chính là phần được tiêu (nhưng **mờ**) | Áy náy, rò rỉ |
+| | Hiếu hỉ / quan hệ | Mừng cưới, lì xì, phúng điếu, quà | **có đi có lại** · theo dịp · thật | ➖ Bất thường, có nợ ngầm | Nghĩa tình |
+| **4. Để dành & tích luỹ** | Tiết kiệm có mục tiêu | Hũ có tên: cưới, xe, du lịch | của mình · để dành · thật | ⏸ Không tính (đã hẹn chỗ) | Tự hào, kỳ vọng |
+| | Phòng thân | "Để đó lỡ có chuyện" | của mình · dự trữ · thật | ⏸ Chỉ khi khẩn | An toàn |
+| | Tài sản cất giữ | Vàng, đất, sổ tiết kiệm, đầu tư | của mình · dài hạn · thật | ⏸ Khó rút, không tính | An tâm dài hạn |
+| **5. Giữa người với người** | Người ta nợ mình | Cho mượn, ứng hộ, phần hụi của mình | mình cho vay · đến hẹn · thật | ➕ khi đòi được (**ẩn số**) | Chờ đợi |
+| | Của chung / quỹ | Tiền chung nhà, quỹ nhóm | **của chung** · tuỳ · thật | ⏸ Không tự quyết | Trách nhiệm chung |
+| | Tiền giữ hộ | Ôm hụi, thủ quỹ, cầm giùm | **của người khác** · tạm · thật | ⛔ Không phải của mình (dễ nhầm là ➕) | Trách nhiệm |
+| **6. Chưa về / nửa thật** | Thu nhập sắp về | Lương — **cứng** vs thưởng/tay trái | của mình · theo kỳ · sắp thật | ➕ khi về (chỉ tính phần cứng) | Mong chờ |
+| | Tiền chờ về | Invoice chưa trả, lương bị nợ | của mình · bấp bênh · **trông chờ** | ❔ Ẩn số | Trông đợi / bực |
+| | Khả năng vay | Còn thẻ, trả sau, vay được | nợ **tiềm năng** · khi cần · chưa thật | ⚠️ Đệm giả — bản chất là nợ | Yên tâm giả |
+| | Bán / cầm được | Cầm xe, bán đồ | mình → thanh khoản · khi bí · tiềm năng | ⚠️ Phương án chót | Lối thoát cuối |
+
+**The number in the middle is derived from the parts, not a part itself:**
+
+> **Tiêu được (an tâm) = (Tiền trong tay + phần lương chắc chắn sắp về) − (hoá đơn cố định + trả góp/nợ + gửi về nhà + phần trích cho khoản theo mùa) − (đã dành cho tiết kiệm & phòng thân)**
+> …**loại trừ** tiền giữ hộ và của chung, và **không tựa vào** khả năng vay.
+
+## What this means for Earthy
+
+- **Role 5 (giữa người với người) is the seam to the family/group layer.** "Của chung", "nợ qua lại", "giữ hộ" are exactly the parts the scope + spaces model (Part 2) has to carry — where the individual picture touches the collective one.
+- **Roles 2, 3, and 6 are where budgets break** — seasonal lumps and hiếu hỉ because they're irregular, daily spend because it's fuzzy, borrowing capacity because it feels like safety. An app that nails only Roles 1–2 is still the second app.
+- **The culturally-specific rows are hypotheses, not findings.** Gửi về nhà, hiếu hỉ, giữ hộ, hụi come from cultural pattern, not from our transcripts — validate against the interviews before treating any as a "needed" part for Earthy's users.
+
+---
+
 # Next steps
 
 1. **Opportunity scoring (Part 1).** Take the ~12 outcome statements back to interviewees; score importance and current satisfaction; rank by:
@@ -191,3 +267,4 @@ Minh is on the Đà Lạt trip and pays 2M for the villa deposit:
    Working hypothesis: the privacy outcomes in JTBD 2 score as most underserved — no mainstream app serves "shared transparency + individual privacy" as one product.
 2. **Language check (Part 2).** Re-read transcripts: when people described money with friends, did they name the *group* or the *occasion*? That word choice is the naturalness test for pocket-vs-space.
 3. **Concept test (Part 2).** Two clickable IAs — pocket model vs. spaces model — 30 minutes with 5 users, before committing to the restructure.
+4. **Mental-model validation (Part 3).** Check the master table against the transcripts: which of the 17 parts did interviewees actually name, and did any culturally-specific ones (gửi về nhà, hiếu hỉ, giữ hộ, hụi) show up unprompted? Mark each part as confirmed / hypothesis / absent before it drives scope.
