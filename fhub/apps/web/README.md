@@ -66,8 +66,6 @@ For host-specific presets (Vercel, Netlify, Cloudflare, AWS Lambda, etc.) and tu
 
 ```ts
 import { env } from "#/env";
-
-console.log(env.VITE_APP_TITLE);
 ```
 
 

@@ -17,6 +17,8 @@
   "dependencies": {
     "@faker-js/faker": "^10.3.0",
     "@fhub/db": "workspace:^",
+    "@supabase/ssr": "^0.12.4",
+    "@supabase/supabase-js": "^2.112.3",
     "@t3-oss/env-core": "^0.13.10",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/match-sorter-utils": "latest",
