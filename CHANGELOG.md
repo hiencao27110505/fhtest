@@ -18,6 +18,45 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-08-16
+
+### Review notifications reach an actual person (08-16)
+
+`push-send` was deployed (v6, ACTIVE), which closed the last Supabase-side
+blocker: the Apps Script had been queueing review notices and the client had been
+routing `txn_review` taps for days, with nothing in between.
+
+Deploying it exposed the half nobody had scoped. Push is offered **only** at
+Settings → Notifications, so a member who connected a mailbox and never went
+looking there was subscribed to nothing — a live send path fanning out to zero
+devices, which from the member's side is indistinguishable from "no mail is
+arriving." Two offers now exist, following `fhInstallNudge`'s rule that a prompt
+should be an earned moment rather than a boot popup: an inline row on the
+connected-status sheet, and a one-time offer after a promote lands. The second
+matters most, because the members who most need it connected *before*
+notifications existed and will never see a setup screen again — but they do
+finish reviews, and doing that by hand is itself the evidence that nothing told
+them the queue had filled. Neither offer subscribes on the member's behalf; iOS
+drops the user-gesture context, and an unprompted permission dialog is the
+fastest route to a permanent `denied`.
+
+Two defects surfaced on the same screen. `fhMailboxSetup` is js-data (ES module
+scope) but was wired to an inline `onclick`, so **"Show the steps again" threw
+`ReferenceError` for every connected member** — the class of bug `CLAUDE.md` §3
+exists to prevent. And `npm test` had silently lost four test files
+(`extraction-template`, `memo-tidy`, `resilience`, `review-notify`) to the
+`package.json` merge hazard `AGENT_SYNC.md` warns about: two sessions edited the
+same line and one won outright instead of the lists being unioned. `review-notify`
+is the 18-assertion guard for review notifications, so the guard was missing from
+exactly the feature it covers.
+
+Also settled: `mailbox_connections.personal_email` is **populated, not null**, so
+the suspected "any sender falls through to `pass`" hole in `checkSenderAuthenticity`
+is not real. Hardening it to answer `unknown` is still worth doing before
+`SENDER_AUTH_ENFORCE=true`, as defence-in-depth rather than a fix.
+
+---
+
 ## 2026-08-08 – 2026-08-12
 
 ### Onboarding becomes a curated 2-step flow (08-12)

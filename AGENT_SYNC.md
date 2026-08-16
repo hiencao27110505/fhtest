@@ -16,6 +16,49 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-16 — Trang, bank-email notifications. Review notifications are now
+  end to end. Two entries below are answered and have moved to Resolved.**
+
+  **1. `push-send` is deployed** (v6, ACTIVE, `verify_jwt=true`) — reported by
+  Hien. The service-role entrance and the `txn_review` exclusion from `KINDS`
+  shipped as written. The 2026-08-14 entry's item 1 is closed; **anything you
+  read describing this as HTTP 401 is stale.**
+
+  **2. `mailbox_connections.personal_email` is POPULATED, not null.** The
+  suspected auth hole does not exist: `checkSenderAuthenticity` is not falling
+  through to `pass` for arbitrary senders. Hardening it to return `unknown`
+  instead of `pass` is still worth doing before `SENDER_AUTH_ENFORCE=true`, but
+  it is defence-in-depth, not a prerequisite. The 2026-08-14 entry's item 2 is
+  closed.
+
+  **3. Shipped: members are actually offered notifications now** (`58c96be`).
+  The send path being live did not mean anyone would receive anything — push is
+  offered only at Settings → Notifications, so a member who connected a mailbox
+  and never went there got silence. Two offers, neither on boot (`fhInstallNudge`
+  already settled that): an inline row on the connected-status sheet, and a
+  one-time offer after a promote lands. The second is the one that reaches the
+  four grandfathered connections — they never see a setup screen again, but they
+  do finish reviews, and finishing one by hand is the evidence that nothing told
+  them the queue had filled.
+
+  **4. Two things found on the way, both fixed in the same commit:**
+  - **"Show the steps again" was dead for every connected member.**
+    `fhMailboxSetup` is js-data (module scope) but wired to an inline `onclick`,
+    so it threw `ReferenceError`. Bridged to `window`. Worth a look at any other
+    js-data function reached from inline markup.
+  - **`npm test` had lost four test files** — `extraction-template`, `memo-tidy`,
+    `resilience`, and `review-notify`. This is exactly the `package.json` union
+    hazard the entry below warns about, and it had already happened: one side
+    won the line instead of the lists being merged. `review-notify` is the
+    18-assertion guard for review notifications, so it was absent precisely
+    where it mattered. Unioned back; all ten pass.
+
+  **5. Not mine, left untouched:** inbox retention (`sweepProcessedMail`, the
+  `markMailboxVerified` fix) and `pipeline/retention.test.js` were sitting
+  uncommitted in the shared working tree. I scoped my commit to my own files
+  rather than sweep them in — they are still there, unstaged, for whoever wrote
+  them.
+
 - **2026-08-16 (from bank-email pipeline) — PAUSING THIS THREAD. Read this before
   you touch migrations or `package.json`.** Trang is moving to another project,
   so this is a stopping point, not a handover of work in flight. Everything below
@@ -731,6 +774,17 @@ relaying messages through Slack/DMs by hand.
   this landed), pushed in `1a0d116`.
 
 ## Resolved
+
+- **2026-08-14 → closed 2026-08-16** — `supabase functions deploy push-send`:
+  **done.** Live as v6, ACTIVE, `verify_jwt=true` (a service-role key is a valid
+  project JWT, so the Apps Script entrance passes it). Review notifications are
+  no longer blocked on Supabase access. See the 2026-08-16 entry under Open.
+
+- **2026-08-14 → closed 2026-08-16** — the two read queries: **run, results
+  back.** `personal_email` is populated, so the feared "any sender falls through
+  to `pass`" hole is not real. Blank descriptions were the memo-drop bug, already
+  fixed forward by `EXTRACTION_LOGIC_VERSION` 3→4. The third item of that entry
+  (Trang's org access) is still open and stays there.
 
 - **2026-08-13 → closed 2026-08-13** — "do NOT merge before applying 0059":
   overtaken by events (merge had already landed as `73e8d3a`); Hien's session

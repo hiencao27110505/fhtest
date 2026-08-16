@@ -152,10 +152,26 @@ carry money).
    build + deploy. Without it a tapped notification opens the app but lands
    nowhere in particular.
 
-**Known gap:** push is only ever offered at Settings → Notifications. A member who
-connects a mailbox but never enables notifications gets nothing, silently, and
-nothing in the mailbox onboarding tells them. The onboarding should nudge
-`fhPushSheet()` once the alias is issued — not built.
+**Closed 2026-08-16 (`58c96be`).** Push used to be offered only at Settings →
+Notifications, so a member who connected a mailbox and never went there got
+nothing, silently: a live send path fanning out to zero subscribers. Two offers
+now exist, and neither is a boot popup (`fhInstallNudge` settled that — an earned
+moment, not an interruption):
+
+- **The connected-status sheet** (`71-mailbox-ui.js`) carries an inline row while
+  push is off. That screen promises transactions will appear "ready for you",
+  which overstates things when nothing will say so.
+- **Once, after a promote lands** (`72-txn-review.js` → `_mbxPushOfferOnce`).
+  This is the placement that reaches members who connected *before* notifications
+  existed — they never see a setup screen again, but they do finish reviews, and
+  finishing one by hand is the evidence that nothing told them the queue filled.
+  Keyed per member, not per device: two seats sharing a phone are two separate
+  subscriptions, so each is asked once.
+
+Both only ever **offer**. Neither subscribes on the member's behalf, because iOS
+drops the user-gesture context after an await and an unprompted permission dialog
+is the fastest route to a permanent `denied`. `denied` and `unsupported` are left
+alone entirely — there is nothing to offer and saying so is just noise.
 
 ### Deploy
 

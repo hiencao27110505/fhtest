@@ -12,12 +12,23 @@ users.** Understanding *why* is the first thing, because the obvious first move 
 
 ## 0. Get current before you touch anything
 
-Trang's checkout was left **4+ commits behind** with three loose files, all of
-which are redundant with `origin/main`:
+**DONE 2026-08-16 — the checkout is synced.** Left here because the reasoning
+still applies the next time this tree drifts, and because the original numbers
+were wrong in a way that matters.
+
+It was **not** "4 commits behind". It was **33 behind and 3 ahead** — diverged,
+not merely stale, and the three local commits were the memo/notify work, which
+looks exactly like something you must not throw away. It was safe to reset only
+because `git cherry` showed two of them already upstream by patch-id, and the
+third's content was present in origin's final `bank-email-pipeline.gs` under a
+different commit split. **Check that before resetting, don't assume it**: the
+count in a handoff note is someone's memory, but `git cherry -v origin/main HEAD`
+is the actual answer.
 
 ```
 git -C ~/Desktop/Projects/fhtest fetch origin
 git -C ~/Desktop/Projects/fhtest status          # expect: 55-push.js, 0067, bank-email-pipeline.gs
+git -C ~/Desktop/Projects/fhtest cherry -v origin/main HEAD   # '-' = already upstream, '+' = only here
 ```
 
 - `pipeline/bank-email-pipeline.gs` — byte-identical to origin. Discard.
@@ -132,14 +143,24 @@ Not the order that is most interesting. This order.
    `raw_body` storing full email HTML at roughly 20KB/message, which
    `SEALED-STAGING-DESIGN.md` §7 says should be deleted at promotion anyway.
 
-4. **`supabase functions deploy push-send`** — still returning **HTTP 401**, and
-   it is the only thing blocking review notifications. The Apps Script side
-   (`notifyStagedReviews`, `queueReviewNotice`) and the client tap route
-   (`nav.k === 'txn_review'` in `55-push.js`) are both on main and working; the
-   notification simply never sends. Trang's Supabase account lacks the org
-   privileges to authorize the MCP connector, so this needs her partner
-   (`hiencao27110505`) or a role change. The dashboard's Edge Functions section
-   may be a way in.
+4. ~~**`supabase functions deploy push-send`**~~ — **DONE (2026-08-16).** Live as
+   v6, ACTIVE, `verify_jwt=true`; deployed by `hiencao27110505`. The Apps Script
+   side (`notifyStagedReviews`, `queueReviewNotice`) and the client tap route
+   (`nav.k === 'txn_review'` in `55-push.js`) were already on main, so review
+   notifications are end to end.
+
+   **What that did not fix, and now is (`58c96be`):** nobody was ever *offered*
+   notifications on this path. Push is exposed only at Settings → Notifications,
+   so a member who connected a mailbox and never went there received nothing,
+   silently — a live send path fanning out to zero subscribers. `71-mailbox-ui.js`
+   now carries an inline offer on the connected-status sheet, and `72-txn-review.js`
+   makes a one-time offer after a promote lands. That second placement is what
+   reaches the four grandfathered connections: they never see a setup screen
+   again, but they do finish reviews.
+
+   Both only ever offer. Neither subscribes on the member's behalf — iOS drops
+   the user-gesture context, and an unprompted permission dialog is the fastest
+   route to a permanent `denied`.
 
 Only after 1–3 is reopening the beta an honest thing to do.
 
@@ -238,10 +259,12 @@ on conflict do nothing;`
 These are genuinely unknown, not just unwritten. Two are cheap to settle and
 would change what you do.
 
-1. **`select forwarding_alias, personal_email, verified from mailbox_connections;`**
-   — asked several times, never run. If `personal_email` is null (suspected),
-   then the forwarder-identity check passes for **any** sender, which is a real
-   hole in the auth story. Run this first.
+1. ~~`select forwarding_alias, personal_email, verified from mailbox_connections;`~~
+   — **ANSWERED 2026-08-16: `personal_email` is populated, not null.** The
+   suspected hole is not real; `checkSenderAuthenticity` is not falling through
+   to `pass` for arbitrary senders. Making it return `unknown` rather than `pass`
+   when the address is missing is still worth doing before
+   `SENDER_AUTH_ENFORCE=true`, but as defence-in-depth, not a prerequisite.
 
 2. **Trang's own forwarding points at the bare inbox, not her `+tag`**, so her
    transactions never route. Unfixed. It also means she is not dogfooding the
