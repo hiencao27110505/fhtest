@@ -17,6 +17,7 @@
   "dependencies": {
     "@faker-js/faker": "^10.3.0",
     "@fhub/db": "workspace:^",
+    "@serwist/window": "^9.5.12",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "@t3-oss/env-core": "^0.13.10",
@@ -38,12 +39,14 @@
     "nitro": "3.0.260610-beta",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "serwist": "^9.5.12",
     "tailwindcss": "^4.1.18",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
     "@rolldown/plugin-babel": "^0.2.3",
+    "@serwist/build": "^9.5.12",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-event-client": "latest",
     "@tanstack/devtools-vite": "latest",
