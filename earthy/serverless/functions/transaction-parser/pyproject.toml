@@ -1,0 +1,21 @@
+[project]
+name = "transaction-parser"
+version = "0.1.0"
+description = "Parses amount/date/merchant out of a bank or wallet email"
+requires-python = "==3.12.*"
+dependencies = [
+    "cloudevents>=1.11.0",
+    "functions-framework==3.9.2",
+]
+
+# Fed by gmail-transaction-ingest. The mail body arrives in the payload, so
+# this function needs no Gmail credentials and no Gmail scope.
+[tool.earthy.gcf]
+entry-point = "main"
+trigger = "pubsub"
+topic = "transaction-detected"
+region = "asia-southeast1"
+runtime = "python312"
+
+[tool.uv]
+package = false
