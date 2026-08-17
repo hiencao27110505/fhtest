@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Tài chính · phần cá nhân tinh chỉnh</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{--sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif}
+  html,body{background:#d7d4dc;font-family:var(--sf);color:#111;-webkit-font-smoothing:antialiased}
+  body{padding:44px 20px 90px}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  .page-head{max-width:900px;margin:0 auto 34px;text-align:center}
+  .page-head h1{font-size:33px;font-weight:800;letter-spacing:-1px;margin-bottom:9px}
+  .page-head p{color:#4b4753;font-size:15.5px;line-height:1.6;max-width:660px;margin:0 auto}
+  .page-head .leg{margin-top:13px;font-size:12.5px;color:#847f8e}
+
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:36px 26px;max-width:1000px;margin:0 auto;justify-items:center}
+  .mock{width:360px}
+  .cap{margin:0 4px 13px}
+  .cap .n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:7px;background:#111;color:#fff;font-weight:700;font-size:12px;margin-right:8px;vertical-align:1px}
+  .cap .t{font-weight:700;font-size:16.5px;letter-spacing:-.3px}
+  .cap .d{color:#847f8e;font-size:13px;margin-top:5px;line-height:1.5}
+
+  .frame{width:360px;height:864px;border-radius:46px;overflow:hidden;position:relative;display:flex;flex-direction:column;box-shadow:0 0 0 10px #17171c,0 26px 70px rgba(0,0,0,.34)}
+  .scr{flex:1;overflow-y:auto;overflow-x:hidden}.scr::-webkit-scrollbar{display:none}
+  .st{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 30px 0 34px;flex-shrink:0}
+  .st .tm{font-weight:600;font-size:15px;letter-spacing:.3px}.st .ic{display:flex;gap:6px}
+  .tab{height:56px;flex-shrink:0;display:flex;align-items:center;padding-bottom:4px;border-top:1px solid rgba(128,128,128,.18)}
+  .tab .tb{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;font-weight:600;opacity:.45}
+  .tab .tb.on{opacity:1}.tab .tb svg{width:22px;height:22px}
+  .b-h{padding:6px 20px 4px;display:flex;align-items:flex-end;justify-content:space-between}
+  h2.ttl{font-size:29px;font-weight:800;letter-spacing:-.9px}
+  .pill{font-size:12px;font-weight:600;border-radius:999px;padding:6px 12px}
+  .wrap{padding:2px 16px 16px}
+
+  .scope{display:flex;align-items:center;gap:9px;margin:18px 3px 11px}
+  .scope .sn{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+  .scope .ln{flex:1;height:1px}
+  .scope .op{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;opacity:.6}
+
+  .pk{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+  .pv{font-weight:800;letter-spacing:-1px;line-height:1}
+
+  /* in / out figures — no bar */
+  .io{display:flex;align-items:center;margin-top:16px}
+  .io .ioc{flex:1;display:flex;align-items:center;gap:10px}
+  .io .ar{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0}
+  .io .iol{font-size:11px;font-weight:600}
+  .io .iov{font-size:16px;font-weight:800;letter-spacing:-.3px;margin-top:2px}
+  .io .sep{width:1px;align-self:stretch;margin:2px 14px}
+
+  /* pace chart */
+  .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .pt{font-size:13px;font-weight:700;letter-spacing:-.2px}
+  .seg{display:inline-flex;border-radius:9px;padding:2px;font-size:11px;font-weight:700}
+  .seg b{padding:4px 11px;border-radius:7px}
+  .chart{position:relative;height:56px;display:flex;align-items:flex-end;gap:7px;padding:0 1px}
+  .chart .bar{flex:1;border-radius:4px 4px 2px 2px;min-height:3px}
+  .pline{position:absolute;left:0;right:0;border-top:1.5px dashed}
+  .pline span{position:absolute;right:0;top:-8px;font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px}
+  .days{display:flex;gap:7px;padding:5px 1px 0}
+  .days span{flex:1;text-align:center;font-size:9px;font-weight:600}
+  .pcap{font-size:11.5px;margin-top:11px;font-weight:500}
+
+  /* savings sub-components */
+  .goal{display:flex;align-items:center;gap:12px;padding:11px 0}
+  .goal+.goal{border-top:1px solid}
+  .gem{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+  .gt{flex:1;min-width:0}
+  .gn{font-size:14px;font-weight:600;letter-spacing:-.2px}
+  .gs{font-size:11px;margin-top:1px}
+  .gr{display:flex;align-items:center;gap:8px}
+  .grv{font-size:13.5px;font-weight:800;letter-spacing:-.2px}
+  .dial{width:30px;height:30px;border-radius:50%;position:relative;flex-shrink:0}
+  .dial::after{content:"";position:absolute;inset:5px;border-radius:50%;background:#fff}
+  .free{display:flex;align-items:center;gap:12px;padding:11px 0;margin-top:2px;border-top:1px solid}
+  .up{display:flex;align-items:center;gap:7px;margin-top:12px;flex-wrap:wrap}
+  .upl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+  .uchip{font-size:11px;font-weight:600;border-radius:8px;padding:5px 10px}
+
+  .row2{display:flex;gap:11px}.row2>*{flex:1}
+  .comp{border-radius:16px;padding:13px 14px}
+  .comp .pk{font-size:9.5px}
+  .comp .pv{font-size:22px;margin-top:5px}
+  .comp .sub{font-size:11px;font-weight:600;margin-top:9px;display:flex;gap:6px}
+
+  /* ============ BENTO (light) ============ */
+  .bento{background:#f3f3f6;color:#111117}.bento .st{color:#111117}
+  .bento .pill{color:#3a3742;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .bento .card{background:#fff;border-radius:22px;padding:17px;box-shadow:0 1px 2px rgba(0,0,0,.05),0 10px 26px rgba(0,0,0,.055);margin-bottom:11px}
+  .bento .pk{color:#8a8694}
+  .bento .cln .pv{font-size:40px;margin-top:6px;background:linear-gradient(120deg,#4f46e5,#14b8a6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .bento .io .ar.u{background:#e7f6f0;color:#0f9d6c}.bento .io .ar.d{background:#f1eff4;color:#8a8694}
+  .bento .io .iol{color:#8a8694}.bento .io .sep{background:#eceaf0}
+  .bento .seg{background:#eeedf2;color:#8a8694}.bento .seg b.on{background:#fff;color:#111;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+  .bento .bar.u{background:linear-gradient(#5fd3a0,#14b8a6)}.bento .bar.o{background:linear-gradient(#f0b45a,#e0913a)}
+  .bento .pline{border-color:#c9c7d1}.bento .pline span{background:#edecf1;color:#6a6675}
+  .bento .days span{color:#a8a4b0}.bento .pcap{color:#6a6675}
+  .bento .scope .sn{color:#111117}.bento .scope .ln{background:#dcdae2}.bento .scope .op{color:#a8a4b0}
+  .bento .goal+.goal,.bento .free{border-color:#f0eef4}
+  .bento .gn{color:#111117}.bento .gs{color:#8a8694}.bento .grv{color:#111117}
+  .bento .up{border-top:1px solid #f0eef4;padding-top:11px}.bento .upl{color:#a8a4b0}.bento .uchip{background:#f1f0f4;color:#54505d}
+  .bento .comp{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.05),0 8px 20px rgba(0,0,0,.05)}
+  .bento .comp .pk{color:#8a8694}.bento .comp .pv{color:#111}.bento .comp .sub{color:#6a6675}
+  .bento .tab{background:rgba(255,255,255,.9);backdrop-filter:blur(16px)}.bento .tab .tb.on{color:#4f46e5}
+
+  /* ============ AURORA (gradient hero) ============ */
+  .aurora{background:#eceaef;color:#0d0d12}.aurora .st{color:#0d0d12}
+  .aurora .pill{color:#3a3742;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .aurora .hero{border-radius:26px;padding:19px 19px 17px;color:#fff;position:relative;overflow:hidden;margin-bottom:11px;box-shadow:0 16px 40px rgba(14,90,80,.36)}
+  .aurora .hero .art{position:absolute;inset:0;background:
+     radial-gradient(90% 90% at 12% 16%,#34e3c4 0,transparent 46%),
+     radial-gradient(85% 85% at 90% 10%,#8b74ff 0,transparent 48%),
+     radial-gradient(110% 110% at 80% 96%,#ff7ac0 0,transparent 46%),
+     radial-gradient(100% 100% at 18% 96%,#22c58a 0,transparent 46%),
+     linear-gradient(140deg,#0f8f74,#0b6a86)}
+  .aurora .hero>*{position:relative}
+  .aurora .hero .pk{color:rgba(255,255,255,.9)}
+  .aurora .hero .pv{font-size:42px;margin-top:6px;text-shadow:0 2px 18px rgba(0,0,0,.18)}
+  .aurora .hero .io .ar.u{background:rgba(255,255,255,.22);color:#eafff5}.aurora .hero .io .ar.d{background:rgba(255,255,255,.15);color:#fff}
+  .aurora .hero .io .iol{color:rgba(255,255,255,.85)}.aurora .hero .io .sep{background:rgba(255,255,255,.25)}
+  .aurora .card{background:#fff;border-radius:22px;padding:17px;box-shadow:0 2px 6px rgba(0,0,0,.05),0 14px 30px rgba(0,0,0,.06);margin-bottom:11px}
+  .aurora .card .pk{color:#6a6675}
+  .aurora .pt{color:#0d0d12}
+  .aurora .seg{background:#eeedf2;color:#8a8694}.aurora .seg b.on{background:#0f8f74;color:#fff}
+  .aurora .bar.u{background:linear-gradient(#34e3c4,#0f9d78)}.aurora .bar.o{background:linear-gradient(#f0b45a,#e0913a)}
+  .aurora .pline{border-color:#cdcad4}.aurora .pline span{background:#eef7f4;color:#0f8f74}
+  .aurora .days span{color:#a8a4b0}.aurora .pcap{color:#6a6675}
+  .aurora .scope .sn{color:#0d0d12}.aurora .scope .ln{background:#dcd8e0}.aurora .scope .op{color:#a8a4b0}
+  .aurora .goal+.goal,.aurora .free{border-color:#f0eef4}
+  .aurora .gn{color:#0d0d12}.aurora .gs{color:#8a8694}.aurora .grv{color:#0d0d12}
+  .aurora .up{border-top:1px solid #f0eef4;padding-top:11px}.aurora .upl{color:#a8a4b0}.aurora .uchip{background:#eef7f4;color:#0f7a63}
+  .aurora .mini{border-radius:20px;padding:14px 15px;color:#fff;position:relative;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.14)}
+  .aurora .mini .pk{color:rgba(255,255,255,.85)}.aurora .mini .pv{font-size:21px;margin-top:4px}.aurora .mini .sub{color:#fff;opacity:.92}
+  .aurora .g-fam{background:linear-gradient(140deg,#38c98f,#1c8f6a)}.aurora .g-sav{background:linear-gradient(140deg,#6d63e6,#8b74ff)}
+  .aurora .g-fri{background:linear-gradient(140deg,#ff9e6b,#e0577f)}.aurora .g-fri2{background:linear-gradient(140deg,#f0a83a,#e0764a)}
+  .aurora .tab{background:rgba(255,255,255,.9);backdrop-filter:blur(16px)}.aurora .tab .tb.on{color:#0f8f74}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Tài chính · phần cá nhân tinh chỉnh</h1>
+  <p>Phần <b>Tài chính</b> (cá nhân) dùng luôn tiêu đề màn hình, không nhãn phụ. “Còn lại tháng này” tách Vào/Ra thành <b>hai con số</b> (không phải thanh tiến độ) và có <b>biểu đồ nhịp chi tiêu</b> ngày/tuần cho biết đang tiêu nhanh hay chậm. “Tích lũy” là <b>các mục tiêu con</b> + phần tự do, gợi ý vài mục tiêu sắp tới.</p>
+  <div class="leg">Gia đình &amp; Bạn bè giữ dạng gọn. VND · SF Pro. Hai hướng: Bento sáng · Aurora gradient.</div>
+</div>
+
+<div class="gallery">
+
+  <!-- ================= BENTO ================= -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">A</span><span class="t">Bento — sáng</span></div>
+      <div class="d">Widget trắng; nhịp chi tiêu là biểu đồ cột 7 ngày quanh đường nhịp; tích lũy là danh sách mục tiêu có dial.</div></div>
+    <div class="frame bento">
+      <div class="st"><span class="tm">9:41</span><span class="ic"><svg width="18" height="12" viewBox="0 0 18 12"><g fill="#111117"><rect y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" width="3" height="12" rx="1" opacity=".35"/></g></svg><svg width="25" height="12" viewBox="0 0 25 12"><rect x="1" y="1" width="20" height="10" rx="2.6" fill="none" stroke="#111117" stroke-opacity=".4"/><rect x="3" y="3" width="14" height="6" rx="1.2" fill="#111117"/></svg></span></div>
+      <div class="b-h"><h2 class="ttl">Tài chính</h2><span class="pill">Tháng 8 ▾</span></div>
+      <div class="scr"><div class="wrap">
+
+        <div class="card cln" style="margin-top:6px">
+          <div class="pk">Còn lại tháng này</div><div class="pv num">6.150.000 ₫</div>
+          <div class="io">
+            <div class="ioc"><div class="ar u">↑</div><div><div class="iol">Tiền vào</div><div class="iov num">22.000.000</div></div></div>
+            <div class="sep"></div>
+            <div class="ioc"><div class="ar d">↓</div><div><div class="iol">Tiền ra</div><div class="iov num">15.850.000</div></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="ph"><span class="pt">Nhịp chi tiêu</span><span class="seg"><b class="on">Ngày</b><b>Tuần</b></span></div>
+          <div class="chart">
+            <div class="pline" style="bottom:56%"><span>nhịp 250k</span></div>
+            <div class="bar u" style="height:40%"></div><div class="bar o" style="height:71%"></div><div class="bar u" style="height:20%"></div><div class="bar o" style="height:58%"></div><div class="bar o" style="height:91%"></div><div class="bar u" style="height:33%"></div><div class="bar u" style="height:49%"></div>
+          </div>
+          <div class="days"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
+          <div class="pcap">Còn ~<b>250k/ngày</b> cho 14 ngày tới · 3 ngày vượt nhịp tuần này</div>
+        </div>
+
+        <div class="card">
+          <div class="pk">Tích lũy</div><div class="pv num" style="font-size:28px;margin-top:5px">47.000.000 ₫</div>
+          <div style="margin-top:6px">
+            <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">mục tiêu 12.000.000</div></div><div class="gr"><div class="grv num">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
+            <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gt"><div class="gn">Phòng thân</div><div class="gs">đủ · 15.000.000</div></div><div class="gr"><div class="grv num">15tr</div><div class="dial" style="background:conic-gradient(#0f9d6c 360deg,#e9e8ee 0)"></div></div></div>
+            <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gt"><div class="gn">Mua xe</div><div class="gs">mục tiêu 40.000.000</div></div><div class="gr"><div class="grv num">9tr</div><div class="dial" style="background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div></div></div>
+          </div>
+          <div class="free"><div class="gem" style="background:#f1f0f4">💰</div><div class="gt"><div class="gn">Tự do · chưa phân bổ</div><div class="gs">sẵn sàng cho mục tiêu mới</div></div><div class="grv num">15.000.000</div></div>
+          <div class="up"><span class="upl">Sắp tới</span><span class="uchip">💍 Đám cưới</span><span class="uchip">💻 Laptop</span><span class="uchip">＋</span></div>
+        </div>
+
+        <div class="scope"><span class="sn">Gia đình</span><span class="ln"></span></div>
+        <div class="row2">
+          <div class="comp"><div class="pk">Còn lại tháng này</div><div class="pv num">4,2tr</div><div class="sub"><span style="color:#0f9d6c">↑ 12tr</span><span style="color:#8a8694">↓ 7,8tr</span></div></div>
+          <div class="comp"><div class="pk">Tích lũy · quỹ chung</div><div class="pv num">18,5tr</div><div class="sub"><span>🎯 12tr</span><span style="color:#8a8694">tự do 6,5tr</span></div></div>
+        </div>
+        <div class="scope"><span class="sn">Bạn bè / Khác</span><span class="ln"></span><span class="op">tuỳ chọn</span></div>
+        <div class="row2">
+          <div class="comp"><div class="pk">⛰️ Đà Lạt · tháng này</div><div class="pv num">1,6tr</div><div class="sub"><span style="color:#0f9d6c">↑ 8tr</span><span style="color:#8a8694">↓ 6,4tr</span></div></div>
+          <div class="comp"><div class="pk">Quỹ nhóm</div><div class="pv num">2,0tr</div><div class="sub"><span>🎯 Tất niên</span></div></div>
+        </div>
+
+      </div></div>
+      <div class="tab"><div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div><div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div><div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div></div>
+    </div>
+  </div>
+
+  <!-- ================= AURORA ================= -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">B</span><span class="t">Aurora — gradient</span></div>
+      <div class="d">“Còn lại” trên thẻ gradient sống; nhịp &amp; tích lũy trên thẻ trắng; gia đình/bạn bè là khối gradient gọn.</div></div>
+    <div class="frame aurora">
+      <div class="st"><span class="tm">9:41</span><span class="ic"><svg width="18" height="12" viewBox="0 0 18 12"><g fill="#0d0d12"><rect y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" width="3" height="12" rx="1" opacity=".35"/></g></svg><svg width="25" height="12" viewBox="0 0 25 12"><rect x="1" y="1" width="20" height="10" rx="2.6" fill="none" stroke="#0d0d12" stroke-opacity=".4"/><rect x="3" y="3" width="14" height="6" rx="1.2" fill="#0d0d12"/></svg></span></div>
+      <div class="b-h"><h2 class="ttl">Tài chính</h2><span class="pill">Tháng 8 ▾</span></div>
+      <div class="scr"><div class="wrap">
+
+        <div class="hero" style="margin-top:6px"><div class="art"></div>
+          <div class="pk">Còn lại tháng này</div><div class="pv num">6.150.000 ₫</div>
+          <div class="io">
+            <div class="ioc"><div class="ar u">↑</div><div><div class="iol">Tiền vào</div><div class="iov num">22.000.000</div></div></div>
+            <div class="sep"></div>
+            <div class="ioc"><div class="ar d">↓</div><div><div class="iol">Tiền ra</div><div class="iov num">15.850.000</div></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="ph"><span class="pt">Nhịp chi tiêu</span><span class="seg"><b class="on">Ngày</b><b>Tuần</b></span></div>
+          <div class="chart">
+            <div class="pline" style="bottom:56%"><span>nhịp 250k</span></div>
+            <div class="bar u" style="height:40%"></div><div class="bar o" style="height:71%"></div><div class="bar u" style="height:20%"></div><div class="bar o" style="height:58%"></div><div class="bar o" style="height:91%"></div><div class="bar u" style="height:33%"></div><div class="bar u" style="height:49%"></div>
+          </div>
+          <div class="days"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
+          <div class="pcap">Còn ~<b>250k/ngày</b> cho 14 ngày tới · 3 ngày vượt nhịp tuần này</div>
+        </div>
+
+        <div class="card">
+          <div class="pk">Tích lũy</div><div class="pv num" style="font-size:28px;margin-top:5px;color:#0d0d12">47.000.000 ₫</div>
+          <div style="margin-top:6px">
+            <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">mục tiêu 12.000.000</div></div><div class="gr"><div class="grv num">8tr</div><div class="dial" style="background:conic-gradient(#0f9d78 241deg,#e9e8ee 0)"></div></div></div>
+            <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gt"><div class="gn">Phòng thân</div><div class="gs">đủ · 15.000.000</div></div><div class="gr"><div class="grv num">15tr</div><div class="dial" style="background:conic-gradient(#0f9d6c 360deg,#e9e8ee 0)"></div></div></div>
+            <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gt"><div class="gn">Mua xe</div><div class="gs">mục tiêu 40.000.000</div></div><div class="gr"><div class="grv num">9tr</div><div class="dial" style="background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div></div></div>
+          </div>
+          <div class="free"><div class="gem" style="background:#f1f0f4">💰</div><div class="gt"><div class="gn">Tự do · chưa phân bổ</div><div class="gs">sẵn sàng cho mục tiêu mới</div></div><div class="grv num">15.000.000</div></div>
+          <div class="up"><span class="upl">Sắp tới</span><span class="uchip">💍 Đám cưới</span><span class="uchip">💻 Laptop</span><span class="uchip">＋</span></div>
+        </div>
+
+        <div class="scope"><span class="sn">Gia đình</span><span class="ln"></span></div>
+        <div class="row2">
+          <div class="mini g-fam"><div class="pk">Còn lại tháng này</div><div class="pv num">4,2tr</div><div class="sub">↑ 12tr · ↓ 7,8tr</div></div>
+          <div class="mini g-sav"><div class="pk">Tích lũy · quỹ chung</div><div class="pv num">18,5tr</div><div class="sub">🎯 12tr · tự do 6,5tr</div></div>
+        </div>
+        <div class="scope"><span class="sn">Bạn bè / Khác</span><span class="ln"></span><span class="op">tuỳ chọn</span></div>
+        <div class="row2">
+          <div class="mini g-fri"><div class="pk">⛰️ Đà Lạt · tháng này</div><div class="pv num">1,6tr</div><div class="sub">↑ 8tr · ↓ 6,4tr</div></div>
+          <div class="mini g-fri2"><div class="pk">Quỹ nhóm</div><div class="pv num">2,0tr</div><div class="sub">🎯 Tất niên 2tr</div></div>
+        </div>
+
+      </div></div>
+      <div class="tab"><div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div><div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div><div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div></div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
