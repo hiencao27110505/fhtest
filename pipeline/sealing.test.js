@@ -188,24 +188,32 @@ findDuplicate(576820, 'debit', '2026-08-15T10:00:00+07:00', 'VCB', 'VND');
 t('sealing OFF: dedup queries by amount, exactly as before',
   GETS[0].filters.amount === 'eq.576820' && GETS[0].filters.direction === 'eq.debit' &&
   !GETS[0].filters.dedup_fp, JSON.stringify(GETS[0].filters));
-t('and stays cross-source', GETS[0].filters.source_provider === 'neq.VCB');
+// Provider left the QUERY in the same-bank-collapse fix (45774f8): raw strings
+// are what PostgREST compares and raw strings are exactly what is unreliable.
+// Cross-source is decided in the loop, on canonicalProvider names.
+t('provider is not a query filter in either mode',
+  GETS[0].filters.source_provider === undefined, JSON.stringify(GETS[0].filters));
 
 _props = { SEALED_STAGING_ENABLED: 'true', DEDUP_FP_KEY: keyA }; GETS = [];
 findDuplicate(576820, 'debit', '2026-08-15T10:00:00+07:00', 'VCB', 'VND');
 t('sealing ON: dedup queries by fingerprint and NEVER by amount',
   GETS[0].filters.dedup_fp === 'eq.' + fp1 && !GETS[0].filters.amount,
   JSON.stringify(GETS[0].filters));
-t('cross-source and unmerged filters survive the switch',
-  GETS[0].filters.source_provider === 'neq.VCB' && GETS[0].filters.duplicate_of_id === 'is.null');
+t('the unmerged filter survives the switch, and provider still is not one',
+  GETS[0].filters.duplicate_of_id === 'is.null' &&
+  GETS[0].filters.source_provider === undefined);
 
-// The +3d upper bound is enforced in code (PostgREST only gets the lower).
+// The +3d upper bound is enforced in code (PostgREST only gets the lower), and
+// the winner must be genuinely cross-source under CANONICAL names — a same-bank
+// row with an equal fingerprint is the exact case the fingerprint must not merge.
 GET_RESULT = [
-  { id: 'far', occurred_at: '2026-08-25T10:00:00+07:00', created_at: '2026-08-25' },
-  { id: 'near-late', occurred_at: '2026-08-16T10:00:00+07:00', created_at: '2026-08-16' },
-  { id: 'near-early', occurred_at: '2026-08-14T10:00:00+07:00', created_at: '2026-08-14' },
+  { id: 'far', source_provider: 'Shopee', occurred_at: '2026-08-25T10:00:00+07:00', created_at: '2026-08-25' },
+  { id: 'same-bank', source_provider: 'VCB Digibank', occurred_at: '2026-08-15T09:00:00+07:00', created_at: '2026-08-13' },
+  { id: 'near-late', source_provider: 'Grab', occurred_at: '2026-08-16T10:00:00+07:00', created_at: '2026-08-16' },
+  { id: 'near-early', source_provider: 'Shopee', occurred_at: '2026-08-14T10:00:00+07:00', created_at: '2026-08-14' },
 ];
 const dup = findDuplicate(576820, 'debit', '2026-08-15T10:00:00+07:00', 'VCB', 'VND');
-t('a row outside the window is not a duplicate; the earliest inside is chosen',
+t('outside-window and same-canonical-bank rows lose; earliest cross-source wins',
   dup && dup.id === 'near-early', JSON.stringify(dup));
 
 // ── trySealRow: seal, or hold — never plaintext ─────────────────────────────

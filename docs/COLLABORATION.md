@@ -61,6 +61,14 @@ git worktree list                       # who is where
 git worktree remove ../fh-notifications # when done
 ```
 
+A worktree does **not** get `node_modules`, and three suites need `tweetnacl`, so
+`npm test` fails there with `MODULE_NOT_FOUND` until you link the main checkout's
+copy (or `npm install` again):
+
+```sh
+ln -s ../fhtest/node_modules node_modules
+```
+
 Integration then happens through branches and merges, which is the thing git is
 actually built to arbitrate.
 

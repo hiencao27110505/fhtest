@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-16-b';
+var PIPELINE_VERSION = '2026-08-17-a';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -1172,13 +1172,14 @@ function findDuplicate(amount, direction, occurredAt, sourceProvider, currency) 
   // Two query shapes, one semantics. Sealed rows have no amount column, so with
   // sealing on the match key is dedup_fp — the keyed fingerprint every row gets
   // at insert (0068; Trang's 2026-08-16 decision that dedup stays server-side,
-  // superseding the move-client-side plan). The fingerprint deliberately covers
-  // amount|direction|currency and NOT provider, so the cross-source filter stays
-  // a visible query term here in both modes. While sealing is off, the amount
+  // superseding the move-client-side plan). While sealing is off, the amount
   // query keeps matching rows from before dedup_fp existed.
+  //
+  // The provider comparison happens in the LOOP below rather than as a `neq`
+  // query filter, because PostgREST can only compare the raw strings and the
+  // raw strings are exactly what is unreliable. See canonicalProvider below.
   var filters = {
     occurred_at: 'gte.' + windowStart,
-    source_provider: 'neq.' + sourceProvider,
     duplicate_of_id: 'is.null',
   };
   if (sealedStagingEnabled()) {
@@ -1188,11 +1189,18 @@ function findDuplicate(amount, direction, occurredAt, sourceProvider, currency) 
     filters.direction = 'eq.' + direction;
   }
   var rows = supabaseGet('email_transactions', filters);
+  var mine = canonicalProvider(sourceProvider);
   var earliest = null;
   for (var i = 0; i < rows.length; i++) {
-    if (rows[i].occurred_at <= windowEnd) {
-      if (!earliest || rows[i].created_at < earliest.created_at) earliest = rows[i];
-    }
+    if (rows[i].occurred_at > windowEnd) continue;
+    var theirs = canonicalProvider(rows[i].source_provider);
+    if (theirs === mine) continue;          // same bank → a real separate transaction
+    // Unknown on either side: refuse to guess. A missed duplicate costs the
+    // reviewer one tap to skip it; a false duplicate removes a real transaction
+    // from the queue AND skips its notification, silently. Those two failures are
+    // not comparable, so the tie goes to keeping the row.
+    if (!theirs || !mine) continue;
+    if (!earliest || rows[i].created_at < earliest.created_at) earliest = rows[i];
   }
   return earliest;
 }
@@ -1206,8 +1214,9 @@ function findDuplicate(amount, direction, occurredAt, sourceProvider, currency) 
 // against, which is the attack that made an unkeyed index unshippable (§7).
 // What equal fingerprints still reveal — that two rows share an amount and
 // direction — is accepted and recorded in 0068's column comment.
-// Provider is left out on purpose: dedup is cross-source, and the query needs
-// provider as its own clear filter (see findDuplicate).
+// Provider is left out on purpose: cross-source is decided in findDuplicate's
+// loop on CANONICAL provider names (canonicalProvider), so a fingerprint that
+// fragmented on the raw spelling would reintroduce the same-bank bug there.
 var _DEDUP_FP_KEY_PROP = 'DEDUP_FP_KEY';
 
 function dedupFingerprint(amount, direction, currency) {
@@ -1348,6 +1357,37 @@ function sealingPreflight() {
   }
 }
 
+// Two spellings of one bank are not two sources.
+//
+// `source_provider` is free text straight from the extractor, and a single bank
+// arrives as 'MB', 'MBBank' and 'MB eBanking' depending on which email template
+// it came from. The cross-source rule above compares providers, so those three
+// spellings made genuinely separate MB transactions look like one event reported
+// by three different sources — and a row marked duplicate is filtered out of the
+// review queue AND skipped by queueReviewNotice. The transaction vanished and
+// nothing anywhere said so. Observed 2026-08-16 on three same-day MB rows, one of
+// which disappeared.
+//
+// Canonicalising strips case, punctuation and accents, then the channel words
+// that vary per template but never identify the bank. 'MB' / 'MBBank' /
+// 'MB eBanking' all reduce to 'mb'; 'Vietcombank' to 'vietcom'; 'MSB' stays 'msb'
+// because it contains no channel word — banks are only ever merged when what is
+// left after stripping is genuinely identical.
+function canonicalProvider(name) {
+  if (!name) return '';
+  var s = String(name).toLowerCase();
+  // Accents first, so 'Kỹ Thương' and 'Ky Thuong' are one bank.
+  // Escaped, not literal combining marks: this file is deployed by hand-pasting
+  // and invisible characters do not survive that reliably.
+  if (s.normalize) s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  s = s.replace(/[^a-z0-9]/g, '');
+  // Longest first: strip 'ebanking' before 'banking' can leave a stray 'e' behind.
+  var NOISE = ['internetbanking', 'mobilebanking', 'onlinebanking', 'smartbanking',
+               'ebanking', 'digibank', 'banking', 'ebank', 'bank', 'jsc'];
+  for (var i = 0; i < NOISE.length; i++) s = s.split(NOISE[i]).join('');
+  return s;
+}
+
 // ---------- memo tidying ----------
 //
 // What a bank writes in "Nội dung chuyển tiền" is usually not what the money was
@@ -1380,7 +1420,7 @@ var MERCHANT_AGGREGATOR_RE = /^(MPOS|PAYOO|VNPAY|MOMO|ZALOPAY|SHOPEEPAY|NAPAS)[\
 function _memoNorm(s) { return deburrAscii(s).toLowerCase().replace(/\s+/g, ' ').trim(); }
 function deburrAscii(s) {
   return String(s == null ? '' : s).normalize('NFD')
-    .replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    .replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
 }
 
 function _isRefSegment(seg) {
