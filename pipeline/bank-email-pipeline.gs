@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-17-a';
+var PIPELINE_VERSION = '2026-08-17-b';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -1142,8 +1142,14 @@ function checkSenderAuthenticity(message, sender) {
   } else if (!fwd) {
     results.forwarder = 'absent';
     results.reasons.push('no X-Forwarded-For header');
-  } else if (mailbox.personal_email &&
-             fwd.toLowerCase().indexOf(String(mailbox.personal_email).toLowerCase()) === -1) {
+  } else if (!mailbox.personal_email) {
+    // No address on file is NOT a pass. The old fall-through meant an alias
+    // with a null personal_email accepted ANY forwarder the moment enforcement
+    // turned on, while genuine hand-forwards were blocked — exactly backwards.
+    // 'unknown' keeps it advisory-visible now and fail-closed under enforcement.
+    results.forwarder = 'unknown';
+    results.reasons.push('no forwarding address on file for this alias');
+  } else if (fwd.toLowerCase().indexOf(String(mailbox.personal_email).toLowerCase()) === -1) {
     results.forwarder = 'mismatch';
     results.reasons.push('forwarded by ' + fwd + ', alias belongs to ' + mailbox.personal_email);
   } else {

@@ -38,6 +38,24 @@ relaying messages through Slack/DMs by hand.
     the reopen prerequisites (forwarding-address ask at connect, the
     `unknown`-not-`pass` forwarder hardening, PDPL/DPIA).
 
+  **Later same day — both engineering reopen-prerequisites are BUILT, on the
+  branch, NOT deployed.** (PDPL is now the only non-engineering one left.)
+  - **Forwarding-address ask at connect** (`71-mailbox-ui.js`): the which-email
+    sheet sits between the offer and the address — prefilled with the login
+    email, editable, so the default costs one tap and the trang.nguyen.wh case
+    is fixable at setup. The status sheet shows "Chuyển tiếp từ: <address> ·
+    Đổi", which is also how the four EXISTING connections correct theirs (the
+    RPC refreshes `personal_email` on an issued alias, 0059). VN copy needs
+    Trang's native read.
+  - **`unknown`-not-`pass`** in `checkSenderAuthenticity`: a null
+    `personal_email` with a forwarder present now answers `unknown` (fail-closed
+    under enforcement) instead of falling through to `pass`.
+    `sender-auth.test.js` 17→19 assertions, mutation-checked.
+  - Ships as **`v2026-08-17-b`** (one more paste of `bank-email-pipeline.gs`,
+    no urgency while enforcement is off) + client **sw v346** (merge to main on
+    Trang's go). `SENDER_AUTH_ENFORCE` should stay off until the four existing
+    connections' forwarding addresses are corrected via the new Đổi control.
+
 - **2026-08-16 (forwarding session, later) — SEALING IS WIRED END TO END, gated
   off. Full-flow review done first; it found two crypto-relevant defects that
   would have shipped. Hien: items 2 and 3 supersede recorded agreements of

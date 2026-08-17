@@ -65,6 +65,17 @@ t('a stranger posting at the alias is not treated as a hand-forward', r.forwarde
 r=checkSenderAuthenticity(msg(GOOD),'mbebanking@mbbank.com.vn');
 t('real auto-forwarded mail is still forward_mode=auto', r.forward_mode==='auto' && r.ok===true);
 
+console.log('\n-- no forwarding address on file (the backwards hole, 2026-08-17) --');
+// The old fall-through: personal_email null + any X-Forwarded-For present ->
+// 'pass'. Under enforcement that accepted every forger while blocking every
+// genuine hand-forward. An absent address must answer 'unknown', never 'pass'.
+const SAVED_MAILBOX = MAILBOX;
+MAILBOX = { personal_email: null, member_id: 'm1' };
+r=checkSenderAuthenticity(msg({...GOOD,'X-Forwarded-For':'anyone.at.all@gmail.com'}),'mbebanking@mbbank.com.vn');
+t('null personal_email + a forwarder is unknown, NOT pass', r.forwarder==='unknown', JSON.stringify(r));
+t('and therefore does not authenticate', r.ok===false);
+MAILBOX = SAVED_MAILBOX;
+
 console.log('\n-- enforcement flag --');
 t('advisory by default', senderAuthEnforced()===false);
 _props.SENDER_AUTH_ENFORCE='true';

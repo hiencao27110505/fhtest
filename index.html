@@ -12687,7 +12687,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v345';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v346';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -19539,10 +19539,38 @@ window.classifyAmount = classifyAmount;
             'We never touch your mailbox — only the emails you send us.')) +
       '</div>' +
 
-      '<button class="cta" onclick="fhMailboxStart(this)">' + _esc(L('Bắt đầu', 'Get started')) + '</button>' +
+      '<button class="cta" onclick="fhMailboxWhichEmail()">' + _esc(L('Bắt đầu', 'Get started')) + '</button>' +
       '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
     );
   }
+
+  // ── Sheet 1b · which email forwards ────────────────────────────────────────
+  /* The forwarder-identity fix (AGENT_SYNC 2026-08-16). personal_email is what
+     checkSenderAuthenticity compares against the ADDRESS THAT FORWARDED the
+     mail — but it used to be filled with the login email silently, and the two
+     differ whenever someone's bank alerts go to a different mailbox (the live
+     case: login gichisreading@, forwarding from trang.nguyen.wh@). The moment
+     SENDER_AUTH_ENFORCE turns on, that mismatch silently blocks every message.
+     So: one prefilled, editable field. Most people tap straight through with
+     the default; the ones who forward from elsewhere fix it here, once.
+     Also reachable from the status sheet to correct an existing connection —
+     the RPC refreshes personal_email on an already-issued alias (0059). */
+  window.fhMailboxWhichEmail = function (mode) {
+    const login = (window.FAM && window.FAM.user && window.FAM.user.email) || '';
+    const update = mode === 'update';
+    _fhSheet(
+      '<div class="sheet-h">' + _esc(L('Email nào nhận thông báo ngân hàng?', 'Which email gets your bank alerts?')) + '</div>' +
+      '<div class="sheet-sub">' + _esc(L(
+        'Bạn sẽ chuyển tiếp từ email mà ngân hàng đang gửi thông báo tới. Nếu không phải email đăng nhập, sửa lại giúp tụi mình nhé.',
+        'You will be forwarding from the email your bank sends alerts to. If that is not your login email, change it here.')) + '</div>' +
+      '<div class="field"><label>' + _esc(L('Email nhận thông báo', 'Email that gets the alerts')) + '</label>' +
+      '<input id="fh-mbx-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" value="' + _escAttr(login) + '"></div>' +
+      '<button class="cta" onclick="fhMailboxStart(this' + (update ? ',null,\'update\'' : '') + ')">' +
+        _esc(update ? L('Lưu địa chỉ', 'Save address') : L('Tiếp tục', 'Continue')) + '</button>' +
+      '<button class="btn-skip" onclick="' + (update ? 'fhMailboxSheet()' : '_closeOv()') + '">' +
+        _esc(update ? L('Quay lại', 'Back') : L('Để sau', 'Not now')) + '</button>'
+    );
+  };
 
   function _mbxAssure(icon, title, sub) {
     return '<div class="mbx-assure-row">' +
@@ -19555,9 +19583,21 @@ window.classifyAmount = classifyAmount;
      personal_email lets the pipeline confirm forwarded mail really came through
      this member's mailbox. Shows progress on the tapped CTA — the RPC is a real
      round trip and must not look frozen (DESIGN §4.2). */
-  window.fhMailboxStart = async function (btn) {
-    const email = (window.FAM && window.FAM.user && window.FAM.user.email) || null;
-    if (btn) { btn.disabled = true; btn.textContent = L('Đang tạo địa chỉ…', 'Creating your address…'); }
+  window.fhMailboxStart = async function (btn, emailOverride, mode) {
+    // The field is the source of truth when the which-email sheet is up;
+    // emailOverride and the login address are fallbacks for older call sites.
+    const field = document.getElementById('fh-mbx-email');
+    const email = (field && field.value.trim()) || emailOverride ||
+                  (window.FAM && window.FAM.user && window.FAM.user.email) || null;
+    // Enough validation to catch a paste gone wrong; the real proof of the
+    // address is a forwarded email actually arriving, never a regex.
+    if (!email || !/.+@.+\..+/.test(email)) {
+      window.toast && window.toast(L('Địa chỉ email chưa đúng, bạn xem lại nhé',
+                                     'That email does not look right, check it again'));
+      return;
+    }
+    const btnLabel = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang lưu…', 'Saving…'); }
 
     /* A family without a staging keypair cannot use this flow — decided
        2026-08-16: the pipeline HOLDS mail for keyless families rather than ever
@@ -19568,14 +19608,14 @@ window.classifyAmount = classifyAmount;
     if (window.fhStagingEnsureKeypair) {
       try {
         if (!window.fhKeyReady || !window.fhKeyReady()) {
-          if (btn) { btn.disabled = false; btn.textContent = L('Bắt đầu', 'Get started'); }
+          if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
           window.toast && window.toast(L('Hãy mở khoá ứng dụng trước, rồi thử lại nhé',
                                          'Unlock the app first, then try again'));
           return;
         }
         await window.fhStagingEnsureKeypair();
       } catch (e) {
-        if (btn) { btn.disabled = false; btn.textContent = L('Bắt đầu', 'Get started'); }
+        if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
         window.toast && window.toast(L('Chưa chuẩn bị được khoá bảo mật, thử lại nhé',
                                        'Could not prepare your security keys, try again'));
         return;
@@ -19586,8 +19626,13 @@ window.classifyAmount = classifyAmount;
     try {
       res = await _rpc('get_or_create_mailbox_alias', { p_personal_email: email });
     } catch (e) {
-      if (btn) { btn.disabled = false; btn.textContent = L('Bắt đầu', 'Get started'); }
+      if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
       window.toast && window.toast(L('Chưa tạo được địa chỉ, thử lại nhé', 'Could not create your address — try again'));
+      return;
+    }
+    if (mode === 'update') {
+      window.toast && window.toast(L('Đã cập nhật địa chỉ chuyển tiếp', 'Forwarding address updated'));
+      window.fhMailboxSheet();
       return;
     }
     fhMailboxSetup(res.forwarding_alias);
@@ -19737,6 +19782,17 @@ window.classifyAmount = classifyAmount;
         '<span class="mbx-conn-dot"></span>' +
         '<code>' + _esc(addr) + '</code>' +
       '</div>' +
+
+      /* Which address the pipeline expects the forwarding to come FROM. Shown
+         so a wrong one is visible instead of silently on file — it is what the
+         forwarder check compares against once enforcement turns on, and the
+         live connections were seeded with login emails that are not always the
+         forwarding mailbox. Tapping it opens the same which-email sheet. */
+      (st.personal_email
+        ? '<div class="mbx-note"><span>' + _esc(L('Chuyển tiếp từ: ', 'Forwards from: ')) + _esc(st.personal_email) +
+          ' · <a href="#" onclick="fhMailboxWhichEmail(\'update\');return false" style="cursor:pointer">' +
+          _esc(L('Đổi', 'Change')) + '</a></span></div>'
+        : '') +
 
       (ok ? '' :
         '<div class="mbx-note"><span>' + _esc(L(
