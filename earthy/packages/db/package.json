@@ -1,5 +1,5 @@
 {
-  "name": "@fhub/db",
+  "name": "@earthy/db",
   "version": "1.0.0",
   "private": true,
   "type": "module",

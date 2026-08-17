@@ -1,5 +1,5 @@
 {
-  "name": "@fhub/api",
+  "name": "@earthy/api",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@fhub/db": "workspace:^",
+    "@earthy/db": "workspace:^",
     "@hono/zod-validator": "^0.9.0",
     "drizzle-orm": "^0.45.1",
     "hono": "^4.13.2",

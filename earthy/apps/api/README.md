@@ -1,13 +1,13 @@
-# @fhub/api
+# @earthy/api
 
-Hono API server running on Bun. Reads and writes through `@fhub/db` — it never
+Hono API server running on Bun. Reads and writes through `@earthy/db` — it never
 opens its own connection or defines its own tables.
 
 ## Running
 
 ```sh
-pnpm --filter @fhub/api dev     # watch mode on http://localhost:3001
-pnpm --filter @fhub/api start   # no watcher
+pnpm --filter @earthy/api dev     # watch mode on http://localhost:3001
+pnpm --filter @earthy/api start   # no watcher
 ```
 
 Bun loads `.env.local` automatically. Copy `.env.example` to `.env.local` and set
@@ -26,7 +26,7 @@ message if it is missing or malformed.
 
 ```ts
 import { hc } from 'hono/client'
-import type { AppType } from '@fhub/api/app'
+import type { AppType } from '@earthy/api/app'
 
 const client = hc<AppType>('http://localhost:3001')
 ```
