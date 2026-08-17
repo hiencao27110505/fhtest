@@ -304,19 +304,33 @@
        next is seeing them again and importing them twice. */
     _stagedRetiredAdd(ids);
 
+    /* Two failures live here and they need DIFFERENT diagnoses — an earlier
+       version of this printed one sentence for both, which made a permanently
+       broken retirement look like a momentary lag:
+
+         removed === 0  the function ran and matched nothing. The rows are real
+                        and visible, so the mismatch is ownership: p_ids reached
+                        a member_id that is not this user's. Retrying never fixes
+                        it.
+         throw          the call itself failed — 0060 absent, a different
+                        argument name (PostgREST resolves by name AND args), a
+                        revoked grant, or the network.
+
+       Neither is "catching up", so neither says so. The console carries the
+       detail, because this is the one place a person cannot see what went wrong
+       and the queue now looks correct either way. */
     try {
       var removed = await _rpc('resolve_email_transactions', { p_ids: ids });   // 0060
       window._fhStagedRows = [];
       if (!removed) {
-        // The RPC ran but matched nothing — usually 0060 is not applied, or the
-        // rows belong to a different member. The queue now looks right either
-        // way, but say so rather than let a broken retirement pass as working.
-        window.toast && window.toast(L('Đã lưu. Danh sách sẽ tự dọn khi máy chủ bắt kịp.',
-                                       'Saved. The queue will clear once the server catches up.'));
+        console.warn('staged retire: matched 0 rows', { ids: ids });
+        window.toast && window.toast(L('Đã lưu, nhưng chưa xoá được bản nháp trên máy chủ.',
+                                       'Saved, but the drafts could not be removed on the server.'));
       }
     } catch (e2) {
-      window.toast && window.toast(L('Đã lưu. Danh sách sẽ tự dọn khi máy chủ bắt kịp.',
-                                     'Saved. The queue will clear once the server catches up.'));
+      console.warn('staged retire failed', e2, { ids: ids });
+      window.toast && window.toast(L('Đã lưu, nhưng chưa xoá được bản nháp trên máy chủ.',
+                                     'Saved, but the drafts could not be removed on the server.'));
     }
 
     /* They have just reviewed real transactions by hand, which is exactly the
