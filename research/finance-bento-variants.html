@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Bento · 8 biến thể thẻ Còn lại &amp; Tích lũy</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{--sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif}
+  html,body{background:#dcdae1;font-family:var(--sf);color:#111117;-webkit-font-smoothing:antialiased}
+  body{padding:44px 20px 90px}
+  .num,.big,.iov,.grv,.uamt,.irb,.bt .v{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  .page-head{max-width:900px;margin:0 auto 40px;text-align:center}
+  .page-head h1{font-size:33px;font-weight:800;letter-spacing:-1px;margin-bottom:9px}
+  .page-head p{color:#4b4753;font-size:15.5px;line-height:1.6;max-width:680px;margin:0 auto}
+  .page-head .leg{margin-top:13px;font-size:12.5px;color:#847f8e}
+
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(348px,1fr));gap:40px 28px;max-width:1140px;margin:0 auto;justify-items:center}
+  .v{width:348px}
+  .cap{margin:0 4px 12px}
+  .cap .n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:11px;margin-right:8px;vertical-align:1px}
+  .cap .t{font-weight:700;font-size:16px;letter-spacing:-.3px}
+  .cap .d{color:#847f8e;font-size:12.5px;margin-top:5px;line-height:1.5}
+
+  .screen{background:#f2f2f6;border-radius:32px;padding:16px 15px 20px;box-shadow:0 12px 34px rgba(0,0,0,.13)}
+  .sh{display:flex;justify-content:space-between;align-items:flex-end;padding:4px 6px 13px}
+  .sh h3{font-size:24px;font-weight:800;letter-spacing:-.7px}
+  .sh .pill{font-size:11.5px;font-weight:600;color:#3a3742;background:#fff;border-radius:999px;padding:5px 11px;box-shadow:0 2px 7px rgba(0,0,0,.06)}
+
+  .c{background:#fff;border-radius:20px;padding:15px;box-shadow:0 1px 2px rgba(0,0,0,.05),0 8px 22px rgba(0,0,0,.05);margin-bottom:10px}
+  .c:last-child{margin-bottom:0}
+  .eyebrow{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8a8694}
+  .big{font-weight:800;letter-spacing:-1px;line-height:1}
+  .grad{background:linear-gradient(120deg,#4f46e5,#14b8a6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .hr{height:1px;background:#f0eef4;margin:15px 0 13px}
+
+  /* in/out */
+  .io{display:flex;align-items:center;margin-top:14px}
+  .io .ioc{flex:1;display:flex;align-items:center;gap:9px}
+  .io .ar{width:25px;height:25px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0}
+  .io .ar.u{background:#e7f6f0;color:#0f9d6c}.io .ar.d{background:#f1eff4;color:#8a8694}
+  .io .iol{font-size:10.5px;font-weight:600;color:#8a8694}
+  .io .iov{font-size:15.5px;font-weight:800;letter-spacing:-.3px;margin-top:1px}
+  .io .sep{width:1px;align-self:stretch;background:#eceaf0;margin:2px 13px}
+
+  /* delta banner */
+  .delta{font-size:12px;font-weight:600;line-height:1.4;padding:8px 12px;border-radius:10px}
+  .delta.down{background:#e7f6f0;color:#0f7a5a}.delta.up{background:#fdeef0;color:#c0392b}
+  .delta b{font-weight:800;white-space:nowrap}.delta .di{font-weight:800;margin-right:2px}
+
+  /* paired daily chart + swipe dots */
+  .chart{display:flex;gap:7px;align-items:flex-end;justify-content:space-between}
+  .col{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1}
+  .bwrap{position:relative;height:56px;width:100%;display:flex;align-items:flex-end;justify-content:center}
+  .bprev{position:absolute;bottom:0;width:72%;max-width:24px;border-radius:4px 4px 0 0;background:#e6e4ec}
+  .bcur{position:absolute;bottom:0;width:38%;max-width:12px;border-radius:3px 3px 0 0;z-index:1}
+  .bcur.g{background:#14b8a6}.bcur.o{background:#e0913a}
+  .col span{font-size:8.5px;color:#a8a4b0;font-weight:600}
+  .dots{display:flex;gap:5px;justify-content:center;align-items:center;margin-top:11px}
+  .dots i{width:5px;height:5px;border-radius:50%;background:#d4d1db}.dots i.on{background:#8a8694;width:15px;border-radius:3px}
+  .dots em{font-size:9px;font-weight:700;color:#a8a4b0;font-style:normal;margin-left:6px;letter-spacing:.04em}
+
+  /* goals */
+  .goal{display:flex;align-items:center;gap:11px;padding:10px 0}
+  .goal+.goal{border-top:1px solid #f0eef4}
+  .gem{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+  .gt{flex:1;min-width:0}
+  .gn{font-size:13.5px;font-weight:600;letter-spacing:-.2px;color:#111117}
+  .gs{font-size:10.5px;margin-top:1px;color:#8a8694}
+  .gr{display:flex;align-items:center;gap:8px}
+  .grv{font-size:13px;font-weight:800;letter-spacing:-.2px}
+  .dial{width:28px;height:28px;border-radius:50%;position:relative;flex-shrink:0}
+  .dial::after{content:"";position:absolute;inset:5px;border-radius:50%;background:#fff}
+
+  /* unallocated footer */
+  .ufoot{display:flex;align-items:center;gap:11px;margin:12px -15px -15px;padding:13px 15px;border-top:1px solid #f0eef4;border-radius:0 0 20px 20px;background:#faf9fc}
+  .ufoot .uic{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#edecf2}
+  .ufoot .uic svg{width:16px;height:16px;fill:none;stroke:#9a94a8;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .ufoot .ut{flex:1;min-width:0}
+  .ufoot .ul{font-size:12.5px;font-weight:600;color:#2e2a38}
+  .ufoot .us{font-size:10.5px;margin-top:1px;color:#8a8694}
+  .ufoot .uamt{font-size:14.5px;font-weight:800;letter-spacing:-.3px;color:#111;white-space:nowrap}
+
+  .row2{display:flex;gap:10px}.row2>*{flex:1;min-width:0}
+
+  /* V3 / rails */
+  .rail{display:flex;gap:9px;overflow-x:auto;margin:12px -15px 0;padding:0 15px 4px}
+  .rail::-webkit-scrollbar{display:none}
+  .rtile{flex:0 0 auto;width:130px;background:#f7f6fa;border:1px solid #eeecf3;border-radius:14px;padding:11px 12px}
+  .rtile .rl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8694}
+  .rtile .rv{font-size:17px;font-weight:800;letter-spacing:-.4px;margin-top:5px}
+  .gtile{flex:0 0 auto;width:118px;background:#fff;border:1px solid #f0eef4;border-radius:14px;padding:12px;box-shadow:0 4px 12px rgba(0,0,0,.04)}
+  .gtile .ge{font-size:20px}.gtile .gnm{font-size:12px;font-weight:600;margin-top:6px}.gtile .gvv{font-size:14px;font-weight:800;margin-top:2px}
+
+  /* V6 rings */
+  .ringrow{display:flex;align-items:center;gap:16px;margin-top:8px}
+  .rc{position:relative;width:104px;height:104px;flex-shrink:0}
+  .rc .rct{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .rc .rct .rv{font-size:17px;font-weight:800;letter-spacing:-.5px}
+  .rc .rct .rl{font-size:9px;font-weight:600;color:#8a8694;margin-top:1px}
+  .grings{display:flex;justify-content:space-around;margin-top:6px}
+  .grc{text-align:center}
+  .grc .rr{position:relative;width:60px;height:60px;margin:0 auto}
+  .grc .rr .p{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+  .grc .gl{font-size:10.5px;font-weight:600;margin-top:6px;color:#3a3742}
+  .grc .gv{font-size:10px;color:#8a8694}
+
+  /* V7 grouped inset */
+  .gsec{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8a8694;margin:4px 8px 7px}
+  .inset{background:#fff;border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.05),0 6px 16px rgba(0,0,0,.045);overflow:hidden;margin-bottom:12px}
+  .irow{display:flex;align-items:center;justify-content:space-between;padding:12px 15px}
+  .irow+.irow{border-top:1px solid #f2f0f6}
+  .irl{font-size:14px;font-weight:500;color:#111117;display:flex;align-items:center;gap:9px}
+  .irb{font-size:14px;font-weight:700;letter-spacing:-.2px}
+  .num-hero{font-size:33px;font-weight:800;letter-spacing:-1.2px;margin:2px 8px 12px}
+
+  /* V8 bento grid */
+  .bento{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .bt{background:#fff;border-radius:16px;padding:13px;box-shadow:0 1px 2px rgba(0,0,0,.05),0 6px 16px rgba(0,0,0,.05)}
+  .bt.wide{grid-column:span 2}
+  .bt .l{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8a8694}
+  .bt .v{font-size:19px;font-weight:800;letter-spacing:-.5px;margin-top:5px}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Bento · 8 biến thể · thẻ “Còn lại” &amp; “Tích lũy”</h1>
+  <p>Cùng nội dung, tám cách tổ chức hai thẻ tài chính cá nhân theo chuẩn Apple. Nhịp chi tiêu giờ <b>vuốt để đổi</b> giữa biểu đồ <b>ngày (7 ngày)</b> và <b>tuần (8 tuần / 2 tháng)</b> — hai chấm trang là chỉ báo vuốt.</p>
+  <div class="leg">Bento sáng · VND · SF Pro. Cột ngày: xám = kỳ trước, màu = kỳ này.</div>
+</div>
+
+<div class="gallery">
+
+  <!-- ===== V1 · Stacked ===== -->
+  <div class="v">
+    <div class="cap"><div><span class="n">1</span><span class="t">Xếp chồng cổ điển</span></div><div class="d">Hai thẻ riêng, rõ ràng nhất. Số dẫn đầu → dòng tiền → nhịp; tích lũy → mục tiêu → chưa phân bổ.</div></div>
+    <div class="screen">
+      <div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="c">
+        <div class="eyebrow">Còn lại tháng này</div><div class="big grad" style="font-size:34px;margin-top:5px">6.150.000 ₫</div>
+        <div class="io"><div class="ioc"><div class="ar u">↑</div><div><div class="iol">Vào</div><div class="iov">22.000.000</div></div></div><div class="sep"></div><div class="ioc"><div class="ar d">↓</div><div><div class="iol">Ra</div><div class="iov">15.850.000</div></div></div></div>
+        <div class="hr"></div>
+        <div class="delta down"><span class="di">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+        <div class="chart" style="margin-top:13px"><div class="col"><div class="bwrap"><div class="bprev" style="height:37px"></div><div class="bcur g" style="height:30px"></div></div><span>T2</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:40px"></div><div class="bcur o" style="height:47px"></div></div><span>T3</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:35px"></div><div class="bcur g" style="height:20px"></div></div><span>T4</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:56px"></div><div class="bcur g" style="height:37px"></div></div><span>T5</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:37px"></div><div class="bcur o" style="height:49px"></div></div><span>T6</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:31px"></div></div><span>T7</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:25px"></div></div><span>CN</span></div></div>
+        <div class="dots"><i class="on"></i><i></i><em>Ngày · Tuần</em></div>
+      </div>
+      <div class="c">
+        <div class="eyebrow">Tích lũy</div><div class="big" style="font-size:25px;margin-top:5px">47.000.000 ₫</div>
+        <div style="margin-top:6px">
+          <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">mục tiêu 12.000.000</div></div><div class="gr"><div class="grv">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gt"><div class="gn">Phòng thân</div><div class="gs">đủ · 15.000.000</div></div><div class="gr"><div class="grv">15tr</div><div class="dial" style="background:conic-gradient(#0f9d6c 360deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gt"><div class="gn">Mua xe</div><div class="gs">mục tiêu 40.000.000</div></div><div class="gr"><div class="grv">9tr</div><div class="dial" style="background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div></div></div>
+        </div>
+        <div class="ufoot"><div class="uic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6.5" rx="7" ry="3"/><path d="M5 6.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/><path d="M5 11.5c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg></div><div class="ut"><div class="ul">Chưa phân bổ</div><div class="us">đang để dành tự do</div></div><div class="uamt">15.000.000 ₫</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== V2 · Merged one card ===== -->
+  <div class="v">
+    <div class="cap"><div><span class="n">2</span><span class="t">Gộp một thẻ</span></div><div class="d">Cả hai trong một thẻ liền, chia mục bằng đường mảnh — như thẻ Wallet mở rộng.</div></div>
+    <div class="screen">
+      <div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="c">
+        <div class="eyebrow">Còn lại tháng này</div><div class="big grad" style="font-size:32px;margin-top:5px">6.150.000 ₫</div>
+        <div class="io"><div class="ioc"><div class="ar u">↑</div><div><div class="iol">Vào</div><div class="iov">22.000.000</div></div></div><div class="sep"></div><div class="ioc"><div class="ar d">↓</div><div><div class="iol">Ra</div><div class="iov">15.850.000</div></div></div></div>
+        <div class="delta down" style="margin-top:14px"><span class="di">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+        <div class="chart" style="margin-top:13px"><div class="col"><div class="bwrap"><div class="bprev" style="height:37px"></div><div class="bcur g" style="height:30px"></div></div><span>T2</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:40px"></div><div class="bcur o" style="height:47px"></div></div><span>T3</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:35px"></div><div class="bcur g" style="height:20px"></div></div><span>T4</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:56px"></div><div class="bcur g" style="height:37px"></div></div><span>T5</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:37px"></div><div class="bcur o" style="height:49px"></div></div><span>T6</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:31px"></div></div><span>T7</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:25px"></div></div><span>CN</span></div></div>
+        <div class="dots"><i class="on"></i><i></i></div>
+        <div class="hr" style="margin:16px 0 14px"></div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between"><div class="eyebrow">Tích lũy</div><div class="big" style="font-size:20px">47.000.000 ₫</div></div>
+        <div style="margin-top:4px">
+          <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">8/12tr</div></div><div class="gr"><div class="grv">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gt"><div class="gn">Phòng thân</div><div class="gs">đủ</div></div><div class="gr"><div class="grv">15tr</div><div class="dial" style="background:conic-gradient(#0f9d6c 360deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gt"><div class="gn">Mua xe</div><div class="gs">9/40tr</div></div><div class="gr"><div class="grv">9tr</div><div class="dial" style="background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div></div></div>
+        </div>
+        <div class="ufoot"><div class="uic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6.5" rx="7" ry="3"/><path d="M5 6.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/><path d="M5 11.5c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg></div><div class="ut"><div class="ul">Chưa phân bổ</div><div class="us">đang để dành tự do</div></div><div class="uamt">15.000.000 ₫</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== V3 · Hero + horizontal rails ===== -->
+  <div class="v">
+    <div class="cap"><div><span class="n">3</span><span class="t">Số lớn + rãnh cuộn ngang</span></div><div class="d">Số dẫn đầu; chi tiết là các ô cuộn ngang. Mục tiêu cũng là thẻ trượt ngang.</div></div>
+    <div class="screen">
+      <div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="c">
+        <div class="eyebrow">Còn lại tháng này</div><div class="big grad" style="font-size:34px;margin-top:5px">6.150.000 ₫</div>
+        <div class="rail">
+          <div class="rtile" style="width:150px"><div class="rl">Nhịp tuần này</div><div class="delta down" style="margin-top:6px;padding:5px 8px;font-size:10.5px"><span class="di">▼</span>Giảm <b>180k</b></div><div class="chart" style="gap:4px;margin-top:8px"><div class="col"><div class="bwrap" style="height:34px"><div class="bprev" style="height:22px"></div><div class="bcur g" style="height:18px"></div></div></div><div class="col"><div class="bwrap" style="height:34px"><div class="bprev" style="height:24px"></div><div class="bcur o" style="height:29px"></div></div></div><div class="col"><div class="bwrap" style="height:34px"><div class="bprev" style="height:21px"></div><div class="bcur g" style="height:12px"></div></div></div><div class="col"><div class="bwrap" style="height:34px"><div class="bprev" style="height:34px"></div><div class="bcur g" style="height:22px"></div></div></div><div class="col"><div class="bwrap" style="height:34px"><div class="bprev" style="height:22px"></div><div class="bcur o" style="height:30px"></div></div></div></div></div>
+          <div class="rtile"><div class="rl">↑ Vào</div><div class="rv" style="color:#0f9d6c">22.000.000</div></div>
+          <div class="rtile"><div class="rl">↓ Ra</div><div class="rv">15.850.000</div></div>
+        </div>
+      </div>
+      <div class="c">
+        <div style="display:flex;align-items:baseline;justify-content:space-between"><div class="eyebrow">Tích lũy</div><div class="big" style="font-size:19px">47.000.000 ₫</div></div>
+        <div class="rail">
+          <div class="gtile"><div class="ge">✈️</div><div class="gnm">Du lịch</div><div class="gvv">8/12tr</div><div style="height:5px;border-radius:9px;background:#eee;margin-top:8px;overflow:hidden"><i style="display:block;height:100%;width:67%;background:#14b8a6"></i></div></div>
+          <div class="gtile"><div class="ge">🛡️</div><div class="gnm">Phòng thân</div><div class="gvv">15tr</div><div style="height:5px;border-radius:9px;background:#eee;margin-top:8px;overflow:hidden"><i style="display:block;height:100%;width:100%;background:#0f9d6c"></i></div></div>
+          <div class="gtile"><div class="ge">🚗</div><div class="gnm">Mua xe</div><div class="gvv">9/40tr</div><div style="height:5px;border-radius:9px;background:#eee;margin-top:8px;overflow:hidden"><i style="display:block;height:100%;width:23%;background:#6d63e6"></i></div></div>
+          <div class="gtile" style="background:#faf9fc"><div class="ge">💰</div><div class="gnm">Chưa phân bổ</div><div class="gvv">15tr</div><div style="font-size:9.5px;color:#8a8694;margin-top:8px">để dành tự do</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== V4 · Chart-forward ===== -->
+  <div class="v">
+    <div class="cap"><div><span class="n">4</span><span class="t">Biểu đồ dẫn dắt</span></div><div class="d">Nhịp chi tiêu là nhân vật chính: biểu đồ lớn, số &amp; dòng tiền thu gọn ở trên.</div></div>
+    <div class="screen">
+      <div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="c">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div><div class="eyebrow">Còn lại tháng này</div><div class="big grad" style="font-size:27px;margin-top:4px">6.150.000 ₫</div></div>
+          <div class="delta down" style="padding:6px 9px;font-size:10.5px;text-align:right"><span class="di">▼</span>Giảm <b>180k</b><div style="font-weight:500;opacity:.85">vs tuần trước</div></div>
+        </div>
+        <div class="chart" style="margin-top:16px;gap:9px">
+          <div class="col"><div class="bwrap" style="height:78px"><div class="bprev" style="height:52px"></div><div class="bcur g" style="height:42px"></div></div><span>T2</span></div>
+          <div class="col"><div class="bwrap" style="height:78px"><div class="bprev" style="height:56px"></div><div class="bcur o" style="height:66px"></div></div><span>T3</span></div>
+          <div class="col"><div class="bwrap" style="height:78px"><div class="bprev" style="height:49px"></div><div class="bcur g" style="height:28px"></div></div><span>T4</span></div>
+          <div class="col"><div class="bwrap" style="height:78px"><div class="bprev" style="height:78px"></div><div class="bcur g" style="height:51px"></div></div><span>T5</span></div>
+          <div class="col"><div class="bwrap" style="height:78px"><div class="bprev" style="height:52px"></div><div class="bcur o" style="height:68px"></div></div><span>T6</span></div>
+          <div class="col"><div class="bwrap" style="height:78px"><div class="bprev" style="height:43px"></div></div><span>T7</span></div>
+          <div class="col"><div class="bwrap" style="height:78px"><div class="bprev" style="height:35px"></div></div><span>CN</span></div>
+        </div>
+        <div class="dots"><i class="on"></i><i></i></div>
+        <div class="hr"></div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1;background:#f7f6fa;border-radius:11px;padding:9px 11px"><div class="iol" style="color:#8a8694;font-size:10px;font-weight:600">↑ Vào</div><div style="font-weight:800;font-size:14px;color:#0f9d6c">22tr</div></div>
+          <div style="flex:1;background:#f7f6fa;border-radius:11px;padding:9px 11px"><div class="iol" style="color:#8a8694;font-size:10px;font-weight:600">↓ Ra</div><div style="font-weight:800;font-size:14px">15,85tr</div></div>
+        </div>
+      </div>
+      <div class="c">
+        <div style="display:flex;align-items:baseline;justify-content:space-between"><div class="eyebrow">Tích lũy</div><div class="big" style="font-size:19px">47.000.000 ₫</div></div>
+        <div style="margin-top:2px">
+          <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">8/12tr</div></div><div class="gr"><div class="grv">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gt"><div class="gn">Mua xe</div><div class="gs">9/40tr</div></div><div class="gr"><div class="grv">9tr</div><div class="dial" style="background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div></div></div>
+        </div>
+        <div class="ufoot"><div class="uic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6.5" rx="7" ry="3"/><path d="M5 6.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/><path d="M5 11.5c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg></div><div class="ut"><div class="ul">Chưa phân bổ</div><div class="us">Phòng thân 15tr · tự do</div></div><div class="uamt">15.000.000 ₫</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== V5 · Two columns ===== -->
+  <div class="v">
+    <div class="cap"><div><span class="n">5</span><span class="t">Hai cột song song</span></div><div class="d">Còn lại và Tích lũy đứng cạnh nhau, mỗi cột gọn — tiết kiệm không gian.</div></div>
+    <div class="screen">
+      <div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="row2">
+        <div class="c" style="padding:14px 13px">
+          <div class="eyebrow">Còn lại</div><div class="big grad" style="font-size:22px;margin-top:4px">6,15tr</div>
+          <div style="font-size:10.5px;color:#8a8694;margin-top:8px;line-height:1.7"><div>↑ Vào <b style="color:#111">22tr</b></div><div>↓ Ra <b style="color:#111">15,85tr</b></div></div>
+          <div class="delta down" style="margin-top:10px;padding:6px 8px;font-size:10px"><span class="di">▼</span><b>180k</b> vs tuần trước</div>
+          <div class="chart" style="gap:4px;margin-top:10px"><div class="col"><div class="bwrap" style="height:38px"><div class="bprev" style="height:25px"></div><div class="bcur g" style="height:20px"></div></div></div><div class="col"><div class="bwrap" style="height:38px"><div class="bprev" style="height:27px"></div><div class="bcur o" style="height:32px"></div></div></div><div class="col"><div class="bwrap" style="height:38px"><div class="bprev" style="height:24px"></div><div class="bcur g" style="height:14px"></div></div></div><div class="col"><div class="bwrap" style="height:38px"><div class="bprev" style="height:38px"></div><div class="bcur g" style="height:25px"></div></div></div><div class="col"><div class="bwrap" style="height:38px"><div class="bprev" style="height:25px"></div><div class="bcur o" style="height:33px"></div></div></div></div>
+          <div class="dots" style="margin-top:8px"><i class="on"></i><i></i></div>
+        </div>
+        <div class="c" style="padding:14px 13px">
+          <div class="eyebrow">Tích lũy</div><div class="big" style="font-size:22px;margin-top:4px">47tr</div>
+          <div style="margin-top:8px">
+            <div class="goal" style="padding:7px 0;gap:8px"><div class="dial" style="width:24px;height:24px;background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div><div class="gt"><div class="gn" style="font-size:12px">Du lịch</div><div class="gs" style="font-size:9.5px">8/12tr</div></div></div>
+            <div class="goal" style="padding:7px 0;gap:8px"><div class="dial" style="width:24px;height:24px;background:conic-gradient(#0f9d6c 360deg,#e9e8ee 0)"></div><div class="gt"><div class="gn" style="font-size:12px">Phòng thân</div><div class="gs" style="font-size:9.5px">15tr đủ</div></div></div>
+            <div class="goal" style="padding:7px 0;gap:8px"><div class="dial" style="width:24px;height:24px;background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div><div class="gt"><div class="gn" style="font-size:12px">Mua xe</div><div class="gs" style="font-size:9.5px">9/40tr</div></div></div>
+          </div>
+          <div style="margin:11px -13px -14px;padding:11px 13px;background:#faf9fc;border-top:1px solid #f0eef4;border-radius:0 0 20px 20px"><div class="ul" style="font-size:11px;font-weight:600;color:#2e2a38">Chưa phân bổ</div><div class="uamt" style="font-size:14px;margin-top:1px">15.000.000 ₫</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== V6 · Ring-led ===== -->
+  <div class="v">
+    <div class="cap"><div><span class="n">6</span><span class="t">Vòng cung dẫn dắt</span></div><div class="d">Còn lại là một vòng gauge; mục tiêu là chùm vòng tiến độ — biểu cảm, dễ liếc.</div></div>
+    <div class="screen">
+      <div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="c">
+        <div class="eyebrow">Còn lại tháng này</div>
+        <div class="ringrow">
+          <div class="rc">
+            <svg width="104" height="104" viewBox="0 0 100 100" style="transform:rotate(-90deg)"><circle cx="50" cy="50" r="42" fill="none" stroke="#eeecf3" stroke-width="10"/><circle cx="50" cy="50" r="42" fill="none" stroke="#14b8a6" stroke-width="10" stroke-linecap="round" stroke-dasharray="74 264"/></svg>
+            <div class="rct"><div class="rv grad">6,15tr</div><div class="rl">28% thu nhập</div></div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:11px;color:#8a8694;font-weight:600;line-height:1.9"><div>↑ Vào <b style="color:#111">22.000.000</b></div><div>↓ Ra <b style="color:#111">15.850.000</b></div></div>
+            <div class="delta down" style="margin-top:9px;padding:6px 9px;font-size:10.5px"><span class="di">▼</span>Giảm <b>180k</b> vs tuần trước</div>
+          </div>
+        </div>
+      </div>
+      <div class="c">
+        <div style="display:flex;align-items:baseline;justify-content:space-between"><div class="eyebrow">Tích lũy</div><div class="big" style="font-size:19px">47.000.000 ₫</div></div>
+        <div class="grings">
+          <div class="grc"><div class="rr"><svg width="60" height="60" viewBox="0 0 60 60" style="transform:rotate(-90deg)"><circle cx="30" cy="30" r="24" fill="none" stroke="#eee" stroke-width="6"/><circle cx="30" cy="30" r="24" fill="none" stroke="#14b8a6" stroke-width="6" stroke-linecap="round" stroke-dasharray="101 151"/></svg><div class="p">✈️</div></div><div class="gl">Du lịch</div><div class="gv">8/12tr</div></div>
+          <div class="grc"><div class="rr"><svg width="60" height="60" viewBox="0 0 60 60" style="transform:rotate(-90deg)"><circle cx="30" cy="30" r="24" fill="none" stroke="#eee" stroke-width="6"/><circle cx="30" cy="30" r="24" fill="none" stroke="#0f9d6c" stroke-width="6" stroke-linecap="round" stroke-dasharray="151 151"/></svg><div class="p">🛡️</div></div><div class="gl">Phòng thân</div><div class="gv">đủ 15tr</div></div>
+          <div class="grc"><div class="rr"><svg width="60" height="60" viewBox="0 0 60 60" style="transform:rotate(-90deg)"><circle cx="30" cy="30" r="24" fill="none" stroke="#eee" stroke-width="6"/><circle cx="30" cy="30" r="24" fill="none" stroke="#6d63e6" stroke-width="6" stroke-linecap="round" stroke-dasharray="35 151"/></svg><div class="p">🚗</div></div><div class="gl">Mua xe</div><div class="gv">9/40tr</div></div>
+        </div>
+        <div class="ufoot"><div class="uic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6.5" rx="7" ry="3"/><path d="M5 6.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/><path d="M5 11.5c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg></div><div class="ut"><div class="ul">Chưa phân bổ</div><div class="us">đang để dành tự do</div></div><div class="uamt">15.000.000 ₫</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== V7 · Grouped inset lists ===== -->
+  <div class="v">
+    <div class="cap"><div><span class="n">7</span><span class="t">Danh sách nhóm (iOS)</span></div><div class="d">Phong cách Cài đặt / Sức khỏe: tiêu đề mục + danh sách nhóm bo góc. Rất “native”.</div></div>
+    <div class="screen">
+      <div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="gsec">Còn lại tháng này</div>
+      <div class="num-hero grad">6.150.000 ₫</div>
+      <div class="inset">
+        <div class="irow"><span class="irl"><span style="color:#0f9d6c">↑</span> Tiền vào</span><span class="irb" style="color:#0f9d6c">22.000.000</span></div>
+        <div class="irow"><span class="irl"><span style="color:#8a8694">↓</span> Tiền ra</span><span class="irb">15.850.000</span></div>
+        <div class="irow"><span class="irl">Nhịp tuần này</span><span class="irb" style="color:#0f7a5a;font-size:12.5px">▼ Giảm 180.000</span></div>
+      </div>
+      <div class="inset" style="padding:13px 14px">
+        <div class="chart"><div class="col"><div class="bwrap"><div class="bprev" style="height:37px"></div><div class="bcur g" style="height:30px"></div></div><span>T2</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:40px"></div><div class="bcur o" style="height:47px"></div></div><span>T3</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:35px"></div><div class="bcur g" style="height:20px"></div></div><span>T4</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:56px"></div><div class="bcur g" style="height:37px"></div></div><span>T5</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:37px"></div><div class="bcur o" style="height:49px"></div></div><span>T6</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:31px"></div></div><span>T7</span></div><div class="col"><div class="bwrap"><div class="bprev" style="height:25px"></div></div><span>CN</span></div></div>
+        <div class="dots"><i class="on"></i><i></i></div>
+      </div>
+      <div class="gsec" style="display:flex;justify-content:space-between"><span>Tích lũy</span><span style="color:#111;font-weight:800">47.000.000 ₫</span></div>
+      <div class="inset">
+        <div class="irow"><span class="irl"><span class="gem" style="width:26px;height:26px;font-size:14px;background:#e7f6f0">✈️</span> Du lịch Đà Nẵng</span><span class="irb">8/12tr</span></div>
+        <div class="irow"><span class="irl"><span class="gem" style="width:26px;height:26px;font-size:14px;background:#e7f2f6">🛡️</span> Phòng thân</span><span class="irb">15tr</span></div>
+        <div class="irow"><span class="irl"><span class="gem" style="width:26px;height:26px;font-size:14px;background:#eeedfb">🚗</span> Mua xe</span><span class="irb">9/40tr</span></div>
+        <div class="irow" style="background:#faf9fc"><span class="irl" style="color:#6a6675;font-weight:600">Chưa phân bổ · tự do</span><span class="irb">15.000.000</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== V8 · Bento widget grid ===== -->
+  <div class="v">
+    <div class="cap"><div><span class="n">8</span><span class="t">Lưới widget</span></div><div class="d">Tách thành các ô widget rời — tường widget iOS thực thụ, mỗi mảnh một ô.</div></div>
+    <div class="screen">
+      <div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="bento">
+        <div class="bt wide"><div class="l">Còn lại tháng này</div><div class="v grad" style="font-size:30px">6.150.000 ₫</div>
+          <div class="delta down" style="margin-top:11px;display:inline-block;padding:6px 10px;font-size:11px"><span class="di">▼</span>Giảm <b>180.000 ₫</b> vs tuần trước</div>
+        </div>
+        <div class="bt"><div class="l">↑ Vào</div><div class="v" style="color:#0f9d6c">22tr</div></div>
+        <div class="bt"><div class="l">↓ Ra</div><div class="v">15,85tr</div></div>
+        <div class="bt wide"><div class="l">Nhịp chi tiêu · ngày</div>
+          <div class="chart" style="margin-top:10px"><div class="col"><div class="bwrap" style="height:46px"><div class="bprev" style="height:31px"></div><div class="bcur g" style="height:25px"></div></div><span>T2</span></div><div class="col"><div class="bwrap" style="height:46px"><div class="bprev" style="height:33px"></div><div class="bcur o" style="height:39px"></div></div><span>T3</span></div><div class="col"><div class="bwrap" style="height:46px"><div class="bprev" style="height:29px"></div><div class="bcur g" style="height:17px"></div></div><span>T4</span></div><div class="col"><div class="bwrap" style="height:46px"><div class="bprev" style="height:46px"></div><div class="bcur g" style="height:31px"></div></div><span>T5</span></div><div class="col"><div class="bwrap" style="height:46px"><div class="bprev" style="height:31px"></div><div class="bcur o" style="height:40px"></div></div><span>T6</span></div><div class="col"><div class="bwrap" style="height:46px"><div class="bprev" style="height:26px"></div></div><span>T7</span></div><div class="col"><div class="bwrap" style="height:46px"><div class="bprev" style="height:21px"></div></div><span>CN</span></div></div>
+          <div class="dots"><i class="on"></i><i></i></div>
+        </div>
+        <div class="bt"><div class="l">Tích lũy</div><div class="v">47tr</div><div style="font-size:10px;color:#8a8694;margin-top:4px">3 mục tiêu</div></div>
+        <div class="bt"><div class="l">Chưa phân bổ</div><div class="v">15tr</div><div style="font-size:10px;color:#8a8694;margin-top:4px">để dành tự do</div></div>
+        <div class="bt wide"><div class="l" style="margin-bottom:9px">Mục tiêu</div>
+          <div style="display:flex;justify-content:space-around">
+            <div style="text-align:center"><div class="dial" style="width:34px;height:34px;margin:0 auto;background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div><div style="font-size:10px;font-weight:600;margin-top:6px">✈️ Du lịch</div><div style="font-size:9.5px;color:#8a8694">8/12tr</div></div>
+            <div style="text-align:center"><div class="dial" style="width:34px;height:34px;margin:0 auto;background:conic-gradient(#0f9d6c 360deg,#e9e8ee 0)"></div><div style="font-size:10px;font-weight:600;margin-top:6px">🛡️ Phòng thân</div><div style="font-size:9.5px;color:#8a8694">đủ</div></div>
+            <div style="text-align:center"><div class="dial" style="width:34px;height:34px;margin:0 auto;background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div><div style="font-size:10px;font-weight:600;margin-top:6px">🚗 Mua xe</div><div style="font-size:9.5px;color:#8a8694">9/40tr</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
