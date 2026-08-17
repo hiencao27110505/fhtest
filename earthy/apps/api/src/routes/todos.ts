@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator'
-// import { db, todos } from '@fhub/db'
+// import { db, todos } from '@earthy/db'
 // import { desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 // import { HTTPException } from 'hono/http-exception'

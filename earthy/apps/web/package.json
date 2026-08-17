@@ -1,5 +1,5 @@
 {
-  "name": "@fhub/web",
+  "name": "@earthy/web",
   "private": true,
   "type": "module",
   "imports": {
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@faker-js/faker": "^10.3.0",
-    "@fhub/db": "workspace:^",
+    "@earthy/db": "workspace:^",
     "@serwist/window": "^9.5.12",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",

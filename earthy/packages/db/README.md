@@ -1,4 +1,4 @@
-# @fhub/db
+# @earthy/db
 
 Drizzle ORM schema and Postgres client for FamilyHub. Everything that touches the
 database lives here; apps import it and never talk to `drizzle-orm` directly.
@@ -6,13 +6,13 @@ database lives here; apps import it and never talk to `drizzle-orm` directly.
 ## Usage
 
 ```ts
-import { db, todos } from '@fhub/db'
+import { db, todos } from '@earthy/db'
 import { desc } from 'drizzle-orm'
 
 await db.query.todos.findMany({ orderBy: [desc(todos.createdAt)] })
 ```
 
-`@fhub/db/schema` exposes the table definitions on their own, for consumers that
+`@earthy/db/schema` exposes the table definitions on their own, for consumers that
 want the schema without instantiating a connection.
 
 ## Environment

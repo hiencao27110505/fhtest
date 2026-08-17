@@ -1,4 +1,4 @@
-import { pool } from "@fhub/db";
+import { pool } from "@earthy/db";
 
 import { app } from "./app";
 import { env } from "./lib/env";
