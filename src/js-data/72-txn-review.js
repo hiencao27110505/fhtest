@@ -20,6 +20,51 @@
 
   var TXN_REVIEW_PAGE = 200;   // a family's queue is small; one page is plenty
 
+  /* Rows this device has already promoted, held locally until the server agrees
+     they are gone.
+
+     Retirement is a server-side DELETE (0060). When that call fails — the
+     migration is not applied, the network dropped, the RPC errored — the row
+     comes back on the next open and the queue looks like the import never
+     happened. The real damage is not the clutter: pressing Import again writes
+     the SAME transaction to the ledger a SECOND time, and nothing downstream
+     would ever catch that.
+
+     So the client remembers what it promoted. The queue then reads correctly
+     whether or not the delete landed, and the same row cannot be imported twice
+     while the server catches up.
+
+     Per member, because a shared device has separate queues per seat. Pruned
+     against what the server actually returns, so it can never grow without
+     bound: once a row stops coming back it has really gone, and remembering it
+     is pointless. */
+  function _stagedRetiredKey() {
+    var mid = (window.DB && window.DB.ownerMemberId) || '';
+    return mid ? 'fh-staged-retired:' + mid : '';
+  }
+  function _stagedRetiredGet() {
+    try {
+      var k = _stagedRetiredKey(); if (!k) return [];
+      var v = JSON.parse(localStorage.getItem(k) || '[]');
+      return Array.isArray(v) ? v : [];
+    } catch (e) { return []; }
+  }
+  function _stagedRetiredAdd(ids) {
+    try {
+      var k = _stagedRetiredKey(); if (!k || !ids || !ids.length) return;
+      var set = _stagedRetiredGet();
+      ids.forEach(function (id) { if (id && set.indexOf(id) === -1) set.push(id); });
+      localStorage.setItem(k, JSON.stringify(set));
+    } catch (e) {}
+  }
+  function _stagedRetiredPrune(serverIds) {
+    try {
+      var k = _stagedRetiredKey(); if (!k) return;
+      var live = _stagedRetiredGet().filter(function (id) { return serverIds.indexOf(id) !== -1; });
+      localStorage.setItem(k, JSON.stringify(live));
+    } catch (e) {}
+  }
+
   /* Fetches this member's pending rows. 0058 scopes SELECT to own rows, so no
      filtering is needed here — the database decides what is visible, which is
      also why an empty result is a real answer and not a permissions bug. */
@@ -31,7 +76,14 @@
       .order('occurred_at', { ascending: false })
       .limit(TXN_REVIEW_PAGE);
     if (res.error) throw res.error;
-    return res.data || [];
+    var rows = res.data || [];
+    // Prune first, against the full server answer, so the local list shrinks as
+    // the server catches up rather than accumulating ids nobody will ever see.
+    var serverIds = rows.map(function (r) { return r.id; });
+    _stagedRetiredPrune(serverIds);
+    var retired = _stagedRetiredGet();
+    if (!retired.length) return rows;
+    return rows.filter(function (r) { return retired.indexOf(r.id) === -1; });
   }
 
   /* One row -> the fields the review screen needs.
@@ -133,9 +185,19 @@
       return;
     }
 
-    // Keep the ids so the staged rows can be retired once imported. The review
-    // screen works in its own candidate objects and does not carry them.
-    window._fhStagedIds = readable.map(function (r) { return r.id; });
+    /* Keep the ROWS, in the order the review screen is about to receive them.
+       Each candidate carries rowIndex (57-csv-import-review.js), an index into
+       parsed.rows, and staged mode passes exactly one source — so
+       _fhStagedRows[c.rowIndex].id maps a promoted candidate back to its staged
+       row exactly, with no key matching to go wrong.
+
+       This replaces a flat list of every id fetched. That list was the wrong
+       set: csvPromote() writes only csvReview.ready, while retirement was told
+       to delete EVERYTHING readable — so a row the screen parked in its
+       duplicates section was deleted without ever reaching the ledger. Retiring
+       more than was promoted is silent data loss, which is the one failure this
+       screen exists to prevent. */
+    window._fhStagedRows = readable;
 
     window.csvStagedMode = true;   // reuse the review engine, drop its file-only chrome
     csvLearnLoad();
@@ -152,6 +214,29 @@
     openSheet('csv-import-modal');
   };
 
+  /* Which staged rows does a promotion actually retire?
+     ONLY the ones the review screen is about to write. Each candidate carries
+     rowIndex, an index into the parsed rows this screen was built from, and
+     staged mode passes exactly one source — so the mapping back is exact.
+
+     Anything the screen held back is deliberately excluded: a flagged duplicate
+     or a deferred row is still waiting for a person, and retiring it would delete
+     a transaction that never reached the ledger. That is silent data loss, and
+     it is the one failure this whole screen exists to prevent — so this is a
+     named function with its own test rather than three lines inline.
+
+     Extracted by name in tools/staged-retire.test.js; keep the signature. */
+  function fhStagedIdsForPromoted(rows, ready) {
+    var src = rows || [];
+    return (ready || [])
+      .map(function (c) {
+        var r = c && typeof c.rowIndex === 'number' ? src[c.rowIndex] : null;
+        return r && r.id;
+      })
+      .filter(Boolean);
+  }
+  window.fhStagedIdsForPromoted = fhStagedIdsForPromoted;
+
   /* Import, then retire the staged rows.
      Deleting only AFTER the ledger write succeeds — the reverse order would lose
      a transaction outright if the write failed. Duplicating one is recoverable;
@@ -163,7 +248,11 @@
       window.fhStagingAlarmShow && window.fhStagingAlarmShow();
       return;
     }
-    var ids = (window._fhStagedIds || []).slice();
+    /* Exactly the rows about to be written, resolved BEFORE csvPromote() runs:
+       it consumes csvReview.ready, so afterwards there is nothing left to read. */
+    var ids = fhStagedIdsForPromoted(window._fhStagedRows,
+                                     (window.csvReview && window.csvReview.ready));
+
     try {
       // csvPromote() returns its promise chain, so this genuinely waits for the
       // ledger writes. It did not always: an earlier version assumed a promise
@@ -176,19 +265,25 @@
     }
     if (!ids.length) return;
 
+    /* Remember locally BEFORE asking the server, and keep it even if the server
+       says no. The ledger write has already happened by this point, so from the
+       person's side these rows are done — and the one thing that must not happen
+       next is seeing them again and importing them twice. */
+    _stagedRetiredAdd(ids);
+
     try {
       var removed = await _rpc('resolve_email_transactions', { p_ids: ids });   // 0060
-      window._fhStagedIds = [];
+      window._fhStagedRows = [];
       if (!removed) {
         // The RPC ran but matched nothing — usually 0060 is not applied, or the
-        // rows belong to a different member. Silence here would look like
-        // success and the queue would quietly refill.
-        window.toast && window.toast(L('Đã lưu — nhưng chưa dọn được danh sách',
-                                       'Saved — but the queue did not clear'));
+        // rows belong to a different member. The queue now looks right either
+        // way, but say so rather than let a broken retirement pass as working.
+        window.toast && window.toast(L('Đã lưu. Danh sách sẽ tự dọn khi máy chủ bắt kịp.',
+                                       'Saved. The queue will clear once the server catches up.'));
       }
     } catch (e2) {
-      window.toast && window.toast(L('Đã lưu, nhưng danh sách chưa dọn — sẽ hiện lại',
-                                     'Saved, but the queue did not clear — these may reappear'));
+      window.toast && window.toast(L('Đã lưu. Danh sách sẽ tự dọn khi máy chủ bắt kịp.',
+                                     'Saved. The queue will clear once the server catches up.'));
     }
 
     /* They have just reviewed real transactions by hand, which is exactly the
