@@ -16,6 +16,28 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-17 — SEALED STAGING IS LIVE. The choreography in the entry below
+  was executed end to end by Trang today, and verified.**
+  - `0065` + `0068` applied and ledgered. Apps Script project carries all three
+    files; live version is **`v2026-08-17-a`** — which also merges main's
+    canonical-provider dedup fix with the sealing fingerprint (one
+    `findDuplicate` now does both; provider is compared canonically in the
+    loop, never as a raw query filter — merge commit `53f755c`).
+  - `SEALED_STAGING_ENABLED=true` and `INBOX_RETENTION_ENABLED=true`. Client
+    v345 deployed from main (`bank-email-sealing` was fast-forwarded into main
+    AFTER the migrations, per item 0 below).
+  - First sealed row verified three ways: staged with no hold lines,
+    `sealed=true / amount=null` in the table, and **opened + read normally on a
+    family device**. Pin, DRBG seed and dedup key all minted on first use as
+    designed; a later `sealingPreflight()` should show `pin=match`.
+  - Yesterday's Apps Script failure summaries (`SUPABASE_NET: Address
+    unavailable`, Aug 16 3:13 PM) were the bandwidth throttle hitting the
+    pre-fix script — one tick lost each, nothing dropped. If any arrive dated
+    AFTER 2026-08-17, check Supabase usage before suspecting the pipeline.
+  - Still genuinely open from the entry below: Hien's re-ack of items 2–3, and
+    the reopen prerequisites (forwarding-address ask at connect, the
+    `unknown`-not-`pass` forwarder hardening, PDPL/DPIA).
+
 - **2026-08-16 (forwarding session, later) — SEALING IS WIRED END TO END, gated
   off. Full-flow review done first; it found two crypto-relevant defects that
   would have shipped. Hien: items 2 and 3 supersede recorded agreements of
