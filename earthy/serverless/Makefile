@@ -1,5 +1,5 @@
-.PHONY: help install sync lock add new lint fmt test run freeze freeze-all \
-        deploy clean list preflight enable-apis logs describe delete
+.PHONY: help install sync lock add new lint fmt test run emit freeze freeze-all \
+        deploy clean list preflight enable-apis logs describe delete ensure-topic
 .DEFAULT_GOAL := help
 
 FUNCTIONS_DIR := functions
@@ -28,7 +28,7 @@ endef
 # Guard: FN must be set and must exist.
 define need_fn
 @if [ -z "$(FN)" ]; then \
-  echo "error: FN is required.  e.g.  make $@ FN=helloworld"; \
+  echo "error: FN is required.  e.g.  make $@ FN=$(firstword $(ALL_FNS))"; \
   echo "available: $(ALL_FNS)"; exit 1; fi
 @if [ ! -f "$(FUNCTIONS_DIR)/$(FN)/pyproject.toml" ]; then \
   echo "error: no such function '$(FN)' in $(FUNCTIONS_DIR)/"; \
@@ -60,10 +60,11 @@ help:
 
 list:
 	@for f in $(ALL_FNS); do \
-	  printf "  %-24s %s\n" "$$f" "$$(uv run --no-project python -c \
+	  printf "  %-26s %s\n" "$$f" "$$(uv run --no-project python -c \
 	    "import tomllib;d=tomllib.load(open('$(FUNCTIONS_DIR)/$$f/pyproject.toml','rb'));\
 g=d.get('tool',{}).get('earthy',{}).get('gcf',{});\
-print(g.get('trigger','?'),'/',g.get('entry-point','?'),'/',g.get('region','?'))")"; \
+t=g.get('trigger','?');\
+print(t + (' -> ' + g.get('topic','(no topic!)') if t=='pubsub' else ''), '|', g.get('entry-point','?'), '|', g.get('region','?'))")"; \
 	done
 
 install sync:
@@ -72,7 +73,7 @@ install sync:
 lock:
 	uv lock
 
-# make add FN=helloworld PKG="httpx>=0.27"
+# make add FN=transaction-parser PKG="httpx>=0.27"
 add:
 	$(need_fn)
 	@if [ -z "$(PKG)" ]; then echo "error: PKG is required. e.g. make add FN=$(FN) PKG=httpx"; exit 1; fi
@@ -89,12 +90,29 @@ new:
 	@$(MAKE) --no-print-directory freeze FN=$(FN)
 	@echo "created $(FUNCTIONS_DIR)/$(FN)  ->  make run FN=$(FN)"
 
+# functions-framework signature types are http | event | cloudevent — a pubsub
+# trigger is delivered as a cloudevent, so it does not map 1:1 to gcf.trigger.
+sigtype = $(if $(filter http,$(call gcf,$(1),trigger)),http,cloudevent)
+
 run:
 	$(need_fn)
 	cd $(FUNCTIONS_DIR)/$(FN) && uv run --package $(FN) functions-framework \
 	  --target=$(call gcf,$(FN),entry-point) \
-	  --signature-type=$(call gcf,$(FN),trigger) \
+	  --signature-type=$(call sigtype,$(FN)) \
 	  --port=$(PORT) --debug
+
+# Posts a Pub/Sub-shaped CloudEvent at a locally running function.
+# usage: make run FN=x  (in one shell), then  make emit FN=x  (in another)
+emit:
+	$(need_fn)
+	@payload=$$(printf '%s' '$(if $(DATA),$(DATA),{"emailAddress":"test@example.com","historyId":"12345"})' | base64); \
+	curl -s -w '\nHTTP %{http_code}\n' http://127.0.0.1:$(PORT)/ \
+	  -H 'Content-Type: application/json' \
+	  -H 'ce-id: local-1' \
+	  -H 'ce-source: //pubsub.googleapis.com/projects/$(GCP_PROJECT)/topics/$(call gcf,$(FN),topic)' \
+	  -H 'ce-specversion: 1.0' \
+	  -H 'ce-type: google.cloud.pubsub.topic.v1.messagePublished' \
+	  -d "{\"message\":{\"data\":\"$$payload\",\"messageId\":\"1\"},\"subscription\":\"local\"}"
 
 test:
 	uv run --all-packages pytest
@@ -148,20 +166,42 @@ preflight:
 enable-apis:
 	gcloud services enable $(REQUIRED_APIS) --project=$(GCP_PROJECT)
 
+# http  -> --trigger-http (+ optional --allow-unauthenticated)
+# pubsub -> --trigger-topic=<topic>, never publicly invocable
+trigger_flags = $(if $(filter http,$(call gcf,$(1),trigger)),\
+  --trigger-http $(if $(filter true,$(call gcf,$(1),allow-unauthenticated)),--allow-unauthenticated,),\
+  --trigger-topic=$(call gcf,$(1),topic))
+
 deploy: freeze preflight
 	$(need_fn)
+	@if [ "$(call gcf,$(FN),trigger)" = "pubsub" ] && [ -z "$(call gcf,$(FN),topic)" ]; then \
+	  echo "error: $(FN) has trigger=pubsub but no topic in [tool.earthy.gcf]"; exit 1; fi
+	@$(MAKE) --no-print-directory ensure-topic FN=$(FN)
 	gcloud functions deploy $(FN) \
 	  --gen2 \
 	  --project=$(GCP_PROJECT) \
 	  --source=$(FUNCTIONS_DIR)/$(FN) \
 	  --entry-point=$(call gcf,$(FN),entry-point) \
-	  --trigger-$(call gcf,$(FN),trigger) \
 	  --runtime=$(call gcf,$(FN),runtime) \
 	  --region=$(call gcf,$(FN),region) \
-	  $(if $(filter true,$(call gcf,$(FN),allow-unauthenticated)),--allow-unauthenticated,)
+	  $(call trigger_flags,$(FN))
 	@echo
-	@echo "url: $$(gcloud functions describe $(FN) --gen2 --project=$(GCP_PROJECT) \
-	  --region=$(call gcf,$(FN),region) --format='value(serviceConfig.uri)' 2>/dev/null)"
+	@if [ "$(call gcf,$(FN),trigger)" = "http" ]; then \
+	  echo "url: $$(gcloud functions describe $(FN) --gen2 --project=$(GCP_PROJECT) \
+	    --region=$(call gcf,$(FN),region) --format='value(serviceConfig.uri)' 2>/dev/null)"; \
+	else \
+	  echo "topic: projects/$(GCP_PROJECT)/topics/$(call gcf,$(FN),topic)"; \
+	fi
+
+# Creates the trigger topic if it does not exist yet (no-op for http functions).
+ensure-topic:
+	$(need_fn)
+	@topic="$(call gcf,$(FN),topic)"; \
+	 if [ -n "$$topic" ]; then \
+	   gcloud pubsub topics describe "$$topic" --project=$(GCP_PROJECT) >/dev/null 2>&1 \
+	     || { echo "creating topic $$topic"; \
+	          gcloud pubsub topics create "$$topic" --project=$(GCP_PROJECT); }; \
+	 fi
 
 describe:
 	$(need_fn)
