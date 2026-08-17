@@ -1,4 +1,7 @@
 backup/
 .DS_Store
 .env.local
-node_modules/
+# No trailing slash: a git worktree usually gets node_modules as a SYMLINK to the
+# main checkout's copy, and `node_modules/` matches directories only — so the
+# symlink showed up as untracked and committable.
+node_modules

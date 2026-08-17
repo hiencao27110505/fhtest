@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-15-a';
+var PIPELINE_VERSION = '2026-08-16-c';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -1031,20 +1031,61 @@ function findDuplicate(amount, direction, occurredAt, sourceProvider) {
   // and reference_number, so same-provider + same-amount + same-day is a real,
   // separate transaction (e.g. two same-amount transfers made minutes apart),
   // not a re-report of one event.
+  //
+  // The provider comparison happens HERE rather than as a `neq` query filter,
+  // because PostgREST can only compare the raw strings and the raw strings are
+  // exactly what is unreliable. See canonicalProvider below.
   var rows = supabaseGet('email_transactions', {
     amount: 'eq.' + amount,
     direction: 'eq.' + direction,
     occurred_at: 'gte.' + windowStart,
-    source_provider: 'neq.' + sourceProvider,
     duplicate_of_id: 'is.null',
   });
+  var mine = canonicalProvider(sourceProvider);
   var earliest = null;
   for (var i = 0; i < rows.length; i++) {
-    if (rows[i].occurred_at <= windowEnd) {
-      if (!earliest || rows[i].created_at < earliest.created_at) earliest = rows[i];
-    }
+    if (rows[i].occurred_at > windowEnd) continue;
+    var theirs = canonicalProvider(rows[i].source_provider);
+    if (theirs === mine) continue;          // same bank → a real separate transaction
+    // Unknown on either side: refuse to guess. A missed duplicate costs the
+    // reviewer one tap to skip it; a false duplicate removes a real transaction
+    // from the queue AND skips its notification, silently. Those two failures are
+    // not comparable, so the tie goes to keeping the row.
+    if (!theirs || !mine) continue;
+    if (!earliest || rows[i].created_at < earliest.created_at) earliest = rows[i];
   }
   return earliest;
+}
+
+// Two spellings of one bank are not two sources.
+//
+// `source_provider` is free text straight from the extractor, and a single bank
+// arrives as 'MB', 'MBBank' and 'MB eBanking' depending on which email template
+// it came from. The cross-source rule above compares providers, so those three
+// spellings made genuinely separate MB transactions look like one event reported
+// by three different sources — and a row marked duplicate is filtered out of the
+// review queue AND skipped by queueReviewNotice. The transaction vanished and
+// nothing anywhere said so. Observed 2026-08-16 on three same-day MB rows, one of
+// which disappeared.
+//
+// Canonicalising strips case, punctuation and accents, then the channel words
+// that vary per template but never identify the bank. 'MB' / 'MBBank' /
+// 'MB eBanking' all reduce to 'mb'; 'Vietcombank' to 'vietcom'; 'MSB' stays 'msb'
+// because it contains no channel word — banks are only ever merged when what is
+// left after stripping is genuinely identical.
+function canonicalProvider(name) {
+  if (!name) return '';
+  var s = String(name).toLowerCase();
+  // Accents first, so 'Kỹ Thương' and 'Ky Thuong' are one bank.
+  // Escaped, not literal combining marks: this file is deployed by hand-pasting
+  // and invisible characters do not survive that reliably.
+  if (s.normalize) s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  s = s.replace(/[^a-z0-9]/g, '');
+  // Longest first: strip 'ebanking' before 'banking' can leave a stray 'e' behind.
+  var NOISE = ['internetbanking', 'mobilebanking', 'onlinebanking', 'smartbanking',
+               'ebanking', 'digibank', 'banking', 'ebank', 'bank', 'jsc'];
+  for (var i = 0; i < NOISE.length; i++) s = s.split(NOISE[i]).join('');
+  return s;
 }
 
 // ---------- memo tidying ----------
@@ -1079,7 +1120,7 @@ var MERCHANT_AGGREGATOR_RE = /^(MPOS|PAYOO|VNPAY|MOMO|ZALOPAY|SHOPEEPAY|NAPAS)[\
 function _memoNorm(s) { return deburrAscii(s).toLowerCase().replace(/\s+/g, ' ').trim(); }
 function deburrAscii(s) {
   return String(s == null ? '' : s).normalize('NFD')
-    .replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    .replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
 }
 
 function _isRefSegment(seg) {
