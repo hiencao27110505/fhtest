@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Chart-forward · 8 biến thể</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{--sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif}
+  html,body{background:#dcdae1;font-family:var(--sf);color:#111117;-webkit-font-smoothing:antialiased}
+  body{padding:44px 20px 90px}
+  .num,.big,.iv,.grv,.irb{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  .page-head{max-width:900px;margin:0 auto 40px;text-align:center}
+  .page-head h1{font-size:32px;font-weight:800;letter-spacing:-1px;margin-bottom:9px}
+  .page-head p{color:#4b4753;font-size:15.5px;line-height:1.6;max-width:700px;margin:0 auto}
+  .page-head .leg{margin-top:13px;font-size:12.5px;color:#847f8e}
+
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(348px,1fr));gap:40px 28px;max-width:1140px;margin:0 auto;justify-items:center}
+  .v{width:348px}
+  .cap{margin:0 4px 12px}
+  .cap .n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:11px;margin-right:8px;vertical-align:1px}
+  .cap .t{font-weight:700;font-size:16px;letter-spacing:-.3px}
+  .cap .d{color:#847f8e;font-size:12.5px;margin-top:5px;line-height:1.5}
+
+  .screen{background:#f2f2f6;border-radius:32px;padding:16px 15px 20px;box-shadow:0 12px 34px rgba(0,0,0,.13)}
+  .sh{display:flex;justify-content:space-between;align-items:flex-end;padding:4px 6px 13px}
+  .sh h3{font-size:24px;font-weight:800;letter-spacing:-.7px}
+  .sh .pill{font-size:11.5px;font-weight:600;color:#3a3742;background:#fff;border-radius:999px;padding:5px 11px;box-shadow:0 2px 7px rgba(0,0,0,.06)}
+
+  .c{background:#fff;border-radius:20px;padding:15px;box-shadow:0 1px 2px rgba(0,0,0,.05),0 8px 22px rgba(0,0,0,.05);margin-bottom:10px}
+  .c:last-child{margin-bottom:0}
+  .eyebrow{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8a8694}
+  .big{font-weight:800;letter-spacing:-1px;line-height:1}
+  .n26{font-size:26px;margin-top:4px}.n22{font-size:22px}
+  .grad{background:linear-gradient(120deg,#4f46e5,#14b8a6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+  .hd{display:flex;justify-content:space-between;align-items:flex-start}
+  .flows{text-align:right;font-size:11px;color:#8a8694;font-weight:600;line-height:1.7;flex-shrink:0}
+  .flows b{color:#111117}
+
+  /* note (dedicated line) */
+  .note{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;line-height:1.35;padding:9px 12px;border-radius:11px;margin-top:14px}
+  .note .ni{flex-shrink:0}
+  .note b{font-weight:800;white-space:nowrap}
+  .note.down{background:#e7f6f0;color:#0f7a5a}
+  .note.up{background:#fdeef0;color:#c0392b}
+  .note.info{background:#eef0fb;color:#4a44a6}
+
+  /* unallocated chip / caption (never a row) */
+  .uchip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#5a5568;background:#f1f0f6;border-radius:8px;padding:4px 9px}
+  .ucap{font-size:11px;color:#8a8694;font-weight:600;margin-top:5px}.ucap b{color:#3a3742;font-weight:700}
+
+  /* charts */
+  .ch{margin-top:15px}
+  .chart{display:flex;gap:8px;align-items:flex-end;justify-content:space-between}
+  .col{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1}
+  .bwrap{position:relative;height:78px;width:100%;display:flex;align-items:flex-end;justify-content:center}
+  .bprev{position:absolute;bottom:0;width:72%;max-width:24px;border-radius:4px 4px 0 0;background:#e6e4ec}
+  .bcur{position:absolute;bottom:0;width:38%;max-width:12px;border-radius:3px 3px 0 0;z-index:1}
+  .bcur.g{background:#14b8a6}.bcur.o{background:#e0913a}
+  .col span{font-size:8.5px;color:#a8a4b0;font-weight:600}
+  .dots{display:flex;gap:5px;justify-content:center;align-items:center;margin-top:11px}
+  .dots i{width:5px;height:5px;border-radius:50%;background:#d4d1db}.dots i.on{background:#8a8694;width:15px;border-radius:3px}
+  .dots em{font-size:9px;font-weight:700;color:#a8a4b0;font-style:normal;margin-left:6px}
+  /* grouped */
+  .gbwrap{position:relative;height:78px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px}
+  .gb{width:9px;border-radius:3px 3px 0 0}.gb.prev{background:#e6e4ec}.gb.cur.g{background:#14b8a6}.gb.cur.o{background:#e0913a}
+  /* reference line */
+  .charel{position:relative}
+  .refl{position:absolute;left:0;right:0;border-top:1.5px dashed #c6c3cf;z-index:2}
+  .refl span{position:absolute;right:0;top:-8px;font-size:8.5px;font-weight:700;color:#8a8694;background:#fff;padding:0 5px}
+  /* single bars */
+  .sbar{position:absolute;bottom:0;width:56%;max-width:17px;border-radius:4px 4px 0 0}
+  .sbar.g{background:linear-gradient(#5fd3a0,#14b8a6)}.sbar.o{background:linear-gradient(#f0b45a,#e0913a)}
+  /* lollipop */
+  .lc-area{position:relative;height:78px;width:100%;display:flex;justify-content:center;align-items:flex-end}
+  .lstem{position:absolute;bottom:0;width:2px;background:#e9e7ee;border-radius:2px;left:50%;transform:translateX(-50%)}
+  .ldot{position:absolute;width:10px;height:10px;border-radius:50%;left:50%;transform:translateX(-50%)}
+  .ldot.g{background:#14b8a6}.ldot.o{background:#e0913a}
+  .lprev{position:absolute;width:7px;height:7px;border-radius:50%;background:#cfccd6;left:50%;transform:translateX(-50%)}
+  /* svg */
+  .svgch{width:100%;height:82px;display:block}
+  .svgch .prev{fill:none;stroke:#c6c3cf;stroke-width:1.5;stroke-dasharray:3 3.5;vector-effect:non-scaling-stroke}
+  .svgch .cur{fill:none;stroke:#14b8a6;stroke-width:2.6;stroke-linecap:round;vector-effect:non-scaling-stroke}
+  .svgch .area{fill:rgba(20,184,166,.13);stroke:none}
+
+  /* goals */
+  .goal{display:flex;align-items:center;gap:11px;padding:9px 0}
+  .goal+.goal{border-top:1px solid #f0eef4}
+  .gem{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+  .gt{flex:1;min-width:0}
+  .gn{font-size:13px;font-weight:600;letter-spacing:-.2px;color:#111117}
+  .gs{font-size:10.5px;margin-top:1px;color:#8a8694}
+  .gr{display:flex;align-items:center;gap:8px}
+  .grv{font-size:12.5px;font-weight:800;letter-spacing:-.2px}
+  .dial{width:26px;height:26px;border-radius:50%;position:relative;flex-shrink:0}
+  .dial::after{content:"";position:absolute;inset:4.5px;border-radius:50%;background:#fff}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Chart-forward · 8 biến thể</h1>
+  <p>Tám cách thể hiện phương án “biểu đồ dẫn dắt”. <b>Ghi chú nhịp</b> nằm một dòng riêng ngay dưới biểu đồ. <b>Tích lũy có một ghi chú insight riêng</b>, và phần <b>chưa phân bổ không còn là một dòng</b> — chuyển thành nhãn/chip gọn.</p>
+  <div class="leg">Bento sáng · VND · SF Pro. Cột: xám = kỳ trước · màu = kỳ này. Hai chấm = vuốt đổi Ngày/Tuần.</div>
+</div>
+
+<div class="gallery">
+
+  <!-- V1 paired -->
+  <div class="v"><div class="cap"><div><span class="n">1</span><span class="t">Cột ghép</span></div><div class="d">Cột ghép kỳ trước/kỳ này. Ghi chú nhịp một dòng dưới biểu đồ; tích lũy có ghi chú tiến độ.</div></div>
+    <div class="screen"><div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="c">
+        <div class="hd"><div><div class="eyebrow">Còn lại tháng này</div><div class="big grad n26">6.150.000 ₫</div></div><div class="flows"><div>↑ Vào <b>22tr</b></div><div>↓ Ra <b>15,85tr</b></div></div></div>
+        <div class="ch"><div class="chart">
+          <div class="col"><div class="bwrap"><div class="bprev" style="height:52px"></div><div class="bcur g" style="height:42px"></div></div><span>T2</span></div>
+          <div class="col"><div class="bwrap"><div class="bprev" style="height:56px"></div><div class="bcur o" style="height:66px"></div></div><span>T3</span></div>
+          <div class="col"><div class="bwrap"><div class="bprev" style="height:49px"></div><div class="bcur g" style="height:28px"></div></div><span>T4</span></div>
+          <div class="col"><div class="bwrap"><div class="bprev" style="height:78px"></div><div class="bcur g" style="height:51px"></div></div><span>T5</span></div>
+          <div class="col"><div class="bwrap"><div class="bprev" style="height:52px"></div><div class="bcur o" style="height:68px"></div></div><span>T6</span></div>
+          <div class="col"><div class="bwrap"><div class="bprev" style="height:43px"></div></div><span>T7</span></div>
+          <div class="col"><div class="bwrap"><div class="bprev" style="height:35px"></div></div><span>CN</span></div>
+        </div><div class="dots"><i class="on"></i><i></i><em>Ngày · Tuần</em></div></div>
+        <div class="note down"><span class="ni">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+      </div>
+      <div class="c">
+        <div class="hd"><div><div class="eyebrow">Tích lũy</div><div style="display:flex;align-items:baseline;gap:8px;margin-top:5px"><div class="big n22">47.000.000 ₫</div><span class="uchip">💰 15tr tự do</span></div></div></div>
+        <div style="margin-top:8px">
+          <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">mục tiêu 12.000.000</div></div><div class="gr"><div class="grv">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gt"><div class="gn">Phòng thân</div><div class="gs">đủ · 15.000.000</div></div><div class="gr"><div class="grv">15tr</div><div class="dial" style="background:conic-gradient(#0f9d6c 360deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gt"><div class="gn">Mua xe</div><div class="gs">mục tiêu 40.000.000</div></div><div class="gr"><div class="grv">9tr</div><div class="dial" style="background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div></div></div>
+        </div>
+        <div class="note info"><span class="ni">📈</span>Tháng này để dành nhanh hơn <b>12%</b> so với tháng trước</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- V2 grouped -->
+  <div class="v"><div class="cap"><div><span class="n">2</span><span class="t">Cột kép cạnh nhau</span></div><div class="d">Kỳ trước và kỳ này đứng cạnh nhau. Chưa phân bổ là dòng chú thích dưới tổng.</div></div>
+    <div class="screen"><div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="c">
+        <div class="hd"><div><div class="eyebrow">Còn lại tháng này</div><div class="big grad n26">6.150.000 ₫</div></div><div class="flows"><div>↑ Vào <b>22tr</b></div><div>↓ Ra <b>15,85tr</b></div></div></div>
+        <div class="ch"><div class="chart">
+          <div class="col"><div class="gbwrap"><div class="gb prev" style="height:52px"></div><div class="gb cur g" style="height:42px"></div></div><span>T2</span></div>
+          <div class="col"><div class="gbwrap"><div class="gb prev" style="height:56px"></div><div class="gb cur o" style="height:66px"></div></div><span>T3</span></div>
+          <div class="col"><div class="gbwrap"><div class="gb prev" style="height:49px"></div><div class="gb cur g" style="height:28px"></div></div><span>T4</span></div>
+          <div class="col"><div class="gbwrap"><div class="gb prev" style="height:78px"></div><div class="gb cur g" style="height:51px"></div></div><span>T5</span></div>
+          <div class="col"><div class="gbwrap"><div class="gb prev" style="height:52px"></div><div class="gb cur o" style="height:68px"></div></div><span>T6</span></div>
+          <div class="col"><div class="gbwrap"><div class="gb prev" style="height:43px"></div></div><span>T7</span></div>
+          <div class="col"><div class="gbwrap"><div class="gb prev" style="height:35px"></div></div><span>CN</span></div>
+        </div><div class="dots"><i class="on"></i><i></i></div></div>
+        <div class="note down"><span class="ni">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+      </div>
+      <div class="c">
+        <div class="eyebrow">Tích lũy</div><div class="big n22" style="margin-top:5px">47.000.000 ₫</div>
+        <div class="ucap"><b>15.000.000 ₫</b> chưa phân bổ · đang để dành tự do</div>
+        <div style="margin-top:8px">
+          <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">8/12tr</div></div><div class="gr"><div class="grv">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gt"><div class="gn">Phòng thân</div><div class="gs">đủ</div></div><div class="gr"><div class="grv">15tr</div><div class="dial" style="background:conic-gradient(#0f9d6c 360deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gt"><div class="gn">Mua xe</div><div class="gs">9/40tr</div></div><div class="gr"><div class="grv">9tr</div><div class="dial" style="background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div></div></div>
+        </div>
+        <div class="note info"><span class="ni">🎯</span>Giữ nhịp này, đủ mục tiêu <b>Du lịch</b> sau ~2 tháng</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- V3 area comparison -->
+  <div class="v"><div class="cap"><div><span class="n">3</span><span class="t">Đường tích lũy đối chiếu</span></div><div class="d">Đường liền = đến nay, nét đứt = kỳ trước. Kiểu Stocks, rất mượt.</div></div>
+    <div class="screen"><div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="c">
+        <div class="hd"><div><div class="eyebrow">Còn lại tháng này</div><div class="big grad n26">6.150.000 ₫</div></div><div class="flows"><div>↑ Vào <b>22tr</b></div><div>↓ Ra <b>15,85tr</b></div></div></div>
+        <div class="ch"><svg class="svgch" viewBox="0 0 300 82" preserveAspectRatio="none">
+          <path class="area" d="M6 66 L55 58 L104 50 L153 38 L202 33 L202 78 L6 78 Z"/>
+          <polyline class="prev" points="6,64 55,54 104,45 153,31 202,22 251,14 296,8"/>
+          <polyline class="cur" points="6,66 55,58 104,50 153,38 202,33"/>
+        </svg><div class="dots"><i class="on"></i><i></i></div></div>
+        <div class="note down"><span class="ni">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+      </div>
+      <div class="c">
+        <div class="hd"><div><div class="eyebrow">Tích lũy</div><div style="display:flex;align-items:baseline;gap:8px;margin-top:5px"><div class="big n22">47.000.000 ₫</div><span class="uchip">15tr tự do</span></div></div></div>
+        <div style="margin-top:8px">
+          <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">8/12tr</div></div><div class="gr"><div class="grv">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gt"><div class="gn">Mua xe</div><div class="gs">9/40tr</div></div><div class="gr"><div class="grv">9tr</div><div class="dial" style="background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div></div></div>
+        </div>
+        <div class="note info"><span class="ni">💡</span>Còn <b>4.000.000 ₫</b> nữa là đủ mục tiêu Du lịch</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- V4 lollipop -->
+  <div class="v"><div class="cap"><div><span class="n">4</span><span class="t">Chấm &amp; que (lollipop)</span></div><div class="d">Mỗi ngày một chấm màu (kỳ này) + chấm mờ (kỳ trước). Nhẹ nhàng, hiện đại.</div></div>
+    <div class="screen"><div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="c">
+        <div class="hd"><div><div class="eyebrow">Còn lại tháng này</div><div class="big grad n26">6.150.000 ₫</div></div><div class="flows"><div>↑ Vào <b>22tr</b></div><div>↓ Ra <b>15,85tr</b></div></div></div>
+        <div class="ch"><div class="chart">
+          <div class="col"><div class="lc-area"><div class="lstem" style="height:42px"></div><div class="lprev" style="bottom:49px"></div><div class="ldot g" style="bottom:37px"></div></div><span>T2</span></div>
+          <div class="col"><div class="lc-area"><div class="lstem" style="height:66px"></div><div class="lprev" style="bottom:53px"></div><div class="ldot o" style="bottom:61px"></div></div><span>T3</span></div>
+          <div class="col"><div class="lc-area"><div class="lstem" style="height:28px"></div><div class="lprev" style="bottom:46px"></div><div class="ldot g" style="bottom:23px"></div></div><span>T4</span></div>
+          <div class="col"><div class="lc-area"><div class="lstem" style="height:51px"></div><div class="lprev" style="bottom:75px"></div><div class="ldot g" style="bottom:46px"></div></div><span>T5</span></div>
+          <div class="col"><div class="lc-area"><div class="lstem" style="height:68px"></div><div class="lprev" style="bottom:49px"></div><div class="ldot o" style="bottom:63px"></div></div><span>T6</span></div>
+          <div class="col"><div class="lc-area"><div class="lprev" style="bottom:40px"></div></div><span>T7</span></div>
+          <div class="col"><div class="lc-area"><div class="lprev" style="bottom:32px"></div></div><span>CN</span></div>
+        </div><div class="dots"><i class="on"></i><i></i></div></div>
+        <div class="note down"><span class="ni">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+      </div>
+      <div class="c">
+        <div class="eyebrow">Tích lũy</div><div class="big n22" style="margin-top:5px">47.000.000 ₫</div>
+        <div class="ucap"><b>15.000.000 ₫</b> chưa phân bổ · để dành tự do</div>
+        <div style="margin-top:8px">
+          <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">8/12tr</div></div><div class="gr"><div class="grv">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gt"><div class="gn">Mua xe</div><div class="gs">9/40tr</div></div><div class="gr"><div class="grv">9tr</div><div class="dial" style="background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div></div></div>
+        </div>
+        <div class="note info"><span class="ni">📈</span>Tháng này để dành thêm <b>2.000.000 ₫</b></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- V5 overlaid + reference line -->
+  <div class="v"><div class="cap"><div><span class="n">5</span><span class="t">Cột + đường mốc</span></div><div class="d">Cột ghép cộng đường nét đứt “nhịp bền” làm mốc so sánh nhanh.</div></div>
+    <div class="screen"><div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="c">
+        <div class="hd"><div><div class="eyebrow">Còn lại tháng này</div><div class="big grad n26">6.150.000 ₫</div></div><div class="flows"><div>↑ Vào <b>22tr</b></div><div>↓ Ra <b>15,85tr</b></div></div></div>
+        <div class="ch charel"><div class="refl" style="bottom:66px"><span>nhịp bền</span></div><div class="chart">
+          <div class="col"><div class="bwrap"><div class="bprev" style="height:52px"></div><div class="bcur g" style="height:42px"></div></div><span>T2</span></div>
+          <div class="col"><div class="bwrap"><div class="bprev" style="height:56px"></div><div class="bcur o" style="height:66px"></div></div><span>T3</span></div>
+          <div class="col"><div class="bwrap"><div class="bprev" style="height:49px"></div><div class="bcur g" style="height:28px"></div></div><span>T4</span></div>
+          <div class="col"><div class="bwrap"><div class="bprev" style="height:78px"></div><div class="bcur g" style="height:51px"></div></div><span>T5</span></div>
+          <div class="col"><div class="bwrap"><div class="bprev" style="height:52px"></div><div class="bcur o" style="height:68px"></div></div><span>T6</span></div>
+          <div class="col"><div class="bwrap"><div class="bprev" style="height:43px"></div></div><span>T7</span></div>
+          <div class="col"><div class="bwrap"><div class="bprev" style="height:35px"></div></div><span>CN</span></div>
+        </div></div><div class="dots"><i class="on"></i><i></i></div>
+        <div class="note down"><span class="ni">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+      </div>
+      <div class="c">
+        <div class="hd"><div><div class="eyebrow">Tích lũy</div><div style="display:flex;align-items:baseline;gap:8px;margin-top:5px"><div class="big n22">47.000.000 ₫</div><span class="uchip">15tr tự do</span></div></div></div>
+        <div style="margin-top:8px">
+          <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">8/12tr</div></div><div class="gr"><div class="grv">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gt"><div class="gn">Phòng thân</div><div class="gs">đủ</div></div><div class="gr"><div class="grv">15tr</div><div class="dial" style="background:conic-gradient(#0f9d6c 360deg,#e9e8ee 0)"></div></div></div>
+        </div>
+        <div class="note info"><span class="ni">🎯</span>Đã hoàn thành <b>2/3</b> mục tiêu tích lũy</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- V6 single gradient bars + avg line -->
+  <div class="v"><div class="cap"><div><span class="n">6</span><span class="t">Cột gradient + trung bình</span></div><div class="d">Một cột/ngày, tô màu theo trên/dưới trung bình; đường nét đứt là mức TB.</div></div>
+    <div class="screen"><div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="c">
+        <div class="hd"><div><div class="eyebrow">Còn lại tháng này</div><div class="big grad n26">6.150.000 ₫</div></div><div class="flows"><div>↑ Vào <b>22tr</b></div><div>↓ Ra <b>15,85tr</b></div></div></div>
+        <div class="ch charel"><div class="refl" style="bottom:62px"><span>TB</span></div><div class="chart">
+          <div class="col"><div class="bwrap"><div class="sbar g" style="height:42px"></div></div><span>T2</span></div>
+          <div class="col"><div class="bwrap"><div class="sbar o" style="height:66px"></div></div><span>T3</span></div>
+          <div class="col"><div class="bwrap"><div class="sbar g" style="height:28px"></div></div><span>T4</span></div>
+          <div class="col"><div class="bwrap"><div class="sbar g" style="height:51px"></div></div><span>T5</span></div>
+          <div class="col"><div class="bwrap"><div class="sbar o" style="height:68px"></div></div><span>T6</span></div>
+          <div class="col"><div class="bwrap"><div class="sbar" style="height:44px;background:#ece9f2"></div></div><span>T7</span></div>
+          <div class="col"><div class="bwrap"><div class="sbar" style="height:36px;background:#ece9f2"></div></div><span>CN</span></div>
+        </div></div><div class="dots"><i class="on"></i><i></i></div>
+        <div class="note down"><span class="ni">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+      </div>
+      <div class="c">
+        <div class="eyebrow">Tích lũy</div><div class="big n22" style="margin-top:5px">47.000.000 ₫</div>
+        <div class="ucap"><b>15.000.000 ₫</b> chưa phân bổ · để dành tự do</div>
+        <div style="margin-top:8px">
+          <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">8/12tr</div></div><div class="gr"><div class="grv">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gt"><div class="gn">Mua xe</div><div class="gs">9/40tr</div></div><div class="gr"><div class="grv">9tr</div><div class="dial" style="background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div></div></div>
+        </div>
+        <div class="note info"><span class="ni">📈</span>Đủ Du lịch sau <b>~2 tháng</b> nếu giữ +2tr/tháng</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- V7 spline area -->
+  <div class="v"><div class="cap"><div><span class="n">7</span><span class="t">Đường cong mượt</span></div><div class="d">Xu hướng chi tiêu dạng đường cong mượt có vùng tô — thanh thoát, cao cấp.</div></div>
+    <div class="screen"><div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="c">
+        <div class="hd"><div><div class="eyebrow">Còn lại tháng này</div><div class="big grad n26">6.150.000 ₫</div></div><div class="flows"><div>↑ Vào <b>22tr</b></div><div>↓ Ra <b>15,85tr</b></div></div></div>
+        <div class="ch"><svg class="svgch" viewBox="0 0 300 82" preserveAspectRatio="none">
+          <path class="area" d="M0 58 C34 52 52 64 82 48 S150 30 180 38 240 18 300 24 L300 82 L0 82 Z"/>
+          <path class="cur" d="M0 58 C34 52 52 64 82 48 S150 30 180 38 240 18 300 24"/>
+        </svg><div class="dots"><i class="on"></i><i></i></div></div>
+        <div class="note down"><span class="ni">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+      </div>
+      <div class="c">
+        <div class="hd"><div><div class="eyebrow">Tích lũy</div><div style="display:flex;align-items:baseline;gap:8px;margin-top:5px"><div class="big n22">47.000.000 ₫</div><span class="uchip">15tr tự do</span></div></div></div>
+        <div style="margin-top:8px">
+          <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">8/12tr</div></div><div class="gr"><div class="grv">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gt"><div class="gn">Phòng thân</div><div class="gs">đủ</div></div><div class="gr"><div class="grv">15tr</div><div class="dial" style="background:conic-gradient(#0f9d6c 360deg,#e9e8ee 0)"></div></div></div>
+        </div>
+        <div class="note info"><span class="ni">💡</span>Tích lũy phủ <b>4 tháng</b> chi tiêu thiết yếu</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- V8 minimal bars -->
+  <div class="v"><div class="cap"><div><span class="n">8</span><span class="t">Tối giản</span></div><div class="d">Cột mảnh, nhiều khoảng thở, mọi thứ nhẹ nhàng — kỷ luật kiểu Apple.</div></div>
+    <div class="screen"><div class="sh"><h3>Tài chính</h3><span class="pill">Tháng 8 ▾</span></div>
+      <div class="c" style="padding:17px">
+        <div class="hd"><div><div class="eyebrow">Còn lại tháng này</div><div class="big grad n26" style="font-size:28px">6.150.000 ₫</div></div><div class="flows"><div>↑ <b>22tr</b></div><div>↓ <b>15,85tr</b></div></div></div>
+        <div class="ch" style="margin-top:18px"><div class="chart" style="gap:12px">
+          <div class="col"><div class="bwrap" style="height:66px"><div class="bprev" style="height:44px;width:56%;background:#efedf3"></div><div class="bcur g" style="height:36px;width:22%"></div></div><span>T2</span></div>
+          <div class="col"><div class="bwrap" style="height:66px"><div class="bprev" style="height:48px;width:56%;background:#efedf3"></div><div class="bcur o" style="height:56px;width:22%"></div></div><span>T3</span></div>
+          <div class="col"><div class="bwrap" style="height:66px"><div class="bprev" style="height:42px;width:56%;background:#efedf3"></div><div class="bcur g" style="height:24px;width:22%"></div></div><span>T4</span></div>
+          <div class="col"><div class="bwrap" style="height:66px"><div class="bprev" style="height:66px;width:56%;background:#efedf3"></div><div class="bcur g" style="height:43px;width:22%"></div></div><span>T5</span></div>
+          <div class="col"><div class="bwrap" style="height:66px"><div class="bprev" style="height:44px;width:56%;background:#efedf3"></div><div class="bcur o" style="height:58px;width:22%"></div></div><span>T6</span></div>
+          <div class="col"><div class="bwrap" style="height:66px"><div class="bprev" style="height:36px;width:56%;background:#efedf3"></div></div><span>T7</span></div>
+          <div class="col"><div class="bwrap" style="height:66px"><div class="bprev" style="height:30px;width:56%;background:#efedf3"></div></div><span>CN</span></div>
+        </div><div class="dots"><i class="on"></i><i></i></div></div>
+        <div class="note down" style="background:none;padding:11px 0 0;margin-top:12px;border-top:1px solid #f0eef4;border-radius:0"><span class="ni">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+      </div>
+      <div class="c" style="padding:17px">
+        <div class="eyebrow">Tích lũy</div><div class="big n22" style="margin-top:5px">47.000.000 ₫</div>
+        <div class="ucap">Còn <b>15.000.000 ₫</b> chưa phân bổ</div>
+        <div style="margin-top:9px">
+          <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">8/12tr</div></div><div class="gr"><div class="grv">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
+          <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gt"><div class="gn">Mua xe</div><div class="gs">9/40tr</div></div><div class="gr"><div class="grv">9tr</div><div class="dial" style="background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div></div></div>
+        </div>
+        <div class="note info" style="background:none;padding:11px 0 0;margin-top:12px;border-top:1px solid #f0eef4;border-radius:0"><span class="ni">🎯</span>Còn <b>Mua xe</b> · mới đi được 23% chặng đường</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
