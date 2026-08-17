@@ -19931,28 +19931,61 @@ window.classifyAmount = classifyAmount;
     openSheet('csv-import-modal');
   };
 
-  /* Which staged rows does a promotion actually retire?
-     ONLY the ones the review screen is about to write. Each candidate carries
-     rowIndex, an index into the parsed rows this screen was built from, and
-     staged mode passes exactly one source — so the mapping back is exact.
+  /* Which staged rows has the person FINISHED with?
 
-     Anything the screen held back is deliberately excluded: a flagged duplicate
-     or a deferred row is still waiting for a person, and retiring it would delete
-     a transaction that never reached the ledger. That is silent data loss, and
-     it is the one failure this whole screen exists to prevent — so this is a
-     named function with its own test rather than three lines inline.
+     Two answers count as finished, and only one of them is an import:
+       • imported — it is in `ready` and about to be written to the ledger.
+       • removed on purpose — they tapped ✕ on it, or skipped it as a duplicate.
+         0060 retires rejections for exactly this reason: "the user has said this
+         is not a transaction they want; keeping it would mean the queue slowly
+         fills with things they already dismissed."
+
+     So this is defined by exclusion: everything EXCEPT the rows still waiting for
+     a decision. That is the only formulation that catches all of it, because the
+     ✕ handlers (csvReadyRemove, csvSkipGroup, csvDeferDrop) SPLICE the candidate
+     out of csvReview — after the tap there is nothing left to ask about it, so a
+     rule built from "what was removed" cannot see them at all. csvDupSkip is the
+     odd one out: it marks resolved='skip' in place rather than splicing.
+
+     Still waiting = groups (need a category), deferred (income/transfer/missing
+     field), and duplicates nobody has ruled on. A dup marked 'done' was pushed
+     into `ready`, so it is finished, not pending.
+
+     Safe because the builder cannot silently drop a staged row: csvDropBlankRows
+     needs BOTH amount and date missing, and a staged row always has both. Every
+     disappearance is therefore a person's doing.
+
+     MUST be called BEFORE csvPromote(), which consumes csvReview.ready.
+
+     If the review state is unreadable we retire NOTHING rather than guess. An
+     unretired row is visible clutter and a toast; an over-retired one is a
+     transaction deleted that never reached the ledger. Only one of those is
+     recoverable.
 
      Extracted by name in tools/staged-retire.test.js; keep the signature. */
-  function fhStagedIdsForPromoted(rows, ready) {
+  function fhStagedIdsForResolved(rows, review) {
     var src = rows || [];
-    return (ready || [])
-      .map(function (c) {
-        var r = c && typeof c.rowIndex === 'number' ? src[c.rowIndex] : null;
-        return r && r.id;
-      })
-      .filter(Boolean);
+    if (!src.length) return [];
+    if (!review || !Array.isArray(review.ready)) return [];
+
+    var pending = {};
+    var hold = function (c) { if (c && typeof c.rowIndex === 'number') pending[c.rowIndex] = 1; };
+    (review.groups || []).forEach(function (g) { ((g && g.items) || []).forEach(hold); });
+    (review.deferred || []).forEach(hold);
+    (review.dup || []).forEach(function (d) {
+      if (!d) return;
+      if (d.resolved === 'skip' || d.resolved === 'done') return;   // decided either way
+      hold(d.c);
+    });
+
+    var out = [];
+    for (var i = 0; i < src.length; i++) {
+      if (pending[i]) continue;
+      if (src[i] && src[i].id) out.push(src[i].id);
+    }
+    return out;
   }
-  window.fhStagedIdsForPromoted = fhStagedIdsForPromoted;
+  window.fhStagedIdsForResolved = fhStagedIdsForResolved;
 
   /* Import, then retire the staged rows.
      Deleting only AFTER the ledger write succeeds — the reverse order would lose
@@ -19965,10 +19998,10 @@ window.classifyAmount = classifyAmount;
       window.fhStagingAlarmShow && window.fhStagingAlarmShow();
       return;
     }
-    /* Exactly the rows about to be written, resolved BEFORE csvPromote() runs:
-       it consumes csvReview.ready, so afterwards there is nothing left to read. */
-    var ids = fhStagedIdsForPromoted(window._fhStagedRows,
-                                     (window.csvReview && window.csvReview.ready));
+    /* Everything the person has finished with — imported OR removed on purpose.
+       Read BEFORE csvPromote(), which consumes csvReview.ready, and before the
+       ✕ handlers' splices become impossible to reason about. */
+    var ids = fhStagedIdsForResolved(window._fhStagedRows, window.csvReview);
 
     try {
       // csvPromote() returns its promise chain, so this genuinely waits for the
