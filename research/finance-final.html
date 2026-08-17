@@ -30,9 +30,12 @@
   .big{font-weight:800;letter-spacing:-1px;line-height:1}
   .grad{background:linear-gradient(120deg,#4f46e5,#14b8a6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 
-  .hd{display:flex;justify-content:space-between;align-items:flex-start}
-  .flows{text-align:right;font-size:11px;color:#8a8694;font-weight:600;line-height:1.7;flex-shrink:0}
-  .flows b{color:#111117}
+  /* vào/ra tiles — variant 4 style */
+  .io2{display:flex;gap:8px;margin-top:13px}
+  .iotile{flex:1;background:#f7f6fa;border-radius:12px;padding:10px 12px}
+  .iolab{font-size:10.5px;font-weight:600;color:#8a8694}
+  .ioval{font-size:15px;font-weight:800;letter-spacing:-.3px;margin-top:3px;color:#111117}
+  .ioval.up{color:#0f9d6c}
 
   .note{font-size:12px;font-weight:600;line-height:1.45;padding:9px 12px;border-radius:11px;margin-top:14px}
   .note .ni{margin-right:5px}
@@ -76,7 +79,12 @@
   <div class="scr">
 
     <div class="c">
-      <div class="hd"><div><div class="eyebrow">Còn lại tháng này</div><div class="big grad" style="font-size:34px;margin-top:5px">6.150.000 ₫</div></div><div class="flows"><div>↑ Vào <b>22tr</b></div><div>↓ Ra <b>15,85tr</b></div></div></div>
+      <div class="eyebrow">Còn lại tháng này</div>
+      <div class="big grad" style="font-size:34px;margin-top:5px">6.150.000 ₫</div>
+      <div class="io2">
+        <div class="iotile"><div class="iolab">↑ Vào</div><div class="ioval up num">22.000.000</div></div>
+        <div class="iotile"><div class="iolab">↓ Ra</div><div class="ioval num">15.850.000</div></div>
+      </div>
       <div class="ch"><div class="chart">
         <div class="col"><div class="bwrap"><div class="bprev" style="height:52px"></div><div class="bcur g" style="height:42px"></div></div><span>T2</span></div>
         <div class="col"><div class="bwrap"><div class="bprev" style="height:56px"></div><div class="bcur o" style="height:66px"></div></div><span>T3</span></div>
