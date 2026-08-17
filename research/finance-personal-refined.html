@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Earthy — Tài chính · phần cá nhân (v3)</title>
+<title>Earthy — Tài chính · phần cá nhân (v4)</title>
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
   :root{--sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif}
@@ -13,7 +13,7 @@
 
   .page-head{max-width:900px;margin:0 auto 34px;text-align:center}
   .page-head h1{font-size:33px;font-weight:800;letter-spacing:-1px;margin-bottom:9px}
-  .page-head p{color:#4b4753;font-size:15.5px;line-height:1.6;max-width:680px;margin:0 auto}
+  .page-head p{color:#4b4753;font-size:15.5px;line-height:1.6;max-width:690px;margin:0 auto}
   .page-head .leg{margin-top:13px;font-size:12.5px;color:#847f8e}
 
   .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:36px 26px;max-width:1000px;margin:0 auto;justify-items:center}
@@ -43,7 +43,7 @@
   .pk{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
   .pv{font-weight:800;letter-spacing:-1px;line-height:1}
 
-  /* in/out figures */
+  /* in/out */
   .io{display:flex;align-items:center;margin-top:15px}
   .io .ioc{flex:1;display:flex;align-items:center;gap:10px}
   .io .ar{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0}
@@ -51,18 +51,22 @@
   .io .iov{font-size:16px;font-weight:800;letter-spacing:-.3px;margin-top:2px}
   .io .sep{width:1px;align-self:stretch;margin:2px 14px}
 
-  .hr{height:1px;margin:16px 0 12px}
+  .hr{height:1px;margin:16px 0 13px}
 
-  /* pace = switcher + comparison chart only */
-  .swr{display:flex;justify-content:flex-end}
-  .seg{display:inline-flex;border-radius:9px;padding:2px;font-size:11px;font-weight:700}
-  .seg b{padding:4px 12px;border-radius:7px}
-  .cmp{margin-top:12px;height:60px}
-  .cmp svg{width:100%;height:60px;display:block}
-  .cmp .prev{fill:none;stroke-width:1.5;stroke-dasharray:3 3.5;vector-effect:non-scaling-stroke}
-  .cmp .cur{fill:none;stroke-width:2.6;stroke-linecap:round;vector-effect:non-scaling-stroke}
+  /* pace: delta highlight + slidable paired daily chart */
+  .delta{display:block;font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:10px;line-height:1.45}
+  .delta b{font-weight:800;white-space:nowrap}
+  .delta .di{font-weight:800;margin-right:2px}
+  .pscroll{overflow-x:auto;direction:rtl;margin-top:14px}.pscroll::-webkit-scrollbar{display:none}
+  .ptrack{display:inline-flex;direction:ltr;gap:11px;align-items:flex-end;padding:0 2px}
+  .dcol{display:flex;flex-direction:column;align-items:center;gap:6px;flex:0 0 auto}
+  .db{position:relative;height:56px;width:34px;display:flex;align-items:flex-end;justify-content:center}
+  .dprev{position:absolute;bottom:0;width:26px;border-radius:4px 4px 0 0}
+  .dcur{position:absolute;bottom:0;width:12px;border-radius:3px 3px 0 0;z-index:1}
+  .dl{font-size:9px;font-weight:600}
+  .dcol.hist{opacity:.42}
 
-  /* savings sub-components */
+  /* savings */
   .goal{display:flex;align-items:center;gap:12px;padding:11px 0}
   .goal+.goal{border-top:1px solid}
   .gem{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
@@ -73,8 +77,6 @@
   .grv{font-size:13.5px;font-weight:800;letter-spacing:-.2px}
   .dial{width:30px;height:30px;border-radius:50%;position:relative;flex-shrink:0}
   .dial::after{content:"";position:absolute;inset:5px;border-radius:50%;background:#fff}
-
-  /* unallocated — quiet info footer, integrated into the card */
   .ufoot{display:flex;align-items:center;gap:12px;margin:13px -17px -17px;padding:14px 17px;border-top:1px solid #f0eef4;border-radius:0 0 22px 22px;background:#faf9fc}
   .ufoot .uic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#edecf2}
   .ufoot .uic svg{width:17px;height:17px;fill:none;stroke:#9a94a8;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -98,8 +100,9 @@
   .bento .io .ar.u{background:#e7f6f0;color:#0f9d6c}.bento .io .ar.d{background:#f1eff4;color:#8a8694}
   .bento .io .iol{color:#8a8694}.bento .io .sep{background:#eceaf0}
   .bento .hr{background:#f0eef4}
-  .bento .seg{background:#eeedf2;color:#8a8694}.bento .seg b.on{background:#fff;color:#111;box-shadow:0 1px 3px rgba(0,0,0,.1)}
-  .bento .cmp .prev{stroke:#c6c3cf}.bento .cmp .cur{stroke:#14b8a6}.bento .cmp .area{fill:rgba(20,184,166,.12)}
+  .bento .delta.down{background:#e7f6f0;color:#0f7a5a}.bento .delta.up{background:#fdeef0;color:#c0392b}
+  .bento .dprev{background:#e6e4ec}.bento .dcur.g{background:#14b8a6}.bento .dcur.o{background:#e0913a}
+  .bento .dl{color:#a8a4b0}
   .bento .scope .sn{color:#111117}.bento .scope .ln{background:#dcdae2}.bento .scope .op{color:#a8a4b0}
   .bento .cln2 .pv{color:#111}
   .bento .goal+.goal{border-color:#f0eef4}
@@ -124,8 +127,9 @@
   .aurora .hero .io .ar.u{background:rgba(255,255,255,.22);color:#eafff5}.aurora .hero .io .ar.d{background:rgba(255,255,255,.14);color:#fff}
   .aurora .hero .io .iol{color:rgba(255,255,255,.85)}.aurora .hero .io .sep{background:rgba(255,255,255,.24)}
   .aurora .hero .hr{background:rgba(255,255,255,.2)}
-  .aurora .hero .seg{background:rgba(255,255,255,.18);color:rgba(255,255,255,.8)}.aurora .hero .seg b.on{background:#fff;color:#0b6a5a}
-  .aurora .hero .cmp .prev{stroke:rgba(255,255,255,.55)}.aurora .hero .cmp .cur{stroke:#fff}.aurora .hero .cmp .area{fill:rgba(255,255,255,.16)}
+  .aurora .hero .delta{background:rgba(255,255,255,.92);color:#0f7a5a}
+  .aurora .hero .dprev{background:rgba(255,255,255,.3)}.aurora .hero .dcur.g{background:#fff}.aurora .hero .dcur.o{background:#ffdcae}
+  .aurora .hero .dl{color:rgba(255,255,255,.75)}
   .aurora .card{background:#fff;border-radius:22px;padding:17px;box-shadow:0 2px 6px rgba(0,0,0,.05),0 14px 30px rgba(0,0,0,.06);margin-bottom:11px}
   .aurora .card .pk{color:#6a6675}.aurora .card .pv{color:#0d0d12}
   .aurora .scope .sn{color:#0d0d12}.aurora .scope .ln{background:#dcd8e0}.aurora .scope .op{color:#a8a4b0}
@@ -141,8 +145,8 @@
 <body>
 
 <div class="page-head">
-  <h1>Tài chính · phần cá nhân (v3)</h1>
-  <p>Nhịp chi tiêu giờ chỉ còn <b>bộ chuyển tuần/tháng</b> và <b>biểu đồ</b>: đường liền là chi tiêu <b>đến hôm nay</b>, đường nét đứt là <b>kỳ trước</b> (tuần/tháng trước) để đối chiếu — không chữ, không chi tiết thừa. Phần <b>chưa phân bổ</b> của Tích lũy là thông tin (không có nút hành động), gắn liền vào thẻ.</p>
+  <h1>Tài chính · phần cá nhân (v4)</h1>
+  <p>Nhịp chi tiêu: <b>không nút chuyển</b> — vuốt ngang để xem các tuần trước (tối đa 2 tháng). Mỗi <b>cột ngày</b> ghép <b>kỳ trước (xám)</b> và <b>kỳ này (màu)</b>. Một <b>ô nổi bật</b> tóm tắt tăng/giảm bao nhiêu so với cùng kỳ tuần trước.</p>
   <div class="leg">Hai hướng: Bento sáng · Aurora gradient. VND · SF Pro.</div>
 </div>
 
@@ -151,7 +155,7 @@
   <!-- ================= BENTO ================= -->
   <div class="mock">
     <div class="cap"><div><span class="n">A</span><span class="t">Bento — sáng</span></div>
-      <div class="d">Biểu đồ đối chiếu “đến nay” vs kỳ trước; ô chưa phân bổ là footer thông tin gắn vào thẻ Tích lũy.</div></div>
+      <div class="d">Cột ngày ghép kỳ trước vs kỳ này; vuốt ngang xem lịch sử; ô nổi bật báo giảm 180k.</div></div>
     <div class="frame bento">
       <div class="st"><span class="tm">9:41</span><span class="ic"><svg width="18" height="12" viewBox="0 0 18 12"><g fill="#111117"><rect y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" width="3" height="12" rx="1" opacity=".35"/></g></svg><svg width="25" height="12" viewBox="0 0 25 12"><rect x="1" y="1" width="20" height="10" rx="2.6" fill="none" stroke="#111117" stroke-opacity=".4"/><rect x="3" y="3" width="14" height="6" rx="1.2" fill="#111117"/></svg></span></div>
       <div class="b-h"><h2 class="ttl">Tài chính</h2><span class="pill">Tháng 8 ▾</span></div>
@@ -165,14 +169,19 @@
             <div class="ioc"><div class="ar d">↓</div><div><div class="iol">Ra</div><div class="iov num">15.850.000</div></div></div>
           </div>
           <div class="hr"></div>
-          <div class="swr"><span class="seg"><b class="on">Tuần</b><b>Tháng</b></span></div>
-          <div class="cmp">
-            <svg viewBox="0 0 326 60" preserveAspectRatio="none">
-              <path class="area" d="M8 48.1 L60 41.2 L111 35.3 L163 27 L214 24.3 L214 54 L8 54 Z"/>
-              <polyline class="prev" points="8,47.1 60,39.8 111,33.4 163,23.1 214,16.3 266,10.6 318,6"/>
-              <polyline class="cur" points="8,48.1 60,41.2 111,35.3 163,27 214,24.3"/>
-            </svg>
-          </div>
+          <div class="delta down"><span class="di">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+          <div class="pscroll"><div class="ptrack">
+            <div class="dcol hist"><div class="db"><div class="dprev" style="height:45px"></div><div class="dcur g" style="height:38px"></div></div><span class="dl">T5</span></div>
+            <div class="dcol hist"><div class="db"><div class="dprev" style="height:33px"></div><div class="dcur o" style="height:44px"></div></div><span class="dl">T6</span></div>
+            <div class="dcol hist"><div class="db"><div class="dprev" style="height:25px"></div><div class="dcur g" style="height:30px"></div></div><span class="dl">CN</span></div>
+            <div class="dcol"><div class="db"><div class="dprev" style="height:37px"></div><div class="dcur g" style="height:30px"></div></div><span class="dl">T2</span></div>
+            <div class="dcol"><div class="db"><div class="dprev" style="height:40px"></div><div class="dcur o" style="height:47px"></div></div><span class="dl">T3</span></div>
+            <div class="dcol"><div class="db"><div class="dprev" style="height:35px"></div><div class="dcur g" style="height:20px"></div></div><span class="dl">T4</span></div>
+            <div class="dcol"><div class="db"><div class="dprev" style="height:56px"></div><div class="dcur g" style="height:37px"></div></div><span class="dl">T5</span></div>
+            <div class="dcol"><div class="db"><div class="dprev" style="height:37px"></div><div class="dcur o" style="height:49px"></div></div><span class="dl">T6</span></div>
+            <div class="dcol"><div class="db"><div class="dprev" style="height:31px"></div></div><span class="dl">T7</span></div>
+            <div class="dcol"><div class="db"><div class="dprev" style="height:25px"></div></div><span class="dl">CN</span></div>
+          </div></div>
         </div>
 
         <div class="card cln2">
@@ -208,7 +217,7 @@
   <!-- ================= AURORA ================= -->
   <div class="mock">
     <div class="cap"><div><span class="n">B</span><span class="t">Aurora — gradient</span></div>
-      <div class="d">Biểu đồ đối chiếu ngay trên nền gradient (đường trắng); tích lũy trên thẻ trắng với footer chưa phân bổ.</div></div>
+      <div class="d">Cột ghép và ô nổi bật ngay trên nền gradient; vuốt ngang xem lịch sử tối đa 2 tháng.</div></div>
     <div class="frame aurora">
       <div class="st"><span class="tm">9:41</span><span class="ic"><svg width="18" height="12" viewBox="0 0 18 12"><g fill="#0d0d12"><rect y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" width="3" height="12" rx="1" opacity=".35"/></g></svg><svg width="25" height="12" viewBox="0 0 25 12"><rect x="1" y="1" width="20" height="10" rx="2.6" fill="none" stroke="#0d0d12" stroke-opacity=".4"/><rect x="3" y="3" width="14" height="6" rx="1.2" fill="#0d0d12"/></svg></span></div>
       <div class="b-h"><h2 class="ttl">Tài chính</h2><span class="pill">Tháng 8 ▾</span></div>
@@ -222,14 +231,19 @@
             <div class="ioc"><div class="ar d">↓</div><div><div class="iol">Ra</div><div class="iov num">15.850.000</div></div></div>
           </div>
           <div class="hr"></div>
-          <div class="swr"><span class="seg"><b class="on">Tuần</b><b>Tháng</b></span></div>
-          <div class="cmp">
-            <svg viewBox="0 0 326 60" preserveAspectRatio="none">
-              <path class="area" d="M8 48.1 L60 41.2 L111 35.3 L163 27 L214 24.3 L214 54 L8 54 Z"/>
-              <polyline class="prev" points="8,47.1 60,39.8 111,33.4 163,23.1 214,16.3 266,10.6 318,6"/>
-              <polyline class="cur" points="8,48.1 60,41.2 111,35.3 163,27 214,24.3"/>
-            </svg>
-          </div>
+          <div class="delta down"><span class="di">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+          <div class="pscroll"><div class="ptrack">
+            <div class="dcol hist"><div class="db"><div class="dprev" style="height:45px"></div><div class="dcur g" style="height:38px"></div></div><span class="dl">T5</span></div>
+            <div class="dcol hist"><div class="db"><div class="dprev" style="height:33px"></div><div class="dcur o" style="height:44px"></div></div><span class="dl">T6</span></div>
+            <div class="dcol hist"><div class="db"><div class="dprev" style="height:25px"></div><div class="dcur g" style="height:30px"></div></div><span class="dl">CN</span></div>
+            <div class="dcol"><div class="db"><div class="dprev" style="height:37px"></div><div class="dcur g" style="height:30px"></div></div><span class="dl">T2</span></div>
+            <div class="dcol"><div class="db"><div class="dprev" style="height:40px"></div><div class="dcur o" style="height:47px"></div></div><span class="dl">T3</span></div>
+            <div class="dcol"><div class="db"><div class="dprev" style="height:35px"></div><div class="dcur g" style="height:20px"></div></div><span class="dl">T4</span></div>
+            <div class="dcol"><div class="db"><div class="dprev" style="height:56px"></div><div class="dcur g" style="height:37px"></div></div><span class="dl">T5</span></div>
+            <div class="dcol"><div class="db"><div class="dprev" style="height:37px"></div><div class="dcur o" style="height:49px"></div></div><span class="dl">T6</span></div>
+            <div class="dcol"><div class="db"><div class="dprev" style="height:31px"></div></div><span class="dl">T7</span></div>
+            <div class="dcol"><div class="db"><div class="dprev" style="height:25px"></div></div><span class="dl">CN</span></div>
+          </div></div>
         </div>
 
         <div class="card">
