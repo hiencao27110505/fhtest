@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Widget A — CTA variants (Lập ngân sách · Xem chi tiêu)</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{
+    --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+    --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+    --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0; --brand-tint:#e9f7f0;
+    --good:#1a9d5f; --good-tint:#e7f5ee; --amber:#B8730B; --danger:#E0322F;
+    --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+    --white:#fff; --canvas:#f4f1f6; --surface:#f9f7f8;
+    --hairline:#e9e4ee; --divider:#f1edf4; --chev:#cfc8d6;
+    --fill-neutral:rgba(138,132,148,.14);
+    --r-card-lg:22px;
+    --shadow-focal:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09);
+    --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+  }
+  html,body{background:var(--canvas);font-family:var(--text);color:var(--ink);-webkit-font-smoothing:antialiased}
+  body{padding:40px 20px 90px}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  .head{max-width:760px;margin:0 auto 30px;text-align:center}
+  .head h1{font-family:var(--disp);font-size:26px;font-weight:800;letter-spacing:-.5px}
+  .head p{color:var(--muted);font-size:14px;margin-top:8px;line-height:1.55}
+  .head code{background:#fff;border:1px solid var(--hairline);border-radius:5px;padding:1px 6px;font-size:12.5px;color:var(--ink-2)}
+
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,380px));gap:26px 30px;justify-content:center;align-items:start}
+  @media(max-width:820px){.grid{grid-template-columns:1fr;max-width:380px;margin:0 auto}}
+  .vcell{display:flex;flex-direction:column;gap:12px}
+  .vtag{display:flex;align-items:baseline;gap:9px}
+  .vnum{font-family:var(--disp);font-weight:800;font-size:13px;color:#fff;background:var(--ink);border-radius:6px;min-width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px;letter-spacing:-.02em}
+  .vname{font-size:13.5px;font-weight:700;color:var(--ink)}
+  .vdesc{font-size:12px;color:var(--muted);line-height:1.45;margin-top:-4px}
+
+  /* ── Widget A card (mirrors src/css/40-spending-tabs.css) ── */
+  .cf-card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:16px 16px 14px}
+  .cf-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .cf-big{font-family:var(--disp);font-size:34px;font-weight:700;letter-spacing:-1.2px;line-height:1.04;color:var(--ink);margin-top:4px}
+  .cf-tiles{display:flex;gap:8px;margin-top:13px}
+  .cf-tile{flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:3px;background:var(--surface);border-radius:12px;padding:10px 12px}
+  .cf-tl{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--muted)}
+  .cf-ar{font-weight:700}.cf-ar.up{color:var(--good)}.cf-ar.dn{color:var(--ink-2)}
+  .cf-tv{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.03em;color:var(--ink)}
+  .wow{display:flex;align-items:flex-end;gap:9px;margin-top:16px;padding:0 2px}
+  .wcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+  .wbars{position:relative;height:64px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px}
+  .wb{width:9px;border-radius:3px 3px 0 0}
+  .wb.prev{background:var(--fill-neutral)}.wb.cur{background:var(--good)}.wb.cur.over{background:var(--danger)}
+  .wd{font-size:9px;font-weight:600;color:var(--muted-soft)}.wd.on{color:var(--ink);font-weight:700}
+  .wow-key{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:11px;font-size:10.5px;font-weight:600;color:var(--muted)}
+  .wow-key .wk-sw{width:8px;height:8px;border-radius:2px;margin-left:8px}
+  .wow-key .wk-sw:first-child{margin-left:0}
+  .wk-sw.prev{background:var(--fill-neutral)}.wk-sw.cur{background:var(--good)}
+  .cf-note{text-align:center;font-size:12px;font-weight:600;color:var(--muted);margin-top:13px}
+  .cf-note b{font-weight:700}.cf-note b.ok{color:var(--good)}.cf-note b.over{color:var(--danger)}
+
+  button{font:inherit;cursor:pointer}
+
+  /* ═══════════ V1 — two ghost buttons, side by side ═══════════ */
+  .ftr.v1{display:flex;gap:8px;margin-top:15px}
+  .v1 .gbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--hairline);border-radius:11px;padding:11px 10px;background:#fff;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+  .v1 .gbtn svg{width:15px;height:15px}
+  .v1 .gbtn:active{background:var(--surface)}
+
+  /* ═══════════ V2 — split text links + divider ═══════════ */
+  .ftr.v2{display:flex;align-items:center;margin-top:13px;border-top:1px solid var(--divider);padding-top:11px}
+  .v2 .tlink{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--brand-ink);background:none;border:0}
+  .v2 .tlink svg{width:14px;height:14px}
+  .v2 .vdiv{width:1px;height:15px;background:var(--hairline)}
+
+  /* ═══════════ V3 — full-width stacked list rows ═══════════ */
+  .ftr.v3{margin:15px -16px -14px;border-top:1px solid var(--divider)}
+  .v3 .lrow{display:flex;align-items:center;gap:11px;width:100%;padding:13px 16px;border:0;background:none;font-size:13.5px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--divider)}
+  .v3 .lrow:last-child{border-bottom:0}
+  .v3 .lrow:active{background:var(--surface)}
+  .v3 .li{width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center}
+  .v3 .li svg{width:17px;height:17px}
+  .v3 .ch{width:18px;height:18px;margin-left:auto;color:var(--chev)}
+
+  /* ═══════════ V4 — primary + secondary ═══════════ */
+  .ftr.v4{display:flex;gap:8px;margin-top:15px}
+  .v4 .sbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:12px;padding:12px 10px;font-size:12.5px;font-weight:700;border:1px solid transparent}
+  .v4 .sbtn svg{width:15px;height:15px}
+  .v4 .ghost{background:#fff;border-color:var(--hairline);color:var(--ink-2);flex:0 0 42%}
+  .v4 .fill{background:var(--brand);color:#fff;box-shadow:0 6px 14px rgba(46,158,107,.28)}
+  .v4 .sbtn:active{transform:scale(.985)}
+
+  /* ═══════════ V5 — segmented pill pair ═══════════ */
+  .ftr.v5{display:flex;gap:4px;margin-top:15px;background:var(--surface);border-radius:13px;padding:4px}
+  .v5 .seg{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:10px;padding:10px;background:#fff;box-shadow:0 1px 2px rgba(25,16,34,.06);font-size:12.5px;font-weight:600;color:var(--ink-2)}
+  .v5 .seg svg{width:14px;height:14px;color:var(--brand-ink)}
+  .v5 .seg:active{background:#fbfafc}
+
+  /* ═══════════ V6 — icon tiles ═══════════ */
+  .ftr.v6{display:flex;gap:8px;margin-top:14px}
+  .v6 .itile{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--surface);border:0;border-radius:14px;padding:14px 10px 12px}
+  .v6 .ii{width:34px;height:34px;border-radius:10px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center}
+  .v6 .ii svg{width:18px;height:18px}
+  .v6 .itile span.t{font-size:12px;font-weight:600;color:var(--ink-2)}
+  .v6 .itile:active{background:#f1eef4}
+
+  /* ═══════════ V7 — minimal inline links ═══════════ */
+  .ftr.v7{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
+  .v7 .qlink{display:flex;align-items:center;gap:5px;background:none;border:0;font-size:12.5px;font-weight:600;color:var(--muted)}
+  .v7 .qlink.pri{color:var(--brand-ink)}
+  .v7 .qlink svg{width:14px;height:14px}
+
+  /* ═══════════ V8 — card-attached footer bar ═══════════ */
+  .ftr.v8{display:flex;align-items:center;margin:15px -16px -14px;background:var(--surface);border-top:1px solid var(--divider)}
+  .v8 .barbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:14px 10px;border:0;background:none;font-size:12.5px;font-weight:600;color:var(--brand-ink)}
+  .v8 .barbtn svg{width:15px;height:15px}
+  .v8 .bdiv{width:1px;height:20px;background:var(--hairline)}
+  .v8 .barbtn:active{background:#f1eef4}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Widget A — thẻ CTA ở đáy widget</h1>
+  <p>8 phương án cho 2 nút bên trong widget: <code>Lập ngân sách</code> (mở cài đặt ngân sách) và <code>Xem chi tiêu</code> (mở danh sách giao dịch). Phần thân widget giữ nguyên; chỉ đổi cách trình bày CTA.</p>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+  // ── icons ──
+  var IB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg>';      // budget (bars)
+  var IE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>'; // expenses (receipt)
+  var CH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+
+  // ── week-over-week chart (last week muted, this week green / red where it beat last week) ──
+  var PREV=[40,46,38,58,44,34,26], CUR=[34,52,24,40,50,null,null], DAYS=['T2','T3','T4','T5','T6','T7','CN'], TODAY=4, MAX=58;
+  function wow(){
+    var cols='';
+    for(var i=0;i<7;i++){
+      var ph=Math.round(PREV[i]/MAX*100), fut=CUR[i]==null;
+      var over=!fut && CUR[i]>PREV[i];
+      var ch=fut?0:Math.round(CUR[i]/MAX*100);
+      cols+='<div class="wcol"><span class="wbars">'
+        +'<i class="wb prev" style="height:'+ph+'%"></i>'
+        +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
+        +'</span><span class="wd'+(i===TODAY?' on':'')+'">'+DAYS[i]+'</span></div>';
+    }
+    return '<div class="wow">'+cols+'</div>'
+      +'<div class="wow-key"><span class="wk-sw prev"></span>Tuần trước<span class="wk-sw cur"></span>Tuần này</div>';
+  }
+
+  // ── the shared widget body; footer swapped per variant ──
+  function widget(footer){
+    return '<div class="cf-card">'
+      +'<div class="cf-lbl">Còn lại tháng này</div>'
+      +'<div class="cf-big num">6.150.000 ₫</div>'
+      +'<div class="cf-tiles">'
+        +'<div class="cf-tile"><span class="cf-tl"><span class="cf-ar up">↑</span>Thu</span><span class="cf-tv num">22.000.000 ₫</span></div>'
+        +'<div class="cf-tile"><span class="cf-tl"><span class="cf-ar dn">↓</span>Chi</span><span class="cf-tv num">15.850.000 ₫</span></div>'
+      +'</div>'
+      +wow()
+      +'<div class="cf-note"><b class="ok">▼ Giảm 180.000 ₫</b> so với cùng kỳ tuần trước</div>'
+      +footer
+    +'</div>';
+  }
+
+  // ── 8 footer variants ──
+  var F = {
+    v1:'<div class="ftr v1">'
+        +'<button class="gbtn">'+IB+'Lập ngân sách</button>'
+        +'<button class="gbtn">'+IE+'Xem chi tiêu</button>'
+      +'</div>',
+    v2:'<div class="ftr v2">'
+        +'<button class="tlink">'+IB+'Lập ngân sách</button>'
+        +'<span class="vdiv"></span>'
+        +'<button class="tlink">Xem chi tiêu'+CH+'</button>'
+      +'</div>',
+    v3:'<div class="ftr v3">'
+        +'<button class="lrow"><span class="li">'+IB+'</span>Lập ngân sách<span class="ch">'+CH+'</span></button>'
+        +'<button class="lrow"><span class="li">'+IE+'</span>Xem chi tiêu<span class="ch">'+CH+'</span></button>'
+      +'</div>',
+    v4:'<div class="ftr v4">'
+        +'<button class="sbtn ghost">'+IB+'Ngân sách</button>'
+        +'<button class="sbtn fill">'+IE+'Xem chi tiêu</button>'
+      +'</div>',
+    v5:'<div class="ftr v5">'
+        +'<button class="seg">'+IB+'Ngân sách</button>'
+        +'<button class="seg">'+IE+'Chi tiêu</button>'
+      +'</div>',
+    v6:'<div class="ftr v6">'
+        +'<button class="itile"><span class="ii">'+IB+'</span><span class="t">Lập ngân sách</span></button>'
+        +'<button class="itile"><span class="ii">'+IE+'</span><span class="t">Xem chi tiêu</span></button>'
+      +'</div>',
+    v7:'<div class="ftr v7">'
+        +'<button class="qlink pri">'+IB+'Lập ngân sách</button>'
+        +'<button class="qlink">Xem chi tiêu'+CH+'</button>'
+      +'</div>',
+    v8:'<div class="ftr v8">'
+        +'<button class="barbtn">'+IB+'Lập ngân sách</button>'
+        +'<span class="bdiv"></span>'
+        +'<button class="barbtn">'+IE+'Xem chi tiêu</button>'
+      +'</div>'
+  };
+
+  var META = [
+    ['v1','Hai nút viền, cạnh nhau','Hai ghost button đều nhau — cân bằng, không nhấn nút nào.'],
+    ['v2','Link chữ + gạch chia','Tối giản, tách bằng đường kẻ trên; nhẹ nhất về thị giác.'],
+    ['v3','Danh sách full-width','Hai hàng kiểu iOS, icon + chevron — dễ chạm, rõ là điều hướng.'],
+    ['v4','Chính + phụ','“Xem chi tiêu” là nút chính (fill), “Ngân sách” là phụ.'],
+    ['v5','Cặp pill segmented','Một khối chia đôi — gọn, giống bộ chuyển đổi.'],
+    ['v6','Ô icon','Icon trên, nhãn dưới — trực quan, chiếm chỗ nhiều hơn.'],
+    ['v7','Link inline tối giản','Chữ mờ, không viền — kín đáo nhất, hợp khi ít ưu tiên.'],
+    ['v8','Thanh đáy dính thẻ','Dải footer nền xám full-bleed, hai vùng chạm chia đôi.']
+  ];
+
+  document.getElementById('grid').innerHTML = META.map(function(m,i){
+    return '<div class="vcell">'
+      +'<div class="vtag"><span class="vnum">V'+(i+1)+'</span><span class="vname">'+m[1]+'</span></div>'
+      +'<div class="vdesc">'+m[2]+'</div>'
+      +widget(F[m[0]])
+    +'</div>';
+  }).join('');
+</script>
+</body>
+</html>

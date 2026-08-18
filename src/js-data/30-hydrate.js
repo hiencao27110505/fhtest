@@ -75,7 +75,7 @@
           sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,txn_date,status,created_by').eq('family_id', fid).order('txn_date', { ascending: false }),
           sb.from('events').select('id,name,name_enc,emoji,cover,target_amount,target_amount_enc,target_date,achieved,sort_order,source_txn_id,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
           sb.from('event_fundings').select('id,event_id,goal_id,amount,amount_enc,source,month,member_id').eq('family_id', fid),
-          sb.from('savings_entries').select('kind,amount,amount_enc').eq('family_id', fid),
+          sb.from('savings_entries').select('kind,amount,amount_enc,entry_date').eq('family_id', fid),
           sb.from('event_memories').select('id,event_id,emoji,caption,caption_enc,photo_url,sort_order').eq('family_id', fid).order('sort_order'),
           sb.from('transaction_photos').select('transaction_id,photo_url').eq('family_id', fid),
           sb.from('incomes').select('amount,amount_enc,income_date').eq('family_id', fid),
@@ -369,6 +369,11 @@
       let _mi = 0; const _imk = (monthDate || '').slice(0, 7);
       inc.forEach((r) => { if (((r.income_date) || '').slice(0, 7) === _imk) _mi += Number(r.amount); });
       window.monthIncome = _mi;
+      // net saved this month (deposits − withdrawals) → the Tích lũy momentum spark.
+      // Mirrors monthIncome: a single current-month figure, entry_date-scoped.
+      let _sm = 0;
+      se.forEach((s) => { if (((s.entry_date) || '').slice(0, 7) === _imk) _sm += (s.kind === 'deposit' ? 1 : -1) * Number(s.amount); });
+      window.savingsThisMonth = _sm;
 
       try { localStorage.setItem('fh-fam', JSON.stringify(window.FAM)); localStorage.setItem('fh-lang', window.LANG); localStorage.setItem('fh-cur', window.CUR); } catch (e) {}
 

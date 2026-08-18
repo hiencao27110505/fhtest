@@ -58,6 +58,63 @@ function renderBudget(){
   renderTrend();
   renderCatBudget();
   renderFinanceHero();
+  renderCashflow();
+}
+/* Widget A — cash flow: what's LEFT this month (income − spent), the In/Out pair, and a
+   this-week-vs-last-week daily chart. Reuses renderBudget's month model + the same per-day
+   spend source as the hero's daily page. Cross-month weeks (early in the month, or a closed
+   month's first week) fall back to 0 for the unloaded days — the note stays within the month. */
+function renderCashflow(){
+  var host=document.getElementById('cf-left'); if(!host) return;
+  var m=M(), spent=m.spent||0, income=window.monthIncome||0, left=income-spent;
+  setTxt('cf-left', fmt(left)); host.classList.toggle('neg', left<0);
+  setTxt('cf-in', fmt(income)); setTxt('cf-out', fmt(spent));
+
+  var dim=m.dim, dom=m.dom, done=m.done;
+  var daily=[]; for(var i=0;i<=dim;i++) daily[i]=0;
+  (window.txns||[]).forEach(function(t){ if(!t.future && t.month===window.selMonth && t._d){ var dd=t._d.getDate(); if(dd>=1&&dd<=dim) daily[dd]+=t.amt; } });
+
+  // Monday-anchor the two weeks. "today" is dom for the live month, else the last day.
+  var today=done?dim:dom;
+  var iso=m._iso||((m.short||curMonthKey())+'-01');
+  var base=new Date(iso.slice(0,7)+'-01T00:00:00'); base.setDate(today);
+  var wd=(base.getDay()+6)%7;                          // 0=Mon … 6=Sun
+  var monThis=today-wd;                                // day-of-month of this week's Monday (≤0 = prev month)
+  var cur=[], prev=[], maxV=1;
+  for(var k=0;k<7;k++){
+    var dc=monThis+k, dp=monThis-7+k;
+    var vc=(dc>=1&&dc<=dim&&(done||dc<=today))?daily[dc]:null;   // future days this week → null (no cur bar)
+    var vp=(dp>=1&&dp<=dim)?daily[dp]:0;                          // days outside the loaded month → 0
+    cur.push(vc); prev.push(vp);
+    if(vc!=null&&vc>maxV) maxV=vc; if(vp>maxV) maxV=vp;
+  }
+  var DAYS=isVi()?['T2','T3','T4','T5','T6','T7','CN']:['M','T','W','T','F','S','S'];
+  var cols='';
+  for(var c=0;c<7;c++){
+    var ph=Math.round(prev[c]/maxV*100), fut=cur[c]==null;
+    var over=!fut && prev[c]>0 && cur[c]>prev[c];              // spent more than the same day last week
+    var ch=fut?0:(cur[c]>0?Math.max(Math.round(cur[c]/maxV*100),4):0);
+    var isToday=!done && (monThis+c)===today;
+    cols+='<div class="wcol"><span class="wbars">'
+      +'<i class="wb prev" style="height:'+ph+'%"></i>'
+      +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
+      +'</span><span class="wd'+(isToday?' on':'')+'">'+DAYS[c]+'</span></div>';
+  }
+  setHTMLIf('cf-wow', cols);
+
+  // Note (highlighted tinted block): this week so far vs the SAME number of days last week.
+  var days=0, ts=0, ls=0;
+  for(var d=0;d<7;d++){ if(cur[d]!=null){ days++; ts+=cur[d]; ls+=prev[d]; } }
+  var diff=ts-ls, st='', note='';
+  if(days>0 && ls>0){
+    if(diff<0){ st='ok'; note='<span class="ni">▼</span>'+L('Giảm ','Down ')+'<b>'+fmt(-diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
+    else if(diff>0){ st='over'; note='<span class="ni">▲</span>'+L('Tăng ','Up ')+'<b>'+fmt(diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
+    else { st='flat'; note=L('Ngang cùng kỳ tuần trước','On par with last week'); }
+  } else if(days>0 && ts>0){
+    st='flat'; note=L('Tuần này đã chi ','Spent ')+'<b>'+fmt(ts)+'</b>'+L('',' this week');
+  }
+  var cfn=document.getElementById('cf-note');
+  if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
 }
 /* The "whole": one allocation ring — inner arcs = the spending composition (by category)
    + green quỹ (kept); outer ring = budget with a pace tick (run-rate). Below it, the same

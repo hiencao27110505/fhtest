@@ -10,6 +10,65 @@
 .fin-setup-card .fsc-t{font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
 .fin-setup-card .fsc-s{font-size:12.5px;line-height:1.35;color:var(--muted);margin-top:2px}
 .fin-setup-card .fsc-chev{width:20px;height:20px;flex-shrink:0;color:var(--chev)}
+/* ── Widget A — cash flow: what's LEFT this month · in/out pair · this week vs last week ── */
+.cf-card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:16px 16px 14px;margin:2px 16px 12px;overflow:hidden}
+.cf-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cf-big{font-family:var(--disp);font-size:34px;font-weight:700;letter-spacing:-1.2px;line-height:1.04;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:4px}
+.cf-big.neg{color:var(--danger)}
+.cf-tiles{display:flex;gap:8px;margin-top:13px}
+.cf-tile{flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;background:var(--surface);border:0;border-radius:12px;padding:10px 12px;font:inherit;cursor:pointer;transition:transform .16s cubic-bezier(.4,0,.2,1)}
+.cf-tile:active{transform:scale(.98)}
+.cf-tl{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--muted)}
+.cf-ar{font-weight:700}
+.cf-ar.up{color:var(--good)}
+.cf-ar.dn{color:var(--ink-2)}
+.cf-tv{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.03em;color:var(--ink);font-variant-numeric:tabular-nums}
+.wow{display:flex;align-items:flex-end;gap:9px;margin-top:16px;padding:0 2px}
+.wcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+.wbars{position:relative;height:82px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px}
+.wb{width:9px;border-radius:3px 3px 0 0;transition:height .5s cubic-bezier(.3,1,.5,1)}
+.wb.prev{background:var(--fill-neutral)}   /* last week — faint reference behind this week */
+.wb.cur{background:var(--good)}
+.wb.cur.over{background:var(--danger)}
+.wd{font-size:9px;font-weight:600;color:var(--muted-soft)}
+.wd.on{color:var(--ink);font-weight:700}
+/* Note — a highlighted tinted block (finance-final style): green when spending is down, red when up */
+.cf-note{font-size:12px;font-weight:600;line-height:1.45;letter-spacing:-.01em;padding:9px 12px;border-radius:11px;margin-top:15px;font-variant-numeric:tabular-nums}
+.cf-note:empty{display:none}
+.cf-note .ni{margin-right:5px;font-weight:700}
+.cf-note b{font-weight:800;white-space:nowrap}
+.cf-note.ok{background:var(--good-tint);color:var(--brand-ink)}
+.cf-note.over{background:var(--danger-tint);color:var(--danger)}
+.cf-note.flat{background:var(--surface);color:var(--muted)}
+/* CTAs (V3): full-width nav rows into budget setup + the expense list, flush to the card base */
+.cf-cta{margin:15px -16px -14px;border-top:1px solid var(--divider)}
+.cc-row{display:flex;align-items:center;gap:11px;width:100%;padding:13px 16px;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink);text-align:left;cursor:pointer}
+.cc-row:last-child{border-bottom:0}
+.cc-row:active{background:var(--surface)}
+.cc-ic{width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center}
+.cc-ic svg{width:17px;height:17px}
+.cc-t{min-width:0}
+.cc-chev{width:18px;height:18px;margin-left:auto;flex-shrink:0;color:var(--chev)}
+/* ── Widget B — Tích lũy header: the savings pot total + this-month momentum spark ── */
+.til-head{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--hairline);padding:15px 16px 13px;font:inherit;cursor:pointer}
+.til-head:active{background:var(--canvas)}
+.til-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.til-total{font-family:var(--disp);font-size:25px;font-weight:800;letter-spacing:-.03em;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px}
+.til-sub{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em;margin-top:3px}
+.til-sub:empty{display:none}
+.til-sub.due{color:var(--amber)}
+.til-spark{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--hairline);font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.til-spark:empty{display:none}
+.til-spark b{font-weight:800;color:var(--brand-ink)}
+.til-spark svg{flex-shrink:0}
+/* no-goals state: create-first-goal CTA sitting inside the Tích lũy card (below the total) */
+.til-goal-cta{display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:none;border:0;padding:14px 15px;font:inherit;cursor:pointer}
+.til-goal-cta:active{background:var(--canvas)}
+.tgc-ic{width:32px;height:32px;flex-shrink:0;border-radius:9px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:16px}
+.tgc-txt{flex:1;min-width:0;display:flex;flex-direction:column}
+.tgc-t{font-size:14px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.tgc-s{font-size:12px;line-height:1.35;color:var(--muted);margin-top:1px}
+.tgc-plus{font-size:22px;font-weight:500;color:var(--brand-ink);flex-shrink:0;line-height:1}
 /* Finance hero — one allocation ring reading spending vs saving at a glance ("the whole").
    Warm arcs = đã chi (gone), green = quỹ (kept); a notch marks the budget. */
 .fin-hero{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:14px 16px 6px;margin:2px 16px 12px}

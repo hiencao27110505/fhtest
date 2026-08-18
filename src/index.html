@@ -119,6 +119,36 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <!-- future-expense proposals awaiting my OK (filled by renderReqMounts) -->
   <div id="fin-requests"></div>
 
+  <!-- WIDGET A — cash flow: what's left this month · in/out · this week vs last (renderCashflow) -->
+  <div class="cf-card">
+    <div class="cf-lbl" data-t="leftThisMonth">Left this month</div>
+    <div class="cf-big num" id="cf-left">—</div>
+    <div class="cf-tiles">
+      <button class="cf-tile" onclick="fhIncome()"><span class="cf-tl"><span class="cf-ar up">↑</span><span data-t="incomeLbl">In</span></span><span class="cf-tv num" id="cf-in">—</span></button>
+      <button class="cf-tile" onclick="segTo('activity')"><span class="cf-tl"><span class="cf-ar dn">↓</span><span data-t="outLbl">Out</span></span><span class="cf-tv num" id="cf-out">—</span></button>
+    </div>
+    <div class="wow" id="cf-wow" aria-hidden="true"></div>
+    <div class="cf-note" id="cf-note"></div>
+    <!-- CTAs (V3): full-width nav rows into budget setup + the expense list -->
+    <div class="cf-cta">
+      <button class="cc-row" onclick="openSheet('sheet-budget')"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></span><span class="cc-t" data-t="setupBudget">Set up budget</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+      <button class="cc-row" onclick="openTxns()"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span><span class="cc-t" data-t="viewExpenses">View expenses</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    </div>
+  </div>
+
+  <!-- WIDGET B — Tích lũy: savings pot total · momentum spark · goals (moved up; renderGoals) -->
+  <div class="section-h sp-first"><span class="t" data-t="savingsGoals">Savings goals</span><a onclick="openGoal()" data-t="addGoal">＋ Goal</a></div>
+  <div class="goal-card" id="goal-card">
+    <button class="til-head" onclick="fhSavings()">
+      <span class="til-lbl" data-t="savingsPot">Savings</span>
+      <span class="til-total num" id="til-total">—</span>
+      <span class="til-sub" id="sav-lab"></span>
+    </button>
+    <div class="til-spark" id="til-spark"></div>
+    <div id="goals-list"></div>
+  </div>
+  <div id="goals-empty"></div>
+
   <!-- HERO — allocation ring: spending vs saving at a glance (the "whole") -->
   <div class="fin-hero">
     <div class="fin-pager" id="fin-pager">
@@ -146,12 +176,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <div class="fin-legend" id="fh-legend"></div>
   </div>
 
-  <!-- MONEY THIS MONTH — in · out · banked (each taps into its detail) -->
-  <div class="cash3">
-    <button class="c3" onclick="fhIncome()"><div class="k"><span class="ar" style="color:var(--good)">↑</span><span data-t="incomeLbl">In</span></div><div class="v num" id="snap-in">—</div></button>
-    <button class="c3" onclick="segTo('activity')"><div class="k"><span class="ar" style="color:var(--ink-2)">↓</span><span data-t="outLbl">Out</span></div><div class="v num" id="snap-out">—</div></button>
-    <button class="c3" onclick="fhSavings()"><div class="k"><span class="ar" style="color:var(--brand-ink)">◎</span><span data-t="poolLbl">Pool</span></div><div class="v num" id="snap-pool">—</div></button>
-  </div>
+  <!-- MONEY THIS MONTH — in/out folded into Widget A's tiles; the pool total lives in Widget B (Tích lũy) -->
 
   <!-- Ngân sách theo hạng mục now lives inside the hero card's legend (renderFinanceHero) -->
 
@@ -168,19 +193,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <div id="rx-wall"></div>
   </div>
 
-  <!-- MỤC TIÊU TIẾT KIỆM -->
-  <div class="section-h"><span class="t" data-t="savingsGoals">Savings goals</span><a onclick="openGoal()" data-t="addGoal">＋ Goal</a></div>
-  <div class="goal-card" id="goal-card">
-    <!-- Brief — goal-gradient framing: lead with the motivating number (how much more to reach every goal) -->
-    <div class="gsum" id="sav-summary">
-      <div class="gs-lab" id="sav-lab">—</div>
-      <div class="gs-hero" id="sav-hero">—</div>
-      <div class="gs-track"><i id="sav-fill" style="width:0%"></i></div>
-      <div class="gs-foot"><span id="sav-foot-l">—</span><span id="sav-foot-r">—</span></div>
-    </div>
-    <div id="goals-list"></div>
-  </div>
-  <div id="goals-empty"></div>
+  <!-- MỤC TIÊU TIẾT KIỆM — moved up under Widget A as the Tích lũy card -->
 
   <!-- XU HƯỚNG — hidden until there's real spending history to trend (renderTrend) -->
   <div id="trend-sec" style="display:none">

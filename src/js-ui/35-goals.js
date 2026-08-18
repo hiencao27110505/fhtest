@@ -5,9 +5,9 @@ function achievedGoal(g){ return !!(g && (g.achieved || (g.target>0 && g.saved>=
 function renderGoals(){
   var goals=window.goals||{}, ord=window.goalOrder||[];
   var hasGoals=ord.length>0;
-  // First-time user (no goals): hide the whole summary+list card; the standalone empty
-  // prompt below invites creating a first goal. Nothing here is all-zeros noise.
-  var gc=document.getElementById('goal-card'); if(gc) gc.style.display=hasGoals?'':'none';
+  // The Tích lũy card always shows — the savings total is worth seeing even with no
+  // goals. When there are none, the goal list is replaced by a create-first-goal CTA.
+  var gc=document.getElementById('goal-card'); if(gc) gc.style.display='';
   var live=ord.filter(function(g){ return !achievedGoal(goals[g]); });   // active goals only
   var pool=(window.savings!==undefined?window.savings:savings)||0;
   var totalTarget=live.reduce(function(s,g){return s+(goals[g].target||0);},0);
@@ -29,7 +29,14 @@ function renderGoals(){
     else labTxt=L('Cần thêm','To go');
     heroHTML='<em>'+fmtK(still)+'</em>';
   }
-  var lab=document.getElementById('sav-lab'); if(lab){ lab.className='gs-lab'+(labDue?' due':''); lab.textContent=labTxt; }
+  if(!hasGoals){ labTxt=''; labDue=false; }   // no goals → no "Done"/"To go" framing; the CTA speaks for itself
+  var lab=document.getElementById('sav-lab'); if(lab){ lab.className='til-sub'+(labDue?' due':''); lab.textContent=labTxt; }
+  // Tích lũy header: the pot total (pool + everything saved toward goals) + this-month momentum
+  setTxt('til-total', fmt(totSav));
+  var _sm=window.savingsThisMonth||0;
+  setHTMLIf('til-spark', _sm>0
+    ? '<svg viewBox="0 0 52 24" width="52" height="24" aria-hidden="true"><polyline points="2,20 12,16 22,17 32,11 42,8 50,4" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="50" cy="4" r="2.4" fill="var(--brand)"/></svg><span>'+L('Tháng này để dành thêm ','Saved ')+'<b>'+fmt(_sm)+'</b>'+L('',' more this month')+'</span>'
+    : '');
   setHTML('sav-hero',heroHTML);
   var sf=document.getElementById('sav-fill'); if(sf)sf.style.width=fillPct+'%';
   setHTML('sav-foot-l',L('Đã để dành ','Saved ')+'<b>'+fmtK(totSav)+'</b>');
@@ -51,10 +58,16 @@ function renderGoals(){
       +'<div class="goal-pct">'+pct+'%</div>'
     +'</div>';
   }).join('');
-  setHTML('goals-list', rows ? '<div class="goal-group">'+rows+'</div>' : '');
-  // Standalone prompt (outside the merged card) for the first-time, no-goals state.
-  setHTML('goals-empty', hasGoals ? ''
-    : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🎯</div><div class="me-t">'+L('Chưa có mục tiêu','No goals yet')+'</div><p>'+L('Để dành tiền cho điều bạn muốn mua hoặc làm.','Save up for something you want to buy or do.')+'</p><button class="empty-cta" style="margin-top:18px" onclick="openGoal()">＋ '+L('Tạo mục tiêu đầu tiên','Create your first goal')+'</button></div>');
+  // With goals → the goal list. Without → an in-card CTA to create the first one, so the
+  // savings total in the header still stands on its own.
+  setHTML('goals-list', hasGoals
+    ? (rows ? '<div class="goal-group">'+rows+'</div>' : '')
+    : '<button class="til-goal-cta" onclick="openGoal()"><span class="tgc-ic">🎯</span>'
+      +'<span class="tgc-txt"><span class="tgc-t">'+L('Tạo mục tiêu đầu tiên','Create your first goal')+'</span>'
+      +'<span class="tgc-s">'+L('Để dành cho điều bạn muốn mua hoặc làm','Save up for something you want to buy or do')+'</span></span>'
+      +'<span class="tgc-plus">＋</span></button>');
+  // The standalone empty prompt is now folded into the card above.
+  setHTML('goals-empty', '');
 }
 function onGoalInput(){ if(typeof fhClearInvalid==='function') fhClearInvalid('goal-modal'); }   // Save stays enabled (DESIGN §4.4)
 function openGoal(){

@@ -101,6 +101,8 @@ var EN_DEFAULT={
   trend6:'6-month trend', vsBudget:'vs budget', trendLegend:"Dashed line = that month's budget",
   /* finance view */
   finHead:'Finance', finSub:"The family's spending, income and savings.", incomeLbl:'In', outLbl:'Out',
+  leftThisMonth:'Left this month', savingsPot:'Savings',
+  setupBudget:'Set up budget', viewExpenses:'View expenses',
   /* moments view */
   momentsTitle:'Moments', momentsSub:"The family's plans, memories and album.", recentMemories:'Timeline', addPhotos:'Add photos',
   /* shared buttons */
@@ -202,6 +204,8 @@ var I18N={
     trend6:'Xu hướng 6 tháng', vsBudget:'so với ngân sách', trendLegend:'Đường nét đứt là ngân sách của tháng đó',
     /* finance view */
     finHead:'Tài chính', finSub:'Chi tiêu, thu nhập và tiết kiệm của cả nhà.', incomeLbl:'Thu', outLbl:'Chi',
+    leftThisMonth:'Còn lại tháng này', savingsPot:'Tích lũy',
+    setupBudget:'Lập ngân sách', viewExpenses:'Xem chi tiêu',
     /* moments view */
     momentsTitle:'Khoảnh khắc', momentsSub:'Dự định, kỷ niệm và album của cả nhà.', recentMemories:'Dòng thời gian', addPhotos:'Thêm ảnh',
     /* shared buttons */
