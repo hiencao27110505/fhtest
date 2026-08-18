@@ -53,8 +53,8 @@
   .bwrap{position:relative;height:74px;width:100%;display:flex;align-items:flex-end;justify-content:center}
   .dots{display:flex;gap:5px;justify-content:center;align-items:center;margin-top:11px}
   .dots i{width:5px;height:5px;border-radius:50%;background:#d4d1db}.dots i.on{background:#8a8694;width:15px;border-radius:3px}
-  .ov .bprev{position:absolute;bottom:0;width:76%;max-width:23px;border-radius:12px 12px 0 0;background:#eeecf3}
-  .ov .bcur{position:absolute;bottom:0;width:44%;max-width:13px;border-radius:7px 7px 0 0;z-index:1}
+  .ov .bprev{position:absolute;bottom:0;width:46%;max-width:13px;border-radius:7px 7px 0 0;background:#e6e3ec}
+  .ov .bcur{position:absolute;bottom:0;width:46%;max-width:13px;border-radius:7px 7px 0 0;z-index:1}
   .ov .bcur.g{background:#14b8a6}.ov .bcur.o{background:#e0913a}
   .gr .gbwrap{position:relative;height:74px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px}
   .gr .gb{width:9px;border-radius:4px 4px 0 0}.gr .gb.prev{background:#eeecf3}.gr .gb.cur.g{background:#14b8a6}.gr .gb.cur.o{background:#e0913a}
@@ -73,13 +73,9 @@
 
 <div class="head">
   <h1>Tài chính · bản chốt — toàn màn hình</h1>
-  <p>Còn lại (biểu đồ 1b/2b) + Tích lũy (mục tiêu #5 thanh tiến độ). So sánh 2 kiểu ghi chú: <b>nền nhạt (#1)</b> và <b>với biểu đồ (#1)</b>.</p>
+  <p>Còn lại (biểu đồ 1b/2b · cột kỳ trước cùng bề rộng với cột kỳ này) + Tích lũy (mục tiêu #5 · ghi chú <b>với biểu đồ</b>).</p>
 </div>
 
-<div class="seclab">Ghi chú · Nền nhạt <span>(#1)</span></div>
-<div class="row" id="sec-tint"></div>
-
-<div class="seclab">Ghi chú · Với biểu đồ <span>(#1 — đường + chấm cuối)</span></div>
 <div class="row" id="sec-spark"></div>
 
 <script>
@@ -121,8 +117,6 @@
   function cell(chart, label, note){
     return '<div class="col-f"><div class="flab">'+label+'</div>'+screen(chart, note)+'</div>';
   }
-  document.getElementById('sec-tint').innerHTML =
-    cell('ov','Cột ghép <span>(1b)</span>','tint') + cell('gr','Cột kép <span>(2b)</span>','tint');
   document.getElementById('sec-spark').innerHTML =
     cell('ov','Cột ghép <span>(1b)</span>','spark') + cell('gr','Cột kép <span>(2b)</span>','spark');
 </script>
