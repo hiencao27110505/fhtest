@@ -126,7 +126,14 @@ const catWipeGuarded = promote(REVIEWED.slice(1).map((r) => Object.assign({}, r,
 ok(catWipeGuarded.red === 0, '_catTouched suppresses the re-guess');
 
 // Source-level: the call sites that make the above true.
-ok(/submitBulk\(\s*\{\s*prepared:\s*true\s*\}\s*\)/.test(CSVUI), 'csvPromote() calls submitBulk({prepared:true})');
+// Anchored to the STATEMENT line: the file mentions submitBulk() in prose too,
+// and a comment match reports whatever the docs happen to say rather than the code.
+const bulkCall = (CSVUI.match(/^\s*submitBulk\(.*$/m) || [''])[0];
+ok(/prepared:\s*true/.test(bulkCall), 'csvPromote() still passes prepared:true to submitBulk');
+// csvPromote now forwards caller opts (bank-email passes {stay:true}). prepared must
+// be applied AFTER them, or a caller could switch off the guard by accident.
+ok(bulkCall.indexOf('opts') !== -1 && bulkCall.indexOf('opts') < bulkCall.lastIndexOf('prepared'),
+   'and prepared is applied last, so caller opts cannot override it');
 ok(/_catTouched:\s*true/.test(CSVUI), 'csvPromote() marks promoted rows _catTouched');
 ok(/if\(!\(opts && opts\.prepared\)\) commitActiveRow\(\)/.test(CAPTURE), 'submitBulk() honours opts.prepared');
 

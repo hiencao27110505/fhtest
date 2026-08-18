@@ -703,7 +703,11 @@ function submitBulk(opts){
   closeExpense();
   toast(L('Đã ghi '+n+' khoản · '+fmt(total),'Logged '+n+' · '+fmt(total)));
   if(typeof floatEmojis==='function') floatEmojis('🎉');
-  go('spending'); if(typeof segTo==='function') segTo('overview');
+  /* Staying put is opt-in. The bank-email queue imports one row at a time, and
+     bouncing to the ledger after each would mean reopening the queue for every
+     transaction. Every other caller still lands on spending, which is where a
+     finished batch belongs. */
+  if(!(opts&&opts.stay)){ go('spending'); if(typeof segTo==='function') segTo('overview'); }
 }
 /* Reveal the incomplete cards (missing amount or category) after a failed save:
    land on the list so every red card is visible, then shake them once. */

@@ -969,7 +969,13 @@ function renderCsvReview(){
                   tapFn:"csvToggleExpand('ready',"+e.i+")", removeFn:"csvReadyRemove("+e.i+")" };
         html += csvIsOpen('ready', e.i)
           ? csvActiveCard(e.c, Object.assign({}, o, { fields:true,
-              buttons:'<button type="button" class="btn-line" onclick="csvExpandDone()">'+L('Xong','Done')+'</button>' }))
+              /* Staged mode gets a per-row import. Three bank transactions rarely
+                 want the same answer at once, and without this, filing one meant
+                 filing all of them or removing the rest — and removing retires a
+                 row, so "not yet" used to cost you it. Bottom-anchored primary
+                 (DESIGN §3), with Xong staying the quiet way out. */
+              buttons:'<button type="button" class="btn-line" onclick="csvExpandDone()">'+L('Xong','Done')+'</button>'
+                + (csvStagedMode ? '<button type="button" class="cta" onclick="fhPromoteStagedOne('+e.i+')">'+L('Nhập khoản này','Import this one')+'</button>' : '') }))
           : csvCollapsedCard(e.c, o);
       });
       html += '</div>';
@@ -1120,8 +1126,15 @@ function csvDeferDrop(di){ csvReview.deferred.splice(di,1); csvExpand = null; re
    logging's own machinery) instead of a bespoke insert -- the actual write
    goes through _dbInsertTxn() -> fhField()/_fhWriteLocked(), same as any
    other expense. Only ready[] promotes. */
-function csvPromote(){
-  if(!csvReview || !csvReview.ready.length) return;
+/* subset: promote only these candidates instead of everything ready. The
+   bank-email queue imports one row at a time (fhPromoteStagedOne), because a
+   staged row someone is not ready to file must survive the import of one they
+   are. opts is forwarded to submitBulk — the same caller passes {stay:true} so
+   the review screen is still there afterwards.
+   Called with no arguments this is exactly what it was. */
+function csvPromote(subset, opts){
+  var rows = subset || (csvReview && csvReview.ready);
+  if(!csvReview || !rows || !rows.length) return;
   if(window._fhWriteLocked && window._fhWriteLocked()) return;
 
   /* submitBulk() fires addExpense() per row WITHOUT awaiting -- fine for the
@@ -1141,7 +1154,7 @@ function csvPromote(){
   csvPendingCats = [];
 
   var names = [];
-  csvReview.ready.forEach(function(c){ if(c.categoryName && names.indexOf(c.categoryName)<0) names.push(c.categoryName); });
+  rows.forEach(function(c){ if(c.categoryName && names.indexOf(c.categoryName)<0) names.push(c.categoryName); });
 
   var chain = Promise.resolve();
   if(window._categoryIdForName && navigator.onLine !== false){
@@ -1153,7 +1166,7 @@ function csvPromote(){
   }
 
   return chain.then(function(){
-    bulkRows = csvReview.ready.map(function(c){
+    bulkRows = rows.map(function(c){
       // _catTouched: the category came out of review (cascade or a human tap), so
       // it is deliberate — never something for the note-keyword guesser to revise.
       return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName,
@@ -1166,6 +1179,8 @@ function csvPromote(){
     buildExCatChips();
     renderBulk();
     loadRow(0);
-    submitBulk({ prepared: true });
+    // prepared LAST so no caller can turn it off: it is what stops the
+    // interactive parse corrupting prepared rows (see submitBulk's own note).
+    submitBulk(Object.assign({}, opts || {}, { prepared: true }));
   });
 }
