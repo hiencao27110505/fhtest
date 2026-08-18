@@ -80,7 +80,7 @@ function renderTxns(){
     if(f && f.type==='cat' && f.val==='Events') out=evHtml;                          // Events future items
     else if(f && f.type==='cat' && f.val==='Future expenses') out=futHtml;           // standalone future items
     else if(f) out=realAll.filter(txMatch).map(txRow).join('');                      // realized, filtered
-    else out=evHtml+futHtml+realAll.slice(0,8).map(txRow).join('');                  // preview — full list is the Giao dịch drill-in (openTxns)
+    else out=evHtml+futHtml+realAll.slice(0,5).map(txRow).join('');                  // preview: 5 recents — full list is the Giao dịch drill-in (openTxns / "See all")
     // Two empty shapes: a filter that matched nothing → a plain note; a brand-new family
     // with no ledger at all → a first-run prompt inviting the first expense (mirrors the
     // "Tạo mục tiêu đầu tiên" goal empty-state).

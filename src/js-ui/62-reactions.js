@@ -224,13 +224,23 @@ function rxCard(it, compact){
       +chev
     +'</button>'+back+'</div>';
 }
+var rxWallOpen=false;   // the wall shows a few by default; this remembers expand/collapse
+function toggleRxWall(){ rxWallOpen=!rxWallOpen; renderRxWall(); }
 function renderRxWall(){
   var sec=document.getElementById('rx-wall-sec'), box=document.getElementById('rx-wall'); if(!box) return;
   var items=_rxWallItems();
   if(!items.length){ if(sec) sec.style.display='none'; box.innerHTML=''; return; }
   if(sec) sec.style.display='';
   var cnt=document.getElementById('rx-wall-count'); if(cnt) cnt.textContent=String(items.length);
-  box.innerHTML=items.slice(0,12).map(function(it){ return rxCard(it,false); }).join('');
+  var SHOWN=3, more=items.length-SHOWN;
+  var vis=rxWallOpen?items:items.slice(0,SHOWN);
+  var html=vis.map(function(it){ return rxCard(it,false); }).join('');
+  if(more>0){
+    var chev='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+    html+='<button class="rx-more'+(rxWallOpen?' open':'')+'" onclick="toggleRxWall()">'
+      +(rxWallOpen?L('Thu gọn','Show less'):L('Xem thêm '+more,'Show '+more+' more'))+chev+'</button>';
+  }
+  box.innerHTML=html;
 }
 window.renderRxWall=renderRxWall;
 /* the home strip is a horizontal RAIL of "emoji rain" posters — a living moment,

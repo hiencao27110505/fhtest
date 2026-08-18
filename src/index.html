@@ -136,42 +136,19 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     </div>
   </div>
 
-  <!-- WIDGET B — Tích lũy: savings pot total · momentum spark · goals (moved up; renderGoals) -->
-  <div class="section-h sp-first"><span class="t" data-t="savingsGoals">Savings goals</span><a onclick="openGoal()" data-t="addGoal">＋ Goal</a></div>
+  <!-- WIDGET B — Tích lũy (finance-final): pot total · goals · completed sub-info · momentum spark (renderGoals) -->
   <div class="goal-card" id="goal-card">
-    <button class="til-head" onclick="fhSavings()">
-      <span class="til-lbl" data-t="savingsPot">Savings</span>
-      <span class="til-total num" id="til-total">—</span>
-      <span class="til-sub" id="sav-lab"></span>
-    </button>
-    <div class="til-spark" id="til-spark"></div>
+    <div class="til-head">
+      <div class="til-hrow"><span class="til-lbl" data-t="savingsPot">Savings</span><button class="til-add" onclick="openGoal()" aria-label="Add goal">＋</button></div>
+      <button class="til-total-btn" onclick="fhSavings()"><span class="til-total num" id="til-total">—</span><span class="til-sub" id="sav-lab"></span></button>
+    </div>
     <div id="goals-list"></div>
+    <div class="til-spark" id="til-spark"></div>
   </div>
   <div id="goals-empty"></div>
 
-  <!-- HERO — allocation ring: spending vs saving at a glance (the "whole") -->
-  <div class="fin-hero">
-    <div class="fin-pager" id="fin-pager">
-      <div class="fin-page">
-        <div class="fin-ring-wrap">
-          <svg viewBox="0 0 100 100" class="fin-ring" aria-hidden="true"><defs><linearGradient id="fh-grad-ok" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" style="stop-color:var(--ring-ok-1)"></stop><stop offset="1" style="stop-color:var(--ring-ok-2)"></stop></linearGradient><linearGradient id="fh-grad-pace" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" style="stop-color:var(--ring-pace-1)"></stop><stop offset="1" style="stop-color:var(--ring-pace-2)"></stop></linearGradient><linearGradient id="fh-grad-over" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" style="stop-color:var(--ring-over-1)"></stop><stop offset="1" style="stop-color:var(--ring-over-2)"></stop></linearGradient></defs><circle class="fh-track" cx="50" cy="50" r="43" fill="none" stroke-width="9"></circle><circle class="fh-bfill" id="fh-bfill" cx="50" cy="50" r="43" fill="none" stroke="url(#fh-grad-ok)" stroke-width="9" stroke-linecap="round" stroke-dasharray="0 999"></circle></svg>
-          <div class="fin-center">
-            <div class="fh-lbl" id="fh-lbl"></div>
-            <div class="fh-spent num" id="fh-spent">—</div>
-            <div class="fh-of num" id="fh-of"></div>
-          </div>
-        </div>
-      </div>
-      <div class="fin-page">
-        <div class="fin-daily">
-          <div class="fd-head"><div class="fh-lbl" id="fd-lbl"></div><div class="fd-avg num" id="fd-avg">—</div><div class="fd-sub" id="fd-sub"></div></div>
-          <div class="fd-chart" id="fd-chart"></div>
-          <div class="fd-axis" id="fd-axis"></div>
-        </div>
-      </div>
-    </div>
-    <div class="fin-dots" id="fin-dots" aria-hidden="true"><span class="on"></span><span></span></div>
-    <div class="fin-note" id="fh-note"></div>
+  <!-- CHI TIÊU THEO DANH MỤC — category breakdown only (ring + daily chart removed; renderFinanceHero) -->
+  <div class="fin-cats-card">
     <div class="fin-cats-h"><span id="fh-cats-lbl"></span><a id="fh-cats-edit" onclick="openSheet('sheet-budget')"></a></div>
     <div class="fin-legend" id="fh-legend"></div>
   </div>

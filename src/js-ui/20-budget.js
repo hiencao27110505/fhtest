@@ -116,68 +116,13 @@ function renderCashflow(){
   var cfn=document.getElementById('cf-note');
   if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
 }
-/* The "whole": one allocation ring — inner arcs = the spending composition (by category)
-   + green quỹ (kept); outer ring = budget with a pace tick (run-rate). Below it, the same
-   categories as a compact budget list. One view, no switcher. Uses renderBudget's numbers. */
+/* Category breakdown — "Chi tiêu theo danh mục": each category's spend against its budget,
+   as an Apple inset list. The allocation ring + daily chart were removed; this is the whole
+   card now. Tap a row to drill into the category. Uses renderBudget's numbers. */
 function renderFinanceHero(){
-  var bfEl = document.getElementById('fh-bfill'); if(!bfEl) return;
-  var m = M(), spent = m.spent || 0, budget = m.budget || 0, saved = window.savings || 0, over = spent > budget;
-  // ── The one ring: budget used (spent ÷ budget), a single status gradient, rounded cap. The
-  // category breakdown lives in the neutral list below — not as coloured arcs in the ring.
-  var Ro = 43, Co = 2 * Math.PI * Ro;
-  var spentFrac = budget > 0 ? spent / budget : 0;
-  var projected = (!m.done && m.dom) ? spent / m.dom * m.dim : spent;    // run-rate projection to month end
-  var projOver = !m.done && budget > 0 && projected > budget * 1.02;
-  var status = over ? 'over' : (projOver ? 'pace' : 'ok');
-  var fl = Math.min(spentFrac, 1) * Co;
-  bfEl.setAttribute('stroke-dasharray', fl.toFixed(2) + ' ' + (Co - fl).toFixed(2));
-  bfEl.setAttribute('stroke', 'url(#fh-grad-' + status + ')');
-
-  setTxt('fh-lbl', L('Đã chi','Spent'));
-  // Center: the one focal number — spent, with budget as small context (unit stripped, tight hole).
-  setTxt('fh-spent', fmtK(spent).replace(/[\s₫$]/g, ''));
-  setTxt('fh-of', L('trên ','of ') + fmtK(budget).replace(/[\s₫$]/g, ''));
-  // Note: run-rate verdict (colored), with the budget number kept in view (muted).
-  var verdict = over ? (L('Vượt ','Over by ') + fmtK(spent - budget))
-    : projOver ? L('Nhanh hơn tiến độ','Ahead of pace')
-    : L('Đúng tiến độ','On pace');
-  // Run-rate projection to month-end is the insight while the month is open; the closed month
-  // just states budget.
-  var tail = m.done ? (L('ngân sách ','budget ') + fmtK(budget))
-    : (L('dự chi ','on track for ') + '≈' + fmtK(projected));
-  setHTMLIf('fh-note', '<b class="' + status + '">' + verdict + '</b> · ' + tail);
-
-  // ── Daily page (swipe): a compact per-day spend chart, Apple-Health style — today
-  // highlighted, a dashed average line — the same money seen as a temporal rhythm.
-  var dim = m.dim, dom = m.dom, done = m.done;
-  var daily = []; for(var _i = 0; _i <= dim; _i++) daily[_i] = 0;
-  (window.txns || []).forEach(function(t){ if(!t.future && t.month === window.selMonth && t._d){ var dd = t._d.getDate(); if(dd >= 1 && dd <= dim) daily[dd] += t.amt; } });
-  var allow = (dim > 0 && budget > 0) ? budget / dim : 0;      // daily budget allowance (even pace)
-  var maxD = allow || 1; for(var d1 = 1; d1 <= dim; d1++) if(daily[d1] > maxD) maxD = daily[d1];
-  var avg = spent / Math.max(1, done ? dim : dom);
-  setTxt('fd-lbl', L('Trung bình mỗi ngày','Daily average'));
-  setTxt('fd-avg', fmtK(avg).replace(/[\s₫$]/g, ''));
-  setTxt('fd-sub', allow ? (L('hạn mức ','allowance ') + fmtK(allow) + L('/ngày','/day')) : (L('hôm nay ','today ') + fmtK(daily[dom] || 0)));
-  var bars = '';
-  for(var d = 1; d <= dim; d++){
-    var over1 = allow > 0 && daily[d] > allow;                  // a day that blew past the daily allowance
-    var cls = 'fd-bar' + ((!done && d === dom) ? ' today' : (over1 ? ' over' : '')) + ((!done && d > dom) ? ' future' : '');
-    bars += '<div class="' + cls + '" style="height:' + (daily[d] > 0 ? Math.max(daily[d] / maxD * 100, 4) : 0).toFixed(1) + '%"></div>';
-  }
-  if(allow > 0) bars += '<div class="fd-allow" style="bottom:' + Math.min(97, allow / maxD * 100).toFixed(1) + '%"></div>';
-  setHTMLIf('fd-chart', bars);
-  setHTMLIf('fd-axis', '<span>1</span><span>' + Math.ceil(dim / 2) + '</span><span>' + dim + '</span>');
-  var pager = document.getElementById('fin-pager');
-  if(pager && !pager.dataset.wired){
-    pager.dataset.wired = '1';
-    pager.addEventListener('scroll', function(){
-      var i = Math.round(pager.scrollLeft / (pager.clientWidth || 1)), dots = document.querySelectorAll('#fin-dots span');
-      for(var k = 0; k < dots.length; k++) dots[k].classList.toggle('on', k === i);
-    }, { passive: true });
-  }
-  // ── Category budget exposure — the outer ring's story one level down: each category's
-  // spend against ITS budget, as an Apple inset list. Tap a row to drill into the category.
-  setTxt('fh-cats-lbl', L('Ngân sách theo danh mục','Budget by category'));
+  var box = document.getElementById('fh-legend'); if(!box) return;
+  var m = M();
+  setTxt('fh-cats-lbl', L('Chi tiêu theo danh mục','Spending by category'));
   setTxt('fh-cats-edit', L('Chỉnh','Edit'));
   var legend = (catOrder || []).map(function(c){
     var sp = m.catSpent[c] || 0, bd = catBudget[c] || 0, ico = (catStyle[c] || [])[0] || '🏷️';
@@ -190,9 +135,6 @@ function renderFinanceHero(){
       + '<span class="fh-bar"><i style="width:' + pct.toFixed(0) + '%"></i></span></span>'
       + '<svg class="fh-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
   }).join('');
-  legend += '<div class="fh-lrow save"><span class="fh-ico">✓</span>'
-    + '<span class="fh-body"><span class="fh-l1"><span class="fh-lname">' + L('Quỹ tiết kiệm','Savings') + '</span>'
-    + '<span class="fh-lamt num"><b>' + fmtK(saved) + '</b></span></span></span></div>';
   setHTMLIf('fh-legend', legend);
 }
 /* Curated, plain-language insights — the smart core of Spending. */

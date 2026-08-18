@@ -38,7 +38,7 @@ function renderGoals(){
   setTxt('til-total', fmt(totSav));
   var _sm=window.savingsThisMonth||0;
   setHTMLIf('til-spark', _sm>0
-    ? '<svg viewBox="0 0 52 24" width="52" height="24" aria-hidden="true"><polyline points="2,20 12,16 22,17 32,11 42,8 50,4" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="50" cy="4" r="2.4" fill="var(--brand)"/></svg><span>'+L('Tháng này để dành thêm ','Saved ')+'<b>'+fmt(_sm)+'</b>'+L('',' more this month')+'</span>'
+    ? '<span class="tsx">'+L('Tháng này để dành thêm ','Saved ')+'<b>'+fmt(_sm)+'</b>'+L('',' more this month')+'</span><svg viewBox="0 0 52 24" width="52" height="24" aria-hidden="true"><polyline points="2,20 12,16 22,17 32,11 42,8 50,4" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="50" cy="4" r="2.4" fill="var(--brand)"/></svg>'
     : '');
   setHTML('sav-hero',heroHTML);
   var sf=document.getElementById('sav-fill'); if(sf)sf.style.width=fillPct+'%';

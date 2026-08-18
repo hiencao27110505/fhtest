@@ -1181,15 +1181,23 @@ input{font-family:inherit}
 .cc-t{min-width:0}
 .cc-chev{width:18px;height:18px;margin-left:auto;flex-shrink:0;color:var(--chev)}
 /* ── Widget B — Tích lũy header: the savings pot total + this-month momentum spark ── */
-.til-head{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--hairline);padding:15px 16px 13px;font:inherit;cursor:pointer}
-.til-head:active{background:var(--canvas)}
+/* Tích lũy header (finance-final): eyebrow + add on one row, big pot total below */
+.til-head{padding:14px 16px 12px}
+.til-hrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .til-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.til-total{font-family:var(--disp);font-size:25px;font-weight:800;letter-spacing:-.03em;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px}
-.til-sub{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em;margin-top:3px}
+.til-add{width:28px;height:28px;flex:0 0 auto;border:0;border-radius:8px;background:var(--brand-tint);color:var(--brand-ink);font-size:19px;font-weight:500;line-height:1;cursor:pointer;display:grid;place-items:center}
+.til-add:active{transform:scale(.94)}
+.til-total-btn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;background:none;border:0;padding:4px 0 0;text-align:left;cursor:pointer}
+.til-total{font-family:var(--disp);font-size:25px;font-weight:800;letter-spacing:-.03em;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums}
+.til-sub{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
 .til-sub:empty{display:none}
 .til-sub.due{color:var(--amber)}
-.til-spark{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--hairline);font-size:12.5px;font-weight:600;color:var(--ink-2)}
+/* header ↔ goals separator */
+#goals-list:not(:empty){border-top:1px solid var(--hairline)}
+/* momentum spark — finance-final note-spark: filled block at the card's foot, text + sparkline */
+.til-spark{display:flex;align-items:center;gap:11px;margin:8px 12px 12px;padding:10px 12px;background:var(--surface);border-radius:11px;font-size:12px;font-weight:600;color:var(--ink-2)}
 .til-spark:empty{display:none}
+.til-spark .tsx{flex:1;min-width:0}
 .til-spark b{font-weight:800;color:var(--brand-ink)}
 .til-spark svg{flex-shrink:0}
 /* no-goals state: create-first-goal CTA sitting inside the Tích lũy card (below the total) */
@@ -1200,47 +1208,10 @@ input{font-family:inherit}
 .tgc-t{font-size:14px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
 .tgc-s{font-size:12px;line-height:1.35;color:var(--muted);margin-top:1px}
 .tgc-plus{font-size:22px;font-weight:500;color:var(--brand-ink);flex-shrink:0;line-height:1}
-/* Finance hero — one allocation ring reading spending vs saving at a glance ("the whole").
-   Warm arcs = đã chi (gone), green = quỹ (kept); a notch marks the budget. */
-.fin-hero{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:14px 16px 6px;margin:2px 16px 12px}
-.fin-ring-wrap{position:relative;width:200px;height:200px;margin:6px auto 2px}
-.fin-ring{width:100%;height:100%;display:block;transform:rotate(-90deg)}
-.fh-track{stroke:var(--fill-neutral)}
-.fh-bfill{transition:stroke-dasharray .55s cubic-bezier(.3,1,.5,1)}   /* colour comes from the status gradient (fh-grad-*) */
-.fin-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-.fh-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.fh-spent{font-family:var(--disp);font-size:38px;font-weight:700;letter-spacing:-1.4px;line-height:1.02;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:4px}
-.fh-of{font-size:14px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:4px}
-.fin-note{text-align:center;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:-.01em;margin-top:3px;font-variant-numeric:tabular-nums}
-.fin-note b{font-weight:700}
-.fin-note b.over{color:var(--danger)}
-.fin-note b.ok{color:var(--good)}
-.fin-note b.pace{color:var(--amber)}
-.fin-ring-wrap{animation:fhpop .5s cubic-bezier(.22,1,.36,1) both}
-@keyframes fhpop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
-@media (prefers-reduced-motion:reduce){.fin-ring-wrap{animation:none}.fh-bfill{transition:none}}
-/* Swipeable hero: page 1 = ring, page 2 = daily chart. Native scroll-snap paging + UIPageControl-style dots. */
-.fin-pager{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;height:206px}
-.fin-pager::-webkit-scrollbar{display:none}
-.fin-page{flex:0 0 100%;scroll-snap-align:center;display:flex;align-items:center;justify-content:center}
-.fin-dots{display:flex;justify-content:center;gap:6px;margin-top:8px}
-.fin-dots span{width:6px;height:6px;border-radius:50%;background:var(--ink);opacity:.16;transition:opacity .2s}
-.fin-dots span.on{opacity:.5}
-/* daily chart page */
-.fin-daily{width:100%;display:flex;flex-direction:column;justify-content:center;padding:0 6px}
-.fd-head{text-align:center;margin-bottom:14px}
-.fd-avg{font-size:24px;font-weight:700;letter-spacing:-.5px;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:3px;line-height:1.05}
-.fd-sub{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:-.01em;margin-top:4px;font-variant-numeric:tabular-nums}
-.fd-chart{position:relative;display:flex;align-items:flex-end;gap:2px;height:116px;padding:0 4px}
-.fd-bar{flex:1;min-height:0;background:var(--ink);opacity:.22;border-radius:2px 2px 0 0;transition:height .5s cubic-bezier(.3,1,.5,1)}
-.fd-bar.today{background:var(--good);opacity:1}
-.fd-bar.over{background:var(--amber);opacity:.5}
-.fd-bar.future{opacity:.08}
-.fd-allow{position:absolute;left:4px;right:4px;border-top:1px dashed var(--ink);opacity:.28}
-.fd-axis{display:flex;justify-content:space-between;margin-top:8px;padding:0 4px;font-size:10.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-/* category budget list header (inside the hero card) */
-.fin-cats-h{display:flex;align-items:baseline;justify-content:space-between;margin:12px 4px 0;padding-top:12px;border-top:1px solid var(--hairline)}
-.fin-cats-h span{font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+/* "Chi tiêu theo danh mục" — now its own card (allocation ring + daily chart removed) */
+.fin-cats-card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:15px 16px 8px;margin:2px 16px 12px}
+.fin-cats-h{display:flex;align-items:baseline;justify-content:space-between;margin:0 4px 2px}
+.fin-cats-h span{font-size:14.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
 .fin-cats-h a{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--brand);cursor:pointer;padding:8px 4px;margin:-8px -4px}
 /* Restrained inset list — an icon tile for identity, a neutral progress bar, spent / its budget.
    Colour appears only when a row is over budget (red) or is the savings line (green). */
@@ -1680,6 +1651,10 @@ input{font-family:inherit}
 .rxh-note{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rxh-amt{flex:0 0 auto;white-space:pre}
 .rx-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);overflow:hidden}
+/* collapse: show a few, expand/collapse the rest */
+.rx-more{align-self:stretch;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:0;color:var(--brand-ink);font:inherit;font-size:13px;font-weight:600;padding:8px;cursor:pointer}
+.rx-more svg{width:16px;height:16px;transition:transform .22s cubic-bezier(.32,.72,0,1)}
+.rx-more.open svg{transform:rotate(180deg)}
 .rx-card-main{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;background:none;border:0;text-align:left;cursor:pointer;font:inherit}
 .rx-card-main:active{background:var(--surface)}
 .rx-ico{width:42px;height:42px;border-radius:12px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:23px;line-height:1;flex:0 0 auto}
@@ -3058,42 +3033,19 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     </div>
   </div>
 
-  <!-- WIDGET B — Tích lũy: savings pot total · momentum spark · goals (moved up; renderGoals) -->
-  <div class="section-h sp-first"><span class="t" data-t="savingsGoals">Savings goals</span><a onclick="openGoal()" data-t="addGoal">＋ Goal</a></div>
+  <!-- WIDGET B — Tích lũy (finance-final): pot total · goals · completed sub-info · momentum spark (renderGoals) -->
   <div class="goal-card" id="goal-card">
-    <button class="til-head" onclick="fhSavings()">
-      <span class="til-lbl" data-t="savingsPot">Savings</span>
-      <span class="til-total num" id="til-total">—</span>
-      <span class="til-sub" id="sav-lab"></span>
-    </button>
-    <div class="til-spark" id="til-spark"></div>
+    <div class="til-head">
+      <div class="til-hrow"><span class="til-lbl" data-t="savingsPot">Savings</span><button class="til-add" onclick="openGoal()" aria-label="Add goal">＋</button></div>
+      <button class="til-total-btn" onclick="fhSavings()"><span class="til-total num" id="til-total">—</span><span class="til-sub" id="sav-lab"></span></button>
+    </div>
     <div id="goals-list"></div>
+    <div class="til-spark" id="til-spark"></div>
   </div>
   <div id="goals-empty"></div>
 
-  <!-- HERO — allocation ring: spending vs saving at a glance (the "whole") -->
-  <div class="fin-hero">
-    <div class="fin-pager" id="fin-pager">
-      <div class="fin-page">
-        <div class="fin-ring-wrap">
-          <svg viewBox="0 0 100 100" class="fin-ring" aria-hidden="true"><defs><linearGradient id="fh-grad-ok" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" style="stop-color:var(--ring-ok-1)"></stop><stop offset="1" style="stop-color:var(--ring-ok-2)"></stop></linearGradient><linearGradient id="fh-grad-pace" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" style="stop-color:var(--ring-pace-1)"></stop><stop offset="1" style="stop-color:var(--ring-pace-2)"></stop></linearGradient><linearGradient id="fh-grad-over" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" style="stop-color:var(--ring-over-1)"></stop><stop offset="1" style="stop-color:var(--ring-over-2)"></stop></linearGradient></defs><circle class="fh-track" cx="50" cy="50" r="43" fill="none" stroke-width="9"></circle><circle class="fh-bfill" id="fh-bfill" cx="50" cy="50" r="43" fill="none" stroke="url(#fh-grad-ok)" stroke-width="9" stroke-linecap="round" stroke-dasharray="0 999"></circle></svg>
-          <div class="fin-center">
-            <div class="fh-lbl" id="fh-lbl"></div>
-            <div class="fh-spent num" id="fh-spent">—</div>
-            <div class="fh-of num" id="fh-of"></div>
-          </div>
-        </div>
-      </div>
-      <div class="fin-page">
-        <div class="fin-daily">
-          <div class="fd-head"><div class="fh-lbl" id="fd-lbl"></div><div class="fd-avg num" id="fd-avg">—</div><div class="fd-sub" id="fd-sub"></div></div>
-          <div class="fd-chart" id="fd-chart"></div>
-          <div class="fd-axis" id="fd-axis"></div>
-        </div>
-      </div>
-    </div>
-    <div class="fin-dots" id="fin-dots" aria-hidden="true"><span class="on"></span><span></span></div>
-    <div class="fin-note" id="fh-note"></div>
+  <!-- CHI TIÊU THEO DANH MỤC — category breakdown only (ring + daily chart removed; renderFinanceHero) -->
+  <div class="fin-cats-card">
     <div class="fin-cats-h"><span id="fh-cats-lbl"></span><a id="fh-cats-edit" onclick="openSheet('sheet-budget')"></a></div>
     <div class="fin-legend" id="fh-legend"></div>
   </div>
@@ -4422,68 +4374,13 @@ function renderCashflow(){
   var cfn=document.getElementById('cf-note');
   if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
 }
-/* The "whole": one allocation ring — inner arcs = the spending composition (by category)
-   + green quỹ (kept); outer ring = budget with a pace tick (run-rate). Below it, the same
-   categories as a compact budget list. One view, no switcher. Uses renderBudget's numbers. */
+/* Category breakdown — "Chi tiêu theo danh mục": each category's spend against its budget,
+   as an Apple inset list. The allocation ring + daily chart were removed; this is the whole
+   card now. Tap a row to drill into the category. Uses renderBudget's numbers. */
 function renderFinanceHero(){
-  var bfEl = document.getElementById('fh-bfill'); if(!bfEl) return;
-  var m = M(), spent = m.spent || 0, budget = m.budget || 0, saved = window.savings || 0, over = spent > budget;
-  // ── The one ring: budget used (spent ÷ budget), a single status gradient, rounded cap. The
-  // category breakdown lives in the neutral list below — not as coloured arcs in the ring.
-  var Ro = 43, Co = 2 * Math.PI * Ro;
-  var spentFrac = budget > 0 ? spent / budget : 0;
-  var projected = (!m.done && m.dom) ? spent / m.dom * m.dim : spent;    // run-rate projection to month end
-  var projOver = !m.done && budget > 0 && projected > budget * 1.02;
-  var status = over ? 'over' : (projOver ? 'pace' : 'ok');
-  var fl = Math.min(spentFrac, 1) * Co;
-  bfEl.setAttribute('stroke-dasharray', fl.toFixed(2) + ' ' + (Co - fl).toFixed(2));
-  bfEl.setAttribute('stroke', 'url(#fh-grad-' + status + ')');
-
-  setTxt('fh-lbl', L('Đã chi','Spent'));
-  // Center: the one focal number — spent, with budget as small context (unit stripped, tight hole).
-  setTxt('fh-spent', fmtK(spent).replace(/[\s₫$]/g, ''));
-  setTxt('fh-of', L('trên ','of ') + fmtK(budget).replace(/[\s₫$]/g, ''));
-  // Note: run-rate verdict (colored), with the budget number kept in view (muted).
-  var verdict = over ? (L('Vượt ','Over by ') + fmtK(spent - budget))
-    : projOver ? L('Nhanh hơn tiến độ','Ahead of pace')
-    : L('Đúng tiến độ','On pace');
-  // Run-rate projection to month-end is the insight while the month is open; the closed month
-  // just states budget.
-  var tail = m.done ? (L('ngân sách ','budget ') + fmtK(budget))
-    : (L('dự chi ','on track for ') + '≈' + fmtK(projected));
-  setHTMLIf('fh-note', '<b class="' + status + '">' + verdict + '</b> · ' + tail);
-
-  // ── Daily page (swipe): a compact per-day spend chart, Apple-Health style — today
-  // highlighted, a dashed average line — the same money seen as a temporal rhythm.
-  var dim = m.dim, dom = m.dom, done = m.done;
-  var daily = []; for(var _i = 0; _i <= dim; _i++) daily[_i] = 0;
-  (window.txns || []).forEach(function(t){ if(!t.future && t.month === window.selMonth && t._d){ var dd = t._d.getDate(); if(dd >= 1 && dd <= dim) daily[dd] += t.amt; } });
-  var allow = (dim > 0 && budget > 0) ? budget / dim : 0;      // daily budget allowance (even pace)
-  var maxD = allow || 1; for(var d1 = 1; d1 <= dim; d1++) if(daily[d1] > maxD) maxD = daily[d1];
-  var avg = spent / Math.max(1, done ? dim : dom);
-  setTxt('fd-lbl', L('Trung bình mỗi ngày','Daily average'));
-  setTxt('fd-avg', fmtK(avg).replace(/[\s₫$]/g, ''));
-  setTxt('fd-sub', allow ? (L('hạn mức ','allowance ') + fmtK(allow) + L('/ngày','/day')) : (L('hôm nay ','today ') + fmtK(daily[dom] || 0)));
-  var bars = '';
-  for(var d = 1; d <= dim; d++){
-    var over1 = allow > 0 && daily[d] > allow;                  // a day that blew past the daily allowance
-    var cls = 'fd-bar' + ((!done && d === dom) ? ' today' : (over1 ? ' over' : '')) + ((!done && d > dom) ? ' future' : '');
-    bars += '<div class="' + cls + '" style="height:' + (daily[d] > 0 ? Math.max(daily[d] / maxD * 100, 4) : 0).toFixed(1) + '%"></div>';
-  }
-  if(allow > 0) bars += '<div class="fd-allow" style="bottom:' + Math.min(97, allow / maxD * 100).toFixed(1) + '%"></div>';
-  setHTMLIf('fd-chart', bars);
-  setHTMLIf('fd-axis', '<span>1</span><span>' + Math.ceil(dim / 2) + '</span><span>' + dim + '</span>');
-  var pager = document.getElementById('fin-pager');
-  if(pager && !pager.dataset.wired){
-    pager.dataset.wired = '1';
-    pager.addEventListener('scroll', function(){
-      var i = Math.round(pager.scrollLeft / (pager.clientWidth || 1)), dots = document.querySelectorAll('#fin-dots span');
-      for(var k = 0; k < dots.length; k++) dots[k].classList.toggle('on', k === i);
-    }, { passive: true });
-  }
-  // ── Category budget exposure — the outer ring's story one level down: each category's
-  // spend against ITS budget, as an Apple inset list. Tap a row to drill into the category.
-  setTxt('fh-cats-lbl', L('Ngân sách theo danh mục','Budget by category'));
+  var box = document.getElementById('fh-legend'); if(!box) return;
+  var m = M();
+  setTxt('fh-cats-lbl', L('Chi tiêu theo danh mục','Spending by category'));
   setTxt('fh-cats-edit', L('Chỉnh','Edit'));
   var legend = (catOrder || []).map(function(c){
     var sp = m.catSpent[c] || 0, bd = catBudget[c] || 0, ico = (catStyle[c] || [])[0] || '🏷️';
@@ -4496,9 +4393,6 @@ function renderFinanceHero(){
       + '<span class="fh-bar"><i style="width:' + pct.toFixed(0) + '%"></i></span></span>'
       + '<svg class="fh-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
   }).join('');
-  legend += '<div class="fh-lrow save"><span class="fh-ico">✓</span>'
-    + '<span class="fh-body"><span class="fh-l1"><span class="fh-lname">' + L('Quỹ tiết kiệm','Savings') + '</span>'
-    + '<span class="fh-lamt num"><b>' + fmtK(saved) + '</b></span></span></span></div>';
   setHTMLIf('fh-legend', legend);
 }
 /* Curated, plain-language insights — the smart core of Spending. */
@@ -6554,7 +6448,7 @@ function renderGoals(){
   setTxt('til-total', fmt(totSav));
   var _sm=window.savingsThisMonth||0;
   setHTMLIf('til-spark', _sm>0
-    ? '<svg viewBox="0 0 52 24" width="52" height="24" aria-hidden="true"><polyline points="2,20 12,16 22,17 32,11 42,8 50,4" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="50" cy="4" r="2.4" fill="var(--brand)"/></svg><span>'+L('Tháng này để dành thêm ','Saved ')+'<b>'+fmt(_sm)+'</b>'+L('',' more this month')+'</span>'
+    ? '<span class="tsx">'+L('Tháng này để dành thêm ','Saved ')+'<b>'+fmt(_sm)+'</b>'+L('',' more this month')+'</span><svg viewBox="0 0 52 24" width="52" height="24" aria-hidden="true"><polyline points="2,20 12,16 22,17 32,11 42,8 50,4" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="50" cy="4" r="2.4" fill="var(--brand)"/></svg>'
     : '');
   setHTML('sav-hero',heroHTML);
   var sf=document.getElementById('sav-fill'); if(sf)sf.style.width=fillPct+'%';
@@ -10738,7 +10632,7 @@ function renderTxns(){
     if(f && f.type==='cat' && f.val==='Events') out=evHtml;                          // Events future items
     else if(f && f.type==='cat' && f.val==='Future expenses') out=futHtml;           // standalone future items
     else if(f) out=realAll.filter(txMatch).map(txRow).join('');                      // realized, filtered
-    else out=evHtml+futHtml+realAll.slice(0,8).map(txRow).join('');                  // preview — full list is the Giao dịch drill-in (openTxns)
+    else out=evHtml+futHtml+realAll.slice(0,5).map(txRow).join('');                  // preview: 5 recents — full list is the Giao dịch drill-in (openTxns / "See all")
     // Two empty shapes: a filter that matched nothing → a plain note; a brand-new family
     // with no ledger at all → a first-run prompt inviting the first expense (mirrors the
     // "Tạo mục tiêu đầu tiên" goal empty-state).
@@ -11323,13 +11217,23 @@ function rxCard(it, compact){
       +chev
     +'</button>'+back+'</div>';
 }
+var rxWallOpen=false;   // the wall shows a few by default; this remembers expand/collapse
+function toggleRxWall(){ rxWallOpen=!rxWallOpen; renderRxWall(); }
 function renderRxWall(){
   var sec=document.getElementById('rx-wall-sec'), box=document.getElementById('rx-wall'); if(!box) return;
   var items=_rxWallItems();
   if(!items.length){ if(sec) sec.style.display='none'; box.innerHTML=''; return; }
   if(sec) sec.style.display='';
   var cnt=document.getElementById('rx-wall-count'); if(cnt) cnt.textContent=String(items.length);
-  box.innerHTML=items.slice(0,12).map(function(it){ return rxCard(it,false); }).join('');
+  var SHOWN=3, more=items.length-SHOWN;
+  var vis=rxWallOpen?items:items.slice(0,SHOWN);
+  var html=vis.map(function(it){ return rxCard(it,false); }).join('');
+  if(more>0){
+    var chev='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+    html+='<button class="rx-more'+(rxWallOpen?' open':'')+'" onclick="toggleRxWall()">'
+      +(rxWallOpen?L('Thu gọn','Show less'):L('Xem thêm '+more,'Show '+more+' more'))+chev+'</button>';
+  }
+  box.innerHTML=html;
 }
 window.renderRxWall=renderRxWall;
 /* the home strip is a horizontal RAIL of "emoji rain" posters — a living moment,
@@ -12929,7 +12833,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v350';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v352';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

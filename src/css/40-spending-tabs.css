@@ -50,15 +50,23 @@
 .cc-t{min-width:0}
 .cc-chev{width:18px;height:18px;margin-left:auto;flex-shrink:0;color:var(--chev)}
 /* ── Widget B — Tích lũy header: the savings pot total + this-month momentum spark ── */
-.til-head{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--hairline);padding:15px 16px 13px;font:inherit;cursor:pointer}
-.til-head:active{background:var(--canvas)}
+/* Tích lũy header (finance-final): eyebrow + add on one row, big pot total below */
+.til-head{padding:14px 16px 12px}
+.til-hrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .til-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.til-total{font-family:var(--disp);font-size:25px;font-weight:800;letter-spacing:-.03em;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px}
-.til-sub{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em;margin-top:3px}
+.til-add{width:28px;height:28px;flex:0 0 auto;border:0;border-radius:8px;background:var(--brand-tint);color:var(--brand-ink);font-size:19px;font-weight:500;line-height:1;cursor:pointer;display:grid;place-items:center}
+.til-add:active{transform:scale(.94)}
+.til-total-btn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;background:none;border:0;padding:4px 0 0;text-align:left;cursor:pointer}
+.til-total{font-family:var(--disp);font-size:25px;font-weight:800;letter-spacing:-.03em;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums}
+.til-sub{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
 .til-sub:empty{display:none}
 .til-sub.due{color:var(--amber)}
-.til-spark{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--hairline);font-size:12.5px;font-weight:600;color:var(--ink-2)}
+/* header ↔ goals separator */
+#goals-list:not(:empty){border-top:1px solid var(--hairline)}
+/* momentum spark — finance-final note-spark: filled block at the card's foot, text + sparkline */
+.til-spark{display:flex;align-items:center;gap:11px;margin:8px 12px 12px;padding:10px 12px;background:var(--surface);border-radius:11px;font-size:12px;font-weight:600;color:var(--ink-2)}
 .til-spark:empty{display:none}
+.til-spark .tsx{flex:1;min-width:0}
 .til-spark b{font-weight:800;color:var(--brand-ink)}
 .til-spark svg{flex-shrink:0}
 /* no-goals state: create-first-goal CTA sitting inside the Tích lũy card (below the total) */
@@ -69,47 +77,10 @@
 .tgc-t{font-size:14px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
 .tgc-s{font-size:12px;line-height:1.35;color:var(--muted);margin-top:1px}
 .tgc-plus{font-size:22px;font-weight:500;color:var(--brand-ink);flex-shrink:0;line-height:1}
-/* Finance hero — one allocation ring reading spending vs saving at a glance ("the whole").
-   Warm arcs = đã chi (gone), green = quỹ (kept); a notch marks the budget. */
-.fin-hero{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:14px 16px 6px;margin:2px 16px 12px}
-.fin-ring-wrap{position:relative;width:200px;height:200px;margin:6px auto 2px}
-.fin-ring{width:100%;height:100%;display:block;transform:rotate(-90deg)}
-.fh-track{stroke:var(--fill-neutral)}
-.fh-bfill{transition:stroke-dasharray .55s cubic-bezier(.3,1,.5,1)}   /* colour comes from the status gradient (fh-grad-*) */
-.fin-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-.fh-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.fh-spent{font-family:var(--disp);font-size:38px;font-weight:700;letter-spacing:-1.4px;line-height:1.02;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:4px}
-.fh-of{font-size:14px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:4px}
-.fin-note{text-align:center;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:-.01em;margin-top:3px;font-variant-numeric:tabular-nums}
-.fin-note b{font-weight:700}
-.fin-note b.over{color:var(--danger)}
-.fin-note b.ok{color:var(--good)}
-.fin-note b.pace{color:var(--amber)}
-.fin-ring-wrap{animation:fhpop .5s cubic-bezier(.22,1,.36,1) both}
-@keyframes fhpop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
-@media (prefers-reduced-motion:reduce){.fin-ring-wrap{animation:none}.fh-bfill{transition:none}}
-/* Swipeable hero: page 1 = ring, page 2 = daily chart. Native scroll-snap paging + UIPageControl-style dots. */
-.fin-pager{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;height:206px}
-.fin-pager::-webkit-scrollbar{display:none}
-.fin-page{flex:0 0 100%;scroll-snap-align:center;display:flex;align-items:center;justify-content:center}
-.fin-dots{display:flex;justify-content:center;gap:6px;margin-top:8px}
-.fin-dots span{width:6px;height:6px;border-radius:50%;background:var(--ink);opacity:.16;transition:opacity .2s}
-.fin-dots span.on{opacity:.5}
-/* daily chart page */
-.fin-daily{width:100%;display:flex;flex-direction:column;justify-content:center;padding:0 6px}
-.fd-head{text-align:center;margin-bottom:14px}
-.fd-avg{font-size:24px;font-weight:700;letter-spacing:-.5px;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:3px;line-height:1.05}
-.fd-sub{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:-.01em;margin-top:4px;font-variant-numeric:tabular-nums}
-.fd-chart{position:relative;display:flex;align-items:flex-end;gap:2px;height:116px;padding:0 4px}
-.fd-bar{flex:1;min-height:0;background:var(--ink);opacity:.22;border-radius:2px 2px 0 0;transition:height .5s cubic-bezier(.3,1,.5,1)}
-.fd-bar.today{background:var(--good);opacity:1}
-.fd-bar.over{background:var(--amber);opacity:.5}
-.fd-bar.future{opacity:.08}
-.fd-allow{position:absolute;left:4px;right:4px;border-top:1px dashed var(--ink);opacity:.28}
-.fd-axis{display:flex;justify-content:space-between;margin-top:8px;padding:0 4px;font-size:10.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-/* category budget list header (inside the hero card) */
-.fin-cats-h{display:flex;align-items:baseline;justify-content:space-between;margin:12px 4px 0;padding-top:12px;border-top:1px solid var(--hairline)}
-.fin-cats-h span{font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+/* "Chi tiêu theo danh mục" — now its own card (allocation ring + daily chart removed) */
+.fin-cats-card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:15px 16px 8px;margin:2px 16px 12px}
+.fin-cats-h{display:flex;align-items:baseline;justify-content:space-between;margin:0 4px 2px}
+.fin-cats-h span{font-size:14.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
 .fin-cats-h a{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--brand);cursor:pointer;padding:8px 4px;margin:-8px -4px}
 /* Restrained inset list — an icon tile for identity, a neutral progress bar, spent / its budget.
    Colour appears only when a row is over budget (red) or is the savings line (green). */
