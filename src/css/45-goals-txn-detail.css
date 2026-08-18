@@ -19,9 +19,28 @@
 .goal-row:active{background:var(--canvas)}
 .goal-ico{width:38px;height:38px;border-radius:11px;background:var(--surface);display:grid;place-items:center;font-size:19px;flex:0 0 auto}
 .goal-mid{flex:1;min-width:0}
-.goal-meter{height:4px;border-radius:3px;background:var(--divider);overflow:hidden;margin-top:8px}
-.goal-meter i{display:block;height:100%;background:var(--brand);border-radius:3px}
-.goal-pct{font-family:var(--disp);font-weight:700;font-size:14px;color:var(--ink-2);flex:0 0 auto;font-variant-numeric:tabular-nums;min-width:40px;text-align:right}
+/* finance-final "goals-status" row: name + saved/target on one baseline, slim track below */
+.goal-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.goal-lead{display:flex;align-items:baseline;gap:5px;min-width:0}
+.goal-name{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.goal-check{color:var(--good);font-weight:700;flex:0 0 auto}
+.goal-link{flex:0 0 auto;opacity:.7}
+.goal-amt{font-size:11.5px;font-weight:600;color:var(--muted);flex:0 0 auto;white-space:nowrap}
+.goal-od{color:var(--amber);font-weight:600}
+.goal-meter{height:5px;border-radius:9px;background:var(--divider);overflow:hidden;margin-top:7px}
+.goal-meter i{display:block;height:100%;background:var(--brand);border-radius:9px;transition:width .5s cubic-bezier(.32,.72,0,1)}
+/* completed goals — folded into one summary row; tap to expand/collapse */
+.goal-done-row{display:flex;align-items:center;gap:13px;width:100%;padding:13px 15px;border:0;border-top:1px solid var(--divider);background:none;font:inherit;text-align:left;cursor:pointer}
+.goal-done-row:active{background:var(--canvas)}
+.gdr-ic{width:38px;height:38px;border-radius:11px;background:var(--good-tint);color:var(--good);display:grid;place-items:center;font-size:17px;font-weight:700;flex:0 0 auto}
+.gdr-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.gdr-t{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.gdr-c{font-size:11.5px;font-weight:600;color:var(--muted)}
+.gdr-chev{width:18px;height:18px;flex:0 0 auto;color:var(--chev);transition:transform .22s cubic-bezier(.32,.72,0,1)}
+.goal-done-row.open .gdr-chev{transform:rotate(180deg)}
+/* the expanded completed list is gently de-emphasised */
+.goal-group.done .goal-name{color:var(--ink-2)}
+.goal-group.done .goal-ico{opacity:.85}
 /* full transactions drill-in screen */
 .txn-tools{padding:4px 16px 12px;border-bottom:1px solid var(--hairline);background:var(--canvas)}
 .txn-row1{display:flex;gap:10px;align-items:center}

@@ -1416,9 +1416,28 @@ input{font-family:inherit}
 .goal-row:active{background:var(--canvas)}
 .goal-ico{width:38px;height:38px;border-radius:11px;background:var(--surface);display:grid;place-items:center;font-size:19px;flex:0 0 auto}
 .goal-mid{flex:1;min-width:0}
-.goal-meter{height:4px;border-radius:3px;background:var(--divider);overflow:hidden;margin-top:8px}
-.goal-meter i{display:block;height:100%;background:var(--brand);border-radius:3px}
-.goal-pct{font-family:var(--disp);font-weight:700;font-size:14px;color:var(--ink-2);flex:0 0 auto;font-variant-numeric:tabular-nums;min-width:40px;text-align:right}
+/* finance-final "goals-status" row: name + saved/target on one baseline, slim track below */
+.goal-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.goal-lead{display:flex;align-items:baseline;gap:5px;min-width:0}
+.goal-name{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.goal-check{color:var(--good);font-weight:700;flex:0 0 auto}
+.goal-link{flex:0 0 auto;opacity:.7}
+.goal-amt{font-size:11.5px;font-weight:600;color:var(--muted);flex:0 0 auto;white-space:nowrap}
+.goal-od{color:var(--amber);font-weight:600}
+.goal-meter{height:5px;border-radius:9px;background:var(--divider);overflow:hidden;margin-top:7px}
+.goal-meter i{display:block;height:100%;background:var(--brand);border-radius:9px;transition:width .5s cubic-bezier(.32,.72,0,1)}
+/* completed goals — folded into one summary row; tap to expand/collapse */
+.goal-done-row{display:flex;align-items:center;gap:13px;width:100%;padding:13px 15px;border:0;border-top:1px solid var(--divider);background:none;font:inherit;text-align:left;cursor:pointer}
+.goal-done-row:active{background:var(--canvas)}
+.gdr-ic{width:38px;height:38px;border-radius:11px;background:var(--good-tint);color:var(--good);display:grid;place-items:center;font-size:17px;font-weight:700;flex:0 0 auto}
+.gdr-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.gdr-t{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.gdr-c{font-size:11.5px;font-weight:600;color:var(--muted)}
+.gdr-chev{width:18px;height:18px;flex:0 0 auto;color:var(--chev);transition:transform .22s cubic-bezier(.32,.72,0,1)}
+.goal-done-row.open .gdr-chev{transform:rotate(180deg)}
+/* the expanded completed list is gently de-emphasised */
+.goal-group.done .goal-name{color:var(--ink-2)}
+.goal-group.done .goal-ico{opacity:.85}
 /* full transactions drill-in screen */
 .txn-tools{padding:4px 16px 12px;border-bottom:1px solid var(--hairline);background:var(--canvas)}
 .txn-row1{display:flex;gap:10px;align-items:center}
@@ -6499,6 +6518,9 @@ function renderEvents(){
 // A saving goal is "done" when it's fully FUNDED — never merely because its
 // target date has passed (an underfunded goal past its date is overdue, not done).
 function achievedGoal(g){ return !!(g && (g.achieved || (g.target>0 && g.saved>=g.target))); }
+// Completed goals collapse into one summary row; this remembers open/closed across re-renders.
+var goalsDoneOpen=false;
+function toggleGoalsDone(){ goalsDoneOpen=!goalsDoneOpen; renderGoals(); }
 function renderGoals(){
   var goals=window.goals||{}, ord=window.goalOrder||[];
   var hasGoals=ord.length>0;
@@ -6538,27 +6560,44 @@ function renderGoals(){
   var sf=document.getElementById('sav-fill'); if(sf)sf.style.width=fillPct+'%';
   setHTML('sav-foot-l',L('Đã để dành ','Saved ')+'<b>'+fmtK(totSav)+'</b>');
   setHTML('sav-foot-r','<b>'+fillPct+'%</b>');
-  // show every goal (active first, then fully-funded) — nothing a user makes vanishes
-  var listed=ord.slice().sort(function(a,b){
-    var aa=achievedGoal(goals[a])?1:0, bb=achievedGoal(goals[b])?1:0; if(aa!==bb) return aa-bb;
-    var da=goals[a].d?goals[a].d.getTime():Infinity, db=goals[b].d?goals[b].d.getTime():Infinity; return da-db;
-  });
-  var rows=listed.map(function(g){
-    var e=goals[g], pct=e.target>0?Math.min(100,Math.round(e.saved/e.target*100)):0, funded=e.saved>=e.target;
-    var occ=e.occasion_id?' · 🔗 '+L('dịp','occasion'):'';
-    var overdue=(!funded && e.d && e.d<TODAY)?' · <span style="color:var(--amber)">'+L('quá hạn','overdue')+'</span>':'';
+  // Rows in the finance-final "goals-status" style: emoji · name + saved/target on one
+  // line · a slim progress track whose fill deepens as the goal fills.
+  function goalRow(g, done){
+    var e=goals[g], pct=e.target>0?Math.min(100,Math.round(e.saved/e.target*100)):(e.saved>0?100:0);
+    var occ=e.occasion_id?'<span class="goal-link">🔗</span>':'';
+    var overdue=(!done && e.d && e.d<TODAY)?' · <span class="goal-od">'+L('quá hạn','overdue')+'</span>':'';
+    var op=done?1:(0.4+pct/100*0.6).toFixed(2);   // fuller goal → more opaque bar (a status cue)
     return '<div class="goal-row" onclick="openGoalDetail(&#39;'+escAttr(g)+'&#39;)">'
       +'<div class="goal-ico">'+esc(e.emoji)+'</div>'
-      +'<div class="goal-mid"><div class="r-t">'+esc(e.name)+(funded?' <span class="ev-ready">✓</span>':'')+'</div>'
-        +'<div class="r-s">'+fmt(e.saved)+' / '+fmt(e.target)+occ+overdue+'</div>'
-        +'<div class="goal-meter"><i style="width:'+pct+'%"></i></div></div>'
-      +'<div class="goal-pct">'+pct+'%</div>'
+      +'<div class="goal-mid">'
+        +'<div class="goal-top"><span class="goal-lead"><span class="goal-name">'+esc(e.name)+'</span>'+(done?'<span class="goal-check">✓</span>':'')+occ+'</span>'
+          +'<span class="goal-amt num">'+fmtK(e.saved)+' / '+fmtK(e.target)+overdue+'</span></div>'
+        +'<div class="goal-meter"><i style="width:'+pct+'%;opacity:'+op+'"></i></div>'
+      +'</div>'
     +'</div>';
-  }).join('');
-  // With goals → the goal list. Without → an in-card CTA to create the first one, so the
+  }
+  // active goals first (by date), then every finished goal grouped under "Completed goals"
+  var byDate=function(a,b){ var da=goals[a].d?goals[a].d.getTime():Infinity, db=goals[b].d?goals[b].d.getTime():Infinity; return da-db; };
+  var activeRows=live.slice().sort(byDate).map(function(g){ return goalRow(g,false); }).join('');
+  var doneG=ord.filter(function(g){ return achievedGoal(goals[g]); }).sort(byDate);
+  var doneRows=doneG.map(function(g){ return goalRow(g,true); }).join('');
+  var listHTML='';
+  if(activeRows) listHTML+='<div class="goal-group">'+activeRows+'</div>';
+  // Completed goals fold into ONE row — tap to expand the list, tap again to hide.
+  if(doneRows){
+    var doneSaved=doneG.reduce(function(s,g){ return s+(goals[g].saved||0); },0);
+    listHTML+='<button class="goal-done-row'+(goalsDoneOpen?' open':'')+'" onclick="toggleGoalsDone()">'
+      +'<span class="gdr-ic">✓</span>'
+      +'<span class="gdr-mid"><span class="gdr-t">'+L('Đã hoàn thành','Completed')+'</span>'
+        +'<span class="gdr-c num">'+doneG.length+' '+L('mục tiêu','goals')+' · '+fmtK(doneSaved)+'</span></span>'
+      +'<svg class="gdr-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>'
+      +'</button>';
+    if(goalsDoneOpen) listHTML+='<div class="goal-group done">'+doneRows+'</div>';
+  }
+  // With goals → the grouped list. Without → an in-card CTA to create the first one, so the
   // savings total in the header still stands on its own.
   setHTML('goals-list', hasGoals
-    ? (rows ? '<div class="goal-group">'+rows+'</div>' : '')
+    ? listHTML
     : '<button class="til-goal-cta" onclick="openGoal()"><span class="tgc-ic">🎯</span>'
       +'<span class="tgc-txt"><span class="tgc-t">'+L('Tạo mục tiêu đầu tiên','Create your first goal')+'</span>'
       +'<span class="tgc-s">'+L('Để dành cho điều bạn muốn mua hoặc làm','Save up for something you want to buy or do')+'</span></span>'
@@ -12890,7 +12929,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v348';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v350';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
