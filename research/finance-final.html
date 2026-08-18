@@ -57,7 +57,7 @@
   .ov .bcur{position:absolute;bottom:0;width:66%;max-width:20px;border-radius:9px 9px 0 0;z-index:1}
   .ov .bcur.g{background:#14b8a6}.ov .bcur.o{background:#e0913a}
   .gr .gbwrap{position:relative;height:74px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px}
-  .gr .gb{width:9px;border-radius:4px 4px 0 0}.gr .gb.prev{background:#eeecf3}.gr .gb.cur.g{background:#14b8a6}.gr .gb.cur.o{background:#e0913a}
+  .gr .gb{width:9px;border-radius:4px 4px 0 0}.gr .gb.prev{background:#e6e3ec}.gr .gb.cur.g{background:#14b8a6}.gr .gb.cur.o{background:#e0483f}
 
   .grow{display:flex;align-items:center;gap:11px;padding:10px 0}
   .grow+.grow{border-top:1px solid #f0eef4}
@@ -73,7 +73,7 @@
 
 <div class="head">
   <h1>Tài chính · bản chốt — toàn màn hình</h1>
-  <p>Còn lại (biểu đồ 1b/2b · cột kỳ trước cùng bề rộng với cột kỳ này) + Tích lũy (mục tiêu #5 · ghi chú <b>với biểu đồ</b>).</p>
+  <p>Biểu đồ <b>Cột kép</b> (kỳ này teal · ngày vượt tuần trước tô đỏ) · Tích lũy (mục tiêu đơn sắc teal · ghi chú với biểu đồ).</p>
 </div>
 
 <div class="row" id="sec-spark"></div>
@@ -117,8 +117,7 @@
   function cell(chart, label, note){
     return '<div class="col-f"><div class="flab">'+label+'</div>'+screen(chart, note)+'</div>';
   }
-  document.getElementById('sec-spark').innerHTML =
-    cell('ov','Cột ghép <span>(1b)</span>','spark') + cell('gr','Cột kép <span>(2b)</span>','spark');
+  document.getElementById('sec-spark').innerHTML = cell('gr','Bản chốt · Cột kép','spark');
 </script>
 </body>
 </html>
