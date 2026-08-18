@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Tài chính · bản chốt · 8 bảng màu tổng thể</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{--sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif}
+  html,body{background:#dcdae1;font-family:var(--sf);color:#111117;-webkit-font-smoothing:antialiased}
+  body{padding:40px 20px 70px}
+  .num,.big,.ioval{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  .page-head{max-width:860px;margin:0 auto 22px;text-align:center}
+  .page-head h1{font-size:27px;font-weight:800;letter-spacing:-.9px;margin-bottom:7px}
+  .page-head p{color:#4b4753;font-size:14px;line-height:1.55;max-width:640px;margin:0 auto}
+
+  .gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:34px 20px;max-width:1460px;margin:0 auto;justify-items:center}
+  .col-f{display:flex;flex-direction:column;align-items:center;gap:11px}
+  .flab{font-weight:700;font-size:13.5px;letter-spacing:-.2px}.flab span{color:#847f8e;font-weight:600;font-size:12px}
+
+  .frame{width:340px;height:706px;border-radius:44px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#f2f2f6;box-shadow:0 0 0 9px #17171c,0 18px 48px rgba(0,0,0,.28)}
+  .st{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 28px 0 32px;flex-shrink:0}
+  .st .tm{font-weight:600;font-size:14px}.st .ic{display:flex;gap:5px}
+  .b-h{padding:4px 18px 6px;display:flex;align-items:flex-end;justify-content:space-between;flex-shrink:0}
+  .b-h h2{font-size:26px;font-weight:800;letter-spacing:-.8px}
+  .pill{font-size:11px;font-weight:600;color:#3a3742;background:#fff;border-radius:999px;padding:5px 10px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .scr{flex:1;overflow-y:auto;overflow-x:hidden;padding:2px 14px 14px}.scr::-webkit-scrollbar{display:none}
+  .tab{height:50px;flex-shrink:0;display:flex;align-items:center;padding-bottom:3px;border-top:1px solid rgba(128,128,128,.18);background:rgba(255,255,255,.9);backdrop-filter:blur(16px)}
+  .tab .tb{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;color:#a29caa}
+  .tab .tb.on{color:var(--tab)}.tab .tb svg{width:20px;height:20px}
+
+  .c{background:#fff;border-radius:20px;padding:15px;box-shadow:0 1px 2px rgba(0,0,0,.05),0 8px 22px rgba(0,0,0,.055);margin-bottom:10px}
+  .eyebrow{font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8a8694}
+  .big{font-weight:800;letter-spacing:-1px;line-height:1}
+  .grad{background:var(--num);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .io2{display:flex;gap:7px;margin-top:12px}
+  .iotile{flex:1;background:#f7f6fa;border-radius:11px;padding:9px 11px}
+  .iolab{font-size:10px;font-weight:600;color:#8a8694}
+  .ioval{font-size:14px;font-weight:800;letter-spacing:-.3px;margin-top:2px;color:#111117}.ioval.up{color:var(--pos)}
+  .note{font-size:11px;font-weight:600;line-height:1.4;padding:8px 11px;border-radius:10px;margin-top:12px;background:var(--note1bg);color:var(--note1fg)}
+  .note .ni{margin-right:5px}.note b{font-weight:800;white-space:nowrap}
+  .note-spark{margin-top:12px;display:flex;align-items:center;gap:10px;background:#f7f6fa;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600}
+  .note-spark .tx{flex:1;color:#3a3448}.note-spark b{font-weight:800}.note-spark svg{flex-shrink:0}
+  .note-spark .sl{stroke:var(--accent2);fill:none}.note-spark .sd{fill:var(--accent2)}
+
+  .ch{margin-top:12px}
+  .chart{display:flex;gap:8px;align-items:flex-end;justify-content:space-between}
+  .col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+  .col span{font-size:8px;color:#a8a4b0;font-weight:600}
+  .gbwrap{position:relative;height:66px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px}
+  .gb{width:9px;border-radius:4px 4px 0 0}
+  .gb.prev{background:var(--prev)}.gb.cur.g{background:var(--accent)}.gb.cur.o{background:var(--over)}
+  .dots{display:flex;gap:5px;justify-content:center;margin-top:9px}
+  .dots i{width:5px;height:5px;border-radius:50%;background:#d4d1db}.dots i.on{background:#8a8694;width:14px;border-radius:3px}
+
+  .grow{display:flex;align-items:center;gap:10px;padding:9px 0}
+  .grow+.grow{border-top:1px solid #f0eef4}
+  .gem{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;background:#f1f0f5}
+  .gmid{flex:1;min-width:0}
+  .grow2{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .gn{font-size:13px;font-weight:600;letter-spacing:-.2px;color:#111117}
+  .sub{font-size:10px;color:#8a8694;font-weight:600}
+  .track{height:5px;border-radius:9px;background:#edecf2;overflow:hidden;margin-top:5px}.track i{display:block;height:100%;border-radius:9px}
+
+  /* ===== 8 PALETTES ===== */
+  .p1{--num:linear-gradient(120deg,#0f9d84,#1fc9b4);--accent:#14b8a6;--accent2-rgb:18,168,146;--accent2:#14b8a6;--over:#e0483f;--pos:#0f9d84;--note1bg:#e7f6f0;--note1fg:#0f7a5a;--prev:#e6e3ec;--tab:#0f9d84}
+  .p2{--num:linear-gradient(120deg,#059669,#12c07f);--accent:#10b981;--accent2-rgb:16,185,129;--accent2:#10b981;--over:#e0483f;--pos:#059669;--note1bg:#e6f7ef;--note1fg:#067a52;--prev:#e6e3ec;--tab:#059669}
+  .p3{--num:linear-gradient(120deg,#4f46e5,#8b81f2);--accent:#6d63e6;--accent2-rgb:109,99,230;--accent2:#6d63e6;--over:#e0483f;--pos:#6d63e6;--note1bg:#eeecfb;--note1fg:#4a44a6;--prev:#e6e3ec;--tab:#6d63e6}
+  .p4{--num:#1a1420;--accent:#14b8a6;--accent2-rgb:18,168,146;--accent2:#14b8a6;--over:#d64542;--pos:#0f9d84;--note1bg:#eef7f3;--note1fg:#0f7a5a;--prev:#e6e3ec;--tab:#0f9d84}
+  .p5{--num:linear-gradient(120deg,#14b8a6,#6d63e6);--accent:#14b8a6;--accent2-rgb:109,99,230;--accent2:#6d63e6;--over:#e0483f;--pos:#0f9d84;--note1bg:#e7f6f0;--note1fg:#0f7a5a;--prev:#e6e3ec;--tab:#14b8a6}
+  .p6{--num:linear-gradient(120deg,#2563eb,#4f8bf7);--accent:#3b82f6;--accent2-rgb:59,130,246;--accent2:#3b82f6;--over:#e0483f;--pos:#2563eb;--note1bg:#e8f0fe;--note1fg:#1d4ed8;--prev:#e6e3ec;--tab:#2563eb}
+  .p7{--num:linear-gradient(120deg,#15803d,#26a959);--accent:#16a34a;--accent2-rgb:22,163,74;--accent2:#16a34a;--over:#dc2626;--pos:#16a34a;--note1bg:#e7f6ec;--note1fg:#15803d;--prev:#e6e3ec;--tab:#15803d}
+  .p8{--num:#14101a;--accent:#3a3444;--accent2-rgb:58,52,68;--accent2:#3a3444;--over:#dc2626;--pos:#3a3444;--note1bg:#f1f0f4;--note1fg:#3a3448;--prev:#e0dde6;--tab:#38313f}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Tài chính · bản chốt — 8 bảng màu tổng thể</h1>
+  <p>Cùng bố cục &amp; hình khối. Chỉ đổi <b>phối màu toàn màn hình</b>: con số, biểu đồ, ghi chú, thanh mục tiêu, tab — để hai section &amp; cả màn hài hoà.</p>
+</div>
+
+<div class="gallery" id="grid"></div>
+
+<script>
+  var PREV=[52,56,49,74,52,43,34], CUR=[42,66,29,50,65,null,null], CLS=['g','o','g','g','o',null,null], DAYS=['T2','T3','T4','T5','T6','T7','CN'];
+  function chart(){
+    var cols='';
+    for(var i=0;i<7;i++){
+      var curEl = CUR[i]==null?'':'<div class="gb cur '+CLS[i]+'" style="height:'+CUR[i]+'px"></div>';
+      cols+='<div class="col"><div class="gbwrap"><div class="gb prev" style="height:'+PREV[i]+'px"></div>'+curEl+'</div><span>'+DAYS[i]+'</span></div>';
+    }
+    return '<div class="ch"><div class="chart">'+cols+'</div><div class="dots"><i class="on"></i><i></i></div></div>';
+  }
+  var TAB='<div class="tab"><div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div><div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div><div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div></div>';
+  var STAT='<div class="st"><span class="tm">9:41</span><span class="ic"><svg width="17" height="11" viewBox="0 0 17 11"><g fill="#111117"><rect y="6" width="3" height="5" rx="1"/><rect x="5" y="4" width="3" height="7" rx="1"/><rect x="10" y="1.5" width="3" height="9.5" rx="1"/><rect x="14.5" width="2.5" height="11" rx="1" opacity=".35"/></g></svg><svg width="23" height="11" viewBox="0 0 23 11"><rect x="1" y="1" width="18" height="9" rx="2.4" fill="none" stroke="#111117" stroke-opacity=".4"/><rect x="2.6" y="2.6" width="13" height="5.8" rx="1.1" fill="#111117"/></svg></span></div>';
+  function goals(){
+    return '<div style="margin-top:7px">'
+      +'<div class="grow"><div class="gem">✈️</div><div class="gmid"><div class="grow2"><div class="gn">Du lịch Đà Nẵng</div><div class="sub">8/12tr</div></div><div class="track"><i style="width:67%;background:rgba(var(--accent2-rgb),.9)"></i></div></div></div>'
+      +'<div class="grow"><div class="gem">🛡️</div><div class="gmid"><div class="grow2"><div class="gn">Phòng thân</div><div class="sub">15/15tr</div></div><div class="track"><i style="width:100%;background:rgba(var(--accent2-rgb),1)"></i></div></div></div>'
+      +'<div class="grow"><div class="gem">🚗</div><div class="gmid"><div class="grow2"><div class="gn">Mua xe</div><div class="sub">9/40tr</div></div><div class="track"><i style="width:23%;background:rgba(var(--accent2-rgb),.5)"></i></div></div></div>'
+      +'</div>';
+  }
+  var SPARK='<div class="note-spark"><div class="tx">Tháng này để dành thêm <b>2.000.000 ₫</b></div><svg width="48" height="24" viewBox="0 0 48 24"><polyline class="sl" points="2,20 11,16 20,17 29,11 38,8 46,4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle class="sd" cx="46" cy="4" r="2.4"/></svg></div>';
+  function screen(p,label){
+    var conlai='<div class="c"><div class="eyebrow">Còn lại tháng này</div><div class="big grad" style="font-size:30px;margin-top:5px">6.150.000 ₫</div>'
+      +'<div class="io2"><div class="iotile"><div class="iolab">↑ Vào</div><div class="ioval up num">22.000.000</div></div><div class="iotile"><div class="iolab">↓ Ra</div><div class="ioval num">15.850.000</div></div></div>'
+      +chart()+'<div class="note"><span class="ni">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div></div>';
+    var tichluy='<div class="c"><div class="eyebrow">Tích lũy</div><div class="big" style="font-size:23px;margin-top:5px">47.000.000 ₫</div>'+goals()+SPARK+'</div>';
+    return '<div class="col-f"><div class="flab">'+label+'</div><div class="frame '+p+'">'+STAT+'<div class="b-h"><h2>Tài chính</h2><span class="pill">Tháng 8 ▾</span></div><div class="scr">'+conlai+tichluy+'</div>'+TAB+'</div></div>';
+  }
+  var P=[
+    ['p1','Teal đơn sắc'],['p2','Emerald'],['p3','Indigo'],['p4','Mực + teal'],
+    ['p5','Teal + Indigo (kép)'],['p6','Xanh dương'],['p7','Xanh rừng'],['p8','Trung tính + đỏ']
+  ];
+  document.getElementById('grid').innerHTML = P.map(function(x){return screen(x[0],x[1])}).join('');
+</script>
+</body>
+</html>
