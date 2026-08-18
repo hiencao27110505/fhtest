@@ -1078,6 +1078,12 @@ function csvStagedToggle(i){
   if(!csvReview) return;
   var c = csvReview.ready[i]; if(!c) return;
   c._skipImport = !c._skipImport;
+  /* Close whatever row was open, like every other row action here does. Flush
+     FIRST: csvFlushExpand reads the open editor's fields back onto its candidate,
+     and re-rendering without it throws away a description or amount someone was
+     part-way through typing. The handlers that skip the flush (csvReadyRemove and
+     friends) can only do so because the row they touch is being removed anyway. */
+  csvFlushExpand(); csvExpand = null;
   renderCsvReview();                 // count, total and the Import label all follow
 }
 
