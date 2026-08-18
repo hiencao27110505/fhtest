@@ -975,7 +975,7 @@ function renderCsvReview(){
                  row, so "not yet" used to cost you it. Bottom-anchored primary
                  (DESIGN §3), with Xong staying the quiet way out. */
               buttons:'<button type="button" class="btn-line" onclick="csvExpandDone()">'+L('Xong','Done')+'</button>'
-                + (csvStagedMode ? '<button type="button" class="cta" onclick="fhPromoteStagedOne('+e.i+')">'+L('Nhập khoản này','Import this one')+'</button>' : '') }))
+                + (csvStagedMode ? '<button type="button" class="cta" onclick="fhPromoteStagedOne('+e.i+')">'+L('Chỉ nhập khoản này','Import only this one')+'</button>' : '') }))
           : csvCollapsedCard(e.c, o);
       });
       html += '</div>';
