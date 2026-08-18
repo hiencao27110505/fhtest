@@ -3,18 +3,22 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Earthy — Tài chính · phần cá nhân (bản chốt)</title>
+<title>Earthy — Tài chính · bản chốt (1b &amp; 2b)</title>
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
   :root{--sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif}
   html,body{background:#d7d4dc;font-family:var(--sf);color:#111117;-webkit-font-smoothing:antialiased}
-  body{padding:44px 20px 80px;display:flex;flex-direction:column;align-items:center;gap:16px}
-  .num,.big,.iov,.grv{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
-  .head{text-align:center;max-width:520px}
-  .head h1{font-size:26px;font-weight:800;letter-spacing:-.7px}
-  .head p{color:#847f8e;font-size:13.5px;margin-top:6px;line-height:1.5}
+  body{padding:40px 20px 70px}
+  .num,.big,.ioval,.grv{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 
-  .frame{width:360px;height:760px;border-radius:46px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#f2f2f6;box-shadow:0 0 0 10px #17171c,0 26px 70px rgba(0,0,0,.34)}
+  .head{text-align:center;max-width:640px;margin:0 auto 28px}
+  .head h1{font-size:27px;font-weight:800;letter-spacing:-.7px}
+  .head p{color:#847f8e;font-size:14px;margin-top:6px;line-height:1.5}
+  .row{display:flex;gap:44px;justify-content:center;flex-wrap:wrap}
+  .col-f{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .flab{font-weight:700;font-size:15px;letter-spacing:-.2px}.flab span{color:#847f8e;font-weight:600;font-size:13px}
+
+  .frame{width:360px;height:762px;border-radius:46px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#f2f2f6;box-shadow:0 0 0 10px #17171c,0 26px 70px rgba(0,0,0,.34)}
   .st{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 30px 0 34px;flex-shrink:0}
   .st .tm{font-weight:600;font-size:15px;letter-spacing:.3px}.st .ic{display:flex;gap:6px}
   .b-h{padding:6px 20px 6px;display:flex;align-items:flex-end;justify-content:space-between;flex-shrink:0}
@@ -30,29 +34,30 @@
   .big{font-weight:800;letter-spacing:-1px;line-height:1}
   .grad{background:linear-gradient(120deg,#4f46e5,#14b8a6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 
-  /* vào/ra tiles — variant 4 style */
   .io2{display:flex;gap:8px;margin-top:13px}
   .iotile{flex:1;background:#f7f6fa;border-radius:12px;padding:10px 12px}
   .iolab{font-size:10.5px;font-weight:600;color:#8a8694}
-  .ioval{font-size:15px;font-weight:800;letter-spacing:-.3px;margin-top:3px;color:#111117}
-  .ioval.up{color:#0f9d6c}
+  .ioval{font-size:15px;font-weight:800;letter-spacing:-.3px;margin-top:3px;color:#111117}.ioval.up{color:#0f9d6c}
 
   .note{font-size:12px;font-weight:600;line-height:1.45;padding:9px 12px;border-radius:11px;margin-top:14px}
-  .note .ni{margin-right:5px}
-  .note b{font-weight:800;white-space:nowrap}
-  .note.down{background:#e7f6f0;color:#0f7a5a}
-  .note.info{background:#eef0fb;color:#4a44a6}
+  .note .ni{margin-right:5px}.note b{font-weight:800;white-space:nowrap}
+  .note.down{background:#e7f6f0;color:#0f7a5a}.note.info{background:#eef0fb;color:#4a44a6}
 
   .ch{margin-top:15px}
-  .chart{display:flex;gap:8px;align-items:flex-end;justify-content:space-between}
+  .chart{display:flex;gap:9px;align-items:flex-end;justify-content:space-between}
   .col{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1}
-  .bwrap{position:relative;height:78px;width:100%;display:flex;align-items:flex-end;justify-content:center}
-  .bprev{position:absolute;bottom:0;width:72%;max-width:24px;border-radius:4px 4px 0 0;background:#e6e4ec}
-  .bcur{position:absolute;bottom:0;width:38%;max-width:12px;border-radius:3px 3px 0 0;z-index:1}
-  .bcur.g{background:#14b8a6}.bcur.o{background:#e0913a}
   .col span{font-size:8.5px;color:#a8a4b0;font-weight:600}
+  .bwrap{position:relative;height:74px;width:100%;display:flex;align-items:flex-end;justify-content:center}
   .dots{display:flex;gap:5px;justify-content:center;align-items:center;margin-top:11px}
   .dots i{width:5px;height:5px;border-radius:50%;background:#d4d1db}.dots i.on{background:#8a8694;width:15px;border-radius:3px}
+
+  /* 1b soft overlaid — previous bars fully rounded to match current */
+  .ov .bprev{position:absolute;bottom:0;width:76%;max-width:23px;border-radius:12px 12px 0 0;background:#eeecf3}
+  .ov .bcur{position:absolute;bottom:0;width:44%;max-width:13px;border-radius:7px 7px 0 0;z-index:1}
+  .ov .bcur.g{background:#14b8a6}.ov .bcur.o{background:#e0913a}
+  /* 2b soft grouped */
+  .gr .gbwrap{position:relative;height:74px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px}
+  .gr .gb{width:9px;border-radius:4px 4px 0 0}.gr .gb.prev{background:#eeecf3}.gr .gb.cur.g{background:#14b8a6}.gr .gb.cur.o{background:#e0913a}
 
   .goal{display:flex;align-items:center;gap:11px;padding:10px 0}
   .goal+.goal{border-top:1px solid #f0eef4}
@@ -60,7 +65,7 @@
   .gt{flex:1;min-width:0}
   .gn{font-size:13.5px;font-weight:600;letter-spacing:-.2px;color:#111117}
   .gs{font-size:10.5px;margin-top:1px;color:#8a8694}
-  .gr{display:flex;align-items:center;gap:8px}
+  .gr2{display:flex;align-items:center;gap:8px}
   .grv{font-size:13px;font-weight:800;letter-spacing:-.2px}
   .dial{width:28px;height:28px;border-radius:50%;position:relative;flex-shrink:0}
   .dial::after{content:"";position:absolute;inset:5px;border-radius:50%;background:#fff}
@@ -69,47 +74,82 @@
 <body>
 
 <div class="head">
-  <h1>Tài chính · phần cá nhân — bản chốt</h1>
-  <p>Còn lại = biến thể 1 (cột ghép, bỏ nhãn “Ngày · Tuần”). Tích lũy = biến thể 4 (bỏ thông tin chưa phân bổ).</p>
+  <h1>Tài chính · bản chốt</h1>
+  <p>Hai lựa chọn biểu đồ chốt: <b>Cột ghép (1b)</b> và <b>Cột kép (2b)</b> — bo mềm, kỳ trước &amp; kỳ này bằng nhau về độ bo.</p>
 </div>
 
-<div class="frame">
-  <div class="st"><span class="tm">9:41</span><span class="ic"><svg width="18" height="12" viewBox="0 0 18 12"><g fill="#111117"><rect y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" width="3" height="12" rx="1" opacity=".35"/></g></svg><svg width="25" height="12" viewBox="0 0 25 12"><rect x="1" y="1" width="20" height="10" rx="2.6" fill="none" stroke="#111117" stroke-opacity=".4"/><rect x="3" y="3" width="14" height="6" rx="1.2" fill="#111117"/></svg></span></div>
-  <div class="b-h"><h2>Tài chính</h2><span class="pill">Tháng 8 ▾</span></div>
-  <div class="scr">
+<div class="row">
 
-    <div class="c">
-      <div class="eyebrow">Còn lại tháng này</div>
-      <div class="big grad" style="font-size:34px;margin-top:5px">6.150.000 ₫</div>
-      <div class="io2">
-        <div class="iotile"><div class="iolab">↑ Vào</div><div class="ioval up num">22.000.000</div></div>
-        <div class="iotile"><div class="iolab">↓ Ra</div><div class="ioval num">15.850.000</div></div>
+  <!-- FINAL · 1b overlaid -->
+  <div class="col-f">
+    <div class="flab">Bản chốt · Cột ghép <span>(1b)</span></div>
+    <div class="frame">
+      <div class="st"><span class="tm">9:41</span><span class="ic"><svg width="18" height="12" viewBox="0 0 18 12"><g fill="#111117"><rect y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" width="3" height="12" rx="1" opacity=".35"/></g></svg><svg width="25" height="12" viewBox="0 0 25 12"><rect x="1" y="1" width="20" height="10" rx="2.6" fill="none" stroke="#111117" stroke-opacity=".4"/><rect x="3" y="3" width="14" height="6" rx="1.2" fill="#111117"/></svg></span></div>
+      <div class="b-h"><h2>Tài chính</h2><span class="pill">Tháng 8 ▾</span></div>
+      <div class="scr">
+        <div class="c">
+          <div class="eyebrow">Còn lại tháng này</div><div class="big grad" style="font-size:34px;margin-top:5px">6.150.000 ₫</div>
+          <div class="io2"><div class="iotile"><div class="iolab">↑ Vào</div><div class="ioval up num">22.000.000</div></div><div class="iotile"><div class="iolab">↓ Ra</div><div class="ioval num">15.850.000</div></div></div>
+          <div class="ch"><div class="chart ov">
+            <div class="col"><div class="bwrap"><div class="bprev" style="height:52px"></div><div class="bcur g" style="height:42px"></div></div><span>T2</span></div>
+            <div class="col"><div class="bwrap"><div class="bprev" style="height:56px"></div><div class="bcur o" style="height:66px"></div></div><span>T3</span></div>
+            <div class="col"><div class="bwrap"><div class="bprev" style="height:49px"></div><div class="bcur g" style="height:29px"></div></div><span>T4</span></div>
+            <div class="col"><div class="bwrap"><div class="bprev" style="height:74px"></div><div class="bcur g" style="height:50px"></div></div><span>T5</span></div>
+            <div class="col"><div class="bwrap"><div class="bprev" style="height:52px"></div><div class="bcur o" style="height:65px"></div></div><span>T6</span></div>
+            <div class="col"><div class="bwrap"><div class="bprev" style="height:43px"></div></div><span>T7</span></div>
+            <div class="col"><div class="bwrap"><div class="bprev" style="height:34px"></div></div><span>CN</span></div>
+          </div><div class="dots"><i class="on"></i><i></i></div></div>
+          <div class="note down"><span class="ni">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+        </div>
+        <div class="c">
+          <div class="eyebrow">Tích lũy</div><div class="big" style="font-size:25px;margin-top:5px">47.000.000 ₫</div>
+          <div style="margin-top:8px">
+            <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">mục tiêu 12.000.000</div></div><div class="gr2"><div class="grv">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
+            <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gt"><div class="gn">Phòng thân</div><div class="gs">đủ · 15.000.000</div></div><div class="gr2"><div class="grv">15tr</div><div class="dial" style="background:conic-gradient(#0f9d6c 360deg,#e9e8ee 0)"></div></div></div>
+            <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gt"><div class="gn">Mua xe</div><div class="gs">mục tiêu 40.000.000</div></div><div class="gr2"><div class="grv">9tr</div><div class="dial" style="background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div></div></div>
+          </div>
+          <div class="note info"><span class="ni">📈</span>Tháng này để dành thêm <b>2.000.000 ₫</b></div>
+        </div>
       </div>
-      <div class="ch"><div class="chart">
-        <div class="col"><div class="bwrap"><div class="bprev" style="height:52px"></div><div class="bcur g" style="height:42px"></div></div><span>T2</span></div>
-        <div class="col"><div class="bwrap"><div class="bprev" style="height:56px"></div><div class="bcur o" style="height:66px"></div></div><span>T3</span></div>
-        <div class="col"><div class="bwrap"><div class="bprev" style="height:49px"></div><div class="bcur g" style="height:28px"></div></div><span>T4</span></div>
-        <div class="col"><div class="bwrap"><div class="bprev" style="height:78px"></div><div class="bcur g" style="height:51px"></div></div><span>T5</span></div>
-        <div class="col"><div class="bwrap"><div class="bprev" style="height:52px"></div><div class="bcur o" style="height:68px"></div></div><span>T6</span></div>
-        <div class="col"><div class="bwrap"><div class="bprev" style="height:43px"></div></div><span>T7</span></div>
-        <div class="col"><div class="bwrap"><div class="bprev" style="height:35px"></div></div><span>CN</span></div>
-      </div><div class="dots"><i class="on"></i><i></i></div></div>
-      <div class="note down"><span class="ni">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+      <div class="tab"><div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div><div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div><div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div></div>
     </div>
-
-    <div class="c">
-      <div class="eyebrow">Tích lũy</div><div class="big" style="font-size:25px;margin-top:5px">47.000.000 ₫</div>
-      <div style="margin-top:8px">
-        <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">mục tiêu 12.000.000</div></div><div class="gr"><div class="grv">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
-        <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gt"><div class="gn">Phòng thân</div><div class="gs">đủ · 15.000.000</div></div><div class="gr"><div class="grv">15tr</div><div class="dial" style="background:conic-gradient(#0f9d6c 360deg,#e9e8ee 0)"></div></div></div>
-        <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gt"><div class="gn">Mua xe</div><div class="gs">mục tiêu 40.000.000</div></div><div class="gr"><div class="grv">9tr</div><div class="dial" style="background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div></div></div>
-      </div>
-      <div class="note info"><span class="ni">📈</span>Tháng này để dành thêm <b>2.000.000 ₫</b></div>
-    </div>
-
   </div>
-  <div class="tab"><div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div><div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div><div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div></div>
-</div>
 
+  <!-- FINAL · 2b grouped -->
+  <div class="col-f">
+    <div class="flab">Bản chốt · Cột kép <span>(2b)</span></div>
+    <div class="frame">
+      <div class="st"><span class="tm">9:41</span><span class="ic"><svg width="18" height="12" viewBox="0 0 18 12"><g fill="#111117"><rect y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" width="3" height="12" rx="1" opacity=".35"/></g></svg><svg width="25" height="12" viewBox="0 0 25 12"><rect x="1" y="1" width="20" height="10" rx="2.6" fill="none" stroke="#111117" stroke-opacity=".4"/><rect x="3" y="3" width="14" height="6" rx="1.2" fill="#111117"/></svg></span></div>
+      <div class="b-h"><h2>Tài chính</h2><span class="pill">Tháng 8 ▾</span></div>
+      <div class="scr">
+        <div class="c">
+          <div class="eyebrow">Còn lại tháng này</div><div class="big grad" style="font-size:34px;margin-top:5px">6.150.000 ₫</div>
+          <div class="io2"><div class="iotile"><div class="iolab">↑ Vào</div><div class="ioval up num">22.000.000</div></div><div class="iotile"><div class="iolab">↓ Ra</div><div class="ioval num">15.850.000</div></div></div>
+          <div class="ch"><div class="chart gr">
+            <div class="col"><div class="gbwrap"><div class="gb prev" style="height:52px"></div><div class="gb cur g" style="height:42px"></div></div><span>T2</span></div>
+            <div class="col"><div class="gbwrap"><div class="gb prev" style="height:56px"></div><div class="gb cur o" style="height:66px"></div></div><span>T3</span></div>
+            <div class="col"><div class="gbwrap"><div class="gb prev" style="height:49px"></div><div class="gb cur g" style="height:29px"></div></div><span>T4</span></div>
+            <div class="col"><div class="gbwrap"><div class="gb prev" style="height:74px"></div><div class="gb cur g" style="height:50px"></div></div><span>T5</span></div>
+            <div class="col"><div class="gbwrap"><div class="gb prev" style="height:52px"></div><div class="gb cur o" style="height:65px"></div></div><span>T6</span></div>
+            <div class="col"><div class="gbwrap"><div class="gb prev" style="height:43px"></div></div><span>T7</span></div>
+            <div class="col"><div class="gbwrap"><div class="gb prev" style="height:34px"></div></div><span>CN</span></div>
+          </div><div class="dots"><i class="on"></i><i></i></div></div>
+          <div class="note down"><span class="ni">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div>
+        </div>
+        <div class="c">
+          <div class="eyebrow">Tích lũy</div><div class="big" style="font-size:25px;margin-top:5px">47.000.000 ₫</div>
+          <div style="margin-top:8px">
+            <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gt"><div class="gn">Du lịch Đà Nẵng</div><div class="gs">mục tiêu 12.000.000</div></div><div class="gr2"><div class="grv">8tr</div><div class="dial" style="background:conic-gradient(#14b8a6 241deg,#e9e8ee 0)"></div></div></div>
+            <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gt"><div class="gn">Phòng thân</div><div class="gs">đủ · 15.000.000</div></div><div class="gr2"><div class="grv">15tr</div><div class="dial" style="background:conic-gradient(#0f9d6c 360deg,#e9e8ee 0)"></div></div></div>
+            <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gt"><div class="gn">Mua xe</div><div class="gs">mục tiêu 40.000.000</div></div><div class="gr2"><div class="grv">9tr</div><div class="dial" style="background:conic-gradient(#6d63e6 83deg,#e9e8ee 0)"></div></div></div>
+          </div>
+          <div class="note info"><span class="ni">📈</span>Tháng này để dành thêm <b>2.000.000 ₫</b></div>
+        </div>
+      </div>
+      <div class="tab"><div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div><div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div><div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div></div>
+    </div>
+  </div>
+
+</div>
 </body>
 </html>
