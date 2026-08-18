@@ -77,6 +77,18 @@ t('a row removed with ✕ is retired even though nothing references it',
 t('removing everything and importing nothing still retires them',
   eq(fhStagedIdsForResolved(ROWS, review({})), ['aaa', 'bbb', 'ccc', 'ddd']));
 
+console.log('\n-- unticked rows are kept for later, never retired --');
+t('an unticked ready row survives the import of a ticked one',
+  eq(fhStagedIdsForResolved(ROWS, review({ ready: [cand(0), Object.assign(cand(1), { _skipImport: true })] })),
+     ['aaa', 'ccc', 'ddd']));
+t('unticking everything retires nothing from ready',
+  eq(fhStagedIdsForResolved(ROWS, review({
+       ready: [0,1,2,3].map(function(i){ return Object.assign(cand(i), { _skipImport: true }); }) })),
+     []));
+t('_skipImport false is still ticked',
+  eq(fhStagedIdsForResolved(ROWS, review({ ready: [Object.assign(cand(0), { _skipImport: false })] })),
+     ['aaa', 'bbb', 'ccc', 'ddd']));
+
 console.log('\n-- refuse to guess when the state is unreadable --');
 t('no review object -> retire nothing', eq(fhStagedIdsForResolved(ROWS, null), []));
 t('review without a ready array -> retire nothing',

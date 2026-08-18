@@ -134,6 +134,14 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .bulk-date::before{content:"·";margin-right:7px;color:var(--muted-soft);font-weight:700}
 .bulk-card.active #ex-editor-mount{padding:6px 14px 14px}
 /* 44×44 hit target (HIG) even though the glyph reads smaller — mirrors .photo-thumb .x. */
+/* Bank-email queue: tick what to import now. Same 44px footprint as .bulk-x so
+   the row keeps three non-overlapping targets — tick, open, remove. Unticked is a
+   quiet outline, not an error state: "later" is an ordinary answer here. */
+.bulk-check{flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;-webkit-tap-highlight-color:transparent}
+.bulk-check i{width:22px;height:22px;border-radius:7px;border:2px solid var(--hairline);display:flex;align-items:center;justify-content:center;color:transparent;background:transparent;transition:background .12s ease,border-color .12s ease}
+.bulk-check.on i{background:var(--brand);border-color:var(--brand);color:#fff}
+.bulk-check svg{width:13px;height:13px}
+.bulk-check:active i{transform:scale(.92)}
 .bulk-x{flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--muted);background:transparent;border:none;-webkit-tap-highlight-color:transparent}
 .bulk-x:active{color:var(--danger)}
 #bulk-add{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;padding:15px;border-radius:13px;background:var(--canvas);border:2px dashed #d8d2df;color:var(--brand);font-size:15px;font-weight:700;letter-spacing:-.01em}

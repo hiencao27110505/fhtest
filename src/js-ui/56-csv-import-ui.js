@@ -641,7 +641,16 @@ function csvCardHead(label, dateIso, removeFn, attn, isError){
 
 function csvCollapsedCard(c, opts){
   var rm = opts.removeFn ? '<button type="button" class="bulk-x" onclick="'+opts.removeFn+'" aria-label="'+L('Xoá khoản này','Remove this item')+'">✕</button>' : '';
-  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">'
+  /* A third 44px target, leading the row. Its own button rather than part of
+     .bulk-tap, so ticking never opens the editor by accident — the same reason
+     the ✕ is a sibling and not inside the tap area. */
+  var ck = opts.checkFn
+    ? '<button type="button" class="bulk-check'+(opts.checked?' on':'')+'" onclick="'+opts.checkFn+'"'
+      + ' role="checkbox" aria-checked="'+(opts.checked?'true':'false')+'"'
+      + ' aria-label="'+escAttr(L('Chọn khoản này để nhập','Select this item to import'))+'">'
+      + '<i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></i></button>'
+    : '';
+  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
     + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid)
     + (opts.noPick
@@ -876,7 +885,9 @@ function renderCsvReview(){
   var handledCount = unresolvedDup.length + (r.deferred.length - blockedCount - inflowCount);
 
   // Lead with the win, not the workload.
-  var readyCount = r.ready.length;
+  // In staged mode this is what will ACTUALLY be written, so the top summary, the
+  // Import label and its disabled state all agree with the ticks.
+  var readyCount = csvStagedMode ? csvStagedSelected().length : r.ready.length;
   if(csvStagedMode){
     // ONE consolidated summary at the top — count + total — as summary type, not a
     // boxed card (a box here reads as yet another draft row). This replaces BOTH the
@@ -884,7 +895,7 @@ function renderCsvReview(){
     // "what am I about to import" twice. Recomputed each render, so removing a row
     // (the × on a card) keeps the count and total honest.
     if(readyCount > 0){
-      var stagedSum = r.ready.reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
+      var stagedSum = csvStagedSelected().reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
       html += '<div class="csv-staged-sum">'
         + '<div class="csv-staged-sum-main">'+esc(L('Sẽ nhập '+readyCount+' khoản','Importing '+readyCount))+' · <span class="num">'+esc(fmt(stagedSum))+'</span></div>'
         + '<div class="csv-staged-sum-sub">'+esc(L('từ email ngân hàng','from bank email'))+'</div>'
@@ -967,15 +978,10 @@ function renderCsvReview(){
         var o = { label:lowConfLabel[e.i] || (L('Khoản chi ','Item ')+(e.i+1)), dateIso:e.c.dateDisplay,
                   attn:!!lowConfLabel[e.i],
                   tapFn:"csvToggleExpand('ready',"+e.i+")", removeFn:"csvReadyRemove("+e.i+")" };
+        if(csvStagedMode){ o.checkFn = "csvStagedToggle("+e.i+")"; o.checked = !e.c._skipImport; }
         html += csvIsOpen('ready', e.i)
           ? csvActiveCard(e.c, Object.assign({}, o, { fields:true,
-              /* Staged mode gets a per-row import. Three bank transactions rarely
-                 want the same answer at once, and without this, filing one meant
-                 filing all of them or removing the rest — and removing retires a
-                 row, so "not yet" used to cost you it. Bottom-anchored primary
-                 (DESIGN §3), with Xong staying the quiet way out. */
-              buttons:'<button type="button" class="btn-line" onclick="csvExpandDone()">'+L('Xong','Done')+'</button>'
-                + (csvStagedMode ? '<button type="button" class="cta" onclick="fhPromoteStagedOne('+e.i+')">'+L('Chỉ nhập khoản này','Import only this one')+'</button>' : '') }))
+              buttons:'<button type="button" class="btn-line" onclick="csvExpandDone()">'+L('Xong','Done')+'</button>' }))
           : csvCollapsedCard(e.c, o);
       });
       html += '</div>';
@@ -1057,6 +1063,24 @@ function csvLearnFromOpen(){
 }
 
 function csvSkipGroup(gi){ if(!csvReview) return; csvReview.groups.splice(gi,1); csvExpand=null; renderCsvReview(); }
+/* Selection in the bank-email queue. Absence of a flag means INCLUDED, so a row
+   arriving in ready() later — a group that just got a category, a duplicate the
+   person included — is imported by default like every other ready row, without
+   anything having to remember to tick it.
+
+   Unticking is how you say "not this time". It is not a dismissal: the row is
+   never handed to retirement, so it is still in the queue tomorrow. That is the
+   difference between this and the ✕, which retires the row for good. */
+function csvStagedSelected(){
+  return ((csvReview && csvReview.ready) || []).filter(function(c){ return !c._skipImport; });
+}
+function csvStagedToggle(i){
+  if(!csvReview) return;
+  var c = csvReview.ready[i]; if(!c) return;
+  c._skipImport = !c._skipImport;
+  renderCsvReview();                 // count, total and the Import label all follow
+}
+
 function csvReadyRemove(i){ csvReview.ready.splice(i,1); csvExpand = null; renderCsvReview(); }
 
 // Group expansion: pure picker, so a chip tap applies instantly (house rule).
@@ -1127,11 +1151,11 @@ function csvDeferDrop(di){ csvReview.deferred.splice(di,1); csvExpand = null; re
    goes through _dbInsertTxn() -> fhField()/_fhWriteLocked(), same as any
    other expense. Only ready[] promotes. */
 /* subset: promote only these candidates instead of everything ready. The
-   bank-email queue imports one row at a time (fhPromoteStagedOne), because a
-   staged row someone is not ready to file must survive the import of one they
-   are. opts is forwarded to submitBulk — the same caller passes {stay:true} so
-   the review screen is still there afterwards.
-   Called with no arguments this is exactly what it was. */
+   bank-email queue passes the TICKED rows (csvStagedSelected), because a staged
+   row someone is not ready to file must survive the import of one they are.
+   opts is forwarded to submitBulk.
+   Called with no arguments this is exactly what it was, which is what the CSV
+   file flow still wants: everything reviewed goes in. */
 function csvPromote(subset, opts){
   var rows = subset || (csvReview && csvReview.ready);
   if(!csvReview || !rows || !rows.length) return;

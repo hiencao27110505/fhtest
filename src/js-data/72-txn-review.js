@@ -287,6 +287,10 @@
     var hold = function (c) { if (c && typeof c.rowIndex === 'number') pending[c.rowIndex] = 1; };
     (review.groups || []).forEach(function (g) { ((g && g.items) || []).forEach(hold); });
     (review.deferred || []).forEach(hold);
+    /* Unticked rows are "not this time", which is a form of still-waiting: they
+       were never written, so retiring them would delete a transaction the person
+       deliberately kept. The ✕ is how you say never; leaving a tick off is not. */
+    (review.ready || []).forEach(function (c) { if (c && c._skipImport) hold(c); });
     (review.dup || []).forEach(function (d) {
       if (!d) return;
       if (d.resolved === 'skip' || d.resolved === 'done') return;   // decided either way
@@ -301,58 +305,6 @@
     return out;
   }
   window.fhStagedIdsForResolved = fhStagedIdsForResolved;
-
-  /* Import ONE row and stay in the queue.
-
-     Three staged transactions rarely want the same answer on the same day: one
-     is ready to file, the other two need a memo, a category, or a moment's
-     thought. Before this, saying yes to one meant either importing all three or
-     removing two — and removing now retires them, so "not yet" cost you the row.
-
-     Reopening the queue afterwards, rather than splicing the review in place, is
-     deliberate. submitBulk ends in closeModals(), so the screen is gone whatever
-     we do; a refetch then rebuilds it from what the server actually holds, which
-     is the same path that renders it in the first place. One extra read per
-     import, on a queue capped at 200 rows, buys never having to keep a hand-
-     patched review in step with the database.
-
-     opts.stay keeps submitBulk from bouncing to the ledger before we get there. */
-  window.fhPromoteStagedOne = async function (i) {
-    if (window.fhStagingAlarmActive && window.fhStagingAlarmActive()) {
-      window.fhStagingAlarmShow && window.fhStagingAlarmShow();
-      return;
-    }
-    var ready = (window.csvReview && window.csvReview.ready) || [];
-    var c = ready[i];
-    if (!c) return;
-
-    var rows = window._fhStagedRows || [];
-    var row = (typeof c.rowIndex === 'number') ? rows[c.rowIndex] : null;
-    var id = row && row.id;
-
-    try {
-      await csvPromote([c], { stay: true });
-    } catch (e) {
-      window.toast && window.toast(L('Chưa lưu được', 'Could not save'));
-      return;
-    }
-
-    // Same order as the batch path: the ledger write has landed, so this row is
-    // finished whatever the server says next.
-    if (id) {
-      _stagedRetiredAdd([id]);
-      try {
-        var removed = await _rpc('resolve_email_transactions', { p_ids: [id] });
-        if (!removed) console.warn('staged retire: matched 0 rows', { ids: [id] });
-      } catch (e2) {
-        console.warn('staged retire failed', e2, { ids: [id] });
-      }
-    }
-
-    // Back to the queue, rebuilt from the server. If that was the last one this
-    // renders the empty state, which is the right ending either way.
-    try { await window.fhTxnReviewSheet(); } catch (e3) {}
-  };
 
   /* Import, then retire the staged rows.
      Deleting only AFTER the ledger write succeeds — the reverse order would lose
@@ -375,7 +327,9 @@
       // ledger writes. It did not always: an earlier version assumed a promise
       // and resolved instantly, which meant the delete below could race the
       // write and destroy a staged row whose transaction never landed.
-      await csvPromote();
+      /* Only the ticked rows. csvPromote() with no argument still means "all
+         ready", which is what the CSV file flow wants; the queue is selective. */
+      await csvPromote(typeof csvStagedSelected === 'function' ? csvStagedSelected() : undefined);
     } catch (e) {
       window.toast && window.toast(L('Chưa lưu được', 'Could not save'));
       return;
