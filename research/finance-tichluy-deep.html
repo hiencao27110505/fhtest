@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Tích lũy · thanh tiến độ ×8 · ghi chú ×8 ×8</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{--sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif}
+  html,body{background:#dcdae1;font-family:var(--sf);color:#111117;-webkit-font-smoothing:antialiased}
+  body{padding:40px 20px 70px}
+  .num,.big{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  .page-head{max-width:860px;margin:0 auto 18px;text-align:center}
+  .page-head h1{font-size:27px;font-weight:800;letter-spacing:-.9px;margin-bottom:7px}
+  .page-head p{color:#4b4753;font-size:14px;line-height:1.55;max-width:620px;margin:0 auto}
+  .grouplab{max-width:1404px;margin:26px auto 14px;font-size:15px;font-weight:800;color:#3a3742;padding-left:6px}
+  .grouplab span{color:#847f8e;font-weight:600;font-size:13px}
+
+  .gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:26px 18px;max-width:1404px;margin:0 auto;justify-items:center}
+  .v{width:330px}
+  .cap{margin:0 4px 9px}
+  .cap .n{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 6px;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:11px;margin-right:8px;vertical-align:1px}
+  .cap .t{font-weight:700;font-size:13.5px;letter-spacing:-.2px}
+
+  .c{background:#fff;border-radius:20px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.05),0 8px 22px rgba(0,0,0,.06)}
+  .eyebrow{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8a8694}
+  .big{font-weight:800;letter-spacing:-1px;line-height:1;font-size:25px;margin-top:5px}
+  .goals{margin-top:9px}
+  .gem{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+  .gn{font-size:13.5px;font-weight:600;letter-spacing:-.2px;color:#111117}
+  .sub{font-size:10.5px;color:#8a8694;font-weight:600}
+  .grow2{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .track{height:5px;border-radius:9px;background:#edecf2;overflow:hidden;margin-top:6px}
+  .track i{display:block;height:100%;border-radius:9px}
+
+  /* ===== G2 progress-bar goal variants ===== */
+  .gv .goal{display:flex;align-items:center;gap:11px;padding:9px 0}
+  .gv .goal+.goal{border-top:1px solid #f0eef4}
+  .gv .gmid{flex:1;min-width:0}
+  .pc{font-size:11px;font-weight:800}
+  /* v1 name+% top, bar, saved sub */
+  .gv1 .subm{margin-top:5px}
+  /* v2 thick gradient */
+  .gv2 .track{height:9px;margin-top:7px}
+  /* v3 no emoji */
+  .gv3 .goal{gap:0}
+  .amt{font-size:11px;font-weight:700;color:#3a3742}
+  /* v4 % chip */
+  .pchip{font-size:11px;font-weight:800;border-radius:8px;padding:3px 8px;flex-shrink:0}
+  /* v6 ticks */
+  .track.tick{position:relative;height:7px}
+  .track.tick .tk{position:absolute;top:0;bottom:0;width:2px;background:#fff;opacity:.85;z-index:1}
+  /* v7 cells */
+  .gv7 .gcell{display:flex;align-items:center;gap:10px;background:#f7f6fa;border-radius:12px;padding:10px 12px;margin-top:8px}
+  .gv7 .gmid{flex:1}
+  /* v8 minimal */
+  .gv8 .goal{padding:11px 0}.gv8 .track.thin{height:3px}
+
+  /* ===== constant goals for note sections (linear bar, 2 goals) ===== */
+  .g2b .goal{display:flex;align-items:center;gap:11px;padding:9px 0}
+  .g2b .goal+.goal{border-top:1px solid #f0eef4}
+  .g2b .gmid{flex:1;min-width:0}
+
+  /* ===== N1 tinted banner variants ===== */
+  .nb{margin-top:14px;padding:9px 12px;border-radius:11px;font-size:12px;font-weight:600;line-height:1.4}
+  .nb .ni{margin-right:5px}.nb b{font-weight:800}
+  .nb1{background:#eef0fb;color:#4a44a6}
+  .nb2{background:#e7f6f0;color:#0f7a5a}
+  .nb3{background:#eef0fb;color:#4a44a6;display:flex;align-items:center;gap:10px}
+  .nb3 .chip{width:28px;height:28px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+  .nb4{background:#eef0fb;color:#4a44a6}.nb4 .lead{font-size:14px;font-weight:800;margin-right:4px}
+  .nb5{background:#eef0fb;color:#4a44a6;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .nb5 .vchip{background:rgba(255,255,255,.72);border-radius:8px;padding:3px 9px;font-weight:800;white-space:nowrap;color:#3a2f6e}
+  .nb6{background:linear-gradient(120deg,#eef0fb,#e7f6f0);color:#3a3448}
+  .nb7{background:#f4f5fc;border:1px solid #e0e0f2;color:#4a44a6}
+  .nb8{margin-top:14px;display:flex;border-radius:11px;overflow:hidden;font-size:12px;font-weight:600;line-height:1.4}
+  .nb8 .ic8{background:#dfe2f7;padding:0 13px;display:flex;align-items:center;font-size:15px}
+  .nb8 .tx8{background:#eef0fb;padding:9px 12px;color:#4a44a6;flex:1}.nb8 b{font-weight:800}
+
+  /* ===== N5 sparkline variants ===== */
+  .ns{margin-top:14px;display:flex;align-items:center;gap:11px;background:#f7f6fa;border-radius:11px;padding:10px 12px;font-size:12px;font-weight:600}
+  .ns .tx{flex:1;color:#3a3448}.ns b{font-weight:800}.ns svg{flex-shrink:0;display:block}
+  .ns.rev{flex-direction:row-reverse}
+  .ns.green{background:#e7f6f0}
+  .ns.bgspark{position:relative;overflow:hidden}
+  .ns .bg{position:absolute;right:0;bottom:0;width:62%;height:82%;opacity:.55}
+  .ns .badge{background:#e7f6f0;color:#0f7a5a;font-weight:800;border-radius:7px;padding:2px 7px;font-size:11px;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Tích lũy · đào sâu</h1>
+  <p>① Mục tiêu kiểu <b>thanh tiến độ</b> — 8 biến thể. ② Ghi chú <b>nền nhạt</b> — 8 biến thể. ③ Ghi chú <b>có biểu đồ nhỏ</b> — 8 biến thể.</p>
+</div>
+
+<!-- ============ ① PROGRESS-BAR GOAL VARIANTS ============ -->
+<div class="grouplab">① Mục tiêu · thanh tiến độ — 8 biến thể</div>
+<div class="gallery">
+
+  <!-- g1 -->
+  <div class="v"><div class="cap"><span class="n">1</span><span class="t">% trên · sổ dưới</span></div>
+    <div class="c"><div class="eyebrow">Tích lũy</div><div class="big">47.000.000 ₫</div>
+      <div class="goals gv gv1">
+        <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gmid"><div class="grow2"><div class="gn">Du lịch Đà Nẵng</div><div class="pc" style="color:#0f9d6c">67%</div></div><div class="track"><i style="width:67%;background:#14b8a6"></i></div><div class="sub subm">8/12tr</div></div></div>
+        <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gmid"><div class="grow2"><div class="gn">Phòng thân</div><div class="pc" style="color:#0f9d6c">100%</div></div><div class="track"><i style="width:100%;background:#0f9d6c"></i></div><div class="sub subm">15/15tr</div></div></div>
+        <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gmid"><div class="grow2"><div class="gn">Mua xe</div><div class="pc" style="color:#6d63e6">23%</div></div><div class="track"><i style="width:23%;background:#6d63e6"></i></div><div class="sub subm">9/40tr</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- g2 thick gradient -->
+  <div class="v"><div class="cap"><span class="n">2</span><span class="t">Thanh dày, gradient</span></div>
+    <div class="c"><div class="eyebrow">Tích lũy</div><div class="big">47.000.000 ₫</div>
+      <div class="goals gv gv2">
+        <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gmid"><div class="gn">Du lịch Đà Nẵng</div><div class="track"><i style="width:67%;background:linear-gradient(90deg,#5fd3a0,#12a892)"></i></div><div class="sub" style="margin-top:5px">8/12tr</div></div></div>
+        <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gmid"><div class="gn">Phòng thân</div><div class="track"><i style="width:100%;background:linear-gradient(90deg,#4fce94,#0f9d6c)"></i></div><div class="sub" style="margin-top:5px">đủ · 15tr</div></div></div>
+        <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gmid"><div class="gn">Mua xe</div><div class="track"><i style="width:23%;background:linear-gradient(90deg,#8b83f0,#6d63e6)"></i></div><div class="sub" style="margin-top:5px">9/40tr</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- g3 no emoji -->
+  <div class="v"><div class="cap"><span class="n">3</span><span class="t">Không biểu tượng</span></div>
+    <div class="c"><div class="eyebrow">Tích lũy</div><div class="big">47.000.000 ₫</div>
+      <div class="goals gv gv3">
+        <div class="goal"><div class="gmid"><div class="grow2"><div class="gn">Du lịch Đà Nẵng</div><div class="amt">8/12tr</div></div><div class="track"><i style="width:67%;background:#14b8a6"></i></div></div></div>
+        <div class="goal"><div class="gmid"><div class="grow2"><div class="gn">Phòng thân</div><div class="amt">đủ 15tr</div></div><div class="track"><i style="width:100%;background:#0f9d6c"></i></div></div></div>
+        <div class="goal"><div class="gmid"><div class="grow2"><div class="gn">Mua xe</div><div class="amt">9/40tr</div></div><div class="track"><i style="width:23%;background:#6d63e6"></i></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- g4 % chip -->
+  <div class="v"><div class="cap"><span class="n">4</span><span class="t">Chip % bên phải</span></div>
+    <div class="c"><div class="eyebrow">Tích lũy</div><div class="big">47.000.000 ₫</div>
+      <div class="goals gv">
+        <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gmid"><div class="gn">Du lịch Đà Nẵng</div><div class="track"><i style="width:67%;background:#14b8a6"></i></div></div><div class="pchip" style="background:#e7f6f0;color:#0f9d6c">67%</div></div>
+        <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gmid"><div class="gn">Phòng thân</div><div class="track"><i style="width:100%;background:#0f9d6c"></i></div></div><div class="pchip" style="background:#e7f6f0;color:#0f9d6c">✓</div></div>
+        <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gmid"><div class="gn">Mua xe</div><div class="track"><i style="width:23%;background:#6d63e6"></i></div></div><div class="pchip" style="background:#eeedfb;color:#6d63e6">23%</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- g5 saved right, bar below -->
+  <div class="v"><div class="cap"><span class="n">5</span><span class="t">Sổ phải · thanh dưới</span></div>
+    <div class="c"><div class="eyebrow">Tích lũy</div><div class="big">47.000.000 ₫</div>
+      <div class="goals gv">
+        <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gmid"><div class="grow2"><div class="gn">Du lịch Đà Nẵng</div><div class="sub">8/12tr</div></div><div class="track"><i style="width:67%;background:#14b8a6"></i></div></div></div>
+        <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gmid"><div class="grow2"><div class="gn">Phòng thân</div><div class="sub">15/15tr</div></div><div class="track"><i style="width:100%;background:#0f9d6c"></i></div></div></div>
+        <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gmid"><div class="grow2"><div class="gn">Mua xe</div><div class="sub">9/40tr</div></div><div class="track"><i style="width:23%;background:#6d63e6"></i></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- g6 milestone ticks -->
+  <div class="v"><div class="cap"><span class="n">6</span><span class="t">Vạch mốc trên thanh</span></div>
+    <div class="c"><div class="eyebrow">Tích lũy</div><div class="big">47.000.000 ₫</div>
+      <div class="goals gv">
+        <div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gmid"><div class="grow2"><div class="gn">Du lịch Đà Nẵng</div><div class="sub">8/12tr</div></div><div class="track tick"><i style="width:67%;background:#14b8a6"></i><span class="tk" style="left:25%"></span><span class="tk" style="left:50%"></span><span class="tk" style="left:75%"></span></div></div></div>
+        <div class="goal"><div class="gem" style="background:#e7f2f6">🛡️</div><div class="gmid"><div class="grow2"><div class="gn">Phòng thân</div><div class="sub">đủ</div></div><div class="track tick"><i style="width:100%;background:#0f9d6c"></i><span class="tk" style="left:25%"></span><span class="tk" style="left:50%"></span><span class="tk" style="left:75%"></span></div></div></div>
+        <div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gmid"><div class="grow2"><div class="gn">Mua xe</div><div class="sub">9/40tr</div></div><div class="track tick"><i style="width:23%;background:#6d63e6"></i><span class="tk" style="left:25%"></span><span class="tk" style="left:50%"></span><span class="tk" style="left:75%"></span></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- g7 cells -->
+  <div class="v"><div class="cap"><span class="n">7</span><span class="t">Mỗi mục một ô nền</span></div>
+    <div class="c"><div class="eyebrow">Tích lũy</div><div class="big">47.000.000 ₫</div>
+      <div class="goals gv7">
+        <div class="gcell"><div class="gem" style="background:#fff">✈️</div><div class="gmid"><div class="grow2"><div class="gn">Du lịch Đà Nẵng</div><div class="sub" style="color:#0f9d6c">67%</div></div><div class="track" style="background:#e7e6ec"><i style="width:67%;background:#14b8a6"></i></div></div></div>
+        <div class="gcell"><div class="gem" style="background:#fff">🛡️</div><div class="gmid"><div class="grow2"><div class="gn">Phòng thân</div><div class="sub" style="color:#0f9d6c">100%</div></div><div class="track" style="background:#e7e6ec"><i style="width:100%;background:#0f9d6c"></i></div></div></div>
+        <div class="gcell"><div class="gem" style="background:#fff">🚗</div><div class="gmid"><div class="grow2"><div class="gn">Mua xe</div><div class="sub" style="color:#6d63e6">23%</div></div><div class="track" style="background:#e7e6ec"><i style="width:23%;background:#6d63e6"></i></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- g8 minimal thin -->
+  <div class="v"><div class="cap"><span class="n">8</span><span class="t">Tối giản, thanh mảnh</span></div>
+    <div class="c"><div class="eyebrow">Tích lũy</div><div class="big">47.000.000 ₫</div>
+      <div class="goals gv gv8">
+        <div class="goal"><div class="gmid"><div class="grow2"><div class="gn">Du lịch Đà Nẵng</div><div class="sub">8/12tr</div></div><div class="track thin"><i style="width:67%;background:#14b8a6"></i></div></div></div>
+        <div class="goal"><div class="gmid"><div class="grow2"><div class="gn">Phòng thân</div><div class="sub">đủ · 15tr</div></div><div class="track thin"><i style="width:100%;background:#0f9d6c"></i></div></div></div>
+        <div class="goal"><div class="gmid"><div class="grow2"><div class="gn">Mua xe</div><div class="sub">9/40tr</div></div><div class="track thin"><i style="width:23%;background:#6d63e6"></i></div></div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ ② TINTED BANNER NOTE VARIANTS ============ -->
+<div class="grouplab">② Ghi chú · nền nhạt — 8 biến thể</div>
+<div class="gallery" id="n1sec"></div>
+
+<!-- ============ ③ SPARKLINE NOTE VARIANTS ============ -->
+<div class="grouplab">③ Ghi chú · có biểu đồ nhỏ — 8 biến thể</div>
+<div class="gallery" id="n5sec"></div>
+
+<script>
+  var GOALS = '<div class="goals g2b">'
+   + '<div class="goal"><div class="gem" style="background:#e7f6f0">✈️</div><div class="gmid"><div class="grow2"><div class="gn">Du lịch Đà Nẵng</div><div class="sub">8/12tr</div></div><div class="track"><i style="width:67%;background:#14b8a6"></i></div></div></div>'
+   + '<div class="goal"><div class="gem" style="background:#eeedfb">🚗</div><div class="gmid"><div class="grow2"><div class="gn">Mua xe</div><div class="sub">9/40tr</div></div><div class="track"><i style="width:23%;background:#6d63e6"></i></div></div></div>'
+   + '</div>';
+  function card(capn, capt, note){
+    return '<div class="v"><div class="cap"><span class="n">'+capn+'</span><span class="t">'+capt+'</span></div>'
+      + '<div class="c"><div class="eyebrow">Tích lũy</div><div class="big">47.000.000 ₫</div>'+GOALS+note+'</div></div>';
+  }
+  var SPK='<svg width="52" height="26" viewBox="0 0 52 26"><polyline points="2,22 12,18 22,19 32,12 42,9 50,4" fill="none" stroke="#14b8a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="50" cy="4" r="2.6" fill="#14b8a6"/></svg>';
+  var BARSPK='<svg width="54" height="26" viewBox="0 0 54 26"><g fill="#14b8a6"><rect x="2" y="16" width="6" height="10" rx="1.5"/><rect x="12" y="12" width="6" height="14" rx="1.5"/><rect x="22" y="14" width="6" height="12" rx="1.5"/><rect x="32" y="8" width="6" height="18" rx="1.5"/><rect x="42" y="4" width="6" height="22" rx="1.5"/></g></svg>';
+  var AREASPK='<svg width="56" height="26" viewBox="0 0 56 26"><defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14b8a6" stop-opacity=".35"/><stop offset="1" stop-color="#14b8a6" stop-opacity="0"/></linearGradient></defs><path d="M2 21 L14 17 L26 18 L38 10 L54 5 L54 26 L2 26 Z" fill="url(#ag)"/><path d="M2 21 L14 17 L26 18 L38 10 L54 5" fill="none" stroke="#14b8a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var BIGAREA='<svg class="bg" viewBox="0 0 120 40" preserveAspectRatio="none"><defs><linearGradient id="bg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14b8a6" stop-opacity=".3"/><stop offset="1" stop-color="#14b8a6" stop-opacity="0"/></linearGradient></defs><path d="M0 30 C20 26 34 34 54 22 S96 10 120 14 L120 40 L0 40 Z" fill="url(#bg1)"/><path d="M0 30 C20 26 34 34 54 22 S96 10 120 14" fill="none" stroke="#14b8a6" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>';
+  var TXT='<div class="tx">Tháng này để dành thêm <b>2.000.000 ₫</b></div>';
+
+  var n1 = [
+    ['1','Nền tím (mặc định)','<div class="nb nb1"><span class="ni">📈</span>Tháng này để dành thêm <b>2.000.000 ₫</b></div>'],
+    ['2','Nền xanh (tích cực)','<div class="nb nb2"><span class="ni">✅</span>Tháng này để dành thêm <b>2.000.000 ₫</b></div>'],
+    ['3','Chip biểu tượng tròn','<div class="nb nb3"><div class="chip">📈</div><div>Tháng này để dành thêm <b>2.000.000 ₫</b></div></div>'],
+    ['4','Số tiền dẫn đầu','<div class="nb nb4"><b class="lead">+2.000.000 ₫</b> để dành thêm trong tháng này</div>'],
+    ['5','Số tiền chip phải','<div class="nb nb5"><span>Để dành thêm trong tháng này</span><b class="vchip">+2.000.000 ₫</b></div>'],
+    ['6','Gradient nhạt','<div class="nb nb6"><span class="ni">📈</span>Tháng này để dành thêm <b>2.000.000 ₫</b></div>'],
+    ['7','Nền + viền','<div class="nb nb7"><span class="ni">📈</span>Tháng này để dành thêm <b>2.000.000 ₫</b></div>'],
+    ['8','Chia ô icon | chữ','<div class="nb8"><div class="ic8">📈</div><div class="tx8">Tháng này để dành thêm <b>2.000.000 ₫</b></div></div>']
+  ];
+  var n5 = [
+    ['1','Đường + chấm cuối (mặc định)','<div class="ns">'+TXT+SPK+'</div>'],
+    ['2','Biểu đồ cột nhỏ','<div class="ns">'+TXT+BARSPK+'</div>'],
+    ['3','Vùng tô gradient','<div class="ns">'+TXT+AREASPK+'</div>'],
+    ['4','Kèm huy hiệu %','<div class="ns">'+TXT+'<span class="badge">↑ 12%</span>'+SPK+'</div>'],
+    ['5','Biểu đồ nền mờ','<div class="ns bgspark">'+BIGAREA+TXT+'</div>'],
+    ['6','Biểu đồ bên trái','<div class="ns rev">'+TXT+SPK+'</div>'],
+    ['7','Nền xanh nhạt','<div class="ns green">'+TXT+SPK+'</div>'],
+    ['8','Chấm + nhãn giá trị','<div class="ns">'+TXT+'<svg width="60" height="26" viewBox="0 0 60 26"><polyline points="2,22 13,18 24,19 35,12 46,9 52,5" fill="none" stroke="#14b8a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="52" cy="5" r="3" fill="#14b8a6"/><rect x="44" y="-1" width="16" height="9" rx="3" fill="#e7f6f0"/><text x="52" y="6" font-size="6.5" font-weight="800" fill="#0f7a5a" text-anchor="middle">+2tr</text></svg></div>']
+  ];
+  document.getElementById('n1sec').innerHTML = n1.map(function(x){return card(x[0],x[1],x[2])}).join('');
+  document.getElementById('n5sec').innerHTML = n5.map(function(x){return card(x[0],x[1],x[2])}).join('');
+</script>
+</body>
+</html>
