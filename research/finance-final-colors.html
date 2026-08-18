@@ -37,7 +37,7 @@
   .io2{display:flex;gap:7px;margin-top:12px}
   .iotile{flex:1;background:#f7f6fa;border-radius:11px;padding:9px 11px}
   .iolab{font-size:10px;font-weight:600;color:#8a8694}
-  .ioval{font-size:14px;font-weight:800;letter-spacing:-.3px;margin-top:2px;color:#111117}.ioval.up{color:var(--pos)}
+  .ioval{font-size:14px;font-weight:800;letter-spacing:-.3px;margin-top:2px;color:#111117}.ioval.up{color:var(--pos)}.ioval.dn{color:var(--over)}
   .note{font-size:11px;font-weight:600;line-height:1.4;padding:8px 11px;border-radius:10px;margin-top:12px;background:var(--note1bg);color:var(--note1fg)}
   .note .ni{margin-right:5px}.note b{font-weight:800;white-space:nowrap}
   .note-spark{margin-top:12px;display:flex;align-items:center;gap:10px;background:#f7f6fa;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600}
@@ -105,7 +105,7 @@
   var SPARK='<div class="note-spark"><div class="tx">Tháng này để dành thêm <b>2.000.000 ₫</b></div><svg width="48" height="24" viewBox="0 0 48 24"><polyline class="sl" points="2,20 11,16 20,17 29,11 38,8 46,4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle class="sd" cx="46" cy="4" r="2.4"/></svg></div>';
   function screen(p,label){
     var conlai='<div class="c"><div class="eyebrow">Còn lại tháng này</div><div class="big grad" style="font-size:30px;margin-top:5px">6.150.000 ₫</div>'
-      +'<div class="io2"><div class="iotile"><div class="iolab">↑ Vào</div><div class="ioval up num">22.000.000</div></div><div class="iotile"><div class="iolab">↓ Ra</div><div class="ioval num">15.850.000</div></div></div>'
+      +'<div class="io2"><div class="iotile"><div class="iolab">↑ Vào</div><div class="ioval up num">22.000.000</div></div><div class="iotile"><div class="iolab">↓ Ra</div><div class="ioval num dn">15.850.000</div></div></div>'
       +chart()+'<div class="note"><span class="ni">▼</span>Giảm <b>180.000 ₫</b> so với cùng kỳ tuần trước</div></div>';
     var tichluy='<div class="c"><div class="eyebrow">Tích lũy</div><div class="big" style="font-size:23px;margin-top:5px">47.000.000 ₫</div>'+goals()+SPARK+'</div>';
     return '<div class="col-f"><div class="flab">'+label+'</div><div class="frame '+p+'">'+STAT+'<div class="b-h"><h2>Tài chính</h2><span class="pill">Tháng 8 ▾</span></div><div class="scr">'+conlai+tichluy+'</div>'+TAB+'</div></div>';
