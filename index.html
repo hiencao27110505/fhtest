@@ -1178,8 +1178,9 @@ input{font-family:inherit}
 .cc-row:active{background:var(--surface)}
 .cc-ic{width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center}
 .cc-ic svg{width:17px;height:17px}
-.cc-t{min-width:0}
-.cc-chev{width:18px;height:18px;margin-left:auto;flex-shrink:0;color:var(--chev)}
+.cc-t{flex:1;min-width:0}
+.cc-badge{flex:0 0 auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--brand);color:#fff;font-size:11px;font-weight:800;line-height:20px;text-align:center;font-variant-numeric:tabular-nums}
+.cc-chev{width:18px;height:18px;flex-shrink:0;color:var(--chev)}
 /* ── Widget B — Tích lũy header: the savings pot total + this-month momentum spark ── */
 /* Tích lũy header (finance-final): eyebrow + add on one row, big pot total below */
 .til-head{padding:14px 16px 12px}
@@ -1605,7 +1606,7 @@ input{font-family:inherit}
 /* B · the wall (finance) + home strip — one card per reacted transaction, .woffer-style */
 .rx-count{font-size:11px;font-weight:700;color:var(--white);background:var(--brand);border-radius:9999px;
   padding:1px 7px;letter-spacing:.02em;vertical-align:middle;margin-left:2px}
-#rx-wall{display:flex;flex-direction:column;gap:10px;margin:0 16px 14px}
+#rx-wall{margin:0}   /* holds the .rx-home rail, which bleeds edge-to-edge like the home strip */
 /* the home "Phòng khách" is a horizontal RAIL, not a stacked list */
 .rx-home{display:flex;gap:11px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;
   margin:0 0 14px;padding:2px 0 6px;scroll-padding-left:16px}
@@ -1651,10 +1652,6 @@ input{font-family:inherit}
 .rxh-note{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rxh-amt{flex:0 0 auto;white-space:pre}
 .rx-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);overflow:hidden}
-/* collapse: show a few, expand/collapse the rest */
-.rx-more{align-self:stretch;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:0;color:var(--brand-ink);font:inherit;font-size:13px;font-weight:600;padding:8px;cursor:pointer}
-.rx-more svg{width:16px;height:16px;transition:transform .22s cubic-bezier(.32,.72,0,1)}
-.rx-more.open svg{transform:rotate(180deg)}
 .rx-card-main{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;background:none;border:0;text-align:left;cursor:pointer;font:inherit}
 .rx-card-main:active{background:var(--surface)}
 .rx-ico{width:42px;height:42px;border-radius:12px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:23px;line-height:1;flex:0 0 auto}
@@ -3030,6 +3027,8 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="cf-cta">
       <button class="cc-row" onclick="openSheet('sheet-budget')"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></span><span class="cc-t" data-t="setupBudget">Set up budget</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
       <button class="cc-row" onclick="openTxns()"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span><span class="cc-t" data-t="viewExpenses">View expenses</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+      <!-- staged bank-email transactions to review — shown only when the queue is non-empty (renderCashflowEmailCta) -->
+      <div id="cf-email-cta"></div>
     </div>
   </div>
 
@@ -3044,11 +3043,8 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   </div>
   <div id="goals-empty"></div>
 
-  <!-- CHI TIÊU THEO DANH MỤC — category breakdown only (ring + daily chart removed; renderFinanceHero) -->
-  <div class="fin-cats-card">
-    <div class="fin-cats-h"><span id="fh-cats-lbl"></span><a id="fh-cats-edit" onclick="openSheet('sheet-budget')"></a></div>
-    <div class="fin-legend" id="fh-legend"></div>
-  </div>
+  <!-- CHI TIÊU THEO DANH MỤC now lives inside the expense listing screen (#txn-overlay) -->
+
 
   <!-- MONEY THIS MONTH — in/out folded into Widget A's tiles; the pool total lives in Widget B (Tích lũy) -->
 
@@ -3063,7 +3059,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 
   <!-- PHÒNG KHÁCH — collaborative reactions feed (shown only when there are reactions) -->
   <div id="rx-wall-sec" style="display:none">
-    <div class="section-h"><span class="t"><span data-t="rxRoom">The living room</span> <span class="rx-count" id="rx-wall-count"></span></span></div>
+    <div class="section-h"><span class="t"><span data-t="rxRoom">Family activity</span> <span class="rx-count" id="rx-wall-count"></span></span></div>
     <div id="rx-wall"></div>
   </div>
 
@@ -3253,6 +3249,11 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   </div>
   <div class="cd-scroll" id="txn-scroll">
     <div class="txn-sum" id="txn-sum"></div>
+    <!-- CHI TIÊU THEO DANH MỤC — month's category breakdown, overview above the itemised list (renderFinanceHero) -->
+    <div class="fin-cats-card">
+      <div class="fin-cats-h"><span id="fh-cats-lbl"></span><a id="fh-cats-edit" onclick="openSheet('sheet-budget')"></a></div>
+      <div class="fin-legend" id="fh-legend"></div>
+    </div>
     <div id="txn-list"></div>
     <div class="spacer"></div>
   </div>
@@ -4373,7 +4374,23 @@ function renderCashflow(){
   }
   var cfn=document.getElementById('cf-note');
   if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
+  renderCashflowEmailCta();
 }
+/* Widget A's third CTA — "Khoản thu chi từ email": staged bank-email transactions waiting
+   to be reviewed. Shown only when the queue is non-empty, with a count badge; opens the
+   review sheet. window.fhStagedCount is refreshed on hydrate + after a promote (72-txn-review). */
+function renderCashflowEmailCta(){
+  var slot=document.getElementById('cf-email-cta'); if(!slot) return;
+  var n=window.fhStagedCount||0;
+  if(n<=0){ if(slot.innerHTML!=='') slot.innerHTML=''; return; }
+  var html='<button class="cc-row" onclick="fhTxnReviewSheet()">'
+    +'<span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg></span>'
+    +'<span class="cc-t">'+L('Khoản thu chi từ email','Income & expenses from email')+'</span>'
+    +'<span class="cc-badge num">'+n+'</span>'
+    +'<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>';
+  if(slot.innerHTML!==html) slot.innerHTML=html;
+}
+window.renderCashflowEmailCta=renderCashflowEmailCta;
 /* Category breakdown — "Chi tiêu theo danh mục": each category's spend against its budget,
    as an Apple inset list. The allocation ring + daily chart were removed; this is the whole
    card now. Tap a row to drill into the category. Uses renderBudget's numbers. */
@@ -10657,6 +10674,7 @@ function openTxns(){
   var q=document.getElementById('txn-q'); if(q)q.value='';
   setTxt('txn-sort-lab',L('Mới nhất','Newest')); var _cl=document.getElementById('txn-clear'); if(_cl)_cl.style.display='none';
   buildTxnChips(); renderTxnScreen();
+  if(typeof renderFinanceHero==='function') renderFinanceHero();   // month's category breakdown at the top
   document.getElementById('txn-overlay').classList.add('on');
   var sc=document.getElementById('txn-scroll'); if(sc)sc.scrollTop=0;
 }
@@ -11217,23 +11235,14 @@ function rxCard(it, compact){
       +chev
     +'</button>'+back+'</div>';
 }
-var rxWallOpen=false;   // the wall shows a few by default; this remembers expand/collapse
-function toggleRxWall(){ rxWallOpen=!rxWallOpen; renderRxWall(); }
 function renderRxWall(){
   var sec=document.getElementById('rx-wall-sec'), box=document.getElementById('rx-wall'); if(!box) return;
   var items=_rxWallItems();
   if(!items.length){ if(sec) sec.style.display='none'; box.innerHTML=''; return; }
   if(sec) sec.style.display='';
   var cnt=document.getElementById('rx-wall-count'); if(cnt) cnt.textContent=String(items.length);
-  var SHOWN=3, more=items.length-SHOWN;
-  var vis=rxWallOpen?items:items.slice(0,SHOWN);
-  var html=vis.map(function(it){ return rxCard(it,false); }).join('');
-  if(more>0){
-    var chev='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
-    html+='<button class="rx-more'+(rxWallOpen?' open':'')+'" onclick="toggleRxWall()">'
-      +(rxWallOpen?L('Thu gọn','Show less'):L('Xem thêm '+more,'Show '+more+' more'))+chev+'</button>';
-  }
-  box.innerHTML=html;
+  // Home-style "emoji rain" posters in a horizontal rail — the reacted-to photo IS the card.
+  box.innerHTML='<div class="rx-home">'+items.slice(0,8).map(rxHomeCard).join('')+'</div>';
 }
 window.renderRxWall=renderRxWall;
 /* the home strip is a horizontal RAIL of "emoji rain" posters — a living moment,
@@ -11274,7 +11283,7 @@ function rxHomeCard(it){
 }
 function rxHomeStripHTML(){
   var items=_rxWallItems(); if(!items.length) return '';
-  var head=(typeof _sectionH==='function')?_sectionH(L('Phòng khách','The living room'),'go(&#39;spending&#39;)'):'';
+  var head=(typeof _sectionH==='function')?_sectionH(L('Hoạt động gia đình','Family activity'),'go(&#39;spending&#39;)'):'';
   return head+'<div class="rx-home">'+items.slice(0,8).map(rxHomeCard).join('')+'</div>';
 }
 window.rxHomeStripHTML=rxHomeStripHTML;
@@ -12095,7 +12104,7 @@ var EN_DEFAULT={
   /* home feed */
   comingUp:'Coming up', recent:'Recent', memories:'Memories', seeAll:'See all',
   savedLbl:'Saved', spentLbl:'Spent', poolLbl:'Pool', latestPhotos:'Latest photos',
-  txRecent:'Recent transactions', savingsGoals:'Savings goals', addGoal:'＋ Goal', rxRoom:'The living room',
+  txRecent:'Recent transactions', savingsGoals:'Savings goals', addGoal:'＋ Goal', rxRoom:'Family activity',
   trend6:'6-month trend', vsBudget:'vs budget', trendLegend:"Dashed line = that month's budget",
   /* finance view */
   finHead:'Finance', finSub:"The family's spending, income and savings.", incomeLbl:'In', outLbl:'Out',
@@ -12198,7 +12207,7 @@ var I18N={
     /* home feed */
     comingUp:'Sắp tới', recent:'Gần đây', memories:'Kỷ niệm', seeAll:'Xem tất cả',
     savedLbl:'Đã để dành', spentLbl:'Đã chi', poolLbl:'Quỹ', latestPhotos:'Ảnh mới nhất',
-    txRecent:'Giao dịch gần đây', savingsGoals:'Mục tiêu tiết kiệm', addGoal:'＋ Mục tiêu', rxRoom:'Phòng khách',
+    txRecent:'Giao dịch gần đây', savingsGoals:'Mục tiêu tiết kiệm', addGoal:'＋ Mục tiêu', rxRoom:'Hoạt động gia đình',
     trend6:'Xu hướng 6 tháng', vsBudget:'so với ngân sách', trendLegend:'Đường nét đứt là ngân sách của tháng đó',
     /* finance view */
     finHead:'Tài chính', finSub:'Chi tiêu, thu nhập và tiết kiệm của cả nhà.', incomeLbl:'Thu', outLbl:'Chi',
@@ -12833,7 +12842,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v352';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v354';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -14766,6 +14775,7 @@ sb.auth.onAuthStateChange((event, session) => {
       updateHeroFam();
       _subscribeRealtime(fid);
       fhFresh();                                        // fresh data is on screen — drop the "Updating…" chip
+      try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}   // email-txn badge (off critical path)
       // emotional weather: one current mood per member (shared, realtime).
       // Fetched after first paint (it's tiny + off the critical path), then the
       // home sky repaints — this is what makes a mood set on one phone appear on
@@ -20052,6 +20062,16 @@ window.classifyAmount = classifyAmount;
     return rows.filter(function (r) { return retired.indexOf(r.id) === -1; });
   }
 
+  /* Badge count for the "Khoản thu chi từ email" CTA in Widget A. A cheap pending-rows
+     query — 0058's RLS returns [] for anyone without a mailbox, so it is safe to call for
+     every user. Cached on window and pushed to the CTA renderer. */
+  window.fhStagedCount = 0;
+  window.fhRefreshStagedCount = async function () {
+    try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (rows || []).length; }
+    catch (e) { window.fhStagedCount = 0; }
+    try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
+  };
+
   /* One row -> the fields the review screen needs.
 
      Handles BOTH shapes on purpose. Rows staged before sealing was switched on
@@ -20337,6 +20357,7 @@ window.classifyAmount = classifyAmount;
        the cleanup rather than inside the success branch: the ledger write landed
        either way, so the moment is earned either way. */
     _mbxPushOfferOnce();
+    try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}   // queue shrank — update the badge
   };
 
   // ═══ bank-email onboarding: show the entries only to people who can use them ═══

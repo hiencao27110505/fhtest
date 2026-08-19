@@ -115,7 +115,23 @@ function renderCashflow(){
   }
   var cfn=document.getElementById('cf-note');
   if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
+  renderCashflowEmailCta();
 }
+/* Widget A's third CTA — "Khoản thu chi từ email": staged bank-email transactions waiting
+   to be reviewed. Shown only when the queue is non-empty, with a count badge; opens the
+   review sheet. window.fhStagedCount is refreshed on hydrate + after a promote (72-txn-review). */
+function renderCashflowEmailCta(){
+  var slot=document.getElementById('cf-email-cta'); if(!slot) return;
+  var n=window.fhStagedCount||0;
+  if(n<=0){ if(slot.innerHTML!=='') slot.innerHTML=''; return; }
+  var html='<button class="cc-row" onclick="fhTxnReviewSheet()">'
+    +'<span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg></span>'
+    +'<span class="cc-t">'+L('Khoản thu chi từ email','Income & expenses from email')+'</span>'
+    +'<span class="cc-badge num">'+n+'</span>'
+    +'<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>';
+  if(slot.innerHTML!==html) slot.innerHTML=html;
+}
+window.renderCashflowEmailCta=renderCashflowEmailCta;
 /* Category breakdown — "Chi tiêu theo danh mục": each category's spend against its budget,
    as an Apple inset list. The allocation ring + daily chart were removed; this is the whole
    card now. Tap a row to drill into the category. Uses renderBudget's numbers. */

@@ -92,6 +92,16 @@
     return rows.filter(function (r) { return retired.indexOf(r.id) === -1; });
   }
 
+  /* Badge count for the "Khoản thu chi từ email" CTA in Widget A. A cheap pending-rows
+     query — 0058's RLS returns [] for anyone without a mailbox, so it is safe to call for
+     every user. Cached on window and pushed to the CTA renderer. */
+  window.fhStagedCount = 0;
+  window.fhRefreshStagedCount = async function () {
+    try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (rows || []).length; }
+    catch (e) { window.fhStagedCount = 0; }
+    try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
+  };
+
   /* One row -> the fields the review screen needs.
 
      Handles BOTH shapes on purpose. Rows staged before sealing was switched on
@@ -377,4 +387,5 @@
        the cleanup rather than inside the success branch: the ledger write landed
        either way, so the moment is earned either way. */
     _mbxPushOfferOnce();
+    try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}   // queue shrank — update the badge
   };

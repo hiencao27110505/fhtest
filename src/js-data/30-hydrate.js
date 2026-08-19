@@ -384,6 +384,7 @@
       updateHeroFam();
       _subscribeRealtime(fid);
       fhFresh();                                        // fresh data is on screen — drop the "Updating…" chip
+      try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}   // email-txn badge (off critical path)
       // emotional weather: one current mood per member (shared, realtime).
       // Fetched after first paint (it's tiny + off the critical path), then the
       // home sky repaints — this is what makes a mood set on one phone appear on

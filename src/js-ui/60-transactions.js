@@ -105,6 +105,7 @@ function openTxns(){
   var q=document.getElementById('txn-q'); if(q)q.value='';
   setTxt('txn-sort-lab',L('Mới nhất','Newest')); var _cl=document.getElementById('txn-clear'); if(_cl)_cl.style.display='none';
   buildTxnChips(); renderTxnScreen();
+  if(typeof renderFinanceHero==='function') renderFinanceHero();   // month's category breakdown at the top
   document.getElementById('txn-overlay').classList.add('on');
   var sc=document.getElementById('txn-scroll'); if(sc)sc.scrollTop=0;
 }

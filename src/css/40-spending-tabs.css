@@ -47,8 +47,9 @@
 .cc-row:active{background:var(--surface)}
 .cc-ic{width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center}
 .cc-ic svg{width:17px;height:17px}
-.cc-t{min-width:0}
-.cc-chev{width:18px;height:18px;margin-left:auto;flex-shrink:0;color:var(--chev)}
+.cc-t{flex:1;min-width:0}
+.cc-badge{flex:0 0 auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--brand);color:#fff;font-size:11px;font-weight:800;line-height:20px;text-align:center;font-variant-numeric:tabular-nums}
+.cc-chev{width:18px;height:18px;flex-shrink:0;color:var(--chev)}
 /* ── Widget B — Tích lũy header: the savings pot total + this-month momentum spark ── */
 /* Tích lũy header (finance-final): eyebrow + add on one row, big pot total below */
 .til-head{padding:14px 16px 12px}

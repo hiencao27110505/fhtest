@@ -36,7 +36,7 @@
 /* B · the wall (finance) + home strip — one card per reacted transaction, .woffer-style */
 .rx-count{font-size:11px;font-weight:700;color:var(--white);background:var(--brand);border-radius:9999px;
   padding:1px 7px;letter-spacing:.02em;vertical-align:middle;margin-left:2px}
-#rx-wall{display:flex;flex-direction:column;gap:10px;margin:0 16px 14px}
+#rx-wall{margin:0}   /* holds the .rx-home rail, which bleeds edge-to-edge like the home strip */
 /* the home "Phòng khách" is a horizontal RAIL, not a stacked list */
 .rx-home{display:flex;gap:11px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;
   margin:0 0 14px;padding:2px 0 6px;scroll-padding-left:16px}
@@ -82,10 +82,6 @@
 .rxh-note{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rxh-amt{flex:0 0 auto;white-space:pre}
 .rx-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow-card);overflow:hidden}
-/* collapse: show a few, expand/collapse the rest */
-.rx-more{align-self:stretch;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:0;color:var(--brand-ink);font:inherit;font-size:13px;font-weight:600;padding:8px;cursor:pointer}
-.rx-more svg{width:16px;height:16px;transition:transform .22s cubic-bezier(.32,.72,0,1)}
-.rx-more.open svg{transform:rotate(180deg)}
 .rx-card-main{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;background:none;border:0;text-align:left;cursor:pointer;font:inherit}
 .rx-card-main:active{background:var(--surface)}
 .rx-ico{width:42px;height:42px;border-radius:12px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:23px;line-height:1;flex:0 0 auto}

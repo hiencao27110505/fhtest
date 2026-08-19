@@ -133,6 +133,8 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <div class="cf-cta">
       <button class="cc-row" onclick="openSheet('sheet-budget')"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></span><span class="cc-t" data-t="setupBudget">Set up budget</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
       <button class="cc-row" onclick="openTxns()"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span><span class="cc-t" data-t="viewExpenses">View expenses</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+      <!-- staged bank-email transactions to review — shown only when the queue is non-empty (renderCashflowEmailCta) -->
+      <div id="cf-email-cta"></div>
     </div>
   </div>
 
@@ -147,11 +149,8 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </div>
   <div id="goals-empty"></div>
 
-  <!-- CHI TIÊU THEO DANH MỤC — category breakdown only (ring + daily chart removed; renderFinanceHero) -->
-  <div class="fin-cats-card">
-    <div class="fin-cats-h"><span id="fh-cats-lbl"></span><a id="fh-cats-edit" onclick="openSheet('sheet-budget')"></a></div>
-    <div class="fin-legend" id="fh-legend"></div>
-  </div>
+  <!-- CHI TIÊU THEO DANH MỤC now lives inside the expense listing screen (#txn-overlay) -->
+
 
   <!-- MONEY THIS MONTH — in/out folded into Widget A's tiles; the pool total lives in Widget B (Tích lũy) -->
 
@@ -166,7 +165,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 
   <!-- PHÒNG KHÁCH — collaborative reactions feed (shown only when there are reactions) -->
   <div id="rx-wall-sec" style="display:none">
-    <div class="section-h"><span class="t"><span data-t="rxRoom">The living room</span> <span class="rx-count" id="rx-wall-count"></span></span></div>
+    <div class="section-h"><span class="t"><span data-t="rxRoom">Family activity</span> <span class="rx-count" id="rx-wall-count"></span></span></div>
     <div id="rx-wall"></div>
   </div>
 
@@ -356,6 +355,11 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </div>
   <div class="cd-scroll" id="txn-scroll">
     <div class="txn-sum" id="txn-sum"></div>
+    <!-- CHI TIÊU THEO DANH MỤC — month's category breakdown, overview above the itemised list (renderFinanceHero) -->
+    <div class="fin-cats-card">
+      <div class="fin-cats-h"><span id="fh-cats-lbl"></span><a id="fh-cats-edit" onclick="openSheet('sheet-budget')"></a></div>
+      <div class="fin-legend" id="fh-legend"></div>
+    </div>
     <div id="txn-list"></div>
     <div class="spacer"></div>
   </div>
