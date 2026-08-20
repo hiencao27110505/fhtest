@@ -62,6 +62,3 @@
 .rv-rev-n{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
 .rv-rev-l{font-size:12.5px;color:var(--muted)}
 .rv-empty{font-size:13.5px;color:var(--muted);text-align:center;padding:14px 6px;line-height:1.5}
-
-/* a future expense still in review carries an amber tag in the ledger's future list */
-.res-tag.pend{color:var(--amber)}

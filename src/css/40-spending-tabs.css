@@ -127,11 +127,13 @@
 .res-stripe{background-image:repeating-linear-gradient(45deg,var(--brand) 0 4px,var(--brand-2) 4px 8px)}
 #bres{position:absolute;top:0;bottom:0;border-radius:6px}
 .cpace.setaside{background:var(--brand-tint);color:var(--brand-ink)}
-.row.res .r-ico{background:var(--brand-tint);color:var(--brand-ink);font-size:18px}
-.row.res .r-t{display:flex;align-items:center;gap:8px;min-width:0}
-.row.res .r-amt{color:var(--brand-ink)}
-.res-tag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--brand-ink);background:var(--brand-tint);border-radius:5px;padding:1px 5px;margin-right:7px;vertical-align:1px}
-.res-tag.now{color:var(--good);background:var(--good-tint)}
+/* future rows (in-card): brand amount = "chưa chi", due date under it,
+   status word in the subline wears the state color */
+.r-ico.res-ico{background:var(--brand-tint);font-size:18px}
+.r-amt.plan{color:var(--brand-ink)}
+.r-cat.due{color:var(--brand-ink);opacity:.75}
+.r-s .st-wait{color:var(--amber);font-weight:600}
+.r-s .st-ok{color:var(--good);font-weight:600}
 /* spending — insight-led scroll */
 .sp-hero{padding:10px 20px 2px}
 .sp-hero-lab{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:-.01em}
@@ -203,17 +205,6 @@
 .r-right{flex-shrink:0;text-align:right}
 .r-cat{font-size:12px;color:var(--muted);letter-spacing:-.01em;margin-top:1px;white-space:nowrap}
 .r-ico.ph{background-size:cover;background-position:center}
-
-/* upcoming shelf — dashed = money reserved, not moved (solid card = spent) */
-#up-shelf{margin:0 16px 14px;border:1.5px dashed var(--brand-glow);border-radius:18px;padding:2px 0 7px}
-.us-h{display:flex;gap:6px;align-items:baseline;padding:11px 16px 4px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand-ink)}
-.us-h .us-tot{letter-spacing:.01em}
-.us-row{display:flex;align-items:center;gap:12px;padding:7px 16px;cursor:pointer}
-.us-row:active{background:var(--surface)}
-.us-emoji{width:26px;text-align:center;font-size:19px;flex-shrink:0}
-.us-ph{width:26px;height:26px;border-radius:8px;background-size:cover;background-position:center;flex-shrink:0}
-.us-t{flex:1;min-width:0;font-size:14.5px;font-weight:500;letter-spacing:-.015em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.us-amt{font-family:var(--disp);font-size:14px;font-weight:600;color:var(--brand-ink);white-space:nowrap}
 
 /* avatars */
 .av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:700;color:#fff;flex-shrink:0}

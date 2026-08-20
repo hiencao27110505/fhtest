@@ -52,71 +52,53 @@ function txMatch(t){
   if(v==='shared'||v==='both')return w==='shared'||w==='both';
   return w===v;
 }
+/* ---- future rows: in-card, same anatomy as history (U6.1 / F8 / G1+G7) ----
+   One timeline: future rows sit above today's inside the same card. The tense
+   mark is the brand-colored amount; the due date sits under it where history
+   rows show their category. The subline says who proposed the plan and where
+   the review stands — the status word alone wears the state color (amber
+   waiting, green settled). */
+// Binary status, said with a wink: "sếp" is the reviewing family member —
+// the vợ/chồng-là-sếp joke everyone already makes.
+function _futSub(creatorId, pending){
+  var st = pending ? '<span class="st-wait">'+L('chờ sếp duyệt','awaiting the boss')+'</span>'
+                   : '<span class="st-ok">'+L('sếp duyệt rồi','boss said yes')+'</span>';
+  var nm = (creatorId && typeof _reqName==='function') ? _reqName(creatorId) : '';
+  return nm ? (esc(nm)+' '+L('đề xuất','proposed')+' · '+st) : st;
+}
+function _futDue(d){ return (d && sameDay(d,TODAY)) ? L('Hôm nay','Today') : (d ? fmtDayMon(d) : curMoName()); }
 // Unrealized "set aside" row — money reserved from this month's budget toward an event.
 function resRow(k){   // an event funded from this month → an "Events" future item
-  var e=events[k], today=sameDay(e.d,TODAY);
-  return '<div class="row res" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="r-ico-wrap"><div class="r-ico">'+esc(e.emoji)+'</div></div>'
-    +'<div class="r-body"><div class="r-t">'+esc(e.name)+'</div><div class="r-s"><span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>'+L('Sự kiện','Events')+' · '+(today?L('hôm nay','today'):curMoTxt())+'</div></div>'
-    +'<div class="r-amt num">'+fmt(e.setAside)+'</div></div>';
+  var e=events[k];
+  var ph=(e.memories&&e.memories.length&&e.memories[0].src)?e.memories[0].src:null;
+  var tile=ph?'<div class="r-ico ph" style="background-image:url('+escAttr(ph)+')"></div>'
+            :'<div class="r-ico res-ico">'+esc(e.emoji)+'</div>';
+  var cid=(typeof _entCreatorId==='function')?_entCreatorId('occasion',e):null;
+  var pend=false;
+  if(cid && typeof _entNorm==='function' && typeof _entPending==='function'){ try{ pend=_entPending(_entNorm('occasion',e,k)); }catch(_x){} }
+  return '<div class="row tap" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)"><div class="r-ico-wrap">'+tile+'</div>'
+    +'<div class="r-body"><div class="r-t">'+esc(e.name)+'</div><div class="r-s">'+_futSub(cid,pend)+'</div></div>'
+    +'<div class="r-right"><div class="r-amt num plan">'+fmt(e.setAside)+'</div><div class="r-cat due">'+_futDue(e.d)+'</div></div></div>';
 }
 function futRow(t){   // a standalone future expense logged in the expense sheet
-  var today=sameDay(txPhotoDate(t),TODAY);
+  var s=catStyle[t.cat]||['🧾','#f2eef6','var(--cat-other)'];
+  var ph=(t.photos&&t.photos.length)?t.photos[0]:null;
+  var tile=ph?'<div class="r-ico ph" style="background-image:url('+escAttr(ph)+')"></div>'
+            :'<div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico||'📅')+'</div>';
   var pend=(typeof futurePending==='function')&&futurePending(t);
+  var cid=(typeof _entCreatorId==='function')?_entCreatorId('expense',t):null;
   // Every future row lands on the read-first expense detail, same as a past row;
   // the detail decides the CTA (Review for someone else's proposal, Update/Delete for mine).
-  var onclick='openExpenseDetail(\''+t.id+'\')';
-  var tag=pend ? '<span class="res-tag pend">'+L('chờ duyệt','in review')+'</span>'
-               : '<span class="res-tag'+(today?' now':'')+'">'+(today?L('hôm nay','today'):L('sắp tới','future'))+'</span>';
-  var sub=pend ? L('Chờ cả nhà duyệt','Waiting for the family')
-               : (today?L('Chi tiêu dự kiến · hôm nay','Planned expense · today'):L('Chi tiêu tương lai','Future expense')+' · '+curMoTxt());
-  return '<div class="row res" onclick="'+onclick+'"><div class="r-ico-wrap"><div class="r-ico">'+esc(t.ico||'📅')+'</div></div>'
-    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+tag+sub+'</div></div>'
-    +'<div class="r-amt num">'+fmt(t.amt)+'</div></div>';
-}
-/* ---- upcoming shelf (dashed strip above the ledger) ----
-   Planned money renders OUTSIDE the transaction card so committed vs spent read
-   as different objects. Compact rows: thumb (photo if the plan has one), title
-   with only the state tags that matter (chờ duyệt / hôm nay), brand amount.
-   resRow/futRow above keep the old card anatomy for the Events / Future
-   expenses drill-in filters, where these items render inside the card. */
-function usThumb(ph,emoji){
-  return ph?'<span class="us-ph" style="background-image:url('+escAttr(ph)+')"></span>'
-           :'<span class="us-emoji">'+esc(emoji)+'</span>';
-}
-function usResRow(k){
-  var e=events[k], today=sameDay(e.d,TODAY);
-  var ph=(e.memories&&e.memories.length&&e.memories[0].src)?e.memories[0].src:null;
-  var tag=today?('<span class="res-tag now">'+L('hôm nay','today')+'</span>'):'';
-  return '<div class="us-row tap" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+usThumb(ph,e.emoji)
-    +'<div class="us-t">'+tag+esc(e.name)+'</div><div class="us-amt num">'+fmt(e.setAside)+'</div></div>';
-}
-function usFutRow(t){
-  var today=sameDay(txPhotoDate(t),TODAY);
-  var pend=(typeof futurePending==='function')&&futurePending(t);
-  var ph=(t.photos&&t.photos.length)?t.photos[0]:null;
-  var tag=pend?('<span class="res-tag pend">'+L('chờ duyệt','in review')+'</span>')
-             :(today?('<span class="res-tag now">'+L('hôm nay','today')+'</span>'):'');
-  return '<div class="us-row tap" onclick="openExpenseDetail(\''+t.id+'\')">'+usThumb(ph,t.ico||'📅')
-    +'<div class="us-t">'+tag+esc(t.note)+'</div><div class="us-amt num">'+fmt(t.amt)+'</div></div>';
+  return '<div class="row tap" onclick="openExpenseDetail(\''+t.id+'\')"><div class="r-ico-wrap">'+tile+'</div>'
+    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+_futSub(cid,pend)+'</div></div>'
+    +'<div class="r-right"><div class="r-amt num plan">'+fmt(t.amt)+'</div><div class="r-cat due">'+_futDue(txPhotoDate(t)||t._d)+'</div></div></div>';
 }
 function renderTxns(){
-  var tx=document.getElementById('tx-rows'), shelf=document.getElementById('up-shelf');
+  var tx=document.getElementById('tx-rows');
   var evRes=(selMonth===curMonthKey()) ? order.filter(function(k){return !achievedNow(events[k]) && (events[k].setAside||0)>0;}) : [];
   var futT=txns.filter(function(t){return t.future;});
   var anyFuture = evRes.length>0 || futT.length>0;
   setTxt('tx-head', anyFuture ? L('Hoạt động','Activity') : L('Giao dịch gần đây','Recent transactions'));
-  // Upcoming shelf: only in the unfiltered view (a filter is a question about the
-  // ledger; Events / Future-expense filters render their rows in the card below).
-  if(shelf){
-    if(anyFuture && !txFilter){
-      var usTotal=0;
-      evRes.forEach(function(k){ usTotal+=events[k].setAside||0; });
-      futT.forEach(function(t){ usTotal+=t.amt; });
-      shelf.innerHTML='<div class="us-h"><span>'+L('Sắp tới ','Coming up ')+curMoTxt()+'</span><span class="us-tot num">· '+fmt(usTotal)+' '+L('để dành','set aside')+'</span></div>'
-        +evRes.map(usResRow).join('')+futT.map(usFutRow).join('');
-      shelf.style.display='';
-    } else { shelf.innerHTML=''; shelf.style.display='none'; }
-  }
   if(tx){
     var realAll=txns.filter(function(t){return !t.future;});
     var f=txFilter, out;
@@ -124,11 +106,17 @@ function renderTxns(){
     else if(f && f.type==='cat' && f.val==='Future expenses') out=futT.map(futRow).join(''); // standalone future items
     else if(f) out=realAll.filter(txMatch).map(txRow).join('');                      // realized, filtered
     else{
-      // preview: today + yesterday only — the full history is the Giao dịch
-      // drill-in (openTxns / "See all"). A fresh local row has no _d yet
-      // ("Just now"), so it counts as today.
+      // One timeline in one card: future rows first (farthest due date at the
+      // top, nearest just above today), then today's + yesterday's history —
+      // the full history is the Giao dịch drill-in (openTxns / "See all").
+      var futRows=[];
+      evRes.forEach(function(k){ futRows.push({d:events[k].d, h:resRow(k)}); });
+      futT.forEach(function(t){ futRows.push({d:txPhotoDate(t)||t._d, h:futRow(t)}); });
+      futRows.sort(function(a,b){ return (b.d?b.d.getTime():0)-(a.d?a.d.getTime():0); });
+      // A fresh local row has no _d yet ("Just now"), so it counts as today.
       var yd=new Date(TODAY.getTime()-86400000);
-      out=realAll.filter(function(t){ return !t._d || sameDay(t._d,TODAY) || sameDay(t._d,yd); }).map(txRow).join('');
+      out=futRows.map(function(r){return r.h;}).join('')
+        +realAll.filter(function(t){ return !t._d || sameDay(t._d,TODAY) || sameDay(t._d,yd); }).map(txRow).join('');
     }
     // Three empty shapes: a filter that matched nothing → a plain note; a ledger
     // with history but nothing today/yesterday → a quiet pointer to See all; a
