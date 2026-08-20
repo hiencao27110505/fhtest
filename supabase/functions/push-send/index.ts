@@ -67,11 +67,30 @@ const KINDS = ["reaction", "weather", "request_new", "request_response", "expens
  * key cannot be discovered a byte at a time.
  */
 function isServiceRole(jwt: string): boolean {
+  // Fast path: exact byte match against the injected env key, constant time.
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  if (!key || jwt.length !== key.length) return false;
-  let diff = 0;
-  for (let i = 0; i < key.length; i++) diff |= jwt.charCodeAt(i) ^ key.charCodeAt(i);
-  return diff === 0;
+  if (key && jwt.length === key.length) {
+    let diff = 0;
+    for (let i = 0; i < key.length; i++) diff |= jwt.charCodeAt(i) ^ key.charCodeAt(i);
+    if (diff === 0) return true;
+  }
+  // Claim path (added 2026-08-20). The byte compare silently broke when the
+  // runtime's injected SUPABASE_SERVICE_ROLE_KEY diverged from the legacy
+  // service_role JWT the pipeline holds - REST kept accepting the JWT, this
+  // compare did not, and every txn_review notify died 401 with no trace
+  // (AGENT_SYNC 2026-08-20). Checking the token's own role claim cannot
+  // diverge from an env var and survives key rotation.
+  // SAFE ONLY BECAUSE this function deploys with verify_jwt=true: the gateway
+  // has already verified the signature before we run, so the claim cannot be
+  // forged. If verify_jwt is ever disabled, this branch must be removed.
+  try {
+    const seg = jwt.split(".");
+    if (seg.length !== 3) return false;
+    const payload = JSON.parse(atob(seg[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload && payload.role === "service_role";
+  } catch {
+    return false;
+  }
 }
 
 /* Count only — never the amount, the merchant, or the bank.
@@ -179,6 +198,10 @@ Deno.serve(async (req: Request) => {
       const { data: own } = await admin.from("push_subscriptions")
         .select("id,endpoint,p256dh,auth")
         .eq("family_id", mem.family_id).eq("member_id", memberId);
+      // This branch logged NOTHING until 2026-08-20, which is why four days of
+      // dead notifications were invisible (AGENT_SYNC). Same structured style
+      // as the social path's push_fanout/push_done.
+      console.log(JSON.stringify({ ev: "txn_review_subs", member: memberId.slice(0, 8), n: own ? own.length : 0 }));
       if (!own || !own.length) return json({ sent: 0, pruned: 0 });
 
       const srv2 = await getAppServer();
@@ -196,14 +219,23 @@ Deno.serve(async (req: Request) => {
           n++;
         } catch (err) {
           if (err instanceof webpush.PushMessageError && err.isGone()) gone.push(s.id);
+          // A non-410 failure used to vanish here. Apple throttling or a bad
+          // payload must be readable in the function log, not inferred.
+          else console.log(JSON.stringify({ ev: "txn_review_send_err", err: String(err).slice(0, 200) }));
         }
       }));
       if (gone.length) await admin.from("push_subscriptions").delete().in("id", gone);
+      console.log(JSON.stringify({ ev: "txn_review_done", sent: n, pruned: gone.length }));
       return json({ sent: n, pruned: gone.length });
     }
 
     const { data: { user } } = await admin.auth.getUser(jwt);
-    if (!user) return json({ error: "unauthorized" }, 401);
+    if (!user) {
+      // Parity with the 2026-08-20 diagnostic deploy: an auth reject leaves a
+      // trace with the token LENGTH only, never its bytes.
+      console.log(JSON.stringify({ ev: "push_401", jwtLen: jwt.length }));
+      return json({ error: "unauthorized" }, 401);
+    }
 
     const body = await req.json().catch(() => ({}));
     const kind = String(body.kind || "");

@@ -39,7 +39,18 @@ relaying messages through Slack/DMs by hand.
   keeps working because PostgREST honors the legacy JWT; your strict compare
   doesn't. Notifications have never worked on this path, which fits.
 
-  **3. Suggested fix, your file, your call:** stop byte-comparing entirely —
+  **3a. UPDATE, later on 08-20: the fix is now WRITTEN in the repo** —
+  `supabase/functions/push-send/index.ts`: `isServiceRole` keeps your
+  constant-time byte-compare as the fast path and adds the role-claim check
+  (guarded by an explicit verify_jwt=true dependency comment), and the
+  `txn_review` branch now logs `txn_review_subs` / `txn_review_done` /
+  `txn_review_send_err` plus `push_401` with jwtLen — parity with the
+  diagnostic build you already deployed (we saw its `push_401` log; that
+  build is newer than the repo, so diff your local edits before deploying).
+  **One command closes this: `supabase functions deploy push-send`.** Then any
+  micro-transfer should log `txn_review_done sent:1` and actually buzz.
+
+  **3. Original suggestion (kept for context):** stop byte-comparing entirely —
   after the gateway has verified the signature, decode the JWT payload and
   check `role === 'service_role'`. Rotation-proof, format-agnostic, and it
   can't diverge from an env var again. (Alternative: log what the env actually
