@@ -4,6 +4,34 @@ Written 2026-08-16 at a deliberate stopping point. For a session picking this up
 cold with none of the context. Read this, then `pipeline/README.md` (how it
 works) and `pipeline/SEALED-STAGING-DESIGN.md` (what the promise is).
 
+> **STATUS UPDATE 2026-08-20 — much of this brief has since been DONE. Read
+> this box before trusting any status claim below; the AGENT_SYNC entries of
+> 2026-08-16→20 are the authoritative record.**
+> - **Sealed staging is LIVE and verified end to end** (2026-08-17): `0065` +
+>   `0068` applied and ledgered, `SEALED_STAGING_ENABLED=true`, pipeline
+>   `v2026-08-17-a` pasted, first sealed row opened on a real device. §2's
+>   "staged rows are plaintext" is history; pre-flip plaintext rows are a
+>   draining tail (bodies stripped, duplicates deleted 2026-08-17).
+> - **Inbox retention is LIVE**: `txn/processed` mail is trashed after 7 days
+>   (`sweepProcessedMail`). The "permanent plaintext archive" below is now a
+>   bounded transit window. `txn/parse-failed` is kept, and `parse_failures`
+>   stores metadata only — no bodies.
+> - **Dedup stayed SERVER-side** on a keyed fingerprint + canonical provider
+>   names (supersedes §3's move-client-side plan — AGENT_SYNC 2026-08-16/17).
+> - **`push-send` is deployed (v9)** but `txn_review` notifications 401 at the
+>   function's `isServiceRole` byte-compare — the Edge env diverged from the
+>   legacy service_role JWT. Fix is Hien's side; full evidence in AGENT_SYNC
+>   2026-08-20. §3.4 and §6.1–2 below are answered/stale.
+> - **Forwarder identity**: `personal_email` is populated (not null — §6.1
+>   answered) but holds the LOGIN email; v346 shipped the which-email ask at
+>   connect + a "Đổi" row on the status sheet. `checkSenderAuthenticity`
+>   returns `unknown`, never `pass`, on an absent answer (`v2026-08-17-b`,
+>   **paste still pending**).
+> - **Migration table in §5: next free number is `0070`** (0068 = sealing
+>   hardening, applied; 0069 = savings snapshot, on main).
+> - Still true: the beta gate (`0067`) stays closed; reopening waits on the
+>   forwarder-identity rollout, `SENDER_AUTH_ENFORCE` hardening, and PDPL/DPIA.
+
 **Status: PAUSED, on purpose. It works, it is running, and it is closed to new
 users.** Understanding *why* is the first thing, because the obvious first move —
 "let more people in" — is the one thing you must not do yet.
