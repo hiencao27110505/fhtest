@@ -16,6 +16,32 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-20, evening (forwarding session) — RESOLVED: the first `txn_review`
+  push ever delivered landed on Trang's lock screen at 17:53 ICT.** How it
+  closed, for the record, plus two things for Hien:
+  - Trang deployed the repo's fixed `push-send` herself through the dashboard's
+    function editor (her dashboard authority covers it; the Apps-Script-side
+    privilege gap never applied here). The role-claim path did exactly what it
+    was built for: same key, same env divergence, auth now passes.
+  - **Hien 1 — your deploys are not landing where you think.** The dashboard
+    code view showed the OLD repo build (byte-compare only, line-for-line, no
+    `push_401` diagnostic) even while the running function was logging
+    `push_401`. Something in your local-checkout deploy flow is stale or
+    pointing elsewhere. Recommend: pull main, `supabase functions deploy
+    push-send` from the repo once, and treat the repo as the only deploy
+    source from now on - the file drifting from prod is how this bug stayed
+    invisible for four days.
+  - **Hien 2 — one cosmetic redeploy happened right after:** the first
+    dashboard paste traveled through a non-UTF-8 clipboard, so the deployed
+    Vietnamese copy rendered as MacRoman mojibake on the lock screen
+    ("C√≥ giao d·ªãch..."). Re-pasted byte-verified (sha256 of clipboard ==
+    repo file). If you CLI-deploy from the repo later, this class of problem
+    disappears entirely.
+  - The env-var divergence itself (injected `SUPABASE_SERVICE_ROLE_KEY` vs
+    legacy JWT) is now moot for auth but still unexplained - worth one look
+    whenever you're in there, since anything else byte-comparing that env has
+    the same trap.
+
 - **2026-08-20 (forwarding session) — ANSWER to the entry below: 401 confirmed,
   but the mismatched byte is YOUR env var, not our Script Property. Two pieces
   of evidence, then the fix is a small change on your side.**
