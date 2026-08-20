@@ -30,13 +30,19 @@ function txRow(t){
   var s=catStyle[t.cat]||['🧾','#f2eef6','var(--cat-other)'];
   // Localize the display date/payer; the stored t.date/t.who strings stay as-is
   // (they are parsed by _txnIso / mapped by _memberIdForWho — display only here).
-  var dstr=(t.date==='Just now')?L('Vừa xong','Just now'):((t._d?sameDay(t._d,TODAY):(t.date==='Today'))?L('Hôm nay','Today'):(t._d?fmtDayMon(t._d):t.date));
+  var dstr=(t.date==='Just now')?L('Vừa xong','Just now'):((t._d?sameDay(t._d,TODAY):(t.date==='Today'))?L('Hôm nay','Today'):(t._d?(sameDay(t._d,new Date(TODAY.getTime()-86400000))?L('Hôm qua','Yesterday'):fmtDayMon(t._d)):t.date));
   // data-rxid (only persisted rows) arms the long-press reaction picker; rxChip appends any reactions inline
   var rxid=t._dbId?(' data-rxid="'+escAttr(t._dbId)+'"'):'';
   var chip=(typeof rxChip==='function')?rxChip(t):'';
-  return '<div class="row tap'+(chip?' has-rx':'')+'"'+rxid+' onclick="openExpenseDetail(\''+t.id+'\')"><div class="r-ico-wrap"><div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico)+'</div>'+spAv(t.who)+'</div>'
-    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+dstr+' · '+esc(t.cat)+'</div></div>'
-    +'<div class="r-amt num">'+fmt(t.amt)+'</div>'+chip+'</div>';
+  // C1 anatomy: a row with photos shows its first photo AS the tile (the enc
+  // observer decrypts .enc backgrounds in place); category text moves under the
+  // bold amount, so the subline holds only the date.
+  var ph=(t.photos&&t.photos.length)?t.photos[0]:t.photo;
+  var tile=ph?'<div class="r-ico ph" style="background-image:url('+escAttr(ph)+')"></div>'
+            :'<div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico)+'</div>';
+  return '<div class="row tap'+(chip?' has-rx':'')+'"'+rxid+' onclick="openExpenseDetail(\''+t.id+'\')"><div class="r-ico-wrap">'+tile+spAv(t.who)+'</div>'
+    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+dstr+'</div></div>'
+    +'<div class="r-right"><div class="r-amt num">'+fmt(t.amt)+'</div><div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
 function txMatch(t){
@@ -67,26 +73,72 @@ function futRow(t){   // a standalone future expense logged in the expense sheet
     +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+tag+sub+'</div></div>'
     +'<div class="r-amt num">'+fmt(t.amt)+'</div></div>';
 }
+/* ---- upcoming shelf (dashed strip above the ledger) ----
+   Planned money renders OUTSIDE the transaction card so committed vs spent read
+   as different objects. Compact rows: thumb (photo if the plan has one), title
+   with only the state tags that matter (chờ duyệt / hôm nay), brand amount.
+   resRow/futRow above keep the old card anatomy for the Events / Future
+   expenses drill-in filters, where these items render inside the card. */
+function usThumb(ph,emoji){
+  return ph?'<span class="us-ph" style="background-image:url('+escAttr(ph)+')"></span>'
+           :'<span class="us-emoji">'+esc(emoji)+'</span>';
+}
+function usResRow(k){
+  var e=events[k], today=sameDay(e.d,TODAY);
+  var ph=(e.memories&&e.memories.length&&e.memories[0].src)?e.memories[0].src:null;
+  var tag=today?('<span class="res-tag now">'+L('hôm nay','today')+'</span>'):'';
+  return '<div class="us-row tap" onclick="openEvent(&#39;'+escAttr(k)+'&#39;)">'+usThumb(ph,e.emoji)
+    +'<div class="us-t">'+tag+esc(e.name)+'</div><div class="us-amt num">'+fmt(e.setAside)+'</div></div>';
+}
+function usFutRow(t){
+  var today=sameDay(txPhotoDate(t),TODAY);
+  var pend=(typeof futurePending==='function')&&futurePending(t);
+  var ph=(t.photos&&t.photos.length)?t.photos[0]:null;
+  var tag=pend?('<span class="res-tag pend">'+L('chờ duyệt','in review')+'</span>')
+             :(today?('<span class="res-tag now">'+L('hôm nay','today')+'</span>'):'');
+  return '<div class="us-row tap" onclick="openExpenseDetail(\''+t.id+'\')">'+usThumb(ph,t.ico||'📅')
+    +'<div class="us-t">'+tag+esc(t.note)+'</div><div class="us-amt num">'+fmt(t.amt)+'</div></div>';
+}
 function renderTxns(){
-  var tx=document.getElementById('tx-rows');
+  var tx=document.getElementById('tx-rows'), shelf=document.getElementById('up-shelf');
   var evRes=(selMonth===curMonthKey()) ? order.filter(function(k){return !achievedNow(events[k]) && (events[k].setAside||0)>0;}) : [];
-  var anyFuture = evRes.length>0 || txns.some(function(t){return t.future;});
+  var futT=txns.filter(function(t){return t.future;});
+  var anyFuture = evRes.length>0 || futT.length>0;
   setTxt('tx-head', anyFuture ? L('Hoạt động','Activity') : L('Giao dịch gần đây','Recent transactions'));
+  // Upcoming shelf: only in the unfiltered view (a filter is a question about the
+  // ledger; Events / Future-expense filters render their rows in the card below).
+  if(shelf){
+    if(anyFuture && !txFilter){
+      var usTotal=0;
+      evRes.forEach(function(k){ usTotal+=events[k].setAside||0; });
+      futT.forEach(function(t){ usTotal+=t.amt; });
+      shelf.innerHTML='<div class="us-h"><span>'+L('Sắp tới ','Coming up ')+curMoTxt()+'</span><span class="us-tot num">· '+fmt(usTotal)+' '+L('để dành','set aside')+'</span></div>'
+        +evRes.map(usResRow).join('')+futT.map(usFutRow).join('');
+      shelf.style.display='';
+    } else { shelf.innerHTML=''; shelf.style.display='none'; }
+  }
   if(tx){
-    var evHtml=evRes.map(resRow).join('');
-    var futHtml=txns.filter(function(t){return t.future;}).map(futRow).join('');
     var realAll=txns.filter(function(t){return !t.future;});
     var f=txFilter, out;
-    if(f && f.type==='cat' && f.val==='Events') out=evHtml;                          // Events future items
-    else if(f && f.type==='cat' && f.val==='Future expenses') out=futHtml;           // standalone future items
+    if(f && f.type==='cat' && f.val==='Events') out=evRes.map(resRow).join('');      // Events future items
+    else if(f && f.type==='cat' && f.val==='Future expenses') out=futT.map(futRow).join(''); // standalone future items
     else if(f) out=realAll.filter(txMatch).map(txRow).join('');                      // realized, filtered
-    else out=evHtml+futHtml+realAll.slice(0,5).map(txRow).join('');                  // preview: 5 recents — full list is the Giao dịch drill-in (openTxns / "See all")
-    // Two empty shapes: a filter that matched nothing → a plain note; a brand-new family
-    // with no ledger at all → a first-run prompt inviting the first expense (mirrors the
-    // "Tạo mục tiêu đầu tiên" goal empty-state).
+    else{
+      // preview: today + yesterday only — the full history is the Giao dịch
+      // drill-in (openTxns / "See all"). A fresh local row has no _d yet
+      // ("Just now"), so it counts as today.
+      var yd=new Date(TODAY.getTime()-86400000);
+      out=realAll.filter(function(t){ return !t._d || sameDay(t._d,TODAY) || sameDay(t._d,yd); }).map(txRow).join('');
+    }
+    // Three empty shapes: a filter that matched nothing → a plain note; a ledger
+    // with history but nothing today/yesterday → a quiet pointer to See all; a
+    // brand-new family with no ledger at all → a first-run prompt inviting the
+    // first expense (mirrors the "Tạo mục tiêu đầu tiên" goal empty-state).
     var emptyHTML=txFilter
       ? '<div class="empty-note">'+L('Không có giao dịch phù hợp.','No transactions match this filter.')+'</div>'
-      : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🧾</div><div class="me-t">'+L('Ghi khoản chi đầu tiên','Log your first expense')+'</div><p>'+L('Thêm một khoản chi để cả nhà cùng nắm được tiền đang đi đâu.','Add an expense so the family can see where the money goes.')+'</p><button class="empty-cta" style="margin-top:18px" onclick="openExpense()">＋ '+L('Thêm khoản chi','Add expense')+'</button></div>';
+      : (realAll.length
+        ? '<div class="empty-note">'+L('Chưa có khoản chi nào hôm nay hay hôm qua. Bấm Xem tất cả để coi lại lịch sử.','Nothing logged today or yesterday. Tap See all for the full history.')+'</div>'
+        : '<div class="mem-empty" style="margin:0 16px"><div class="me-emoji">🧾</div><div class="me-t">'+L('Ghi khoản chi đầu tiên','Log your first expense')+'</div><p>'+L('Thêm một khoản chi để cả nhà cùng nắm được tiền đang đi đâu.','Add an expense so the family can see where the money goes.')+'</p><button class="empty-cta" style="margin-top:18px" onclick="openExpense()">＋ '+L('Thêm khoản chi','Add expense')+'</button></div>');
     setHTMLIf(tx, out||emptyHTML);
   }
   var af=document.getElementById('act-filter');

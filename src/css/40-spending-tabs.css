@@ -197,8 +197,23 @@
 .r-body{flex:1;min-width:0}
 .r-body .r-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .r-s{font-size:13.5px;letter-spacing:-.01em;color:var(--muted);margin-top:2px}
-.r-amt{font-family:var(--disp);font-weight:600;font-size:17px;letter-spacing:-.4px;text-align:right;white-space:nowrap;color:var(--muted)}
+.r-amt{font-family:var(--disp);font-weight:700;font-size:16.5px;letter-spacing:-.4px;text-align:right;white-space:nowrap;color:var(--ink);line-height:1.2}
 .r-amt.pos{color:#12B08C}
+/* C1 row: right block = bold amount over category; subline keeps only the date */
+.r-right{flex-shrink:0;text-align:right}
+.r-cat{font-size:12px;color:var(--muted);letter-spacing:-.01em;margin-top:1px;white-space:nowrap}
+.r-ico.ph{background-size:cover;background-position:center}
+
+/* upcoming shelf — dashed = money reserved, not moved (solid card = spent) */
+#up-shelf{margin:0 16px 14px;border:1.5px dashed var(--brand-glow);border-radius:18px;padding:2px 0 7px}
+.us-h{display:flex;gap:6px;align-items:baseline;padding:11px 16px 4px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand-ink)}
+.us-h .us-tot{letter-spacing:.01em}
+.us-row{display:flex;align-items:center;gap:12px;padding:7px 16px;cursor:pointer}
+.us-row:active{background:var(--surface)}
+.us-emoji{width:26px;text-align:center;font-size:19px;flex-shrink:0}
+.us-ph{width:26px;height:26px;border-radius:8px;background-size:cover;background-position:center;flex-shrink:0}
+.us-t{flex:1;min-width:0;font-size:14.5px;font-weight:500;letter-spacing:-.015em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.us-amt{font-family:var(--disp);font-size:14px;font-weight:600;color:var(--brand-ink);white-space:nowrap}
 
 /* avatars */
 .av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:700;color:#fff;flex-shrink:0}
