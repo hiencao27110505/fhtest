@@ -102,6 +102,17 @@
     try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
   };
 
+  /* The always-visible "Khoản thu chi từ email" CTA routes by setup state:
+       • no linked email  → the setup intro (null state + "Get started" CTA)
+       • linked           → the review sheet, which itself shows an empty modal
+                            when there is nothing, or the list of cards. */
+  window.fhEmailTxnCta = async function () {
+    var linked = false;
+    try { var st = window.fhMailboxState ? await window.fhMailboxState() : null; linked = !!(st && st.forwarding_alias); } catch (e) {}
+    if (!linked) return window.fhMailboxSheet && window.fhMailboxSheet();
+    return window.fhTxnReviewSheet && window.fhTxnReviewSheet();
+  };
+
   /* One row -> the fields the review screen needs.
 
      Handles BOTH shapes on purpose. Rows staged before sealing was switched on

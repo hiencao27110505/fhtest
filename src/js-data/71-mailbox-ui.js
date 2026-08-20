@@ -44,6 +44,7 @@
     try { return await _rpc('get_my_mailbox_alias', {}); }
     catch (e) { return null; }
   }
+  window.fhMailboxState = fhMailboxState;
 
   /* Entry point. Reads state first so a member who already connected lands on
      status, not back at the top of setup. */

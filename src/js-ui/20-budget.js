@@ -117,17 +117,18 @@ function renderCashflow(){
   if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
   renderCashflowEmailCta();
 }
-/* Widget A's third CTA — "Khoản thu chi từ email": staged bank-email transactions waiting
-   to be reviewed. Shown only when the queue is non-empty, with a count badge; opens the
-   review sheet. window.fhStagedCount is refreshed on hydrate + after a promote (72-txn-review). */
+/* Widget A's third CTA — "Khoản thu chi từ email": always shown. A count badge appears
+   only when the staged bank-email queue is non-empty. Tapping routes by setup state
+   (fhEmailTxnCta): setup intro when no email is linked, else the review sheet (which shows
+   its own empty modal when there's nothing). fhStagedCount refreshes on hydrate + promote. */
 function renderCashflowEmailCta(){
   var slot=document.getElementById('cf-email-cta'); if(!slot) return;
   var n=window.fhStagedCount||0;
-  if(n<=0){ if(slot.innerHTML!=='') slot.innerHTML=''; return; }
-  var html='<button class="cc-row" onclick="fhTxnReviewSheet()">'
+  var badge=n>0 ? '<span class="cc-badge num">'+n+'</span>' : '';
+  var html='<button class="cc-row" onclick="fhEmailTxnCta()">'
     +'<span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg></span>'
     +'<span class="cc-t">'+L('Khoản thu chi từ email','Income & expenses from email')+'</span>'
-    +'<span class="cc-badge num">'+n+'</span>'
+    +badge
     +'<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>';
   if(slot.innerHTML!==html) slot.innerHTML=html;
 }
