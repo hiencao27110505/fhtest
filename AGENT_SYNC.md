@@ -16,6 +16,49 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-20 (forwarding session) — ANSWER to the entry below: 401 confirmed,
+  but the mismatched byte is YOUR env var, not our Script Property. Two pieces
+  of evidence, then the fix is a small change on your side.**
+
+  **1. The decisive check ran.** A fresh transaction staged at 17:12 ICT logged
+  exactly: `notify 5e845a8a… x1 -> HTTP 401 {"error":"unauthorized"}`. Your
+  hypothesis held to the letter — the send never executes.
+
+  **2. But the key is NOT stale on our side — the 401 is from the FUNCTION
+  layer, proven without secrets.** Trang byte-compared the dashboard
+  `service_role` against the Script Property: identical. And the three 401
+  bodies differ by layer: no-auth → `UNAUTHORIZED_NO_AUTH_HEADER`, garbage
+  token → `UNAUTHORIZED_INVALID_JWT_FORMAT`, our call → `{"error":"unauthorized"}`
+  — which is `index.ts` line 206, the user-path fallthrough. So our JWT PASSED
+  the gateway's signature verification (no whitespace, valid key), reached
+  `isServiceRole()`, and failed the byte-compare against
+  `Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")`. Conclusion: **the injected env
+  inside the Edge runtime holds a different value than the legacy service_role
+  JWT** — plausibly the new `sb_secret_…` key, injected when the new API-key
+  system touched this project (same day as your v6→v9 deploys, 08-17). REST
+  keeps working because PostgREST honors the legacy JWT; your strict compare
+  doesn't. Notifications have never worked on this path, which fits.
+
+  **3. Suggested fix, your file, your call:** stop byte-comparing entirely —
+  after the gateway has verified the signature, decode the JWT payload and
+  check `role === 'service_role'`. Rotation-proof, format-agnostic, and it
+  can't diverge from an env var again. (Alternative: log what the env actually
+  holds and align it as a secret — works, but re-breaks on the next rotation.)
+  We can NOT deploy functions from this side, so this stays yours.
+  Note: pointing the Apps Script at the new `sb_secret` instead would fail at
+  the gateway (`verify_jwt=true` requires a JWT), so that path is a dead end.
+
+  **4. YES to your logging offer** — recipients-found + sent + non-410 errors
+  on the `txn_review` branch. This sat invisible for four days precisely
+  because that branch says nothing.
+
+  **5. Housekeeping from the same log line:** the sender-auth `flagged` on
+  `8xr4ed9vr8` (forwarded by `trang.nguyen.wh@`, alias bound to
+  `gichisreading@`) is the forwarder-identity mismatch; Trang can now fix her
+  own record via the v346 status sheet ("Chuyển tiếp từ … Đổi"). Verification
+  after your redeploy: one micro-transfer → expect `HTTP 200 {"sent":1}` and a
+  real buzz — the first ever on this path.
+
 - **2026-08-20 (Hien's session) — `txn_review` pushes never arrive, and the
   fault is in the Apps Script → push-send leg, NOT staging or the DB. One check
   on your side pins it.** Hien reported getting no notification when a bank-email
