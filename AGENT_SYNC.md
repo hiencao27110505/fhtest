@@ -16,6 +16,64 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-20 (Hien's session) — `txn_review` pushes never arrive, and the
+  fault is in the Apps Script → push-send leg, NOT staging or the DB. One check
+  on your side pins it.** Hien reported getting no notification when a bank-email
+  transaction is staged. I traced the whole path against live prod.
+
+  **Everything Supabase-side is healthy — ruled out, with evidence:**
+  - `push-send` is deployed **v9, ACTIVE** (updated 2026-08-17), and its
+    `txn_review` service-role branch matches the repo exactly.
+  - VAPID is configured (`push_config` has `vapid_jwk` / `vapid_public_b64` /
+    `vapid_subject`).
+  - The recipient's subscription is **valid and matches**: member
+    `5e845a8a-a4de-4767-b150-843ac1e6d043` (gichisreading, alias `8xr4ed9vr8`,
+    the one that forwards from `trang.nguyen.wh@`), family
+    `37e6df75-7dba-4544-8463-6fa492108ced`, one `web.push.apple.com` endpoint
+    (iOS PWA), keys present, `family_id`+`member_id` both line up with the staged
+    rows — so the branch's `push_subscriptions` query returns ≥1 and `sent`
+    should be ≥1.
+  - Routing works: **16 pending rows, all carrying that `member_id`**, staged on
+    many runs since the sub was created (Aug 16, 18, 19×several, 20).
+
+  **The tell:** rows have been staged repeatedly since the subscription existed,
+  yet nothing was ever delivered **and the subscription was never pruned.** If a
+  `txn_review` call had reached `pushTextMessage`, it would EITHER deliver OR
+  prune on Apple 410. Neither happened → **the Apple send never executes.** So
+  the break is in the notify leg between `notifyStagedReviews()` and push-send,
+  not staging, the DB, the sub, or the function's send code.
+
+  **Leading hypothesis (yours to confirm): a service-role key byte-mismatch.**
+  push-send's `isServiceRole()` does a strict length+constant-time compare of the
+  `Authorization: Bearer` against its env `SUPABASE_SERVICE_ROLE_KEY`. If the Apps
+  Script Script Property `SUPABASE_SERVICE_ROLE_KEY` is stale/rotated or has stray
+  whitespace/newline, `isServiceRole` is false → push-send falls to the *user-JWT*
+  path → **401, no send, no prune** — exactly what we observe. Inserts still work
+  because PostgREST is more lenient than that exact-match check, so a working key
+  for REST does not prove a byte-match for the Edge Function. (NB this is a
+  DIFFERENT failure from the stale "push-send is 401 because undeployed" note in
+  the 2026-08-16 entry — the function IS deployed; the suspect now is the *key the
+  pipeline sends it*.)
+
+  **THE decisive check — on your side, ~1 min:** Apps Script → Executions, read
+  the line `notifyStagedReviews()` logs per run:
+  `notify 5e845a8a… x<count> -> HTTP <code> <body>`
+  - `HTTP 401 {"error":"unauthorized"}` → confirms the key mismatch; re-copy the
+    current `service_role` key into the Script Property (trim whitespace).
+  - `HTTP 200 {"sent":0}` → sub query miss (I verified the match, so unlikely).
+  - `HTTP 200 {"sent":1}` → it DID deliver, so it's device-side (iOS notification
+    permission / PWA removed from Home Screen / Focus) — not the pipeline.
+
+  **Blind spot worth fixing regardless:** the `txn_review` branch logs NOTHING —
+  no recipients-found, no sent count, and it silently swallows any non-410 send
+  error. That's why this was invisible. I can add logging there + redeploy so the
+  next forwarded email leaves a readable trace in Supabase logs (the social path
+  already has `push_fanout`/`push_done`/`push_send_err`; the review path has none).
+  Say the word and I'll deploy it from Hien's side — or if you'd rather own the
+  push-send file, it's yours. (Also: the Supabase logs API was throwing backend
+  errors while I investigated, so I could not read function invocations directly —
+  hence leaning on the Apps Script log.)
+
 - **2026-08-17 — SEALED STAGING IS LIVE. The choreography in the entry below
   was executed end to end by Trang today, and verified.**
   - `0065` + `0068` applied and ledgered. Apps Script project carries all three
