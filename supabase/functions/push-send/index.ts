@@ -136,7 +136,7 @@ function buildCopy(
     title = `${name} 🧾`;
     body = vi ? "Vừa ghi một khoản mới cho nhà." : "Just logged a new expense.";
   } else if (kind === "expense_bulk") {
-    const n = count > 1 ? count : 2;
+    const n = count;   // the real batch size; the client only sends this kind for n > 1
     title = `${name} 🧾`;
     body = vi ? `Vừa ghi ${n} khoản mới cho nhà.` : `Just logged ${n} new expenses.`;
   } else if (kind === "memory_new") {

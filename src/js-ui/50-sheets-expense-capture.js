@@ -694,9 +694,14 @@ function submitBulk(opts){
     try{ window.addExpense(); } finally{ BULK_SAVING=false; }
   }
   exPhotos=[];
-  // one summary push for the whole batch — each row's own addExpense() stayed silent
-  // under BULK_SAVING, so the family gets "logged N expenses" instead of N buzzes.
-  if(n>0 && window.fhNotify) window.fhNotify('expense_bulk', { n:n });
+  // One nudge for the whole batch — each row's own addExpense() stayed silent under
+  // BULK_SAVING. A lone surviving row is a single expense, not a batch (the composer
+  // often carries a trailing blank that filters out above), so it must fire expense_new
+  // — sending expense_bulk with n=1 would make the server's plural copy read "2".
+  if(window.fhNotify){
+    if(n>1) window.fhNotify('expense_bulk', { n:n });
+    else if(n===1) window.fhNotify('expense_new', {});
+  }
   bulkSaveTried=false;
   clearDrafts();                                   // saved for real → drop the auto-saved draft
   renderAll(); renderTxns();
