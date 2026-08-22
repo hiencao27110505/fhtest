@@ -10,10 +10,15 @@ serverless/
 ├── uv.lock                 # one lockfile for every function
 ├── .venv/                  # the single shared venv (git-ignored)
 ├── Makefile
+├── shared/                 # modules used by more than one function
+│   ├── accounts.py         # per-user tokens + cursor (the DB seam)
+│   └── gmail_auth.py       # refresh token -> Gmail client
 └── functions/
     ├── gmail-transaction-ingest/
-    │   ├── pyproject.toml      # this function's own deps
+    │   ├── pyproject.toml      # own deps + [tool.earthy] shared = [...]
     │   ├── requirements.txt    # GENERATED — do not hand-edit
+    │   ├── accounts.py         # GENERATED copy — edit shared/, not this
+    │   ├── gmail_auth.py       # GENERATED copy — edit shared/, not this
     │   ├── senders.py
     │   └── main.py
     └── transaction-parser/
@@ -77,6 +82,40 @@ A brand-new project needs two things before the first deploy:
 
 `make preflight` reports which of these is missing and exits non-zero, so it is
 safe to run at any time.
+
+## Sharing code between functions
+
+Cloud Functions deploys **one directory**, so a module two functions both
+import has to physically exist inside each of them. Google's guidance is to
+[vendor local dependencies next to `main.py`][local-deps] rather than reach
+outside the source directory, and that is what happens here — mechanically.
+
+`shared/` holds the single copy you edit. Each function declares what it needs:
+
+```toml
+[tool.earthy]
+shared = ["accounts.py", "gmail_auth.py"]
+```
+
+`make sync-shared` copies those files in, stamped with a `# GENERATED` header.
+`run`, `test` and `deploy` all depend on the sync, so a stale copy cannot reach
+GCP.
+
+The copies are committed, so a diff touching a shared module shows the same
+change once in `shared/` and once per function. Re-run `make sync-shared` and
+commit the result together with the `shared/` edit — reviewing the copies is
+not the point, keeping them in step is.
+
+A copied file lands beside `main.py` as a **top-level module** — `accounts.py`
+is imported as `import accounts`. A shared name must therefore not collide with
+a file a function owns; `sync-shared` refuses to overwrite anything without the
+generated header rather than clobbering it.
+
+**Symlinks do not work here.** `gcloud` packages the source as a tar that
+preserves links instead of following them, so the link would dangle inside the
+container. This was tested, not assumed.
+
+[local-deps]: https://docs.cloud.google.com/run/docs/runtimes/python-dependencies
 
 ## `requirements.txt` is generated
 
@@ -159,22 +198,57 @@ need to change to support a new bank:
 An email whose template is not recognised is logged as `INCOMPLETE` and acked,
 not retried — an unknown layout is a gap to fill, not a transient failure.
 
-### Running it before Gmail auth exists
+### Per-user credentials
 
-`_gmail_client()` returns `None` when `GMAIL_CREDENTIALS` is unset, so the
-function logs the notification and acks instead of failing. That keeps the
-topic drained while the OAuth side is still pending.
+The pipeline is multi-user. A notification names a mailbox, so ingest looks up
+*that user's* refresh token rather than reading one set of credentials from the
+environment:
+
+```text
+notification.emailAddress
+        ↓
+accounts.AccountStore.get(email)   → refresh_token + history_id
+        ↓
+gmail_auth.build_client(token)     → Gmail client acting as that user
+```
+
+`accounts.py` defines the seam. `AccountStore` is a Protocol with two methods,
+and `default_store()` decides which implementation a deployment gets — swap its
+body for the Postgres-backed store and nothing else changes.
+
+`InMemoryStore` is the stand-in: seeded from `GMAIL_ACCOUNTS`, a JSON object of
+`{email: refresh_token}`. State dies with the instance, so a saved `historyId`
+does not survive a cold start. It is enough to exercise the pipeline, not to
+run it.
+
+What the real store must honour:
+
+- **Encrypt refresh tokens at rest.** One grants unlimited read access to
+  someone's mail, forever, until revoked. `_Account.__repr__` is overridden so
+  a token cannot reach a log line or a traceback.
+- **Advance `historyId` only after the window is handled.** `main` writes it
+  last; a mid-loop crash then replays that window instead of skipping it.
+- **`gmail.readonly` only** — the scope lives in `accounts.SCOPES` and is
+  asserted by a test, because widening it widens the blast radius of a leak.
+
+The app's OAuth client id and secret are per-application, not per-user, and
+come from `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`. On GCP feed
+those from Secret Manager (`--set-secrets`), not plain env vars: a function's
+environment is visible in the console and in `gcloud functions describe`.
 
 Still to wire up:
 
-- **Gmail watch**: grant `pubsub.publisher` on the topic to
-  `gmail-api-push@system.gserviceaccount.com`, then call `users.watch()`.
-  A watch **expires after 7 days** and has to be renewed — usually a small
-  scheduled job.
-- **Checkpoint store**: `_read_checkpoint` / `_write_checkpoint` raise
-  `NotImplementedError`. Until they are implemented, `CHECKPOINT_ENABLED`
-  stays unset and each run only looks at the notification's own historyId,
-  which drops messages that arrive between invocations.
+- **The Postgres store** — replace `default_store()`.
+- **The OAuth callback** in the app: exchange the code with
+  `access_type=offline` and `prompt=consent`, or Google returns an access token
+  with no refresh token. The refresh token is shown **once**, at first grant.
+- **Gmail watch**: grant `pubsub.publisher` on `gmail-events` to
+  `gmail-api-push@system.gserviceaccount.com`, then call `users.watch()` per
+  connected mailbox. A watch **expires after 7 days** and must be renewed, or
+  the pipeline goes quiet with no error.
+- **Verification**: `gmail.readonly` is a restricted scope. Beyond 100 test
+  users, Google requires app verification and a third-party security
+  assessment — start that early, it is measured in weeks.
 
 ## Deploy configuration
 
