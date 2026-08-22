@@ -43,8 +43,30 @@ def _database_url() -> str:
     return url
 
 
-def store(credentials: dict, dsn: str, user_id: str) -> tuple[int, str]:
-    """Insert or refresh the row for this mailbox. Returns (id, email)."""
+def resolve_user(conn: object, email: str) -> str:
+    """The auth.users id that owns this address.
+
+    Looked up from the address Google returned, not passed in on the command
+    line: a mistyped id would file the mailbox under the wrong person, and
+    nothing downstream would ever notice.
+    """
+    row = conn.execute(  # type: ignore[attr-defined]
+        "select id from auth.users where lower(email) = lower(%s)", (email,)
+    ).fetchone()
+    if row is None:
+        sys.exit(
+            f"No auth.users row for {email}.\n"
+            "The owner has to exist as a user before their mail can be linked\n"
+            "to them. Create the account first, then re-run."
+        )
+    return str(row[0])
+
+
+def store(credentials: dict, dsn: str) -> tuple[int, str, str]:
+    """Insert or refresh the row for this mailbox.
+
+    Returns (connected_accounts id, email, owning user id).
+    """
     import psycopg  # noqa: PLC0415
     from cryptography.fernet import Fernet  # noqa: PLC0415
 
@@ -55,6 +77,7 @@ def store(credentials: dict, dsn: str, user_id: str) -> tuple[int, str]:
     ciphertext = Fernet(key.encode()).encrypt(credentials["refresh_token"].encode())
 
     with psycopg.connect(dsn) as conn:
+        user_id = resolve_user(conn, credentials["email"])
         row = conn.execute(
             """
             insert into public.connected_accounts
@@ -77,16 +100,12 @@ def store(credentials: dict, dsn: str, user_id: str) -> tuple[int, str]:
             ),
         ).fetchone()
         conn.commit()
-    return row[0], row[1]
+    assert row is not None  # noqa: S101 - RETURNING on a guaranteed upsert
+    return row[0], row[1], user_id
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--user-id",
-        required=True,
-        help="auth.users id that owns this mailbox",
-    )
     parser.add_argument(
         "--port", type=int, default=8765, help="OAuth loopback port (default: 8765)"
     )
@@ -106,11 +125,13 @@ def main() -> int:
     else:
         credentials = _authorize(args.port)
 
-    account_id, email = store(credentials, dsn, args.user_id)
+    account_id, email, user_id = store(credentials, dsn)
     print()
     print(f"  connected  {email}")
+    print(f"  owner      auth.users {user_id}")
     print(f"  row        connected_accounts id={account_id}")
-    print(f"  historyId  {credentials.get('history_id')} (mailbox position now)")
+    print(
+        f"  historyId  {credentials.get('history_id')} (mailbox position now)")
     print()
     print("  Next: `make renew` registers the Gmail watch for it.")
     return 0

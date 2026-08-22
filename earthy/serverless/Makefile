@@ -50,7 +50,7 @@ help:
 	@echo "  make typecheck            mypy across the workspace"
 	@echo "  make sync-shared          copy shared/ modules into each function"
 	@echo "  make authorize            grant Gmail access to a mailbox (opens a browser)"
-	@echo "  make connect USER_ID=<id> authorize + store credentials in one step"
+	@echo "  make connect              authorize + store credentials in one step"
 	@echo "  make renew                register/extend the watch on every mailbox"
 	@echo "  make freeze FN=<name>     regenerate that function's requirements.txt"
 	@echo "  make freeze-all           regenerate every requirements.txt"
@@ -111,14 +111,12 @@ SHARED_DIR := shared
 sync-shared:
 	@uv run --no-project python tools/sync_shared.py
 
-# Connect one mailbox: consent, encrypt, store. USER_ID is the auth.users row
-# that owns it. FROM_FILE reuses a `make authorize OUT=...` payload instead of
-# opening the browser again.
+# Connect one mailbox: consent, encrypt, store. The owning auth.users row is
+# resolved from the address Google returns, so there is no id to get wrong.
+# FROM_FILE reuses a `make authorize OUT=...` payload instead of opening the
+# browser again.
 connect:
-	@if [ -z "$(USER_ID)" ]; then \
-	  echo "error: USER_ID is required."; \
-	  echo "  make connect USER_ID=<auth.users id>"; exit 1; fi
-	uv run python tools/connect_mailbox.py --user-id $(USER_ID) \
+	uv run python tools/connect_mailbox.py \
 	  $(if $(AUTH_PORT),--port $(AUTH_PORT),) $(if $(FROM_FILE),--from-file $(FROM_FILE),)
 
 # Register or extend the Gmail watch on every connected mailbox. Safe to run

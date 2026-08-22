@@ -288,13 +288,19 @@ for the verified details.
 ### Connecting a mailbox
 
 ```sh
-make connect USER_ID=<auth.users id>          # consent, encrypt, store
-make renew                                    # register the Gmail watch
+make connect     # consent, encrypt, store
+make renew       # register the Gmail watch
 ```
 
 One run per mailbox you want watched. `connect` opens a browser for consent,
 encrypts the refresh token with `GMAIL_TOKEN_KEY`, and upserts
 `connected_accounts`; `renew` then registers the watch and seeds the cursor.
+
+The owning `auth.users` row is resolved from the address Google returns, so
+there is no id to pass and none to get wrong — a mistyped one would file the
+mailbox under the wrong person with nothing downstream to catch it. Sign in as
+the mailbox owner, and the link follows. If no user exists for that address
+yet, `connect` stops and says so rather than guessing.
 
 **Every mailbox that should be watched needs its own run.** A Gmail watch
 covers one mailbox, so an address that only ever *sends* to a watched inbox
