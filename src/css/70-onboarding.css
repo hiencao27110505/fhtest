@@ -171,6 +171,12 @@ html.fh-newver #fh-newver{display:flex}
 .set-row.danger{color:var(--danger)}
 .set-row.danger .set-ic{background:var(--danger-tint);color:var(--danger)}
 .set-row .chev{margin-left:auto;color:var(--chev);flex-shrink:0}
+/* "New" badge on a settings row — DESIGN §3 tag: small uppercase pill in
+   brand-tint / brand-ink. It sits right after the label (not out at the edge)
+   so it reads as part of the row title; the negative margin cancels most of the
+   row's 12px flex gap, which is sized for icon-to-text, not text-to-tag. */
+.set-row .set-badge{margin-left:-5px;flex-shrink:0;background:var(--brand-tint);color:var(--brand-ink);
+  border-radius:9999px;padding:3px 8px;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;line-height:1.2}
 /* Install row: only meaningful when the app isn't already installed and an install
    path exists (85-install.js toggles html.fh-can-install). */
 .set-row.set-install{display:none}

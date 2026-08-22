@@ -1,7 +1,12 @@
   // ═══ bank-email onboarding: show the entries only to people who can use them ═══
-  /* Both Settings rows of the bank-email feature — "Connect bank email" and
-     "Review transactions" — are hidden in index.html and revealed here, once
+  /* All three Settings rows of the bank-email feature — "Automatic transaction
+     logging" (direct read), "Connect bank email" (forwarding) and "Review
+     transactions" — are hidden in index.html and revealed here, once
      can_use_mailbox() (0067) says this account may connect.
+
+     The auto-logging row rides this same gate rather than growing a second one:
+     it is the same feature reached by a different transport, so "may this account
+     connect a mailbox" is the same question, and the beta stays one list.
 
      WHY THE REVIEW ROW IS ON THE SAME ANSWER: staged rows are routed by
      member_id from mailbox_connections, and 0058's read policy returns a member
@@ -25,7 +30,7 @@
      all leave them hidden. The failure people notice is a missing menu row; the
      failure they don't is a stranger's bank mail arriving in our inbox. */
 
-  var _MB_GATE_ROWS = ['set-mailbox-row', 'set-review-row'];
+  var _MB_GATE_ROWS = ['set-autotxn-row', 'set-mailbox-row', 'set-review-row'];
   var _mbGateDone = false;
 
   async function _mailboxGateApply() {

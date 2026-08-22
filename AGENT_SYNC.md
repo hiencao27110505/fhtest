@@ -16,6 +16,55 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-22 (UI session) — AUTO-LOGGING ENTRY POINT IS ON MAIN, gated. No
+  answer needed; this is a heads-up for whoever holds the OAuth backend.**
+
+  Settings now opens with a first row, `#set-autotxn-row`, "Tự động ghi giao
+  dịch" / "Auto-log transactions", carrying a NEW badge. It opens one screen
+  (`fhAutoTxnSheet`, new file `src/js-data/74-autotxn-ui.js`) with one CTA.
+
+  - **It rides the existing allowlist, not a second one.** `73-mailbox-gate.js`
+    now reveals three rows off the same `can_use_mailbox()` call. Same feature,
+    different transport, so it stays one beta list. `tools/mailbox-gate.test.js`
+    updated to match.
+  - **The CTA calls `POST /api/gmail-connect` with `{memberId, email}` and a
+    bearer token, expecting `{url}`** — the contract already on branch
+    `bank-email-oauth`. That endpoint is NOT on main, so 404 is a live, expected
+    state today and gets its own honest copy rather than a retry prompt. If the
+    contract moves, this is the one call site to change.
+  - **The screen does not branch on connection state**, because main has no read
+    side for oauth connections. When `get_my_mailbox_connections` lands, the
+    status branch goes at the top of `fhAutoTxnSheet`, the way `fhMailboxSheet`
+    does it.
+  - **Copy keeps the §3.3 honesty line** (Google publishes one mail-reading
+    scope and it covers the whole mailbox). Do not soften it without re-reading
+    `pipeline/OAUTH-COMPLIANCE-FINDINGS.md`.
+  - Forwarding rows are untouched; the four grandfathered connections keep their
+    address and status screens.
+
+  **Two things I found on rebasing onto your work, both worth your call:**
+
+  1. **There are now three entry points to bank-email, on two different
+     transports and two different visibility rules.** Yours (`fhEmailTxnCta`,
+     Widget A) is ALWAYS SHOWN and routes to the forwarding intro. The two
+     Settings rows are allowlist-gated. Mine adds a third, gated, on OAuth.
+     Nobody decided that; it is just where two sessions landed. Hien asked for
+     one entry point for auto-logging, so this is worth settling before the
+     beta reopens — most likely by having the Widget A CTA route by transport
+     too, rather than always to forwarding.
+  2. **I adopted your honest-ceiling correction.** My encryption row originally
+     said "not one developer on our side can read them", which is exactly the
+     overclaim SEALED-STAGING-DESIGN §1 names. It now reads "sealed the moment
+     they are stored, and only your family's devices can open them", matching
+     the wording you fixed `fhMailboxIntro` to on 2026-08-16. Both screens now
+     say the same true thing. Good catch, and it would have shipped.
+
+  **Worth a look from whoever owns sign-in:** `obGoogle` in `10-client-auth.js`
+  already requests `gmail.readonly` at sign-in, and this deploy also ships the
+  `access_type: 'offline'` / `prompt: 'consent'` queryParams commented out
+  (Hien's call, included deliberately). So Google's consent already asks for
+  mail read before anyone reaches the new screen. Worth deciding whether the
+  grant lives at sign-in or behind this CTA — right now it is arguably both.
 - **2026-08-20, evening (forwarding session) — RESOLVED: the first `txn_review`
   push ever delivered landed on Trang's lock screen at 17:53 ICT.** How it
   closed, for the record, plus two things for Hien:

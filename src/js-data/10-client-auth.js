@@ -282,10 +282,10 @@ window.obGoogle = async function () {
     provider: 'google', options: {
       redirectTo: location.href.split('#')[0].split('?')[0],
       scopes: "https://www.googleapis.com/auth/gmail.readonly",
-      queryParams: {
-        access_type: 'offline',
-        prompt: 'consent',
-      },
+      // queryParams: {
+      //   access_type: 'offline',
+      //   prompt: 'consent',
+      // },
     },
   });
   if (error) { authBusy(false); window.toast && window.toast(_friendly(error)); }

@@ -61,23 +61,23 @@ function makeGate(rpcImpl, document) {
   return api;
 }
 
-const BOTH = ['set-mailbox-row', 'set-review-row'];
+const ALL_ROWS = ['set-autotxn-row', 'set-mailbox-row', 'set-review-row'];
 
 (async () => {
-  console.log('\n-- both rows of the feature are gated, not just the connect one --');
+  console.log('\n-- every row of the feature is gated, not just the connect one --');
   {
     const g = makeGate(async () => true, fakeDom([]));
-    t('the gate knows about both rows', g.rows.length === 2 &&
-      g.rows.indexOf('set-mailbox-row') >= 0 && g.rows.indexOf('set-review-row') >= 0,
+    t('the gate knows about every row', g.rows.length === ALL_ROWS.length &&
+      ALL_ROWS.every((id) => g.rows.indexOf(id) >= 0),
       JSON.stringify(g.rows));
   }
 
   console.log('\n-- an allowlisted account sees the feature --');
   {
-    const dom = fakeDom(BOTH);
+    const dom = fakeDom(ALL_ROWS);
     const g = makeGate(async () => true, dom);
     await g.apply();
-    t('both rows are revealed', dom.shown().length === 2, JSON.stringify(dom.shown()));
+    t('every row is revealed', dom.shown().length === ALL_ROWS.length, JSON.stringify(dom.shown()));
     t('and the gate latches so a second boot costs no RPC', g.done() === true);
     await g.apply();
     t('a repeat call really does not re-query', g.calls() === 1, 'calls=' + g.calls());
@@ -95,10 +95,10 @@ const BOTH = ['set-mailbox-row', 'set-review-row'];
     ['the number 1', async () => 1],
   ];
   for (const [name, rpc] of CLOSED) {
-    const dom = fakeDom(BOTH);
+    const dom = fakeDom(ALL_ROWS);
     const g = makeGate(rpc, dom);
     await g.apply();
-    t(name, dom.hidden().length === 2 && g.done() === false, 'shown=' + JSON.stringify(dom.shown()));
+    t(name, dom.hidden().length === ALL_ROWS.length && g.done() === false, 'shown=' + JSON.stringify(dom.shown()));
   }
 
   console.log('\n-- a partly-rendered or older shell must not lock the gate open --');

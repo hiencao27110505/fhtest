@@ -160,6 +160,7 @@ var EN_DEFAULT={
   photoLbl:'Photo', uploadPhotos:'📷 Upload photos', captionOpt:'Caption (optional)', phMemCap:'e.g. Best day of the trip',
   /* settings sheet */
   settingsTitle:'Settings', settingsSub:'Pick a theme. It applies across the whole app.',
+  setAutoTxn:'Auto-log transactions', badgeNew:'New',
   setMyProfile:'My profile', setLanguage:'Language', setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setDevices:'Signed-in devices', setEncryption:'Money encryption', setMailbox:'Connect bank email', setReviewTxns:'Review transactions',
   setSavedEvents:'Saved for events', setIncome:'Income', setNotifications:'Notifications', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out',
   /* generic edit modal */
@@ -263,6 +264,7 @@ var I18N={
     photoLbl:'Ảnh', uploadPhotos:'📷 Tải ảnh lên', captionOpt:'Chú thích (tuỳ chọn)', phMemCap:'vd. Ngày vui nhất chuyến đi',
     /* settings sheet */
     settingsTitle:'Cài đặt', settingsSub:'Chọn giao diện, áp dụng cho cả ứng dụng.',
+    setAutoTxn:'Tự động ghi giao dịch', badgeNew:'Mới',
     setMyProfile:'Hồ sơ của tôi', setLanguage:'Ngôn ngữ', setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setDevices:'Thiết bị đăng nhập', setEncryption:'Mã hóa tài chính', setMailbox:'Kết nối email ngân hàng', setReviewTxns:'Duyệt giao dịch',
     setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setNotifications:'Thông báo', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất',
     /* generic edit modal */
