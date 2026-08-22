@@ -39,6 +39,7 @@ class Account(Protocol):
     email: str
     refresh_token: str
     history_id: str | None
+    needs_reauth: bool
 
 
 class AccountStore(Protocol):
@@ -56,8 +57,21 @@ class AccountStore(Protocol):
         """Advance the cursor, after the work for that window succeeded."""
         ...
 
+    def mark_needs_reauth(self, email: str) -> None:
+        """Record that this mailbox's refresh token no longer works.
+
+        Google invalidates a refresh token when the user revokes access,
+        changes their password, or — while the app is in Testing status —
+        every 7 days. None of those are transient, so callers stop retrying
+        and the app asks the user to reconnect.
+        """
+        ...
+
     def list_connected(self) -> list[str]:
         """Addresses of every mailbox still connected.
+
+        Excludes mailboxes awaiting re-consent: their token cannot mint an
+        access token, so renewing them would only produce noise.
 
         Used by the watch-renewal job, which has to touch all of them: a Gmail
         watch lapses after 7 days and takes the notifications with it.
@@ -66,16 +80,20 @@ class AccountStore(Protocol):
 
 
 class _Account:
-    __slots__ = ("email", "refresh_token", "history_id")
+    __slots__ = ("email", "refresh_token", "history_id", "needs_reauth")
 
     def __init__(self, email: str, refresh_token: str, history_id: str | None = None):
         self.email = email
         self.refresh_token = refresh_token
         self.history_id = history_id
+        self.needs_reauth = False
 
     def __repr__(self) -> str:
         # Never let the token near a log line or a traceback.
-        return f"<Account {self.email} history_id={self.history_id}>"
+        return (
+            f"<Account {self.email} history_id={self.history_id} "
+            f"needs_reauth={self.needs_reauth}>"
+        )
 
 
 class InMemoryStore:
@@ -103,8 +121,14 @@ class InMemoryStore:
             raise UnknownMailbox(email)
         account.history_id = history_id
 
+    def mark_needs_reauth(self, email: str) -> None:
+        account = self._accounts.get(email)
+        if account is None:
+            raise UnknownMailbox(email)
+        account.needs_reauth = True
+
     def list_connected(self) -> list[str]:
-        return list(self._accounts)
+        return [e for e, a in self._accounts.items() if not a.needs_reauth]
 
 
 def _seed_from_env() -> dict[str, str]:

@@ -236,6 +236,29 @@ come from `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`. On GCP feed
 those from Secret Manager (`--set-secrets`), not plain env vars: a function's
 environment is visible in the console and in `gcloud functions describe`.
 
+### Refresh tokens die every 7 days while the app is in Testing
+
+Google expires refresh tokens after 7 days for any app whose OAuth consent
+screen is **external** and whose publishing status is **Testing**, and Gmail
+scopes are never in the exempt set. A user also loses their token by revoking
+access or changing their Google password.
+
+None of these are transient, so the pipeline treats them as a state, not an
+error: `gmail_auth.build_client` raises `TokenRejected`, both functions mark
+the mailbox with `mark_needs_reauth()` and **ack**. Retrying would redeliver
+the message until the topic's retention ran out, and a dead token cannot be
+revived without the user.
+
+`list_connected()` then skips those mailboxes, so the daily renewal does not
+spend calls on them, and `gmail-watch-renew` reports `needs_reauth` separately
+from `failed` — a weekly wave of re-consents is routine here, not an outage.
+The app is expected to read that state and prompt the affected users.
+
+This ceases to be a weekly event once the app reaches **In production** status,
+which requires OAuth verification and a CASA security assessment. See
+[`research/gmail-push-pubsub-oauth.md`](../../research/gmail-push-pubsub-oauth.md)
+for the verified details.
+
 Still to wire up:
 
 - **The Postgres store** — replace `default_store()`.

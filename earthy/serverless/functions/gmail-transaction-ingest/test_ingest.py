@@ -120,3 +120,37 @@ def test_falls_back_to_the_notification_on_first_run(
 ) -> None:
     main.main(_event({"emailAddress": "alice@x.com", "historyId": "900"}))
     assert starts == ["900"]
+
+
+def test_dead_token_is_acked_and_recorded(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A rejected refresh token must not raise.
+
+    Raising would redeliver the message until the topic's retention expires,
+    and no retry can revive a token the user has to reconnect.
+    """
+
+    def reject(refresh_token: str) -> object:
+        raise main.gmail_auth.TokenRejected("nope")
+
+    monkeypatch.setattr(main.gmail_auth, "build_client", reject)
+
+    main.main(_event({"emailAddress": "alice@x.com", "historyId": "900"}))
+
+    assert store.get("alice@x.com").needs_reauth is True
+
+
+def test_dead_token_leaves_the_cursor_alone(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Reconnecting must resume from where the pipeline actually got to.
+    store.save_history_id("alice@x.com", "100")
+
+    def reject(refresh_token: str) -> object:
+        raise main.gmail_auth.TokenRejected("nope")
+
+    monkeypatch.setattr(main.gmail_auth, "build_client", reject)
+    main.main(_event({"emailAddress": "alice@x.com", "historyId": "900"}))
+
+    assert store.get("alice@x.com").history_id == "100"
