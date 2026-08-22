@@ -1,4 +1,4 @@
-.PHONY: help install sync lock add new lint fmt test run emit freeze freeze-all \
+.PHONY: help install sync sync-shared lock add new lint fmt typecheck test run emit freeze freeze-all \
         deploy clean list preflight enable-apis logs describe delete ensure-topic
 .DEFAULT_GOAL := help
 
@@ -12,7 +12,8 @@ GCP_PROJECT ?= fhtest-502915
 # APIs Cloud Functions gen2 needs (it builds on Cloud Run + Cloud Build).
 REQUIRED_APIS := cloudfunctions.googleapis.com run.googleapis.com \
                  cloudbuild.googleapis.com artifactregistry.googleapis.com \
-                 logging.googleapis.com eventarc.googleapis.com
+                 logging.googleapis.com eventarc.googleapis.com \
+                 gmail.googleapis.com secretmanager.googleapis.com
 
 # All workspace function names (directory basenames under functions/).
 ALL_FNS := $(notdir $(patsubst %/,%,$(dir $(wildcard $(FUNCTIONS_DIR)/*/pyproject.toml))))
@@ -45,6 +46,8 @@ help:
 	@echo "  make run FN=<name>        run locally on :$(PORT) with hot reload"
 	@echo "  make test                 pytest across the workspace"
 	@echo "  make lint / make fmt      ruff check / ruff format"
+	@echo "  make typecheck            mypy across the workspace"
+	@echo "  make sync-shared          copy shared/ modules into each function"
 	@echo "  make freeze FN=<name>     regenerate that function's requirements.txt"
 	@echo "  make freeze-all           regenerate every requirements.txt"
 	@echo
@@ -90,11 +93,23 @@ new:
 	@$(MAKE) --no-print-directory freeze FN=$(FN)
 	@echo "created $(FUNCTIONS_DIR)/$(FN)  ->  make run FN=$(FN)"
 
+SHARED_DIR := shared
+
+# Copies each function's declared shared modules in from shared/. Cloud
+# Functions deploys one directory, so a module two functions use has to exist
+# inside both — Google's own guidance is to vendor local dependencies next to
+# main.py. Symlinks are not an option: gcloud tars the source preserving links,
+# so one would dangle in the container.
+#
+# The copies are generated: shared/ is the only place to edit them.
+sync-shared:
+	@uv run --no-project python tools/sync_shared.py
+
 # functions-framework signature types are http | event | cloudevent — a pubsub
 # trigger is delivered as a cloudevent, so it does not map 1:1 to gcf.trigger.
 sigtype = $(if $(filter http,$(call gcf,$(1),trigger)),http,cloudevent)
 
-run:
+run: sync-shared
 	$(need_fn)
 	cd $(FUNCTIONS_DIR)/$(FN) && uv run --package $(FN) functions-framework \
 	  --target=$(call gcf,$(FN),entry-point) \
@@ -114,11 +129,21 @@ emit:
 	  -H 'ce-type: google.cloud.pubsub.topic.v1.messagePublished' \
 	  -d "{\"message\":{\"data\":\"$$payload\",\"messageId\":\"1\"},\"subscription\":\"local\"}"
 
-test:
+test: sync-shared
 	uv run --all-packages pytest
 
 lint:
 	uv run ruff check .
+
+# One pass per function: each is its own import root, and they all have a
+# main.py (and a conftest.py), which mypy reads as duplicate modules if they
+# are checked together. --ignore-missing-imports: the Google client libraries
+# ship no stubs.
+typecheck:
+	@for f in $(ALL_FNS); do \
+	  echo "$$f:"; \
+	  uv run mypy $(FUNCTIONS_DIR)/$$f --ignore-missing-imports || exit 1; \
+	done
 
 fmt:
 	uv run ruff format . && uv run ruff check --fix .
@@ -172,7 +197,7 @@ trigger_flags = $(if $(filter http,$(call gcf,$(1),trigger)),\
   --trigger-http $(if $(filter true,$(call gcf,$(1),allow-unauthenticated)),--allow-unauthenticated,),\
   --trigger-topic=$(call gcf,$(1),topic))
 
-deploy: freeze preflight
+deploy: sync-shared freeze preflight
 	$(need_fn)
 	@if [ "$(call gcf,$(FN),trigger)" = "pubsub" ] && [ -z "$(call gcf,$(FN),topic)" ]; then \
 	  echo "error: $(FN) has trigger=pubsub but no topic in [tool.earthy.gcf]"; exit 1; fi

@@ -5,8 +5,11 @@ message payload is only {"emailAddress": ..., "historyId": ...} — it carries n
 mail content, so the actual messages have to be fetched with users.history.list
 starting from the last historyId this function processed.
 
-This stage only identifies transaction mail and logs it. Parsing amounts and
-persisting them is a separate concern; see README for the intended split.
+The pipeline is multi-user: each notification names the mailbox it belongs to,
+and credentials for that mailbox come from the account store (accounts.py).
+
+This stage only identifies transaction mail and forwards it. Parsing amounts is
+a separate concern; see README for the intended split.
 """
 
 import base64
@@ -14,7 +17,9 @@ import json
 import logging
 import os
 
+import accounts
 import functions_framework
+import gmail_auth
 import senders
 from cloudevents.http import CloudEvent
 
@@ -24,10 +29,9 @@ from cloudevents.http import CloudEvent
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
-# Set once the checkpoint store exists. Until then every notification is
-# treated as "just the newest change", which is enough to see the pipeline work
-# but does drop messages that arrive between two invocations.
-CHECKPOINT_ENABLED = os.environ.get("CHECKPOINT_ENABLED") == "true"
+# Built once per instance: cheap, and the Postgres-backed store will want to
+# hold a connection pool rather than reconnect per invocation.
+STORE = accounts.default_store()
 
 # Where detected transactions go next. Must match transaction-parser's
 # [tool.earthy.gcf] topic.
@@ -52,14 +56,20 @@ def main(cloud_event: CloudEvent) -> None:
 
     log.info("gmail change for %s at historyId=%s", email, history_id)
 
-    service = _gmail_client()
-    if service is None:
-        # No credentials wired up yet: log what would have been fetched and
-        # ack, so the topic does not fill up while the auth side is pending.
-        log.info("no gmail credentials; skipping fetch for historyId=%s", history_id)
+    try:
+        account = STORE.get(email)
+    except accounts.UnknownMailbox:
+        # Permanent: the mailbox is not connected (or was disconnected while
+        # its watch was still live). Retrying cannot help, so ack and drop.
+        log.warning("no account on file for %s; dropping notification", email)
         return
 
-    start_id = _read_checkpoint(email) if CHECKPOINT_ENABLED else history_id
+    service = gmail_auth.build_client(account.refresh_token)
+
+    # Without a stored cursor there is no window to read: the notification's
+    # own historyId is the newest change, not a starting point. Fall back to
+    # it so the first run after connecting has somewhere to begin.
+    start_id = account.history_id or history_id
     messages = _added_message_ids(service, start_id)
     log.info("%d new message(s) since historyId=%s", len(messages), start_id)
 
@@ -93,10 +103,9 @@ def main(cloud_event: CloudEvent) -> None:
 
     log.info("done: %d/%d message(s) matched a known sender", hits, len(messages))
 
-    if CHECKPOINT_ENABLED:
-        # Written last, on purpose: delivery is at-least-once, so a crash
-        # mid-loop should replay the same window rather than skip it.
-        _write_checkpoint(email, history_id)
+    # Written last, on purpose: delivery is at-least-once, so a crash mid-loop
+    # should replay the same window rather than skip past it.
+    STORE.save_history_id(email, history_id)
 
 
 def _decode(cloud_event: CloudEvent) -> dict | None:
@@ -121,27 +130,6 @@ def _decode(cloud_event: CloudEvent) -> dict | None:
     except (ValueError, UnicodeDecodeError) as exc:
         log.error("could not decode notification payload: %s", exc)
         return None
-
-
-def _gmail_client():
-    """Build a Gmail API client, or None if credentials are not configured.
-
-    Returns None rather than raising so the function can be deployed and
-    exercised before the OAuth side is finished.
-    """
-    if not os.environ.get("GMAIL_CREDENTIALS"):
-        return None
-
-    # Imported lazily: the dependency is only needed once credentials exist,
-    # and keeping it out of the import path lets the rest run without it.
-    from google.oauth2.credentials import Credentials  # noqa: PLC0415
-    from googleapiclient.discovery import build  # noqa: PLC0415
-
-    info = json.loads(os.environ["GMAIL_CREDENTIALS"])
-    creds = Credentials.from_authorized_user_info(
-        info, ["https://www.googleapis.com/auth/gmail.readonly"]
-    )
-    return build("gmail", "v1", credentials=creds, cache_discovery=False)
 
 
 def _added_message_ids(service, start_history_id: str) -> list[str]:
@@ -273,13 +261,3 @@ def _project() -> str:
         or os.environ.get("GOOGLE_CLOUD_PROJECT")
         or ""
     )
-
-
-def _read_checkpoint(email: str) -> str:
-    """Last historyId processed for this mailbox."""
-    raise NotImplementedError("checkpoint store not wired up yet")
-
-
-def _write_checkpoint(email: str, history_id: str) -> None:
-    """Record historyId as processed, after the work above succeeded."""
-    raise NotImplementedError("checkpoint store not wired up yet")

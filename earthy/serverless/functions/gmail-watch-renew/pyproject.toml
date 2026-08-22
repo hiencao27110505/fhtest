@@ -1,25 +1,24 @@
 [project]
-name = "gmail-transaction-ingest"
+name = "gmail-watch-renew"
 version = "0.1.0"
-description = "Reads new Gmail messages and logs the ones that look like bank/e-wallet transactions"
+description = "Renews the Gmail watch on every connected mailbox"
 requires-python = "==3.12.*"
 dependencies = [
-    "cloudevents>=1.11.0",
+    "flask>=3.1.3",
     "functions-framework==3.9.2",
     "google-api-python-client>=2.198.0",
     "google-auth>=2.56.3",
-    "google-cloud-pubsub>=2.39.1",
 ]
 
-# Triggered by Gmail push notifications landing on a Pub/Sub topic.
-# Pub/Sub functions are never publicly invocable, so allow-unauthenticated
-# does not apply; Eventarc invokes them over the service account.
+# Driven by Cloud Scheduler, not by a person: a Gmail watch lapses after 7
+# days, so this runs daily. allow-unauthenticated is off — the scheduler
+# invokes it with an OIDC token.
 [tool.earthy.gcf]
 entry-point = "main"
-trigger = "pubsub"
-topic = "gmail-events"
+trigger = "http"
 region = "asia-southeast1"
 runtime = "python312"
+allow-unauthenticated = false
 
 # Files copied in from ../../shared by `make sync-shared`. They land
 # beside main.py as top-level modules; the copies are git-ignored.
