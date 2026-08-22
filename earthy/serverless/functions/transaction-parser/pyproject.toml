@@ -21,7 +21,12 @@ runtime = "python312"
 # Never plain --set-env-vars: a function's environment is visible
 # in the console and in `gcloud functions describe`.
 [tool.earthy]
-secrets = []
+shared = ["notify.py"]
+# Optional: unset the secrets and notifications simply stay off.
+secrets = [
+    "TELEGRAM_BOT_TOKEN=telegram-bot-token",
+    "TELEGRAM_CHAT_ID=telegram-chat-id",
+]
 
 [tool.uv]
 package = false
