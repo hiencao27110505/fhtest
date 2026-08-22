@@ -140,7 +140,13 @@ def _iso(epoch_millis: int) -> str:
 
 
 def _project() -> str:
-    """Project id, from the runtime env on GCP or GCP_PROJECT locally."""
+    """Project id.
+
+    Cloud Functions gen2 does NOT inject GOOGLE_CLOUD_PROJECT the way gen1
+    did — a deployed gen2 function's environment carries only
+    LOG_EXECUTION_ID — so the deploy passes GCP_PROJECT explicitly. Both are
+    read here because the local runner and gen1 do set the other one.
+    """
     return os.environ.get("GCP_PROJECT") or os.environ.get("GOOGLE_CLOUD_PROJECT") or ""
 
 

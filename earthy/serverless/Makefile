@@ -237,6 +237,7 @@ deploy: sync-shared freeze preflight
 	  --entry-point=$(call gcf,$(FN),entry-point) \
 	  --runtime=$(call gcf,$(FN),runtime) \
 	  --region=$(call gcf,$(FN),region) \
+	  --set-env-vars=GCP_PROJECT=$(GCP_PROJECT) \
 	  $(call trigger_flags,$(FN)) \
 	  $(call secret_flags,$(FN))
 	@echo
