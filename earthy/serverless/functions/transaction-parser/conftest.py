@@ -18,7 +18,7 @@ def pytest_collectstart() -> None:
     if _HERE in sys.path:
         sys.path.remove(_HERE)
     sys.path.insert(0, _HERE)
-    for name in ("main", "senders", "parsing", "accounts", "gmail_auth"):
+    for name in ("main", "senders", "accounts", "gmail_auth", "notify"):
         module = sys.modules.get(name)
         if module and not getattr(module, "__file__", "").startswith(_HERE):
             del sys.modules[name]
