@@ -31,7 +31,7 @@ log.setLevel(logging.INFO)
 
 # Built once per instance: cheap, and the Postgres-backed store will want to
 # hold a connection pool rather than reconnect per invocation.
-STORE = accounts.default_store()
+STORE = accounts.create_store()
 
 # Where detected transactions go next. Must match transaction-parser's
 # [tool.earthy.gcf] topic.

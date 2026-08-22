@@ -36,7 +36,7 @@ WATCH_TOPIC = os.environ.get("WATCH_TOPIC", "gmail-events")
 WATCH_LABELS = ["INBOX"]
 WATCH_LABEL_BEHAVIOR = "INCLUDE"
 
-STORE = accounts.default_store()
+STORE = accounts.create_store()
 
 
 @functions_framework.http

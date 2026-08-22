@@ -94,3 +94,22 @@ def test_repr_shows_reauth_state_without_the_token():
     text = repr(store.get("a@x.com"))
     assert "needs_reauth=True" in text
     assert "super-secret" not in text
+
+
+def test_create_store_returns_in_memory_without_a_database(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("GMAIL_ACCOUNTS", '{"a@x.com": "tok"}')
+    assert isinstance(accounts.create_store(), accounts.InMemoryStore)
+
+
+def test_create_store_returns_postgres_when_database_url_is_set(monkeypatch):
+    # Choosing the store is configuration, not a code change.
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost:6543/db")
+    assert isinstance(accounts.create_store(), accounts.PostgresStore)
+
+
+def test_postgres_store_satisfies_the_protocol():
+    # Both stores must stay interchangeable to their callers.
+    for name in ("get", "save_history_id", "mark_needs_reauth", "list_connected"):
+        assert callable(getattr(accounts.PostgresStore, name))
+        assert callable(getattr(accounts.InMemoryStore, name))

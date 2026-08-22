@@ -5,10 +5,12 @@ description = "Reads new Gmail messages and logs the ones that look like bank/e-
 requires-python = "==3.12.*"
 dependencies = [
     "cloudevents>=1.11.0",
+    "cryptography>=50.0.0",
     "functions-framework==3.9.2",
     "google-api-python-client>=2.198.0",
     "google-auth>=2.56.3",
     "google-cloud-pubsub>=2.39.1",
+    "psycopg[binary,pool]>=3.3.4",
 ]
 
 # Triggered by Gmail push notifications landing on a Pub/Sub topic.
