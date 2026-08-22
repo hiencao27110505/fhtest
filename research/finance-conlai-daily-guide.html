@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Thẻ #5 đầy đủ · 8 cách × trạng thái</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{
+    --sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif;
+    --ink:#1c1c1e;--ink2:#48484a;--ink3:#8e8e93;--ink4:#aeaeb2;
+    --sep:rgba(60,60,67,.12);--card:#ffffff;--fill6:#f2f2f5;
+    --teal:#0f9d84;--teal2:#17b8a0;--tealbg:#eaf6f2;--red:#ff3b30;--prevbar:#d9dce1;
+  }
+  html,body{background:#e7e9ec;font-family:var(--sf);color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{padding:44px 22px 80px}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+  .u{font-size:.5em;font-weight:600;color:var(--ink3);margin-left:.12em}
+
+  .head{max-width:800px;margin:0 auto 6px;text-align:center}
+  .head h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-bottom:9px}
+  .head p{color:var(--ink2);font-size:14px;line-height:1.55;max-width:640px;margin:0 auto}
+  .head .tag{display:inline-block;margin-bottom:14px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);background:var(--tealbg);border-radius:999px;padding:5px 12px}
+
+  .block{max-width:1140px;margin:0 auto 44px}
+  .cap{margin:0 2px 14px;max-width:860px}
+  .cap .n{font-size:11px;font-weight:700;color:var(--ink3)}
+  .cap .t{font-weight:600;font-size:16px;letter-spacing:-.01em;margin-left:8px}
+  .cap .d{margin-top:5px;font-size:12px;line-height:1.5;color:var(--ink3)}
+  .states{display:flex;gap:18px;flex-wrap:wrap}
+  .scol{width:336px}
+  .slab{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);margin:0 4px 8px}
+
+  .w{background:var(--card);border-radius:24px;padding:18px;box-shadow:0 1px 2px rgba(28,28,30,.05),0 16px 36px -14px rgba(28,40,55,.16)}
+  .kick{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--ink3)}
+  .kick.up{text-transform:uppercase;letter-spacing:.06em}
+  .month{font-weight:700;letter-spacing:-.03em;color:var(--ink);line-height:1}
+  .row{display:flex;align-items:center;justify-content:space-between}
+  .tile{background:var(--fill6);border-radius:16px;padding:12px 13px}
+  .stat .l{font-size:11px;font-weight:600;color:var(--ink3)}
+  .stat .v{font-size:13.5px;font-weight:600;letter-spacing:-.01em;margin-top:2px}
+
+  .wk{display:flex;align-items:flex-end;justify-content:space-between;gap:5px}
+  .wc{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+  .wc .bars{position:relative;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:2px}
+  .wc i{display:block;width:7px;border-radius:3px}
+  .wc i.p{background:var(--prevbar)}
+  .wc i.c{background:var(--teal2)}.wc i.c.o{background:var(--red)}
+  .wc em{font-style:normal;font-size:9px;color:var(--ink4);font-weight:600}
+  .wc.on em{font-weight:700}
+
+  /* daily module */
+  .dwrap{margin-top:14px}
+  .dtile{border-radius:16px;padding:14px;position:relative;overflow:hidden}
+  .dlabel{font-size:12px;font-weight:600;letter-spacing:-.01em;line-height:1.3}
+  .dn{font-weight:700;letter-spacing:-.03em;line-height:1}
+  .cap-track{height:9px;border-radius:999px;overflow:hidden}
+  .cap-track i{display:block;height:100%;border-radius:999px}
+  .meter{position:relative;height:3px;border-radius:2px}
+  .meter i{position:absolute;left:0;top:0;bottom:0;border-radius:2px}
+  .meter .dot{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;transform:translate(-50%,-50%)}
+  .pips{display:flex;gap:3px}
+  .pips i{flex:1;height:7px;border-radius:2px}
+  .fillbar{position:absolute;left:0;top:0;bottom:0}
+  .filledge{position:absolute;top:0;bottom:0;width:1.5px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <span class="tag">Thẻ #5 · xem đầy đủ</span>
+  <h1>Thẻ “Còn lại tháng này” đầy đủ — 8 cách × trạng thái</h1>
+  <p>Xem trọn cả thẻ ở ba trạng thái trong ngày. Cả thẻ cùng thay đổi: số còn lại tháng giảm, Chi tăng, cột hôm nay cao lên và chuyển đỏ khi vượt — không chỉ riêng mô-đun hướng dẫn.</p>
+</div>
+
+<div id="root"></div>
+
+<script>
+var DAYS=['T2','T3','T4','T5','T6','T7','CN'];
+function money(s){return s+'<span class="u">đ</span>'}
+/* each state carries BOTH card-level fields and module fields */
+var STATES=[
+  {k:'ok',  slab:'Sáng · còn nhiều', month:'5.600.000', chi:'8.400.000', t5h:6,  t5cls:'c',   main:'#0f9d84', mut:'#4a917f', bg:'#eaf6f2', trk:'rgba(15,157,132,.16)', pct:76,  label:'Hôm nay còn tiêu được', val:'380.000', short:'380k'},
+  {k:'warn',slab:'Chiều · sắp chạm', month:'5.310.000', chi:'8.690.000', t5h:24, t5cls:'c',   main:'#c9820a', mut:'#9a7838', bg:'#fdf4e5', trk:'rgba(201,130,10,.18)', pct:18,  label:'Hôm nay còn tiêu được', val:'90.000',  short:'90k'},
+  {k:'bad', slab:'Tối · đã vượt',    month:'5.160.000', chi:'8.840.000', t5h:33, t5cls:'c o', main:'#e0483f', mut:'#a5645c', bg:'#fdeeec', trk:'rgba(224,72,63,.16)',  pct:100, label:'Hôm nay đã vượt',      val:'60.000',  short:'−60k'}
+];
+function ring(pct,size,sw,color,trk){
+  var r=(size-sw)/2, c=2*Math.PI*r, off=c*(1-pct/100), cc=size/2;
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'
+    +'<circle cx="'+cc+'" cy="'+cc+'" r="'+r+'" fill="none" stroke="'+trk+'" stroke-width="'+sw+'"/>'
+    +'<circle cx="'+cc+'" cy="'+cc+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+off+'" transform="rotate(-90 '+cc+' '+cc+')"/></svg>';
+}
+function gauge(pct,w,sw,color,trk){
+  var r=(w-sw)/2, cx=w/2, cy=w/2, len=Math.PI*r, off=len*(1-pct/100);
+  var d='M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy;
+  return '<svg width="'+w+'" height="'+(w/2+sw/2+2)+'" viewBox="0 0 '+w+' '+(w/2+sw/2+2)+'">'
+    +'<path d="'+d+'" fill="none" stroke="'+trk+'" stroke-width="'+sw+'" stroke-linecap="round"/>'
+    +'<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+len+'" stroke-dashoffset="'+off+'"/></svg>';
+}
+function pips(pct,color,trk){var n=10,on=Math.floor(pct/10),s='';for(var i=0;i<n;i++){var st=(i<on)?('background:'+color):(i===on&&pct%10>=5?'background:linear-gradient(90deg,'+color+' 60%,'+trk+' 0)':'background:'+trk);s+='<i style="'+st+'"></i>';}return s;}
+
+function weekBars(h,st){
+  var wk=[{p:26,c:22,cls:'c'},{p:22,c:32,cls:'c o'},{p:28,c:17,cls:'c'},{p:22,c:st.t5h,cls:st.t5cls,t:1},{p:20},{p:31},{p:24}];
+  return '<div class="wk" style="height:'+(h+14)+'px">'+wk.map(function(d,i){
+    var b='<i class="p" style="height:'+(d.p/34*h)+'px"></i>';
+    if(d.c!=null) b+='<i class="'+d.cls+'" style="height:'+(d.c/34*h)+'px"></i>';
+    var emStyle=d.t?' style="color:'+st.main+'"':'';
+    return '<span class="wc'+(d.t?' on':'')+'"><span class="bars" style="height:'+h+'px">'+b+'</span><em'+emStyle+'>'+DAYS[i]+'</em></span>';
+  }).join('')+'</div>';
+}
+function statTile(sym,lab,val,col){
+  return '<div class="tile" style="flex:1"><div class="stat"><div class="l"><span style="color:'+col+'">'+sym+'</span> '+lab+'</div><div class="v num">'+money(val)+'</div></div></div>';
+}
+function cardTop(st){
+  return '<div class="kick up">Còn lại tháng này</div>'
+    +'<div class="month num" style="font-size:27px;margin-top:5px">'+money(st.month)+'</div>'
+    +'<div class="row" style="margin-top:12px;gap:9px">'+statTile('↑','Thu','14.000.000','var(--teal)')+statTile('↓','Chi',st.chi,'var(--ink3)')+'</div>'
+    +'<div style="margin-top:13px">'+weekBars(28,st)+'</div>';
+}
+function dn(s,sz){return '<span class="dn num" style="color:'+s.main+';font-size:'+sz+'px">'+money(s.val)+'</span>'}
+function lab(s){return '<div class="dlabel" style="color:'+s.mut+'">'+s.label+'</div>'}
+function tile(s,inner){return '<div class="dtile" style="background:'+s.bg+'">'+inner+'</div>'}
+
+var V={
+ 1:function(s){return tile(s,'<div class="row" style="align-items:center"><div>'+lab(s)+'<div style="margin-top:6px">'+dn(s,25)+'</div></div><div style="width:44px;height:44px;flex-shrink:0">'+ring(s.pct,44,5,s.main,s.trk)+'</div></div>');},
+ 2:function(s){return tile(s,lab(s)+'<div style="margin-top:6px">'+dn(s,26)+'</div><div class="cap-track" style="margin-top:12px;background:'+s.trk+'"><i style="width:'+s.pct+'%;background:'+s.main+'"></i></div>');},
+ 3:function(s){return tile(s,'<span class="fillbar" style="width:'+s.pct+'%;background:'+s.main+';opacity:.15"></span><span class="filledge" style="left:'+s.pct+'%;background:'+s.main+';opacity:.4"></span><div style="position:relative">'+lab(s)+'<div style="margin-top:6px">'+dn(s,27)+'</div></div>');},
+ 4:function(s){return tile(s,'<div class="row">'+lab(s)+dn(s,21)+'</div><div class="meter" style="margin-top:13px;background:'+s.trk+'"><i style="width:'+s.pct+'%;background:'+s.main+'"></i><span class="dot" style="left:'+s.pct+'%;background:'+s.main+';box-shadow:0 0 0 2px '+s.bg+'"></span></div>');},
+ 5:function(s){return tile(s,'<div style="text-align:center">'+lab(s)+'<div style="margin-top:7px">'+dn(s,34)+'</div></div>');},
+ 6:function(s){return tile(s,'<div style="display:flex;align-items:center;gap:14px"><div style="position:relative;width:64px;height:64px;flex-shrink:0">'+ring(s.pct,64,6.5,s.main,s.trk)+'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="dn num" style="color:'+s.main+';font-size:'+(s.short.length>3?15:18)+'px">'+s.short+'</span></div></div><div class="dlabel" style="color:'+s.mut+';font-size:14px;line-height:1.35">'+s.label.replace(' còn',' <br>còn').replace(' đã',' <br>đã')+'</div></div>');},
+ 7:function(s){return tile(s,'<div class="row">'+lab(s)+dn(s,21)+'</div><div class="pips" style="margin-top:13px">'+pips(s.pct,s.main,s.trk)+'</div>');},
+ 8:function(s){return tile(s,'<div style="display:flex;align-items:center;gap:14px"><div style="flex-shrink:0">'+gauge(s.pct,84,8.5,s.main,s.trk)+'</div><div>'+lab(s)+'<div style="margin-top:5px">'+dn(s,24)+'</div></div></div>');}
+};
+var TITLES={
+ 1:['Vòng bên phải','Vòng nhỏ bên phải, đổi màu và vơi dần theo trạng thái.'],
+ 2:['Thanh capsule','Thanh capsule dưới số, xanh · cam · đỏ.'],
+ 3:['Nền tự đầy','Nền mô-đun là thanh tiến độ, đổi màu theo trạng thái.'],
+ 4:['Vạch mảnh có mốc','Chấm mốc chạy dọc vạch, đầy dần tới khi vượt.'],
+ 5:['Số thuần, căn giữa','Không có thành phần tiến độ, chỉ số và nền đổi màu.'],
+ 6:['Số nằm trong vòng','Vòng ôm số rút gọn; vượt thì vòng đỏ, số −60k.'],
+ 7:['Phân đoạn (pips)','Mười đoạn nhỏ vơi dần; vượt thì đỏ toàn thanh.'],
+ 8:['Đồng hồ cung nhỏ','Cung nửa vòng vơi dần và đổi màu theo trạng thái.']
+};
+var out='';
+for(var i=1;i<=8;i++){
+  var cards=STATES.map(function(s){
+    return '<div class="scol"><div class="slab">'+s.slab+'</div><div class="w">'+cardTop(s)+'<div class="dwrap">'+V[i](s)+'</div></div></div>';
+  }).join('');
+  out+='<section class="block"><div class="cap"><span class="n">0'+i+'</span><span class="t">'+TITLES[i][0]+'</span><div class="d">'+TITLES[i][1]+'</div></div><div class="states">'+cards+'</div></section>';
+}
+document.getElementById('root').innerHTML=out;
+</script>
+</body>
+</html>

@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Nhiệm vụ tiết kiệm · 8 phương án</title>
+<style>
+  :root{
+    --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+    --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+    --brand-tint:#e9f7f0; --brand-glow:rgba(46,158,107,.32);
+    --ink:#191022; --ink-2:#3a2f45; --muted:#8a8494; --muted-soft:#a29caa;
+    --canvas:#f4f1f6; --white:#fff; --surface:#f9f7f8;
+    --fill-neutral:rgba(138,132,148,.14); --chev:#cfc8d6;
+    --hairline:#e9e4ee; --divider:#f1edf4;
+    --good:#1a9d5f; --good-tint:#e7f5ee; --danger:#E0322F; --danger-tint:#fdecef;
+    --amber:#B8730B; --amber-tint:#fbefda;
+    --indigo:#5E5CE6; --indigo-tint:#ecebfb; --rose:#FF375F; --rose-tint:#ffe9ee;
+    --purple:#BF5AF2; --purple-tint:#f6ebfd;
+    --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui;
+    --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui;
+    --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+    --shadow-focal:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:#e9e5ec;color:var(--ink);font-family:var(--text);padding:40px 20px 80px}
+  .num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+
+  .page-head{max-width:920px;margin:0 auto 34px;text-align:center}
+  .page-head h1{font-family:var(--disp);font-size:32px;font-weight:800;letter-spacing:-.8px;margin:0 0 8px}
+  .page-head p{color:var(--ink-2);font-size:15.5px;line-height:1.6;margin:0 auto;max-width:680px}
+  .page-head .leg{margin-top:14px;font-size:13px;color:var(--muted)}
+
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:34px 26px;max-width:1520px;margin:0 auto;justify-items:center}
+  .mock{width:360px}
+  .cap{margin:0 4px 12px}
+  .cap .n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:7px;background:var(--ink);color:#fff;font-family:var(--disp);font-weight:700;font-size:12px;margin-right:8px;vertical-align:1px}
+  .cap .t{font-family:var(--disp);font-weight:700;font-size:16px;letter-spacing:-.3px}
+  .cap .d{color:var(--muted);font-size:13px;margin-top:5px;line-height:1.5}
+  .cap .ev{color:var(--brand-ink);font-size:12px;margin-top:4px;line-height:1.5;font-weight:600}
+
+  /* phone frame */
+  .frame{width:360px;height:782px;background:var(--canvas);border-radius:44px;
+    box-shadow:0 0 0 10px #17171c,0 22px 60px rgba(0,0,0,.28);overflow:hidden;position:relative;display:flex;flex-direction:column}
+  .status{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 30px 0 34px;flex-shrink:0}
+  .status .tm{font-family:var(--disp);font-weight:600;font-size:15px;letter-spacing:.2px}
+  .status .ic{display:flex;gap:6px;align-items:center}
+  .status .ic svg{display:block}
+  .fhead{padding:6px 20px 10px;display:flex;align-items:flex-end;justify-content:space-between;flex-shrink:0}
+  .fhead h2{font-family:var(--disp);font-size:28px;font-weight:700;letter-spacing:-.8px;margin:0}
+  .pill{font-size:12.5px;font-weight:600;color:var(--ink-2);background:var(--white);border:1px solid var(--hairline);border-radius:9999px;padding:6px 12px;display:flex;gap:5px;align-items:center}
+  .body{flex:1;overflow:hidden;padding:2px 16px 0}
+  .tabbar{height:60px;flex-shrink:0;background:rgba(255,255,255,.88);backdrop-filter:blur(18px);border-top:1px solid var(--hairline);display:flex;align-items:center;padding-bottom:4px}
+  .tabbar .tb{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted-soft);font-size:10px;font-weight:600}
+  .tabbar .tb.on{color:var(--brand)}
+  .tabbar .tb svg{width:23px;height:23px}
+
+  .eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+  .bar{height:7px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;display:flex}
+  .bar > i{height:100%;display:block}
+  .pos{color:var(--good)} .neg{color:var(--amber)}
+  .card{background:var(--white);border-radius:18px;box-shadow:var(--shadow-card)}
+  .focal{background:var(--white);border-radius:22px;box-shadow:var(--shadow-focal)}
+
+  .lrow{display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid var(--divider)}
+  .lrow:last-child{border-bottom:none}
+  .lrow .lt{flex:1;min-width:0}
+  .lrow .ln{font-size:14px;font-weight:600;letter-spacing:-.2px}
+  .lrow .ls{font-size:11.5px;color:var(--muted);margin-top:1px}
+  .lrow .lv{font-family:var(--disp);font-size:14.5px;font-weight:700;letter-spacing:-.3px}
+  .em{width:34px;height:34px;border-radius:10px;background:var(--surface);border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+
+  /* mission bits */
+  .cd{font-family:var(--disp);font-variant-numeric:tabular-nums;font-weight:700;font-size:12px;background:var(--amber-tint);color:var(--amber);border-radius:8px;padding:4px 8px;white-space:nowrap}
+  .cd.cold{background:var(--indigo-tint);color:var(--indigo)}
+  .cd.done{background:var(--good-tint);color:var(--good)}
+  .bubble{background:var(--white);border:1px solid var(--hairline);border-radius:16px 16px 16px 4px;padding:9px 13px;font-size:12.5px;line-height:1.45;box-shadow:var(--shadow-card)}
+  .who{display:flex;align-items:flex-end;gap:8px;margin-top:11px}
+  .avt{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:700;font-size:11px;color:#fff;flex-shrink:0}
+  .avt.t{background:#BF5AF2}.avt.h{background:#2E9E6B}
+  .stamp{width:38px;height:44px;border-radius:11px;border:1.5px dashed var(--chev);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--surface)}
+  .stamp .d8{font-size:9px;font-weight:700;color:var(--muted)}
+  .stamp .fig{font-size:15px;line-height:1}
+  .stamp.hit{border:1.5px solid var(--brand);background:var(--brand-tint)}
+  .stamp.over{border:1.5px solid var(--rose);background:var(--rose-tint)}
+  .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;background:var(--surface);border:1px solid var(--hairline);border-radius:9999px;padding:5px 10px}
+  .hpwrap{height:14px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;position:relative}
+  .hpwrap i{position:absolute;inset:0;width:72%;background:linear-gradient(90deg,#E0322F,#FF6B4A);border-radius:9999px}
+  .starday{width:34px;height:34px;border-radius:10px;background:var(--surface);border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center;font-size:14px}
+  .starday.on{background:var(--amber-tint);border-color:#f0d9ae}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Nhiệm vụ tiết kiệm · 8 phương án</h1>
+  <p>Tám thử thách gamified cho nhà <b>Nousss</b>, mỗi cái sinh ra từ một pattern có thật trong dữ liệu chi tiêu 1/7–20/8. Nguyên tắc thiết kế: <b>trêu nhẹ, không mắng</b> — nhiệm vụ nhắm vào thói quen (Shopee đêm, Foody chồng đi chợ, Uniqlo một-đêm-hai-hoá-đơn), và <b>bảo vệ</b> những khoản đáng tiêu (cà phê với bạn, về quê).</p>
+  <div class="leg">Sage theme · SF Pro · VND · Số liệu thật đã giải mã (đơn vị nghìn đồng trong app hiển thị thành ₫ đầy đủ)</div>
+</div>
+
+<div class="gallery">
+
+  <!-- ============ 1 · PHÒNG CHỜ 48 GIỜ ============ -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">1</span><span class="t">Phòng chờ 48 giờ</span></div>
+      <div class="d">Món Shopee nào cũng phải “ngủ 2 đêm” trước khi mua. Món hết muốn = tiền tự tiết kiệm, có bảng đếm hẳn hoi. Người kia được quyền hóng và duyệt.</div>
+      <div class="ev">Dữ liệu: Shopee ~2,98tr trong 7 tuần, có đơn lúc 02:15 sáng.</div></div>
+    <div class="frame">
+      <div class="status"><span class="tm">9:41</span><span class="ic">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#191022"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".3"/></g></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1.5" width="21" height="10" rx="2.6" fill="none" stroke="#191022" stroke-opacity=".4"/><rect x="3" y="3.5" width="15" height="6" rx="1.2" fill="#191022"/></svg>
+      </span></div>
+      <div class="fhead"><h2>Thử thách</h2><span class="pill">Tháng 8 ▾</span></div>
+      <div class="body">
+        <div class="focal" style="padding:17px 18px 15px">
+          <div class="eyebrow" style="color:var(--brand-ink)">Đang chạy · cả nhà</div>
+          <div style="font-family:var(--disp);font-size:21px;font-weight:800;letter-spacing:-.5px;margin-top:4px">🛒 Phòng chờ 48 giờ</div>
+          <div style="font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.5">Món vào giỏ phải ngủ 2 đêm. Sáng dậy còn thương thì mua thật.</div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <div style="flex:1;background:var(--surface);border:1px solid var(--hairline);border-radius:12px;padding:9px 11px"><div style="font-size:10px;color:var(--muted);font-weight:700">SHOPEE 7 TUẦN</div><div class="num" style="font-weight:700;font-size:15px;margin-top:2px">2.980.000 ₫</div></div>
+            <div style="flex:1;background:var(--good-tint);border:1px solid #cfe9db;border-radius:12px;padding:9px 11px"><div style="font-size:10px;color:var(--good);font-weight:700">ĐÃ NGUỘI &amp; TIẾT KIỆM</div><div class="num" style="font-weight:800;font-size:15px;margin-top:2px;color:var(--good)">1.240.000 ₫</div></div>
+          </div>
+        </div>
+        <div class="eyebrow" style="margin:15px 4px 8px">Đang nằm chờ · 3 món</div>
+        <div class="card">
+          <div class="lrow"><div class="em">📦</div>
+            <div class="lt"><div class="ln">Máy hút chân không mini</div><div class="ls">349.000 ₫ · Hiển thả vào lúc 23:40 🌙</div></div>
+            <span class="cd">🔥 còn 41:07</span></div>
+          <div class="lrow"><div class="em">🐱</div>
+            <div class="lt"><div class="ln">Đèn ngủ hình mèo</div><div class="ls">189.000 ₫ · Trang thả vào</div></div>
+            <span class="cd cold">🌡️ còn 05:12</span></div>
+          <div class="lrow"><div class="em">🥬</div>
+            <div class="lt"><div class="ln" style="text-decoration:line-through;color:var(--muted)">Công nghệ làm khô rau 3.0</div><div class="ls">500.000 ₫ · hết muốn thật rồi</div></div>
+            <span class="cd done">🧊 +500k</span></div>
+        </div>
+        <div class="who"><div class="avt t">T</div><div class="bubble">Ngủ dậy vẫn thương thì em duyệt liền 😌 Riêng cái 3.0 thì… nhà còn cái 2.0 chưa bóc á anh.</div></div>
+      </div>
+      <div class="tabbar">
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>
+        <div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 2 · TỦ LẠNH ĐANG ĐẦY ============ -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">2</span><span class="t">Tủ lạnh đang nhìn bạn</span></div>
+      <div class="d">Mỗi lần đi chợ, “độ đầy tủ lạnh” tăng theo hoá đơn đồ tươi. Tủ càng đầy, nút đặt Foody càng… tủi thân. Mỗi tuần chỉ có 2 vé giao đồ ăn.</div>
+      <div class="ev">Dữ liệu: 15–16/8 đặt Foody 3 đơn 728k, ngay sau buổi AEON 577k hôm 14/8.</div></div>
+    <div class="frame">
+      <div class="status"><span class="tm">9:41</span><span class="ic">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#191022"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".3"/></g></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1.5" width="21" height="10" rx="2.6" fill="none" stroke="#191022" stroke-opacity=".4"/><rect x="3" y="3.5" width="15" height="6" rx="1.2" fill="#191022"/></svg>
+      </span></div>
+      <div class="fhead"><h2>Thử thách</h2><span class="pill">Tuần 34 ▾</span></div>
+      <div class="body">
+        <div class="focal" style="padding:18px;text-align:center">
+          <div style="font-size:56px;line-height:1">🧊</div>
+          <div style="font-family:var(--disp);font-size:20px;font-weight:800;letter-spacing:-.5px;margin-top:6px">Tủ lạnh đầy 82%</div>
+          <div style="font-size:12.5px;color:var(--muted);margin-top:3px">Đi AEON hôm qua · 577.000 ₫ đồ tươi</div>
+          <div class="bar" style="margin-top:12px;height:10px"><i style="width:82%;background:var(--grad-brand)"></i></div>
+          <div style="font-size:11.5px;color:var(--brand-ink);font-weight:700;margin-top:9px">Đủ nấu ~5 bữa. Tủ lạnh đang nhìn bạn đó 👀</div>
+        </div>
+        <div class="eyebrow" style="margin:15px 4px 8px">Vé Foody tuần này</div>
+        <div class="card" style="display:flex;padding:13px 15px;gap:10px;align-items:center">
+          <div style="flex:1;display:flex;gap:8px">
+            <div style="flex:1;border:1.5px dashed var(--chev);border-radius:12px;padding:9px;text-align:center;background:var(--surface);opacity:.55">
+              <div style="font-size:18px">🎟️</div><div style="font-size:10px;font-weight:700;color:var(--muted);margin-top:2px">ĐÃ DÙNG · 15/8</div></div>
+            <div style="flex:1;border:1.5px solid var(--brand);border-radius:12px;padding:9px;text-align:center;background:var(--brand-tint)">
+              <div style="font-size:18px">🎟️</div><div style="font-size:10px;font-weight:700;color:var(--brand-ink);margin-top:2px">CÒN 1 VÉ</div></div>
+          </div>
+          <div style="width:104px;font-size:11px;color:var(--muted);line-height:1.45">Giữ được vé đến CN = vé quy ra <b class="pos">50k vào quỹ Tết</b></div>
+        </div>
+        <div class="card" style="margin-top:11px;padding:12px 15px">
+          <div style="display:flex;align-items:center;gap:9px">
+            <div class="em" style="width:30px;height:30px;font-size:14px">📊</div>
+            <div style="flex:1;font-size:12.5px;line-height:1.5;color:var(--ink-2)">Tuần trước: <b>3 đơn Foody (728k)</b> rơi đúng 2 ngày sau buổi đi chợ lớn. Đồ tươi tuần đó vẫn… tươi.</div>
+          </div>
+        </div>
+        <div class="who"><div class="avt h">H</div><div class="bubble">Tối nay anh nấu, Foody nghỉ. Tủ lạnh bớt nhìn anh kiểu đó đi 🥲</div></div>
+      </div>
+      <div class="tabbar">
+        <div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 3 · BOSS UNIQLO ============ -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">3</span><span class="t">Boss: Uniqlo</span></div>
+      <div class="d">Quần áo không tiêu đều — nó “bùng”. Nên ngân sách theo quý + trận đấu boss: vào store với danh sách 1 món, thoát ra dưới 500k là thắng 1 hiệp, có kỷ lục gia đình để phá.</div>
+      <div class="ev">Dữ liệu: 6/7 — hai hoá đơn Uniqlo 2,29tr cách nhau 23 phút. Q3 đã dùng 4,36tr.</div></div>
+    <div class="frame">
+      <div class="status"><span class="tm">9:41</span><span class="ic">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#191022"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".3"/></g></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1.5" width="21" height="10" rx="2.6" fill="none" stroke="#191022" stroke-opacity=".4"/><rect x="3" y="3.5" width="15" height="6" rx="1.2" fill="#191022"/></svg>
+      </span></div>
+      <div class="fhead"><h2>Thử thách</h2><span class="pill">Quý 3 ▾</span></div>
+      <div class="body">
+        <div class="focal" style="padding:18px;background:linear-gradient(180deg,#fff,#fdf7f8)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:52px;height:52px;border-radius:14px;background:var(--rose-tint);display:flex;align-items:center;justify-content:center;font-size:26px">👕</div>
+            <div style="flex:1">
+              <div class="eyebrow" style="color:var(--rose)">Boss đang gặp · lv. cao</div>
+              <div style="font-family:var(--disp);font-size:20px;font-weight:800;letter-spacing:-.5px">UNIQLO</div>
+            </div>
+            <div style="text-align:right"><div style="font-size:10px;font-weight:700;color:var(--muted)">SỨC BOSS</div><div class="num" style="font-weight:800;font-size:14px;color:var(--danger)">87%</div></div>
+          </div>
+          <div class="hpwrap" style="margin-top:13px"><i style="width:87%"></i></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:7px;font-weight:600">
+            <span>Ngân sách quần áo Q3: 5tr</span><span class="num" style="color:var(--danger);font-weight:800">còn 640k cho tháng 9 😅</span></div>
+        </div>
+        <div class="card" style="margin-top:12px;padding:13px 15px;display:flex;align-items:center;gap:11px">
+          <div style="font-size:22px">🏆</div>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:var(--amber)">KỶ LỤC GIA ĐÌNH (đang cần phá)</div>
+            <div style="font-size:13px;color:var(--ink-2);margin-top:2px;line-height:1.45"><b class="num">2.285.000 ₫</b> trong <b>23 phút</b> — 6/7, hoá đơn 20:04 và 20:27</div>
+          </div>
+        </div>
+        <div class="eyebrow" style="margin:14px 4px 8px">Luật trận đấu</div>
+        <div class="card">
+          <div class="lrow"><div class="em">📝</div><div class="lt"><div class="ln">Vào store với danh sách đúng 1 món</div><div class="ls">khai báo trước với cả nhà</div></div></div>
+          <div class="lrow"><div class="em">🛡️</div><div class="lt"><div class="ln">Thoát ra dưới 500k = thắng 1 hiệp</div><div class="ls">thắng 3 hiệp liên tiếp = huy hiệu Kháng-Sale</div></div></div>
+        </div>
+        <div style="display:flex;gap:7px;margin-top:11px;flex-wrap:wrap">
+          <span class="badge">🛡️ Hiệp 1 · Hiển thắng (kính 700k… suýt)</span>
+          <span class="badge" style="opacity:.45">🛡️ Hiệp 2 · ?</span>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>
+        <div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 4 · HỘP BÍ ẨN ============ -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">4</span><span class="t">Hộp bí ẩn — đoán xem tiền đi đâu</span></div>
+      <div class="d">Mỗi giao dịch ngân hàng chưa có ghi chú thành một hộp bí ẩn. Người kia đoán trước, chủ nhân mở hộp trả lời — vừa vui vừa dọn sạch “vùng mù” của báo cáo tháng.</div>
+      <div class="ev">Dữ liệu: ~2,6tr/tháng là “chuyen tien” không ghi chú — 15% chi tiêu không giải thích được.</div></div>
+    <div class="frame">
+      <div class="status"><span class="tm">9:41</span><span class="ic">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#191022"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".3"/></g></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1.5" width="21" height="10" rx="2.6" fill="none" stroke="#191022" stroke-opacity=".4"/><rect x="3" y="3.5" width="15" height="6" rx="1.2" fill="#191022"/></svg>
+      </span></div>
+      <div class="fhead"><h2>Thử thách</h2><span class="pill">Tháng 8 ▾</span></div>
+      <div class="body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:2px 4px 9px">
+          <span class="eyebrow">Còn 4 hộp bí ẩn</span>
+          <span style="font-size:11.5px;font-weight:700;color:var(--amber)" class="num">2.600.000 ₫ đang ẩn danh</span>
+        </div>
+        <div class="focal" style="padding:17px 18px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:54px;height:54px;border-radius:15px;background:var(--amber-tint);display:flex;align-items:center;justify-content:center;font-size:27px">❓</div>
+            <div style="flex:1">
+              <div style="font-size:12px;color:var(--muted);font-weight:600">Trang chuyển khoản · 12/7</div>
+              <div class="num" style="font-family:var(--disp);font-size:24px;font-weight:800;letter-spacing:-.7px">600.000 ₫</div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin:12px 0 8px;font-weight:600">Hiển đoán trước khi mở hộp:</div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <span class="badge" style="border-color:var(--brand);color:var(--brand-ink);background:var(--brand-tint)">🧋 Trà sữa cho team</span>
+            <span class="badge">🎂 Bánh cho bố</span>
+            <span class="badge">🛍️ Sọp pi nữa hả</span>
+          </div>
+          <div style="margin-top:13px;display:flex;gap:9px">
+            <div style="flex:1;text-align:center;background:var(--ink);color:#fff;border-radius:12px;padding:11px;font-weight:700;font-size:13.5px">Mở hộp 🎁</div>
+          </div>
+        </div>
+        <div class="eyebrow" style="margin:14px 4px 8px">Đã mở gần đây</div>
+        <div class="card">
+          <div class="lrow"><div class="em">📦</div>
+            <div class="lt"><div class="ln">250k · 4/7 → “Gửi xe tháng”</div><div class="ls">Hiển đoán trúng · +10 điểm thám tử</div></div>
+            <span class="cd done">✓</span></div>
+          <div class="lrow"><div class="em">📦</div>
+            <div class="lt"><div class="ln">300k · 20/7 → “Góp quà cưới Ngân”</div><div class="ls">Hiển đoán “trà sữa” · trật lất</div></div>
+            <span class="cd">✗</span></div>
+        </div>
+        <div class="card" style="margin-top:11px;display:flex;padding:11px 15px;align-items:center;gap:10px">
+          <div style="font-size:17px">🕵️</div>
+          <div style="flex:1;font-size:12.5px;font-weight:600">Bảng thám tử tháng 8</div>
+          <span class="badge"><span class="avt t" style="width:18px;height:18px;font-size:9px">T</span> 5/6</span>
+          <span class="badge"><span class="avt h" style="width:18px;height:18px;font-size:9px">H</span> 3/7</span>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>
+        <div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 5 · MỘT CHUYẾN CHỢ LỚN ============ -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">5</span><span class="t">Một chuyến chợ lớn</span></div>
+      <div class="d">Thẻ tích chuyến: mỗi tuần một chuyến chợ lớn theo danh sách chung. Chuyến phụ không bị cấm — nhưng bị đếm, kèm “thuế tiện tay” trung bình mỗi lần ghé.</div>
+      <div class="ev">Dữ liệu: 14–19/8 có 5 chuyến AEON trong 6 ngày; các chuyến phụ hay kèm đồ ngoài danh sách.</div></div>
+    <div class="frame">
+      <div class="status"><span class="tm">9:41</span><span class="ic">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#191022"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".3"/></g></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1.5" width="21" height="10" rx="2.6" fill="none" stroke="#191022" stroke-opacity=".4"/><rect x="3" y="3.5" width="15" height="6" rx="1.2" fill="#191022"/></svg>
+      </span></div>
+      <div class="fhead"><h2>Thử thách</h2><span class="pill">Tuần 34 ▾</span></div>
+      <div class="body">
+        <div class="focal" style="padding:17px 18px">
+          <div class="eyebrow" style="color:var(--brand-ink)">Thẻ tích chuyến · tuần này</div>
+          <div style="display:flex;gap:7px;margin-top:11px;justify-content:space-between">
+            <div class="stamp"><span class="d8">T2</span><span class="fig">·</span></div>
+            <div class="stamp over"><span class="d8">T3</span><span class="fig">🛒</span></div>
+            <div class="stamp"><span class="d8">T4</span><span class="fig">·</span></div>
+            <div class="stamp over"><span class="d8">T5</span><span class="fig">🛒</span></div>
+            <div class="stamp"><span class="d8">T6</span><span class="fig">·</span></div>
+            <div class="stamp"><span class="d8">T7</span><span class="fig">·</span></div>
+            <div class="stamp hit"><span class="d8">CN</span><span class="fig">🧺</span></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:10px;font-weight:600">
+            <span style="color:var(--brand-ink)">🧺 Chuyến lớn theo danh sách (CN)</span>
+            <span style="color:var(--rose)">🛒 2 chuyến phụ — thuế tiện tay ~180k/lần</span></div>
+        </div>
+        <div class="eyebrow" style="margin:14px 4px 8px">Danh sách chợ Chủ nhật · cả nhà cùng thêm</div>
+        <div class="card">
+          <div class="lrow"><div class="em">🥩</div><div class="lt"><div class="ln">Thịt, trứng, cá</div><div class="ls">Hiển thêm</div></div><span class="cd done">✓</span></div>
+          <div class="lrow"><div class="em">🥬</div><div class="lt"><div class="ln">Rau tuần + hành ngò</div><div class="ls">Trang thêm</div></div><span class="cd done">✓</span></div>
+          <div class="lrow"><div class="em">🧴</div><div class="lt"><div class="ln">Nước giặt (đợt sale thật sự)</div><div class="ls">Trang thêm · “lần này cần thật”</div></div><span class="cd done">✓</span></div>
+          <div class="lrow"><div class="em">🍫</div><div class="lt"><div class="ln" style="color:var(--muted)">Snack “tiện tay”</div><div class="ls">tự động vào Phòng chờ 48h 😄</div></div><span class="cd">⏳</span></div>
+        </div>
+        <div class="card" style="margin-top:11px;display:flex;padding:11px 15px;align-items:center;gap:10px">
+          <div style="font-size:17px">🧠</div>
+          <div style="flex:1;font-size:12.5px;line-height:1.5;color:var(--ink-2)">4 tuần giữ nhịp <b>1 chuyến lớn</b> → huy hiệu <b>Nhà chiến lược</b> + 1 món tự thưởng khỏi qua phòng chờ</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 6 · NUÔI NOU ============ -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">6</span><span class="t">Nuôi Nou — chuỗi cơm nhà</span></div>
+      <div class="d">Mỗi ngày có bữa cơm nhà, Nou được cho ăn và tròn thêm một chút. Ngày đặt đồ ăn ngoài, Nou không giận — chỉ nhìn thôi. Chuỗi dài mở khoá đồ trang trí cho sân nhà.</div>
+      <div class="ev">Dữ liệu: nhà đi chợ đều (AEON, Kingdommart) — nền tảng cơm nhà đã có sẵn; Nou có thật, hay “ăn chúi”.</div></div>
+    <div class="frame">
+      <div class="status"><span class="tm">9:41</span><span class="ic">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#191022"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".3"/></g></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1.5" width="21" height="10" rx="2.6" fill="none" stroke="#191022" stroke-opacity=".4"/><rect x="3" y="3.5" width="15" height="6" rx="1.2" fill="#191022"/></svg>
+      </span></div>
+      <div class="fhead"><h2>Nhà</h2><span class="pill">Chuỗi 5 ngày 🔥</span></div>
+      <div class="body">
+        <div class="focal" style="padding:20px 18px;text-align:center;background:linear-gradient(180deg,#f0f9f3,#fff 70%)">
+          <div style="font-size:64px;line-height:1">🐈</div>
+          <div style="font-family:var(--disp);font-size:20px;font-weight:800;letter-spacing:-.5px;margin-top:8px">Nou no căng</div>
+          <div style="font-size:12.5px;color:var(--muted);margin-top:3px">4 bữa cơm nhà tuần này · độ tròn 78%</div>
+          <div class="bar" style="margin-top:12px;height:10px"><i style="width:78%;background:linear-gradient(90deg,#B8730B,#E8A33D)"></i></div>
+          <div style="display:flex;justify-content:center;gap:6px;margin-top:13px">
+            <span class="badge">🍚 T2</span><span class="badge">🍚 T3</span><span class="badge" style="opacity:.4">👀 T4 (Foody)</span><span class="badge">🍚 T5</span><span class="badge">🍚 T6</span>
+          </div>
+        </div>
+        <div class="eyebrow" style="margin:14px 4px 8px">Mở khoá sắp tới</div>
+        <div class="card">
+          <div class="lrow"><div class="em">🌳</div>
+            <div class="lt"><div class="ln">Cây chanh ngoài sân</div><div class="ls">chuỗi 14 ngày cơm nhà · còn 9 ngày</div></div>
+            <div class="lv num" style="color:var(--muted)">5/14</div></div>
+          <div class="lrow"><div class="em">🛏️</div>
+            <div class="lt"><div class="ln">Nệm mới cho Nou</div><div class="ls">30 bữa cơm nhà trong tháng</div></div>
+            <div class="lv num" style="color:var(--muted)">17/30</div></div>
+        </div>
+        <div class="card" style="margin-top:11px;display:flex;padding:11px 15px;align-items:center;gap:10px">
+          <div style="font-size:17px">💰</div>
+          <div style="flex:1;font-size:12.5px;line-height:1.5;color:var(--ink-2)">Mỗi bữa nhà thay vì giao đồ ăn ≈ <b class="pos">tiết kiệm 180k</b>. Tháng này Nou đã “kiếm” cho nhà <b class="pos num">2.160.000 ₫</b></div>
+        </div>
+        <div class="who"><div class="avt t">T</div><div class="bubble">Nou ăn chúi xong nhìn cái nồi kho quẹt kìa. Nay khỏi Foody nha 😋</div></div>
+      </div>
+      <div class="tabbar">
+        <div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 7 · QUỸ BRO QUANG ============ -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">7</span><span class="t">Quỹ gặp gỡ — tiêu vui không áy náy</span></div>
+      <div class="d">Nhiệm vụ “ngược”: không cắt cà phê với bạn — đóng khung nó. Một hũ riêng cho gặp gỡ, đầy thì hẹn tháng sau, và mỗi lần tiêu được đính kèm kỷ niệm thay vì cảm giác tội lỗi.</div>
+      <div class="ev">Dữ liệu: tháng 8 có ~1,85tr gặp gỡ (anh Hoàng 1tr, f4 Huế 500k, bro Quang 340k) — đây là tiền mua kỷ niệm, không phải rò rỉ.</div></div>
+    <div class="frame">
+      <div class="status"><span class="tm">9:41</span><span class="ic">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#191022"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".3"/></g></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1.5" width="21" height="10" rx="2.6" fill="none" stroke="#191022" stroke-opacity=".4"/><rect x="3" y="3.5" width="15" height="6" rx="1.2" fill="#191022"/></svg>
+      </span></div>
+      <div class="fhead"><h2>Thử thách</h2><span class="pill">Tháng 8 ▾</span></div>
+      <div class="body">
+        <div class="focal" style="padding:18px;display:flex;gap:16px;align-items:center">
+          <div style="width:88px;flex-shrink:0;position:relative">
+            <div style="width:88px;height:106px;border-radius:14px 14px 20px 20px;border:2.5px solid var(--ink-2);overflow:hidden;position:relative;background:var(--surface)">
+              <div style="position:absolute;left:0;right:0;bottom:0;height:92%;background:linear-gradient(180deg,#5FC98D,#2E9E6B)"></div>
+              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:26px">☕</div>
+            </div>
+            <div style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);width:52px;height:9px;border-radius:5px;background:var(--ink-2)"></div>
+          </div>
+          <div style="flex:1">
+            <div class="eyebrow" style="color:var(--brand-ink)">Quỹ gặp gỡ tháng 8</div>
+            <div class="num" style="font-family:var(--disp);font-size:22px;font-weight:800;letter-spacing:-.6px;margin-top:3px">1.850.000<span style="font-size:14px;color:var(--muted)"> /2tr</span></div>
+            <div style="font-size:11.5px;color:var(--amber);font-weight:700;margin-top:4px">Còn đúng 1 ly cà phê nữa — chọn bro khôn ngoan 😄</div>
+          </div>
+        </div>
+        <div class="eyebrow" style="margin:14px 4px 8px">Kỷ niệm đã mua tháng này</div>
+        <div class="card">
+          <div class="lrow"><div class="em">🍻</div>
+            <div class="lt"><div class="ln">Catchup anh Hoàng</div><div class="ls">8/8 · lâu lắm mới gặp</div></div><div class="lv num">1.006.000</div></div>
+          <div class="lrow"><div class="em">🚆</div>
+            <div class="lt"><div class="ln">Trang và f4 Huế</div><div class="ls">9/8 · hội bạn thân</div></div><div class="lv num">500.000</div></div>
+          <div class="lrow"><div class="em">☕</div>
+            <div class="lt"><div class="ln">Cà phê bro Quang ×2</div><div class="ls">1/8 &amp; 2/8 · “típp” là chuyện dài kỳ</div></div><div class="lv num">340.000</div></div>
+        </div>
+        <div class="card" style="margin-top:11px;display:flex;padding:11px 15px;align-items:center;gap:10px">
+          <div style="font-size:17px">🖼️</div>
+          <div style="flex:1;font-size:12.5px;line-height:1.5;color:var(--ink-2)">Tiền này <b>không tính</b> vào cảnh báo chi tiêu. Nó có hũ riêng — vì kỷ niệm không phải khoản rò rỉ.</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>
+        <div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 8 · ĐƯỜNG ĐUA THÁNG ============ -->
+  <div class="mock">
+    <div class="cap"><div><span class="n">8</span><span class="t">Đường đua tháng — cả nhà về đích</span></div>
+      <div class="d">Thanh nhịp chi so với lịch: tiêu nhanh hơn ngày trôi là biết liền. Cứu cánh là “ngày không chi” — mỗi ngày 0đ biến động được 1 sao, đủ sao thì bầu trời trên mái nhà thêm sao thật.</div>
+      <div class="ev">Dữ liệu: tháng 7 tiêu 22,4tr; tháng 8 mới 20 ngày đã 20,0tr (83% mục tiêu khi tháng mới trôi 65%).</div></div>
+    <div class="frame">
+      <div class="status"><span class="tm">9:41</span><span class="ic">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#191022"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".3"/></g></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1.5" width="21" height="10" rx="2.6" fill="none" stroke="#191022" stroke-opacity=".4"/><rect x="3" y="3.5" width="15" height="6" rx="1.2" fill="#191022"/></svg>
+      </span></div>
+      <div class="fhead"><h2>Thử thách</h2><span class="pill">Tháng 8 ▾</span></div>
+      <div class="body">
+        <div class="focal" style="padding:17px 18px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <div class="eyebrow" style="color:var(--brand-ink)">Đường đua 24 triệu</div>
+            <div style="font-size:11px;color:var(--muted);font-weight:600">tháng 7: 22,4tr</div>
+          </div>
+          <div style="position:relative;margin-top:22px">
+            <div class="bar" style="height:12px"><i style="width:83%;background:linear-gradient(90deg,#34B87A 55%,#E8A33D 80%,#E0322F)"></i></div>
+            <div style="position:absolute;left:65%;top:-8px;bottom:-8px;width:2px;background:var(--ink);border-radius:2px"></div>
+            <div style="position:absolute;left:65%;top:-22px;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--ink)">hôm nay · 20/8</div>
+            <div style="position:absolute;left:83%;top:14px;transform:translateX(-50%);font-size:14px">🏃</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:26px;font-size:11.5px;font-weight:600">
+            <span class="num" style="color:var(--danger)">Đã tiêu 20,0tr (83%)</span>
+            <span class="num" style="color:var(--ink-2)">còn 4,0tr / 11 ngày ≈ 364k mỗi ngày</span>
+          </div>
+        </div>
+        <div class="eyebrow" style="margin:14px 4px 8px">Cứu cánh: ngày không chi ⭐ (mục tiêu 3 sao)</div>
+        <div class="card" style="padding:13px 15px">
+          <div style="display:flex;gap:6px;justify-content:space-between">
+            <div class="starday on">⭐</div><div class="starday on">⭐</div><div class="starday">23</div><div class="starday">24</div><div class="starday">25</div><div class="starday">·</div><div class="starday">·</div><div class="starday">·</div>
+          </div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:9px;line-height:1.5">2 sao rồi (6/8 và 11/8 là ngày 0đ tự nhiên — làm được mà!). Sao thứ 3 trước 31/8 = <b style="color:var(--brand-ink)">về đích vẫn kịp</b>.</div>
+        </div>
+        <div class="card" style="margin-top:11px;display:flex;padding:12px 15px;align-items:center;gap:11px">
+          <div style="font-size:20px">✨</div>
+          <div style="flex:1;font-size:12.5px;line-height:1.5;color:var(--ink-2)">Về đích ≤24tr → bầu trời trên mái nhà Nousss <b>thêm một vì sao</b>, vĩnh viễn. Mỗi tháng thắng là một sao.</div>
+        </div>
+        <div class="who"><div class="avt h">H</div><div class="bubble">Chén bát 1,8tr tháng này là đầu tư dài hạn nha… nhưng thôi, 11 ngày tới anh nhịn sọp pi 🫡</div></div>
+      </div>
+      <div class="tabbar">
+        <div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 10h18"/></svg>Tài chính</div>
+        <div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

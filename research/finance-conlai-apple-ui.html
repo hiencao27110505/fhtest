@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Còn lại tháng này · 8 hướng UI (Apple-grade)</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{
+    --sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif;
+    --ink:#1c1c1e;--ink2:#48484a;--ink3:#8e8e93;--ink4:#aeaeb2;
+    --sep:rgba(60,60,67,.12);--hair:rgba(60,60,67,.16);
+    --card:#ffffff;--bg:#e7e9ec;--fill6:#f2f2f5;--fill5:#e9eaee;
+    --teal:#0f9d84;--teal2:#17b8a0;--tealbg:#eaf6f2;
+    --red:#ff3b30;--amber:#ff9f0a;--prevbar:#d9dce1;--track:#e9ebef;
+  }
+  html,body{background:#e7e9ec;font-family:var(--sf);color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{padding:44px 22px 80px}
+  .num,.big,.money{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1,"ss01" 1}
+  .u{font-size:.5em;font-weight:600;color:var(--ink3);margin-left:.12em;letter-spacing:0}
+
+  .head{max-width:760px;margin:0 auto 6px;text-align:center}
+  .head h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin-bottom:9px}
+  .head p{color:var(--ink2);font-size:14px;line-height:1.55;max-width:600px;margin:0 auto}
+  .head .tag{display:inline-block;margin-bottom:14px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);background:var(--tealbg);border-radius:999px;padding:5px 12px}
+
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:40px 22px;max-width:1480px;margin:38px auto 0;justify-items:center;align-items:start}
+  @media(max-width:1460px){.grid{grid-template-columns:repeat(2,1fr);max-width:760px}}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .item{width:340px}
+  .cap{margin:0 2px 12px}
+  .cap .n{font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.02em}
+  .cap .t{display:block;font-weight:600;font-size:14.5px;letter-spacing:-.01em;margin-top:2px}
+  .cap .d{margin-top:5px;font-size:11.5px;line-height:1.5;color:var(--ink3)}
+
+  /* ---- widget base ---- */
+  .w{background:var(--card);border-radius:26px;padding:20px;box-shadow:0 1px 2px rgba(28,28,30,.05),0 18px 40px -14px rgba(28,40,55,.16)}
+  .kick{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--ink3)}
+  .kick.up{text-transform:uppercase;letter-spacing:.06em}
+  .month{font-weight:700;letter-spacing:-.03em;color:var(--ink);line-height:1}
+  .today-n{font-weight:700;letter-spacing:-.03em;color:var(--teal);line-height:1}
+  .sep{height:1px;background:var(--sep);border:0}
+  .row{display:flex;align-items:center;justify-content:space-between}
+  .muted{color:var(--ink3)}
+  .arw{width:16px;height:16px;color:var(--ink4);flex-shrink:0}
+  .chev{width:15px;height:15px;color:var(--ink4);flex-shrink:0}
+
+  /* week bars */
+  .wk{display:flex;align-items:flex-end;justify-content:space-between;gap:5px}
+  .wc{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+  .wc .bars{position:relative;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:2px}
+  .wc i{display:block;width:7px;border-radius:3px}
+  .wc i.p{background:var(--prevbar)}
+  .wc i.c{background:var(--teal2)}.wc i.c.o{background:var(--red)}
+  .wc em{font-style:normal;font-size:9px;color:var(--ink4);font-weight:600}
+  .wc.on em{color:var(--teal);font-weight:700}
+
+  /* move-bar capsule */
+  .cap-track{height:12px;border-radius:999px;background:var(--track);overflow:hidden;position:relative}
+  .cap-track i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--teal),var(--teal2))}
+  .cap-track.warn i{background:linear-gradient(90deg,#e8890a,var(--amber))}
+
+  /* inset tile */
+  .tile{background:var(--fill6);border-radius:18px;padding:14px}
+
+  /* rings/gauge */
+  svg.ring,svg.gauge{display:block}
+
+  /* stat inline */
+  .stat .l{font-size:11px;font-weight:600;color:var(--ink3)}
+  .stat .v{font-size:14px;font-weight:600;letter-spacing:-.01em;margin-top:2px}
+
+  /* bento */
+  .bento{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .bcell{background:var(--fill6);border-radius:18px;padding:14px}
+  .bcell.accent{background:var(--tealbg)}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <span class="tag">Concept #2 · còn tiêu được hôm nay</span>
+  <h1>“Còn lại tháng này” — 8 hướng thiết kế UI</h1>
+  <p>Cùng một nội dung: số còn lại tháng, cặp Thu/Chi, biểu đồ tuần, và câu trả lời trong ngày. Tám cách sắp đặt theo ngôn ngữ Apple — khác nhau ở cách làm nổi câu trả lời “hôm nay còn tiêu được bao nhiêu”.</p>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+var DAYS=['T2','T3','T4','T5','T6','T7','CN'];
+var WK=[{p:26,c:22,cls:'c'},{p:22,c:32,cls:'c o'},{p:28,c:17,cls:'c'},{p:24,c:6,cls:'c',t:1},{p:20},{p:31},{p:24}];
+function money(s){return s+'<span class="u">đ</span>'}
+function weekBars(h,showLab){
+  return '<div class="wk" style="height:'+(h+(showLab?14:0))+'px">'+WK.map(function(d,i){
+    var b='<i class="p" style="height:'+(d.p/34*h)+'px"></i>';
+    if(d.c) b+='<i class="'+d.cls+(d.t?' tday':'')+'" style="height:'+(d.c/34*h)+'px"></i>';
+    return '<span class="wc'+(d.t?' on':'')+'"><span class="bars" style="height:'+h+'px">'+b+'</span>'+(showLab?'<em>'+DAYS[i]+'</em>':'')+'</span>';
+  }).join('')+'</div>';
+}
+function ring(pct,size,sw,color){
+  var r=(size-sw)/2, c=2*Math.PI*r, off=c*(1-pct/100), cc=size/2;
+  return '<svg class="ring" width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'
+    +'<circle cx="'+cc+'" cy="'+cc+'" r="'+r+'" fill="none" stroke="var(--track)" stroke-width="'+sw+'"/>'
+    +'<circle cx="'+cc+'" cy="'+cc+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+off+'" transform="rotate(-90 '+cc+' '+cc+')"/></svg>';
+}
+function gauge(pct,w,sw,color){
+  var r=(w-sw)/2, cx=w/2, cy=w/2, len=Math.PI*r, off=len*(1-pct/100);
+  var d='M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy;
+  return '<svg class="gauge" width="'+w+'" height="'+(w/2+sw/2+2)+'" viewBox="0 0 '+w+' '+(w/2+sw/2+2)+'">'
+    +'<path d="'+d+'" fill="none" stroke="var(--track)" stroke-width="'+sw+'" stroke-linecap="round"/>'
+    +'<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+len+'" stroke-dashoffset="'+off+'"/></svg>';
+}
+var ARR_UP='<svg class="arw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6M6 12l6-6 6 6"/></svg>';
+var ARR_DN='<svg class="arw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v13M6 12l6 6 6-6"/></svg>';
+var CHEV='<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+
+function item(n,t,d,widget){
+  return '<div class="item"><div class="cap"><span class="n">'+n+'</span><span class="t">'+t+'</span><div class="d">'+d+'</div></div>'+widget+'</div>';
+}
+var out='';
+
+/* 1 · Grouped inset list */
+out+=item('01','Danh sách nhóm (Wallet)','Từng dòng phân tách bằng hairline. Dòng “hôm nay” được nhấn bằng vòng tiến độ và màu teal.',
+ '<div class="w" style="padding:8px 18px">'
+ +'<div class="row" style="padding:14px 0"><span class="kick">Còn lại tháng này</span><span class="month num" style="font-size:22px">'+money('5.600.000')+'</span></div>'
+ +'<hr class="sep">'
+ +'<div class="row" style="padding:15px 0;gap:12px">'
+   +'<div style="position:relative;width:40px;height:40px;flex-shrink:0">'+ring(24,40,4,'var(--teal)')+'</div>'
+   +'<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;letter-spacing:-.01em">Còn tiêu được hôm nay</div>'
+   +'<div class="kick" style="margin-top:2px">Đã tiêu 120.000đ · 9:41</div></div>'
+   +'<span class="today-n num" style="font-size:21px">'+money('380.000')+'</span></div>'
+ +'<hr class="sep">'
+ +'<div class="row" style="padding:13px 0"><span class="row" style="gap:8px;justify-content:flex-start"><span style="color:var(--teal)">'+ARR_UP+'</span><span style="font-size:14px;font-weight:500">Thu</span></span><span class="num" style="font-size:14px;font-weight:600">'+money('14.000.000')+'</span></div>'
+ +'<hr class="sep">'
+ +'<div class="row" style="padding:13px 0"><span class="row" style="gap:8px;justify-content:flex-start"><span style="color:var(--ink3)">'+ARR_DN+'</span><span style="font-size:14px;font-weight:500">Chi</span></span><span class="num" style="font-size:14px;font-weight:600">'+money('8.400.000')+'</span></div>'
+ +'<hr class="sep">'
+ +'<div style="padding:14px 2px 12px">'+weekBars(30,1)+'</div>'
+ +'</div>');
+
+/* 2 · Fitness move-bar */
+out+=item('02','Thanh tiến độ (Fitness)','Câu trả lời đặt lớn, kèm thanh capsule cho biết đã tiêu bao nhiêu phần hạn mức ngày.',
+ '<div class="w">'
+ +'<div class="kick up">Còn lại tháng này</div>'
+ +'<div class="month num" style="font-size:30px;margin-top:6px">'+money('5.600.000')+'</div>'
+ +'<div class="row" style="margin-top:6px;gap:16px;justify-content:flex-start"><span class="kick"><span style="color:var(--teal);font-weight:700">↑</span> Thu 14.000.000đ</span><span class="kick"><span style="color:var(--ink3);font-weight:700">↓</span> Chi 8.400.000đ</span></div>'
+ +'<hr class="sep" style="margin:16px 0">'
+ +'<div class="row"><span style="font-size:13px;font-weight:600;color:var(--ink2)">Còn tiêu được hôm nay</span><span class="kick">9:41</span></div>'
+ +'<div class="today-n num" style="font-size:34px;margin-top:5px">'+money('380.000')+'</div>'
+ +'<div class="cap-track" style="margin-top:12px"><i style="width:24%"></i></div>'
+ +'<div class="kick" style="margin-top:8px">Đã tiêu 120.000đ / hạn mức 500.000đ</div>'
+ +'<div style="margin-top:16px">'+weekBars(28,1)+'</div>'
+ +'</div>');
+
+/* 3 · Activity ring focus */
+out+=item('03','Vòng tiến độ (Activity)','Vòng lớn là nhân vật chính, số nằm giữa vòng. Số tháng và Thu/Chi lùi về hàng phụ.',
+ '<div class="w">'
+ +'<div class="row"><span class="kick up">Còn lại tháng này</span><span class="num" style="font-size:15px;font-weight:600">'+money('5.600.000')+'</span></div>'
+ +'<div class="row" style="margin-top:16px;gap:16px;justify-content:flex-start">'
+   +'<div style="position:relative;width:112px;height:112px;flex-shrink:0">'+ring(24,112,11,'var(--teal)')
+     +'<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">'
+     +'<div class="today-n num" style="font-size:23px">'+money('380k')+'</div><div class="kick" style="margin-top:1px">còn tiêu</div></div></div>'
+   +'<div style="flex:1"><div style="font-size:14px;font-weight:600;letter-spacing:-.01em;line-height:1.35">Còn tiêu được<br>hôm nay</div>'
+     +'<div class="kick" style="margin-top:8px;line-height:1.5">Đã tiêu 120.000đ<br>trên hạn mức 500.000đ<br>lúc 9:41</div></div>'
+ +'</div>'
+ +'<hr class="sep" style="margin:16px 0 14px">'
+ +'<div class="row"><div class="stat"><div class="l"><span style="color:var(--teal)">↑</span> Thu</div><div class="v num">'+money('14.000.000')+'</div></div>'
+ +'<div style="width:120px">'+weekBars(26)+'</div>'
+ +'<div class="stat" style="text-align:right"><div class="l"><span style="color:var(--ink3)">↓</span> Chi</div><div class="v num">'+money('8.400.000')+'</div></div></div>'
+ +'</div>');
+
+/* 4 · Editorial typographic */
+out+=item('04','Kiểu chữ tối giản','Nhiều khoảng trắng, chữ mảnh, biểu đồ rút thành hairline. Câu trả lời là một câu lớn.',
+ '<div class="w" style="padding:24px">'
+ +'<div class="kick up">Còn lại tháng này</div>'
+ +'<div class="month num" style="font-size:26px;margin-top:7px;font-weight:600">'+money('5.600.000')+'</div>'
+ +'<div style="height:34px"></div>'
+ +'<div style="font-size:15px;color:var(--ink2);font-weight:400">Hôm nay còn tiêu được</div>'
+ +'<div class="today-n num" style="font-size:46px;font-weight:600;margin-top:2px">'+money('380.000')+'</div>'
+ +'<div class="kick" style="margin-top:10px">Đã tiêu 120.000đ · còn dưới 500.000đ · 9:41</div>'
+ +'<div style="margin-top:22px">'+weekBars(22,1)+'</div>'
+ +'<hr class="sep" style="margin:18px 0 0">'
+ +'<div class="row" style="padding-top:14px"><span class="kick">Thu 14,0tr</span><span class="kick">Chi 8,4tr</span></div>'
+ +'</div>');
+
+/* 5 · Card-in-card nested module */
+out+=item('05','Thẻ lồng thẻ','Câu trả lời trong ngày tách thành một mô-đun riêng có nền tint, nằm gọn trong thẻ tháng.',
+ '<div class="w">'
+ +'<div class="kick up">Còn lại tháng này</div>'
+ +'<div class="month num" style="font-size:30px;margin-top:6px">'+money('5.600.000')+'</div>'
+ +'<div class="row" style="margin-top:14px;gap:10px">'
+   +'<div class="tile" style="flex:1;padding:11px 13px"><div class="stat"><div class="l"><span style="color:var(--teal)">↑</span> Thu</div><div class="v num">'+money('14.000.000')+'</div></div></div>'
+   +'<div class="tile" style="flex:1;padding:11px 13px"><div class="stat"><div class="l"><span style="color:var(--ink3)">↓</span> Chi</div><div class="v num">'+money('8.400.000')+'</div></div></div></div>'
+ +'<div style="margin-top:14px">'+weekBars(28,1)+'</div>'
+ +'<div class="tile" style="margin-top:14px;background:var(--tealbg);padding:15px">'
+   +'<div class="row"><span class="kick up" style="color:var(--teal)">Hôm nay</span><span class="kick">9:41</span></div>'
+   +'<div class="row" style="margin-top:8px;align-items:flex-end"><div><div class="today-n num" style="font-size:28px">'+money('380.000')+'</div><div class="kick" style="margin-top:4px">còn tiêu được · đã tiêu 120.000đ/500.000đ</div></div>'
+   +'<div style="position:relative;width:44px;height:44px;flex-shrink:0">'+ring(24,44,5,'var(--teal)')+'</div></div>'
+ +'</div>'
+ +'</div>');
+
+/* 6 · Arc gauge */
+out+=item('06','Đồng hồ cung','Cung nửa vòng cho hạn mức ngày (0 → 500k), phần còn lại là số lớn ngay dưới.',
+ '<div class="w">'
+ +'<div class="row"><span class="kick up">Còn lại tháng này</span><span class="num" style="font-size:15px;font-weight:600">'+money('5.600.000')+'</span></div>'
+ +'<div style="display:flex;flex-direction:column;align-items:center;margin-top:14px">'
+   +gauge(24,190,12,'var(--teal)')
+   +'<div class="today-n num" style="font-size:30px;margin-top:-6px">'+money('380.000')+'</div>'
+   +'<div class="kick" style="margin-top:4px">còn tiêu được hôm nay</div>'
+   +'<div class="row" style="width:190px;margin-top:6px"><span class="kick">0</span><span class="kick">đã tiêu 120.000đ · 9:41</span><span class="kick">500k</span></div>'
+ +'</div>'
+ +'<hr class="sep" style="margin:16px 0 14px">'
+ +'<div class="row"><span class="kick"><span style="color:var(--teal)">↑</span> Thu 14.000.000đ</span><div style="width:110px">'+weekBars(24)+'</div><span class="kick"><span style="color:var(--ink3)">↓</span> Chi 8.400.000đ</span></div>'
+ +'</div>');
+
+/* 7 · Bento */
+out+=item('07','Bento','Lưới ô: ô “hôm nay” lớn nhất, ô tháng, hai ô Thu/Chi, và một ô biểu đồ trải ngang.',
+ '<div class="w" style="padding:16px">'
+ +'<div class="bento">'
+   +'<div class="bcell accent" style="grid-row:span 2;display:flex;flex-direction:column;justify-content:space-between">'
+     +'<div class="row"><span class="kick up" style="color:var(--teal)">Hôm nay</span><span class="kick">9:41</span></div>'
+     +'<div style="margin:12px 0"><div style="position:relative;width:52px;height:52px">'+ring(24,52,6,'var(--teal)')+'</div></div>'
+     +'<div><div class="today-n num" style="font-size:26px">'+money('380.000')+'</div><div class="kick" style="margin-top:3px">còn tiêu được<br>đã tiêu 120k/500k</div></div></div>'
+   +'<div class="bcell"><div class="kick">Còn lại tháng</div><div class="month num" style="font-size:21px;margin-top:5px">'+money('5.600.000')+'</div></div>'
+   +'<div style="display:flex;gap:10px">'
+     +'<div class="bcell" style="flex:1;padding:11px"><div class="stat"><div class="l"><span style="color:var(--teal)">↑</span> Thu</div><div class="v num" style="font-size:12.5px">'+money('14,0tr')+'</div></div></div>'
+     +'<div class="bcell" style="flex:1;padding:11px"><div class="stat"><div class="l"><span style="color:var(--ink3)">↓</span> Chi</div><div class="v num" style="font-size:12.5px">'+money('8,4tr')+'</div></div></div></div>'
+ +'</div>'
+ +'<div class="bcell" style="margin-top:10px;padding:12px 14px">'+weekBars(30,1)+'</div>'
+ +'</div>');
+
+/* 8 · Answer-first minimal */
+out+=item('08','Câu trả lời trước tiên','Đảo bậc: câu trả lời trong ngày chiếm trọn phần đầu, số tháng và Thu/Chi lùi xuống một dòng gọn.',
+ '<div class="w">'
+ +'<div class="row"><span class="kick up" style="color:var(--teal)">Còn tiêu được hôm nay</span><span class="kick">9:41</span></div>'
+ +'<div class="today-n num" style="font-size:52px;margin-top:8px;letter-spacing:-.04em">'+money('380.000')+'</div>'
+ +'<div class="cap-track" style="margin-top:14px;height:10px"><i style="width:24%"></i></div>'
+ +'<div class="kick" style="margin-top:8px">Đã tiêu 120.000đ trên hạn mức 500.000đ hôm nay</div>'
+ +'<hr class="sep" style="margin:18px 0 4px">'
+ +'<div class="row" style="padding:12px 0 4px"><div><div class="kick">Còn lại tháng này</div><div class="num" style="font-size:17px;font-weight:600;margin-top:2px">'+money('5.600.000')+'</div></div>'
+   +'<div style="width:96px">'+weekBars(24)+'</div>'
+   +CHEV+'</div>'
+ +'<div class="row" style="padding-top:6px"><span class="kick"><span style="color:var(--teal)">↑</span> Thu 14,0tr</span><span class="kick"><span style="color:var(--ink3)">↓</span> Chi 8,4tr</span></div>'
+ +'</div>');
+
+document.getElementById('grid').innerHTML=out;
+</script>
+</body>
+</html>

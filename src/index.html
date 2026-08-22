@@ -126,6 +126,8 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     </div>
     <div class="wow" id="cf-wow" aria-hidden="true"></div>
     <div class="cf-note" id="cf-note"></div>
+    <!-- daily guide (current live month): "Hôm nay còn tiêu được" · tap opens the saving-goal sheet (renderDailyGuide) -->
+    <button class="cf-daily" id="cf-daily" type="button" onclick="openSaveGoal()" aria-label="Saving goal"></button>
     <!-- CTAs (V3): full-width nav rows into budget setup + the expense list -->
     <div class="cf-cta">
       <button class="cc-row" onclick="openSheet('sheet-budget')"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></span><span class="cc-t" data-t="setupBudget">Set up budget</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -727,6 +729,12 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="sheet-h" data-t="monthTitle">Choose month</div>
   <div class="sheet-sub" data-t="monthSub">See spending and budget for any month.</div>
   <div id="month-list"></div>
+</div>
+
+<div class="sheet" id="sheet-savegoal">
+  <div class="grab"></div>
+  <div class="sheet-h" id="savegoal-h">Saving goal</div>
+  <div class="choices" id="savegoal-list"></div>
 </div>
 
 <div class="sheet" id="sheet-catpick">

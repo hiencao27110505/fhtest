@@ -4,6 +4,7 @@ function openSheet(id){
   if(id==='sheet-event'){ openEventModal(); return; }        // new-event form is a full-screen modal
   if(id==='sheet-fund') buildFundChoices();
   if(id==='sheet-month') buildMonthChoices();
+  if(id==='sheet-savegoal') buildSaveGoalChoices();
   if(id==='sheet-catpick') buildCatPicker();
   if(id==='sheet-budget'){ if(window.loadFamilyData){ window.loadFamilyData().then(fillBudgetSheet); } else fillBudgetSheet(); }
   if(id==='sheet-theme') buildThemeChoices();
@@ -704,6 +705,7 @@ function submitBulk(opts){
   }
   bulkSaveTried=false;
   clearDrafts();                                   // saved for real → drop the auto-saved draft
+  window._dgLocalAdd=true;                          // this device just logged → allow a daily-guide state-change push
   renderAll(); renderTxns();
   closeExpense();
   toast(L('Đã ghi '+n+' khoản · '+fmt(total),'Logged '+n+' · '+fmt(total)));

@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — «Hôm nay là chiếc bình» · 8 biến thể × các trạng thái</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{--sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif;
+    --teal:#14b8a6;--pos:#0f9d84;--over:#e0483f;--amber:#e8a13d;--prev:#e6e3ec;--mut:#8a8694;
+    --notebg:#e7f6f0;--notefg:#0f7a5a;--warnbg:#fdf3e4;--warnfg:#9a6b1f;--badbg:#fdecea;--badfg:#c0392b}
+  html,body{background:#dcdae1;font-family:var(--sf);color:#111117;-webkit-font-smoothing:antialiased}
+  body{padding:40px 20px 70px}
+  .num,.big{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  .page-head{max-width:860px;margin:0 auto 12px;text-align:center}
+  .page-head h1{font-size:29px;font-weight:800;letter-spacing:-.9px;margin-bottom:8px}
+  .page-head p{color:#4b4753;font-size:14.5px;line-height:1.55;max-width:720px;margin:0 auto 6px}
+  .formula{max-width:720px;margin:14px auto 34px;background:#fff;border-radius:14px;padding:13px 18px;font-size:13px;line-height:1.6;color:#3a3742;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+  .formula b{font-weight:800}
+
+  .vblock{max-width:1120px;margin:0 auto 42px}
+  .cap{margin:0 4px 12px;max-width:860px}
+  .cap .n{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 6px;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:11px;margin-right:8px;vertical-align:1px}
+  .cap .t{font-weight:700;font-size:15px;letter-spacing:-.2px}
+  .cap .d{margin-top:5px;font-size:11.5px;line-height:1.5;color:#4b4753}
+  .states{display:flex;gap:14px;flex-wrap:wrap}
+
+  .scard{width:255px;background:#f2f2f6;border-radius:18px;padding:9px;box-shadow:0 8px 22px rgba(0,0,0,.09)}
+  .slab{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6b6577;margin:3px 5px 8px}
+  .c{background:#fff;border-radius:15px;padding:12px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .eyebrow{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
+  .big{font-weight:800;letter-spacing:-.7px;line-height:1}
+  .grad{background:linear-gradient(120deg,#0f9d84,#1fc9b4);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .neg{color:var(--over)}
+
+  .note{font-size:10.5px;font-weight:600;line-height:1.45;padding:8px 10px;border-radius:10px;margin-top:11px}
+  .note b{font-weight:800;white-space:nowrap}
+  .note.ok{background:var(--notebg);color:var(--notefg)}
+  .note.warn{background:var(--warnbg);color:var(--warnfg)}
+  .note.bad{background:var(--badbg);color:var(--badfg)}
+
+  /* chart scaffold (compact) */
+  .ch{margin-top:11px}
+  .chart{display:flex;gap:5px;align-items:flex-end;justify-content:space-between}
+  .col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+  .col span{font-size:7.5px;color:#a8a4b0;font-weight:600}
+  .col span.on{color:var(--pos);font-weight:800}
+  .gw{position:relative;height:56px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:2px}
+  .gb{width:8px;border-radius:3px 3px 0 0;flex-shrink:0}
+  .gb.prev{background:var(--prev)}
+  .gb.cur.g{background:var(--teal)}.gb.cur.o{background:var(--over)}
+
+  /* vessel */
+  .vs{position:relative;flex-shrink:0;width:11px;border:1.5px dashed rgba(20,184,166,.65);border-radius:4px 4px 6px 6px;background:rgba(20,184,166,.05)}
+  .vs em{position:absolute;inset:0;border-radius:3px 3px 5px 5px;overflow:hidden}
+  .vs em i{position:absolute;bottom:0;left:0;right:0;background:var(--teal)}
+  .vs.faint{opacity:.35}
+  .vs.amber{border-color:rgba(232,161,61,.75);background:rgba(232,161,61,.06)}
+  .vs.red{border-color:rgba(224,72,63,.75);background:rgba(224,72,63,.06)}
+  .vtick{position:absolute;left:-3px;right:-3px;height:1.5px;background:#c6c2ce;border-radius:2px;z-index:3}
+  .drop{position:absolute;width:3.5px;height:3.5px;border-radius:50%;background:var(--over);z-index:3}
+  .chip{position:absolute;top:-4px;left:50%;transform:translateX(-50%);font-size:7.5px;font-weight:800;border-radius:5px;padding:1.5px 4px;white-space:nowrap;z-index:4}
+  .chip.pos{color:#0f7a5a;background:#dff1e9}
+  .chip.neg{color:#c0392b;background:#fbe3e0}
+  .rim-ext{position:absolute;left:-1.5px;right:-1.5px;border:1.5px dashed rgba(15,157,132,.45);border-bottom:none;border-radius:4px 4px 0 0;background:rgba(20,184,166,.03)}
+  .grd{position:absolute;left:1.5px;right:1.5px;height:1px;background:rgba(0,0,0,.12);z-index:2}
+
+  /* 5 · hero vessel */
+  .hero5{display:flex;gap:12px;align-items:stretch}
+  .hv{position:relative;width:64px;height:92px;flex-shrink:0;border:2px dashed rgba(20,184,166,.6);border-radius:8px 8px 13px 13px;background:rgba(20,184,166,.04)}
+  .hv em{position:absolute;inset:0;border-radius:6px 6px 11px 11px;overflow:hidden}
+  .hv em i{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(180deg,#1fc9b4,#0f9d84)}
+  .hv.warm{border-color:rgba(232,161,61,.7)}
+  .hv.warm em i{background:linear-gradient(180deg,#f0b45c,#e8a13d)}
+  .hv.overred{border-color:rgba(224,72,63,.7)}
+  .hv.overred em i{background:linear-gradient(180deg,#e86b60,#e0483f)}
+  .hv .cap-l{position:absolute;top:-7px;left:50%;transform:translateX(-50%);font-size:7px;font-weight:800;color:#5f7a72;background:#eef7f3;border-radius:5px;padding:1.5px 5px;white-space:nowrap;z-index:5}
+  .hv .remain{position:absolute;left:0;right:0;text-align:center;font-weight:800;color:var(--pos);z-index:4}
+  .hv .spentl{position:absolute;left:0;right:0;bottom:4px;text-align:center;font-size:7px;font-weight:700;color:#fff;z-index:4}
+  .hero5 .side{flex:1;display:flex;flex-direction:column;justify-content:flex-end}
+  .mini .gw{height:26px;gap:1.5px}.mini .gb{width:5px}.mini .vs{width:7px}
+  .mini .col span{font-size:6.5px}
+
+  /* 8 · triptych */
+  .trip{display:flex;gap:7px}
+  .tcell{flex:1;background:#f7f6fa;border-radius:11px;padding:8px 5px 7px;display:flex;flex-direction:column;align-items:center;gap:5px}
+  .tcell.now{background:#eef7f3;box-shadow:inset 0 0 0 1.5px rgba(15,157,132,.35)}
+  .ttime{font-size:7px;font-weight:800;color:#8a8694;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+  .tcell.now .ttime{color:var(--pos)}
+  .tv{position:relative;width:24px;height:46px;border:1.5px dashed rgba(20,184,166,.65);border-radius:5px 5px 8px 8px;background:rgba(20,184,166,.05)}
+  .tv em{position:absolute;inset:0;border-radius:4px 4px 7px 7px;overflow:hidden}
+  .tv em i{position:absolute;bottom:0;left:0;right:0;background:var(--teal)}
+  .tv.warm{border-color:rgba(232,161,61,.75)}.tv.warm em i{background:var(--amber)}
+  .tv.overred{border-color:rgba(224,72,63,.75)}.tv.overred em i{background:var(--over)}
+  .tsub{font-size:8.5px;font-weight:800;color:var(--pos)}
+  .tsub.warm{color:var(--warnfg)}.tsub.red{color:var(--badfg)}
+  .tspent{font-size:7px;font-weight:600;color:#a29caa;margin-top:-3px}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>«Hôm nay là chiếc bình» · 8 biến thể × trạng thái</h1>
+  <p>Mỗi biến thể giờ là một <b>dải trạng thái</b>: cùng một chiếc bình nhưng xem ở tinh mơ, giữa ngày, lúc sắp chạm ngưỡng, lúc tràn — và cả sáng hôm sau. Con số «Còn lại tháng này» và giọng của note đổi theo từng trạng thái. Cột xám cùng kỳ tuần trước giữ nguyên.</p>
+</div>
+<div class="formula">
+  Kịch bản chung: trước hôm nay đã chi <b>8,28tr</b> / thu <b>14tr</b> → bình <b>500k/ngày</b>. Các mốc trong ngày: chưa chi → <b>120k</b> (sáng) → <b>410k</b> (chiều) → <b>560k</b> (tối, tràn 60k). «Còn lại tháng này» trừ dần tương ứng: 5,72tr → 5,6tr → 5,31tr → 5,16tr.
+</div>
+
+<div id="root"></div>
+
+<script>
+var P=[38,33,41,36,31,48,35];                      // prev-week bars (500k = 40px)
+var DAYS=['T2','T3','T4','T5','T6','T7','CN'];
+function pb(h){return '<div class="gb prev" style="height:'+h+'px"></div>'}
+function cbar(h,c){return '<div class="gb cur '+c+'" style="height:'+h+'px"></div>'}
+function ves(o){
+  o=o||{}; var h=o.h||40,w=o.w||11,s='';
+  if(o.chip)s+=o.chip;
+  s+='<div class="vs '+(o.cls||'')+'" style="height:'+h+'px;width:'+w+'px'+(o.solid?';border-style:solid':'')+(o.bc?';border-color:'+o.bc:'')+'">';
+  if(o.ext)s+='<div class="rim-ext" style="bottom:'+h+'px;height:'+o.ext+'px"></div>';
+  if(o.grd)o.grd.forEach(function(g){s+='<div class="grd" style="bottom:'+g+'px"></div>'});
+  if(o.tick!=null)s+='<div class="vtick" style="bottom:'+o.tick+'px"></div>';
+  if(o.drops)s+='<div class="drop" style="top:-6px;left:0"></div><div class="drop" style="top:-9px;right:-1px;width:2.5px;height:2.5px"></div>';
+  if(o.fill)s+='<em><i style="height:'+o.fill+'px'+(o.fc?';background:'+o.fc:'')+'"></i></em>';
+  s+='</div>'; return s;
+}
+function col(inner,lab,on){return '<div class="col"><div class="gw">'+inner+'</div><span'+(on?' class="on"':'')+'>'+lab+'</span></div>'}
+function week(inners,on){return '<div class="chart">'+inners.map(function(h,i){return col(h,DAYS[i],i===on)}).join('')+'</div>'}
+var PAST=[pb(P[0])+cbar(33,'g'), pb(P[1])+cbar(48,'o'), pb(P[2])+cbar(26,'g')];
+function fut(i,h,chip){return pb(P[i])+(chip||'')+ves({h:h||40,cls:'faint'})}
+function w5(todayVes,opt){                          // standard week, today = T5
+  opt=opt||{};
+  return week([PAST[0],PAST[1],PAST[2], pb(P[3])+todayVes, opt.t6||fut(4), fut(5), fut(6)],3);
+}
+function card(lab,big,neg,chart,ncls,nhtml){
+  return '<div class="scard"><div class="slab">'+lab+'</div><div class="c">'
+    +'<div class="eyebrow">Còn lại tháng này</div>'
+    +'<div class="big '+(neg?'neg':'grad')+' num" style="font-size:21px;margin-top:4px">'+big+'</div>'
+    +'<div class="ch">'+chart+'</div>'
+    +'<div class="note '+ncls+'">'+nhtml+'</div>'
+    +'</div></div>';
+}
+function block(n,t,d,cards){
+  return '<section class="vblock"><div class="cap"><span class="n">'+n+'</span><span class="t">'+t+'</span><div class="d">'+d+'</div></div><div class="states">'+cards.join('')+'</div></section>';
+}
+var chipN='<div class="chip neg">−60k</div>', chipP='<div class="chip pos">+170k</div>';
+var html='';
+
+/* ── 1 · Bình dâng ── */
+html+=block(1,'Bình dâng — nước là tiền đã chi',
+ 'Nước = <b>đã chi</b>, dâng từ đáy lên miệng. Bốn trạng thái trong một ngày: bình rỗng lúc tinh mơ, dâng nhẹ buổi sáng, chạm 82% buổi chiều (note đổi giọng nhắc), và tràn buổi tối — khi đó bình ngày mai lập tức ngắn lại 60k.',
+ [card('Tinh mơ · chưa chi','5.720.000 ₫',0, w5(ves({fill:0})), 'ok','Bình hôm nay <b>500.000 ₫</b> còn nguyên — cứ thong thả'),
+  card('Sáng 9:41 · đã chi 120k','5.600.000 ₫',0, w5(ves({fill:10})), 'ok','Mới dùng <b>120.000 ₫</b> — còn <b>380.000 ₫</b> cho hôm nay'),
+  card('Chiều 16:20 · đã chi 410k','5.310.000 ₫',0, w5(ves({fill:33})), 'warn','Bình đầy 82% — còn <b>90.000 ₫</b> cho tối nay, chậm lại một nhịp'),
+  card('Tối 21:05 · tràn','5.160.000 ₫',0, w5(ves({cls:'red',fill:40,fc:'var(--over)',drops:1}),{t6:fut(4,35,chipN)}), 'bad','Tràn <b>60.000 ₫</b> — mai bình còn <b>440.000 ₫</b>, tháng 8 vẫn xanh')]);
+
+/* ── 2 · Bình vơi ── */
+html+=block(2,'Bình vơi — nước là tiền còn lại',
+ 'Đảo semantic: nước = <b>còn được tiêu</b>, đầy lúc tinh mơ rồi vơi dần theo mỗi khoản chi. Buổi sáng trả lời câu hỏi ngay bằng mực nước; buổi tối "cạn bình" là tín hiệu dừng — nếu vẫn chi, phần lạm trừ vào bình ngày mai. Ngày tới hiện bình đầy mờ: tiền đã chờ sẵn.',
+ [card('Tinh mơ · chưa chi','5.720.000 ₫',0, w5(ves({fill:40,fc:'linear-gradient(180deg,#1fc9b4,#14b8a6)'}),{t6:pb(P[4])+ves({cls:'faint',fill:40,fc:'rgba(20,184,166,.35)'})}), 'ok','Bình đầy <b>500.000 ₫</b> — cả ngày phía trước'),
+  card('Sáng 9:41 · vơi 120k','5.600.000 ₫',0, w5(ves({fill:30,fc:'linear-gradient(180deg,#1fc9b4,#14b8a6)'}),{t6:pb(P[4])+ves({cls:'faint',fill:40,fc:'rgba(20,184,166,.35)'})}), 'ok','Còn <b>380.000 ₫</b> trong bình — đã vơi 120.000 ₫'),
+  card('Chiều 16:20 · vơi 410k','5.310.000 ₫',0, w5(ves({fill:7,fc:'linear-gradient(180deg,#1fc9b4,#14b8a6)'}),{t6:pb(P[4])+ves({cls:'faint',fill:40,fc:'rgba(20,184,166,.35)'})}), 'warn','Sắp cạn — còn <b>90.000 ₫</b> cho tối nay'),
+  card('Tối 21:05 · cạn + lạm','5.160.000 ₫',0, w5(ves({cls:'red',fill:0,chip:chipN}),{t6:pb(P[4])+ves({cls:'faint',fill:35,fc:'rgba(20,184,166,.35)',h:35})}), 'bad','Cạn bình và lạm <b>60.000 ₫</b> — trừ vào bình ngày mai')]);
+
+/* ── 3 · Ngưỡng đổi màu ── */
+var G=[20,32];                                       // gradation marks at 50% / 80%
+html+=block(3,'Ngưỡng cảnh báo đổi màu',
+ 'Bình có vạch chia <b>50% / 80%</b>. Nước giữ màu teal ở vùng an toàn, chuyển <b>hổ phách khi qua 80%</b>, đỏ khi tràn — bốn trạng thái là một cái thang màu, note leo thang giọng theo: thoải mái → để ý → cân nhắc → dừng.',
+ [card('Sáng · 24% bình','5.600.000 ₫',0, w5(ves({fill:10,grd:G})), 'ok','Nước còn thấp — thoải mái, còn <b>380.000 ₫</b>'),
+  card('Trưa · 65% bình','5.395.000 ₫',0, w5(ves({fill:26,grd:G})), 'ok','Qua vạch nửa bình — còn <b>175.000 ₫</b>, vẫn nhịp xanh'),
+  card('Chiều · 82% bình','5.310.000 ₫',0, w5(ves({cls:'amber',fill:33,fc:'var(--amber)',grd:G})), 'warn','Chạm vạch 80% — còn <b>90.000 ₫</b>, cân nhắc từng khoản'),
+  card('Tối · tràn','5.160.000 ₫',0, w5(ves({cls:'red',fill:40,fc:'var(--over)',drops:1,grd:G})), 'bad','Tràn <b>60.000 ₫</b> — mai bình còn <b>440.000 ₫</b>')]);
+
+/* ── 4 · Tràn ly & ngày mai gánh ── */
+html+=block(4,'Tràn ly — và ngày mai gánh',
+ 'Chuỗi ba cảnh của một lần lỡ tay: <b>sát miệng bình</b> (nhắc trước khi quá muộn) → <b>vừa tràn</b> (bình mai lập tức ngắn lại, chip −60k) → <b>sáng hôm sau</b>: tuần trôi một ngày, hôm nay là chiếc bình 440k còn nguyên — vượt không phải thất bại, chỉ là mượn của ngày mai.',
+ [card('Tối 19:00 · 92% bình','5.260.000 ₫',0, w5(ves({fill:37})), 'warn','Còn <b>40.000 ₫</b> — sát miệng bình rồi'),
+  card('Tối 21:05 · vừa tràn','5.160.000 ₫',0, w5(ves({cls:'red',fill:40,fc:'var(--over)',drops:1}),{t6:fut(4,35,chipN)}), 'bad','Tràn <b>60.000 ₫</b> — ngày mai bình ngắn lại còn <b>440.000 ₫</b>'),
+  card('Sáng hôm sau · T6','5.160.000 ₫',0,
+    week([PAST[0],PAST[1],PAST[2], pb(P[3])+cbar(45,'o'), pb(P[4])+chipN+ves({h:35,fill:0}), fut(5), fut(6)],4),
+    'ok','Bình hôm nay <b>440.000 ₫</b> (trừ 60k hôm qua) — còn nguyên, gỡ lại được')]);
+
+/* ── 5 · Bình hero phóng to ── */
+function hero(cls,capL,rt,remain,rsub,white,waterH,spent,miniFill,miniCls){
+  var rc=white?';color:#fff':'';
+  var mini='<div class="mini">'+week([
+    pb(19)+cbar(17,'g'), pb(17)+cbar(24,'o'), pb(21)+cbar(13,'g'),
+    pb(18)+ves({h:19,w:7,fill:miniFill,cls:miniCls||'',fc:miniCls==='red'?'var(--over)':(miniCls==='amber'?'var(--amber)':'')}),
+    pb(16)+ves({h:19,w:7,cls:'faint'}), pb(24)+ves({h:19,w:7,cls:'faint'}), pb(18)+ves({h:19,w:7,cls:'faint'})],3)+'</div>';
+  return '<div class="hero5"><div class="hv '+cls+'">'
+    +'<div class="cap-l">'+capL+'</div>'
+    +'<div class="remain" style="top:'+rt+'px;font-size:12px'+rc+'">'+remain+'</div>'
+    +'<div class="remain" style="top:'+(rt+14)+'px;font-size:6.5px;font-weight:700;opacity:.75'+rc+'">'+rsub+'</div>'
+    +'<em><i style="height:'+waterH+'px"></i></em>'
+    +'<div class="spentl">'+spent+'</div>'
+    +'</div><div class="side">'+mini+'</div></div>';
+}
+html+=block(5,'Bình hero phóng to',
+ 'Bình hôm nay là nhân vật chính, số "còn được tiêu" nằm trong khoảng trống của bình; tuần thu nhỏ bên cạnh. Bốn trạng thái: nước dâng, chữ leo theo — đến 92% chuyển hổ phách, tràn thì cả bình đỏ và con số đổi thành "vượt 60k".',
+ [card('Sáng 9:41','5.600.000 ₫',0, hero('','Bình hôm nay · 500k',24,'380k','còn được tiêu',0,22,'đã chi 120k',5), 'ok','Bình còn <b>380.000 ₫</b> — thong thả'),
+  card('Trưa 13:00','5.430.000 ₫',0, hero('','Bình hôm nay · 500k',12,'210k','còn được tiêu',0,53,'đã chi 290k',9), 'ok','Lưng bình — còn <b>210.000 ₫</b> cho chiều tối'),
+  card('Tối 19:00','5.260.000 ₫',0, hero('warm','Bình hôm nay · 500k',24,'40k','còn được tiêu',1,85,'đã chi 460k',16,'amber'), 'warn','Còn <b>40.000 ₫</b> — nhấp môi thôi nhé'),
+  card('Tối 21:05 · tràn','5.160.000 ₫',0, hero('overred','Bình hôm nay · 500k',24,'vượt 60k','tràn bình',1,92,'đã chi 560k',19,'red'), 'bad','Tràn <b>60.000 ₫</b> — mai bình còn <b>440.000 ₫</b>')]);
+
+/* ── 6 · Cả tuần là bình ── */
+var TK=[38,34,42,37,31,49,36];                       // prev-week levels as ticks
+function wves(fills){                                 // fills: [{f,cls,on,active,drops,h}]
+  return week(fills.map(function(o,i){
+    var past=o.cls!=='faint'&&!o.active;
+    return ves({h:o.h||40,w:15,solid:past?1:0,bc:past&&o.cls!=='red'?'#e4e1ea':null,
+      cls:o.cls==='faint'?'faint':(o.cls==='red'?'red':''),tick:TK[i],drops:o.drops,
+      fill:o.f,fc:o.cls==='red'?'var(--over)':(past?'rgba(20,184,166,.8)':'')});
+  }),fills.findIndex(function(o){return o.on}));
+}
+html+=block(6,'Cả tuần là bình',
+ 'Mọi ngày đều là bình — vạch xám trên mỗi bình = mức cùng ngày tuần trước (T4, T7 vạch vượt cả miệng). Ba trạng thái: sáng đang rót; tối lỡ tràn bình thứ hai; và Chủ nhật nhìn lại — cả tuần thành một hàng "tủ bình", đếm được ngay tuần này khá hơn tuần trước.',
+ [card('Sáng T5','5.600.000 ₫',0, wves([{f:34},{f:40,cls:'red',drops:1},{f:26},{f:10,active:1,on:1},{cls:'faint'},{cls:'faint'},{cls:'faint'}]), 'ok','Hôm nay còn <b>380.000 ₫</b> · tuần này mới tràn 1 bình'),
+  card('Tối T5 · lỡ tràn','5.160.000 ₫',0, wves([{f:34},{f:40,cls:'red',drops:1},{f:26},{f:40,cls:'red',drops:1,on:1,active:1},{cls:'faint',h:35},{cls:'faint'},{cls:'faint'}]), 'bad','T5 tràn <b>60.000 ₫</b> — mai bình còn <b>440.000 ₫</b>'),
+  card('Chủ nhật · nhìn lại tuần','4.240.000 ₫',0, wves([{f:34},{f:40,cls:'red',drops:1},{f:26},{f:40,cls:'red',drops:1},{f:28},{f:35},{f:12,active:1,on:1}]), 'ok','Tuần này tràn 2 bình — tuần trước 3 · CN còn <b>420.000 ₫</b>')]);
+
+/* ── 7 · Miệng bình nâng/hạ ── */
+html+=block(7,'Miệng bình nâng — dư hôm qua cộng vào',
+ 'Hạn mức hôm nay "thở" theo hôm qua: chừa lại 170k → miệng bình nâng thêm một khoang (+170k); vừa khít → bình chuẩn; lỡ mượn 60k → miệng hạ còn 440k. Ba trạng thái đặt cạnh nhau cho thấy cùng một buổi sáng đã chi 120k nhưng ba câu trả lời khác nhau.',
+ [card('Hôm qua chừa 170k','5.600.000 ₫',0, w5(ves({fill:10,ext:14,chip:chipP})), 'ok','Miệng bình nâng — bình <b>670.000 ₫</b>, còn <b>550.000 ₫</b>'),
+  card('Hôm qua vừa khít','5.600.000 ₫',0, w5(ves({fill:10})), 'ok','Bình chuẩn <b>500.000 ₫</b> — còn <b>380.000 ₫</b>'),
+  card('Hôm qua mượn 60k','5.600.000 ₫',0, w5(ves({h:35,fill:10,chip:chipN})), 'warn','Bình hạ còn <b>440.000 ₫</b> — còn <b>320.000 ₫</b> hôm nay')]);
+
+/* ── 8 · Một ngày ba nhịp ── */
+function tri(cells){
+  return '<div class="trip">'+cells.map(function(c){
+    return '<div class="tcell'+(c.now?' now':'')+'"><div class="ttime">'+c.t+'</div>'
+      +'<div class="tv '+(c.cls||'')+'"><em><i style="height:'+c.f+'px"></i></em></div>'
+      +'<div class="tsub '+(c.scls||'')+' num">'+c.sub+'</div>'
+      +'<div class="tspent">'+c.sp+'</div></div>';
+  }).join('')+'</div>';
+}
+html+=block(8,'Một ngày ba nhịp — bình theo giờ',
+ 'Cùng một bình xem ở ba thời điểm (ô sáng màu = "bây giờ"). Ba trạng thái là ba kịch bản ngày: <b>ngày xanh</b> kết thúc còn 40k; <b>ngày lỡ tay</b> tràn lúc tối; và <b>tháng đang đỏ</b> — bình co lại thành mức gỡ 166k/ngày, vẫn trả lời được "sáng nay tôi còn bao nhiêu".',
+ [card('Ngày xanh','5.600.000 ₫',0, tri([
+    {t:'Sáng 9:41',f:12,sub:'còn 380k',sp:'đã chi 120k',now:1},
+    {t:'Trưa 13:00',f:28,sub:'còn 210k',sp:'đã chi 290k'},
+    {t:'Tối 20:30',f:44,cls:'warm',scls:'warm',sub:'còn 40k',sp:'đã chi 460k'}]),
+   'ok','Sáng — bình còn <b>380.000 ₫</b>, thoải mái cà phê và chợ chiều'),
+  card('Ngày lỡ tay','5.160.000 ₫',0, tri([
+    {t:'Sáng 9:41',f:12,sub:'còn 380k',sp:'đã chi 120k'},
+    {t:'Chiều 17:00',f:44,cls:'warm',scls:'warm',sub:'còn 40k',sp:'đã chi 460k'},
+    {t:'Tối 20:30',f:46,cls:'overred',scls:'red',sub:'lạm 60k',sp:'đã chi 560k',now:1}]),
+   'bad','20:30 — tràn <b>60.000 ₫</b>, mai bình còn <b>440.000 ₫</b>'),
+  card('Tháng đang đỏ · bình gỡ 166k','-6.168.000 ₫',1, tri([
+    {t:'Sáng 9:41',f:13,sub:'còn 121k',sp:'đã chi 45k',now:1},
+    {t:'Chiều 17:00',f:31,cls:'warm',scls:'warm',sub:'còn 60k',sp:'đã chi 106k'},
+    {t:'Tối 20:30',f:46,cls:'overred',scls:'red',sub:'cạn bình',sp:'đã chi 166k'}]),
+   'warn','Lương về 25/08 (<b>+8.000.000 ₫</b>) — giữ bình <b>166.000 ₫</b>/ngày thì 31/08 về xanh')]);
+
+document.getElementById('root').innerHTML=html;
+</script>
+</body>
+</html>

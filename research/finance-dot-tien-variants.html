@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — «Đốt tiền» · 8 biến thể × trạng thái (nến & lửa)</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{--sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif;
+    --teal:#14b8a6;--pos:#0f9d84;--over:#e0483f;--amber:#e8a13d;--prev:#e6e3ec;--mut:#8a8694;
+    --notebg:#e7f6f0;--notefg:#0f7a5a;--warnbg:#fdf3e4;--warnfg:#9a6b1f;--badbg:#fdecea;--badfg:#c0392b}
+  html,body{background:#dcdae1;font-family:var(--sf);color:#111117;-webkit-font-smoothing:antialiased}
+  body{padding:40px 20px 70px}
+  .num,.big{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  .page-head{max-width:880px;margin:0 auto 12px;text-align:center}
+  .page-head h1{font-size:29px;font-weight:800;letter-spacing:-.9px;margin-bottom:8px}
+  .page-head p{color:#4b4753;font-size:14.5px;line-height:1.55;max-width:740px;margin:0 auto 6px}
+  .formula{max-width:740px;margin:14px auto 34px;background:#fff;border-radius:14px;padding:13px 18px;font-size:13px;line-height:1.65;color:#3a3742;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+  .formula b{font-weight:800}
+  .keyrow{display:flex;gap:16px;flex-wrap:wrap;margin-top:9px;font-size:11.5px;font-weight:600;color:#4b4753}
+  .keyrow span{display:inline-flex;align-items:center;gap:6px}
+  .kd{width:10px;height:10px;border-radius:50%;box-shadow:0 0 4px 1px rgba(0,0,0,.15)}
+
+  .vblock{max-width:1120px;margin:0 auto 42px}
+  .cap{margin:0 4px 12px;max-width:880px}
+  .cap .n{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 6px;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:11px;margin-right:8px;vertical-align:1px}
+  .cap .t{font-weight:700;font-size:15px;letter-spacing:-.2px}
+  .cap .d{margin-top:5px;font-size:11.5px;line-height:1.5;color:#4b4753}
+  .states{display:flex;gap:14px;flex-wrap:wrap}
+
+  .scard{width:255px;background:#f2f2f6;border-radius:18px;padding:9px;box-shadow:0 8px 22px rgba(0,0,0,.09)}
+  .slab{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6b6577;margin:3px 5px 8px}
+  .c{background:#fff;border-radius:15px;padding:12px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .eyebrow{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
+  .big{font-weight:800;letter-spacing:-.7px;line-height:1}
+  .grad{background:linear-gradient(120deg,#0f9d84,#1fc9b4);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .neg{color:var(--over)}
+
+  .note{font-size:10.5px;font-weight:600;line-height:1.45;padding:8px 10px;border-radius:10px;margin-top:11px}
+  .note b{font-weight:800;white-space:nowrap}
+  .note.ok{background:var(--notebg);color:var(--notefg)}
+  .note.warn{background:var(--warnbg);color:var(--warnfg)}
+  .note.bad{background:var(--badbg);color:var(--badfg)}
+
+  /* chart scaffold (compact) */
+  .ch{margin-top:11px}
+  .chart{display:flex;gap:5px;align-items:flex-end;justify-content:space-between}
+  .col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+  .col span{font-size:7.5px;color:#a8a4b0;font-weight:600}
+  .col span.on{color:var(--pos);font-weight:800}
+  .gw{position:relative;height:56px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:2px}
+  .gb{width:8px;border-radius:3px 3px 0 0;flex-shrink:0}
+  .gb.prev{background:var(--prev)}
+  .gb.cur.g{background:var(--teal)}.gb.cur.o{background:var(--over)}
+
+  /* ── candle (nến) ── frame(dashed)=định mức 500k · wax(bottom)=còn được đốt · flame=lửa tại điểm cháy */
+  .cd{position:relative;flex-shrink:0;border:1.5px dashed rgba(20,184,166,.45);border-radius:3px 3px 2px 2px;background:rgba(20,184,166,.05)}
+  .cd .wax{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(180deg,#3cccbb,#0f9d84);border-radius:2px}
+  .cd.amber .wax{background:linear-gradient(180deg,#f2ba64,#e8a13d)}
+  .cd.red .wax{background:linear-gradient(180deg,#ec7469,#e0483f)}
+  .cd.past{border-style:solid;border-color:#e4e1ea}
+  .cd.faint{opacity:.4}
+  .cd .fl{position:absolute;left:50%;width:7px;height:9px;margin-left:-3.5px;margin-bottom:-2px;border-radius:0 50% 50% 50%;transform:rotate(45deg);
+    background:radial-gradient(circle at 55% 65%,#a6f3e6,#0f9d84 72%);box-shadow:0 0 4px 1px rgba(20,184,166,.5);z-index:4}
+  .cd.amber .fl{background:radial-gradient(circle at 55% 65%,#ffe3ad,#e8a13d 72%);box-shadow:0 0 4px 1px rgba(232,161,61,.55)}
+  .cd.red .fl{background:radial-gradient(circle at 55% 65%,#ffbab2,#e0483f 72%);box-shadow:0 0 5px 1px rgba(224,72,63,.6)}
+  .cd .wick{position:absolute;left:50%;top:2px;width:1.5px;height:4px;margin-left:-.75px;background:#8a8290;border-radius:1px}
+  .cd .ember{position:absolute;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:radial-gradient(circle,#ffb24d,#c0392b);box-shadow:0 0 4px 1px rgba(224,72,63,.5);z-index:4}
+  .cd .spark{position:absolute;width:2.5px;height:2.5px;border-radius:50%;background:#e0483f;z-index:4}
+  .cd .notch{position:absolute;left:-3px;right:-3px;height:1.5px;background:#0f9d84;opacity:.5;border-radius:2px;z-index:3}
+  .cd .vtick{position:absolute;left:-3px;right:-3px;height:1.5px;background:#c6c2ce;border-radius:2px;z-index:3}
+  .cd .grd{position:absolute;left:1.5px;right:1.5px;height:1px;background:rgba(0,0,0,.12);z-index:2}
+  .rim-ext{position:absolute;left:-1.5px;right:-1.5px;border:1.5px dashed rgba(15,157,132,.5);border-bottom:none;border-radius:3px 3px 0 0;background:repeating-linear-gradient(180deg,rgba(20,184,166,.14) 0 2px,transparent 2px 4px)}
+  .chip{position:absolute;top:-4px;left:50%;transform:translateX(-50%);font-size:7.5px;font-weight:800;border-radius:5px;padding:1.5px 4px;white-space:nowrap;z-index:5}
+  .chip.pos{color:#0f7a5a;background:#dff1e9}
+  .chip.neg{color:#c0392b;background:#fbe3e0}
+
+  /* ── growing flame (ngọn lửa) for variant 2 ── */
+  .fwrap{position:relative;height:56px;display:flex;align-items:flex-end;justify-content:center}
+  .safe{position:absolute;left:-3px;right:-3px;border-top:1.5px dashed #9a95a3;z-index:3}
+  .safe em{position:absolute;right:0;top:-11px;font-style:normal;font-size:7px;font-weight:800;color:#6b6577;background:#eee;border-radius:4px;padding:1px 4px}
+  .bigfl{width:15px;clip-path:polygon(50% 0,66% 24%,80% 50%,74% 80%,56% 100%,44% 100%,26% 80%,20% 50%,34% 24%);
+    background:linear-gradient(180deg,#9ff2e4 0%,#2fcdb9 45%,#0f9d84 100%)}
+  .bigfl.hot{background:linear-gradient(180deg,#ffdf9c 0%,#f0902f 48%,#e0483f 100%)}
+  .logs{position:absolute;bottom:0;left:50%;width:18px;height:4px;margin-left:-9px;background:#8a6b52;border-radius:2px;z-index:2}
+
+  .legend{display:flex;gap:12px;justify-content:center;margin-top:9px;font-size:9px;font-weight:600;color:#a29caa;flex-wrap:wrap}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:2.5px;margin-right:4px;vertical-align:-1px}
+
+  /* 5 · hero candle */
+  .hero5{display:flex;gap:12px;align-items:stretch}
+  .hc{position:relative;width:58px;flex-shrink:0;border:2px dashed rgba(20,184,166,.55);border-radius:7px 7px 4px 4px;background:rgba(20,184,166,.04)}
+  .hc .wax{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(180deg,#3cccbb,#0f9d84);border-radius:3px}
+  .hc.amber{border-color:rgba(232,161,61,.6)}.hc.amber .wax{background:linear-gradient(180deg,#f2ba64,#e8a13d)}
+  .hc.red{border-color:rgba(224,72,63,.6)}.hc.red .wax{background:linear-gradient(180deg,#ec7469,#e0483f)}
+  .hc .hfl{position:absolute;left:50%;width:16px;height:22px;margin-left:-8px;margin-bottom:-5px;
+    clip-path:polygon(50% 0,66% 24%,80% 50%,74% 80%,56% 100%,44% 100%,26% 80%,20% 50%,34% 24%);
+    background:linear-gradient(180deg,#a6f3e6,#2fcdb9 55%,#0f9d84);z-index:4}
+  .hc.amber .hfl{background:linear-gradient(180deg,#ffe3ad,#f0b45c 55%,#e8a13d)}
+  .hc.red .hfl{background:linear-gradient(180deg,#ffbab2,#ec7469 55%,#e0483f)}
+  .hc .cap-l{position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-size:7px;font-weight:800;color:#5f7a72;background:#eef7f3;border-radius:5px;padding:1.5px 5px;white-space:nowrap;z-index:6}
+  .hc .remain{position:absolute;left:0;right:0;text-align:center;font-weight:800;z-index:5}
+  .hc .spentl{position:absolute;left:0;right:0;bottom:4px;text-align:center;font-size:7px;font-weight:700;color:#fff;z-index:5}
+  .hero5 .side{flex:1;display:flex;flex-direction:column;justify-content:flex-end}
+  .mini .gw{height:26px;gap:1.5px}.mini .gb{width:5px}.mini .cd{width:7px}
+  .mini .col span{font-size:6.5px}
+
+  /* 8 · triptych small candles */
+  .trip{display:flex;gap:7px}
+  .tcell{flex:1;background:#f7f6fa;border-radius:11px;padding:8px 5px 7px;display:flex;flex-direction:column;align-items:center;gap:6px}
+  .tcell.now{background:#eef7f3;box-shadow:inset 0 0 0 1.5px rgba(15,157,132,.35)}
+  .ttime{font-size:7px;font-weight:800;color:#8a8694;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+  .tcell.now .ttime{color:var(--pos)}
+  .tvwrap{height:46px;display:flex;align-items:flex-end}
+  .tsub{font-size:8.5px;font-weight:800;color:var(--pos)}
+  .tsub.warm{color:var(--warnfg)}.tsub.red{color:var(--badfg)}
+  .tspent{font-size:7px;font-weight:600;color:#a29caa;margin-top:-3px}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>«Đốt tiền» — hôm nay đốt được bao nhiêu mà vẫn xanh?</h1>
+  <p>Người Việt hay nói <b>"đốt tiền"</b> chứ ít ví tiền như nước. Mỗi ngày bạn có một <b>cây nến</b> — định mức được đốt (500k). Chi tiêu là đốt nến; nến cháy dần trong ngày. <b>Giữ lửa xanh</b> (đốt trong định mức) thì cả tháng vẫn xanh. Mỗi biến thể là một dải trạng thái theo giờ; cột xám cùng kỳ tuần trước giữ nguyên.</p>
+</div>
+<div class="formula">
+  Kịch bản chung: còn <b>5,6tr</b> · 11 ngày → nến <b>500k/ngày</b>. Mức đốt trong ngày: chưa đốt → <b>120k</b> (sáng) → <b>410k</b> (chiều) → <b>560k</b> (tối, cháy lẹm 60k). «Còn lại tháng này» trừ dần: 5,72tr → 5,60tr → 5,31tr → 5,16tr.
+  <div class="keyrow">
+    <span><span class="kd" style="background:radial-gradient(circle,#a6f3e6,#0f9d84)"></span> Lửa xanh · đốt trong định mức</span>
+    <span><span class="kd" style="background:radial-gradient(circle,#ffe3ad,#e8a13d)"></span> Lửa cam · sắp chạm mức</span>
+    <span><span class="kd" style="background:radial-gradient(circle,#ffbab2,#e0483f)"></span> Lửa đỏ · cháy lẹm sang mai</span>
+  </div>
+</div>
+
+<div id="root"></div>
+
+<script>
+var P=[38,33,41,36,31,48,35];                      // prev-week bars (500k ≈ 40px)
+var DAYS=['T2','T3','T4','T5','T6','T7','CN'];
+function px(kv){return Math.max(0, kv/500*40)}      // thousands → px (500k=40px)
+function pb(h){return '<div class="gb prev" style="height:'+h+'px"></div>'}
+function cbar(h,c){return '<div class="gb cur '+c+'" style="height:'+h+'px"></div>'}
+
+function cd(o){                                      // candle
+  o=o||{};
+  var frame=o.frame!=null?o.frame:40, rem=o.rem||0, w=o.w||13, cls=o.cls||'';
+  var s='';
+  if(o.chip)s+=o.chip;
+  s+='<div class="cd '+cls+(o.faint?' faint':'')+(o.past?' past':'')+'" style="height:'+frame+'px;width:'+w+'px">';
+  if(o.ext)s+='<div class="rim-ext" style="bottom:'+frame+'px;height:'+o.ext+'px"></div>';
+  if(o.grd)o.grd.forEach(function(g){s+='<div class="grd" style="bottom:'+g+'px"></div>'});
+  if(o.vtick!=null)s+='<div class="vtick" style="bottom:'+o.vtick+'px"></div>';
+  if(o.notch!=null)s+='<div class="notch" style="bottom:'+o.notch+'px"></div>';
+  if(o.faint){s+='<div class="wick"></div></div>';return s;}
+  if(rem>0)s+='<div class="wax" style="height:'+rem+'px"></div>';
+  if(o.past){                                        // burnt-out record: ember, no live flame
+    if(o.over)s+='<div class="ember" style="bottom:-2px"></div>';
+    s+='</div>';return s;
+  }
+  if(o.flame!==false){
+    var fb=o.over?0:rem;
+    s+='<div class="fl" style="bottom:'+fb+'px"></div>';
+    if(o.over)s+='<div class="spark" style="top:-5px;left:1px"></div><div class="spark" style="top:-8px;right:0"></div>';
+  }
+  s+='</div>';return s;
+}
+function fire(o){                                    // growing flame (variant 2)
+  o=o||{}; var sp=o.sp||0, w=o.w||15;
+  var s='<div class="fwrap" style="width:'+w+'px">';
+  if(o.line!=null)s+='<div class="safe" style="bottom:'+o.line+'px">'+(o.lab?'<em>'+o.lab+'</em>':'')+'</div>';
+  s+='<div class="bigfl'+(o.hot?' hot':'')+'" style="height:'+sp+'px"></div><div class="logs"></div></div>';
+  return s;
+}
+function col(inner,lab,on){return '<div class="col"><div class="gw">'+inner+'</div><span'+(on?' class="on"':'')+'>'+lab+'</span></div>'}
+function week(inners,on){return '<div class="chart">'+inners.map(function(h,i){return col(h,DAYS[i],i===on)}).join('')+'</div>'}
+var PAST=[pb(P[0])+cbar(33,'g'), pb(P[1])+cbar(48,'o'), pb(P[2])+cbar(26,'g')];
+function fut(i,extra){return pb(P[i])+(extra||'')+cd({faint:1})}
+function w5(todayInner,opt){opt=opt||{};return week([PAST[0],PAST[1],PAST[2], pb(P[3])+todayInner, opt.t6||fut(4), fut(5), fut(6)],3);}
+function card(lab,big,neg,chart,ncls,nhtml,leg){
+  return '<div class="scard"><div class="slab">'+lab+'</div><div class="c">'
+    +'<div class="eyebrow">Còn lại tháng này</div>'
+    +'<div class="big '+(neg?'neg':'grad')+' num" style="font-size:21px;margin-top:4px">'+big+'</div>'
+    +'<div class="ch">'+chart+(leg||'')+'</div>'
+    +'<div class="note '+ncls+'">'+nhtml+'</div></div></div>';
+}
+function block(n,t,d,cards){
+  return '<section class="vblock"><div class="cap"><span class="n">'+n+'</span><span class="t">'+t+'</span><div class="d">'+d+'</div></div><div class="states">'+cards.join('')+'</div></section>';
+}
+var chipN='<div class="chip neg">−60k</div>', chipP='<div class="chip pos">+170k</div>';
+var html='';
+
+/* ── 1 · Nến cháy dần ── */
+html+=block(1,'Nến hôm nay — cháy dần trong ngày',
+ 'Cây nến = định mức đốt 500k. Phần sáp còn lại (teal) = <b>còn được đốt</b>; ngọn lửa nằm ngay điểm cháy và <b>tụt dần</b> khi bạn tiêu. Sáng nến cao, tối nến lụi. Đốt hết mà vẫn tiêu = cháy lẹm sang nến ngày mai (ngắn lại 60k).',
+ [card('Tinh mơ · chưa đốt','5.720.000 ₫',0, w5(cd({rem:px(500)})), 'ok','Nến hôm nay đầy <b>500.000 ₫</b> — cứ đốt thong thả'),
+  card('Sáng 9:41 · đốt 120k','5.600.000 ₫',0, w5(cd({rem:px(380)})), 'ok','Mới đốt <b>120.000 ₫</b> — còn <b>380.000 ₫</b> được đốt hôm nay'),
+  card('Chiều 16:20 · đốt 410k','5.310.000 ₫',0, w5(cd({rem:px(90),cls:'amber'})), 'warn','Đốt 82% cây nến — còn <b>90.000 ₫</b>, giữ lửa liu riu thôi'),
+  card('Tối 21:05 · cháy lẹm','5.160.000 ₫',0, w5(cd({rem:0,over:1,cls:'red'}),{t6:fut(4,chipN)}), 'bad','Cháy lẹm <b>60.000 ₫</b> — mai nến còn <b>440.000 ₫</b>, tháng 8 vẫn xanh')]);
+
+/* ── 2 · Ngọn lửa lớn dần ── */
+function w2(todaySp,hot,on){
+  var line=40; // mức an toàn = 500k
+  var days=[pb(P[0])+fire({sp:26}), pb(P[1])+fire({sp:44,hot:1}), pb(P[2])+fire({sp:18}),
+    pb(P[3])+fire({sp:todaySp,hot:hot,line:line,lab:'500k'}), fut(4), fut(5), fut(6)];
+  return week(days,3);
+}
+html+=block(2,'Ngọn lửa — đốt càng nhiều, lửa càng cao',
+ 'Hướng ngược lại: <b>lửa lớn dần theo số đã đốt</b> trong ngày. Có vạch <b>mức an toàn 500k</b>; lửa vượt vạch = bùng quá tay, chuyển đỏ. Sáng lửa liu riu, tối lửa cao. Cột xám sau lưng = cùng ngày tuần trước.',
+ [card('Sáng · đốt 120k','5.600.000 ₫',0, w2(px(120)), 'ok','Lửa còn nhỏ — mới đốt <b>120.000 ₫</b>, thoải mái'),
+  card('Trưa · đốt 290k','5.430.000 ₫',0, w2(px(290)), 'ok','Lửa vừa tầm — còn <b>210.000 ₫</b> dưới mức an toàn'),
+  card('Chiều · đốt 460k','5.260.000 ₫',0, w2(px(460)), 'warn','Lửa sắp chạm vạch — còn <b>40.000 ₫</b>, ghìm lại nhé'),
+  card('Tối · đốt 560k','5.160.000 ₫',0, w2(56,1), 'bad','Lửa bùng quá mức — cháy lẹm <b>60.000 ₫</b> sang mai')]);
+
+/* ── 3 · Lửa đổi màu theo độ nóng ── */
+var G=[px(250),px(400)]; // vạch 50% / 80%
+html+=block(3,'Lửa đổi màu theo độ nóng',
+ 'Cây nến có vạch <b>50% / 80%</b>. Lửa và sáp giữ <b>màu xanh</b> ở vùng an toàn, ngả <b>cam khi qua 80%</b>, đỏ khi cháy lẹm. Bốn trạng thái là một cái thang nhiệt — note leo giọng theo: thong thả → vẫn ổn → chậm lại → dừng.',
+ [card('Sáng · 24% nến','5.600.000 ₫',0, w5(cd({rem:px(380),grd:G})), 'ok','Lửa xanh — còn <b>380.000 ₫</b>, cứ tự nhiên'),
+  card('Trưa · 65% nến','5.395.000 ₫',0, w5(cd({rem:px(175),grd:G})), 'ok','Qua nửa nến — còn <b>175.000 ₫</b>, vẫn lửa xanh'),
+  card('Chiều · 82% nến','5.310.000 ₫',0, w5(cd({rem:px(90),cls:'amber',grd:G})), 'warn','Lửa ngả cam — còn <b>90.000 ₫</b>, chậm lại nhé'),
+  card('Tối · cháy lẹm','5.160.000 ₫',0, w5(cd({rem:0,over:1,cls:'red',grd:G})), 'bad','Lửa đỏ — cháy lẹm <b>60.000 ₫</b>, mai nến còn <b>440.000 ₫</b>')]);
+
+/* ── 4 · Cháy lẹm — mượn lửa ngày mai ── */
+html+=block(4,'Cháy lẹm — mượn lửa ngày mai',
+ 'Ba cảnh của một lần lỡ tay: <b>nến sắp lụi</b> (nhắc trước khi muộn) → <b>vừa cháy lẹm</b> (nến ngày mai lập tức ngắn lại, chip −60k) → <b>sáng hôm sau</b>: tuần trôi một ngày, hôm nay là cây nến 440k còn nguyên. Vượt không phải thất bại — chỉ là mượn lửa của ngày mai.',
+ [card('Tối 19:00 · 92% nến','5.260.000 ₫',0, w5(cd({rem:px(40),cls:'amber'})), 'warn','Còn <b>40.000 ₫</b> — nến sắp lụi rồi'),
+  card('Tối 21:05 · vừa cháy lẹm','5.160.000 ₫',0, w5(cd({rem:0,over:1,cls:'red'}),{t6:fut(4,chipN)}), 'bad','Cháy lẹm <b>60.000 ₫</b> — mai nến ngắn còn <b>440.000 ₫</b>'),
+  card('Sáng hôm sau · T6','5.160.000 ₫',0,
+    week([PAST[0],PAST[1],PAST[2], pb(P[3])+cbar(45,'o'), pb(P[4])+chipN+cd({frame:px(440),rem:px(440)}), fut(5), fut(6)],4),
+    'ok','Nến hôm nay <b>440.000 ₫</b> (trừ 60k hôm qua) — vẫn đủ, gỡ lại được')]);
+
+/* ── 5 · Cây nến hero ── */
+function hero(cls,rt,remain,rsub,white,waxK,frameK,spent,miniRem,miniCls){
+  var rc=white?';color:#fff':(cls==='amber'?';color:var(--warnfg)':(cls==='red'?';color:var(--badfg)':';color:var(--pos)'));
+  var fh=frameK?px(frameK)*2.3:92;
+  var mini='<div class="mini">'+week([
+    pb(19)+cbar(17,'g'), pb(17)+cbar(24,'o'), pb(21)+cbar(13,'g'),
+    pb(18)+cd({rem:px(miniRem)/40*19||0,w:7,cls:miniCls||''}),
+    pb(16)+cd({faint:1,w:7}), pb(24)+cd({faint:1,w:7}), pb(18)+cd({faint:1,w:7})],3)+'</div>';
+  var wax=px(waxK)*2.3;
+  return '<div class="hero5"><div class="hc '+cls+'" style="height:92px">'
+    +'<div class="cap-l">Nến hôm nay · 500k</div>'
+    +'<div class="remain" style="top:'+rt+'px;font-size:12px'+rc+'">'+remain+'</div>'
+    +'<div class="remain" style="top:'+(rt+14)+'px;font-size:6.5px;font-weight:700;opacity:.75'+rc+'">'+rsub+'</div>'
+    +'<div class="wax" style="height:'+wax+'px"></div>'
+    +'<div class="hfl" style="bottom:'+(white?0:wax)+'px"></div>'
+    +'<div class="spentl">'+spent+'</div>'
+    +'</div><div class="side">'+mini+'</div></div>';
+}
+html+=block(5,'Cây nến hero phóng to',
+ 'Nến hôm nay là nhân vật chính — số "còn được đốt" nằm trong khoảng sáp chưa cháy, ngọn lửa lớn ngay trên đỉnh; tuần thu nhỏ bên cạnh. Lửa tụt dần qua các mốc, ngả cam ở 92%, đỏ khi cháy lẹm.',
+ [card('Sáng 9:41','5.600.000 ₫',0, hero('',26,'380k','còn được đốt',0,380,null,'đã đốt 120k',380,''), 'ok','Nến còn <b>380.000 ₫</b> — thong thả'),
+  card('Trưa 13:00','5.430.000 ₫',0, hero('',14,'210k','còn được đốt',0,210,null,'đã đốt 290k',210,''), 'ok','Lưng nến — còn <b>210.000 ₫</b> cho chiều tối'),
+  card('Tối 19:00','5.260.000 ₫',0, hero('amber',26,'40k','còn được đốt',0,40,null,'đã đốt 460k',40,'amber'), 'warn','Còn <b>40.000 ₫</b> — nhấp môi thôi nhé'),
+  card('Tối 21:05 · cháy lẹm','5.160.000 ₫',0, hero('red',24,'lẹm 60k','sang nến mai',1,0,null,'đã đốt 560k',0,'red'), 'bad','Cháy lẹm <b>60.000 ₫</b> — mai nến còn <b>440.000 ₫</b>')]);
+
+/* ── 6 · Cả tuần là hàng nến ── */
+var TK=[38,34,42,37,31,49,36];
+function cdw(o){o=o||{};o.w=15;return cd(o);}
+function weekN(items,on){return week(items,on);}
+html+=block(6,'Cả tuần là hàng nến',
+ 'Mọi ngày là một cây nến — vạch xám trên mỗi nến = mức cùng ngày tuần trước (T4, T7 vạch vượt cả đỉnh). Nến ngày qua để lại <b>sáp còn dư</b> (đốt ít) hoặc <b>cháy rụi + than đỏ</b> (cháy lẹm). Ba trạng thái: sáng đang đốt; tối lỡ cháy lẹm nến thứ hai; Chủ nhật nhìn lại cả hàng nến — đếm được ngay tuần này khá hơn.',
+ [card('Sáng T5','5.600.000 ₫',0, weekN([
+    cdw({rem:px(430),past:1,vtick:TK[0]}), cdw({rem:0,over:1,past:1,cls:'red',vtick:TK[1]}), cdw({rem:px(340),past:1,vtick:TK[2]}),
+    cdw({rem:px(380),vtick:TK[3]}), cdw({faint:1,vtick:TK[4]}), cdw({faint:1,vtick:TK[5]}), cdw({faint:1,vtick:TK[6]})],3),
+   'ok','Hôm nay còn <b>380.000 ₫</b> · tuần này mới cháy lẹm 1 ngày'),
+  card('Tối T5 · lỡ cháy lẹm','5.160.000 ₫',0, weekN([
+    cdw({rem:px(430),past:1,vtick:TK[0]}), cdw({rem:0,over:1,past:1,cls:'red',vtick:TK[1]}), cdw({rem:px(340),past:1,vtick:TK[2]}),
+    cdw({rem:0,over:1,cls:'red',vtick:TK[3]}), cdw({faint:1,vtick:TK[4]}), cdw({faint:1,vtick:TK[5]}), cdw({faint:1,vtick:TK[6]})],3),
+   'bad','T5 cháy lẹm <b>60.000 ₫</b> — mai nến còn <b>440.000 ₫</b>'),
+  card('Chủ nhật · nhìn lại tuần','4.240.000 ₫',0, weekN([
+    cdw({rem:px(430),past:1,vtick:TK[0]}), cdw({rem:0,over:1,past:1,cls:'red',vtick:TK[1]}), cdw({rem:px(340),past:1,vtick:TK[2]}),
+    cdw({rem:0,over:1,past:1,cls:'red',vtick:TK[3]}), cdw({rem:px(280),past:1,vtick:TK[4]}), cdw({rem:px(150),past:1,vtick:TK[5]}), cdw({rem:px(420),vtick:TK[6]})],6),
+   'ok','Tuần này cháy lẹm 2 ngày — tuần trước 3 · CN còn <b>420.000 ₫</b>')]);
+
+/* ── 7 · Nến cao thấp — dư hôm qua nối sáp ── */
+html+=block(7,'Nến cao thấp — dư hôm qua nối thêm sáp',
+ 'Định mức "thở" theo hôm qua: chừa lại 170k → nến hôm nay <b>được nối thêm một khúc sáp</b> (vùng gạch, +170k) cao 670k; đốt vừa khít → nến chuẩn; lỡ cháy lẹm 60k → nến ngắn còn 440k. Ba trạng thái cùng một buổi sáng đã đốt 120k, ba câu trả lời khác nhau.',
+ [card('Hôm qua chừa 170k','5.600.000 ₫',0, w5(cd({rem:px(550),ext:px(170),notch:px(500),chip:chipP})), 'ok','Nối thêm sáp — nến <b>670.000 ₫</b>, còn <b>550.000 ₫</b>'),
+  card('Hôm qua vừa khít','5.600.000 ₫',0, w5(cd({rem:px(380)})), 'ok','Nến chuẩn <b>500.000 ₫</b> — còn <b>380.000 ₫</b>'),
+  card('Hôm qua cháy lẹm 60k','5.600.000 ₫',0, w5(cd({frame:px(440),rem:px(320),chip:chipN})), 'warn','Nến ngắn còn <b>440.000 ₫</b> — còn <b>320.000 ₫</b> hôm nay')]);
+
+/* ── 8 · Một ngày ba nhịp — nến theo giờ ── */
+function tvc(o){return '<div class="tvwrap">'+cd({rem:o.rem,frame:o.frame||46,w:16,cls:o.cls,over:o.over})+'</div>'}
+function tri(cells){
+  return '<div class="trip">'+cells.map(function(c){
+    return '<div class="tcell'+(c.now?' now':'')+'"><div class="ttime">'+c.t+'</div>'
+      +tvc(c)+'<div class="tsub '+(c.scls||'')+' num">'+c.sub+'</div>'
+      +'<div class="tspent">'+c.sp+'</div></div>';
+  }).join('')+'</div>';
+}
+var F46=46; // full frame for a normal day
+var F166=46; // frame for the 166k recovery candle (drawn full-height, values scaled)
+html+=block(8,'Một ngày ba nhịp — nến theo giờ',
+ 'Cùng một cây nến xem ở ba thời điểm (ô sáng màu = "bây giờ"). Ba trạng thái là ba kịch bản ngày: <b>ngày xanh</b> kết thúc còn 40k; <b>ngày lỡ tay</b> cháy lẹm lúc tối; và <b>tháng đang đỏ</b> — nến co lại thành mức gỡ 166k/ngày, vẫn trả lời được "sáng nay tôi còn đốt được bao nhiêu".',
+ [card('Ngày xanh','5.600.000 ₫',0, tri([
+    {t:'Sáng 9:41',rem:px(380)/40*46,sub:'còn 380k',sp:'đã đốt 120k',now:1},
+    {t:'Trưa 13:00',rem:px(210)/40*46,sub:'còn 210k',sp:'đã đốt 290k'},
+    {t:'Tối 20:30',rem:px(40)/40*46,cls:'amber',scls:'warm',sub:'còn 40k',sp:'đã đốt 460k'}]),
+   'ok','Sáng — nến còn <b>380.000 ₫</b>, thoải mái cà phê và chợ chiều'),
+  card('Ngày lỡ tay','5.160.000 ₫',0, tri([
+    {t:'Sáng 9:41',rem:px(380)/40*46,sub:'còn 380k',sp:'đã đốt 120k'},
+    {t:'Chiều 17:00',rem:px(40)/40*46,cls:'amber',scls:'warm',sub:'còn 40k',sp:'đã đốt 460k'},
+    {t:'Tối 20:30',rem:0,over:1,cls:'red',scls:'red',sub:'lẹm 60k',sp:'đã đốt 560k',now:1}]),
+   'bad','20:30 — cháy lẹm <b>60.000 ₫</b>, mai nến còn <b>440.000 ₫</b>'),
+  card('Tháng đỏ · nến gỡ 166k','-6.168.000 ₫',1, tri([
+    {t:'Sáng 9:41',rem:px(121)/166*46,sub:'còn 121k',sp:'đã đốt 45k',now:1},
+    {t:'Chiều 17:00',rem:px(60)/166*46,cls:'amber',scls:'warm',sub:'còn 60k',sp:'đã đốt 106k'},
+    {t:'Tối 20:30',rem:0,over:1,cls:'red',scls:'red',sub:'cạn nến',sp:'đã đốt 166k'}]),
+   'warn','Lương về 25/08 (<b>+8.000.000 ₫</b>) — giữ nến <b>166.000 ₫</b>/ngày thì 31/08 về xanh')]);
+
+document.getElementById('root').innerHTML=html;
+</script>
+</body>
+</html>

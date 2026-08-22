@@ -1180,6 +1180,29 @@ input{font-family:inherit}
 .cf-note.ok{background:var(--good-tint);color:var(--brand-ink)}
 .cf-note.over{background:var(--danger-tint);color:var(--danger)}
 .cf-note.flat{background:var(--surface);color:var(--muted)}
+/* daily guide — "Hôm nay còn tiêu được": tappable tile with an animated water level.
+   Background + text colours are set inline per state (green · yellow · orange · red). */
+.cf-daily{display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 12px;width:100%;text-align:left;border:0;font:inherit;cursor:pointer;border-radius:14px;padding:14px;margin-top:15px;background:var(--good-tint);transition:transform .14s ease}
+.cf-daily:empty{display:none}
+.cf-daily:active{transform:scale(.99)}
+.dg-lbl{grid-column:1;grid-row:1;font-size:12px;font-weight:600;letter-spacing:-.01em}
+.dg-amt{grid-column:1;grid-row:2;font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1;margin-top:5px;font-variant-numeric:tabular-nums}
+.dg-vis{grid-column:2;grid-row:1 / span 2;position:relative;width:46px;height:46px;display:flex;align-items:center;justify-content:center;line-height:0}
+.dg-bang{position:absolute;color:#e0483f;font-weight:800;font-size:23px;line-height:1}
+.cf-water{animation:cf-bob 3.1s ease-in-out infinite}
+.cf-w1{animation:cf-wave 2.6s linear infinite}
+.cf-w2{animation:cf-wave 3.7s linear infinite;animation-delay:-1.2s}
+@keyframes cf-wave{to{transform:translateX(-46px)}}
+@keyframes cf-bob{0%,100%{transform:translateY(var(--y))}50%{transform:translateY(calc(var(--y) + 1.4px))}}
+@media (prefers-reduced-motion:reduce){.cf-water,.cf-w1,.cf-w2{animation:none}}
+/* saving-goal sheet rows (#savegoal-list) */
+.sg-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:transparent;font:inherit;cursor:pointer;padding:14px 4px}
+.sg-row+.sg-row{border-top:1px solid var(--divider)}
+.sg-radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--fill-neutral);flex-shrink:0}
+.sg-row.on .sg-radio{border-color:var(--good);background:var(--good);box-shadow:inset 0 0 0 3px var(--white)}
+.sg-name{flex:1;font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.sg-side{font-size:14px;font-weight:700;color:var(--good);font-variant-numeric:tabular-nums}
+.sg-side.zero{color:var(--muted-soft)}
 /* CTAs (V3): full-width nav rows into budget setup + the expense list, flush to the card base */
 .cf-cta{margin:15px -16px -14px;border-top:1px solid var(--divider)}
 .cc-row{display:flex;align-items:center;gap:11px;width:100%;padding:13px 16px;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink);text-align:left;cursor:pointer}
@@ -3083,6 +3106,8 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     </div>
     <div class="wow" id="cf-wow" aria-hidden="true"></div>
     <div class="cf-note" id="cf-note"></div>
+    <!-- daily guide (current live month): "Hôm nay còn tiêu được" · tap opens the saving-goal sheet (renderDailyGuide) -->
+    <button class="cf-daily" id="cf-daily" type="button" onclick="openSaveGoal()" aria-label="Saving goal"></button>
     <!-- CTAs (V3): full-width nav rows into budget setup + the expense list -->
     <div class="cf-cta">
       <button class="cc-row" onclick="openSheet('sheet-budget')"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></span><span class="cc-t" data-t="setupBudget">Set up budget</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -3684,6 +3709,12 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="sheet-h" data-t="monthTitle">Choose month</div>
   <div class="sheet-sub" data-t="monthSub">See spending and budget for any month.</div>
   <div id="month-list"></div>
+</div>
+
+<div class="sheet" id="sheet-savegoal">
+  <div class="grab"></div>
+  <div class="sheet-h" id="savegoal-h">Saving goal</div>
+  <div class="choices" id="savegoal-list"></div>
 </div>
 
 <div class="sheet" id="sheet-catpick">
@@ -4435,22 +4466,114 @@ function renderCashflow(){
   }
   setHTMLIf('cf-wow', cols);
 
-  // Note (highlighted tinted block): this week so far vs the SAME number of days last week.
-  var days=0, ts=0, ls=0;
-  for(var d=0;d<7;d++){ if(cur[d]!=null){ days++; ts+=cur[d]; ls+=prev[d]; } }
-  var diff=ts-ls, st='', note='';
-  if(days>0 && ls>0){
-    if(diff<0){ st='ok'; note='<span class="ni">▼</span>'+L('Giảm ','Down ')+'<b>'+fmt(-diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
-    else if(diff>0){ st='over'; note='<span class="ni">▲</span>'+L('Tăng ','Up ')+'<b>'+fmt(diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
-    else { st='flat'; note=L('Ngang cùng kỳ tuần trước','On par with last week'); }
-  } else if(days>0 && ts>0){
-    st='flat'; note=L('Tuần này đã chi ','Spent ')+'<b>'+fmt(ts)+'</b>'+L('',' this week');
+  // Current live month → the daily guide ("Hôm nay còn tiêu được"); other months → the
+  // week-over-week note. The daily guide only shows when a per-day threshold can be derived.
+  var shownDaily = (selMonth===curMonthKey() && !done) && renderDailyGuide(m, daily);
+  if(shownDaily){
+    var cfn0=document.getElementById('cf-note'); if(cfn0){ cfn0.className='cf-note'; cfn0.innerHTML=''; }
+  } else {
+    var dgh=document.getElementById('cf-daily'); if(dgh) dgh.innerHTML='';
+    // Note (highlighted tinted block): this week so far vs the SAME number of days last week.
+    var days=0, ts=0, ls=0;
+    for(var d=0;d<7;d++){ if(cur[d]!=null){ days++; ts+=cur[d]; ls+=prev[d]; } }
+    var diff=ts-ls, st='', note='';
+    if(days>0 && ls>0){
+      if(diff<0){ st='ok'; note='<span class="ni">▼</span>'+L('Giảm ','Down ')+'<b>'+fmt(-diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
+      else if(diff>0){ st='over'; note='<span class="ni">▲</span>'+L('Tăng ','Up ')+'<b>'+fmt(diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
+      else { st='flat'; note=L('Ngang cùng kỳ tuần trước','On par with last week'); }
+    } else if(days>0 && ts>0){
+      st='flat'; note=L('Tuần này đã chi ','Spent ')+'<b>'+fmt(ts)+'</b>'+L('',' this week');
+    }
+    var cfn=document.getElementById('cf-note');
+    if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
   }
-  var cfn=document.getElementById('cf-note');
-  if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
   renderRequestsCta();
   renderCashflowEmailCta();
 }
+/* Daily guide — "Hôm nay còn tiêu được": a per-day allowance minus what's been spent today.
+   The allowance is the SAVER of (a) last month's daily average and (b) the budget-pace daily
+   allowance, tightened by the family's saving goal (window.saveGoalPct). Colour + water level
+   read how much room is left; tapping the tile opens the goal sheet. */
+var DG_STATES={
+  green:{main:'#0f9d84',mut:'#4a917f',bg:'#eaf6f2',trk:'rgba(15,157,132,.18)'},
+  yellow:{main:'#e0a500',mut:'#8a6810',bg:'#fdf6df',trk:'rgba(224,165,0,.2)'},
+  orange:{main:'#ef5f37',mut:'#a63e22',bg:'#fdeee9',trk:'rgba(239,95,55,.18)'},
+  red:{main:'#e0483f',mut:'#a5645c',bg:'#fdeeec',trk:'rgba(224,72,63,.18)'}
+};
+function dgBase(m, daily){                                    // per-day norm, before the saving goal
+  var spent=m.spent||0, spentToday=(daily&&daily[m.dom])||0, reserved=m.done?0:monthReserved();
+  var prevKey=_MOA[(TODAY.getMonth()+11)%12], pm=months[prevKey];
+  var prevDaily=(pm && pm.spent>0 && pm.dim>0) ? pm.spent/pm.dim : null;   // last month's daily average
+  var remBudget=(m.budget||0)-(spent-spentToday)-reserved, daysLeft=Math.max(1, m.dim-m.dom+1);
+  // Budget-pace allowance — but DROP it (not zero it) once the month's budget is blown,
+  // otherwise min(prevDaily, 0)=0 would hide the guide exactly when it matters most.
+  var budgetDaily=(m.budget>0 && remBudget>0) ? remBudget/daysLeft : null;
+  var cand=[]; if(prevDaily!=null)cand.push(prevDaily); if(budgetDaily!=null)cand.push(budgetDaily);
+  if(cand.length) return Math.min.apply(null,cand);                        // the saver of the available signals
+  return (m.budget>0)?m.budget/m.dim:((window.monthIncome||0)/m.dim||0);   // fallback: even monthly pace
+}
+function dgThreshold(m, daily){ return dgBase(m,daily)*(1-(window.saveGoalPct||0)/100); }
+function renderDailyGuide(m, daily){
+  var host=document.getElementById('cf-daily'); if(!host) return false;
+  var threshold=dgThreshold(m,daily);
+  if(!(threshold>0)){ host.innerHTML=''; return false; }
+  var spentToday=daily[m.dom]||0, remain=threshold-spentToday;
+  var pct=remain/threshold, over=remain<0;
+  var key = over?'red' : (pct<=0.20?'orange':(pct<=0.50?'yellow':'green'));
+  // State-change push (E2EE-safe · client-side): only the device that just logged an
+  // expense fires (window._dgLocalAdd), only when today's state worsens, never on green.
+  // The actor gate + fhNotify's per-kind cooldown stop other devices' realtime re-renders
+  // from double-sending; window.dgStateDay resets the baseline at the start of each day.
+  var _ord={green:0,yellow:1,orange:2,red:3};
+  var _prev=(window.dgStateDay===m.dom)?(window.dgState||'green'):'green';
+  if(window._dgLocalAdd && _ord[key]>_ord[_prev] && key!=='green' && typeof fhNotify==='function'){ fhNotify('dgstate',{state:key}); }
+  window.dgState=key; window.dgStateDay=m.dom; window._dgLocalAdd=false;
+  window.cfDailyState=key;
+  var s=DG_STATES[key], level=Math.max(0,Math.min(100,pct*100));
+  var label = over ? L('Hôm nay đã vượt','Over today') : L('Hôm nay còn tiêu được','Left to spend today');
+  var amt = over ? fmt(-remain) : fmt(Math.max(0,remain));
+  host.style.background=s.bg;
+  setHTMLIf(host,
+    '<span class="dg-lbl" style="color:'+s.mut+'">'+label+'</span>'
+    +'<span class="dg-amt num" style="color:'+s.main+'">'+amt+'</span>'
+    +'<span class="dg-vis">'+cfWaterSVG(level,s,over)+'</span>');
+  return true;
+}
+function cfWaterSVG(level,s,over){
+  if(over){
+    return '<svg viewBox="0 0 46 46" width="46" height="46"><circle cx="23" cy="23" r="22" fill="rgba(224,72,63,.08)"/>'
+      +'<circle cx="23" cy="23" r="22" fill="none" stroke="rgba(224,72,63,.4)" stroke-width="1.5"/></svg><span class="dg-bang">!</span>';
+  }
+  var y=(46*(1-level/100)).toFixed(2), WP='M0 0 Q 11.5 -3 23 0 T 46 0 T 69 0 T 92 0 L 92 62 L 0 62 Z';
+  return '<svg viewBox="0 0 46 46" width="46" height="46"><defs><clipPath id="cfwclip"><circle cx="23" cy="23" r="22"/></clipPath></defs>'
+    +'<circle cx="23" cy="23" r="22" fill="'+s.trk+'"/>'
+    +'<g clip-path="url(#cfwclip)"><g class="cf-water" style="--y:'+y+'px;transform:translateY('+y+'px)">'
+    +'<path class="cf-w1" d="'+WP+'" fill="'+s.main+'"/><path class="cf-w2" d="'+WP+'" fill="'+s.main+'" opacity=".5"/>'
+    +'</g></g><circle cx="23" cy="23" r="22" fill="none" stroke="'+s.main+'" stroke-opacity=".35" stroke-width="1.5"/></svg>';
+}
+/* Saving-goal sheet — "Tiêu hoang như trước" (0%) + "Tiêu ít hơn 10/15/20/50%". Tapping a
+   row applies immediately (like the month picker): sets the goal, re-renders, and closes. */
+var SAVE_GOALS=[0,10,15,20,50];
+function openSaveGoal(){ openSheet('sheet-savegoal'); }
+function buildSaveGoalChoices(){
+  var box=document.getElementById('savegoal-list'); if(!box) return;
+  setTxt('savegoal-h', L('Mục tiêu tiết kiệm','Saving goal'));
+  var cur=window.saveGoalPct||0, base=dgBase(M(),{});
+  box.innerHTML=SAVE_GOALS.map(function(p){
+    var name = p===0 ? L('Tiêu hoang như trước','Spend like before') : L('Tiêu ít hơn '+p+'%','Spend '+p+'% less');
+    var side = p===0 ? '<span class="sg-side zero">—</span>' : '<span class="sg-side">+'+fmtK(base*(p/100)*M().dim)+'</span>';
+    return '<button class="sg-row'+(p===cur?' on':'')+'" onclick="setSaveGoal('+p+')"><span class="sg-radio"></span>'
+      +'<span class="sg-name">'+name+'</span>'+side+'</button>';
+  }).join('');
+}
+function setSaveGoal(p){
+  window.saveGoalPct=p;
+  try{ localStorage.setItem('fh-savegoal', String(p)); }catch(e){}
+  if(typeof persistSaveGoal==='function') persistSaveGoal(p);   // wired in Phase 2 (Supabase) + Phase 3 (push)
+  buildSaveGoalChoices(); renderCashflow(); closeSheet();
+}
+try{ window.saveGoalPct=parseInt(localStorage.getItem('fh-savegoal')||'0',10)||0; }catch(e){ window.saveGoalPct=0; }
+window.openSaveGoal=openSaveGoal; window.setSaveGoal=setSaveGoal; window.buildSaveGoalChoices=buildSaveGoalChoices;
 /* Widget A's proposals CTA — "Đề xuất chi tiêu": opens the requests hub (openRequests).
    Shown only when there are still-open future-expense/goal/occasion proposals; the badge
    is how many are open (reqPendingAll). This replaces the standalone #fin-requests widget
@@ -7160,6 +7283,7 @@ function openSheet(id){
   if(id==='sheet-event'){ openEventModal(); return; }        // new-event form is a full-screen modal
   if(id==='sheet-fund') buildFundChoices();
   if(id==='sheet-month') buildMonthChoices();
+  if(id==='sheet-savegoal') buildSaveGoalChoices();
   if(id==='sheet-catpick') buildCatPicker();
   if(id==='sheet-budget'){ if(window.loadFamilyData){ window.loadFamilyData().then(fillBudgetSheet); } else fillBudgetSheet(); }
   if(id==='sheet-theme') buildThemeChoices();
@@ -7860,6 +7984,7 @@ function submitBulk(opts){
   }
   bulkSaveTried=false;
   clearDrafts();                                   // saved for real → drop the auto-saved draft
+  window._dgLocalAdd=true;                          // this device just logged → allow a daily-guide state-change push
   renderAll(); renderTxns();
   closeExpense();
   toast(L('Đã ghi '+n+' khoản · '+fmt(total),'Logged '+n+' · '+fmt(total)));
@@ -13039,7 +13164,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v363';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v364';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -14769,6 +14894,17 @@ window.obGoogle = async function () {
       // shared house customization ({house,tree,pet}); [] / null on a pre-migration snapshot → keep whatever we have
       window.FAM.house = (fam && fam.house && typeof fam.house === 'object') ? fam.house : (window.FAM.house || {});
 
+      // shared saving goal (0..90) for the daily guide — a small synced setting read
+      // separately (kept out of the big snapshot). Absent/older DB → keep 0. Re-runs on
+      // each (re)hydrate, so a goal set on another device lands here via families realtime.
+      try {
+        const _sg = await sb.from('families').select('save_goal_pct').eq('id', fid).maybeSingle();
+        if (_sg && _sg.data && _sg.data.save_goal_pct != null) {
+          window.saveGoalPct = _sg.data.save_goal_pct | 0;
+          try { localStorage.setItem('fh-savegoal', String(window.saveGoalPct)); } catch (e) {}
+        }
+      } catch (e) {}
+
       // members → membersMeta + maps
       window.DB.memberById = {}; window.DB.memberByAppName = {}; window.DB.sharedId = null; window.DB.ownerMemberId = null;
       const mm = {};
@@ -15027,6 +15163,17 @@ window.obGoogle = async function () {
       return true;
     } catch (e) { console.warn('loadFamilyData failed', e); return false; }
     finally { _hideLoading(); fhFresh(); }     // the chip must clear even if the hydrate failed
+  };
+
+  /* Saving-goal write-through (daily guide). Any member may set the shared family goal
+     (0..90) via the security-definer setter from 0070; we suppress the families realtime
+     echo, then nudge the other members' devices. Called from setSaveGoal() in js-ui. */
+  window.persistSaveGoal = async function (pct) {
+    try {
+      if (window.DB) window.DB._lastLocalWrite = Date.now();
+      await _rpc('set_family_save_goal', { p_pct: pct });
+      if (window.fhNotify) window.fhNotify('savegoal', { pct: pct });   // notify other members
+    } catch (e) {}
   };
 
   // ---- write-through: transactions ----

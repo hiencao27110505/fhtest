@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Còn lại tháng này · 8 cách thể hiện × trạng thái</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{--sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif;
+    --teal:#14b8a6;--pos:#0f9d84;--over:#e0483f;--amber:#e8a13d;--prev:#e6e3ec;--mut:#8a8694;
+    --notebg:#eef4f2;--notefg:#0f7a5a;--warnbg:#fbf4e9;--warnfg:#9a6b1f;--badbg:#fbeeec;--badfg:#c0392b}
+  html,body{background:#dcdae1;font-family:var(--sf);color:#111117;-webkit-font-smoothing:antialiased}
+  body{padding:40px 20px 70px}
+  .num,.big{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  .page-head{max-width:820px;margin:0 auto 10px;text-align:center}
+  .page-head h1{font-size:28px;font-weight:800;letter-spacing:-.8px;margin-bottom:8px}
+  .page-head p{color:#4b4753;font-size:14px;line-height:1.55;max-width:680px;margin:0 auto}
+  .facts{max-width:680px;margin:12px auto 32px;background:#fff;border-radius:12px;padding:11px 16px;font-size:12.5px;line-height:1.6;color:#3a3742;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+  .facts b{font-weight:800}
+
+  .vblock{max-width:1120px;margin:0 auto 40px}
+  .cap{margin:0 4px 12px;max-width:820px}
+  .cap .n{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:21px;padding:0 6px;border-radius:6px;background:#111;color:#fff;font-weight:800;font-size:11px;margin-right:8px;vertical-align:1px}
+  .cap .t{font-weight:700;font-size:15px;letter-spacing:-.2px}
+  .cap .d{margin-top:4px;font-size:11.5px;line-height:1.45;color:#4b4753}
+  .states{display:flex;gap:14px;flex-wrap:wrap}
+
+  .scard{width:255px;background:#f2f2f6;border-radius:18px;padding:9px;box-shadow:0 8px 22px rgba(0,0,0,.09)}
+  .slab{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#6b6577;margin:3px 5px 8px}
+  .c{background:#fff;border-radius:15px;padding:12px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .eyebrow{font-size:9px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--mut)}
+  .big{font-weight:800;letter-spacing:-.7px;line-height:1}
+  .grad{background:linear-gradient(120deg,#0f9d84,#1fc9b4);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .neg{color:var(--over)}
+
+  .note{font-size:11px;font-weight:700;line-height:1.4;padding:8px 10px;border-radius:10px;margin-top:11px}
+  .note b{font-weight:800;white-space:nowrap}
+  .note .sub{display:block;font-weight:500;font-size:10px;margin-top:3px;opacity:.9}
+  .note.ok{background:var(--notebg);color:var(--notefg)}
+  .note.warn{background:var(--warnbg);color:var(--warnfg)}
+  .note.bad{background:var(--badbg);color:var(--badfg)}
+
+  /* chart scaffold (compact) */
+  .ch{margin-top:11px;position:relative}
+  .chwrap{position:relative}
+  .chart{display:flex;gap:5px;align-items:flex-end;justify-content:space-between}
+  .col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+  .col span{font-size:7.5px;color:#a8a4b0;font-weight:600}
+  .col span.on{color:var(--pos);font-weight:800}
+  .col span.on.w{color:var(--warnfg)}
+  .gw{position:relative;height:56px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:2px}
+  .gb{width:8px;border-radius:3px 3px 0 0;flex-shrink:0}
+  .gb.prev{background:var(--prev)}
+  .gb.cur.g{background:var(--teal)}.gb.cur.o{background:var(--over)}
+  .stack{position:relative;width:8px;flex-shrink:0;align-self:stretch}
+  .stack .sp{position:absolute;bottom:0;left:0;right:0;background:var(--teal);border-radius:0 0 2px 2px}
+  .stack .sp.o{background:var(--over)}
+  .stack .rem{position:absolute;left:0;right:0;border-radius:3px 3px 0 0;background:rgba(20,184,166,.13);border:1.5px dashed rgba(20,184,166,.5);border-bottom:none}
+  .stack .out{position:absolute;bottom:0;left:0;right:0;border-radius:3px;border:1.5px dashed rgba(20,184,166,.4)}
+  .stack .fill{position:absolute;bottom:0;left:0;right:0;background:var(--teal);border-radius:2px}
+  .limit{position:absolute;left:0;right:0;border-top:1.5px dashed #8a97a0;z-index:2}
+  .limit em{position:absolute;right:0;top:-13px;font-style:normal;font-size:8px;font-weight:700;color:#5f6b72;background:#eef1f2;border-radius:5px;padding:1px 4px}
+  .legend{display:flex;gap:10px;justify-content:center;margin-top:8px;font-size:8.5px;font-weight:600;color:#a29caa;flex-wrap:wrap}
+  .legend i{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:3px;vertical-align:-1px}
+
+  /* hero number */
+  .mini .gw{height:30px;gap:1.5px}.mini .gb{width:6px}.mini .stack{width:6px}
+  .hero{margin-top:10px;border-radius:12px;padding:11px 12px}
+  .hero.ok{background:var(--notebg)}.hero.warn{background:var(--warnbg)}.hero.bad{background:var(--badbg)}
+  .hero .hlab{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
+  .hero.ok .hlab{color:#0f7a5a}.hero.warn .hlab{color:var(--warnfg)}.hero.bad .hlab{color:var(--badfg)}
+  .hero .hb{font-size:23px;font-weight:800;letter-spacing:-.7px;margin-top:3px}
+  .hero.ok .hb{color:var(--pos)}.hero.warn .hb{color:var(--warnfg)}.hero.bad .hb{color:var(--badfg)}
+  .htrack{height:5px;border-radius:9px;background:rgba(0,0,0,.08);overflow:hidden;margin-top:9px}
+  .htrack i{display:block;height:100%;border-radius:9px}
+  .hsub{font-size:9.5px;font-weight:600;margin-top:6px;opacity:.85}
+
+  /* dots */
+  .dgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:9px 5px;justify-items:center;margin-top:2px}
+  .dgrid>div{display:flex;flex-direction:column;align-items:center;gap:2px}
+  .dhd{font-size:8px;color:#a8a4b0;font-weight:600}
+  .dot{width:15px;height:15px;border-radius:50%}
+  .dot.g{background:var(--teal)}.dot.o{background:var(--over)}.dot.f{background:#eceaf1}
+  .dot.ring{position:relative}
+  .dot.ring::after{content:"";position:absolute;inset:3.5px;border-radius:50%;background:#fff}
+  .dnum{font-size:7px;color:#c2bfca;font-weight:600}
+
+  /* line */
+  .pace{width:100%;height:78px;display:block}
+  .axis{display:flex;justify-content:space-between;font-size:7.5px;color:#a8a4b0;font-weight:600;margin-top:2px}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Còn lại tháng này · chart và note theo trạng thái</h1>
+  <p>Mỗi cách thể hiện xem qua các trạng thái trong ngày: sáng, chiều, và khi vượt. Con số và note đổi theo. Cột xám tuần trước giữ nguyên làm nền.</p>
+</div>
+<div class="facts">
+  Số liệu chung: còn <b>5.600.000₫</b>, còn <b>11 ngày</b>, hạn mức ngày <b>500.000₫</b>. Mức chi trong ngày: 120k (sáng) · 410k (chiều) · 560k (tối, vượt 60k). Còn lại tháng này giảm theo: 5.600.000 · 5.310.000 · 5.160.000.
+</div>
+
+<div id="root"></div>
+
+<script>
+var P=[37,33,41,36,31,48,35];                      // prev-week bars (500k = 33px)
+var DAYS=['T2','T3','T4','T5','T6','T7','CN'];
+function px(k){return Math.max(0,k/500*33)}          // thousands → px
+function pb(h){return '<div class="gb prev" style="height:'+h+'px"></div>'}
+function cbar(h,c){return '<div class="gb cur '+c+'" style="height:'+h+'px"></div>'}
+function today(spentK,limitK){                        // solid spent + dashed remaining to limit
+  limitK=limitK||500; var lp=px(limitK), sp=px(spentK);
+  if(sp>=lp) return '<div class="gb cur o" style="height:'+sp+'px"></div>';
+  return '<div class="stack"><div class="rem" style="bottom:'+sp+'px;height:'+(lp-sp)+'px"></div><div class="sp" style="height:'+sp+'px"></div></div>';
+}
+var PAST=[pb(P[0])+cbar(33,'g'), pb(P[1])+cbar(48,'o'), pb(P[2])+cbar(26,'g')];
+function col(inner,lab,on){return '<div class="col"><div class="gw">'+inner+'</div><span'+(on?' class="on'+(on==='w'?' w':'')+'"':'')+'>'+lab+'</span></div>'}
+function week(t5,onw){var items=[PAST[0],PAST[1],PAST[2], pb(P[3])+t5, pb(P[4]), pb(P[5]), pb(P[6])];
+  return '<div class="chart">'+items.map(function(h,i){return col(h,DAYS[i],i===3?(onw||true):false)}).join('')+'</div>';}
+function limitLine(limitK,lab,cls){return '<div class="limit" style="bottom:'+px(limitK)+'px">'+(lab?'<em'+(cls?' style="'+cls+'"':'')+'>'+lab+'</em>':'')+'</div>'}
+function LEG(a){return '<div class="legend">'+a.map(function(x){return '<span><i style="'+x[0]+'"></i>'+x[1]+'</span>'}).join('')+'</div>'}
+var legStd=LEG([['background:var(--prev)','Tuần trước'],['background:var(--teal)','Đã chi hôm nay'],['background:rgba(20,184,166,.2);border:1px dashed rgba(20,184,166,.55)','Còn lại']]);
+
+function card(lab,big,neg,inner,ncls,main,sub){
+  return '<div class="scard"><div class="slab">'+lab+'</div><div class="c">'
+    +'<div class="eyebrow">Còn lại tháng này</div>'
+    +'<div class="big '+(neg?'neg':'grad')+' num" style="font-size:20px;margin-top:4px">'+big+'</div>'
+    +'<div class="ch">'+inner+'</div>'
+    +'<div class="note '+ncls+'">'+main+(sub?'<span class="sub">'+sub+'</span>':'')+'</div>'
+    +'</div></div>';
+}
+function bars(t5,leg,onw){return '<div class="chwrap">'+t5.limit+week(t5.today,onw)+'</div>'+(leg||legStd)}
+function block(n,t,d,cards){
+  return '<section class="vblock"><div class="cap"><span class="n">'+n+'</span><span class="t">'+t+'</span><div class="d">'+d+'</div></div><div class="states">'+cards.join('')+'</div></section>';
+}
+var html='';
+
+/* 1 · Vạch hạn mức ngày */
+html+=block(1,'Vạch hạn mức ngày','Cột chi theo ngày và vạch hạn mức 500.000₫. Cột hôm nay tách phần đã chi và phần còn lại tới vạch.',
+ [card('Sáng 9:41','5.600.000₫',0, bars({limit:limitLine(500,'500k/ngày'),today:today(120)}),'ok','Còn tiêu được <b>380.000₫</b> hôm nay','Đã tiêu 120.000₫ / hạn mức 500.000₫'),
+  card('Chiều 16:20','5.310.000₫',0, bars({limit:limitLine(500,'500k/ngày'),today:today(410)},null,'w'),'warn','Còn <b>90.000₫</b> cho hôm nay','Đã tiêu 410.000₫ / hạn mức 500.000₫'),
+  card('Tối 21:05','5.160.000₫',0, bars({limit:limitLine(500,'500k/ngày'),today:today(560)},null,'w'),'bad','Vượt <b>60.000₫</b> hôm nay','Mai còn 440.000₫ để cuối tháng vẫn xanh')]);
+
+/* 2 · Số còn lại đặt lớn */
+function mini(t5){return '<div class="ch mini"><div class="chart">'
+  +[pb(21)+cbar(19,'g'), pb(19)+cbar(27,'o'), pb(23)+cbar(15,'g'), pb(20)+t5, pb(18), pb(27), pb(21)]
+    .map(function(h,i){return col(h,DAYS[i],i===3)}).join('')+'</div></div>';}
+function heroCard(lab,slab,big,ncls,hlab,hb,pct,pcol,hsub){
+  return '<div class="scard"><div class="slab">'+lab+'</div><div class="c">'
+    +'<div class="eyebrow">Còn lại tháng này</div><div class="big grad num" style="font-size:20px;margin-top:4px">'+big+'</div>'
+    +mini(slab)
+    +'<div class="hero '+ncls+'"><div class="hlab">'+hlab+'</div><div class="hb num">'+hb+'</div>'
+    +'<div class="htrack"><i style="width:'+pct+'%;background:'+pcol+'"></i></div><div class="hsub" style="color:'+pcol+'">'+hsub+'</div></div>'
+    +'</div></div>';
+}
+html+=block(2,'Số còn lại đặt lớn','Con số trả lời đặt lớn nhất, chart thu nhỏ làm nền. Có mốc giờ và tiến độ trong ngày.',
+ [heroCard('Sáng 9:41', cbar(6,'g'), '5.600.000₫','ok','Còn tiêu được hôm nay','380.000₫',24,'var(--pos)','Đã tiêu 120.000₫ / 500.000₫ · 9:41'),
+  heroCard('Chiều 16:20', cbar(20,'g'), '5.310.000₫','warn','Còn tiêu được hôm nay','90.000₫',82,'var(--amber)','Đã tiêu 410.000₫ / 500.000₫ · 16:20'),
+  heroCard('Tối 21:05', cbar(33,'o'), '5.160.000₫','bad','Đã vượt hôm nay','60.000₫',100,'var(--over)','Đã tiêu 560.000₫ / 500.000₫ · 21:05')]);
+
+/* 3 · Cột còn lại trong ngày */
+function todayRem(remK){var lp=px(500),f=px(remK);
+  return '<div class="stack"><div class="out" style="height:'+lp+'px"></div><div class="fill" style="height:'+f+'px"></div></div>';}
+var leg3=LEG([['background:var(--prev)','Tuần trước'],['background:var(--teal)','Chi các ngày'],['background:rgba(20,184,166,.28)','Còn lại hôm nay']]);
+html+=block(3,'Cột còn lại trong ngày','Cột hôm nay là số còn tiêu được, đầy vào đầu ngày và giảm dần theo mỗi khoản chi.',
+ [card('Sáng 9:41','5.600.000₫',0, '<div class="chwrap">'+limitLine(500,'đầu ngày 500k')+week(todayRem(380))+'</div>'+leg3,'ok','Còn <b>380.000₫</b> trong hạn mức hôm nay','Đầu ngày 500.000₫, đã tiêu 120.000₫'),
+  card('Trưa 13:00','5.430.000₫',0, '<div class="chwrap">'+limitLine(500,'đầu ngày 500k')+week(todayRem(210))+'</div>'+leg3,'ok','Còn <b>210.000₫</b> cho chiều tối','Đã tiêu 290.000₫ / 500.000₫'),
+  card('Tối 20:30','5.260.000₫',0, '<div class="chwrap">'+limitLine(500,'đầu ngày 500k')+week(todayRem(40),'w')+'</div>'+leg3,'warn','Còn <b>40.000₫</b> cho hôm nay','Đã tiêu 460.000₫ / 500.000₫')]);
+
+/* 4 · Ngày xanh, ngày vượt */
+var RECENT=[['g',11],['g',12],['o',13],['g',14],['g',15],['o',16],['g',17],['g',18],['o',19],['g',20]];
+function dots(todayDot){
+  var s='<div class="ch"><div class="dgrid">'+DAYS.map(function(d){return '<span class="dhd">'+d+'</span>'}).join('');
+  RECENT.forEach(function(r){s+='<div><div class="dot '+r[0]+'"></div><div class="dnum">'+r[1]+'</div></div>';});
+  s+='<div>'+todayDot+'<div class="dnum" style="color:var(--pos);font-weight:800">21</div></div>';
+  s+='<div><div class="dot f"></div><div class="dnum">22</div></div><div><div class="dot f"></div><div class="dnum">23</div></div><div><div class="dot f"></div><div class="dnum">24</div></div>';
+  return s+'</div></div>';
+}
+function ring(pct,color){return '<div class="dot ring" style="background:conic-gradient('+color+' '+pct+'%,var(--prev) 0)"></div>'}
+html+=block(4,'Ngày xanh, ngày vượt','Mỗi ngày một chấm: dưới hạn mức là xanh, vượt là đỏ. Hôm nay là vòng đang đầy dần theo chi tiêu.',
+ [card('Sáng 9:41','5.600.000₫',0, dots(ring(24,'var(--teal)')),'ok','Còn <b>380.000₫</b> để hôm nay là ngày xanh','14 ngày gần nhất: 10 xanh, 3 vượt'),
+  card('Chiều 16:20','5.310.000₫',0, dots(ring(82,'var(--amber)')),'warn','Còn <b>90.000₫</b> để giữ ngày xanh','Đã tiêu 410.000₫ / 500.000₫'),
+  card('Tối 21:05','5.160.000₫',0, dots('<div class="dot o"></div>'),'bad','Hôm nay đã vượt hạn mức <b>60.000₫</b>','Chuỗi ngày xanh dừng lại, mai bắt đầu lại')]);
+
+/* 5 · Chi lũy kế so với nhịp đều */
+function lineChart(todayX,curPts,axis){
+  return '<div class="ch"><svg class="pace" viewBox="0 0 100 78" preserveAspectRatio="none">'
+    +'<line x1="'+todayX+'" y1="6" x2="'+todayX+'" y2="68" stroke="#eceaf1" stroke-width="1"/>'
+    +'<polyline points="0,68 12,62 24,55 36,50 48,40 62,32 76,22 88,14 100,6" fill="none" stroke="#c6c2ce" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'
+    +'<line x1="0" y1="68" x2="100" y2="10" stroke="#8a97a0" stroke-width="1.5" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>'
+    +'<polyline points="'+curPts+'" fill="none" stroke="#14b8a6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'
+    +'<circle cx="'+todayX+'" cy="'+curPts.split(' ').pop().split(',')[1]+'" r="2.6" fill="#14b8a6"/></svg>'
+    +'<div class="axis"><span>01/08</span>'+axis+'<span>31/08</span></div>'
+    +LEG([['background:#c6c2ce','Tháng 7'],['background:var(--teal)','Tháng 8'],['background:#8a97a0','Nhịp đều']])+'</div>';
+}
+html+=block(5,'Chi lũy kế so với nhịp đều','Đường chi lũy kế trong tháng so với nhịp chi đều tới hết ngân sách. Đường xám là tháng trước. Xem ở đầu, giữa và cuối tháng.',
+ [card('Đầu tháng · 07/08','9.800.000₫',0, lineChart(20,'0,68 8,65 14,62 20,60','<span class="on" style="color:var(--pos)">07/08</span>'),'ok','Đang thấp hơn nhịp đều <b>210.000₫</b>','Hôm nay tiêu tới 620.000₫ vẫn đúng nhịp'),
+  card('Giữa tháng · 21/08','5.600.000₫',0, lineChart(64,'0,68 10,64 22,58 34,53 46,46 64,40','<span class="on" style="color:var(--pos)">21/08</span>'),'ok','Đang thấp hơn nhịp đều <b>630.000₫</b>','Hôm nay tiêu tới 500.000₫ vẫn đúng nhịp'),
+  card('Cuối tháng · 28/08','2.100.000₫',0, lineChart(87,'0,68 14,60 30,50 46,40 62,28 78,17 87,11','<span class="on w" style="color:var(--warnfg)">28/08</span>'),'warn','Đang cao hơn nhịp đều <b>320.000₫</b>','Giữ dưới 350.000₫ mỗi ngày tới cuối tháng')]);
+
+/* 6 · Dư hôm qua cộng vào */
+html+=block(6,'Dư hôm qua cộng vào','Hôm qua tiêu dưới hạn mức thì phần dư cộng vào hạn mức hôm nay. Ba trạng thái là ba kết quả của hôm qua.',
+ [card('Hôm qua dư 170k','5.600.000₫',0, bars({limit:limitLine(670,'670k hôm nay','background:#eef4f2;color:#0f7a5a'),today:today(120,670)}),'ok','Hôm nay được <b>670.000₫</b>','Đã tiêu 120.000₫, còn 550.000₫'),
+  card('Hôm qua vừa khít','5.600.000₫',0, bars({limit:limitLine(500,'500k hôm nay'),today:today(120,500)}),'ok','Hôm nay <b>500.000₫</b> như thường','Đã tiêu 120.000₫, còn 380.000₫'),
+  card('Hôm qua vượt 60k','5.600.000₫',0, bars({limit:limitLine(440,'440k hôm nay','background:#fbf4e9;color:#9a6b1f'),today:today(120,440)},null,'w'),'warn','Hôm nay còn <b>440.000₫</b>','Đã tiêu 120.000₫, còn 320.000₫')]);
+
+/* 7 · Hạn mức và tuần trước */
+var leg7=LEG([['background:var(--prev)','Tuần trước'],['background:var(--teal)','Tuần này'],['background:rgba(20,184,166,.2);border:1px dashed rgba(20,184,166,.55)','Còn lại']]);
+html+=block(7,'Hạn mức và tuần trước','Giữ so sánh với cùng kỳ tuần trước, thêm vạch hạn mức và số còn tiêu được hôm nay.',
+ [card('Sáng 9:41','5.600.000₫',0, bars({limit:limitLine(500,'500k/ngày'),today:today(120)},leg7),'ok','Còn tiêu được <b>380.000₫</b> hôm nay','Tuần này thấp hơn tuần trước 290.000₫'),
+  card('Chiều 16:20','5.310.000₫',0, bars({limit:limitLine(500,'500k/ngày'),today:today(410)},leg7,'w'),'warn','Còn <b>90.000₫</b> cho hôm nay','Tuần này ngang tuần trước'),
+  card('Tối 21:05','5.160.000₫',0, bars({limit:limitLine(500,'500k/ngày'),today:today(560)},leg7,'w'),'bad','Vượt <b>60.000₫</b> hôm nay','Tuần này cao hơn tuần trước 120.000₫')]);
+
+/* 8 · Khi đang âm */
+var PR8=[55,55,58,60,50,66,52];
+function week8(t5,onw){var items=[pb(PR8[0])+cbar(48,'o'), pb(PR8[1])+cbar(62,'o'), pb(PR8[2])+cbar(12,'g'), pb(PR8[3])+t5, pb(PR8[4]), pb(PR8[5]), pb(PR8[6])];
+  return '<div class="chart">'+items.map(function(h,i){return col(h,DAYS[i],i===3?(onw||true):false)}).join('')+'</div>';}
+function today8(spentK){var lp=px(166),sp=px(spentK);
+  if(sp>=lp)return '<div class="gb cur o" style="height:'+sp+'px"></div>';
+  return '<div class="stack"><div class="rem" style="bottom:'+sp+'px;height:'+(lp-sp)+'px;border-color:rgba(154,107,31,.5);background:rgba(211,84,0,.09)"></div><div class="sp" style="height:'+sp+'px;background:#d35400"></div></div>';}
+var leg8=LEG([['background:var(--prev)','Tuần trước'],['background:var(--over)','Chi hôm nay'],['background:rgba(211,84,0,.15);border:1px dashed rgba(154,107,31,.5)','Mức còn lại']]);
+function card8(lab,big,neg,t5,onw,ncls,main,sub){
+  return '<div class="scard"><div class="slab">'+lab+'</div><div class="c">'
+    +'<div class="eyebrow">Còn lại tháng này</div><div class="big '+(neg?'neg':'grad')+' num" style="font-size:20px;margin-top:4px">'+big+'</div>'
+    +'<div class="ch"><div class="chwrap">'+limitLine(166,'166k/ngày','background:#fbf4e9;color:#9a6b1f')+week8(t5,onw)+'</div>'+leg8+'</div>'
+    +'<div class="note '+ncls+'">'+main+'<span class="sub">'+sub+'</span></div></div></div>';
+}
+html+=block(8,'Khi đang âm','Tháng đang âm 6,17tr nên không còn mức xanh. Note đổi thành mức chi tối đa mỗi ngày để cuối tháng dương lại; khi lương về thì tính lại.',
+ [card8('Sáng 9:41','-6.168.000₫',1, today8(45),'w','warn','Giữ dưới <b>166.000₫</b> mỗi ngày thì 31/08 dương lại','Hôm nay đã chi 45.000₫, còn 121.000₫'),
+  card8('Chiều 17:00','-6.263.000₫',1, today8(140),'w','warn','Còn <b>26.000₫</b> trong mức gỡ hôm nay','Đã chi 140.000₫ / 166.000₫'),
+  card8('Sau lương · 25/08','1.832.000₫',0, today8(45),'','ok','Lương về +8.000.000₫, còn lại <b>1.832.000₫</b>','Giữ dưới 458.000₫ mỗi ngày (4 ngày cuối) vẫn dương')]);
+
+document.getElementById('root').innerHTML=html;
+</script>
+</body>
+</html>

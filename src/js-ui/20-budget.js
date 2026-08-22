@@ -102,22 +102,114 @@ function renderCashflow(){
   }
   setHTMLIf('cf-wow', cols);
 
-  // Note (highlighted tinted block): this week so far vs the SAME number of days last week.
-  var days=0, ts=0, ls=0;
-  for(var d=0;d<7;d++){ if(cur[d]!=null){ days++; ts+=cur[d]; ls+=prev[d]; } }
-  var diff=ts-ls, st='', note='';
-  if(days>0 && ls>0){
-    if(diff<0){ st='ok'; note='<span class="ni">▼</span>'+L('Giảm ','Down ')+'<b>'+fmt(-diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
-    else if(diff>0){ st='over'; note='<span class="ni">▲</span>'+L('Tăng ','Up ')+'<b>'+fmt(diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
-    else { st='flat'; note=L('Ngang cùng kỳ tuần trước','On par with last week'); }
-  } else if(days>0 && ts>0){
-    st='flat'; note=L('Tuần này đã chi ','Spent ')+'<b>'+fmt(ts)+'</b>'+L('',' this week');
+  // Current live month → the daily guide ("Hôm nay còn tiêu được"); other months → the
+  // week-over-week note. The daily guide only shows when a per-day threshold can be derived.
+  var shownDaily = (selMonth===curMonthKey() && !done) && renderDailyGuide(m, daily);
+  if(shownDaily){
+    var cfn0=document.getElementById('cf-note'); if(cfn0){ cfn0.className='cf-note'; cfn0.innerHTML=''; }
+  } else {
+    var dgh=document.getElementById('cf-daily'); if(dgh) dgh.innerHTML='';
+    // Note (highlighted tinted block): this week so far vs the SAME number of days last week.
+    var days=0, ts=0, ls=0;
+    for(var d=0;d<7;d++){ if(cur[d]!=null){ days++; ts+=cur[d]; ls+=prev[d]; } }
+    var diff=ts-ls, st='', note='';
+    if(days>0 && ls>0){
+      if(diff<0){ st='ok'; note='<span class="ni">▼</span>'+L('Giảm ','Down ')+'<b>'+fmt(-diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
+      else if(diff>0){ st='over'; note='<span class="ni">▲</span>'+L('Tăng ','Up ')+'<b>'+fmt(diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
+      else { st='flat'; note=L('Ngang cùng kỳ tuần trước','On par with last week'); }
+    } else if(days>0 && ts>0){
+      st='flat'; note=L('Tuần này đã chi ','Spent ')+'<b>'+fmt(ts)+'</b>'+L('',' this week');
+    }
+    var cfn=document.getElementById('cf-note');
+    if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
   }
-  var cfn=document.getElementById('cf-note');
-  if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
   renderRequestsCta();
   renderCashflowEmailCta();
 }
+/* Daily guide — "Hôm nay còn tiêu được": a per-day allowance minus what's been spent today.
+   The allowance is the SAVER of (a) last month's daily average and (b) the budget-pace daily
+   allowance, tightened by the family's saving goal (window.saveGoalPct). Colour + water level
+   read how much room is left; tapping the tile opens the goal sheet. */
+var DG_STATES={
+  green:{main:'#0f9d84',mut:'#4a917f',bg:'#eaf6f2',trk:'rgba(15,157,132,.18)'},
+  yellow:{main:'#e0a500',mut:'#8a6810',bg:'#fdf6df',trk:'rgba(224,165,0,.2)'},
+  orange:{main:'#ef5f37',mut:'#a63e22',bg:'#fdeee9',trk:'rgba(239,95,55,.18)'},
+  red:{main:'#e0483f',mut:'#a5645c',bg:'#fdeeec',trk:'rgba(224,72,63,.18)'}
+};
+function dgBase(m, daily){                                    // per-day norm, before the saving goal
+  var spent=m.spent||0, spentToday=(daily&&daily[m.dom])||0, reserved=m.done?0:monthReserved();
+  var prevKey=_MOA[(TODAY.getMonth()+11)%12], pm=months[prevKey];
+  var prevDaily=(pm && pm.spent>0 && pm.dim>0) ? pm.spent/pm.dim : null;   // last month's daily average
+  var remBudget=(m.budget||0)-(spent-spentToday)-reserved, daysLeft=Math.max(1, m.dim-m.dom+1);
+  // Budget-pace allowance — but DROP it (not zero it) once the month's budget is blown,
+  // otherwise min(prevDaily, 0)=0 would hide the guide exactly when it matters most.
+  var budgetDaily=(m.budget>0 && remBudget>0) ? remBudget/daysLeft : null;
+  var cand=[]; if(prevDaily!=null)cand.push(prevDaily); if(budgetDaily!=null)cand.push(budgetDaily);
+  if(cand.length) return Math.min.apply(null,cand);                        // the saver of the available signals
+  return (m.budget>0)?m.budget/m.dim:((window.monthIncome||0)/m.dim||0);   // fallback: even monthly pace
+}
+function dgThreshold(m, daily){ return dgBase(m,daily)*(1-(window.saveGoalPct||0)/100); }
+function renderDailyGuide(m, daily){
+  var host=document.getElementById('cf-daily'); if(!host) return false;
+  var threshold=dgThreshold(m,daily);
+  if(!(threshold>0)){ host.innerHTML=''; return false; }
+  var spentToday=daily[m.dom]||0, remain=threshold-spentToday;
+  var pct=remain/threshold, over=remain<0;
+  var key = over?'red' : (pct<=0.20?'orange':(pct<=0.50?'yellow':'green'));
+  // State-change push (E2EE-safe · client-side): only the device that just logged an
+  // expense fires (window._dgLocalAdd), only when today's state worsens, never on green.
+  // The actor gate + fhNotify's per-kind cooldown stop other devices' realtime re-renders
+  // from double-sending; window.dgStateDay resets the baseline at the start of each day.
+  var _ord={green:0,yellow:1,orange:2,red:3};
+  var _prev=(window.dgStateDay===m.dom)?(window.dgState||'green'):'green';
+  if(window._dgLocalAdd && _ord[key]>_ord[_prev] && key!=='green' && typeof fhNotify==='function'){ fhNotify('dgstate',{state:key}); }
+  window.dgState=key; window.dgStateDay=m.dom; window._dgLocalAdd=false;
+  window.cfDailyState=key;
+  var s=DG_STATES[key], level=Math.max(0,Math.min(100,pct*100));
+  var label = over ? L('Hôm nay đã vượt','Over today') : L('Hôm nay còn tiêu được','Left to spend today');
+  var amt = over ? fmt(-remain) : fmt(Math.max(0,remain));
+  host.style.background=s.bg;
+  setHTMLIf(host,
+    '<span class="dg-lbl" style="color:'+s.mut+'">'+label+'</span>'
+    +'<span class="dg-amt num" style="color:'+s.main+'">'+amt+'</span>'
+    +'<span class="dg-vis">'+cfWaterSVG(level,s,over)+'</span>');
+  return true;
+}
+function cfWaterSVG(level,s,over){
+  if(over){
+    return '<svg viewBox="0 0 46 46" width="46" height="46"><circle cx="23" cy="23" r="22" fill="rgba(224,72,63,.08)"/>'
+      +'<circle cx="23" cy="23" r="22" fill="none" stroke="rgba(224,72,63,.4)" stroke-width="1.5"/></svg><span class="dg-bang">!</span>';
+  }
+  var y=(46*(1-level/100)).toFixed(2), WP='M0 0 Q 11.5 -3 23 0 T 46 0 T 69 0 T 92 0 L 92 62 L 0 62 Z';
+  return '<svg viewBox="0 0 46 46" width="46" height="46"><defs><clipPath id="cfwclip"><circle cx="23" cy="23" r="22"/></clipPath></defs>'
+    +'<circle cx="23" cy="23" r="22" fill="'+s.trk+'"/>'
+    +'<g clip-path="url(#cfwclip)"><g class="cf-water" style="--y:'+y+'px;transform:translateY('+y+'px)">'
+    +'<path class="cf-w1" d="'+WP+'" fill="'+s.main+'"/><path class="cf-w2" d="'+WP+'" fill="'+s.main+'" opacity=".5"/>'
+    +'</g></g><circle cx="23" cy="23" r="22" fill="none" stroke="'+s.main+'" stroke-opacity=".35" stroke-width="1.5"/></svg>';
+}
+/* Saving-goal sheet — "Tiêu hoang như trước" (0%) + "Tiêu ít hơn 10/15/20/50%". Tapping a
+   row applies immediately (like the month picker): sets the goal, re-renders, and closes. */
+var SAVE_GOALS=[0,10,15,20,50];
+function openSaveGoal(){ openSheet('sheet-savegoal'); }
+function buildSaveGoalChoices(){
+  var box=document.getElementById('savegoal-list'); if(!box) return;
+  setTxt('savegoal-h', L('Mục tiêu tiết kiệm','Saving goal'));
+  var cur=window.saveGoalPct||0, base=dgBase(M(),{});
+  box.innerHTML=SAVE_GOALS.map(function(p){
+    var name = p===0 ? L('Tiêu hoang như trước','Spend like before') : L('Tiêu ít hơn '+p+'%','Spend '+p+'% less');
+    var side = p===0 ? '<span class="sg-side zero">—</span>' : '<span class="sg-side">+'+fmtK(base*(p/100)*M().dim)+'</span>';
+    return '<button class="sg-row'+(p===cur?' on':'')+'" onclick="setSaveGoal('+p+')"><span class="sg-radio"></span>'
+      +'<span class="sg-name">'+name+'</span>'+side+'</button>';
+  }).join('');
+}
+function setSaveGoal(p){
+  window.saveGoalPct=p;
+  try{ localStorage.setItem('fh-savegoal', String(p)); }catch(e){}
+  if(typeof persistSaveGoal==='function') persistSaveGoal(p);   // wired in Phase 2 (Supabase) + Phase 3 (push)
+  buildSaveGoalChoices(); renderCashflow(); closeSheet();
+}
+try{ window.saveGoalPct=parseInt(localStorage.getItem('fh-savegoal')||'0',10)||0; }catch(e){ window.saveGoalPct=0; }
+window.openSaveGoal=openSaveGoal; window.setSaveGoal=setSaveGoal; window.buildSaveGoalChoices=buildSaveGoalChoices;
 /* Widget A's proposals CTA — "Đề xuất chi tiêu": opens the requests hub (openRequests).
    Shown only when there are still-open future-expense/goal/occasion proposals; the badge
    is how many are open (reqPendingAll). This replaces the standalone #fin-requests widget

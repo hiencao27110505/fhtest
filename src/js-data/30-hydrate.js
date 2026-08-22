@@ -180,6 +180,17 @@
       // shared house customization ({house,tree,pet}); [] / null on a pre-migration snapshot → keep whatever we have
       window.FAM.house = (fam && fam.house && typeof fam.house === 'object') ? fam.house : (window.FAM.house || {});
 
+      // shared saving goal (0..90) for the daily guide — a small synced setting read
+      // separately (kept out of the big snapshot). Absent/older DB → keep 0. Re-runs on
+      // each (re)hydrate, so a goal set on another device lands here via families realtime.
+      try {
+        const _sg = await sb.from('families').select('save_goal_pct').eq('id', fid).maybeSingle();
+        if (_sg && _sg.data && _sg.data.save_goal_pct != null) {
+          window.saveGoalPct = _sg.data.save_goal_pct | 0;
+          try { localStorage.setItem('fh-savegoal', String(window.saveGoalPct)); } catch (e) {}
+        }
+      } catch (e) {}
+
       // members → membersMeta + maps
       window.DB.memberById = {}; window.DB.memberByAppName = {}; window.DB.sharedId = null; window.DB.ownerMemberId = null;
       const mm = {};
@@ -438,4 +449,15 @@
       return true;
     } catch (e) { console.warn('loadFamilyData failed', e); return false; }
     finally { _hideLoading(); fhFresh(); }     // the chip must clear even if the hydrate failed
+  };
+
+  /* Saving-goal write-through (daily guide). Any member may set the shared family goal
+     (0..90) via the security-definer setter from 0070; we suppress the families realtime
+     echo, then nudge the other members' devices. Called from setSaveGoal() in js-ui. */
+  window.persistSaveGoal = async function (pct) {
+    try {
+      if (window.DB) window.DB._lastLocalWrite = Date.now();
+      await _rpc('set_family_save_goal', { p_pct: pct });
+      if (window.fhNotify) window.fhNotify('savegoal', { pct: pct });   // notify other members
+    } catch (e) {}
   };

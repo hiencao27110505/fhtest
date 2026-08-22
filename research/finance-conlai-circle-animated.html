@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Vòng vạch & Mực nước · có chuyển động (Apple-grade)</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{
+    --sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif;
+    --ink:#1c1c1e;--ink2:#48484a;--ink3:#8e8e93;--ink4:#aeaeb2;
+    --card:#ffffff;--fill6:#f2f2f5;--prevbar:#d9dce1;
+    --teal:#0f9d84;--teal2:#17b8a0;--tealbg:#eaf6f2;--red:#e0483f;
+  }
+  html,body{background:#e7e9ec;font-family:var(--sf);color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{padding:44px 22px 80px}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+  .u{font-size:.52em;font-weight:600;margin-left:.1em;color:currentColor;opacity:.82}
+
+  .head{max-width:800px;margin:0 auto 6px;text-align:center}
+  .head h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-bottom:9px}
+  .head p{color:var(--ink2);font-size:14px;line-height:1.55;max-width:620px;margin:0 auto}
+  .head .tag{display:inline-block;margin-bottom:14px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);background:var(--tealbg);border-radius:999px;padding:5px 12px}
+  .head .hint{margin-top:8px;font-size:12px;color:var(--ink3)}
+
+  .block{max-width:1440px;margin:0 auto 42px}
+  .cap{margin:0 2px 14px;max-width:860px}
+  .cap .n{font-size:11px;font-weight:700;color:var(--ink3)}
+  .cap .t{font-weight:600;font-size:16px;letter-spacing:-.01em;margin-left:8px}
+  .cap .d{margin-top:5px;font-size:12px;line-height:1.5;color:var(--ink3)}
+  .states{display:flex;gap:18px;flex-wrap:wrap}
+  .scol{width:336px}
+  .slab{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);margin:0 4px 8px}
+
+  .w{background:var(--card);border-radius:24px;padding:18px;box-shadow:0 1px 2px rgba(28,28,30,.05),0 16px 36px -14px rgba(28,40,55,.16)}
+  .kick{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--ink3)}
+  .kick.up{text-transform:uppercase;letter-spacing:.06em}
+  .month{font-weight:700;letter-spacing:-.03em;color:var(--ink);line-height:1}
+  .row{display:flex;align-items:center;justify-content:space-between}
+  .tile{background:var(--fill6);border-radius:16px;padding:12px 13px}
+  .stat .l{font-size:11px;font-weight:600;color:var(--ink3)}
+  .stat .v{font-size:13.5px;font-weight:600;letter-spacing:-.01em;margin-top:2px}
+
+  .wk{display:flex;align-items:flex-end;justify-content:space-between;gap:6px}
+  .wc{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;flex:1}
+  .wc .bars{position:relative;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px}
+  .wc i{display:block;width:9px;border-radius:3.5px}
+  .wc i.p{background:var(--prevbar)}.wc i.c{background:var(--teal2)}.wc i.c.o{background:var(--red)}
+  .wc em{font-style:normal;font-size:10px;color:var(--ink4);font-weight:600}
+  .wc.on em{font-weight:700}
+
+  .dwrap{margin-top:14px}
+  .dtile{border-radius:16px;padding:14px}
+  .dlabel{font-size:12px;font-weight:600;letter-spacing:-.01em;line-height:1.3}
+  .dn{font-weight:700;letter-spacing:-.03em;line-height:1}
+  .ovwrap{position:relative;width:48px;height:48px;display:flex;align-items:center;justify-content:center}
+
+  /* ── animations ── */
+  /* water: continuous ripple + gentle bob */
+  .water{animation:bob 3.1s ease-in-out infinite}
+  .w1{animation:wave 2.6s linear infinite}
+  .w2{animation:wave 3.7s linear infinite;animation-delay:-1.2s}
+  @keyframes wave{to{transform:translateX(-46px)}}
+  @keyframes bob{0%,100%{transform:translateY(var(--y))}50%{transform:translateY(calc(var(--y) + 1.4px))}}
+  /* ticks: a light travels around the lit arc */
+  .tk{animation:shimmer 2.4s ease-in-out infinite;animation-delay:calc(var(--i) * -0.085s)}
+  @keyframes shimmer{0%,16%,100%{stroke-width:3;opacity:.8}6%{stroke-width:4.6;opacity:1}}
+  /* over: exclamation pulse */
+  .ex-bare{position:absolute;color:var(--red);font-weight:800;font-size:23px;line-height:1;animation:pulse 1.7s ease-in-out infinite}
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:.92}50%{transform:scale(1.16);opacity:.6}}
+  @media (prefers-reduced-motion:reduce){.water,.w1,.w2,.tk,.ex-bare{animation:none}}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <span class="tag">Mực nước · 4 trạng thái</span>
+  <h1>Mực nước — 4 trạng thái có chuyển động</h1>
+  <p>Bốn mức trong ngày: còn nhiều (xanh) · còn khá (vàng) · sắp chạm (cam) · đã vượt (đỏ). Mặt nước gợn sóng và nhấp nhô nhẹ; khi vượt hiện dấu ! nhấp nháy.</p>
+  <div class="hint">Ảnh chụp chỉ là một khung hình — chuyển động chạy khi mở file.</div>
+</div>
+
+<div id="root"></div>
+
+<script>
+var DAYS=['T2','T3','T4','T5','T6','T7','CN'];
+function money(s){return s+'<span class="u">đ</span>'}
+var REDF='rgba(224,72,63,.24)', _uid=0;
+var STATES=[
+  {k:'ok',  slab:'Sáng · còn nhiều', month:'5.600.000', chi:'8.400.000', t5h:6,  t5cls:'c',   main:'#0f9d84', mut:'#4a917f', bg:'#eaf6f2', trk:'rgba(15,157,132,.18)', pct:76, val:'380.000', label:'Hôm nay còn tiêu được', over:false},
+  {k:'kha', slab:'Trưa · còn khá',   month:'5.470.000', chi:'8.530.000', t5h:16, t5cls:'c',   main:'#e0a500', mut:'#8a6810', bg:'#fdf6df', trk:'rgba(224,165,0,.20)', pct:50, val:'250.000', label:'Hôm nay còn tiêu được', over:false},
+  {k:'warn',slab:'Chiều · sắp chạm', month:'5.310.000', chi:'8.690.000', t5h:24, t5cls:'c',   main:'#ef5f37', mut:'#a63e22', bg:'#fdeee9', trk:'rgba(239,95,55,.18)', pct:18, val:'90.000',  label:'Hôm nay còn tiêu được', over:false},
+  {k:'bad', slab:'Tối · đã vượt',    month:'5.160.000', chi:'8.840.000', t5h:33, t5cls:'c o', main:'#e0483f', mut:'#a5645c', bg:'#fdeeec', trk:'rgba(224,72,63,.18)',  pct:100,val:'60.000',  label:'Hôm nay đã vượt', over:true}
+];
+function svg(size,inner,st){return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'"'+(st?' style="'+st+'"':'')+'>'+inner+'</svg>';}
+function weekBars(h,st){
+  var wk=[{p:26,c:22,cls:'c'},{p:22,c:16,cls:'c'},{p:28,c:17,cls:'c'},{p:22,c:st.t5h,cls:st.t5cls,t:1},{p:20},{p:31},{p:24}];
+  return '<div class="wk" style="height:'+(h+15)+'px">'+wk.map(function(d,i){
+    var b='<i class="p" style="height:'+(d.p/34*h)+'px"></i>';
+    if(d.c!=null) b+='<i class="'+d.cls+'" style="height:'+(d.c/34*h)+'px"></i>';
+    var es=d.t?' style="color:'+st.main+'"':'';
+    return '<span class="wc'+(d.t?' on':'')+'"><span class="bars" style="height:'+h+'px">'+b+'</span><em'+es+'>'+DAYS[i]+'</em></span>';
+  }).join('')+'</div>';
+}
+function statTile(sym,lab,val,col){return '<div class="tile" style="flex:1"><div class="stat"><div class="l"><span style="color:'+col+'">'+sym+'</span> '+lab+'</div><div class="v num">'+money(val)+'</div></div></div>';}
+function cardTop(st){
+  return '<div class="kick up">Còn lại tháng này</div>'
+    +'<div class="month num" style="font-size:27px;margin-top:5px">'+money(st.month)+'</div>'
+    +'<div class="row" style="margin-top:12px;gap:9px">'+statTile('↑','Thu','14.000.000','var(--teal)')+statTile('↓','Chi',st.chi,'var(--ink3)')+'</div>'
+    +'<div style="margin-top:15px">'+weekBars(62,st)+'</div>';
+}
+function circleCard(s,circleHTML){
+  return '<div class="dtile" style="background:'+s.bg+'"><div class="row" style="align-items:center">'
+    +'<div><div class="dlabel" style="color:'+s.mut+'">'+s.label+'</div><div class="dn num" style="color:'+s.main+';font-size:24px;margin-top:6px">'+money(s.val)+'</div></div>'
+    +'<div style="flex-shrink:0;line-height:0">'+circleHTML+'</div></div></div>';
+}
+function bareExcl(sv){return '<div class="ovwrap">'+sv+'<div class="ex-bare">!</div></div>';}
+
+/* vòng vạch — animated (light travels the lit arc) */
+function eTicks(){var cc=24,ro=23,ri=17,N=28,o='';for(var i=0;i<N;i++){var a=(i/N*360-90)*Math.PI/180;o+='<line x1="'+(cc+ri*Math.cos(a)).toFixed(1)+'" y1="'+(cc+ri*Math.sin(a)).toFixed(1)+'" x2="'+(cc+ro*Math.cos(a)).toFixed(1)+'" y2="'+(cc+ro*Math.sin(a)).toFixed(1)+'" stroke="'+REDF+'" stroke-width="3" stroke-linecap="round"/>';}return svg(48,o);}
+function rTicks(s){
+  if(s.over) return bareExcl(eTicks());
+  var cc=24,ro=23,ri=17,N=28,o='',lit=Math.round(N*s.pct/100);
+  for(var i=0;i<N;i++){var a=(i/N*360-90)*Math.PI/180,
+    x1=(cc+ri*Math.cos(a)).toFixed(1),y1=(cc+ri*Math.sin(a)).toFixed(1),x2=(cc+ro*Math.cos(a)).toFixed(1),y2=(cc+ro*Math.sin(a)).toFixed(1);
+    if(i<lit) o+='<line class="tk" style="--i:'+i+'" x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+s.main+'" stroke-width="3" stroke-linecap="round"/>';
+    else o+='<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+s.trk+'" stroke-width="3" stroke-linecap="round"/>';
+  }
+  return svg(48,o);
+}
+
+/* mực nước — animated (ripple + bob) */
+function eWave(){return svg(46,'<circle cx="23" cy="23" r="22" fill="rgba(224,72,63,.08)"/><circle cx="23" cy="23" r="22" fill="none" stroke="'+REDF+'" stroke-width="1.5"/>');}
+var WP='M0 0 Q 11.5 -3 23 0 T 46 0 T 69 0 T 92 0 L 92 62 L 0 62 Z';
+function rWave(s){
+  if(s.over) return bareExcl(eWave());
+  var id='lq'+(_uid++), y=(46*(1-s.pct/100)).toFixed(2);
+  return '<svg width="46" height="46" viewBox="0 0 46 46" style="--y:'+y+'px">'
+    +'<defs><clipPath id="'+id+'"><circle cx="23" cy="23" r="22"/></clipPath></defs>'
+    +'<circle cx="23" cy="23" r="22" fill="'+s.trk+'"/>'
+    +'<g clip-path="url(#'+id+')"><g class="water" style="transform:translateY('+y+'px)">'
+      +'<path class="w1" d="'+WP+'" fill="'+s.main+'"/>'
+      +'<path class="w2" d="'+WP+'" fill="'+s.main+'" opacity=".5"/>'
+    +'</g></g>'
+    +'<circle cx="23" cy="23" r="22" fill="none" stroke="'+s.main+'" stroke-opacity=".35" stroke-width="1.5"/></svg>';
+}
+
+var TREATS=[
+ {t:'Mực nước gợn sóng', d:'Mặt nước gợn sóng và nhấp nhô nhẹ liên tục; vơi dần qua bốn mức trong ngày.', fn:rWave}
+];
+
+var out='';
+TREATS.forEach(function(m,idx){
+  var cards=STATES.map(function(s){
+    return '<div class="scol"><div class="slab">'+s.slab+'</div><div class="w">'+cardTop(s)+'<div class="dwrap">'+circleCard(s,m.fn(s))+'</div></div></div>';
+  }).join('');
+  out+='<section class="block"><div class="cap"><span class="n">0'+(idx+1)+'</span><span class="t">'+m.t+'</span><div class="d">'+m.d+'</div></div><div class="states">'+cards+'</div></section>';
+});
+document.getElementById('root').innerHTML=out;
+</script>
+</body>
+</html>

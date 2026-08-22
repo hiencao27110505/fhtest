@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Ngưỡng chi tiêu ngày · 8 cách × trạng thái (Apple-grade)</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{
+    --sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif;
+    --ink:#1c1c1e;--ink2:#48484a;--ink3:#8e8e93;--ink4:#aeaeb2;
+    --card:#ffffff;--fill6:#f2f2f5;--nb:#f4f6f8;--trkN:#e4e7eb;--spent:#c9ced4;
+    --teal:#0f9d84;--teal2:#17b8a0;--tealbg:#eaf6f2;--red:#e0483f;--amber:#c9820a;--prevbar:#d9dce1;
+  }
+  html,body{background:#e7e9ec;font-family:var(--sf);color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{padding:44px 22px 80px}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+  .u{font-size:.5em;font-weight:600;color:var(--ink3);margin-left:.12em}
+
+  .head{max-width:820px;margin:0 auto 6px;text-align:center}
+  .head h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-bottom:9px}
+  .head p{color:var(--ink2);font-size:14px;line-height:1.55;max-width:650px;margin:0 auto}
+  .head .tag{display:inline-block;margin-bottom:14px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);background:var(--tealbg);border-radius:999px;padding:5px 12px}
+
+  .block{max-width:1140px;margin:0 auto 44px}
+  .cap{margin:0 2px 14px;max-width:860px}
+  .cap .n{font-size:11px;font-weight:700;color:var(--ink3)}
+  .cap .t{font-weight:600;font-size:16px;letter-spacing:-.01em;margin-left:8px}
+  .cap .d{margin-top:5px;font-size:12px;line-height:1.5;color:var(--ink3)}
+  .states{display:flex;gap:18px;flex-wrap:wrap}
+  .scol{width:336px}
+  .slab{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);margin:0 4px 8px}
+
+  .w{background:var(--card);border-radius:24px;padding:18px;box-shadow:0 1px 2px rgba(28,28,30,.05),0 16px 36px -14px rgba(28,40,55,.16)}
+  .kick{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--ink3)}
+  .kick.up{text-transform:uppercase;letter-spacing:.06em}
+  .month{font-weight:700;letter-spacing:-.03em;color:var(--ink);line-height:1}
+  .row{display:flex;align-items:center;justify-content:space-between}
+  .tile{background:var(--fill6);border-radius:16px;padding:12px 13px}
+  .stat .l{font-size:11px;font-weight:600;color:var(--ink3)}
+  .stat .v{font-size:13.5px;font-weight:600;letter-spacing:-.01em;margin-top:2px}
+
+  .wk{display:flex;align-items:flex-end;justify-content:space-between;gap:5px}
+  .wc{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+  .wc .bars{position:relative;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:2px}
+  .wc i{display:block;width:7px;border-radius:3px}
+  .wc i.p{background:var(--prevbar)}
+  .wc i.c{background:var(--teal2)}.wc i.c.o{background:var(--red)}
+  .wc em{font-style:normal;font-size:9px;color:var(--ink4);font-weight:600}
+  .wc.on em{font-weight:700}
+
+  /* daily module base */
+  .dwrap{margin-top:14px}
+  .dtile{border-radius:16px;padding:14px;background:var(--nb);position:relative}
+  .fillclip{position:absolute;inset:0;border-radius:16px;overflow:hidden}
+  .fillbar{position:absolute;left:0;top:0;bottom:0}
+  .filledge{position:absolute;top:0;bottom:0;width:1.5px}
+  .dlabel{font-size:12px;font-weight:600;letter-spacing:-.01em;line-height:1.3;color:#767b82}
+  .dn{font-weight:700;letter-spacing:-.03em;line-height:1}
+  .ends{display:flex;justify-content:space-between;margin-top:7px;font-size:9.5px;font-weight:600;color:#9aa0a6}
+
+  /* 1 split bar */
+  .sbar{position:relative;height:13px;border-radius:7px;overflow:hidden;background:var(--spent)}
+  .sbar .rem{position:absolute;top:0;bottom:0;right:0;border-radius:0 7px 7px 0}
+  /* 2 ceiling bar */
+  .cbar{position:relative;height:14px;border-radius:6px;background:var(--trkN);margin-top:24px}
+  .cbar .sp{position:absolute;top:0;bottom:0;left:0;background:var(--spent);border-radius:6px 0 0 6px}
+  .cbar .rm{position:absolute;top:0;bottom:0}
+  .cbar .ov{position:absolute;top:0;bottom:0;background:var(--red);border-radius:0 6px 6px 0}
+  .cbar .ceil{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--ink);left:80%}
+  .cbar .clab{position:absolute;left:80%;transform:translateX(-50%);top:-21px;font-size:9.5px;font-weight:700;color:var(--ink);white-space:nowrap}
+  /* 3 zones */
+  .zbar{position:relative;height:12px;border-radius:6px;overflow:hidden;display:flex;margin-top:20px}
+  .zbar .z{height:100%}
+  .zmk{position:absolute;top:-4px;bottom:-4px;width:3px;border-radius:2px;background:var(--ink);transform:translateX(-50%)}
+  .zmk b{position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;white-space:nowrap}
+  .zleg{display:flex;gap:12px;margin-top:9px;font-size:9px;font-weight:600;color:#9aa0a6}
+  .zleg i{width:7px;height:7px;border-radius:2px;display:inline-block;margin-right:3px;vertical-align:-1px}
+  /* 5 battery */
+  .batt{display:inline-flex;align-items:center;gap:3px}
+  .batt .bd{width:50px;height:25px;border:2px solid var(--trkN);border-radius:7px;padding:2.5px;position:relative}
+  .batt .bc{width:3px;height:10px;background:var(--trkN);border-radius:0 2px 2px 0}
+  .batt .bf{height:100%;border-radius:2.5px}
+  /* 6 units */
+  .units{display:flex;gap:5px;margin-top:12px}
+  .units i{flex:1;height:15px;border-radius:4px;background:var(--trkN);position:relative;overflow:hidden}
+  .units i b{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+  /* 7 ratio */
+  .ratio{display:flex;align-items:baseline;gap:5px}
+  .ratio .den{font-size:15px;font-weight:600;color:var(--ink3)}
+  .rmeter{height:4px;border-radius:3px;background:var(--trkN);overflow:hidden;margin-top:11px}
+  .rmeter i{display:block;height:100%;border-radius:3px}
+  /* 8 thermometer */
+  .thermo{width:15px;height:60px;border-radius:8px;background:var(--trkN);position:relative;overflow:hidden;flex-shrink:0}
+  .thermo i{position:absolute;left:0;right:0;bottom:0;border-radius:6px}
+  .thermo .cap{position:absolute;left:-4px;right:-4px;top:0;height:2px;background:var(--ink)}
+  .tlab{position:absolute;top:-2px;left:20px;font-size:9px;font-weight:700;color:var(--ink);white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <span class="tag">Ngưỡng chi tiêu ngày</span>
+  <h1>Làm nổi “ngưỡng ngày 500k” — 10 cách × trạng thái</h1>
+  <p>Hai bản giữ lại (#1 vòng, #3 nền tự đầy) cùng tám cách mới đặt trọng tâm vào ngưỡng ngày: nhìn là biết còn cách trần bao xa và khi nào chạm. Xem trọn thẻ ở ba trạng thái.</p>
+</div>
+
+<div id="root"></div>
+
+<script>
+var DAYS=['T2','T3','T4','T5','T6','T7','CN'];
+function money(s){return s+'<span class="u">đ</span>'}
+var STATES=[
+  {k:'ok',  slab:'Sáng · còn nhiều', month:'5.600.000', chi:'8.400.000', t5h:6,  t5cls:'c',   main:'#0f9d84', mut:'#4a917f', bg:'#eaf6f2', trk:'rgba(15,157,132,.16)', val:'380.000', short:'380k', sp:'120.000', sppct:24, rempct:76, over:false, label:'Hôm nay còn tiêu được'},
+  {k:'warn',slab:'Chiều · sắp chạm', month:'5.310.000', chi:'8.690.000', t5h:24, t5cls:'c',   main:'#c9820a', mut:'#9a7838', bg:'#fdf4e5', trk:'rgba(201,130,10,.18)', val:'90.000',  short:'90k',  sp:'410.000', sppct:82, rempct:18, over:false, label:'Hôm nay còn tiêu được'},
+  {k:'bad', slab:'Tối · đã vượt',    month:'5.160.000', chi:'8.840.000', t5h:33, t5cls:'c o', main:'#e0483f', mut:'#a5645c', bg:'#fdeeec', trk:'rgba(224,72,63,.16)',  val:'60.000',  short:'−60k', sp:'560.000', sppct:112,rempct:0,  over:true,  label:'Hôm nay đã vượt trần'}
+];
+
+function weekBars(h,st){
+  var wk=[{p:26,c:22,cls:'c'},{p:22,c:32,cls:'c o'},{p:28,c:17,cls:'c'},{p:22,c:st.t5h,cls:st.t5cls,t:1},{p:20},{p:31},{p:24}];
+  return '<div class="wk" style="height:'+(h+14)+'px">'+wk.map(function(d,i){
+    var b='<i class="p" style="height:'+(d.p/34*h)+'px"></i>';
+    if(d.c!=null) b+='<i class="'+d.cls+'" style="height:'+(d.c/34*h)+'px"></i>';
+    var emStyle=d.t?' style="color:'+st.main+'"':'';
+    return '<span class="wc'+(d.t?' on':'')+'"><span class="bars" style="height:'+h+'px">'+b+'</span><em'+emStyle+'>'+DAYS[i]+'</em></span>';
+  }).join('')+'</div>';
+}
+function statTile(sym,lab,val,col){
+  return '<div class="tile" style="flex:1"><div class="stat"><div class="l"><span style="color:'+col+'">'+sym+'</span> '+lab+'</div><div class="v num">'+money(val)+'</div></div></div>';
+}
+function cardTop(st){
+  return '<div class="kick up">Còn lại tháng này</div>'
+    +'<div class="month num" style="font-size:27px;margin-top:5px">'+money(st.month)+'</div>'
+    +'<div class="row" style="margin-top:12px;gap:9px">'+statTile('↑','Thu','14.000.000','var(--teal)')+statTile('↓','Chi',st.chi,'var(--ink3)')+'</div>'
+    +'<div style="margin-top:13px">'+weekBars(28,st)+'</div>';
+}
+function dn(s,sz){return '<span class="dn num" style="color:'+s.main+';font-size:'+sz+'px">'+money(s.val)+'</span>'}
+function lab(s){return '<div class="dlabel">'+s.label+'</div>'}
+function ring(pct,size,sw,color,trk){var r=(size-sw)/2,c=2*Math.PI*r,off=c*(1-pct/100),cc=size/2;
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'"><circle cx="'+cc+'" cy="'+cc+'" r="'+r+'" fill="none" stroke="'+trk+'" stroke-width="'+sw+'"/><circle cx="'+cc+'" cy="'+cc+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+off+'" transform="rotate(-90 '+cc+' '+cc+')"/></svg>';}
+function gauge(pct,w,sw,color,trk,redline){
+  var r=(w-sw)/2, cx=w/2, cy=w/2, len=Math.PI*r, off=len*(1-Math.min(pct,100)/100);
+  function pt(f){var a=Math.PI*(1-f);return [(cx+r*Math.cos(a)).toFixed(2),(cy-r*Math.sin(a)).toFixed(2)];}
+  var d='M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy;
+  var rl='';
+  if(redline){var a=pt(0.85),b=pt(1);rl='<path d="M '+a[0]+' '+a[1]+' A '+r+' '+r+' 0 0 1 '+b[0]+' '+b[1]+'" fill="none" stroke="#e0483f" stroke-width="'+sw+'" stroke-linecap="round"/>';}
+  return '<svg width="'+w+'" height="'+(w/2+sw/2+2)+'" viewBox="0 0 '+w+' '+(w/2+sw/2+2)+'">'
+    +'<path d="'+d+'" fill="none" stroke="'+trk+'" stroke-width="'+sw+'" stroke-linecap="round"/>'+rl
+    +'<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+len+'" stroke-dashoffset="'+off+'"/></svg>';
+}
+function tile(inner){return '<div class="dtile">'+inner+'</div>'}
+
+var V={
+ /* 1 · split bar: đã tiêu | còn lại, whole bar = trần 500k */
+ 1:function(s){var rw=s.over?100:s.rempct;var remStyle=s.over?'left:0;right:0;background:'+s.main:'width:'+rw+'%;background:'+s.main;
+   return tile('<div class="row">'+lab(s)+dn(s,22)+'</div>'
+   +'<div class="sbar" style="margin-top:12px"><span class="rem" style="'+remStyle+'"></span></div>'
+   +'<div class="ends"><span>đã tiêu '+s.sp+'đ</span><span>trần 500k</span></div>');},
+
+ /* 2 · ceiling line you can cross */
+ 2:function(s){var scale=0.8; var spW=Math.min(s.sppct,80)*scale; var ovW=s.over?(s.sppct-100)*scale:0; var remL=s.sppct*scale; var remW=Math.max(0,80-s.sppct*scale);
+   var rm=s.over?'':'<span class="rm" style="left:'+remL+'%;width:'+remW+'%;background:'+s.main+'"></span>';
+   var ov=s.over?'<span class="ov" style="left:80%;width:'+ovW+'%"></span>':'';
+   return tile('<div class="row">'+lab(s)+dn(s,22)+'</div>'
+   +'<div class="cbar"><span class="sp" style="width:'+Math.min(s.sppct,100)*scale+'%"></span>'+rm+ov+'<span class="ceil"></span><span class="clab">Trần 500k</span></div>');},
+
+ /* 3 · traffic-light zones */
+ 3:function(s){var pos=Math.min(s.sppct,100);var mc=s.over?'var(--red)':(pos>=90?'var(--red)':(pos>=70?'var(--amber)':'var(--teal)'));
+   return tile('<div class="row">'+lab(s)+dn(s,22)+'</div>'
+   +'<div class="zbar"><span class="z" style="width:70%;background:#d8efe8"></span><span class="z" style="width:20%;background:#fbeccb"></span><span class="z" style="width:10%;background:#f8d5d1"></span>'
+   +'<span class="zmk" style="left:'+pos+'%;background:'+mc+'"><b style="color:'+mc+'">'+(s.over?'vượt':(pos>=70?'sắp chạm':'an toàn'))+'</b></span></div>'
+   +'<div class="zleg"><span><i style="background:#8fd3c4"></i>An toàn</span><span><i style="background:#eec06a"></i>Sắp chạm</span><span><i style="background:#e79a92"></i>Vượt</span></div>');},
+
+ /* 4 · gauge with redline */
+ 4:function(s){return tile('<div style="display:flex;align-items:center;gap:14px"><div style="flex-shrink:0">'+gauge(s.sppct,84,8.5,s.main,'var(--trkN)',true)+'</div>'
+   +'<div>'+lab(s)+'<div style="margin-top:5px">'+dn(s,24)+'</div><div style="font-size:9.5px;font-weight:600;color:#9aa0a6;margin-top:5px">vạch đỏ = trần 500k</div></div></div>');},
+
+ /* 5 · battery */
+ 5:function(s){var fw=s.over?0:s.rempct; return tile('<div class="row" style="align-items:center"><div>'+lab(s)+'<div style="margin-top:6px">'+dn(s,24)+'</div></div>'
+   +'<div class="batt"><div class="bd" style="'+(s.over?'border-color:'+s.main:'')+'"><div class="bf" style="width:'+fw+'%;background:'+s.main+'"></div></div><div class="bc" style="'+(s.over?'background:'+s.main:'')+'"></div></div></div>');},
+
+ /* 6 · allowance units (5 × 100k) */
+ 6:function(s){var units='';for(var i=0;i<5;i++){var f=Math.max(0,Math.min(1,(s.rempct/20)-i));units+='<i><b style="width:'+(f*100)+'%;background:'+s.main+'"></b></i>';}
+   return tile('<div class="row">'+lab(s)+dn(s,22)+'</div><div class="units">'+units+'</div>'
+   +'<div class="ends" style="margin-top:8px"><span>mỗi ô 100k</span><span>trần 5 ô / ngày</span></div>');},
+
+ /* 7 · explicit ratio X / 500k */
+ 7:function(s){return tile(lab(s)+'<div class="ratio" style="margin-top:6px"><span class="dn num" style="color:'+s.main+';font-size:29px">'+(s.over?'−'+s.val:s.val)+'</span><span class="den num">/ 500.000đ</span></div>'
+   +'<div class="rmeter"><i style="width:'+(s.over?100:s.rempct)+'%;background:'+s.main+'"></i></div>');},
+
+ /* 8 · vertical thermometer with 500k cap */
+ 8:function(s){var fh=s.over?0:s.rempct; return tile('<div style="display:flex;align-items:center;gap:16px"><div class="thermo"><div class="cap"></div><i style="height:'+fh+'%;background:'+s.main+'"></i></div>'
+   +'<div style="position:relative"><div style="font-size:9px;font-weight:700;color:var(--ink);margin-bottom:6px">trần 500k</div>'+lab(s)+'<div style="margin-top:4px">'+dn(s,24)+'</div></div></div>');}
+};
+var TITLES={
+ 1:['Thanh chia: đã tiêu · còn lại','Cả thanh là trần 500k. Phần đậm bên phải là còn lại, phần xám là đã tiêu.'],
+ 2:['Vạch trần vượt được','Có vạch “Trần 500k” cố định; khi vượt, thanh tràn qua vạch và chuyển đỏ.'],
+ 3:['Vùng an toàn (đèn giao thông)','Ba vùng an toàn · sắp chạm · vượt; con trỏ cho biết đang ở vùng nào.'],
+ 4:['Đồng hồ có vạch đỏ','Cung có đoạn đỏ ở cuối là trần; kim tiến dần tới vạch đỏ.'],
+ 5:['Pin trong ngày','Hạn mức ngày như viên pin, vơi dần theo chi tiêu, cạn là hết mức.'],
+ 6:['Đơn vị 100k','Năm ô, mỗi ô 100k. Số ô sáng là phần còn được tiêu hôm nay.'],
+ 7:['Tỉ lệ X / 500k','Ghi rõ mẫu số 500k để thấy ngay còn lại là bao nhiêu phần của trần.'],
+ 8:['Nhiệt kế đứng','Cột dựng có nắp “trần 500k”; mực còn lại tụt dần trong ngày.']
+};
+/* two retained originals (tinted tile) */
+function tileT(s,inner){return '<div class="dtile" style="background:'+s.bg+'">'+inner+'</div>'}
+function labT(s){return '<div class="dlabel" style="color:'+s.mut+'">'+s.label+'</div>'}
+function rpct(s){return s.over?100:s.rempct}
+function ringMod(s){return tileT(s,'<div class="row" style="align-items:center"><div>'+labT(s)+'<div style="margin-top:6px">'+dn(s,25)+'</div></div><div style="width:44px;height:44px;flex-shrink:0">'+ring(rpct(s),44,5,s.main,s.trk)+'</div></div>');}
+function fillMod(s){return tileT(s,'<span class="fillclip"><span class="fillbar" style="width:'+rpct(s)+'%;background:'+s.main+';opacity:.15"></span><span class="filledge" style="left:'+rpct(s)+'%;background:'+s.main+';opacity:.4"></span></span><div style="position:relative">'+labT(s)+'<div style="margin-top:6px">'+dn(s,27)+'</div></div>');}
+
+var ORDER=[
+ {t:'Vòng bên phải · giữ lại (#1)', d:'Bản gốc: vòng nhỏ bên phải, nền tint theo trạng thái.', fn:ringMod},
+ {t:'Nền tự đầy · giữ lại (#3)', d:'Bản gốc: nền mô-đun là thanh tiến độ, tint theo trạng thái.', fn:fillMod}
+];
+for(var j=1;j<=8;j++) ORDER.push({t:TITLES[j][0],d:TITLES[j][1],fn:V[j]});
+
+var out='';
+ORDER.forEach(function(m,idx){
+  var i=idx+1;
+  var cards=STATES.map(function(s){
+    return '<div class="scol"><div class="slab">'+s.slab+'</div><div class="w">'+cardTop(s)+'<div class="dwrap">'+m.fn(s)+'</div></div></div>';
+  }).join('');
+  out+='<section class="block"><div class="cap"><span class="n">'+(i<10?'0':'')+i+'</span><span class="t">'+m.t+'</span><div class="d">'+m.d+'</div></div><div class="states">'+cards+'</div></section>';
+});
+document.getElementById('root').innerHTML=out;
+</script>
+</body>
+</html>

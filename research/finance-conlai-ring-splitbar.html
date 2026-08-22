@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Vòng & Thanh chia · mỗi kiểu 8 biến thể (Apple-grade)</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{
+    --sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif;
+    --ink:#1c1c1e;--ink2:#48484a;--ink3:#8e8e93;--ink4:#aeaeb2;
+    --card:#ffffff;--fill6:#f2f2f5;--nb:#f4f6f8;--trkN:#e4e7eb;--spent:#c9ced4;
+    --teal:#0f9d84;--teal2:#17b8a0;--tealbg:#eaf6f2;--prevbar:#d9dce1;--red:#e0483f;
+  }
+  html,body{background:#e7e9ec;font-family:var(--sf);color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{padding:44px 22px 80px}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+  .u{font-size:.5em;font-weight:600;color:var(--ink3);margin-left:.12em}
+
+  .head{max-width:820px;margin:0 auto 4px;text-align:center}
+  .head h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-bottom:9px}
+  .head p{color:var(--ink2);font-size:14px;line-height:1.55;max-width:640px;margin:0 auto}
+  .head .tag{display:inline-block;margin-bottom:14px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);background:var(--tealbg);border-radius:999px;padding:5px 12px}
+
+  .sechead{max-width:1120px;margin:40px auto 20px;padding:0 2px;display:flex;align-items:baseline;gap:12px}
+  .sechead .b{font-size:20px;font-weight:700;letter-spacing:-.01em}
+  .sechead .s{font-size:13px;color:var(--ink3);font-weight:500}
+
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:34px 20px;max-width:1120px;margin:0 auto;justify-items:center;align-items:start}
+  @media(max-width:1140px){.grid3{grid-template-columns:repeat(2,1fr);max-width:740px}}
+  @media(max-width:760px){.grid3{grid-template-columns:1fr}}
+  .item{width:336px}
+  .vlab{margin:0 4px 9px;font-size:12.5px}
+  .vlab b{font-weight:700}.vlab .gp{color:var(--teal);font-weight:700}
+  .vlab .d{color:var(--ink3);font-size:11px;margin-top:2px;line-height:1.45}
+
+  .w{background:var(--card);border-radius:24px;padding:18px;box-shadow:0 1px 2px rgba(28,28,30,.05),0 16px 36px -14px rgba(28,40,55,.16)}
+  .kick{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--ink3)}
+  .kick.up{text-transform:uppercase;letter-spacing:.06em}
+  .month{font-weight:700;letter-spacing:-.03em;color:var(--ink);line-height:1}
+  .row{display:flex;align-items:center;justify-content:space-between}
+  .tile{background:var(--fill6);border-radius:16px;padding:12px 13px}
+  .stat .l{font-size:11px;font-weight:600;color:var(--ink3)}
+  .stat .v{font-size:13.5px;font-weight:600;letter-spacing:-.01em;margin-top:2px}
+
+  .wk{display:flex;align-items:flex-end;justify-content:space-between;gap:5px}
+  .wc{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+  .wc .bars{position:relative;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:2px}
+  .wc i{display:block;width:7px;border-radius:3px}
+  .wc i.p{background:var(--prevbar)}.wc i.c{background:var(--teal2)}
+  .wc em{font-style:normal;font-size:9px;color:var(--ink4);font-weight:600}
+  .wc.on em{color:var(--teal);font-weight:700}
+
+  .dwrap{margin-top:14px}
+  .dtile{border-radius:16px;padding:14px;position:relative}
+  .dlabel{font-size:12px;font-weight:600;letter-spacing:-.01em;line-height:1.3}
+  .dn{font-weight:700;letter-spacing:-.03em;line-height:1;color:var(--teal)}
+  .glow{filter:drop-shadow(0 1px 4px rgba(15,157,132,.4))}
+  .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+
+  /* split bar shapes */
+  .sbar{position:relative;height:13px;border-radius:7px;overflow:hidden;background:var(--spent)}
+  .sbar.tall{height:18px;border-radius:9px}
+  .sbar .rem{position:absolute;top:0;bottom:0;right:0;border-radius:0 7px 7px 0;background:var(--teal)}
+  .sdiv{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink);border-radius:2px;z-index:2}
+  .ends{display:flex;justify-content:space-between;margin-top:7px;font-size:9.5px;font-weight:600;color:#9aa0a6}
+  .segbar{display:flex;gap:4px}
+  .segbar i{flex:1;height:13px;border-radius:4px;background:var(--trkN);overflow:hidden}
+  .segbar i b{display:block;height:100%;border-radius:4px;background:var(--teal)}
+  .segbar i.sp b{background:var(--spent)}
+  .thinbar{height:5px;border-radius:3px;background:var(--trkN);overflow:hidden}
+  .thinbar i{display:block;height:100%;border-radius:3px;background:var(--teal)}
+  .scaleticks{display:flex;justify-content:space-between;font-size:8.5px;color:#9aa0a6;font-weight:600;margin-top:6px}
+  .slider{position:relative;height:6px;border-radius:3px;background:var(--trkN)}
+  .slider .fl{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--spent)}
+  .slider .rm{position:absolute;top:0;bottom:0;right:0;border-radius:3px;background:var(--teal)}
+  .slider .knob{position:absolute;top:50%;width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.28);transform:translate(-50%,-50%);z-index:2}
+  .inlabs{display:flex;justify-content:space-between;font-size:10px;font-weight:700;margin-bottom:7px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <span class="tag">Hai hướng thắng · circle + split bar</span>
+  <h1>Vòng bên phải &amp; Thanh chia — mỗi kiểu 8 biến thể</h1>
+  <p>Chỉ giữ hai hình mạnh nhất. Mỗi hình: bản gốc cộng tám biến thể thị giác, tất cả theo ngôn ngữ Apple. Xem trọn thẻ ở trạng thái “còn nhiều”.</p>
+</div>
+
+<div id="root"></div>
+
+<script>
+var DAYS=['T2','T3','T4','T5','T6','T7','CN'];
+function money(s){return s+'<span class="u">đ</span>'}
+var TEAL='#0f9d84', TRK='rgba(15,157,132,.16)';
+function weekBars(h){
+  var wk=[{p:26,c:22},{p:22,c:16},{p:28,c:17},{p:22,c:6,t:1},{p:20},{p:31},{p:24}];
+  return '<div class="wk" style="height:'+(h+14)+'px">'+wk.map(function(d,i){
+    var b='<i class="p" style="height:'+(d.p/34*h)+'px"></i>';
+    if(d.c!=null) b+='<i class="c" style="height:'+(d.c/34*h)+'px"></i>';
+    var es=d.t?' style="color:'+TEAL+'"':'';
+    return '<span class="wc'+(d.t?' on':'')+'"><span class="bars" style="height:'+h+'px">'+b+'</span><em'+es+'>'+DAYS[i]+'</em></span>';
+  }).join('')+'</div>';
+}
+function statTile(sym,lab,val,col){return '<div class="tile" style="flex:1"><div class="stat"><div class="l"><span style="color:'+col+'">'+sym+'</span> '+lab+'</div><div class="v num">'+money(val)+'</div></div></div>';}
+function cardTop(){
+  return '<div class="kick up">Còn lại tháng này</div>'
+    +'<div class="month num" style="font-size:27px;margin-top:5px">'+money('5.600.000')+'</div>'
+    +'<div class="row" style="margin-top:12px;gap:9px">'+statTile('↑','Thu','14.000.000','var(--teal)')+statTile('↓','Chi','8.400.000','var(--ink3)')+'</div>'
+    +'<div style="margin-top:13px">'+weekBars(28)+'</div>';
+}
+var LBL='Hôm nay còn tiêu được';
+function labTeal(){return '<div class="dlabel" style="color:#4a917f">'+LBL+'</div>'}
+function labN(){return '<div class="dlabel" style="color:#767b82">'+LBL+'</div>'}
+function big(sz){return '<span class="dn num" style="font-size:'+sz+'px">'+money('380.000')+'</span>'}
+function short(sz){return '<span class="dn num" style="font-size:'+sz+'px">380k</span>'}
+
+/* ring builders */
+function ring(pct,size,sw,color,trk,grad){
+  var r=(size-sw)/2,c=2*Math.PI*r,off=c*(1-pct/100),cc=size/2;
+  var defs=grad?'<defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#17b8a0"/><stop offset="1" stop-color="#0f9d84"/></linearGradient></defs>':'';
+  var stroke=grad?'url(#rg)':color;
+  return '<svg class="'+(grad?'glow':'')+'" width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'+defs
+    +'<circle cx="'+cc+'" cy="'+cc+'" r="'+r+'" fill="none" stroke="'+trk+'" stroke-width="'+sw+'"/>'
+    +'<circle cx="'+cc+'" cy="'+cc+'" r="'+r+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+off+'" transform="rotate(-90 '+cc+' '+cc+')"/></svg>';
+}
+function arc(cx,cy,r,startDeg,sweepDeg){
+  function p(deg){var a=(deg-90)*Math.PI/180;return [(cx+r*Math.cos(a)).toFixed(2),(cy+r*Math.sin(a)).toFixed(2)];}
+  var s=p(startDeg),e=p(startDeg+sweepDeg),large=sweepDeg>180?1:0;
+  return 'M '+s[0]+' '+s[1]+' A '+r+' '+r+' 0 '+large+' 1 '+e[0]+' '+e[1];
+}
+function ringOpen(pct,size,sw,color,trk){
+  var cc=size/2,r=(size-sw)/2;
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'
+    +'<path d="'+arc(cc,cc,r,225,270)+'" fill="none" stroke="'+trk+'" stroke-width="'+sw+'" stroke-linecap="round"/>'
+    +'<path d="'+arc(cc,cc,r,225,270*pct/100)+'" fill="none" stroke="'+color+'" stroke-width="'+sw+'" stroke-linecap="round"/></svg>';
+}
+function ringSeg(pct,size,color,trk){
+  var cc=size/2,ro=size/2-1,ri=size/2-7,N=28,s='';
+  for(var i=0;i<N;i++){var a=(i/N*360-90)*Math.PI/180;
+    var col=(i/N)<(pct/100)?color:trk;
+    s+='<line x1="'+(cc+ri*Math.cos(a)).toFixed(1)+'" y1="'+(cc+ri*Math.sin(a)).toFixed(1)+'" x2="'+(cc+ro*Math.cos(a)).toFixed(1)+'" y2="'+(cc+ro*Math.sin(a)).toFixed(1)+'" stroke="'+col+'" stroke-width="3" stroke-linecap="round"/>';}
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'+s+'</svg>';
+}
+function ringCore(pct,size,sw,color,trk){
+  var cc=size/2,r=(size-sw)/2, inner=r-sw/2-2;
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'
+    +'<circle cx="'+cc+'" cy="'+cc+'" r="'+inner+'" fill="rgba(15,157,132,.12)"/>'
+    +'<circle cx="'+cc+'" cy="'+cc+'" r="'+r+'" fill="none" stroke="'+trk+'" stroke-width="'+sw+'"/>'
+    +'<circle cx="'+cc+'" cy="'+cc+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+(2*Math.PI*r)+'" stroke-dashoffset="'+(2*Math.PI*r*(1-pct/100))+'" transform="rotate(-90 '+cc+' '+cc+')"/></svg>';
+}
+function ringDual(size){
+  var cc=size/2,sw=6, r1=(size-sw)/2, r2=r1-sw-3;
+  function c(r,pct,color,trk){var C=2*Math.PI*r;return '<circle cx="'+cc+'" cy="'+cc+'" r="'+r+'" fill="none" stroke="'+trk+'" stroke-width="'+sw+'"/><circle cx="'+cc+'" cy="'+cc+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+C+'" stroke-dashoffset="'+(C*(1-pct/100))+'" transform="rotate(-90 '+cc+' '+cc+')"/>';}
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'+c(r1,76,TEAL,TRK)+c(r2,68,'#7fcdbf','rgba(15,157,132,.16)')+'</svg>';
+}
+function dial(size,svg,center){return '<div style="position:relative;width:'+size+'px;height:'+size+'px;flex-shrink:0">'+svg+'<div class="ctr">'+center+'</div></div>';}
+function tileT(inner){return '<div class="dtile" style="background:#eaf6f2">'+inner+'</div>'}
+function tileN(inner){return '<div class="dtile" style="background:var(--nb)">'+inner+'</div>'}
+function rowRight(sideHTML){return '<div class="row" style="align-items:center"><div>'+labTeal()+'<div style="margin-top:6px">'+big(24)+'</div></div><div style="flex-shrink:0">'+sideHTML+'</div></div>';}
+function besideDial(dialHTML,labelHTML){return '<div style="display:flex;align-items:center;gap:14px">'+dialHTML+'<div>'+labelHTML+'</div></div>';}
+
+var RINGS=[
+ {t:'Gốc',gp:1,d:'Vòng mảnh bên phải, số bên trái.',fn:function(){return tileT(rowRight(ring(76,46,5,TEAL,TRK)));}},
+ {t:'Vòng dày',d:'Nét dày hơn, hiện diện rõ hơn.',fn:function(){return tileT(rowRight(ring(76,46,9,TEAL,TRK)));}},
+ {t:'Số trong vòng',d:'Con số nằm giữa vòng, nhãn bên cạnh.',fn:function(){return tileT(besideDial(dial(70,ring(76,70,7,TEAL,TRK),short(17)),'<div class="dlabel" style="color:#4a917f;font-size:13.5px;line-height:1.35">Hôm nay<br>còn tiêu được</div>'));}},
+ {t:'Vòng đôi',d:'Vòng ngoài hôm nay, vòng trong tiến độ tháng.',fn:function(){return tileT(besideDial(dial(72,ringDual(72),short(15)),'<div class="dlabel" style="color:#4a917f;font-size:12px;line-height:1.5">ngoài · hôm nay<br>trong · tháng 68%</div>'));}},
+ {t:'Vòng khuyết 270°',d:'Dạng đồng hồ hở đáy, số nằm giữa.',fn:function(){return tileT(besideDial(dial(74,ringOpen(76,74,7,TEAL,TRK),short(17)),'<div class="dlabel" style="color:#4a917f;font-size:13.5px;line-height:1.35">Hôm nay<br>còn tiêu được</div>'));}},
+ {t:'Vòng phân đoạn',d:'Vòng ghép từ các vạch nhỏ, sáng dần.',fn:function(){return tileT(besideDial(dial(66,ringSeg(76,66,TEAL,'#d5dde0'),short(16)),'<div class="dlabel" style="color:#4a917f;font-size:13.5px;line-height:1.35">Hôm nay<br>còn tiêu được</div>'));}},
+ {t:'Vòng gradient',d:'Nét chuyển sắc teal, có ánh nhẹ.',fn:function(){return tileT(rowRight(ring(76,46,7,TEAL,TRK,true)));}},
+ {t:'Vòng có lõi',d:'Đĩa tint mờ sau số, tạo chiều sâu.',fn:function(){return tileT(besideDial(dial(66,ringCore(76,66,6,TEAL,TRK),short(16)),'<div class="dlabel" style="color:#4a917f;font-size:13.5px;line-height:1.35">Hôm nay<br>còn tiêu được</div>'));}},
+ {t:'Vòng mảnh + %',d:'Vòng rất mảnh kèm phần trăm còn lại.',fn:function(){return tileT('<div class="row" style="align-items:center"><div>'+labTeal()+'<div style="margin-top:6px">'+big(24)+'</div><div class="dlabel" style="color:#4a917f;margin-top:4px">còn 76% hạn mức ngày</div></div><div style="flex-shrink:0">'+ring(76,44,3,TEAL,TRK)+'</div></div>');}}
+];
+
+/* split bar variants */
+function endsHTML(){return '<div class="ends"><span>đã tiêu 120.000đ</span><span>trần 500k</span></div>';}
+var BARS=[
+ {t:'Gốc',gp:1,d:'Thanh hai màu: xám đã tiêu, teal còn lại.',fn:function(){return tileN('<div class="row">'+labN()+big(22)+'</div><div class="sbar" style="margin-top:12px"><span class="rem" style="width:76%"></span></div>'+endsHTML());}},
+ {t:'Có vạch chia',d:'Vạch đứng đậm đánh dấu điểm đã tiêu.',fn:function(){return tileN('<div class="row">'+labN()+big(22)+'</div><div class="sbar" style="margin-top:12px"><span class="rem" style="width:76%"></span><span class="sdiv" style="left:24%"></span></div>'+endsHTML());}},
+ {t:'Capsule dày',d:'Thanh cao và bo tròn hơn, đậm nét.',fn:function(){return tileN('<div class="row">'+labN()+big(22)+'</div><div class="sbar tall" style="margin-top:12px"><span class="rem" style="width:76%"></span></div>'+endsHTML());}},
+ {t:'Phân đoạn',d:'Mười ô, ô sáng là phần còn được tiêu.',fn:function(){var seg='';for(var i=0;i<10;i++){var isSp=i<2; var f=isSp?(i<2?100:0):Math.max(0,Math.min(1,(76/10)-i))*100; seg+='<i class="'+(isSp?'sp':'')+'"><b style="width:'+(isSp?100:f)+'%"></b></i>';}return tileN('<div class="row">'+labN()+big(22)+'</div><div class="segbar" style="margin-top:12px">'+seg+'</div>'+endsHTML());}},
+ {t:'Gradient',d:'Phần còn lại chuyển sắc teal mềm.',fn:function(){return tileN('<div class="row">'+labN()+big(22)+'</div><div class="sbar" style="margin-top:12px"><span class="rem" style="width:76%;background:linear-gradient(90deg,#17b8a0,#0f9d84)"></span></div>'+endsHTML());}},
+ {t:'Nhãn trong thanh',d:'Ghi rõ đã tiêu và còn lại ngay trên thanh.',fn:function(){return tileN(labN()+'<div class="inlabs" style="margin-top:8px"><span style="color:#9aa0a6">đã tiêu 120k</span><span style="color:#0f9d84">còn lại 380k</span></div><div class="sbar"><span class="rem" style="width:76%"></span></div>');}},
+ {t:'Thanh mảnh dưới số',d:'Số dẫn dắt, vạch mảnh tối giản bên dưới.',fn:function(){return tileN(labN()+'<div style="margin-top:5px">'+big(28)+'</div><div class="thinbar" style="margin-top:12px"><i style="width:76%"></i></div>');}},
+ {t:'Thang đo có mốc',d:'Thanh kèm mốc 0 · 250k · 500k để đối chiếu.',fn:function(){return tileN('<div class="row">'+labN()+big(22)+'</div><div class="sbar" style="margin-top:12px"><span class="rem" style="width:76%"></span></div><div class="scaleticks"><span>0</span><span>250k</span><span>trần 500k</span></div>');}},
+ {t:'Con trỏ trượt',d:'Kiểu thanh trượt, núm ở vị trí đã tiêu.',fn:function(){return tileN('<div class="row">'+labN()+big(22)+'</div><div class="slider" style="margin-top:14px"><span class="fl" style="width:24%"></span><span class="rm" style="width:76%"></span><span class="knob" style="left:24%"></span></div>'+endsHTML());}}
+];
+
+function render(list){
+  return list.map(function(m){
+    return '<div class="item"><div class="vlab"><b>'+m.t+'</b>'+(m.gp?' <span class="gp">· gốc</span>':'')+'<div class="d">'+m.d+'</div></div>'
+      +'<div class="w">'+cardTop()+'<div class="dwrap">'+m.fn()+'</div></div></div>';
+  }).join('');
+}
+document.getElementById('root').innerHTML=
+  '<div class="sechead"><span class="b">A · Vòng bên phải</span><span class="s">circle — 8 biến thể + bản gốc</span></div><div class="grid3">'+render(RINGS)+'</div>'
+ +'<div class="sechead"><span class="b">B · Thanh chia</span><span class="s">split bar — 8 biến thể + bản gốc</span></div><div class="grid3">'+render(BARS)+'</div>';
+</script>
+</body>
+</html>

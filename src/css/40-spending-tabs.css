@@ -40,6 +40,29 @@
 .cf-note.ok{background:var(--good-tint);color:var(--brand-ink)}
 .cf-note.over{background:var(--danger-tint);color:var(--danger)}
 .cf-note.flat{background:var(--surface);color:var(--muted)}
+/* daily guide — "Hôm nay còn tiêu được": tappable tile with an animated water level.
+   Background + text colours are set inline per state (green · yellow · orange · red). */
+.cf-daily{display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 12px;width:100%;text-align:left;border:0;font:inherit;cursor:pointer;border-radius:14px;padding:14px;margin-top:15px;background:var(--good-tint);transition:transform .14s ease}
+.cf-daily:empty{display:none}
+.cf-daily:active{transform:scale(.99)}
+.dg-lbl{grid-column:1;grid-row:1;font-size:12px;font-weight:600;letter-spacing:-.01em}
+.dg-amt{grid-column:1;grid-row:2;font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1;margin-top:5px;font-variant-numeric:tabular-nums}
+.dg-vis{grid-column:2;grid-row:1 / span 2;position:relative;width:46px;height:46px;display:flex;align-items:center;justify-content:center;line-height:0}
+.dg-bang{position:absolute;color:#e0483f;font-weight:800;font-size:23px;line-height:1}
+.cf-water{animation:cf-bob 3.1s ease-in-out infinite}
+.cf-w1{animation:cf-wave 2.6s linear infinite}
+.cf-w2{animation:cf-wave 3.7s linear infinite;animation-delay:-1.2s}
+@keyframes cf-wave{to{transform:translateX(-46px)}}
+@keyframes cf-bob{0%,100%{transform:translateY(var(--y))}50%{transform:translateY(calc(var(--y) + 1.4px))}}
+@media (prefers-reduced-motion:reduce){.cf-water,.cf-w1,.cf-w2{animation:none}}
+/* saving-goal sheet rows (#savegoal-list) */
+.sg-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:transparent;font:inherit;cursor:pointer;padding:14px 4px}
+.sg-row+.sg-row{border-top:1px solid var(--divider)}
+.sg-radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--fill-neutral);flex-shrink:0}
+.sg-row.on .sg-radio{border-color:var(--good);background:var(--good);box-shadow:inset 0 0 0 3px var(--white)}
+.sg-name{flex:1;font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.sg-side{font-size:14px;font-weight:700;color:var(--good);font-variant-numeric:tabular-nums}
+.sg-side.zero{color:var(--muted-soft)}
 /* CTAs (V3): full-width nav rows into budget setup + the expense list, flush to the card base */
 .cf-cta{margin:15px -16px -14px;border-top:1px solid var(--divider)}
 .cc-row{display:flex;align-items:center;gap:11px;width:100%;padding:13px 16px;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink);text-align:left;cursor:pointer}

@@ -51,7 +51,7 @@ async function getAppServer(): Promise<webpush.ApplicationServer | null> {
 // Deliberately WITHOUT txn_review: this list guards the user-JWT path, and a
 // client must never be able to fan a review notice out to the family. The
 // service-role branch checks that kind itself.
-const KINDS = ["reaction", "weather", "request_new", "request_response", "expense_new", "expense_bulk", "memory_new"];
+const KINDS = ["reaction", "weather", "request_new", "request_response", "expense_new", "expense_bulk", "memory_new", "savegoal", "dgstate"];
 
 /* txn_review is the one kind with no human actor and no family audience.
  *
@@ -128,10 +128,32 @@ const REVIEW_LINES: Record<string, { vi: string; en: string }> = {
 
 function buildCopy(
   kind: string, name: string, emoji: string, rough: boolean, lang: string, count: number,
+  pct: number, state: string,
 ): { title: string; body: string } {
   const vi = lang !== "en";
   let title: string, body: string;
-  if (kind === "expense_new") {
+  if (kind === "savegoal") {
+    // a saving GOAL is a percentage, not a money amount → E2EE-neutral, safe to state
+    if (pct > 0) {
+      title = `${name} 🎯`;
+      body = vi ? `Đặt mục tiêu tiết kiệm: cả nhà tiêu ít hơn ${pct}%.` : `Set a saving goal: spend ${pct}% less as a family.`;
+    } else {
+      title = `${name} 🎯`;
+      body = vi ? "Tạm bỏ mục tiêu tiết kiệm — tiêu như trước." : "Cleared the saving goal — back to spending as before.";
+    }
+  } else if (kind === "dgstate") {
+    // today's spending crossed into a higher caution band — content-free (no amounts)
+    if (state === "red") {
+      title = `${name} 🔴`;
+      body = vi ? "Chi tiêu hôm nay đã vượt ngưỡng của nhà." : "Today's spending is over the family's limit.";
+    } else if (state === "orange") {
+      title = `${name} 🟠`;
+      body = vi ? "Chi tiêu hôm nay sắp chạm ngưỡng rồi." : "Today's spending is close to the limit.";
+    } else {
+      title = `${name} 🟡`;
+      body = vi ? "Hôm nay cả nhà đã tiêu kha khá rồi." : "The family has spent a fair bit today.";
+    }
+  } else if (kind === "expense_new") {
     // a plain everyday log — content-free by rule (no amount, no note, no merchant)
     title = `${name} 🧾`;
     body = vi ? "Vừa ghi một khoản mới cho nhà." : "Just logged a new expense.";
@@ -243,6 +265,8 @@ Deno.serve(async (req: Request) => {
     const target = typeof body.target === "string" ? body.target : null;
     const rough = body.rough === true;
     const count = Math.max(1, Math.min(99, Number(body.n) || 1));   // expense_bulk row count
+    const pct = Math.max(0, Math.min(90, Math.round(Number(body.pct) || 0)));   // savegoal percentage
+    const state = ["yellow", "orange", "red"].indexOf(String(body.state || "")) >= 0 ? String(body.state) : "yellow";   // dgstate band
     if (KINDS.indexOf(kind) < 0) return json({ error: "bad kind" }, 400);
 
     // tap-routing context: opaque row ids only, sanity-capped
@@ -279,7 +303,7 @@ Deno.serve(async (req: Request) => {
     let actorName = (actor.name || "").trim();
     if (!actorName && typeof body.actorName === "string") actorName = body.actorName.trim().slice(0, 40);
     const firstName = actorName.split(/\s+/)[0] || "FamilyHub";
-    const copy = buildCopy(kind, firstName, emoji, rough, lang, count);
+    const copy = buildCopy(kind, firstName, emoji, rough, lang, count, pct, state);
     const payload = JSON.stringify({
       title: copy.title,
       body: copy.body,

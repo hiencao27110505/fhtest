@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Mực nước · 8 màu “sắp chạm” (Apple-grade)</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{
+    --sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif;
+    --ink:#1c1c1e;--ink2:#48484a;--ink3:#8e8e93;--ink4:#aeaeb2;
+    --card:#ffffff;--fill6:#f2f2f5;--prevbar:#d9dce1;--teal:#0f9d84;--teal2:#17b8a0;--tealbg:#eaf6f2;
+  }
+  html,body{background:#e7e9ec;font-family:var(--sf);color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{padding:44px 22px 80px}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+  .u{font-size:.5em;font-weight:600;color:var(--ink3);margin-left:.12em}
+
+  .head{max-width:800px;margin:0 auto 6px;text-align:center}
+  .head h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-bottom:9px}
+  .head p{color:var(--ink2);font-size:14px;line-height:1.55;max-width:620px;margin:0 auto}
+  .head .tag{display:inline-block;margin-bottom:14px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#c9820a;background:#fdf4e5;border-radius:999px;padding:5px 12px}
+
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:34px 20px;max-width:1120px;margin:34px auto 0;justify-items:center;align-items:start}
+  @media(max-width:1140px){.grid{grid-template-columns:repeat(2,1fr);max-width:740px}}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .item{width:336px}
+  .vlab{margin:0 4px 9px;display:flex;align-items:center;gap:8px}
+  .vlab .sw{width:16px;height:16px;border-radius:5px;flex-shrink:0}
+  .vlab .t{font-weight:700;font-size:13.5px;letter-spacing:-.01em}
+  .vlab .hex{font-size:11px;color:var(--ink3);font-weight:600;font-variant-numeric:tabular-nums}
+  .vlab .ref{font-size:10px;color:var(--ink3);font-weight:600}
+
+  .w{background:var(--card);border-radius:24px;padding:18px;box-shadow:0 1px 2px rgba(28,28,30,.05),0 16px 36px -14px rgba(28,40,55,.16)}
+  .kick{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--ink3)}
+  .kick.up{text-transform:uppercase;letter-spacing:.06em}
+  .month{font-weight:700;letter-spacing:-.03em;color:var(--ink);line-height:1}
+  .row{display:flex;align-items:center;justify-content:space-between}
+  .tile{background:var(--fill6);border-radius:16px;padding:12px 13px}
+  .stat .l{font-size:11px;font-weight:600;color:var(--ink3)}
+  .stat .v{font-size:13.5px;font-weight:600;letter-spacing:-.01em;margin-top:2px}
+
+  .wk{display:flex;align-items:flex-end;justify-content:space-between;gap:5px}
+  .wc{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+  .wc .bars{position:relative;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:2px}
+  .wc i{display:block;width:7px;border-radius:3px}
+  .wc i.p{background:var(--prevbar)}.wc i.c{background:var(--teal2)}
+  .wc em{font-style:normal;font-size:9px;color:var(--ink4);font-weight:600}
+  .wc.on em{font-weight:700;color:var(--teal)}
+
+  .dwrap{margin-top:14px}
+  .dtile{border-radius:16px;padding:14px}
+  .dlabel{font-size:12px;font-weight:600;letter-spacing:-.01em;line-height:1.3}
+  .dn{font-weight:700;letter-spacing:-.03em;line-height:1}
+
+  .water{animation:bob 3.1s ease-in-out infinite}
+  .w1{animation:wave 2.6s linear infinite}
+  .w2{animation:wave 3.7s linear infinite;animation-delay:-1.2s}
+  @keyframes wave{to{transform:translateX(-46px)}}
+  @keyframes bob{0%,100%{transform:translateY(var(--y))}50%{transform:translateY(calc(var(--y) + 1.4px))}}
+  @media (prefers-reduced-motion:reduce){.water,.w1,.w2{animation:none}}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <span class="tag">Mực nước · màu “sắp chạm”</span>
+  <h1>Màu cảnh báo “sắp chạm” — 8 lựa chọn</h1>
+  <p>Chỉ giữ hình mực nước (có chuyển động). Trạng thái “sắp chạm” đổi qua tám tông màu khác — vài tông cam sạch hơn và vài màu khác. Ô đầu là màu hiện tại để đối chiếu.</p>
+</div>
+
+<div class="grid" id="root"></div>
+
+<script>
+var DAYS=['T2','T3','T4','T5','T6','T7','CN'];
+function money(s){return s+'<span class="u">đ</span>'}
+var _uid=0;
+var BASE={month:'5.310.000', chi:'8.690.000', t5h:24, pct:18, val:'90.000', label:'Hôm nay còn tiêu được'};
+var COLORS=[
+ {name:'Cam hiện tại', ref:1, main:'#c9820a', mut:'#9a7838', bg:'#fdf4e5', trk:'rgba(201,130,10,.18)'},
+ {name:'Cam hệ thống', main:'#ff9500', mut:'#a8630a', bg:'#fff3e2', trk:'rgba(255,149,0,.16)'},
+ {name:'Hổ phách',     main:'#e8a13d', mut:'#956720', bg:'#fdf3e2', trk:'rgba(232,161,61,.18)'},
+ {name:'Vàng nghệ',    main:'#d4a017', mut:'#846410', bg:'#fbf5df', trk:'rgba(212,160,23,.18)'},
+ {name:'Cam đất',      main:'#cf6a3a', mut:'#8d4622', bg:'#fbeee6', trk:'rgba(207,106,58,.16)'},
+ {name:'Cam san hô',   main:'#f5744f', mut:'#ab4d34', bg:'#fff0ec', trk:'rgba(245,116,79,.16)'},
+ {name:'Đỏ cam',       main:'#ef5f37', mut:'#a63e22', bg:'#fdeee9', trk:'rgba(239,95,55,.16)'},
+ {name:'Hồng',         main:'#f0507a', mut:'#ac3a56', bg:'#ffedf1', trk:'rgba(240,80,122,.15)'},
+ {name:'Tím',          main:'#7c6cf0', mut:'#524aa0', bg:'#efeefc', trk:'rgba(124,108,240,.18)'}
+];
+
+function weekBars(h){
+  var wk=[{p:26,c:22},{p:22,c:16},{p:28,c:17},{p:22,c:BASE.t5h,t:1},{p:20},{p:31},{p:24}];
+  return '<div class="wk" style="height:'+(h+14)+'px">'+wk.map(function(d,i){
+    var b='<i class="p" style="height:'+(d.p/34*h)+'px"></i>';
+    if(d.c!=null) b+='<i class="c" style="height:'+(d.c/34*h)+'px"></i>';
+    var es=d.t?' style="color:var(--teal)"':'';
+    return '<span class="wc'+(d.t?' on':'')+'"><span class="bars" style="height:'+h+'px">'+b+'</span><em'+es+'>'+DAYS[i]+'</em></span>';
+  }).join('')+'</div>';
+}
+function statTile(sym,lab,val,col){return '<div class="tile" style="flex:1"><div class="stat"><div class="l"><span style="color:'+col+'">'+sym+'</span> '+lab+'</div><div class="v num">'+money(val)+'</div></div></div>';}
+function cardTop(){
+  return '<div class="kick up">Còn lại tháng này</div>'
+    +'<div class="month num" style="font-size:27px;margin-top:5px">'+money(BASE.month)+'</div>'
+    +'<div class="row" style="margin-top:12px;gap:9px">'+statTile('↑','Thu','14.000.000','var(--teal)')+statTile('↓','Chi',BASE.chi,'var(--ink3)')+'</div>'
+    +'<div style="margin-top:13px">'+weekBars(28)+'</div>';
+}
+var WP='M0 0 Q 11.5 -3 23 0 T 46 0 T 69 0 T 92 0 L 92 62 L 0 62 Z';
+function water(c){
+  var id='lq'+(_uid++), y=(46*(1-BASE.pct/100)).toFixed(2);
+  return '<svg width="46" height="46" viewBox="0 0 46 46">'
+    +'<defs><clipPath id="'+id+'"><circle cx="23" cy="23" r="22"/></clipPath></defs>'
+    +'<circle cx="23" cy="23" r="22" fill="'+c.trk+'"/>'
+    +'<g clip-path="url(#'+id+')"><g class="water" style="--y:'+y+'px;transform:translateY('+y+'px)">'
+      +'<path class="w1" d="'+WP+'" fill="'+c.main+'"/>'
+      +'<path class="w2" d="'+WP+'" fill="'+c.main+'" opacity=".5"/>'
+    +'</g></g>'
+    +'<circle cx="23" cy="23" r="22" fill="none" stroke="'+c.main+'" stroke-opacity=".35" stroke-width="1.5"/></svg>';
+}
+function circleCard(c){
+  return '<div class="dtile" style="background:'+c.bg+'"><div class="row" style="align-items:center">'
+    +'<div><div class="dlabel" style="color:'+c.mut+'">'+BASE.label+'</div><div class="dn num" style="color:'+c.main+';font-size:24px;margin-top:6px">'+money(BASE.val)+'</div></div>'
+    +'<div style="flex-shrink:0;line-height:0">'+water(c)+'</div></div></div>';
+}
+document.getElementById('root').innerHTML=COLORS.map(function(c){
+  return '<div class="item"><div class="vlab"><span class="sw" style="background:'+c.main+'"></span><span class="t">'+c.name+'</span><span class="hex">'+c.main+'</span>'+(c.ref?'<span class="ref">· hiện tại</span>':'')+'</div>'
+    +'<div class="w">'+cardTop()+'<div class="dwrap">'+circleCard(c)+'</div></div></div>';
+}).join('');
+</script>
+</body>
+</html>
