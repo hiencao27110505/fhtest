@@ -233,6 +233,23 @@
   const _ATX_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
   const _ATX_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 
+  /* NOT the same Google client as sign-in, and it must not be.
+     GOOGLE_CLIENT_ID (10-client-auth.js, 860668973723-…) is the client Supabase
+     signs people in with. This flow uses 340747728156-…, the client the backend
+     holds the SECRET for — the one whose `GOOGLE_OAUTH_CLIENT_ID` sits beside
+     `GOOGLE_OAUTH_CLIENT_SECRET` in the deployment env.
+
+     They have to match end to end: a code issued to one client cannot be
+     exchanged by another. Google refuses that swap with `invalid_grant`, at the
+     token exchange, AFTER the person has read the consent screen and pressed
+     Allow — so it looks like a backend bug at the last possible moment rather
+     than a misconfiguration at the first. Changing the backend's client means
+     changing this line in the same commit.
+
+     A client_id is public by design (it ships in every OAuth redirect), so it
+     belongs in client code. The secret never does, and is not here. */
+  const _ATX_CLIENT_ID = '340747728156-dc16et673i1tm0l7qi1ikr0f7t7tedkl.apps.googleusercontent.com';
+
   /* The one value that must match the backend AND Google Cloud Console.
      `/api/gmail-callback` is the path the reference implementation on branch
      bank-email-oauth already uses, on this same origin. If the callback lands
@@ -257,16 +274,30 @@
     try { uid = (window.fhUser && window.fhUser.id) || ''; } catch (e) {}
 
     const p = new URLSearchParams({
-      client_id: GOOGLE_CLIENT_ID,
+      client_id: _ATX_CLIENT_ID,
       redirect_uri: _ATX_REDIRECT(),
       response_type: 'code',
       scope: _ATX_SCOPE,
-      /* offline + consent: the backend needs a REFRESH token, and Google only
-         issues one when consent is granted afresh. Without prompt=consent a
-         returning user hands back an access token that expires within the hour,
-         and background sync silently stops working the same afternoon. */
+      /* offline: the backend needs a REFRESH token, and Google only issues one
+         alongside a fresh grant.
+
+         prompt CARRIES TWO VALUES, and both are load-bearing:
+
+         `consent` — without it a returning user hands back an access token that
+           expires within the hour and no refresh token, so background sync
+           silently stops working the same afternoon while the grant still looks
+           fine in their Google account.
+
+         `select_account` — because LOGIN_HINT IS ONLY A HINT. When Safari
+           already has a Google session, Google honours that session and ignores
+           the hint, so the person lands on whichever account they last signed
+           into and can grant us the WRONG MAILBOX without noticing: the consent
+           screen names an account nobody read, and the connection then quietly
+           reads a mailbox with no bank mail in it. Forcing the chooser costs one
+           tap and makes the account an explicit choice. The hint still does its
+           job inside the chooser, pre-selecting the one we expect. */
       access_type: 'offline',
-      prompt: 'consent',
+      prompt: 'select_account consent',
       include_granted_scopes: 'false',
       state: _atxB64Url({ uid: uid, mid: mid, v: 1 }),
     });

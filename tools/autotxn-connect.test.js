@@ -30,7 +30,12 @@ const svg = mbx.slice(mbx.indexOf('const _MBX_SVG'), mbx.indexOf('const _mbxGlyp
 
 let pass = 0, fail = 0;
 const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok && d ? '  -> ' + d : '')); ok ? pass++ : fail++; };
-const CLIENT = '860668973723-ud2mbr4kj9nb41elbkvlp3lt5fibpf8v.apps.googleusercontent.com';
+/* The OAuth client the BACKEND holds the secret for — deliberately NOT the
+   sign-in client. A code issued to one client cannot be exchanged by another;
+   Google refuses with invalid_grant at the token exchange, after the person has
+   already pressed Allow. Pinned here so the two can never drift apart. */
+const CLIENT = '340747728156-dc16et673i1tm0l7qi1ikr0f7t7tedkl.apps.googleusercontent.com';
+const SIGNIN_CLIENT = '860668973723-ud2mbr4kj9nb41elbkvlp3lt5fibpf8v.apps.googleusercontent.com';
 const BUSY = 'Đang mở Google…';
 
 async function run(o) {
@@ -42,7 +47,7 @@ async function run(o) {
   const ctx = {
     _fhSheet: () => {}, _fhModal: (m) => { modal = m; }, _esc: String, _escAttr: String, _rpc: async () => null,
     sb: { auth: { getSession: async () => ({ data: { session: null } }) } },
-    GOOGLE_CLIENT_ID: CLIENT,
+    GOOGLE_CLIENT_ID: SIGNIN_CLIENT,
     document: { getElementById: (id) => (id === 'atx-go' ? live : (id === 'atx-email' ? { value: o.typed || '' } : null)),
                 createElement: () => ({}) },
     history: { replaceState() {} },
@@ -70,7 +75,9 @@ const q = (u, k) => new URL(u).searchParams.get(k);
   console.log('\n-- the consent URL Google is handed --');
   const a = await run({});
   t('goes to Google’s auth endpoint', a.nav.to && a.nav.to.indexOf('https://accounts.google.com/o/oauth2/v2/auth?') === 0, String(a.nav.to));
-  t('carries our client_id', q(a.nav.to, 'client_id') === CLIENT);
+  t('carries the client the backend can exchange with', q(a.nav.to, 'client_id') === CLIENT, q(a.nav.to, 'client_id'));
+  t('  ...and NOT the sign-in client, which has no secret on the backend',
+    q(a.nav.to, 'client_id') !== SIGNIN_CLIENT);
   t('asks for a code, not a token', q(a.nav.to, 'response_type') === 'code');
   t('requests gmail.readonly and nothing else',
     q(a.nav.to, 'scope') === 'https://www.googleapis.com/auth/gmail.readonly' &&
@@ -80,7 +87,9 @@ const q = (u, k) => new URL(u).searchParams.get(k);
 
   console.log('\n-- the two params a refresh token depends on --');
   t('access_type=offline', q(a.nav.to, 'access_type') === 'offline');
-  t('prompt=consent (Google only re-issues a refresh token on fresh consent)', q(a.nav.to, 'prompt') === 'consent');
+  t('prompt asks for consent (no fresh consent, no refresh token)', /\bconsent\b/.test(q(a.nav.to, 'prompt')), q(a.nav.to, 'prompt'));
+  t('prompt ALSO forces the account chooser', /\bselect_account\b/.test(q(a.nav.to, 'prompt')), q(a.nav.to, 'prompt'));
+  t('  ...because login_hint alone loses to an existing Safari session,\n         which silently grants the wrong mailbox', /\bselect_account\b/.test(q(a.nav.to, 'prompt')));
 
   console.log('\n-- state tells the callback whose ledger this is --');
   {
