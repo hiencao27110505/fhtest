@@ -1,0 +1,27 @@
+[project]
+name = "earthy-serverless"
+version = "0.0.0"
+description = "Earthy GCP Cloud Functions workspace"
+requires-python = "==3.12.*"
+dependencies = []
+
+[tool.uv.workspace]
+members = ["functions/*"]
+
+[dependency-groups]
+# Dev-only tools. Installed into the shared .venv, never exported to a
+# function's requirements.txt.
+dev = [
+    "functions-framework>=3.9.2",
+    "google-auth-oauthlib>=1.2",
+    "mypy>=1.13",
+    "pytest>=8.3.0",
+    "ruff>=0.8.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

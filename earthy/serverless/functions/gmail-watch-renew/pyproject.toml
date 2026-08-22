@@ -1,0 +1,37 @@
+[project]
+name = "gmail-watch-renew"
+version = "0.1.0"
+description = "Renews the Gmail watch on every connected mailbox"
+requires-python = "==3.12.*"
+dependencies = [
+    "cryptography>=50.0.0",
+    "flask>=3.1.3",
+    "functions-framework==3.9.2",
+    "google-api-python-client>=2.198.0",
+    "google-auth>=2.56.3",
+    "psycopg[binary,pool]>=3.3.4",
+]
+
+# Driven by Cloud Scheduler, not by a person: a Gmail watch lapses after 7
+# days, so this runs daily. allow-unauthenticated is off — the scheduler
+# invokes it with an OIDC token.
+[tool.earthy.gcf]
+entry-point = "main"
+trigger = "http"
+region = "asia-southeast1"
+runtime = "python312"
+allow-unauthenticated = false
+
+# Files copied in from ../../shared by `make sync-shared`. They land
+# beside main.py as top-level modules; the copies are git-ignored.
+[tool.earthy]
+secrets = [
+    "GMAIL_TOKEN_KEY=gmail-token-key",
+    "GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id",
+    "GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret",
+    "DATABASE_URL=database-url",
+]
+shared = ["accounts.py", "gmail_auth.py"]
+
+[tool.uv]
+package = false

@@ -1,0 +1,38 @@
+[project]
+name = "gmail-transaction-ingest"
+version = "0.1.0"
+description = "Reads new Gmail messages and logs the ones that look like bank/e-wallet transactions"
+requires-python = "==3.12.*"
+dependencies = [
+    "cloudevents>=1.11.0",
+    "cryptography>=50.0.0",
+    "functions-framework==3.9.2",
+    "google-api-python-client>=2.198.0",
+    "google-auth>=2.56.3",
+    "google-cloud-pubsub>=2.39.1",
+    "psycopg[binary,pool]>=3.3.4",
+]
+
+# Triggered by Gmail push notifications landing on a Pub/Sub topic.
+# Pub/Sub functions are never publicly invocable, so allow-unauthenticated
+# does not apply; Eventarc invokes them over the service account.
+[tool.earthy.gcf]
+entry-point = "main"
+trigger = "pubsub"
+topic = "gmail-events"
+region = "asia-southeast1"
+runtime = "python312"
+
+# Files copied in from ../../shared by `make sync-shared`. They land
+# beside main.py as top-level modules; the copies are git-ignored.
+[tool.earthy]
+secrets = [
+    "GMAIL_TOKEN_KEY=gmail-token-key",
+    "GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id",
+    "GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret",
+    "DATABASE_URL=database-url",
+]
+shared = ["accounts.py", "gmail_auth.py"]
+
+[tool.uv]
+package = false

@@ -16,6 +16,36 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-22 (bank-email parser session, for Quang) — CLAIMING MIGRATION
+  `0071_email_parse_templates.sql`. Next free number after it is `0072`.**
+
+  Learned parse rules for bank-notification email templates, used by the
+  `transaction-parser` Cloud Function. One row per (source, spec): the first
+  mail off an unfamiliar template is read by an LLM which also proposes a
+  reusable rule; every later mail off that template is read by the rule with no
+  model involved. Service-role only, RLS on with no policies — same posture as
+  `0070_connected_accounts.sql`, and for the same reason: nothing here is
+  family-scoped or client-readable. Touches no existing table.
+
+  **Status: APPLIED to production (2026-08-22).** Verified after apply: RLS on
+  with 0 policies, no grants to anon/authenticated, 3 check constraints, and
+  the unique index refusing a duplicate spec whose keys were merely reordered.
+  Table is empty — nothing has been learned yet.
+
+  **The hand-written regex stage is GONE (`parser/parsing.py` deleted).** It
+  was tested against real mail and was right by luck: it read a MoMo receipt
+  correctly only because it matched the hyphen in "13:15 - 21/08/2026" as a
+  minus sign, and it read a Techcombank notice's ACCOUNT NUMBER as the balance
+  because "biến động số dư" in the opening sentence anchored the balance
+  pattern. Both are silent wrong-number bugs on a ledger. The cascade is now
+  two stages: stored rule, else LLM.
+
+  **Consequence for deploys: `GEMINI_API_KEY` is now REQUIRED for any template
+  the parser has not already learned.** Learned templates still need no model.
+  Verified end to end against the live API on five mails (one a real MoMo
+  receipt): 5/5 read correctly, 5/5 learned a rule, 5/5 second passes served
+  from the stored rule with no API call.
+
 - **2026-08-22 (UI session) — AUTO-LOGGING IS DONE UP TO THE SEAM. The consent
   screen opens on a real device and grants; everything past the Allow button is
   the backend's. Also: three data-loss-grade bugs found in `fd6411f`, which is

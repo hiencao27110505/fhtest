@@ -1,0 +1,254 @@
+"""Renewal behaviour, with the Gmail API stubbed out.
+
+The contract worth pinning: every mailbox gets renewed even when one fails,
+and an existing cursor is never overwritten.
+"""
+
+import json
+from typing import Any
+
+import accounts
+import main
+import pytest
+
+
+def _run() -> tuple[str, int]:
+    """The job itself, without the Flask entry point wrapped around it."""
+    return main.renew_all()
+
+
+@pytest.fixture
+def store(monkeypatch: pytest.MonkeyPatch) -> accounts.InMemoryStore:
+    seeded = accounts.InMemoryStore({"a@x.com": "tok-a", "b@x.com": "tok-b", "c@x.com": "tok-c"})
+    monkeypatch.setattr(main, "STORE", seeded)
+    monkeypatch.setenv("GCP_PROJECT", "test-project")
+    return seeded
+
+
+class _FakeWatch:
+    """Stands in for service.users().watch(...).execute()."""
+
+    def __init__(
+        self,
+        history_id: str,
+        fail_for: set[str] | None = None,
+        expiration: str = "1431990098200",
+    ):
+        self.history_id = history_id
+        self.expiration = expiration
+        self.fail_for = fail_for or set()
+        self.topics: list[str] = []
+        self.labels: list[list[str]] = []
+
+    def __call__(self, refresh_token: str) -> Any:
+        outer = self
+
+        class Service:
+            def users(self) -> Any:
+                return self
+
+            def watch(self, userId: str, body: dict) -> Any:  # noqa: N803 - Google's arg name
+                outer.topics.append(body["topicName"])
+                outer.labels.append(body["labelIds"])
+                if refresh_token in outer.fail_for:
+                    raise RuntimeError("token revoked")
+                return self
+
+            def execute(self) -> dict:
+                return {
+                    "historyId": outer.history_id,
+                    "expiration": outer.expiration,
+                }
+
+        return Service()
+
+
+def test_renews_every_mailbox(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    watch = _FakeWatch("100")
+    monkeypatch.setattr(main.gmail_auth, "build_client", watch)
+
+    body, status = _run()
+
+    assert status == 200
+    assert json.loads(body) == {"renewed": 3, "failed": 0, "needs_reauth": 0}
+
+
+def test_one_failure_does_not_stop_the_others(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The whole point of the job: a single revoked token must not leave the
+    # remaining mailboxes unrenewed.
+    watch = _FakeWatch("100", fail_for={"tok-b"})
+    monkeypatch.setattr(main.gmail_auth, "build_client", watch)
+
+    body, status = _run()
+    parsed = json.loads(body)
+
+    assert status == 207
+    assert parsed["renewed"] == 2
+    assert parsed["failed"] == 1
+    assert parsed["failures"][0]["email"] == "b@x.com"
+
+
+def test_watches_the_configured_topic_and_inbox(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    watch = _FakeWatch("100")
+    monkeypatch.setattr(main.gmail_auth, "build_client", watch)
+
+    _run()
+
+    assert watch.topics == ["projects/test-project/topics/gmail-events"] * 3
+    assert watch.labels == [["INBOX"]] * 3
+
+
+def test_first_registration_seeds_the_cursor(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main.gmail_auth, "build_client", _FakeWatch("500"))
+
+    _run()
+
+    assert store.get("a@x.com").history_id == "500"
+
+
+def test_expiration_is_recorded(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without this the pipeline cannot tell a watch is about to lapse, and a
+    lapse is silent — no error, no final notification."""
+    monkeypatch.setattr(
+        main.gmail_auth, "build_client", _FakeWatch("500", expiration="1431990098200")
+    )
+
+    _run()
+
+    assert store.get("a@x.com").watch_expires_at == 1431990098200
+
+
+def test_expiration_is_read_as_milliseconds(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 13 digits, not seconds. The off-by-1000 would put expiry in 1970.
+    monkeypatch.setattr(main.gmail_auth, "build_client", _FakeWatch("1"))
+    _run()
+    expires_at = store.get("a@x.com").watch_expires_at
+    assert expires_at is not None
+    assert expires_at > 1_000_000_000_000
+
+
+def test_existing_cursor_is_never_overwritten(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Overwriting would skip every message between the old cursor and now.
+    store.save_history_id("a@x.com", "100")
+    monkeypatch.setattr(main.gmail_auth, "build_client", _FakeWatch("999"))
+
+    _run()
+
+    assert store.get("a@x.com").history_id == "100"
+    assert store.get("b@x.com").history_id == "999"
+
+
+def test_missing_project_is_reported_not_crashed(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("GCP_PROJECT", raising=False)
+    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+
+    body, status = _run()
+
+    assert status == 500
+    assert "error" in json.loads(body)
+
+
+def test_no_connected_mailboxes_is_a_clean_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "STORE", accounts.InMemoryStore({}))
+    monkeypatch.setenv("GCP_PROJECT", "test-project")
+
+    body, status = _run()
+
+    assert status == 200
+    assert json.loads(body) == {"renewed": 0, "failed": 0, "needs_reauth": 0}
+
+
+def test_dead_token_is_recorded_not_counted_as_failure(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 7-day expiry is routine in Testing status, not an outage.
+
+    It is reported separately from real failures so a weekly wave of
+    re-consents does not read as the job breaking.
+    """
+
+    def reject(refresh_token: str) -> object:
+        if refresh_token == "tok-b":
+            raise main.gmail_auth.TokenRejected("expired")
+        return _FakeWatch("100")(refresh_token)
+
+    monkeypatch.setattr(main.gmail_auth, "build_client", reject)
+
+    body, status = _run()
+    parsed = json.loads(body)
+
+    assert parsed["renewed"] == 2
+    assert parsed["failed"] == 0
+    assert parsed["needs_reauth"] == 1
+    assert store.get("b@x.com").needs_reauth is True
+
+
+def test_reauth_pending_mailboxes_are_skipped_next_run(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store.mark_needs_reauth("b@x.com")
+    watch = _FakeWatch("100")
+    monkeypatch.setattr(main.gmail_auth, "build_client", watch)
+
+    body, _ = _run()
+
+    assert json.loads(body)["renewed"] == 2  # a and c only
+
+
+def test_watch_body_uses_label_filter_behavior(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # labelFilterAction is deprecated; labelFilterBehavior replaces it.
+    captured: list[dict] = []
+
+    class Service:
+        def users(self) -> Any:
+            return self
+
+        def watch(self, userId: str, body: dict) -> Any:  # noqa: N803
+            captured.append(body)
+            return self
+
+        def execute(self) -> dict:
+            return {"historyId": "1", "expiration": "1431990098200"}
+
+    monkeypatch.setattr(main.gmail_auth, "build_client", lambda tok: Service())
+    _run()
+
+    assert captured[0]["labelFilterBehavior"] == "INCLUDE"
+    assert captured[0]["labelIds"] == ["INBOX"]
+    assert "labelFilterAction" not in captured[0]
+
+
+def test_renewal_never_overwrites_a_live_cursor(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A renewal returns the mailbox's position *now*.
+
+    Writing that over an existing cursor would skip every message between the
+    two — the ingest side would never see them, and nothing would report it.
+    """
+    store.save_history_id("a@x.com", "100")
+    monkeypatch.setattr(main.gmail_auth, "build_client", _FakeWatch("999999"))
+
+    _run()
+
+    assert store.get("a@x.com").history_id == "100"
+    # ...while the expiry is still refreshed.
+    assert store.get("a@x.com").watch_expires_at == 1431990098200

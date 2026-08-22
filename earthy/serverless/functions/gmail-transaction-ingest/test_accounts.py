@@ -1,0 +1,155 @@
+import accounts
+import pytest
+
+
+def test_get_returns_the_stored_account():
+    store = accounts.InMemoryStore({"a@example.com": "refresh-1"})
+    account = store.get("a@example.com")
+    assert account.email == "a@example.com"
+    assert account.refresh_token == "refresh-1"
+    assert account.history_id is None
+
+
+def test_get_raises_for_unknown_mailbox():
+    store = accounts.InMemoryStore({"a@example.com": "refresh-1"})
+    with pytest.raises(accounts.UnknownMailbox):
+        store.get("stranger@example.com")
+
+
+def test_accounts_are_isolated_from_each_other():
+    store = accounts.InMemoryStore({"a@x.com": "tok-a", "b@x.com": "tok-b"})
+    store.save_history_id("a@x.com", "111")
+    assert store.get("a@x.com").history_id == "111"
+    assert store.get("b@x.com").history_id is None
+    assert store.get("b@x.com").refresh_token == "tok-b"
+
+
+def test_save_history_id_advances_the_cursor():
+    store = accounts.InMemoryStore({"a@x.com": "tok"})
+    store.save_history_id("a@x.com", "100")
+    store.save_history_id("a@x.com", "200")
+    assert store.get("a@x.com").history_id == "200"
+
+
+def test_save_history_id_rejects_unknown_mailbox():
+    store = accounts.InMemoryStore({})
+    with pytest.raises(accounts.UnknownMailbox):
+        store.save_history_id("nobody@x.com", "1")
+
+
+def test_repr_never_leaks_the_refresh_token():
+    store = accounts.InMemoryStore({"a@x.com": "super-secret-token"})
+    assert "super-secret-token" not in repr(store.get("a@x.com"))
+
+
+def test_seed_from_env_reads_json(monkeypatch):
+    monkeypatch.setenv("GMAIL_ACCOUNTS", '{"a@x.com": "tok"}')
+    assert accounts._seed_from_env() == {"a@x.com": "tok"}
+
+
+def test_seed_from_env_is_empty_when_unset(monkeypatch):
+    monkeypatch.delenv("GMAIL_ACCOUNTS", raising=False)
+    assert accounts._seed_from_env() == {}
+
+
+def test_seed_from_env_survives_malformed_json(monkeypatch):
+    # A bad value must not take the function down at import time.
+    monkeypatch.setenv("GMAIL_ACCOUNTS", "{not json")
+    assert accounts._seed_from_env() == {}
+
+
+def test_seed_from_env_rejects_non_object(monkeypatch):
+    monkeypatch.setenv("GMAIL_ACCOUNTS", '["a@x.com"]')
+    assert accounts._seed_from_env() == {}
+
+
+def test_new_account_does_not_need_reauth():
+    store = accounts.InMemoryStore({"a@x.com": "tok"})
+    assert store.get("a@x.com").needs_reauth is False
+
+
+def test_mark_needs_reauth_flags_only_that_account():
+    store = accounts.InMemoryStore({"a@x.com": "tok-a", "b@x.com": "tok-b"})
+    store.mark_needs_reauth("a@x.com")
+    assert store.get("a@x.com").needs_reauth is True
+    assert store.get("b@x.com").needs_reauth is False
+
+
+def test_mark_needs_reauth_rejects_unknown_mailbox():
+    store = accounts.InMemoryStore({})
+    with pytest.raises(accounts.UnknownMailbox):
+        store.mark_needs_reauth("nobody@x.com")
+
+
+def test_list_connected_skips_accounts_awaiting_reauth():
+    # Renewing a mailbox whose token is dead only produces noise.
+    store = accounts.InMemoryStore({"a@x.com": "tok-a", "b@x.com": "tok-b"})
+    store.mark_needs_reauth("a@x.com")
+    assert store.list_connected() == ["b@x.com"]
+
+
+def test_repr_shows_reauth_state_without_the_token():
+    store = accounts.InMemoryStore({"a@x.com": "super-secret"})
+    store.mark_needs_reauth("a@x.com")
+    text = repr(store.get("a@x.com"))
+    assert "needs_reauth=True" in text
+    assert "super-secret" not in text
+
+
+def test_create_store_returns_in_memory_without_a_database(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("GMAIL_ACCOUNTS", '{"a@x.com": "tok"}')
+    assert isinstance(accounts.create_store(), accounts.InMemoryStore)
+
+
+def test_create_store_returns_postgres_when_database_url_is_set(monkeypatch):
+    # Choosing the store is configuration, not a code change.
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost:6543/db")
+    assert isinstance(accounts.create_store(), accounts.PostgresStore)
+
+
+def test_postgres_store_satisfies_the_protocol():
+    # Both stores must stay interchangeable to their callers.
+    for name in ("get", "save_history_id", "mark_needs_reauth", "list_connected"):
+        assert callable(getattr(accounts.PostgresStore, name))
+        assert callable(getattr(accounts.InMemoryStore, name))
+
+
+def _in_ms(seconds: int) -> int:
+    import time
+
+    return int(time.time() * 1000) + seconds * 1000
+
+
+def test_a_mailbox_with_no_watch_is_due():
+    # Connected but never watched: due by definition.
+    store = accounts.InMemoryStore({"a@x.com": "tok"})
+    assert store.list_due_for_renewal(3600) == ["a@x.com"]
+
+
+def test_a_watch_expiring_soon_is_due():
+    store = accounts.InMemoryStore({"a@x.com": "tok"})
+    store.save_watch("a@x.com", "1", _in_ms(3600))  # 1h left
+    assert store.list_due_for_renewal(2 * 24 * 3600) == ["a@x.com"]
+
+
+def test_a_fresh_watch_is_not_due():
+    # The point of the window: a watch good for another six days is not
+    # renewed again today.
+    store = accounts.InMemoryStore({"a@x.com": "tok"})
+    store.save_watch("a@x.com", "1", _in_ms(6 * 24 * 3600))
+    assert store.list_due_for_renewal(2 * 24 * 3600) == []
+
+
+def test_reauth_pending_mailboxes_are_never_due():
+    # Their token cannot mint an access token; renewing only wastes a call.
+    store = accounts.InMemoryStore({"a@x.com": "tok"})
+    store.mark_needs_reauth("a@x.com")
+    assert store.list_due_for_renewal(10**9) == []
+
+
+def test_only_the_due_ones_come_back():
+    store = accounts.InMemoryStore({"soon@x.com": "t1", "later@x.com": "t2"})
+    store.save_watch("soon@x.com", "1", _in_ms(3600))
+    store.save_watch("later@x.com", "1", _in_ms(6 * 24 * 3600))
+    assert store.list_due_for_renewal(2 * 24 * 3600) == ["soon@x.com"]
