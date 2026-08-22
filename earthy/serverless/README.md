@@ -262,6 +262,30 @@ come from `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`. On GCP feed
 those from Secret Manager (`--set-secrets`), not plain env vars: a function's
 environment is visible in the console and in `gcloud functions describe`.
 
+### The renewal job only touches what is due
+
+A watch lasts 7 days and `gmail-watch-renew` runs daily, so renewing every
+mailbox on every run repeats work that is good for another six. It asks for
+the ones expiring within `RENEW_WITHIN_SECONDS` (default 2 days) instead, which
+means each mailbox is renewed roughly every five days and still has two days
+of slack if a run fails.
+
+This matters beyond tidiness. The function's timeout is 60 seconds and the
+loop is sequential at ~2 network calls per mailbox, so renewing everything
+stops fitting somewhere in the low hundreds of mailboxes — and the tail of the
+list would lapse **silently**, which is the exact failure this job exists to
+prevent. Scoping to what is due keeps the work proportional to what expires
+rather than to how many users exist.
+
+Mailboxes with no watch yet are due by definition, and ones awaiting re-consent
+are never due — their token cannot mint an access token, so renewing them only
+burns a call.
+
+Past a few thousand mailboxes even this stops fitting, and the shape to reach
+for is fan-out: the job publishes one message per due mailbox and a second
+function handles them, so each retries independently and no single run has a
+deadline.
+
 ### Refresh tokens die every 7 days while the app is in Testing
 
 Google expires refresh tokens after 7 days for any app whose OAuth consent

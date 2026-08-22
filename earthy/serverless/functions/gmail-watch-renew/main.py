@@ -36,6 +36,15 @@ WATCH_TOPIC = os.environ.get("WATCH_TOPIC", "gmail-events")
 WATCH_LABELS = ["INBOX"]
 WATCH_LABEL_BEHAVIOR = "INCLUDE"
 
+# Renew a watch when it has less than this left. A watch lasts 7 days and this
+# job runs daily, so a 1-day window means each mailbox is renewed roughly every
+# five days and still has two days of slack if a run fails — while the work per
+# run stays proportional to what actually expires rather than to how many
+# mailboxes exist. Renewing all of them daily stops fitting in the function
+# timeout somewhere in the low hundreds, and the tail would lapse silently.
+RENEW_WITHIN_SECONDS = int(os.environ.get(
+    "RENEW_WITHIN_SECONDS", 1 * 24 * 3600))
+
 STORE = accounts.create_store()
 
 
@@ -62,8 +71,13 @@ def renew_all() -> tuple[str, int]:
         return _response({"error": "project id not configured"}, 500)
 
     topic = f"projects/{project}/topics/{WATCH_TOPIC}"
-    emails = STORE.list_connected()
-    log.info("renewing %d mailbox(es) against %s", len(emails), topic)
+    emails = STORE.list_due_for_renewal(RENEW_WITHIN_SECONDS)
+    log.info(
+        "%d mailbox(es) due within %ds, renewing against %s",
+        len(emails),
+        RENEW_WITHIN_SECONDS,
+        topic,
+    )
 
     renewed: list[str] = []
     failed: list[dict[str, str]] = []
@@ -76,7 +90,8 @@ def renew_all() -> tuple[str, int]:
         except gmail_auth.TokenRejected:
             # Not a failure to retry: the user has to reconnect. Recorded so
             # the next run skips them and the app can prompt.
-            log.warning("refresh token rejected for %s; marking for re-consent", email)
+            log.warning(
+                "refresh token rejected for %s; marking for re-consent", email)
             STORE.mark_needs_reauth(email)
             needs_reauth.append(email)
             continue
