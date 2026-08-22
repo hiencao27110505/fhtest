@@ -50,8 +50,7 @@ def main(cloud_event: CloudEvent) -> None:
     email = notification.get("emailAddress")
     history_id = notification.get("historyId")
     if not email or not history_id:
-        log.warning(
-            "notification missing emailAddress/historyId: %s", notification)
+        log.warning("notification missing emailAddress/historyId: %s", notification)
         return
 
     log.info("gmail change for %s at historyId=%s", email, history_id)
@@ -174,8 +173,7 @@ def _added_message_ids(service, start_history_id: str) -> list[str]:
                 return seen
     except HttpError as exc:
         if exc.status_code == 404:
-            log.warning(
-                "history %s expired; a full resync is needed", start_history_id)
+            log.warning("history %s expired; a full resync is needed", start_history_id)
             return []
         raise  # transient (429/5xx): let Pub/Sub redeliver
 
@@ -190,21 +188,16 @@ def _message(service, message_id: str) -> dict | None:
 
     try:
         message = (
-            service.users()
-            .messages()
-            .get(userId="me", id=message_id, format="full")
-            .execute()
+            service.users().messages().get(userId="me", id=message_id, format="full").execute()
         )
     except HttpError as exc:
         if exc.status_code == 404:
-            log.warning(
-                "message %s vanished before it could be read", message_id)
+            log.warning("message %s vanished before it could be read", message_id)
             return None
         raise
 
     payload = message.get("payload", {})
-    values = {h["name"].lower(): h["value"]
-              for h in payload.get("headers", [])}
+    values = {h["name"].lower(): h["value"] for h in payload.get("headers", [])}
     return {
         "from": values.get("from", ""),
         "subject": values.get("subject", ""),
@@ -264,8 +257,4 @@ def _publish(topic: str, payload: dict) -> None:
 
 def _project() -> str:
     """Project id, from the runtime env on GCP or GCP_PROJECT locally."""
-    return (
-        os.environ.get("GCP_PROJECT")
-        or os.environ.get("GOOGLE_CLOUD_PROJECT")
-        or ""
-    )
+    return os.environ.get("GCP_PROJECT") or os.environ.get("GOOGLE_CLOUD_PROJECT") or ""

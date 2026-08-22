@@ -46,6 +46,7 @@ class Account(Protocol):
     refresh_token: str
     history_id: str | None
     needs_reauth: bool
+    watch_expires_at: int | None
 
 
 class AccountStore(Protocol):
@@ -61,6 +62,18 @@ class AccountStore(Protocol):
 
     def save_history_id(self, email: str, history_id: str) -> None:
         """Advance the cursor, after the work for that window succeeded."""
+        ...
+
+    def save_watch(self, email: str, history_id: str, expires_at: int) -> None:
+        """Record a fresh watch registration.
+
+        `expires_at` is Gmail's `expiration`, epoch **milliseconds**.
+
+        The cursor is written only when there is not one already: a renewal
+        returns the mailbox's position *now*, and overwriting an existing
+        cursor with it would skip every message in between. Doing both in one
+        statement keeps a concurrent ingest from losing its write.
+        """
         ...
 
     def mark_needs_reauth(self, email: str) -> None:
@@ -88,7 +101,13 @@ class AccountStore(Protocol):
 class _Account:
     """One mailbox. Shared by both stores so they cannot drift apart."""
 
-    __slots__ = ("email", "refresh_token", "history_id", "needs_reauth")
+    __slots__ = (
+        "email",
+        "refresh_token",
+        "history_id",
+        "needs_reauth",
+        "watch_expires_at",
+    )
 
     def __init__(
         self,
@@ -96,17 +115,18 @@ class _Account:
         refresh_token: str,
         history_id: str | None = None,
         needs_reauth: bool = False,
+        watch_expires_at: int | None = None,
     ):
         self.email = email
         self.refresh_token = refresh_token
         self.history_id = history_id
         self.needs_reauth = needs_reauth
+        self.watch_expires_at = watch_expires_at
 
     def __repr__(self) -> str:
         # Never let the token near a log line or a traceback.
         return (
-            f"<Account {self.email} history_id={self.history_id} "
-            f"needs_reauth={self.needs_reauth}>"
+            f"<Account {self.email} history_id={self.history_id} needs_reauth={self.needs_reauth}>"
         )
 
 
@@ -138,6 +158,14 @@ class InMemoryStore:
             raise UnknownMailbox(email)
         account.history_id = history_id
 
+    def save_watch(self, email: str, history_id: str, expires_at: int) -> None:
+        account = self._accounts.get(email)
+        if account is None:
+            raise UnknownMailbox(email)
+        account.watch_expires_at = expires_at
+        if account.history_id is None:
+            account.history_id = history_id
+
     def mark_needs_reauth(self, email: str) -> None:
         account = self._accounts.get(email)
         if account is None:
@@ -165,8 +193,7 @@ def _seed_from_env() -> dict[str, str]:
         log.error("GMAIL_ACCOUNTS is not valid JSON: %s", exc)
         return {}
     if not isinstance(parsed, dict):
-        log.error(
-            "GMAIL_ACCOUNTS must be a JSON object of {email: refresh_token}")
+        log.error("GMAIL_ACCOUNTS must be a JSON object of {email: refresh_token}")
         return {}
     return {str(k): str(v) for k, v in parsed.items()}
 
@@ -290,6 +317,34 @@ class PostgresStore:
                 f"on conflict (connected_account_id) do update "
                 f"set history_id = excluded.history_id, updated_at = now()",
                 (history_id, PROVIDER, email),
+            ).rowcount
+        if not updated:
+            raise UnknownMailbox(email)
+
+    def save_watch(self, email: str, history_id: str, expires_at: int) -> None:
+        """Record a fresh watch registration.
+
+        `expires_at` is Gmail's `expiration`, epoch milliseconds, converted to
+        a timestamptz on the way in.
+
+        One statement on purpose. Reading the cursor and then writing it would
+        let a concurrent ingest slip a newer cursor in between, and this call
+        would overwrite it with the mailbox's position *now* — silently
+        skipping every message in the gap. `coalesce` keeps whatever cursor is
+        already stored and only fills in a missing one.
+        """
+        with _get_pool().connection() as conn:
+            updated = conn.execute(
+                f"insert into {SYNC_TABLE} "  # noqa: S608
+                f"  (connected_account_id, history_id, watch_expires_at) "
+                f"select a.id, %s, to_timestamp(%s / 1000.0) "
+                f"from {ACCOUNTS_TABLE} a "
+                f"where a.provider = %s and a.email = %s "
+                f"on conflict (connected_account_id) do update set "
+                f"  watch_expires_at = excluded.watch_expires_at, "
+                f"  history_id = coalesce({SYNC_TABLE}.history_id, excluded.history_id), "
+                f"  updated_at = now()",
+                (history_id, expires_at, PROVIDER, email),
             ).rowcount
         if not updated:
             raise UnknownMailbox(email)

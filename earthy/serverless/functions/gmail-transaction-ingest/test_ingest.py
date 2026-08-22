@@ -24,9 +24,7 @@ def _event(payload: dict[str, Any]) -> Any:
 
 @pytest.fixture
 def store(monkeypatch: pytest.MonkeyPatch) -> accounts.InMemoryStore:
-    seeded = accounts.InMemoryStore(
-        {"alice@x.com": "tok-alice", "bob@x.com": "tok-bob"}
-    )
+    seeded = accounts.InMemoryStore({"alice@x.com": "tok-alice", "bob@x.com": "tok-bob"})
     monkeypatch.setattr(main, "STORE", seeded)
     return seeded
 

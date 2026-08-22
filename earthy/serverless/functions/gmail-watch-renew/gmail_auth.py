@@ -9,6 +9,7 @@ caller never handles expiry.
 
 import logging
 import os
+from typing import Any
 
 from accounts import SCOPES
 
@@ -52,7 +53,7 @@ def client_config() -> tuple[str, str]:
     return client_id, client_secret
 
 
-def build_client(refresh_token: str):
+def build_client(refresh_token: str) -> Any:
     """A Gmail API client acting as the user who granted `refresh_token`.
 
     The token is exchanged for an access token here rather than lazily on the

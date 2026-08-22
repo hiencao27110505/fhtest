@@ -285,6 +285,47 @@ which requires OAuth verification and a CASA security assessment. See
 [`research/gmail-push-pubsub-oauth.md`](../../research/gmail-push-pubsub-oauth.md)
 for the verified details.
 
+### Granting access to a mailbox
+
+```sh
+make authorize                    # prints the tokens
+make authorize OUT=creds.json     # writes them to a file (mode 600) instead
+```
+
+Opens a browser, you sign in and consent, and it reports the mailbox address,
+its current `historyId`, and both tokens. Only the account owner can do this —
+it is the consent step, not a lookup, and no amount of automation replaces it.
+
+`GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` must be set in `.env`
+first (Console → APIs & Services → Credentials).
+
+**Register the redirect URI.** The script serves a one-shot loopback listener
+on `http://localhost:8765/` — an arbitrary port, chosen only because it has to
+be *some* fixed number. It exists for the few seconds between opening the
+browser and receiving the callback, then closes.
+
+It has to be fixed because a **Web application** OAuth client accepts only the
+redirect URIs listed in the Console, matched character for character including
+the trailing slash. Add `http://localhost:8765/` under *Authorized redirect
+URIs*, or Google answers with error 400 `redirect_uri_mismatch`. (A *Desktop*
+client would accept any loopback port without registration; a Web client is
+the right shape here because the app itself will use one later.)
+
+Use a different port with `make authorize AUTH_PORT=9000`, and register that
+URI too. It is `AUTH_PORT` rather than `PORT` because `PORT` already means
+"run the function on this port".
+
+The script sends `access_type=offline` and `prompt=consent`. Both are load
+bearing: without the first Google issues no refresh token at all, and without
+the second a *re-*authorization returns only an access token, because the
+refresh token is sent on the first grant alone. If you ever end up without
+one, revoke the app at myaccount.google.com/permissions and run it again.
+
+**Only the refresh token is stored.** The access token is shown so you can see
+the grant works, and then discarded: it lasts about an hour, so a stored copy
+would almost always be stale, and `google-auth` mints a fresh one from the
+refresh token whenever a function needs it.
+
 Still to wire up:
 
 - **The Postgres store** — replace `create_store()`.
