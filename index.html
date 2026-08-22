@@ -10235,18 +10235,47 @@ function csvAmountBand(a){
   return 'd';
 }
 
+/* A lesson is stored under TWO keys: the merchant with its amount band, and the
+   merchant alone.
+
+   The band exists so a place you spend two very different ways can be taught two
+   answers — the same shop for a coffee and for a month's groceries. But it also
+   meant a merchant taught at one size was a stranger at another: REVI PHU MY
+   HUNG TOWER learned at 2.888đ (band 'a') told us nothing about the same shop at
+   120.000đ (band 'b'), and the category people had already given us was silently
+   not carried. Bands are 50k / 500k / 5M, so ordinary spending crosses them all
+   the time.
+
+   Banded key wins on lookup, bare key is the fallback. Specific knowledge still
+   beats general knowledge; general knowledge beats none, which is what we had. */
+function csvLearnKeyBase(c){
+  return csvPatternKey(c) || '';
+}
 function csvLearnKey(c){
   var k = csvPatternKey(c);
   return k ? (k + '|' + csvAmountBand(c.amount)) : '';
+}
+// The one place that answers "what did we learn about this merchant?", so the
+// precedence lives here rather than being re-derived at each call site.
+function csvLearnedCat(c){
+  var k = csvLearnKey(c);
+  if (k && csvLearned[k]) return csvLearned[k];
+  var b = csvLearnKeyBase(c);
+  if (b && b.length >= 6 && csvLearned[b]) return csvLearned[b];
+  return null;
 }
 
 function csvLearnFrom(c){
   if(!c || !c.categoryName || c.catSource !== 'user') return;
   var k = csvLearnKey(c);
   if(!k || k.length < 6) return;
-  if(csvLearned[k] === c.categoryName) return;
-  csvLearned[k] = c.categoryName;
-  csvLearnSave();
+  var base = csvLearnKeyBase(c);
+  // Write both. The bare key is what makes the lesson carry to the same merchant
+  // at a different size; the banded one keeps a deliberate per-size answer intact.
+  var changed = false;
+  if(csvLearned[k] !== c.categoryName){ csvLearned[k] = c.categoryName; changed = true; }
+  if(base && base.length >= 6 && csvLearned[base] !== c.categoryName){ csvLearned[base] = c.categoryName; changed = true; }
+  if(changed) csvLearnSave();
 }
 
 // Wipes what this device has learned -- a bad lesson shouldn't be permanent.
@@ -10358,8 +10387,8 @@ function buildCsvCandidates(parsed, result) {
       if (h) { catName = h; catSource = 'history'; }
     }
     if (!catName) {
-      var lk = csvLearnKey({ counterparty: party, description: desc, amount: amount });
-      if (lk && csvLearned[lk] && csvCatOk(csvLearned[lk])) { catName = csvLearned[lk]; catSource = 'learned'; }
+      var lc = csvLearnedCat({ counterparty: party, description: desc, amount: amount });
+      if (lc && csvCatOk(lc)) { catName = lc; catSource = 'learned'; }
     }
     /* The MCC column, when a credit-card statement has one, is the cleanest
        signal in the whole file: "5411-Grocery Stores" is the network telling
