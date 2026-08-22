@@ -33,3 +33,22 @@ def test_lookalike_domain_does_not_match():
 def test_suffix_without_dot_does_not_match():
     # notmomo.vn is a different domain from momo.vn
     assert senders.match("no-reply@notmomo.vn") is None
+
+
+def test_allowlisted_test_addresses_match():
+    assert senders.match("tranminhquang4421@gmail.com") == "test"
+    assert senders.match("j2team.tranminhquang@gmail.com") == "test"
+
+
+def test_allowlist_ignores_case_and_display_name():
+    assert senders.match("Hien <HienCao27110505@Gmail.com>") == "test"
+
+
+def test_other_gmail_addresses_are_still_ignored():
+    # The allowlist is exact addresses; gmail.com as a domain would let every
+    # personal email through.
+    assert senders.match("stranger@gmail.com") is None
+
+
+def test_allowlist_does_not_disturb_real_senders():
+    assert senders.match("no-reply@momo.vn") == "momo"

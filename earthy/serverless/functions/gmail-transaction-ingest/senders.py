@@ -8,6 +8,24 @@ trivially spoofable. A real deployment should also verify SPF/DKIM before
 trusting anything parsed out of the body.
 """
 
+# Exact addresses treated as a transaction source, so the pipeline can be
+# exercised end to end without waiting for a real bank email.
+#
+# Whole addresses, not domains, and deliberately kept out of KNOWN_SENDERS:
+# every one is @gmail.com, and a gmail.com entry in the domain table would
+# admit every personal email in the mailbox.
+#
+# TEMPORARY — remove once real bank mail is flowing.
+TEST_SENDERS: frozenset[str] = frozenset(
+    {
+        "tranminhquang4421@gmail.com",
+        "hiencao27110505@gmail.com",
+        "gichisreading@gmail.com",
+        "j2team.tranminhquang@gmail.com",
+    }
+)
+
+
 # domain -> short label used in logs
 KNOWN_SENDERS: dict[str, str] = {
     # banks
@@ -37,11 +55,22 @@ def sender_domain(from_header: str) -> str:
     return domain.lower()
 
 
+def address(from_header: str) -> str:
+    """The bare address out of a From header, lowercased."""
+    addr = from_header.rsplit("<", 1)[-1].rstrip(">").strip()
+    return addr.lower()
+
+
 def match(from_header: str) -> str | None:
     """Return the sender's label, or None if it is not a known source.
 
     Subdomains count: `no-reply@mail.momo.vn` matches `momo.vn`.
     """
+    # Exact-address allowlist first: these are test accounts, and they would
+    # never match on domain.
+    if address(from_header) in TEST_SENDERS:
+        return "test"
+
     domain = sender_domain(from_header)
     if not domain:
         return None
