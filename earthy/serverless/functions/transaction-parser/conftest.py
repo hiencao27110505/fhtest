@@ -12,7 +12,7 @@ from pathlib import Path
 _HERE = str(Path(__file__).parent)
 
 
-def pytest_collectstart():
+def pytest_collectstart() -> None:
     # Re-asserted per collection: sys.path order alone is not enough once a
     # sibling `main` is already in sys.modules.
     if _HERE in sys.path:

@@ -1,4 +1,4 @@
-.PHONY: help install sync sync-shared lock add new lint fmt typecheck test run emit freeze freeze-all \
+.PHONY: help install sync sync-shared lock add new lint fmt typecheck test run emit authorize freeze freeze-all \
         deploy clean list preflight enable-apis logs describe delete ensure-topic \
         grant-gmail-push check-gmail-push
 .DEFAULT_GOAL := help
@@ -49,6 +49,7 @@ help:
 	@echo "  make lint / make fmt      ruff check / ruff format"
 	@echo "  make typecheck            mypy across the workspace"
 	@echo "  make sync-shared          copy shared/ modules into each function"
+	@echo "  make authorize            grant Gmail access to a mailbox (opens a browser)"
 	@echo "  make freeze FN=<name>     regenerate that function's requirements.txt"
 	@echo "  make freeze-all           regenerate every requirements.txt"
 	@echo
@@ -107,6 +108,19 @@ SHARED_DIR := shared
 # The copies are generated: shared/ is the only place to edit them.
 sync-shared:
 	@uv run --no-project python tools/sync_shared.py
+
+# Interactive: opens a browser so you can grant Gmail access to one mailbox.
+# Only the account owner can do this — it is the consent step, not a lookup.
+# OUT=path writes the credentials to a file (mode 600) instead of printing them.
+# AUTH_PORT, not PORT: PORT already means "run the function on this port" and
+# defaults to 8080, which would silently override the script's own default.
+#
+# Whatever port you use must match a URI registered on the OAuth client. A Web
+# application client accepts only the redirect URIs listed in the Console,
+# unlike a Desktop client which allows any loopback port.
+authorize:
+	uv run python tools/gmail_authorize.py \
+	  $(if $(OUT),--out $(OUT),) $(if $(AUTH_PORT),--port $(AUTH_PORT),)
 
 # functions-framework signature types are http | event | cloudevent — a pubsub
 # trigger is delivered as a cloudevent, so it does not map 1:1 to gcf.trigger.
@@ -194,6 +208,17 @@ preflight:
 enable-apis:
 	gcloud services enable $(REQUIRED_APIS) --project=$(GCP_PROJECT)
 
+# Secret Manager entries a function declares in [tool.earthy] secrets, as a
+# --set-secrets argument. Mounted as env vars at run time, so nothing secret is
+# ever a plain --set-env-vars: a function's environment shows up in the console
+# and in `gcloud functions describe`.
+define secret_flags
+$(shell uv run --no-project python -c "import tomllib; \
+d=tomllib.load(open('$(FUNCTIONS_DIR)/$(1)/pyproject.toml','rb')); \
+v=d.get('tool',{}).get('earthy',{}).get('secrets',[]); \
+print('--set-secrets=' + ','.join(f'{e}:latest' for e in v) if v else '')")
+endef
+
 # http  -> --trigger-http (+ optional --allow-unauthenticated)
 # pubsub -> --trigger-topic=<topic>, never publicly invocable
 trigger_flags = $(if $(filter http,$(call gcf,$(1),trigger)),\
@@ -212,7 +237,8 @@ deploy: sync-shared freeze preflight
 	  --entry-point=$(call gcf,$(FN),entry-point) \
 	  --runtime=$(call gcf,$(FN),runtime) \
 	  --region=$(call gcf,$(FN),region) \
-	  $(call trigger_flags,$(FN))
+	  $(call trigger_flags,$(FN)) \
+	  $(call secret_flags,$(FN))
 	@echo
 	@if [ "$(call gcf,$(FN),trigger)" = "http" ]; then \
 	  echo "url: $$(gcloud functions describe $(FN) --gen2 --project=$(GCP_PROJECT) \

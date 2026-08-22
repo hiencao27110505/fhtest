@@ -18,12 +18,8 @@ _AMOUNT = re.compile(
 )
 
 # Banks mark direction with a sign next to the amount, or with wording.
-_CREDIT_WORDS = re.compile(
-    r"ghi có|nhận tiền|tiền vào|cộng tiền|\+\s*\d", re.IGNORECASE
-)
-_DEBIT_WORDS = re.compile(
-    r"ghi nợ|thanh toán|chuyển tiền|trừ tiền|tiền ra|-\s*\d", re.IGNORECASE
-)
+_CREDIT_WORDS = re.compile(r"ghi có|nhận tiền|tiền vào|cộng tiền|\+\s*\d", re.IGNORECASE)
+_DEBIT_WORDS = re.compile(r"ghi nợ|thanh toán|chuyển tiền|trừ tiền|tiền ra|-\s*\d", re.IGNORECASE)
 
 # "Số dư: 5.000.000" — captured separately so it is not mistaken for the
 # transaction amount, which is the single most common parsing error here.

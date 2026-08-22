@@ -17,5 +17,11 @@ topic = "transaction-detected"
 region = "asia-southeast1"
 runtime = "python312"
 
+# Secret Manager entries mounted as env vars at deploy time.
+# Never plain --set-env-vars: a function's environment is visible
+# in the console and in `gcloud functions describe`.
+[tool.earthy]
+secrets = []
+
 [tool.uv]
 package = false

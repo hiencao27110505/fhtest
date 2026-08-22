@@ -41,7 +41,16 @@ STORE = accounts.create_store()
 
 @functions_framework.http
 def main(request: Request) -> tuple[str, int]:
+    """HTTP entry point. The request carries nothing this job needs."""
+    return renew_all()
+
+
+def renew_all() -> tuple[str, int]:
     """Renew every connected mailbox, and report what happened.
+
+    Separate from the entry point so it can be called — and typed — without
+    Flask in the way; the decorator widens `main`'s return type to Flask's
+    response union.
 
     One mailbox failing must not stop the others: a single revoked token would
     otherwise leave every later mailbox unrenewed, and they would all lapse
@@ -63,7 +72,7 @@ def main(request: Request) -> tuple[str, int]:
 
     for email in emails:
         try:
-            history_id = _renew_one(email, topic)
+            expires_at = _renew_one(email, topic)
         except gmail_auth.TokenRejected:
             # Not a failure to retry: the user has to reconnect. Recorded so
             # the next run skips them and the app can prompt.
@@ -78,7 +87,7 @@ def main(request: Request) -> tuple[str, int]:
             failed.append({"email": email, "error": type(exc).__name__})
             continue
         renewed.append(email)
-        log.info("renewed %s, historyId=%s", email, history_id)
+        log.info("renewed %s, watch expires %s", email, expires_at)
 
     body: dict[str, object] = {
         "renewed": len(renewed),
@@ -94,11 +103,12 @@ def main(request: Request) -> tuple[str, int]:
 
 
 def _renew_one(email: str, topic: str) -> str:
-    """Register the watch for one mailbox and return its current historyId.
+    """Register the watch for one mailbox and return its new expiry.
 
-    The historyId returned here is the mailbox's position *now*. It is stored
-    only when the mailbox has no cursor yet: overwriting an existing one would
-    skip every message between the old cursor and this moment.
+    watch() returns the mailbox's position *now* plus when the registration
+    lapses. Both are handed to the store in one call: it keeps an existing
+    cursor and only fills in a missing one, because overwriting a live cursor
+    with "now" would skip every message in between.
     """
     account = STORE.get(email)
     service = gmail_auth.build_client(account.refresh_token)
@@ -115,23 +125,23 @@ def _renew_one(email: str, topic: str) -> str:
         )
         .execute()
     )
-    history_id = str(result["historyId"])
 
-    if account.history_id is None:
-        # First registration: this is the starting point for the first
-        # notification. Without it the handler has no window to read.
-        STORE.save_history_id(email, history_id)
+    # expiration is epoch MILLISECONDS (13 digits), not seconds.
+    expires_at = int(result["expiration"])
+    STORE.save_watch(email, str(result["historyId"]), expires_at)
+    return _iso(expires_at)
 
-    return history_id
+
+def _iso(epoch_millis: int) -> str:
+    """Epoch millis as an ISO timestamp, for the log line."""
+    from datetime import UTC, datetime  # noqa: PLC0415
+
+    return datetime.fromtimestamp(epoch_millis / 1000, tz=UTC).isoformat()
 
 
 def _project() -> str:
     """Project id, from the runtime env on GCP or GCP_PROJECT locally."""
-    return (
-        os.environ.get("GCP_PROJECT")
-        or os.environ.get("GOOGLE_CLOUD_PROJECT")
-        or ""
-    )
+    return os.environ.get("GCP_PROJECT") or os.environ.get("GOOGLE_CLOUD_PROJECT") or ""
 
 
 def _response(body: dict[str, object], status: int) -> tuple[str, int]:
