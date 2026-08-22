@@ -83,6 +83,32 @@ A brand-new project needs two things before the first deploy:
 `make preflight` reports which of these is missing and exits non-zero, so it is
 safe to run at any time.
 
+### Letting Gmail publish into the watch topic
+
+`make grant-gmail-push` — done once per project, and already applied to
+`fhtest-502915`. `make check-gmail-push` verifies it.
+
+This is the one grant that makes the whole pipeline possible, and it is worth
+understanding rather than copying. `users.watch()` is called with **the end
+user's** OAuth token, which authorizes reading *their mailbox* and confers no
+access to your GCP project at all. The `topicName` you pass is a destination
+string, not a permission claim.
+
+The publishing is done by **Gmail itself**, under Google's own identity
+`gmail-api-push@system.gserviceaccount.com`, which reaches your topic only
+because you granted it `roles/pubsub.publisher` ahead of time. So there are two
+separate authorizations — user → Gmail, and Gmail → your topic — and this
+binding is the only thing connecting them. The end user needs no GCP account,
+no permission, and no awareness that this project exists.
+
+The grant is on the **topic**, not the project: Pub/Sub IAM is per-resource, and
+a project-wide grant to a Google system account would be needlessly broad.
+`transaction-detected` deliberately does not carry it — nothing outside this
+project publishes there.
+
+Verified details, including what Google does *not* document, are in
+[`research/gmail-push-pubsub-oauth.md`](../../research/gmail-push-pubsub-oauth.md).
+
 ## Sharing code between functions
 
 Cloud Functions deploys **one directory**, so a module two functions both
@@ -265,10 +291,11 @@ Still to wire up:
 - **The OAuth callback** in the app: exchange the code with
   `access_type=offline` and `prompt=consent`, or Google returns an access token
   with no refresh token. The refresh token is shown **once**, at first grant.
-- **Gmail watch**: grant `pubsub.publisher` on `gmail-events` to
-  `gmail-api-push@system.gserviceaccount.com`, then call `users.watch()` per
-  connected mailbox. A watch **expires after 7 days** and must be renewed, or
-  the pipeline goes quiet with no error.
+- **Gmail watch**: call `users.watch()` per connected mailbox — deploy
+  `gmail-watch-renew` and let Cloud Scheduler drive it daily. A watch
+  **expires after 7 days** and must be renewed, or the pipeline goes quiet
+  with no error. (The Pub/Sub grant it depends on is already in place; see
+  below.)
 - **Verification**: `gmail.readonly` is a restricted scope. Beyond 100 test
   users, Google requires app verification and a third-party security
   assessment — start that early, it is measured in weeks.
