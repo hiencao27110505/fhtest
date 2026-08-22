@@ -42,6 +42,47 @@ relaying messages through Slack/DMs by hand.
   - Forwarding rows are untouched; the four grandfathered connections keep their
     address and status screens.
 
+  **2026-08-22, later — the flow is now complete on our side, and there are two
+  things the BE needs from this entry.**
+
+  **A. What the connect call sends.** Shaped to fit `api/gmail-connect.js` as
+  already written on `bank-email-oauth`, so nothing has to change to accept it:
+
+  ```
+  POST /api/gmail-connect     Authorization: Bearer <supabase access token>
+  { memberId, email, chooseAccount }
+  ```
+  - `email` is the `login_hint`. It carries the login address when the person
+    kept it, and is **EMPTY when they chose to switch accounts** — empty is the
+    switch. Your handler already does `login_hint: body.email || ''`, and Google
+    with no hint shows its account picker, so the choice works against the
+    endpoint as it stands.
+  - `chooseAccount` is optional and additive. If you add `select_account` to the
+    prompt when it is true, the picker also appears for someone with a single
+    signed-in account. Ignoring it costs nothing — that is why it is a separate
+    field rather than a second meaning for `email`.
+
+  **B. The return contract — I proposed one, please redirect to it.** After you
+  finish the code exchange, send them back to the app origin with:
+
+  ```
+  ?fh_gmail=connected     grant stored, sync will start
+  ?fh_gmail=denied        declined on Google's screen
+  ?fh_gmail=error         anything else
+  ```
+  `?gmail=` is accepted as an alias. The client reads it once, eats it from the
+  URL, and shows a real outcome screen (connected / declined / failed) instead
+  of the silent app boot that a bare redirect gives today. **An unrecognised
+  value is ignored, never guessed at** — so if you pick different spellings this
+  degrades to today's silence rather than telling someone they are connected
+  when nobody knows. `tools/autotxn-return.test.js` pins that (22 assertions).
+
+  **C. Known limit, not a bug:** this path is Google accounts only. Someone
+  whose bank writes to a non-Google address cannot use it, and no wording on the
+  screen fixes that — forwarding is their answer. I did NOT add a fork back to
+  the forwarding flow, because that is a product decision and it collides with
+  the entry-point question in item 1 below.
+
   **Two things I found on rebasing onto your work, both worth your call:**
 
   1. **There are now three entry points to bank-email, on two different

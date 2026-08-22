@@ -41,12 +41,70 @@
   };
   const _atxGlyph = (k) => _ATX_SVG[k] || _mbxGlyph(k);
 
+  /* WHICH ACCOUNT WE READ FROM — the one question this flow has to ask, and
+     the reason it is a row on the offer screen rather than a step of its own.
+
+     Two states, no text field:
+       login  → read from the address they signed in with. The default, because
+                it is right for almost everyone and costs them zero taps.
+       choose → they pick the account on Google's own screen.
+
+     WHY NOT AN EDITABLE FIELD, the way the forwarding flow asks (fhMailboxWhichEmail):
+     there, `personal_email` is a claim we compare against the address that
+     forwarded the mail, so typing it is the whole mechanism. Here it is not a
+     claim at all — access exists only for the Google account that actually
+     signs in and consents. A field would let someone type an address, watch us
+     accept it, and then read a different one on Google's screen. So the switch
+     hands off to Google's account picker, which is the only thing that can
+     really answer the question.
+
+     Consequence worth knowing: this path is Google accounts only. Someone whose
+     bank writes to a non-Google address cannot use it, and no wording here can
+     fix that — forwarding is their answer. Left as a note for the BE handoff
+     rather than a third button, because a fork back to the other transport is a
+     product decision, not a UI one. */
+  let _atxUseLogin = true;
+
+  const _atxLoginEmail = () => (window.FAM && window.FAM.user && window.FAM.user.email) || '';
+
+  function _atxAcctRow() {
+    const email = _atxLoginEmail();
+    // No login email at all (shouldn't happen — sign-in is Google) — don't offer
+    // a switch away from something we cannot name; Google will ask.
+    if (!email) _atxUseLogin = false;
+    const on = _atxUseLogin && !!email;
+    return '<div class="atx-acct" id="atx-acct">' +
+      '<div class="atx-acct-ic">' + _mbxGlyph('mail') + '</div>' +
+      '<div class="atx-acct-txt">' +
+        '<div class="atx-acct-lbl">' + _esc(L('Đọc thư từ', 'Reading from')) + '</div>' +
+        '<div class="atx-acct-val">' + _esc(on ? email
+          : L('Tài khoản bạn chọn ở màn hình Google', 'The account you pick on Google’s screen')) + '</div>' +
+      '</div>' +
+      (email
+        ? '<button class="atx-acct-sw" onclick="fhAutoTxnSwitchAcct()">' +
+            _esc(on ? L('Đổi', 'Change') : L('Dùng email này', 'Use this one')) + '</button>'
+        : '') +
+      '</div>';
+  }
+
+  /* Re-renders the row in place rather than the whole sheet: the person is
+     mid-decision and the screen must not jump under them. */
+  window.fhAutoTxnSwitchAcct = function () {
+    _atxUseLogin = !_atxUseLogin;
+    const row = document.getElementById('atx-acct');
+    if (!row) return;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = _atxAcctRow();
+    row.replaceWith(wrap.firstChild);
+  };
+
   /* The single entry point. Deliberately does NOT branch on connection state
      yet: main has no read side for oauth connections (get_my_mailbox_connections
      lands with the backend, on branch bank-email-oauth), so there is nothing
      truthful to render for "already connected". When that RPC arrives, the
      status branch goes HERE, ahead of the intro, the way fhMailboxSheet does it. */
   window.fhAutoTxnSheet = function () {
+    _atxUseLogin = true;                       // fresh decision each time it opens
     _fhSheet(
       '<div class="mbx-hero">' + _atxGlyph('auto') + '</div>' +
       '<div class="sheet-h">' + _esc(L('Tự động ghi giao dịch', 'Automatic transaction logging')) + '</div>' +
@@ -70,6 +128,8 @@
         'Màn hình của Google sẽ xin quyền đọc thư. Google chỉ có đúng một quyền như vậy và nó bao trùm cả hộp thư, không có quyền nào hẹp hơn. Tụi mình chỉ tải email ngân hàng, và bạn gỡ quyền trong tài khoản Google bất cứ lúc nào.',
         'Google’s screen asks for permission to read your mail. Google offers exactly one such permission and it covers the whole mailbox, there is no narrower one. We only ever fetch bank email, and you can revoke access in your Google account at any time.')) + '</span></div>' +
 
+      _atxAcctRow() +
+
       '<button class="cta" id="atx-go" onclick="fhAutoTxnGrant()">' +
         _esc(L('Bắt đầu: cho phép đọc email', 'Start by granting email access')) + '</button>' +
       '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
@@ -83,19 +143,38 @@
       '<div class="mbx-rs">' + _esc(sub) + '</div></div></div>';
   }
 
-  /* Hands off to Google. /api/gmail-connect grants nothing by itself: it checks
-     the caller owns the member row and returns a signed consent URL. The member
-     id is required — without it the callback has no ledger to attach the mailbox
-     to, and guessing would attach it to the wrong person.
+  /* ── the handoff ───────────────────────────────────────────────────────────
+     This is the seam with the backend. We get the person to Google's consent
+     screen; from the callback on, it is the BE dev's.
+
+     /api/gmail-connect grants nothing by itself: it checks the caller owns the
+     member row and returns a consent URL whose state is signed, so the callback
+     can trust who started the flow. The member id is required — without it the
+     callback has no ledger to attach the mailbox to, and guessing would attach
+     it to the wrong person.
+
+     WHAT WE SEND, and why it is shaped for their existing handler:
+       memberId       — required, checked against the caller's user_id there.
+       email          — the login_hint. The login address when they kept it,
+                        EMPTY when they chose to switch. Empty is the switch:
+                        their handler already does `login_hint: body.email || ''`,
+                        and Google with no hint shows its account picker. So the
+                        choice works against the endpoint as already written, with
+                        no change needed on their side.
+       chooseAccount  — optional, additive. If they add `select_account` to the
+                        prompt when this is true, the picker appears even for
+                        someone with a single signed-in account. Ignoring it costs
+                        nothing, which is why it is a second field and not a
+                        different meaning for the first.
 
      Full navigation rather than a popup, deliberately: iOS Safari blocks a
-     window.open that happens after an await, and the consent flow has to land
-     back on a real page regardless.
+     window.open issued after an await, and the consent flow has to land back on
+     a real page regardless.
 
-     The endpoint is not on main yet (it belongs to the OAuth backend on branch
-     bank-email-oauth), so 404 is a live, expected state during the beta and gets
-     its own honest line instead of "try again", which would send people tapping
-     at something that cannot work yet. */
+     404 is a live, expected state right now — the endpoint ships with the OAuth
+     backend (branch bank-email-oauth) — so it gets an honest line rather than
+     "try again", which would send people tapping at something that cannot work
+     yet. */
   window.fhAutoTxnGrant = async function () {
     const btn = document.getElementById('atx-go');
     const label = L('Bắt đầu: cho phép đọc email', 'Start by granting email access');
@@ -109,13 +188,17 @@
     if (btn) { btn.disabled = true; btn.textContent = L('Đang mở Google…', 'Opening Google…'); }
 
     let tok = '';
-    try { tok = ((await sb.auth.getSession()).data.session || {}).access_token || ''; } catch (e) { /* handled by the 401 below */ }
+    try { tok = ((await sb.auth.getSession()).data.session || {}).access_token || ''; } catch (e) { /* surfaces as the 401 below */ }
 
     try {
       const r = await fetch('/api/gmail-connect', {
         method: 'POST',
         headers: Object.assign({ 'Content-Type': 'application/json' }, tok ? { Authorization: 'Bearer ' + tok } : {}),
-        body: JSON.stringify({ memberId: mid, email: (window.FAM && window.FAM.user && window.FAM.user.email) || '' }),
+        body: JSON.stringify({
+          memberId: mid,
+          email: _atxUseLogin ? _atxLoginEmail() : '',
+          chooseAccount: !_atxUseLogin,
+        }),
       });
       if (r.status === 404) {
         window.toast && window.toast(L('Tính năng này đang được bật, ghé lại sau nhé', 'We’re still switching this on. Check back soon.'));
@@ -130,4 +213,85 @@
       reset();
     }
   };
+
+  /* ── coming back ───────────────────────────────────────────────────────────
+     Google sends the person to the BE callback, which finishes the exchange and
+     redirects here. Without this the journey ends on a silent app boot that
+     looks identical to a cold start, and nobody can tell whether it worked.
+
+     THE RETURN CONTRACT, proposed here so the BE dev has something concrete to
+     redirect to (documented in AGENT_SYNC): land on the app origin with
+       ?fh_gmail=connected            — grant stored, sync will start
+       ?fh_gmail=denied               — the person declined on Google's screen
+       ?fh_gmail=error                — anything else went wrong
+     `?gmail=` is accepted as an alias. An unrecognised value is ignored rather
+     than guessed at, so a different choice on their side degrades to today's
+     silence instead of a wrong screen.
+
+     The param is eaten on arrival (67-card-ui.js does the same for key
+     fragments): a reload should not replay a one-time outcome, and the value
+     should not sit in the address bar or a share sheet. */
+  function _atxReturnState() {
+    try {
+      const q = new URLSearchParams(location.search);
+      const v = (q.get('fh_gmail') || q.get('gmail') || '').toLowerCase();
+      if (v !== 'connected' && v !== 'denied' && v !== 'error') return null;
+      q.delete('fh_gmail'); q.delete('gmail');
+      const qs = q.toString();
+      try { history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash); } catch (e) {}
+      return v;
+    } catch (e) { return null; }
+  }
+
+  function fhAutoTxnDone(state) {
+    if (state === 'connected') {
+      return _fhSheet(
+        '<div class="mbx-hero">' + _mbxGlyph('done') + '</div>' +
+        '<div class="sheet-h">' + _esc(L('Đã kết nối', 'Connected')) + '</div>' +
+        '<div class="sheet-sub">' + _esc(L(
+          'Tụi mình bắt đầu tìm email giao dịch. Khoản nào tìm được sẽ nằm chờ bạn trong mục Duyệt giao dịch, không tự vào sổ.',
+          'We’ve started looking for transaction email. Anything we find waits for you in Review transactions, and never enters the ledger on its own.')) + '</div>' +
+        '<div class="mbx-note">' + _mbxGlyph('check') + '<span>' + _esc(L(
+          'Lần đầu có thể mất một lúc. Bạn cứ dùng app bình thường, có gì tụi mình báo.',
+          'The first pass can take a while. Carry on as normal, we’ll let you know.')) + '</span></div>' +
+        (window.fhTxnReviewSheet
+          ? '<button class="cta" onclick="fhTxnReviewSheet()">' + _esc(L('Xem mục duyệt', 'Open Review transactions')) + '</button>'
+          : '') +
+        '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
+      );
+    }
+    // Declining is a normal answer, not an error — no alarm colour, no blame,
+    // and the way back is one tap rather than a hunt through Settings.
+    const denied = state === 'denied';
+    _fhSheet(
+      '<div class="sheet-h">' + _esc(denied ? L('Chưa cấp quyền', 'Not granted')
+                                            : L('Chưa kết nối được', 'Couldn’t connect')) + '</div>' +
+      '<div class="sheet-sub">' + _esc(denied
+        ? L('Không sao cả. Bạn vẫn nhập tay như thường, và có thể bật lại bất cứ lúc nào.',
+            'That’s fine. You can keep adding transactions by hand, and turn this on whenever you like.')
+        : L('Có gì đó trục trặc giữa chừng. Thử lại giúp tụi mình nhé.',
+            'Something went wrong partway through. Give it another go.')) + '</div>' +
+      '<button class="cta" onclick="fhAutoTxnSheet()">' + _esc(L('Thử lại', 'Try again')) + '</button>' +
+      '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
+    );
+  }
+  window.fhAutoTxnDone = fhAutoTxnDone;
+
+  /* Waits for hydrate the way 73-mailbox-gate.js does, and for the same reason:
+     this file owns its own timing and touches no other module's boot path, so
+     getting it wrong cannot break onboarding. The sheet needs a hydrated app
+     behind it — opening it over a loading screen would be worse than waiting. */
+  (function _atxBootReturn() {
+    const state = _atxReturnState();          // read + eat immediately, before any await
+    if (!state) return;
+    const t0 = Date.now();
+    (function _wait() {
+      if (window.DB && window.DB._hydrated && window.fhUser) {
+        try { fhAutoTxnDone(state); } catch (e) {}
+        return;
+      }
+      if (Date.now() - t0 > 20000) return;
+      setTimeout(_wait, 400);
+    })();
+  })();
   

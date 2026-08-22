@@ -154,14 +154,15 @@ input{font-family:inherit}
 .hero-gear svg{width:16px;height:16px}
 .hero-ic{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.22);backdrop-filter:blur(4px);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .hero-ic svg{width:20px;height:20px}
-.theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.theme-opt{border-radius:16px;overflow:hidden;border:2px solid var(--hairline);cursor:pointer;background:var(--white);transition:transform .15s}
-.theme-opt:active{transform:scale(.98)}
-.theme-opt.on{border-color:var(--ink)}
-.theme-opt .sw{height:76px;position:relative}
-.theme-opt .sw .chk{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.92);display:none;align-items:center;justify-content:center}
-.theme-opt.on .sw .chk{display:flex}
-.theme-opt .nm{padding:11px 14px;font-weight:700;font-size:15px;letter-spacing:-.02em;color:var(--ink)}
+/* The theme picker was removed on 2026-08-22. Its .theme-grid / .theme-opt
+   rules went with it; the .phone.t-* palettes in 10-tokens.css deliberately did
+   NOT, because everyone who had already chosen a theme keeps it.
+
+   What is left is the note that explains that to them. Calm inset on a neutral
+   surface, never a warning tint (DESIGN §7) — nothing is wrong and there is
+   nothing for them to fix. */
+.theme-retire{background:var(--surface);border-radius:12px;padding:11px 13px;margin:14px 0 2px;
+  font-size:12.5px;line-height:1.5;color:var(--muted)}
 .hero-lab{font-size:14px;font-weight:600;color:rgba(255,255,255,.9);margin-top:20px}
 .hero-big{margin-top:2px;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
 .hero-big .n{font-family:var(--disp);font-weight:700;font-size:46px;letter-spacing:-2px;color:#fff;line-height:1}
@@ -2802,6 +2803,31 @@ html.fh-can-install .set-row.set-install{display:flex}
 @keyframes mbxPulse{0%,100%{opacity:.35}50%{opacity:1}}
 @media (prefers-reduced-motion:reduce){.mbx-conn.wait .mbx-conn-dot{animation:none;opacity:.6}}
 
+/* ---------- bank-email: which account are we reading? ---------- */
+/* Sits directly above the CTA on the auto-logging screen, as a "Continue as …"
+   row rather than its own step. Two reasons it is not a separate screen: almost
+   everyone reads from the address they signed in with, so a whole screen would
+   tax the many to serve the few; and the answer belongs NEXT TO the button it
+   changes, where it is still visible at the moment of the tap.
+
+   It is a row, not a form. For OAuth the switch cannot be a text field — a
+   different address only means anything once the person actually signs into
+   that Google account on Google's screen, so "change" hands the choice to
+   Google's own account picker rather than pretending we can take it here. */
+.atx-acct{display:flex;align-items:center;gap:11px;background:var(--surface);
+  border-radius:14px;padding:10px 10px 10px 12px;margin-bottom:14px}
+.atx-acct-ic{width:34px;height:34px;border-radius:10px;background:var(--white);color:var(--brand-ink);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.atx-acct-ic svg{width:19px;height:19px;display:block}
+.atx-acct-txt{flex:1;min-width:0}
+.atx-acct-lbl{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.atx-acct-val{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink);margin-top:1px;overflow-wrap:anywhere;line-height:1.35}
+/* 44px minimum target (DESIGN §3) — the row is only ~56px tall, so the button
+   fills its height rather than sitting as a small word people have to aim at. */
+.atx-acct-sw{flex-shrink:0;min-height:44px;padding:0 8px;background:none;border:0;
+  font-size:13.5px;font-weight:700;letter-spacing:-.01em;color:var(--brand-ink)}
+.atx-acct-sw:active{opacity:.55}
+
 /* ---------- bank-email: staged-review restyle ---------- */
 /* The "Duyệt giao dịch" screen reuses the CSV import review engine (renderCsvReview),
    which is built for a file-import workbench. For a short list of forwarded bank
@@ -3688,8 +3714,10 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 <div class="sheet" id="sheet-theme">
   <div class="grab"></div>
   <div class="sheet-h" data-t="settingsTitle">Settings</div>
-  <div class="sheet-sub" data-t="settingsSub">Pick a theme. It applies across the whole app.</div>
-  <div class="theme-grid" id="theme-grid"></div>
+  <!-- Theme-retirement note. Empty and hidden by default; 70-theme-i18n.js fills
+       it on sheet open ONLY for someone still on a non-Sage theme. Text is set
+       from JS (it names their theme), so it carries no data-t. -->
+  <div class="theme-retire" id="theme-retire" style="display:none"></div>
   <div class="set-actions">
     <!-- AUTO-LOGGING (bank email, direct read) — the newest thing this app does,
          so it sits first and carries the "New" badge. Same allowlist gate as the
@@ -5119,7 +5147,6 @@ function renderHome(){
   }
 
   var html = renderHearth();   // ONE time-shared strip: mood picker until you check in, then the "Chăm chút tổ ấm" nudge
-  if(typeof requestsWidgetHTML === 'function') html += requestsWidgetHTML();   // future-expense proposals awaiting my OK
   // one-time nudge so the tap-to-change-mood gesture is discoverable
   try{
     if(myW && !window._wpick && !localStorage.getItem('fh-moodtap')){
@@ -11587,17 +11614,12 @@ function _reqCard(item, incoming){
     +_reqStatusLine(item)+'</span>'+_reqChev()+'</button>';
 }
 
-/* ---- widget (Home + Finance) ---- */
-function requestsWidgetHTML(){
-  var items=reqPendingAll(); if(!items.length) return '';
-  var me=_futMeId();
-  var head=(typeof _sectionH==='function') ? _sectionH(L('Cả nhà cùng duyệt','Waiting for the family')+' · '+items.length, 'openRequests()', L('Xem tất cả','See all')) : '';
-  // others' → review card; my own → follow card (title + status)
-  return head+'<div class="req-list">'+items.slice(0,4).map(function(i){ return _reqCard(i, i.creatorId!==me); }).join('')+'</div>';
-}
-window.requestsWidgetHTML=requestsWidgetHTML;
-// Finance-tab mount is now Widget A's badged CTA (renderRequestsCta, 20-budget.js) — the
-// standalone #fin-requests widget was removed. Home still renders the full inline widget.
+/* ---- widget mounts ---- */
+/* Home no longer carries a proposals section. It was removed on request
+   (2026-08-22), and the inline widget that fed it went with it — Widget A's
+   badged CTA on Finance (renderRequestsCta, 20-budget.js) is now the only
+   surface, plus the full hub behind it. Nothing about the underlying feature
+   changed: proposals are still created, still routed, still reviewable. */
 function renderReqMounts(){ if(typeof renderRequestsCta==='function') renderRequestsCta(); }
 window.renderReqMounts=renderReqMounts;
 
@@ -12112,33 +12134,60 @@ function floatEmojis(emoji){
   }
 }
 
-/* ---------- theme (personalization) ---------- */
+/* ---------- theme ---------- */
+/* The picker is gone (2026-08-22), but the CHOICE is not taken away from anyone
+   who already made one. Someone on Ocean stays on Ocean; only people who never
+   picked get Sage. Retiring a preference is not the same as overriding it, and
+   the second one is what people notice and resent.
+
+   So `fh-theme` is still read at boot, and still validated against the list —
+   an unknown value (a hand-edited key, a theme we drop later) falls back to
+   Sage rather than painting `phone t-<garbage>` and losing every token.
+
+   NOTHING WRITES IT ANY MORE. applyTheme is called once at boot and never from
+   a tap, so the write-through that persisted the choice was deleted with the
+   picker (50-writethrough-realtime.js). localStorage was always the real store
+   here — hydrate never applied `profiles.theme` — so a chosen theme has always
+   been per-device, and still is.
+
+   applyTheme also sets meta[theme-color], which tints the iOS status bar and
+   the PWA splash, so it cannot collapse into a plain CSS class. */
 var THEMES=[
-  {k:'sage',name:'Sage',grad:'linear-gradient(150deg,#4CB584,#2E9E6B 52%,#8FC97E)',bar:'#2E9E6B'},
-  {k:'ocean',name:'Ocean',grad:'linear-gradient(150deg,#2AA9E0,#1E74D0 52%,#4FC2C9)',bar:'#1E74D0'},
-  {k:'lavender',name:'Lavender',grad:'linear-gradient(150deg,#9270E8,#7A5AE0 50%,#B98BE0)',bar:'#7A5AE0'},
-  {k:'blossom',name:'Blossom',grad:'linear-gradient(150deg,#F07898,#E0567F 50%,#D98AB0)',bar:'#E0567F'},
-  {k:'twilight',name:'Twilight',grad:'linear-gradient(150deg,#4A54C4,#3B3F86 55%,#6A5FC0)',bar:'#3B3F86'}
+  {k:'sage',name:'Sage',bar:'#2E9E6B'},
+  {k:'ocean',name:'Ocean',bar:'#1E74D0'},
+  {k:'lavender',name:'Lavender',bar:'#7A5AE0'},
+  {k:'blossom',name:'Blossom',bar:'#E0567F'},
+  {k:'twilight',name:'Twilight',bar:'#3B3F86'}
 ];
 var curTheme='sage';
 function applyTheme(k){
-  if(!THEMES.some(function(t){return t.k===k;}))return;
-  curTheme=k;
-  document.getElementById('phone').className='phone t-'+k;
   var t=THEMES.filter(function(x){return x.k===k;})[0];
-  var mt=document.querySelector('meta[name=theme-color]'); if(mt&&t)mt.setAttribute('content',t.bar);
-  try{ localStorage.setItem('fh-theme',k); }catch(e){}
-  buildThemeChoices();
+  if(!t) t=THEMES[0];                                   // unknown/absent -> Sage
+  curTheme=t.k;
+  var el=document.getElementById('phone'); if(el) el.className='phone t-'+t.k;
+  var mt=document.querySelector('meta[name=theme-color]'); if(mt) mt.setAttribute('content',t.bar);
 }
+window.applyTheme=applyTheme;
+
+/* The retirement note, and the reason it is CONDITIONAL: it is only rendered for
+   someone actually on a non-Sage theme. Everyone else never opened the picker
+   and is already where the app is heading, so a notice about a feature they
+   never used would be pure noise on a screen about something else.
+
+   It also says what happens TO THEM (their theme stays for now, the app moves to
+   Sage later) rather than announcing a change in the abstract, which is the part
+   people actually need. Wired to the existing openSheet('sheet-theme') hook, so
+   it re-evaluates every time Settings opens. */
 function buildThemeChoices(){
-  var box=document.getElementById('theme-grid'); if(!box)return;
-  box.innerHTML=THEMES.map(function(t){
-    return '<div class="theme-opt'+(t.k===curTheme?' on':'')+'" onclick="applyTheme(\''+t.k+'\')">'
-      +'<div class="sw" style="background:'+t.grad+'"><div class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#191022" stroke-width="3.2"><path d="M5 12l5 5L20 7"/></svg></div></div>'
-      +'<div class="nm">'+t.name+'</div></div>';
-  }).join('');
+  var box=document.getElementById('theme-retire'); if(!box) return;
+  if(curTheme==='sage'){ box.style.display='none'; box.innerHTML=''; return; }
+  var t=THEMES.filter(function(x){return x.k===curTheme;})[0];
+  var nm=t?t.name:curTheme;
+  box.style.display='';
+  box.textContent=L('Bạn đang dùng giao diện '+nm+'. Tụi mình sắp bỏ phần chọn giao diện. Bạn cứ giữ nguyên giao diện này, sau này app sẽ chuyển về Sage.',
+                    'You’re on the '+nm+' theme. We’re retiring theme choice soon. Yours stays as it is for now, and the app moves to Sage later.');
 }
-(function(){ var s; try{s=localStorage.getItem('fh-theme');}catch(e){} if(s) applyTheme(s); })();
+(function(){ var s; try{s=localStorage.getItem('fh-theme');}catch(e){} applyTheme(s||'sage'); })();
 
 function firstName(n){ return (n||'').trim().split(/\s+/)[0]||'there'; }
 function setGreeting(){
@@ -12249,7 +12298,7 @@ var EN_DEFAULT={
   addMemoryTitle:'Add a memory', memorySub:'Save a photo from this event. Caption is optional.',
   photoLbl:'Photo', uploadPhotos:'📷 Upload photos', captionOpt:'Caption (optional)', phMemCap:'e.g. Best day of the trip',
   /* settings sheet */
-  settingsTitle:'Settings', settingsSub:'Pick a theme. It applies across the whole app.',
+  settingsTitle:'Settings',
   setAutoTxn:'Auto-log transactions', badgeNew:'New',
   setMyProfile:'My profile', setLanguage:'Language', setSwitchFamily:'Switch family', inviteMember2:'Invite a member', setManageFamily:'Manage family & members', setDevices:'Signed-in devices', setEncryption:'Money encryption', setMailbox:'Connect bank email', setReviewTxns:'Review transactions',
   setSavedEvents:'Saved for events', setIncome:'Income', setNotifications:'Notifications', setRestartOnboarding:'Restart onboarding', setSignOut:'Sign out',
@@ -12353,7 +12402,7 @@ var I18N={
     addMemoryTitle:'Thêm kỷ niệm', memorySub:'Lưu một tấm ảnh từ sự kiện này. Chú thích tuỳ bạn thôi.',
     photoLbl:'Ảnh', uploadPhotos:'📷 Tải ảnh lên', captionOpt:'Chú thích (tuỳ chọn)', phMemCap:'vd. Ngày vui nhất chuyến đi',
     /* settings sheet */
-    settingsTitle:'Cài đặt', settingsSub:'Chọn giao diện, áp dụng cho cả ứng dụng.',
+    settingsTitle:'Cài đặt',
     setAutoTxn:'Tự động ghi giao dịch', badgeNew:'Mới',
     setMyProfile:'Hồ sơ của tôi', setLanguage:'Ngôn ngữ', setSwitchFamily:'Đổi gia đình', inviteMember2:'Mời thành viên', setManageFamily:'Quản lý gia đình & thành viên', setDevices:'Thiết bị đăng nhập', setEncryption:'Mã hóa tài chính', setMailbox:'Kết nối email ngân hàng', setReviewTxns:'Duyệt giao dịch',
     setSavedEvents:'Quỹ cho sự kiện', setIncome:'Thu nhập', setNotifications:'Thông báo', setRestartOnboarding:'Chạy lại phần giới thiệu', setSignOut:'Đăng xuất',
@@ -16531,12 +16580,17 @@ window.classifyAmount = classifyAmount;
   const _origSetBudget = window.setBudget;
   window.setBudget = function () { if (_fhWriteLocked()) return; _origSetBudget.apply(this, arguments); _dbSaveBudget(); };
 
-  // ---- write-through: theme ----
-  const _origApplyTheme = window.applyTheme;
-  window.applyTheme = function (k) {
-    _origApplyTheme.apply(this, arguments);
-    try { if (window.fhUser && window.DB.fid && k) sb.from('profiles').update({ theme: k }).eq('id', window.fhUser.id); } catch (e) {}
-  };
+  // ---- write-through: theme — REMOVED 2026-08-22 ----
+  /* The picker is gone (70-theme-i18n.js). People who already chose a theme keep
+     it, but nothing in the app can CHANGE one any more: applyTheme is called
+     once at boot, from localStorage, and never from a tap. So there is no longer
+     a moment at which a choice needs persisting.
+
+     Deleted rather than left in place, even though it was harmless: a
+     write-through for a setting nothing can set reads as live code, and would
+     invite someone to wire a picker back to it without checking that the write
+     path still works. `profiles.theme` still exists and onboarding still writes
+     it — restoring the picker means restoring this block too. */
 
   // ---- write-through: emotional weather (one shared mood per member) ----
   window.saveWeather = async function (weather) {
@@ -20591,12 +20645,70 @@ window.classifyAmount = classifyAmount;
   };
   const _atxGlyph = (k) => _ATX_SVG[k] || _mbxGlyph(k);
 
+  /* WHICH ACCOUNT WE READ FROM — the one question this flow has to ask, and
+     the reason it is a row on the offer screen rather than a step of its own.
+
+     Two states, no text field:
+       login  → read from the address they signed in with. The default, because
+                it is right for almost everyone and costs them zero taps.
+       choose → they pick the account on Google's own screen.
+
+     WHY NOT AN EDITABLE FIELD, the way the forwarding flow asks (fhMailboxWhichEmail):
+     there, `personal_email` is a claim we compare against the address that
+     forwarded the mail, so typing it is the whole mechanism. Here it is not a
+     claim at all — access exists only for the Google account that actually
+     signs in and consents. A field would let someone type an address, watch us
+     accept it, and then read a different one on Google's screen. So the switch
+     hands off to Google's account picker, which is the only thing that can
+     really answer the question.
+
+     Consequence worth knowing: this path is Google accounts only. Someone whose
+     bank writes to a non-Google address cannot use it, and no wording here can
+     fix that — forwarding is their answer. Left as a note for the BE handoff
+     rather than a third button, because a fork back to the other transport is a
+     product decision, not a UI one. */
+  let _atxUseLogin = true;
+
+  const _atxLoginEmail = () => (window.FAM && window.FAM.user && window.FAM.user.email) || '';
+
+  function _atxAcctRow() {
+    const email = _atxLoginEmail();
+    // No login email at all (shouldn't happen — sign-in is Google) — don't offer
+    // a switch away from something we cannot name; Google will ask.
+    if (!email) _atxUseLogin = false;
+    const on = _atxUseLogin && !!email;
+    return '<div class="atx-acct" id="atx-acct">' +
+      '<div class="atx-acct-ic">' + _mbxGlyph('mail') + '</div>' +
+      '<div class="atx-acct-txt">' +
+        '<div class="atx-acct-lbl">' + _esc(L('Đọc thư từ', 'Reading from')) + '</div>' +
+        '<div class="atx-acct-val">' + _esc(on ? email
+          : L('Tài khoản bạn chọn ở màn hình Google', 'The account you pick on Google’s screen')) + '</div>' +
+      '</div>' +
+      (email
+        ? '<button class="atx-acct-sw" onclick="fhAutoTxnSwitchAcct()">' +
+            _esc(on ? L('Đổi', 'Change') : L('Dùng email này', 'Use this one')) + '</button>'
+        : '') +
+      '</div>';
+  }
+
+  /* Re-renders the row in place rather than the whole sheet: the person is
+     mid-decision and the screen must not jump under them. */
+  window.fhAutoTxnSwitchAcct = function () {
+    _atxUseLogin = !_atxUseLogin;
+    const row = document.getElementById('atx-acct');
+    if (!row) return;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = _atxAcctRow();
+    row.replaceWith(wrap.firstChild);
+  };
+
   /* The single entry point. Deliberately does NOT branch on connection state
      yet: main has no read side for oauth connections (get_my_mailbox_connections
      lands with the backend, on branch bank-email-oauth), so there is nothing
      truthful to render for "already connected". When that RPC arrives, the
      status branch goes HERE, ahead of the intro, the way fhMailboxSheet does it. */
   window.fhAutoTxnSheet = function () {
+    _atxUseLogin = true;                       // fresh decision each time it opens
     _fhSheet(
       '<div class="mbx-hero">' + _atxGlyph('auto') + '</div>' +
       '<div class="sheet-h">' + _esc(L('Tự động ghi giao dịch', 'Automatic transaction logging')) + '</div>' +
@@ -20620,6 +20732,8 @@ window.classifyAmount = classifyAmount;
         'Màn hình của Google sẽ xin quyền đọc thư. Google chỉ có đúng một quyền như vậy và nó bao trùm cả hộp thư, không có quyền nào hẹp hơn. Tụi mình chỉ tải email ngân hàng, và bạn gỡ quyền trong tài khoản Google bất cứ lúc nào.',
         'Google’s screen asks for permission to read your mail. Google offers exactly one such permission and it covers the whole mailbox, there is no narrower one. We only ever fetch bank email, and you can revoke access in your Google account at any time.')) + '</span></div>' +
 
+      _atxAcctRow() +
+
       '<button class="cta" id="atx-go" onclick="fhAutoTxnGrant()">' +
         _esc(L('Bắt đầu: cho phép đọc email', 'Start by granting email access')) + '</button>' +
       '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
@@ -20633,19 +20747,38 @@ window.classifyAmount = classifyAmount;
       '<div class="mbx-rs">' + _esc(sub) + '</div></div></div>';
   }
 
-  /* Hands off to Google. /api/gmail-connect grants nothing by itself: it checks
-     the caller owns the member row and returns a signed consent URL. The member
-     id is required — without it the callback has no ledger to attach the mailbox
-     to, and guessing would attach it to the wrong person.
+  /* ── the handoff ───────────────────────────────────────────────────────────
+     This is the seam with the backend. We get the person to Google's consent
+     screen; from the callback on, it is the BE dev's.
+
+     /api/gmail-connect grants nothing by itself: it checks the caller owns the
+     member row and returns a consent URL whose state is signed, so the callback
+     can trust who started the flow. The member id is required — without it the
+     callback has no ledger to attach the mailbox to, and guessing would attach
+     it to the wrong person.
+
+     WHAT WE SEND, and why it is shaped for their existing handler:
+       memberId       — required, checked against the caller's user_id there.
+       email          — the login_hint. The login address when they kept it,
+                        EMPTY when they chose to switch. Empty is the switch:
+                        their handler already does `login_hint: body.email || ''`,
+                        and Google with no hint shows its account picker. So the
+                        choice works against the endpoint as already written, with
+                        no change needed on their side.
+       chooseAccount  — optional, additive. If they add `select_account` to the
+                        prompt when this is true, the picker appears even for
+                        someone with a single signed-in account. Ignoring it costs
+                        nothing, which is why it is a second field and not a
+                        different meaning for the first.
 
      Full navigation rather than a popup, deliberately: iOS Safari blocks a
-     window.open that happens after an await, and the consent flow has to land
-     back on a real page regardless.
+     window.open issued after an await, and the consent flow has to land back on
+     a real page regardless.
 
-     The endpoint is not on main yet (it belongs to the OAuth backend on branch
-     bank-email-oauth), so 404 is a live, expected state during the beta and gets
-     its own honest line instead of "try again", which would send people tapping
-     at something that cannot work yet. */
+     404 is a live, expected state right now — the endpoint ships with the OAuth
+     backend (branch bank-email-oauth) — so it gets an honest line rather than
+     "try again", which would send people tapping at something that cannot work
+     yet. */
   window.fhAutoTxnGrant = async function () {
     const btn = document.getElementById('atx-go');
     const label = L('Bắt đầu: cho phép đọc email', 'Start by granting email access');
@@ -20659,13 +20792,17 @@ window.classifyAmount = classifyAmount;
     if (btn) { btn.disabled = true; btn.textContent = L('Đang mở Google…', 'Opening Google…'); }
 
     let tok = '';
-    try { tok = ((await sb.auth.getSession()).data.session || {}).access_token || ''; } catch (e) { /* handled by the 401 below */ }
+    try { tok = ((await sb.auth.getSession()).data.session || {}).access_token || ''; } catch (e) { /* surfaces as the 401 below */ }
 
     try {
       const r = await fetch('/api/gmail-connect', {
         method: 'POST',
         headers: Object.assign({ 'Content-Type': 'application/json' }, tok ? { Authorization: 'Bearer ' + tok } : {}),
-        body: JSON.stringify({ memberId: mid, email: (window.FAM && window.FAM.user && window.FAM.user.email) || '' }),
+        body: JSON.stringify({
+          memberId: mid,
+          email: _atxUseLogin ? _atxLoginEmail() : '',
+          chooseAccount: !_atxUseLogin,
+        }),
       });
       if (r.status === 404) {
         window.toast && window.toast(L('Tính năng này đang được bật, ghé lại sau nhé', 'We’re still switching this on. Check back soon.'));
@@ -20680,6 +20817,87 @@ window.classifyAmount = classifyAmount;
       reset();
     }
   };
+
+  /* ── coming back ───────────────────────────────────────────────────────────
+     Google sends the person to the BE callback, which finishes the exchange and
+     redirects here. Without this the journey ends on a silent app boot that
+     looks identical to a cold start, and nobody can tell whether it worked.
+
+     THE RETURN CONTRACT, proposed here so the BE dev has something concrete to
+     redirect to (documented in AGENT_SYNC): land on the app origin with
+       ?fh_gmail=connected            — grant stored, sync will start
+       ?fh_gmail=denied               — the person declined on Google's screen
+       ?fh_gmail=error                — anything else went wrong
+     `?gmail=` is accepted as an alias. An unrecognised value is ignored rather
+     than guessed at, so a different choice on their side degrades to today's
+     silence instead of a wrong screen.
+
+     The param is eaten on arrival (67-card-ui.js does the same for key
+     fragments): a reload should not replay a one-time outcome, and the value
+     should not sit in the address bar or a share sheet. */
+  function _atxReturnState() {
+    try {
+      const q = new URLSearchParams(location.search);
+      const v = (q.get('fh_gmail') || q.get('gmail') || '').toLowerCase();
+      if (v !== 'connected' && v !== 'denied' && v !== 'error') return null;
+      q.delete('fh_gmail'); q.delete('gmail');
+      const qs = q.toString();
+      try { history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash); } catch (e) {}
+      return v;
+    } catch (e) { return null; }
+  }
+
+  function fhAutoTxnDone(state) {
+    if (state === 'connected') {
+      return _fhSheet(
+        '<div class="mbx-hero">' + _mbxGlyph('done') + '</div>' +
+        '<div class="sheet-h">' + _esc(L('Đã kết nối', 'Connected')) + '</div>' +
+        '<div class="sheet-sub">' + _esc(L(
+          'Tụi mình bắt đầu tìm email giao dịch. Khoản nào tìm được sẽ nằm chờ bạn trong mục Duyệt giao dịch, không tự vào sổ.',
+          'We’ve started looking for transaction email. Anything we find waits for you in Review transactions, and never enters the ledger on its own.')) + '</div>' +
+        '<div class="mbx-note">' + _mbxGlyph('check') + '<span>' + _esc(L(
+          'Lần đầu có thể mất một lúc. Bạn cứ dùng app bình thường, có gì tụi mình báo.',
+          'The first pass can take a while. Carry on as normal, we’ll let you know.')) + '</span></div>' +
+        (window.fhTxnReviewSheet
+          ? '<button class="cta" onclick="fhTxnReviewSheet()">' + _esc(L('Xem mục duyệt', 'Open Review transactions')) + '</button>'
+          : '') +
+        '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
+      );
+    }
+    // Declining is a normal answer, not an error — no alarm colour, no blame,
+    // and the way back is one tap rather than a hunt through Settings.
+    const denied = state === 'denied';
+    _fhSheet(
+      '<div class="sheet-h">' + _esc(denied ? L('Chưa cấp quyền', 'Not granted')
+                                            : L('Chưa kết nối được', 'Couldn’t connect')) + '</div>' +
+      '<div class="sheet-sub">' + _esc(denied
+        ? L('Không sao cả. Bạn vẫn nhập tay như thường, và có thể bật lại bất cứ lúc nào.',
+            'That’s fine. You can keep adding transactions by hand, and turn this on whenever you like.')
+        : L('Có gì đó trục trặc giữa chừng. Thử lại giúp tụi mình nhé.',
+            'Something went wrong partway through. Give it another go.')) + '</div>' +
+      '<button class="cta" onclick="fhAutoTxnSheet()">' + _esc(L('Thử lại', 'Try again')) + '</button>' +
+      '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
+    );
+  }
+  window.fhAutoTxnDone = fhAutoTxnDone;
+
+  /* Waits for hydrate the way 73-mailbox-gate.js does, and for the same reason:
+     this file owns its own timing and touches no other module's boot path, so
+     getting it wrong cannot break onboarding. The sheet needs a hydrated app
+     behind it — opening it over a loading screen would be worse than waiting. */
+  (function _atxBootReturn() {
+    const state = _atxReturnState();          // read + eat immediately, before any await
+    if (!state) return;
+    const t0 = Date.now();
+    (function _wait() {
+      if (window.DB && window.DB._hydrated && window.fhUser) {
+        try { fhAutoTxnDone(state); } catch (e) {}
+        return;
+      }
+      if (Date.now() - t0 > 20000) return;
+      setTimeout(_wait, 400);
+    })();
+  })();
   
 </script>
 </body>

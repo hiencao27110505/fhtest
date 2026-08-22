@@ -145,17 +145,12 @@ function _reqCard(item, incoming){
     +_reqStatusLine(item)+'</span>'+_reqChev()+'</button>';
 }
 
-/* ---- widget (Home + Finance) ---- */
-function requestsWidgetHTML(){
-  var items=reqPendingAll(); if(!items.length) return '';
-  var me=_futMeId();
-  var head=(typeof _sectionH==='function') ? _sectionH(L('Cả nhà cùng duyệt','Waiting for the family')+' · '+items.length, 'openRequests()', L('Xem tất cả','See all')) : '';
-  // others' → review card; my own → follow card (title + status)
-  return head+'<div class="req-list">'+items.slice(0,4).map(function(i){ return _reqCard(i, i.creatorId!==me); }).join('')+'</div>';
-}
-window.requestsWidgetHTML=requestsWidgetHTML;
-// Finance-tab mount is now Widget A's badged CTA (renderRequestsCta, 20-budget.js) — the
-// standalone #fin-requests widget was removed. Home still renders the full inline widget.
+/* ---- widget mounts ---- */
+/* Home no longer carries a proposals section. It was removed on request
+   (2026-08-22), and the inline widget that fed it went with it — Widget A's
+   badged CTA on Finance (renderRequestsCta, 20-budget.js) is now the only
+   surface, plus the full hub behind it. Nothing about the underlying feature
+   changed: proposals are still created, still routed, still reviewable. */
 function renderReqMounts(){ if(typeof renderRequestsCta==='function') renderRequestsCta(); }
 window.renderReqMounts=renderReqMounts;
 

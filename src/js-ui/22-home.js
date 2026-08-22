@@ -425,7 +425,6 @@ function renderHome(){
   }
 
   var html = renderHearth();   // ONE time-shared strip: mood picker until you check in, then the "Chăm chút tổ ấm" nudge
-  if(typeof requestsWidgetHTML === 'function') html += requestsWidgetHTML();   // future-expense proposals awaiting my OK
   // one-time nudge so the tap-to-change-mood gesture is discoverable
   try{
     if(myW && !window._wpick && !localStorage.getItem('fh-moodtap')){
