@@ -64,14 +64,14 @@ relaying messages through Slack/DMs by hand.
 
   **Four things you need from this:**
 
-  0. **`client_id` is `340747728156-…`, the client whose SECRET you hold
-     (`GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`) — NOT the
-     sign-in client `860668973723-…` that Supabase uses.** They were different
-     until 2026-08-22 and would have failed at your token exchange with
-     `invalid_grant`, after the person had already pressed Allow, looking like a
-     backend bug at the last possible moment. If you ever change which client the
-     backend exchanges with, that same commit has to change `_ATX_CLIENT_ID` in
-     `74-autotxn-ui.js`.
+  0. **`client_id` is `860668973723-ud2mbr4kj9nb41elbkvlp3lt5fibpf8v` —
+     `FHTest Web`, in the `fhtest` project.** Your
+     `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` must be THIS
+     client's. The `340747728156-…` pair sitting in the local env file belongs to
+     a different GCP project, one `fhtest` cannot register a redirect URI for;
+     it was used briefly and is wrong. The client that issues the code must be
+     the one that exchanges it, or Google refuses with `invalid_grant` at the
+     token exchange, after the person has already pressed Allow.
 
   1. **`redirect_uri` is the literal string
      `https://fhtest-opal.vercel.app/api/gmail-callback`** — pinned in the

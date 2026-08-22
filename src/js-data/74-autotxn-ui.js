@@ -233,23 +233,28 @@
   const _ATX_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
   const _ATX_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 
-  /* NOT the same Google client as sign-in, and it must not be.
-     GOOGLE_CLIENT_ID (10-client-auth.js, 860668973723-…) is the client Supabase
-     signs people in with. This flow uses 340747728156-…, the client the backend
-     holds the SECRET for — the one whose `GOOGLE_OAUTH_CLIENT_ID` sits beside
-     `GOOGLE_OAUTH_CLIENT_SECRET` in the deployment env.
+  /* THE SAME Google client as sign-in, deliberately: `FHTest Web`
+     (860668973723-…) in the `fhtest` project, which is GOOGLE_CLIENT_ID in
+     10-client-auth.js. It is referenced through that constant rather than
+     re-typed, so the two can never drift apart.
 
-     They have to match end to end: a code issued to one client cannot be
-     exchanged by another. Google refuses that swap with `invalid_grant`, at the
-     token exchange, AFTER the person has read the consent screen and pressed
-     Allow — so it looks like a backend bug at the last possible moment rather
-     than a misconfiguration at the first. Changing the backend's client means
-     changing this line in the same commit.
+     This was briefly pointed at 340747728156-… because that is what
+     GOOGLE_OAUTH_CLIENT_ID happened to be in a local env file. That client lives
+     in a DIFFERENT GCP project, which the fhtest project cannot register a
+     redirect URI for — so the consent screen would have kept refusing with no
+     way to fix it from the project we actually own.
 
-     A client_id is public by design (it ships in every OAuth redirect), so it
-     belongs in client code. The secret never does, and is not here. */
-  const _ATX_CLIENT_ID = '340747728156-dc16et673i1tm0l7qi1ikr0f7t7tedkl.apps.googleusercontent.com';
+     WHAT MUST HOLD: the client that ISSUES the code has to be the client that
+     EXCHANGES it. The backend's GOOGLE_OAUTH_CLIENT_ID / _SECRET therefore have
+     to be this same client's. Mismatch it and Google refuses with
+     `invalid_grant` at the token exchange — after the person has read the
+     consent screen and pressed Allow, so it surfaces as a backend failure at the
+     last possible moment rather than a misconfiguration at the first.
 
+     Sharing the client with sign-in is fine: scopes are per REQUEST, not per
+     client, so signing in still asks for nothing but the basics. What is shared
+     is the project's consent screen and its verification status, which a
+     separate client in the same project would have shared anyway. */
   /* PINNED, not built from location.origin, and that is the point.
 
      Google compares redirect_uri LITERALLY against a registered list. Vercel
@@ -287,7 +292,7 @@
     try { uid = (window.fhUser && window.fhUser.id) || ''; } catch (e) {}
 
     const p = new URLSearchParams({
-      client_id: _ATX_CLIENT_ID,
+      client_id: GOOGLE_CLIENT_ID,
       redirect_uri: _ATX_REDIRECT(),
       response_type: 'code',
       scope: _ATX_SCOPE,

@@ -30,12 +30,13 @@ const svg = mbx.slice(mbx.indexOf('const _MBX_SVG'), mbx.indexOf('const _mbxGlyp
 
 let pass = 0, fail = 0;
 const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok && d ? '  -> ' + d : '')); ok ? pass++ : fail++; };
-/* The OAuth client the BACKEND holds the secret for — deliberately NOT the
-   sign-in client. A code issued to one client cannot be exchanged by another;
-   Google refuses with invalid_grant at the token exchange, after the person has
-   already pressed Allow. Pinned here so the two can never drift apart. */
-const CLIENT = '340747728156-dc16et673i1tm0l7qi1ikr0f7t7tedkl.apps.googleusercontent.com';
-const SIGNIN_CLIENT = '860668973723-ud2mbr4kj9nb41elbkvlp3lt5fibpf8v.apps.googleusercontent.com';
+/* `FHTest Web` in the fhtest project (number 860668973723) — the same client
+   sign-in uses. The client that ISSUES the code must be the one that EXCHANGES
+   it, so the backend's GOOGLE_OAUTH_CLIENT_ID/_SECRET must be this client's too.
+   Mismatch it and Google refuses with invalid_grant at the token exchange, after
+   the person has already pressed Allow. Pinned here so a stray env value cannot
+   quietly point the consent screen at a client this project does not own. */
+const CLIENT = '860668973723-ud2mbr4kj9nb41elbkvlp3lt5fibpf8v.apps.googleusercontent.com';
 const BUSY = 'Đang mở Google…';
 
 async function run(o) {
@@ -47,7 +48,7 @@ async function run(o) {
   const ctx = {
     _fhSheet: () => {}, _fhModal: (m) => { modal = m; }, _esc: String, _escAttr: String, _rpc: async () => null,
     sb: { auth: { getSession: async () => ({ data: { session: null } }) } },
-    GOOGLE_CLIENT_ID: SIGNIN_CLIENT,
+    GOOGLE_CLIENT_ID: CLIENT,
     document: { getElementById: (id) => (id === 'atx-go' ? live : (id === 'atx-email' ? { value: o.typed || '' } : null)),
                 createElement: () => ({}) },
     history: { replaceState() {} },
@@ -75,9 +76,9 @@ const q = (u, k) => new URL(u).searchParams.get(k);
   console.log('\n-- the consent URL Google is handed --');
   const a = await run({});
   t('goes to Google’s auth endpoint', a.nav.to && a.nav.to.indexOf('https://accounts.google.com/o/oauth2/v2/auth?') === 0, String(a.nav.to));
-  t('carries the client the backend can exchange with', q(a.nav.to, 'client_id') === CLIENT, q(a.nav.to, 'client_id'));
-  t('  ...and NOT the sign-in client, which has no secret on the backend',
-    q(a.nav.to, 'client_id') !== SIGNIN_CLIENT);
+  t('carries the client the fhtest project owns', q(a.nav.to, 'client_id') === CLIENT, q(a.nav.to, 'client_id'));
+  t('  ...and not a client from some other GCP project',
+    q(a.nav.to, 'client_id').indexOf('860668973723-') === 0, q(a.nav.to, 'client_id'));
   t('asks for a code, not a token', q(a.nav.to, 'response_type') === 'code');
   t('requests gmail.readonly and nothing else',
     q(a.nav.to, 'scope') === 'https://www.googleapis.com/auth/gmail.readonly' &&
