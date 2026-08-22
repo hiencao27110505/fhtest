@@ -1,6 +1,6 @@
 .PHONY: help install sync sync-shared lock add new lint fmt typecheck test run emit authorize freeze freeze-all \
         deploy clean list preflight enable-apis logs describe delete ensure-topic \
-        grant-gmail-push check-gmail-push
+        grant-gmail-push check-gmail-push connect renew
 .DEFAULT_GOAL := help
 
 FUNCTIONS_DIR := functions
@@ -50,6 +50,8 @@ help:
 	@echo "  make typecheck            mypy across the workspace"
 	@echo "  make sync-shared          copy shared/ modules into each function"
 	@echo "  make authorize            grant Gmail access to a mailbox (opens a browser)"
+	@echo "  make connect USER_ID=<id> authorize + store credentials in one step"
+	@echo "  make renew                register/extend the watch on every mailbox"
 	@echo "  make freeze FN=<name>     regenerate that function's requirements.txt"
 	@echo "  make freeze-all           regenerate every requirements.txt"
 	@echo
@@ -108,6 +110,25 @@ SHARED_DIR := shared
 # The copies are generated: shared/ is the only place to edit them.
 sync-shared:
 	@uv run --no-project python tools/sync_shared.py
+
+# Connect one mailbox: consent, encrypt, store. USER_ID is the auth.users row
+# that owns it. FROM_FILE reuses a `make authorize OUT=...` payload instead of
+# opening the browser again.
+connect:
+	@if [ -z "$(USER_ID)" ]; then \
+	  echo "error: USER_ID is required."; \
+	  echo "  make connect USER_ID=<auth.users id>"; exit 1; fi
+	uv run python tools/connect_mailbox.py --user-id $(USER_ID) \
+	  $(if $(AUTH_PORT),--port $(AUTH_PORT),) $(if $(FROM_FILE),--from-file $(FROM_FILE),)
+
+# Register or extend the Gmail watch on every connected mailbox. Safe to run
+# repeatedly — watch() is idempotent and only pushes the expiry further out.
+renew:
+	@curl -s -m 180 -X POST \
+	  -H "Authorization: Bearer $$(gcloud auth print-identity-token)" \
+	  "$$(gcloud functions describe gmail-watch-renew --gen2 --project=$(GCP_PROJECT) \
+	      --region=asia-southeast1 --format='value(serviceConfig.uri)')" \
+	  -w '\n'
 
 # Interactive: opens a browser so you can grant Gmail access to one mailbox.
 # Only the account owner can do this — it is the consent step, not a lookup.
