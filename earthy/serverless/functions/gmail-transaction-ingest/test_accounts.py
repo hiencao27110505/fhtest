@@ -113,3 +113,43 @@ def test_postgres_store_satisfies_the_protocol():
     for name in ("get", "save_history_id", "mark_needs_reauth", "list_connected"):
         assert callable(getattr(accounts.PostgresStore, name))
         assert callable(getattr(accounts.InMemoryStore, name))
+
+
+def _in_ms(seconds: int) -> int:
+    import time
+
+    return int(time.time() * 1000) + seconds * 1000
+
+
+def test_a_mailbox_with_no_watch_is_due():
+    # Connected but never watched: due by definition.
+    store = accounts.InMemoryStore({"a@x.com": "tok"})
+    assert store.list_due_for_renewal(3600) == ["a@x.com"]
+
+
+def test_a_watch_expiring_soon_is_due():
+    store = accounts.InMemoryStore({"a@x.com": "tok"})
+    store.save_watch("a@x.com", "1", _in_ms(3600))  # 1h left
+    assert store.list_due_for_renewal(2 * 24 * 3600) == ["a@x.com"]
+
+
+def test_a_fresh_watch_is_not_due():
+    # The point of the window: a watch good for another six days is not
+    # renewed again today.
+    store = accounts.InMemoryStore({"a@x.com": "tok"})
+    store.save_watch("a@x.com", "1", _in_ms(6 * 24 * 3600))
+    assert store.list_due_for_renewal(2 * 24 * 3600) == []
+
+
+def test_reauth_pending_mailboxes_are_never_due():
+    # Their token cannot mint an access token; renewing only wastes a call.
+    store = accounts.InMemoryStore({"a@x.com": "tok"})
+    store.mark_needs_reauth("a@x.com")
+    assert store.list_due_for_renewal(10**9) == []
+
+
+def test_only_the_due_ones_come_back():
+    store = accounts.InMemoryStore({"soon@x.com": "t1", "later@x.com": "t2"})
+    store.save_watch("soon@x.com", "1", _in_ms(3600))
+    store.save_watch("later@x.com", "1", _in_ms(6 * 24 * 3600))
+    assert store.list_due_for_renewal(2 * 24 * 3600) == ["soon@x.com"]

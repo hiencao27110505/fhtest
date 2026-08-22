@@ -85,6 +85,20 @@ class AccountStore(Protocol):
         """
         ...
 
+    def list_due_for_renewal(self, within_seconds: int) -> list[str]:
+        """Mailboxes whose Gmail watch lapses within `within_seconds`.
+
+        A watch lasts 7 days, so renewing every mailbox on every daily run
+        repeats work that is good for another six — and with enough mailboxes
+        the run stops fitting in the function's timeout, silently leaving the
+        tail of the list to lapse. Asking for the ones that are actually due
+        keeps the work proportional to what expires, not to how many users
+        exist.
+
+        Mailboxes with no watch yet are included: they are due by definition.
+        """
+        ...
+
     def list_connected(self) -> list[str]:
         """Addresses of every mailbox still connected.
 
@@ -129,6 +143,13 @@ class _Account:
         )
 
 
+def _now_ms() -> int:
+    """Wall clock in epoch milliseconds, matching Gmail's `expiration`."""
+    import time  # noqa: PLC0415
+
+    return int(time.time() * 1000)
+
+
 # --- in-memory ------------------------------------------------------------
 
 
@@ -170,6 +191,15 @@ class InMemoryStore:
         if account is None:
             raise UnknownMailbox(email)
         account.needs_reauth = True
+
+    def list_due_for_renewal(self, within_seconds: int) -> list[str]:
+        cutoff_ms = (_now_ms() + within_seconds * 1000) if within_seconds else 0
+        return [
+            e
+            for e, a in self._accounts.items()
+            if not a.needs_reauth
+            and (a.watch_expires_at is None or a.watch_expires_at <= cutoff_ms)
+        ]
 
     def list_connected(self) -> list[str]:
         return [e for e, a in self._accounts.items() if not a.needs_reauth]
@@ -357,6 +387,26 @@ class PostgresStore:
             ).rowcount
         if not updated:
             raise UnknownMailbox(email)
+
+    def list_due_for_renewal(self, within_seconds: int) -> list[str]:
+        """Mailboxes due for renewal, soonest expiry first.
+
+        `watch_expires_at is null` covers a mailbox connected but never
+        watched. The ordering means a run that does get cut short has at least
+        handled the most urgent ones.
+        """
+        with _get_pool().connection() as conn:
+            rows = conn.execute(
+                f"select a.email from {ACCOUNTS_TABLE} a "  # noqa: S608
+                f"left join {SYNC_TABLE} s on s.connected_account_id = a.id "
+                f"where a.provider = %s and a.needs_reauth = false "
+                f"  and a.email is not null "
+                f"  and (s.watch_expires_at is null "
+                f"       or s.watch_expires_at <= now() + make_interval(secs => %s)) "
+                f"order by s.watch_expires_at asc nulls first",
+                (PROVIDER, within_seconds),
+            ).fetchall()
+        return [row[0] for row in rows]
 
     def list_connected(self) -> list[str]:
         """Mailboxes whose token still works.
