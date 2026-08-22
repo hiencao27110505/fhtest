@@ -20665,6 +20665,7 @@ window.classifyAmount = classifyAmount;
      Someone whose bank writes somewhere else needs forwarding, and routing them
      there is a product decision, not a UI one. */
   let _atxUseLogin = true;
+  let _atxTyped = '';                       // survives the hop back to the offer sheet
 
   const _atxLoginEmail = () => (window.FAM && window.FAM.user && window.FAM.user.email) || '';
 
@@ -20672,53 +20673,95 @@ window.classifyAmount = classifyAmount;
      needs mirroring into module state on every keystroke. */
   const _atxTypedEmail = () => {
     const el = document.getElementById('atx-email');
-    return el ? el.value.trim() : '';
+    if (el) { _atxTyped = el.value.trim(); }
+    return _atxTyped;
   };
 
   function _atxAcctRow() {
     const email = _atxLoginEmail();
-    // No login email at all (shouldn't happen — sign-in is Google) — don't offer
-    // a switch away from something we cannot name; Google will ask.
-    if (!email) _atxUseLogin = false;
-    if (_atxUseLogin && email) {
-      return '<div class="atx-acct" id="atx-acct">' +
-        '<div class="atx-acct-ic">' + _mbxGlyph('mail') + '</div>' +
-        '<div class="atx-acct-txt">' +
-          '<div class="atx-acct-lbl">' + _esc(L('Đọc thư từ', 'Reading from')) + '</div>' +
-          '<div class="atx-acct-val">' + _esc(email) + '</div>' +
-        '</div>' +
-        '<button class="atx-acct-sw" onclick="fhAutoTxnSwitchAcct()">' + _esc(L('Đổi', 'Change')) + '</button>' +
-        '</div>';
-    }
-    return '<div class="atx-acct is-edit" id="atx-acct">' +
-      '<div class="atx-acct-lbl">' + _esc(L('Email nhận thông báo ngân hàng', 'Email your bank writes to')) + '</div>' +
-      '<input id="atx-email" class="atx-acct-in" type="email" inputmode="email" autocapitalize="none" ' +
-        'spellcheck="false" autocomplete="email" placeholder="' + _escAttr(L('vd. tenban@gmail.com', 'e.g. you@gmail.com')) + '">' +
-      '<div class="atx-acct-hint">' + _esc(L(
-        'Tụi mình sẽ mở màn hình Google với email này. Bạn đăng nhập và cho phép ở đó. Để trống cũng được, Google sẽ hỏi bạn chọn tài khoản.',
-        'We’ll open Google on this address. You sign in and approve there. Leaving it blank is fine too, Google will ask you to pick.')) + '</div>' +
-      (_atxLoginEmail()
-        ? '<button class="atx-acct-sw" onclick="fhAutoTxnSwitchAcct()">' +
-            _esc(L('Dùng email đăng nhập', 'Use my sign-in email')) + '</button>'
-        : '') +
+    const on = _atxUseLogin && !!email;
+    return '<div class="atx-acct" id="atx-acct">' +
+      '<div class="atx-acct-ic">' + _mbxGlyph('mail') + '</div>' +
+      '<div class="atx-acct-txt">' +
+        '<div class="atx-acct-lbl">' + _esc(L('Đọc thư từ', 'Reading from')) + '</div>' +
+        '<div class="atx-acct-val">' + _esc(on ? email : (_atxTyped ||
+          L('Tài khoản bạn chọn ở màn hình Google', 'The account you pick on Google’s screen'))) + '</div>' +
+      '</div>' +
+      '<button class="atx-acct-sw" onclick="fhAutoTxnEmailSheet()">' + _esc(L('Đổi', 'Change')) + '</button>' +
       '</div>';
   }
 
-  /* Re-renders the row in place rather than the whole sheet: the person is
-     mid-decision and the screen must not jump under them. Focuses the field on
-     the way in, so "Đổi" lands them on a keyboard rather than a second tap. */
-  window.fhAutoTxnSwitchAcct = function () {
-    _atxUseLogin = !_atxUseLogin;
-    const row = document.getElementById('atx-acct');
-    if (!row) return;
-    const wrap = document.createElement('div');
-    wrap.innerHTML = _atxAcctRow();
-    const next = wrap.firstChild;
-    row.replaceWith(next);
-    if (!_atxUseLogin) {
-      const el = document.getElementById('atx-email');
-      if (el) try { el.focus(); } catch (e) {}
-    }
+  /* ── the address step ──────────────────────────────────────────────────────
+     A FORM MODAL, not a bottom sheet, and that is the whole point.
+
+     This started as an input spliced into the offer screen. It worked on a
+     desktop viewport and broke on a real phone: the offer is long by necessity
+     (three assurances plus the scope note Google's breadth obliges us to print),
+     so the field landed near the bottom, and focusing it raised a keyboard over
+     the CTA the person was aiming for.
+
+     Shortening it to its own bottom sheet does NOT fix that, which is worth
+     writing down because it looks like it should. `.sheet` is anchored to the
+     bottom of the viewport, so a SHORT sheet occupies exactly the strip the
+     keyboard claims — the shorter it gets, the more completely it is covered.
+
+     `.modal` is anchored to the TOP (`top: max(env(safe-area-inset-top),12px)`)
+     with a scrolling body, so the field and the Save action sit high on screen
+     and a keyboard opens harmlessly beneath them. It is also simply the house
+     pattern: index.html calls #fh-modal the surface for "multi-field forms",
+     and this is a form. _fhModal brings the Cancel/Title/Save bar, the in-flight
+     progress state, and error handling that keeps the form open, for free. */
+  window.fhAutoTxnEmailSheet = function () {
+    _atxUseLogin = false;
+    _fhModal({
+      title: L('Đọc thư từ email nào?', 'Which email should we read?'),
+      saveLabel: L('Tiếp tục', 'Continue'),
+      body:
+        '<div class="sheet-sub">' + _esc(L(
+          'Điền email mà ngân hàng gửi thông báo tới. Tụi mình sẽ mở màn hình Google sẵn với email này, bạn chỉ cần đăng nhập và cho phép.',
+          'Enter the address your bank writes to. We’ll open Google already set to it, so you just sign in and approve.')) + '</div>' +
+        '<div class="field"><label>' + _esc(L('Email nhận thông báo ngân hàng', 'Email your bank writes to')) + '</label>' +
+        '<input id="atx-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" ' +
+          'autocomplete="email" oninput="fhModalDirty()" ' +
+          'placeholder="' + _escAttr(L('vd. tenban@gmail.com', 'e.g. you@gmail.com')) + '" ' +
+          'value="' + _escAttr(_atxTyped) + '"></div>' +
+        '<div class="atx-acct-hint">' + _esc(L(
+          'Để trống cũng được, Google sẽ hỏi bạn chọn tài khoản.',
+          'Leaving it blank is fine, Google will ask you to pick.')) + '</div>' +
+        '<button class="btn-skip" onclick="fhAutoTxnUseLogin()">' +
+          _esc(L('Dùng email đăng nhập', 'Use my sign-in email')) + '</button>',
+      /* Save runs the same handoff as the offer CTA. Throwing with an fhMsg
+         keeps the form open and toasts that exact sentence (_friendly passes
+         fhMsg straight through), which is what someone mid-typo needs — a
+         modal that closed on failure would lose what they wrote. */
+      save: async function () {
+        const typed = _atxTypedEmail();
+        if (typed && !/.+@.+\..+/.test(typed)) {
+          throw Object.assign(new Error('bad email'), {
+            fhMsg: L('Địa chỉ email chưa đúng, bạn xem lại nhé', 'That email doesn’t look right — give it another look') });
+        }
+        const out = await _atxConnect({ email: typed, chooseAccount: !typed });
+        if (out.notYet) {
+          throw Object.assign(new Error('not deployed'), {
+            fhMsg: L('Tính năng này đang được bật, ghé lại sau nhé', 'We’re still switching this on. Check back soon.') });
+        }
+        _atxNavigate(out.url);
+      },
+      after: function () {
+        // Focus once the modal has settled: focusing mid-transition sets the
+        // keyboard and the slide animation fighting each other on iOS.
+        setTimeout(function () {
+          const el = document.getElementById('atx-email');
+          if (el) try { el.focus(); } catch (e) {}
+        }, 300);
+      },
+    });
+  };
+
+  window.fhAutoTxnUseLogin = function () {
+    _atxUseLogin = true;
+    _atxTyped = '';
+    fhAutoTxnSheet();
   };
 
   /* The single entry point. Deliberately does NOT branch on connection state
@@ -20804,57 +20847,121 @@ window.classifyAmount = classifyAmount;
      backend (branch bank-email-oauth) — so it gets an honest line rather than
      "try again", which would send people tapping at something that cannot work
      yet. */
+  /* THE CALL ITSELF, shared by the offer CTA and the address form so there is
+     exactly one place that knows the contract.
+
+     Returns {url} to hand off with, or {notYet:true} when the endpoint is not
+     deployed. Throws on everything else. Callers own their own progress UI,
+     because the two of them have very different ones (a CTA that relabels
+     itself, and a modal Save bar).
+
+     A HARD DEADLINE, AS A RACE AND NOT JUST AN ABORT. Aborting the fetch is not
+     enough on its own: the await before it is `sb.auth.getSession()`, which can
+     itself hang — it takes a lock to refresh the token, and a lock that never
+     resolves is not something a fetch signal can reach. So abort the fetch AND
+     race the whole sequence, and the deadline wins whichever step is stuck.
+     Without this the button reads "Đang mở Google…" for ever, with no toast and
+     no way back: a disabled control that is, as far as the person can tell,
+     simply broken. */
+  const _ATX_DEADLINE = 15000;
+
+  async function _atxConnect(opts) {
+    const mid = window.DB && window.DB.ownerMemberId;
+    if (!mid) {
+      throw Object.assign(new Error('no member'), {
+        fhMsg: L('Chưa xác định được thành viên, thử lại nhé', 'Could not identify your member — try again') });
+    }
+    const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    let timer = null;
+
+    const attempt = (async function () {
+      let tok = '';
+      try { tok = ((await sb.auth.getSession()).data.session || {}).access_token || ''; } catch (e) { /* surfaces as a 401 */ }
+
+      const r = await fetch('/api/gmail-connect', Object.assign({
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, tok ? { Authorization: 'Bearer ' + tok } : {}),
+        body: JSON.stringify({ memberId: mid, email: opts.email || '', chooseAccount: !!opts.chooseAccount }),
+      }, ctl ? { signal: ctl.signal } : {}));
+
+      if (r.status === 404) return { notYet: true };
+      /* Read as text first. A miss on this route comes back as an HTML error
+         page, and r.json() on HTML throws a SyntaxError that tells whoever is
+         debugging this nothing about what actually came back. */
+      const raw = await r.text();
+      let data = null;
+      try { data = JSON.parse(raw); } catch (e) { /* left null on purpose */ }
+      if (!r.ok || !data || !data.url) {
+        throw new Error((data && data.error) || ('HTTP ' + r.status + ' ' + String(raw).slice(0, 120)));
+      }
+      return { url: data.url };
+    })();
+
+    const deadline = new Promise(function (_, reject) {
+      timer = setTimeout(function () {
+        if (ctl) try { ctl.abort(); } catch (e) {}
+        reject(Object.assign(new Error('deadline'), {
+          fhMsg: L('Google lâu quá chưa trả lời, thử lại nhé', 'Google is taking too long — try again') }));
+      }, _ATX_DEADLINE);
+    });
+
+    try {
+      return await Promise.race([attempt, deadline]);
+    } catch (e) {
+      // The sentence the person sees is set by the caller or by fhMsg; the real
+      // reason has to reach whoever is debugging this with them.
+      try { console.warn('[autotxn] connect failed:', e && (e.message || e)); } catch (e2) {}
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /* The offer screen's CTA: read from the sign-in address, no form involved. */
   window.fhAutoTxnGrant = async function () {
     const btn = document.getElementById('atx-go');
     const label = L('Bắt đầu: cho phép đọc email', 'Start by granting email access');
     const reset = () => { if (btn) { btn.disabled = false; btn.textContent = label; } };
-
-    const mid = window.DB && window.DB.ownerMemberId;
-    if (!mid) {
-      window.toast && window.toast(L('Chưa xác định được thành viên, thử lại nhé', 'Could not identify your member — try again'));
-      return;
-    }
-
-    /* A shape check on the typed hint, and nothing more. Blank is allowed on
-       purpose (it means "let Google ask"), so this only fires on something that
-       cannot be an address at all — a half-finished paste, a stray name. It
-       never claims the address is reachable or is a Google account; only
-       Google's screen can answer that. */
-    const typed = _atxUseLogin ? '' : _atxTypedEmail();
-    if (typed && !/.+@.+\..+/.test(typed)) {
-      window.toast && window.toast(L('Địa chỉ email chưa đúng, bạn xem lại nhé', 'That email doesn’t look right — give it another look'));
-      const el = document.getElementById('atx-email');
-      if (el) try { el.focus(); } catch (e) {}
-      return;
-    }
     if (btn) { btn.disabled = true; btn.textContent = L('Đang mở Google…', 'Opening Google…'); }
-
-    let tok = '';
-    try { tok = ((await sb.auth.getSession()).data.session || {}).access_token || ''; } catch (e) { /* surfaces as the 401 below */ }
-
     try {
-      const r = await fetch('/api/gmail-connect', {
-        method: 'POST',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, tok ? { Authorization: 'Bearer ' + tok } : {}),
-        body: JSON.stringify({
-          memberId: mid,
-          email: _atxUseLogin ? _atxLoginEmail() : typed,
-          chooseAccount: !_atxUseLogin && !typed,
-        }),
-      });
-      if (r.status === 404) {
+      const out = await _atxConnect({ email: _atxLoginEmail(), chooseAccount: false });
+      if (out.notYet) {
         window.toast && window.toast(L('Tính năng này đang được bật, ghé lại sau nhé', 'We’re still switching this on. Check back soon.'));
-        reset();
         return;
       }
-      const data = await r.json();
-      if (!r.ok || !data.url) throw new Error(data.error || 'no url');
-      window.location.href = data.url;
+      _atxNavigate(out.url);
+      return;                                   // navigating: leave the button as it is
     } catch (e) {
-      window.toast && window.toast(L('Chưa mở được Google, thử lại nhé', 'Could not open Google — try again'));
-      reset();
+      window.toast && window.toast((e && e.fhMsg) || L('Chưa mở được Google, thử lại nhé', 'Could not open Google — try again'));
+    } finally {
+      if (!_atxLeaving) reset();
     }
   };
+
+  /* Handing off to Google, and admitting it when the browser will not go.
+     A cross-origin assignment can be refused outright in an installed PWA, and
+     it fails SILENTLY — no throw, no event, the page simply stays. That is
+     indistinguishable from a frozen button, so rather than trust it we watch: if
+     we are still here shortly afterwards, we swap the CTA for a real anchor to
+     the same URL. A link the person taps is a plain user gesture, which every
+     platform honours, so the journey always has a way forward. */
+  let _atxLeaving = false;
+  function _atxNavigate(url) {
+    _atxLeaving = true;
+    try { window.location.assign(url); } catch (e) { /* handled by the watchdog */ }
+    setTimeout(function () {
+      _atxLeaving = false;
+      const btn = document.getElementById('atx-go');
+      if (!btn || !btn.parentNode) return;      // gone: the sheet closed, or we left
+      const a = document.createElement('a');
+      a.className = 'cta';
+      a.id = 'atx-go';
+      a.href = url;
+      a.rel = 'noopener';
+      a.textContent = L('Mở màn hình Google', 'Open the Google screen');
+      btn.parentNode.replaceChild(a, btn);
+    }, 1500);
+  }
 
   /* ── coming back ───────────────────────────────────────────────────────────
      Google sends the person to the BE callback, which finishes the exchange and
