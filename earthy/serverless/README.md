@@ -285,6 +285,34 @@ which requires OAuth verification and a CASA security assessment. See
 [`research/gmail-push-pubsub-oauth.md`](../../research/gmail-push-pubsub-oauth.md)
 for the verified details.
 
+### Connecting a mailbox
+
+```sh
+make connect USER_ID=<auth.users id>          # consent, encrypt, store
+make renew                                    # register the Gmail watch
+```
+
+One run per mailbox you want watched. `connect` opens a browser for consent,
+encrypts the refresh token with `GMAIL_TOKEN_KEY`, and upserts
+`connected_accounts`; `renew` then registers the watch and seeds the cursor.
+
+**Every mailbox that should be watched needs its own run.** A Gmail watch
+covers one mailbox, so an address that only ever *sends* to a watched inbox
+needs nothing — but an address that *receives* does. Consent cannot be
+delegated: whoever owns the account has to be at the browser.
+
+While the app is in Testing publishing status, all four accounts must also be
+listed under *Test users* on the OAuth consent screen, or Google refuses the
+grant.
+
+Re-running `connect` for a mailbox that is already connected replaces its
+token and clears `needs_reauth` — which is what a user reconnecting after the
+7-day expiry needs. The sync cursor is left alone on purpose; overwriting a
+live one would skip every message between it and now.
+
+`FROM_FILE=creds.json` reuses a payload from `make authorize OUT=...` instead
+of opening the browser again.
+
 ### Granting access to a mailbox
 
 ```sh
