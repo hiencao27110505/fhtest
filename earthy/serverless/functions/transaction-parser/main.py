@@ -17,8 +17,11 @@ import functions_framework
 import parsing
 from cloudevents.http import CloudEvent
 
-logging.basicConfig(level=logging.INFO)
+# basicConfig is a no-op on Cloud Functions: the runtime configures the root
+# logger before this module is imported, so the level has to be set here or
+# INFO records are dropped.
 log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 _TAG = re.compile(r"<[^>]+>")
 _SCRIPT_OR_STYLE = re.compile(r"<(script|style)\b.*?</\1>", re.IGNORECASE | re.DOTALL)
