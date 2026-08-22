@@ -137,6 +137,9 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 /* Bank-email queue: tick what to import now. Same 44px footprint as .bulk-x so
    the row keeps three non-overlapping targets — tick, open, remove. Unticked is a
    quiet outline, not an error state: "later" is an ordinary answer here. */
+/* Armed = one tap from removal. It widens to carry the word, because an icon
+   cannot say "are you sure" and this delete is not undoable from the app. */
+.bulk-x.armed{width:auto;min-width:44px;padding:0 12px;color:var(--danger);font-weight:700;font-size:13.5px;letter-spacing:-.01em}
 .bulk-check{flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;-webkit-tap-highlight-color:transparent}
 .bulk-check i{width:22px;height:22px;border-radius:7px;border:2px solid var(--hairline);display:flex;align-items:center;justify-content:center;color:transparent;background:transparent;transition:background .12s ease,border-color .12s ease}
 .bulk-check.on i{background:var(--brand);border-color:var(--brand);color:#fff}

@@ -640,7 +640,11 @@ function csvCardHead(label, dateIso, removeFn, attn, isError){
 }
 
 function csvCollapsedCard(c, opts){
-  var rm = opts.removeFn ? '<button type="button" class="bulk-x" onclick="'+opts.removeFn+'" aria-label="'+L('Xoá khoản này','Remove this item')+'">✕</button>' : '';
+  var rm = opts.removeFn
+    ? '<button type="button" class="bulk-x'+(opts.armed?' armed':'')+'" onclick="'+opts.removeFn+'"'
+      + ' aria-label="'+escAttr(opts.armed ? L('Xác nhận xoá khoản này','Confirm removing this item') : L('Xoá khoản này','Remove this item'))+'">'
+      + (opts.armed ? esc(L('Xoá?','Delete?')) : '✕') + '</button>'
+    : '';
   /* A third 44px target, leading the row. Its own button rather than part of
      .bulk-tap, so ticking never opens the editor by accident — the same reason
      the ✕ is a sibling and not inside the tap area. */
@@ -978,7 +982,8 @@ function renderCsvReview(){
         var o = { label:lowConfLabel[e.i] || (L('Khoản chi ','Item ')+(e.i+1)), dateIso:e.c.dateDisplay,
                   attn:!!lowConfLabel[e.i],
                   tapFn:"csvToggleExpand('ready',"+e.i+")", removeFn:"csvReadyRemove("+e.i+")" };
-        if(csvStagedMode){ o.checkFn = "csvStagedToggle("+e.i+")"; o.checked = !e.c._skipImport; }
+        if(csvStagedMode){ o.checkFn = "csvStagedToggle("+e.i+")"; o.checked = !e.c._skipImport;
+                           o.armed = (csvArmedRemove === e.i); }
         html += csvIsOpen('ready', e.i)
           ? csvActiveCard(e.c, Object.assign({}, o, { fields:true,
               buttons:'<button type="button" class="btn-line" onclick="csvExpandDone()">'+L('Xong','Done')+'</button>' }))
@@ -1045,6 +1050,7 @@ function csvFlushExpand(){
 }
 
 function csvToggleExpand(kind, idx){
+  csvDisarmRemove();                 // a tap elsewhere is not a confirmation
   if(csvIsOpen(kind, idx)){ csvFlushExpand(); csvExpand = null; }
   else { csvFlushExpand(); csvExpand = { kind:kind, idx:idx }; }
   renderCsvReview();
@@ -1077,6 +1083,7 @@ function csvStagedSelected(){
 function csvStagedToggle(i){
   if(!csvReview) return;
   var c = csvReview.ready[i]; if(!c) return;
+  csvDisarmRemove();                 // ticking is not confirming a delete
   c._skipImport = !c._skipImport;
   /* Close whatever row was open, like every other row action here does. Flush
      FIRST: csvFlushExpand reads the open editor's fields back onto its candidate,
@@ -1087,7 +1094,36 @@ function csvStagedToggle(i){
   renderCsvReview();                 // count, total and the Import label all follow
 }
 
-function csvReadyRemove(i){ csvReview.ready.splice(i,1); csvExpand = null; renderCsvReview(); }
+/* Removing a staged row used to be in-memory only: the splice lived in
+   csvReview, and nothing was retired until an Import. Close the sheet without
+   importing — or remove every row, which greys Import out — and the removals
+   evaporated. Reopening refetched the same rows from the server, so a ✕ appeared
+   to do nothing and every new receipt brought the old rows back with it.
+
+   So in the bank-email queue ✕ now takes effect at once. It deletes a staged
+   transaction and its stored email, so it arms first (DESIGN: destructive is
+   arm-then-confirm): one tap marks the row, a second carries it out. Any other
+   tap disarms, so a stray touch cannot become a delete on the next one.
+
+   The CSV file flow is untouched — there is nothing to retire there, the rows
+   only exist in the page. */
+var csvArmedRemove = null;
+
+function csvDisarmRemove(){ if(csvArmedRemove !== null){ csvArmedRemove = null; return true; } return false; }
+
+function csvReadyRemove(i){
+  if(!csvReview) return;
+  if(csvStagedMode){
+    if(csvArmedRemove !== i){ csvArmedRemove = i; renderCsvReview(); return; }
+    csvArmedRemove = null;
+    var gone = csvReview.ready[i];
+    csvReview.ready.splice(i,1); csvExpand = null; renderCsvReview();
+    // Retire it now, not at the next Import that may never come.
+    if(window.fhStagedDropOne) window.fhStagedDropOne(gone);
+    return;
+  }
+  csvReview.ready.splice(i,1); csvExpand = null; renderCsvReview();
+}
 
 // Group expansion: pure picker, so a chip tap applies instantly (house rule).
 function csvGroupPick(name){

@@ -327,6 +327,31 @@
   }
   window.fhStagedIdsForResolved = fhStagedIdsForResolved;
 
+  /* Retire ONE row, the moment ✕ confirms it.
+
+     Removal used to be banked until an Import, which meant it was banked until
+     possibly never: closing the sheet dropped it, and removing every row greyed
+     Import out so it could not be spent at all. The row survived, came back on
+     the next open, and the ✕ looked broken.
+
+     Same order as the batch path — remember locally first, then ask the server —
+     so a failed delete still keeps the row out of this device's queue instead of
+     resurrecting something the person has already said no to twice. */
+  window.fhStagedDropOne = async function (c) {
+    var rows = window._fhStagedRows || [];
+    var row = (c && typeof c.rowIndex === 'number') ? rows[c.rowIndex] : null;
+    var id = row && row.id;
+    if (!id) return;
+    _stagedRetiredAdd([id]);
+    try {
+      var removed = await _rpc('resolve_email_transactions', { p_ids: [id] });
+      if (!removed) console.warn('staged drop: matched 0 rows', { ids: [id] });
+    } catch (e) {
+      console.warn('staged drop failed', e, { ids: [id] });
+    }
+    try { if (window.fhRefreshStagedCount) await window.fhRefreshStagedCount(); } catch (e) {}
+  };
+
   /* Import, then retire the staged rows.
      Deleting only AFTER the ledger write succeeds — the reverse order would lose
      a transaction outright if the write failed. Duplicating one is recoverable;
