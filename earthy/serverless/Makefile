@@ -1,5 +1,6 @@
 .PHONY: help install sync sync-shared lock add new lint fmt typecheck test run emit freeze freeze-all \
-        deploy clean list preflight enable-apis logs describe delete ensure-topic
+        deploy clean list preflight enable-apis logs describe delete ensure-topic \
+        grant-gmail-push check-gmail-push
 .DEFAULT_GOAL := help
 
 FUNCTIONS_DIR := functions
@@ -53,6 +54,8 @@ help:
 	@echo
 	@echo "  make preflight            check auth / project / billing / APIs"
 	@echo "  make enable-apis          enable the APIs gen2 needs"
+	@echo "  make grant-gmail-push     let Gmail publish into the watch topic"
+	@echo "  make check-gmail-push     verify that grant"
 	@echo "  make deploy FN=<name>     freeze + preflight + deploy"
 	@echo "  make logs FN=<name>       tail the last 50 log entries"
 	@echo "  make describe FN=<name>   show the deployed function"
@@ -217,6 +220,35 @@ deploy: sync-shared freeze preflight
 	else \
 	  echo "topic: projects/$(GCP_PROJECT)/topics/$(call gcf,$(FN),topic)"; \
 	fi
+
+# Gmail's own push identity. It publishes notifications into your topic under
+# this account, not under the user's credentials — the user's OAuth token
+# authorizes reading their mailbox and nothing in this project. This grant is
+# the only bridge between the two, so watch() fails without it.
+# https://developers.google.com/workspace/gmail/api/guides/push
+GMAIL_PUSH_SA := gmail-api-push@system.gserviceaccount.com
+GMAIL_TOPIC ?= gmail-events
+
+# Idempotent: re-running just re-asserts the binding.
+grant-gmail-push:
+	@gcloud pubsub topics describe $(GMAIL_TOPIC) --project=$(GCP_PROJECT) >/dev/null 2>&1 \
+	  || { echo "creating topic $(GMAIL_TOPIC)"; \
+	       gcloud pubsub topics create $(GMAIL_TOPIC) --project=$(GCP_PROJECT); }
+	gcloud pubsub topics add-iam-policy-binding $(GMAIL_TOPIC) \
+	  --project=$(GCP_PROJECT) \
+	  --member="serviceAccount:$(GMAIL_PUSH_SA)" \
+	  --role="roles/pubsub.publisher"
+
+# Shows who may publish to the Gmail topic. Granted on the topic, not the
+# project: Pub/Sub IAM is per-resource, and a project-wide grant to a Google
+# system account is needlessly broad.
+check-gmail-push:
+	@echo "topic: $(GMAIL_TOPIC)"
+	@gcloud pubsub topics get-iam-policy $(GMAIL_TOPIC) --project=$(GCP_PROJECT) \
+	   --format='value(bindings.role,bindings.members)' 2>/dev/null \
+	 | grep -q "$(GMAIL_PUSH_SA)" \
+	 && echo "  publisher: $(GMAIL_PUSH_SA) OK" \
+	 || { echo "  publisher: MISSING -> make grant-gmail-push"; exit 1; }
 
 # Creates the trigger topic if it does not exist yet (no-op for http functions).
 ensure-topic:
