@@ -1175,6 +1175,10 @@ input{font-family:inherit}
 .cf-cta{margin:15px -16px -14px;border-top:1px solid var(--divider)}
 .cc-row{display:flex;align-items:center;gap:11px;width:100%;padding:13px 16px;border:0;border-bottom:1px solid var(--divider);background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink);text-align:left;cursor:pointer}
 .cc-row:last-child{border-bottom:0}
+/* Slot-wrapped CTAs (#cf-req-cta, #cf-email-cta) each hold a single :last-child row, so
+   the rule above strips their divider. Restore it only when a non-empty slot follows —
+   keeps a divider between two visible CTAs, none under the last one. */
+.cf-cta > div:has(~ div:not(:empty)) .cc-row{border-bottom:1px solid var(--divider)}
 .cc-row:active{background:var(--surface)}
 .cc-ic{width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center}
 .cc-ic svg{width:17px;height:17px}
@@ -1704,7 +1708,6 @@ input{font-family:inherit}
 /* card list — mirrors .rx-home */
 .req-list{display:flex;flex-direction:column;gap:10px;margin:0 16px 14px}
 #requests-body .req-list{margin:0 0 6px}
-#fin-requests:empty{display:none}
 .req-card{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;background:var(--white);border:0;border-radius:16px;box-shadow:var(--shadow-card);text-align:left;font:inherit;cursor:pointer}
 .req-card:active{background:var(--surface)}
 .req-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800;flex:0 0 auto;box-shadow:0 0 0 1.5px var(--white)}
@@ -3013,9 +3016,6 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <!-- first-run nudge: no monthly budget yet → set up categories + budget (renderBudget) -->
   <div id="fin-setup"></div>
 
-  <!-- future-expense proposals awaiting my OK (filled by renderReqMounts) -->
-  <div id="fin-requests"></div>
-
   <!-- WIDGET A — cash flow: what's left this month · in/out · this week vs last (renderCashflow) -->
   <div class="cf-card">
     <div class="cf-lbl" data-t="leftThisMonth">Left this month</div>
@@ -3030,6 +3030,8 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="cf-cta">
       <button class="cc-row" onclick="openSheet('sheet-budget')"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></span><span class="cc-t" data-t="setupBudget">Set up budget</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
       <button class="cc-row" onclick="openTxns()"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span><span class="cc-t" data-t="viewExpenses">View expenses</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+      <!-- future-expense proposals awaiting the family's OK — shown only when some are still open, with a count badge (renderRequestsCta) -->
+      <div id="cf-req-cta"></div>
       <!-- staged bank-email transactions to review — shown only when the queue is non-empty (renderCashflowEmailCta) -->
       <div id="cf-email-cta"></div>
     </div>
@@ -4377,8 +4379,26 @@ function renderCashflow(){
   }
   var cfn=document.getElementById('cf-note');
   if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
+  renderRequestsCta();
   renderCashflowEmailCta();
 }
+/* Widget A's proposals CTA — "Đề xuất chi tiêu": opens the requests hub (openRequests).
+   Shown only when there are still-open future-expense/goal/occasion proposals; the badge
+   is how many are open (reqPendingAll). This replaces the standalone #fin-requests widget
+   that used to sit above Widget A. Mirrors renderCashflowEmailCta. */
+function renderRequestsCta(){
+  var slot=document.getElementById('cf-req-cta'); if(!slot) return;
+  var n=(typeof reqPendingAll==='function') ? reqPendingAll().length : 0;
+  var html = n>0
+    ? '<button class="cc-row" onclick="openRequests()">'
+      +'<span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>'
+      +'<span class="cc-t">'+L('Đề xuất chi tiêu','Expense proposals')+'</span>'
+      +'<span class="cc-badge num">'+n+'</span>'
+      +'<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>'
+    : '';
+  if(slot.innerHTML!==html) slot.innerHTML=html;
+}
+window.renderRequestsCta=renderRequestsCta;
 /* Widget A's third CTA — "Khoản thu chi từ email": always shown. A count badge appears
    only when the staged bank-email queue is non-empty. Tapping routes by setup state
    (fhEmailTxnCta): setup intro when no email is linked, else the review sheet (which shows
@@ -11564,7 +11584,9 @@ function requestsWidgetHTML(){
   return head+'<div class="req-list">'+items.slice(0,4).map(function(i){ return _reqCard(i, i.creatorId!==me); }).join('')+'</div>';
 }
 window.requestsWidgetHTML=requestsWidgetHTML;
-function renderReqMounts(){ var el=document.getElementById('fin-requests'); if(el) el.innerHTML=requestsWidgetHTML(); }
+// Finance-tab mount is now Widget A's badged CTA (renderRequestsCta, 20-budget.js) — the
+// standalone #fin-requests widget was removed. Home still renders the full inline widget.
+function renderReqMounts(){ if(typeof renderRequestsCta==='function') renderRequestsCta(); }
 window.renderReqMounts=renderReqMounts;
 
 /* ---- the hub ---- */
@@ -12891,7 +12913,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v361';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v363';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

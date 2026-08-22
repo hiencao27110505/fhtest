@@ -116,9 +116,6 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <!-- first-run nudge: no monthly budget yet → set up categories + budget (renderBudget) -->
   <div id="fin-setup"></div>
 
-  <!-- future-expense proposals awaiting my OK (filled by renderReqMounts) -->
-  <div id="fin-requests"></div>
-
   <!-- WIDGET A — cash flow: what's left this month · in/out · this week vs last (renderCashflow) -->
   <div class="cf-card">
     <div class="cf-lbl" data-t="leftThisMonth">Left this month</div>
@@ -133,6 +130,8 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <div class="cf-cta">
       <button class="cc-row" onclick="openSheet('sheet-budget')"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></span><span class="cc-t" data-t="setupBudget">Set up budget</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
       <button class="cc-row" onclick="openTxns()"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span><span class="cc-t" data-t="viewExpenses">View expenses</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+      <!-- future-expense proposals awaiting the family's OK — shown only when some are still open, with a count badge (renderRequestsCta) -->
+      <div id="cf-req-cta"></div>
       <!-- staged bank-email transactions to review — shown only when the queue is non-empty (renderCashflowEmailCta) -->
       <div id="cf-email-cta"></div>
     </div>

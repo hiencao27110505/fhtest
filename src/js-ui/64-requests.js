@@ -154,7 +154,9 @@ function requestsWidgetHTML(){
   return head+'<div class="req-list">'+items.slice(0,4).map(function(i){ return _reqCard(i, i.creatorId!==me); }).join('')+'</div>';
 }
 window.requestsWidgetHTML=requestsWidgetHTML;
-function renderReqMounts(){ var el=document.getElementById('fin-requests'); if(el) el.innerHTML=requestsWidgetHTML(); }
+// Finance-tab mount is now Widget A's badged CTA (renderRequestsCta, 20-budget.js) — the
+// standalone #fin-requests widget was removed. Home still renders the full inline widget.
+function renderReqMounts(){ if(typeof renderRequestsCta==='function') renderRequestsCta(); }
 window.renderReqMounts=renderReqMounts;
 
 /* ---- the hub ---- */

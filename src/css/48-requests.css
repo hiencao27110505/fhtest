@@ -6,7 +6,6 @@
 /* card list — mirrors .rx-home */
 .req-list{display:flex;flex-direction:column;gap:10px;margin:0 16px 14px}
 #requests-body .req-list{margin:0 0 6px}
-#fin-requests:empty{display:none}
 .req-card{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;background:var(--white);border:0;border-radius:16px;box-shadow:var(--shadow-card);text-align:left;font:inherit;cursor:pointer}
 .req-card:active{background:var(--surface)}
 .req-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800;flex:0 0 auto;box-shadow:0 0 0 1.5px var(--white)}

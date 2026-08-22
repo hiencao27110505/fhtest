@@ -115,8 +115,26 @@ function renderCashflow(){
   }
   var cfn=document.getElementById('cf-note');
   if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
+  renderRequestsCta();
   renderCashflowEmailCta();
 }
+/* Widget A's proposals CTA — "Đề xuất chi tiêu": opens the requests hub (openRequests).
+   Shown only when there are still-open future-expense/goal/occasion proposals; the badge
+   is how many are open (reqPendingAll). This replaces the standalone #fin-requests widget
+   that used to sit above Widget A. Mirrors renderCashflowEmailCta. */
+function renderRequestsCta(){
+  var slot=document.getElementById('cf-req-cta'); if(!slot) return;
+  var n=(typeof reqPendingAll==='function') ? reqPendingAll().length : 0;
+  var html = n>0
+    ? '<button class="cc-row" onclick="openRequests()">'
+      +'<span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>'
+      +'<span class="cc-t">'+L('Đề xuất chi tiêu','Expense proposals')+'</span>'
+      +'<span class="cc-badge num">'+n+'</span>'
+      +'<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>'
+    : '';
+  if(slot.innerHTML!==html) slot.innerHTML=html;
+}
+window.renderRequestsCta=renderRequestsCta;
 /* Widget A's third CTA — "Khoản thu chi từ email": always shown. A count badge appears
    only when the staged bank-email queue is non-empty. Tapping routes by setup state
    (fhEmailTxnCta): setup intro when no email is linked, else the review sheet (which shows
