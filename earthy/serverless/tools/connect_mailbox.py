@@ -43,16 +43,54 @@ def _database_url() -> str:
     return url
 
 
+# Gmail ignores dots in the local part and everything after a "+", so
+# trang.nguyen.wh@gmail.com, trangnguyenwh@gmail.com and
+# trang.nguyen.wh+bank@gmail.com are all one mailbox. Other providers do not
+# promise either, so the rewrite is applied only to Google's own domains.
+_GOOGLE_DOMAINS = frozenset({"gmail.com", "googlemail.com"})
+
+
+def normalize_email(email: str) -> str:
+    """Fold an address to the form two spellings of one mailbox share.
+
+    Lowercase always; for Gmail also drop dots and any +tag. Used to match a
+    signed-in address against auth.users, where the stored spelling may differ
+    from the one Google hands back.
+    """
+    email = email.strip().lower()
+    local, _, domain = email.rpartition("@")
+    if not local or domain not in _GOOGLE_DOMAINS:
+        return email
+    local = local.split("+", 1)[0].replace(".", "")
+    return f"{local}@{domain}"
+
+
 def resolve_user(conn: object, email: str) -> str:
     """The auth.users id that owns this address.
 
     Looked up from the address Google returned, not passed in on the command
     line: a mistyped id would file the mailbox under the wrong person, and
     nothing downstream would ever notice.
+
+    Matched on the normalized form, so a user stored as trang.nguyen.wh@ is
+    still found when Google reports trangnguyenwh@. The comparison is done in
+    Python rather than SQL because the same folding has to apply to both sides
+    and no index would help at ten rows.
     """
-    row = conn.execute(  # type: ignore[attr-defined]
-        "select id from auth.users where lower(email) = lower(%s)", (email,)
-    ).fetchone()
+    target = normalize_email(email)
+    rows = conn.execute(  # type: ignore[attr-defined]
+        "select id, email from auth.users where email is not null"
+    ).fetchall()
+    matches = [r for r in rows if normalize_email(r[1]) == target]
+
+    if len(matches) > 1:
+        stored = ", ".join(r[1] for r in matches)
+        sys.exit(
+            f"{email} matches more than one user: {stored}.\n"
+            "Two accounts share one Gmail mailbox; resolve that before linking."
+        )
+
+    row = matches[0] if matches else None
     if row is None:
         sys.exit(
             f"No auth.users row for {email}.\n"
