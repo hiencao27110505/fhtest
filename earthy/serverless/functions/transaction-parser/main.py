@@ -4,6 +4,10 @@ Fed by gmail-transaction-ingest, which sends the mail body along with the
 message metadata. Nothing here talks to Gmail, so this function needs no
 credentials and can be tested with a static payload.
 
+Reading a mail is `parser.parse`, one call: how it does it — a stored rule, or
+a model that then learns one — is the parser package's business and
+deliberately not this file's. See `parser/__init__.py`.
+
 For now it only logs what it read. Persisting is deliberately not wired up.
 """
 
@@ -15,7 +19,7 @@ import re
 
 import functions_framework
 import notify
-import parsing
+import parser
 from cloudevents.http import CloudEvent
 
 # basicConfig is a no-op on Cloud Functions: the runtime configures the root
@@ -23,6 +27,10 @@ from cloudevents.http import CloudEvent
 # INFO records are dropped.
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
+
+# Built once per instance: the Postgres-backed store holds a connection pool
+# rather than reconnecting per invocation.
+STORE = parser.create_store()
 
 _TAG = re.compile(r"<[^>]+>")
 _SCRIPT_OR_STYLE = re.compile(r"<(script|style)\b.*?</\1>", re.IGNORECASE | re.DOTALL)
@@ -44,42 +52,45 @@ def main(cloud_event: CloudEvent) -> None:
         log.warning("payload missing message_id/body: keys=%s", sorted(payload))
         return
 
-    result = parsing.parse(strip_html(body))
+    result = parser.parse(str(source), strip_html(body), STORE)
+    subject = str(payload.get("subject", ""))
 
-    if not result.is_complete:
-        # Not an error: an unrecognised template is normal until its patterns
-        # are added. Logged at warning so the gaps are easy to find.
+    reading = result.reading
+    if reading is None:
+        # Not an error: an unrecognised template is normal until the pipeline
+        # has learned one. Logged at warning so the gaps are easy to find.
         log.warning(
-            "INCOMPLETE source=%s message_id=%s amount=%s direction=%s subject=%r",
+            "UNREAD source=%s message_id=%s subject=%r reasons=%s",
             source,
             message_id,
-            result.amount,
-            result.direction,
-            payload.get("subject", ""),
+            subject,
+            "; ".join(result.reasons),
         )
         _announce(
             f"⚠️ <b>Chưa đọc được</b>\n"
             f"Nguồn: {notify.escape(str(source))}\n"
-            f"Tiêu đề: {notify.escape(str(payload.get('subject', '')))}\n"
-            f"Số tiền: {result.amount or '—'} · Chiều: {result.direction or '—'}"
+            f"Tiêu đề: {notify.escape(subject)}"
         )
         return
 
     log.info(
-        "PARSED source=%s message_id=%s amount=%s direction=%s balance=%s subject=%r",
+        "PARSED source=%s message_id=%s stage=%s learned=%s amount=%s direction=%s "
+        "balance=%s subject=%r",
         source,
         message_id,
-        result.amount,
-        result.direction,
-        result.balance,
-        payload.get("subject", ""),
+        result.stage,
+        result.learned,
+        reading.amount,
+        reading.direction,
+        reading.balance,
+        subject,
     )
     _announce(
-        f"💸 <b>{_vnd(result.amount)}</b> · "
-        f"{'vào' if result.direction == 'credit' else 'ra'}\n"
+        f"💸 <b>{_vnd(reading.amount)}</b> · "
+        f"{'vào' if reading.direction == 'credit' else 'ra'}\n"
         f"Nguồn: {notify.escape(str(source))}\n"
-        f"Tiêu đề: {notify.escape(str(payload.get('subject', '')))}"
-        + (f"\nSố dư: {_vnd(result.balance)}" if result.balance else "")
+        f"Tiêu đề: {notify.escape(subject)}"
+        + (f"\nSố dư: {_vnd(reading.balance)}" if reading.balance else "")
     )
 
     # TODO: persist. Use message_id as the idempotency key — the same
@@ -107,7 +118,7 @@ def _vnd(amount: int | None) -> str:
 def strip_html(body: str) -> str:
     """Flatten an HTML mail body to plain text.
 
-    Good enough for regex matching: script/style blocks go first so their
+    Good enough to match labels against: script/style blocks go first so their
     contents do not leak into the text, then tags, then entities.
     """
     text = _SCRIPT_OR_STYLE.sub(" ", body)

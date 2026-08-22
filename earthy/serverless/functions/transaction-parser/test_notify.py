@@ -22,8 +22,29 @@ PARSEABLE = {
     "message_id": "m1",
     "source": "momo",
     "subject": "Bien lai",
-    "body": "Ghi nợ 150.000 VND. Số dư: 2.000.000 VND",
+    "body": "Số tiền: -150.000 VND Số dư: 2.000.000 VND",
 }
+
+# A mail is only readable once a rule for its template exists: there is no
+# regex fallback. Seeded here so these tests exercise the notification, not
+# the learning.
+MOMO_SPEC = {
+    "amount": {"label": "Số tiền", "type": "money"},
+    "balance": {"label": "Số dư", "type": "money"},
+    "direction": {"label": "Số tiền", "type": "sign"},
+}
+
+
+@pytest.fixture(autouse=True)
+def _seed_store(monkeypatch: pytest.MonkeyPatch):
+    """Give main's store one rule for momo, and no model."""
+    from parser import llm, templates
+
+    store = templates.InMemoryStore()
+    store.save("momo", MOMO_SPEC)
+    monkeypatch.setattr(main, "STORE", store)
+    monkeypatch.setattr(llm, "enabled", lambda: False)
+    return store
 
 
 def test_disabled_without_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -77,10 +98,20 @@ def test_network_errors_are_swallowed(monkeypatch: pytest.MonkeyPatch) -> None:
     assert notify.send("hello") is False
 
 
+def _recorder(sent: list[str]):
+    """A notify.send stand-in that records what it was given."""
+
+    def send(text: str) -> bool:
+        sent.append(text)
+        return True
+
+    return send
+
+
 def test_a_parse_announces_the_amount(monkeypatch: pytest.MonkeyPatch) -> None:
     sent: list[str] = []
     monkeypatch.setattr(main.notify, "enabled", lambda: True)
-    monkeypatch.setattr(main.notify, "send", lambda text: sent.append(text) or True)
+    monkeypatch.setattr(main.notify, "send", _recorder(sent))
 
     main.main(_event(PARSEABLE))
 
@@ -93,7 +124,7 @@ def test_an_unreadable_email_announces_too(monkeypatch: pytest.MonkeyPatch) -> N
     # The gap worth knowing about while watching a new pipeline.
     sent: list[str] = []
     monkeypatch.setattr(main.notify, "enabled", lambda: True)
-    monkeypatch.setattr(main.notify, "send", lambda text: sent.append(text) or True)
+    monkeypatch.setattr(main.notify, "send", _recorder(sent))
 
     main.main(_event({**PARSEABLE, "body": "khong co so tien"}))
 
@@ -105,7 +136,7 @@ def test_subject_markup_is_escaped(monkeypatch: pytest.MonkeyPatch) -> None:
     # Subjects come from email and are attacker-controlled.
     sent: list[str] = []
     monkeypatch.setattr(main.notify, "enabled", lambda: True)
-    monkeypatch.setattr(main.notify, "send", lambda text: sent.append(text) or True)
+    monkeypatch.setattr(main.notify, "send", _recorder(sent))
 
     main.main(_event({**PARSEABLE, "subject": "<b>bold</b> & co"}))
 
