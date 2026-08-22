@@ -278,57 +278,37 @@ async function mountGoogleButton() {
 // Fallback (desktop / GIS unavailable): the redirect flow, still on the original custom button.
 window.obGoogle = async function () {
   try { sessionStorage.setItem('fh-ob-locale', JSON.stringify({ lang: window.LANG, cur: window.CUR })); } catch (e) { }
+  /* SIGN-IN ASKS FOR NOTHING BUT SIGN-IN. gmail.readonly used to be requested
+     here, back when capturing a provider token at login was the only way to
+     reach a mailbox. Auto-logging now runs its own consent flow at the moment
+     the person asks for it (74-autotxn-ui.js), so requesting mail access here
+     bought nothing and cost three things: everyone signing up read "View your
+     email messages and settings" on a screen where they had asked only to log
+     in; the grant applied to people who never turn the feature on; and Google's
+     Appropriate Access review, which expects a restricted scope to be requested
+     at its point of need, would have been shown a login demanding whole-mailbox
+     read for no visible feature. Do not put a scope back here. */
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google', options: {
       redirectTo: location.href.split('#')[0].split('?')[0],
-      scopes: "https://www.googleapis.com/auth/gmail.readonly",
-      // queryParams: {
-      //   access_type: 'offline',
-      //   prompt: 'consent',
-      // },
     },
   });
   if (error) { authBusy(false); window.toast && window.toast(_friendly(error)); }
 };
 
-/* ── Google provider tokens → localStorage (TEST ONLY, not the shipping design) ──
-   Supabase does NOT persist provider_token / provider_refresh_token: they are on the
-   session object only for the SIGNED_IN event right after the redirect, and are gone
-   from every later getSession()/refresh. So capture them here or they're unrecoverable
-   without sending the user back through consent.
+/* The fh-gtok scaffold that used to live here is gone (2026-08-22). It captured
+   Google's provider_token out of the SIGNED_IN session and kept it in
+   localStorage, because that was the only way to hold a Gmail token back when
+   sign-in carried the gmail.readonly scope. Its own comment called it TEST ONLY
+   and named the problem: localStorage is readable by any script on this origin
+   and survives sign-out, so a mailbox token sat there indefinitely.
 
-   provider_refresh_token arrives ONLY on the first consent for a given Google account
-   (that's what access_type=offline + prompt=consent in obGoogle above are buying), so
-   never overwrite a stored one with the undefined of a subsequent sign-in.
+   Both halves of the reason are now gone. Sign-in no longer requests a mail
+   scope, so there is no Gmail token to capture; and the real flow sends the code
+   to the backend, which holds the refresh token server-side where it belongs.
+   Nothing outside this file ever read fhGoogleTokens().
 
-   SECURITY: localStorage is readable by any script on this origin and survives sign-out,
-   and these grant Gmail-read access to the user's mailbox. This is a scaffold for testing
-   the Gmail scope only — before shipping, move the exchange server-side (store the refresh
-   token in a service-role-only table, never hand the client a long-lived Google token).
-   window.fhClearGoogleTokens() wipes them; _fhLocalWipe (70-goals-income-onboard-ui)
-   should clear 'fh-gtok' too once this stops being test-only. */
-const _GTOK_KEY = 'fh-gtok';
-window.fhGoogleTokens = function () {
-  try { return JSON.parse(localStorage.getItem(_GTOK_KEY) || 'null'); } catch (e) { return null; }
-};
-window.fhClearGoogleTokens = function () {
-  try { localStorage.removeItem(_GTOK_KEY); } catch (e) { }
-};
-function _saveGoogleTokens(session) {
-  if (!session || !session.provider_token) return;          // nothing new to keep
-  const prev = window.fhGoogleTokens() || {};
-  const rec = {
-    access_token: session.provider_token,
-    // keep the old refresh token when this sign-in didn't reissue one
-    refresh_token: session.provider_refresh_token || prev.refresh_token || null,
-    // Google access tokens last ~1h; the session's expiry is the closest marker we have
-    saved_at: Math.floor(Date.now() / 1000),
-    expires_at: session.expires_at || null,
-    email: (session.user && session.user.email) || null
-  };
-  try { localStorage.setItem(_GTOK_KEY, JSON.stringify(rec)); } catch (e) { }
-}
-sb.auth.onAuthStateChange((event, session) => {
-  if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') _saveGoogleTokens(session);
-  if (event === 'SIGNED_OUT') window.fhClearGoogleTokens();
-});
+   Note for anyone with an old build's leftovers: existing 'fh-gtok' entries are
+   not cleared by this removal. They are stale basic-scope or mail-scope tokens
+   that will expire on their own; wipe them with
+   localStorage.removeItem('fh-gtok') if you want them gone now. */

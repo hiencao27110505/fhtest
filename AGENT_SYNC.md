@@ -16,6 +16,77 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-22 (UI session) — AUTO-LOGGING IS DONE UP TO THE SEAM. The consent
+  screen opens on a real device and grants; everything past the Allow button is
+  the backend's. Also: three data-loss-grade bugs found in `fd6411f`, which is
+  yours — item 4 is the one to read first.**
+
+  **1. What shipped.** Settings opens with `#set-autotxn-row` ("Tự động ghi giao
+  dịch", NEW badge), on the SAME allowlist as the two forwarding rows — one beta
+  list, not two. It opens one screen: what we read, what we cannot read, who can
+  open it, plus the scope note Google's breadth obliges us to print. A "Đọc thư
+  từ" row above the CTA names the account; "Đổi" opens a form modal to type a
+  different one. That modal is a `.modal`, NOT a `.sheet`, deliberately: `.sheet`
+  is bottom-anchored, so a short sheet sits exactly where the keyboard lands and
+  the CTA disappears under it. `.modal` is top-anchored. This was a real reported
+  break, not a hypothetical.
+
+  **2. WE build the consent URL now; `/api/gmail-connect` is not called and can
+  be deleted from the branch.** Nothing about a consent URL needed a server: it
+  is a client_id, a scope, a redirect and a state, all public or ours. The round
+  trip only added something that could 404, which is exactly what it did. What
+  Google receives, and the four things that must match on your side, are in the
+  entry below (A0–A3, B). The short version:
+  - `client_id` = **860668973723-…** (`FHTest Web`, the `fhtest` project). NOT
+    `340747728156-…`, which is in a different GCP project and was briefly wrong
+    here. Your `GOOGLE_OAUTH_CLIENT_ID`/`_SECRET` must be this client's, or the
+    exchange fails `invalid_grant` after the person has pressed Allow.
+  - `redirect_uri` = **`https://fhtest-opal.vercel.app/api/gmail-callback`**,
+    pinned in the client, not origin-derived. Registered in the Console. Your
+    `GOOGLE_OAUTH_REDIRECT_URI` must be this string byte for byte.
+  - `prompt` = **`select_account consent`**. Both are load-bearing: `consent` or
+    there is no refresh token and sync dies within the hour; `select_account`
+    because `login_hint` LOSES to an existing Safari session — verified on a real
+    phone, the person lands on whichever Google account they last used and can
+    grant the wrong mailbox without noticing.
+  - `state` = `base64url({uid, mid, v:1})`, **unsigned and therefore untrusted**.
+    A browser cannot hold a signing key. Verify the member against the account
+    the granted email resolves to; believing it lets a forged state attach one
+    person's mailbox to another person's ledger.
+  - `login_hint` is a **hint, not a claim**. Store the address Google returns,
+    never this one.
+
+  **3. SIGN-IN NO LONGER REQUESTS `gmail.readonly`, and the `fh-gtok` scaffold is
+  gone.** `obGoogle` had been asking every new user for whole-mailbox read on the
+  plain login screen, for a feature most of them never turn on — and Google's
+  Appropriate Access review expects a restricted scope at its point of need, so
+  it was also a verification liability. The scaffold that captured
+  `provider_token` into localStorage went with it: its only purpose was holding a
+  Gmail token from sign-in, it was marked TEST ONLY, and nothing outside
+  `10-client-auth.js` read it. **If you were relying on `window.fhGoogleTokens()`
+  for pipeline testing, it is gone and will not come back** — the token belongs
+  server-side now.
+
+  **4. THREE BUGS IN `fd6411f` ("Make X delete the staged row now"). I have NOT
+  touched them — your file, your call — but the first one deletes the wrong
+  transaction.**
+  - **`csvArmedRemove` is never reset across sheet close/open**
+    (`56-csv-import-ui.js`). `fhTxnReviewSheet` refetches and rebuilds the list,
+    but nothing disarms. Arm row 2, close without confirming, a new email
+    arrives, reopen: index 2 is now a DIFFERENT transaction and renders
+    pre-armed. One tap permanently deletes it, with no arm step.
+  - **`csvActiveCard` ignores `opts.armed`.** `renderCsvReview` passes it for
+    both branches but only the collapsed card renders the armed state, so on an
+    expanded row the ✕ arms invisibly. Two taps delete, and the button never once
+    said "Xoá?". Screen readers hear "remove" both times.
+  - **The arming branch re-renders without `csvFlushExpand()`**, discarding
+    unsaved editor typing. The first tap is meant to be the safe, reversible one.
+
+  **5. Still unsettled, from the previous entry:** three entry points to
+  bank-email on two transports, with your always-shown Widget A CTA routing
+  everyone to forwarding while the Settings rows are allowlist-gated. Hien asked
+  for one entry point for auto-logging; worth deciding before the beta reopens.
+
 - **2026-08-22 (UI session) — AUTO-LOGGING ENTRY POINT IS ON MAIN, gated. No
   answer needed; this is a heads-up for whoever holds the OAuth backend.**
 

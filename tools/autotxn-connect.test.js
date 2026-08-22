@@ -76,9 +76,8 @@ const q = (u, k) => new URL(u).searchParams.get(k);
   console.log('\n-- the consent URL Google is handed --');
   const a = await run({});
   t('goes to Google’s auth endpoint', a.nav.to && a.nav.to.indexOf('https://accounts.google.com/o/oauth2/v2/auth?') === 0, String(a.nav.to));
-  t('carries the client the fhtest project owns', q(a.nav.to, 'client_id') === CLIENT, q(a.nav.to, 'client_id'));
-  t('  ...and not a client from some other GCP project',
-    q(a.nav.to, 'client_id').indexOf('860668973723-') === 0, q(a.nav.to, 'client_id'));
+  t('carries the client the fhtest project owns, not one from another GCP project',
+    q(a.nav.to, 'client_id') === CLIENT, q(a.nav.to, 'client_id'));
   t('asks for a code, not a token', q(a.nav.to, 'response_type') === 'code');
   t('requests gmail.readonly and nothing else',
     q(a.nav.to, 'scope') === 'https://www.googleapis.com/auth/gmail.readonly' &&
@@ -87,16 +86,14 @@ const q = (u, k) => new URL(u).searchParams.get(k);
      and Vercel gives every preview deploy its own hostname. The harness serves
      the app from a different origin on purpose, so a regression back to
      location.origin fails here instead of on someone's phone. */
-  t('the redirect_uri is the one registered with Google',
+  t('the redirect_uri is the pinned one registered with Google, NOT the origin\n         the harness served the app from',
     q(a.nav.to, 'redirect_uri') === 'https://fhtest-opal.vercel.app/api/gmail-callback', q(a.nav.to, 'redirect_uri'));
-  t('  ...and does NOT follow the origin the app was opened at',
-    q(a.nav.to, 'redirect_uri').indexOf('https://fhtest.vercel.app') !== 0);
 
   console.log('\n-- the two params a refresh token depends on --');
   t('access_type=offline', q(a.nav.to, 'access_type') === 'offline');
   t('prompt asks for consent (no fresh consent, no refresh token)', /\bconsent\b/.test(q(a.nav.to, 'prompt')), q(a.nav.to, 'prompt'));
-  t('prompt ALSO forces the account chooser', /\bselect_account\b/.test(q(a.nav.to, 'prompt')), q(a.nav.to, 'prompt'));
-  t('  ...because login_hint alone loses to an existing Safari session,\n         which silently grants the wrong mailbox', /\bselect_account\b/.test(q(a.nav.to, 'prompt')));
+  t('prompt ALSO forces the account chooser, because login_hint alone loses to an\n         existing Safari session and silently grants the wrong mailbox',
+    /\bselect_account\b/.test(q(a.nav.to, 'prompt')), q(a.nav.to, 'prompt'));
 
   console.log('\n-- state tells the callback whose ledger this is --');
   {

@@ -39,7 +39,12 @@
     auto:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 11.2V7.4a2.6 2.6 0 0 0-2.6-2.6H5.8a2.6 2.6 0 0 0-2.6 2.6v9a2.6 2.6 0 0 0 2.6 2.6h6.4"/><path d="m4.3 7.6 7.7 5.2 7.7-5.2"/><path d="m18.4 13.4-2.1 3.9h3.4l-2.1 3.9"/></svg>',
     eyeoff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 5.6a8.6 8.6 0 0 1 2.1-.26c4.6 0 8 4.2 9.2 6.06a1.2 1.2 0 0 1 0 1.2 17 17 0 0 1-2.5 3.1"/><path d="M15.5 16.9a8.7 8.7 0 0 1-3.5.75c-4.6 0-8-4.2-9.2-6.06a1.2 1.2 0 0 1 0-1.2A17.4 17.4 0 0 1 6 6.6"/><path d="M10.3 10.3a2.4 2.4 0 0 0 3.4 3.4"/><path d="m4.6 4.6 14.8 14.8"/></svg>',
   };
-  const _atxGlyph = (k) => _ATX_SVG[k] || _mbxGlyph(k);
+  /* Registered on the shared set rather than kept in a private lookup: _mbxAssure
+     builds the rows for BOTH bank-email screens and resolves its glyph through
+     _mbxGlyph, so a second lookup would have meant a second row builder. One
+     glyph vocabulary, one row builder, one visual voice. */
+  Object.assign(_MBX_SVG, _ATX_SVG);
+  const _atxGlyph = (k) => _mbxGlyph(k);
 
   /* WHICH ACCOUNT WE READ FROM — the one question this flow has to ask, and the
      reason it is a row on the offer screen rather than a step of its own.
@@ -67,28 +72,32 @@
      validation below stays a shape check and never promises the address works.
      Someone whose bank writes somewhere else needs forwarding, and routing them
      there is a product decision, not a UI one. */
-  let _atxUseLogin = true;
   let _atxTyped = '';                       // survives the hop back to the offer sheet
 
   const _atxLoginEmail = () => (window.FAM && window.FAM.user && window.FAM.user.email) || '';
 
   /* Read straight off the field so the value survives a re-render and never
      needs mirroring into module state on every keystroke. */
+  /* Reads the live field when it is mounted and remembers it, so the value
+     survives the hop back to the offer sheet and the row can show it there. */
   const _atxTypedEmail = () => {
     const el = document.getElementById('atx-email');
     if (el) { _atxTyped = el.value.trim(); }
     return _atxTyped;
   };
 
+  /* Always names the SIGN-IN address, because that is what this screen's CTA
+     will use — fhAutoTxnGrant reads _atxLoginEmail and nothing else. Showing a
+     previously typed address here would promise an account the button beside it
+     ignores. Typing one is a different journey, and it carries its own CTA. */
   function _atxAcctRow() {
     const email = _atxLoginEmail();
-    const on = _atxUseLogin && !!email;
     return '<div class="atx-acct" id="atx-acct">' +
       '<div class="atx-acct-ic">' + _mbxGlyph('mail') + '</div>' +
       '<div class="atx-acct-txt">' +
         '<div class="atx-acct-lbl">' + _esc(L('Đọc thư từ', 'Reading from')) + '</div>' +
-        '<div class="atx-acct-val">' + _esc(on ? email : (_atxTyped ||
-          L('Tài khoản bạn chọn ở màn hình Google', 'The account you pick on Google’s screen'))) + '</div>' +
+        '<div class="atx-acct-val">' + _esc(email ||
+          L('Tài khoản bạn chọn ở màn hình Google', 'The account you pick on Google’s screen')) + '</div>' +
       '</div>' +
       '<button class="atx-acct-sw" onclick="fhAutoTxnEmailSheet()">' + _esc(L('Đổi', 'Change')) + '</button>' +
       '</div>';
@@ -115,7 +124,6 @@
      and this is a form. _fhModal brings the Cancel/Title/Save bar, the in-flight
      progress state, and error handling that keeps the form open, for free. */
   window.fhAutoTxnEmailSheet = function () {
-    _atxUseLogin = false;
     _fhModal({
       title: L('Đọc thư từ email nào?', 'Which email should we read?'),
       saveLabel: L('Tiếp tục', 'Continue'),
@@ -157,8 +165,7 @@
   };
 
   window.fhAutoTxnUseLogin = function () {
-    _atxUseLogin = true;
-    _atxTyped = '';
+    _atxTyped = '';                          // drop the typed hint; the offer uses the sign-in address
     fhAutoTxnSheet();
   };
 
@@ -168,7 +175,6 @@
      truthful to render for "already connected". When that RPC arrives, the
      status branch goes HERE, ahead of the intro, the way fhMailboxSheet does it. */
   window.fhAutoTxnSheet = function () {
-    _atxUseLogin = true;                       // fresh decision each time it opens
     _fhSheet(
       '<div class="mbx-hero">' + _atxGlyph('auto') + '</div>' +
       '<div class="sheet-h">' + _esc(L('Tự động ghi giao dịch', 'Automatic transaction logging')) + '</div>' +
@@ -177,13 +183,13 @@
         'Let Earthy read your email to find receipts and bank transaction alerts, then fill your ledger in for you. No more typing them in by hand.')) + '</div>' +
 
       '<div class="mbx-assure">' +
-        _atxAssure('eyeoff', L('Chỉ biên lai và giao dịch', 'Only receipts and transactions'),
+        _mbxAssure('eyeoff', L('Chỉ biên lai và giao dịch', 'Only receipts and transactions'),
           L('Tụi mình chỉ tìm email từ ngân hàng và cửa hàng. Những thư khác không bao giờ được tải về.',
             'We only look for mail from banks and merchants. Everything else is never downloaded.')) +
-        _atxAssure('lock', L('Chỉ gia đình bạn mở được', 'Only your family can open it'),
+        _mbxAssure('lock', L('Chỉ gia đình bạn mở được', 'Only your family can open it'),
           L('Giao dịch được niêm phong ngay khi lưu, chỉ thiết bị của gia đình bạn mở được.',
             'Transactions are sealed the moment they are stored, and only your family’s devices can open them.')) +
-        _atxAssure('check', L('Bạn duyệt rồi mới vào sổ', 'You approve before anything is logged'),
+        _mbxAssure('check', L('Bạn duyệt rồi mới vào sổ', 'You approve before anything is logged'),
           L('Mỗi khoản đều nằm chờ bạn xem qua. Không có gì tự vào sổ chi tiêu của gia đình.',
             'Every transaction waits for you to look it over. Nothing enters your family ledger on its own.')) +
       '</div>' +
@@ -199,13 +205,6 @@
       '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
     );
   };
-
-  function _atxAssure(icon, title, sub) {
-    return '<div class="mbx-assure-row">' +
-      '<div class="mbx-ic">' + _atxGlyph(icon) + '</div>' +
-      '<div class="mbx-txt"><div class="mbx-rt">' + _esc(title) + '</div>' +
-      '<div class="mbx-rs">' + _esc(sub) + '</div></div></div>';
-  }
 
   /* ── the consent URL ───────────────────────────────────────────────────────
      WE own getting the person to Google. The backend takes over at the callback.
@@ -274,7 +273,7 @@
      all three together. (A localhost dev loop would need its own registered URI
      and a temporary edit here; there is no automatic fallback on purpose,
      because a silent one is how a mismatch gets shipped.) */
-  const _ATX_REDIRECT = () => 'https://fhtest-opal.vercel.app/api/gmail-callback';
+  const _ATX_REDIRECT = 'https://fhtest-opal.vercel.app/api/gmail-callback';
 
   function _atxB64Url(obj) {
     // btoa is latin1-only; percent-encode first so a non-ASCII value cannot throw.
@@ -293,7 +292,7 @@
 
     const p = new URLSearchParams({
       client_id: GOOGLE_CLIENT_ID,
-      redirect_uri: _ATX_REDIRECT(),
+      redirect_uri: _ATX_REDIRECT,
       response_type: 'code',
       scope: _ATX_SCOPE,
       /* offline: the backend needs a REFRESH token, and Google only issues one
@@ -344,7 +343,8 @@
       _atxNavigate(await _atxConsentUrl(_atxLoginEmail()));
       return;                                   // navigating: leave the button as it is
     } catch (e) {
-      window.toast && window.toast((e && e.fhMsg) || L('Chưa mở được Google, thử lại nhé', 'Could not open Google — try again'));
+      window.toast && window.toast(window._fhFriendly ? window._fhFriendly(e)
+        : ((e && e.fhMsg) || L('Chưa mở được Google, thử lại nhé', 'Could not open Google — try again')));
       try { console.warn('[autotxn] consent url failed:', e && (e.message || e)); } catch (e2) {}
     } finally {
       if (!_atxLeaving) reset();

@@ -40,8 +40,11 @@ requests, and transaction rows live in sibling files noted per widget. Styling i
 - **2026-08-22** — the standalone "Waiting for the family" pending-proposals widget (`#fin-requests`)
   was removed from the Finance tab. Its function is now a **badged CTA row inside Widget A**
   ("Expense proposals" · `#cf-req-cta`, count = `reqPendingAll().length`, hidden when zero) that
-  opens the same `#requests-overlay`. The full inline widget still appears on the **Home** tab
-  via `requestsWidgetHTML()`.
+  opens the same `#requests-overlay`.
+- **2026-08-22, later** — the Home tab's inline proposals section ("Cả nhà cùng duyệt") was removed
+  on request, and `requestsWidgetHTML()` went with it: Home was its only mount. **Widget A's badged
+  CTA is now the only surface**, plus the `#requests-overlay` hub behind it. The underlying feature
+  is untouched — proposals are still created, routed and reviewed.
 - `renderBudget()` still writes to a batch of **dead** legacy DOM ids from the old ring-based hero
   (`b-safe`, `bfill`, `bmark`, `bres`, `hero-month`, `snap-in/out/pool`, `sav-hero`, …) that no
   longer exist in `#v-spending`; they no-op safely but are prune candidates.
