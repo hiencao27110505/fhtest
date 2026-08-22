@@ -82,8 +82,14 @@ const q = (u, k) => new URL(u).searchParams.get(k);
   t('requests gmail.readonly and nothing else',
     q(a.nav.to, 'scope') === 'https://www.googleapis.com/auth/gmail.readonly' &&
     q(a.nav.to, 'include_granted_scopes') === 'false', q(a.nav.to, 'scope'));
-  t('redirects to the backend callback on our origin',
-    q(a.nav.to, 'redirect_uri') === 'https://fhtest.vercel.app/api/gmail-callback', q(a.nav.to, 'redirect_uri'));
+  /* Pinned, NOT derived from the origin: Google matches redirect_uri literally,
+     and Vercel gives every preview deploy its own hostname. The harness serves
+     the app from a different origin on purpose, so a regression back to
+     location.origin fails here instead of on someone's phone. */
+  t('the redirect_uri is the one registered with Google',
+    q(a.nav.to, 'redirect_uri') === 'https://fhtest-opal.vercel.app/api/gmail-callback', q(a.nav.to, 'redirect_uri'));
+  t('  ...and does NOT follow the origin the app was opened at',
+    q(a.nav.to, 'redirect_uri').indexOf('https://fhtest.vercel.app') !== 0);
 
   console.log('\n-- the two params a refresh token depends on --');
   t('access_type=offline', q(a.nav.to, 'access_type') === 'offline');

@@ -52,7 +52,7 @@ relaying messages through Slack/DMs by hand.
   ```
   https://accounts.google.com/o/oauth2/v2/auth
     client_id=<the app's existing Google client id>
-    redirect_uri=<origin>/api/gmail-callback
+    redirect_uri=https://fhtest-opal.vercel.app/api/gmail-callback   (PINNED, not origin-derived)
     response_type=code
     scope=https://www.googleapis.com/auth/gmail.readonly
     include_granted_scopes=false
@@ -73,10 +73,14 @@ relaying messages through Slack/DMs by hand.
      backend exchanges with, that same commit has to change `_ATX_CLIENT_ID` in
      `74-autotxn-ui.js`.
 
-  1. **`redirect_uri` is `<origin>/api/gmail-callback`.** Register that exact
-     string as an Authorised redirect URI in Google Cloud Console, or Google
-     answers `redirect_uri_mismatch` before the person sees a thing. If your
-     callback lands on a different path, say so and I change one line.
+  1. **`redirect_uri` is the literal string
+     `https://fhtest-opal.vercel.app/api/gmail-callback`** — pinned in the
+     client, NOT derived from `location.origin`. Google matches it literally, and
+     Vercel gives every preview deploy its own hostname, so an origin-derived
+     value would need every one of them registered. Your
+     `GOOGLE_OAUTH_REDIRECT_URI` must be this same string, byte for byte, and so
+     must the entry in Google Cloud Console. Three places, one string. If the
+     callback path or the domain moves, all three change together.
   2. **`state` IS UNTRUSTED INPUT. Verify it, do not believe it.** It carries
      `{uid, mid}` because your callback has no session to ask, and it is NOT
      signed — a browser cannot hold a signing key. Confirm the member belongs to

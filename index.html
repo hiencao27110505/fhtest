@@ -20911,13 +20911,26 @@ window.classifyAmount = classifyAmount;
      belongs in client code. The secret never does, and is not here. */
   const _ATX_CLIENT_ID = '340747728156-dc16et673i1tm0l7qi1ikr0f7t7tedkl.apps.googleusercontent.com';
 
-  /* The one value that must match the backend AND Google Cloud Console.
-     `/api/gmail-callback` is the path the reference implementation on branch
-     bank-email-oauth already uses, on this same origin. If the callback lands
-     anywhere else this is the single line to change, and the SAME string must be
-     registered as an Authorised redirect URI in the Console, or Google answers
-     redirect_uri_mismatch before the person sees anything at all. */
-  const _ATX_REDIRECT = () => location.origin + '/api/gmail-callback';
+  /* PINNED, not built from location.origin, and that is the point.
+
+     Google compares redirect_uri LITERALLY against a registered list. Vercel
+     gives every deployment its own preview hostname, so an origin-derived
+     redirect changes per deploy and each one would have to be registered or the
+     person gets `redirect_uri_mismatch` before the consent screen even renders.
+     Pinning means the one string we registered is the one we always send, from
+     whatever URL the app happens to be open at. Opening a preview build simply
+     returns you to production, which is where the callback lives anyway.
+
+     THIS EXACT STRING has to appear in three places, and all three must agree:
+       1. Google Cloud Console → Credentials → the OAuth client whose id is
+          _ATX_CLIENT_ID above → Authorised redirect URIs
+       2. the backend's GOOGLE_OAUTH_REDIRECT_URI env var in Vercel
+       3. here
+     No trailing slash, https, exact case. Changing the domain means changing
+     all three together. (A localhost dev loop would need its own registered URI
+     and a temporary edit here; there is no automatic fallback on purpose,
+     because a silent one is how a mismatch gets shipped.) */
+  const _ATX_REDIRECT = () => 'https://fhtest-opal.vercel.app/api/gmail-callback';
 
   function _atxB64Url(obj) {
     // btoa is latin1-only; percent-encode first so a non-ASCII value cannot throw.
