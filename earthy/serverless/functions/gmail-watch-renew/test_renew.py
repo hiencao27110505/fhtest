@@ -58,7 +58,7 @@ def test_renews_every_mailbox(store, monkeypatch):
     body, status = main.main(None)
 
     assert status == 200
-    assert json.loads(body) == {"renewed": 3, "failed": 0}
+    assert json.loads(body) == {"renewed": 3, "failed": 0, "needs_reauth": 0}
 
 
 def test_one_failure_does_not_stop_the_others(store, monkeypatch):
@@ -122,4 +122,60 @@ def test_no_connected_mailboxes_is_a_clean_run(monkeypatch):
     body, status = main.main(None)
 
     assert status == 200
-    assert json.loads(body) == {"renewed": 0, "failed": 0}
+    assert json.loads(body) == {"renewed": 0, "failed": 0, "needs_reauth": 0}
+
+
+def test_dead_token_is_recorded_not_counted_as_failure(store, monkeypatch):
+    """A 7-day expiry is routine in Testing status, not an outage.
+
+    It is reported separately from real failures so a weekly wave of
+    re-consents does not read as the job breaking.
+    """
+
+    def reject(refresh_token: str) -> object:
+        if refresh_token == "tok-b":
+            raise main.gmail_auth.TokenRejected("expired")
+        return _FakeWatch("100")(refresh_token)
+
+    monkeypatch.setattr(main.gmail_auth, "build_client", reject)
+
+    body, status = main.main(None)
+    parsed = json.loads(body)
+
+    assert parsed["renewed"] == 2
+    assert parsed["failed"] == 0
+    assert parsed["needs_reauth"] == 1
+    assert store.get("b@x.com").needs_reauth is True
+
+
+def test_reauth_pending_mailboxes_are_skipped_next_run(store, monkeypatch):
+    store.mark_needs_reauth("b@x.com")
+    watch = _FakeWatch("100")
+    monkeypatch.setattr(main.gmail_auth, "build_client", watch)
+
+    body, _ = main.main(None)
+
+    assert json.loads(body)["renewed"] == 2  # a and c only
+
+
+def test_watch_body_uses_label_filter_behavior(store, monkeypatch):
+    # labelFilterAction is deprecated; labelFilterBehavior replaces it.
+    captured: list[dict] = []
+
+    class Service:
+        def users(self):
+            return self
+
+        def watch(self, userId: str, body: dict):  # noqa: N803
+            captured.append(body)
+            return self
+
+        def execute(self) -> dict:
+            return {"historyId": "1"}
+
+    monkeypatch.setattr(main.gmail_auth, "build_client", lambda tok: Service())
+    main.main(None)
+
+    assert captured[0]["labelFilterBehavior"] == "INCLUDE"
+    assert captured[0]["labelIds"] == ["INBOX"]
+    assert "labelFilterAction" not in captured[0]

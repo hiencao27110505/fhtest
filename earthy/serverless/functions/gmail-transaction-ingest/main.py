@@ -64,7 +64,15 @@ def main(cloud_event: CloudEvent) -> None:
         log.warning("no account on file for %s; dropping notification", email)
         return
 
-    service = gmail_auth.build_client(account.refresh_token)
+    try:
+        service = gmail_auth.build_client(account.refresh_token)
+    except gmail_auth.TokenRejected:
+        # Permanent until the user reconnects — revoked, password changed, or
+        # the 7-day expiry that applies to every token while the app is in
+        # Testing status. Retrying cannot fix it, so record it and ack.
+        log.warning("refresh token rejected for %s; marking for re-consent", email)
+        STORE.mark_needs_reauth(email)
+        return
 
     # Without a stored cursor there is no window to read: the notification's
     # own historyId is the newest change, not a starting point. Fall back to

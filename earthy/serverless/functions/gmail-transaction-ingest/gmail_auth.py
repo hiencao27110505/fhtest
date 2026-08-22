@@ -17,6 +17,17 @@ log = logging.getLogger(__name__)
 _TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 
+class TokenRejected(Exception):
+    """Google refused the refresh token, and no retry will change that.
+
+    Raised for revocation, a password change, and — while the app is in
+    Testing publishing status — the 7-day refresh-token expiry that applies to
+    every user. Callers should mark the mailbox for re-consent and ack, not
+    retry: the message would otherwise redeliver until the topic's retention
+    runs out.
+    """
+
+
 class CredentialsUnavailable(Exception):
     """The app's OAuth client is not configured.
 
@@ -44,10 +55,12 @@ def client_config() -> tuple[str, str]:
 def build_client(refresh_token: str):
     """A Gmail API client acting as the user who granted `refresh_token`.
 
-    google-auth exchanges the refresh token for an access token on the first
-    call and renews it as needed, so nothing above this line deals with token
-    lifetimes.
+    The token is exchanged for an access token here rather than lazily on the
+    first API call, so a dead token surfaces as TokenRejected at a single known
+    point instead of from somewhere deep in a request.
     """
+    import google.auth.transport.requests  # noqa: PLC0415
+    from google.auth.exceptions import RefreshError  # noqa: PLC0415
     from google.oauth2.credentials import Credentials  # noqa: PLC0415
     from googleapiclient.discovery import build  # noqa: PLC0415
 
@@ -60,6 +73,15 @@ def build_client(refresh_token: str):
         client_secret=client_secret,
         scopes=SCOPES,
     )
+
+    try:
+        credentials.refresh(google.auth.transport.requests.Request())
+    except RefreshError as exc:
+        # RefreshError covers invalid_grant (revoked, expired, password
+        # changed) — all permanent. The message can carry token material, so
+        # only the type is propagated.
+        raise TokenRejected("refresh token rejected by Google") from exc
+
     # cache_discovery=False: the default file cache is unwritable on Cloud
     # Functions and logs a warning on every cold start.
     return build("gmail", "v1", credentials=credentials, cache_discovery=False)

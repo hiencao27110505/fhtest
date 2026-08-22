@@ -31,7 +31,10 @@ WATCH_TOPIC = os.environ.get("WATCH_TOPIC", "gmail-events")
 
 # Which labels count as a change worth reporting. INBOX only: mail filed
 # straight into another label is not something this pipeline reacts to.
+# Filtering here is far cheaper than filtering after history.list, and
+# labelFilterBehavior replaces the deprecated labelFilterAction.
 WATCH_LABELS = ["INBOX"]
+WATCH_LABEL_BEHAVIOR = "INCLUDE"
 
 STORE = accounts.default_store()
 
@@ -56,9 +59,18 @@ def main(request: Request) -> tuple[str, int]:
     renewed: list[str] = []
     failed: list[dict[str, str]] = []
 
+    needs_reauth: list[str] = []
+
     for email in emails:
         try:
             history_id = _renew_one(email, topic)
+        except gmail_auth.TokenRejected:
+            # Not a failure to retry: the user has to reconnect. Recorded so
+            # the next run skips them and the app can prompt.
+            log.warning("refresh token rejected for %s; marking for re-consent", email)
+            STORE.mark_needs_reauth(email)
+            needs_reauth.append(email)
+            continue
         except Exception as exc:  # noqa: BLE001 - one bad mailbox must not stop the rest
             # Logged without the exception object's repr, which for Google
             # client errors can carry request details.
@@ -68,7 +80,11 @@ def main(request: Request) -> tuple[str, int]:
         renewed.append(email)
         log.info("renewed %s, historyId=%s", email, history_id)
 
-    body: dict[str, object] = {"renewed": len(renewed), "failed": len(failed)}
+    body: dict[str, object] = {
+        "renewed": len(renewed),
+        "failed": len(failed),
+        "needs_reauth": len(needs_reauth),
+    }
     if failed:
         body["failures"] = failed
 
@@ -89,7 +105,14 @@ def _renew_one(email: str, topic: str) -> str:
 
     result = (
         service.users()
-        .watch(userId="me", body={"topicName": topic, "labelIds": WATCH_LABELS})
+        .watch(
+            userId="me",
+            body={
+                "topicName": topic,
+                "labelIds": WATCH_LABELS,
+                "labelFilterBehavior": WATCH_LABEL_BEHAVIOR,
+            },
+        )
         .execute()
     )
     history_id = str(result["historyId"])
