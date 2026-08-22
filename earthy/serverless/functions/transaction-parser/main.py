@@ -14,6 +14,7 @@ import logging
 import re
 
 import functions_framework
+import notify
 import parsing
 from cloudevents.http import CloudEvent
 
@@ -56,6 +57,12 @@ def main(cloud_event: CloudEvent) -> None:
             result.direction,
             payload.get("subject", ""),
         )
+        _announce(
+            f"⚠️ <b>Chưa đọc được</b>\n"
+            f"Nguồn: {notify.escape(str(source))}\n"
+            f"Tiêu đề: {notify.escape(str(payload.get('subject', '')))}\n"
+            f"Số tiền: {result.amount or '—'} · Chiều: {result.direction or '—'}"
+        )
         return
 
     log.info(
@@ -67,8 +74,34 @@ def main(cloud_event: CloudEvent) -> None:
         result.balance,
         payload.get("subject", ""),
     )
+    _announce(
+        f"💸 <b>{_vnd(result.amount)}</b> · "
+        f"{'vào' if result.direction == 'credit' else 'ra'}\n"
+        f"Nguồn: {notify.escape(str(source))}\n"
+        f"Tiêu đề: {notify.escape(str(payload.get('subject', '')))}"
+        + (f"\nSố dư: {_vnd(result.balance)}" if result.balance else "")
+    )
+
     # TODO: persist. Use message_id as the idempotency key — the same
     # notification can arrive more than once.
+
+
+def _announce(text: str) -> None:
+    """Send a status line, if notifications are configured.
+
+    Deliberately swallows everything: a failed notification must not fail the
+    delivery, or Pub/Sub redelivers and the work is repeated for the sake of a
+    message nobody is blocked on.
+    """
+    if notify.enabled():
+        notify.send(text)
+
+
+def _vnd(amount: int | None) -> str:
+    """Format an amount the way Vietnamese bank mail does: 1.234.567 VND."""
+    if amount is None:
+        return "—"
+    return f"{amount:,}".replace(",", ".") + " VND"
 
 
 def strip_html(body: str) -> str:
