@@ -100,6 +100,20 @@
   font-size:13.5px;font-weight:700;letter-spacing:-.01em;color:var(--brand-ink)}
 .atx-acct-sw:active{opacity:.55}
 
+/* Editing state: the row becomes a labelled field. It stays the same block in
+   the same place rather than opening a step, so the person keeps their bearings
+   and the CTA never moves out from under their thumb. The hint under the input
+   is doing real work — it is what stops the field reading as "we will use this
+   address" when what it actually does is choose which Google account opens. */
+.atx-acct.is-edit{display:block;padding:12px 13px 10px}
+.atx-acct.is-edit .atx-acct-lbl{margin-bottom:6px}
+.atx-acct-in{width:100%;background:var(--white);border:1.5px solid var(--hairline);border-radius:11px;
+  padding:11px 12px;font:inherit;font-size:15px;letter-spacing:-.01em;color:var(--ink);min-height:44px}
+.atx-acct-in::placeholder{color:var(--muted-soft)}
+.atx-acct-in:focus{outline:none;border-color:var(--brand)}
+.atx-acct-hint{font-size:12px;line-height:1.45;color:var(--muted);margin-top:8px}
+.atx-acct.is-edit .atx-acct-sw{padding:0;margin-top:2px}
+
 /* ---------- bank-email: staged-review restyle ---------- */
 /* The "Duyệt giao dịch" screen reuses the CSV import review engine (renderCsvReview),
    which is built for a file-import workbench. For a short list of forwarded bank

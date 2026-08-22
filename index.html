@@ -154,15 +154,32 @@ input{font-family:inherit}
 .hero-gear svg{width:16px;height:16px}
 .hero-ic{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.22);backdrop-filter:blur(4px);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .hero-ic svg{width:20px;height:20px}
-/* The theme picker was removed on 2026-08-22. Its .theme-grid / .theme-opt
-   rules went with it; the .phone.t-* palettes in 10-tokens.css deliberately did
-   NOT, because everyone who had already chosen a theme keeps it.
+/* Theme picker, plus the two notes that frame its retirement.
 
-   What is left is the note that explains that to them. Calm inset on a neutral
-   surface, never a warning tint (DESIGN §7) — nothing is wrong and there is
-   nothing for them to fix. */
-.theme-retire{background:var(--surface);border-radius:12px;padding:11px 13px;margin:14px 0 2px;
+   Both notes are calm insets on a neutral surface, never a warning tint
+   (DESIGN §7): nothing is broken and there is nothing for the reader to fix.
+   The heads-up sits ABOVE the swatches so it is read before a tap is spent; the
+   apology sits BELOW, next to the choice it is about, and re-renders live as
+   someone tries colours. */
+.theme-note{background:var(--surface);border-radius:12px;padding:11px 13px;margin:14px 0 14px;
   font-size:12.5px;line-height:1.5;color:var(--muted)}
+.theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.theme-opt{display:block;width:100%;padding:0;font:inherit;text-align:left;border-radius:16px;
+  overflow:hidden;border:2px solid var(--hairline);cursor:pointer;background:var(--white);transition:transform .15s}
+.theme-opt:active{transform:scale(.98)}
+.theme-opt.on{border-color:var(--ink)}
+.theme-opt .sw{height:76px;position:relative}
+.theme-opt .sw .chk{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.92);display:none;align-items:center;justify-content:center}
+.theme-opt.on .sw .chk{display:flex}
+.theme-opt .nm{padding:11px 14px;font-weight:700;font-size:15px;letter-spacing:-.02em;color:var(--ink)}
+.theme-keep{background:var(--surface);border-radius:12px;padding:12px 13px 8px;margin-top:12px}
+.tk-txt{font-size:12.5px;line-height:1.5;color:var(--muted)}
+/* Low-prominence by design: this is a way out, not the recommended path, so it
+   is a text button rather than anything that competes with the swatches. 44px
+   target all the same (DESIGN §3). */
+.tk-btn{display:block;min-height:44px;padding:0;background:none;border:0;font:inherit;
+  font-size:13.5px;font-weight:700;letter-spacing:-.01em;color:var(--brand-ink);text-align:left}
+.tk-btn:active{opacity:.55}
 .hero-lab{font-size:14px;font-weight:600;color:rgba(255,255,255,.9);margin-top:20px}
 .hero-big{margin-top:2px;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
 .hero-big .n{font-family:var(--disp);font-weight:700;font-size:46px;letter-spacing:-2px;color:#fff;line-height:1}
@@ -444,27 +461,16 @@ input{font-family:inherit}
    ============================================================================ */
 
 /* ---------- widget grid (iOS small-widget tiles) ---------- */
-.wgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 16px 14px}
 /* when the hearth card is absent, the grid itself docks into the lawn */
-.home-body > .wgrid:first-child{margin-top:-26px;position:relative;z-index:2}
-.wtile{display:flex;flex-direction:column;background:var(--white);border:0;border-radius:20px;box-shadow:var(--shadow-card);padding:14px 15px 13px;text-align:left;font:inherit;cursor:pointer;min-width:0}
-.wtile:active{transform:scale(.98)}
 /* one strict template: chip + label / value / footer — identical rows, identical baselines */
-.wt-head{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:650;letter-spacing:-.01em;color:var(--muted);min-width:0;margin-bottom:13px}
-.wt-ch{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
-.wt-ch svg{width:15px;height:15px}
+/* Tinted chips, shared language. The four stat tiles that introduced them were
+   retired from Home on 2026-08-22; these stay because the quick actions
+   (.qt-ic, qTile) still use them. */
 .wc-brand{background:var(--brand-tint);color:var(--brand-ink)}
 .wc-good{background:var(--good-tint);color:var(--good)}
 .wc-amber{background:var(--amber-tint);color:var(--amber)}
 .wc-rose{background:var(--danger-tint);color:var(--cat-dining)}
 .wc-indigo{background:rgba(94,92,230,.12);color:var(--cat-housing)}
-.wt-big{display:flex;align-items:baseline;gap:5px;height:30px;font-family:var(--disp);font-size:25px;font-weight:800;letter-spacing:-.6px;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums;min-width:0;overflow:hidden;white-space:nowrap}
-.wt-big.neg{color:var(--danger)}
-.wt-big .u{font-family:var(--text);font-size:12px;font-weight:600;letter-spacing:0;color:var(--muted)}
-.cur-vnd .wt-big{font-size:20px;letter-spacing:-.4px}
-.wt-add{width:30px;height:30px;border-radius:50%;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex:0 0 auto;align-self:center}
-.wt-sub{font-size:12.5px;font-weight:500;color:var(--muted);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;margin-top:7px;font-variant-numeric:tabular-nums}
-.wt-sub b{color:var(--ink-2);font-weight:650}
 
 /* ---------- quick actions (the add-sheet's icon language, on the wall) ---------- */
 .qgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 16px 14px}
@@ -543,9 +549,9 @@ input{font-family:inherit}
    can't collapse to 0 on iOS Safari (that band's children are all absolutely
    positioned, so flex-basis:auto resolves to 0; here the SVG carries intrinsic
    size). This is why these covers never render blank. */
-.gs-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 16px 14px}   /* same 16px screen gutter as .wgrid */
+.gs-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 16px 14px}   /* same 16px screen gutter the stat grid used */
 .gs-grid.solo{grid-template-columns:1fr}
-/* .wtile card anatomy: no border, radius 20, uniform padding, card shadow. The
+/* Card anatomy: no border, radius 20, uniform padding, card shadow. The
    illustration is an INSET rounded thumbnail (padding keeps it off the card edge),
    not a full-bleed band. */
 .gs-card{display:flex;flex-direction:column;text-align:left;background:var(--white);border:0;border-radius:20px;padding:14px;box-shadow:var(--shadow-card);transition:transform .16s cubic-bezier(.4,0,.2,1);min-width:0}
@@ -2828,6 +2834,20 @@ html.fh-can-install .set-row.set-install{display:flex}
   font-size:13.5px;font-weight:700;letter-spacing:-.01em;color:var(--brand-ink)}
 .atx-acct-sw:active{opacity:.55}
 
+/* Editing state: the row becomes a labelled field. It stays the same block in
+   the same place rather than opening a step, so the person keeps their bearings
+   and the CTA never moves out from under their thumb. The hint under the input
+   is doing real work — it is what stops the field reading as "we will use this
+   address" when what it actually does is choose which Google account opens. */
+.atx-acct.is-edit{display:block;padding:12px 13px 10px}
+.atx-acct.is-edit .atx-acct-lbl{margin-bottom:6px}
+.atx-acct-in{width:100%;background:var(--white);border:1.5px solid var(--hairline);border-radius:11px;
+  padding:11px 12px;font:inherit;font-size:15px;letter-spacing:-.01em;color:var(--ink);min-height:44px}
+.atx-acct-in::placeholder{color:var(--muted-soft)}
+.atx-acct-in:focus{outline:none;border-color:var(--brand)}
+.atx-acct-hint{font-size:12px;line-height:1.45;color:var(--muted);margin-top:8px}
+.atx-acct.is-edit .atx-acct-sw{padding:0;margin-top:2px}
+
 /* ---------- bank-email: staged-review restyle ---------- */
 /* The "Duyệt giao dịch" screen reuses the CSV import review engine (renderCsvReview),
    which is built for a file-import workbench. For a short list of forwarded bank
@@ -3714,10 +3734,14 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 <div class="sheet" id="sheet-theme">
   <div class="grab"></div>
   <div class="sheet-h" data-t="settingsTitle">Settings</div>
-  <!-- Theme-retirement note. Empty and hidden by default; 70-theme-i18n.js fills
-       it on sheet open ONLY for someone still on a non-Sage theme. Text is set
-       from JS (it names their theme), so it carries no data-t. -->
-  <div class="theme-retire" id="theme-retire" style="display:none"></div>
+  <!-- Theme block: the heads-up, the picker, then the "keep mine" route. All
+       three are filled by buildThemeChoices (70-theme-i18n.js) on sheet open and
+       again on every pick. #theme-keep is CONDITIONAL — it only appears for
+       someone on a non-Sage theme, since the apology is about their colour.
+       Text is set from JS (it names their theme), so no data-t here. -->
+  <div class="theme-note" id="theme-note"></div>
+  <div class="theme-grid" id="theme-grid"></div>
+  <div class="theme-keep" id="theme-keep" style="display:none"></div>
   <div class="set-actions">
     <!-- AUTO-LOGGING (bank email, direct read) — the newest thing this app does,
          so it sits first and carries the "New" badge. Same allowlist gate as the
@@ -5026,18 +5050,10 @@ function bigPhoto(o){   // {cls,src,subj,who,eye,title,sub,pct,cta:{label},tall,
     + '<div class="bp-cap"><div class="bp-eye">' + o.eye + '</div><div class="bp-ti">' + esc(o.title) + '</div>'
     + (o.sub ? '<div class="bp-mt">' + o.sub + '</div>' : '') + prog + cta + '</div></button>';
 }
-var _WICON = {
-  budget: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg>',
-  house:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg>',
-  plan:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
-  album:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 16l4.5-4 3.5 3 4-3.5L21 16.5"/></svg>'
-};
-function wTile(o){      // {ch,chCls,label,val,neg?,foot,act} — ONE strict template, no accessories:
-  return '<button class="wtile" onclick="' + o.act + '">'          // chip + label / value / footer.
-    + '<div class="wt-head"><span class="wt-ch ' + o.chCls + '">' + _WICON[o.ch] + '</span>' + o.label + '</div>'
-    + '<div class="wt-big' + (o.neg ? ' neg' : '') + '">' + o.val + '</div>'
-    + '<div class="wt-sub">' + o.foot + '</div></button>';
-}
+/* The four stat tiles (Ngân sách · Mục tiêu · Sắp tới · Album) were retired from
+   Home on 2026-08-22, and _WICON + wTile went with them — the grid was their only
+   consumer. The tinted chip classes they shared with the quick actions (.wc-*)
+   stay in the CSS, because qTile below still uses them. */
 var _QSVG = {
   exp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg>',
   cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg>',
@@ -5154,7 +5170,7 @@ function renderHome(){
       if(typeof toast === 'function') setTimeout(function(){ toast(L('Chạm vào khung cảnh để đổi tâm trạng 🌤️', 'Tap the scene to change your mood 🌤️')); }, 900);
     }
   }catch(e){}
-  // Phòng khách moves BELOW the four stat tiles (the wgrid) — appended after it
+  // Phòng khách is appended after the hearth strip
 
   /* ---- signals from the active user's + relatives' data ---- */
   var up = ord.filter(function(k){ return evs[k] && evs[k].d && !isMirrorK(k) && !achievedNow(evs[k]); })
@@ -5168,65 +5184,12 @@ function renderHome(){
   var goals = window.goals || {}, gord = window.goalOrder || [], milestones = [];
   gord.forEach(function(g){ var go = goals[g]; if(go && typeof achievedGoal === 'function' && achievedGoal(go)) milestones.push({ key: 'goal:' + g, name: go.name, cls: go.cls || 'ph-park' }); });
   var fresh = milestones.filter(function(mi){ return !celebrated[mi.key]; })[0] || null;
-  /* ---- finance signal (computed up-front: the Tài chính card AND the goal nudge use it) ---- */
-  var m = (typeof M === 'function') ? M() : null, finV = null;
-  if(m && m.budget > 0){
-    var reserved = m.done ? 0 : monthReserved();
-    var safe = Math.max(0, m.budget - m.spent - reserved), over = m.spent > m.budget;
-    var proj = !m.done && m.dom > 0 && ((m.spent / m.dom * m.dim) - m.budget > m.budget * 0.01);
-    var fmood, fico, ftt, fss;
-    if(over){ fmood = 'over'; fico = '🍂'; ftt = L('Hơi quá tay một chút rồi', 'A little over this month');
-      fss = L('Vượt <b>' + fmtK(m.spent - m.budget) + '</b> · cùng nhau chỉnh lại nha', 'Over by <b>' + fmtK(m.spent - m.budget) + '</b> · ease back together'); }
-    else if(proj){ fmood = 'pace'; fico = '⚡'; ftt = L('Tháng này tiêu hơi nhanh tay', 'Spending a touch fast');
-      fss = L('Nhẹ nhàng chút là vẫn dư · còn <b>' + fmtK(safe) + '</b>', 'Ease up · <b>' + fmtK(safe) + '</b> left'); }
-    else { fmood = 'ok'; fico = '🌿'; ftt = L('Tháng này cả nhà đang thong thả', 'Comfortable this month');
-      fss = L('Còn <b>' + fmtK(safe) + '</b> để cả nhà thoải mái tận hưởng', '<b>' + fmtK(safe) + '</b> left to enjoy together'); }
-    var spentFoot = L('Đã tiêu ' + fmtK(m.spent) + ' / ' + fmtK(m.budget), 'Spent ' + fmtK(m.spent) + ' / ' + fmtK(m.budget));
-    var foot = reserved > 0                        // spell out the hold so "còn lại" isn't a mystery gap
-      ? spentFoot + ' · ' + L('giữ ' + fmtK(reserved), fmtK(reserved) + ' held')
-      : spentFoot;
-    finV = { mood: fmood, ico: fico, tt: ftt, ss: fss, safe: safe, overAmt: over ? (m.spent - m.budget) : 0, ps: Math.min(100, Math.round(m.spent / m.budget * 100)), foot: foot };
-  }
-  var mComfortable = !!(finV && finV.mood === 'ok');
-
-  /* ============ WIDGET GRID — four glanceable tiles, always present ============ */
+  /* The finance signal (budget mood, safe-to-spend, pace) was computed here for
+     the Ngân sách tile and nothing else once the Tài chính card moved out, so it
+     was retired with the grid rather than left running every render for a value
+     no one reads. The Finance tab computes its own. */
   var goalsLive = gord.filter(function(g){ return !achievedGoal(goals[g]); });
-  var tSaved = 0, tTarget = 0;
-  goalsLive.forEach(function(g){ var e = goals[g]; if(e && e.target > 0){ tTarget += e.target; tSaved += Math.min(e.saved || 0, e.target); } });
-  var tiles = '';
-  // every tile: one value, one quiet footer — the same three rows, the same baselines
-  if(finV){
-    tiles += wTile({ ch: 'budget', chCls: 'wc-brand', label: L('Ngân sách', 'Budget'), neg: finV.mood === 'over',
-      val: finV.mood === 'over' ? fmtK(finV.overAmt) + ' <span class="u">' + L('vượt', 'over') + '</span>'
-                                : fmtK(finV.safe) + ' <span class="u">' + L('còn lại', 'left') + '</span>',
-      foot: finV.foot, act: 'go(&#39;spending&#39;)' });
-  } else {
-    tiles += wTile({ ch: 'budget', chCls: 'wc-brand', label: L('Ngân sách', 'Budget'), val: '<span class="wt-add">＋</span>', foot: L('Đặt ngân sách tháng này', 'Set this month’s budget'), act: 'openSheet(&#39;sheet-budget&#39;)' });
-  }
-  if(tTarget > 0){
-    tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Mục tiêu', 'Goals'),
-      val: fmtK(tSaved), foot: Math.round(tSaved / tTarget * 100) + '% ' + L('mục tiêu chung', 'of shared goals'), act: 'go(&#39;spending&#39;)' });
-  } else {
-    tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Mục tiêu', 'Goals'), val: '<span class="wt-add">＋</span>', foot: L('mục tiêu chung', 'shared goals'), act: 'openGoal()' });
-  }
-  if(up.length){
-    var k0 = up[0], e0 = evs[k0], dl0 = daysLeft(e0.d);
-    var cBig = dl0 === 0 ? L('Hôm nay', 'Today') : (dl0 === 1 ? L('Ngày mai', 'Tomorrow') : dl0 + ' <span class="u">' + L('ngày', 'days') + '</span>');
-    tiles += wTile({ ch: 'plan', chCls: 'wc-amber', label: L('Sắp tới', 'Coming up'), val: cBig, foot: '<b>' + esc(e0.name) + '</b>', act: 'openEvent(&#39;' + escAttr(k0) + '&#39;)' });
-  } else {
-    tiles += wTile({ ch: 'plan', chCls: 'wc-amber', label: L('Sắp tới', 'Coming up'), val: '<span class="wt-add">＋</span>', foot: L('Lên một kế hoạch vui', 'Plan something fun'), act: 'goMoments(&#39;plans&#39;);openSheet(&#39;sheet-event&#39;)' });
-  }
-  var phThis = memRecords.filter(function(r){ return r.d && r.d.getMonth() === TODAY.getMonth() && r.d.getFullYear() === TODAY.getFullYear(); });
-  if(memRecords.length){
-    tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'),
-      val: memRecords.length + ' <span class="u">' + L('ảnh', 'photos') + '</span>',
-      foot: phThis.length ? L('Thêm ' + phThis.length + ' trong tháng này', phThis.length + ' new this month') : L('Kỷ niệm của cả nhà', 'The family’s memories'), act: 'goMoments(&#39;album&#39;)' });
-  } else {
-    tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'), val: '<span class="wt-add">＋</span>', foot: L('Thêm tấm ảnh đầu tiên', 'Add the first photo'), act: 'openMomentModal()' });
-  }
-
-  html += '<div class="wgrid">' + tiles + '</div>';
-  if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions, now under the stat tiles
+  if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions
 
   /* ============ KHOẢNH KHẮC — the featured photo card + the memory strip ============ */
   var kh = '', centerRef = null, gettingStarted = false;
@@ -12135,59 +12098,89 @@ function floatEmojis(emoji){
 }
 
 /* ---------- theme ---------- */
-/* The picker is gone (2026-08-22), but the CHOICE is not taken away from anyone
-   who already made one. Someone on Ocean stays on Ocean; only people who never
-   picked get Sage. Retiring a preference is not the same as overriding it, and
-   the second one is what people notice and resent.
+/* The picker is still here, and still works. What changed is that it now says
+   out loud where it is going: Sage becomes the single theme, because Sage is the
+   one the rest of the app is actually tuned against.
 
-   So `fh-theme` is still read at boot, and still validated against the list —
-   an unknown value (a hand-edited key, a theme we drop later) falls back to
-   Sage rather than painting `phone t-<garbage>` and losing every token.
+   THREE THINGS THIS SCREEN HAS TO DO, in the order someone reads them:
+     1. Say the picker is going away, before they invest a tap in it.
+     2. Let them pick anyway. Taking the control away the same day we announce
+        it would make the announcement pointless and the change feel done TO
+        them rather than told to them.
+     3. If they are on a non-Sage colour, own the actual reason honestly: the
+        other components were never finished for it, so parts of the app look
+        unpolished in their colour. That is our unfinished work, not their bad
+        taste, and it is the real reason Sage is winning.
 
-   NOTHING WRITES IT ANY MORE. applyTheme is called once at boot and never from
-   a tap, so the write-through that persisted the choice was deleted with the
-   picker (50-writethrough-realtime.js). localStorage was always the real store
-   here — hydrate never applied `profiles.theme` — so a chosen theme has always
-   been per-device, and still is.
-
-   applyTheme also sets meta[theme-color], which tints the iOS status bar and
-   the PWA splash, so it cannot collapse into a plain CSS class. */
+   The apology and the "keep mine" route are CONDITIONAL on being off Sage. To a
+   Sage user none of it applies, and an apology for a problem they do not have
+   is just noise. buildThemeChoices re-runs on every pick, so the notes appear
+   and disappear live as someone tries colours. */
 var THEMES=[
-  {k:'sage',name:'Sage',bar:'#2E9E6B'},
-  {k:'ocean',name:'Ocean',bar:'#1E74D0'},
-  {k:'lavender',name:'Lavender',bar:'#7A5AE0'},
-  {k:'blossom',name:'Blossom',bar:'#E0567F'},
-  {k:'twilight',name:'Twilight',bar:'#3B3F86'}
+  {k:'sage',name:'Sage',grad:'linear-gradient(150deg,#4CB584,#2E9E6B 52%,#8FC97E)',bar:'#2E9E6B'},
+  {k:'ocean',name:'Ocean',grad:'linear-gradient(150deg,#2AA9E0,#1E74D0 52%,#4FC2C9)',bar:'#1E74D0'},
+  {k:'lavender',name:'Lavender',grad:'linear-gradient(150deg,#9270E8,#7A5AE0 50%,#B98BE0)',bar:'#7A5AE0'},
+  {k:'blossom',name:'Blossom',grad:'linear-gradient(150deg,#F07898,#E0567F 50%,#D98AB0)',bar:'#E0567F'},
+  {k:'twilight',name:'Twilight',grad:'linear-gradient(150deg,#4A54C4,#3B3F86 55%,#6A5FC0)',bar:'#3B3F86'}
 ];
 var curTheme='sage';
 function applyTheme(k){
+  if(!THEMES.some(function(t){return t.k===k;}))return;      // unknown value: keep what we have
+  curTheme=k;
+  var el=document.getElementById('phone'); if(el) el.className='phone t-'+k;
   var t=THEMES.filter(function(x){return x.k===k;})[0];
-  if(!t) t=THEMES[0];                                   // unknown/absent -> Sage
-  curTheme=t.k;
-  var el=document.getElementById('phone'); if(el) el.className='phone t-'+t.k;
-  var mt=document.querySelector('meta[name=theme-color]'); if(mt) mt.setAttribute('content',t.bar);
+  var mt=document.querySelector('meta[name=theme-color]'); if(mt&&t)mt.setAttribute('content',t.bar);
+  try{ localStorage.setItem('fh-theme',k); }catch(e){}
+  buildThemeChoices();
 }
-window.applyTheme=applyTheme;
+function _themeName(k){ var t=THEMES.filter(function(x){return x.k===k;})[0]; return t?t.name:k; }
 
-/* The retirement note, and the reason it is CONDITIONAL: it is only rendered for
-   someone actually on a non-Sage theme. Everyone else never opened the picker
-   and is already where the app is heading, so a notice about a feature they
-   never used would be pure noise on a screen about something else.
-
-   It also says what happens TO THEM (their theme stays for now, the app moves to
-   Sage later) rather than announcing a change in the abstract, which is the part
-   people actually need. Wired to the existing openSheet('sheet-theme') hook, so
-   it re-evaluates every time Settings opens. */
 function buildThemeChoices(){
-  var box=document.getElementById('theme-retire'); if(!box) return;
-  if(curTheme==='sage'){ box.style.display='none'; box.innerHTML=''; return; }
-  var t=THEMES.filter(function(x){return x.k===curTheme;})[0];
-  var nm=t?t.name:curTheme;
-  box.style.display='';
-  box.textContent=L('Bạn đang dùng giao diện '+nm+'. Tụi mình sắp bỏ phần chọn giao diện. Bạn cứ giữ nguyên giao diện này, sau này app sẽ chuyển về Sage.',
-                    'You’re on the '+nm+' theme. We’re retiring theme choice soon. Yours stays as it is for now, and the app moves to Sage later.');
+  var note=document.getElementById('theme-note');
+  if(note) note.textContent=L(
+    'Sắp tới tụi mình sẽ bỏ phần chọn giao diện. Cả nhà sẽ dùng chung màu Sage, vì đây là màu ăn ý nhất với mọi phần còn lại của app.',
+    'We’re retiring theme choice soon. Everyone moves to Sage, because Sage is the colour the rest of the app is tuned for.');
+
+  var box=document.getElementById('theme-grid');
+  if(box) box.innerHTML=THEMES.map(function(t){
+    /* A real <button>, not the <div> this used to be: iOS Safari does not fire
+       click on a bare div (CLAUDE.md §3), and this control has no business
+       depending on a cursor:pointer rule to work on a phone. */
+    return '<button type="button" class="theme-opt'+(t.k===curTheme?' on':'')+'" onclick="applyTheme(\''+t.k+'\')">'
+      +'<div class="sw" style="background:'+t.grad+'"><div class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#191022" stroke-width="3.2"><path d="M5 12l5 5L20 7"/></svg></div></div>'
+      +'<div class="nm">'+t.name+'</div></button>';
+  }).join('');
+
+  var keep=document.getElementById('theme-keep'); if(!keep) return;
+  if(curTheme==='sage'){ keep.style.display='none'; keep.innerHTML=''; return; }
+  var nm=_themeName(curTheme);
+  keep.style.display='';
+  keep.innerHTML='<div class="tk-txt">'+esc(L(
+      'Bạn đang dùng '+nm+'. Thú thật là tụi mình chưa phối xong màu này cho những phần khác của app, nên vài chỗ nhìn chưa được đẹp. Tụi mình sẽ làm tiếp.',
+      'You’re on '+nm+'. Honestly, we haven’t finished tuning the rest of the app for it, so a few places don’t look their best yet. We’re still working on it.'))+'</div>'
+    +'<button type="button" class="tk-btn" onclick="fhThemeKeep()">'+esc(L(
+      'Mình muốn giữ màu này', 'I’d like to keep this colour'))+'</button>';
 }
-(function(){ var s; try{s=localStorage.getItem('fh-theme');}catch(e){} applyTheme(s||'sage'); })();
+
+/* "Keep my colour" opens Góp ý with the note already written, naming their
+   theme. Asking someone to argue for their own colour from a blank textarea is
+   how you get no replies and no idea which colours people actually care about;
+   this way the tap IS the answer, and anything they add on top is a bonus. */
+window.fhThemeKeep=function(){
+  var nm=_themeName(curTheme);
+  var msg=L('Mình muốn giữ giao diện '+nm+'. ', 'I’d like to keep the '+nm+' theme. ');
+  try{ if(typeof closeSheet==='function') closeSheet(); }catch(e){}
+  try{ openSheet('sheet-suggest'); }catch(e){ return; }
+  // openSheet clears sg-msg and resets the chips, so fill in AFTER it has run.
+  setTimeout(function(){
+    try{
+      if(typeof selectChipByVal==='function') selectChipByVal('sg-type','Idea');
+      var ta=document.getElementById('sg-msg');
+      if(ta){ ta.value=msg; ta.focus(); ta.setSelectionRange(msg.length,msg.length); }
+    }catch(e){}
+  },0);
+};
+(function(){ var s; try{s=localStorage.getItem('fh-theme');}catch(e){} if(s) applyTheme(s); })();
 
 function firstName(n){ return (n||'').trim().split(/\s+/)[0]||'there'; }
 function setGreeting(){
@@ -16580,17 +16573,17 @@ window.classifyAmount = classifyAmount;
   const _origSetBudget = window.setBudget;
   window.setBudget = function () { if (_fhWriteLocked()) return; _origSetBudget.apply(this, arguments); _dbSaveBudget(); };
 
-  // ---- write-through: theme — REMOVED 2026-08-22 ----
-  /* The picker is gone (70-theme-i18n.js). People who already chose a theme keep
-     it, but nothing in the app can CHANGE one any more: applyTheme is called
-     once at boot, from localStorage, and never from a tap. So there is no longer
-     a moment at which a choice needs persisting.
-
-     Deleted rather than left in place, even though it was harmless: a
-     write-through for a setting nothing can set reads as live code, and would
-     invite someone to wire a picker back to it without checking that the write
-     path still works. `profiles.theme` still exists and onboarding still writes
-     it — restoring the picker means restoring this block too. */
+  // ---- write-through: theme ----
+  /* Still live: the picker is still on the Settings sheet while its retirement
+     is being announced (70-theme-i18n.js), so a choice still needs persisting.
+     Guarded on `k` because applyTheme is also called argument-less at boot from
+     localStorage, and a boot should not spend a write re-saving what it just
+     read. When the picker finally goes, this goes with it. */
+  const _origApplyTheme = window.applyTheme;
+  window.applyTheme = function (k) {
+    _origApplyTheme.apply(this, arguments);
+    try { if (window.fhUser && window.DB.fid && k) sb.from('profiles').update({ theme: k }).eq('id', window.fhUser.id); } catch (e) {}
+  };
 
   // ---- write-through: emotional weather (one shared mood per member) ----
   window.saveWeather = async function (weather) {
@@ -20645,61 +20638,87 @@ window.classifyAmount = classifyAmount;
   };
   const _atxGlyph = (k) => _ATX_SVG[k] || _mbxGlyph(k);
 
-  /* WHICH ACCOUNT WE READ FROM — the one question this flow has to ask, and
-     the reason it is a row on the offer screen rather than a step of its own.
+  /* WHICH ACCOUNT WE READ FROM — the one question this flow has to ask, and the
+     reason it is a row on the offer screen rather than a step of its own.
 
-     Two states, no text field:
+     Two states:
        login  → read from the address they signed in with. The default, because
                 it is right for almost everyone and costs them zero taps.
-       choose → they pick the account on Google's own screen.
+       other  → a field for the address their bank actually writes to.
 
-     WHY NOT AN EDITABLE FIELD, the way the forwarding flow asks (fhMailboxWhichEmail):
-     there, `personal_email` is a claim we compare against the address that
-     forwarded the mail, so typing it is the whole mechanism. Here it is not a
-     claim at all — access exists only for the Google account that actually
-     signs in and consents. A field would let someone type an address, watch us
-     accept it, and then read a different one on Google's screen. So the switch
-     hands off to Google's account picker, which is the only thing that can
-     really answer the question.
+     WHAT THE FIELD IS, AND WHAT IT IS NOT. It is a `login_hint`, not a grant.
+     It tells Google which account to open on, which is a real favour to anyone
+     holding three Gmail addresses — without it they land on whichever account
+     Google felt like and can quietly authorise the wrong mailbox. What it
+     cannot do is give us access: only the account that signs in and consents on
+     Google's screen does that. So this is a hint that saves taps and prevents a
+     wrong-mailbox mistake, and the helper line under it says exactly that
+     rather than implying we have taken the answer here.
 
-     Consequence worth knowing: this path is Google accounts only. Someone whose
-     bank writes to a non-Google address cannot use it, and no wording here can
-     fix that — forwarding is their answer. Left as a note for the BE handoff
-     rather than a third button, because a fork back to the other transport is a
-     product decision, not a UI one. */
+     Blank is legitimate and means "no hint" — Google shows its account picker.
+     That is also what someone who does not know the address should do, so the
+     field never blocks on being empty.
+
+     Consequence worth knowing: this path is Google accounts only. Typing a
+     non-Google address will simply fail on Google's screen, which is why the
+     validation below stays a shape check and never promises the address works.
+     Someone whose bank writes somewhere else needs forwarding, and routing them
+     there is a product decision, not a UI one. */
   let _atxUseLogin = true;
 
   const _atxLoginEmail = () => (window.FAM && window.FAM.user && window.FAM.user.email) || '';
+
+  /* Read straight off the field so the value survives a re-render and never
+     needs mirroring into module state on every keystroke. */
+  const _atxTypedEmail = () => {
+    const el = document.getElementById('atx-email');
+    return el ? el.value.trim() : '';
+  };
 
   function _atxAcctRow() {
     const email = _atxLoginEmail();
     // No login email at all (shouldn't happen — sign-in is Google) — don't offer
     // a switch away from something we cannot name; Google will ask.
     if (!email) _atxUseLogin = false;
-    const on = _atxUseLogin && !!email;
-    return '<div class="atx-acct" id="atx-acct">' +
-      '<div class="atx-acct-ic">' + _mbxGlyph('mail') + '</div>' +
-      '<div class="atx-acct-txt">' +
-        '<div class="atx-acct-lbl">' + _esc(L('Đọc thư từ', 'Reading from')) + '</div>' +
-        '<div class="atx-acct-val">' + _esc(on ? email
-          : L('Tài khoản bạn chọn ở màn hình Google', 'The account you pick on Google’s screen')) + '</div>' +
-      '</div>' +
-      (email
+    if (_atxUseLogin && email) {
+      return '<div class="atx-acct" id="atx-acct">' +
+        '<div class="atx-acct-ic">' + _mbxGlyph('mail') + '</div>' +
+        '<div class="atx-acct-txt">' +
+          '<div class="atx-acct-lbl">' + _esc(L('Đọc thư từ', 'Reading from')) + '</div>' +
+          '<div class="atx-acct-val">' + _esc(email) + '</div>' +
+        '</div>' +
+        '<button class="atx-acct-sw" onclick="fhAutoTxnSwitchAcct()">' + _esc(L('Đổi', 'Change')) + '</button>' +
+        '</div>';
+    }
+    return '<div class="atx-acct is-edit" id="atx-acct">' +
+      '<div class="atx-acct-lbl">' + _esc(L('Email nhận thông báo ngân hàng', 'Email your bank writes to')) + '</div>' +
+      '<input id="atx-email" class="atx-acct-in" type="email" inputmode="email" autocapitalize="none" ' +
+        'spellcheck="false" autocomplete="email" placeholder="' + _escAttr(L('vd. tenban@gmail.com', 'e.g. you@gmail.com')) + '">' +
+      '<div class="atx-acct-hint">' + _esc(L(
+        'Tụi mình sẽ mở màn hình Google với email này. Bạn đăng nhập và cho phép ở đó. Để trống cũng được, Google sẽ hỏi bạn chọn tài khoản.',
+        'We’ll open Google on this address. You sign in and approve there. Leaving it blank is fine too, Google will ask you to pick.')) + '</div>' +
+      (_atxLoginEmail()
         ? '<button class="atx-acct-sw" onclick="fhAutoTxnSwitchAcct()">' +
-            _esc(on ? L('Đổi', 'Change') : L('Dùng email này', 'Use this one')) + '</button>'
+            _esc(L('Dùng email đăng nhập', 'Use my sign-in email')) + '</button>'
         : '') +
       '</div>';
   }
 
   /* Re-renders the row in place rather than the whole sheet: the person is
-     mid-decision and the screen must not jump under them. */
+     mid-decision and the screen must not jump under them. Focuses the field on
+     the way in, so "Đổi" lands them on a keyboard rather than a second tap. */
   window.fhAutoTxnSwitchAcct = function () {
     _atxUseLogin = !_atxUseLogin;
     const row = document.getElementById('atx-acct');
     if (!row) return;
     const wrap = document.createElement('div');
     wrap.innerHTML = _atxAcctRow();
-    row.replaceWith(wrap.firstChild);
+    const next = wrap.firstChild;
+    row.replaceWith(next);
+    if (!_atxUseLogin) {
+      const el = document.getElementById('atx-email');
+      if (el) try { el.focus(); } catch (e) {}
+    }
   };
 
   /* The single entry point. Deliberately does NOT branch on connection state
@@ -20759,12 +20778,18 @@ window.classifyAmount = classifyAmount;
 
      WHAT WE SEND, and why it is shaped for their existing handler:
        memberId       — required, checked against the caller's user_id there.
-       email          — the login_hint. The login address when they kept it,
-                        EMPTY when they chose to switch. Empty is the switch:
-                        their handler already does `login_hint: body.email || ''`,
-                        and Google with no hint shows its account picker. So the
-                        choice works against the endpoint as already written, with
-                        no change needed on their side.
+       email          — the login_hint. The login address when they kept it, the
+                        address they typed when they switched, or EMPTY when they
+                        switched and left it blank. Empty means "no hint": their
+                        handler already does `login_hint: body.email || ''`, and
+                        Google with no hint shows its account picker. So all three
+                        cases work against the endpoint as already written, with no
+                        change needed on their side.
+                        IT IS A HINT, NOT A CLAIM. The mailbox we end up connected
+                        to is whichever account consents on Google's screen, which
+                        may not be the one typed here. The callback learns the real
+                        address from Google, and that is the one to store — never
+                        this field.
        chooseAccount  — optional, additive. If they add `select_account` to the
                         prompt when this is true, the picker appears even for
                         someone with a single signed-in account. Ignoring it costs
@@ -20789,6 +20814,19 @@ window.classifyAmount = classifyAmount;
       window.toast && window.toast(L('Chưa xác định được thành viên, thử lại nhé', 'Could not identify your member — try again'));
       return;
     }
+
+    /* A shape check on the typed hint, and nothing more. Blank is allowed on
+       purpose (it means "let Google ask"), so this only fires on something that
+       cannot be an address at all — a half-finished paste, a stray name. It
+       never claims the address is reachable or is a Google account; only
+       Google's screen can answer that. */
+    const typed = _atxUseLogin ? '' : _atxTypedEmail();
+    if (typed && !/.+@.+\..+/.test(typed)) {
+      window.toast && window.toast(L('Địa chỉ email chưa đúng, bạn xem lại nhé', 'That email doesn’t look right — give it another look'));
+      const el = document.getElementById('atx-email');
+      if (el) try { el.focus(); } catch (e) {}
+      return;
+    }
     if (btn) { btn.disabled = true; btn.textContent = L('Đang mở Google…', 'Opening Google…'); }
 
     let tok = '';
@@ -20800,8 +20838,8 @@ window.classifyAmount = classifyAmount;
         headers: Object.assign({ 'Content-Type': 'application/json' }, tok ? { Authorization: 'Bearer ' + tok } : {}),
         body: JSON.stringify({
           memberId: mid,
-          email: _atxUseLogin ? _atxLoginEmail() : '',
-          chooseAccount: !_atxUseLogin,
+          email: _atxUseLogin ? _atxLoginEmail() : typed,
+          chooseAccount: !_atxUseLogin && !typed,
         }),
       });
       if (r.status === 404) {

@@ -14,15 +14,32 @@
 .hero-gear svg{width:16px;height:16px}
 .hero-ic{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.22);backdrop-filter:blur(4px);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .hero-ic svg{width:20px;height:20px}
-/* The theme picker was removed on 2026-08-22. Its .theme-grid / .theme-opt
-   rules went with it; the .phone.t-* palettes in 10-tokens.css deliberately did
-   NOT, because everyone who had already chosen a theme keeps it.
+/* Theme picker, plus the two notes that frame its retirement.
 
-   What is left is the note that explains that to them. Calm inset on a neutral
-   surface, never a warning tint (DESIGN §7) — nothing is wrong and there is
-   nothing for them to fix. */
-.theme-retire{background:var(--surface);border-radius:12px;padding:11px 13px;margin:14px 0 2px;
+   Both notes are calm insets on a neutral surface, never a warning tint
+   (DESIGN §7): nothing is broken and there is nothing for the reader to fix.
+   The heads-up sits ABOVE the swatches so it is read before a tap is spent; the
+   apology sits BELOW, next to the choice it is about, and re-renders live as
+   someone tries colours. */
+.theme-note{background:var(--surface);border-radius:12px;padding:11px 13px;margin:14px 0 14px;
   font-size:12.5px;line-height:1.5;color:var(--muted)}
+.theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.theme-opt{display:block;width:100%;padding:0;font:inherit;text-align:left;border-radius:16px;
+  overflow:hidden;border:2px solid var(--hairline);cursor:pointer;background:var(--white);transition:transform .15s}
+.theme-opt:active{transform:scale(.98)}
+.theme-opt.on{border-color:var(--ink)}
+.theme-opt .sw{height:76px;position:relative}
+.theme-opt .sw .chk{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.92);display:none;align-items:center;justify-content:center}
+.theme-opt.on .sw .chk{display:flex}
+.theme-opt .nm{padding:11px 14px;font-weight:700;font-size:15px;letter-spacing:-.02em;color:var(--ink)}
+.theme-keep{background:var(--surface);border-radius:12px;padding:12px 13px 8px;margin-top:12px}
+.tk-txt{font-size:12.5px;line-height:1.5;color:var(--muted)}
+/* Low-prominence by design: this is a way out, not the recommended path, so it
+   is a text button rather than anything that competes with the swatches. 44px
+   target all the same (DESIGN §3). */
+.tk-btn{display:block;min-height:44px;padding:0;background:none;border:0;font:inherit;
+  font-size:13.5px;font-weight:700;letter-spacing:-.01em;color:var(--brand-ink);text-align:left}
+.tk-btn:active{opacity:.55}
 .hero-lab{font-size:14px;font-weight:600;color:rgba(255,255,255,.9);margin-top:20px}
 .hero-big{margin-top:2px;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
 .hero-big .n{font-family:var(--disp);font-weight:700;font-size:46px;letter-spacing:-2px;color:#fff;line-height:1}

@@ -306,17 +306,17 @@
   const _origSetBudget = window.setBudget;
   window.setBudget = function () { if (_fhWriteLocked()) return; _origSetBudget.apply(this, arguments); _dbSaveBudget(); };
 
-  // ---- write-through: theme — REMOVED 2026-08-22 ----
-  /* The picker is gone (70-theme-i18n.js). People who already chose a theme keep
-     it, but nothing in the app can CHANGE one any more: applyTheme is called
-     once at boot, from localStorage, and never from a tap. So there is no longer
-     a moment at which a choice needs persisting.
-
-     Deleted rather than left in place, even though it was harmless: a
-     write-through for a setting nothing can set reads as live code, and would
-     invite someone to wire a picker back to it without checking that the write
-     path still works. `profiles.theme` still exists and onboarding still writes
-     it — restoring the picker means restoring this block too. */
+  // ---- write-through: theme ----
+  /* Still live: the picker is still on the Settings sheet while its retirement
+     is being announced (70-theme-i18n.js), so a choice still needs persisting.
+     Guarded on `k` because applyTheme is also called argument-less at boot from
+     localStorage, and a boot should not spend a write re-saving what it just
+     read. When the picker finally goes, this goes with it. */
+  const _origApplyTheme = window.applyTheme;
+  window.applyTheme = function (k) {
+    _origApplyTheme.apply(this, arguments);
+    try { if (window.fhUser && window.DB.fid && k) sb.from('profiles').update({ theme: k }).eq('id', window.fhUser.id); } catch (e) {}
+  };
 
   // ---- write-through: emotional weather (one shared mood per member) ----
   window.saveWeather = async function (weather) {

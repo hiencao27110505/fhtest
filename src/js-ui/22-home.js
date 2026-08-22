@@ -304,18 +304,10 @@ function bigPhoto(o){   // {cls,src,subj,who,eye,title,sub,pct,cta:{label},tall,
     + '<div class="bp-cap"><div class="bp-eye">' + o.eye + '</div><div class="bp-ti">' + esc(o.title) + '</div>'
     + (o.sub ? '<div class="bp-mt">' + o.sub + '</div>' : '') + prog + cta + '</div></button>';
 }
-var _WICON = {
-  budget: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg>',
-  house:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg>',
-  plan:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
-  album:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 16l4.5-4 3.5 3 4-3.5L21 16.5"/></svg>'
-};
-function wTile(o){      // {ch,chCls,label,val,neg?,foot,act} — ONE strict template, no accessories:
-  return '<button class="wtile" onclick="' + o.act + '">'          // chip + label / value / footer.
-    + '<div class="wt-head"><span class="wt-ch ' + o.chCls + '">' + _WICON[o.ch] + '</span>' + o.label + '</div>'
-    + '<div class="wt-big' + (o.neg ? ' neg' : '') + '">' + o.val + '</div>'
-    + '<div class="wt-sub">' + o.foot + '</div></button>';
-}
+/* The four stat tiles (Ngân sách · Mục tiêu · Sắp tới · Album) were retired from
+   Home on 2026-08-22, and _WICON + wTile went with them — the grid was their only
+   consumer. The tinted chip classes they shared with the quick actions (.wc-*)
+   stay in the CSS, because qTile below still uses them. */
 var _QSVG = {
   exp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg>',
   cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg>',
@@ -432,7 +424,7 @@ function renderHome(){
       if(typeof toast === 'function') setTimeout(function(){ toast(L('Chạm vào khung cảnh để đổi tâm trạng 🌤️', 'Tap the scene to change your mood 🌤️')); }, 900);
     }
   }catch(e){}
-  // Phòng khách moves BELOW the four stat tiles (the wgrid) — appended after it
+  // Phòng khách is appended after the hearth strip
 
   /* ---- signals from the active user's + relatives' data ---- */
   var up = ord.filter(function(k){ return evs[k] && evs[k].d && !isMirrorK(k) && !achievedNow(evs[k]); })
@@ -446,65 +438,12 @@ function renderHome(){
   var goals = window.goals || {}, gord = window.goalOrder || [], milestones = [];
   gord.forEach(function(g){ var go = goals[g]; if(go && typeof achievedGoal === 'function' && achievedGoal(go)) milestones.push({ key: 'goal:' + g, name: go.name, cls: go.cls || 'ph-park' }); });
   var fresh = milestones.filter(function(mi){ return !celebrated[mi.key]; })[0] || null;
-  /* ---- finance signal (computed up-front: the Tài chính card AND the goal nudge use it) ---- */
-  var m = (typeof M === 'function') ? M() : null, finV = null;
-  if(m && m.budget > 0){
-    var reserved = m.done ? 0 : monthReserved();
-    var safe = Math.max(0, m.budget - m.spent - reserved), over = m.spent > m.budget;
-    var proj = !m.done && m.dom > 0 && ((m.spent / m.dom * m.dim) - m.budget > m.budget * 0.01);
-    var fmood, fico, ftt, fss;
-    if(over){ fmood = 'over'; fico = '🍂'; ftt = L('Hơi quá tay một chút rồi', 'A little over this month');
-      fss = L('Vượt <b>' + fmtK(m.spent - m.budget) + '</b> · cùng nhau chỉnh lại nha', 'Over by <b>' + fmtK(m.spent - m.budget) + '</b> · ease back together'); }
-    else if(proj){ fmood = 'pace'; fico = '⚡'; ftt = L('Tháng này tiêu hơi nhanh tay', 'Spending a touch fast');
-      fss = L('Nhẹ nhàng chút là vẫn dư · còn <b>' + fmtK(safe) + '</b>', 'Ease up · <b>' + fmtK(safe) + '</b> left'); }
-    else { fmood = 'ok'; fico = '🌿'; ftt = L('Tháng này cả nhà đang thong thả', 'Comfortable this month');
-      fss = L('Còn <b>' + fmtK(safe) + '</b> để cả nhà thoải mái tận hưởng', '<b>' + fmtK(safe) + '</b> left to enjoy together'); }
-    var spentFoot = L('Đã tiêu ' + fmtK(m.spent) + ' / ' + fmtK(m.budget), 'Spent ' + fmtK(m.spent) + ' / ' + fmtK(m.budget));
-    var foot = reserved > 0                        // spell out the hold so "còn lại" isn't a mystery gap
-      ? spentFoot + ' · ' + L('giữ ' + fmtK(reserved), fmtK(reserved) + ' held')
-      : spentFoot;
-    finV = { mood: fmood, ico: fico, tt: ftt, ss: fss, safe: safe, overAmt: over ? (m.spent - m.budget) : 0, ps: Math.min(100, Math.round(m.spent / m.budget * 100)), foot: foot };
-  }
-  var mComfortable = !!(finV && finV.mood === 'ok');
-
-  /* ============ WIDGET GRID — four glanceable tiles, always present ============ */
+  /* The finance signal (budget mood, safe-to-spend, pace) was computed here for
+     the Ngân sách tile and nothing else once the Tài chính card moved out, so it
+     was retired with the grid rather than left running every render for a value
+     no one reads. The Finance tab computes its own. */
   var goalsLive = gord.filter(function(g){ return !achievedGoal(goals[g]); });
-  var tSaved = 0, tTarget = 0;
-  goalsLive.forEach(function(g){ var e = goals[g]; if(e && e.target > 0){ tTarget += e.target; tSaved += Math.min(e.saved || 0, e.target); } });
-  var tiles = '';
-  // every tile: one value, one quiet footer — the same three rows, the same baselines
-  if(finV){
-    tiles += wTile({ ch: 'budget', chCls: 'wc-brand', label: L('Ngân sách', 'Budget'), neg: finV.mood === 'over',
-      val: finV.mood === 'over' ? fmtK(finV.overAmt) + ' <span class="u">' + L('vượt', 'over') + '</span>'
-                                : fmtK(finV.safe) + ' <span class="u">' + L('còn lại', 'left') + '</span>',
-      foot: finV.foot, act: 'go(&#39;spending&#39;)' });
-  } else {
-    tiles += wTile({ ch: 'budget', chCls: 'wc-brand', label: L('Ngân sách', 'Budget'), val: '<span class="wt-add">＋</span>', foot: L('Đặt ngân sách tháng này', 'Set this month’s budget'), act: 'openSheet(&#39;sheet-budget&#39;)' });
-  }
-  if(tTarget > 0){
-    tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Mục tiêu', 'Goals'),
-      val: fmtK(tSaved), foot: Math.round(tSaved / tTarget * 100) + '% ' + L('mục tiêu chung', 'of shared goals'), act: 'go(&#39;spending&#39;)' });
-  } else {
-    tiles += wTile({ ch: 'house', chCls: 'wc-good', label: L('Mục tiêu', 'Goals'), val: '<span class="wt-add">＋</span>', foot: L('mục tiêu chung', 'shared goals'), act: 'openGoal()' });
-  }
-  if(up.length){
-    var k0 = up[0], e0 = evs[k0], dl0 = daysLeft(e0.d);
-    var cBig = dl0 === 0 ? L('Hôm nay', 'Today') : (dl0 === 1 ? L('Ngày mai', 'Tomorrow') : dl0 + ' <span class="u">' + L('ngày', 'days') + '</span>');
-    tiles += wTile({ ch: 'plan', chCls: 'wc-amber', label: L('Sắp tới', 'Coming up'), val: cBig, foot: '<b>' + esc(e0.name) + '</b>', act: 'openEvent(&#39;' + escAttr(k0) + '&#39;)' });
-  } else {
-    tiles += wTile({ ch: 'plan', chCls: 'wc-amber', label: L('Sắp tới', 'Coming up'), val: '<span class="wt-add">＋</span>', foot: L('Lên một kế hoạch vui', 'Plan something fun'), act: 'goMoments(&#39;plans&#39;);openSheet(&#39;sheet-event&#39;)' });
-  }
-  var phThis = memRecords.filter(function(r){ return r.d && r.d.getMonth() === TODAY.getMonth() && r.d.getFullYear() === TODAY.getFullYear(); });
-  if(memRecords.length){
-    tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'),
-      val: memRecords.length + ' <span class="u">' + L('ảnh', 'photos') + '</span>',
-      foot: phThis.length ? L('Thêm ' + phThis.length + ' trong tháng này', phThis.length + ' new this month') : L('Kỷ niệm của cả nhà', 'The family’s memories'), act: 'goMoments(&#39;album&#39;)' });
-  } else {
-    tiles += wTile({ ch: 'album', chCls: 'wc-rose', label: L('Album', 'Album'), val: '<span class="wt-add">＋</span>', foot: L('Thêm tấm ảnh đầu tiên', 'Add the first photo'), act: 'openMomentModal()' });
-  }
-
-  html += '<div class="wgrid">' + tiles + '</div>';
-  if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions, now under the stat tiles
+  if(typeof rxHomeStripHTML === 'function') html += rxHomeStripHTML();   // Phòng khách: latest reactions
 
   /* ============ KHOẢNH KHẮC — the featured photo card + the memory strip ============ */
   var kh = '', centerRef = null, gettingStarted = false;

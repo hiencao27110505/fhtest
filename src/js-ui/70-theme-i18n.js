@@ -23,59 +23,89 @@ function floatEmojis(emoji){
 }
 
 /* ---------- theme ---------- */
-/* The picker is gone (2026-08-22), but the CHOICE is not taken away from anyone
-   who already made one. Someone on Ocean stays on Ocean; only people who never
-   picked get Sage. Retiring a preference is not the same as overriding it, and
-   the second one is what people notice and resent.
+/* The picker is still here, and still works. What changed is that it now says
+   out loud where it is going: Sage becomes the single theme, because Sage is the
+   one the rest of the app is actually tuned against.
 
-   So `fh-theme` is still read at boot, and still validated against the list —
-   an unknown value (a hand-edited key, a theme we drop later) falls back to
-   Sage rather than painting `phone t-<garbage>` and losing every token.
+   THREE THINGS THIS SCREEN HAS TO DO, in the order someone reads them:
+     1. Say the picker is going away, before they invest a tap in it.
+     2. Let them pick anyway. Taking the control away the same day we announce
+        it would make the announcement pointless and the change feel done TO
+        them rather than told to them.
+     3. If they are on a non-Sage colour, own the actual reason honestly: the
+        other components were never finished for it, so parts of the app look
+        unpolished in their colour. That is our unfinished work, not their bad
+        taste, and it is the real reason Sage is winning.
 
-   NOTHING WRITES IT ANY MORE. applyTheme is called once at boot and never from
-   a tap, so the write-through that persisted the choice was deleted with the
-   picker (50-writethrough-realtime.js). localStorage was always the real store
-   here — hydrate never applied `profiles.theme` — so a chosen theme has always
-   been per-device, and still is.
-
-   applyTheme also sets meta[theme-color], which tints the iOS status bar and
-   the PWA splash, so it cannot collapse into a plain CSS class. */
+   The apology and the "keep mine" route are CONDITIONAL on being off Sage. To a
+   Sage user none of it applies, and an apology for a problem they do not have
+   is just noise. buildThemeChoices re-runs on every pick, so the notes appear
+   and disappear live as someone tries colours. */
 var THEMES=[
-  {k:'sage',name:'Sage',bar:'#2E9E6B'},
-  {k:'ocean',name:'Ocean',bar:'#1E74D0'},
-  {k:'lavender',name:'Lavender',bar:'#7A5AE0'},
-  {k:'blossom',name:'Blossom',bar:'#E0567F'},
-  {k:'twilight',name:'Twilight',bar:'#3B3F86'}
+  {k:'sage',name:'Sage',grad:'linear-gradient(150deg,#4CB584,#2E9E6B 52%,#8FC97E)',bar:'#2E9E6B'},
+  {k:'ocean',name:'Ocean',grad:'linear-gradient(150deg,#2AA9E0,#1E74D0 52%,#4FC2C9)',bar:'#1E74D0'},
+  {k:'lavender',name:'Lavender',grad:'linear-gradient(150deg,#9270E8,#7A5AE0 50%,#B98BE0)',bar:'#7A5AE0'},
+  {k:'blossom',name:'Blossom',grad:'linear-gradient(150deg,#F07898,#E0567F 50%,#D98AB0)',bar:'#E0567F'},
+  {k:'twilight',name:'Twilight',grad:'linear-gradient(150deg,#4A54C4,#3B3F86 55%,#6A5FC0)',bar:'#3B3F86'}
 ];
 var curTheme='sage';
 function applyTheme(k){
+  if(!THEMES.some(function(t){return t.k===k;}))return;      // unknown value: keep what we have
+  curTheme=k;
+  var el=document.getElementById('phone'); if(el) el.className='phone t-'+k;
   var t=THEMES.filter(function(x){return x.k===k;})[0];
-  if(!t) t=THEMES[0];                                   // unknown/absent -> Sage
-  curTheme=t.k;
-  var el=document.getElementById('phone'); if(el) el.className='phone t-'+t.k;
-  var mt=document.querySelector('meta[name=theme-color]'); if(mt) mt.setAttribute('content',t.bar);
+  var mt=document.querySelector('meta[name=theme-color]'); if(mt&&t)mt.setAttribute('content',t.bar);
+  try{ localStorage.setItem('fh-theme',k); }catch(e){}
+  buildThemeChoices();
 }
-window.applyTheme=applyTheme;
+function _themeName(k){ var t=THEMES.filter(function(x){return x.k===k;})[0]; return t?t.name:k; }
 
-/* The retirement note, and the reason it is CONDITIONAL: it is only rendered for
-   someone actually on a non-Sage theme. Everyone else never opened the picker
-   and is already where the app is heading, so a notice about a feature they
-   never used would be pure noise on a screen about something else.
-
-   It also says what happens TO THEM (their theme stays for now, the app moves to
-   Sage later) rather than announcing a change in the abstract, which is the part
-   people actually need. Wired to the existing openSheet('sheet-theme') hook, so
-   it re-evaluates every time Settings opens. */
 function buildThemeChoices(){
-  var box=document.getElementById('theme-retire'); if(!box) return;
-  if(curTheme==='sage'){ box.style.display='none'; box.innerHTML=''; return; }
-  var t=THEMES.filter(function(x){return x.k===curTheme;})[0];
-  var nm=t?t.name:curTheme;
-  box.style.display='';
-  box.textContent=L('Bạn đang dùng giao diện '+nm+'. Tụi mình sắp bỏ phần chọn giao diện. Bạn cứ giữ nguyên giao diện này, sau này app sẽ chuyển về Sage.',
-                    'You’re on the '+nm+' theme. We’re retiring theme choice soon. Yours stays as it is for now, and the app moves to Sage later.');
+  var note=document.getElementById('theme-note');
+  if(note) note.textContent=L(
+    'Sắp tới tụi mình sẽ bỏ phần chọn giao diện. Cả nhà sẽ dùng chung màu Sage, vì đây là màu ăn ý nhất với mọi phần còn lại của app.',
+    'We’re retiring theme choice soon. Everyone moves to Sage, because Sage is the colour the rest of the app is tuned for.');
+
+  var box=document.getElementById('theme-grid');
+  if(box) box.innerHTML=THEMES.map(function(t){
+    /* A real <button>, not the <div> this used to be: iOS Safari does not fire
+       click on a bare div (CLAUDE.md §3), and this control has no business
+       depending on a cursor:pointer rule to work on a phone. */
+    return '<button type="button" class="theme-opt'+(t.k===curTheme?' on':'')+'" onclick="applyTheme(\''+t.k+'\')">'
+      +'<div class="sw" style="background:'+t.grad+'"><div class="chk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#191022" stroke-width="3.2"><path d="M5 12l5 5L20 7"/></svg></div></div>'
+      +'<div class="nm">'+t.name+'</div></button>';
+  }).join('');
+
+  var keep=document.getElementById('theme-keep'); if(!keep) return;
+  if(curTheme==='sage'){ keep.style.display='none'; keep.innerHTML=''; return; }
+  var nm=_themeName(curTheme);
+  keep.style.display='';
+  keep.innerHTML='<div class="tk-txt">'+esc(L(
+      'Bạn đang dùng '+nm+'. Thú thật là tụi mình chưa phối xong màu này cho những phần khác của app, nên vài chỗ nhìn chưa được đẹp. Tụi mình sẽ làm tiếp.',
+      'You’re on '+nm+'. Honestly, we haven’t finished tuning the rest of the app for it, so a few places don’t look their best yet. We’re still working on it.'))+'</div>'
+    +'<button type="button" class="tk-btn" onclick="fhThemeKeep()">'+esc(L(
+      'Mình muốn giữ màu này', 'I’d like to keep this colour'))+'</button>';
 }
-(function(){ var s; try{s=localStorage.getItem('fh-theme');}catch(e){} applyTheme(s||'sage'); })();
+
+/* "Keep my colour" opens Góp ý with the note already written, naming their
+   theme. Asking someone to argue for their own colour from a blank textarea is
+   how you get no replies and no idea which colours people actually care about;
+   this way the tap IS the answer, and anything they add on top is a bonus. */
+window.fhThemeKeep=function(){
+  var nm=_themeName(curTheme);
+  var msg=L('Mình muốn giữ giao diện '+nm+'. ', 'I’d like to keep the '+nm+' theme. ');
+  try{ if(typeof closeSheet==='function') closeSheet(); }catch(e){}
+  try{ openSheet('sheet-suggest'); }catch(e){ return; }
+  // openSheet clears sg-msg and resets the chips, so fill in AFTER it has run.
+  setTimeout(function(){
+    try{
+      if(typeof selectChipByVal==='function') selectChipByVal('sg-type','Idea');
+      var ta=document.getElementById('sg-msg');
+      if(ta){ ta.value=msg; ta.focus(); ta.setSelectionRange(msg.length,msg.length); }
+    }catch(e){}
+  },0);
+};
+(function(){ var s; try{s=localStorage.getItem('fh-theme');}catch(e){} if(s) applyTheme(s); })();
 
 function firstName(n){ return (n||'').trim().split(/\s+/)[0]||'there'; }
 function setGreeting(){

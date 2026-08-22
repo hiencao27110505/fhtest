@@ -41,61 +41,87 @@
   };
   const _atxGlyph = (k) => _ATX_SVG[k] || _mbxGlyph(k);
 
-  /* WHICH ACCOUNT WE READ FROM — the one question this flow has to ask, and
-     the reason it is a row on the offer screen rather than a step of its own.
+  /* WHICH ACCOUNT WE READ FROM — the one question this flow has to ask, and the
+     reason it is a row on the offer screen rather than a step of its own.
 
-     Two states, no text field:
+     Two states:
        login  → read from the address they signed in with. The default, because
                 it is right for almost everyone and costs them zero taps.
-       choose → they pick the account on Google's own screen.
+       other  → a field for the address their bank actually writes to.
 
-     WHY NOT AN EDITABLE FIELD, the way the forwarding flow asks (fhMailboxWhichEmail):
-     there, `personal_email` is a claim we compare against the address that
-     forwarded the mail, so typing it is the whole mechanism. Here it is not a
-     claim at all — access exists only for the Google account that actually
-     signs in and consents. A field would let someone type an address, watch us
-     accept it, and then read a different one on Google's screen. So the switch
-     hands off to Google's account picker, which is the only thing that can
-     really answer the question.
+     WHAT THE FIELD IS, AND WHAT IT IS NOT. It is a `login_hint`, not a grant.
+     It tells Google which account to open on, which is a real favour to anyone
+     holding three Gmail addresses — without it they land on whichever account
+     Google felt like and can quietly authorise the wrong mailbox. What it
+     cannot do is give us access: only the account that signs in and consents on
+     Google's screen does that. So this is a hint that saves taps and prevents a
+     wrong-mailbox mistake, and the helper line under it says exactly that
+     rather than implying we have taken the answer here.
 
-     Consequence worth knowing: this path is Google accounts only. Someone whose
-     bank writes to a non-Google address cannot use it, and no wording here can
-     fix that — forwarding is their answer. Left as a note for the BE handoff
-     rather than a third button, because a fork back to the other transport is a
-     product decision, not a UI one. */
+     Blank is legitimate and means "no hint" — Google shows its account picker.
+     That is also what someone who does not know the address should do, so the
+     field never blocks on being empty.
+
+     Consequence worth knowing: this path is Google accounts only. Typing a
+     non-Google address will simply fail on Google's screen, which is why the
+     validation below stays a shape check and never promises the address works.
+     Someone whose bank writes somewhere else needs forwarding, and routing them
+     there is a product decision, not a UI one. */
   let _atxUseLogin = true;
 
   const _atxLoginEmail = () => (window.FAM && window.FAM.user && window.FAM.user.email) || '';
+
+  /* Read straight off the field so the value survives a re-render and never
+     needs mirroring into module state on every keystroke. */
+  const _atxTypedEmail = () => {
+    const el = document.getElementById('atx-email');
+    return el ? el.value.trim() : '';
+  };
 
   function _atxAcctRow() {
     const email = _atxLoginEmail();
     // No login email at all (shouldn't happen — sign-in is Google) — don't offer
     // a switch away from something we cannot name; Google will ask.
     if (!email) _atxUseLogin = false;
-    const on = _atxUseLogin && !!email;
-    return '<div class="atx-acct" id="atx-acct">' +
-      '<div class="atx-acct-ic">' + _mbxGlyph('mail') + '</div>' +
-      '<div class="atx-acct-txt">' +
-        '<div class="atx-acct-lbl">' + _esc(L('Đọc thư từ', 'Reading from')) + '</div>' +
-        '<div class="atx-acct-val">' + _esc(on ? email
-          : L('Tài khoản bạn chọn ở màn hình Google', 'The account you pick on Google’s screen')) + '</div>' +
-      '</div>' +
-      (email
+    if (_atxUseLogin && email) {
+      return '<div class="atx-acct" id="atx-acct">' +
+        '<div class="atx-acct-ic">' + _mbxGlyph('mail') + '</div>' +
+        '<div class="atx-acct-txt">' +
+          '<div class="atx-acct-lbl">' + _esc(L('Đọc thư từ', 'Reading from')) + '</div>' +
+          '<div class="atx-acct-val">' + _esc(email) + '</div>' +
+        '</div>' +
+        '<button class="atx-acct-sw" onclick="fhAutoTxnSwitchAcct()">' + _esc(L('Đổi', 'Change')) + '</button>' +
+        '</div>';
+    }
+    return '<div class="atx-acct is-edit" id="atx-acct">' +
+      '<div class="atx-acct-lbl">' + _esc(L('Email nhận thông báo ngân hàng', 'Email your bank writes to')) + '</div>' +
+      '<input id="atx-email" class="atx-acct-in" type="email" inputmode="email" autocapitalize="none" ' +
+        'spellcheck="false" autocomplete="email" placeholder="' + _escAttr(L('vd. tenban@gmail.com', 'e.g. you@gmail.com')) + '">' +
+      '<div class="atx-acct-hint">' + _esc(L(
+        'Tụi mình sẽ mở màn hình Google với email này. Bạn đăng nhập và cho phép ở đó. Để trống cũng được, Google sẽ hỏi bạn chọn tài khoản.',
+        'We’ll open Google on this address. You sign in and approve there. Leaving it blank is fine too, Google will ask you to pick.')) + '</div>' +
+      (_atxLoginEmail()
         ? '<button class="atx-acct-sw" onclick="fhAutoTxnSwitchAcct()">' +
-            _esc(on ? L('Đổi', 'Change') : L('Dùng email này', 'Use this one')) + '</button>'
+            _esc(L('Dùng email đăng nhập', 'Use my sign-in email')) + '</button>'
         : '') +
       '</div>';
   }
 
   /* Re-renders the row in place rather than the whole sheet: the person is
-     mid-decision and the screen must not jump under them. */
+     mid-decision and the screen must not jump under them. Focuses the field on
+     the way in, so "Đổi" lands them on a keyboard rather than a second tap. */
   window.fhAutoTxnSwitchAcct = function () {
     _atxUseLogin = !_atxUseLogin;
     const row = document.getElementById('atx-acct');
     if (!row) return;
     const wrap = document.createElement('div');
     wrap.innerHTML = _atxAcctRow();
-    row.replaceWith(wrap.firstChild);
+    const next = wrap.firstChild;
+    row.replaceWith(next);
+    if (!_atxUseLogin) {
+      const el = document.getElementById('atx-email');
+      if (el) try { el.focus(); } catch (e) {}
+    }
   };
 
   /* The single entry point. Deliberately does NOT branch on connection state
@@ -155,12 +181,18 @@
 
      WHAT WE SEND, and why it is shaped for their existing handler:
        memberId       — required, checked against the caller's user_id there.
-       email          — the login_hint. The login address when they kept it,
-                        EMPTY when they chose to switch. Empty is the switch:
-                        their handler already does `login_hint: body.email || ''`,
-                        and Google with no hint shows its account picker. So the
-                        choice works against the endpoint as already written, with
-                        no change needed on their side.
+       email          — the login_hint. The login address when they kept it, the
+                        address they typed when they switched, or EMPTY when they
+                        switched and left it blank. Empty means "no hint": their
+                        handler already does `login_hint: body.email || ''`, and
+                        Google with no hint shows its account picker. So all three
+                        cases work against the endpoint as already written, with no
+                        change needed on their side.
+                        IT IS A HINT, NOT A CLAIM. The mailbox we end up connected
+                        to is whichever account consents on Google's screen, which
+                        may not be the one typed here. The callback learns the real
+                        address from Google, and that is the one to store — never
+                        this field.
        chooseAccount  — optional, additive. If they add `select_account` to the
                         prompt when this is true, the picker appears even for
                         someone with a single signed-in account. Ignoring it costs
@@ -185,6 +217,19 @@
       window.toast && window.toast(L('Chưa xác định được thành viên, thử lại nhé', 'Could not identify your member — try again'));
       return;
     }
+
+    /* A shape check on the typed hint, and nothing more. Blank is allowed on
+       purpose (it means "let Google ask"), so this only fires on something that
+       cannot be an address at all — a half-finished paste, a stray name. It
+       never claims the address is reachable or is a Google account; only
+       Google's screen can answer that. */
+    const typed = _atxUseLogin ? '' : _atxTypedEmail();
+    if (typed && !/.+@.+\..+/.test(typed)) {
+      window.toast && window.toast(L('Địa chỉ email chưa đúng, bạn xem lại nhé', 'That email doesn’t look right — give it another look'));
+      const el = document.getElementById('atx-email');
+      if (el) try { el.focus(); } catch (e) {}
+      return;
+    }
     if (btn) { btn.disabled = true; btn.textContent = L('Đang mở Google…', 'Opening Google…'); }
 
     let tok = '';
@@ -196,8 +241,8 @@
         headers: Object.assign({ 'Content-Type': 'application/json' }, tok ? { Authorization: 'Bearer ' + tok } : {}),
         body: JSON.stringify({
           memberId: mid,
-          email: _atxUseLogin ? _atxLoginEmail() : '',
-          chooseAccount: !_atxUseLogin,
+          email: _atxUseLogin ? _atxLoginEmail() : typed,
+          chooseAccount: !_atxUseLogin && !typed,
         }),
       });
       if (r.status === 404) {

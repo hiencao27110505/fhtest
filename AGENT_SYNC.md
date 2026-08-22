@@ -52,15 +52,31 @@ relaying messages through Slack/DMs by hand.
   POST /api/gmail-connect     Authorization: Bearer <supabase access token>
   { memberId, email, chooseAccount }
   ```
-  - `email` is the `login_hint`. It carries the login address when the person
-    kept it, and is **EMPTY when they chose to switch accounts** — empty is the
-    switch. Your handler already does `login_hint: body.email || ''`, and Google
-    with no hint shows its account picker, so the choice works against the
-    endpoint as it stands.
-  - `chooseAccount` is optional and additive. If you add `select_account` to the
-    prompt when it is true, the picker also appears for someone with a single
-    signed-in account. Ignoring it costs nothing — that is why it is a separate
-    field rather than a second meaning for `email`.
+  - `email` is the `login_hint`, and it now has three cases: the login address
+    when they kept it, **an address they typed** when they switched, or **empty**
+    when they switched and left the field blank. Your handler already does
+    `login_hint: body.email || ''`, so all three work against the endpoint as it
+    stands.
+  - **`email` IS A HINT, NOT A CLAIM — do not store it as the connected
+    address.** It only decides which account Google opens on. The mailbox we are
+    actually connected to is whichever account consents on Google's screen, and
+    that can differ from what was typed. The callback learns the real address
+    from Google; store that one. Storing the hint would attach a mailbox we do
+    not have access to, and the mismatch would only surface later as a sync that
+    silently returns nothing.
+  - `chooseAccount` is optional and additive, and is true **only when they
+    switched and typed nothing**. If you add `select_account` to the prompt when
+    it is true, the picker appears even for someone with a single signed-in
+    account. Ignoring it costs nothing — that is why it is a separate field
+    rather than a second meaning for `email`.
+  - **DO NOT add `select_account` when `email` is non-empty.** That is the one
+    way to break this: `select_account` overrides the hint and drops the person
+    on the account picker, which is precisely what the hint exists to skip.
+    The intended behaviour when someone types an address is that Google opens
+    on THAT account — already signed in, straight to consent; not signed in,
+    the sign-in screen with the address filled so they only enter a password.
+    `login_hint` + `prompt=consent`, exactly as `api/gmail-connect.js` already
+    builds it, gives that. The rule is simply: hint present → no select_account.
 
   **B. The return contract — I proposed one, please redirect to it.** After you
   finish the code exchange, send them back to the app origin with:
@@ -79,9 +95,11 @@ relaying messages through Slack/DMs by hand.
 
   **C. Known limit, not a bug:** this path is Google accounts only. Someone
   whose bank writes to a non-Google address cannot use it, and no wording on the
-  screen fixes that — forwarding is their answer. I did NOT add a fork back to
-  the forwarding flow, because that is a product decision and it collides with
-  the entry-point question in item 1 below.
+  screen fixes that — forwarding is their answer. The typed field validates
+  SHAPE only and deliberately does not promise the address is reachable or is a
+  Google account, because only Google's screen can answer that. I did NOT add a
+  fork back to the forwarding flow, because that is a product decision and it
+  collides with the entry-point question in item 1 below.
 
   **Two things I found on rebasing onto your work, both worth your call:**
 

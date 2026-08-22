@@ -782,10 +782,14 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <div class="sheet" id="sheet-theme">
   <div class="grab"></div>
   <div class="sheet-h" data-t="settingsTitle">Settings</div>
-  <!-- Theme-retirement note. Empty and hidden by default; 70-theme-i18n.js fills
-       it on sheet open ONLY for someone still on a non-Sage theme. Text is set
-       from JS (it names their theme), so it carries no data-t. -->
-  <div class="theme-retire" id="theme-retire" style="display:none"></div>
+  <!-- Theme block: the heads-up, the picker, then the "keep mine" route. All
+       three are filled by buildThemeChoices (70-theme-i18n.js) on sheet open and
+       again on every pick. #theme-keep is CONDITIONAL — it only appears for
+       someone on a non-Sage theme, since the apology is about their colour.
+       Text is set from JS (it names their theme), so no data-t here. -->
+  <div class="theme-note" id="theme-note"></div>
+  <div class="theme-grid" id="theme-grid"></div>
+  <div class="theme-keep" id="theme-keep" style="display:none"></div>
   <div class="set-actions">
     <!-- AUTO-LOGGING (bank email, direct read) — the newest thing this app does,
          so it sits first and carries the "New" badge. Same allowlist gate as the
