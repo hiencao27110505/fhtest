@@ -45,53 +45,48 @@ relaying messages through Slack/DMs by hand.
   **2026-08-22, later — the flow is now complete on our side, and there are two
   things the BE needs from this entry.**
 
-  **A. What the connect call sends.** Shaped to fit `api/gmail-connect.js` as
-  already written on `bank-email-oauth`, so nothing has to change to accept it:
+  **A. WE BUILD THE CONSENT URL NOW, not you (changed 2026-08-22, your call via
+  Hien). `/api/gmail-connect` is no longer called and can be dropped from the
+  branch. The client sends the person straight to Google.** What it sends:
 
   ```
-  POST /api/gmail-connect     Authorization: Bearer <supabase access token>
-  { memberId, email, chooseAccount }
+  https://accounts.google.com/o/oauth2/v2/auth
+    client_id=<the app's existing Google client id>
+    redirect_uri=<origin>/api/gmail-callback
+    response_type=code
+    scope=https://www.googleapis.com/auth/gmail.readonly
+    include_granted_scopes=false
+    access_type=offline
+    prompt=consent
+    login_hint=<address, omitted entirely when unknown>
+    state=base64url({uid, mid, v:1})
   ```
-  - `email` is the `login_hint`, and it now has three cases: the login address
-    when they kept it, **an address they typed** when they switched, or **empty**
-    when they switched and left the field blank. Your handler already does
-    `login_hint: body.email || ''`, so all three work against the endpoint as it
-    stands.
-  - **`email` IS A HINT, NOT A CLAIM — do not store it as the connected
-    address.** It only decides which account Google opens on. The mailbox we are
-    actually connected to is whichever account consents on Google's screen, and
-    that can differ from what was typed. The callback learns the real address
-    from Google; store that one. Storing the hint would attach a mailbox we do
-    not have access to, and the mismatch would only surface later as a sync that
-    silently returns nothing.
-  - `chooseAccount` is optional and additive, and is true **only when they
-    switched and typed nothing**. If you add `select_account` to the prompt when
-    it is true, the picker appears even for someone with a single signed-in
-    account. Ignoring it costs nothing — that is why it is a separate field
-    rather than a second meaning for `email`.
-  - **DO NOT add `select_account` when `email` is non-empty.** That is the one
-    way to break this: `select_account` overrides the hint and drops the person
-    on the account picker, which is precisely what the hint exists to skip.
-    The intended behaviour when someone types an address is that Google opens
-    on THAT account — already signed in, straight to consent; not signed in,
-    the sign-in screen with the address filled so they only enter a password.
-    `login_hint` + `prompt=consent`, exactly as `api/gmail-connect.js` already
-    builds it, gives that. The rule is simply: hint present → no select_account.
 
-  **B. The return contract — I proposed one, please redirect to it.** After you
-  finish the code exchange, send them back to the app origin with:
+  **Three things you need from this:**
 
-  ```
-  ?fh_gmail=connected     grant stored, sync will start
-  ?fh_gmail=denied        declined on Google's screen
-  ?fh_gmail=error         anything else
-  ```
-  `?gmail=` is accepted as an alias. The client reads it once, eats it from the
-  URL, and shows a real outcome screen (connected / declined / failed) instead
-  of the silent app boot that a bare redirect gives today. **An unrecognised
-  value is ignored, never guessed at** — so if you pick different spellings this
-  degrades to today's silence rather than telling someone they are connected
-  when nobody knows. `tools/autotxn-return.test.js` pins that (22 assertions).
+  1. **`redirect_uri` is `<origin>/api/gmail-callback`.** Register that exact
+     string as an Authorised redirect URI in Google Cloud Console, or Google
+     answers `redirect_uri_mismatch` before the person sees a thing. If your
+     callback lands on a different path, say so and I change one line.
+  2. **`state` IS UNTRUSTED INPUT. Verify it, do not believe it.** It carries
+     `{uid, mid}` because your callback has no session to ask, and it is NOT
+     signed — a browser cannot hold a signing key. Confirm the member belongs to
+     the account the granted email resolves to before attaching a mailbox to
+     anyone's ledger. Trusting it as-is lets a forged state attach one person's
+     mailbox to another person's member row.
+  3. **`login_hint` is a HINT, NOT A CLAIM. Never store it as the connected
+     address.** Whichever account actually consents is the mailbox we have, and
+     it can differ from the hint. Take the real address from Google in the token
+     response and store that. Storing the hint attaches a mailbox we cannot read,
+     and the mismatch only surfaces later as a sync that returns nothing.
+
+  **No PKCE, deliberately.** PKCE protects a public client that exchanges the
+  code itself. Yours is confidential and holds the client secret, which is the
+  stronger protection. A challenge generated in the browser would also strand the
+  verifier where your server cannot read it.
+
+  **The return leg is unchanged** (item B below): redirect back to the app origin
+  with `?fh_gmail=connected|denied|error`.
 
   **C. Known limit, not a bug:** this path is Google accounts only. Someone
   whose bank writes to a non-Google address cannot use it, and no wording on the

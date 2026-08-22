@@ -143,12 +143,7 @@
           throw Object.assign(new Error('bad email'), {
             fhMsg: L('Địa chỉ email chưa đúng, bạn xem lại nhé', 'That email doesn’t look right — give it another look') });
         }
-        const out = await _atxConnect({ email: typed, chooseAccount: !typed });
-        if (out.notYet) {
-          throw Object.assign(new Error('not deployed'), {
-            fhMsg: L('Tính năng này đang được bật, ghé lại sau nhé', 'We’re still switching this on. Check back soon.') });
-        }
-        _atxNavigate(out.url);
+        _atxNavigate(await _atxConsentUrl(typed));
       },
       after: function () {
         // Focus once the modal has settled: focusing mid-transition sets the
@@ -212,114 +207,84 @@
       '<div class="mbx-rs">' + _esc(sub) + '</div></div></div>';
   }
 
-  /* ── the handoff ───────────────────────────────────────────────────────────
-     This is the seam with the backend. We get the person to Google's consent
-     screen; from the callback on, it is the BE dev's.
+  /* ── the consent URL ───────────────────────────────────────────────────────
+     WE own getting the person to Google. The backend takes over at the callback.
 
-     /api/gmail-connect grants nothing by itself: it checks the caller owns the
-     member row and returns a consent URL whose state is signed, so the callback
-     can trust who started the flow. The member id is required — without it the
-     callback has no ledger to attach the mailbox to, and guessing would attach
-     it to the wrong person.
+     That split is why this is built here rather than fetched: nothing about the
+     consent URL needs a server. It is a client_id, a scope, a redirect and a
+     state, and every one of them is either public or ours to decide. Asking a
+     server to assemble a public URL only added a round trip that could 404,
+     which is exactly what it was doing.
 
-     WHAT WE SEND, and why it is shaped for their existing handler:
-       memberId       — required, checked against the caller's user_id there.
-       email          — the login_hint. The login address when they kept it, the
-                        address they typed when they switched, or EMPTY when they
-                        switched and left it blank. Empty means "no hint": their
-                        handler already does `login_hint: body.email || ''`, and
-                        Google with no hint shows its account picker. So all three
-                        cases work against the endpoint as already written, with no
-                        change needed on their side.
-                        IT IS A HINT, NOT A CLAIM. The mailbox we end up connected
-                        to is whichever account consents on Google's screen, which
-                        may not be the one typed here. The callback learns the real
-                        address from Google, and that is the one to store — never
-                        this field.
-       chooseAccount  — optional, additive. If they add `select_account` to the
-                        prompt when this is true, the picker appears even for
-                        someone with a single signed-in account. Ignoring it costs
-                        nothing, which is why it is a second field and not a
-                        different meaning for the first.
+     NO PKCE, deliberately. PKCE protects a PUBLIC client that must exchange the
+     code itself. Ours is confidential: the backend holds the client secret and
+     does the exchange, which is the stronger protection, and an intercepted code
+     is useless without that secret. Adding a challenge here would also strand
+     the verifier in this browser, where the exchanging server cannot read it —
+     ceremony rather than security.
 
-     Full navigation rather than a popup, deliberately: iOS Safari blocks a
-     window.open issued after an await, and the consent flow has to land back on
-     a real page regardless.
+     STATE IS UNTRUSTED INPUT, and the backend must treat it as such. It says
+     which member started the flow, because the callback has no session of its
+     own to ask. It is NOT signed — a browser cannot keep a signing key — so the
+     callback has to verify the claim rather than believe it: confirm the member
+     belongs to the account the granted email resolves to before attaching a
+     mailbox to anyone's ledger. Believing it as-is would let a forged state
+     attach one person's mailbox to another person's member row. */
+  const _ATX_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+  const _ATX_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 
-     404 is a live, expected state right now — the endpoint ships with the OAuth
-     backend (branch bank-email-oauth) — so it gets an honest line rather than
-     "try again", which would send people tapping at something that cannot work
-     yet. */
-  /* THE CALL ITSELF, shared by the offer CTA and the address form so there is
-     exactly one place that knows the contract.
+  /* The one value that must match the backend AND Google Cloud Console.
+     `/api/gmail-callback` is the path the reference implementation on branch
+     bank-email-oauth already uses, on this same origin. If the callback lands
+     anywhere else this is the single line to change, and the SAME string must be
+     registered as an Authorised redirect URI in the Console, or Google answers
+     redirect_uri_mismatch before the person sees anything at all. */
+  const _ATX_REDIRECT = () => location.origin + '/api/gmail-callback';
 
-     Returns {url} to hand off with, or {notYet:true} when the endpoint is not
-     deployed. Throws on everything else. Callers own their own progress UI,
-     because the two of them have very different ones (a CTA that relabels
-     itself, and a modal Save bar).
+  function _atxB64Url(obj) {
+    // btoa is latin1-only; percent-encode first so a non-ASCII value cannot throw.
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
 
-     A HARD DEADLINE, AS A RACE AND NOT JUST AN ABORT. Aborting the fetch is not
-     enough on its own: the await before it is `sb.auth.getSession()`, which can
-     itself hang — it takes a lock to refresh the token, and a lock that never
-     resolves is not something a fetch signal can reach. So abort the fetch AND
-     race the whole sequence, and the deadline wins whichever step is stuck.
-     Without this the button reads "Đang mở Google…" for ever, with no toast and
-     no way back: a disabled control that is, as far as the person can tell,
-     simply broken. */
-  const _ATX_DEADLINE = 15000;
-
-  async function _atxConnect(opts) {
+  function _atxConsentUrl(email) {
     const mid = window.DB && window.DB.ownerMemberId;
     if (!mid) {
       throw Object.assign(new Error('no member'), {
         fhMsg: L('Chưa xác định được thành viên, thử lại nhé', 'Could not identify your member — try again') });
     }
-    const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    let timer = null;
+    let uid = '';
+    try { uid = (window.fhUser && window.fhUser.id) || ''; } catch (e) {}
 
-    const attempt = (async function () {
-      let tok = '';
-      try { tok = ((await sb.auth.getSession()).data.session || {}).access_token || ''; } catch (e) { /* surfaces as a 401 */ }
-
-      const r = await fetch('/api/gmail-connect', Object.assign({
-        method: 'POST',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, tok ? { Authorization: 'Bearer ' + tok } : {}),
-        body: JSON.stringify({ memberId: mid, email: opts.email || '', chooseAccount: !!opts.chooseAccount }),
-      }, ctl ? { signal: ctl.signal } : {}));
-
-      if (r.status === 404) return { notYet: true };
-      /* Read as text first. A miss on this route comes back as an HTML error
-         page, and r.json() on HTML throws a SyntaxError that tells whoever is
-         debugging this nothing about what actually came back. */
-      const raw = await r.text();
-      let data = null;
-      try { data = JSON.parse(raw); } catch (e) { /* left null on purpose */ }
-      if (!r.ok || !data || !data.url) {
-        throw new Error((data && data.error) || ('HTTP ' + r.status + ' ' + String(raw).slice(0, 120)));
-      }
-      return { url: data.url };
-    })();
-
-    const deadline = new Promise(function (_, reject) {
-      timer = setTimeout(function () {
-        if (ctl) try { ctl.abort(); } catch (e) {}
-        reject(Object.assign(new Error('deadline'), {
-          fhMsg: L('Google lâu quá chưa trả lời, thử lại nhé', 'Google is taking too long — try again') }));
-      }, _ATX_DEADLINE);
+    const p = new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID,
+      redirect_uri: _ATX_REDIRECT(),
+      response_type: 'code',
+      scope: _ATX_SCOPE,
+      /* offline + consent: the backend needs a REFRESH token, and Google only
+         issues one when consent is granted afresh. Without prompt=consent a
+         returning user hands back an access token that expires within the hour,
+         and background sync silently stops working the same afternoon. */
+      access_type: 'offline',
+      prompt: 'consent',
+      include_granted_scopes: 'false',
+      state: _atxB64Url({ uid: uid, mid: mid, v: 1 }),
     });
-
-    try {
-      return await Promise.race([attempt, deadline]);
-    } catch (e) {
-      // The sentence the person sees is set by the caller or by fhMsg; the real
-      // reason has to reach whoever is debugging this with them.
-      try { console.warn('[autotxn] connect failed:', e && (e.message || e)); } catch (e2) {}
-      throw e;
-    } finally {
-      clearTimeout(timer);
-    }
+    /* login_hint only when we have an address to hint. Sending an empty one is
+       not the same as sending none: it can leave Google on whatever account is
+       already active instead of offering the picker. */
+    if (email) p.set('login_hint', email);
+    return _ATX_AUTH_URL + '?' + p.toString();
   }
 
+  /* Full navigation rather than a popup, deliberately: iOS Safari blocks a
+     window.open issued after an await, and the consent flow has to land back on
+     a real page regardless.
+
+     The login_hint is a HINT, NOT A CLAIM. Whichever account actually consents
+     on Google's screen is the mailbox we are connected to, and it may not be the
+     one hinted here. The callback learns the real address from Google, and that
+     is the one to store — never this. */
   /* The offer screen's CTA: read from the sign-in address, no form involved. */
   window.fhAutoTxnGrant = async function () {
     const btn = document.getElementById('atx-go');
@@ -327,15 +292,11 @@
     const reset = () => { if (btn) { btn.disabled = false; btn.textContent = label; } };
     if (btn) { btn.disabled = true; btn.textContent = L('Đang mở Google…', 'Opening Google…'); }
     try {
-      const out = await _atxConnect({ email: _atxLoginEmail(), chooseAccount: false });
-      if (out.notYet) {
-        window.toast && window.toast(L('Tính năng này đang được bật, ghé lại sau nhé', 'We’re still switching this on. Check back soon.'));
-        return;
-      }
-      _atxNavigate(out.url);
+      _atxNavigate(await _atxConsentUrl(_atxLoginEmail()));
       return;                                   // navigating: leave the button as it is
     } catch (e) {
       window.toast && window.toast((e && e.fhMsg) || L('Chưa mở được Google, thử lại nhé', 'Could not open Google — try again'));
+      try { console.warn('[autotxn] consent url failed:', e && (e.message || e)); } catch (e2) {}
     } finally {
       if (!_atxLeaving) reset();
     }
