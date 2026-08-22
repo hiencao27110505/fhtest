@@ -386,15 +386,40 @@ refresh token whenever a function needs it.
 
 Still to wire up:
 
-- **The Postgres store** — replace `create_store()`.
+- **⚠️ Cloud Scheduler — nothing renews the watches automatically yet.**
+  A Gmail watch expires 7 days after it is registered, and when it does Gmail
+  simply stops publishing: no error, no final notification, no entry in any
+  log. The pipeline would look idle rather than broken, and the first sign
+  would be transactions quietly missing.
+
+  Today the only thing renewing them is someone running `make renew` by hand.
+  What is needed is one Scheduler job — a single schedule, not one per
+  mailbox or per run — calling `gmail-watch-renew` daily with an OIDC token,
+  so the function can stay `allow-unauthenticated=false`:
+
+  ```sh
+  gcloud services enable cloudscheduler.googleapis.com --project=fhtest-502915
+  gcloud scheduler jobs create http renew-gmail-watches \
+    --project=fhtest-502915 --location=asia-southeast1 \
+    --schedule="0 3 * * *" --time-zone="Asia/Ho_Chi_Minh" \
+    --uri="$(gcloud functions describe gmail-watch-renew --gen2 \
+             --project=fhtest-502915 --region=asia-southeast1 \
+             --format='value(serviceConfig.uri)')" \
+    --oidc-service-account-email=860668973723-compute@developer.gserviceaccount.com
+  ```
+
+  Daily rather than weekly on Google's own advice — it leaves six days of
+  slack, where a weekly schedule leaves none and one missed run loses the
+  watch. Billing is per job, not per invocation, and the first three jobs each
+  month are free.
+
 - **The OAuth callback** in the app: exchange the code with
   `access_type=offline` and `prompt=consent`, or Google returns an access token
   with no refresh token. The refresh token is shown **once**, at first grant.
-- **Gmail watch**: call `users.watch()` per connected mailbox — deploy
-  `gmail-watch-renew` and let Cloud Scheduler drive it daily. A watch
-  **expires after 7 days** and must be renewed, or the pipeline goes quiet
-  with no error. (The Pub/Sub grant it depends on is already in place; see
-  below.)
+  Until then, `make connect` is the way a mailbox gets linked.
+- **Remove `TEST_SENDERS`** from `gmail-transaction-ingest/senders.py` once
+  real bank mail is arriving — anything those four accounts send is currently
+  read as a transaction.
 - **Verification**: `gmail.readonly` is a restricted scope. Beyond 100 test
   users, Google requires app verification and a third-party security
   assessment — start that early, it is measured in weeks.
