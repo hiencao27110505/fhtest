@@ -6,6 +6,11 @@ answers "what are that mailbox's credentials, and where did we get to last
 time". Where those live is deliberately behind an interface — the Postgres
 implementation lands later without touching main.py.
 
+Two implementations live here behind one protocol: InMemoryStore for local
+runs and tests, PostgresStore for deployments. `create_store()` picks between
+them from the environment, so neither function changes when a deployment gains
+a database.
+
 Two rules the backing store must honour, whatever it ends up being:
 
 * A refresh token grants unlimited read access to someone's mail. It must be
@@ -16,7 +21,7 @@ Two rules the backing store must honour, whatever it ends up being:
 
 import logging
 import os
-from typing import Protocol
+from typing import Any, Protocol
 
 log = logging.getLogger(__name__)
 
@@ -81,13 +86,21 @@ class AccountStore(Protocol):
 
 
 class _Account:
+    """One mailbox. Shared by both stores so they cannot drift apart."""
+
     __slots__ = ("email", "refresh_token", "history_id", "needs_reauth")
 
-    def __init__(self, email: str, refresh_token: str, history_id: str | None = None):
+    def __init__(
+        self,
+        email: str,
+        refresh_token: str,
+        history_id: str | None = None,
+        needs_reauth: bool = False,
+    ):
         self.email = email
         self.refresh_token = refresh_token
         self.history_id = history_id
-        self.needs_reauth = False
+        self.needs_reauth = needs_reauth
 
     def __repr__(self) -> str:
         # Never let the token near a log line or a traceback.
@@ -95,6 +108,9 @@ class _Account:
             f"<Account {self.email} history_id={self.history_id} "
             f"needs_reauth={self.needs_reauth}>"
         )
+
+
+# --- in-memory ------------------------------------------------------------
 
 
 class InMemoryStore:
@@ -149,15 +165,174 @@ def _seed_from_env() -> dict[str, str]:
         log.error("GMAIL_ACCOUNTS is not valid JSON: %s", exc)
         return {}
     if not isinstance(parsed, dict):
-        log.error("GMAIL_ACCOUNTS must be a JSON object of {email: refresh_token}")
+        log.error(
+            "GMAIL_ACCOUNTS must be a JSON object of {email: refresh_token}")
         return {}
     return {str(k): str(v) for k, v in parsed.items()}
 
 
-def default_store() -> AccountStore:
-    """The store this deployment uses.
+# --- postgres -------------------------------------------------------------
 
-    Swap the body for the Postgres implementation when it exists; callers keep
-    working because they only ever see the AccountStore protocol.
+
+# Tables this store reads and writes; the DDL lives in
+# supabase/migrations/0070_connected_accounts.sql.
+#
+# connected_accounts is provider-agnostic — one row per external account a user
+# has linked. gmail_sync_state holds what only Gmail needs, so a second
+# provider does not add nullable columns nobody else uses.
+ACCOUNTS_TABLE = "public.connected_accounts"
+SYNC_TABLE = "public.gmail_sync_state"
+
+# This store only ever deals with Gmail links.
+PROVIDER = "google"
+
+_pool: Any = None
+
+
+def _decrypt(ciphertext: bytes | memoryview) -> str:
+    """Turn a stored refresh_token_enc back into a usable token.
+
+    The column holds ciphertext so that a database dump is not a permanent
+    read grant on every connected mailbox. The key belongs to the application,
+    not to Postgres — encrypting inside the database would put key and data in
+    the same place and defeat the point.
+
+    GMAIL_TOKEN_KEY is a urlsafe-base64 Fernet key. Without it the store
+    refuses to run rather than silently treating ciphertext as a token.
     """
+    from cryptography.fernet import Fernet, InvalidToken  # noqa: PLC0415
+
+    key = os.environ.get("GMAIL_TOKEN_KEY")
+    if not key:
+        raise RuntimeError("GMAIL_TOKEN_KEY is not set; cannot read stored tokens")
+
+    try:
+        return Fernet(key.encode()).decrypt(bytes(ciphertext)).decode()
+    except InvalidToken as exc:
+        # Wrong key, or a row written by something else. Never log the value.
+        raise RuntimeError("stored token could not be decrypted") from exc
+
+
+def _dsn() -> str:
+    dsn = os.environ.get("DATABASE_URL")
+    if not dsn:
+        raise RuntimeError("DATABASE_URL is not set")
+    return dsn
+
+
+def _get_pool() -> Any:
+    """The process-wide connection pool, opened on first use.
+
+    Built lazily rather than at import so a function that never touches the
+    database (or a test that stubs the store) does not need one.
+    """
+    global _pool
+    if _pool is None:
+        from psycopg_pool import ConnectionPool  # noqa: PLC0415
+
+        _pool = ConnectionPool(
+            _dsn(),
+            min_size=0,  # a cold instance should not hold a connection open
+            max_size=int(os.environ.get("DB_POOL_MAX", "2")),
+            # Transaction-mode pooling cannot carry prepared statements
+            # between statements on the same connection.
+            kwargs={"prepare_threshold": None},
+            open=True,
+        )
+    return _pool
+
+
+class PostgresStore:
+    """Reads and writes mailbox credentials in Postgres.
+
+    Connection notes, because they are easy to get wrong on Cloud Functions:
+    Supabase's pooler in transaction mode (port 6543) is the right target for
+    serverless — many short-lived connections — but it does not support
+    prepared statements. The pool below is configured accordingly; leaving them
+    on produces intermittent "prepared statement already exists" errors under
+    load rather than a clean failure.
+
+    Every method is a single statement in its own transaction: the callers are
+    short-lived Cloud Functions, and a longer transaction would hold a pooled
+    connection across a network call to Gmail.
+    """
+
+    def get(self, email: str) -> Account:
+        """The link for one mailbox, with its Gmail cursor.
+
+        A left join: a freshly connected account has no sync row yet, and that
+        is a null cursor rather than a missing account.
+        """
+        with _get_pool().connection() as conn:
+            row = conn.execute(
+                f"select a.email, a.refresh_token_enc, s.history_id, a.needs_reauth "  # noqa: S608
+                f"from {ACCOUNTS_TABLE} a "
+                f"left join {SYNC_TABLE} s on s.connected_account_id = a.id "
+                f"where a.provider = %s and a.email = %s",
+                (PROVIDER, email),
+            ).fetchone()
+
+        if row is None:
+            raise UnknownMailbox(email)
+        return _Account(row[0], _decrypt(row[1]), row[2], row[3])
+
+    def save_history_id(self, email: str, history_id: str) -> None:
+        """Advance the cursor, inserting the sync row on first use.
+
+        One statement: an upsert keyed on the account id, so two concurrent
+        invocations for the same mailbox cannot race to create the row.
+        """
+        with _get_pool().connection() as conn:
+            updated = conn.execute(
+                f"insert into {SYNC_TABLE} (connected_account_id, history_id) "  # noqa: S608
+                f"select a.id, %s from {ACCOUNTS_TABLE} a "
+                f"where a.provider = %s and a.email = %s "
+                f"on conflict (connected_account_id) do update "
+                f"set history_id = excluded.history_id, updated_at = now()",
+                (history_id, PROVIDER, email),
+            ).rowcount
+        if not updated:
+            raise UnknownMailbox(email)
+
+    def mark_needs_reauth(self, email: str) -> None:
+        with _get_pool().connection() as conn:
+            updated = conn.execute(
+                f"update {ACCOUNTS_TABLE} set needs_reauth = true, updated_at = now() "  # noqa: S608
+                f"where provider = %s and email = %s",
+                (PROVIDER, email),
+            ).rowcount
+        if not updated:
+            raise UnknownMailbox(email)
+
+    def list_connected(self) -> list[str]:
+        """Mailboxes whose token still works.
+
+        Ordered so a renewal run touches accounts in a stable sequence, which
+        makes a partial failure easier to reason about in the logs.
+        """
+        with _get_pool().connection() as conn:
+            rows = conn.execute(
+                f"select email from {ACCOUNTS_TABLE} "  # noqa: S608
+                f"where provider = %s and needs_reauth = false and email is not null "
+                f"order by email",
+                (PROVIDER,),
+            ).fetchall()
+        return [row[0] for row in rows]
+
+
+# --- selection ------------------------------------------------------------
+
+
+def create_store() -> AccountStore:
+    """Build the store for this deployment.
+
+    Postgres when DATABASE_URL is set, the in-memory stand-in otherwise. The
+    choice is configuration, not code: callers only ever see the AccountStore
+    protocol, so neither function changes when a deployment gains a database.
+
+    psycopg itself is imported lazily inside the pool, so a deployment without
+    a database never loads it.
+    """
+    if os.environ.get("DATABASE_URL"):
+        return PostgresStore()
     return InMemoryStore(_seed_from_env())

@@ -239,7 +239,7 @@ gmail_auth.build_client(token)     → Gmail client acting as that user
 ```
 
 `accounts.py` defines the seam. `AccountStore` is a Protocol with two methods,
-and `default_store()` decides which implementation a deployment gets — swap its
+and `create_store()` decides which implementation a deployment gets — swap its
 body for the Postgres-backed store and nothing else changes.
 
 `InMemoryStore` is the stand-in: seeded from `GMAIL_ACCOUNTS`, a JSON object of
@@ -287,7 +287,7 @@ for the verified details.
 
 Still to wire up:
 
-- **The Postgres store** — replace `default_store()`.
+- **The Postgres store** — replace `create_store()`.
 - **The OAuth callback** in the app: exchange the code with
   `access_type=offline` and `prompt=consent`, or Google returns an access token
   with no refresh token. The refresh token is shown **once**, at first grant.
