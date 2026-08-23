@@ -765,7 +765,7 @@ function csvCanonicalProvider(name) {
    refuses to guess, for the reason the pipeline gives and this screen exists to
    honour -- a missed duplicate costs one tap to skip; a false one hides real
    money behind a decision nobody asked for. */
-function csvStagedCrossSourceDup(c, provider, currency, priors) {
+function csvStagedCrossSourceDup(c, provider, currency, kind, priors) {
   var mine = csvCanonicalProvider(provider);
   if (!mine || !c.date) return null;
   var cur = (currency || '').toUpperCase();
@@ -773,6 +773,10 @@ function csvStagedCrossSourceDup(c, provider, currency, priors) {
     var p = priors[i];
     if (!p.provider || !p.c.date) continue;
     if (p.provider === mine) continue;                       // same bank -> two real transactions
+    // Two DIFFERENT banks are also two real transactions: each sees only its own
+    // account, so equal amounts are a coincidence, not one event twice. The real
+    // duplicate is a bank plus a non-bank reporting one swipe.
+    if (kind === 'bank' && p.kind === 'bank') continue;
     // Currency before amount: dedup_fp hashes 'amount|direction|currency', and
     // comparing the number alone made 200 USD and 200 VND one event. Direction
     // needs no check here -- credits are deferred out before this runs.
@@ -846,15 +850,25 @@ function bucketCsvCandidates(candidates, mixedSigns) {
          different wording -- so the detection is kept. What it no longer gets
          is the power to act alone. */
       var currency = (meta && meta.currency) || '';
-      var prior = { c: c, provider: csvCanonicalProvider(provider), currency: currency };
+      var kind = (meta && meta.kind) || '';
+      var prior = { c: c, provider: csvCanonicalProvider(provider), currency: currency, kind: kind };
 
+      /* The pipeline cannot read transaction_type on the rows it compares (they
+         are sealed), so it flags bank-vs-bank pairs it has no way to rule out.
+         The screen can read both, so it drops a suspicion it can PROVE wrong
+         rather than passing the tap on to a person. Only when both kinds are
+         known: an unknown kind leaves the flag standing. */
       if (meta && meta.pipelineDup) {
-        c.duplicateOfPipeline = true; possibleDuplicate.push(c);
-        priors.push(prior);
-        return;
+        var matchedKind = window.fhStagedKindById && window.fhStagedKindById(meta.dupOfId);
+        if (!(kind === 'bank' && matchedKind === 'bank')) {
+          c.duplicateOfPipeline = true; possibleDuplicate.push(c);
+          priors.push(prior);
+          return;
+        }
+        c.pipelineDupOverruled = true;   // two banks; falls through to the normal path
       }
 
-      var sourceMatch = csvStagedCrossSourceDup(c, provider, currency, priors);
+      var sourceMatch = csvStagedCrossSourceDup(c, provider, currency, kind, priors);
       priors.push(prior);
       if (sourceMatch) { c.duplicateOfSource = sourceMatch; possibleDuplicate.push(c); return; }
     }

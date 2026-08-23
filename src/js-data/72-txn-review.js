@@ -203,6 +203,43 @@
      deliberately NOT sealed: a hash can only match exactly, and bank names need
      fuzzy matching ('MB Bank' / 'MBBank' / 'MB'). Which is precisely why the
      client can run that rule too, with the decrypted amount in hand. */
+  /* Two BANKS can never report one purchase. A bank only ever sees movements on
+     its own account, so an MB debit and a Vietcombank debit are two different
+     pieces of money — not one event described twice, however equal the amounts.
+     The genuine duplicate is a bank AND a non-bank: the card issuer says "debit
+     200.000đ" and the merchant says "receipt 200.000đ" for one swipe.
+
+     Trang, 2026-08-23, on three live flags that were all bank-vs-bank. The rule
+     had only compared provider NAMES, which cannot express this.
+
+     transaction_type is sealed, so `findDuplicate` in the pipeline cannot apply
+     this at all: it holds plaintext for the row it is writing and ciphertext for
+     every row it compares against. The client holds all of it decrypted. This is
+     the sharpest example so far of the review screen being a strictly better
+     place to judge than the ingest job. */
+  var STAGED_BANK_TYPES = { bank_txn: 1, p2p_transfer: 1 };
+
+  // 'bank' | 'other' | '' when unknown. Empty never concludes anything —
+  // bill_payment is deliberately 'other' rather than guessed: a bank and a biller
+  // both send them, and mislabelling one as a bank would suppress a real duplicate.
+  function fhStagedKind(r) {
+    var t = (r && r.raw_extracted && r.raw_extracted.transaction_type) || '';
+    if (!t) return '';
+    return STAGED_BANK_TYPES[t] ? 'bank' : 'other';
+  }
+
+  // The kind of a row named by id — how the screen checks what the PIPELINE
+  // matched against. Returns '' when that row is not in this fetch (promoted,
+  // retired, or past the page), which leaves the suspicion standing rather than
+  // dismissing it on missing evidence.
+  function fhStagedKindById(id) {
+    var rows = window._fhStagedRows;
+    if (!rows || !id) return '';
+    for (var i = 0; i < rows.length; i++) if (rows[i] && rows[i].id === id) return fhStagedKind(rows[i]);
+    return '';
+  }
+  window.fhStagedKindById = fhStagedKindById;
+
   function fhStagedMeta(rowIndex) {
     var rows = window._fhStagedRows;
     if (!rows || typeof rowIndex !== 'number') return null;
@@ -210,6 +247,8 @@
     if (!r) return null;
     return {
       provider: r.source_provider || '',
+      kind: fhStagedKind(r),
+      dupOfId: r.duplicate_of_id || '',
       // 200 USD and 200 VND are not the same purchase. dedup_fp has always
       // hashed currency alongside amount; the client-side twin compared the
       // NUMBER alone, so a USD receipt beside a VND row of equal magnitude
