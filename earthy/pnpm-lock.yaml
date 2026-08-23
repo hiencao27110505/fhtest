@@ -26,6 +26,9 @@ importers:
       hono:
         specifier: ^4.13.2
         version: 4.13.2
+      jose:
+        specifier: ^6.2.10
+        version: 6.2.10
       lodash:
         specifier: ^4.18.1
         version: 4.18.1
@@ -45,12 +48,12 @@ importers:
 
   apps/web:
     dependencies:
-      '@faker-js/faker':
-        specifier: ^10.3.0
-        version: 10.6.0
       '@earthy/db':
         specifier: workspace:^
         version: link:../../packages/db
+      '@faker-js/faker':
+        specifier: ^10.3.0
+        version: 10.6.0
       '@serwist/window':
         specifier: ^9.5.12
         version: 9.5.12(browserslist@4.28.8)(typescript@6.0.3)
@@ -2198,6 +2201,9 @@ packages:
   jiti@2.7.0:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
+
+  jose@6.2.10:
+    resolution: {integrity: sha512-iiW7J9qRFlGxvCOIBDBDxFePQSn7ZMAnrYGhrrOo6siO/MIqwfyilLR27pkfDgUk+raLuzADS8A3S/KLBisc0g==}
 
   jose@6.2.9:
     resolution: {integrity: sha512-XrchZOFZUl/T3vTwRe8XK+cJrGtMF4th1ARnDfwbBXFKThGhlsxEE4Zu03AD/bjJSt/9jT/mxrOCkJWOg77aPA==}
@@ -4522,6 +4528,8 @@ snapshots:
   isexe@2.0.0: {}
 
   jiti@2.7.0: {}
+
+  jose@6.2.10: {}
 
   jose@6.2.9: {}
 

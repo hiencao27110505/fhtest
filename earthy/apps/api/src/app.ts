@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { connectionsRoutes } from "./features/connections/routes";
+import { env } from "./lib/env";
 import { privateRoutes, todosRoutes } from "./routes";
 
 /**
@@ -11,7 +13,17 @@ import { privateRoutes, todosRoutes } from "./routes";
 export const app = new Hono();
 
 app.use("*", logger());
-app.use("*", cors());
+// Origins are listed, never `*`. The API accepts the Supabase session cookie
+// as a credential, and browsers refuse a credentialed response whose
+// `Allow-Origin` is a wildcard — with `cors()` bare, every cookie-authenticated
+// fetch from the web app fails before it reaches a route.
+app.use(
+  "*",
+  cors({
+    origin: env.WEB_ORIGINS,
+    credentials: true,
+  }),
+);
 
 app.onError((err, c) => {
   // Re-serialize rather than returning err.getResponse(): that response carries
@@ -28,7 +40,10 @@ app.notFound((c) => c.json({ error: "Not found" }, 404));
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-const routes = app.route("/", todosRoutes).route("/", privateRoutes);
+const routes = app
+  .route("/", todosRoutes)
+  .route("/", privateRoutes)
+  .route("/", connectionsRoutes);
 
 // Exported so a client can infer the route types via hono/client.
 export type AppType = typeof routes;
