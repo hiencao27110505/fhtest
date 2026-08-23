@@ -303,6 +303,22 @@ alarm is noise, and the mechanism is dead. This screen gets zero cry-wolfs.
   eras from `0068` on, so dedup is continuous across the flip. `findDuplicate()`
   queries the fingerprint when sealing is on and the amount as before while it
   is off.
+- **AMENDED 2026-08-23 (Trang): the verdict is a suspicion, not a delete order.**
+  Detection stayed server-side; ACTING on it did not. `duplicate_of_id` was
+  filtered out of `fhFetchStagedTxns`, so a guess made with no human present —
+  against a staging table that empties as you review, on a rule that had three
+  spellings of one bank name — could hide a real transaction and cancel its
+  notification at once. A genuine 2.000đ transfer went that way. Flagged rows
+  now reach the review screen's "possible duplicate" bucket and the reviewer
+  resolves them; `queueReviewNotice` announces them (`-c`), because a row that
+  is really there must say so.
+  The client also runs the rule itself now (`csvStagedCrossSourceDup`,
+  `57-csv-import-review.js`) with strictly more evidence: the decrypted amount
+  plus `source_provider`, which is unsealed precisely because a hash matches only
+  exactly and bank names need fuzzy matching. `dedup_fp` remains correct and
+  remains written; it is simply no longer the only thing that can see a
+  cross-source pair. Whether it retires is a separate decision — not one to take
+  in the change that builds its replacement.
 - **`raw_body` must be deleted** at promotion or rejection, regardless of anything
   else. It is the fattest sensitive payload and is only needed while a row is
   pending.

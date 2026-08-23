@@ -200,10 +200,21 @@ Things that have already cost time. Each of these was learned the hard way.
 
 **Deployment is hand-paste.** `bank-email-pipeline.gs` is copied into the Apps
 Script editor by a human. There is no deploy step and no way to tell from the
-repo what is live. `PIPELINE_VERSION` (currently `'2026-08-15-a'`) is logged
-every run and is **the only reliable signal that your paste took**. Bump it with
-every change and check the log before debugging anything else — twice, a "bug"
-was simply old code still running.
+repo what is live. `PIPELINE_VERSION` is logged every run and is **the only
+reliable signal that your paste took**. Bump it with every change, and before
+debugging anything else, read the log and compare it to line 22 of
+`bank-email-pipeline.gs` — twice, a "bug" was simply old code still running.
+
+**Paste only from `origin/main`.** A `PIPELINE_VERSION` on an unmerged branch is
+a draft, and the string cannot express a fork: on 2026-08-23 two sessions held
+`2026-08-17-c` (main) and `2026-08-23-a` (a branch), siblings of one parent where
+neither contained the other, and the branch's later DATE made it look like the
+successor. Whoever merges owns the bump and the paste request.
+
+Deliberately NOT recorded here: which version is live. This note said
+`'2026-08-15-a'` for a week after two more had shipped, which is the exact
+failure the paragraph warns about, committed by the paragraph itself. The repo
+can only tell you what it holds; only the log can tell you what runs.
 
 **Gmail search semantics are not what you would guess.** Auto-forwarding
 **preserves the original `To:` header** (the user's own address), so `to:<alias>`

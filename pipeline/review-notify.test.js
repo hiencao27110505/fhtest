@@ -40,11 +40,19 @@ function stage(memberId, times) { for (let i = 0; i < times; i++) queueReviewNot
 
 // ── which rows earn a notice ────────────────────────────────────────────────
 // A row the review screen will never show must not produce a banner: an empty
-// queue after a tap teaches people the notification is noise.
+// queue after a tap teaches people the notification is noise. The converse is
+// just as true — a row that WILL be shown must announce itself, or it lands in
+// the queue and nothing says so.
+//
+// This assertion was inverted on 2026-08-23. It used to require silence for a
+// flagged duplicate, which was right while fhFetchStagedTxns filtered those rows
+// out. It no longer does: the flag became a suspicion the reviewer resolves, not
+// a delete order the pipeline executes, so the row is really there and really
+// needs announcing.
 _PENDING_NOTIFY = {};
 queueReviewNotice({ member_id: MEMBER, duplicate_of_id: 'dup-1' });
-t('a merged duplicate does NOT notify (fhFetchStagedTxns filters it out)',
-  Object.keys(_PENDING_NOTIFY).length === 0, JSON.stringify(_PENDING_NOTIFY));
+t('a flagged duplicate DOES notify — the review screen shows it now',
+  _PENDING_NOTIFY[MEMBER] === 1, JSON.stringify(_PENDING_NOTIFY));
 
 _PENDING_NOTIFY = {};
 queueReviewNotice({ member_id: null });
