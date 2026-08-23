@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chính sách quyền riêng tư — Earthy</title>
+<style>
+  :root{--ink:#1d1a22;--ink2:#4a4552;--muted:#7a7484;--line:#e8e5ec;--accent:#3d7a6e;--bg:#fdfcfe}
+  @media (prefers-color-scheme:dark){:root{--ink:#efecf3;--ink2:#c7c2cf;--muted:#8f8899;--line:#39343f;--accent:#7fbcae;--bg:#171420}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg);line-height:1.6;font-size:16px}
+  main{max-width:680px;margin:0 auto;padding:40px 20px 80px}
+  h1{font-size:26px;letter-spacing:-.02em;margin-bottom:6px}
+  .meta{color:var(--muted);font-size:13.5px;margin-bottom:28px}
+  h2{font-size:19px;letter-spacing:-.01em;margin:34px 0 10px;padding-top:22px;border-top:1px solid var(--line)}
+  h3{font-size:15px;margin:18px 0 6px}
+  p,li{color:var(--ink2);font-size:15px;margin-bottom:10px}
+  ul{padding-left:20px;margin-bottom:12px}
+  li{margin-bottom:5px}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);color:var(--ink2);vertical-align:top}
+  th{color:var(--ink);font-size:13px}
+  a{color:var(--accent)}
+  .en{margin-top:56px;padding-top:30px;border-top:2px solid var(--line)}
+  strong{color:var(--ink)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Chính sách quyền riêng tư</h1>
+  <div class="meta">Earthy (FamilyHub) · Bản 1 · Hiệu lực từ 23/08/2026 · <a href="#english">English below</a></div>
+
+  <h2>1. Phạm vi áp dụng</h2>
+  <p>Chính sách này áp dụng cho ứng dụng Earthy, gồm sổ chi tiêu gia đình và các
+  tính năng ghi giao dịch từ email ngân hàng. Earthy được vận hành bởi Trang và
+  Hiên, với vai trò là bên kiểm soát và xử lý dữ liệu cá nhân theo pháp luật về
+  bảo vệ dữ liệu cá nhân. Liên hệ về dữ liệu: <a href="mailto:gichisreading@gmail.com">gichisreading@gmail.com</a>.</p>
+
+  <h2>2. Nguyên tắc xử lý dữ liệu cá nhân</h2>
+  <p>Dữ liệu chỉ được xử lý đúng mục đích đã thông báo, thu thập ở mức tối thiểu
+  cần cho tính năng, và được bảo vệ bằng biện pháp kỹ thuật nêu ở mục 9. Im lặng
+  không được coi là đồng ý: các tính năng chạm tới dữ liệu nhạy cảm có màn hình
+  đồng ý riêng, và bạn xác nhận một cách chủ động.</p>
+
+  <h2>3. Các loại thông tin cá nhân được thu thập và xử lý</h2>
+  <ul>
+    <li><strong>Tài khoản:</strong> email đăng nhập (qua Google), tên hiển thị.</li>
+    <li><strong>Gia đình và thành viên:</strong> tên thành viên, ảnh đại diện, vai trò. Thành viên có thể gồm trẻ em do cha mẹ thêm vào (xem mục 10).</li>
+    <li><strong>Sổ chi tiêu:</strong> khoản chi, ghi chú, hạng mục, ảnh đính kèm. Với gia đình đã bật mã hoá, số tiền, ghi chú và ảnh được mã hoá ngay trên thiết bị; máy chủ chỉ giữ bản mã.</li>
+    <li><strong>Giao dịch từ email ngân hàng</strong> (dữ liệu cá nhân nhạy cảm, chỉ khi bạn bật và đồng ý riêng): nội dung email bạn chuyển tiếp hoặc cho phép đọc, từ đó trích xuất số tiền, thời điểm, người nhận, lời nhắn, số tài khoản đã che bớt, tên ngân hàng.</li>
+    <li><strong>Kỹ thuật:</strong> đăng ký nhận thông báo đẩy, phiên thiết bị, số liệu sử dụng dạng đếm (không kèm giá trị giao dịch).</li>
+  </ul>
+
+  <h2>4. Mục đích xử lý dữ liệu</h2>
+  <p>Vận hành sổ chi tiêu cho chính gia đình bạn: ghi chép, duyệt giao dịch từ
+  email, gợi ý hạng mục, thông báo trong nhà. Không bán dữ liệu, không quảng cáo,
+  không dùng để chấm điểm tín dụng.</p>
+
+  <h2>5. Chia sẻ dữ liệu</h2>
+  <table>
+    <tr><th>Bên nhận</th><th>Vai trò và phạm vi</th></tr>
+    <tr><td>Supabase</td><td>Lưu trữ ứng dụng. Giá trị nhạy cảm nằm ở dạng niêm phong hoặc mã hoá.</td></tr>
+    <tr><td>Vercel</td><td>Phân phối ứng dụng web.</td></tr>
+    <tr><td>Google (Gmail)</td><td>Hộp thư trung gian nhận email bạn chuyển tiếp, xoá theo mục 7.</td></tr>
+    <tr><td>Google (Gemini)</td><td>Đọc cấu trúc email ngân hàng lần đầu gặp, sau khi mọi số tiền, tên, số tài khoản thật đã bị che. Giá trị thật không được gửi đi.</td></tr>
+    <tr><td>Telegram</td><td>Cảnh báo vận hành cho người quản trị, không mang giá trị giao dịch.</td></tr>
+    <tr><td>Thành viên gia đình bạn</td><td>Giao dịch bạn duyệt vào sổ chung sẽ hiển thị cho gia đình.</td></tr>
+    <tr><td>Cơ quan nhà nước có thẩm quyền</td><td>Khi có yêu cầu theo đúng quy định pháp luật. Với giá trị đã niêm phong, thứ tụi mình có thể cung cấp chỉ là dữ liệu đã mã hoá.</td></tr>
+  </table>
+
+  <h2>6. Chuyển dữ liệu ra nước ngoài</h2>
+  <p>Các hệ thống nêu ở mục 5 đặt ngoài lãnh thổ Việt Nam. Dữ liệu chuyển đi được
+  bảo vệ bằng các biện pháp ở mục 9; hồ sơ đánh giá tác động chuyển dữ liệu xuyên
+  biên giới được lập và cập nhật theo quy định.</p>
+
+  <h2>7. Thời hạn lưu trữ dữ liệu</h2>
+  <table>
+    <tr><th>Dữ liệu</th><th>Thời hạn</th></tr>
+    <tr><td>Email trong hộp thư trung gian</td><td>Xoá sau 7 ngày, tự huỷ hẳn trong khoảng một tháng</td></tr>
+    <tr><td>Email không đọc được (để sửa lỗi)</td><td>Tối đa 90 ngày</td></tr>
+    <tr><td>Giao dịch chờ duyệt</td><td>Đến khi bạn duyệt hoặc ngắt kết nối</td></tr>
+    <tr><td>Sổ chi tiêu, ảnh</td><td>Đến khi gia đình xoá hoặc xoá tài khoản</td></tr>
+    <tr><td>Bằng chứng đồng ý</td><td>Lưu làm chứng cứ theo quy định</td></tr>
+  </table>
+
+  <h2>8. Quyền của bạn</h2>
+  <p>Bạn có quyền truy cập, chỉnh sửa, yêu cầu xóa dữ liệu, rút lại sự đồng ý,
+  hạn chế hoặc phản đối xử lý, và phản ánh, khiếu nại. Với email ngân hàng: nút
+  Ngắt kết nối trong Cài đặt dừng xử lý và xoá giao dịch chờ duyệt ngay; nhớ xoá
+  thêm quy tắc chuyển tiếp trong Gmail của bạn. Yêu cầu xoá dữ liệu được thực
+  hiện trong vòng 72 giờ qua địa chỉ liên hệ ở mục 1.</p>
+
+  <h2>9. Bảo vệ dữ liệu</h2>
+  <p>Số tiền và ghi chú trong sổ được mã hoá đầu cuối trên thiết bị của gia đình.
+  Giao dịch từ email được niêm phong ngay khi nhận, được thiết kế để chỉ thiết bị
+  của nhà bạn mở được. Email gửi cho mô hình đọc cấu trúc luôn bị che giá trị
+  thật. Hệ thống có cơ chế phát hiện thay khoá và ghi vết sự cố; vi phạm dữ liệu
+  được thông báo theo quy định trong 72 giờ.</p>
+
+  <h2>10. Trẻ em</h2>
+  <p>Thành viên trẻ em do cha mẹ hoặc người đại diện thêm vào và quản lý. Với trẻ
+  từ đủ 7 tuổi, pháp luật yêu cầu sự đồng ý của cả trẻ và người đại diện; tụi
+  mình đang bổ sung cơ chế đánh dấu và đồng ý tương ứng, và cha mẹ có thể yêu cầu
+  xoá dữ liệu của trẻ bất cứ lúc nào.</p>
+
+  <h2>11. Thay đổi chính sách</h2>
+  <p>Thay đổi lớn sẽ được thông báo trong ứng dụng và cần bạn xác nhận lại ở các
+  tính năng dùng dữ liệu nhạy cảm. Bản hiện tại và ngày hiệu lực ghi ở đầu trang.</p>
+
+  <div class="en" id="english">
+    <h1>Privacy Policy</h1>
+    <div class="meta">Earthy (FamilyHub) · Version 1 · Effective 23/08/2026</div>
+
+    <h2>1. Scope</h2>
+    <p>This policy covers the Earthy app: the family expense ledger and the
+    bank-email transaction features. Earthy is operated by Trang and Hien,
+    acting as the personal-data controller and processor under Vietnam's
+    personal-data-protection law. Data contact: <a href="mailto:gichisreading@gmail.com">gichisreading@gmail.com</a>.</p>
+
+    <h2>2. Principles</h2>
+    <p>Data is processed only for stated purposes, collected minimally, and
+    protected by the measures in section 9. Silence is never consent: features
+    touching sensitive data have their own consent screen requiring an
+    affirmative confirmation.</p>
+
+    <h2>3. What we collect</h2>
+    <ul>
+      <li><strong>Account:</strong> sign-in email (via Google), display name.</li>
+      <li><strong>Family and members:</strong> member names, avatars, roles. Members may include children added by parents (section 10).</li>
+      <li><strong>Ledger:</strong> expenses, notes, categories, photos. For families with encryption on, amounts, notes and photos are encrypted on-device; servers hold ciphertext.</li>
+      <li><strong>Bank-email transactions</strong> (sensitive personal data, only with your separate consent): the content of emails you forward or allow us to read, from which we extract amount, time, counterparty, transfer note, partially hidden account number, bank name.</li>
+      <li><strong>Technical:</strong> push subscriptions, device sessions, count-based usage metrics carrying no transaction values.</li>
+    </ul>
+
+    <h2>4. Purposes</h2>
+    <p>Running your own family's ledger: recording, reviewing email
+    transactions, category suggestions, in-family notifications. Never sold,
+    never ads, never credit scoring.</p>
+
+    <h2>5. Sharing</h2>
+    <p>Processors: Supabase (hosting; sensitive values stored sealed or
+    encrypted), Vercel (serving), Google Gmail (relay inbox, deleted per
+    section 7), Google Gemini (reads first-time bank emails only after every
+    real amount, name and account number is masked), Telegram (operational
+    alerts carrying no transaction values). Transactions you approve are
+    visible to your family. Competent state authorities receive data only on a
+    lawful request; for sealed values what we can produce is ciphertext.</p>
+
+    <h2>6. Cross-border transfer</h2>
+    <p>The systems above are located outside Vietnam. Transfers are protected
+    by section 9's measures, and the transfer impact assessment dossier is
+    maintained and updated as regulated.</p>
+
+    <h2>7. Retention</h2>
+    <p>Relay emails: deleted after 7 days, gone for good within about a month.
+    Unreadable emails kept for debugging: at most 90 days. Pending
+    transactions: until you review or disconnect. Ledger and photos: until
+    the family deletes them or the account. Consent records: kept as proof.</p>
+
+    <h2>8. Your rights</h2>
+    <p>Access, correction, deletion, withdrawal of consent, restriction or
+    objection, and complaint. For bank email, Disconnect in Settings stops
+    processing and deletes pending transactions immediately; also delete your
+    own Gmail forwarding rule. Deletion requests are honored within 72 hours
+    via the contact in section 1.</p>
+
+    <h2>9. Protection</h2>
+    <p>Ledger amounts and notes are end-to-end encrypted on family devices.
+    Email transactions are sealed on arrival, designed so only your family's
+    devices can open them. Text sent to the extraction model is always masked.
+    Key-substitution detection and incident logging are in place; breaches are
+    notified within 72 hours as regulated.</p>
+
+    <h2>10. Children</h2>
+    <p>Child members are added and managed by parents or guardians. From age
+    7 the law requires consent from both child and guardian; we are adding the
+    marking and consent mechanics for this, and parents can request deletion
+    of a child's data at any time.</p>
+
+    <h2>11. Changes</h2>
+    <p>Material changes are announced in the app and re-confirmed for features
+    using sensitive data. The current version and effective date are at the
+    top.</p>
+  </div>
+</main>
+</body>
+</html>

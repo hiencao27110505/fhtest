@@ -3951,7 +3951,11 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     </div>
     <div class="ob-foot" id="ob-auth-foot">
       <button class="ob-google" id="ob-gbtn" onclick="obGoogle()"><svg class="ob-gicon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span data-t="continueGoogle">Continue with Google</span></button>
-      <div class="ob-note" data-t="terms">By continuing, you agree to our Terms &amp; Privacy Policy.</div>
+      <!-- The link lives OUTSIDE the data-t span: applyLang sets textContent,
+           which would destroy an anchor nested inside a translated element.
+           Until 2026-08-23 this line promised a Privacy Policy that did not
+           exist anywhere - the page is real now, so the promise can be too. -->
+      <div class="ob-note"><span data-t="terms">By continuing, you agree to our</span> <a href="./privacy.html" target="_blank" rel="noopener" data-t="termsLink">Privacy Policy</a>.</div>
     </div>
   </section>
 
@@ -12453,7 +12457,8 @@ var EN_DEFAULT={
   sellPrivT:'Truly private', sellPrivS:'End-to-end encrypted, so only your family can read it. Even we can’t look.',
   sellAutoT:'Effortless', sellAutoS:'Transactions log themselves. Nobody has to type them in.',
   continueGoogle:'Continue with Google', signingIn:'Signing in…',
-  terms:'By continuing, you agree to our Terms & Privacy Policy.',
+  terms:'By continuing, you agree to our',
+  termsLink:'Privacy Policy',
   startTitle:'Your family', startSubNew:'Name your home and you’re in.',
   inviteForYou:'Your invite', joinCta:'Join family', orCreate:'or start your own',
   familyName:'Family name', phFamName:'e.g. The Reeds', createFamilyCta:'Create family',
@@ -12557,7 +12562,8 @@ var I18N={
     sellPrivT:'Riêng tư tuyệt đối', sellPrivS:'Mã hóa đầu cuối, chỉ gia đình bạn đọc được. Tụi mình cũng không xem được.',
     sellAutoT:'Nhẹ tênh', sellAutoS:'Giao dịch tự vào sổ, cả nhà khỏi nhập tay từng khoản.',
     continueGoogle:'Tiếp tục với Google', signingIn:'Đang đăng nhập…',
-    terms:'Khi tiếp tục, bạn đồng ý với Điều khoản & Chính sách bảo mật.',
+    terms:'Khi tiếp tục, bạn đồng ý với',
+    termsLink:'Chính sách quyền riêng tư',
     startTitle:'Nhà của bạn', startSubNew:'Đặt tên cho tổ ấm của mình để bắt đầu.',
     inviteForYou:'Lời mời cho bạn', joinCta:'Tham gia', orCreate:'hoặc tạo tổ ấm riêng',
     familyName:'Tên gia đình', phFamName:'vd. Nhà mình', createFamilyCta:'Tạo gia đình',
@@ -13207,7 +13213,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v365';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v366';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

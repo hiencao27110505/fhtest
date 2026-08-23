@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-17-b';
+var PIPELINE_VERSION = '2026-08-23-a';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -33,6 +33,13 @@ var ROUTING_GRACE_DAYS = 14;
 // from, short enough that the mailbox stops being an archive of other people's
 // banking. The sweep interval exists because this tick runs 1,440 times a day.
 var RETENTION_DAYS = 7;
+// Parse-failed mail gets a LONGER window, not an exemption. The original sweep
+// excluded txn/parse-failed outright ("the reviewable record of what went
+// wrong") - which quietly made it a forever-archive again, contradicting the
+// consent text's deletion promise. 90 days is long enough to debug any failure
+// anyone actually intends to debug, and it is the number the consent sheet
+// states, so the two must move together (consent_v bumps if this changes).
+var RETENTION_FAILED_DAYS = 90;
 var RETENTION_SWEEP_INTERVAL_MIN = 60;
 var RETENTION_MAX_THREADS_PER_SWEEP = 50;
 
@@ -497,22 +504,32 @@ function sweepProcessedMail() {
   props.setProperty('INBOX_RETENTION_LAST_RUN', String(now));
 
   var days = retentionDays();
-  var q = 'label:txn/processed older_than:' + days + 'd -newer_than:' + days + 'd';
-  var threads = GmailApp.search(q, 0, RETENTION_MAX_THREADS_PER_SWEEP);
-  if (!threads.length) {
-    Logger.log('v' + PIPELINE_VERSION + ' | retention: nothing older than ' + days + 'd');
-    return 0;
-  }
-
   var trashed = 0;
-  for (var i = 0; i < threads.length; i++) {
-    // Per-thread, so one thread that will not move cannot strand the rest of the
-    // batch behind it every hour forever.
-    try { threads[i].moveToTrash(); trashed++; }
-    catch (e) { Logger.log('retention: could not trash a thread: ' + e); }
+  // Two passes, two windows, one shape: processed mail at the short window,
+  // parse-failed mail at the long one (RETENTION_FAILED_DAYS - the number the
+  // consent sheet states, so the two move together). Both bounded the same way,
+  // older_than AND -newer_than so a live thread with one ancient message
+  // survives, and both capped per sweep.
+  var passes = [
+    { label: 'txn/processed', days: days },
+    { label: 'txn/parse-failed', days: RETENTION_FAILED_DAYS },
+  ];
+  for (var p = 0; p < passes.length; p++) {
+    var q = 'label:' + passes[p].label + ' older_than:' + passes[p].days + 'd -newer_than:' + passes[p].days + 'd';
+    var threads = GmailApp.search(q, 0, RETENTION_MAX_THREADS_PER_SWEEP);
+    if (!threads.length) continue;
+    var got = 0;
+    for (var i = 0; i < threads.length; i++) {
+      // Per-thread, so one thread that will not move cannot strand the rest of
+      // the batch behind it every hour forever.
+      try { threads[i].moveToTrash(); got++; }
+      catch (e) { Logger.log('retention: could not trash a thread: ' + e); }
+    }
+    trashed += got;
+    Logger.log('v' + PIPELINE_VERSION + ' | retention: trashed ' + got + '/' + threads.length +
+      ' thread(s) | q=' + q);
   }
-  Logger.log('v' + PIPELINE_VERSION + ' | retention: trashed ' + trashed + '/' + threads.length +
-    ' thread(s) older than ' + days + 'd | q=' + q);
+  if (!trashed) Logger.log('v' + PIPELINE_VERSION + ' | retention: nothing past its window');
   return trashed;
 }
 

@@ -34,8 +34,12 @@ global.Logger = { log: () => {} };
 
 let SEARCHES = [];
 let THREADS = [];
+let FAILED_THREADS = [];   // what the parse-failed pass sees; separate stream
 global.GmailApp = {
-  search: (q, start, max) => { SEARCHES.push({ q, start, max }); return THREADS; },
+  search: (q, start, max) => {
+    SEARCHES.push({ q, start, max });
+    return q.indexOf('txn/parse-failed') >= 0 ? FAILED_THREADS : THREADS;
+  },
 };
 
 // A thread records what was done to it. Only moveToTrash is offered: if the
@@ -66,6 +70,7 @@ function reset(props) {
   _props = Object.assign({}, props);
   SEARCHES = [];
   THREADS = [];
+  FAILED_THREADS = [];
 }
 
 // ── it is off until someone turns it on ─────────────────────────────────────
@@ -93,9 +98,17 @@ console.log('\n-- the query is the safety boundary --');
 reset({ INBOX_RETENTION_ENABLED: 'true' });
 sweepProcessedMail();
 const q = SEARCHES[0] ? SEARCHES[0].q : '';
-t('only txn/processed is swept', q.indexOf('label:txn/processed') >= 0, q);
-t('txn/parse-failed is never in scope — it is the record of what went wrong',
-  q.indexOf('parse-failed') === -1, q);
+t('the first pass sweeps txn/processed', q.indexOf('label:txn/processed') >= 0, q);
+// parse-failed used to be EXEMPT, which quietly made it a forever-archive and
+// contradicted the consent sheet. It now has its own LONG window - and the
+// assertion that matters is that it never rides the short one.
+var q2 = SEARCHES[1] ? SEARCHES[1].q : '';
+t('the second pass sweeps txn/parse-failed at its own window',
+  q2.indexOf('label:txn/parse-failed') >= 0 && q2.indexOf('older_than:' + RETENTION_FAILED_DAYS + 'd') >= 0, q2);
+t('parse-failed is double-bounded too',
+  q2.indexOf('-newer_than:' + RETENTION_FAILED_DAYS + 'd') >= 0, q2);
+t('and its window is the long one, never the 7d',
+  q2.indexOf('older_than:7d') === -1, q2);
 t('bounded below: older_than the window', q.indexOf('older_than:7d') >= 0, q);
 t('bounded above: -newer_than, so a thread with anything recent is left alone',
   q.indexOf('-newer_than:7d') >= 0, q);
@@ -158,7 +171,7 @@ sweepProcessedMail();
 const after = SEARCHES.length;
 SEARCHES = [];
 t('a second call a minute later does nothing', sweepProcessedMail() === 0);
-t('and costs no Gmail search', SEARCHES.length === 0 && after === 1);
+t('and costs no Gmail search (a sweep is two searches, one per label)', SEARCHES.length === 0 && after === 2);
 
 NOW += RETENTION_SWEEP_INTERVAL_MIN * 60000 + 1000;
 THREADS = [mkThread('b')];
