@@ -3221,6 +3221,16 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="spacer"></div>
 </section>
 
+<!-- CÁ NHÂN (personal ledger — 0071) -->
+<section class="view" id="v-personal">
+  <header class="child-hdr"><div class="ch-row"><div>
+    <div class="ch-title">Cá nhân</div>
+    <div class="ch-sub">Sổ của riêng bạn — gia đình không xem được</div>
+  </div></div></header>
+  <div id="pers-body"></div>
+  <div class="spacer"></div>
+</section>
+
 </div><!-- /scroll -->
 
 <!-- FLOATING ADD -->
@@ -3231,6 +3241,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <button class="tab on" id="t-home" onclick="go('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg><span data-t="tabHome">Home</span></button>
   <button class="tab" id="t-spending" onclick="go('spending')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg><span data-t="tabMoney">Finance</span></button>
   <button class="tab" id="t-events" onclick="go('events')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 16l4.5-4 3.5 3 4-3.5L21 16.5"/></svg><span data-t="tabMoments">Moments</span></button>
+  <button class="tab" id="t-personal" onclick="go('personal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg><span>Cá nhân</span></button>
 </nav>
 
 <!-- EVENT OVERLAY -->
@@ -3419,6 +3430,52 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <button class="qa" onclick="closeSheet();goMoments('plans');openSheet('sheet-event')"><div class="qi" style="background:linear-gradient(135deg,#9D4EFF,#E14BF0)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div><div><div class="qt" data-t="qaPlanT">Plan something</div><div class="qs" data-t="qaPlanS">An upcoming family occasion</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();openMomentModal()"><div class="qi" style="background:linear-gradient(135deg,#FF8FB1,#F0567F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg></div><div><div class="qt" data-t="qaPhotoT">Add a moment</div><div class="qs" data-t="qaPhotoS">Family photos</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();openSheet('sheet-suggest')"><div class="qi" style="background:linear-gradient(135deg,#B9B2C6,#8a8494)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20s-7-4.4-9.3-8.7C1.2 8 2.7 4.6 6 4.6c2 0 3.2 1.3 4 2.6.8-1.3 2-2.6 4-2.6 3.3 0 4.8 3.4 3.3 6.7C19 15.6 12 20 12 20z"/></svg></div><div><div class="qt" data-t="qaSuggestT">Share feedback</div><div class="qs" data-t="qaSuggestS">An idea or something you wish for</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+</div>
+
+<!-- Personal card intro: the ONE secret to protect (shown once at provisioning) -->
+<div class="modal" id="sheet-pcard">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <span></span>
+    <div class="modal-title">Thẻ khóa cá nhân</div>
+    <button class="modal-save" onclick="closeModals()">Xong</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">Đây là chìa khóa <b>sổ cá nhân</b> của bạn — khác với thẻ của gia đình. Mất thẻ là mất dữ liệu cá nhân: không ai khôi phục được, kể cả chúng tôi.</div>
+    <div id="pcard-display" class="num" style="font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:.4px;text-align:center;background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:16px 10px;margin:14px 0;word-break:break-all"></div>
+    <button class="cta" onclick="persCardSave()">Lưu tệp thẻ khóa</button>
+    <button class="btn-line" style="width:100%;margin-top:10px" onclick="persCardCopy()">Sao chép</button>
+  </div>
+</div>
+
+<!-- Private expense quick-add (personal container only) -->
+<div class="modal" id="sheet-pexp">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title">Khoản chi riêng tư</div>
+    <button class="modal-save" onclick="persAddExpense()">Lưu</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">Chỉ mình bạn thấy — mã hoá bằng thẻ khóa cá nhân.</div>
+    <div class="field"><label>Số tiền (nghìn đồng)</label><input id="pexp-amt" type="number" inputmode="decimal" class="num big" placeholder="0"></div>
+    <div class="field"><label>Ghi chú</label><input id="pexp-note" placeholder="Cà phê, quà…"></div>
+    <div class="field"><label>Danh mục</label><select id="pexp-cat"></select></div>
+  </div>
+</div>
+
+<!-- Personal income quick-add -->
+<div class="modal" id="sheet-pincome">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title">Thu nhập của bạn</div>
+    <button class="modal-save" onclick="persAddIncome()">Lưu</button>
+  </div>
+  <div class="modal-body">
+    <div class="field"><label>Số tiền (nghìn đồng)</label><input id="pinc-amt" type="number" inputmode="decimal" class="num big" placeholder="0"></div>
+    <div class="field"><label>Ghi chú</label><input id="pinc-note" placeholder="Lương tháng…"></div>
+  </div>
 </div>
 
 <div class="modal" id="sheet-suggest">
@@ -4080,6 +4137,9 @@ function go(name){
   var t=document.getElementById('t-'+name); if(t)t.classList.add('on');
   document.getElementById('scroll').scrollTop=0;
   if(name==='home' && typeof renderHome==='function'){ try{ renderHome(); }catch(e){} }   // fresh home (milestone shows on open)
+  // Cá nhân: FAB adds to the FAMILY — hide it here; the tab has its own quick-add.
+  var _fab=document.querySelector('.fab'); if(_fab) _fab.style.display=(name==='personal')?'none':'';
+  if(name==='personal'){ try{ if(typeof renderPersonal==='function') renderPersonal(); if(window.fhPersonalData && fhPersonalData().state==='boot' && window.fhPersonalBoot) fhPersonalBoot(); if(typeof persFillCats==='function') persFillCats(); }catch(e){} }
 }
 /* Khoảnh Khắc has three inner sections: Dự định (plans) · Kỷ niệm (memories) · Album gia đình (album). */
 /* Khoảnh Khắc is one flat scroll now (like Tài Chính) — momSec glides to a section
@@ -5019,6 +5079,139 @@ function setBudget(){
   window.__catDeletes=catOrder.filter(function(c){ return !kept[c]; });
   catOrder=newOrder; catStyle=newStyle; catBudget=newBudget;
   renderAll(); renderTxns(); closeModals(); toast(L('Đã cập nhật danh mục','Categories updated'));
+}
+
+/* ── Cá nhân tab (personal ledger) ──
+   Renders window.fhPersonalData() into #v-personal. Same visual language as
+   the Finance tab (cf-card, rows, fh-lrow) — a lens over MY stream: mirrored
+   family masters + private rows, per-space roll-up, quick private add. */
+function renderPersonal(){
+  var host = document.getElementById('pers-body'); if(!host) return;
+  var P = window.fhPersonalData ? fhPersonalData() : null;
+  if(!P){ host.innerHTML=''; return; }
+
+  if(P.state==='provisioning' || P.state==='boot' || P.state==='loading'){
+    host.innerHTML = '<div class="empty-note">Đang chuẩn bị sổ cá nhân của bạn…</div>'; return;
+  }
+  if(P.state==='error'){
+    host.innerHTML = '<div class="empty-note">Chưa tải được sổ cá nhân. <a onclick="fhPersonalBoot()" style="color:var(--brand-ink);font-weight:700;cursor:pointer">Thử lại</a></div>'; return;
+  }
+  if(P.state==='locked'){
+    host.innerHTML =
+      '<div class="card" style="text-align:center">'+
+      '<div style="font-size:34px">🔐</div>'+
+      '<div style="font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.4px;margin-top:8px">Sổ cá nhân đang khóa</div>'+
+      '<div style="font-size:13.5px;color:var(--muted);margin-top:6px;line-height:1.5">Nhập thẻ khóa <b>cá nhân</b> của bạn (khác thẻ của gia đình) để mở trên máy này.</div>'+
+      '<div class="field" style="margin-top:14px"><input id="pers-card-in" placeholder="FH-XXXX-XXXX-…" autocomplete="off" autocapitalize="characters" style="text-align:center"></div>'+
+      '<button class="cta" style="margin-top:12px" onclick="persUnlock()">Mở sổ cá nhân</button>'+
+      '<div id="pers-unlock-err" style="font-size:12.5px;color:var(--danger);margin-top:8px"></div>'+
+      '</div>';
+    return;
+  }
+
+  /* ready */
+  var mon = new Date().toISOString().slice(0,7);
+  var txM = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense'; });
+  var out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
+  var inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon; }).reduce(function(s,i){ return s+(i.amt||0); },0);
+  var left = inc-out;
+  var fmt = function(v){ return (window.fmtMoney? fmtMoney(v) : (Math.round(v).toLocaleString('vi-VN')+' ₫')); };
+
+  /* per-space roll-up from masters (personal key alone — no space keys needed) */
+  var bySpace = {};
+  txM.forEach(function(t){ var k=t.spaceId||'_p'; bySpace[k]=(bySpace[k]||0)+(t.amt||0); });
+  var famName = function(fid){ var f=(P.fams||[]).find(function(x){return x.family_id===fid;}); return f? f.name : 'Nhóm'; };
+
+  var h = '';
+  h += '<section class="cf-card">'
+     + '<div class="cf-lbl">Còn lại tháng này · cá nhân</div>'
+     + '<div class="cf-big num'+(left<0?' neg':'')+'">'+fmt(left)+'</div>'
+     + '<div class="cf-tiles">'
+     +   '<button class="cf-tile" onclick="openSheet(\'sheet-pincome\')"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">'+fmt(inc)+'</span></button>'
+     +   '<button class="cf-tile"><span class="cf-tl"><span class="cf-ar dn">↓</span> Ra</span><span class="cf-tv num">'+fmt(out)+'</span></button>'
+     + '</div>'
+     + (P.mirrorRan? '' : '<div class="cf-note flat">Đang đồng bộ các khoản bạn đã ghi cho gia đình…</div>')
+     + '<div class="cf-cta"><button class="cc-row" onclick="openSheet(\'sheet-pexp\')"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="cc-t">Ghi khoản chi riêng tư</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button></div>'
+     + '</section>';
+
+  /* groups */
+  var spKeys = Object.keys(bySpace).filter(function(k){ return k!=='_p'; });
+  h += '<div class="section-h"><span class="t">Các nhóm của tôi</span></div><div class="rows">';
+  if(spKeys.length){
+    spKeys.forEach(function(k){
+      h += '<div class="row"><div class="r-ico" style="background:var(--brand-tint)">🏡</div><div class="r-body"><div class="r-t">'+famName(k)+'</div>'
+         + '<div class="r-s">Bạn đã chi cho nhóm tháng này</div></div><div class="r-amt num">'+fmt(bySpace[k])+'</div></div>';
+    });
+  } else {
+    h += '<div class="empty-note">Các khoản bạn ghi cho gia đình sẽ tự xuất hiện ở đây.</div>';
+  }
+  if(bySpace['_p']) {
+    h += '<div class="row"><div class="r-ico" style="background:var(--fill-neutral)">🔒</div><div class="r-body"><div class="r-t">Riêng tư</div>'
+       + '<div class="r-s">Chỉ mình bạn thấy</div></div><div class="r-amt num">'+fmt(bySpace['_p'])+'</div></div>';
+  }
+  h += '</div>';
+
+  /* my stream */
+  var catOf = function(id){ return (P.cats||[]).find(function(c){return c.id===id;}) || {}; };
+  h += '<div class="section-h"><span class="t">Giao dịch của bạn</span></div><div class="rows">';
+  if(P.txns.length){
+    P.txns.slice(0,30).forEach(function(t){
+      var c = catOf(t.catId);
+      h += '<div class="row"><div class="r-ico" style="background:var(--fill-neutral)">'+(c.emoji||'🗂️')+'</div>'
+         + '<div class="r-body"><div class="r-t">'+((t.note||c.name||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
+         + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
+         + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';
+    });
+  } else {
+    h += '<div class="empty-note">Chưa có giao dịch nào trong sổ cá nhân.</div>';
+  }
+  h += '</div>';
+  host.innerHTML = h;
+}
+
+function persUnlock(){
+  var el=document.getElementById('pers-card-in'), err=document.getElementById('pers-unlock-err');
+  if(!el) return;
+  fhPersonalUnlock(el.value).then(function(r){
+    if(!r.ok && err) err.textContent = (r.error==='checksum'||r.error==='wrong_card') ? 'Thẻ không đúng — kiểm tra lại từng nhóm ký tự.' : 'Chưa mở được ('+r.error+').';
+  });
+}
+
+/* personal card intro — the ONE secret to protect */
+function fhPCardIntro(){
+  var c = window.__fhPersonalCard; if(!c) return;
+  var d = document.getElementById('pcard-display'); if(d) d.textContent = c.display;
+  openSheet('sheet-pcard');
+}
+function persCardCopy(){
+  var c = window.__fhPersonalCard; if(!c) return;
+  (navigator.clipboard && navigator.clipboard.writeText(c.display)).then(function(){ window.toast && toast('Đã sao chép thẻ khóa'); });
+}
+function persCardSave(){
+  var c = window.__fhPersonalCard; if(!c) return;
+  var blob = new Blob(['FamilyHub — Thẻ khóa CÁ NHÂN của bạn\n\n'+c.display+'\n\nĐây là chìa khóa dữ liệu cá nhân. Cất kỹ — mất thẻ là mất dữ liệu, không ai khôi phục được (kể cả chúng tôi).'], {type:'text/plain'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'FamilyHub-The-khoa-ca-nhan.txt'; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+}
+
+/* quick-add handlers */
+function persAddExpense(){
+  var amt = parseFloat((document.getElementById('pexp-amt')||{}).value||'');
+  var note = ((document.getElementById('pexp-note')||{}).value||'').trim();
+  var cat = (document.getElementById('pexp-cat')||{}).value || null;
+  if(!isFinite(amt) || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
+  fhPersonalAddExpense(amt, note, cat).then(function(ok){ if(ok){ closeModals(); renderPersonal(); window.toast && toast('Đã ghi vào sổ cá nhân'); } });
+}
+function persAddIncome(){
+  var amt = parseFloat((document.getElementById('pinc-amt')||{}).value||'');
+  var note = ((document.getElementById('pinc-note')||{}).value||'').trim();
+  if(!isFinite(amt) || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
+  fhPersonalAddIncome(amt, note).then(function(ok){ if(ok){ closeModals(); renderPersonal(); window.toast && toast('Đã ghi thu nhập'); } });
+}
+function persFillCats(){
+  var sel = document.getElementById('pexp-cat'); if(!sel) return;
+  var P = window.fhPersonalData ? fhPersonalData() : null; if(!P) return;
+  sel.innerHTML = '<option value="">Danh mục…</option>' + (P.cats||[]).map(function(c){ return '<option value="'+c.id+'">'+(c.emoji||'')+' '+(c.name||'')+'</option>'; }).join('');
 }
 
 /* ---------- Home — the emotional feed ("moment engine") ----------
@@ -13812,6 +14005,7 @@ async function afterLogin(session) {
   let fams = [], famsErr = null;
   try { fams = (await _rpc('my_families')) || []; }
   catch (e) { famsErr = e; console.warn('my_families failed', e); }
+  fams = fams.filter((f) => f.type !== 'personal');   // the personal ledger (0071) is never a "family" here
   if (famsErr) {
     fhResumeFail(); fhWarmAbandon();
     window.toast && window.toast(_friendly(famsErr));
@@ -13939,6 +14133,7 @@ window.fhSwitchFamily = async function () {
   // route people into creating a duplicate one.
   try { fams = await _rpc('my_families'); }
   catch (e) { window.toast && window.toast(_friendly(e)); return; }
+  fams = (fams || []).filter((f) => f.type !== 'personal');   // never offer the personal ledger as a family to switch into
   if (!fams || !fams.length) { window.toast && window.toast(L('Chưa có gia đình nào khác', 'No other families yet')); return; }
   showFamilyPicker(fams, { dismissible: true });     // opened from Settings → must be escapable
 };
@@ -14845,6 +15040,288 @@ window.obGoogle = async function () {
     window.fhStagingAlarmActive = fhStagingAlarmActive;
     window.fhStagingAlarmShow = fhStagingAlarmShow;
   })();
+  /* ═══ Personal ledger (0071) ═══════════════════════════════════════════════
+     Double-entry re-architecture, client side. Every user gets a PERSONAL
+     container (families.type='personal', single member, own DEK + own Key
+     Card). A family transaction the user authored is MIRRORED into the
+     personal container as a linked master (same link_id, re-encrypted to the
+     personal key, space_id = the family it flows to). The family tab is
+     untouched — it never reads these columns.
+
+     Crash-safe mirror ordering: reserve link_id on the FAMILY row first, then
+     insert the master. A reserved link with no master is repaired by the next
+     reconcile pass (idempotent by link_id, no cursors).
+
+     Personal-key session is deliberately separate from 15-crypto's active-
+     family session: this module keeps its own CryptoKey handle, cached in the
+     same 'fh-keys' IndexedDB store keyed by the personal fid. */
+  (function () {
+    const P = {
+      fid: null, key: null, memberId: null, wrap: null,
+      fams: [], cats: [], txns: [], incomes: [],
+      state: 'boot',   // boot | provisioning | locked | loading | ready | error
+      mirrorRan: false,
+    };
+    window.fhPersonalData = function () { return P; };
+
+    const _sb = () => window.sb;
+    async function _uid() {
+      try { const s = await _sb().auth.getSession(); return s.data.session ? s.data.session.user.id : null; } catch (e) { return null; }
+    }
+
+    /* ── fh-keys IDB (same DB 15-crypto uses; own accessor, keyPath 'fid') ── */
+    function _kOpen() {
+      return new Promise((res, rej) => {
+        let rq; try { rq = indexedDB.open('fh-keys', 1); } catch (e) { return rej(e); }
+        rq.onupgradeneeded = () => { const db = rq.result; if (!db.objectStoreNames.contains('k')) db.createObjectStore('k', { keyPath: 'fid' }); };
+        rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error);
+      });
+    }
+    async function _kPut(fid, key) {
+      try { const db = await _kOpen(); await new Promise((res, rej) => { const tx = db.transaction('k', 'readwrite'); tx.objectStore('k').put({ fid: fid, key: key, at: Date.now() }); tx.oncomplete = () => res(1); tx.onerror = () => rej(tx.error); }); } catch (e) {}
+    }
+    async function _kGet(fid) {
+      try { const db = await _kOpen(); return await new Promise((res) => { const tx = db.transaction('k', 'readonly'); const rq = tx.objectStore('k').get(fid); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); } catch (e) { return null; }
+    }
+
+    const _encP = (v) => FHCrypto.encVal(P.key, v);
+    const _decP = async (b64) => { try { return b64 ? await FHCrypto.decVal(P.key, b64) : null; } catch (e) { return null; } };
+
+    function _render() { try { if (window.renderPersonal) window.renderPersonal(); } catch (e) {} }
+    function _setState(s) { P.state = s; _render(); }
+
+    /* ── boot: called post-hydrate (and on personal tab open) ── */
+    let _booting = false;
+    window.fhPersonalBoot = async function () {
+      if (_booting || !_sb()) return; _booting = true;
+      try {
+        const fams = (await _sb().rpc('my_families')).data || [];
+        P.fams = fams;
+        const mine = fams.find((f) => f.type === 'personal');
+        if (!mine) { await _provision(); }
+        else {
+          P.fid = mine.family_id;
+          const rec = await _kGet(P.fid);
+          if (rec && rec.key) { P.key = rec.key; await _afterKey(); }
+          else { await _loadWrap(); _setState('locked'); }
+        }
+      } catch (e) { console.warn('fhPersonalBoot failed', e); _setState('error'); }
+      finally { _booting = false; }
+    };
+
+    async function _loadWrap() {
+      const r = await _sb().from('family_key_wraps').select('kdf_salt,kdf_iters,kdf_version,wrapped_dek')
+        .eq('family_id', P.fid).eq('kind', 'card').is('rotated_at', null).maybeSingle();
+      P.wrap = r.data || null;
+    }
+
+    /* ── provisioning: silent, card-born, enc-from-birth ── */
+    async function _provision() {
+      _setState('provisioning');
+      const card = FHCrypto.genCard();
+      const salt = FHCrypto.genSaltHex();
+      const keys = await FHCrypto.deriveKeys(card.key, salt, window.FH_KDF_ITERS_CARD, 1);
+      const dekRaw = await FHCrypto.genDekRaw();
+      const wrapped = await FHCrypto.wrapDek(dekRaw, keys.kWrap);
+      let myName = null;
+      try { myName = ((window.FAM && FAM.members) || []).filter((m) => m.me).map((m) => m.name)[0] || null; } catch (e) {}
+      const r = await _sb().rpc('create_personal_ledger', {
+        p_kdf_salt: salt, p_kdf_iters: window.FH_KDF_ITERS_CARD, p_kdf_version: 1,
+        p_wrapped_dek: wrapped, p_member_name: myName,
+      });
+      if (r.error) { console.warn('create_personal_ledger failed', r.error); _setState('error'); return; }
+      P.fid = r.data;
+      P.key = await FHCrypto.importDek(dekRaw);
+      await _kPut(P.fid, P.key);
+      // The one secret the user must protect. Shown once, saveable from the sheet.
+      window.__fhPersonalCard = card;
+      try { if (window.fhPCardIntro) window.fhPCardIntro(); } catch (e) {}
+      await _afterKey();
+    }
+
+    /* ── unlock with the personal card (new device / evicted cache) ── */
+    window.fhPersonalUnlock = async function (input) {
+      const p = FHCrypto.parseCard(input);
+      if (!p.ok) return { ok: false, error: p.error };
+      if (!P.wrap) await _loadWrap();
+      if (!P.wrap) return { ok: false, error: 'no_wrap' };
+      try {
+        const keys = await FHCrypto.deriveKeys(p.key, P.wrap.kdf_salt, P.wrap.kdf_iters, P.wrap.kdf_version);
+        const raw = await FHCrypto.unwrapDek(P.wrap.wrapped_dek, keys.kWrap);
+        P.key = await FHCrypto.importDek(raw);
+        await _kPut(P.fid, P.key);
+        await _afterKey();
+        return { ok: true };
+      } catch (e) { return { ok: false, error: 'wrong_card' }; }
+    };
+
+    async function _afterKey() {
+      await _findMemberId();
+      await window.fhPersonalHydrate();
+      _mirrorSoon();
+    }
+
+    async function _findMemberId() {
+      if (P.memberId) return;
+      const uid = await _uid(); if (!uid) return;
+      const r = await _sb().from('members').select('id').eq('family_id', P.fid).eq('user_id', uid).is('archived_at', null).maybeSingle();
+      P.memberId = r.data ? r.data.id : null;
+    }
+
+    /* ── hydrate: 3 windowed selects, decrypted with the personal key ── */
+    function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return d.toISOString().slice(0, 10); }
+    window.fhPersonalHydrate = async function () {
+      if (!P.fid || !P.key) return;
+      _setState('loading');
+      try {
+        const [cr, tr, ir] = await Promise.all([
+          _sb().from('categories').select('id,name,name_enc,emoji,color').eq('family_id', P.fid).is('archived_at', null),
+          _sb().from('transactions').select('id,txn_date,category_id,amount,amount_enc,note,note_enc,link_id,space_id,kind,status,updated_at,version').eq('family_id', P.fid).gte('txn_date', _winFrom()).order('txn_date', { ascending: false }),
+          _sb().from('incomes').select('id,amount,amount_enc,note,note_enc,income_date').eq('family_id', P.fid).gte('income_date', _winFrom()),
+        ]);
+        P.cats = [];
+        for (const c of (cr.data || [])) P.cats.push({ id: c.id, name: c.name != null ? c.name : await _decP(c.name_enc), emoji: c.emoji, color: c.color });
+        P.txns = [];
+        for (const t of (tr.data || [])) P.txns.push({
+          id: t.id, date: t.txn_date, catId: t.category_id, linkId: t.link_id, spaceId: t.space_id,
+          kind: t.kind, status: t.status, updatedAt: t.updated_at, version: t.version || 1,
+          amt: t.amount != null ? Number(t.amount) : Number(await _decP(t.amount_enc)),
+          note: t.note != null ? t.note : await _decP(t.note_enc),
+        });
+        P.incomes = [];
+        for (const i of (ir.data || [])) P.incomes.push({
+          id: i.id, date: i.income_date,
+          amt: i.amount != null ? Number(i.amount) : Number(await _decP(i.amount_enc)),
+          note: i.note != null ? i.note : await _decP(i.note_enc),
+        });
+        _setState('ready');
+      } catch (e) { console.warn('personal hydrate failed', e); _setState('error'); }
+    };
+
+    /* ── writes: private expense / income (personal container, enc-only) ── */
+    window.fhPersonalAddExpense = async function (amt, note, catId) {
+      if (!P.fid || !P.key || !P.memberId) return false;
+      const row = {
+        family_id: P.fid, category_id: catId || null, member_id: P.memberId, created_by: P.memberId,
+        txn_date: new Date().toISOString().slice(0, 10), status: 'realized', kind: 'expense',
+        space_id: null, link_id: null,
+        amount: null, amount_enc: await _encP(Number(amt)),
+        note: null, note_enc: note ? await _encP(note) : null,
+      };
+      const r = await _sb().from('transactions').insert(row);
+      if (r.error) { console.warn('personal expense failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    window.fhPersonalAddIncome = async function (amt, note) {
+      if (!P.fid || !P.key || !P.memberId) return false;
+      const row = {
+        family_id: P.fid, member_id: P.memberId,
+        income_date: new Date().toISOString().slice(0, 10),
+        amount: null, amount_enc: await _encP(Number(amt)),
+        note: null, note_enc: note ? await _encP(note) : null,
+      };
+      const r = await _sb().from('incomes').insert(row);
+      if (r.error) { console.warn('personal income failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+
+    /* ── mirror engine: family (ACTIVE) → personal masters ──
+       Scope v1: the active family only — its key is the one this session holds
+       (fhDecStr). Other families mirror when the user switches to them. */
+    function _mirrorSoon() { setTimeout(() => { window.fhPersonalMirror(); }, 1200); }
+
+    window.fhPersonalMirror = async function () {
+      if (!P.fid || !P.key || !P.memberId) return;
+      const fid = window.DB && DB.fid, myMem = window.DB && DB.ownerMemberId;
+      if (!fid || fid === P.fid || !myMem || !window.fhKeyReady || !fhKeyReady()) return;
+      try {
+        // family categories (id → name) via the ACTIVE family key
+        const fc = await _sb().from('categories').select('id,name,name_enc,emoji,color').eq('family_id', fid).is('archived_at', null);
+        const famCat = {};
+        for (const c of (fc.data || [])) famCat[c.id] = { name: c.name != null ? c.name : await fhDecStr(c.name_enc), emoji: c.emoji, color: c.color };
+
+        const from = _winFrom();
+        // 1) adopt: my authored, realized, unlinked family rows
+        const un = await _sb().from('transactions')
+          .select('id,txn_date,category_id,amount,amount_enc,note,note_enc,updated_at')
+          .eq('family_id', fid).eq('created_by', myMem).eq('status', 'realized').eq('kind', 'expense')
+          .is('link_id', null).gte('txn_date', from).limit(100);
+        for (const row of (un.data || [])) {
+          const amtS = row.amount != null ? String(row.amount) : await fhDecStr(row.amount_enc);
+          if (amtS == null || amtS === '') continue;          // family ciphertext unreadable → skip (never mirror a 0)
+          const amt = Number(amtS);
+          if (!isFinite(amt)) continue;
+          const note = row.note != null ? row.note : await fhDecStr(row.note_enc);
+          const catName = row.category_id && famCat[row.category_id] ? famCat[row.category_id].name : null;
+          const pCatId = await _catFor(catName, row.category_id && famCat[row.category_id]);
+          const linkId = crypto.randomUUID();
+          // reserve on the family row FIRST (crash-safe), then insert the master
+          const u = await _sb().from('transactions').update({ link_id: linkId }).eq('id', row.id).is('link_id', null);
+          if (u.error) continue;
+          await _insertMaster(linkId, fid, row, amt, note, pCatId);
+        }
+
+        // 2) reconcile: linked family rows ↔ masters (repair / refresh / tombstone)
+        const ln = await _sb().from('transactions')
+          .select('id,link_id,txn_date,category_id,amount,amount_enc,note,note_enc,updated_at')
+          .eq('family_id', fid).eq('created_by', myMem).not('link_id', 'is', null).gte('txn_date', from).limit(400);
+        const famBy = {}; (ln.data || []).forEach((r) => { famBy[r.link_id] = r; });
+        const mastersBy = {}; P.txns.forEach((t) => { if (t.linkId && t.spaceId === fid) mastersBy[t.linkId] = t; });
+
+        for (const lid of Object.keys(famBy)) {
+          const f = famBy[lid], m = mastersBy[lid];
+          const amtS = f.amount != null ? String(f.amount) : await fhDecStr(f.amount_enc);
+          if (amtS == null || amtS === '') continue;
+          const amt = Number(amtS);
+          if (!isFinite(amt)) continue;
+          const note = f.note != null ? f.note : await fhDecStr(f.note_enc);
+          if (!m) {                                            // reserved link, master missing → repair
+            const catName = f.category_id && famCat[f.category_id] ? famCat[f.category_id].name : null;
+            await _insertMaster(lid, fid, f, amt, note, await _catFor(catName, f.category_id && famCat[f.category_id]));
+          } else if (f.updated_at > m.updatedAt && (amt !== m.amt || (note || '') !== (m.note || ''))) {
+            await _sb().from('transactions').update({
+              amount: null, amount_enc: await _encP(amt),
+              note: null, note_enc: note ? await _encP(note) : null,
+              txn_date: f.txn_date, version: (m.version || 1) + 1,
+            }).eq('id', m.id);
+          }
+        }
+        // tombstones: masters pointing at this family, in-window, whose family copy is gone
+        for (const t of P.txns) {
+          if (t.linkId && t.spaceId === fid && t.date >= from && !famBy[t.linkId]) {
+            await _sb().from('transactions').delete().eq('id', t.id);
+          }
+        }
+        P.mirrorRan = true;
+        await window.fhPersonalHydrate();
+      } catch (e) { console.warn('personal mirror failed', e); }
+    };
+
+    async function _insertMaster(linkId, spaceFid, famRow, amt, note, pCatId) {
+      return _sb().from('transactions').insert({
+        family_id: P.fid, category_id: pCatId, member_id: P.memberId, created_by: P.memberId,
+        txn_date: famRow.txn_date, status: 'realized', kind: 'expense',
+        link_id: linkId, space_id: spaceFid, version: 1,
+        amount: null, amount_enc: await _encP(amt),
+        note: null, note_enc: note ? await _encP(note) : null,
+      });
+    }
+
+    /* personal category for a family category name — match by name, create on miss */
+    async function _catFor(name, famCat) {
+      if (!name) return null;
+      const hit = P.cats.find((c) => (c.name || '').trim().toLowerCase() === name.trim().toLowerCase());
+      if (hit) return hit.id;
+      const ins = await _sb().from('categories').insert({
+        family_id: P.fid, name: null, name_enc: await _encP(name),
+        emoji: (famCat && famCat.emoji) || '🗂️', color: (famCat && famCat.color) || null, sort_order: 90,
+      }).select('id').single();
+      if (ins.error || !ins.data) return null;
+      P.cats.push({ id: ins.data.id, name: name, emoji: (famCat && famCat.emoji) || '🗂️' });
+      return ins.data.id;
+    }
+  })();
+
   // ═══════════════════════════════════════════════════════════════════════════
   //  DATA LAYER — hydrate the app's globals from the DB + write-through mutations
   // ═══════════════════════════════════════════════════════════════════════════
@@ -15407,6 +15884,7 @@ window.obGoogle = async function () {
       try { if (window.fhPushResync) window.fhPushResync(); } catch (e) {}   // web push: re-point this device's subscription row at the active family (per-family, self-heals on switch)
       try { if (window.rxAfterHydrate) window.rxAfterHydrate(); } catch (e) {}   // reactions: refresh the wall + play any just-arrived reaction moment
       try { if (window.reqAfterHydrate) window.reqAfterHydrate(); } catch (e) {}   // future-expense requests: refresh mounts/hub + play any just-arrived decision
+      try { if (window.fhPersonalBoot) window.fhPersonalBoot(); } catch (e) {}     // personal ledger (0071): provision/unlock, hydrate, mirror my authored rows
       window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
       if (window.fhSaveSnapshot) window.fhSaveSnapshot();   // cache it for the next cold start
       /* committed-enc family with the key: once per session, quietly retire any

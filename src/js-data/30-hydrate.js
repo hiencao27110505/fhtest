@@ -409,6 +409,7 @@
       try { if (window.fhPushResync) window.fhPushResync(); } catch (e) {}   // web push: re-point this device's subscription row at the active family (per-family, self-heals on switch)
       try { if (window.rxAfterHydrate) window.rxAfterHydrate(); } catch (e) {}   // reactions: refresh the wall + play any just-arrived reaction moment
       try { if (window.reqAfterHydrate) window.reqAfterHydrate(); } catch (e) {}   // future-expense requests: refresh mounts/hub + play any just-arrived decision
+      try { if (window.fhPersonalBoot) window.fhPersonalBoot(); } catch (e) {}     // personal ledger (0071): provision/unlock, hydrate, mirror my authored rows
       window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
       if (window.fhSaveSnapshot) window.fhSaveSnapshot();   // cache it for the next cold start
       /* committed-enc family with the key: once per session, quietly retire any

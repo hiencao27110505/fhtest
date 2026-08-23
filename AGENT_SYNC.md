@@ -16,6 +16,19 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-24 (Hien's session)** — **Personal-ledger re-architecture, Phase 0-2
+  SHIPPED to main (not yet pushed) + migration `0071_personal_ledger` APPLIED to
+  live DB.** `families.type` ('family'|'personal'|'friend'|'trip'), transactions
+  `link_id/version/kind/transfer_id/transfer_dir/space_id` + `_fh_link_guard`
+  trigger, `create_personal_ledger` RPC, `my_families()` now returns `type`
+  (additive key — existing clients unaffected; pickers in 10-client-auth filter
+  `type==='personal'`). Client: `js-data/19-personal.js` (provision/unlock/
+  hydrate/mirror), `js-ui/21-personal.js` + 4th tab "Cá nhân", 3 new sheets.
+  sw v369. **Migration numbering: 0071 is taken.** Full spec:
+  `docs/features/personal-ledger.md`. Mailbox-import side: transfer-leg pairing
+  (kind='transfer', transfer_id/dir columns are ready) is designed but NOT built —
+  see the plan in that doc before writing email rows with kind.
+
 - **2026-08-23 (forwarding session) — PIPELINE_VERSION COLLIDED. Trang was told
   to paste `2026-08-23-a`; main is on `2026-08-17-c`. Neither contains the other
   and only one file can be live.**
