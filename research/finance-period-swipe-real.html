@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Vuốt đổi kỳ (dựa trên widget thật)</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{
+    --sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif;
+    --ink:#1c1c1e;--ink2:#48484a;--ink3:#8e8e93;--ink4:#aeaeb2;
+    --sep:rgba(60,60,67,.13);--fill:#f2f2f5;--fill2:#e8e9ee;--prevbar:#d9dce1;
+    --teal:#0f9d84;--teal2:#17b8a0;--tealbg:#eaf6f2;
+  }
+  html,body{background:#dfe1e5;font-family:var(--sf);color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{min-height:100vh;padding:36px 20px 60px}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+  .u{font-size:.52em;font-weight:600;margin-left:.1em;color:currentColor;opacity:.82}
+
+  .caption{max-width:640px;text-align:center;color:var(--ink2);font-size:13.5px;line-height:1.55;margin:0 auto 26px}
+  .caption b{color:var(--ink)}
+  .caption h1{font-size:24px;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin-bottom:8px}
+
+  .rowP{display:flex;gap:20px;justify-content:center;flex-wrap:wrap}
+  .stack{display:flex;flex-direction:column;align-items:center;gap:9px}
+  .plab{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink4)}
+
+  .phone{position:relative;width:378px;height:566px;border-radius:44px;background:#f5f5f7;overflow:hidden;box-shadow:0 0 0 10px #17171a,0 24px 56px -18px rgba(20,26,36,.5)}
+  .stat{height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 30px 0 34px;flex-shrink:0}
+  .stat .tm{font-weight:600;font-size:15px;letter-spacing:.2px}
+  .stat .ic{display:flex;gap:6px;align-items:center}
+  .th{display:flex;align-items:flex-end;justify-content:space-between;padding:2px 22px 8px}
+  .th h2{font-size:26px;font-weight:800;letter-spacing:-.6px}
+  .pill{font-size:12px;font-weight:600;color:#3a3742;background:#fff;border-radius:999px;padding:6px 12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  .scr{padding:2px 16px 16px}
+
+  .w{background:#fff;border-radius:24px;padding:18px;box-shadow:0 1px 2px rgba(28,28,30,.05),0 12px 26px -14px rgba(28,40,55,.14)}
+  .kick{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
+  .month{font-weight:700;letter-spacing:-.03em;color:var(--ink);line-height:1}
+  .row{display:flex;align-items:center;justify-content:space-between}
+  .tile{background:var(--fill);border-radius:16px;padding:12px 13px}
+  .stt .l{font-size:11px;font-weight:600;color:var(--ink3)}
+  .stt .v{font-size:13.5px;font-weight:600;letter-spacing:-.01em;margin-top:2px}
+
+  .wk{display:flex;align-items:flex-end;justify-content:space-between;gap:6px}
+  .wc{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1}
+  .wc .bars{width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px}
+  .wc i{display:block;width:9px;border-radius:3.5px}
+  .wc i.p{background:var(--prevbar)}.wc i.c{background:var(--teal2)}
+  .wc em{font-style:normal;font-size:10px;color:var(--ink4);font-weight:600}
+  .wc.on em{font-weight:700;color:var(--teal)}
+  .wc.on i.c{background:var(--teal)}
+
+  .dg{position:relative;margin-top:14px;border-radius:16px;padding:14px;background:var(--tealbg);cursor:pointer}
+  .dlabel{font-size:12px;font-weight:600;color:#4a917f}
+  .dn{font-weight:700;letter-spacing:-.03em;line-height:1;color:var(--teal);font-size:25px;margin-top:6px}
+  .water{animation:bob 3.1s ease-in-out infinite}
+  .w1{animation:wave 2.6s linear infinite}
+  .w2{animation:wave 3.7s linear infinite;animation-delay:-1.2s}
+  @keyframes wave{to{transform:translateX(-46px)}}
+  @keyframes bob{0%,100%{transform:translateY(var(--y))}50%{transform:translateY(calc(var(--y) + 1.4px))}}
+  @media (prefers-reduced-motion:reduce){.water,.w1,.w2{animation:none}}
+
+  /* swipe indicator — the only new element */
+  .dots{display:flex;gap:5px;justify-content:center;align-items:center;padding:13px 0 1px}
+  .dots i{width:5px;height:5px;border-radius:50%;background:#d3d5da;transition:.2s}
+  .dots i.on{width:16px;border-radius:3px;background:var(--teal)}
+
+  .tab{position:absolute;left:0;right:0;bottom:0;height:60px;display:flex;align-items:center;padding-bottom:6px;border-top:1px solid rgba(120,120,128,.16);background:rgba(255,255,255,.92);backdrop-filter:blur(16px)}
+  .tab .tb{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;font-weight:600;color:#a29caa}
+  .tab .tb.on{color:var(--teal)}.tab .tb svg{width:22px;height:22px}
+</style>
+</head>
+<body>
+
+<div class="caption">
+  <h1>Vuốt đổi kỳ — Ngày · Tuần · Tháng</h1>
+  Mọi thứ giữ nguyên như widget thật. Chỉ <b>biểu đồ cột</b> và <b>ô hướng dẫn</b> đổi theo kỳ khi vuốt, cùng <b>3 chấm chỉ báo</b> ở đáy. Kỳ Tuần = biểu đồ &amp; cách tính hiện tại.
+</div>
+
+<div class="rowP" id="root"></div>
+
+<script>
+var STATUS='<div class="stat"><span class="tm">9:41</span><span class="ic">'
+ +'<svg width="18" height="12" viewBox="0 0 18 12"><g fill="#1c1c1e"><rect y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" width="3" height="12" rx="1" opacity=".35"/></g></svg>'
+ +'<svg width="25" height="12" viewBox="0 0 25 12"><rect x="1" y="1" width="20" height="10" rx="2.6" fill="none" stroke="#1c1c1e" stroke-opacity=".4"/><rect x="3" y="3" width="14" height="6" rx="1.2" fill="#1c1c1e"/></svg></span></div>';
+var TABBAR='<div class="tab">'
+ +'<div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà</div>'
+ +'<div class="tb on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V10M9 20V4M15 20v-7M21 20V7"/></svg>Tài chính</div>'
+ +'<div class="tb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m5 17 5-4 4 3 2-2 3 3"/></svg>Khoảnh khắc</div></div>';
+
+function fmt(n){return n.toLocaleString('vi-VN')}
+function money(n){return fmt(n)+'<span class="u">đ</span>'}
+var WP='M0 0 Q 11.5 -3 23 0 T 46 0 T 69 0 T 92 0 L 92 62 L 0 62 Z';
+var _wid=0;
+function waterSVG(pct){var y=(46*(1-pct/100)).toFixed(2),id='wclip'+(_wid++);
+  return '<svg width="46" height="46" viewBox="0 0 46 46"><defs><clipPath id="'+id+'"><circle cx="23" cy="23" r="22"/></clipPath></defs>'
+   +'<circle cx="23" cy="23" r="22" fill="rgba(15,157,132,.18)"/>'
+   +'<g clip-path="url(#'+id+')"><g class="water" style="--y:'+y+'px;transform:translateY('+y+'px)">'
+   +'<path class="w1" d="'+WP+'" fill="var(--teal)"/><path class="w2" d="'+WP+'" fill="var(--teal)" opacity=".5"/></g></g>'
+   +'<circle cx="23" cy="23" r="22" fill="none" stroke="var(--teal)" stroke-opacity=".35" stroke-width="1.5"/></svg>';}
+
+/* chart — same renderer/scale as the live widget (cao 62, prev+current bars) */
+function chart(labels,data){var h=62,max=34;
+  return '<div class="wk" style="height:'+(h+15)+'px">'+data.map(function(d,i){
+    var b='<i class="p" style="height:'+(d.p/max*h)+'px"></i>';
+    if(d.c!=null) b+='<i class="c" style="height:'+(d.c/max*h)+'px"></i>';
+    return '<span class="wc'+(d.t?' on':'')+'"><span class="bars" style="height:'+h+'px">'+b+'</span><em>'+labels[i]+'</em></span>';
+  }).join('')+'</div>';}
+
+var DAYS=['T2','T3','T4','T5','T6','T7','CN'];
+var P={
+  day:{ labels:['Sáng','Trưa','Chiều','Tối'],
+        data:[{p:17,c:22},{p:25,c:31},{p:19,c:11,t:1},{p:27}],
+        sub:'Hôm nay còn tiêu được', amt:380000, pct:76, dot:0 },
+  week:{ labels:DAYS,
+        data:[{p:26,c:22},{p:22,c:16},{p:28,c:17},{p:22,c:6,t:1},{p:20},{p:31},{p:24}],
+        sub:'Tiêu được tuần này', amt:1500000, pct:60, dot:1 },
+  month:{ labels:['Tuần 1','Tuần 2','Tuần 3','Tuần 4'],
+        data:[{p:30,c:26},{p:24,c:32},{p:31,c:28},{p:26,c:12,t:1}],
+        sub:'Tiêu được tháng này', amt:6600000, pct:58, dot:2 }
+};
+
+function phone(key){var p=P[key];
+  return '<div class="phone">'+STATUS
+   +'<div class="th"><h2>Tài chính</h2><span class="pill">Tháng 8 ▾</span></div>'
+   +'<div class="scr"><div class="w">'
+     +'<div class="kick">Còn lại tháng này</div>'
+     +'<div class="month num" style="font-size:27px;margin-top:5px">5.600.000<span class="u">đ</span></div>'
+     +'<div class="row" style="margin-top:12px;gap:9px">'
+       +'<div class="tile" style="flex:1"><div class="stt"><div class="l"><span style="color:var(--teal)">↑</span> Thu</div><div class="v num">14.000.000<span class="u">đ</span></div></div></div>'
+       +'<div class="tile" style="flex:1"><div class="stt"><div class="l"><span style="color:var(--ink3)">↓</span> Chi</div><div class="v num">8.400.000<span class="u">đ</span></div></div></div>'
+     +'</div>'
+     +'<div style="margin-top:15px">'+chart(p.labels,p.data)+'</div>'
+     +'<div class="dg"><div class="row" style="align-items:center"><div>'
+       +'<div class="dlabel">'+p.sub+'</div><div class="dn num">'+money(p.amt)+'</div></div>'
+       +'<div style="flex-shrink:0;line-height:0">'+waterSVG(p.pct)+'</div></div></div>'
+     +'<div class="dots">'+[0,1,2].map(function(k){return '<i class="'+(k===p.dot?'on':'')+'"></i>';}).join('')+'</div>'
+   +'</div></div>'+TABBAR+'</div>';}
+
+document.getElementById('root').innerHTML=[['day','Kỳ Ngày'],['week','Kỳ Tuần (hiện tại)'],['month','Kỳ Tháng']]
+  .map(function(x){return '<div class="stack"><span class="plab">'+x[1]+'</span>'+phone(x[0])+'</div>';}).join('');
+</script>
+</body>
+</html>

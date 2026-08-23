@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Cột đồng nhất theo kỳ (buổi / ngày / tuần)</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{--sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif;
+    --ink:#1c1c1e;--ink2:#48484a;--ink3:#8e8e93;--ink4:#aeaeb2;--sep:rgba(60,60,67,.1);
+    --card:#fff;--prevbar:#dcdfe4;--teal:#0f9d84;--teal2:#3cc3ac;--tealbg:#eaf6f2;--red:#e0483f}
+  html,body{background:#e7e9ec;font-family:var(--sf);color:var(--ink);-webkit-font-smoothing:antialiased}
+  body{padding:44px 20px 80px}
+  .num{font-variant-numeric:tabular-nums}
+  .u{font-size:.5em;font-weight:600;margin-left:.12em;opacity:.82}
+
+  .head{max-width:760px;margin:0 auto 34px;text-align:center}
+  .head .tag{display:inline-block;margin-bottom:12px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);background:var(--tealbg);border-radius:999px;padding:5px 12px}
+  .head h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-bottom:9px}
+  .head p{color:var(--ink2);font-size:13.5px;line-height:1.6;max-width:640px;margin:0 auto}
+
+  .row3{max-width:1080px;margin:0 auto;display:flex;gap:22px;justify-content:center;flex-wrap:wrap}
+  .pcol{width:320px}
+  .plab{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink4);margin:0 4px 8px;display:flex;justify-content:space-between}
+  .plab em{font-style:normal;color:var(--teal)}
+
+  .card{background:var(--card);border-radius:22px;padding:16px 16px 11px;box-shadow:0 1px 2px rgba(28,28,30,.05),0 16px 32px -16px rgba(28,40,55,.16)}
+  .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:13px}
+  .top .k{font-size:12px;font-weight:600;color:var(--ink3)}
+  .top .v{font-size:13px;font-weight:700;letter-spacing:-.02em}
+  .top .v .u{opacity:.7}
+
+  /* chart — grouped prev(faint)+current bars, current sub-unit highlighted */
+  .ch{height:92px;display:flex;align-items:flex-end;gap:0}
+  .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;justify-content:flex-end;height:100%}
+  .bars{position:relative;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px;flex:1}
+  .bars i{display:block;width:9px;border-radius:3px}
+  .bars i.p{background:var(--prevbar)}
+  .bars i.c{background:var(--teal2)}
+  .bars i.c.now{background:var(--teal)}
+  .bars i.c.o{background:var(--red)}
+  .bars i.fut{background:#eceef1}
+  .lab{font-size:9.5px;font-weight:600;color:var(--ink4);white-space:nowrap}
+  .lab.on{color:var(--teal);font-weight:700}
+
+  /* guide tile — identical UI, per-period text/amount/level */
+  .dg{display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 12px;border-radius:15px;padding:13px 14px;margin-top:13px;background:var(--tealbg)}
+  .dg-lbl{grid-column:1;grid-row:1;font-size:12px;font-weight:600;color:#4a917f}
+  .dg-amt{grid-column:1;grid-row:2;font-weight:700;letter-spacing:-.03em;line-height:1;font-size:25px;margin-top:6px;color:var(--teal)}
+  .dg-vis{grid-column:2;grid-row:1 / span 2;width:44px;height:44px}
+  .water{animation:bob 3.1s ease-in-out infinite}.w1{animation:wave 2.6s linear infinite}.w2{animation:wave 3.7s linear infinite;animation-delay:-1.2s}
+  @keyframes wave{to{transform:translateX(-44px)}}@keyframes bob{0%,100%{transform:translateY(var(--y))}50%{transform:translateY(calc(var(--y) + 1.4px))}}
+
+  .dots{display:flex;gap:5px;justify-content:center;align-items:center;padding:11px 0 3px}
+  .dots i{width:5.5px;height:5.5px;border-radius:50%;background:#d2d5da;transition:.2s}
+  .dots i.on{width:17px;border-radius:3px;background:var(--teal)}
+
+  @media(max-width:1040px){.pcol{width:min(340px,92vw)}}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <span class="tag">Cột đồng nhất · vuốt đổi kỳ</span>
+  <h1>Ngày · Tuần · Tháng — cùng một loại cột</h1>
+  <p>Mỗi kỳ chia thành các cột con tự nhiên của nó. Cột mờ = kỳ trước để so, cột đậm = kỳ này, cột đậm nhất = mốc đang diễn ra, cột nhạt = chưa tới. Ô hướng dẫn giữ nguyên, chỉ đổi số và phụ đề. Vuốt ngang để đổi kỳ.</p>
+</div>
+
+<div class="row3" id="root"></div>
+
+<script>
+var _id=0;
+function money(s){return s+'<span class="u">đ</span>';}
+var TEAL='var(--teal)',TRK='rgba(15,157,132,.18)';
+function water(pct){var y=(44*(1-pct/100)).toFixed(1),id='wc'+(_id++),WP='M0 0 Q 11 -3 22 0 T 44 0 T 66 0 T 88 0 L 88 60 L 0 60 Z';
+  return '<svg width="44" height="44" viewBox="0 0 44 44"><defs><clipPath id="'+id+'"><circle cx="22" cy="22" r="21"/></clipPath></defs>'
+   +'<circle cx="22" cy="22" r="21" fill="'+TRK+'"/><g clip-path="url(#'+id+')"><g class="water" style="--y:'+y+'px;transform:translateY('+y+'px)">'
+   +'<path class="w1" d="'+WP+'" fill="'+TEAL+'"/><path class="w2" d="'+WP+'" fill="'+TEAL+'" opacity=".5"/></g></g>'
+   +'<circle cx="22" cy="22" r="21" fill="none" stroke="'+TEAL+'" stroke-opacity=".35" stroke-width="1.4"/></svg>';}
+
+function chart(cols){
+  return '<div class="ch">'+cols.map(function(c){
+    var bars='';
+    if(c.p!=null) bars+='<i class="p" style="height:'+c.p+'px"></i>';
+    if(c.type==='fut') bars+='<i class="fut" style="height:'+(c.c||8)+'px"></i>';
+    else if(c.c!=null) bars+='<i class="c'+(c.now?' now':'')+(c.o?' o':'')+'" style="height:'+c.c+'px"></i>';
+    return '<div class="col"><div class="bars">'+bars+'</div><span class="lab'+(c.now?' on':'')+'">'+c.l+'</span></div>';
+  }).join('')+'</div>';}
+
+function card(cfg){
+  return '<div class="pcol"><div class="plab"><span>'+cfg.plab+'</span><em>'+cfg.range+'</em></div>'
+    +'<div class="card"><div class="top"><span class="k">'+cfg.topk+'</span><span class="v num">'+money(cfg.topv)+'</span></div>'
+    + chart(cfg.cols)
+    + '<div class="dg"><div class="dg-lbl">'+cfg.sub+'</div><div class="dg-amt num">'+money(cfg.amt)+'</div><div class="dg-vis">'+water(cfg.pct)+'</div></div>'
+    + '<div class="dots">'+['day','week','month'].map(function(p){return '<i class="'+(p===cfg.dot?'on':'')+'"></i>';}).join('')+'</div>'
+    +'</div></div>';}
+
+var CARDS=[
+ { plab:'Ngày', range:'Hôm nay', dot:'day', topk:'Đã tiêu hôm nay', topv:'120.000',
+   sub:'Tiêu được hôm nay', amt:'380.000', pct:76,
+   cols:[ {l:'Sáng',p:26,c:34,type:'c'}, {l:'Trưa',p:40,c:52,type:'c'}, {l:'Chiều',p:30,c:18,type:'c',now:1}, {l:'Tối',p:44,type:'fut',c:10} ] },
+ { plab:'Tuần', range:'T2 → CN', dot:'week', topk:'Đã tiêu tuần này', topv:'2.100.000',
+   sub:'Tiêu được tuần này', amt:'1.500.000', pct:62,
+   cols:[ {l:'T2',p:46,c:40,type:'c'},{l:'T3',p:40,c:58,type:'c'},{l:'T4',p:50,c:32,type:'c'},{l:'T5',p:38,c:22,type:'c',now:1},{l:'T6',p:36,type:'fut',c:10},{l:'T7',p:58,type:'fut',c:10},{l:'CN',p:42,type:'fut',c:10} ] },
+ { plab:'Tháng', range:'Tuần 1 → 4', dot:'month', topk:'Đã tiêu tháng này', topv:'8.400.000',
+   sub:'Tiêu được tháng này', amt:'6.600.000', pct:58,
+   cols:[ {l:'Tuần 1',p:56,c:48,type:'c'},{l:'Tuần 2',p:44,c:60,type:'c'},{l:'Tuần 3',p:60,c:52,type:'c'},{l:'Tuần 4',p:50,c:24,type:'c',now:1} ] }
+];
+document.getElementById('root').innerHTML=CARDS.map(card).join('');
+</script>
+</body>
+</html>

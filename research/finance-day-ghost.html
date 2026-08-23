@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Day period — ghost tracks</title>
+<style>
+  :root{--sf:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;--ink:#1c1c1e;--muted-soft:#aeaeb2;
+    --fill-neutral:rgba(138,132,148,.14);--good:#1a9d5f;--good-tint:#e7f5ee;--teal:#0f9d84}
+  *{margin:0;box-sizing:border-box}body{background:#e7e9ec;font-family:var(--sf);padding:44px 20px;display:flex;gap:26px;justify-content:center;flex-wrap:wrap}
+  .col{width:330px}.plab{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9a9aa0;margin:0 4px 9px}
+  .w{background:#fff;border-radius:24px;padding:18px;box-shadow:0 1px 2px rgba(28,28,30,.05),0 14px 30px -16px rgba(28,40,55,.16)}
+  .kick{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8e8e93}
+  .big{font-size:27px;font-weight:800;letter-spacing:-.5px;margin:5px 0 2px}
+  .wow{display:flex;align-items:flex-end;gap:9px;margin-top:16px;padding:0 2px}
+  .wcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+  .wbars{position:relative;height:82px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px}
+  .wbars .trk{position:relative;width:9px;height:100%;border-radius:3px;background:var(--fill-neutral)}
+  .wbars .trk.fut{opacity:.5}
+  .wbars .trk>i{position:absolute;left:0;right:0;bottom:0;border-radius:3px;background:var(--good);transition:height .5s}
+  .wd{font-size:9px;font-weight:600;color:var(--muted-soft)}.wd.on{color:var(--ink);font-weight:700}
+  .dg{display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 12px;border-radius:14px;padding:14px;margin-top:15px;background:var(--good-tint)}
+  .dg-lbl{grid-column:1;grid-row:1;font-size:12px;font-weight:600;color:#4a917f}
+  .dg-amt{grid-column:1;grid-row:2;font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1;margin-top:5px;color:var(--teal)}
+  .dg-vis{grid-column:2;grid-row:1/span 2;width:46px;height:46px}
+  .dots{display:flex;gap:5px;justify-content:center;padding:12px 0 2px}
+  .dots i{width:5px;height:5px;border-radius:50%;background:#d3d5da}.dots i.on{width:16px;border-radius:3px;background:var(--good)}
+  circle{}
+</style></head><body>
+<div id="root"></div>
+<script>
+function water(pct){var y=(46*(1-pct/100)).toFixed(1),WP='M0 0 Q 11.5 -3 23 0 T 46 0 T 69 0 T 92 0 L 92 62 L 0 62 Z';
+  return '<svg width="46" height="46" viewBox="0 0 46 46"><defs><clipPath id="c'+pct+'"><circle cx="23" cy="23" r="22"/></clipPath></defs>'
+   +'<circle cx="23" cy="23" r="22" fill="rgba(15,157,132,.18)"/><g clip-path="url(#c'+pct+')"><g style="transform:translateY('+y+'px)">'
+   +'<path d="'+WP+'" fill="var(--teal)"/><path d="'+WP+'" fill="var(--teal)" opacity=".5"/></g></g>'
+   +'<circle cx="23" cy="23" r="22" fill="none" stroke="var(--teal)" stroke-opacity=".35" stroke-width="1.5"/></svg>';}
+var LB=['Sáng','Trưa','Chiều','Tối'];
+function day(buckets,curB){var maxV=1;buckets.forEach(function(v){if(v>maxV)maxV=v;});var s='';
+  for(var i=0;i<4;i++){var fut=i>curB;var ch=(!fut&&buckets[i]>0)?Math.max(Math.round(buckets[i]/maxV*100),6):0;
+    s+='<div class="wcol"><span class="wbars"><span class="trk'+(fut?' fut':'')+'"><i style="height:'+ch+'%"></i></span></span><span class="wd'+(i===curB?' on':'')+'">'+LB[i]+'</span></div>';}
+  return '<div class="wow">'+s+'</div>';}
+function card(lab,buckets,curB,amt,pct){
+  return '<div class="col"><div class="plab">'+lab+'</div><div class="w"><div class="kick">Còn lại tháng này</div>'
+   +'<div class="big">5.600.000<span style="font-size:.55em">đ</span></div>'+day(buckets,curB)
+   +'<div class="dg"><div class="dg-lbl">Hôm nay còn tiêu được</div><div class="dg-amt">'+amt+'<span style="font-size:.55em">đ</span></div><div class="dg-vis">'+water(pct)+'</div></div>'
+   +'<div class="dots"><i class="on"></i><i></i><i></i></div></div></div>';}
+document.getElementById('root').innerHTML=
+  card('Buổi sáng · chưa tiêu',[0,0,0,0],0,'650.000',100)
+ +card('Chiều · đã tiêu vài khoản',[120,340,90,0],2,'320.000',49)
+ +card('Tối · ngày bận',[210,480,360,150],3,'0',0);
+</script>
+</body></html>

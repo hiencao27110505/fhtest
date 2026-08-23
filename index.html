@@ -1195,6 +1195,11 @@ input{font-family:inherit}
 @keyframes cf-wave{to{transform:translateX(-46px)}}
 @keyframes cf-bob{0%,100%{transform:translateY(var(--y))}50%{transform:translateY(calc(var(--y) + 1.4px))}}
 @media (prefers-reduced-motion:reduce){.cf-water,.cf-w1,.cf-w2{animation:none}}
+/* swipe indicator (Day · Week · Month) — sits under the guide, live month only */
+.cf-dots{display:flex;gap:5px;justify-content:center;align-items:center;padding:12px 0 2px}
+.cf-dots:empty{display:none}
+.cf-dots i{width:5px;height:5px;border-radius:50%;background:var(--fill-neutral);cursor:pointer;transition:width .2s ease,background .2s ease}
+.cf-dots i.on{width:16px;border-radius:3px;background:var(--good)}
 /* saving-goal sheet rows (#savegoal-list) */
 .sg-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:transparent;font:inherit;cursor:pointer;padding:14px 4px}
 .sg-row+.sg-row{border-top:1px solid var(--divider)}
@@ -3106,8 +3111,10 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     </div>
     <div class="wow" id="cf-wow" aria-hidden="true"></div>
     <div class="cf-note" id="cf-note"></div>
-    <!-- daily guide (current live month): "Hôm nay còn tiêu được" · tap opens the saving-goal sheet (renderDailyGuide) -->
+    <!-- daily guide (current live month): "Hôm nay còn tiêu được" · tap opens the saving-goal sheet (cfRenderGuide) -->
     <button class="cf-daily" id="cf-daily" type="button" onclick="openSaveGoal()" aria-label="Saving goal"></button>
+    <!-- swipe indicator: Day · Week · Month (live month only) — filled by cfSetDots -->
+    <div class="cf-dots" id="cf-dots" aria-hidden="true"></div>
     <!-- CTAs (V3): full-width nav rows into budget setup + the expense list -->
     <div class="cf-cta">
       <button class="cc-row" onclick="openSheet('sheet-budget')"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></span><span class="cc-t" data-t="setupBudget">Set up budget</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -4425,9 +4432,10 @@ function renderBudget(){
   renderCashflow();
 }
 /* Widget A — cash flow: what's LEFT this month (income − spent), the In/Out pair, and a
-   this-week-vs-last-week daily chart. Reuses renderBudget's month model + the same per-day
-   spend source as the hero's daily page. Cross-month weeks (early in the month, or a closed
-   month's first week) fall back to 0 for the unloaded days — the note stays within the month. */
+   swipeable chart + guide. On the current live month it becomes three periods — Day (buổi),
+   Week (7 ngày), Month (4 tuần) — sharing one bar language and one guide tile; swipe or tap
+   the dots to switch. Closed / past months keep the classic week chart + week-over-week note
+   (no periods). Reuses renderBudget's month model + the same per-day spend source. */
 function renderCashflow(){
   var host=document.getElementById('cf-left'); if(!host) return;
   var m=M(), spent=m.spent||0, income=window.monthIncome||0, left=income-spent;
@@ -4438,57 +4446,188 @@ function renderCashflow(){
   var daily=[]; for(var i=0;i<=dim;i++) daily[i]=0;
   (window.txns||[]).forEach(function(t){ if(!t.future && t.month===window.selMonth && t._d){ var dd=t._d.getDate(); if(dd>=1&&dd<=dim) daily[dd]+=t.amt; } });
 
-  // Monday-anchor the two weeks. "today" is dom for the live month, else the last day.
-  var today=done?dim:dom;
+  if(!window._cfSwipeBound){ cfBindSwipe(); window._cfSwipeBound=true; }
+  var live = (selMonth===curMonthKey() && !done);
+
+  if(!live){
+    // Classic view (past / closed month): week chart + week-over-week note, no periods.
+    var d0=cfWeekData(m, daily, done, dom, dim);
+    setHTMLIf('cf-wow', cfWeekChartHTML(d0, done));
+    setHTMLIf('cf-daily', '');
+    cfSetDots(-1);
+    cfWowNote(d0);
+    renderRequestsCta(); renderCashflowEmailCta();
+    return;
+  }
+
+  // Live month → three swipeable periods. The state-change push always tracks the DAY
+  // state (the meaningful daily alert), independent of which period is on screen.
+  cfMaybePush(m, daily);
+  var cfn0=document.getElementById('cf-note'); if(cfn0){ cfn0.className='cf-note'; cfn0.innerHTML=''; }
+
+  var period = window.cfPeriod|0;                        // 0 Day · 1 Week · 2 Month
+  if(period===0) cfRenderDay(m, daily);
+  else if(period===2) cfRenderMonth(m, daily);
+  else cfRenderWeek(m, daily, done, dom, dim);
+  cfSetDots(period);
+  renderRequestsCta(); renderCashflowEmailCta();
+}
+/* ----- period state + swipe / dots / auto-rotate ----- */
+try{ window.cfPeriod=parseInt(localStorage.getItem('fh-cfperiod')||'0',10); if(!(window.cfPeriod>=0&&window.cfPeriod<=2)) window.cfPeriod=0; }catch(e){ window.cfPeriod=0; }
+function cfApplyPeriod(i, persist){                        // change the view; persist only for manual picks
+  i=Math.max(0,Math.min(2,i|0)); if(i===(window.cfPeriod|0)) return;
+  window.cfPeriod=i; if(persist){ try{localStorage.setItem('fh-cfperiod',String(i));}catch(e){} } renderCashflow();
+}
+function setCfPeriod(i){ cfPauseAuto(); cfApplyPeriod(i, true); }   // dot tap / swipe: remember it + pause auto-rotate
+window.setCfPeriod=setCfPeriod;
+/* Auto-rotate Day → Week → Month every few seconds so all three are seen without swiping.
+   Any press pauses it; it resumes cfAuto.IDLE after the last touch. Runs only when the card is
+   on-screen, the tab is visible, and on the live month — and never under reduced motion. */
+var cfAuto={ paused:0, vis:false, timer:null, INT:4200, IDLE:8000 };
+function cfPauseAuto(){ cfAuto.paused=Date.now()+cfAuto.IDLE; }
+function cfStartAuto(card){
+  if(cfAuto.timer || !card) return;
+  if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;   // respect reduced motion
+  if('IntersectionObserver' in window){ try{ new IntersectionObserver(function(es){ cfAuto.vis=es[0].isIntersecting; },{threshold:.5}).observe(card); }catch(e){ cfAuto.vis=true; } }
+  else cfAuto.vis=true;
+  cfAuto.timer=setInterval(function(){
+    if(document.hidden || !cfAuto.vis) return;             // off-screen or backgrounded → hold
+    if(!(selMonth===curMonthKey()) || M().done) return;    // periods exist only on the live month
+    if(Date.now()<cfAuto.paused) return;                   // still cooling down after a manual touch
+    cfApplyPeriod(((window.cfPeriod|0)+1)%3, false);       // rotate (does not overwrite the saved pick)
+  }, cfAuto.INT);
+}
+function cfSetDots(active){
+  var box=document.getElementById('cf-dots'); if(!box) return;
+  if(active<0){ setHTMLIf(box, ''); return; }
+  var h=''; for(var i=0;i<3;i++) h+='<i class="'+(i===active?'on':'')+'" onclick="setCfPeriod('+i+')"></i>';
+  setHTMLIf(box, h);
+}
+function cfBindSwipe(){
+  var card=document.querySelector('.cf-card'); if(!card) return;
+  var x0=0,y0=0;
+  card.addEventListener('pointerdown', cfPauseAuto, {passive:true});   // any press (touch or mouse) pauses auto-rotate
+  card.addEventListener('touchstart',function(e){ var t=e.changedTouches[0]; x0=t.clientX; y0=t.clientY; },{passive:true});
+  card.addEventListener('touchend',function(e){
+    if(!(selMonth===curMonthKey()) || M().done) return;   // swipe only on the live month
+    var t=e.changedTouches[0], dx=t.clientX-x0, dy=t.clientY-y0;
+    if(Math.abs(dx)<40 || Math.abs(dx)<Math.abs(dy)*1.4) return;   // ignore taps + vertical scrolls
+    setCfPeriod((window.cfPeriod|0)+(dx<0?1:-1));           // left → later period, right → earlier
+  },{passive:true});
+  cfStartAuto(card);
+}
+/* ----- Week (period 1 = the classic chart) ----- */
+function cfWeekData(m, daily, done, dom, dim){
+  var today=done?dim:dom;                                 // "today" = dom live, else last day
   var iso=m._iso||((m.short||curMonthKey())+'-01');
   var base=new Date(iso.slice(0,7)+'-01T00:00:00'); base.setDate(today);
-  var wd=(base.getDay()+6)%7;                          // 0=Mon … 6=Sun
-  var monThis=today-wd;                                // day-of-month of this week's Monday (≤0 = prev month)
+  var wd=(base.getDay()+6)%7;                             // 0=Mon … 6=Sun
+  var monThis=today-wd;                                   // day-of-month of this week's Monday
   var cur=[], prev=[], maxV=1;
   for(var k=0;k<7;k++){
     var dc=monThis+k, dp=monThis-7+k;
-    var vc=(dc>=1&&dc<=dim&&(done||dc<=today))?daily[dc]:null;   // future days this week → null (no cur bar)
-    var vp=(dp>=1&&dp<=dim)?daily[dp]:0;                          // days outside the loaded month → 0
+    var vc=(dc>=1&&dc<=dim&&(done||dc<=today))?daily[dc]:null;   // future days → null (no cur bar)
+    var vp=(dp>=1&&dp<=dim)?daily[dp]:0;                          // days outside the month → 0
     cur.push(vc); prev.push(vp);
     if(vc!=null&&vc>maxV) maxV=vc; if(vp>maxV) maxV=vp;
   }
-  var DAYS=isVi()?['T2','T3','T4','T5','T6','T7','CN']:['M','T','W','T','F','S','S'];
-  var cols='';
+  return {cur:cur, prev:prev, monThis:monThis, today:today, maxV:maxV};
+}
+function cfWeekChartHTML(d, done){
+  var DAYS=isVi()?['T2','T3','T4','T5','T6','T7','CN']:['M','T','W','T','F','S','S'], cols='';
   for(var c=0;c<7;c++){
-    var ph=Math.round(prev[c]/maxV*100), fut=cur[c]==null;
-    var over=!fut && prev[c]>0 && cur[c]>prev[c];              // spent more than the same day last week
-    var ch=fut?0:(cur[c]>0?Math.max(Math.round(cur[c]/maxV*100),4):0);
-    var isToday=!done && (monThis+c)===today;
+    var ph=Math.round(d.prev[c]/d.maxV*100), fut=d.cur[c]==null;
+    var over=!fut && d.prev[c]>0 && d.cur[c]>d.prev[c];   // spent more than the same day last week
+    var ch=fut?0:(d.cur[c]>0?Math.max(Math.round(d.cur[c]/d.maxV*100),4):0);
+    var isToday=!done && (d.monThis+c)===d.today;
     cols+='<div class="wcol"><span class="wbars">'
       +'<i class="wb prev" style="height:'+ph+'%"></i>'
       +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
       +'</span><span class="wd'+(isToday?' on':'')+'">'+DAYS[c]+'</span></div>';
   }
-  setHTMLIf('cf-wow', cols);
-
-  // Current live month → the daily guide ("Hôm nay còn tiêu được"); other months → the
-  // week-over-week note. The daily guide only shows when a per-day threshold can be derived.
-  var shownDaily = (selMonth===curMonthKey() && !done) && renderDailyGuide(m, daily);
-  if(shownDaily){
-    var cfn0=document.getElementById('cf-note'); if(cfn0){ cfn0.className='cf-note'; cfn0.innerHTML=''; }
-  } else {
-    var dgh=document.getElementById('cf-daily'); if(dgh) dgh.innerHTML='';
-    // Note (highlighted tinted block): this week so far vs the SAME number of days last week.
-    var days=0, ts=0, ls=0;
-    for(var d=0;d<7;d++){ if(cur[d]!=null){ days++; ts+=cur[d]; ls+=prev[d]; } }
-    var diff=ts-ls, st='', note='';
-    if(days>0 && ls>0){
-      if(diff<0){ st='ok'; note='<span class="ni">▼</span>'+L('Giảm ','Down ')+'<b>'+fmt(-diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
-      else if(diff>0){ st='over'; note='<span class="ni">▲</span>'+L('Tăng ','Up ')+'<b>'+fmt(diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
-      else { st='flat'; note=L('Ngang cùng kỳ tuần trước','On par with last week'); }
-    } else if(days>0 && ts>0){
-      st='flat'; note=L('Tuần này đã chi ','Spent ')+'<b>'+fmt(ts)+'</b>'+L('',' this week');
-    }
-    var cfn=document.getElementById('cf-note');
-    if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
+  return cols;
+}
+function cfWowNote(d){                                     // classic week-over-week note (past months)
+  var days=0, ts=0, ls=0;
+  for(var i=0;i<7;i++){ if(d.cur[i]!=null){ days++; ts+=d.cur[i]; ls+=d.prev[i]; } }
+  var diff=ts-ls, st='', note='';
+  if(days>0 && ls>0){
+    if(diff<0){ st='ok'; note='<span class="ni">▼</span>'+L('Giảm ','Down ')+'<b>'+fmt(-diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
+    else if(diff>0){ st='over'; note='<span class="ni">▲</span>'+L('Tăng ','Up ')+'<b>'+fmt(diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
+    else { st='flat'; note=L('Ngang cùng kỳ tuần trước','On par with last week'); }
+  } else if(days>0 && ts>0){
+    st='flat'; note=L('Tuần này đã chi ','Spent ')+'<b>'+fmt(ts)+'</b>'+L('',' this week');
   }
-  renderRequestsCta();
-  renderCashflowEmailCta();
+  var cfn=document.getElementById('cf-note');
+  if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
+}
+function cfRenderWeek(m, daily, done, dom, dim){
+  var d=cfWeekData(m, daily, done, dom, dim);
+  setHTMLIf('cf-wow', cfWeekChartHTML(d, done));
+  var weekSpent=0; for(var i=0;i<7;i++){ if(d.cur[i]!=null) weekSpent+=d.cur[i]; }
+  cfRenderGuide(dgBase(m,daily)*7*(1-(window.saveGoalPct||0)/100), weekSpent, 'week');
+}
+/* ----- Day (period 0 = buổi breakdown: today vs yesterday) ----- */
+function cfBuoiIdx(h){ return (h>=5&&h<11)?0:(h>=11&&h<14)?1:(h>=14&&h<18)?2:3; }   // Sáng·Trưa·Chiều·Tối
+function cfRenderDay(m, daily){
+  var dom=m.dom, yday=dom-1, curB=cfBuoiIdx(new Date().getHours());
+  var cur=[0,0,0,0], prev=[0,0,0,0];                       // today's buổi vs yesterday's (same faint reference as Week/Month)
+  (window.txns||[]).forEach(function(t){
+    if(t.future || t.month!==window.selMonth || !t._d) return;
+    var d=t._d.getDate(); if(d!==dom && d!==yday) return;
+    var h=t._ts ? t._ts.getHours() : null, b=(h==null?curB:cfBuoiIdx(h));   // logged-time proxy; unknown → current buổi
+    if(d===dom) cur[b]+=t.amt; else prev[b]+=t.amt;
+  });
+  var LB=isVi()?['Sáng','Trưa','Chiều','Tối']:['Morning','Midday','Afternoon','Evening'];
+  var maxV=1; for(var i=0;i<4;i++){ if(cur[i]>maxV) maxV=cur[i]; if(prev[i]>maxV) maxV=prev[i]; }
+  var cols='';
+  for(var j=0;j<4;j++){
+    var ph=Math.round(prev[j]/maxV*100), fut=j>curB;       // a buổi still ahead today → yesterday's bar only (no cur)
+    var over=!fut && prev[j]>0 && cur[j]>prev[j];          // more than the same buổi yesterday
+    var ch=fut?0:(cur[j]>0?Math.max(Math.round(cur[j]/maxV*100),4):0);
+    cols+='<div class="wcol"><span class="wbars">'
+      +'<i class="wb prev" style="height:'+ph+'%"></i>'
+      +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
+      +'</span><span class="wd'+(j===curB?' on':'')+'">'+LB[j]+'</span></div>';
+  }
+  setHTMLIf('cf-wow', cols);
+  cfRenderGuide(dgThreshold(m,daily), daily[dom]||0, 'day');
+}
+/* ----- Month (period 2 = 4 tuần, this month vs last) ----- */
+function cfMonthBuckets(daily, dim){
+  var b=[0,0,0,0], hi=[7,14,21,dim];
+  for(var i=0;i<4;i++){ var lo=[1,8,15,22][i]; for(var d=lo; d<=hi[i]; d++){ if(daily[d]) b[i]+=daily[d]; } }
+  return b;
+}
+function cfPrevMonthDaily(m){                              // last calendar month's per-day spend (for faint bars)
+  var iso=m._iso||((m.short||curMonthKey())+'-01');
+  var d0=new Date(iso.slice(0,7)+'-01T00:00:00'), pd=new Date(d0.getFullYear(), d0.getMonth()-1, 1);
+  var pkey=_MOA[pd.getMonth()], pmObj=months[pkey];
+  var pdim=pmObj?pmObj.dim:new Date(pd.getFullYear(), pd.getMonth()+1, 0).getDate();
+  var arr=[]; for(var i=0;i<=pdim;i++) arr[i]=0;
+  (window.txns||[]).forEach(function(t){ if(!t.future && t.month===pkey && t._d){ var dd=t._d.getDate(); if(dd>=1&&dd<=pdim) arr[dd]+=t.amt; } });
+  return {arr:arr, dim:pdim};
+}
+function cfRenderMonth(m, daily){
+  var dim=m.dim, dom=m.dom;
+  var cur=cfMonthBuckets(daily, dim);
+  var pv=cfPrevMonthDaily(m), prev=cfMonthBuckets(pv.arr, pv.dim);
+  var curW=dom<=7?0:dom<=14?1:dom<=21?2:3, starts=[1,8,15,22];
+  var LB=isVi()?['Tuần 1','Tuần 2','Tuần 3','Tuần 4']:['W1','W2','W3','W4'];
+  var maxV=1; for(var i=0;i<4;i++){ if(cur[i]>maxV) maxV=cur[i]; if(prev[i]>maxV) maxV=prev[i]; }
+  var cols='';
+  for(var j=0;j<4;j++){
+    var fut=starts[j]>dom;                                 // a week that hasn't started yet → no cur bar
+    var ph=Math.round(prev[j]/maxV*100);
+    var over=!fut && prev[j]>0 && cur[j]>prev[j];
+    var ch=fut?0:(cur[j]>0?Math.max(Math.round(cur[j]/maxV*100),4):0);
+    cols+='<div class="wcol"><span class="wbars">'
+      +'<i class="wb prev" style="height:'+ph+'%"></i>'
+      +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
+      +'</span><span class="wd'+(j===curW?' on':'')+'">'+LB[j]+'</span></div>';
+  }
+  setHTMLIf('cf-wow', cols);
+  cfRenderGuide(dgBase(m,daily)*dim*(1-(window.saveGoalPct||0)/100), m.spent||0, 'month');
 }
 /* Daily guide — "Hôm nay còn tiêu được": a per-day allowance minus what's been spent today.
    The allowance is the SAVER of (a) last month's daily average and (b) the budget-pace daily
@@ -4513,28 +4652,38 @@ function dgBase(m, daily){                                    // per-day norm, b
   return (m.budget>0)?m.budget/m.dim:((window.monthIncome||0)/m.dim||0);   // fallback: even monthly pace
 }
 function dgThreshold(m, daily){ return dgBase(m,daily)*(1-(window.saveGoalPct||0)/100); }
-function renderDailyGuide(m, daily){
-  var host=document.getElementById('cf-daily'); if(!host) return false;
+function dgKey(remain, threshold){ var pct=remain/threshold; return remain<0?'red':(pct<=0.20?'orange':(pct<=0.50?'yellow':'green')); }
+/* State-change push (E2EE-safe · client-side): tracks the DAY state regardless of which
+   period is on screen. Only the device that just logged an expense fires (window._dgLocalAdd),
+   only when today's state worsens, never on green. The actor gate + fhNotify's per-kind
+   cooldown stop other devices' realtime re-renders from double-sending; window.dgStateDay
+   resets the baseline at the start of each day. */
+function cfMaybePush(m, daily){
   var threshold=dgThreshold(m,daily);
-  if(!(threshold>0)){ host.innerHTML=''; return false; }
-  var spentToday=daily[m.dom]||0, remain=threshold-spentToday;
-  var pct=remain/threshold, over=remain<0;
-  var key = over?'red' : (pct<=0.20?'orange':(pct<=0.50?'yellow':'green'));
-  // State-change push (E2EE-safe · client-side): only the device that just logged an
-  // expense fires (window._dgLocalAdd), only when today's state worsens, never on green.
-  // The actor gate + fhNotify's per-kind cooldown stop other devices' realtime re-renders
-  // from double-sending; window.dgStateDay resets the baseline at the start of each day.
+  if(!(threshold>0)){ window._dgLocalAdd=false; return; }
+  var remain=threshold-(daily[m.dom]||0), key=dgKey(remain, threshold);
   var _ord={green:0,yellow:1,orange:2,red:3};
   var _prev=(window.dgStateDay===m.dom)?(window.dgState||'green'):'green';
   if(window._dgLocalAdd && _ord[key]>_ord[_prev] && key!=='green' && typeof fhNotify==='function'){ fhNotify('dgstate',{state:key}); }
   window.dgState=key; window.dgStateDay=m.dom; window._dgLocalAdd=false;
+}
+/* Guide tile — identical UI across periods; only the amount, subtitle and water level change.
+   threshold = the period's saver allowance, spent = what's gone in the period so far. */
+function cfRenderGuide(threshold, spent, periodKey){
+  var host=document.getElementById('cf-daily'); if(!host) return false;
+  if(!(threshold>0)){ setHTMLIf(host, ''); return false; }
+  var remain=threshold-spent, over=remain<0, key=dgKey(remain, threshold);
   window.cfDailyState=key;
-  var s=DG_STATES[key], level=Math.max(0,Math.min(100,pct*100));
-  var label = over ? L('Hôm nay đã vượt','Over today') : L('Hôm nay còn tiêu được','Left to spend today');
+  var s=DG_STATES[key], level=Math.max(0,Math.min(100,remain/threshold*100));
+  var LBL={
+    day:  over?L('Hôm nay đã vượt','Over today')       :L('Hôm nay còn tiêu được','Left to spend today'),
+    week: over?L('Tuần này đã vượt','Over this week')   :L('Tiêu được tuần này','Left to spend this week'),
+    month:over?L('Tháng này đã vượt','Over this month') :L('Tiêu được tháng này','Left to spend this month')
+  };
   var amt = over ? fmt(-remain) : fmt(Math.max(0,remain));
   host.style.background=s.bg;
   setHTMLIf(host,
-    '<span class="dg-lbl" style="color:'+s.mut+'">'+label+'</span>'
+    '<span class="dg-lbl" style="color:'+s.mut+'">'+LBL[periodKey]+'</span>'
     +'<span class="dg-amt num" style="color:'+s.main+'">'+amt+'</span>'
     +'<span class="dg-vis">'+cfWaterSVG(level,s,over)+'</span>');
   return true;
@@ -11223,7 +11372,7 @@ function addExpense(){
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
   var hadPhoto=exPhotos.length>0;
-  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,who:whoStore,amt:amt,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,_ts:new Date(),who:whoStore,amt:amt,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
   if(hadPhoto) syncExpenseEvent(txns[0]);                   // photos → a linked event for Events + Memories
   renderTxns();
   var jul=months[curMonthKey()];
@@ -13299,7 +13448,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v364';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v368';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -14921,7 +15070,7 @@ window.obGoogle = async function () {
           sb.from('categories').select('id,name,name_enc,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
           sb.from('category_budgets').select('category_id,amount,amount_enc,month').eq('family_id', fid),
           sb.from('monthly_budgets').select('month,budget_total,budget_total_enc,closed').eq('family_id', fid),
-          sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,txn_date,status,created_by').eq('family_id', fid).order('txn_date', { ascending: false }),
+          sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,txn_date,status,created_by,created_at').eq('family_id', fid).order('txn_date', { ascending: false }),
           sb.from('events').select('id,name,name_enc,emoji,cover,target_amount,target_amount_enc,target_date,achieved,sort_order,source_txn_id,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
           sb.from('event_fundings').select('id,event_id,goal_id,amount,amount_enc,source,month,member_id').eq('family_id', fid),
           sb.from('savings_entries').select('kind,amount,amount_enc,entry_date').eq('family_id', fid),
@@ -15116,7 +15265,7 @@ window.obGoogle = async function () {
         const who = mrec ? (mrec.is_shared ? 'Shared' : mrec.name) : 'Shared';
         const realized = (t.status !== 'planned') && (dt <= now);
         const amt = Number(t.amount);
-        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _catId: t.category_id, _memberId: t.member_id, _createdBy: t.created_by || null, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
+        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _ts: (t.created_at ? new Date(t.created_at) : null), _catId: t.category_id, _memberId: t.member_id, _createdBy: t.created_by || null, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
         if (realized) { m.spent += amt; m.catSpent[catName] = (m.catSpent[catName] || 0) + amt; m.memberSpent[who] = (m.memberSpent[who] || 0) + amt; }
       });
       newTxns.sort(function(a,b){ var ta=a._d?a._d.getTime():Infinity, tb=b._d?b._d.getTime():Infinity; return tb-ta; }); // newest first, globally

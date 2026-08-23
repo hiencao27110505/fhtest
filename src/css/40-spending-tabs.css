@@ -55,6 +55,11 @@
 @keyframes cf-wave{to{transform:translateX(-46px)}}
 @keyframes cf-bob{0%,100%{transform:translateY(var(--y))}50%{transform:translateY(calc(var(--y) + 1.4px))}}
 @media (prefers-reduced-motion:reduce){.cf-water,.cf-w1,.cf-w2{animation:none}}
+/* swipe indicator (Day · Week · Month) — sits under the guide, live month only */
+.cf-dots{display:flex;gap:5px;justify-content:center;align-items:center;padding:12px 0 2px}
+.cf-dots:empty{display:none}
+.cf-dots i{width:5px;height:5px;border-radius:50%;background:var(--fill-neutral);cursor:pointer;transition:width .2s ease,background .2s ease}
+.cf-dots i.on{width:16px;border-radius:3px;background:var(--good)}
 /* saving-goal sheet rows (#savegoal-list) */
 .sg-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:transparent;font:inherit;cursor:pointer;padding:14px 4px}
 .sg-row+.sg-row{border-top:1px solid var(--divider)}
