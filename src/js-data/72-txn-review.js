@@ -210,6 +210,11 @@
     if (!r) return null;
     return {
       provider: r.source_provider || '',
+      // 200 USD and 200 VND are not the same purchase. dedup_fp has always
+      // hashed currency alongside amount; the client-side twin compared the
+      // NUMBER alone, so a USD receipt beside a VND row of equal magnitude
+      // within 3 days read as one event reported twice.
+      currency: (r.currency || '').toUpperCase(),
       occurredAt: r.occurred_at || '',
       pipelineDup: !!r.duplicate_of_id,
     };

@@ -64,24 +64,28 @@ t('empty is empty, never a match key', csvCanonicalProvider('') === '' && csvCan
 /* ------------------------------------------------------------ 2. the rule */
 console.log('\n-- cross-source rule in isolation --');
 const cand = (amount, day) => ({ amount: amount, date: new Date(day), dateDisplay: day });
-const prior = (amount, day, provider) => ({ c: cand(amount, day), provider: csvCanonicalProvider(provider) });
+const prior = (amount, day, provider, cur) => ({ c: cand(amount, day), provider: csvCanonicalProvider(provider), currency: (cur||'VND') });
 
 t('same bank twice is NOT a duplicate',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', [prior(2000, '2026-08-16', 'MBBank')]) === null);
+  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', 'VND', [prior(2000, '2026-08-16', 'MBBank')]) === null);
 t('different source, same amount, same day IS flagged',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', [prior(2000, '2026-08-16', 'Grab')]) !== null);
+  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', 'VND', [prior(2000, '2026-08-16', 'Grab')]) !== null);
 t('within 3 days still flagged',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-19'), 'MB Bank', [prior(2000, '2026-08-16', 'Grab')]) !== null);
+  csvStagedCrossSourceDup(cand(2000, '2026-08-19'), 'MB Bank', 'VND', [prior(2000, '2026-08-16', 'Grab')]) !== null);
 t('4 days apart is not',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-20'), 'MB Bank', [prior(2000, '2026-08-16', 'Grab')]) === null);
+  csvStagedCrossSourceDup(cand(2000, '2026-08-20'), 'MB Bank', 'VND', [prior(2000, '2026-08-16', 'Grab')]) === null);
 t('different amount is not',
-  csvStagedCrossSourceDup(cand(3000, '2026-08-16'), 'MB Bank', [prior(2000, '2026-08-16', 'Grab')]) === null);
+  csvStagedCrossSourceDup(cand(3000, '2026-08-16'), 'MB Bank', 'VND', [prior(2000, '2026-08-16', 'Grab')]) === null);
 t('unknown provider on MY side refuses to guess',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), '', [prior(2000, '2026-08-16', 'Grab')]) === null);
+  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), '', 'VND', [prior(2000, '2026-08-16', 'Grab')]) === null);
 t('unknown provider on THEIR side refuses to guess',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', [prior(2000, '2026-08-16', '')]) === null);
+  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', 'VND', [prior(2000, '2026-08-16', '')]) === null);
 t('no date refuses to guess',
-  csvStagedCrossSourceDup({ amount: 2000, date: null }, 'MB Bank', [prior(2000, '2026-08-16', 'Grab')]) === null);
+  csvStagedCrossSourceDup({ amount: 2000, date: null }, 'MB Bank', 'VND', [prior(2000, '2026-08-16', 'Grab')]) === null);
+t('200 USD is not 200 VND',
+  csvStagedCrossSourceDup(cand(200, '2026-08-16'), 'Anthropic', 'USD', [prior(200, '2026-08-16', 'MB Bank', 'VND')]) === null);
+t('but 200 USD twice, from two sources, still matches',
+  csvStagedCrossSourceDup(cand(200, '2026-08-16'), 'Anthropic', 'USD', [prior(200, '2026-08-16', 'MB Bank', 'USD')]) !== null);
 
 /* --------------------------------------------------------- 3. in the screen */
 const row = (desc, amount, day, i) => ({
@@ -93,7 +97,8 @@ const stagedMode = (rows, fn) => {
   window._fhStagedRows = rows;
   window.fhStagedMeta = function (ri) {
     var r = rows[ri];
-    return r ? { provider: r.source_provider || '', occurredAt: r.occurred_at || '', pipelineDup: !!r.duplicate_of_id } : null;
+    return r ? { provider: r.source_provider || '', currency: (r.currency || 'VND'),
+                 occurredAt: r.occurred_at || '', pipelineDup: !!r.duplicate_of_id } : null;
   };
   try { return fn(); } finally { window.csvStagedMode = false; window.fhStagedMeta = null; }
 };

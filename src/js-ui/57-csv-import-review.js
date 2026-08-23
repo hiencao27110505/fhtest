@@ -765,13 +765,18 @@ function csvCanonicalProvider(name) {
    refuses to guess, for the reason the pipeline gives and this screen exists to
    honour -- a missed duplicate costs one tap to skip; a false one hides real
    money behind a decision nobody asked for. */
-function csvStagedCrossSourceDup(c, provider, priors) {
+function csvStagedCrossSourceDup(c, provider, currency, priors) {
   var mine = csvCanonicalProvider(provider);
   if (!mine || !c.date) return null;
+  var cur = (currency || '').toUpperCase();
   for (var i = 0; i < priors.length; i++) {
     var p = priors[i];
     if (!p.provider || !p.c.date) continue;
     if (p.provider === mine) continue;                       // same bank -> two real transactions
+    // Currency before amount: dedup_fp hashes 'amount|direction|currency', and
+    // comparing the number alone made 200 USD and 200 VND one event. Direction
+    // needs no check here -- credits are deferred out before this runs.
+    if (p.currency !== cur) continue;
     if (Math.abs(Number(p.c.amount) - Number(c.amount)) >= 1) continue;
     if (Math.abs(p.c.date.getTime() - c.date.getTime()) / 86400000 > 3) continue;
     return p.c;
@@ -840,14 +845,17 @@ function bucketCsvCandidates(candidates, mixedSigns) {
          a pair this screen cannot -- two unreviewed emails, same amount,
          different wording -- so the detection is kept. What it no longer gets
          is the power to act alone. */
+      var currency = (meta && meta.currency) || '';
+      var prior = { c: c, provider: csvCanonicalProvider(provider), currency: currency };
+
       if (meta && meta.pipelineDup) {
         c.duplicateOfPipeline = true; possibleDuplicate.push(c);
-        priors.push({ c: c, provider: csvCanonicalProvider(provider) });
+        priors.push(prior);
         return;
       }
 
-      var sourceMatch = csvStagedCrossSourceDup(c, provider, priors);
-      priors.push({ c: c, provider: csvCanonicalProvider(provider) });
+      var sourceMatch = csvStagedCrossSourceDup(c, provider, currency, priors);
+      priors.push(prior);
       if (sourceMatch) { c.duplicateOfSource = sourceMatch; possibleDuplicate.push(c); return; }
     }
 
