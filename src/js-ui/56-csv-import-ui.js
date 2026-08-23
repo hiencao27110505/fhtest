@@ -831,8 +831,14 @@ function renderCsvReview(){
               _handled:true,
               tapFn:"csvToggleExpand('dup',"+di+")", removeFn:"csvDupSkip("+di+")" };
     if(!csvIsOpen('dup', di)){ handledHtml += csvCollapsedCard(d.c, o); return; }
+    /* duplicateOfPipeline and duplicateOfSource are the same finding from two
+       places -- the pipeline spotted it at 3am, this screen spotted it just now
+       -- and which layer noticed is not something anyone reviewing a receipt
+       cares about. One line for both; the flags stay separate for tests. */
     var why = d.c.duplicateOfExisting
       ? L('Trùng với một giao dịch đã có trong sổ: cùng số tiền, trong vòng 3 ngày.','Matches a transaction already in your ledger: same amount, within 3 days.')
+      : (d.c.duplicateOfPipeline || d.c.duplicateOfSource)
+      ? L('Có một email khác cùng số tiền, từ nguồn khác, trong vòng 3 ngày. Có thể là một lần chi được báo hai lần.','There is another email for the same amount, from a different source, within 3 days. This may be one purchase reported twice.')
       : csvStagedMode
         ? L('Xuất hiện 2 lần với cùng nội dung và số tiền.','Appears twice with the same description and amount.')
         : L('Xuất hiện 2 lần trong file này với cùng nội dung và số tiền.','Appears twice in this file with the same description and amount.');
