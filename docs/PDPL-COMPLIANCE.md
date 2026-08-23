@@ -66,29 +66,58 @@ exist first. They join the beta-reopen checklist:
    contradicting any deletion promise. Give them their own window (90 days) in
    `sweepProcessedMail`. Small `.gs` change + test.
 3. **Consent record + review**: store `consent_v` + `consented_at` + user id
-   on the connection (consent must be provable), and a "Xem lại điều bạn đã
-   đồng ý" row so the person can re-read what they accepted (v2 text below is
-   consent_v = 2).
+   on the connection (consent must be provable — the record shows the person
+   "chủ động xác nhận đồng ý", MoMo's affirmative-act phrasing), and a "Xem
+   lại điều bạn đã đồng ý" row so the person can re-read what they accepted
+   (v3 text below is consent_v = 3).
+4. **A real privacy-policy page** (`privacy.html` exists as an OAuth stub —
+   it becomes the full Chính sách quyền riêng tư). The consent sheet is the
+   moment; the policy is the reference it links to for the complete rights
+   enumeration, retention table, and sharing list. Skeleton per MoMo's
+   counsel-vetted section headers: Phạm vi áp dụng · Nguyên tắc xử lý dữ liệu
+   cá nhân · Các loại thông tin cá nhân được thu thập và xử lý · Mục đích xử
+   lý dữ liệu · Chia sẻ dữ liệu · Thời hạn lưu trữ dữ liệu · Quyền lựa chọn
+   của Người dùng.
 
-## 5. Consent sheet v2 — legally reviewed draft
+## 5. Consent sheet v3 — legally reviewed, benchmarked against MoMo
 
 Placement: connect flow, between the intro sheet and the which-email step.
 One affirmative CTA; declining costs only this feature. The four grandfathered
-users see it once, retroactively. v1 → v2 fixes five overclaims (relay
+users see it once, retroactively. v1 → v2 fixed five overclaims (relay
 deletion timing incl. trash tail; parse-failed carve-out; "we cannot read it"
 softened to design-intent; "values never leave" scoped to Gemini; two-step
 withdrawal) and six omissions (controller identity, family visibility,
 whole-email transit scope, retention per category, refusal consequence,
-rights contact).
+rights contact). v2 → v3 benchmarks against MoMo's privacy policy
+(momo.vn/chinh-sach-quyen-rieng-tu), adopting their exact terms where
+stronger:
+
+- **"với vai trò là bên kiểm soát và xử lý dữ liệu cá nhân"** — the statutory
+  role naming, verbatim.
+- **"đặt ngoài lãnh thổ Việt Nam"** — the statutory cross-border phrase
+  (was: "đặt ngoài Việt Nam").
+- **The state-authority carve-out.** Our "không chia sẻ cho ai khác" was
+  absolute and therefore falsifiable under a lawful order. Adopted MoMo's
+  "cơ quan nhà nước có thẩm quyền" category — with our honest addendum that
+  for sealed values what we can produce is ciphertext.
+- **Canonical rights enumeration** (quyền truy cập, chỉnh sửa, yêu cầu xóa,
+  rút lại sự đồng ý, hạn chế hoặc phản đối xử lý, phản ánh và khiếu nại) —
+  as a pointer line into the policy page.
+
+Deliberately NOT adopted from MoMo: their vague retention formula ("trong
+thời gian cần thiết…") — our concrete numbers are stronger; and they never
+name data as sensitive in the consent moment — ours must (sensitive-data
+consent requirement), and does.
 
 ### Tiếng Việt
 
 > **Trước khi kết nối, đọc phút này đã nhé**
 >
-> Earthy được vận hành bởi [tên pháp lý / hai người vận hành] — liên hệ về dữ
-> liệu: [email]. Khi bạn chuyển tiếp email ngân hàng, tụi mình xử lý nội dung
-> email đó, và trích xuất thông tin giao dịch: số tiền, thời điểm, người nhận
-> hay cửa hàng, lời nhắn chuyển khoản, số tài khoản đã che bớt, tên ngân hàng.
+> Earthy được vận hành bởi [tên pháp lý / hai người vận hành], với vai trò là
+> bên kiểm soát và xử lý dữ liệu cá nhân — liên hệ về dữ liệu: [email]. Khi
+> bạn chuyển tiếp email ngân hàng, tụi mình xử lý nội dung email đó, và trích
+> xuất thông tin giao dịch: số tiền, thời điểm, người nhận hay cửa hàng, lời
+> nhắn chuyển khoản, số tài khoản đã che bớt, tên ngân hàng.
 >
 > **Theo Luật Bảo vệ dữ liệu cá nhân, đây là dữ liệu cá nhân nhạy cảm.** Tụi
 > mình cần bạn biết điều đó, và đồng ý rõ ràng, trước khi bắt đầu.
@@ -101,20 +130,24 @@ rights contact).
 > khoản thật rồi mới nhờ Google Gemini đọc cấu trúc. Giá trị thật không bao
 > giờ được gửi cho Gemini.
 > • Giao dịch được niêm phong ngay khi nhận, lưu trên máy chủ Supabase đặt
-> ngoài Việt Nam, và được thiết kế để chỉ thiết bị của nhà bạn mở được. Bản
-> chờ duyệt giữ đến khi bạn duyệt hoặc ngắt kết nối.
+> ngoài lãnh thổ Việt Nam, và được thiết kế để chỉ thiết bị của nhà bạn mở
+> được. Bản chờ duyệt giữ đến khi bạn duyệt hoặc ngắt kết nối.
 > • Giao dịch bạn duyệt sẽ vào sổ chi tiêu chung và hiển thị cho các thành
 > viên trong gia đình bạn, đến khi gia đình xoá.
 >
 > **Dùng để làm gì:** ghi sổ và quản lý chi tiêu trong ứng dụng, cho chính gia
-> đình bạn. Không bán, không chia sẻ cho ai khác ngoài các dịch vụ nêu trên,
-> không quảng cáo.
+> đình bạn. Không bán, không quảng cáo, không chia sẻ cho ai khác ngoài các
+> dịch vụ nêu trên, trừ trường hợp cơ quan nhà nước có thẩm quyền yêu cầu theo
+> đúng quy định pháp luật. Khi đó, với các giá trị đã niêm phong, thứ tụi mình
+> có thể cung cấp chỉ là dữ liệu đã mã hoá.
 >
 > **Quyền của bạn:** đổi ý lúc nào cũng được. Ngắt kết nối trong Cài đặt, và
 > xoá quy tắc chuyển tiếp trong Gmail của bạn, là dừng hẳn. Giao dịch đang chờ
 > duyệt được xoá trong vòng 72 giờ. Muốn xoá sạch dữ liệu, nhắn tụi mình theo
-> địa chỉ trên. Không đồng ý thì tính năng này không bật, các phần khác của
-> Earthy vẫn dùng bình thường.
+> địa chỉ trên. Bạn còn có quyền truy cập, chỉnh sửa, yêu cầu xóa dữ liệu, rút
+> lại sự đồng ý, hạn chế hoặc phản đối xử lý, và phản ánh, khiếu nại — chi
+> tiết trong Chính sách quyền riêng tư [link]. Không đồng ý thì tính năng này
+> không bật, các phần khác của Earthy vẫn dùng bình thường.
 >
 > **[Tôi hiểu và đồng ý]** · *Để sau*
 
@@ -122,10 +155,11 @@ rights contact).
 
 > **One minute before you connect**
 >
-> Earthy is operated by [legal name / the two operators] — data contact:
-> [email]. When you forward bank emails, we process the content of those
-> emails, and extract the transaction information: amount, time, who was paid,
-> the transfer note, the partially hidden account number, and the bank's name.
+> Earthy is operated by [legal name / the two operators], acting as the
+> personal-data controller and processor — data contact: [email]. When you
+> forward bank emails, we process the content of those emails, and extract
+> the transaction information: amount, time, who was paid, the transfer note,
+> the partially hidden account number, and the bank's name.
 >
 > **Under the Personal Data Protection Law, this is sensitive personal data.**
 > We want you to know that, and to agree clearly, before anything starts.
@@ -144,13 +178,17 @@ rights contact).
 > your family members, until the family deletes them.
 >
 > **What it's for:** recording and managing spending in the app, for your own
-> family. Never sold, never shared beyond the services above, never ads.
+> family. Never sold, never used for ads, never shared beyond the services
+> above — except where a competent state authority lawfully requires it, in
+> which case, for sealed values, what we can produce is ciphertext.
 >
 > **Your rights:** change your mind anytime. Disconnecting in Settings, plus
 > deleting your forwarding rule in Gmail, stops everything. Pending
 > transactions are deleted within 72 hours. To erase everything, contact us at
-> the address above. If you decline, only this feature stays off — the rest of
-> Earthy works normally.
+> the address above. You also have the rights to access, correct, request
+> deletion, withdraw consent, restrict or object to processing, and lodge a
+> complaint — detailed in the Privacy Policy [link]. If you decline, only this
+> feature stays off — the rest of Earthy works normally.
 >
 > **[I understand and agree]** · *Not now*
 
