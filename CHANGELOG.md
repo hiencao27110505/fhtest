@@ -18,6 +18,45 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-08-23
+
+### A duplicate becomes a suspicion instead of a delete order (08-23)
+
+Staged bank-email rows carry `duplicate_of_id`, set by the pipeline's cross-source
+check. The client filtered those rows out of the fetch entirely, so the flag was
+not an annotation — it was a deletion, executed by a guess.
+
+Three things made that guess unsafe in combination, and each was individually
+defensible. The rule compares `source_provider` strings, and one bank writes its
+own name three ways, so two genuine transfers looked cross-source. It runs
+unattended at ingest, with no human to check it. And `0060` deletes staged rows on
+promotion, so the original a later duplicate would match against is often already
+gone — meaning the check is racing the user's own review speed, and gets weaker the
+more diligent they are. A real 2.000đ transfer disappeared: no row on screen, no
+notification, and nothing anywhere saying a row had been suppressed.
+
+The detection was kept; the authority was not. The pipeline genuinely sees a pair
+the screen cannot — two unreviewed emails for one purchase, same amount, different
+wording, which a description-keyed check can never match. Flagged rows now come
+back and land in the review screen's existing "Có thể trùng" bucket, with *Vẫn
+nhập* / *Bỏ qua*, and `queueReviewNotice` announces them (`-c`) because a row that
+is really in the queue must say so.
+
+The screen also runs the cross-source rule itself now, which turned out to need
+nothing new: `source_provider` is deliberately never sealed (a hash matches only
+exactly, and bank names need fuzzy matching), so the client already held every
+input the pipeline has, plus the decrypted amount — it was simply being dropped by
+a four-column projection. `csvCanonicalProvider` ports the bank-name canonicaliser
+and `csvStagedCrossSourceDup` applies the same amount / ±3 days / different-source
+rule, refusing to guess when either name is unrecognised.
+
+`dedup_fp` is untouched and still correct. It is no longer load-bearing, but
+retiring it is a separate decision from building its replacement.
+
+One visible consequence: every row the pipeline had previously hidden reappears in
+the review queue. Ones already logged by hand are caught by the ledger cross-match
+and shown as such.
+
 ## 2026-08-16
 
 ### Review notifications reach an actual person (08-16)

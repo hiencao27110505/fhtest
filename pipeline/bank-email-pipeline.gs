@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-17-b';
+var PIPELINE_VERSION = '2026-08-17-c';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -1562,20 +1562,28 @@ function isAlreadyStaged(gmailMessageId) {
 // supabasePost returns PostgREST's error OBJECT on failure (truthy), which is the
 // trap SEALED-STAGING-DESIGN.md §8 warns about.
 //
-// Two rows are silently excluded, and both matter more than they look:
-//   • no member_id — unrouted, so 0058 shows it to nobody. There is no audience.
-//   • duplicate_of_id set — fhFetchStagedTxns filters merged duplicates out
-//     (`.is('duplicate_of_id', null)`), so notifying for one promises a queue
-//     entry that does not exist. A notification that opens an empty screen is the
-//     cry-wolf the alarm design goes out of its way to avoid; it teaches people
-//     that the banner is noise.
+// One row is silently excluded: no member_id — unrouted, so 0058 shows it to
+// nobody. There is no audience, so there is no banner.
 //
-// Both fields survive sealing: member_id is a luggage tag (§3), and once dedup
-// moves client-side (§7) duplicate_of_id simply stops being set, which leaves this
-// rule true rather than broken. Nothing here reads a field that becomes ciphertext.
+// duplicate_of_id USED to be excluded too, and the reason was sound at the time:
+// fhFetchStagedTxns filtered merged duplicates out, so notifying for one promised
+// a queue entry that did not exist, and a notification opening an empty screen is
+// the cry-wolf this design goes out of its way to avoid.
+//
+// That premise is gone. The client stopped treating the flag as a delete order —
+// a guess made blind here, with no human present, was hiding real transactions —
+// so a flagged row now DOES appear in the queue, in its "possible duplicate"
+// section, for a person to accept or skip. Excluding it from the count is what
+// would lie: a row arrives and nothing says so.
+//
+// Worth noting the comment this replaces anticipated the failure and guessed the
+// wrong route: it expected duplicate_of_id to stop being SET once dedup moved
+// client-side. It is still set. What moved was who gets to act on it.
+//
+// member_id survives sealing (§3 luggage tag). Nothing here reads a field that
+// becomes ciphertext.
 function queueReviewNotice(row) {
   if (!row || !row.member_id) return;
-  if (row.duplicate_of_id) return;
   _PENDING_NOTIFY[row.member_id] = (_PENDING_NOTIFY[row.member_id] || 0) + 1;
 }
 

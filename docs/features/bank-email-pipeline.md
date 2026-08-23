@@ -25,7 +25,7 @@ Concretely: `git show origin/bank-email-pipeline-code:pipeline/bank-email-pipeli
 
 Six additive tables — no existing table (`transactions`, `members`, `categories`, `families`) is altered:
 
-- **`email_transactions`** (`0025_bank_email_pipeline.sql:62-91`) — the staging/ingestion log, never the real ledger. Keyed on `gmail_message_id` (dedupe). Notable columns: `transaction_type` (`bank_txn`/`subscription`/`ecommerce_receipt`/`p2p_transfer`/`bill_payment`), `currency` (per-row — the real `transactions` table has no currency column, see Current State), `raw_body`/`raw_extracted` (full email + full LLM output, kept for reprocessing), `review_status` (`pending`/`approved`/`rejected`), `promoted_transaction_id` (FK into `transactions`, set once a row is promoted), `duplicate_of_id` (self-FK, set by the cross-source dedup check). `member_id` was added later by `0028` (`0028_bank_email_member_routing.sql:15-16`) so a future review UI can route a pending row to the right person's queue without re-deriving identity from the original Gmail message.
+- **`email_transactions`** (`0025_bank_email_pipeline.sql:62-91`) — the staging/ingestion log, never the real ledger. Keyed on `gmail_message_id` (dedupe). Notable columns: `transaction_type` (`bank_txn`/`subscription`/`ecommerce_receipt`/`p2p_transfer`/`bill_payment`), `currency` (per-row — the real `transactions` table has no currency column, see Current State), `raw_body`/`raw_extracted` (full email + full LLM output, kept for reprocessing), `review_status` (`pending`/`approved`/`rejected`), `promoted_transaction_id` (FK into `transactions`, set once a row is promoted), `duplicate_of_id` (self-FK, set by the cross-source dedup check — a **suspicion** shown to the reviewer since 2026-08-23, never a reason to hide a row; see Current State). `member_id` was added later by `0028` (`0028_bank_email_member_routing.sql:15-16`) so a future review UI can route a pending row to the right person's queue without re-deriving identity from the original Gmail message.
 - **`parse_failures`** (`0025_bank_email_pipeline.sql:93-101`) — anything the pipeline couldn't parse or classify; raw body + `error_reason` kept for triage.
 - **`sender_fingerprints`** (`0025_bank_email_pipeline.sql:118-130`) — classification/extraction cache keyed on `(sender_address, subject_template)`, **not** sender alone, because a single sender (especially a human forwarding address) can send both transaction and non-transaction mail. `is_transaction_source` is the cached classifier verdict; `extraction_regex` is the promoted local-parse template (technical confidence — parsing worked); `human_verified` is set only when a person approves a pending row using that fingerprint (ledger-write confidence) — as of `0027` this no longer gates promotion at all, see below.
 - **`mailbox_connections`** (`0025_bank_email_pipeline.sql:138-145`) — resolves a forwarded email to a family member via a per-member `+tag` forwarding alias (`txn+<id>@yourapp.com`) on one shared inbox, not a separate mailbox per user and not by guessing at headers. `member_id` FKs into `members(id)`.
@@ -75,6 +75,30 @@ This is explicitly modeled on the app's own CSV-import masking: `src/js-data/43-
 This is **design intent only** — no sealed-box code exists in `src/js-data/15-crypto.js` or anywhere else in the client, and no schema for `sealed_ct` or the X25519 keypair exists in any migration. It is option 2 in the open encryption question below.
 
 ## Current State
+
+> **Read this first — most of this section predates the work that answered it.**
+> Everything below the next two paragraphs was written before sealed staging and
+> the review screen shipped. It is kept for the reasoning, not the status.
+>
+> - *"Unresolved: who encrypts `email_transactions`"* — **resolved.** Option 2
+>   (asymmetric sealed box) was built: `0065` + `0068`, `pipeline/sealed-box.gs`,
+>   `pipeline/SEALED-STAGING-DESIGN.md`. There is no plaintext-at-rest window.
+> - *"Review UI unbuilt"* — **built.** `src/js-data/72-txn-review.js` drives the
+>   CSV import screen in staged mode.
+>
+> **Dedup, amended 2026-08-23.** `duplicate_of_id` is a suspicion the reviewer
+> resolves, not a row the pipeline may hide. It was filtered out of the staged
+> fetch, which let a guess made with no human present — on a rule that treated
+> "MB Bank" and "MBBank" as different institutions — delete a real 2.000đ
+> transfer from view and cancel its notification, with nothing on screen and no
+> way back. Flagged rows now land in the review screen's "possible duplicate"
+> bucket, and `queueReviewNotice` announces them. The client additionally runs
+> the same cross-source rule itself (`csvStagedCrossSourceDup`), with the
+> decrypted amount and the unsealed `source_provider` — more evidence than the
+> pipeline has, in front of the person who made the purchase. `dedup_fp` is
+> unchanged and still correct; it is no longer load-bearing. Rationale and the
+> full comparison of server-side vs client-side dedup: `SEALED-STAGING-DESIGN.md`
+> §7.
 
 **Unresolved: who encrypts `email_transactions`, and when.** This is the pipeline's single biggest open design question, raised in `AGENT_SYNC.md`'s Open section (2026-08-07 entry, "from bank-email pipeline") and not yet answered as of the most recent entry in that file. The problem is structural, not a missed detail: FamilyHub's existing "staging tables get `_enc` columns from day one" pattern assumes the writer holds the family DEK (true for CSV import — the client writes CSV staging rows and already has the key in memory) — but the bank-email writer is an **unattended server-side script** (Apps Script today; any future backend replacement has the same property) that by design can **never** hold the family DEK. `_enc` columns alone don't answer who fills them. Three options are on the table (`AGENT_SYNC.md`, Open section, 2026-08-07 entry):
 
