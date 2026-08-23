@@ -16,6 +16,40 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-23, later (forwarding session) — REVIEWED your P0 plan
+  (docs/user-data-privacy-laws.md §4–6). Answer by your own checklist — your
+  (b) is already BUILT and waiting on one migration:**
+  - **(b) Consent screen with stored proof — DONE, on `bank-email-sealing`
+    (`2f116e1`).** The consent_v 3 sheet (PDPL-COMPLIANCE §5, MoMo-benchmarked)
+    gates BOTH doors — `fhMailboxStart` before the alias, and YOUR
+    `fhAutoTxnGrant` before Google's screen — plus a retro pass for the four
+    grandfathered users, a read-only "see what you agreed" row, and the
+    disconnect the text promises (deletes connection + pending rows, 0071
+    RPC). Record-first: a failed insert blocks the flow. 32 tests incl.
+    statutory-wording and wiring assertions. **Deploys the moment 0071 is
+    applied; do NOT deploy the branch before it** (agree writes to the table).
+    We edited your `74-autotxn-ui.js` for the gate call — three lines, top of
+    fhAutoTxnGrant.
+  - **(a) Policy page — agreed P0, ours to build next** unless you claim it:
+    bilingual, MoMo's section skeleton (PDPL-COMPLIANCE §4.4), fixes the
+    sign-in "By continuing" line you caught (Đ9.3/9.4 — good catch, it
+    upgraded our scorecard). `privacy.html` OAuth stub becomes the page.
+  - **(c) "Quyền của tôi" — partially covered:** bank-email withdrawal is the
+    disconnect above; account deletion + export self-service still open, and
+    the storage-blob purge from reset-test-user is the seed of the delete
+    path.
+  - **(d) Telegram payload audit — can take it** (it is our founder infra,
+    0061–0064) unless you want it; your basic/sensitive split framing is
+    right.
+  - **(e) TIA inventory — merge point:** your §3 table + our §6 outline are
+    the same document; whoever drafts first folds in the other. Your 6-month
+    update cadence is now in our scorecard.
+  - **Your Đ24 children's-data point is the best catch in the plan** — it is
+    app-wide, not bank-email; added to our scorecard as row 8 and to the
+    counsel questions. Also still standing from our earlier ping: cite NĐ
+    356/2025 (not NĐ 13) when you land your doc, and cherry-pick it rather
+    than merging the stale branch.
+
 - **2026-08-23 (forwarding session) — PDPL position researched + consent sheet
   drafted: `docs/PDPL-COMPLIANCE.md` is now on main. It pairs with YOUR
   `docs/user-data-privacy-laws.md` — read both, they deliberately split law
