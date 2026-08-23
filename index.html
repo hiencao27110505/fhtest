@@ -15243,6 +15243,10 @@ window.obGoogle = async function () {
       _subscribeRealtime(fid);
       fhFresh();                                        // fresh data is on screen — drop the "Updating…" chip
       try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}   // email-txn badge (off critical path)
+      // layer-1 data consent (0071): once per user, off the critical path, and
+      // throw-guarded like everything else here - a consent check must never
+      // cost a hydrate.
+      try { window.fhAppDataConsentCheck && window.fhAppDataConsentCheck(); } catch (e) {}
       // emotional weather: one current mood per member (shared, realtime).
       // Fetched after first paint (it's tiny + off the critical path), then the
       // home sky repaints — this is what makes a mood set on one phone appear on
@@ -21499,6 +21503,14 @@ window.classifyAmount = classifyAmount;
 
   var FH_CONSENT_V = 3;
   var FH_CONSENT_KIND = 'bank_email';
+  /* Layer 1: the app-wide data consent, asked once at first boot after
+     sign-in. Sensitive-grade ON PURPOSE even though manual entries are
+     arguably basic data: the classification of self-reported and IMPORTED
+     spending (CSV bank statements are credit-institution records by any
+     reading) is untested under NĐ 356, and explicit consent makes the
+     question moot instead of load-bearing (PDPL-COMPLIANCE §5). */
+  var FH_APPDATA_CONSENT_V = 1;
+  var FH_APPDATA_KIND = 'app_data';
   // The controller line. Unincorporated today, so it names the operators;
   // swap for the legal entity if one is ever formed (and bump the version).
   var FH_DATA_OPERATORS_VI = 'Trang và Hiên';
@@ -21532,6 +21544,66 @@ window.classifyAmount = classifyAmount;
       if (rec && rec.version >= FH_CONSENT_V) return true;
       window.fhConsentSheet({ then: then });
       return false;
+    };
+
+    /* ── layer 1: app-wide data consent, once per user ──────────────────────
+       Called fire-and-forget from hydrate's off-critical-path block. Unlike
+       the bank-email gate this never interrupts an action, so its failure
+       posture differs: a transient fetch error at boot SKIPS this boot and
+       asks on the next one, rather than nagging every flaky reload. "Để sau"
+       does the same by simply not recording. The record, once written, ends
+       the asking forever (until a version bump re-opens it). */
+    var _appDataAsked = false;
+    window.fhAppDataConsentCheck = async function () {
+      if (_appDataAsked) return;
+      _appDataAsked = true;
+      var res;
+      try {
+        res = await sb.from('user_consents')
+          .select('version')
+          .eq('kind', FH_APPDATA_KIND)
+          .order('version', { ascending: false })
+          .limit(1);
+      } catch (e) { return; }
+      if (!res || res.error) return;
+      var rec = res.data && res.data[0];
+      if (rec && rec.version >= FH_APPDATA_CONSENT_V) return;
+      window.fhAppDataConsentSheet();
+    };
+
+    window.fhAppDataConsentSheet = function () {
+      _fhSheet(
+        '<div class="mbx-hero">' + _mbxGlyph('lock') + '</div>' +
+        '<div class="sheet-h">' + _esc(L('Dữ liệu của nhà mình, nói rõ một lần', 'Your family’s data, said plainly once')) + '</div>' +
+        '<div class="cst-body">' +
+        _cstRow(L('Ai xử lý', 'Who processes it'), _esc(L(
+          'Earthy được vận hành bởi ' + FH_DATA_OPERATORS_VI + ', với vai trò là bên kiểm soát và xử lý dữ liệu cá nhân. Liên hệ về dữ liệu: ' + FH_DATA_CONTACT + '.',
+          'Earthy is operated by ' + FH_DATA_OPERATORS_EN + ', acting as the personal-data controller and processor. Data contact: ' + FH_DATA_CONTACT + '.'))) +
+        _cstRow(L('Ứng dụng lưu gì', 'What the app stores'), _esc(L(
+          'Email đăng nhập và tên của bạn. Tên và ảnh đại diện các thành viên gia đình, kể cả trẻ em do cha mẹ thêm vào. Các khoản thu chi bạn tự ghi hoặc nhập từ tệp, kể cả bảng sao kê ngân hàng, cùng ghi chú, hạng mục và ảnh đính kèm. Đây là dữ liệu tài chính của bạn, tụi mình đối xử với nó như dữ liệu cá nhân nhạy cảm.',
+          'Your sign-in email and name. Family members’ names and avatars, including children added by parents. The spending you record or import from files, including bank statements, with notes, categories and photos. This is your financial data, and we treat it as sensitive personal data.'))) +
+        _cstRow(L('Lưu ở đâu, ai thấy', 'Where it lives, who sees it'), _esc(L(
+          'Dữ liệu lưu trên máy chủ đặt ngoài lãnh thổ Việt Nam. Với gia đình đã bật mã hoá, số tiền, ghi chú và ảnh được mã hoá ngay trên thiết bị, máy chủ chỉ giữ bản mã. Khoản chi vào sổ chung sẽ hiển thị cho các thành viên trong gia đình bạn. Không bán, không quảng cáo, không chia sẻ cho ai khác, trừ trường hợp cơ quan nhà nước có thẩm quyền yêu cầu theo đúng quy định pháp luật.',
+          'Data is stored on servers located outside Vietnam. For families with encryption on, amounts, notes and photos are encrypted on your device and servers hold only ciphertext. Entries in the shared ledger are visible to your family members. Never sold, never ads, never shared with anyone else, except where a competent state authority lawfully requires it.'))) +
+        _cstRow(L('Quyền của bạn', 'Your rights'),
+          _esc(L('Truy cập, chỉnh sửa, yêu cầu xóa, rút lại sự đồng ý, hạn chế hoặc phản đối xử lý, và khiếu nại. Chi tiết trong ',
+                 'Access, correct, request deletion, withdraw consent, restrict or object to processing, and complain. Details in the ')) +
+          '<a href="./privacy.html" target="_blank" rel="noopener">' + _esc(L('Chính sách quyền riêng tư', 'Privacy Policy')) + '</a>.') +
+        '</div>' +
+        '<button class="cta" onclick="fhAppDataConsentAgree(this)">' + _esc(L('Tôi hiểu và đồng ý', 'I understand and agree')) + '</button>' +
+        '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>');
+    };
+
+    window.fhAppDataConsentAgree = async function (btn) {
+      if (btn) { btn.disabled = true; btn.textContent = L('Đang ghi nhận…', 'Recording…'); }
+      var res = await sb.from('user_consents').insert({ kind: FH_APPDATA_KIND, version: FH_APPDATA_CONSENT_V });
+      var dup = res.error && /duplicate key|already exists/i.test(res.error.message || '');
+      if (res.error && !dup) {
+        if (btn) { btn.disabled = false; btn.textContent = L('Tôi hiểu và đồng ý', 'I understand and agree'); }
+        window.toast && window.toast(L('Chưa ghi nhận được, thử lại nhé', 'Could not record it, try again'));
+        return;
+      }
+      _closeOv();
     };
 
     function _cstRow(title, body) {

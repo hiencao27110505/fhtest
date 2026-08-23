@@ -396,6 +396,10 @@
       _subscribeRealtime(fid);
       fhFresh();                                        // fresh data is on screen — drop the "Updating…" chip
       try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}   // email-txn badge (off critical path)
+      // layer-1 data consent (0071): once per user, off the critical path, and
+      // throw-guarded like everything else here - a consent check must never
+      // cost a hydrate.
+      try { window.fhAppDataConsentCheck && window.fhAppDataConsentCheck(); } catch (e) {}
       // emotional weather: one current mood per member (shared, realtime).
       // Fetched after first paint (it's tiny + off the critical path), then the
       // home sky repaints — this is what makes a mood set on one phone appear on

@@ -42,7 +42,7 @@ mechanics are what is missing.
 
 | # | Obligation | Source | Status 2026-08-23 |
 |---|---|---|---|
-| 1 | Explicit consent naming the data as sensitive | L91 consent arts. + NĐ 356 | ✅ BUILT (branch `bank-email-sealing`, consent_v 3 + 0071): gates forwarding, OAuth, and the retro pass; provable record; deploys once 0071 is applied |
+| 1 | Explicit consent naming the data as sensitive | L91 consent arts. + NĐ 356 | ✅ BUILT, two layers (branch, 0071): layer 2 `bank_email` v3 gates forwarding/OAuth/retro; layer 1 `app_data` v1 asks once at first boot, sensitive-grade, covering entered AND imported spending (CSV bank statements are item-h data by any reading) |
 | 2 | DPIA dossier, Form 04, 60 days from processing start, to A05 | Đ21 | ❌ overdue — file promptly, with remediation timeline |
 | 3 | Cross-border dossier (TIA) | Đ20/22 | ❌ unstarted; inventory favorable (values cross as ciphertext); updated every 6 months, not file-and-forget |
 | 4 | Named data-protection personnel, reported to A05 | Đ33.2 | ❌ proposal: Hiên |
@@ -233,6 +233,10 @@ breach-visible logging on the notification path.
    user's direction — personal-notebook analogy acceptable?
 4. Đ38 reading: confirm sensitive-data processing voids the exemption even at
    our scale, or whether "trực tiếp xử lý" admits any narrowing.
+4b. Classification of self-reported and IMPORTED transaction data under NĐ
+   356's enumeration: manual entries are arguably basic data, CSV bank
+   statements arguably item-h. Layer-1 consent is sensitive-grade so the
+   answer changes filing wording, not exposure - but counsel should answer it.
 5. Minors, upgraded per companion-doc P0 #4: bank email presumes adults, but
    the APP processes child members' data (names, photos). Đ24 wants child +
    guardian consent from age 7. What marking + consent mechanics suffice for

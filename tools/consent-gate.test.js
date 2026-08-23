@@ -156,6 +156,41 @@ console.log('\n-- the gate asks exactly when it should --');
   t('status sheet offers review of the accepted text', mailboxSrc.indexOf('fhConsentSheet({readOnly:true})') >= 0);
   t('status sheet offers disconnect', mailboxSrc.indexOf('fhMailboxDisconnect(this)') >= 0);
 
+  // ── layer 1: app-wide data consent at boot ────────────────────────────────
+  console.log('\n-- layer 1: the app-data consent --');
+
+  reset({ data: [], error: null });
+  await window.fhAppDataConsentCheck();
+  t('no record at boot: the sheet appears', SHEETS.length === 1);
+  const l1 = SHEETS[0];
+  t('it names imported bank statements explicitly', l1.indexOf('sao kê ngân hàng') >= 0);
+  t('it treats financial data as sensitive in so many words', l1.indexOf('dữ liệu cá nhân nhạy cảm') >= 0);
+  t('offshore storage named in statutory words', l1.indexOf('ngoài lãnh thổ Việt Nam') >= 0);
+  t('family visibility disclosed', l1.indexOf('hiển thị cho các thành viên') >= 0);
+  t('links the policy', l1.indexOf('privacy.html') >= 0);
+
+  await window.fhAppDataConsentCheck();
+  t('asked once per session, not on every hydrate', SHEETS.length === 1);
+
+  reset({ data: [], error: null });
+  await window.fhAppDataConsentCheck();
+  await window.fhAppDataConsentAgree({ disabled: false, textContent: '' });
+  t('agreeing records kind app_data at the current version',
+    INSERTS.length === 1 && INSERTS[0].row.kind === 'app_data' && INSERTS[0].row.version === FH_APPDATA_CONSENT_V,
+    JSON.stringify(INSERTS));
+
+  reset({ data: [{ version: FH_APPDATA_CONSENT_V }], error: null });
+  await window.fhAppDataConsentCheck();
+  t('an existing record keeps boot silent', SHEETS.length === 0);
+
+  reset({ data: null, error: { message: 'boot flake' } });
+  await window.fhAppDataConsentCheck();
+  t('a flaky boot fetch skips THIS boot instead of nagging (asks next boot)', SHEETS.length === 0);
+
+  const hydrateSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '30-hydrate.js'), 'utf8');
+  t('hydrate actually calls the layer-1 check (wiring, not vibes)',
+    hydrateSrc.indexOf('fhAppDataConsentCheck') >= 0);
+
   // ── the migration holds up its half ───────────────────────────────────────
   console.log('\n-- migration 0071 --');
   t('RLS enabled', /enable row level security/.test(migration));
