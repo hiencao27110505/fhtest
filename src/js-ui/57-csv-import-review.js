@@ -588,8 +588,16 @@ function buildCsvCandidates(parsed, result) {
     }
     var catName = (isIncome || isTransfer) ? null : matchCategoryName(catGuess);
     var catSource = catName ? 'file' : null;
-    if (!catName && desc) {
-      var h = historyMap[normDescForDedup(desc)];
+    /* History is keyed on what past transactions were CALLED (their note), so it
+       only ever matched when the saved note happened to be the merchant. Rename a
+       row on import — "Ăn trưa" instead of "REVI PHU MY HUNG TOWER" — and the
+       category you just gave it could never be found again.
+       The counterparty is the merchant stated plainly, so try it too. The note
+       still wins: it is what the person chose to call this, and their own words
+       are better evidence than the bank's. */
+    if (!catName) {
+      var h = (desc && historyMap[normDescForDedup(desc)])
+           || (party && historyMap[normDescForDedup(party)]);
       if (h) { catName = h; catSource = 'history'; }
     }
     if (!catName) {
@@ -637,6 +645,10 @@ function buildCsvCandidates(parsed, result) {
       date: date, dateDisplay: date ? (date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0')) : '',
       amount: amount, negative: aclass.status === 'ok' && String(amtRaw).trim().indexOf('-') === 0,
       description: desc || catGuess || L('(không có mô tả)','(no description)'),
+      // Did this row actually SAY anything? The line above substitutes a
+      // placeholder, and that placeholder is identical on every silent row —
+      // which the duplicate check must not read as them all being the same thing.
+      _hasDesc: !!(desc || catGuess),
       categoryGuess: catGuess, categoryName: catName, catSource: catSource,
       counterparty: party, who: who, isIncome: isIncome, isTransfer: isTransfer,
     };
@@ -733,9 +745,26 @@ function bucketCsvCandidates(candidates, mixedSigns) {
        spending file contains, and flagging those as duplicates buries real
        spending under a decision nobody should have to make. The date is what
        separates the two, so it belongs in the key. */
-    var key = normDescForDedup(c.description) + '|' + c.amount + '|' + (c.dateDisplay || '');
-    if (seen[key]) { c.duplicateOfBatch = true; possibleDuplicate.push(c); return; }
-    seen[key] = c;
+    /* Identify the row by what it says, or failing that by who it was with. A
+       p2p transfer deliberately has NO description (72-txn-review: a pre-filled
+       wrong answer is worse than a blank field), and the blank is then replaced
+       by a placeholder that reads the same on every such row. Keyed on that, two
+       unrelated transfers of the same amount on the same day looked like one
+       entry made twice, and the second was hidden in the duplicates section.
+
+       With neither a description nor a counterparty there is nothing to compare,
+       so the row is simply not deduped. A missed duplicate costs one tap to skip;
+       a false one hides a real transaction behind a decision nobody asked for. */
+    var ident = (c._hasDesc ? normDescForDedup(c.description) : '') ||
+                normDescForDedup(c.counterparty || '');
+    if (ident) {
+      var key = ident + '|' + c.amount + '|' + (c.dateDisplay || '');
+      if (seen[key]) { c.duplicateOfBatch = true; possibleDuplicate.push(c); return; }
+      seen[key] = c;
+    }
+    // No identity: skip the in-batch check ONLY. The row still goes through the
+    // cross-match against the ledger and the needs-a-category grouping below —
+    // returning early here would file an uncategorised row straight into ready.
 
     var crossMatch = existingTxns.find(function(t) {
       if (!t._d || !c.date) return false;
