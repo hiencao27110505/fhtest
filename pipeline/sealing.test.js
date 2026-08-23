@@ -184,7 +184,7 @@ t('a different key gives a different fingerprint — it is keyed, not a hash',
 t('the key self-mints into Script Properties', !!_props.DEDUP_FP_KEY && _props.DEDUP_FP_KEY !== keyA);
 
 _props = {}; GETS = []; GET_RESULT = [];
-findDuplicate(576820, 'debit', '2026-08-15T10:00:00+07:00', 'VCB', 'VND');
+findDuplicate(576820, 'debit', '2026-08-15T10:00:00+07:00', 'VCB', 'VND', 'MEMBER-A');
 t('sealing OFF: dedup queries by amount, exactly as before',
   GETS[0].filters.amount === 'eq.576820' && GETS[0].filters.direction === 'eq.debit' &&
   !GETS[0].filters.dedup_fp, JSON.stringify(GETS[0].filters));
@@ -195,7 +195,7 @@ t('provider is not a query filter in either mode',
   GETS[0].filters.source_provider === undefined, JSON.stringify(GETS[0].filters));
 
 _props = { SEALED_STAGING_ENABLED: 'true', DEDUP_FP_KEY: keyA }; GETS = [];
-findDuplicate(576820, 'debit', '2026-08-15T10:00:00+07:00', 'VCB', 'VND');
+findDuplicate(576820, 'debit', '2026-08-15T10:00:00+07:00', 'VCB', 'VND', 'MEMBER-A');
 t('sealing ON: dedup queries by fingerprint and NEVER by amount',
   GETS[0].filters.dedup_fp === 'eq.' + fp1 && !GETS[0].filters.amount,
   JSON.stringify(GETS[0].filters));
@@ -212,7 +212,7 @@ GET_RESULT = [
   { id: 'near-late', source_provider: 'Grab', occurred_at: '2026-08-16T10:00:00+07:00', created_at: '2026-08-16' },
   { id: 'near-early', source_provider: 'Shopee', occurred_at: '2026-08-14T10:00:00+07:00', created_at: '2026-08-14' },
 ];
-const dup = findDuplicate(576820, 'debit', '2026-08-15T10:00:00+07:00', 'VCB', 'VND');
+const dup = findDuplicate(576820, 'debit', '2026-08-15T10:00:00+07:00', 'VCB', 'VND', 'MEMBER-A');
 t('outside-window and same-canonical-bank rows lose; earliest cross-source wins',
   dup && dup.id === 'near-early', JSON.stringify(dup));
 

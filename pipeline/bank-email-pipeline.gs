@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-17-c';
+var PIPELINE_VERSION = '2026-08-17-d';
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -267,9 +267,9 @@ function processOneMessage(message, runCallCount) {
 
   var mailbox = _routedMailbox;
 
-  var dup = findDuplicate(extraction.amount, extraction.direction, extraction.occurred_at,
-    extraction.source_provider, extraction.currency);
   var memberId = mailbox.member_id;
+  var dup = findDuplicate(extraction.amount, extraction.direction, extraction.occurred_at,
+    extraction.source_provider, extraction.currency, memberId);
   var row = buildEmailTransactionRow(gmailMessageId, sender, extraction, body, dup, memberId);
   row.raw_extracted = Object.assign({}, row.raw_extracted, { _sender_auth: auth });
   // Written in BOTH eras — that is what keeps dedup continuous across the flip:
@@ -1162,8 +1162,23 @@ function checkSenderAuthenticity(message, sender) {
 
 // ---------- Stage 2 helpers ----------
 
-function findDuplicate(amount, direction, occurredAt, sourceProvider, currency) {
+function findDuplicate(amount, direction, occurredAt, sourceProvider, currency, memberId) {
   if (!amount || !occurredAt) return null;
+  /* SCOPE TO THE OWNER. This query runs on the SERVICE ROLE key, which bypasses
+     RLS entirely, and it carried no member filter — so it compared the incoming
+     row against every staged row of every member of every FAMILY. Trang found it
+     from three live flags: her Vietcombank rows matched against a different
+     member's MB rows, purely because the amounts agreed within three days.
+
+     Two people spending the same amount in the same week is ordinary, not
+     evidence. And a genuine cross-source pair always lands on ONE member: the
+     bank notice and the merchant receipt both arrive at that member's own alias.
+     So member scope is not a safety net bolted on, it is the correct scope.
+
+     An unrouted row (member_id null) is deduped against nothing. It has no owner,
+     0058 shows it to no one, and matching it to a real member's row would let a
+     row nobody can see suppress one somebody is waiting for. */
+  if (!memberId) return null;
   var occurred = new Date(occurredAt);
   var windowStart = new Date(occurred.getTime() - DEDUPE_WINDOW_DAYS * 86400000).toISOString();
   var windowEnd = new Date(occurred.getTime() + DEDUPE_WINDOW_DAYS * 86400000).toISOString();
@@ -1187,6 +1202,7 @@ function findDuplicate(amount, direction, occurredAt, sourceProvider, currency) 
   var filters = {
     occurred_at: 'gte.' + windowStart,
     duplicate_of_id: 'is.null',
+    member_id: 'eq.' + memberId,
   };
   if (sealedStagingEnabled()) {
     filters.dedup_fp = 'eq.' + dedupFingerprint(amount, direction, currency);
