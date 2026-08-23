@@ -8,8 +8,9 @@ starting from the last historyId this function processed.
 The pipeline is multi-user: each notification names the mailbox it belongs to,
 and credentials for that mailbox come from the account store (accounts.py).
 
-This stage only identifies transaction mail and forwards it. Parsing amounts is
-a separate concern; see README for the intended split.
+This stage identifies transaction mail, normalises the body to text, and
+forwards it. Parsing amounts is a separate concern; see README for the split,
+and `mailtext.py` for why normalisation is on this side of the topic.
 """
 
 import base64
@@ -20,6 +21,7 @@ import os
 import accounts
 import functions_framework
 import gmail_auth
+import mailtext
 import senders
 from cloudevents.http import CloudEvent
 
@@ -50,7 +52,8 @@ def main(cloud_event: CloudEvent) -> None:
     email = notification.get("emailAddress")
     history_id = notification.get("historyId")
     if not email or not history_id:
-        log.warning("notification missing emailAddress/historyId: %s", notification)
+        log.warning(
+            "notification missing emailAddress/historyId: %s", notification)
         return
 
     log.info("gmail change for %s at historyId=%s", email, history_id)
@@ -69,7 +72,8 @@ def main(cloud_event: CloudEvent) -> None:
         # Permanent until the user reconnects — revoked, password changed, or
         # the 7-day expiry that applies to every token while the app is in
         # Testing status. Retrying cannot fix it, so record it and ack.
-        log.warning("refresh token rejected for %s; marking for re-consent", email)
+        log.warning(
+            "refresh token rejected for %s; marking for re-consent", email)
         STORE.mark_needs_reauth(email)
         return
 
@@ -173,7 +177,8 @@ def _added_message_ids(service, start_history_id: str) -> list[str]:
                 return seen
     except HttpError as exc:
         if exc.status_code == 404:
-            log.warning("history %s expired; a full resync is needed", start_history_id)
+            log.warning(
+                "history %s expired; a full resync is needed", start_history_id)
             return []
         raise  # transient (429/5xx): let Pub/Sub redeliver
 
@@ -192,25 +197,29 @@ def _message(service, message_id: str) -> dict | None:
         )
     except HttpError as exc:
         if exc.status_code == 404:
-            log.warning("message %s vanished before it could be read", message_id)
+            log.warning(
+                "message %s vanished before it could be read", message_id)
             return None
         raise
 
     payload = message.get("payload", {})
-    values = {h["name"].lower(): h["value"] for h in payload.get("headers", [])}
+    values = {h["name"].lower(): h["value"]
+              for h in payload.get("headers", [])}
     return {
         "from": values.get("from", ""),
         "subject": values.get("subject", ""),
         "date": values.get("date", ""),
-        "body": _body(payload),
+        "body": mailtext.declutter(mailtext.strip_html(_body(payload))),
     }
 
 
 def _body(payload: dict) -> str:
-    """Best-effort plain text of a message body.
+    """The raw decoded body, before normalisation.
 
     Walks the MIME tree preferring text/plain, falling back to text/html.
-    Gmail base64url-encodes part data.
+    Gmail base64url-encodes part data. The caller runs `mailtext` over the
+    result — see that module for why normalising happens here rather than in
+    the parser.
     """
     plain, htm = _collect_parts(payload)
     raw = plain or htm

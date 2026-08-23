@@ -1,14 +1,19 @@
-"""Where learned parse rules are kept.
+"""Where the two things this parser learns are kept.
 
 Two implementations behind one shape, the same arrangement as accounts.py in
 the ingest function: an in-memory store for tests and local runs, and a
 Postgres one for deployments. `create_store()` picks between them from the
 environment, so the pipeline is unchanged by the presence of a database.
 
-The table is `public.email_parse_templates` (migration 0071). It is shared
-across families rather than family-scoped, because a bank's template is the
-same for everyone — which is only safe because a spec holds field labels and
-no transaction data.
+Two tables, both shared across families rather than family-scoped, and both
+safe to share for the same reason: neither holds transaction data.
+
+* `public.email_parse_templates` (0071) — the parse rules. A bank's template
+  is the same for every household, and a spec holds field labels and nothing
+  else.
+* `public.merchant_categories` (0072) — merchant to spending category. "ăn
+  uống" is the right label for a coffee chain in any household, and a row here
+  ties a merchant to a category and to no one who paid it.
 """
 
 import json
@@ -19,6 +24,7 @@ from typing import Any
 log = logging.getLogger(__name__)
 
 TABLE = "public.email_parse_templates"
+CATEGORY_TABLE = "public.merchant_categories"
 
 # Held per process. Cloud Functions reuses a warm instance for many
 # invocations, so the pool outlives any one delivery.
@@ -35,6 +41,7 @@ class InMemoryStore:
 
     def __init__(self) -> None:
         self._by_source: dict[str, list[dict]] = {}
+        self._categories: dict[str, str] = {}
 
     def for_source(self, source: str) -> list[dict]:
         return list(self._by_source.get(source, []))
@@ -43,6 +50,12 @@ class InMemoryStore:
         specs = self._by_source.setdefault(source, [])
         if proposed not in specs:
             specs.append(proposed)
+
+    def category_for(self, merchant: str) -> str | None:
+        return self._categories.get(merchant)
+
+    def save_category(self, merchant: str, category: str) -> None:
+        self._categories.setdefault(merchant, category)
 
 
 class PostgresStore:
@@ -90,6 +103,37 @@ class PostgresStore:
                 f"values (%s, %s::jsonb, %s) "
                 f"on conflict (source, spec) do nothing",
                 (source, json.dumps(proposed), _model_name()),
+            )
+
+    def category_for(self, merchant: str) -> str | None:
+        """The category already known for this merchant.
+
+        Also credits the row, in the same statement: a separate update would
+        double the round trips on the hot path, and the counter exists to
+        answer "is this still used", which a read is exactly the evidence for.
+        """
+        with _get_pool().connection() as conn:
+            row = conn.execute(
+                f"update {CATEGORY_TABLE} "  # noqa: S608 - a module constant
+                f"set hit_count = hit_count + 1, last_used_at = now() "
+                f"where merchant = %s returning category",
+                (merchant,),
+            ).fetchone()
+        return row[0] if row else None
+
+    def save_category(self, merchant: str, category: str) -> None:
+        """Remember a category for this merchant.
+
+        `do nothing` rather than `do update`: two invocations can categorise
+        the same merchant at once, and whichever lands first is as good an
+        answer as the other. Overwriting would also silently undo a correction
+        someone made by hand.
+        """
+        with _get_pool().connection() as conn:
+            conn.execute(
+                f"insert into {CATEGORY_TABLE} (merchant, category, model) "  # noqa: S608
+                f"values (%s, %s, %s) on conflict (merchant) do nothing",
+                (merchant, category, _model_name()),
             )
 
     def record_hit(self, source: str, spec: dict) -> None:

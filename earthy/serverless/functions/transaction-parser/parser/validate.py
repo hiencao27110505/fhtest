@@ -17,6 +17,7 @@ to the balance is a misread, and that a "+" next to the figure contradicts a
 """
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 # VND. Below this a "transaction" is almost certainly a fee line, a reference
 # number that parsed as money, or a stray figure from the footer; above it,
@@ -26,6 +27,18 @@ from dataclasses import dataclass
 # spend. Anything outside it is escalated, never dropped.
 MIN_AMOUNT = 1_000
 MAX_AMOUNT = 500_000_000
+
+# How far ahead of now a printed transaction time may sit. Two days rather than
+# none because a bank's clock and this machine's can disagree, and a mail can
+# be composed a moment before it is sent.
+#
+# There is deliberately no bound in the other direction. A mailbox connected
+# for the first time replays whatever history it still holds, and a receipt
+# from two years ago is a real transaction someone still wants on the ledger —
+# an earlier 400-day bound rejected exactly that, and the cost was not one
+# missing row: the mail never reached the LLM stage, so its TEMPLATE was never
+# learned, and every later mail off it failed the same way.
+_FUTURE_GRACE_DAYS = 2
 
 
 @dataclass(frozen=True)
@@ -80,12 +93,34 @@ def check(extracted, text: str = "") -> Verdict:
     if balance is not None and balance < 0:
         reasons.append("balance negative")
 
+    occurred_at = getattr(extracted, "occurred_at", None)
+    if occurred_at is not None:
+        when = _date_problem(occurred_at)
+        if when:
+            reasons.append(when)
+
     if amount is not None and direction is not None and text:
         conflict = _sign_conflict(amount, direction, text)
         if conflict:
             reasons.append(conflict)
 
     return Verdict(ok=not reasons, reasons=tuple(reasons))
+
+
+def _date_problem(occurred_at: datetime) -> str | None:
+    """Whether a printed timestamp can be believed.
+
+    One check, in one direction: a transaction dated in the future has not
+    happened, so reading one means the wrong figure was picked up — a card
+    expiry, a departure date, a reference number that parsed as a date.
+
+    Nothing is rejected for being old. Age is not evidence of a misread: a
+    mailbox connected today replays two years of receipts, and every one of
+    them is a transaction someone wants recorded. See _FUTURE_GRACE_DAYS.
+    """
+    if occurred_at > datetime.now() + timedelta(days=_FUTURE_GRACE_DAYS):
+        return f"occurred_at {occurred_at.date()} is in the future"
+    return None
 
 
 def _sign_conflict(amount: int, direction: str, text: str) -> str | None:

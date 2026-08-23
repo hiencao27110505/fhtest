@@ -326,3 +326,121 @@ def test_the_package_exposes_one_entry_point() -> None:
     # build one per instance. Everything else is internal.
     assert parser.__all__ == ["Result", "create_store", "parse"]
     assert parser.parse is pipeline.parse
+
+
+def test_a_spec_whose_phrases_miss_its_own_mail_is_not_learned(monkeypatch):
+    """A proposal has to match the mail it came from.
+
+    Storing one that does not would put a spec in the database that can never
+    be applied — it would sit there looking learned while every future mail
+    from that sender still cost an LLM call.
+    """
+    monkeypatch.setattr(llm, "enabled", lambda: True)
+    monkeypatch.setattr(
+        llm, "extract", lambda body: llm.Reading(amount=500000, direction="credit")
+    )
+    monkeypatch.setattr(
+        llm,
+        "induce",
+        lambda body, reading: {**TCB_SPEC, "match": ["khong he co trong mail nay"]},
+    )
+
+    templates = FakeTemplates()
+    result = pipeline.parse("techcombank", TCB_CREDIT, templates)
+
+    assert result.ok  # the mail was still read
+    assert result.learned is False
+    assert templates.saved == []
+
+
+def test_a_matching_proposal_is_learned(monkeypatch):
+    monkeypatch.setattr(llm, "enabled", lambda: True)
+    monkeypatch.setattr(
+        llm,
+        "extract",
+        lambda body: llm.Reading(amount=500000, balance=12345678, direction="credit"),
+    )
+    monkeypatch.setattr(
+        llm, "induce", lambda body, reading: {**TCB_SPEC, "match": ["Techcombank"]}
+    )
+
+    templates = FakeTemplates()
+    result = pipeline.parse("techcombank", TCB_CREDIT, templates)
+
+    assert result.learned is True
+    assert templates.saved[0][1]["match"] == ["Techcombank"]
+
+
+# TCB_SPEC reads no merchant, and a category is inferred from the merchant, so
+# these need a spec that reads one.
+TCB_SPEC_WITH_MERCHANT = {**TCB_SPEC, "merchant": {"label": "Nội dung", "type": "text"}}
+
+
+def test_a_parsed_mail_carries_a_category(monkeypatch):
+    monkeypatch.setattr(parser.category, "_ask", lambda merchant, direction: "ăn uống")
+
+    templates = FakeTemplates({"techcombank": [TCB_SPEC_WITH_MERCHANT]})
+    result = pipeline.parse("techcombank", TCB_CREDIT, templates)
+
+    assert result.ok
+    assert result.category == "ăn uống"
+    assert result.category_source == "llm"
+
+
+def test_a_category_is_cached_across_mails(monkeypatch):
+    """The second mail from the same merchant costs no API call."""
+    calls = []
+    monkeypatch.setattr(
+        parser.category,
+        "_ask",
+        lambda merchant, direction: calls.append(merchant) or "ăn uống",
+    )
+
+    # A store that keeps categories as well as specs; FakeTemplates keeps only
+    # specs, and the pipeline correctly asks every time when it has nowhere to
+    # cache.
+    class Caching(FakeTemplates):
+        def __init__(self, specs):
+            super().__init__(specs)
+            self.categories: dict[str, str] = {}
+
+        def category_for(self, merchant):
+            return self.categories.get(merchant)
+
+        def save_category(self, merchant, cat):
+            self.categories.setdefault(merchant, cat)
+
+    templates = Caching({"techcombank": [TCB_SPEC_WITH_MERCHANT]})
+    pipeline.parse("techcombank", TCB_CREDIT, templates)
+    second = pipeline.parse("techcombank", TCB_CREDIT, templates)
+
+    assert calls == ["chuyen tien cho me"]
+    assert second.category_source == "store"
+
+
+def test_an_unread_mail_has_no_category(monkeypatch):
+    """Nothing to categorise, and nothing asked."""
+    calls = []
+    monkeypatch.setattr(
+        parser.category, "_ask", lambda merchant, direction: calls.append(merchant)
+    )
+
+    result = pipeline.parse("techcombank", "not a transaction at all", FakeTemplates())
+
+    assert not result.ok
+    assert result.category is None
+    assert calls == []
+
+
+def test_a_failed_categorisation_does_not_fail_the_parse(monkeypatch):
+    """The mail was read. A missing category is a missing label, not a failure."""
+    monkeypatch.setattr(
+        parser.category, "_ask", lambda merchant, direction: None
+    )
+
+    templates = FakeTemplates({"techcombank": [TCB_SPEC_WITH_MERCHANT]})
+    result = pipeline.parse("techcombank", TCB_CREDIT, templates)
+
+    assert result.ok
+    assert result.reading.amount == 500000
+    assert result.category is None

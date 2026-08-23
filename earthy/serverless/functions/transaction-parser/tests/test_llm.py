@@ -52,17 +52,67 @@ def test_induce_is_never_sent_the_real_figures(monkeypatch: pytest.MonkeyPatch) 
     sent = stub.prompts[0]
     assert "500.000" not in sent
     assert "12.345.678" not in sent
-    assert "19001234567" not in sent
+    assert "[MONEY_1]" in sent
+    # The account number is NOT masked — it carries no currency marker, and
+    # masking it would blind the parser to a field it reads. Recorded here
+    # rather than left to be discovered.
+    assert "19001234567" in sent
 
 
-def test_extract_is_sent_the_real_figures(monkeypatch: pytest.MonkeyPatch) -> None:
-    # The reading call does need them: that is what it is reading.
-    stub = _Stub(llm.Reading(amount=500000, direction="credit"))
+def test_extract_is_never_sent_the_real_figures(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The reading call is not an exception to the rule.
+
+    It used to be: reading the amount seemed to require sending it. Naming the
+    figures instead lets the model say which row is the amount without being
+    told what any row is worth.
+    """
+    stub = _Stub(llm.Answer(amount="[MONEY_1]", direction="credit"))
     monkeypatch.setattr(llm, "_ask", stub)
 
     llm.extract(TCB_CREDIT)
 
-    assert "500.000" in stub.prompts[0]
+    sent = stub.prompts[0]
+    assert "500.000" not in sent
+    assert "12.345.678" not in sent
+    assert "[MONEY_1]" in sent
+
+
+def test_extract_exchanges_the_placeholders_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    # [MONEY_1] is the amount and [MONEY_2] the balance, in TCB_CREDIT's order.
+    stub = _Stub(llm.Answer(amount="[MONEY_1]", balance="[MONEY_2]", direction="credit"))
+    monkeypatch.setattr(llm, "_ask", stub)
+
+    reading = llm.extract(TCB_CREDIT)
+
+    assert reading is not None
+    assert reading.amount == 500000
+    assert reading.balance == 12345678
+    assert reading.direction == "credit"
+
+
+def test_a_figure_the_model_invented_is_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A model that answers with a number has not read one — every figure was
+    masked before it saw the body — so the number is invention and must not
+    reach a ledger."""
+    stub = _Stub(llm.Answer(amount="750000", direction="credit"))
+    monkeypatch.setattr(llm, "_ask", stub)
+
+    reading = llm.extract(TCB_CREDIT)
+
+    assert reading is not None
+    assert reading.amount is None
+
+
+def test_a_placeholder_that_was_never_issued_is_dropped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub = _Stub(llm.Answer(amount="[MONEY_99]", direction="credit"))
+    monkeypatch.setattr(llm, "_ask", stub)
+
+    reading = llm.extract(TCB_CREDIT)
+
+    assert reading is not None
+    assert reading.amount is None
 
 
 def test_induce_returns_a_spec_shaped_dict(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -184,12 +234,14 @@ def test_a_garbled_model_answer_reads_as_none(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_the_body_is_clipped_before_it_is_sent(monkeypatch: pytest.MonkeyPatch) -> None:
-    stub = _Stub(llm.Reading())
+    stub = _Stub(llm.Answer())
     monkeypatch.setattr(llm, "_ask", stub)
 
-    llm.extract("x" * (llm.MAX_BODY_CHARS * 2))
+    llm.extract("q" * (llm.MAX_BODY_CHARS * 2))
 
-    assert stub.prompts[0].count("x") == llm.MAX_BODY_CHARS
+    # Counted on a letter the prompt itself does not use, so this measures the
+    # body and not the instructions wrapped around it.
+    assert stub.prompts[0].count("q") == llm.MAX_BODY_CHARS
 
 
 def test_the_request_carries_the_schema(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -219,3 +271,167 @@ def test_the_request_carries_the_schema(monkeypatch: pytest.MonkeyPatch) -> None
     # responseMimeType is set"), and a stubbed client cannot notice — so the
     # combination is asserted against here instead.
     assert "response_mime_type" not in seen
+
+
+def test_induce_carries_match_phrases_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        llm,
+        "_ask",
+        _Stub(
+            llm.ProposedSpec(
+                rules=[llm.ProposedRule(field="amount", label="Tổng tiền", type="money")],
+                match=["Phiếu nhận tiền"],
+            )
+        ),
+    )
+
+    proposed = llm.induce(TCB_CREDIT, llm.Reading(amount=500000))
+    assert proposed is not None
+    assert proposed["match"] == ["Phiếu nhận tiền"]
+
+
+def test_a_match_phrase_from_the_redaction_is_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """induce reads a body whose digits are all '#'.
+
+    A phrase copied from it that carries one would never appear in a real
+    mail, so the spec would be stored and then never match — inert, and
+    invisibly so.
+    """
+    monkeypatch.setattr(
+        llm,
+        "_ask",
+        _Stub(
+            llm.ProposedSpec(
+                rules=[llm.ProposedRule(field="amount", label="Tổng tiền", type="money")],
+                match=["Mã GD ###", "Phiếu nhận tiền"],
+            )
+        ),
+    )
+
+    proposed = llm.induce(TCB_CREDIT, llm.Reading(amount=500000))
+    assert proposed is not None
+    assert proposed["match"] == ["Phiếu nhận tiền"]
+
+
+def test_no_match_key_when_the_model_offers_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An absent key, not an empty list: a spec with no phrases applies to any
+    mail from its sender, which is the behaviour every spec had before."""
+    monkeypatch.setattr(
+        llm,
+        "_ask",
+        _Stub(
+            llm.ProposedSpec(
+                rules=[llm.ProposedRule(field="amount", label="Tổng tiền", type="money")]
+            )
+        ),
+    )
+
+    proposed = llm.induce(TCB_CREDIT, llm.Reading(amount=500000))
+    assert proposed is not None
+    assert "match" not in proposed
+
+
+# The shape a real receipt has: a short greeting, the transaction table, then
+# far more boilerplate than transaction.
+_RECEIPT = (
+    "Xin chào Trần Minh Quang · Cảm ơn bạn đã sử dụng dịch vụ của MoMo! · "
+    "MoMo xác nhận bạn đã đặt vé xem phim thành công lúc 15:38:51 15/08/2026. · "
+    "Mã đặt vé · 123456789 · Thời gian chiếu · 16:00:00 15/08/2026 · "
+    "Rạp chiếu · CGV Hoàng Văn Thụ · Tổng tiền · 391.500 đ · "
+)
+_BOILERPLATE = (
+    "Chính sách hoàn huỷ. MoMo không hỗ trợ đổi trả đối với các vé đã mua. "
+    "Điều khoản sử dụng. Liên hệ hỗ trợ qua tổng đài. "
+)
+
+
+def test_a_short_body_is_not_clipped_at_all() -> None:
+    assert llm._clip(_RECEIPT) == _RECEIPT
+
+
+def test_the_clip_keeps_the_transaction_not_the_head() -> None:
+    """The bug this replaced: `_clip` took the first N characters on the
+    assumption that the table is near the top.
+
+    Measured against real mail that is false — in four saved receipts the
+    amount sat at ~92% of the body, behind navigation, a forwarded header, an
+    AI summary and a signature. Every one lost its amount to the clip, and the
+    mails parsed at all only because the stored-spec stage does not clip.
+    """
+    body = ("Trang chủ Ưu đãi Tải ứng dụng. " * 300) + _RECEIPT + (_BOILERPLATE * 200)
+    assert len(body) > llm.MAX_BODY_CHARS
+
+    clipped = llm._clip(body)
+
+    assert len(clipped) <= llm.MAX_BODY_CHARS
+    for field in ("Tổng tiền", "391.500", "Mã đặt vé", "Rạp chiếu", "15/08/2026"):
+        assert field in clipped, field
+
+
+def test_the_labels_before_the_figures_survive() -> None:
+    """A window starting exactly on the first figure would cut the labels that
+    name it, and a label is what a spec is learned from."""
+    body = ("x" * 8000) + _RECEIPT + ("y" * 8000)
+    clipped = llm._clip(body)
+
+    assert "Tổng tiền" in clipped
+    assert "Xin chào" in clipped  # the greeting just above the table
+
+
+def test_a_body_with_no_transaction_falls_back_to_the_head() -> None:
+    """Nothing anywhere looks like a transaction, so the head is as good a
+    guess as any — and is what every caller used to get."""
+    body = "Bản tin khuyến mãi. " * 2000
+    assert llm._clip(body) == body[: llm.MAX_BODY_CHARS]
+
+
+def test_induce_is_told_about_every_field_that_was_read() -> None:
+    """The bug that made learned specs drop the timestamp.
+
+    `_shape_of` listed four field names in a literal, written when a reading
+    had four. After `occurred_at`, `reference`, `account_tail`, `description`
+    and `channel` were added it silently kept saying four — so `induce` was
+    never told a mail had a date in it, never proposed a label for one, and
+    every learned spec read the amount but not the time on every mail after
+    the first.
+
+    Deriving the list from the model's own fields is what makes the next field
+    impossible to forget.
+    """
+    reading = llm.Reading(
+        amount=500000,
+        direction="credit",
+        occurred_at="2026-08-21 13:15:00",
+        reference="FT2412345678",
+        account_tail="4567",
+    )
+
+    shape = llm._shape_of(reading)
+
+    for field in ("amount", "direction", "occurred_at", "reference", "account_tail"):
+        assert field in shape, field
+    # Fields that were not read are not claimed.
+    assert "balance" not in shape
+
+
+def test_the_shape_covers_every_field_a_reading_can_carry() -> None:
+    """A field added to Reading and forgotten here is a field no spec ever
+    learns to read."""
+    everything = llm.Reading(
+        amount=500000,
+        balance=1000000,
+        direction="credit",
+        merchant="HIGHLANDS COFFEE",
+        occurred_at="2026-08-21 13:15:00",
+        reference="FT2412345678",
+        account_tail="4567",
+        description="Ca phe sang",
+        channel="QR",
+    )
+
+    shape = llm._shape_of(everything)
+
+    # Enumerated from the model rather than repeated here, so a field added to
+    # Reading and forgotten in the constructor above fails this too.
+    for field in llm.Reading.model_fields:
+        assert field in shape, field

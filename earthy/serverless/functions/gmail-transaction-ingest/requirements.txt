@@ -2,6 +2,8 @@
 #    uv export --package gmail-transaction-ingest --no-hashes --no-dev --no-emit-workspace --format requirements.txt -o functions/gmail-transaction-ingest/requirements.txt
 anyio==4.14.2
     # via starlette
+beautifulsoup4==4.15.0
+    # via gmail-transaction-ingest
 blinker==1.9.0
     # via flask
 certifi==2026.7.22
@@ -84,6 +86,8 @@ itsdangerous==2.2.0
     # via flask
 jinja2==3.1.6
     # via flask
+lxml==6.1.2
+    # via gmail-transaction-ingest
 markupsafe==3.0.3
     # via
     #   flask
@@ -130,11 +134,14 @@ pyparsing==3.3.2
     # via httplib2
 requests==2.34.2
     # via google-api-core
+soupsieve==2.9.2
+    # via beautifulsoup4
 starlette==0.52.1
     # via functions-framework
 typing-extensions==4.16.0
     # via
     #   anyio
+    #   beautifulsoup4
     #   grpcio
     #   opentelemetry-api
     #   opentelemetry-sdk

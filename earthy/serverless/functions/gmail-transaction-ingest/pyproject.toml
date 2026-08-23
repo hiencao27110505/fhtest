@@ -4,12 +4,14 @@ version = "0.1.0"
 description = "Reads new Gmail messages and logs the ones that look like bank/e-wallet transactions"
 requires-python = "==3.12.*"
 dependencies = [
+    "beautifulsoup4>=4.12",
     "cloudevents>=1.11.0",
     "cryptography>=50.0.0",
     "functions-framework==3.9.2",
     "google-api-python-client>=2.198.0",
     "google-auth>=2.56.3",
     "google-cloud-pubsub>=2.39.1",
+    "lxml>=5.0",
     "psycopg[binary,pool]>=3.3.4",
 ]
 
