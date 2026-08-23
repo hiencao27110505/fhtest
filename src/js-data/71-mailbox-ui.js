@@ -50,7 +50,17 @@
      status, not back at the top of setup. */
   window.fhMailboxSheet = async function () {
     const st = await fhMailboxState();
-    if (st && st.forwarding_alias) return fhMailboxStatus(st);
+    if (st && st.forwarding_alias) {
+      /* Retro consent (0071): the four grandfathered connections predate the
+         consent sheet. Ask once here, on the screen they do revisit; "Để sau"
+         closes and re-asks next visit rather than cutting a working
+         connection — a deliberate soft retry, recorded in PDPL-COMPLIANCE. */
+      if (window.fhConsentEnsure) {
+        const ok = await window.fhConsentEnsure(() => fhMailboxStatus(st));
+        if (!ok) return;
+      }
+      return fhMailboxStatus(st);
+    }
     return fhMailboxIntro();
   };
 
@@ -126,6 +136,16 @@
      this member's mailbox. Shows progress on the tapped CTA — the RPC is a real
      round trip and must not look frozen (DESIGN §4.2). */
   window.fhMailboxStart = async function (btn, emailOverride, mode) {
+    /* PDPL consent gates BEFORE anything is issued or provisioned (0071,
+       docs/PDPL-COMPLIANCE.md). If the sheet has to be shown, this call ends
+       here and the agree action re-enters the flow with the same intent. The
+       field value is captured now because the sheet replaces this markup. */
+    if (window.fhConsentEnsure) {
+      const _f = document.getElementById('fh-mbx-email');
+      const _kept = (_f && _f.value.trim()) || emailOverride;
+      const consented = await window.fhConsentEnsure(() => window.fhMailboxStart(null, _kept, mode));
+      if (!consented) return;
+    }
     // The field is the source of truth when the which-email sheet is up;
     // emailOverride and the login address are fallbacks for older call sites.
     const field = document.getElementById('fh-mbx-email');
@@ -345,6 +365,13 @@
 
       '<button class="btn-line" onclick="fhMailboxSetup(\'' + _escAttr(st.forwarding_alias) + '\')">' +
         _esc(L('Xem lại hướng dẫn', 'Show the steps again')) + '</button>' +
+      /* Consent chrome (0071): re-read what was agreed, and the withdrawal the
+         consent text promises. Disconnect is destructive → low-prominence +
+         arm-then-confirm in fhMailboxDisconnect, never a primary button. */
+      '<button class="btn-line" onclick="fhConsentSheet({readOnly:true})">' +
+        _esc(L('Xem lại điều bạn đã đồng ý', 'See what you agreed to')) + '</button>' +
+      '<button class="btn-skip cst-disc" onclick="fhMailboxDisconnect(this)">' +
+        _esc(L('Ngắt kết nối', 'Disconnect')) + '</button>' +
       '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
     );
   }

@@ -335,6 +335,13 @@
      is the one to store — never this. */
   /* The offer screen's CTA: read from the sign-in address, no form involved. */
   window.fhAutoTxnGrant = async function () {
+    /* PDPL consent gates BEFORE Google's screen (0071, PDPL-COMPLIANCE §5):
+       Google's Allow grants API access, this sheet is the consent the law
+       asks for. Same record as the forwarding path — one yes covers both. */
+    if (window.fhConsentEnsure) {
+      const consented = await window.fhConsentEnsure(() => window.fhAutoTxnGrant());
+      if (!consented) return;
+    }
     const btn = document.getElementById('atx-go');
     const label = L('Bắt đầu: cho phép đọc email', 'Start by granting email access');
     const reset = () => { if (btn) { btn.disabled = false; btn.textContent = label; } };

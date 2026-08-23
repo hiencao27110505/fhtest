@@ -161,3 +161,17 @@
 .mbx-locked-note{margin:10px 16px 0;padding:10px 12px;border:1px solid var(--hairline);
   border-left:3px solid var(--brand);border-radius:10px;
   font-size:13.5px;line-height:1.45;color:var(--ink-2)}
+
+/* ---------- PDPL consent sheet (75-consent-ui) ---------- */
+/* A legal moment in the house voice: sectioned prose, no colored fills
+   (DESIGN: borders, not washes), scrollable body so the CTA is never pushed
+   off screen by the text the law obliges us to show. */
+.cst-body{max-height:46vh;overflow-y:auto;margin:4px 0 16px;padding-right:2px}
+.cst-row{padding:10px 0;border-bottom:1px solid var(--divider)}
+.cst-row:last-child{border-bottom:none}
+.cst-rt{font-size:14px;font-weight:700;letter-spacing:-.01em;color:var(--ink);margin-bottom:3px}
+.cst-rs{font-size:13px;line-height:1.5;color:var(--ink-2)}
+.cst-rs a{color:var(--brand-ink);text-decoration:underline}
+.cst-meta{font-size:12.5px;color:var(--muted);margin:2px 2px 10px}
+/* Withdrawal: destructive stays low-prominence text, never a filled button. */
+.cst-disc{color:var(--danger)}
