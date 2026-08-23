@@ -8,7 +8,10 @@
 > counsel. Read both; they deliberately do not repeat each other.
 >
 > Written 2026-08-23 (forwarding session). Gap analysis for working with
-> counsel — **not legal advice**.
+> counsel — **not legal advice**. The companion doc's §4–6 carry the P0–P3
+> action plan; this doc's scorecard cross-references it. Article numbering
+> differs slightly between the two docs — counsel keys final filings to the
+> statute text, using the companion doc's appendix as the map.
 
 ---
 
@@ -39,13 +42,15 @@ mechanics are what is missing.
 
 | # | Obligation | Source | Status 2026-08-23 |
 |---|---|---|---|
-| 1 | Explicit consent naming the data as sensitive | L91 consent arts. + NĐ 356 | ❌ drafted (§5), not wired |
+| 1 | Explicit consent naming the data as sensitive | L91 consent arts. + NĐ 356 | ✅ BUILT (branch `bank-email-sealing`, consent_v 3 + 0071): gates forwarding, OAuth, and the retro pass; provable record; deploys once 0071 is applied |
 | 2 | DPIA dossier, Form 04, 60 days from processing start, to A05 | Đ21 | ❌ overdue — file promptly, with remediation timeline |
 | 3 | Cross-border dossier | Đ22 | ❌ unstarted; inventory favorable (values cross as ciphertext) |
 | 4 | Named data-protection personnel, reported to A05 | Đ33.2 | ❌ proposal: Hiên |
 | 5 | 72h breach notification process | L91 + 356 | 🟡 detectors live; runbook unwritten |
 | 6 | 72h deletion on request | L91 + 356 | 🟡 levers live; procedure unwritten; disconnect button missing |
-| 7 | Security measures appropriate to sensitivity | Đ27 et al. | ✅ see §7 inventory |
+| 7 | Security measures appropriate to sensitivity | Đ27 et al. | ✅ see §7 inventory; Đ27 also bans credit-scoring use, matching our red-lines |
+| 8 | Children's data: members ≥7 need child + guardian consent | Đ24 | ❌ APP-WIDE gap (kid members' names/photos), no child marking exists — see companion doc P0 #4 |
+| 9 | Sign-in's "By continuing, you agree to our Terms & Privacy Policy" | Đ9.3/9.4 | ❌ bundled consent pointing at a page that does not exist — fix with the policy page |
 
 Penalty frame for context: data trading up to 10× illicit gains; unlawful
 cross-border transfer up to 5% prior-year revenue; other violations up to
@@ -228,8 +233,12 @@ breach-visible logging on the notification path.
    user's direction — personal-notebook analogy acceptable?
 4. Đ38 reading: confirm sensitive-data processing voids the exemption even at
    our scale, or whether "trực tiếp xử lý" admits any narrowing.
-5. Minors: feature presumes adult account holders — sufficient, or needs an
-   age gate?
+5. Minors, upgraded per companion-doc P0 #4: bank email presumes adults, but
+   the APP processes child members' data (names, photos). Đ24 wants child +
+   guardian consent from age 7. What marking + consent mechanics suffice for
+   a family app where parents create the accounts?
+6. TIA update cadence: confirm the 6-month refresh obligation and what
+   counts as a material change requiring earlier update.
 
 ## 9. Sources
 
