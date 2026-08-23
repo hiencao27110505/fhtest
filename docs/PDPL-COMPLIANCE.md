@@ -44,7 +44,7 @@ mechanics are what is missing.
 |---|---|---|---|
 | 1 | Explicit consent naming the data as sensitive | L91 consent arts. + NĐ 356 | ✅ BUILT (branch `bank-email-sealing`, consent_v 3 + 0071): gates forwarding, OAuth, and the retro pass; provable record; deploys once 0071 is applied |
 | 2 | DPIA dossier, Form 04, 60 days from processing start, to A05 | Đ21 | ❌ overdue — file promptly, with remediation timeline |
-| 3 | Cross-border dossier | Đ22 | ❌ unstarted; inventory favorable (values cross as ciphertext) |
+| 3 | Cross-border dossier (TIA) | Đ20/22 | ❌ unstarted; inventory favorable (values cross as ciphertext); updated every 6 months, not file-and-forget |
 | 4 | Named data-protection personnel, reported to A05 | Đ33.2 | ❌ proposal: Hiên |
 | 5 | 72h breach notification process | L91 + 356 | 🟡 detectors live; runbook unwritten |
 | 6 | 72h deletion on request | L91 + 356 | 🟡 levers live; procedure unwritten; disconnect button missing |
