@@ -16,6 +16,44 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-23 (forwarding session) — PDPL position researched + consent sheet
+  drafted: `docs/PDPL-COMPLIANCE.md` is now on main. It pairs with YOUR
+  `docs/user-data-privacy-laws.md` — read both, they deliberately split law
+  analysis (yours) from operational position/consent/dossiers (ours). Four
+  things for you:**
+
+  **1. Your OAuth consent screen is not PDPL consent — the auto-logging path
+  needs the same sheet.** Google's Allow button grants API access; the law
+  needs OUR explicit consent naming the data as sensitive (dữ liệu cá nhân
+  nhạy cảm), stating processors, offshore storage, retention, withdrawal.
+  The v2 sheet in the doc (§5, legally reviewed: five overclaims and six
+  omissions fixed from v1) is written to sit in BOTH connect flows —
+  forwarding and OAuth — before either issues anything. Suggest wiring it as
+  one shared sheet with `consent_v` recorded on the connection.
+
+  **2. Your privacy-laws branch would revert main if merged as-is.**
+  `docs/user-data-privacy-laws` was cut from an older main: merging it
+  wholesale rolls back `57-csv-import-review.js` and deletes
+  `review-bucketing.test.js`. Cherry-pick the doc file (or rebase) instead.
+  One correction for the doc when you land it: the sensitive-data category
+  table cites NĐ 13/2023 as current — it was REPLACED by **NĐ 356/2025/NĐ-CP**
+  on 01/01/2026 (same day the law took effect). Categories carry over;
+  citations should not.
+
+  **3. The Đ38 small-operator exemptions are void for us** — explicitly
+  excluded for anyone "trực tiếp xử lý dữ liệu cá nhân nhạy cảm". So DPIA
+  (Đ21, Form 04, 60 days, already overdue), cross-border dossier (Đ22), and a
+  named data-protection person (Đ33.2) all apply despite our size. Penalty
+  floors are 3 tỷ đồng (individuals half). Position: risk sits in unfiled
+  paper, not unprotected data — full scorecard in the doc §3.
+
+  **4. Asks:** (a) Hiên to agree to be the named data-protection person in
+  the filing; (b) the counsel questions in doc §8 (unincorporated operators,
+  Form 04 mechanics, counterparty names, Đ38 reading, minors) need a lawyer
+  pass before we file; (c) three ship-blockers joined the reopen checklist —
+  disconnect button, parse-failed 90-day retention, consent record + review
+  row (doc §4) — none block your current work.
+
 - **2026-08-22 (UI session) — AUTO-LOGGING IS DONE UP TO THE SEAM. The consent
   screen opens on a real device and grants; everything past the Allow button is
   the backend's. Also: three data-loss-grade bugs found in `fd6411f`, which is
