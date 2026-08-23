@@ -78,7 +78,16 @@
     var res = await sb.from('email_transactions')
       .select('id,member_id,gmail_message_id,source_provider,occurred_at,amount,currency,direction,counterparty,reference_number,transaction_type,raw_extracted,duplicate_of_id,sealed,eph_pub,nonce,enc_v,created_at')
       .eq('review_status', 'pending')
-      .is('duplicate_of_id', null)          // merged duplicates are never promoted
+      /* duplicate_of_id is a SUSPICION, not a delete order. It used to be
+         filtered out here, which gave a guess made blind at 3am the power to
+         hide a real transaction AND cancel its notification, with no screen
+         showing it and no button to undo it. That is how a genuine 2.000đ
+         transfer disappeared: two MB emails, three spellings of one bank name.
+
+         The detection is worth keeping — the pipeline sees a pair the client
+         cannot (two unreviewed emails, same amount, different wording). The
+         AUTHORITY was the bug. The rows come back now and land in the review
+         screen's "Có thể trùng" bucket, which already knows how to ask. */
       .order('occurred_at', { ascending: false })
       .limit(TXN_REVIEW_PAGE);
     if (res.error) throw res.error;
@@ -181,6 +190,31 @@
     return { parsed: { rows: out, headers: COLS }, result: { columnMap: columnMap },
              name: L('Email ngân hàng', 'Bank email') };
   }
+
+  /* The four columns above are what the review ENGINE reads. Two more fields
+     matter to duplicate detection and survive sealing in the clear, so rather
+     than widen the projection (every column there becomes a field the mapper
+     has to reason about) they are fetched on demand by row index.
+
+     rowIndex indexes _fhStagedRows because fhStagedAsCsvSource maps that exact
+     array in that exact order — the same guarantee retirement already relies on.
+
+     source_provider is the field the pipeline's own rule turns on, and it is
+     deliberately NOT sealed: a hash can only match exactly, and bank names need
+     fuzzy matching ('MB Bank' / 'MBBank' / 'MB'). Which is precisely why the
+     client can run that rule too, with the decrypted amount in hand. */
+  function fhStagedMeta(rowIndex) {
+    var rows = window._fhStagedRows;
+    if (!rows || typeof rowIndex !== 'number') return null;
+    var r = rows[rowIndex];
+    if (!r) return null;
+    return {
+      provider: r.source_provider || '',
+      occurredAt: r.occurred_at || '',
+      pipelineDup: !!r.duplicate_of_id,
+    };
+  }
+  window.fhStagedMeta = fhStagedMeta;
 
   window.fhTxnReviewSheet = async function () {
     // Key-mismatch alarm latched (18-staging-keys): approval is frozen for the

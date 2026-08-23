@@ -725,12 +725,68 @@ function csvDropBlankRows(candidates) {
 
 function normDescForDedup(s) { return deburr((s||'').trim().toLowerCase()).replace(/\s+/g,' '); }
 
+/* One bank, many spellings. 'MB Bank', 'MBBank', 'MB' and 'NH TMCP Quan Doi'
+   are the same institution, and the pipeline's dedup turns entirely on telling
+   two providers apart -- so string equality collapsed two real transfers into
+   one and hid a genuine 2.000đ row. This is the client-side twin of
+   canonicalProvider() in pipeline/bank-email-pipeline.gs.
+
+   Deliberate difference from the .gs twin: deburr also folds đ -> d, so 'Đông Á'
+   canonicalises to 'donga' here and 'onga' there. Harmless, because neither side
+   ever compares its names against the other's -- each only compares its own rows
+   to its own rows, and both are internally consistent. Keep it that way: the
+   moment one canonical form is stored and read by the other, they must merge. */
+var CSV_PROVIDER_NOISE = ['internetbanking', 'mobilebanking', 'onlinebanking', 'smartbanking',
+                          'ebanking', 'digibank', 'banking', 'ebank', 'bank', 'jsc'];
+
+function csvCanonicalProvider(name) {
+  if (!name) return '';
+  var s = deburr(String(name)).toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Longest first: strip 'ebanking' before 'banking' can leave a stray 'e'.
+  for (var i = 0; i < CSV_PROVIDER_NOISE.length; i++) s = s.split(CSV_PROVIDER_NOISE[i]).join('');
+  return s;
+}
+
+/* Cross-source dedup, client side. One purchase can be reported twice -- the
+   bank emails a debit, the merchant emails a receipt -- and the two share only
+   an amount. They will NOT share a description, which is exactly why the
+   description-keyed in-batch check above cannot see them, and why the pipeline
+   computes duplicate_of_id at all.
+
+   The client can run the same rule, and with better evidence: it holds the
+   DECRYPTED amount plus source_provider (never sealed, because a hash matches
+   only exactly and bank names need fuzzy matching). What it adds over the
+   pipeline is timing -- it runs in front of the person who made the purchase,
+   every time the screen opens, so a wrong guess costs one tap instead of
+   silently deleting a row.
+
+   Same-provider pairs are NEVER duplicates: a bank does not report one debit
+   twice, so two MB emails are two real transactions. Unknown on either side
+   refuses to guess, for the reason the pipeline gives and this screen exists to
+   honour -- a missed duplicate costs one tap to skip; a false one hides real
+   money behind a decision nobody asked for. */
+function csvStagedCrossSourceDup(c, provider, priors) {
+  var mine = csvCanonicalProvider(provider);
+  if (!mine || !c.date) return null;
+  for (var i = 0; i < priors.length; i++) {
+    var p = priors[i];
+    if (!p.provider || !p.c.date) continue;
+    if (p.provider === mine) continue;                       // same bank -> two real transactions
+    if (Math.abs(Number(p.c.amount) - Number(c.amount)) >= 1) continue;
+    if (Math.abs(p.c.date.getTime() - c.date.getTime()) / 86400000 > 3) continue;
+    return p.c;
+  }
+  return null;
+}
+
 /* Buckets: ready / needsCategory (grouped by merchant) / possibleDuplicate /
    deferred. Self-dedup and cross-source dedup both happen here, before
    bucketing, so a row can't land in "ready" while also being a duplicate. */
 function bucketCsvCandidates(candidates, mixedSigns) {
   var seen = {}; // normDesc+amount -> first candidate seen
   var existingTxns = window.txns || [];
+  var staged = !!window.csvStagedMode;
+  var priors = [];   // staged rows already bucketed, for the cross-source check
 
   var ready = [], needsCategoryGroups = {}, possibleDuplicate = [], deferred = [];
 
@@ -772,6 +828,28 @@ function bucketCsvCandidates(candidates, mixedSigns) {
       return daysApart <= 3 && Math.abs(Number(t.amt) - c.amount) < 1;
     });
     if (crossMatch) { c.duplicateOfExisting = crossMatch; possibleDuplicate.push(c); return; }
+
+    /* Staged email rows only, and last, so the most concrete reason wins: a
+       match against a transaction already in the ledger beats a suspicion about
+       another email in the same queue. */
+    if (staged) {
+      var meta = window.fhStagedMeta && window.fhStagedMeta(c.rowIndex);
+      var provider = (meta && meta.provider) || '';
+
+      /* The pipeline's verdict, demoted from delete order to suspicion. It sees
+         a pair this screen cannot -- two unreviewed emails, same amount,
+         different wording -- so the detection is kept. What it no longer gets
+         is the power to act alone. */
+      if (meta && meta.pipelineDup) {
+        c.duplicateOfPipeline = true; possibleDuplicate.push(c);
+        priors.push({ c: c, provider: csvCanonicalProvider(provider) });
+        return;
+      }
+
+      var sourceMatch = csvStagedCrossSourceDup(c, provider, priors);
+      priors.push({ c: c, provider: csvCanonicalProvider(provider) });
+      if (sourceMatch) { c.duplicateOfSource = sourceMatch; possibleDuplicate.push(c); return; }
+    }
 
     if (!c.categoryName) {
       var gkey = normDescForDedup(c.description);
