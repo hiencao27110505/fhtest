@@ -205,6 +205,12 @@ reliable signal that your paste took**. Bump it with every change, and before
 debugging anything else, read the log and compare it to line 22 of
 `bank-email-pipeline.gs` — twice, a "bug" was simply old code still running.
 
+**Paste only from `origin/main`.** A `PIPELINE_VERSION` on an unmerged branch is
+a draft, and the string cannot express a fork: on 2026-08-23 two sessions held
+`2026-08-17-c` (main) and `2026-08-23-a` (a branch), siblings of one parent where
+neither contained the other, and the branch's later DATE made it look like the
+successor. Whoever merges owns the bump and the paste request.
+
 Deliberately NOT recorded here: which version is live. This note said
 `'2026-08-15-a'` for a week after two more had shipped, which is the exact
 failure the paragraph warns about, committed by the paragraph itself. The repo

@@ -16,6 +16,31 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
+- **2026-08-23 (forwarding session) — PIPELINE_VERSION COLLIDED. Trang was told
+  to paste `2026-08-23-a`; main is on `2026-08-17-c`. Neither contains the other
+  and only one file can be live.**
+  - Both fork from `15fe226`. `-c` (main, `a11aa80`) drops the
+    `duplicate_of_id` early return in `queueReviewNotice`. `-a`
+    (`bank-email-sealing`, `7f3682f`) adds `RETENTION_FAILED_DAYS = 90`. Different
+    functions, different test files, **zero overlap — the merge is clean and no
+    work is lost.**
+  - **Advice given: paste `-c` first.** Not a judgement on the retention change.
+    `15fe226` is already deployed, so flagged rows reach the queue right now with
+    no notification and `-c` is the only thing that fixes it; `-a` is built on `-b`
+    and would put the skip back. Separately, `-a` trashes parse-failed mail at 90
+    days while the consent sheet stating that number
+    (`src/js-data/75-consent-ui.js`) is still on your branch behind `0071` — your
+    own comment says the two must move together, so it wants to ship with the
+    sheet, not ahead of it.
+  - **When `bank-email-sealing` merges, bump once above both and tell Trang to
+    re-paste.** Nothing from `-a` needs redoing.
+  - **The version string cannot express a fork, so don't ask it to.** `-a` is dated
+    08-23 and `-c` is dated 08-17, which reads backwards. Proposed rule:
+    **only ever paste the `.gs` from `origin/main`.** A version on an unmerged
+    branch is a draft; whoever merges owns the bump and the paste request. Said
+    another way, the Executions log answers "what is running" and `origin/main`
+    answers "what should be" — no third source gets a vote.
+
 - **2026-08-23 (forwarding session) — FYI, no answer needed: staged-row dedup
   changed shape, and the test runner is now discovery-based.**
   - **`duplicate_of_id` is a suspicion, not a delete order** (`15fe226`, and the
