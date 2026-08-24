@@ -166,7 +166,7 @@
         btn.textContent = L('Chắc chắn? Bấm lần nữa để rút lại', 'Sure? Tap again to withdraw');
         setTimeout(function () {
           if (btn && btn.dataset) { delete btn.dataset.armed; btn.textContent = L('Rút lại đồng ý và xoá dữ liệu', 'Withdraw consent and delete data'); }
-        }, 4000);
+        }, 10000);
         return;
       }
       btn.disabled = true; btn.textContent = L('Đang ghi nhận…', 'Recording…');
@@ -267,7 +267,7 @@
         btn.textContent = L('Chắc chắn ngắt? Bấm lần nữa', 'Sure? Tap again to disconnect');
         setTimeout(function () {
           if (btn && btn.dataset) { delete btn.dataset.armed; btn.textContent = L('Ngắt kết nối', 'Disconnect'); }
-        }, 4000);
+        }, 10000);
         return;
       }
       btn.disabled = true; btn.textContent = L('Đang ngắt…', 'Disconnecting…');
