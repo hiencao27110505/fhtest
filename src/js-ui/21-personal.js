@@ -9,8 +9,11 @@ var PIC = {
   house: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
   lock:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>',
   plus:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
-  chev:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>'
+  chev:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>',
+  chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg>',
+  list:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>'
 };
+var _ccChev='<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>';
 
 /* personal per-day spend for the live month → daily[], dim, dom */
 function persDaily(){
@@ -81,7 +84,11 @@ function renderPersonal(){
      + '<div class="cf-note" id="pcf-note"></div>'
      + '<div class="cf-daily" id="pcf-daily" style="display:none"></div>'
      + '<div class="cf-dots" id="pcf-dots" aria-hidden="true"></div>'
-     + '<div class="cf-cta"><button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi khoản chi riêng tư</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button></div>'
+     + '<div class="cf-cta">'
+     +   '<button class="cc-row" onclick="openSheet(\'sheet-pbudget\')"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
+     +   '<button class="cc-row" onclick="persScrollCats()"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem chi tiêu</span>'+_ccChev+'</button>'
+     +   '<button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi khoản chi riêng tư</span>'+_ccChev+'</button>'
+     + '</div>'
      + '</section>';
 
   /* ── Các nhóm của tôi — per-space roll-up (drawn icons) ── */
@@ -103,6 +110,27 @@ function renderPersonal(){
   }
   h += '</div>';
 
+  /* ── Chi theo danh mục (Xem chi tiêu) — spend by category, vs personal budget ── */
+  var byCat={};
+  txM.forEach(function(t){ var k=(t.cat||'Khác'); if(!byCat[k]) byCat[k]={name:k, emoji:t.emoji||'🗂️', v:0}; byCat[k].v+=(t.amt||0); });
+  var catRows=Object.keys(byCat).map(function(k){return byCat[k];}).sort(function(a,b){return b.v-a.v;});
+  var pOver = P.budget>0 && out>P.budget;
+  h += '<section class="fin-cats-card" id="pers-cats"><div class="fin-cats-h"><span>Chi theo danh mục</span>'
+     + '<a onclick="openSheet(\'sheet-pbudget\')">'+(P.budget>0?'Ngân sách':'Lập ngân sách')+'</a></div>';
+  if(P.budget>0){
+    h += '<div class="cf-note '+(pOver?'over':'ok')+'" style="margin:6px 0 4px"><span class="ni">'+(pOver?'▲':'▾')+'</span>Đã chi <b>'+fmt(out)+'</b> / '+fmt(P.budget)+(pOver?' — vượt '+fmt(out-P.budget):' — còn '+fmt(P.budget-out))+'</div>'
+       + '<div class="pbud-bar"><i style="width:'+Math.min(100,P.budget?out/P.budget*100:0)+'%;background:'+(pOver?'var(--danger)':'var(--brand)')+'"></i></div>';
+  }
+  h += '<div class="fin-legend">';
+  if(catRows.length){
+    var maxV=catRows[0].v||1;
+    catRows.forEach(function(c){
+      var pct=P.budget>0 ? Math.min(100,c.v/P.budget*100) : (c.v/maxV*100);
+      h += '<div class="fh-lrow"><div class="fh-ico">'+(c.emoji||'🗂️')+'</div><div class="fh-body"><div class="fh-l1"><span class="fh-lname">'+((c.name||'Khác').replace(/</g,'&lt;'))+'</span><span class="fh-lamt"><b>'+fmt(c.v)+'</b></span></div><div class="fh-bar"><i style="width:'+pct+'%"></i></div></div></div>';
+    });
+  } else { h += '<div class="empty-note">Chưa có chi tiêu tháng này.</div>'; }
+  h += '</div></section>';
+
   /* ── Giao dịch của bạn — category emoji is the only emoji (content mark) ── */
   h += '<div class="section-h" id="pers-tx"><span class="t">Giao dịch của bạn</span></div><div class="rows">';
   if(P.txns.length){
@@ -120,7 +148,17 @@ function renderPersonal(){
   persRenderPeriod();          // fills the swipeable Day/Week/Month chart + guide + dots
   persBindSwipe();
 }
-function persScrollTx(){ var el=document.getElementById('pers-tx'), sc=document.getElementById('scroll'); if(el&&sc){ var y=Math.max(0, el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 70); sc.scrollTo({top:y,behavior:'smooth'}); } }
+function persScrollTx(){ _persScrollTo('pers-tx'); }
+function persScrollCats(){ _persScrollTo('pers-cats'); }
+function _persScrollTo(id){ var el=document.getElementById(id), sc=document.getElementById('scroll'); if(el&&sc){ var y=Math.max(0, el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 70); sc.scrollTo({top:y,behavior:'smooth'}); } }
+/* personal budget sheet */
+function persBudgetSubmit(){
+  var amt=parseAmtBase((document.getElementById('pbud-amt')||{}).value||'');
+  if(!amt || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
+  fhPersonalSetBudget(amt).then(function(ok){ if(ok){ closeModals(); renderPersonal(); window.toast && toast('Đã đặt ngân sách cá nhân'); } });
+}
+function persBudgetPrefill(){ var el=document.getElementById('pbud-amt'); var P=window.fhPersonalData?fhPersonalData():null; if(el&&P){ el.value = P.budget>0 ? (P.budget*curMult()).toLocaleString(CUR==='VND'?'vi-VN':'en-US') : ''; } }
+function persBudgetOpen(){ persBudgetPrefill(); persBudgetOpen(); }
 
 /* ── swipeable Day / Week / Month cash-flow — clone of the finance widget,
    contextualised to the personal ledger (income/spend, last-month pace). ── */
@@ -139,11 +177,18 @@ function persLastMonthDaily(){
   (P.txns||[]).forEach(function(t){ if(t.kind==='expense'&&(t.date||'').slice(0,7)===key){ var dd=+t.date.slice(8,10); if(dd>=1&&dd<=dim) arr[dd]+=(t.amt||0); } });
   return {arr:arr, dim:dim};
 }
-/* per-day norm: last month's daily average; fall back to this-month income pace. */
+/* per-day norm = the SAVER of (last-month daily avg) and (budget pace), so the
+   guide tightens to whichever signal is more conservative — mirrors the family
+   dgBase. Falls back to income pace when neither exists. */
 function persDgBase(pd, lm){
+  var P=fhPersonalData(), cand=[];
   var lmSpend=0; for(var i=1;i<=lm.dim;i++) lmSpend+=lm.arr[i];
-  if(lm.dim>0 && lmSpend>0) return lmSpend/lm.dim;
-  var P=fhPersonalData(), mon=new Date().toISOString().slice(0,7);
+  if(lm.dim>0 && lmSpend>0) cand.push(lmSpend/lm.dim);
+  var spentToday=pd.daily[pd.dom]||0, spentThisMonth=0; for(var d=1;d<=pd.dim;d++) spentThisMonth+=pd.daily[d];
+  var daysLeft=Math.max(1, pd.dim-pd.dom+1), remBudget=(P.budget||0)-(spentThisMonth-spentToday);
+  if(P.budget>0 && remBudget>0) cand.push(remBudget/daysLeft);
+  if(cand.length) return Math.min.apply(null, cand);
+  var mon=new Date().toISOString().slice(0,7);
   var inc=(P.incomes||[]).filter(function(x){return (x.date||'').slice(0,7)===mon;}).reduce(function(s,x){return s+(x.amt||0);},0);
   return inc>0 ? inc/pd.dim : 0;
 }

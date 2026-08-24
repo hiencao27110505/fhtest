@@ -143,6 +143,22 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-24 (Hien) — DISCUSS/COORDINATE: make bank-email import personal-first
+  (it's your pipeline).** Personal ledger (Model Y) now has its own budget + spend
+  views. The last finance CTA to port is **"Khoản thu chi từ email."** Proposal:
+  a user's bank-notification emails are *their own money*, so imported rows should
+  default to the **personal ledger** (`personal_transactions`, owner-scoped), with
+  a **per-row scope choice** in the review/resolve step — default **Cá nhân**,
+  optionally **Gia đình** (→ family + mirror). This is the purest "money is
+  personal, flows to spaces" expression and reuses the manual-capture scope picker
+  (🔒 Cá nhân / 🏡 Gia đình). You own the Gmail/autotxn pipeline
+  (72-txn-review/74-autotxn-ui → csvPromote→addExpense→family today), so this needs
+  your design: where the scope choice lives, and the default. Ties into the
+  transfer-leg pairing already flagged. **Ask: do you want personal-first import,
+  family-first with an opt-in-to-personal, or a per-row picker (Hien's vote:
+  per-row, default personal)?** No code yet on the import side.
+
+
 - **2026-08-24 (Hien) — DISCUSS: personal-card "remint from cached DEK" is weaker
   than our family-card model. Decision needed before it's the standing behavior.**
 

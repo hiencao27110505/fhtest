@@ -481,6 +481,20 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </div>
 </div>
 
+<!-- Personal monthly budget -->
+<div class="modal" id="sheet-pbudget">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title">Ngân sách cá nhân</div>
+    <button class="modal-save" onclick="persBudgetSubmit()">Lưu</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">Đặt mức chi cho tháng này. App sẽ tính "hôm nay còn tiêu được" theo ngân sách của bạn.</div>
+    <div class="field"><label>Ngân sách tháng này</label><input id="pbud-amt" type="text" inputmode="numeric" class="num big" placeholder="10.000.000" onblur="snapAmtInput(this)"></div>
+  </div>
+</div>
+
 <!-- Personal income quick-add -->
 <div class="modal" id="sheet-pincome">
   <div class="modal-grip"></div>
