@@ -186,12 +186,19 @@
     /* ── mirror engine: family (ACTIVE) → personal masters ──
        Scope v1: the active family only — its key is the one this session holds
        (fhDecStr). Other families mirror when the user switches to them. */
-    function _mirrorSoon() { setTimeout(() => { window.fhPersonalMirror(); }, 1200); }
+    let _mirrorTries = 0, _mirroring = false;
+    function _mirrorSoon(ms) { setTimeout(() => { window.fhPersonalMirror(); }, ms || 1200); }
 
     window.fhPersonalMirror = async function () {
-      if (!P.fid || !P.key || !P.memberId) return;
+      if (_mirroring) return;                                 // re-entrancy: retries/boot must never overlap a live run
+      if (!P.fid || !P.key) return;
+      if (!P.memberId) await _findMemberId();                 // may have been blocked pre-0072 — re-resolve
       const fid = window.DB && DB.fid, myMem = window.DB && DB.ownerMemberId;
-      if (!fid || fid === P.fid || !myMem || !window.fhKeyReady || !fhKeyReady()) return;
+      if (!P.memberId || !fid || fid === P.fid || !myMem || !window.fhKeyReady || !fhKeyReady()) {
+        if (_mirrorTries++ < 5) _mirrorSoon(4000);            // gates not ready yet → bounded retry, never give up on first boot
+        return;
+      }
+      _mirroring = true;
       try {
         // family categories (id → name) via the ACTIVE family key
         const fc = await _sb().from('categories').select('id,name,name_enc,emoji,color').eq('family_id', fid).is('archived_at', null);
@@ -213,18 +220,35 @@
           const catName = row.category_id && famCat[row.category_id] ? famCat[row.category_id].name : null;
           const pCatId = await _catFor(catName, row.category_id && famCat[row.category_id]);
           const linkId = crypto.randomUUID();
-          // reserve on the family row FIRST (crash-safe), then insert the master
-          const u = await _sb().from('transactions').update({ link_id: linkId }).eq('id', row.id).is('link_id', null);
-          if (u.error) continue;
+          // reserve on the family row FIRST (crash-safe), then insert the master.
+          // .select() so a raced/0-row update is DETECTED — a match-nothing update
+          // is not an error, and proceeding on it is what minted duplicate masters.
+          const u = await _sb().from('transactions').update({ link_id: linkId }).eq('id', row.id).is('link_id', null).select('id');
+          if (u.error || !u.data || u.data.length !== 1) continue;
           await _insertMaster(linkId, fid, row, amt, note, pCatId);
         }
 
-        // 2) reconcile: linked family rows ↔ masters (repair / refresh / tombstone)
+        // 2) reconcile: linked family rows ↔ masters (repair / refresh / tombstone).
+        // Masters are re-queried FRESH here — using the pre-adopt P.txns made the
+        // repair step blind to masters adopt just inserted, duplicating them.
         const ln = await _sb().from('transactions')
           .select('id,link_id,txn_date,category_id,amount,amount_enc,note,note_enc,updated_at')
           .eq('family_id', fid).eq('created_by', myMem).not('link_id', 'is', null).gte('txn_date', from).limit(400);
         const famBy = {}; (ln.data || []).forEach((r) => { famBy[r.link_id] = r; });
-        const mastersBy = {}; P.txns.forEach((t) => { if (t.linkId && t.spaceId === fid) mastersBy[t.linkId] = t; });
+        const mq = await _sb().from('transactions')
+          .select('id,link_id,txn_date,amount_enc,note_enc,updated_at,version,created_at')
+          .eq('family_id', P.fid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
+        const mastersBy = {};
+        for (const r of (mq.data || [])) {
+          if (mastersBy[r.link_id]) {                          // self-heal: duplicate master for one link → keep earliest, drop the rest
+            await _sb().from('transactions').delete().eq('id', r.id);
+            continue;
+          }
+          mastersBy[r.link_id] = {
+            id: r.id, linkId: r.link_id, date: r.txn_date, updatedAt: r.updated_at, version: r.version || 1,
+            amt: Number(await _decP(r.amount_enc)), note: await _decP(r.note_enc),
+          };
+        }
 
         for (const lid of Object.keys(famBy)) {
           const f = famBy[lid], m = mastersBy[lid];
@@ -244,15 +268,17 @@
             }).eq('id', m.id);
           }
         }
-        // tombstones: masters pointing at this family, in-window, whose family copy is gone
-        for (const t of P.txns) {
-          if (t.linkId && t.spaceId === fid && t.date >= from && !famBy[t.linkId]) {
-            await _sb().from('transactions').delete().eq('id', t.id);
-          }
+        // tombstones + orphans: masters pointing at this family, in-window, whose
+        // family copy is gone (deleted) or never carried this link (raced adopt)
+        for (const lid of Object.keys(mastersBy)) {
+          if (!famBy[lid]) await _sb().from('transactions').delete().eq('id', mastersBy[lid].id);
         }
         P.mirrorRan = true;
         await window.fhPersonalHydrate();
-      } catch (e) { console.warn('personal mirror failed', e); }
+      } catch (e) {
+        console.warn('personal mirror failed', e);
+        if (_mirrorTries++ < 5) _mirrorSoon(6000);            // transient (offline, mid-hydrate) → bounded retry
+      } finally { _mirroring = false; }
     };
 
     async function _insertMaster(linkId, spaceFid, famRow, amt, note, pCatId) {
