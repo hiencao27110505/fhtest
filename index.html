@@ -22011,30 +22011,42 @@ window.classifyAmount = classifyAmount;
        connect, and the callback learns that address from Google, never here. */
     if (email) q.set('login_hint', email);
 
+    /* JSON, not a redirect we follow. The endpoint answers 302 to Google for a
+       plain navigation, but this call carries a Bearer token so it has to be a
+       fetch — and a cross-origin fetch can do neither useful thing with that
+       302: following it makes the browser request accounts.google.com as a
+       fetch, which Google refuses, and `redirect: "manual"` yields an
+       OPAQUE-REDIRECT response whose headers the Fetch Standard filters out
+       entirely, so `Location` reads back as null no matter what the server
+       exposes. Asking for JSON sidesteps both: we get the URL as data and do
+       the navigating ourselves, which is what the consent screen needs anyway. */
     const res = await fetch(
       _ATX_API + '/connections/google/authorize?' + q.toString(),
       {
         method: 'GET',
-        redirect: 'manual',
-        headers: { Authorization: 'Bearer ' + token },
+        headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
       }
     );
-
-    /* An opaqueredirect response has status 0 and no readable headers. It means
-       the browser followed the 302 despite `manual` (or a proxy rewrote it), so
-       there is nothing to navigate to and guessing would send them somewhere
-       wrong. */
-    const target = res.headers.get('Location');
-    if (target) return target;
 
     if (res.status === 401) {
       throw Object.assign(new Error('unauthorised'), {
         fhMsg: L('Phiên đăng nhập đã hết hạn, đăng nhập lại nhé',
                  'Your session expired — please sign in again') });
     }
-    throw Object.assign(new Error('authorize failed: ' + res.status), {
-      fhMsg: L('Chưa mở được Google, thử lại nhé',
-               'Could not open Google — try again') });
+    if (!res.ok) {
+      throw Object.assign(new Error('authorize failed: ' + res.status), {
+        fhMsg: L('Chưa mở được Google, thử lại nhé',
+                 'Could not open Google — try again') });
+    }
+
+    const body = await res.json().catch(() => null);
+    const target = body && body.url;
+    if (!target) {
+      throw Object.assign(new Error('authorize: no url in response'), {
+        fhMsg: L('Chưa mở được Google, thử lại nhé',
+                 'Could not open Google — try again') });
+    }
+    return target;
   }
 
   /* The offer screen's CTA: read from the sign-in address, no form involved. */

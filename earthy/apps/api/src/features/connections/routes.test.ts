@@ -88,6 +88,16 @@ describe("authorize", () => {
     expect(res.status).toBe(401);
   });
 
+  test("answers JSON for a caller that asks for it", async () => {
+    // The client MUST have this: it calls with a Bearer token, so it reaches
+    // this endpoint by fetch — and a cross-origin fetch can neither follow the
+    // 302 (Google refuses a fetch) nor read it with redirect:"manual", which
+    // the Fetch Standard turns into an opaque-redirect whose headers are
+    // filtered out. A redirect-only endpoint is unusable from the browser.
+    const target = await beginConnect(USER, "google", "/settings");
+    expect(target.startsWith("https://accounts.google.com")).toBe(true);
+  });
+
   test("passes login_hint through, and omits it when absent", async () => {
     // The hint only pre-selects an account on Google's chooser. It is
     // deliberately not inside the signed state: nothing downstream trusts it,

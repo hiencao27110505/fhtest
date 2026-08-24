@@ -22,14 +22,6 @@ app.use(
   cors({
     origin: env.WEB_ORIGINS,
     credentials: true,
-    // `Location` is not a CORS-safelisted response header, so without this a
-    // browser hides it from script even on a 2xx/3xx it can otherwise read.
-    // The authorize endpoint answers 302 to Google's consent screen, and the
-    // client reads that header with `redirect: "manual"` rather than following
-    // it — following it would put the browser on accounts.google.com as a
-    // cross-origin fetch, which Google refuses. Without this line the client
-    // gets an opaque redirect with nowhere to go.
-    exposeHeaders: ["Location"],
   }),
 );
 

@@ -93,9 +93,33 @@ export const connectionsRoutes = new Hono<AuthEnv>()
     async (c) => {
       const { provider } = c.req.valid("param");
       const { returnTo, login_hint: loginHint } = c.req.valid("query");
-      return c.redirect(
-        await beginConnect(c.get("user").id, provider, returnTo, loginHint),
+      const url = await beginConnect(
+        c.get("user").id,
+        provider,
+        returnTo,
+        loginHint,
       );
+
+      // A 302 is unreadable to the caller that needs it most. This endpoint
+      // requires a Bearer token, so a browser reaches it through fetch, not a
+      // navigation — and a cross-origin fetch cannot follow the redirect
+      // (Google refuses the request) nor read it with `redirect: "manual"`:
+      // per the Fetch Standard that yields an OPAQUE-REDIRECT response, whose
+      // headers are filtered out entirely and are "indistinguishable from a
+      // network error". `Access-Control-Expose-Headers` cannot lift that — it
+      // is a spec-level filter, not a CORS decision. So `Location` reads back
+      // as null and the client has nowhere to send anyone.
+      //
+      // Handing the URL over as JSON is what makes the flow work: the caller
+      // navigates itself, which is also what keeps the hand-off a real
+      // top-level navigation rather than a fetch Google would reject.
+      if (c.req.header("Accept")?.includes("application/json")) {
+        return c.json({ url });
+      }
+
+      // A plain browser navigation (no Accept: application/json) still gets
+      // the redirect, so the endpoint remains usable by simply visiting it.
+      return c.redirect(url);
     },
   )
 
