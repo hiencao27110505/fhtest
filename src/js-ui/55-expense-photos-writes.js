@@ -305,6 +305,8 @@ function submitExpense(){
    (space_id null → private), never the family. Mirrors addExpense's finish
    (clear drafts, close, toast) so the flow feels identical. */
 async function _submitPersonalExpense(){
+  var pd=window.fhPersonalData&&fhPersonalData();
+  if(!pd||!pd.key){ window.toast&&toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first')); return; }
   if(typeof commitActiveRow==='function') commitActiveRow();
   var rows=(typeof bulkRows!=='undefined'?bulkRows:[]).filter(function(r){ return typeof rowHasContent==='function'? rowHasContent(r):(r&&r.amt); });
   if(!rows.length){ if(typeof bulkShowInvalid==='function') bulkShowInvalid(); return; }

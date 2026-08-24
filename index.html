@@ -3542,8 +3542,8 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
          active row's mount; in edit mode it renders in place (bulk list stays empty). -->
     <div id="ex-editor">
     <div class="field" id="ex-scopefield"><label>Ghi vào đâu?</label><div class="choices" id="ex-scope">
-      <button class="choice on" data-v="family" onclick="pickExScope(this)">🏡 Gia đình</button>
-      <button class="choice" data-v="personal" onclick="pickExScope(this)">🔒 Cá nhân</button>
+      <button class="choice on" data-v="personal" onclick="pickExScope(this)">🔒 Cá nhân</button>
+      <button class="choice" data-v="family" onclick="pickExScope(this)">🏡 Gia đình</button>
     </div></div>
     <div class="field">
       <label data-t="exWhatFor">What for?</label>
@@ -7697,12 +7697,21 @@ function openExpense(preset){
   // Scope picker: hidden while editing (scope is fixed once logged); resets to
   // family on every fresh open so a prior personal pick never carries over.
   var sf=document.getElementById('ex-scopefield'); if(sf) sf.style.display = editingTx? 'none':'';
-  if(!editingTx) _applyExScope((preset&&preset.scope)||'family');
+  if(!editingTx){
+    // Personal-first: money is the person's by default, shared to a space only
+    // on purpose. Fall back to family only if the personal ledger isn't ready
+    // (locked / not provisioned) so capture never dead-ends. Last pick is
+    // remembered so a family-heavy session isn't re-picking every time.
+    var pd=window.fhPersonalData&&fhPersonalData(); var pReady=!!(pd&&pd.key);
+    var want=(preset&&preset.scope) || (pReady ? (_lastScope()||'personal') : 'family');
+    _applyExScope(want);
+  }
 }
 function closeExpense(){ closeModals(); }
 // Open the shared expense modal pre-scoped to the personal ledger (Cá nhân tab).
 function openPersonalExpense(){ openExpense({scope:'personal'}); }
-function pickExScope(btn){ pick('ex-scope',btn); _applyExScope(btn.dataset.v); }
+function _lastScope(){ try{ return localStorage.getItem('fh-last-scope'); }catch(e){ return null; } }
+function pickExScope(btn){ pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} _applyExScope(btn.dataset.v); }
 function _applyExScope(v){
   var personal=(v==='personal');
   selectChipByVal('ex-scope', v);
@@ -8919,6 +8928,8 @@ function submitExpense(){
    (space_id null → private), never the family. Mirrors addExpense's finish
    (clear drafts, close, toast) so the flow feels identical. */
 async function _submitPersonalExpense(){
+  var pd=window.fhPersonalData&&fhPersonalData();
+  if(!pd||!pd.key){ window.toast&&toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first')); return; }
   if(typeof commitActiveRow==='function') commitActiveRow();
   var rows=(typeof bulkRows!=='undefined'?bulkRows:[]).filter(function(r){ return typeof rowHasContent==='function'? rowHasContent(r):(r&&r.amt); });
   if(!rows.length){ if(typeof bulkShowInvalid==='function') bulkShowInvalid(); return; }
@@ -13671,7 +13682,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v374';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v375';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

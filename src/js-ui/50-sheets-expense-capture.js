@@ -83,12 +83,21 @@ function openExpense(preset){
   // Scope picker: hidden while editing (scope is fixed once logged); resets to
   // family on every fresh open so a prior personal pick never carries over.
   var sf=document.getElementById('ex-scopefield'); if(sf) sf.style.display = editingTx? 'none':'';
-  if(!editingTx) _applyExScope((preset&&preset.scope)||'family');
+  if(!editingTx){
+    // Personal-first: money is the person's by default, shared to a space only
+    // on purpose. Fall back to family only if the personal ledger isn't ready
+    // (locked / not provisioned) so capture never dead-ends. Last pick is
+    // remembered so a family-heavy session isn't re-picking every time.
+    var pd=window.fhPersonalData&&fhPersonalData(); var pReady=!!(pd&&pd.key);
+    var want=(preset&&preset.scope) || (pReady ? (_lastScope()||'personal') : 'family');
+    _applyExScope(want);
+  }
 }
 function closeExpense(){ closeModals(); }
 // Open the shared expense modal pre-scoped to the personal ledger (Cá nhân tab).
 function openPersonalExpense(){ openExpense({scope:'personal'}); }
-function pickExScope(btn){ pick('ex-scope',btn); _applyExScope(btn.dataset.v); }
+function _lastScope(){ try{ return localStorage.getItem('fh-last-scope'); }catch(e){ return null; } }
+function pickExScope(btn){ pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} _applyExScope(btn.dataset.v); }
 function _applyExScope(v){
   var personal=(v==='personal');
   selectChipByVal('ex-scope', v);
