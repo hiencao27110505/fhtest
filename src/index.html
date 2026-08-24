@@ -463,6 +463,21 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </div>
 </div>
 
+<!-- Re-enter personal card (Settings → view code, when this device didn't cache it) -->
+<div class="modal" id="sheet-pcode">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title">Xem mã khóa cá nhân</div>
+    <button class="modal-save" onclick="persCodeSubmit()">Mở</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">Máy này đang mở sổ cá nhân nhưng chưa lưu mã khóa. Nhập lại mã khóa cá nhân bạn đã lưu lúc tạo để xem và lưu tại đây.</div>
+    <div class="field"><input id="pcode-in" placeholder="FH-XXXX-XXXX-…" autocomplete="off" autocapitalize="characters"></div>
+    <div id="pcode-err" class="pers-lock-err"></div>
+  </div>
+</div>
+
 <!-- Personal income quick-add -->
 <div class="modal" id="sheet-pincome">
   <div class="modal-grip"></div>

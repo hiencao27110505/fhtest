@@ -3468,6 +3468,21 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   </div>
 </div>
 
+<!-- Re-enter personal card (Settings → view code, when this device didn't cache it) -->
+<div class="modal" id="sheet-pcode">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title">Xem mã khóa cá nhân</div>
+    <button class="modal-save" onclick="persCodeSubmit()">Mở</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">Máy này đang mở sổ cá nhân nhưng chưa lưu mã khóa. Nhập lại mã khóa cá nhân bạn đã lưu lúc tạo để xem và lưu tại đây.</div>
+    <div class="field"><input id="pcode-in" placeholder="FH-XXXX-XXXX-…" autocomplete="off" autocapitalize="characters"></div>
+    <div id="pcode-err" class="pers-lock-err"></div>
+  </div>
+</div>
+
 <!-- Personal income quick-add -->
 <div class="modal" id="sheet-pincome">
   <div class="modal-grip"></div>
@@ -5284,11 +5299,27 @@ function fhPCardIntro(){
    cached on this device; save/copy reuse the same sheet-pcard buttons. */
 window.fhPersonalCardShow = function(){
   var disp = window.fhPersonalCardCached && fhPersonalCardCached();
-  if(!disp){ window.toast && toast(L('Máy này chưa lưu mã khóa cá nhân — dùng mã bạn đã lưu để mở, hoặc mở tab Cá nhân.','This device hasn’t saved your personal code — use the one you saved, or open the Cá nhân tab.')); return; }
-  window.__fhPersonalCard = { display: disp };
-  var d = document.getElementById('pcard-display'); if(d) d.textContent = disp;
-  openSheet('sheet-pcard');
+  if(disp){
+    window.__fhPersonalCard = { display: disp };
+    var d = document.getElementById('pcard-display'); if(d) d.textContent = disp;
+    openSheet('sheet-pcard');
+    return;
+  }
+  // DEK is on the device (ledger opens) but the card string was never saved here
+  // (provisioned before caching shipped). Re-enter the card you saved to re-cache it.
+  var e2=document.getElementById('pcode-err'); if(e2) e2.textContent='';
+  var inp=document.getElementById('pcode-in'); if(inp) inp.value='';
+  openSheet('sheet-pcode');
 };
+/* re-enter the personal card to re-cache it on this device, then show it */
+function persCodeSubmit(){
+  var el=document.getElementById('pcode-in'), err=document.getElementById('pcode-err');
+  if(!el) return;
+  fhPersonalUnlock(el.value).then(function(r){
+    if(r.ok){ closeModals(); setTimeout(function(){ if(window.fhPersonalCardShow) fhPersonalCardShow(); }, 260); }
+    else if(err){ err.textContent = (r.error==='checksum'||r.error==='wrong_card') ? 'Mã không đúng — kiểm tra lại từng nhóm ký tự.' : (r.error==='no_wrap'?'Không tìm thấy khóa của sổ cá nhân.':'Chưa mở được ('+r.error+').'); }
+  });
+}
 function persCardCopy(){
   var c = window.__fhPersonalCard; if(!c) return;
   (navigator.clipboard && navigator.clipboard.writeText(c.display)).then(function(){ window.toast && toast('Đã sao chép thẻ khóa'); });
@@ -15195,7 +15226,7 @@ window.obGoogle = async function () {
      copy). Reserve link_id on the family row FIRST (crash-safe), then insert the
      master; reconcile repairs/refreshes/tombstones. Idempotent by link_id. */
   (function () {
-    const P = { uid: null, key: null, wrap: null, txns: [], incomes: [], state: 'boot', mirrorRan: false };
+    const P = { uid: null, key: null, rawKey: null, wrap: null, txns: [], incomes: [], state: 'boot', mirrorRan: false };
     window.fhPersonalData = function () { return P; };
     const _sb = () => window.sb;
     async function _uid() { try { const s = await _sb().auth.getSession(); return s.data.session ? s.data.session.user.id : null; } catch (e) { return null; } }
@@ -15244,6 +15275,7 @@ window.obGoogle = async function () {
       const r = await _sb().rpc('init_personal_key', { p_kdf_salt: salt, p_kdf_iters: window.FH_KDF_ITERS_CARD, p_kdf_version: 1, p_wrapped_dek: wrapped });
       if (r.error) { console.warn('init_personal_key failed', r.error); _setState('error'); return; }
       P.key = await FHCrypto.importDek(dekRaw);
+      P.rawKey = new Uint8Array(dekRaw);              // in-memory only (never persisted) — enables card regen this session
       await _kPut('p:' + P.uid, P.key);
       window.__fhPersonalCard = card;                 // the one secret to protect — shown once
       _pcardCache(card.display);                       // …and viewable later in Settings
@@ -15259,6 +15291,7 @@ window.obGoogle = async function () {
         const keys = await FHCrypto.deriveKeys(p.key, P.wrap.kdf_salt, P.wrap.kdf_iters, P.wrap.kdf_version);
         const raw = await FHCrypto.unwrapDek(P.wrap.wrapped_dek, keys.kWrap);
         P.key = await FHCrypto.importDek(raw);
+        P.rawKey = new Uint8Array(raw);
         await _kPut('p:' + P.uid, P.key);
         _pcardCache(p.display);                         // remember the entered card so it's viewable in Settings
         await _afterKey();

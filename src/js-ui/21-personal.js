@@ -171,11 +171,27 @@ function fhPCardIntro(){
    cached on this device; save/copy reuse the same sheet-pcard buttons. */
 window.fhPersonalCardShow = function(){
   var disp = window.fhPersonalCardCached && fhPersonalCardCached();
-  if(!disp){ window.toast && toast(L('Máy này chưa lưu mã khóa cá nhân — dùng mã bạn đã lưu để mở, hoặc mở tab Cá nhân.','This device hasn’t saved your personal code — use the one you saved, or open the Cá nhân tab.')); return; }
-  window.__fhPersonalCard = { display: disp };
-  var d = document.getElementById('pcard-display'); if(d) d.textContent = disp;
-  openSheet('sheet-pcard');
+  if(disp){
+    window.__fhPersonalCard = { display: disp };
+    var d = document.getElementById('pcard-display'); if(d) d.textContent = disp;
+    openSheet('sheet-pcard');
+    return;
+  }
+  // DEK is on the device (ledger opens) but the card string was never saved here
+  // (provisioned before caching shipped). Re-enter the card you saved to re-cache it.
+  var e2=document.getElementById('pcode-err'); if(e2) e2.textContent='';
+  var inp=document.getElementById('pcode-in'); if(inp) inp.value='';
+  openSheet('sheet-pcode');
 };
+/* re-enter the personal card to re-cache it on this device, then show it */
+function persCodeSubmit(){
+  var el=document.getElementById('pcode-in'), err=document.getElementById('pcode-err');
+  if(!el) return;
+  fhPersonalUnlock(el.value).then(function(r){
+    if(r.ok){ closeModals(); setTimeout(function(){ if(window.fhPersonalCardShow) fhPersonalCardShow(); }, 260); }
+    else if(err){ err.textContent = (r.error==='checksum'||r.error==='wrong_card') ? 'Mã không đúng — kiểm tra lại từng nhóm ký tự.' : (r.error==='no_wrap'?'Không tìm thấy khóa của sổ cá nhân.':'Chưa mở được ('+r.error+').'); }
+  });
+}
 function persCardCopy(){
   var c = window.__fhPersonalCard; if(!c) return;
   (navigator.clipboard && navigator.clipboard.writeText(c.display)).then(function(){ window.toast && toast('Đã sao chép thẻ khóa'); });

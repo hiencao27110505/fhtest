@@ -10,7 +10,7 @@
      copy). Reserve link_id on the family row FIRST (crash-safe), then insert the
      master; reconcile repairs/refreshes/tombstones. Idempotent by link_id. */
   (function () {
-    const P = { uid: null, key: null, wrap: null, txns: [], incomes: [], state: 'boot', mirrorRan: false };
+    const P = { uid: null, key: null, rawKey: null, wrap: null, txns: [], incomes: [], state: 'boot', mirrorRan: false };
     window.fhPersonalData = function () { return P; };
     const _sb = () => window.sb;
     async function _uid() { try { const s = await _sb().auth.getSession(); return s.data.session ? s.data.session.user.id : null; } catch (e) { return null; } }
@@ -59,6 +59,7 @@
       const r = await _sb().rpc('init_personal_key', { p_kdf_salt: salt, p_kdf_iters: window.FH_KDF_ITERS_CARD, p_kdf_version: 1, p_wrapped_dek: wrapped });
       if (r.error) { console.warn('init_personal_key failed', r.error); _setState('error'); return; }
       P.key = await FHCrypto.importDek(dekRaw);
+      P.rawKey = new Uint8Array(dekRaw);              // in-memory only (never persisted) — enables card regen this session
       await _kPut('p:' + P.uid, P.key);
       window.__fhPersonalCard = card;                 // the one secret to protect — shown once
       _pcardCache(card.display);                       // …and viewable later in Settings
@@ -74,6 +75,7 @@
         const keys = await FHCrypto.deriveKeys(p.key, P.wrap.kdf_salt, P.wrap.kdf_iters, P.wrap.kdf_version);
         const raw = await FHCrypto.unwrapDek(P.wrap.wrapped_dek, keys.kWrap);
         P.key = await FHCrypto.importDek(raw);
+        P.rawKey = new Uint8Array(raw);
         await _kPut('p:' + P.uid, P.key);
         _pcardCache(p.display);                         // remember the entered card so it's viewable in Settings
         await _afterKey();
