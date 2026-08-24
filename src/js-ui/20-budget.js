@@ -286,8 +286,7 @@ function dgBase(m, daily){                                    // per-day norm (p
 function cfPerDay(m, daily){
   var spent=m.spent||0, spentToday=(daily&&daily[m.dom])||0, reserved=m.done?0:monthReserved();
   var spentBefore=spent-spentToday, daysLeft=Math.max(1, m.dim-m.dom+1);
-  var prevKey=_MOA[(TODAY.getMonth()+11)%12], pm=months[prevKey];
-  var prevDaily=(pm && pm.spent>0 && pm.dim>0) ? pm.spent/pm.dim : null;   // last month's daily average
+  var prevDaily=cfPrevDaily(m);   // last month's daily average
   var budgetPerDay=(m.budget>0) ? ((m.budget-spentBefore-reserved)/daysLeft) : null;   // remaining budget spread over remaining days (may be ≤0)
   var base;
   if(budgetPerDay!=null && prevDaily!=null) base=Math.min(prevDaily, budgetPerDay);    // saver of the two signals
@@ -301,7 +300,35 @@ function cfDaysLeftWeek(m, dLeftMonth){                       // today → Sunda
   var d=new Date((m._iso||((m.short||curMonthKey())+'-01')).slice(0,7)+'-01T00:00:00'); d.setDate(m.dom);
   return Math.min(7-((d.getDay()+6)%7), dLeftMonth);          // Mon=0 … Sun=6 → 7-idx days incl. today
 }
-function dgKey(remain, threshold){ if(remain<0) return 'red'; var pct=threshold>0?remain/threshold:0; return pct<=0.20?'orange':(pct<=0.50?'yellow':'green'); }
+/* Last month's raw daily average (no goal applied) — the "vs before" yardstick. */
+function cfPrevDaily(m){ var prevKey=_MOA[(TODAY.getMonth()+11)%12], pm=months[prevKey]; return (pm && pm.spent>0 && pm.dim>0) ? pm.spent/pm.dim : null; }
+/* Shared guide-colour brain (Finance + Cá nhân). Under plan → green/yellow/orange by
+   headroom. Over plan → red ONLY if also over last period's pace; if still under last
+   period (spending less than before), stay orange, not red — over plan but improving. */
+function fhGuideKey(remain, threshold, prevRemain){
+  if(remain<0) return (prevRemain!=null && prevRemain>=0) ? 'orange' : 'red';
+  var pct=threshold>0?remain/threshold:0; return pct<=0.20?'orange':(pct<=0.50?'yellow':'green');
+}
+function dgKey(remain, threshold){ return fhGuideKey(remain, threshold, null); }
+/* Shared guide label (Finance + Cá nhân). Under plan → "còn tiêu được". Over plan → names
+   what actually broke: over budget but still under last month (orange) vs over both (red);
+   with no budget, it's purely the last-month yardstick. Yardstick is always last month. */
+function fhGuideLabel(periodKey, over, key, hasBudget, hasPrev){
+  if(!over){
+    return periodKey==='day' ? L('Hôm nay còn tiêu được','Left to spend today')
+         : periodKey==='week'? L('Tiêu được tuần này','Left this week')
+         :                     L('Tiêu được tháng này','Left this month');
+  }
+  if(hasBudget){
+    if(key==='orange') return L('Bể kế hoạch, nhưng đỡ hơn tháng trước','Over plan, still under last month');
+    if(hasPrev)        return L('Bể kế hoạch, tệ hơn tháng trước','Over plan and last month');
+    return L('Bể kế hoạch','Over plan');
+  }
+  if(hasPrev) return L('Tiêu hơn tháng trước','More than last month');
+  return periodKey==='day' ? L('Hôm nay đã vượt','Over today')
+       : periodKey==='week'? L('Tuần này đã vượt','Over this week')
+       :                     L('Tháng này đã vượt','Over this month');
+}
 /* State-change push (E2EE-safe · client-side): tracks the DAY state regardless of which period
    is on screen. Only the device that just logged an expense fires (window._dgLocalAdd), only
    when today's state worsens, never on green. The actor gate + fhNotify's per-kind cooldown stop
@@ -309,7 +336,9 @@ function dgKey(remain, threshold){ if(remain<0) return 'red'; var pct=threshold>
 function cfMaybePush(m, daily){
   var perDay=cfPerDay(m,daily);
   if(perDay==null){ window._dgLocalAdd=false; return; }
-  var remain=perDay-(daily[m.dom]||0), key=dgKey(remain, perDay);
+  var spentToday=(daily[m.dom]||0), prevDaily=cfPrevDaily(m);
+  var prevRemain=(prevDaily!=null)?(prevDaily-spentToday):null;
+  var remain=perDay-spentToday, key=fhGuideKey(remain, perDay, prevRemain);
   var _ord={green:0,yellow:1,orange:2,red:3};
   var _prev=(window.dgStateDay===m.dom)?(window.dgState||'green'):'green';
   if(window._dgLocalAdd && _ord[key]>_ord[_prev] && key!=='green' && typeof fhNotify==='function'){ fhNotify('dgstate',{state:key}); }
@@ -323,26 +352,24 @@ function cfPeriodGuide(m, daily, periodKey){
   var days = periodKey==='day' ? 1 : (periodKey==='week' ? cfDaysLeftWeek(m, dLeftMonth) : dLeftMonth);
   var host=document.getElementById('cf-daily'); if(!host) return false;
   if(perDay==null){ setHTMLIf(host, ''); return false; }     // no basis for guidance → hide the tile
-  var threshold=perDay*days, remain=threshold-(daily[m.dom]||0), over=remain<0, key=dgKey(remain, threshold);
+  var spentToday=(daily[m.dom]||0), threshold=perDay*days, remain=threshold-spentToday, over=remain<0;
+  var prevDaily=cfPrevDaily(m), prevRemain=(prevDaily!=null)?(prevDaily*days-spentToday):null;
+  var key=fhGuideKey(remain, threshold, prevRemain);
   window.cfDailyState=key;
   var s=DG_STATES[key], level=(threshold>0)?Math.max(0,Math.min(100,remain/threshold*100)):0;
-  var LBL={
-    day:  over?L('Hôm nay đã vượt','Over today')       :L('Hôm nay còn tiêu được','Left to spend today'),
-    week: over?L('Tuần này đã vượt','Over this week')   :L('Tiêu được tuần này','Left this week'),
-    month:over?L('Tháng này đã vượt','Over this month') :L('Tiêu được tháng này','Left this month')
-  };
+  var lbl=fhGuideLabel(periodKey, over, key, m.budget>0, prevDaily!=null);
   var amt = over ? fmt(-remain) : fmt(Math.max(0,remain));
   host.style.background=s.bg;
   setHTMLIf(host,
-    '<span class="dg-lbl" style="color:'+s.mut+'">'+LBL[periodKey]+'</span>'
+    '<span class="dg-lbl" style="color:'+s.mut+'">'+lbl+'</span>'
     +'<span class="dg-amt num" style="color:'+s.main+'">'+amt+'</span>'
     +'<span class="dg-vis">'+cfWaterSVG(level,s,over)+'</span>');
   return true;
 }
 function cfWaterSVG(level,s,over){
   if(over){
-    return '<svg viewBox="0 0 46 46" width="46" height="46"><circle cx="23" cy="23" r="22" fill="rgba(224,72,63,.08)"/>'
-      +'<circle cx="23" cy="23" r="22" fill="none" stroke="rgba(224,72,63,.4)" stroke-width="1.5"/></svg><span class="dg-bang">!</span>';
+    return '<svg viewBox="0 0 46 46" width="46" height="46"><circle cx="23" cy="23" r="22" fill="'+s.main+'" fill-opacity=".08"/>'
+      +'<circle cx="23" cy="23" r="22" fill="none" stroke="'+s.main+'" stroke-opacity=".4" stroke-width="1.5"/></svg><span class="dg-bang" style="color:'+s.main+'">!</span>';
   }
   var y=(46*(1-level/100)).toFixed(2), WP='M0 0 Q 11.5 -3 23 0 T 46 0 T 69 0 T 92 0 L 92 62 L 0 62 Z';
   return '<svg viewBox="0 0 46 46" width="46" height="46"><defs><clipPath id="cfwclip"><circle cx="23" cy="23" r="22"/></clipPath></defs>'
