@@ -143,6 +143,65 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-24 (Hien) — DISCUSS/COORDINATE: make bank-email import personal-first
+  (it's your pipeline).** Personal ledger (Model Y) now has its own budget + spend
+  views. The last finance CTA to port is **"Khoản thu chi từ email."** Proposal:
+  a user's bank-notification emails are *their own money*, so imported rows should
+  default to the **personal ledger** (`personal_transactions`, owner-scoped), with
+  a **per-row scope choice** in the review/resolve step — default **Cá nhân**,
+  optionally **Gia đình** (→ family + mirror). This is the purest "money is
+  personal, flows to spaces" expression and reuses the manual-capture scope picker
+  (🔒 Cá nhân / 🏡 Gia đình). You own the Gmail/autotxn pipeline
+  (72-txn-review/74-autotxn-ui → csvPromote→addExpense→family today), so this needs
+  your design: where the scope choice lives, and the default. Ties into the
+  transfer-leg pairing already flagged. **Ask: do you want personal-first import,
+  family-first with an opt-in-to-personal, or a per-row picker (Hien's vote:
+  per-row, default personal)?** No code yet on the import side.
+
+
+- **2026-08-24 (Hien) — DISCUSS: personal-card "remint from cached DEK" is weaker
+  than our family-card model. Decision needed before it's the standing behavior.**
+
+  **What it is:** `fhPersonalRegen` (src/js-data/19-personal.js) + `rotate_personal_key`
+  (migration 0081) let a user who has their personal ledger *unlocked* mint a NEW
+  personal card by re-encrypting personal_transactions/personal_incomes from the
+  cached DEK → a new DEK, then swapping the wrap. Built to recover a lost personal
+  card (Hien forgot to save his). It works from a **cold-boot cached DEK** (the
+  non-extractable CryptoKey in fh-keys).
+
+  **Not broken (E2EE core holds):** operator / DB dump / network / hacker-without-device
+  gain nothing — remint needs the DEK to re-encrypt; without it you can only store a
+  wrap for a DEK that can't read the existing ciphertext (garbage, not plaintext).
+  "Even we can't read it" is intact.
+
+  **The real weakness (compromised *unlocked* device):** whoever holds an unlocked
+  device can (1) mint a **portable** card → turn ephemeral this-device-only access
+  (DEK is cached non-extractable, can't be copied out) into permanent off-device
+  access, and (2) **lock the real user out** (data re-keyed to a card only they hold).
+  A device attacker could already *view* on-screen data, so the escalation is
+  persistence + portability + lockout, not first read.
+
+  **Why it's weaker than family:** family `fhCardRegenerate` (67-card-ui.js) needs
+  `_fhDekRaw` — present only right after a real card unlock — so a cold-boot cached
+  family device can *view* but **cannot** regenerate. Personal remint bypasses that
+  gate via re-encryption. Root tension: "recover a lost card from the cached DEK" IS
+  the same capability a device attacker abuses — you can't have one without the other.
+
+  **Options:**
+  1. **Align to family (Hien's vote):** regenerate requires `P.rawKey` (only after a
+     real card unlock) and re-wraps the SAME DEK — no re-encryption, no lockout, no
+     portable-key-from-a-cached-DEK. Cost: a *truly* lost card (only cached DEK left)
+     is unrecoverable = the correct E2EE floor. Mitigated by v378 display-caching, so
+     genuine loss only affects pre-v378 keys (≈ Hien's test acct).
+  2. **Keep remint but gate it** behind a fresh Google re-auth + explicit warning.
+     Weaker (a thief with a live Google session still passes) but > current ungated.
+  3. **Keep as-is** (convenience-first). Not recommended.
+
+  **Ask:** which option? If nobody objects in a few days, Hien ships option 1 (small
+  change: drop the re-encryption path, require rawKey, relabel the settings copy so
+  "lost your code" honestly says *enter it once to view, else unrecoverable*).
+
+
 - **2026-08-24 (Hien's session) — ⚠️ MIGRATION-NUMBER COLLISION + personal ledger
   pivoted to "Model Y". Read before adding migrations or building on personal.**
 

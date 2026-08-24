@@ -10,7 +10,11 @@
      copy). Reserve link_id on the family row FIRST (crash-safe), then insert the
      master; reconcile repairs/refreshes/tombstones. Idempotent by link_id. */
   (function () {
-    const P = { uid: null, key: null, rawKey: null, wrap: null, txns: [], incomes: [], state: 'boot', mirrorRan: false };
+    const P = { uid: null, key: null, rawKey: null, wrap: null, txns: [], incomes: [], budget: 0, state: 'boot', mirrorRan: false };
+    const _monISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; };
+    // LOCAL YYYY-MM-DD — toISOString() is UTC and would log yesterday's date when
+    // capturing after midnight in UTC+7.
+    const _localDate = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     window.fhPersonalData = function () { return P; };
     const _sb = () => window.sb;
     async function _uid() { try { const s = await _sb().auth.getSession(); return s.data.session ? s.data.session.user.id : null; } catch (e) { return null; } }
@@ -34,7 +38,7 @@
     const _encP = (v) => FHCrypto.encVal(P.key, v);
     const _decP = async (b64) => { try { return b64 ? await FHCrypto.decVal(P.key, b64) : null; } catch (e) { return null; } };
     function _setState(s) { P.state = s; try { if (window.renderPersonal) renderPersonal(); } catch (e) {} }
-    function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return d.toISOString().slice(0, 10); }
+    function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return _localDate(d); }
 
     let _booting = false;
     window.fhPersonalBoot = async function () {
@@ -90,12 +94,14 @@
       _setState('loading');
       try {
         const from = _winFrom();
-        const [tr, ir] = await Promise.all([
-          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id,link_id,version,updated_at').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
+        const [tr, ir, bd] = await Promise.all([
+          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id,link_id,version,updated_at,created_at').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
           _sb().from('personal_incomes').select('id,amount_enc,note_enc,income_date').eq('owner_user_id', P.uid).gte('income_date', from),
+          _sb().from('personal_budgets').select('total_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
         ]);
+        P.budget = (bd && bd.data) ? Number(await _decP(bd.data.total_enc)) || 0 : 0;
         P.txns = [];
-        for (const t of (tr.data || [])) P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id, version: t.version || 1, updatedAt: t.updated_at, amt: Number(await _decP(t.amount_enc)), note: await _decP(t.note_enc), cat: await _decP(t.cat_name_enc), emoji: t.cat_emoji });
+        for (const t of (tr.data || [])) P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id, version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at, amt: Number(await _decP(t.amount_enc)), note: await _decP(t.note_enc), cat: await _decP(t.cat_name_enc), emoji: t.cat_emoji });
         P.incomes = [];
         for (const i of (ir.data || [])) P.incomes.push({ id: i.id, date: i.income_date, amt: Number(await _decP(i.amount_enc)), note: await _decP(i.note_enc) });
         _setState('ready');
@@ -105,15 +111,23 @@
     /* writes — private (space-less) rows */
     window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso) {
       if (!P.uid || !P.key) return false;
-      const row = { owner_user_id: P.uid, txn_date: dateIso || new Date().toISOString().slice(0, 10), kind: 'expense', space_id: null, link_id: null,
+      const row = { owner_user_id: P.uid, txn_date: dateIso || _localDate(new Date()), kind: 'expense', space_id: null, link_id: null,
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null };
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal expense failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
+    window.fhPersonalSetBudget = async function (amt) {
+      if (!P.uid || !P.key) return false;
+      const r = await _sb().from('personal_budgets').upsert(
+        { owner_user_id: P.uid, month: _monISO(), total_enc: await _encP(Number(amt)), updated_at: new Date().toISOString() },
+        { onConflict: 'owner_user_id,month' });
+      if (r.error) { console.warn('personal budget failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
     window.fhPersonalAddIncome = async function (amt, note) {
       if (!P.uid || !P.key) return false;
-      const row = { owner_user_id: P.uid, income_date: new Date().toISOString().slice(0, 10),
+      const row = { owner_user_id: P.uid, income_date: _localDate(new Date()),
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null };
       const r = await _sb().from('personal_incomes').insert(row);
       if (r.error) { console.warn('personal income failed', r.error); return false; }

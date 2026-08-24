@@ -27,22 +27,213 @@ TEST_SENDERS: frozenset[str] = frozenset(
 
 
 # domain -> short label used in logs
+#
+# THE DOMAIN IS THE ONE THAT SENDS MAIL, not the one on the website or the one
+# the brand name implies. Every entry below was checked for live MX before it
+# was added, because the two are often different and the failure is silent: an
+# unlisted sender is dropped at ingest with no error, and the transaction just
+# never appears. The traps found while compiling this:
+#
+#   vietinbank.com.vn   has NO MX          → vietinbank.vn
+#   tpbank.com.vn       has NO MX          → tpb.com.vn
+#   bacabank.com.vn     has NO MX          → baca-bank.vn   (hyphen)
+#   ncb.com.vn          not the sender     → ncb-bank.vn    (hyphen)
+#   bvbank.com.vn       not the sender     → bvbank.net.vn  (.net.vn)
+#   kienlongbank.com.vn not the sender     → kienlongbank.com (no .vn)
+#   dongabank.com.vn    dead, rebranded    → vikkibank.vn
+#   wooribank.com.vn    does not resolve   → woori.com.vn
+#
+# So "Vietnamese banks are @name.com.vn" is a good first guess and a bad rule:
+# it is wrong for VietinBank, TPBank, BacABank, NCB, BVBank, KienlongBank and
+# every wallet in the second half of this table. Look the domain up; do not
+# derive it from the name.
+#
+# Subdomains match automatically (see `match`), so `no-reply@mail.acb.com.vn`
+# needs no entry of its own.
 KNOWN_SENDERS: dict[str, str] = {
-    # banks
-    "techcombank.com.vn": "techcombank",
+    # ── banks, state-owned and joint stock ──────────────────────────────────
     "vietcombank.com.vn": "vietcombank",
-    "acb.com.vn": "acb",
+    "vietinbank.vn": "vietinbank",        # NOT vietinbank.com.vn
+    "bidv.com.vn": "bidv",
+    "agribank.com.vn": "agribank",
+    "techcombank.com.vn": "techcombank",
     "mbbank.com.vn": "mbbank",
     "vpbank.com.vn": "vpbank",
-    "bidv.com.vn": "bidv",
-    "tpb.com.vn": "tpbank",
+    "acb.com.vn": "acb",
+    "sacombank.com.vn": "sacombank",
+    "sacombank.com": "sacombank",         # both are live senders
+    "hdbank.com.vn": "hdbank",
     "vib.com.vn": "vib",
-    # e-wallets
+    "tpb.com.vn": "tpbank",               # NOT tpbank.com.vn
+    "shb.com.vn": "shb",
+    "seabank.com.vn": "seabank",
+    "ocb.com.vn": "ocb",
+    "msb.com.vn": "msb",
+    "lpbank.com.vn": "lpbank",
+    "eximbank.com.vn": "eximbank",
+    "eib.com.vn": "eximbank",             # second Eximbank sending domain
+    "namabank.com.vn": "namabank",
+    "abbank.vn": "abbank",                # no .com
+    "baca-bank.vn": "bacabank",           # hyphen
+    "pvcombank.com.vn": "pvcombank",
+    "scb.com.vn": "scb",
+    "vietbank.com.vn": "vietbank",
+    "kienlongbank.com": "kienlongbank",   # no .vn
+    "saigonbank.com.vn": "saigonbank",
+    "baovietbank.vn": "baovietbank",
+    "vietabank.com.vn": "vietabank",
+    "ncb-bank.vn": "ncb",                 # hyphen
+    "pgbank.com.vn": "pgbank",
+    "bvbank.net.vn": "bvbank",            # .net.vn
+    "vikkibank.vn": "vikki",              # Dong A Bank, rebranded
+    "oceanbank.vn": "oceanbank",
+    "gpbank.com.vn": "gpbank",
+
+    # ── foreign banks operating in Vietnam ──────────────────────────────────
+    "woori.com.vn": "woori",              # NOT wooribank.com.vn
+    "shinhan.com.vn": "shinhan",
+    "hsbc.com.vn": "hsbc",
+    "publicbank.com.vn": "publicbank",
+    "hlbank.com.vn": "hongleong",
+
+    # ── digital banks ───────────────────────────────────────────────────────
+    "timo.vn": "timo",
+    "cake.vn": "cake",
+    "ubank.vn": "ubank",
+    "liobank.vn": "liobank",
+    "tnex.com.vn": "tnex",
+
+    # ── e-wallets and payment services ──────────────────────────────────────
     "momo.vn": "momo",
+    "mservice.com.vn": "momo",            # MoMo's corporate entity, M_Service
     "zalopay.vn": "zalopay",
     "vnpay.vn": "vnpay",
+    # No MX as of Aug 2026, so nothing can match it today — kept because the
+    # domain is theirs and may start sending. ShopeePay mail most likely
+    # arrives from `shopee.vn`, which is deliberately NOT listed: it would also
+    # admit every Shopee order and delivery mail, which are not transactions.
     "shopeepay.vn": "shopeepay",
+    "viettelmoney.vn": "viettelmoney",
+    "vnptmoney.vn": "vnptmoney",          # VNPT Pay, rebranded
+    "payoo.vn": "payoo",
+    "napas.com.vn": "napas",
+    "9pay.vn": "9pay",
+    "gpay.vn": "gpay",
+    "onepay.vn": "onepay",
+    "nganluong.vn": "nganluong",
+    "baokim.vn": "baokim",
+    "alepay.vn": "alepay",
+    "smartpay.vn": "smartpay",
+    "moca.vn": "moca",
+    "appotapay.com": "appotapay",
+    "finviet.com.vn": "finviet",
+
+    # ── securities and investment: they confirm trades by mail too ──────────
+    "ssi.com.vn": "ssi",
+    "vndirect.com.vn": "vndirect",
+    "vps.com.vn": "vps",
+    "hsc.com.vn": "hsc",
+    "vcbs.com.vn": "vcbs",
+    "tcbs.com.vn": "tcbs",
+    "mbs.com.vn": "mbs",
+    "dnse.com.vn": "dnse",
+    "miraeasset.com.vn": "miraeasset",
+    "finhay.com.vn": "finhay",
+    "infina.vn": "infina",
+
+    # ── consumer finance and BNPL ───────────────────────────────────────────
+    "fecredit.com.vn": "fecredit",
+    "homecredit.vn": "homecredit",
+    "hdsaison.com.vn": "hdsaison",
+    "fundiin.vn": "fundiin",
+    "kredivo.vn": "kredivo",
+
+    # ── VN-namespace variants, no MX required ──────────────────────────────
+    # Added on request without checking for live mail infrastructure: a dead
+    # domain here just never matches, while a missing one silently drops a
+    # real transaction. Restricted to .vn/.com.vn though — a bare .com is a
+    # DIFFERENT registry with no ownership link to the .vn brand (alepay.com is
+    # parked on Sedo, klb.com sits on French hosting, cake.com/hsc.com/bvbank.com
+    # are unrelated companies) — admitting those would let a stranger's domain
+    # match as a bank.
+    "9pay.com.vn": "9pay",
+    "abbank.com.vn": "abbank",
+    "agribank.vn": "agribank",
+    "appotapay.com.vn": "appotapay",
+    "appotapay.vn": "appotapay",
+    "baca-bank.com.vn": "bacabank",
+    "baokim.com.vn": "baokim",
+    "baovietbank.com.vn": "baovietbank",
+    "bidv.vn": "bidv",
+    "vietcapitalbank.com.vn": "bvbank",
+    "cake.com.vn": "cake",
+    "dnse.vn": "dnse",
+    "eib.vn": "eximbank",
+    "eximbank.vn": "eximbank",
+    "fecredit.vn": "fecredit",
+    "finhay.vn": "finhay",
+    "finviet.vn": "finviet",
+    "gpay.com.vn": "gpay",
+    "homecredit.com.vn": "homecredit",
+    "hsbc.vn": "hsbc",
+    "hsc.vn": "hsc",
+    "infina.com.vn": "infina",
+    "kienlongbank.com.vn": "kienlongbank",
+    "kienlongbank.vn": "kienlongbank",
+    "klb.com.vn": "kienlongbank",
+    "klb.vn": "kienlongbank",
+    "kredivo.com.vn": "kredivo",
+    "liobank.com.vn": "liobank",
+    "lienvietpostbank.com.vn": "lpbank",
+    "lienvietpostbank.vn": "lpbank",
+    "lpbank.vn": "lpbank",
+    "mbb.vn": "mbbank",
+    "mbbank.vn": "mbbank",
+    "mbs.vn": "mbs",
+    "momo.com.vn": "momo",
+    "mservice.vn": "momo",
+    "msb.vn": "msb",
+    "ncb-bank.com.vn": "ncb",
+    "ncb.com.vn": "ncb",
+    "ncb.vn": "ncb",
+    "onepay.com.vn": "onepay",
+    "payoo.com.vn": "payoo",
+    "pgbank.vn": "pgbank",
+    "pvcombank.vn": "pvcombank",
+    "stb.com.vn": "sacombank",
+    "stb.vn": "sacombank",
+    "scb.vn": "scb",
+    "seabank.vn": "seabank",
+    "shb.vn": "shb",
+    "airpay.vn": "shopeepay",
+    "smartpay.com.vn": "smartpay",
+    "ssi.vn": "ssi",
+    "tcb.vn": "techcombank",
+    "techcombank.vn": "techcombank",
+    "tnex.vn": "tnex",
+    "tpb.vn": "tpbank",
+    "tpbank.com.vn": "tpbank",
+    "tpbank.vn": "tpbank",
+    "ubank.com.vn": "ubank",
+    "vcbs.vn": "vcbs",
+    "vietbank.vn": "vietbank",
+    "vcb.com.vn": "vietcombank",
+    "ctg.com.vn": "vietinbank",
+    "ctg.vn": "vietinbank",
+    "viettelmoney.com.vn": "viettelmoney",
+    "viettelpay.com.vn": "viettelmoney",
+    "viettelpay.vn": "viettelmoney",
+    "vndirect.vn": "vndirect",
+    "vnpay.com.vn": "vnpay",
+    "vnptmoney.com.vn": "vnptmoney",
+    "vnptpay.vn": "vnptmoney",
+    "vps.vn": "vps",
+    "woori.vn": "woori",
+    "wooribank.com.vn": "woori",
+    "wooribank.vn": "woori",
+    "zalopay.com.vn": "zalopay",
 }
+
 
 
 def sender_domain(from_header: str) -> str:

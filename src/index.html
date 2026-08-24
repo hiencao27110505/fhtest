@@ -236,11 +236,12 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="spacer"></div>
 </section>
 
-<!-- CÁ NHÂN (personal ledger — 0071) -->
+<!-- CÁ NHÂN (personal ledger — Model Y) -->
 <section class="view" id="v-personal">
+  <div class="safe"></div>
   <header class="child-hdr"><div class="ch-row"><div>
     <div class="ch-title">Cá nhân</div>
-    <div class="ch-sub">Sổ của riêng bạn — gia đình không xem được</div>
+    <div class="ch-sub">Sổ riêng của bạn. Gia đình không xem được.</div>
   </div></div></header>
   <div id="pers-body"></div>
   <div class="spacer"></div>
@@ -456,7 +457,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <button class="modal-save" onclick="closeModals()">Xong</button>
   </div>
   <div class="modal-body">
-    <div class="sheet-sub">Đây là chìa khóa <b>sổ cá nhân</b> của bạn — khác với thẻ của gia đình. Mất thẻ là mất dữ liệu cá nhân: không ai khôi phục được, kể cả chúng tôi.</div>
+    <div class="sheet-sub">Đây là chìa khóa <b>sổ cá nhân</b>, khác với thẻ gia đình. Mất thẻ là mất dữ liệu cá nhân: không ai khôi phục được, kể cả chúng tôi.</div>
     <div id="pcard-display" class="num pcard-code"></div>
     <button class="cta" onclick="persCardSave()">Lưu tệp thẻ khóa</button>
     <button class="btn-line btn-line-full" onclick="persCardCopy()">Sao chép</button>
@@ -477,6 +478,20 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <div id="pcode-err" class="pers-lock-err"></div>
     <div class="sheet-sub" style="margin-top:16px">Lỡ mất hẳn mã khóa? Tạo mã mới từ dữ liệu đang mở trên máy này — mã cũ sẽ ngừng dùng.</div>
     <button class="btn-line btn-line-full" onclick="persCodeRegen()">Tạo mã khóa cá nhân mới</button>
+  </div>
+</div>
+
+<!-- Personal monthly budget -->
+<div class="modal" id="sheet-pbudget">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title">Ngân sách cá nhân</div>
+    <button class="modal-save" onclick="persBudgetSubmit()">Lưu</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">Đặt mức chi cho tháng này. App sẽ tính "hôm nay còn tiêu được" theo ngân sách của bạn.</div>
+    <div class="field"><label>Ngân sách tháng này</label><input id="pbud-amt" type="text" inputmode="numeric" class="num big" placeholder="10.000.000" onblur="snapAmtInput(this)"></div>
   </div>
 </div>
 
