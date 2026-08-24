@@ -9,3 +9,8 @@ node_modules
 # tools/gmail-oauth-probe.js writes this, and it holds a Google REFRESH TOKEN —
 # a long-lived key to a real mailbox. Never commit it.
 .gmail-probe.json
+
+# Personal-ledger mockups built from REAL decrypted family data. Vercel serves
+# the repo root (outputDirectory "."), so committing these would publish real
+# financials at a public URL. Keep them local-only.
+research/finance-views-nousss*.html
