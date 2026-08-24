@@ -11,7 +11,7 @@
      before Google's screen. Google's Allow grants an API; this is the consent
      the law asks for.
 
-     The record is the point (0071): agreeing inserts a (user, kind, version)
+     The record is the point (0082): agreeing inserts a (user, kind, version)
      row BEFORE the flow continues, and a failed insert blocks rather than
      proceeds. Withdrawal is symmetric per L91 ("việc rút lại phải dễ dàng như
      khi đã đồng ý"): one in-app action, recorded in the same table.

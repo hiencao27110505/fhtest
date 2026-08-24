@@ -51,7 +51,7 @@
   window.fhMailboxSheet = async function () {
     const st = await fhMailboxState();
     if (st && st.forwarding_alias) {
-      /* Retro consent (0071): the four grandfathered connections predate the
+      /* Retro consent (0082): the four grandfathered connections predate the
          consent sheet. Ask once here, on the screen they do revisit; "Để sau"
          closes and re-asks next visit rather than cutting a working
          connection — a deliberate soft retry, recorded in PDPL-COMPLIANCE. */
@@ -365,7 +365,7 @@
 
       '<button class="btn-line" onclick="fhMailboxSetup(\'' + _escAttr(st.forwarding_alias) + '\')">' +
         _esc(L('Xem lại hướng dẫn', 'Show the steps again')) + '</button>' +
-      /* Consent chrome (0071): re-read what was agreed, and the withdrawal the
+      /* Consent chrome (0082): re-read what was agreed, and the withdrawal the
          consent text promises. Disconnect is destructive → low-prominence +
          arm-then-confirm in fhMailboxDisconnect, never a primary button. */
       '<button class="btn-line" onclick="fhConsentSheet({readOnly:true})">' +
