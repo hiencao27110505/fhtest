@@ -69,40 +69,6 @@ function renderPersonal(){
   var left = inc-out;
   var famName = function(fid){ var f=(P.fams||[]).find(function(x){return x.family_id===fid;}); return f? f.name : 'Nhóm'; };
 
-  /* ── week-over-week chart (reuse the finance chart builder) ── */
-  var pd=persDaily(), wk=persWeekData(pd.daily, pd.dom, pd.dim);
-  var chart = (typeof cfWeekChartHTML==='function') ? cfWeekChartHTML(wk, false) : '';
-
-  /* ── note: this week vs the same days last week (mirror cfWowNote) ── */
-  var noteState='', noteHTML='';
-  if(!P.mirrorRan){ noteState='flat'; noteHTML='Đang đồng bộ các khoản bạn đã ghi cho gia đình…'; }
-  else {
-    var wdays=0, ts=0, ls=0;
-    for(var i=0;i<7;i++){ if(wk.cur[i]!=null){ wdays++; ts+=wk.cur[i]; ls+=wk.prev[i]; } }
-    var diff=ts-ls;
-    if(wdays>0 && ls>0){
-      if(diff<0){ noteState='ok'; noteHTML='<span class="ni">▼</span>Giảm <b>'+fmt(-diff)+'</b> so với cùng kỳ tuần trước'; }
-      else if(diff>0){ noteState='over'; noteHTML='<span class="ni">▲</span>Tăng <b>'+fmt(diff)+'</b> so với cùng kỳ tuần trước'; }
-      else { noteState='flat'; noteHTML='Ngang cùng kỳ tuần trước'; }
-    } else if(wdays>0 && ts>0){ noteState='flat'; noteHTML='Tuần này đã chi <b>'+fmt(ts)+'</b>'; }
-  }
-
-  /* ── daily guide: "Hôm nay còn tiêu được" (remaining money spread over days left) ── */
-  var dailyHTML='';
-  var spentToday=pd.daily[pd.dom]||0, daysLeft=Math.max(1, pd.dim-pd.dom+1);
-  var avail=inc-(out-spentToday);                          // money for the rest of the month, today included
-  var threshold=(inc>0 && avail>0)? avail/daysLeft : 0;    // needs income to have a meaningful allowance
-  if(threshold>0 && typeof cfWaterSVG==='function' && typeof DG_STATES!=='undefined'){
-    var remain=threshold-spentToday, over=remain<0;
-    var key=(typeof dgKey==='function')? dgKey(remain,threshold) : (remain<0?'red':(remain/threshold<=.2?'orange':(remain/threshold<=.5?'yellow':'green')));
-    var s=DG_STATES[key], level=Math.max(0,Math.min(100,remain/threshold*100));
-    var amt=over? fmt(-remain) : fmt(Math.max(0,remain));
-    dailyHTML='<div class="cf-daily" style="background:'+s.bg+'">'
-      +'<span class="dg-lbl" style="color:'+s.mut+'">'+(over?'Hôm nay đã vượt':'Hôm nay còn tiêu được')+'</span>'
-      +'<span class="dg-amt num" style="color:'+s.main+'">'+amt+'</span>'
-      +'<span class="dg-vis">'+cfWaterSVG(level,s,over)+'</span></div>';
-  }
-
   var h = '';
   h += '<section class="cf-card">'
      + '<div class="cf-lbl">Còn lại tháng này · cá nhân</div>'
@@ -111,9 +77,10 @@ function renderPersonal(){
      +   '<button class="cf-tile" onclick="openSheet(\'sheet-pincome\')"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">'+fmt(inc)+'</span></button>'
      +   '<button class="cf-tile" onclick="persScrollTx()"><span class="cf-tl"><span class="cf-ar dn">↓</span> Ra</span><span class="cf-tv num">'+fmt(out)+'</span></button>'
      + '</div>'
-     + '<div class="wow" aria-hidden="true">'+chart+'</div>'
-     + '<div class="cf-note '+noteState+'">'+noteHTML+'</div>'
-     + dailyHTML
+     + '<div class="wow" id="pcf-wow" aria-hidden="true"></div>'
+     + '<div class="cf-note" id="pcf-note"></div>'
+     + '<div class="cf-daily" id="pcf-daily" style="display:none"></div>'
+     + '<div class="cf-dots" id="pcf-dots" aria-hidden="true"></div>'
      + '<div class="cf-cta"><button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi khoản chi riêng tư</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button></div>'
      + '</section>';
 
@@ -150,8 +117,86 @@ function renderPersonal(){
   }
   h += '</div>';
   host.innerHTML = h;
+  persRenderPeriod();          // fills the swipeable Day/Week/Month chart + guide + dots
+  persBindSwipe();
 }
 function persScrollTx(){ var el=document.getElementById('pers-tx'), sc=document.getElementById('scroll'); if(el&&sc){ var y=Math.max(0, el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 70); sc.scrollTo({top:y,behavior:'smooth'}); } }
+
+/* ── swipeable Day / Week / Month cash-flow — clone of the finance widget,
+   contextualised to the personal ledger (income/spend, last-month pace). ── */
+try{ window.persPeriod=parseInt(localStorage.getItem('fh-pcfperiod')||'1',10); if(!(window.persPeriod>=0&&window.persPeriod<=2)) window.persPeriod=1; }catch(e){ window.persPeriod=1; }
+function persSetPeriod(i){ i=Math.max(0,Math.min(2,i|0)); window.persPeriod=i; try{localStorage.setItem('fh-pcfperiod',String(i));}catch(e){} persRenderPeriod(); }
+function persBindSwipe(){
+  var card=document.querySelector('#v-personal .cf-card'); if(!card || card._pbound) return; card._pbound=1;
+  var x0=0,y0=0;
+  card.addEventListener('touchstart',function(e){ var t=e.changedTouches[0]; x0=t.clientX; y0=t.clientY; },{passive:true});
+  card.addEventListener('touchend',function(e){ var t=e.changedTouches[0], dx=t.clientX-x0, dy=t.clientY-y0; if(Math.abs(dx)<40||Math.abs(dx)<Math.abs(dy)*1.4) return; persSetPeriod((window.persPeriod|0)+(dx<0?1:-1)); },{passive:true});
+}
+function persLastMonthDaily(){
+  var P=fhPersonalData(), now=new Date(), pd=new Date(now.getFullYear(),now.getMonth()-1,1);
+  var key=pd.toISOString().slice(0,7), dim=new Date(now.getFullYear(),now.getMonth(),0).getDate(), arr=[];
+  for(var i=0;i<=dim;i++) arr[i]=0;
+  (P.txns||[]).forEach(function(t){ if(t.kind==='expense'&&(t.date||'').slice(0,7)===key){ var dd=+t.date.slice(8,10); if(dd>=1&&dd<=dim) arr[dd]+=(t.amt||0); } });
+  return {arr:arr, dim:dim};
+}
+/* per-day norm: last month's daily average; fall back to this-month income pace. */
+function persDgBase(pd, lm){
+  var lmSpend=0; for(var i=1;i<=lm.dim;i++) lmSpend+=lm.arr[i];
+  if(lm.dim>0 && lmSpend>0) return lmSpend/lm.dim;
+  var P=fhPersonalData(), mon=new Date().toISOString().slice(0,7);
+  var inc=(P.incomes||[]).filter(function(x){return (x.date||'').slice(0,7)===mon;}).reduce(function(s,x){return s+(x.amt||0);},0);
+  return inc>0 ? inc/pd.dim : 0;
+}
+/* Day period: today vs yesterday, bucketed by buổi (Sáng·Trưa·Chiều·Tối) via logged time. */
+function persDayChartHTML(pd){
+  var P=fhPersonalData(), now=new Date(), y=now.getFullYear(), mo=now.getMonth(), dom=pd.dom;
+  var curB=(typeof cfBuoiIdx==='function')?cfBuoiIdx(now.getHours()):3, cur=[0,0,0,0], prev=[0,0,0,0];
+  (P.txns||[]).forEach(function(t){
+    if(t.kind!=='expense'||!t.date) return;
+    var d=new Date(t.date+'T00:00:00'); if(d.getFullYear()!==y||d.getMonth()!==mo) return;
+    var dd=d.getDate(); if(dd!==dom && dd!==dom-1) return;
+    var h=t.ts?new Date(t.ts).getHours():null, b=(h==null?curB:((typeof cfBuoiIdx==='function')?cfBuoiIdx(h):3));
+    if(dd===dom) cur[b]+=(t.amt||0); else prev[b]+=(t.amt||0);
+  });
+  var LB=['Sáng','Trưa','Chiều','Tối'], maxV=1; for(var i=0;i<4;i++){ if(cur[i]>maxV)maxV=cur[i]; if(prev[i]>maxV)maxV=prev[i]; }
+  var cols='';
+  for(var j=0;j<4;j++){ var ph=Math.round(prev[j]/maxV*100), fut=j>curB, over=!fut&&prev[j]>0&&cur[j]>prev[j], ch=fut?0:(cur[j]>0?Math.max(Math.round(cur[j]/maxV*100),4):0);
+    cols+='<div class="wcol"><span class="wbars"><i class="wb prev" style="height:'+ph+'%"></i>'+(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')+'</span><span class="wd'+(j===curB?' on':'')+'">'+LB[j]+'</span></div>'; }
+  return {html:cols, spent:pd.daily[dom]||0};
+}
+/* Month period: 4 weeks this month vs last. */
+function persMonthChartHTML(pd, lm){
+  var buckets=function(arr,dim){ var b=[0,0,0,0], hi=[7,14,21,dim]; for(var i=0;i<4;i++){ var lo=[1,8,15,22][i]; for(var d=lo;d<=hi[i];d++){ if(arr[d])b[i]+=arr[d]; } } return b; };
+  var cur=buckets(pd.daily,pd.dim), prev=buckets(lm.arr,lm.dim);
+  var curW=pd.dom<=7?0:pd.dom<=14?1:pd.dom<=21?2:3, LB=['Tuần 1','Tuần 2','Tuần 3','Tuần 4'];
+  var maxV=1; for(var i=0;i<4;i++){ if(cur[i]>maxV)maxV=cur[i]; if(prev[i]>maxV)maxV=prev[i]; }
+  var cols='';
+  for(var j=0;j<4;j++){ var ph=Math.round(prev[j]/maxV*100), fut=j>curW, over=!fut&&prev[j]>0&&cur[j]>prev[j], ch=fut?0:(cur[j]>0?Math.max(Math.round(cur[j]/maxV*100),4):0);
+    cols+='<div class="wcol"><span class="wbars"><i class="wb prev" style="height:'+ph+'%"></i>'+(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')+'</span><span class="wd'+(j===curW?' on':'')+'">'+LB[j]+'</span></div>'; }
+  var spent=0; for(var k=0;k<4;k++) spent+=cur[k];
+  return {html:cols, spent:spent};
+}
+function persFillGuide(threshold, spent, periodKey){
+  var host=document.getElementById('pcf-daily'); if(!host) return;
+  if(!(threshold>0) || typeof cfWaterSVG!=='function' || typeof DG_STATES==='undefined'){ host.style.display='none'; host.innerHTML=''; return; }
+  var remain=threshold-spent, over=remain<0;
+  var key=(typeof dgKey==='function')?dgKey(remain,threshold):(remain<0?'red':(remain/threshold<=.2?'orange':(remain/threshold<=.5?'yellow':'green')));
+  var s=DG_STATES[key], level=Math.max(0,Math.min(100,remain/threshold*100));
+  var LBL={ day:over?'Hôm nay đã vượt':'Hôm nay còn tiêu được', week:over?'Tuần này đã vượt':'Tiêu được tuần này', month:over?'Tháng này đã vượt':'Tiêu được tháng này' };
+  host.style.display=''; host.style.background=s.bg;
+  host.innerHTML='<span class="dg-lbl" style="color:'+s.mut+'">'+LBL[periodKey]+'</span><span class="dg-amt num" style="color:'+s.main+'">'+(over?fmt(-remain):fmt(Math.max(0,remain)))+'</span><span class="dg-vis">'+cfWaterSVG(level,s,over)+'</span>';
+}
+function persRenderPeriod(){
+  var P=fhPersonalData(); if(!P||P.state!=='ready') return;
+  var wowEl=document.getElementById('pcf-wow'); if(!wowEl) return;
+  var pd=persDaily(), lm=persLastMonthDaily(), dgb=persDgBase(pd, lm), p=window.persPeriod|0;
+  if(p===0){ var d=persDayChartHTML(pd); wowEl.innerHTML=d.html; persFillGuide(dgb, d.spent, 'day'); }
+  else if(p===2){ var mo=persMonthChartHTML(pd, lm); wowEl.innerHTML=mo.html; persFillGuide(dgb*pd.dim, mo.spent, 'month'); }
+  else { var wk=persWeekData(pd.daily, pd.dom, pd.dim); wowEl.innerHTML=(typeof cfWeekChartHTML==='function')?cfWeekChartHTML(wk,false):''; var ws=0; for(var i=0;i<7;i++){ if(wk.cur[i]!=null) ws+=wk.cur[i]; } persFillGuide(dgb*7, ws, 'week'); }
+  var dots=document.getElementById('pcf-dots'); if(dots){ var dh=''; for(var k=0;k<3;k++) dh+='<i class="'+(k===p?'on':'')+'" onclick="persSetPeriod('+k+')"></i>'; dots.innerHTML=dh; }
+  var note=document.getElementById('pcf-note');
+  if(note){ if(!P.mirrorRan){ note.className='cf-note flat'; note.innerHTML='Đang đồng bộ các khoản bạn đã ghi cho gia đình…'; } else { note.className='cf-note'; note.innerHTML=''; } }
+}
 
 function persUnlock(){
   var el=document.getElementById('pers-card-in'), err=document.getElementById('pers-unlock-err');
