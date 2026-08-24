@@ -2,12 +2,14 @@
 /* Auto-logging talks to the connections API for three things, and each one has a
  * failure that is invisible in review:
  *
- *   connect     — the authorize route answers 302, and a browser navigation
- *                 cannot carry a Bearer header, so the URL is read out of the
- *                 Location header of a `redirect: 'manual'` fetch. If that
- *                 response is ever followed instead (status 0, opaqueredirect),
- *                 there is nothing to navigate to and guessing sends someone to
- *                 the wrong place.
+ *   connect     — the URL comes back as JSON, deliberately. A cross-origin
+ *                 fetch can do nothing useful with the route's 302: following
+ *                 it makes the browser fetch accounts.google.com, which Google
+ *                 refuses, and `redirect: 'manual'` yields an opaque-redirect
+ *                 response whose headers the Fetch Standard strips, so Location
+ *                 reads null no matter what the server exposes. Asking for JSON
+ *                 sidesteps both. A regression to reading Location would look
+ *                 fine in review and fail on every device.
  *   status      — "cannot tell" must collapse to "not connected". Announcing a
  *                 confident Connected we never verified is the version that
  *                 hides a mailbox quietly failing to sync.
@@ -99,25 +101,33 @@ const ok = (json, headers) => ({ status: 200, json: json, headers: headers || {}
 
 (async () => {
   console.log('\n-- connect: the URL comes from the API, not from us --');
+  const GURL = 'https://accounts.google.com/o/oauth2/v2/auth?x=1';
   {
-    const m = make({ routes: { 'GET /connections/google/authorize': ok(null, { Location: 'https://accounts.google.com/o/oauth2/v2/auth?x=1' }),
+    const m = make({ routes: { 'GET /connections/google/authorize': ok({ url: GURL }),
                                'GET /connections': ok([]) } });
     await m.api.fhAutoTxnGrant();
     t('it asks the API to authorize', m.calls.some((c) => /GET .*\/connections\/google\/authorize/.test(c)), m.calls.join(' | '));
-    t('and navigates to the Location it answers with',
-      m.nav.to === 'https://accounts.google.com/o/oauth2/v2/auth?x=1', String(m.nav.to));
+    t('and takes the URL from the JSON body', m.nav.to === GURL, String(m.nav.to));
     t('carrying returnTo so they land back where they were',
       m.calls.some((c) => c.indexOf('returnTo=') >= 0), m.calls.join(' | '));
     t('and login_hint for the sign-in address',
       m.calls.some((c) => c.indexOf('login_hint=me%40gmail.com') >= 0), m.calls.join(' | '));
   }
   {
-    // opaqueredirect: the browser followed the 302 anyway, so there is no Location
-    const m = make({ routes: { 'GET /connections/google/authorize': { status: 0, ok: false, headers: { get: () => null } },
+    // A 200 whose body carries no url. Navigating anyway would send them nowhere.
+    const m = make({ routes: { 'GET /connections/google/authorize': ok({ ok: true }),
                                'GET /connections': ok([]) } });
     await m.api.fhAutoTxnGrant();
-    t('a followed redirect with no readable Location does NOT guess a URL', m.nav.to === null, String(m.nav.to));
+    t('a body with no url does NOT navigate', m.nav.to === null, String(m.nav.to));
     t('  ...and says so instead of failing silently', m.toasts.length === 1, JSON.stringify(m.toasts));
+  }
+  {
+    // The regression guard: Location must never become the source again.
+    const m = make({ routes: { 'GET /connections/google/authorize': ok(null, { Location: GURL }),
+                               'GET /connections': ok([]) } });
+    await m.api.fhAutoTxnGrant();
+    t('a Location header is NOT used as the source (it is unreadable cross-origin)',
+      m.nav.to === null, String(m.nav.to));
   }
   {
     const m = make({ routes: { 'GET /connections/google/authorize': { status: 401, ok: false, headers: { get: () => null } },
