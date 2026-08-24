@@ -5184,6 +5184,9 @@ var PIC = {
   list:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>'
 };
 var _ccChev='<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>';
+/* LOCAL 'YYYY-MM' — never toISOString() (UTC shifts midnight into the prev month
+   in UTC+7, which silently broke the last-month key → daily guide hidden). */
+function _pMonKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 
 /* personal per-day spend for the live month → daily[], dim, dom */
 function persDaily(){
@@ -5235,7 +5238,7 @@ function renderPersonal(){
   }
 
   /* ready — amounts are base units (thousands of VND); fmt() applies curMult(). */
-  var mon = new Date().toISOString().slice(0,7);
+  var mon = _pMonKey(new Date());
   var txM = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense'; });
   var out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
   var inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon; }).reduce(function(s,i){ return s+(i.amt||0); },0);
@@ -5342,7 +5345,7 @@ function persBindSwipe(){
 }
 function persLastMonthDaily(){
   var P=fhPersonalData(), now=new Date(), pd=new Date(now.getFullYear(),now.getMonth()-1,1);
-  var key=pd.toISOString().slice(0,7), dim=new Date(now.getFullYear(),now.getMonth(),0).getDate(), arr=[];
+  var key=_pMonKey(pd), dim=new Date(now.getFullYear(),now.getMonth(),0).getDate(), arr=[];
   for(var i=0;i<=dim;i++) arr[i]=0;
   (P.txns||[]).forEach(function(t){ if(t.kind==='expense'&&(t.date||'').slice(0,7)===key){ var dd=+t.date.slice(8,10); if(dd>=1&&dd<=dim) arr[dd]+=(t.amt||0); } });
   return {arr:arr, dim:dim};
@@ -5358,7 +5361,7 @@ function persDgBase(pd, lm){
   var daysLeft=Math.max(1, pd.dim-pd.dom+1), remBudget=(P.budget||0)-(spentThisMonth-spentToday);
   if(P.budget>0 && remBudget>0) cand.push(remBudget/daysLeft);
   if(cand.length) return Math.min.apply(null, cand);
-  var mon=new Date().toISOString().slice(0,7);
+  var mon=_pMonKey(new Date());
   var inc=(P.incomes||[]).filter(function(x){return (x.date||'').slice(0,7)===mon;}).reduce(function(s,x){return s+(x.amt||0);},0);
   return inc>0 ? inc/pd.dim : 0;
 }
@@ -13963,7 +13966,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v384';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v385';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -15376,6 +15379,9 @@ window.obGoogle = async function () {
   (function () {
     const P = { uid: null, key: null, rawKey: null, wrap: null, txns: [], incomes: [], budget: 0, state: 'boot', mirrorRan: false };
     const _monISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; };
+    // LOCAL YYYY-MM-DD — toISOString() is UTC and would log yesterday's date when
+    // capturing after midnight in UTC+7.
+    const _localDate = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     window.fhPersonalData = function () { return P; };
     const _sb = () => window.sb;
     async function _uid() { try { const s = await _sb().auth.getSession(); return s.data.session ? s.data.session.user.id : null; } catch (e) { return null; } }
@@ -15399,7 +15405,7 @@ window.obGoogle = async function () {
     const _encP = (v) => FHCrypto.encVal(P.key, v);
     const _decP = async (b64) => { try { return b64 ? await FHCrypto.decVal(P.key, b64) : null; } catch (e) { return null; } };
     function _setState(s) { P.state = s; try { if (window.renderPersonal) renderPersonal(); } catch (e) {} }
-    function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return d.toISOString().slice(0, 10); }
+    function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return _localDate(d); }
 
     let _booting = false;
     window.fhPersonalBoot = async function () {
@@ -15472,7 +15478,7 @@ window.obGoogle = async function () {
     /* writes — private (space-less) rows */
     window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso) {
       if (!P.uid || !P.key) return false;
-      const row = { owner_user_id: P.uid, txn_date: dateIso || new Date().toISOString().slice(0, 10), kind: 'expense', space_id: null, link_id: null,
+      const row = { owner_user_id: P.uid, txn_date: dateIso || _localDate(new Date()), kind: 'expense', space_id: null, link_id: null,
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null };
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal expense failed', r.error); return false; }
@@ -15488,7 +15494,7 @@ window.obGoogle = async function () {
     };
     window.fhPersonalAddIncome = async function (amt, note) {
       if (!P.uid || !P.key) return false;
-      const row = { owner_user_id: P.uid, income_date: new Date().toISOString().slice(0, 10),
+      const row = { owner_user_id: P.uid, income_date: _localDate(new Date()),
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null };
       const r = await _sb().from('personal_incomes').insert(row);
       if (r.error) { console.warn('personal income failed', r.error); return false; }

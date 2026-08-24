@@ -14,6 +14,9 @@ var PIC = {
   list:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>'
 };
 var _ccChev='<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>';
+/* LOCAL 'YYYY-MM' — never toISOString() (UTC shifts midnight into the prev month
+   in UTC+7, which silently broke the last-month key → daily guide hidden). */
+function _pMonKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 
 /* personal per-day spend for the live month → daily[], dim, dom */
 function persDaily(){
@@ -65,7 +68,7 @@ function renderPersonal(){
   }
 
   /* ready — amounts are base units (thousands of VND); fmt() applies curMult(). */
-  var mon = new Date().toISOString().slice(0,7);
+  var mon = _pMonKey(new Date());
   var txM = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense'; });
   var out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
   var inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon; }).reduce(function(s,i){ return s+(i.amt||0); },0);
@@ -172,7 +175,7 @@ function persBindSwipe(){
 }
 function persLastMonthDaily(){
   var P=fhPersonalData(), now=new Date(), pd=new Date(now.getFullYear(),now.getMonth()-1,1);
-  var key=pd.toISOString().slice(0,7), dim=new Date(now.getFullYear(),now.getMonth(),0).getDate(), arr=[];
+  var key=_pMonKey(pd), dim=new Date(now.getFullYear(),now.getMonth(),0).getDate(), arr=[];
   for(var i=0;i<=dim;i++) arr[i]=0;
   (P.txns||[]).forEach(function(t){ if(t.kind==='expense'&&(t.date||'').slice(0,7)===key){ var dd=+t.date.slice(8,10); if(dd>=1&&dd<=dim) arr[dd]+=(t.amt||0); } });
   return {arr:arr, dim:dim};
@@ -188,7 +191,7 @@ function persDgBase(pd, lm){
   var daysLeft=Math.max(1, pd.dim-pd.dom+1), remBudget=(P.budget||0)-(spentThisMonth-spentToday);
   if(P.budget>0 && remBudget>0) cand.push(remBudget/daysLeft);
   if(cand.length) return Math.min.apply(null, cand);
-  var mon=new Date().toISOString().slice(0,7);
+  var mon=_pMonKey(new Date());
   var inc=(P.incomes||[]).filter(function(x){return (x.date||'').slice(0,7)===mon;}).reduce(function(s,x){return s+(x.amt||0);},0);
   return inc>0 ? inc/pd.dim : 0;
 }

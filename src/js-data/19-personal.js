@@ -12,6 +12,9 @@
   (function () {
     const P = { uid: null, key: null, rawKey: null, wrap: null, txns: [], incomes: [], budget: 0, state: 'boot', mirrorRan: false };
     const _monISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; };
+    // LOCAL YYYY-MM-DD — toISOString() is UTC and would log yesterday's date when
+    // capturing after midnight in UTC+7.
+    const _localDate = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     window.fhPersonalData = function () { return P; };
     const _sb = () => window.sb;
     async function _uid() { try { const s = await _sb().auth.getSession(); return s.data.session ? s.data.session.user.id : null; } catch (e) { return null; } }
@@ -35,7 +38,7 @@
     const _encP = (v) => FHCrypto.encVal(P.key, v);
     const _decP = async (b64) => { try { return b64 ? await FHCrypto.decVal(P.key, b64) : null; } catch (e) { return null; } };
     function _setState(s) { P.state = s; try { if (window.renderPersonal) renderPersonal(); } catch (e) {} }
-    function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return d.toISOString().slice(0, 10); }
+    function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return _localDate(d); }
 
     let _booting = false;
     window.fhPersonalBoot = async function () {
@@ -108,7 +111,7 @@
     /* writes — private (space-less) rows */
     window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso) {
       if (!P.uid || !P.key) return false;
-      const row = { owner_user_id: P.uid, txn_date: dateIso || new Date().toISOString().slice(0, 10), kind: 'expense', space_id: null, link_id: null,
+      const row = { owner_user_id: P.uid, txn_date: dateIso || _localDate(new Date()), kind: 'expense', space_id: null, link_id: null,
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null };
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal expense failed', r.error); return false; }
@@ -124,7 +127,7 @@
     };
     window.fhPersonalAddIncome = async function (amt, note) {
       if (!P.uid || !P.key) return false;
-      const row = { owner_user_id: P.uid, income_date: new Date().toISOString().slice(0, 10),
+      const row = { owner_user_id: P.uid, income_date: _localDate(new Date()),
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null };
       const r = await _sb().from('personal_incomes').insert(row);
       if (r.error) { console.warn('personal income failed', r.error); return false; }
