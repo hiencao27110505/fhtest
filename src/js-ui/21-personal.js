@@ -69,14 +69,12 @@ function renderPersonal(){
   }
   h += '</div>';
 
-  /* my stream */
-  var catOf = function(id){ return (P.cats||[]).find(function(c){return c.id===id;}) || {}; };
+  /* my stream — category is denormalised on each row (Model Y) */
   h += '<div class="section-h"><span class="t">Giao dịch của bạn</span></div><div class="rows">';
   if(P.txns.length){
     P.txns.slice(0,30).forEach(function(t){
-      var c = catOf(t.catId);
-      h += '<div class="row"><div class="r-ico" style="background:var(--fill-neutral)">'+(c.emoji||'🗂️')+'</div>'
-         + '<div class="r-body"><div class="r-t">'+((t.note||c.name||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
+      h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>'
+         + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
          + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
          + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';
     });

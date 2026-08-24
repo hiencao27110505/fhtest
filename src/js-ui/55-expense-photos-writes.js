@@ -316,8 +316,8 @@ async function _submitPersonalExpense(){
   for(var i=0;i<rows.length;i++){
     var r=rows[i], amt=parseAmtBase(r.amt||''); if(!(amt>0)) continue;
     var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
-    var catId=null; try{ catId=await window.fhPersonalCatId(r.cat, emoji); }catch(e){}
-    if(await window.fhPersonalAddExpense(amt, r.note||'', catId, r.date||undefined)) ok++;
+    // Model Y: category is denormalised on the personal row (name + emoji) — no personal-category table.
+    if(await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined)) ok++;
   }
   if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
 }

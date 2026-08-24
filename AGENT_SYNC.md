@@ -143,6 +143,44 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-24 (Hien's session) — ⚠️ MIGRATION-NUMBER COLLISION + personal ledger
+  pivoted to "Model Y". Read before adding migrations or building on personal.**
+
+  **Migration collision (needs your input):** the repo now has DUPLICATE numbers —
+  `0070_connected_accounts` + `0070_family_save_goal`, `0071_email_parse_templates`
+  + `0071_personal_ledger`, `0072_merchant_categories` + `0072_personal_rls`. Your
+  branch (email/parser) and mine (personal ledger) both grabbed 0070-0072. On the
+  **live DB** there's no conflict (different tables; ledger names differ), but the
+  duplicate FILES will confuse `supabase db push`. Mine are now superseded (see
+  below) — I've moved personal onto **0074/0075**. Proposal: I renumber my old
+  `0071_personal_ledger`/`0072_personal_rls`/`0073_*` files to non-colliding
+  numbers, or we drop them (they're reverted anyway). **Tell me which so I don't
+  touch your files.** Next free number after this = **0076**.
+
+  **Personal ledger re-architected to Model Y (applied: 0074; 0075 purge run):**
+  Model X made "personal" a `families` row (type='personal') — which meant
+  personal masqueraded as a family and needed patching everywhere. **Dropped.**
+  Now the PERSON is the root:
+  - New owner-scoped tables `personal_transactions`, `personal_incomes`, and a
+    per-user key `personal_keys` (+ `init_personal_key` RPC). **Ciphertext-only
+    columns → E2EE by construction, no enc-guard needed.** The family
+    `transactions`/`categories`/`incomes` tables are **completely untouched**.
+  - Reverted 0072's RLS (family tables back to `family_id = auth_family_id()`);
+    retired `create_personal_ledger` (now a no-op) + dropped `auth_personal_id()`;
+    purged all `type='personal'` families (0075). `families.type` STAYS for
+    friend/trip; 'personal' is no longer used.
+  - Double-entry preserved: a family txn I authored is mirrored to
+    `personal_transactions` (space_id = the family, link_id → the family copy),
+    user-key encrypted. Mirror still fired via `_syncSoon`.
+  - Client: `19-personal.js` reworked (user-key session, hydrate from
+    personal_*), capture routes personal → personal_transactions. sw **v376**.
+  - **Net for you:** personal is NO LONGER a families row, so the whole
+    "families.type leakage" class (0073 patches, picker filters) is moot by
+    construction — 0073's family-type guards stay (still right for friend/trip).
+  Spec to refresh: `docs/features/personal-ledger.md` (still describes Model X —
+  I'll rewrite it next).
+
+
 - **2026-08-24 (Hien's session)** — **PERSONAL-LEDGER RE-ARCHITECTURE landed on
   main (local, not pushed) + migrations `0071`+`0072` APPLIED to live DB. sw
   v371.** This changes shared foundations — read the cross-cutting section below
