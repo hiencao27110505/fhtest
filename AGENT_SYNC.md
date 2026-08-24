@@ -16,18 +16,67 @@ relaying messages through Slack/DMs by hand.
 
 ## Open
 
-- **2026-08-24 (Hien's session)** — **Personal-ledger re-architecture, Phase 0-2
-  SHIPPED to main (not yet pushed) + migration `0071_personal_ledger` APPLIED to
-  live DB.** `families.type` ('family'|'personal'|'friend'|'trip'), transactions
-  `link_id/version/kind/transfer_id/transfer_dir/space_id` + `_fh_link_guard`
-  trigger, `create_personal_ledger` RPC, `my_families()` now returns `type`
-  (additive key — existing clients unaffected; pickers in 10-client-auth filter
-  `type==='personal'`). Client: `js-data/19-personal.js` (provision/unlock/
-  hydrate/mirror), `js-ui/21-personal.js` + 4th tab "Cá nhân", 3 new sheets.
-  sw v369. **Migration numbering: 0071 is taken.** Full spec:
-  `docs/features/personal-ledger.md`. Mailbox-import side: transfer-leg pairing
-  (kind='transfer', transfer_id/dir columns are ready) is designed but NOT built —
-  see the plan in that doc before writing email rows with kind.
+- **2026-08-24 (Hien's session)** — **PERSONAL-LEDGER RE-ARCHITECTURE landed on
+  main (local, not pushed) + migrations `0071`+`0072` APPLIED to live DB. sw
+  v371.** This changes shared foundations — read the cross-cutting section below
+  before you touch families, transactions, or RLS on ANY feature. Full spec:
+  `docs/features/personal-ledger.md`.
+
+  **What it is (1 paragraph):** every user now gets a *personal ledger* — a
+  container encrypted with their OWN key. A transaction the user authored in a
+  family is *mirrored* into their personal ledger as a linked copy (double-entry:
+  `link_id` ties the two rows, each encrypted to its own audience). New 4th tab
+  "Cá nhân" renders that ledger. The family tabs are byte-identical. We chose
+  double-entry over one-stream-with-scopes so that a user's personal stats
+  recover with their ONE personal card alone — no reliance on OS keychain, and
+  **no key escrow, ever** (operator stays unable to read).
+
+  **⚠️ Cross-cutting changes every feature must know:**
+  1. **`families.type`** now exists (`'family'`|`'personal'`|`'friend'`|`'trip'`,
+     default `'family'`). **Anything that lists/iterates families or shows a
+     family picker MUST filter `type='family'`** (or exclude `'personal'`), or a
+     user's private ledger leaks into family UI. `my_families()` returns `type`
+     now (additive key). Client pickers already filter in `10-client-auth.js` —
+     mirror that in any new surface.
+  2. **RLS gotcha (this bit us — reusable lesson):** every data-table policy
+     gates on **`auth_family_id()` = the ACTIVE family**, NOT on membership. A
+     non-active container (the personal ledger) was therefore silently
+     empty/denied on every read+write — and **RLS denials are silent**, so it
+     just "didn't work" with no error. `0072` fixes it by widening the relevant
+     policies to `auth_family_id() OR auth_personal_id()`. **If you add any
+     container that isn't the active family (friend/trip spaces next), you must
+     widen its policies the same way.** Don't assume membership-based access.
+  3. **`transactions` gained columns:** `link_id` (write-once), `version`
+     (monotonic), `kind` (`'expense'`|`'transfer'`), `transfer_id`,
+     `transfer_dir`, `space_id`. Trigger `_fh_link_guard` enforces link
+     immutability + version non-regression on UPDATE. Family reads ignore all of
+     these; just don't stomp them.
+
+  **Reusable patterns worth copying (all in `js-data/19-personal.js`):**
+  - **Crash-safe mirror ordering:** reserve `link_id` on the source row FIRST,
+    *and confirm the update returned its row* (`.select()` — a raced 0-row update
+    is NOT an error and proceeding on it mints duplicates), THEN insert the copy.
+    Reconcile re-queries state FRESH (never trust a pre-mutation in-memory list),
+    with a self-heal pass that dedupes + clears orphans. Re-entrancy guard so
+    boot + retries never overlap. Bounded retries (gates may not be ready on
+    first boot); idempotent by `link_id`, no cursors.
+  - **Per-container key session:** `create_personal_ledger` is card-born,
+    enc-from-birth, reusing `genCard`/`deriveKeys`/`wrapDek` verbatim (0042/0043
+    machinery). Personal DEK cached in the existing `fh-keys` IDB keyed by fid.
+
+  **NOT built yet (don't assume these exist):** transfer UI (`kind='transfer'`
+  two-leg from/to is schema-ready only), publish-from-personal→space, mirroring
+  beyond the ACTIVE family, full-history backfill beyond the ~2-month hydrate
+  window, annotation (photo/reaction) join into the personal stream.
+
+  **Mailbox-import owner, note:** the transfer double-count fix (two bank emails
+  = one internal transfer) is DESIGNED but NOT built. When you write email rows,
+  the plan is: stage both legs, pair them (same amount / opposite dir / both my
+  accounts / near-in-time), emit ONE `kind='transfer'` with `transfer_id`. See
+  the "transfers" + "import" sections of `docs/features/personal-ledger.md`
+  before setting `kind` on any ingested row.
+
+  **Migration numbering: 0071 and 0072 are taken; next free is 0073.**
 
 - **2026-08-23 (forwarding session) — PIPELINE_VERSION COLLIDED. Trang was told
   to paste `2026-08-23-a`; main is on `2026-08-17-c`. Neither contains the other
