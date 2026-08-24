@@ -32,7 +32,8 @@ function renderPersonal(){
   var out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
   var inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon; }).reduce(function(s,i){ return s+(i.amt||0); },0);
   var left = inc-out;
-  var fmt = function(v){ return (window.fmtMoney? fmtMoney(v) : (Math.round(v).toLocaleString('vi-VN')+' ₫')); };
+  // fmt() is the app-wide money formatter (10-nav-model): amounts are stored in
+  // base units (thousands of VND) and fmt multiplies by curMult() to display.
 
   /* per-space roll-up from masters (personal key alone — no space keys needed) */
   var bySpace = {};
@@ -113,16 +114,17 @@ function persCardSave(){
 
 /* quick-add handlers */
 function persAddExpense(){
-  var amt = parseFloat((document.getElementById('pexp-amt')||{}).value||'');
+  // Input is in display currency (full VND); parseAmtBase → base units (thousands).
+  var amt = parseAmtBase((document.getElementById('pexp-amt')||{}).value||'');
   var note = ((document.getElementById('pexp-note')||{}).value||'').trim();
   var cat = (document.getElementById('pexp-cat')||{}).value || null;
-  if(!isFinite(amt) || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
+  if(!amt || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
   fhPersonalAddExpense(amt, note, cat).then(function(ok){ if(ok){ closeModals(); renderPersonal(); window.toast && toast('Đã ghi vào sổ cá nhân'); } });
 }
 function persAddIncome(){
-  var amt = parseFloat((document.getElementById('pinc-amt')||{}).value||'');
+  var amt = parseAmtBase((document.getElementById('pinc-amt')||{}).value||'');
   var note = ((document.getElementById('pinc-note')||{}).value||'').trim();
-  if(!isFinite(amt) || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
+  if(!amt || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
   fhPersonalAddIncome(amt, note).then(function(ok){ if(ok){ closeModals(); renderPersonal(); window.toast && toast('Đã ghi thu nhập'); } });
 }
 function persFillCats(){

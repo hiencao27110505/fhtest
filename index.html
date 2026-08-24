@@ -3458,7 +3458,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   </div>
   <div class="modal-body">
     <div class="sheet-sub">Chỉ mình bạn thấy — mã hoá bằng thẻ khóa cá nhân.</div>
-    <div class="field"><label>Số tiền (nghìn đồng)</label><input id="pexp-amt" type="number" inputmode="decimal" class="num big" placeholder="0"></div>
+    <div class="field"><label>Số tiền</label><input id="pexp-amt" type="text" inputmode="numeric" class="num big" placeholder="90.000" onblur="snapAmtInput(this)"></div>
     <div class="field"><label>Ghi chú</label><input id="pexp-note" placeholder="Cà phê, quà…"></div>
     <div class="field"><label>Danh mục</label><select id="pexp-cat"></select></div>
   </div>
@@ -3473,7 +3473,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <button class="modal-save" onclick="persAddIncome()">Lưu</button>
   </div>
   <div class="modal-body">
-    <div class="field"><label>Số tiền (nghìn đồng)</label><input id="pinc-amt" type="number" inputmode="decimal" class="num big" placeholder="0"></div>
+    <div class="field"><label>Số tiền</label><input id="pinc-amt" type="text" inputmode="numeric" class="num big" placeholder="15.000.000" onblur="snapAmtInput(this)"></div>
     <div class="field"><label>Ghi chú</label><input id="pinc-note" placeholder="Lương tháng…"></div>
   </div>
 </div>
@@ -5115,7 +5115,8 @@ function renderPersonal(){
   var out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
   var inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon; }).reduce(function(s,i){ return s+(i.amt||0); },0);
   var left = inc-out;
-  var fmt = function(v){ return (window.fmtMoney? fmtMoney(v) : (Math.round(v).toLocaleString('vi-VN')+' ₫')); };
+  // fmt() is the app-wide money formatter (10-nav-model): amounts are stored in
+  // base units (thousands of VND) and fmt multiplies by curMult() to display.
 
   /* per-space roll-up from masters (personal key alone — no space keys needed) */
   var bySpace = {};
@@ -5196,16 +5197,17 @@ function persCardSave(){
 
 /* quick-add handlers */
 function persAddExpense(){
-  var amt = parseFloat((document.getElementById('pexp-amt')||{}).value||'');
+  // Input is in display currency (full VND); parseAmtBase → base units (thousands).
+  var amt = parseAmtBase((document.getElementById('pexp-amt')||{}).value||'');
   var note = ((document.getElementById('pexp-note')||{}).value||'').trim();
   var cat = (document.getElementById('pexp-cat')||{}).value || null;
-  if(!isFinite(amt) || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
+  if(!amt || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
   fhPersonalAddExpense(amt, note, cat).then(function(ok){ if(ok){ closeModals(); renderPersonal(); window.toast && toast('Đã ghi vào sổ cá nhân'); } });
 }
 function persAddIncome(){
-  var amt = parseFloat((document.getElementById('pinc-amt')||{}).value||'');
+  var amt = parseAmtBase((document.getElementById('pinc-amt')||{}).value||'');
   var note = ((document.getElementById('pinc-note')||{}).value||'').trim();
-  if(!isFinite(amt) || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
+  if(!amt || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
   fhPersonalAddIncome(amt, note).then(function(ok){ if(ok){ closeModals(); renderPersonal(); window.toast && toast('Đã ghi thu nhập'); } });
 }
 function persFillCats(){
@@ -13641,7 +13643,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v371';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v372';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

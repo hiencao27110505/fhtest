@@ -473,7 +473,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </div>
   <div class="modal-body">
     <div class="sheet-sub">Chỉ mình bạn thấy — mã hoá bằng thẻ khóa cá nhân.</div>
-    <div class="field"><label>Số tiền (nghìn đồng)</label><input id="pexp-amt" type="number" inputmode="decimal" class="num big" placeholder="0"></div>
+    <div class="field"><label>Số tiền</label><input id="pexp-amt" type="text" inputmode="numeric" class="num big" placeholder="90.000" onblur="snapAmtInput(this)"></div>
     <div class="field"><label>Ghi chú</label><input id="pexp-note" placeholder="Cà phê, quà…"></div>
     <div class="field"><label>Danh mục</label><select id="pexp-cat"></select></div>
   </div>
@@ -488,7 +488,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <button class="modal-save" onclick="persAddIncome()">Lưu</button>
   </div>
   <div class="modal-body">
-    <div class="field"><label>Số tiền (nghìn đồng)</label><input id="pinc-amt" type="number" inputmode="decimal" class="num big" placeholder="0"></div>
+    <div class="field"><label>Số tiền</label><input id="pinc-amt" type="text" inputmode="numeric" class="num big" placeholder="15.000.000" onblur="snapAmtInput(this)"></div>
     <div class="field"><label>Ghi chú</label><input id="pinc-note" placeholder="Lương tháng…"></div>
   </div>
 </div>
