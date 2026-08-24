@@ -178,11 +178,21 @@
         window.toast && window.toast(L('Chưa ghi nhận được, thử lại nhé', 'Could not record it, try again'));
         return;
       }
+      /* Withdrawal must stop COLLECTION immediately, not in 72 hours: the
+         confirmation below promises no further use, and a connected mailbox
+         would keep staging new transactions otherwise. Best-effort: deletes
+         the connection and pending rows if one exists, deletes nothing if
+         not; a transient failure here is backstopped by the 72h manual
+         fulfilment, so it never blocks the withdrawal itself. */
+      try { await _rpc('disconnect_my_mailbox', {}); } catch (e) {}
       _fhSheet(
         '<div class="sheet-h">' + _esc(L('Đã ghi nhận yêu cầu của bạn', 'Your request is recorded')) + '</div>' +
         '<div class="sheet-sub">' + _esc(L(
           'Trong vòng 72 giờ, chúng tôi xoá toàn bộ dữ liệu của bạn và xác nhận qua email ' + FH_DATA_CONTACT + '. Trong lúc chờ, dữ liệu không được dùng thêm cho mục đích nào.',
           'Within 72 hours we delete all your data and confirm by email from ' + FH_DATA_CONTACT + '. Until then, your data is not used for anything further.')) + '</div>' +
+        '<div class="sheet-sub">' + _esc(L(
+          'Nếu bạn từng kết nối email ngân hàng, kết nối đã được ngắt và các khoản chờ duyệt đã xoá. Nhớ xoá thêm quy tắc chuyển tiếp trong Gmail của bạn.',
+          'If you had bank email connected, it is now disconnected and pending items are deleted. Remember to also remove the forwarding rule in your Gmail.')) + '</div>' +
         '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>');
     };
 

@@ -207,7 +207,10 @@ console.log('\n-- the gate asks exactly when it should --');
   await window.fhAppDataWithdraw(wbtn);
   t('second tap records the withdrawal in the same table',
     INSERTS.length === 1 && INSERTS[0].row.kind === 'app_data_withdraw', JSON.stringify(INSERTS));
-  t('and confirms the 72-hour fulfilment', SHEETS[SHEETS.length - 1].indexOf('72 giờ') >= 0);
+  t('withdrawal STOPS collection immediately: the disconnect fires with it',
+    RPC_CALLS.indexOf('disconnect_my_mailbox') >= 0, JSON.stringify(RPC_CALLS));
+  t('and confirms the 72-hour fulfilment plus the Gmail-rule step',
+    SHEETS[SHEETS.length - 1].indexOf('72 giờ') >= 0 && SHEETS[SHEETS.length - 1].indexOf('Gmail') >= 0);
   t('settings row is wired in the shell', shellSrc.indexOf('set-privacy-row') >= 0 &&
     shellSrc.indexOf('fhAppDataConsentSheet({readOnly:true})') >= 0);
 
