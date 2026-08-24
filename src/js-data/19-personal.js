@@ -24,6 +24,13 @@
     async function _kPut(id, key) { try { const db = await _kOpen(); await new Promise((res, rej) => { const tx = db.transaction('k', 'readwrite'); tx.objectStore('k').put({ fid: id, key: key, at: Date.now() }); tx.oncomplete = () => res(1); tx.onerror = () => rej(tx.error); }); } catch (e) {} }
     async function _kGet(id) { try { const db = await _kOpen(); return await new Promise((res) => { const tx = db.transaction('k', 'readonly'); const rq = tx.objectStore('k').get(id); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); } catch (e) { return null; } }
 
+    // Cache the personal card DISPLAY on this device so Settings → "Mã hoá tài
+    // chính" can show it later (parity with the family card cache). Same
+    // exposure as the family card: plaintext on the owner's own device only.
+    const _pcardKey = () => 'fh-pcard:' + (P.uid || '');
+    function _pcardCache(disp) { try { if (disp) localStorage.setItem(_pcardKey(), disp); } catch (e) {} }
+    window.fhPersonalCardCached = function () { try { return localStorage.getItem(_pcardKey()); } catch (e) { return null; } };
+
     const _encP = (v) => FHCrypto.encVal(P.key, v);
     const _decP = async (b64) => { try { return b64 ? await FHCrypto.decVal(P.key, b64) : null; } catch (e) { return null; } };
     function _setState(s) { P.state = s; try { if (window.renderPersonal) renderPersonal(); } catch (e) {} }
@@ -54,6 +61,7 @@
       P.key = await FHCrypto.importDek(dekRaw);
       await _kPut('p:' + P.uid, P.key);
       window.__fhPersonalCard = card;                 // the one secret to protect — shown once
+      _pcardCache(card.display);                       // …and viewable later in Settings
       try { if (window.fhPCardIntro) fhPCardIntro(); } catch (e) {}
       await _afterKey();
     }
@@ -67,6 +75,7 @@
         const raw = await FHCrypto.unwrapDek(P.wrap.wrapped_dek, keys.kWrap);
         P.key = await FHCrypto.importDek(raw);
         await _kPut('p:' + P.uid, P.key);
+        _pcardCache(p.display);                         // remember the entered card so it's viewable in Settings
         await _afterKey();
         return { ok: true };
       } catch (e) { return { ok: false, error: 'wrong_card' }; }

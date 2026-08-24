@@ -115,6 +115,18 @@
          resume hook above */
       if (fhKeyReady()) setTimeout(() => { window.fhEncCoverSweep && window.fhEncCoverSweep(); }, 400);
     }
+    /* Personal ledger key (Model Y) — user-scoped, separate from the family key.
+       Shown whenever the person has a personal ledger provisioned on this device. */
+    try {
+      const pd = window.fhPersonalData && window.fhPersonalData();
+      if (pd && pd.uid) {
+        body += '<div class="fh-s-lab" style="margin-top:20px">' + L('Mã khóa cá nhân', 'Your personal code') + '</div>'
+          + '<div class="fh-s-sub">' + L('Sổ Cá nhân của bạn được mã hóa bằng mã khóa riêng — khác mã của gia đình. Chỉ mình bạn mở được, kể cả chúng tôi cũng không đọc được.',
+                                          'Your personal ledger is encrypted with your own code — separate from the family code. Only you can open it; not even we can read it.') + '</div>';
+        if (pd.key) body += _btn(L('Xem mã khóa cá nhân', 'View your personal code'), '_closeOv();fhPersonalCardShow()', _S.line);
+        else body += '<div class="fh-s-sub">' + L('Mở tab Cá nhân và nhập mã khóa cá nhân để mở trên máy này.', 'Open the Cá nhân tab and enter your personal code to unlock it on this device.') + '</div>';
+      }
+    } catch (e) {}
     body += '<div class="fh-s-sub" id="fh-enc-prog" style="min-height:18px"></div>';
     /* Excel-copy CTA temporarily hidden by product decision (2026-08-03) — the
        entry point will live somewhere better later. fhEncExport() and the

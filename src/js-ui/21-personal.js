@@ -167,6 +167,15 @@ function fhPCardIntro(){
   var d = document.getElementById('pcard-display'); if(d) d.textContent = c.display;
   openSheet('sheet-pcard');
 }
+/* View the personal code later (Settings → Mã hoá tài chính). Shows the card
+   cached on this device; save/copy reuse the same sheet-pcard buttons. */
+window.fhPersonalCardShow = function(){
+  var disp = window.fhPersonalCardCached && fhPersonalCardCached();
+  if(!disp){ window.toast && toast(L('Máy này chưa lưu mã khóa cá nhân — dùng mã bạn đã lưu để mở, hoặc mở tab Cá nhân.','This device hasn’t saved your personal code — use the one you saved, or open the Cá nhân tab.')); return; }
+  window.__fhPersonalCard = { display: disp };
+  var d = document.getElementById('pcard-display'); if(d) d.textContent = disp;
+  openSheet('sheet-pcard');
+};
 function persCardCopy(){
   var c = window.__fhPersonalCard; if(!c) return;
   (navigator.clipboard && navigator.clipboard.writeText(c.display)).then(function(){ window.toast && toast('Đã sao chép thẻ khóa'); });
