@@ -21,14 +21,22 @@
   th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);color:var(--ink2);vertical-align:top}
   th{color:var(--ink);font-size:13px}
   a{color:var(--accent)}
-  .en{margin-top:56px;padding-top:30px;border-top:2px solid var(--line)}
+  .lang-switch{display:inline-flex;border:1px solid var(--line);border-radius:99px;padding:3px;margin-bottom:26px;gap:2px}
+  .lang-switch button{border:0;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--muted);padding:6px 16px;border-radius:99px;cursor:pointer}
+  .lang-switch button.on{background:var(--accent);color:#fff}
   strong{color:var(--ink)}
 </style>
 </head>
 <body>
 <main>
+  <div class="lang-switch" role="tablist">
+    <button id="lsw-vi" onclick="setLang('vi')">Tiếng Việt</button>
+    <button id="lsw-en" onclick="setLang('en')">English</button>
+  </div>
+
+  <div id="lang-vi">
   <h1>Chính sách quyền riêng tư</h1>
-  <div class="meta">Earthy (FamilyHub) · Bản 1 · Hiệu lực từ 24/08/2026 · <a href="#english">English below</a></div>
+  <div class="meta">Earthy (FamilyHub) · Bản 1 · Hiệu lực từ 24/08/2026</div>
 
   <h2>1. Phạm vi áp dụng</h2>
   <p>Chính sách này áp dụng cho ứng dụng Earthy, gồm sổ chi tiêu gia đình và các
@@ -112,7 +120,9 @@
   dữ liệu nhạy cảm, bạn sẽ được hỏi đồng ý lại. Bản hiện hành và ngày hiệu lực
   ghi ở đầu trang.</p>
 
-  <div class="en" id="english">
+  </div>
+
+  <div id="lang-en">
     <h1>Privacy Policy</h1>
     <div class="meta">Earthy (FamilyHub) · Version 1 · Effective 24/08/2026</div>
 
@@ -196,5 +206,21 @@
     date are shown at the top.</p>
   </div>
 </main>
+<script>
+  // One language at a time. Opens in the app's own language (localStorage
+  // 'fh-lang', the same key the app writes); toggling here changes only this
+  // page, never the app's setting.
+  function setLang(l) {
+    document.getElementById('lang-vi').style.display = l === 'vi' ? '' : 'none';
+    document.getElementById('lang-en').style.display = l === 'en' ? '' : 'none';
+    document.getElementById('lsw-vi').classList.toggle('on', l === 'vi');
+    document.getElementById('lsw-en').classList.toggle('on', l === 'en');
+    document.documentElement.lang = l;
+    document.title = l === 'vi' ? 'Chính sách quyền riêng tư — Earthy' : 'Privacy Policy — Earthy';
+  }
+  var saved = null;
+  try { saved = localStorage.getItem('fh-lang'); } catch (e) {}
+  setLang(saved === 'en' ? 'en' : 'vi');
+</script>
 </body>
 </html>
