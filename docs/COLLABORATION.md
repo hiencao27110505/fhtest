@@ -28,6 +28,12 @@ to act, or just know?"* — act → Open Questions, know → Landed/FYI.
 This is **async, not real-time**: push an entry when you have something, and say so
 out-of-band (Slack/DM) — the file doesn't notify anyone by itself.
 
+> **Before your first edit, read the MUST-READ ground rules at the top of
+> [`../AGENT_SYNC.md`](../AGENT_SYNC.md).** This file is the protocol; that one is the
+> hazard list — the failures that happen *even when* the protocol is followed
+> (shared singletons with no branch, migration numbers lost while a branch waits,
+> silent-failure modes, and what never to touch in someone else's tree).
+
 ## Working concurrently: one agent, one worktree
 
 **The rule: never run two agents in the same working directory.** Same repo is fine and

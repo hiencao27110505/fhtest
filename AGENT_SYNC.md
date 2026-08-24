@@ -4,6 +4,9 @@ A shared channel for the two Claude Code sessions working this repo (Hien's +
 partner's) to hand off things that need the other side's input, instead of
 relaying messages through Slack/DMs by hand.
 
+**New session? Read [MUST READ BEFORE YOUR FIRST EDIT](#-must-read-before-your-first-edit)
+below before you touch anything.** It is short, and every rule in it was paid for.
+
 ## How to use this
 
 - Add a dated entry under **Open** with who it's from, what you need an answer
@@ -13,6 +16,130 @@ relaying messages through Slack/DMs by hand.
   keep the real discussion in the linked doc, not duplicated here.
 - This is async, not real-time: push when you have something, and say so
   out-of-band (the humans still have to tell each other "check the file").
+
+## ⚠️ MUST READ BEFORE YOUR FIRST EDIT
+
+Two Claude sessions share this repo. `docs/COLLABORATION.md` covers the mechanics
+(one agent one worktree, claiming files, migration numbering, why `index.html` is
+never hand-merged) — **read it, this does not repeat it.**
+
+What follows is the part that has actually cost us work: the hazards that survive
+even when both sessions follow the protocol. Every rule below was paid for.
+
+### 1. Some things have no branch. Treat them as production, because they are.
+
+Git isolates files. It isolates **nothing** else. There is exactly one of each of
+these, shared by every branch, every worktree, and both humans:
+
+| Shared singleton | Changing it affects | Rule |
+|---|---|---|
+| The live Supabase database | everyone, instantly | Never destructive SQL. Preview with `select` before any `update`/`delete`. |
+| Applied migration numbers | every unmerged branch holding one | See §2. |
+| Supabase Edge Functions | all clients | A redeploy replaces whatever the other session deployed. Say so in your commit. |
+| The Apps Script | the live inbox | Paste **only** from `origin/main`. |
+| Script Properties / env vars | the running pipeline | Announce before changing; there is no diff and no history. |
+| `sw.js` `CACHE_NAME` | every client's cache | Read `origin/main`'s value, not your branch's, before bumping. |
+
+**A branch does not protect any of these.** If your change touches one, it is live
+the moment you act, whether or not the code shipped.
+
+### 2. A migration number is claimed when it is APPLIED, not when it is written.
+
+`0071_user_consents_disconnect.sql` sat on a branch for days. `0071_personal_ledger.sql`
+was written later, applied to production, and now the first one **can never run** —
+applied migrations are append-only.
+
+- Announce the number here **before** writing the file, and again **when you apply it**.
+- If you apply from an unmerged branch, say so in this file the same day and merge
+  quickly. Until you merge, `main`'s schema does not match the database, and every
+  other session is reading a lie.
+- **Holding a number is not owning it.** A branch that waits is a branch that loses.
+- Before writing: `git ls-tree origin/main supabase/migrations/` **and** read the
+  latest claim here. Neither alone is enough.
+
+### 3. Adding a second of something activates every "the one" assumption.
+
+The most expensive bugs here were not written as bugs. They were correct code whose
+assumption a later change quietly falsified.
+
+- `0060` added retirement, which activated a dormant deletion path and deleted a real
+  transaction from view.
+- `0071` gave every user a **second `members` row**, which turned `select … where
+  user_id = v_uid and is_shared = false limit 1` in `0059` from deterministic into a
+  coin flip that binds a mailbox alias to the wrong container.
+
+**When you introduce a second instance of an existing concept** — a container type, a
+member row, a provider, a key, a scope — grep for the singular assumption before you
+ship: `limit 1`, `.single()`, `[0]`, `.find(`, and comments saying "the row" or "the
+family". Post what you found here. The other session cannot grep for a change they
+have not seen.
+
+### 4. This stack fails silently. Assume it, and log loudly.
+
+Nearly every failure mode in FamilyHub returns *nothing* rather than an error:
+
+- **RLS denials return an empty set.** A wrong policy reads as "no data".
+- **PostgREST returns an error OBJECT on failure** — which is truthy, so `if (result)`
+  treats a failed write as a success.
+- **A `LIMIT 1` with no `ORDER BY`** returns a plausible wrong row, not an error.
+- **The pipeline holds rather than fails**, so a broken seal is indistinguishable from
+  an empty inbox.
+- **A raced 0-row `UPDATE` is not an error**, and proceeding on it mints duplicates.
+
+When you add a guard, make its failure *visible*. When something "isn't working" with
+no error anywhere, look here first, not at your own code.
+
+### 5. Do not touch what you did not write.
+
+The literal rule, because we have broken all four:
+
+- **Never `git add -A` or `git commit -a`** in a shared tree. Stage explicit paths.
+  Sweeping in another session's half-finished work misattributes it under your message
+  and can commit secrets or real data.
+- **Never `git checkout --`, `reset --hard`, `clean`, or `stash`** across paths you do
+  not own. Uncommitted work has no reflog.
+- **Never delete or rename another session's file** to resolve a collision. Ask here.
+  A rename you think is tidying is a deletion to the session that still has it open.
+- **Re-run `git status` immediately before committing.** A reading from earlier in your
+  task is stale; the other session has been writing the whole time.
+
+If you believe a file of theirs is wrong, say so here and leave it alone.
+
+### 6. Never commit real data.
+
+Mockups, fixtures and scratch files built from **decrypted production data** have been
+committed to this repo. Vercel serves the repo root, so a committed mockup is a
+**published** mockup.
+
+Scratch work belongs outside the repo or in `.gitignore` **before** the first commit,
+not after. `.gmail-probe.json` holds a live refresh token; `.env.local` holds keys.
+Check what you are staging.
+
+### 7. Verify the other session's claims before you depend on them.
+
+Commit messages assert things that may not have happened — "Edge fn redeployed (v12)",
+"applied to live DB". They are intent, recorded at write time, not proof.
+
+If your work depends on one, check the artifact: the function's version in the
+dashboard, the migration in the database, the version string in the Executions log.
+Cheap, and it has been wrong.
+
+### 8. If you point someone at a doc section, the section must exist.
+
+`AGENT_SYNC` currently points at *"the transfers + import sections of
+`docs/features/personal-ledger.md`"*. That file has no such sections. The receiving
+session cannot tell "not written yet" from "I failed to find it", so it either guesses
+or stalls.
+
+Write the section, or say plainly that the design is not written down yet.
+
+### 9. Prefer deleting the collision over coordinating around it.
+
+When a rule keeps getting broken, the rule is the problem. Precedents that worked:
+test **discovery** instead of a hand-maintained list; `npm run resolve` instead of
+hand-merging `index.html`. Both replaced vigilance with structure.
+
+---
 
 ## Open
 

@@ -145,13 +145,13 @@ This exists because the encryption lifecycle is a one-way ratchet past the scrub
 
 **Proposed hardening, not shipped:** `encryption-mechanics-granular.drawio.xml` and `bank-email-sealedbox-flow.drawio.xml` (repo root) design an AAD-binding + X25519 sealed-box pass: binding each ciphertext to `(family_id, row)` as AES-GCM associated data, and a sealed-box scheme (ephemeral X25519 + ECDH + AEAD) so the bank-email pipeline can encrypt *to* a family's public key without ever holding the DEK. **Zero implementation exists** — confirmed by grepping `src/` and `supabase/migrations/` for `AAD`/`sealed`, both return no hits. This diagram is the designed answer to the honest limitation `ENCRYPTION-RELEASE-NOTE.md` names in its own "Non-goals and honest caveats" section: *"AES-GCM here authenticates each value but is used without associated data (AAD) binding a ciphertext to its row id and column... a malicious operator could relocate or replay a validly-encrypted ciphertext into another field... Binding per-cell AAD is the natural hardening and is not yet done."* Treat both `.drawio.xml` files as design intent only when reading this codebase — nothing in `src/js-data/15-crypto.js` or any migration passes or checks AAD today, and no sealed-box code exists anywhere in the client.
 
-Who encrypts pipeline-ingested `email_transactions` rows — given the pipeline writer can never hold the family DEK — is an open question owned by `docs/features/bank-email-pipeline.md`; see that doc for detail.
+Who encrypts pipeline-ingested `email_transactions` rows — given the pipeline writer can never hold the family DEK — was **answered by sealed staging** (`0065` + `0068`): the pipeline seals to the family's `staging_pub` and can never read the row back. See `docs/features/bank-email-pipeline.md`.
 
 ## Related
 
 - `../ARCHITECTURE.md` — cross-cutting patterns this doc doesn't re-explain: the hydrate/write-through model (`get_family_snapshot` shipping `_enc` columns, `enc` block, `key_unlocked_at`) and the build system.
 - `docs/features/key-card-auth.md` — Key Card generation/encoding, the passcode→card migration (Phases C/D), and the auth-layer wrap mechanics referenced but not detailed here.
-- `docs/features/bank-email-pipeline.md` — owns the open question of how server-ingested `email_transactions` rows get encrypted without the pipeline ever holding the DEK; the sealed-box design above is the proposed answer.
+- `docs/features/bank-email-pipeline.md` — how server-ingested `email_transactions` rows get encrypted without the pipeline ever holding the DEK. The sealed-box design above is the shipped answer, not a proposal.
 - `docs/features/csv-import.md` — the other server/bulk-write path into money tables; subject to the same `0033` enforcement triggers as any other writer.
 - `ENCRYPTION-RELEASE-NOTE.md` (repo root) — the precise cryptographic claim and threat model for card-born families, including the full "Non-goals and honest caveats" section this doc's Current State section cites.
 - `encryption-mechanics-granular.drawio.xml`, `bank-email-sealedbox-flow.drawio.xml` (repo root) — the unshipped AAD/sealed-box hardening design.
