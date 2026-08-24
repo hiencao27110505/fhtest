@@ -1,0 +1,49 @@
+# What must NOT be uploaded when a function is deployed.
+#
+# `gcloud functions deploy --source=functions/<fn>` uploads that directory
+# wholesale. Without this file it also ships the local tool caches: a deploy
+# measured 23MB, of which 22MB was .mypy_cache and 216KB was the actual code.
+#
+# Two reasons this matters beyond upload time. A stale __pycache__ can shadow a
+# source file that was deleted, so the deployed function runs code that is no
+# longer in the repo. And tests carry fixtures — email templates, in this repo —
+# which have no business on a production instance whatever they contain.
+#
+# gcloud reads this file the way git reads .gitignore, but does NOT fall back
+# to .gitignore once this file exists, so anything that should be excluded has
+# to be named here.
+
+# Tool caches. Large, machine-local, and never needed at runtime.
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# Tests and their fixtures. The function does not run them, and the fixtures
+# are sample mail.
+tests/
+conftest.py
+test_*.py
+*_test.py
+
+# Local configuration. Secrets reach a function through Secret Manager
+# (see [tool.earthy] secrets in each pyproject.toml), never through a file in
+# the bundle.
+.env
+.env.*
+!.env.example
+creds.json
+
+# Repo furniture that is not part of any function.
+.git/
+.gitignore
+Makefile
+README.md
+*.md
+uv.lock
+tools/
+
+# OS noise.
+.DS_Store

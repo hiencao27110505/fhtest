@@ -1,0 +1,476 @@
+# Earthy — serverless (GCP Cloud Functions)
+
+A **uv workspace**: one `.venv` shared by every function, with each function
+declaring its own dependencies in its own `pyproject.toml`. The Python
+counterpart to the pnpm workspace in `apps/`.
+
+```text
+serverless/
+├── pyproject.toml          # workspace root + dev tools (pytest, ruff)
+├── uv.lock                 # one lockfile for every function
+├── .venv/                  # the single shared venv (git-ignored)
+├── Makefile
+├── shared/                 # modules used by more than one function
+│   ├── accounts.py         # per-user tokens + cursor (the DB seam)
+│   └── gmail_auth.py       # refresh token -> Gmail client
+└── functions/
+    ├── gmail-transaction-ingest/
+    │   ├── pyproject.toml      # own deps + [tool.earthy] shared = [...]
+    │   ├── requirements.txt    # GENERATED — do not hand-edit
+    │   ├── accounts.py         # GENERATED copy — edit shared/, not this
+    │   ├── gmail_auth.py       # GENERATED copy — edit shared/, not this
+    │   ├── senders.py
+    │   └── main.py
+    └── transaction-parser/
+        ├── pyproject.toml
+        ├── requirements.txt
+        ├── parsing.py
+        └── main.py
+```
+
+## Getting started
+
+```sh
+make install    # create .venv with every function + dev tools
+make list       # list the functions in the workspace
+make run FN=transaction-parser   # run locally on :8080 with hot reload
+```
+
+The repo-root `.vscode/settings.json` already points the Python extension at
+`earthy/serverless/.venv/bin/python`, so one interpreter covers every function.
+If your editor still resolves imports against the system Python, reload the
+window, or pick that interpreter manually once.
+
+## Everyday workflow
+
+| Task | Command |
+| --- | --- |
+| New function | `make new FN=send-email` |
+| Add a dependency | `make add FN=send-email PKG="httpx>=0.27"` |
+| Run locally | `make run FN=send-email` (port: `PORT=9000`) |
+| Send a test event | `make emit FN=send-email` (Pub/Sub functions) |
+| Test / lint | `make test` · `make lint` · `make fmt` |
+| Deploy | `make deploy FN=send-email` |
+| Read logs | `make logs FN=send-email` |
+
+## Deploying
+
+The target project is `fhtest-502915`, set as `GCP_PROJECT` in the Makefile.
+Override it per invocation with `make deploy FN=x GCP_PROJECT=other-project`;
+every gcloud call passes `--project` explicitly, so your local
+`gcloud config set project` never decides where a deploy lands.
+
+```sh
+make preflight     # auth / project / billing / APIs
+make enable-apis   # one-time, needs billing on first
+make deploy FN=gmail-transaction-ingest   # freeze + preflight + deploy
+```
+
+`make deploy` runs `freeze` and `preflight` first, so a stale
+`requirements.txt` or a missing API stops the deploy before gcloud is called.
+
+### First-time project setup
+
+A brand-new project needs two things before the first deploy:
+
+1. **Billing enabled.** Gen2 functions run on Cloud Run and build on Cloud
+   Build, both of which require it. Link an account at
+   `console.cloud.google.com/billing/linkedaccount?project=fhtest-502915`.
+2. **APIs enabled** — `make enable-apis` turns on Cloud Functions, Cloud Run,
+   Cloud Build, Artifact Registry, Logging, and Eventarc. Billing must be on
+   first, or enabling is refused.
+
+`make preflight` reports which of these is missing and exits non-zero, so it is
+safe to run at any time.
+
+### Letting Gmail publish into the watch topic
+
+`make grant-gmail-push` — done once per project, and already applied to
+`fhtest-502915`. `make check-gmail-push` verifies it.
+
+This is the one grant that makes the whole pipeline possible, and it is worth
+understanding rather than copying. `users.watch()` is called with **the end
+user's** OAuth token, which authorizes reading *their mailbox* and confers no
+access to your GCP project at all. The `topicName` you pass is a destination
+string, not a permission claim.
+
+The publishing is done by **Gmail itself**, under Google's own identity
+`gmail-api-push@system.gserviceaccount.com`, which reaches your topic only
+because you granted it `roles/pubsub.publisher` ahead of time. So there are two
+separate authorizations — user → Gmail, and Gmail → your topic — and this
+binding is the only thing connecting them. The end user needs no GCP account,
+no permission, and no awareness that this project exists.
+
+The grant is on the **topic**, not the project: Pub/Sub IAM is per-resource, and
+a project-wide grant to a Google system account would be needlessly broad.
+`transaction-detected` deliberately does not carry it — nothing outside this
+project publishes there.
+
+Verified details, including what Google does *not* document, are in
+[`research/gmail-push-pubsub-oauth.md`](../../research/gmail-push-pubsub-oauth.md).
+
+## Sharing code between functions
+
+Cloud Functions deploys **one directory**, so a module two functions both
+import has to physically exist inside each of them. Google's guidance is to
+[vendor local dependencies next to `main.py`][local-deps] rather than reach
+outside the source directory, and that is what happens here — mechanically.
+
+`shared/` holds the single copy you edit. Each function declares what it needs:
+
+```toml
+[tool.earthy]
+shared = ["accounts.py", "gmail_auth.py"]
+```
+
+`make sync-shared` copies those files in, stamped with a `# GENERATED` header.
+`run`, `test` and `deploy` all depend on the sync, so a stale copy cannot reach
+GCP.
+
+The copies are committed, so a diff touching a shared module shows the same
+change once in `shared/` and once per function. Re-run `make sync-shared` and
+commit the result together with the `shared/` edit — reviewing the copies is
+not the point, keeping them in step is.
+
+A copied file lands beside `main.py` as a **top-level module** — `accounts.py`
+is imported as `import accounts`. A shared name must therefore not collide with
+a file a function owns; `sync-shared` refuses to overwrite anything without the
+generated header rather than clobbering it.
+
+**Symlinks do not work here.** `gcloud` packages the source as a tar that
+preserves links instead of following them, so the link would dangle inside the
+container. This was tested, not assumed.
+
+[local-deps]: https://docs.cloud.google.com/run/docs/runtimes/python-dependencies
+
+## `requirements.txt` is generated
+
+GCP does not accept a venv. It reads `requirements.txt` from the function's
+source directory and installs from that. `uv export` generates the file **from
+that function's own `pyproject.toml`**, so it carries only that function's
+dependencies plus their transitives — never another function's dependencies,
+and never the workspace dev tools.
+
+- **Do not hand-edit it.** `make add` and `make deploy` re-run `make freeze`.
+- After editing `dependencies` by hand, run `make freeze FN=<name>`.
+- **Commit `requirements.txt`** — it is what GCP reads at build time.
+
+### Why this file is longer than the one in Google's docs
+
+Google's quickstart lists direct dependencies only, and pip resolves the
+transitives at deploy time. The file here pins **every** transitive, so the set
+of packages installed into the container is the same either way. What differs
+is who chooses the versions of those transitives.
+
+Pinning everything makes deploys reproducible: the same commit deployed today
+and three months from now produces the same bytes, and the local environment
+matches GCP. Without pinning, a new Werkzeug or Jinja2 release can break a
+working function with no change on your side.
+
+It is also why transitives should not be pinned by hand. The quickstart lists
+`MarkupSafe==2.1.3`, but Flask 3.1.3 requires `markupsafe>=2.1.1` and the
+resolver picks `3.0.3`. Declare what you import, and let `uv export` do the
+rest.
+
+### The shared-venv pitfall
+
+Because every function shares one `.venv`, code can `import` a package it never
+**declared** — one another function pulled in — and still run locally, then
+fail on GCP where that package is absent. `uv export` catches most of this: an
+undeclared package never reaches `requirements.txt`, so the deploy fails
+outright instead of breaking silently. The rule: **if you import it, `make add`
+it.**
+
+## The Gmail transaction pipeline
+
+```text
+Gmail watch() → [topic: gmail-events]
+                      ↓
+          gmail-transaction-ingest          once per notification
+          history.list → messages.get → match sender
+                      ↓
+          [topic: transaction-detected]     once per transaction
+                      ↓
+          transaction-parser                once per transaction
+          strip html → read amount/direction/balance
+```
+
+Gmail push carries **no mail content** — only `{emailAddress, historyId}` —
+and `watch()` filters by label, not by sender. So identifying a bank email
+requires fetching it first; there is no cheaper pre-filter stage to split out.
+
+The split above is therefore drawn where the unit of work changes, from
+*mailbox* to *transaction*. Ingest owns the Gmail checkpoint and nothing else;
+the parser never has to know Gmail exists, and re-deploying it for a new bank
+template does not touch the ingest side.
+
+Ingest fetches each message with `format="full"` and publishes the body along
+with the event, so `transaction-parser` needs no Gmail credentials and no
+Gmail scope. It can be exercised with a static payload.
+
+Both stages stop at logging; nothing is persisted yet.
+
+The volatile logic lives in one file per stage, and neither `main.py` should
+need to change to support a new bank:
+
+- `gmail-transaction-ingest/senders.py` — known bank and wallet domains.
+  Matching is on the sender domain, not the display name, and subdomains
+  count (`mail.momo.vn` matches `momo.vn`) while lookalikes do not
+  (`momo.vn.evil.com` is rejected).
+- `transaction-parser/parsing.py` — amount, direction and balance patterns.
+  The balance is matched separately and skipped **by span, not by value**, so
+  a transfer that happens to equal the balance still parses.
+
+An email whose template is not recognised is logged as `INCOMPLETE` and acked,
+not retried — an unknown layout is a gap to fill, not a transient failure.
+
+### Per-user credentials
+
+The pipeline is multi-user. A notification names a mailbox, so ingest looks up
+*that user's* refresh token rather than reading one set of credentials from the
+environment:
+
+```text
+notification.emailAddress
+        ↓
+accounts.AccountStore.get(email)   → refresh_token + history_id
+        ↓
+gmail_auth.build_client(token)     → Gmail client acting as that user
+```
+
+`accounts.py` defines the seam. `AccountStore` is a Protocol with two methods,
+and `create_store()` decides which implementation a deployment gets — swap its
+body for the Postgres-backed store and nothing else changes.
+
+`InMemoryStore` is the stand-in: seeded from `GMAIL_ACCOUNTS`, a JSON object of
+`{email: refresh_token}`. State dies with the instance, so a saved `historyId`
+does not survive a cold start. It is enough to exercise the pipeline, not to
+run it.
+
+What the real store must honour:
+
+- **Encrypt refresh tokens at rest.** One grants unlimited read access to
+  someone's mail, forever, until revoked. `_Account.__repr__` is overridden so
+  a token cannot reach a log line or a traceback.
+- **Advance `historyId` only after the window is handled.** `main` writes it
+  last; a mid-loop crash then replays that window instead of skipping it.
+- **`gmail.readonly` only** — the scope lives in `accounts.SCOPES` and is
+  asserted by a test, because widening it widens the blast radius of a leak.
+
+The app's OAuth client id and secret are per-application, not per-user, and
+come from `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`. On GCP feed
+those from Secret Manager (`--set-secrets`), not plain env vars: a function's
+environment is visible in the console and in `gcloud functions describe`.
+
+### The renewal job only touches what is due
+
+A watch lasts 7 days and `gmail-watch-renew` runs daily, so renewing every
+mailbox on every run repeats work that is good for another six. It asks for
+the ones expiring within `RENEW_WITHIN_SECONDS` (default 2 days) instead, which
+means each mailbox is renewed roughly every five days and still has two days
+of slack if a run fails.
+
+This matters beyond tidiness. The function's timeout is 60 seconds and the
+loop is sequential at ~2 network calls per mailbox, so renewing everything
+stops fitting somewhere in the low hundreds of mailboxes — and the tail of the
+list would lapse **silently**, which is the exact failure this job exists to
+prevent. Scoping to what is due keeps the work proportional to what expires
+rather than to how many users exist.
+
+Mailboxes with no watch yet are due by definition, and ones awaiting re-consent
+are never due — their token cannot mint an access token, so renewing them only
+burns a call.
+
+Past a few thousand mailboxes even this stops fitting, and the shape to reach
+for is fan-out: the job publishes one message per due mailbox and a second
+function handles them, so each retries independently and no single run has a
+deadline.
+
+### Refresh tokens die every 7 days while the app is in Testing
+
+Google expires refresh tokens after 7 days for any app whose OAuth consent
+screen is **external** and whose publishing status is **Testing**, and Gmail
+scopes are never in the exempt set. A user also loses their token by revoking
+access or changing their Google password.
+
+None of these are transient, so the pipeline treats them as a state, not an
+error: `gmail_auth.build_client` raises `TokenRejected`, both functions mark
+the mailbox with `mark_needs_reauth()` and **ack**. Retrying would redeliver
+the message until the topic's retention ran out, and a dead token cannot be
+revived without the user.
+
+`list_connected()` then skips those mailboxes, so the daily renewal does not
+spend calls on them, and `gmail-watch-renew` reports `needs_reauth` separately
+from `failed` — a weekly wave of re-consents is routine here, not an outage.
+The app is expected to read that state and prompt the affected users.
+
+This ceases to be a weekly event once the app reaches **In production** status,
+which requires OAuth verification and a CASA security assessment. See
+[`research/gmail-push-pubsub-oauth.md`](../../research/gmail-push-pubsub-oauth.md)
+for the verified details.
+
+### Connecting a mailbox
+
+```sh
+make connect     # consent, encrypt, store
+make renew       # register the Gmail watch
+```
+
+One run per mailbox you want watched. `connect` opens a browser for consent,
+encrypts the refresh token with `GMAIL_TOKEN_KEY`, and upserts
+`connected_accounts`; `renew` then registers the watch and seeds the cursor.
+
+The owning `auth.users` row is resolved from the address Google returns, so
+there is no id to pass and none to get wrong — a mistyped one would file the
+mailbox under the wrong person with nothing downstream to catch it. Sign in as
+the mailbox owner, and the link follows. If no user exists for that address
+yet, `connect` stops and says so rather than guessing.
+
+**Every mailbox that should be watched needs its own run.** A Gmail watch
+covers one mailbox, so an address that only ever *sends* to a watched inbox
+needs nothing — but an address that *receives* does. Consent cannot be
+delegated: whoever owns the account has to be at the browser.
+
+While the app is in Testing publishing status, all four accounts must also be
+listed under *Test users* on the OAuth consent screen, or Google refuses the
+grant.
+
+Re-running `connect` for a mailbox that is already connected replaces its
+token and clears `needs_reauth` — which is what a user reconnecting after the
+7-day expiry needs. The sync cursor is left alone on purpose; overwriting a
+live one would skip every message between it and now.
+
+`FROM_FILE=creds.json` reuses a payload from `make authorize OUT=...` instead
+of opening the browser again.
+
+### Granting access to a mailbox
+
+```sh
+make authorize                    # prints the tokens
+make authorize OUT=creds.json     # writes them to a file (mode 600) instead
+```
+
+Opens a browser, you sign in and consent, and it reports the mailbox address,
+its current `historyId`, and both tokens. Only the account owner can do this —
+it is the consent step, not a lookup, and no amount of automation replaces it.
+
+`GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` must be set in `.env`
+first (Console → APIs & Services → Credentials).
+
+**Register the redirect URI.** The script serves a one-shot loopback listener
+on `http://localhost:8765/` — an arbitrary port, chosen only because it has to
+be *some* fixed number. It exists for the few seconds between opening the
+browser and receiving the callback, then closes.
+
+It has to be fixed because a **Web application** OAuth client accepts only the
+redirect URIs listed in the Console, matched character for character including
+the trailing slash. Add `http://localhost:8765/` under *Authorized redirect
+URIs*, or Google answers with error 400 `redirect_uri_mismatch`. (A *Desktop*
+client would accept any loopback port without registration; a Web client is
+the right shape here because the app itself will use one later.)
+
+Use a different port with `make authorize AUTH_PORT=9000`, and register that
+URI too. It is `AUTH_PORT` rather than `PORT` because `PORT` already means
+"run the function on this port".
+
+The script sends `access_type=offline` and `prompt=consent`. Both are load
+bearing: without the first Google issues no refresh token at all, and without
+the second a *re-*authorization returns only an access token, because the
+refresh token is sent on the first grant alone. If you ever end up without
+one, revoke the app at myaccount.google.com/permissions and run it again.
+
+**Only the refresh token is stored.** The access token is shown so you can see
+the grant works, and then discarded: it lasts about an hour, so a stored copy
+would almost always be stale, and `google-auth` mints a fresh one from the
+refresh token whenever a function needs it.
+
+Still to wire up:
+
+- **⚠️ Cloud Scheduler — nothing renews the watches automatically yet.**
+  A Gmail watch expires 7 days after it is registered, and when it does Gmail
+  simply stops publishing: no error, no final notification, no entry in any
+  log. The pipeline would look idle rather than broken, and the first sign
+  would be transactions quietly missing.
+
+  Today the only thing renewing them is someone running `make renew` by hand.
+  What is needed is one Scheduler job — a single schedule, not one per
+  mailbox or per run — calling `gmail-watch-renew` daily with an OIDC token,
+  so the function can stay `allow-unauthenticated=false`:
+
+  ```sh
+  gcloud services enable cloudscheduler.googleapis.com --project=fhtest-502915
+  gcloud scheduler jobs create http renew-gmail-watches \
+    --project=fhtest-502915 --location=asia-southeast1 \
+    --schedule="0 3 * * *" --time-zone="Asia/Ho_Chi_Minh" \
+    --uri="$(gcloud functions describe gmail-watch-renew --gen2 \
+             --project=fhtest-502915 --region=asia-southeast1 \
+             --format='value(serviceConfig.uri)')" \
+    --oidc-service-account-email=860668973723-compute@developer.gserviceaccount.com
+  ```
+
+  Daily rather than weekly on Google's own advice — it leaves six days of
+  slack, where a weekly schedule leaves none and one missed run loses the
+  watch. Billing is per job, not per invocation, and the first three jobs each
+  month are free.
+
+- **The OAuth callback** in the app: exchange the code with
+  `access_type=offline` and `prompt=consent`, or Google returns an access token
+  with no refresh token. The refresh token is shown **once**, at first grant.
+  Until then, `make connect` is the way a mailbox gets linked.
+- **Remove `TEST_SENDERS`** from `gmail-transaction-ingest/senders.py` once
+  real bank mail is arriving — anything those four accounts send is currently
+  read as a transaction.
+- **Verification**: `gmail.readonly` is a restricted scope. Beyond 100 test
+  users, Google requires app verification and a third-party security
+  assessment — start that early, it is measured in weeks.
+
+## Deploy configuration
+
+Each function declares its GCP parameters in its `pyproject.toml`, and the
+Makefile reads them from there, so `make deploy` needs no command-line flags:
+
+```toml
+[tool.earthy.gcf]
+entry-point = "hello_get"
+trigger = "http"
+region = "asia-southeast1"
+runtime = "python312"
+allow-unauthenticated = true
+```
+
+### Pub/Sub-triggered functions
+
+Set `trigger = "pubsub"` and name the topic. `allow-unauthenticated` does not
+apply — Pub/Sub functions are never publicly invocable; Eventarc invokes them
+through a service account.
+
+```toml
+[tool.earthy.gcf]
+entry-point = "main"
+trigger = "pubsub"
+topic = "gmail-events"
+region = "asia-southeast1"
+runtime = "python312"
+```
+
+`make deploy` creates the topic if it does not exist, passes
+`--trigger-topic`, and refuses to run if `trigger = "pubsub"` has no `topic`.
+The handler takes a CloudEvent rather than a request:
+
+```python
+@functions_framework.cloud_event
+def main(cloud_event): ...
+```
+
+Test one locally with two shells — `make run FN=<name>` in the first, then
+`make emit FN=<name>` in the second. Override the payload with
+`DATA='{"...":"..."}'`.
+
+**Delivery is at-least-once**, so a handler must be safe to run twice on the
+same message. Raising re-queues the message: raise only on transient failures,
+because a permanent error would redeliver until the topic's retention expires.
+Malformed payloads should be logged and acked, not raised.
+
+The local Python version (`.python-version` = 3.12) matches
+`runtime = python312`. Keep the two in sync — a mismatch is the classic source
+of "works locally, fails on GCP".

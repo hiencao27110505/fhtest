@@ -1,0 +1,42 @@
+[project]
+name = "transaction-parser"
+version = "0.1.0"
+description = "Parses amount/date/merchant out of a bank or wallet email"
+requires-python = "==3.12.*"
+dependencies = [
+    "cloudevents>=1.11.0",
+    "functions-framework==3.9.2",
+    "google-genai>=2.19.0",
+    "psycopg[binary,pool]>=3.3.4",
+]
+
+# Fed by gmail-transaction-ingest. The mail body arrives in the payload, so
+# this function needs no Gmail credentials and no Gmail scope.
+[tool.earthy.gcf]
+entry-point = "main"
+trigger = "pubsub"
+topic = "transaction-detected"
+region = "asia-southeast1"
+runtime = "python312"
+
+# Secret Manager entries mounted as env vars at deploy time.
+# Never plain --set-env-vars: a function's environment is visible
+# in the console and in `gcloud functions describe`.
+[tool.earthy]
+shared = ["notify.py"]
+# Optional: unset the secrets and notifications simply stay off.
+secrets = [
+    "TELEGRAM_BOT_TOKEN=telegram-bot-token",
+    "TELEGRAM_CHAT_ID=telegram-chat-id",
+    # Unset it and the LLM fallback stays off: mail off an unknown template is
+    # reported as unreadable rather than parsed. Every known template keeps
+    # working, because those are read by stored specs and never call out.
+    "GEMINI_API_KEY=gemini-api-key",
+    # Where learned specs live (migration 0071). Unset it and the parser still
+    # reads mail, but relearns each template once per instance instead of once
+    # ever, so every cold start costs LLM calls again.
+    "DATABASE_URL=database-url",
+]
+
+[tool.uv]
+package = false

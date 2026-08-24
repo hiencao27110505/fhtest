@@ -372,6 +372,104 @@ hand-merging `index.html`. Both replaced vigilance with structure.
   disconnect button, parse-failed 90-day retention, consent record + review
   row (doc §4) — none block your current work.
 
+- **2026-08-23 (transaction-parser session, for Quang) — CLAIMING MIGRATION
+  `0072_merchant_categories.sql`. Next free number after it is `0073`.**
+
+  Cached merchant -> spending category, used by the `transaction-parser` Cloud
+  Function. A category is not printed in any mail; it is inferred from the
+  merchant, so this table is where that inference is kept and the model is
+  asked once per merchant rather than once per transaction. Same posture as
+  0071: service-role only, RLS on with no policies, shared across families
+  because "Highlands Coffee is ăn uống" is true for every household and a row
+  holds a merchant name and a label, no transaction data. Touches no existing
+  table.
+
+  **Status: APPLIED to production (2026-08-23).** Verified after apply: RLS on
+  with 0 policies, no grants to anon/authenticated, and both check constraints
+  refusing bad rows (an unnormalised merchant, and a duplicate).
+
+  **Shipped with it, both functions deployed 2026-08-23:**
+
+  * **Normalisation moved to ingest.** `strip_html` + `declutter` now live in
+    `gmail-transaction-ingest/mailtext.py`, so what reaches the Pub/Sub topic
+    is text, not a 4.5MB HTML document — measured 4,550,414 -> 2,217 chars on
+    a real MoMo receipt. The parser no longer flattens anything, and its
+    `body` contract is "already normalised text". `beautifulsoup4` + `lxml`
+    moved with it; the parser no longer depends on either.
+    **Consequence: deploy ingest before parser.** The parser cannot read raw
+    HTML any more, so a message in flight from an older ingest would go UNREAD.
+  * **Specs learn a `match`** — the phrases that say WHICH of a sender's
+    templates a mail is. Without it two variants sharing every label but
+    differing in direction both validated, and whichever was tried first won:
+    a MoMo receipt posted as a payment. Verified on four real templates from
+    one provider (train, bus, cinema, shop payment) — four specs, no
+    cross-matching.
+  * **Figures and addresses no longer reach the model.** `parser/masking.py`
+    replaces them with `[MONEY_n]`/`[EMAIL_n]` before the prompt and exchanges
+    them back locally; `induce` was also leaking the reading as JSON alongside
+    a redacted body, which is fixed.
+  * **Five cash-flow fields** (`occurred_at`, `reference`, `account_tail`,
+    `description`, `channel`) plus two spec types (`date`, `token`).
+  * **No `.gcloudignore` existed.** Every deploy was uploading 23MB, 22MB of
+    it a local `.mypy_cache`. Now 13 files. It must live in each function
+    directory — gcloud reads it from `--source`, not from the working
+    directory.
+
+  **Three bugs that only real mail exposed, all fixed:**
+
+  1. Gmail returns `text/plain` when a mail has one, and there a line ending is
+     the ONLY field boundary. Collapsing newlines merged each label into the
+     value below it: `Tổng tiền` read back as `165.000đ Giá vé 165.000đ`.
+  2. `llm._shape_of` listed four field names in a literal, written when a
+     reading had four. It silently kept saying four after five were added, so
+     `induce` was never told a mail had a date and every learned spec dropped
+     `occurred_at` from the second mail onward.
+  3. A 400-day past bound on `occurred_at` rejected a real 2024 receipt — and
+     the cost was not one row: the mail never reached the LLM stage, so its
+     TEMPLATE was never learned. Removed; the future bound stays, since a date
+     ahead of now is the one that really means a misread.
+
+  **Fixtures are fetched, not saved from a browser** (`tools/fetch_fixtures.py`).
+  A saved page carries the Gmail interface, the whole inbox listing, and
+  Gmail's AI summary — which prints the amount a second time in wording no
+  bank uses. `tests/fixtures/{emails,bodies}` are gitignored: they are real
+  mail. `test_fixtures.py` therefore asserts properties, not values.
+
+  **Known limit: Gemini free tier is 20 requests/minute.** A new template costs
+  three calls (extract, induce, categorise), so a burst of unfamiliar mail hits
+  it. It fails safe — the call returns None and the mail reads as UNREAD, or
+  the category is left empty — but it is the current bottleneck.
+
+- **2026-08-22 (bank-email parser session, for Quang) — CLAIMING MIGRATION
+  `0071_email_parse_templates.sql`. Next free number after it is `0072`.**
+
+  Learned parse rules for bank-notification email templates, used by the
+  `transaction-parser` Cloud Function. One row per (source, spec): the first
+  mail off an unfamiliar template is read by an LLM which also proposes a
+  reusable rule; every later mail off that template is read by the rule with no
+  model involved. Service-role only, RLS on with no policies — same posture as
+  `0070_connected_accounts.sql`, and for the same reason: nothing here is
+  family-scoped or client-readable. Touches no existing table.
+
+  **Status: APPLIED to production (2026-08-22).** Verified after apply: RLS on
+  with 0 policies, no grants to anon/authenticated, 3 check constraints, and
+  the unique index refusing a duplicate spec whose keys were merely reordered.
+  Table is empty — nothing has been learned yet.
+
+  **The hand-written regex stage is GONE (`parser/parsing.py` deleted).** It
+  was tested against real mail and was right by luck: it read a MoMo receipt
+  correctly only because it matched the hyphen in "13:15 - 21/08/2026" as a
+  minus sign, and it read a Techcombank notice's ACCOUNT NUMBER as the balance
+  because "biến động số dư" in the opening sentence anchored the balance
+  pattern. Both are silent wrong-number bugs on a ledger. The cascade is now
+  two stages: stored rule, else LLM.
+
+  **Consequence for deploys: `GEMINI_API_KEY` is now REQUIRED for any template
+  the parser has not already learned.** Learned templates still need no model.
+  Verified end to end against the live API on five mails (one a real MoMo
+  receipt): 5/5 read correctly, 5/5 learned a rule, 5/5 second passes served
+  from the stored rule with no API call.
+
 - **2026-08-22 (UI session) — AUTO-LOGGING IS DONE UP TO THE SEAM. The consent
   screen opens on a real device and grants; everything past the Allow button is
   the backend's. Also: three data-loss-grade bugs found in `fd6411f`, which is
