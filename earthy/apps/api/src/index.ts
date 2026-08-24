@@ -4,14 +4,30 @@ import { app } from "./app";
 import { env } from "./lib/env";
 
 const server = Bun.serve({
+  // Explicit, though Bun already binds every interface by default: it REPORTS
+  // `server.hostname` as "localhost" while actually listening on 0.0.0.0, so
+  // the default looks wrong to anyone reading a log line or this code. Cloud
+  // Run's container contract requires listening on 0.0.0.0 — a loopback-only
+  // bind fails its startup probe — and that requirement is too load-bearing to
+  // rest on an undocumented default that prints the opposite of what it does.
+  hostname: "0.0.0.0",
   port: env.PORT,
   fetch: app.fetch,
 });
 
 console.info(`Listening on http://localhost:${server.port}`);
 
-/** How long in-flight requests get to finish before the process exits anyway. */
-const SHUTDOWN_TIMEOUT_MS = 30_000;
+/**
+ * How long in-flight requests get to finish before the process exits anyway.
+ *
+ * Under Cloud Run's container contract SIGTERM is followed by SIGKILL after
+ * ~10 seconds, so a longer budget than that is not a budget — the platform
+ * stops the process mid-drain and the "forcing exit" branch below never runs,
+ * turning a controlled shutdown into an uncontrolled one. Staying under the
+ * platform's own deadline is what keeps the drain ours to complete: we finish,
+ * log, and exit 0 before anything is killed.
+ */
+const SHUTDOWN_TIMEOUT_MS = 8_000;
 
 let shuttingDown = false;
 

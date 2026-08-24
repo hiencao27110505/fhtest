@@ -36,14 +36,28 @@ const PROFILE_ENDPOINT =
  * Asking for exactly the one scope keeps the stored row an honest description
  * of what the pipeline may do.
  */
-export function authorizationUrl(state: string): string {
+export function authorizationUrl(state: string, loginHint?: string): string {
   const url = new URL(AUTH_ENDPOINT);
   url.searchParams.set("client_id", env.GOOGLE_OAUTH_CLIENT_ID);
   url.searchParams.set("redirect_uri", env.GOOGLE_OAUTH_REDIRECT_URI);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", GMAIL_SCOPES.join(" "));
   url.searchParams.set("access_type", "offline");
-  url.searchParams.set("prompt", "consent");
+  // Two values, both load-bearing. `consent` is what makes Google re-issue a
+  // refresh token for an account that already granted (see above).
+  //
+  // `select_account` is here because LOGIN_HINT IS ONLY A HINT: when the
+  // browser already holds a Google session, Google honours that session and
+  // ignores the hint, so the person lands on whichever account they last used
+  // and can grant the WRONG MAILBOX without noticing — the consent screen names
+  // an account nobody read, and the connection then quietly syncs a mailbox
+  // with no bank mail in it. Forcing the chooser costs one tap and makes the
+  // account an explicit choice; the hint still pre-selects inside the chooser.
+  url.searchParams.set("prompt", "select_account consent");
+  // Omitted when absent rather than set empty: an empty `login_hint` is not the
+  // same as none, and can leave Google on the already-active account instead of
+  // offering the picker.
+  if (loginHint) url.searchParams.set("login_hint", loginHint);
   url.searchParams.set("state", state);
   return url.toString();
 }

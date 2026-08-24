@@ -21950,122 +21950,82 @@ window.classifyAmount = classifyAmount;
   };
 
   /* ── the consent URL ───────────────────────────────────────────────────────
-     WE own getting the person to Google. The backend takes over at the callback.
+     THE BACKEND OWNS IT NOW. This used to assemble the Google URL here, on the
+     grounds that a client_id, a scope and a redirect are all public. That was
+     true, and it was still the wrong place — because the fourth component is
+     `state`, and a browser cannot keep a signing key.
 
-     That split is why this is built here rather than fetched: nothing about the
-     consent URL needs a server. It is a client_id, a scope, a redirect and a
-     state, and every one of them is either public or ours to decide. Asking a
-     server to assemble a public URL only added a round trip that could 404,
-     which is exactly what it was doing.
+     The old comment said so itself: state was unsigned, so the callback "has to
+     verify the claim rather than believe it", or a forged state attaches one
+     person's mailbox to another person's member row. The API mints and SIGNS
+     the state instead (features/connections/oauth-state.ts), which removes that
+     class of bug rather than asking the callback to defend against it.
 
-     NO PKCE, deliberately. PKCE protects a PUBLIC client that must exchange the
-     code itself. Ours is confidential: the backend holds the client secret and
-     does the exchange, which is the stronger protection, and an intercepted code
-     is useless without that secret. Adding a challenge here would also strand
-     the verifier in this browser, where the exchanging server cannot read it —
-     ceremony rather than security.
+     WHY `redirect: "manual"` AND NOT A PLAIN NAVIGATION. The endpoint needs the
+     caller's identity, which travels as a Bearer token in a header — and a
+     header cannot ride on a `location.assign`. So we fetch it, and we must NOT
+     let fetch follow the 302: following it would make the browser request
+     accounts.google.com as a cross-origin fetch, which Google refuses, and the
+     response would come back opaque with nothing readable in it. Reading
+     `Location` and navigating ourselves keeps the hand-off a real top-level
+     navigation, which is what the consent screen requires. The API sets
+     `exposeHeaders: ["Location"]` so this header is visible to script at all. */
 
-     STATE IS UNTRUSTED INPUT, and the backend must treat it as such. It says
-     which member started the flow, because the callback has no session of its
-     own to ask. It is NOT signed — a browser cannot keep a signing key — so the
-     callback has to verify the claim rather than believe it: confirm the member
-     belongs to the account the granted email resolves to before attaching a
-     mailbox to anyone's ledger. Believing it as-is would let a forged state
-     attach one person's mailbox to another person's member row. */
-  const _ATX_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
-  const _ATX_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+  /* Where the API lives. Pinned per-origin rather than derived: the API is a
+     different host from the app, and its CORS allow-list names this app's
+     origin exactly, so guessing wrong fails as a CORS error rather than a 404. */
+  const _ATX_API = 'https://earthy-api-860668973723.asia-southeast1.run.app';
 
-  /* THE SAME Google client as sign-in, deliberately: `FHTest Web`
-     (860668973723-…) in the `fhtest` project, which is GOOGLE_CLIENT_ID in
-     10-client-auth.js. It is referenced through that constant rather than
-     re-typed, so the two can never drift apart.
-
-     This was briefly pointed at 340747728156-… because that is what
-     GOOGLE_OAUTH_CLIENT_ID happened to be in a local env file. That client lives
-     in a DIFFERENT GCP project, which the fhtest project cannot register a
-     redirect URI for — so the consent screen would have kept refusing with no
-     way to fix it from the project we actually own.
-
-     WHAT MUST HOLD: the client that ISSUES the code has to be the client that
-     EXCHANGES it. The backend's GOOGLE_OAUTH_CLIENT_ID / _SECRET therefore have
-     to be this same client's. Mismatch it and Google refuses with
-     `invalid_grant` at the token exchange — after the person has read the
-     consent screen and pressed Allow, so it surfaces as a backend failure at the
-     last possible moment rather than a misconfiguration at the first.
-
-     Sharing the client with sign-in is fine: scopes are per REQUEST, not per
-     client, so signing in still asks for nothing but the basics. What is shared
-     is the project's consent screen and its verification status, which a
-     separate client in the same project would have shared anyway. */
-  /* PINNED, not built from location.origin, and that is the point.
-
-     Google compares redirect_uri LITERALLY against a registered list. Vercel
-     gives every deployment its own preview hostname, so an origin-derived
-     redirect changes per deploy and each one would have to be registered or the
-     person gets `redirect_uri_mismatch` before the consent screen even renders.
-     Pinning means the one string we registered is the one we always send, from
-     whatever URL the app happens to be open at. Opening a preview build simply
-     returns you to production, which is where the callback lives anyway.
-
-     THIS EXACT STRING has to appear in three places, and all three must agree:
-       1. Google Cloud Console → Credentials → the OAuth client whose id is
-          _ATX_CLIENT_ID above → Authorised redirect URIs
-       2. the backend's GOOGLE_OAUTH_REDIRECT_URI env var in Vercel
-       3. here
-     No trailing slash, https, exact case. Changing the domain means changing
-     all three together. (A localhost dev loop would need its own registered URI
-     and a temporary edit here; there is no automatic fallback on purpose,
-     because a silent one is how a mismatch gets shipped.) */
-  const _ATX_REDIRECT = 'https://fhtest-opal.vercel.app/api/gmail-callback';
-
-  function _atxB64Url(obj) {
-    // btoa is latin1-only; percent-encode first so a non-ASCII value cannot throw.
-    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
-    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  /* The app's own access token, which is what the API authenticates.
+     `getSession()` rather than a cached copy: it refreshes an expired token
+     transparently, and an hour-old tab is the common case for a feature people
+     reach for from Settings. */
+  async function _atxAuthToken() {
+    const { data, error } = await window.sb.auth.getSession();
+    if (error) throw error;
+    const token = data && data.session && data.session.access_token;
+    if (!token) {
+      throw Object.assign(new Error('no session'), {
+        fhMsg: L('Bạn cần đăng nhập lại trước đã', 'Please sign in again first') });
+    }
+    return token;
   }
 
-  function _atxConsentUrl(email) {
-    const mid = window.DB && window.DB.ownerMemberId;
-    if (!mid) {
-      throw Object.assign(new Error('no member'), {
-        fhMsg: L('Chưa xác định được thành viên, thử lại nhé', 'Could not identify your member — try again') });
+  async function _atxConsentUrl(email) {
+    const token = await _atxAuthToken();
+    const q = new URLSearchParams();
+    /* Come back to the page they left, not to a default. The API confines this
+       to a same-origin path, so it can only ever move them within the app. */
+    q.set('returnTo', location.pathname + location.search);
+    /* login_hint is a HINT, not a claim: it pre-selects an account inside
+       Google's chooser. Whichever account actually consents is the mailbox we
+       connect, and the callback learns that address from Google, never here. */
+    if (email) q.set('login_hint', email);
+
+    const res = await fetch(
+      _ATX_API + '/connections/google/authorize?' + q.toString(),
+      {
+        method: 'GET',
+        redirect: 'manual',
+        headers: { Authorization: 'Bearer ' + token },
+      }
+    );
+
+    /* An opaqueredirect response has status 0 and no readable headers. It means
+       the browser followed the 302 despite `manual` (or a proxy rewrote it), so
+       there is nothing to navigate to and guessing would send them somewhere
+       wrong. */
+    const target = res.headers.get('Location');
+    if (target) return target;
+
+    if (res.status === 401) {
+      throw Object.assign(new Error('unauthorised'), {
+        fhMsg: L('Phiên đăng nhập đã hết hạn, đăng nhập lại nhé',
+                 'Your session expired — please sign in again') });
     }
-    let uid = '';
-    try { uid = (window.fhUser && window.fhUser.id) || ''; } catch (e) {}
-
-    const p = new URLSearchParams({
-      client_id: GOOGLE_CLIENT_ID,
-      redirect_uri: _ATX_REDIRECT,
-      response_type: 'code',
-      scope: _ATX_SCOPE,
-      /* offline: the backend needs a REFRESH token, and Google only issues one
-         alongside a fresh grant.
-
-         prompt CARRIES TWO VALUES, and both are load-bearing:
-
-         `consent` — without it a returning user hands back an access token that
-           expires within the hour and no refresh token, so background sync
-           silently stops working the same afternoon while the grant still looks
-           fine in their Google account.
-
-         `select_account` — because LOGIN_HINT IS ONLY A HINT. When Safari
-           already has a Google session, Google honours that session and ignores
-           the hint, so the person lands on whichever account they last signed
-           into and can grant us the WRONG MAILBOX without noticing: the consent
-           screen names an account nobody read, and the connection then quietly
-           reads a mailbox with no bank mail in it. Forcing the chooser costs one
-           tap and makes the account an explicit choice. The hint still does its
-           job inside the chooser, pre-selecting the one we expect. */
-      access_type: 'offline',
-      prompt: 'select_account consent',
-      include_granted_scopes: 'false',
-      state: _atxB64Url({ uid: uid, mid: mid, v: 1 }),
-    });
-    /* login_hint only when we have an address to hint. Sending an empty one is
-       not the same as sending none: it can leave Google on whatever account is
-       already active instead of offering the picker. */
-    if (email) p.set('login_hint', email);
-    return _ATX_AUTH_URL + '?' + p.toString();
+    throw Object.assign(new Error('authorize failed: ' + res.status), {
+      fhMsg: L('Chưa mở được Google, thử lại nhé',
+               'Could not open Google — try again') });
   }
 
   /* Full navigation rather than a popup, deliberately: iOS Safari blocks a
@@ -22120,28 +22080,50 @@ window.classifyAmount = classifyAmount;
   }
 
   /* ── coming back ───────────────────────────────────────────────────────────
-     Google sends the person to the BE callback, which finishes the exchange and
-     redirects here. Without this the journey ends on a silent app boot that
+     Google sends the person to the API callback, which finishes the exchange
+     and redirects here. Without this the journey ends on a silent app boot that
      looks identical to a cold start, and nobody can tell whether it worked.
 
-     THE RETURN CONTRACT, proposed here so the BE dev has something concrete to
-     redirect to (documented in AGENT_SYNC): land on the app origin with
-       ?fh_gmail=connected            — grant stored, sync will start
-       ?fh_gmail=denied               — the person declined on Google's screen
-       ?fh_gmail=error                — anything else went wrong
-     `?gmail=` is accepted as an alias. An unrecognised value is ignored rather
-     than guessed at, so a different choice on their side degrades to today's
-     silence instead of a wrong screen.
+     THE RETURN CONTRACT, as the API actually implements it (routes.ts endUrl):
+       success → OAUTH_SUCCESS_REDIRECT with NO extra param
+       failure → OAUTH_FAILURE_REDIRECT with ?reason=<kind>
+     Both land on a path the flow chose via `returnTo`, confined to this origin.
 
-     The param is eaten on arrival (67-card-ui.js does the same for key
+     So the signal is `fh_gmail=1` (set on the configured success URL) plus the
+     presence or absence of `reason`. `reason` alone is enough to know it failed
+     — a success never carries one — which is why an unknown reason still shows
+     the failure screen rather than being ignored.
+
+     `?fh_gmail=connected|denied|error` stays accepted. That was the contract
+     this file proposed before the backend existed, and a person mid-flow when
+     the API changed should not land on a blank screen.
+
+     The params are eaten on arrival (67-card-ui.js does the same for key
      fragments): a reload should not replay a one-time outcome, and the value
      should not sit in the address bar or a share sheet. */
+
+  /* Google's own word for "the person pressed Cancel", plus the API's kind for
+     the same thing. Declining is a normal answer and gets a different screen
+     from a genuine fault, so the two have to be told apart. */
+  const _ATX_DENIED = ['denied', 'access_denied', 'declined'];
+
   function _atxReturnState() {
     try {
       const q = new URLSearchParams(location.search);
-      const v = (q.get('fh_gmail') || q.get('gmail') || '').toLowerCase();
-      if (v !== 'connected' && v !== 'denied' && v !== 'error') return null;
-      q.delete('fh_gmail'); q.delete('gmail');
+      const legacy = (q.get('fh_gmail') || q.get('gmail') || '').toLowerCase();
+      const reason = (q.get('reason') || '').toLowerCase();
+      /* `connected` is the legacy success word; `1` is what the success URL
+         configured on the API carries. Either means the grant landed. */
+      const ok = legacy === 'connected' || legacy === '1';
+      if (!ok && !reason && !legacy) return null;
+
+      let v;
+      if (reason) v = _ATX_DENIED.indexOf(reason) >= 0 ? 'denied' : 'error';
+      else if (ok) v = 'connected';
+      else if (legacy === 'denied' || legacy === 'error') v = legacy;
+      else return null;                          // an unrecognised value, ignored
+
+      q.delete('fh_gmail'); q.delete('gmail'); q.delete('reason');
       const qs = q.toString();
       try { history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash); } catch (e) {}
       return v;

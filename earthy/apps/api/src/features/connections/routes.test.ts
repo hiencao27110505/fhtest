@@ -28,6 +28,18 @@ async function redirectFor(returnTo?: string): Promise<URL> {
 }
 
 describe("callback redirect", () => {
+  test("marks a failure with reason, on the returnTo path", async () => {
+    // The marker has to survive the returnTo merge: that merge assigns
+    // `url.search` wholesale from the returnTo path, so a marker baked into the
+    // configured base URL would be discarded. Landing with neither `reason` nor
+    // a success flag is indistinguishable from an ordinary page load, and the
+    // person who just came back from Google would be shown nothing.
+    const url = await redirectFor("/dashboard");
+    expect(url.pathname).toBe("/dashboard");
+    expect(url.searchParams.get("reason")).toBe("declined");
+    expect(url.searchParams.has("fh_gmail")).toBe(false);
+  });
+
   test("stays on the configured origin for an off-site returnTo", async () => {
     // The one that matters: an absolute URL must not be honoured.
     const origin = new URL(env.OAUTH_FAILURE_REDIRECT).origin;
@@ -76,6 +88,21 @@ describe("authorize", () => {
     expect(res.status).toBe(401);
   });
 
+  test("passes login_hint through, and omits it when absent", async () => {
+    // The hint only pre-selects an account on Google's chooser. It is
+    // deliberately not inside the signed state: nothing downstream trusts it,
+    // because the connected address comes from Google's token response.
+    const hinted = new URL(
+      await beginConnect(USER, "google", "/settings", "someone@gmail.com"),
+    );
+    expect(hinted.searchParams.get("login_hint")).toBe("someone@gmail.com");
+
+    // Absent rather than empty: an empty login_hint can leave Google on the
+    // already-active account instead of showing the picker.
+    const bare = new URL(await beginConnect(USER, "google", "/settings"));
+    expect(bare.searchParams.has("login_hint")).toBe(false);
+  });
+
   test("hands the browser to the provider, with a state naming the caller", async () => {
     // Verifying a real token needs the project's live JWKS, so the redirect
     // itself is asserted through `beginConnect` — the same call the handler
@@ -83,7 +110,10 @@ describe("authorize", () => {
     const target = new URL(await beginConnect(USER, "google", "/settings"));
     expect(target.origin).toBe("https://accounts.google.com");
     expect(target.searchParams.get("access_type")).toBe("offline");
-    expect(target.searchParams.get("prompt")).toBe("consent");
+    // Both values matter: `consent` re-issues a refresh token, and
+    // `select_account` forces the chooser so a live Google session cannot
+    // silently connect an account the person never read off the screen.
+    expect(target.searchParams.get("prompt")).toBe("select_account consent");
     expect(target.searchParams.get("scope")).toBe(
       "https://www.googleapis.com/auth/gmail.readonly",
     );

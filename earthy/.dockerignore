@@ -1,0 +1,19 @@
+# Everything the image builds from is a manifest, a lockfile, or source under
+# apps/api and packages/db. Excluding the rest keeps the build context small
+# and — more importantly — keeps local .env files out of the image.
+**/node_modules
+**/.git
+**/.next
+**/dist
+**/build
+**/.turbo
+**/coverage
+**/*.log
+**/.DS_Store
+**/.env
+**/.env.*
+!**/.env.example
+apps/web
+packages/ui
+serverless
+**/*.test.ts

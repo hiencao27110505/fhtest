@@ -59,6 +59,10 @@ import { beginConnect, completeConnect } from "./service";
  */
 const authorizeQuery = z.object({
   returnTo: z.string().max(512).optional(),
+  // Which account to open Google's chooser on. An email shape is required so a
+  // junk value is a 400 here rather than a puzzling consent screen, but it is
+  // never treated as the connected address — that comes from Google.
+  login_hint: z.email().max(320).optional(),
 });
 
 /**
@@ -88,9 +92,9 @@ export const connectionsRoutes = new Hono<AuthEnv>()
     zValidator("query", authorizeQuery),
     async (c) => {
       const { provider } = c.req.valid("param");
-      const { returnTo } = c.req.valid("query");
+      const { returnTo, login_hint: loginHint } = c.req.valid("query");
       return c.redirect(
-        await beginConnect(c.get("user").id, provider, returnTo),
+        await beginConnect(c.get("user").id, provider, returnTo, loginHint),
       );
     },
   )
@@ -166,7 +170,17 @@ function endUrl(
     url.pathname = target.pathname;
     url.search = target.search;
   }
+  // Set the outcome AFTER the returnTo merge above, never before: that merge
+  // assigns `url.search` wholesale from the returnTo path, so anything written
+  // earlier — including an outcome marker baked into the configured base URL —
+  // is discarded. Writing both markers here means the signal survives a
+  // returnTo, which is the common case rather than the exception.
   if (reason) url.searchParams.set("reason", reason);
+  // A positive success marker, not merely the absence of `reason`. The client
+  // wakes on a cold boot with no memory of having started a flow, so "no error
+  // param" is indistinguishable from an ordinary page load, and the person who
+  // just granted access would see nothing at all.
+  else url.searchParams.set("fh_gmail", "1");
   return url.toString();
 }
 

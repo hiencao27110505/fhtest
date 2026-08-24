@@ -20,3 +20,6 @@ research/finance-views-nousss*.html
 # (see functions/transaction-parser/tests/fixtures/README.md).
 earthy/serverless/functions/transaction-parser/tests/fixtures/emails/
 earthy/serverless/functions/transaction-parser/tests/fixtures/bodies/
+
+# Holds a live Supabase access token (sbp_...). Never commit.
+.mcp.json

@@ -52,8 +52,16 @@ export async function beginConnect(
   userId: string,
   provider: ProviderId,
   returnTo?: string,
+  loginHint?: string,
 ): Promise<string> {
-  return authorizationUrl(await createState(userId, provider, returnTo));
+  // `loginHint` stays OUTSIDE the signed state, unlike `returnTo`. It is not a
+  // claim we act on — it only pre-selects an account on Google's chooser, and
+  // the address we store comes from Google's token response, never from here.
+  // Nothing downstream trusts it, so nothing needs to prove we minted it.
+  return authorizationUrl(
+    await createState(userId, provider, returnTo),
+    loginHint,
+  );
 }
 
 /** What Google puts on the callback URL. Either shape is valid. */
