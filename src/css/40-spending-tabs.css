@@ -289,3 +289,7 @@
 .pers-lock .cta{margin-top:12px}
 .pers-lock-err{font-size:12.5px;color:var(--danger);margin-top:8px;min-height:1px}
 .personal-ico{background:var(--fill-neutral)}
+.pers-r-ico{background:var(--brand-tint);color:var(--brand-ink)}
+.pers-r-ico svg{width:20px;height:20px}
+.pers-r-ico.priv{background:var(--fill-neutral);color:var(--muted)}
+.pers-lock-ic svg{width:40px;height:40px;color:var(--brand-ink)}
