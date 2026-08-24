@@ -80,8 +80,32 @@ function openExpense(preset){
   var m=document.getElementById('expense-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
   var body=m.querySelector('.modal-body'); if(body)body.scrollTop=0;
   if(editingTx) fillExpenseFromTx(); else prefillExpense();
+  // Scope picker: hidden while editing (scope is fixed once logged); resets to
+  // family on every fresh open so a prior personal pick never carries over.
+  var sf=document.getElementById('ex-scopefield'); if(sf) sf.style.display = editingTx? 'none':'';
+  if(!editingTx){
+    // Personal-first: money is the person's by default, shared to a space only
+    // on purpose. Fall back to family only if the personal ledger isn't ready
+    // (locked / not provisioned) so capture never dead-ends. Last pick is
+    // remembered so a family-heavy session isn't re-picking every time.
+    var pd=window.fhPersonalData&&fhPersonalData(); var pReady=!!(pd&&pd.key);
+    var want=(preset&&preset.scope) || (pReady ? (_lastScope()||'personal') : 'family');
+    _applyExScope(want);
+  }
 }
 function closeExpense(){ closeModals(); }
+// Open the shared expense modal pre-scoped to the personal ledger (Cá nhân tab).
+function openPersonalExpense(){ openExpense({scope:'personal'}); }
+function _lastScope(){ try{ return localStorage.getItem('fh-last-scope'); }catch(e){ return null; } }
+function pickExScope(btn){ pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} _applyExScope(btn.dataset.v); }
+function _applyExScope(v){
+  var personal=(v==='personal');
+  selectChipByVal('ex-scope', v);
+  var who=document.getElementById('ex-whofield'); if(who) who.style.display=personal?'none':'';   // no member-split in a private ledger
+  var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=personal?'none':'';     // personal photos not wired yet
+  var bulk=document.getElementById('bulk-add'); if(bulk) bulk.style.display=personal?'none':'';     // keep personal single for now
+  var t=document.getElementById('ex-title'); if(t) t.textContent = personal? L('Khoản chi cá nhân','Personal expense') : L('Ghi khoản chi','Log an expense');
+}
 /* Drag a bottom sheet / modal DOWN to dismiss — axis-locked so it never fights scrolling. */
 function initSheetDrag(sheet, closeFn){
   closeFn = closeFn || closeSheet;

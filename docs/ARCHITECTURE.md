@@ -75,7 +75,7 @@ covered table. Check the target table against `_ENC_TABLES` in
 | Encryption (E2EE) | [`encryption.md`](features/encryption.md) | Key hierarchy, off/dual/enc state machine, DB-enforced |
 | Key Card auth | [`key-card-auth.md`](features/key-card-auth.md) | 128-bit card replacing the 6-digit passcode as the "safe" secret |
 | CSV import | [`csv-import.md`](features/csv-import.md) | Spreadsheet → auto-mapped, masked, reviewed, promoted via the normal expense-write path |
-| Bank-email pipeline | [`bank-email-pipeline.md`](features/bank-email-pipeline.md) | Forwarded bank emails → extracted transactions. **Schema live; pipeline code + review UI not in production.** |
+| Bank-email pipeline | [`bank-email-pipeline.md`](features/bank-email-pipeline.md) | Forwarded bank emails → extracted transactions. **Live end to end for allowlisted members** (pipeline `v2026-08-17-d`, sealed staging on, review UI shipped). |
 | Budget & run-rate | [`budget.md`](features/budget.md) | Monthly budget vs. actual + pace signal, "Others" catch-all invariant |
 | Saving goals | [`goals.md`](features/goals.md) | Save toward a thing, funded from a shared pool, optional link to a Memories occasion |
 | Transactions & expenses | [`transactions.md`](features/transactions.md) | The core ledger; realized vs. planned (proposal) status |

@@ -21,6 +21,9 @@ function go(name){
   var t=document.getElementById('t-'+name); if(t)t.classList.add('on');
   document.getElementById('scroll').scrollTop=0;
   if(name==='home' && typeof renderHome==='function'){ try{ renderHome(); }catch(e){} }   // fresh home (milestone shows on open)
+  // Cá nhân: FAB adds to the FAMILY — hide it here; the tab has its own quick-add.
+  var _fab=document.querySelector('.fab'); if(_fab) _fab.style.display=(name==='personal')?'none':'';
+  if(name==='personal'){ try{ if(typeof renderPersonal==='function') renderPersonal(); if(window.fhPersonalData && fhPersonalData().state==='boot' && window.fhPersonalBoot) fhPersonalBoot(); }catch(e){} }
 }
 /* Khoảnh Khắc has three inner sections: Dự định (plans) · Kỷ niệm (memories) · Album gia đình (album). */
 /* Khoảnh Khắc is one flat scroll now (like Tài Chính) — momSec glides to a section

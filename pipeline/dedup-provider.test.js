@@ -23,7 +23,8 @@ const src = fs.readFileSync(path.join(__dirname, 'bank-email-pipeline.gs'), 'utf
 
 var DEDUPE_WINDOW_DAYS = 3;
 var _stubRows = [];
-function supabaseGet() { return _stubRows; }
+var _lastFilters = null;
+function supabaseGet(table, filters) { _lastFilters = filters; return _stubRows; }
 // Post-merge with sealed staging: findDuplicate branches on the sealing gate
 // (defined outside this slice). Off = the amount-query era this test targets.
 function sealedStagingEnabled() { return false; }
@@ -68,13 +69,13 @@ _stubRows = [{
   occurred_at: '2026-08-16T08:05:30+00:00', created_at: '2026-08-16T08:05:31+00:00',
 }];
 t('an MB eBanking row is NOT a duplicate of an MBBank row',
-  findDuplicate(2000, 'debit', '2026-08-16T08:07:18+00:00', 'MB eBanking') === null);
+  findDuplicate(2000, 'debit', '2026-08-16T08:07:18+00:00', 'MB eBanking', null, 'MEMBER-A') === null);
 t('nor is a bare "MB" row',
-  findDuplicate(2000, 'debit', '2026-08-16T08:12:50+00:00', 'MB') === null);
+  findDuplicate(2000, 'debit', '2026-08-16T08:12:50+00:00', 'MB', null, 'MEMBER-A') === null);
 
 console.log('\n-- while genuine cross-source dedup still works --');
 t('a merchant receipt DOES match the bank email for the same purchase',
-  findDuplicate(2000, 'debit', day, 'Shopee') !== null);
+  findDuplicate(2000, 'debit', day, 'Shopee', null, 'MEMBER-A') !== null);
 
 console.log('\n-- and an unknown provider is never guessed at --');
 _stubRows = [{
@@ -82,13 +83,13 @@ _stubRows = [{
   occurred_at: day, created_at: '2026-08-16T08:05:31+00:00',
 }];
 t('a stored row with no provider is not a duplicate of anything',
-  findDuplicate(2000, 'debit', day, 'MB') === null);
+  findDuplicate(2000, 'debit', day, 'MB', null, 'MEMBER-A') === null);
 _stubRows = [{
   id: 'y', source_provider: 'MBBank', amount: 2000,
   occurred_at: day, created_at: '2026-08-16T08:05:31+00:00',
 }];
 t('an incoming row with no provider matches nothing either',
-  findDuplicate(2000, 'debit', day, null) === null);
+  findDuplicate(2000, 'debit', day, null, null, 'MEMBER-A') === null);
 
 console.log('\n-- the window still bounds it --');
 _stubRows = [{
@@ -96,7 +97,21 @@ _stubRows = [{
   occurred_at: '2026-08-30T00:00:00+00:00', created_at: '2026-08-30T00:00:01+00:00',
 }];
 t('a cross-source row outside the window is not a duplicate',
-  findDuplicate(2000, 'debit', day, 'MB') === null);
+  findDuplicate(2000, 'debit', day, 'MB', null, 'MEMBER-A') === null);
+
+console.log('\n-- one member, one queue (Trang, 2026-08-23) --');
+// The query runs on the SERVICE ROLE key, so RLS does not scope it. Without an
+// explicit member filter it compared every member of every FAMILY against each
+// other, which is how three Vietcombank rows got flagged against another
+// member's MB rows.
+_stubRows = [{ id: 'x', occurred_at: day, created_at: day, source_provider: 'Shopee' }];
+findDuplicate(2000, 'debit', day, 'MB', 'VND', 'MEMBER-A');
+t('the query is scoped to the owning member',
+  _lastFilters && _lastFilters.member_id === 'eq.MEMBER-A', JSON.stringify(_lastFilters));
+t('an unrouted row is deduped against nothing',
+  findDuplicate(2000, 'debit', day, 'MB', 'VND', null) === null);
+t('and never even asks the database for one',
+  (function(){ _lastFilters = null; findDuplicate(2000, 'debit', day, 'MB', 'VND', ''); return _lastFilters === null; })());
 
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail ? 1 : 0);

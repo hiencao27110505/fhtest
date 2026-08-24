@@ -75,6 +75,7 @@ async function afterLogin(session) {
   let fams = [], famsErr = null;
   try { fams = (await _rpc('my_families')) || []; }
   catch (e) { famsErr = e; console.warn('my_families failed', e); }
+  fams = fams.filter((f) => f.type !== 'personal');   // the personal ledger (0071) is never a "family" here
   if (famsErr) {
     fhResumeFail(); fhWarmAbandon();
     window.toast && window.toast(_friendly(famsErr));
@@ -202,6 +203,7 @@ window.fhSwitchFamily = async function () {
   // route people into creating a duplicate one.
   try { fams = await _rpc('my_families'); }
   catch (e) { window.toast && window.toast(_friendly(e)); return; }
+  fams = (fams || []).filter((f) => f.type !== 'personal');   // never offer the personal ledger as a family to switch into
   if (!fams || !fams.length) { window.toast && window.toast(L('Chưa có gia đình nào khác', 'No other families yet')); return; }
   showFamilyPicker(fams, { dismissible: true });     // opened from Settings → must be escapable
 };

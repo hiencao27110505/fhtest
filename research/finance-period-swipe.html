@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Earthy — Chart + guide theo kỳ (day/week/month) · 8 hướng</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{--sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif;
+    --ink:#1c1c1e;--ink2:#48484a;--ink3:#8e8e93;--ink4:#aeaeb2;--sep:rgba(60,60,67,.12);
+    --card:#fff;--fill6:#f2f2f5;--prevbar:#d9dce1;--teal:#0f9d84;--teal2:#17b8a0;--tealbg:#eaf6f2;--amber:#e0a500;--red:#e0483f}
+  html,body{background:#e7e9ec;font-family:var(--sf);color:var(--ink);-webkit-font-smoothing:antialiased}
+  body{padding:40px 20px 70px}
+  .num{font-variant-numeric:tabular-nums}
+  .u{font-size:.5em;font-weight:600;margin-left:.1em;opacity:.82}
+
+  .head{max-width:820px;margin:0 auto 6px;text-align:center}
+  .head h1{font-size:25px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px}
+  .head p{color:var(--ink2);font-size:13.5px;line-height:1.55;max-width:660px;margin:0 auto}
+  .head .tag{display:inline-block;margin-bottom:12px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);background:var(--tealbg);border-radius:999px;padding:5px 12px}
+
+  .block{max-width:1120px;margin:36px auto 0}
+  .cap{margin:0 2px 12px}
+  .cap .n{font-size:11px;font-weight:700;color:var(--ink3)}
+  .cap .t{font-weight:700;font-size:15px;letter-spacing:-.01em;margin-left:8px}
+  .cap .d{margin-top:4px;font-size:12px;line-height:1.5;color:var(--ink3)}
+  .row3{display:flex;gap:16px;flex-wrap:wrap}
+  .pcol{width:296px}
+  .plab{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink4);margin:0 4px 7px}
+
+  .card{background:var(--card);border-radius:20px;padding:14px 14px 10px;box-shadow:0 1px 2px rgba(28,28,30,.05),0 12px 26px -14px rgba(28,40,55,.14)}
+  /* chart area */
+  .ch{height:76px;display:flex;align-items:flex-end;justify-content:space-between;gap:4px;position:relative}
+  .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;justify-content:flex-end;height:100%}
+  .bars{position:relative;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:2px;flex:1}
+  .bars i{display:block;width:8px;border-radius:3px}
+  .bars i.p{background:var(--prevbar)}.bars i.c{background:var(--teal2)}.bars i.c.o{background:var(--red)}
+  .bars i.lit{background:var(--teal)}.bars i.dim{background:#e4e7eb}
+  .lab{font-size:8.5px;font-weight:600;color:var(--ink4)}.lab.on{color:var(--teal);font-weight:700}
+  .limit{position:absolute;left:0;right:0;border-top:1.5px dashed #b9c0c6}
+  .limit em{position:absolute;right:0;top:-12px;font-style:normal;font-size:8px;font-weight:700;color:#8a9096;background:#fff;padding:0 3px;border-radius:4px}
+  svg.line{width:100%;height:100%;display:block}
+  .cap-h{height:12px;border-radius:999px;background:#e9ebef;overflow:hidden;margin:auto 0}
+  .cap-h i{display:block;height:100%;border-radius:999px;background:var(--teal)}
+  .capends{display:flex;justify-content:space-between;font-size:8.5px;font-weight:600;color:var(--ink4);margin-top:5px}
+  .cats{display:flex;flex-direction:column;gap:5px;width:100%;justify-content:center;height:100%}
+  .catrow{display:flex;align-items:center;gap:6px;font-size:9px;font-weight:600;color:var(--ink3)}
+  .catrow .cn{width:34px;flex-shrink:0}
+  .catrow .ct{flex:1;height:6px;border-radius:3px;background:#eceef1;overflow:hidden}
+  .catrow .ct i{display:block;height:100%;border-radius:3px;background:var(--teal)}
+
+  /* guide tile — SAME as the live widget */
+  .dg{display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 12px;border-radius:14px;padding:12px 13px;margin-top:11px;background:var(--tealbg)}
+  .dg-lbl{grid-column:1;grid-row:1;font-size:11.5px;font-weight:600;color:#4a917f}
+  .dg-amt{grid-column:1;grid-row:2;font-weight:700;letter-spacing:-.03em;line-height:1;font-size:22px;margin-top:5px;color:var(--teal)}
+  .dg-vis{grid-column:2;grid-row:1 / span 2;width:40px;height:40px}
+  .water{animation:bob 3.1s ease-in-out infinite}.w1{animation:wave 2.6s linear infinite}.w2{animation:wave 3.7s linear infinite;animation-delay:-1.2s}
+  @keyframes wave{to{transform:translateX(-40px)}}@keyframes bob{0%,100%{transform:translateY(var(--y))}50%{transform:translateY(calc(var(--y) + 1.3px))}}
+
+  /* swipe dots */
+  .dots{display:flex;gap:5px;justify-content:center;align-items:center;padding:9px 0 3px}
+  .dots i{width:5px;height:5px;border-radius:50%;background:#d2d5da;transition:.2s}
+  .dots i.on{width:15px;border-radius:3px;background:var(--teal)}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <span class="tag">Chart + guide theo kỳ</span>
+  <h1>Vuốt đổi kỳ: Ngày · Tuần · Tháng — 8 hướng</h1>
+  <p>Chart và ô hướng dẫn thành một khối, vuốt ngang để đổi kỳ. Ô hướng dẫn giữ nguyên giao diện, chỉ đổi số và phụ đề (Tiêu được hôm nay / tuần này / tháng này). Kỳ Tuần giữ đúng biểu đồ &amp; cách tính hiện tại. Chỉ thêm chấm chỉ báo vuốt, không thêm chú thích.</p>
+</div>
+
+<div id="root"></div>
+
+<script>
+function money(s){return s+'<span class="u">đ</span>'}
+var TEAL='var(--teal)', TRK='rgba(15,157,132,.18)';
+/* guide tile — constant UI, per-period text/amount/level */
+function water(pct){var y=(40*(1-pct/100)).toFixed(1),WP='M0 0 Q 10 -3 20 0 T 40 0 T 60 0 T 80 0 L 80 54 L 0 54 Z';
+  return '<svg width="40" height="40" viewBox="0 0 40 40"><defs><clipPath id="wc'+(_id++)+'"><circle cx="20" cy="20" r="19"/></clipPath></defs>'
+    +'<circle cx="20" cy="20" r="19" fill="'+TRK+'"/><g clip-path="url(#wc'+_id+')"><g class="water" style="--y:'+y+'px;transform:translateY('+y+'px)">'
+    +'<path class="w1" d="'+WP+'" fill="'+TEAL+'"/><path class="w2" d="'+WP+'" fill="'+TEAL+'" opacity=".5"/></g></g>'
+    +'<circle cx="20" cy="20" r="19" fill="none" stroke="'+TEAL+'" stroke-opacity=".35" stroke-width="1.3"/></svg>';}
+var _id=0;
+var GUIDE={day:{sub:'Tiêu được hôm nay',amt:'380.000',pct:76},week:{sub:'Tiêu được tuần này',amt:'1.500.000',pct:62},month:{sub:'Tiêu được tháng này',amt:'6.600.000',pct:58}};
+function guide(period){var g=GUIDE[period];
+  return '<div class="dg"><div class="dg-lbl">'+g.sub+'</div><div class="dg-amt num">'+money(g.amt)+'</div><div class="dg-vis">'+water(g.pct)+'</div></div>';}
+function dots(active){var d=['day','week','month'];return '<div class="dots">'+d.map(function(p){return '<i class="'+(p===active?'on':'')+'"></i>';}).join('')+'</div>';}
+
+/* ── chart builders ── */
+function col(inner,lab,on){return '<div class="col"><div class="bars">'+inner+'</div><span class="lab'+(on?' on':'')+'">'+lab+'</span></div>';}
+// WEEK — the current chart (this week vs last, today highlighted). CONSTANT across all options.
+function weekChart(){
+  var D=['T2','T3','T4','T5','T6','T7','CN'],p=[46,40,50,40,36,58,42],c=[40,58,32,10,null,null,null],o=[0,1,0,0];
+  var s='';for(var i=0;i<7;i++){var b='<i class="p" style="height:'+p[i]+'px"></i>';if(c[i]!=null)b+='<i class="c'+(o[i]?' o':'')+'" style="height:'+c[i]+'px"></i>';s+=col(b,D[i],i===3);}
+  return '<div class="ch">'+s+'</div>';
+}
+// daily rolling bars (last 7 days, today live/small)
+function dayRoll(){var D=['','','','','','','·'],h=[40,30,52,26,44,20,10],lit=6;var s='';for(var i=0;i<7;i++){s+=col('<i class="'+(i===lit?'lit':'dim')+'" style="height:'+h[i]+'px"></i>',i===lit?'Nay':'',i===lit);}return '<div class="ch">'+s+'</div>';}
+// 3-month bars (this month partial/live)
+function months3(){var D=['Th6','Th7','Th8'],h=[64,52,30],live=2;var s='';for(var i=0;i<3;i++){s+=col('<i class="'+(i===live?'lit':'dim')+'" style="height:'+h[i]+'px"></i>',D[i],i===live);}return '<div class="ch" style="justify-content:space-around;padding:0 24px">'+s+'</div>';}
+// cumulative line vs limit
+function cumLine(pts,tx){
+  return '<div class="ch"><div class="limit" style="top:8px"><em>trần</em></div><svg class="line" viewBox="0 0 100 70" preserveAspectRatio="none">'
+    +'<line x1="0" y1="8" x2="100" y2="8" stroke="#c8ccd2" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>'
+    +'<polyline points="'+pts+'" fill="none" stroke="'+TEAL+'" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'
+    +'<circle cx="'+pts.split(' ').pop().split(',')[0]+'" cy="'+pts.split(' ').pop().split(',')[1]+'" r="2.6" fill="'+TEAL+'"/></svg>'
+    +'<span class="lab" style="position:absolute;left:2px;bottom:0">'+tx+'</span></div>';}
+// compare bars (few labelled bars)
+function compareBars(items){var s='';items.forEach(function(it,i){s+=col('<i class="'+(it.on?'lit':'dim')+'" style="height:'+it.h+'px"></i>',it.l,it.on);});return '<div class="ch" style="justify-content:space-around;padding:0 14px">'+s+'</div>';}
+// category rows
+function catBars(items){return '<div class="ch"><div class="cats">'+items.map(function(c){return '<div class="catrow"><span class="cn">'+c.n+'</span><span class="ct"><i style="width:'+c.w+'%"></i></span></div>';}).join('')+'</div>';}
+// one big period bar + limit line (+faint context)
+function bigBar(fillH,limitTop,ctx){var cs='';(ctx||[]).forEach(function(h){cs+='<i class="dim" style="height:'+h+'px"></i>';});
+  return '<div class="ch" style="gap:6px;padding:0 8px"><div class="limit" style="top:'+limitTop+'px"><em>trần</em></div>'
+    +'<div class="bars" style="align-items:flex-end;gap:4px">'+cs+'<i class="lit" style="width:22px;height:'+fillH+'px;border-radius:4px"></i></div></div>';}
+// progress capsule
+function capsule(pct,a,b){return '<div class="ch" style="flex-direction:column;gap:0;justify-content:center"><div class="cap-h"><i style="width:'+pct+'%"></i></div><div class="capends"><span>'+a+'</span><span>'+b+'</span></div></div>';}
+// dense bars
+function dense(arr,litIdx){var s='';arr.forEach(function(h,i){s+='<i class="'+(i===litIdx?'lit':'dim')+'" style="height:'+h+'px;width:4px"></i>';});return '<div class="ch"><div class="bars" style="gap:2px">'+s+'</div></div>';}
+// sparkline
+function spark(pts){return '<div class="ch"><svg class="line" viewBox="0 0 100 70" preserveAspectRatio="none"><polyline points="'+pts+'" fill="none" stroke="'+TEAL+'" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="'+pts.split(" ").pop().split(",")[0]+'" cy="'+pts.split(" ").pop().split(",")[1]+'" r="2.4" fill="'+TEAL+'"/></svg></div>';}
+
+function periodCard(period,chartHTML){return '<div class="pcol"><div class="plab">'+({day:'Ngày',week:'Tuần',month:'Tháng'})[period]+'</div><div class="card">'+chartHTML+guide(period)+dots(period)+'</div></div>';}
+
+// ── 8 options: [dayChart, monthChart]; week is always weekChart() ──
+var OPTS=[
+ {t:'Cột đồng nhất', d:'Ngày = 7 ngày gần nhất (hôm nay sáng màu). Tháng = 3 tháng gần nhất. Cùng ngôn ngữ cột với tuần, chỉ đổi độ chi tiết.',
+   day:dayRoll(), month:months3()},
+ {t:'Đường lũy kế so trần', d:'Ngày/Tháng = đường chi cộng dồn tiến tới vạch “trần” của kỳ. Thấy ngay còn cách trần bao xa.',
+   day:cumLine('0,60 16,54 32,46 48,40 64,33 80,26 92,20','hôm nay'), month:cumLine('0,64 20,55 40,47 58,40 74,32 92,26','01→31')},
+ {t:'So kỳ trước', d:'Ngày = hôm nay vs hôm qua vs cùng thứ tuần trước. Tháng = tháng này vs 2 tháng trước.',
+   day:compareBars([{l:'T.trước',h:44,on:0},{l:'H.qua',h:30,on:0},{l:'Nay',h:52,on:1}]), month:compareBars([{l:'Th6',h:60,on:0},{l:'Th7',h:50,on:0},{l:'Th8',h:34,on:1}])},
+ {t:'Chia nhỏ trong kỳ', d:'Ngày = theo hạng mục hôm nay. Tháng = theo từng tuần trong tháng.',
+   day:catBars([{n:'Ăn',w:70},{n:'Đi lại',w:40},{n:'Mua',w:55},{n:'Khác',w:25}]),
+   month:(function(){var D=['TT1','TT2','TT3','TT4'],h=[54,44,60,26],live=3,s='';for(var i=0;i<4;i++)s+=col('<i class="'+(i===live?'lit':'dim')+'" style="height:'+h[i]+'px"></i>',D[i],i===live);return '<div class="ch" style="padding:0 12px">'+s+'</div>';})()},
+ {t:'Cột lớn + vạch trần', d:'Ngày/Tháng = một cột lớn cho cả kỳ, có vạch trần và vài cột mờ làm nền lịch sử.',
+   day:bigBar(30,20,[40,30,52,26,44,20]), month:bigBar(30,22,[64,52])},
+ {t:'Thanh tiến độ', d:'Ngày/Tháng = thanh capsule đã tiêu / hạn mức kỳ. Tuần vẫn là cột 7 ngày.',
+   day:capsule(24,'đã tiêu 120k','hạn mức 500k'), month:capsule(56,'đã tiêu 8,4tr','ngân sách 15tr')},
+ {t:'Trend dày', d:'Ngày = 14 ngày gần nhất. Tháng = từng ngày trong tháng. Nhìn nhịp chi liền mạch.',
+   day:dense([30,22,40,26,44,20,50,28,36,18,42,24,34,10],13), month:dense([20,26,18,30,24,34,22,40,28,36,20,44,26,38,24,30,18,42,28,34,22,10],21)},
+ {t:'Spark tối giản', d:'Ngày/Tháng = đường spark mảnh, nhường chỗ cho ô hướng dẫn. Gọn, nhẹ.',
+   day:spark('0,50 14,44 28,52 42,40 56,46 70,34 86,40 100,30'), month:spark('0,56 20,48 40,52 60,40 80,44 100,32')}
+];
+
+document.getElementById('root').innerHTML=OPTS.map(function(o,i){
+  return '<section class="block"><div class="cap"><span class="n">0'+(i+1)+'</span><span class="t">'+o.t+'</span><div class="d">'+o.d+'</div></div>'
+    +'<div class="row3">'+periodCard('day',o.day)+periodCard('week',weekChart())+periodCard('month',o.month)+'</div></section>';
+}).join('');
+</script>
+</body>
+</html>

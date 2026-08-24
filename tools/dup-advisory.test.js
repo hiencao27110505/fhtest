@@ -64,24 +64,39 @@ t('empty is empty, never a match key', csvCanonicalProvider('') === '' && csvCan
 /* ------------------------------------------------------------ 2. the rule */
 console.log('\n-- cross-source rule in isolation --');
 const cand = (amount, day) => ({ amount: amount, date: new Date(day), dateDisplay: day });
-const prior = (amount, day, provider) => ({ c: cand(amount, day), provider: csvCanonicalProvider(provider) });
+const prior = (amount, day, provider, cur, kind) => ({ c: cand(amount, day), provider: csvCanonicalProvider(provider), currency: (cur||'VND'), kind: (kind||'other') });
 
 t('same bank twice is NOT a duplicate',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', [prior(2000, '2026-08-16', 'MBBank')]) === null);
+  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', 'VND', 'other', [prior(2000, '2026-08-16', 'MBBank')]) === null);
 t('different source, same amount, same day IS flagged',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', [prior(2000, '2026-08-16', 'Grab')]) !== null);
+  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', 'VND', 'other', [prior(2000, '2026-08-16', 'Grab')]) !== null);
 t('within 3 days still flagged',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-19'), 'MB Bank', [prior(2000, '2026-08-16', 'Grab')]) !== null);
+  csvStagedCrossSourceDup(cand(2000, '2026-08-19'), 'MB Bank', 'VND', 'other', [prior(2000, '2026-08-16', 'Grab')]) !== null);
 t('4 days apart is not',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-20'), 'MB Bank', [prior(2000, '2026-08-16', 'Grab')]) === null);
+  csvStagedCrossSourceDup(cand(2000, '2026-08-20'), 'MB Bank', 'VND', 'other', [prior(2000, '2026-08-16', 'Grab')]) === null);
 t('different amount is not',
-  csvStagedCrossSourceDup(cand(3000, '2026-08-16'), 'MB Bank', [prior(2000, '2026-08-16', 'Grab')]) === null);
+  csvStagedCrossSourceDup(cand(3000, '2026-08-16'), 'MB Bank', 'VND', 'other', [prior(2000, '2026-08-16', 'Grab')]) === null);
 t('unknown provider on MY side refuses to guess',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), '', [prior(2000, '2026-08-16', 'Grab')]) === null);
+  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), '', 'VND', 'other', [prior(2000, '2026-08-16', 'Grab')]) === null);
 t('unknown provider on THEIR side refuses to guess',
-  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', [prior(2000, '2026-08-16', '')]) === null);
+  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'MB Bank', 'VND', 'other', [prior(2000, '2026-08-16', '')]) === null);
 t('no date refuses to guess',
-  csvStagedCrossSourceDup({ amount: 2000, date: null }, 'MB Bank', [prior(2000, '2026-08-16', 'Grab')]) === null);
+  csvStagedCrossSourceDup({ amount: 2000, date: null }, 'MB Bank', 'VND', 'other', [prior(2000, '2026-08-16', 'Grab')]) === null);
+t('200 USD is not 200 VND',
+  csvStagedCrossSourceDup(cand(200, '2026-08-16'), 'Anthropic', 'USD', 'other', [prior(200, '2026-08-16', 'MB Bank', 'VND')]) === null);
+t('but 200 USD twice, from two sources, still matches',
+  csvStagedCrossSourceDup(cand(200, '2026-08-16'), 'Anthropic', 'USD', 'other', [prior(200, '2026-08-16', 'MB Bank', 'USD')]) !== null);
+
+console.log('\n-- two banks are two accounts, never one event (Trang, 2026-08-23) --');
+t('Vietcombank vs MB, same amount, same day -> NOT a duplicate',
+  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'Vietcombank', 'VND', 'bank',
+    [prior(2000, '2026-08-16', 'MBBank', 'VND', 'bank')]) === null);
+t('a bank and a merchant for one swipe still IS a duplicate',
+  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'Grab', 'VND', 'other',
+    [prior(2000, '2026-08-16', 'MBBank', 'VND', 'bank')]) !== null);
+t('unknown kind on one side leaves the match standing',
+  csvStagedCrossSourceDup(cand(2000, '2026-08-16'), 'Vietcombank', 'VND', 'bank',
+    [prior(2000, '2026-08-16', 'MBBank', 'VND', '')]) !== null);
 
 /* --------------------------------------------------------- 3. in the screen */
 const row = (desc, amount, day, i) => ({
@@ -91,11 +106,17 @@ const row = (desc, amount, day, i) => ({
 const stagedMode = (rows, fn) => {
   window.csvStagedMode = true;
   window._fhStagedRows = rows;
+  window.fhStagedKindById = function (id) {
+    for (var i = 0; i < rows.length; i++) if (rows[i] && rows[i].id === id) return rows[i].kind || '';
+    return '';
+  };
   window.fhStagedMeta = function (ri) {
     var r = rows[ri];
-    return r ? { provider: r.source_provider || '', occurredAt: r.occurred_at || '', pipelineDup: !!r.duplicate_of_id } : null;
+    return r ? { provider: r.source_provider || '', currency: (r.currency || 'VND'),
+                 kind: (r.kind || ''), dupOfId: r.duplicate_of_id || '',
+                 occurredAt: r.occurred_at || '', pipelineDup: !!r.duplicate_of_id } : null;
   };
-  try { return fn(); } finally { window.csvStagedMode = false; window.fhStagedMeta = null; }
+  try { return fn(); } finally { window.csvStagedMode = false; window.fhStagedMeta = null; window.fhStagedKindById = null; }
 };
 
 console.log('\n-- the pipeline flag is shown, not obeyed --');
@@ -108,6 +129,35 @@ t('it reaches the review screen as a possible duplicate', r.possibleDuplicate.le
 t('and says why, so the card can explain itself',
   r.possibleDuplicate.length === 1 && r.possibleDuplicate[0].duplicateOfPipeline === true);
 t('it never lands in ready, where it would import unasked', r.ready.length === 0);
+
+console.log('\n-- the three live flags of 2026-08-23: Vietcombank vs MB --');
+r = stagedMode(
+  [{ id: 'mb-1', source_provider: 'MBBank', kind: 'bank', duplicate_of_id: null },
+   { id: 'vcb-1', source_provider: 'Vietcombank', kind: 'bank', duplicate_of_id: 'mb-1' }],
+  () => bucketCsvCandidates([
+    row('Chuyển khoản', 2000, '2026-08-19', 0),
+    row('Thanh toán', 2000, '2026-08-21', 1),
+  ], false));
+t('the pipeline flag is OVERRULED: both are banks, so both import',
+  r.ready.length === 2 && r.possibleDuplicate.length === 0,
+  'ready=' + r.ready.length + ' dup=' + r.possibleDuplicate.length);
+t('and the override is recorded on the row', !!r.ready[1].pipelineDupOverruled);
+
+console.log('\n-- but a bank flagged against a MERCHANT still asks --');
+r = stagedMode(
+  [{ id: 'grab-1', source_provider: 'Grab', kind: 'other', duplicate_of_id: null },
+   { id: 'mb-2', source_provider: 'MBBank', kind: 'bank', duplicate_of_id: 'grab-1' }],
+  () => bucketCsvCandidates([
+    row('Grab ride', 200000, '2026-08-19', 0),
+    row('TT POS 1234', 200000, '2026-08-19', 1),
+  ], false));
+t('one swipe, two reporters -> still flagged', r.possibleDuplicate.length === 1);
+
+console.log('\n-- a flag whose match is no longer in the queue keeps standing --');
+r = stagedMode(
+  [{ id: 'vcb-2', source_provider: 'Vietcombank', kind: 'bank', duplicate_of_id: 'gone-forever' }],
+  () => bucketCsvCandidates([row('Chuyển khoản', 2000, '2026-08-19', 0)], false));
+t('no evidence to overrule on -> suspicion survives', r.possibleDuplicate.length === 1);
 
 console.log('\n-- an unflagged row is untouched --');
 r = stagedMode(

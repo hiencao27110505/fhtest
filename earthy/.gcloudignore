@@ -1,0 +1,22 @@
+# Without this file gcloud uploads the whole tree — including every
+# node_modules — as the build context, which was 786 MB and minutes per build.
+# The Dockerfile only ever reads the manifests, the lockfile, apps/api and
+# packages/db.
+.git
+**/node_modules
+**/.next
+**/.output
+**/.tanstack
+**/dist
+**/build
+**/.turbo
+**/coverage
+**/*.log
+**/.DS_Store
+# Never ship local credentials into a build context.
+**/.env
+**/.env.*
+!**/.env.example
+apps/web
+packages/ui
+serverless

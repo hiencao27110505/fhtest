@@ -9,3 +9,17 @@ node_modules
 # tools/gmail-oauth-probe.js writes this, and it holds a Google REFRESH TOKEN —
 # a long-lived key to a real mailbox. Never commit it.
 .gmail-probe.json
+
+# Personal-ledger mockups built from REAL decrypted family data. Vercel serves
+# the repo root (outputDirectory "."), so committing these would publish real
+# financials at a public URL. Keep them local-only.
+research/finance-views-nousss*.html
+
+# Real mail fetched by tools/fetch_fixtures.py. These carry real names, phone
+# numbers, addresses and references — anonymise before committing any of them
+# (see functions/transaction-parser/tests/fixtures/README.md).
+earthy/serverless/functions/transaction-parser/tests/fixtures/emails/
+earthy/serverless/functions/transaction-parser/tests/fixtures/bodies/
+
+# Holds a live Supabase access token (sbp_...). Never commit.
+.mcp.json

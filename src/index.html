@@ -126,8 +126,10 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     </div>
     <div class="wow" id="cf-wow" aria-hidden="true"></div>
     <div class="cf-note" id="cf-note"></div>
-    <!-- daily guide (current live month): "Hôm nay còn tiêu được" · tap opens the saving-goal sheet (renderDailyGuide) -->
+    <!-- daily guide (current live month): "Hôm nay còn tiêu được" · tap opens the saving-goal sheet (cfRenderGuide) -->
     <button class="cf-daily" id="cf-daily" type="button" onclick="openSaveGoal()" aria-label="Saving goal"></button>
+    <!-- swipe indicator: Day · Week · Month (live month only) — filled by cfSetDots -->
+    <div class="cf-dots" id="cf-dots" aria-hidden="true"></div>
     <!-- CTAs (V3): full-width nav rows into budget setup + the expense list -->
     <div class="cf-cta">
       <button class="cc-row" onclick="openSheet('sheet-budget')"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></span><span class="cc-t" data-t="setupBudget">Set up budget</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -234,6 +236,16 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="spacer"></div>
 </section>
 
+<!-- CÁ NHÂN (personal ledger — 0071) -->
+<section class="view" id="v-personal">
+  <header class="child-hdr"><div class="ch-row"><div>
+    <div class="ch-title">Cá nhân</div>
+    <div class="ch-sub">Sổ của riêng bạn — gia đình không xem được</div>
+  </div></div></header>
+  <div id="pers-body"></div>
+  <div class="spacer"></div>
+</section>
+
 </div><!-- /scroll -->
 
 <!-- FLOATING ADD -->
@@ -244,6 +256,7 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <button class="tab on" id="t-home" onclick="go('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg><span data-t="tabHome">Home</span></button>
   <button class="tab" id="t-spending" onclick="go('spending')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg><span data-t="tabMoney">Finance</span></button>
   <button class="tab" id="t-events" onclick="go('events')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 16l4.5-4 3.5 3 4-3.5L21 16.5"/></svg><span data-t="tabMoments">Moments</span></button>
+  <button class="tab" id="t-personal" onclick="go('personal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg><span>Cá nhân</span></button>
 </nav>
 
 <!-- EVENT OVERLAY -->
@@ -434,6 +447,53 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <button class="qa" onclick="closeSheet();openSheet('sheet-suggest')"><div class="qi" style="background:linear-gradient(135deg,#B9B2C6,#8a8494)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20s-7-4.4-9.3-8.7C1.2 8 2.7 4.6 6 4.6c2 0 3.2 1.3 4 2.6.8-1.3 2-2.6 4-2.6 3.3 0 4.8 3.4 3.3 6.7C19 15.6 12 20 12 20z"/></svg></div><div><div class="qt" data-t="qaSuggestT">Share feedback</div><div class="qs" data-t="qaSuggestS">An idea or something you wish for</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
 </div>
 
+<!-- Personal card intro: the ONE secret to protect (shown once at provisioning) -->
+<div class="modal" id="sheet-pcard">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <span></span>
+    <div class="modal-title">Thẻ khóa cá nhân</div>
+    <button class="modal-save" onclick="closeModals()">Xong</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">Đây là chìa khóa <b>sổ cá nhân</b> của bạn — khác với thẻ của gia đình. Mất thẻ là mất dữ liệu cá nhân: không ai khôi phục được, kể cả chúng tôi.</div>
+    <div id="pcard-display" class="num pcard-code"></div>
+    <button class="cta" onclick="persCardSave()">Lưu tệp thẻ khóa</button>
+    <button class="btn-line btn-line-full" onclick="persCardCopy()">Sao chép</button>
+  </div>
+</div>
+
+<!-- Re-enter personal card (Settings → view code, when this device didn't cache it) -->
+<div class="modal" id="sheet-pcode">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title">Xem mã khóa cá nhân</div>
+    <button class="modal-save" onclick="persCodeSubmit()">Mở</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">Máy này đang mở sổ cá nhân nhưng chưa lưu mã khóa. Nhập lại mã khóa cá nhân bạn đã lưu lúc tạo để xem và lưu tại đây.</div>
+    <div class="field"><input id="pcode-in" placeholder="FH-XXXX-XXXX-…" autocomplete="off" autocapitalize="characters"></div>
+    <div id="pcode-err" class="pers-lock-err"></div>
+    <div class="sheet-sub" style="margin-top:16px">Lỡ mất hẳn mã khóa? Tạo mã mới từ dữ liệu đang mở trên máy này — mã cũ sẽ ngừng dùng.</div>
+    <button class="btn-line btn-line-full" onclick="persCodeRegen()">Tạo mã khóa cá nhân mới</button>
+  </div>
+</div>
+
+<!-- Personal income quick-add -->
+<div class="modal" id="sheet-pincome">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title">Thu nhập của bạn</div>
+    <button class="modal-save" onclick="persAddIncome()">Lưu</button>
+  </div>
+  <div class="modal-body">
+    <div class="field"><label>Số tiền</label><input id="pinc-amt" type="text" inputmode="numeric" class="num big" placeholder="15.000.000" onblur="snapAmtInput(this)"></div>
+    <div class="field"><label>Ghi chú</label><input id="pinc-note" placeholder="Lương tháng…"></div>
+  </div>
+</div>
+
 <div class="modal" id="sheet-suggest">
   <div class="modal-grip"></div>
   <div class="modal-nav">
@@ -498,6 +558,10 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <!-- The one live editor instance. renderBulk() relocates this node into the
          active row's mount; in edit mode it renders in place (bulk list stays empty). -->
     <div id="ex-editor">
+    <div class="field" id="ex-scopefield"><label>Ghi vào đâu?</label><div class="choices" id="ex-scope">
+      <button class="choice on" data-v="personal" onclick="pickExScope(this)">🔒 Cá nhân</button>
+      <button class="choice" data-v="family" onclick="pickExScope(this)">🏡 Gia đình</button>
+    </div></div>
     <div class="field">
       <label data-t="exWhatFor">What for?</label>
       <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()" onblur="onExNoteBlur()"/>

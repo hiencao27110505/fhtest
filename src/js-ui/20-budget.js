@@ -61,9 +61,10 @@ function renderBudget(){
   renderCashflow();
 }
 /* Widget A — cash flow: what's LEFT this month (income − spent), the In/Out pair, and a
-   this-week-vs-last-week daily chart. Reuses renderBudget's month model + the same per-day
-   spend source as the hero's daily page. Cross-month weeks (early in the month, or a closed
-   month's first week) fall back to 0 for the unloaded days — the note stays within the month. */
+   swipeable chart + guide. On the current live month it becomes three periods — Day (buổi),
+   Week (7 ngày), Month (4 tuần) — sharing one bar language and one guide tile; swipe or tap
+   the dots to switch. Closed / past months keep the classic week chart + week-over-week note
+   (no periods). Reuses renderBudget's month model + the same per-day spend source. */
 function renderCashflow(){
   var host=document.getElementById('cf-left'); if(!host) return;
   var m=M(), spent=m.spent||0, income=window.monthIncome||0, left=income-spent;
@@ -74,57 +75,187 @@ function renderCashflow(){
   var daily=[]; for(var i=0;i<=dim;i++) daily[i]=0;
   (window.txns||[]).forEach(function(t){ if(!t.future && t.month===window.selMonth && t._d){ var dd=t._d.getDate(); if(dd>=1&&dd<=dim) daily[dd]+=t.amt; } });
 
-  // Monday-anchor the two weeks. "today" is dom for the live month, else the last day.
-  var today=done?dim:dom;
+  if(!window._cfSwipeBound){ cfBindSwipe(); window._cfSwipeBound=true; }
+  var live = (selMonth===curMonthKey() && !done);
+
+  if(!live){
+    // Classic view (past / closed month): week chart + week-over-week note, no periods.
+    var d0=cfWeekData(m, daily, done, dom, dim);
+    setHTMLIf('cf-wow', cfWeekChartHTML(d0, done));
+    setHTMLIf('cf-daily', '');
+    cfSetDots(-1);
+    cfWowNote(d0);
+    renderRequestsCta(); renderCashflowEmailCta();
+    return;
+  }
+
+  // Live month → three swipeable periods. The state-change push always tracks the DAY
+  // state (the meaningful daily alert), independent of which period is on screen.
+  cfMaybePush(m, daily);
+  var cfn0=document.getElementById('cf-note'); if(cfn0){ cfn0.className='cf-note'; cfn0.innerHTML=''; }
+
+  var period = window.cfPeriod|0;                        // 0 Day · 1 Week · 2 Month
+  if(period===0) cfRenderDay(m, daily);
+  else if(period===2) cfRenderMonth(m, daily);
+  else cfRenderWeek(m, daily, done, dom, dim);
+  cfSetDots(period);
+  renderRequestsCta(); renderCashflowEmailCta();
+}
+/* ----- period state + swipe / dots / auto-rotate ----- */
+try{ window.cfPeriod=parseInt(localStorage.getItem('fh-cfperiod')||'0',10); if(!(window.cfPeriod>=0&&window.cfPeriod<=2)) window.cfPeriod=0; }catch(e){ window.cfPeriod=0; }
+function cfApplyPeriod(i, persist){                        // change the view; persist only for manual picks
+  i=Math.max(0,Math.min(2,i|0)); if(i===(window.cfPeriod|0)) return;
+  window.cfPeriod=i; if(persist){ try{localStorage.setItem('fh-cfperiod',String(i));}catch(e){} } renderCashflow();
+}
+function setCfPeriod(i){ cfPauseAuto(); cfApplyPeriod(i, true); }   // dot tap / swipe: remember it + pause auto-rotate
+window.setCfPeriod=setCfPeriod;
+/* Auto-rotate Day → Week → Month every few seconds so all three are seen without swiping.
+   Any press pauses it; it resumes cfAuto.IDLE after the last touch. Runs only when the card is
+   on-screen, the tab is visible, and on the live month — and never under reduced motion. */
+var cfAuto={ paused:0, vis:false, timer:null, INT:4200, IDLE:8000 };
+function cfPauseAuto(){ cfAuto.paused=Date.now()+cfAuto.IDLE; }
+function cfStartAuto(card){
+  if(cfAuto.timer || !card) return;
+  if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;   // respect reduced motion
+  if('IntersectionObserver' in window){ try{ new IntersectionObserver(function(es){ cfAuto.vis=es[0].isIntersecting; },{threshold:.5}).observe(card); }catch(e){ cfAuto.vis=true; } }
+  else cfAuto.vis=true;
+  cfAuto.timer=setInterval(function(){
+    if(document.hidden || !cfAuto.vis) return;             // off-screen or backgrounded → hold
+    if(!(selMonth===curMonthKey()) || M().done) return;    // periods exist only on the live month
+    if(Date.now()<cfAuto.paused) return;                   // still cooling down after a manual touch
+    cfApplyPeriod(((window.cfPeriod|0)+1)%3, false);       // rotate (does not overwrite the saved pick)
+  }, cfAuto.INT);
+}
+function cfSetDots(active){
+  var box=document.getElementById('cf-dots'); if(!box) return;
+  if(active<0){ setHTMLIf(box, ''); return; }
+  var h=''; for(var i=0;i<3;i++) h+='<i class="'+(i===active?'on':'')+'" onclick="setCfPeriod('+i+')"></i>';
+  setHTMLIf(box, h);
+}
+function cfBindSwipe(){
+  var card=document.querySelector('.cf-card'); if(!card) return;
+  var x0=0,y0=0;
+  card.addEventListener('pointerdown', cfPauseAuto, {passive:true});   // any press (touch or mouse) pauses auto-rotate
+  card.addEventListener('touchstart',function(e){ var t=e.changedTouches[0]; x0=t.clientX; y0=t.clientY; },{passive:true});
+  card.addEventListener('touchend',function(e){
+    if(!(selMonth===curMonthKey()) || M().done) return;   // swipe only on the live month
+    var t=e.changedTouches[0], dx=t.clientX-x0, dy=t.clientY-y0;
+    if(Math.abs(dx)<40 || Math.abs(dx)<Math.abs(dy)*1.4) return;   // ignore taps + vertical scrolls
+    setCfPeriod((window.cfPeriod|0)+(dx<0?1:-1));           // left → later period, right → earlier
+  },{passive:true});
+  cfStartAuto(card);
+}
+/* ----- Week (period 1 = the classic chart) ----- */
+function cfWeekData(m, daily, done, dom, dim){
+  var today=done?dim:dom;                                 // "today" = dom live, else last day
   var iso=m._iso||((m.short||curMonthKey())+'-01');
   var base=new Date(iso.slice(0,7)+'-01T00:00:00'); base.setDate(today);
-  var wd=(base.getDay()+6)%7;                          // 0=Mon … 6=Sun
-  var monThis=today-wd;                                // day-of-month of this week's Monday (≤0 = prev month)
+  var wd=(base.getDay()+6)%7;                             // 0=Mon … 6=Sun
+  var monThis=today-wd;                                   // day-of-month of this week's Monday
   var cur=[], prev=[], maxV=1;
   for(var k=0;k<7;k++){
     var dc=monThis+k, dp=monThis-7+k;
-    var vc=(dc>=1&&dc<=dim&&(done||dc<=today))?daily[dc]:null;   // future days this week → null (no cur bar)
-    var vp=(dp>=1&&dp<=dim)?daily[dp]:0;                          // days outside the loaded month → 0
+    var vc=(dc>=1&&dc<=dim&&(done||dc<=today))?daily[dc]:null;   // future days → null (no cur bar)
+    var vp=(dp>=1&&dp<=dim)?daily[dp]:0;                          // days outside the month → 0
     cur.push(vc); prev.push(vp);
     if(vc!=null&&vc>maxV) maxV=vc; if(vp>maxV) maxV=vp;
   }
-  var DAYS=isVi()?['T2','T3','T4','T5','T6','T7','CN']:['M','T','W','T','F','S','S'];
-  var cols='';
+  return {cur:cur, prev:prev, monThis:monThis, today:today, maxV:maxV};
+}
+function cfWeekChartHTML(d, done){
+  var DAYS=isVi()?['T2','T3','T4','T5','T6','T7','CN']:['M','T','W','T','F','S','S'], cols='';
   for(var c=0;c<7;c++){
-    var ph=Math.round(prev[c]/maxV*100), fut=cur[c]==null;
-    var over=!fut && prev[c]>0 && cur[c]>prev[c];              // spent more than the same day last week
-    var ch=fut?0:(cur[c]>0?Math.max(Math.round(cur[c]/maxV*100),4):0);
-    var isToday=!done && (monThis+c)===today;
+    var ph=Math.round(d.prev[c]/d.maxV*100), fut=d.cur[c]==null;
+    var over=!fut && d.prev[c]>0 && d.cur[c]>d.prev[c];   // spent more than the same day last week
+    var ch=fut?0:(d.cur[c]>0?Math.max(Math.round(d.cur[c]/d.maxV*100),4):0);
+    var isToday=!done && (d.monThis+c)===d.today;
     cols+='<div class="wcol"><span class="wbars">'
       +'<i class="wb prev" style="height:'+ph+'%"></i>'
       +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
       +'</span><span class="wd'+(isToday?' on':'')+'">'+DAYS[c]+'</span></div>';
   }
-  setHTMLIf('cf-wow', cols);
-
-  // Current live month → the daily guide ("Hôm nay còn tiêu được"); other months → the
-  // week-over-week note. The daily guide only shows when a per-day threshold can be derived.
-  var shownDaily = (selMonth===curMonthKey() && !done) && renderDailyGuide(m, daily);
-  if(shownDaily){
-    var cfn0=document.getElementById('cf-note'); if(cfn0){ cfn0.className='cf-note'; cfn0.innerHTML=''; }
-  } else {
-    var dgh=document.getElementById('cf-daily'); if(dgh) dgh.innerHTML='';
-    // Note (highlighted tinted block): this week so far vs the SAME number of days last week.
-    var days=0, ts=0, ls=0;
-    for(var d=0;d<7;d++){ if(cur[d]!=null){ days++; ts+=cur[d]; ls+=prev[d]; } }
-    var diff=ts-ls, st='', note='';
-    if(days>0 && ls>0){
-      if(diff<0){ st='ok'; note='<span class="ni">▼</span>'+L('Giảm ','Down ')+'<b>'+fmt(-diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
-      else if(diff>0){ st='over'; note='<span class="ni">▲</span>'+L('Tăng ','Up ')+'<b>'+fmt(diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
-      else { st='flat'; note=L('Ngang cùng kỳ tuần trước','On par with last week'); }
-    } else if(days>0 && ts>0){
-      st='flat'; note=L('Tuần này đã chi ','Spent ')+'<b>'+fmt(ts)+'</b>'+L('',' this week');
-    }
-    var cfn=document.getElementById('cf-note');
-    if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
+  return cols;
+}
+function cfWowNote(d){                                     // classic week-over-week note (past months)
+  var days=0, ts=0, ls=0;
+  for(var i=0;i<7;i++){ if(d.cur[i]!=null){ days++; ts+=d.cur[i]; ls+=d.prev[i]; } }
+  var diff=ts-ls, st='', note='';
+  if(days>0 && ls>0){
+    if(diff<0){ st='ok'; note='<span class="ni">▼</span>'+L('Giảm ','Down ')+'<b>'+fmt(-diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
+    else if(diff>0){ st='over'; note='<span class="ni">▲</span>'+L('Tăng ','Up ')+'<b>'+fmt(diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
+    else { st='flat'; note=L('Ngang cùng kỳ tuần trước','On par with last week'); }
+  } else if(days>0 && ts>0){
+    st='flat'; note=L('Tuần này đã chi ','Spent ')+'<b>'+fmt(ts)+'</b>'+L('',' this week');
   }
-  renderRequestsCta();
-  renderCashflowEmailCta();
+  var cfn=document.getElementById('cf-note');
+  if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
+}
+function cfRenderWeek(m, daily, done, dom, dim){
+  var d=cfWeekData(m, daily, done, dom, dim);
+  setHTMLIf('cf-wow', cfWeekChartHTML(d, done));
+  cfPeriodGuide(m, daily, 'week');
+}
+/* ----- Day (period 0 = buổi breakdown: today vs yesterday) ----- */
+function cfBuoiIdx(h){ return (h>=5&&h<11)?0:(h>=11&&h<14)?1:(h>=14&&h<18)?2:3; }   // Sáng·Trưa·Chiều·Tối
+function cfRenderDay(m, daily){
+  var dom=m.dom, yday=dom-1, curB=cfBuoiIdx(new Date().getHours());
+  var cur=[0,0,0,0], prev=[0,0,0,0];                       // today's buổi vs yesterday's (same faint reference as Week/Month)
+  (window.txns||[]).forEach(function(t){
+    if(t.future || t.month!==window.selMonth || !t._d) return;
+    var d=t._d.getDate(); if(d!==dom && d!==yday) return;
+    var h=t._ts ? t._ts.getHours() : null, b=(h==null?curB:cfBuoiIdx(h));   // logged-time proxy; unknown → current buổi
+    if(d===dom) cur[b]+=t.amt; else prev[b]+=t.amt;
+  });
+  var LB=isVi()?['Sáng','Trưa','Chiều','Tối']:['Morning','Midday','Afternoon','Evening'];
+  var maxV=1; for(var i=0;i<4;i++){ if(cur[i]>maxV) maxV=cur[i]; if(prev[i]>maxV) maxV=prev[i]; }
+  var cols='';
+  for(var j=0;j<4;j++){
+    var ph=Math.round(prev[j]/maxV*100), fut=j>curB;       // a buổi still ahead today → yesterday's bar only (no cur)
+    var over=!fut && prev[j]>0 && cur[j]>prev[j];          // more than the same buổi yesterday
+    var ch=fut?0:(cur[j]>0?Math.max(Math.round(cur[j]/maxV*100),4):0);
+    cols+='<div class="wcol"><span class="wbars">'
+      +'<i class="wb prev" style="height:'+ph+'%"></i>'
+      +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
+      +'</span><span class="wd'+(j===curB?' on':'')+'">'+LB[j]+'</span></div>';
+  }
+  setHTMLIf('cf-wow', cols);
+  cfPeriodGuide(m, daily, 'day');
+}
+/* ----- Month (period 2 = 4 tuần, this month vs last) ----- */
+function cfMonthBuckets(daily, dim){
+  var b=[0,0,0,0], hi=[7,14,21,dim];
+  for(var i=0;i<4;i++){ var lo=[1,8,15,22][i]; for(var d=lo; d<=hi[i]; d++){ if(daily[d]) b[i]+=daily[d]; } }
+  return b;
+}
+function cfPrevMonthDaily(m){                              // last calendar month's per-day spend (for faint bars)
+  var iso=m._iso||((m.short||curMonthKey())+'-01');
+  var d0=new Date(iso.slice(0,7)+'-01T00:00:00'), pd=new Date(d0.getFullYear(), d0.getMonth()-1, 1);
+  var pkey=_MOA[pd.getMonth()], pmObj=months[pkey];
+  var pdim=pmObj?pmObj.dim:new Date(pd.getFullYear(), pd.getMonth()+1, 0).getDate();
+  var arr=[]; for(var i=0;i<=pdim;i++) arr[i]=0;
+  (window.txns||[]).forEach(function(t){ if(!t.future && t.month===pkey && t._d){ var dd=t._d.getDate(); if(dd>=1&&dd<=pdim) arr[dd]+=t.amt; } });
+  return {arr:arr, dim:pdim};
+}
+function cfRenderMonth(m, daily){
+  var dim=m.dim, dom=m.dom;
+  var cur=cfMonthBuckets(daily, dim);
+  var pv=cfPrevMonthDaily(m), prev=cfMonthBuckets(pv.arr, pv.dim);
+  var curW=dom<=7?0:dom<=14?1:dom<=21?2:3, starts=[1,8,15,22];
+  var LB=isVi()?['Tuần 1','Tuần 2','Tuần 3','Tuần 4']:['W1','W2','W3','W4'];
+  var maxV=1; for(var i=0;i<4;i++){ if(cur[i]>maxV) maxV=cur[i]; if(prev[i]>maxV) maxV=prev[i]; }
+  var cols='';
+  for(var j=0;j<4;j++){
+    var fut=starts[j]>dom;                                 // a week that hasn't started yet → no cur bar
+    var ph=Math.round(prev[j]/maxV*100);
+    var over=!fut && prev[j]>0 && cur[j]>prev[j];
+    var ch=fut?0:(cur[j]>0?Math.max(Math.round(cur[j]/maxV*100),4):0);
+    cols+='<div class="wcol"><span class="wbars">'
+      +'<i class="wb prev" style="height:'+ph+'%"></i>'
+      +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
+      +'</span><span class="wd'+(j===curW?' on':'')+'">'+LB[j]+'</span></div>';
+  }
+  setHTMLIf('cf-wow', cols);
+  cfPeriodGuide(m, daily, 'month');
 }
 /* Daily guide — "Hôm nay còn tiêu được": a per-day allowance minus what's been spent today.
    The allowance is the SAVER of (a) last month's daily average and (b) the budget-pace daily
@@ -136,41 +267,74 @@ var DG_STATES={
   orange:{main:'#ef5f37',mut:'#a63e22',bg:'#fdeee9',trk:'rgba(239,95,55,.18)'},
   red:{main:'#e0483f',mut:'#a5645c',bg:'#fdeeec',trk:'rgba(224,72,63,.18)'}
 };
-function dgBase(m, daily){                                    // per-day norm, before the saving goal
+function dgBase(m, daily){                                    // per-day norm (pre-goal) — used only by the goal-sheet estimate
   var spent=m.spent||0, spentToday=(daily&&daily[m.dom])||0, reserved=m.done?0:monthReserved();
   var prevKey=_MOA[(TODAY.getMonth()+11)%12], pm=months[prevKey];
-  var prevDaily=(pm && pm.spent>0 && pm.dim>0) ? pm.spent/pm.dim : null;   // last month's daily average
+  var prevDaily=(pm && pm.spent>0 && pm.dim>0) ? pm.spent/pm.dim : null;
   var remBudget=(m.budget||0)-(spent-spentToday)-reserved, daysLeft=Math.max(1, m.dim-m.dom+1);
-  // Budget-pace allowance — but DROP it (not zero it) once the month's budget is blown,
-  // otherwise min(prevDaily, 0)=0 would hide the guide exactly when it matters most.
   var budgetDaily=(m.budget>0 && remBudget>0) ? remBudget/daysLeft : null;
   var cand=[]; if(prevDaily!=null)cand.push(prevDaily); if(budgetDaily!=null)cand.push(budgetDaily);
-  if(cand.length) return Math.min.apply(null,cand);                        // the saver of the available signals
-  return (m.budget>0)?m.budget/m.dim:((window.monthIncome||0)/m.dim||0);   // fallback: even monthly pace
+  if(cand.length) return Math.min.apply(null,cand);
+  return (m.budget>0)?m.budget/m.dim:((window.monthIncome||0)/m.dim||0);
 }
-function dgThreshold(m, daily){ return dgBase(m,daily)*(1-(window.saveGoalPct||0)/100); }
-function renderDailyGuide(m, daily){
-  var host=document.getElementById('cf-daily'); if(!host) return false;
-  var threshold=dgThreshold(m,daily);
-  if(!(threshold>0)){ host.innerHTML=''; return false; }
-  var spentToday=daily[m.dom]||0, remain=threshold-spentToday;
-  var pct=remain/threshold, over=remain<0;
-  var key = over?'red' : (pct<=0.20?'orange':(pct<=0.50?'yellow':'green'));
-  // State-change push (E2EE-safe · client-side): only the device that just logged an
-  // expense fires (window._dgLocalAdd), only when today's state worsens, never on green.
-  // The actor gate + fhNotify's per-kind cooldown stop other devices' realtime re-renders
-  // from double-sending; window.dgStateDay resets the baseline at the start of each day.
+/* The ONE atomic allowance every period is sliced from — so Day ⊆ Week ⊆ Month always, and
+   they can never contradict. It is what's still available from the START of today, spread over
+   the days left this month, capped by last month's pace (the saver) and tightened by the goal.
+   Crucially it is NOT floored: when the budget is blown it goes negative, so every period reads
+   "over" together instead of one staying cheerfully green. Returns null only when there is no
+   basis at all (no budget, no history, no income) → the guide hides. */
+function cfPerDay(m, daily){
+  var spent=m.spent||0, spentToday=(daily&&daily[m.dom])||0, reserved=m.done?0:monthReserved();
+  var spentBefore=spent-spentToday, daysLeft=Math.max(1, m.dim-m.dom+1);
+  var prevKey=_MOA[(TODAY.getMonth()+11)%12], pm=months[prevKey];
+  var prevDaily=(pm && pm.spent>0 && pm.dim>0) ? pm.spent/pm.dim : null;   // last month's daily average
+  var budgetPerDay=(m.budget>0) ? ((m.budget-spentBefore-reserved)/daysLeft) : null;   // remaining budget spread over remaining days (may be ≤0)
+  var base;
+  if(budgetPerDay!=null && prevDaily!=null) base=Math.min(prevDaily, budgetPerDay);    // saver of the two signals
+  else if(budgetPerDay!=null) base=budgetPerDay;
+  else if(prevDaily!=null) base=prevDaily;
+  else { var inc=window.monthIncome||0; base = inc>0 ? inc/m.dim : null; }
+  if(base==null) return null;
+  return base*(1-(window.saveGoalPct||0)/100);
+}
+function cfDaysLeftWeek(m, dLeftMonth){                       // today → Sunday (clamped to the month's end)
+  var d=new Date((m._iso||((m.short||curMonthKey())+'-01')).slice(0,7)+'-01T00:00:00'); d.setDate(m.dom);
+  return Math.min(7-((d.getDay()+6)%7), dLeftMonth);          // Mon=0 … Sun=6 → 7-idx days incl. today
+}
+function dgKey(remain, threshold){ if(remain<0) return 'red'; var pct=threshold>0?remain/threshold:0; return pct<=0.20?'orange':(pct<=0.50?'yellow':'green'); }
+/* State-change push (E2EE-safe · client-side): tracks the DAY state regardless of which period
+   is on screen. Only the device that just logged an expense fires (window._dgLocalAdd), only
+   when today's state worsens, never on green. The actor gate + fhNotify's per-kind cooldown stop
+   other devices' realtime re-renders from double-sending; window.dgStateDay resets each day. */
+function cfMaybePush(m, daily){
+  var perDay=cfPerDay(m,daily);
+  if(perDay==null){ window._dgLocalAdd=false; return; }
+  var remain=perDay-(daily[m.dom]||0), key=dgKey(remain, perDay);
   var _ord={green:0,yellow:1,orange:2,red:3};
   var _prev=(window.dgStateDay===m.dom)?(window.dgState||'green'):'green';
   if(window._dgLocalAdd && _ord[key]>_ord[_prev] && key!=='green' && typeof fhNotify==='function'){ fhNotify('dgstate',{state:key}); }
   window.dgState=key; window.dgStateDay=m.dom; window._dgLocalAdd=false;
+}
+/* One guide, sliced per period: how much MORE can be spent for the rest of this period
+   (today → end of day / week / month) = perDay × days-left-in-period − spent today. Same UI,
+   same colour states; Day ≤ Week ≤ Month by construction, and all read "over" together. */
+function cfPeriodGuide(m, daily, periodKey){
+  var perDay=cfPerDay(m, daily), dLeftMonth=Math.max(1, m.dim-m.dom+1);
+  var days = periodKey==='day' ? 1 : (periodKey==='week' ? cfDaysLeftWeek(m, dLeftMonth) : dLeftMonth);
+  var host=document.getElementById('cf-daily'); if(!host) return false;
+  if(perDay==null){ setHTMLIf(host, ''); return false; }     // no basis for guidance → hide the tile
+  var threshold=perDay*days, remain=threshold-(daily[m.dom]||0), over=remain<0, key=dgKey(remain, threshold);
   window.cfDailyState=key;
-  var s=DG_STATES[key], level=Math.max(0,Math.min(100,pct*100));
-  var label = over ? L('Hôm nay đã vượt','Over today') : L('Hôm nay còn tiêu được','Left to spend today');
+  var s=DG_STATES[key], level=(threshold>0)?Math.max(0,Math.min(100,remain/threshold*100)):0;
+  var LBL={
+    day:  over?L('Hôm nay đã vượt','Over today')       :L('Hôm nay còn tiêu được','Left to spend today'),
+    week: over?L('Tuần này đã vượt','Over this week')   :L('Tiêu được tuần này','Left this week'),
+    month:over?L('Tháng này đã vượt','Over this month') :L('Tiêu được tháng này','Left this month')
+  };
   var amt = over ? fmt(-remain) : fmt(Math.max(0,remain));
   host.style.background=s.bg;
   setHTMLIf(host,
-    '<span class="dg-lbl" style="color:'+s.mut+'">'+label+'</span>'
+    '<span class="dg-lbl" style="color:'+s.mut+'">'+LBL[periodKey]+'</span>'
     +'<span class="dg-amt num" style="color:'+s.main+'">'+amt+'</span>'
     +'<span class="dg-vis">'+cfWaterSVG(level,s,over)+'</span>');
   return true;

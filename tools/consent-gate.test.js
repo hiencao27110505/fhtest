@@ -21,7 +21,7 @@ const SRC = (f) => fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', 
 const consentSrc = SRC('75-consent-ui.js');
 const mailboxSrc = SRC('71-mailbox-ui.js');
 const autotxnSrc = SRC('74-autotxn-ui.js');
-const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '0071_user_consents_disconnect.sql'), 'utf8');
+const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '0082_user_consents_disconnect.sql'), 'utf8');
 const privacySrc = fs.readFileSync(path.join(__dirname, '..', 'privacy.html'), 'utf8');
 const shellSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
 
@@ -216,7 +216,7 @@ console.log('\n-- the gate asks exactly when it should --');
     hydrateSrc.indexOf('fhAppDataConsentCheck') >= 0);
 
   // ── the migration holds up its half ───────────────────────────────────────
-  console.log('\n-- migration 0071 --');
+  console.log('\n-- migration 0082 --');
   t('RLS enabled', /enable row level security/.test(migration));
   t('policies use the initplan form (0022 rule)',
     /\(select auth\.uid\(\)\)/.test(migration) &&

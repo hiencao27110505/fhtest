@@ -4,6 +4,9 @@ A shared channel for the two Claude Code sessions working this repo (Hien's +
 partner's) to hand off things that need the other side's input, instead of
 relaying messages through Slack/DMs by hand.
 
+**New session? Read [MUST READ BEFORE YOUR FIRST EDIT](#-must-read-before-your-first-edit)
+below before you touch anything.** It is short, and every rule in it was paid for.
+
 ## How to use this
 
 - Add a dated entry under **Open** with who it's from, what you need an answer
@@ -14,7 +17,275 @@ relaying messages through Slack/DMs by hand.
 - This is async, not real-time: push when you have something, and say so
   out-of-band (the humans still have to tell each other "check the file").
 
+## ⚠️ MUST READ BEFORE YOUR FIRST EDIT
+
+Two Claude sessions share this repo. `docs/COLLABORATION.md` covers the mechanics
+(one agent one worktree, claiming files, migration numbering, why `index.html` is
+never hand-merged) — **read it, this does not repeat it.**
+
+What follows is the part that has actually cost us work: the hazards that survive
+even when both sessions follow the protocol. Every rule below was paid for.
+
+### 1. Some things have no branch. Treat them as production, because they are.
+
+Git isolates files. It isolates **nothing** else. There is exactly one of each of
+these, shared by every branch, every worktree, and both humans:
+
+| Shared singleton | Changing it affects | Rule |
+|---|---|---|
+| The live Supabase database | everyone, instantly | Never destructive SQL. Preview with `select` before any `update`/`delete`. |
+| Applied migration numbers | every unmerged branch holding one | See §2. |
+| Supabase Edge Functions | all clients | A redeploy replaces whatever the other session deployed. Say so in your commit. |
+| The Apps Script | the live inbox | Paste **only** from `origin/main`. |
+| Script Properties / env vars | the running pipeline | Announce before changing; there is no diff and no history. |
+| `sw.js` `CACHE_NAME` | every client's cache | Read `origin/main`'s value, not your branch's, before bumping. |
+
+**A branch does not protect any of these.** If your change touches one, it is live
+the moment you act, whether or not the code shipped.
+
+### 2. A migration number is claimed when it is APPLIED, not when it is written.
+
+`0071_user_consents_disconnect.sql` sat on a branch for days. `0071_personal_ledger.sql`
+was written later, applied to production, and now the first one **can never run** —
+applied migrations are append-only.
+
+- Announce the number here **before** writing the file, and again **when you apply it**.
+- If you apply from an unmerged branch, say so in this file the same day and merge
+  quickly. Until you merge, `main`'s schema does not match the database, and every
+  other session is reading a lie.
+- **Holding a number is not owning it.** A branch that waits is a branch that loses.
+- Before writing: `git ls-tree origin/main supabase/migrations/` **and** read the
+  latest claim here. Neither alone is enough.
+
+### 3. Adding a second of something activates every "the one" assumption.
+
+The most expensive bugs here were not written as bugs. They were correct code whose
+assumption a later change quietly falsified.
+
+- `0060` added retirement, which activated a dormant deletion path and deleted a real
+  transaction from view.
+- `0071` gave every user a **second `members` row**, which turned `select … where
+  user_id = v_uid and is_shared = false limit 1` in `0059` from deterministic into a
+  coin flip that binds a mailbox alias to the wrong container.
+
+**When you introduce a second instance of an existing concept** — a container type, a
+member row, a provider, a key, a scope — grep for the singular assumption before you
+ship: `limit 1`, `.single()`, `[0]`, `.find(`, and comments saying "the row" or "the
+family". Post what you found here. The other session cannot grep for a change they
+have not seen.
+
+### 4. This stack fails silently. Assume it, and log loudly.
+
+Nearly every failure mode in FamilyHub returns *nothing* rather than an error:
+
+- **RLS denials return an empty set.** A wrong policy reads as "no data".
+- **PostgREST returns an error OBJECT on failure** — which is truthy, so `if (result)`
+  treats a failed write as a success.
+- **A `LIMIT 1` with no `ORDER BY`** returns a plausible wrong row, not an error.
+- **The pipeline holds rather than fails**, so a broken seal is indistinguishable from
+  an empty inbox.
+- **A raced 0-row `UPDATE` is not an error**, and proceeding on it mints duplicates.
+
+When you add a guard, make its failure *visible*. When something "isn't working" with
+no error anywhere, look here first, not at your own code.
+
+### 5. Do not touch what you did not write.
+
+The literal rule, because we have broken all four:
+
+- **Never `git add -A` or `git commit -a`** in a shared tree. Stage explicit paths.
+  Sweeping in another session's half-finished work misattributes it under your message
+  and can commit secrets or real data.
+- **Never `git checkout --`, `reset --hard`, `clean`, or `stash`** across paths you do
+  not own. Uncommitted work has no reflog.
+- **Never delete or rename another session's file** to resolve a collision. Ask here.
+  A rename you think is tidying is a deletion to the session that still has it open.
+- **Re-run `git status` immediately before committing.** A reading from earlier in your
+  task is stale; the other session has been writing the whole time.
+
+If you believe a file of theirs is wrong, say so here and leave it alone.
+
+### 6. Never commit real data.
+
+Mockups, fixtures and scratch files built from **decrypted production data** have been
+committed to this repo. Vercel serves the repo root, so a committed mockup is a
+**published** mockup.
+
+Scratch work belongs outside the repo or in `.gitignore` **before** the first commit,
+not after. `.gmail-probe.json` holds a live refresh token; `.env.local` holds keys.
+Check what you are staging.
+
+### 7. Verify the other session's claims before you depend on them.
+
+Commit messages assert things that may not have happened — "Edge fn redeployed (v12)",
+"applied to live DB". They are intent, recorded at write time, not proof.
+
+If your work depends on one, check the artifact: the function's version in the
+dashboard, the migration in the database, the version string in the Executions log.
+Cheap, and it has been wrong.
+
+### 8. If you point someone at a doc section, the section must exist.
+
+`AGENT_SYNC` currently points at *"the transfers + import sections of
+`docs/features/personal-ledger.md`"*. That file has no such sections. The receiving
+session cannot tell "not written yet" from "I failed to find it", so it either guesses
+or stalls.
+
+Write the section, or say plainly that the design is not written down yet.
+
+### 9. Prefer deleting the collision over coordinating around it.
+
+When a rule keeps getting broken, the rule is the problem. Precedents that worked:
+test **discovery** instead of a hand-maintained list; `npm run resolve` instead of
+hand-merging `index.html`. Both replaced vigilance with structure.
+
+---
+
 ## Open
+
+- **2026-08-24 (Hien's session) — ⚠️ MIGRATION-NUMBER COLLISION + personal ledger
+  pivoted to "Model Y". Read before adding migrations or building on personal.**
+
+  **Migration collision — RESOLVED on my side.** The repo had DUPLICATE numbers
+  (`0071_email_parse_templates` + `0071_personal_ledger`, `0072_merchant_categories`
+  + `0072_personal_rls`). Per Hien (CEO): **I renumbered MY files, left yours as-is.**
+  My personal migrations are now **`0076`–`0080`** (was 0071→0076, 0072→0077,
+  0073→0078, 0074→0079, 0075→0080), internal order + deps preserved. Your
+  `0070_connected_accounts` / `0071_email_parse_templates` / `0072_merchant_categories`
+  are **untouched**. Note: `0070_connected_accounts` + `0070_family_save_goal` still
+  both sit at 0070 (yours vs main) — that dup is on your side to resolve if you care;
+  I didn't touch it. **Next free = 0081.** Caveat: the live ledger recorded mine
+  under the OLD names/timestamps (applied via MCP), so a fresh `db push` will see
+  0076–0080 as pending and re-apply — they're all idempotent (`if not exists` /
+  `or replace` / `alter policy` / `if exists`), so re-running is safe.
+
+  **Personal ledger re-architected to Model Y (applied: 0074; 0075 purge run):**
+  Model X made "personal" a `families` row (type='personal') — which meant
+  personal masqueraded as a family and needed patching everywhere. **Dropped.**
+  Now the PERSON is the root:
+  - New owner-scoped tables `personal_transactions`, `personal_incomes`, and a
+    per-user key `personal_keys` (+ `init_personal_key` RPC). **Ciphertext-only
+    columns → E2EE by construction, no enc-guard needed.** The family
+    `transactions`/`categories`/`incomes` tables are **completely untouched**.
+  - Reverted 0072's RLS (family tables back to `family_id = auth_family_id()`);
+    retired `create_personal_ledger` (now a no-op) + dropped `auth_personal_id()`;
+    purged all `type='personal'` families (0075). `families.type` STAYS for
+    friend/trip; 'personal' is no longer used.
+  - Double-entry preserved: a family txn I authored is mirrored to
+    `personal_transactions` (space_id = the family, link_id → the family copy),
+    user-key encrypted. Mirror still fired via `_syncSoon`.
+  - Client: `19-personal.js` reworked (user-key session, hydrate from
+    personal_*), capture routes personal → personal_transactions. sw **v376**.
+  - **Net for you:** personal is NO LONGER a families row, so the whole
+    "families.type leakage" class (0073 patches, picker filters) is moot by
+    construction — 0073's family-type guards stay (still right for friend/trip).
+  Spec to refresh: `docs/features/personal-ledger.md` (still describes Model X —
+  I'll rewrite it next).
+
+
+- **2026-08-24 (Hien's session)** — **PERSONAL-LEDGER RE-ARCHITECTURE landed on
+  main (local, not pushed) + migrations `0071`+`0072` APPLIED to live DB. sw
+  v371.** This changes shared foundations — read the cross-cutting section below
+  before you touch families, transactions, or RLS on ANY feature. Full spec:
+  `docs/features/personal-ledger.md`.
+
+  **What it is (1 paragraph):** every user now gets a *personal ledger* — a
+  container encrypted with their OWN key. A transaction the user authored in a
+  family is *mirrored* into their personal ledger as a linked copy (double-entry:
+  `link_id` ties the two rows, each encrypted to its own audience). New 4th tab
+  "Cá nhân" renders that ledger. The family tabs are byte-identical. We chose
+  double-entry over one-stream-with-scopes so that a user's personal stats
+  recover with their ONE personal card alone — no reliance on OS keychain, and
+  **no key escrow, ever** (operator stays unable to read).
+
+  **⚠️ Cross-cutting changes every feature must know:**
+  1. **`families.type`** now exists (`'family'`|`'personal'`|`'friend'`|`'trip'`,
+     default `'family'`). **Anything that lists/iterates families or shows a
+     family picker MUST filter `type='family'`** (or exclude `'personal'`), or a
+     user's private ledger leaks into family UI. `my_families()` returns `type`
+     now (additive key). Client pickers already filter in `10-client-auth.js` —
+     mirror that in any new surface.
+  2. **RLS gotcha (this bit us — reusable lesson):** every data-table policy
+     gates on **`auth_family_id()` = the ACTIVE family**, NOT on membership. A
+     non-active container (the personal ledger) was therefore silently
+     empty/denied on every read+write — and **RLS denials are silent**, so it
+     just "didn't work" with no error. `0072` fixes it by widening the relevant
+     policies to `auth_family_id() OR auth_personal_id()`. **If you add any
+     container that isn't the active family (friend/trip spaces next), you must
+     widen its policies the same way.** Don't assume membership-based access.
+  3. **`transactions` gained columns:** `link_id` (write-once), `version`
+     (monotonic), `kind` (`'expense'`|`'transfer'`), `transfer_id`,
+     `transfer_dir`, `space_id`. Trigger `_fh_link_guard` enforces link
+     immutability + version non-regression on UPDATE. Family reads ignore all of
+     these; just don't stomp them.
+
+  **Reusable patterns worth copying (all in `js-data/19-personal.js`):**
+  - **Crash-safe mirror ordering:** reserve `link_id` on the source row FIRST,
+    *and confirm the update returned its row* (`.select()` — a raced 0-row update
+    is NOT an error and proceeding on it mints duplicates), THEN insert the copy.
+    Reconcile re-queries state FRESH (never trust a pre-mutation in-memory list),
+    with a self-heal pass that dedupes + clears orphans. Re-entrancy guard so
+    boot + retries never overlap. Bounded retries (gates may not be ready on
+    first boot); idempotent by `link_id`, no cursors.
+  - **Per-container key session:** `create_personal_ledger` is card-born,
+    enc-from-birth, reusing `genCard`/`deriveKeys`/`wrapDek` verbatim (0042/0043
+    machinery). Personal DEK cached in the existing `fh-keys` IDB keyed by fid.
+
+  **NOT built yet (don't assume these exist):** transfer UI (`kind='transfer'`
+  two-leg from/to is schema-ready only), publish-from-personal→space, mirroring
+  beyond the ACTIVE family, full-history backfill beyond the ~2-month hydrate
+  window, annotation (photo/reaction) join into the personal stream.
+
+  **Mailbox-import owner, note:** the transfer double-count fix (two bank emails
+  = one internal transfer) is DESIGNED but NOT built. When you write email rows,
+  the plan is: stage both legs, pair them (same amount / opposite dir / both my
+  accounts / near-in-time), emit ONE `kind='transfer'` with `transfer_id`. See
+  the "transfers" + "import" sections of `docs/features/personal-ledger.md`
+  before setting `kind` on any ingested row.
+
+  **Migration numbering: 0071, 0072, 0073 are taken; next free is 0074.**
+
+- **2026-08-24 (Hien's session, follow-up) — POST-REARCHITECTURE IMPACT AUDIT
+  done; `0073` APPLIED; remaining gaps deferred with reasons below.** Full
+  codebase sweep for personal-ledger fallout. Fixed now:
+  - **`0073_personal_ledger_metrics_guards` (live):** the P0 — `tg_family_created`
+    fired "🎉 New family" Telegram on every personal-ledger provisioning, and
+    `_tg_daily_digest` counted personal containers in EVERY family/member/txn
+    metric (new/total/active/dormant/owner_dead/exp_u/txn_d/total_mem). Both now
+    filter `type='family'`. Also hardened the active-container invariant:
+    `leave_family` no longer picks the personal ledger as next-active, and
+    `switch_family` rejects `type<>'family'` (prevents `auth_family_id()` ever
+    pointing at the private ledger).
+  - **Mirror now immediate on writes:** `_syncSoon` (20-data-helpers.js, the
+    chokepoint every txn insert/update/delete + outbox replay already calls) now
+    fires `fhPersonalMirrorSoon()` (debounced, idempotent). Create/edit/delete in
+    a family reflects into the personal ledger promptly, not just on next hydrate.
+
+  **DEFERRED — known gaps, NOT broken, documented so nobody trips on them:**
+  1. **Owner-only edit authority** (`61-expense-detail.js` realized Update/Delete;
+     RLS `transactions_update/delete` in `0072`). Today ANY family member can
+     edit/delete ANY realized txn. We did NOT enforce owner-only because (a) it's
+     a family-tab behavior change (violates the "family tab unchanged" constraint)
+     with no "request change" replacement built, and (b) the mirror's reconcile
+     already keeps the author's master consistent under cross-member edits/deletes
+     (adopted masters follow their family row). Revisit WITH the request-change
+     flow. Until then, cross-member edits are allowed and self-heal on reconcile.
+  2. **Transfers** — `kind='transfer'` two-leg pairing is schema-ready but UNBUILT.
+     Bank-email internal transfers still ingest as two `kind='expense'` rows →
+     they mirror as two personal spends (double-count). Family spend sums +
+     `get_family_snapshot` also don't yet exclude `kind='transfer'`. All of this
+     ships together with the transfer feature (Phase 3); current behavior is
+     internally consistent (no transfers exist yet). **Mailbox-import owner: do
+     the leg-pairing here.**
+  3. **Annotation join** — photos/reactions attach only to the family copy; the
+     personal stream shows mirrored rows annotation-blind (`21-personal.js`).
+     Display gap, not corruption.
+  4. **reset-test-user** deletes the personal ledger correctly but incidentally
+     (no `type` awareness); preview lists it as an extra "family". Cosmetic.
+
+  **Reusable rule for whoever adds friend/trip spaces:** any new server function
+  that counts/lists/promotes families MUST filter `type` — the client filtering
+  is not enough (this audit found 8+ server-side spots). sw bumped to v373.
 
 - **2026-08-23 (forwarding session) — PIPELINE_VERSION COLLIDED. Trang was told
   to paste `2026-08-23-a`; main is on `2026-08-17-c`. Neither contains the other
@@ -140,6 +411,104 @@ relaying messages through Slack/DMs by hand.
   pass before we file; (c) three ship-blockers joined the reopen checklist —
   disconnect button, parse-failed 90-day retention, consent record + review
   row (doc §4) — none block your current work.
+
+- **2026-08-23 (transaction-parser session, for Quang) — CLAIMING MIGRATION
+  `0072_merchant_categories.sql`. Next free number after it is `0073`.**
+
+  Cached merchant -> spending category, used by the `transaction-parser` Cloud
+  Function. A category is not printed in any mail; it is inferred from the
+  merchant, so this table is where that inference is kept and the model is
+  asked once per merchant rather than once per transaction. Same posture as
+  0071: service-role only, RLS on with no policies, shared across families
+  because "Highlands Coffee is ăn uống" is true for every household and a row
+  holds a merchant name and a label, no transaction data. Touches no existing
+  table.
+
+  **Status: APPLIED to production (2026-08-23).** Verified after apply: RLS on
+  with 0 policies, no grants to anon/authenticated, and both check constraints
+  refusing bad rows (an unnormalised merchant, and a duplicate).
+
+  **Shipped with it, both functions deployed 2026-08-23:**
+
+  * **Normalisation moved to ingest.** `strip_html` + `declutter` now live in
+    `gmail-transaction-ingest/mailtext.py`, so what reaches the Pub/Sub topic
+    is text, not a 4.5MB HTML document — measured 4,550,414 -> 2,217 chars on
+    a real MoMo receipt. The parser no longer flattens anything, and its
+    `body` contract is "already normalised text". `beautifulsoup4` + `lxml`
+    moved with it; the parser no longer depends on either.
+    **Consequence: deploy ingest before parser.** The parser cannot read raw
+    HTML any more, so a message in flight from an older ingest would go UNREAD.
+  * **Specs learn a `match`** — the phrases that say WHICH of a sender's
+    templates a mail is. Without it two variants sharing every label but
+    differing in direction both validated, and whichever was tried first won:
+    a MoMo receipt posted as a payment. Verified on four real templates from
+    one provider (train, bus, cinema, shop payment) — four specs, no
+    cross-matching.
+  * **Figures and addresses no longer reach the model.** `parser/masking.py`
+    replaces them with `[MONEY_n]`/`[EMAIL_n]` before the prompt and exchanges
+    them back locally; `induce` was also leaking the reading as JSON alongside
+    a redacted body, which is fixed.
+  * **Five cash-flow fields** (`occurred_at`, `reference`, `account_tail`,
+    `description`, `channel`) plus two spec types (`date`, `token`).
+  * **No `.gcloudignore` existed.** Every deploy was uploading 23MB, 22MB of
+    it a local `.mypy_cache`. Now 13 files. It must live in each function
+    directory — gcloud reads it from `--source`, not from the working
+    directory.
+
+  **Three bugs that only real mail exposed, all fixed:**
+
+  1. Gmail returns `text/plain` when a mail has one, and there a line ending is
+     the ONLY field boundary. Collapsing newlines merged each label into the
+     value below it: `Tổng tiền` read back as `165.000đ Giá vé 165.000đ`.
+  2. `llm._shape_of` listed four field names in a literal, written when a
+     reading had four. It silently kept saying four after five were added, so
+     `induce` was never told a mail had a date and every learned spec dropped
+     `occurred_at` from the second mail onward.
+  3. A 400-day past bound on `occurred_at` rejected a real 2024 receipt — and
+     the cost was not one row: the mail never reached the LLM stage, so its
+     TEMPLATE was never learned. Removed; the future bound stays, since a date
+     ahead of now is the one that really means a misread.
+
+  **Fixtures are fetched, not saved from a browser** (`tools/fetch_fixtures.py`).
+  A saved page carries the Gmail interface, the whole inbox listing, and
+  Gmail's AI summary — which prints the amount a second time in wording no
+  bank uses. `tests/fixtures/{emails,bodies}` are gitignored: they are real
+  mail. `test_fixtures.py` therefore asserts properties, not values.
+
+  **Known limit: Gemini free tier is 20 requests/minute.** A new template costs
+  three calls (extract, induce, categorise), so a burst of unfamiliar mail hits
+  it. It fails safe — the call returns None and the mail reads as UNREAD, or
+  the category is left empty — but it is the current bottleneck.
+
+- **2026-08-22 (bank-email parser session, for Quang) — CLAIMING MIGRATION
+  `0071_email_parse_templates.sql`. Next free number after it is `0072`.**
+
+  Learned parse rules for bank-notification email templates, used by the
+  `transaction-parser` Cloud Function. One row per (source, spec): the first
+  mail off an unfamiliar template is read by an LLM which also proposes a
+  reusable rule; every later mail off that template is read by the rule with no
+  model involved. Service-role only, RLS on with no policies — same posture as
+  `0070_connected_accounts.sql`, and for the same reason: nothing here is
+  family-scoped or client-readable. Touches no existing table.
+
+  **Status: APPLIED to production (2026-08-22).** Verified after apply: RLS on
+  with 0 policies, no grants to anon/authenticated, 3 check constraints, and
+  the unique index refusing a duplicate spec whose keys were merely reordered.
+  Table is empty — nothing has been learned yet.
+
+  **The hand-written regex stage is GONE (`parser/parsing.py` deleted).** It
+  was tested against real mail and was right by luck: it read a MoMo receipt
+  correctly only because it matched the hyphen in "13:15 - 21/08/2026" as a
+  minus sign, and it read a Techcombank notice's ACCOUNT NUMBER as the balance
+  because "biến động số dư" in the opening sentence anchored the balance
+  pattern. Both are silent wrong-number bugs on a ledger. The cascade is now
+  two stages: stored rule, else LLM.
+
+  **Consequence for deploys: `GEMINI_API_KEY` is now REQUIRED for any template
+  the parser has not already learned.** Learned templates still need no model.
+  Verified end to end against the live API on five mails (one a real MoMo
+  receipt): 5/5 read correctly, 5/5 learned a rule, 5/5 second passes served
+  from the stored rule with no API call.
 
 - **2026-08-22 (UI session) — AUTO-LOGGING IS DONE UP TO THE SEAM. The consent
   screen opens on a real device and grants; everything past the Allow button is

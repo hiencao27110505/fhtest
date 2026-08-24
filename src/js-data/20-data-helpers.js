@@ -114,7 +114,7 @@
   // full=true for a write that can touch an out-of-window row (txn edit/delete, a
   // reaction on an old txn), so the change can't be silently dropped by the window.
   let _syncTimer = null;
-  function _syncSoon(full) { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} clearTimeout(_syncTimer); _syncTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(full ? {} : { windowed: true }); }, 700); }
+  function _syncSoon(full) { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} try { if (window.fhPersonalMirrorSoon) window.fhPersonalMirrorSoon(); } catch (e) {} clearTimeout(_syncTimer); _syncTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(full ? {} : { windowed: true }); }, 700); }
   // Is a loaded transaction (by DB id) older than the current refresh window? Unknown
   // id → treated as old (forces full) so an out-of-window change is never missed.
   function _isOldTxnById(dbId) {

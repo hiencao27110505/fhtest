@@ -1195,6 +1195,11 @@ input{font-family:inherit}
 @keyframes cf-wave{to{transform:translateX(-46px)}}
 @keyframes cf-bob{0%,100%{transform:translateY(var(--y))}50%{transform:translateY(calc(var(--y) + 1.4px))}}
 @media (prefers-reduced-motion:reduce){.cf-water,.cf-w1,.cf-w2{animation:none}}
+/* swipe indicator (Day · Week · Month) — sits under the guide, live month only */
+.cf-dots{display:flex;gap:5px;justify-content:center;align-items:center;padding:12px 0 2px}
+.cf-dots:empty{display:none}
+.cf-dots i{width:5px;height:5px;border-radius:50%;background:var(--fill-neutral);cursor:pointer;transition:width .2s ease,background .2s ease}
+.cf-dots i.on{width:16px;border-radius:3px;background:var(--good)}
 /* saving-goal sheet rows (#savegoal-list) */
 .sg-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:transparent;font:inherit;cursor:pointer;padding:14px 4px}
 .sg-row+.sg-row{border-top:1px solid var(--divider)}
@@ -1409,6 +1414,26 @@ input{font-family:inherit}
 .cash3 .c3 .k{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--muted);display:flex;align-items:center;gap:5px}
 .cash3 .c3 .k .ar{font-size:13px;font-weight:700}
 .cash3 .c3 .v{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.04em;color:var(--ink);margin-top:7px;font-variant-numeric:tabular-nums}
+/* ── Cá nhân tab (personal ledger) — reuses finance components; these are the
+   few net-new bits, styled to match the app (no inline styles in the renderer). */
+.pers-link{color:var(--brand-ink);font-weight:700;cursor:pointer}
+.pcard-code{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:.4px;text-align:center;
+  background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:16px 10px;margin:14px 0;word-break:break-all}
+.btn-line-full{width:100%;margin-top:10px}
+.pers-lock{text-align:center}
+.pers-lock-ic{font-size:34px}
+.pers-lock-t{font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.4px;margin-top:8px;color:var(--ink)}
+.pers-lock-s{font-size:13.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+.pers-lock-field{margin-top:14px}
+.pers-lock-field input{text-align:center}
+.pers-lock .cta{margin-top:12px}
+.pers-lock-err{font-size:12.5px;color:var(--danger);margin-top:8px;min-height:1px}
+.personal-ico{background:var(--fill-neutral)}
+.pers-r-ico{background:var(--brand-tint);color:var(--brand-ink)}
+.pers-r-ico svg{width:20px;height:20px}
+.pers-r-ico.priv{background:var(--fill-neutral);color:var(--muted)}
+.pers-lock-ic svg{width:40px;height:40px;color:var(--brand-ink)}
+
 /* Savings goals — ONE grouped card: the brief (goal-gradient framing) is the header,
    the goal list its body. A single border + shadow makes the whole thing read as one object. */
 .goal-card{background:var(--white);border:1px solid var(--hairline);border-radius:18px;margin:0 16px 12px;overflow:hidden;box-shadow:var(--shadow-card)}
@@ -3122,8 +3147,10 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     </div>
     <div class="wow" id="cf-wow" aria-hidden="true"></div>
     <div class="cf-note" id="cf-note"></div>
-    <!-- daily guide (current live month): "Hôm nay còn tiêu được" · tap opens the saving-goal sheet (renderDailyGuide) -->
+    <!-- daily guide (current live month): "Hôm nay còn tiêu được" · tap opens the saving-goal sheet (cfRenderGuide) -->
     <button class="cf-daily" id="cf-daily" type="button" onclick="openSaveGoal()" aria-label="Saving goal"></button>
+    <!-- swipe indicator: Day · Week · Month (live month only) — filled by cfSetDots -->
+    <div class="cf-dots" id="cf-dots" aria-hidden="true"></div>
     <!-- CTAs (V3): full-width nav rows into budget setup + the expense list -->
     <div class="cf-cta">
       <button class="cc-row" onclick="openSheet('sheet-budget')"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg></span><span class="cc-t" data-t="setupBudget">Set up budget</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -3230,6 +3257,16 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="spacer"></div>
 </section>
 
+<!-- CÁ NHÂN (personal ledger — 0071) -->
+<section class="view" id="v-personal">
+  <header class="child-hdr"><div class="ch-row"><div>
+    <div class="ch-title">Cá nhân</div>
+    <div class="ch-sub">Sổ của riêng bạn — gia đình không xem được</div>
+  </div></div></header>
+  <div id="pers-body"></div>
+  <div class="spacer"></div>
+</section>
+
 </div><!-- /scroll -->
 
 <!-- FLOATING ADD -->
@@ -3240,6 +3277,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <button class="tab on" id="t-home" onclick="go('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg><span data-t="tabHome">Home</span></button>
   <button class="tab" id="t-spending" onclick="go('spending')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg><span data-t="tabMoney">Finance</span></button>
   <button class="tab" id="t-events" onclick="go('events')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 16l4.5-4 3.5 3 4-3.5L21 16.5"/></svg><span data-t="tabMoments">Moments</span></button>
+  <button class="tab" id="t-personal" onclick="go('personal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg><span>Cá nhân</span></button>
 </nav>
 
 <!-- EVENT OVERLAY -->
@@ -3430,6 +3468,53 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <button class="qa" onclick="closeSheet();openSheet('sheet-suggest')"><div class="qi" style="background:linear-gradient(135deg,#B9B2C6,#8a8494)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20s-7-4.4-9.3-8.7C1.2 8 2.7 4.6 6 4.6c2 0 3.2 1.3 4 2.6.8-1.3 2-2.6 4-2.6 3.3 0 4.8 3.4 3.3 6.7C19 15.6 12 20 12 20z"/></svg></div><div><div class="qt" data-t="qaSuggestT">Share feedback</div><div class="qs" data-t="qaSuggestS">An idea or something you wish for</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
 </div>
 
+<!-- Personal card intro: the ONE secret to protect (shown once at provisioning) -->
+<div class="modal" id="sheet-pcard">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <span></span>
+    <div class="modal-title">Thẻ khóa cá nhân</div>
+    <button class="modal-save" onclick="closeModals()">Xong</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">Đây là chìa khóa <b>sổ cá nhân</b> của bạn — khác với thẻ của gia đình. Mất thẻ là mất dữ liệu cá nhân: không ai khôi phục được, kể cả chúng tôi.</div>
+    <div id="pcard-display" class="num pcard-code"></div>
+    <button class="cta" onclick="persCardSave()">Lưu tệp thẻ khóa</button>
+    <button class="btn-line btn-line-full" onclick="persCardCopy()">Sao chép</button>
+  </div>
+</div>
+
+<!-- Re-enter personal card (Settings → view code, when this device didn't cache it) -->
+<div class="modal" id="sheet-pcode">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title">Xem mã khóa cá nhân</div>
+    <button class="modal-save" onclick="persCodeSubmit()">Mở</button>
+  </div>
+  <div class="modal-body">
+    <div class="sheet-sub">Máy này đang mở sổ cá nhân nhưng chưa lưu mã khóa. Nhập lại mã khóa cá nhân bạn đã lưu lúc tạo để xem và lưu tại đây.</div>
+    <div class="field"><input id="pcode-in" placeholder="FH-XXXX-XXXX-…" autocomplete="off" autocapitalize="characters"></div>
+    <div id="pcode-err" class="pers-lock-err"></div>
+    <div class="sheet-sub" style="margin-top:16px">Lỡ mất hẳn mã khóa? Tạo mã mới từ dữ liệu đang mở trên máy này — mã cũ sẽ ngừng dùng.</div>
+    <button class="btn-line btn-line-full" onclick="persCodeRegen()">Tạo mã khóa cá nhân mới</button>
+  </div>
+</div>
+
+<!-- Personal income quick-add -->
+<div class="modal" id="sheet-pincome">
+  <div class="modal-grip"></div>
+  <div class="modal-nav">
+    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
+    <div class="modal-title">Thu nhập của bạn</div>
+    <button class="modal-save" onclick="persAddIncome()">Lưu</button>
+  </div>
+  <div class="modal-body">
+    <div class="field"><label>Số tiền</label><input id="pinc-amt" type="text" inputmode="numeric" class="num big" placeholder="15.000.000" onblur="snapAmtInput(this)"></div>
+    <div class="field"><label>Ghi chú</label><input id="pinc-note" placeholder="Lương tháng…"></div>
+  </div>
+</div>
+
 <div class="modal" id="sheet-suggest">
   <div class="modal-grip"></div>
   <div class="modal-nav">
@@ -3494,6 +3579,10 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <!-- The one live editor instance. renderBulk() relocates this node into the
          active row's mount; in edit mode it renders in place (bulk list stays empty). -->
     <div id="ex-editor">
+    <div class="field" id="ex-scopefield"><label>Ghi vào đâu?</label><div class="choices" id="ex-scope">
+      <button class="choice on" data-v="personal" onclick="pickExScope(this)">🔒 Cá nhân</button>
+      <button class="choice" data-v="family" onclick="pickExScope(this)">🏡 Gia đình</button>
+    </div></div>
     <div class="field">
       <label data-t="exWhatFor">What for?</label>
       <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()" onblur="onExNoteBlur()"/>
@@ -4096,6 +4185,9 @@ function go(name){
   var t=document.getElementById('t-'+name); if(t)t.classList.add('on');
   document.getElementById('scroll').scrollTop=0;
   if(name==='home' && typeof renderHome==='function'){ try{ renderHome(); }catch(e){} }   // fresh home (milestone shows on open)
+  // Cá nhân: FAB adds to the FAMILY — hide it here; the tab has its own quick-add.
+  var _fab=document.querySelector('.fab'); if(_fab) _fab.style.display=(name==='personal')?'none':'';
+  if(name==='personal'){ try{ if(typeof renderPersonal==='function') renderPersonal(); if(window.fhPersonalData && fhPersonalData().state==='boot' && window.fhPersonalBoot) fhPersonalBoot(); }catch(e){} }
 }
 /* Khoảnh Khắc has three inner sections: Dự định (plans) · Kỷ niệm (memories) · Album gia đình (album). */
 /* Khoảnh Khắc is one flat scroll now (like Tài Chính) — momSec glides to a section
@@ -4448,9 +4540,10 @@ function renderBudget(){
   renderCashflow();
 }
 /* Widget A — cash flow: what's LEFT this month (income − spent), the In/Out pair, and a
-   this-week-vs-last-week daily chart. Reuses renderBudget's month model + the same per-day
-   spend source as the hero's daily page. Cross-month weeks (early in the month, or a closed
-   month's first week) fall back to 0 for the unloaded days — the note stays within the month. */
+   swipeable chart + guide. On the current live month it becomes three periods — Day (buổi),
+   Week (7 ngày), Month (4 tuần) — sharing one bar language and one guide tile; swipe or tap
+   the dots to switch. Closed / past months keep the classic week chart + week-over-week note
+   (no periods). Reuses renderBudget's month model + the same per-day spend source. */
 function renderCashflow(){
   var host=document.getElementById('cf-left'); if(!host) return;
   var m=M(), spent=m.spent||0, income=window.monthIncome||0, left=income-spent;
@@ -4461,57 +4554,187 @@ function renderCashflow(){
   var daily=[]; for(var i=0;i<=dim;i++) daily[i]=0;
   (window.txns||[]).forEach(function(t){ if(!t.future && t.month===window.selMonth && t._d){ var dd=t._d.getDate(); if(dd>=1&&dd<=dim) daily[dd]+=t.amt; } });
 
-  // Monday-anchor the two weeks. "today" is dom for the live month, else the last day.
-  var today=done?dim:dom;
+  if(!window._cfSwipeBound){ cfBindSwipe(); window._cfSwipeBound=true; }
+  var live = (selMonth===curMonthKey() && !done);
+
+  if(!live){
+    // Classic view (past / closed month): week chart + week-over-week note, no periods.
+    var d0=cfWeekData(m, daily, done, dom, dim);
+    setHTMLIf('cf-wow', cfWeekChartHTML(d0, done));
+    setHTMLIf('cf-daily', '');
+    cfSetDots(-1);
+    cfWowNote(d0);
+    renderRequestsCta(); renderCashflowEmailCta();
+    return;
+  }
+
+  // Live month → three swipeable periods. The state-change push always tracks the DAY
+  // state (the meaningful daily alert), independent of which period is on screen.
+  cfMaybePush(m, daily);
+  var cfn0=document.getElementById('cf-note'); if(cfn0){ cfn0.className='cf-note'; cfn0.innerHTML=''; }
+
+  var period = window.cfPeriod|0;                        // 0 Day · 1 Week · 2 Month
+  if(period===0) cfRenderDay(m, daily);
+  else if(period===2) cfRenderMonth(m, daily);
+  else cfRenderWeek(m, daily, done, dom, dim);
+  cfSetDots(period);
+  renderRequestsCta(); renderCashflowEmailCta();
+}
+/* ----- period state + swipe / dots / auto-rotate ----- */
+try{ window.cfPeriod=parseInt(localStorage.getItem('fh-cfperiod')||'0',10); if(!(window.cfPeriod>=0&&window.cfPeriod<=2)) window.cfPeriod=0; }catch(e){ window.cfPeriod=0; }
+function cfApplyPeriod(i, persist){                        // change the view; persist only for manual picks
+  i=Math.max(0,Math.min(2,i|0)); if(i===(window.cfPeriod|0)) return;
+  window.cfPeriod=i; if(persist){ try{localStorage.setItem('fh-cfperiod',String(i));}catch(e){} } renderCashflow();
+}
+function setCfPeriod(i){ cfPauseAuto(); cfApplyPeriod(i, true); }   // dot tap / swipe: remember it + pause auto-rotate
+window.setCfPeriod=setCfPeriod;
+/* Auto-rotate Day → Week → Month every few seconds so all three are seen without swiping.
+   Any press pauses it; it resumes cfAuto.IDLE after the last touch. Runs only when the card is
+   on-screen, the tab is visible, and on the live month — and never under reduced motion. */
+var cfAuto={ paused:0, vis:false, timer:null, INT:4200, IDLE:8000 };
+function cfPauseAuto(){ cfAuto.paused=Date.now()+cfAuto.IDLE; }
+function cfStartAuto(card){
+  if(cfAuto.timer || !card) return;
+  if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;   // respect reduced motion
+  if('IntersectionObserver' in window){ try{ new IntersectionObserver(function(es){ cfAuto.vis=es[0].isIntersecting; },{threshold:.5}).observe(card); }catch(e){ cfAuto.vis=true; } }
+  else cfAuto.vis=true;
+  cfAuto.timer=setInterval(function(){
+    if(document.hidden || !cfAuto.vis) return;             // off-screen or backgrounded → hold
+    if(!(selMonth===curMonthKey()) || M().done) return;    // periods exist only on the live month
+    if(Date.now()<cfAuto.paused) return;                   // still cooling down after a manual touch
+    cfApplyPeriod(((window.cfPeriod|0)+1)%3, false);       // rotate (does not overwrite the saved pick)
+  }, cfAuto.INT);
+}
+function cfSetDots(active){
+  var box=document.getElementById('cf-dots'); if(!box) return;
+  if(active<0){ setHTMLIf(box, ''); return; }
+  var h=''; for(var i=0;i<3;i++) h+='<i class="'+(i===active?'on':'')+'" onclick="setCfPeriod('+i+')"></i>';
+  setHTMLIf(box, h);
+}
+function cfBindSwipe(){
+  var card=document.querySelector('.cf-card'); if(!card) return;
+  var x0=0,y0=0;
+  card.addEventListener('pointerdown', cfPauseAuto, {passive:true});   // any press (touch or mouse) pauses auto-rotate
+  card.addEventListener('touchstart',function(e){ var t=e.changedTouches[0]; x0=t.clientX; y0=t.clientY; },{passive:true});
+  card.addEventListener('touchend',function(e){
+    if(!(selMonth===curMonthKey()) || M().done) return;   // swipe only on the live month
+    var t=e.changedTouches[0], dx=t.clientX-x0, dy=t.clientY-y0;
+    if(Math.abs(dx)<40 || Math.abs(dx)<Math.abs(dy)*1.4) return;   // ignore taps + vertical scrolls
+    setCfPeriod((window.cfPeriod|0)+(dx<0?1:-1));           // left → later period, right → earlier
+  },{passive:true});
+  cfStartAuto(card);
+}
+/* ----- Week (period 1 = the classic chart) ----- */
+function cfWeekData(m, daily, done, dom, dim){
+  var today=done?dim:dom;                                 // "today" = dom live, else last day
   var iso=m._iso||((m.short||curMonthKey())+'-01');
   var base=new Date(iso.slice(0,7)+'-01T00:00:00'); base.setDate(today);
-  var wd=(base.getDay()+6)%7;                          // 0=Mon … 6=Sun
-  var monThis=today-wd;                                // day-of-month of this week's Monday (≤0 = prev month)
+  var wd=(base.getDay()+6)%7;                             // 0=Mon … 6=Sun
+  var monThis=today-wd;                                   // day-of-month of this week's Monday
   var cur=[], prev=[], maxV=1;
   for(var k=0;k<7;k++){
     var dc=monThis+k, dp=monThis-7+k;
-    var vc=(dc>=1&&dc<=dim&&(done||dc<=today))?daily[dc]:null;   // future days this week → null (no cur bar)
-    var vp=(dp>=1&&dp<=dim)?daily[dp]:0;                          // days outside the loaded month → 0
+    var vc=(dc>=1&&dc<=dim&&(done||dc<=today))?daily[dc]:null;   // future days → null (no cur bar)
+    var vp=(dp>=1&&dp<=dim)?daily[dp]:0;                          // days outside the month → 0
     cur.push(vc); prev.push(vp);
     if(vc!=null&&vc>maxV) maxV=vc; if(vp>maxV) maxV=vp;
   }
-  var DAYS=isVi()?['T2','T3','T4','T5','T6','T7','CN']:['M','T','W','T','F','S','S'];
-  var cols='';
+  return {cur:cur, prev:prev, monThis:monThis, today:today, maxV:maxV};
+}
+function cfWeekChartHTML(d, done){
+  var DAYS=isVi()?['T2','T3','T4','T5','T6','T7','CN']:['M','T','W','T','F','S','S'], cols='';
   for(var c=0;c<7;c++){
-    var ph=Math.round(prev[c]/maxV*100), fut=cur[c]==null;
-    var over=!fut && prev[c]>0 && cur[c]>prev[c];              // spent more than the same day last week
-    var ch=fut?0:(cur[c]>0?Math.max(Math.round(cur[c]/maxV*100),4):0);
-    var isToday=!done && (monThis+c)===today;
+    var ph=Math.round(d.prev[c]/d.maxV*100), fut=d.cur[c]==null;
+    var over=!fut && d.prev[c]>0 && d.cur[c]>d.prev[c];   // spent more than the same day last week
+    var ch=fut?0:(d.cur[c]>0?Math.max(Math.round(d.cur[c]/d.maxV*100),4):0);
+    var isToday=!done && (d.monThis+c)===d.today;
     cols+='<div class="wcol"><span class="wbars">'
       +'<i class="wb prev" style="height:'+ph+'%"></i>'
       +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
       +'</span><span class="wd'+(isToday?' on':'')+'">'+DAYS[c]+'</span></div>';
   }
-  setHTMLIf('cf-wow', cols);
-
-  // Current live month → the daily guide ("Hôm nay còn tiêu được"); other months → the
-  // week-over-week note. The daily guide only shows when a per-day threshold can be derived.
-  var shownDaily = (selMonth===curMonthKey() && !done) && renderDailyGuide(m, daily);
-  if(shownDaily){
-    var cfn0=document.getElementById('cf-note'); if(cfn0){ cfn0.className='cf-note'; cfn0.innerHTML=''; }
-  } else {
-    var dgh=document.getElementById('cf-daily'); if(dgh) dgh.innerHTML='';
-    // Note (highlighted tinted block): this week so far vs the SAME number of days last week.
-    var days=0, ts=0, ls=0;
-    for(var d=0;d<7;d++){ if(cur[d]!=null){ days++; ts+=cur[d]; ls+=prev[d]; } }
-    var diff=ts-ls, st='', note='';
-    if(days>0 && ls>0){
-      if(diff<0){ st='ok'; note='<span class="ni">▼</span>'+L('Giảm ','Down ')+'<b>'+fmt(-diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
-      else if(diff>0){ st='over'; note='<span class="ni">▲</span>'+L('Tăng ','Up ')+'<b>'+fmt(diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
-      else { st='flat'; note=L('Ngang cùng kỳ tuần trước','On par with last week'); }
-    } else if(days>0 && ts>0){
-      st='flat'; note=L('Tuần này đã chi ','Spent ')+'<b>'+fmt(ts)+'</b>'+L('',' this week');
-    }
-    var cfn=document.getElementById('cf-note');
-    if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
+  return cols;
+}
+function cfWowNote(d){                                     // classic week-over-week note (past months)
+  var days=0, ts=0, ls=0;
+  for(var i=0;i<7;i++){ if(d.cur[i]!=null){ days++; ts+=d.cur[i]; ls+=d.prev[i]; } }
+  var diff=ts-ls, st='', note='';
+  if(days>0 && ls>0){
+    if(diff<0){ st='ok'; note='<span class="ni">▼</span>'+L('Giảm ','Down ')+'<b>'+fmt(-diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
+    else if(diff>0){ st='over'; note='<span class="ni">▲</span>'+L('Tăng ','Up ')+'<b>'+fmt(diff)+'</b> '+L('so với cùng kỳ tuần trước','vs the same days last week'); }
+    else { st='flat'; note=L('Ngang cùng kỳ tuần trước','On par with last week'); }
+  } else if(days>0 && ts>0){
+    st='flat'; note=L('Tuần này đã chi ','Spent ')+'<b>'+fmt(ts)+'</b>'+L('',' this week');
   }
-  renderRequestsCta();
-  renderCashflowEmailCta();
+  var cfn=document.getElementById('cf-note');
+  if(cfn){ cfn.className='cf-note'+(st?' '+st:''); if(cfn.innerHTML!==note) cfn.innerHTML=note; }
+}
+function cfRenderWeek(m, daily, done, dom, dim){
+  var d=cfWeekData(m, daily, done, dom, dim);
+  setHTMLIf('cf-wow', cfWeekChartHTML(d, done));
+  cfPeriodGuide(m, daily, 'week');
+}
+/* ----- Day (period 0 = buổi breakdown: today vs yesterday) ----- */
+function cfBuoiIdx(h){ return (h>=5&&h<11)?0:(h>=11&&h<14)?1:(h>=14&&h<18)?2:3; }   // Sáng·Trưa·Chiều·Tối
+function cfRenderDay(m, daily){
+  var dom=m.dom, yday=dom-1, curB=cfBuoiIdx(new Date().getHours());
+  var cur=[0,0,0,0], prev=[0,0,0,0];                       // today's buổi vs yesterday's (same faint reference as Week/Month)
+  (window.txns||[]).forEach(function(t){
+    if(t.future || t.month!==window.selMonth || !t._d) return;
+    var d=t._d.getDate(); if(d!==dom && d!==yday) return;
+    var h=t._ts ? t._ts.getHours() : null, b=(h==null?curB:cfBuoiIdx(h));   // logged-time proxy; unknown → current buổi
+    if(d===dom) cur[b]+=t.amt; else prev[b]+=t.amt;
+  });
+  var LB=isVi()?['Sáng','Trưa','Chiều','Tối']:['Morning','Midday','Afternoon','Evening'];
+  var maxV=1; for(var i=0;i<4;i++){ if(cur[i]>maxV) maxV=cur[i]; if(prev[i]>maxV) maxV=prev[i]; }
+  var cols='';
+  for(var j=0;j<4;j++){
+    var ph=Math.round(prev[j]/maxV*100), fut=j>curB;       // a buổi still ahead today → yesterday's bar only (no cur)
+    var over=!fut && prev[j]>0 && cur[j]>prev[j];          // more than the same buổi yesterday
+    var ch=fut?0:(cur[j]>0?Math.max(Math.round(cur[j]/maxV*100),4):0);
+    cols+='<div class="wcol"><span class="wbars">'
+      +'<i class="wb prev" style="height:'+ph+'%"></i>'
+      +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
+      +'</span><span class="wd'+(j===curB?' on':'')+'">'+LB[j]+'</span></div>';
+  }
+  setHTMLIf('cf-wow', cols);
+  cfPeriodGuide(m, daily, 'day');
+}
+/* ----- Month (period 2 = 4 tuần, this month vs last) ----- */
+function cfMonthBuckets(daily, dim){
+  var b=[0,0,0,0], hi=[7,14,21,dim];
+  for(var i=0;i<4;i++){ var lo=[1,8,15,22][i]; for(var d=lo; d<=hi[i]; d++){ if(daily[d]) b[i]+=daily[d]; } }
+  return b;
+}
+function cfPrevMonthDaily(m){                              // last calendar month's per-day spend (for faint bars)
+  var iso=m._iso||((m.short||curMonthKey())+'-01');
+  var d0=new Date(iso.slice(0,7)+'-01T00:00:00'), pd=new Date(d0.getFullYear(), d0.getMonth()-1, 1);
+  var pkey=_MOA[pd.getMonth()], pmObj=months[pkey];
+  var pdim=pmObj?pmObj.dim:new Date(pd.getFullYear(), pd.getMonth()+1, 0).getDate();
+  var arr=[]; for(var i=0;i<=pdim;i++) arr[i]=0;
+  (window.txns||[]).forEach(function(t){ if(!t.future && t.month===pkey && t._d){ var dd=t._d.getDate(); if(dd>=1&&dd<=pdim) arr[dd]+=t.amt; } });
+  return {arr:arr, dim:pdim};
+}
+function cfRenderMonth(m, daily){
+  var dim=m.dim, dom=m.dom;
+  var cur=cfMonthBuckets(daily, dim);
+  var pv=cfPrevMonthDaily(m), prev=cfMonthBuckets(pv.arr, pv.dim);
+  var curW=dom<=7?0:dom<=14?1:dom<=21?2:3, starts=[1,8,15,22];
+  var LB=isVi()?['Tuần 1','Tuần 2','Tuần 3','Tuần 4']:['W1','W2','W3','W4'];
+  var maxV=1; for(var i=0;i<4;i++){ if(cur[i]>maxV) maxV=cur[i]; if(prev[i]>maxV) maxV=prev[i]; }
+  var cols='';
+  for(var j=0;j<4;j++){
+    var fut=starts[j]>dom;                                 // a week that hasn't started yet → no cur bar
+    var ph=Math.round(prev[j]/maxV*100);
+    var over=!fut && prev[j]>0 && cur[j]>prev[j];
+    var ch=fut?0:(cur[j]>0?Math.max(Math.round(cur[j]/maxV*100),4):0);
+    cols+='<div class="wcol"><span class="wbars">'
+      +'<i class="wb prev" style="height:'+ph+'%"></i>'
+      +(fut?'':'<i class="wb cur'+(over?' over':'')+'" style="height:'+ch+'%"></i>')
+      +'</span><span class="wd'+(j===curW?' on':'')+'">'+LB[j]+'</span></div>';
+  }
+  setHTMLIf('cf-wow', cols);
+  cfPeriodGuide(m, daily, 'month');
 }
 /* Daily guide — "Hôm nay còn tiêu được": a per-day allowance minus what's been spent today.
    The allowance is the SAVER of (a) last month's daily average and (b) the budget-pace daily
@@ -4523,41 +4746,74 @@ var DG_STATES={
   orange:{main:'#ef5f37',mut:'#a63e22',bg:'#fdeee9',trk:'rgba(239,95,55,.18)'},
   red:{main:'#e0483f',mut:'#a5645c',bg:'#fdeeec',trk:'rgba(224,72,63,.18)'}
 };
-function dgBase(m, daily){                                    // per-day norm, before the saving goal
+function dgBase(m, daily){                                    // per-day norm (pre-goal) — used only by the goal-sheet estimate
   var spent=m.spent||0, spentToday=(daily&&daily[m.dom])||0, reserved=m.done?0:monthReserved();
   var prevKey=_MOA[(TODAY.getMonth()+11)%12], pm=months[prevKey];
-  var prevDaily=(pm && pm.spent>0 && pm.dim>0) ? pm.spent/pm.dim : null;   // last month's daily average
+  var prevDaily=(pm && pm.spent>0 && pm.dim>0) ? pm.spent/pm.dim : null;
   var remBudget=(m.budget||0)-(spent-spentToday)-reserved, daysLeft=Math.max(1, m.dim-m.dom+1);
-  // Budget-pace allowance — but DROP it (not zero it) once the month's budget is blown,
-  // otherwise min(prevDaily, 0)=0 would hide the guide exactly when it matters most.
   var budgetDaily=(m.budget>0 && remBudget>0) ? remBudget/daysLeft : null;
   var cand=[]; if(prevDaily!=null)cand.push(prevDaily); if(budgetDaily!=null)cand.push(budgetDaily);
-  if(cand.length) return Math.min.apply(null,cand);                        // the saver of the available signals
-  return (m.budget>0)?m.budget/m.dim:((window.monthIncome||0)/m.dim||0);   // fallback: even monthly pace
+  if(cand.length) return Math.min.apply(null,cand);
+  return (m.budget>0)?m.budget/m.dim:((window.monthIncome||0)/m.dim||0);
 }
-function dgThreshold(m, daily){ return dgBase(m,daily)*(1-(window.saveGoalPct||0)/100); }
-function renderDailyGuide(m, daily){
-  var host=document.getElementById('cf-daily'); if(!host) return false;
-  var threshold=dgThreshold(m,daily);
-  if(!(threshold>0)){ host.innerHTML=''; return false; }
-  var spentToday=daily[m.dom]||0, remain=threshold-spentToday;
-  var pct=remain/threshold, over=remain<0;
-  var key = over?'red' : (pct<=0.20?'orange':(pct<=0.50?'yellow':'green'));
-  // State-change push (E2EE-safe · client-side): only the device that just logged an
-  // expense fires (window._dgLocalAdd), only when today's state worsens, never on green.
-  // The actor gate + fhNotify's per-kind cooldown stop other devices' realtime re-renders
-  // from double-sending; window.dgStateDay resets the baseline at the start of each day.
+/* The ONE atomic allowance every period is sliced from — so Day ⊆ Week ⊆ Month always, and
+   they can never contradict. It is what's still available from the START of today, spread over
+   the days left this month, capped by last month's pace (the saver) and tightened by the goal.
+   Crucially it is NOT floored: when the budget is blown it goes negative, so every period reads
+   "over" together instead of one staying cheerfully green. Returns null only when there is no
+   basis at all (no budget, no history, no income) → the guide hides. */
+function cfPerDay(m, daily){
+  var spent=m.spent||0, spentToday=(daily&&daily[m.dom])||0, reserved=m.done?0:monthReserved();
+  var spentBefore=spent-spentToday, daysLeft=Math.max(1, m.dim-m.dom+1);
+  var prevKey=_MOA[(TODAY.getMonth()+11)%12], pm=months[prevKey];
+  var prevDaily=(pm && pm.spent>0 && pm.dim>0) ? pm.spent/pm.dim : null;   // last month's daily average
+  var budgetPerDay=(m.budget>0) ? ((m.budget-spentBefore-reserved)/daysLeft) : null;   // remaining budget spread over remaining days (may be ≤0)
+  var base;
+  if(budgetPerDay!=null && prevDaily!=null) base=Math.min(prevDaily, budgetPerDay);    // saver of the two signals
+  else if(budgetPerDay!=null) base=budgetPerDay;
+  else if(prevDaily!=null) base=prevDaily;
+  else { var inc=window.monthIncome||0; base = inc>0 ? inc/m.dim : null; }
+  if(base==null) return null;
+  return base*(1-(window.saveGoalPct||0)/100);
+}
+function cfDaysLeftWeek(m, dLeftMonth){                       // today → Sunday (clamped to the month's end)
+  var d=new Date((m._iso||((m.short||curMonthKey())+'-01')).slice(0,7)+'-01T00:00:00'); d.setDate(m.dom);
+  return Math.min(7-((d.getDay()+6)%7), dLeftMonth);          // Mon=0 … Sun=6 → 7-idx days incl. today
+}
+function dgKey(remain, threshold){ if(remain<0) return 'red'; var pct=threshold>0?remain/threshold:0; return pct<=0.20?'orange':(pct<=0.50?'yellow':'green'); }
+/* State-change push (E2EE-safe · client-side): tracks the DAY state regardless of which period
+   is on screen. Only the device that just logged an expense fires (window._dgLocalAdd), only
+   when today's state worsens, never on green. The actor gate + fhNotify's per-kind cooldown stop
+   other devices' realtime re-renders from double-sending; window.dgStateDay resets each day. */
+function cfMaybePush(m, daily){
+  var perDay=cfPerDay(m,daily);
+  if(perDay==null){ window._dgLocalAdd=false; return; }
+  var remain=perDay-(daily[m.dom]||0), key=dgKey(remain, perDay);
   var _ord={green:0,yellow:1,orange:2,red:3};
   var _prev=(window.dgStateDay===m.dom)?(window.dgState||'green'):'green';
   if(window._dgLocalAdd && _ord[key]>_ord[_prev] && key!=='green' && typeof fhNotify==='function'){ fhNotify('dgstate',{state:key}); }
   window.dgState=key; window.dgStateDay=m.dom; window._dgLocalAdd=false;
+}
+/* One guide, sliced per period: how much MORE can be spent for the rest of this period
+   (today → end of day / week / month) = perDay × days-left-in-period − spent today. Same UI,
+   same colour states; Day ≤ Week ≤ Month by construction, and all read "over" together. */
+function cfPeriodGuide(m, daily, periodKey){
+  var perDay=cfPerDay(m, daily), dLeftMonth=Math.max(1, m.dim-m.dom+1);
+  var days = periodKey==='day' ? 1 : (periodKey==='week' ? cfDaysLeftWeek(m, dLeftMonth) : dLeftMonth);
+  var host=document.getElementById('cf-daily'); if(!host) return false;
+  if(perDay==null){ setHTMLIf(host, ''); return false; }     // no basis for guidance → hide the tile
+  var threshold=perDay*days, remain=threshold-(daily[m.dom]||0), over=remain<0, key=dgKey(remain, threshold);
   window.cfDailyState=key;
-  var s=DG_STATES[key], level=Math.max(0,Math.min(100,pct*100));
-  var label = over ? L('Hôm nay đã vượt','Over today') : L('Hôm nay còn tiêu được','Left to spend today');
+  var s=DG_STATES[key], level=(threshold>0)?Math.max(0,Math.min(100,remain/threshold*100)):0;
+  var LBL={
+    day:  over?L('Hôm nay đã vượt','Over today')       :L('Hôm nay còn tiêu được','Left to spend today'),
+    week: over?L('Tuần này đã vượt','Over this week')   :L('Tiêu được tuần này','Left this week'),
+    month:over?L('Tháng này đã vượt','Over this month') :L('Tiêu được tháng này','Left this month')
+  };
   var amt = over ? fmt(-remain) : fmt(Math.max(0,remain));
   host.style.background=s.bg;
   setHTMLIf(host,
-    '<span class="dg-lbl" style="color:'+s.mut+'">'+label+'</span>'
+    '<span class="dg-lbl" style="color:'+s.mut+'">'+LBL[periodKey]+'</span>'
     +'<span class="dg-amt num" style="color:'+s.main+'">'+amt+'</span>'
     +'<span class="dg-vis">'+cfWaterSVG(level,s,over)+'</span>');
   return true;
@@ -4893,6 +5149,232 @@ function setBudget(){
   window.__catDeletes=catOrder.filter(function(c){ return !kept[c]; });
   catOrder=newOrder; catStyle=newStyle; catBudget=newBudget;
   renderAll(); renderTxns(); closeModals(); toast(L('Đã cập nhật danh mục','Categories updated'));
+}
+
+/* ── Cá nhân tab (personal ledger) ──
+   Renders window.fhPersonalData() into #v-personal, using the SAME visual system
+   and composition as the Finance tab: a focal cash-flow card (Còn lại + In/Out
+   tiles + week-over-week chart + note + daily "còn tiêu được" guide) followed by
+   section cards. Reuses the finance widget's own helpers (cfWeekChartHTML,
+   cfWaterSVG, DG_STATES, dgKey) so it stays in lockstep with the family version.
+   Icons are drawn SVG (app convention); emoji appear only as category marks. */
+var PIC = {
+  house: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
+  lock:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>',
+  plus:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  chev:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>'
+};
+
+/* personal per-day spend for the live month → daily[], dim, dom */
+function persDaily(){
+  var P=fhPersonalData(), now=new Date(), y=now.getFullYear(), mo=now.getMonth();
+  var dim=new Date(y,mo+1,0).getDate(), dom=now.getDate(), daily=[];
+  for(var i=0;i<=dim;i++) daily[i]=0;
+  (P.txns||[]).forEach(function(t){
+    if(t.kind!=='expense' || !t.date) return;
+    var d=new Date(t.date+'T00:00:00'); if(d.getFullYear()!==y || d.getMonth()!==mo) return;
+    var dd=d.getDate(); if(dd>=1 && dd<=dim) daily[dd]+=(t.amt||0);
+  });
+  return {daily:daily, dim:dim, dom:dom};
+}
+/* this week (Mon→Sun containing today) vs last week — shape cfWeekChartHTML expects */
+function persWeekData(daily, dom, dim){
+  var base=new Date(); base.setDate(dom); var wd=(base.getDay()+6)%7, monThis=dom-wd;
+  var cur=[], prev=[], maxV=1;
+  for(var k=0;k<7;k++){
+    var dc=monThis+k, dp=monThis-7+k;
+    var vc=(dc>=1&&dc<=dim&&dc<=dom)?daily[dc]:null, vp=(dp>=1&&dp<=dim)?daily[dp]:0;
+    cur.push(vc); prev.push(vp);
+    if(vc!=null&&vc>maxV)maxV=vc; if(vp>maxV)maxV=vp;
+  }
+  return {cur:cur, prev:prev, monThis:monThis, today:dom, maxV:maxV};
+}
+
+function renderPersonal(){
+  var host = document.getElementById('pers-body'); if(!host) return;
+  var P = window.fhPersonalData ? fhPersonalData() : null;
+  if(!P){ host.innerHTML=''; return; }
+
+  if(P.state==='provisioning' || P.state==='boot' || P.state==='loading'){
+    host.innerHTML = '<div class="empty-note">Đang chuẩn bị sổ cá nhân của bạn…</div>'; return;
+  }
+  if(P.state==='error'){
+    host.innerHTML = '<div class="empty-note">Chưa tải được sổ cá nhân. <a class="pers-link" onclick="fhPersonalBoot()">Thử lại</a></div>'; return;
+  }
+  if(P.state==='locked'){
+    host.innerHTML =
+      '<div class="card pers-lock">'+
+      '<div class="pers-lock-ic">'+PIC.lock+'</div>'+
+      '<div class="pers-lock-t">Sổ cá nhân đang khóa</div>'+
+      '<div class="pers-lock-s">Nhập thẻ khóa <b>cá nhân</b> của bạn (khác thẻ của gia đình) để mở trên máy này.</div>'+
+      '<div class="field pers-lock-field"><input id="pers-card-in" placeholder="FH-XXXX-XXXX-…" autocomplete="off" autocapitalize="characters"></div>'+
+      '<button class="cta" onclick="persUnlock()">Mở sổ cá nhân</button>'+
+      '<div id="pers-unlock-err" class="pers-lock-err"></div>'+
+      '</div>';
+    return;
+  }
+
+  /* ready — amounts are base units (thousands of VND); fmt() applies curMult(). */
+  var mon = new Date().toISOString().slice(0,7);
+  var txM = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense'; });
+  var out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
+  var inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon; }).reduce(function(s,i){ return s+(i.amt||0); },0);
+  var left = inc-out;
+  var famName = function(fid){ var f=(P.fams||[]).find(function(x){return x.family_id===fid;}); return f? f.name : 'Nhóm'; };
+
+  /* ── week-over-week chart (reuse the finance chart builder) ── */
+  var pd=persDaily(), wk=persWeekData(pd.daily, pd.dom, pd.dim);
+  var chart = (typeof cfWeekChartHTML==='function') ? cfWeekChartHTML(wk, false) : '';
+
+  /* ── note: this week vs the same days last week (mirror cfWowNote) ── */
+  var noteState='', noteHTML='';
+  if(!P.mirrorRan){ noteState='flat'; noteHTML='Đang đồng bộ các khoản bạn đã ghi cho gia đình…'; }
+  else {
+    var wdays=0, ts=0, ls=0;
+    for(var i=0;i<7;i++){ if(wk.cur[i]!=null){ wdays++; ts+=wk.cur[i]; ls+=wk.prev[i]; } }
+    var diff=ts-ls;
+    if(wdays>0 && ls>0){
+      if(diff<0){ noteState='ok'; noteHTML='<span class="ni">▼</span>Giảm <b>'+fmt(-diff)+'</b> so với cùng kỳ tuần trước'; }
+      else if(diff>0){ noteState='over'; noteHTML='<span class="ni">▲</span>Tăng <b>'+fmt(diff)+'</b> so với cùng kỳ tuần trước'; }
+      else { noteState='flat'; noteHTML='Ngang cùng kỳ tuần trước'; }
+    } else if(wdays>0 && ts>0){ noteState='flat'; noteHTML='Tuần này đã chi <b>'+fmt(ts)+'</b>'; }
+  }
+
+  /* ── daily guide: "Hôm nay còn tiêu được" (remaining money spread over days left) ── */
+  var dailyHTML='';
+  var spentToday=pd.daily[pd.dom]||0, daysLeft=Math.max(1, pd.dim-pd.dom+1);
+  var avail=inc-(out-spentToday);                          // money for the rest of the month, today included
+  var threshold=(inc>0 && avail>0)? avail/daysLeft : 0;    // needs income to have a meaningful allowance
+  if(threshold>0 && typeof cfWaterSVG==='function' && typeof DG_STATES!=='undefined'){
+    var remain=threshold-spentToday, over=remain<0;
+    var key=(typeof dgKey==='function')? dgKey(remain,threshold) : (remain<0?'red':(remain/threshold<=.2?'orange':(remain/threshold<=.5?'yellow':'green')));
+    var s=DG_STATES[key], level=Math.max(0,Math.min(100,remain/threshold*100));
+    var amt=over? fmt(-remain) : fmt(Math.max(0,remain));
+    dailyHTML='<div class="cf-daily" style="background:'+s.bg+'">'
+      +'<span class="dg-lbl" style="color:'+s.mut+'">'+(over?'Hôm nay đã vượt':'Hôm nay còn tiêu được')+'</span>'
+      +'<span class="dg-amt num" style="color:'+s.main+'">'+amt+'</span>'
+      +'<span class="dg-vis">'+cfWaterSVG(level,s,over)+'</span></div>';
+  }
+
+  var h = '';
+  h += '<section class="cf-card">'
+     + '<div class="cf-lbl">Còn lại tháng này · cá nhân</div>'
+     + '<div class="cf-big num'+(left<0?' neg':'')+'">'+fmt(left)+'</div>'
+     + '<div class="cf-tiles">'
+     +   '<button class="cf-tile" onclick="openSheet(\'sheet-pincome\')"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">'+fmt(inc)+'</span></button>'
+     +   '<button class="cf-tile" onclick="persScrollTx()"><span class="cf-tl"><span class="cf-ar dn">↓</span> Ra</span><span class="cf-tv num">'+fmt(out)+'</span></button>'
+     + '</div>'
+     + '<div class="wow" aria-hidden="true">'+chart+'</div>'
+     + '<div class="cf-note '+noteState+'">'+noteHTML+'</div>'
+     + dailyHTML
+     + '<div class="cf-cta"><button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi khoản chi riêng tư</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button></div>'
+     + '</section>';
+
+  /* ── Các nhóm của tôi — per-space roll-up (drawn icons) ── */
+  var bySpace = {};
+  txM.forEach(function(t){ var k=t.spaceId||'_p'; bySpace[k]=(bySpace[k]||0)+(t.amt||0); });
+  var spKeys = Object.keys(bySpace).filter(function(k){ return k!=='_p'; });
+  h += '<div class="section-h"><span class="t">Các nhóm của tôi</span></div><div class="rows">';
+  if(spKeys.length){
+    spKeys.forEach(function(k){
+      h += '<div class="row"><div class="r-ico pers-r-ico">'+PIC.house+'</div><div class="r-body"><div class="r-t">'+famName(k)+'</div>'
+         + '<div class="r-s">Bạn đã chi cho nhóm tháng này</div></div><div class="r-amt num">'+fmt(bySpace[k])+'</div></div>';
+    });
+  } else {
+    h += '<div class="empty-note">Các khoản bạn ghi cho gia đình sẽ tự xuất hiện ở đây.</div>';
+  }
+  if(bySpace['_p']) {
+    h += '<div class="row"><div class="r-ico pers-r-ico priv">'+PIC.lock+'</div><div class="r-body"><div class="r-t">Riêng tư</div>'
+       + '<div class="r-s">Chỉ mình bạn thấy</div></div><div class="r-amt num">'+fmt(bySpace['_p'])+'</div></div>';
+  }
+  h += '</div>';
+
+  /* ── Giao dịch của bạn — category emoji is the only emoji (content mark) ── */
+  h += '<div class="section-h" id="pers-tx"><span class="t">Giao dịch của bạn</span></div><div class="rows">';
+  if(P.txns.length){
+    P.txns.slice(0,30).forEach(function(t){
+      h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>'
+         + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
+         + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
+         + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';
+    });
+  } else {
+    h += '<div class="empty-note">Chưa có giao dịch nào trong sổ cá nhân.</div>';
+  }
+  h += '</div>';
+  host.innerHTML = h;
+}
+function persScrollTx(){ var el=document.getElementById('pers-tx'), sc=document.getElementById('scroll'); if(el&&sc){ var y=Math.max(0, el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 70); sc.scrollTo({top:y,behavior:'smooth'}); } }
+
+function persUnlock(){
+  var el=document.getElementById('pers-card-in'), err=document.getElementById('pers-unlock-err');
+  if(!el) return;
+  fhPersonalUnlock(el.value).then(function(r){
+    if(!r.ok && err) err.textContent = (r.error==='checksum'||r.error==='wrong_card') ? 'Thẻ không đúng — kiểm tra lại từng nhóm ký tự.' : 'Chưa mở được ('+r.error+').';
+  });
+}
+
+/* personal card intro — the ONE secret to protect */
+function fhPCardIntro(){
+  var c = window.__fhPersonalCard; if(!c) return;
+  var d = document.getElementById('pcard-display'); if(d) d.textContent = c.display;
+  openSheet('sheet-pcard');
+}
+/* View the personal code later (Settings → Mã hoá tài chính). Shows the card
+   cached on this device; save/copy reuse the same sheet-pcard buttons. */
+window.fhPersonalCardShow = function(){
+  var disp = window.fhPersonalCardCached && fhPersonalCardCached();
+  if(disp){
+    window.__fhPersonalCard = { display: disp };
+    var d = document.getElementById('pcard-display'); if(d) d.textContent = disp;
+    openSheet('sheet-pcard');
+    return;
+  }
+  // DEK is on the device (ledger opens) but the card string was never saved here
+  // (provisioned before caching shipped). Re-enter the card you saved to re-cache it.
+  var e2=document.getElementById('pcode-err'); if(e2) e2.textContent='';
+  var inp=document.getElementById('pcode-in'); if(inp) inp.value='';
+  openSheet('sheet-pcode');
+};
+/* re-enter the personal card to re-cache it on this device, then show it */
+function persCodeSubmit(){
+  var el=document.getElementById('pcode-in'), err=document.getElementById('pcode-err');
+  if(!el) return;
+  fhPersonalUnlock(el.value).then(function(r){
+    if(r.ok){ closeModals(); setTimeout(function(){ if(window.fhPersonalCardShow) fhPersonalCardShow(); }, 260); }
+    else if(err){ err.textContent = (r.error==='checksum'||r.error==='wrong_card') ? 'Mã không đúng — kiểm tra lại từng nhóm ký tự.' : (r.error==='no_wrap'?'Không tìm thấy khóa của sổ cá nhân.':'Chưa mở được ('+r.error+').'); }
+  });
+}
+/* Lost the card entirely? Mint a new one from the DEK still on this device. */
+function persCodeRegen(){
+  var err=document.getElementById('pcode-err');
+  var P=window.fhPersonalData?fhPersonalData():null;
+  if(!P||!P.key){ if(err) err.textContent='Cần mở sổ cá nhân trước (dữ liệu đang khóa).'; return; }
+  if(err){ err.style.color='var(--muted)'; err.textContent='Đang tạo mã khóa mới & mã hóa lại dữ liệu…'; }
+  fhPersonalRegen(function(n,tot){ if(err) err.textContent='Đang mã hóa lại… '+n+'/'+tot; }).then(function(r){
+    if(err) err.style.color='';
+    if(r.ok){ closeModals(); setTimeout(function(){ renderPersonal(); if(window.fhPersonalCardShow) fhPersonalCardShow(); }, 200); window.toast && toast(L('Đã tạo mã khóa cá nhân mới — nhớ lưu lại nhé','New personal code created — save it this time')); }
+    else if(err){ err.style.color='var(--danger)'; err.textContent = r.error==='busy'?'Đang xử lý…':(r.error==='locked'?'Cần mở sổ cá nhân trước.':'Chưa tạo được, thử lại.'); }
+  });
+}
+function persCardCopy(){
+  var c = window.__fhPersonalCard; if(!c) return;
+  (navigator.clipboard && navigator.clipboard.writeText(c.display)).then(function(){ window.toast && toast('Đã sao chép thẻ khóa'); });
+}
+function persCardSave(){
+  var c = window.__fhPersonalCard; if(!c) return;
+  var blob = new Blob(['FamilyHub — Thẻ khóa CÁ NHÂN của bạn\n\n'+c.display+'\n\nĐây là chìa khóa dữ liệu cá nhân. Cất kỹ — mất thẻ là mất dữ liệu, không ai khôi phục được (kể cả chúng tôi).'], {type:'text/plain'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'FamilyHub-The-khoa-ca-nhan.txt'; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+}
+
+/* personal income quick-add (expense now goes through the shared expense modal
+   via openPersonalExpense — one capture flow, scope-picked). */
+function persAddIncome(){
+  var amt = parseAmtBase((document.getElementById('pinc-amt')||{}).value||'');
+  var note = ((document.getElementById('pinc-note')||{}).value||'').trim();
+  if(!amt || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
+  fhPersonalAddIncome(amt, note).then(function(ok){ if(ok){ closeModals(); renderPersonal(); window.toast && toast('Đã ghi thu nhập'); } });
 }
 
 /* ---------- Home — the emotional feed ("moment engine") ----------
@@ -7382,8 +7864,32 @@ function openExpense(preset){
   var m=document.getElementById('expense-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
   var body=m.querySelector('.modal-body'); if(body)body.scrollTop=0;
   if(editingTx) fillExpenseFromTx(); else prefillExpense();
+  // Scope picker: hidden while editing (scope is fixed once logged); resets to
+  // family on every fresh open so a prior personal pick never carries over.
+  var sf=document.getElementById('ex-scopefield'); if(sf) sf.style.display = editingTx? 'none':'';
+  if(!editingTx){
+    // Personal-first: money is the person's by default, shared to a space only
+    // on purpose. Fall back to family only if the personal ledger isn't ready
+    // (locked / not provisioned) so capture never dead-ends. Last pick is
+    // remembered so a family-heavy session isn't re-picking every time.
+    var pd=window.fhPersonalData&&fhPersonalData(); var pReady=!!(pd&&pd.key);
+    var want=(preset&&preset.scope) || (pReady ? (_lastScope()||'personal') : 'family');
+    _applyExScope(want);
+  }
 }
 function closeExpense(){ closeModals(); }
+// Open the shared expense modal pre-scoped to the personal ledger (Cá nhân tab).
+function openPersonalExpense(){ openExpense({scope:'personal'}); }
+function _lastScope(){ try{ return localStorage.getItem('fh-last-scope'); }catch(e){ return null; } }
+function pickExScope(btn){ pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} _applyExScope(btn.dataset.v); }
+function _applyExScope(v){
+  var personal=(v==='personal');
+  selectChipByVal('ex-scope', v);
+  var who=document.getElementById('ex-whofield'); if(who) who.style.display=personal?'none':'';   // no member-split in a private ledger
+  var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=personal?'none':'';     // personal photos not wired yet
+  var bulk=document.getElementById('bulk-add'); if(bulk) bulk.style.display=personal?'none':'';     // keep personal single for now
+  var t=document.getElementById('ex-title'); if(t) t.textContent = personal? L('Khoản chi cá nhân','Personal expense') : L('Ghi khoản chi','Log an expense');
+}
 /* Drag a bottom sheet / modal DOWN to dismiss — axis-locked so it never fights scrolling. */
 function initSheetDrag(sheet, closeFn){
   closeFn = closeFn || closeSheet;
@@ -8564,6 +9070,9 @@ function fillExpenseFromTx(){
   refreshExCta();                                          // Save stays disabled until the first edit
 }
 function submitExpense(){
+  // Personal scope: route to the personal ledger and bail before any family
+  // write — the family path below stays byte-identical (early return).
+  if(!editingTx && typeof chosen==='function' && chosen('ex-scope')==='personal'){ _submitPersonalExpense(); return; }
   if(!editingTx){
     // Parse/split whatever is still in the input (the user may tap Lưu without blurring first).
     if(typeof commitActiveRow==='function') commitActiveRow();
@@ -8583,6 +9092,27 @@ function submitExpense(){
   // addExpense() bails without closing when the form is invalid; only drop the
   // photos from the batch once the expense actually landed.
   if(adopting && !document.getElementById('expense-modal').classList.contains('on')) paAdopt();
+}
+
+/* Personal-scope save: writes each draft row straight into the personal ledger
+   (space_id null → private), never the family. Mirrors addExpense's finish
+   (clear drafts, close, toast) so the flow feels identical. */
+async function _submitPersonalExpense(){
+  var pd=window.fhPersonalData&&fhPersonalData();
+  if(!pd||!pd.key){ window.toast&&toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first')); return; }
+  if(typeof commitActiveRow==='function') commitActiveRow();
+  var rows=(typeof bulkRows!=='undefined'?bulkRows:[]).filter(function(r){ return typeof rowHasContent==='function'? rowHasContent(r):(r&&r.amt); });
+  if(!rows.length){ if(typeof bulkShowInvalid==='function') bulkShowInvalid(); return; }
+  // validate like the family single-row path (amount + a real category)
+  for(var k=0;k<rows.length;k++){ if(!(parseAmtBase(rows[k].amt||'')>0 && catValid(rows[k].cat))){ if(typeof bulkShowInvalid==='function'){ bulkShowInvalid(); return; } } }
+  var ok=0;
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i], amt=parseAmtBase(r.amt||''); if(!(amt>0)) continue;
+    var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
+    // Model Y: category is denormalised on the personal row (name + emoji) — no personal-category table.
+    if(await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined)) ok++;
+  }
+  if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
 }
 function saveExpenseEdit(){
   var t=txById(editingTx); if(!t){ closeExpense(); return; }
@@ -10715,13 +11245,22 @@ function csvCanonicalProvider(name) {
    refuses to guess, for the reason the pipeline gives and this screen exists to
    honour -- a missed duplicate costs one tap to skip; a false one hides real
    money behind a decision nobody asked for. */
-function csvStagedCrossSourceDup(c, provider, priors) {
+function csvStagedCrossSourceDup(c, provider, currency, kind, priors) {
   var mine = csvCanonicalProvider(provider);
   if (!mine || !c.date) return null;
+  var cur = (currency || '').toUpperCase();
   for (var i = 0; i < priors.length; i++) {
     var p = priors[i];
     if (!p.provider || !p.c.date) continue;
     if (p.provider === mine) continue;                       // same bank -> two real transactions
+    // Two DIFFERENT banks are also two real transactions: each sees only its own
+    // account, so equal amounts are a coincidence, not one event twice. The real
+    // duplicate is a bank plus a non-bank reporting one swipe.
+    if (kind === 'bank' && p.kind === 'bank') continue;
+    // Currency before amount: dedup_fp hashes 'amount|direction|currency', and
+    // comparing the number alone made 200 USD and 200 VND one event. Direction
+    // needs no check here -- credits are deferred out before this runs.
+    if (p.currency !== cur) continue;
     if (Math.abs(Number(p.c.amount) - Number(c.amount)) >= 1) continue;
     if (Math.abs(p.c.date.getTime() - c.date.getTime()) / 86400000 > 3) continue;
     return p.c;
@@ -10790,14 +11329,27 @@ function bucketCsvCandidates(candidates, mixedSigns) {
          a pair this screen cannot -- two unreviewed emails, same amount,
          different wording -- so the detection is kept. What it no longer gets
          is the power to act alone. */
+      var currency = (meta && meta.currency) || '';
+      var kind = (meta && meta.kind) || '';
+      var prior = { c: c, provider: csvCanonicalProvider(provider), currency: currency, kind: kind };
+
+      /* The pipeline cannot read transaction_type on the rows it compares (they
+         are sealed), so it flags bank-vs-bank pairs it has no way to rule out.
+         The screen can read both, so it drops a suspicion it can PROVE wrong
+         rather than passing the tap on to a person. Only when both kinds are
+         known: an unknown kind leaves the flag standing. */
       if (meta && meta.pipelineDup) {
-        c.duplicateOfPipeline = true; possibleDuplicate.push(c);
-        priors.push({ c: c, provider: csvCanonicalProvider(provider) });
-        return;
+        var matchedKind = window.fhStagedKindById && window.fhStagedKindById(meta.dupOfId);
+        if (!(kind === 'bank' && matchedKind === 'bank')) {
+          c.duplicateOfPipeline = true; possibleDuplicate.push(c);
+          priors.push(prior);
+          return;
+        }
+        c.pipelineDupOverruled = true;   // two banks; falls through to the normal path
       }
 
-      var sourceMatch = csvStagedCrossSourceDup(c, provider, priors);
-      priors.push({ c: c, provider: csvCanonicalProvider(provider) });
+      var sourceMatch = csvStagedCrossSourceDup(c, provider, currency, kind, priors);
+      priors.push(prior);
       if (sourceMatch) { c.duplicateOfSource = sourceMatch; possibleDuplicate.push(c); return; }
     }
 
@@ -11224,7 +11776,7 @@ function addExpense(){
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
   var hadPhoto=exPhotos.length>0;
-  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,who:whoStore,amt:amt,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,_ts:new Date(),who:whoStore,amt:amt,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
   if(hadPhoto) syncExpenseEvent(txns[0]);                   // photos → a linked event for Events + Memories
   renderTxns();
   var jul=months[curMonthKey()];
@@ -13304,7 +13856,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v366';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v381';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -13668,6 +14220,7 @@ async function afterLogin(session) {
   let fams = [], famsErr = null;
   try { fams = (await _rpc('my_families')) || []; }
   catch (e) { famsErr = e; console.warn('my_families failed', e); }
+  fams = fams.filter((f) => f.type !== 'personal');   // the personal ledger (0071) is never a "family" here
   if (famsErr) {
     fhResumeFail(); fhWarmAbandon();
     window.toast && window.toast(_friendly(famsErr));
@@ -13795,6 +14348,7 @@ window.fhSwitchFamily = async function () {
   // route people into creating a duplicate one.
   try { fams = await _rpc('my_families'); }
   catch (e) { window.toast && window.toast(_friendly(e)); return; }
+  fams = (fams || []).filter((f) => f.type !== 'personal');   // never offer the personal ledger as a family to switch into
   if (!fams || !fams.length) { window.toast && window.toast(L('Chưa có gia đình nào khác', 'No other families yet')); return; }
   showFamilyPicker(fams, { dismissible: true });     // opened from Settings → must be escapable
 };
@@ -14701,6 +15255,233 @@ window.obGoogle = async function () {
     window.fhStagingAlarmActive = fhStagingAlarmActive;
     window.fhStagingAlarmShow = fhStagingAlarmShow;
   })();
+  /* ═══ Personal ledger — Model Y (0074) ══════════════════════════════════════
+     The PERSON is the root. Personal data lives in its own owner-scoped tables
+     (personal_transactions / personal_incomes) encrypted under a per-USER key
+     (personal_keys), NOT in any family. The family `transactions` table is never
+     touched by this module. Tables are ciphertext-only (no plaintext columns),
+     so E2EE is by construction.
+
+     Double-entry: a family transaction the user authored is mirrored here as a
+     personal master (space_id = the family it flows to, link_id → the family
+     copy). Reserve link_id on the family row FIRST (crash-safe), then insert the
+     master; reconcile repairs/refreshes/tombstones. Idempotent by link_id. */
+  (function () {
+    const P = { uid: null, key: null, rawKey: null, wrap: null, txns: [], incomes: [], state: 'boot', mirrorRan: false };
+    window.fhPersonalData = function () { return P; };
+    const _sb = () => window.sb;
+    async function _uid() { try { const s = await _sb().auth.getSession(); return s.data.session ? s.data.session.user.id : null; } catch (e) { return null; } }
+
+    /* fh-keys IDB (shared store, keyPath 'fid'); personal key stored under 'p:'+uid */
+    function _kOpen() {
+      return new Promise((res, rej) => { let rq; try { rq = indexedDB.open('fh-keys', 1); } catch (e) { return rej(e); }
+        rq.onupgradeneeded = () => { const db = rq.result; if (!db.objectStoreNames.contains('k')) db.createObjectStore('k', { keyPath: 'fid' }); };
+        rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error); });
+    }
+    async function _kPut(id, key) { try { const db = await _kOpen(); await new Promise((res, rej) => { const tx = db.transaction('k', 'readwrite'); tx.objectStore('k').put({ fid: id, key: key, at: Date.now() }); tx.oncomplete = () => res(1); tx.onerror = () => rej(tx.error); }); } catch (e) {} }
+    async function _kGet(id) { try { const db = await _kOpen(); return await new Promise((res) => { const tx = db.transaction('k', 'readonly'); const rq = tx.objectStore('k').get(id); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); } catch (e) { return null; } }
+
+    // Cache the personal card DISPLAY on this device so Settings → "Mã hoá tài
+    // chính" can show it later (parity with the family card cache). Same
+    // exposure as the family card: plaintext on the owner's own device only.
+    const _pcardKey = () => 'fh-pcard:' + (P.uid || '');
+    function _pcardCache(disp) { try { if (disp) localStorage.setItem(_pcardKey(), disp); } catch (e) {} }
+    window.fhPersonalCardCached = function () { try { return localStorage.getItem(_pcardKey()); } catch (e) { return null; } };
+
+    const _encP = (v) => FHCrypto.encVal(P.key, v);
+    const _decP = async (b64) => { try { return b64 ? await FHCrypto.decVal(P.key, b64) : null; } catch (e) { return null; } };
+    function _setState(s) { P.state = s; try { if (window.renderPersonal) renderPersonal(); } catch (e) {} }
+    function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return d.toISOString().slice(0, 10); }
+
+    let _booting = false;
+    window.fhPersonalBoot = async function () {
+      if (_booting || !_sb()) return; _booting = true;
+      try {
+        P.uid = await _uid(); if (!P.uid) { _setState('error'); return; }
+        const kc = await _kGet('p:' + P.uid);
+        if (kc && kc.key) { P.key = kc.key; await _afterKey(); return; }
+        const wr = await _sb().from('personal_keys').select('kdf_salt,kdf_iters,kdf_version,wrapped_dek').eq('user_id', P.uid).maybeSingle();
+        if (wr.data) { P.wrap = wr.data; _setState('locked'); }
+        else { await _provision(); }
+      } catch (e) { console.warn('fhPersonalBoot failed', e); _setState('error'); }
+      finally { _booting = false; }
+    };
+
+    async function _provision() {
+      _setState('provisioning');
+      const card = FHCrypto.genCard(), salt = FHCrypto.genSaltHex();
+      const keys = await FHCrypto.deriveKeys(card.key, salt, window.FH_KDF_ITERS_CARD, 1);
+      const dekRaw = await FHCrypto.genDekRaw();
+      const wrapped = await FHCrypto.wrapDek(dekRaw, keys.kWrap);
+      const r = await _sb().rpc('init_personal_key', { p_kdf_salt: salt, p_kdf_iters: window.FH_KDF_ITERS_CARD, p_kdf_version: 1, p_wrapped_dek: wrapped });
+      if (r.error) { console.warn('init_personal_key failed', r.error); _setState('error'); return; }
+      P.key = await FHCrypto.importDek(dekRaw);
+      P.rawKey = new Uint8Array(dekRaw);              // in-memory only (never persisted) — enables card regen this session
+      await _kPut('p:' + P.uid, P.key);
+      window.__fhPersonalCard = card;                 // the one secret to protect — shown once
+      _pcardCache(card.display);                       // …and viewable later in Settings
+      try { if (window.fhPCardIntro) fhPCardIntro(); } catch (e) {}
+      await _afterKey();
+    }
+
+    window.fhPersonalUnlock = async function (input) {
+      const p = FHCrypto.parseCard(input); if (!p.ok) return { ok: false, error: p.error };
+      if (!P.wrap) { const wr = await _sb().from('personal_keys').select('kdf_salt,kdf_iters,kdf_version,wrapped_dek').eq('user_id', P.uid).maybeSingle(); P.wrap = wr.data || null; }
+      if (!P.wrap) return { ok: false, error: 'no_wrap' };
+      try {
+        const keys = await FHCrypto.deriveKeys(p.key, P.wrap.kdf_salt, P.wrap.kdf_iters, P.wrap.kdf_version);
+        const raw = await FHCrypto.unwrapDek(P.wrap.wrapped_dek, keys.kWrap);
+        P.key = await FHCrypto.importDek(raw);
+        P.rawKey = new Uint8Array(raw);
+        await _kPut('p:' + P.uid, P.key);
+        _pcardCache(p.display);                         // remember the entered card so it's viewable in Settings
+        await _afterKey();
+        return { ok: true };
+      } catch (e) { return { ok: false, error: 'wrong_card' }; }
+    };
+
+    async function _afterKey() { await window.fhPersonalHydrate(); _mirrorSoon(); }
+
+    window.fhPersonalHydrate = async function () {
+      if (!P.uid || !P.key) return;
+      _setState('loading');
+      try {
+        const from = _winFrom();
+        const [tr, ir] = await Promise.all([
+          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id,link_id,version,updated_at').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
+          _sb().from('personal_incomes').select('id,amount_enc,note_enc,income_date').eq('owner_user_id', P.uid).gte('income_date', from),
+        ]);
+        P.txns = [];
+        for (const t of (tr.data || [])) P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id, version: t.version || 1, updatedAt: t.updated_at, amt: Number(await _decP(t.amount_enc)), note: await _decP(t.note_enc), cat: await _decP(t.cat_name_enc), emoji: t.cat_emoji });
+        P.incomes = [];
+        for (const i of (ir.data || [])) P.incomes.push({ id: i.id, date: i.income_date, amt: Number(await _decP(i.amount_enc)), note: await _decP(i.note_enc) });
+        _setState('ready');
+      } catch (e) { console.warn('personal hydrate failed', e); _setState('error'); }
+    };
+
+    /* writes — private (space-less) rows */
+    window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso) {
+      if (!P.uid || !P.key) return false;
+      const row = { owner_user_id: P.uid, txn_date: dateIso || new Date().toISOString().slice(0, 10), kind: 'expense', space_id: null, link_id: null,
+        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null };
+      const r = await _sb().from('personal_transactions').insert(row);
+      if (r.error) { console.warn('personal expense failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    window.fhPersonalAddIncome = async function (amt, note) {
+      if (!P.uid || !P.key) return false;
+      const row = { owner_user_id: P.uid, income_date: new Date().toISOString().slice(0, 10),
+        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null };
+      const r = await _sb().from('personal_incomes').insert(row);
+      if (r.error) { console.warn('personal income failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+
+    /* mirror — active family, my authored realized expenses → personal masters */
+    let _mirrorTries = 0, _mirroring = false, _debounce = null;
+    function _mirrorSoon(ms) { setTimeout(() => { window.fhPersonalMirror(); }, ms || 1200); }
+    window.fhPersonalMirrorSoon = function () { _mirrorTries = 0; if (_debounce) clearTimeout(_debounce); _debounce = setTimeout(() => { _debounce = null; window.fhPersonalMirror(); }, 1500); };
+
+    window.fhPersonalMirror = async function () {
+      if (_mirroring) return;
+      if (!P.uid || !P.key) return;
+      const fid = window.DB && DB.fid, myMem = window.DB && DB.ownerMemberId;
+      if (!fid || !myMem || !window.fhKeyReady || !fhKeyReady()) { if (_mirrorTries++ < 5) _mirrorSoon(4000); return; }
+      _mirroring = true;
+      try {
+        const fc = await _sb().from('categories').select('id,name,name_enc,emoji').eq('family_id', fid).is('archived_at', null);
+        const famCat = {}; for (const c of (fc.data || [])) famCat[c.id] = { name: c.name != null ? c.name : await fhDecStr(c.name_enc), emoji: c.emoji };
+        const from = _winFrom();
+
+        const un = await _sb().from('transactions').select('id,txn_date,category_id,amount,amount_enc,note,note_enc').eq('family_id', fid).eq('created_by', myMem).eq('status', 'realized').eq('kind', 'expense').is('link_id', null).gte('txn_date', from).limit(100);
+        for (const rr of (un.data || [])) {
+          const amtS = rr.amount != null ? String(rr.amount) : await fhDecStr(rr.amount_enc);
+          if (amtS == null || amtS === '') continue;
+          const amt = Number(amtS); if (!isFinite(amt)) continue;
+          const note = rr.note != null ? rr.note : await fhDecStr(rr.note_enc);
+          const fc2 = (rr.category_id && famCat[rr.category_id]) || {};
+          const linkId = crypto.randomUUID();
+          const u = await _sb().from('transactions').update({ link_id: linkId }).eq('id', rr.id).is('link_id', null).select('id');
+          if (u.error || !u.data || u.data.length !== 1) continue;
+          await _insertMaster(linkId, fid, rr.txn_date, amt, note, fc2.name, fc2.emoji);
+        }
+
+        const ln = await _sb().from('transactions').select('id,link_id,txn_date,category_id,amount,amount_enc,note,note_enc,updated_at').eq('family_id', fid).eq('created_by', myMem).not('link_id', 'is', null).gte('txn_date', from).limit(400);
+        const famBy = {}; (ln.data || []).forEach((r) => { famBy[r.link_id] = r; });
+        const mq = await _sb().from('personal_transactions').select('id,link_id,txn_date,amount_enc,note_enc,updated_at,version,created_at').eq('owner_user_id', P.uid).eq('space_id', fid).not('link_id', 'is', null).gte('txn_date', from).order('created_at');
+        const mastersBy = {};
+        for (const r of (mq.data || [])) {
+          if (mastersBy[r.link_id]) { await _sb().from('personal_transactions').delete().eq('id', r.id); continue; }   // self-heal dup
+          mastersBy[r.link_id] = { id: r.id, updatedAt: r.updated_at, version: r.version || 1, amt: Number(await _decP(r.amount_enc)), note: await _decP(r.note_enc) };
+        }
+        for (const lid of Object.keys(famBy)) {
+          const f = famBy[lid], m = mastersBy[lid];
+          const amtS = f.amount != null ? String(f.amount) : await fhDecStr(f.amount_enc);
+          if (amtS == null || amtS === '') continue;
+          const amt = Number(amtS); if (!isFinite(amt)) continue;
+          const note = f.note != null ? f.note : await fhDecStr(f.note_enc);
+          const fc2 = (f.category_id && famCat[f.category_id]) || {};
+          if (!m) { await _insertMaster(lid, fid, f.txn_date, amt, note, fc2.name, fc2.emoji); }
+          else if (f.updated_at > m.updatedAt && (amt !== m.amt || (note || '') !== (m.note || ''))) {
+            await _sb().from('personal_transactions').update({ amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: fc2.name ? await _encP(fc2.name) : null, cat_emoji: fc2.emoji || null, txn_date: f.txn_date, version: (m.version || 1) + 1 }).eq('id', m.id);
+          }
+        }
+        for (const lid of Object.keys(mastersBy)) { if (!famBy[lid]) await _sb().from('personal_transactions').delete().eq('id', mastersBy[lid].id); }   // tombstone
+        P.mirrorRan = true;
+        await window.fhPersonalHydrate();
+      } catch (e) { console.warn('personal mirror failed', e); if (_mirrorTries++ < 5) _mirrorSoon(6000); }
+      finally { _mirroring = false; }
+    };
+
+    /* Recover a lost personal card: mint a NEW card + DEK, re-encrypt every
+       personal row from the cached (decrypt-capable) key to the new key, then
+       swap the wrap. Works from a cold-boot cached DEK (which can decrypt but not
+       export raw). Resumable: a field already under the new key is left as-is, so
+       a re-run after an interruption completes cleanly. Wrap is swapped LAST, so
+       until it succeeds the old key still opens everything. */
+    let _regenning = false;
+    window.fhPersonalRegen = async function (onProgress) {
+      if (_regenning) return { ok: false, error: 'busy' };
+      if (!P.uid || !P.key) return { ok: false, error: 'locked' };
+      _regenning = true;
+      try {
+        const card = FHCrypto.genCard(), salt = FHCrypto.genSaltHex();
+        const keys = await FHCrypto.deriveKeys(card.key, salt, window.FH_KDF_ITERS_CARD, 1);
+        const newRaw = await FHCrypto.genDekRaw();
+        const newWrapped = await FHCrypto.wrapDek(newRaw, keys.kWrap);
+        const newKey = await FHCrypto.importDek(newRaw);
+        const reEnc = async (b64) => {
+          if (!b64) return null;
+          try { await FHCrypto.decVal(newKey, b64); return b64; } catch (e) {}   // already migrated → keep
+          const pt = await FHCrypto.decVal(P.key, b64); return FHCrypto.encVal(newKey, pt);
+        };
+        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc').eq('owner_user_id', P.uid);
+        const inc = await _sb().from('personal_incomes').select('id,amount_enc,note_enc').eq('owner_user_id', P.uid);
+        const tot = (tr.data || []).length + (inc.data || []).length; let n = 0;
+        for (const r of (tr.data || [])) {
+          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc) }).eq('id', r.id);
+          if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
+        for (const r of (inc.data || [])) {
+          const u = await _sb().from('personal_incomes').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc) }).eq('id', r.id);
+          if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
+        const rr = await _sb().rpc('rotate_personal_key', { p_kdf_salt: salt, p_kdf_iters: window.FH_KDF_ITERS_CARD, p_kdf_version: 1, p_wrapped_dek: newWrapped });
+        if (rr.error) throw rr.error;
+        P.key = newKey; P.rawKey = new Uint8Array(newRaw); P.wrap = null;
+        await _kPut('p:' + P.uid, newKey); _pcardCache(card.display); window.__fhPersonalCard = card;
+        await window.fhPersonalHydrate();
+        return { ok: true, card: card };
+      } catch (e) { console.warn('personal regen failed', e); return { ok: false, error: 'failed' }; }
+      finally { _regenning = false; }
+    };
+
+    async function _insertMaster(linkId, fid, dateIso, amt, note, catName, catEmoji) {
+      return _sb().from('personal_transactions').insert({ owner_user_id: P.uid, space_id: fid, link_id: linkId, txn_date: dateIso, kind: 'expense', version: 1,
+        amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null });
+    }
+  })();
+
   // ═══════════════════════════════════════════════════════════════════════════
   //  DATA LAYER — hydrate the app's globals from the DB + write-through mutations
   // ═══════════════════════════════════════════════════════════════════════════
@@ -14817,7 +15598,7 @@ window.obGoogle = async function () {
   // full=true for a write that can touch an out-of-window row (txn edit/delete, a
   // reaction on an old txn), so the change can't be silently dropped by the window.
   let _syncTimer = null;
-  function _syncSoon(full) { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} clearTimeout(_syncTimer); _syncTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(full ? {} : { windowed: true }); }, 700); }
+  function _syncSoon(full) { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} try { if (window.fhPersonalMirrorSoon) window.fhPersonalMirrorSoon(); } catch (e) {} clearTimeout(_syncTimer); _syncTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(full ? {} : { windowed: true }); }, 700); }
   // Is a loaded transaction (by DB id) older than the current refresh window? Unknown
   // id → treated as old (forces full) so an out-of-window change is never missed.
   function _isOldTxnById(dbId) {
@@ -14926,7 +15707,7 @@ window.obGoogle = async function () {
           sb.from('categories').select('id,name,name_enc,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
           sb.from('category_budgets').select('category_id,amount,amount_enc,month').eq('family_id', fid),
           sb.from('monthly_budgets').select('month,budget_total,budget_total_enc,closed').eq('family_id', fid),
-          sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,txn_date,status,created_by').eq('family_id', fid).order('txn_date', { ascending: false }),
+          sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,txn_date,status,created_by,created_at').eq('family_id', fid).order('txn_date', { ascending: false }),
           sb.from('events').select('id,name,name_enc,emoji,cover,target_amount,target_amount_enc,target_date,achieved,sort_order,source_txn_id,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
           sb.from('event_fundings').select('id,event_id,goal_id,amount,amount_enc,source,month,member_id').eq('family_id', fid),
           sb.from('savings_entries').select('kind,amount,amount_enc,entry_date').eq('family_id', fid),
@@ -15121,7 +15902,7 @@ window.obGoogle = async function () {
         const who = mrec ? (mrec.is_shared ? 'Shared' : mrec.name) : 'Shared';
         const realized = (t.status !== 'planned') && (dt <= now);
         const amt = Number(t.amount);
-        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _catId: t.category_id, _memberId: t.member_id, _createdBy: t.created_by || null, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
+        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _ts: (t.created_at ? new Date(t.created_at) : null), _catId: t.category_id, _memberId: t.member_id, _createdBy: t.created_by || null, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
         if (realized) { m.spent += amt; m.catSpent[catName] = (m.catSpent[catName] || 0) + amt; m.memberSpent[who] = (m.memberSpent[who] || 0) + amt; }
       });
       newTxns.sort(function(a,b){ var ta=a._d?a._d.getTime():Infinity, tb=b._d?b._d.getTime():Infinity; return tb-ta; }); // newest first, globally
@@ -15250,7 +16031,7 @@ window.obGoogle = async function () {
       _subscribeRealtime(fid);
       fhFresh();                                        // fresh data is on screen — drop the "Updating…" chip
       try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}   // email-txn badge (off critical path)
-      // layer-1 data consent (0071): once per user, off the critical path, and
+      // layer-1 data consent (0082): once per user, off the critical path, and
       // throw-guarded like everything else here - a consent check must never
       // cost a hydrate.
       try { window.fhAppDataConsentCheck && window.fhAppDataConsentCheck(); } catch (e) {}
@@ -15267,6 +16048,7 @@ window.obGoogle = async function () {
       try { if (window.fhPushResync) window.fhPushResync(); } catch (e) {}   // web push: re-point this device's subscription row at the active family (per-family, self-heals on switch)
       try { if (window.rxAfterHydrate) window.rxAfterHydrate(); } catch (e) {}   // reactions: refresh the wall + play any just-arrived reaction moment
       try { if (window.reqAfterHydrate) window.reqAfterHydrate(); } catch (e) {}   // future-expense requests: refresh mounts/hub + play any just-arrived decision
+      try { if (window.fhPersonalBoot) window.fhPersonalBoot(); } catch (e) {}     // personal ledger (0082): provision/unlock, hydrate, mirror my authored rows
       window.DB._hydrated = true;                       // later hydrates are background refreshes, not cold starts
       if (window.fhSaveSnapshot) window.fhSaveSnapshot();   // cache it for the next cold start
       /* committed-enc family with the key: once per session, quietly retire any
@@ -18495,6 +19277,18 @@ window.classifyAmount = classifyAmount;
          resume hook above */
       if (fhKeyReady()) setTimeout(() => { window.fhEncCoverSweep && window.fhEncCoverSweep(); }, 400);
     }
+    /* Personal ledger key (Model Y) — user-scoped, separate from the family key.
+       Shown whenever the person has a personal ledger provisioned on this device. */
+    try {
+      const pd = window.fhPersonalData && window.fhPersonalData();
+      if (pd && pd.uid) {
+        body += '<div class="fh-s-lab" style="margin-top:20px">' + L('Mã khóa cá nhân', 'Your personal code') + '</div>'
+          + '<div class="fh-s-sub">' + L('Sổ Cá nhân của bạn được mã hóa bằng mã khóa riêng — khác mã của gia đình. Chỉ mình bạn mở được, kể cả chúng tôi cũng không đọc được.',
+                                          'Your personal ledger is encrypted with your own code — separate from the family code. Only you can open it; not even we can read it.') + '</div>';
+        if (pd.key) body += _btn(L('Xem mã khóa cá nhân', 'View your personal code'), '_closeOv();fhPersonalCardShow()', _S.line);
+        else body += '<div class="fh-s-sub">' + L('Mở tab Cá nhân và nhập mã khóa cá nhân để mở trên máy này.', 'Open the Cá nhân tab and enter your personal code to unlock it on this device.') + '</div>';
+      }
+    } catch (e) {}
     body += '<div class="fh-s-sub" id="fh-enc-prog" style="min-height:18px"></div>';
     /* Excel-copy CTA temporarily hidden by product decision (2026-08-03) — the
        entry point will live somewhere better later. fhEncExport() and the
@@ -20165,7 +20959,7 @@ window.classifyAmount = classifyAmount;
   window.fhMailboxSheet = async function () {
     const st = await fhMailboxState();
     if (st && st.forwarding_alias) {
-      /* Retro consent (0071): the four grandfathered connections predate the
+      /* Retro consent (0082): the four grandfathered connections predate the
          consent sheet. Ask once here, on the screen they do revisit; "Để sau"
          closes and re-asks next visit rather than cutting a working
          connection — a deliberate soft retry, recorded in PDPL-COMPLIANCE. */
@@ -20479,7 +21273,7 @@ window.classifyAmount = classifyAmount;
 
       '<button class="btn-line" onclick="fhMailboxSetup(\'' + _escAttr(st.forwarding_alias) + '\')">' +
         _esc(L('Xem lại hướng dẫn', 'Show the steps again')) + '</button>' +
-      /* Consent chrome (0071): re-read what was agreed, and the withdrawal the
+      /* Consent chrome (0082): re-read what was agreed, and the withdrawal the
          consent text promises. Disconnect is destructive → low-prominence +
          arm-then-confirm in fhMailboxDisconnect, never a primary button. */
       '<button class="btn-line" onclick="fhConsentSheet({readOnly:true})">' +
@@ -20695,6 +21489,43 @@ window.classifyAmount = classifyAmount;
      deliberately NOT sealed: a hash can only match exactly, and bank names need
      fuzzy matching ('MB Bank' / 'MBBank' / 'MB'). Which is precisely why the
      client can run that rule too, with the decrypted amount in hand. */
+  /* Two BANKS can never report one purchase. A bank only ever sees movements on
+     its own account, so an MB debit and a Vietcombank debit are two different
+     pieces of money — not one event described twice, however equal the amounts.
+     The genuine duplicate is a bank AND a non-bank: the card issuer says "debit
+     200.000đ" and the merchant says "receipt 200.000đ" for one swipe.
+
+     Trang, 2026-08-23, on three live flags that were all bank-vs-bank. The rule
+     had only compared provider NAMES, which cannot express this.
+
+     transaction_type is sealed, so `findDuplicate` in the pipeline cannot apply
+     this at all: it holds plaintext for the row it is writing and ciphertext for
+     every row it compares against. The client holds all of it decrypted. This is
+     the sharpest example so far of the review screen being a strictly better
+     place to judge than the ingest job. */
+  var STAGED_BANK_TYPES = { bank_txn: 1, p2p_transfer: 1 };
+
+  // 'bank' | 'other' | '' when unknown. Empty never concludes anything —
+  // bill_payment is deliberately 'other' rather than guessed: a bank and a biller
+  // both send them, and mislabelling one as a bank would suppress a real duplicate.
+  function fhStagedKind(r) {
+    var t = (r && r.raw_extracted && r.raw_extracted.transaction_type) || '';
+    if (!t) return '';
+    return STAGED_BANK_TYPES[t] ? 'bank' : 'other';
+  }
+
+  // The kind of a row named by id — how the screen checks what the PIPELINE
+  // matched against. Returns '' when that row is not in this fetch (promoted,
+  // retired, or past the page), which leaves the suspicion standing rather than
+  // dismissing it on missing evidence.
+  function fhStagedKindById(id) {
+    var rows = window._fhStagedRows;
+    if (!rows || !id) return '';
+    for (var i = 0; i < rows.length; i++) if (rows[i] && rows[i].id === id) return fhStagedKind(rows[i]);
+    return '';
+  }
+  window.fhStagedKindById = fhStagedKindById;
+
   function fhStagedMeta(rowIndex) {
     var rows = window._fhStagedRows;
     if (!rows || typeof rowIndex !== 'number') return null;
@@ -20702,6 +21533,13 @@ window.classifyAmount = classifyAmount;
     if (!r) return null;
     return {
       provider: r.source_provider || '',
+      kind: fhStagedKind(r),
+      dupOfId: r.duplicate_of_id || '',
+      // 200 USD and 200 VND are not the same purchase. dedup_fp has always
+      // hashed currency alongside amount; the client-side twin compared the
+      // NUMBER alone, so a USD receipt beside a VND row of equal magnitude
+      // within 3 days read as one event reported twice.
+      currency: (r.currency || '').toUpperCase(),
       occurredAt: r.occurred_at || '',
       pipelineDup: !!r.duplicate_of_id,
     };
@@ -21148,6 +21986,7 @@ window.classifyAmount = classifyAmount;
      and this is a form. _fhModal brings the Cancel/Title/Save bar, the in-flight
      progress state, and error handling that keeps the form open, for free. */
   window.fhAutoTxnEmailSheet = function () {
+    _atxSheetSeq++;                           // a late /connections answer must not replace this form
     _fhModal({
       title: L('Đọc thư từ email nào?', 'Which email should we read?'),
       saveLabel: L('Tiếp tục', 'Continue'),
@@ -21175,7 +22014,16 @@ window.classifyAmount = classifyAmount;
           throw Object.assign(new Error('bad email'), {
             fhMsg: L('Địa chỉ email chưa đúng, bạn xem lại nhé', 'That email doesn’t look right — give it another look') });
         }
-        _atxNavigate(await _atxConsentUrl(typed));
+        // Opened before the await, while the tap is still in scope. The
+        // validation above stays first, so a rejected address never leaves a
+        // stray blank tab behind.
+        const win = _atxOpenBlank();
+        try {
+          _atxNavigate(win, await _atxConsentUrl(typed));
+        } catch (e) {
+          if (win && !win.closed) try { win.close(); } catch (e2) {}
+          throw e;                             // the modal reports it and stays open
+        }
       },
       after: function () {
         // Focus once the modal has settled: focusing mid-transition sets the
@@ -21193,12 +22041,24 @@ window.classifyAmount = classifyAmount;
     fhAutoTxnSheet();
   };
 
-  /* The single entry point. Deliberately does NOT branch on connection state
-     yet: main has no read side for oauth connections (get_my_mailbox_connections
-     lands with the backend, on branch bank-email-oauth), so there is nothing
-     truthful to render for "already connected". When that RPC arrives, the
-     status branch goes HERE, ahead of the intro, the way fhMailboxSheet does it. */
+  /* The single entry point, and the only place that decides which of the two
+     screens someone sees. Already connected → status, where the off-switch
+     lives. Otherwise → the offer. Same shape as fhMailboxSheet.
+
+     WHY IT RENDERS THE OFFER FIRST AND CORRECTS ITSELF. Reading /connections is
+     a round trip to another host; awaiting it before painting would leave a
+     tapped menu row doing nothing for as long as the network takes, which reads
+     as a dead row. So the offer paints at once and the status replaces it if the
+     answer comes back connected. The swap only happens while this sheet is
+     still the one on screen — `_atxSheetSeq` — so an answer that arrives after
+     someone has closed the sheet or moved to the address form cannot yank the
+     screen out from under them. */
+  let _atxSheetSeq = 0;
   window.fhAutoTxnSheet = function () {
+    const seq = ++_atxSheetSeq;
+    _atxConnection().then(function (conn) {
+      if (conn && seq === _atxSheetSeq) fhAutoTxnStatus(conn);
+    });
     _fhSheet(
       '<div class="mbx-hero">' + _atxGlyph('auto') + '</div>' +
       '<div class="sheet-h">' + _esc(L('Tự động ghi giao dịch', 'Automatic transaction logging')) + '</div>' +
@@ -21231,132 +22091,215 @@ window.classifyAmount = classifyAmount;
   };
 
   /* ── the consent URL ───────────────────────────────────────────────────────
-     WE own getting the person to Google. The backend takes over at the callback.
+     THE BACKEND OWNS IT NOW. This used to assemble the Google URL here, on the
+     grounds that a client_id, a scope and a redirect are all public. That was
+     true, and it was still the wrong place — because the fourth component is
+     `state`, and a browser cannot keep a signing key.
 
-     That split is why this is built here rather than fetched: nothing about the
-     consent URL needs a server. It is a client_id, a scope, a redirect and a
-     state, and every one of them is either public or ours to decide. Asking a
-     server to assemble a public URL only added a round trip that could 404,
-     which is exactly what it was doing.
+     The old comment said so itself: state was unsigned, so the callback "has to
+     verify the claim rather than believe it", or a forged state attaches one
+     person's mailbox to another person's member row. The API mints and SIGNS
+     the state instead (features/connections/oauth-state.ts), which removes that
+     class of bug rather than asking the callback to defend against it.
 
-     NO PKCE, deliberately. PKCE protects a PUBLIC client that must exchange the
-     code itself. Ours is confidential: the backend holds the client secret and
-     does the exchange, which is the stronger protection, and an intercepted code
-     is useless without that secret. Adding a challenge here would also strand
-     the verifier in this browser, where the exchanging server cannot read it —
-     ceremony rather than security.
+     WHY `redirect: "manual"` AND NOT A PLAIN NAVIGATION. The endpoint needs the
+     caller's identity, which travels as a Bearer token in a header — and a
+     header cannot ride on a `location.assign`. So we fetch it, and we must NOT
+     let fetch follow the 302: following it would make the browser request
+     accounts.google.com as a cross-origin fetch, which Google refuses, and the
+     response would come back opaque with nothing readable in it. Reading
+     `Location` and navigating ourselves keeps the hand-off a real top-level
+     navigation, which is what the consent screen requires. The API sets
+     `exposeHeaders: ["Location"]` so this header is visible to script at all. */
 
-     STATE IS UNTRUSTED INPUT, and the backend must treat it as such. It says
-     which member started the flow, because the callback has no session of its
-     own to ask. It is NOT signed — a browser cannot keep a signing key — so the
-     callback has to verify the claim rather than believe it: confirm the member
-     belongs to the account the granted email resolves to before attaching a
-     mailbox to anyone's ledger. Believing it as-is would let a forged state
-     attach one person's mailbox to another person's member row. */
-  const _ATX_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
-  const _ATX_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+  /* Where the API lives. Pinned per-origin rather than derived: the API is a
+     different host from the app, and its CORS allow-list names this app's
+     origin exactly, so guessing wrong fails as a CORS error rather than a 404. */
+  const _ATX_API = 'https://earthy-api-860668973723.asia-southeast1.run.app';
 
-  /* THE SAME Google client as sign-in, deliberately: `FHTest Web`
-     (860668973723-…) in the `fhtest` project, which is GOOGLE_CLIENT_ID in
-     10-client-auth.js. It is referenced through that constant rather than
-     re-typed, so the two can never drift apart.
-
-     This was briefly pointed at 340747728156-… because that is what
-     GOOGLE_OAUTH_CLIENT_ID happened to be in a local env file. That client lives
-     in a DIFFERENT GCP project, which the fhtest project cannot register a
-     redirect URI for — so the consent screen would have kept refusing with no
-     way to fix it from the project we actually own.
-
-     WHAT MUST HOLD: the client that ISSUES the code has to be the client that
-     EXCHANGES it. The backend's GOOGLE_OAUTH_CLIENT_ID / _SECRET therefore have
-     to be this same client's. Mismatch it and Google refuses with
-     `invalid_grant` at the token exchange — after the person has read the
-     consent screen and pressed Allow, so it surfaces as a backend failure at the
-     last possible moment rather than a misconfiguration at the first.
-
-     Sharing the client with sign-in is fine: scopes are per REQUEST, not per
-     client, so signing in still asks for nothing but the basics. What is shared
-     is the project's consent screen and its verification status, which a
-     separate client in the same project would have shared anyway. */
-  /* PINNED, not built from location.origin, and that is the point.
-
-     Google compares redirect_uri LITERALLY against a registered list. Vercel
-     gives every deployment its own preview hostname, so an origin-derived
-     redirect changes per deploy and each one would have to be registered or the
-     person gets `redirect_uri_mismatch` before the consent screen even renders.
-     Pinning means the one string we registered is the one we always send, from
-     whatever URL the app happens to be open at. Opening a preview build simply
-     returns you to production, which is where the callback lives anyway.
-
-     THIS EXACT STRING has to appear in three places, and all three must agree:
-       1. Google Cloud Console → Credentials → the OAuth client whose id is
-          _ATX_CLIENT_ID above → Authorised redirect URIs
-       2. the backend's GOOGLE_OAUTH_REDIRECT_URI env var in Vercel
-       3. here
-     No trailing slash, https, exact case. Changing the domain means changing
-     all three together. (A localhost dev loop would need its own registered URI
-     and a temporary edit here; there is no automatic fallback on purpose,
-     because a silent one is how a mismatch gets shipped.) */
-  const _ATX_REDIRECT = 'https://fhtest-opal.vercel.app/api/gmail-callback';
-
-  function _atxB64Url(obj) {
-    // btoa is latin1-only; percent-encode first so a non-ASCII value cannot throw.
-    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
-    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  }
-
-  function _atxConsentUrl(email) {
-    const mid = window.DB && window.DB.ownerMemberId;
-    if (!mid) {
-      throw Object.assign(new Error('no member'), {
-        fhMsg: L('Chưa xác định được thành viên, thử lại nhé', 'Could not identify your member — try again') });
+  /* The app's own access token, which is what the API authenticates.
+     `getSession()` rather than a cached copy: it refreshes an expired token
+     transparently, and an hour-old tab is the common case for a feature people
+     reach for from Settings. */
+  async function _atxAuthToken() {
+    const { data, error } = await window.sb.auth.getSession();
+    if (error) throw error;
+    const token = data && data.session && data.session.access_token;
+    if (!token) {
+      throw Object.assign(new Error('no session'), {
+        fhMsg: L('Bạn cần đăng nhập lại trước đã', 'Please sign in again first') });
     }
-    let uid = '';
-    try { uid = (window.fhUser && window.fhUser.id) || ''; } catch (e) {}
-
-    const p = new URLSearchParams({
-      client_id: GOOGLE_CLIENT_ID,
-      redirect_uri: _ATX_REDIRECT,
-      response_type: 'code',
-      scope: _ATX_SCOPE,
-      /* offline: the backend needs a REFRESH token, and Google only issues one
-         alongside a fresh grant.
-
-         prompt CARRIES TWO VALUES, and both are load-bearing:
-
-         `consent` — without it a returning user hands back an access token that
-           expires within the hour and no refresh token, so background sync
-           silently stops working the same afternoon while the grant still looks
-           fine in their Google account.
-
-         `select_account` — because LOGIN_HINT IS ONLY A HINT. When Safari
-           already has a Google session, Google honours that session and ignores
-           the hint, so the person lands on whichever account they last signed
-           into and can grant us the WRONG MAILBOX without noticing: the consent
-           screen names an account nobody read, and the connection then quietly
-           reads a mailbox with no bank mail in it. Forcing the chooser costs one
-           tap and makes the account an explicit choice. The hint still does its
-           job inside the chooser, pre-selecting the one we expect. */
-      access_type: 'offline',
-      prompt: 'select_account consent',
-      include_granted_scopes: 'false',
-      state: _atxB64Url({ uid: uid, mid: mid, v: 1 }),
-    });
-    /* login_hint only when we have an address to hint. Sending an empty one is
-       not the same as sending none: it can leave Google on whatever account is
-       already active instead of offering the picker. */
-    if (email) p.set('login_hint', email);
-    return _ATX_AUTH_URL + '?' + p.toString();
+    return token;
   }
 
-  /* Full navigation rather than a popup, deliberately: iOS Safari blocks a
-     window.open issued after an await, and the consent flow has to land back on
-     a real page regardless.
+  /* ── is it already on? ─────────────────────────────────────────────────────
+     GET /connections returns the caller's own rows. A plain fetch, so the Bearer
+     header works — unlike the authorize route, which had to be read through a
+     manual redirect because a navigation carries no header.
 
-     The login_hint is a HINT, NOT A CLAIM. Whichever account actually consents
-     on Google's screen is the mailbox we are connected to, and it may not be the
-     one hinted here. The callback learns the real address from Google, and that
-     is the one to store — never this. */
+     "Cannot tell" collapses into "not connected" on purpose: no session, a 500,
+     offline, all return null and the offer screen shows. Offering the feature to
+     someone who already has it is a recoverable annoyance; announcing a
+     confident "Connected" we never verified is a lie, and it is the version that
+     hides a mailbox quietly failing to sync. */
+  async function _atxConnection() {
+    try {
+      const token = await _atxAuthToken();
+      const res = await fetch(_ATX_API + '/connections', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (!res.ok) return null;
+      const list = await res.json();
+      return (Array.isArray(list) ? list : [])
+        .filter(function (c) { return c && c.provider === 'google'; })[0] || null;
+    } catch (e) { return null; }
+  }
+
+  /* ── the status screen, and turning it off ─────────────────────────────────
+     WHAT DISCONNECT ACTUALLY DOES, and why the copy has to say two things. The
+     API's own route comment is explicit: "The grant at the provider is not
+     revoked. Deleting the row stops the pipeline reading the mailbox; revoking
+     the app entirely is the user's own call, in their account settings at the
+     provider."
+
+     So one tap stops US reading, completely and at once — and that is the half
+     that matters most, because it DESTROYS the token we hold rather than merely
+     abandoning it. It does not remove FamilyHub from their Google account.
+
+     Saying only the first half leaves someone believing they revoked us while
+     Google still lists the app. Saying only the second sends them to Google
+     while our copy of their token sits in a database. Both, in that order, is
+     the only version that is true. */
+  function fhAutoTxnStatus(conn) {
+    _atxSheetSeq++;
+    const email = (conn && (conn.email || conn.accountEmail || conn.account_email)) || '';
+    _fhSheet(
+      '<div class="mbx-hero">' + _mbxGlyph('done') + '</div>' +
+      '<div class="sheet-h">' + _esc(L('Đang tự động ghi', 'Auto-logging is on')) + '</div>' +
+      '<div class="sheet-sub">' + _esc(email
+        ? L('Tụi mình đang đọc email giao dịch từ ' + email + '. Khoản nào tìm được vẫn nằm chờ bạn duyệt, không tự vào sổ.',
+            'We’re reading transaction email from ' + email + '. Anything we find still waits for you to approve it, and never enters the ledger on its own.')
+        : L('Tụi mình đang đọc email giao dịch của bạn. Khoản nào tìm được vẫn nằm chờ bạn duyệt, không tự vào sổ.',
+            'We’re reading your transaction email. Anything we find still waits for you to approve it, and never enters the ledger on its own.')) + '</div>' +
+
+      (window.fhTxnReviewSheet
+        ? '<button class="btn-line" onclick="fhTxnReviewSheet()">' + _esc(L('Xem mục duyệt', 'Open Review transactions')) + '</button>'
+        : '') +
+
+      /* Destructive, so low-prominence and armed before it fires (DESIGN §3):
+         a small quiet text button, never a big red one. */
+      '<button class="ex-del" id="atx-off" onclick="fhAutoTxnDisconnect(this)">' +
+        _esc(L('Ngừng đọc email', 'Stop reading my email')) + '</button>' +
+      '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
+    );
+  }
+  window.fhAutoTxnStatus = fhAutoTxnStatus;
+
+  /* Arm-then-confirm (DESIGN §3): the first tap only relabels, and it disarms
+     itself after ~3s so a button left armed cannot be fired by a stray touch
+     minutes later. */
+  let _atxOffArmed = false, _atxOffTimer = null;
+  const _ATX_OFF_LABEL = () => L('Ngừng đọc email', 'Stop reading my email');
+
+  window.fhAutoTxnDisconnect = async function (btn) {
+    if (!_atxOffArmed) {
+      _atxOffArmed = true;
+      if (btn) btn.textContent = L('Chạm lần nữa để ngừng', 'Tap again to stop');
+      clearTimeout(_atxOffTimer);
+      _atxOffTimer = setTimeout(function () {
+        _atxOffArmed = false;
+        const b = document.getElementById('atx-off');
+        if (b) b.textContent = _ATX_OFF_LABEL();
+      }, 3000);
+      return;
+    }
+    clearTimeout(_atxOffTimer);
+    _atxOffArmed = false;
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang ngừng…', 'Stopping…'); }
+    try {
+      const token = await _atxAuthToken();
+      const res = await fetch(_ATX_API + '/connections/google', {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      /* 404 means there was nothing to delete — which is exactly the state they
+         asked for. Treating it as an error would make someone read a failure
+         message about a thing that is already true. */
+      if (!res.ok && res.status !== 404) throw new Error('HTTP ' + res.status);
+    } catch (e) {
+      window.toast && window.toast(window._fhFriendly ? window._fhFriendly(e)
+        : L('Chưa ngừng được, thử lại nhé', 'Could not stop it — try again'));
+      try { console.warn('[autotxn] disconnect failed:', e && (e.message || e)); } catch (e2) {}
+      if (btn) { btn.disabled = false; btn.textContent = _ATX_OFF_LABEL(); }
+      return;
+    }
+    fhAutoTxnStopped();
+  };
+
+  function fhAutoTxnStopped() {
+    _fhSheet(
+      '<div class="sheet-h">' + _esc(L('Đã ngừng', 'Stopped')) + '</div>' +
+      '<div class="sheet-sub">' + _esc(L(
+        'Tụi mình đã xoá quyền đã lưu và sẽ không đọc thêm email nào của bạn. Những giao dịch đã vào sổ vẫn giữ nguyên, vì đó là sổ của gia đình bạn.',
+        'We’ve deleted the saved access and will read no more of your email. Transactions already in your ledger stay, because that ledger is yours.')) + '</div>' +
+      '<div class="mbx-note">' + _mbxGlyph('lock') + '<span>' + _esc(L(
+        'FamilyHub vẫn còn trong danh sách ứng dụng của tài khoản Google. Muốn gỡ hẳn cả ở phía Google, bạn mở phần quyền truy cập bên dưới.',
+        'FamilyHub is still listed among your Google account’s apps. To remove it on Google’s side as well, open the permissions page below.')) + '</span></div>' +
+      '<a class="btn-line" href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">' +
+        _esc(L('Mở quyền truy cập Google', 'Open Google permissions')) + '</a>' +
+      '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
+    );
+  }
+
+  async function _atxConsentUrl(email) {
+    const token = await _atxAuthToken();
+    const q = new URLSearchParams();
+    /* Come back to the page they left, not to a default. The API confines this
+       to a same-origin path, so it can only ever move them within the app. */
+    q.set('returnTo', location.pathname + location.search);
+    /* login_hint is a HINT, not a claim: it pre-selects an account inside
+       Google's chooser. Whichever account actually consents is the mailbox we
+       connect, and the callback learns that address from Google, never here. */
+    if (email) q.set('login_hint', email);
+
+    /* JSON, not a redirect we follow. The endpoint answers 302 to Google for a
+       plain navigation, but this call carries a Bearer token so it has to be a
+       fetch — and a cross-origin fetch can do neither useful thing with that
+       302: following it makes the browser request accounts.google.com as a
+       fetch, which Google refuses, and `redirect: "manual"` yields an
+       OPAQUE-REDIRECT response whose headers the Fetch Standard filters out
+       entirely, so `Location` reads back as null no matter what the server
+       exposes. Asking for JSON sidesteps both: we get the URL as data and do
+       the navigating ourselves, which is what the consent screen needs anyway. */
+    const res = await fetch(
+      _ATX_API + '/connections/google/authorize?' + q.toString(),
+      {
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+      }
+    );
+
+    if (res.status === 401) {
+      throw Object.assign(new Error('unauthorised'), {
+        fhMsg: L('Phiên đăng nhập đã hết hạn, đăng nhập lại nhé',
+                 'Your session expired — please sign in again') });
+    }
+    if (!res.ok) {
+      throw Object.assign(new Error('authorize failed: ' + res.status), {
+        fhMsg: L('Chưa mở được Google, thử lại nhé',
+                 'Could not open Google — try again') });
+    }
+
+    const body = await res.json().catch(() => null);
+    const target = body && body.url;
+    if (!target) {
+      throw Object.assign(new Error('authorize: no url in response'), {
+        fhMsg: L('Chưa mở được Google, thử lại nhé',
+                 'Could not open Google — try again') });
+    }
+    return target;
+  }
+
   /* The offer screen's CTA: read from the sign-in address, no form involved. */
   window.fhAutoTxnGrant = async function () {
     /* PDPL consent gates BEFORE Google's screen (0071, PDPL-COMPLIANCE §5):
@@ -21370,10 +22313,16 @@ window.classifyAmount = classifyAmount;
     const label = L('Bắt đầu: cho phép đọc email', 'Start by granting email access');
     const reset = () => { if (btn) { btn.disabled = false; btn.textContent = label; } };
     if (btn) { btn.disabled = true; btn.textContent = L('Đang mở Google…', 'Opening Google…'); }
+    // Opened before anything is awaited: this is the only moment the tap is
+    // still a live user gesture, and a cross-origin navigation issued after an
+    // await is cancelled without a word.
+    const win = _atxOpenBlank();
     try {
-      _atxNavigate(await _atxConsentUrl(_atxLoginEmail()));
+      _atxNavigate(win, await _atxConsentUrl(_atxLoginEmail()));
       return;                                   // navigating: leave the button as it is
     } catch (e) {
+      // A blank tab left open reads as a second failure on top of the reported one.
+      if (win && !win.closed) try { win.close(); } catch (e2) {}
       window.toast && window.toast(window._fhFriendly ? window._fhFriendly(e)
         : ((e && e.fhMsg) || L('Chưa mở được Google, thử lại nhé', 'Could not open Google — try again')));
       try { console.warn('[autotxn] consent url failed:', e && (e.message || e)); } catch (e2) {}
@@ -21382,16 +22331,39 @@ window.classifyAmount = classifyAmount;
     }
   };
 
-  /* Handing off to Google, and admitting it when the browser will not go.
-     A cross-origin assignment can be refused outright in an installed PWA, and
-     it fails SILENTLY — no throw, no event, the page simply stays. That is
-     indistinguishable from a frozen button, so rather than trust it we watch: if
-     we are still here shortly afterwards, we swap the CTA for a real anchor to
-     the same URL. A link the person taps is a plain user gesture, which every
-     platform honours, so the journey always has a way forward. */
+  /* Handing off to Google, and why the window is opened BEFORE the URL exists.
+
+     THE BUG THIS FIXES. The consent URL now comes from the API, so getting it
+     costs a token read plus a network round trip. That await is the problem:
+     `location.assign()` to a cross-origin URL is only honoured while a user
+     gesture is still in scope, and an await spends it. The navigation is then
+     CANCELLED — silently, with no throw and no event, so the tab simply sits
+     there looking frozen. (This is the same hazard the old code called out for
+     `window.open`; it did not bite then because the URL was assembled
+     synchronously, with nothing awaited before the assign.)
+
+     WHAT WE DO INSTEAD. Open a blank tab synchronously, inside the click, while
+     the gesture is unquestionably live — a popup with no URL yet is allowed —
+     then set its `location` once the API answers. The gesture is spent on
+     `window.open`, not on the navigation, so the await no longer matters.
+
+     `noopener` is set the hard way, via `opener = null` after opening: passing
+     "noopener" to window.open makes it return null, and we need the handle to
+     point it anywhere. Clearing `opener` gives the same protection — the
+     consent page cannot reach back into this one.
+
+     IF THE POPUP IS BLOCKED, `open` returns null and we fall back to a
+     same-tab assign. That assign may itself be cancelled for the reason above,
+     which is exactly what the watchdog below is for: if we are still on this
+     page shortly after, the CTA becomes a real anchor. A link the person taps
+     is a fresh gesture, which every platform honours. */
   let _atxLeaving = false;
-  function _atxNavigate(url) {
+
+  function _atxNavigate(win, url) {
     _atxLeaving = true;
+    if (win && !win.closed) {
+      try { win.location.replace(url); return; } catch (e) { /* fall through */ }
+    }
     try { window.location.assign(url); } catch (e) { /* handled by the watchdog */ }
     setTimeout(function () {
       _atxLeaving = false;
@@ -21402,34 +22374,68 @@ window.classifyAmount = classifyAmount;
       a.id = 'atx-go';
       a.href = url;
       a.rel = 'noopener';
+      a.target = '_blank';
       a.textContent = L('Mở màn hình Google', 'Open the Google screen');
       btn.parentNode.replaceChild(a, btn);
     }, 1500);
   }
 
+  /* Opened inside the click handler, before anything is awaited. Returns null
+     when the popup blocker refuses, which the caller treats as "navigate this
+     tab instead" rather than as a failure. */
+  function _atxOpenBlank() {
+    try {
+      const w = window.open('', '_blank');
+      if (w) w.opener = null;
+      return w;
+    } catch (e) { return null; }
+  }
+
   /* ── coming back ───────────────────────────────────────────────────────────
-     Google sends the person to the BE callback, which finishes the exchange and
-     redirects here. Without this the journey ends on a silent app boot that
+     Google sends the person to the API callback, which finishes the exchange
+     and redirects here. Without this the journey ends on a silent app boot that
      looks identical to a cold start, and nobody can tell whether it worked.
 
-     THE RETURN CONTRACT, proposed here so the BE dev has something concrete to
-     redirect to (documented in AGENT_SYNC): land on the app origin with
-       ?fh_gmail=connected            — grant stored, sync will start
-       ?fh_gmail=denied               — the person declined on Google's screen
-       ?fh_gmail=error                — anything else went wrong
-     `?gmail=` is accepted as an alias. An unrecognised value is ignored rather
-     than guessed at, so a different choice on their side degrades to today's
-     silence instead of a wrong screen.
+     THE RETURN CONTRACT, as the API actually implements it (routes.ts endUrl):
+       success → OAUTH_SUCCESS_REDIRECT with NO extra param
+       failure → OAUTH_FAILURE_REDIRECT with ?reason=<kind>
+     Both land on a path the flow chose via `returnTo`, confined to this origin.
 
-     The param is eaten on arrival (67-card-ui.js does the same for key
+     So the signal is `fh_gmail=1` (set on the configured success URL) plus the
+     presence or absence of `reason`. `reason` alone is enough to know it failed
+     — a success never carries one — which is why an unknown reason still shows
+     the failure screen rather than being ignored.
+
+     `?fh_gmail=connected|denied|error` stays accepted. That was the contract
+     this file proposed before the backend existed, and a person mid-flow when
+     the API changed should not land on a blank screen.
+
+     The params are eaten on arrival (67-card-ui.js does the same for key
      fragments): a reload should not replay a one-time outcome, and the value
      should not sit in the address bar or a share sheet. */
+
+  /* Google's own word for "the person pressed Cancel", plus the API's kind for
+     the same thing. Declining is a normal answer and gets a different screen
+     from a genuine fault, so the two have to be told apart. */
+  const _ATX_DENIED = ['denied', 'access_denied', 'declined'];
+
   function _atxReturnState() {
     try {
       const q = new URLSearchParams(location.search);
-      const v = (q.get('fh_gmail') || q.get('gmail') || '').toLowerCase();
-      if (v !== 'connected' && v !== 'denied' && v !== 'error') return null;
-      q.delete('fh_gmail'); q.delete('gmail');
+      const legacy = (q.get('fh_gmail') || q.get('gmail') || '').toLowerCase();
+      const reason = (q.get('reason') || '').toLowerCase();
+      /* `connected` is the legacy success word; `1` is what the success URL
+         configured on the API carries. Either means the grant landed. */
+      const ok = legacy === 'connected' || legacy === '1';
+      if (!ok && !reason && !legacy) return null;
+
+      let v;
+      if (reason) v = _ATX_DENIED.indexOf(reason) >= 0 ? 'denied' : 'error';
+      else if (ok) v = 'connected';
+      else if (legacy === 'denied' || legacy === 'error') v = legacy;
+      else return null;                          // an unrecognised value, ignored
+
+      q.delete('fh_gmail'); q.delete('gmail'); q.delete('reason');
       const qs = q.toString();
       try { history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash); } catch (e) {}
       return v;
@@ -21501,7 +22507,7 @@ window.classifyAmount = classifyAmount;
      before Google's screen. Google's Allow grants an API; this is the consent
      the law asks for.
 
-     The record is the point (0071): agreeing inserts a (user, kind, version)
+     The record is the point (0082): agreeing inserts a (user, kind, version)
      row BEFORE the flow continues, and a failed insert blocks rather than
      proceeds. Withdrawal is symmetric per L91 ("việc rút lại phải dễ dàng như
      khi đã đồng ý"): one in-app action, recorded in the same table.

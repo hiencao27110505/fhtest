@@ -1,0 +1,4 @@
+[test]
+# src/lib/env.ts validates and exits at import time; this supplies the values
+# that check needs before any test module is evaluated.
+preload = ["./src/test-env.ts"]
