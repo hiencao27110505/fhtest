@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consent UI demo — Earthy</title>
+<!-- Dev tool, never shipped: serves the REAL consent module
+     (src/js-data/75-consent-ui.js, byte-identical to production) on the real
+     app CSS, against an in-memory user_consents table rendered live so the
+     record-first mechanic is visible. Serve from the repo root:
+       python3 -m http.server 8641
+     then open http://localhost:8641/tools/consent-demo.html -->
+<link rel="stylesheet" href="../src/css/10-tokens.css">
+<link rel="stylesheet" href="../src/css/50-sheets-modals.css">
+<link rel="stylesheet" href="../src/css/70-onboarding.css">
+<link rel="stylesheet" href="../src/css/74-mailbox.css">
+<style>
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#e9e6ef;display:flex;gap:24px;padding:24px;min-height:100vh;box-sizing:border-box}
+  .panel{width:340px;flex-shrink:0}
+  .panel h1{font-size:17px;margin:0 0 4px}
+  .panel .sub{font-size:12.5px;color:#6d6878;margin-bottom:16px}
+  .panel button{display:block;width:100%;margin-bottom:8px;padding:10px 12px;border:1px solid #d5d0dd;border-radius:10px;background:#fff;font-size:13.5px;text-align:left;cursor:pointer}
+  .panel button:hover{border-color:#8b84e8}
+  .panel label{font-size:12.5px;display:flex;gap:6px;align-items:center;margin:14px 0}
+  .panel h2{font-size:13px;margin:18px 0 6px;color:#4a4552}
+  #consent-table{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:8px;overflow:hidden}
+  #consent-table th,#consent-table td{padding:6px 8px;border-bottom:1px solid #eee;text-align:left}
+  #consent-table th{background:#f4f2f8;font-size:11px}
+  .phone{position:relative;width:390px;height:760px;background:var(--canvas,#faf8fc);border-radius:34px;box-shadow:0 20px 60px rgba(25,16,34,.25);overflow:hidden;flex-shrink:0}
+  .phone .fake-app{padding:28px 20px;color:#8f8899;font-size:13px}
+  #demo-toast{position:absolute;top:16px;left:50%;transform:translateX(-50%);background:#2c2833;color:#fff;font-size:13px;padding:9px 14px;border-radius:99px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:99;white-space:nowrap}
+  #scrim{position:absolute;inset:0;background:rgba(25,16,34,.4);opacity:0;pointer-events:none;transition:opacity .25s;z-index:10}
+  #scrim.on{opacity:1;pointer-events:auto}
+  #fh-sheet{position:absolute;left:0;right:0;bottom:0;background:var(--white,#fff);border-radius:22px 22px 0 0;padding:20px 18px calc(20px + 12px);transform:translateY(105%);transition:transform .3s cubic-bezier(.32,.72,0,1);z-index:20;max-height:88%;overflow-y:auto}
+  #fh-sheet.on{transform:translateY(0)}
+  .sheet-h{font-size:19px;font-weight:700;letter-spacing:-.02em;color:var(--ink,#1d1a22);margin-bottom:6px}
+  .sheet-sub{font-size:13.5px;line-height:1.5;color:var(--muted,#7a7484);margin-bottom:14px}
+  .cta{width:100%;border:0;background:var(--grad-brand,linear-gradient(135deg,#7f6ce0,#5b8def));color:#fff;font-size:15.5px;font-weight:700;padding:14px;border-radius:99px;margin-top:10px;cursor:pointer}
+  .btn-skip{width:100%;border:0;background:none;color:var(--muted,#7a7484);font-size:14px;padding:12px;cursor:pointer}
+  .btn-line{width:100%;border:1px solid var(--hairline,#e2deea);background:none;color:var(--ink,#1d1a22);font-size:14px;padding:12px;border-radius:12px;margin-top:8px;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <h1>Consent UI demo</h1>
+  <div class="sub">The real <code>75-consent-ui.js</code>, real CSS, fake database. Nothing here touches prod.</div>
+
+  <button onclick="demoBoot()">▶ First boot (layer 1 gate)</button>
+  <button onclick="window.fhAppDataConsentSheet()">↻ Show layer-1 sheet again</button>
+  <button onclick="demoConnect()">▶ Connect bank email (layer 2 gate → flow resumes on agree)</button>
+  <button onclick="window.fhConsentSheet({readOnly:true})">👁 Review: "what you agreed to"</button>
+  <button onclick="window.fhAppDataConsentSheet({readOnly:true})">⚙️ Cài đặt → Quyền riêng tư (review + withdraw)</button>
+  <button id="demo-disc" onclick="window.fhMailboxDisconnect(this)">⛔ Ngắt kết nối (arm, then confirm)</button>
+
+  <label><input type="checkbox" id="offline"> Simulate insert failure (offline) — watch agree BLOCK</label>
+  <label>Language:
+    <select onchange="LANG=this.value;toastMsg('Language: '+this.value+'. Reopen a sheet to re-render.')">
+      <option value="vi">Tiếng Việt</option><option value="en">English</option>
+    </select>
+  </label>
+
+  <h2>user_consents (in-memory)</h2>
+  <table id="consent-table"><thead><tr><th>kind</th><th>version</th><th>consented_at</th></tr></thead><tbody></tbody></table>
+  <button style="margin-top:8px" onclick="STORE.length=0;renderStore();location.reload()">🗑 Reset demo (clears rows, reloads)</button>
+  <div class="sub" style="margin-top:12px">Also serving: <a href="../privacy.html" target="_blank">privacy.html</a> — the page both sheets link to.</div>
+</div>
+
+<div class="phone">
+  <div class="fake-app">Earthy (demo shell) — the sheet rises from the bottom, exactly as in the app.</div>
+  <div id="demo-toast"></div>
+  <div id="scrim" onclick="_closeOv()"></div>
+  <div id="fh-sheet"><div id="fh-sheet-body"></div></div>
+</div>
+
+<script>
+/* ── stubs standing in for the app's module scope ─────────────────────────── */
+var LANG = 'vi';
+function L(vi, en) { return LANG === 'vi' ? vi : en; }
+function _esc(s) { var d = document.createElement('div'); d.textContent = String(s == null ? '' : s); return d.innerHTML; }
+function _escAttr(s) { return _esc(s).replace(/"/g, '&quot;'); }
+function fmtDayMon(d) { return d.getDate() + '/' + (d.getMonth() + 1); }
+var _MBX_SVG_LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.6"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/><circle cx="12" cy="15.4" r="1.15" fill="currentColor" stroke="none"/></svg>';
+function _mbxGlyph(k) { return _MBX_SVG_LOCK; }
+
+function _fhSheet(inner) {
+  document.getElementById('fh-sheet-body').innerHTML = inner;
+  document.getElementById('scrim').classList.add('on');
+  document.getElementById('fh-sheet').classList.add('on');
+}
+function _closeOv() {
+  document.getElementById('fh-sheet').classList.remove('on');
+  document.getElementById('scrim').classList.remove('on');
+}
+function toastMsg(m) {
+  var t = document.getElementById('demo-toast');
+  t.textContent = m; t.style.opacity = 1;
+  clearTimeout(t._h); t._h = setTimeout(function () { t.style.opacity = 0; }, 2600);
+}
+window.toast = toastMsg;
+
+/* ── the fake user_consents table ─────────────────────────────────────────── */
+var STORE = [];
+function renderStore() {
+  var tb = document.querySelector('#consent-table tbody');
+  tb.innerHTML = STORE.map(function (r) {
+    return '<tr><td>' + r.kind + '</td><td>v' + r.version + '</td><td>' + r.consented_at.slice(11, 19) + '</td></tr>';
+  }).join('') || '<tr><td colspan="3" style="color:#999">empty — no consent recorded yet</td></tr>';
+}
+renderStore();
+
+var sb = {
+  from: function () {
+    var kindFilter = null;
+    return {
+      select: function () { return this; },
+      eq: function (col, v) { if (col === 'kind') kindFilter = v; return this; },
+      order: function () { return this; },
+      limit: function () {
+        var rows = STORE.filter(function (r) { return !kindFilter || r.kind === kindFilter; })
+          .sort(function (a, b) { return b.version - a.version; });
+        return Promise.resolve({ data: rows, error: null });
+      },
+      insert: function (row) {
+        if (document.getElementById('offline').checked)
+          return Promise.resolve({ error: { message: 'network down (simulated)' } });
+        var dup = STORE.some(function (r) { return r.kind === row.kind && r.version === row.version; });
+        if (dup) return Promise.resolve({ error: { message: 'duplicate key value violates unique constraint' } });
+        STORE.push({ kind: row.kind, version: row.version, consented_at: new Date().toISOString() });
+        renderStore();
+        return Promise.resolve({ error: null });
+      },
+    };
+  },
+};
+async function _rpc(name) {
+  toastMsg('RPC → ' + name + ' (stubbed: would delete connection + pending rows)');
+  return {};
+}
+
+/* ── demo drivers ─────────────────────────────────────────────────────────── */
+function demoBoot() {
+  // mirrors hydrate's fire-and-forget call; the module's own once-per-session
+  // latch applies, hence the separate "show again" button
+  window.fhAppDataConsentCheck();
+}
+function demoConnect() {
+  window.fhConsentEnsure(function () {
+    toastMsg(L('Đồng ý đã ghi nhận → luồng tiếp tục: cấp địa chỉ +tag', 'Consent recorded → flow resumes: alias issued'));
+  }).then(function (ok) {
+    if (ok) toastMsg(L('Đã có đồng ý từ trước → đi thẳng', 'Already consented → straight through'));
+  });
+}
+</script>
+<!-- THE REAL MODULE — byte-identical to what deploys -->
+<script src="../src/js-data/75-consent-ui.js"></script>
+</body>
+</html>

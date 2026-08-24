@@ -22,6 +22,8 @@ const consentSrc = SRC('75-consent-ui.js');
 const mailboxSrc = SRC('71-mailbox-ui.js');
 const autotxnSrc = SRC('74-autotxn-ui.js');
 const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '0071_user_consents_disconnect.sql'), 'utf8');
+const privacySrc = fs.readFileSync(path.join(__dirname, '..', 'privacy.html'), 'utf8');
+const shellSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
 
 // ── stubs ───────────────────────────────────────────────────────────────────
 global.window = { toast: () => {} };
@@ -82,12 +84,18 @@ console.log('\n-- the gate asks exactly when it should --');
   console.log('\n-- the sheet says what the law requires --');
   const html = SHEETS[0];
   t('names the data as sensitive, verbatim', html.indexOf('dữ liệu cá nhân nhạy cảm') >= 0);
-  t('names the controller role, MoMo phrasing', html.indexOf('bên kiểm soát và xử lý dữ liệu cá nhân') >= 0);
-  t('names offshore storage in statutory words', html.indexOf('ngoài lãnh thổ Việt Nam') >= 0);
-  t('carries the state-authority carve-out', html.indexOf('cơ quan nhà nước có thẩm quyền') >= 0);
-  t('and the ciphertext addendum that makes it honest', html.indexOf('dữ liệu đã mã hoá') >= 0);
+  t('names the document type (a consent, not a T&C)', html.indexOf('ĐỒNG Ý XỬ LÝ DỮ LIỆU CÁ NHÂN') >= 0);
   t('links the privacy policy', html.indexOf('privacy.html') >= 0);
   t('affirmative CTA present', html.indexOf('fhConsentAgree') >= 0);
+  t('no em-dash anywhere in the consent module (house rule)', consentSrc.indexOf('\u2014') === -1);
+  // The statutory heavy artillery moved to the policy, one tap away, by design:
+  t('policy: controller role in statutory words', privacySrc.indexOf('bên kiểm soát và xử lý dữ liệu cá nhân') >= 0);
+  t('policy: offshore storage in statutory words', privacySrc.indexOf('ngoài lãnh thổ Việt Nam') >= 0);
+  t('policy: state-authority carve-out with the locked-copy addendum',
+    privacySrc.indexOf('quan nhà nước có thẩm quyền') >= 0 && privacySrc.indexOf('bản đã khoá') >= 0);
+  t('policy: imported bank statements named', privacySrc.indexOf('sao kê ngân hàng') >= 0);
+  t('policy: family visibility disclosed', privacySrc.indexOf('hiển thị cho cả nhà') >= 0);
+  t('policy: the in-app rights path is named', privacySrc.indexOf('Quyền riêng') >= 0);
 
   // ── agree: record first, resume second ────────────────────────────────────
   console.log('\n-- agreeing records before resuming --');
@@ -122,7 +130,7 @@ console.log('\n-- the gate asks exactly when it should --');
   reset({ data: [{ version: 3, consented_at: '2026-08-23T10:00:00Z' }], error: null });
   await window.fhConsentSheet({ readOnly: true });
   t('read-only sheet has no agree CTA', SHEETS[0].indexOf('fhConsentAgree') === -1);
-  t('and states the accepted version', SHEETS[0].indexOf('v3') >= 0, SHEETS[0].slice(-300));
+  t('and states the accepted date', SHEETS[0].indexOf('đã xác nhận đồng ý') >= 0 && SHEETS[0].indexOf('20/08') >= 0, SHEETS[0].slice(-300));
 
   // ── withdrawal ────────────────────────────────────────────────────────────
   console.log('\n-- disconnect is armed, then real --');
@@ -163,10 +171,10 @@ console.log('\n-- the gate asks exactly when it should --');
   await window.fhAppDataConsentCheck();
   t('no record at boot: the sheet appears', SHEETS.length === 1);
   const l1 = SHEETS[0];
-  t('it names imported bank statements explicitly', l1.indexOf('sao kê ngân hàng') >= 0);
   t('it treats financial data as sensitive in so many words', l1.indexOf('dữ liệu cá nhân nhạy cảm') >= 0);
-  t('offshore storage named in statutory words', l1.indexOf('ngoài lãnh thổ Việt Nam') >= 0);
-  t('family visibility disclosed', l1.indexOf('hiển thị cho các thành viên') >= 0);
+  t('it answers the key-holder question', l1.indexOf('chìa khoá của gia đình') >= 0);
+  t('it answers the breach question with a conclusion', l1.indexOf('vẫn an toàn') >= 0);
+  t('it names the in-app withdrawal place', l1.indexOf('Quyền riêng tư') >= 0);
   t('links the policy', l1.indexOf('privacy.html') >= 0);
 
   await window.fhAppDataConsentCheck();
@@ -186,6 +194,22 @@ console.log('\n-- the gate asks exactly when it should --');
   reset({ data: null, error: { message: 'boot flake' } });
   await window.fhAppDataConsentCheck();
   t('a flaky boot fetch skips THIS boot instead of nagging (asks next boot)', SHEETS.length === 0);
+
+  // read-only review from Settings, with the symmetric in-app withdrawal
+  reset({ data: [{ version: FH_APPDATA_CONSENT_V, consented_at: '2026-08-24T10:00:00Z' }], error: null });
+  await window.fhAppDataConsentSheet({ readOnly: true });
+  t('settings view: no agree CTA', SHEETS[0].indexOf('fhAppDataConsentAgree') === -1);
+  t('settings view: withdrawal action present', SHEETS[0].indexOf('fhAppDataWithdraw') >= 0);
+  const wbtn = { dataset: {}, disabled: false, textContent: '' };
+  INSERTS = [];
+  await window.fhAppDataWithdraw(wbtn);
+  t('withdraw arms first, records nothing', INSERTS.length === 0 && wbtn.dataset.armed === '1');
+  await window.fhAppDataWithdraw(wbtn);
+  t('second tap records the withdrawal in the same table',
+    INSERTS.length === 1 && INSERTS[0].row.kind === 'app_data_withdraw', JSON.stringify(INSERTS));
+  t('and confirms the 72-hour fulfilment', SHEETS[SHEETS.length - 1].indexOf('72 giờ') >= 0);
+  t('settings row is wired in the shell', shellSrc.indexOf('set-privacy-row') >= 0 &&
+    shellSrc.indexOf('fhAppDataConsentSheet({readOnly:true})') >= 0);
 
   const hydrateSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '30-hydrate.js'), 'utf8');
   t('hydrate actually calls the layer-1 check (wiring, not vibes)',

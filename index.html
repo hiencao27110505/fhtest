@@ -2937,6 +2937,8 @@ html.fh-can-install .set-row.set-install{display:flex}
 .cst-meta{font-size:12.5px;color:var(--muted);margin:2px 2px 10px}
 /* Withdrawal: destructive stays low-prominence text, never a filled button. */
 .cst-disc{color:var(--danger)}
+/* Document-type kicker: names what is being signed (a consent, not a T&C). */
+.cst-kicker{font-size:10.5px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin-bottom:8px}
 
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
@@ -3800,6 +3802,9 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
          for why hiding beats offering-then-refusing. -->
     <button id="set-autotxn-row" class="set-row" style="display:none" onclick="closeSheet();fhAutoTxnSheet()"><span class="set-ic">⚡</span><span class="set-t" data-t="setAutoTxn">Auto-log transactions</span><span class="set-badge" data-t="badgeNew">New</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhMyProfile()"><span class="set-ic">🙂</span><span class="set-t" data-t="setMyProfile">My profile</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <!-- Privacy: review the accepted consent + the in-app withdrawal L91's
+         ease-symmetry requires. Not gated: every signed-in user has this. -->
+    <button id="set-privacy-row" class="set-row" onclick="closeSheet();fhAppDataConsentSheet({readOnly:true})"><span class="set-ic">🛡️</span><span class="set-t" data-t="setPrivacy">Privacy</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhLanguageSheet()"><span class="set-ic">🌐</span><span class="set-t" data-t="setLanguage">Language</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t" data-t="setSwitchFamily">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t" data-t="inviteMember2">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -12543,6 +12548,7 @@ var EN_DEFAULT={
   continueGoogle:'Continue with Google', signingIn:'Signing in…',
   terms:'By continuing, you agree to our',
   termsLink:'Privacy Policy',
+  setPrivacy:'Privacy',
   startTitle:'Your family', startSubNew:'Name your home and you’re in.',
   inviteForYou:'Your invite', joinCta:'Join family', orCreate:'or start your own',
   familyName:'Family name', phFamName:'e.g. The Reeds', createFamilyCta:'Create family',
@@ -12648,6 +12654,7 @@ var I18N={
     continueGoogle:'Tiếp tục với Google', signingIn:'Đang đăng nhập…',
     terms:'Khi tiếp tục, bạn đồng ý với',
     termsLink:'Chính sách quyền riêng tư',
+    setPrivacy:'Quyền riêng tư',
     startTitle:'Nhà của bạn', startSubNew:'Đặt tên cho tổ ấm của mình để bắt đầu.',
     inviteForYou:'Lời mời cho bạn', joinCta:'Tham gia', orCreate:'hoặc tạo tổ ấm riêng',
     familyName:'Tên gia đình', phFamName:'vd. Nhà mình', createFamilyCta:'Tạo gia đình',
@@ -21481,46 +21488,41 @@ window.classifyAmount = classifyAmount;
     })();
   })();
   
-  // ═══ bank-email: PDPL consent gate ═══════════════════════════════════════
-  /* One consent, two doors. Both connect paths process the same sensitive data
-     (bank transaction information, dữ liệu cá nhân nhạy cảm), so both gate on
-     the same sheet and the same stored record: forwarding gates in
-     fhMailboxStart before an alias is issued, auto-logging gates in
-     fhAutoTxnGrant before Google's screen opens. Google's Allow button grants
-     API access; THIS is the consent the law asks for.
+  // ═══ PDPL consent: two layers, one table ═══════════════════════════════════
+  /* Layer 1 (kind app_data): the app-wide data consent, asked once at first
+     boot after sign-in. Sensitive-grade on purpose: manual entries are
+     arguably basic data, but CSV-imported bank statements are item-h data by
+     any reading, and explicit consent makes the classification question moot
+     (PDPL-COMPLIANCE §5).
 
-     The record is the point (0071): consent must be provable, so agreeing
-     inserts a (user, kind, version) row BEFORE the flow continues, and a
-     failed insert blocks the flow rather than proceeding on a promise. The
-     gate fails closed in the other direction too — if the record cannot be
-     read, we re-ask, because showing the sheet twice is free and skipping it
-     once is not.
+     Layer 2 (kind bank_email): the per-purpose consent for automated
+     collection from a bank channel. Gates BOTH connect doors: forwarding in
+     fhMailboxStart before an alias is issued, auto-logging in fhAutoTxnGrant
+     before Google's screen. Google's Allow grants an API; this is the consent
+     the law asks for.
 
-     Copy is consent_v 3: docs/PDPL-COMPLIANCE.md §5, legally reviewed and
-     benchmarked against MoMo's counsel-vetted wording. The text here and the
-     doc must not drift — bump FH_CONSENT_V when either changes, and everyone
-     re-consents to the new text on their next visit. */
+     The record is the point (0071): agreeing inserts a (user, kind, version)
+     row BEFORE the flow continues, and a failed insert blocks rather than
+     proceeds. Withdrawal is symmetric per L91 ("việc rút lại phải dễ dàng như
+     khi đã đồng ý"): one in-app action, recorded in the same table.
+
+     Copy is the final UX-written pass (2026-08-24): Q&A rows answering the
+     reader's actual questions, formal "chúng tôi" register for legal surfaces,
+     protection stated as conclusions. It must not drift from
+     docs/PDPL-COMPLIANCE.md §5: bump the version constant when either
+     changes, and everyone re-consents to the new text. */
 
   var FH_CONSENT_V = 3;
   var FH_CONSENT_KIND = 'bank_email';
-  /* Layer 1: the app-wide data consent, asked once at first boot after
-     sign-in. Sensitive-grade ON PURPOSE even though manual entries are
-     arguably basic data: the classification of self-reported and IMPORTED
-     spending (CSV bank statements are credit-institution records by any
-     reading) is untested under NĐ 356, and explicit consent makes the
-     question moot instead of load-bearing (PDPL-COMPLIANCE §5). */
   var FH_APPDATA_CONSENT_V = 1;
   var FH_APPDATA_KIND = 'app_data';
-  // The controller line. Unincorporated today, so it names the operators;
-  // swap for the legal entity if one is ever formed (and bump the version).
+  // Unincorporated today, so the operators are named; swap for a legal entity
+  // if one is formed (and bump both versions).
   var FH_DATA_OPERATORS_VI = 'Trang và Hiên';
   var FH_DATA_OPERATORS_EN = 'Trang and Hien';
   var FH_DATA_CONTACT = 'gichisreading@gmail.com';
 
   (function () {
-    /* Session cache: {version, consented_at} or null. Cleared on family/user
-       switch implicitly because it is keyed to nothing persistent — a reload
-       re-reads the table, which RLS scopes to the signed-in user. */
     var _cstKnown = null;
 
     async function _cstFetch() {
@@ -21535,24 +21537,31 @@ window.classifyAmount = classifyAmount;
       return _cstKnown;
     }
 
-    /* The gate. Returns true if current-version consent already exists (caller
-       proceeds inline). Otherwise shows the sheet and returns false — the
-       caller STOPS, and `then` re-enters the flow after a successful agree. */
+    /* The layer-2 gate. True = consent exists, caller proceeds inline.
+       False = the sheet is up and `then` re-enters the flow after a recorded
+       agree. Unreadable record fails closed to ASKING. */
     window.fhConsentEnsure = async function (then) {
       var rec = null;
-      try { rec = await _cstFetch(); } catch (e) { /* unreadable → ask again */ }
+      try { rec = await _cstFetch(); } catch (e) { /* unreadable: ask again */ }
       if (rec && rec.version >= FH_CONSENT_V) return true;
       window.fhConsentSheet({ then: then });
       return false;
     };
 
-    /* ── layer 1: app-wide data consent, once per user ──────────────────────
-       Called fire-and-forget from hydrate's off-critical-path block. Unlike
-       the bank-email gate this never interrupts an action, so its failure
-       posture differs: a transient fetch error at boot SKIPS this boot and
-       asks on the next one, rather than nagging every flaky reload. "Để sau"
-       does the same by simply not recording. The record, once written, ends
-       the asking forever (until a version bump re-opens it). */
+    function _cstKicker(extra) {
+      return '<div class="cst-kicker">' + _esc(L('ĐỒNG Ý XỬ LÝ DỮ LIỆU CÁ NHÂN', 'PERSONAL DATA PROCESSING CONSENT')) +
+        (extra ? ' · ' + _esc(extra) : '') + '</div>';
+    }
+    function _cstRow(q, body) {
+      return '<div class="cst-row"><div class="cst-rt">' + _esc(q) + '</div>' +
+        '<div class="cst-rs">' + body + '</div></div>';
+    }
+    function _cstPolicyLink() {
+      return '<a href="/privacy.html" target="_blank" rel="noopener">' +
+        _esc(L('Chính sách quyền riêng tư', 'Privacy Policy')) + '</a>';
+    }
+
+    /* ── layer 1: the app-wide consent ──────────────────────────────────────── */
     var _appDataAsked = false;
     window.fhAppDataConsentCheck = async function () {
       if (_appDataAsked) return;
@@ -21564,34 +21573,63 @@ window.classifyAmount = classifyAmount;
           .eq('kind', FH_APPDATA_KIND)
           .order('version', { ascending: false })
           .limit(1);
-      } catch (e) { return; }
+      } catch (e) { return; }   // flaky boot: skip this boot, ask next one
       if (!res || res.error) return;
       var rec = res.data && res.data[0];
       if (rec && rec.version >= FH_APPDATA_CONSENT_V) return;
       window.fhAppDataConsentSheet();
     };
 
-    window.fhAppDataConsentSheet = function () {
+    window.fhAppDataConsentSheet = async function (opts) {
+      opts = opts || {};
+      var ro = !!opts.readOnly;
+      var accepted = null;
+      if (ro) {
+        try {
+          var r = await sb.from('user_consents').select('version,consented_at')
+            .eq('kind', FH_APPDATA_KIND).order('version', { ascending: false }).limit(1);
+          accepted = (r.data && r.data[0]) || null;
+        } catch (e) {}
+      }
+
+      var rows =
+        _cstRow(L('Ai đọc được sổ chi tiêu?', 'Who can read the ledger?'), _esc(L(
+          'Chỉ những người giữ chìa khoá của gia đình bạn. Số tiền, ghi chú và ảnh chỉ mở được trên điện thoại có chìa khoá của gia đình; người làm Earthy hay bất kỳ ai khác đều chỉ thấy bản đã khoá. Chúng tôi không bán dữ liệu, không quảng cáo, không chấm điểm tín dụng.',
+          'Only the people holding your family key. Amounts, notes and photos can only be opened on a phone that holds the family key; the people who build Earthy, or anyone else, see only the locked copy. We never sell data, never run ads, never do credit scoring.'))) +
+        _cstRow(L('Lỡ máy chủ bị tấn công thì sao?', 'What if the server is attacked?'), _esc(L(
+          'Dữ liệu của bạn vẫn an toàn. Kẻ xấu chỉ lấy được bản đã khoá, và không mở được vì không có chìa khoá của gia đình bạn.',
+          'Your data stays safe. An attacker only gets the locked copy, and cannot open it without your family key.'))) +
+        _cstRow(L('Tôi rút lại đồng ý được không?', 'Can I withdraw my consent?'), _esc(L(
+          'Được, bất cứ lúc nào, ngay trong Cài đặt (mục Quyền riêng tư) hoặc gửi email tới ' + FH_DATA_CONTACT + '. Yêu cầu rút lại đồng ý hoặc xoá toàn bộ dữ liệu được hoàn tất trong 72 giờ.',
+          'Yes, anytime, right in Settings under Privacy, or by emailing ' + FH_DATA_CONTACT + '. Withdrawal and full-deletion requests are completed within 72 hours.')));
+
+      var smallPrint = '<div class="cst-meta">' + _esc(L(
+        'Theo pháp luật, dữ liệu tài chính là dữ liệu cá nhân nhạy cảm, vì vậy chúng tôi xin phép bạn rõ ràng tại đây. Earthy do ' + FH_DATA_OPERATORS_VI + ' vận hành và chịu trách nhiệm dữ liệu. Nơi lưu trữ, các dịch vụ tham gia và đầy đủ quyền của bạn: ',
+        'Under the law, financial data is sensitive personal data, so we ask you clearly here. Earthy is operated by ' + FH_DATA_OPERATORS_EN + ', who are responsible for your data. Where it is stored, the services involved, and your full rights: ')) +
+        _cstPolicyLink() + '.</div>';
+
+      var footer;
+      if (ro) {
+        var when = accepted && accepted.consented_at ? new Date(accepted.consented_at) : null;
+        footer = smallPrint +
+          '<div class="cst-meta">' + _esc(accepted
+            ? L('Bạn đã xác nhận đồng ý' + (when ? ' ngày ' + fmtDayMon(when) : '') + '.',
+                'You confirmed your consent' + (when ? ' on ' + fmtDayMon(when) : '') + '.')
+            : L('Chưa có xác nhận nào được ghi nhận.', 'No confirmation on record.')) + '</div>' +
+          '<button class="btn-skip cst-disc" onclick="fhAppDataWithdraw(this)">' +
+            _esc(L('Rút lại đồng ý và xoá dữ liệu', 'Withdraw consent and delete data')) + '</button>' +
+          '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>';
+      } else {
+        footer = smallPrint +
+          '<button class="cta" onclick="fhAppDataConsentAgree(this)">' + _esc(L('Tôi hiểu và đồng ý', 'I understand and agree')) + '</button>' +
+          '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>';
+      }
+
       _fhSheet(
-        '<div class="mbx-hero">' + _mbxGlyph('lock') + '</div>' +
-        '<div class="sheet-h">' + _esc(L('Dữ liệu của nhà mình, nói rõ một lần', 'Your family’s data, said plainly once')) + '</div>' +
-        '<div class="cst-body">' +
-        _cstRow(L('Ai xử lý', 'Who processes it'), _esc(L(
-          'Earthy được vận hành bởi ' + FH_DATA_OPERATORS_VI + ', với vai trò là bên kiểm soát và xử lý dữ liệu cá nhân. Liên hệ về dữ liệu: ' + FH_DATA_CONTACT + '.',
-          'Earthy is operated by ' + FH_DATA_OPERATORS_EN + ', acting as the personal-data controller and processor. Data contact: ' + FH_DATA_CONTACT + '.'))) +
-        _cstRow(L('Ứng dụng lưu gì', 'What the app stores'), _esc(L(
-          'Email đăng nhập và tên của bạn. Tên và ảnh đại diện các thành viên gia đình, kể cả trẻ em do cha mẹ thêm vào. Các khoản thu chi bạn tự ghi hoặc nhập từ tệp, kể cả bảng sao kê ngân hàng, cùng ghi chú, hạng mục và ảnh đính kèm. Đây là dữ liệu tài chính của bạn, tụi mình đối xử với nó như dữ liệu cá nhân nhạy cảm.',
-          'Your sign-in email and name. Family members’ names and avatars, including children added by parents. The spending you record or import from files, including bank statements, with notes, categories and photos. This is your financial data, and we treat it as sensitive personal data.'))) +
-        _cstRow(L('Lưu ở đâu, ai thấy', 'Where it lives, who sees it'), _esc(L(
-          'Dữ liệu lưu trên máy chủ đặt ngoài lãnh thổ Việt Nam. Với gia đình đã bật mã hoá, số tiền, ghi chú và ảnh được mã hoá ngay trên thiết bị, máy chủ chỉ giữ bản mã. Khoản chi vào sổ chung sẽ hiển thị cho các thành viên trong gia đình bạn. Không bán, không quảng cáo, không chia sẻ cho ai khác, trừ trường hợp cơ quan nhà nước có thẩm quyền yêu cầu theo đúng quy định pháp luật.',
-          'Data is stored on servers located outside Vietnam. For families with encryption on, amounts, notes and photos are encrypted on your device and servers hold only ciphertext. Entries in the shared ledger are visible to your family members. Never sold, never ads, never shared with anyone else, except where a competent state authority lawfully requires it.'))) +
-        _cstRow(L('Quyền của bạn', 'Your rights'),
-          _esc(L('Truy cập, chỉnh sửa, yêu cầu xóa, rút lại sự đồng ý, hạn chế hoặc phản đối xử lý, và khiếu nại. Chi tiết trong ',
-                 'Access, correct, request deletion, withdraw consent, restrict or object to processing, and complain. Details in the ')) +
-          '<a href="./privacy.html" target="_blank" rel="noopener">' + _esc(L('Chính sách quyền riêng tư', 'Privacy Policy')) + '</a>.') +
-        '</div>' +
-        '<button class="cta" onclick="fhAppDataConsentAgree(this)">' + _esc(L('Tôi hiểu và đồng ý', 'I understand and agree')) + '</button>' +
-        '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>');
+        _cstKicker() +
+        '<div class="sheet-h">' + _esc(L('Chuyện tiền của nhà mình, chỉ nhà mình biết.', 'Your family’s money stays your family’s business.')) + '</div>' +
+        '<div class="sheet-sub">' + _esc(L('Earthy là cuốn sổ chi tiêu chung của nhà bạn.', 'Earthy is your family’s shared expense book.')) + '</div>' +
+        '<div class="cst-body">' + rows + '</div>' + footer);
     };
 
     window.fhAppDataConsentAgree = async function (btn) {
@@ -21606,70 +21644,86 @@ window.classifyAmount = classifyAmount;
       _closeOv();
     };
 
-    function _cstRow(title, body) {
-      return '<div class="cst-row"><div class="cst-rt">' + _esc(title) + '</div>' +
-        '<div class="cst-rs">' + body + '</div></div>';
-    }
+    /* In-app withdrawal, symmetric with the one-tap consent (L91: withdrawing
+       must be as easy as agreeing). The tap is RECORDED instantly in the same
+       append-only table; fulfilment (full deletion) is operational within the
+       72 hours the consent text states. Arm-then-confirm because it leads to
+       deletion of everything. */
+    window.fhAppDataWithdraw = async function (btn) {
+      if (!btn) return;
+      if (!btn.dataset.armed) {
+        btn.dataset.armed = '1';
+        btn.textContent = L('Chắc chắn? Bấm lần nữa để rút lại', 'Sure? Tap again to withdraw');
+        setTimeout(function () {
+          if (btn && btn.dataset) { delete btn.dataset.armed; btn.textContent = L('Rút lại đồng ý và xoá dữ liệu', 'Withdraw consent and delete data'); }
+        }, 4000);
+        return;
+      }
+      btn.disabled = true; btn.textContent = L('Đang ghi nhận…', 'Recording…');
+      var res = await sb.from('user_consents').insert({ kind: 'app_data_withdraw', version: FH_APPDATA_CONSENT_V });
+      var dup = res.error && /duplicate key|already exists/i.test(res.error.message || '');
+      if (res.error && !dup) {
+        btn.disabled = false; delete btn.dataset.armed;
+        btn.textContent = L('Rút lại đồng ý và xoá dữ liệu', 'Withdraw consent and delete data');
+        window.toast && window.toast(L('Chưa ghi nhận được, thử lại nhé', 'Could not record it, try again'));
+        return;
+      }
+      _fhSheet(
+        '<div class="sheet-h">' + _esc(L('Đã ghi nhận yêu cầu của bạn', 'Your request is recorded')) + '</div>' +
+        '<div class="sheet-sub">' + _esc(L(
+          'Trong vòng 72 giờ, chúng tôi xoá toàn bộ dữ liệu của bạn và xác nhận qua email ' + FH_DATA_CONTACT + '. Trong lúc chờ, dữ liệu không được dùng thêm cho mục đích nào.',
+          'Within 72 hours we delete all your data and confirm by email from ' + FH_DATA_CONTACT + '. Until then, your data is not used for anything further.')) + '</div>' +
+        '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>');
+    };
 
-    /* The sheet. opts.then re-enters the interrupted flow after a recorded
-       agree; opts.readOnly renders the same text as a record of what was
-       accepted (no agree CTA, shows version + date instead). */
+    /* ── layer 2: the bank-email consent ────────────────────────────────────── */
     window.fhConsentSheet = async function (opts) {
       opts = opts || {};
       var ro = !!opts.readOnly;
       var accepted = null;
       if (ro) { try { accepted = await _cstFetch(); } catch (e) {} }
 
-      var vi = [
-        _cstRow(L('Ai xử lý dữ liệu', 'Who processes it'), _esc(L(
-          'Earthy được vận hành bởi ' + FH_DATA_OPERATORS_VI + ', với vai trò là bên kiểm soát và xử lý dữ liệu cá nhân. Liên hệ về dữ liệu: ' + FH_DATA_CONTACT + '.',
-          'Earthy is operated by ' + FH_DATA_OPERATORS_EN + ', acting as the personal-data controller and processor. Data contact: ' + FH_DATA_CONTACT + '.'))),
-        _cstRow(L('Dữ liệu gì', 'What data'), _esc(L(
-          'Khi bạn kết nối email ngân hàng, tụi mình xử lý nội dung email đó, và trích xuất thông tin giao dịch: số tiền, thời điểm, người nhận hay cửa hàng, lời nhắn chuyển khoản, số tài khoản đã che bớt, tên ngân hàng. Theo Luật Bảo vệ dữ liệu cá nhân, đây là dữ liệu cá nhân nhạy cảm. Tụi mình cần bạn biết điều đó, và đồng ý rõ ràng, trước khi bắt đầu.',
-          'When you connect bank email, we process the content of those emails and extract the transaction information: amount, time, who was paid, the transfer note, the partially hidden account number, and the bank name. Under the Personal Data Protection Law, this is sensitive personal data. We want you to know that, and to agree clearly, before anything starts.'))),
-        _cstRow(L('Xử lý thế nào', 'How it is handled'), _esc(L(
-          'Email đi qua một hộp thư trung gian trên Gmail, được xoá sau 7 ngày và tự huỷ hẳn trong khoảng một tháng. Email không đọc được sẽ được giữ lâu hơn để tụi mình sửa lỗi, tối đa 90 ngày. Với ngân hàng lần đầu gặp, nội dung được che hết số tiền, tên, số tài khoản thật rồi mới nhờ Google Gemini đọc cấu trúc. Giá trị thật không bao giờ được gửi cho Gemini. Giao dịch được niêm phong ngay khi nhận, lưu trên máy chủ Supabase đặt ngoài lãnh thổ Việt Nam, và được thiết kế để chỉ thiết bị của nhà bạn mở được. Bản chờ duyệt giữ đến khi bạn duyệt hoặc ngắt kết nối. Giao dịch bạn duyệt sẽ vào sổ chi tiêu chung, hiển thị cho các thành viên trong gia đình bạn, đến khi gia đình xoá.',
-          'Emails pass through a relay inbox on Gmail, are deleted after 7 days, and are gone for good within about a month. Emails we fail to read are kept longer so we can fix the error, at most 90 days. For a bank we have not seen before, every real amount, name and account number is masked before Google Gemini reads the structure. Real values are never sent to Gemini. Each transaction is sealed on arrival, stored on Supabase servers located outside Vietnam, and designed so only your family’s devices can open it. Pending items are kept until you review them or disconnect. Transactions you approve enter the shared family ledger, visible to your family members, until the family deletes them.'))),
-        _cstRow(L('Dùng để làm gì', 'What it is for'), _esc(L(
-          'Ghi sổ và quản lý chi tiêu trong ứng dụng, cho chính gia đình bạn. Không bán, không quảng cáo, không chia sẻ cho ai khác ngoài các dịch vụ nêu trên, trừ trường hợp cơ quan nhà nước có thẩm quyền yêu cầu theo đúng quy định pháp luật. Khi đó, với các giá trị đã niêm phong, thứ tụi mình có thể cung cấp chỉ là dữ liệu đã mã hoá.',
-          'Recording and managing spending in the app, for your own family. Never sold, never used for ads, never shared beyond the services above, except where a competent state authority lawfully requires it. In that case, for sealed values, what we can produce is ciphertext.'))),
-        _cstRow(L('Quyền của bạn', 'Your rights'),
-          _esc(L(
-            'Đổi ý lúc nào cũng được. Ngắt kết nối trong Cài đặt, và xoá quy tắc chuyển tiếp trong Gmail của bạn, là dừng hẳn. Giao dịch đang chờ duyệt được xoá ngay khi ngắt. Muốn xoá sạch dữ liệu, nhắn tụi mình theo địa chỉ trên. Bạn còn có quyền truy cập, chỉnh sửa, yêu cầu xóa dữ liệu, rút lại sự đồng ý, hạn chế hoặc phản đối xử lý, và phản ánh, khiếu nại. Chi tiết trong ',
-            'Change your mind anytime. Disconnecting in Settings, plus deleting your forwarding rule in Gmail, stops everything. Pending transactions are deleted the moment you disconnect. To erase everything, contact us at the address above. You also have the rights to access, correct, request deletion, withdraw consent, restrict or object to processing, and lodge a complaint. Details in the ')) +
-          '<a href="./privacy.html" target="_blank" rel="noopener">' + _esc(L('Chính sách quyền riêng tư', 'Privacy Policy')) + '</a>. ' +
-          _esc(L('Không đồng ý thì tính năng này không bật, các phần khác của Earthy vẫn dùng bình thường.',
-                 'If you decline, only this feature stays off. The rest of Earthy works normally.'))),
-      ].join('');
+      var rows =
+        _cstRow(L('Có ai đọc được email của tôi không?', 'Can anyone read my emails?'), _esc(L(
+          'Email được hệ thống xử lý tự động rồi tự xoá sau 7 ngày; email bị lỗi giữ tối đa 90 ngày rồi cũng xoá. Khi gặp một ngân hàng lần đầu, AI chỉ đọc bản đã che hết số tiền, tên và số tài khoản; số thật không bao giờ được gửi đi.',
+          'Emails are processed automatically and delete themselves after 7 days; ones we fail to read are kept at most 90 days, then deleted too. For a first-time bank, the AI only reads a copy with every amount, name and account number masked; real values are never sent.'))) +
+        _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
+          'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
+          'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +
+        _cstRow(L('Giao dịch có tự vào sổ không?', 'Do transactions enter the ledger by themselves?'), _esc(L(
+          'Không. Bạn duyệt từng khoản một. Muốn dừng, vào Cài đặt bấm Ngắt kết nối: dừng ngay và các khoản đang chờ được xoá hết.',
+          'No. You review every one. To stop, tap Disconnect in Settings: it stops at once and pending items are deleted.')));
+
+      var smallPrint = '<div class="cst-meta">' + _esc(L(
+        'Giao dịch ngân hàng là dữ liệu cá nhân nhạy cảm theo pháp luật, nên chúng tôi có lời xin phép riêng này. Vận hành: ' + FH_DATA_OPERATORS_VI + ' · ' + FH_DATA_CONTACT + ' · Chi tiết: ',
+        'Bank transactions are sensitive personal data under the law, which is why this feature asks separately. Operated by ' + FH_DATA_OPERATORS_EN + ' · ' + FH_DATA_CONTACT + ' · Details: ')) +
+        _cstPolicyLink() + '. ' +
+        _esc(L('Nếu không đồng ý, chỉ tính năng này không bật.', 'If you decline, only this feature stays off.')) + '</div>';
 
       var footer;
       if (ro) {
         var when = accepted && accepted.consented_at ? new Date(accepted.consented_at) : null;
-        footer =
+        footer = smallPrint +
           '<div class="cst-meta">' + _esc(accepted
-            ? L('Bạn đã xác nhận đồng ý bản v' + accepted.version + (when ? ' ngày ' + fmtDayMon(when) : '') + '.',
-                'You confirmed version v' + accepted.version + (when ? ' on ' + fmtDayMon(when) : '') + '.')
+            ? L('Bạn đã xác nhận đồng ý' + (when ? ' ngày ' + fmtDayMon(when) : '') + '.',
+                'You confirmed your consent' + (when ? ' on ' + fmtDayMon(when) : '') + '.')
             : L('Chưa có xác nhận nào được ghi nhận.', 'No confirmation on record.')) + '</div>' +
           '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>';
       } else {
-        footer =
+        footer = smallPrint +
           '<button class="cta" id="cst-agree" onclick="fhConsentAgree(this)">' +
             _esc(L('Tôi hiểu và đồng ý', 'I understand and agree')) + '</button>' +
           '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>';
       }
 
       _fhSheet(
-        '<div class="mbx-hero">' + _mbxGlyph('lock') + '</div>' +
-        '<div class="sheet-h">' + _esc(L('Trước khi kết nối, đọc phút này đã nhé', 'One minute before you connect')) + '</div>' +
-        '<div class="cst-body">' + vi + '</div>' +
-        footer);
+        _cstKicker(L('EMAIL NGÂN HÀNG', 'BANK EMAIL')) +
+        '<div class="sheet-h">' + _esc(L('Ngân hàng gửi, Earthy niêm phong, nhà bạn mở.', 'Your bank sends it, Earthy seals it, your family opens it.')) + '</div>' +
+        '<div class="cst-body">' + rows + '</div>' + footer);
 
       window._cstThen = ro ? null : (opts.then || null);
     };
 
-    /* The affirmative act. The record lands FIRST; the flow resumes only on a
-       confirmed insert. A duplicate row (same version, double-tap or a second
-       device) reads as already-consented and proceeds. */
     window.fhConsentAgree = async function (btn) {
       if (btn) { btn.disabled = true; btn.textContent = L('Đang ghi nhận…', 'Recording…'); }
       var res = await sb.from('user_consents').insert({ kind: FH_CONSENT_KIND, version: FH_CONSENT_V });
@@ -21685,11 +21739,7 @@ window.classifyAmount = classifyAmount;
       if (typeof then === 'function') then();
     };
 
-    /* ── withdrawal ──────────────────────────────────────────────────────────
-       Arm-then-confirm (DESIGN: destructive is low-prominence, never one tap).
-       The RPC deletes the connection AND the pending staged rows in one
-       transaction, then the sheet shows the one step only the person can do:
-       delete their own Gmail forwarding rule. */
+    /* ── withdrawal, layer 2: disconnect the mailbox ────────────────────────── */
     window.fhMailboxDisconnect = async function (btn) {
       if (!btn) return;
       if (!btn.dataset.armed) {
