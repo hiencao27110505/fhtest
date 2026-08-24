@@ -1414,6 +1414,21 @@ input{font-family:inherit}
 .cash3 .c3 .k{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--muted);display:flex;align-items:center;gap:5px}
 .cash3 .c3 .k .ar{font-size:13px;font-weight:700}
 .cash3 .c3 .v{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.04em;color:var(--ink);margin-top:7px;font-variant-numeric:tabular-nums}
+/* ── Cá nhân tab (personal ledger) — reuses finance components; these are the
+   few net-new bits, styled to match the app (no inline styles in the renderer). */
+.pers-link{color:var(--brand-ink);font-weight:700;cursor:pointer}
+.pcard-code{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:.4px;text-align:center;
+  background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:16px 10px;margin:14px 0;word-break:break-all}
+.btn-line-full{width:100%;margin-top:10px}
+.pers-lock{text-align:center}
+.pers-lock-ic{font-size:34px}
+.pers-lock-t{font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.4px;margin-top:8px;color:var(--ink)}
+.pers-lock-s{font-size:13.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+.pers-lock-field{margin-top:14px}
+.pers-lock-field input{text-align:center}
+.pers-lock .cta{margin-top:12px}
+.pers-lock-err{font-size:12.5px;color:var(--danger);margin-top:8px;min-height:1px}
+
 /* Savings goals — ONE grouped card: the brief (goal-gradient framing) is the header,
    the goal list its body. A single border + shadow makes the whole thing read as one object. */
 .goal-card{background:var(--white);border:1px solid var(--hairline);border-radius:18px;margin:0 16px 12px;overflow:hidden;box-shadow:var(--shadow-card)}
@@ -3442,25 +3457,9 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   </div>
   <div class="modal-body">
     <div class="sheet-sub">Đây là chìa khóa <b>sổ cá nhân</b> của bạn — khác với thẻ của gia đình. Mất thẻ là mất dữ liệu cá nhân: không ai khôi phục được, kể cả chúng tôi.</div>
-    <div id="pcard-display" class="num" style="font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:.4px;text-align:center;background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:16px 10px;margin:14px 0;word-break:break-all"></div>
+    <div id="pcard-display" class="num pcard-code"></div>
     <button class="cta" onclick="persCardSave()">Lưu tệp thẻ khóa</button>
-    <button class="btn-line" style="width:100%;margin-top:10px" onclick="persCardCopy()">Sao chép</button>
-  </div>
-</div>
-
-<!-- Private expense quick-add (personal container only) -->
-<div class="modal" id="sheet-pexp">
-  <div class="modal-grip"></div>
-  <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
-    <div class="modal-title">Khoản chi riêng tư</div>
-    <button class="modal-save" onclick="persAddExpense()">Lưu</button>
-  </div>
-  <div class="modal-body">
-    <div class="sheet-sub">Chỉ mình bạn thấy — mã hoá bằng thẻ khóa cá nhân.</div>
-    <div class="field"><label>Số tiền</label><input id="pexp-amt" type="text" inputmode="numeric" class="num big" placeholder="90.000" onblur="snapAmtInput(this)"></div>
-    <div class="field"><label>Ghi chú</label><input id="pexp-note" placeholder="Cà phê, quà…"></div>
-    <div class="field"><label>Danh mục</label><select id="pexp-cat"></select></div>
+    <button class="btn-line btn-line-full" onclick="persCardCopy()">Sao chép</button>
   </div>
 </div>
 
@@ -3542,6 +3541,10 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <!-- The one live editor instance. renderBulk() relocates this node into the
          active row's mount; in edit mode it renders in place (bulk list stays empty). -->
     <div id="ex-editor">
+    <div class="field" id="ex-scopefield"><label>Ghi vào đâu?</label><div class="choices" id="ex-scope">
+      <button class="choice on" data-v="family" onclick="pickExScope(this)">🏡 Gia đình</button>
+      <button class="choice" data-v="personal" onclick="pickExScope(this)">🔒 Cá nhân</button>
+    </div></div>
     <div class="field">
       <label data-t="exWhatFor">What for?</label>
       <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()" onblur="onExNoteBlur()"/>
@@ -4139,7 +4142,7 @@ function go(name){
   if(name==='home' && typeof renderHome==='function'){ try{ renderHome(); }catch(e){} }   // fresh home (milestone shows on open)
   // Cá nhân: FAB adds to the FAMILY — hide it here; the tab has its own quick-add.
   var _fab=document.querySelector('.fab'); if(_fab) _fab.style.display=(name==='personal')?'none':'';
-  if(name==='personal'){ try{ if(typeof renderPersonal==='function') renderPersonal(); if(window.fhPersonalData && fhPersonalData().state==='boot' && window.fhPersonalBoot) fhPersonalBoot(); if(typeof persFillCats==='function') persFillCats(); }catch(e){} }
+  if(name==='personal'){ try{ if(typeof renderPersonal==='function') renderPersonal(); if(window.fhPersonalData && fhPersonalData().state==='boot' && window.fhPersonalBoot) fhPersonalBoot(); }catch(e){} }
 }
 /* Khoảnh Khắc has three inner sections: Dự định (plans) · Kỷ niệm (memories) · Album gia đình (album). */
 /* Khoảnh Khắc is one flat scroll now (like Tài Chính) — momSec glides to a section
@@ -5094,17 +5097,17 @@ function renderPersonal(){
     host.innerHTML = '<div class="empty-note">Đang chuẩn bị sổ cá nhân của bạn…</div>'; return;
   }
   if(P.state==='error'){
-    host.innerHTML = '<div class="empty-note">Chưa tải được sổ cá nhân. <a onclick="fhPersonalBoot()" style="color:var(--brand-ink);font-weight:700;cursor:pointer">Thử lại</a></div>'; return;
+    host.innerHTML = '<div class="empty-note">Chưa tải được sổ cá nhân. <a class="pers-link" onclick="fhPersonalBoot()">Thử lại</a></div>'; return;
   }
   if(P.state==='locked'){
     host.innerHTML =
-      '<div class="card" style="text-align:center">'+
-      '<div style="font-size:34px">🔐</div>'+
-      '<div style="font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.4px;margin-top:8px">Sổ cá nhân đang khóa</div>'+
-      '<div style="font-size:13.5px;color:var(--muted);margin-top:6px;line-height:1.5">Nhập thẻ khóa <b>cá nhân</b> của bạn (khác thẻ của gia đình) để mở trên máy này.</div>'+
-      '<div class="field" style="margin-top:14px"><input id="pers-card-in" placeholder="FH-XXXX-XXXX-…" autocomplete="off" autocapitalize="characters" style="text-align:center"></div>'+
-      '<button class="cta" style="margin-top:12px" onclick="persUnlock()">Mở sổ cá nhân</button>'+
-      '<div id="pers-unlock-err" style="font-size:12.5px;color:var(--danger);margin-top:8px"></div>'+
+      '<div class="card pers-lock">'+
+      '<div class="pers-lock-ic">🔐</div>'+
+      '<div class="pers-lock-t">Sổ cá nhân đang khóa</div>'+
+      '<div class="pers-lock-s">Nhập thẻ khóa <b>cá nhân</b> của bạn (khác thẻ của gia đình) để mở trên máy này.</div>'+
+      '<div class="field pers-lock-field"><input id="pers-card-in" placeholder="FH-XXXX-XXXX-…" autocomplete="off" autocapitalize="characters"></div>'+
+      '<button class="cta" onclick="persUnlock()">Mở sổ cá nhân</button>'+
+      '<div id="pers-unlock-err" class="pers-lock-err"></div>'+
       '</div>';
     return;
   }
@@ -5132,7 +5135,7 @@ function renderPersonal(){
      +   '<button class="cf-tile"><span class="cf-tl"><span class="cf-ar dn">↓</span> Ra</span><span class="cf-tv num">'+fmt(out)+'</span></button>'
      + '</div>'
      + (P.mirrorRan? '' : '<div class="cf-note flat">Đang đồng bộ các khoản bạn đã ghi cho gia đình…</div>')
-     + '<div class="cf-cta"><button class="cc-row" onclick="openSheet(\'sheet-pexp\')"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="cc-t">Ghi khoản chi riêng tư</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button></div>'
+     + '<div class="cf-cta"><button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="cc-t">Ghi khoản chi riêng tư</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button></div>'
      + '</section>';
 
   /* groups */
@@ -5195,25 +5198,13 @@ function persCardSave(){
   setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
 }
 
-/* quick-add handlers */
-function persAddExpense(){
-  // Input is in display currency (full VND); parseAmtBase → base units (thousands).
-  var amt = parseAmtBase((document.getElementById('pexp-amt')||{}).value||'');
-  var note = ((document.getElementById('pexp-note')||{}).value||'').trim();
-  var cat = (document.getElementById('pexp-cat')||{}).value || null;
-  if(!amt || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
-  fhPersonalAddExpense(amt, note, cat).then(function(ok){ if(ok){ closeModals(); renderPersonal(); window.toast && toast('Đã ghi vào sổ cá nhân'); } });
-}
+/* personal income quick-add (expense now goes through the shared expense modal
+   via openPersonalExpense — one capture flow, scope-picked). */
 function persAddIncome(){
   var amt = parseAmtBase((document.getElementById('pinc-amt')||{}).value||'');
   var note = ((document.getElementById('pinc-note')||{}).value||'').trim();
   if(!amt || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
   fhPersonalAddIncome(amt, note).then(function(ok){ if(ok){ closeModals(); renderPersonal(); window.toast && toast('Đã ghi thu nhập'); } });
-}
-function persFillCats(){
-  var sel = document.getElementById('pexp-cat'); if(!sel) return;
-  var P = window.fhPersonalData ? fhPersonalData() : null; if(!P) return;
-  sel.innerHTML = '<option value="">Danh mục…</option>' + (P.cats||[]).map(function(c){ return '<option value="'+c.id+'">'+(c.emoji||'')+' '+(c.name||'')+'</option>'; }).join('');
 }
 
 /* ---------- Home — the emotional feed ("moment engine") ----------
@@ -7703,8 +7694,23 @@ function openExpense(preset){
   var m=document.getElementById('expense-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
   var body=m.querySelector('.modal-body'); if(body)body.scrollTop=0;
   if(editingTx) fillExpenseFromTx(); else prefillExpense();
+  // Scope picker: hidden while editing (scope is fixed once logged); resets to
+  // family on every fresh open so a prior personal pick never carries over.
+  var sf=document.getElementById('ex-scopefield'); if(sf) sf.style.display = editingTx? 'none':'';
+  if(!editingTx) _applyExScope((preset&&preset.scope)||'family');
 }
 function closeExpense(){ closeModals(); }
+// Open the shared expense modal pre-scoped to the personal ledger (Cá nhân tab).
+function openPersonalExpense(){ openExpense({scope:'personal'}); }
+function pickExScope(btn){ pick('ex-scope',btn); _applyExScope(btn.dataset.v); }
+function _applyExScope(v){
+  var personal=(v==='personal');
+  selectChipByVal('ex-scope', v);
+  var who=document.getElementById('ex-whofield'); if(who) who.style.display=personal?'none':'';   // no member-split in a private ledger
+  var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=personal?'none':'';     // personal photos not wired yet
+  var bulk=document.getElementById('bulk-add'); if(bulk) bulk.style.display=personal?'none':'';     // keep personal single for now
+  var t=document.getElementById('ex-title'); if(t) t.textContent = personal? L('Khoản chi cá nhân','Personal expense') : L('Ghi khoản chi','Log an expense');
+}
 /* Drag a bottom sheet / modal DOWN to dismiss — axis-locked so it never fights scrolling. */
 function initSheetDrag(sheet, closeFn){
   closeFn = closeFn || closeSheet;
@@ -8885,6 +8891,9 @@ function fillExpenseFromTx(){
   refreshExCta();                                          // Save stays disabled until the first edit
 }
 function submitExpense(){
+  // Personal scope: route to the personal ledger and bail before any family
+  // write — the family path below stays byte-identical (early return).
+  if(!editingTx && typeof chosen==='function' && chosen('ex-scope')==='personal'){ _submitPersonalExpense(); return; }
   if(!editingTx){
     // Parse/split whatever is still in the input (the user may tap Lưu without blurring first).
     if(typeof commitActiveRow==='function') commitActiveRow();
@@ -8904,6 +8913,25 @@ function submitExpense(){
   // addExpense() bails without closing when the form is invalid; only drop the
   // photos from the batch once the expense actually landed.
   if(adopting && !document.getElementById('expense-modal').classList.contains('on')) paAdopt();
+}
+
+/* Personal-scope save: writes each draft row straight into the personal ledger
+   (space_id null → private), never the family. Mirrors addExpense's finish
+   (clear drafts, close, toast) so the flow feels identical. */
+async function _submitPersonalExpense(){
+  if(typeof commitActiveRow==='function') commitActiveRow();
+  var rows=(typeof bulkRows!=='undefined'?bulkRows:[]).filter(function(r){ return typeof rowHasContent==='function'? rowHasContent(r):(r&&r.amt); });
+  if(!rows.length){ if(typeof bulkShowInvalid==='function') bulkShowInvalid(); return; }
+  // validate like the family single-row path (amount + a real category)
+  for(var k=0;k<rows.length;k++){ if(!(parseAmtBase(rows[k].amt||'')>0 && catValid(rows[k].cat))){ if(typeof bulkShowInvalid==='function'){ bulkShowInvalid(); return; } } }
+  var ok=0;
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i], amt=parseAmtBase(r.amt||''); if(!(amt>0)) continue;
+    var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
+    var catId=null; try{ catId=await window.fhPersonalCatId(r.cat, emoji); }catch(e){}
+    if(await window.fhPersonalAddExpense(amt, r.note||'', catId, r.date||undefined)) ok++;
+  }
+  if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
 }
 function saveExpenseEdit(){
   var t=txById(editingTx); if(!t){ closeExpense(); return; }
@@ -13643,7 +13671,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v373';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v374';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -15201,11 +15229,11 @@ window.obGoogle = async function () {
     };
 
     /* ── writes: private expense / income (personal container, enc-only) ── */
-    window.fhPersonalAddExpense = async function (amt, note, catId) {
+    window.fhPersonalAddExpense = async function (amt, note, catId, dateIso) {
       if (!P.fid || !P.key || !P.memberId) return false;
       const row = {
         family_id: P.fid, category_id: catId || null, member_id: P.memberId, created_by: P.memberId,
-        txn_date: new Date().toISOString().slice(0, 10), status: 'realized', kind: 'expense',
+        txn_date: dateIso || new Date().toISOString().slice(0, 10), status: 'realized', kind: 'expense',
         space_id: null, link_id: null,
         amount: null, amount_enc: await _encP(Number(amt)),
         note: null, note_enc: note ? await _encP(note) : null,
@@ -15357,6 +15385,14 @@ window.obGoogle = async function () {
       P.cats.push({ id: ins.data.id, name: name, emoji: (famCat && famCat.emoji) || '🗂️' });
       return ins.data.id;
     }
+
+    // Resolve a category NAME (as shown in the family chips) to a personal-ledger
+    // category id, creating it on first use. Used by the shared capture modal
+    // when logging a personal-scoped expense.
+    window.fhPersonalCatId = async function (name, emoji) {
+      if (!P.key || !name) return null;
+      try { return await _catFor(name, emoji ? { emoji: emoji } : null); } catch (e) { return null; }
+    };
   })();
 
   // ═══════════════════════════════════════════════════════════════════════════

@@ -157,11 +157,11 @@
     };
 
     /* ── writes: private expense / income (personal container, enc-only) ── */
-    window.fhPersonalAddExpense = async function (amt, note, catId) {
+    window.fhPersonalAddExpense = async function (amt, note, catId, dateIso) {
       if (!P.fid || !P.key || !P.memberId) return false;
       const row = {
         family_id: P.fid, category_id: catId || null, member_id: P.memberId, created_by: P.memberId,
-        txn_date: new Date().toISOString().slice(0, 10), status: 'realized', kind: 'expense',
+        txn_date: dateIso || new Date().toISOString().slice(0, 10), status: 'realized', kind: 'expense',
         space_id: null, link_id: null,
         amount: null, amount_enc: await _encP(Number(amt)),
         note: null, note_enc: note ? await _encP(note) : null,
@@ -313,4 +313,12 @@
       P.cats.push({ id: ins.data.id, name: name, emoji: (famCat && famCat.emoji) || '🗂️' });
       return ins.data.id;
     }
+
+    // Resolve a category NAME (as shown in the family chips) to a personal-ledger
+    // category id, creating it on first use. Used by the shared capture modal
+    // when logging a personal-scoped expense.
+    window.fhPersonalCatId = async function (name, emoji) {
+      if (!P.key || !name) return null;
+      try { return await _catFor(name, emoji ? { emoji: emoji } : null); } catch (e) { return null; }
+    };
   })();

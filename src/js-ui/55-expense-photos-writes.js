@@ -277,6 +277,9 @@ function fillExpenseFromTx(){
   refreshExCta();                                          // Save stays disabled until the first edit
 }
 function submitExpense(){
+  // Personal scope: route to the personal ledger and bail before any family
+  // write — the family path below stays byte-identical (early return).
+  if(!editingTx && typeof chosen==='function' && chosen('ex-scope')==='personal'){ _submitPersonalExpense(); return; }
   if(!editingTx){
     // Parse/split whatever is still in the input (the user may tap Lưu without blurring first).
     if(typeof commitActiveRow==='function') commitActiveRow();
@@ -296,6 +299,25 @@ function submitExpense(){
   // addExpense() bails without closing when the form is invalid; only drop the
   // photos from the batch once the expense actually landed.
   if(adopting && !document.getElementById('expense-modal').classList.contains('on')) paAdopt();
+}
+
+/* Personal-scope save: writes each draft row straight into the personal ledger
+   (space_id null → private), never the family. Mirrors addExpense's finish
+   (clear drafts, close, toast) so the flow feels identical. */
+async function _submitPersonalExpense(){
+  if(typeof commitActiveRow==='function') commitActiveRow();
+  var rows=(typeof bulkRows!=='undefined'?bulkRows:[]).filter(function(r){ return typeof rowHasContent==='function'? rowHasContent(r):(r&&r.amt); });
+  if(!rows.length){ if(typeof bulkShowInvalid==='function') bulkShowInvalid(); return; }
+  // validate like the family single-row path (amount + a real category)
+  for(var k=0;k<rows.length;k++){ if(!(parseAmtBase(rows[k].amt||'')>0 && catValid(rows[k].cat))){ if(typeof bulkShowInvalid==='function'){ bulkShowInvalid(); return; } } }
+  var ok=0;
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i], amt=parseAmtBase(r.amt||''); if(!(amt>0)) continue;
+    var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
+    var catId=null; try{ catId=await window.fhPersonalCatId(r.cat, emoji); }catch(e){}
+    if(await window.fhPersonalAddExpense(amt, r.note||'', catId, r.date||undefined)) ok++;
+  }
+  if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
 }
 function saveExpenseEdit(){
   var t=txById(editingTx); if(!t){ closeExpense(); return; }

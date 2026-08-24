@@ -457,25 +457,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </div>
   <div class="modal-body">
     <div class="sheet-sub">Đây là chìa khóa <b>sổ cá nhân</b> của bạn — khác với thẻ của gia đình. Mất thẻ là mất dữ liệu cá nhân: không ai khôi phục được, kể cả chúng tôi.</div>
-    <div id="pcard-display" class="num" style="font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:.4px;text-align:center;background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:16px 10px;margin:14px 0;word-break:break-all"></div>
+    <div id="pcard-display" class="num pcard-code"></div>
     <button class="cta" onclick="persCardSave()">Lưu tệp thẻ khóa</button>
-    <button class="btn-line" style="width:100%;margin-top:10px" onclick="persCardCopy()">Sao chép</button>
-  </div>
-</div>
-
-<!-- Private expense quick-add (personal container only) -->
-<div class="modal" id="sheet-pexp">
-  <div class="modal-grip"></div>
-  <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
-    <div class="modal-title">Khoản chi riêng tư</div>
-    <button class="modal-save" onclick="persAddExpense()">Lưu</button>
-  </div>
-  <div class="modal-body">
-    <div class="sheet-sub">Chỉ mình bạn thấy — mã hoá bằng thẻ khóa cá nhân.</div>
-    <div class="field"><label>Số tiền</label><input id="pexp-amt" type="text" inputmode="numeric" class="num big" placeholder="90.000" onblur="snapAmtInput(this)"></div>
-    <div class="field"><label>Ghi chú</label><input id="pexp-note" placeholder="Cà phê, quà…"></div>
-    <div class="field"><label>Danh mục</label><select id="pexp-cat"></select></div>
+    <button class="btn-line btn-line-full" onclick="persCardCopy()">Sao chép</button>
   </div>
 </div>
 
@@ -557,6 +541,10 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <!-- The one live editor instance. renderBulk() relocates this node into the
          active row's mount; in edit mode it renders in place (bulk list stays empty). -->
     <div id="ex-editor">
+    <div class="field" id="ex-scopefield"><label>Ghi vào đâu?</label><div class="choices" id="ex-scope">
+      <button class="choice on" data-v="family" onclick="pickExScope(this)">🏡 Gia đình</button>
+      <button class="choice" data-v="personal" onclick="pickExScope(this)">🔒 Cá nhân</button>
+    </div></div>
     <div class="field">
       <label data-t="exWhatFor">What for?</label>
       <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()" onblur="onExNoteBlur()"/>

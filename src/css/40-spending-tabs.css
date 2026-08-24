@@ -274,3 +274,17 @@
 .cash3 .c3 .k{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--muted);display:flex;align-items:center;gap:5px}
 .cash3 .c3 .k .ar{font-size:13px;font-weight:700}
 .cash3 .c3 .v{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.04em;color:var(--ink);margin-top:7px;font-variant-numeric:tabular-nums}
+/* ── Cá nhân tab (personal ledger) — reuses finance components; these are the
+   few net-new bits, styled to match the app (no inline styles in the renderer). */
+.pers-link{color:var(--brand-ink);font-weight:700;cursor:pointer}
+.pcard-code{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:.4px;text-align:center;
+  background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:16px 10px;margin:14px 0;word-break:break-all}
+.btn-line-full{width:100%;margin-top:10px}
+.pers-lock{text-align:center}
+.pers-lock-ic{font-size:34px}
+.pers-lock-t{font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.4px;margin-top:8px;color:var(--ink)}
+.pers-lock-s{font-size:13.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+.pers-lock-field{margin-top:14px}
+.pers-lock-field input{text-align:center}
+.pers-lock .cta{margin-top:12px}
+.pers-lock-err{font-size:12.5px;color:var(--danger);margin-top:8px;min-height:1px}

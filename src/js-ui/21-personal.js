@@ -11,17 +11,17 @@ function renderPersonal(){
     host.innerHTML = '<div class="empty-note">Đang chuẩn bị sổ cá nhân của bạn…</div>'; return;
   }
   if(P.state==='error'){
-    host.innerHTML = '<div class="empty-note">Chưa tải được sổ cá nhân. <a onclick="fhPersonalBoot()" style="color:var(--brand-ink);font-weight:700;cursor:pointer">Thử lại</a></div>'; return;
+    host.innerHTML = '<div class="empty-note">Chưa tải được sổ cá nhân. <a class="pers-link" onclick="fhPersonalBoot()">Thử lại</a></div>'; return;
   }
   if(P.state==='locked'){
     host.innerHTML =
-      '<div class="card" style="text-align:center">'+
-      '<div style="font-size:34px">🔐</div>'+
-      '<div style="font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.4px;margin-top:8px">Sổ cá nhân đang khóa</div>'+
-      '<div style="font-size:13.5px;color:var(--muted);margin-top:6px;line-height:1.5">Nhập thẻ khóa <b>cá nhân</b> của bạn (khác thẻ của gia đình) để mở trên máy này.</div>'+
-      '<div class="field" style="margin-top:14px"><input id="pers-card-in" placeholder="FH-XXXX-XXXX-…" autocomplete="off" autocapitalize="characters" style="text-align:center"></div>'+
-      '<button class="cta" style="margin-top:12px" onclick="persUnlock()">Mở sổ cá nhân</button>'+
-      '<div id="pers-unlock-err" style="font-size:12.5px;color:var(--danger);margin-top:8px"></div>'+
+      '<div class="card pers-lock">'+
+      '<div class="pers-lock-ic">🔐</div>'+
+      '<div class="pers-lock-t">Sổ cá nhân đang khóa</div>'+
+      '<div class="pers-lock-s">Nhập thẻ khóa <b>cá nhân</b> của bạn (khác thẻ của gia đình) để mở trên máy này.</div>'+
+      '<div class="field pers-lock-field"><input id="pers-card-in" placeholder="FH-XXXX-XXXX-…" autocomplete="off" autocapitalize="characters"></div>'+
+      '<button class="cta" onclick="persUnlock()">Mở sổ cá nhân</button>'+
+      '<div id="pers-unlock-err" class="pers-lock-err"></div>'+
       '</div>';
     return;
   }
@@ -49,7 +49,7 @@ function renderPersonal(){
      +   '<button class="cf-tile"><span class="cf-tl"><span class="cf-ar dn">↓</span> Ra</span><span class="cf-tv num">'+fmt(out)+'</span></button>'
      + '</div>'
      + (P.mirrorRan? '' : '<div class="cf-note flat">Đang đồng bộ các khoản bạn đã ghi cho gia đình…</div>')
-     + '<div class="cf-cta"><button class="cc-row" onclick="openSheet(\'sheet-pexp\')"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="cc-t">Ghi khoản chi riêng tư</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button></div>'
+     + '<div class="cf-cta"><button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="cc-t">Ghi khoản chi riêng tư</span><svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button></div>'
      + '</section>';
 
   /* groups */
@@ -112,23 +112,11 @@ function persCardSave(){
   setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
 }
 
-/* quick-add handlers */
-function persAddExpense(){
-  // Input is in display currency (full VND); parseAmtBase → base units (thousands).
-  var amt = parseAmtBase((document.getElementById('pexp-amt')||{}).value||'');
-  var note = ((document.getElementById('pexp-note')||{}).value||'').trim();
-  var cat = (document.getElementById('pexp-cat')||{}).value || null;
-  if(!amt || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
-  fhPersonalAddExpense(amt, note, cat).then(function(ok){ if(ok){ closeModals(); renderPersonal(); window.toast && toast('Đã ghi vào sổ cá nhân'); } });
-}
+/* personal income quick-add (expense now goes through the shared expense modal
+   via openPersonalExpense — one capture flow, scope-picked). */
 function persAddIncome(){
   var amt = parseAmtBase((document.getElementById('pinc-amt')||{}).value||'');
   var note = ((document.getElementById('pinc-note')||{}).value||'').trim();
   if(!amt || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
   fhPersonalAddIncome(amt, note).then(function(ok){ if(ok){ closeModals(); renderPersonal(); window.toast && toast('Đã ghi thu nhập'); } });
-}
-function persFillCats(){
-  var sel = document.getElementById('pexp-cat'); if(!sel) return;
-  var P = window.fhPersonalData ? fhPersonalData() : null; if(!P) return;
-  sel.innerHTML = '<option value="">Danh mục…</option>' + (P.cats||[]).map(function(c){ return '<option value="'+c.id+'">'+(c.emoji||'')+' '+(c.name||'')+'</option>'; }).join('');
 }
