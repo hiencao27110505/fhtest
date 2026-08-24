@@ -1,4 +1,4 @@
--- 0071 — Personal ledger substrate (double-entry re-architecture, Phase 0)
+-- 0076 — Personal ledger substrate (double-entry re-architecture, Phase 0)
 --
 -- Model: every user gets a PERSONAL container (a families row, type='personal',
 -- single member, own DEK + own Key Card). A shared transaction is authored as a

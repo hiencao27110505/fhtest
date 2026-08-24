@@ -1,7 +1,7 @@
--- 0075 — purge Model X personal data (destructive; separated from 0074 for review)
+-- 0080 — purge Model X personal data (destructive; separated from 0079 for review)
 --
--- After 0074, the old type='personal' families are inert (Model-Y client ignores
--- them; 0073 excludes them from metrics; clients filter them from pickers). This
+-- After 0079, the old type='personal' families are inert (Model-Y client ignores
+-- them; 0078 excludes them from metrics; clients filter them from pickers). This
 -- deletes them and their rows for good. Safe to run any time.
 do $$
 declare v_ids uuid[];

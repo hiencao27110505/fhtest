@@ -1,8 +1,8 @@
--- 0072 — RLS access to the personal container (fixes 0071's wrong assumption)
+-- 0077 — RLS access to the personal container (fixes 0076's wrong assumption)
 --
 -- All data-table policies gate on auth_family_id() — the ACTIVE family from
 -- profiles — not on membership. The personal ledger is never the active family
--- (by design, 0071), so every client read/write against it was silently empty
+-- (by design, 0076), so every client read/write against it was silently empty
 -- or denied: hydrate returned nothing, _findMemberId() = null, and the mirror
 -- never passed its gates ("Đang đồng bộ…" forever).
 --

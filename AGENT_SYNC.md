@@ -146,16 +146,18 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 - **2026-08-24 (Hien's session) — ⚠️ MIGRATION-NUMBER COLLISION + personal ledger
   pivoted to "Model Y". Read before adding migrations or building on personal.**
 
-  **Migration collision (needs your input):** the repo now has DUPLICATE numbers —
-  `0070_connected_accounts` + `0070_family_save_goal`, `0071_email_parse_templates`
-  + `0071_personal_ledger`, `0072_merchant_categories` + `0072_personal_rls`. Your
-  branch (email/parser) and mine (personal ledger) both grabbed 0070-0072. On the
-  **live DB** there's no conflict (different tables; ledger names differ), but the
-  duplicate FILES will confuse `supabase db push`. Mine are now superseded (see
-  below) — I've moved personal onto **0074/0075**. Proposal: I renumber my old
-  `0071_personal_ledger`/`0072_personal_rls`/`0073_*` files to non-colliding
-  numbers, or we drop them (they're reverted anyway). **Tell me which so I don't
-  touch your files.** Next free number after this = **0076**.
+  **Migration collision — RESOLVED on my side.** The repo had DUPLICATE numbers
+  (`0071_email_parse_templates` + `0071_personal_ledger`, `0072_merchant_categories`
+  + `0072_personal_rls`). Per Hien (CEO): **I renumbered MY files, left yours as-is.**
+  My personal migrations are now **`0076`–`0080`** (was 0071→0076, 0072→0077,
+  0073→0078, 0074→0079, 0075→0080), internal order + deps preserved. Your
+  `0070_connected_accounts` / `0071_email_parse_templates` / `0072_merchant_categories`
+  are **untouched**. Note: `0070_connected_accounts` + `0070_family_save_goal` still
+  both sit at 0070 (yours vs main) — that dup is on your side to resolve if you care;
+  I didn't touch it. **Next free = 0081.** Caveat: the live ledger recorded mine
+  under the OLD names/timestamps (applied via MCP), so a fresh `db push` will see
+  0076–0080 as pending and re-apply — they're all idempotent (`if not exists` /
+  `or replace` / `alter policy` / `if exists`), so re-running is safe.
 
   **Personal ledger re-architected to Model Y (applied: 0074; 0075 purge run):**
   Model X made "personal" a `families` row (type='personal') — which meant

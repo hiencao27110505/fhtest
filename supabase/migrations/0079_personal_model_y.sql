@@ -1,6 +1,6 @@
--- 0074 — Personal ledger, Model Y: the PERSON is the root, not a fake family.
+-- 0079 — Personal ledger, Model Y: the PERSON is the root, not a fake family.
 --
--- Replaces Model X (0071/0072, where "personal" was a families row of
+-- Replaces Model X (0076/0077, where "personal" was a families row of
 -- type='personal'). Personal data now lives in its own owner-scoped tables with
 -- a per-USER key. The family `transactions`/`categories`/`incomes` tables are
 -- left completely untouched (no nullable family_id, no enc-guard/RLS rework) —
@@ -81,7 +81,7 @@ create policy pinc_all on public.personal_incomes
   using (owner_user_id = (select auth.uid()))
   with check (owner_user_id = (select auth.uid()));
 
--- ── 4. revert Model X (0072) RLS back to family-only ─────────────────────────
+-- ── 4. revert Model X (0077) RLS back to family-only ─────────────────────────
 alter policy transactions_select on public.transactions using (family_id = (select auth_family_id()));
 alter policy transactions_insert on public.transactions with check (family_id = (select auth_family_id()));
 alter policy transactions_update on public.transactions using (family_id = (select auth_family_id())) with check (family_id = (select auth_family_id()));
@@ -109,9 +109,9 @@ create or replace function public.create_personal_ledger(
 $$;
 drop function if exists public.auth_personal_id();
 
--- ── 6. clean up Model X data — RUN SEPARATELY (0075), destructive ────────────
+-- ── 6. clean up Model X data — RUN SEPARATELY (0080), destructive ────────────
 -- The type='personal' families from Model X are now INERT: the Model-Y client
--- ignores them, 0073 already excludes type<>'family' from all metrics, and the
+-- ignores them, 0078 already excludes type<>'family' from all metrics, and the
 -- client filters them from every picker. They can be purged safely at any time
--- via 0075_drop_model_x_personal.sql (kept separate so the destructive delete is
+-- via 0080_drop_model_x_personal.sql (kept separate so the destructive delete is
 -- reviewed on its own). families.type stays ('family'|'friend'|'trip').

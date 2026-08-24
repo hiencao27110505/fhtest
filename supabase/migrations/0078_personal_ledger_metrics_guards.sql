@@ -1,6 +1,6 @@
--- 0073 — personal-ledger fallout: founder metrics + active-container invariants
+-- 0078 — personal-ledger fallout: founder metrics + active-container invariants
 --
--- After 0071 every user silently gets a families row with type='personal'. This
+-- After 0076 every user silently gets a families row with type='personal'. This
 -- migration stops that container from (a) spamming the founder channel + inflating
 -- every family/member/transaction metric, and (b) ever becoming a user's ACTIVE
 -- family (which would repoint auth_family_id() at the private ledger).
