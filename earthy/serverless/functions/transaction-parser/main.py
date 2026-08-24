@@ -68,10 +68,15 @@ def main(cloud_event: CloudEvent) -> None:
             subject,
             "; ".join(result.reasons),
         )
+        # The subject EARNS its place here, unlike on the success path: when
+        # nothing could be read, the mail's own title is the only handle a
+        # person has on which message this was. `reasons` says what was
+        # missing, so a gap is actionable instead of just disappointing.
         _announce(
             f"⚠️ <b>Chưa đọc được</b>\n"
-            f"Nguồn: {notify.escape(str(source))}\n"
-            f"Tiêu đề: {notify.escape(subject)}"
+            f"Tiêu đề: {notify.escape(subject)}\n"
+            f"Thiếu: {notify.escape('; '.join(result.reasons))}\n"
+            f"Nguồn: {notify.escape(str(source))}"
         )
         return
 
@@ -92,20 +97,59 @@ def main(cloud_event: CloudEvent) -> None:
         result.category_source or "-",
         subject,
     )
-    _announce(
-        f"💸 <b>{_vnd(reading.amount)}</b> · "
-        f"{'vào' if reading.direction == 'credit' else 'ra'}\n"
-        f"Nguồn: {notify.escape(str(source))}\n"
-        f"Tiêu đề: {notify.escape(subject)}"
-        + (f"\nDanh mục: {notify.escape(result.category)}" if result.category else "")
-        + (f"\nLúc: {_when(reading.occurred_at)}" if reading.occurred_at else "")
-        + (f"\nTài khoản: ...{notify.escape(reading.account_tail)}"
-           if reading.account_tail else "")
-        + (f"\nSố dư: {_vnd(reading.balance)}" if reading.balance else "")
-    )
+    _announce(_parsed_message(reading, result, source))
 
     # TODO: persist. Use message_id as the idempotency key — the same
     # notification can arrive more than once.
+
+
+def _parsed_message(reading, result, source: object) -> str:
+    """The Telegram line for a mail that was read.
+
+    WHAT THIS DELIBERATELY DOES NOT SHOW: the mail's subject. Bank mail titles
+    are fixed banners — every MB transfer arrives as "Thong bao giao dich thanh
+    cong" — so a subject line says the same thing on every message and reads as
+    if it were describing this one. What the person actually wants is what the
+    parser read OUT of the mail: who it went to, what it was for, how it was
+    paid. Those were being extracted and then dropped, while the subject took
+    the prominent line.
+
+    Fields appear only when present. A mail that yielded little says little,
+    rather than padding the message with em-dashes for everything missing.
+    """
+    direction = "vào" if reading.direction == "credit" else "ra"
+    lines = [f"💸 <b>{_vnd(reading.amount)}</b> · {direction}"]
+
+    # The counterparty, which is the single most useful thing after the amount.
+    if reading.merchant:
+        lines.append(f"{'Từ' if reading.direction == 'credit' else 'Tới'}: "
+                     f"{notify.escape(reading.merchant)}")
+
+    # The transfer memo — the human sentence the sender typed. This is the
+    # "nội dung" a person means when they ask what a transaction was about, and
+    # it is what the subject was standing in for.
+    if reading.description:
+        lines.append(f"Nội dung: {notify.escape(reading.description)}")
+
+    if result.category:
+        lines.append(f"Danh mục: {notify.escape(result.category)}")
+    if reading.occurred_at:
+        lines.append(f"Lúc: {_when(reading.occurred_at)}")
+    if reading.channel:
+        lines.append(f"Hình thức: {notify.escape(reading.channel)}")
+    if reading.account_tail:
+        lines.append(f"Tài khoản: ...{notify.escape(reading.account_tail)}")
+    if reading.balance:
+        lines.append(f"Số dư: {_vnd(reading.balance)}")
+
+    # Provenance last, and quietly: useful when a reading looks wrong, noise
+    # when it does not. `source` is the sender key, not the mail's title.
+    tail = notify.escape(str(source))
+    if reading.reference:
+        tail += f" · {notify.escape(reading.reference)}"
+    lines.append(tail)
+
+    return "\n".join(lines)
 
 
 def _announce(text: str) -> None:
