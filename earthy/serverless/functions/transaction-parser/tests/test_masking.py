@@ -37,6 +37,11 @@ FORMATS = [
     ("VND 750.000", "VND [MONEY_1]"),
     ("VNĐ 750.000", "VNĐ [MONEY_1]"),
     ("đ750.000", "đ[MONEY_1]"),
+    # Parenthesised marker, as MB eBanking writes it. A real mail failed with
+    # "amount missing" because the `)` sat between marker and figure, so no
+    # name was issued and the model had nothing to answer with.
+    ("(VND) 20,000.00", "(VND) [MONEY_1]"),
+    ("(VNĐ) 750.000", "(VNĐ) [MONEY_1]"),
     # Signed, and the accounting bracket form for a negative.
     ("+750.000 đ", "+[MONEY_1] đ"),
     ("-750.000 đ", "-[MONEY_1] đ"),
@@ -87,6 +92,7 @@ VALUES = [
     ("VND 750.000", 750000),
     ("1.250.000,50 đ", 1250000),  # the fraction is dropped: VND has no subunit
     ("1,250,000.50 VND", 1250000),
+    ("(VND) 20,000.00", 20000),   # MB eBanking: parenthesised marker, .00 dropped
     ("(750.000 đ)", 750000),
     ("-750.000 đ", 750000),  # the sign stays in the text, not in the figure
 ]
@@ -118,6 +124,20 @@ NOT_MONEY = [
 
 @pytest.mark.parametrize("body", NOT_MONEY)
 def test_numbers_without_a_currency_marker_are_left_alone(body: str) -> None:
+    masked, table = masking.mask(body)
+    assert masked == body
+    assert table == {}
+
+
+def test_a_parenthesised_marker_after_a_number_is_not_money() -> None:
+    """`3510146052001 (VND)` is an account number labelled with its currency.
+
+    The widened gap on the prefixed pattern lets a marker reach past a closing
+    bracket to the figure AFTER it. This is the other direction — marker after
+    the digits, nothing following — and it must stay untouched, or every MB
+    mail masks its own account number as an amount.
+    """
+    body = "Tài khoản trích nợ NGUYEN THU TRANG - 3510146052001 (VND)"
     masked, table = masking.mask(body)
     assert masked == body
     assert table == {}

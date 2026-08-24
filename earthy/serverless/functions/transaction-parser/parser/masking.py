@@ -109,8 +109,17 @@ _MONEY_SUFFIXED = re.compile(
 # runs, so the guard is "not directly after a name, allowing for the spacing
 # between them". Python's lookbehind is fixed-width, so the spacing is matched
 # and given back rather than looked behind: `pre` is put back untouched.
+# The gap allows ONE closing bracket as well as spacing, because MB eBanking
+# writes the marker parenthesised: `Số tiền giao dịch (VND) 20,000.00`. Without
+# it the `)` sits between marker and figure, nothing matches, no [MONEY_n] is
+# issued — and since the model only ever answers in placeholder names, it has
+# nothing to point at and the amount comes back null. That is a real mail that
+# reached production and was reported as "amount missing".
+#
+# One bracket, not a general character run: widening the gap further would let
+# a marker reach across a table cell and claim a figure it does not label.
 _MONEY_PREFIXED = re.compile(
-    rf"(?P<pre>\][{_WS}]*)?(?P<marker>{_MARKER})(?P<gap>[{_WS}]*)(?P<sign>[+-])?"
+    rf"(?P<pre>\][{_WS}]*)?(?P<marker>{_MARKER})(?P<gap>[)\]]?[{_WS}]*)(?P<sign>[+-])?"
     rf"(?P<lead>[{_WS}]*)(?P<digits>{_DIGITS})",
     re.IGNORECASE,
 )
