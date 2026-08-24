@@ -193,8 +193,7 @@ function cfWowNote(d){                                     // classic week-over-
 function cfRenderWeek(m, daily, done, dom, dim){
   var d=cfWeekData(m, daily, done, dom, dim);
   setHTMLIf('cf-wow', cfWeekChartHTML(d, done));
-  var weekSpent=0; for(var i=0;i<7;i++){ if(d.cur[i]!=null) weekSpent+=d.cur[i]; }
-  cfRenderGuide(dgBase(m,daily)*7*(1-(window.saveGoalPct||0)/100), weekSpent, 'week');
+  cfPeriodGuide(m, daily, 'week');
 }
 /* ----- Day (period 0 = buổi breakdown: today vs yesterday) ----- */
 function cfBuoiIdx(h){ return (h>=5&&h<11)?0:(h>=11&&h<14)?1:(h>=14&&h<18)?2:3; }   // Sáng·Trưa·Chiều·Tối
@@ -220,7 +219,7 @@ function cfRenderDay(m, daily){
       +'</span><span class="wd'+(j===curB?' on':'')+'">'+LB[j]+'</span></div>';
   }
   setHTMLIf('cf-wow', cols);
-  cfRenderGuide(dgThreshold(m,daily), daily[dom]||0, 'day');
+  cfPeriodGuide(m, daily, 'day');
 }
 /* ----- Month (period 2 = 4 tuần, this month vs last) ----- */
 function cfMonthBuckets(daily, dim){
@@ -256,7 +255,7 @@ function cfRenderMonth(m, daily){
       +'</span><span class="wd'+(j===curW?' on':'')+'">'+LB[j]+'</span></div>';
   }
   setHTMLIf('cf-wow', cols);
-  cfRenderGuide(dgBase(m,daily)*dim*(1-(window.saveGoalPct||0)/100), m.spent||0, 'month');
+  cfPeriodGuide(m, daily, 'month');
 }
 /* Daily guide — "Hôm nay còn tiêu được": a per-day allowance minus what's been spent today.
    The allowance is the SAVER of (a) last month's daily average and (b) the budget-pace daily
@@ -268,46 +267,69 @@ var DG_STATES={
   orange:{main:'#ef5f37',mut:'#a63e22',bg:'#fdeee9',trk:'rgba(239,95,55,.18)'},
   red:{main:'#e0483f',mut:'#a5645c',bg:'#fdeeec',trk:'rgba(224,72,63,.18)'}
 };
-function dgBase(m, daily){                                    // per-day norm, before the saving goal
+function dgBase(m, daily){                                    // per-day norm (pre-goal) — used only by the goal-sheet estimate
   var spent=m.spent||0, spentToday=(daily&&daily[m.dom])||0, reserved=m.done?0:monthReserved();
   var prevKey=_MOA[(TODAY.getMonth()+11)%12], pm=months[prevKey];
-  var prevDaily=(pm && pm.spent>0 && pm.dim>0) ? pm.spent/pm.dim : null;   // last month's daily average
+  var prevDaily=(pm && pm.spent>0 && pm.dim>0) ? pm.spent/pm.dim : null;
   var remBudget=(m.budget||0)-(spent-spentToday)-reserved, daysLeft=Math.max(1, m.dim-m.dom+1);
-  // Budget-pace allowance — but DROP it (not zero it) once the month's budget is blown,
-  // otherwise min(prevDaily, 0)=0 would hide the guide exactly when it matters most.
   var budgetDaily=(m.budget>0 && remBudget>0) ? remBudget/daysLeft : null;
   var cand=[]; if(prevDaily!=null)cand.push(prevDaily); if(budgetDaily!=null)cand.push(budgetDaily);
-  if(cand.length) return Math.min.apply(null,cand);                        // the saver of the available signals
-  return (m.budget>0)?m.budget/m.dim:((window.monthIncome||0)/m.dim||0);   // fallback: even monthly pace
+  if(cand.length) return Math.min.apply(null,cand);
+  return (m.budget>0)?m.budget/m.dim:((window.monthIncome||0)/m.dim||0);
 }
-function dgThreshold(m, daily){ return dgBase(m,daily)*(1-(window.saveGoalPct||0)/100); }
-function dgKey(remain, threshold){ var pct=remain/threshold; return remain<0?'red':(pct<=0.20?'orange':(pct<=0.50?'yellow':'green')); }
-/* State-change push (E2EE-safe · client-side): tracks the DAY state regardless of which
-   period is on screen. Only the device that just logged an expense fires (window._dgLocalAdd),
-   only when today's state worsens, never on green. The actor gate + fhNotify's per-kind
-   cooldown stop other devices' realtime re-renders from double-sending; window.dgStateDay
-   resets the baseline at the start of each day. */
+/* The ONE atomic allowance every period is sliced from — so Day ⊆ Week ⊆ Month always, and
+   they can never contradict. It is what's still available from the START of today, spread over
+   the days left this month, capped by last month's pace (the saver) and tightened by the goal.
+   Crucially it is NOT floored: when the budget is blown it goes negative, so every period reads
+   "over" together instead of one staying cheerfully green. Returns null only when there is no
+   basis at all (no budget, no history, no income) → the guide hides. */
+function cfPerDay(m, daily){
+  var spent=m.spent||0, spentToday=(daily&&daily[m.dom])||0, reserved=m.done?0:monthReserved();
+  var spentBefore=spent-spentToday, daysLeft=Math.max(1, m.dim-m.dom+1);
+  var prevKey=_MOA[(TODAY.getMonth()+11)%12], pm=months[prevKey];
+  var prevDaily=(pm && pm.spent>0 && pm.dim>0) ? pm.spent/pm.dim : null;   // last month's daily average
+  var budgetPerDay=(m.budget>0) ? ((m.budget-spentBefore-reserved)/daysLeft) : null;   // remaining budget spread over remaining days (may be ≤0)
+  var base;
+  if(budgetPerDay!=null && prevDaily!=null) base=Math.min(prevDaily, budgetPerDay);    // saver of the two signals
+  else if(budgetPerDay!=null) base=budgetPerDay;
+  else if(prevDaily!=null) base=prevDaily;
+  else { var inc=window.monthIncome||0; base = inc>0 ? inc/m.dim : null; }
+  if(base==null) return null;
+  return base*(1-(window.saveGoalPct||0)/100);
+}
+function cfDaysLeftWeek(m, dLeftMonth){                       // today → Sunday (clamped to the month's end)
+  var d=new Date((m._iso||((m.short||curMonthKey())+'-01')).slice(0,7)+'-01T00:00:00'); d.setDate(m.dom);
+  return Math.min(7-((d.getDay()+6)%7), dLeftMonth);          // Mon=0 … Sun=6 → 7-idx days incl. today
+}
+function dgKey(remain, threshold){ if(remain<0) return 'red'; var pct=threshold>0?remain/threshold:0; return pct<=0.20?'orange':(pct<=0.50?'yellow':'green'); }
+/* State-change push (E2EE-safe · client-side): tracks the DAY state regardless of which period
+   is on screen. Only the device that just logged an expense fires (window._dgLocalAdd), only
+   when today's state worsens, never on green. The actor gate + fhNotify's per-kind cooldown stop
+   other devices' realtime re-renders from double-sending; window.dgStateDay resets each day. */
 function cfMaybePush(m, daily){
-  var threshold=dgThreshold(m,daily);
-  if(!(threshold>0)){ window._dgLocalAdd=false; return; }
-  var remain=threshold-(daily[m.dom]||0), key=dgKey(remain, threshold);
+  var perDay=cfPerDay(m,daily);
+  if(perDay==null){ window._dgLocalAdd=false; return; }
+  var remain=perDay-(daily[m.dom]||0), key=dgKey(remain, perDay);
   var _ord={green:0,yellow:1,orange:2,red:3};
   var _prev=(window.dgStateDay===m.dom)?(window.dgState||'green'):'green';
   if(window._dgLocalAdd && _ord[key]>_ord[_prev] && key!=='green' && typeof fhNotify==='function'){ fhNotify('dgstate',{state:key}); }
   window.dgState=key; window.dgStateDay=m.dom; window._dgLocalAdd=false;
 }
-/* Guide tile — identical UI across periods; only the amount, subtitle and water level change.
-   threshold = the period's saver allowance, spent = what's gone in the period so far. */
-function cfRenderGuide(threshold, spent, periodKey){
+/* One guide, sliced per period: how much MORE can be spent for the rest of this period
+   (today → end of day / week / month) = perDay × days-left-in-period − spent today. Same UI,
+   same colour states; Day ≤ Week ≤ Month by construction, and all read "over" together. */
+function cfPeriodGuide(m, daily, periodKey){
+  var perDay=cfPerDay(m, daily), dLeftMonth=Math.max(1, m.dim-m.dom+1);
+  var days = periodKey==='day' ? 1 : (periodKey==='week' ? cfDaysLeftWeek(m, dLeftMonth) : dLeftMonth);
   var host=document.getElementById('cf-daily'); if(!host) return false;
-  if(!(threshold>0)){ setHTMLIf(host, ''); return false; }
-  var remain=threshold-spent, over=remain<0, key=dgKey(remain, threshold);
+  if(perDay==null){ setHTMLIf(host, ''); return false; }     // no basis for guidance → hide the tile
+  var threshold=perDay*days, remain=threshold-(daily[m.dom]||0), over=remain<0, key=dgKey(remain, threshold);
   window.cfDailyState=key;
-  var s=DG_STATES[key], level=Math.max(0,Math.min(100,remain/threshold*100));
+  var s=DG_STATES[key], level=(threshold>0)?Math.max(0,Math.min(100,remain/threshold*100)):0;
   var LBL={
     day:  over?L('Hôm nay đã vượt','Over today')       :L('Hôm nay còn tiêu được','Left to spend today'),
-    week: over?L('Tuần này đã vượt','Over this week')   :L('Tiêu được tuần này','Left to spend this week'),
-    month:over?L('Tháng này đã vượt','Over this month') :L('Tiêu được tháng này','Left to spend this month')
+    week: over?L('Tuần này đã vượt','Over this week')   :L('Tiêu được tuần này','Left this week'),
+    month:over?L('Tháng này đã vượt','Over this month') :L('Tiêu được tháng này','Left this month')
   };
   var amt = over ? fmt(-remain) : fmt(Math.max(0,remain));
   host.style.background=s.bg;
