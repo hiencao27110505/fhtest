@@ -21714,6 +21714,7 @@ window.classifyAmount = classifyAmount;
      and this is a form. _fhModal brings the Cancel/Title/Save bar, the in-flight
      progress state, and error handling that keeps the form open, for free. */
   window.fhAutoTxnEmailSheet = function () {
+    _atxSheetSeq++;                           // a late /connections answer must not replace this form
     _fhModal({
       title: L('Đọc thư từ email nào?', 'Which email should we read?'),
       saveLabel: L('Tiếp tục', 'Continue'),
@@ -21768,12 +21769,24 @@ window.classifyAmount = classifyAmount;
     fhAutoTxnSheet();
   };
 
-  /* The single entry point. Deliberately does NOT branch on connection state
-     yet: main has no read side for oauth connections (get_my_mailbox_connections
-     lands with the backend, on branch bank-email-oauth), so there is nothing
-     truthful to render for "already connected". When that RPC arrives, the
-     status branch goes HERE, ahead of the intro, the way fhMailboxSheet does it. */
+  /* The single entry point, and the only place that decides which of the two
+     screens someone sees. Already connected → status, where the off-switch
+     lives. Otherwise → the offer. Same shape as fhMailboxSheet.
+
+     WHY IT RENDERS THE OFFER FIRST AND CORRECTS ITSELF. Reading /connections is
+     a round trip to another host; awaiting it before painting would leave a
+     tapped menu row doing nothing for as long as the network takes, which reads
+     as a dead row. So the offer paints at once and the status replaces it if the
+     answer comes back connected. The swap only happens while this sheet is
+     still the one on screen — `_atxSheetSeq` — so an answer that arrives after
+     someone has closed the sheet or moved to the address form cannot yank the
+     screen out from under them. */
+  let _atxSheetSeq = 0;
   window.fhAutoTxnSheet = function () {
+    const seq = ++_atxSheetSeq;
+    _atxConnection().then(function (conn) {
+      if (conn && seq === _atxSheetSeq) fhAutoTxnStatus(conn);
+    });
     _fhSheet(
       '<div class="mbx-hero">' + _atxGlyph('auto') + '</div>' +
       '<div class="sheet-h">' + _esc(L('Tự động ghi giao dịch', 'Automatic transaction logging')) + '</div>' +
@@ -21845,6 +21858,125 @@ window.classifyAmount = classifyAmount;
         fhMsg: L('Bạn cần đăng nhập lại trước đã', 'Please sign in again first') });
     }
     return token;
+  }
+
+  /* ── is it already on? ─────────────────────────────────────────────────────
+     GET /connections returns the caller's own rows. A plain fetch, so the Bearer
+     header works — unlike the authorize route, which had to be read through a
+     manual redirect because a navigation carries no header.
+
+     "Cannot tell" collapses into "not connected" on purpose: no session, a 500,
+     offline, all return null and the offer screen shows. Offering the feature to
+     someone who already has it is a recoverable annoyance; announcing a
+     confident "Connected" we never verified is a lie, and it is the version that
+     hides a mailbox quietly failing to sync. */
+  async function _atxConnection() {
+    try {
+      const token = await _atxAuthToken();
+      const res = await fetch(_ATX_API + '/connections', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (!res.ok) return null;
+      const list = await res.json();
+      return (Array.isArray(list) ? list : [])
+        .filter(function (c) { return c && c.provider === 'google'; })[0] || null;
+    } catch (e) { return null; }
+  }
+
+  /* ── the status screen, and turning it off ─────────────────────────────────
+     WHAT DISCONNECT ACTUALLY DOES, and why the copy has to say two things. The
+     API's own route comment is explicit: "The grant at the provider is not
+     revoked. Deleting the row stops the pipeline reading the mailbox; revoking
+     the app entirely is the user's own call, in their account settings at the
+     provider."
+
+     So one tap stops US reading, completely and at once — and that is the half
+     that matters most, because it DESTROYS the token we hold rather than merely
+     abandoning it. It does not remove FamilyHub from their Google account.
+
+     Saying only the first half leaves someone believing they revoked us while
+     Google still lists the app. Saying only the second sends them to Google
+     while our copy of their token sits in a database. Both, in that order, is
+     the only version that is true. */
+  function fhAutoTxnStatus(conn) {
+    _atxSheetSeq++;
+    const email = (conn && (conn.email || conn.accountEmail || conn.account_email)) || '';
+    _fhSheet(
+      '<div class="mbx-hero">' + _mbxGlyph('done') + '</div>' +
+      '<div class="sheet-h">' + _esc(L('Đang tự động ghi', 'Auto-logging is on')) + '</div>' +
+      '<div class="sheet-sub">' + _esc(email
+        ? L('Tụi mình đang đọc email giao dịch từ ' + email + '. Khoản nào tìm được vẫn nằm chờ bạn duyệt, không tự vào sổ.',
+            'We’re reading transaction email from ' + email + '. Anything we find still waits for you to approve it, and never enters the ledger on its own.')
+        : L('Tụi mình đang đọc email giao dịch của bạn. Khoản nào tìm được vẫn nằm chờ bạn duyệt, không tự vào sổ.',
+            'We’re reading your transaction email. Anything we find still waits for you to approve it, and never enters the ledger on its own.')) + '</div>' +
+
+      (window.fhTxnReviewSheet
+        ? '<button class="btn-line" onclick="fhTxnReviewSheet()">' + _esc(L('Xem mục duyệt', 'Open Review transactions')) + '</button>'
+        : '') +
+
+      /* Destructive, so low-prominence and armed before it fires (DESIGN §3):
+         a small quiet text button, never a big red one. */
+      '<button class="ex-del" id="atx-off" onclick="fhAutoTxnDisconnect(this)">' +
+        _esc(L('Ngừng đọc email', 'Stop reading my email')) + '</button>' +
+      '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
+    );
+  }
+  window.fhAutoTxnStatus = fhAutoTxnStatus;
+
+  /* Arm-then-confirm (DESIGN §3): the first tap only relabels, and it disarms
+     itself after ~3s so a button left armed cannot be fired by a stray touch
+     minutes later. */
+  let _atxOffArmed = false, _atxOffTimer = null;
+  const _ATX_OFF_LABEL = () => L('Ngừng đọc email', 'Stop reading my email');
+
+  window.fhAutoTxnDisconnect = async function (btn) {
+    if (!_atxOffArmed) {
+      _atxOffArmed = true;
+      if (btn) btn.textContent = L('Chạm lần nữa để ngừng', 'Tap again to stop');
+      clearTimeout(_atxOffTimer);
+      _atxOffTimer = setTimeout(function () {
+        _atxOffArmed = false;
+        const b = document.getElementById('atx-off');
+        if (b) b.textContent = _ATX_OFF_LABEL();
+      }, 3000);
+      return;
+    }
+    clearTimeout(_atxOffTimer);
+    _atxOffArmed = false;
+    if (btn) { btn.disabled = true; btn.textContent = L('Đang ngừng…', 'Stopping…'); }
+    try {
+      const token = await _atxAuthToken();
+      const res = await fetch(_ATX_API + '/connections/google', {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      /* 404 means there was nothing to delete — which is exactly the state they
+         asked for. Treating it as an error would make someone read a failure
+         message about a thing that is already true. */
+      if (!res.ok && res.status !== 404) throw new Error('HTTP ' + res.status);
+    } catch (e) {
+      window.toast && window.toast(window._fhFriendly ? window._fhFriendly(e)
+        : L('Chưa ngừng được, thử lại nhé', 'Could not stop it — try again'));
+      try { console.warn('[autotxn] disconnect failed:', e && (e.message || e)); } catch (e2) {}
+      if (btn) { btn.disabled = false; btn.textContent = _ATX_OFF_LABEL(); }
+      return;
+    }
+    fhAutoTxnStopped();
+  };
+
+  function fhAutoTxnStopped() {
+    _fhSheet(
+      '<div class="sheet-h">' + _esc(L('Đã ngừng', 'Stopped')) + '</div>' +
+      '<div class="sheet-sub">' + _esc(L(
+        'Tụi mình đã xoá quyền đã lưu và sẽ không đọc thêm email nào của bạn. Những giao dịch đã vào sổ vẫn giữ nguyên, vì đó là sổ của gia đình bạn.',
+        'We’ve deleted the saved access and will read no more of your email. Transactions already in your ledger stay, because that ledger is yours.')) + '</div>' +
+      '<div class="mbx-note">' + _mbxGlyph('lock') + '<span>' + _esc(L(
+        'FamilyHub vẫn còn trong danh sách ứng dụng của tài khoản Google. Muốn gỡ hẳn cả ở phía Google, bạn mở phần quyền truy cập bên dưới.',
+        'FamilyHub is still listed among your Google account’s apps. To remove it on Google’s side as well, open the permissions page below.')) + '</span></div>' +
+      '<a class="btn-line" href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">' +
+        _esc(L('Mở quyền truy cập Google', 'Open Google permissions')) + '</a>' +
+      '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
+    );
   }
 
   async function _atxConsentUrl(email) {

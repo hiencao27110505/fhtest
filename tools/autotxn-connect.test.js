@@ -1,19 +1,23 @@
 #!/usr/bin/env node
-/* We own getting someone to Google's consent screen; the backend takes over at
- * the callback. This pins the URL we send them to, because every mistake in it
- * fails at Google with a message the person cannot act on:
+/* Auto-logging talks to the connections API for three things, and each one has a
+ * failure that is invisible in review:
  *
- *   - a wrong redirect_uri  -> redirect_uri_mismatch, before they see anything
- *   - a missing access_type -> no refresh token, so background sync dies quietly
- *     the same afternoon while the grant still looks fine
- *   - a lost state          -> the callback cannot tell whose ledger this is
- *
- * It also pins that the CTA can never strand someone on "Đang mở Google…", which
- * is the bug that started this file.
+ *   connect     — the authorize route answers 302, and a browser navigation
+ *                 cannot carry a Bearer header, so the URL is read out of the
+ *                 Location header of a `redirect: 'manual'` fetch. If that
+ *                 response is ever followed instead (status 0, opaqueredirect),
+ *                 there is nothing to navigate to and guessing sends someone to
+ *                 the wrong place.
+ *   status      — "cannot tell" must collapse to "not connected". Announcing a
+ *                 confident Connected we never verified is the version that
+ *                 hides a mailbox quietly failing to sync.
+ *   disconnect  — destructive, so it must arm before it fires, and a 404 (there
+ *                 was nothing to delete) is the state the user asked for, not an
+ *                 error to make them read.
  *
  * `node tools/autotxn-connect.test.js`
  *
- * The real code is extracted from 74-autotxn-ui.js rather than copied.
+ * The real handlers are extracted from 74-autotxn-ui.js rather than copied.
  */
 'use strict';
 const fs = require('fs');
@@ -23,115 +27,165 @@ const SRC = path.join(__dirname, '..', 'src', 'js-data', '74-autotxn-ui.js');
 const MBX = path.join(__dirname, '..', 'src', 'js-data', '71-mailbox-ui.js');
 const src = fs.readFileSync(SRC, 'utf8');
 const mbx = fs.readFileSync(MBX, 'utf8');
-for (const name of ['_atxConsentUrl', 'window.fhAutoTxnGrant', '_atxNavigate']) {
-  if (src.indexOf(name) < 0) { console.error('FAIL: ' + name + ' missing from ' + SRC); process.exit(1); }
+for (const n of ['_atxConsentUrl', '_atxConnection', 'fhAutoTxnDisconnect', '_atxNavigate']) {
+  if (src.indexOf(n) < 0) { console.error('FAIL: ' + n + ' missing from ' + SRC); process.exit(1); }
 }
-const svg = mbx.slice(mbx.indexOf('const _MBX_SVG'), mbx.indexOf('const _mbxGlyph'));
+const prelude = (() => {
+  const svg = mbx.slice(mbx.indexOf('const _MBX_SVG'), mbx.indexOf('const _mbxGlyph'));
+  const a = mbx.indexOf('  function _mbxAssure(');
+  const b = mbx.indexOf('\n  }\n', a) + 4;
+  return svg + "\nconst _mbxGlyph = (k) => _MBX_SVG[k] || '';\n" + mbx.slice(a, b);
+})();
 
 let pass = 0, fail = 0;
 const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok && d ? '  -> ' + d : '')); ok ? pass++ : fail++; };
-/* `FHTest Web` in the fhtest project (number 860668973723) — the same client
-   sign-in uses. The client that ISSUES the code must be the one that EXCHANGES
-   it, so the backend's GOOGLE_OAUTH_CLIENT_ID/_SECRET must be this client's too.
-   Mismatch it and Google refuses with invalid_grant at the token exchange, after
-   the person has already pressed Allow. Pinned here so a stray env value cannot
-   quietly point the consent screen at a client this project does not own. */
-const CLIENT = '860668973723-ud2mbr4kj9nb41elbkvlp3lt5fibpf8v.apps.googleusercontent.com';
-const BUSY = 'Đang mở Google…';
+const OFF = 'Ngừng đọc email';
 
-async function run(o) {
+/* One instance of the module with the network, DOM and session faked. `routes`
+   maps "METHOD /path" to a response, so each test states only what it cares
+   about. */
+function make(o) {
   o = o || {};
-  const parent = {}; const btn = { id: 'atx-go', disabled: false, textContent: 'go', parentNode: parent };
-  parent.replaceChild = () => { parent.swapped = true; btn.parentNode = null; };
-  let live = btn, modal = null;
-  const toasts = [], nav = { to: null };
+  const calls = [], sheets = [], toasts = [], nav = { to: null };
+  const btn = { id: 'atx-off', disabled: false, textContent: OFF, parentNode: {} };
+  btn.parentNode.replaceChild = () => {};
   const ctx = {
-    _fhSheet: () => {}, _fhModal: (m) => { modal = m; }, _esc: String, _escAttr: String, _rpc: async () => null,
-    sb: { auth: { getSession: async () => ({ data: { session: null } }) } },
-    GOOGLE_CLIENT_ID: CLIENT,
-    document: { getElementById: (id) => (id === 'atx-go' ? live : (id === 'atx-email' ? { value: o.typed || '' } : null)),
+    _fhSheet: (h) => sheets.push(h), _fhModal: () => {}, _esc: String, _escAttr: String,
+    _rpc: async () => null,
+    document: { getElementById: (id) => (id === 'atx-off' ? btn : (id === 'atx-email' ? { value: o.typed || '' } : null)),
                 createElement: () => ({}) },
     history: { replaceState() {} },
-    location: { origin: 'https://fhtest.vercel.app', search: '', pathname: '/', hash: '',
-                href: 'https://fhtest.vercel.app/',
-                assign: (u) => { nav.to = u; if (!o.refuseNav) live = null; } },
-    URLSearchParams, Date, setTimeout, clearTimeout, btoa, unescape, encodeURIComponent,
-    console: { warn() {} }, L: (vi) => vi,
-    window: { FAM: { user: { email: 'thu.trang@gmail.com' } },
-              DB: o.noMember ? {} : { ownerMemberId: 'mem-abc-123' },
-              fhUser: { id: 'usr-999' }, toast: (m) => toasts.push(m) },
+    location: { origin: 'https://app.test', pathname: '/', search: '', hash: '',
+                href: 'https://app.test/', assign: (u) => { nav.to = u; } },
+    URLSearchParams, Date, setTimeout, clearTimeout, console: { warn() {} },
+    L: (vi) => vi,
+    fetch: async (url, init) => {
+      const method = (init && init.method) || 'GET';
+      calls.push(method + ' ' + url);
+      const key = Object.keys(o.routes || {}).find((k) => {
+        const [m, p] = k.split(' ');
+        return m === method && url.indexOf(p) >= 0;
+      });
+      if (!key) throw new TypeError('Failed to fetch');
+      const r = o.routes[key];
+      if (typeof r === 'function') return r();
+      /* Built field by field, NOT via Object.assign over the spec: assigning the
+         spec last overwrites `json` (the method) with the spec's payload and
+         `headers` (the getter) with a plain map, so every response silently
+         throws inside the code under test. */
+      const hdrs = r.headers || {};
+      return {
+        status: r.status,
+        ok: r.status >= 200 && r.status < 300,
+        headers: { get: (h) => (Object.prototype.hasOwnProperty.call(hdrs, h) ? hdrs[h] : null) },
+        json: async () => r.json,
+        text: async () => JSON.stringify(r.json),
+      };
+    },
+    window: {
+      FAM: { user: { email: 'me@gmail.com' } }, DB: { ownerMemberId: 'm1', _hydrated: true },
+      fhUser: { id: 'u1' }, toast: (m) => toasts.push(m),
+      sb: { auth: { getSession: async () => (o.noSession
+        ? { data: { session: null }, error: null }
+        : { data: { session: { access_token: 'tok' } }, error: null }) } },
+    },
   };
   ctx.window.location = ctx.location;
-  const api = new Function(...Object.keys(ctx),
-    '"use strict";' + svg + '\nconst _mbxGlyph=(k)=>_MBX_SVG[k]||"";\n' + src + '\nreturn window;'
-  )(...Object.values(ctx));
-  if (o.viaForm) { api.fhAutoTxnEmailSheet(); try { await modal.save(); } catch (e) { toasts.push(e.fhMsg || e.message); } }
-  else { await api.fhAutoTxnGrant(); }
-  await new Promise((r) => setTimeout(r, o.settle || 30));
-  return { nav, toasts, btn, linkFallback: !!parent.swapped };
+  ctx.sb = ctx.window.sb;
+  const api = new Function(...Object.keys(ctx), '"use strict";' + prelude + '\n' + src + '\nreturn window;')(...Object.values(ctx));
+  return { api, calls, sheets, toasts, nav, btn };
 }
-const q = (u, k) => new URL(u).searchParams.get(k);
+const ok = (json, headers) => ({ status: 200, json: json, headers: headers || {} });
 
 (async () => {
-  console.log('\n-- the consent URL Google is handed --');
-  const a = await run({});
-  t('goes to Google’s auth endpoint', a.nav.to && a.nav.to.indexOf('https://accounts.google.com/o/oauth2/v2/auth?') === 0, String(a.nav.to));
-  t('carries the client the fhtest project owns, not one from another GCP project',
-    q(a.nav.to, 'client_id') === CLIENT, q(a.nav.to, 'client_id'));
-  t('asks for a code, not a token', q(a.nav.to, 'response_type') === 'code');
-  t('requests gmail.readonly and nothing else',
-    q(a.nav.to, 'scope') === 'https://www.googleapis.com/auth/gmail.readonly' &&
-    q(a.nav.to, 'include_granted_scopes') === 'false', q(a.nav.to, 'scope'));
-  /* Pinned, NOT derived from the origin: Google matches redirect_uri literally,
-     and Vercel gives every preview deploy its own hostname. The harness serves
-     the app from a different origin on purpose, so a regression back to
-     location.origin fails here instead of on someone's phone. */
-  t('the redirect_uri is the pinned one registered with Google, NOT the origin\n         the harness served the app from',
-    q(a.nav.to, 'redirect_uri') === 'https://fhtest-opal.vercel.app/api/gmail-callback', q(a.nav.to, 'redirect_uri'));
-
-  console.log('\n-- the two params a refresh token depends on --');
-  t('access_type=offline', q(a.nav.to, 'access_type') === 'offline');
-  t('prompt asks for consent (no fresh consent, no refresh token)', /\bconsent\b/.test(q(a.nav.to, 'prompt')), q(a.nav.to, 'prompt'));
-  t('prompt ALSO forces the account chooser, because login_hint alone loses to an\n         existing Safari session and silently grants the wrong mailbox',
-    /\bselect_account\b/.test(q(a.nav.to, 'prompt')), q(a.nav.to, 'prompt'));
-
-  console.log('\n-- state tells the callback whose ledger this is --');
+  console.log('\n-- connect: the URL comes from the API, not from us --');
   {
-    const raw = q(a.nav.to, 'state');
-    let dec = null;
-    try { dec = JSON.parse(Buffer.from(raw.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')); } catch (e) {}
-    t('it decodes', !!dec, String(raw));
-    t('and names the member', dec && dec.mid === 'mem-abc-123', JSON.stringify(dec));
-    t('and the user', dec && dec.uid === 'usr-999', JSON.stringify(dec));
-    t('and is versioned, so its shape can change safely', dec && dec.v === 1);
-  }
-  t('no PKCE: the backend is confidential and holds the secret', !q(a.nav.to, 'code_challenge'));
-
-  console.log('\n-- login_hint: a hint when we have one, absent when we do not --');
-  t('the sign-in address is hinted', q(a.nav.to, 'login_hint') === 'thu.trang@gmail.com');
-  {
-    const r = await run({ viaForm: true, typed: 'other.person@gmail.com' });
-    t('a typed address is hinted instead', q(r.nav.to, 'login_hint') === 'other.person@gmail.com', String(r.nav.to));
+    const m = make({ routes: { 'GET /connections/google/authorize': ok(null, { Location: 'https://accounts.google.com/o/oauth2/v2/auth?x=1' }),
+                               'GET /connections': ok([]) } });
+    await m.api.fhAutoTxnGrant();
+    t('it asks the API to authorize', m.calls.some((c) => /GET .*\/connections\/google\/authorize/.test(c)), m.calls.join(' | '));
+    t('and navigates to the Location it answers with',
+      m.nav.to === 'https://accounts.google.com/o/oauth2/v2/auth?x=1', String(m.nav.to));
+    t('carrying returnTo so they land back where they were',
+      m.calls.some((c) => c.indexOf('returnTo=') >= 0), m.calls.join(' | '));
+    t('and login_hint for the sign-in address',
+      m.calls.some((c) => c.indexOf('login_hint=me%40gmail.com') >= 0), m.calls.join(' | '));
   }
   {
-    const r = await run({ viaForm: true, typed: '' });
-    t('blank sends NO hint, so Google offers its picker', q(r.nav.to, 'login_hint') === null, String(q(r.nav.to, 'login_hint')));
+    // opaqueredirect: the browser followed the 302 anyway, so there is no Location
+    const m = make({ routes: { 'GET /connections/google/authorize': { status: 0, ok: false, headers: { get: () => null } },
+                               'GET /connections': ok([]) } });
+    await m.api.fhAutoTxnGrant();
+    t('a followed redirect with no readable Location does NOT guess a URL', m.nav.to === null, String(m.nav.to));
+    t('  ...and says so instead of failing silently', m.toasts.length === 1, JSON.stringify(m.toasts));
   }
   {
-    const r = await run({ viaForm: true, typed: 'not-an-email' });
-    t('junk is refused before we leave', r.nav.to === null && r.toasts.length === 1, String(r.nav.to));
+    const m = make({ routes: { 'GET /connections/google/authorize': { status: 401, ok: false, headers: { get: () => null } },
+                               'GET /connections': ok([]) } });
+    await m.api.fhAutoTxnGrant();
+    t('a 401 asks them to sign in again', /đăng nhập/i.test(m.toasts[0] || ''), JSON.stringify(m.toasts));
   }
 
-  console.log('\n-- the CTA can never stick on "Đang mở Google…" --');
+  console.log('\n-- status: only an answer we actually verified says "connected" --');
   {
-    const r = await run({ noMember: true });
-    t('no member id: it says so and frees the button',
-      r.nav.to === null && r.toasts.length === 1 && r.btn.textContent !== BUSY && !r.btn.disabled,
-      JSON.stringify(r.btn.textContent));
+    const m = make({ routes: { 'GET /connections': ok([{ provider: 'google', email: 'me@gmail.com' }]) } });
+    m.api.fhAutoTxnSheet();
+    await new Promise((r) => setTimeout(r, 10));
+    t('a real connection swaps the offer for the status screen',
+      m.sheets.some((h) => h.indexOf('Đang tự động ghi') >= 0), 'sheets=' + m.sheets.length);
+    t('and the status screen carries the off-switch',
+      m.sheets.some((h) => h.indexOf(OFF) >= 0));
+  }
+  for (const [name, routes] of [
+    ['no connections at all', { 'GET /connections': ok([]) }],
+    ['a provider that is not google', { 'GET /connections': ok([{ provider: 'notion' }]) }],
+    ['the API refusing (500)', { 'GET /connections': { status: 500, ok: false, headers: { get: () => null }, json: null } }],
+    ['the API unreachable', {}],
+  ]) {
+    const m = make({ routes });
+    m.api.fhAutoTxnSheet();
+    await new Promise((r) => setTimeout(r, 10));
+    t(name + ' → the offer, never a claimed "connected"',
+      !m.sheets.some((h) => h.indexOf('Đang tự động ghi') >= 0), 'sheets=' + m.sheets.length);
   }
   {
-    const r = await run({ refuseNav: true, settle: 1700 });
-    t('a refused navigation (installed PWA) becomes a real link to tap', r.linkFallback === true);
+    const m = make({ noSession: true, routes: { 'GET /connections': ok([{ provider: 'google' }]) } });
+    m.api.fhAutoTxnSheet();
+    await new Promise((r) => setTimeout(r, 10));
+    t('no session → the offer, and /connections is never called',
+      !m.sheets.some((h) => h.indexOf('Đang tự động ghi') >= 0) && m.calls.length === 0, m.calls.join(' | '));
+  }
+
+  console.log('\n-- disconnect: armed before it fires, and honest about what it did --');
+  {
+    const m = make({ routes: { 'DELETE /connections/google': ok({ disconnected: 1 }) } });
+    await m.api.fhAutoTxnDisconnect(m.btn);
+    t('the first tap only arms', m.calls.length === 0 && m.btn.textContent !== OFF, m.btn.textContent);
+    await m.api.fhAutoTxnDisconnect(m.btn);
+    t('the second tap sends DELETE /connections/google',
+      m.calls.some((c) => c.indexOf('DELETE') === 0 && /\/connections\/google$/.test(c)), m.calls.join(' | '));
+    const last = m.sheets[m.sheets.length - 1] || '';
+    t('it confirms the saved access is deleted', last.indexOf('Đã ngừng') >= 0);
+    t('  ...and does NOT claim Google access was revoked too',
+      last.indexOf('myaccount.google.com/permissions') >= 0 && /vẫn còn trong danh sách/.test(last),
+      'the API deletes the row but never revokes the grant');
+  }
+  {
+    const m = make({ routes: { 'DELETE /connections/google': { status: 404, ok: false, headers: { get: () => null }, json: null } } });
+    await m.api.fhAutoTxnDisconnect(m.btn);
+    await m.api.fhAutoTxnDisconnect(m.btn);
+    t('a 404 is success: there was nothing left to delete',
+      (m.sheets[m.sheets.length - 1] || '').indexOf('Đã ngừng') >= 0 && m.toasts.length === 0, JSON.stringify(m.toasts));
+  }
+  {
+    const m = make({ routes: { 'DELETE /connections/google': { status: 500, ok: false, headers: { get: () => null }, json: null } } });
+    await m.api.fhAutoTxnDisconnect(m.btn);
+    await m.api.fhAutoTxnDisconnect(m.btn);
+    t('a real failure says so and gives the button back',
+      m.toasts.length === 1 && m.btn.disabled === false && m.btn.textContent === OFF,
+      JSON.stringify(m.btn.textContent) + ' toasts=' + m.toasts.length);
+    t('  ...and does NOT claim it stopped',
+      !(m.sheets[m.sheets.length - 1] || '').indexOf('Đã ngừng') >= 0 || m.sheets.length === 0);
   }
 
   console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
