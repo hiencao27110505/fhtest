@@ -180,24 +180,30 @@ function persLastMonthDaily(){
   (P.txns||[]).forEach(function(t){ if(t.kind==='expense'&&(t.date||'').slice(0,7)===key){ var dd=+t.date.slice(8,10); if(dd>=1&&dd<=dim) arr[dd]+=(t.amt||0); } });
   return {arr:arr, dim:dim};
 }
-/* per-day norm = the SAVER of (last-month daily avg) and (budget pace), so the
-   guide tightens to whichever signal is more conservative — mirrors the family
-   dgBase. Falls back to income pace when neither exists. */
-function persDgBase(pd, lm){
-  var P=fhPersonalData();
-  var lmSpend=0; for(var i=1;i<=lm.dim;i++) lmSpend+=lm.arr[i];
-  var prevDaily=(lm.dim>0 && lmSpend>0) ? lmSpend/lm.dim : null;
-  var spentThisMonth=0; for(var d=1;d<=pd.dim;d++) spentThisMonth+=pd.daily[d];
-  var spentBefore=spentThisMonth-(pd.daily[pd.dom]||0), daysLeft=Math.max(1, pd.dim-pd.dom+1);
-  // remaining budget spread over remaining days — CRUCIALLY may be ≤0 when the budget is blown,
-  // so the guide can go "over" instead of silently falling back to last-month pace (mirrors cfPerDay).
-  var budgetPerDay=(P.budget>0) ? ((P.budget-spentBefore)/daysLeft) : null;
-  if(budgetPerDay!=null && prevDaily!=null) return Math.min(prevDaily, budgetPerDay);   // saver of the two signals
-  if(budgetPerDay!=null) return budgetPerDay;
-  if(prevDaily!=null) return prevDaily;
-  var mon=_pMonKey(new Date());
-  var inc=(P.incomes||[]).filter(function(x){return (x.date||'').slice(0,7)===mon;}).reduce(function(s,x){return s+(x.amt||0);},0);
-  return inc>0 ? inc/pd.dim : null;   // null → no basis → guide hides
+/* Local YYYY-MM-DD (avoids the UTC date-shift in UTC+7). */
+function _pDate(dt){ return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); }
+/* Sum personal expense spend over an inclusive date range [aStr,bStr] ('YYYY-MM-DD'). */
+function persSpendRange(aStr, bStr){
+  var P=fhPersonalData(), s=0;
+  (P.txns||[]).forEach(function(t){ if(t.kind==='expense' && t.date && t.date>=aStr && t.date<=bStr) s+=(t.amt||0); });
+  return s;
+}
+/* Period spend/baseline for the current month — like-for-like and to-date, mirrors cfGuideParts:
+   spent = this period so far; budget = pro-rated budget for elapsed days; prev = the same span
+   in the previous equivalent period (day → rolling 30-day average, a "usual day"). */
+function persGuideParts(periodKey){
+  var P=fhPersonalData(), now=new Date(), dim=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  var dom=now.getDate(), wd=(now.getDay()+6)%7, budget=P.budget||0;
+  var d0=function(off){ return _pDate(new Date(now.getFullYear(),now.getMonth(),now.getDate()+off)); };
+  var elapsed = periodKey==='day' ? 1 : (periodKey==='week' ? (wd+1) : dom);
+  var budgetToDate = budget>0 ? (budget/dim)*elapsed : null;
+  var spent, prevRaw;
+  if(periodKey==='day'){ spent=persSpendRange(d0(0),d0(0)); prevRaw=persSpendRange(d0(-30),d0(-1))/30; }
+  else if(periodKey==='week'){ spent=persSpendRange(d0(-wd),d0(0)); prevRaw=persSpendRange(d0(-wd-7),d0(-7)); }
+  else { spent=persSpendRange(_pDate(new Date(now.getFullYear(),now.getMonth(),1)), d0(0));
+    var pm=new Date(now.getFullYear(),now.getMonth()-1,1), pdim=new Date(now.getFullYear(),now.getMonth(),0).getDate();
+    prevRaw=persSpendRange(_pDate(pm), _pDate(new Date(pm.getFullYear(),pm.getMonth(),Math.min(dom,pdim)))); }
+  return {spent:spent, budgetToDate:budgetToDate, prevRaw:prevRaw};
 }
 /* Day period: today vs yesterday, bucketed by buổi (Sáng·Trưa·Chiều·Tối) via logged time. */
 function persDayChartHTML(pd){
@@ -228,27 +234,16 @@ function persMonthChartHTML(pd, lm){
   var spent=0; for(var k=0;k<4;k++) spent+=cur[k];
   return {html:cols, spent:spent};
 }
-function persFillGuide(threshold, spent, periodKey, prevThreshold){
-  var host=document.getElementById('pcf-daily'); if(!host) return;
-  if(threshold==null || isNaN(threshold) || typeof cfWaterSVG!=='function' || typeof DG_STATES==='undefined'){ host.style.display='none'; host.innerHTML=''; return; }
-  var remain=threshold-spent, over=remain<0;
-  var prevRemain=(prevThreshold!=null)?(prevThreshold-spent):null;
-  var key=(typeof fhGuideKey==='function')?fhGuideKey(remain,threshold,prevRemain):(remain<0?'red':(remain/threshold<=.2?'orange':(remain/threshold<=.5?'yellow':'green')));
-  var s=DG_STATES[key], level=(threshold>0)?Math.max(0,Math.min(100,remain/threshold*100)):0;
-  var P=window.fhPersonalData?fhPersonalData():null, hasBudget=!!(P&&P.budget>0);
-  var lbl=(typeof fhGuideLabel==='function')?fhGuideLabel(periodKey, over, key, hasBudget, prevThreshold!=null):(over?'Đã vượt':'Còn tiêu được');
-  host.style.display=''; host.style.background=s.bg;
-  host.innerHTML='<span class="dg-lbl" style="color:'+s.mut+'">'+lbl+'</span><span class="dg-amt num" style="color:'+s.main+'">'+(over?fmt(-remain):fmt(Math.max(0,remain)))+'</span><span class="dg-vis">'+cfWaterSVG(level,s,over)+'</span>';
-}
 function persRenderPeriod(){
   var P=fhPersonalData(); if(!P||P.state!=='ready') return;
   var wowEl=document.getElementById('pcf-wow'); if(!wowEl) return;
-  var pd=persDaily(), lm=persLastMonthDaily(), dgb=persDgBase(pd, lm), p=window.persPeriod|0;
-  var lmSpend=0; for(var q=1;q<=lm.dim;q++) lmSpend+=lm.arr[q];
-  var prevDaily=(lm.dim>0 && lmSpend>0) ? lmSpend/lm.dim : null;   // last month's raw daily avg — "vs before" yardstick
-  if(p===0){ var d=persDayChartHTML(pd); wowEl.innerHTML=d.html; persFillGuide(dgb, d.spent, 'day', prevDaily); }
-  else if(p===2){ var mo=persMonthChartHTML(pd, lm); wowEl.innerHTML=mo.html; persFillGuide(dgb!=null?dgb*pd.dim:null, mo.spent, 'month', prevDaily!=null?prevDaily*pd.dim:null); }
-  else { var wk=persWeekData(pd.daily, pd.dom, pd.dim); wowEl.innerHTML=(typeof cfWeekChartHTML==='function')?cfWeekChartHTML(wk,false):''; var ws=0; for(var i=0;i<7;i++){ if(wk.cur[i]!=null) ws+=wk.cur[i]; } persFillGuide(dgb!=null?dgb*7:null, ws, 'week', prevDaily!=null?prevDaily*7:null); }
+  var pd=persDaily(), lm=persLastMonthDaily(), p=window.persPeriod|0;
+  var pk = p===0?'day':(p===2?'month':'week');
+  if(p===0){ var d=persDayChartHTML(pd); wowEl.innerHTML=d.html; }
+  else if(p===2){ var mo=persMonthChartHTML(pd, lm); wowEl.innerHTML=mo.html; }
+  else { var wk=persWeekData(pd.daily, pd.dom, pd.dim); wowEl.innerHTML=(typeof cfWeekChartHTML==='function')?cfWeekChartHTML(wk,false):''; }
+  var gp=persGuideParts(pk);
+  if(typeof fhGuideRender==='function') fhGuideRender('pcf-daily', pk, gp.spent, gp.budgetToDate, gp.prevRaw, 1);
   var dots=document.getElementById('pcf-dots'); if(dots){ var dh=''; for(var k=0;k<3;k++) dh+='<i class="'+(k===p?'on':'')+'" onclick="persSetPeriod('+k+')"></i>'; dots.innerHTML=dh; }
   var note=document.getElementById('pcf-note');
   if(note){ if(!P.mirrorRan){ note.className='cf-note flat'; note.innerHTML='Đang đồng bộ các khoản bạn đã ghi cho gia đình…'; } else { note.className='cf-note'; note.innerHTML=''; } }

@@ -310,61 +310,102 @@ function fhGuideKey(remain, threshold, prevRemain){
   var pct=threshold>0?remain/threshold:0; return pct<=0.20?'orange':(pct<=0.50?'yellow':'green');
 }
 function dgKey(remain, threshold){ return fhGuideKey(remain, threshold, null); }
+/* Per-period "vs before" word. Day uses a rolling ~30-day average (a usual day), week/month
+   the previous equivalent period — so the label always names a like-for-like yardstick. */
+function fhGuidePrevWord(periodKey){
+  return periodKey==='day' ? L('thường ngày','a usual day')
+       : periodKey==='week'? L('tuần trước','last week')
+       :                     L('tháng trước','last month');
+}
 /* Shared guide label (Finance + Cá nhân). Under plan → "còn tiêu được". Over plan → names
-   what actually broke: over budget but still under last month (orange) vs over both (red);
-   with no budget, it's purely the last-month yardstick. Yardstick is always last month. */
+   what actually broke: over budget but still under the previous period (orange) vs over both
+   (red); with no budget, it's purely the previous-period yardstick. */
 function fhGuideLabel(periodKey, over, key, hasBudget, hasPrev){
   if(!over){
     return periodKey==='day' ? L('Hôm nay còn tiêu được','Left to spend today')
          : periodKey==='week'? L('Tiêu được tuần này','Left this week')
          :                     L('Tiêu được tháng này','Left this month');
   }
+  var prev=fhGuidePrevWord(periodKey);
   if(hasBudget){
-    if(key==='orange') return L('Bể kế hoạch, nhưng đỡ hơn tháng trước','Over plan, still under last month');
-    if(hasPrev)        return L('Bể kế hoạch, tệ hơn tháng trước','Over plan and last month');
+    if(key==='orange') return L('Bể kế hoạch, nhưng đỡ hơn ','Over plan, under ')+prev;
+    if(hasPrev)        return L('Bể kế hoạch, tệ hơn ','Over plan and over ')+prev;
     return L('Bể kế hoạch','Over plan');
   }
-  if(hasPrev) return L('Tiêu hơn tháng trước','More than last month');
+  if(hasPrev) return L('Tiêu hơn ','More than ')+prev;
   return periodKey==='day' ? L('Hôm nay đã vượt','Over today')
        : periodKey==='week'? L('Tuần này đã vượt','Over this week')
        :                     L('Tháng này đã vượt','Over this month');
 }
+/* Sum spend over an inclusive absolute date range [a,b] (day granularity), crossing month
+   boundaries via the full window.txns store. Excludes planned/future entries. */
+function cfSpendRange(a, b){
+  var lo=new Date(a.getFullYear(),a.getMonth(),a.getDate()).getTime();
+  var hi=new Date(b.getFullYear(),b.getMonth(),b.getDate()).getTime();
+  var sum=0;
+  (window.txns||[]).forEach(function(t){ if(t.future||!t._d) return;
+    var k=new Date(t._d.getFullYear(),t._d.getMonth(),t._d.getDate()).getTime(); if(k>=lo&&k<=hi) sum+=t.amt; });
+  return sum;
+}
+/* Shared guide renderer (Finance + Cá nhân). Two comparisons collapsed into one tile:
+   primary = pro-rated budget-to-date (or the previous period when there is no budget),
+   optionally tightened by a saving goal; the previous period (raw) is the orange/red gate.
+   amount = how you're doing vs the primary; colour+label = also vs the previous period. */
+function fhGuideRender(hostId, periodKey, spent, budgetToDate, prevRaw, goalMult){
+  var host=document.getElementById(hostId); if(!host) return null;
+  if(typeof cfWaterSVG!=='function' || typeof DG_STATES==='undefined'){ host.style.display='none'; host.innerHTML=''; return null; }
+  var hasBudget=(budgetToDate!=null), hasPrev=(prevRaw!=null && prevRaw>0);
+  if(!hasBudget && !hasPrev){ host.style.display='none'; host.innerHTML=''; return null; }   // no basis → hide
+  var primary=(hasBudget?budgetToDate:prevRaw)*(goalMult||1);
+  var remain=primary-spent, over=remain<0;
+  var prevRemain=hasPrev?(prevRaw-spent):null;
+  var key=fhGuideKey(remain, primary, prevRemain);
+  var s=DG_STATES[key], level=(primary>0)?Math.max(0,Math.min(100,remain/primary*100)):0;
+  var lbl=fhGuideLabel(periodKey, over, key, hasBudget, hasPrev);
+  var amt = over ? fmt(-remain) : fmt(Math.max(0,remain));
+  host.style.display=''; host.style.background=s.bg;
+  host.innerHTML='<span class="dg-lbl" style="color:'+s.mut+'">'+lbl+'</span>'
+    +'<span class="dg-amt num" style="color:'+s.main+'">'+amt+'</span>'
+    +'<span class="dg-vis">'+cfWaterSVG(level,s,over)+'</span>';
+  return key;
+}
+/* Period spend/baseline for the live month, all like-for-like and to-date:
+   spent = this period so far; budget = pro-rated budget for elapsed days; prev = same span
+   in the previous equivalent period (day → rolling 30-day avg). */
+function cfGuideParts(m, periodKey){
+  var today=TODAY, dim=m.dim, dom=m.dom, wd=(today.getDay()+6)%7;
+  var d0=function(off){ return new Date(today.getFullYear(),today.getMonth(),today.getDate()+off); };
+  var elapsed = periodKey==='day' ? 1 : (periodKey==='week' ? (wd+1) : dom);
+  var budgetToDate=(m.budget>0) ? (m.budget/dim)*elapsed : null;
+  var spent, prevRaw;
+  if(periodKey==='day'){ spent=cfSpendRange(d0(0),d0(0)); prevRaw=cfSpendRange(d0(-30),d0(-1))/30; }
+  else if(periodKey==='week'){ spent=cfSpendRange(d0(-wd),d0(0)); prevRaw=cfSpendRange(d0(-wd-7),d0(-7)); }
+  else { spent=cfSpendRange(new Date(today.getFullYear(),today.getMonth(),1),d0(0));
+    var pm=new Date(today.getFullYear(),today.getMonth()-1,1), pdim=new Date(today.getFullYear(),today.getMonth(),0).getDate();
+    prevRaw=cfSpendRange(pm, new Date(pm.getFullYear(),pm.getMonth(),Math.min(dom,pdim))); }
+  return {spent:spent, budgetToDate:budgetToDate, prevRaw:prevRaw};
+}
 /* State-change push (E2EE-safe · client-side): tracks the DAY state regardless of which period
    is on screen. Only the device that just logged an expense fires (window._dgLocalAdd), only
-   when today's state worsens, never on green. The actor gate + fhNotify's per-kind cooldown stop
-   other devices' realtime re-renders from double-sending; window.dgStateDay resets each day. */
+   when today's state worsens, never on green. */
 function cfMaybePush(m, daily){
-  var perDay=cfPerDay(m,daily);
-  if(perDay==null){ window._dgLocalAdd=false; return; }
-  var spentToday=(daily[m.dom]||0), prevDaily=cfPrevDaily(m);
-  var prevRemain=(prevDaily!=null)?(prevDaily-spentToday):null;
-  var remain=perDay-spentToday, key=fhGuideKey(remain, perDay, prevRemain);
+  var p=cfGuideParts(m,'day'), hasBudget=(p.budgetToDate!=null), hasPrev=(p.prevRaw>0);
+  if(!hasBudget && !hasPrev){ window._dgLocalAdd=false; return; }
+  var primary=(hasBudget?p.budgetToDate:p.prevRaw)*(1-(window.saveGoalPct||0)/100);
+  var remain=primary-p.spent, prevRemain=hasPrev?(p.prevRaw-p.spent):null, key=fhGuideKey(remain, primary, prevRemain);
   var _ord={green:0,yellow:1,orange:2,red:3};
   var _prev=(window.dgStateDay===m.dom)?(window.dgState||'green'):'green';
   if(window._dgLocalAdd && _ord[key]>_ord[_prev] && key!=='green' && typeof fhNotify==='function'){ fhNotify('dgstate',{state:key}); }
   window.dgState=key; window.dgStateDay=m.dom; window._dgLocalAdd=false;
 }
-/* One guide, sliced per period: how much MORE can be spent for the rest of this period
-   (today → end of day / week / month) = perDay × days-left-in-period − spent today. Same UI,
-   same colour states; Day ≤ Week ≤ Month by construction, and all read "over" together. */
+/* One guide, per period: period-to-date spend vs the pro-rated budget for the same span, with
+   the previous equivalent period as the orange/red gate. Goal (window.saveGoalPct) tightens
+   the primary target. Same tile, same colour states. */
 function cfPeriodGuide(m, daily, periodKey){
-  var perDay=cfPerDay(m, daily), dLeftMonth=Math.max(1, m.dim-m.dom+1);
-  var days = periodKey==='day' ? 1 : (periodKey==='week' ? cfDaysLeftWeek(m, dLeftMonth) : dLeftMonth);
-  var host=document.getElementById('cf-daily'); if(!host) return false;
-  if(perDay==null){ setHTMLIf(host, ''); return false; }     // no basis for guidance → hide the tile
-  var spentToday=(daily[m.dom]||0), threshold=perDay*days, remain=threshold-spentToday, over=remain<0;
-  var prevDaily=cfPrevDaily(m), prevRemain=(prevDaily!=null)?(prevDaily*days-spentToday):null;
-  var key=fhGuideKey(remain, threshold, prevRemain);
+  var p=cfGuideParts(m, periodKey);
+  var key=fhGuideRender('cf-daily', periodKey, p.spent, p.budgetToDate, p.prevRaw, 1-(window.saveGoalPct||0)/100);
   window.cfDailyState=key;
-  var s=DG_STATES[key], level=(threshold>0)?Math.max(0,Math.min(100,remain/threshold*100)):0;
-  var lbl=fhGuideLabel(periodKey, over, key, m.budget>0, prevDaily!=null);
-  var amt = over ? fmt(-remain) : fmt(Math.max(0,remain));
-  host.style.background=s.bg;
-  setHTMLIf(host,
-    '<span class="dg-lbl" style="color:'+s.mut+'">'+lbl+'</span>'
-    +'<span class="dg-amt num" style="color:'+s.main+'">'+amt+'</span>'
-    +'<span class="dg-vis">'+cfWaterSVG(level,s,over)+'</span>');
-  return true;
+  return key!=null;
 }
 function cfWaterSVG(level,s,over){
   if(over){
