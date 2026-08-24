@@ -21894,7 +21894,16 @@ window.classifyAmount = classifyAmount;
           throw Object.assign(new Error('bad email'), {
             fhMsg: L('Địa chỉ email chưa đúng, bạn xem lại nhé', 'That email doesn’t look right — give it another look') });
         }
-        _atxNavigate(await _atxConsentUrl(typed));
+        // Opened before the await, while the tap is still in scope. The
+        // validation above stays first, so a rejected address never leaves a
+        // stray blank tab behind.
+        const win = _atxOpenBlank();
+        try {
+          _atxNavigate(win, await _atxConsentUrl(typed));
+        } catch (e) {
+          if (win && !win.closed) try { win.close(); } catch (e2) {}
+          throw e;                             // the modal reports it and stays open
+        }
       },
       after: function () {
         // Focus once the modal has settled: focusing mid-transition sets the
@@ -22028,24 +22037,22 @@ window.classifyAmount = classifyAmount;
                'Could not open Google — try again') });
   }
 
-  /* Full navigation rather than a popup, deliberately: iOS Safari blocks a
-     window.open issued after an await, and the consent flow has to land back on
-     a real page regardless.
-
-     The login_hint is a HINT, NOT A CLAIM. Whichever account actually consents
-     on Google's screen is the mailbox we are connected to, and it may not be the
-     one hinted here. The callback learns the real address from Google, and that
-     is the one to store — never this. */
   /* The offer screen's CTA: read from the sign-in address, no form involved. */
   window.fhAutoTxnGrant = async function () {
     const btn = document.getElementById('atx-go');
     const label = L('Bắt đầu: cho phép đọc email', 'Start by granting email access');
     const reset = () => { if (btn) { btn.disabled = false; btn.textContent = label; } };
     if (btn) { btn.disabled = true; btn.textContent = L('Đang mở Google…', 'Opening Google…'); }
+    // Opened before anything is awaited: this is the only moment the tap is
+    // still a live user gesture, and a cross-origin navigation issued after an
+    // await is cancelled without a word.
+    const win = _atxOpenBlank();
     try {
-      _atxNavigate(await _atxConsentUrl(_atxLoginEmail()));
+      _atxNavigate(win, await _atxConsentUrl(_atxLoginEmail()));
       return;                                   // navigating: leave the button as it is
     } catch (e) {
+      // A blank tab left open reads as a second failure on top of the reported one.
+      if (win && !win.closed) try { win.close(); } catch (e2) {}
       window.toast && window.toast(window._fhFriendly ? window._fhFriendly(e)
         : ((e && e.fhMsg) || L('Chưa mở được Google, thử lại nhé', 'Could not open Google — try again')));
       try { console.warn('[autotxn] consent url failed:', e && (e.message || e)); } catch (e2) {}
@@ -22054,16 +22061,39 @@ window.classifyAmount = classifyAmount;
     }
   };
 
-  /* Handing off to Google, and admitting it when the browser will not go.
-     A cross-origin assignment can be refused outright in an installed PWA, and
-     it fails SILENTLY — no throw, no event, the page simply stays. That is
-     indistinguishable from a frozen button, so rather than trust it we watch: if
-     we are still here shortly afterwards, we swap the CTA for a real anchor to
-     the same URL. A link the person taps is a plain user gesture, which every
-     platform honours, so the journey always has a way forward. */
+  /* Handing off to Google, and why the window is opened BEFORE the URL exists.
+
+     THE BUG THIS FIXES. The consent URL now comes from the API, so getting it
+     costs a token read plus a network round trip. That await is the problem:
+     `location.assign()` to a cross-origin URL is only honoured while a user
+     gesture is still in scope, and an await spends it. The navigation is then
+     CANCELLED — silently, with no throw and no event, so the tab simply sits
+     there looking frozen. (This is the same hazard the old code called out for
+     `window.open`; it did not bite then because the URL was assembled
+     synchronously, with nothing awaited before the assign.)
+
+     WHAT WE DO INSTEAD. Open a blank tab synchronously, inside the click, while
+     the gesture is unquestionably live — a popup with no URL yet is allowed —
+     then set its `location` once the API answers. The gesture is spent on
+     `window.open`, not on the navigation, so the await no longer matters.
+
+     `noopener` is set the hard way, via `opener = null` after opening: passing
+     "noopener" to window.open makes it return null, and we need the handle to
+     point it anywhere. Clearing `opener` gives the same protection — the
+     consent page cannot reach back into this one.
+
+     IF THE POPUP IS BLOCKED, `open` returns null and we fall back to a
+     same-tab assign. That assign may itself be cancelled for the reason above,
+     which is exactly what the watchdog below is for: if we are still on this
+     page shortly after, the CTA becomes a real anchor. A link the person taps
+     is a fresh gesture, which every platform honours. */
   let _atxLeaving = false;
-  function _atxNavigate(url) {
+
+  function _atxNavigate(win, url) {
     _atxLeaving = true;
+    if (win && !win.closed) {
+      try { win.location.replace(url); return; } catch (e) { /* fall through */ }
+    }
     try { window.location.assign(url); } catch (e) { /* handled by the watchdog */ }
     setTimeout(function () {
       _atxLeaving = false;
@@ -22074,9 +22104,21 @@ window.classifyAmount = classifyAmount;
       a.id = 'atx-go';
       a.href = url;
       a.rel = 'noopener';
+      a.target = '_blank';
       a.textContent = L('Mở màn hình Google', 'Open the Google screen');
       btn.parentNode.replaceChild(a, btn);
     }, 1500);
+  }
+
+  /* Opened inside the click handler, before anything is awaited. Returns null
+     when the popup blocker refuses, which the caller treats as "navigate this
+     tab instead" rather than as a failure. */
+  function _atxOpenBlank() {
+    try {
+      const w = window.open('', '_blank');
+      if (w) w.opener = null;
+      return w;
+    } catch (e) { return null; }
   }
 
   /* ── coming back ───────────────────────────────────────────────────────────
