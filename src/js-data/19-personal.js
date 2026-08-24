@@ -176,6 +176,49 @@
       finally { _mirroring = false; }
     };
 
+    /* Recover a lost personal card: mint a NEW card + DEK, re-encrypt every
+       personal row from the cached (decrypt-capable) key to the new key, then
+       swap the wrap. Works from a cold-boot cached DEK (which can decrypt but not
+       export raw). Resumable: a field already under the new key is left as-is, so
+       a re-run after an interruption completes cleanly. Wrap is swapped LAST, so
+       until it succeeds the old key still opens everything. */
+    let _regenning = false;
+    window.fhPersonalRegen = async function (onProgress) {
+      if (_regenning) return { ok: false, error: 'busy' };
+      if (!P.uid || !P.key) return { ok: false, error: 'locked' };
+      _regenning = true;
+      try {
+        const card = FHCrypto.genCard(), salt = FHCrypto.genSaltHex();
+        const keys = await FHCrypto.deriveKeys(card.key, salt, window.FH_KDF_ITERS_CARD, 1);
+        const newRaw = await FHCrypto.genDekRaw();
+        const newWrapped = await FHCrypto.wrapDek(newRaw, keys.kWrap);
+        const newKey = await FHCrypto.importDek(newRaw);
+        const reEnc = async (b64) => {
+          if (!b64) return null;
+          try { await FHCrypto.decVal(newKey, b64); return b64; } catch (e) {}   // already migrated → keep
+          const pt = await FHCrypto.decVal(P.key, b64); return FHCrypto.encVal(newKey, pt);
+        };
+        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc').eq('owner_user_id', P.uid);
+        const inc = await _sb().from('personal_incomes').select('id,amount_enc,note_enc').eq('owner_user_id', P.uid);
+        const tot = (tr.data || []).length + (inc.data || []).length; let n = 0;
+        for (const r of (tr.data || [])) {
+          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc) }).eq('id', r.id);
+          if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
+        for (const r of (inc.data || [])) {
+          const u = await _sb().from('personal_incomes').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc) }).eq('id', r.id);
+          if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
+        const rr = await _sb().rpc('rotate_personal_key', { p_kdf_salt: salt, p_kdf_iters: window.FH_KDF_ITERS_CARD, p_kdf_version: 1, p_wrapped_dek: newWrapped });
+        if (rr.error) throw rr.error;
+        P.key = newKey; P.rawKey = new Uint8Array(newRaw); P.wrap = null;
+        await _kPut('p:' + P.uid, newKey); _pcardCache(card.display); window.__fhPersonalCard = card;
+        await window.fhPersonalHydrate();
+        return { ok: true, card: card };
+      } catch (e) { console.warn('personal regen failed', e); return { ok: false, error: 'failed' }; }
+      finally { _regenning = false; }
+    };
+
     async function _insertMaster(linkId, fid, dateIso, amt, note, catName, catEmoji) {
       return _sb().from('personal_transactions').insert({ owner_user_id: P.uid, space_id: fid, link_id: linkId, txn_date: dateIso, kind: 'expense', version: 1,
         amount_enc: await _encP(amt), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null });

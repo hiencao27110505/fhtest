@@ -475,6 +475,8 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <div class="sheet-sub">Máy này đang mở sổ cá nhân nhưng chưa lưu mã khóa. Nhập lại mã khóa cá nhân bạn đã lưu lúc tạo để xem và lưu tại đây.</div>
     <div class="field"><input id="pcode-in" placeholder="FH-XXXX-XXXX-…" autocomplete="off" autocapitalize="characters"></div>
     <div id="pcode-err" class="pers-lock-err"></div>
+    <div class="sheet-sub" style="margin-top:16px">Lỡ mất hẳn mã khóa? Tạo mã mới từ dữ liệu đang mở trên máy này — mã cũ sẽ ngừng dùng.</div>
+    <button class="btn-line btn-line-full" onclick="persCodeRegen()">Tạo mã khóa cá nhân mới</button>
   </div>
 </div>
 

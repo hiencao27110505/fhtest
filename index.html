@@ -3480,6 +3480,8 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="sheet-sub">Máy này đang mở sổ cá nhân nhưng chưa lưu mã khóa. Nhập lại mã khóa cá nhân bạn đã lưu lúc tạo để xem và lưu tại đây.</div>
     <div class="field"><input id="pcode-in" placeholder="FH-XXXX-XXXX-…" autocomplete="off" autocapitalize="characters"></div>
     <div id="pcode-err" class="pers-lock-err"></div>
+    <div class="sheet-sub" style="margin-top:16px">Lỡ mất hẳn mã khóa? Tạo mã mới từ dữ liệu đang mở trên máy này — mã cũ sẽ ngừng dùng.</div>
+    <button class="btn-line btn-line-full" onclick="persCodeRegen()">Tạo mã khóa cá nhân mới</button>
   </div>
 </div>
 
@@ -5318,6 +5320,18 @@ function persCodeSubmit(){
   fhPersonalUnlock(el.value).then(function(r){
     if(r.ok){ closeModals(); setTimeout(function(){ if(window.fhPersonalCardShow) fhPersonalCardShow(); }, 260); }
     else if(err){ err.textContent = (r.error==='checksum'||r.error==='wrong_card') ? 'Mã không đúng — kiểm tra lại từng nhóm ký tự.' : (r.error==='no_wrap'?'Không tìm thấy khóa của sổ cá nhân.':'Chưa mở được ('+r.error+').'); }
+  });
+}
+/* Lost the card entirely? Mint a new one from the DEK still on this device. */
+function persCodeRegen(){
+  var err=document.getElementById('pcode-err');
+  var P=window.fhPersonalData?fhPersonalData():null;
+  if(!P||!P.key){ if(err) err.textContent='Cần mở sổ cá nhân trước (dữ liệu đang khóa).'; return; }
+  if(err){ err.style.color='var(--muted)'; err.textContent='Đang tạo mã khóa mới & mã hóa lại dữ liệu…'; }
+  fhPersonalRegen(function(n,tot){ if(err) err.textContent='Đang mã hóa lại… '+n+'/'+tot; }).then(function(r){
+    if(err) err.style.color='';
+    if(r.ok){ closeModals(); setTimeout(function(){ renderPersonal(); if(window.fhPersonalCardShow) fhPersonalCardShow(); }, 200); window.toast && toast(L('Đã tạo mã khóa cá nhân mới — nhớ lưu lại nhé','New personal code created — save it this time')); }
+    else if(err){ err.style.color='var(--danger)'; err.textContent = r.error==='busy'?'Đang xử lý…':(r.error==='locked'?'Cần mở sổ cá nhân trước.':'Chưa tạo được, thử lại.'); }
   });
 }
 function persCardCopy(){
@@ -13815,7 +13829,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v379';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v380';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -15390,6 +15404,49 @@ window.obGoogle = async function () {
         await window.fhPersonalHydrate();
       } catch (e) { console.warn('personal mirror failed', e); if (_mirrorTries++ < 5) _mirrorSoon(6000); }
       finally { _mirroring = false; }
+    };
+
+    /* Recover a lost personal card: mint a NEW card + DEK, re-encrypt every
+       personal row from the cached (decrypt-capable) key to the new key, then
+       swap the wrap. Works from a cold-boot cached DEK (which can decrypt but not
+       export raw). Resumable: a field already under the new key is left as-is, so
+       a re-run after an interruption completes cleanly. Wrap is swapped LAST, so
+       until it succeeds the old key still opens everything. */
+    let _regenning = false;
+    window.fhPersonalRegen = async function (onProgress) {
+      if (_regenning) return { ok: false, error: 'busy' };
+      if (!P.uid || !P.key) return { ok: false, error: 'locked' };
+      _regenning = true;
+      try {
+        const card = FHCrypto.genCard(), salt = FHCrypto.genSaltHex();
+        const keys = await FHCrypto.deriveKeys(card.key, salt, window.FH_KDF_ITERS_CARD, 1);
+        const newRaw = await FHCrypto.genDekRaw();
+        const newWrapped = await FHCrypto.wrapDek(newRaw, keys.kWrap);
+        const newKey = await FHCrypto.importDek(newRaw);
+        const reEnc = async (b64) => {
+          if (!b64) return null;
+          try { await FHCrypto.decVal(newKey, b64); return b64; } catch (e) {}   // already migrated → keep
+          const pt = await FHCrypto.decVal(P.key, b64); return FHCrypto.encVal(newKey, pt);
+        };
+        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc').eq('owner_user_id', P.uid);
+        const inc = await _sb().from('personal_incomes').select('id,amount_enc,note_enc').eq('owner_user_id', P.uid);
+        const tot = (tr.data || []).length + (inc.data || []).length; let n = 0;
+        for (const r of (tr.data || [])) {
+          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc) }).eq('id', r.id);
+          if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
+        for (const r of (inc.data || [])) {
+          const u = await _sb().from('personal_incomes').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc) }).eq('id', r.id);
+          if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
+        const rr = await _sb().rpc('rotate_personal_key', { p_kdf_salt: salt, p_kdf_iters: window.FH_KDF_ITERS_CARD, p_kdf_version: 1, p_wrapped_dek: newWrapped });
+        if (rr.error) throw rr.error;
+        P.key = newKey; P.rawKey = new Uint8Array(newRaw); P.wrap = null;
+        await _kPut('p:' + P.uid, newKey); _pcardCache(card.display); window.__fhPersonalCard = card;
+        await window.fhPersonalHydrate();
+        return { ok: true, card: card };
+      } catch (e) { console.warn('personal regen failed', e); return { ok: false, error: 'failed' }; }
+      finally { _regenning = false; }
     };
 
     async function _insertMaster(linkId, fid, dateIso, amt, note, catName, catEmoji) {
