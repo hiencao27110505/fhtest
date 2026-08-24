@@ -1,5 +1,5 @@
 -- ============================================================================
--- FamilyHub — 0071: provable PDPL consent + mailbox disconnect
+-- FamilyHub — 0082: provable PDPL consent + mailbox disconnect
 --
 -- Two halves of one legal promise (docs/PDPL-COMPLIANCE.md §4, ship-blockers
 -- 1 and 3). Consent for sensitive-data processing must be PROVABLE — a stored
@@ -9,9 +9,9 @@
 -- fails closed to re-asking, but the agree action cannot complete without
 -- this table, which would lock the connect flows.
 --
--- Next free migration number after this one: 0072. Verify against
+-- Next free migration number after this one: 0083. Verify against
 -- `git ls-tree origin/main supabase/migrations/` — this range has collided
--- six times now (0070 was taken by family_save_goal mid-week).
+-- seven times now (0071 went to the personal-ledger series while this file sat unapplied).
 -- ============================================================================
 
 -- One row per (user, consent kind, text version). Re-consent after a text
