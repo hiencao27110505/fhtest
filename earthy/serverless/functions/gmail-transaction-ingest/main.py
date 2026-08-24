@@ -91,7 +91,17 @@ def main(cloud_event: CloudEvent) -> None:
             continue
         label = senders.match(message["from"])
         if label is None:
-            log.debug("skip %s from %s", message_id, message["from"])
+            # INFO, not debug: the function runs at INFO, so a debug line is
+            # invisible in production — and "0/1 matched a known sender" with
+            # no way to see WHICH sender was turned away is a dead end every
+            # time someone asks why a mail did not arrive. The From header is
+            # the one fact needed to answer that, and it is not a secret.
+            log.info(
+                "SKIP %s from %r subject=%r: no known sender",
+                message_id,
+                message["from"],
+                message["subject"],
+            )
             continue
         hits += 1
         log.info(
