@@ -13643,7 +13643,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v372';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v373';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -15230,8 +15230,17 @@ window.obGoogle = async function () {
     /* ── mirror engine: family (ACTIVE) → personal masters ──
        Scope v1: the active family only — its key is the one this session holds
        (fhDecStr). Other families mirror when the user switches to them. */
-    let _mirrorTries = 0, _mirroring = false;
+    let _mirrorTries = 0, _mirroring = false, _debounce = null;
     function _mirrorSoon(ms) { setTimeout(() => { window.fhPersonalMirror(); }, ms || 1200); }
+    // Called by the family write paths (create/edit/delete) so the personal
+    // ledger updates promptly instead of only on next hydrate/tab-open. Debounced
+    // so a bulk import (many writes) coalesces into one mirror pass. Idempotent +
+    // re-entrancy-guarded, so a spurious call is harmless.
+    window.fhPersonalMirrorSoon = function () {
+      _mirrorTries = 0;                                        // a real write resets the gate-retry budget
+      if (_debounce) clearTimeout(_debounce);
+      _debounce = setTimeout(() => { _debounce = null; window.fhPersonalMirror(); }, 1500);
+    };
 
     window.fhPersonalMirror = async function () {
       if (_mirroring) return;                                 // re-entrancy: retries/boot must never overlap a live run
@@ -15466,7 +15475,7 @@ window.obGoogle = async function () {
   // full=true for a write that can touch an out-of-window row (txn edit/delete, a
   // reaction on an old txn), so the change can't be silently dropped by the window.
   let _syncTimer = null;
-  function _syncSoon(full) { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} clearTimeout(_syncTimer); _syncTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(full ? {} : { windowed: true }); }, 700); }
+  function _syncSoon(full) { try { window.DB._lastLocalWrite = Date.now(); } catch (e) {} try { if (window.fhPersonalMirrorSoon) window.fhPersonalMirrorSoon(); } catch (e) {} clearTimeout(_syncTimer); _syncTimer = setTimeout(() => { if (window.editingTx != null) return; window.loadFamilyData && window.loadFamilyData(full ? {} : { windowed: true }); }, 700); }
   // Is a loaded transaction (by DB id) older than the current refresh window? Unknown
   // id → treated as old (forces full) so an out-of-window change is never missed.
   function _isOldTxnById(dbId) {

@@ -186,8 +186,17 @@
     /* ── mirror engine: family (ACTIVE) → personal masters ──
        Scope v1: the active family only — its key is the one this session holds
        (fhDecStr). Other families mirror when the user switches to them. */
-    let _mirrorTries = 0, _mirroring = false;
+    let _mirrorTries = 0, _mirroring = false, _debounce = null;
     function _mirrorSoon(ms) { setTimeout(() => { window.fhPersonalMirror(); }, ms || 1200); }
+    // Called by the family write paths (create/edit/delete) so the personal
+    // ledger updates promptly instead of only on next hydrate/tab-open. Debounced
+    // so a bulk import (many writes) coalesces into one mirror pass. Idempotent +
+    // re-entrancy-guarded, so a spurious call is harmless.
+    window.fhPersonalMirrorSoon = function () {
+      _mirrorTries = 0;                                        // a real write resets the gate-retry budget
+      if (_debounce) clearTimeout(_debounce);
+      _debounce = setTimeout(() => { _debounce = null; window.fhPersonalMirror(); }, 1500);
+    };
 
     window.fhPersonalMirror = async function () {
       if (_mirroring) return;                                 // re-entrancy: retries/boot must never overlap a live run

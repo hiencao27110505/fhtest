@@ -76,7 +76,49 @@ relaying messages through Slack/DMs by hand.
   the "transfers" + "import" sections of `docs/features/personal-ledger.md`
   before setting `kind` on any ingested row.
 
-  **Migration numbering: 0071 and 0072 are taken; next free is 0073.**
+  **Migration numbering: 0071, 0072, 0073 are taken; next free is 0074.**
+
+- **2026-08-24 (Hien's session, follow-up) — POST-REARCHITECTURE IMPACT AUDIT
+  done; `0073` APPLIED; remaining gaps deferred with reasons below.** Full
+  codebase sweep for personal-ledger fallout. Fixed now:
+  - **`0073_personal_ledger_metrics_guards` (live):** the P0 — `tg_family_created`
+    fired "🎉 New family" Telegram on every personal-ledger provisioning, and
+    `_tg_daily_digest` counted personal containers in EVERY family/member/txn
+    metric (new/total/active/dormant/owner_dead/exp_u/txn_d/total_mem). Both now
+    filter `type='family'`. Also hardened the active-container invariant:
+    `leave_family` no longer picks the personal ledger as next-active, and
+    `switch_family` rejects `type<>'family'` (prevents `auth_family_id()` ever
+    pointing at the private ledger).
+  - **Mirror now immediate on writes:** `_syncSoon` (20-data-helpers.js, the
+    chokepoint every txn insert/update/delete + outbox replay already calls) now
+    fires `fhPersonalMirrorSoon()` (debounced, idempotent). Create/edit/delete in
+    a family reflects into the personal ledger promptly, not just on next hydrate.
+
+  **DEFERRED — known gaps, NOT broken, documented so nobody trips on them:**
+  1. **Owner-only edit authority** (`61-expense-detail.js` realized Update/Delete;
+     RLS `transactions_update/delete` in `0072`). Today ANY family member can
+     edit/delete ANY realized txn. We did NOT enforce owner-only because (a) it's
+     a family-tab behavior change (violates the "family tab unchanged" constraint)
+     with no "request change" replacement built, and (b) the mirror's reconcile
+     already keeps the author's master consistent under cross-member edits/deletes
+     (adopted masters follow their family row). Revisit WITH the request-change
+     flow. Until then, cross-member edits are allowed and self-heal on reconcile.
+  2. **Transfers** — `kind='transfer'` two-leg pairing is schema-ready but UNBUILT.
+     Bank-email internal transfers still ingest as two `kind='expense'` rows →
+     they mirror as two personal spends (double-count). Family spend sums +
+     `get_family_snapshot` also don't yet exclude `kind='transfer'`. All of this
+     ships together with the transfer feature (Phase 3); current behavior is
+     internally consistent (no transfers exist yet). **Mailbox-import owner: do
+     the leg-pairing here.**
+  3. **Annotation join** — photos/reactions attach only to the family copy; the
+     personal stream shows mirrored rows annotation-blind (`21-personal.js`).
+     Display gap, not corruption.
+  4. **reset-test-user** deletes the personal ledger correctly but incidentally
+     (no `type` awareness); preview lists it as an extra "family". Cosmetic.
+
+  **Reusable rule for whoever adds friend/trip spaces:** any new server function
+  that counts/lists/promotes families MUST filter `type` — the client filtering
+  is not enough (this audit found 8+ server-side spots). sw bumped to v373.
 
 - **2026-08-23 (forwarding session) — PIPELINE_VERSION COLLIDED. Trang was told
   to paste `2026-08-23-a`; main is on `2026-08-17-c`. Neither contains the other
