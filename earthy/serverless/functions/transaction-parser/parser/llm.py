@@ -12,30 +12,15 @@ Two calls, deliberately not one:
   anchors which field. Its answer is what gets stored and reused.
 
 Merging them makes the model generalise and read at the same time, and both
-answers get worse.
+answers get worse. Splitting them also means `induce` runs on a redacted copy
+— it only needs to know where the fields sit, never what they say.
 
-BOTH CALLS ARE SENT THE MAIL AS WRITTEN. This reversed a deliberate earlier
-decision, and the reasoning is worth keeping because the old design was not
-wrong so much as differently priced.
-
-Masking replaced every figure with a `[MONEY_n]` name and asked the model which
-name was the amount. It worked, and it cost accuracy in a way that is hard to
-see from inside: a model that cannot read `750.000` cannot use the magnitude of
-a figure as evidence. Magnitude is real evidence — a balance is usually larger
-than the amount that moved, a four-digit figure beside a six-digit one in a
-Vietnamese notice is a fee rather than a total, and `[MONEY_1]` beside
-`[MONEY_2]` says none of that. The same masking also fed `induce`, so the spec
-it proposed was derived from a body the next mail will not look like.
-
-What replaced it is consent, not a weaker promise: the mail is sent to the model
-as the bank wrote it, and the person is asked, in those terms, before any of it
-is collected. That is a product decision with a record behind it
-(`user_consents`, kind `bank_email`), which is a stronger basis than a masker
-that was silently degrading every reading it protected.
-
-The withholding that remains is downstream and unchanged: what the model returns
-is sealed to the family's key before it is stored, so the model sees the mail
-and the database never sees the reading.
+Neither call is sent a figure. `extract` gets a body whose amounts have been
+replaced by `[MONEY_n]` names (see `masking`) and answers in those names,
+which are exchanged for numbers here; `induce` gets a copy with every digit
+blanked. So a family's balances and transaction amounts stay on the machine
+that received the mail, and the model still gets the labels, the layout and
+the signs that are what it is actually being asked about.
 
 Nothing here raises. A model that is slow, rate-limited, misconfigured or
 simply wrong must degrade to "could not read this mail", which the pipeline
@@ -47,7 +32,9 @@ import logging
 import os
 import re
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
+
+from . import masking
 
 log = logging.getLogger(__name__)
 
@@ -69,49 +56,24 @@ _DIGIT = re.compile(r"\d")
 
 
 class Answer(BaseModel):
-    """What the model reported.
+    """What the model reported, in the terms it was given.
 
-    Figures come back as numbers now, read off the mail as the bank printed it.
+    Figures come back as the `[MONEY_n]` names the body carried, never as
+    numbers: the model was never shown a number to report. `to_reading`
+    exchanges the names for the figures, on this side of the network.
     """
 
-    amount: int | None = Field(
+    amount: str | None = Field(
         default=None,
-        description="The amount of THIS transaction, as a whole number of dong "
-        "with no currency symbol and no thousands separators: 750000, not "
-        "750.000 VND. Never the account balance.",
+        description="The [MONEY_n] placeholder marking the amount of THIS "
+        "transaction. Copy the placeholder exactly, e.g. '[MONEY_1]'. Never "
+        "the account balance, and never a number of your own.",
     )
-    balance: int | None = Field(
+    balance: str | None = Field(
         default=None,
-        description="The account balance after the transaction, same format, "
-        "if the mail states one.",
+        description="The [MONEY_n] placeholder marking the account balance "
+        "after the transaction, if the mail states one.",
     )
-
-    @field_validator("amount", "balance", mode="before")
-    @classmethod
-    def _as_dong(cls, v: object) -> object:
-        """Accept the separators a Vietnamese notice prints, refuse everything else.
-
-        The prompt asks for bare digits and the model mostly obliges, but
-        "750.000" is what the mail itself says and it comes back that way often
-        enough to matter. Stripping `.`, `,` and spaces is safe HERE and only
-        here: Vietnamese uses `.` for thousands, and these two fields are whole
-        dong, so there is no decimal meaning to lose.
-
-        Anything still not all-digits afterwards becomes None rather than an
-        error. A field that cannot be read must leave the reading incomplete —
-        which the pipeline already treats as an unreadable mail and logs — never
-        raise, because the caller's only recovery is a redelivery that will fail
-        identically. A leftover `[MONEY_1]` from a stale prompt lands here too,
-        and is correctly refused rather than stored as a number.
-        """
-        if v is None or isinstance(v, int):
-            return v
-        if not isinstance(v, str):
-            return None
-        cleaned = v.strip().replace(".", "").replace(",", "").replace(" ", "")
-        if cleaned.startswith("+") or cleaned.startswith("-"):
-            cleaned = cleaned[1:]
-        return int(cleaned) if cleaned.isdigit() else None
     direction: str | None = Field(
         default=None,
         description="'credit' if money entered the account, 'debit' if it left. "
@@ -151,16 +113,16 @@ class Answer(BaseModel):
         "'chuyển khoản', 'internet banking'. Null if the email does not say.",
     )
 
-    def to_reading(self) -> "Reading":
-        """The same fields, as the pipeline's own type.
+    def to_reading(self, table: dict[str, object]) -> "Reading":
+        """Exchange the placeholders for the figures they stand for.
 
-        A straight copy now that the figures arrive as figures. The validator
-        above has already turned anything unreadable into None, so this cannot
-        put a non-number into a reading.
+        A placeholder this masker never issued reads as None rather than
+        raising: a model that invented one has said nothing, and the pipeline
+        already handles a reading with no amount.
         """
         return Reading(
-            amount=self.amount,
-            balance=self.balance,
+            amount=masking.restore_int(self.amount, table),
+            balance=masking.restore_int(self.balance, table),
             direction=self.direction,
             merchant=self.merchant,
             occurred_at=self.occurred_at,
@@ -256,16 +218,21 @@ it as a Vietnamese reader would."""
 _EXTRACT_PROMPT = """You are reading one transaction notification email from a \
 Vietnamese bank or e-wallet.
 
+Sensitive values have been replaced by placeholders: every monetary figure by \
+one like [MONEY_1], every email address by one like [EMAIL_1]. They are \
+withheld deliberately; you are being asked which placeholder is which, not \
+what any of them is.
+
 Report what it says. Rules:
-- Answer amount and balance as whole numbers of dong, digits only, with no \
-currency symbol and no thousands separators: write 750000, not '750.000 VND'. \
-Report the figure the email prints; never round it or compute one.
+- For amount and balance, answer with the placeholder exactly as printed, \
+e.g. '[MONEY_1]'. Never answer with a number: you have not been shown one, so \
+any number would be a guess.
 - The transaction amount and the account balance are different figures and are \
-often in the same table. Never report the balance as the amount. The balance is \
-usually the larger of the two, and is the one labelled số dư.
+often in the same table. They carry different placeholders. Never report the \
+balance's placeholder as the amount.
 - direction is 'credit' when money entered the account (ghi có, nhận tiền, \
 tiền vào, +) and 'debit' when it left (ghi nợ, thanh toán, chuyển tiền, \
-trừ tiền, -). A + or - printed next to the figure still tells you this.
+trừ tiền, -). A + or - printed next to a placeholder still tells you this.
 - occurred_at is the time the TRANSACTION happened, which the email states; it \
 is not the time the email was sent. Dates are day-first: 21/08/2026 is the \
 21st of August.
@@ -279,9 +246,9 @@ EMAIL:
 {body}"""
 
 _INDUCE_PROMPT = """This email is one instance of a recurring template from a \
-Vietnamese bank. You are not being asked to read its values, only to say where \
-they sit, so that a later email off this same template can be read without a \
-model.
+Vietnamese bank. Its amounts and email addresses have been replaced with \
+placeholders like [MONEY_1] — you are not being asked to read values, only to \
+say where they sit.
 
 For each field, give the exact label text printed immediately before that \
 field's value. A later email off this same template will be parsed by finding \
@@ -324,13 +291,15 @@ def extract(text: str) -> Reading | None:
     """Read one mail. None when the model could not be reached or answered
     unusably — the caller treats that as an unreadable mail.
 
-    The body goes as the bank wrote it. See the module docstring for why that
-    reversed the earlier masking design, and what carries the promise instead.
+    The figures never leave: the body is masked first, the model answers in
+    placeholders, and the exchange back to numbers happens here against a
+    table that was never sent.
     """
-    answer = _ask(_EXTRACT_PROMPT.format(body=_clip(text)), Answer)
+    masked, table = masking.mask(_clip(text))
+    answer = _ask(_EXTRACT_PROMPT.format(body=masked), Answer)
     if answer is None:
         return None
-    return answer.to_reading()
+    return answer.to_reading(table)
 
 
 def induce(text: str, reading: Reading) -> dict | None:
@@ -338,21 +307,20 @@ def induce(text: str, reading: Reading) -> dict | None:
 
     Returns None when nothing usable came back.
 
-    Sent the same body `extract` gets, unaltered. Two earlier versions of this
-    withheld part of it and both cost more than they saved: blanking every digit
-    left `luc ##:##:## ##/##/####`, which gives the model no way to tell a
-    timestamp from a reference, so it proposed labels for neither and every
-    learned spec silently dropped `occurred_at` and `reference` after the first
-    mail; masking the figures left the same hole one level up, because a label
-    is anchored by what sits NEXT to it and `[MONEY_1]` does not sit anywhere
-    the next mail will.
+    Sent the same masked copy `extract` gets, not a copy with every digit
+    blanked. Blanking them was the original design and it cost more than it
+    saved: a body reading `luc ##:##:## ##/##/####` gives the model no way to
+    tell a timestamp from a reference, so it proposed labels for neither and
+    the learned spec silently dropped `occurred_at` and `reference` on every
+    mail after the first.
 
-    This call derives a rule that then runs on real mail with no model behind
-    it. Deriving it from a body that differs from the real one is the one input
-    change that produces a confidently wrong spec rather than no spec.
+    Masking still withholds what matters. The figures and addresses are
+    placeholders; a date and a transaction id are neither, and they are what
+    this call has to recognise to do its job.
     """
+    masked, _ = masking.mask(_clip(text))
     prompt = _INDUCE_PROMPT.format(
-        body=_clip(text),
+        body=masked,
         reading=_shape_of(reading),
     )
     proposed = _ask(prompt, ProposedSpec)
@@ -412,14 +380,11 @@ def redact(text: str) -> str:
 
 
 def _shape_of(reading: Reading) -> str:
-    """Which fields were found, and what they were found to be.
+    """Which fields were found, without what they were found to be.
 
-    `induce` is told what `extract` read so it can tell the rows apart. It used
-    to be told only WHICH fields existed, because sending the values would have
-    put back what masking the body had just taken out. That reason is gone — the
-    body now carries the values — and withholding them here only makes the job
-    harder: a label is located by finding the value it sits beside, and
-    "amount, balance" says which rows to look for while the figures say where.
+    `induce` is told what `extract` read so it can tell the rows apart. Which
+    rows exist is all it needs: sending the figures would put back what
+    masking the body just took out.
 
     Derived from the model's own fields rather than a written-out list. The
     list version was written when a reading had four fields, and silently kept
@@ -428,11 +393,7 @@ def _shape_of(reading: Reading) -> str:
     it, never proposed a label for one, and every learned spec dropped the
     timestamp on every mail after the first.
     """
-    found = [
-        f"{name}={getattr(reading, name)}"
-        for name in Reading.model_fields
-        if getattr(reading, name) is not None
-    ]
+    found = [name for name in Reading.model_fields if getattr(reading, name) is not None]
     return ", ".join(found) if found else "none"
 
 

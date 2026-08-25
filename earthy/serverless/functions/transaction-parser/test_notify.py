@@ -133,38 +133,15 @@ def test_an_unreadable_email_announces_too(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_subject_markup_is_escaped(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Subjects come from email and are attacker-controlled.
-
-    The subject only travels on the UNREAD path now — the parsed message
-    deliberately dropped it ("report what the mail said, not what its subject
-    said"), so that is the message this has to guard. A parsed mail's message
-    contains nothing sender-authored except fields that go through
-    notify.escape at composition.
-    """
-    sent: list[str] = []
-    monkeypatch.setattr(main.notify, "enabled", lambda: True)
-    monkeypatch.setattr(main.notify, "send", _recorder(sent))
-
-    # An unreadable body forces the UNREAD announcement, which quotes the title.
-    main.main(_event({**PARSEABLE, "subject": "<b>bold</b> & co", "body": "khong co so tien"}))
-
-    assert "&lt;b&gt;" in sent[0]
-    assert "<b>bold</b>" not in sent[0]
-    assert "&amp;" in sent[0]
-
-
-def test_the_parsed_message_no_longer_quotes_the_subject(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The other half of the same decision, pinned so it cannot regress: bank
-    subjects are fixed banners that read as if they describe this mail."""
+    # Subjects come from email and are attacker-controlled.
     sent: list[str] = []
     monkeypatch.setattr(main.notify, "enabled", lambda: True)
     monkeypatch.setattr(main.notify, "send", _recorder(sent))
 
     main.main(_event({**PARSEABLE, "subject": "<b>bold</b> & co"}))
 
-    assert "bold" not in sent[0]
+    assert "&lt;b&gt;" in sent[0]
+    assert "<b>bold</b>" not in sent[0]
 
 
 def test_amount_formatting() -> None:

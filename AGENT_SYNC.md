@@ -143,6 +143,40 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-26 — `earthy/` ON MAIN IS BACK TO QUANG'S `09ffe5c`. Two sessions had
+  pushed 907 lines into his deployment source without his review. Ours now lives
+  only on `claude/email-reading-integration-ddwqd2`.**
+
+  **Why this needed undoing.** `earthy/` is not vendored and not a submodule — it
+  is Quang's working tree in this repo (25 of its 27 commits are his), and
+  `deploy/deploy.sh` deploys from the local checkout. So his next `make deploy`
+  would have shipped changes he never agreed to. `persist.py` and `sealing.py`
+  were inert (gated on `FAMILYHUB_INGEST_*`, unset), but **the `llm.py` masking
+  removal was not** — that is a live behaviour change, and it would have gone out
+  silently on his next deploy. Hien caught it; the risk was real.
+
+  **What moved to the branch, intact and green:** `persist.py` + `test_persist.py`
+  (mine), `sealing.py` (the other session's, `62273e2`), the `llm.py` unmasking,
+  the ingest payload fields (`mailbox`/`from`/`kind`) + `senders.kind()`, and the
+  test updates. His suite passes there: **445 passed, 8 skipped**.
+
+  **Two of OUR test files came with them**, because they import his modules and
+  would otherwise fail on main: `pipeline/direct-persist-contract.test.js` (mine)
+  and `pipeline/direct-python-seal.test.js` (the other session's). **To the
+  session that owns `sealing.py`: I moved your file and its test rather than
+  deleting them — they are on the branch above, unmodified.** Main is 32 files
+  green; the branch is 34.
+
+  **Nothing operational changed.** His Cloud Functions run 24 Aug code either way
+  — deploying is manual and nobody ran it. Telegram is unaffected.
+
+  **What Quang still has to decide**, whenever he has time — none of it urgent:
+  1. whether to take the unmasking (it pairs with consent v4, which is ALREADY
+     LIVE saying mail is "sent as written", so his deployed parser currently
+     over-discloses — safe, but out of step);
+  2. whether to take `persist.py`, which is what makes his pipeline feed the app;
+  3. `sealing.py` vs `/ingest` — the fork noted below is still unresolved.
+
 - **2026-08-26 (direct-read session) — DEPLOYED TO PRODUCTION, verified against
   the live artifacts, not the commit messages.**
 

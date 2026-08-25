@@ -1,36 +1,19 @@
-"""The end-to-end claim: the mail reaches the model as the bank wrote it.
+"""The end-to-end claim: nothing sensitive in a family's mail reaches the network.
 
-NOTE ON THE FILENAME. This file was `test_no_figures_leave` because the claim
-used to be the opposite one — every figure masked before the body left the
-machine. That design was reversed deliberately (see `parser/llm`), so the name
-now describes a policy that is gone. It is kept rather than renamed because
-renaming a file across a shared repo is how two sessions lose work; whoever owns
-this package should rename it to `test_mail_reaches_the_model`.
+Every other test here stubs `llm._ask`, which is the right seam for asking
+what the pipeline does with an answer. It is the wrong seam for asking what
+was sent, because it sits on this side of the client that does the sending.
 
-WHY THE POLICY CHANGED. Masking worked and it cost accuracy invisibly. A model
-shown `[MONEY_1]` and `[MONEY_2]` cannot use the SIZE of a figure as evidence,
-and size is most of how a balance is told from an amount in a Vietnamese notice.
-It hurt `induce` worse still: that call derives a rule which then runs on real
-mail with no model behind it, and a rule anchored against placeholder text is
-anchored against something the next mail will not contain — a confidently wrong
-spec rather than no spec. What carries the promise now is consent, recorded
-against the person before any of this is collected, plus sealing everything the
-model returns to the family's key before it is stored.
-
-WHY THIS FILE STILL EARNS ITS PLACE. Every other test here stubs `llm._ask`,
-which is the right seam for asking what the pipeline does with an answer and the
-wrong one for asking what was SENT, because it sits on this side of the client
-that does the sending. These stub `genai.Client` — the last thing before the
-request — and read what it was handed. A masker reintroduced anywhere upstream
-would not throw; it would quietly go back to costing accuracy on every reading,
-and this is what would catch it.
+So these stub `genai.Client` instead — the last thing before the request — and
+read what it was handed. If a figure or an address appears in that text it is
+on its way to a third party, whatever the layers above intended.
 """
 
 import pytest
 from parser import llm, pipeline
 
 # A realistic notice: transaction amount, balance, account number, reference,
-# and a date, so every kind of value shows up in what was sent.
+# and a date, so a leak of any one of them would show up here.
 TCB_CREDIT = (
     "Ngân hàng Techcombank thông báo: "
     "Số tài khoản: 19001234567 "
@@ -41,8 +24,9 @@ TCB_CREDIT = (
     "Nội dung: CHUYEN TIEN CHO ME"
 )
 
-# The figures the model has to be able to SEE to tell one row from another.
-FIGURES = ["500.000", "12.345.678"]
+# The figures that must never appear in a prompt, in every spelling the mail
+# or a careless formatter might produce.
+FIGURES = ["500.000", "500,000", "500000", "12.345.678", "12,345,678", "12345678"]
 
 
 class _Recorder:
@@ -55,9 +39,9 @@ class _Recorder:
 
     def create(self, **kwargs):
         _Recorder.prompts.append(kwargs["input"])
-        # Answers in figures, as the model is now instructed to.
+        # Answers in placeholders, as the real model is instructed to.
         answer = llm.Answer(
-            amount=500000, balance=12345678, direction="credit"
+            amount="[MONEY_1]", balance="[MONEY_2]", direction="credit"
         ).model_dump_json()
         return type("I", (), {"output_text": answer})()
 
@@ -73,54 +57,36 @@ def sent(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     return _Recorder.prompts
 
 
-def test_the_extract_call_carries_the_figures(sent: list[str]) -> None:
+def test_the_extract_call_carries_no_figure(sent: list[str]) -> None:
     llm.extract(TCB_CREDIT)
 
     assert len(sent) == 1
     for figure in FIGURES:
-        assert figure in sent[0], f"{figure} did not reach the model"
-
-
-def test_no_prompt_carries_a_placeholder(sent: list[str]) -> None:
-    """The specific regression to watch for: a masker put back upstream.
-
-    It would not raise. The prompt would simply start carrying `[MONEY_1]`
-    again, the model would answer with a name, the validator would refuse it as
-    unreadable, and the symptom would be mail that stopped parsing for no
-    visible reason.
-    """
-    llm.extract(TCB_CREDIT)
-
-    assert "[MONEY_" not in sent[0]
-    assert "[EMAIL_" not in sent[0]
-
-
-def test_the_extract_call_asks_for_digits(sent: list[str]) -> None:
-    """The instruction has to agree with the schema, or the model answers in a
-    format the validator then drops."""
-    llm.extract(TCB_CREDIT)
-
-    assert "750000" in sent[0]          # the worked example in the rules
-    assert "thousands separators" in sent[0]
+        assert figure not in sent[0], f"{figure} was sent to the model"
 
 
 def test_the_extract_call_still_carries_the_labels(sent: list[str]) -> None:
-    """Labels and layout were always the point; now the values come too."""
+    """Masking must not cost the model what it needs to answer.
+
+    Withholding the figures is only viable because the labels, the layout and
+    the sign are what the question is actually about.
+    """
     llm.extract(TCB_CREDIT)
 
     for label in ("Số tiền giao dịch", "Số dư khả dụng", "Nội dung"):
         assert label in sent[0]
-    assert "+500.000" in sent[0]        # the sign survives, beside its figure
+    assert "+[MONEY_1]" in sent[0]  # the sign survives, beside its figure's name
 
 
-def test_a_full_parse_reaches_the_model_and_still_reads_the_mail(
+def test_a_full_parse_leaks_nothing_and_still_reads_the_mail(
     sent: list[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The whole cascade, with no stored spec, so it reaches the model.
 
-    Both halves matter: the body went as written, and the mail was read
-    correctly. A change that broke parsing would pass the first assertion alone.
+    Both halves matter: nothing leaked, and the mail was still read correctly.
+    A masker that broke parsing would pass the first assertion alone.
     """
+    # induce runs after extract and gets its own recorded prompt.
     monkeypatch.setattr(llm, "induce", lambda text, reading: None)
 
     result = pipeline.parse("techcombank", TCB_CREDIT)
@@ -132,56 +98,56 @@ def test_a_full_parse_reaches_the_model_and_still_reads_the_mail(
     assert result.reading.direction == "credit"
 
     for prompt in sent:
-        assert "[MONEY_" not in prompt
+        for figure in FIGURES:
+            assert figure not in prompt, f"{figure} was sent to the model"
 
 
-def test_the_induce_call_carries_the_mail_as_written(sent: list[str]) -> None:
-    """The call this change helps most.
+def test_the_induce_call_carries_no_figure(sent: list[str]) -> None:
+    """induce gets the same masked copy extract does.
 
-    A label is located by finding the value it sits beside. Derive that from a
-    body where the values have been replaced and the rule anchors against text
-    the next mail will not contain.
+    Not a copy with every digit blanked, which is what it used to get: a body
+    reading `luc ##:##:## ##/##/####` gives the model no way to tell a
+    timestamp from a reference, so it proposed labels for neither and the
+    learned spec dropped `occurred_at` and `reference` on every mail after the
+    first.
+
+    What must not appear is a figure. A date and an account number are digits
+    the model has to see to recognise the rows they sit in.
     """
     llm.induce(TCB_CREDIT, llm.Reading(amount=500000, balance=12345678, direction="credit"))
 
     assert len(sent) == 1
     for figure in FIGURES:
-        assert figure in sent[0], f"{figure} did not reach the model"
-    assert "[MONEY_" not in sent[0]
+        assert figure not in sent[0], f"{figure} was sent to the model"
+    assert "[MONEY_1]" in sent[0]
 
 
 def test_the_induce_call_still_carries_a_date(sent: list[str]) -> None:
-    """A timestamp has to survive into the prompt or no spec will ever learn to
-    read one. True under blanking, under masking, and still true now."""
+    """The point of the change: a timestamp has to survive into the prompt or
+    no spec will ever learn to read one."""
     llm.induce(TCB_CREDIT, llm.Reading(amount=500000, direction="credit"))
 
     assert "23/08/2026" in sent[0]
 
 
-def test_the_induce_call_is_told_what_was_read(sent: list[str]) -> None:
-    """Field names say which rows to look for; the values say where they sit."""
-    llm.induce(TCB_CREDIT, llm.Reading(amount=500000, direction="credit"))
-
-    assert "amount=500000" in sent[0]
-
-
-def test_the_contact_address_reaches_the_model_too(sent: list[str]) -> None:
-    """Recorded rather than left to be discovered.
-
-    The bank's own support address is in the body and goes with it. It is the
-    bank's published address, not the family's, and singling it out for removal
-    while the account number and the amount go through would be theatre.
-    """
+def test_the_extract_call_carries_no_address(sent: list[str]) -> None:
+    """Addresses are masked for the same reason figures are: the model needs
+    to know a contact row is there, never who is in it."""
     llm.extract(TCB_CREDIT)
 
-    assert "hotro@techcombank.com.vn" in sent[0]
-    assert "Liên hệ" in sent[0]
+    assert "hotro@techcombank.com.vn" not in sent[0]
+    assert "[EMAIL_1]" in sent[0]
+    assert "Liên hệ" in sent[0]  # the label still says what the row is
 
 
-def test_the_account_number_reaches_the_model(sent: list[str]) -> None:
-    """Unchanged by this reversal — it was never masked, because it carries no
-    currency marker and removing it would blind the parser to a field it
-    reads."""
+def test_no_prompt_carries_an_account_number_either(sent: list[str]) -> None:
+    """Not this task's job, but worth knowing where it stands.
+
+    The account number is NOT masked by `masking` — it carries no currency
+    marker, and masking it would blind the parser to a field. It survives into
+    the extract prompt, and this test records that deliberately rather than
+    leaving it to be discovered.
+    """
     llm.extract(TCB_CREDIT)
 
     assert "19001234567" in sent[0]
