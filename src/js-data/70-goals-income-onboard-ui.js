@@ -425,7 +425,8 @@
     // reload still works — the shell holds no account data).
     try { if (window.caches && caches.keys) { const ks = await caches.keys(); await Promise.all(ks.filter((k) => /media|photo/i.test(k)).map((k) => caches.delete(k))); } } catch (e) {}
     // residual localStorage flags / plaintext snapshot
-    ['fh-snap', 'fh-snap-idb', 'fh-expense-drafts', 'fh-fam', 'fh-onboarded', 'fh-resume', 'fh-lang', 'fh-cur'].forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
+    // 'fh-gtok' = leftover Google provider token from the retired scaffold (10-client-auth).
+    ['fh-snap', 'fh-snap-idb', 'fh-expense-drafts', 'fh-fam', 'fh-onboarded', 'fh-resume', 'fh-lang', 'fh-cur', 'fh-gtok'].forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
   }
 
   /* The one and only sign-out. It ALWAYS erases this device's local copy — the

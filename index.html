@@ -14068,7 +14068,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v392';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v394';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -14667,10 +14667,14 @@ window.obGoogle = async function () {
    to the backend, which holds the refresh token server-side where it belongs.
    Nothing outside this file ever read fhGoogleTokens().
 
-   Note for anyone with an old build's leftovers: existing 'fh-gtok' entries are
-   not cleared by this removal. They are stale basic-scope or mail-scope tokens
-   that will expire on their own; wipe them with
-   localStorage.removeItem('fh-gtok') if you want them gone now. */
+   Leftovers from an old build are cleared here rather than left to lapse. The
+   earlier note said they "will expire on their own" — true of the access token
+   (~1h), not of the refresh token beside it, which is the half worth removing.
+   So: drop the key on every boot, signed in or not, since localStorage outlives
+   sign-out. Dropping our copy does NOT revoke the grant — that is the user's to
+   do at myaccount.google.com/permissions, which privacy.html §8 covers under
+   rút lại sự đồng ý. Safe to delete once the fleet has turned over. */
+try { localStorage.removeItem('fh-gtok'); } catch (e) { }
 
   /* ═══ Device session registry + cooperative revocation (trust rec #6) ═══════
      Every signed-in device registers under the account so the owner can see it in
@@ -21112,7 +21116,8 @@ window.classifyAmount = classifyAmount;
     // reload still works — the shell holds no account data).
     try { if (window.caches && caches.keys) { const ks = await caches.keys(); await Promise.all(ks.filter((k) => /media|photo/i.test(k)).map((k) => caches.delete(k))); } } catch (e) {}
     // residual localStorage flags / plaintext snapshot
-    ['fh-snap', 'fh-snap-idb', 'fh-expense-drafts', 'fh-fam', 'fh-onboarded', 'fh-resume', 'fh-lang', 'fh-cur'].forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
+    // 'fh-gtok' = leftover Google provider token from the retired scaffold (10-client-auth).
+    ['fh-snap', 'fh-snap-idb', 'fh-expense-drafts', 'fh-fam', 'fh-onboarded', 'fh-resume', 'fh-lang', 'fh-cur', 'fh-gtok'].forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
   }
 
   /* The one and only sign-out. It ALWAYS erases this device's local copy — the

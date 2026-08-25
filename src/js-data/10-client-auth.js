@@ -310,7 +310,11 @@ window.obGoogle = async function () {
    to the backend, which holds the refresh token server-side where it belongs.
    Nothing outside this file ever read fhGoogleTokens().
 
-   Note for anyone with an old build's leftovers: existing 'fh-gtok' entries are
-   not cleared by this removal. They are stale basic-scope or mail-scope tokens
-   that will expire on their own; wipe them with
-   localStorage.removeItem('fh-gtok') if you want them gone now. */
+   Leftovers from an old build are cleared here rather than left to lapse. The
+   earlier note said they "will expire on their own" — true of the access token
+   (~1h), not of the refresh token beside it, which is the half worth removing.
+   So: drop the key on every boot, signed in or not, since localStorage outlives
+   sign-out. Dropping our copy does NOT revoke the grant — that is the user's to
+   do at myaccount.google.com/permissions, which privacy.html §8 covers under
+   rút lại sự đồng ý. Safe to delete once the fleet has turned over. */
+try { localStorage.removeItem('fh-gtok'); } catch (e) { }
