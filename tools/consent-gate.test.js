@@ -229,7 +229,7 @@ console.log('\n-- the gate asks exactly when it should --');
   t('it says the rest is unchanged, so they need not re-read it all',
     re.indexOf('Phần còn lại giữ nguyên') >= 0);
   t('and the change is stated as a CHANGE, not as reassurance',
-    re.indexOf('không còn được che như trước') >= 0);
+    re.indexOf('không còn đúng') >= 0);
   /* The delta is what they read; the full CURRENT text is still on the screen,
      collapsed. A link to the PREVIOUS consent instead would mean the version
      they are agreeing to was never presented, which turns one clean proof
@@ -241,6 +241,10 @@ console.log('\n-- the gate asks exactly when it should --');
     re.indexOf('dữ liệu cá nhân nhạy cảm') >= 0);
   t('v4 is honest that this one is a downgrade',
     re.indexOf('gửi nguyên văn cho AI') >= 0);
+  /* The architecture is the reassuring half and belongs in the copy too: the
+     model sees one email per format, not every email. */
+  t('and states the once-per-format limit that actually protects them',
+    re.indexOf('những email sau cùng mẫu thì không gửi đi nữa') >= 0);
 
   reset({ data: [], error: null });
   await window.fhConsentSheet({});

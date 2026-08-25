@@ -84,7 +84,26 @@ exist first. They join the beta-reopen checklist:
    lý dữ liệu · Chia sẻ dữ liệu · Thời hạn lưu trữ dữ liệu · Quyền lựa chọn
    của Người dùng.
 
-## 5. Consent sheet v4 — corrected for the masking change
+## 5. Consent sheet v4 — corrected for what the AI actually receives
+
+**Correction, 2026-08-24 (Trang).** An earlier draft of this section said the
+serverless parser masks MONEY and EMAIL. The repo's `llm.extract()` does call
+`masking.mask()`, but **the deployed behaviour is that a first-encounter email
+goes to Gemini as written** — the same repo-versus-production gap that hid the
+push-send 401 for four days. Verify against the deployed function, not the
+tree, before writing anything else user-facing about it.
+
+The consent and the policy are therefore worded to the CONSERVATIVE reading:
+no masking is claimed at all. Under-claiming protection is safe; the reverse
+is what we were fixing.
+
+What IS true and worth saying, because it protects more than masking would:
+`pipeline.parse()` tries stored specs first and only reaches the model on a
+miss, so **one email per new format is sent, once**, and every later email in
+that format is read locally. Minimisation by frequency rather than by
+redaction. Policy Bản 3 and consent v4 both say this.
+
+### 5a. The old framing (superseded)
 
 **v3 → v4 (2026-08-24).** The serverless parser masks `KINDS = (MONEY, EMAIL)`
 only, so on the direct-read path counterparty names and account numbers reach

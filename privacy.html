@@ -36,7 +36,7 @@
 
   <div id="lang-vi">
   <h1>Chính sách quyền riêng tư</h1>
-  <div class="meta">Earthy (FamilyHub) · Bản 2 · Hiệu lực từ 24/08/2026</div>
+  <div class="meta">Earthy (FamilyHub) · Bản 3 · Hiệu lực từ 24/08/2026</div>
 
   <h2>1. Phạm vi áp dụng</h2>
   <p>Chính sách này áp dụng cho ứng dụng Earthy, gồm sổ chi tiêu gia đình và các
@@ -71,7 +71,7 @@
     <tr><td>Supabase</td><td>Lưu trữ dữ liệu ứng dụng. Với các giá trị nhạy cảm, máy chủ chỉ giữ bản đã niêm phong hoặc đã khoá.</td></tr>
     <tr><td>Vercel</td><td>Phân phối ứng dụng web.</td></tr>
     <tr><td>Google (Gmail)</td><td>Hộp thư trung gian nhận email bạn chuyển tiếp, tự xoá theo thời hạn ở mục 7.</td></tr>
-    <tr><td>Google (Gemini)</td><td>Đọc cấu trúc email ngân hàng để trích ra giao dịch. <strong>Số tiền và địa chỉ email luôn được thay bằng ký hiệu trước khi gửi.</strong> Với email bạn chuyển tiếp, tên và các dãy số như số tài khoản cũng được che. Với luồng đọc trực tiếp hộp thư, phần chữ còn lại của email, ví dụ tên người nhận, được gửi nguyên văn.</td></tr>
+    <tr><td>Google (Gemini)</td><td><strong>Chỉ email đầu tiên của mỗi mẫu.</strong> Lần đầu gặp một mẫu email của ngân hàng, email đó được gửi nguyên văn cho AI một lần để học cách đọc mẫu. Cấu trúc học được lưu lại, và mọi email sau cùng mẫu được đọc ngay trên hệ thống của chúng tôi, không gửi đi.</td></tr>
     <tr><td>Telegram</td><td>Cảnh báo vận hành cho người quản trị, không kèm giá trị giao dịch.</td></tr>
     <tr><td>Thành viên gia đình bạn</td><td>Giao dịch bạn duyệt vào sổ chung sẽ hiển thị cho cả nhà.</td></tr>
     <tr><td>Cơ quan nhà nước có thẩm quyền</td><td>Chỉ khi có yêu cầu đúng quy định pháp luật. Với các giá trị đã niêm phong, phần chúng tôi có thể cung cấp chỉ là bản đã khoá.</td></tr>
@@ -105,8 +105,9 @@
   <h2>9. Bảo vệ dữ liệu</h2>
   <p>Số tiền và ghi chú trong sổ được mã hoá đầu cuối trên thiết bị của gia
   đình. Giao dịch từ email được niêm phong ngay khi đến; chìa khoá chỉ nằm trên
-  thiết bị của nhà bạn. Nội dung gửi cho AI luôn được che số tiền và địa
-  chỉ email; mức che của từng luồng nêu ở mục 5. Hệ
+  thiết bị của nhà bạn. Với AI, chúng tôi giảm thiểu bằng số lần gửi chứ
+  không bằng che nội dung: chỉ email đầu tiên của mỗi mẫu được gửi, một lần,
+  và phần còn lại đọc tại chỗ (mục 5). Hệ
   thống tự phát hiện việc thay khoá và ghi vết sự cố. Nếu xảy ra vi phạm dữ
   liệu, chúng tôi thông báo trong 72 giờ theo quy định.</p>
 
@@ -125,7 +126,7 @@
 
   <div id="lang-en">
     <h1>Privacy Policy</h1>
-    <div class="meta">Earthy (FamilyHub) · Version 2 · Effective 24/08/2026</div>
+    <div class="meta">Earthy (FamilyHub) · Version 3 · Effective 24/08/2026</div>
 
     <h2>1. Scope</h2>
     <p>This policy covers the Earthy app: the family expense ledger and the
@@ -157,13 +158,11 @@
     <h2>5. Sharing</h2>
     <p>Supabase stores the app's data; for sensitive values it keeps only the
     sealed or locked copy. Vercel serves the web app. Google's Gmail runs the
-    relay inbox, cleared on the schedule in section 7. Google's Gemini reads
-    the structure of bank emails to extract transactions. <strong>Amounts and
-    email addresses are always replaced with placeholders before anything is
-    sent.</strong> For email you forward, names and digit strings such as
-    account numbers are masked too. On the direct mailbox-read path, the
-    remaining text of the email, for example a counterparty's name, is sent
-    as written. Telegram
+    relay inbox, cleared on the schedule in section 7. Google's Gemini sees only the
+    <strong>first email of each format</strong>: the first time a bank's
+    layout is met, that one email is sent as written so the structure can be
+    learned. The learned structure is stored, and every later email in the
+    same format is read on our own systems and is not sent anywhere. Telegram
     carries operational alerts with no transaction values. Transactions you
     approve appear in the shared ledger for your family. Competent state
     authorities receive data only on a lawful request, and for sealed values
@@ -194,9 +193,9 @@
     <h2>9. Protection</h2>
     <p>Ledger amounts and notes are end-to-end encrypted on family devices.
     Email transactions are sealed the moment they arrive, and the key lives
-    only on your family's devices. Anything sent to the AI has amounts and email
-    addresses masked first; section 5 states what each path masks beyond
-    that. The system detects key substitution on its own and keeps
+    only on your family's devices. With the AI we minimise by how often we send,
+    not by hiding content: only the first email of each format is sent, once,
+    and the rest are read in place (section 5). The system detects key substitution on its own and keeps
     incident logs. If a breach happens, we notify within 72 hours as
     regulated.</p>
 

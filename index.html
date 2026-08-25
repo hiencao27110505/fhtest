@@ -14356,7 +14356,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v402';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v403';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -23172,8 +23172,8 @@ window.classifyAmount = classifyAmount;
      "we protect your data". */
   var FH_CONSENT_CHANGES = {
     bank_email: {
-      4: ['Với luồng đọc trực tiếp hộp thư, tên người nhận và số tài khoản hiện được gửi nguyên văn cho AI, không còn được che như trước. Số tiền và địa chỉ email thì vẫn luôn được che.',
-          'On the direct mailbox-read path, counterparty names and account numbers are now sent to the AI as written, no longer masked as before. Amounts and email addresses are still always masked.'],
+      4: ['Tụi mình nói lại cho đúng phần AI. Trước đây tụi mình nói mọi số tiền, tên và số tài khoản đều được che trước khi gửi cho AI; điều đó không còn đúng. Thực tế: lần đầu gặp một mẫu email mới, email đó được gửi nguyên văn cho AI của Google một lần để học cách đọc, và những email sau cùng mẫu thì không gửi đi nữa.',
+          'We are correcting what we said about the AI. We previously said every amount, name and account number was masked before anything was sent; that is no longer accurate. What actually happens: the first time we meet a new email format, that email is sent to Google’s AI as written, once, to learn how to read it, and later emails in the same format are not sent at all.'],
     },
     app_data: {},
   };
@@ -23649,8 +23649,8 @@ window.classifyAmount = classifyAmount;
 
       var rows =
         _cstRow(L('Có ai đọc được email của tôi không?', 'Can anyone read my emails?'), _esc(L(
-          'Email được xử lý tự động rồi tự xoá sau 7 ngày; email bị lỗi giữ tối đa 90 ngày rồi cũng xoá. Khi AI cần đọc cấu trúc email, số tiền và địa chỉ email luôn được thay bằng ký hiệu. Với email bạn chuyển tiếp, tên và số tài khoản cũng được che. Với luồng đọc trực tiếp hộp thư, phần chữ còn lại, ví dụ tên người nhận, được gửi nguyên văn.',
-          'Emails are processed automatically and delete themselves after 7 days; ones we fail to read are kept at most 90 days, then deleted too. When the AI reads an email’s structure, amounts and email addresses are always replaced with placeholders. For email you forward, names and account numbers are masked too. On the direct mailbox-read path, the remaining text, such as a counterparty’s name, is sent as written.'))) +
+          'Lần đầu gặp một mẫu email của ngân hàng, tụi mình gửi email đó cho AI của Google một lần, để học cách đọc mẫu đó. Những email sau cùng mẫu được đọc ngay tại hệ thống, không gửi đi đâu nữa. Email trong hộp thư trung gian tự xoá sau 7 ngày; email không đọc được giữ tối đa 90 ngày rồi cũng xoá.',
+          'The first time we meet a new email format from a bank, we send that one email to Google’s AI once, to learn how to read that format. Every later email in the same format is read on our own systems and goes nowhere. Emails in the relay inbox delete themselves after 7 days; ones we could not read are kept at most 90 days, then deleted too.'))) +
         _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
           'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
           'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +
