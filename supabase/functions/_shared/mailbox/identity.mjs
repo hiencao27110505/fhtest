@@ -11,7 +11,7 @@
  *
  * WHAT IS STILL LEFT TO CHECK, AND WHY.
  *
- * grant_mailbox_access() (migration 0084) already refused to store a grant
+ * grant_mailbox_access() (migration 0087) already refused to store a grant
  * whose user had no member row in a real family, so the destination was valid
  * the moment it was written. It can stop being valid afterwards: a member is
  * archived, a family is archived, the member is moved, the family never minted

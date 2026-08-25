@@ -1,7 +1,7 @@
 -- ============================================================================
--- FamilyHub — 0086: Gmail push for direct mailbox read
+-- FamilyHub — 0089: Gmail push for direct mailbox read
 --
--- 0084/0085 read mailboxes on a 5-minute schedule. That is a correct floor and
+-- 0087/0088 read mailboxes on a 5-minute schedule. That is a correct floor and
 -- a poor ceiling: a bank sends the mail, and the person waits up to five minutes
 -- to hear about a transaction that already happened. Gmail can tell us the
 -- moment the mailbox changes, and this is the state that needs storing for it.
@@ -45,7 +45,7 @@ create index if not exists mailbox_grants_watch_due_idx
   on public.mailbox_grants (watch_expires_at nulls first)
   where needs_reauth = false;
 
--- The app reads its own connection status through a column-level grant (0084).
+-- The app reads its own connection status through a column-level grant (0087).
 -- The watch expiry joins it: "connected, and receiving mail as it arrives"
 -- versus "connected, checking every few minutes" is a real difference to a
 -- person waiting on a notification, and it is not a credential.

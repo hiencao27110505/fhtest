@@ -1,5 +1,5 @@
 -- ============================================================================
--- FamilyHub — 0084: direct mailbox read (our own transport)
+-- FamilyHub — 0087: direct mailbox read (our own transport)
 --
 -- Second transport for the bank-email pipeline. Forwarding (0025/0059) has the
 -- user point Gmail at an alias we own; this one reads the user's OWN mailbox
@@ -33,7 +33,7 @@
 -- that no family-scoped flow may point at (0073/0079 hardened switch_family and
 -- leave_family for exactly this). Enforced below in grant_mailbox_access().
 --
--- Next free migration number after this one: 0085. Verify against
+-- Next free migration number after this one: 0088. Verify against
 -- `git ls-tree origin/main supabase/migrations/` before claiming it — this
 -- range has collided repeatedly (0070 and 0071 each exist twice).
 -- ============================================================================
@@ -273,4 +273,4 @@ revoke all on function public.disconnect_my_mailbox() from public;
 grant execute on function public.disconnect_my_mailbox() to authenticated;
 
 comment on function public.disconnect_my_mailbox() is
-  'Withdrawal of consent for bank-email processing, both transports: deletes the forwarding connection (0059), the OAuth grant (0084), and every still-pending staged row. Does not revoke the grant at the provider — only the account holder can.';
+  'Withdrawal of consent for bank-email processing, both transports: deletes the forwarding connection (0059), the OAuth grant (0087), and every still-pending staged row. Does not revoke the grant at the provider — only the account holder can.';

@@ -86,7 +86,7 @@ export async function decryptToken(stored, keyB64, opts) {
 
 /**
  * Postgres `bytea` wants hex on the way in over PostgREST. The column is bytea
- * because 0084 declares it so, and the string above is ASCII, so the conversion
+ * because 0087 declares it so, and the string above is ASCII, so the conversion
  * is lossless in both directions.
  */
 export function toBytea(s) {

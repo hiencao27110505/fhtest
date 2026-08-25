@@ -291,7 +291,7 @@
   async function _atxConnection() {
     try {
       /* Read straight from the table rather than through an endpoint. Migration
-         0084 pairs a select policy (own rows) with a COLUMN-level grant that
+         0087 pairs a select policy (own rows) with a COLUMN-level grant that
          omits refresh_token_enc, so this is exactly the status line and nothing
          else — the credential is not reachable from a browser even by asking
          for it. One less endpoint, one less CORS surface, and no round trip
@@ -431,7 +431,7 @@
     _atxOffArmed = false;
     if (btn) { btn.disabled = true; btn.textContent = L('Đang ngừng…', 'Stopping…'); }
     try {
-      /* disconnect_my_mailbox() (0082, extended by 0084) rather than a DELETE
+      /* disconnect_my_mailbox() (0082, extended by 0087) rather than a DELETE
          on one row. It is the WITHDRAWAL action, not just an unlink: it deletes
          the OAuth grant, the forwarding connection, and every still-pending
          staged row, in one transaction that re-checks ownership itself. Half of

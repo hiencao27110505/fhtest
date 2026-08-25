@@ -1,7 +1,7 @@
 -- ============================================================================
--- FamilyHub — 0085: run the direct-read poll on a schedule
+-- FamilyHub — 0088: run the direct-read poll on a schedule
 --
--- Completes the transport added by 0084. `mailbox_grants` holds the credential
+-- Completes the transport added by 0087. `mailbox_grants` holds the credential
 -- and the cursor; this is the thing that actually wakes up and reads mail.
 --
 -- WHY pg_cron AND NOT A GMAIL WATCH.
@@ -27,7 +27,7 @@
 -- `mailbox_sync_url` is the full function URL, e.g.
 -- https://<ref>.supabase.co/functions/v1/mailbox-sync
 --
--- Next free migration number after this one: 0086. Verify against
+-- Next free migration number after this one: 0089. Verify against
 -- `git ls-tree origin/main supabase/migrations/` before claiming it.
 -- ============================================================================
 

@@ -138,8 +138,8 @@ cron without push works but is up to five minutes slow. Do both.
 **1. Apply the migrations.**
 
 ```
-0084_mailbox_direct_read.sql     mailbox_grants, grant_mailbox_access(), disconnect_my_mailbox()
-0085_mailbox_sync_schedule.sql   _mailbox_sync_tick() + the pg_cron job
+0087_mailbox_direct_read.sql     mailbox_grants, grant_mailbox_access(), disconnect_my_mailbox()
+0088_mailbox_sync_schedule.sql   _mailbox_sync_tick() + the pg_cron job
 ```
 
 **2. Register the OAuth client.** In the `fhtest` GCP project, on the `FHTest Web` client, add the

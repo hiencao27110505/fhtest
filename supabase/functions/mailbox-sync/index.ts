@@ -4,7 +4,7 @@
    waiting for review.
 
    Deployed with --no-verify-jwt and gated on a shared secret instead: the
-   caller is pg_cron via net.http_post (migration 0085), which has no user JWT
+   caller is pg_cron via net.http_post (migration 0088), which has no user JWT
    to present. The secret is compared in full rather than short-circuited, and a
    missing one refuses the run rather than defaulting open.
 

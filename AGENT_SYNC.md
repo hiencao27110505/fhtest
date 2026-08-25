@@ -143,6 +143,19 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-26 (direct-read session) — RENUMBERED: `0084_mailbox_direct_read` →
+  `0087`, `0085_mailbox_sync_schedule` → `0088`, `0086_mailbox_watch` → `0089`.
+  Next free is `0090`.**
+
+  Merging main into the direct-read branch surfaced a collision: main created
+  `0084_deletion_requests.sql` (the erasure feature, whose UI is already
+  deployed, so it is almost certainly APPLIED). Ours was confirmed unapplied, so
+  ours moved — same resolution as the 0076-0080 renumber (`b8f0907`). Every
+  live reference in code, docs and the migration headers is updated;
+  `75-consent-ui.js`'s "(0084)" refs mean deletion_requests and are untouched.
+  Older entries below naming 0084-0086 describe the files under their old
+  numbers — read them as 0087-0089.
+
 - **2026-08-26 (direct-read session) — `# TODO: persist` IS CLOSED. His spine
   now hands to our tail, and the wire is test-locked from both ends. 445 Python
   tests + 34 Node files green.**
