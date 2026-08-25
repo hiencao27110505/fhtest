@@ -4813,25 +4813,19 @@ function fhGuidePrevWord(periodKey){
        : periodKey==='week'? L('tuần trước','last week')
        :                     L('tháng trước','last month');
 }
-/* Shared guide label (Finance + Cá nhân). Under plan → "còn tiêu được". Over plan → names
-   what actually broke: over budget but still under the previous period (orange) vs over both
-   (red); with no budget, it's purely the previous-period yardstick. */
+/* Shared guide label (Finance + Cá nhân). Under plan → "còn tiêu được". Over the budget → just
+   "Bể kế hoạch" + the over amount (the number is unambiguously the overage). The vs-previous-
+   period trend is carried by COLOUR + CIRCLE, not a competing text clause: orange = still under
+   the previous period (improving), red = over it too. No budget → the previous period IS the
+   yardstick, so the number is the amount over it and the label names it. */
 function fhGuideLabel(periodKey, over, key, hasBudget, hasPrev){
   if(!over){
     return periodKey==='day' ? L('Hôm nay còn tiêu được','Left to spend today')
          : periodKey==='week'? L('Tiêu được tuần này','Left this week')
          :                     L('Tiêu được tháng này','Left this month');
   }
-  var prev=fhGuidePrevWord(periodKey);
-  if(hasBudget){
-    if(key==='orange') return L('Bể kế hoạch, nhưng đỡ hơn ','Over plan, under ')+prev;
-    if(hasPrev)        return L('Bể kế hoạch, tệ hơn ','Over plan and over ')+prev;
-    return L('Bể kế hoạch','Over plan');
-  }
-  if(hasPrev) return L('Tiêu hơn ','More than ')+prev;
-  return periodKey==='day' ? L('Hôm nay đã vượt','Over today')
-       : periodKey==='week'? L('Tuần này đã vượt','Over this week')
-       :                     L('Tháng này đã vượt','Over this month');
+  if(hasBudget) return L('Bể kế hoạch','Over plan');
+  return L('Tiêu hơn ','More than ')+fhGuidePrevWord(periodKey);   // no-budget: number = amount over the previous period
 }
 /* Sum spend over an inclusive absolute date range [a,b] (day granularity), crossing month
    boundaries via the full window.txns store. Excludes planned/future entries. */
@@ -14060,7 +14054,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v389';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v390';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

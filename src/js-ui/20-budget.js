@@ -317,25 +317,19 @@ function fhGuidePrevWord(periodKey){
        : periodKey==='week'? L('tuần trước','last week')
        :                     L('tháng trước','last month');
 }
-/* Shared guide label (Finance + Cá nhân). Under plan → "còn tiêu được". Over plan → names
-   what actually broke: over budget but still under the previous period (orange) vs over both
-   (red); with no budget, it's purely the previous-period yardstick. */
+/* Shared guide label (Finance + Cá nhân). Under plan → "còn tiêu được". Over the budget → just
+   "Bể kế hoạch" + the over amount (the number is unambiguously the overage). The vs-previous-
+   period trend is carried by COLOUR + CIRCLE, not a competing text clause: orange = still under
+   the previous period (improving), red = over it too. No budget → the previous period IS the
+   yardstick, so the number is the amount over it and the label names it. */
 function fhGuideLabel(periodKey, over, key, hasBudget, hasPrev){
   if(!over){
     return periodKey==='day' ? L('Hôm nay còn tiêu được','Left to spend today')
          : periodKey==='week'? L('Tiêu được tuần này','Left this week')
          :                     L('Tiêu được tháng này','Left this month');
   }
-  var prev=fhGuidePrevWord(periodKey);
-  if(hasBudget){
-    if(key==='orange') return L('Bể kế hoạch, nhưng đỡ hơn ','Over plan, under ')+prev;
-    if(hasPrev)        return L('Bể kế hoạch, tệ hơn ','Over plan and over ')+prev;
-    return L('Bể kế hoạch','Over plan');
-  }
-  if(hasPrev) return L('Tiêu hơn ','More than ')+prev;
-  return periodKey==='day' ? L('Hôm nay đã vượt','Over today')
-       : periodKey==='week'? L('Tuần này đã vượt','Over this week')
-       :                     L('Tháng này đã vượt','Over this month');
+  if(hasBudget) return L('Bể kế hoạch','Over plan');
+  return L('Tiêu hơn ','More than ')+fhGuidePrevWord(periodKey);   // no-budget: number = amount over the previous period
 }
 /* Sum spend over an inclusive absolute date range [a,b] (day granularity), crossing month
    boundaries via the full window.txns store. Excludes planned/future entries. */
