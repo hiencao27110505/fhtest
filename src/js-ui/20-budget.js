@@ -328,10 +328,10 @@ function fhGuideLabel(periodKey, state, hasBudget){
          : periodKey==='week'? L('Tiêu được tuần này','Left this week')
          :                     L('Tiêu được tháng này','Left this month');
   }
-  if(state==='win') return L('Ít hơn ','Less than ')+fhGuidePrevWord(periodKey);   // number = how much less than the previous period
-  if(state==='par') return L('Ngang ','On par with ')+fhGuidePrevWord(periodKey);  // number = spent so far
-  if(hasBudget)     return L('Bể kế hoạch','Over plan');                            // worse: number = the over amount
-  return L('Tiêu hơn ','More than ')+fhGuidePrevWord(periodKey);                    // no budget, worse: number = amount over the previous period
+  if(state==='win') return L('Đang tiêu ít hơn ','Spending less than ')+fhGuidePrevWord(periodKey);   // number = how much less than the previous period
+  if(state==='par') return L('Đang tiêu ngang ','On par with ')+fhGuidePrevWord(periodKey);           // number = spent so far
+  if(hasBudget)     return L('Chi tiêu quá lố','Over-spending');                                       // worse: number = the over amount
+  return L('Đang tiêu nhiều hơn ','Spending more than ')+fhGuidePrevWord(periodKey);                   // no budget, worse: number = amount over the previous period
 }
 /* Sum spend over an inclusive absolute date range [a,b] (day granularity), crossing month
    boundaries via the full window.txns store. Excludes planned/future entries. */
