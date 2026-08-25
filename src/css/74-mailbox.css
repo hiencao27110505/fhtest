@@ -136,6 +136,18 @@
 #csv-result.staged .csv-staged-sum-main .num{color:var(--ink)}
 #csv-result.staged .csv-staged-sum-sub{font-size:13px;color:var(--muted);margin-top:3px;letter-spacing:-.01em}
 
+/* Where a reviewed bank transaction lands. Borders, not fills (DESIGN §7), and
+   the same .choice chips the expense sheet uses so the two never drift apart.
+   The subtitle above already says what the current pick MEANS, so these read as
+   a switch rather than needing their own explanation. */
+/* .field + label + .choices is the app's own control, inherited whole (50-sheets).
+   Only the placement is local: a rule above it separates the decision from the
+   summary it applies to, and the summary's subtitle already states what the
+   current pick MEANS, so the label can stay a plain question. */
+#csv-result.staged .csv-scope{margin:0 2px 20px;padding:14px 0 0;border-top:1px solid var(--hairline)}
+#csv-result.staged .csv-scope .choice[aria-disabled="true"]{opacity:.4}
+#csv-result.staged .csv-scope-note{font-size:12.5px;color:var(--muted);margin-top:8px;letter-spacing:-.01em}
+
 /* ---------- sealed-staging key-mismatch alarm ---------- */
 /* Blocking, family-wide dialog raised at unlock when the device's staging key
    no longer matches the server's (key substitution). Mounts inside .phone

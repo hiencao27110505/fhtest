@@ -33,6 +33,67 @@ var csvStagedMode = false;
    which would delete un-reviewed email rows). The mode is the single source. */
 function csvSaveDispatch(){ return csvStagedMode ? fhPromoteStaged() : csvPromote(); }
 
+/* WHERE a reviewed bank transaction lands. Two destinations, and the difference
+   is who ELSE can see it:
+     family   -> transactions (the shared ledger). The personal mirror then copies
+                 it into your own ledger too, so "family" means BOTH, not "not mine".
+     personal -> personal_transactions with space_id null. Private, permanently.
+                 The family never sees it and there is no un-share.
+
+   One control for the whole pass rather than a toggle per row, because the row
+   checkboxes already give per-row control: tick the shared ones, import, flip the
+   scope, import the rest. Selection × scope covers a mixed batch in two taps
+   instead of N, and keeps the collapsed cards as quiet as they were asked to be.
+
+   Remembered across sessions: someone whose bank mail is mostly personal should
+   not re-pick it every morning. Never remembered as 'personal' when the personal
+   ledger cannot actually be written to — see csvScopeReady. */
+var CSV_SCOPE_KEY = 'fh-staged-scope';
+function csvScopeReady(){
+  var pd = window.fhPersonalData && window.fhPersonalData();
+  return !!(pd && pd.key);
+}
+function csvStagedScope(){
+  if(!csvScopeReady()) return 'family';            // locked ledger -> never offer to lose the row
+  try{ return localStorage.getItem(CSV_SCOPE_KEY)==='personal' ? 'personal' : 'family'; }
+  catch(e){ return 'family'; }
+}
+function csvPickScope(v){
+  if(v==='personal' && !csvScopeReady()){
+    window.toast && window.toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
+    return;
+  }
+  try{ localStorage.setItem(CSV_SCOPE_KEY, v); }catch(e){}
+  renderCsvReview();
+}
+function csvScopeSubtitle(){
+  return csvStagedScope()==='personal'
+    ? L('vào sổ cá nhân, chỉ mình bạn thấy','to your personal ledger, only you see it')
+    : L('vào sổ gia đình, cả nhà cùng thấy','to the family ledger, everyone sees it');
+}
+function csvScopePicker(){
+  /* Deliberately the SAME control as #ex-scopefield in the expense modal: same
+     question, same chips, same order, same glyphs. A second dialect for one
+     decision is how a product starts feeling assembled rather than designed —
+     and this is the one decision a person makes most often in this screen. */
+  var sc = csvStagedScope(), locked = !csvScopeReady();
+  var chip = function(v, label){
+    var on = sc===v;
+    return '<button type="button" class="choice'+(on?' on':'')+'"'
+      + (v==='personal' && locked ? ' aria-disabled="true"' : '')
+      + ' aria-pressed="'+(on?'true':'false')+'"'
+      + ' onclick="csvPickScope(\''+v+'\')">'+esc(label)+'</button>';
+  };
+  return '<div class="field csv-scope">'
+    + '<label>'+esc(L('Ghi vào đâu?','Where does this go?'))+'</label>'
+    + '<div class="choices">'
+    +   chip('personal', L('🔒 Cá nhân','🔒 Personal'))
+    +   chip('family',   L('🏡 Gia đình','🏡 Family'))
+    + '</div>'
+    + (locked ? '<div class="csv-scope-note">'+esc(L('Sổ cá nhân đang khoá — mở ở tab Cá nhân để chọn được.','Personal ledger is locked — unlock it on the Cá nhân tab to pick it.'))+'</div>' : '')
+    + '</div>';
+}
+
 function openCsvImport(){
   csvStagedMode = false;               // this is the file flow, not the staged review
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
@@ -908,8 +969,9 @@ function renderCsvReview(){
       var stagedSum = csvStagedSelected().reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
       html += '<div class="csv-staged-sum">'
         + '<div class="csv-staged-sum-main">'+esc(L('Sẽ nhập '+readyCount+' khoản','Importing '+readyCount))+' · <span class="num">'+esc(fmt(stagedSum))+'</span></div>'
-        + '<div class="csv-staged-sum-sub">'+esc(L('từ email ngân hàng','from bank email'))+'</div>'
+        + '<div class="csv-staged-sum-sub">'+esc(csvScopeSubtitle())+'</div>'
         + '</div>';
+      html += csvScopePicker();
     }
   } else {
     var summaryLine;

@@ -295,3 +295,16 @@
 .pers-lock-ic svg{width:40px;height:40px;color:var(--brand-ink)}
 .pbud-bar{height:8px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;margin:2px 0 12px}
 .pbud-bar i{display:block;height:100%;border-radius:9999px}
+
+/* Rows we could not decrypt. Kept OUT of every total (19-personal), so it has to
+   be visible or the totals lie by omission — but it is a STATE, not an error:
+   nothing is broken and nothing was lost. Amber, therefore, not --danger, and
+   the fourth variant of the .cf-note component rather than a new one. */
+.cf-note.warn{background:var(--amber-tint);color:var(--amber)}
+.cf-note.warn .ni{display:inline-flex;vertical-align:-3px;margin-right:6px}
+.cf-note.warn .ni svg{width:15px;height:15px}
+.p-unread{margin:0 2px 12px}
+/* The locked row keeps the list's rhythm and states its absence in the amount
+   column (an em dash), so the eye reads down the numbers without a gap. */
+.rows .row.is-locked .r-t{color:var(--muted)}
+.rows .row.is-locked .r-amt{color:var(--chev)}

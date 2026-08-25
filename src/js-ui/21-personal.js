@@ -69,9 +69,14 @@ function renderPersonal(){
 
   /* ready — amounts are base units (thousands of VND); fmt() applies curMult(). */
   var mon = _pMonKey(new Date());
-  var txM = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense'; });
+  /* _unreadable rows are EXCLUDED from every total rather than counted as 0.
+     `t.amt||0` used to fold a row we could not decrypt into the month at zero,
+     so a wrong key understated spending instead of saying so (19-personal).
+     Everything downstream derives from txM — the category card and the space
+     roll-up included — so they are covered by this one filter. */
+  var txM = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense' && !t._unreadable; });
   var out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
-  var inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon; }).reduce(function(s,i){ return s+(i.amt||0); },0);
+  var inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon && !i._unreadable; }).reduce(function(s,i){ return s+(i.amt||0); },0);
   var left = inc-out;
   var famName = function(fid){ var f=(P.fams||[]).find(function(x){return x.family_id===fid;}); return f? f.name : 'Nhóm'; };
 
@@ -136,8 +141,23 @@ function renderPersonal(){
 
   /* ── Giao dịch của bạn — category emoji is the only emoji (content mark) ── */
   h += '<div class="section-h" id="pers-tx"><span class="t">Giao dịch của bạn</span></div><div class="rows">';
+  /* Say it before the list, not inside it. A count kept out of the totals has to
+     be visible or the totals are quietly wrong -- which is the whole reason this
+     stopped being a 0đ row. */
+  if(P.unreadable){
+    h += '<div class="cf-note warn p-unread"><span class="ni">'+PIC.lock+'</span>'
+       + (P.unreadable===1 ? 'Có <b>1 khoản</b> chưa đọc được' : 'Có <b>'+P.unreadable+' khoản</b> chưa đọc được')
+       + ' — chưa tính vào tổng. Mở khoá lại bằng thẻ cá nhân để xem.</div>';
+  }
   if(P.txns.length){
     P.txns.slice(0,30).forEach(function(t){
+      if(t._unreadable){
+        h += '<div class="row is-locked"><div class="r-ico pers-r-ico priv">'+PIC.lock+'</div>'
+           + '<div class="r-body"><div class="r-t">Chưa đọc được</div>'
+           + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+' · không tính vào tổng</div></div>'
+           + '<div class="r-amt num">—</div></div>';
+        return;
+      }
       h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>'
          + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
          + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'

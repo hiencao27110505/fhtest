@@ -1436,6 +1436,19 @@ input{font-family:inherit}
 .pbud-bar{height:8px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;margin:2px 0 12px}
 .pbud-bar i{display:block;height:100%;border-radius:9999px}
 
+/* Rows we could not decrypt. Kept OUT of every total (19-personal), so it has to
+   be visible or the totals lie by omission — but it is a STATE, not an error:
+   nothing is broken and nothing was lost. Amber, therefore, not --danger, and
+   the fourth variant of the .cf-note component rather than a new one. */
+.cf-note.warn{background:var(--amber-tint);color:var(--amber)}
+.cf-note.warn .ni{display:inline-flex;vertical-align:-3px;margin-right:6px}
+.cf-note.warn .ni svg{width:15px;height:15px}
+.p-unread{margin:0 2px 12px}
+/* The locked row keeps the list's rhythm and states its absence in the amount
+   column (an em dash), so the eye reads down the numbers without a gap. */
+.rows .row.is-locked .r-t{color:var(--muted)}
+.rows .row.is-locked .r-amt{color:var(--chev)}
+
 /* Savings goals — ONE grouped card: the brief (goal-gradient framing) is the header,
    the goal list its body. A single border + shadow makes the whole thing read as one object. */
 .goal-card{background:var(--white);border:1px solid var(--hairline);border-radius:18px;margin:0 16px 12px;overflow:hidden;box-shadow:var(--shadow-card)}
@@ -2924,6 +2937,18 @@ html.fh-can-install .set-row.set-install{display:flex}
 #csv-result.staged .csv-staged-sum-main{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.3px;color:var(--ink)}
 #csv-result.staged .csv-staged-sum-main .num{color:var(--ink)}
 #csv-result.staged .csv-staged-sum-sub{font-size:13px;color:var(--muted);margin-top:3px;letter-spacing:-.01em}
+
+/* Where a reviewed bank transaction lands. Borders, not fills (DESIGN §7), and
+   the same .choice chips the expense sheet uses so the two never drift apart.
+   The subtitle above already says what the current pick MEANS, so these read as
+   a switch rather than needing their own explanation. */
+/* .field + label + .choices is the app's own control, inherited whole (50-sheets).
+   Only the placement is local: a rule above it separates the decision from the
+   summary it applies to, and the summary's subtitle already states what the
+   current pick MEANS, so the label can stay a plain question. */
+#csv-result.staged .csv-scope{margin:0 2px 20px;padding:14px 0 0;border-top:1px solid var(--hairline)}
+#csv-result.staged .csv-scope .choice[aria-disabled="true"]{opacity:.4}
+#csv-result.staged .csv-scope-note{font-size:12.5px;color:var(--muted);margin-top:8px;letter-spacing:-.01em}
 
 /* ---------- sealed-staging key-mismatch alarm ---------- */
 /* Blocking, family-wide dialog raised at unlock when the device's staging key
@@ -5410,9 +5435,14 @@ function renderPersonal(){
 
   /* ready — amounts are base units (thousands of VND); fmt() applies curMult(). */
   var mon = _pMonKey(new Date());
-  var txM = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense'; });
+  /* _unreadable rows are EXCLUDED from every total rather than counted as 0.
+     `t.amt||0` used to fold a row we could not decrypt into the month at zero,
+     so a wrong key understated spending instead of saying so (19-personal).
+     Everything downstream derives from txM — the category card and the space
+     roll-up included — so they are covered by this one filter. */
+  var txM = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense' && !t._unreadable; });
   var out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
-  var inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon; }).reduce(function(s,i){ return s+(i.amt||0); },0);
+  var inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon && !i._unreadable; }).reduce(function(s,i){ return s+(i.amt||0); },0);
   var left = inc-out;
   var famName = function(fid){ var f=(P.fams||[]).find(function(x){return x.family_id===fid;}); return f? f.name : 'Nhóm'; };
 
@@ -5477,8 +5507,23 @@ function renderPersonal(){
 
   /* ── Giao dịch của bạn — category emoji is the only emoji (content mark) ── */
   h += '<div class="section-h" id="pers-tx"><span class="t">Giao dịch của bạn</span></div><div class="rows">';
+  /* Say it before the list, not inside it. A count kept out of the totals has to
+     be visible or the totals are quietly wrong -- which is the whole reason this
+     stopped being a 0đ row. */
+  if(P.unreadable){
+    h += '<div class="cf-note warn p-unread"><span class="ni">'+PIC.lock+'</span>'
+       + (P.unreadable===1 ? 'Có <b>1 khoản</b> chưa đọc được' : 'Có <b>'+P.unreadable+' khoản</b> chưa đọc được')
+       + ' — chưa tính vào tổng. Mở khoá lại bằng thẻ cá nhân để xem.</div>';
+  }
   if(P.txns.length){
     P.txns.slice(0,30).forEach(function(t){
+      if(t._unreadable){
+        h += '<div class="row is-locked"><div class="r-ico pers-r-ico priv">'+PIC.lock+'</div>'
+           + '<div class="r-body"><div class="r-t">Chưa đọc được</div>'
+           + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+' · không tính vào tổng</div></div>'
+           + '<div class="r-amt num">—</div></div>';
+        return;
+      }
       h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>'
          + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
          + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
@@ -9541,6 +9586,67 @@ var csvStagedMode = false;
    which would delete un-reviewed email rows). The mode is the single source. */
 function csvSaveDispatch(){ return csvStagedMode ? fhPromoteStaged() : csvPromote(); }
 
+/* WHERE a reviewed bank transaction lands. Two destinations, and the difference
+   is who ELSE can see it:
+     family   -> transactions (the shared ledger). The personal mirror then copies
+                 it into your own ledger too, so "family" means BOTH, not "not mine".
+     personal -> personal_transactions with space_id null. Private, permanently.
+                 The family never sees it and there is no un-share.
+
+   One control for the whole pass rather than a toggle per row, because the row
+   checkboxes already give per-row control: tick the shared ones, import, flip the
+   scope, import the rest. Selection × scope covers a mixed batch in two taps
+   instead of N, and keeps the collapsed cards as quiet as they were asked to be.
+
+   Remembered across sessions: someone whose bank mail is mostly personal should
+   not re-pick it every morning. Never remembered as 'personal' when the personal
+   ledger cannot actually be written to — see csvScopeReady. */
+var CSV_SCOPE_KEY = 'fh-staged-scope';
+function csvScopeReady(){
+  var pd = window.fhPersonalData && window.fhPersonalData();
+  return !!(pd && pd.key);
+}
+function csvStagedScope(){
+  if(!csvScopeReady()) return 'family';            // locked ledger -> never offer to lose the row
+  try{ return localStorage.getItem(CSV_SCOPE_KEY)==='personal' ? 'personal' : 'family'; }
+  catch(e){ return 'family'; }
+}
+function csvPickScope(v){
+  if(v==='personal' && !csvScopeReady()){
+    window.toast && window.toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
+    return;
+  }
+  try{ localStorage.setItem(CSV_SCOPE_KEY, v); }catch(e){}
+  renderCsvReview();
+}
+function csvScopeSubtitle(){
+  return csvStagedScope()==='personal'
+    ? L('vào sổ cá nhân, chỉ mình bạn thấy','to your personal ledger, only you see it')
+    : L('vào sổ gia đình, cả nhà cùng thấy','to the family ledger, everyone sees it');
+}
+function csvScopePicker(){
+  /* Deliberately the SAME control as #ex-scopefield in the expense modal: same
+     question, same chips, same order, same glyphs. A second dialect for one
+     decision is how a product starts feeling assembled rather than designed —
+     and this is the one decision a person makes most often in this screen. */
+  var sc = csvStagedScope(), locked = !csvScopeReady();
+  var chip = function(v, label){
+    var on = sc===v;
+    return '<button type="button" class="choice'+(on?' on':'')+'"'
+      + (v==='personal' && locked ? ' aria-disabled="true"' : '')
+      + ' aria-pressed="'+(on?'true':'false')+'"'
+      + ' onclick="csvPickScope(\''+v+'\')">'+esc(label)+'</button>';
+  };
+  return '<div class="field csv-scope">'
+    + '<label>'+esc(L('Ghi vào đâu?','Where does this go?'))+'</label>'
+    + '<div class="choices">'
+    +   chip('personal', L('🔒 Cá nhân','🔒 Personal'))
+    +   chip('family',   L('🏡 Gia đình','🏡 Family'))
+    + '</div>'
+    + (locked ? '<div class="csv-scope-note">'+esc(L('Sổ cá nhân đang khoá — mở ở tab Cá nhân để chọn được.','Personal ledger is locked — unlock it on the Cá nhân tab to pick it.'))+'</div>' : '')
+    + '</div>';
+}
+
 function openCsvImport(){
   csvStagedMode = false;               // this is the file flow, not the staged review
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
@@ -10416,8 +10522,9 @@ function renderCsvReview(){
       var stagedSum = csvStagedSelected().reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
       html += '<div class="csv-staged-sum">'
         + '<div class="csv-staged-sum-main">'+esc(L('Sẽ nhập '+readyCount+' khoản','Importing '+readyCount))+' · <span class="num">'+esc(fmt(stagedSum))+'</span></div>'
-        + '<div class="csv-staged-sum-sub">'+esc(L('từ email ngân hàng','from bank email'))+'</div>'
+        + '<div class="csv-staged-sum-sub">'+esc(csvScopeSubtitle())+'</div>'
         + '</div>';
+      html += csvScopePicker();
     }
   } else {
     var summaryLine;
@@ -14143,7 +14250,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v393';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v395';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -15580,8 +15687,39 @@ window.obGoogle = async function () {
     window.fhPersonalCardCached = function () { try { return localStorage.getItem(_pcardKey()); } catch (e) { return null; } };
 
     const _encP = (v) => FHCrypto.encVal(P.key, v);
-    const _decP = async (b64) => { try { return b64 ? await FHCrypto.decVal(P.key, b64) : null; } catch (e) { return null; } };
-    function _setState(s) { P.state = s; try { if (window.renderPersonal) renderPersonal(); } catch (e) {} }
+
+    /* null means "nothing was stored"; _DEC_FAILED means "something WAS stored
+       and we could not read it". Collapsing the two is how an unreadable row
+       became a 0đ row: decVal threw, the catch returned null, Number(null) is 0,
+       and `s + (t.amt || 0)` folded it into the month's total. A wrong key or a
+       half-finished rotation therefore UNDERSTATED spending, silently, while the
+       tab still reported itself ready.
+
+       The staged review screen already takes the opposite position — a row that
+       cannot be opened is exactly the case a person needs told (72-txn-review).
+       This brings the personal ledger in line with it. */
+    const _DEC_FAILED = '\u0000fh-dec-failed';
+    const _decP = async (b64) => {
+      if (!b64) return null;
+      try { return await FHCrypto.decVal(P.key, b64); } catch (e) { return _DEC_FAILED; }
+    };
+    const _decTxt = async (b64) => { const v = await _decP(b64); return v === _DEC_FAILED ? null : v; };
+    /* The bank-email review screen offers "Ghi vào đâu? — Cá nhân", and that chip
+       is disabled while this ledger has no key. fhPersonalBoot is fired from
+       hydrate and NOT awaited, so a queue opened in the window before the key
+       resolves showed the chip locked and then never corrected itself: nothing
+       re-rendered that screen, and the only way out was closing the sheet.
+
+       So the state change tells it too. Guarded on the staged review actually
+       being on screen, because re-rendering a file import from here would throw
+       away an in-progress edit. */
+    function _setState(s) {
+      P.state = s;
+      try { if (window.renderPersonal) renderPersonal(); } catch (e) {}
+      try {
+        if (window.csvStagedMode && window.csvReview && window.renderCsvReview) window.renderCsvReview();
+      } catch (e) {}
+    }
     function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return _localDate(d); }
 
     let _booting = false;
@@ -15643,11 +15781,30 @@ window.obGoogle = async function () {
           _sb().from('personal_incomes').select('id,amount_enc,note_enc,income_date').eq('owner_user_id', P.uid).gte('income_date', from),
           _sb().from('personal_budgets').select('total_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
         ]);
-        P.budget = (bd && bd.data) ? Number(await _decP(bd.data.total_enc)) || 0 : 0;
-        P.txns = [];
-        for (const t of (tr.data || [])) P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id, version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at, amt: Number(await _decP(t.amount_enc)), note: await _decP(t.note_enc), cat: await _decP(t.cat_name_enc), emoji: t.cat_emoji });
+        /* Their budget read goes through _decP too, so an unreadable budget must
+           not become a number either — the sentinel is a string and Number() of
+           it is NaN. Explicit rather than relying on `|| 0` to absorb it. */
+        const _bRaw = (bd && bd.data) ? await _decP(bd.data.total_enc) : null;
+        P.budget = (_bRaw == null || _bRaw === _DEC_FAILED) ? 0 : (Number(_bRaw) || 0);
+        /* Unreadable is a property of the AMOUNT only. A note or category that
+           will not open costs a label; an amount that will not open corrupts
+           money, so only that one takes the row out of every total. */
+        P.txns = []; P.unreadable = 0;
+        for (const t of (tr.data || [])) {
+          const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
+          if (bad) P.unreadable++;
+          P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
+            version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at,
+            amt: bad ? null : Number(a), _unreadable: bad,
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji });
+        }
         P.incomes = [];
-        for (const i of (ir.data || [])) P.incomes.push({ id: i.id, date: i.income_date, amt: Number(await _decP(i.amount_enc)), note: await _decP(i.note_enc) });
+        for (const i of (ir.data || [])) {
+          const a = await _decP(i.amount_enc), bad = (a === _DEC_FAILED);
+          if (bad) P.unreadable++;
+          P.incomes.push({ id: i.id, date: i.income_date, amt: bad ? null : Number(a),
+            _unreadable: bad, note: await _decTxt(i.note_enc) });
+        }
         _setState('ready');
       } catch (e) { console.warn('personal hydrate failed', e); _setState('error'); }
     };
@@ -22033,14 +22190,39 @@ window.classifyAmount = classifyAmount;
        ✕ handlers' splices become impossible to reason about. */
     var ids = fhStagedIdsForResolved(window._fhStagedRows, window.csvReview);
 
+    var scope = (typeof csvStagedScope === 'function') ? csvStagedScope() : 'family';
+
     try {
-      // csvPromote() returns its promise chain, so this genuinely waits for the
-      // ledger writes. It did not always: an earlier version assumed a promise
-      // and resolved instantly, which meant the delete below could race the
-      // write and destroy a staged row whose transaction never landed.
-      /* Only the ticked rows. csvPromote() with no argument still means "all
-         ready", which is what the CSV file flow wants; the queue is selective. */
-      await csvPromote(typeof csvStagedSelected === 'function' ? csvStagedSelected() : undefined);
+      if (scope === 'personal') {
+        /* Model Y (0079): personal rows are their OWN owner-scoped table under a
+           per-user key, not a family. So this is a different write, not a flag on
+           the same one — and deliberately NOT routed through csvPromote, which
+           writes the family ledger.
+
+           space_id stays null: a bank transaction sent here is private, and there
+           is no un-share. If ANY row fails we stop before retiring anything,
+           because retirement deletes the staged row and a half-imported batch
+           would lose the remainder with nothing left to retry from. */
+        var picked = (typeof csvStagedSelected === 'function') ? csvStagedSelected() : [];
+        if (!picked.length) return;
+        for (var i = 0; i < picked.length; i++) {
+          var c = picked[i];
+          var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
+          var ok = await window.fhPersonalAddExpense(
+            c.amount, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined);
+          if (!ok) throw new Error('personal write failed at row ' + i);
+        }
+        window.toast && window.toast(L('Đã ghi vào sổ cá nhân', 'Saved to your personal ledger'));
+        if (typeof window.renderPersonal === 'function') window.renderPersonal();
+      } else {
+        // csvPromote() returns its promise chain, so this genuinely waits for the
+        // ledger writes. It did not always: an earlier version assumed a promise
+        // and resolved instantly, which meant the delete below could race the
+        // write and destroy a staged row whose transaction never landed.
+        /* Only the ticked rows. csvPromote() with no argument still means "all
+           ready", which is what the CSV file flow wants; the queue is selective. */
+        await csvPromote(typeof csvStagedSelected === 'function' ? csvStagedSelected() : undefined);
+      }
     } catch (e) {
       window.toast && window.toast(L('Chưa lưu được', 'Could not save'));
       return;
