@@ -3005,16 +3005,23 @@ html.fh-can-install .set-row.set-install{display:flex}
 /* One trailing action, not a status dot AND a button. The group header already
    says these are live; a green dot next to a red word was two signals fighting
    for the same 60px. */
+/* Regular weight, not semibold. iOS destructive rows carry their meaning in
+   the colour; bolding it as well is shouting, and two bold reds on one screen
+   compete instead of ranking. DESIGN §3 says the same thing from the other
+   direction: destructive stays low prominence. */
 .cst-stop{flex-shrink:0;min-height:44px;padding:0 2px 0 12px;background:none;border:0;
-  font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--danger)}
+  font-size:14.5px;font-weight:400;letter-spacing:-.01em;color:var(--danger)}
 .cst-stop:active{opacity:.55}
 
 /* Destructive: its own group, one full-width centered red row. iOS never
    wraps this in a box with a paragraph, and DESIGN §3 never makes it a filled
    button — a red row in an otherwise quiet list is loud enough. */
 .cst-group.cst-dgroup{margin-top:4px}
-.cst-drow{width:100%;min-height:52px;background:none;border:0;padding:14px;
-  font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--danger);text-align:center}
+/* The iOS "Delete Account" row: full width, centred, system red, REGULAR
+   weight, alone in its group. Nothing else on the screen looks like it, which
+   is what makes it findable without making it loud. */
+.cst-drow{width:100%;min-height:52px;background:none;border:0;padding:15px 14px;
+  font-size:15.5px;font-weight:400;letter-spacing:-.01em;color:var(--danger);text-align:center}
 .cst-drow:active{background:var(--danger-tint)}
 .cst-drow[disabled]{opacity:.32;pointer-events:none}
 
