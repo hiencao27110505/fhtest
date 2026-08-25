@@ -5465,6 +5465,24 @@ function renderPersonal(){
      + '</div>'
      + '</section>';
 
+  /* ── Khoản thu chi từ email — the same CTA Widget A carries, same .cf-cta /
+        .cc-row chrome, same badge off the same window.fhStagedCount. Deliberately
+        not a second design: it is the same door, and a person who finds it here
+        should recognise it there.
+
+        The one difference is intent. Opening it from THIS tab presets the
+        review screen's destination to personal, exactly as openPersonalExpense()
+        presets the expense modal — and the picker still shows the choice, so
+        nothing is decided behind anyone's back. ── */
+  var _n = window.fhStagedCount || 0;
+  h += '<div class="cf-cta" style="margin-bottom:18px">'
+     + '<button class="cc-row" onclick="fhEmailTxnCta({scope:\'personal\'})">'
+     +   '<span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg></span>'
+     +   '<span class="cc-t">Khoản thu chi từ email</span>'
+     +   (_n>0 ? '<span class="cc-badge num">'+_n+'</span>' : '')
+     +   '<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>'
+     + '</button></div>';
+
   /* ── Các nhóm của tôi — per-space roll-up (drawn icons) ── */
   var bySpace = {};
   txM.forEach(function(t){ var k=t.spaceId||'_p'; bySpace[k]=(bySpace[k]||0)+(t.amt||0); });
@@ -9611,12 +9629,24 @@ function csvStagedScope(){
   try{ return localStorage.getItem(CSV_SCOPE_KEY)==='personal' ? 'personal' : 'family'; }
   catch(e){ return 'family'; }
 }
+/* Persist only. Split out from csvPickScope because an ENTRY POINT needs to
+   pre-scope before the review screen exists — opening the queue from the Cá nhân
+   tab means personal, the same way openPersonalExpense() presets the expense
+   modal. Returns whether it took, so a caller can tell refusal from success.
+
+   Refusing when the ledger is locked is the point: csvStagedScope() would fall
+   back to family anyway, and persisting a choice that does not apply would make
+   the picker disagree with itself the moment the ledger unlocks. */
+function csvSetScope(v){
+  if(v==='personal' && !csvScopeReady()) return false;
+  try{ localStorage.setItem(CSV_SCOPE_KEY, v); }catch(e){}
+  return true;
+}
 function csvPickScope(v){
-  if(v==='personal' && !csvScopeReady()){
+  if(!csvSetScope(v)){
     window.toast && window.toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
     return;
   }
-  try{ localStorage.setItem(CSV_SCOPE_KEY, v); }catch(e){}
   renderCsvReview();
 }
 function csvScopeSubtitle(){
@@ -21853,13 +21883,24 @@ window.classifyAmount = classifyAmount;
     try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (rows || []).length; }
     catch (e) { window.fhStagedCount = 0; }
     try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
+    // The Cá nhân tab carries the same CTA and the same badge; it has to hear
+    // the count change too, or one of the two goes stale after every promote.
+    try { if (typeof window.renderPersonal === 'function') window.renderPersonal(); } catch (e) {}
   };
 
   /* The always-visible "Khoản thu chi từ email" CTA routes by setup state:
        • no linked email  → the setup intro (null state + "Get started" CTA)
        • linked           → the review sheet, which itself shows an empty modal
                             when there is nothing, or the list of cards. */
-  window.fhEmailTxnCta = async function () {
+  window.fhEmailTxnCta = async function (preset) {
+    /* Opening the queue from the Cá nhân tab means "these are mine" — the same
+       affordance openPersonalExpense() gives the expense modal. Pre-scoping is
+       refused silently when the personal ledger is locked, because the picker
+       shows that state and explains it far better than a toast fired from a tap
+       on something else. */
+    if (preset && preset.scope && typeof window.csvSetScope === 'function') {
+      window.csvSetScope(preset.scope);
+    }
     var linked = false;
     try { var st = window.fhMailboxState ? await window.fhMailboxState() : null; linked = !!(st && st.forwarding_alias); } catch (e) {}
     if (!linked) return window.fhMailboxSheet && window.fhMailboxSheet();
