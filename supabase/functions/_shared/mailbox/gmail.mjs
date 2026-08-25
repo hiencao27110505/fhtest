@@ -224,3 +224,114 @@ function _domain(fromHeader) {
   const at = addr.lastIndexOf('@');
   return at < 0 ? '' : addr.slice(at + 1);
 }
+
+/**
+ * Asks Gmail to publish `{emailAddress, historyId}` to a Pub/Sub topic whenever
+ * this mailbox changes.
+ *
+ * A DOORBELL, NOT A DELIVERY. The notification carries no mail content and
+ * `watch()` cannot filter by sender — only by label — so identifying a bank
+ * email still means fetching it. Nothing downstream changes; the worker runs
+ * the same windowed read it runs on a poll. What changes is when.
+ *
+ * ONE WATCH PER MAILBOX, AND THE LAST CALL WINS. Calling watch() again does not
+ * create a second registration: it replaces the topic and resets the clock. So
+ * renewing is the same call as registering, and two systems watching one mailbox
+ * for DIFFERENT topics is a fight the later caller always wins — silently, since
+ * the loser is simply never published to again. Ours names its own topic, which
+ * is why it can coexist with anything else pointed at that mailbox only if that
+ * other thing names the same one.
+ *
+ * Deliberately NOT filtered to INBOX. A bank mail auto-filtered into a folder by
+ * the user's own rules is still a transaction, and a label filter would drop the
+ * notification for exactly the households most organised about their mail. The
+ * cost is notifications for mail we do not care about, and the handler answers
+ * those with one cheap search that finds nothing.
+ *
+ * @return {{historyId: string, expiration: number}} expiration is epoch ms
+ */
+export async function watch(topicName, token, fetchImpl) {
+  const doFetch = fetchImpl || globalThis.fetch;
+  const res = await doFetch(API + '/watch', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ topicName }),
+  });
+  if (res.status === 401) throw new TokenRejected('gmail rejected the access token');
+  if (!res.ok) throw new GmailError(res.status, (await res.text()).slice(0, 300));
+  const data = await res.json();
+  return {
+    historyId: data.historyId ? String(data.historyId) : null,
+    // Gmail returns epoch MILLISECONDS as a string. Reading it as seconds puts
+    // the expiry in 1970 and every renewal sweep then treats every mailbox as
+    // due, forever.
+    expiration: data.expiration ? Number(data.expiration) : null,
+  };
+}
+
+/**
+ * Stops Gmail publishing for this mailbox.
+ *
+ * Best effort by design: a mailbox we can no longer read is one we cannot call
+ * this for either, and a watch nobody renews lapses within 7 days on its own.
+ * Failing a disconnect because the doorbell could not be unwired would be the
+ * wrong trade — the row is gone, so a notification that still arrives finds no
+ * grant and is dropped.
+ */
+export async function stopWatch(token, fetchImpl) {
+  const doFetch = fetchImpl || globalThis.fetch;
+  try {
+    await doFetch(API + '/stop', { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Pulls `{emailAddress, historyId}` out of a Pub/Sub push envelope.
+ *
+ * Returns null for anything unparseable, and the caller ACKs that rather than
+ * retrying: a malformed message will be malformed on every redelivery, and
+ * refusing it just keeps Pub/Sub sending it back until the topic's retention
+ * expires.
+ */
+export function decodePushEnvelope(body) {
+  const raw = body && body.message && body.message.data;
+  if (!raw) return null;
+  try {
+    const b64 = String(raw).replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    const parsed = JSON.parse(atob(padded));
+    if (!parsed || !parsed.emailAddress) return null;
+    return {
+      emailAddress: String(parsed.emailAddress).toLowerCase(),
+      historyId: parsed.historyId ? String(parsed.historyId) : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The form of a Gmail address that two spellings of it agree on.
+ *
+ * Gmail ignores dots and everything after a `+` in the local part, so
+ * `a.b+bank@gmail.com` and `ab@gmail.com` are one mailbox. Google returns the
+ * canonical address in both the profile call and the push notification, so
+ * these should already match — but the forwarding pipeline was bitten by
+ * exactly this when resolving a mailbox owner, and a mismatch here means a
+ * notification arrives for a mailbox we hold a grant for and is dropped as
+ * unknown. One cheap fallback beats rediscovering that.
+ *
+ * Only applied to Google's own domains: dots are significant elsewhere.
+ */
+export function foldAddress(address) {
+  const s = String(address || '').trim().toLowerCase();
+  const at = s.lastIndexOf('@');
+  if (at < 0) return s;
+  const domain = s.slice(at + 1);
+  if (domain !== 'gmail.com' && domain !== 'googlemail.com') return s;
+  const local = s.slice(0, at).split('+')[0].replace(/\./g, '');
+  return local + '@gmail.com';
+}

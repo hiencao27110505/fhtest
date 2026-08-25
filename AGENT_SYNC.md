@@ -143,6 +143,50 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-25 (direct-read session) — GMAIL PUSH IS IN. Notifications now arrive
+  with the bank email rather than up to 5 minutes later. CLAIMING
+  `0086_mailbox_watch.sql`; next free is `0087`.**
+
+  I built the direct-read worker on a 5-minute poll and justified it with "two
+  push pipelines cannot share a mailbox". That is true but it was a stronger
+  claim than the facts supported: `watch()` is one registration per mailbox and
+  the last call wins, which forbids a second watch on a DIFFERENT topic — it does
+  not forbid push. Hien pushed back, correctly, and this is the fix.
+
+  **What landed:** `users.watch()` registered at connect (while the flow already
+  holds a working token and the person is still on the screen), a `/push` route
+  on `mailbox-sync` that resolves `{emailAddress, historyId}` to a grant and runs
+  that one mailbox immediately, and watch renewal folded into the existing tick.
+
+  **THE POLL STAYS, and it is not belt-and-braces.** A watch lapses after 7 days
+  and Gmail then stops publishing silently — no error, no final notification,
+  nothing in any log — so push alone looks idle rather than broken. Push is the
+  latency; the poll is the guarantee. They overlap harmlessly: staged rows are
+  idempotent on `gmail_message_id`, so a push and a tick on one message cost a
+  lookup.
+
+  **Our OWN topic, not earthy's `gmail-events`.** Sharing theirs would mean their
+  ingest receives notifications for mailboxes it has no `connected_accounts` row
+  for, logging "no account on file" for every one. Ours is
+  `familyhub-mailbox-events` in the same GCP project, with its own subscription.
+  Neither pipeline changes. **If a mailbox is watched by both systems, whichever
+  called `watch()` last owns it and the other goes quiet** — worth knowing if you
+  ever point earthy at a mailbox connected through our flow.
+
+  **`GMAIL_PUSH_TOPIC` unset = the feature still works**, on the poll alone. Push
+  is strictly additive; a misconfigured topic costs latency, never transactions.
+
+  **Two things a human has to do** (both in the README's step 5): create the topic
+  and grant `gmail-api-push@system.gserviceaccount.com` publisher on it — that
+  binding is the only thing connecting "the user authorised us" to "Gmail may
+  publish here", and without it every `watch()` call is refused. Then create the
+  push subscription with the shared secret in the endpoint URL, since a push
+  subscription cannot set request headers.
+
+  **One trap the tests pin:** Gmail returns `expiration` in epoch MILLISECONDS.
+  Reading it as seconds puts every expiry in 1970, every sweep then treats every
+  mailbox as due, and renewal quietly becomes a re-registration storm.
+
 - **2026-08-25 (direct-read session) — REVIEW PASS on the direct-read flow: five
   defects found and fixed, all in the silent-failure class. No migration.**
 

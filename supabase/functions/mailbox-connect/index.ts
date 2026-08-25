@@ -20,6 +20,7 @@ import {
   ConnectError,
 } from "../_shared/mailbox/google-oauth.mjs";
 import { createState, readState, confineToPath } from "../_shared/mailbox/oauth-state.mjs";
+import { accessToken, watch } from "../_shared/mailbox/gmail.mjs";
 import { encryptToken, toBytea } from "../_shared/mailbox/token-crypto.mjs";
 
 const env = (k: string) => Deno.env.get(k) || "";
@@ -98,6 +99,7 @@ async function callback(url: URL): Promise<Response> {
   if (!code || !claims) return bounce(claims ? "malformed_callback" : "invalid_state", returnTo);
 
   let grant;
+  let grantId: string | null = null;
   try {
     grant = await completeConnect({ code }, googleCfg(), {});
   } catch (e) {
@@ -136,9 +138,48 @@ async function callback(url: URL): Promise<Response> {
       // finishing onboarding, and the app can tell them so.
       return bounce(detail.includes("no_member_row") ? "no_member" : "store_failed", returnTo);
     }
+    grantId = (await res.json()) as string;
   } catch (e) {
     console.error("storing the grant failed:", e);
     return bounce("store_failed", returnTo);
+  }
+
+  /* Ring the doorbell from the very first minute.
+
+     Registered HERE rather than left to the renewal sweep because this is the
+     one moment the flow already holds a working refresh token and the person is
+     still watching the screen. Waiting for the next tick would mean their first
+     bank email arrives on the slow path, which is the first impression the
+     feature gets to make.
+
+     BEST EFFORT, and deliberately so. A failure here costs latency, not
+     transactions: the 5-minute poll reads the mailbox regardless, and the
+     renewal sweep treats a null expiry as due and tries again. Bouncing someone
+     to an error screen after they successfully granted access, because a
+     notification channel could not be wired, would be the wrong trade. */
+  if (grantId && env("GMAIL_PUSH_TOPIC")) {
+    try {
+      const access = await accessToken(grant.refreshToken, googleCfg());
+      const registered = await watch(env("GMAIL_PUSH_TOPIC"), access);
+      await fetch(
+        env("SUPABASE_URL").replace(/\/$/, "") + "/rest/v1/mailbox_grants?id=eq." + grantId,
+        {
+          method: "PATCH",
+          headers: {
+            apikey: env("SUPABASE_SERVICE_ROLE_KEY"),
+            Authorization: "Bearer " + env("SUPABASE_SERVICE_ROLE_KEY"),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            watch_expires_at: registered.expiration
+              ? new Date(registered.expiration).toISOString()
+              : null,
+          }),
+        },
+      );
+    } catch (e) {
+      console.warn("watch registration failed; the poll still covers this mailbox:", e);
+    }
   }
 
   return bounce(null, returnTo);

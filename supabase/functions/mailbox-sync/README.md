@@ -5,7 +5,8 @@ has the user point Gmail at an alias we own; this one reads the user's **own** m
 OAuth grant. Everything downstream is unchanged — both transports stage sealed rows into
 `email_transactions`, and the same review screen promotes them into the ledger.
 
-> **Status.** Built end to end and tested: connect → read → parse → seal → save → the app opens it.
+> **Status.** Built end to end and tested: connect → read → parse → seal → save → the app opens it,
+> on Gmail push with the 5-minute poll behind it.
 > `pipeline/direct-flow.test.js` drives the whole path with fake Google and Gemini, real crypto, a
 > real bank email, and the actual client opener reading the amount back. **Not yet deployed** — see
 > [Going live](#going-live).
@@ -16,8 +17,10 @@ Settings → Tự động ghi giao dịch
    ├─ consent sheet (bank_email, v4)         ← required before anything is collected
    ├─ GET  mailbox-connect/authorize         → Google's consent screen
    └─ GET  mailbox-connect/callback          → mailbox_grants (token encrypted)
+                                              + users.watch()  ← the doorbell
                                                      │
-pg_cron */5 ──▶ _mailbox_sync_tick() ──▶ mailbox-sync
+   the bank sends mail ─▶ Gmail ─▶ [topic] ─▶ POST mailbox-sync/push   seconds
+   pg_cron */5 ─▶ _mailbox_sync_tick() ─▶ POST mailbox-sync            the net
                                                      │
         ┌────────────────────────────────────────────┘
         ├─ due grants, oldest poll first
@@ -83,6 +86,36 @@ Every module takes its dependencies as arguments — `nacl`, the CSPRNG, WebCryp
 That is not ceremony: it is what makes a full end-to-end test possible, and it puts the randomness
 source in plain sight in the one file where it decides whether the encryption is real.
 
+## Push and poll, and why both
+
+**Push is the latency. The poll is the guarantee.** They are kept because they fail
+differently, not out of caution.
+
+`users.watch()` asks Gmail to publish `{emailAddress, historyId}` to a Pub/Sub topic the
+moment the mailbox changes. `/push` resolves that address to a grant and runs the same
+windowed read a tick would — same fetch, same sender filter, same seal, same insert. Only
+the trigger differs, and the difference is minutes.
+
+What push cannot be trusted with:
+
+- **A watch lapses after 7 days**, and when it does Gmail simply stops publishing. No
+  error, no final notification, nothing in any log. A push-only pipeline looks idle
+  rather than broken, and the first sign is transactions quietly missing. The tick renews
+  watches due within 2 days, and the poll covers the gap if a renewal is ever missed.
+- **A notification can be dropped**, or arrive for a mailbox connected while the topic was
+  misconfigured. The poll finds that mail on its next pass.
+- **`watch()` is one registration per mailbox and the last call wins.** Anything else
+  pointed at the same mailbox naming a *different* topic silently takes the notifications
+  away. The poll is what makes that survivable rather than invisible.
+
+The two overlapping is normal, not a race: staged rows are idempotent on
+`gmail_message_id`, so a push and a tick landing on the same message cost one lookup.
+
+`/push` **acks anything a retry cannot fix** — a malformed envelope, a mailbox we hold no
+grant for (a watch outlives a disconnect by up to 7 days, so Gmail keeps ringing a
+doorbell nobody is behind). Pub/Sub redelivers whatever is not acked for as long as the
+topic retains it, and fighting a permanent failure that way is how a topic backs up.
+
 ## The two rules everything else follows from
 
 **1. The cursor is written LAST, and only if the window was handled.** A crash, a rate-limited
@@ -98,7 +131,9 @@ a family device mints a staging key.
 
 ## Going live
 
-Five steps, in this order. Steps 1–3 can be done ahead of time; nothing reads a mailbox until 5.
+Six steps, in this order. Steps 1-4 can be done ahead of time; nothing reads a mailbox until 6.
+Steps 5 and 6 are independent: push without the cron works but has no safety net, and the
+cron without push works but is up to five minutes slow. Do both.
 
 **1. Apply the migrations.**
 
@@ -147,7 +182,44 @@ supabase functions deploy mailbox-sync    --no-verify-jwt
 supabase functions deploy mailbox-connect --no-verify-jwt
 ```
 
-**5. Point the cron at it**, out of band so neither value is committed:
+**5. Set up the push topic** (in the same GCP project as the OAuth client):
+
+```sh
+PROJ=fhtest-502915
+gcloud pubsub topics create familyhub-mailbox-events --project=$PROJ
+
+# Gmail publishes as its OWN identity, not as you. This binding is the only
+# thing connecting "the user authorised us to read their mail" to "Gmail may
+# publish to this topic", and without it every watch() call is refused.
+gcloud pubsub topics add-iam-policy-binding familyhub-mailbox-events --project=$PROJ \
+  --member=serviceAccount:gmail-api-push@system.gserviceaccount.com \
+  --role=roles/pubsub.publisher
+
+# The secret rides in the URL: a push subscription cannot set request headers,
+# and this is the pattern Google documents for endpoints that do not verify an
+# OIDC token. The function compares it in full either way.
+gcloud pubsub subscriptions create familyhub-mailbox-push --project=$PROJ \
+  --topic=familyhub-mailbox-events \
+  --push-endpoint="https://<ref>.supabase.co/functions/v1/mailbox-sync/push?secret=<MAILBOX_SYNC_SECRET>" \
+  --ack-deadline=60 --message-retention-duration=1h
+```
+
+Then add the topic to the function secrets so connect and renewal can register watches:
+
+```sh
+supabase secrets set GMAIL_PUSH_TOPIC="projects/$PROJ/topics/familyhub-mailbox-events"
+```
+
+> The grant is on the **topic**, not the project: Pub/Sub IAM is per-resource, and a
+> project-wide grant to a Google system account would be needlessly broad. Retention is
+> short on purpose — a notification carries no content and is worthless once the poll has
+> covered the same window.
+>
+> **If `GMAIL_PUSH_TOPIC` is unset the whole feature still works**, on the 5-minute poll
+> alone. Push is additive: nothing depends on it, and a misconfigured topic costs latency
+> rather than transactions.
+
+**6. Point the cron at it**, out of band so neither value is committed:
 
 ```sql
 select vault.create_secret('https://<ref>.supabase.co/functions/v1/mailbox-sync', 'mailbox_sync_url');
@@ -176,6 +248,12 @@ Every mailbox reports a status, and the ordinary ones are not errors:
 | `needs_reauth` | Google rejected the refresh token | the app prompts; a weekly event in Testing status |
 | `token_unreadable` | `MAILBOX_TOKEN_KEY` changed or the row is corrupt | the user reconnects |
 | `error` | something unexpected | the cursor did not move; read `detail` |
+| `ignored` (push only) | no grant for that address, or a malformed envelope | nothing; it is acked so Pub/Sub stops |
+
+The tick's response also carries `watches: {renewed, failed, needsReauth}`. `renewed`
+should be 0 on almost every run — a watch is good for 7 days and renewal starts 2 days
+out, so a nonzero count on every tick means expiries are not being stored (check that
+`watch_expires_at` is milliseconds, not seconds).
 
 Hold reasons: `no_staging_pub` (the family has never unlocked a device — the commonest one, and it
 clears itself), `no_member` / `member_archived` / `member_moved` (ownership changed since connect),

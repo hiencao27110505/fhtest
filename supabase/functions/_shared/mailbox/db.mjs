@@ -71,6 +71,66 @@ export function createDb(url, serviceKey, fetchImpl) {
       return (await rest('/mailbox_grants?' + qs.toString())) || [];
     },
 
+    /**
+     * The grant for one mailbox address, for a push notification to resolve.
+     *
+     * Two lookups, not one: the exact address first, then the Gmail-folded
+     * form. Google returns the canonical address in both the profile call and
+     * the push, so the first should always hit — but a miss here is a
+     * notification silently dropped for a mailbox we do hold, which is
+     * indistinguishable from a quiet mailbox. The forwarding pipeline was
+     * bitten by exactly this. The fallback costs one query on a path that
+     * already failed.
+     */
+    async grantByEmail(email, folded) {
+      const q = e => new URLSearchParams({
+        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,watch_expires_at',
+        email: 'eq.' + e,
+        needs_reauth: 'eq.false',
+        limit: '1',
+      });
+      let rows = await rest('/mailbox_grants?' + q(email).toString());
+      if ((!rows || !rows.length) && folded && folded !== email) {
+        rows = await rest('/mailbox_grants?' + q(folded).toString());
+      }
+      return (rows && rows[0]) || null;
+    },
+
+    /** Records a fresh watch registration. `expiresAt` is epoch milliseconds. */
+    async saveWatch(grantId, expiresAt) {
+      await rest('/mailbox_grants?id=eq.' + grantId, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          watch_expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+    },
+
+    /**
+     * Mailboxes whose watch lapses within `withinSeconds`, soonest first.
+     *
+     * A watch lasts 7 days and the sweep runs far more often than that, so
+     * renewing everything on every run would repeat work that is good for
+     * another six — and with enough mailboxes the run stops fitting, leaving
+     * the tail of the list to lapse SILENTLY, which is the exact failure this
+     * job exists to prevent. Asking for what is actually due keeps the work
+     * proportional to what expires rather than to how many users exist.
+     *
+     * A mailbox with no watch is due by definition.
+     */
+    async watchesDue(withinSeconds, limit) {
+      const cutoff = new Date(Date.now() + withinSeconds * 1000).toISOString();
+      const qs = new URLSearchParams({
+        select: 'id,email,refresh_token_enc,needs_reauth,watch_expires_at',
+        needs_reauth: 'eq.false',
+        or: '(watch_expires_at.is.null,watch_expires_at.lte.' + cutoff + ')',
+        order: 'watch_expires_at.asc.nullsfirst',
+        limit: String(limit || 25),
+      });
+      return (await rest('/mailbox_grants?' + qs.toString())) || [];
+    },
+
     async markNeedsReauth(grantId) {
       await rest('/mailbox_grants?id=eq.' + grantId, {
         method: 'PATCH',

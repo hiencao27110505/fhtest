@@ -41,6 +41,13 @@ export const POLL_DAYS = 2;
  *  start from now" — and it happens exactly once per mailbox. */
 export const BACKFILL_DAYS = 90;
 
+/** How far ahead of a watch's expiry we renew it.
+ *
+ *  A watch lasts 7 days; renewing 2 days out means each mailbox is re-registered
+ *  roughly every five days and still has two days of slack if a sweep fails.
+ *  Renewing on the last day would leave none. */
+export const RENEW_WITHIN_SECONDS = 2 * 86400;
+
 /** Per-run ceilings. A run has a function timeout and a free-tier model quota,
  *  and both are better spent across mailboxes than exhausted on one. */
 export const MAX_MESSAGES_PER_GRANT = 40;
@@ -314,4 +321,84 @@ function _headerDate(message) {
 function _budget(max) {
   let used = 0;
   return { spend: () => (used < max ? (used++, true) : false), used: () => used };
+}
+
+/**
+ * One Gmail push notification: read THAT mailbox, now.
+ *
+ * This is the whole latency story. The notification carries `{emailAddress,
+ * historyId}` and no mail content, so what happens next is exactly the windowed
+ * read a poll would do — same fetch, same sender filter, same seal, same insert.
+ * Only the trigger is different, and the difference is minutes.
+ *
+ * WHAT IT RETURNS IS AN ACK DECISION, and that matters more than it looks.
+ * Pub/Sub redelivers anything not acknowledged, for as long as the topic's
+ * retention allows. So every outcome that will fail identically on a retry —
+ * a malformed envelope, a mailbox we hold no grant for, a mailbox that is
+ * held — must ACK. Only a genuinely transient failure should be left for
+ * redelivery, and even then the 5-minute poll would have caught it anyway.
+ *
+ * A notification for a mailbox with no grant is ORDINARY, not an error: a watch
+ * outlives a disconnect by up to 7 days, and during that window Gmail keeps
+ * ringing a doorbell nobody is behind. Dropping it quietly is correct.
+ */
+export async function runPush(notification, ctx) {
+  if (!notification || !notification.emailAddress) {
+    return { status: 'ignored', reason: 'malformed', ack: true };
+  }
+
+  const grant = await ctx.db.grantByEmail(
+    notification.emailAddress, gmail.foldAddress(notification.emailAddress));
+
+  if (!grant) {
+    // Disconnected, or awaiting re-consent (the query excludes those). Either
+    // way there is nothing to read and nothing a retry would change.
+    return { status: 'ignored', reason: 'no_grant', ack: true };
+  }
+
+  const summary = await runGrant(grant, {
+    ...ctx,
+    budget: ctx.budget || _budget(ctx.maxModelCalls ?? MAX_MODEL_CALLS_PER_RUN),
+  });
+  return { ...summary, ack: true };
+}
+
+/**
+ * Re-registers the watches that are about to lapse.
+ *
+ * Runs on the same tick as the poll rather than as its own schedule: it is two
+ * API calls per due mailbox, it is due for almost nobody on almost every run,
+ * and a separate cron job is one more thing that can be silently not running.
+ *
+ * A watch that lapses takes the notifications with it and says nothing, so the
+ * failure this prevents looks exactly like a quiet mailbox. The poll is what
+ * keeps that from being data loss; this is what keeps it from being slow.
+ */
+export async function renewWatches(ctx) {
+  if (!ctx.topicName) return { renewed: 0, failed: 0, skipped: 'no topic configured' };
+
+  const due = await ctx.db.watchesDue(ctx.renewWithin ?? RENEW_WITHIN_SECONDS, ctx.maxGrants);
+  let renewed = 0, failed = 0, needsReauth = 0;
+
+  for (const grant of due) {
+    try {
+      const enc = ctx.fromBytea ? ctx.fromBytea(grant.refresh_token_enc) : grant.refresh_token_enc;
+      const token = await decryptToken(enc, ctx.tokenKey, { subtle: ctx.subtle });
+      const access = await gmail.accessToken(token, ctx.google, ctx.fetch);
+      const result = await gmail.watch(ctx.topicName, access, ctx.fetch);
+      await ctx.db.saveWatch(grant.id, result.expiration);
+      renewed++;
+    } catch (e) {
+      if (e instanceof gmail.TokenRejected) {
+        // Not a renewal failure: the grant itself is dead. Flagged so the app
+        // asks, and so the next sweep stops spending calls on it.
+        await ctx.db.markNeedsReauth(grant.id);
+        needsReauth++;
+      } else {
+        // One mailbox failing must not stop the rest. The poll still covers it.
+        failed++;
+      }
+    }
+  }
+  return { renewed, failed, needsReauth };
 }

@@ -52,6 +52,8 @@ const STATE_SECRET = 'state-secret-' + crypto.randomBytes(8).toString('hex');
 const SUBTLE = crypto.webcrypto.subtle;
 
 const USER = 'user-1', MEMBER = 'mem-1', FAMILY = 'fam-1';
+const TOPIC = 'projects/fhtest/topics/familyhub-mailbox-events';
+const WATCH_EXPIRY_MS = Date.parse('2026-09-01T00:00:00Z');
 
 // ── a real Vietnamese bank email, as Gmail hands it over ────────────────────
 // HTML with the fields in table cells, which is the shape that matters: the
@@ -104,7 +106,7 @@ const MODEL_ANSWER = {
 // ── the fake outside world ──────────────────────────────────────────────────
 function makeWorld(o) {
   o = o || {};
-  const seen = { token: 0, list: 0, get: 0, model: 0, exchange: 0, profile: 0, prompts: [], queries: [] };
+  const seen = { token: 0, list: 0, get: 0, model: 0, exchange: 0, profile: 0, watch: 0, prompts: [], queries: [], watchTopics: [] };
 
   async function fakeFetch(url, init) {
     const u = String(url);
@@ -128,6 +130,14 @@ function makeWorld(o) {
       seen.token++;
       if (o.tokenRejected) return res(400, { error: 'invalid_grant' });
       return res(200, { access_token: 'access-1' });
+    }
+
+    if (u.includes('/users/me/watch')) {
+      seen.watch++;
+      seen.watchTopics.push(JSON.parse(init.body).topicName);
+      if (o.watchFails) return res(500, 'nope');
+      // Gmail returns epoch MILLISECONDS, as a string.
+      return res(200, { historyId: '4242', expiration: String(WATCH_EXPIRY_MS) });
     }
 
     if (u.includes('/users/me/profile')) { seen.profile++; return res(200, { emailAddress: 'me@gmail.com', historyId: '99' }); }
@@ -171,6 +181,8 @@ function makeDb(o) {
     failures: [],
     synced: [],
     reauth: [],
+    watches: [],
+    lookups: [],
     members: o.members || { [MEMBER]: { id: MEMBER, family_id: FAMILY, archived_at: null } },
     stagingPub: 'stagingPub' in o ? o.stagingPub : FAMILY_PUB,
   };
@@ -198,6 +210,14 @@ function makeDb(o) {
       return true;
     },
     async recordFailure(row) { state.failures.push(row); },
+    async grantByEmail(email, folded) {
+      state.lookups.push(email);
+      return state.grants.find(g => g.email === email)
+        || (folded ? state.grants.find(g => g.email === folded) : null)
+        || null;
+    },
+    async saveWatch(id, expiresAt) { state.watches.push({ id, expiresAt }); },
+    async watchesDue() { return o.due || []; },
   };
 }
 
@@ -621,6 +641,113 @@ console.log('\n-- one bad mailbox never stops the others --');
   const out = await W.runAll(ctxFor(d, makeWorld()));
   t('both mailboxes were attempted', out.results.length === 2);
   t('the healthy one still staged its row', d.state.staged.length === 1, JSON.stringify(out.results));
+}
+
+console.log('\n-- push: the mail arrives, and so does the notification --');
+{
+  /* The whole point of the watch. Gmail rings with {emailAddress, historyId}
+     and no content, so what follows is the same windowed read a poll does —
+     only the trigger differs, and the difference is minutes. */
+  const d = makeDb({ grants: [await makeGrant('refresh-1', TC)] });
+  const world = makeWorld();
+  const notices = [];
+  const out = await W.runPush({ emailAddress: 'me@gmail.com', historyId: '99' },
+    ctxFor(d, world, { notify: (g, n) => notices.push(n) }));
+
+  t('the mail is staged on the push, not on the next tick', d.state.staged.length === 1, JSON.stringify(out));
+  t('and the owner is told immediately', notices.length === 1);
+  t('the push is acknowledged', out.ack === true);
+  const opened = clientOpen({ ...d.state.staged[0], family_id: FAMILY }, FAMILY_SECRET);
+  t('and it is the same sealed row the poll would have produced', opened.amount === 165000);
+}
+{
+  /* Gmail folds dots and +suffixes on its own domains. Google returns the
+     canonical form in both the profile call and the push, so the first lookup
+     should hit — but a miss is a notification silently dropped for a mailbox we
+     DO hold, and the forwarding pipeline was bitten by exactly this. */
+  const d = makeDb({ grants: [await makeGrant('refresh-1', TC, { email: 'me@gmail.com' })] });
+  const out = await W.runPush({ emailAddress: 'm.e+bank@gmail.com' }, ctxFor(d, makeWorld()));
+  t('a dotted or +tagged Gmail address still finds its grant',
+    d.state.staged.length === 1, JSON.stringify(out));
+  t('  ...and only after the exact address missed', d.state.lookups.length === 1);
+}
+{
+  /* A watch outlives a disconnect by up to 7 days, so Gmail keeps ringing a
+     doorbell nobody is behind. That is ordinary, not an error — and it must ACK,
+     or Pub/Sub redelivers it for the topic's whole retention. */
+  const d = makeDb({ grants: [] });
+  const out = await W.runPush({ emailAddress: 'stranger@gmail.com' }, ctxFor(d, makeWorld()));
+  t('a mailbox we hold no grant for is dropped quietly',
+    out.status === 'ignored' && out.reason === 'no_grant', JSON.stringify(out));
+  t('  ...and acknowledged, so it is not redelivered forever', out.ack === true);
+  t('  ...having staged nothing', d.state.staged.length === 0);
+}
+{
+  const d = makeDb({ grants: [] });
+  for (const bad of [null, {}, { historyId: '1' }]) {
+    const out = await W.runPush(bad, ctxFor(d, makeWorld()));
+    t('a malformed notification is acked, not fought: ' + JSON.stringify(bad),
+      out.status === 'ignored' && out.ack === true, JSON.stringify(out));
+  }
+  t('a bad envelope decodes to null rather than throwing',
+    gmail.decodePushEnvelope({ message: { data: '!!!' } }) === null &&
+    gmail.decodePushEnvelope({}) === null);
+  const env = { message: { data: Buffer.from(JSON.stringify(
+    { emailAddress: 'Me@Gmail.com', historyId: 7 })).toString('base64url') } };
+  const decoded = gmail.decodePushEnvelope(env);
+  t('a real envelope decodes, lower-cased',
+    decoded.emailAddress === 'me@gmail.com' && decoded.historyId === '7', JSON.stringify(decoded));
+}
+{
+  /* Push and poll landing on the same message is normal, not a race to avoid:
+     the already-staged check and the UNIQUE constraint make the second one a
+     no-op. Without that, every notification would risk a duplicate row. */
+  const d = makeDb({ grants: [await makeGrant('refresh-1', TC)] });
+  await W.runPush({ emailAddress: 'me@gmail.com' }, ctxFor(d, makeWorld()));
+  await W.runAll(ctxFor(d, makeWorld()));
+  t('a poll right after a push does not stage a second copy', d.state.staged.length === 1);
+}
+
+console.log('\n-- the watch: registered, renewed, and never silently lapsed --');
+{
+  const grant = await makeGrant('refresh-1', TC, { watch_expires_at: null });
+  const d = makeDb({ grants: [grant], due: [grant] });
+  const world = makeWorld();
+  const out = await W.renewWatches(ctxFor(d, world, { topicName: TOPIC }));
+
+  t('a mailbox with no watch is due by definition', out.renewed === 1, JSON.stringify(out));
+  t('and it is registered against our own topic', world.seen.watchTopics[0] === TOPIC);
+  /* Gmail returns epoch MILLISECONDS. Reading it as seconds puts the expiry in
+     1970, every sweep then treats every mailbox as due, and the renewal quietly
+     becomes a re-registration storm. */
+  t('the expiry is stored as milliseconds, not seconds',
+    d.state.watches[0].expiresAt === WATCH_EXPIRY_MS, String(d.state.watches[0].expiresAt));
+}
+{
+  const d = makeDb({ grants: [], due: [] });
+  const out = await W.renewWatches(ctxFor(d, makeWorld(), { topicName: TOPIC }));
+  t('nothing due means no calls at all', out.renewed === 0 && d.state.watches.length === 0);
+}
+{
+  const grant = await makeGrant('refresh-1', TC);
+  const d = makeDb({ grants: [grant], due: [grant] });
+  const out = await W.renewWatches(ctxFor(d, makeWorld({ tokenRejected: true }), { topicName: TOPIC }));
+  t('a dead token during renewal is a state, not a failure',
+    out.needsReauth === 1 && d.state.reauth.length === 1, JSON.stringify(out));
+}
+{
+  const g1 = await makeGrant('refresh-1', TC, { id: 'g1' });
+  const g2 = await makeGrant('refresh-1', TC, { id: 'g2' });
+  const d = makeDb({ grants: [g1, g2], due: [g1, g2] });
+  const out = await W.renewWatches(ctxFor(d, makeWorld({ watchFails: true }), { topicName: TOPIC }));
+  t('one mailbox failing does not stop the sweep', out.failed === 2, JSON.stringify(out));
+}
+{
+  const grant = await makeGrant('refresh-1', TC);
+  const d = makeDb({ grants: [grant], due: [grant] });
+  const out = await W.renewWatches(ctxFor(d, makeWorld()));
+  t('with no topic configured, renewal is a no-op rather than an error',
+    out.renewed === 0 && !!out.skipped, JSON.stringify(out));
 }
 
 console.log('\n-- notification: something is waiting, and nothing more --');
