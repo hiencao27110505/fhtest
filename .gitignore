@@ -23,3 +23,6 @@ earthy/serverless/functions/transaction-parser/tests/fixtures/bodies/
 
 # Holds a live Supabase access token (sbp_...). Never commit.
 .mcp.json
+
+# Supabase CLI state (project-ref, pooler url)
+supabase/.temp/

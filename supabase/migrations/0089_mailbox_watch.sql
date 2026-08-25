@@ -25,7 +25,7 @@
 -- the staged rows are idempotent on `gmail_message_id`, so a push and a poll
 -- landing on the same message costs one wasted lookup and nothing else.
 --
--- Next free migration number after this one: 0087. Verify against
+-- Next free migration number after this one: 0090. Verify against
 -- `git ls-tree origin/main supabase/migrations/` before claiming it.
 -- ============================================================================
 

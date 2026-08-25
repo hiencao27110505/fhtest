@@ -143,6 +143,32 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-26 (direct-read session) — DEPLOYED TO PRODUCTION, verified against
+  the live artifacts, not the commit messages.**
+
+  - **Migrations 0087, 0088, 0089 APPLIED** to the live DB via the Management
+    API and recorded in `supabase_migrations.schema_migrations` as
+    `20260826090087/88/89`. Verified after apply: `mailbox_grants` exists with
+    RLS on and 1 policy, `watch_expires_at` present, all three functions
+    present, cron job `familyhub-mailbox-sync */5 * * * *` (job id 5).
+  - **Edge Functions `mailbox-sync` and `mailbox-connect` DEPLOYED**
+    (`--no-verify-jwt`). This replaces whatever was deployed under those slugs.
+  - **Vault:** `mailbox_sync_url` + `mailbox_sync_secret` set.
+  - **Function secrets:** set by Hien by hand (the session's secret-setting
+    commands were refused by the tool's safety classifier three times; the
+    values never went through this session). `DEDUP_FP_KEY` is the Apps Script
+    value, copied — not regenerated.
+  - Tester `gichisreading@gmail.com` was ALREADY in `mailbox_beta_access` from
+    the forwarding beta; nothing inserted.
+  - **`0084_deletion_requests` is NOT applied on the live DB** — `to_regclass`
+    returns null. The erasure UI on main degrades silently ("table absent:
+    behave as no request"). Not mine; flagging for whoever owns it.
+  - `schema_migrations` on the live DB is sparse and out of step with the files
+    (e.g. `0082`, `0084_deletion_requests` untracked; `0074_personal_model_y`
+    tracked under a name that is `0079` in the tree). Anyone reaching for
+    `supabase db push` will get a surprise — apply by SQL and record by hand,
+    as above, until someone reconciles it.
+
 - **2026-08-26 (direct-read session) — RENUMBERED: `0084_mailbox_direct_read` →
   `0087`, `0085_mailbox_sync_schedule` → `0088`, `0086_mailbox_watch` → `0089`.
   Next free is `0090`.**
