@@ -110,6 +110,19 @@ miss, so **one email per new format is sent, once**, and every later email in
 that format is read locally. Minimisation by frequency rather than by
 redaction. Policy Bản 3 and consent v4 both say this.
 
+### 5c. The seven the sheet must carry (quyền được biết)
+
+A consent screen is not free to be only reassuring. The law's notification
+list is: **purpose · data types · processing method · third parties · rights ·
+retention · controller identity and contact.**
+
+Worth recording how this went wrong, because it will try to again: the first
+drafts carried all seven, the UX pass rewrote them as questions people
+actually ask, and **"what do you take" and "what for" fell out of both sheets
+in the process.** Reassurance and disclosure pull in opposite directions, and
+the reassuring half is the one that survives editing. A test now asserts each
+of the seven on both sheets, so the next voice pass cannot quietly drop one.
+
 ### 5a. The old framing (superseded)
 
 **v3 → v4 (2026-08-24).** The serverless parser masks `KINDS = (MONEY, EMAIL)`

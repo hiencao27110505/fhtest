@@ -102,6 +102,18 @@ console.log('\n-- the gate asks exactly when it should --');
   console.log('\n-- the sheet says what the law requires --');
   const html = SHEETS[0];
   t('names the data as sensitive, verbatim', html.indexOf('dữ liệu cá nhân nhạy cảm') >= 0);
+  /* The "quyền được biết" list: purpose, data types, processing method, third
+     parties, rights, retention, controller. A sheet can be warm and still
+     have to carry all seven -- the UX pass once optimised for reassurance and
+     silently dropped what and why from both sheets. */
+  t('WHAT: the data taken is enumerated', html.indexOf('lời nhắn chuyển khoản') >= 0);
+  t('WHY: the purpose is stated, not implied', html.indexOf('Để làm gì?') >= 0 &&
+    html.indexOf('ghi vào sổ chi tiêu') >= 0);
+  t('HOW: the processing method is described', html.indexOf('AI của Google') >= 0);
+  t('WHO ELSE: a third party is named', html.indexOf('Google') >= 0);
+  t('HOW LONG: retention is stated', html.indexOf('7 ngày') >= 0 && html.indexOf('90 ngày') >= 0);
+  t('RIGHTS: how to stop is stated', html.indexOf('Ngắt kết nối') >= 0);
+  t('WHO IS ANSWERABLE: controller and contact', html.indexOf(FH_DATA_CONTACT) >= 0);
   t('names the document type (a consent, not a T&C)', html.indexOf('ĐỒNG Ý XỬ LÝ DỮ LIỆU CÁ NHÂN') >= 0);
   t('links the privacy policy', html.indexOf('privacy.html') >= 0);
   t('affirmative CTA present', html.indexOf('fhConsentAgree') >= 0);
@@ -190,6 +202,11 @@ console.log('\n-- the gate asks exactly when it should --');
   t('no record at boot: the sheet appears', SHEETS.length === 1);
   const l1 = SHEETS[0];
   t('it treats financial data as sensitive in so many words', l1.indexOf('dữ liệu cá nhân nhạy cảm') >= 0);
+  // the same seven, on the app-wide sheet
+  t('WHAT: app-wide data types enumerated', l1.indexOf('sao kê ngân hàng') >= 0);
+  t('WHY: purpose stated', l1.indexOf('sổ chi tiêu của gia đình bạn') >= 0);
+  t('WHERE: offshore storage named', l1.indexOf('ngoài lãnh thổ Việt Nam') >= 0);
+  t('HOW LONG: retention stated', l1.indexOf('đến khi bạn xoá') >= 0);
   t('it answers the key-holder question', l1.indexOf('chìa khoá của gia đình') >= 0);
   t('it answers the breach question with a conclusion', l1.indexOf('vẫn an toàn') >= 0);
   t('it names the in-app withdrawal place', l1.indexOf('Quyền riêng tư') >= 0);

@@ -14356,7 +14356,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v404';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v405';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -23305,7 +23305,16 @@ window.classifyAmount = classifyAmount;
         } catch (e) {}
       }
 
+      /* Same triad, same order: what, why, then how it is protected and how to
+         leave. The app-wide sheet has to carry the data types too -- it is the
+         only place someone is told what the app holds at all. */
       var rows =
+        _cstRow(L('Earthy lưu gì?', 'What does Earthy store?'), _esc(L(
+          'Email đăng nhập và tên bạn. Tên và ảnh các thành viên trong nhà. Các khoản thu chi bạn tự ghi hoặc nhập từ tệp, kể cả bảng sao kê ngân hàng, cùng ghi chú, hạng mục và ảnh. Giữ đến khi bạn xoá, hoặc xoá tài khoản.',
+          'Your sign-in email and name. Your family members’ names and photos. The spending you record or import from files, including bank statements, with notes, categories and photos. Kept until you delete them, or delete your account.'))) +
+        _cstRow(L('Để làm gì?', 'What for?'), _esc(L(
+          'Chỉ để chạy cuốn sổ chi tiêu của gia đình bạn. Dữ liệu lưu trên máy chủ đặt ngoài lãnh thổ Việt Nam. Không bán, không quảng cáo, không chấm điểm tín dụng.',
+          'Only to run your family’s expense book. Data is stored on servers located outside Vietnam. Never sold, never ads, never credit scoring.'))) +
         _cstRow(L('Ai đọc được sổ chi tiêu?', 'Who can read the ledger?'), _esc(L(
           'Chỉ những người giữ chìa khoá của gia đình bạn. Số tiền, ghi chú và ảnh chỉ mở được trên điện thoại có chìa khoá của gia đình; người làm Earthy hay bất kỳ ai khác đều chỉ thấy bản đã khoá. Chúng tôi không bán dữ liệu, không quảng cáo, không chấm điểm tín dụng.',
           'Only the people holding your family key. Amounts, notes and photos can only be opened on a phone that holds the family key; the people who build Earthy, or anyone else, see only the locked copy. We never sell data, never run ads, never do credit scoring.'))) +
@@ -23647,10 +23656,20 @@ window.classifyAmount = classifyAmount;
       var accepted = opts.prior || null;
       if (!opts.priorKnown) { try { accepted = await _cstFetch(); } catch (e) {} }
 
+      /* Ordered to the statutory triad -- what, why, how -- then the rest of
+         the "quyền được biết" list: who else receives it, how long it is kept,
+         the rights, and who is answerable (small print). The Q&A voice stays
+         because it reads; the coverage is what the law fixes. */
       var rows =
+        _cstRow(L('Earthy lấy gì từ email?', 'What does Earthy take from the email?'), _esc(L(
+          'Số tiền, thời điểm, người nhận hoặc cửa hàng, lời nhắn chuyển khoản, số tài khoản đã che bớt, và tên ngân hàng.',
+          'The amount, the time, who was paid, the transfer note, the partially hidden account number, and the bank’s name.'))) +
+        _cstRow(L('Để làm gì?', 'What for?'), _esc(L(
+          'Chỉ để ghi vào sổ chi tiêu của gia đình bạn. Không bán, không quảng cáo, không chấm điểm tín dụng.',
+          'Only to record spending in your family’s ledger. Never sold, never ads, never credit scoring.'))) +
         _cstRow(L('Có ai đọc được email của tôi không?', 'Can anyone read my emails?'), _esc(L(
-          'Lần đầu gặp một mẫu email của ngân hàng, tụi mình gửi email đó cho AI của Google một lần, để học cách đọc mẫu đó. Những email sau cùng mẫu được đọc ngay tại hệ thống, không gửi đi đâu nữa. Email trong hộp thư trung gian tự xoá sau 7 ngày; email không đọc được giữ tối đa 90 ngày rồi cũng xoá.',
-          'The first time we meet a new email format from a bank, we send that one email to Google’s AI once, to learn how to read that format. Every later email in the same format is read on our own systems and goes nowhere. Emails in the relay inbox delete themselves after 7 days; ones we could not read are kept at most 90 days, then deleted too.'))) +
+          'Lần đầu gặp một mẫu email của ngân hàng, tụi mình gửi email đó cho AI của Google một lần, để học cách đọc mẫu đó. Những email sau cùng mẫu được đọc ngay tại hệ thống, không gửi đi đâu nữa. Email trong hộp thư trung gian tự xoá sau 7 ngày; email không đọc được giữ tối đa 90 ngày rồi cũng xoá. Giao dịch chờ duyệt giữ đến khi bạn duyệt hoặc ngắt kết nối.',
+          'The first time we meet a new email format from a bank, we send that one email to Google’s AI once, to learn how to read that format. Every later email in the same format is read on our own systems and goes nowhere. Emails in the relay inbox delete themselves after 7 days; ones we could not read are kept at most 90 days, then deleted too. Pending transactions are kept until you review them or disconnect.'))) +
         _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
           'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
           'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +
