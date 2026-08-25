@@ -322,14 +322,16 @@ function fhGuidePrevWord(periodKey){
    period trend is carried by COLOUR + CIRCLE, not a competing text clause: orange = still under
    the previous period (improving), red = over it too. No budget → the previous period IS the
    yardstick, so the number is the amount over it and the label names it. */
-function fhGuideLabel(periodKey, over, key, hasBudget, hasPrev){
-  if(!over){
+function fhGuideLabel(periodKey, state, hasBudget){
+  if(state==='under'){
     return periodKey==='day' ? L('Hôm nay còn tiêu được','Left to spend today')
          : periodKey==='week'? L('Tiêu được tuần này','Left this week')
          :                     L('Tiêu được tháng này','Left this month');
   }
-  if(hasBudget) return L('Bể kế hoạch','Over plan');
-  return L('Tiêu hơn ','More than ')+fhGuidePrevWord(periodKey);   // no-budget: number = amount over the previous period
+  if(state==='win') return L('Ít hơn ','Less than ')+fhGuidePrevWord(periodKey);   // number = how much less than the previous period
+  if(state==='par') return L('Ngang ','On par with ')+fhGuidePrevWord(periodKey);  // number = spent so far
+  if(hasBudget)     return L('Bể kế hoạch','Over plan');                            // worse: number = the over amount
+  return L('Tiêu hơn ','More than ')+fhGuidePrevWord(periodKey);                    // no budget, worse: number = amount over the previous period
 }
 /* Sum spend over an inclusive absolute date range [a,b] (day granularity), crossing month
    boundaries via the full window.txns store. Excludes planned/future entries. */
@@ -353,30 +355,42 @@ function cfSpendRange(a, b){
 function fhGuideCompute(p, goalMult){
   var hasBudget=(p.budgetAllow!=null), hasPrev=(p.prevPTD!=null && p.prevPTD>0);
   if(!hasBudget && !hasPrev) return null;
-  var improving = hasPrev ? (p.spentPTD <= p.prevPTD) : null;
-  var threshold, remain, over;
-  if(hasBudget){ threshold = p.budgetAllow>0 ? p.budgetAllow*(goalMult||1) : p.budgetAllow; remain = threshold - p.spentToday; over = remain<0; }
-  else { threshold = p.prevPTD; remain = threshold - p.spentPTD; over = remain<0; }
-  var key;
-  if(!over){ var pct=threshold>0?remain/threshold:0; key = pct<=0.20?'orange':(pct<=0.50?'yellow':'green'); }
-  else if(hasBudget && improving) key='orange';   // over plan, but still under the previous period
-  else key='red';
-  var alarm = over && key==='red';
-  var level;
-  if(!over) level=(threshold>0)?Math.max(0,Math.min(100,remain/threshold*100)):0;
-  else if(key==='orange' && hasPrev && p.prevPTD>0) level=Math.max(0,Math.min(100,(p.prevPTD-p.spentPTD)/p.prevPTD*100));
-  else level=0;
-  return {key:key, over:over, remain:remain, hasBudget:hasBudget, hasPrev:hasPrev, alarm:alarm, level:level};
+  var EPS=0.5;   // base units (~500đ) tolerance for "on par"
+  // colour ALWAYS follows the circle's fill: full → green, low → orange, alarm → red.
+  var lvlKey=function(lvl,alarm){ return alarm?'red':(lvl>50?'green':(lvl>20?'yellow':'orange')); };
+  if(hasBudget){
+    var threshold = p.budgetAllow>0 ? p.budgetAllow*(goalMult||1) : p.budgetAllow;
+    var remain = threshold - p.spentToday, over = remain<0;
+    if(!over){                                                    // within budget → circle = budget headroom
+      var lvl=(threshold>0)?Math.max(0,Math.min(100,remain/threshold*100)):0;
+      return {state:'under', amount:Math.max(0,remain), sofar:p.spentPTD, level:lvl, alarm:false, key:lvlKey(lvl,false), hasBudget:true, hasPrev:hasPrev};
+    }
+    if(hasPrev && p.spentPTD <= p.prevPTD + EPS){                 // over budget, but at/under the previous period → lead with the WIN
+      var imp=Math.max(0, p.prevPTD - p.spentPTD);
+      var lvl=(p.prevPTD>0)?Math.max(0,Math.min(100,imp/p.prevPTD*100)):0, par=imp<EPS;
+      return {state:par?'par':'win', amount:imp, sofar:p.spentPTD, level:par?Math.max(lvl,50):lvl, alarm:false, key:par?'yellow':lvlKey(lvl,false), hasBudget:true, hasPrev:true};
+    }
+    return {state:'worse', amount:-remain, sofar:p.spentPTD, level:0, alarm:true, key:'red', hasBudget:true, hasPrev:hasPrev};
+  }
+  // no budget → the previous period is the yardstick
+  var remainNB=p.prevPTD - p.spentPTD;
+  if(remainNB >= -EPS){                                           // at/under the previous period → win
+    var imp=Math.max(0,remainNB), lvl=(p.prevPTD>0)?Math.max(0,Math.min(100,imp/p.prevPTD*100)):0, par=imp<EPS;
+    return {state:par?'par':'win', amount:imp, sofar:p.spentPTD, level:par?Math.max(lvl,50):lvl, alarm:false, key:par?'yellow':lvlKey(lvl,false), hasBudget:false, hasPrev:true};
+  }
+  return {state:'worse', amount:-remainNB, sofar:p.spentPTD, level:0, alarm:true, key:'red', hasBudget:false, hasPrev:true};
 }
-/* Shared guide renderer — draws the tile from fhGuideCompute. */
+/* Shared guide renderer — draws the tile from fhGuideCompute. Colour, number, and circle all
+   agree: WIN → the amount you beat the previous period by + green/positive gauge; WORSE → the
+   over/excess amount + red alarm; UNDER → budget left + headroom gauge; PAR → on-par + spent. */
 function fhGuideRender(hostId, periodKey, p, goalMult){
   var host=document.getElementById(hostId); if(!host) return null;
   if(typeof cfWaterSVG!=='function' || typeof DG_STATES==='undefined'){ host.style.display='none'; host.innerHTML=''; return null; }
   var g=fhGuideCompute(p, goalMult);
   if(!g){ host.style.display='none'; host.innerHTML=''; return null; }   // no basis → hide
   var s=DG_STATES[g.key];
-  var lbl=fhGuideLabel(periodKey, g.over, g.key, g.hasBudget, g.hasPrev);
-  var amt = g.over ? fmt(-g.remain) : fmt(Math.max(0,g.remain));
+  var lbl=fhGuideLabel(periodKey, g.state, g.hasBudget);
+  var amt = fmt(g.state==='par' ? g.sofar : g.amount);
   host.style.display=''; host.style.background=s.bg;
   host.innerHTML='<span class="dg-lbl" style="color:'+s.mut+'">'+lbl+'</span>'
     +'<span class="dg-amt num" style="color:'+s.main+'">'+amt+'</span>'
