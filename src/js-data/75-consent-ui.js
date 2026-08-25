@@ -195,7 +195,7 @@
         '<span class="cst-ic">' + _mbxGlyph(glyph) + '</span>' +
         '<span class="cst-ltxt"><span class="cst-lt">' + _esc(title) + '</span>' +
           (sub ? '<span class="cst-ls">' + _esc(sub) + '</span>' : '') + '</span>' +
-        '<span class="cst-dot"></span>' + (action || '') + '</div>';
+        (action || '') + '</div>';
     }
     function _cstLossRow(glyph, title, sub, calm) {
       return '<div class="cst-lossrow">' +
@@ -286,7 +286,7 @@
             _esc(L('Ngắt', 'Stop')) + '</button>');
       }
       if (conn) {
-        body += '<div class="cst-sech">' + _esc(L('Đang đọc email của bạn', 'Reading your email')) + '</div>' +
+        body += '<div class="cst-sech">' + _esc(L('Kết nối email ngân hàng', 'Bank email connections')) + '</div>' +
           _cstGroup(conn, L('Ngắt sẽ dừng đọc email mới ngay. Các khoản đã vào sổ vẫn được giữ.',
                             'Stopping ends new reads at once. Anything already in your ledger stays.'));
       }

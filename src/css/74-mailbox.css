@@ -203,15 +203,20 @@
   display:flex;align-items:center;justify-content:center;
   background:var(--brand-tint);color:var(--brand-ink)}
 .cst-ic svg{width:17px;height:17px;display:block}
+/* display:block on both, or the title and the subtitle run together on one
+   line -- they are spans inside a flex child, and inline is the default. */
 .cst-ltxt{flex:1;min-width:0}
-.cst-lt{font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--ink);line-height:1.3}
-.cst-ls{font-size:12.5px;line-height:1.4;color:var(--muted);margin-top:1px;overflow-wrap:anywhere}
+.cst-lt{display:block;font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--ink);
+  line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cst-ls{display:block;font-size:12.5px;line-height:1.4;color:var(--muted);margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* Trailing value + chevron, the iOS disclosure pair. */
 .cst-val{flex-shrink:0;font-size:13.5px;color:var(--muted);letter-spacing:-.01em}
 .cst-chev{flex-shrink:0;width:16px;height:16px;color:var(--muted-soft)}
-/* Live connection: the dot carries the state so the word does not have to. */
-.cst-dot{width:8px;height:8px;border-radius:50%;background:var(--good);flex-shrink:0}
-.cst-stop{flex-shrink:0;min-height:44px;padding:0 2px 0 10px;background:none;border:0;
+/* One trailing action, not a status dot AND a button. The group header already
+   says these are live; a green dot next to a red word was two signals fighting
+   for the same 60px. */
+.cst-stop{flex-shrink:0;min-height:44px;padding:0 2px 0 12px;background:none;border:0;
   font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--danger)}
 .cst-stop:active{opacity:.55}
 
