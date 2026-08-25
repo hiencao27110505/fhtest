@@ -144,16 +144,28 @@ async function _rpc(name) {
   if (name === 'request_my_deletion') {
     var when = new Date(Date.now() + 72 * 3600 * 1000);
     DELETION = [{ scheduled_for: when.toISOString() }];
+    CONN.forwarding = null;          // the RPC deletes mailbox_connections
     toastMsg('RPC → request_my_deletion (scheduled, cancellable)');
     return { scheduled_for: when.toISOString() };
   }
   if (name === 'cancel_my_deletion') { DELETION = []; toastMsg('RPC → cancel_my_deletion'); return {}; }
+  if (name === 'disconnect_my_mailbox') { CONN.forwarding = null; toastMsg('RPC → disconnect_my_mailbox'); return {}; }
   toastMsg('RPC → ' + name + ' (stubbed, deletes nothing here)');
   return {};
 }
-window.fhAutoTxnStop = async function () { toastMsg('OAuth channel stopped too'); return true; };
-window.fhAutoTxnConnection = async function () { return null; };
-window.fhMailboxState = async function () { return { forwarding_alias: '8xr4ed9vr8' }; };
+/* Stateful, because the constant version kept reporting a live connection
+   after the erasure that deletes it -- the demo contradicting its own copy. */
+var CONN = { forwarding: '8xr4ed9vr8', oauth: { email: 'trang.nguyen.wh@gmail.com' } };
+window.fhAutoTxnStop = async function () {
+  CONN.oauth = null; toastMsg('OAuth channel stopped too'); return true;
+};
+window.fhAutoTxnConnection = async function () { return CONN.oauth; };
+window.fhMailboxState = async function () {
+  return CONN.forwarding ? { forwarding_alias: CONN.forwarding } : null;
+};
+window.fhAutoTxnDisconnect = async function (btn) {
+  CONN.oauth = null; toastMsg('Direct read stopped'); window.fhPrivacySheet();
+};
 
 /* ── demo drivers ─────────────────────────────────────────────────────────── */
 function demoBoot() {

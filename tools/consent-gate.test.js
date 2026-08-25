@@ -255,6 +255,19 @@ console.log('\n-- the gate asks exactly when it should --');
   t('schedules rather than erasing', RPC_CALLS.indexOf('request_my_deletion') >= 0, JSON.stringify(RPC_CALLS));
   t('stops the OAuth channel too, not just the SQL one', stopped === true);
   t('and tells them where to change their mind', SHEETS[SHEETS.length - 1].indexOf('Quyền riêng tư') >= 0);
+  t('claims email reading stopped, because it did', SHEETS[SHEETS.length - 1].indexOf('đã dừng') >= 0);
+
+  /* The OAuth stop is a separate API and can fail on its own. Announcing
+     "email has stopped" when it has not is the one lie this screen must not
+     tell -- and it is exactly what a swallowed best-effort call produces. */
+  reset({ data: [], error: null });
+  window.fhAutoTxnStop = async function () { return false; };
+  await window.fhDeleteAllConfirm({ disabled: false, textContent: '' });
+  var after = SHEETS[SHEETS.length - 1];
+  t('a FAILED oauth stop is admitted, not papered over', after.indexOf('Chưa dừng được') >= 0);
+  t('and it never claims the reading stopped', after.indexOf('đã dừng') === -1, after.slice(0, 300));
+  t('while still scheduling the deletion', RPC_CALLS.indexOf('request_my_deletion') >= 0);
+  window.fhAutoTxnStop = async function () { stopped = true; return true; };
 
   // a live request outranks everything and leads with the way back
   reset({ data: [], error: null }, { deletion_requests: [{ scheduled_for: '2026-08-27T10:00:00Z' }] });

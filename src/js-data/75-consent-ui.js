@@ -395,7 +395,10 @@
          only the client can end it. Best-effort and BEFORE the RPC, so a
          failure here still leaves the request unmade and retryable rather than
          scheduling an erasure while a mailbox keeps being read. */
-      try { if (window.fhAutoTxnStop) await window.fhAutoTxnStop(); } catch (e) {}
+      var oauthStopped = true;
+      try {
+        if (window.fhAutoTxnStop) oauthStopped = (await window.fhAutoTxnStop()) !== false;
+      } catch (e) { oauthStopped = false; }
       var sched = null;
       try {
         var r = await _rpc('request_my_deletion', {});
@@ -409,9 +412,16 @@
         '<div class="sheet-h">' + _esc(L('Đã ghi nhận yêu cầu', 'Your request is recorded')) + '</div>' +
         '<div class="sheet-sub">' + _esc(L(
           'Dữ liệu của bạn sẽ được xoá' + (sched ? ' vào ' + fmtDayMon(sched) : ' sau 72 giờ') +
-          '. Kết nối email ngân hàng đã dừng. Đổi ý lúc nào cũng được, vào Cài đặt, mục Quyền riêng tư.',
+          '. Đổi ý lúc nào cũng được, vào Cài đặt, mục Quyền riêng tư.',
           'Your data will be deleted' + (sched ? ' on ' + fmtDayMon(sched) : ' in 72 hours') +
-          '. Bank email has stopped. Change your mind any time in Settings, under Privacy.')) + '</div>' +
+          '. Change your mind any time in Settings, under Privacy.')) + '</div>' +
+        /* Say what actually happened. The OAuth stop can fail on its own (it is
+           a separate API), and announcing "email has stopped" when it has not
+           is the one lie this screen must never tell. */
+        '<div class="sheet-sub">' + _esc(oauthStopped
+          ? L('Việc đọc email ngân hàng đã dừng.', 'Bank email reading has stopped.')
+          : L('Chưa dừng được việc đọc trực tiếp hộp thư. Vào Cài đặt, mục Quyền riêng tư để ngắt lại.',
+              'We could not stop the direct mailbox read. Open Settings, Privacy, to stop it there.')) + '</div>' +
         '<button class="btn-line" onclick="fhPrivacySheet()">' + _esc(L('Xem lại', 'Review')) + '</button>' +
         '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>');
     };
