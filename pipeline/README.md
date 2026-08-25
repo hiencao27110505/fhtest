@@ -32,7 +32,7 @@ Gmail filter labels bank email txn/inbox
 ```
 
 Privacy invariants (unconditional — encryption is default-on product-wide):
-- **Masking**: no real amounts/names/accounts/refs/emails ever reach the LLM;
+- **Masking (THIS pipeline)**: no real amounts/names/accounts/refs/emails ever reach the LLM;
   it extracts against shape-preserving fakes, real values are swapped back
   locally (`maskForSharing`/`unmaskExtraction`).
 - **Templates**: repeat senders are parsed entirely locally

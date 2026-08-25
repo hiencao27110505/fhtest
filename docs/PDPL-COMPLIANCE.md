@@ -214,7 +214,14 @@ app beyond the pipeline (incl. Vercel, Telegram) — fold it in.
 
 ## 7. Measures inventory (the part already true)
 
-Masking before any third-party model (shape-preserving, unconditional) ·
+Masking before any third-party model, but the scope now DIFFERS BY CHANNEL
+and the difference is user-visible: forwarding (Apps Script `maskForSharing`)
+masks amounts, ALL-CAPS names, every digit run and emails; direct read
+(serverless `parser/masking.py`, `KINDS = (MONEY, EMAIL)`) masks amounts and
+email addresses only, so counterparty names and account numbers reach the
+model in the clear. Its test is honestly named `test_no_figures_leave`. The
+policy (Bản 2) states both; the consent sheet still states the old, stronger
+claim and needs a version bump before it is true again. ·
 sealed staging, ephemeral-static X25519, server provably cannot read its own
 output · permanent DEK ledger encryption ('enc' terminal since 0035, verified
 plain_amount=0 across all four bank-email families 2026-08-17) · relay

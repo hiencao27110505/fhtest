@@ -156,6 +156,12 @@ bound to the alias. Advisory by default; verdicts are recorded on every row in
 owns its mail, not that the domain is the real bank — a lookalike passes for
 itself, which is what `known_provider_domains` is for.
 
+**Scope note (2026-08-24):** the masking described above is THIS pipeline's
+(`maskForSharing`). The serverless direct-read parser masks amounts and email
+addresses only (`KINDS = (MONEY, EMAIL)`), so names and account numbers reach
+the model there. Two channels, two guarantees, one promise covering both —
+see docs/PDPL-COMPLIANCE.md.
+
 Masking is **unconditional** — no encryption-state gate — because encryption is
 default-on product-wide.
 
