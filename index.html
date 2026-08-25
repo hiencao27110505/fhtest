@@ -3083,6 +3083,21 @@ html.fh-can-install .set-row.set-install{display:flex}
 .cst-changed-l li{font-size:13.5px;line-height:1.5;color:var(--ink);margin-bottom:5px}
 .cst-changed-l li:last-child{margin-bottom:0}
 .cst-changed-f{font-size:12.5px;line-height:1.4;color:var(--muted);margin-top:9px}
+
+/* The full current text on a re-consent: present, collapsed, one tap open.
+   A disclosure row in the app's list vocabulary, not a link away. */
+.cst-fold{margin:0 0 4px}
+.cst-fold-s{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;
+  min-height:44px;padding:2px;font-size:14px;font-weight:600;letter-spacing:-.01em;
+  color:var(--brand-ink)}
+.cst-fold-s::-webkit-details-marker{display:none}
+/* The chevron IS the affordance, so it turns with the state. */
+.cst-fold-s::after{content:'';width:8px;height:8px;border-right:2px solid currentColor;
+  border-bottom:2px solid currentColor;transform:rotate(45deg);margin-left:1px;
+  transition:transform .18s cubic-bezier(.4,0,.2,1)}
+.cst-fold[open] .cst-fold-s::after{transform:rotate(-135deg)}
+.cst-fold-s:active{opacity:.55}
+@media (prefers-reduced-motion:reduce){.cst-fold-s::after{transition:none}}
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
 .fh-s-cta{width:100%;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;padding:15px;border-radius:9999px;box-shadow:0 8px 20px var(--brand-glow);margin-top:6px}
@@ -14341,7 +14356,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v401';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v402';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -23173,6 +23188,28 @@ window.classifyAmount = classifyAmount;
     return out;
   }
 
+  /* Wraps the full current text for a RE-consent: present on the screen, but
+     collapsed, so the delta above it is what the person actually reads.
+
+     Why collapsed and not a link: the stored record says they agreed to THIS
+     version, and if that is ever questioned we have to show this version was
+     put in front of them. A screen carrying only the change plus a link to
+     the PREVIOUS consent never presents the current one at all, and turns one
+     clean proof into a two-part argument. Collapsed costs nothing and keeps
+     the proof whole. Reading the older consent lives in Settings, where
+     someone who wants it goes looking.
+
+     <details> rather than a JS toggle: open/close, keyboard and screen-reader
+     behaviour all come free and correct. */
+  function _cstFullTextFold(inner, version) {
+    return '<details class="cst-fold">' +
+      '<summary class="cst-fold-s">' +
+        _esc(L('Đọc toàn bộ nội dung bản v' + version, 'Read the full v' + version + ' text')) +
+      '</summary>' +
+      '<div class="cst-body">' + inner + '</div>' +
+      '</details>';
+  }
+
   /* The block that leads a re-consent. Absent entirely for a first-time
      consent -- there is nothing to have changed, and a "what's new" box on a
      screen someone has never seen is noise. */
@@ -23299,12 +23336,14 @@ window.classifyAmount = classifyAmount;
           '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>';
       }
 
+      var changed1 = ro ? '' : _cstChangedBlock(FH_APPDATA_KIND, accepted, FH_APPDATA_CONSENT_V);
       _fhSheet(
         _cstKicker() +
         '<div class="sheet-h">' + _esc(L('Chuyện tiền của nhà mình, chỉ nhà mình biết.', 'Your family’s money stays your family’s business.')) + '</div>' +
         '<div class="sheet-sub">' + _esc(L('Earthy là cuốn sổ chi tiêu chung của nhà bạn.', 'Earthy is your family’s shared expense book.')) + '</div>' +
-        (ro ? '' : _cstChangedBlock(FH_APPDATA_KIND, accepted, FH_APPDATA_CONSENT_V)) +
-        '<div class="cst-body">' + rows + '</div>' + footer);
+        (ro ? '' : changed1) +
+        (changed1 ? _cstFullTextFold(rows, FH_APPDATA_CONSENT_V) : '<div class="cst-body">' + rows + '</div>') +
+        footer);
     };
 
     window.fhAppDataConsentAgree = async function (btn) {
@@ -23641,11 +23680,13 @@ window.classifyAmount = classifyAmount;
           '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>';
       }
 
+      var changed = ro ? '' : _cstChangedBlock(FH_CONSENT_KIND, accepted, FH_CONSENT_V);
       _fhSheet(
         _cstKicker(L('EMAIL NGÂN HÀNG', 'BANK EMAIL')) +
         '<div class="sheet-h">' + _esc(L('Ngân hàng gửi, Earthy niêm phong, nhà bạn mở.', 'Your bank sends it, Earthy seals it, your family opens it.')) + '</div>' +
-        (ro ? '' : _cstChangedBlock(FH_CONSENT_KIND, accepted, FH_CONSENT_V)) +
-        '<div class="cst-body">' + rows + '</div>' + footer);
+        (ro ? '' : changed) +
+        (changed ? _cstFullTextFold(rows, FH_CONSENT_V) : '<div class="cst-body">' + rows + '</div>') +
+        footer);
 
       window._cstThen = ro ? null : (opts.then || null);
     };

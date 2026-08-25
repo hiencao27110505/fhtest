@@ -281,3 +281,18 @@
 .cst-changed-l li{font-size:13.5px;line-height:1.5;color:var(--ink);margin-bottom:5px}
 .cst-changed-l li:last-child{margin-bottom:0}
 .cst-changed-f{font-size:12.5px;line-height:1.4;color:var(--muted);margin-top:9px}
+
+/* The full current text on a re-consent: present, collapsed, one tap open.
+   A disclosure row in the app's list vocabulary, not a link away. */
+.cst-fold{margin:0 0 4px}
+.cst-fold-s{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;
+  min-height:44px;padding:2px;font-size:14px;font-weight:600;letter-spacing:-.01em;
+  color:var(--brand-ink)}
+.cst-fold-s::-webkit-details-marker{display:none}
+/* The chevron IS the affordance, so it turns with the state. */
+.cst-fold-s::after{content:'';width:8px;height:8px;border-right:2px solid currentColor;
+  border-bottom:2px solid currentColor;transform:rotate(45deg);margin-left:1px;
+  transition:transform .18s cubic-bezier(.4,0,.2,1)}
+.cst-fold[open] .cst-fold-s::after{transform:rotate(-135deg)}
+.cst-fold-s:active{opacity:.55}
+@media (prefers-reduced-motion:reduce){.cst-fold-s::after{transition:none}}

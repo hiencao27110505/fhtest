@@ -63,6 +63,28 @@
     return out;
   }
 
+  /* Wraps the full current text for a RE-consent: present on the screen, but
+     collapsed, so the delta above it is what the person actually reads.
+
+     Why collapsed and not a link: the stored record says they agreed to THIS
+     version, and if that is ever questioned we have to show this version was
+     put in front of them. A screen carrying only the change plus a link to
+     the PREVIOUS consent never presents the current one at all, and turns one
+     clean proof into a two-part argument. Collapsed costs nothing and keeps
+     the proof whole. Reading the older consent lives in Settings, where
+     someone who wants it goes looking.
+
+     <details> rather than a JS toggle: open/close, keyboard and screen-reader
+     behaviour all come free and correct. */
+  function _cstFullTextFold(inner, version) {
+    return '<details class="cst-fold">' +
+      '<summary class="cst-fold-s">' +
+        _esc(L('Đọc toàn bộ nội dung bản v' + version, 'Read the full v' + version + ' text')) +
+      '</summary>' +
+      '<div class="cst-body">' + inner + '</div>' +
+      '</details>';
+  }
+
   /* The block that leads a re-consent. Absent entirely for a first-time
      consent -- there is nothing to have changed, and a "what's new" box on a
      screen someone has never seen is noise. */
@@ -189,12 +211,14 @@
           '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>';
       }
 
+      var changed1 = ro ? '' : _cstChangedBlock(FH_APPDATA_KIND, accepted, FH_APPDATA_CONSENT_V);
       _fhSheet(
         _cstKicker() +
         '<div class="sheet-h">' + _esc(L('Chuyện tiền của nhà mình, chỉ nhà mình biết.', 'Your family’s money stays your family’s business.')) + '</div>' +
         '<div class="sheet-sub">' + _esc(L('Earthy là cuốn sổ chi tiêu chung của nhà bạn.', 'Earthy is your family’s shared expense book.')) + '</div>' +
-        (ro ? '' : _cstChangedBlock(FH_APPDATA_KIND, accepted, FH_APPDATA_CONSENT_V)) +
-        '<div class="cst-body">' + rows + '</div>' + footer);
+        (ro ? '' : changed1) +
+        (changed1 ? _cstFullTextFold(rows, FH_APPDATA_CONSENT_V) : '<div class="cst-body">' + rows + '</div>') +
+        footer);
     };
 
     window.fhAppDataConsentAgree = async function (btn) {
@@ -531,11 +555,13 @@
           '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>';
       }
 
+      var changed = ro ? '' : _cstChangedBlock(FH_CONSENT_KIND, accepted, FH_CONSENT_V);
       _fhSheet(
         _cstKicker(L('EMAIL NGÂN HÀNG', 'BANK EMAIL')) +
         '<div class="sheet-h">' + _esc(L('Ngân hàng gửi, Earthy niêm phong, nhà bạn mở.', 'Your bank sends it, Earthy seals it, your family opens it.')) + '</div>' +
-        (ro ? '' : _cstChangedBlock(FH_CONSENT_KIND, accepted, FH_CONSENT_V)) +
-        '<div class="cst-body">' + rows + '</div>' + footer);
+        (ro ? '' : changed) +
+        (changed ? _cstFullTextFold(rows, FH_CONSENT_V) : '<div class="cst-body">' + rows + '</div>') +
+        footer);
 
       window._cstThen = ro ? null : (opts.then || null);
     };

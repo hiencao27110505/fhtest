@@ -230,6 +230,15 @@ console.log('\n-- the gate asks exactly when it should --');
     re.indexOf('Phần còn lại giữ nguyên') >= 0);
   t('and the change is stated as a CHANGE, not as reassurance',
     re.indexOf('không còn được che như trước') >= 0);
+  /* The delta is what they read; the full CURRENT text is still on the screen,
+     collapsed. A link to the PREVIOUS consent instead would mean the version
+     they are agreeing to was never presented, which turns one clean proof
+     into a two-part argument. */
+  t('the full current text is present, folded rather than linked away',
+    re.indexOf('cst-fold') >= 0 && re.indexOf('cst-body') >= 0);
+  t('the fold names the version being agreed to', re.indexOf('bản v' + FH_CONSENT_V) >= 0);
+  t('and the body it folds is the real one, not a summary',
+    re.indexOf('dữ liệu cá nhân nhạy cảm') >= 0);
   t('v4 is honest that this one is a downgrade',
     re.indexOf('gửi nguyên văn cho AI') >= 0);
 
@@ -237,6 +246,8 @@ console.log('\n-- the gate asks exactly when it should --');
   await window.fhConsentSheet({});
   t('a FIRST consent shows no changed block (nothing has changed for them)',
     SHEETS[0].indexOf('cst-changed') === -1);
+  t('and its body is open, not folded behind a disclosure',
+    SHEETS[0].indexOf('cst-fold') === -1 && SHEETS[0].indexOf('cst-body') >= 0);
 
   reset({ data: [{ version: FH_CONSENT_V, consented_at: '2026-08-24T10:00:00Z' }], error: null });
   await window.fhConsentSheet({ readOnly: true });
