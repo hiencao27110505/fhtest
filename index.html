@@ -2925,6 +2925,15 @@ html.fh-can-install .set-row.set-install{display:flex}
 #csv-result.staged .csv-staged-sum-main .num{color:var(--ink)}
 #csv-result.staged .csv-staged-sum-sub{font-size:13px;color:var(--muted);margin-top:3px;letter-spacing:-.01em}
 
+/* Where a reviewed bank transaction lands. Borders, not fills (DESIGN §7), and
+   the same .choice chips the expense sheet uses so the two never drift apart.
+   The subtitle above already says what the current pick MEANS, so these read as
+   a switch rather than needing their own explanation. */
+#csv-result.staged .csv-scope{margin:0 2px 20px;padding:12px 0 0;border-top:1px solid var(--hairline)}
+#csv-result.staged .csv-scope-lbl{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:-.01em;margin-bottom:8px}
+#csv-result.staged .csv-scope .choice[aria-disabled="true"]{opacity:.45}
+#csv-result.staged .csv-scope-note{font-size:12.5px;color:var(--muted);margin-top:8px;letter-spacing:-.01em}
+
 /* ---------- sealed-staging key-mismatch alarm ---------- */
 /* Blocking, family-wide dialog raised at unlock when the device's staging key
    no longer matches the server's (key substitution). Mounts inside .phone
@@ -9466,6 +9475,63 @@ var csvStagedMode = false;
    which would delete un-reviewed email rows). The mode is the single source. */
 function csvSaveDispatch(){ return csvStagedMode ? fhPromoteStaged() : csvPromote(); }
 
+/* WHERE a reviewed bank transaction lands. Two destinations, and the difference
+   is who ELSE can see it:
+     family   -> transactions (the shared ledger). The personal mirror then copies
+                 it into your own ledger too, so "family" means BOTH, not "not mine".
+     personal -> personal_transactions with space_id null. Private, permanently.
+                 The family never sees it and there is no un-share.
+
+   One control for the whole pass rather than a toggle per row, because the row
+   checkboxes already give per-row control: tick the shared ones, import, flip the
+   scope, import the rest. Selection × scope covers a mixed batch in two taps
+   instead of N, and keeps the collapsed cards as quiet as they were asked to be.
+
+   Remembered across sessions: someone whose bank mail is mostly personal should
+   not re-pick it every morning. Never remembered as 'personal' when the personal
+   ledger cannot actually be written to — see csvScopeReady. */
+var CSV_SCOPE_KEY = 'fh-staged-scope';
+function csvScopeReady(){
+  var pd = window.fhPersonalData && window.fhPersonalData();
+  return !!(pd && pd.key);
+}
+function csvStagedScope(){
+  if(!csvScopeReady()) return 'family';            // locked ledger -> never offer to lose the row
+  try{ return localStorage.getItem(CSV_SCOPE_KEY)==='personal' ? 'personal' : 'family'; }
+  catch(e){ return 'family'; }
+}
+function csvPickScope(v){
+  if(v==='personal' && !csvScopeReady()){
+    window.toast && window.toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
+    return;
+  }
+  try{ localStorage.setItem(CSV_SCOPE_KEY, v); }catch(e){}
+  renderCsvReview();
+}
+function csvScopeSubtitle(){
+  return csvStagedScope()==='personal'
+    ? L('vào sổ cá nhân, chỉ mình bạn thấy','to your personal ledger, only you see it')
+    : L('vào sổ gia đình, cả nhà cùng thấy','to the family ledger, everyone sees it');
+}
+function csvScopePicker(){
+  var sc = csvStagedScope(), locked = !csvScopeReady();
+  var chip = function(v, label){
+    var on = sc===v;
+    return '<button type="button" class="choice'+(on?' on':'')+'"'
+      + (v==='personal' && locked ? ' aria-disabled="true"' : '')
+      + ' aria-pressed="'+(on?'true':'false')+'"'
+      + ' onclick="csvPickScope(\''+v+'\')">'+esc(label)+'</button>';
+  };
+  return '<div class="csv-scope">'
+    + '<div class="csv-scope-lbl">'+esc(L('Ghi vào đâu?','Where does this go?'))+'</div>'
+    + '<div class="choices">'
+    +   chip('family',   L('Gia đình','Family'))
+    +   chip('personal', L('Cá nhân','Personal'))
+    + '</div>'
+    + (locked ? '<div class="csv-scope-note">'+esc(L('Sổ cá nhân đang khoá — mở ở tab Cá nhân để chọn được.','Personal ledger is locked — unlock it on the Cá nhân tab to pick it.'))+'</div>' : '')
+    + '</div>';
+}
+
 function openCsvImport(){
   csvStagedMode = false;               // this is the file flow, not the staged review
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
@@ -10341,8 +10407,9 @@ function renderCsvReview(){
       var stagedSum = csvStagedSelected().reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
       html += '<div class="csv-staged-sum">'
         + '<div class="csv-staged-sum-main">'+esc(L('Sẽ nhập '+readyCount+' khoản','Importing '+readyCount))+' · <span class="num">'+esc(fmt(stagedSum))+'</span></div>'
-        + '<div class="csv-staged-sum-sub">'+esc(L('từ email ngân hàng','from bank email'))+'</div>'
+        + '<div class="csv-staged-sum-sub">'+esc(csvScopeSubtitle())+'</div>'
         + '</div>';
+      html += csvScopePicker();
     }
   } else {
     var summaryLine;
@@ -21958,14 +22025,39 @@ window.classifyAmount = classifyAmount;
        ✕ handlers' splices become impossible to reason about. */
     var ids = fhStagedIdsForResolved(window._fhStagedRows, window.csvReview);
 
+    var scope = (typeof csvStagedScope === 'function') ? csvStagedScope() : 'family';
+
     try {
-      // csvPromote() returns its promise chain, so this genuinely waits for the
-      // ledger writes. It did not always: an earlier version assumed a promise
-      // and resolved instantly, which meant the delete below could race the
-      // write and destroy a staged row whose transaction never landed.
-      /* Only the ticked rows. csvPromote() with no argument still means "all
-         ready", which is what the CSV file flow wants; the queue is selective. */
-      await csvPromote(typeof csvStagedSelected === 'function' ? csvStagedSelected() : undefined);
+      if (scope === 'personal') {
+        /* Model Y (0079): personal rows are their OWN owner-scoped table under a
+           per-user key, not a family. So this is a different write, not a flag on
+           the same one — and deliberately NOT routed through csvPromote, which
+           writes the family ledger.
+
+           space_id stays null: a bank transaction sent here is private, and there
+           is no un-share. If ANY row fails we stop before retiring anything,
+           because retirement deletes the staged row and a half-imported batch
+           would lose the remainder with nothing left to retry from. */
+        var picked = (typeof csvStagedSelected === 'function') ? csvStagedSelected() : [];
+        if (!picked.length) return;
+        for (var i = 0; i < picked.length; i++) {
+          var c = picked[i];
+          var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
+          var ok = await window.fhPersonalAddExpense(
+            c.amount, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined);
+          if (!ok) throw new Error('personal write failed at row ' + i);
+        }
+        window.toast && window.toast(L('Đã ghi vào sổ cá nhân', 'Saved to your personal ledger'));
+        if (typeof window.renderPersonal === 'function') window.renderPersonal();
+      } else {
+        // csvPromote() returns its promise chain, so this genuinely waits for the
+        // ledger writes. It did not always: an earlier version assumed a promise
+        // and resolved instantly, which meant the delete below could race the
+        // write and destroy a staged row whose transaction never landed.
+        /* Only the ticked rows. csvPromote() with no argument still means "all
+           ready", which is what the CSV file flow wants; the queue is selective. */
+        await csvPromote(typeof csvStagedSelected === 'function' ? csvStagedSelected() : undefined);
+      }
     } catch (e) {
       window.toast && window.toast(L('Chưa lưu được', 'Could not save'));
       return;

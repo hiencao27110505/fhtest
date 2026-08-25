@@ -446,14 +446,39 @@
        ✕ handlers' splices become impossible to reason about. */
     var ids = fhStagedIdsForResolved(window._fhStagedRows, window.csvReview);
 
+    var scope = (typeof csvStagedScope === 'function') ? csvStagedScope() : 'family';
+
     try {
-      // csvPromote() returns its promise chain, so this genuinely waits for the
-      // ledger writes. It did not always: an earlier version assumed a promise
-      // and resolved instantly, which meant the delete below could race the
-      // write and destroy a staged row whose transaction never landed.
-      /* Only the ticked rows. csvPromote() with no argument still means "all
-         ready", which is what the CSV file flow wants; the queue is selective. */
-      await csvPromote(typeof csvStagedSelected === 'function' ? csvStagedSelected() : undefined);
+      if (scope === 'personal') {
+        /* Model Y (0079): personal rows are their OWN owner-scoped table under a
+           per-user key, not a family. So this is a different write, not a flag on
+           the same one — and deliberately NOT routed through csvPromote, which
+           writes the family ledger.
+
+           space_id stays null: a bank transaction sent here is private, and there
+           is no un-share. If ANY row fails we stop before retiring anything,
+           because retirement deletes the staged row and a half-imported batch
+           would lose the remainder with nothing left to retry from. */
+        var picked = (typeof csvStagedSelected === 'function') ? csvStagedSelected() : [];
+        if (!picked.length) return;
+        for (var i = 0; i < picked.length; i++) {
+          var c = picked[i];
+          var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
+          var ok = await window.fhPersonalAddExpense(
+            c.amount, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined);
+          if (!ok) throw new Error('personal write failed at row ' + i);
+        }
+        window.toast && window.toast(L('Đã ghi vào sổ cá nhân', 'Saved to your personal ledger'));
+        if (typeof window.renderPersonal === 'function') window.renderPersonal();
+      } else {
+        // csvPromote() returns its promise chain, so this genuinely waits for the
+        // ledger writes. It did not always: an earlier version assumed a promise
+        // and resolved instantly, which meant the delete below could race the
+        // write and destroy a staged row whose transaction never landed.
+        /* Only the ticked rows. csvPromote() with no argument still means "all
+           ready", which is what the CSV file flow wants; the queue is selective. */
+        await csvPromote(typeof csvStagedSelected === 'function' ? csvStagedSelected() : undefined);
+      }
     } catch (e) {
       window.toast && window.toast(L('Chưa lưu được', 'Could not save'));
       return;
