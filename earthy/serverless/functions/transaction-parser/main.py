@@ -1,4 +1,4 @@
-"""transaction-detected -> parsed transaction.
+"""transaction-detected -> parsed, persisted transaction.
 
 Fed by gmail-transaction-ingest, which sends the mail body along with the
 message metadata. Nothing here talks to Gmail, so this function needs no
@@ -13,7 +13,12 @@ Reading a mail is `parser.parse`, one call: how it does it — a stored rule, or
 a model that then learns one — is the parser package's business and
 deliberately not this file's. See `parser/__init__.py`.
 
-For now it only logs what it read. Persisting is deliberately not wired up.
+Persisting is one call: `persist.save` hands the reading to FamilyHub, which
+seals it to the family's key and stages it for review. Why the seal lives on
+that side and what each HTTP answer means is persist.py's docstring; what this
+file owes it is ORDER — persist runs BEFORE the announcement, so a persist
+failure raises before Telegram hears anything and the redelivery repeats both,
+instead of announcing twice and persisting once.
 """
 
 import base64
@@ -23,6 +28,7 @@ import logging
 import functions_framework
 import notify
 import parser
+import persist
 from cloudevents.http import CloudEvent
 
 # basicConfig is a no-op on Cloud Functions: the runtime configures the root
@@ -97,10 +103,14 @@ def main(cloud_event: CloudEvent) -> None:
         result.category_source or "-",
         subject,
     )
-    _announce(_parsed_message(reading, result, source))
+    # Persist FIRST. This is the one stage whose failure must reach Pub/Sub:
+    # a PersistUnavailable here aborts the delivery before the announcement, so
+    # the retry replays parse+persist+announce as a unit rather than announcing
+    # a transaction that never landed. message_id is the idempotency key on the
+    # other side, so the replay costs one lookup.
+    persist.save(payload, reading, result.category)
 
-    # TODO: persist. Use message_id as the idempotency key — the same
-    # notification can arrive more than once.
+    _announce(_parsed_message(reading, result, source))
 
 
 def _parsed_message(reading, result, source: object) -> str:

@@ -119,6 +119,15 @@ def main(cloud_event: CloudEvent) -> None:
                 "subject": message["subject"],
                 "date": message["date"],
                 "body": message["body"],
+                # Everything the persist stage needs to hand the reading to
+                # FamilyHub. `mailbox` is WHOSE mail this is — the staging row
+                # is sealed to that person's family key, and nothing downstream
+                # can recover it if it is not carried here. `from` lets the
+                # receiving side classify the sender against its own registry;
+                # `kind` is our own verdict for when it cannot.
+                "mailbox": email,
+                "from": message["from"],
+                "kind": senders.kind(label),
             },
         )
 

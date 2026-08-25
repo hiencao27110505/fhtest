@@ -152,3 +152,66 @@ def test_dead_token_leaves_the_cursor_alone(
     main.main(_event({"emailAddress": "alice@x.com", "historyId": "900"}))
 
     assert store.get("alice@x.com").history_id == "100"
+
+
+def test_published_event_carries_the_routing_fields(
+    store: accounts.InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The persist stage downstream needs three things this event did not use
+    to carry: WHOSE mailbox this is (the only link to a family and a sealing
+    key), the From header (so the other side can classify the sender against
+    its own registry), and our own bank-or-wallet verdict (for when it cannot).
+
+    Pinned here because the failure is quiet and far away: an event without
+    `mailbox` is unroutable, and persist.py logs and drops it — the transaction
+    then arrives minutes later via FamilyHub's own poll, which reads exactly
+    like the wiring working slowly rather than not at all.
+    """
+    monkeypatch.setattr(main.gmail_auth, "build_client", lambda token: object())
+    monkeypatch.setattr(main, "_added_message_ids", lambda service, start: ["msg-1"])
+    monkeypatch.setattr(
+        main,
+        "_message",
+        lambda service, message_id: {
+            "from": "Techcombank <no-reply@techcombank.com.vn>",
+            "subject": "Thong bao giao dich",
+            "date": "Fri, 21 Aug 2026 13:15:00 +0700",
+            "body": "So tien: 500.000 VND",
+        },
+    )
+
+    published: list[tuple[str, dict]] = []
+    monkeypatch.setattr(main, "_publish", lambda topic, payload: published.append((topic, payload)))
+
+    main.main(_event({"emailAddress": "alice@x.com", "historyId": "900"}))
+
+    assert len(published) == 1
+    _, payload = published[0]
+    # The original contract, untouched.
+    assert payload["message_id"] == "msg-1"
+    assert payload["source"] == "techcombank"
+    assert payload["body"] == "So tien: 500.000 VND"
+    # The three routing fields the persist stage stands on.
+    assert payload["mailbox"] == "alice@x.com"
+    assert payload["from"] == "Techcombank <no-reply@techcombank.com.vn>"
+    assert payload["kind"] == "bank"
+
+
+def test_kind_tells_banks_from_wallets() -> None:
+    """Classified by LABEL so every alias domain inherits the answer."""
+    import senders
+
+    assert senders.kind("techcombank") == "bank"
+    assert senders.kind("vietcombank") == "bank"
+    assert senders.kind("cake") == "bank"          # digital banks are banks
+    assert senders.kind("momo") == "wallet"
+    assert senders.kind("zalopay") == "wallet"
+    assert senders.kind("ssi") == "wallet"         # securities: receipts, not bank txns
+    assert senders.kind("fecredit") == "wallet"    # BNPL likewise
+    assert senders.kind("test") == "bank"          # test mail exercises the strict path
+
+    # Every non-bank label actually exists in the registry — a typo in the set
+    # would silently reclassify that sender as a bank.
+    known_labels = set(senders.KNOWN_SENDERS.values())
+    missing = senders.NON_BANK_LABELS - known_labels
+    assert not missing, f"labels in NON_BANK_LABELS but not the registry: {missing}"

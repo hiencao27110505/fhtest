@@ -252,6 +252,42 @@ def address(from_header: str) -> str:
     return addr.lower()
 
 
+# Labels that are NOT banks: e-wallets, payment services, securities houses,
+# and consumer finance. Everything else in KNOWN_SENDERS is a bank.
+#
+# CLASSIFIED BY LABEL, NOT DOMAIN, on purpose: the VN-namespace variants at the
+# bottom of KNOWN_SENDERS all map onto labels that already exist, so a new alias
+# domain for `momo` is a wallet automatically. The maintenance rule is one line:
+# a NEW label that is not a bank goes in this set in the same commit that adds
+# it. Left out, it is reported downstream as a bank — which types its rows
+# `bank_txn` and, worse, feeds the review screen's bank-vs-bank duplicate rule a
+# claim that stops a dedup. When unsure, leave the label OUT of this set only if
+# it is actually a bank.
+NON_BANK_LABELS: frozenset[str] = frozenset(
+    {
+        # e-wallets and payment services
+        "momo", "zalopay", "vnpay", "shopeepay", "viettelmoney", "vnptmoney",
+        "payoo", "napas", "9pay", "gpay", "onepay", "nganluong", "baokim",
+        "alepay", "smartpay", "moca", "appotapay", "finviet",
+        # securities and investment
+        "ssi", "vndirect", "vps", "hsc", "vcbs", "tcbs", "mbs", "dnse",
+        "miraeasset", "finhay", "infina",
+        # consumer finance and BNPL
+        "fecredit", "homecredit", "hdsaison", "fundiin", "kredivo",
+    }
+)
+
+
+def kind(label: str) -> str:
+    """'bank' or 'wallet', for the label `match` returned.
+
+    Travels with the event so the persist stage can say what KIND of sender
+    this was without re-deriving it from a From header it may not trust.
+    "test" reads as a bank so the strict path is the one test mail exercises.
+    """
+    return "wallet" if label in NON_BANK_LABELS else "bank"
+
+
 def match(from_header: str) -> str | None:
     """Return the sender's label, or None if it is not a known source.
 

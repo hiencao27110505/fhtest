@@ -157,6 +157,21 @@ async function callback(url: URL): Promise<Response> {
      renewal sweep treats a null expiry as due and tries again. Bouncing someone
      to an error screen after they successfully granted access, because a
      notification channel could not be wired, would be the wrong trade. */
+  /* ⚠️ ONE WATCH PER MAILBOX, AND THE LAST CALLER WINS.
+
+     Gmail keeps a single `watch()` registration per mailbox. Registering a
+     second one naming a different topic does not fail, does not warn, and does
+     not appear anywhere — it silently takes the notifications away from
+     whoever registered first.
+
+     So this block is gated on GMAIL_PUSH_TOPIC being set, and when the Cloud
+     Run pipeline is the reader, THAT VARIABLE MUST BE LEFT UNSET HERE. Setting
+     it "to be safe" is the failure: their push goes quiet, their ingest stops
+     being called, and the only symptom is transactions arriving five minutes
+     late via our poll instead of instantly — which reads as slowness, not as a
+     misconfiguration.
+
+     Leaving it unset costs us nothing. The poll below does not need a watch. */
   if (grantId && env("GMAIL_PUSH_TOPIC")) {
     try {
       const access = await accessToken(grant.refreshToken, googleCfg());

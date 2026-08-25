@@ -43,43 +43,65 @@ def test_redaction_keeps_the_labels():
         assert label in redacted
 
 
-def test_induce_is_never_sent_the_real_figures(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_induce_is_sent_the_mail_as_written(monkeypatch: pytest.MonkeyPatch) -> None:
+    """This is the call masking hurt most, and the reason is structural.
+
+    `induce` derives a rule that then runs on real mail with NO model behind it.
+    A label is anchored by what sits next to it, so a body where the figures have
+    been replaced by names anchors labels against text the next mail will not
+    contain. The spec that comes back is confidently wrong rather than absent,
+    which is the one failure mode that costs more than getting no spec at all.
+    """
     stub = _Stub(llm.ProposedSpec(rules=[]))
     monkeypatch.setattr(llm, "_ask", stub)
 
     llm.induce(TCB_CREDIT, llm.Reading(amount=500000, direction="credit"))
 
     sent = stub.prompts[0]
-    assert "500.000" not in sent
-    assert "12.345.678" not in sent
-    assert "[MONEY_1]" in sent
-    # The account number is NOT masked — it carries no currency marker, and
-    # masking it would blind the parser to a field it reads. Recorded here
-    # rather than left to be discovered.
+    assert "500.000" in sent
+    assert "12.345.678" in sent
     assert "19001234567" in sent
+    assert "[MONEY_" not in sent
 
 
-def test_extract_is_never_sent_the_real_figures(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The reading call is not an exception to the rule.
+def test_induce_is_told_what_the_figures_were(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`_shape_of` used to name the fields without their values, because sending
+    them would have put back what masking had just removed. With the body
+    carrying them anyway, withholding them here only made the job harder: the
+    field names say which rows to look for, the values say where they sit."""
+    stub = _Stub(llm.ProposedSpec(rules=[]))
+    monkeypatch.setattr(llm, "_ask", stub)
 
-    It used to be: reading the amount seemed to require sending it. Naming the
-    figures instead lets the model say which row is the amount without being
-    told what any row is worth.
+    llm.induce(TCB_CREDIT, llm.Reading(amount=500000, direction="credit"))
+
+    sent = stub.prompts[0]
+    assert "amount=500000" in sent
+
+
+def test_extract_is_sent_the_mail_as_written(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The reversal of the masking design, pinned so it cannot creep back.
+
+    Masking was removed deliberately: a model that cannot read 750.000 cannot
+    use the SIZE of a figure as evidence, and size is how a balance is told from
+    an amount. What replaced the withholding is consent, recorded before any of
+    this is collected.
+
+    This asserts it at the prompt, because a masker reintroduced upstream would
+    not throw — it would quietly go back to costing accuracy on every reading.
     """
-    stub = _Stub(llm.Answer(amount="[MONEY_1]", direction="credit"))
+    stub = _Stub(llm.Answer(amount=500000, direction="credit"))
     monkeypatch.setattr(llm, "_ask", stub)
 
     llm.extract(TCB_CREDIT)
 
     sent = stub.prompts[0]
-    assert "500.000" not in sent
-    assert "12.345.678" not in sent
-    assert "[MONEY_1]" in sent
+    assert "500.000" in sent
+    assert "12.345.678" in sent
+    assert "[MONEY_" not in sent
 
 
-def test_extract_exchanges_the_placeholders_back(monkeypatch: pytest.MonkeyPatch) -> None:
-    # [MONEY_1] is the amount and [MONEY_2] the balance, in TCB_CREDIT's order.
-    stub = _Stub(llm.Answer(amount="[MONEY_1]", balance="[MONEY_2]", direction="credit"))
+def test_extract_reports_the_figures_the_model_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    stub = _Stub(llm.Answer(amount=500000, balance=12345678, direction="credit"))
     monkeypatch.setattr(llm, "_ask", stub)
 
     reading = llm.extract(TCB_CREDIT)
@@ -90,11 +112,47 @@ def test_extract_exchanges_the_placeholders_back(monkeypatch: pytest.MonkeyPatch
     assert reading.direction == "credit"
 
 
-def test_a_figure_the_model_invented_is_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A model that answers with a number has not read one — every figure was
-    masked before it saw the body — so the number is invention and must not
-    reach a ledger."""
-    stub = _Stub(llm.Answer(amount="750000", direction="credit"))
+def test_a_figure_printed_the_vietnamese_way_is_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The prompt asks for bare digits; the mail prints 500.000, and the model
+    echoes the mail often enough that refusing it would drop real readings.
+
+    Stripping the separators is safe for these two fields only: Vietnamese uses
+    `.` for thousands and both are whole dong, so there is no decimal to lose.
+    """
+    stub = _Stub(llm.Answer(amount="500.000", balance="12,345,678", direction="credit"))
+    monkeypatch.setattr(llm, "_ask", stub)
+
+    reading = llm.extract(TCB_CREDIT)
+
+    assert reading is not None
+    assert reading.amount == 500000
+    assert reading.balance == 12345678
+
+
+def test_a_signed_figure_keeps_its_magnitude(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`direction` carries the sign. An amount that also carried it would be the
+    same fact twice, and the two would eventually disagree."""
+    stub = _Stub(llm.Answer(amount="+500.000", direction="credit"))
+    monkeypatch.setattr(llm, "_ask", stub)
+
+    reading = llm.extract(TCB_CREDIT)
+
+    assert reading is not None
+    assert reading.amount == 500000
+
+
+def test_an_unreadable_amount_is_dropped_rather_than_stored(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A leftover placeholder is the specific failure to expect here.
+
+    A stale prompt, a cached instruction, a model still answering the way it was
+    asked to last month — all produce `[MONEY_1]` in a field that is now supposed
+    to hold a number. It must read as "nothing", never as a figure, and never as
+    an exception: the pipeline already treats a reading with no amount as an
+    unreadable mail and says so.
+    """
+    stub = _Stub(llm.Answer(amount="[MONEY_1]", direction="credit"))
     monkeypatch.setattr(llm, "_ask", stub)
 
     reading = llm.extract(TCB_CREDIT)
@@ -103,10 +161,8 @@ def test_a_figure_the_model_invented_is_dropped(monkeypatch: pytest.MonkeyPatch)
     assert reading.amount is None
 
 
-def test_a_placeholder_that_was_never_issued_is_dropped(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    stub = _Stub(llm.Answer(amount="[MONEY_99]", direction="credit"))
+def test_prose_in_the_amount_field_is_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
+    stub = _Stub(llm.Answer(amount="khong ro", direction="credit"))
     monkeypatch.setattr(llm, "_ask", stub)
 
     reading = llm.extract(TCB_CREDIT)

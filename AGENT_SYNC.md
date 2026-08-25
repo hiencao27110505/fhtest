@@ -143,6 +143,114 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-26 (direct-read session) — `# TODO: persist` IS CLOSED. His spine
+  now hands to our tail, and the wire is test-locked from both ends. 445 Python
+  tests + 34 Node files green.**
+
+  - `persist.py` (transaction-parser): POSTs the reading to
+    `mailbox-sync/ingest` with the shared secret in a header. Runs BEFORE the
+    Telegram announce, so a persist failure redelivers both instead of
+    announcing twice. Error contract in its docstring: 2xx final (`held` is the
+    POLL's job to heal), 4xx swallowed (config; the poll stages the mail
+    anyway), 5xx/network raised for redelivery.
+  - The ingest event now carries `mailbox`, `from`, `kind` — the routing fields
+    persist stands on. `senders.kind()` classifies by LABEL so alias domains
+    inherit the answer; maintenance rule in its comment.
+  - `pipeline/direct-persist-contract.test.js` runs the REAL `build_payload`
+    in a python3 subprocess and feeds its bytes to the REAL sealer, then opens
+    the row with the shipped client code. Our registry's spelling
+    (`Techcombank`) overrides his label (`techcombank`) on purpose — the fuzzy
+    dedup compares provider strings across transports.
+  - Ran his suite via `make test` (uv): found and fixed a PRE-EXISTING failure —
+    `test_subject_markup_is_escaped` still asserted the subject in the parsed
+    message that ccbd5a0 deliberately removed; it now guards the UNREAD path,
+    where subjects actually travel.
+  - `sealing.py` (the Python-seal alternative) still untouched; the fork note
+    below stands. This wiring makes the /ingest side the working one.
+
+  **Deploy state: NOT deployed.** Quang's three functions need a redeploy to
+  pick this up, gated on `FAMILYHUB_INGEST_URL` + `FAMILYHUB_INGEST_SECRET`
+  env vars — unset, the pipeline behaves exactly as before.
+
+- **2026-08-26 — ⚠️ TWO HALF-BUILT PATHS NOW EXIST FOR "PERSIST". A decision is
+  needed before either is finished, and `main.py:102` is still `# TODO: persist`
+  so NEITHER is wired.**
+
+  - `62273e2` added `earthy/…/transaction-parser/sealing.py` — the seal, in
+    Python, as a third implementation.
+  - `3ed9383` added `/ingest` on `mailbox-sync` + `_shared/mailbox/ingest.mjs`
+    (78 assertions) — the reader hands over its parsed reading and OUR stack
+    seals it, reusing the one implementation that already exists.
+
+  **Hien chose the second, explicitly, when asked.** Recording that here because
+  the first was committed afterwards and the two cannot both be the answer. The
+  case for `/ingest`: one envelope implementation instead of three against a
+  single client opener, one `DEDUP_FP_KEY` space instead of two (a second mint is
+  SILENT — every cross-transport fingerprint stops matching and the queue quietly
+  holds both halves of every purchase), and identity resolution that already
+  handles the 0071 second-member-row coin flip. `sealing.py` also cannot answer
+  which member/family to seal to: `connected_accounts` carries `user_id` only.
+
+  Whoever owns `sealing.py` should say here whether it is being kept. **I have
+  not touched or removed it.**
+
+- **2026-08-26 — MASKING REMOVED FROM THE GEMINI PATH, at Hien's instruction.
+  This reverses a deliberate design in another team's code — read this before
+  putting any of it back.**
+
+  `parser/llm.py` replaced every figure with `[MONEY_n]` before the body left the
+  machine, and asked the model which name was the amount. Removed from both call
+  sites; the body now goes as the bank wrote it.
+
+  **Why it was costing more than it saved.** A model shown `[MONEY_1]` and
+  `[MONEY_2]` cannot use the SIZE of a figure as evidence, and size is most of how
+  a balance is told from an amount in a Vietnamese notice. It hurt `induce` worse:
+  that call derives a rule that then runs on real mail with **no model behind it**,
+  and a label anchored beside `[MONEY_1]` is anchored beside text the next mail
+  will not contain — a confidently wrong spec rather than no spec.
+
+  **What carries the promise instead:** consent recorded before collection
+  (`user_consents`, kind `bank_email`, v4), plus sealing everything the model
+  returns before it is stored. The model sees the mail; the database never sees
+  the reading.
+
+  **What changed:** `Answer.amount/balance` are now `int | None` with a lenient
+  before-validator (strips `.` `,` and a leading sign — safe for these two fields
+  only, since Vietnamese uses `.` for thousands and both are whole dong; anything
+  still non-numeric becomes None rather than raising). `to_reading()` no longer
+  takes a table. `_shape_of` now carries values, because the only reason it
+  withheld them was the masking that is gone. Both prompts rewritten.
+
+  **Tests updated, and one now asserts the opposite of its filename.**
+  `test_no_figures_leave.py` pinned the old policy; it now pins the new one at the
+  `genai.Client` seam — a masker put back upstream would not throw, it would just
+  quietly cost accuracy again. **The file should be renamed to
+  `test_mail_reaches_the_model` by whoever owns the package; I did not rename it.**
+  `masking.py` is now unreferenced and `test_masking.py` covers dead code — also
+  the owner's call. **I could not run the Python suite (no pytest/pydantic here);
+  it is syntax-checked only and needs a run on your side.**
+
+- **2026-08-26 — NOTIFICATION LATENCY: the push path is already seconds, but it
+  DIES SILENTLY AFTER 7 DAYS and nothing renews it.**
+
+  Two things, neither of them code:
+
+  1. **`gmail-watch-renew` is never called.** Their own README says so
+     (line 389): "nothing renews the watches automatically yet… the only thing
+     renewing them is someone running `make renew` by hand." A watch lasts 7 days,
+     then Gmail stops publishing with no error anywhere. One Cloud Scheduler job
+     fixes it; the exact command is in that README.
+  2. **`GMAIL_PUSH_TOPIC` must stay UNSET on our side.** Gmail keeps ONE watch per
+     mailbox and the last caller wins, silently. If our connect registers one too,
+     their push goes quiet and everything falls back to our 5-minute poll — which
+     reads as slowness, not as a misconfiguration. Noted in
+     `mailbox-connect/index.ts` at the watch block so it cannot be set by accident.
+
+  With those two right, a bank mail notifies in seconds and the poll is only the
+  safety net. **The poll is load-bearing, not belt-and-braces** — `/ingest` owns no
+  cursor, so a hold there is healed only by the poll leaving its own cursor alone
+  on the same condition.
+
 - **2026-08-26 (direct-read session) — THE REVIEW SCREEN NOW PREFERS `memo_display`.
   Picks up the handoff the 08-25 entry left for whoever owns that screen. No
   migration, no schema change, no pipeline change.**
