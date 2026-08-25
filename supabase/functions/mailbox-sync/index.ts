@@ -13,6 +13,7 @@
    report what happened. */
 import nacl from "npm:tweetnacl@1.0.3";
 import { runAll, runPush, renewWatches } from "../_shared/mailbox/worker.mjs";
+import { runIngest } from "../_shared/mailbox/ingest.mjs";
 import { createDb } from "../_shared/mailbox/db.mjs";
 import { fromBytea } from "../_shared/mailbox/token-crypto.mjs";
 import { decodePushEnvelope } from "../_shared/mailbox/gmail.mjs";
@@ -78,6 +79,37 @@ Deno.serve(async (req: Request) => {
     } catch (e) {
       console.error("mailbox-sync push failed:", e);
       // 500 = do not ack. Pub/Sub retries with backoff.
+      return json({ error: String((e as Error)?.message || e) }, 500);
+    }
+  }
+
+  /* ── ingest: a mail somebody ELSE read ─────────────────────────────────────
+     The Python pipeline on Cloud Run already reads mailboxes, parses Vietnamese
+     bank mail and announces it. What it does not do is persist — its main.py
+     ends at `# TODO: persist`. This is that line's other end: it hands over what
+     it parsed and we do the half that has to happen on this side, because the
+     seal is a security boundary rather than a step. One implementation of the
+     construction, one DEDUP_FP_KEY, one place where plaintext becomes
+     ciphertext.
+
+     SAME SECRET, SAME COMPARISON as the tick and the push above — the check has
+     already run by the time control reaches here, so this route cannot be
+     reached unauthenticated even if it is edited later.
+
+     It answers 200 for every outcome a retry cannot improve, including a HOLD.
+     That is deliberate and it is explained at length in ingest.mjs: a hold is a
+     property of the mailbox rather than of the message, so redelivery cannot fix
+     it, and what actually heals it is the poll below leaving its cursor alone on
+     the very same condition. 5xx is reserved for a genuine fault, where a retry
+     is worth something. */
+  if (route === "/ingest") {
+    let body: unknown = null;
+    try { body = await req.json(); } catch { /* refused as malformed below */ }
+    try {
+      const out = await runIngest(body, ctx);
+      return json(out, 200);
+    } catch (e) {
+      console.error("mailbox-sync ingest failed:", e);
       return json({ error: String((e as Error)?.message || e) }, 500);
     }
   }
