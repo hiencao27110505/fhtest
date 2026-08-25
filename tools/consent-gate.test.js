@@ -102,6 +102,18 @@ console.log('\n-- the gate asks exactly when it should --');
   console.log('\n-- the sheet says what the law requires --');
   const html = SHEETS[0];
   t('names the data as sensitive, verbatim', html.indexOf('dữ liệu cá nhân nhạy cảm') >= 0);
+  /* The "quyền được biết" list: purpose, data types, processing method, third
+     parties, rights, retention, controller. A sheet can be warm and still
+     have to carry all seven -- the UX pass once optimised for reassurance and
+     silently dropped what and why from both sheets. */
+  t('WHAT: the data taken is enumerated', html.indexOf('lời nhắn chuyển khoản') >= 0);
+  t('WHY: the purpose is stated, not implied', html.indexOf('Để làm gì?') >= 0 &&
+    html.indexOf('ghi vào sổ chi tiêu') >= 0);
+  t('HOW: the processing method is described', html.indexOf('AI của Google') >= 0);
+  t('WHO ELSE: a third party is named', html.indexOf('Google') >= 0);
+  t('HOW LONG: retention is stated', html.indexOf('7 ngày') >= 0 && html.indexOf('90 ngày') >= 0);
+  t('RIGHTS: how to stop is stated', html.indexOf('Ngắt kết nối') >= 0);
+  t('WHO IS ANSWERABLE: controller and contact', html.indexOf(FH_DATA_CONTACT) >= 0);
   t('names the document type (a consent, not a T&C)', html.indexOf('ĐỒNG Ý XỬ LÝ DỮ LIỆU CÁ NHÂN') >= 0);
   t('links the privacy policy', html.indexOf('privacy.html') >= 0);
   t('affirmative CTA present', html.indexOf('fhConsentAgree') >= 0);
@@ -190,6 +202,11 @@ console.log('\n-- the gate asks exactly when it should --');
   t('no record at boot: the sheet appears', SHEETS.length === 1);
   const l1 = SHEETS[0];
   t('it treats financial data as sensitive in so many words', l1.indexOf('dữ liệu cá nhân nhạy cảm') >= 0);
+  // the same seven, on the app-wide sheet
+  t('WHAT: app-wide data types enumerated', l1.indexOf('sao kê ngân hàng') >= 0);
+  t('WHY: purpose stated', l1.indexOf('sổ chi tiêu của gia đình bạn') >= 0);
+  t('WHERE: offshore storage named', l1.indexOf('ngoài lãnh thổ Việt Nam') >= 0);
+  t('HOW LONG: retention stated', l1.indexOf('đến khi bạn xoá') >= 0);
   t('it answers the key-holder question', l1.indexOf('chìa khoá của gia đình') >= 0);
   t('it answers the breach question with a conclusion', l1.indexOf('vẫn an toàn') >= 0);
   t('it names the in-app withdrawal place', l1.indexOf('Quyền riêng tư') >= 0);
@@ -212,6 +229,58 @@ console.log('\n-- the gate asks exactly when it should --');
   reset({ data: null, error: { message: 'boot flake' } });
   await window.fhAppDataConsentCheck();
   t('a flaky boot fetch skips THIS boot instead of nagging (asks next boot)', SHEETS.length === 0);
+
+  // ── re-consent must LEAD with what changed ────────────────────────────────
+  /* Asking someone to agree again without saying what moved makes them
+     re-read the whole sheet hunting for the difference. The one thing they
+     want at that moment is the one thing the old flow never said. */
+  console.log('\n-- what changed since you agreed --');
+
+  reset({ data: [{ version: FH_CONSENT_V - 1, consented_at: '2026-08-24T10:00:00Z' }], error: null });
+  await window.fhConsentSheet({});
+  var re = SHEETS[0];
+  t('an older consent gets a "what changed" block', re.indexOf('cst-changed') >= 0);
+  t('it appears ABOVE the body they already read',
+    re.indexOf('cst-changed') < re.indexOf('cst-body'), 'changed block must lead');
+  t('it names the version they held and when', re.indexOf('v' + (FH_CONSENT_V - 1)) >= 0);
+  t('it says the rest is unchanged, so they need not re-read it all',
+    re.indexOf('Phần còn lại giữ nguyên') >= 0);
+  t('and the change is stated plainly, as what now happens',
+    re.indexOf('gửi nguyên văn cho AI') >= 0);
+  /* The delta is what they read; the full CURRENT text is still on the screen,
+     collapsed. A link to the PREVIOUS consent instead would mean the version
+     they are agreeing to was never presented, which turns one clean proof
+     into a two-part argument. */
+  t('the full current text is present, folded rather than linked away',
+    re.indexOf('cst-fold') >= 0 && re.indexOf('cst-body') >= 0);
+  t('the fold names the version being agreed to', re.indexOf('bản v' + FH_CONSENT_V) >= 0);
+  t('and the body it folds is the real one, not a summary',
+    re.indexOf('dữ liệu cá nhân nhạy cảm') >= 0);
+  /* The entry carries both halves: what the model now receives, and the
+     once-per-format limit that bounds it. Neither alone is the truth. */
+  t('and states the once-per-format limit that bounds it',
+    re.indexOf('không được gửi đi nữa') >= 0);
+
+  reset({ data: [], error: null });
+  await window.fhConsentSheet({});
+  t('a FIRST consent shows no changed block (nothing has changed for them)',
+    SHEETS[0].indexOf('cst-changed') === -1);
+  t('and its body is open, not folded behind a disclosure',
+    SHEETS[0].indexOf('cst-fold') === -1 && SHEETS[0].indexOf('cst-body') >= 0);
+
+  reset({ data: [{ version: FH_CONSENT_V, consented_at: '2026-08-24T10:00:00Z' }], error: null });
+  await window.fhConsentSheet({ readOnly: true });
+  t('reviewing a current consent shows no changed block either',
+    SHEETS[0].indexOf('cst-changed') === -1);
+
+  /* Every shipped version must carry its entry, or a bump silently re-asks
+     people and tells them nothing -- exactly the pattern this exists to kill. */
+  /* v2 and v3 predate this mechanism. What must hold from now on is that the
+     CURRENT version explains itself -- a bump without an entry re-asks
+     everyone and tells them nothing. */
+  t('the current version carries its changelog entry',
+    !!FH_CONSENT_CHANGES.bank_email[FH_CONSENT_V],
+    'bank_email changelog has: ' + Object.keys(FH_CONSENT_CHANGES.bank_email).join(','));
 
   // ── the redesigned withdrawal: granular, scheduled, cancellable ───────────
   console.log('\n-- Settings → Quyền riêng tư --');

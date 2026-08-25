@@ -20,18 +20,7 @@
      reader's actual questions, formal "chúng tôi" register for legal surfaces,
      protection stated as conclusions. It must not drift from
      docs/PDPL-COMPLIANCE.md §5: bump the version constant when either
-     changes, and everyone re-consents to the new text.
-
-     v4 (2026-08-25). MASKING WAS REMOVED FROM THE PIPELINE, so the first mail
-     off an unfamiliar bank template now goes to the model as written. v3 said
-     the opposite in as many words ("real values are never sent"), which was
-     true when it was written and became false the moment the pipeline changed.
-     Consent is now the only control on that leg, so the sentence has to carry
-     it: it names what is sent, and it names the half that still never leaves
-     (every later mail off a learned template, which is most of them). Everyone
-     re-affirms against the new text because a v3 record is proof of agreement
-     to a promise we no longer keep. Pipeline side: the "What the model is sent"
-     block in pipeline/bank-email-pipeline.gs. The two move together. */
+     changes, and everyone re-consents to the new text. */
 
   var FH_CONSENT_V = 4;
   var FH_CONSENT_KIND = 'bank_email';
@@ -42,6 +31,79 @@
   var FH_DATA_OPERATORS_VI = 'Trang và Hiên';
   var FH_DATA_OPERATORS_EN = 'Trang and Hien';
   var FH_DATA_CONTACT = 'gichisreading@gmail.com';
+
+  /* What changed at each version, keyed by the version it SHIPPED IN.
+     Re-asking someone to agree again without saying what moved makes them
+     re-read the whole sheet hunting for the difference, which is a dark
+     pattern by omission -- and the one thing a person actually wants to know
+     at that moment is the one thing the old flow never said.
+
+     When a bump happens, add the entry HERE in the same commit as the version
+     constant. The sheet reads it automatically: anyone whose stored consent is
+     older sees every entry between their version and the current one, at the
+     top, before the body they already know.
+
+     Write each line as the CHANGE, not the state: "we now also send X" beats
+     "we protect your data". */
+  var FH_CONSENT_CHANGES = {
+    bank_email: {
+      4: ['Lần đầu gặp một mẫu email của ngân hàng, email đó được gửi nguyên văn cho AI của Google một lần, để học cách đọc mẫu. Những email sau cùng mẫu không được gửi đi nữa.',
+          'The first time we meet a new email format from a bank, that email is sent to Google’s AI as written, once, so it can learn how to read the format. Later emails in the same format are not sent at all.'],
+    },
+    app_data: {},
+  };
+
+  /* Entries strictly newer than what they agreed to, oldest first. */
+  function _cstChangesSince(kind, priorVersion, currentVersion) {
+    var all = FH_CONSENT_CHANGES[kind] || {};
+    var out = [];
+    for (var v = (priorVersion || 0) + 1; v <= currentVersion; v++) {
+      if (all[v]) out.push({ v: v, text: L(all[v][0], all[v][1]) });
+    }
+    return out;
+  }
+
+  /* Wraps the full current text for a RE-consent: present on the screen, but
+     collapsed, so the delta above it is what the person actually reads.
+
+     Why collapsed and not a link: the stored record says they agreed to THIS
+     version, and if that is ever questioned we have to show this version was
+     put in front of them. A screen carrying only the change plus a link to
+     the PREVIOUS consent never presents the current one at all, and turns one
+     clean proof into a two-part argument. Collapsed costs nothing and keeps
+     the proof whole. Reading the older consent lives in Settings, where
+     someone who wants it goes looking.
+
+     <details> rather than a JS toggle: open/close, keyboard and screen-reader
+     behaviour all come free and correct. */
+  function _cstFullTextFold(inner, version) {
+    return '<details class="cst-fold">' +
+      '<summary class="cst-fold-s">' +
+        _esc(L('Đọc toàn bộ nội dung bản v' + version, 'Read the full v' + version + ' text')) +
+      '</summary>' +
+      '<div class="cst-body">' + inner + '</div>' +
+      '</details>';
+  }
+
+  /* The block that leads a re-consent. Absent entirely for a first-time
+     consent -- there is nothing to have changed, and a "what's new" box on a
+     screen someone has never seen is noise. */
+  function _cstChangedBlock(kind, prior, current) {
+    if (!prior || !prior.version || prior.version >= current) return '';
+    var items = _cstChangesSince(kind, prior.version, current);
+    if (!items.length) return '';
+    var when = prior.consented_at ? new Date(prior.consented_at) : null;
+    return '<div class="cst-changed">' +
+      '<div class="cst-changed-h">' + _esc(L('Có gì thay đổi từ lần trước',
+                                             'What changed since you agreed')) + '</div>' +
+      '<ul class="cst-changed-l">' +
+        items.map(function (i) { return '<li>' + _esc(i.text) + '</li>'; }).join('') +
+      '</ul>' +
+      '<div class="cst-changed-f">' + _esc(L(
+        'Bạn đã đồng ý bản v' + prior.version + (when ? ' ngày ' + fmtDayMon(when) : '') + '. Phần còn lại giữ nguyên.',
+        'You agreed to v' + prior.version + (when ? ' on ' + fmtDayMon(when) : '') + '. Everything else is unchanged.')) + '</div>' +
+      '</div>';
+  }
 
   (function () {
     var _cstKnown = null;
@@ -65,7 +127,10 @@
       var rec = null;
       try { rec = await _cstFetch(); } catch (e) { /* unreadable: ask again */ }
       if (rec && rec.version >= FH_CONSENT_V) return true;
-      window.fhConsentSheet({ then: then });
+      /* Hand the record over rather than letting the sheet fetch it again:
+         one round trip, and the sheet renders in this turn instead of a
+         microtask later, so the CTA does not sit dead after the tap. */
+      window.fhConsentSheet({ then: then, prior: rec, priorKnown: true });
       return false;
     };
 
@@ -90,7 +155,7 @@
       var res;
       try {
         res = await sb.from('user_consents')
-          .select('version')
+          .select('version,consented_at')
           .eq('kind', FH_APPDATA_KIND)
           .order('version', { ascending: false })
           .limit(1);
@@ -98,14 +163,16 @@
       if (!res || res.error) return;
       var rec = res.data && res.data[0];
       if (rec && rec.version >= FH_APPDATA_CONSENT_V) return;
-      window.fhAppDataConsentSheet();
+      window.fhAppDataConsentSheet({ prior: rec, priorKnown: true });
     };
 
     window.fhAppDataConsentSheet = async function (opts) {
       opts = opts || {};
       var ro = !!opts.readOnly;
-      var accepted = null;
-      if (ro) {
+      /* Fetched even when asking, not only when reviewing: a re-consent has to
+         know which version they last agreed to before it can say what moved. */
+      var accepted = opts.prior || null;
+      if (!opts.priorKnown) {
         try {
           var r = await sb.from('user_consents').select('version,consented_at')
             .eq('kind', FH_APPDATA_KIND).order('version', { ascending: false }).limit(1);
@@ -113,7 +180,16 @@
         } catch (e) {}
       }
 
+      /* Same triad, same order: what, why, then how it is protected and how to
+         leave. The app-wide sheet has to carry the data types too -- it is the
+         only place someone is told what the app holds at all. */
       var rows =
+        _cstRow(L('Earthy lưu gì?', 'What does Earthy store?'), _esc(L(
+          'Email đăng nhập và tên bạn. Tên và ảnh các thành viên trong nhà. Các khoản thu chi bạn tự ghi hoặc nhập từ tệp, kể cả bảng sao kê ngân hàng, cùng ghi chú, hạng mục và ảnh. Giữ đến khi bạn xoá, hoặc xoá tài khoản.',
+          'Your sign-in email and name. Your family members’ names and photos. The spending you record or import from files, including bank statements, with notes, categories and photos. Kept until you delete them, or delete your account.'))) +
+        _cstRow(L('Để làm gì?', 'What for?'), _esc(L(
+          'Chỉ để chạy cuốn sổ chi tiêu của gia đình bạn. Dữ liệu lưu trên máy chủ đặt ngoài lãnh thổ Việt Nam. Không bán, không quảng cáo, không chấm điểm tín dụng.',
+          'Only to run your family’s expense book. Data is stored on servers located outside Vietnam. Never sold, never ads, never credit scoring.'))) +
         _cstRow(L('Ai đọc được sổ chi tiêu?', 'Who can read the ledger?'), _esc(L(
           'Chỉ những người giữ chìa khoá của gia đình bạn. Số tiền, ghi chú và ảnh chỉ mở được trên điện thoại có chìa khoá của gia đình; người làm Earthy hay bất kỳ ai khác đều chỉ thấy bản đã khoá. Chúng tôi không bán dữ liệu, không quảng cáo, không chấm điểm tín dụng.',
           'Only the people holding your family key. Amounts, notes and photos can only be opened on a phone that holds the family key; the people who build Earthy, or anyone else, see only the locked copy. We never sell data, never run ads, never do credit scoring.'))) +
@@ -144,11 +220,14 @@
           '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>';
       }
 
+      var changed1 = ro ? '' : _cstChangedBlock(FH_APPDATA_KIND, accepted, FH_APPDATA_CONSENT_V);
       _fhSheet(
         _cstKicker() +
         '<div class="sheet-h">' + _esc(L('Chuyện tiền của nhà mình, chỉ nhà mình biết.', 'Your family’s money stays your family’s business.')) + '</div>' +
         '<div class="sheet-sub">' + _esc(L('Earthy là cuốn sổ chi tiêu chung của nhà bạn.', 'Earthy is your family’s shared expense book.')) + '</div>' +
-        '<div class="cst-body">' + rows + '</div>' + footer);
+        (ro ? '' : changed1) +
+        (changed1 ? _cstFullTextFold(rows, FH_APPDATA_CONSENT_V) : '<div class="cst-body">' + rows + '</div>') +
+        footer);
     };
 
     window.fhAppDataConsentAgree = async function (btn) {
@@ -447,13 +526,25 @@
     window.fhConsentSheet = async function (opts) {
       opts = opts || {};
       var ro = !!opts.readOnly;
-      var accepted = null;
-      if (ro) { try { accepted = await _cstFetch(); } catch (e) {} }
+      // The re-consent needs the prior version to say what moved. The gate
+      // usually hands it over; only fetch when it did not.
+      var accepted = opts.prior || null;
+      if (!opts.priorKnown) { try { accepted = await _cstFetch(); } catch (e) {} }
 
+      /* Ordered to the statutory triad -- what, why, how -- then the rest of
+         the "quyền được biết" list: who else receives it, how long it is kept,
+         the rights, and who is answerable (small print). The Q&A voice stays
+         because it reads; the coverage is what the law fixes. */
       var rows =
+        _cstRow(L('Earthy lấy gì từ email?', 'What does Earthy take from the email?'), _esc(L(
+          'Số tiền, thời điểm, người nhận hoặc cửa hàng, lời nhắn chuyển khoản, số tài khoản đã che bớt, và tên ngân hàng.',
+          'The amount, the time, who was paid, the transfer note, the partially hidden account number, and the bank’s name.'))) +
+        _cstRow(L('Để làm gì?', 'What for?'), _esc(L(
+          'Chỉ để ghi vào sổ chi tiêu của gia đình bạn. Không bán, không quảng cáo, không chấm điểm tín dụng.',
+          'Only to record spending in your family’s ledger. Never sold, never ads, never credit scoring.'))) +
         _cstRow(L('Có ai đọc được email của tôi không?', 'Can anyone read my emails?'), _esc(L(
-          'Email được hệ thống xử lý tự động rồi tự xoá sau 7 ngày; email bị lỗi giữ tối đa 90 ngày rồi cũng xoá. Lần đầu gặp một ngân hàng, chúng tôi gửi nguyên nội dung email đó cho một dịch vụ AI để đọc giúp, gồm cả số tiền, tên và số tài khoản. Từ lần sau, email của ngân hàng đó được đọc ngay tại chỗ và không gửi đi đâu nữa.',
-          'Emails are processed automatically and delete themselves after 7 days; ones we fail to read are kept at most 90 days, then deleted too. The first time we meet a bank, we send that email as it is to an AI service to read for us, amounts, names and account numbers included. After that, mail from that bank is read on the spot and nothing leaves.'))) +
+          'Lần đầu gặp một mẫu email của ngân hàng, tụi mình gửi email đó cho AI của Google một lần, để học cách đọc mẫu đó. Những email sau cùng mẫu được đọc ngay tại hệ thống, không gửi đi đâu nữa. Email trong hộp thư trung gian tự xoá sau 7 ngày; email không đọc được giữ tối đa 90 ngày rồi cũng xoá. Giao dịch chờ duyệt giữ đến khi bạn duyệt hoặc ngắt kết nối.',
+          'The first time we meet a new email format from a bank, we send that one email to Google’s AI once, to learn how to read that format. Every later email in the same format is read on our own systems and goes nowhere. Emails in the relay inbox delete themselves after 7 days; ones we could not read are kept at most 90 days, then deleted too. Pending transactions are kept until you review them or disconnect.'))) +
         _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
           'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
           'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +
@@ -483,10 +574,13 @@
           '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>';
       }
 
+      var changed = ro ? '' : _cstChangedBlock(FH_CONSENT_KIND, accepted, FH_CONSENT_V);
       _fhSheet(
         _cstKicker(L('EMAIL NGÂN HÀNG', 'BANK EMAIL')) +
         '<div class="sheet-h">' + _esc(L('Ngân hàng gửi, Earthy niêm phong, nhà bạn mở.', 'Your bank sends it, Earthy seals it, your family opens it.')) + '</div>' +
-        '<div class="cst-body">' + rows + '</div>' + footer);
+        (ro ? '' : changed) +
+        (changed ? _cstFullTextFold(rows, FH_CONSENT_V) : '<div class="cst-body">' + rows + '</div>') +
+        footer);
 
       window._cstThen = ro ? null : (opts.then || null);
     };

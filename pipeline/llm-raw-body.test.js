@@ -139,16 +139,21 @@ t('the old promise is gone from the copy (vi)',
   consentCode.indexOf('số thật không bao giờ được gửi đi') === -1);
 t('the old promise is gone from the copy (en)',
   consentCode.indexOf('real values are never sent') === -1);
-t('the copy says mail is sent to an AI service (vi)',
-  consentCode.indexOf('gửi nguyên nội dung email đó cho một dịch vụ AI') >= 0);
-t('the copy says mail is sent to an AI service (en)',
-  consentCode.indexOf('we send that email as it is to an AI service') >= 0);
+/* Matched on the load-bearing PHRASE, not a whole sentence. The copy has been
+   through two voice passes since this test was written and both rewrote the
+   sentence around these words while keeping the promise identical — so a test
+   quoting a full sentence fails on style and passes on substance, which is
+   backwards for a disclosure guard. */
+t('the copy says mail is sent to the AI as written (vi)',
+  consentCode.indexOf('gửi nguyên văn cho AI') >= 0);
+t('the copy says mail is sent to the AI as written (en)',
+  consentCode.indexOf('sent to Google’s AI as written') >= 0);
 // The honest other half: most mail never reaches a model, and the copy is only
 // defensible while it says both things.
 t('the copy still says repeat senders are read locally (vi)',
   consentCode.indexOf('không gửi đi đâu nữa') >= 0);
 t('the copy still says repeat senders are read locally (en)',
-  consentCode.indexOf('nothing leaves') >= 0);
+  consentCode.indexOf('read on our own systems and goes nowhere') >= 0);
 
 console.log('\n' + (fail ? 'FAILED ' + fail + ' of ' + (pass + fail)
                          : 'ALL ' + pass + ' assertions passed'));

@@ -94,7 +94,64 @@ exist first. They join the beta-reopen checklist:
    lý dữ liệu · Chia sẻ dữ liệu · Thời hạn lưu trữ dữ liệu · Quyền lựa chọn
    của Người dùng.
 
-## 5. Consent sheet v3 — legally reviewed, benchmarked against MoMo
+## 5. Consent sheet v4 — corrected for what the AI actually receives
+
+**Correction, 2026-08-24 (Trang).** An earlier draft of this section said the
+serverless parser masks MONEY and EMAIL. The repo's `llm.extract()` does call
+`masking.mask()`, but **the deployed behaviour is that a first-encounter email
+goes to Gemini as written** — the same repo-versus-production gap that hid the
+push-send 401 for four days. Verify against the deployed function, not the
+tree, before writing anything else user-facing about it.
+
+The consent and the policy are therefore worded to the CONSERVATIVE reading:
+no masking is claimed at all. Under-claiming protection is safe; the reverse
+is what we were fixing.
+
+The v4 changelog entry states what now happens rather than narrating the
+correction: v4 shipped and was edited in place within the hour, before anyone
+had reached the re-consent, so no stored record points at the superseded
+wording. Editing in place was right HERE and is wrong once a version has been
+seen — after that, a change of substance means a new version, or the record
+stops meaning what it says.
+
+What IS true and worth saying, because it protects more than masking would:
+`pipeline.parse()` tries stored specs first and only reaches the model on a
+miss, so **one email per new format is sent, once**, and every later email in
+that format is read locally. Minimisation by frequency rather than by
+redaction. Policy Bản 3 and consent v4 both say this.
+
+### 5c. The seven the sheet must carry (quyền được biết)
+
+A consent screen is not free to be only reassuring. The law's notification
+list is: **purpose · data types · processing method · third parties · rights ·
+retention · controller identity and contact.**
+
+Worth recording how this went wrong, because it will try to again: the first
+drafts carried all seven, the UX pass rewrote them as questions people
+actually ask, and **"what do you take" and "what for" fell out of both sheets
+in the process.** Reassurance and disclosure pull in opposite directions, and
+the reassuring half is the one that survives editing. A test now asserts each
+of the seven on both sheets, so the next voice pass cannot quietly drop one.
+
+### 5a. The old framing (superseded)
+
+**v3 → v4 (2026-08-24).** The serverless parser masks `KINDS = (MONEY, EMAIL)`
+only, so on the direct-read path counterparty names and account numbers reach
+Gemini in the clear while v3's text promised they were masked. Trang's call:
+bump and re-ask now, strengthen the parser afterwards, rather than leave a
+false claim standing in the legally operative document.
+
+The re-consent LEADS with what changed (`FH_CONSENT_CHANGES`, rendered above
+the body for anyone whose stored version is older). Asking someone to agree
+again without saying what moved makes them re-read the whole sheet hunting
+for the difference; the entry states it as a change and is honest that this
+one is a downgrade. Any future bump MUST add its entry in the same commit as
+the version constant, which a test now enforces.
+
+When the parser is strengthened, this becomes v5 with an entry saying the
+protection came back.
+
+## 5b. Consent sheet v3 — legally reviewed, benchmarked against MoMo
 
 Placement: connect flow, between the intro sheet and the which-email step.
 One affirmative CTA; declining costs only this feature. The four grandfathered
@@ -225,7 +282,14 @@ app beyond the pipeline (incl. Vercel, Telegram) — fold it in.
 
 ## 7. Measures inventory (the part already true)
 
-Masking before any third-party model (shape-preserving, unconditional) ·
+Masking before any third-party model, but the scope now DIFFERS BY CHANNEL
+and the difference is user-visible: forwarding (Apps Script `maskForSharing`)
+masks amounts, ALL-CAPS names, every digit run and emails; direct read
+(serverless `parser/masking.py`, `KINDS = (MONEY, EMAIL)`) masks amounts and
+email addresses only, so counterparty names and account numbers reach the
+model in the clear. Its test is honestly named `test_no_figures_leave`. The
+policy (Bản 2) states both; the consent sheet still states the old, stronger
+claim and needs a version bump before it is true again. ·
 sealed staging, ephemeral-static X25519, server provably cannot read its own
 output · permanent DEK ledger encryption ('enc' terminal since 0035, verified
 plain_amount=0 across all four bank-email families 2026-08-17) · relay
