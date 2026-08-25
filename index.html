@@ -15629,7 +15629,22 @@ window.obGoogle = async function () {
       try { return await FHCrypto.decVal(P.key, b64); } catch (e) { return _DEC_FAILED; }
     };
     const _decTxt = async (b64) => { const v = await _decP(b64); return v === _DEC_FAILED ? null : v; };
-    function _setState(s) { P.state = s; try { if (window.renderPersonal) renderPersonal(); } catch (e) {} }
+    /* The bank-email review screen offers "Ghi vào đâu? — Cá nhân", and that chip
+       is disabled while this ledger has no key. fhPersonalBoot is fired from
+       hydrate and NOT awaited, so a queue opened in the window before the key
+       resolves showed the chip locked and then never corrected itself: nothing
+       re-rendered that screen, and the only way out was closing the sheet.
+
+       So the state change tells it too. Guarded on the staged review actually
+       being on screen, because re-rendering a file import from here would throw
+       away an in-progress edit. */
+    function _setState(s) {
+      P.state = s;
+      try { if (window.renderPersonal) renderPersonal(); } catch (e) {}
+      try {
+        if (window.csvStagedMode && window.csvReview && window.renderCsvReview) window.renderCsvReview();
+      } catch (e) {}
+    }
     function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return _localDate(d); }
 
     let _booting = false;

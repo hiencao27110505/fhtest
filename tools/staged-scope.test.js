@@ -89,6 +89,14 @@ t('unlocked: no disabled marker', html.indexOf('aria-disabled') < 0);
 t('family reads as pressed', /aria-pressed="true"[^>]*>Gia đình/.test(html) || html.indexOf('choice on') > 0);
 t('both destinations are offered', html.indexOf('Gia đình') > 0 && html.indexOf('Cá nhân') > 0);
 
+console.log('\n-- the chip un-disables itself when the ledger becomes ready --');
+const pers = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '19-personal.js'), 'utf8');
+const setState = pers.slice(pers.indexOf('function _setState('), pers.indexOf('function _setState(') + 600);
+t('a personal state change re-renders the staged review',
+  /renderCsvReview\(\)/.test(setState));
+t('and only when the STAGED review is on screen, never a file import',
+  /csvStagedMode && window\.csvReview/.test(setState));
+
 console.log('\n-- the promote path branches, it does not pass a flag --');
 const rv = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '72-txn-review.js'), 'utf8');
 t('personal writes go to fhPersonalAddExpense', /fhPersonalAddExpense\(/.test(rv));
