@@ -42,8 +42,8 @@ eval(grab('csvScopeReady'));
 eval(grab('csvStagedScope'));
 eval(grab('csvSetScope'));
 eval(grab('csvPickScope'));
-eval(grab('csvScopeSubtitle'));
-eval(grab('csvScopePicker'));
+eval(grab('csvRowScope'));
+eval(grab('csvRowScopeField'));
 
 let pass = 0, fail = 0;
 const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok && d ? '  -> ' + d : '')); ok ? pass++ : fail++; };
@@ -54,26 +54,25 @@ const absent   = () => { window.fhPersonalData = undefined; };
 console.log('\n-- the default is the shared ledger --');
 store = {}; unlocked();
 t('with nothing chosen, family wins', csvStagedScope() === 'family', csvStagedScope());
-t('and the subtitle says who will see it', csvScopeSubtitle().indexOf('cả nhà') >= 0, csvScopeSubtitle());
+t('an undecided row inherits that default', csvRowScope({}) === 'family');
 
-console.log('\n-- the pick is remembered --');
-csvPickScope('personal');
-t('personal sticks', csvStagedScope() === 'personal');
-t('it was persisted, not held in memory', store[CSV_SCOPE_KEY] === 'personal');
-t('choosing re-renders so the subtitle follows', rendered === 1);
-t('and the subtitle now says only you', csvScopeSubtitle().indexOf('chỉ mình bạn') >= 0, csvScopeSubtitle());
-csvPickScope('family');
-t('and it can be switched back', csvStagedScope() === 'family');
+console.log('\n-- but the DESTINATION belongs to the row, not the batch --');
+t('a row can be personal while the default is family',
+  csvRowScope({ _scope: 'personal' }) === 'personal');
+t('and family while the default is personal',
+  (function(){ store={'fh-staged-scope':'personal'}; var r=csvRowScope({_scope:'family'}); store={}; return r==='family'; })());
+t('a row with no opinion still follows the default',
+  (function(){ store={'fh-staged-scope':'personal'}; var r=csvRowScope({}); store={}; return r==='personal'; })());
 
-console.log('\n-- a locked personal ledger can never be chosen --');
+console.log('\n-- a locked personal ledger can never strand a row --');
 store = { 'fh-staged-scope': 'personal' }; locked();
-t('a REMEMBERED personal pick falls back to family when locked',
-  csvStagedScope() === 'family', csvStagedScope());
+t('a remembered personal default falls back to family', csvStagedScope() === 'family');
+t('AND a row explicitly marked personal falls back too — it must still import',
+  csvRowScope({ _scope: 'personal' }) === 'family');
 toasts = []; rendered = 0;
 csvPickScope('personal');
-t('picking personal while locked is refused', csvStagedScope() === 'family');
+t('setting the default to personal while locked is refused', csvStagedScope() === 'family');
 t('and says why rather than failing silently', toasts.length === 1, JSON.stringify(toasts));
-t('and does not persist the refused pick', store[CSV_SCOPE_KEY] !== 'personal' || csvStagedScope() === 'family');
 
 console.log('\n-- no personal ledger at all is the same as locked --');
 absent(); store = { 'fh-staged-scope': 'personal' };
@@ -81,11 +80,11 @@ t('falls back to family', csvStagedScope() === 'family');
 
 console.log('\n-- the control explains itself --');
 store = {}; locked();
-var html = csvScopePicker();
+var html = csvRowScopeField({});
 t('the disabled state is marked for assistive tech', html.indexOf('aria-disabled="true"') > 0);
 t('and a note says how to unlock', html.indexOf('Cá nhân') > 0 && html.indexOf('khoá') > 0);
 unlocked(); store = {};
-html = csvScopePicker();
+html = csvRowScopeField({});
 t('unlocked: no disabled marker', html.indexOf('aria-disabled') < 0);
 t('family reads as pressed', /aria-pressed="true"[^>]*>Gia đình/.test(html) || html.indexOf('choice on') > 0);
 t('both destinations are offered', html.indexOf('Gia đình') > 0 && html.indexOf('Cá nhân') > 0);
@@ -124,18 +123,31 @@ t('a personal state change re-renders the staged review',
 t('and only when the STAGED review is on screen, never a file import',
   /csvStagedMode && window\.csvReview/.test(setState));
 
-console.log('\n-- the promote path branches, it does not pass a flag --');
+console.log('\n-- the promote path splits ONE press across both ledgers --');
 const rv = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '72-txn-review.js'), 'utf8');
-t('personal writes go to fhPersonalAddExpense', /fhPersonalAddExpense\(/.test(rv));
-t('family writes still go to csvPromote', /await csvPromote\(/.test(rv));
-// Scoped to fhPromoteStaged: _stagedRetiredAdd is DEFINED earlier in the file,
-// so an unscoped indexOf finds the definition and the ordering claim is vacuous.
 const promote = rv.slice(rv.indexOf('window.fhPromoteStaged'));
-t('a failed personal row throws BEFORE anything is retired',
-  promote.indexOf('personal write failed') > 0 &&
+t('rows are partitioned by their own scope, not one batch flag',
+  /csvRowScope\(c\) === 'personal'/.test(promote));
+t('personal rows go to fhPersonalAddExpense', /fhPersonalAddExpense\(/.test(promote));
+t('family rows still go to csvPromote', /await csvPromote\(theirs\)/.test(promote));
+t('personal writes happen BEFORE csvPromote, which empties csvReview.ready',
+  promote.indexOf('fhPersonalAddExpense') < promote.indexOf('await csvPromote(theirs)'));
+t('a failed personal row throws before ANY family write or retirement',
+  promote.indexOf('personal write failed') < promote.indexOf('await csvPromote(theirs)') &&
   promote.indexOf('personal write failed') < promote.indexOf('_stagedRetiredAdd('));
 t('space_id is never set on a bank-sourced personal row (private, no un-share)',
   !/space_id\s*:/.test(promote));
+
+console.log('\n-- the row says where it is going without being opened --');
+const ui2 = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '56-csv-import-ui.js'), 'utf8');
+t('a collapsed private row is marked', /bc-scope/.test(ui2));
+t('and only the private one — family is the default, not a badge',
+  /csvRowScope\(c\)==='personal'\)\s*\?/.test(ui2));
+t('a private row hides "Ai trả" — one member, no split',
+  /!\(csvStagedMode && csvRowScope\(c\)==='personal'\)/.test(ui2));
+t('switching destination reads the editor first, so edits are not lost',
+  /csvReadEditor\(c\);\s*\n\s*c\._scope = v;/.test(ui2));
+t('the summary reports the MIX rather than one label', /csvScopeSummary/.test(ui2));
 
 console.log('\n' + (fail ? '  ' + fail + ' FAILED' : '  all ' + pass + ' passed') + ' (' + (pass + fail) + ' assertions)\n');
 process.exit(fail ? 1 : 0);

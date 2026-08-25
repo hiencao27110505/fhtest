@@ -146,6 +146,10 @@
    current pick MEANS, so the label can stay a plain question. */
 #csv-result.staged .csv-scope{margin:0 2px 20px;padding:14px 0 0;border-top:1px solid var(--hairline)}
 #csv-result.staged .csv-scope .choice[aria-disabled="true"]{opacity:.4}
+/* Destination marker on a collapsed row. Only the private case is marked —
+   family is the default, and badging both would put a chip on every card to
+   distinguish the exception. */
+#csv-result.staged .bc-scope{display:inline-block;margin:2px 0 0;font-size:11.5px;font-weight:600;letter-spacing:-.01em;color:var(--muted)}
 #csv-result.staged .csv-scope-note{font-size:12.5px;color:var(--muted);margin-top:8px;letter-spacing:-.01em}
 
 /* ---------- sealed-staging key-mismatch alarm ---------- */
