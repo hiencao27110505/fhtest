@@ -181,8 +181,21 @@
       //     accepted rather than corrected.
       // So a memo-less transfer is left blank for the human, which is the one
       // thing only they know.
+      //
+      // memo_display is that judgement already made, by whichever transport
+      // staged the row: the memo with the bank's auto-fill taken out. Prefer it,
+      // because raw memo is exactly where "NGUYEN THU TRANG chuyen tien" lives —
+      // prose enough to look answered, empty enough to tell you nothing.
+      //
+      // An EMPTY memo_display is a VERDICT, not a missing value: it means "this
+      // memo says nothing", and it must fall through to the counterparty rule
+      // the same way a memo-less card purchase does. So the test is presence,
+      // not truthiness — `x.memo_display || x.memo` would resurrect the raw
+      // auto-fill in precisely the case the tidy just rejected. Only an ABSENT
+      // field falls back, and that is rows staged before the tidy existed.
+      var tidied = x.memo_display == null ? x.memo : x.memo_display;
       var isPerson = x.transaction_type === 'p2p_transfer';
-      var description = x.memo || (isPerson ? '' : (r.counterparty || r.source_provider || ''));
+      var description = tidied || (isPerson ? '' : (r.counterparty || r.source_provider || ''));
       var amt = (r.direction === 'credit' ? '' : '-') + String(r.amount);
       return [r.occurred_at, description, amt, r.counterparty || ''];
     });

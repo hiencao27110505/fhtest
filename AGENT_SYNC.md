@@ -143,6 +143,50 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-26 (direct-read session) — THE REVIEW SCREEN NOW PREFERS `memo_display`.
+  Picks up the handoff the 08-25 entry left for whoever owns that screen. No
+  migration, no schema change, no pipeline change.**
+
+  `72-txn-review.js` filled "Chi cho gì" from raw `memo`, so bank auto-fill —
+  "NGUYEN THU TRANG chuyen tien" — arrived looking like an answer. A pre-filled
+  wrong answer gets ACCEPTED rather than corrected, which is worse than the blank
+  field it replaced. Both transports have been writing the tidied verdict as
+  `memo_display` since the direct-read work landed; the screen was throwing it
+  away. One line, and it improves forwarding and direct read at once.
+
+  **The part worth reading before anyone touches it again.** `memo_display === ''`
+  is a VERDICT — "this memo says nothing" — not a missing value. So the test is
+  presence, not truthiness:
+
+  ```js
+  var tidied = x.memo_display == null ? x.memo : x.memo_display;   // right
+  var tidied = x.memo_display || x.memo;                           // INVERTS THE FIX
+  ```
+
+  The `||` form resurrects the raw auto-fill in exactly the case the tidy just
+  rejected, and it passes every obvious test — which is why
+  `tools/staged-memo-display.test.js` (17 assertions) exists and why four of them
+  do nothing but pin that one distinction. Both wrong versions were run against
+  it: the old raw-`memo` code fails 4, the `||` rewrite fails 3. A guard that
+  passes before and after the fix is not a guard. Only an ABSENT/`null` field
+  falls back now, which is rows staged before the tidy existed.
+
+  **Knock-on worth knowing:** more rows now reach the screen with a BLANK
+  description than before, because auto-fill that used to produce text now
+  correctly produces nothing. That lands on `bucketCsvCandidates`, whose silent-row
+  collision was the bug `tools/review-bucketing.test.js` was written for — it is
+  fixed and still green, so this is more traffic down a path that already holds,
+  not a new hazard. Category learning is unaffected: it keys on the counterparty,
+  which this does not touch.
+
+  **`counterparty` deliberately NOT touched.** `counterparty_display` exists but
+  `worker.mjs` already collapses it into `merchant` before staging, so the clear
+  column is tidied upstream. There is nothing for the screen to prefer.
+
+  Suite is 29 files green. `72-txn-review.js` + rebuilt `index.html`, and the
+  now-stale comment in `worker.mjs` that predicted this change updated to describe
+  it. `sw.js` untouched — no precached asset changed.
+
 - **2026-08-25 (direct-read session) — GMAIL PUSH IS IN. Notifications now arrive
   with the bank email rather than up to 5 minutes later. CLAIMING
   `0086_mailbox_watch.sql`; next free is `0087`.**

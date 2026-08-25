@@ -298,9 +298,10 @@ function _toReading(x, message) {
     // carries them. tidyMemo can legitimately return an empty description (bank
     // auto-fill like "NGUYEN THU TRANG chuyen tien" says nothing), and collapsing
     // the two here would either lose that judgement or lose the original. The
-    // review screen reads `memo` today; when it learns to prefer `memo_display`
-    // that improves both transports at once, which it cannot do if one of them
-    // already threw a field away.
+    // review screen (`72-txn-review.js`) prefers `memo_display` and treats an
+    // EMPTY one as the verdict it is, falling through to the counterparty rather
+    // than resurrecting the raw auto-fill — which it could not do if either
+    // transport had thrown a field away here.
     description: x.memo ?? null,
     descriptionDisplay: x.memo_display ?? null,
     typeCode: x.type_code || null,
