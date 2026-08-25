@@ -47,8 +47,8 @@
      "we protect your data". */
   var FH_CONSENT_CHANGES = {
     bank_email: {
-      4: ['Tụi mình nói lại cho đúng phần AI. Trước đây tụi mình nói mọi số tiền, tên và số tài khoản đều được che trước khi gửi cho AI; điều đó không còn đúng. Thực tế: lần đầu gặp một mẫu email mới, email đó được gửi nguyên văn cho AI của Google một lần để học cách đọc, và những email sau cùng mẫu thì không gửi đi nữa.',
-          'We are correcting what we said about the AI. We previously said every amount, name and account number was masked before anything was sent; that is no longer accurate. What actually happens: the first time we meet a new email format, that email is sent to Google’s AI as written, once, to learn how to read it, and later emails in the same format are not sent at all.'],
+      4: ['Lần đầu gặp một mẫu email của ngân hàng, email đó được gửi nguyên văn cho AI của Google một lần, để học cách đọc mẫu. Những email sau cùng mẫu không được gửi đi nữa.',
+          'The first time we meet a new email format from a bank, that email is sent to Google’s AI as written, once, so it can learn how to read the format. Later emails in the same format are not sent at all.'],
     },
     app_data: {},
   };

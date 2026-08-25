@@ -97,6 +97,13 @@ The consent and the policy are therefore worded to the CONSERVATIVE reading:
 no masking is claimed at all. Under-claiming protection is safe; the reverse
 is what we were fixing.
 
+The v4 changelog entry states what now happens rather than narrating the
+correction: v4 shipped and was edited in place within the hour, before anyone
+had reached the re-consent, so no stored record points at the superseded
+wording. Editing in place was right HERE and is wrong once a version has been
+seen — after that, a change of substance means a new version, or the record
+stops meaning what it says.
+
 What IS true and worth saying, because it protects more than masking would:
 `pipeline.parse()` tries stored specs first and only reaches the model on a
 miss, so **one email per new format is sent, once**, and every later email in
