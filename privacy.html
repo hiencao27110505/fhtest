@@ -71,7 +71,7 @@
     <tr><td>Supabase</td><td>Lưu trữ dữ liệu ứng dụng. Với các giá trị nhạy cảm, máy chủ chỉ giữ bản đã niêm phong hoặc đã khoá.</td></tr>
     <tr><td>Vercel</td><td>Phân phối ứng dụng web.</td></tr>
     <tr><td>Google (Gmail)</td><td>Hộp thư trung gian nhận email bạn chuyển tiếp, tự xoá theo thời hạn ở mục 7.</td></tr>
-    <tr><td>Google (Gemini)</td><td>Đọc cấu trúc email của ngân hàng gặp lần đầu, sau khi mọi số tiền, tên và số tài khoản thật đã bị che. Giá trị thật không bao giờ được gửi đi.</td></tr>
+    <tr><td>Google (Gemini)</td><td>Đọc email của ngân hàng gặp lần đầu. Nội dung được gửi nguyên bản, gồm cả số tiền, tên và số tài khoản. Từ lần thứ hai trở đi, email của ngân hàng đó được đọc tại chỗ và không gửi cho Gemini nữa.</td></tr>
     <tr><td>Telegram</td><td>Cảnh báo vận hành cho người quản trị, không kèm giá trị giao dịch.</td></tr>
     <tr><td>Thành viên gia đình bạn</td><td>Giao dịch bạn duyệt vào sổ chung sẽ hiển thị cho cả nhà.</td></tr>
     <tr><td>Cơ quan nhà nước có thẩm quyền</td><td>Chỉ khi có yêu cầu đúng quy định pháp luật. Với các giá trị đã niêm phong, phần chúng tôi có thể cung cấp chỉ là bản đã khoá.</td></tr>
@@ -105,8 +105,9 @@
   <h2>9. Bảo vệ dữ liệu</h2>
   <p>Số tiền và ghi chú trong sổ được mã hoá đầu cuối trên thiết bị của gia
   đình. Giao dịch từ email được niêm phong ngay khi đến; chìa khoá chỉ nằm trên
-  thiết bị của nhà bạn. Nội dung gửi cho AI luôn bị che hết giá trị thật. Hệ
-  thống tự phát hiện việc thay khoá và ghi vết sự cố. Nếu xảy ra vi phạm dữ
+  thiết bị của nhà bạn. Với ngân hàng gặp lần đầu, nội dung email được gửi
+  nguyên bản cho AI để đọc, theo sự đồng ý bạn đã xác nhận riêng cho tính năng
+  này. Hệ thống tự phát hiện việc thay khoá và ghi vết sự cố. Nếu xảy ra vi phạm dữ
   liệu, chúng tôi thông báo trong 72 giờ theo quy định.</p>
 
   <h2>10. Trẻ em</h2>
@@ -156,9 +157,10 @@
     <h2>5. Sharing</h2>
     <p>Supabase stores the app's data; for sensitive values it keeps only the
     sealed or locked copy. Vercel serves the web app. Google's Gmail runs the
-    relay inbox, cleared on the schedule in section 7. Google's Gemini reads
-    the structure of a first-time bank email only after every real amount, name
-    and account number has been masked; real values are never sent. Telegram
+    relay inbox, cleared on the schedule in section 7. Google's Gemini reads a
+    first-time bank email, sent as written, amounts and names included; from the
+    second email off that template onward it is read locally and nothing goes to
+    Gemini. Telegram
     carries operational alerts with no transaction values. Transactions you
     approve appear in the shared ledger for your family. Competent state
     authorities receive data only on a lawful request, and for sealed values
@@ -189,8 +191,9 @@
     <h2>9. Protection</h2>
     <p>Ledger amounts and notes are end-to-end encrypted on family devices.
     Email transactions are sealed the moment they arrive, and the key lives
-    only on your family's devices. Anything sent to the AI has every real value
-    masked first. The system detects key substitution on its own and keeps
+    only on your family's devices. For a first-time bank, the email is sent to the
+    AI as written, under the consent you confirm separately for this feature.
+    The system detects key substitution on its own and keeps
     incident logs. If a breach happens, we notify within 72 hours as
     regulated.</p>
 

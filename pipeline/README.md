@@ -25,16 +25,17 @@ Gmail filter labels bank email txn/inbox
       → fingerprint lookup (sender + normalized subject template)
           known non-transactional        → skip
           stored extraction template     → parse 100% locally, zero LLM
-          unknown / template mismatch    → mask → Gemini classify+extract → unmask
+          unknown / template mismatch    → Gemini classify+extract (raw mail)
                                             → derive + store template for next time
       → cross-source dedup check → resolve member via +tag
       → insert pending row into email_transactions → relabel txn/processed
 ```
 
-Privacy invariants (unconditional — encryption is default-on product-wide):
-- **Masking**: no real amounts/names/accounts/refs/emails ever reach the LLM;
-  it extracts against shape-preserving fakes, real values are swapped back
-  locally (`maskForSharing`/`unmaskExtraction`).
+Privacy posture:
+- **What the model sees**: the mail as written, real amounts and names included.
+  Masking was removed on 2026-08-25 and **consent replaced it** — the `bank_email`
+  sheet says so and `FH_CONSENT_V` went to 4 so everyone re-affirms. The CSV
+  redactor (`43-redact-for-sharing.js`) is a different feature and still masks.
 - **Templates**: repeat senders are parsed entirely locally
   (`deriveExtractionTemplate`/`applyExtractionTemplate`) — no third party at
   all. Templates self-invalidate via `EXTRACTION_LOGIC_VERSION` when the
@@ -47,8 +48,8 @@ Privacy invariants (unconditional — encryption is default-on product-wide):
 
 | File | What |
 |---|---|
-| `bank-email-pipeline.gs` | The whole pipeline (Stage 0 fetch, Stage 1 mask+extract+templates, Stage 2 write). Deploy = paste into Apps Script (until clasp). |
-| `extraction.md` | LLM prompt + output schema, masking spec, template derivation notes, safety ceilings. |
+| `bank-email-pipeline.gs` | The whole pipeline (Stage 0 fetch, Stage 1 extract+templates, Stage 2 write). Deploy = paste into Apps Script (until clasp). |
+| `extraction.md` | LLM prompt + output schema, template derivation notes, safety ceilings. |
 
 Script Properties required: `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
 Schema: migrations `0025`/`0027`/`0028` (live) + `0048` seed branch (pending merge).

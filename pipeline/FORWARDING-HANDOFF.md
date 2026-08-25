@@ -97,16 +97,18 @@ wrong side.
 A user sets a Gmail filter forwarding their bank's mail to a shared inbox with a
 `+tag` unique to them. A Google Apps Script (`pipeline/bank-email-pipeline.gs`,
 1-minute trigger) searches that inbox, checks the sender is really the bank
-(DKIM + `known_provider_domains`), masks every real value, sends the masked text
-to Gemini for extraction, unmasks the result, routes it to a member via the
+(DKIM + `known_provider_domains`), sends the mail to Gemini for extraction,
+routes it to a member via the
 `+tag` → `mailbox_connections` → `members.family_id`, and writes a **staged**
 row. A human then reviews every row in the app before it becomes a real expense.
 Nothing is ever auto-imported.
 
 Two invariants that are not negotiable and are easy to break by accident:
 
-1. **Masking before any LLM call.** No real amounts, names, account numbers,
-   references or emails reach Gemini, ever. `maskForSharing` / `unmaskExtraction`.
+1. **Consent before any collection.** Masking used to be the invariant here and
+   was removed on 2026-08-25; the mail now goes to the model as written, and the
+   `bank_email` consent sheet is what carries that. If you change what is sent,
+   change the sheet and bump `FH_CONSENT_V` in the same commit.
 2. **Every row is human-reviewed.** The machine gets amount and date right but
    cannot know that *"NGUYEN THU TRANG chuyen tien"* was lunch with your mum.
 

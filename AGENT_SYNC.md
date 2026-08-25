@@ -202,12 +202,61 @@ hand-merging `index.html`. Both replaced vigilance with structure.
   **No answer needed** unless you disagree with the transport split or you are
   already holding `0084`.
 
-- **2026-08-25 (direct-read session) — FYI: `index.html` is committed one build
-  behind `sw.js` on main.** `sw.js` says `familyhub-v393`, the committed
-  `index.html` stamps `FH_VERSION = 'v392'`, so `npm run check` fails on a clean
-  tree and "What's new" shows the wrong version. One rebuild fixes it. Left
-  alone deliberately — it belongs to whoever bumped the SW, and folding it into
-  an unrelated commit is how a one-line drift becomes hard to attribute.
+- **2026-08-25 (direct-read session) — FYI: the `index.html` / `sw.js` drift is
+  resolved, as a side effect.** `sw.js` said `familyhub-v393` while the committed
+  `index.html` still stamped `FH_VERSION = 'v392'`, so `npm run check` failed on
+  a clean tree. The consent change below touches `src/`, so the mandatory rebuild
+  picked the bump up. Nothing was done to it deliberately; noting it so the
+  one-line `FH_VERSION` change in that commit is not a mystery.
+
+- **2026-08-25 (direct-read session) — ⚠️ MASKING IS GONE FROM THE FORWARDING
+  PIPELINE. Mail now goes to the model as written, and CONSENT IS THE CONTROL
+  THAT REPLACED IT. `FH_CONSENT_V` is 4; a v3 record no longer counts.**
+
+  Product decision, made deliberately, not a regression. `maskForSharing()` /
+  `unmaskExtraction()` are deleted from `bank-email-pipeline.gs`; both LLM call
+  sites send the real subject and body. `PIPELINE_VERSION` is `2026-08-25-a`
+  (**re-paste into Apps Script** — the old version keeps masking until you do,
+  and the log line is still the only proof of which code is live).
+
+  **Why the consent version had to move, and why this is the load-bearing part.**
+  v3's copy said, in as many words, "số thật không bao giờ được gửi đi" / "real
+  values are never sent". That was true when it was written. Leaving a v3 record
+  standing would mean holding people to agreement with a promise the pipeline no
+  longer keeps, which is worse than never having made it. v4 names what is sent
+  and also names the half that still never leaves: a learned `(sender,
+  subject_template)` is parsed locally with no model involved, which is most
+  volume permanently. Both halves have to stay in the copy for it to be honest.
+
+  **The rule this leaves behind, for whoever touches either side next: what is
+  sent and what the sheet says move in the SAME commit.**
+  `pipeline/llm-raw-body.test.js` (37 assertions) enforces it from both ends —
+  the real body actually reaches each provider's payload, no mask helper
+  survives in code, and the copy still says what is sent in both languages.
+
+  **Also corrected, because they asserted the old invariant:** `privacy.html`
+  (published policy, both languages), `docs/PDPL-COMPLIANCE.md`,
+  `docs/features/bank-email-pipeline.md` §4, `pipeline/{README,extraction,
+  SEALED-STAGING-DESIGN,FORWARDING-HANDOFF,OAUTH-DIRECT-READ}.md`, and
+  `tools/gmail-oauth-probe.js` (it printed the masked copy; it now prints what
+  is actually sent, which is the only version of that probe worth having).
+
+  **Two things NOT touched, both deliberate:**
+  1. **The CSV redactor (`src/js-ui/43-redact-for-sharing.js`) still masks.**
+     Different feature, different surface, different consent. Nothing here
+     applies to it.
+  2. **`earthy/serverless/functions/transaction-parser/parser/masking.py` still
+     masks** and is untouched, being the backend team's code. If direct read
+     goes live on their pipeline rather than ours, that is a second decision to
+     make and a second place this consent text has to match. **Someone needs to
+     tell Quang** — our sheet now describes a pipeline that sends raw, and his
+     sends masked, so whichever a user is actually on decides whether the copy
+     they agreed to is accurate.
+
+  **Filings need re-doing.** The DPIA and the Đ22 cross-border dossier both
+  describe the masked flow. The transfer to Google now carries sensitive values
+  rather than shape-preserving fakes, which changes *what* is transferred, not
+  only how. Recorded in `docs/PDPL-COMPLIANCE.md` as a dated amendment.
 
 - **2026-08-24 (Hien) — DISCUSS/COORDINATE: make bank-email import personal-first
   (it's your pipeline).** Personal ledger (Model Y) now has its own budget + spend

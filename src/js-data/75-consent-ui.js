@@ -20,9 +20,20 @@
      reader's actual questions, formal "chúng tôi" register for legal surfaces,
      protection stated as conclusions. It must not drift from
      docs/PDPL-COMPLIANCE.md §5: bump the version constant when either
-     changes, and everyone re-consents to the new text. */
+     changes, and everyone re-consents to the new text.
 
-  var FH_CONSENT_V = 3;
+     v4 (2026-08-25). MASKING WAS REMOVED FROM THE PIPELINE, so the first mail
+     off an unfamiliar bank template now goes to the model as written. v3 said
+     the opposite in as many words ("real values are never sent"), which was
+     true when it was written and became false the moment the pipeline changed.
+     Consent is now the only control on that leg, so the sentence has to carry
+     it: it names what is sent, and it names the half that still never leaves
+     (every later mail off a learned template, which is most of them). Everyone
+     re-affirms against the new text because a v3 record is proof of agreement
+     to a promise we no longer keep. Pipeline side: the "What the model is sent"
+     block in pipeline/bank-email-pipeline.gs. The two move together. */
+
+  var FH_CONSENT_V = 4;
   var FH_CONSENT_KIND = 'bank_email';
   var FH_APPDATA_CONSENT_V = 1;
   var FH_APPDATA_KIND = 'app_data';
@@ -205,8 +216,8 @@
 
       var rows =
         _cstRow(L('Có ai đọc được email của tôi không?', 'Can anyone read my emails?'), _esc(L(
-          'Email được hệ thống xử lý tự động rồi tự xoá sau 7 ngày; email bị lỗi giữ tối đa 90 ngày rồi cũng xoá. Khi gặp một ngân hàng lần đầu, AI chỉ đọc bản đã che hết số tiền, tên và số tài khoản; số thật không bao giờ được gửi đi.',
-          'Emails are processed automatically and delete themselves after 7 days; ones we fail to read are kept at most 90 days, then deleted too. For a first-time bank, the AI only reads a copy with every amount, name and account number masked; real values are never sent.'))) +
+          'Email được hệ thống xử lý tự động rồi tự xoá sau 7 ngày; email bị lỗi giữ tối đa 90 ngày rồi cũng xoá. Lần đầu gặp một ngân hàng, chúng tôi gửi nguyên nội dung email đó cho một dịch vụ AI để đọc giúp, gồm cả số tiền, tên và số tài khoản. Từ lần sau, email của ngân hàng đó được đọc ngay tại chỗ và không gửi đi đâu nữa.',
+          'Emails are processed automatically and delete themselves after 7 days; ones we fail to read are kept at most 90 days, then deleted too. The first time we meet a bank, we send that email as it is to an AI service to read for us, amounts, names and account numbers included. After that, mail from that bank is read on the spot and nothing leaves.'))) +
         _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
           'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
           'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +

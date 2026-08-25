@@ -39,15 +39,16 @@ backfill becomes possible. Both are in §2.
 
 ## 1. What exists today, and what survives
 
-The current pipeline is: forwarded email → Apps Script → mask → Gemini extract →
-unmask → dedup → route by `+tag` → staged row → human review → ledger.
+The current pipeline is: forwarded email → Apps Script → Gemini extract → dedup →
+route by `+tag` → staged row → human review → ledger. (Masking sat between Apps
+Script and Gemini until 2026-08-25; see §4.1.)
 Full detail in `pipeline/README.md`.
 
 **Reusable as-is under OAuth — do not rebuild these:**
 
 | Piece | Where | Note |
 |---|---|---|
-| Masking before any LLM call | `maskForSharing`/`unmaskExtraction` in `bank-email-pipeline.gs` | Unconditional invariant. Keep it. |
+| ~~Masking before any LLM call~~ | removed 2026-08-25 | Consent replaced it. See §4.1. |
 | Local extraction templates | `deriveExtractionTemplate`/`applyExtractionTemplate` | Repeat senders parse with zero LLM. This is most volume. |
 | Gemini prompt + output schema | `pipeline/extraction.md` | Includes the `memo` field — the only thing carrying *why* money moved. |
 | Sealed staging design | `pipeline/SEALED-STAGING-DESIGN.md` | Envelope format is transport-agnostic. Unaffected. |
@@ -231,7 +232,7 @@ whoever answers. Read it before starting; it is the live channel.
    defend publicly. If it cannot be written honestly, stop and say so.
 3. **Decide: does forwarding stay as a second path?**
 4. Only then: a spike that OAuths one account, pulls one bank email through
-   the *existing* mask → extract → unmask path, and stages one row. Everything
+   the *existing* extract path, and stages one row. Everything
    downstream already works — the review UI has been used against real staged
    rows.
 

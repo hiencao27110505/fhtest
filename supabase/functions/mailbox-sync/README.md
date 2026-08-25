@@ -43,7 +43,7 @@ pg_cron ──▶ net.http_post ──▶ mailbox-sync
                                  ├─ mailbox_grants: due mailboxes (0084)
                                  ├─ refresh token ──▶ Google ──▶ access token
                                  ├─ messages.list q=from:(bank domains) since cursor
-                                 ├─ parse (mask ▸ extract ▸ validate)
+                                 ├─ parse (template ▸ else model ▸ validate)
                                  ├─ identity.mjs   grant ──▶ member, family, staging_pub
                                  ├─ stage.mjs      seal ▸ fingerprint ▸ dedup
                                  └─ email_transactions   (sealed, pending)
@@ -74,9 +74,12 @@ encryption is real.
 2. **OAuth callback** — exchange the code with `access_type=offline` and `prompt=consent`, take the
    address from Google's profile call (never from `login_hint`), encrypt the refresh token, and call
    `grant_mailbox_access()`.
-3. **Extraction** — masking, then our own extraction templates, then the model. Masking is
-   unconditional and gets *more* important here, not less: this transport touches mail the user
-   never hand-picked.
+3. **Extraction** — our own templates first, the model only for a template we have not learned.
+   **No masking**: it was removed from the forwarding pipeline on 2026-08-25 and consent replaced
+   it, so this transport is built the same way rather than reintroducing a protection the other
+   half dropped. That makes the consent copy load-bearing here too, and more so than under
+   forwarding: this reads mail the user never hand-picked. If you change what is sent, change the
+   `bank_email` sheet and bump `FH_CONSENT_V` in the same commit.
 4. **DKIM** — `Authentication-Results` is on the message Gmail hands over. Under forwarding a
    phishing mail had to be forwarded to us first; here it is read straight out of the inbox it
    landed in. `OAUTH-DIRECT-READ.md` §4.3.

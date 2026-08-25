@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-24-a';   // merges -b (retention windows + dup notify) and -d; whoever merges owns the bump, paste only from origin/main
+var PIPELINE_VERSION = '2026-08-25-a';   // raw mail to the model (masking removed, consent v4); whoever merges owns the bump, paste only from origin/main
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -563,104 +563,42 @@ function incrementDailyCallCount() {
   props.setProperty(key, String(count + 1));
 }
 
-// ---------- Masking: no real customer data ever leaves for a third party ----------
-// The subject+body are masked BEFORE any LLM call — unconditionally, no enc-state
-// check, per the product promise ("no one knows your data except you"). Each
-// sensitive token is replaced by a fake with the same SHAPE (digit count,
-// separators, caps), the LLM extracts against the fake text, and unmaskExtraction()
-// swaps the real values back in locally. Dates/times stay real (the model must
-// resolve their format; they identify no one alone). Verified end-to-end against
-// the live Gemini API on the real MB Bank sample, 2026-08-06: identical
-// classification + extraction quality, zero real values sent.
-// Sibling of the app's fhMaskSampleRowsForSharing (43-redact-for-sharing.js) —
-// same idea, adapted for unstructured email text instead of CSV rows.
-
-var FAKE_NAMES = ['TRAN VAN BAO', 'LE THI MAI', 'PHAM MINH DUC', 'HOANG THU HA', 'VU QUOC ANH'];
-// caps runs containing any of these words are institutional, not personal — leave them
-var CAPS_BLOCKLIST = { VND: 1, USD: 1, EUR: 1, MB: 1, BANK: 1, EBANKING: 1, ATM: 1, NAPAS: 1, QR: 1, PBC: 1, INC: 1, LLC: 1, JSC: 1, TMCP: 1, OTP: 1 };
-
-function maskForSharing(text) {
-  var pairs = [];   // [{masked, original}] string swaps, applied longest-first on the way back
-  var numMap = {};  // masked numeric value -> original numeric value (amount comes back as a number)
-  var holes = [];   // protected date/time spans, restored verbatim
-
-  var out = String(text || '');
-
-  // 1. protect date/time spans from the digit pass
-  out = out.replace(/\b\d{1,4}[-\/]\d{1,2}[-\/]\d{1,4}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?\b|\b\d{1,2}:\d{2}(?::\d{2})?\b/g, function (m) {
-    holes.push(m);
-    return '\x00' + (holes.length - 1) + '\x00';
-  });
-
-  // 2. email addresses in the body (the recipient's own address is personal data)
-  out = out.replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, function (m) {
-    var masked = 'user' + Math.floor(Math.random() * 9000 + 1000) + '@example.com';
-    pairs.push({ masked: masked, original: m });
-    return masked;
-  });
-
-  // 3. ALL-CAPS name runs (Vietnamese bank emails write personal names in caps)
-  var nameSeen = {};
-  out = out.replace(/\b[A-Z]{2,}(?: [A-Z]{2,}){1,5}\b/g, function (m) {
-    var words = m.split(' ');
-    for (var i = 0; i < words.length; i++) if (CAPS_BLOCKLIST[words[i]]) return m;
-    if (!nameSeen[m]) {
-      var fake = FAKE_NAMES[Object.keys(nameSeen).length % FAKE_NAMES.length];
-      nameSeen[m] = fake;
-      pairs.push({ masked: fake, original: m });
-    }
-    return nameSeen[m];
-  });
-
-  // 4. digit tokens (amounts, accounts, refs, phones): random digits, same shape.
-  //    Leading 0 stays 0 (phones), other leading digits stay nonzero (amounts).
-  var digitSeen = {};
-  out = out.replace(/\d(?:[\d.,]*\d)?/g, function (m) {
-    if ((m.match(/\d/g) || []).length < 2) return m;   // lone digits carry ~nothing
-    if (digitSeen[m]) return digitSeen[m];
-    var masked = '', first = true;
-    for (var i = 0; i < m.length; i++) {
-      var c = m[i];
-      if (c < '0' || c > '9') { masked += c; continue; }
-      if (first) {
-        masked += (c === '0') ? '0' : String(Math.floor(Math.random() * 9) + 1);
-        first = false;
-      } else {
-        masked += String(Math.floor(Math.random() * 10));
-      }
-    }
-    digitSeen[m] = masked;
-    pairs.push({ masked: masked, original: m });
-    var numOrig = parseFloat(m.replace(/,/g, ''));
-    var numMasked = parseFloat(masked.replace(/,/g, ''));
-    if (!isNaN(numOrig) && !isNaN(numMasked)) numMap[String(numMasked)] = numOrig;
-    return masked;
-  });
-
-  // 5. restore the protected date/time spans
-  out = out.replace(/\x00(\d+)\x00/g, function (_, i) { return holes[Number(i)]; });
-
-  return { text: out, pairs: pairs, numMap: numMap };
-}
-
-// Swaps real values back into the LLM's extraction output. String fields get
-// longest-first substring replacement; numeric fields go through numMap.
-function unmaskExtraction(extraction, mask) {
-  var sorted = mask.pairs.slice().sort(function (a, b) { return b.masked.length - a.masked.length; });
-  var out = {};
-  for (var key in extraction) {
-    var v = extraction[key];
-    if (typeof v === 'string') {
-      for (var i = 0; i < sorted.length; i++) v = v.split(sorted[i].masked).join(sorted[i].original);
-      out[key] = v;
-    } else if (typeof v === 'number' && mask.numMap[String(v)] !== undefined) {
-      out[key] = mask.numMap[String(v)];
-    } else {
-      out[key] = v;
-    }
-  }
-  return out;
-}
+// ---------- What the model is sent ----------
+// The subject and body go to the model AS WRITTEN. Real amounts, real names,
+// real account and reference numbers.
+//
+// This reverses a deliberate design. Until 2026-08-25 every LLM call went
+// through maskForSharing(), which replaced each sensitive token with a
+// shape-preserving fake, and unmaskExtraction(), which swapped the real values
+// back locally. It worked, it was verified against live Gemini on real MB Bank
+// mail, and it is gone on purpose rather than by accident.
+//
+// WHAT REPLACED IT: consent. Bank transactions are sensitive personal data
+// under L91/2025, so the feature already asks separately before a single email
+// is collected (75-consent-ui.js, kind 'bank_email', recorded in user_consents
+// per 0082). That sheet now states plainly that a first-time bank's mail is
+// sent to an AI service to be read, amounts and names included, and the
+// version was bumped so everyone re-affirms against the new text. Consent is
+// the control now; masking is not a second one running underneath it.
+//
+// IF YOU ARE ABOUT TO PUT IT BACK, READ THIS FIRST. Masking is not a bug fix
+// here and re-adding it silently would put the code and the consent sheet out
+// of step in the direction that matters least — but changing what we DISCLOSE
+// without changing what people agreed to is the one that matters most. Either
+// way the pair moves together: the sheet's copy and FH_CONSENT_V in
+// 75-consent-ui.js, and this comment.
+//
+// WHAT DID NOT CHANGE, and is easy to lose sight of:
+//   - Repeat senders never reach a model at all. A known (sender,
+//     subject_template) with a stored template is parsed locally by
+//     applyExtractionTemplate(), which is most volume, permanently. The
+//     consent copy says so because it is the honest half of the picture.
+//   - Nothing about at-rest sealing. The row still goes into the database in a
+//     box this script cannot open (SEALED-STAGING-DESIGN). The model leg and
+//     the database leg were always separate problems, and only the first one
+//     moved.
+//   - The app's CSV redactor (src/js-ui/43-redact-for-sharing.js) is a
+//     different feature on a different surface and is untouched.
 
 var EXTRACTION_SYSTEM_PROMPT =
   'You classify and extract structured data from an email. The email may or may not represent ' +
@@ -722,8 +660,7 @@ var EXTRACTION_SCHEMA = {
 function classifyAndExtractViaHaiku(sender, subject, body) {
   var apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
 
-  // Same masking contract as the Gemini path — swapping models never drops it.
-  var mask = maskForSharing('Subject: ' + subject + '\n\n' + body);
+  var mailText = 'Subject: ' + subject + '\n\n' + body;
 
   var payload = {
     model: 'claude-haiku-4-5',
@@ -732,7 +669,7 @@ function classifyAndExtractViaHaiku(sender, subject, body) {
     output_config: { format: { type: 'json_schema', schema: EXTRACTION_SCHEMA } },
     messages: [{
       role: 'user',
-      content: 'Sender: ' + sender + '\n' + mask.text,
+      content: 'Sender: ' + sender + '\n' + mailText,
     }],
   };
 
@@ -745,7 +682,7 @@ function classifyAndExtractViaHaiku(sender, subject, body) {
   });
 
   var data = JSON.parse(response.getContentText());
-  return unmaskExtraction(JSON.parse(data.content[0].text), mask);
+  return JSON.parse(data.content[0].text);
 }
 
 // Gemini equivalent — same system prompt + schema, different request/response shape.
@@ -759,15 +696,13 @@ function classifyAndExtractViaGemini(sender, subject, body) {
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL
     + ':generateContent?key=' + encodeURIComponent(apiKey);
 
-  // Mask subject+body together (shared token map); the sender line stays real —
-  // it's the bank's address, needed for classification, and not customer data.
-  var mask = maskForSharing('Subject: ' + subject + '\n\n' + body);
+  var mailText = 'Subject: ' + subject + '\n\n' + body;
 
   var payload = {
     systemInstruction: { parts: [{ text: EXTRACTION_SYSTEM_PROMPT }] },
     contents: [{
       role: 'user',
-      parts: [{ text: 'Sender: ' + sender + '\n' + mask.text }],
+      parts: [{ text: 'Sender: ' + sender + '\n' + mailText }],
     }],
     generationConfig: {
       responseMimeType: 'application/json',
@@ -786,7 +721,7 @@ function classifyAndExtractViaGemini(sender, subject, body) {
   if (!data.candidates || !data.candidates.length) {
     throw new Error('Gemini returned no candidates: ' + response.getContentText());
   }
-  return unmaskExtraction(JSON.parse(data.candidates[0].content.parts[0].text), mask);
+  return JSON.parse(data.candidates[0].content.parts[0].text);
 }
 
 // Gemini's responseSchema is a restricted OpenAPI-3.0-style subset, not full JSON Schema:
@@ -814,9 +749,12 @@ function stripNullsForGemini(schema) {
 // deriveExtractionTemplate() builds a per-field anchor+capture+transform spec
 // that provably reproduces the LLM's own output on that very email — stored as
 // JSON in sender_fingerprints.extraction_regex. Every later matching email is
-// parsed by applyExtractionTemplate() with ZERO LLM involvement: no cost, no
-// data leaving anywhere (masking already covers the LLM path; this removes the
-// call entirely). A structurally different email (e.g. the credit variant of a
+// parsed by applyExtractionTemplate() with ZERO LLM involvement: no cost, and
+// nothing leaving at all. Since masking was removed this is no longer a saving
+// on top of a protection, it IS the protection for everything after the first
+// mail off a template — which is most volume, permanently, and the reason the
+// consent copy can honestly say a bank is read on the spot after the first
+// time. A structurally different email (e.g. the credit variant of a
 // debit notification) fails the anchors → falls back to the LLM → re-derives.
 // Templates carry EXTRACTION_LOGIC_VERSION — bump it after any prompt/logic
 // improvement and every stored template self-invalidates, forcing one fresh

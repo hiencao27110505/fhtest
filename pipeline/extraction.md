@@ -144,11 +144,15 @@ Receipt from .+ \$([\d.]+) Paid (\w+ \d+, \d+)
 Receipt number (\S+)
 ```
 
-## Masking — no real customer data reaches the LLM (added 2026-08-06)
+## What the model is sent (masking removed 2026-08-25)
 
-Per the product promise ("no one knows your data except you"), the subject+body are masked **before every LLM call, unconditionally** — no enc-state check. `maskForSharing()` replaces each sensitive token with a fake of identical shape (amounts/accounts/refs/phones → random digits keeping length, separators, and leading-zero-ness; ALL-CAPS personal names → a fake-name pool, institutional caps like VND/MB/EBANKING blocklisted; email addresses → `userNNNN@example.com`), while dates/times stay real (the model must resolve their format; they identify no one alone). The model extracts against the fake text; `unmaskExtraction()` swaps the real values back in locally via the stored token map — string fields by longest-first substring replacement, `amount` via a masked-number → real-number map. The sender address stays unmasked (it's the bank's identity, needed for classification, not customer data).
+The subject and body go to the model **as written** — real amounts, accounts, references, phones, names and email addresses. The sender address goes too; it is the bank's identity, needed for classification.
 
-Verified end-to-end against the live Gemini API on the real MB Bank sample (2026-08-06): identical classification and extraction quality on masked input; every real value restored exactly on unmask; leak-check on the outbound text clean. Sibling of the app's `fhMaskSampleRowsForSharing` (`43-redact-for-sharing.js`) — same idea, adapted for unstructured email text instead of CSV row/column samples, and unconditional rather than enc-state-gated.
+**This was masked until 2026-08-25.** `maskForSharing()` replaced each sensitive token with a fake of identical shape and `unmaskExtraction()` swapped the real values back locally. It was verified end to end against live Gemini on the real MB Bank sample (2026-08-06) with identical extraction quality, and it was removed deliberately rather than because it stopped working.
+
+**Consent replaced it.** Bank transactions are sensitive personal data under L91/2025, and the feature already asks separately before collecting anything (`75-consent-ui.js`, kind `bank_email`, recorded in `user_consents` per 0082). That sheet now states that a first-time bank's mail is sent to an AI service to be read, amounts and names included, and `FH_CONSENT_V` went to 4 so a v3 record — which promised the opposite — no longer counts as agreement. **If you change what is sent, change the sheet and bump the version in the same commit.**
+
+What did not change: a known `(sender, subject_template)` with a stored template is parsed locally with no model involved at all, which is most volume permanently, and is the half of the claim the consent copy still makes. The app's CSV redactor (`43-redact-for-sharing.js`) is a different feature on a different surface and still masks.
 
 ## Safety ceiling on LLM calls (testing)
 

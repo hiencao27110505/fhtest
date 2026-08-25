@@ -34,9 +34,19 @@ Gemini — plus Vercel and Telegram for the app at large, see companion doc §3)
 The Đ38 small-operator exemptions are **explicitly void for anyone directly
 processing sensitive data**, so every duty applies despite our size. Our risk
 is concentrated in **unfiled paper, not unprotected data**: the technical
-measures (sealing, E2E ledger encryption, masking, retention, minimized
+measures (sealing, E2E ledger encryption, retention, minimized
 metadata) exceed what filings typically claim; the documents and two product
 mechanics are what is missing.
+
+> **Amended 2026-08-25 — masking removed, consent version 4.** The pipeline no
+> longer masks a first-time bank's mail before the model reads it; it is sent as
+> written. Consent is now the sole control on that leg, so the `bank_email`
+> sheet states what is sent, `FH_CONSENT_V` was bumped to 4 (a v3 record agreed
+> to the opposite and no longer counts), and `privacy.html` was corrected in both
+> languages. **The DPIA and the Đ22 cross-border dossier describe the masked flow
+> and need re-filing against this one** — the transfer to Google now carries
+> sensitive values rather than shape-preserving fakes, which is a change to what
+> is transferred, not only to how.
 
 ## 3. Obligations scorecard
 
@@ -131,9 +141,9 @@ consent requirement), and does.
 > • Email đi qua một hộp thư trung gian trên Gmail, được xoá sau 7 ngày và tự
 > huỷ hẳn trong khoảng một tháng. Email không đọc được sẽ được giữ lâu hơn để
 > tụi mình sửa lỗi, tối đa 90 ngày.
-> • Với ngân hàng lần đầu gặp, nội dung được che hết số tiền, tên, số tài
-> khoản thật rồi mới nhờ Google Gemini đọc cấu trúc. Giá trị thật không bao
-> giờ được gửi cho Gemini.
+> • Với ngân hàng lần đầu gặp, nội dung email được gửi nguyên bản cho Google
+> Gemini để đọc, gồm cả số tiền, tên và số tài khoản. Từ lần sau, email của
+> ngân hàng đó được đọc tại chỗ và không gửi đi nữa.
 > • Giao dịch được niêm phong ngay khi nhận, lưu trên máy chủ Supabase đặt
 > ngoài lãnh thổ Việt Nam, và được thiết kế để chỉ thiết bị của nhà bạn mở
 > được. Bản chờ duyệt giữ đến khi bạn duyệt hoặc ngắt kết nối.
@@ -174,8 +184,9 @@ consent requirement), and does.
 > are gone for good within about a month. Emails we fail to read are kept
 > longer so we can fix the error, at most 90 days.
 > • For a bank we haven't seen before, every real amount, name and account
-> number is masked before Google Gemini reads the structure. Real values are
-> never sent to Gemini.
+> email is sent to Google Gemini as written, amounts, names and account numbers
+> included. After that, mail off the same template is read locally and nothing
+> is sent.
 > • Each transaction is sealed on arrival, stored on Supabase servers located
 > outside Vietnam, and designed so only your family's devices can open it.
 > Pending items are kept until you review them or disconnect.

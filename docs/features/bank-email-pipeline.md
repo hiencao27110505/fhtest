@@ -109,7 +109,7 @@ happy path, because most of these failures are silent by nature.
 | 1 | **Route** — `resolveMailbox()` → `member_id` | Held `ROUTING_GRACE_DAYS = 14` (onboarding may be mid-flight), then `parse_failures` + label `txn/parse-failed` |
 | 2 | **Idempotency** — `isAlreadyStaged(gmail_message_id)` | A throw is **deliberately not caught**: if Supabase is unreachable, concluding "not staged" inserts a second copy |
 | 3 | **Classify** — `sender_fingerprints` cache, else Gemini | Non-transaction → cache the verdict, relabel, done |
-| 4 | **Extract** — masked, LLM, unmasked | `parse_failures` |
+| 4 | **Extract** — stored template, else the LLM on the raw mail | `parse_failures` |
 | 5 | **Sender auth** — DKIM + forwarder match | Advisory unless `SENDER_AUTH_ENFORCE` |
 | 6 | **Dedup** — `findDuplicate()` | Sets `duplicate_of_id`, never blocks |
 | 7 | **Fingerprint** — `dedupFingerprint()` | Key self-mints if absent |
@@ -142,15 +142,33 @@ auto-promotes.
 
 Budget: `MAX_NEW_CLASSIFICATIONS_PER_RUN = 10`, `MAX_NEW_CLASSIFICATIONS_PER_DAY = 50`.
 
-### 4. Masking — the LLM never learns who you are
+### 4. What the model is sent
 
-`maskForSharing()` replaces names, account numbers and reference numbers with
-placeholders *before* text leaves for Gemini; `unmaskExtraction()` restores them
-after. Modelled deliberately on the CSV import redactor
-(`src/js-ui/43-redact-for-sharing.js`) — see `docs/features/csv-import.md`.
+**The mail goes to the model as written** — real amounts, real names, real account
+and reference numbers.
 
-This closes the LLM leg of the privacy problem. It is separate from, and older than,
-the at-rest problem that sealing solves.
+**This reversed a design decision on 2026-08-25.** Until then `maskForSharing()`
+replaced every sensitive token with a shape-preserving fake before the call and
+`unmaskExtraction()` swapped the real values back locally. It worked and it was
+verified against live Gemini on real MB Bank mail. It was removed deliberately, and
+**consent replaced it**: the `bank_email` consent sheet now states that a first-time
+bank's mail is sent to an AI service to be read, amounts and names included, and
+`FH_CONSENT_V` went to 4 so everyone re-affirms against the new text. Anyone who
+agreed to v3 agreed to "real values are never sent", which is why a re-consent
+rather than a copy edit.
+
+Two things did not move, and they are what the honest version of the claim rests on:
+
+- **Repeat senders never reach a model at all.** A known `(sender, subject_template)`
+  with a stored template is parsed locally by `applyExtractionTemplate()`, which is
+  most volume, permanently. Before, this was a cost saving on top of a protection;
+  now it *is* the protection for everything after the first mail off a template.
+- **Sealing is untouched.** The row still lands in the database in a box the pipeline
+  cannot open. The model leg and the at-rest leg were always separate problems and
+  only the first one changed.
+
+The CSV import redactor (`src/js-ui/43-redact-for-sharing.js`) is a different feature
+on a different surface and still masks — see `docs/features/csv-import.md`.
 
 **Memo tidying** runs locally on plaintext already in hand, no LLM, no network:
 `tidyMemo()` strips bank auto-fill ("NGUYEN THU TRANG chuyen tien") by removing the
@@ -507,7 +525,7 @@ picks on every row. Nothing auto-promotes, so this costs nothing today.
 - `pipeline/SEALED-STAGING-DESIGN.md` — the sealed-box design and its recorded consequences.
 - `pipeline/FORWARDING-HANDOFF.md` — landmines, each one paid for.
 - `docs/features/encryption.md` — the DEK/card machinery sealing reuses.
-- `docs/features/csv-import.md` — the sibling staging path; the masking template.
+- `docs/features/csv-import.md` — the sibling staging path; still redacts before sharing.
 - `docs/features/web-push.md` — the notification transport.
 - `docs/features/personal-ledger.md` — `families.type` and the transfer substrate.
 - `AGENT_SYNC.md` — cross-session ground rules and live claims.

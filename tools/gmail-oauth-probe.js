@@ -277,11 +277,15 @@ async function read() {
   console.log('  body     :', msg.body.length, 'chars decoded');
   console.log('  template :', extract.normalizeSubjectTemplate(msg.subject));
 
-  // Show exactly what an LLM would see, so masking can be eyeballed on REAL mail.
-  const masked = extract.maskForSharing('Subject: ' + msg.subject + '\n\n' + msg.body);
-  console.log('\n  ── what a model would see (masked) ──\n');
-  console.log(masked.text.split('\n').slice(0, 20).map((l) => '  | ' + l).join('\n'));
-  console.log('\n  ' + masked.pairs.length + ' values were swapped for fakes before anything left this machine.\n');
+  // Show exactly what an LLM would see, on REAL mail. This used to print the
+  // masked copy; masking was removed on 2026-08-25 and the mail now goes as
+  // written, so the probe prints what actually gets sent. That is the whole
+  // point of it — a probe that showed a safer version than production would be
+  // worse than not having one.
+  const mailText = 'Subject: ' + msg.subject + '\n\n' + msg.body;
+  console.log('\n  ── what a model would see (verbatim, nothing masked) ──\n');
+  console.log(mailText.split('\n').slice(0, 20).map((l) => '  | ' + l).join('\n'));
+  console.log('\n  Sent as-is. Consent for this is the bank_email sheet (75-consent-ui.js).\n');
   console.log('  Nothing was written anywhere. This is a read-only probe.\n');
 }
 

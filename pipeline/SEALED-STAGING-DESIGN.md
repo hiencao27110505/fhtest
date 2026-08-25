@@ -134,12 +134,11 @@ Extraction is two-path, and this is a privacy mechanism as much as a cost one:
 - **Known (sender, subject_template) with a stored template** → parsed entirely
   locally by `applyExtractionTemplate()`. Zero LLM. Nothing leaves. This is most
   volume, permanently.
-- **New sender or template mismatch** → `maskForSharing()` replaces every amount,
-  account, reference, phone, ALL-CAPS name and email address with
-  shape-preserving fakes; only the masked text goes to Gemini; real values are
-  restored locally via `unmaskExtraction()`. Then a template is derived, validated
-  against the LLM's own output, and stored — so that sender never needs the LLM
-  again. Templates carry `EXTRACTION_LOGIC_VERSION`, so improving the prompt
+- **New sender or template mismatch** → the mail goes to Gemini **as written**,
+  real amounts and names included. It was masked until 2026-08-25; consent
+  replaced masking, and `FH_CONSENT_V` was bumped so everyone re-affirms against
+  copy that says what is sent. Then a template is derived, validated against the
+  LLM's own output, and stored — so that sender never needs the LLM again. Templates carry `EXTRACTION_LOGIC_VERSION`, so improving the prompt
   auto-invalidates stale templates and forces one clean re-derivation.
 
 The extraction also captures **`memo`** — the payer's own free-text note ("tra
@@ -156,8 +155,10 @@ bound to the alias. Advisory by default; verdicts are recorded on every row in
 owns its mail, not that the domain is the real bank — a lookalike passes for
 itself, which is what `known_provider_domains` is for.
 
-Masking is **unconditional** — no encryption-state gate — because encryption is
-default-on product-wide.
+**Masking was removed on 2026-08-25** and consent replaced it: the `bank_email`
+sheet now states that a first-time bank's mail is sent to a model as written, and
+`FH_CONSENT_V` went to 4 so everyone re-affirms. Sealing is unaffected: the model
+leg and the at-rest leg were always separate problems and only the first moved.
 
 ### 4.3 Seal 🟡 wired, gated off
 
@@ -364,7 +365,7 @@ and silently loses the row. Check `response.getResponseCode()` for 2xx.
 
 | piece | status |
 |---|---|
-| Ingestion, fingerprints, templates, masking | ✅ live |
+| Ingestion, fingerprints, templates | ✅ live |
 | Staging schema (`0025`/`0027`/`0028`) | ✅ live |
 | `known_provider_domains` seed (`0050`) | ✅ merged + applied |
 | Sender/forwarder authentication (DKIM + `X-Forwarded-For`) | ✅ built, advisory until `SENDER_AUTH_ENFORCE=true` |
@@ -384,7 +385,7 @@ and silently loses the row. Check `response.getResponseCode()` for 2xx.
 ## 10. Where things live
 
 - `pipeline/bank-email-pipeline.gs` — the Apps Script (source of truth; deployed by paste)
-- `pipeline/extraction.md` — LLM prompt, output schema, masking spec, template derivation
+- `pipeline/extraction.md` — LLM prompt, output schema, template derivation
 - `pipeline/README.md` — how the pipeline runs, privacy invariants, setup
 - `AGENT_SYNC.md` — live cross-session decisions and open questions
 - `CSV-IMPORT-ENCRYPTION.md` — the sibling analysis from the CSV side; where the
