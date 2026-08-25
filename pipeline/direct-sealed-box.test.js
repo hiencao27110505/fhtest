@@ -3,7 +3,7 @@
  * `node pipeline/direct-sealed-box.test.js`
  *
  * There are now TWO implementations of the seal half — pipeline/sealed-box.gs
- * (Apps Script, forwarding) and supabase/functions/mailbox-sync/lib/
+ * (Apps Script, forwarding) and supabase/functions/_shared/mailbox/
  * sealed-box.mjs (this transport) — and exactly ONE opener, on the client,
  * reading rows written by both. A divergence between the two sealers does not
  * fail anywhere near itself: the row inserts fine, the queue renders fine, and
@@ -53,7 +53,7 @@ const V = {
 const familyPriv = new Uint8Array(Buffer.from(V.family_secret_b64, 'base64'));
 
 (async () => {
-const SB = await import('../supabase/functions/mailbox-sync/lib/sealed-box.mjs');
+const SB = await import('../supabase/functions/_shared/mailbox/sealed-box.mjs');
 
 console.log('\n-- our opener reads the published vector --');
 const row = { ...V, family_id: 'fam-test-0001', gmail_message_id: 'gmail-test-0001' };

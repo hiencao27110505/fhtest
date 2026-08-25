@@ -34,9 +34,9 @@ const FAMILY_PUB = Buffer.from(
 const KEY = crypto.randomBytes(32).toString('base64');
 
 (async () => {
-const I = await import('../supabase/functions/mailbox-sync/lib/identity.mjs');
-const S = await import('../supabase/functions/mailbox-sync/lib/stage.mjs');
-const SB = await import('../supabase/functions/mailbox-sync/lib/sealed-box.mjs');
+const I = await import('../supabase/functions/_shared/mailbox/identity.mjs');
+const S = await import('../supabase/functions/_shared/mailbox/stage.mjs');
+const SB = await import('../supabase/functions/_shared/mailbox/sealed-box.mjs');
 
 // ── identity ────────────────────────────────────────────────────────────────
 console.log('\n-- resolving a grant to a destination --');

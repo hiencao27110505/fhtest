@@ -22505,10 +22505,18 @@ window.classifyAmount = classifyAmount;
      navigation, which is what the consent screen requires. The API sets
      `exposeHeaders: ["Location"]` so this header is visible to script at all. */
 
-  /* Where the API lives. Pinned per-origin rather than derived: the API is a
-     different host from the app, and its CORS allow-list names this app's
-     origin exactly, so guessing wrong fails as a CORS error rather than a 404. */
-  const _ATX_API = 'https://earthy-api-860668973723.asia-southeast1.run.app';
+  /* Where the connect endpoints live.
+     Our own Edge Function (supabase/functions/mailbox-connect), on the same
+     Supabase project as everything else the app talks to. SUPABASE_URL comes
+     from 10-client-auth.js, which shares this module scope.
+
+     MOVED HERE 2026-08-25, from a Cloud Run API on a different host. That API
+     links a Google account to an auth.users row and does not stage anything;
+     ours writes mailbox_grants, which carries the MEMBER and FAMILY a row is
+     sealed to, and is what the poller reads. The two can coexist, and a user
+     connected on the old one is not connected on this one — reconnecting is
+     what moves them across. One line to point back, if that is ever wanted. */
+  const _ATX_API = SUPABASE_URL + '/functions/v1/mailbox-connect';
 
   /* The app's own access token, which is what the API authenticates.
      `getSession()` rather than a cached copy: it refreshes an expired token
@@ -22537,14 +22545,25 @@ window.classifyAmount = classifyAmount;
      hides a mailbox quietly failing to sync. */
   async function _atxConnection() {
     try {
-      const token = await _atxAuthToken();
-      const res = await fetch(_ATX_API + '/connections', {
-        headers: { Authorization: 'Bearer ' + token },
-      });
-      if (!res.ok) return null;
-      const list = await res.json();
-      return (Array.isArray(list) ? list : [])
-        .filter(function (c) { return c && c.provider === 'google'; })[0] || null;
+      /* Read straight from the table rather than through an endpoint. Migration
+         0084 pairs a select policy (own rows) with a COLUMN-level grant that
+         omits refresh_token_enc, so this is exactly the status line and nothing
+         else — the credential is not reachable from a browser even by asking
+         for it. One less endpoint, one less CORS surface, and no round trip
+         through a function to read four columns. */
+      const res = await sb.from('mailbox_grants')
+        .select('id,provider,email,needs_reauth,connected_at,last_synced_at')
+        .eq('provider', 'google')
+        .limit(1);
+      if (res.error) return null;
+      const row = (res.data || [])[0] || null;
+      if (!row) return null;
+      /* needsReauth, camelCased, because that is what fhAutoTxnStatus already
+         reads. A token dies every 7 days while the OAuth app is in Testing, so
+         this is a routine state and not an edge case. */
+      return { id: row.id, provider: row.provider, email: row.email,
+               needsReauth: !!row.needs_reauth, connectedAt: row.connected_at,
+               lastSyncedAt: row.last_synced_at };
     } catch (e) { return null; }
   }
 
@@ -22610,15 +22629,16 @@ window.classifyAmount = classifyAmount;
     _atxOffArmed = false;
     if (btn) { btn.disabled = true; btn.textContent = L('Đang ngừng…', 'Stopping…'); }
     try {
-      const token = await _atxAuthToken();
-      const res = await fetch(_ATX_API + '/connections/google', {
-        method: 'DELETE',
-        headers: { Authorization: 'Bearer ' + token },
-      });
-      /* 404 means there was nothing to delete — which is exactly the state they
-         asked for. Treating it as an error would make someone read a failure
-         message about a thing that is already true. */
-      if (!res.ok && res.status !== 404) throw new Error('HTTP ' + res.status);
+      /* disconnect_my_mailbox() (0082, extended by 0084) rather than a DELETE
+         on one row. It is the WITHDRAWAL action, not just an unlink: it deletes
+         the OAuth grant, the forwarding connection, and every still-pending
+         staged row, in one transaction that re-checks ownership itself. Half of
+         that is what the consent sheet promises, so doing less here would make
+         the sheet untrue.
+
+         Deleting nothing is success, not a 404: the state they asked for is the
+         state that already holds. */
+      await _rpc('disconnect_my_mailbox', {});
     } catch (e) {
       window.toast && window.toast(window._fhFriendly ? window._fhFriendly(e)
         : L('Chưa ngừng được, thử lại nhé', 'Could not stop it — try again'));
@@ -22665,7 +22685,7 @@ window.classifyAmount = classifyAmount;
        exposes. Asking for JSON sidesteps both: we get the URL as data and do
        the navigating ourselves, which is what the consent screen needs anyway. */
     const res = await fetch(
-      _ATX_API + '/connections/google/authorize?' + q.toString(),
+      _ATX_API + '/authorize?' + q.toString(),
       {
         method: 'GET',
         headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },

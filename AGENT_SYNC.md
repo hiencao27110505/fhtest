@@ -143,6 +143,62 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-25 (direct-read session) — DIRECT MAILBOX READ IS BUILT END TO END.
+  CLAIMING `0085_mailbox_sync_schedule.sql`; next free is `0086`.**
+
+  connect → read → parse → seal → save → the app opens it. `earthy/` is still
+  untouched and does not need to change. Full runbook (secrets, redirect URI,
+  deploy flags, smoke test) in `supabase/functions/mailbox-sync/README.md`.
+
+  **What is new since the spine landed this morning:**
+  - `supabase/functions/mailbox-connect` — authorize + callback. Both routes
+    deploy `--no-verify-jwt` because neither can present a user JWT, so each
+    authenticates itself: authorize verifies the Supabase token against
+    `/auth/v1/user`, the callback verifies an **HMAC-signed state**. The earlier
+    client-side design sent state UNSIGNED on the grounds that a browser cannot
+    hold a signing key; that is why the state is minted server-side now.
+  - `supabase/functions/mailbox-sync` — the poller, on pg_cron every 5 minutes.
+  - `_shared/mailbox/*.mjs` — 14 modules, all dependency-injected, which is what
+    lets the Node suite run the same bytes Deno will.
+  - The client (`74-autotxn-ui.js`) now points at our endpoints. Status is read
+    STRAIGHT FROM `mailbox_grants` (0084's column grant omits the credential),
+    and disconnect calls `disconnect_my_mailbox()` — the withdrawal action, not
+    just an unlink.
+
+  **`templates.mjs` and `memo.mjs` are VERBATIM COPIES of two slices of
+  `bank-email-pipeline.gs`, and that is deliberate.** Both transports read and
+  write the same `sender_fingerprints` cache, so a template derived by the Apps
+  Script is applied by the worker and vice versa. A hand-port of 350 lines of
+  anchor derivation would be a transcription-error machine, and a divergence
+  would not throw — it would return a different amount.
+  `pipeline/direct-templates.test.js` re-slices the .gs AT TEST TIME and runs
+  both copies over the same bodies. **If you edit that slice, run the suite.**
+
+  **Testing: 27 files, all green.** The one to read is
+  `pipeline/direct-flow.test.js` (112 assertions): fake Google and Gemini, real
+  AES-GCM, real X25519, a real bank email, and the last assertion opens the
+  staged row with the actual client opener — so "the user can see this
+  transaction" is proven, not assumed. It also pins the failures that are silent
+  by construction: cursor does not advance on a hold, the idempotency check
+  fails CLOSED if the database is unreachable, a lookalike domain is refused, a
+  moved member holds rather than sealing to the family they left.
+
+  **Two things needing a human before it can run:**
+  1. **`DEDUP_FP_KEY` must be COPIED from Apps Script Properties**, never
+     regenerated. Two mints = two key spaces = cross-transport dedup silently
+     stops. The format is test-locked; the key itself cannot be.
+  2. **The redirect URI must be registered in the `fhtest` GCP project** on the
+     `FHTest Web` client, byte for byte:
+     `https://<ref>.supabase.co/functions/v1/mailbox-connect/callback`.
+
+  **Note for whoever owns the review screen:** staged rows now carry
+  `memo_display` and `type_code` in `raw_extracted` (same shape the forwarding
+  pipeline writes). `72-txn-review.js` still reads raw `memo`. Teaching it to
+  prefer `memo_display` would improve both transports at once — bank auto-fill
+  like "NGUYEN THU TRANG chuyen tien" would stop pre-filling a wrong answer that
+  gets accepted rather than corrected. Not done here: it is a review-screen
+  behaviour change and belongs to that owner.
+
 - **2026-08-25 (direct-read session) — CLAIMING MIGRATION `0084_mailbox_direct_read.sql`.
   Next free number after it is `0085` — verify against `git ls-tree origin/main
   supabase/migrations/` before claiming, this range has collided repeatedly.**

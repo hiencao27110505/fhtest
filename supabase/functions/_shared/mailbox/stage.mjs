@@ -118,6 +118,8 @@ export async function buildStagedRow(args) {
       balance: reading.balance ?? null,
       counterparty: reading.merchant || null,
       memo: reading.description || null,
+      memo_display: reading.descriptionDisplay ?? null,
+      type_code: reading.typeCode || null,
       channel: reading.channel || null,
       account_masked: reading.accountTail || reading.account_tail || null,
       reference_number: reading.reference || null,

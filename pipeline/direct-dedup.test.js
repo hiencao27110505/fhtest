@@ -15,7 +15,7 @@
  * every purchase — indistinguishable from a week with no duplicates in it.
  *
  * So this file computes the same fingerprints with BOTH implementations and
- * compares them: ours from supabase/functions/mailbox-sync/lib/dedup.mjs, the
+ * compares them: ours from supabase/functions/_shared/mailbox/dedup.mjs, the
  * forwarding one eval'd straight out of pipeline/bank-email-pipeline.gs. Same
  * slice dedup-provider.test.js uses.
  */
@@ -64,7 +64,7 @@ let pass = 0, fail = 0;
 const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok && d ? '  -> ' + d : '')); ok ? pass++ : fail++; };
 
 (async () => {
-const D = await import('../supabase/functions/mailbox-sync/lib/dedup.mjs');
+const D = await import('../supabase/functions/_shared/mailbox/dedup.mjs');
 
 console.log('\n-- fingerprint parity with the forwarding pipeline --');
 const CASES = [
