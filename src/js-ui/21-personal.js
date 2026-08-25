@@ -188,22 +188,25 @@ function persSpendRange(aStr, bStr){
   (P.txns||[]).forEach(function(t){ if(t.kind==='expense' && t.date && t.date>=aStr && t.date<=bStr) s+=(t.amt||0); });
   return s;
 }
-/* Period spend/baseline for the current month — like-for-like and to-date, mirrors cfGuideParts:
-   spent = this period so far; budget = pro-rated budget for elapsed days; prev = the same span
-   in the previous equivalent period (day → rolling 30-day average, a "usual day"). */
+/* Period parts for the current month — mirrors cfGuideParts. budgetAllow is SELF-CORRECTING
+   (remaining month budget ÷ remaining days × this period's remaining days), so a blown month
+   makes Day/Week read "over" too; spentPTD/prevPTD are the like-for-like to-date trend. */
 function persGuideParts(periodKey){
   var P=fhPersonalData(), now=new Date(), dim=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
   var dom=now.getDate(), wd=(now.getDay()+6)%7, budget=P.budget||0;
   var d0=function(off){ return _pDate(new Date(now.getFullYear(),now.getMonth(),now.getDate()+off)); };
-  var elapsed = periodKey==='day' ? 1 : (periodKey==='week' ? (wd+1) : dom);
-  var budgetToDate = budget>0 ? (budget/dim)*elapsed : null;
-  var spent, prevRaw;
-  if(periodKey==='day'){ spent=persSpendRange(d0(0),d0(0)); prevRaw=persSpendRange(d0(-30),d0(-1))/30; }
-  else if(periodKey==='week'){ spent=persSpendRange(d0(-wd),d0(0)); prevRaw=persSpendRange(d0(-wd-7),d0(-7)); }
-  else { spent=persSpendRange(_pDate(new Date(now.getFullYear(),now.getMonth(),1)), d0(0));
-    var pm=new Date(now.getFullYear(),now.getMonth()-1,1), pdim=new Date(now.getFullYear(),now.getMonth(),0).getDate();
-    prevRaw=persSpendRange(_pDate(pm), _pDate(new Date(pm.getFullYear(),pm.getMonth(),Math.min(dom,pdim)))); }
-  return {spent:spent, budgetToDate:budgetToDate, prevRaw:prevRaw};
+  var spentToday=persSpendRange(d0(0),d0(0));
+  var spentMTD=persSpendRange(_pDate(new Date(now.getFullYear(),now.getMonth(),1)), d0(0));
+  var daysLeftMonth=Math.max(1, dim-dom+1);
+  var daysLeftPeriod = periodKey==='day'?1:(periodKey==='week'?Math.min(7-wd,daysLeftMonth):daysLeftMonth);
+  var perDay=(budget>0)?((budget-(spentMTD-spentToday))/daysLeftMonth):null;
+  var budgetAllow=(perDay!=null)?perDay*daysLeftPeriod:null;
+  var spentPTD, prevPTD;
+  if(periodKey==='day'){ spentPTD=spentToday; prevPTD=persSpendRange(d0(-30),d0(-1))/30; }
+  else if(periodKey==='week'){ spentPTD=persSpendRange(d0(-wd),d0(0)); prevPTD=persSpendRange(d0(-wd-7),d0(-7)); }
+  else { spentPTD=spentMTD; var pm=new Date(now.getFullYear(),now.getMonth()-1,1), pdim=new Date(now.getFullYear(),now.getMonth(),0).getDate();
+    prevPTD=persSpendRange(_pDate(pm), _pDate(new Date(pm.getFullYear(),pm.getMonth(),Math.min(dom,pdim)))); }
+  return {spentToday:spentToday, budgetAllow:budgetAllow, spentPTD:spentPTD, prevPTD:prevPTD};
 }
 /* Day period: today vs yesterday, bucketed by buổi (Sáng·Trưa·Chiều·Tối) via logged time. */
 function persDayChartHTML(pd){
@@ -243,7 +246,7 @@ function persRenderPeriod(){
   else if(p===2){ var mo=persMonthChartHTML(pd, lm); wowEl.innerHTML=mo.html; }
   else { var wk=persWeekData(pd.daily, pd.dom, pd.dim); wowEl.innerHTML=(typeof cfWeekChartHTML==='function')?cfWeekChartHTML(wk,false):''; }
   var gp=persGuideParts(pk);
-  if(typeof fhGuideRender==='function') fhGuideRender('pcf-daily', pk, gp.spent, gp.budgetToDate, gp.prevRaw, 1);
+  if(typeof fhGuideRender==='function') fhGuideRender('pcf-daily', pk, gp, 1);
   var dots=document.getElementById('pcf-dots'); if(dots){ var dh=''; for(var k=0;k<3;k++) dh+='<i class="'+(k===p?'on':'')+'" onclick="persSetPeriod('+k+')"></i>'; dots.innerHTML=dh; }
   var note=document.getElementById('pcf-note');
   if(note){ if(!P.mirrorRan){ note.className='cf-note flat'; note.innerHTML='Đang đồng bộ các khoản bạn đã ghi cho gia đình…'; } else { note.className='cf-note'; note.innerHTML=''; } }
