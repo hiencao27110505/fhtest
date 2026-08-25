@@ -22,7 +22,7 @@ pg_cron */5 ──▶ _mailbox_sync_tick() ──▶ mailbox-sync
         ┌────────────────────────────────────────────┘
         ├─ due grants, oldest poll first
         ├─ refresh token ─▶ Google ─▶ access token
-        ├─ messages.list  q=(from:<banks and wallets>) newer_than:2d
+        ├─ messages.list  q=(from:<banks and wallets>) newer_than:<since last poll>
         ├─ already staged?  one query for the whole window
         ├─ sender allowlist + DKIM verdict
         ├─ parse:  stored template (no model)  else  Gemini, then learn one
@@ -170,7 +170,8 @@ Every mailbox reports a status, and the ordinary ones are not errors:
 
 | status | means | what to do |
 |---|---|---|
-| `ok` | polled and staged | nothing |
+| `ok` | polled, and the window is finished | nothing |
+| `more` | staged its share, more still queued | nothing; the next tick continues it |
 | `held` + `reason` | see below | usually nothing; it heals itself |
 | `needs_reauth` | Google rejected the refresh token | the app prompts; a weekly event in Testing status |
 | `token_unreadable` | `MAILBOX_TOKEN_KEY` changed or the row is corrupt | the user reconnects |
@@ -181,6 +182,12 @@ clears itself), `no_member` / `member_archived` / `member_moved` (ownership chan
 `needs_reauth`.
 
 **A held mailbox stages nothing and advances nothing**, so it costs one poll and loses no mail.
+
+**The cursor moves only on a finished window.** `last_synced_at` is what the next poll measures its
+window from, and `windowDays()` widens it to cover however long the worker was away, so an outage
+catches up instead of skipping. A run that hits its per-run staging cap reports `more` and leaves
+both markers alone; the next tick five minutes later carries on. That is why a backfill of 300
+messages arrives over a few minutes rather than being truncated at the first 40 and marked done.
 
 ## What is deliberately not built
 

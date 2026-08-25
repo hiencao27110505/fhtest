@@ -62,7 +62,10 @@ export function createDb(url, serviceKey, fetchImpl) {
       const qs = new URLSearchParams({
         select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at',
         needs_reauth: 'eq.false',
-        order: 'last_synced_at.nullsfirst',
+        // Direction spelled out: PostgREST's order grammar is
+        // `col.dir.nullsorder`, and a bare `.nullsfirst` is not reliably parsed.
+        // Oldest poll first, never-polled before that.
+        order: 'last_synced_at.asc.nullsfirst',
         limit: String(limit || MAX_GRANTS_PER_RUN),
       });
       return (await rest('/mailbox_grants?' + qs.toString())) || [];
@@ -143,9 +146,13 @@ export function createDb(url, serviceKey, fetchImpl) {
      */
     async alreadyStaged(messageIds) {
       if (!messageIds.length) return new Set();
-      const list = messageIds.map(id => '"' + id + '"').join(',');
+      // Each id is encoded on its own and the commas stay literal. Encoding the
+      // joined string instead turns the SEPARATORS into %2C, which happens to
+      // survive PostgREST's decode today but makes the query's meaning depend on
+      // decode order rather than on what was written.
+      const list = messageIds.map(id => '"' + encodeURIComponent(id) + '"').join(',');
       const rows = await rest(
-        '/email_transactions?select=gmail_message_id&gmail_message_id=in.(' + encodeURIComponent(list) + ')');
+        '/email_transactions?select=gmail_message_id&gmail_message_id=in.(' + list + ')');
       return new Set((rows || []).map(r => r.gmail_message_id));
     },
 

@@ -2,9 +2,9 @@
  * Extraction templates: parse a repeat sender with no model involved.
  *
  * VERBATIM COPY of the slice in pipeline/bank-email-pipeline.gs between
- * `var EXTRACTION_LOGIC_VERSION` and `// ---------- Stage 2 helpers ----------`,
- * with an export block appended and nothing else changed. It is copied rather
- * than rewritten because a hand-port of 350 lines of anchor derivation is a
+ * `var EXTRACTION_LOGIC_VERSION` and `function upsertFingerprint`, with an
+ * export block appended and nothing else changed. It is copied rather than
+ * rewritten because a hand-port of 200 lines of anchor derivation is a
  * transcription-error machine, and because the two implementations have to
  * agree exactly: both transports share `sender_fingerprints`, so a template
  * derived by the Apps Script is applied by this worker and the other way round.
@@ -13,10 +13,22 @@
  * pipeline/direct-templates.test.js re-slices the .gs AT TEST TIME and runs both
  * copies over the same bodies, so this file cannot quietly fall behind.
  *
- * WHY THIS MATTERS MORE SINCE MASKING WAS REMOVED: the template path is the one
- * that never reaches a model at all, which is most volume permanently and is the
- * half of the consent copy that promises mail stays here. Every mail this file
- * parses is a mail that is not sent anywhere.
+ * WHERE THE SLICE ENDS, AND WHY IT MATTERS. It stops at `upsertFingerprint`,
+ * which is the first FORWARDING-specific function in that file. Everything past
+ * it — the fingerprint upsert through `supabasePost`, `senderAuthEnforced`
+ * reading a Script Property, and `checkSenderAuthenticity` resolving a `+tag`
+ * against `mailbox_connections` — belongs to a transport this worker does not
+ * use, and calls globals that do not exist here. An earlier cut of this file
+ * included all of it: dead, unreachable, and misleading in exactly the place
+ * someone would look to answer "does the direct-read path touch the shared
+ * forwarding inbox?". It does not, and the file should not read as if it might.
+ * This worker does its own sender authenticity in gmail.mjs, from the DKIM
+ * verdict on the message, because there is no forwarder to compare against.
+ *
+ * WHY THIS PATH MATTERS MORE SINCE MASKING WAS REMOVED: it never reaches a model
+ * at all, which is most volume permanently and is the half of the consent copy
+ * promising mail stays here. Every mail this file parses is one that is not sent
+ * anywhere.
  *
  * The code below is ES5 by inheritance, not by preference. Leave it that way:
  * the diff against the .gs slice is the thing keeping the two honest.
@@ -222,156 +234,6 @@ function applyExtractionTemplate(tplJson, body) {
   }
   if (typeof out.amount !== 'number' || typeof out.occurred_at !== 'string') return null;
   return out;
-}
-
-function upsertFingerprint(sender, template, isSource, txnType, regex) {
-  supabasePost('sender_fingerprints', {
-    sender_address: sender,
-    subject_template: template,
-    is_transaction_source: isSource,
-    transaction_type: txnType,
-    extraction_regex: regex,
-  }, 'sender_address,subject_template'); // on conflict, upsert
-}
-
-// ---------- Sender authenticity ----------
-//
-// Routing (+tag) answers "whose queue is this?" — it does NOT answer "is this
-// real?". Anyone who learns a user's alias can post a hand-written "MB Bank"
-// email to it and, before these checks, it would stage like any other
-// transaction. Human review is a seatbelt, not a lock: approval fatigue is
-// real, and a fake row that looks ordinary is exactly what gets waved through.
-//
-// Two independent signals, both already computed for us before the message
-// lands, both free to read:
-//
-//   1. DKIM — the bank cryptographically signs its own outbound mail. Gmail
-//      verifies that signature on arrival and records the verdict in the
-//      Authentication-Results header. A forger cannot produce the bank's
-//      signature, so "dkim=pass with header.d under the sender's domain" is a
-//      genuine authenticity proof, not a heuristic. Survives forwarding intact
-//      (unlike SPF, which is exactly why forwarded mail trips spam filters).
-//
-//   2. X-Forwarded-For — Gmail stamps the forwarding account on auto-forwarded
-//      mail. Compared against mailbox_connections.personal_email (captured at
-//      onboarding while the user was authenticated), this proves the message
-//      came through the mailbox the alias was issued for, rather than being
-//      posted straight at the alias by someone who learned it.
-//
-// ROLLOUT: advisory by default. Both verdicts are recorded on every row, but
-// nothing is blocked until SENDER_AUTH_ENFORCE is set to 'true' in Script
-// Properties. A check that can reject real transactions should earn its
-// enforcement on observed data first — some banks legitimately sign with an ESP
-// domain, and not every forwarding path stamps X-Forwarded-For. Watch the
-// recorded verdicts, then turn it on.
-
-function senderAuthEnforced() {
-  return PropertiesService.getScriptProperties().getProperty('SENDER_AUTH_ENFORCE') === 'true';
-}
-
-function _domainOf(address) {
-  var m = String(address || '').match(/@([^@>\s]+)/);
-  return m ? m[1].toLowerCase().replace(/\.$/, '') : null;
-}
-
-// true when signing domain == sender domain, or is a parent of it
-// (mb.com.vn signing mail from mbebanking.mb.com.vn is legitimate).
-function _domainAligned(signingDomain, senderDomain) {
-  if (!signingDomain || !senderDomain) return false;
-  if (signingDomain === senderDomain) return true;
-  return senderDomain.length > signingDomain.length &&
-         senderDomain.slice(-(signingDomain.length + 1)) === '.' + signingDomain;
-}
-
-function checkSenderAuthenticity(message, sender) {
-  var results = { dkim: 'unknown', forwarder: 'unknown', ok: true, reasons: [] };
-
-  // ── DKIM ──
-  var authResults = '';
-  try { authResults = message.getHeader('Authentication-Results') || ''; } catch (e) { /* header absent */ }
-  if (!authResults) {
-    results.dkim = 'absent';
-    results.reasons.push('no Authentication-Results header');
-  } else {
-    var m = authResults.match(/dkim=(\w+)/i);
-    var verdict = m ? m[1].toLowerCase() : null;
-    // Gmail reports the signing identity as header.i=@domain at least as often
-    // as header.d=domain; accepting only the latter made every real message look
-    // misaligned. header.i carries a leading @ (and may be a full address).
-    var dm = authResults.match(/header\.d=([^\s;]+)/i);
-    var signing = dm ? dm[1].toLowerCase() : null;
-    if (!signing) {
-      var im = authResults.match(/header\.i=@?([^\s;]+)/i);
-      if (im) {
-        signing = im[1].toLowerCase();
-        var at = signing.lastIndexOf('@');
-        if (at !== -1) signing = signing.slice(at + 1);   // user@domain -> domain
-      }
-    }
-    if (verdict !== 'pass') {
-      results.dkim = 'fail';
-      results.reasons.push('dkim=' + (verdict || 'missing'));
-    } else if (!_domainAligned(signing, _domainOf(sender))) {
-      // Signed, but by someone else — common for legitimate ESP-sent mail, which
-      // is why this is recorded rather than fatal until enforcement is on.
-      results.dkim = 'misaligned';
-      results.reasons.push('dkim=pass but header.d=' + signing + ' != sender ' + _domainOf(sender));
-    } else {
-      results.dkim = 'pass';
-    }
-  }
-
-  // ── forwarder ──
-  var mailbox = resolveMailbox(message);
-  var fwd = '';
-  try { fwd = message.getHeader('X-Forwarded-For') || ''; } catch (e2) { /* header absent */ }
-
-  // HAND-forward detection. Gmail stamps X-Forwarded-For only on AUTO-forwards,
-  // so its absence together with a From: that IS the alias owner identifies the
-  // case exactly: the person pressed Forward themselves.
-  //
-  // This is named rather than lumped in with a failure because of a trap in the
-  // DKIM block above. A hand-forward is genuinely signed by the forwarder's own
-  // domain, and the sender genuinely IS the forwarder — so DKIM reports PASS.
-  // That pass authenticates the WRAPPER, not the bank: the bank's content is now
-  // quoted body text that the forwarder could have typed. A hand-forward is
-  // therefore structurally unauthenticatable, and recording it as 'pass' would
-  // claim a verification nobody performed.
-  var senderAddr = String(extractEmailAddress(String(sender || ''))).toLowerCase();
-  var ownerAddr = String((mailbox && mailbox.personal_email) || '').toLowerCase();
-  var isManual = !!(ownerAddr && !fwd && senderAddr === ownerAddr);
-  results.forward_mode = fwd ? 'auto' : (isManual ? 'manual' : 'unknown');
-  if (isManual) results.dkim_authenticates = 'forwarder_not_bank';
-
-  if (!mailbox) {
-    results.forwarder = 'no_mailbox';
-    results.reasons.push('alias not found in mailbox_connections');
-  } else if (isManual) {
-    // Deliberately not 'pass'. Enforcement therefore blocks hand-forwards by
-    // default — a decision, not an accident. Allowing them means accepting bank
-    // content nobody can verify; see pipeline/README.md.
-    results.forwarder = 'manual';
-    results.reasons.push('hand-forwarded by ' + senderAddr +
-      ' — bank content is unverified quoted text, not a signed bank message');
-  } else if (!fwd) {
-    results.forwarder = 'absent';
-    results.reasons.push('no X-Forwarded-For header');
-  } else if (!mailbox.personal_email) {
-    // No address on file is NOT a pass. The old fall-through meant an alias
-    // with a null personal_email accepted ANY forwarder the moment enforcement
-    // turned on, while genuine hand-forwards were blocked — exactly backwards.
-    // 'unknown' keeps it advisory-visible now and fail-closed under enforcement.
-    results.forwarder = 'unknown';
-    results.reasons.push('no forwarding address on file for this alias');
-  } else if (fwd.toLowerCase().indexOf(String(mailbox.personal_email).toLowerCase()) === -1) {
-    results.forwarder = 'mismatch';
-    results.reasons.push('forwarded by ' + fwd + ', alias belongs to ' + mailbox.personal_email);
-  } else {
-    results.forwarder = 'pass';
-  }
-
-  results.ok = (results.dkim === 'pass' && results.forwarder === 'pass');
-  return results;
 }
 
 export {

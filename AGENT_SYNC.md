@@ -143,6 +143,60 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-25 (direct-read session) — REVIEW PASS on the direct-read flow: five
+  defects found and fixed, all in the silent-failure class. No migration.**
+
+  Asked to prove the flow reads the USER'S OWN mailbox rather than the shared
+  forwarding inbox, and to re-check the whole path. `pipeline/direct-own-mailbox.test.js`
+  (139 assertions) now asserts that boundary mechanically rather than by reading:
+  every Gmail call is `users/me` carrying THAT GRANT's own access token, the
+  query is `from:` terms only with no `to:` and no `+tag`, two mailboxes are read
+  with two different tokens, the scope is `gmail.readonly` and no write verb
+  exists, and no module names the shared inbox or any forwarding machinery.
+
+  **What was actually wrong:**
+
+  1. **The template slice dragged 150 lines of FORWARDING code into the
+     direct-read worker** — `upsertFingerprint`, `senderAuthEnforced`, and
+     `checkSenderAuthenticity`, which resolves a `+tag` against
+     `mailbox_connections`. Dead and unreachable, and calling globals that do not
+     exist there, but sitting in exactly the file someone would open to answer
+     the question above. The slice now ends at `upsertFingerprint`.
+  2. **A backfill was truncated at 40 messages and then marked done.** The list
+     cap and the staging cap were the same number, so "there is more" was
+     indistinguishable from "there is nothing" and the rest of a household's
+     history was lost with nothing recording it existed.
+  3. **The poll window was a fixed `newer_than:2d`.** A worker down for three
+     days came back, read two, and the missing day was gone. It is now measured
+     from `last_synced_at`, so an outage catches up.
+  4. **The same truncation on the ordinary path**, once (3) let the window widen.
+     The rule is now uniform: list generously, stage a bounded share, and advance
+     `last_synced_at` / `backfilled_at` ONLY on a finished window.
+  5. **`order=last_synced_at.nullsfirst`** had no direction. PostgREST's grammar
+     is `col.dir.nullsorder`; now `asc.nullsfirst`.
+
+  **One real cross-transport defect, worth your attention.** A household running
+  BOTH transports stages one bank email TWICE, under two `gmail_message_id`s —
+  the copy in our shared inbox and the original in theirs — so neither the UNIQUE
+  constraint nor the already-staged check sees it. Same member, same fingerprint,
+  same provider, so the same-bank clause in `findDuplicate` waved both through.
+
+  The review screen's in-batch dedup catches the common case (same description,
+  amount and day), but NOT a row with neither description nor counterparty, which
+  is exactly the memo-less p2p transfer `72-txn-review.js` deliberately leaves
+  blank. `dedup.mjs` now flags same-provider pairs whose `occurred_at` is
+  byte-identical: two readings of one email share an instant, two real transfers
+  minutes apart do not. Still a suspicion into "Có thể trùng", never a deletion.
+
+  **The Apps Script side is NOT changed** — the fix lives in our transport, which
+  is the one that created the overlap. If you would rather the product simply
+  refuse both at once, that is a UX decision and it is yours.
+
+  **FYI, unmerged branch:** `claude/earthy-status-jznypu` (2 commits) touches
+  `10-client-auth.js`, `sw.js` (v393→v394) and `docs/PDPL-COMPLIANCE.md`. It will
+  conflict with this branch on `index.html` and the PDPL doc. Nothing logical
+  collides — it clears a stale `fh-gtok` from localStorage.
+
 - **2026-08-25 (direct-read session) — DIRECT MAILBOX READ IS BUILT END TO END.
   CLAIMING `0085_mailbox_sync_schedule.sql`; next free is `0086`.**
 

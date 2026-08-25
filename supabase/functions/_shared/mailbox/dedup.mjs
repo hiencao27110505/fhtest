@@ -112,6 +112,24 @@ export async function dedupFingerprint(amount, direction, currency, keyB64, subt
  * `different provider` because two emails from the same bank are two pieces of
  * money, however equal — each already carries its own message id and reference.
  *
+ * ONE EXCEPTION, AND IT IS THIS TRANSPORT'S OWN PROBLEM. A household can run
+ * BOTH transports at once: the bank forwards to their alias AND we read their
+ * mailbox directly. Then one bank email is staged twice, under two different
+ * `gmail_message_id`s — the copy in the shared inbox and the original in their
+ * own — so neither the UNIQUE constraint nor the already-staged check sees it.
+ * Same member, same fingerprint, same provider, so the same-provider clause
+ * above waves both through and the household reviews one purchase twice.
+ *
+ * The discriminator is the TIMESTAMP, and it has to be exact. Two genuine
+ * transfers of one amount minutes apart differ by minutes; two readings of ONE
+ * email carry a byte-identical `occurred_at`, because both parsed it out of the
+ * same sentence. So: same provider AND the same instant is one event seen
+ * twice; same provider and a different instant stays two transactions, which is
+ * what the clause was written to protect.
+ *
+ * Still only a suspicion. It sends the row to the review screen's "Có thể
+ * trùng" bucket for a person to resolve; it never hides or deletes one.
+ *
  * NOT INCLUDED HERE, on purpose: the "not both banks" clause. It needs
  * transaction_type, which is sealed and therefore unreadable to this worker.
  * The client runs the same rule with strictly more evidence — the decrypted
@@ -148,11 +166,18 @@ export async function findDuplicate(row, db) {
   });
 
   const mine = canonicalProvider(row.sourceProvider);
+  const sameInstant = c =>
+    !!c.occurred_at && !!row.occurredAt &&
+    new Date(c.occurred_at).getTime() === new Date(row.occurredAt).getTime();
+
   let earliest = null;
   for (const c of candidates) {
     if (c.occurred_at > windowEnd) continue;
     const theirs = canonicalProvider(c.source_provider);
-    if (theirs === mine) continue;        // same bank → a real separate transaction
+    // Same bank at the same instant with the same fingerprint: one email, read
+    // by both transports. Same bank at a DIFFERENT instant: two real
+    // transactions. See the header.
+    if (theirs === mine && !sameInstant(c)) continue;
     // Unknown on either side: refuse to guess. A missed duplicate costs the
     // reviewer one tap to skip it; a false one takes a real transaction out of
     // the queue and its notification with it. Those are not comparable, so the

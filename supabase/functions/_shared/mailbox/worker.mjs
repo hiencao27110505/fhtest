@@ -31,8 +31,9 @@ import * as gmail from './gmail.mjs';
 import * as mailtext from './mailtext.mjs';
 import { decryptToken } from './token-crypto.mjs';
 
-/** An ordinary poll looks this far back. Overlap is intentional: cheap, and it
- *  covers a mail that arrived while the previous run was mid-flight. */
+/** The FLOOR for an ordinary poll. Overlap is intentional: cheap, and it covers
+ *  a mail that arrived while the previous run was mid-flight. The actual window
+ *  is measured from the last successful poll — see `windowDays`. */
 export const POLL_DAYS = 2;
 
 /** A first connect reaches further. This is the product difference direct read
@@ -44,6 +45,38 @@ export const BACKFILL_DAYS = 90;
  *  and both are better spent across mailboxes than exhausted on one. */
 export const MAX_MESSAGES_PER_GRANT = 40;
 export const MAX_MODEL_CALLS_PER_RUN = 10;
+
+/** How many ids ONE RUN may list, on any path.
+ *
+ *  Listing is cheap — ids only, no bodies, and `listMessageIds` stops as soon as
+ *  Gmail returns no next page, so a quiet mailbox costs exactly one request
+ *  whatever this is set to. Staging is the expensive half, and that is what
+ *  `MAX_MESSAGES_PER_GRANT` caps.
+ *
+ *  Keeping the two caps separate is the point. Listing only as many as a run can
+ *  stage makes "there is more" indistinguishable from "there is nothing", and a
+ *  run that cannot tell the difference marks itself finished and strands the
+ *  rest. Sized well above a busy household's 90 days of bank mail. */
+export const LIST_MAX_PER_RUN = 500;
+
+/**
+ * How far back this poll should reach, measured from the last successful one.
+ *
+ * A FIXED window is a trap: with `newer_than:2d` hard-coded, a worker that is
+ * down for three days comes back and reads the last two, and the missing day is
+ * gone with nothing anywhere recording that it existed. Since `last_synced_at`
+ * is only written when a window was actually handled, the gap since then is
+ * exactly what still needs reading.
+ *
+ * Plus a day of slack, floored at POLL_DAYS, because Gmail's `newer_than` is
+ * day-granular and a same-day boundary would round the oldest mail out.
+ */
+export function windowDays(lastSyncedAt, nowMs) {
+  if (!lastSyncedAt) return POLL_DAYS;
+  const since = ((nowMs || Date.now()) - new Date(lastSyncedAt).getTime()) / 86400000;
+  if (!Number.isFinite(since) || since < 0) return POLL_DAYS;
+  return Math.max(POLL_DAYS, Math.ceil(since) + 1);
+}
 
 /**
  * Runs every due mailbox.
@@ -81,7 +114,7 @@ export async function runAll(ctx) {
 export async function runGrant(grant, ctx) {
   const summary = {
     grantId: grant.id, email: grant.email, status: 'ok',
-    fetched: 0, staged: 0, skipped: 0, unreadable: 0, held: 0, duplicates: 0,
+    fetched: 0, staged: 0, skipped: 0, unreadable: 0, held: 0, duplicates: 0, queued: 0,
   };
 
   // Resolved BEFORE any mail is fetched. A mailbox whose family has no staging
@@ -119,18 +152,31 @@ export async function runGrant(grant, ctx) {
 
   const domains = await ctx.db.providerDomains();
   const backfilling = !grant.backfilled_at;
-  const query = senders.inboxQuery(backfilling ? BACKFILL_DAYS : POLL_DAYS, domains);
+  const days = backfilling ? BACKFILL_DAYS : windowDays(grant.last_synced_at, ctx.nowMs);
+  const query = senders.inboxQuery(days, domains);
 
+  const perRun = ctx.maxMessages ?? MAX_MESSAGES_PER_GRANT;
+  // The same list cap on both paths. An ordinary poll can face a backlog too:
+  // `windowDays` widens after an outage, and listing only what one run can stage
+  // would truncate the catch-up exactly the way a truncated backfill does.
   const ids = await gmail.listMessageIds(
-    query, ctx.maxMessages ?? MAX_MESSAGES_PER_GRANT, access, ctx.fetch);
+    query, ctx.listMax ?? LIST_MAX_PER_RUN, access, ctx.fetch);
   summary.fetched = ids.length;
 
   // One query for the whole window. A throw here is NOT caught: if the database
   // is unreachable, concluding "not staged" would insert a second copy of every
   // transaction in the window.
   const staged = await ctx.db.alreadyStaged(ids);
-  const fresh = ids.filter(id => !staged.has(id));
-  summary.skipped = ids.length - fresh.length;
+  const allFresh = ids.filter(id => !staged.has(id));
+  summary.skipped = ids.length - allFresh.length;
+
+  // The per-run ceiling applies to what is actually WORKED ON, not to what was
+  // listed. Taking the cap off the list instead would end a backfill after 40
+  // messages and mark it done, losing the rest of the history with nothing
+  // recording that it was ever there.
+  const fresh = allFresh.slice(0, perRun);
+  const moreQueued = allFresh.length > fresh.length;
+  summary.queued = allFresh.length - fresh.length;
 
   let hitLimit = false;
 
@@ -196,9 +242,16 @@ export async function runGrant(grant, ctx) {
     else summary.skipped++;      // raced with another run; the guard held
   }
 
-  // Written last, and skipped entirely when the window was cut short. Not
-  // advancing is what makes every hold above self-healing.
-  if (!hitLimit) {
+  // Written last, and only when this run actually FINISHED the window: nothing
+  // held, and nothing left queued. Both are the same rule seen from two angles —
+  // `last_synced_at` is what `windowDays` measures from, so advancing it with
+  // messages still unread shrinks the next window past them and they are gone
+  // with nothing recording they were there. `backfilled_at` is the same, one
+  // level up: setting it early drops a half-done backfill to an ordinary poll.
+  //
+  // Not advancing costs one repeated listing five minutes later, and the
+  // already-staged check makes the repeat nearly free.
+  if (!hitLimit && !moreQueued) {
     await ctx.db.markSynced(grant.id, backfilling ? { backfilled_at: new Date().toISOString() } : {});
   }
 
@@ -211,6 +264,7 @@ export async function runGrant(grant, ctx) {
   }
 
   if (hitLimit) summary.status = 'held';
+  else if (moreQueued) summary.status = 'more';   // healthy, just not finished
   return summary;
 }
 

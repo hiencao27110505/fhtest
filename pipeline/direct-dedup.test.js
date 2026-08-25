@@ -125,8 +125,22 @@ const db = rows => ({ stagedCandidates: async () => rows });
 const bankRow = { id: 'r1', source_provider: 'MB Bank', occurred_at: now, created_at: now };
 t('a bank row and a wallet row are one purchase',
   (await D.findDuplicate(mkRow(), db([bankRow])) || {}).id === 'r1');
-t('two MB rows are two transactions, not one reported twice',
-  await D.findDuplicate(mkRow({ sourceProvider: 'MBBank' }), db([bankRow])) === null);
+t('two MB rows at DIFFERENT times are two transactions, not one reported twice',
+  await D.findDuplicate(mkRow({ sourceProvider: 'MBBank', occurredAt: near }), db([bankRow])) === null);
+
+/* The both-transports case: a household forwarding to their alias AND letting
+   us read their mailbox stages one bank email twice, under two different
+   gmail_message_ids. Same provider, so the same-bank clause used to wave both
+   through and the purchase was reviewed twice. Two readings of ONE email carry
+   a byte-identical occurred_at; two real transfers minutes apart do not. */
+t('the SAME bank email staged by both transports is flagged',
+  (await D.findDuplicate(mkRow({ sourceProvider: 'MBBank' }), db([bankRow])) || {}).id === 'r1');
+t('  ...and it stays a suspicion for a person, not a deletion',
+  typeof (await D.findDuplicate(mkRow({ sourceProvider: 'MBBank' }), db([bankRow]))) === 'object');
+t('a second-apart pair from one bank is still two transactions',
+  await D.findDuplicate(
+    mkRow({ sourceProvider: 'MBBank', occurredAt: '2026-08-24T10:00:01.000Z' }),
+    db([bankRow])) === null);
 t('a row outside the window is not a duplicate',
   await D.findDuplicate(mkRow(), db([{ ...bankRow, occurred_at: far }])) === null);
 t('a row inside the window still matches',

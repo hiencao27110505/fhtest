@@ -26,8 +26,11 @@ const src = fs.readFileSync(path.join(__dirname, 'bank-email-pipeline.gs'), 'utf
 
 // The .gs slices, evaluated into this scope. NOT 'use strict': these are ES5
 // `var`/`function` declarations and they have to land as locals here.
+// Ends at upsertFingerprint, which is the first FORWARDING-specific function
+// in that file. Past it lie the fingerprint upsert, the sender-auth gate and the
+// +tag / mailbox_connections resolution, none of which this transport uses.
 const tplSlice = src.slice(src.indexOf('var EXTRACTION_LOGIC_VERSION'),
-                           src.indexOf('// ---------- Stage 2 helpers ----------'));
+                           src.indexOf('function upsertFingerprint'));
 const memoSlice = src.slice(src.indexOf('var MEMO_FILLER'), src.indexOf('function _withTidyMemo'));
 eval(tplSlice);
 eval(memoSlice);

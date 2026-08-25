@@ -104,7 +104,7 @@ const MODEL_ANSWER = {
 // ── the fake outside world ──────────────────────────────────────────────────
 function makeWorld(o) {
   o = o || {};
-  const seen = { token: 0, list: 0, get: 0, model: 0, exchange: 0, profile: 0, prompts: [] };
+  const seen = { token: 0, list: 0, get: 0, model: 0, exchange: 0, profile: 0, prompts: [], queries: [] };
 
   async function fakeFetch(url, init) {
     const u = String(url);
@@ -134,6 +134,7 @@ function makeWorld(o) {
 
     if (u.includes('/users/me/messages?')) {
       seen.list++;
+      seen.queries.push(decodeURIComponent(new URL(u).searchParams.get('q') || ''));
       return res(200, { messages: (o.messageIds || [MESSAGE_ID]).map(id => ({ id })) });
     }
 
@@ -535,18 +536,81 @@ console.log('\n-- mail we should not act on --');
     d.state.staged.length === 0 && d.state.failures.length === 1, JSON.stringify(out.results[0]));
 }
 
-console.log('\n-- backfill, once ---------------------------------------------');
+console.log('\n-- backfill: once, and all of it --');
 {
   const d = makeDb({ grants: [await makeGrant('refresh-1', TC, { backfilled_at: null })] });
   const world = makeWorld();
   await W.runAll(ctxFor(d, world));
   t('a first connect reaches back months, not days',
+    world.seen.queries.some(q => q.includes('newer_than:90d')), world.seen.queries.join(' | '));
+  t('and marks the backfill done once it has finished',
     d.state.synced[0].fields.backfilled_at !== undefined, JSON.stringify(d.state.synced[0]));
 
   const d2 = makeDb({ grants: [await makeGrant('refresh-1', TC)] });
   await W.runAll(ctxFor(d2, makeWorld()));
   t('an ordinary poll does not re-run the backfill',
     d2.state.synced[0].fields.backfilled_at === undefined, JSON.stringify(d2.state.synced[0]));
+}
+{
+  /* The per-run cap applies to what is WORKED ON, not to what is listed. An
+     earlier cut listed 40, staged them, and marked the backfill done — silently
+     losing every older message with nothing recording it had been there. */
+  const many = Array.from({ length: 15 }, (_, i) => 'bulk-' + i);
+  const d = makeDb({ grants: [await makeGrant('refresh-1', TC, { backfilled_at: null })] });
+  const world = makeWorld({ messageIds: many });
+  const out = await W.runAll(ctxFor(d, world, { maxMessages: 5 }));
+  t('a backfill bigger than one run stages only its share', d.state.staged.length === 5,
+    'staged=' + d.state.staged.length);
+  t('  ...reports the rest as queued, not as done', out.results[0].queued === 10, JSON.stringify(out.results[0]));
+  t('  ...and does not advance anything while work is queued',
+    d.state.synced.length === 0, JSON.stringify(d.state.synced));
+
+  // The next run picks up where it stopped, five minutes later.
+  await W.runAll(ctxFor(d, makeWorld({ messageIds: many }), { maxMessages: 5 }));
+  t('the next run continues the backlog', d.state.staged.length === 10, 'staged=' + d.state.staged.length);
+  await W.runAll(ctxFor(d, makeWorld({ messageIds: many }), { maxMessages: 5 }));
+  t('and the run that clears it marks the backfill done',
+    d.state.staged.length === 15 && d.state.synced.length === 1 &&
+    d.state.synced[0].fields.backfilled_at !== undefined,
+    'staged=' + d.state.staged.length + ' synced=' + JSON.stringify(d.state.synced));
+}
+{
+  /* The same truncation on the ORDINARY path. windowDays widens after an
+     outage, so a routine poll can face a backlog too — and listing only what one
+     run can stage would advance last_synced_at past the rest. */
+  const many = Array.from({ length: 12 }, (_, i) => 'catchup-' + i);
+  const d = makeDb({ grants: [await makeGrant('refresh-1', TC, { last_synced_at: '2026-08-01T00:00:00Z' })] });
+  const out = await W.runAll(ctxFor(d, makeWorld({ messageIds: many }), { maxMessages: 5 }));
+  t('a wide catch-up stages its share and holds the cursor',
+    d.state.staged.length === 5 && d.state.synced.length === 0, JSON.stringify(out.results[0]));
+  await W.runAll(ctxFor(d, makeWorld({ messageIds: many }), { maxMessages: 5 }));
+  await W.runAll(ctxFor(d, makeWorld({ messageIds: many }), { maxMessages: 5 }));
+  t('  ...and later runs finish it before the cursor moves',
+    d.state.staged.length === 12 && d.state.synced.length === 1,
+    'staged=' + d.state.staged.length + ' synced=' + d.state.synced.length);
+}
+
+console.log('\n-- the poll window follows the last SUCCESSFUL poll --');
+{
+  const now = Date.parse('2026-08-25T00:00:00Z');
+  t('a fresh mailbox uses the floor', W.windowDays(null, now) === W.POLL_DAYS);
+  t('a mailbox polled an hour ago uses the floor',
+    W.windowDays('2026-08-24T23:00:00Z', now) === W.POLL_DAYS);
+  /* The trap this replaced: a hard-coded newer_than:2d meant a worker down for
+     three days came back, read the last two, and the missing day was gone with
+     nothing anywhere recording that it existed. */
+  t('a mailbox not polled for five days reaches back six',
+    W.windowDays('2026-08-20T00:00:00Z', now) === 6, String(W.windowDays('2026-08-20T00:00:00Z', now)));
+  t('a clock skewed into the future falls back to the floor',
+    W.windowDays('2026-09-01T00:00:00Z', now) === W.POLL_DAYS);
+  t('an unparseable timestamp falls back to the floor',
+    W.windowDays('not a date', now) === W.POLL_DAYS);
+
+  const d = makeDb({ grants: [await makeGrant('refresh-1', TC, { last_synced_at: '2026-08-20T00:00:00Z' })] });
+  const world = makeWorld();
+  await W.runAll(ctxFor(d, world, { nowMs: now }));
+  t('and the widened window reaches Gmail',
+    world.seen.queries.some(q => q.includes('newer_than:6d')), world.seen.queries.join(' | '));
 }
 
 console.log('\n-- one bad mailbox never stops the others --');
