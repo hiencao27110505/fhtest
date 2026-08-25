@@ -9,6 +9,7 @@ var PIC = {
   house: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
   lock:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>',
   plus:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  mail:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg>',
   chev:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>',
   chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg>',
   list:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>'
@@ -96,26 +97,19 @@ function renderPersonal(){
      +   '<button class="cc-row" onclick="openSheet(\'sheet-pbudget\')"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="persScrollCats()"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem chi tiêu</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi khoản chi riêng tư</span>'+_ccChev+'</button>'
+     /* Fourth row of the SAME list, not a card of its own — it is one of the
+        things you can do from here, and floating it outside the card made it
+        read as a stray. Last on purpose: the three above are what you do with
+        the ledger; this is where transactions come IN from.
+
+        Opening from this tab presets the review screen's destination to
+        personal, exactly as openPersonalExpense() above presets the expense
+        modal. Badge off the same window.fhStagedCount Widget A reads. */
+     +   '<button class="cc-row" onclick="fhEmailTxnCta({scope:\'personal\'})"><span class="cc-ic">'+PIC.mail+'</span><span class="cc-t">Khoản thu chi từ email</span>'
+     +     ((window.fhStagedCount||0)>0 ? '<span class="cc-badge num">'+(window.fhStagedCount||0)+'</span>' : '')
+     +     _ccChev+'</button>'
      + '</div>'
      + '</section>';
-
-  /* ── Khoản thu chi từ email — the same CTA Widget A carries, same .cf-cta /
-        .cc-row chrome, same badge off the same window.fhStagedCount. Deliberately
-        not a second design: it is the same door, and a person who finds it here
-        should recognise it there.
-
-        The one difference is intent. Opening it from THIS tab presets the
-        review screen's destination to personal, exactly as openPersonalExpense()
-        presets the expense modal — and the picker still shows the choice, so
-        nothing is decided behind anyone's back. ── */
-  var _n = window.fhStagedCount || 0;
-  h += '<div class="cf-cta" style="margin-bottom:18px">'
-     + '<button class="cc-row" onclick="fhEmailTxnCta({scope:\'personal\'})">'
-     +   '<span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg></span>'
-     +   '<span class="cc-t">Khoản thu chi từ email</span>'
-     +   (_n>0 ? '<span class="cc-badge num">'+_n+'</span>' : '')
-     +   '<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>'
-     + '</button></div>';
 
   /* ── Các nhóm của tôi — per-space roll-up (drawn icons) ── */
   var bySpace = {};
