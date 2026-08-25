@@ -143,6 +143,72 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-25 (direct-read session) — CLAIMING MIGRATION `0084_mailbox_direct_read.sql`.
+  Next free number after it is `0085` — verify against `git ls-tree origin/main
+  supabase/migrations/` before claiming, this range has collided repeatedly.**
+
+  **Direct mailbox read is being built as OUR OWN transport, in our own tree.
+  `earthy/` is not touched and does not need to change.** Quang's pipeline reads
+  real mailboxes and parses real bank mail correctly, and stops at
+  `transaction-parser/main.py`'s `# TODO: persist` — it announces to Telegram and
+  writes nothing. Rather than reach into it, this is a second path on our stack
+  that stages into `email_transactions` the same way forwarding does. Both can run.
+
+  **Why not just add a write to theirs, in one line:** only one Gmail `watch()`
+  can exist per mailbox, and a second `watch()` call silently replaces the first
+  one's topic. Two push pipelines cannot observe one mailbox — the loser goes
+  quiet with no error anywhere. Ours **polls**, which conflicts with nothing.
+  Sealing also has to happen wherever the plaintext dies, and that is better
+  inside the repo that owns the encryption design than across two clouds.
+
+  **What landed (spine only, no transport yet):**
+  - `0084_mailbox_direct_read.sql` — `mailbox_grants`: our own OAuth link +
+    Gmail cursor, separate from `connected_accounts` (0070) on purpose. It binds
+    `member_id` AND `family_id` **at connect time**, not at ingest: a user can be
+    in several families and `profiles.family_id` is only the active one, so
+    resolving per message would file mail into whichever family happened to be
+    active and seal rows the other family cannot open. `grant_mailbox_access()`
+    refuses a personal container (`families.type = 'family'` only) and refuses a
+    user with no member row rather than storing a grant nothing can route.
+  - `supabase/functions/mailbox-sync/lib/{sealed-box,identity,dedup,stage}.mjs`.
+  - `pipeline/direct-{sealed-box,dedup,stage}.test.js` — 114 assertions. Full
+    suite is 24 files, all green.
+
+  **Two things worth your attention:**
+
+  **1. `disconnect_my_mailbox()` is REPLACED (not edited) by 0084, additively.**
+  0082 predates this transport, so withdrawing consent deleted the forwarding
+  connection and the pending rows but would have left an OAuth grant reading the
+  mailbox — which makes the consent sheet's promise untrue. It now also deletes
+  `mailbox_grants` for the caller and returns one extra key (`grants`); the keys
+  already there are unchanged. If you have a client reading that JSON, it keeps
+  working.
+
+  **2. `DEDUP_FP_KEY` must be COPIED from Apps Script Properties into the
+  worker's secrets, never re-minted.** The Apps Script self-mints when the
+  property is empty, which is correct while it is the only implementation. A
+  second mint gives the two transports two key spaces, every cross-transport
+  fingerprint stops matching, and nothing throws — the symptom is a queue that
+  quietly holds both halves of every purchase. `pipeline/direct-dedup.test.js`
+  computes fingerprints with BOTH implementations and compares them, so a drift
+  in the message string or the canonicalisation list fails loudly instead.
+
+  **Not built yet, in order:** Gmail transport (token refresh, `messages.list`
+  from the cursor, HTML→text), the OAuth callback, extraction (masking stays
+  unconditional), DKIM enforcement, the worker entry point + pg_cron schedule,
+  `push-send` notification, first-connect backfill. `supabase/functions/
+  mailbox-sync/README.md` has the reasoning for each.
+
+  **No answer needed** unless you disagree with the transport split or you are
+  already holding `0084`.
+
+- **2026-08-25 (direct-read session) — FYI: `index.html` is committed one build
+  behind `sw.js` on main.** `sw.js` says `familyhub-v393`, the committed
+  `index.html` stamps `FH_VERSION = 'v392'`, so `npm run check` fails on a clean
+  tree and "What's new" shows the wrong version. One rebuild fixes it. Left
+  alone deliberately — it belongs to whoever bumped the SW, and folding it into
+  an unrelated commit is how a one-line drift becomes hard to attribute.
+
 - **2026-08-24 (Hien) — DISCUSS/COORDINATE: make bank-email import personal-first
   (it's your pipeline).** Personal ledger (Model Y) now has its own budget + spend
   views. The last finance CTA to port is **"Khoản thu chi từ email."** Proposal:
