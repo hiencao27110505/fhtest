@@ -181,8 +181,14 @@
        never puts a small text button on the right of a row that navigates --
        that shape means "this row does one other thing", which is what the
        connection rows below use it for. */
-    function _cstNavRow(glyph, title, value, onclick) {
-      return '<button class="cst-lrow" onclick="' + _escAttr(onclick) + '">' +
+    /* fn + arg, never a pre-built expression: escAttr turns ' into \' because
+       it escapes VALUES inside an attribute, so running it over a whole call
+       produced onclick="fhConsentReview(\'app_data\')" -- a syntax error the
+       global handler surfaced as "Có lỗi xảy ra". Only the argument is
+       escaped, and only as the string literal it actually is. */
+    function _cstNavRow(glyph, title, value, fn, arg) {
+      var call = (arg === undefined) ? fn + '()' : fn + "('" + _escAttr(arg) + "')";
+      return '<button class="cst-lrow" onclick="' + call + '">' +
         '<span class="cst-ic">' + _mbxGlyph(glyph) + '</span>' +
         '<span class="cst-ltxt"><span class="cst-lt">' + _esc(title) + '</span></span>' +
         (value ? '<span class="cst-val">' + _esc(value) + '</span>' : '') +
@@ -262,7 +268,7 @@
         var lbl = _CST_LABELS[c.kind] || [c.kind, c.kind];
         var d = c.consented_at ? new Date(c.consented_at) : null;
         crows += _cstNavRow(lbl[2], L(lbl[0], lbl[1]), d ? fmtDayMon(d) : '',
-          "fhConsentReview('" + c.kind + "')");
+          'fhConsentReview', c.kind);
       });
       if (crows) {
         body += '<div class="cst-sech">' + _esc(L('Điều bạn đã đồng ý', 'What you agreed to')) + '</div>' +

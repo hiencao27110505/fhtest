@@ -31,7 +31,11 @@ let SHEETS = [];
 function _fhSheet(html) { SHEETS.push(html); }
 function _closeOv() {}
 const _esc = (s) => String(s);
-const _escAttr = (s) => String(s).replace(/"/g, '&quot;');
+/* The real one from 12-format-helpers: it escapes ' as \' because it guards
+   VALUES inside an attribute. A stub that only handled " hid the bug where a
+   whole JS call was run through it and became a syntax error. */
+const _escAttr = (s) => String(s == null ? '' : s)
+  .replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 // the type-to-confirm button, looked up by id when the phrase is checked
 let TYPE_BTN = { disabled: true };
 global.document = { getElementById: (id) => (id === 'cst-del-go' ? TYPE_BTN : null) };
@@ -219,6 +223,16 @@ console.log('\n-- the gate asks exactly when it should --');
   t('lists what you agreed to, per purpose', priv.indexOf('Điều bạn đã đồng ý') >= 0);
   t('consent rows are whole-row targets closed by a chevron (iOS disclosure)',
     priv.indexOf('cst-chev') >= 0 && priv.indexOf('cst-lrow') >= 0);
+  /* An onclick built by running a whole call through escAttr becomes
+     fhConsentReview(\'app_data\') -- a syntax error the user meets as a
+     toast. Every handler this screen emits must be parseable JS. */
+  var handlers = priv.match(/onclick="([^"]*)"/g) || [];
+  t('every row emits a handler at all', handlers.length >= 1);
+  t('and every one of them is valid JS, not escAttr-mangled', handlers.every(function (h) {
+    var code = h.slice(9, -1).replace(/&quot;/g, '"');
+    if (code.indexOf("\\'") >= 0) return false;
+    try { new Function(code); return true; } catch (e) { return false; }
+  }), handlers.join(' | '));
   t('every group carries a footer explaining it, not a bordered box',
     priv.indexOf('cst-foot') >= 0 && priv.indexOf('cst-danger') === -1);
   t('erasure is its own group, a centred danger row, never a filled CTA',
