@@ -194,10 +194,15 @@ const ok = (json, headers) => ({ status: 200, json: json, headers: headers || {}
     m.api.fhAutoTxnSheet();
     await new Promise((r) => setTimeout(r, 10));
     /* A token dies every 7 days while the OAuth app is in Testing status, so a
-       stale grant is routine. It must not read as a healthy connection. */
-    t('a grant needing re-consent is surfaced, not shown as healthy',
-      m.sheets.length > 0 && !/Đang tự động ghi[^]*Đang tự động ghi/.test(m.sheets.join('')),
-      'sheets=' + m.sheets.length);
+       stale grant is routine, and rendering it as "Đang tự động ghi" means
+       someone notices a month of missing transactions before they notice the
+       connection. */
+    const html = m.sheets.join('');
+    t('a grant needing re-consent does NOT read as healthy',
+      html.indexOf('Đang tự động ghi') === -1, 'sheets=' + m.sheets.length);
+    t('  ...it names the state', html.indexOf('Cần kết nối lại') >= 0);
+    t('  ...offers the one tap that fixes it', html.indexOf('fhAutoTxnGrant()') >= 0);
+    t('  ...and says the queue is untouched', html.indexOf('mục duyệt') >= 0);
   }
   {
     const m = make({ grants: [{ id: 'g1', provider: 'google', email: 'me@gmail.com', needs_reauth: false }] });

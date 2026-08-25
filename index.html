@@ -22558,9 +22558,10 @@ window.classifyAmount = classifyAmount;
       if (res.error) return null;
       const row = (res.data || [])[0] || null;
       if (!row) return null;
-      /* needsReauth, camelCased, because that is what fhAutoTxnStatus already
-         reads. A token dies every 7 days while the OAuth app is in Testing, so
-         this is a routine state and not an edge case. */
+      /* needsReauth is camelCased to match the rest of this file. It is not
+         cosmetic: a refresh token dies every 7 days while the OAuth app is in
+         Testing publishing status, so a stale grant is the most common state
+         this screen has to render after "healthy". */
       return { id: row.id, provider: row.provider, email: row.email,
                needsReauth: !!row.needs_reauth, connectedAt: row.connected_at,
                lastSyncedAt: row.last_synced_at };
@@ -22585,6 +22586,41 @@ window.classifyAmount = classifyAmount;
   function fhAutoTxnStatus(conn) {
     _atxSheetSeq++;
     const email = (conn && (conn.email || conn.accountEmail || conn.account_email)) || '';
+
+    /* A GRANT THAT NEEDS RE-CONSENT IS NOT A HEALTHY CONNECTION, and saying so
+       is the difference between a feature that looks fine and one that works.
+       Google invalidates a refresh token when the person revokes access,
+       changes their password, or — while the app is in Testing publishing
+       status — every 7 days. That last one makes this a WEEKLY screen, not an
+       edge case.
+
+       Left unsaid, someone sees "Đang tự động ghi" over a mailbox that has not
+       synced since Tuesday, and the first thing they notice is a month of
+       missing transactions. The fix is one tap and the same button as the first
+       time, so the copy names the state plainly and offers it. */
+    if (conn && conn.needsReauth) {
+      return _fhSheet(
+        '<div class="mbx-hero">' + _mbxGlyph('mail') + '</div>' +
+        '<div class="sheet-h">' + _esc(L('Cần kết nối lại', 'Reconnect needed')) + '</div>' +
+        '<div class="sheet-sub">' + _esc(email
+          ? L('Google đã ngừng cho tụi mình đọc ' + email + ', nên tạm thời không có giao dịch mới nào được ghi. Kết nối lại một lần là xong.',
+              'Google stopped letting us read ' + email + ', so no new transactions are being logged. One reconnect fixes it.')
+          : L('Google đã ngừng cho tụi mình đọc email của bạn, nên tạm thời không có giao dịch mới nào được ghi. Kết nối lại một lần là xong.',
+              'Google stopped letting us read your email, so no new transactions are being logged. One reconnect fixes it.')) + '</div>' +
+        '<div class="mbx-note">' + _mbxGlyph('check') + '<span>' + _esc(L(
+          'Những khoản đã tìm được trước đó vẫn nằm nguyên trong mục duyệt.',
+          'Anything found before this is still waiting in Review transactions.')) + '</span></div>' +
+        '<button class="cta" id="atx-go" onclick="fhAutoTxnGrant()">' +
+          _esc(L('Kết nối lại', 'Reconnect')) + '</button>' +
+        (window.fhTxnReviewSheet
+          ? '<button class="btn-line" onclick="fhTxnReviewSheet()">' + _esc(L('Xem mục duyệt', 'Open Review transactions')) + '</button>'
+          : '') +
+        '<button class="ex-del" id="atx-off" onclick="fhAutoTxnDisconnect(this)">' +
+          _esc(L('Ngừng đọc email', 'Stop reading my email')) + '</button>' +
+        '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
+      );
+    }
+
     _fhSheet(
       '<div class="mbx-hero">' + _mbxGlyph('done') + '</div>' +
       '<div class="sheet-h">' + _esc(L('Đang tự động ghi', 'Auto-logging is on')) + '</div>' +
