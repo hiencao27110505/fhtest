@@ -394,6 +394,27 @@
   let _atxOffArmed = false, _atxOffTimer = null;
   const _ATX_OFF_LABEL = () => L('Ngừng đọc email', 'Stop reading my email');
 
+  /* Headless stop + status, for callers that carry their own confirmation.
+     Erasure (75-consent-ui) has to stop OAuth collection as well as forwarding:
+     the SQL side can delete mailbox_connections, but this connection lives
+     behind the Cloud Run API, so only the client can end it. Without this the
+     serverless watcher keeps reading a mailbox whose owner has withdrawn
+     consent -- collection after withdrawal, which gets no grace period even
+     though DELETION gets 72 hours. Same route as the UI disconnect below;
+     404 counts as success because it means already gone. */
+  async function _atxStopHeadless() {
+    try {
+      const token = await _atxAuthToken();
+      const res = await fetch(_ATX_API + '/connections/google', {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      return res.ok || res.status === 404;
+    } catch (e) { return false; }
+  }
+  window.fhAutoTxnStop = _atxStopHeadless;
+  window.fhAutoTxnConnection = _atxConnection;
+
   window.fhAutoTxnDisconnect = async function (btn) {
     if (!_atxOffArmed) {
       _atxOffArmed = true;

@@ -2948,6 +2948,10 @@ html.fh-can-install .set-row.set-install{display:flex}
    current pick MEANS, so the label can stay a plain question. */
 #csv-result.staged .csv-scope{margin:0 2px 20px;padding:14px 0 0;border-top:1px solid var(--hairline)}
 #csv-result.staged .csv-scope .choice[aria-disabled="true"]{opacity:.4}
+/* Destination marker on a collapsed row. Only the private case is marked —
+   family is the default, and badging both would put a chip on every card to
+   distinguish the exception. */
+#csv-result.staged .bc-scope{display:inline-block;margin:2px 0 0;font-size:11.5px;font-weight:600;letter-spacing:-.01em;color:var(--muted)}
 #csv-result.staged .csv-scope-note{font-size:12.5px;color:var(--muted);margin-top:8px;letter-spacing:-.01em}
 
 /* ---------- sealed-staging key-mismatch alarm ---------- */
@@ -2992,6 +2996,81 @@ html.fh-can-install .set-row.set-install{display:flex}
 /* Document-type kicker: names what is being signed (a consent, not a T&C). */
 .cst-kicker{font-size:10.5px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin-bottom:8px}
 
+/* ---------- Settings → Quyền riêng tư (75-consent-ui) ---------- */
+/* iOS Settings grammar, in the app's tokens. The anatomy that makes it read
+   as a system screen rather than a form: an uppercase section header, rows
+   grouped in one rounded container with inset dividers, each row led by a
+   small tinted icon tile and closed by a chevron or a value, and — the piece
+   most often missed — a FOOTER under the group that explains it. Explanation
+   belongs under the thing it explains, never inside a bordered box competing
+   with the rows. */
+.cst-sech{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--muted);margin:24px 4px 7px}
+.cst-group{background:var(--white);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-card)}
+.cst-foot{font-size:12.5px;line-height:1.45;color:var(--muted);margin:7px 4px 0}
+
+/* Row: 44px minimum, whole row tappable, divider inset to the text so it
+   starts under the title and not under the icon — the iOS detail that makes a
+   list look grouped rather than striped. */
+.cst-lrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  background:none;border:0;padding:11px 14px;min-height:56px;position:relative}
+.cst-lrow:not(:last-child)::after{content:'';position:absolute;left:56px;right:0;bottom:0;
+  height:1px;background:var(--divider)}
+.cst-lrow:active{background:var(--surface)}
+.cst-ic{width:30px;height:30px;border-radius:9px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--brand-tint);color:var(--brand-ink)}
+.cst-ic svg{width:17px;height:17px;display:block}
+/* display:block on both, or the title and the subtitle run together on one
+   line -- they are spans inside a flex child, and inline is the default. */
+.cst-ltxt{flex:1;min-width:0}
+.cst-lt{display:block;font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--ink);
+  line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cst-ls{display:block;font-size:12.5px;line-height:1.4;color:var(--muted);margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Trailing value + chevron, the iOS disclosure pair. */
+.cst-val{flex-shrink:0;font-size:13.5px;color:var(--muted);letter-spacing:-.01em}
+.cst-chev{flex-shrink:0;width:16px;height:16px;color:var(--muted-soft)}
+/* One trailing action, not a status dot AND a button. The group header already
+   says these are live; a green dot next to a red word was two signals fighting
+   for the same 60px. */
+/* Regular weight, not semibold. iOS destructive rows carry their meaning in
+   the colour; bolding it as well is shouting, and two bold reds on one screen
+   compete instead of ranking. DESIGN §3 says the same thing from the other
+   direction: destructive stays low prominence. */
+.cst-stop{flex-shrink:0;min-height:44px;padding:0 2px 0 12px;background:none;border:0;
+  font-size:14.5px;font-weight:400;letter-spacing:-.01em;color:var(--danger)}
+.cst-stop:active{opacity:.55}
+
+/* Destructive: its own group, one full-width centered red row. iOS never
+   wraps this in a box with a paragraph, and DESIGN §3 never makes it a filled
+   button — a red row in an otherwise quiet list is loud enough. */
+.cst-group.cst-dgroup{margin-top:4px}
+/* The iOS "Delete Account" row: full width, centred, system red, REGULAR
+   weight, alone in its group. Nothing else on the screen looks like it, which
+   is what makes it findable without making it loud. */
+.cst-drow{width:100%;min-height:52px;background:none;border:0;padding:15px 14px;
+  font-size:15.5px;font-weight:400;letter-spacing:-.01em;color:var(--danger);text-align:center}
+.cst-drow:active{background:var(--danger-tint)}
+.cst-drow[disabled]{opacity:.32;pointer-events:none}
+
+/* A live erasure request. Amber, not danger: nothing is lost yet, and the
+   loudest control here is the way back. */
+.cst-pending{background:var(--amber-tint);border-radius:14px;padding:14px;margin-bottom:6px}
+.cst-ph{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+.cst-ph svg{width:18px;height:18px;color:var(--amber);flex-shrink:0}
+.cst-pt{font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.cst-ps{font-size:13px;line-height:1.45;color:var(--ink-2);margin-bottom:11px}
+
+/* The consequence list on the erasure sheet: what you lose, one line each,
+   led by the same tile vocabulary so it reads as part of the same system. */
+.cst-loss{display:flex;flex-direction:column;gap:14px;margin:6px 0 20px}
+.cst-lossrow{display:flex;gap:12px;align-items:flex-start}
+.cst-lossrow .cst-ic{background:var(--danger-tint);color:var(--danger)}
+.cst-lossrow .cst-ic.calm{background:var(--fill-neutral);color:var(--brand-ink)}
+.cst-losst{font-size:14.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);line-height:1.3}
+.cst-losss{font-size:13px;line-height:1.45;color:var(--muted);margin-top:2px}
+.cst-type{margin-bottom:6px}
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
 .fh-s-cta{width:100%;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;padding:15px;border-radius:9999px;box-shadow:0 8px 20px var(--brand-glow);margin-top:6px}
@@ -3935,7 +4014,7 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <button class="set-row" onclick="closeSheet();fhMyProfile()"><span class="set-ic">🙂</span><span class="set-t" data-t="setMyProfile">My profile</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <!-- Privacy: review the accepted consent + the in-app withdrawal L91's
          ease-symmetry requires. Not gated: every signed-in user has this. -->
-    <button id="set-privacy-row" class="set-row" onclick="closeSheet();fhAppDataConsentSheet({readOnly:true})"><span class="set-ic">🛡️</span><span class="set-t" data-t="setPrivacy">Privacy</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button id="set-privacy-row" class="set-row" onclick="closeSheet();fhPrivacySheet()"><span class="set-ic">🛡️</span><span class="set-t" data-t="setPrivacy">Privacy</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhLanguageSheet()"><span class="set-ic">🌐</span><span class="set-t" data-t="setLanguage">Language</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhSwitchFamily()"><span class="set-ic">⇄</span><span class="set-t" data-t="setSwitchFamily">Switch family</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="set-row" onclick="closeSheet();fhInvite()"><span class="set-ic">＋</span><span class="set-t" data-t="inviteMember2">Invite a member</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -5300,6 +5379,7 @@ var PIC = {
   house: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
   lock:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>',
   plus:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  mail:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg>',
   chev:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>',
   chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M9 19V5M14 19v-7M19 19v-11"/></svg>',
   list:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>'
@@ -5387,6 +5467,17 @@ function renderPersonal(){
      +   '<button class="cc-row" onclick="openSheet(\'sheet-pbudget\')"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="persScrollCats()"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem chi tiêu</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi khoản chi riêng tư</span>'+_ccChev+'</button>'
+     /* Fourth row of the SAME list, not a card of its own — it is one of the
+        things you can do from here, and floating it outside the card made it
+        read as a stray. Last on purpose: the three above are what you do with
+        the ledger; this is where transactions come IN from.
+
+        Opening from this tab presets the review screen's destination to
+        personal, exactly as openPersonalExpense() above presets the expense
+        modal. Badge off the same window.fhStagedCount Widget A reads. */
+     +   '<button class="cc-row" onclick="fhEmailTxnCta({scope:\'personal\'})"><span class="cc-ic">'+PIC.mail+'</span><span class="cc-t">Khoản thu chi từ email</span>'
+     +     ((window.fhStagedCount||0)>0 ? '<span class="cc-badge num">'+(window.fhStagedCount||0)+'</span>' : '')
+     +     _ccChev+'</button>'
      + '</div>'
      + '</section>';
 
@@ -9536,38 +9627,49 @@ function csvStagedScope(){
   try{ return localStorage.getItem(CSV_SCOPE_KEY)==='personal' ? 'personal' : 'family'; }
   catch(e){ return 'family'; }
 }
+/* Persist only. Split out from csvPickScope because an ENTRY POINT needs to
+   pre-scope before the review screen exists — opening the queue from the Cá nhân
+   tab means personal, the same way openPersonalExpense() presets the expense
+   modal. Returns whether it took, so a caller can tell refusal from success.
+
+   Refusing when the ledger is locked is the point: csvStagedScope() would fall
+   back to family anyway, and persisting a choice that does not apply would make
+   the picker disagree with itself the moment the ledger unlocks. */
+function csvSetScope(v){
+  if(v==='personal' && !csvScopeReady()) return false;
+  try{ localStorage.setItem(CSV_SCOPE_KEY, v); }catch(e){}
+  return true;
+}
 function csvPickScope(v){
-  if(v==='personal' && !csvScopeReady()){
+  if(!csvSetScope(v)){
     window.toast && window.toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
     return;
   }
-  try{ localStorage.setItem(CSV_SCOPE_KEY, v); }catch(e){}
   renderCsvReview();
 }
-function csvScopeSubtitle(){
-  return csvStagedScope()==='personal'
-    ? L('vào sổ cá nhân, chỉ mình bạn thấy','to your personal ledger, only you see it')
-    : L('vào sổ gia đình, cả nhà cùng thấy','to the family ledger, everyone sees it');
+/* The summary line now describes the MIX, because the destination is per row.
+   "2 vào sổ gia đình · 1 riêng tư" is checkable at a glance against what the
+   cards say; a single label could only have described a default nobody set. */
+function csvScopeSummary(){
+  var rows = (typeof csvStagedSelected === 'function') ? csvStagedSelected() : [];
+  var p = 0, f = 0;
+  rows.forEach(function(c){ if(csvRowScope(c)==='personal') p++; else f++; });
+  if(!p) return L('vào sổ gia đình, cả nhà cùng thấy','to the family ledger, everyone sees it');
+  if(!f) return L('vào sổ cá nhân, chỉ mình bạn thấy','to your personal ledger, only you see it');
+  return L(f+' khoản vào sổ gia đình · '+p+' khoản riêng tư',
+           f+' to the family · '+p+' private');
 }
-function csvScopePicker(){
-  /* Deliberately the SAME control as #ex-scopefield in the expense modal: same
-     question, same chips, same order, same glyphs. A second dialect for one
-     decision is how a product starts feeling assembled rather than designed —
-     and this is the one decision a person makes most often in this screen. */
-  var sc = csvStagedScope(), locked = !csvScopeReady();
+function csvRowScopeField(c){
+  var sc = csvRowScope(c), locked = !csvScopeReady();
   var chip = function(v, label){
-    var on = sc===v;
-    return '<button type="button" class="choice'+(on?' on':'')+'"'
+    return '<button type="button" class="choice'+(sc===v?' on':'')+'"'
       + (v==='personal' && locked ? ' aria-disabled="true"' : '')
-      + ' aria-pressed="'+(on?'true':'false')+'"'
-      + ' onclick="csvPickScope(\''+v+'\')">'+esc(label)+'</button>';
+      + ' aria-pressed="'+(sc===v?'true':'false')+'"'
+      + ' onclick="csvPickRowScope(\''+v+'\')">'+esc(label)+'</button>';
   };
   return '<div class="field csv-scope">'
     + '<label>'+esc(L('Ghi vào đâu?','Where does this go?'))+'</label>'
-    + '<div class="choices">'
-    +   chip('personal', L('🔒 Cá nhân','🔒 Personal'))
-    +   chip('family',   L('🏡 Gia đình','🏡 Family'))
-    + '</div>'
+    + '<div class="choices">'+chip('personal', L('🔒 Cá nhân','🔒 Personal'))+chip('family', L('🏡 Gia đình','🏡 Family'))+'</div>'
     + (locked ? '<div class="csv-scope-note">'+esc(L('Sổ cá nhân đang khoá — mở ở tab Cá nhân để chọn được.','Personal ledger is locked — unlock it on the Cá nhân tab to pick it.'))+'</div>' : '')
     + '</div>';
 }
@@ -10196,6 +10298,12 @@ function csvCollapsedCard(c, opts){
   return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
     + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid)
+    /* A collapsed row has to say where it is going, or the destination is a
+       decision you can only see by opening every card one at a time. Only the
+       PRIVATE case is marked: family is the default and marking both would be
+       noise on every row to distinguish the exception. */
+    + ((csvStagedMode && !opts.isDup && csvRowScope(c)==='personal')
+        ? '<span class="bc-scope">🔒 '+esc(L('Riêng tư','Private'))+'</span>' : '')
     + (opts.noPick
         ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+'</span>'
         : bulkSummary(csvRowShape(c, opts.isDup)))
@@ -10233,7 +10341,13 @@ function csvActiveCard(c, opts){
       + '<div class="field"><label>'+L('Số tiền','Amount')+'</label><input class="num" id="csvedit-amt" inputmode="numeric" onblur="snapAmtInput(this)" placeholder="'+escAttr(amtPlaceholder())+'" value="'+escAttr(c.amount!=null?csvAmtInputVal(c.amount):'')+'"/></div>'
       + '<div class="field"><label>'+L('Khi nào','When')+'</label><input type="date" id="csvedit-date" value="'+escAttr(c.dateDisplay||'')+'"/></div>'
       + '</div>'
-      + (mems.length ? '<div class="field" style="margin-bottom:0"><label>'+L('Ai trả','Who paid')+'</label><div class="choices" id="csvedit-who">'+whoChips+'</div></div>' : '');
+      + (csvStagedMode ? csvRowScopeField(c) : '')
+      /* A private row has no member split — the same reason #ex-whofield hides
+         when the expense modal is scoped personal. Asking "who paid" about a
+         ledger with one member in it is a question with no wrong answer, which
+         makes it noise. */
+      + ((mems.length && !(csvStagedMode && csvRowScope(c)==='personal'))
+          ? '<div class="field" style="margin-bottom:0"><label>'+L('Ai trả','Who paid')+'</label><div class="choices" id="csvedit-who">'+whoChips+'</div></div>' : '');
   } else {
     body += '<div class="field" style="margin-bottom:0"><label>'+L('Danh mục','Category')+'</label>'
       + '<div class="choices" id="csvedit-cats">'+catChips+'</div></div>';
@@ -10269,6 +10383,47 @@ function csvReadEditor(c){
   if(d && d.value){ c.dateDisplay = d.value; c.date = new Date(d.value+'T00:00:00'); }
   if(document.getElementById('csvedit-cats')){ var cat = chosen('csvedit-cats'); if(cat){ c.categoryName = cat; c.catSource='user'; } }
   if(document.getElementById('csvedit-who')){ var w = chosen('csvedit-who'); if(w) c.who = w; }
+}
+
+/* Per-ROW destination. It was one control for the whole pass, and the argument
+   for that was real — selection x batch-scope covers a mixed batch in two taps.
+   But it made the destination a property of the IMPORT when it is a property of
+   the TRANSACTION: a lunch with the family and a private coffee arrive in the
+   same email batch, and asking about them together is asking the wrong question.
+
+   c._scope holds it. Unset means "not decided yet", which falls back to the
+   remembered default rather than being written eagerly — so a row you never
+   opened still goes where you last said, and a row you DID open remembers what
+   you said about that row. */
+function csvRowScope(c){
+  if(!c) return csvStagedScope();
+  if(c._scope === 'personal' && !csvScopeReady()) return 'family';   // locked ledger: never strand a row
+  return c._scope || csvStagedScope();
+}
+/* Acts on whichever row is open — only one ever is (csvExpand). Reads the rest
+   of the editor first, or switching destination would discard an amount or a
+   category typed a moment earlier. */
+function csvPickRowScope(v){
+  var c = csvExpandedCandidate();
+  if(!c) return;
+  if(v==='personal' && !csvScopeReady()){
+    window.toast && window.toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
+    return;
+  }
+  csvReadEditor(c);
+  c._scope = v;
+  csvSetScope(v);              // and it becomes the default for rows not yet decided
+  renderCsvReview();
+}
+function csvExpandedCandidate(){
+  if(!csvExpand || !csvReview) return null;
+  if(csvExpand.kind==='ready') return csvReview.ready[csvExpand.idx] || null;
+  if(csvExpand.kind==='dup')   return (csvReview.dup[csvExpand.idx]||{}).c || null;
+  if(csvExpand.kind==='defer') return csvReview.deferred[csvExpand.idx] || null;
+  if(csvExpand.kind==='group'){
+    var g = csvReview.groups[csvExpand.gi]; return g ? (g.items[csvExpand.idx]||null) : null;
+  }
+  return null;
 }
 
 function csvIsOpen(kind, idx){ return csvExpand && csvExpand.kind===kind && csvExpand.idx===idx; }
@@ -10447,9 +10602,8 @@ function renderCsvReview(){
       var stagedSum = csvStagedSelected().reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
       html += '<div class="csv-staged-sum">'
         + '<div class="csv-staged-sum-main">'+esc(L('Sẽ nhập '+readyCount+' khoản','Importing '+readyCount))+' · <span class="num">'+esc(fmt(stagedSum))+'</span></div>'
-        + '<div class="csv-staged-sum-sub">'+esc(csvScopeSubtitle())+'</div>'
+        + '<div class="csv-staged-sum-sub">'+esc(csvScopeSummary())+'</div>'
         + '</div>';
-      html += csvScopePicker();
     }
   } else {
     var summaryLine;
@@ -14175,7 +14329,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v393';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v399';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -15629,7 +15783,22 @@ window.obGoogle = async function () {
       try { return await FHCrypto.decVal(P.key, b64); } catch (e) { return _DEC_FAILED; }
     };
     const _decTxt = async (b64) => { const v = await _decP(b64); return v === _DEC_FAILED ? null : v; };
-    function _setState(s) { P.state = s; try { if (window.renderPersonal) renderPersonal(); } catch (e) {} }
+    /* The bank-email review screen offers "Ghi vào đâu? — Cá nhân", and that chip
+       is disabled while this ledger has no key. fhPersonalBoot is fired from
+       hydrate and NOT awaited, so a queue opened in the window before the key
+       resolves showed the chip locked and then never corrected itself: nothing
+       re-rendered that screen, and the only way out was closing the sheet.
+
+       So the state change tells it too. Guarded on the staged review actually
+       being on screen, because re-rendering a file import from here would throw
+       away an in-progress edit. */
+    function _setState(s) {
+      P.state = s;
+      try { if (window.renderPersonal) renderPersonal(); } catch (e) {}
+      try {
+        if (window.csvStagedMode && window.csvReview && window.renderCsvReview) window.renderCsvReview();
+      } catch (e) {}
+    }
     function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return _localDate(d); }
 
     let _booting = false;
@@ -21763,13 +21932,24 @@ window.classifyAmount = classifyAmount;
     try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (rows || []).length; }
     catch (e) { window.fhStagedCount = 0; }
     try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
+    // The Cá nhân tab carries the same CTA and the same badge; it has to hear
+    // the count change too, or one of the two goes stale after every promote.
+    try { if (typeof window.renderPersonal === 'function') window.renderPersonal(); } catch (e) {}
   };
 
   /* The always-visible "Khoản thu chi từ email" CTA routes by setup state:
        • no linked email  → the setup intro (null state + "Get started" CTA)
        • linked           → the review sheet, which itself shows an empty modal
                             when there is nothing, or the list of cards. */
-  window.fhEmailTxnCta = async function () {
+  window.fhEmailTxnCta = async function (preset) {
+    /* Opening the queue from the Cá nhân tab means "these are mine" — the same
+       affordance openPersonalExpense() gives the expense modal. Pre-scoping is
+       refused silently when the personal ledger is locked, because the picker
+       shows that state and explains it far better than a toast fired from a tap
+       on something else. */
+    if (preset && preset.scope && typeof window.csvSetScope === 'function') {
+      window.csvSetScope(preset.scope);
+    }
     var linked = false;
     try { var st = window.fhMailboxState ? await window.fhMailboxState() : null; linked = !!(st && st.forwarding_alias); } catch (e) {}
     if (!linked) return window.fhMailboxSheet && window.fhMailboxSheet();
@@ -22113,38 +22293,46 @@ window.classifyAmount = classifyAmount;
        ✕ handlers' splices become impossible to reason about. */
     var ids = fhStagedIdsForResolved(window._fhStagedRows, window.csvReview);
 
-    var scope = (typeof csvStagedScope === 'function') ? csvStagedScope() : 'family';
+    /* Destination is per ROW now, so one press can be both. Split first, then
+       do the personal writes BEFORE csvPromote — csvPromote consumes
+       csvReview.ready, and reading a candidate out of it afterwards reads a list
+       that has already been emptied. */
+    var picked = (typeof csvStagedSelected === 'function') ? csvStagedSelected() : [];
+    var mine = [], theirs = [];
+    picked.forEach(function (c) {
+      if (typeof csvRowScope === 'function' && csvRowScope(c) === 'personal') mine.push(c);
+      else theirs.push(c);
+    });
+    if (!picked.length) return;
 
     try {
-      if (scope === 'personal') {
-        /* Model Y (0079): personal rows are their OWN owner-scoped table under a
-           per-user key, not a family. So this is a different write, not a flag on
-           the same one — and deliberately NOT routed through csvPromote, which
-           writes the family ledger.
+      /* Model Y (0079): personal rows are their own owner-scoped table under a
+         per-user key, so this is a different write, not a flag on the same one.
+         space_id stays null — a bank transaction sent here is private and there
+         is no un-share.
 
-           space_id stays null: a bank transaction sent here is private, and there
-           is no un-share. If ANY row fails we stop before retiring anything,
-           because retirement deletes the staged row and a half-imported batch
-           would lose the remainder with nothing left to retry from. */
-        var picked = (typeof csvStagedSelected === 'function') ? csvStagedSelected() : [];
-        if (!picked.length) return;
-        for (var i = 0; i < picked.length; i++) {
-          var c = picked[i];
-          var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
-          var ok = await window.fhPersonalAddExpense(
-            c.amount, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined);
-          if (!ok) throw new Error('personal write failed at row ' + i);
-        }
-        window.toast && window.toast(L('Đã ghi vào sổ cá nhân', 'Saved to your personal ledger'));
+         If ANY personal row fails we stop before the family write and before
+         retiring anything: a partly-done batch that has already deleted its
+         staged rows has nothing left to retry from. */
+      for (var i = 0; i < mine.length; i++) {
+        var c = mine[i];
+        var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
+        var ok = await window.fhPersonalAddExpense(
+          c.amount, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined);
+        if (!ok) throw new Error('personal write failed at row ' + i);
+      }
+
+      // csvPromote() returns its promise chain, so this genuinely waits for the
+      // ledger writes. It did not always: an earlier version assumed a promise
+      // and resolved instantly, which meant the delete below could race the
+      // write and destroy a staged row whose transaction never landed.
+      if (theirs.length) await csvPromote(theirs);
+
+      if (mine.length) {
+        window.toast && window.toast(theirs.length
+          ? L('Đã lưu — ' + mine.length + ' khoản vào sổ cá nhân', 'Saved — ' + mine.length + ' to your personal ledger')
+          : L('Đã ghi vào sổ cá nhân', 'Saved to your personal ledger'));
         if (typeof window.renderPersonal === 'function') window.renderPersonal();
-      } else {
-        // csvPromote() returns its promise chain, so this genuinely waits for the
-        // ledger writes. It did not always: an earlier version assumed a promise
-        // and resolved instantly, which meant the delete below could race the
-        // write and destroy a staged row whose transaction never landed.
-        /* Only the ticked rows. csvPromote() with no argument still means "all
-           ready", which is what the CSV file flow wants; the queue is selective. */
-        await csvPromote(typeof csvStagedSelected === 'function' ? csvStagedSelected() : undefined);
       }
     } catch (e) {
       window.toast && window.toast(L('Chưa lưu được', 'Could not save'));
@@ -22662,6 +22850,27 @@ window.classifyAmount = classifyAmount;
   let _atxOffArmed = false, _atxOffTimer = null;
   const _ATX_OFF_LABEL = () => L('Ngừng đọc email', 'Stop reading my email');
 
+  /* Headless stop + status, for callers that carry their own confirmation.
+     Erasure (75-consent-ui) has to stop OAuth collection as well as forwarding:
+     the SQL side can delete mailbox_connections, but this connection lives
+     behind the Cloud Run API, so only the client can end it. Without this the
+     serverless watcher keeps reading a mailbox whose owner has withdrawn
+     consent -- collection after withdrawal, which gets no grace period even
+     though DELETION gets 72 hours. Same route as the UI disconnect below;
+     404 counts as success because it means already gone. */
+  async function _atxStopHeadless() {
+    try {
+      const token = await _atxAuthToken();
+      const res = await fetch(_ATX_API + '/connections/google', {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      return res.ok || res.status === 404;
+    } catch (e) { return false; }
+  }
+  window.fhAutoTxnStop = _atxStopHeadless;
+  window.fhAutoTxnConnection = _atxConnection;
+
   window.fhAutoTxnDisconnect = async function (btn) {
     if (!_atxOffArmed) {
       _atxOffArmed = true;
@@ -23095,9 +23304,7 @@ window.classifyAmount = classifyAmount;
             ? L('Bạn đã xác nhận đồng ý' + (when ? ' ngày ' + fmtDayMon(when) : '') + '.',
                 'You confirmed your consent' + (when ? ' on ' + fmtDayMon(when) : '') + '.')
             : L('Chưa có xác nhận nào được ghi nhận.', 'No confirmation on record.')) + '</div>' +
-          '<button class="btn-skip cst-disc" onclick="fhAppDataWithdraw(this)">' +
-            _esc(L('Rút lại đồng ý và xoá dữ liệu', 'Withdraw consent and delete data')) + '</button>' +
-          '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>';
+          '<button class="btn-skip" onclick="fhPrivacySheet()">' + _esc(L('Quay lại', 'Back')) + '</button>';
       } else {
         footer = smallPrint +
           '<button class="cta" onclick="fhAppDataConsentAgree(this)">' + _esc(L('Tôi hiểu và đồng ý', 'I understand and agree')) + '</button>' +
@@ -23123,45 +23330,283 @@ window.classifyAmount = classifyAmount;
       _closeOv();
     };
 
-    /* In-app withdrawal, symmetric with the one-tap consent (L91: withdrawing
-       must be as easy as agreeing). The tap is RECORDED instantly in the same
-       append-only table; fulfilment (full deletion) is operational within the
-       72 hours the consent text states. Arm-then-confirm because it leads to
-       deletion of everything. */
-    window.fhAppDataWithdraw = async function (btn) {
-      if (!btn) return;
-      if (!btn.dataset.armed) {
-        btn.dataset.armed = '1';
-        btn.textContent = L('Chắc chắn? Bấm lần nữa để rút lại', 'Sure? Tap again to withdraw');
-        setTimeout(function () {
-          if (btn && btn.dataset) { delete btn.dataset.armed; btn.textContent = L('Rút lại đồng ý và xoá dữ liệu', 'Withdraw consent and delete data'); }
-        }, 10000);
+    /* ── Settings → Quyền riêng tư ──────────────────────────────────────────
+       The privacy home. Replaces the single nuclear button that shipped in
+       0082 and cost a founder her mailbox connection to one mis-tap.
+
+       Three principles, from the destructive-action research and DESIGN §3:
+         * GRANULAR. Withdrawing bank-email consent and erasing everything are
+           different rights and different rows. The law treats them separately
+           and so does this screen.
+         * FRICTION MATCHED TO BLAST RADIUS. Disconnect keeps arm-then-confirm
+           (reversible, one flow to redo). Erasure gets a consequence sheet
+           plus type-to-confirm, which DESIGN §7 names as the sanctioned
+           alternative to arm-then-confirm for this tier.
+         * UNDO OVER CONFIRMATION. Erasure schedules rather than executes. The
+           72 hours the consent text already promised becomes a visible,
+           cancellable window (0084), so a mis-tap costs nothing. */
+    var _CST_CHEV = '<svg class="cst-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+    var _CST_WARN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18.5A2 2 0 0 0 3.5 21.5h17' +
+      'a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9.5v4"/><path d="M12 17h.01"/></svg>';
+
+    function _cstGroup(rows, footer) {
+      return '<div class="cst-group">' + rows + '</div>' +
+        (footer ? '<div class="cst-foot">' + _esc(footer) + '</div>' : '');
+    }
+    /* A navigable row: the WHOLE row is the target, closed by a chevron. iOS
+       never puts a small text button on the right of a row that navigates --
+       that shape means "this row does one other thing", which is what the
+       connection rows below use it for. */
+    /* fn + arg, never a pre-built expression: escAttr turns ' into \' because
+       it escapes VALUES inside an attribute, so running it over a whole call
+       produced onclick="fhConsentReview(\'app_data\')" -- a syntax error the
+       global handler surfaced as "Có lỗi xảy ra". Only the argument is
+       escaped, and only as the string literal it actually is. */
+    function _cstNavRow(glyph, title, value, fn, arg) {
+      var call = (arg === undefined) ? fn + '()' : fn + "('" + _escAttr(arg) + "')";
+      return '<button class="cst-lrow" onclick="' + call + '">' +
+        '<span class="cst-ic">' + _mbxGlyph(glyph) + '</span>' +
+        '<span class="cst-ltxt"><span class="cst-lt">' + _esc(title) + '</span></span>' +
+        (value ? '<span class="cst-val">' + _esc(value) + '</span>' : '') +
+        _CST_CHEV + '</button>';
+    }
+    /* A status row: a live-state dot, the account it applies to, and one
+       trailing action that is not navigation. */
+    function _cstConnRow(glyph, title, sub, action) {
+      return '<div class="cst-lrow">' +
+        '<span class="cst-ic">' + _mbxGlyph(glyph) + '</span>' +
+        '<span class="cst-ltxt"><span class="cst-lt">' + _esc(title) + '</span>' +
+          (sub ? '<span class="cst-ls">' + _esc(sub) + '</span>' : '') + '</span>' +
+        (action || '') + '</div>';
+    }
+    function _cstLossRow(glyph, title, sub, calm) {
+      return '<div class="cst-lossrow">' +
+        '<span class="cst-ic' + (calm ? ' calm' : '') + '">' + _mbxGlyph(glyph) + '</span>' +
+        '<div><div class="cst-losst">' + _esc(title) + '</div>' +
+          '<div class="cst-losss">' + _esc(sub) + '</div></div></div>';
+    }
+
+    async function _cstPrivacyState() {
+      var out = { consents: [], deletion: null, alias: null, oauth: null };
+      try {
+        var c = await sb.from('user_consents').select('kind,version,consented_at')
+          .order('consented_at', { ascending: true });
+        out.consents = (c.data || []).filter(function (r) { return r.kind.indexOf('withdraw') === -1; });
+      } catch (e) {}
+      try {
+        var d = await sb.from('deletion_requests').select('scheduled_for')
+          .is('cancelled_at', null).is('executed_at', null).limit(1);
+        out.deletion = (d.data && d.data[0]) || null;
+      } catch (e) {}   // table absent (0084 unapplied): behave as no request
+      try {
+        var st = window.fhMailboxState ? await window.fhMailboxState() : null;
+        out.alias = (st && st.forwarding_alias) || null;
+      } catch (e) {}
+      /* The OAuth mailbox is a SECOND collection channel, behind the Cloud Run
+         API rather than our database. A privacy screen that showed only the
+         forwarding alias would tell someone their mailbox was disconnected
+         while the watcher still read it. */
+      try {
+        out.oauth = window.fhAutoTxnConnection ? await window.fhAutoTxnConnection() : null;
+      } catch (e) {}
+      return out;
+    }
+
+    var _CST_LABELS = {
+      app_data:   ['Dữ liệu ứng dụng', 'App data', 'lock'],
+      bank_email: ['Email ngân hàng', 'Bank email', 'mail'],
+    };
+
+    window.fhPrivacySheet = async function () {
+      var st = await _cstPrivacyState();
+      var body = '';
+
+      /* A live deletion request outranks everything else on this screen: it is
+         the one thing with a clock on it, and cancelling must be the easiest
+         action here, not buried under the rows it would erase. */
+      if (st.deletion) {
+        var when = new Date(st.deletion.scheduled_for);
+        body +=
+          '<div class="cst-pending">' +
+            '<div class="cst-ph">' + _CST_WARN +
+              '<span class="cst-pt">' + _esc(L('Đang chờ xoá dữ liệu', 'Deletion scheduled')) + '</span></div>' +
+            '<div class="cst-ps">' + _esc(L(
+              'Toàn bộ dữ liệu của bạn sẽ được xoá vào ' + fmtDayMon(when) + '. Trước lúc đó, bạn vẫn đổi ý được.',
+              'All your data will be deleted on ' + fmtDayMon(when) + '. You can still change your mind before then.')) + '</div>' +
+            '<button class="btn-line" onclick="fhCancelDeletion(this)">' +
+              _esc(L('Huỷ yêu cầu xoá', 'Cancel the deletion')) + '</button>' +
+          '</div>';
+      }
+
+      // What you agreed to, one row per purpose, each independently withdrawable.
+      var crows = '';
+      st.consents.forEach(function (c) {
+        var lbl = _CST_LABELS[c.kind] || [c.kind, c.kind];
+        var d = c.consented_at ? new Date(c.consented_at) : null;
+        crows += _cstNavRow(lbl[2], L(lbl[0], lbl[1]), d ? fmtDayMon(d) : '',
+          'fhConsentReview', c.kind);
+      });
+      if (crows) {
+        body += '<div class="cst-sech">' + _esc(L('Điều bạn đã đồng ý', 'What you agreed to')) + '</div>' +
+          _cstGroup(crows, L('Chạm để đọc lại đúng nội dung bạn đã đồng ý.',
+                             'Tap to re-read exactly what you agreed to.'));
+      }
+
+      /* Both collection channels, each independently stoppable. Forwarding is
+         ours to delete in SQL; the OAuth grant lives behind the API, so its row
+         hands off to the module that owns it. */
+      var conn = '';
+      if (st.alias) {
+        conn += _cstConnRow('fwd', L('Chuyển tiếp email', 'Email forwarding'), st.alias + '@…',
+          '<button class="cst-stop" onclick="fhMailboxDisconnect(this)">' +
+            _esc(L('Ngắt', 'Stop')) + '</button>');
+      }
+      if (st.oauth) {
+        conn += _cstConnRow('auto', L('Đọc trực tiếp hộp thư', 'Direct mailbox read'),
+          (st.oauth.email || L('Tài khoản Google', 'Google account')),
+          '<button class="cst-stop" onclick="fhAutoTxnDisconnect(this)">' +
+            _esc(L('Ngắt', 'Stop')) + '</button>');
+      }
+      if (conn) {
+        body += '<div class="cst-sech">' + _esc(L('Kết nối email ngân hàng', 'Bank email connections')) + '</div>' +
+          _cstGroup(conn, L('Ngắt sẽ dừng đọc email mới ngay. Các khoản đã vào sổ vẫn được giữ.',
+                            'Stopping ends new reads at once. Anything already in your ledger stays.'));
+      }
+
+      // Erasure. Low prominence by DESIGN §3, and it opens a consequence sheet
+      // rather than doing anything itself.
+      if (!st.deletion) {
+        body += '<div class="cst-group cst-dgroup">' +
+            '<button class="cst-drow" onclick="fhDeleteAllSheet()">' +
+              _esc(L('Xoá toàn bộ dữ liệu', 'Delete all my data')) + '</button>' +
+          '</div>' +
+          '<div class="cst-foot">' + _esc(L(
+            'Xoá vĩnh viễn tài khoản và mọi dữ liệu của bạn. Bạn có 72 giờ để đổi ý trước khi việc xoá diễn ra.',
+            'Permanently deletes your account and all your data. You have 72 hours to change your mind before it happens.')) + '</div>';
+      }
+
+      _fhSheet(
+        '<div class="sheet-h">' + _esc(L('Quyền riêng tư', 'Privacy')) + '</div>' +
+        '<div class="cst-body">' + body + '</div>' +
+        '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>');
+    };
+
+    /* Read the exact text a given consent was given against. */
+    window.fhConsentReview = function (kind) {
+      if (kind === FH_CONSENT_KIND) return window.fhConsentSheet({ readOnly: true });
+      return window.fhAppDataConsentSheet({ readOnly: true });
+    };
+
+    window.fhCancelDeletion = async function (btn) {
+      if (btn) { btn.disabled = true; btn.textContent = L('Đang huỷ…', 'Cancelling…'); }
+      try {
+        await _rpc('cancel_my_deletion', {});
+      } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = L('Huỷ yêu cầu xoá', 'Cancel the deletion'); }
+        window.toast && window.toast(L('Chưa huỷ được, thử lại nhé', 'Could not cancel, try again'));
         return;
       }
+      window.toast && window.toast(L('Đã huỷ. Dữ liệu của bạn được giữ nguyên.', 'Cancelled. Your data stays.'));
+      window.fhPrivacySheet();
+    };
+
+    /* The consequence sheet. Names the object, the counts, the ripple, and the
+       irreversibility -- the four things destructive-confirm copy is supposed
+       to carry and the two-tap arm carried none of. */
+    window.fhDeleteAllSheet = async function () {
+      var n = null;
+      try {
+        var fid = window.DB && window.DB.fid;
+        if (fid) {
+          var r = await sb.from('transactions').select('id', { count: 'exact', head: true }).eq('family_id', fid);
+          n = typeof r.count === 'number' ? r.count : null;
+        }
+      } catch (e) {}
+
+      _fhSheet(
+        '<div class="sheet-h">' + _esc(L('Xoá toàn bộ dữ liệu?', 'Delete all your data?')) + '</div>' +
+        '<div class="sheet-sub">' + _esc(L(
+          'Đọc kỹ ba điều dưới đây trước khi xác nhận.',
+          'Three things to be sure of before you confirm.')) + '</div>' +
+        '<div class="cst-loss">' +
+          _cstLossRow('lock', L('Tài khoản và sổ chi tiêu của bạn', 'Your account and your ledger'),
+            L((n === null ? 'Các khoản thu chi' : n + ' khoản thu chi') + ', ghi chú, ảnh đính kèm và mọi mục bạn đã đồng ý. Không khôi phục được.',
+              (n === null ? 'Your transactions' : n + ' transactions') + ', notes, photos and every consent you gave. Nothing can be recovered.')) +
+          _cstLossRow('fwd', L('Những khoản bạn đã ghi vào sổ chung', 'What you added to the shared ledger'),
+            L('Sẽ biến mất khỏi sổ của gia đình. Các thành viên khác giữ nguyên tài khoản của họ.',
+              'Disappears from your family’s book. Other members keep their own accounts.')) +
+          _cstLossRow('check', L('Bạn có 72 giờ để đổi ý', 'You have 72 hours to change your mind'),
+            L('Việc đọc email dừng ngay hôm nay. Phần còn lại xoá sau 72 giờ, huỷ được bất cứ lúc nào trong mục Quyền riêng tư.',
+              'Email reading stops today. The rest is deleted after 72 hours, cancellable any time in Privacy.'), true) +
+        '</div>' +
+        '<div class="field cst-type"><label>' + _esc(L('Gõ “xoá dữ liệu” để xác nhận', 'Type “delete my data” to confirm')) + '</label>' +
+          '<input id="cst-type-in" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" ' +
+            'oninput="fhDeleteAllTyped(this)" placeholder="' + _escAttr(L('xoá dữ liệu', 'delete my data')) + '"></div>' +
+        '<div class="cst-group cst-dgroup">' +
+          '<button class="cst-drow" id="cst-del-go" disabled onclick="fhDeleteAllConfirm(this)">' +
+            _esc(L('Xoá toàn bộ dữ liệu', 'Delete all my data')) + '</button>' +
+        '</div>' +
+        '<button class="btn-skip" onclick="fhPrivacySheet()">' + _esc(L('Không, giữ lại', 'No, keep my data')) + '</button>');
+    };
+
+    /* The phrase is the friction. Matching is lenient about case and spacing
+       and strict about the words: a confirmation nobody can pass is theatre,
+       one you pass by leaning on the keyboard is not friction. */
+    window.fhDeleteAllTyped = function (el) {
+      var want = L('xoá dữ liệu', 'delete my data');
+      var got = String(el.value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      var alt = want.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      var gotAlt = got.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      var ok = got === want || gotAlt === alt;
+      var btn = document.getElementById('cst-del-go');
+      if (btn) btn.disabled = !ok;
+    };
+
+    window.fhDeleteAllConfirm = async function (btn) {
+      if (!btn || btn.disabled) return;
       btn.disabled = true; btn.textContent = L('Đang ghi nhận…', 'Recording…');
       var res = await sb.from('user_consents').insert({ kind: 'app_data_withdraw', version: FH_APPDATA_CONSENT_V });
       var dup = res.error && /duplicate key|already exists/i.test(res.error.message || '');
       if (res.error && !dup) {
-        btn.disabled = false; delete btn.dataset.armed;
-        btn.textContent = L('Rút lại đồng ý và xoá dữ liệu', 'Withdraw consent and delete data');
+        btn.disabled = false; btn.textContent = L('Xoá toàn bộ dữ liệu', 'Delete all my data');
         window.toast && window.toast(L('Chưa ghi nhận được, thử lại nhé', 'Could not record it, try again'));
         return;
       }
-      /* Withdrawal must stop COLLECTION immediately, not in 72 hours: the
-         confirmation below promises no further use, and a connected mailbox
-         would keep staging new transactions otherwise. Best-effort: deletes
-         the connection and pending rows if one exists, deletes nothing if
-         not; a transient failure here is backstopped by the 72h manual
-         fulfilment, so it never blocks the withdrawal itself. */
-      try { await _rpc('disconnect_my_mailbox', {}); } catch (e) {}
+      /* Stop the OAuth watcher too. request_my_deletion removes the forwarding
+         connection in SQL, but the direct-read grant lives behind the API and
+         only the client can end it. Best-effort and BEFORE the RPC, so a
+         failure here still leaves the request unmade and retryable rather than
+         scheduling an erasure while a mailbox keeps being read. */
+      var oauthStopped = true;
+      try {
+        if (window.fhAutoTxnStop) oauthStopped = (await window.fhAutoTxnStop()) !== false;
+      } catch (e) { oauthStopped = false; }
+      var sched = null;
+      try {
+        var r = await _rpc('request_my_deletion', {});
+        sched = r && r.scheduled_for ? new Date(r.scheduled_for) : null;
+      } catch (e) {
+        btn.disabled = false; btn.textContent = L('Xoá toàn bộ dữ liệu', 'Delete all my data');
+        window.toast && window.toast(L('Chưa ghi nhận được, thử lại nhé', 'Could not record it, try again'));
+        return;
+      }
       _fhSheet(
-        '<div class="sheet-h">' + _esc(L('Đã ghi nhận yêu cầu của bạn', 'Your request is recorded')) + '</div>' +
+        '<div class="sheet-h">' + _esc(L('Đã ghi nhận yêu cầu', 'Your request is recorded')) + '</div>' +
         '<div class="sheet-sub">' + _esc(L(
-          'Trong vòng 72 giờ, chúng tôi xoá toàn bộ dữ liệu của bạn và xác nhận qua email ' + FH_DATA_CONTACT + '. Trong lúc chờ, dữ liệu không được dùng thêm cho mục đích nào.',
-          'Within 72 hours we delete all your data and confirm by email from ' + FH_DATA_CONTACT + '. Until then, your data is not used for anything further.')) + '</div>' +
-        '<div class="sheet-sub">' + _esc(L(
-          'Nếu bạn từng kết nối email ngân hàng, kết nối đã được ngắt và các khoản chờ duyệt đã xoá. Nhớ xoá thêm quy tắc chuyển tiếp trong Gmail của bạn.',
-          'If you had bank email connected, it is now disconnected and pending items are deleted. Remember to also remove the forwarding rule in your Gmail.')) + '</div>' +
+          'Dữ liệu của bạn sẽ được xoá' + (sched ? ' vào ' + fmtDayMon(sched) : ' sau 72 giờ') +
+          '. Đổi ý lúc nào cũng được, vào Cài đặt, mục Quyền riêng tư.',
+          'Your data will be deleted' + (sched ? ' on ' + fmtDayMon(sched) : ' in 72 hours') +
+          '. Change your mind any time in Settings, under Privacy.')) + '</div>' +
+        /* Say what actually happened. The OAuth stop can fail on its own (it is
+           a separate API), and announcing "email has stopped" when it has not
+           is the one lie this screen must never tell. */
+        '<div class="sheet-sub">' + _esc(oauthStopped
+          ? L('Việc đọc email ngân hàng đã dừng.', 'Bank email reading has stopped.')
+          : L('Chưa dừng được việc đọc trực tiếp hộp thư. Vào Cài đặt, mục Quyền riêng tư để ngắt lại.',
+              'We could not stop the direct mailbox read. Open Settings, Privacy, to stop it there.')) + '</div>' +
+        '<button class="btn-line" onclick="fhPrivacySheet()">' + _esc(L('Xem lại', 'Review')) + '</button>' +
         '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>');
     };
 

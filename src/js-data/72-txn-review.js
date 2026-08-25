@@ -109,13 +109,24 @@
     try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (rows || []).length; }
     catch (e) { window.fhStagedCount = 0; }
     try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
+    // The Cá nhân tab carries the same CTA and the same badge; it has to hear
+    // the count change too, or one of the two goes stale after every promote.
+    try { if (typeof window.renderPersonal === 'function') window.renderPersonal(); } catch (e) {}
   };
 
   /* The always-visible "Khoản thu chi từ email" CTA routes by setup state:
        • no linked email  → the setup intro (null state + "Get started" CTA)
        • linked           → the review sheet, which itself shows an empty modal
                             when there is nothing, or the list of cards. */
-  window.fhEmailTxnCta = async function () {
+  window.fhEmailTxnCta = async function (preset) {
+    /* Opening the queue from the Cá nhân tab means "these are mine" — the same
+       affordance openPersonalExpense() gives the expense modal. Pre-scoping is
+       refused silently when the personal ledger is locked, because the picker
+       shows that state and explains it far better than a toast fired from a tap
+       on something else. */
+    if (preset && preset.scope && typeof window.csvSetScope === 'function') {
+      window.csvSetScope(preset.scope);
+    }
     var linked = false;
     try { var st = window.fhMailboxState ? await window.fhMailboxState() : null; linked = !!(st && st.forwarding_alias); } catch (e) {}
     if (!linked) return window.fhMailboxSheet && window.fhMailboxSheet();
@@ -459,38 +470,46 @@
        ✕ handlers' splices become impossible to reason about. */
     var ids = fhStagedIdsForResolved(window._fhStagedRows, window.csvReview);
 
-    var scope = (typeof csvStagedScope === 'function') ? csvStagedScope() : 'family';
+    /* Destination is per ROW now, so one press can be both. Split first, then
+       do the personal writes BEFORE csvPromote — csvPromote consumes
+       csvReview.ready, and reading a candidate out of it afterwards reads a list
+       that has already been emptied. */
+    var picked = (typeof csvStagedSelected === 'function') ? csvStagedSelected() : [];
+    var mine = [], theirs = [];
+    picked.forEach(function (c) {
+      if (typeof csvRowScope === 'function' && csvRowScope(c) === 'personal') mine.push(c);
+      else theirs.push(c);
+    });
+    if (!picked.length) return;
 
     try {
-      if (scope === 'personal') {
-        /* Model Y (0079): personal rows are their OWN owner-scoped table under a
-           per-user key, not a family. So this is a different write, not a flag on
-           the same one — and deliberately NOT routed through csvPromote, which
-           writes the family ledger.
+      /* Model Y (0079): personal rows are their own owner-scoped table under a
+         per-user key, so this is a different write, not a flag on the same one.
+         space_id stays null — a bank transaction sent here is private and there
+         is no un-share.
 
-           space_id stays null: a bank transaction sent here is private, and there
-           is no un-share. If ANY row fails we stop before retiring anything,
-           because retirement deletes the staged row and a half-imported batch
-           would lose the remainder with nothing left to retry from. */
-        var picked = (typeof csvStagedSelected === 'function') ? csvStagedSelected() : [];
-        if (!picked.length) return;
-        for (var i = 0; i < picked.length; i++) {
-          var c = picked[i];
-          var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
-          var ok = await window.fhPersonalAddExpense(
-            c.amount, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined);
-          if (!ok) throw new Error('personal write failed at row ' + i);
-        }
-        window.toast && window.toast(L('Đã ghi vào sổ cá nhân', 'Saved to your personal ledger'));
+         If ANY personal row fails we stop before the family write and before
+         retiring anything: a partly-done batch that has already deleted its
+         staged rows has nothing left to retry from. */
+      for (var i = 0; i < mine.length; i++) {
+        var c = mine[i];
+        var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
+        var ok = await window.fhPersonalAddExpense(
+          c.amount, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined);
+        if (!ok) throw new Error('personal write failed at row ' + i);
+      }
+
+      // csvPromote() returns its promise chain, so this genuinely waits for the
+      // ledger writes. It did not always: an earlier version assumed a promise
+      // and resolved instantly, which meant the delete below could race the
+      // write and destroy a staged row whose transaction never landed.
+      if (theirs.length) await csvPromote(theirs);
+
+      if (mine.length) {
+        window.toast && window.toast(theirs.length
+          ? L('Đã lưu — ' + mine.length + ' khoản vào sổ cá nhân', 'Saved — ' + mine.length + ' to your personal ledger')
+          : L('Đã ghi vào sổ cá nhân', 'Saved to your personal ledger'));
         if (typeof window.renderPersonal === 'function') window.renderPersonal();
-      } else {
-        // csvPromote() returns its promise chain, so this genuinely waits for the
-        // ledger writes. It did not always: an earlier version assumed a promise
-        // and resolved instantly, which meant the delete below could race the
-        // write and destroy a staged row whose transaction never landed.
-        /* Only the ticked rows. csvPromote() with no argument still means "all
-           ready", which is what the CSV file flow wants; the queue is selective. */
-        await csvPromote(typeof csvStagedSelected === 'function' ? csvStagedSelected() : undefined);
       }
     } catch (e) {
       window.toast && window.toast(L('Chưa lưu được', 'Could not save'));

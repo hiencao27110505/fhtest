@@ -146,6 +146,10 @@
    current pick MEANS, so the label can stay a plain question. */
 #csv-result.staged .csv-scope{margin:0 2px 20px;padding:14px 0 0;border-top:1px solid var(--hairline)}
 #csv-result.staged .csv-scope .choice[aria-disabled="true"]{opacity:.4}
+/* Destination marker on a collapsed row. Only the private case is marked —
+   family is the default, and badging both would put a chip on every card to
+   distinguish the exception. */
+#csv-result.staged .bc-scope{display:inline-block;margin:2px 0 0;font-size:11.5px;font-weight:600;letter-spacing:-.01em;color:var(--muted)}
 #csv-result.staged .csv-scope-note{font-size:12.5px;color:var(--muted);margin-top:8px;letter-spacing:-.01em}
 
 /* ---------- sealed-staging key-mismatch alarm ---------- */
@@ -189,3 +193,79 @@
 .cst-disc{color:var(--danger)}
 /* Document-type kicker: names what is being signed (a consent, not a T&C). */
 .cst-kicker{font-size:10.5px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin-bottom:8px}
+
+/* ---------- Settings → Quyền riêng tư (75-consent-ui) ---------- */
+/* iOS Settings grammar, in the app's tokens. The anatomy that makes it read
+   as a system screen rather than a form: an uppercase section header, rows
+   grouped in one rounded container with inset dividers, each row led by a
+   small tinted icon tile and closed by a chevron or a value, and — the piece
+   most often missed — a FOOTER under the group that explains it. Explanation
+   belongs under the thing it explains, never inside a bordered box competing
+   with the rows. */
+.cst-sech{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--muted);margin:24px 4px 7px}
+.cst-group{background:var(--white);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-card)}
+.cst-foot{font-size:12.5px;line-height:1.45;color:var(--muted);margin:7px 4px 0}
+
+/* Row: 44px minimum, whole row tappable, divider inset to the text so it
+   starts under the title and not under the icon — the iOS detail that makes a
+   list look grouped rather than striped. */
+.cst-lrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  background:none;border:0;padding:11px 14px;min-height:56px;position:relative}
+.cst-lrow:not(:last-child)::after{content:'';position:absolute;left:56px;right:0;bottom:0;
+  height:1px;background:var(--divider)}
+.cst-lrow:active{background:var(--surface)}
+.cst-ic{width:30px;height:30px;border-radius:9px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--brand-tint);color:var(--brand-ink)}
+.cst-ic svg{width:17px;height:17px;display:block}
+/* display:block on both, or the title and the subtitle run together on one
+   line -- they are spans inside a flex child, and inline is the default. */
+.cst-ltxt{flex:1;min-width:0}
+.cst-lt{display:block;font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--ink);
+  line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cst-ls{display:block;font-size:12.5px;line-height:1.4;color:var(--muted);margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Trailing value + chevron, the iOS disclosure pair. */
+.cst-val{flex-shrink:0;font-size:13.5px;color:var(--muted);letter-spacing:-.01em}
+.cst-chev{flex-shrink:0;width:16px;height:16px;color:var(--muted-soft)}
+/* One trailing action, not a status dot AND a button. The group header already
+   says these are live; a green dot next to a red word was two signals fighting
+   for the same 60px. */
+/* Regular weight, not semibold. iOS destructive rows carry their meaning in
+   the colour; bolding it as well is shouting, and two bold reds on one screen
+   compete instead of ranking. DESIGN §3 says the same thing from the other
+   direction: destructive stays low prominence. */
+.cst-stop{flex-shrink:0;min-height:44px;padding:0 2px 0 12px;background:none;border:0;
+  font-size:14.5px;font-weight:400;letter-spacing:-.01em;color:var(--danger)}
+.cst-stop:active{opacity:.55}
+
+/* Destructive: its own group, one full-width centered red row. iOS never
+   wraps this in a box with a paragraph, and DESIGN §3 never makes it a filled
+   button — a red row in an otherwise quiet list is loud enough. */
+.cst-group.cst-dgroup{margin-top:4px}
+/* The iOS "Delete Account" row: full width, centred, system red, REGULAR
+   weight, alone in its group. Nothing else on the screen looks like it, which
+   is what makes it findable without making it loud. */
+.cst-drow{width:100%;min-height:52px;background:none;border:0;padding:15px 14px;
+  font-size:15.5px;font-weight:400;letter-spacing:-.01em;color:var(--danger);text-align:center}
+.cst-drow:active{background:var(--danger-tint)}
+.cst-drow[disabled]{opacity:.32;pointer-events:none}
+
+/* A live erasure request. Amber, not danger: nothing is lost yet, and the
+   loudest control here is the way back. */
+.cst-pending{background:var(--amber-tint);border-radius:14px;padding:14px;margin-bottom:6px}
+.cst-ph{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+.cst-ph svg{width:18px;height:18px;color:var(--amber);flex-shrink:0}
+.cst-pt{font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.cst-ps{font-size:13px;line-height:1.45;color:var(--ink-2);margin-bottom:11px}
+
+/* The consequence list on the erasure sheet: what you lose, one line each,
+   led by the same tile vocabulary so it reads as part of the same system. */
+.cst-loss{display:flex;flex-direction:column;gap:14px;margin:6px 0 20px}
+.cst-lossrow{display:flex;gap:12px;align-items:flex-start}
+.cst-lossrow .cst-ic{background:var(--danger-tint);color:var(--danger)}
+.cst-lossrow .cst-ic.calm{background:var(--fill-neutral);color:var(--brand-ink)}
+.cst-losst{font-size:14.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);line-height:1.3}
+.cst-losss{font-size:13px;line-height:1.45;color:var(--muted);margin-top:2px}
+.cst-type{margin-bottom:6px}

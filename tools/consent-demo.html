@@ -50,7 +50,8 @@
   <button onclick="window.fhAppDataConsentSheet()">↻ Show layer-1 sheet again</button>
   <button onclick="demoConnect()">▶ Connect bank email (layer 2 gate → flow resumes on agree)</button>
   <button onclick="window.fhConsentSheet({readOnly:true})">👁 Review: "what you agreed to"</button>
-  <button onclick="window.fhAppDataConsentSheet({readOnly:true})">⚙️ Cài đặt → Quyền riêng tư (review + withdraw)</button>
+  <button onclick="window.fhPrivacySheet()">⚙️ Cài đặt → Quyền riêng tư (the new home)</button>
+  <button onclick="window.fhDeleteAllSheet()">🗑 Xoá toàn bộ dữ liệu (type-to-confirm)</button>
   <button id="demo-disc" onclick="window.fhMailboxDisconnect(this)">⛔ Ngắt kết nối (arm, then confirm)</button>
 
   <label><input type="checkbox" id="offline"> Simulate insert failure (offline) — watch agree BLOCK</label>
@@ -80,8 +81,18 @@ function L(vi, en) { return LANG === 'vi' ? vi : en; }
 function _esc(s) { var d = document.createElement('div'); d.textContent = String(s == null ? '' : s); return d.innerHTML; }
 function _escAttr(s) { return _esc(s).replace(/"/g, '&quot;'); }
 function fmtDayMon(d) { return d.getDate() + '/' + (d.getMonth() + 1); }
-var _MBX_SVG_LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.6"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/><circle cx="12" cy="15.4" r="1.15" fill="currentColor" stroke="none"/></svg>';
-function _mbxGlyph(k) { return _MBX_SVG_LOCK; }
+/* The real glyph set, so rows render the icon they actually ask for. A stub
+   that returned one glyph for every key hid the whole icon vocabulary. */
+var _S = function (d) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>'; };
+var _MBX_SVG = {
+  lock:  _S('<rect x="4.5" y="10.5" width="15" height="10" rx="2.6"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/><circle cx="12" cy="15.4" r="1.15" fill="currentColor" stroke="none"/>'),
+  mail:  _S('<rect x="3.2" y="5.5" width="17.6" height="13" rx="2.8"/><path d="M4.4 7.8 12 13l7.6-5.2"/>'),
+  fwd:   _S('<path d="M13 6.5 19 12l-6 5.5"/><path d="M19 12H8.5a4.5 4.5 0 0 0-4.5 4.5V18"/>'),
+  check: _S('<circle cx="12" cy="12" r="8.5"/><path d="m8.4 12.3 2.5 2.5 4.7-5.1"/>'),
+  auto:  _S('<path d="M20.8 11.2V7.4a2.6 2.6 0 0 0-2.6-2.6H5.8a2.6 2.6 0 0 0-2.6 2.6v9a2.6 2.6 0 0 0 2.6 2.6h6.4"/><path d="m4.3 7.6 7.7 5.2 7.7-5.2"/><path d="m18.4 13.4-2.1 3.9h3.4l-2.1 3.9"/>'),
+};
+function _mbxGlyph(k) { return _MBX_SVG[k] || _MBX_SVG.lock; }
 
 function _fhSheet(inner) {
   document.getElementById('fh-sheet-body').innerHTML = inner;
@@ -109,9 +120,15 @@ function renderStore() {
 }
 renderStore();
 
+var DELETION = [];   // in-memory deletion_requests
 var sb = {
-  from: function () {
+  from: function (table) {
     var kindFilter = null;
+    if (table === 'deletion_requests') {
+      return { select: f, eq: f, order: f, is: f, limit: function () {
+        return Promise.resolve({ data: DELETION.slice(), error: null }); } };
+      function f() { return this; }
+    }
     return {
       select: function () { return this; },
       eq: function (col, v) { if (col === 'kind') kindFilter = v; return this; },
@@ -134,9 +151,31 @@ var sb = {
   },
 };
 async function _rpc(name) {
-  toastMsg('RPC → ' + name + ' (stubbed: would delete connection + pending rows)');
+  if (name === 'request_my_deletion') {
+    var when = new Date(Date.now() + 72 * 3600 * 1000);
+    DELETION = [{ scheduled_for: when.toISOString() }];
+    CONN.forwarding = null;          // the RPC deletes mailbox_connections
+    toastMsg('RPC → request_my_deletion (scheduled, cancellable)');
+    return { scheduled_for: when.toISOString() };
+  }
+  if (name === 'cancel_my_deletion') { DELETION = []; toastMsg('RPC → cancel_my_deletion'); return {}; }
+  if (name === 'disconnect_my_mailbox') { CONN.forwarding = null; toastMsg('RPC → disconnect_my_mailbox'); return {}; }
+  toastMsg('RPC → ' + name + ' (stubbed, deletes nothing here)');
   return {};
 }
+/* Stateful, because the constant version kept reporting a live connection
+   after the erasure that deletes it -- the demo contradicting its own copy. */
+var CONN = { forwarding: '8xr4ed9vr8', oauth: { email: 'trang.nguyen.wh@gmail.com' } };
+window.fhAutoTxnStop = async function () {
+  CONN.oauth = null; toastMsg('OAuth channel stopped too'); return true;
+};
+window.fhAutoTxnConnection = async function () { return CONN.oauth; };
+window.fhMailboxState = async function () {
+  return CONN.forwarding ? { forwarding_alias: CONN.forwarding } : null;
+};
+window.fhAutoTxnDisconnect = async function (btn) {
+  CONN.oauth = null; toastMsg('Direct read stopped'); window.fhPrivacySheet();
+};
 
 /* ── demo drivers ─────────────────────────────────────────────────────────── */
 function demoBoot() {

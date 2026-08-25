@@ -137,9 +137,7 @@
             ? L('Bạn đã xác nhận đồng ý' + (when ? ' ngày ' + fmtDayMon(when) : '') + '.',
                 'You confirmed your consent' + (when ? ' on ' + fmtDayMon(when) : '') + '.')
             : L('Chưa có xác nhận nào được ghi nhận.', 'No confirmation on record.')) + '</div>' +
-          '<button class="btn-skip cst-disc" onclick="fhAppDataWithdraw(this)">' +
-            _esc(L('Rút lại đồng ý và xoá dữ liệu', 'Withdraw consent and delete data')) + '</button>' +
-          '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>';
+          '<button class="btn-skip" onclick="fhPrivacySheet()">' + _esc(L('Quay lại', 'Back')) + '</button>';
       } else {
         footer = smallPrint +
           '<button class="cta" onclick="fhAppDataConsentAgree(this)">' + _esc(L('Tôi hiểu và đồng ý', 'I understand and agree')) + '</button>' +
@@ -165,45 +163,283 @@
       _closeOv();
     };
 
-    /* In-app withdrawal, symmetric with the one-tap consent (L91: withdrawing
-       must be as easy as agreeing). The tap is RECORDED instantly in the same
-       append-only table; fulfilment (full deletion) is operational within the
-       72 hours the consent text states. Arm-then-confirm because it leads to
-       deletion of everything. */
-    window.fhAppDataWithdraw = async function (btn) {
-      if (!btn) return;
-      if (!btn.dataset.armed) {
-        btn.dataset.armed = '1';
-        btn.textContent = L('Chắc chắn? Bấm lần nữa để rút lại', 'Sure? Tap again to withdraw');
-        setTimeout(function () {
-          if (btn && btn.dataset) { delete btn.dataset.armed; btn.textContent = L('Rút lại đồng ý và xoá dữ liệu', 'Withdraw consent and delete data'); }
-        }, 10000);
+    /* ── Settings → Quyền riêng tư ──────────────────────────────────────────
+       The privacy home. Replaces the single nuclear button that shipped in
+       0082 and cost a founder her mailbox connection to one mis-tap.
+
+       Three principles, from the destructive-action research and DESIGN §3:
+         * GRANULAR. Withdrawing bank-email consent and erasing everything are
+           different rights and different rows. The law treats them separately
+           and so does this screen.
+         * FRICTION MATCHED TO BLAST RADIUS. Disconnect keeps arm-then-confirm
+           (reversible, one flow to redo). Erasure gets a consequence sheet
+           plus type-to-confirm, which DESIGN §7 names as the sanctioned
+           alternative to arm-then-confirm for this tier.
+         * UNDO OVER CONFIRMATION. Erasure schedules rather than executes. The
+           72 hours the consent text already promised becomes a visible,
+           cancellable window (0084), so a mis-tap costs nothing. */
+    var _CST_CHEV = '<svg class="cst-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+    var _CST_WARN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18.5A2 2 0 0 0 3.5 21.5h17' +
+      'a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9.5v4"/><path d="M12 17h.01"/></svg>';
+
+    function _cstGroup(rows, footer) {
+      return '<div class="cst-group">' + rows + '</div>' +
+        (footer ? '<div class="cst-foot">' + _esc(footer) + '</div>' : '');
+    }
+    /* A navigable row: the WHOLE row is the target, closed by a chevron. iOS
+       never puts a small text button on the right of a row that navigates --
+       that shape means "this row does one other thing", which is what the
+       connection rows below use it for. */
+    /* fn + arg, never a pre-built expression: escAttr turns ' into \' because
+       it escapes VALUES inside an attribute, so running it over a whole call
+       produced onclick="fhConsentReview(\'app_data\')" -- a syntax error the
+       global handler surfaced as "Có lỗi xảy ra". Only the argument is
+       escaped, and only as the string literal it actually is. */
+    function _cstNavRow(glyph, title, value, fn, arg) {
+      var call = (arg === undefined) ? fn + '()' : fn + "('" + _escAttr(arg) + "')";
+      return '<button class="cst-lrow" onclick="' + call + '">' +
+        '<span class="cst-ic">' + _mbxGlyph(glyph) + '</span>' +
+        '<span class="cst-ltxt"><span class="cst-lt">' + _esc(title) + '</span></span>' +
+        (value ? '<span class="cst-val">' + _esc(value) + '</span>' : '') +
+        _CST_CHEV + '</button>';
+    }
+    /* A status row: a live-state dot, the account it applies to, and one
+       trailing action that is not navigation. */
+    function _cstConnRow(glyph, title, sub, action) {
+      return '<div class="cst-lrow">' +
+        '<span class="cst-ic">' + _mbxGlyph(glyph) + '</span>' +
+        '<span class="cst-ltxt"><span class="cst-lt">' + _esc(title) + '</span>' +
+          (sub ? '<span class="cst-ls">' + _esc(sub) + '</span>' : '') + '</span>' +
+        (action || '') + '</div>';
+    }
+    function _cstLossRow(glyph, title, sub, calm) {
+      return '<div class="cst-lossrow">' +
+        '<span class="cst-ic' + (calm ? ' calm' : '') + '">' + _mbxGlyph(glyph) + '</span>' +
+        '<div><div class="cst-losst">' + _esc(title) + '</div>' +
+          '<div class="cst-losss">' + _esc(sub) + '</div></div></div>';
+    }
+
+    async function _cstPrivacyState() {
+      var out = { consents: [], deletion: null, alias: null, oauth: null };
+      try {
+        var c = await sb.from('user_consents').select('kind,version,consented_at')
+          .order('consented_at', { ascending: true });
+        out.consents = (c.data || []).filter(function (r) { return r.kind.indexOf('withdraw') === -1; });
+      } catch (e) {}
+      try {
+        var d = await sb.from('deletion_requests').select('scheduled_for')
+          .is('cancelled_at', null).is('executed_at', null).limit(1);
+        out.deletion = (d.data && d.data[0]) || null;
+      } catch (e) {}   // table absent (0084 unapplied): behave as no request
+      try {
+        var st = window.fhMailboxState ? await window.fhMailboxState() : null;
+        out.alias = (st && st.forwarding_alias) || null;
+      } catch (e) {}
+      /* The OAuth mailbox is a SECOND collection channel, behind the Cloud Run
+         API rather than our database. A privacy screen that showed only the
+         forwarding alias would tell someone their mailbox was disconnected
+         while the watcher still read it. */
+      try {
+        out.oauth = window.fhAutoTxnConnection ? await window.fhAutoTxnConnection() : null;
+      } catch (e) {}
+      return out;
+    }
+
+    var _CST_LABELS = {
+      app_data:   ['Dữ liệu ứng dụng', 'App data', 'lock'],
+      bank_email: ['Email ngân hàng', 'Bank email', 'mail'],
+    };
+
+    window.fhPrivacySheet = async function () {
+      var st = await _cstPrivacyState();
+      var body = '';
+
+      /* A live deletion request outranks everything else on this screen: it is
+         the one thing with a clock on it, and cancelling must be the easiest
+         action here, not buried under the rows it would erase. */
+      if (st.deletion) {
+        var when = new Date(st.deletion.scheduled_for);
+        body +=
+          '<div class="cst-pending">' +
+            '<div class="cst-ph">' + _CST_WARN +
+              '<span class="cst-pt">' + _esc(L('Đang chờ xoá dữ liệu', 'Deletion scheduled')) + '</span></div>' +
+            '<div class="cst-ps">' + _esc(L(
+              'Toàn bộ dữ liệu của bạn sẽ được xoá vào ' + fmtDayMon(when) + '. Trước lúc đó, bạn vẫn đổi ý được.',
+              'All your data will be deleted on ' + fmtDayMon(when) + '. You can still change your mind before then.')) + '</div>' +
+            '<button class="btn-line" onclick="fhCancelDeletion(this)">' +
+              _esc(L('Huỷ yêu cầu xoá', 'Cancel the deletion')) + '</button>' +
+          '</div>';
+      }
+
+      // What you agreed to, one row per purpose, each independently withdrawable.
+      var crows = '';
+      st.consents.forEach(function (c) {
+        var lbl = _CST_LABELS[c.kind] || [c.kind, c.kind];
+        var d = c.consented_at ? new Date(c.consented_at) : null;
+        crows += _cstNavRow(lbl[2], L(lbl[0], lbl[1]), d ? fmtDayMon(d) : '',
+          'fhConsentReview', c.kind);
+      });
+      if (crows) {
+        body += '<div class="cst-sech">' + _esc(L('Điều bạn đã đồng ý', 'What you agreed to')) + '</div>' +
+          _cstGroup(crows, L('Chạm để đọc lại đúng nội dung bạn đã đồng ý.',
+                             'Tap to re-read exactly what you agreed to.'));
+      }
+
+      /* Both collection channels, each independently stoppable. Forwarding is
+         ours to delete in SQL; the OAuth grant lives behind the API, so its row
+         hands off to the module that owns it. */
+      var conn = '';
+      if (st.alias) {
+        conn += _cstConnRow('fwd', L('Chuyển tiếp email', 'Email forwarding'), st.alias + '@…',
+          '<button class="cst-stop" onclick="fhMailboxDisconnect(this)">' +
+            _esc(L('Ngắt', 'Stop')) + '</button>');
+      }
+      if (st.oauth) {
+        conn += _cstConnRow('auto', L('Đọc trực tiếp hộp thư', 'Direct mailbox read'),
+          (st.oauth.email || L('Tài khoản Google', 'Google account')),
+          '<button class="cst-stop" onclick="fhAutoTxnDisconnect(this)">' +
+            _esc(L('Ngắt', 'Stop')) + '</button>');
+      }
+      if (conn) {
+        body += '<div class="cst-sech">' + _esc(L('Kết nối email ngân hàng', 'Bank email connections')) + '</div>' +
+          _cstGroup(conn, L('Ngắt sẽ dừng đọc email mới ngay. Các khoản đã vào sổ vẫn được giữ.',
+                            'Stopping ends new reads at once. Anything already in your ledger stays.'));
+      }
+
+      // Erasure. Low prominence by DESIGN §3, and it opens a consequence sheet
+      // rather than doing anything itself.
+      if (!st.deletion) {
+        body += '<div class="cst-group cst-dgroup">' +
+            '<button class="cst-drow" onclick="fhDeleteAllSheet()">' +
+              _esc(L('Xoá toàn bộ dữ liệu', 'Delete all my data')) + '</button>' +
+          '</div>' +
+          '<div class="cst-foot">' + _esc(L(
+            'Xoá vĩnh viễn tài khoản và mọi dữ liệu của bạn. Bạn có 72 giờ để đổi ý trước khi việc xoá diễn ra.',
+            'Permanently deletes your account and all your data. You have 72 hours to change your mind before it happens.')) + '</div>';
+      }
+
+      _fhSheet(
+        '<div class="sheet-h">' + _esc(L('Quyền riêng tư', 'Privacy')) + '</div>' +
+        '<div class="cst-body">' + body + '</div>' +
+        '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>');
+    };
+
+    /* Read the exact text a given consent was given against. */
+    window.fhConsentReview = function (kind) {
+      if (kind === FH_CONSENT_KIND) return window.fhConsentSheet({ readOnly: true });
+      return window.fhAppDataConsentSheet({ readOnly: true });
+    };
+
+    window.fhCancelDeletion = async function (btn) {
+      if (btn) { btn.disabled = true; btn.textContent = L('Đang huỷ…', 'Cancelling…'); }
+      try {
+        await _rpc('cancel_my_deletion', {});
+      } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = L('Huỷ yêu cầu xoá', 'Cancel the deletion'); }
+        window.toast && window.toast(L('Chưa huỷ được, thử lại nhé', 'Could not cancel, try again'));
         return;
       }
+      window.toast && window.toast(L('Đã huỷ. Dữ liệu của bạn được giữ nguyên.', 'Cancelled. Your data stays.'));
+      window.fhPrivacySheet();
+    };
+
+    /* The consequence sheet. Names the object, the counts, the ripple, and the
+       irreversibility -- the four things destructive-confirm copy is supposed
+       to carry and the two-tap arm carried none of. */
+    window.fhDeleteAllSheet = async function () {
+      var n = null;
+      try {
+        var fid = window.DB && window.DB.fid;
+        if (fid) {
+          var r = await sb.from('transactions').select('id', { count: 'exact', head: true }).eq('family_id', fid);
+          n = typeof r.count === 'number' ? r.count : null;
+        }
+      } catch (e) {}
+
+      _fhSheet(
+        '<div class="sheet-h">' + _esc(L('Xoá toàn bộ dữ liệu?', 'Delete all your data?')) + '</div>' +
+        '<div class="sheet-sub">' + _esc(L(
+          'Đọc kỹ ba điều dưới đây trước khi xác nhận.',
+          'Three things to be sure of before you confirm.')) + '</div>' +
+        '<div class="cst-loss">' +
+          _cstLossRow('lock', L('Tài khoản và sổ chi tiêu của bạn', 'Your account and your ledger'),
+            L((n === null ? 'Các khoản thu chi' : n + ' khoản thu chi') + ', ghi chú, ảnh đính kèm và mọi mục bạn đã đồng ý. Không khôi phục được.',
+              (n === null ? 'Your transactions' : n + ' transactions') + ', notes, photos and every consent you gave. Nothing can be recovered.')) +
+          _cstLossRow('fwd', L('Những khoản bạn đã ghi vào sổ chung', 'What you added to the shared ledger'),
+            L('Sẽ biến mất khỏi sổ của gia đình. Các thành viên khác giữ nguyên tài khoản của họ.',
+              'Disappears from your family’s book. Other members keep their own accounts.')) +
+          _cstLossRow('check', L('Bạn có 72 giờ để đổi ý', 'You have 72 hours to change your mind'),
+            L('Việc đọc email dừng ngay hôm nay. Phần còn lại xoá sau 72 giờ, huỷ được bất cứ lúc nào trong mục Quyền riêng tư.',
+              'Email reading stops today. The rest is deleted after 72 hours, cancellable any time in Privacy.'), true) +
+        '</div>' +
+        '<div class="field cst-type"><label>' + _esc(L('Gõ “xoá dữ liệu” để xác nhận', 'Type “delete my data” to confirm')) + '</label>' +
+          '<input id="cst-type-in" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" ' +
+            'oninput="fhDeleteAllTyped(this)" placeholder="' + _escAttr(L('xoá dữ liệu', 'delete my data')) + '"></div>' +
+        '<div class="cst-group cst-dgroup">' +
+          '<button class="cst-drow" id="cst-del-go" disabled onclick="fhDeleteAllConfirm(this)">' +
+            _esc(L('Xoá toàn bộ dữ liệu', 'Delete all my data')) + '</button>' +
+        '</div>' +
+        '<button class="btn-skip" onclick="fhPrivacySheet()">' + _esc(L('Không, giữ lại', 'No, keep my data')) + '</button>');
+    };
+
+    /* The phrase is the friction. Matching is lenient about case and spacing
+       and strict about the words: a confirmation nobody can pass is theatre,
+       one you pass by leaning on the keyboard is not friction. */
+    window.fhDeleteAllTyped = function (el) {
+      var want = L('xoá dữ liệu', 'delete my data');
+      var got = String(el.value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      var alt = want.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      var gotAlt = got.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      var ok = got === want || gotAlt === alt;
+      var btn = document.getElementById('cst-del-go');
+      if (btn) btn.disabled = !ok;
+    };
+
+    window.fhDeleteAllConfirm = async function (btn) {
+      if (!btn || btn.disabled) return;
       btn.disabled = true; btn.textContent = L('Đang ghi nhận…', 'Recording…');
       var res = await sb.from('user_consents').insert({ kind: 'app_data_withdraw', version: FH_APPDATA_CONSENT_V });
       var dup = res.error && /duplicate key|already exists/i.test(res.error.message || '');
       if (res.error && !dup) {
-        btn.disabled = false; delete btn.dataset.armed;
-        btn.textContent = L('Rút lại đồng ý và xoá dữ liệu', 'Withdraw consent and delete data');
+        btn.disabled = false; btn.textContent = L('Xoá toàn bộ dữ liệu', 'Delete all my data');
         window.toast && window.toast(L('Chưa ghi nhận được, thử lại nhé', 'Could not record it, try again'));
         return;
       }
-      /* Withdrawal must stop COLLECTION immediately, not in 72 hours: the
-         confirmation below promises no further use, and a connected mailbox
-         would keep staging new transactions otherwise. Best-effort: deletes
-         the connection and pending rows if one exists, deletes nothing if
-         not; a transient failure here is backstopped by the 72h manual
-         fulfilment, so it never blocks the withdrawal itself. */
-      try { await _rpc('disconnect_my_mailbox', {}); } catch (e) {}
+      /* Stop the OAuth watcher too. request_my_deletion removes the forwarding
+         connection in SQL, but the direct-read grant lives behind the API and
+         only the client can end it. Best-effort and BEFORE the RPC, so a
+         failure here still leaves the request unmade and retryable rather than
+         scheduling an erasure while a mailbox keeps being read. */
+      var oauthStopped = true;
+      try {
+        if (window.fhAutoTxnStop) oauthStopped = (await window.fhAutoTxnStop()) !== false;
+      } catch (e) { oauthStopped = false; }
+      var sched = null;
+      try {
+        var r = await _rpc('request_my_deletion', {});
+        sched = r && r.scheduled_for ? new Date(r.scheduled_for) : null;
+      } catch (e) {
+        btn.disabled = false; btn.textContent = L('Xoá toàn bộ dữ liệu', 'Delete all my data');
+        window.toast && window.toast(L('Chưa ghi nhận được, thử lại nhé', 'Could not record it, try again'));
+        return;
+      }
       _fhSheet(
-        '<div class="sheet-h">' + _esc(L('Đã ghi nhận yêu cầu của bạn', 'Your request is recorded')) + '</div>' +
+        '<div class="sheet-h">' + _esc(L('Đã ghi nhận yêu cầu', 'Your request is recorded')) + '</div>' +
         '<div class="sheet-sub">' + _esc(L(
-          'Trong vòng 72 giờ, chúng tôi xoá toàn bộ dữ liệu của bạn và xác nhận qua email ' + FH_DATA_CONTACT + '. Trong lúc chờ, dữ liệu không được dùng thêm cho mục đích nào.',
-          'Within 72 hours we delete all your data and confirm by email from ' + FH_DATA_CONTACT + '. Until then, your data is not used for anything further.')) + '</div>' +
-        '<div class="sheet-sub">' + _esc(L(
-          'Nếu bạn từng kết nối email ngân hàng, kết nối đã được ngắt và các khoản chờ duyệt đã xoá. Nhớ xoá thêm quy tắc chuyển tiếp trong Gmail của bạn.',
-          'If you had bank email connected, it is now disconnected and pending items are deleted. Remember to also remove the forwarding rule in your Gmail.')) + '</div>' +
+          'Dữ liệu của bạn sẽ được xoá' + (sched ? ' vào ' + fmtDayMon(sched) : ' sau 72 giờ') +
+          '. Đổi ý lúc nào cũng được, vào Cài đặt, mục Quyền riêng tư.',
+          'Your data will be deleted' + (sched ? ' on ' + fmtDayMon(sched) : ' in 72 hours') +
+          '. Change your mind any time in Settings, under Privacy.')) + '</div>' +
+        /* Say what actually happened. The OAuth stop can fail on its own (it is
+           a separate API), and announcing "email has stopped" when it has not
+           is the one lie this screen must never tell. */
+        '<div class="sheet-sub">' + _esc(oauthStopped
+          ? L('Việc đọc email ngân hàng đã dừng.', 'Bank email reading has stopped.')
+          : L('Chưa dừng được việc đọc trực tiếp hộp thư. Vào Cài đặt, mục Quyền riêng tư để ngắt lại.',
+              'We could not stop the direct mailbox read. Open Settings, Privacy, to stop it there.')) + '</div>' +
+        '<button class="btn-line" onclick="fhPrivacySheet()">' + _esc(L('Xem lại', 'Review')) + '</button>' +
         '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>');
     };
 

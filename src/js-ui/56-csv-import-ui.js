@@ -58,38 +58,49 @@ function csvStagedScope(){
   try{ return localStorage.getItem(CSV_SCOPE_KEY)==='personal' ? 'personal' : 'family'; }
   catch(e){ return 'family'; }
 }
+/* Persist only. Split out from csvPickScope because an ENTRY POINT needs to
+   pre-scope before the review screen exists — opening the queue from the Cá nhân
+   tab means personal, the same way openPersonalExpense() presets the expense
+   modal. Returns whether it took, so a caller can tell refusal from success.
+
+   Refusing when the ledger is locked is the point: csvStagedScope() would fall
+   back to family anyway, and persisting a choice that does not apply would make
+   the picker disagree with itself the moment the ledger unlocks. */
+function csvSetScope(v){
+  if(v==='personal' && !csvScopeReady()) return false;
+  try{ localStorage.setItem(CSV_SCOPE_KEY, v); }catch(e){}
+  return true;
+}
 function csvPickScope(v){
-  if(v==='personal' && !csvScopeReady()){
+  if(!csvSetScope(v)){
     window.toast && window.toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
     return;
   }
-  try{ localStorage.setItem(CSV_SCOPE_KEY, v); }catch(e){}
   renderCsvReview();
 }
-function csvScopeSubtitle(){
-  return csvStagedScope()==='personal'
-    ? L('vào sổ cá nhân, chỉ mình bạn thấy','to your personal ledger, only you see it')
-    : L('vào sổ gia đình, cả nhà cùng thấy','to the family ledger, everyone sees it');
+/* The summary line now describes the MIX, because the destination is per row.
+   "2 vào sổ gia đình · 1 riêng tư" is checkable at a glance against what the
+   cards say; a single label could only have described a default nobody set. */
+function csvScopeSummary(){
+  var rows = (typeof csvStagedSelected === 'function') ? csvStagedSelected() : [];
+  var p = 0, f = 0;
+  rows.forEach(function(c){ if(csvRowScope(c)==='personal') p++; else f++; });
+  if(!p) return L('vào sổ gia đình, cả nhà cùng thấy','to the family ledger, everyone sees it');
+  if(!f) return L('vào sổ cá nhân, chỉ mình bạn thấy','to your personal ledger, only you see it');
+  return L(f+' khoản vào sổ gia đình · '+p+' khoản riêng tư',
+           f+' to the family · '+p+' private');
 }
-function csvScopePicker(){
-  /* Deliberately the SAME control as #ex-scopefield in the expense modal: same
-     question, same chips, same order, same glyphs. A second dialect for one
-     decision is how a product starts feeling assembled rather than designed —
-     and this is the one decision a person makes most often in this screen. */
-  var sc = csvStagedScope(), locked = !csvScopeReady();
+function csvRowScopeField(c){
+  var sc = csvRowScope(c), locked = !csvScopeReady();
   var chip = function(v, label){
-    var on = sc===v;
-    return '<button type="button" class="choice'+(on?' on':'')+'"'
+    return '<button type="button" class="choice'+(sc===v?' on':'')+'"'
       + (v==='personal' && locked ? ' aria-disabled="true"' : '')
-      + ' aria-pressed="'+(on?'true':'false')+'"'
-      + ' onclick="csvPickScope(\''+v+'\')">'+esc(label)+'</button>';
+      + ' aria-pressed="'+(sc===v?'true':'false')+'"'
+      + ' onclick="csvPickRowScope(\''+v+'\')">'+esc(label)+'</button>';
   };
   return '<div class="field csv-scope">'
     + '<label>'+esc(L('Ghi vào đâu?','Where does this go?'))+'</label>'
-    + '<div class="choices">'
-    +   chip('personal', L('🔒 Cá nhân','🔒 Personal'))
-    +   chip('family',   L('🏡 Gia đình','🏡 Family'))
-    + '</div>'
+    + '<div class="choices">'+chip('personal', L('🔒 Cá nhân','🔒 Personal'))+chip('family', L('🏡 Gia đình','🏡 Family'))+'</div>'
     + (locked ? '<div class="csv-scope-note">'+esc(L('Sổ cá nhân đang khoá — mở ở tab Cá nhân để chọn được.','Personal ledger is locked — unlock it on the Cá nhân tab to pick it.'))+'</div>' : '')
     + '</div>';
 }
@@ -718,6 +729,12 @@ function csvCollapsedCard(c, opts){
   return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
     + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid)
+    /* A collapsed row has to say where it is going, or the destination is a
+       decision you can only see by opening every card one at a time. Only the
+       PRIVATE case is marked: family is the default and marking both would be
+       noise on every row to distinguish the exception. */
+    + ((csvStagedMode && !opts.isDup && csvRowScope(c)==='personal')
+        ? '<span class="bc-scope">🔒 '+esc(L('Riêng tư','Private'))+'</span>' : '')
     + (opts.noPick
         ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+'</span>'
         : bulkSummary(csvRowShape(c, opts.isDup)))
@@ -755,7 +772,13 @@ function csvActiveCard(c, opts){
       + '<div class="field"><label>'+L('Số tiền','Amount')+'</label><input class="num" id="csvedit-amt" inputmode="numeric" onblur="snapAmtInput(this)" placeholder="'+escAttr(amtPlaceholder())+'" value="'+escAttr(c.amount!=null?csvAmtInputVal(c.amount):'')+'"/></div>'
       + '<div class="field"><label>'+L('Khi nào','When')+'</label><input type="date" id="csvedit-date" value="'+escAttr(c.dateDisplay||'')+'"/></div>'
       + '</div>'
-      + (mems.length ? '<div class="field" style="margin-bottom:0"><label>'+L('Ai trả','Who paid')+'</label><div class="choices" id="csvedit-who">'+whoChips+'</div></div>' : '');
+      + (csvStagedMode ? csvRowScopeField(c) : '')
+      /* A private row has no member split — the same reason #ex-whofield hides
+         when the expense modal is scoped personal. Asking "who paid" about a
+         ledger with one member in it is a question with no wrong answer, which
+         makes it noise. */
+      + ((mems.length && !(csvStagedMode && csvRowScope(c)==='personal'))
+          ? '<div class="field" style="margin-bottom:0"><label>'+L('Ai trả','Who paid')+'</label><div class="choices" id="csvedit-who">'+whoChips+'</div></div>' : '');
   } else {
     body += '<div class="field" style="margin-bottom:0"><label>'+L('Danh mục','Category')+'</label>'
       + '<div class="choices" id="csvedit-cats">'+catChips+'</div></div>';
@@ -791,6 +814,47 @@ function csvReadEditor(c){
   if(d && d.value){ c.dateDisplay = d.value; c.date = new Date(d.value+'T00:00:00'); }
   if(document.getElementById('csvedit-cats')){ var cat = chosen('csvedit-cats'); if(cat){ c.categoryName = cat; c.catSource='user'; } }
   if(document.getElementById('csvedit-who')){ var w = chosen('csvedit-who'); if(w) c.who = w; }
+}
+
+/* Per-ROW destination. It was one control for the whole pass, and the argument
+   for that was real — selection x batch-scope covers a mixed batch in two taps.
+   But it made the destination a property of the IMPORT when it is a property of
+   the TRANSACTION: a lunch with the family and a private coffee arrive in the
+   same email batch, and asking about them together is asking the wrong question.
+
+   c._scope holds it. Unset means "not decided yet", which falls back to the
+   remembered default rather than being written eagerly — so a row you never
+   opened still goes where you last said, and a row you DID open remembers what
+   you said about that row. */
+function csvRowScope(c){
+  if(!c) return csvStagedScope();
+  if(c._scope === 'personal' && !csvScopeReady()) return 'family';   // locked ledger: never strand a row
+  return c._scope || csvStagedScope();
+}
+/* Acts on whichever row is open — only one ever is (csvExpand). Reads the rest
+   of the editor first, or switching destination would discard an amount or a
+   category typed a moment earlier. */
+function csvPickRowScope(v){
+  var c = csvExpandedCandidate();
+  if(!c) return;
+  if(v==='personal' && !csvScopeReady()){
+    window.toast && window.toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
+    return;
+  }
+  csvReadEditor(c);
+  c._scope = v;
+  csvSetScope(v);              // and it becomes the default for rows not yet decided
+  renderCsvReview();
+}
+function csvExpandedCandidate(){
+  if(!csvExpand || !csvReview) return null;
+  if(csvExpand.kind==='ready') return csvReview.ready[csvExpand.idx] || null;
+  if(csvExpand.kind==='dup')   return (csvReview.dup[csvExpand.idx]||{}).c || null;
+  if(csvExpand.kind==='defer') return csvReview.deferred[csvExpand.idx] || null;
+  if(csvExpand.kind==='group'){
+    var g = csvReview.groups[csvExpand.gi]; return g ? (g.items[csvExpand.idx]||null) : null;
+  }
+  return null;
 }
 
 function csvIsOpen(kind, idx){ return csvExpand && csvExpand.kind===kind && csvExpand.idx===idx; }
@@ -969,9 +1033,8 @@ function renderCsvReview(){
       var stagedSum = csvStagedSelected().reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
       html += '<div class="csv-staged-sum">'
         + '<div class="csv-staged-sum-main">'+esc(L('Sẽ nhập '+readyCount+' khoản','Importing '+readyCount))+' · <span class="num">'+esc(fmt(stagedSum))+'</span></div>'
-        + '<div class="csv-staged-sum-sub">'+esc(csvScopeSubtitle())+'</div>'
+        + '<div class="csv-staged-sum-sub">'+esc(csvScopeSummary())+'</div>'
         + '</div>';
-      html += csvScopePicker();
     }
   } else {
     var summaryLine;
