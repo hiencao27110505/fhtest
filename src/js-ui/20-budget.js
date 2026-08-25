@@ -360,13 +360,21 @@ function fhGuideRender(hostId, periodKey, spent, budgetToDate, prevRaw, goalMult
   var remain=primary-spent, over=remain<0;
   var prevRemain=hasPrev?(prevRaw-spent):null;
   var key=fhGuideKey(remain, primary, prevRemain);
-  var s=DG_STATES[key], level=(primary>0)?Math.max(0,Math.min(100,remain/primary*100)):0;
+  var s=DG_STATES[key];
+  // Circle follows the story the label tells. Under plan → budget headroom. Over plan but still
+  // under the previous period (orange) → a positive gauge of how far under (matches "đỡ hơn"),
+  // NOT the alarm. Only the genuine both-bad state (red) keeps the "!" alarm.
+  var alarm = over && key==='red';
+  var level;
+  if(!over) level=(primary>0)?Math.max(0,Math.min(100,remain/primary*100)):0;
+  else if(key==='orange' && prevRaw>0) level=Math.max(0,Math.min(100,(prevRaw-spent)/prevRaw*100));
+  else level=0;
   var lbl=fhGuideLabel(periodKey, over, key, hasBudget, hasPrev);
   var amt = over ? fmt(-remain) : fmt(Math.max(0,remain));
   host.style.display=''; host.style.background=s.bg;
   host.innerHTML='<span class="dg-lbl" style="color:'+s.mut+'">'+lbl+'</span>'
     +'<span class="dg-amt num" style="color:'+s.main+'">'+amt+'</span>'
-    +'<span class="dg-vis">'+cfWaterSVG(level,s,over)+'</span>';
+    +'<span class="dg-vis">'+cfWaterSVG(level,s,alarm)+'</span>';
   return key;
 }
 /* Period spend/baseline for the live month, all like-for-like and to-date:
