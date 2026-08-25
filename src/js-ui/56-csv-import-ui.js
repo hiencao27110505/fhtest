@@ -58,12 +58,24 @@ function csvStagedScope(){
   try{ return localStorage.getItem(CSV_SCOPE_KEY)==='personal' ? 'personal' : 'family'; }
   catch(e){ return 'family'; }
 }
+/* Persist only. Split out from csvPickScope because an ENTRY POINT needs to
+   pre-scope before the review screen exists — opening the queue from the Cá nhân
+   tab means personal, the same way openPersonalExpense() presets the expense
+   modal. Returns whether it took, so a caller can tell refusal from success.
+
+   Refusing when the ledger is locked is the point: csvStagedScope() would fall
+   back to family anyway, and persisting a choice that does not apply would make
+   the picker disagree with itself the moment the ledger unlocks. */
+function csvSetScope(v){
+  if(v==='personal' && !csvScopeReady()) return false;
+  try{ localStorage.setItem(CSV_SCOPE_KEY, v); }catch(e){}
+  return true;
+}
 function csvPickScope(v){
-  if(v==='personal' && !csvScopeReady()){
+  if(!csvSetScope(v)){
     window.toast && window.toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
     return;
   }
-  try{ localStorage.setItem(CSV_SCOPE_KEY, v); }catch(e){}
   renderCsvReview();
 }
 function csvScopeSubtitle(){

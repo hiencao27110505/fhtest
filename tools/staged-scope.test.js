@@ -40,6 +40,7 @@ function L(vi) { return vi; }
 
 eval(grab('csvScopeReady'));
 eval(grab('csvStagedScope'));
+eval(grab('csvSetScope'));
 eval(grab('csvPickScope'));
 eval(grab('csvScopeSubtitle'));
 eval(grab('csvScopePicker'));
@@ -88,6 +89,32 @@ html = csvScopePicker();
 t('unlocked: no disabled marker', html.indexOf('aria-disabled') < 0);
 t('family reads as pressed', /aria-pressed="true"[^>]*>Gia đình/.test(html) || html.indexOf('choice on') > 0);
 t('both destinations are offered', html.indexOf('Gia đình') > 0 && html.indexOf('Cá nhân') > 0);
+
+console.log('\n-- the Cá nhân tab has the same door, pre-scoped --');
+const ptab = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '21-personal.js'), 'utf8');
+t('the tab carries the email CTA', /Khoản thu chi từ email/.test(ptab));
+// The source escapes its quotes inside a single-quoted string, so a regex here
+// guards the QUOTING more than the behaviour. Substring check instead.
+t('and opens it pre-scoped to personal',
+  ptab.indexOf('fhEmailTxnCta({scope:') > 0 &&
+  ptab.slice(ptab.indexOf('fhEmailTxnCta({scope:'), ptab.indexOf('fhEmailTxnCta({scope:') + 46).indexOf('personal') > 0);
+t('reusing Widget A chrome, not a second design',
+  /class="cf-cta"/.test(ptab) && /class="cc-row"/.test(ptab));
+t('with the same badge off the same count', /window\.fhStagedCount/.test(ptab));
+
+const rv2 = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '72-txn-review.js'), 'utf8');
+t('the router accepts a preset', /fhEmailTxnCta = async function \(preset\)/.test(rv2));
+t('and applies it through the guarded setter, not localStorage directly',
+  /window\.csvSetScope\(preset\.scope\)/.test(rv2));
+t('a promote refreshes BOTH badges, so neither goes stale',
+  /renderCashflowEmailCta[\s\S]{0,260}renderPersonal\(\)/.test(rv2));
+
+console.log('\n-- pre-scoping cannot force a locked ledger --');
+store = {}; locked();
+t('csvSetScope refuses personal while locked', csvSetScope('personal') === false);
+t('and persists nothing', store[CSV_SCOPE_KEY] === undefined);
+unlocked();
+t('but takes it when unlocked', csvSetScope('personal') === true && csvStagedScope() === 'personal');
 
 console.log('\n-- the chip un-disables itself when the ledger becomes ready --');
 const pers = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '19-personal.js'), 'utf8');

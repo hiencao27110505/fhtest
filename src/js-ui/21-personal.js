@@ -99,6 +99,24 @@ function renderPersonal(){
      + '</div>'
      + '</section>';
 
+  /* ── Khoản thu chi từ email — the same CTA Widget A carries, same .cf-cta /
+        .cc-row chrome, same badge off the same window.fhStagedCount. Deliberately
+        not a second design: it is the same door, and a person who finds it here
+        should recognise it there.
+
+        The one difference is intent. Opening it from THIS tab presets the
+        review screen's destination to personal, exactly as openPersonalExpense()
+        presets the expense modal — and the picker still shows the choice, so
+        nothing is decided behind anyone's back. ── */
+  var _n = window.fhStagedCount || 0;
+  h += '<div class="cf-cta" style="margin-bottom:18px">'
+     + '<button class="cc-row" onclick="fhEmailTxnCta({scope:\'personal\'})">'
+     +   '<span class="cc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3z"/><path d="M3 6l9 7 9-7"/></svg></span>'
+     +   '<span class="cc-t">Khoản thu chi từ email</span>'
+     +   (_n>0 ? '<span class="cc-badge num">'+_n+'</span>' : '')
+     +   '<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>'
+     + '</button></div>';
+
   /* ── Các nhóm của tôi — per-space roll-up (drawn icons) ── */
   var bySpace = {};
   txM.forEach(function(t){ var k=t.spaceId||'_p'; bySpace[k]=(bySpace[k]||0)+(t.amt||0); });

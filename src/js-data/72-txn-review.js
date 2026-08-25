@@ -109,13 +109,24 @@
     try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (rows || []).length; }
     catch (e) { window.fhStagedCount = 0; }
     try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
+    // The Cá nhân tab carries the same CTA and the same badge; it has to hear
+    // the count change too, or one of the two goes stale after every promote.
+    try { if (typeof window.renderPersonal === 'function') window.renderPersonal(); } catch (e) {}
   };
 
   /* The always-visible "Khoản thu chi từ email" CTA routes by setup state:
        • no linked email  → the setup intro (null state + "Get started" CTA)
        • linked           → the review sheet, which itself shows an empty modal
                             when there is nothing, or the list of cards. */
-  window.fhEmailTxnCta = async function () {
+  window.fhEmailTxnCta = async function (preset) {
+    /* Opening the queue from the Cá nhân tab means "these are mine" — the same
+       affordance openPersonalExpense() gives the expense modal. Pre-scoping is
+       refused silently when the personal ledger is locked, because the picker
+       shows that state and explains it far better than a toast fired from a tap
+       on something else. */
+    if (preset && preset.scope && typeof window.csvSetScope === 'function') {
+      window.csvSetScope(preset.scope);
+    }
     var linked = false;
     try { var st = window.fhMailboxState ? await window.fhMailboxState() : null; linked = !!(st && st.forwarding_alias); } catch (e) {}
     if (!linked) return window.fhMailboxSheet && window.fhMailboxSheet();
