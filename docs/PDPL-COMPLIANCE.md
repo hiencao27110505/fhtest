@@ -47,10 +47,11 @@ mechanics are what is missing.
 | 3 | Cross-border dossier (TIA) | Đ20/22 | ❌ unstarted; inventory favorable (values cross as ciphertext); updated every 6 months, not file-and-forget |
 | 4 | Named data-protection personnel, reported to A05 | Đ33.2 | ❌ proposal: Hiên |
 | 5 | 72h breach notification process | L91 + 356 | 🟡 detectors live; runbook unwritten |
-| 6 | 72h deletion on request | L91 + 356 | 🟡 levers live; procedure unwritten; disconnect button missing |
+| 6 | 72h deletion on request | L91 + 356 | 🟡 levers live; procedure unwritten. Disconnect button SHIPPED (2026-08-25 verified): mailbox status sheet, arm-then-confirm, calls `disconnect_my_mailbox` (0082); withdrawal also fires it so collection stops at the tap, not within the 72h |
 | 7 | Security measures appropriate to sensitivity | Đ27 et al. | ✅ see §7 inventory; Đ27 also bans credit-scoring use, matching our red-lines |
 | 8 | Children's data: members ≥7 need child + guardian consent | Đ24 | ❌ APP-WIDE gap (kid members' names/photos), no child marking exists — see companion doc P0 #4 |
-| 9 | Sign-in's "By continuing, you agree to our Terms & Privacy Policy" | Đ9.3/9.4 | ❌ bundled consent pointing at a page that does not exist — fix with the policy page |
+| 9 | Sign-in's "By continuing, you agree to our Terms & Privacy Policy" | Đ9.3/9.4 | ✅ CLOSED (2026-08-25 verified): `privacy.html` ships bilingual v1; the footer links it and dropped the "Terms &" half, since no ToS exists to agree to |
+| 10 | `founder_daily_active` retains identifiable activity history | Đ17 (purpose + retention limits) | ❌ NEW 2026-08-25: 0063 appends `(activity_date, user_id)` nightly and never prunes. privacy.html §3 describes technical data as "số liệu sử dụng dạng đếm" and §5 as counts without transaction values — both true of the Telegram digest, but this table is per-user history, not a count, and §7's retention table has no row for it. Close by pruning to a stated window (90d suggested — keeps the retention maths the table exists for) plus a §7 row; hashing `user_id` per day is the alternative but kills day-over-day retention |
 
 Penalty frame for context: data trading up to 10× illicit gains; unlawful
 cross-border transfer up to 5% prior-year revenue; other violations up to

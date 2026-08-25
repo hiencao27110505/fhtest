@@ -1,5 +1,5 @@
 /* FamilyHub — offline-first service worker */
-const CACHE_NAME = 'familyhub-v394';
+const CACHE_NAME = 'familyhub-v395';
 /* Photos live in their own cache, deliberately NOT tied to CACHE_NAME. Folding
    them together would throw every photo away on each app release, which is the
    exact re-download this cache exists to prevent. Nothing here ever goes stale:
@@ -15,6 +15,11 @@ const MEDIA_MAX = 400;                      // ~400 photos, then evict oldest-fi
 const ASSETS = [
   './',
   './index.html',
+  // Precached because the sign-in footer links it: a new user on bad signal would
+  // otherwise fall through the navigate handler to './index.html' and be shown the
+  // app instead of the policy they tapped. Hand-maintained at the repo root, not
+  // generated, so it rides the normal per-release bump like any other asset.
+  './privacy.html',
   './manifest.json',
   './icon.svg',
   './icon.png',
