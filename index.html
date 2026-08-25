@@ -1436,6 +1436,11 @@ input{font-family:inherit}
 .pbud-bar{height:8px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;margin:2px 0 12px}
 .pbud-bar i{display:block;height:100%;border-radius:9999px}
 
+/* A personal row we could not decrypt. Kept OUT of every total (19-personal),
+   so it has to be visible or the totals lie by omission. Border + tint, no
+   solid fill (DESIGN §7), and it reads as a state rather than an error. */
+.p-unread{margin:0 2px 10px;padding:10px 12px;border:1px solid var(--hairline);border-left:2px solid var(--warn,var(--brand));border-radius:10px;background:var(--card,transparent);font-size:13px;line-height:1.5;color:var(--muted);letter-spacing:-.01em}
+
 /* Savings goals — ONE grouped card: the brief (goal-gradient framing) is the header,
    the goal list its body. A single border + shadow makes the whole thing read as one object. */
 .goal-card{background:var(--white);border:1px solid var(--hairline);border-radius:18px;margin:0 16px 12px;overflow:hidden;box-shadow:var(--shadow-card)}
@@ -5344,9 +5349,14 @@ function renderPersonal(){
 
   /* ready — amounts are base units (thousands of VND); fmt() applies curMult(). */
   var mon = _pMonKey(new Date());
-  var txM = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense'; });
+  /* _unreadable rows are EXCLUDED from every total rather than counted as 0.
+     `t.amt||0` used to fold a row we could not decrypt into the month at zero,
+     so a wrong key understated spending instead of saying so (19-personal).
+     Everything downstream derives from txM — the category card and the space
+     roll-up included — so they are covered by this one filter. */
+  var txM = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon && t.kind==='expense' && !t._unreadable; });
   var out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
-  var inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon; }).reduce(function(s,i){ return s+(i.amt||0); },0);
+  var inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon && !i._unreadable; }).reduce(function(s,i){ return s+(i.amt||0); },0);
   var left = inc-out;
   var famName = function(fid){ var f=(P.fams||[]).find(function(x){return x.family_id===fid;}); return f? f.name : 'Nhóm'; };
 
@@ -5411,8 +5421,23 @@ function renderPersonal(){
 
   /* ── Giao dịch của bạn — category emoji is the only emoji (content mark) ── */
   h += '<div class="section-h" id="pers-tx"><span class="t">Giao dịch của bạn</span></div><div class="rows">';
+  /* Say it before the list, not inside it. A count kept out of the totals has to
+     be visible or the totals are quietly wrong -- which is the whole reason this
+     stopped being a 0đ row. */
+  if(P.unreadable){
+    h += '<div class="p-unread">'
+       + (P.unreadable===1 ? 'Có 1 khoản chưa đọc được' : 'Có '+P.unreadable+' khoản chưa đọc được')
+       + ' — chưa tính vào tổng. Thử mở khoá lại bằng thẻ cá nhân.</div>';
+  }
   if(P.txns.length){
     P.txns.slice(0,30).forEach(function(t){
+      if(t._unreadable){
+        h += '<div class="row"><div class="r-ico personal-ico">🔒</div>'
+           + '<div class="r-body"><div class="r-t">Chưa đọc được</div>'
+           + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+' · không tính vào tổng</div></div>'
+           + '<div class="r-amt num">—</div></div>';
+        return;
+      }
       h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>'
          + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
          + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
@@ -14135,7 +14160,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v392';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v393';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -15572,7 +15597,23 @@ window.obGoogle = async function () {
     window.fhPersonalCardCached = function () { try { return localStorage.getItem(_pcardKey()); } catch (e) { return null; } };
 
     const _encP = (v) => FHCrypto.encVal(P.key, v);
-    const _decP = async (b64) => { try { return b64 ? await FHCrypto.decVal(P.key, b64) : null; } catch (e) { return null; } };
+
+    /* null means "nothing was stored"; _DEC_FAILED means "something WAS stored
+       and we could not read it". Collapsing the two is how an unreadable row
+       became a 0đ row: decVal threw, the catch returned null, Number(null) is 0,
+       and `s + (t.amt || 0)` folded it into the month's total. A wrong key or a
+       half-finished rotation therefore UNDERSTATED spending, silently, while the
+       tab still reported itself ready.
+
+       The staged review screen already takes the opposite position — a row that
+       cannot be opened is exactly the case a person needs told (72-txn-review).
+       This brings the personal ledger in line with it. */
+    const _DEC_FAILED = '\u0000fh-dec-failed';
+    const _decP = async (b64) => {
+      if (!b64) return null;
+      try { return await FHCrypto.decVal(P.key, b64); } catch (e) { return _DEC_FAILED; }
+    };
+    const _decTxt = async (b64) => { const v = await _decP(b64); return v === _DEC_FAILED ? null : v; };
     function _setState(s) { P.state = s; try { if (window.renderPersonal) renderPersonal(); } catch (e) {} }
     function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return _localDate(d); }
 
@@ -15635,11 +15676,30 @@ window.obGoogle = async function () {
           _sb().from('personal_incomes').select('id,amount_enc,note_enc,income_date').eq('owner_user_id', P.uid).gte('income_date', from),
           _sb().from('personal_budgets').select('total_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
         ]);
-        P.budget = (bd && bd.data) ? Number(await _decP(bd.data.total_enc)) || 0 : 0;
-        P.txns = [];
-        for (const t of (tr.data || [])) P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id, version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at, amt: Number(await _decP(t.amount_enc)), note: await _decP(t.note_enc), cat: await _decP(t.cat_name_enc), emoji: t.cat_emoji });
+        /* Their budget read goes through _decP too, so an unreadable budget must
+           not become a number either — the sentinel is a string and Number() of
+           it is NaN. Explicit rather than relying on `|| 0` to absorb it. */
+        const _bRaw = (bd && bd.data) ? await _decP(bd.data.total_enc) : null;
+        P.budget = (_bRaw == null || _bRaw === _DEC_FAILED) ? 0 : (Number(_bRaw) || 0);
+        /* Unreadable is a property of the AMOUNT only. A note or category that
+           will not open costs a label; an amount that will not open corrupts
+           money, so only that one takes the row out of every total. */
+        P.txns = []; P.unreadable = 0;
+        for (const t of (tr.data || [])) {
+          const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
+          if (bad) P.unreadable++;
+          P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
+            version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at,
+            amt: bad ? null : Number(a), _unreadable: bad,
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji });
+        }
         P.incomes = [];
-        for (const i of (ir.data || [])) P.incomes.push({ id: i.id, date: i.income_date, amt: Number(await _decP(i.amount_enc)), note: await _decP(i.note_enc) });
+        for (const i of (ir.data || [])) {
+          const a = await _decP(i.amount_enc), bad = (a === _DEC_FAILED);
+          if (bad) P.unreadable++;
+          P.incomes.push({ id: i.id, date: i.income_date, amt: bad ? null : Number(a),
+            _unreadable: bad, note: await _decTxt(i.note_enc) });
+        }
         _setState('ready');
       } catch (e) { console.warn('personal hydrate failed', e); _setState('error'); }
     };

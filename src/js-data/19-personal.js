@@ -36,7 +36,23 @@
     window.fhPersonalCardCached = function () { try { return localStorage.getItem(_pcardKey()); } catch (e) { return null; } };
 
     const _encP = (v) => FHCrypto.encVal(P.key, v);
-    const _decP = async (b64) => { try { return b64 ? await FHCrypto.decVal(P.key, b64) : null; } catch (e) { return null; } };
+
+    /* null means "nothing was stored"; _DEC_FAILED means "something WAS stored
+       and we could not read it". Collapsing the two is how an unreadable row
+       became a 0đ row: decVal threw, the catch returned null, Number(null) is 0,
+       and `s + (t.amt || 0)` folded it into the month's total. A wrong key or a
+       half-finished rotation therefore UNDERSTATED spending, silently, while the
+       tab still reported itself ready.
+
+       The staged review screen already takes the opposite position — a row that
+       cannot be opened is exactly the case a person needs told (72-txn-review).
+       This brings the personal ledger in line with it. */
+    const _DEC_FAILED = '\u0000fh-dec-failed';
+    const _decP = async (b64) => {
+      if (!b64) return null;
+      try { return await FHCrypto.decVal(P.key, b64); } catch (e) { return _DEC_FAILED; }
+    };
+    const _decTxt = async (b64) => { const v = await _decP(b64); return v === _DEC_FAILED ? null : v; };
     function _setState(s) { P.state = s; try { if (window.renderPersonal) renderPersonal(); } catch (e) {} }
     function _winFrom() { const d = new Date(); d.setMonth(d.getMonth() - 1); d.setDate(1); return _localDate(d); }
 
@@ -99,11 +115,30 @@
           _sb().from('personal_incomes').select('id,amount_enc,note_enc,income_date').eq('owner_user_id', P.uid).gte('income_date', from),
           _sb().from('personal_budgets').select('total_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
         ]);
-        P.budget = (bd && bd.data) ? Number(await _decP(bd.data.total_enc)) || 0 : 0;
-        P.txns = [];
-        for (const t of (tr.data || [])) P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id, version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at, amt: Number(await _decP(t.amount_enc)), note: await _decP(t.note_enc), cat: await _decP(t.cat_name_enc), emoji: t.cat_emoji });
+        /* Their budget read goes through _decP too, so an unreadable budget must
+           not become a number either — the sentinel is a string and Number() of
+           it is NaN. Explicit rather than relying on `|| 0` to absorb it. */
+        const _bRaw = (bd && bd.data) ? await _decP(bd.data.total_enc) : null;
+        P.budget = (_bRaw == null || _bRaw === _DEC_FAILED) ? 0 : (Number(_bRaw) || 0);
+        /* Unreadable is a property of the AMOUNT only. A note or category that
+           will not open costs a label; an amount that will not open corrupts
+           money, so only that one takes the row out of every total. */
+        P.txns = []; P.unreadable = 0;
+        for (const t of (tr.data || [])) {
+          const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
+          if (bad) P.unreadable++;
+          P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
+            version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at,
+            amt: bad ? null : Number(a), _unreadable: bad,
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji });
+        }
         P.incomes = [];
-        for (const i of (ir.data || [])) P.incomes.push({ id: i.id, date: i.income_date, amt: Number(await _decP(i.amount_enc)), note: await _decP(i.note_enc) });
+        for (const i of (ir.data || [])) {
+          const a = await _decP(i.amount_enc), bad = (a === _DEC_FAILED);
+          if (bad) P.unreadable++;
+          P.incomes.push({ id: i.id, date: i.income_date, amt: bad ? null : Number(a),
+            _unreadable: bad, note: await _decTxt(i.note_enc) });
+        }
         _setState('ready');
       } catch (e) { console.warn('personal hydrate failed', e); _setState('error'); }
     };
