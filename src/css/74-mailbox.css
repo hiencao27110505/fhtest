@@ -177,3 +177,39 @@
 .cst-disc{color:var(--danger)}
 /* Document-type kicker: names what is being signed (a consent, not a T&C). */
 .cst-kicker{font-size:10.5px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin-bottom:8px}
+
+/* ---------- Settings → Quyền riêng tư (75-consent-ui) ---------- */
+/* Apple Settings grammar: uppercase section header, rows grouped in one
+   rounded container with hairline dividers, action on the trailing edge.
+   Tokens only, no new colours, so all five themes follow. */
+.cst-sech{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--muted);margin:20px 2px 8px}
+.cst-group{background:var(--white);border:1px solid var(--hairline);border-radius:14px;overflow:hidden}
+.cst-lrow{display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid var(--divider)}
+.cst-lrow:last-child{border-bottom:none}
+.cst-ltxt{flex:1;min-width:0}
+.cst-lt{font-size:14.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);line-height:1.3}
+.cst-ls{font-size:12.5px;line-height:1.4;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+/* 44px minimum target (DESIGN §3): the row is ~50px, so the action fills its
+   height rather than being a small word people have to aim at. */
+.cst-lbtn{flex-shrink:0;min-height:44px;padding:0 4px 0 10px;background:none;border:0;
+  font-size:13.5px;font-weight:700;letter-spacing:-.01em;color:var(--brand-ink)}
+.cst-lbtn:active{opacity:.55}
+
+/* A live deletion request. Amber, not danger red: nothing is lost yet and the
+   loudest thing on screen should be the way back, not the countdown. */
+.cst-pending{border:1px solid var(--amber);border-left:3px solid var(--amber);border-radius:12px;
+  padding:13px 14px;margin-bottom:6px}
+.cst-pt{font-size:14.5px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.cst-ps{font-size:13px;line-height:1.45;color:var(--ink-2);margin:3px 0 10px}
+
+/* The erasure entrance. Bordered, set apart, and its control stays .ex-del
+   low-prominence text — DESIGN §3: never a big red button. */
+.cst-danger{border:1px solid var(--hairline);border-radius:14px;padding:13px 14px}
+.cst-ds{font-size:13px;line-height:1.45;color:var(--muted);margin-bottom:4px}
+.cst-danger .ex-del{width:100%;min-height:44px}
+/* Type-to-confirm: the commit stays inert until the phrase matches, which IS
+   the friction. Disabled reads as unavailable, not as a styling accident. */
+.cst-type{margin-top:14px}
+.cst-armed[disabled]{opacity:.35;pointer-events:none}
+.cst-armed{width:100%;min-height:44px}

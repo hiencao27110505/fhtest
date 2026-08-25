@@ -31,6 +31,10 @@ let SHEETS = [];
 function _fhSheet(html) { SHEETS.push(html); }
 function _closeOv() {}
 const _esc = (s) => String(s);
+const _escAttr = (s) => String(s).replace(/"/g, '&quot;');
+// the type-to-confirm button, looked up by id when the phrase is checked
+let TYPE_BTN = { disabled: true };
+global.document = { getElementById: (id) => (id === 'cst-del-go' ? TYPE_BTN : null) };
 const L = (vi, en) => vi;
 const _mbxGlyph = () => '';
 const fmtDayMon = () => '20/08';
@@ -39,11 +43,16 @@ global.setTimeout = (fn) => 0;   // arm-reset timer is irrelevant here
 let SELECT_RESULT = { data: [], error: null };
 let INSERTS = [], INSERT_RESULT = { error: null };
 let RPC_CALLS = [], RPC_FAIL = false;
+let SELECT_BY_TABLE = {};   // per-table override; SELECT_RESULT is the fallback
 const sb = {
   from(table) {
+    const tableResult = () => (table in SELECT_BY_TABLE
+      ? { data: SELECT_BY_TABLE[table], error: null }
+      : SELECT_RESULT);
     return {
       select() { return this; }, eq() { return this; }, order() { return this; },
-      limit() { return Promise.resolve(SELECT_RESULT); },
+      is() { return this; },   // deletion_requests filters on .is('cancelled_at', null)
+      limit() { return Promise.resolve(tableResult()); },
       insert(row) { INSERTS.push({ table, row }); return Promise.resolve(INSERT_RESULT); },
     };
   },
@@ -52,9 +61,9 @@ async function _rpc(name, args) { RPC_CALLS.push(name); if (RPC_FAIL) throw new 
 
 eval(consentSrc);
 
-function reset(sel) {
+function reset(sel, byTable) {
   SHEETS = []; INSERTS = []; RPC_CALLS = [];
-  SELECT_RESULT = sel; INSERT_RESULT = { error: null }; RPC_FAIL = false;
+  SELECT_RESULT = sel; SELECT_BY_TABLE = byTable || {}; INSERT_RESULT = { error: null }; RPC_FAIL = false;
   // bust the session cache between scenarios: re-eval is cheaper than exposing it
   eval(consentSrc);
 }
@@ -195,30 +204,78 @@ console.log('\n-- the gate asks exactly when it should --');
   await window.fhAppDataConsentCheck();
   t('a flaky boot fetch skips THIS boot instead of nagging (asks next boot)', SHEETS.length === 0);
 
-  // read-only review from Settings, with the symmetric in-app withdrawal
-  reset({ data: [{ version: FH_APPDATA_CONSENT_V, consented_at: '2026-08-24T10:00:00Z' }], error: null });
-  await window.fhAppDataConsentSheet({ readOnly: true });
-  t('settings view: no agree CTA', SHEETS[0].indexOf('fhAppDataConsentAgree') === -1);
-  t('settings view: withdrawal action present', SHEETS[0].indexOf('fhAppDataWithdraw') >= 0);
-  const wbtn = { dataset: {}, disabled: false, textContent: '' };
-  INSERTS = [];
-  await window.fhAppDataWithdraw(wbtn);
-  t('withdraw arms first, records nothing', INSERTS.length === 0 && wbtn.dataset.armed === '1');
-  await window.fhAppDataWithdraw(wbtn);
-  t('second tap records the withdrawal in the same table',
-    INSERTS.length === 1 && INSERTS[0].row.kind === 'app_data_withdraw', JSON.stringify(INSERTS));
-  t('withdrawal STOPS collection immediately: the disconnect fires with it',
-    RPC_CALLS.indexOf('disconnect_my_mailbox') >= 0, JSON.stringify(RPC_CALLS));
-  t('and confirms the 72-hour fulfilment plus the Gmail-rule step',
-    SHEETS[SHEETS.length - 1].indexOf('72 giờ') >= 0 && SHEETS[SHEETS.length - 1].indexOf('Gmail') >= 0);
-  t('settings row is wired in the shell', shellSrc.indexOf('set-privacy-row') >= 0 &&
-    shellSrc.indexOf('fhAppDataConsentSheet({readOnly:true})') >= 0);
+  // ── the redesigned withdrawal: granular, scheduled, cancellable ───────────
+  console.log('\n-- Settings → Quyền riêng tư --');
+
+  reset({ data: [{ kind: 'app_data', version: 1, consented_at: '2026-08-24T10:00:00Z' }], error: null },
+        { deletion_requests: [] });
+  await window.fhPrivacySheet();
+  var priv = SHEETS[0];
+  t('lists what you agreed to, per purpose', priv.indexOf('Điều bạn đã đồng ý') >= 0);
+  t('erasure is present but low-prominence (ex-del, never a big red button)',
+    priv.indexOf('ex-del') >= 0 && priv.indexOf('class="cta"') === -1);
+  t('erasure opens a consequence sheet rather than acting', priv.indexOf('fhDeleteAllSheet()') >= 0);
+  t('no one-tap withdrawal survives anywhere', consentSrc.indexOf('fhAppDataWithdraw') === -1);
+
+  // the consequence sheet: the four things destructive copy must carry
+  reset({ data: [], error: null });
+  await window.fhDeleteAllSheet();
+  var del = SHEETS[0];
+  t('names what is lost', del.indexOf('Những gì sẽ mất') >= 0);
+  t('names the RIPPLE onto the family', del.indexOf('Ảnh hưởng tới cả nhà') >= 0);
+  t('names the cancellable window', del.indexOf('72 giờ') >= 0);
+  t('requires typing the phrase', del.indexOf('cst-type-in') >= 0);
+  t('and the commit starts disabled', /id="cst-del-go"[^>]*disabled/.test(del), del.slice(-400));
+
+  // type-to-confirm: strict about the words, lenient about accents and case
+  var btnEl = TYPE_BTN;
+  window.fhDeleteAllTyped({ value: 'xoa du lieu' });
+  t('an unaccented match enables it (typing Vietnamese is hard on some keyboards)', btnEl.disabled === false);
+  window.fhDeleteAllTyped({ value: 'xoá' });
+  t('a partial phrase does not', btnEl.disabled === true);
+  window.fhDeleteAllTyped({ value: '  XOÁ DỮ LIỆU  ' });
+  t('case and stray spaces are forgiven', btnEl.disabled === false);
+
+  // committing schedules rather than deletes, and stops BOTH collection channels
+  reset({ data: [], error: null });
+  var stopped = false;
+  window.fhAutoTxnStop = async function () { stopped = true; return true; };
+  await window.fhDeleteAllConfirm({ disabled: false, textContent: '' });
+  t('records the withdrawal', INSERTS.length === 1 && INSERTS[0].row.kind === 'app_data_withdraw');
+  t('schedules rather than erasing', RPC_CALLS.indexOf('request_my_deletion') >= 0, JSON.stringify(RPC_CALLS));
+  t('stops the OAuth channel too, not just the SQL one', stopped === true);
+  t('and tells them where to change their mind', SHEETS[SHEETS.length - 1].indexOf('Quyền riêng tư') >= 0);
+
+  // a live request outranks everything and leads with the way back
+  reset({ data: [], error: null }, { deletion_requests: [{ scheduled_for: '2026-08-27T10:00:00Z' }] });
+  await window.fhPrivacySheet();
+  t('a pending deletion shows its date', SHEETS[0].indexOf('Đang chờ xoá') >= 0);
+  t('and offers cancel as the loudest action', SHEETS[0].indexOf('fhCancelDeletion') >= 0);
+  t('while hiding the entrance that would re-request it', SHEETS[0].indexOf('fhDeleteAllSheet') === -1);
+
+  reset({ data: [{ scheduled_for: '2026-08-27T10:00:00Z' }], error: null });
+  await window.fhCancelDeletion({ disabled: false, textContent: '' });
+  t('cancelling calls the RPC', RPC_CALLS.indexOf('cancel_my_deletion') >= 0, JSON.stringify(RPC_CALLS));
+
+  t('settings row opens the privacy home', shellSrc.indexOf('fhPrivacySheet()') >= 0);
 
   const hydrateSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-data', '30-hydrate.js'), 'utf8');
   t('hydrate actually calls the layer-1 check (wiring, not vibes)',
     hydrateSrc.indexOf('fhAppDataConsentCheck') >= 0);
 
   // ── the migration holds up its half ───────────────────────────────────────
+  const mig84 = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '0084_deletion_requests.sql'), 'utf8');
+  console.log('\n-- migration 0084: scheduled erasure --');
+  t('a live request is unique per user', /unique index[\s\S]*?where cancelled_at is null and executed_at is null/.test(mig84));
+  t('the client can read but not write it', /for select to authenticated/.test(mig84) && !/for (insert|update|delete) to authenticated/.test(mig84));
+  t('requesting is idempotent, so a double tap cannot move the date',
+    mig84.indexOf('if v_row.id is null then') >= 0);
+  t('requesting stops collection but does NOT delete the ledger',
+    mig84.indexOf('delete from mailbox_connections') >= 0 &&
+    mig84.indexOf('delete from transactions') === -1);
+  t('cancel retires the request rather than erasing history',
+    /update deletion_requests set cancelled_at/.test(mig84));
+
   console.log('\n-- migration 0082 --');
   t('RLS enabled', /enable row level security/.test(migration));
   t('policies use the initplan form (0022 rule)',

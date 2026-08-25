@@ -50,7 +50,8 @@
   <button onclick="window.fhAppDataConsentSheet()">↻ Show layer-1 sheet again</button>
   <button onclick="demoConnect()">▶ Connect bank email (layer 2 gate → flow resumes on agree)</button>
   <button onclick="window.fhConsentSheet({readOnly:true})">👁 Review: "what you agreed to"</button>
-  <button onclick="window.fhAppDataConsentSheet({readOnly:true})">⚙️ Cài đặt → Quyền riêng tư (review + withdraw)</button>
+  <button onclick="window.fhPrivacySheet()">⚙️ Cài đặt → Quyền riêng tư (the new home)</button>
+  <button onclick="window.fhDeleteAllSheet()">🗑 Xoá toàn bộ dữ liệu (type-to-confirm)</button>
   <button id="demo-disc" onclick="window.fhMailboxDisconnect(this)">⛔ Ngắt kết nối (arm, then confirm)</button>
 
   <label><input type="checkbox" id="offline"> Simulate insert failure (offline) — watch agree BLOCK</label>
@@ -109,9 +110,15 @@ function renderStore() {
 }
 renderStore();
 
+var DELETION = [];   // in-memory deletion_requests
 var sb = {
-  from: function () {
+  from: function (table) {
     var kindFilter = null;
+    if (table === 'deletion_requests') {
+      return { select: f, eq: f, order: f, is: f, limit: function () {
+        return Promise.resolve({ data: DELETION.slice(), error: null }); } };
+      function f() { return this; }
+    }
     return {
       select: function () { return this; },
       eq: function (col, v) { if (col === 'kind') kindFilter = v; return this; },
@@ -134,9 +141,19 @@ var sb = {
   },
 };
 async function _rpc(name) {
-  toastMsg('RPC → ' + name + ' (stubbed: would delete connection + pending rows)');
+  if (name === 'request_my_deletion') {
+    var when = new Date(Date.now() + 72 * 3600 * 1000);
+    DELETION = [{ scheduled_for: when.toISOString() }];
+    toastMsg('RPC → request_my_deletion (scheduled, cancellable)');
+    return { scheduled_for: when.toISOString() };
+  }
+  if (name === 'cancel_my_deletion') { DELETION = []; toastMsg('RPC → cancel_my_deletion'); return {}; }
+  toastMsg('RPC → ' + name + ' (stubbed, deletes nothing here)');
   return {};
 }
+window.fhAutoTxnStop = async function () { toastMsg('OAuth channel stopped too'); return true; };
+window.fhAutoTxnConnection = async function () { return null; };
+window.fhMailboxState = async function () { return { forwarding_alias: '8xr4ed9vr8' }; };
 
 /* ── demo drivers ─────────────────────────────────────────────────────────── */
 function demoBoot() {
