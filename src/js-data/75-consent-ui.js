@@ -167,14 +167,41 @@
          * UNDO OVER CONFIRMATION. Erasure schedules rather than executes. The
            72 hours the consent text already promised becomes a visible,
            cancellable window (0084), so a mis-tap costs nothing. */
-    function _cstGroup(rows) {
-      return '<div class="cst-group">' + rows + '</div>';
+    var _CST_CHEV = '<svg class="cst-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+    var _CST_WARN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18.5A2 2 0 0 0 3.5 21.5h17' +
+      'a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9.5v4"/><path d="M12 17h.01"/></svg>';
+
+    function _cstGroup(rows, footer) {
+      return '<div class="cst-group">' + rows + '</div>' +
+        (footer ? '<div class="cst-foot">' + _esc(footer) + '</div>' : '');
     }
-    function _cstListRow(title, sub, action) {
+    /* A navigable row: the WHOLE row is the target, closed by a chevron. iOS
+       never puts a small text button on the right of a row that navigates --
+       that shape means "this row does one other thing", which is what the
+       connection rows below use it for. */
+    function _cstNavRow(glyph, title, value, onclick) {
+      return '<button class="cst-lrow" onclick="' + _escAttr(onclick) + '">' +
+        '<span class="cst-ic">' + _mbxGlyph(glyph) + '</span>' +
+        '<span class="cst-ltxt"><span class="cst-lt">' + _esc(title) + '</span></span>' +
+        (value ? '<span class="cst-val">' + _esc(value) + '</span>' : '') +
+        _CST_CHEV + '</button>';
+    }
+    /* A status row: a live-state dot, the account it applies to, and one
+       trailing action that is not navigation. */
+    function _cstConnRow(glyph, title, sub, action) {
       return '<div class="cst-lrow">' +
-        '<div class="cst-ltxt"><div class="cst-lt">' + _esc(title) + '</div>' +
-          (sub ? '<div class="cst-ls">' + _esc(sub) + '</div>' : '') + '</div>' +
-        (action || '') + '</div>';
+        '<span class="cst-ic">' + _mbxGlyph(glyph) + '</span>' +
+        '<span class="cst-ltxt"><span class="cst-lt">' + _esc(title) + '</span>' +
+          (sub ? '<span class="cst-ls">' + _esc(sub) + '</span>' : '') + '</span>' +
+        '<span class="cst-dot"></span>' + (action || '') + '</div>';
+    }
+    function _cstLossRow(glyph, title, sub, calm) {
+      return '<div class="cst-lossrow">' +
+        '<span class="cst-ic' + (calm ? ' calm' : '') + '">' + _mbxGlyph(glyph) + '</span>' +
+        '<div><div class="cst-losst">' + _esc(title) + '</div>' +
+          '<div class="cst-losss">' + _esc(sub) + '</div></div></div>';
     }
 
     async function _cstPrivacyState() {
@@ -204,8 +231,8 @@
     }
 
     var _CST_LABELS = {
-      app_data:   ['Dữ liệu ứng dụng', 'App data'],
-      bank_email: ['Email ngân hàng', 'Bank email'],
+      app_data:   ['Dữ liệu ứng dụng', 'App data', 'lock'],
+      bank_email: ['Email ngân hàng', 'Bank email', 'mail'],
     };
 
     window.fhPrivacySheet = async function () {
@@ -219,7 +246,8 @@
         var when = new Date(st.deletion.scheduled_for);
         body +=
           '<div class="cst-pending">' +
-            '<div class="cst-pt">' + _esc(L('Đang chờ xoá dữ liệu', 'Deletion scheduled')) + '</div>' +
+            '<div class="cst-ph">' + _CST_WARN +
+              '<span class="cst-pt">' + _esc(L('Đang chờ xoá dữ liệu', 'Deletion scheduled')) + '</span></div>' +
             '<div class="cst-ps">' + _esc(L(
               'Toàn bộ dữ liệu của bạn sẽ được xoá vào ' + fmtDayMon(when) + '. Trước lúc đó, bạn vẫn đổi ý được.',
               'All your data will be deleted on ' + fmtDayMon(when) + '. You can still change your mind before then.')) + '</div>' +
@@ -233,47 +261,46 @@
       st.consents.forEach(function (c) {
         var lbl = _CST_LABELS[c.kind] || [c.kind, c.kind];
         var d = c.consented_at ? new Date(c.consented_at) : null;
-        crows += _cstListRow(L(lbl[0], lbl[1]),
-          L('Đã đồng ý' + (d ? ' ngày ' + fmtDayMon(d) : ''), 'Agreed' + (d ? ' on ' + fmtDayMon(d) : '')),
-          '<button class="cst-lbtn" onclick="fhConsentReview(\'' + _escAttr(c.kind) + '\')">' +
-            _esc(L('Xem', 'View')) + '</button>');
+        crows += _cstNavRow(lbl[2], L(lbl[0], lbl[1]), d ? fmtDayMon(d) : '',
+          "fhConsentReview('" + c.kind + "')");
       });
-      if (!crows) {
-        crows = _cstListRow(L('Chưa có mục nào', 'Nothing yet'),
-          L('Các mục bạn đồng ý sẽ hiện ở đây.', 'What you agree to will appear here.'), '');
+      if (crows) {
+        body += '<div class="cst-sech">' + _esc(L('Điều bạn đã đồng ý', 'What you agreed to')) + '</div>' +
+          _cstGroup(crows, L('Chạm để đọc lại đúng nội dung bạn đã đồng ý.',
+                             'Tap to re-read exactly what you agreed to.'));
       }
-      body += '<div class="cst-sech">' + _esc(L('Điều bạn đã đồng ý', 'What you agreed to')) + '</div>' + _cstGroup(crows);
 
       /* Both collection channels, each independently stoppable. Forwarding is
          ours to delete in SQL; the OAuth grant lives behind the API, so its row
          hands off to the module that owns it. */
       var conn = '';
       if (st.alias) {
-        conn += _cstListRow(L('Chuyển tiếp email', 'Email forwarding'), st.alias + '@…',
-          '<button class="cst-lbtn cst-disc" onclick="fhMailboxDisconnect(this)">' +
+        conn += _cstConnRow('fwd', L('Chuyển tiếp email', 'Email forwarding'), st.alias + '@…',
+          '<button class="cst-stop" onclick="fhMailboxDisconnect(this)">' +
             _esc(L('Ngắt', 'Stop')) + '</button>');
       }
       if (st.oauth) {
-        conn += _cstListRow(L('Đọc trực tiếp hộp thư', 'Direct mailbox read'),
+        conn += _cstConnRow('auto', L('Đọc trực tiếp hộp thư', 'Direct mailbox read'),
           (st.oauth.email || L('Tài khoản Google', 'Google account')),
-          '<button class="cst-lbtn cst-disc" onclick="fhAutoTxnDisconnect(this)">' +
+          '<button class="cst-stop" onclick="fhAutoTxnDisconnect(this)">' +
             _esc(L('Ngắt', 'Stop')) + '</button>');
       }
       if (conn) {
-        body += '<div class="cst-sech">' + _esc(L('Email ngân hàng', 'Bank email')) + '</div>' + _cstGroup(conn);
+        body += '<div class="cst-sech">' + _esc(L('Đang đọc email của bạn', 'Reading your email')) + '</div>' +
+          _cstGroup(conn, L('Ngắt sẽ dừng đọc email mới ngay. Các khoản đã vào sổ vẫn được giữ.',
+                            'Stopping ends new reads at once. Anything already in your ledger stays.'));
       }
 
       // Erasure. Low prominence by DESIGN §3, and it opens a consequence sheet
       // rather than doing anything itself.
       if (!st.deletion) {
-        body += '<div class="cst-sech">' + _esc(L('Xoá dữ liệu', 'Delete data')) + '</div>' +
-          '<div class="cst-danger">' +
-            '<div class="cst-ds">' + _esc(L(
-              'Xoá vĩnh viễn tài khoản và toàn bộ dữ liệu của bạn. Bạn sẽ có 72 giờ để đổi ý.',
-              'Permanently delete your account and all your data. You get 72 hours to change your mind.')) + '</div>' +
-            '<button class="ex-del cst-disc" onclick="fhDeleteAllSheet()">' +
+        body += '<div class="cst-group cst-dgroup">' +
+            '<button class="cst-drow" onclick="fhDeleteAllSheet()">' +
               _esc(L('Xoá toàn bộ dữ liệu', 'Delete all my data')) + '</button>' +
-          '</div>';
+          '</div>' +
+          '<div class="cst-foot">' + _esc(L(
+            'Xoá vĩnh viễn tài khoản và mọi dữ liệu của bạn. Bạn có 72 giờ để đổi ý trước khi việc xoá diễn ra.',
+            'Permanently deletes your account and all your data. You have 72 hours to change your mind before it happens.')) + '</div>';
       }
 
       _fhSheet(
@@ -316,22 +343,27 @@
 
       _fhSheet(
         '<div class="sheet-h">' + _esc(L('Xoá toàn bộ dữ liệu?', 'Delete all your data?')) + '</div>' +
-        '<div class="cst-body">' +
-          _cstRow(L('Những gì sẽ mất', 'What you lose'), _esc(L(
-            'Tài khoản của bạn, ' + (n === null ? 'các khoản thu chi' : n + ' khoản thu chi') + ', ghi chú, ảnh đính kèm, và mọi mục bạn đã đồng ý. Không khôi phục được sau khi xoá.',
-            'Your account, ' + (n === null ? 'your transactions' : n + ' transactions') + ', notes, photos, and every consent you gave. Nothing can be recovered afterwards.'))) +
-          _cstRow(L('Ảnh hưởng tới cả nhà', 'What it means for your family'), _esc(L(
-            'Những khoản bạn đã ghi vào sổ chung sẽ biến mất khỏi sổ của gia đình. Các thành viên khác giữ nguyên tài khoản của họ.',
-            'Entries you added to the shared ledger disappear from your family’s book. Other members keep their own accounts.'))) +
-          _cstRow(L('Bạn có 72 giờ để đổi ý', 'You have 72 hours to change your mind'), _esc(L(
-            'Kết nối email ngân hàng dừng ngay hôm nay. Phần còn lại được xoá sau 72 giờ, và bạn huỷ được bất cứ lúc nào trước đó trong mục Quyền riêng tư.',
-            'Bank email stops today. Everything else is deleted after 72 hours, and you can cancel any time before that in Privacy.'))) +
-          '<div class="field cst-type"><label>' + _esc(L('Gõ “xoá dữ liệu” để xác nhận', 'Type “delete my data” to confirm')) + '</label>' +
-            '<input id="cst-type-in" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" ' +
-              'oninput="fhDeleteAllTyped(this)" placeholder="' + _escAttr(L('xoá dữ liệu', 'delete my data')) + '"></div>' +
+        '<div class="sheet-sub">' + _esc(L(
+          'Đọc kỹ ba điều dưới đây trước khi xác nhận.',
+          'Three things to be sure of before you confirm.')) + '</div>' +
+        '<div class="cst-loss">' +
+          _cstLossRow('lock', L('Tài khoản và sổ chi tiêu của bạn', 'Your account and your ledger'),
+            L((n === null ? 'Các khoản thu chi' : n + ' khoản thu chi') + ', ghi chú, ảnh đính kèm và mọi mục bạn đã đồng ý. Không khôi phục được.',
+              (n === null ? 'Your transactions' : n + ' transactions') + ', notes, photos and every consent you gave. Nothing can be recovered.')) +
+          _cstLossRow('fwd', L('Những khoản bạn đã ghi vào sổ chung', 'What you added to the shared ledger'),
+            L('Sẽ biến mất khỏi sổ của gia đình. Các thành viên khác giữ nguyên tài khoản của họ.',
+              'Disappears from your family’s book. Other members keep their own accounts.')) +
+          _cstLossRow('check', L('Bạn có 72 giờ để đổi ý', 'You have 72 hours to change your mind'),
+            L('Việc đọc email dừng ngay hôm nay. Phần còn lại xoá sau 72 giờ, huỷ được bất cứ lúc nào trong mục Quyền riêng tư.',
+              'Email reading stops today. The rest is deleted after 72 hours, cancellable any time in Privacy.'), true) +
         '</div>' +
-        '<button class="ex-del cst-disc cst-armed" id="cst-del-go" disabled onclick="fhDeleteAllConfirm(this)">' +
-          _esc(L('Xoá toàn bộ dữ liệu', 'Delete all my data')) + '</button>' +
+        '<div class="field cst-type"><label>' + _esc(L('Gõ “xoá dữ liệu” để xác nhận', 'Type “delete my data” to confirm')) + '</label>' +
+          '<input id="cst-type-in" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" ' +
+            'oninput="fhDeleteAllTyped(this)" placeholder="' + _escAttr(L('xoá dữ liệu', 'delete my data')) + '"></div>' +
+        '<div class="cst-group cst-dgroup">' +
+          '<button class="cst-drow" id="cst-del-go" disabled onclick="fhDeleteAllConfirm(this)">' +
+            _esc(L('Xoá toàn bộ dữ liệu', 'Delete all my data')) + '</button>' +
+        '</div>' +
         '<button class="btn-skip" onclick="fhPrivacySheet()">' + _esc(L('Không, giữ lại', 'No, keep my data')) + '</button>');
     };
 

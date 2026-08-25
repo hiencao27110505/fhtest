@@ -53,6 +53,11 @@ const sb = {
       select() { return this; }, eq() { return this; }, order() { return this; },
       is() { return this; },   // deletion_requests filters on .is('cancelled_at', null)
       limit() { return Promise.resolve(tableResult()); },
+      /* The real PostgREST builder is thenable, so `await` resolves a chain
+         that never called .limit(). A stub that only resolved on .limit()
+         silently handed back the builder object, and every caller read
+         undefined data as an empty result. */
+      then(res, rej) { return Promise.resolve(tableResult()).then(res, rej); },
       insert(row) { INSERTS.push({ table, row }); return Promise.resolve(INSERT_RESULT); },
     };
   },
@@ -212,8 +217,12 @@ console.log('\n-- the gate asks exactly when it should --');
   await window.fhPrivacySheet();
   var priv = SHEETS[0];
   t('lists what you agreed to, per purpose', priv.indexOf('Điều bạn đã đồng ý') >= 0);
-  t('erasure is present but low-prominence (ex-del, never a big red button)',
-    priv.indexOf('ex-del') >= 0 && priv.indexOf('class="cta"') === -1);
+  t('consent rows are whole-row targets closed by a chevron (iOS disclosure)',
+    priv.indexOf('cst-chev') >= 0 && priv.indexOf('cst-lrow') >= 0);
+  t('every group carries a footer explaining it, not a bordered box',
+    priv.indexOf('cst-foot') >= 0 && priv.indexOf('cst-danger') === -1);
+  t('erasure is its own group, a centred danger row, never a filled CTA',
+    priv.indexOf('cst-drow') >= 0 && priv.indexOf('class="cta"') === -1);
   t('erasure opens a consequence sheet rather than acting', priv.indexOf('fhDeleteAllSheet()') >= 0);
   t('no one-tap withdrawal survives anywhere', consentSrc.indexOf('fhAppDataWithdraw') === -1);
 
@@ -221,8 +230,9 @@ console.log('\n-- the gate asks exactly when it should --');
   reset({ data: [], error: null });
   await window.fhDeleteAllSheet();
   var del = SHEETS[0];
-  t('names what is lost', del.indexOf('Những gì sẽ mất') >= 0);
-  t('names the RIPPLE onto the family', del.indexOf('Ảnh hưởng tới cả nhà') >= 0);
+  t('names what is lost, as a consequence list with tiles',
+    del.indexOf('cst-lossrow') >= 0 && del.indexOf('sổ chi tiêu của bạn') >= 0);
+  t('names the RIPPLE onto the family', del.indexOf('sổ của gia đình') >= 0);
   t('names the cancellable window', del.indexOf('72 giờ') >= 0);
   t('requires typing the phrase', del.indexOf('cst-type-in') >= 0);
   t('and the commit starts disabled', /id="cst-del-go"[^>]*disabled/.test(del), del.slice(-400));
