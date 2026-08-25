@@ -72,6 +72,10 @@ function csvScopeSubtitle(){
     : L('vào sổ gia đình, cả nhà cùng thấy','to the family ledger, everyone sees it');
 }
 function csvScopePicker(){
+  /* Deliberately the SAME control as #ex-scopefield in the expense modal: same
+     question, same chips, same order, same glyphs. A second dialect for one
+     decision is how a product starts feeling assembled rather than designed —
+     and this is the one decision a person makes most often in this screen. */
   var sc = csvStagedScope(), locked = !csvScopeReady();
   var chip = function(v, label){
     var on = sc===v;
@@ -80,11 +84,11 @@ function csvScopePicker(){
       + ' aria-pressed="'+(on?'true':'false')+'"'
       + ' onclick="csvPickScope(\''+v+'\')">'+esc(label)+'</button>';
   };
-  return '<div class="csv-scope">'
-    + '<div class="csv-scope-lbl">'+esc(L('Ghi vào đâu?','Where does this go?'))+'</div>'
+  return '<div class="field csv-scope">'
+    + '<label>'+esc(L('Ghi vào đâu?','Where does this go?'))+'</label>'
     + '<div class="choices">'
-    +   chip('family',   L('Gia đình','Family'))
-    +   chip('personal', L('Cá nhân','Personal'))
+    +   chip('personal', L('🔒 Cá nhân','🔒 Personal'))
+    +   chip('family',   L('🏡 Gia đình','🏡 Family'))
     + '</div>'
     + (locked ? '<div class="csv-scope-note">'+esc(L('Sổ cá nhân đang khoá — mở ở tab Cá nhân để chọn được.','Personal ledger is locked — unlock it on the Cá nhân tab to pick it.'))+'</div>' : '')
     + '</div>';

@@ -1436,10 +1436,18 @@ input{font-family:inherit}
 .pbud-bar{height:8px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;margin:2px 0 12px}
 .pbud-bar i{display:block;height:100%;border-radius:9999px}
 
-/* A personal row we could not decrypt. Kept OUT of every total (19-personal),
-   so it has to be visible or the totals lie by omission. Border + tint, no
-   solid fill (DESIGN §7), and it reads as a state rather than an error. */
-.p-unread{margin:0 2px 10px;padding:10px 12px;border:1px solid var(--hairline);border-left:2px solid var(--warn,var(--brand));border-radius:10px;background:var(--card,transparent);font-size:13px;line-height:1.5;color:var(--muted);letter-spacing:-.01em}
+/* Rows we could not decrypt. Kept OUT of every total (19-personal), so it has to
+   be visible or the totals lie by omission — but it is a STATE, not an error:
+   nothing is broken and nothing was lost. Amber, therefore, not --danger, and
+   the fourth variant of the .cf-note component rather than a new one. */
+.cf-note.warn{background:var(--amber-tint);color:var(--amber)}
+.cf-note.warn .ni{display:inline-flex;vertical-align:-3px;margin-right:6px}
+.cf-note.warn .ni svg{width:15px;height:15px}
+.p-unread{margin:0 2px 12px}
+/* The locked row keeps the list's rhythm and states its absence in the amount
+   column (an em dash), so the eye reads down the numbers without a gap. */
+.rows .row.is-locked .r-t{color:var(--muted)}
+.rows .row.is-locked .r-amt{color:var(--chev)}
 
 /* Savings goals — ONE grouped card: the brief (goal-gradient framing) is the header,
    the goal list its body. A single border + shadow makes the whole thing read as one object. */
@@ -2934,9 +2942,12 @@ html.fh-can-install .set-row.set-install{display:flex}
    the same .choice chips the expense sheet uses so the two never drift apart.
    The subtitle above already says what the current pick MEANS, so these read as
    a switch rather than needing their own explanation. */
-#csv-result.staged .csv-scope{margin:0 2px 20px;padding:12px 0 0;border-top:1px solid var(--hairline)}
-#csv-result.staged .csv-scope-lbl{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:-.01em;margin-bottom:8px}
-#csv-result.staged .csv-scope .choice[aria-disabled="true"]{opacity:.45}
+/* .field + label + .choices is the app's own control, inherited whole (50-sheets).
+   Only the placement is local: a rule above it separates the decision from the
+   summary it applies to, and the summary's subtitle already states what the
+   current pick MEANS, so the label can stay a plain question. */
+#csv-result.staged .csv-scope{margin:0 2px 20px;padding:14px 0 0;border-top:1px solid var(--hairline)}
+#csv-result.staged .csv-scope .choice[aria-disabled="true"]{opacity:.4}
 #csv-result.staged .csv-scope-note{font-size:12.5px;color:var(--muted);margin-top:8px;letter-spacing:-.01em}
 
 /* ---------- sealed-staging key-mismatch alarm ---------- */
@@ -5425,14 +5436,14 @@ function renderPersonal(){
      be visible or the totals are quietly wrong -- which is the whole reason this
      stopped being a 0đ row. */
   if(P.unreadable){
-    h += '<div class="p-unread">'
-       + (P.unreadable===1 ? 'Có 1 khoản chưa đọc được' : 'Có '+P.unreadable+' khoản chưa đọc được')
-       + ' — chưa tính vào tổng. Thử mở khoá lại bằng thẻ cá nhân.</div>';
+    h += '<div class="cf-note warn p-unread"><span class="ni">'+PIC.lock+'</span>'
+       + (P.unreadable===1 ? 'Có <b>1 khoản</b> chưa đọc được' : 'Có <b>'+P.unreadable+' khoản</b> chưa đọc được')
+       + ' — chưa tính vào tổng. Mở khoá lại bằng thẻ cá nhân để xem.</div>';
   }
   if(P.txns.length){
     P.txns.slice(0,30).forEach(function(t){
       if(t._unreadable){
-        h += '<div class="row"><div class="r-ico personal-ico">🔒</div>'
+        h += '<div class="row is-locked"><div class="r-ico pers-r-ico priv">'+PIC.lock+'</div>'
            + '<div class="r-body"><div class="r-t">Chưa đọc được</div>'
            + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+' · không tính vào tổng</div></div>'
            + '<div class="r-amt num">—</div></div>';
@@ -9539,6 +9550,10 @@ function csvScopeSubtitle(){
     : L('vào sổ gia đình, cả nhà cùng thấy','to the family ledger, everyone sees it');
 }
 function csvScopePicker(){
+  /* Deliberately the SAME control as #ex-scopefield in the expense modal: same
+     question, same chips, same order, same glyphs. A second dialect for one
+     decision is how a product starts feeling assembled rather than designed —
+     and this is the one decision a person makes most often in this screen. */
   var sc = csvStagedScope(), locked = !csvScopeReady();
   var chip = function(v, label){
     var on = sc===v;
@@ -9547,11 +9562,11 @@ function csvScopePicker(){
       + ' aria-pressed="'+(on?'true':'false')+'"'
       + ' onclick="csvPickScope(\''+v+'\')">'+esc(label)+'</button>';
   };
-  return '<div class="csv-scope">'
-    + '<div class="csv-scope-lbl">'+esc(L('Ghi vào đâu?','Where does this go?'))+'</div>'
+  return '<div class="field csv-scope">'
+    + '<label>'+esc(L('Ghi vào đâu?','Where does this go?'))+'</label>'
     + '<div class="choices">'
-    +   chip('family',   L('Gia đình','Family'))
-    +   chip('personal', L('Cá nhân','Personal'))
+    +   chip('personal', L('🔒 Cá nhân','🔒 Personal'))
+    +   chip('family',   L('🏡 Gia đình','🏡 Family'))
     + '</div>'
     + (locked ? '<div class="csv-scope-note">'+esc(L('Sổ cá nhân đang khoá — mở ở tab Cá nhân để chọn được.','Personal ledger is locked — unlock it on the Cá nhân tab to pick it.'))+'</div>' : '')
     + '</div>';

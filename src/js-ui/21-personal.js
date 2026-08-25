@@ -145,14 +145,14 @@ function renderPersonal(){
      be visible or the totals are quietly wrong -- which is the whole reason this
      stopped being a 0đ row. */
   if(P.unreadable){
-    h += '<div class="p-unread">'
-       + (P.unreadable===1 ? 'Có 1 khoản chưa đọc được' : 'Có '+P.unreadable+' khoản chưa đọc được')
-       + ' — chưa tính vào tổng. Thử mở khoá lại bằng thẻ cá nhân.</div>';
+    h += '<div class="cf-note warn p-unread"><span class="ni">'+PIC.lock+'</span>'
+       + (P.unreadable===1 ? 'Có <b>1 khoản</b> chưa đọc được' : 'Có <b>'+P.unreadable+' khoản</b> chưa đọc được')
+       + ' — chưa tính vào tổng. Mở khoá lại bằng thẻ cá nhân để xem.</div>';
   }
   if(P.txns.length){
     P.txns.slice(0,30).forEach(function(t){
       if(t._unreadable){
-        h += '<div class="row"><div class="r-ico personal-ico">🔒</div>'
+        h += '<div class="row is-locked"><div class="r-ico pers-r-ico priv">'+PIC.lock+'</div>'
            + '<div class="r-body"><div class="r-t">Chưa đọc được</div>'
            + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+' · không tính vào tổng</div></div>'
            + '<div class="r-amt num">—</div></div>';

@@ -296,7 +296,15 @@
 .pbud-bar{height:8px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;margin:2px 0 12px}
 .pbud-bar i{display:block;height:100%;border-radius:9999px}
 
-/* A personal row we could not decrypt. Kept OUT of every total (19-personal),
-   so it has to be visible or the totals lie by omission. Border + tint, no
-   solid fill (DESIGN §7), and it reads as a state rather than an error. */
-.p-unread{margin:0 2px 10px;padding:10px 12px;border:1px solid var(--hairline);border-left:2px solid var(--warn,var(--brand));border-radius:10px;background:var(--card,transparent);font-size:13px;line-height:1.5;color:var(--muted);letter-spacing:-.01em}
+/* Rows we could not decrypt. Kept OUT of every total (19-personal), so it has to
+   be visible or the totals lie by omission — but it is a STATE, not an error:
+   nothing is broken and nothing was lost. Amber, therefore, not --danger, and
+   the fourth variant of the .cf-note component rather than a new one. */
+.cf-note.warn{background:var(--amber-tint);color:var(--amber)}
+.cf-note.warn .ni{display:inline-flex;vertical-align:-3px;margin-right:6px}
+.cf-note.warn .ni svg{width:15px;height:15px}
+.p-unread{margin:0 2px 12px}
+/* The locked row keeps the list's rhythm and states its absence in the amount
+   column (an em dash), so the eye reads down the numbers without a gap. */
+.rows .row.is-locked .r-t{color:var(--muted)}
+.rows .row.is-locked .r-amt{color:var(--chev)}
