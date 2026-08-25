@@ -84,7 +84,25 @@ exist first. They join the beta-reopen checklist:
    lý dữ liệu · Chia sẻ dữ liệu · Thời hạn lưu trữ dữ liệu · Quyền lựa chọn
    của Người dùng.
 
-## 5. Consent sheet v3 — legally reviewed, benchmarked against MoMo
+## 5. Consent sheet v4 — corrected for the masking change
+
+**v3 → v4 (2026-08-24).** The serverless parser masks `KINDS = (MONEY, EMAIL)`
+only, so on the direct-read path counterparty names and account numbers reach
+Gemini in the clear while v3's text promised they were masked. Trang's call:
+bump and re-ask now, strengthen the parser afterwards, rather than leave a
+false claim standing in the legally operative document.
+
+The re-consent LEADS with what changed (`FH_CONSENT_CHANGES`, rendered above
+the body for anyone whose stored version is older). Asking someone to agree
+again without saying what moved makes them re-read the whole sheet hunting
+for the difference; the entry states it as a change and is honest that this
+one is a downgrade. Any future bump MUST add its entry in the same commit as
+the version constant, which a test now enforces.
+
+When the parser is strengthened, this becomes v5 with an entry saying the
+protection came back.
+
+## 5b. Consent sheet v3 — legally reviewed, benchmarked against MoMo
 
 Placement: connect flow, between the intro sheet and the which-email step.
 One affirmative CTA; declining costs only this feature. The four grandfathered

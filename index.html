@@ -3067,6 +3067,18 @@ html.fh-can-install .set-row.set-install{display:flex}
 .cst-losst{font-size:14.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);line-height:1.3}
 .cst-losss{font-size:13px;line-height:1.45;color:var(--muted);margin-top:2px}
 .cst-type{margin-bottom:6px}
+
+/* "What changed since you agreed" -- leads a RE-consent, absent on a first
+   one. Brand-tinted rather than amber: this is an update to read, not a
+   warning to fear, and burying it would make the re-ask a dark pattern by
+   omission (the person is being asked precisely because something moved). */
+.cst-changed{background:var(--brand-tint);border-radius:14px;padding:13px 15px;margin:2px 0 16px}
+.cst-changed-h{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--brand-ink);margin-bottom:7px}
+.cst-changed-l{margin:0;padding-left:17px}
+.cst-changed-l li{font-size:13.5px;line-height:1.5;color:var(--ink);margin-bottom:5px}
+.cst-changed-l li:last-child{margin-bottom:0}
+.cst-changed-f{font-size:12.5px;line-height:1.4;color:var(--muted);margin-top:9px}
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
 .fh-s-cta{width:100%;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;padding:15px;border-radius:9999px;box-shadow:0 8px 20px var(--brand-glow);margin-top:6px}
@@ -14280,7 +14292,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v397';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v400';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -23063,7 +23075,7 @@ window.classifyAmount = classifyAmount;
      docs/PDPL-COMPLIANCE.md §5: bump the version constant when either
      changes, and everyone re-consents to the new text. */
 
-  var FH_CONSENT_V = 3;
+  var FH_CONSENT_V = 4;
   var FH_CONSENT_KIND = 'bank_email';
   var FH_APPDATA_CONSENT_V = 1;
   var FH_APPDATA_KIND = 'app_data';
@@ -23072,6 +23084,57 @@ window.classifyAmount = classifyAmount;
   var FH_DATA_OPERATORS_VI = 'Trang và Hiên';
   var FH_DATA_OPERATORS_EN = 'Trang and Hien';
   var FH_DATA_CONTACT = 'gichisreading@gmail.com';
+
+  /* What changed at each version, keyed by the version it SHIPPED IN.
+     Re-asking someone to agree again without saying what moved makes them
+     re-read the whole sheet hunting for the difference, which is a dark
+     pattern by omission -- and the one thing a person actually wants to know
+     at that moment is the one thing the old flow never said.
+
+     When a bump happens, add the entry HERE in the same commit as the version
+     constant. The sheet reads it automatically: anyone whose stored consent is
+     older sees every entry between their version and the current one, at the
+     top, before the body they already know.
+
+     Write each line as the CHANGE, not the state: "we now also send X" beats
+     "we protect your data". */
+  var FH_CONSENT_CHANGES = {
+    bank_email: {
+      4: ['Với luồng đọc trực tiếp hộp thư, tên người nhận và số tài khoản hiện được gửi nguyên văn cho AI, không còn được che như trước. Số tiền và địa chỉ email thì vẫn luôn được che.',
+          'On the direct mailbox-read path, counterparty names and account numbers are now sent to the AI as written, no longer masked as before. Amounts and email addresses are still always masked.'],
+    },
+    app_data: {},
+  };
+
+  /* Entries strictly newer than what they agreed to, oldest first. */
+  function _cstChangesSince(kind, priorVersion, currentVersion) {
+    var all = FH_CONSENT_CHANGES[kind] || {};
+    var out = [];
+    for (var v = (priorVersion || 0) + 1; v <= currentVersion; v++) {
+      if (all[v]) out.push({ v: v, text: L(all[v][0], all[v][1]) });
+    }
+    return out;
+  }
+
+  /* The block that leads a re-consent. Absent entirely for a first-time
+     consent -- there is nothing to have changed, and a "what's new" box on a
+     screen someone has never seen is noise. */
+  function _cstChangedBlock(kind, prior, current) {
+    if (!prior || !prior.version || prior.version >= current) return '';
+    var items = _cstChangesSince(kind, prior.version, current);
+    if (!items.length) return '';
+    var when = prior.consented_at ? new Date(prior.consented_at) : null;
+    return '<div class="cst-changed">' +
+      '<div class="cst-changed-h">' + _esc(L('Có gì thay đổi từ lần trước',
+                                             'What changed since you agreed')) + '</div>' +
+      '<ul class="cst-changed-l">' +
+        items.map(function (i) { return '<li>' + _esc(i.text) + '</li>'; }).join('') +
+      '</ul>' +
+      '<div class="cst-changed-f">' + _esc(L(
+        'Bạn đã đồng ý bản v' + prior.version + (when ? ' ngày ' + fmtDayMon(when) : '') + '. Phần còn lại giữ nguyên.',
+        'You agreed to v' + prior.version + (when ? ' on ' + fmtDayMon(when) : '') + '. Everything else is unchanged.')) + '</div>' +
+      '</div>';
+  }
 
   (function () {
     var _cstKnown = null;
@@ -23095,7 +23158,10 @@ window.classifyAmount = classifyAmount;
       var rec = null;
       try { rec = await _cstFetch(); } catch (e) { /* unreadable: ask again */ }
       if (rec && rec.version >= FH_CONSENT_V) return true;
-      window.fhConsentSheet({ then: then });
+      /* Hand the record over rather than letting the sheet fetch it again:
+         one round trip, and the sheet renders in this turn instead of a
+         microtask later, so the CTA does not sit dead after the tap. */
+      window.fhConsentSheet({ then: then, prior: rec, priorKnown: true });
       return false;
     };
 
@@ -23120,7 +23186,7 @@ window.classifyAmount = classifyAmount;
       var res;
       try {
         res = await sb.from('user_consents')
-          .select('version')
+          .select('version,consented_at')
           .eq('kind', FH_APPDATA_KIND)
           .order('version', { ascending: false })
           .limit(1);
@@ -23128,14 +23194,16 @@ window.classifyAmount = classifyAmount;
       if (!res || res.error) return;
       var rec = res.data && res.data[0];
       if (rec && rec.version >= FH_APPDATA_CONSENT_V) return;
-      window.fhAppDataConsentSheet();
+      window.fhAppDataConsentSheet({ prior: rec, priorKnown: true });
     };
 
     window.fhAppDataConsentSheet = async function (opts) {
       opts = opts || {};
       var ro = !!opts.readOnly;
-      var accepted = null;
-      if (ro) {
+      /* Fetched even when asking, not only when reviewing: a re-consent has to
+         know which version they last agreed to before it can say what moved. */
+      var accepted = opts.prior || null;
+      if (!opts.priorKnown) {
         try {
           var r = await sb.from('user_consents').select('version,consented_at')
             .eq('kind', FH_APPDATA_KIND).order('version', { ascending: false }).limit(1);
@@ -23178,6 +23246,7 @@ window.classifyAmount = classifyAmount;
         _cstKicker() +
         '<div class="sheet-h">' + _esc(L('Chuyện tiền của nhà mình, chỉ nhà mình biết.', 'Your family’s money stays your family’s business.')) + '</div>' +
         '<div class="sheet-sub">' + _esc(L('Earthy là cuốn sổ chi tiêu chung của nhà bạn.', 'Earthy is your family’s shared expense book.')) + '</div>' +
+        (ro ? '' : _cstChangedBlock(FH_APPDATA_KIND, accepted, FH_APPDATA_CONSENT_V)) +
         '<div class="cst-body">' + rows + '</div>' + footer);
     };
 
@@ -23477,13 +23546,15 @@ window.classifyAmount = classifyAmount;
     window.fhConsentSheet = async function (opts) {
       opts = opts || {};
       var ro = !!opts.readOnly;
-      var accepted = null;
-      if (ro) { try { accepted = await _cstFetch(); } catch (e) {} }
+      // The re-consent needs the prior version to say what moved. The gate
+      // usually hands it over; only fetch when it did not.
+      var accepted = opts.prior || null;
+      if (!opts.priorKnown) { try { accepted = await _cstFetch(); } catch (e) {} }
 
       var rows =
         _cstRow(L('Có ai đọc được email của tôi không?', 'Can anyone read my emails?'), _esc(L(
-          'Email được hệ thống xử lý tự động rồi tự xoá sau 7 ngày; email bị lỗi giữ tối đa 90 ngày rồi cũng xoá. Khi gặp một ngân hàng lần đầu, AI chỉ đọc bản đã che hết số tiền, tên và số tài khoản; số thật không bao giờ được gửi đi.',
-          'Emails are processed automatically and delete themselves after 7 days; ones we fail to read are kept at most 90 days, then deleted too. For a first-time bank, the AI only reads a copy with every amount, name and account number masked; real values are never sent.'))) +
+          'Email được xử lý tự động rồi tự xoá sau 7 ngày; email bị lỗi giữ tối đa 90 ngày rồi cũng xoá. Khi AI cần đọc cấu trúc email, số tiền và địa chỉ email luôn được thay bằng ký hiệu. Với email bạn chuyển tiếp, tên và số tài khoản cũng được che. Với luồng đọc trực tiếp hộp thư, phần chữ còn lại, ví dụ tên người nhận, được gửi nguyên văn.',
+          'Emails are processed automatically and delete themselves after 7 days; ones we fail to read are kept at most 90 days, then deleted too. When the AI reads an email’s structure, amounts and email addresses are always replaced with placeholders. For email you forward, names and account numbers are masked too. On the direct mailbox-read path, the remaining text, such as a counterparty’s name, is sent as written.'))) +
         _cstRow(L('Ai mở được các giao dịch này?', 'Who can open these transactions?'), _esc(L(
           'Mỗi giao dịch được niêm phong ngay khi đến, như thư bỏ vào két đã khoá: máy chủ giữ két, còn chìa chỉ nằm trên điện thoại của gia đình bạn.',
           'Each transaction is sealed the moment it arrives, like a letter dropped into a locked safe: the server holds the safe, and the key lives only on your family’s phones.'))) +
@@ -23516,6 +23587,7 @@ window.classifyAmount = classifyAmount;
       _fhSheet(
         _cstKicker(L('EMAIL NGÂN HÀNG', 'BANK EMAIL')) +
         '<div class="sheet-h">' + _esc(L('Ngân hàng gửi, Earthy niêm phong, nhà bạn mở.', 'Your bank sends it, Earthy seals it, your family opens it.')) + '</div>' +
+        (ro ? '' : _cstChangedBlock(FH_CONSENT_KIND, accepted, FH_CONSENT_V)) +
         '<div class="cst-body">' + rows + '</div>' + footer);
 
       window._cstThen = ro ? null : (opts.then || null);

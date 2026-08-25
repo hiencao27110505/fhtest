@@ -213,6 +213,45 @@ console.log('\n-- the gate asks exactly when it should --');
   await window.fhAppDataConsentCheck();
   t('a flaky boot fetch skips THIS boot instead of nagging (asks next boot)', SHEETS.length === 0);
 
+  // ── re-consent must LEAD with what changed ────────────────────────────────
+  /* Asking someone to agree again without saying what moved makes them
+     re-read the whole sheet hunting for the difference. The one thing they
+     want at that moment is the one thing the old flow never said. */
+  console.log('\n-- what changed since you agreed --');
+
+  reset({ data: [{ version: FH_CONSENT_V - 1, consented_at: '2026-08-24T10:00:00Z' }], error: null });
+  await window.fhConsentSheet({});
+  var re = SHEETS[0];
+  t('an older consent gets a "what changed" block', re.indexOf('cst-changed') >= 0);
+  t('it appears ABOVE the body they already read',
+    re.indexOf('cst-changed') < re.indexOf('cst-body'), 'changed block must lead');
+  t('it names the version they held and when', re.indexOf('v' + (FH_CONSENT_V - 1)) >= 0);
+  t('it says the rest is unchanged, so they need not re-read it all',
+    re.indexOf('Phần còn lại giữ nguyên') >= 0);
+  t('and the change is stated as a CHANGE, not as reassurance',
+    re.indexOf('không còn được che như trước') >= 0);
+  t('v4 is honest that this one is a downgrade',
+    re.indexOf('gửi nguyên văn cho AI') >= 0);
+
+  reset({ data: [], error: null });
+  await window.fhConsentSheet({});
+  t('a FIRST consent shows no changed block (nothing has changed for them)',
+    SHEETS[0].indexOf('cst-changed') === -1);
+
+  reset({ data: [{ version: FH_CONSENT_V, consented_at: '2026-08-24T10:00:00Z' }], error: null });
+  await window.fhConsentSheet({ readOnly: true });
+  t('reviewing a current consent shows no changed block either',
+    SHEETS[0].indexOf('cst-changed') === -1);
+
+  /* Every shipped version must carry its entry, or a bump silently re-asks
+     people and tells them nothing -- exactly the pattern this exists to kill. */
+  /* v2 and v3 predate this mechanism. What must hold from now on is that the
+     CURRENT version explains itself -- a bump without an entry re-asks
+     everyone and tells them nothing. */
+  t('the current version carries its changelog entry',
+    !!FH_CONSENT_CHANGES.bank_email[FH_CONSENT_V],
+    'bank_email changelog has: ' + Object.keys(FH_CONSENT_CHANGES.bank_email).join(','));
+
   // ── the redesigned withdrawal: granular, scheduled, cancellable ───────────
   console.log('\n-- Settings → Quyền riêng tư --');
 

@@ -265,3 +265,15 @@
 .cst-losst{font-size:14.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);line-height:1.3}
 .cst-losss{font-size:13px;line-height:1.45;color:var(--muted);margin-top:2px}
 .cst-type{margin-bottom:6px}
+
+/* "What changed since you agreed" -- leads a RE-consent, absent on a first
+   one. Brand-tinted rather than amber: this is an update to read, not a
+   warning to fear, and burying it would make the re-ask a dark pattern by
+   omission (the person is being asked precisely because something moved). */
+.cst-changed{background:var(--brand-tint);border-radius:14px;padding:13px 15px;margin:2px 0 16px}
+.cst-changed-h{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--brand-ink);margin-bottom:7px}
+.cst-changed-l{margin:0;padding-left:17px}
+.cst-changed-l li{font-size:13.5px;line-height:1.5;color:var(--ink);margin-bottom:5px}
+.cst-changed-l li:last-child{margin-bottom:0}
+.cst-changed-f{font-size:12.5px;line-height:1.4;color:var(--muted);margin-top:9px}
