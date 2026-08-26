@@ -193,7 +193,7 @@ export async function runGrant(grant, ctx) {
   // One query for the whole window. A throw here is NOT caught: if the database
   // is unreachable, concluding "not staged" would insert a second copy of every
   // transaction in the window.
-  const staged = await ctx.db.alreadyStaged(ids, destination.memberId);
+  const staged = await ctx.db.alreadyStaged(ids, destination.memberId, destination.ownerUserId);
   const allFresh = ids.filter(id => !staged.has(id));
   summary.skipped = ids.length - allFresh.length;
 

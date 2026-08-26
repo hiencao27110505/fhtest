@@ -83,9 +83,14 @@ export async function buildStagedRow(args) {
   const { gmailMessageId, destination, reading, sourceProvider, senderKind, deps } = args;
 
   if (!gmailMessageId) throw new Error('STAGE_NO_MESSAGE_ID');
-  if (!destination || !destination.memberId || !destination.familyId || !destination.stagingPub) {
-    throw new Error('STAGE_NO_DESTINATION');
-  }
+  /* A destination needs a key and somebody to belong to. Since 0092 that
+     "somebody" can be an owner OR a member: a personal-only user has no member
+     row, and requiring one would refuse exactly the people that migration
+     admits. Requiring NEITHER would be worse than the old rule — a row with no
+     owner and no member matches no RLS predicate and is visible to nobody,
+     which is silent loss rather than a refusal anyone can see. */
+  if (!destination || !destination.stagingPub) throw new Error('STAGE_NO_DESTINATION');
+  if (!destination.ownerUserId && !destination.memberId) throw new Error('STAGE_NO_OWNER');
   if (!reading || reading.amount == null || !reading.direction) {
     throw new Error('STAGE_NOT_READABLE');
   }
@@ -134,9 +139,15 @@ export async function buildStagedRow(args) {
   // Sealed BEFORE the fingerprint is computed and before anything is logged, so
   // that the window in which this function holds both a readable amount and a
   // writable row is as short as it can be made.
+  /* The identity bound inside the box is whichever one scopes the row: the
+     family for a family row, the owner for a personal one. A personal-only user
+     has no family to bind, and binding a null would make the opener's check
+     vacuous. */
+  const isPersonal = destination.scope === 'personal';
+  const scopeId = isPersonal ? destination.ownerUserId : destination.familyId;
   const envelope = sealForFamily(
-    payload, destination.stagingPub, destination.familyId, gmailMessageId,
-    { nacl: deps.nacl, rng: deps.rng },
+    payload, destination.stagingPub, scopeId, gmailMessageId,
+    { nacl: deps.nacl, rng: deps.rng }, destination.scope,
   );
 
   const dedupFp = await dedupFingerprint(
@@ -159,7 +170,11 @@ export async function buildStagedRow(args) {
 
   return {
     gmail_message_id: gmailMessageId,
-    member_id: destination.memberId,
+    // Both, whenever both are known. owner_user_id is what a personal-only user
+    // is scoped by; member_id is what the forwarding transport routes on and
+    // what dedup groups by. 0092's policy accepts either.
+    owner_user_id: destination.ownerUserId || null,
+    member_id: destination.memberId || null,
     source_provider: sourceProvider,
     occurred_at: occurredAt,
     dedup_fp: dedupFp,

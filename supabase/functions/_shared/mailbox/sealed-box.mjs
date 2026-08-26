@@ -90,16 +90,17 @@ function utf8(str) {
  *
  * @param {object} payload         the sensitive fields
  * @param {string} familyPubB64    the family's X25519 public key, base64
- * @param {string} familyId        bound inside, verified on open
+ * @param {string} scopeId         the family id, or the owner's user id for a
+ *                                 personal row — bound inside, verified on open
  * @param {string} gmailMessageId  bound inside, verified on open
  * @param {{nacl: object, rng?: object}} deps
  * @return {{sealed: string, eph_pub: string, nonce: string, enc_v: number}}
  */
-export function sealForFamily(payload, familyPubB64, familyId, gmailMessageId, deps) {
+export function sealForFamily(payload, familyPubB64, scopeId, gmailMessageId, deps, scope) {
   const nacl = deps && deps.nacl;
   if (!nacl || !nacl.box) throw new Error('SEALED_BOX_NO_NACL');
   if (!familyPubB64) throw new Error('SEALED_BOX_NO_FAMILY_PUB');
-  if (!familyId) throw new Error('SEALED_BOX_NO_FAMILY_ID');
+  if (!scopeId) throw new Error('SEALED_BOX_NO_FAMILY_ID');
   if (!gmailMessageId) throw new Error('SEALED_BOX_NO_MESSAGE_ID');
 
   const familyPub = unb64(familyPubB64);
@@ -107,8 +108,21 @@ export function sealForFamily(payload, familyPubB64, familyId, gmailMessageId, d
     throw new Error('SEALED_BOX_BAD_PUB_LENGTH: ' + familyPub.length);
   }
 
+  /* WHAT IDENTITY IS BOUND INSIDE, and why it is not always the family.
+     The binding exists so that ciphertext moved between rows is detected rather
+     than decrypted onto the wrong transaction: the opener re-checks it against
+     the row it arrived on. For a family row that identity is the family. For a
+     PERSONAL row (0091) there may be no family at all — the person is the root
+     — so the owner's user id plays exactly the same part.
+
+     Written under DIFFERENT KEY NAMES on purpose. Reusing `family_id` for a
+     user id would let a payload sealed in one scope satisfy the other's check,
+     which is the single thing this binding exists to prevent. The family path
+     is byte-identical to before, so the Apps Script and every already-sealed
+     row are unaffected. */
   const bound = { ...payload };
-  bound.family_id = familyId;
+  if (scope === 'personal') bound.owner_user_id = scopeId;
+  else bound.family_id = scopeId;
   bound.gmail_message_id = gmailMessageId;
   bound.enc_v = SEALED_BOX_VERSION;
 

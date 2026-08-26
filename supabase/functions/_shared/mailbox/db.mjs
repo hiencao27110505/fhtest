@@ -225,7 +225,7 @@ export function createDb(url, serviceKey, fetchImpl) {
 
        Both are asked in one pass, and a failure of either must THROW rather
        than return an empty set. Failing open here stages everything twice. */
-    async alreadyStaged(messageIds, memberId) {
+    async alreadyStaged(messageIds, memberId, ownerUserId) {
       if (!messageIds.length) return new Set();
       // Each id is encoded on its own and the commas stay literal. Encoding the
       // joined string instead turns the SEPARATORS into %2C, which happens to
@@ -240,10 +240,17 @@ export function createDb(url, serviceKey, fetchImpl) {
       // about another who connected the same shared mailbox. Without a member
       // the resolved half is skipped rather than asked unscoped — a global
       // answer here would hide one person's mail behind another's decision.
-      if (memberId) {
+      /* Scoped by owner where there is one, member otherwise. Since 0092 the
+         tombstone table is KEYED on owner — a personal-only user has no member
+         to key on, and a tombstone that cannot be written is a message that
+         comes back on every wide read forever. Asking unscoped would be worse
+         than not asking: one person's decision would hide another's mail. */
+      const scope = ownerUserId
+        ? 'owner_user_id=eq.' + encodeURIComponent(ownerUserId)
+        : (memberId ? 'member_id=eq.' + encodeURIComponent(memberId) : null);
+      if (scope) {
         const resolved = await rest(
-          '/resolved_email_messages?select=gmail_message_id' +
-          '&member_id=eq.' + encodeURIComponent(memberId) +
+          '/resolved_email_messages?select=gmail_message_id&' + scope +
           '&gmail_message_id=in.(' + list + ')');
         for (const r of (resolved || [])) done.add(r.gmail_message_id);
       }

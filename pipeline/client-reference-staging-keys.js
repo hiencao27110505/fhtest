@@ -69,11 +69,25 @@
 
     var payload = JSON.parse(new TextDecoder().decode(opened));
 
-    // Constraint 1: the sealer binds identity INSIDE the box. If the inside
-    // disagrees with the row it arrived on, someone moved ciphertext between
-    // rows — the amounts would land on the wrong transaction.
-    if (payload.family_id !== row.family_id ||
-        payload.gmail_message_id !== row.gmail_message_id) {
+    /* Constraint 1: the sealer binds identity INSIDE the box. If the inside
+       disagrees with the row it arrived on, someone moved ciphertext between
+       rows — the amounts would land on the wrong transaction.
+
+       WHICH identity depends on the scope, and the payload says which by which
+       key it carries (0091). A family row binds `family_id`; a PERSONAL row
+       binds `owner_user_id`, because a personal-only user has no family at all.
+       They are different key names on purpose: reusing one for the other would
+       let a payload sealed in one scope satisfy the other's check, which is the
+       single thing this binding exists to prevent.
+
+       Both compared values are supplied by the CALLER from what it already
+       knows — the active family, or its own user id — never read back from the
+       row the server sent. A check against the server's own claim would verify
+       nothing. */
+    var boundOk = (payload.owner_user_id != null)
+      ? payload.owner_user_id === row.owner_user_id
+      : payload.family_id === row.family_id;
+    if (!boundOk || payload.gmail_message_id !== row.gmail_message_id) {
       throw new Error('staging_identity_mismatch');
     }
     return payload;

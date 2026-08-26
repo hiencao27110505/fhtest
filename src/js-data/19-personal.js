@@ -118,7 +118,98 @@
       } catch (e) { return { ok: false, error: 'wrong_card' }; }
     };
 
-    async function _afterKey() { await window.fhPersonalHydrate(); _mirrorSoon(); }
+    /* ── the personal STAGING keypair (0091) ─────────────────────────────────
+       Distinct from P.key, and the distinction is the whole point. P.key is the
+       personal DEK: it encrypts what this device writes. The staging pair is
+       what a SERVER-SIDE writer seals to — the mailbox worker holds the public
+       half and can never read back what it wrote. Same construction the family
+       has, one level down.
+
+       Wrapped by the personal DEK and NEVER by a family DEK. A family-wrapped
+       copy "for convenience" would quietly make personal money readable by the
+       household again, which is the thing the personal ledger exists to prevent.
+
+       FIRST WRITER WINS, server-side: `set_personal_staging_key` writes only
+       while staging_pub is null and returns whatever is authoritative. Two
+       devices unlocking at once must not mint two keypairs, because the second
+       orphans every box sealed to the first — and there is no way to tell that
+       has happened except that rows stop opening. Adopt the winner; never retry
+       with a fresh pair. Rotation is a separate, deliberate ceremony. */
+    let _pStagingCache = null;
+    window.fhPersonalStagingKeysForget = function () { _pStagingCache = null; };
+
+    async function _pStagingKeys() {
+      if (_pStagingCache) return _pStagingCache;
+      const r = await _sb().rpc('get_personal_staging_key', {});
+      if (r.error) throw r.error;
+      _pStagingCache = r.data;
+      return _pStagingCache;
+    }
+
+    /* Provision if absent. MUST run with the personal DEK present — that is the
+       only moment the private half can be wrapped. Returns true only if we were
+       the device that minted it. */
+    window.fhPersonalStagingEnsure = async function () {
+      if (!P.key || !window.nacl) return false;          // locked, or vendor script blocked
+      const keys = await _pStagingKeys();
+      if (keys && keys.staging_pub) return false;        // already provisioned
+
+      const kp = window.nacl.box.keyPair();              // browser CSPRNG
+      const wrapped = await _encP(_pB64(kp.secretKey));
+      if (!wrapped) throw new Error('personal_staging_wrap_failed');
+
+      const r = await _sb().rpc('set_personal_staging_key', {
+        p_pub: _pB64(kp.publicKey), p_priv_enc: wrapped,
+      });
+      for (let i = 0; i < kp.secretKey.length; i++) kp.secretKey[i] = 0;
+      if (r.error) throw r.error;
+      _pStagingCache = r.data;
+      return true;
+    };
+
+    /* The private half, unwrapped with the personal DEK. Requires the personal
+       safe to be open — the family DEK is no help here and must not be tried. */
+    window.fhPersonalStagingPrivKey = async function () {
+      if (!P.key) throw new Error('personal_locked');
+      const keys = await _pStagingKeys();
+      if (!keys || !keys.staging_priv_enc) throw new Error('personal_staging_missing');
+      const b64 = await _decTxt(keys.staging_priv_enc);
+      if (!b64) throw new Error('personal_staging_unwrap_failed');
+      return _pBytes(b64);
+    };
+
+    /* Same key-substitution detector the family side runs: re-derive the public
+       key from our own private key and compare with the server's copy. An
+       operator who swapped the stored key cannot produce a value derived from a
+       secret they never held. */
+    window.fhPersonalStagingVerify = async function () {
+      const keys = await _pStagingKeys();
+      if (!keys || !keys.staging_pub) return true;       // nothing provisioned yet
+      const priv = await window.fhPersonalStagingPrivKey();
+      const derived = _pB64(window.nacl.box.keyPair.fromSecretKey(priv).publicKey);
+      for (let i = 0; i < priv.length; i++) priv[i] = 0;
+      return derived === keys.staging_pub;
+    };
+
+    function _pB64(bytes) {
+      let s = '';
+      for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+      return btoa(s);
+    }
+    function _pBytes(b64) {
+      const bin = atob(b64), out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    }
+
+    async function _afterKey() {
+      await window.fhPersonalHydrate();
+      _mirrorSoon();
+      /* Fire-and-forget, after the data the person is waiting for. A staging
+         keypair they do not have yet only costs them latency on mail that has
+         not arrived; failing hydrate over it would cost them their ledger. */
+      try { await window.fhPersonalStagingEnsure(); } catch (e) { window.fhLogErr && window.fhLogErr('personal_staging_ensure', e); }
+    }
 
     window.fhPersonalHydrate = async function () {
       if (!P.uid || !P.key) return;

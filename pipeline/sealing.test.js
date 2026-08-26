@@ -308,9 +308,19 @@ console.log('\n-- source: the client side of the seam --');
 
 t('fhReadStagedRow supplies the family id the opener verifies (the blocker)',
   /row\.family_id = window\.DB && window\.DB\.fid;/.test(reviewSrc));
+/* The PROPERTY, not the literal list: named columns and no raw_body. The list
+   itself grows (0091 added staging_scope, 0092 owner_user_id), and an assertion
+   quoting it fails on every legitimate addition while catching none of the
+   things it exists to catch. raw_body is ~20KB of ciphertext per row that this
+   screen never reads, and pulling it on every open of the queue is what ate the
+   Supabase bandwidth quota. */
 t('the review fetch names its columns and excludes raw_body',
-  reviewSrc.indexOf(".select('id,member_id,gmail_message_id,") >= 0 &&
-  reviewSrc.indexOf("select('*')") === -1);
+  /\.select\('id,member_id[^']*'\)/.test(reviewSrc) &&
+  reviewSrc.indexOf("select('*')") === -1 &&
+  !/\.select\('[^']*raw_body[^']*'\)/.test(reviewSrc));
+t('and fetches what decides WHICH key opens the row (0091/0092)',
+  /select\('[^']*owner_user_id[^']*'\)/.test(reviewSrc) &&
+  /select\('[^']*staging_scope[^']*'\)/.test(reviewSrc));
 t('the fetch keeps gmail_message_id (the opener needs it)',
   /select\('[^']*gmail_message_id[^']*'\)/.test(reviewSrc));
 t('and keeps the four envelope fields',

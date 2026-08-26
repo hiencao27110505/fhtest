@@ -99,40 +99,59 @@ export class MailboxHold extends Error {
  * @throws {MailboxHold}
  */
 export async function resolveDestination(grant, db) {
-  if (!grant || !grant.member_id || !grant.family_id) {
+  if (!grant) throw new MailboxHold(HOLD.NO_MEMBER, 'no grant');
+
+  /* A PERSONAL mailbox needs no family, and that is the point of 0092: the
+     person is the root, a family is a container they may not have. It still
+     needs an owner — without one there is nobody to seal to and nobody the row
+     would be visible to, and a row visible to nobody is silent loss. */
+  const wantsPersonal = grant.default_scope === 'personal';
+  if (!wantsPersonal && (!grant.member_id || !grant.family_id)) {
     throw new MailboxHold(HOLD.NO_MEMBER, 'grant carries no destination');
+  }
+  if (wantsPersonal && !grant.user_id) {
+    throw new MailboxHold(HOLD.NO_PERSONAL_STAGING_PUB, 'grant carries no user');
   }
   // Checked here as well as in the poller's query. The poller filters on it to
   // avoid spending a token refresh; this is the invariant, and an invariant
   // that only one caller enforces is one refactor away from being gone.
   if (grant.needs_reauth) throw new MailboxHold(HOLD.NEEDS_REAUTH);
 
-  const member = await db.memberById(grant.member_id);
-  if (!member) throw new MailboxHold(HOLD.NO_MEMBER, grant.member_id);
-  if (member.archived_at) throw new MailboxHold(HOLD.MEMBER_ARCHIVED, grant.member_id);
+  /* The member checks apply only where a member is claimed. A personal-only
+     user has none, and demanding one would refuse exactly the people 0092 set
+     out to admit. Where a member IS claimed the checks are unchanged, because a
+     stale one is still a row nobody can see. */
+  if (grant.member_id) {
+    const member = await db.memberById(grant.member_id);
+    if (!member) throw new MailboxHold(HOLD.NO_MEMBER, grant.member_id);
+    if (member.archived_at) throw new MailboxHold(HOLD.MEMBER_ARCHIVED, grant.member_id);
 
-  // The grant's family_id is what the sealer will use and what the opener will
-  // verify. If the member no longer belongs to it, sealing to it produces a row
-  // nobody can open — so the disagreement itself is the thing to stop on,
-  // rather than quietly preferring one side of it.
-  if (member.family_id !== grant.family_id) {
-    throw new MailboxHold(HOLD.MEMBER_MOVED,
-      grant.family_id + ' -> ' + member.family_id);
+    // The grant's family_id is what a family-scoped sealer will use and what the
+    // opener will verify. If the member no longer belongs to it, sealing to it
+    // produces a row nobody can open — so the disagreement itself is the thing
+    // to stop on, rather than quietly preferring one side of it.
+    if (grant.family_id && member.family_id !== grant.family_id) {
+      throw new MailboxHold(HOLD.MEMBER_MOVED,
+        grant.family_id + ' -> ' + member.family_id);
+    }
   }
 
   // Unrecognised values fall back to 'family' rather than throwing: the column
   // is CHECK-constrained, so anything else means a client wrote a scope this
   // build predates, and the safe reading of an unknown scope is the one every
   // grant had before the column existed.
-  const scope = grant.default_scope === 'personal' ? 'personal' : 'family';
+  const scope = wantsPersonal ? 'personal' : 'family';
 
   if (scope === 'personal') {
-    if (!grant.user_id) throw new MailboxHold(HOLD.NO_PERSONAL_STAGING_PUB, 'grant carries no user');
     const personalPub = db.stagingPubForUser ? await db.stagingPubForUser(grant.user_id) : null;
     if (!personalPub) throw new MailboxHold(HOLD.NO_PERSONAL_STAGING_PUB, grant.user_id);
     return {
-      memberId: grant.member_id,
-      familyId: grant.family_id,
+      // Both may be null for a personal-only user. Carried through anyway so a
+      // person who DOES have a family keeps routing and dedup working
+      // identically whichever ledger their mailbox feeds.
+      memberId: grant.member_id || null,
+      familyId: grant.family_id || null,
+      ownerUserId: grant.user_id,
       stagingPub: personalPub,
       scope,
     };
@@ -144,6 +163,7 @@ export async function resolveDestination(grant, db) {
   return {
     memberId: grant.member_id,
     familyId: grant.family_id,
+    ownerUserId: grant.user_id || null,
     stagingPub,
     scope,
   };

@@ -76,7 +76,7 @@
      gmail_message_id, which the sealed path verifies against the payload. */
   async function fhFetchStagedTxns() {
     var res = await sb.from('email_transactions')
-      .select('id,member_id,gmail_message_id,source_provider,occurred_at,amount,currency,direction,counterparty,reference_number,transaction_type,raw_extracted,duplicate_of_id,sealed,eph_pub,nonce,enc_v,created_at')
+      .select('id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,amount,currency,direction,counterparty,reference_number,transaction_type,raw_extracted,duplicate_of_id,sealed,eph_pub,nonce,enc_v,created_at')
       .eq('review_status', 'pending')
       /* duplicate_of_id is a SUSPICION, not a delete order. It used to be
          filtered out here, which gave a guess made blind at 3am the power to
@@ -150,7 +150,24 @@
          active family. Without this line row.family_id is undefined, the check
          throws on every row ever sealed, and the whole queue reads as locked. */
       row.family_id = window.DB && window.DB.fid;
-      var priv = await window.fhStagingPrivKey();
+
+      /* Which key opens this, and which identity it must prove.
+
+         A row sealed for the PERSON (0091) is opened with the personal staging
+         key and proves `owner_user_id`; a family row uses the family key and
+         proves `family_id`. The row says which via `staging_scope` — the client
+         cannot guess, because it holds two private keys and a sealed box gives
+         no hint which fits. Trying both would turn a wrong key into a silent
+         "unreadable row" instead of a clear one.
+
+         `owner_user_id` is set from OUR OWN session, never from the row the
+         server sent: the binding is only a check if both sides of it are values
+         we already knew. */
+      var personal = row.staging_scope === 'personal';
+      if (personal) row.owner_user_id = (window.fhUser && window.fhUser.id) || null;
+      var priv = personal
+        ? await window.fhPersonalStagingPrivKey()
+        : await window.fhStagingPrivKey();
       var payload = window.fhStagingOpenRow(row, priv);
       return {
         id: row.id, member_id: row.member_id,

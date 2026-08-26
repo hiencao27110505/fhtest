@@ -159,10 +159,33 @@ const refuses = async (name, over, want) => {
 };
 await refuses('no staging key -> throws, never a plaintext row',
   { destination: { ...dest, stagingPub: null } }, 'STAGE_NO_DESTINATION');
-await refuses('no member -> throws, never an unowned row',
-  { destination: { ...dest, memberId: null } }, 'STAGE_NO_DESTINATION');
+/* Since 0092 a row may be owned by a PERSON instead of a member — a
+   personal-only user has no member row. So the rule is no longer "must have a
+   member", it is "must have somebody". A row with neither matches no RLS
+   predicate and is visible to nobody, which is silent loss rather than a
+   refusal anyone can see, so it is still refused. */
+await refuses('neither owner nor member -> throws, never an unowned row',
+  { destination: { ...dest, memberId: null, ownerUserId: null } }, 'STAGE_NO_OWNER');
 await refuses('no message id -> throws, never a row without its idempotency key',
   { gmailMessageId: null }, 'STAGE_NO_MESSAGE_ID');
+
+/* The other half of the same rule: an owner alone IS enough. This is the
+   personal-only user, and if this ever regressed to requiring a member they
+   would silently stop being able to use the feature at all. */
+{
+  const row = await S.buildStagedRow({
+    gmailMessageId: 'gmail-personal-only', reading,
+    destination: { ...dest, memberId: null, familyId: null, ownerUserId: 'user-42', scope: 'personal' },
+    sourceProvider: 'MB', senderKind: 'bank', deps,
+  });
+  t('an owner with no member is a valid destination',
+    row.owner_user_id === 'user-42' && row.member_id === null);
+  t('and it is still sealed, with no plaintext',
+    !!row.sealed && row.enc_v === 1 && S.MUST_BE_NULL_WHEN_SEALED.every(c => row[c] == null));
+}
+await refuses('a personal destination with no owner -> throws, never a vacuous binding',
+  { destination: { ...dest, memberId: null, familyId: null, ownerUserId: null, scope: 'personal' } },
+  'STAGE_NO_OWNER');
 await refuses('an unread mail is not staged as a zero',
   { reading: { direction: 'debit' } }, 'STAGE_NOT_READABLE');
 await refuses('a reading with no direction is not staged',
