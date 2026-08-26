@@ -44,6 +44,12 @@ export const HOLD = {
   MEMBER_ARCHIVED: 'member_archived',
   MEMBER_MOVED: 'member_moved',
   NO_STAGING_PUB: 'no_staging_pub',
+  /* Declared default_scope='personal', but the person has never provisioned a
+     personal staging keypair. Distinct from NO_STAGING_PUB on purpose: the two
+     clear differently — a family key is minted by ANY family device unlocking,
+     this one only by THIS person unlocking their own. Reporting them as one
+     reason would send someone to ask a relative to unlock, which cannot help. */
+  NO_PERSONAL_STAGING_PUB: 'no_personal_staging_pub',
 };
 
 /**
@@ -64,16 +70,32 @@ export class MailboxHold extends Error {
  * The store this module needs. Structural, so the worker passes a Supabase
  * client wrapper and a test passes an object literal.
  *
- *   memberById(id)            -> {id, family_id, archived_at} | null
- *   stagingPubForFamily(fid)  -> base64 string | null
+ *   memberById(id)             -> {id, family_id, archived_at} | null
+ *   stagingPubForFamily(fid)   -> base64 string | null
+ *   stagingPubForUser(uid)     -> base64 string | null
  */
 
 /**
  * Resolves one grant to the destination a staged row needs.
  *
- * @param {{member_id: string, family_id: string, needs_reauth?: boolean, email?: string}} grant
- * @param {{memberById: Function, stagingPubForFamily: Function}} db
- * @return {Promise<{memberId: string, familyId: string, stagingPub: string}>}
+ * WHICH KEY, AND WHY IT IS DECIDED HERE.
+ *
+ * Since Model Y (0079) a person's money has two destinations: the family ledger
+ * under a shared key, and `personal_transactions` under their own. A grant
+ * declares which one its mailbox feeds (`default_scope`, 0091), and that choice
+ * has to be made BEFORE anything is read — a row cannot be re-sealed later, so
+ * deciding at review would mean the plaintext had already touched a key the
+ * person did not choose. The review screen still picks the destination LEDGER
+ * per row; this picks the key that protects the row on the way there.
+ *
+ * `memberId` is returned for both scopes. It is the same person's own member row
+ * either way, so 0058's RLS keeps working unchanged, and dedup keeps seeing one
+ * mailbox rather than two — a bank email must not stage twice merely because a
+ * second copy was destined for a different ledger.
+ *
+ * @param {{member_id: string, family_id: string, user_id?: string, default_scope?: string, needs_reauth?: boolean, email?: string}} grant
+ * @param {{memberById: Function, stagingPubForFamily: Function, stagingPubForUser?: Function}} db
+ * @return {Promise<{memberId: string, familyId: string, stagingPub: string, scope: string}>}
  * @throws {MailboxHold}
  */
 export async function resolveDestination(grant, db) {
@@ -98,6 +120,24 @@ export async function resolveDestination(grant, db) {
       grant.family_id + ' -> ' + member.family_id);
   }
 
+  // Unrecognised values fall back to 'family' rather than throwing: the column
+  // is CHECK-constrained, so anything else means a client wrote a scope this
+  // build predates, and the safe reading of an unknown scope is the one every
+  // grant had before the column existed.
+  const scope = grant.default_scope === 'personal' ? 'personal' : 'family';
+
+  if (scope === 'personal') {
+    if (!grant.user_id) throw new MailboxHold(HOLD.NO_PERSONAL_STAGING_PUB, 'grant carries no user');
+    const personalPub = db.stagingPubForUser ? await db.stagingPubForUser(grant.user_id) : null;
+    if (!personalPub) throw new MailboxHold(HOLD.NO_PERSONAL_STAGING_PUB, grant.user_id);
+    return {
+      memberId: grant.member_id,
+      familyId: grant.family_id,
+      stagingPub: personalPub,
+      scope,
+    };
+  }
+
   const stagingPub = await db.stagingPubForFamily(grant.family_id);
   if (!stagingPub) throw new MailboxHold(HOLD.NO_STAGING_PUB, grant.family_id);
 
@@ -105,6 +145,7 @@ export async function resolveDestination(grant, db) {
     memberId: grant.member_id,
     familyId: grant.family_id,
     stagingPub,
+    scope,
   };
 }
 

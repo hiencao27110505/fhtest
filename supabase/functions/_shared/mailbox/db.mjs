@@ -60,7 +60,7 @@ export function createDb(url, serviceKey, fetchImpl) {
      */
     async dueGrants(limit) {
       const qs = new URLSearchParams({
-        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at',
+        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,default_scope',
         needs_reauth: 'eq.false',
         // Direction spelled out: PostgREST's order grammar is
         // `col.dir.nullsorder`, and a bare `.nullsfirst` is not reliably parsed.
@@ -84,7 +84,7 @@ export function createDb(url, serviceKey, fetchImpl) {
      */
     async grantByEmail(email, folded) {
       const q = e => new URLSearchParams({
-        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,watch_expires_at',
+        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,watch_expires_at,default_scope',
         email: 'eq.' + e,
         needs_reauth: 'eq.false',
         limit: '1',
@@ -161,6 +161,16 @@ export function createDb(url, serviceKey, fetchImpl) {
       return (rows && rows[0]) || null;
     },
 
+    /* The PERSON's staging public key (0091). Separate lookup from the family's
+       because they are separate keys with separate lifecycles: a family key is
+       minted when any family device unlocks, this one only when its owner does.
+       Only the public half is granted to service_role — the worker seals to a
+       person and can never unwrap what it sealed. */
+    async stagingPubForUser(userId) {
+      if (!userId) return null;
+      const rows = await rest('/personal_keys?select=staging_pub&user_id=eq.' + encodeURIComponent(userId));
+      return (rows && rows[0] && rows[0].staging_pub) || null;
+    },
     async stagingPubForFamily(familyId) {
       const rows = await rest('/family_keys?select=staging_pub&family_id=eq.' + familyId);
       return (rows && rows[0] && rows[0].staging_pub) || null;

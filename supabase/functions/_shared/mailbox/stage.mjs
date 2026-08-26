@@ -166,6 +166,13 @@ export async function buildStagedRow(args) {
     duplicate_of_id: duplicateOfId,
     review_status: 'pending',
 
+    /* Which key sealed this, so the client knows which one opens it (0091).
+       It cannot guess: it holds two private keys and a sealed box gives no hint
+       which fits, so trying both would turn a wrong answer into a silent
+       "unreadable row" instead of a clear one. Defaults to 'family' when the
+       destination predates scopes, which is what every existing grant means. */
+    staging_scope: destination.scope === 'personal' ? 'personal' : 'family',
+
     // The envelope. 0068's CHECK requires all four together.
     sealed: envelope.sealed,
     eph_pub: envelope.eph_pub,
