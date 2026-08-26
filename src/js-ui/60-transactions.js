@@ -26,21 +26,63 @@ function txNewestFirst(a,b){ var ta=a._d?a._d.getTime():Infinity, tb=b._d?b._d.g
 txns.sort(txNewestFirst);
 var spMap={emma:['av-emma','EM'],james:['av-james','JR'],mia:['av-mia','MR'],leo:['av-leo','LR'],both:['av-shared','👥'],shared:['av-shared','👥']};
 function spAv(who){ var a=spMap[(who||'').toLowerCase()]||['av-shared','👥']; return '<div class="r-sp av '+a[0]+'">'+a[1]+'</div>'; }
+
+/* ── Expense-list scope ──────────────────────────────────────────────────────
+   The full-screen list (#txn-overlay: search · sort · category hero · month
+   groups) is shared between the family Finance tab and the personal tab. The
+   render functions read their data through the accessors below instead of the
+   family globals directly, so `window.__txnScope==='personal'` swaps the source
+   without duplicating the screen. Family (the default) reads live globals exactly
+   as before — nothing changes on that path. */
+window.__txnScope='family';
+var _pTxnCtx=null;                     // built on open from fhPersonalData()
+function _txnPersonal(){ return window.__txnScope==='personal'; }
+function _txList(){ return _txnPersonal() ? (_pTxnCtx?_pTxnCtx.rows:[]) : (window.txns||[]); }
+function _txCatOrder(){ return _txnPersonal() ? (_pTxnCtx?_pTxnCtx.catOrder:[]) : (window.catOrder||[]); }
+/* Normalise the personal ledger into the row shape txRow/renderTxnScreen expect.
+   Unreadable rows are skipped here (their amount is null and would misstate every
+   total); they stay visible with their lock note on the personal tab itself. */
+function _pBuildTxnCtx(){
+  var P = window.fhPersonalData ? fhPersonalData() : null;
+  var PAL=['#f2eef6','#eef4fb','#eefaf3','#fdf4e8','#f6eefb','#eef9fb'];
+  var rows=[], style={}, order=[], spent={}, other=L('Khác','Others');
+  var now=new Date(), ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  (P&&P.txns||[]).forEach(function(t){
+    if(t.kind!=='expense' || t._unreadable) return;
+    var cat=t.cat||other, _d=t.date?new Date(t.date+'T00:00:00'):null;
+    if(!style[cat]){ style[cat]=[t.emoji||'🗂️', PAL[order.length%PAL.length], 'var(--cat-other)']; order.push(cat); }
+    // Only PRIVATE rows are editable here; mirror rows (spaceId/linkId set) are a
+    // family expense shown in the personal book and are edited on the family side.
+    rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _edit:!t.spaceId&&!t.linkId });
+    if((t.date||'').slice(0,7)===ym) spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
+  });
+  order.sort(function(a,b){ return (spent[b]||0)-(spent[a]||0); });
+  _pTxnCtx={ rows:rows, catOrder:order, catStyle:style, catSpent:spent, catBudget:(P&&P.catBudget)||{} };
+}
 function txRow(t){
-  var s=catStyle[t.cat]||['🧾','#f2eef6','var(--cat-other)'];
+  // personal rows carry their own style + no member/reactions/detail screen;
+  // family rows keep the avatar, reaction chip and tap-through to the detail.
+  var personal=_txnPersonal();
+  var s=t._style||catStyle[t.cat]||['🧾','#f2eef6','var(--cat-other)'];
   // Localize the display date/payer; the stored t.date/t.who strings stay as-is
   // (they are parsed by _txnIso / mapped by _memberIdForWho — display only here).
   var dstr=(t.date==='Just now')?L('Vừa xong','Just now'):((t._d?sameDay(t._d,TODAY):(t.date==='Today'))?L('Hôm nay','Today'):(t._d?(sameDay(t._d,new Date(TODAY.getTime()-86400000))?L('Hôm qua','Yesterday'):fmtDayMon(t._d)):t.date));
   // data-rxid (only persisted rows) arms the long-press reaction picker; rxChip appends any reactions inline
-  var rxid=t._dbId?(' data-rxid="'+escAttr(t._dbId)+'"'):'';
-  var chip=(typeof rxChip==='function')?rxChip(t):'';
+  var rxid=(!personal && t._dbId)?(' data-rxid="'+escAttr(t._dbId)+'"'):'';
+  var chip=(!personal && typeof rxChip==='function')?rxChip(t):'';
   // C1 anatomy: a row with photos shows its first photo AS the tile (the enc
   // observer decrypts .enc backgrounds in place); category text moves under the
   // bold amount, so the subline holds only the date.
   var ph=(t.photos&&t.photos.length)?t.photos[0]:t.photo;
   var tile=ph?'<div class="r-ico ph" style="background-image:url('+escAttr(ph)+')"></div>'
             :'<div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico)+'</div>';
-  return '<div class="row tap'+(chip?' has-rx':'')+'"'+rxid+' onclick="openExpenseDetail(\''+t.id+'\')"><div class="r-ico-wrap">'+tile+spAv(t.who)+'</div>'
+  var av=personal?'':spAv(t.who);                                 // personal ledger has no members
+  // Family rows open the detail screen; private personal rows open the edit sheet;
+  // mirror personal rows (a family expense) stay view-only here.
+  var open=personal?(t._edit?(' onclick="openPersonalTxEdit(\''+t.id+'\')"'):'')
+                    :(' onclick="openExpenseDetail(\''+t.id+'\')"');
+  var tapCls=(personal? (t._edit?' tap':'') : ' tap');
+  return '<div class="row'+tapCls+(chip?' has-rx':'')+'"'+rxid+open+'><div class="r-ico-wrap">'+tile+av+'</div>'
     +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+dstr+'</div></div>'
     +'<div class="r-right"><div class="r-amt num">'+fmt(t.amt)+'</div><div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
 }
@@ -140,7 +182,12 @@ function drillTo(type,val){ txFilter={type:type,val:val}; go('spending'); render
 function clearFilter(){ txFilter=null; renderTxns(); }
 /* ---------- full transactions screen (drill-in: search · category · sort) ---------- */
 var txnCat=null, txnSort='date';
-function openTxns(){
+function openTxns(scope){
+  window.__txnScope=(scope==='personal')?'personal':'family';
+  if(_txnPersonal()) _pBuildTxnCtx();                             // snapshot the personal ledger into row shape
+  // Title + back-label track the scope (personal vs the family Finance tab).
+  var titleEl=document.querySelector('#txn-overlay .txn-title'); if(titleEl) titleEl.textContent=_txnPersonal()?L('Chi tiêu cá nhân','Your spending'):L('Giao dịch','Transactions');
+  var backEl=document.querySelector('#txn-overlay .cd-back span'); if(backEl) backEl.textContent=_txnPersonal()?L('Cá nhân','Personal'):L('Gia đình','Family');
   txnCat=null; txnSort='date';
   var q=document.getElementById('txn-q'); if(q)q.value='';
   setTxt('txn-sort-lab',L('Mới nhất','Newest')); var _cl=document.getElementById('txn-clear'); if(_cl)_cl.style.display='none';
@@ -149,10 +196,21 @@ function openTxns(){
   document.getElementById('txn-overlay').classList.add('on');
   var sc=document.getElementById('txn-scroll'); if(sc)sc.scrollTop=0;
 }
-function closeTxns(){ document.getElementById('txn-overlay').classList.remove('on'); }
+// Reset scope on close: txRow is shared with the family activity list, so it must
+// never be left in personal mode once the overlay is gone.
+function closeTxns(){ document.getElementById('txn-overlay').classList.remove('on'); window.__txnScope='family'; _pTxnCtx=null; }
+/* Re-pull the personal ledger into the open overlay after an edit/delete made
+   from a row here. No-op unless the overlay is on AND in personal scope. */
+function refreshPersonalTxnOverlay(){
+  var o=document.getElementById('txn-overlay');
+  if(!o || !o.classList.contains('on') || !_txnPersonal()) return;
+  _pBuildTxnCtx();
+  if(txnCat && (_pTxnCtx.catOrder||[]).indexOf(txnCat)<0) txnCat=null;   // filtered category may be gone
+  buildTxnChips(); renderTxnScreen(); if(typeof renderFinanceHero==='function') renderFinanceHero();
+}
 function buildTxnChips(){
   var html='<button class="txn-chip'+(!txnCat?' on':'')+'" onclick="setTxnCat(null)">'+L('Tất cả','All')+'</button>';
-  (window.catOrder||[]).forEach(function(c){
+  (_txCatOrder()||[]).forEach(function(c){
     html+='<button class="txn-chip'+(txnCat===c?' on':'')+'" onclick="setTxnCat(&#39;'+escAttr(c)+'&#39;)">'+esc(c)+'</button>';
   });
   setHTML('txn-chips', html);
@@ -163,7 +221,7 @@ function onTxnQ(){ var v=(document.getElementById('txn-q').value||''); var c=doc
 function txnClear(){ var q=document.getElementById('txn-q'); if(q){ q.value=''; q.focus(); } var c=document.getElementById('txn-clear'); if(c)c.style.display='none'; renderTxnScreen(); }
 function renderTxnScreen(){
   var q=(document.getElementById('txn-q').value||'').trim().toLowerCase();
-  var list=(window.txns||[]).filter(function(t){
+  var list=(_txList()||[]).filter(function(t){
     if(txnCat && t.cat!==txnCat) return false;
     if(q){ var hay=((t.note||'')+' '+(t.cat||'')+' '+(t.who||'')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
     return true;

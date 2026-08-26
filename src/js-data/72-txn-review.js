@@ -558,9 +558,24 @@
          staged rows has nothing left to retry from. */
       for (var i = 0; i < mine.length; i++) {
         var c = mine[i];
-        var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
-        var ok = await window.fhPersonalAddExpense(
-          c.amount, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined);
+        /* c.amount is DISPLAY currency (a bank email's "45.000" is 45000 here),
+           exactly like the CSV review. The personal writes store BASE units
+           (÷curMult, 1000 for VND) — the same conversion the family write does
+           via parseAmtBase. Passing c.amount raw stored 1000× too much (the
+           ".000đ" inflation), so run it through csvBaseAmt first, identical to
+           what the review already showed. */
+        var base = window.csvBaseAmt ? window.csvBaseAmt(c.amount)
+          : Math.round(Number(c.amount || 0) / (window.curMult ? window.curMult() : 1));
+        var ok;
+        if (c.isIncome) {
+          /* A credit/income row goes to the personal INCOME book, not the expense
+             one — the family importer holds income back entirely, so this is the
+             one place a bank email's incoming money is captured correctly. */
+          ok = await window.fhPersonalAddIncome(base, c.description || '', c.dateDisplay || undefined);
+        } else {
+          var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
+          ok = await window.fhPersonalAddExpense(base, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined);
+        }
         if (!ok) throw new Error('personal write failed at row ' + i);
       }
 

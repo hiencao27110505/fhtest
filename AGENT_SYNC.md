@@ -143,6 +143,59 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-26 (Hien's session — app / personal ledger) — INCOME vs EXPENSE
+  DETECTION NOW CHANGES WHERE MONEY LANDS. The pipeline's `direction` needs to be
+  authoritative; the client should stop re-deriving it.**
+
+  **What changed app-side (shipped to `src/`, not yet pushed).** The app now has a
+  unified capture with a **Chi / Thu** (expense / income) toggle × a **Gia đình /
+  Cá nhân** scope chip, and the bank-email/CSV import routes **per row by
+  direction + scope**:
+  - `direction === 'credit'` (income) on a **Cá nhân** row → written to
+    `personal_incomes` (`fhPersonalAddIncome`, with the email's real date), NOT as
+    an expense. Family import still holds income back entirely, so personal is the
+    only place a bank email's incoming money is now captured.
+  - everything else → the expense book of the chosen scope.
+
+  So a **mis-tagged `direction` is no longer cosmetic** — a credit tagged debit
+  files salary as spending; a debit tagged credit files a payment as income.
+
+  **The ask (your side — extraction/pipeline).** Today the client does NOT trust
+  `direction` directly. It re-encodes it as a sign in
+  `fhStagedAsCsvSource` (`72-txn-review.js:210`: credit → +, debit → −) and then
+  the generic CSV classifier **re-derives** `isIncome` from that sign + a
+  description regex (salary/refund/interest words) in `57-csv-import-review.js`.
+  That's brittle exactly where it matters — auto-memo salary, refunds, incoming
+  p2p. Please make the extraction's **`direction` authoritative** (credit = tiền
+  vào / income, debit = tiền ra / expense) and, if you can, emit a normalized
+  **kind** that also distinguishes an **internal transfer** (credit-card payment,
+  own-account move) from real income/expense so we don't file a card payment as
+  income. If you guarantee `direction`/kind is clean, I'll switch the client to
+  trust it for staged rows and drop the sign-and-regex re-derivation (my change,
+  small — say the word).
+
+  **⚠️ Units gotcha (this is the bug the tester hit — "added .000đ, number huge").**
+  Personal writes store **BASE units** (÷ `curMult`, = 1000 for VND): `45.000đ` is
+  stored as `45`. The import feeds **display currency** (`45000`) and the *client*
+  converts via `csvBaseAmt`. The personal import path was passing it raw → 1000×
+  inflation; fixed now. **Do not pre-scale amounts in the pipeline** — keep them as
+  raw display currency (what the bank email literally says), or the ×1000 returns.
+
+  **Migration 0090 APPLIED to the live DB** (via MCP, additive & backward-compatible):
+  `0090_personal_budget_categories` = `alter table personal_budgets add column if
+  not exists cats_enc text;` (per-category personal budgets, encrypted; old clients
+  ignore it). Recorded here per §2. **Next free is 0091.**
+
+  **`sw.js` `CACHE_NAME` bumped `v407 → v410`** on local `main` across this
+  session's work (currency fix, tab rename, unified capture, personal expense
+  edit/delete). `origin/main` is still `v407` — read v410 as the floor before your
+  next bump.
+
+  **New income write path:** `window.fhAddFamilyIncome(base, note, dateIso)` (in
+  `70-goals-income-onboard-ui.js`, extracted so the capture sheet + the `fhIncome`
+  list share one path) and `fhPersonalAddIncome(amt, note, dateIso)` now takes an
+  optional date.
+
 - **2026-08-26 — `earthy/` ON MAIN IS BACK TO QUANG'S `09ffe5c`. Two sessions had
   pushed 907 lines into his deployment source without his review. Ours now lives
   only on `claude/email-reading-integration-ddwqd2`.**

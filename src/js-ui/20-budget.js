@@ -516,9 +516,30 @@ window.renderCashflowEmailCta=renderCashflowEmailCta;
    card now. Tap a row to drill into the category. Uses renderBudget's numbers. */
 function renderFinanceHero(){
   var box = document.getElementById('fh-legend'); if(!box) return;
-  var m = M();
+  var editEl=document.getElementById('fh-cats-edit');
   setTxt('fh-cats-lbl', L('Chi tiêu theo danh mục','Spending by category'));
   setTxt('fh-cats-edit', L('Chỉnh','Edit'));
+  // Personal scope: same hero markup + classes, fed from the personal ledger
+  // snapshot. A category row filters the list (there is no member drill-in), and
+  // Edit opens the personal budget sheet.
+  if(typeof _txnPersonal==='function' && _txnPersonal()){
+    var pc=(typeof _pTxnCtx!=='undefined' && _pTxnCtx)?_pTxnCtx:{catOrder:[],catStyle:{},catSpent:{},catBudget:{}};
+    if(editEl) editEl.setAttribute('onclick','openPersonalBudget()');
+    var pl=(pc.catOrder||[]).map(function(c){
+      var sp=pc.catSpent[c]||0, bd=(pc.catBudget||{})[c]||0, ico=(pc.catStyle[c]||[])[0]||'🏷️';
+      var pct=bd>0?Math.min(100,sp/bd*100):(sp>0?100:0), overB=bd>0&&sp>bd;
+      return '<button type="button" class="fh-lrow'+(overB?' over':'')+'" onclick="setTxnCat(&#39;'+escAttr(c)+'&#39;)">'
+        +'<span class="fh-ico">'+esc(ico)+'</span>'
+        +'<span class="fh-body"><span class="fh-l1"><span class="fh-lname">'+esc(c)+'</span>'
+        +'<span class="fh-lamt num"><b>'+fmtK(sp)+'</b>'+(bd>0?' / '+fmtK(bd):'')+'</span></span>'
+        +'<span class="fh-bar"><i style="width:'+pct.toFixed(0)+'%"></i></span></span>'
+        +'<svg class="fh-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>';
+    }).join('');
+    setHTMLIf('fh-legend', pl);
+    return;
+  }
+  if(editEl) editEl.setAttribute('onclick',"openSheet('sheet-budget')");   // restore family target
+  var m = M();
   var legend = (catOrder || []).map(function(c){
     var sp = m.catSpent[c] || 0, bd = catBudget[c] || 0, ico = (catStyle[c] || [])[0] || '🏷️';
     var pct = bd > 0 ? Math.min(100, sp / bd * 100) : (sp > 0 ? 100 : 0);
@@ -607,6 +628,56 @@ var CATPAL=[['#eeeefc','var(--cat-housing)'],['#eaf7ee','var(--cat-food)'],['#fd
 // and anything with no category of its own lands here.
 var CAT_FALLBACK='Others';
 function isFallbackCat(n){ return String(n||'').trim().toLowerCase()===CAT_FALLBACK.toLowerCase(); }
+
+/* ── Budget-sheet scope ──────────────────────────────────────────────────────
+   #sheet-budget is shared: the family Finance tab opens it via openSheet (which
+   sets scope 'family'), the personal tab via openPersonalBudget below. The load
+   (fillBudgetSheet) and save (setBudget) branch on this; the interactive helpers
+   (syncFallbackRow, suggestBudgetSplit, addCatRow, armCatDelete) read the DOM and
+   are already scope-agnostic. Personal has no catch-all remainder row — each
+   category simply carries its own limit. */
+window.budgetScope='family';
+function openPersonalBudget(){
+  window.budgetScope='personal';
+  fillBudgetSheet();                                          // personal branch, no family data load
+  var el=document.getElementById('sheet-budget'); if(!el) return;
+  document.getElementById('scrim').classList.add('on'); el.classList.add('on');
+  el.style.transform=''; el.style.transition=''; var b=el.querySelector('.modal-body'); if(b)b.scrollTop=0;
+}
+/* Personal category universe: names seen in the ledger (with their emoji) unioned
+   with any category that already has a saved budget. */
+function _persBudgetCats(){
+  var P=window.fhPersonalData?fhPersonalData():null, cats={}, order=[];
+  (P&&P.txns||[]).forEach(function(t){ if(t.kind!=='expense'||t._unreadable||!t.cat) return; if(!cats[t.cat]){ cats[t.cat]={emoji:t.emoji||'🏷️'}; order.push(t.cat); } });
+  var cb=(P&&P.catBudget)||{};
+  Object.keys(cb).forEach(function(c){ if(!cats[c]){ cats[c]={emoji:'🏷️'}; order.push(c); } });
+  return { list:order.map(function(c){ return { name:c, emoji:cats[c].emoji, budget:cb[c]||0 }; }), P:P };
+}
+function fillBudgetSheetPersonal(){
+  var d=_persBudgetCats(), P=d.P;
+  document.getElementById('bg-amt').value=amtToInput(P?P.budget:0);
+  document.getElementById('bg-amt').placeholder=amtPlaceholder();
+  var rows=d.list.map(function(c){ return catRowHTML(c.emoji, c.name, c.budget, c.name); });
+  if(!rows.length) rows.push(catRowHTML('🏷️','','',''));      // one empty starter row
+  document.getElementById('bg-rows').innerHTML=rows.join('');
+  var over=document.getElementById('bg-over'); if(over) over.style.display='none';
+  syncFallbackRow();                                          // safe: no lock row → tgt stays null, still flags over-budget
+  bgSnap=bgSig(); bgDirty();
+}
+function setBudgetPersonal(){
+  var amtEl=document.getElementById('bg-amt'), v=parseAmtBase(amtEl.value);
+  if(!fhCheck([{el:amtEl, ok:v>0}], L('Hãy nhập ngân sách hằng tháng','Add a monthly budget'))) return;
+  var cats={}, seen={};
+  document.querySelectorAll('#sheet-budget .cat-row').forEach(function(row){
+    var name=(row.querySelector('.cat-name').value||'').trim(); if(!name || seen[name.toLowerCase()]) return; seen[name.toLowerCase()]=1;
+    var bud=parseAmtBase(row.querySelector('.cat-bud').value)||0;
+    if(bud>0) cats[name]=bud;
+  });
+  fhPersonalSetBudget(v, cats).then(function(ok){
+    if(!ok){ toast(L('Chưa lưu được ngân sách, thử lại','Couldn’t save the budget, try again')); return; }
+    closeModals(); if(window.renderPersonal) renderPersonal(); toast(L('Đã cập nhật ngân sách cá nhân','Personal budget updated'));
+  });
+}
 // Guarantee the catch-all sits at the end of a category list (mutates in place).
 function ensureFallbackCat(order,style,budget){
   if(order.some(isFallbackCat)) return order;
@@ -662,6 +733,7 @@ function syncFallbackRow(){
   bgDirty();
 }
 function fillBudgetSheet(){
+  if(window.budgetScope==='personal'){ fillBudgetSheetPersonal(); return; }
   document.getElementById('bg-amt').value=amtToInput(M().budget);
   syncFallbackBudget();
   document.getElementById('bg-rows').innerHTML = catOrder.map(function(c){ var s=catStyle[c]||['🏷️']; return catRowHTML(s[0],c,catBudget[c],c); }).join('');
@@ -745,6 +817,7 @@ function suggestBudgetSplit(){
   syncFallbackRow();
 }
 function setBudget(){
+  if(window.budgetScope==='personal'){ setBudgetPersonal(); return; }
   var amtEl=document.getElementById('bg-amt');
   var v=parseAmtBase(amtEl.value);
   if(!fhCheck([{el:amtEl, ok:v>0}], L('Hãy nhập ngân sách hằng tháng','Add a monthly budget'))) return;

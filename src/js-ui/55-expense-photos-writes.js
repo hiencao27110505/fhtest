@@ -230,7 +230,7 @@ function exFormState(){                                     // snapshot used to 
 }
 function refreshExCta(){                                    // nav-bar Save button
   var s=document.getElementById('ex-save'); if(!s)return;
-  if(editingTx){
+  if(editingTx || editingPTx){
     s.disabled = !(editSnap!==null && exFormState()!==editSnap);  // edit mode: enabled only once something changes
     return;
   }
@@ -258,6 +258,31 @@ function openEditExpense(id){
   editingTx=id;
   openExpense();                                           // opens the modal; fillExpenseFromTx() runs inside
 }
+/* Personal (private) expense edit — reuses the capture sheet as the editor, the
+   same way openEditExpense does for the family. Opened from a row in the personal
+   "Xem chi tiêu" overlay. */
+function _pTxById(id){ var P=window.fhPersonalData&&fhPersonalData(); return P? (P.txns||[]).filter(function(t){ return t.id===id; })[0] : null; }
+function openPersonalTxEdit(id){
+  var t=_pTxById(id); if(!t || t._unreadable || t.spaceId || t.linkId) return;   // private, readable rows only
+  editingPTx=id; editingTx=null;
+  openExpense();                                           // fillPersonalExpenseFromTx() runs inside
+}
+window.openPersonalTxEdit=openPersonalTxEdit;
+function fillPersonalExpenseFromTx(){
+  var t=_pTxById(editingPTx); if(!t){ editingPTx=null; prefillExpense(); return; }
+  if(typeof renderBulk==='function') renderBulk();          // single-form, no bulk cards
+  document.getElementById('ex-note').value=t.note||'';
+  document.getElementById('ex-amt').value=t.amt?((t.amt*curMult()).toLocaleString(CUR==='VND'?'vi-VN':'en-US')):'';
+  var edIso=t.date||isoDate(TODAY);
+  document.getElementById('ex-date').value=edIso;
+  setDateFloor('ex-date', isoMonthStart(-24), edIso);
+  if(t.cat) selectChipByVal('ex-cat', t.cat);
+  setTxt('ex-title',L('Sửa khoản chi','Edit expense'));
+  var del=document.getElementById('ex-del'); if(del)del.style.display='block';
+  resetDelArm();
+  editSnap=exFormState();
+  refreshExCta();
+}
 function fillExpenseFromTx(){
   var t=txById(editingTx); if(!t){ editingTx=null; prefillExpense(); return; }
   if(typeof renderBulk==='function') renderBulk();          // edit mode → single-form: editor back in the body, no cards
@@ -277,6 +302,12 @@ function fillExpenseFromTx(){
   refreshExCta();                                          // Save stays disabled until the first edit
 }
 function submitExpense(){
+  // Private personal edit takes precedence over every add path below.
+  if(editingPTx){ savePersonalTxEdit(); return; }
+  // Income (Thu): a single amount · when · note write to the income book of the
+  // chosen scope. Bails before any expense path. Not reachable while editing
+  // (the type toggle is hidden then).
+  if(!editingTx && typeof exType!=='undefined' && exType==='income'){ _submitIncomeCapture(); return; }
   // Personal scope: route to the personal ledger and bail before any family
   // write — the family path below stays byte-identical (early return).
   if(!editingTx && typeof chosen==='function' && chosen('ex-scope')==='personal'){ _submitPersonalExpense(); return; }
@@ -321,6 +352,28 @@ async function _submitPersonalExpense(){
   }
   if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
 }
+/* Income-scope save: reads the single live editor (amount · when · note) and
+   writes to the income book of the chosen scope — personal_incomes or the family
+   incomes table. Both take BASE units (parseAmtBase), same as every other write.
+   Mirrors the expense finishers (clear, close, toast) so the flow feels identical. */
+async function _submitIncomeCapture(){
+  var base=parseAmtBase((document.getElementById('ex-amt')||{}).value||'');
+  if(!(base>0)){ var a=document.getElementById('ex-amt'); if(a) a.focus(); return; }
+  var note=((document.getElementById('ex-note')||{}).value||'').trim();
+  var date=(document.getElementById('ex-date')||{}).value||undefined;
+  var personal=(typeof chosen==='function' && chosen('ex-scope')==='personal');
+  var ok=false;
+  if(personal){
+    var pd=window.fhPersonalData&&fhPersonalData();
+    if(!pd||!pd.key){ window.toast&&toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first')); return; }
+    ok=await window.fhPersonalAddIncome(base, note, date);
+    if(ok && typeof renderPersonal==='function') renderPersonal();
+  } else {
+    ok=await window.fhAddFamilyIncome(base, note, date);
+  }
+  if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã thêm thu nhập','Income added')); }
+  else { window.toast&&toast(L('Chưa lưu được, thử lại','Couldn’t save, try again')); }
+}
 function saveExpenseEdit(){
   var t=txById(editingTx); if(!t){ closeExpense(); return; }
   var amt=parseAmtBase(document.getElementById('ex-amt').value);
@@ -357,6 +410,7 @@ function saveExpenseEdit(){
 var delArmed=false, delTimer=null;
 function resetDelArm(){ delArmed=false; clearTimeout(delTimer); var b=document.getElementById('ex-del'); if(b){ b.classList.remove('armed'); b.textContent=L('Xoá khoản chi','Delete expense'); } }
 function deleteExpense(){
+  if(editingPTx){ deletePersonalTx(); return; }              // private personal edit → personal delete path
   var t=txById(editingTx); if(!t){ closeExpense(); return; }
   var btn=document.getElementById('ex-del');
   if(!delArmed){                                           // first tap arms it — guards against a misclick
@@ -378,6 +432,42 @@ function deleteExpense(){
   closeExpense();
   if(typeof renderExpenseDetailIfOpen==='function') renderExpenseDetailIfOpen();   // the txn is gone → this backs out of an open detail screen
   toast(L('Đã xoá · ','Deleted · ')+note);
+}
+/* Save a private personal expense edit — reads the same live editor fields, writes
+   through fhPersonalUpdateExpense (base units), then refreshes the personal tab and
+   the open overlay. */
+async function savePersonalTxEdit(){
+  var id=editingPTx; if(!id){ closeExpense(); return; }
+  var amt=parseAmtBase((document.getElementById('ex-amt')||{}).value||'');
+  if(!(amt>0)){ var a=document.getElementById('ex-amt'); if(a) a.focus(); return; }
+  var note=((document.getElementById('ex-note')||{}).value||'').trim();
+  var cat=(typeof chosen==='function'?chosen('ex-cat'):'')||'';
+  var orig=_pTxById(id);
+  // A private category not present in the family chips leaves nothing selected —
+  // keep the row's own category/emoji rather than wiping it.
+  if(!cat && orig){ cat=orig.cat||''; }
+  var emoji=(cat && window.catStyle && catStyle[cat] && catStyle[cat][0]) || (orig&&orig.emoji) || '🗂️';
+  var date=(document.getElementById('ex-date')||{}).value||undefined;
+  var ok=await window.fhPersonalUpdateExpense(id, {amt:amt, note:note, cat:cat||null, emoji:emoji, dateIso:date});
+  editingPTx=null; editSnap=null;
+  if(ok){ if(typeof renderPersonal==='function') renderPersonal(); if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay(); closeExpense(); window.toast&&toast(L('Đã lưu','Changes saved')); }
+  else { window.toast&&toast(L('Chưa lưu được, thử lại','Couldn’t save, try again')); }
+}
+/* Delete a private personal expense — same arm-then-confirm on #ex-del as the
+   family path, then fhPersonalDeleteExpense + refresh. */
+function deletePersonalTx(){
+  var id=editingPTx; if(!id){ closeExpense(); return; }
+  var btn=document.getElementById('ex-del');
+  if(!delArmed){
+    delArmed=true; if(btn){ btn.classList.add('armed'); btn.textContent=L('Chạm lần nữa để xoá','Tap again to delete'); }
+    clearTimeout(delTimer); delTimer=setTimeout(resetDelArm,3000); return;
+  }
+  resetDelArm();
+  window.fhPersonalDeleteExpense(id).then(function(ok){
+    editingPTx=null; editSnap=null;
+    if(ok){ if(typeof renderPersonal==='function') renderPersonal(); if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay(); closeExpense(); window.toast&&toast(L('Đã xoá','Deleted')); }
+    else { window.toast&&toast(L('Chưa xoá được, thử lại','Couldn’t delete, try again')); }
+  });
 }
 var selEmoji='🎉', selCov='pink';
 function pickEmoji(btn){ document.getElementById('ev-emoji').querySelectorAll('button').forEach(function(b){ b.classList.remove('on'); }); btn.classList.add('on'); selEmoji=btn.dataset.v; }

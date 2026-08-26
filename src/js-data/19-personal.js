@@ -10,7 +10,7 @@
      copy). Reserve link_id on the family row FIRST (crash-safe), then insert the
      master; reconcile repairs/refreshes/tombstones. Idempotent by link_id. */
   (function () {
-    const P = { uid: null, key: null, rawKey: null, wrap: null, txns: [], incomes: [], budget: 0, state: 'boot', mirrorRan: false };
+    const P = { uid: null, key: null, rawKey: null, wrap: null, txns: [], incomes: [], budget: 0, catBudget: {}, state: 'boot', mirrorRan: false };
     const _monISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; };
     // LOCAL YYYY-MM-DD — toISOString() is UTC and would log yesterday's date when
     // capturing after midnight in UTC+7.
@@ -219,13 +219,20 @@
         const [tr, ir, bd] = await Promise.all([
           _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id,link_id,version,updated_at,created_at').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
           _sb().from('personal_incomes').select('id,amount_enc,note_enc,income_date').eq('owner_user_id', P.uid).gte('income_date', from),
-          _sb().from('personal_budgets').select('total_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
+          _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
         ]);
         /* Their budget read goes through _decP too, so an unreadable budget must
            not become a number either — the sentinel is a string and Number() of
            it is NaN. Explicit rather than relying on `|| 0` to absorb it. */
         const _bRaw = (bd && bd.data) ? await _decP(bd.data.total_enc) : null;
         P.budget = (_bRaw == null || _bRaw === _DEC_FAILED) ? 0 : (Number(_bRaw) || 0);
+        /* Per-category budgets (0090): an encrypted JSON map { name: amount }.
+           Same fail-closed stance — an unreadable map becomes {}, never a partial. */
+        const _cRaw = (bd && bd.data && bd.data.cats_enc) ? await _decP(bd.data.cats_enc) : null;
+        P.catBudget = {};
+        if (_cRaw != null && _cRaw !== _DEC_FAILED) {
+          try { const m = JSON.parse(_cRaw); if (m && typeof m === 'object') for (const k in m) P.catBudget[k] = Number(m[k]) || 0; } catch (e) {}
+        }
         /* Unreadable is a property of the AMOUNT only. A note or category that
            will not open costs a label; an amount that will not open corrupts
            money, so only that one takes the row out of every total. */
@@ -258,20 +265,57 @@
       if (r.error) { console.warn('personal expense failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
-    window.fhPersonalSetBudget = async function (amt) {
+    /* Edit / delete — PRIVATE rows only (space_id null AND link_id null). A mirror
+       row (a family expense the user authored, space_id set, link_id → the family
+       copy) is owned by the reconciliation in fhPersonalMirror; editing it here
+       would just be undone on the next mirror pass, so both writes are guarded on
+       `link_id is null` server-side as well as being offered only for private rows
+       in the UI. */
+    window.fhPersonalUpdateExpense = async function (id, fields) {
+      if (!P.uid || !P.key || !id) return false;
+      fields = fields || {};
+      const row = { amount_enc: await _encP(Number(fields.amt)),
+        note_enc: fields.note ? await _encP(fields.note) : null,
+        cat_name_enc: fields.cat ? await _encP(fields.cat) : null,
+        cat_emoji: fields.emoji || null };
+      if (fields.dateIso) row.txn_date = fields.dateIso;
+      const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
+      if (r.error) { console.warn('personal expense update failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    window.fhPersonalDeleteExpense = async function (id) {
+      if (!P.uid || !id) return false;
+      const r = await _sb().from('personal_transactions').delete().eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
+      if (r.error) { console.warn('personal expense delete failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* Monthly budget. `cats` (optional) is a per-category map { name: amount };
+       when present it is stored encrypted in cats_enc, giving the personal ledger
+       the same per-category budgets as the family sheet. Omitting `cats` leaves any
+       existing map untouched (upsert only writes the columns it is given). */
+    window.fhPersonalSetBudget = async function (amt, cats) {
       if (!P.uid || !P.key) return false;
-      const r = await _sb().from('personal_budgets').upsert(
-        { owner_user_id: P.uid, month: _monISO(), total_enc: await _encP(Number(amt)), updated_at: new Date().toISOString() },
-        { onConflict: 'owner_user_id,month' });
+      const row = { owner_user_id: P.uid, month: _monISO(), total_enc: await _encP(Number(amt)), updated_at: new Date().toISOString() };
+      if (cats && typeof cats === 'object') {
+        const clean = {}; for (const k in cats) { const v = Number(cats[k]) || 0; if (v > 0) clean[k] = v; }
+        row.cats_enc = await _encP(JSON.stringify(clean));
+      }
+      const r = await _sb().from('personal_budgets').upsert(row, { onConflict: 'owner_user_id,month' });
       if (r.error) { console.warn('personal budget failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
-    window.fhPersonalAddIncome = async function (amt, note) {
+    window.fhPersonalAddIncome = async function (amt, note, dateIso) {
       if (!P.uid || !P.key) return false;
-      const row = { owner_user_id: P.uid, income_date: _localDate(new Date()),
+      const row = { owner_user_id: P.uid, income_date: dateIso || _localDate(new Date()),
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null };
       const r = await _sb().from('personal_incomes').insert(row);
       if (r.error) { console.warn('personal income failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    window.fhPersonalDelIncome = async function (id) {
+      if (!P.uid || !id) return false;
+      const r = await _sb().from('personal_incomes').delete().eq('id', id).eq('owner_user_id', P.uid);
+      if (r.error) { console.warn('personal income delete failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
 

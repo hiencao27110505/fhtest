@@ -70,6 +70,7 @@
 .field input{width:100%;background:var(--canvas);border-radius:13px;padding:15px;font-size:17px;letter-spacing:-.02em;color:var(--ink);outline:none;border:2px solid transparent}
 .field input.big{font-family:var(--disp);font-weight:700;font-size:30px;letter-spacing:-1.2px;padding:16px 15px}
 .field input:focus{border-color:var(--brand);background:var(--white)}
+.field input.inc-amt{color:var(--good)}   /* income (Thu) amount reads green */
 .field input::placeholder{color:#bab3c2;font-weight:500}
 .field input[type=date]{font-size:15px;font-weight:600;color:var(--ink);min-height:53px}
 .field input[type=date]::-webkit-calendar-picker-indicator{opacity:.45;cursor:pointer}
@@ -77,6 +78,11 @@
 .choices{display:flex;gap:8px;flex-wrap:wrap}
 .choice{padding:10px 15px;border-radius:9999px;background:var(--white);border:1.5px solid var(--hairline);font-size:15px;font-weight:500;letter-spacing:-.01em;color:var(--ink)}
 .choice.on{border-color:var(--brand);border-width:2px;padding:9px 14px;color:var(--brand);font-weight:700;background:var(--brand-tint)}
+/* Chi/Thu type toggle: full-width two-up segmented control. Thu (income), when
+   selected, uses the positive/green cue instead of brand pink. */
+.seg-type{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg-type .choice{text-align:center;border-radius:12px}
+.seg-type .choice[data-v="income"].on{border-color:var(--good);color:var(--good);background:var(--good-tint)}
 .emoji-pick{display:flex;gap:8px;flex-wrap:wrap}
 .emoji-pick button{width:50px;height:50px;border-radius:14px;background:var(--canvas);font-size:24px;border:2px solid transparent}
 .emoji-pick button.on{border-color:var(--brand);background:var(--brand-tint)}

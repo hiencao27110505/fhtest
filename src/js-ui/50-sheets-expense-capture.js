@@ -6,7 +6,7 @@ function openSheet(id){
   if(id==='sheet-month') buildMonthChoices();
   if(id==='sheet-savegoal') buildSaveGoalChoices();
   if(id==='sheet-catpick') buildCatPicker();
-  if(id==='sheet-budget'){ if(window.loadFamilyData){ window.loadFamilyData().then(fillBudgetSheet); } else fillBudgetSheet(); }
+  if(id==='sheet-budget'){ window.budgetScope='family'; if(window.loadFamilyData){ window.loadFamilyData().then(fillBudgetSheet); } else fillBudgetSheet(); }
   if(id==='sheet-theme') buildThemeChoices();
   if(id==='sheet-suggest'){ document.getElementById('sg-msg').value=''; selectChipByVal('sg-type','Idea'); }
   var el=document.getElementById(id);
@@ -28,8 +28,8 @@ function closeModals(){
     m.classList.remove('on'); m.style.transform=''; m.style.transition='';
   });
   if(!keepPa) document.getElementById('scrim').classList.remove('on');
-  editingTx=null; editSnap=null; exPhotos=[]; evPhotos=[]; memPick=null; memPickMulti=null;
-  setTxt('ex-title',L('Ghi khoản chi','Log an expense')); var del=document.getElementById('ex-del'); if(del)del.style.display='none';
+  editingTx=null; editingPTx=null; editSnap=null; exPhotos=[]; evPhotos=[]; memPick=null; memPickMulti=null;
+  setTxt('ex-title',L('Khoản chi','Expense')); var del=document.getElementById('ex-del'); if(del)del.style.display='none';
   resetDelArm();
 }
 /* new-event modal */
@@ -79,11 +79,26 @@ function openExpense(preset){
   document.getElementById('scrim').classList.add('on');
   var m=document.getElementById('expense-modal'); m.style.transform=''; m.style.transition=''; m.classList.add('on');
   var body=m.querySelector('.modal-body'); if(body)body.scrollTop=0;
-  if(editingTx) fillExpenseFromTx(); else prefillExpense();
+  if(editingTx) fillExpenseFromTx(); else if(editingPTx) fillPersonalExpenseFromTx(); else prefillExpense();
+  var editing = editingTx || editingPTx;
+  // Restore any fields a prior income (Thu) open may have hidden — the expense
+  // and edit layouts always start from everything visible; _applyExLayout below
+  // re-hides for income/personal on a fresh open.
+  ['ex-cat','ex-whofield','ex-photofield','bulk-add'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=''; });
+  var _ea=document.getElementById('ex-amt'); if(_ea) _ea.classList.remove('inc-amt');   // edit is always Chi; drop any leftover income tint
+  var _nl=document.getElementById('ex-note-lbl'); if(_nl && editing) _nl.textContent=L('Chi cho gì','What for?');
+  // A private personal edit has no member-split / photos — hide those like a
+  // personal add does.
+  if(editingPTx){ ['ex-whofield','ex-photofield','bulk-add'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; }); }
   // Scope picker: hidden while editing (scope is fixed once logged); resets to
   // family on every fresh open so a prior personal pick never carries over.
-  var sf=document.getElementById('ex-scopefield'); if(sf) sf.style.display = editingTx? 'none':'';
-  if(!editingTx){
+  var sf=document.getElementById('ex-scopefield'); if(sf) sf.style.display = editing? 'none':'';
+  // Type toggle is meaningless while editing (a logged row's kind is fixed).
+  var tf=document.getElementById('ex-typefield'); if(tf) tf.style.display = editing? 'none':'';
+  if(!editing){
+    // Fresh open resets to Chi unless a caller asks for Thu (preset.type).
+    exType=(preset&&preset.type==='income')?'income':'expense';
+    selectChipByVal('ex-type', exType);
     // Personal-first: money is the person's by default, shared to a space only
     // on purpose. Fall back to family only if the personal ledger isn't ready
     // (locked / not provisioned) so capture never dead-ends. Last pick is
@@ -97,14 +112,32 @@ function closeExpense(){ closeModals(); }
 // Open the shared expense modal pre-scoped to the personal ledger (Cá nhân tab).
 function openPersonalExpense(){ openExpense({scope:'personal'}); }
 function _lastScope(){ try{ return localStorage.getItem('fh-last-scope'); }catch(e){ return null; } }
-function pickExScope(btn){ pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} _applyExScope(btn.dataset.v); }
-function _applyExScope(v){
-  var personal=(v==='personal');
-  selectChipByVal('ex-scope', v);
-  var who=document.getElementById('ex-whofield'); if(who) who.style.display=personal?'none':'';   // no member-split in a private ledger
-  var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=personal?'none':'';     // personal photos not wired yet
-  var bulk=document.getElementById('bulk-add'); if(bulk) bulk.style.display=personal?'none':'';     // keep personal single for now
-  var t=document.getElementById('ex-title'); if(t) t.textContent = personal? L('Khoản chi cá nhân','Personal expense') : L('Ghi khoản chi','Log an expense');
+var exType='expense';                 // 'expense' (Chi) | 'income' (Thu) — set on fresh open
+function pickExScope(btn){ pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} selectChipByVal('ex-scope',btn.dataset.v); _applyExLayout(); }
+function pickExType(btn){
+  pick('ex-type',btn); exType=btn.dataset.v;
+  if(typeof renderBulk==='function') renderBulk();   // refresh the card header ("Khoản chi/thu") to the new type…
+  _applyExLayout();                                  // …then re-apply layout (income re-hides the "Thêm khoản" button)
+}
+function _applyExScope(v){ selectChipByVal('ex-scope', v); _applyExLayout(); }
+/* Single source of truth for the capture sheet's shape — reads BOTH the scope chip
+   and exType. Income (Thu) drops category / who / photos / bulk (a receipt-less,
+   single, member-less entry) and keeps only amount · when · note. Expense (Chi)
+   restores per scope, exactly as before. */
+function _applyExLayout(){
+  var personal=(chosen('ex-scope')==='personal'), income=(exType==='income');
+  var who=document.getElementById('ex-whofield'); if(who) who.style.display=(personal||income)?'none':'';   // no member-split in a private ledger / for income
+  var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=(personal||income)?'none':'';     // personal photos not wired yet; income has none
+  var bulk=document.getElementById('bulk-add'); if(bulk) bulk.style.display=(personal||income)?'none':'';     // keep personal + income single
+  var cat=document.getElementById('ex-cat'); if(cat) cat.style.display=income?'none':'';                      // income has no category
+  var note=document.getElementById('ex-note'); if(note) note.placeholder = income ? L('vd. Lương','e.g. Salary') : L('vd. Đi chợ','e.g. Grocery run');
+  // "What for?" is an expense question; income wants its source.
+  var nl=document.getElementById('ex-note-lbl'); if(nl) nl.textContent = income ? L('Nguồn','Source') : L('Chi cho gì','What for?');
+  // Tint the amount green for income so the kind reads at a glance (the sign lives in the toggle).
+  var amt=document.getElementById('ex-amt'); if(amt) amt.classList.toggle('inc-amt', income);
+  // Title reflects the TYPE (follows the Chi/Thu toggle) but never the scope — the
+  // Cá nhân/Gia đình chip already shows that, so no "cá nhân" suffix.
+  var t=document.getElementById('ex-title'); if(t) t.textContent = income ? L('Khoản thu','Income') : L('Khoản chi','Expense');
 }
 /* Drag a bottom sheet / modal DOWN to dismiss — axis-locked so it never fights scrolling. */
 function initSheetDrag(sheet, closeFn){
@@ -218,7 +251,7 @@ function prefillExpense(){
   // this clears to the preset rather than unconditionally to empty.
   exPhotos = (exPreset && exPreset.photos) ? exPreset.photos.slice() : [];
   renderExPhoto();
-  setTxt('ex-title',L('Ghi khoản chi','Log an expense'));
+  setTxt('ex-title',L('Khoản chi','Expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='none';
   renderBulk();
   if(bulkActive>=0 && bulkRows[bulkActive]) loadRow(bulkActive);
@@ -297,7 +330,7 @@ function resetCancelArm(){
   if(b){ b.classList.remove('armed'); b.textContent=L('Huỷ','Cancel'); }
 }
 function cancelExpense(){
-  if(editingTx || exPreset || !draftHasContent()){ resetCancelArm(); closeExpense(); return; }   // nothing persisted to lose → just close
+  if(editingTx || editingPTx || exPreset || !draftHasContent()){ resetCancelArm(); closeExpense(); return; }   // nothing persisted to lose → just close
   var b=document.querySelector('#expense-modal .modal-cancel');
   if(!cancelArmed){
     cancelArmed=true;
@@ -454,10 +487,12 @@ function renderBulk(){
   var html='';
   for(var i=0;i<bulkRows.length;i++){
     var r=bulkRows[i];
-    // Every card — collapsed or open — carries the same header: "Khoản chi N" + date.
+    // Header states the kind + index, e.g. "Khoản chi 1". It follows the Chi/Thu
+    // toggle (exType) rather than hardcoding "chi", so it's always the true type.
     // Missing category is signalled by the "Chọn danh mục" label inside the card, not
     // by highlighting the whole card, so every card stays visually consistent.
-    var head='<span class="bulk-idx">'+L('Khoản chi ','Item ')+(i+1)+'</span><span class="bulk-date">'+bulkDate(r.date)+'</span>';
+    var _kind = (exType==='income') ? L('Khoản thu ','Income ') : L('Khoản chi ','Expense ');
+    var head='<span class="bulk-idx">'+_kind+(i+1)+'</span><span class="bulk-date">'+bulkDate(r.date)+'</span>';
     var rm=(bulkRows.length>1) ? '<button type="button" class="bulk-x" onclick="bulkRemoveRow('+i+')" aria-label="'+L('Xoá khoản ','Remove item ')+(i+1)+'">✕</button>' : '';
     // After a save attempt, an incomplete row (no amount or no category) gets a red border.
     var bad=(bulkSaveTried && rowHasContent(r) && !(parseAmtBase(r.amt||'')>0 && catValid(r.cat)))?' invalid':'';
@@ -757,6 +792,7 @@ function bulkShowInvalid(){
 }
 /* ---- edit a logged expense ---- */
 var editingTx=null, editSnap=null;
+var editingPTx=null;     // id of a PRIVATE personal expense being edited via the capture sheet
 function pad2(n){ return n<10?'0'+n:''+n; }
 function isoDate(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
 function txDateInput(t){                                    // stored 'Jul 8' / 'Today' → yyyy-mm-dd for the date field
