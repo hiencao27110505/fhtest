@@ -127,10 +127,31 @@
     if (preset && preset.scope && typeof window.csvSetScope === 'function') {
       window.csvSetScope(preset.scope);
     }
-    var linked = false;
-    try { var st = window.fhMailboxState ? await window.fhMailboxState() : null; linked = !!(st && st.forwarding_alias); } catch (e) {}
-    if (!linked) return window.fhMailboxSheet && window.fhMailboxSheet();
-    return window.fhTxnReviewSheet && window.fhTxnReviewSheet();
+    /* BOTH transports count as set up, and checking only one was a real bug:
+       this asked about the forwarding alias alone, so someone already connected
+       by OAuth — no alias, a perfectly working mailbox, transactions arriving —
+       was sent to the forwarding setup screen and told to paste a filter into
+       Gmail. Either one means "you are set up"; neither means "pick one".
+
+       Asked in parallel because they are independent round trips and this runs
+       on a tap; one being slow must not add to the other. Each defaults to
+       false on failure, which routes to the chooser — offering setup to someone
+       who already has it is a recoverable annoyance, while hiding the queue
+       from someone whose mail is arriving is not. */
+    var fwd = false, oauth = false;
+    await Promise.all([
+      (async () => {
+        try { var st = window.fhMailboxState ? await window.fhMailboxState() : null; fwd = !!(st && st.forwarding_alias); } catch (e) {}
+      })(),
+      (async () => {
+        try { var c = window.fhAutoTxnConnection ? await window.fhAutoTxnConnection() : null; oauth = !!c; } catch (e) {}
+      })(),
+    ]);
+
+    if (fwd || oauth) return window.fhTxnReviewSheet && window.fhTxnReviewSheet();
+    return window.fhEmailSetupChooser
+      ? window.fhEmailSetupChooser(preset)
+      : (window.fhMailboxSheet && window.fhMailboxSheet());
   };
 
   /* One row -> the fields the review screen needs.

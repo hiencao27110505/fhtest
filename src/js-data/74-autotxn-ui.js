@@ -240,6 +240,71 @@
     fhAutoTxnSheet();
   };
 
+  /* ── which transport? ────────────────────────────────────────────────────
+     Two ways for bank mail to reach the ledger, and until now nothing asked.
+
+     "Khoản thu chi từ email" routed on the FORWARDING state alone, so someone
+     already connected by OAuth — no alias, a perfectly working mailbox — was
+     sent to the forwarding setup screen and told to paste a filter into Gmail.
+     The two transports have always been separate journeys; the entry point that
+     is common to both was the one place that had to know they exist.
+
+     ORDER IS THE RECOMMENDATION. Direct read is first because it is better for
+     almost everyone who can use it: one tap instead of a filter rule pasted
+     into Gmail, and it reads history rather than starting from now. Forwarding
+     is second and stays because it is the only thing that works for a mailbox
+     Google does not host, which direct read cannot serve at all.
+
+     Neither is described as "recommended" in the copy. The difference that
+     actually decides it is whether their bank writes to a Gmail address, and
+     the person knows that and we do not — so the rows state what each one DOES
+     and let them match it to their own situation. */
+  window.fhEmailSetupChooser = function (preset) {
+    const scope = (preset && preset.scope === 'personal') ? 'personal' : null;
+    _fhSheet(
+      '<div class="mbx-hero">' + _mbxGlyph('mail') + '</div>' +
+      '<div class="sheet-h">' + _esc(L('Ghi giao dịch từ email', 'Log transactions from email')) + '</div>' +
+      '<div class="sheet-sub">' + _esc(L(
+        'Ngân hàng đã gửi email cho bạn mỗi lần có giao dịch. Chọn cách để tụi mình đọc được những email đó.',
+        'Your bank already emails you about every transaction. Pick how we should get to those emails.')) + '</div>' +
+
+      '<div class="cf-cta">' +
+        '<button class="cc-row" onclick="fhEmailSetupPick(\'direct\'' + (scope ? ", '" + scope + "'" : '') + ')">' +
+          '<span class="cc-ic">' + _mbxGlyph('auto') + '</span>' +
+          '<span class="cc-t">' +
+            _esc(L('Kết nối Gmail', 'Connect Gmail')) +
+            '<span class="cc-sub">' + _esc(L(
+              'Một lần cấp quyền. Đọc được cả giao dịch cũ.',
+              'Grant access once. Picks up past transactions too.')) + '</span>' +
+          '</span>' + _atxChev() +
+        '</button>' +
+        '<button class="cc-row" onclick="fhEmailSetupPick(\'forward\')">' +
+          '<span class="cc-ic">' + _mbxGlyph('mail') + '</span>' +
+          '<span class="cc-t">' +
+            _esc(L('Chuyển tiếp email', 'Forward your email')) +
+            '<span class="cc-sub">' + _esc(L(
+              'Bạn tạo một quy tắc trong hộp thư. Dùng được với email ngoài Gmail.',
+              'You add a rule in your mailbox. Works with non-Gmail addresses too.')) + '</span>' +
+          '</span>' + _atxChev() +
+        '</button>' +
+      '</div>' +
+
+      '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
+    );
+  };
+
+  function _atxChev() {
+    return '<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+  }
+
+  /* Routes to the chosen journey. Each owns its own explanation from here on,
+     which is why this hands off rather than trying to host both. */
+  window.fhEmailSetupPick = function (which, scope) {
+    if (which === 'forward') return window.fhMailboxSheet && window.fhMailboxSheet();
+    return window.fhAutoTxnSheet && window.fhAutoTxnSheet(scope ? { scope: scope } : undefined);
+  };
+
   /* The single entry point, and the only place that decides which of the two
      screens someone sees. Already connected → status, where the off-switch
      lives. Otherwise → the offer. Same shape as fhMailboxSheet.
@@ -253,7 +318,11 @@
      someone has closed the sheet or moved to the address form cannot yank the
      screen out from under them. */
   let _atxSheetSeq = 0;
-  window.fhAutoTxnSheet = function () {
+  window.fhAutoTxnSheet = function (preset) {
+    /* Arriving from the Cá nhân tab means "these are mine", the same affordance
+       openPersonalExpense gives the expense modal. Only ever narrows to
+       personal — a family entry point must not silently widen the seal. */
+    if (preset && preset.scope === 'personal') _atxScope = 'personal';
     const seq = ++_atxSheetSeq;
     _atxConnection().then(function (conn) {
       if (conn && seq === _atxSheetSeq) fhAutoTxnStatus(conn);
