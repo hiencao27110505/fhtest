@@ -92,14 +92,13 @@
      ignores. Typing one is a different journey, and it carries its own CTA. */
   function _atxAcctRow() {
     const email = _atxLoginEmail();
-    return '<div class="atx-acct" id="atx-acct">' +
-      '<div class="atx-acct-ic">' + _mbxGlyph('mail') + '</div>' +
-      '<div class="atx-acct-txt">' +
-        '<div class="atx-acct-lbl">' + _esc(L('Đọc thư từ', 'Reading from')) + '</div>' +
-        '<div class="atx-acct-val">' + _esc(email ||
-          L('Tài khoản bạn chọn ở màn hình Google', 'The account you pick on Google’s screen')) + '</div>' +
+    return '<div class="atx-row" id="atx-acct">' +
+      '<div class="atx-row-h">' +
+        '<span class="atx-row-lbl">' + _esc(L('Đọc thư từ', 'Reading from')) + '</span>' +
+        '<button class="atx-row-act" onclick="fhAutoTxnEmailSheet()">' + _esc(L('Đổi', 'Change')) + '</button>' +
       '</div>' +
-      '<button class="atx-acct-sw" onclick="fhAutoTxnEmailSheet()">' + _esc(L('Đổi', 'Change')) + '</button>' +
+      '<div class="atx-row-val">' + _esc(email ||
+        L('Tài khoản bạn chọn ở màn hình Google', 'The account you pick on Google’s screen')) + '</div>' +
       '</div>';
   }
 
@@ -127,7 +126,7 @@
   window.fhAutoTxnPickScope = function (v) {
     _atxScope = (v === 'family') ? 'family' : 'personal';
     const box = document.getElementById('atx-scope');
-    if (box) Array.prototype.forEach.call(box.querySelectorAll('.choice'), function (b) {
+    if (box) Array.prototype.forEach.call(box.querySelectorAll('.atx-seg'), function (b) {
       b.classList.toggle('on', b.dataset.v === _atxScope);
     });
     const note = document.getElementById('atx-scope-note');
@@ -165,7 +164,7 @@
   window.fhAutoTxnPickDays = function (v) {
     _atxDays = _atxClampDays(v);
     const box = document.getElementById('atx-days');
-    if (box) Array.prototype.forEach.call(box.querySelectorAll('.choice'), function (b) {
+    if (box) Array.prototype.forEach.call(box.querySelectorAll('.atx-seg'), function (b) {
       b.classList.toggle('on', Number(b.dataset.v) === _atxDays);
     });
     const custom = document.getElementById('atx-days-custom');
@@ -181,7 +180,7 @@
     _atxDays = _atxClampDays(raw);
     if (Number(raw) > ATX_MAX_DAYS) el.value = String(ATX_MAX_DAYS);
     const box = document.getElementById('atx-days');
-    if (box) Array.prototype.forEach.call(box.querySelectorAll('.choice'), function (b) {
+    if (box) Array.prototype.forEach.call(box.querySelectorAll('.atx-seg'), function (b) {
       b.classList.toggle('on', Number(b.dataset.v) === _atxDays);
     });
     const note = document.getElementById('atx-days-note');
@@ -206,11 +205,12 @@
 
   function _atxDaysRow() {
     const chip = (v, label) =>
-      '<button class="choice' + (_atxDays === v ? ' on' : '') + '" data-v="' + v + '" ' +
+      '<button class="atx-seg' + (_atxDays === v ? ' on' : '') + '" data-v="' + v + '" ' +
       'onclick="fhAutoTxnPickDays(' + v + ')">' + _esc(label) + '</button>';
-    return '<div class="field" id="atx-daysfield">' +
-      '<label>' + _esc(L('Đọc lại bao xa?', 'How far back?')) + '</label>' +
-      '<div class="choices" id="atx-days">' +
+    return '<div class="atx-row atx-row-last" id="atx-daysfield">' +
+      '<div class="atx-row-h"><span class="atx-row-lbl">' +
+        _esc(L('Đọc lại bao xa', 'How far back')) + '</span></div>' +
+      '<div class="atx-segs" id="atx-days">' +
         chip(30, L('30 ngày', '30 days')) +
         chip(60, L('60 ngày', '60 days')) +
         chip(90, L('90 ngày', '90 days')) +
@@ -218,7 +218,7 @@
       '<input id="atx-days-custom" class="atx-days-in" inputmode="numeric" ' +
         'placeholder="' + _escAttr(L('hoặc nhập số ngày (tối đa 365)', 'or type a number of days (max 365)')) + '" ' +
         'oninput="fhAutoTxnTypeDays(this)"/>' +
-      '<div class="hint" id="atx-days-note">' + _esc(_atxDaysNote()) + '</div>' +
+      '<div class="atx-row-note" id="atx-days-note">' + _esc(_atxDaysNote()) + '</div>' +
       '</div>';
   }
 
@@ -232,15 +232,16 @@
         'Giao dịch sẽ vào ví cá nhân của bạn, chỉ mình bạn mở được.',
         'Transactions go to your personal wallet, where only you can open them.')) + '</span></div>';
     }
-    return '<div class="field" id="atx-scopefield">' +
-      '<label>' + _esc(L('Ghi vào đâu?', 'Where should these go?')) + '</label>' +
-      '<div class="choices" id="atx-scope">' +
-        '<button class="choice' + (_atxScope === 'personal' ? ' on' : '') + '" data-v="personal" ' +
+    return '<div class="atx-row" id="atx-scopefield">' +
+      '<div class="atx-row-h"><span class="atx-row-lbl">' +
+        _esc(L('Ghi vào đâu', 'Where these go')) + '</span></div>' +
+      '<div class="atx-segs" id="atx-scope">' +
+        '<button class="atx-seg' + (_atxScope === 'personal' ? ' on' : '') + '" data-v="personal" ' +
           'onclick="fhAutoTxnPickScope(\'personal\')">🔒 ' + _esc(L('Cá nhân', 'Personal')) + '</button>' +
-        '<button class="choice' + (_atxScope === 'family' ? ' on' : '') + '" data-v="family" ' +
+        '<button class="atx-seg' + (_atxScope === 'family' ? ' on' : '') + '" data-v="family" ' +
           'onclick="fhAutoTxnPickScope(\'family\')">🏡 ' + _esc(L('Gia đình', 'Family')) + '</button>' +
       '</div>' +
-      '<div class="hint" id="atx-scope-note">' + _esc(_atxScopeNote()) + '</div>' +
+      '<div class="atx-row-note" id="atx-scope-note">' + _esc(_atxScopeNote()) + '</div>' +
       '</div>';
   }
 
@@ -407,6 +408,15 @@
     _atxConnection().then(function (conn) {
       if (conn && seq === _atxSheetSeq) fhAutoTxnStatus(conn);
     });
+
+    /* STEP 1 OF 2 — what this is and why it is safe.
+    
+       Split from the settings because one sheet was carrying both, and on a
+       real phone it read as a wall: three assurances, a scope note Google's
+       breadth obliges us to print, an account row, two chip groups, a free
+       field and a CTA, all stacked. The person could not tell what they were
+       being asked. Nothing here needs a decision, so nothing here has a
+       control — this screen only has to earn the tap. */
     _fhSheet(
       '<div class="mbx-hero">' + _atxGlyph('auto') + '</div>' +
       '<div class="sheet-h">' + _esc(L('Tự động ghi giao dịch', 'Automatic transaction logging')) + '</div>' +
@@ -418,25 +428,51 @@
         _mbxAssure('eyeoff', L('Chỉ biên lai và giao dịch', 'Only receipts and transactions'),
           L('Tụi mình chỉ tìm email từ ngân hàng và cửa hàng. Những thư khác không bao giờ được tải về.',
             'We only look for mail from banks and merchants. Everything else is never downloaded.')) +
-        _mbxAssure('lock', L('Chỉ gia đình bạn mở được', 'Only your family can open it'),
-          L('Giao dịch được niêm phong ngay khi lưu, chỉ thiết bị của gia đình bạn mở được.',
-            'Transactions are sealed the moment they are stored, and only your family’s devices can open them.')) +
+        _mbxAssure('lock', L('Chỉ bạn mở được', 'Only you can open it'),
+          L('Giao dịch được niêm phong ngay khi lưu, chỉ thiết bị của bạn mở được.',
+            'Transactions are sealed the moment they are stored, and only your devices can open them.')) +
         _mbxAssure('check', L('Bạn duyệt rồi mới vào sổ', 'You approve before anything is logged'),
-          L('Mỗi khoản đều nằm chờ bạn xem qua. Không có gì tự vào sổ chi tiêu của gia đình.',
-            'Every transaction waits for you to look it over. Nothing enters your family ledger on its own.')) +
+          L('Mỗi khoản đều nằm chờ bạn xem qua. Không có gì tự vào sổ chi tiêu.',
+            'Every transaction waits for you to look it over. Nothing enters your ledger on its own.')) +
       '</div>' +
 
       '<div class="mbx-note">' + _mbxGlyph('mail') + '<span>' + _esc(L(
         'Màn hình của Google sẽ xin quyền đọc thư. Google chỉ có đúng một quyền như vậy và nó bao trùm cả hộp thư, không có quyền nào hẹp hơn. Tụi mình chỉ tải email ngân hàng, và bạn gỡ quyền trong tài khoản Google bất cứ lúc nào.',
         'Google’s screen asks for permission to read your mail. Google offers exactly one such permission and it covers the whole mailbox, there is no narrower one. We only ever fetch bank email, and you can revoke access in your Google account at any time.')) + '</span></div>' +
 
-      _atxAcctRow() +
-      _atxScopeRow() +
-      _atxDaysRow() +
+      '<button class="cta" onclick="fhAutoTxnSetup()">' +
+        _esc(L('Tiếp tục', 'Continue')) + '</button>' +
+      '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
+    );
+  };
+
+  /* STEP 2 OF 2 — the three decisions, as a grouped list.
+  
+     Every row is the same shape: a label, the current answer, and a way to
+     change it. That sameness is the point — three questions that look like one
+     kind of thing are read as one screen, where three differently-shaped
+     controls stacked up read as a form to fill in.
+     
+     The answers are all pre-filled with a working default, so this screen is
+     legible without being touched: someone who reads nothing and taps the
+     button gets their own mailbox, sealed to themselves, ninety days back. */
+  window.fhAutoTxnSetup = function () {
+    _atxSheetSeq++;
+    _fhSheet(
+      '<div class="sheet-h">' + _esc(L('Vài lựa chọn nhanh', 'A few quick choices')) + '</div>' +
+      '<div class="sheet-sub">' + _esc(L(
+        'Đổi được sau, nên cứ để mặc định cũng ổn.',
+        'All of these can change later, so the defaults are a fine answer.')) + '</div>' +
+
+      '<div class="atx-group">' +
+        _atxAcctRow() +
+        _atxScopeRow() +
+        _atxDaysRow() +
+      '</div>' +
 
       '<button class="cta" id="atx-go" onclick="fhAutoTxnGrant()">' +
-        _esc(L('Bắt đầu: cho phép đọc email', 'Start by granting email access')) + '</button>' +
-      '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Để sau', 'Not now')) + '</button>'
+        _esc(L('Cho phép đọc email', 'Allow email access')) + '</button>' +
+      '<button class="btn-skip" onclick="fhAutoTxnSheet()">' + _esc(L('Quay lại', 'Back')) + '</button>'
     );
   };
 

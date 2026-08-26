@@ -66,8 +66,49 @@ t('the chooser carries that scope into the direct-read journey',
 t('and the sheet only ever NARROWS to personal — a family entry must not widen the seal',
   /if \(preset && preset\.scope === 'personal'\) _atxScope = 'personal';/.test(autotxn));
 
+console.log('\n-- the connect flow is two steps, not one wall --');
+{
+  const step1 = autotxn.slice(autotxn.indexOf('window.fhAutoTxnSheet = function'),
+                              autotxn.indexOf('window.fhAutoTxnSetup = function'));
+  const step2 = autotxn.slice(autotxn.indexOf('window.fhAutoTxnSetup = function'),
+                              autotxn.indexOf('/* ── the consent URL'));
+
+  /* One sheet used to carry three assurances, the Google scope note, an account
+     row, two chip groups, a free field and a CTA. On a phone that reads as a
+     wall — the person cannot tell what they are being asked. Step 1 has to earn
+     the tap and nothing else, so it holds no controls at all. */
+  t('step 1 asks for no decisions',
+    !/_atxScopeRow|_atxDaysRow|_atxAcctRow/.test(step1));
+  t('step 1 still prints the honest Google-scope note',
+    /không có quyền nào hẹp hơn/.test(step1));
+  t('step 1 leads to step 2 rather than straight to Google',
+    /fhAutoTxnSetup\(\)/.test(step1) && !/fhAutoTxnGrant\(\)/.test(step1));
+
+  t('step 2 carries all three decisions',
+    /_atxAcctRow\(\)/.test(step2) && /_atxScopeRow\(\)/.test(step2) && /_atxDaysRow\(\)/.test(step2));
+  t('and presents them as ONE group, not three stacked cards',
+    /atx-group/.test(step2));
+  t('step 2 is where consent is actually requested', /fhAutoTxnGrant\(\)/.test(step2));
+  t('and it is reversible — a two-step flow with no way back is a trap',
+    /fhAutoTxnSheet\(\)/.test(step2));
+
+  // Every answer pre-filled, so the screen is legible without being touched.
+  t('every choice has a working default',
+    /_atxScope = 'personal'/.test(autotxn) && /_atxDays = 90/.test(autotxn));
+}
+
 console.log('\n-- the styling the chooser depends on exists --');
 t('.cc-sub is defined', /\.cc-sub\{/.test(css));
+{
+  const mbx = fs.readFileSync(path.join(__dirname, '..', 'src', 'css', '74-mailbox.css'), 'utf8');
+  for (const cls of ['atx-group', 'atx-row', 'atx-segs', 'atx-seg']) {
+    t('.' + cls + ' is styled', new RegExp('\\.' + cls + '\\{').test(mbx));
+  }
+  t('the segmented control respects reduced motion (DESIGN)',
+    /prefers-reduced-motion[\s\S]{0,120}atx-seg/.test(mbx));
+  t('rows divide with a hairline BETWEEN them, not around each',
+    /\.atx-row:not\(:last-child\)\{border-bottom/.test(mbx));
+}
 t('and uses a semantic token, not a raw colour (DESIGN §7)',
   /\.cc-sub\{[^}]*color:var\(--/.test(css));
 

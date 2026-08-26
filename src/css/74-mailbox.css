@@ -86,14 +86,52 @@
    different address only means anything once the person actually signs into
    that Google account on Google's screen, so "change" hands the choice to
    Google's own account picker rather than pretending we can take it here. */
+/* ── step 2's settings, as one inset grouped list ────────────────────────────
+   Three questions that look like one kind of thing read as one screen; three
+   differently-shaped controls stacked up read as a form to fill in. So every
+   row is the same shape — label, current answer, a way to change it — and the
+   group carries the surface and the corners rather than each row doing it.
+
+   Hairline dividers BETWEEN rows only (:not(:last-child)), so the group reads
+   as a single object rather than three stacked cards. */
+.atx-group{background:var(--surface);border-radius:14px;overflow:hidden;margin:6px 0 22px}
+.atx-row{padding:14px 16px}
+.atx-row:not(:last-child){border-bottom:1px solid var(--divider)}
+.atx-row-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-height:20px}
+/* Sentence case, not uppercase: this is a question, and shouting it makes three
+   labels compete with the answers underneath them. */
+.atx-row-lbl{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:0}
+.atx-row-act{border:0;background:none;font:inherit;font-size:13.5px;font-weight:650;
+  color:var(--brand-ink);cursor:pointer;padding:4px 0 4px 8px;margin:-4px 0}
+.atx-row-val{margin-top:3px;font-size:15px;font-weight:600;letter-spacing:-.01em;
+  color:var(--ink);overflow-wrap:anywhere;line-height:1.35}
+/* The consequence of the choice, in the person's words. Sits under the control
+   it explains so it reads as an answer to "what does that mean", not as a
+   caption floating between two questions. */
+.atx-row-note{margin-top:8px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+
+/* Segmented control. One track, equal segments, the selected one lifted —
+   rather than separate pills, which read as three independent buttons and lose
+   the "these are alternatives" meaning that makes a segmented control legible
+   at a glance. */
+.atx-segs{display:flex;gap:4px;margin-top:9px;padding:3px;background:var(--white);
+  border-radius:11px}
+.atx-seg{flex:1;min-height:38px;border:0;border-radius:9px;background:none;font:inherit;
+  font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;display:flex;
+  align-items:center;justify-content:center;gap:5px;white-space:nowrap;
+  transition:background .15s,color .15s}
+.atx-seg.on{background:var(--brand-tint);color:var(--brand-ink)}
+.atx-seg:active{transform:scale(.97)}
+@media (prefers-reduced-motion:reduce){.atx-seg{transition:none}.atx-seg:active{transform:none}}
+
 /* The free-entry half of the backfill window picker, sitting under the presets.
    Deliberately quieter than a primary field: the chips are the answer for
    almost everyone, and this is the escape hatch — so it reads as an alternative
    to them rather than as a second question. inputmode numeric, never
    type=number (DESIGN §6): the spinner is useless on a phone and Safari's
    stepper fights a clamped value. */
-.atx-days-in{width:100%;margin-top:8px;padding:9px 12px;border:1px solid var(--line);
-  border-radius:10px;background:var(--surface);font:inherit;font-size:13.5px;color:var(--ink)}
+.atx-days-in{width:100%;margin-top:7px;padding:10px 12px;border:1px solid var(--line);
+  border-radius:10px;background:var(--white);font:inherit;font-size:13.5px;color:var(--ink)}
 .atx-days-in::placeholder{color:var(--muted);font-size:12.5px}
 .atx-days-in:focus{outline:2px solid var(--brand-ink);outline-offset:1px;border-color:transparent}
 
