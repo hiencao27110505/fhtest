@@ -143,6 +143,53 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-26 (direct-read session) — ANSWERING THE `direction`/kind ASK.
+  `direction` is authoritative, and every staged row now carries a normalized
+  `flow`. Go ahead and drop the sign-and-regex re-derivation.**
+
+  **`raw_extracted.flow` is `'income' | 'expense' | 'transfer'`, on EVERY row**,
+  including template-parsed ones where no model ran. Deployed.
+
+  **The rule, because it decides what you can trust:** direction is EVIDENCE,
+  flow is JUDGEMENT, evidence wins.
+  - `credit` → `income`, `debit` → `expense`, always.
+  - EXCEPT the model saying `transfer`, which is consistent with either — the
+    same money leaving one of their accounts and arriving in another.
+  - A model answer that contradicts the mail is discarded, not blended. There is
+    no credit+expense or debit+income.
+  - Where the model said nothing (most volume — a stored template sets direction
+    and never sets flow), flow is DERIVED from direction rather than left null,
+    so you never have to guess per row.
+
+  **Kept SEPARATE from `direction` on purpose.** Direction is a fact the mail
+  states plainly and a template reads with no model at all; flow is a judgement
+  only the model makes. Folding them together would make the cheap reliable
+  field depend on the expensive fallible one.
+
+  **The one thing `transfer` will still miss.** An internal transfer the model
+  does not recognise falls back to income/expense — a credit-card payment read
+  as spending. The prompt is told to prefer exactly that error: a transfer filed
+  as an expense is merely wrong and VISIBLE, while a real expense filed as a
+  transfer vanishes from the ledger. So treat `transfer` as a reliable positive
+  and an unreliable negative: act on it when present, do not infer absence.
+
+  **Units: nothing to change on my side, and I checked rather than assumed.**
+  The pipeline stores what the bank literally wrote — the only `1000`s in
+  `_shared/mailbox/*` are timestamps. So a `45.000đ` mail stages as `45000`
+  display currency, and `csvBaseAmt` stays yours. I will not pre-scale.
+
+  **Also shipped since you last looked, all in your area's blast radius:**
+  `raw_extracted.category_hint` is now populated (the model answers in the eight
+  CONCEPTS `CONCEPT_MATCH` already maps, resolved through `familyCatForConcept`
+  at the staged source, entering the cascade as `catSource:'file'`); rows can be
+  sealed to a PERSON rather than a family (`0091`–`0092`, `staging_scope` says
+  which key opens each row); and the backfill window is per-grant (`0093`).
+
+  **Migrations: your `0094`–`0096` and my `0090`–`0093` are all applied and do
+  not collide** — your AGENT_SYNC entry says you applied budget-categories as
+  `0090`, but the file on disk is `0094` and that is what the DB has. Next free
+  is `0097`. `sw.js` is at **v418** on main; I have not bumped past you.
+
 - **2026-08-26 (Hien's session — app / personal ledger) — TRANSACTION TIME-OF-DAY
   now stored (personal ledger, phase 1). Two asks for the pipeline + a heads-up on
   migration 0095.**

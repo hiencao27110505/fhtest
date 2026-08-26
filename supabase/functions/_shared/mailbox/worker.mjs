@@ -352,6 +352,7 @@ function _toReading(x, message) {
     channel: x.channel || null,
     accountTail: x.account_masked || null,
     category: x.category || null,
+    flow: x.flow || null,
     senderAuth: message.dkim,
   };
 }

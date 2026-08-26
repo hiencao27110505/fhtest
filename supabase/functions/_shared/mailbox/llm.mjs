@@ -56,6 +56,20 @@ export const EXTRACTION_SYSTEM_PROMPT =
   'meaningful — a human reviews it downstream.\n\n' +
   'Amounts must be the raw number with no currency symbol or thousands separators. If the email ' +
   'states a status (success/failed/pending), extract it; otherwise null.\n\n' +
+  'flow: what KIND of movement this is, as one of exactly these words.\n' +
+  '  income   — money that is genuinely the person\'s to spend: salary, a refund, ' +
+  'interest, a p2p transfer someone sent them.\n' +
+  '  expense  — money leaving for goods, services, bills or a p2p transfer they sent.\n' +
+  '  transfer — the SAME money moving between accounts the person already owns, and ' +
+  'therefore neither income nor spending: a credit-card bill payment, a top-up of a ' +
+  'wallet from a bank account, a move between own savings and current accounts. ' +
+  'Read the memo and the counterparty for this — a counterparty that names a card, a ' +
+  'wallet, or the person\'s own name is the signal. When in doubt between transfer ' +
+  'and the other two, answer income or expense: calling a real expense a transfer ' +
+  'hides it from the ledger entirely, while a transfer filed as an expense is merely ' +
+  'wrong and visible.\n' +
+  'flow must agree with direction: credit is income or transfer, debit is expense or ' +
+  'transfer. Never credit+expense or debit+income.\n\n' +
   'category: what the money was spent ON, as ONE of exactly these words — ' +
   'Housing, Groceries, Clothing, Shopping, Transport, Dining, Fun, Others. ' +
   'Judge from the merchant and the memo together: a coffee shop is Dining, a ' +
@@ -91,6 +105,21 @@ export const EXTRACTION_SCHEMA = {
        through the whole cascade anyway — while looking like an answer.
        Constraining to concepts means the guess is portable across families that
        share no category names at all. */
+    /* WHERE THE MONEY LANDS, which `direction` alone cannot answer.
+    
+       A credit-card bill payment is a debit and is not spending; a wallet top-up
+       is a debit and is not spending; both are the same money moving between
+       accounts the person already owns. Filing either as an expense double-counts
+       against the purchases already recorded on that card.
+    
+       Kept SEPARATE from `direction` rather than folded into it: direction is a
+       fact the mail states plainly and the template path can read without a model,
+       while flow is a judgement about what the movement MEANS. Collapsing them
+       would make the cheap, reliable field depend on the expensive, fallible one. */
+    flow: {
+      type: ['string', 'null'],
+      enum: ['income', 'expense', 'transfer', null],
+    },
     category: {
       type: ['string', 'null'],
       enum: ['Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others', null],
@@ -99,7 +128,7 @@ export const EXTRACTION_SCHEMA = {
   required: [
     'is_transaction', 'transaction_type', 'source_provider', 'occurred_at',
     'amount', 'currency', 'direction', 'counterparty', 'memo', 'reference_number',
-    'status', 'account_masked', 'category',
+    'status', 'account_masked', 'category', 'flow',
   ],
   additionalProperties: false,
 };

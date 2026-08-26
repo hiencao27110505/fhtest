@@ -62,6 +62,33 @@ export const TXN_TYPES = ['bank_txn', 'subscription', 'ecommerce_receipt', 'p2p_
  * rule a claim we cannot support — and that rule's job is to STOP a dedup, so a
  * wrong claim there hides nothing but does let a genuine duplicate through.
  */
+/**
+ * The flow a row lands under, reconciled against the direction.
+ *
+ * Separate function because the rule is a claim about MEANING, not a mapping:
+ * "direction is evidence, flow is judgement, evidence wins." Inlining it would
+ * bury that in a ternary and make the fallback look like a default.
+ */
+function _flowFor(reading) {
+  const said = reading.flow;
+
+  // The one judgement direction cannot contradict: a transfer is the same money
+  // moving between the person's own accounts, so it is consistent with a credit
+  // (money arriving in one) and a debit (leaving the other) alike.
+  if (said === 'transfer') return 'transfer';
+
+  // Otherwise the mail's own statement decides, and the model's opinion is
+  // discarded rather than blended — a credit is income, a debit is expense.
+  // This is also the path every TEMPLATE-parsed row takes, where no model ran
+  // and `said` is simply absent.
+  if (reading.direction === 'credit') return 'income';
+  if (reading.direction === 'debit') return 'expense';
+
+  // No direction at all. buildStagedRow refuses such a row upstream, so this is
+  // unreachable in practice and returns null rather than inventing a flow.
+  return said || null;
+}
+
 export function transactionTypeFor(kind) {
   return kind === 'bank' ? 'bank_txn' : 'ecommerce_receipt';
 }
@@ -131,6 +158,26 @@ export async function buildStagedRow(args) {
       transaction_type: transactionType,
       occurred_at: occurredAt,
       category_hint: reading.category || null,
+
+      /* WHERE THE MONEY LANDS. The client routes on this now — a credit files
+         to the income book, a transfer should file to neither — so a wrong value
+         is no longer cosmetic: a card payment filed as income inflates earnings,
+         and a salary filed as spending inflates the budget.
+    
+         RECONCILED, not trusted. `direction` is a fact the mail states and a
+         stored template can read with no model at all; `flow` is a judgement only
+         the model makes. So where they disagree, direction wins and the
+         judgement is discarded — a credit can only be income or transfer, a
+         debit only expense or transfer. And where the model said nothing (every
+         template-parsed row, which is most volume), it is DERIVED from direction
+         rather than left null, so the client never has to guess.
+    
+         The cost of that fallback is the only case it gets wrong: an untagged
+         internal transfer reads as income or expense. That is the failure the
+         prompt is told to prefer, because a transfer filed as an expense is
+         merely wrong and visible, while a real expense filed as a transfer
+         vanishes from the ledger. */
+      flow: _flowFor(reading),
       _transport: 'oauth_direct',
       _sender_auth: reading.senderAuth || null,
     },
