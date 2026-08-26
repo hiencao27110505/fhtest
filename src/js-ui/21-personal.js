@@ -277,8 +277,9 @@ function persRenderPeriod(){
   if(p===0){ var d=persDayChartHTML(pd); wowEl.innerHTML=d.html; }
   else if(p===2){ var mo=persMonthChartHTML(pd, lm); wowEl.innerHTML=mo.html; }
   else { var wk=persWeekData(pd.daily, pd.dom, pd.dim); wowEl.innerHTML=(typeof cfWeekChartHTML==='function')?cfWeekChartHTML(wk,false):''; }
-  var gp=persGuideParts(pk);
-  if(typeof fhGuideRender==='function') fhGuideRender('pcf-daily', pk, gp, 1);
+  var blockWin=false;
+  if(pk!=='month' && typeof fhGuideCompute==='function'){ var gm=fhGuideCompute(persGuideParts('month'), 1); blockWin=!!(gm && gm.state==='worse' && gm.hasBudget); }   // MoM gate: month failing ⇒ no day/week win
+  if(typeof fhGuideRender==='function') fhGuideRender('pcf-daily', pk, persGuideParts(pk), 1, blockWin);
   var dots=document.getElementById('pcf-dots'); if(dots){ var dh=''; for(var k=0;k<3;k++) dh+='<i class="'+(k===p?'on':'')+'" onclick="persSetPeriod('+k+')"></i>'; dots.innerHTML=dh; }
   var note=document.getElementById('pcf-note');
   if(note){ if(!P.mirrorRan){ note.className='cf-note flat'; note.innerHTML='Đang đồng bộ các khoản bạn đã ghi cho gia đình…'; } else { note.className='cf-note'; note.innerHTML=''; } }
