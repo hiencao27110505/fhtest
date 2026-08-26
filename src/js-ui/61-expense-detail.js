@@ -71,7 +71,7 @@ function renderExpenseDetail(){
   html+='<div class="exd-meta">'
     + _exdMetaRow(L('Danh mục','Category'), '<span class="exd-catico">'+s[0]+'</span>'+esc(t.cat))
     + _exdMetaRow(L('Người trả','Paid by'), '<span class="exd-av" style="'+window.fhAvStyle(wd)+'">'+esc(window.fhAvIni(wd))+'</span>'+esc(wd.name))
-    + _exdMetaRow(L('Ngày','Date'), esc(_exdDate(t)))
+    + _exdMetaRow(L('Ngày','Date'), esc(_exdDate(t)) + (t.time ? ' · '+esc(t.time) : ''))
     +'</div>';
   var ph=t.photos||(t.photo?[t.photo]:[]);
   if(ph.length){
