@@ -467,6 +467,7 @@ watch auto-renewal.
 | `persist.py` bridge | Lives in the backend team's deployment source; built, 445 of their tests green, unmerged on `claude/email-reading-integration-ddwqd2` pending their review. Would give this ledger their parser's validation, wider sender list and auto-categories. |
 | `category_hint` consumption | Staged rows carry it; the review screen ignores it. Wiring it would auto-fill categories. |
 | Sender-auth enforcement | Verdict recorded on every row; enforcement earns its place on observed data. |
+| **A second mailbox** | `mailbox_grants` is `UNIQUE (user_id, provider)`, so connecting another Google account **replaces** the first rather than joining it. Deliberate from when a mailbox could only mean one thing; now the main thing between us and "work mail to the family ledger, personal mail to mine". Widening the index to `(user_id, provider, email)` is most of it — the worker already loops over grants and resolves each independently — plus a list instead of a single status screen. Stated in the UI meanwhile, on the status screen and in the change-address sheet, because "Đổi" replacing a mailbox is not something anyone would guess. |
 
 ---
 
@@ -481,6 +482,23 @@ which bank accounts are yours.**
 `read.extraction.source_provider || sender.provider`, so the *model's* label wins when it
 supplies one — producing "MBBank" and "MB" for one bank. `canonicalProvider` absorbs it
 at dedup time, but the review screen shows the raw string.
+
+**Auto-routing one mailbox to both ledgers is closer than it looks.** The
+DESTINATION is already per-row — `csvRowScope` is evaluated per candidate at
+review — so one mailbox can already feed both. What is fixed per-grant is only
+which key protects a row *in transit*, and personal-by-default makes that
+survivable: a personal-sealed row can be promoted outward, never the reverse.
+So the remaining work is a rule engine, not a crypto change. The signals are
+already staged (merchant, amount, direction, `category_hint`, `account_masked`),
+and the natural shape is the one categories already use — learn from what the
+person actually does rather than asking them to configure rules.
+
+**`account_masked` is the strongest routing signal we do not use.** Most
+households split by ACCOUNT, not by merchant — "anything on the ...4412 card is
+mine" is one rule where merchant rules would be dozens. It is staged on every
+row. What is missing is any record of WHICH accounts are yours, which is the
+same gap blocking internal-transfer detection, so the two would pay for it
+together.
 
 **Metadata is not sealed, and metadata is information.** Row counts and `occurred_at` are
 readable by anyone with database access: how many transactions in May, an unusually busy

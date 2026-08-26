@@ -280,6 +280,9 @@
           'placeholder="' + _escAttr(L('vd. tenban@gmail.com', 'e.g. you@gmail.com')) + '" ' +
           'value="' + _escAttr(_atxTyped) + '"></div>' +
         '<div class="atx-acct-hint">' + _esc(L(
+          'Mỗi người kết nối được một hộp thư — chọn địa chỉ khác sẽ thay cho hộp thư đang dùng. ',
+          'One mailbox per person for now — a different address replaces the one you have. ')) +
+        _esc(L(
           'Để trống cũng được, Google sẽ hỏi bạn chọn tài khoản.',
           'Leaving it blank is fine, Google will ask you to pick.')) + '</div>' +
         '<button class="btn-skip" onclick="fhAutoTxnUseLogin()">' +
@@ -638,6 +641,16 @@
           : L('Giao dịch vào ví cá nhân, chỉ mình bạn mở được. Lúc duyệt vẫn có thể chuyển sang sổ gia đình.',
               'Transactions go to your personal wallet, where only you can open them. You can still move any of them to the family ledger when you review.')) +
         '</span></div>' +
+
+      /* ONE MAILBOX AT A TIME, said here because this is the screen someone is
+         on when they think about adding another. `mailbox_grants` is unique on
+         (user_id, provider), so connecting a second Google account REPLACES
+         this one rather than joining it — a consequence nobody would guess from
+         a button labelled "Đổi". Saying it plainly costs a line; discovering it
+         costs a mailbox. */
+      '<div class="mbx-note">' + _mbxGlyph('mail') + '<span>' + _esc(L(
+        'Hiện mỗi người kết nối được một hộp thư. Kết nối hộp thư khác sẽ thay cho hộp thư này. Tụi mình đang làm phần nhiều hộp thư cùng lúc.',
+        'For now you can connect one mailbox. Connecting a different one replaces this. Support for several at once is on the way.')) + '</span></div>' +
 
       (window.fhTxnReviewSheet
         ? '<button class="btn-line" onclick="fhTxnReviewSheet()">' + _esc(L('Xem mục duyệt', 'Open Review transactions')) + '</button>'
