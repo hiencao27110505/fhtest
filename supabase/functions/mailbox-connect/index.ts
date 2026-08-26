@@ -77,7 +77,20 @@ async function authorize(req: Request, url: URL): Promise<Response> {
   // and the address we store comes from Google's own profile call.
   const loginHint = url.searchParams.get("login_hint") || undefined;
 
-  const state = await createState({ userId, returnTo }, secret);
+  /* WHICH LEDGER this mailbox will feed, carried INSIDE the signed state.
+
+     Not a query parameter on the callback, and the difference matters: the
+     callback is what calls grant_mailbox_access, so a destination it read from
+     an unsigned URL would be a destination an attacker could choose by sending
+     someone a link. Inside the state it is covered by the same HMAC that proves
+     which user this flow belongs to.
+
+     Anything but an explicit 'family' means personal. Defaulting the unknown
+     case to the tighter scope is the whole asymmetry: a personal-sealed row can
+     be promoted outward at review, a family-sealed one cannot be pulled back. */
+  const scope = url.searchParams.get("scope") === "family" ? "family" : "personal";
+
+  const state = await createState({ userId, returnTo, scope }, secret);
   return json({ url: authorizationUrl(state, cfg, loginHint) });
 }
 
@@ -127,6 +140,8 @@ async function callback(url: URL): Promise<Response> {
           p_email: grant.email,
           p_token: toBytea(enc),
           p_scopes: grant.scopes,
+          // From the signed state, never from the URL (see authorize).
+          p_scope: claims.scope === "family" ? "family" : "personal",
         }),
       },
     );
@@ -136,6 +151,9 @@ async function callback(url: URL): Promise<Response> {
       // The function raises `no_member_row` for a user with no member in a real
       // family. That is a product state, not a fault: they granted access before
       // finishing onboarding, and the app can tell them so.
+      // no_member_row now means only ONE thing: they asked for a FAMILY-scoped
+      // mailbox without being in a family. A personal-scoped grant needs none,
+      // so this is a real product state rather than the blanket refusal it was.
       return bounce(detail.includes("no_member_row") ? "no_member" : "store_failed", returnTo);
     }
     grantId = (await res.json()) as string;

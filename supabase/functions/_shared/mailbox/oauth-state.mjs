@@ -52,7 +52,7 @@ async function hmac(payloadB64, secret, subtle) {
 }
 
 /**
- * Signs `{userId, returnTo}` into a state string.
+ * Signs `{userId, returnTo, scope}` into a state string.
  *
  * `nowMs` is injected so a test can prove expiry rather than sleep through it.
  */
@@ -63,6 +63,12 @@ export async function createState(claims, secret, opts) {
     v: VERSION,
     uid: claims.userId,
     rt: claims.returnTo || undefined,
+    /* Which ledger the mailbox will feed. It rides HERE rather than on the
+       callback URL because the callback is what binds the grant: a destination
+       read from an unsigned parameter would be one an attacker could choose by
+       sending someone a link. Omitted when personal so the common case does not
+       grow the state; absence reads as personal on the way out. */
+    sc: claims.scope === 'family' ? 'family' : undefined,
     iat: Math.floor(now / 1000),
     exp: Math.floor(now / 1000) + (o.ttlSeconds || DEFAULT_TTL_SECONDS),
   };
@@ -103,7 +109,9 @@ export async function readState(state, secret, opts) {
   const now = Math.floor((o.nowMs || Date.now()) / 1000);
   if (typeof payload.exp !== 'number' || payload.exp < now) return null;
 
-  return { userId: payload.uid, returnTo: payload.rt };
+  // Absence means personal — the tighter of the two, so a truncated or older
+  // state can only ever under-share rather than over-share.
+  return { userId: payload.uid, returnTo: payload.rt, scope: payload.sc === 'family' ? 'family' : 'personal' };
 }
 
 /**

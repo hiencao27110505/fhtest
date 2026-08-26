@@ -103,6 +103,67 @@
       '</div>';
   }
 
+  /* WHICH LEDGER THIS MAILBOX FEEDS — the second question, and the one that
+     decides which KEY protects every row before anyone reviews it.
+
+     It is not the same question the account row asks. That one is a Google
+     login_hint: WHICH MAILBOX. This one is WHOSE MONEY, and it has to be
+     answered before we read anything, because a row cannot be re-sealed
+     afterwards. Deciding at review would mean the plaintext had already touched
+     a key the person did not choose.
+
+     PERSONAL IS THE DEFAULT, and the asymmetry is why: a personal-sealed row
+     can still be promoted outward to the family ledger at review — the app
+     opens it with the personal key and re-encrypts under the family one. A
+     family-sealed row cannot be pulled back, because the household has already
+     been able to open it. Over-sealing is recoverable; under-sealing is not.
+
+     Same chips as the expense modal (`ex-scope`) on purpose: this is the same
+     question the app already asks when someone logs a spend by hand, and asking
+     it in two visual languages would read as two different questions. */
+  let _atxScope = 'personal';
+  const _atxScopeIs = () => _atxScope;
+
+  window.fhAutoTxnPickScope = function (v) {
+    _atxScope = (v === 'family') ? 'family' : 'personal';
+    const box = document.getElementById('atx-scope');
+    if (box) Array.prototype.forEach.call(box.querySelectorAll('.choice'), function (b) {
+      b.classList.toggle('on', b.dataset.v === _atxScope);
+    });
+    const note = document.getElementById('atx-scope-note');
+    if (note) note.textContent = _atxScopeNote();
+  };
+
+  function _atxScopeNote() {
+    return _atxScope === 'family'
+      ? L('Cả nhà thấy được các giao dịch này khi bạn duyệt.',
+          'Everyone in the family sees these once you approve them.')
+      : L('Chỉ mình bạn mở được. Lúc duyệt vẫn có thể chuyển sang sổ gia đình.',
+          'Only you can open these. You can still move any of them to the family ledger when you review.');
+  }
+
+  function _atxScopeRow() {
+    /* Family needs a family. Someone with only a personal wallet is offered
+       nothing to switch to rather than a chip that fails on Google's screen. */
+    const hasFamily = !!(window.DB && window.DB.fid);
+    if (!hasFamily) {
+      _atxScope = 'personal';
+      return '<div class="mbx-note">' + _mbxGlyph('lock') + '<span>' + _esc(L(
+        'Giao dịch sẽ vào ví cá nhân của bạn, chỉ mình bạn mở được.',
+        'Transactions go to your personal wallet, where only you can open them.')) + '</span></div>';
+    }
+    return '<div class="field" id="atx-scopefield">' +
+      '<label>' + _esc(L('Ghi vào đâu?', 'Where should these go?')) + '</label>' +
+      '<div class="choices" id="atx-scope">' +
+        '<button class="choice' + (_atxScope === 'personal' ? ' on' : '') + '" data-v="personal" ' +
+          'onclick="fhAutoTxnPickScope(\'personal\')">🔒 ' + _esc(L('Cá nhân', 'Personal')) + '</button>' +
+        '<button class="choice' + (_atxScope === 'family' ? ' on' : '') + '" data-v="family" ' +
+          'onclick="fhAutoTxnPickScope(\'family\')">🏡 ' + _esc(L('Gia đình', 'Family')) + '</button>' +
+      '</div>' +
+      '<div class="hint" id="atx-scope-note">' + _esc(_atxScopeNote()) + '</div>' +
+      '</div>';
+  }
+
   /* ── the address step ──────────────────────────────────────────────────────
      A FORM MODAL, not a bottom sheet, and that is the whole point.
 
@@ -221,6 +282,7 @@
         'Google’s screen asks for permission to read your mail. Google offers exactly one such permission and it covers the whole mailbox, there is no narrower one. We only ever fetch bank email, and you can revoke access in your Google account at any time.')) + '</span></div>' +
 
       _atxAcctRow() +
+      _atxScopeRow() +
 
       '<button class="cta" id="atx-go" onclick="fhAutoTxnGrant()">' +
         _esc(L('Bắt đầu: cho phép đọc email', 'Start by granting email access')) + '</button>' +
@@ -297,7 +359,7 @@
          for it. One less endpoint, one less CORS surface, and no round trip
          through a function to read four columns. */
       const res = await sb.from('mailbox_grants')
-        .select('id,provider,email,needs_reauth,connected_at,last_synced_at')
+        .select('id,provider,email,needs_reauth,connected_at,last_synced_at,default_scope')
         .eq('provider', 'google')
         .limit(1);
       if (res.error) return null;
@@ -309,7 +371,10 @@
          this screen has to render after "healthy". */
       return { id: row.id, provider: row.provider, email: row.email,
                needsReauth: !!row.needs_reauth, connectedAt: row.connected_at,
-               lastSyncedAt: row.last_synced_at };
+               lastSyncedAt: row.last_synced_at,
+               /* Older grants predate the column; they are family by history,
+                  which is what the null means rather than "unknown". */
+               scope: row.default_scope === 'personal' ? 'personal' : 'family' };
     } catch (e) { return null; }
   }
 
@@ -374,6 +439,19 @@
             'We’re reading transaction email from ' + email + '. Anything we find still waits for you to approve it, and never enters the ledger on its own.')
         : L('Tụi mình đang đọc email giao dịch của bạn. Khoản nào tìm được vẫn nằm chờ bạn duyệt, không tự vào sổ.',
             'We’re reading your transaction email. Anything we find still waits for you to approve it, and never enters the ledger on its own.')) + '</div>' +
+
+      /* WHICH LEDGER, stated plainly, because it is the one thing about this
+         connection a person cannot see anywhere else and cannot infer from the
+         queue — a personal row and a family row look identical there. It is
+         also the thing they would most want to be sure of before their bank
+         mail starts arriving. */
+      '<div class="mbx-note">' + _mbxGlyph(conn && conn.scope === 'family' ? 'mail' : 'lock') + '<span>' +
+        _esc(conn && conn.scope === 'family'
+          ? L('Giao dịch vào sổ gia đình. Cả nhà thấy được sau khi bạn duyệt.',
+              'Transactions go to the family ledger, visible to everyone once you approve them.')
+          : L('Giao dịch vào ví cá nhân, chỉ mình bạn mở được. Lúc duyệt vẫn có thể chuyển sang sổ gia đình.',
+              'Transactions go to your personal wallet, where only you can open them. You can still move any of them to the family ledger when you review.')) +
+        '</span></div>' +
 
       (window.fhTxnReviewSheet
         ? '<button class="btn-line" onclick="fhTxnReviewSheet()">' + _esc(L('Xem mục duyệt', 'Open Review transactions')) + '</button>'
@@ -476,6 +554,10 @@
        Google's chooser. Whichever account actually consents is the mailbox we
        connect, and the callback learns that address from Google, never here. */
     if (email) q.set('login_hint', email);
+    /* The scope rides in the signed state, not just this query string: the
+       callback is what calls grant_mailbox_access, and it must not take a
+       destination from a URL the person could have been sent. */
+    q.set('scope', _atxScopeIs());
 
     /* JSON, not a redirect we follow. The endpoint answers 302 to Google for a
        plain navigation, but this call carries a Bearer token so it has to be a

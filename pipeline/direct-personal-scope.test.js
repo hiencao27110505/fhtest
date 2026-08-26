@@ -161,6 +161,33 @@ console.log('\n-- seal or hold, per scope --');
     reason === I.HOLD.NO_PERSONAL_STAGING_PUB, String(reason));
 }
 
+console.log('\n-- the scope survives the round trip to Google, signed --');
+{
+  const OS = await import('../supabase/functions/_shared/mailbox/oauth-state.mjs');
+  const SECRET = 'state-secret';
+
+  for (const [asked, want] of [['family', 'family'], ['personal', 'personal'], [undefined, 'personal']]) {
+    const st = await OS.createState({ userId: 'u1', returnTo: '/x', scope: asked }, SECRET);
+    const back = await OS.readState(st, SECRET);
+    t('scope ' + String(asked) + ' reads back as ' + want, back && back.scope === want, JSON.stringify(back));
+  }
+
+  /* The reason it lives in the signed state at all: the callback is what binds
+     the grant, so a destination read from an unsigned URL would be one an
+     attacker could choose by sending someone a link. */
+  const good = await OS.createState({ userId: 'u1', scope: 'family' }, SECRET);
+  t('a tampered state is refused outright, not read with a default scope',
+    (await OS.readState(good.replace(/.$/, good.slice(-1) === 'A' ? 'B' : 'A'), SECRET)) === null);
+  t('a state signed with another secret is refused',
+    (await OS.readState(good, 'other-secret')) === null);
+
+  // Absence must read as the TIGHTER scope, so an older or truncated state can
+  // only ever under-share.
+  const legacy = await OS.createState({ userId: 'u1' }, SECRET);
+  t('a state with no scope at all defaults to personal',
+    (await OS.readState(legacy, SECRET)).scope === 'personal');
+}
+
 console.log('\n-- nothing else regressed --');
 {
   const dest = await I.resolveDestination(grant({ default_scope: 'personal' }), makeDb());
