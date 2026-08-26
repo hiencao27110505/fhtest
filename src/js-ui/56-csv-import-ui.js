@@ -1366,9 +1366,13 @@ function csvPromote(subset, opts){
     bulkRows = rows.map(function(c){
       // _catTouched: the category came out of review (cascade or a human tap), so
       // it is deliberate — never something for the note-keyword guesser to revise.
+      // time: a staged bank email carries its real HH:MM (a CSV file row has none).
+      // _timeAuto:false so submitBulk's loadRow/_syncExTime keeps this exact value
+      // rather than re-deriving now/'' from the (usually back-dated) import date.
       return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName,
                who: c.who || csvDefaultWho(), date: c.dateDisplay, _invalid: false,
-               _catTouched: true };
+               _catTouched: true,
+               time: (window.fhStagedRowTime ? window.fhStagedRowTime(c) : undefined) || '', _timeAuto: false };
     });
     bulkActive = 0;
     exPhotos = [];

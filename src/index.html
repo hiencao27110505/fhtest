@@ -438,9 +438,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="sheet-h" data-t="addSheetTitle">Add something</div>
   <div class="sheet-sub" data-t="addSheetSub">Log money, or save a moment.</div>
   <div class="qa-group" data-t="grpFinance">Finance</div>
-  <button class="qa" onclick="closeSheet();go('spending');openExpense()"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg></div><div><div class="qt" data-t="qaExpenseT">Log an expense</div><div class="qs" data-t="qaExpenseS">Money you just spent</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();go('spending');openExpense()"><div class="qi" style="background:var(--grad-brand)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6"/></svg></div><div><div class="qt" data-t="qaExpenseT">Log a transaction</div><div class="qs" data-t="qaExpenseS">Money in or out</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();go('spending');openCsvImport()"><div class="qi" style="background:linear-gradient(135deg,#5FC98D,#34B87A)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div><div><div class="qt" data-t="qaCsvT">Import from file</div><div class="qs" data-t="qaCsvS">Bring in a CSV from your bank or another app</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-  <button class="qa" onclick="closeSheet();go('spending');fhIncome()"><div class="qi" style="background:linear-gradient(135deg,#34C77B,#1a9d5f)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div><div><div class="qt" data-t="qaIncomeT">Log income</div><div class="qs" data-t="qaIncomeS">Money coming into the family</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+  <button class="qa" onclick="closeSheet();openExpense({type:'income'})"><div class="qi" style="background:linear-gradient(135deg,#34C77B,#1a9d5f)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div><div><div class="qt" data-t="qaIncomeT">Log income</div><div class="qs" data-t="qaIncomeS">Money coming into the family</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <button class="qa" onclick="closeSheet();go('spending');fhSavings()"><div class="qi" style="background:linear-gradient(135deg,#F0B450,#DB8A24)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a5 5 0 015-5h5a6 6 0 016 6 6 6 0 01-3 5.2V20h-3v-2h-2v2H7v-3a6 6 0 01-4-5zM8 9h.01"/></svg></div><div><div class="qt" data-t="qaSaveT">Add to savings</div><div class="qs" data-t="qaSaveS">Add to the family pool</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>  <button class="qa" onclick="closeSheet();go('spending');openGoal()"><div class="qi" style="background:linear-gradient(135deg,#34B87A,#2E9E6B)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg></div><div><div class="qt" data-t="qaGoalT">Create a goal</div><div class="qs" data-t="qaGoalS">Save for something you want to buy or do</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
   <div class="qa-group" data-t="grpMoments">Moments</div>
   <button class="qa" onclick="closeSheet();goMoments('plans');openSheet('sheet-event')"><div class="qi" style="background:linear-gradient(135deg,#9D4EFF,#E14BF0)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div><div><div class="qt" data-t="qaPlanT">Plan something</div><div class="qs" data-t="qaPlanS">An upcoming family occasion</div></div><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -481,33 +481,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   </div>
 </div>
 
-<!-- Personal monthly budget -->
-<div class="modal" id="sheet-pbudget">
-  <div class="modal-grip"></div>
-  <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
-    <div class="modal-title">Ngân sách cá nhân</div>
-    <button class="modal-save" onclick="persBudgetSubmit()">Lưu</button>
-  </div>
-  <div class="modal-body">
-    <div class="sheet-sub">Đặt mức chi cho tháng này. App sẽ tính "hôm nay còn tiêu được" theo ngân sách của bạn.</div>
-    <div class="field"><label>Ngân sách tháng này</label><input id="pbud-amt" type="text" inputmode="numeric" class="num big" placeholder="10.000.000" onblur="snapAmtInput(this)"></div>
-  </div>
-</div>
-
-<!-- Personal income quick-add -->
-<div class="modal" id="sheet-pincome">
-  <div class="modal-grip"></div>
-  <div class="modal-nav">
-    <button class="modal-cancel" onclick="closeModals()" data-t="cancel">Cancel</button>
-    <div class="modal-title">Thu nhập của bạn</div>
-    <button class="modal-save" onclick="persAddIncome()">Lưu</button>
-  </div>
-  <div class="modal-body">
-    <div class="field"><label>Số tiền</label><input id="pinc-amt" type="text" inputmode="numeric" class="num big" placeholder="15.000.000" onblur="snapAmtInput(this)"></div>
-    <div class="field"><label>Ghi chú</label><input id="pinc-note" placeholder="Lương tháng…"></div>
-  </div>
-</div>
+<!-- personal budget sheet retired — "Ngân sách cá nhân" now opens the shared
+     per-category #sheet-budget (openPersonalBudget), same as the family tab.
+     personal income sheet retired too — the "Vào" tile opens fhIncome('personal'). -->
 
 <div class="modal" id="sheet-suggest">
   <div class="modal-grip"></div>
@@ -573,12 +549,18 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <!-- The one live editor instance. renderBulk() relocates this node into the
          active row's mount; in edit mode it renders in place (bulk list stays empty). -->
     <div id="ex-editor">
+    <!-- Transaction type: Chi (expense) / Thu (income). Toggling swaps the fields
+         below and the save path; hidden while editing an existing row. -->
+    <div class="field" id="ex-typefield"><div class="choices seg-type" id="ex-type">
+      <button class="choice on" data-v="expense" onclick="pickExType(this)">↓ Chi</button>
+      <button class="choice" data-v="income" onclick="pickExType(this)">↑ Thu</button>
+    </div></div>
     <div class="field" id="ex-scopefield"><label>Ghi vào đâu?</label><div class="choices" id="ex-scope">
       <button class="choice on" data-v="personal" onclick="pickExScope(this)">🔒 Cá nhân</button>
       <button class="choice" data-v="family" onclick="pickExScope(this)">🏡 Gia đình</button>
     </div></div>
     <div class="field">
-      <label data-t="exWhatFor">What for?</label>
+      <label id="ex-note-lbl" data-t="exWhatFor">What for?</label>
       <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()" onblur="onExNoteBlur()"/>
       <div class="choices" id="ex-cat" style="margin-top:10px">
         <button class="choice on" data-v="Groceries" onclick="pickExCat(this)">🛒 Groceries</button>
@@ -595,6 +577,11 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
       <div class="field"><label data-t="amountLbl">Amount</label><input class="num" id="ex-amt" inputmode="numeric" placeholder="$0" oninput="onExInput()"/></div>
       <div class="field"><label data-t="whenLbl">When</label><input type="date" id="ex-date" value="2026-07-13" min="2026-07-01" onchange="onExInput()" oninput="onExInput()"/></div>
     </div>
+
+    <!-- Optional time — per row, on any expense (personal or family). Stored as
+         local HH:MM (encrypted); empty means only the day is known. Defaults to now
+         for a same-day row, cleared when back-dated (see _syncExTime). -->
+    <div class="field" id="ex-timefield" style="display:none"><label>Giờ <span class="opt">· tuỳ chọn</span></label><input type="time" id="ex-time" oninput="onExTimeTouched()"/></div>
 
     <div class="field" id="ex-whofield"><label data-t="whoPaidLbl">Who paid</label><div class="choices" id="ex-who">
       <button class="choice on" data-v="Emma" onclick="pickExWho(this)">Emma</button>

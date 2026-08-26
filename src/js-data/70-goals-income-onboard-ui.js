@@ -153,32 +153,53 @@
   };
 
   // ---- Income (separate ledger) ----
-  window.fhIncome = async function () {
-    const fid = window.DB.fid; if (!fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
-    if (_fhWriteLocked()) return;                            // the sheet both lists and ADDS income
+  /* Income sheet — one screen, two scopes. `scope==='personal'` swaps the data
+     source (personal_incomes, read from the already-decrypted fhPersonalData())
+     and the writer/deleter; everything else — the modal chrome, the month total,
+     the recent list, the reopen-after-save — is shared verbatim. Called with no
+     argument from the family Finance tab, so that path is unchanged. */
+  window.fhIncome = async function (scope) {
+    const personal = scope === 'personal';
+    if (!personal) {
+      const fid = window.DB.fid; if (!fid) { window.toast && window.toast(L('Hãy mở một gia đình trước','Open a family first')); return; }
+      if (_fhWriteLocked()) return;                          // the sheet both lists and ADDS income
+    } else {
+      const P = window.fhPersonalData ? window.fhPersonalData() : null;
+      if (!P || P.state !== 'ready') { window.toast && window.toast(L('Sổ cá nhân chưa sẵn sàng','Your personal ledger isn’t ready')); return; }
+    }
     let inc = [];
-    try {
-      const { data, error } = await sb.from('incomes').select('id,amount,amount_enc,note,note_enc,income_date').eq('family_id', fid).order('income_date', { ascending: false }).limit(20);
-      if (error) throw error;
-      inc = data || [];
-      for (const r of inc) {                                 // resolve ciphertext for display
-        r.amount = Number(await fhRead(r, 'amount')) || 0;
-        r.note = await fhRead(r, 'note');
-      }
-    } catch (e) { window.toast && window.toast(_friendly(e)); return; }
-    const mk = (window.DB.month || '').slice(0, 7);
+    if (!personal) {
+      try {
+        const { data, error } = await sb.from('incomes').select('id,amount,amount_enc,note,note_enc,income_date').eq('family_id', window.DB.fid).order('income_date', { ascending: false }).limit(20);
+        if (error) throw error;
+        inc = data || [];
+        for (const r of inc) {                               // resolve ciphertext for display
+          r.amount = Number(await fhRead(r, 'amount')) || 0;
+          r.note = await fhRead(r, 'note');
+        }
+      } catch (e) { window.toast && window.toast(_friendly(e)); return; }
+    } else {
+      // personal rows are already decrypted in the hydrated ledger; unreadable
+      // ones are skipped (their amount is null and would misstate the total).
+      inc = (window.fhPersonalData().incomes || []).filter((r) => !r._unreadable)
+        .map((r) => ({ id: r.id, amount: Number(r.amt) || 0, note: r.note, income_date: r.date }))
+        .sort((a, b) => String(b.income_date).localeCompare(String(a.income_date))).slice(0, 20);
+    }
+    const now0 = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
+    const mk = personal ? (now0.getFullYear() + '-' + String(now0.getMonth() + 1).padStart(2, '0')) : (window.DB.month || '').slice(0, 7);
     const monthTotal = inc.filter((r) => String(r.income_date).slice(0, 7) === mk).reduce((s, r) => s + Number(r.amount), 0);
     const f = (n) => (window.fmt ? window.fmt(n) : n);
+    const delFn = personal ? 'fhPersonalDelIncomeUI' : 'fhDelIncome';
     const list = inc.map((r) =>
       '<div class="fh-s-row">'
       + '<div class="fh-s-grow"><div class="fh-s-name">' + _esc(r.note || L('Thu nhập','Income')) + '</div><div class="fh-s-meta">' + _esc(r.income_date) + '</div></div>'
       + '<span class="num" style="color:var(--good);font-weight:700;flex:none">+' + f(Number(r.amount)) + '</span>'
-      + _btn(_ICO.trash, "fhDelIncome('" + r.id + "',this)", 'fh-s-act danger')
+      + _btn(_ICO.trash, delFn + "('" + r.id + "',this)", 'fh-s-act danger')
       + '</div>').join('');
     _fhModal({
-      title: L('Thu nhập','Income'),
+      title: personal ? L('Thu nhập của bạn','Your income') : L('Thu nhập','Income'),
       saveLabel: L('Thêm','Add'),
-      body: '<div class="fh-s-sub">' + L('Tiền vào của cả nhà, ghi riêng, không tự động để dành.','Money coming in, tracked on its own, never auto-saved.') + '</div>'
+      body: '<div class="fh-s-sub">' + (personal ? L('Tiền vào của riêng bạn, chỉ mình bạn thấy.','Money coming in to you, only you can see it.') : L('Tiền vào của cả nhà, ghi riêng, không tự động để dành.','Money coming in, tracked on its own, never auto-saved.')) + '</div>'
         + '<div class="fh-s-stat"><div class="k">' + L('Tháng này','This month') + '</div><div class="v">' + f(monthTotal) + '</div></div>'
         + '<div class="field"><label>' + L('Số tiền','Amount') + '</label>'
         + '<input id="fh-inc-amt" inputmode="numeric" placeholder="' + _esc(window.amtPlaceholder ? window.amtPlaceholder() : '') + '" oninput="fhModalDirty()"></div>'
@@ -191,16 +212,40 @@
       save: async () => {
         const base = window.parseAmtBase(document.getElementById('fh-inc-amt').value);
         const note = (document.getElementById('fh-inc-note').value || '').trim() || L('Thu nhập','Income');
-        const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
-        const iso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-        const { error } = await sb.from('incomes').insert(Object.assign(
-          { family_id: window.DB.fid, member_id: window.DB.ownerMemberId || null, income_date: iso },
-          await fhField('amount', base), await fhField('note', note)));
-        if (error) throw error;
+        if (personal) {
+          const ok = await window.fhPersonalAddIncome(base, note);
+          if (!ok) throw new Error('personal income save failed');
+          if (window.renderPersonal) window.renderPersonal();
+        } else {
+          const ok = await window.fhAddFamilyIncome(base, note);
+          if (!ok) throw new Error('family income save failed');
+        }
         window.toast && window.toast(L('Đã thêm thu nhập','Income added'));
-        return window.fhIncome;                            // reopen with the new row in place
+        return () => window.fhIncome(scope);               // reopen with the new row in place
       }
     });
+  };
+  /* Single family income write — extracted so the unified capture sheet (Thu type)
+     and the fhIncome list can share ONE income path. `base` is base units (÷curMult
+     already applied by the caller); dateIso defaults to today. Returns true/false. */
+  window.fhAddFamilyIncome = async function (base, note, dateIso) {
+    const fid = window.DB && window.DB.fid; if (!fid) return false;
+    if (_fhWriteLocked()) return false;
+    try {
+      const now = new Date(window.TODAY ? window.TODAY.getTime() : Date.now());
+      const iso = dateIso || (now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0'));
+      const noteVal = (note || '').trim() || L('Thu nhập','Income');
+      const { error } = await sb.from('incomes').insert(Object.assign(
+        { family_id: fid, member_id: window.DB.ownerMemberId || null, income_date: iso },
+        await fhField('amount', base), await fhField('note', noteVal)));
+      if (error) throw error;
+      if (window.loadFamilyData) await window.loadFamilyData();
+      return true;
+    } catch (e) {
+      if (/enc_required/i.test(String((e && e.message) || '')) && window._fhEncRecover) window._fhEncRecover();
+      window.toast && window.toast(_friendly(e));
+      return false;
+    }
   };
   // Deleting income is destructive and permanent → arm-then-confirm on the row itself.
   window.fhDelIncome = async function (id, btn) {
@@ -220,6 +265,25 @@
     } catch (e) { window.toast && window.toast(_friendly(e)); return; }
     window.toast && window.toast(L('Đã xoá thu nhập','Income deleted'));
     window.fhIncome();
+  };
+  // Same arm-then-confirm gesture for the personal ledger. Deletes through the
+  // personal data layer (owner-scoped), then reopens the personal income sheet.
+  window.fhPersonalDelIncomeUI = async function (id, btn) {
+    if (btn && !btn.classList.contains('armed')) {
+      btn.classList.add('armed'); btn.textContent = L('Xoá?','Delete?');
+      clearTimeout(window._fhIncArmT);
+      window._fhIncArmT = setTimeout(() => {
+        if (!btn.isConnected) return;
+        btn.classList.remove('armed'); btn.innerHTML = _ICO.trash;
+      }, 3000);
+      return;
+    }
+    clearTimeout(window._fhIncArmT);
+    const ok = window.fhPersonalDelIncome ? await window.fhPersonalDelIncome(id) : false;
+    if (!ok) { window.toast && window.toast(L('Chưa xoá được, thử lại','Couldn’t delete, try again')); return; }
+    if (window.renderPersonal) window.renderPersonal();
+    window.toast && window.toast(L('Đã xoá thu nhập','Income deleted'));
+    window.fhIncome('personal');
   };
 
   (async () => {

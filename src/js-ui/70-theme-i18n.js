@@ -149,7 +149,7 @@ var EN_DEFAULT={
   ariaCode:'6-digit family passcode',
   monthlyBudget:'Monthly budget',
   /* tabs */
-  tabHome:'Home', tabMoney:'Finance', tabMoments:'Moments',
+  tabHome:'Home', tabMoney:'Family', tabMoments:'Moments',
   /* greeting */
   morning:'Good morning', afternoon:'Good afternoon', evening:'Good evening', greetSub:'Another day, together.',
   budgetBtn:'Budget',
@@ -159,7 +159,7 @@ var EN_DEFAULT={
   txRecent:'Recent transactions', savingsGoals:'Savings goals', addGoal:'＋ Goal', rxRoom:'Family activity',
   trend6:'6-month trend', vsBudget:'vs budget', trendLegend:"Dashed line = that month's budget",
   /* finance view */
-  finHead:'Finance', finSub:"The family's spending, income and savings.", incomeLbl:'In', outLbl:'Out',
+  finHead:'Family', finSub:"The family's spending, income and savings.", incomeLbl:'In', outLbl:'Out',
   leftThisMonth:'Left this month', savingsPot:'Savings',
   setupBudget:'Set up budget', viewExpenses:'View expenses',
   /* moments view */
@@ -170,7 +170,7 @@ var EN_DEFAULT={
   whatsNewAsk:"Wish it did something more? Tell us.", whatsNewCur:"You're on version",
   /* add sheet */
   addSheetTitle:'Add something', addSheetSub:'Log money, or save a moment.', grpFinance:'Finance', grpMoments:'Moments',
-  qaExpenseT:'Log an expense', qaExpenseS:'Money you just spent',
+  qaExpenseT:'Log a transaction', qaExpenseS:'Money in or out',
   qaIncomeT:'Log income', qaIncomeS:'Money coming into the family',
   qaSaveT:'Add to savings', qaSaveS:'Add to the family pool',
   qaGoalT:'Create a goal', qaGoalS:'Save for something you want to buy or do',
@@ -255,7 +255,7 @@ var I18N={
     ariaCode:'Mã gia đình 6 số',
     monthlyBudget:'Ngân sách hằng tháng',
     /* tabs */
-    tabHome:'Nhà', tabMoney:'Tài chính', tabMoments:'Khoảnh khắc',
+    tabHome:'Nhà', tabMoney:'Gia đình', tabMoments:'Khoảnh khắc',
     /* greeting */
     morning:'Chào buổi sáng', afternoon:'Chào buổi chiều', evening:'Chào buổi tối', greetSub:'Một ngày nữa bên nhau.',
     budgetBtn:'Ngân sách',
@@ -265,7 +265,7 @@ var I18N={
     txRecent:'Giao dịch gần đây', savingsGoals:'Mục tiêu tiết kiệm', addGoal:'＋ Mục tiêu', rxRoom:'Hoạt động gia đình',
     trend6:'Xu hướng 6 tháng', vsBudget:'so với ngân sách', trendLegend:'Đường nét đứt là ngân sách của tháng đó',
     /* finance view */
-    finHead:'Tài chính', finSub:'Chi tiêu, thu nhập và tiết kiệm của cả nhà.', incomeLbl:'Thu', outLbl:'Chi',
+    finHead:'Gia đình', finSub:'Chi tiêu, thu nhập và tiết kiệm của cả nhà.', incomeLbl:'Thu', outLbl:'Chi',
     leftThisMonth:'Còn lại tháng này', savingsPot:'Tích lũy',
     setupBudget:'Lập ngân sách', viewExpenses:'Xem chi tiêu',
     /* moments view */
@@ -276,7 +276,7 @@ var I18N={
     whatsNewAsk:'Mong app có thêm gì đó? Kể tụi mình nghe.', whatsNewCur:'Bạn đang dùng phiên bản',
     /* add sheet */
     addSheetTitle:'Thêm mới', addSheetSub:'Ghi lại tiền bạc, hoặc lưu một khoảnh khắc.', grpFinance:'Tài chính', grpMoments:'Khoảnh khắc',
-    qaExpenseT:'Ghi khoản chi', qaExpenseS:'Khoản tiền vừa chi',
+    qaExpenseT:'Ghi giao dịch', qaExpenseS:'Tiền vào hoặc ra',
     qaIncomeT:'Ghi thu nhập', qaIncomeS:'Tiền vào của gia đình',
     qaSaveT:'Bỏ ống tiết kiệm', qaSaveS:'Thêm vào quỹ chung của nhà',
     qaGoalT:'Tạo mục tiêu', qaGoalS:'Để dành cho điều bạn muốn mua hoặc làm',

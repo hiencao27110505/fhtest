@@ -143,6 +143,96 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-26 (Hien's session — app / personal ledger) — TRANSACTION TIME-OF-DAY
+  now stored (personal ledger, phase 1). Two asks for the pipeline + a heads-up on
+  migration 0095.**
+
+  **Model (integrity-first).** A transaction's DAY stays in `txn_date` (plaintext,
+  indexable). The fine time-of-day is stored as the **local wall-clock `"HH:MM"`
+  string** — no UTC instant, so the `toISOString()` midnight-shift trap doesn't
+  apply. Precision is honest: **NULL = only the day is known**; the UI renders
+  date-only and never fabricates a clock time. A manual same-day entry defaults to
+  "now"; a back-dated one is left day-only.
+
+  **Migrations 0095 + 0096 APPLIED to the live DB** (both additive, nullable):
+  - `0095_personal_txn_time` — `personal_transactions.occurred_time_enc` (encrypted
+    `"HH:MM"` under the personal key; E2EE, on-device only).
+  - `0096_family_txn_time` — `transactions.occurred_time` + `occurred_time_enc`
+    (the family fhField/fhRead pattern: plaintext for off/dual, ciphertext for enc).
+    Wired through `30-hydrate.js` (`_decRows(tx, [...'occurred_time'])`) + the outbox
+    writer. Time is **per row** — each bulk entry carries its own (defaults to now
+    for a same-day row, empty when back-dated). **Next free is 0097.**
+
+  **Ask 1 — RETRACTED (no pipeline change needed).** I earlier asked you to preserve
+  the import time, thinking staging truncated it. That was wrong: `email_transactions`
+  `occurred_at` is a **timestamptz** (`0025`/`0065`) — the bank's real moment is kept
+  for both mailbox-read and forwarded mail. The truncation was entirely client-side
+  (the review parsed it to a date and promote wrote no time). **Fixed on the client**
+  now: promote derives VN-local `HH:MM` from `_fhStagedRows[c.rowIndex].occurred_at`
+  and passes it through the personal + family writes; a date-only source (UTC
+  midnight, e.g. a CSV file) stays day-only. Nothing for you to do. (`0043` CSV *file*
+  staging is genuinely date-only, which is fine.)
+
+  **Heads-up — family done too, touched your area lightly.** I ended up doing family
+  in the same pass (integrity shouldn't be personal-only). It adds two `_decRows`
+  fields in `30-hydrate.js` (line ~133: `['amount','note','occurred_time']`) and two
+  `fhField('occurred_time', …)` calls in `40-txn-writes-outbox.js` (insert + update).
+  Nothing else in those files changed. If you're mid-edit there, this is the only
+  overlap — shout if it collides.
+
+- **2026-08-26 (Hien's session — app / personal ledger) — INCOME vs EXPENSE
+  DETECTION NOW CHANGES WHERE MONEY LANDS. The pipeline's `direction` needs to be
+  authoritative; the client should stop re-deriving it.**
+
+  **What changed app-side (shipped to `src/`, not yet pushed).** The app now has a
+  unified capture with a **Chi / Thu** (expense / income) toggle × a **Gia đình /
+  Cá nhân** scope chip, and the bank-email/CSV import routes **per row by
+  direction + scope**:
+  - `direction === 'credit'` (income) on a **Cá nhân** row → written to
+    `personal_incomes` (`fhPersonalAddIncome`, with the email's real date), NOT as
+    an expense. Family import still holds income back entirely, so personal is the
+    only place a bank email's incoming money is now captured.
+  - everything else → the expense book of the chosen scope.
+
+  So a **mis-tagged `direction` is no longer cosmetic** — a credit tagged debit
+  files salary as spending; a debit tagged credit files a payment as income.
+
+  **The ask (your side — extraction/pipeline).** Today the client does NOT trust
+  `direction` directly. It re-encodes it as a sign in
+  `fhStagedAsCsvSource` (`72-txn-review.js:210`: credit → +, debit → −) and then
+  the generic CSV classifier **re-derives** `isIncome` from that sign + a
+  description regex (salary/refund/interest words) in `57-csv-import-review.js`.
+  That's brittle exactly where it matters — auto-memo salary, refunds, incoming
+  p2p. Please make the extraction's **`direction` authoritative** (credit = tiền
+  vào / income, debit = tiền ra / expense) and, if you can, emit a normalized
+  **kind** that also distinguishes an **internal transfer** (credit-card payment,
+  own-account move) from real income/expense so we don't file a card payment as
+  income. If you guarantee `direction`/kind is clean, I'll switch the client to
+  trust it for staged rows and drop the sign-and-regex re-derivation (my change,
+  small — say the word).
+
+  **⚠️ Units gotcha (this is the bug the tester hit — "added .000đ, number huge").**
+  Personal writes store **BASE units** (÷ `curMult`, = 1000 for VND): `45.000đ` is
+  stored as `45`. The import feeds **display currency** (`45000`) and the *client*
+  converts via `csvBaseAmt`. The personal import path was passing it raw → 1000×
+  inflation; fixed now. **Do not pre-scale amounts in the pipeline** — keep them as
+  raw display currency (what the bank email literally says), or the ×1000 returns.
+
+  **Migration 0090 APPLIED to the live DB** (via MCP, additive & backward-compatible):
+  `0090_personal_budget_categories` = `alter table personal_budgets add column if
+  not exists cats_enc text;` (per-category personal budgets, encrypted; old clients
+  ignore it). Recorded here per §2. **Next free is 0091.**
+
+  **`sw.js` `CACHE_NAME` bumped `v407 → v410`** on local `main` across this
+  session's work (currency fix, tab rename, unified capture, personal expense
+  edit/delete). `origin/main` is still `v407` — read v410 as the floor before your
+  next bump.
+
+  **New income write path:** `window.fhAddFamilyIncome(base, note, dateIso)` (in
+  `70-goals-income-onboard-ui.js`, extracted so the capture sheet + the `fhIncome`
+  list share one path) and `fhPersonalAddIncome(amt, note, dateIso)` now takes an
+  optional date.
+
 - **2026-08-26 — `earthy/` ON MAIN IS BACK TO QUANG'S `09ffe5c`. Two sessions had
   pushed 907 lines into his deployment source without his review. Ours now lives
   only on `claude/email-reading-integration-ddwqd2`.**

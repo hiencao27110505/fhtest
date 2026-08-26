@@ -86,7 +86,7 @@ function renderPersonal(){
      + '<div class="cf-lbl">Còn lại tháng này · cá nhân</div>'
      + '<div class="cf-big num'+(left<0?' neg':'')+'">'+fmt(left)+'</div>'
      + '<div class="cf-tiles">'
-     +   '<button class="cf-tile" onclick="openSheet(\'sheet-pincome\')"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">'+fmt(inc)+'</span></button>'
+     +   '<button class="cf-tile" onclick="fhIncome(\'personal\')"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">'+fmt(inc)+'</span></button>'
      +   '<button class="cf-tile" onclick="persScrollTx()"><span class="cf-tl"><span class="cf-ar dn">↓</span> Ra</span><span class="cf-tv num">'+fmt(out)+'</span></button>'
      + '</div>'
      + '<div class="wow" id="pcf-wow" aria-hidden="true"></div>'
@@ -94,9 +94,9 @@ function renderPersonal(){
      + '<div class="cf-daily" id="pcf-daily" style="display:none"></div>'
      + '<div class="cf-dots" id="pcf-dots" aria-hidden="true"></div>'
      + '<div class="cf-cta">'
-     +   '<button class="cc-row" onclick="openSheet(\'sheet-pbudget\')"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
-     +   '<button class="cc-row" onclick="persScrollCats()"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem chi tiêu</span>'+_ccChev+'</button>'
-     +   '<button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi khoản chi riêng tư</span>'+_ccChev+'</button>'
+     +   '<button class="cc-row" onclick="openPersonalBudget()"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
+     +   '<button class="cc-row" onclick="openTxns(\'personal\')"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem chi tiêu</span>'+_ccChev+'</button>'
+     +   '<button class="cc-row" onclick="openPersonalExpense()"><span class="cc-ic">'+PIC.plus+'</span><span class="cc-t">Ghi giao dịch</span>'+_ccChev+'</button>'
      /* Fourth row of the SAME list, not a card of its own — it is one of the
         things you can do from here, and floating it outside the card made it
         read as a stray. Last on purpose: the three above are what you do with
@@ -136,7 +136,7 @@ function renderPersonal(){
   var catRows=Object.keys(byCat).map(function(k){return byCat[k];}).sort(function(a,b){return b.v-a.v;});
   var pOver = P.budget>0 && out>P.budget;
   h += '<section class="fin-cats-card" id="pers-cats"><div class="fin-cats-h"><span>Chi theo danh mục</span>'
-     + '<a onclick="openSheet(\'sheet-pbudget\')">'+(P.budget>0?'Ngân sách':'Lập ngân sách')+'</a></div>';
+     + '<a onclick="openPersonalBudget()">'+(P.budget>0?'Ngân sách':'Lập ngân sách')+'</a></div>';
   if(P.budget>0){
     h += '<div class="cf-note '+(pOver?'over':'ok')+'" style="margin:6px 0 4px"><span class="ni">'+(pOver?'▲':'▾')+'</span>Đã chi <b>'+fmt(out)+'</b> / '+fmt(P.budget)+(pOver?' — vượt '+fmt(out-P.budget):' — còn '+fmt(P.budget-out))+'</div>'
        + '<div class="pbud-bar"><i style="width:'+Math.min(100,P.budget?out/P.budget*100:0)+'%;background:'+(pOver?'var(--danger)':'var(--brand)')+'"></i></div>';
@@ -172,7 +172,7 @@ function renderPersonal(){
       }
       h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>'
          + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
-         + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
+         + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.time?' · '+t.time:'')+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
          + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';
     });
   } else {
@@ -186,14 +186,9 @@ function renderPersonal(){
 function persScrollTx(){ _persScrollTo('pers-tx'); }
 function persScrollCats(){ _persScrollTo('pers-cats'); }
 function _persScrollTo(id){ var el=document.getElementById(id), sc=document.getElementById('scroll'); if(el&&sc){ var y=Math.max(0, el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 70); sc.scrollTo({top:y,behavior:'smooth'}); } }
-/* personal budget sheet */
-function persBudgetSubmit(){
-  var amt=parseAmtBase((document.getElementById('pbud-amt')||{}).value||'');
-  if(!amt || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
-  fhPersonalSetBudget(amt).then(function(ok){ if(ok){ closeModals(); renderPersonal(); window.toast && toast('Đã đặt ngân sách cá nhân'); } });
-}
-function persBudgetPrefill(){ var el=document.getElementById('pbud-amt'); var P=window.fhPersonalData?fhPersonalData():null; if(el&&P){ el.value = P.budget>0 ? (P.budget*curMult()).toLocaleString(CUR==='VND'?'vi-VN':'en-US') : ''; } }
-function persBudgetOpen(){ persBudgetPrefill(); persBudgetOpen(); }
+/* personal budget now uses the SAME per-category sheet as the family Finance tab
+   (openPersonalBudget → #sheet-budget, scope 'personal'). The old single-amount
+   sheet-pbudget + persBudget* helpers are retired. */
 
 /* ── swipeable Day / Week / Month cash-flow — clone of the finance widget,
    contextualised to the personal ledger (income/spend, last-month pace). ── */
@@ -347,11 +342,7 @@ function persCardSave(){
   setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
 }
 
-/* personal income quick-add (expense now goes through the shared expense modal
-   via openPersonalExpense — one capture flow, scope-picked). */
-function persAddIncome(){
-  var amt = parseAmtBase((document.getElementById('pinc-amt')||{}).value||'');
-  var note = ((document.getElementById('pinc-note')||{}).value||'').trim();
-  if(!amt || amt<=0){ window.toast && toast('Nhập số tiền'); return; }
-  fhPersonalAddIncome(amt, note).then(function(ok){ if(ok){ closeModals(); renderPersonal(); window.toast && toast('Đã ghi thu nhập'); } });
-}
+/* personal income now goes through the SAME sheet as the family Finance tab —
+   fhIncome('personal') — which lists, adds and deletes. Expense capture likewise
+   shares openPersonalExpense → openExpense({scope:'personal'}). One flow each,
+   scope-picked; the old bespoke persAddIncome / sheet-pincome are retired. */

@@ -349,6 +349,22 @@
   }
   window.fhStagedMeta = fhStagedMeta;
 
+  /* A staged bank-email row's real transaction time → VN-local "HH:MM", for the
+     promote path. occurred_at is a timestamptz (the bank's actual moment); we read
+     it off the raw staged row via the candidate's rowIndex and format it in the
+     device's local zone (VN). A date-only source is stored at UTC midnight — we
+     return undefined for that (day-only) rather than fabricating a clock, since a
+     real bank timestamp is never exactly 00:00:00 UTC. Returns undefined when there
+     is no staged row (e.g. a CSV file candidate) or no usable time. */
+  window.fhStagedRowTime = function (c) {
+    var rows = window._fhStagedRows;
+    if (!(c && typeof c.rowIndex === 'number' && rows && rows[c.rowIndex])) return undefined;
+    var oa = rows[c.rowIndex].occurred_at; if (!oa) return undefined;
+    var d = new Date(oa); if (isNaN(d.getTime())) return undefined;
+    if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return undefined;  // date-only placeholder
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  };
+
   window.fhTxnReviewSheet = async function () {
     // Key-mismatch alarm latched (18-staging-keys): approval is frozen for the
     // whole family until a verify passes again. Re-show the explanation rather
@@ -558,9 +574,26 @@
          staged rows has nothing left to retry from. */
       for (var i = 0; i < mine.length; i++) {
         var c = mine[i];
-        var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
-        var ok = await window.fhPersonalAddExpense(
-          c.amount, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined);
+        /* c.amount is DISPLAY currency (a bank email's "45.000" is 45000 here),
+           exactly like the CSV review. The personal writes store BASE units
+           (÷curMult, 1000 for VND) — the same conversion the family write does
+           via parseAmtBase. Passing c.amount raw stored 1000× too much (the
+           ".000đ" inflation), so run it through csvBaseAmt first, identical to
+           what the review already showed. */
+        var base = window.csvBaseAmt ? window.csvBaseAmt(c.amount)
+          : Math.round(Number(c.amount || 0) / (window.curMult ? window.curMult() : 1));
+        var _t = window.fhStagedRowTime ? window.fhStagedRowTime(c) : undefined;   // bank email's real time (VN-local HH:MM), or undefined
+        var ok;
+        if (c.isIncome) {
+          /* A credit/income row goes to the personal INCOME book, not the expense
+             one — the family importer holds income back entirely, so this is the
+             one place a bank email's incoming money is captured correctly.
+             (personal_incomes has no time column yet — income stays day-only.) */
+          ok = await window.fhPersonalAddIncome(base, c.description || '', c.dateDisplay || undefined);
+        } else {
+          var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
+          ok = await window.fhPersonalAddExpense(base, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined, _t);
+        }
         if (!ok) throw new Error('personal write failed at row ' + i);
       }
 
