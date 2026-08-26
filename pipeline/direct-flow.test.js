@@ -561,8 +561,15 @@ console.log('\n-- backfill: once, and all of it --');
   const d = makeDb({ grants: [await makeGrant('refresh-1', TC, { backfilled_at: null })] });
   const world = makeWorld();
   await W.runAll(ctxFor(d, world));
-  t('a first connect reaches back months, not days',
-    world.seen.queries.some(q => q.includes('newer_than:90d')), world.seen.queries.join(' | '));
+  // Asserted against the constant rather than a literal: the window is a product
+  // decision that has already moved once (90 -> 15, to stop a first connect
+  // opening with fifty-two chores), and a test that hard-codes it fails on the
+  // decision rather than on the behaviour it is meant to protect — which is that
+  // a FIRST connect reaches back further than an ordinary poll.
+  t('a first connect reaches back further than a poll',
+    world.seen.queries.some(q => q.includes('newer_than:' + W.BACKFILL_DAYS + 'd'))
+      && W.BACKFILL_DAYS > W.POLL_DAYS,
+    world.seen.queries.join(' | '));
   t('and marks the backfill done once it has finished',
     d.state.synced[0].fields.backfilled_at !== undefined, JSON.stringify(d.state.synced[0]));
 

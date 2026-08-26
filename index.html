@@ -14356,7 +14356,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v405';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v406';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -18410,6 +18410,16 @@ window.classifyAmount = classifyAmount;
     if (now - _lastRefresh < 2000) return;
     _lastRefresh = now;
     window.loadFamilyData && window.loadFamilyData({ windowed: true });   // R6: focus refresh is windowed; FULL_EVERY caps out-of-window staleness
+    /* The staged queue is NOT part of loadFamilyData: `email_transactions` is
+       not in the hydrate snapshot and carries no realtime subscription, because
+       every row in it is sealed and the client has to open each one to know what
+       it is. So without this line the badge only ever moved at boot and after a
+       promote — mail could arrive while the app sat open and nothing said so,
+       which reads as "it didn't work" rather than "look again".
+
+       Deliberately not awaited and separately caught: it is one count for a
+       badge, and it must never delay or fail the ledger refresh beside it. */
+    try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}
   }
   document.addEventListener('visibilitychange', _refreshOnResume);
   window.addEventListener('focus', _refreshOnResume);

@@ -456,6 +456,16 @@
     if (now - _lastRefresh < 2000) return;
     _lastRefresh = now;
     window.loadFamilyData && window.loadFamilyData({ windowed: true });   // R6: focus refresh is windowed; FULL_EVERY caps out-of-window staleness
+    /* The staged queue is NOT part of loadFamilyData: `email_transactions` is
+       not in the hydrate snapshot and carries no realtime subscription, because
+       every row in it is sealed and the client has to open each one to know what
+       it is. So without this line the badge only ever moved at boot and after a
+       promote — mail could arrive while the app sat open and nothing said so,
+       which reads as "it didn't work" rather than "look again".
+
+       Deliberately not awaited and separately caught: it is one count for a
+       badge, and it must never delay or fail the ledger refresh beside it. */
+    try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}
   }
   document.addEventListener('visibilitychange', _refreshOnResume);
   window.addEventListener('focus', _refreshOnResume);

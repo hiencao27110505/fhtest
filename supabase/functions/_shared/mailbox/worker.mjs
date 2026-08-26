@@ -37,9 +37,23 @@ import { decryptToken } from './token-crypto.mjs';
 export const POLL_DAYS = 2;
 
 /** A first connect reaches further. This is the product difference direct read
- *  buys over forwarding — "here is your last three months" rather than "we
- *  start from now" — and it happens exactly once per mailbox. */
-export const BACKFILL_DAYS = 90;
+ *  buys over forwarding — "here is your last fortnight" rather than "we start
+ *  from now" — and it happens exactly once per mailbox.
+ *
+ *  FIFTEEN, NOT NINETY, and the reason is the review queue rather than the API
+ *  cost. Ninety days of a real household's bank mail arrived as 52 transactions
+ *  all at once, every one of them pending and needing a decision. A first
+ *  impression that opens with fifty-two chores reads as work, not as help — and
+ *  the tail of it is the least useful part, because a purchase from ten weeks
+ *  ago is the hardest to remember and the least likely to be corrected
+ *  accurately. A fortnight is enough to prove the feature works, on mail the
+ *  person still recognises well enough to correct.
+ *
+ *  Nothing is lost by starting smaller: the mail stays in their mailbox, and
+ *  widening this later re-reads whatever the bigger window covers, because
+ *  clearing `backfilled_at` sends the next tick back through the backfill path
+ *  and already-staged messages are skipped on `gmail_message_id`. */
+export const BACKFILL_DAYS = 15;
 
 /** How far ahead of a watch's expiry we renew it.
  *
@@ -63,7 +77,7 @@ export const MAX_MODEL_CALLS_PER_RUN = 10;
  *  Keeping the two caps separate is the point. Listing only as many as a run can
  *  stage makes "there is more" indistinguishable from "there is nothing", and a
  *  run that cannot tell the difference marks itself finished and strands the
- *  rest. Sized well above a busy household's 90 days of bank mail. */
+ *  rest. Sized well above a busy household's backfill window of bank mail. */
 export const LIST_MAX_PER_RUN = 500;
 
 /**
