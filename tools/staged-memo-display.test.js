@@ -38,6 +38,10 @@ if (end < 0) {
   process.exit(1);
 }
 function L(vi) { return vi; }   // the real one is LANG-gated; only names the source
+/* fhStagedAsCsvSource reaches for window.familyCatForConcept — a js-ui global at
+   runtime. Declared here so the eval'd function can see it, and so a test can
+   stand in for the family's real category list. */
+global.window = global.window || {};
 eval(src.slice(start, end));
 
 let pass = 0, fail = 0;
@@ -113,13 +117,51 @@ t('nothing at all -> blank, never undefined',
 t('an empty raw_extracted does not throw',
   descOf(row(null, { counterparty: 'AEON MALL' })) === 'AEON MALL');
 
+console.log('\n-- the pipeline\'s category guess reaches the review engine --');
+{
+  /* The app's own resolver, stubbed the way the real one behaves: it walks the
+     family's REAL categories and returns '' when they have none for a concept. */
+  const seen = [];
+  window.familyCatForConcept = (c) => { seen.push(c); return c === 'Dining' ? 'Ăn uống' : ''; };
+  const CAT = 4;
+
+  const withHint = fhStagedAsCsvSource([row({ category_hint: 'Dining' }, {})]);
+  t('a concept is resolved to the FAMILY’s own category name',
+    withHint.parsed.rows[0][CAT] === 'Ăn uống', withHint.parsed.rows[0][CAT]);
+  t('and it is the concept that gets looked up, not a raw name',
+    seen.indexOf('Dining') >= 0);
+
+  // A family with no category for the concept must get NO guess rather than an
+  // invented one — a wrong pre-fill gets accepted rather than corrected.
+  const unknown = fhStagedAsCsvSource([row({ category_hint: 'Fun' }, {})]);
+  t('a concept the family has no category for yields nothing',
+    unknown.parsed.rows[0][CAT] === '');
+
+  const none = fhStagedAsCsvSource([row({}, {})]);
+  t('no hint at all yields nothing, leaving the rest of the cascade to run',
+    none.parsed.rows[0][CAT] === '');
+
+  // The resolver is absent on a cold boot before js-ui has run; that must not
+  // throw and take the whole queue down with it.
+  delete window.familyCatForConcept;
+  const noResolver = fhStagedAsCsvSource([row({ category_hint: 'Dining' }, {})]);
+  t('a missing resolver degrades to no guess rather than throwing',
+    noResolver.parsed.rows[0][CAT] === '');
+}
+
 console.log('\n-- the rest of the row shape is unchanged --');
 const shaped = fhStagedAsCsvSource([
   row({ memo: 'ca phe', memo_display: 'ca phe' }, { counterparty: 'HIGHLANDS', direction: 'debit', amount: 250 }),
   row({ memo_display: '' }, { counterparty: 'ACB', direction: 'credit', amount: 900 }),
 ]);
-t('four columns, in the documented order',
-  JSON.stringify(shaped.parsed.headers) === JSON.stringify(['occurred_at', 'description', 'amount', 'counterparty']));
+/* The first four in order, because fhStagedMeta indexes rows positionally and a
+   reorder would silently mis-map every field. The list is allowed to GROW —
+   `category` was appended so the pipeline's own guess reaches the review
+   engine — so this pins the prefix and the presence, not the length. */
+t('the documented columns, in order, at the front',
+  JSON.stringify(shaped.parsed.headers.slice(0, 4)) ===
+    JSON.stringify(['occurred_at', 'description', 'amount', 'counterparty']));
+t('and the category hint rides along', shaped.parsed.headers.indexOf('category') >= 0);
 t('debit is signed, credit is not',
   shaped.parsed.rows[0][2] === '-250' && shaped.parsed.rows[1][2] === '900');
 t('the counterparty COLUMN still carries the party even when blank as a description',

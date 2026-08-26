@@ -55,7 +55,16 @@ export const EXTRACTION_SYSTEM_PROMPT =
   '"TRANSFER FROM ..."); extract it as written either way and do not try to judge whether it is ' +
   'meaningful — a human reviews it downstream.\n\n' +
   'Amounts must be the raw number with no currency symbol or thousands separators. If the email ' +
-  'states a status (success/failed/pending), extract it; otherwise null.';
+  'states a status (success/failed/pending), extract it; otherwise null.\n\n' +
+  'category: what the money was spent ON, as ONE of exactly these words — ' +
+  'Housing, Groceries, Clothing, Shopping, Transport, Dining, Fun, Others. ' +
+  'Judge from the merchant and the memo together: a coffee shop is Dining, a ' +
+  'supermarket is Groceries, a ride-hailing app or fuel is Transport, an ' +
+  'electricity or water or internet bill is Housing, a streaming subscription ' +
+  'is Fun. Use Others when the mail genuinely does not say what was bought — a ' +
+  'bare transfer to a person, or an ATM withdrawal. NULL when it is money ' +
+  'coming IN rather than going out: income is not a spending category, and ' +
+  'guessing one puts a salary under Shopping.';
 
 export const EXTRACTION_SCHEMA = {
   type: 'object',
@@ -75,11 +84,22 @@ export const EXTRACTION_SCHEMA = {
     reference_number: { type: ['string', 'null'] },
     status: { type: ['string', 'null'] },
     account_masked: { type: ['string', 'null'] },
+    /* A CLOSED vocabulary, and the same eight the app already maps to family
+       categories (`CONCEPT_MATCH` in 50-sheets-expense-capture.js). Free text
+       would be worse than nothing here: the family names its own categories, in
+       its own language, so an invented name matches none of them and falls
+       through the whole cascade anyway — while looking like an answer.
+       Constraining to concepts means the guess is portable across families that
+       share no category names at all. */
+    category: {
+      type: ['string', 'null'],
+      enum: ['Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others', null],
+    },
   },
   required: [
     'is_transaction', 'transaction_type', 'source_provider', 'occurred_at',
     'amount', 'currency', 'direction', 'counterparty', 'memo', 'reference_number',
-    'status', 'account_masked',
+    'status', 'account_masked', 'category',
   ],
   additionalProperties: false,
 };

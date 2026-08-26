@@ -190,7 +190,17 @@
      cascade (file -> history -> learned) and every later improvement to that
      screen applies here for free. */
   function fhStagedAsCsvSource(rows) {
-    var COLS = ['occurred_at', 'description', 'amount', 'counterparty'];
+    /* `category` rides along as a fifth column so the pipeline's own guess
+       enters the review engine at the top of its cascade, as `catSource:'file'`
+       — the same precedence a CSV's own category column gets, and for the same
+       reason: it is the source's stated answer rather than something we
+       inferred. Everything below it (history, learned, merchant, keyword,
+       fallback) still runs when the hint is absent, which is most rows today.
+
+       It was being written by the pipeline (`raw_extracted.category_hint`) and
+       read by NOBODY, so every row arrived uncategorised and every one cost a
+       manual pick — the single biggest source of review effort. */
+    var COLS = ['occurred_at', 'description', 'amount', 'counterparty', 'category'];
     var columnMap = {};
     COLS.forEach(function (f, i) { columnMap[i] = { field: f, confidence: 1 }; });
 
@@ -225,7 +235,24 @@
       var isPerson = x.transaction_type === 'p2p_transfer';
       var description = tidied || (isPerson ? '' : (r.counterparty || r.source_provider || ''));
       var amt = (r.direction === 'credit' ? '' : '-') + String(r.amount);
-      return [r.occurred_at, description, amt, r.counterparty || ''];
+
+      /* The pipeline answers in CONCEPTS — Dining, Groceries, Transport — not in
+         this family's category names, because it has no idea what they are and
+         they are frequently Vietnamese. `familyCatForConcept` is the app's own
+         resolver for exactly that: it walks the family's real categories and
+         matches on name OR emoji, and returns '' when the family has no
+         category for the concept. So a family that has never made a "Dining"
+         gets no guess rather than an invented one.
+
+         Resolved HERE rather than downstream because this is the only place
+         that knows the value is a concept. Downstream it is indistinguishable
+         from a category name a CSV supplied. */
+      var concept = x.category_hint || x.category || '';
+      var catHint = '';
+      if (concept && window.familyCatForConcept) {
+        try { catHint = window.familyCatForConcept(concept) || ''; } catch (e) {}
+      }
+      return [r.occurred_at, description, amt, r.counterparty || '', catHint];
     });
 
     return { parsed: { rows: out, headers: COLS }, result: { columnMap: columnMap },
