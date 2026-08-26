@@ -179,7 +179,11 @@ console.log('\n-- forwarded copies in the user\'s own mailbox do not double up -
 console.log('\n-- the window is bounded by time, never by mailbox identity --');
 {
   t('a fresh mailbox looks back 2 days', W.windowDays(null, Date.now()) === 2);
-  t('a first connect reaches back a fortnight', W.BACKFILL_DAYS === 15);
+  // The PROPERTY, not the number. This window is a product decision that moved
+  // 90 -> 15 -> 90 inside one day; a test naming the figure fails on the
+  // decision rather than on what it is meant to protect, which is that a first
+  // connect reaches back further than an ordinary poll and does so once.
+  t('a first connect reaches back further than a poll', W.BACKFILL_DAYS > W.POLL_DAYS);
   /* A long outage widens PAST the backfill window on purpose. Catching up on
      mail nobody read matters more than a tidy ceiling, and the run cannot lose
      what it does not reach: the cursor only advances on a finished window. */

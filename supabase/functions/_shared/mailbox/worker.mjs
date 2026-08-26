@@ -37,23 +37,29 @@ import { decryptToken } from './token-crypto.mjs';
 export const POLL_DAYS = 2;
 
 /** A first connect reaches further. This is the product difference direct read
- *  buys over forwarding — "here is your last fortnight" rather than "we start
+ *  buys over forwarding — "here is your last three months" rather than "we start
  *  from now" — and it happens exactly once per mailbox.
  *
- *  FIFTEEN, NOT NINETY, and the reason is the review queue rather than the API
- *  cost. Ninety days of a real household's bank mail arrived as 52 transactions
- *  all at once, every one of them pending and needing a decision. A first
- *  impression that opens with fifty-two chores reads as work, not as help — and
- *  the tail of it is the least useful part, because a purchase from ten weeks
- *  ago is the hardest to remember and the least likely to be corrected
- *  accurately. A fortnight is enough to prove the feature works, on mail the
- *  person still recognises well enough to correct.
+ *  NINETY. This moved to 15 and back again on the same day, so the reasoning is
+ *  worth keeping rather than the number. The case for a short window is the
+ *  review queue: ninety days of a real household's bank mail arrived as 52 rows
+ *  at once, every one pending and needing a decision, which reads as work rather
+ *  than help. The case for a long one is that history is the whole point — the
+ *  ledger is more useful the further back it goes, and the mail is sitting there
+ *  either way.
  *
- *  Nothing is lost by starting smaller: the mail stays in their mailbox, and
- *  widening this later re-reads whatever the bigger window covers, because
- *  clearing `backfilled_at` sends the next tick back through the backfill path
- *  and already-staged messages are skipped on `gmail_message_id`. */
-export const BACKFILL_DAYS = 15;
+ *  Long won, and the queue size is the thing to fix instead: a first connect is
+ *  the one moment a person expects to do some setup, and nothing is lost by
+ *  showing them more of it. If the wall of rows becomes a real problem, the
+ *  answer is batching or a date filter ON THE REVIEW SCREEN, not a narrower read
+ *  — because unread mail is recoverable only while it is still in the mailbox,
+ *  and a window that was too small is invisible afterwards.
+ *
+ *  Widening later is cheap either way: clearing `backfilled_at` sends the next
+ *  tick back through the backfill path, and already-staged messages are skipped
+ *  on `gmail_message_id`, so a re-read costs one listing and stages nothing
+ *  twice. */
+export const BACKFILL_DAYS = 90;
 
 /** How far ahead of a watch's expiry we renew it.
  *
