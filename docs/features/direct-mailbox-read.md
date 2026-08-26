@@ -5,9 +5,12 @@ forwarding rule, we read their own mailbox under an OAuth grant they give once.
 Everything downstream is shared with [the forwarding pipeline](bank-email-pipeline.md):
 both stage sealed rows into `email_transactions`, and one review screen promotes them.
 
-> **Status, 2026-08-26.** **Live in production.** Two mailboxes connected, 90-day
-> backfill, Gmail push registered, 5-minute poll running unattended, ~200 transactions
-> staged with zero plaintext reaching the database. Migrations `0087`–`0090` applied.
+> **Status, 2026-08-26.** **Live in production.** Gmail push registered, 5-minute poll
+> running unattended, ~200 transactions staged with zero plaintext reaching the
+> database. Migrations `0087`–`0093` applied. Since the first draft: rows can be sealed
+> to a PERSON rather than a family (`0091`), a mailbox no longer requires one
+> (`0092`), the backfill window is the person's to choose (`0093`), and the shared
+> entry point asks which transport instead of assuming forwarding.
 > Not live: the bridge that would let the backend team's Python pipeline feed this one
 > (`persist.py`, built and tested, unmerged). See [Current State](#current-state).
 
@@ -110,9 +113,18 @@ permanent failure that way is how a topic backs up.
 2. **Resolve identity** → `{memberId, familyId, stagingPub}`. Five states HOLD rather
    than stage (see §4).
 3. **Decrypt the refresh token**, exchange for an access token.
-4. **Compute the window.** First connect = `BACKFILL_DAYS` (90). Otherwise
-   `windowDays(last_synced_at)` = `max(POLL_DAYS, ceil(days_since) + 1)`, so an outage
-   *widens* the window instead of skipping it.
+4. **Compute the window.** First connect = the grant's own `backfill_days` (`0093`,
+   default 90, clamped 1–365). Otherwise `windowDays(last_synced_at)` =
+   `max(POLL_DAYS, ceil(days_since) + 1)`, so an outage *widens* the window instead of
+   skipping it.
+
+   **The 365 ceiling is ours, not Gmail's.** `newer_than:` has no documented limit —
+   it searches the mailbox. What stops us is that Gmail returns newest-first and a
+   staged message **still matches the query**, so it keeps its slot on the first page
+   forever. Past the list cap the oldest mail is not slow, it is unreachable. Hence
+   `BACKFILL_LIST_MAX`, larger than the ordinary cap and sized against the busiest
+   real mailbox observed (~66 transactions a month, so a year is ~800). Listing deep
+   is not staging deep: the per-run staging cap is unchanged.
 5. **List** — `messages.list` with `from:(157 domains) newer_than:Nd`, capped at
    `LIST_MAX_PER_RUN` (500). Deliberately **not** scoped to the inbox label: a bank mail
    auto-filtered into a folder is still a transaction.
@@ -159,6 +171,7 @@ VIB marketing emails).
 | `member_archived` | member archived since connect | — |
 | `member_moved` | member's `family_id` ≠ grant's | ownership settled |
 | `no_staging_pub` | family never minted a staging keypair | any device unlocks |
+| `no_personal_staging_pub` | a PERSONAL grant, and this person has never unlocked their own key | **that person** unlocks — no relative can help, which is why it is not folded into the row above |
 
 Every one is a property of the **mailbox**, not a message, so all five stop the whole
 mailbox. A hold costs one wasted poll and loses nothing, because the cursor does not move.
@@ -190,6 +203,54 @@ it is the one ordering that cannot be recovered from.
 The client's own guard cannot cover this: it remembers staged-row **UUIDs**, and a
 re-staged message is a new row with a new UUID — and its prune drops any id the server
 stops returning.
+
+### 5b. Which key seals a row, and who it belongs to
+
+A person's money has two destinations since Model Y: the family ledger under a
+shared key, and `personal_transactions` under their own. So "which key" is a real
+question, and it has to be answered **before anything is read** — a box cannot be
+re-sealed, so deciding at review would mean the plaintext had already touched a key
+the person did not choose.
+
+`mailbox_grants.default_scope` (`0091`) records the answer, chosen at connect.
+`email_transactions.staging_scope` records which key actually sealed each row,
+because the client holds two private keys and a sealed box gives no hint which fits —
+guessing would turn a wrong key into a silent "unreadable row" instead of a clear one.
+
+**PERSONAL IS THE DEFAULT**, and the asymmetry is the whole argument: a
+personal-sealed row can still be promoted **outward** to the family ledger at review —
+the client opens it with the personal key and re-encrypts under the family DEK. A
+family-sealed row cannot be pulled back, because the household has already been able
+to open it. Over-sealing is recoverable; under-sealing is not.
+
+`personal_keys` carries the same `staging_pub` / `staging_priv_enc` pair `family_keys`
+does, wrapped by the **owner's** DEK and never by a family one — a family-readable
+copy would undo the point of a personal ledger. It mints on unlock, first-writer-wins,
+with the same key-substitution detector the family side runs.
+
+`NO_PERSONAL_STAGING_PUB` is its own hold reason rather than reusing
+`no_staging_pub`: it clears only when THAT person unlocks, so reporting them as one
+would send someone to ask a relative to unlock, which cannot help.
+
+### 5c. A mailbox belongs to a person; a family is optional
+
+`grant_mailbox_access` used to refuse anyone without a member row in a real family.
+Since Model Y that excluded exactly the users the feature helps most, so only a
+**family-scoped** grant still requires one — there would be no key to seal to and no
+ledger to promote into.
+
+That moved ownership to `owner_user_id` on `email_transactions` and on the `0090`
+tombstones. Scoping by `member_id` alone would have made a personal-only user's rows
+visible to **nobody** — the RLS predicate would never match, the transaction would
+stage, the queue would stay empty, and nothing would say why. `member_id` stays
+populated for anyone who has one, because forwarding routes by it and dedup groups on
+it; the policies accept either.
+
+The seal binds the **owner** for a personal row and the family for a family row,
+under **different payload keys**. Reusing `family_id` for a user id would let a
+payload sealed in one scope satisfy the other's check, which is the single thing that
+binding exists to prevent. The family path is byte-identical, so the Apps Script and
+every already-sealed row are unaffected.
 
 ### 6. Sealing — the writer that cannot read
 
@@ -262,6 +323,37 @@ One push per run per mailbox on the poll path, one per row on `/ingest`. It carr
 **"something is waiting"** and nothing else — no amount, no merchant. The payload travels
 through a third-party service that must not learn what the sealed row says. A failed
 notification never fails a run.
+
+### 8b. Two transports, one entry point
+
+"Khoản thu chi từ email" is shared by both journeys and used to route on the
+**forwarding alias alone**, so someone already connected by OAuth — no alias, a
+working mailbox, transactions arriving — was sent to the forwarding setup screen and
+told to paste a filter into Gmail.
+
+It now asks about both, in parallel, and **either one** means "set up" and opens the
+queue. Both defaulting to false on failure routes to the chooser: offering setup to
+someone who has it is a recoverable annoyance, while hiding the queue from someone
+whose mail is arriving is not.
+
+When neither is set up, a chooser names the two. Direct read is listed first because
+it is better for almost everyone who can use it — one tap instead of a filter rule,
+and it reads history rather than starting from now. Forwarding stays because it is the
+only thing that works for a mailbox Google does not host. **Neither is labelled
+"recommended"**: the thing that actually decides it is whether the bank writes to a
+Gmail address, which the person knows and we do not.
+
+The connect flow itself is **two steps**. One sheet carrying three assurances, the
+Google scope note, an account row, two chip groups, a free field and a CTA reads as a
+wall on a phone — the person cannot tell what is being explained and what is being
+asked. Step 1 only has to earn the tap and holds no controls; step 2 is the three
+decisions as one inset grouped list, every row the same shape, every answer
+pre-filled with a working default.
+
+**One mailbox per person, for now.** `mailbox_grants` is `UNIQUE (user_id, provider)`,
+so connecting a second Google account REPLACES the first. Stated on the status screen
+and in the change-address sheet, because "Đổi" replacing a mailbox is not something
+anyone would guess.
 
 ### 9. The client half
 
@@ -360,9 +452,17 @@ Envelope: `sealed`, `eph_pub`, `nonce`, `enc_v` — all four or none (`0068` CHE
 Must be NULL when sealed: `amount`, `currency`, `direction`, `counterparty`,
 `reference_number`, `transaction_type`, `raw_extracted`, `raw_body`.
 
-### `resolved_email_messages` (`0090`) — 3 columns
+New since the first draft: `default_scope` (`0091`) — which ledger this mailbox
+feeds, and therefore which key seals it; `backfill_days` (`0093`) — how far the first
+read reaches, 1–365; and `member_id`/`family_id` are now **nullable** (`0092`), because
+a personal-only user has neither.
 
-`(member_id, gmail_message_id)` primary key, `resolved_at`. Nothing else, by design.
+### `resolved_email_messages` (`0090`) — 4 columns
+
+Re-keyed on `(owner_user_id, gmail_message_id)` by `0092`: the old key had
+`member_id NOT NULL`, so a personal-only user could not write a tombstone at all — and
+a tombstone that cannot be written is a message that comes back on every wide read,
+forever. `member_id` stays as routing metadata. Nothing else, by design.
 
 ### `sender_fingerprints` — the parse cache
 
@@ -431,6 +531,14 @@ Vault (out of band, never committed): `mailbox_sync_url`, `mailbox_sync_secret`.
 | Mail from a bank never appears | domain absent from `senders.mjs` | **never fetched** — cannot appear as skipped |
 | Wrong family's key | `members` lookup without `order by` | `member_moved` hold, or silent mis-seal pre-`0087` |
 | Reconnect prompt weekly | 7-day refresh tokens under Testing status | `needs_reauth = true`; expected, not a bug |
+| Personal queue stays empty | grant is personal-scoped, owner never unlocked | `held: no_personal_staging_pub` |
+| History stops at an arbitrary date | window yielded more than the list cap | the tail was never listed — raise `BACKFILL_LIST_MAX`, not the window |
+| A second mailbox silently replaced the first | `UNIQUE (user_id, provider)` | by design today; stated in the UI |
+
+Two of those are worth re-reading together: **a window past the list cap and a
+too-small window look identical from the queue.** Both end at a date with nothing
+after it. Only the run summary distinguishes them — `fetched` at the cap means the
+former.
 
 The characteristic failure of this pipeline is **silence**. Nearly every fault returns
 "no transactions", which is also what an empty mailbox looks like.
@@ -448,6 +556,9 @@ The characteristic failure of this pipeline is **silence**. Nearly every fault r
 | `direct-resolved-messages.test.js` | a promoted message stays gone; member-scoped; throws rather than failing open |
 | `direct-ingest.test.js` | the external-reader path: validation, holds recorded, at-least-once delivery |
 | `direct-persist-contract.test.js` | real Python `build_payload` → real sealer → real client opener |
+| `direct-personal-scope.test.js` | two real keypairs: a personal row opens with the person's key and **fails** with the family's; scope survives the signed state |
+| `direct-backfill-window.test.js` | the window reaches the query; clamped at every boundary; a backfill lists deeper than a poll |
+| `email-transport-chooser.test.js` | the shared entry point sees BOTH transports; the connect flow is two steps and step 1 holds no controls |
 | `direct-dedup.test.js` | fingerprint parity with the Apps Script, byte for byte |
 | `direct-templates.test.js` | re-slices the `.gs` at test time and runs both copies over one body |
 | `direct-sealed-box.test.js` | envelope parity + identity binding |
@@ -456,9 +567,11 @@ The characteristic failure of this pipeline is **silence**. Nearly every fault r
 
 ## Current State
 
-**Live:** connect flow, both triggers, the full read → parse → seal → stage path, 157
-sender domains, learned templates, dedup, review, promotion, tombstoning, notifications,
-watch auto-renewal.
+**Live:** connect flow (two steps, with the transport chooser in front of it), both
+triggers, the full read → parse → seal → stage path, 157 sender domains, learned
+templates, model-supplied categories, dedup, review, promotion, tombstoning,
+notifications, watch auto-renewal, per-person sealing, personal-only mailboxes, and a
+per-grant backfill window.
 
 **Not live:**
 
