@@ -214,7 +214,7 @@ export async function runIngest(payload, ctx) {
   // same mail arrives more than once as a matter of course. Asked before the
   // seal because sealing is the expensive half, and backed by the UNIQUE on
   // gmail_message_id underneath in case two deliveries race past this check.
-  const staged = await ctx.db.alreadyStaged([messageId]);
+  const staged = await ctx.db.alreadyStaged([messageId], destination.memberId);
   if (staged.has(messageId)) return { status: 'skipped', reason: 'already_staged', ack: true };
 
   const sender = await resolveSender(payload, ctx);

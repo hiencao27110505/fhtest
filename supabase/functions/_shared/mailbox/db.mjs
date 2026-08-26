@@ -204,16 +204,40 @@ export function createDb(url, serviceKey, fetchImpl) {
      * concluding "not staged" inserts a second copy of every transaction in the
      * window.
      */
-    async alreadyStaged(messageIds) {
+    /* "Have we finished with this message?" — which is NOT the same question as
+       "is it in email_transactions?", and the difference is what let a widened
+       backfill re-stage 42 transactions a person had already promoted.
+
+       A promotion DELETES the staged row (resolve_email_transactions), so the
+       table alone forgets. `resolved_email_messages` (0090) is the other half:
+       it keeps the message id and nothing else, so a re-read of an old window
+       skips mail the person is done with.
+
+       Both are asked in one pass, and a failure of either must THROW rather
+       than return an empty set. Failing open here stages everything twice. */
+    async alreadyStaged(messageIds, memberId) {
       if (!messageIds.length) return new Set();
       // Each id is encoded on its own and the commas stay literal. Encoding the
       // joined string instead turns the SEPARATORS into %2C, which happens to
       // survive PostgREST's decode today but makes the query's meaning depend on
       // decode order rather than on what was written.
       const list = messageIds.map(id => '"' + encodeURIComponent(id) + '"').join(',');
-      const rows = await rest(
+      const staged = await rest(
         '/email_transactions?select=gmail_message_id&gmail_message_id=in.(' + list + ')');
-      return new Set((rows || []).map(r => r.gmail_message_id));
+      const done = new Set((staged || []).map(r => r.gmail_message_id));
+
+      // Scoped to the member: one person finishing with a message says nothing
+      // about another who connected the same shared mailbox. Without a member
+      // the resolved half is skipped rather than asked unscoped — a global
+      // answer here would hide one person's mail behind another's decision.
+      if (memberId) {
+        const resolved = await rest(
+          '/resolved_email_messages?select=gmail_message_id' +
+          '&member_id=eq.' + encodeURIComponent(memberId) +
+          '&gmail_message_id=in.(' + list + ')');
+        for (const r of (resolved || [])) done.add(r.gmail_message_id);
+      }
+      return done;
     },
 
     /** Candidate duplicates: same member, same fingerprint, within the window. */
