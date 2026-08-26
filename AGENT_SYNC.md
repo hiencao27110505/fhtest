@@ -163,11 +163,15 @@ hand-merging `index.html`. Both replaced vigilance with structure.
     writer. Time is **per row** — each bulk entry carries its own (defaults to now
     for a same-day row, empty when back-dated). **Next free is 0097.**
 
-  **Ask 1 — preserve the time on import.** Bank emails carry a real timestamp, but
-  staging truncates `occurred_at` to a **date** (`0043`), so the time is gone before
-  it's a transaction. When you can, keep the time (as local `HH:MM`, or a full
-  timestamp we can localise) through staging → promote. Until then, imported rows
-  are correctly day-only. This pairs with the earlier `direction` ask.
+  **Ask 1 — RETRACTED (no pipeline change needed).** I earlier asked you to preserve
+  the import time, thinking staging truncated it. That was wrong: `email_transactions`
+  `occurred_at` is a **timestamptz** (`0025`/`0065`) — the bank's real moment is kept
+  for both mailbox-read and forwarded mail. The truncation was entirely client-side
+  (the review parsed it to a date and promote wrote no time). **Fixed on the client**
+  now: promote derives VN-local `HH:MM` from `_fhStagedRows[c.rowIndex].occurred_at`
+  and passes it through the personal + family writes; a date-only source (UTC
+  midnight, e.g. a CSV file) stays day-only. Nothing for you to do. (`0043` CSV *file*
+  staging is genuinely date-only, which is fine.)
 
   **Heads-up — family done too, touched your area lightly.** I ended up doing family
   in the same pass (integrity shouldn't be personal-only). It adds two `_decRows`
