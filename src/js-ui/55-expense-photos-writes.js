@@ -281,7 +281,6 @@ function fillPersonalExpenseFromTx(){
   // (not auto-overwritten by _syncExTime). Empty = the row was day-only.
   var _tf=document.getElementById('ex-timefield'); if(_tf) _tf.style.display='';
   var _ti=document.getElementById('ex-time'); if(_ti) _ti.value=t.time||'';
-  _exTimeTouched=true;
   setTxt('ex-title',L('Sửa khoản chi','Edit expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
   resetDelArm();
@@ -302,7 +301,6 @@ function fillExpenseFromTx(){
   // Show + prefill the stored time; mark touched so it's preserved (empty = day-only).
   var _tf=document.getElementById('ex-timefield'); if(_tf) _tf.style.display='';
   var _ti=document.getElementById('ex-time'); if(_ti) _ti.value=t.time||'';
-  _exTimeTouched=true;
   updateExWhen();
   setTxt('ex-title',L('Sửa khoản chi','Edit expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
@@ -352,14 +350,13 @@ async function _submitPersonalExpense(){
   if(!rows.length){ if(typeof bulkShowInvalid==='function') bulkShowInvalid(); return; }
   // validate like the family single-row path (amount + a real category)
   for(var k=0;k<rows.length;k++){ if(!(parseAmtBase(rows[k].amt||'')>0 && catValid(rows[k].cat))){ if(typeof bulkShowInvalid==='function'){ bulkShowInvalid(); return; } } }
-  // Personal capture is single-row, so the sheet's one time applies to it.
-  var timeStr=(document.getElementById('ex-time')||{}).value||undefined;
   var ok=0;
   for(var i=0;i<rows.length;i++){
     var r=rows[i], amt=parseAmtBase(r.amt||''); if(!(amt>0)) continue;
     var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
     // Model Y: category is denormalised on the personal row (name + emoji) — no personal-category table.
-    if(await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, timeStr)) ok++;
+    // Per-row time (commitActiveRow flushed the active row; the rest already hold theirs).
+    if(await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined)) ok++;
   }
   if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
 }

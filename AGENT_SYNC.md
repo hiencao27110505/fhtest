@@ -160,8 +160,8 @@ hand-merging `index.html`. Both replaced vigilance with structure.
   - `0096_family_txn_time` — `transactions.occurred_time` + `occurred_time_enc`
     (the family fhField/fhRead pattern: plaintext for off/dual, ciphertext for enc).
     Wired through `30-hydrate.js` (`_decRows(tx, [...'occurred_time'])`) + the outbox
-    writer. Bulk batches are stored day-only on purpose (one clock can't cover
-    several rows). **Next free is 0097.**
+    writer. Time is **per row** — each bulk entry carries its own (defaults to now
+    for a same-day row, empty when back-dated). **Next free is 0097.**
 
   **Ask 1 — preserve the time on import.** Bank emails carry a real timestamp, but
   staging truncates `occurred_at` to a **date** (`0043`), so the time is gone before

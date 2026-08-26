@@ -578,9 +578,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
       <div class="field"><label data-t="whenLbl">When</label><input type="date" id="ex-date" value="2026-07-13" min="2026-07-01" onchange="onExInput()" oninput="onExInput()"/></div>
     </div>
 
-    <!-- Optional time (personal expense) — stored encrypted as local HH:MM; empty
-         means only the day is known. Defaults to now for a same-day entry, cleared
-         when the date is back-dated (see _syncExTime). -->
+    <!-- Optional time — per row, on any expense (personal or family). Stored as
+         local HH:MM (encrypted); empty means only the day is known. Defaults to now
+         for a same-day row, cleared when back-dated (see _syncExTime). -->
     <div class="field" id="ex-timefield" style="display:none"><label>Giờ <span class="opt">· tuỳ chọn</span></label><input type="time" id="ex-time" oninput="onExTimeTouched()"/></div>
 
     <div class="field" id="ex-whofield"><label data-t="whoPaidLbl">Who paid</label><div class="choices" id="ex-who">

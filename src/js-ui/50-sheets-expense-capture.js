@@ -85,7 +85,7 @@ function openExpense(preset){
   // and edit layouts always start from everything visible; _applyExLayout below
   // re-hides for income/personal on a fresh open.
   ['ex-cat','ex-whofield','ex-photofield','bulk-add'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=''; });
-  var _tf0=document.getElementById('ex-timefield'); if(_tf0) _tf0.style.display='none';   // shown only for personal expense (add via _applyExLayout, edit via fill)
+  var _tf0=document.getElementById('ex-timefield'); if(_tf0) _tf0.style.display='none';   // shown for any expense (add via _applyExLayout, edit via fill)
   var _ea=document.getElementById('ex-amt'); if(_ea) _ea.classList.remove('inc-amt');   // edit is always Chi; drop any leftover income tint
   var _nl=document.getElementById('ex-note-lbl'); if(_nl && editing) _nl.textContent=L('Chi cho gì','What for?');
   // A private personal edit has no member-split / photos — hide those like a
@@ -99,7 +99,6 @@ function openExpense(preset){
   if(!editing){
     // Fresh open resets to Chi unless a caller asks for Thu (preset.type).
     exType=(preset&&preset.type==='income')?'income':'expense';
-    _exTimeTouched=false;                         // let _syncExTime pick now / clear per the date
     selectChipByVal('ex-type', exType);
     // Personal-first: money is the person's by default, shared to a space only
     // on purpose. Fall back to family only if the personal ledger isn't ready
@@ -115,18 +114,23 @@ function closeExpense(){ closeModals(); }
 function openPersonalExpense(){ openExpense({scope:'personal'}); }
 function _lastScope(){ try{ return localStorage.getItem('fh-last-scope'); }catch(e){ return null; } }
 var exType='expense';                 // 'expense' (Chi) | 'income' (Thu) — set on fresh open
-/* Optional transaction time (personal expense). We keep the honesty rule in the
-   UI: a same-day entry defaults to the current wall-clock time (you're logging in
-   the moment); a back-dated entry clears the time, because the exact time of a past
-   spend is unknown — better empty (day-only) than a made-up clock. Once the user
-   edits the field, we never override it. */
-var _exTimeTouched=false;
-function onExTimeTouched(){ _exTimeTouched=true; }
+/* Optional transaction time — PER ROW (each bulk entry carries its own).
+   Honesty rule, per row: a same-day row defaults to the current wall-clock time
+   (you're logging in the moment); a back-dated row defaults to empty, because a
+   past spend's exact time is unknown — better day-only than a made-up clock. A
+   row's `_timeAuto` stays true only while it's still that auto default; once the
+   user edits the field, the row is no longer auto and we never override it.
+   Edit mode has no bulkRows and manages #ex-time directly, so this no-ops there. */
 function _nowHM(){ var n=new Date(); return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0'); }
+function onExTimeTouched(){ var r=bulkRows[bulkActive]; if(r){ r._timeAuto=false; r.time=(document.getElementById('ex-time')||{}).value; } }
 function _syncExTime(){
-  var tEl=document.getElementById('ex-time'); if(!tEl || _exTimeTouched) return;
-  var d=(document.getElementById('ex-date')||{}).value;
-  tEl.value = (d===isoDate(TODAY)) ? _nowHM() : '';    // today → now; back-dated → unknown
+  if(editingTx || editingPTx) return;                  // edit mode manages the field itself
+  var tEl=document.getElementById('ex-time'); if(!tEl) return;
+  var r=bulkRows[bulkActive];
+  if(r && r._timeAuto===false){ tEl.value=r.time||''; return; }   // user set it → keep
+  var iso=(document.getElementById('ex-date')||{}).value;
+  tEl.value = (iso===isoDate(TODAY)) ? _nowHM() : '';   // today → now; back-dated → unknown
+  if(r){ r.time=tEl.value; }
 }
 function pickExScope(btn){ pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} selectChipByVal('ex-scope',btn.dataset.v); _applyExLayout(); }
 function pickExType(btn){
@@ -257,7 +261,7 @@ function prefillExpense(){
   // sheet was opened for a specific category/date (a preset), which means "log this".
   var saved = (!exPreset) ? loadDrafts() : null;
   if(saved){
-    bulkRows = saved.rows.map(function(r){ return {note:r.note||'',amt:r.amt||'',cat:r.cat||'',who:r.who||lastWho,date:r.date||isoDate(TODAY),_catTouched:!!r._catTouched}; });
+    bulkRows = saved.rows.map(function(r){ return {note:r.note||'',amt:r.amt||'',cat:r.cat||'',who:r.who||lastWho,date:r.date||isoDate(TODAY),_catTouched:!!r._catTouched,time:r.time||'',_timeAuto:(r._timeAuto!==false)}; });
     bulkActive = (typeof saved.active==='number' && saved.active<bulkRows.length) ? saved.active : -1;
     showDraftBanner();
   } else {
@@ -291,7 +295,7 @@ function persistDrafts(){
   if(editingTx || exPreset) return;                // editing, or a one-off preset log, is not the bulk draft
   try{
     if(!draftHasContent()){ localStorage.removeItem(FH_DRAFTS); return; }
-    var rows=bulkRows.map(function(r){ return {note:r.note||'',amt:r.amt||'',cat:r.cat||'',who:r.who||'',date:r.date||'',_catTouched:!!r._catTouched}; });
+    var rows=bulkRows.map(function(r){ return {note:r.note||'',amt:r.amt||'',cat:r.cat||'',who:r.who||'',date:r.date||'',_catTouched:!!r._catTouched,time:r.time||'',_timeAuto:(r._timeAuto!==false)}; });
     var data={v:1, cur:CUR, active:bulkActive, rows:rows};
     // committed-enc family: amounts + notes never touch disk unencrypted. A
     // locked device just skips persisting (it can't save the expense anyway).
@@ -324,7 +328,7 @@ function loadDrafts(){
    untouched sheet, so it can never overwrite something the user just typed */
 function applyDecryptedDraft(d){
   if(editingTx || exPreset || draftHasContent()) return;
-  bulkRows = d.rows.map(function(r){ return {note:r.note||'',amt:r.amt||'',cat:r.cat||'',who:r.who||lastWho,date:r.date||isoDate(TODAY),_catTouched:!!r._catTouched}; });
+  bulkRows = d.rows.map(function(r){ return {note:r.note||'',amt:r.amt||'',cat:r.cat||'',who:r.who||lastWho,date:r.date||isoDate(TODAY),_catTouched:!!r._catTouched,time:r.time||'',_timeAuto:(r._timeAuto!==false)}; });
   bulkActive = (typeof d.active==='number' && d.active<bulkRows.length) ? d.active : -1;
   showDraftBanner();
   renderBulk();
@@ -377,7 +381,7 @@ function blankRow(preset){
   var d   = (preset && preset.date) || isoDate(TODAY);
   // _catTouched = the category was set on purpose (a preset or a manual chip tap);
   // an untouched default yields to the note's guess on commit.
-  return { note:'', amt:'', cat:cat, who:lastWho, date:d, _catTouched:preCat };
+  return { note:'', amt:'', cat:cat, who:lastWho, date:d, _catTouched:preCat, time:'', _timeAuto:true };
 }
 /* Read the live #ex-* fields into the active draft. Called on every edit so the
    summary cards and Save validation always reflect what's on screen. */
@@ -389,6 +393,7 @@ function flushActiveRow(){
   r.cat  = chosen('ex-cat') || r.cat;
   r.who  = chosen('ex-who') || r.who;
   r.date = document.getElementById('ex-date').value || r.date;
+  var _t=document.getElementById('ex-time'); if(_t) r.time = _t.value;   // per-row time (may be re-derived by _syncExTime for auto rows)
 }
 /* Commit = flush the live fields AND parse the note if the amount wasn't entered
    separately. This is what makes "＋ Thêm khoản" (and leaving a row) behave like a
@@ -429,6 +434,8 @@ function loadRow(i){
   setDateFloor('ex-date', isoMonthStart(-24), iso);
   selectChipByVal('ex-cat', catValid(r.cat) ? r.cat : '');   // unclassified → no chip selected
   selectChipByVal('ex-who', r.who||lastWho);
+  var _t=document.getElementById('ex-time'); if(_t) _t.value = r.time||'';
+  _syncExTime();                                             // auto rows → now/'' by date; manual rows keep their value
   updateExWhen(); refreshExCta();
 }
 /* Accordion: expand row i, committing (parse+flush) the current one first. */
@@ -480,6 +487,7 @@ function bulkSummary(r){
   } else if(note || base>0){                                  // has content but no real category → prompt to pick
     meta+='<span class="bc-pick">'+L('Chọn danh mục','Pick a category')+'</span>';
   }
+  if(r.time) meta+='<span class="bc-cat">🕘 '+esc(r.time)+'</span>';   // per-row time, when known
   if(r._dup) meta+='<span class="bc-dup">'+L('lặp lại','repeat')+'</span>';
   return noteHtml+'<span class="bc-meta">'+meta+'</span>';
 }
@@ -531,10 +539,10 @@ function renderBulk(){
   if(mount) mount.appendChild(editor);
   if(addBtn){ addBtn.style.display=''; addBtn.textContent=L('＋ Thêm khoản','＋ Add item'); }
   togglePhotoField(bulkRows.length===1);          // photos only in single-row mode (bulk photos = separate OCR feature)
-  // Time is a single-entry field too: one clock can't honestly cover several rows,
-  // so hide it in a bulk batch (those rows are stored day-only).
+  // Per-row time: the field lives in the active card's editor and each row carries
+  // its own time, so it shows for every expense row (single or bulk), never income.
   var _tf=document.getElementById('ex-timefield');
-  if(_tf && exType!=='income') _tf.style.display=(bulkRows.length===1)?'':'none';
+  if(_tf) _tf.style.display=(exType!=='income')?'':'none';
   persistDrafts();                                 // keep the auto-saved draft in sync with the on-screen state
 }
 function togglePhotoField(show){

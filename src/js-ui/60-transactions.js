@@ -318,6 +318,9 @@ function addExpense(){
   var cat=chosen('ex-cat')||'Fun'; lastCat=cat;
   var s=catStyle[cat]||['🧾','#f2eef6','var(--cat-other)'];
   var dObj=exDate(), dstr=(dObj.getTime()===TODAY.getTime())?'Today':(MONA[dObj.getMonth()]+' '+dObj.getDate());
+  // Per-row time: in a bulk save, submitBulk loadRow(i)s each row into the fields
+  // first, so #ex-time already holds this row's own time (or '' → day-only).
+  var _time=(document.getElementById('ex-time')||{}).value||null;
   if(cat==='Event'){                                        // the "Event" category → a real event
     var eid='e'+order.length+Math.floor(amt);
     var past=dObj<TODAY;                                    // a past date = it already happened (realized), not upcoming
@@ -337,7 +340,7 @@ function addExpense(){
   if(dObj>TODAY){                                           // future date → a *proposal* (reserves nothing until the family aligns)
     var fwho=chosen('ex-who')||'Emma', fwhoStore=(fwho==='Both')?'Shared':fwho;
     var fby=(typeof _futMeId==='function')?_futMeId():((typeof _meName==='function')?_meName():fwhoStore);   // creator id (live) / name (demo)
-    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,who:fwhoStore,amt:amt,future:true,by:fby,reviews:[],month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+    txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,who:fwhoStore,amt:amt,time:_time,future:true,by:fby,reviews:[],month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
     renderTxns(); selMonth=curMonthKey(); renderAll();
     if(!BULK_SAVING){                                        // bulk loop → submitBulk() handles the tail
       if(typeof clearDrafts==='function') clearDrafts();
@@ -351,9 +354,6 @@ function addExpense(){
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
   var hadPhoto=exPhotos.length>0;
-  // Time only on a single realized entry: a bulk batch stamps day-only (one clock
-  // can't cover several purchases), and a future proposal has no clock yet.
-  var _time=(!BULK_SAVING) ? ((document.getElementById('ex-time')||{}).value||null) : null;
   txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,_ts:new Date(),who:whoStore,amt:amt,time:_time,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
   if(hadPhoto) syncExpenseEvent(txns[0]);                   // photos → a linked event for Events + Memories
   renderTxns();
