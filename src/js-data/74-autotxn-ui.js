@@ -142,6 +142,86 @@
           'Only you can open these. You can still move any of them to the family ledger when you review.');
   }
 
+  /* HOW FAR BACK the first read reaches.
+     
+     This was a constant, and it moved from 90 to 15 and back in one afternoon
+     because it is genuinely a judgement call that is not ours to make: someone
+     who has been running a household on spreadsheets wants a year, someone
+     trying the feature out wants a fortnight and is annoyed when 52 rows land
+     at once. The person knows which they are; we do not.
+     
+     THE CEILING IS OURS, NOT GMAIL'S. Gmail's `newer_than:` has no documented
+     limit. What stops us is that Gmail returns newest-first and a staged
+     message still matches the query, so past our own list cap the oldest mail
+     becomes unreachable rather than merely slow — plus every row lands in a
+     queue somebody works through by hand.
+     
+     Three presets and a free field, because the presets cover almost everyone
+     and the field costs one line to support. Typing is clamped rather than
+     rejected: someone who types 800 gets a year, not an error. */
+  const ATX_MAX_DAYS = 365;
+  let _atxDays = 90;
+
+  window.fhAutoTxnPickDays = function (v) {
+    _atxDays = _atxClampDays(v);
+    const box = document.getElementById('atx-days');
+    if (box) Array.prototype.forEach.call(box.querySelectorAll('.choice'), function (b) {
+      b.classList.toggle('on', Number(b.dataset.v) === _atxDays);
+    });
+    const custom = document.getElementById('atx-days-custom');
+    // Only mirror the value in when a preset was tapped, so typing is not fought.
+    if (custom && document.activeElement !== custom) custom.value = '';
+    const note = document.getElementById('atx-days-note');
+    if (note) note.textContent = _atxDaysNote();
+  };
+
+  window.fhAutoTxnTypeDays = function (el) {
+    const raw = String(el.value || '').replace(/[^0-9]/g, '');
+    if (!raw) return;
+    _atxDays = _atxClampDays(raw);
+    if (Number(raw) > ATX_MAX_DAYS) el.value = String(ATX_MAX_DAYS);
+    const box = document.getElementById('atx-days');
+    if (box) Array.prototype.forEach.call(box.querySelectorAll('.choice'), function (b) {
+      b.classList.toggle('on', Number(b.dataset.v) === _atxDays);
+    });
+    const note = document.getElementById('atx-days-note');
+    if (note) note.textContent = _atxDaysNote();
+  };
+
+  function _atxClampDays(v) {
+    const n = Math.round(Number(v));
+    if (!isFinite(n) || n < 1) return 90;
+    return Math.min(ATX_MAX_DAYS, n);
+  }
+
+  function _atxDaysNote() {
+    const d = _atxDays;
+    if (d >= ATX_MAX_DAYS) {
+      return L('Một năm là mức xa nhất tụi mình đọc được.',
+               'A year is as far back as we can reach.');
+    }
+    return L('Đọc email ngân hàng trong ' + d + ' ngày gần đây. Sau lần đầu, chỉ đọc email mới.',
+             'Reads bank email from the last ' + d + ' days. After the first time, only new mail.');
+  }
+
+  function _atxDaysRow() {
+    const chip = (v, label) =>
+      '<button class="choice' + (_atxDays === v ? ' on' : '') + '" data-v="' + v + '" ' +
+      'onclick="fhAutoTxnPickDays(' + v + ')">' + _esc(label) + '</button>';
+    return '<div class="field" id="atx-daysfield">' +
+      '<label>' + _esc(L('Đọc lại bao xa?', 'How far back?')) + '</label>' +
+      '<div class="choices" id="atx-days">' +
+        chip(30, L('30 ngày', '30 days')) +
+        chip(60, L('60 ngày', '60 days')) +
+        chip(90, L('90 ngày', '90 days')) +
+      '</div>' +
+      '<input id="atx-days-custom" class="atx-days-in" inputmode="numeric" ' +
+        'placeholder="' + _escAttr(L('hoặc nhập số ngày (tối đa 365)', 'or type a number of days (max 365)')) + '" ' +
+        'oninput="fhAutoTxnTypeDays(this)"/>' +
+      '<div class="hint" id="atx-days-note">' + _esc(_atxDaysNote()) + '</div>' +
+      '</div>';
+  }
+
   function _atxScopeRow() {
     /* Family needs a family. Someone with only a personal wallet is offered
        nothing to switch to rather than a chip that fails on Google's screen. */
@@ -352,6 +432,7 @@
 
       _atxAcctRow() +
       _atxScopeRow() +
+      _atxDaysRow() +
 
       '<button class="cta" id="atx-go" onclick="fhAutoTxnGrant()">' +
         _esc(L('Bắt đầu: cho phép đọc email', 'Start by granting email access')) + '</button>' +
@@ -627,6 +708,7 @@
        callback is what calls grant_mailbox_access, and it must not take a
        destination from a URL the person could have been sent. */
     q.set('scope', _atxScopeIs());
+    q.set('backfill_days', String(_atxDays));
 
     /* JSON, not a redirect we follow. The endpoint answers 302 to Google for a
        plain navigation, but this call carries a Bearer token so it has to be a

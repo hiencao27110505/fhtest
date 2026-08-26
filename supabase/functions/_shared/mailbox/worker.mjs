@@ -83,8 +83,23 @@ export const MAX_MODEL_CALLS_PER_RUN = 10;
  *  Keeping the two caps separate is the point. Listing only as many as a run can
  *  stage makes "there is more" indistinguishable from "there is nothing", and a
  *  run that cannot tell the difference marks itself finished and strands the
- *  rest. Sized well above a busy household's backfill window of bank mail. */
+ *  rest. Sized well above a busy household's ordinary poll. */
 export const LIST_MAX_PER_RUN = 500;
+
+/** The same cap for a FIRST read, which is a different size of problem.
+ *
+ *  Gmail returns newest-first and a staged message STILL MATCHES the query, so
+ *  it keeps its slot in that first page forever. A window yielding more than
+ *  this cap therefore leaves its oldest tail permanently unreachable — not
+ *  slow, invisible: every run lists the same newest N, filters out the ones
+ *  already staged, and never reaches past them.
+ *
+ *  Sized against the real ceiling rather than a guess: the busiest mailbox
+ *  observed runs ~66 transactions a month, so a full 365-day backfill is ~800.
+ *  Paging costs one API call per 100 ids, so this is 20 calls on the first run
+ *  of a mailbox and none thereafter — cheap, and cheap in the one place where
+ *  the alternative is silent loss. */
+export const BACKFILL_LIST_MAX = 2000;
 
 /**
  * How far back this poll should reach, measured from the last successful one.
@@ -179,7 +194,14 @@ export async function runGrant(grant, ctx) {
 
   const domains = await ctx.db.providerDomains();
   const backfilling = !grant.backfilled_at;
-  const days = backfilling ? BACKFILL_DAYS : windowDays(grant.last_synced_at, ctx.nowMs);
+  /* The window the PERSON chose for this mailbox (0093), not a constant. Falls
+     back to BACKFILL_DAYS for grants written before the column existed, which
+     is what 90 meant for them. Clamped here as well as in the RPC: this is the
+     value that reaches Gmail, and an invariant only one caller enforces is one
+     refactor away from being gone. */
+  const chosen = Number(grant.backfill_days) || BACKFILL_DAYS;
+  const backfillDays = Math.min(365, Math.max(1, chosen));
+  const days = backfilling ? backfillDays : windowDays(grant.last_synced_at, ctx.nowMs);
   const query = senders.inboxQuery(days, domains);
 
   const perRun = ctx.maxMessages ?? MAX_MESSAGES_PER_GRANT;
@@ -187,7 +209,9 @@ export async function runGrant(grant, ctx) {
   // `windowDays` widens after an outage, and listing only what one run can stage
   // would truncate the catch-up exactly the way a truncated backfill does.
   const ids = await gmail.listMessageIds(
-    query, ctx.listMax ?? LIST_MAX_PER_RUN, access, ctx.fetch);
+    query,
+    ctx.listMax ?? (backfilling ? BACKFILL_LIST_MAX : LIST_MAX_PER_RUN),
+    access, ctx.fetch);
   summary.fetched = ids.length;
 
   // One query for the whole window. A throw here is NOT caught: if the database

@@ -90,7 +90,15 @@ async function authorize(req: Request, url: URL): Promise<Response> {
      be promoted outward at review, a family-sealed one cannot be pulled back. */
   const scope = url.searchParams.get("scope") === "family" ? "family" : "personal";
 
-  const state = await createState({ userId, returnTo, scope }, secret);
+  /* How far back the first read reaches. Clamped here as well as in the RPC:
+     an out-of-range value is a client bug, and the person should still end up
+     connected with a window we can serve rather than refused over it. */
+  const askedDays = Number(url.searchParams.get("backfill_days"));
+  const backfillDays = Number.isFinite(askedDays) && askedDays > 0
+    ? Math.min(365, Math.max(1, Math.round(askedDays)))
+    : 90;
+
+  const state = await createState({ userId, returnTo, scope, backfillDays }, secret);
   return json({ url: authorizationUrl(state, cfg, loginHint) });
 }
 
@@ -142,6 +150,7 @@ async function callback(url: URL): Promise<Response> {
           p_scopes: grant.scopes,
           // From the signed state, never from the URL (see authorize).
           p_scope: claims.scope === "family" ? "family" : "personal",
+          p_backfill_days: claims.backfillDays,
         }),
       },
     );

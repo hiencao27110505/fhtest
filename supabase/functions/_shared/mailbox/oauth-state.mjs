@@ -52,7 +52,7 @@ async function hmac(payloadB64, secret, subtle) {
 }
 
 /**
- * Signs `{userId, returnTo, scope}` into a state string.
+ * Signs `{userId, returnTo, scope, backfillDays}` into a state string.
  *
  * `nowMs` is injected so a test can prove expiry rather than sleep through it.
  */
@@ -69,6 +69,14 @@ export async function createState(claims, secret, opts) {
        sending someone a link. Omitted when personal so the common case does not
        grow the state; absence reads as personal on the way out. */
     sc: claims.scope === 'family' ? 'family' : undefined,
+    /* How far back the first read reaches. Rides with the scope and for the
+       same reason: the callback is what binds the grant, so a window read from
+       an unsigned parameter would be one anybody could set by sending a link —
+       and an enormous one is a way to make somebody's first sync expensive.
+       Omitted at the default so the common state stays small. */
+    bd: (Number(claims.backfillDays) > 0 && Number(claims.backfillDays) !== 90)
+      ? Math.min(365, Math.max(1, Math.round(Number(claims.backfillDays))))
+      : undefined,
     iat: Math.floor(now / 1000),
     exp: Math.floor(now / 1000) + (o.ttlSeconds || DEFAULT_TTL_SECONDS),
   };
@@ -111,7 +119,14 @@ export async function readState(state, secret, opts) {
 
   // Absence means personal — the tighter of the two, so a truncated or older
   // state can only ever under-share rather than over-share.
-  return { userId: payload.uid, returnTo: payload.rt, scope: payload.sc === 'family' ? 'family' : 'personal' };
+  return {
+    userId: payload.uid,
+    returnTo: payload.rt,
+    scope: payload.sc === 'family' ? 'family' : 'personal',
+    // Absence means the default, which is what every state written before this
+    // field existed meant too.
+    backfillDays: Number(payload.bd) > 0 ? Math.min(365, Math.round(Number(payload.bd))) : 90,
+  };
 }
 
 /**
