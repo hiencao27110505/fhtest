@@ -85,6 +85,7 @@ function openExpense(preset){
   // and edit layouts always start from everything visible; _applyExLayout below
   // re-hides for income/personal on a fresh open.
   ['ex-cat','ex-whofield','ex-photofield','bulk-add'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=''; });
+  var _tf0=document.getElementById('ex-timefield'); if(_tf0) _tf0.style.display='none';   // shown only for personal expense (add via _applyExLayout, edit via fill)
   var _ea=document.getElementById('ex-amt'); if(_ea) _ea.classList.remove('inc-amt');   // edit is always Chi; drop any leftover income tint
   var _nl=document.getElementById('ex-note-lbl'); if(_nl && editing) _nl.textContent=L('Chi cho gì','What for?');
   // A private personal edit has no member-split / photos — hide those like a
@@ -98,6 +99,7 @@ function openExpense(preset){
   if(!editing){
     // Fresh open resets to Chi unless a caller asks for Thu (preset.type).
     exType=(preset&&preset.type==='income')?'income':'expense';
+    _exTimeTouched=false;                         // let _syncExTime pick now / clear per the date
     selectChipByVal('ex-type', exType);
     // Personal-first: money is the person's by default, shared to a space only
     // on purpose. Fall back to family only if the personal ledger isn't ready
@@ -113,6 +115,19 @@ function closeExpense(){ closeModals(); }
 function openPersonalExpense(){ openExpense({scope:'personal'}); }
 function _lastScope(){ try{ return localStorage.getItem('fh-last-scope'); }catch(e){ return null; } }
 var exType='expense';                 // 'expense' (Chi) | 'income' (Thu) — set on fresh open
+/* Optional transaction time (personal expense). We keep the honesty rule in the
+   UI: a same-day entry defaults to the current wall-clock time (you're logging in
+   the moment); a back-dated entry clears the time, because the exact time of a past
+   spend is unknown — better empty (day-only) than a made-up clock. Once the user
+   edits the field, we never override it. */
+var _exTimeTouched=false;
+function onExTimeTouched(){ _exTimeTouched=true; }
+function _nowHM(){ var n=new Date(); return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0'); }
+function _syncExTime(){
+  var tEl=document.getElementById('ex-time'); if(!tEl || _exTimeTouched) return;
+  var d=(document.getElementById('ex-date')||{}).value;
+  tEl.value = (d===isoDate(TODAY)) ? _nowHM() : '';    // today → now; back-dated → unknown
+}
 function pickExScope(btn){ pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} selectChipByVal('ex-scope',btn.dataset.v); _applyExLayout(); }
 function pickExType(btn){
   pick('ex-type',btn); exType=btn.dataset.v;
@@ -130,6 +145,11 @@ function _applyExLayout(){
   var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=(personal||income)?'none':'';     // personal photos not wired yet; income has none
   var bulk=document.getElementById('bulk-add'); if(bulk) bulk.style.display=(personal||income)?'none':'';     // keep personal + income single
   var cat=document.getElementById('ex-cat'); if(cat) cat.style.display=income?'none':'';                      // income has no category
+  // Optional time — any single expense (personal or family). Hidden for income;
+  // hidden for a bulk batch (>1 rows) by renderBulk, since one time can't honestly
+  // stamp several different purchases.
+  var tf=document.getElementById('ex-timefield'); if(tf) tf.style.display=(!income)?'':'none';
+  if(!income) _syncExTime();
   var note=document.getElementById('ex-note'); if(note) note.placeholder = income ? L('vd. Lương','e.g. Salary') : L('vd. Đi chợ','e.g. Grocery run');
   // "What for?" is an expense question; income wants its source.
   var nl=document.getElementById('ex-note-lbl'); if(nl) nl.textContent = income ? L('Nguồn','Source') : L('Chi cho gì','What for?');
@@ -511,6 +531,10 @@ function renderBulk(){
   if(mount) mount.appendChild(editor);
   if(addBtn){ addBtn.style.display=''; addBtn.textContent=L('＋ Thêm khoản','＋ Add item'); }
   togglePhotoField(bulkRows.length===1);          // photos only in single-row mode (bulk photos = separate OCR feature)
+  // Time is a single-entry field too: one clock can't honestly cover several rows,
+  // so hide it in a bulk batch (those rows are stored day-only).
+  var _tf=document.getElementById('ex-timefield');
+  if(_tf && exType!=='income') _tf.style.display=(bulkRows.length===1)?'':'none';
   persistDrafts();                                 // keep the auto-saved draft in sync with the on-screen state
 }
 function togglePhotoField(show){

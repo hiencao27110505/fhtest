@@ -3793,6 +3793,11 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       <div class="field"><label data-t="whenLbl">When</label><input type="date" id="ex-date" value="2026-07-13" min="2026-07-01" onchange="onExInput()" oninput="onExInput()"/></div>
     </div>
 
+    <!-- Optional time (personal expense) — stored encrypted as local HH:MM; empty
+         means only the day is known. Defaults to now for a same-day entry, cleared
+         when the date is back-dated (see _syncExTime). -->
+    <div class="field" id="ex-timefield" style="display:none"><label>Giờ <span class="opt">· tuỳ chọn</span></label><input type="time" id="ex-time" oninput="onExTimeTouched()"/></div>
+
     <div class="field" id="ex-whofield"><label data-t="whoPaidLbl">Who paid</label><div class="choices" id="ex-who">
       <button class="choice on" data-v="Emma" onclick="pickExWho(this)">Emma</button>
       <button class="choice" data-v="James" onclick="pickExWho(this)">James</button>
@@ -5693,7 +5698,7 @@ function renderPersonal(){
       }
       h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>'
          + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
-         + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
+         + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.time?' · '+t.time:'')+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
          + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';
     });
   } else {
@@ -8360,6 +8365,7 @@ function openExpense(preset){
   // and edit layouts always start from everything visible; _applyExLayout below
   // re-hides for income/personal on a fresh open.
   ['ex-cat','ex-whofield','ex-photofield','bulk-add'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=''; });
+  var _tf0=document.getElementById('ex-timefield'); if(_tf0) _tf0.style.display='none';   // shown only for personal expense (add via _applyExLayout, edit via fill)
   var _ea=document.getElementById('ex-amt'); if(_ea) _ea.classList.remove('inc-amt');   // edit is always Chi; drop any leftover income tint
   var _nl=document.getElementById('ex-note-lbl'); if(_nl && editing) _nl.textContent=L('Chi cho gì','What for?');
   // A private personal edit has no member-split / photos — hide those like a
@@ -8373,6 +8379,7 @@ function openExpense(preset){
   if(!editing){
     // Fresh open resets to Chi unless a caller asks for Thu (preset.type).
     exType=(preset&&preset.type==='income')?'income':'expense';
+    _exTimeTouched=false;                         // let _syncExTime pick now / clear per the date
     selectChipByVal('ex-type', exType);
     // Personal-first: money is the person's by default, shared to a space only
     // on purpose. Fall back to family only if the personal ledger isn't ready
@@ -8388,6 +8395,19 @@ function closeExpense(){ closeModals(); }
 function openPersonalExpense(){ openExpense({scope:'personal'}); }
 function _lastScope(){ try{ return localStorage.getItem('fh-last-scope'); }catch(e){ return null; } }
 var exType='expense';                 // 'expense' (Chi) | 'income' (Thu) — set on fresh open
+/* Optional transaction time (personal expense). We keep the honesty rule in the
+   UI: a same-day entry defaults to the current wall-clock time (you're logging in
+   the moment); a back-dated entry clears the time, because the exact time of a past
+   spend is unknown — better empty (day-only) than a made-up clock. Once the user
+   edits the field, we never override it. */
+var _exTimeTouched=false;
+function onExTimeTouched(){ _exTimeTouched=true; }
+function _nowHM(){ var n=new Date(); return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0'); }
+function _syncExTime(){
+  var tEl=document.getElementById('ex-time'); if(!tEl || _exTimeTouched) return;
+  var d=(document.getElementById('ex-date')||{}).value;
+  tEl.value = (d===isoDate(TODAY)) ? _nowHM() : '';    // today → now; back-dated → unknown
+}
 function pickExScope(btn){ pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} selectChipByVal('ex-scope',btn.dataset.v); _applyExLayout(); }
 function pickExType(btn){
   pick('ex-type',btn); exType=btn.dataset.v;
@@ -8405,6 +8425,11 @@ function _applyExLayout(){
   var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=(personal||income)?'none':'';     // personal photos not wired yet; income has none
   var bulk=document.getElementById('bulk-add'); if(bulk) bulk.style.display=(personal||income)?'none':'';     // keep personal + income single
   var cat=document.getElementById('ex-cat'); if(cat) cat.style.display=income?'none':'';                      // income has no category
+  // Optional time — any single expense (personal or family). Hidden for income;
+  // hidden for a bulk batch (>1 rows) by renderBulk, since one time can't honestly
+  // stamp several different purchases.
+  var tf=document.getElementById('ex-timefield'); if(tf) tf.style.display=(!income)?'':'none';
+  if(!income) _syncExTime();
   var note=document.getElementById('ex-note'); if(note) note.placeholder = income ? L('vd. Lương','e.g. Salary') : L('vd. Đi chợ','e.g. Grocery run');
   // "What for?" is an expense question; income wants its source.
   var nl=document.getElementById('ex-note-lbl'); if(nl) nl.textContent = income ? L('Nguồn','Source') : L('Chi cho gì','What for?');
@@ -8786,6 +8811,10 @@ function renderBulk(){
   if(mount) mount.appendChild(editor);
   if(addBtn){ addBtn.style.display=''; addBtn.textContent=L('＋ Thêm khoản','＋ Add item'); }
   togglePhotoField(bulkRows.length===1);          // photos only in single-row mode (bulk photos = separate OCR feature)
+  // Time is a single-entry field too: one clock can't honestly cover several rows,
+  // so hide it in a bulk batch (those rows are stored day-only).
+  var _tf=document.getElementById('ex-timefield');
+  if(_tf && exType!=='income') _tf.style.display=(bulkRows.length===1)?'':'none';
   persistDrafts();                                 // keep the auto-saved draft in sync with the on-screen state
 }
 function togglePhotoField(show){
@@ -9572,7 +9601,7 @@ function refreshExCta(){                                    // nav-bar Save butt
   // Label: keep updateExWhen()'s single-row Lưu/Gửi; only override for a true batch.
   if(rows.length>1) s.textContent = L('Lưu tất cả ('+considered+')','Save all ('+considered+')');
 }
-function onExInput(){ if(!editingTx){ flushActiveRow(); if(typeof persistDrafts==='function') persistDrafts(); } updateExWhen(); refreshExCta(); }
+function onExInput(){ if(!editingTx){ flushActiveRow(); if(typeof persistDrafts==='function') persistDrafts(); } if(typeof _syncExTime==='function') _syncExTime(); updateExWhen(); refreshExCta(); }
 function openEditExpense(id){
   var t=txById(id); if(!t)return;
   editingTx=id;
@@ -9597,6 +9626,11 @@ function fillPersonalExpenseFromTx(){
   document.getElementById('ex-date').value=edIso;
   setDateFloor('ex-date', isoMonthStart(-24), edIso);
   if(t.cat) selectChipByVal('ex-cat', t.cat);
+  // Show + prefill the stored time; mark touched so the stored value is preserved
+  // (not auto-overwritten by _syncExTime). Empty = the row was day-only.
+  var _tf=document.getElementById('ex-timefield'); if(_tf) _tf.style.display='';
+  var _ti=document.getElementById('ex-time'); if(_ti) _ti.value=t.time||'';
+  _exTimeTouched=true;
   setTxt('ex-title',L('Sửa khoản chi','Edit expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
   resetDelArm();
@@ -9614,6 +9648,10 @@ function fillExpenseFromTx(){
   selectChipByVal('ex-cat', t.cat);
   selectChipByVal('ex-who', whoToChip(t.who));
   exPhotos = (t.photos||(t.photo?[t.photo]:[])).slice(); renderExPhoto();
+  // Show + prefill the stored time; mark touched so it's preserved (empty = day-only).
+  var _tf=document.getElementById('ex-timefield'); if(_tf) _tf.style.display='';
+  var _ti=document.getElementById('ex-time'); if(_ti) _ti.value=t.time||'';
+  _exTimeTouched=true;
   updateExWhen();
   setTxt('ex-title',L('Sửa khoản chi','Edit expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
@@ -9663,12 +9701,14 @@ async function _submitPersonalExpense(){
   if(!rows.length){ if(typeof bulkShowInvalid==='function') bulkShowInvalid(); return; }
   // validate like the family single-row path (amount + a real category)
   for(var k=0;k<rows.length;k++){ if(!(parseAmtBase(rows[k].amt||'')>0 && catValid(rows[k].cat))){ if(typeof bulkShowInvalid==='function'){ bulkShowInvalid(); return; } } }
+  // Personal capture is single-row, so the sheet's one time applies to it.
+  var timeStr=(document.getElementById('ex-time')||{}).value||undefined;
   var ok=0;
   for(var i=0;i<rows.length;i++){
     var r=rows[i], amt=parseAmtBase(r.amt||''); if(!(amt>0)) continue;
     var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
     // Model Y: category is denormalised on the personal row (name + emoji) — no personal-category table.
-    if(await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined)) ok++;
+    if(await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, timeStr)) ok++;
   }
   if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
 }
@@ -9711,6 +9751,7 @@ function saveExpenseEdit(){
   }
   // write the new values in place (keep the specific icon unless the category changed)
   t.ico=(cat===t.cat && t.ico)?t.ico:s[0]; t.cat=cat; t.note=note; t.amt=amt; t.who=whoStore; t.date=dstr; t._d=dObj; t.future=newFuture?true:undefined;
+  t.time=newFuture ? null : ((document.getElementById('ex-time')||{}).value||null);   // future proposal has no clock; '' clears to day-only
   t.photos=exPhotos.slice(); delete t.photo;               // add / keep / remove the memory photos
   syncExpenseEvent(t);                                     // keep the linked event in sync (create/update/remove)
   // apply the NEW contribution only if it is realized
@@ -9768,7 +9809,8 @@ async function savePersonalTxEdit(){
   if(!cat && orig){ cat=orig.cat||''; }
   var emoji=(cat && window.catStyle && catStyle[cat] && catStyle[cat][0]) || (orig&&orig.emoji) || '🗂️';
   var date=(document.getElementById('ex-date')||{}).value||undefined;
-  var ok=await window.fhPersonalUpdateExpense(id, {amt:amt, note:note, cat:cat||null, emoji:emoji, dateIso:date});
+  var time=(document.getElementById('ex-time')||{}).value||'';   // '' clears back to day-only
+  var ok=await window.fhPersonalUpdateExpense(id, {amt:amt, note:note, cat:cat||null, emoji:emoji, dateIso:date, time:time});
   editingPTx=null; editSnap=null;
   if(ok){ if(typeof renderPersonal==='function') renderPersonal(); if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay(); closeExpense(); window.toast&&toast(L('Đã lưu','Changes saved')); }
   else { window.toast&&toast(L('Chưa lưu được, thử lại','Couldn’t save, try again')); }
@@ -12278,7 +12320,7 @@ function _pBuildTxnCtx(){
     if(!style[cat]){ style[cat]=[t.emoji||'🗂️', PAL[order.length%PAL.length], 'var(--cat-other)']; order.push(cat); }
     // Only PRIVATE rows are editable here; mirror rows (spaceId/linkId set) are a
     // family expense shown in the personal book and are edited on the family side.
-    rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _edit:!t.spaceId&&!t.linkId });
+    rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _edit:!t.spaceId&&!t.linkId, time:t.time||null });
     if((t.date||'').slice(0,7)===ym) spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
   });
   order.sort(function(a,b){ return (spent[b]||0)-(spent[a]||0); });
@@ -12308,7 +12350,7 @@ function txRow(t){
                     :(' onclick="openExpenseDetail(\''+t.id+'\')"');
   var tapCls=(personal? (t._edit?' tap':'') : ' tap');
   return '<div class="row'+tapCls+(chip?' has-rx':'')+'"'+rxid+open+'><div class="r-ico-wrap">'+tile+av+'</div>'
-    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+dstr+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+dstr+(t.time?' · '+esc(t.time):'')+'</div></div>'
     +'<div class="r-right"><div class="r-amt num">'+fmt(t.amt)+'</div><div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
@@ -12576,7 +12618,10 @@ function addExpense(){
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
   var hadPhoto=exPhotos.length>0;
-  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,_ts:new Date(),who:whoStore,amt:amt,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+  // Time only on a single realized entry: a bulk batch stamps day-only (one clock
+  // can't cover several purchases), and a future proposal has no clock yet.
+  var _time=(!BULK_SAVING) ? ((document.getElementById('ex-time')||{}).value||null) : null;
+  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,_ts:new Date(),who:whoStore,amt:amt,time:_time,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
   if(hadPhoto) syncExpenseEvent(txns[0]);                   // photos → a linked event for Events + Memories
   renderTxns();
   var jul=months[curMonthKey()];
@@ -14656,7 +14701,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v414';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v416';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -16291,7 +16336,7 @@ window.obGoogle = async function () {
       try {
         const from = _winFrom();
         const [tr, ir, bd] = await Promise.all([
-          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id,link_id,version,updated_at,created_at').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
+          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
           _sb().from('personal_incomes').select('id,amount_enc,note_enc,income_date').eq('owner_user_id', P.uid).gte('income_date', from),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
         ]);
@@ -16317,7 +16362,8 @@ window.obGoogle = async function () {
           P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
             version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at,
             amt: bad ? null : Number(a), _unreadable: bad,
-            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji });
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
+            time: await _decTxt(t.occurred_time_enc) });   // local "HH:MM" if the time was known, else null (day-only)
         }
         P.incomes = [];
         for (const i of (ir.data || [])) {
@@ -16330,11 +16376,16 @@ window.obGoogle = async function () {
       } catch (e) { console.warn('personal hydrate failed', e); _setState('error'); }
     };
 
+    // Only a real local "HH:MM" is stored; anything else is treated as "no time
+    // known" (null → day-only) so a clock time is never fabricated.
+    const _okTime = (v) => (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) ? v : null;
     /* writes — private (space-less) rows */
-    window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso) {
+    window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso, timeStr) {
       if (!P.uid || !P.key) return false;
+      const t = _okTime(timeStr);
       const row = { owner_user_id: P.uid, txn_date: dateIso || _localDate(new Date()), kind: 'expense', space_id: null, link_id: null,
-        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null };
+        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
+        occurred_time_enc: t ? await _encP(t) : null };
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal expense failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -16348,10 +16399,12 @@ window.obGoogle = async function () {
     window.fhPersonalUpdateExpense = async function (id, fields) {
       if (!P.uid || !P.key || !id) return false;
       fields = fields || {};
+      const t = _okTime(fields.time);
       const row = { amount_enc: await _encP(Number(fields.amt)),
         note_enc: fields.note ? await _encP(fields.note) : null,
         cat_name_enc: fields.cat ? await _encP(fields.cat) : null,
-        cat_emoji: fields.emoji || null };
+        cat_emoji: fields.emoji || null,
+        occurred_time_enc: t ? await _encP(t) : null };   // always set → clearing the time drops back to day-only
       if (fields.dateIso) row.txn_date = fields.dateIso;
       const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
       if (r.error) { console.warn('personal expense update failed', r.error); return false; }
@@ -16723,7 +16776,7 @@ window.obGoogle = async function () {
           sb.from('categories').select('id,name,name_enc,emoji,color,sort_order,archived_at').eq('family_id', fid).order('sort_order'),
           sb.from('category_budgets').select('category_id,amount,amount_enc,month').eq('family_id', fid),
           sb.from('monthly_budgets').select('month,budget_total,budget_total_enc,closed').eq('family_id', fid),
-          sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,txn_date,status,created_by,created_at').eq('family_id', fid).order('txn_date', { ascending: false }),
+          sb.from('transactions').select('id,category_id,member_id,note,note_enc,amount,amount_enc,occurred_time,occurred_time_enc,txn_date,status,created_by,created_at').eq('family_id', fid).order('txn_date', { ascending: false }),
           sb.from('events').select('id,name,name_enc,emoji,cover,target_amount,target_amount_enc,target_date,achieved,sort_order,source_txn_id,created_by').eq('family_id', fid).is('archived_at', null).order('sort_order'),
           sb.from('event_fundings').select('id,event_id,goal_id,amount,amount_enc,source,month,member_id').eq('family_id', fid),
           sb.from('savings_entries').select('kind,amount,amount_enc,entry_date').eq('family_id', fid),
@@ -16781,7 +16834,7 @@ window.obGoogle = async function () {
         }));
       }
       await Promise.all([
-        _decRows(tx, ['amount', 'note']),
+        _decRows(tx, ['amount', 'note', 'occurred_time']),
         _decRows(cb, ['amount']),
         _decRows(mb, ['budget_total']),
         _decRows(ev, ['name', 'target_amount']),
@@ -16918,7 +16971,7 @@ window.obGoogle = async function () {
         const who = mrec ? (mrec.is_shared ? 'Shared' : mrec.name) : 'Shared';
         const realized = (t.status !== 'planned') && (dt <= now);
         const amt = Number(t.amount);
-        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _ts: (t.created_at ? new Date(t.created_at) : null), _catId: t.category_id, _memberId: t.member_id, _createdBy: t.created_by || null, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
+        newTxns.push({ id: 'db_' + t.id, _dbId: t.id, _d: dt, _ts: (t.created_at ? new Date(t.created_at) : null), _catId: t.category_id, _memberId: t.member_id, _createdBy: t.created_by || null, ico: (c && c.emoji) || '🧾', cat: catName, note: t.note || '', date: (_isoDate(dt) === _isoDate(now)) ? 'Today' : (MO[dt.getMonth()] + ' ' + dt.getDate()), who: who, amt: amt, time: t.occurred_time || null, month: mkey, future: realized ? undefined : true, photos: photosByTx[t.id] });
         if (realized) { m.spent += amt; m.catSpent[catName] = (m.catSpent[catName] || 0) + amt; m.memberSpent[who] = (m.memberSpent[who] || 0) + amt; }
       });
       newTxns.sort(function(a,b){ var ta=a._d?a._d.getTime():Infinity, tb=b._d?b._d.getTime():Infinity; return tb-ta; }); // newest first, globally
@@ -17399,6 +17452,9 @@ window.obGoogle = async function () {
     return false;
   }
   window._fhWriteLocked = _fhWriteLocked;
+  // Only a real local "HH:MM" is persisted; anything else → null (day-only), never
+  // a fabricated clock time.
+  function _okTxnTime(v) { return (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) ? v : null; }
   async function _dbInsertTxn(t, exD) {
     const fid = window.DB.fid; if (!fid) return;
     if (_fhWriteLocked()) return;
@@ -17410,7 +17466,8 @@ window.obGoogle = async function () {
     if (!catId) catId = window.DB.catByName[CAT_FALLBACK] || Object.values(window.DB.catByName)[0];
     const row = Object.assign(
       { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null },
-      await fhField('amount', t.amt), await fhField('note', t.note));
+      await fhField('amount', t.amt), await fhField('note', t.note),
+      await fhField('occurred_time', _okTxnTime(t.time)));   // local "HH:MM" or null (day-only)
     // Offline → queue durably instead of losing the write.
     if (navigator.onLine === false) { await _obQueueTxn(row, t); return; }
     try {
@@ -17437,7 +17494,8 @@ window.obGoogle = async function () {
       const catId = window.DB.catByName[t.cat] || await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1);
       const patch = Object.assign(
         { category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' },
-        await fhField('amount', t.amt), await fhField('note', t.note));
+        await fhField('amount', t.amt), await fhField('note', t.note),
+        await fhField('occurred_time', _okTxnTime(t.time)));   // clearing the time drops back to day-only
       await _w(sb.from('transactions').update(patch).eq('id', dbId), 'write transactions');
       await _dbSyncTxnPhotos(dbId, t.photos);
       _syncSoon(true);   // edit may target/move an out-of-window row → full hydrate (edits are infrequent)

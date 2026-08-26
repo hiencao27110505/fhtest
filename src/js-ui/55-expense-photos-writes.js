@@ -252,7 +252,7 @@ function refreshExCta(){                                    // nav-bar Save butt
   // Label: keep updateExWhen()'s single-row Lưu/Gửi; only override for a true batch.
   if(rows.length>1) s.textContent = L('Lưu tất cả ('+considered+')','Save all ('+considered+')');
 }
-function onExInput(){ if(!editingTx){ flushActiveRow(); if(typeof persistDrafts==='function') persistDrafts(); } updateExWhen(); refreshExCta(); }
+function onExInput(){ if(!editingTx){ flushActiveRow(); if(typeof persistDrafts==='function') persistDrafts(); } if(typeof _syncExTime==='function') _syncExTime(); updateExWhen(); refreshExCta(); }
 function openEditExpense(id){
   var t=txById(id); if(!t)return;
   editingTx=id;
@@ -277,6 +277,11 @@ function fillPersonalExpenseFromTx(){
   document.getElementById('ex-date').value=edIso;
   setDateFloor('ex-date', isoMonthStart(-24), edIso);
   if(t.cat) selectChipByVal('ex-cat', t.cat);
+  // Show + prefill the stored time; mark touched so the stored value is preserved
+  // (not auto-overwritten by _syncExTime). Empty = the row was day-only.
+  var _tf=document.getElementById('ex-timefield'); if(_tf) _tf.style.display='';
+  var _ti=document.getElementById('ex-time'); if(_ti) _ti.value=t.time||'';
+  _exTimeTouched=true;
   setTxt('ex-title',L('Sửa khoản chi','Edit expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
   resetDelArm();
@@ -294,6 +299,10 @@ function fillExpenseFromTx(){
   selectChipByVal('ex-cat', t.cat);
   selectChipByVal('ex-who', whoToChip(t.who));
   exPhotos = (t.photos||(t.photo?[t.photo]:[])).slice(); renderExPhoto();
+  // Show + prefill the stored time; mark touched so it's preserved (empty = day-only).
+  var _tf=document.getElementById('ex-timefield'); if(_tf) _tf.style.display='';
+  var _ti=document.getElementById('ex-time'); if(_ti) _ti.value=t.time||'';
+  _exTimeTouched=true;
   updateExWhen();
   setTxt('ex-title',L('Sửa khoản chi','Edit expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
@@ -343,12 +352,14 @@ async function _submitPersonalExpense(){
   if(!rows.length){ if(typeof bulkShowInvalid==='function') bulkShowInvalid(); return; }
   // validate like the family single-row path (amount + a real category)
   for(var k=0;k<rows.length;k++){ if(!(parseAmtBase(rows[k].amt||'')>0 && catValid(rows[k].cat))){ if(typeof bulkShowInvalid==='function'){ bulkShowInvalid(); return; } } }
+  // Personal capture is single-row, so the sheet's one time applies to it.
+  var timeStr=(document.getElementById('ex-time')||{}).value||undefined;
   var ok=0;
   for(var i=0;i<rows.length;i++){
     var r=rows[i], amt=parseAmtBase(r.amt||''); if(!(amt>0)) continue;
     var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
     // Model Y: category is denormalised on the personal row (name + emoji) — no personal-category table.
-    if(await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined)) ok++;
+    if(await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, timeStr)) ok++;
   }
   if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
 }
@@ -391,6 +402,7 @@ function saveExpenseEdit(){
   }
   // write the new values in place (keep the specific icon unless the category changed)
   t.ico=(cat===t.cat && t.ico)?t.ico:s[0]; t.cat=cat; t.note=note; t.amt=amt; t.who=whoStore; t.date=dstr; t._d=dObj; t.future=newFuture?true:undefined;
+  t.time=newFuture ? null : ((document.getElementById('ex-time')||{}).value||null);   // future proposal has no clock; '' clears to day-only
   t.photos=exPhotos.slice(); delete t.photo;               // add / keep / remove the memory photos
   syncExpenseEvent(t);                                     // keep the linked event in sync (create/update/remove)
   // apply the NEW contribution only if it is realized
@@ -448,7 +460,8 @@ async function savePersonalTxEdit(){
   if(!cat && orig){ cat=orig.cat||''; }
   var emoji=(cat && window.catStyle && catStyle[cat] && catStyle[cat][0]) || (orig&&orig.emoji) || '🗂️';
   var date=(document.getElementById('ex-date')||{}).value||undefined;
-  var ok=await window.fhPersonalUpdateExpense(id, {amt:amt, note:note, cat:cat||null, emoji:emoji, dateIso:date});
+  var time=(document.getElementById('ex-time')||{}).value||'';   // '' clears back to day-only
+  var ok=await window.fhPersonalUpdateExpense(id, {amt:amt, note:note, cat:cat||null, emoji:emoji, dateIso:date, time:time});
   editingPTx=null; editSnap=null;
   if(ok){ if(typeof renderPersonal==='function') renderPersonal(); if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay(); closeExpense(); window.toast&&toast(L('Đã lưu','Changes saved')); }
   else { window.toast&&toast(L('Chưa lưu được, thử lại','Couldn’t save, try again')); }

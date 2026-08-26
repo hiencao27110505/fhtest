@@ -53,7 +53,7 @@ function _pBuildTxnCtx(){
     if(!style[cat]){ style[cat]=[t.emoji||'🗂️', PAL[order.length%PAL.length], 'var(--cat-other)']; order.push(cat); }
     // Only PRIVATE rows are editable here; mirror rows (spaceId/linkId set) are a
     // family expense shown in the personal book and are edited on the family side.
-    rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _edit:!t.spaceId&&!t.linkId });
+    rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _edit:!t.spaceId&&!t.linkId, time:t.time||null });
     if((t.date||'').slice(0,7)===ym) spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
   });
   order.sort(function(a,b){ return (spent[b]||0)-(spent[a]||0); });
@@ -83,7 +83,7 @@ function txRow(t){
                     :(' onclick="openExpenseDetail(\''+t.id+'\')"');
   var tapCls=(personal? (t._edit?' tap':'') : ' tap');
   return '<div class="row'+tapCls+(chip?' has-rx':'')+'"'+rxid+open+'><div class="r-ico-wrap">'+tile+av+'</div>'
-    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+dstr+'</div></div>'
+    +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+dstr+(t.time?' · '+esc(t.time):'')+'</div></div>'
     +'<div class="r-right"><div class="r-amt num">'+fmt(t.amt)+'</div><div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
 }
 var txFilter=null; // {type:'cat'|'mem', val:'Fun'|'Emma'}
@@ -351,7 +351,10 @@ function addExpense(){
   var who=chosen('ex-who')||'Emma'; lastWho=who;
   var mkey=who==='Both'?'Shared':who, whoStore=who==='Both'?'both':who;
   var hadPhoto=exPhotos.length>0;
-  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,_ts:new Date(),who:whoStore,amt:amt,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
+  // Time only on a single realized entry: a bulk batch stamps day-only (one clock
+  // can't cover several purchases), and a future proposal has no clock yet.
+  var _time=(!BULK_SAVING) ? ((document.getElementById('ex-time')||{}).value||null) : null;
+  txns.unshift({id:'t'+(txSeq++),ico:s[0],cat:cat,note:note,date:dstr,_d:dObj,_ts:new Date(),who:whoStore,amt:amt,time:_time,month:curMonthKey(),photos:exPhotos.length?exPhotos.slice():undefined});
   if(hadPhoto) syncExpenseEvent(txns[0]);                   // photos → a linked event for Events + Memories
   renderTxns();
   var jul=months[curMonthKey()];

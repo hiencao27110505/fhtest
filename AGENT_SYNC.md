@@ -143,6 +143,39 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-26 (Hien's session — app / personal ledger) — TRANSACTION TIME-OF-DAY
+  now stored (personal ledger, phase 1). Two asks for the pipeline + a heads-up on
+  migration 0095.**
+
+  **Model (integrity-first).** A transaction's DAY stays in `txn_date` (plaintext,
+  indexable). The fine time-of-day is stored as the **local wall-clock `"HH:MM"`
+  string** — no UTC instant, so the `toISOString()` midnight-shift trap doesn't
+  apply. Precision is honest: **NULL = only the day is known**; the UI renders
+  date-only and never fabricates a clock time. A manual same-day entry defaults to
+  "now"; a back-dated one is left day-only.
+
+  **Migrations 0095 + 0096 APPLIED to the live DB** (both additive, nullable):
+  - `0095_personal_txn_time` — `personal_transactions.occurred_time_enc` (encrypted
+    `"HH:MM"` under the personal key; E2EE, on-device only).
+  - `0096_family_txn_time` — `transactions.occurred_time` + `occurred_time_enc`
+    (the family fhField/fhRead pattern: plaintext for off/dual, ciphertext for enc).
+    Wired through `30-hydrate.js` (`_decRows(tx, [...'occurred_time'])`) + the outbox
+    writer. Bulk batches are stored day-only on purpose (one clock can't cover
+    several rows). **Next free is 0097.**
+
+  **Ask 1 — preserve the time on import.** Bank emails carry a real timestamp, but
+  staging truncates `occurred_at` to a **date** (`0043`), so the time is gone before
+  it's a transaction. When you can, keep the time (as local `HH:MM`, or a full
+  timestamp we can localise) through staging → promote. Until then, imported rows
+  are correctly day-only. This pairs with the earlier `direction` ask.
+
+  **Heads-up — family done too, touched your area lightly.** I ended up doing family
+  in the same pass (integrity shouldn't be personal-only). It adds two `_decRows`
+  fields in `30-hydrate.js` (line ~133: `['amount','note','occurred_time']`) and two
+  `fhField('occurred_time', …)` calls in `40-txn-writes-outbox.js` (insert + update).
+  Nothing else in those files changed. If you're mid-edit there, this is the only
+  overlap — shout if it collides.
+
 - **2026-08-26 (Hien's session — app / personal ledger) — INCOME vs EXPENSE
   DETECTION NOW CHANGES WHERE MONEY LANDS. The pipeline's `direction` needs to be
   authoritative; the client should stop re-deriving it.**

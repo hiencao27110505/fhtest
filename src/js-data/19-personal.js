@@ -217,7 +217,7 @@
       try {
         const from = _winFrom();
         const [tr, ir, bd] = await Promise.all([
-          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,txn_date,kind,space_id,link_id,version,updated_at,created_at').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
+          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
           _sb().from('personal_incomes').select('id,amount_enc,note_enc,income_date').eq('owner_user_id', P.uid).gte('income_date', from),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
         ]);
@@ -243,7 +243,8 @@
           P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
             version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at,
             amt: bad ? null : Number(a), _unreadable: bad,
-            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji });
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
+            time: await _decTxt(t.occurred_time_enc) });   // local "HH:MM" if the time was known, else null (day-only)
         }
         P.incomes = [];
         for (const i of (ir.data || [])) {
@@ -256,11 +257,16 @@
       } catch (e) { console.warn('personal hydrate failed', e); _setState('error'); }
     };
 
+    // Only a real local "HH:MM" is stored; anything else is treated as "no time
+    // known" (null → day-only) so a clock time is never fabricated.
+    const _okTime = (v) => (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) ? v : null;
     /* writes — private (space-less) rows */
-    window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso) {
+    window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso, timeStr) {
       if (!P.uid || !P.key) return false;
+      const t = _okTime(timeStr);
       const row = { owner_user_id: P.uid, txn_date: dateIso || _localDate(new Date()), kind: 'expense', space_id: null, link_id: null,
-        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null };
+        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
+        occurred_time_enc: t ? await _encP(t) : null };
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal expense failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -274,10 +280,12 @@
     window.fhPersonalUpdateExpense = async function (id, fields) {
       if (!P.uid || !P.key || !id) return false;
       fields = fields || {};
+      const t = _okTime(fields.time);
       const row = { amount_enc: await _encP(Number(fields.amt)),
         note_enc: fields.note ? await _encP(fields.note) : null,
         cat_name_enc: fields.cat ? await _encP(fields.cat) : null,
-        cat_emoji: fields.emoji || null };
+        cat_emoji: fields.emoji || null,
+        occurred_time_enc: t ? await _encP(t) : null };   // always set → clearing the time drops back to day-only
       if (fields.dateIso) row.txn_date = fields.dateIso;
       const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
       if (r.error) { console.warn('personal expense update failed', r.error); return false; }

@@ -172,7 +172,7 @@ function renderPersonal(){
       }
       h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>'
          + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
-         + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
+         + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.time?' · '+t.time:'')+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
          + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';
     });
   } else {

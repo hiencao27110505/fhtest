@@ -279,6 +279,9 @@
     return false;
   }
   window._fhWriteLocked = _fhWriteLocked;
+  // Only a real local "HH:MM" is persisted; anything else → null (day-only), never
+  // a fabricated clock time.
+  function _okTxnTime(v) { return (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) ? v : null; }
   async function _dbInsertTxn(t, exD) {
     const fid = window.DB.fid; if (!fid) return;
     if (_fhWriteLocked()) return;
@@ -290,7 +293,8 @@
     if (!catId) catId = window.DB.catByName[CAT_FALLBACK] || Object.values(window.DB.catByName)[0];
     const row = Object.assign(
       { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null },
-      await fhField('amount', t.amt), await fhField('note', t.note));
+      await fhField('amount', t.amt), await fhField('note', t.note),
+      await fhField('occurred_time', _okTxnTime(t.time)));   // local "HH:MM" or null (day-only)
     // Offline → queue durably instead of losing the write.
     if (navigator.onLine === false) { await _obQueueTxn(row, t); return; }
     try {
@@ -317,7 +321,8 @@
       const catId = window.DB.catByName[t.cat] || await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1);
       const patch = Object.assign(
         { category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized' },
-        await fhField('amount', t.amt), await fhField('note', t.note));
+        await fhField('amount', t.amt), await fhField('note', t.note),
+        await fhField('occurred_time', _okTxnTime(t.time)));   // clearing the time drops back to day-only
       await _w(sb.from('transactions').update(patch).eq('id', dbId), 'write transactions');
       await _dbSyncTxnPhotos(dbId, t.photos);
       _syncSoon(true);   // edit may target/move an out-of-window row → full hydrate (edits are infrequent)
