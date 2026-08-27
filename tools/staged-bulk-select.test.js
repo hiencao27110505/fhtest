@@ -192,10 +192,13 @@ reset();
 csvTxrRoom = 'del';
 csvBulkDelete();
 const armedHtml = csvTxrBulkHTML();
-t('armed label carries the number', /Chạm lần nữa để xoá 3 khoản/.test(armedHtml), armedHtml.slice(0, 200));
+t('armed label carries the number', /Xoá 3 khoản\?/.test(armedHtml), armedHtml.slice(0, 200));
+t('and the statement turns to the confirm question', /Chắc chưa\? Không hoàn tác được\./.test(armedHtml));
 reset();
 csvTxrRoom = 'del';
-t('unarmed label asks first', /Xoá 3 khoản</.test(csvTxrBulkHTML()));
+const idleDel = csvTxrBulkHTML();
+t('unarmed label carries the number too', /Xoá 3</.test(idleDel));
+t('and the statement says what it removes', /Gỡ 3 khoản đã chọn khỏi hàng chờ/.test(idleDel));
 
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail ? 1 : 0);

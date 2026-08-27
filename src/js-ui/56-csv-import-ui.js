@@ -1437,12 +1437,19 @@ function csvTxrBulkHTML(){
         + '<span class="e">🏡</span><b>'+L('Gia đình','Family')+'</b><span>'+L('cả nhà cùng thấy','everyone sees it')+'</span></button>'
       + '</div>';
   } else {
+    /* A row, not a dialog: the statement sits where a table row's label would,
+       the action on the trailing edge — the shape of every destructive row in
+       iOS Settings. Armed, the STATEMENT turns danger too, so the second tap
+       is read in context and the button label can stay short. */
     h += '<div class="txh-del">'
-      + '<p>'+esc(L('Gỡ '+n+' khoản đã chọn khỏi hàng chờ. Không thể hoàn tác.',
-                    'Removes the '+n+' selected from the queue. Cannot be undone.'))+'</p>'
+      + '<span class="txh-del-txt'+(csvBulkArmed?' armed':'')+'">'
+        + '<b>'+esc(csvBulkArmed ? L('Chắc chưa? Không hoàn tác được.','Sure? This cannot be undone.')
+                                 : L('Gỡ '+n+' khoản đã chọn khỏi hàng chờ','Remove the '+n+' selected from the queue'))+'</b>'
+        + '<span>'+esc(csvBulkArmed ? L('Chạm nút lần nữa để xoá.','Tap the button again to delete.')
+                                    : L('Không hoàn tác được.','Cannot be undone.'))+'</span>'
+      + '</span>'
       + '<button type="button" class="txh-delbtn'+(csvBulkArmed?' armed':'')+'"'+dis+' onclick="csvTxrDel()">'
-        + esc(csvBulkArmed ? L('Chạm lần nữa để xoá '+n+' khoản','Tap again to delete '+n)
-                           : L('Xoá '+n+' khoản','Delete '+n))+'</button>'
+        + esc(csvBulkArmed ? L('Xoá '+n+' khoản?','Delete '+n+'?') : L('Xoá '+n,'Delete '+n))+'</button>'
       + '</div>';
   }
 
@@ -1506,7 +1513,15 @@ function csvTxrHeadSync(){
 }
 
 /* The rail grows under a touch and shrinks when it leaves — class toggle only,
-   never a rebuild. Scrolling counts as touching, so it stays big mid-browse. */
+   never a rebuild. Scrolling counts as touching, so it stays big mid-browse.
+
+   It is also GRABBABLE: on a phone the overflow scrolls natively under the
+   finger, but a mouse cannot pull a scrollable div, so pointer-drag maps
+   horizontal movement onto scrollLeft. A drag past 4px suppresses the click
+   that follows it (csvTxrRailDragged, read by csvTxrPickCat) — pulling the
+   rail must never accidentally stage the chip that happened to be under the
+   pointer when it stopped. */
+var csvTxrRailDragged = false;
 function csvTxrRailWire(){
   var rail = document.getElementById('txh-rail'); if(!rail) return;
   var t = null;
@@ -1517,6 +1532,30 @@ function csvTxrRailWire(){
   rail.addEventListener('touchstart', big, { passive:true });
   rail.addEventListener('touchend', function(){ calm(900); }, { passive:true });
   rail.addEventListener('scroll', function(){ big(); calm(900); }, { passive:true });
+
+  var sx = 0, sl = 0, down = false;
+  rail.addEventListener('pointerdown', function(e){
+    if(e.pointerType === 'touch') return;          // native scroll owns touch
+    sx = e.clientX; sl = rail.scrollLeft; down = true;
+  });
+  rail.addEventListener('pointermove', function(e){
+    if(!down) return;
+    var dx = e.clientX - sx;
+    if(Math.abs(dx) > 4){
+      csvTxrRailDragged = true;
+      rail.classList.add('dragging');
+      try{ rail.setPointerCapture(e.pointerId); }catch(err){}
+    }
+    if(csvTxrRailDragged) rail.scrollLeft = sl - dx;
+  });
+  var end = function(){
+    down = false; rail.classList.remove('dragging');
+    // the click this drag spawned fires synchronously after pointerup, before
+    // this timeout — so the flag is still up for it, and clear for the next tap
+    setTimeout(function(){ csvTxrRailDragged = false; }, 0);
+  };
+  rail.addEventListener('pointerup', end);
+  rail.addEventListener('pointercancel', end);
 }
 
 /* Chart bars give way on scroll-down (the readout stays), return on scroll-up
@@ -1560,6 +1599,7 @@ function csvTxrSegSync(){
   if(ap) ap.disabled = !((csvTxrPendCat || csvTxrPendScope) && csvStagedSelected().length);
 }
 function csvTxrPickCat(btn){
+  if(csvTxrRailDragged) return;        // that was a pull, not a pick
   var v = btn.getAttribute('data-v');
   csvTxrPendCat = (csvTxrPendCat === v) ? null : v;      // tap again to unstage
   var cs = document.getElementById('txh-rail').children;

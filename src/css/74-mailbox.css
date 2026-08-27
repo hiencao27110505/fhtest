@@ -230,6 +230,9 @@
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent);
   mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent)}
 .txh-rail::-webkit-scrollbar{display:none}
+.txh-rail{cursor:grab}
+.txh-rail.dragging{cursor:grabbing}
+.txh-rail.dragging .txh-it{pointer-events:none}
 .txh-it{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:0;
   border:0;background:none;padding:0;-webkit-tap-highlight-color:transparent}
 .txh-it .e{width:36px;height:36px;border-radius:50%;background:var(--fill-neutral);
@@ -244,24 +247,36 @@
 .txh-it.on .e{box-shadow:0 0 0 2px var(--brand);background:var(--white)}
 .txh-it.on .l{color:var(--brand)}
 
-/* scope room: two cards, same staging-ring language as the rail */
-.txh-scope{display:flex;gap:8px;padding:4px 0 2px}
-.txh-sc{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
-  border:1px solid var(--hairline);border-radius:13px;background:var(--white);padding:10px 8px 9px;
-  font:inherit;-webkit-tap-highlight-color:transparent;transition:border-color .14s ease}
-.txh-sc .e{font-size:22px}
-.txh-sc b{font-size:12.5px;font-weight:700;color:var(--ink)}
-.txh-sc span{font-size:10.5px;color:var(--muted)}
-.txh-sc.on{border-color:var(--brand)}
+/* scope room: the RAIL's own language at destination scale — two emoji discs
+   with the same staging ring, so every room in this panel picks the same way.
+   The bordered mini-cards this replaced looked like a different app had moved
+   in next door to the rail. */
+.txh-scope{display:flex;justify-content:center;gap:38px;padding:7px 0 3px}
+.txh-sc{display:flex;flex-direction:column;align-items:center;gap:0;
+  border:0;background:none;padding:0;font:inherit;
+  -webkit-tap-highlight-color:transparent}
+.txh-sc .e{width:52px;height:52px;border-radius:50%;background:var(--fill-neutral);
+  display:flex;align-items:center;justify-content:center;font-size:26px;
+  transition:box-shadow .15s ease,background .15s ease}
+.txh-sc b{font-size:12.5px;font-weight:700;color:var(--ink);margin-top:5px}
+.txh-sc span{font-size:10.5px;color:var(--muted);margin-top:1px}
+.txh-sc.on .e{box-shadow:0 0 0 2px var(--brand);background:var(--white)}
 .txh-sc.on b{color:var(--brand)}
 .txh-sc[aria-disabled="true"]{opacity:.4}
 
-/* delete room: says what it does; bordered, arm-then-confirm, never a fill */
-.txh-del{padding:6px 0 2px;text-align:center}
-.txh-del p{font-size:12px;color:var(--muted);margin:0 0 10px;letter-spacing:-.01em}
-.txh-delbtn{min-height:42px;padding:0 22px;border:1px solid var(--hairline);border-radius:12px;
-  background:var(--white);font:inherit;font-size:13px;font-weight:700;color:var(--muted);
-  -webkit-tap-highlight-color:transparent;transition:border-color .14s ease,color .14s ease}
+/* delete room: the shape of a destructive settings ROW — statement on the
+   leading edge, bordered action trailing, arm-then-confirm, never a fill.
+   Armed, the statement turns danger with the button, so the second tap is
+   read in context. */
+.txh-del{display:flex;align-items:center;gap:12px;padding:9px 2px 5px}
+.txh-del-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left}
+.txh-del-txt b{font-size:12.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.txh-del-txt span{font-size:11px;color:var(--muted)}
+.txh-del-txt.armed b,.txh-del-txt.armed span{color:var(--danger)}
+.txh-delbtn{flex-shrink:0;min-height:42px;padding:0 18px;border:1px solid var(--hairline);
+  border-radius:12px;background:var(--white);font:inherit;font-size:13px;font-weight:700;
+  color:var(--muted);white-space:nowrap;-webkit-tap-highlight-color:transparent;
+  transition:border-color .14s ease,color .14s ease}
 .txh-delbtn.armed{border-color:var(--danger);color:var(--danger)}
 .txh-delbtn:disabled{opacity:.34}
 
