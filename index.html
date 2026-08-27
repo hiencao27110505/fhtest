@@ -10589,10 +10589,19 @@ function csvRowShape(c, isDup){
 
 /* isError separates "this can't go in" (red) from "worth a glance" (amber).
    Both live in the same section, but only one of them is a problem. */
-function csvCardHead(label, dateIso, removeFn, attn, isError){
+/* Effective transaction time for a review row: an explicit edit (c.time, which
+   may be '' to mean day-only) wins; otherwise derive the bank email's real time
+   from its occurred_at. '' = no time (day-only). This is what the card shows and
+   what promote stores, so the reviewed value is exactly what lands. */
+function csvRowTime(c){
+  if(c && c.time!==undefined) return c.time || '';
+  return (window.fhStagedRowTime ? (window.fhStagedRowTime(c)||'') : '');
+}
+window.csvRowTime = csvRowTime;
+function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr){
   var tone = isError ? ' attn' : (attn ? ' warn' : '');
   return '<span class="bulk-head"><span class="bulk-idx'+tone+'">'+esc(label)+'</span>'
-    + (dateIso ? '<span class="bulk-date">'+esc(bulkDate(dateIso))+'</span>' : '')
+    + (dateIso ? '<span class="bulk-date">'+esc(bulkDate(dateIso))+(timeStr?' · '+esc(timeStr):'')+'</span>' : '')
     + '</span>';
 }
 
@@ -10613,7 +10622,7 @@ function csvCollapsedCard(c, opts){
     : '';
   return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
-    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid)
+    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr)
     /* A collapsed row has to say where it is going, or the destination is a
        decision you can only see by opening every card one at a time. Only the
        PRIVATE case is marked: family is the default and marking both would be
@@ -10657,6 +10666,10 @@ function csvActiveCard(c, opts){
       + '<div class="field"><label>'+L('Số tiền','Amount')+'</label><input class="num" id="csvedit-amt" inputmode="numeric" onblur="snapAmtInput(this)" placeholder="'+escAttr(amtPlaceholder())+'" value="'+escAttr(c.amount!=null?csvAmtInputVal(c.amount):'')+'"/></div>'
       + '<div class="field"><label>'+L('Khi nào','When')+'</label><input type="date" id="csvedit-date" value="'+escAttr(c.dateDisplay||'')+'"/></div>'
       + '</div>'
+      // Time carried from the bank email (occurred_at) — shown so the reviewer can
+      // verify, correct or clear it before it's stored. Empty = day-only. Income
+      // rows have no time column, so no field for them.
+      + (!c.isIncome ? '<div class="field"><label>'+L('Giờ','Time')+' <span class="opt">'+L('tuỳ chọn','optional')+'</span></label><input type="time" id="csvedit-time" value="'+escAttr(csvRowTime(c))+'"/></div>' : '')
       + (csvStagedMode ? csvRowScopeField(c) : '')
       /* A private row has no member split — the same reason #ex-whofield hides
          when the expense modal is scoped personal. Asking "who paid" about a
@@ -10675,7 +10688,7 @@ function csvActiveCard(c, opts){
   // Expanding was tappable but collapsing wasn't; an up-chevron marks the header
   // as the way back. The × (remove) stays a separate sibling so the two 44px
   // targets never overlap.
-  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid);
+  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr);
   var head = opts.tapFn
     ? '<button type="button" class="bulk-collapse" onclick="'+opts.tapFn+'" aria-expanded="true" aria-label="'+escAttr(L('Thu gọn','Collapse'))+'">'
         + headInner
@@ -10697,6 +10710,8 @@ function csvReadEditor(c){
          if(v && v.status==='ok' && v.value > 0) c.amount = v.value; }
   var d=document.getElementById('csvedit-date');
   if(d && d.value){ c.dateDisplay = d.value; c.date = new Date(d.value+'T00:00:00'); }
+  var ti=document.getElementById('csvedit-time');
+  if(ti) c.time = ti.value || '';   // explicit reviewed value (incl. '' to clear → day-only)
   if(document.getElementById('csvedit-cats')){ var cat = chosen('csvedit-cats'); if(cat){ c.categoryName = cat; c.catSource='user'; } }
   if(document.getElementById('csvedit-who')){ var w = chosen('csvedit-who'); if(w) c.who = w; }
 }
@@ -10867,7 +10882,7 @@ function renderCsvReview(){
       : c.flags.indexOf('amount_missing')>=0 ? L('Thiếu số tiền','Missing amount')
       : L('Chờ bạn xác nhận','Waiting on you');
     var blocking = c.flags.indexOf('date_missing')>=0 || c.flags.indexOf('amount_missing')>=0;
-    var o = { label:why, dateIso:c.dateDisplay, invalid:blocking, attn:!blocking,
+    var o = { label:why, dateIso:c.dateDisplay, timeStr:csvRowTime(c), invalid:blocking, attn:!blocking,
               tapFn:"csvToggleExpand('defer',"+di+")", removeFn:"csvDeferDrop("+di+")" };
     if(!csvIsOpen('defer', di)){
       if(blocking) attnHtml += csvCollapsedCard(c, o); else handledHtml += csvCollapsedCard(c, o);
@@ -10996,6 +11011,7 @@ function renderCsvReview(){
       html += '<div class="group-h" style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
       dateBuckets[k].forEach(function(e){
         var o = { label:lowConfLabel[e.i] || (L('Khoản chi ','Item ')+(e.i+1)), dateIso:e.c.dateDisplay,
+                  timeStr:csvRowTime(e.c),
                   attn:!!lowConfLabel[e.i],
                   tapFn:"csvToggleExpand('ready',"+e.i+")", removeFn:"csvReadyRemove("+e.i+")" };
         if(csvStagedMode){ o.checkFn = "csvStagedToggle("+e.i+")"; o.checked = !e.c._skipImport;
@@ -11257,7 +11273,7 @@ function csvPromote(subset, opts){
       return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName,
                who: c.who || csvDefaultWho(), date: c.dateDisplay, _invalid: false,
                _catTouched: true,
-               time: (window.fhStagedRowTime ? window.fhStagedRowTime(c) : undefined) || '', _timeAuto: false };
+               time: csvRowTime(c), _timeAuto: false };   // reviewed time (edited value wins, else derived); '' = day-only
     });
     bulkActive = 0;
     exPhotos = [];
@@ -12723,7 +12739,7 @@ function renderExpenseDetail(){
   html+='<div class="exd-meta">'
     + _exdMetaRow(L('Danh mục','Category'), '<span class="exd-catico">'+s[0]+'</span>'+esc(t.cat))
     + _exdMetaRow(L('Người trả','Paid by'), '<span class="exd-av" style="'+window.fhAvStyle(wd)+'">'+esc(window.fhAvIni(wd))+'</span>'+esc(wd.name))
-    + _exdMetaRow(L('Ngày','Date'), esc(_exdDate(t)))
+    + _exdMetaRow(L('Ngày','Date'), esc(_exdDate(t)) + (t.time ? ' · '+esc(t.time) : ''))
     +'</div>';
   var ph=t.photos||(t.photo?[t.photo]:[]);
   if(ph.length){
@@ -14710,7 +14726,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v419';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v421';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -23073,7 +23089,7 @@ window.classifyAmount = classifyAmount;
            what the review already showed. */
         var base = window.csvBaseAmt ? window.csvBaseAmt(c.amount)
           : Math.round(Number(c.amount || 0) / (window.curMult ? window.curMult() : 1));
-        var _t = window.fhStagedRowTime ? window.fhStagedRowTime(c) : undefined;   // bank email's real time (VN-local HH:MM), or undefined
+        var _t = window.csvRowTime ? window.csvRowTime(c) : undefined;   // reviewed time (edited value wins, else derived from occurred_at)
         var ok;
         if (c.isIncome) {
           /* A credit/income row goes to the personal INCOME book, not the expense

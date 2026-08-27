@@ -625,7 +625,7 @@
            what the review already showed. */
         var base = window.csvBaseAmt ? window.csvBaseAmt(c.amount)
           : Math.round(Number(c.amount || 0) / (window.curMult ? window.curMult() : 1));
-        var _t = window.fhStagedRowTime ? window.fhStagedRowTime(c) : undefined;   // bank email's real time (VN-local HH:MM), or undefined
+        var _t = window.csvRowTime ? window.csvRowTime(c) : undefined;   // reviewed time (edited value wins, else derived from occurred_at)
         var ok;
         if (c.isIncome) {
           /* A credit/income row goes to the personal INCOME book, not the expense
