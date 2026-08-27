@@ -110,6 +110,22 @@
       .limit(TXN_REVIEW_PAGE);
     if (res.error) throw res.error;
     var rows = res.data || [];
+    /* True pending total for the badge and the "N of M" header. Only when the
+       page comes back FULL could there be more than we fetched, so the exact
+       count is a separate head-only query paid for just in that case; a queue
+       under the cap already knows its own size. The projection above stays
+       column-named and raw_body-free — the sealing test guards it — so the
+       count cannot ride along on that select. */
+    if (rows.length >= TXN_REVIEW_PAGE) {
+      try {
+        var cnt = await sb.from('email_transactions')
+          .select('id', { count: 'exact', head: true })
+          .eq('review_status', 'pending');
+        window.fhStagedTotal = (cnt && typeof cnt.count === 'number') ? cnt.count : rows.length;
+      } catch (e) { window.fhStagedTotal = rows.length; }
+    } else {
+      window.fhStagedTotal = rows.length;
+    }
     // Prune first, against the full server answer, so the local list shrinks as
     // the server catches up rather than accumulating ids nobody will ever see.
     var serverIds = rows.map(function (r) { return r.id; });
@@ -124,7 +140,7 @@
      every user. Cached on window and pushed to the CTA renderer. */
   window.fhStagedCount = 0;
   window.fhRefreshStagedCount = async function () {
-    try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (rows || []).length; }
+    try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (typeof window.fhStagedTotal === 'number') ? window.fhStagedTotal : (rows || []).length; }
     catch (e) { window.fhStagedCount = 0; }
     try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
     // The Cá nhân tab carries the same CTA and the same badge; it has to hear
@@ -383,6 +399,141 @@
     return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   };
 
+  /* ---- Review-modal loading overlay + weekly preview chart (added with the
+     500-row cap raise) --------------------------------------------------- */
+  function _txrLoadShow(msg) {
+    var el = document.getElementById('fh-txn-loading');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'fh-txn-loading';
+      el.className = 'txr-loading';
+      el.innerHTML = '<div class="txr-card"><div class="txr-spin"></div><div class="txr-lmsg"></div></div>';
+      document.body.appendChild(el);
+    }
+    var m = el.querySelector('.txr-lmsg'); if (m) m.textContent = msg || '';
+    return el;
+  }
+  function _txrLoadMsg(msg) {
+    var el = document.getElementById('fh-txn-loading');
+    var m = el && el.querySelector('.txr-lmsg'); if (m) m.textContent = msg || '';
+  }
+  function _txrLoadHide() {
+    var el = document.getElementById('fh-txn-loading'); if (el) el.remove();
+  }
+  function _txrYield() {
+    return new Promise(function (res) {
+      (window.requestAnimationFrame || function (f) { setTimeout(f, 0); })(function () { res(); });
+    });
+  }
+
+  function _txrWeekMon(d) {                 // Monday 00:00 of d's week (local)
+    var t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    t.setDate(t.getDate() - ((t.getDay() + 6) % 7));
+    return t;
+  }
+  function _txrFmt(n) {
+    return Math.round(n).toLocaleString(L('vi-VN', 'en-US'));
+  }
+  /* Income (credit) vs expense (everything else) of the loaded rows, grouped by
+     week, in the finance tab's bar language (green in / red out). Summarises the
+     PAGE that is loaded — paired with the "N of M" count so a capped queue reads
+     honestly. Each week is a tappable button: it highlights, reads out that
+     week's split, and jumps the list to that week (fhTxrBar → _txrJump). */
+  function _txrChartHTML(rows) {
+    if (!rows || !rows.length) return '';
+    var weeks = {}, order = [], allVnd = true, anyAmt = false, totInc = 0, totExp = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i], amt = Number(r.amount) || 0;
+      if (!amt) continue;
+      anyAmt = true;
+      var cur = (r.currency || '').toUpperCase(); if (cur && cur !== 'VND') allVnd = false;
+      var d = r.occurred_at ? new Date(r.occurred_at) : null;
+      if (!d || isNaN(d.getTime())) d = new Date();
+      var mon = _txrWeekMon(d), key = mon.getTime();
+      if (!weeks[key]) { weeks[key] = { mon: mon, inc: 0, exp: 0 }; order.push(key); }
+      if (r.direction === 'credit') { weeks[key].inc += amt; totInc += amt; }
+      else { weeks[key].exp += amt; totExp += amt; }
+    }
+    if (!anyAmt) return '';
+    order.sort(function (a, b) { return a - b; });
+    var maxV = 1;
+    order.forEach(function (k) { if (weeks[k].inc > maxV) maxV = weeks[k].inc; if (weeks[k].exp > maxV) maxV = weeks[k].exp; });
+    var sym = allVnd ? 'đ' : '';
+    var cols = order.map(function (k) {
+      var w = weeks[k];
+      var ih = w.inc > 0 ? Math.max(Math.round(w.inc / maxV * 100), 6) : 0;
+      var eh = w.exp > 0 ? Math.max(Math.round(w.exp / maxV * 100), 6) : 0;
+      var sun = new Date(w.mon.getTime() + 6 * 864e5);
+      var lbl = w.mon.getDate() + '/' + (w.mon.getMonth() + 1);
+      var range = lbl + ' – ' + sun.getDate() + '/' + (sun.getMonth() + 1);
+      var incS = _txrFmt(w.inc) + sym, expS = _txrFmt(w.exp) + sym;
+      var aria = L('Tuần ', 'Week of ') + range + ' · ' + L('thu ', 'in ') + incS + ' · ' + L('chi ', 'out ') + expS;
+      return '<button type="button" class="txr-col" data-week="' + k + '"'
+        + ' data-range="' + _esc(range) + '" data-inc="' + _esc(incS) + '" data-exp="' + _esc(expS) + '"'
+        + ' aria-label="' + _esc(aria) + '" onclick="fhTxrBar(this)">'
+        + '<span class="txr-stack">'
+        + (ih ? '<i class="txr-b inc" style="height:' + ih + '%"></i>' : '<i class="txr-b z"></i>')
+        + (eh ? '<i class="txr-b exp" style="height:' + eh + '%"></i>' : '<i class="txr-b z"></i>')
+        + '</span><span class="txr-wd">' + _esc(lbl) + '</span></button>';
+    }).join('');
+    var shown = rows.length;
+    var total = (typeof window.fhStagedTotal === 'number') ? window.fhStagedTotal : shown;
+    var countTxt = total > shown ? L('Xem ' + shown + '/' + total, shown + ' of ' + total)
+                                 : (shown + ' ' + L('khoản', 'items'));
+    var incAll = _txrFmt(totInc) + sym, expAll = _txrFmt(totExp) + sym;
+    return '<div class="txr-head">'
+        + '<div class="txr-title">' + L('Thu chi theo tuần', 'Weekly in &amp; out') + '</div>'
+        + '<div class="txr-count">' + _esc(countTxt) + '</div>'
+      + '</div>'
+      + '<div class="txr-readout" id="txr-readout" data-inc-all="' + _esc(incAll) + '" data-exp-all="' + _esc(expAll) + '">'
+        + '<span class="txr-rlabel">' + L('Tổng', 'Total') + '</span>'
+        + '<span class="txr-tot"><i class="txr-dot inc"></i>' + L('Thu', 'In') + ' <b class="txr-inc">' + _esc(incAll) + '</b></span>'
+        + '<span class="txr-tot"><i class="txr-dot exp"></i>' + L('Chi', 'Out') + ' <b class="txr-exp">' + _esc(expAll) + '</b></span>'
+      + '</div>'
+      + '<div class="txr-bars" role="group" aria-label="' + _esc(L('Thu chi theo tuần', 'Weekly income and expense')) + '">' + cols + '</div>';
+  }
+
+  /* Bar tap → highlight the week, swap the readout to that week's split, and
+     jump the list to it. Tapping the active bar again clears back to the total. */
+  function _txrReadout(el, label, inc, exp) {
+    if (!el) return;
+    var l = el.querySelector('.txr-rlabel'); if (l) l.textContent = label || '';
+    var iEl = el.querySelector('.txr-inc'); if (iEl) iEl.textContent = inc || '';
+    var eEl = el.querySelector('.txr-exp'); if (eEl) eEl.textContent = exp || '';
+  }
+  function _txrJump(weekMs) {
+    var body = document.querySelector('#csv-import-modal .modal-body'); if (!body) return;
+    var chart = document.getElementById('fh-txn-chart');
+    var chartH = chart ? chart.getBoundingClientRect().height : 0;
+    // Ready rows are grouped by day; the header carries data-txr-day (YYYY-MM-DD).
+    // The FIRST header in the week is the top of that week's block in the
+    // newest-first list — where the period begins as you scroll down to it.
+    var hs = body.querySelectorAll('.group-h[data-txr-day]');
+    var start = weekMs, end = weekMs + 7 * 864e5, target = null;
+    for (var i = 0; i < hs.length; i++) {
+      var t = Date.parse(hs[i].getAttribute('data-txr-day') + 'T00:00:00');
+      if (!isNaN(t) && t >= start && t < end) { target = hs[i]; break; }
+    }
+    if (!target) return;               // this week's rows aren't in the dated ready list
+    var bodyRect = body.getBoundingClientRect(), tRect = target.getBoundingClientRect();
+    var top = Math.max(0, body.scrollTop + (tRect.top - bodyRect.top) - chartH - 12);
+    body.scrollTo({ top: top, behavior: 'smooth' });
+  }
+  window.fhTxrBar = function (btn) {
+    var bars = btn.parentNode, readout = document.getElementById('txr-readout');
+    var wasSel = btn.classList.contains('sel');
+    var cols = bars.querySelectorAll('.txr-col');
+    for (var i = 0; i < cols.length; i++) cols[i].classList.remove('sel');
+    if (wasSel) {
+      bars.classList.remove('has-sel');
+      _txrReadout(readout, L('Tổng', 'Total'), readout && readout.getAttribute('data-inc-all'), readout && readout.getAttribute('data-exp-all'));
+      return;
+    }
+    btn.classList.add('sel'); bars.classList.add('has-sel');
+    _txrReadout(readout, btn.getAttribute('data-range'), btn.getAttribute('data-inc'), btn.getAttribute('data-exp'));
+    var ms = Number(btn.getAttribute('data-week')); if (ms) _txrJump(ms);
+  };
+
   window.fhTxnReviewSheet = async function () {
     // Key-mismatch alarm latched (18-staging-keys): approval is frozen for the
     // whole family until a verify passes again. Re-show the explanation rather
@@ -391,10 +542,12 @@
       window.fhStagingAlarmShow && window.fhStagingAlarmShow();
       return;
     }
+    _txrLoadShow(L('Đang tải giao dịch…', 'Loading transactions…'));
     var raw;
     try {
       raw = await fhFetchStagedTxns();
     } catch (e) {
+      _txrLoadHide();
       window.toast && window.toast(L('Chưa tải được giao dịch', 'Could not load transactions'));
       return;
     }
@@ -404,15 +557,23 @@
        invisible. */
     var maybeMore = raw.length >= TXN_REVIEW_PAGE;
 
+    // Open each sealed box locally. NaCl open is synchronous CPU work, so a long
+    // queue (a backfill of hundreds) would freeze the tap with no sign of life.
+    // Decrypt in chunks, yielding to paint between them and showing progress —
+    // the design rule is "a real round trip must not look frozen".
     var readable = [], locked = 0;
     for (var i = 0; i < raw.length; i++) {
       var r = await fhReadStagedRow(raw[i]);
-      if (!r) { locked++; continue; }
-      if (r._unreadable) { locked++; continue; }
-      readable.push(r);
+      if (!r || r._unreadable) { locked++; }
+      else { readable.push(r); }
+      if (i % 20 === 0) {
+        _txrLoadMsg(L('Đang mở khoá ', 'Unlocking ') + (i + 1) + '/' + raw.length);
+        await _txrYield();
+      }
     }
 
     if (!readable.length) {
+      _txrLoadHide();
       _fhSheet('<div class="mbx-hero">' + _mbxGlyph('mail') + '</div>' +
         '<div class="sheet-h">' + _esc(L('Chưa có giao dịch mới', 'Nothing to review')) + '</div>' +
         '<div class="sheet-sub">' + _esc(locked
@@ -490,6 +651,25 @@
       if (mt2 && mt2.parentNode) mt2.parentNode.insertBefore(more, mt2.nextSibling);
     }
 
+    /* Weekly preview at the top of the modal: income vs expense of the loaded
+       rows, in the same bar language as the finance tab's week chart — a quick
+       read of "what am I about to review" before scrolling the list. Rebuilt
+       (removed + re-added) every open so it never goes stale. */
+    var oldChart = document.getElementById('fh-txn-chart');
+    if (oldChart) oldChart.remove();
+    var chartInner = _txrChartHTML(readable);
+    if (chartInner) {
+      var chartHost = document.getElementById('csv-result');
+      if (chartHost && chartHost.parentNode) {
+        var wrap = document.createElement('div');
+        wrap.id = 'fh-txn-chart';
+        wrap.className = 'txr-chart';
+        wrap.innerHTML = chartInner;
+        chartHost.parentNode.insertBefore(wrap, chartHost);
+      }
+    }
+
+    _txrLoadHide();
     openSheet('csv-import-modal');
   };
 

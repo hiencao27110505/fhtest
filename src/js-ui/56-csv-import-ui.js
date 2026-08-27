@@ -1123,7 +1123,9 @@ function renderCsvReview(){
     if(!csvStagedMode) html += '<div class="group-h">'+L('Sẵn sàng','Ready')+' · '+readyCount+'</div>';
     keys.forEach(function(k){
       var label = k ? fmtDayMon(dateBuckets[k][0].c.date) : L('Không rõ ngày','No date');
-      html += '<div class="group-h" style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
+      // In staged (bank-email) mode the weekly preview chart jumps here on a bar
+      // tap; k is the day key (YYYY-MM-DD), which _txrJump matches to a week.
+      html += '<div class="group-h"'+(csvStagedMode && k ? ' data-txr-day="'+esc(k)+'"' : '')+' style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
       dateBuckets[k].forEach(function(e){
         var o = { label:lowConfLabel[e.i] || (L('Khoản chi ','Item ')+(e.i+1)), dateIso:e.c.dateDisplay,
                   timeStr:csvRowTime(e.c),
