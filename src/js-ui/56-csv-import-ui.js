@@ -1413,10 +1413,7 @@ function csvTxrBulkHTML(){
   var sel = csvStagedSelected(), n = sel.length, total = csvReview.ready.length;
   var allOn = n === total, dis = n ? '' : ' disabled';
   var h = '<div class="txh-bulkhead">'
-    + '<span class="txh-title'+(n?'':' none')+'">'
-      + esc(n ? L('Thao tác với '+n+' khoản đã chọn','Actions for '+n+' selected')
-              : L('Chưa chọn — chạm ô tròn trên từng khoản','Nothing selected — tap a row’s circle'))
-    + '</span>'
+    + '<span class="txh-title'+(n?'':' none')+'" id="txh-title">'+csvTxrTitleHTML()+'</span>'
     + '<button type="button" class="txh-link" onclick="csvStagedSelectAll('+(allOn?'false':'true')+')">'
       + esc(allOn ? L('Bỏ chọn tất cả','Deselect all') : L('Chọn tất cả','Select all'))+'</button>'
     + '</div>';
@@ -1457,17 +1454,35 @@ function csvTxrBulkHTML(){
     return '<button type="button" id="txh-seg-'+k+'" class="'+(csvTxrRoom===k?'on ':'')+(k==='del'?'danger':'')+'" onclick="csvTxrRoomGo(\''+k+'\')">'
       + esc(label) + (extra ? ' '+extra : '') + '</button>';
   };
-  h += '<div class="txh-bot">'
-    + '<button type="button" class="txh-cancel" onclick="csvTxrTool(null)">'+L('Huỷ','Cancel')+'</button>'
-    + '<span class="txh-rooms"><span>'
-      + room('cat', L('Danh mục','Category'), csvTxrPendCat ? ((window.catStyle && window.catStyle[csvTxrPendCat] || ['🏷️'])[0]) : '')
-      + room('scope', L('Ghi vào','Where'), csvTxrPendScope ? (csvTxrPendScope==='personal' ? '🔒' : '🏡') : '')
+  /* The switcher alone, centred. Áp dụng and Huỷ are gone: every room now
+     confirms with a second tap on the pick itself — one grammar for the whole
+     panel, and the room that never had an apply (Xoá) stops being the odd one
+     out. With nothing staged there is nothing to cancel, and the Chọn nhiều
+     segment above already closes the panel. */
+  h += '<div class="txh-bot"><span class="txh-rooms"><span>'
+      + room('cat', L('Danh mục','Category'), '')
+      + room('scope', L('Ghi vào','Where'), '')
       + room('del', L('Xoá','Delete'), '')
-    + '</span></span>'
-    + '<button type="button" class="txh-apply" id="txh-apply"'+((csvTxrPendCat||csvTxrPendScope)&&n?'':' disabled')+' onclick="csvTxrApply()">'
-      + esc(L('Áp dụng · '+n,'Apply · '+n))+'</button>'
-    + '</div>';
+    + '</span></span></div>';
   return h;
+}
+
+/* The bulkhead title narrates the panel's state: what the selection is, or —
+   with a pick armed — exactly what the second tap is about to do to it. The
+   confirm hint lives HERE, in words with the count, not in a button. */
+function csvTxrTitleHTML(){
+  var n = csvStagedSelected().length;
+  if(csvTxrPendCat){
+    var st = (window.catStyle && window.catStyle[csvTxrPendCat]) || ['🏷️'];
+    return esc(L('Chạm lần nữa: '+st[0]+' '+csvTxrPendCat+' cho '+n+' khoản',
+                 'Tap again: '+st[0]+' '+csvTxrPendCat+' for '+n));
+  }
+  if(csvTxrPendScope){
+    var lbl = csvTxrPendScope==='personal' ? L('🔒 Cá nhân','🔒 Personal') : L('🏡 Gia đình','🏡 Family');
+    return esc(L('Chạm lần nữa: '+lbl+' cho '+n+' khoản','Tap again: '+lbl+' for '+n));
+  }
+  return esc(n ? L('Thao tác với '+n+' khoản đã chọn','Actions for '+n+' selected')
+             : L('Chưa chọn — chạm ô tròn trên từng khoản','Nothing selected — tap a row’s circle'));
 }
 
 /* The whole header, synced from renderCsvReview. Clears itself outside staged
@@ -1587,47 +1602,50 @@ function csvTxrTool(k){
   csvBulkArmed = false; csvTxrChartMin = false;
   csvTxrHeadSync();
 }
-function csvTxrRoomGo(a){ csvTxrRoom = a; csvBulkArmed = false; csvTxrHeadSync(); }
-function csvTxrSegSync(){
-  var c = document.getElementById('txh-seg-cat');
-  if(c) c.innerHTML = esc(L('Danh mục','Category'))
-    + (csvTxrPendCat ? ' '+((window.catStyle && window.catStyle[csvTxrPendCat] || ['🏷️'])[0]) : '');
-  var sc = document.getElementById('txh-seg-scope');
-  if(sc) sc.innerHTML = esc(L('Ghi vào','Where'))
-    + (csvTxrPendScope ? (csvTxrPendScope==='personal' ? ' 🔒' : ' 🏡') : '');
-  var ap = document.getElementById('txh-apply');
-  if(ap) ap.disabled = !((csvTxrPendCat || csvTxrPendScope) && csvStagedSelected().length);
+function csvTxrRoomGo(a){
+  csvTxrRoom = a;
+  csvTxrPendCat = null; csvTxrPendScope = null;   // leaving a room disarms its pick
+  csvBulkArmed = false;
+  csvTxrHeadSync();
+}
+function csvTxrTitleSync(){
+  var t = document.getElementById('txh-title');
+  if(t){ t.innerHTML = csvTxrTitleHTML(); t.classList.toggle('arm', !!(csvTxrPendCat || csvTxrPendScope)); }
 }
 function csvTxrPickCat(btn){
   if(csvTxrRailDragged) return;        // that was a pull, not a pick
+  if(!csvStagedSelected().length) return;
   var v = btn.getAttribute('data-v');
-  csvTxrPendCat = (csvTxrPendCat === v) ? null : v;      // tap again to unstage
+  if(csvTxrPendCat === v){             // second tap on the same chip: this is the confirm
+    csvTxrPendCat = null; csvTxrKey = null;
+    csvBulkCat(v);
+    return;
+  }
+  csvTxrPendCat = v; csvTxrPendScope = null;      // first tap (or moving the arm) only arms
   var cs = document.getElementById('txh-rail').children;
-  for(var i = 0; i < cs.length; i++) cs[i].classList.toggle('on', !!csvTxrPendCat && cs[i].getAttribute('data-v') === csvTxrPendCat);
-  csvTxrSegSync();
+  for(var i = 0; i < cs.length; i++) cs[i].classList.toggle('on', cs[i].getAttribute('data-v') === v);
+  csvTxrTitleSync();
 }
 function csvTxrPickScope(btn){
+  if(!csvStagedSelected().length) return;
   var v = btn.getAttribute('data-v');
   if(v === 'personal' && !csvScopeReady()){
     toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
     return;
   }
-  csvTxrPendScope = (csvTxrPendScope === v) ? null : v;
+  if(csvTxrPendScope === v){
+    csvTxrPendScope = null; csvTxrKey = null;
+    csvBulkScope(v);
+    return;
+  }
+  csvTxrPendScope = v; csvTxrPendCat = null;
   var cs = document.querySelectorAll('#txh .txh-sc');
-  for(var i = 0; i < cs.length; i++) cs[i].classList.toggle('on', !!csvTxrPendScope && cs[i].getAttribute('data-v') === csvTxrPendScope);
-  csvTxrSegSync();
+  for(var i = 0; i < cs.length; i++) cs[i].classList.toggle('on', cs[i].getAttribute('data-v') === v);
+  csvTxrTitleSync();
 }
 /* One press commits everything staged. Scope BEFORE category: csvBulkCat ends
    in a toast, and this way the toast the person is left reading is about the
    most visible change. Both act on the same csvStagedSelected() set. */
-function csvTxrApply(){
-  var cat = csvTxrPendCat, sc = csvTxrPendScope;
-  csvTxrPendCat = null; csvTxrPendScope = null; csvTxrKey = null;
-  if(cat && sc){ csvBulkScope(sc); csvBulkCat(cat); }
-  else if(cat) csvBulkCat(cat);
-  else if(sc) csvBulkScope(sc);
-  else csvTxrHeadSync();
-}
 function csvTxrDel(){ csvBulkDelete(); csvTxrHeadSync(); }
 
 /* Removing a staged row used to be in-memory only: the splice lived in

@@ -220,6 +220,9 @@
 .txh-bulkhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 9px}
 .txh-title{font-size:11.5px;font-weight:700;letter-spacing:.01em;color:var(--muted)}
 .txh-title.none{font-weight:600}
+/* an armed pick turns the title into the confirm sentence — brand, not danger:
+   this is a commit, not a destruction (Xoá keeps its own red) */
+.txh-title.arm{color:var(--brand)}
 .txh-link{border:0;background:none;font:inherit;font-size:12.5px;font-weight:700;color:var(--brand);
   padding:6px 2px;min-height:36px;white-space:nowrap;-webkit-tap-highlight-color:transparent}
 .txh-link:active{opacity:.55}
@@ -290,14 +293,6 @@
   white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:background .16s ease,color .16s ease}
 .txh-rooms button.on{background:var(--white);color:var(--ink);box-shadow:0 1px 5px rgba(25,16,34,.16)}
 .txh-rooms button.danger.on{color:var(--danger)}
-.txh-cancel{border:0;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--muted);
-  min-height:40px;padding:0 2px;-webkit-tap-highlight-color:transparent}
-.txh-cancel:active{opacity:.55}
-.txh-apply{min-height:38px;padding:0 18px;border:0;border-radius:19px;background:var(--brand);color:#fff;
-  font:inherit;font-size:13.5px;font-weight:700;letter-spacing:-.01em;
-  -webkit-tap-highlight-color:transparent;transition:opacity .14s ease}
-.txh-apply:disabled{opacity:.32}
-.txh-apply:active{opacity:.75}
 @media (prefers-reduced-motion:reduce){
   .txh-fold,.txh-it .e,.txh-it .l,.txh-fold .txr-head,.txh-fold .txr-bars{transition:none}}
 

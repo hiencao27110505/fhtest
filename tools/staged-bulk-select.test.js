@@ -38,10 +38,12 @@ const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok 
 var csvReview, csvStagedMode, csvExpand, renders, dropped, toasts, learned, scopeSaves, personalReady;
 function renderCsvReview(){ renders++; }
 function fmt(n){ return String(n); }
+var LANG = 'vi';
+function csvAllCats2(){}
 function csvBaseAmt(n){ return Number(n) || 0; }
 // the header syncs against a DOM; in this harness there is none, and that is
 // fine — csvTxrHeadSync bails on the missing #txh element
-global.document = { getElementById: function(){ return null; },
+global.document = { getElementById: function(){ return { children: [], innerHTML: '', classList: { toggle: function(){} } }; },
                     querySelector: function(){ return null; },
                     querySelectorAll: function(){ return []; } };
 function csvFlushExpand(){}
@@ -166,26 +168,41 @@ csvStagedSelectAll(false);
 csvTxrRoom = 'del';
 const emptyDel = csvTxrBulkHTML();
 t('delete is disabled, not silently inert', / disabled/.test(emptyDel));
-t('so is Áp dụng', /txh-apply" id="txh-apply" disabled/.test(emptyDel));
 t('and it offers select-all', /Chọn tất cả/.test(emptyDel));
 t('select-all from there restores everything', (csvStagedSelectAll(true), picked() === 'a,b,c'));
 
-console.log('\n-- staged picks: nothing applies until Áp dụng --');
+console.log('\n-- one grammar: first tap arms, the second tap on the SAME pick applies --');
 reset();
-csvTxrPendCat = 'Ăn uống'; csvTxrPendScope = 'personal';
-t('rows untouched while staged', csvReview.ready.every(c => c.categoryName === undefined && c._scope === undefined));
-csvTxrApply();
-t('one press applied the category to every selected row', csvReview.ready.every(c => c.categoryName === 'Ăn uống'));
-t('and the destination', csvReview.ready.every(c => c._scope === 'personal'));
-t('and the staging is spent', csvTxrPendCat === null && csvTxrPendScope === null);
-t('apply with nothing staged is a no-op', (csvTxrApply(), csvReview.ready.length === 3));
+const chip = { getAttribute: function(){ return 'Ăn uống'; } };
+csvTxrPickCat(chip);
+t('first tap arms, writes nothing', csvTxrPendCat === 'Ăn uống' && csvReview.ready.every(c => c.categoryName === undefined));
+csvTxrPickCat(chip);
+t('second tap applies to every selected row', csvReview.ready.every(c => c.categoryName === 'Ăn uống'));
+t('and the arm is spent', csvTxrPendCat === null);
 
-console.log('\n-- the room segments carry their staged pick --');
+console.log('\n-- a different chip moves the arm; leaving the room clears it --');
 reset();
-csvTxrPendCat = 'Ăn uống'; csvTxrRoom = 'cat';
-const seg = csvTxrBulkHTML();
-t('category segment shows the staged emoji', /txh-seg-cat[^>]*>Danh mục 🍜/.test(seg));
-t('the staged chip carries the ring', /txh-it on/.test(seg));
+csvTxrPickCat({ getAttribute: function(){ return 'Ăn uống'; } });
+csvTxrPickCat({ getAttribute: function(){ return 'Đi lại'; } });
+t('the arm moved, nothing applied', csvTxrPendCat === 'Đi lại' && csvReview.ready.every(c => c.categoryName === undefined));
+csvTxrRoomGo('scope');
+t('switching rooms disarms', csvTxrPendCat === null);
+
+console.log('\n-- scope speaks the same grammar --');
+reset();
+const disc = { getAttribute: function(){ return 'personal'; } };
+csvTxrPickScope(disc);
+t('first tap arms only', csvTxrPendScope === 'personal' && csvReview.ready.every(c => c._scope === undefined));
+csvTxrPickScope(disc);
+t('second tap applies the destination', csvReview.ready.every(c => c._scope === 'personal'));
+
+console.log('\n-- an empty selection cannot arm anything --');
+reset();
+csvStagedSelectAll(false);
+csvTxrPickCat(chip);
+t('no arm on nothing', csvTxrPendCat === null);
+t('the armed title narrates the confirm', (csvStagedSelectAll(true), csvTxrPendCat = 'Ăn uống', /Chạm lần nữa/.test(csvTxrTitleHTML())));
+csvTxrPendCat = null;
 
 console.log('\n-- the armed label states the count, so 47 is never mistaken for 1 --');
 reset();
