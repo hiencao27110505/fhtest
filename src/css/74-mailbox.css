@@ -192,11 +192,17 @@
 #txh:empty{display:none}
 .txh-card{position:relative;background:var(--surface);border:1px solid var(--hairline);border-radius:14px}
 .txh-row{display:flex;align-items:center;gap:8px;padding:5px 6px 5px 13px;min-height:46px}
-/* The summary IS the header of this surface — display face, real weight — so
-   everything below it can stay a rank quieter. */
-.txh-sum{flex:1;min-width:0;font-family:var(--disp);font-size:15px;font-weight:800;
-  letter-spacing:-.35px;color:var(--ink);font-variant-numeric:tabular-nums;
+/* The summary IS the header of this surface: a caption over a figure, stacked,
+   so neither line ever grows long enough to fight the segment for width — the
+   one-line sentence form cropped mid-figure on a phone. Amount in the display
+   face as the hero; words as its quiet caption (the Wallet-card shape). */
+.txh-sum{flex:1;min-width:0;display:flex;flex-direction:column;gap:0}
+.txh-sum small{font-size:10.5px;font-weight:700;letter-spacing:.01em;color:var(--muted);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.txh-sum b{font-family:var(--disp);font-size:16.5px;font-weight:800;letter-spacing:-.4px;
+  color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.txh-sum b .dim{color:var(--muted-soft);font-weight:600}
 .txh-seg{display:flex;background:var(--fill-neutral);border-radius:11px;padding:2px;gap:2px}
 .txh-seg button{display:flex;align-items:center;gap:5px;border:0;background:transparent;min-height:36px;
   padding:0 11px;border-radius:9px;font:inherit;font-size:12px;font-weight:700;color:var(--muted);

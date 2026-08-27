@@ -3016,11 +3016,17 @@ html.fh-can-install .set-row.set-install{display:flex}
 #txh:empty{display:none}
 .txh-card{position:relative;background:var(--surface);border:1px solid var(--hairline);border-radius:14px}
 .txh-row{display:flex;align-items:center;gap:8px;padding:5px 6px 5px 13px;min-height:46px}
-/* The summary IS the header of this surface — display face, real weight — so
-   everything below it can stay a rank quieter. */
-.txh-sum{flex:1;min-width:0;font-family:var(--disp);font-size:15px;font-weight:800;
-  letter-spacing:-.35px;color:var(--ink);font-variant-numeric:tabular-nums;
+/* The summary IS the header of this surface: a caption over a figure, stacked,
+   so neither line ever grows long enough to fight the segment for width — the
+   one-line sentence form cropped mid-figure on a phone. Amount in the display
+   face as the hero; words as its quiet caption (the Wallet-card shape). */
+.txh-sum{flex:1;min-width:0;display:flex;flex-direction:column;gap:0}
+.txh-sum small{font-size:10.5px;font-weight:700;letter-spacing:.01em;color:var(--muted);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.txh-sum b{font-family:var(--disp);font-size:16.5px;font-weight:800;letter-spacing:-.4px;
+  color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.txh-sum b .dim{color:var(--muted-soft);font-weight:600}
 .txh-seg{display:flex;background:var(--fill-neutral);border-radius:11px;padding:2px;gap:2px}
 .txh-seg button{display:flex;align-items:center;gap:5px;border:0;background:transparent;min-height:36px;
   padding:0 11px;border-radius:9px;font:inherit;font-size:12px;font-weight:700;color:var(--muted);
@@ -11472,13 +11478,18 @@ var CSV_TXR_I_CH  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 function csvTxrRowHTML(){
   var sel = csvStagedSelected(), n = sel.length, sum = 0;
   sel.forEach(function(c){ sum += csvBaseAmt(c.amount); });
-  var main = n ? L('Sẽ nhập '+n+' khoản','Importing '+n)+' · '+fmt(sum)
-               : L('Chưa chọn khoản nào','Nothing selected');
+  /* Caption + figure, stacked — never one long sentence. A single line holding
+     "Sẽ nhập N khoản · total" NEXT to a two-segment control cropped mid-figure
+     on a phone; two short lines cannot. The amount is the hero (display face),
+     the words are its caption — the Wallet-card shape. */
+  var cap = n ? L('Sẽ nhập '+n+' khoản','Importing '+n)
+              : L('Chưa chọn khoản nào','Nothing selected');
+  var fig = n ? esc(fmt(sum)) : '<span class="dim">—</span>';
   var seg = function(k, icon, vi, en){
     return '<button type="button" class="'+(csvTxrOpen===k?'on':'')+'" onclick="csvTxrTool(\''+k+'\')">'
       + icon + '<span>' + L(vi, en) + '</span></button>';
   };
-  return '<span class="txh-sum">'+esc(main)+'</span>'
+  return '<span class="txh-sum"><small>'+esc(cap)+'</small><b>'+fig+'</b></span>'
     + '<span class="txh-seg">'+seg('bulk',CSV_TXR_I_SEL,'Chọn nhiều','Select')+seg('chart',CSV_TXR_I_CH,'Tuần','Weeks')+'</span>';
 }
 

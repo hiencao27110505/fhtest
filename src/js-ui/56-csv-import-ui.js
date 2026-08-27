@@ -1399,13 +1399,18 @@ var CSV_TXR_I_CH  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 function csvTxrRowHTML(){
   var sel = csvStagedSelected(), n = sel.length, sum = 0;
   sel.forEach(function(c){ sum += csvBaseAmt(c.amount); });
-  var main = n ? L('Sẽ nhập '+n+' khoản','Importing '+n)+' · '+fmt(sum)
-               : L('Chưa chọn khoản nào','Nothing selected');
+  /* Caption + figure, stacked — never one long sentence. A single line holding
+     "Sẽ nhập N khoản · total" NEXT to a two-segment control cropped mid-figure
+     on a phone; two short lines cannot. The amount is the hero (display face),
+     the words are its caption — the Wallet-card shape. */
+  var cap = n ? L('Sẽ nhập '+n+' khoản','Importing '+n)
+              : L('Chưa chọn khoản nào','Nothing selected');
+  var fig = n ? esc(fmt(sum)) : '<span class="dim">—</span>';
   var seg = function(k, icon, vi, en){
     return '<button type="button" class="'+(csvTxrOpen===k?'on':'')+'" onclick="csvTxrTool(\''+k+'\')">'
       + icon + '<span>' + L(vi, en) + '</span></button>';
   };
-  return '<span class="txh-sum">'+esc(main)+'</span>'
+  return '<span class="txh-sum"><small>'+esc(cap)+'</small><b>'+fig+'</b></span>'
     + '<span class="txh-seg">'+seg('bulk',CSV_TXR_I_SEL,'Chọn nhiều','Select')+seg('chart',CSV_TXR_I_CH,'Tuần','Weeks')+'</span>';
 }
 
