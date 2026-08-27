@@ -107,6 +107,7 @@ function csvRowScopeField(c){
 
 function openCsvImport(){
   csvStagedMode = false;               // this is the file flow, not the staged review
+  if(typeof csvTxrHeadSync === 'function') csvTxrHeadSync();   // staged tools header clears itself
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
   csvReview = null; csvExpand = null;
@@ -133,6 +134,7 @@ function csvForgetLearned(){
 
 function csvPickAnother(){
   csvStagedMode = false;         // back to the file picker -> leave staged mode
+  if(typeof csvTxrHeadSync === 'function') csvTxrHeadSync();   // staged tools header clears itself
   csvClearDraft();               // deliberately starting over
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
@@ -468,6 +470,7 @@ function csvIncludedCount(){ return csvReview ? csvReview.ready.length : 0; }
 function csvBuildReview(sources, opts){
   csvInflowOpen = false;   // a fresh review starts with the money-in line folded
   csvInflowDetail = null;
+  csvBulkReset();          // ...and with no pane open and no delete left armed
 
   opts = opts || {};
   csvCatMerges = {}; csvCatAmbiguous = {};   // recomputed every build
@@ -1064,18 +1067,10 @@ function renderCsvReview(){
   // Import label and its disabled state all agree with the ticks.
   var readyCount = csvStagedMode ? csvStagedSelected().length : r.ready.length;
   if(csvStagedMode){
-    // ONE consolidated summary at the top — count + total — as summary type, not a
-    // boxed card (a box here reads as yet another draft row). This replaces BOTH the
-    // old top context line and the bottom csv-check strip, which stated the same
-    // "what am I about to import" twice. Recomputed each render, so removing a row
-    // (the × on a card) keeps the count and total honest.
-    if(readyCount > 0){
-      var stagedSum = csvStagedSelected().reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
-      html += '<div class="csv-staged-sum">'
-        + '<div class="csv-staged-sum-main">'+esc(L('Sẽ nhập '+readyCount+' khoản','Importing '+readyCount))+' · <span class="num">'+esc(fmt(stagedSum))+'</span></div>'
-        + '<div class="csv-staged-sum-sub">'+esc(csvScopeSummary())+'</div>'
-        + '</div>';
-    }
+    /* No in-list summary here any more. The staged review's summary, selection
+       tools and weekly chart all live in the #txh header BETWEEN the nav and
+       this scroller (csvTxrHeadSync below) — in the flow they kept sliding
+       under whatever was sticky, which is the complaint that redesign answered. */
   } else {
     var summaryLine;
     if(r.mixedSignsNote) summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
@@ -1205,6 +1200,10 @@ function renderCsvReview(){
   // Nav-bar Save, gated -- always reachable, grey until importable.
   var save = document.getElementById('csv-save');
   if(save){ save.disabled = (readyCount===0); save.textContent = readyCount>0 ? L('Nhập '+readyCount,'Import '+readyCount) : L('Nhập','Import'); }
+
+  // The tools header lives OUTSIDE this scroller; sync it with every render so
+  // its counts always agree with the ticks. Clears itself in the file flow.
+  csvTxrHeadSync();
 }
 
 /* ---- inline expansion handlers ------------------------------------------- */
@@ -1259,6 +1258,7 @@ function csvStagedToggle(i){
   var c = csvReview.ready[i]; if(!c) return;
   csvDisarmRemove();                 // ticking is not confirming a delete
   c._skipImport = !c._skipImport;
+  csvSelTouched = true;              // a tick is the person saying "I am picking"
   /* Close whatever row was open, like every other row action here does. Flush
      FIRST: csvFlushExpand reads the open editor's fields back onto its candidate,
      and re-rendering without it throws away a description or amount someone was
@@ -1267,6 +1267,328 @@ function csvStagedToggle(i){
   csvFlushExpand(); csvExpand = null;
   renderCsvReview();                 // count, total and the Import label all follow
 }
+
+/* ---- acting on the whole selection -------------------------------------- */
+/* Every staged row arrives ticked, because the common case is "import the lot".
+   That made the tick a one-way control: fine for importing, useless for picking
+   out three rows to recategorise, and impossible to clear without N taps.
+
+   So the ticks become a real selection, and the summary that describes it also
+   controls it. What acts on that selection:
+     Import  — already did (csvStagedSelected feeds fhPromoteStaged); it now has
+               a way to mean "these three" instead of only "all of them".
+     Category / destination — one pass instead of opening each card.
+     ✕       — retire the selection, one RPC (fhStagedDropMany).
+
+   Deliberately NOT a separate "edit mode" behind a Select button: the checkboxes
+   are already on screen and already load-bearing for import, so a mode toggle
+   would add a step to the common path to serve the rare one. */
+var csvBulkArmed = false;    // the bulk delete has been tapped once (arm-then-confirm)
+/* Has the person touched the selection at all?
+
+   Gating the toolbar on "something is selected" would show it always, because
+   every row arrives ticked — permanent chrome over the common path, which is
+   glance and import. Gating it on INTENT keeps that path exactly as it was and
+   brings the toolbar in the moment selecting starts, the way Photos only shows
+   its action bar once you are picking. Reset on every rebuild. */
+var csvSelTouched = false;
+
+function csvBulkReset(){
+  csvBulkArmed = false; csvSelTouched = false;
+  csvTxrOpen = null; csvTxrRoom = 'cat'; csvTxrPendCat = null; csvTxrPendScope = null;
+  csvTxrChartMin = false; csvTxrAuto = false; csvTxrKey = null;
+}
+
+function csvStagedSelectAll(on){
+  if(!csvReview) return;
+  csvDisarmRemove();
+  csvFlushExpand(); csvExpand = null;   // an open editor's edits are kept, not dropped
+  csvReview.ready.forEach(function(c){ c._skipImport = !on; });
+  csvSelTouched = true;
+  renderCsvReview();
+}
+
+/* One category across the selection. Learned from, exactly as a per-row chip is:
+   this is the same explicit human pick, made once instead of forty times, and a
+   lesson that generalised badly is undone the same way. */
+function csvBulkCat(name){
+  if(!csvReview) return;
+  var sel = csvStagedSelected(); if(!sel.length) return;
+  sel.forEach(function(c){
+    c.categoryName = name; c.catSource = 'user';
+    if(typeof csvLearnFrom === 'function') csvLearnFrom(c);
+  });
+  renderCsvReview();
+  toast(esc(L('Đã xếp '+sel.length+' khoản vào '+name, 'Filed '+sel.length+' under '+name)));
+}
+
+/* One destination across the selection.
+
+   It sets _scope on each SELECTED row and deliberately does not move the
+   remembered default (csvSetScope), which the per-row picker does. Bulk-marking
+   three rows private must not quietly redirect the thirty-seven nobody touched —
+   those have no _scope, so they follow the default, and changing it here would
+   move rows the person never selected. Explicit on the selection, untouched
+   everywhere else. */
+function csvBulkScope(v){
+  if(!csvReview) return;
+  var sel = csvStagedSelected(); if(!sel.length) return;
+  if(v==='personal' && !csvScopeReady()){
+    toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
+    return;
+  }
+  sel.forEach(function(c){ c._scope = v; });
+  renderCsvReview();
+}
+
+/* Retire the selection. Arm-then-confirm (DESIGN: destructive is low-prominence
+   and never one tap), and the armed label carries the COUNT — with everything
+   ticked by default, "Xoá" and "Xoá 47 khoản?" are very different sentences and
+   the person is entitled to read the second one before it happens.
+
+   Keeps the unticked rows by filtering rather than splicing indices: the ticked
+   set is scattered through ready[], and splicing it by index while iterating is
+   the classic way to delete the wrong rows. */
+function csvBulkDelete(){
+  if(!csvReview) return;
+  var sel = csvStagedSelected(); if(!sel.length) return;
+  if(!csvBulkArmed){ csvBulkArmed = true; renderCsvReview(); return; }
+  csvBulkArmed = false;
+  csvReview.ready = csvReview.ready.filter(function(c){ return !!c._skipImport; });
+  csvArmedRemove = null; csvExpand = null;
+  renderCsvReview();
+  // Same order as the single ✕: forget locally first, then tell the server.
+  if(window.fhStagedDropMany) window.fhStagedDropMany(sel);
+  toast(L('Đã xoá '+sel.length+' khoản','Removed '+sel.length));
+}
+
+/* ---- The staged-review tools header (#txh) --------------------------------
+
+   One card between the nav and the scroller: a display-face summary, a
+   [Chọn nhiều | Tuần] segment, and a fold that opens downward, pushing the
+   list instead of covering it.
+
+   The bulk panel inside the fold is a PLACE with three rooms — Danh mục /
+   Ghi vào / Xoá — swapped by a centred pill switcher (Telegram's sticker-panel
+   move, rebuilt in this app's language), so the panel never grows taller as it
+   gains abilities. Picks STAGE rather than apply: the rail ring, the room
+   segment's emoji and the Áp dụng count all show what one deliberate press is
+   about to do to N rows. Delete is its own room, armed inside it, so a stray
+   tap can never reach it.
+
+   The category rail rests as bare emoji discs and grows labels only under the
+   finger (pointer/touch/scroll), shrinking when it leaves — identity while
+   browsing, economy at rest.
+
+   Everything here re-renders through one key (csvTxrKey); chip taps mutate
+   classes in place and never rebuild, which is what keeps the panel flicker-
+   free. The chart fold minimises its bars on scroll-down (readout stays) and
+   restores them on scroll-up — a class toggle, never a rebuild. */
+var csvTxrOpen = null;        // null | 'bulk' | 'chart'
+var csvTxrRoom = 'cat';       // which room of the bulk panel: 'cat' | 'scope' | 'del'
+var csvTxrPendCat = null;     // staged picks; nothing applies until Áp dụng
+var csvTxrPendScope = null;
+var csvTxrChartMin = false;   // chart bars minimised by scrolling down
+var csvTxrAuto = false;       // auto-opened the bulk panel once this build
+var csvTxrKey = null;         // panel content key — rebuild only when it changes
+var csvTxrWired = false;      // modal-body scroll listener attached
+
+var CSV_TXR_I_SEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9M4 12h9M4 18h9"/><path d="m15.5 11.5 2.5 2.5 5-5.5"/></svg>';
+var CSV_TXR_I_CH  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M5 20v-8M12 20V6M19 20v-9"/></svg>';
+
+function csvTxrRowHTML(){
+  var sel = csvStagedSelected(), n = sel.length, sum = 0;
+  sel.forEach(function(c){ sum += csvBaseAmt(c.amount); });
+  var main = n ? L('Sẽ nhập '+n+' khoản','Importing '+n)+' · '+fmt(sum)
+               : L('Chưa chọn khoản nào','Nothing selected');
+  var seg = function(k, icon, vi, en){
+    return '<button type="button" class="'+(csvTxrOpen===k?'on':'')+'" onclick="csvTxrTool(\''+k+'\')">'
+      + icon + '<span>' + L(vi, en) + '</span></button>';
+  };
+  return '<span class="txh-sum">'+esc(main)+'</span>'
+    + '<span class="txh-seg">'+seg('bulk',CSV_TXR_I_SEL,'Chọn nhiều','Select')+seg('chart',CSV_TXR_I_CH,'Tuần','Weeks')+'</span>';
+}
+
+function csvTxrBulkHTML(){
+  var sel = csvStagedSelected(), n = sel.length, total = csvReview.ready.length;
+  var allOn = n === total, dis = n ? '' : ' disabled';
+  var h = '<div class="txh-bulkhead">'
+    + '<span class="txh-title'+(n?'':' none')+'">'
+      + esc(n ? L('Thao tác với '+n+' khoản đã chọn','Actions for '+n+' selected')
+              : L('Chưa chọn — chạm ô tròn trên từng khoản','Nothing selected — tap a row’s circle'))
+    + '</span>'
+    + '<button type="button" class="txh-link" onclick="csvStagedSelectAll('+(allOn?'false':'true')+')">'
+      + esc(allOn ? L('Bỏ chọn tất cả','Deselect all') : L('Chọn tất cả','Select all'))+'</button>'
+    + '</div>';
+
+  if(csvTxrRoom === 'cat'){
+    h += '<div class="txh-rail" id="txh-rail">' + csvAllCats().map(function(name){
+      var st = (window.catStyle && window.catStyle[name]) || ['🏷️'];
+      return '<button type="button" class="txh-it'+(csvTxrPendCat===name?' on':'')+'" data-v="'+escAttr(name)+'" onclick="csvTxrPickCat(this)">'
+        + '<span class="e">'+st[0]+'</span><span class="l">'+esc(name)+'</span></button>';
+    }).join('') + '</div>';
+  } else if(csvTxrRoom === 'scope'){
+    var locked = !csvScopeReady();
+    h += '<div class="txh-scope">'
+      + '<button type="button" class="txh-sc'+(csvTxrPendScope==='personal'?' on':'')+'" data-v="personal"'
+        + (locked ? ' aria-disabled="true"' : '') + ' onclick="csvTxrPickScope(this)">'
+        + '<span class="e">🔒</span><b>'+L('Cá nhân','Personal')+'</b><span>'+L('chỉ mình bạn thấy','only you see it')+'</span></button>'
+      + '<button type="button" class="txh-sc'+(csvTxrPendScope==='family'?' on':'')+'" data-v="family" onclick="csvTxrPickScope(this)">'
+        + '<span class="e">🏡</span><b>'+L('Gia đình','Family')+'</b><span>'+L('cả nhà cùng thấy','everyone sees it')+'</span></button>'
+      + '</div>';
+  } else {
+    h += '<div class="txh-del">'
+      + '<p>'+esc(L('Gỡ '+n+' khoản đã chọn khỏi hàng chờ. Không thể hoàn tác.',
+                    'Removes the '+n+' selected from the queue. Cannot be undone.'))+'</p>'
+      + '<button type="button" class="txh-delbtn'+(csvBulkArmed?' armed':'')+'"'+dis+' onclick="csvTxrDel()">'
+        + esc(csvBulkArmed ? L('Chạm lần nữa để xoá '+n+' khoản','Tap again to delete '+n)
+                           : L('Xoá '+n+' khoản','Delete '+n))+'</button>'
+      + '</div>';
+  }
+
+  var room = function(k, label, extra){
+    return '<button type="button" id="txh-seg-'+k+'" class="'+(csvTxrRoom===k?'on ':'')+(k==='del'?'danger':'')+'" onclick="csvTxrRoomGo(\''+k+'\')">'
+      + esc(label) + (extra ? ' '+extra : '') + '</button>';
+  };
+  h += '<div class="txh-bot">'
+    + '<button type="button" class="txh-cancel" onclick="csvTxrTool(null)">'+L('Huỷ','Cancel')+'</button>'
+    + '<span class="txh-rooms"><span>'
+      + room('cat', L('Danh mục','Category'), csvTxrPendCat ? ((window.catStyle && window.catStyle[csvTxrPendCat] || ['🏷️'])[0]) : '')
+      + room('scope', L('Ghi vào','Where'), csvTxrPendScope ? (csvTxrPendScope==='personal' ? '🔒' : '🏡') : '')
+      + room('del', L('Xoá','Delete'), '')
+    + '</span></span>'
+    + '<button type="button" class="txh-apply" id="txh-apply"'+((csvTxrPendCat||csvTxrPendScope)&&n?'':' disabled')+' onclick="csvTxrApply()">'
+      + esc(L('Áp dụng · '+n,'Apply · '+n))+'</button>'
+    + '</div>';
+  return h;
+}
+
+/* The whole header, synced from renderCsvReview. Clears itself outside staged
+   mode, so the file importer never sees any of this. */
+function csvTxrHeadSync(){
+  var head = document.getElementById('txh'); if(!head) return;
+  if(!csvStagedMode || !csvReview){ head.innerHTML = ''; csvTxrKey = null; return; }
+  if(!head.firstChild){
+    head.innerHTML = '<div class="txh-card">'
+      + '<div class="txh-row" id="txh-row"></div>'
+      + '<div class="txh-fold" id="txh-fold"><div><div class="txh-panel" id="txh-panel"></div></div></div>'
+      + '</div>';
+    csvTxrKey = null;
+  }
+  // The first touch of the selection opens the bulk panel by itself — the
+  // moment someone starts picking is the moment the tools become relevant.
+  if(csvSelTouched && !csvTxrAuto){ csvTxrAuto = true; if(!csvTxrOpen) csvTxrOpen = 'bulk'; }
+
+  document.getElementById('txh-row').innerHTML = csvTxrRowHTML();
+
+  var n = csvStagedSelected().length;
+  var key = [csvTxrOpen, csvTxrRoom, n, csvBulkArmed?1:0, LANG, csvReview.ready.length,
+             csvTxrPendCat||'', csvTxrPendScope||''].join('|');
+  if(key !== csvTxrKey){
+    csvTxrKey = key;
+    var panel = document.getElementById('txh-panel');
+    panel.innerHTML = !csvTxrOpen ? ''
+      : (csvTxrOpen === 'chart'
+          ? (window.fhStagedChartHTML ? window.fhStagedChartHTML() : '')
+          : csvTxrBulkHTML());
+    if(csvTxrOpen === 'bulk') csvTxrRailWire();
+  }
+
+  var fold = document.getElementById('txh-fold');
+  if(csvTxrOpen && !fold.classList.contains('open')){
+    // freshly opened: let the closed state paint once so the fold animates
+    (window.requestAnimationFrame || function(f){ f(); })(function(){ fold.classList.add('open'); });
+  } else {
+    fold.classList.toggle('open', !!csvTxrOpen);
+  }
+  fold.classList.toggle('chartmin', csvTxrOpen === 'chart' && csvTxrChartMin);
+  csvTxrScrollWire();
+}
+
+/* The rail grows under a touch and shrinks when it leaves — class toggle only,
+   never a rebuild. Scrolling counts as touching, so it stays big mid-browse. */
+function csvTxrRailWire(){
+  var rail = document.getElementById('txh-rail'); if(!rail) return;
+  var t = null;
+  var big = function(){ clearTimeout(t); rail.classList.add('big'); };
+  var calm = function(ms){ clearTimeout(t); t = setTimeout(function(){ rail.classList.remove('big'); }, ms); };
+  rail.addEventListener('pointerenter', big);
+  rail.addEventListener('pointerleave', function(){ calm(250); });
+  rail.addEventListener('touchstart', big, { passive:true });
+  rail.addEventListener('touchend', function(){ calm(900); }, { passive:true });
+  rail.addEventListener('scroll', function(){ big(); calm(900); }, { passive:true });
+}
+
+/* Chart bars give way on scroll-down (the readout stays), return on scroll-up
+   or at top. Wrapped in try/catch: this wires lazily at first sync, and a
+   throw here must never take the review render down with it. */
+function csvTxrScrollWire(){
+  if(csvTxrWired) return;
+  try{
+    var body = document.querySelector('#csv-import-modal .modal-body'); if(!body) return;
+    var last = 0;
+    body.addEventListener('scroll', function(){
+      var y = body.scrollTop, dy = y - last; last = y;
+      if(csvTxrOpen !== 'chart') return;
+      if(!csvTxrChartMin && dy > 4 && y > 60) csvTxrChartMin = true;
+      else if(csvTxrChartMin && (dy < -8 || y < 24)) csvTxrChartMin = false;
+      else return;
+      var fold = document.getElementById('txh-fold');
+      if(fold) fold.classList.toggle('chartmin', csvTxrOpen === 'chart' && csvTxrChartMin);
+    }, { passive:true });
+    csvTxrWired = true;
+  }catch(e){}
+}
+
+/* ---- header handlers (globals — inline onclick targets, §3) ---- */
+function csvTxrTool(k){
+  csvDisarmRemove();
+  csvTxrOpen = (k === null || csvTxrOpen === k) ? null : k;
+  csvTxrRoom = 'cat'; csvTxrPendCat = null; csvTxrPendScope = null;
+  csvBulkArmed = false; csvTxrChartMin = false;
+  csvTxrHeadSync();
+}
+function csvTxrRoomGo(a){ csvTxrRoom = a; csvBulkArmed = false; csvTxrHeadSync(); }
+function csvTxrSegSync(){
+  var c = document.getElementById('txh-seg-cat');
+  if(c) c.innerHTML = esc(L('Danh mục','Category'))
+    + (csvTxrPendCat ? ' '+((window.catStyle && window.catStyle[csvTxrPendCat] || ['🏷️'])[0]) : '');
+  var sc = document.getElementById('txh-seg-scope');
+  if(sc) sc.innerHTML = esc(L('Ghi vào','Where'))
+    + (csvTxrPendScope ? (csvTxrPendScope==='personal' ? ' 🔒' : ' 🏡') : '');
+  var ap = document.getElementById('txh-apply');
+  if(ap) ap.disabled = !((csvTxrPendCat || csvTxrPendScope) && csvStagedSelected().length);
+}
+function csvTxrPickCat(btn){
+  var v = btn.getAttribute('data-v');
+  csvTxrPendCat = (csvTxrPendCat === v) ? null : v;      // tap again to unstage
+  var cs = document.getElementById('txh-rail').children;
+  for(var i = 0; i < cs.length; i++) cs[i].classList.toggle('on', !!csvTxrPendCat && cs[i].getAttribute('data-v') === csvTxrPendCat);
+  csvTxrSegSync();
+}
+function csvTxrPickScope(btn){
+  var v = btn.getAttribute('data-v');
+  if(v === 'personal' && !csvScopeReady()){
+    toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
+    return;
+  }
+  csvTxrPendScope = (csvTxrPendScope === v) ? null : v;
+  var cs = document.querySelectorAll('#txh .txh-sc');
+  for(var i = 0; i < cs.length; i++) cs[i].classList.toggle('on', !!csvTxrPendScope && cs[i].getAttribute('data-v') === csvTxrPendScope);
+  csvTxrSegSync();
+}
+/* One press commits everything staged. Scope BEFORE category: csvBulkCat ends
+   in a toast, and this way the toast the person is left reading is about the
+   most visible change. Both act on the same csvStagedSelected() set. */
+function csvTxrApply(){
+  var cat = csvTxrPendCat, sc = csvTxrPendScope;
+  csvTxrPendCat = null; csvTxrPendScope = null; csvTxrKey = null;
+  if(cat && sc){ csvBulkScope(sc); csvBulkCat(cat); }
+  else if(cat) csvBulkCat(cat);
+  else if(sc) csvBulkScope(sc);
+  else csvTxrHeadSync();
+}
+function csvTxrDel(){ csvBulkDelete(); csvTxrHeadSync(); }
 
 /* Removing a staged row used to be in-memory only: the splice lived in
    csvReview, and nothing was retired until an Import. Close the sheet without
@@ -1283,7 +1605,13 @@ function csvStagedToggle(i){
    only exist in the page. */
 var csvArmedRemove = null;
 
-function csvDisarmRemove(){ if(csvArmedRemove !== null){ csvArmedRemove = null; return true; } return false; }
+/* One disarm for both the per-row ✕ and the bulk ✕ — "any other tap disarms"
+   has to mean any, or a tick could leave a loaded bulk delete behind it. */
+function csvDisarmRemove(){
+  var was = (csvArmedRemove !== null) || csvBulkArmed;
+  csvArmedRemove = null; csvBulkArmed = false;
+  return was;
+}
 
 function csvReadyRemove(i){
   if(!csvReview) return;

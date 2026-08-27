@@ -541,6 +541,14 @@
     var ms = Number(btn.getAttribute('data-week')); if (ms) _txrJump(ms);
   };
 
+  /* Bridge for the tools header (js-ui): _txrChartHTML is module-scoped and the
+     header's inline handlers live in the classic block (§3), so the chart HTML
+     crosses on window. Reads the rows fhTxnReviewSheet stored — the same list
+     the review screen itself was built from, so the two can never disagree. */
+  window.fhStagedChartHTML = function () {
+    return _txrChartHTML(window._fhStagedRows || []);
+  };
+
   window.fhTxnReviewSheet = async function () {
     // Key-mismatch alarm latched (18-staging-keys): approval is frozen for the
     // whole family until a verify passes again. Re-show the explanation rather
@@ -658,23 +666,12 @@
       if (mt2 && mt2.parentNode) mt2.parentNode.insertBefore(more, mt2.nextSibling);
     }
 
-    /* Weekly preview at the top of the modal: income vs expense of the loaded
-       rows, in the same bar language as the finance tab's week chart — a quick
-       read of "what am I about to review" before scrolling the list. Rebuilt
-       (removed + re-added) every open so it never goes stale. */
-    var oldChart = document.getElementById('fh-txn-chart');
-    if (oldChart) oldChart.remove();
-    var chartInner = _txrChartHTML(readable);
-    if (chartInner) {
-      var chartHost = document.getElementById('csv-result');
-      if (chartHost && chartHost.parentNode) {
-        var wrap = document.createElement('div');
-        wrap.id = 'fh-txn-chart';
-        wrap.className = 'txr-chart';
-        wrap.innerHTML = chartInner;
-        chartHost.parentNode.insertBefore(wrap, chartHost);
-      }
-    }
+    /* The weekly chart no longer mounts here. It renders inside the tools
+       header's "Tuần" fold (#txh, csvTxrHeadSync in 56-csv-import-ui.js), which
+       sits BETWEEN the nav and the scroller — the sticky overlay this block used
+       to insert was exactly the "rows sliding under chrome" the header redesign
+       answered. The header pulls its HTML through the bridge below, from the
+       same _fhStagedRows this open just stored. */
 
     _txrLoadHide();
     openSheet('csv-import-modal');
@@ -763,6 +760,35 @@
       console.warn('staged drop failed', e, { ids: [id] });
     }
     try { if (window.fhRefreshStagedCount) await window.fhRefreshStagedCount(); } catch (e) {}
+  };
+
+  /* Retire MANY rows in one call — the bulk ✕ in the review screen.
+
+     Deliberately not a loop over fhStagedDropOne: that would be one RPC per row,
+     so clearing forty rows of overnight backfill would be forty round trips, each
+     one able to fail on its own and leave the queue half-cleared. The server side
+     already takes a list (p_ids), so the honest shape is one call.
+
+     Local-first, same as the single drop: every id is remembered as retired BEFORE
+     the server is asked. A failed delete then still keeps the rows out of this
+     device's queue, rather than resurrecting a whole batch the person has already
+     dismissed. */
+  window.fhStagedDropMany = async function (list) {
+    var rows = window._fhStagedRows || [];
+    var ids = (list || []).map(function (c) {
+      var row = (c && typeof c.rowIndex === 'number') ? rows[c.rowIndex] : null;
+      return row && row.id;
+    }).filter(Boolean);
+    if (!ids.length) return 0;
+    _stagedRetiredAdd(ids);
+    try {
+      var removed = await _rpc('resolve_email_transactions', { p_ids: ids });
+      if (!removed) console.warn('staged drop: matched 0 rows', { ids: ids });
+    } catch (e) {
+      console.warn('staged bulk drop failed', e, { ids: ids });
+    }
+    try { if (window.fhRefreshStagedCount) await window.fhRefreshStagedCount(); } catch (e) {}
+    return ids.length;
   };
 
   /* Import, then retire the staged rows.

@@ -143,6 +143,27 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-27 (direct-read session) — REVIEW-SHEET TOOLS HEADER: your weekly
+  chart moved house.** Trang drove a full redesign of the staged-review chrome
+  (10 prototyped options, then a finalize pass). Result on main:
+  - New `#txh` header BETWEEN the modal nav and the scroller (shell +
+    `csvTxrHeadSync` in `56-csv-import-ui.js`): summary, a
+    `[Chọn nhiều | Tuần]` segment, and a fold that pushes the list — nothing
+    scrolls under chrome any more, which was her core complaint about the
+    sticky overlay.
+  - **Your chart (8643ab3) renders unchanged inside the header's Tuần fold** —
+    `fhTxnReviewSheet` no longer injects the sticky `#fh-txn-chart` wrapper;
+    `72-txn-review.js` now exposes `window.fhStagedChartHTML` and the header
+    pulls it from `_fhStagedRows`. Bars minimise on scroll-down (readout stays),
+    return on scroll-up. `fhTxrBar`/`_txrJump` untouched.
+  - Bulk actions: Telegram-style rooms (Danh mục rail that grows under touch /
+    Ghi vào / Xoá) with STAGED picks and one `Áp dụng` — writes still go through
+    `csvBulkCat`/`csvBulkScope`/`csvBulkDelete`/`fhStagedDropMany` (0090-path),
+    so nothing changed at the data layer.
+  - Tests: `tools/staged-bulk-select.test.js` (48 assertions) covers the header.
+  Nothing needs your input unless the chart move surprises you — flag here if so.
+
+
 - **2026-08-26 (direct-read session) — ANSWERING THE `direction`/kind ASK.
   `direction` is authoritative, and every staged row now carries a normalized
   `flow`. Go ahead and drop the sign-and-regex re-derivation.**

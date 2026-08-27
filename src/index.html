@@ -513,6 +513,11 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     <div class="modal-title" data-t="csvModalTitle">Import from file</div>
     <button class="modal-save" id="csv-save" onclick="csvSaveDispatch()" disabled data-t="csvSave">Import</button>
   </div>
+  <!-- Staged-review tools header: summary + [Chọn nhiều | Tuần], filled by
+       csvTxrHeadSync (56-csv-import-ui.js) in csvStagedMode only. It sits
+       BETWEEN the nav and the scroller so list rows push down and never slide
+       underneath. Empty (and display:none) in the file-import flow. -->
+  <div id="txh"></div>
   <div class="modal-body">
     <div id="csv-pick">
       <div class="csv-empty">

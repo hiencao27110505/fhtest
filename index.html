@@ -3000,14 +3000,115 @@ html.fh-can-install .set-row.set-install{display:flex}
    so we give it the app's plain white bordered row instead. */
 #csv-result.staged .bulk-card.attn:not(.active){background:var(--white);border-color:var(--hairline)}
 
-/* The single summary — count + total, at the top. It is SUMMARY type, not a card:
-   no box, no fill, no border, so it never competes with the draft-expense cards
-   below it. Hierarchy comes from weight + a tabular figure (DESIGN §2.2), the way
-   a grouped-list header carries its value. */
-#csv-result.staged .csv-staged-sum{margin:2px 2px 20px}
-#csv-result.staged .csv-staged-sum-main{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.3px;color:var(--ink)}
-#csv-result.staged .csv-staged-sum-main .num{color:var(--ink)}
-#csv-result.staged .csv-staged-sum-sub{font-size:13px;color:var(--muted);margin-top:3px;letter-spacing:-.01em}
+/* ── Staged-review tools header (#txh) ───────────────────────────────────────
+   Lives BETWEEN the modal nav and the scroller (the modal is a flex column), so
+   the list region starts below it and rows can never slide underneath — the one
+   structural rule this whole surface was redesigned around. Empty in the file
+   flow, so the CSV importer never sees any of this.
+
+   The interaction model is borrowed from Telegram's sticker panel and rebuilt in
+   this app's own language: one card, one fold; the bulk panel is a PLACE with
+   three rooms swapped by a centred pill switcher, so it never grows taller as it
+   gains abilities; and the category rail rests as bare emoji, growing labels
+   only under the finger — identity while browsing, economy at rest. */
+#txh{position:relative;z-index:8;background:var(--white);padding:8px 12px 10px;
+  border-bottom:1px solid var(--hairline)}
+#txh:empty{display:none}
+.txh-card{position:relative;background:var(--surface);border:1px solid var(--hairline);border-radius:14px}
+.txh-row{display:flex;align-items:center;gap:8px;padding:5px 6px 5px 13px;min-height:46px}
+/* The summary IS the header of this surface — display face, real weight — so
+   everything below it can stay a rank quieter. */
+.txh-sum{flex:1;min-width:0;font-family:var(--disp);font-size:15px;font-weight:800;
+  letter-spacing:-.35px;color:var(--ink);font-variant-numeric:tabular-nums;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.txh-seg{display:flex;background:var(--fill-neutral);border-radius:11px;padding:2px;gap:2px}
+.txh-seg button{display:flex;align-items:center;gap:5px;border:0;background:transparent;min-height:36px;
+  padding:0 11px;border-radius:9px;font:inherit;font-size:12px;font-weight:700;color:var(--muted);
+  -webkit-tap-highlight-color:transparent;transition:background .16s ease,color .16s ease}
+.txh-seg button.on{background:var(--white);color:var(--ink);box-shadow:0 1px 5px rgba(25,16,34,.18)}
+.txh-seg svg{width:15px;height:15px}
+/* the fold: grid-rows 0fr→1fr, the only honest way to animate height:auto */
+.txh-fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s cubic-bezier(.32,.72,0,1)}
+.txh-fold.open{grid-template-rows:1fr}
+.txh-fold>div{overflow:hidden;min-height:0}
+.txh-panel{padding:4px 13px 12px}
+/* Scroll-minimised chart: the BARS give way, the in/out readout stays. The
+   readout is the glanceable number; the bars are the browsing surface — only
+   the browsing surface pays for scroll room. Class toggle only, never a rebuild. */
+.txh-fold .txr-head,.txh-fold .txr-bars{max-height:150px;overflow:hidden;
+  transition:max-height .3s cubic-bezier(.32,.72,0,1),opacity .22s ease,margin .3s cubic-bezier(.32,.72,0,1)}
+.txh-fold.chartmin .txr-head,.txh-fold.chartmin .txr-bars{max-height:0;opacity:0;margin:0}
+.txh-fold.chartmin .txr-readout{margin-bottom:2px}
+
+/* the bulk block says what it is — the title names the selection the buttons act on */
+.txh-bulkhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 9px}
+.txh-title{font-size:11.5px;font-weight:700;letter-spacing:.01em;color:var(--muted)}
+.txh-title.none{font-weight:600}
+.txh-link{border:0;background:none;font:inherit;font-size:12.5px;font-weight:700;color:var(--brand);
+  padding:6px 2px;min-height:36px;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.txh-link:active{opacity:.55}
+
+/* the rail: rests as bare emoji discs, grows labels under a touch */
+.txh-rail{display:flex;gap:8px;overflow-x:auto;padding:6px 2px 4px;scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent)}
+.txh-rail::-webkit-scrollbar{display:none}
+.txh-it{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:0;
+  border:0;background:none;padding:0;-webkit-tap-highlight-color:transparent}
+.txh-it .e{width:36px;height:36px;border-radius:50%;background:var(--fill-neutral);
+  display:flex;align-items:center;justify-content:center;font-size:19px;
+  transition:width .24s cubic-bezier(.32,.72,0,1),height .24s cubic-bezier(.32,.72,0,1),
+    font-size .24s cubic-bezier(.32,.72,0,1),box-shadow .15s ease,background .15s ease}
+.txh-it .l{max-height:0;opacity:0;overflow:hidden;font-size:9.5px;font-weight:700;color:var(--muted);
+  letter-spacing:-.01em;white-space:nowrap;max-width:64px;text-overflow:ellipsis;
+  transition:max-height .24s cubic-bezier(.32,.72,0,1),opacity .18s ease,margin .24s cubic-bezier(.32,.72,0,1)}
+.txh-rail.big .e{width:52px;height:52px;font-size:28px}
+.txh-rail.big .l{max-height:14px;opacity:1;margin-top:3px}
+.txh-it.on .e{box-shadow:0 0 0 2px var(--brand);background:var(--white)}
+.txh-it.on .l{color:var(--brand)}
+
+/* scope room: two cards, same staging-ring language as the rail */
+.txh-scope{display:flex;gap:8px;padding:4px 0 2px}
+.txh-sc{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  border:1px solid var(--hairline);border-radius:13px;background:var(--white);padding:10px 8px 9px;
+  font:inherit;-webkit-tap-highlight-color:transparent;transition:border-color .14s ease}
+.txh-sc .e{font-size:22px}
+.txh-sc b{font-size:12.5px;font-weight:700;color:var(--ink)}
+.txh-sc span{font-size:10.5px;color:var(--muted)}
+.txh-sc.on{border-color:var(--brand)}
+.txh-sc.on b{color:var(--brand)}
+.txh-sc[aria-disabled="true"]{opacity:.4}
+
+/* delete room: says what it does; bordered, arm-then-confirm, never a fill */
+.txh-del{padding:6px 0 2px;text-align:center}
+.txh-del p{font-size:12px;color:var(--muted);margin:0 0 10px;letter-spacing:-.01em}
+.txh-delbtn{min-height:42px;padding:0 22px;border:1px solid var(--hairline);border-radius:12px;
+  background:var(--white);font:inherit;font-size:13px;font-weight:700;color:var(--muted);
+  -webkit-tap-highlight-color:transparent;transition:border-color .14s ease,color .14s ease}
+.txh-delbtn.armed{border-color:var(--danger);color:var(--danger)}
+.txh-delbtn:disabled{opacity:.34}
+
+/* bottom row: Huỷ on the quiet edge, the room switcher centred, Áp dụng on the
+   trailing edge — a panel-scale pill, not a page CTA */
+.txh-bot{display:flex;align-items:center;gap:10px;margin-top:12px}
+.txh-rooms{flex:1;display:flex;justify-content:center}
+.txh-rooms>span{display:flex;background:var(--fill-neutral);border-radius:18px;padding:3px;gap:2px}
+.txh-rooms button{border:0;background:transparent;min-height:32px;padding:0 13px;border-radius:15px;
+  font:inherit;font-size:12.5px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:4px;
+  white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:background .16s ease,color .16s ease}
+.txh-rooms button.on{background:var(--white);color:var(--ink);box-shadow:0 1px 5px rgba(25,16,34,.16)}
+.txh-rooms button.danger.on{color:var(--danger)}
+.txh-cancel{border:0;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--muted);
+  min-height:40px;padding:0 2px;-webkit-tap-highlight-color:transparent}
+.txh-cancel:active{opacity:.55}
+.txh-apply{min-height:38px;padding:0 18px;border:0;border-radius:19px;background:var(--brand);color:#fff;
+  font:inherit;font-size:13.5px;font-weight:700;letter-spacing:-.01em;
+  -webkit-tap-highlight-color:transparent;transition:opacity .14s ease}
+.txh-apply:disabled{opacity:.32}
+.txh-apply:active{opacity:.75}
+@media (prefers-reduced-motion:reduce){
+  .txh-fold,.txh-it .e,.txh-it .l,.txh-fold .txr-head,.txh-fold .txr-bars{transition:none}}
 
 /* Where a reviewed bank transaction lands. Borders, not fills (DESIGN §7), and
    the same .choice chips the expense sheet uses so the two never drift apart.
@@ -3175,11 +3276,11 @@ html.fh-can-install .set-row.set-install{display:flex}
 @media (prefers-reduced-motion:reduce){.cst-fold-s::after{transition:none}}
 
 /* ── Review modal: weekly income/expense preview (72-txn-review.js) ──────────
-   Finance-tab bar language (green = money in, red = money out), refined for the
-   review sheet: sticky at the top, a live readout, and tappable weeks that jump
-   the list. One token palette so it re-themes and dark-modes with the app. */
-.txr-chart{position:sticky;top:0;z-index:6;background:var(--surface);border-radius:16px;
-  padding:13px 14px 11px;margin:0 0 14px;box-shadow:0 10px 20px -14px rgba(25,16,34,.32)}
+   Finance-tab bar language (green = money in, red = money out): a live readout
+   and tappable weeks that jump the list. It renders inside the tools header's
+   fold (#txh) now — the sticky overlay wrapper it shipped with is gone, because
+   rows sliding underneath chrome was the exact complaint the header redesign
+   answered. One token palette so it re-themes and dark-modes with the app. */
 .txr-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:9px}
 .txr-title{font-size:12px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
 .txr-count{font-size:11px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;
@@ -3800,6 +3901,11 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     <div class="modal-title" data-t="csvModalTitle">Import from file</div>
     <button class="modal-save" id="csv-save" onclick="csvSaveDispatch()" disabled data-t="csvSave">Import</button>
   </div>
+  <!-- Staged-review tools header: summary + [Chọn nhiều | Tuần], filled by
+       csvTxrHeadSync (56-csv-import-ui.js) in csvStagedMode only. It sits
+       BETWEEN the nav and the scroller so list rows push down and never slide
+       underneath. Empty (and display:none) in the file-import flow. -->
+  <div id="txh"></div>
   <div class="modal-body">
     <div id="csv-pick">
       <div class="csv-empty">
@@ -10064,6 +10170,7 @@ function csvRowScopeField(c){
 
 function openCsvImport(){
   csvStagedMode = false;               // this is the file flow, not the staged review
+  if(typeof csvTxrHeadSync === 'function') csvTxrHeadSync();   // staged tools header clears itself
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
   csvReview = null; csvExpand = null;
@@ -10090,6 +10197,7 @@ function csvForgetLearned(){
 
 function csvPickAnother(){
   csvStagedMode = false;         // back to the file picker -> leave staged mode
+  if(typeof csvTxrHeadSync === 'function') csvTxrHeadSync();   // staged tools header clears itself
   csvClearDraft();               // deliberately starting over
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
@@ -10425,6 +10533,7 @@ function csvIncludedCount(){ return csvReview ? csvReview.ready.length : 0; }
 function csvBuildReview(sources, opts){
   csvInflowOpen = false;   // a fresh review starts with the money-in line folded
   csvInflowDetail = null;
+  csvBulkReset();          // ...and with no pane open and no delete left armed
 
   opts = opts || {};
   csvCatMerges = {}; csvCatAmbiguous = {};   // recomputed every build
@@ -11021,18 +11130,10 @@ function renderCsvReview(){
   // Import label and its disabled state all agree with the ticks.
   var readyCount = csvStagedMode ? csvStagedSelected().length : r.ready.length;
   if(csvStagedMode){
-    // ONE consolidated summary at the top — count + total — as summary type, not a
-    // boxed card (a box here reads as yet another draft row). This replaces BOTH the
-    // old top context line and the bottom csv-check strip, which stated the same
-    // "what am I about to import" twice. Recomputed each render, so removing a row
-    // (the × on a card) keeps the count and total honest.
-    if(readyCount > 0){
-      var stagedSum = csvStagedSelected().reduce(function(s,c){ return s + csvBaseAmt(c.amount); }, 0);
-      html += '<div class="csv-staged-sum">'
-        + '<div class="csv-staged-sum-main">'+esc(L('Sẽ nhập '+readyCount+' khoản','Importing '+readyCount))+' · <span class="num">'+esc(fmt(stagedSum))+'</span></div>'
-        + '<div class="csv-staged-sum-sub">'+esc(csvScopeSummary())+'</div>'
-        + '</div>';
-    }
+    /* No in-list summary here any more. The staged review's summary, selection
+       tools and weekly chart all live in the #txh header BETWEEN the nav and
+       this scroller (csvTxrHeadSync below) — in the flow they kept sliding
+       under whatever was sticky, which is the complaint that redesign answered. */
   } else {
     var summaryLine;
     if(r.mixedSignsNote) summaryLine = esc(L(total+' giao dịch tìm thấy', total+' transactions found'));
@@ -11162,6 +11263,10 @@ function renderCsvReview(){
   // Nav-bar Save, gated -- always reachable, grey until importable.
   var save = document.getElementById('csv-save');
   if(save){ save.disabled = (readyCount===0); save.textContent = readyCount>0 ? L('Nhập '+readyCount,'Import '+readyCount) : L('Nhập','Import'); }
+
+  // The tools header lives OUTSIDE this scroller; sync it with every render so
+  // its counts always agree with the ticks. Clears itself in the file flow.
+  csvTxrHeadSync();
 }
 
 /* ---- inline expansion handlers ------------------------------------------- */
@@ -11216,6 +11321,7 @@ function csvStagedToggle(i){
   var c = csvReview.ready[i]; if(!c) return;
   csvDisarmRemove();                 // ticking is not confirming a delete
   c._skipImport = !c._skipImport;
+  csvSelTouched = true;              // a tick is the person saying "I am picking"
   /* Close whatever row was open, like every other row action here does. Flush
      FIRST: csvFlushExpand reads the open editor's fields back onto its candidate,
      and re-rendering without it throws away a description or amount someone was
@@ -11224,6 +11330,328 @@ function csvStagedToggle(i){
   csvFlushExpand(); csvExpand = null;
   renderCsvReview();                 // count, total and the Import label all follow
 }
+
+/* ---- acting on the whole selection -------------------------------------- */
+/* Every staged row arrives ticked, because the common case is "import the lot".
+   That made the tick a one-way control: fine for importing, useless for picking
+   out three rows to recategorise, and impossible to clear without N taps.
+
+   So the ticks become a real selection, and the summary that describes it also
+   controls it. What acts on that selection:
+     Import  — already did (csvStagedSelected feeds fhPromoteStaged); it now has
+               a way to mean "these three" instead of only "all of them".
+     Category / destination — one pass instead of opening each card.
+     ✕       — retire the selection, one RPC (fhStagedDropMany).
+
+   Deliberately NOT a separate "edit mode" behind a Select button: the checkboxes
+   are already on screen and already load-bearing for import, so a mode toggle
+   would add a step to the common path to serve the rare one. */
+var csvBulkArmed = false;    // the bulk delete has been tapped once (arm-then-confirm)
+/* Has the person touched the selection at all?
+
+   Gating the toolbar on "something is selected" would show it always, because
+   every row arrives ticked — permanent chrome over the common path, which is
+   glance and import. Gating it on INTENT keeps that path exactly as it was and
+   brings the toolbar in the moment selecting starts, the way Photos only shows
+   its action bar once you are picking. Reset on every rebuild. */
+var csvSelTouched = false;
+
+function csvBulkReset(){
+  csvBulkArmed = false; csvSelTouched = false;
+  csvTxrOpen = null; csvTxrRoom = 'cat'; csvTxrPendCat = null; csvTxrPendScope = null;
+  csvTxrChartMin = false; csvTxrAuto = false; csvTxrKey = null;
+}
+
+function csvStagedSelectAll(on){
+  if(!csvReview) return;
+  csvDisarmRemove();
+  csvFlushExpand(); csvExpand = null;   // an open editor's edits are kept, not dropped
+  csvReview.ready.forEach(function(c){ c._skipImport = !on; });
+  csvSelTouched = true;
+  renderCsvReview();
+}
+
+/* One category across the selection. Learned from, exactly as a per-row chip is:
+   this is the same explicit human pick, made once instead of forty times, and a
+   lesson that generalised badly is undone the same way. */
+function csvBulkCat(name){
+  if(!csvReview) return;
+  var sel = csvStagedSelected(); if(!sel.length) return;
+  sel.forEach(function(c){
+    c.categoryName = name; c.catSource = 'user';
+    if(typeof csvLearnFrom === 'function') csvLearnFrom(c);
+  });
+  renderCsvReview();
+  toast(esc(L('Đã xếp '+sel.length+' khoản vào '+name, 'Filed '+sel.length+' under '+name)));
+}
+
+/* One destination across the selection.
+
+   It sets _scope on each SELECTED row and deliberately does not move the
+   remembered default (csvSetScope), which the per-row picker does. Bulk-marking
+   three rows private must not quietly redirect the thirty-seven nobody touched —
+   those have no _scope, so they follow the default, and changing it here would
+   move rows the person never selected. Explicit on the selection, untouched
+   everywhere else. */
+function csvBulkScope(v){
+  if(!csvReview) return;
+  var sel = csvStagedSelected(); if(!sel.length) return;
+  if(v==='personal' && !csvScopeReady()){
+    toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
+    return;
+  }
+  sel.forEach(function(c){ c._scope = v; });
+  renderCsvReview();
+}
+
+/* Retire the selection. Arm-then-confirm (DESIGN: destructive is low-prominence
+   and never one tap), and the armed label carries the COUNT — with everything
+   ticked by default, "Xoá" and "Xoá 47 khoản?" are very different sentences and
+   the person is entitled to read the second one before it happens.
+
+   Keeps the unticked rows by filtering rather than splicing indices: the ticked
+   set is scattered through ready[], and splicing it by index while iterating is
+   the classic way to delete the wrong rows. */
+function csvBulkDelete(){
+  if(!csvReview) return;
+  var sel = csvStagedSelected(); if(!sel.length) return;
+  if(!csvBulkArmed){ csvBulkArmed = true; renderCsvReview(); return; }
+  csvBulkArmed = false;
+  csvReview.ready = csvReview.ready.filter(function(c){ return !!c._skipImport; });
+  csvArmedRemove = null; csvExpand = null;
+  renderCsvReview();
+  // Same order as the single ✕: forget locally first, then tell the server.
+  if(window.fhStagedDropMany) window.fhStagedDropMany(sel);
+  toast(L('Đã xoá '+sel.length+' khoản','Removed '+sel.length));
+}
+
+/* ---- The staged-review tools header (#txh) --------------------------------
+
+   One card between the nav and the scroller: a display-face summary, a
+   [Chọn nhiều | Tuần] segment, and a fold that opens downward, pushing the
+   list instead of covering it.
+
+   The bulk panel inside the fold is a PLACE with three rooms — Danh mục /
+   Ghi vào / Xoá — swapped by a centred pill switcher (Telegram's sticker-panel
+   move, rebuilt in this app's language), so the panel never grows taller as it
+   gains abilities. Picks STAGE rather than apply: the rail ring, the room
+   segment's emoji and the Áp dụng count all show what one deliberate press is
+   about to do to N rows. Delete is its own room, armed inside it, so a stray
+   tap can never reach it.
+
+   The category rail rests as bare emoji discs and grows labels only under the
+   finger (pointer/touch/scroll), shrinking when it leaves — identity while
+   browsing, economy at rest.
+
+   Everything here re-renders through one key (csvTxrKey); chip taps mutate
+   classes in place and never rebuild, which is what keeps the panel flicker-
+   free. The chart fold minimises its bars on scroll-down (readout stays) and
+   restores them on scroll-up — a class toggle, never a rebuild. */
+var csvTxrOpen = null;        // null | 'bulk' | 'chart'
+var csvTxrRoom = 'cat';       // which room of the bulk panel: 'cat' | 'scope' | 'del'
+var csvTxrPendCat = null;     // staged picks; nothing applies until Áp dụng
+var csvTxrPendScope = null;
+var csvTxrChartMin = false;   // chart bars minimised by scrolling down
+var csvTxrAuto = false;       // auto-opened the bulk panel once this build
+var csvTxrKey = null;         // panel content key — rebuild only when it changes
+var csvTxrWired = false;      // modal-body scroll listener attached
+
+var CSV_TXR_I_SEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9M4 12h9M4 18h9"/><path d="m15.5 11.5 2.5 2.5 5-5.5"/></svg>';
+var CSV_TXR_I_CH  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M5 20v-8M12 20V6M19 20v-9"/></svg>';
+
+function csvTxrRowHTML(){
+  var sel = csvStagedSelected(), n = sel.length, sum = 0;
+  sel.forEach(function(c){ sum += csvBaseAmt(c.amount); });
+  var main = n ? L('Sẽ nhập '+n+' khoản','Importing '+n)+' · '+fmt(sum)
+               : L('Chưa chọn khoản nào','Nothing selected');
+  var seg = function(k, icon, vi, en){
+    return '<button type="button" class="'+(csvTxrOpen===k?'on':'')+'" onclick="csvTxrTool(\''+k+'\')">'
+      + icon + '<span>' + L(vi, en) + '</span></button>';
+  };
+  return '<span class="txh-sum">'+esc(main)+'</span>'
+    + '<span class="txh-seg">'+seg('bulk',CSV_TXR_I_SEL,'Chọn nhiều','Select')+seg('chart',CSV_TXR_I_CH,'Tuần','Weeks')+'</span>';
+}
+
+function csvTxrBulkHTML(){
+  var sel = csvStagedSelected(), n = sel.length, total = csvReview.ready.length;
+  var allOn = n === total, dis = n ? '' : ' disabled';
+  var h = '<div class="txh-bulkhead">'
+    + '<span class="txh-title'+(n?'':' none')+'">'
+      + esc(n ? L('Thao tác với '+n+' khoản đã chọn','Actions for '+n+' selected')
+              : L('Chưa chọn — chạm ô tròn trên từng khoản','Nothing selected — tap a row’s circle'))
+    + '</span>'
+    + '<button type="button" class="txh-link" onclick="csvStagedSelectAll('+(allOn?'false':'true')+')">'
+      + esc(allOn ? L('Bỏ chọn tất cả','Deselect all') : L('Chọn tất cả','Select all'))+'</button>'
+    + '</div>';
+
+  if(csvTxrRoom === 'cat'){
+    h += '<div class="txh-rail" id="txh-rail">' + csvAllCats().map(function(name){
+      var st = (window.catStyle && window.catStyle[name]) || ['🏷️'];
+      return '<button type="button" class="txh-it'+(csvTxrPendCat===name?' on':'')+'" data-v="'+escAttr(name)+'" onclick="csvTxrPickCat(this)">'
+        + '<span class="e">'+st[0]+'</span><span class="l">'+esc(name)+'</span></button>';
+    }).join('') + '</div>';
+  } else if(csvTxrRoom === 'scope'){
+    var locked = !csvScopeReady();
+    h += '<div class="txh-scope">'
+      + '<button type="button" class="txh-sc'+(csvTxrPendScope==='personal'?' on':'')+'" data-v="personal"'
+        + (locked ? ' aria-disabled="true"' : '') + ' onclick="csvTxrPickScope(this)">'
+        + '<span class="e">🔒</span><b>'+L('Cá nhân','Personal')+'</b><span>'+L('chỉ mình bạn thấy','only you see it')+'</span></button>'
+      + '<button type="button" class="txh-sc'+(csvTxrPendScope==='family'?' on':'')+'" data-v="family" onclick="csvTxrPickScope(this)">'
+        + '<span class="e">🏡</span><b>'+L('Gia đình','Family')+'</b><span>'+L('cả nhà cùng thấy','everyone sees it')+'</span></button>'
+      + '</div>';
+  } else {
+    h += '<div class="txh-del">'
+      + '<p>'+esc(L('Gỡ '+n+' khoản đã chọn khỏi hàng chờ. Không thể hoàn tác.',
+                    'Removes the '+n+' selected from the queue. Cannot be undone.'))+'</p>'
+      + '<button type="button" class="txh-delbtn'+(csvBulkArmed?' armed':'')+'"'+dis+' onclick="csvTxrDel()">'
+        + esc(csvBulkArmed ? L('Chạm lần nữa để xoá '+n+' khoản','Tap again to delete '+n)
+                           : L('Xoá '+n+' khoản','Delete '+n))+'</button>'
+      + '</div>';
+  }
+
+  var room = function(k, label, extra){
+    return '<button type="button" id="txh-seg-'+k+'" class="'+(csvTxrRoom===k?'on ':'')+(k==='del'?'danger':'')+'" onclick="csvTxrRoomGo(\''+k+'\')">'
+      + esc(label) + (extra ? ' '+extra : '') + '</button>';
+  };
+  h += '<div class="txh-bot">'
+    + '<button type="button" class="txh-cancel" onclick="csvTxrTool(null)">'+L('Huỷ','Cancel')+'</button>'
+    + '<span class="txh-rooms"><span>'
+      + room('cat', L('Danh mục','Category'), csvTxrPendCat ? ((window.catStyle && window.catStyle[csvTxrPendCat] || ['🏷️'])[0]) : '')
+      + room('scope', L('Ghi vào','Where'), csvTxrPendScope ? (csvTxrPendScope==='personal' ? '🔒' : '🏡') : '')
+      + room('del', L('Xoá','Delete'), '')
+    + '</span></span>'
+    + '<button type="button" class="txh-apply" id="txh-apply"'+((csvTxrPendCat||csvTxrPendScope)&&n?'':' disabled')+' onclick="csvTxrApply()">'
+      + esc(L('Áp dụng · '+n,'Apply · '+n))+'</button>'
+    + '</div>';
+  return h;
+}
+
+/* The whole header, synced from renderCsvReview. Clears itself outside staged
+   mode, so the file importer never sees any of this. */
+function csvTxrHeadSync(){
+  var head = document.getElementById('txh'); if(!head) return;
+  if(!csvStagedMode || !csvReview){ head.innerHTML = ''; csvTxrKey = null; return; }
+  if(!head.firstChild){
+    head.innerHTML = '<div class="txh-card">'
+      + '<div class="txh-row" id="txh-row"></div>'
+      + '<div class="txh-fold" id="txh-fold"><div><div class="txh-panel" id="txh-panel"></div></div></div>'
+      + '</div>';
+    csvTxrKey = null;
+  }
+  // The first touch of the selection opens the bulk panel by itself — the
+  // moment someone starts picking is the moment the tools become relevant.
+  if(csvSelTouched && !csvTxrAuto){ csvTxrAuto = true; if(!csvTxrOpen) csvTxrOpen = 'bulk'; }
+
+  document.getElementById('txh-row').innerHTML = csvTxrRowHTML();
+
+  var n = csvStagedSelected().length;
+  var key = [csvTxrOpen, csvTxrRoom, n, csvBulkArmed?1:0, LANG, csvReview.ready.length,
+             csvTxrPendCat||'', csvTxrPendScope||''].join('|');
+  if(key !== csvTxrKey){
+    csvTxrKey = key;
+    var panel = document.getElementById('txh-panel');
+    panel.innerHTML = !csvTxrOpen ? ''
+      : (csvTxrOpen === 'chart'
+          ? (window.fhStagedChartHTML ? window.fhStagedChartHTML() : '')
+          : csvTxrBulkHTML());
+    if(csvTxrOpen === 'bulk') csvTxrRailWire();
+  }
+
+  var fold = document.getElementById('txh-fold');
+  if(csvTxrOpen && !fold.classList.contains('open')){
+    // freshly opened: let the closed state paint once so the fold animates
+    (window.requestAnimationFrame || function(f){ f(); })(function(){ fold.classList.add('open'); });
+  } else {
+    fold.classList.toggle('open', !!csvTxrOpen);
+  }
+  fold.classList.toggle('chartmin', csvTxrOpen === 'chart' && csvTxrChartMin);
+  csvTxrScrollWire();
+}
+
+/* The rail grows under a touch and shrinks when it leaves — class toggle only,
+   never a rebuild. Scrolling counts as touching, so it stays big mid-browse. */
+function csvTxrRailWire(){
+  var rail = document.getElementById('txh-rail'); if(!rail) return;
+  var t = null;
+  var big = function(){ clearTimeout(t); rail.classList.add('big'); };
+  var calm = function(ms){ clearTimeout(t); t = setTimeout(function(){ rail.classList.remove('big'); }, ms); };
+  rail.addEventListener('pointerenter', big);
+  rail.addEventListener('pointerleave', function(){ calm(250); });
+  rail.addEventListener('touchstart', big, { passive:true });
+  rail.addEventListener('touchend', function(){ calm(900); }, { passive:true });
+  rail.addEventListener('scroll', function(){ big(); calm(900); }, { passive:true });
+}
+
+/* Chart bars give way on scroll-down (the readout stays), return on scroll-up
+   or at top. Wrapped in try/catch: this wires lazily at first sync, and a
+   throw here must never take the review render down with it. */
+function csvTxrScrollWire(){
+  if(csvTxrWired) return;
+  try{
+    var body = document.querySelector('#csv-import-modal .modal-body'); if(!body) return;
+    var last = 0;
+    body.addEventListener('scroll', function(){
+      var y = body.scrollTop, dy = y - last; last = y;
+      if(csvTxrOpen !== 'chart') return;
+      if(!csvTxrChartMin && dy > 4 && y > 60) csvTxrChartMin = true;
+      else if(csvTxrChartMin && (dy < -8 || y < 24)) csvTxrChartMin = false;
+      else return;
+      var fold = document.getElementById('txh-fold');
+      if(fold) fold.classList.toggle('chartmin', csvTxrOpen === 'chart' && csvTxrChartMin);
+    }, { passive:true });
+    csvTxrWired = true;
+  }catch(e){}
+}
+
+/* ---- header handlers (globals — inline onclick targets, §3) ---- */
+function csvTxrTool(k){
+  csvDisarmRemove();
+  csvTxrOpen = (k === null || csvTxrOpen === k) ? null : k;
+  csvTxrRoom = 'cat'; csvTxrPendCat = null; csvTxrPendScope = null;
+  csvBulkArmed = false; csvTxrChartMin = false;
+  csvTxrHeadSync();
+}
+function csvTxrRoomGo(a){ csvTxrRoom = a; csvBulkArmed = false; csvTxrHeadSync(); }
+function csvTxrSegSync(){
+  var c = document.getElementById('txh-seg-cat');
+  if(c) c.innerHTML = esc(L('Danh mục','Category'))
+    + (csvTxrPendCat ? ' '+((window.catStyle && window.catStyle[csvTxrPendCat] || ['🏷️'])[0]) : '');
+  var sc = document.getElementById('txh-seg-scope');
+  if(sc) sc.innerHTML = esc(L('Ghi vào','Where'))
+    + (csvTxrPendScope ? (csvTxrPendScope==='personal' ? ' 🔒' : ' 🏡') : '');
+  var ap = document.getElementById('txh-apply');
+  if(ap) ap.disabled = !((csvTxrPendCat || csvTxrPendScope) && csvStagedSelected().length);
+}
+function csvTxrPickCat(btn){
+  var v = btn.getAttribute('data-v');
+  csvTxrPendCat = (csvTxrPendCat === v) ? null : v;      // tap again to unstage
+  var cs = document.getElementById('txh-rail').children;
+  for(var i = 0; i < cs.length; i++) cs[i].classList.toggle('on', !!csvTxrPendCat && cs[i].getAttribute('data-v') === csvTxrPendCat);
+  csvTxrSegSync();
+}
+function csvTxrPickScope(btn){
+  var v = btn.getAttribute('data-v');
+  if(v === 'personal' && !csvScopeReady()){
+    toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
+    return;
+  }
+  csvTxrPendScope = (csvTxrPendScope === v) ? null : v;
+  var cs = document.querySelectorAll('#txh .txh-sc');
+  for(var i = 0; i < cs.length; i++) cs[i].classList.toggle('on', !!csvTxrPendScope && cs[i].getAttribute('data-v') === csvTxrPendScope);
+  csvTxrSegSync();
+}
+/* One press commits everything staged. Scope BEFORE category: csvBulkCat ends
+   in a toast, and this way the toast the person is left reading is about the
+   most visible change. Both act on the same csvStagedSelected() set. */
+function csvTxrApply(){
+  var cat = csvTxrPendCat, sc = csvTxrPendScope;
+  csvTxrPendCat = null; csvTxrPendScope = null; csvTxrKey = null;
+  if(cat && sc){ csvBulkScope(sc); csvBulkCat(cat); }
+  else if(cat) csvBulkCat(cat);
+  else if(sc) csvBulkScope(sc);
+  else csvTxrHeadSync();
+}
+function csvTxrDel(){ csvBulkDelete(); csvTxrHeadSync(); }
 
 /* Removing a staged row used to be in-memory only: the splice lived in
    csvReview, and nothing was retired until an Import. Close the sheet without
@@ -11240,7 +11668,13 @@ function csvStagedToggle(i){
    only exist in the page. */
 var csvArmedRemove = null;
 
-function csvDisarmRemove(){ if(csvArmedRemove !== null){ csvArmedRemove = null; return true; } return false; }
+/* One disarm for both the per-row ✕ and the bulk ✕ — "any other tap disarms"
+   has to mean any, or a tick could leave a loaded bulk delete behind it. */
+function csvDisarmRemove(){
+  var was = (csvArmedRemove !== null) || csvBulkArmed;
+  csvArmedRemove = null; csvBulkArmed = false;
+  return was;
+}
 
 function csvReadyRemove(i){
   if(!csvReview) return;
@@ -23112,6 +23546,14 @@ window.classifyAmount = classifyAmount;
     var ms = Number(btn.getAttribute('data-week')); if (ms) _txrJump(ms);
   };
 
+  /* Bridge for the tools header (js-ui): _txrChartHTML is module-scoped and the
+     header's inline handlers live in the classic block (§3), so the chart HTML
+     crosses on window. Reads the rows fhTxnReviewSheet stored — the same list
+     the review screen itself was built from, so the two can never disagree. */
+  window.fhStagedChartHTML = function () {
+    return _txrChartHTML(window._fhStagedRows || []);
+  };
+
   window.fhTxnReviewSheet = async function () {
     // Key-mismatch alarm latched (18-staging-keys): approval is frozen for the
     // whole family until a verify passes again. Re-show the explanation rather
@@ -23229,23 +23671,12 @@ window.classifyAmount = classifyAmount;
       if (mt2 && mt2.parentNode) mt2.parentNode.insertBefore(more, mt2.nextSibling);
     }
 
-    /* Weekly preview at the top of the modal: income vs expense of the loaded
-       rows, in the same bar language as the finance tab's week chart — a quick
-       read of "what am I about to review" before scrolling the list. Rebuilt
-       (removed + re-added) every open so it never goes stale. */
-    var oldChart = document.getElementById('fh-txn-chart');
-    if (oldChart) oldChart.remove();
-    var chartInner = _txrChartHTML(readable);
-    if (chartInner) {
-      var chartHost = document.getElementById('csv-result');
-      if (chartHost && chartHost.parentNode) {
-        var wrap = document.createElement('div');
-        wrap.id = 'fh-txn-chart';
-        wrap.className = 'txr-chart';
-        wrap.innerHTML = chartInner;
-        chartHost.parentNode.insertBefore(wrap, chartHost);
-      }
-    }
+    /* The weekly chart no longer mounts here. It renders inside the tools
+       header's "Tuần" fold (#txh, csvTxrHeadSync in 56-csv-import-ui.js), which
+       sits BETWEEN the nav and the scroller — the sticky overlay this block used
+       to insert was exactly the "rows sliding under chrome" the header redesign
+       answered. The header pulls its HTML through the bridge below, from the
+       same _fhStagedRows this open just stored. */
 
     _txrLoadHide();
     openSheet('csv-import-modal');
@@ -23334,6 +23765,35 @@ window.classifyAmount = classifyAmount;
       console.warn('staged drop failed', e, { ids: [id] });
     }
     try { if (window.fhRefreshStagedCount) await window.fhRefreshStagedCount(); } catch (e) {}
+  };
+
+  /* Retire MANY rows in one call — the bulk ✕ in the review screen.
+
+     Deliberately not a loop over fhStagedDropOne: that would be one RPC per row,
+     so clearing forty rows of overnight backfill would be forty round trips, each
+     one able to fail on its own and leave the queue half-cleared. The server side
+     already takes a list (p_ids), so the honest shape is one call.
+
+     Local-first, same as the single drop: every id is remembered as retired BEFORE
+     the server is asked. A failed delete then still keeps the rows out of this
+     device's queue, rather than resurrecting a whole batch the person has already
+     dismissed. */
+  window.fhStagedDropMany = async function (list) {
+    var rows = window._fhStagedRows || [];
+    var ids = (list || []).map(function (c) {
+      var row = (c && typeof c.rowIndex === 'number') ? rows[c.rowIndex] : null;
+      return row && row.id;
+    }).filter(Boolean);
+    if (!ids.length) return 0;
+    _stagedRetiredAdd(ids);
+    try {
+      var removed = await _rpc('resolve_email_transactions', { p_ids: ids });
+      if (!removed) console.warn('staged drop: matched 0 rows', { ids: ids });
+    } catch (e) {
+      console.warn('staged bulk drop failed', e, { ids: ids });
+    }
+    try { if (window.fhRefreshStagedCount) await window.fhRefreshStagedCount(); } catch (e) {}
+    return ids.length;
   };
 
   /* Import, then retire the staged rows.
