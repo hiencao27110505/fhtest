@@ -1980,15 +1980,16 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .bulk-chev{flex-shrink:0;display:flex;align-items:center;color:var(--chev)}
 .bulk-chev svg{width:18px;height:18px;display:block}
 .bulk-idx{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--brand-ink)}
-/* Bank source on staged review cards (source_provider) — plain text, no icon.
-   On staged cards it leads a single quiet meta line "bank · date · time"; it must
-   stay one line and truncate rather than wrap the header. */
-.bulk-src{font-size:11px;font-weight:700;color:var(--ink-2)}
-.bulk-src.warn{color:var(--ink-2)}
-.bulk-src.attn{color:var(--danger)}
-.bulk-head-src{min-width:0;flex-wrap:nowrap}
-.bulk-head-src .bulk-src{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bulk-head-src .bulk-date{flex-shrink:0;white-space:nowrap}
+/* Staged (bank-email) card header: one quiet meta line — scope · bank · date ·
+   time. Plain text (source_provider, no icon); the bank sits a touch darker so it
+   anchors the line, and the whole line truncates rather than wrapping. */
+.bulk-head-src{min-width:0}
+.bulk-meta{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:11px;font-weight:600;color:var(--muted);line-height:1.35}
+.bulk-meta .bulk-src{font-weight:700;color:var(--ink-2)}
+.bulk-meta .bulk-src.attn{color:var(--danger)}
+.bulk-meta .bulk-scope,.bulk-meta .bulk-when{color:var(--muted)}
+.bulk-meta .bulk-sep{color:var(--muted-soft);margin:0 5px}
 .bulk-date{font-size:11px;font-weight:600;color:var(--muted)}
 .bulk-date::before{content:"·";margin-right:7px;color:var(--muted-soft);font-weight:700}
 .bulk-card.active #ex-editor-mount{padding:6px 14px 14px}
@@ -3018,10 +3019,14 @@ html.fh-can-install .set-row.set-install{display:flex}
    current pick MEANS, so the label can stay a plain question. */
 #csv-result.staged .csv-scope{margin:0 2px 20px;padding:14px 0 0;border-top:1px solid var(--hairline)}
 #csv-result.staged .csv-scope .choice[aria-disabled="true"]{opacity:.4}
-/* Destination marker on a collapsed row. Only the private case is marked —
-   family is the default, and badging both would put a chip on every card to
-   distinguish the exception. */
-#csv-result.staged .bc-scope{display:inline-block;margin:2px 0 0;font-size:11.5px;font-weight:600;letter-spacing:-.01em;color:var(--muted)}
+/* Collapsed staged card: tick-to-include, open-to-edit. The import checkmark sits
+   at the TOP-RIGHT (block layout + absolute), and the ✕ delete is removed from the
+   collapsed card — deleting lives only on the expanded card, one deliberate step
+   away. The tap area reserves a right gutter so nothing runs under the tick. */
+#csv-result.staged .bulk-card:not(.active){display:block;position:relative}
+#csv-result.staged .bulk-card:not(.active) .bulk-tap{width:100%;padding:12px 52px 12px 16px}
+#csv-result.staged .bulk-card:not(.active) .bulk-check{position:absolute;right:6px;top:5px}
+#csv-result.staged .bulk-card:not(.active) .bulk-x{display:none}
 #csv-result.staged .csv-scope-note{font-size:12.5px;color:var(--muted);margin-top:8px;letter-spacing:-.01em}
 
 /* ---------- sealed-staging key-mismatch alarm ---------- */
@@ -10674,17 +10679,22 @@ function csvStagedProvider(c){
   var rows = window._fhStagedRows, r = rows && rows[c.rowIndex];
   return (r && r.source_provider) || '';
 }
-function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider){
+function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider, scope){
   var tone = isError ? ' attn' : (attn ? ' warn' : '');
-  var meta = dateIso ? '<span class="bulk-date">'+esc(bulkDate(dateIso))+(timeStr?' · '+esc(timeStr):'')+'</span>' : '';
-  // Staged (bank-email) rows lead the header with the bank, on one quiet meta
-  // line, and drop the generic "Khoản chi N" index — the index says nothing here,
-  // and stacking it beside the bank and the date is what overflowed the row into
-  // a broken two-line wrap. The description below carries the real identity.
+  // Staged (bank-email) rows: ONE quiet meta line — scope · bank · date · time.
+  // The generic "Khoản chi N" index says nothing here and stacking it beside the
+  // rest overflowed the header into a broken two-line wrap; the description below
+  // carries the real identity. Scope rides here too rather than on its own line.
   if (provider) {
-    return '<span class="bulk-head bulk-head-src">'
-      + '<span class="bulk-src'+tone+'">'+esc(provider)+'</span>' + meta + '</span>';
+    var when = dateIso ? esc(bulkDate(dateIso)) + (timeStr ? ' · ' + esc(timeStr) : '') : '';
+    var parts = [];
+    if (scope) parts.push('<span class="bulk-scope">'+esc(scope)+'</span>');
+    parts.push('<span class="bulk-src'+tone+'">'+esc(provider)+'</span>');
+    if (when) parts.push('<span class="bulk-when">'+when+'</span>');
+    return '<span class="bulk-head bulk-head-src"><span class="bulk-meta">'
+      + parts.join('<span class="bulk-sep">·</span>') + '</span></span>';
   }
+  var meta = dateIso ? '<span class="bulk-date">'+esc(bulkDate(dateIso))+(timeStr?' · '+esc(timeStr):'')+'</span>' : '';
   return '<span class="bulk-head"><span class="bulk-idx'+tone+'">'+esc(label)+'</span>' + meta + '</span>';
 }
 
@@ -10710,13 +10720,10 @@ function csvCollapsedCard(c, opts){
     + (csvStagedMode && opts.dateIso ? ' data-txr-day="'+escAttr(opts.dateIso)+'"' : '')
     + '>' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
-    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c))
-    /* A collapsed row has to say where it is going, or the destination is a
-       decision you can only see by opening every card one at a time. Only the
-       PRIVATE case is marked: family is the default and marking both would be
-       noise on every row to distinguish the exception. */
-    + ((csvStagedMode && !opts.isDup && csvRowScope(c)==='personal')
-        ? '<span class="bc-scope">🔒 '+esc(L('Riêng tư','Private'))+'</span>' : '')
+    /* Scope now rides in the header meta line (csvCardHead), not on its own row.
+       Both destinations are marked so the line always reads scope · bank · time. */
+    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c),
+        (csvStagedMode && !opts.isDup) ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '')
     + (opts.noPick
         ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+'</span>'
         : bulkSummary(csvRowShape(c, opts.isDup)))
@@ -10776,7 +10783,7 @@ function csvActiveCard(c, opts){
   // Expanding was tappable but collapsing wasn't; an up-chevron marks the header
   // as the way back. The × (remove) stays a separate sibling so the two 44px
   // targets never overlap.
-  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c));
+  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c), '');
   var head = opts.tapFn
     ? '<button type="button" class="bulk-collapse" onclick="'+opts.tapFn+'" aria-expanded="true" aria-label="'+escAttr(L('Thu gọn','Collapse'))+'">'
         + headInner
@@ -14818,7 +14825,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v427';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v429';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

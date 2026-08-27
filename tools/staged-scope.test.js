@@ -140,9 +140,9 @@ t('space_id is never set on a bank-sourced personal row (private, no un-share)',
 
 console.log('\n-- the row says where it is going without being opened --');
 const ui2 = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '56-csv-import-ui.js'), 'utf8');
-t('a collapsed private row is marked', /bc-scope/.test(ui2));
-t('and only the private one — family is the default, not a badge',
-  /csvRowScope\(c\)==='personal'\)\s*\?/.test(ui2));
+t('a collapsed row shows its scope in the header meta line', /bulk-scope/.test(ui2));
+t('both destinations are marked — personal AND family, on that one line',
+  /Riêng tư[\s\S]{0,140}Gia đình/.test(ui2));
 t('a private row hides "Ai trả" — one member, no split',
   /!\(csvStagedMode && csvRowScope\(c\)==='personal'\)/.test(ui2));
 t('switching destination reads the editor first, so edits are not lost',

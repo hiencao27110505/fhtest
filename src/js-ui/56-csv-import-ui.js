@@ -722,17 +722,22 @@ function csvStagedProvider(c){
   var rows = window._fhStagedRows, r = rows && rows[c.rowIndex];
   return (r && r.source_provider) || '';
 }
-function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider){
+function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider, scope){
   var tone = isError ? ' attn' : (attn ? ' warn' : '');
-  var meta = dateIso ? '<span class="bulk-date">'+esc(bulkDate(dateIso))+(timeStr?' · '+esc(timeStr):'')+'</span>' : '';
-  // Staged (bank-email) rows lead the header with the bank, on one quiet meta
-  // line, and drop the generic "Khoản chi N" index — the index says nothing here,
-  // and stacking it beside the bank and the date is what overflowed the row into
-  // a broken two-line wrap. The description below carries the real identity.
+  // Staged (bank-email) rows: ONE quiet meta line — scope · bank · date · time.
+  // The generic "Khoản chi N" index says nothing here and stacking it beside the
+  // rest overflowed the header into a broken two-line wrap; the description below
+  // carries the real identity. Scope rides here too rather than on its own line.
   if (provider) {
-    return '<span class="bulk-head bulk-head-src">'
-      + '<span class="bulk-src'+tone+'">'+esc(provider)+'</span>' + meta + '</span>';
+    var when = dateIso ? esc(bulkDate(dateIso)) + (timeStr ? ' · ' + esc(timeStr) : '') : '';
+    var parts = [];
+    if (scope) parts.push('<span class="bulk-scope">'+esc(scope)+'</span>');
+    parts.push('<span class="bulk-src'+tone+'">'+esc(provider)+'</span>');
+    if (when) parts.push('<span class="bulk-when">'+when+'</span>');
+    return '<span class="bulk-head bulk-head-src"><span class="bulk-meta">'
+      + parts.join('<span class="bulk-sep">·</span>') + '</span></span>';
   }
+  var meta = dateIso ? '<span class="bulk-date">'+esc(bulkDate(dateIso))+(timeStr?' · '+esc(timeStr):'')+'</span>' : '';
   return '<span class="bulk-head"><span class="bulk-idx'+tone+'">'+esc(label)+'</span>' + meta + '</span>';
 }
 
@@ -758,13 +763,10 @@ function csvCollapsedCard(c, opts){
     + (csvStagedMode && opts.dateIso ? ' data-txr-day="'+escAttr(opts.dateIso)+'"' : '')
     + '>' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
-    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c))
-    /* A collapsed row has to say where it is going, or the destination is a
-       decision you can only see by opening every card one at a time. Only the
-       PRIVATE case is marked: family is the default and marking both would be
-       noise on every row to distinguish the exception. */
-    + ((csvStagedMode && !opts.isDup && csvRowScope(c)==='personal')
-        ? '<span class="bc-scope">🔒 '+esc(L('Riêng tư','Private'))+'</span>' : '')
+    /* Scope now rides in the header meta line (csvCardHead), not on its own row.
+       Both destinations are marked so the line always reads scope · bank · time. */
+    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c),
+        (csvStagedMode && !opts.isDup) ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '')
     + (opts.noPick
         ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+'</span>'
         : bulkSummary(csvRowShape(c, opts.isDup)))
@@ -824,7 +826,7 @@ function csvActiveCard(c, opts){
   // Expanding was tappable but collapsing wasn't; an up-chevron marks the header
   // as the way back. The × (remove) stays a separate sibling so the two 44px
   // targets never overlap.
-  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c));
+  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c), '');
   var head = opts.tapFn
     ? '<button type="button" class="bulk-collapse" onclick="'+opts.tapFn+'" aria-expanded="true" aria-label="'+escAttr(L('Thu gọn','Collapse'))+'">'
         + headInner
