@@ -79,6 +79,14 @@
         const kc = await _kGet('p:' + P.uid);
         if (kc && kc.key) { P.key = kc.key; await _afterKey(); return; }
         const wr = await _sb().from('personal_keys').select('kdf_salt,kdf_iters,kdf_version,wrapped_dek').eq('user_id', P.uid).maybeSingle();
+        // NEVER provision on a read failure. A transient error (auth token not yet
+        // refreshed on cold open, network blip, a 401 racing session restore) sets
+        // wr.error and leaves wr.data null. Treating that as "no key exists" mints a
+        // brand-new card every reopen — init_personal_key is ON CONFLICT DO NOTHING,
+        // so the server wrap survives, but the user is shown a fresh (mismatched)
+        // card each time and the real key scrolls away. Only provision when the read
+        // DEFINITIVELY succeeded and returned no row.
+        if (wr.error) { console.warn('personal_keys read failed', wr.error); _setState('error'); return; }
         if (wr.data) { P.wrap = wr.data; _setState('locked'); }
         else { await _provision(); }
       } catch (e) { console.warn('fhPersonalBoot failed', e); _setState('error'); }

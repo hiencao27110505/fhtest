@@ -3159,6 +3159,59 @@ html.fh-can-install .set-row.set-install{display:flex}
 .cst-fold[open] .cst-fold-s::after{transform:rotate(-135deg)}
 .cst-fold-s:active{opacity:.55}
 @media (prefers-reduced-motion:reduce){.cst-fold-s::after{transition:none}}
+
+/* ── Review modal: weekly income/expense preview (72-txn-review.js) ──────────
+   Finance-tab bar language (green = money in, red = money out), refined for the
+   review sheet: sticky at the top, a live readout, and tappable weeks that jump
+   the list. One token palette so it re-themes and dark-modes with the app. */
+.txr-chart{position:sticky;top:0;z-index:6;background:var(--surface);border-radius:16px;
+  padding:13px 14px 11px;margin:0 0 14px;box-shadow:0 10px 20px -14px rgba(25,16,34,.32)}
+.txr-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:9px}
+.txr-title{font-size:12px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.txr-count{font-size:11px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+.txr-readout{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:11px;min-height:20px}
+.txr-rlabel{font-size:11px;font-weight:700;color:var(--muted-soft);letter-spacing:.01em;
+  font-variant-numeric:tabular-nums}
+.txr-tot{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.txr-tot b{font-weight:800;letter-spacing:-.02em}
+.txr-dot{width:8px;height:8px;border-radius:2.5px;flex-shrink:0}
+.txr-dot.inc{background:var(--good)}
+.txr-dot.exp{background:var(--danger)}
+.txr-bars{display:flex;align-items:flex-end;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;
+  padding:0 2px 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.txr-bars::-webkit-scrollbar{display:none}
+.txr-col{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:32px;
+  padding:6px 3px 4px;border:0;background:none;border-radius:11px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:background .18s ease,opacity .18s ease,transform .12s ease}
+.txr-stack{height:72px;display:flex;align-items:flex-end;justify-content:center;gap:3px}
+.txr-b{width:8px;border-radius:3px 3px 1px 1px;
+  transition:height .55s cubic-bezier(.32,.72,0,1),opacity .18s ease}
+.txr-b.inc{background:var(--good)}
+.txr-b.exp{background:var(--danger)}
+.txr-b.z{width:8px;height:2px;align-self:flex-end;background:var(--fill-neutral);border-radius:2px}
+.txr-wd{font-size:9.5px;font-weight:600;color:var(--muted-soft);white-space:nowrap;letter-spacing:.01em}
+.txr-bars.has-sel .txr-col:not(.sel){opacity:.38}
+.txr-col.sel{background:var(--fill-neutral)}
+.txr-col.sel .txr-wd{color:var(--ink);font-weight:800}
+.txr-col:active{transform:scale(.96)}
+.txr-col:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+@media (prefers-reduced-motion:reduce){.txr-b,.txr-col{transition:none}}
+
+/* Loading overlay while the queue is fetched + decrypted (500 rows can take a
+   moment; the tap must not look dead). */
+.txr-loading{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;
+  justify-content:center;background:rgba(25,16,34,.34);backdrop-filter:blur(2px)}
+.txr-loading .txr-card{background:var(--card);border-radius:16px;padding:22px 28px;
+  display:flex;flex-direction:column;align-items:center;gap:13px;
+  box-shadow:0 12px 44px rgba(0,0,0,.20)}
+.txr-spin{width:30px;height:30px;border-radius:50%;border:3px solid var(--fill-neutral);
+  border-top-color:var(--brand);animation:txr-spin .8s linear infinite}
+.txr-lmsg{font-size:13px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+@keyframes txr-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.txr-spin{animation:none}}
 /* ---- settings sheet/modal internals (family, members, savings, income) ----
    Tokens only: these screens must re-theme with the rest of the app. */
 .fh-s-cta{width:100%;background:var(--grad-brand);color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;padding:15px;border-radius:9999px;box-shadow:0 8px 20px var(--brand-glow);margin-top:6px}
@@ -11008,7 +11061,9 @@ function renderCsvReview(){
     if(!csvStagedMode) html += '<div class="group-h">'+L('Sẵn sàng','Ready')+' · '+readyCount+'</div>';
     keys.forEach(function(k){
       var label = k ? fmtDayMon(dateBuckets[k][0].c.date) : L('Không rõ ngày','No date');
-      html += '<div class="group-h" style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
+      // In staged (bank-email) mode the weekly preview chart jumps here on a bar
+      // tap; k is the day key (YYYY-MM-DD), which _txrJump matches to a week.
+      html += '<div class="group-h"'+(csvStagedMode && k ? ' data-txr-day="'+esc(k)+'"' : '')+' style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
       dateBuckets[k].forEach(function(e){
         var o = { label:lowConfLabel[e.i] || (L('Khoản chi ','Item ')+(e.i+1)), dateIso:e.c.dateDisplay,
                   timeStr:csvRowTime(e.c),
@@ -14726,7 +14781,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v421';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v423';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -16223,6 +16278,14 @@ window.obGoogle = async function () {
         const kc = await _kGet('p:' + P.uid);
         if (kc && kc.key) { P.key = kc.key; await _afterKey(); return; }
         const wr = await _sb().from('personal_keys').select('kdf_salt,kdf_iters,kdf_version,wrapped_dek').eq('user_id', P.uid).maybeSingle();
+        // NEVER provision on a read failure. A transient error (auth token not yet
+        // refreshed on cold open, network blip, a 401 racing session restore) sets
+        // wr.error and leaves wr.data null. Treating that as "no key exists" mints a
+        // brand-new card every reopen — init_personal_key is ON CONFLICT DO NOTHING,
+        // so the server wrap survives, but the user is shown a fresh (mismatched)
+        // card each time and the real key scrolls away. Only provision when the read
+        // DEFINITIVELY succeeded and returned no row.
+        if (wr.error) { console.warn('personal_keys read failed', wr.error); _setState('error'); return; }
         if (wr.data) { P.wrap = wr.data; _setState('locked'); }
         else { await _provision(); }
       } catch (e) { console.warn('fhPersonalBoot failed', e); _setState('error'); }
@@ -22574,6 +22637,22 @@ window.classifyAmount = classifyAmount;
       .limit(TXN_REVIEW_PAGE);
     if (res.error) throw res.error;
     var rows = res.data || [];
+    /* True pending total for the badge and the "N of M" header. Only when the
+       page comes back FULL could there be more than we fetched, so the exact
+       count is a separate head-only query paid for just in that case; a queue
+       under the cap already knows its own size. The projection above stays
+       column-named and raw_body-free — the sealing test guards it — so the
+       count cannot ride along on that select. */
+    if (rows.length >= TXN_REVIEW_PAGE) {
+      try {
+        var cnt = await sb.from('email_transactions')
+          .select('id', { count: 'exact', head: true })
+          .eq('review_status', 'pending');
+        window.fhStagedTotal = (cnt && typeof cnt.count === 'number') ? cnt.count : rows.length;
+      } catch (e) { window.fhStagedTotal = rows.length; }
+    } else {
+      window.fhStagedTotal = rows.length;
+    }
     // Prune first, against the full server answer, so the local list shrinks as
     // the server catches up rather than accumulating ids nobody will ever see.
     var serverIds = rows.map(function (r) { return r.id; });
@@ -22588,7 +22667,7 @@ window.classifyAmount = classifyAmount;
      every user. Cached on window and pushed to the CTA renderer. */
   window.fhStagedCount = 0;
   window.fhRefreshStagedCount = async function () {
-    try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (rows || []).length; }
+    try { var rows = await fhFetchStagedTxns(); window.fhStagedCount = (typeof window.fhStagedTotal === 'number') ? window.fhStagedTotal : (rows || []).length; }
     catch (e) { window.fhStagedCount = 0; }
     try { if (typeof window.renderCashflowEmailCta === 'function') window.renderCashflowEmailCta(); } catch (e) {}
     // The Cá nhân tab carries the same CTA and the same badge; it has to hear
@@ -22847,6 +22926,141 @@ window.classifyAmount = classifyAmount;
     return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   };
 
+  /* ---- Review-modal loading overlay + weekly preview chart (added with the
+     500-row cap raise) --------------------------------------------------- */
+  function _txrLoadShow(msg) {
+    var el = document.getElementById('fh-txn-loading');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'fh-txn-loading';
+      el.className = 'txr-loading';
+      el.innerHTML = '<div class="txr-card"><div class="txr-spin"></div><div class="txr-lmsg"></div></div>';
+      document.body.appendChild(el);
+    }
+    var m = el.querySelector('.txr-lmsg'); if (m) m.textContent = msg || '';
+    return el;
+  }
+  function _txrLoadMsg(msg) {
+    var el = document.getElementById('fh-txn-loading');
+    var m = el && el.querySelector('.txr-lmsg'); if (m) m.textContent = msg || '';
+  }
+  function _txrLoadHide() {
+    var el = document.getElementById('fh-txn-loading'); if (el) el.remove();
+  }
+  function _txrYield() {
+    return new Promise(function (res) {
+      (window.requestAnimationFrame || function (f) { setTimeout(f, 0); })(function () { res(); });
+    });
+  }
+
+  function _txrWeekMon(d) {                 // Monday 00:00 of d's week (local)
+    var t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    t.setDate(t.getDate() - ((t.getDay() + 6) % 7));
+    return t;
+  }
+  function _txrFmt(n) {
+    return Math.round(n).toLocaleString(L('vi-VN', 'en-US'));
+  }
+  /* Income (credit) vs expense (everything else) of the loaded rows, grouped by
+     week, in the finance tab's bar language (green in / red out). Summarises the
+     PAGE that is loaded — paired with the "N of M" count so a capped queue reads
+     honestly. Each week is a tappable button: it highlights, reads out that
+     week's split, and jumps the list to that week (fhTxrBar → _txrJump). */
+  function _txrChartHTML(rows) {
+    if (!rows || !rows.length) return '';
+    var weeks = {}, order = [], allVnd = true, anyAmt = false, totInc = 0, totExp = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i], amt = Number(r.amount) || 0;
+      if (!amt) continue;
+      anyAmt = true;
+      var cur = (r.currency || '').toUpperCase(); if (cur && cur !== 'VND') allVnd = false;
+      var d = r.occurred_at ? new Date(r.occurred_at) : null;
+      if (!d || isNaN(d.getTime())) d = new Date();
+      var mon = _txrWeekMon(d), key = mon.getTime();
+      if (!weeks[key]) { weeks[key] = { mon: mon, inc: 0, exp: 0 }; order.push(key); }
+      if (r.direction === 'credit') { weeks[key].inc += amt; totInc += amt; }
+      else { weeks[key].exp += amt; totExp += amt; }
+    }
+    if (!anyAmt) return '';
+    order.sort(function (a, b) { return a - b; });
+    var maxV = 1;
+    order.forEach(function (k) { if (weeks[k].inc > maxV) maxV = weeks[k].inc; if (weeks[k].exp > maxV) maxV = weeks[k].exp; });
+    var sym = allVnd ? 'đ' : '';
+    var cols = order.map(function (k) {
+      var w = weeks[k];
+      var ih = w.inc > 0 ? Math.max(Math.round(w.inc / maxV * 100), 6) : 0;
+      var eh = w.exp > 0 ? Math.max(Math.round(w.exp / maxV * 100), 6) : 0;
+      var sun = new Date(w.mon.getTime() + 6 * 864e5);
+      var lbl = w.mon.getDate() + '/' + (w.mon.getMonth() + 1);
+      var range = lbl + ' – ' + sun.getDate() + '/' + (sun.getMonth() + 1);
+      var incS = _txrFmt(w.inc) + sym, expS = _txrFmt(w.exp) + sym;
+      var aria = L('Tuần ', 'Week of ') + range + ' · ' + L('thu ', 'in ') + incS + ' · ' + L('chi ', 'out ') + expS;
+      return '<button type="button" class="txr-col" data-week="' + k + '"'
+        + ' data-range="' + _esc(range) + '" data-inc="' + _esc(incS) + '" data-exp="' + _esc(expS) + '"'
+        + ' aria-label="' + _esc(aria) + '" onclick="fhTxrBar(this)">'
+        + '<span class="txr-stack">'
+        + (ih ? '<i class="txr-b inc" style="height:' + ih + '%"></i>' : '<i class="txr-b z"></i>')
+        + (eh ? '<i class="txr-b exp" style="height:' + eh + '%"></i>' : '<i class="txr-b z"></i>')
+        + '</span><span class="txr-wd">' + _esc(lbl) + '</span></button>';
+    }).join('');
+    var shown = rows.length;
+    var total = (typeof window.fhStagedTotal === 'number') ? window.fhStagedTotal : shown;
+    var countTxt = total > shown ? L('Xem ' + shown + '/' + total, shown + ' of ' + total)
+                                 : (shown + ' ' + L('khoản', 'items'));
+    var incAll = _txrFmt(totInc) + sym, expAll = _txrFmt(totExp) + sym;
+    return '<div class="txr-head">'
+        + '<div class="txr-title">' + L('Thu chi theo tuần', 'Weekly in &amp; out') + '</div>'
+        + '<div class="txr-count">' + _esc(countTxt) + '</div>'
+      + '</div>'
+      + '<div class="txr-readout" id="txr-readout" data-inc-all="' + _esc(incAll) + '" data-exp-all="' + _esc(expAll) + '">'
+        + '<span class="txr-rlabel">' + L('Tổng', 'Total') + '</span>'
+        + '<span class="txr-tot"><i class="txr-dot inc"></i>' + L('Thu', 'In') + ' <b class="txr-inc">' + _esc(incAll) + '</b></span>'
+        + '<span class="txr-tot"><i class="txr-dot exp"></i>' + L('Chi', 'Out') + ' <b class="txr-exp">' + _esc(expAll) + '</b></span>'
+      + '</div>'
+      + '<div class="txr-bars" role="group" aria-label="' + _esc(L('Thu chi theo tuần', 'Weekly income and expense')) + '">' + cols + '</div>';
+  }
+
+  /* Bar tap → highlight the week, swap the readout to that week's split, and
+     jump the list to it. Tapping the active bar again clears back to the total. */
+  function _txrReadout(el, label, inc, exp) {
+    if (!el) return;
+    var l = el.querySelector('.txr-rlabel'); if (l) l.textContent = label || '';
+    var iEl = el.querySelector('.txr-inc'); if (iEl) iEl.textContent = inc || '';
+    var eEl = el.querySelector('.txr-exp'); if (eEl) eEl.textContent = exp || '';
+  }
+  function _txrJump(weekMs) {
+    var body = document.querySelector('#csv-import-modal .modal-body'); if (!body) return;
+    var chart = document.getElementById('fh-txn-chart');
+    var chartH = chart ? chart.getBoundingClientRect().height : 0;
+    // Ready rows are grouped by day; the header carries data-txr-day (YYYY-MM-DD).
+    // The FIRST header in the week is the top of that week's block in the
+    // newest-first list — where the period begins as you scroll down to it.
+    var hs = body.querySelectorAll('.group-h[data-txr-day]');
+    var start = weekMs, end = weekMs + 7 * 864e5, target = null;
+    for (var i = 0; i < hs.length; i++) {
+      var t = Date.parse(hs[i].getAttribute('data-txr-day') + 'T00:00:00');
+      if (!isNaN(t) && t >= start && t < end) { target = hs[i]; break; }
+    }
+    if (!target) return;               // this week's rows aren't in the dated ready list
+    var bodyRect = body.getBoundingClientRect(), tRect = target.getBoundingClientRect();
+    var top = Math.max(0, body.scrollTop + (tRect.top - bodyRect.top) - chartH - 12);
+    body.scrollTo({ top: top, behavior: 'smooth' });
+  }
+  window.fhTxrBar = function (btn) {
+    var bars = btn.parentNode, readout = document.getElementById('txr-readout');
+    var wasSel = btn.classList.contains('sel');
+    var cols = bars.querySelectorAll('.txr-col');
+    for (var i = 0; i < cols.length; i++) cols[i].classList.remove('sel');
+    if (wasSel) {
+      bars.classList.remove('has-sel');
+      _txrReadout(readout, L('Tổng', 'Total'), readout && readout.getAttribute('data-inc-all'), readout && readout.getAttribute('data-exp-all'));
+      return;
+    }
+    btn.classList.add('sel'); bars.classList.add('has-sel');
+    _txrReadout(readout, btn.getAttribute('data-range'), btn.getAttribute('data-inc'), btn.getAttribute('data-exp'));
+    var ms = Number(btn.getAttribute('data-week')); if (ms) _txrJump(ms);
+  };
+
   window.fhTxnReviewSheet = async function () {
     // Key-mismatch alarm latched (18-staging-keys): approval is frozen for the
     // whole family until a verify passes again. Re-show the explanation rather
@@ -22855,10 +23069,12 @@ window.classifyAmount = classifyAmount;
       window.fhStagingAlarmShow && window.fhStagingAlarmShow();
       return;
     }
+    _txrLoadShow(L('Đang tải giao dịch…', 'Loading transactions…'));
     var raw;
     try {
       raw = await fhFetchStagedTxns();
     } catch (e) {
+      _txrLoadHide();
       window.toast && window.toast(L('Chưa tải được giao dịch', 'Could not load transactions'));
       return;
     }
@@ -22868,15 +23084,23 @@ window.classifyAmount = classifyAmount;
        invisible. */
     var maybeMore = raw.length >= TXN_REVIEW_PAGE;
 
+    // Open each sealed box locally. NaCl open is synchronous CPU work, so a long
+    // queue (a backfill of hundreds) would freeze the tap with no sign of life.
+    // Decrypt in chunks, yielding to paint between them and showing progress —
+    // the design rule is "a real round trip must not look frozen".
     var readable = [], locked = 0;
     for (var i = 0; i < raw.length; i++) {
       var r = await fhReadStagedRow(raw[i]);
-      if (!r) { locked++; continue; }
-      if (r._unreadable) { locked++; continue; }
-      readable.push(r);
+      if (!r || r._unreadable) { locked++; }
+      else { readable.push(r); }
+      if (i % 20 === 0) {
+        _txrLoadMsg(L('Đang mở khoá ', 'Unlocking ') + (i + 1) + '/' + raw.length);
+        await _txrYield();
+      }
     }
 
     if (!readable.length) {
+      _txrLoadHide();
       _fhSheet('<div class="mbx-hero">' + _mbxGlyph('mail') + '</div>' +
         '<div class="sheet-h">' + _esc(L('Chưa có giao dịch mới', 'Nothing to review')) + '</div>' +
         '<div class="sheet-sub">' + _esc(locked
@@ -22954,6 +23178,25 @@ window.classifyAmount = classifyAmount;
       if (mt2 && mt2.parentNode) mt2.parentNode.insertBefore(more, mt2.nextSibling);
     }
 
+    /* Weekly preview at the top of the modal: income vs expense of the loaded
+       rows, in the same bar language as the finance tab's week chart — a quick
+       read of "what am I about to review" before scrolling the list. Rebuilt
+       (removed + re-added) every open so it never goes stale. */
+    var oldChart = document.getElementById('fh-txn-chart');
+    if (oldChart) oldChart.remove();
+    var chartInner = _txrChartHTML(readable);
+    if (chartInner) {
+      var chartHost = document.getElementById('csv-result');
+      if (chartHost && chartHost.parentNode) {
+        var wrap = document.createElement('div');
+        wrap.id = 'fh-txn-chart';
+        wrap.className = 'txr-chart';
+        wrap.innerHTML = chartInner;
+        chartHost.parentNode.insertBefore(wrap, chartHost);
+      }
+    }
+
+    _txrLoadHide();
     openSheet('csv-import-modal');
   };
 
