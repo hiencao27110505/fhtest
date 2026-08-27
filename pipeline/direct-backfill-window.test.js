@@ -33,8 +33,15 @@ for (const d of [30, 60, 90, 365]) {
    choose. */
 {
   const q = S.inboxQuery(30, []);
-  t('the query names senders and nothing else',
-    q.indexOf('(from:') === 0 && /\) newer_than:30d$/.test(q));
+  /* The invariant is that the query is built from SENDERS and bounded by a
+     window — not that nothing sits between them. Promotional exclusions were
+     added after this was written, and an assertion that pinned the exact string
+     failed on a change that strengthened the very restraint it guards. */
+  t('the query opens with the sender group',  q.indexOf('(from:') === 0);
+  t('and the window is the last term',        /newer_than:30d$/.test(q));
+  t('anything between the two only NARROWS the match',
+    q.slice(q.indexOf(')') + 1, q.indexOf('newer_than:')).trim()
+      .split(/\s+/).filter(Boolean).every(term => term.startsWith('-')));
   t('and never carries a to: term, at any window',
     [1, 30, 365].every(d => S.inboxQuery(d, []).indexOf('to:') === -1));
 }

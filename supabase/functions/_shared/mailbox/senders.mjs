@@ -287,6 +287,29 @@ export function match(fromHeader, extra) {
  * wider window on purpose (backfill), which is the one product difference direct
  * read buys over forwarding.
  */
+/** Address tokens that mean "this is a campaign, not a receipt".
+ *
+ *  Excluded at the QUERY, which is the only place that saves anything real. A
+ *  promotional mail that reaches us costs a `messages.get`, a slot in the
+ *  per-run staging cap, and — until a sender-wide sentinel exists for it — a
+ *  model call. The slot is the expensive one: during a backfill, marketing mail
+ *  literally crowds out the transactions the run was for.
+ *
+ *  THESE TWO ONLY, AND ON EVIDENCE RATHER THAN ON HOW THEY READ. Across every
+ *  sender this pipeline has ever classified, `marketing` and `promotion`
+ *  addresses produced 58 junk subjects and NOT ONE transaction. The tempting
+ *  neighbours are exactly the trap: `info.vietcombank.com.vn` reads just as
+ *  promotional and is Vietcombank's real transactional address with six
+ *  transactions behind it, and `card.` and `myvib.` are likewise live. A
+ *  prefix list assembled by intuition would have silently dropped a bank.
+ *
+ *  FAILING THIS WAY IS SILENT, so the bar for adding a token is a sender that
+ *  has produced many junk subjects and zero transactions — a mail we never
+ *  fetch cannot appear as skipped, unreadable, or anything else. If a bank ever
+ *  does send receipts from such an address, the symptom is transactions that
+ *  never arrive, with nothing anywhere pointing here. */
+export const PROMO_TOKENS = ['marketing', 'promotion'];
+
 export function inboxQuery(days, extra) {
   const domains = [
     ...Object.keys(BANKS),
@@ -298,7 +321,13 @@ export function inboxQuery(days, extra) {
   // Deliberately NOT scoped to the inbox label: a bank mail auto-filtered into a
   // folder is still a transaction, and a user who files their mail would
   // otherwise see nothing appear with no way to tell why.
-  return from + ' newer_than:' + Math.max(1, Math.floor(days)) + 'd';
+  /* `-from:marketing` matches the whole From header, so one term covers every
+     domain in the list at once — `card@marketing.vib.com.vn` and
+     `marketing@promotion.vib.com.vn` alike. Enumerating the subdomain of each
+     of the 157 domains instead would multiply the query by three for the same
+     effect. */
+  const notPromo = PROMO_TOKENS.map(t => ' -from:' + t).join('');
+  return from + notPromo + ' newer_than:' + Math.max(1, Math.floor(days)) + 'd';
 }
 
 export const KNOWN_DOMAINS = { BANKS, WALLETS };

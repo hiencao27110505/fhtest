@@ -63,6 +63,18 @@ export function normalizeSubjectTemplate(subject) {
  * @param {{fingerprint: Function, saveFingerprint: Function}} db
  * @param {{llm: object, budget?: {spend: Function}}} deps
  */
+/** The subject_template of a sender-wide verdict. Must match db.mjs. */
+export const SENDER_SENTINEL = '*';
+
+/** How many distinct junk shapes a sender may produce, with zero transactions,
+ *  before it is written off wholesale.
+ *
+ *  Six rather than two: a bank's transactional address can open with a run of
+ *  service notices — a login alert, an OTP registration, a limit change — before
+ *  its first real transaction, and writing it off on that run would lose money
+ *  silently. Six distinct shapes with nothing to show is a newsletter. */
+export const SENDER_JUNK_THRESHOLD = 6;
+
 export async function readTransaction(message, db, deps) {
   const sender = _address(message.from);
   const template = normalizeSubjectTemplate(message.subject);
@@ -70,8 +82,15 @@ export async function readTransaction(message, db, deps) {
 
   // A cached "not a transaction" costs one lookup and saves a model call
   // forever. This is most of what a real mailbox contains.
+  //
+  // `_sender_wide` means the verdict came from the sender-wide sentinel rather
+  // than this exact subject — a sender that has produced only noise, many
+  // times, and never a transaction. That is the case the per-shape cache cannot
+  // help with at all: a marketing mail has a new subject every time, so the
+  // shape never repeats and every message would otherwise pay for a model call
+  // to be told the same thing again.
   if (fp && fp.is_transaction_source === false) {
-    return { ok: false, reason: 'not_a_transaction' };
+    return { ok: false, reason: 'not_a_transaction', senderWide: !!fp._sender_wide };
   }
 
   // ── stage 1: the stored template, locally, nothing leaves ────────────────
@@ -105,11 +124,40 @@ export async function readTransaction(message, db, deps) {
   const extraction = await llm.extract(sender, message.subject, message.body, deps.llm, deps.fetch);
 
   if (!extraction || extraction.is_transaction !== true) {
-    // Cache the verdict so this sender's newsletters never cost a second call.
+    // Cache the verdict for this exact shape.
     await db.saveFingerprint({
       sender_address: sender, subject_template: template,
       is_transaction_source: false, transaction_type: null, extraction_regex: null,
     });
+
+    /* And ask whether this SENDER has earned a blanket verdict.
+    
+       A sender that has produced many distinct junk shapes and never once a
+       transaction is a newsletter, and every future mail from it would repeat
+       this exact call under a subject we have not seen before. Writing a
+       sender-wide sentinel is what stops that.
+    
+       THE THRESHOLD IS THE WHOLE SAFETY ARGUMENT. `txn === 0` is the real
+       guard: a sender that has EVER produced a transaction is never blanketed,
+       however much noise it also sends — banks legitimately send both from one
+       address, and silently ignoring such a sender would lose real money with
+       nothing recording it. The count is the second guard, so a sender is not
+       written off on the strength of two promotional mails.
+    
+       Best-effort: a failure here costs model calls, never correctness, so it
+       must not fail the read that already succeeded. */
+    if (db.senderTally) {
+      try {
+        const tally = await db.senderTally(sender);
+        if (tally.txn === 0 && tally.junk >= SENDER_JUNK_THRESHOLD) {
+          await db.saveFingerprint({
+            sender_address: sender, subject_template: SENDER_SENTINEL,
+            is_transaction_source: false, transaction_type: null, extraction_regex: null,
+          });
+        }
+      } catch (e) { /* the read stands regardless */ }
+    }
+
     return { ok: false, reason: 'not_a_transaction' };
   }
 

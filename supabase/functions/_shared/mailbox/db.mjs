@@ -20,6 +20,11 @@
 /** How many mailboxes one run touches. Bounds a run against a function timeout. */
 export const MAX_GRANTS_PER_RUN = 25;
 
+/* The subject_template of a SENDER-WIDE verdict, as opposed to a per-shape one.
+   A literal no real subject can normalise to — a normalised shape is derived
+   from actual subject text, and this is punctuation only. */
+export const SENDER_SENTINEL = '*';
+
 export function createDb(url, serviceKey, fetchImpl) {
   const doFetch = fetchImpl || globalThis.fetch;
   const base = url.replace(/\/$/, '') + '/rest/v1';
@@ -177,14 +182,49 @@ export function createDb(url, serviceKey, fetchImpl) {
     },
 
     /** The shared classification cache, keyed on sender AND subject template. */
+    /* Both verdicts for this mail in ONE query: the exact (sender, subject shape)
+       and the sender-wide sentinel.
+
+       The sentinel exists because the per-shape cache is useless against a
+       marketing sender. A promotional mail has a new subject every time, so the
+       shape never repeats, the cache never hits, and EVERY message costs a model
+       call to be told again that it is not a transaction. One real mailbox spent
+       58 calls that way on two VIB marketing subdomains that have never sent a
+       transaction.
+
+       Asked together rather than in sequence because the sentinel matters
+       exactly when the exact lookup misses, which is the common case for those
+       senders — a second round trip there would put a network hop in front of
+       every junk mail. */
     async fingerprint(sender, template) {
       const qs = new URLSearchParams({
-        select: 'sender_address,subject_template,is_transaction_source,transaction_type,extraction_regex',
+        select: 'sender_address,subject_template,is_transaction_source,transaction_type,extraction_regex,last_verified_at',
         sender_address: 'eq.' + sender,
-        subject_template: 'eq.' + template,
+        subject_template: 'in.(' + [template, SENDER_SENTINEL].map(v => '"' + encodeURIComponent(v) + '"').join(',') + ')',
       });
-      const rows = await rest('/sender_fingerprints?' + qs.toString());
-      return (rows && rows[0]) || null;
+      const rows = (await rest('/sender_fingerprints?' + qs.toString())) || [];
+      const exact = rows.find(r => r.subject_template === template) || null;
+      const sentinel = rows.find(r => r.subject_template === SENDER_SENTINEL) || null;
+      // The exact shape always wins: a sender can be mostly noise and still have
+      // one template worth reading, and that row is the more specific answer.
+      if (exact) return exact;
+      return sentinel ? { ...sentinel, _sender_wide: true } : null;
+    },
+
+    /* How much this sender has cost, and whether it has ever paid off.
+       Only asked after a model call has already decided "not a transaction", so
+       it is one query per NEW junk shape rather than per message. */
+    async senderTally(sender) {
+      const qs = new URLSearchParams({
+        select: 'is_transaction_source',
+        sender_address: 'eq.' + sender,
+        subject_template: 'neq.' + SENDER_SENTINEL,
+      });
+      const rows = (await rest('/sender_fingerprints?' + qs.toString())) || [];
+      return {
+        junk: rows.filter(r => r.is_transaction_source === false).length,
+        txn: rows.filter(r => r.is_transaction_source === true).length,
+      };
     },
 
     async saveFingerprint(row) {
