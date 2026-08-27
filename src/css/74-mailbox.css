@@ -214,13 +214,6 @@
 .txh-fold.open{grid-template-rows:1fr}
 .txh-fold>div{overflow:hidden;min-height:0}
 .txh-panel{padding:4px 13px 12px}
-/* Scroll-minimised chart: the BARS give way, the in/out readout stays. The
-   readout is the glanceable number; the bars are the browsing surface — only
-   the browsing surface pays for scroll room. Class toggle only, never a rebuild. */
-.txh-fold .txr-head,.txh-fold .txr-bars{max-height:150px;overflow:hidden;
-  transition:max-height .3s cubic-bezier(.32,.72,0,1),opacity .22s ease,margin .3s cubic-bezier(.32,.72,0,1)}
-.txh-fold.chartmin .txr-head,.txh-fold.chartmin .txr-bars{max-height:0;opacity:0;margin:0}
-.txh-fold.chartmin .txr-readout{margin-bottom:2px}
 
 /* the bulk block says what it is — the title names the selection the buttons act on */
 .txh-bulkhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 9px}
@@ -300,7 +293,7 @@
 .txh-rooms button.on{background:var(--white);color:var(--ink);box-shadow:0 1px 5px rgba(25,16,34,.16)}
 .txh-rooms button.danger.on{color:var(--danger)}
 @media (prefers-reduced-motion:reduce){
-  .txh-fold,.txh-it .e,.txh-it .l,.txh-fold .txr-head,.txh-fold .txr-bars{transition:none}}
+  .txh-fold,.txh-it .e,.txh-it .l{transition:none}}
 
 /* Where a reviewed bank transaction lands. Borders, not fills (DESIGN §7), and
    the same .choice chips the expense sheet uses so the two never drift apart.

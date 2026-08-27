@@ -1061,7 +1061,7 @@ function renderCsvReview(){
   var readyCount = csvStagedMode ? csvStagedSelected().length : r.ready.length;
   if(csvStagedMode){
     /* No in-list summary here any more. The staged review's summary, selection
-       tools and weekly chart all live in the #txh header BETWEEN the nav and
+       tools all live in the #txh header BETWEEN the nav and
        this scroller (csvTxrHeadSync below) — in the flow they kept sliding
        under whatever was sticky, which is the complaint that redesign answered. */
   } else {
@@ -1287,7 +1287,7 @@ var csvSelTouched = false;
 function csvBulkReset(){
   csvBulkArmed = false; csvSelTouched = false;
   csvTxrOpen = null; csvTxrRoom = 'cat'; csvTxrPendCat = null; csvTxrPendScope = null;
-  csvTxrChartMin = false; csvTxrAuto = false; csvTxrKey = null;
+  csvTxrAuto = false; csvTxrKey = null;
 }
 
 function csvStagedSelectAll(on){
@@ -1373,19 +1373,15 @@ function csvBulkDelete(){
 
    Everything here re-renders through one key (csvTxrKey); chip taps mutate
    classes in place and never rebuild, which is what keeps the panel flicker-
-   free. The chart fold minimises its bars on scroll-down (readout stays) and
-   restores them on scroll-up — a class toggle, never a rebuild. */
-var csvTxrOpen = null;        // null | 'bulk' | 'chart'
+   free. */
+var csvTxrOpen = null;        // null | 'bulk'
 var csvTxrRoom = 'cat';       // which room of the bulk panel: 'cat' | 'scope' | 'del'
 var csvTxrPendCat = null;     // staged picks; nothing applies until Áp dụng
 var csvTxrPendScope = null;
-var csvTxrChartMin = false;   // chart bars minimised by scrolling down
 var csvTxrAuto = false;       // auto-opened the bulk panel once this build
 var csvTxrKey = null;         // panel content key — rebuild only when it changes
-var csvTxrWired = false;      // modal-body scroll listener attached
 
 var CSV_TXR_I_SEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9M4 12h9M4 18h9"/><path d="m15.5 11.5 2.5 2.5 5-5.5"/></svg>';
-var CSV_TXR_I_CH  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M5 20v-8M12 20V6M19 20v-9"/></svg>';
 
 function csvTxrRowHTML(){
   var sel = csvStagedSelected(), n = sel.length, sum = 0;
@@ -1401,8 +1397,7 @@ function csvTxrRowHTML(){
     return '<button type="button" class="'+(csvTxrOpen===k?'on':'')+'" onclick="csvTxrTool(\''+k+'\')">'
       + icon + '<span>' + L(vi, en) + '</span></button>';
   };
-  // Weekly chart removed for now — its "Tuần / Weeks" toggle is gone so the room
-  // is unreachable; the chart engine (fhStagedChartHTML) is removed too. Revisit later.
+  // Weekly chart fully removed: no toggle, no room, no engine. Only Select remains.
   return '<span class="txh-sum"><small>'+esc(cap)+'</small><b>'+fig+'</b></span>'
     + '<span class="txh-seg">'+seg('bulk',CSV_TXR_I_SEL,'Chọn nhiều','Select')+'</span>';
 }
@@ -1486,7 +1481,7 @@ function csvTxrTitleHTML(){
 /* TEMP viewer allowlist (2026-08-27, Trang's call): the redesigned tools
    header shows ONLY for these signed-in accounts while it is being polished —
    everyone else keeps a plain review list (card ticks and the nav Import still
-   work; they lose the summary/bulk/chart chrome, which is the point of the
+   work; they lose the summary/bulk chrome, which is the point of the
    gate). Client-side and by email because that is the granularity asked for;
    the code is public in a single-file PWA, so this hides nothing — it only
    chooses who SEES it. Widen by adding emails; delete the gate to ship to all. */
@@ -1522,10 +1517,7 @@ function csvTxrHeadSync(){
   if(key !== csvTxrKey){
     csvTxrKey = key;
     var panel = document.getElementById('txh-panel');
-    panel.innerHTML = !csvTxrOpen ? ''
-      : (csvTxrOpen === 'chart'
-          ? (window.fhStagedChartHTML ? window.fhStagedChartHTML() : '')
-          : csvTxrBulkHTML());
+    panel.innerHTML = csvTxrOpen ? csvTxrBulkHTML() : '';
     if(csvTxrOpen === 'bulk') csvTxrRailWire();
   }
 
@@ -1536,8 +1528,6 @@ function csvTxrHeadSync(){
   } else {
     fold.classList.toggle('open', !!csvTxrOpen);
   }
-  fold.classList.toggle('chartmin', csvTxrOpen === 'chart' && csvTxrChartMin);
-  csvTxrScrollWire();
 }
 
 /* The rail grows under a touch and shrinks when it leaves — class toggle only,
@@ -1586,33 +1576,13 @@ function csvTxrRailWire(){
   rail.addEventListener('pointercancel', end);
 }
 
-/* Chart bars give way on scroll-down (the readout stays), return on scroll-up
-   or at top. Wrapped in try/catch: this wires lazily at first sync, and a
-   throw here must never take the review render down with it. */
-function csvTxrScrollWire(){
-  if(csvTxrWired) return;
-  try{
-    var body = document.querySelector('#csv-import-modal .modal-body'); if(!body) return;
-    var last = 0;
-    body.addEventListener('scroll', function(){
-      var y = body.scrollTop, dy = y - last; last = y;
-      if(csvTxrOpen !== 'chart') return;
-      if(!csvTxrChartMin && dy > 4 && y > 60) csvTxrChartMin = true;
-      else if(csvTxrChartMin && (dy < -8 || y < 24)) csvTxrChartMin = false;
-      else return;
-      var fold = document.getElementById('txh-fold');
-      if(fold) fold.classList.toggle('chartmin', csvTxrOpen === 'chart' && csvTxrChartMin);
-    }, { passive:true });
-    csvTxrWired = true;
-  }catch(e){}
-}
 
 /* ---- header handlers (globals — inline onclick targets, §3) ---- */
 function csvTxrTool(k){
   csvDisarmRemove();
   csvTxrOpen = (k === null || csvTxrOpen === k) ? null : k;
   csvTxrRoom = 'cat'; csvTxrPendCat = null; csvTxrPendScope = null;
-  csvBulkArmed = false; csvTxrChartMin = false;
+  csvBulkArmed = false;
   csvTxrHeadSync();
 }
 function csvTxrRoomGo(a){
