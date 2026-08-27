@@ -508,16 +508,20 @@
     var body = document.querySelector('#csv-import-modal .modal-body'); if (!body) return;
     var chart = document.getElementById('fh-txn-chart');
     var chartH = chart ? chart.getBoundingClientRect().height : 0;
-    // Ready rows are grouped by day; the header carries data-txr-day (YYYY-MM-DD).
-    // The FIRST header in the week is the top of that week's block in the
-    // newest-first list — where the period begins as you scroll down to it.
-    var hs = body.querySelectorAll('.group-h[data-txr-day]');
-    var start = weekMs, end = weekMs + 7 * 864e5, target = null;
+    // Scroll to the BEGINNING of the tapped week — its earliest-dated row. Every
+    // staged card carries data-txr-day (YYYY-MM-DD), as do the ready-list date
+    // headers; we anchor on the cards too because most rows arrive uncategorised
+    // and sit in merchant groups with no date header, so a header-only search
+    // leaves whole weeks unreachable. Pick the minimum date in the window (the
+    // start of the period), not the first element in DOM (which is the newest day
+    // in a newest-first list).
+    var hs = body.querySelectorAll('[data-txr-day]');
+    var start = weekMs, end = weekMs + 7 * 864e5, target = null, best = Infinity;
     for (var i = 0; i < hs.length; i++) {
       var t = Date.parse(hs[i].getAttribute('data-txr-day') + 'T00:00:00');
-      if (!isNaN(t) && t >= start && t < end) { target = hs[i]; break; }
+      if (!isNaN(t) && t >= start && t < end && t < best) { best = t; target = hs[i]; }
     }
-    if (!target) return;               // this week's rows aren't in the dated ready list
+    if (!target) return;               // no rows from this week are on screen
     var bodyRect = body.getBoundingClientRect(), tRect = target.getBoundingClientRect();
     var top = Math.max(0, body.scrollTop + (tRect.top - bodyRect.top) - chartH - 12);
     body.scrollTo({ top: top, behavior: 'smooth' });

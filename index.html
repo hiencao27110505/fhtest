@@ -10678,7 +10678,12 @@ function csvCollapsedCard(c, opts){
       + ' aria-label="'+escAttr(L('Chọn khoản này để nhập','Select this item to import'))+'">'
       + '<i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></i></button>'
     : '';
-  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
+  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'"'
+    // Staged mode only: the review chart's week bars scroll the list to a day, and
+    // most rows are NOT in the dated ready list (uncategorised → merchant groups),
+    // so the date anchor has to live on the card, not just the group header.
+    + (csvStagedMode && opts.dateIso ? ' data-txr-day="'+escAttr(opts.dateIso)+'"' : '')
+    + '>' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
     + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr)
     /* A collapsed row has to say where it is going, or the destination is a
@@ -10753,7 +10758,9 @@ function csvActiveCard(c, opts){
         + '<span class="bulk-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></span>'
       + '</button>'
     : headInner;
-  return '<div class="bulk-card active'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">'
+  return '<div class="bulk-card active'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'"'
+    + (csvStagedMode && opts.dateIso ? ' data-txr-day="'+escAttr(opts.dateIso)+'"' : '')
+    + '>'
     + '<div class="bulk-head">'+head+rm+'</div>'
     + '<div class="csv-card-body">'+body+'</div></div>';
 }
@@ -14786,7 +14793,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v424';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v425';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -23040,16 +23047,20 @@ window.classifyAmount = classifyAmount;
     var body = document.querySelector('#csv-import-modal .modal-body'); if (!body) return;
     var chart = document.getElementById('fh-txn-chart');
     var chartH = chart ? chart.getBoundingClientRect().height : 0;
-    // Ready rows are grouped by day; the header carries data-txr-day (YYYY-MM-DD).
-    // The FIRST header in the week is the top of that week's block in the
-    // newest-first list — where the period begins as you scroll down to it.
-    var hs = body.querySelectorAll('.group-h[data-txr-day]');
-    var start = weekMs, end = weekMs + 7 * 864e5, target = null;
+    // Scroll to the BEGINNING of the tapped week — its earliest-dated row. Every
+    // staged card carries data-txr-day (YYYY-MM-DD), as do the ready-list date
+    // headers; we anchor on the cards too because most rows arrive uncategorised
+    // and sit in merchant groups with no date header, so a header-only search
+    // leaves whole weeks unreachable. Pick the minimum date in the window (the
+    // start of the period), not the first element in DOM (which is the newest day
+    // in a newest-first list).
+    var hs = body.querySelectorAll('[data-txr-day]');
+    var start = weekMs, end = weekMs + 7 * 864e5, target = null, best = Infinity;
     for (var i = 0; i < hs.length; i++) {
       var t = Date.parse(hs[i].getAttribute('data-txr-day') + 'T00:00:00');
-      if (!isNaN(t) && t >= start && t < end) { target = hs[i]; break; }
+      if (!isNaN(t) && t >= start && t < end && t < best) { best = t; target = hs[i]; }
     }
-    if (!target) return;               // this week's rows aren't in the dated ready list
+    if (!target) return;               // no rows from this week are on screen
     var bodyRect = body.getBoundingClientRect(), tRect = target.getBoundingClientRect();
     var top = Math.max(0, body.scrollTop + (tRect.top - bodyRect.top) - chartH - 12);
     body.scrollTo({ top: top, behavior: 'smooth' });

@@ -735,7 +735,12 @@ function csvCollapsedCard(c, opts){
       + ' aria-label="'+escAttr(L('Chọn khoản này để nhập','Select this item to import'))+'">'
       + '<i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></i></button>'
     : '';
-  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
+  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'"'
+    // Staged mode only: the review chart's week bars scroll the list to a day, and
+    // most rows are NOT in the dated ready list (uncategorised → merchant groups),
+    // so the date anchor has to live on the card, not just the group header.
+    + (csvStagedMode && opts.dateIso ? ' data-txr-day="'+escAttr(opts.dateIso)+'"' : '')
+    + '>' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
     + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr)
     /* A collapsed row has to say where it is going, or the destination is a
@@ -810,7 +815,9 @@ function csvActiveCard(c, opts){
         + '<span class="bulk-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></span>'
       + '</button>'
     : headInner;
-  return '<div class="bulk-card active'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">'
+  return '<div class="bulk-card active'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'"'
+    + (csvStagedMode && opts.dateIso ? ' data-txr-day="'+escAttr(opts.dateIso)+'"' : '')
+    + '>'
     + '<div class="bulk-head">'+head+rm+'</div>'
     + '<div class="csv-card-body">'+body+'</div></div>';
 }
