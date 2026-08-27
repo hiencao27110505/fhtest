@@ -18,7 +18,25 @@
      chuyen tien" was lunch with your mum. The description is the reason this
      screen exists, so pre-filling it is help, not a substitute. */
 
-  var TXN_REVIEW_PAGE = 200;   // a family's queue is small; one page is plenty
+  /* How many staged rows one open of the queue fetches.
+  
+     200 was written when a queue meant a handful of forwarded emails. Direct
+     read changed the shape of the problem: a first connect reaches back as far
+     as the person chose — up to a year — and a real mailbox produced 210 rows
+     from 90 days on the first go. The cap silently hid the oldest ten.
+  
+     Silently is the part that mattered. There was no "showing 200 of 210" and
+     no next page, so the hidden rows would reappear only as the person promoted
+     enough to drop below the cap — which reads as transactions arriving late
+     rather than as a page boundary.
+  
+     Raised to cover the worst case the backfill window can produce: 365 days at
+     the busiest observed rate (~66 a month) is ~800. The cost is bounded and
+     local — each row is a sealed box opened on this device, and the loop below
+     already handles them one at a time — so the ceiling is the person's
+     patience with a long list, which the review screen's own grouping is what
+     addresses. A cap that hides rows is worse than a list that is long. */
+  var TXN_REVIEW_PAGE = 1000;
 
   /* Rows this device has already promoted, held locally until the server agrees
      they are gone.
@@ -381,6 +399,11 @@
       return;
     }
 
+    /* If a page came back FULL, there may be more behind it. Saying so is the
+       whole fix: the old cap was not wrong to exist, it was wrong to be
+       invisible. */
+    var maybeMore = raw.length >= TXN_REVIEW_PAGE;
+
     var readable = [], locked = 0;
     for (var i = 0; i < raw.length; i++) {
       var r = await fhReadStagedRow(raw[i]);
@@ -447,6 +470,26 @@
       var modalTitle = document.querySelector('#csv-import-modal .modal-title');
       if (modalTitle && modalTitle.parentNode) modalTitle.parentNode.insertBefore(note, modalTitle.nextSibling);
     }
+
+    /* Same treatment for a full page, and for the same reason the locked note
+       exists: the failure this screen must never have is rows that are counted
+       and then shown to no one. A truncated queue looks complete, so the person
+       promotes everything, sees the list empty, and never learns there was
+       more — the rest would surface later and read as transactions arriving
+       late rather than as a page they had not reached. */
+    var oldMore = document.getElementById('fh-txn-more-note');
+    if (oldMore) oldMore.remove();
+    if (maybeMore) {
+      var more = document.createElement('div');
+      more.id = 'fh-txn-more-note';
+      more.className = 'mbx-locked-note';
+      more.textContent = L(
+        'Đang hiện ' + readable.length + ' giao dịch đầu tiên. Duyệt xong nhóm này rồi mở lại để xem tiếp.',
+        'Showing the first ' + readable.length + '. Review these, then open this again for the rest.');
+      var mt2 = document.querySelector('#csv-import-modal .modal-title');
+      if (mt2 && mt2.parentNode) mt2.parentNode.insertBefore(more, mt2.nextSibling);
+    }
+
     openSheet('csv-import-modal');
   };
 

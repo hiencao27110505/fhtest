@@ -73,6 +73,19 @@ export const RENEW_WITHIN_SECONDS = 2 * 86400;
 export const MAX_MESSAGES_PER_GRANT = 40;
 export const MAX_MODEL_CALLS_PER_RUN = 10;
 
+/** The staging ceiling for a FIRST read, which is a different size of problem.
+ *
+ *  40 was sized for a sequential fetch loop, where each message cost a full
+ *  round trip in series — about 1.3 seconds, so a full run was most of a minute
+ *  of pure waiting. With the fetch pooled, the same forty cost roughly a sixth
+ *  of that, and the cap became the thing making a backfill slow rather than the
+ *  network.
+ *
+ *  Raised for the backfill path only. An ordinary poll has nothing like this
+ *  many messages waiting, so a larger cap there would buy nothing and would
+ *  make one busy mailbox able to crowd out the others in a shared run. */
+export const BACKFILL_STAGE_MAX = 150;
+
 /** How many ids ONE RUN may list, on any path.
  *
  *  Listing is cheap — ids only, no bodies, and `listMessageIds` stops as soon as
@@ -128,21 +141,65 @@ export function windowDays(lastSyncedAt, nowMs) {
  * connection freeze everybody else's, which is exactly the kind of coupling a
  * multi-tenant job should not have.
  */
+/** How many network round trips may be in flight at once.
+ *
+ *  Fetching a message is pure I/O — a `messages.get` and nothing else — so the
+ *  old sequential loop spent nearly all of a run waiting, one round trip at a
+ *  time, at roughly 1.3 seconds each. Six at a time turns a 40-message run from
+ *  ~50 seconds of waiting into ~9, and the work per message is unchanged.
+ *
+ *  Six rather than "as many as there are": Gmail rate-limits per user, a burst
+ *  of forty concurrent gets is exactly what that limit is for, and being
+ *  throttled costs more than the waiting it saved. It is also small enough that
+ *  a mailbox failing mid-run has only a handful of in-flight requests to lose. */
+export const FETCH_CONCURRENCY = 6;
+
+/** How many MAILBOXES may be worked at once.
+ *
+ *  Independent by construction — different tokens, different mailboxes, and the
+ *  only shared state is the model budget, which is a synchronous counter and so
+ *  cannot be raced in a single-threaded runtime. Kept lower than the fetch
+ *  concurrency because each mailbox carries its own fetch fan-out underneath,
+ *  and the product of the two is what actually hits the network. */
+export const GRANT_CONCURRENCY = 3;
+
+/** Runs `worker` over `items`, at most `limit` at a time, preserving order.
+ *
+ *  Deliberately not Promise.all over everything: that is what turns a large
+ *  backfill into a rate-limit incident. Deliberately not a queue library
+ *  either — this is eight lines and the alternative is a dependency in a file
+ *  that runs on two runtimes. */
+async function _pooled(items, limit, worker) {
+  const out = new Array(items.length);
+  let next = 0;
+  const lanes = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await worker(items[i], i);
+    }
+  });
+  await Promise.all(lanes);
+  return out;
+}
+
 export async function runAll(ctx) {
   const grants = await ctx.db.dueGrants(ctx.maxGrants);
   const budget = _budget(ctx.maxModelCalls ?? MAX_MODEL_CALLS_PER_RUN);
-  const results = [];
-
-  for (const grant of grants) {
-    try {
-      results.push(await runGrant(grant, { ...ctx, budget }));
-    } catch (e) {
-      results.push({
-        grantId: grant.id, email: grant.email,
-        status: 'error', detail: String(e && e.message || e),
-      });
-    }
-  }
+  /* Mailboxes run concurrently. One failing must still not stop the others —
+     that was true when this was a sequential loop and is more important now, so
+     every rejection is caught INSIDE the lane and turned into a result. A throw
+     escaping here would abandon whatever else was in flight. */
+  const results = await _pooled(grants, ctx.grantConcurrency ?? GRANT_CONCURRENCY,
+    async (grant) => {
+      try {
+        return await runGrant(grant, { ...ctx, budget });
+      } catch (e) {
+        return {
+          grantId: grant.id, email: grant.email,
+          status: 'error', detail: String(e && e.message || e),
+        };
+      }
+    });
   return { polled: grants.length, modelCalls: budget.used(), results };
 }
 
@@ -204,7 +261,7 @@ export async function runGrant(grant, ctx) {
   const days = backfilling ? backfillDays : windowDays(grant.last_synced_at, ctx.nowMs);
   const query = senders.inboxQuery(days, domains);
 
-  const perRun = ctx.maxMessages ?? MAX_MESSAGES_PER_GRANT;
+  const perRun = ctx.maxMessages ?? (backfilling ? BACKFILL_STAGE_MAX : MAX_MESSAGES_PER_GRANT);
   // The same list cap on both paths. An ordinary poll can face a backlog too:
   // `windowDays` widens after an outage, and listing only what one run can stage
   // would truncate the catch-up exactly the way a truncated backfill does.
@@ -231,8 +288,44 @@ export async function runGrant(grant, ctx) {
 
   let hitLimit = false;
 
-  for (const id of fresh) {
-    const message = await gmail.getMessage(id, access, ctx.fetch, mailtext);
+  /* FETCHED CONCURRENTLY, PROCESSED IN ORDER — and the split is the whole point.
+  
+     `messages.get` is pure I/O with no dependency on any other message, so
+     fetching one at a time meant a run spent nearly all its wall clock waiting.
+     Everything AFTER the fetch has ordering that matters: the model budget is
+     spent in sequence and stops the mailbox when exhausted, dedup compares each
+     row against ones already staged in this same window, and `hitLimit` must
+     stop the window where it stopped rather than wherever a race left it.
+  
+     So the network is parallel and the decisions stay serial. A message that
+     404s between list and get comes back null and is skipped exactly as before;
+     a fetch that throws is captured and re-thrown in ITS OWN position, so an
+     error still stops the window at the right place instead of surfacing early
+     and stranding messages behind it. */
+  const lanes = ctx.fetchConcurrency ?? FETCH_CONCURRENCY;
+
+  /* Fetched a CHUNK at a time rather than all at once, so a window that stops
+     early stops fetching too. The model budget can exhaust on the fifth message
+     of forty; prefetching all forty would spend thirty-five round trips on mail
+     this run was never going to reach, and a backfill raises that cap further.
+     One chunk of waste is the most this can lose. */
+  const fetched = [];
+  for (let i = 0; i < fresh.length; i += lanes) {
+    if (hitLimit) break;
+    const chunk = await _pooled(fresh.slice(i, i + lanes), lanes, async (id) => {
+      try { return { id, message: await gmail.getMessage(id, access, ctx.fetch, mailtext) }; }
+      catch (e) { return { id, error: e }; }
+    });
+    for (const got of chunk) fetched.push(got);
+    // Cheap pre-scan: the loop below is what actually decides, but knowing the
+    // budget is gone lets the NEXT chunk not be fetched at all.
+    if (ctx.budget && ctx.budget.left && ctx.budget.left() <= 0) break;
+  }
+
+  for (const got of fetched) {
+    const id = got.id;
+    if (got.error) throw got.error;
+    const message = got.message;
     if (!message) { summary.skipped++; continue; }   // deleted between list and get
 
     const sender = senders.match(message.from, domains);
@@ -366,7 +459,10 @@ function _headerDate(message) {
 /** A run-wide ceiling on model calls, shared across every mailbox in the run. */
 function _budget(max) {
   let used = 0;
-  return { spend: () => (used < max ? (used++, true) : false), used: () => used };
+  /* `left` exists so the fetch loop can stop prefetching mail this run will
+     never reach. Read-only on purpose — asking how much budget remains must
+     never consume any, which a spend()-and-refund would risk. */
+  return { spend: () => (used < max ? (used++, true) : false), used: () => used, left: () => max - used };
 }
 
 /**
