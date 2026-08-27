@@ -434,9 +434,12 @@
   function _txrFmt(n) {
     return Math.round(n).toLocaleString(L('vi-VN', 'en-US'));
   }
-  /* Income (credit) vs expense (everything else) of the loaded rows, grouped by
-     week, in the finance tab's bar language (green in / red out). Summarises the
-     PAGE that is loaded — paired with the "N of M" count so a capped queue reads
+  /* Income (credit) vs expense (everything else) of the loaded rows, by week, as
+     a DIVERGING chart: money in rises above a zero line (green), money out drops
+     below it (red). Deliberately NOT the finance tab's grouped this-week-vs-last
+     bars — there is no previous period to compare against here, so two bars per
+     column would only read as a comparison that isn't one. Summarises the PAGE
+     that is loaded, paired with the "N of M" count so a capped queue reads
      honestly. Each week is a tappable button: it highlights, reads out that
      week's split, and jumps the list to that week (fhTxrBar → _txrJump). */
   function _txrChartHTML(rows) {
@@ -471,9 +474,9 @@
       return '<button type="button" class="txr-col" data-week="' + k + '"'
         + ' data-range="' + _esc(range) + '" data-inc="' + _esc(incS) + '" data-exp="' + _esc(expS) + '"'
         + ' aria-label="' + _esc(aria) + '" onclick="fhTxrBar(this)">'
-        + '<span class="txr-stack">'
-        + (ih ? '<i class="txr-b inc" style="height:' + ih + '%"></i>' : '<i class="txr-b z"></i>')
-        + (eh ? '<i class="txr-b exp" style="height:' + eh + '%"></i>' : '<i class="txr-b z"></i>')
+        + '<span class="txr-plot">'
+        +   '<span class="txr-half up"><i class="txr-up" style="height:' + ih + '%"></i></span>'
+        +   '<span class="txr-half dn"><i class="txr-dn" style="height:' + eh + '%"></i></span>'
         + '</span><span class="txr-wd">' + _esc(lbl) + '</span></button>';
     }).join('');
     var shown = rows.length;

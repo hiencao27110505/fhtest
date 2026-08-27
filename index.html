@@ -3179,26 +3179,31 @@ html.fh-can-install .set-row.set-install{display:flex}
 .txr-dot{width:8px;height:8px;border-radius:2.5px;flex-shrink:0}
 .txr-dot.inc{background:var(--good)}
 .txr-dot.exp{background:var(--danger)}
-.txr-bars{display:flex;align-items:flex-end;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;
+.txr-bars{display:flex;align-items:stretch;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;
   padding:0 2px 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .txr-bars::-webkit-scrollbar{display:none}
-.txr-col{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:32px;
+.txr-col{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:30px;
   padding:6px 3px 4px;border:0;background:none;border-radius:11px;cursor:pointer;
   -webkit-tap-highlight-color:transparent;
   transition:background .18s ease,opacity .18s ease,transform .12s ease}
-.txr-stack{height:72px;display:flex;align-items:flex-end;justify-content:center;gap:3px}
-.txr-b{width:8px;border-radius:3px 3px 1px 1px;
-  transition:height .55s cubic-bezier(.32,.72,0,1),opacity .18s ease}
-.txr-b.inc{background:var(--good)}
-.txr-b.exp{background:var(--danger)}
-.txr-b.z{width:8px;height:2px;align-self:flex-end;background:var(--fill-neutral);border-radius:2px}
+/* Diverging: money IN rises above the zero line, money OUT drops below it — a
+   composition (in vs out), not the finance tab's this-week-vs-last comparison,
+   so it deliberately reads differently. The two halves share one scale (max over
+   all weeks of both in and out) so their magnitudes are comparable. */
+.txr-plot{height:84px;width:100%;display:flex;flex-direction:column}
+.txr-half{height:42px;width:100%;display:flex;justify-content:center}
+.txr-half.up{align-items:flex-end;border-bottom:1.5px solid var(--divider)}   /* the zero line */
+.txr-half.dn{align-items:flex-start}
+.txr-up,.txr-dn{width:13px;transition:height .55s cubic-bezier(.32,.72,0,1)}
+.txr-up{background:var(--good);border-radius:3px 3px 0 0}
+.txr-dn{background:var(--danger);border-radius:0 0 3px 3px}
 .txr-wd{font-size:9.5px;font-weight:600;color:var(--muted-soft);white-space:nowrap;letter-spacing:.01em}
 .txr-bars.has-sel .txr-col:not(.sel){opacity:.38}
 .txr-col.sel{background:var(--fill-neutral)}
 .txr-col.sel .txr-wd{color:var(--ink);font-weight:800}
 .txr-col:active{transform:scale(.96)}
 .txr-col:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
-@media (prefers-reduced-motion:reduce){.txr-b,.txr-col{transition:none}}
+@media (prefers-reduced-motion:reduce){.txr-up,.txr-dn,.txr-col{transition:none}}
 
 /* Loading overlay while the queue is fetched + decrypted (500 rows can take a
    moment; the tap must not look dead). */
@@ -14781,7 +14786,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v423';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v424';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -22961,9 +22966,12 @@ window.classifyAmount = classifyAmount;
   function _txrFmt(n) {
     return Math.round(n).toLocaleString(L('vi-VN', 'en-US'));
   }
-  /* Income (credit) vs expense (everything else) of the loaded rows, grouped by
-     week, in the finance tab's bar language (green in / red out). Summarises the
-     PAGE that is loaded — paired with the "N of M" count so a capped queue reads
+  /* Income (credit) vs expense (everything else) of the loaded rows, by week, as
+     a DIVERGING chart: money in rises above a zero line (green), money out drops
+     below it (red). Deliberately NOT the finance tab's grouped this-week-vs-last
+     bars — there is no previous period to compare against here, so two bars per
+     column would only read as a comparison that isn't one. Summarises the PAGE
+     that is loaded, paired with the "N of M" count so a capped queue reads
      honestly. Each week is a tappable button: it highlights, reads out that
      week's split, and jumps the list to that week (fhTxrBar → _txrJump). */
   function _txrChartHTML(rows) {
@@ -22998,9 +23006,9 @@ window.classifyAmount = classifyAmount;
       return '<button type="button" class="txr-col" data-week="' + k + '"'
         + ' data-range="' + _esc(range) + '" data-inc="' + _esc(incS) + '" data-exp="' + _esc(expS) + '"'
         + ' aria-label="' + _esc(aria) + '" onclick="fhTxrBar(this)">'
-        + '<span class="txr-stack">'
-        + (ih ? '<i class="txr-b inc" style="height:' + ih + '%"></i>' : '<i class="txr-b z"></i>')
-        + (eh ? '<i class="txr-b exp" style="height:' + eh + '%"></i>' : '<i class="txr-b z"></i>')
+        + '<span class="txr-plot">'
+        +   '<span class="txr-half up"><i class="txr-up" style="height:' + ih + '%"></i></span>'
+        +   '<span class="txr-half dn"><i class="txr-dn" style="height:' + eh + '%"></i></span>'
         + '</span><span class="txr-wd">' + _esc(lbl) + '</span></button>';
     }).join('');
     var shown = rows.length;
