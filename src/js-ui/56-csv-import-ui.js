@@ -713,11 +713,27 @@ function csvRowTime(c){
   return (window.fhStagedRowTime ? (window.fhStagedRowTime(c)||'') : '');
 }
 window.csvRowTime = csvRowTime;
-function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr){
+/* The bank a staged row came from (source_provider — a clear column already
+   fetched and used for dedup). Shown as plain text on the review cards so a
+   reviewer can see at a glance whether a row is VIB, Vietcombank, MB… Empty
+   outside staged mode and for file-import rows, which have no provider. */
+function csvStagedProvider(c){
+  if(!window.csvStagedMode || !c || typeof c.rowIndex!=='number') return '';
+  var rows = window._fhStagedRows, r = rows && rows[c.rowIndex];
+  return (r && r.source_provider) || '';
+}
+function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider){
   var tone = isError ? ' attn' : (attn ? ' warn' : '');
-  return '<span class="bulk-head"><span class="bulk-idx'+tone+'">'+esc(label)+'</span>'
-    + (dateIso ? '<span class="bulk-date">'+esc(bulkDate(dateIso))+(timeStr?' · '+esc(timeStr):'')+'</span>' : '')
-    + '</span>';
+  var meta = dateIso ? '<span class="bulk-date">'+esc(bulkDate(dateIso))+(timeStr?' · '+esc(timeStr):'')+'</span>' : '';
+  // Staged (bank-email) rows lead the header with the bank, on one quiet meta
+  // line, and drop the generic "Khoản chi N" index — the index says nothing here,
+  // and stacking it beside the bank and the date is what overflowed the row into
+  // a broken two-line wrap. The description below carries the real identity.
+  if (provider) {
+    return '<span class="bulk-head bulk-head-src">'
+      + '<span class="bulk-src'+tone+'">'+esc(provider)+'</span>' + meta + '</span>';
+  }
+  return '<span class="bulk-head"><span class="bulk-idx'+tone+'">'+esc(label)+'</span>' + meta + '</span>';
 }
 
 function csvCollapsedCard(c, opts){
@@ -742,7 +758,7 @@ function csvCollapsedCard(c, opts){
     + (csvStagedMode && opts.dateIso ? ' data-txr-day="'+escAttr(opts.dateIso)+'"' : '')
     + '>' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
-    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr)
+    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c))
     /* A collapsed row has to say where it is going, or the destination is a
        decision you can only see by opening every card one at a time. Only the
        PRIVATE case is marked: family is the default and marking both would be
@@ -808,7 +824,7 @@ function csvActiveCard(c, opts){
   // Expanding was tappable but collapsing wasn't; an up-chevron marks the header
   // as the way back. The × (remove) stays a separate sibling so the two 44px
   // targets never overlap.
-  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr);
+  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c));
   var head = opts.tapFn
     ? '<button type="button" class="bulk-collapse" onclick="'+opts.tapFn+'" aria-expanded="true" aria-label="'+escAttr(L('Thu gọn','Collapse'))+'">'
         + headInner
@@ -965,7 +981,7 @@ function renderCsvReview(){
   var attnHtml = '', handledHtml = '';
   r.groups.forEach(function(g, gi){
     var head = g.items[0].description + (g.items.length>1 ? ' · '+g.items.length+' '+L('khoản','items') : '');
-    var proxy = { description:g.items[0].description, amount:g.items.reduce(function(s,it){return s+it.amount;},0), categoryName:null, dateDisplay:g.items[0].dateDisplay };
+    var proxy = { description:g.items[0].description, amount:g.items.reduce(function(s,it){return s+it.amount;},0), categoryName:null, dateDisplay:g.items[0].dateDisplay, rowIndex:g.items[0] && g.items[0].rowIndex };
     var o = { label:head, dateIso:g.items[0].dateDisplay, attn:true,
               tapFn:"csvToggleExpand('group',"+gi+")", removeFn:"csvSkipGroup("+gi+")" };
     attnHtml += csvIsOpen('group', gi)

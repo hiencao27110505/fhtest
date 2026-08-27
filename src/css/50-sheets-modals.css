@@ -136,6 +136,15 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .bulk-chev{flex-shrink:0;display:flex;align-items:center;color:var(--chev)}
 .bulk-chev svg{width:18px;height:18px;display:block}
 .bulk-idx{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--brand-ink)}
+/* Bank source on staged review cards (source_provider) — plain text, no icon.
+   On staged cards it leads a single quiet meta line "bank · date · time"; it must
+   stay one line and truncate rather than wrap the header. */
+.bulk-src{font-size:11px;font-weight:700;color:var(--ink-2)}
+.bulk-src.warn{color:var(--ink-2)}
+.bulk-src.attn{color:var(--danger)}
+.bulk-head-src{min-width:0;flex-wrap:nowrap}
+.bulk-head-src .bulk-src{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bulk-head-src .bulk-date{flex-shrink:0;white-space:nowrap}
 .bulk-date{font-size:11px;font-weight:600;color:var(--muted)}
 .bulk-date::before{content:"·";margin-right:7px;color:var(--muted-soft);font-weight:700}
 .bulk-card.active #ex-editor-mount{padding:6px 14px 14px}
