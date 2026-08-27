@@ -396,7 +396,15 @@ export async function runGrant(grant, ctx) {
   // Not advancing costs one repeated listing five minutes later, and the
   // already-staged check makes the repeat nearly free.
   if (!hitLimit && !moreQueued) {
-    await ctx.db.markSynced(grant.id, backfilling ? { backfilled_at: new Date().toISOString() } : {});
+    /* A finished backfill records WHAT IT COVERED, not just that it happened
+       (0098). `backfill_days` is overwritten on every reconnect, so comparing a
+       new request against it would read "90 then 2 then 90" as a widening when
+       nothing had changed since the first read. This is the number the widening
+       check compares against, and it is written in the same statement as
+       `backfilled_at` so the two can never disagree. */
+    await ctx.db.markSynced(grant.id, backfilling
+      ? { backfilled_at: new Date().toISOString(), backfilled_days: backfillDays }
+      : {});
   }
 
   // One notification per run per mailbox, not one per transaction: a bank that
