@@ -11569,11 +11569,26 @@ function csvTxrTitleHTML(){
              : L('Chưa chọn — chạm ô tròn trên từng khoản','Nothing selected — tap a row’s circle'));
 }
 
+/* TEMP viewer allowlist (2026-08-27, Trang's call): the redesigned tools
+   header shows ONLY for these signed-in accounts while it is being polished —
+   everyone else keeps a plain review list (card ticks and the nav Import still
+   work; they lose the summary/bulk/chart chrome, which is the point of the
+   gate). Client-side and by email because that is the granularity asked for;
+   the code is public in a single-file PWA, so this hides nothing — it only
+   chooses who SEES it. Widen by adding emails; delete the gate to ship to all. */
+var FH_TXH_VIEWERS = ['gichisreading@gmail.com'];
+function csvTxrViewerOk(){
+  var em = ((window.fhUser && window.fhUser.email)
+    || (window.FAM && window.FAM.user && window.FAM.user.email) || '').toLowerCase();
+  return FH_TXH_VIEWERS.indexOf(em) !== -1;
+}
+
 /* The whole header, synced from renderCsvReview. Clears itself outside staged
-   mode, so the file importer never sees any of this. */
+   mode — and for anyone not on the viewer allowlist above — so the file
+   importer and non-viewers never see any of this. */
 function csvTxrHeadSync(){
   var head = document.getElementById('txh'); if(!head) return;
-  if(!csvStagedMode || !csvReview){ head.innerHTML = ''; csvTxrKey = null; return; }
+  if(!csvStagedMode || !csvReview || !csvTxrViewerOk()){ head.innerHTML = ''; csvTxrKey = null; return; }
   if(!head.firstChild){
     head.innerHTML = '<div class="txh-card">'
       + '<div class="txh-row" id="txh-row"></div>'
