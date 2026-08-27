@@ -1,0 +1,97 @@
+# Tell Telegram what changed, not that something changed.
+#
+# WHY THIS EXISTS. Two Claude Code sessions deploy into one live project from
+# two machines. In a single day that produced a migration-number collision,
+# three sw.js version collisions, and two near-misses where one session started
+# work the other had already shipped. The expensive part was never "a deploy
+# happened" — it was not knowing WHICH AREA moved, because that is what decides
+# whether the other session has to stop and re-read before touching a file.
+#
+# So the message leads with the area. A push that touches only docs is one line
+# nobody needs to act on; a push that touches supabase/functions or a migration
+# is one the other session must pull before editing the same files.
+#
+# WHAT IT DELIBERATELY DOES NOT COVER: an Edge Function deployed without a push.
+# That happens — a `supabase functions deploy` goes straight to the project and
+# git never hears about it. Treat this as "what is in main", not "what is
+# running"; the two agree only when everyone pushes what they deploy.
+name: Deploy notify
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    # Never fail a push over a notification. A muted bot, a rotated token or a
+    # Telegram outage must not turn a green push red.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need the parent to diff against; a shallow clone has no before-SHA.
+          fetch-depth: 0
+
+      - name: Summarise and send
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          PUSHER: ${{ github.event.pusher.name }}
+          COMPARE: ${{ github.event.compare }}
+        run: |
+          set -u
+          if [ -z "${TG_TOKEN}" ] || [ -z "${TG_CHAT}" ]; then
+            echo "Telegram not configured; nothing to send."
+            exit 0
+          fi
+
+          # A new branch or a force-push leaves BEFORE as all zeros, and there is
+          # no range to diff. Fall back to the single commit rather than sending
+          # a summary built from nothing.
+          if [ -z "${BEFORE}" ] || [ "${BEFORE}" = "0000000000000000000000000000000000000000" ]; then
+            RANGE="${AFTER}~1..${AFTER}"
+          else
+            RANGE="${BEFORE}..${AFTER}"
+          fi
+
+          FILES=$(git diff --name-only ${RANGE} 2>/dev/null || git show --name-only --format= ${AFTER})
+          SUBJECTS=$(git log --format='• %s' ${RANGE} 2>/dev/null | head -6)
+          COUNT=$(git log --format=%H ${RANGE} 2>/dev/null | wc -l | tr -d ' ')
+
+          area() { echo "${FILES}" | grep -qE "$1" && printf '%s' "$2"; }
+
+          AREAS=""
+          AREAS="${AREAS}$(area '^supabase/migrations/' '🗃 migration  ')"
+          AREAS="${AREAS}$(area '^supabase/functions/' '⚙️ pipeline  ')"
+          AREAS="${AREAS}$(area '^src/|^index\.html$' '📱 client  ')"
+          AREAS="${AREAS}$(area '^sw\.js$' '🔄 sw  ')"
+          AREAS="${AREAS}$(area '^pipeline/|^tools/' '🧪 tests  ')"
+          AREAS="${AREAS}$(area '^docs/|^AGENT_SYNC\.md$|\.md$' '📄 docs  ')"
+          [ -z "${AREAS}" ] && AREAS="— "
+
+          # The two things that have actually collided between sessions, called
+          # out by name so nobody has to open the diff to find them.
+          MIGRATIONS=$(echo "${FILES}" | grep -oE '^supabase/migrations/[0-9]{4}' | sed 's|.*/||' | sort -u | tr '\n' ' ')
+          SWVER=$(git show ${AFTER}:sw.js 2>/dev/null | grep -oE "familyhub-v[0-9]+" | head -1)
+
+          MSG="🚀 <b>${COUNT} commit(s) to main</b> — ${PUSHER}
+${AREAS}
+${SUBJECTS}"
+          [ -n "${MIGRATIONS}" ] && MSG="${MSG}
+
+⚠️ migrations: <code>${MIGRATIONS}</code> — check AGENT_SYNC before claiming a number"
+          [ -n "${SWVER}" ] && echo "${FILES}" | grep -qE '^sw\.js$' && MSG="${MSG}
+sw: <code>${SWVER}</code>"
+          MSG="${MSG}
+
+<a href=\"${COMPARE}\">diff</a>"
+
+          curl -sS -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg c "${TG_CHAT}" --arg t "${MSG}" \
+                   '{chat_id:$c, text:$t, parse_mode:"HTML", disable_web_page_preview:true}')" \
+            | head -c 300
