@@ -467,51 +467,6 @@
 .cst-fold-s:active{opacity:.55}
 @media (prefers-reduced-motion:reduce){.cst-fold-s::after{transition:none}}
 
-/* ── Review modal: weekly income/expense preview (72-txn-review.js) ──────────
-   Finance-tab bar language (green = money in, red = money out): a live readout
-   and tappable weeks that jump the list. It renders inside the tools header's
-   fold (#txh) now — the sticky overlay wrapper it shipped with is gone, because
-   rows sliding underneath chrome was the exact complaint the header redesign
-   answered. One token palette so it re-themes and dark-modes with the app. */
-.txr-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:9px}
-.txr-title{font-size:12px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
-.txr-count{font-size:11px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;
-  white-space:nowrap}
-.txr-readout{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:11px;min-height:20px}
-.txr-rlabel{font-size:11px;font-weight:700;color:var(--muted-soft);letter-spacing:.01em;
-  font-variant-numeric:tabular-nums}
-.txr-tot{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--ink);
-  font-variant-numeric:tabular-nums}
-.txr-tot b{font-weight:800;letter-spacing:-.02em}
-.txr-dot{width:8px;height:8px;border-radius:2.5px;flex-shrink:0}
-.txr-dot.inc{background:var(--good)}
-.txr-dot.exp{background:var(--danger)}
-.txr-bars{display:flex;align-items:stretch;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;
-  padding:0 2px 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.txr-bars::-webkit-scrollbar{display:none}
-.txr-col{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:30px;
-  padding:6px 3px 4px;border:0;background:none;border-radius:11px;cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-  transition:background .18s ease,opacity .18s ease,transform .12s ease}
-/* Diverging: money IN rises above the zero line, money OUT drops below it — a
-   composition (in vs out), not the finance tab's this-week-vs-last comparison,
-   so it deliberately reads differently. The two halves share one scale (max over
-   all weeks of both in and out) so their magnitudes are comparable. */
-.txr-plot{height:84px;width:100%;display:flex;flex-direction:column}
-.txr-half{height:42px;width:100%;display:flex;justify-content:center}
-.txr-half.up{align-items:flex-end;border-bottom:1.5px solid var(--divider)}   /* the zero line */
-.txr-half.dn{align-items:flex-start}
-.txr-up,.txr-dn{width:13px;transition:height .55s cubic-bezier(.32,.72,0,1)}
-.txr-up{background:var(--good);border-radius:3px 3px 0 0}
-.txr-dn{background:var(--danger);border-radius:0 0 3px 3px}
-.txr-wd{font-size:9.5px;font-weight:600;color:var(--muted-soft);white-space:nowrap;letter-spacing:.01em}
-.txr-bars.has-sel .txr-col:not(.sel){opacity:.38}
-.txr-col.sel{background:var(--fill-neutral)}
-.txr-col.sel .txr-wd{color:var(--ink);font-weight:800}
-.txr-col:active{transform:scale(.96)}
-.txr-col:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
-@media (prefers-reduced-motion:reduce){.txr-up,.txr-dn,.txr-col{transition:none}}
-
 /* Loading overlay while the queue is fetched + decrypted (500 rows can take a
    moment; the tap must not look dead). */
 .txr-loading{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;

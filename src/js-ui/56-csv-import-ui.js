@@ -759,12 +759,7 @@ function csvCollapsedCard(c, opts){
       + ' aria-label="'+escAttr(L('Chọn khoản này để nhập','Select this item to import'))+'">'
       + '<i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></i></button>'
     : '';
-  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'"'
-    // Staged mode only: the review chart's week bars scroll the list to a day, and
-    // most rows are NOT in the dated ready list (uncategorised → merchant groups),
-    // so the date anchor has to live on the card, not just the group header.
-    + (csvStagedMode && opts.dateIso ? ' data-txr-day="'+escAttr(opts.dateIso)+'"' : '')
-    + '>' + ck
+  return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
     /* Scope now rides in the header meta line (csvCardHead), not on its own row.
        Both destinations are marked so the line always reads scope · bank · time. */
@@ -836,9 +831,7 @@ function csvActiveCard(c, opts){
         + '<span class="bulk-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></span>'
       + '</button>'
     : headInner;
-  return '<div class="bulk-card active'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'"'
-    + (csvStagedMode && opts.dateIso ? ' data-txr-day="'+escAttr(opts.dateIso)+'"' : '')
-    + '>'
+  return '<div class="bulk-card active'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">'
     + '<div class="bulk-head">'+head+rm+'</div>'
     + '<div class="csv-card-body">'+body+'</div></div>';
 }
@@ -1143,9 +1136,7 @@ function renderCsvReview(){
     if(!csvStagedMode) html += '<div class="group-h">'+L('Sẵn sàng','Ready')+' · '+readyCount+'</div>';
     keys.forEach(function(k){
       var label = k ? fmtDayMon(dateBuckets[k][0].c.date) : L('Không rõ ngày','No date');
-      // In staged (bank-email) mode the weekly preview chart jumps here on a bar
-      // tap; k is the day key (YYYY-MM-DD), which _txrJump matches to a week.
-      html += '<div class="group-h"'+(csvStagedMode && k ? ' data-txr-day="'+esc(k)+'"' : '')+' style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
+      html += '<div class="group-h" style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
       dateBuckets[k].forEach(function(e){
         var o = { label:lowConfLabel[e.i] || (L('Khoản chi ','Item ')+(e.i+1)), dateIso:e.c.dateDisplay,
                   timeStr:csvRowTime(e.c),
@@ -1410,8 +1401,10 @@ function csvTxrRowHTML(){
     return '<button type="button" class="'+(csvTxrOpen===k?'on':'')+'" onclick="csvTxrTool(\''+k+'\')">'
       + icon + '<span>' + L(vi, en) + '</span></button>';
   };
+  // Weekly chart removed for now — its "Tuần / Weeks" toggle is gone so the room
+  // is unreachable; the chart engine (fhStagedChartHTML) is removed too. Revisit later.
   return '<span class="txh-sum"><small>'+esc(cap)+'</small><b>'+fig+'</b></span>'
-    + '<span class="txh-seg">'+seg('bulk',CSV_TXR_I_SEL,'Chọn nhiều','Select')+seg('chart',CSV_TXR_I_CH,'Tuần','Weeks')+'</span>';
+    + '<span class="txh-seg">'+seg('bulk',CSV_TXR_I_SEL,'Chọn nhiều','Select')+'</span>';
 }
 
 function csvTxrBulkHTML(){

@@ -399,8 +399,7 @@
     return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   };
 
-  /* ---- Review-modal loading overlay + weekly preview chart (added with the
-     500-row cap raise) --------------------------------------------------- */
+  /* ---- Review-modal loading overlay + chunked-decrypt progress ---------- */
   function _txrLoadShow(msg) {
     var el = document.getElementById('fh-txn-loading');
     if (!el) {
@@ -425,129 +424,6 @@
       (window.requestAnimationFrame || function (f) { setTimeout(f, 0); })(function () { res(); });
     });
   }
-
-  function _txrWeekMon(d) {                 // Monday 00:00 of d's week (local)
-    var t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    t.setDate(t.getDate() - ((t.getDay() + 6) % 7));
-    return t;
-  }
-  function _txrFmt(n) {
-    return Math.round(n).toLocaleString(L('vi-VN', 'en-US'));
-  }
-  /* Income (credit) vs expense (everything else) of the loaded rows, by week, as
-     a DIVERGING chart: money in rises above a zero line (green), money out drops
-     below it (red). Deliberately NOT the finance tab's grouped this-week-vs-last
-     bars — there is no previous period to compare against here, so two bars per
-     column would only read as a comparison that isn't one. Summarises the PAGE
-     that is loaded, paired with the "N of M" count so a capped queue reads
-     honestly. Each week is a tappable button: it highlights, reads out that
-     week's split, and jumps the list to that week (fhTxrBar → _txrJump). */
-  function _txrChartHTML(rows) {
-    if (!rows || !rows.length) return '';
-    var weeks = {}, order = [], allVnd = true, anyAmt = false, totInc = 0, totExp = 0;
-    for (var i = 0; i < rows.length; i++) {
-      var r = rows[i], amt = Number(r.amount) || 0;
-      if (!amt) continue;
-      anyAmt = true;
-      var cur = (r.currency || '').toUpperCase(); if (cur && cur !== 'VND') allVnd = false;
-      var d = r.occurred_at ? new Date(r.occurred_at) : null;
-      if (!d || isNaN(d.getTime())) d = new Date();
-      var mon = _txrWeekMon(d), key = mon.getTime();
-      if (!weeks[key]) { weeks[key] = { mon: mon, inc: 0, exp: 0 }; order.push(key); }
-      if (r.direction === 'credit') { weeks[key].inc += amt; totInc += amt; }
-      else { weeks[key].exp += amt; totExp += amt; }
-    }
-    if (!anyAmt) return '';
-    order.sort(function (a, b) { return a - b; });
-    var maxV = 1;
-    order.forEach(function (k) { if (weeks[k].inc > maxV) maxV = weeks[k].inc; if (weeks[k].exp > maxV) maxV = weeks[k].exp; });
-    var sym = allVnd ? 'đ' : '';
-    var cols = order.map(function (k) {
-      var w = weeks[k];
-      var ih = w.inc > 0 ? Math.max(Math.round(w.inc / maxV * 100), 6) : 0;
-      var eh = w.exp > 0 ? Math.max(Math.round(w.exp / maxV * 100), 6) : 0;
-      var sun = new Date(w.mon.getTime() + 6 * 864e5);
-      var lbl = w.mon.getDate() + '/' + (w.mon.getMonth() + 1);
-      var range = lbl + ' – ' + sun.getDate() + '/' + (sun.getMonth() + 1);
-      var incS = _txrFmt(w.inc) + sym, expS = _txrFmt(w.exp) + sym;
-      var aria = L('Tuần ', 'Week of ') + range + ' · ' + L('thu ', 'in ') + incS + ' · ' + L('chi ', 'out ') + expS;
-      return '<button type="button" class="txr-col" data-week="' + k + '"'
-        + ' data-range="' + _esc(range) + '" data-inc="' + _esc(incS) + '" data-exp="' + _esc(expS) + '"'
-        + ' aria-label="' + _esc(aria) + '" onclick="fhTxrBar(this)">'
-        + '<span class="txr-plot">'
-        +   '<span class="txr-half up"><i class="txr-up" style="height:' + ih + '%"></i></span>'
-        +   '<span class="txr-half dn"><i class="txr-dn" style="height:' + eh + '%"></i></span>'
-        + '</span><span class="txr-wd">' + _esc(lbl) + '</span></button>';
-    }).join('');
-    var shown = rows.length;
-    var total = (typeof window.fhStagedTotal === 'number') ? window.fhStagedTotal : shown;
-    var countTxt = total > shown ? L('Xem ' + shown + '/' + total, shown + ' of ' + total)
-                                 : (shown + ' ' + L('khoản', 'items'));
-    var incAll = _txrFmt(totInc) + sym, expAll = _txrFmt(totExp) + sym;
-    return '<div class="txr-head">'
-        + '<div class="txr-title">' + L('Thu chi theo tuần', 'Weekly in &amp; out') + '</div>'
-        + '<div class="txr-count">' + _esc(countTxt) + '</div>'
-      + '</div>'
-      + '<div class="txr-readout" id="txr-readout" data-inc-all="' + _esc(incAll) + '" data-exp-all="' + _esc(expAll) + '">'
-        + '<span class="txr-rlabel">' + L('Tổng', 'Total') + '</span>'
-        + '<span class="txr-tot"><i class="txr-dot inc"></i>' + L('Thu', 'In') + ' <b class="txr-inc">' + _esc(incAll) + '</b></span>'
-        + '<span class="txr-tot"><i class="txr-dot exp"></i>' + L('Chi', 'Out') + ' <b class="txr-exp">' + _esc(expAll) + '</b></span>'
-      + '</div>'
-      + '<div class="txr-bars" role="group" aria-label="' + _esc(L('Thu chi theo tuần', 'Weekly income and expense')) + '">' + cols + '</div>';
-  }
-
-  /* Bar tap → highlight the week, swap the readout to that week's split, and
-     jump the list to it. Tapping the active bar again clears back to the total. */
-  function _txrReadout(el, label, inc, exp) {
-    if (!el) return;
-    var l = el.querySelector('.txr-rlabel'); if (l) l.textContent = label || '';
-    var iEl = el.querySelector('.txr-inc'); if (iEl) iEl.textContent = inc || '';
-    var eEl = el.querySelector('.txr-exp'); if (eEl) eEl.textContent = exp || '';
-  }
-  function _txrJump(weekMs) {
-    var body = document.querySelector('#csv-import-modal .modal-body'); if (!body) return;
-    var chart = document.getElementById('fh-txn-chart');
-    var chartH = chart ? chart.getBoundingClientRect().height : 0;
-    // Scroll to the BEGINNING of the tapped week — its earliest-dated row. Every
-    // staged card carries data-txr-day (YYYY-MM-DD), as do the ready-list date
-    // headers; we anchor on the cards too because most rows arrive uncategorised
-    // and sit in merchant groups with no date header, so a header-only search
-    // leaves whole weeks unreachable. Pick the minimum date in the window (the
-    // start of the period), not the first element in DOM (which is the newest day
-    // in a newest-first list).
-    var hs = body.querySelectorAll('[data-txr-day]');
-    var start = weekMs, end = weekMs + 7 * 864e5, target = null, best = Infinity;
-    for (var i = 0; i < hs.length; i++) {
-      var t = Date.parse(hs[i].getAttribute('data-txr-day') + 'T00:00:00');
-      if (!isNaN(t) && t >= start && t < end && t < best) { best = t; target = hs[i]; }
-    }
-    if (!target) return;               // no rows from this week are on screen
-    var bodyRect = body.getBoundingClientRect(), tRect = target.getBoundingClientRect();
-    var top = Math.max(0, body.scrollTop + (tRect.top - bodyRect.top) - chartH - 12);
-    body.scrollTo({ top: top, behavior: 'smooth' });
-  }
-  window.fhTxrBar = function (btn) {
-    var bars = btn.parentNode, readout = document.getElementById('txr-readout');
-    var wasSel = btn.classList.contains('sel');
-    var cols = bars.querySelectorAll('.txr-col');
-    for (var i = 0; i < cols.length; i++) cols[i].classList.remove('sel');
-    if (wasSel) {
-      bars.classList.remove('has-sel');
-      _txrReadout(readout, L('Tổng', 'Total'), readout && readout.getAttribute('data-inc-all'), readout && readout.getAttribute('data-exp-all'));
-      return;
-    }
-    btn.classList.add('sel'); bars.classList.add('has-sel');
-    _txrReadout(readout, btn.getAttribute('data-range'), btn.getAttribute('data-inc'), btn.getAttribute('data-exp'));
-    var ms = Number(btn.getAttribute('data-week')); if (ms) _txrJump(ms);
-  };
-
-  /* Bridge for the tools header (js-ui): _txrChartHTML is module-scoped and the
-     header's inline handlers live in the classic block (§3), so the chart HTML
-     crosses on window. Reads the rows fhTxnReviewSheet stored — the same list
-     the review screen itself was built from, so the two can never disagree. */
-  window.fhStagedChartHTML = function () {
-    return _txrChartHTML(window._fhStagedRows || []);
-  };
 
   window.fhTxnReviewSheet = async function () {
     // Key-mismatch alarm latched (18-staging-keys): approval is frozen for the
@@ -665,13 +541,6 @@
       var mt2 = document.querySelector('#csv-import-modal .modal-title');
       if (mt2 && mt2.parentNode) mt2.parentNode.insertBefore(more, mt2.nextSibling);
     }
-
-    /* The weekly chart no longer mounts here. It renders inside the tools
-       header's "Tuần" fold (#txh, csvTxrHeadSync in 56-csv-import-ui.js), which
-       sits BETWEEN the nav and the scroller — the sticky overlay this block used
-       to insert was exactly the "rows sliding under chrome" the header redesign
-       answered. The header pulls its HTML through the bridge below, from the
-       same _fhStagedRows this open just stored. */
 
     _txrLoadHide();
     openSheet('csv-import-modal');
