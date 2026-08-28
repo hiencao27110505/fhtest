@@ -782,4 +782,22 @@
        either way, so the moment is earned either way. */
     _mbxPushOfferOnce();
     try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}   // queue shrank — update the badge
+
+    /* The screen has to agree with the write. Retirement emptied the server
+       queue and _fhStagedRows, but nothing here ever cleared what the person
+       was LOOKING at — so imported rows sat on screen as if the press had done
+       nothing, and tapping Nhập again would try to import rows that no longer
+       exist anywhere. Rebuild from what is actually left: the rows they left
+       unticked. Empty means close, because an empty review is not a screen. */
+    try {
+      var left = ((window.csvReview && window.csvReview.ready) || [])
+        .filter(function (c) { return picked.indexOf(c) === -1; });
+      if (left.length && typeof window.csvBuildReview === 'function') {
+        window.csvReview.ready = left;
+        window.renderCsvReview && window.renderCsvReview();
+      } else {
+        window.csvStagedMode = false;
+        window.closeModals && window.closeModals();
+      }
+    } catch (e) { /* the ledger write already landed; the view is cosmetics */ }
   };
