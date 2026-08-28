@@ -510,7 +510,16 @@ function csvBuildReview(sources, opts){
     parsed: { headers:[], rows:new Array(rowsRead) },   // trust strip reads .rows.length
     ready: buckets.ready,
     groups: Object.keys(buckets.needsCategoryGroups).map(function(k){ return { key:k, items:buckets.needsCategoryGroups[k] }; }),
-    dup: buckets.possibleDuplicate.map(function(c){ return { c:c, resolved:null }; }),
+    /* Staged (bank-email) mode has no parking lot: Trang's call — one dated
+       list, every transaction reviewable in place. A suspected repeat joins
+       ready UNTICKED (excluded from Nhập until a human says otherwise, so
+       nothing double-imports silently) and keeps its duplicate flags, which
+       the card wears as the "lặp lại" chip. One tap includes it. The file
+       import keeps its dup section — files have no timestamps, so their
+       suspects genuinely need the ruling treatment. */
+    dup: csvStagedMode
+      ? (buckets.possibleDuplicate.forEach(function(c){ c._skipImport = true; buckets.ready.push(c); }), [])
+      : buckets.possibleDuplicate.map(function(c){ return { c:c, resolved:null }; }),
     deferred: buckets.deferred.filter(function(c){ return !c.isSummaryRow; }),
     mixedSignsNote: mixed,
     signMode: signMode,
@@ -770,7 +779,7 @@ function csvCollapsedCard(c, opts){
         (csvStagedMode && !opts.isDup) ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '')
     + (opts.noPick
         ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+'</span>'
-        : bulkSummary(csvRowShape(c, opts.isDup)))
+        : bulkSummary(csvRowShape(c, opts.isDup || opts.repeat)))
     + '</button>' + rm + '</div>';
 }
 
@@ -1158,9 +1167,11 @@ function renderCsvReview(){
       var label = k ? fmtDayMon(dateBuckets[k][0].c.date) : L('Không rõ ngày','No date');
       html += '<div class="group-h" style="margin-top:10px">'+esc(label)+'</div><div class="csv-cards">';
       dateBuckets[k].forEach(function(e){
+        var isRepeat = !!(e.c.duplicateOfBatch || e.c.duplicateOfExisting
+                          || e.c.duplicateOfPipeline || e.c.duplicateOfSource);
         var o = { label:lowConfLabel[e.i] || (L('Khoản chi ','Item ')+(e.i+1)), dateIso:e.c.dateDisplay,
                   timeStr:csvRowTime(e.c),
-                  attn:!!lowConfLabel[e.i],
+                  attn:!!lowConfLabel[e.i], repeat:isRepeat,
                   tapFn:"csvToggleExpand('ready',"+e.i+")", removeFn:"csvReadyRemove("+e.i+")" };
         if(csvStagedMode){ o.checkFn = "csvStagedToggle("+e.i+")"; o.checked = !e.c._skipImport;
                            o.armed = (csvArmedRemove === e.i); }
