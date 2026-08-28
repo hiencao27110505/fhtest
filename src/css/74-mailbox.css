@@ -177,62 +177,68 @@
 #csv-result.staged .bulk-card.attn:not(.active){background:var(--white);border-color:var(--hairline)}
 
 /* ── Staged-review tools header (#txh) ───────────────────────────────────────
-   Lives BETWEEN the modal nav and the scroller (the modal is a flex column), so
-   the list region starts below it and rows can never slide underneath — the one
-   structural rule this whole surface was redesigned around. Empty in the file
-   flow, so the CSV importer never sees any of this.
-
-   The interaction model is borrowed from Telegram's sticker panel and rebuilt in
-   this app's own language: one card, one fold; the bulk panel is a PLACE with
-   three rooms swapped by a centred pill switcher, so it never grows taller as it
-   gains abilities; and the category rail rests as bare emoji, growing labels
-   only under the finger — identity while browsing, economy at rest. */
+   Between the nav and the scroller; the list pushes, never slides under.
+   Selection is ELEVATION, never a stroke: staged things rise (white fill,
+   soft shadow, a breath of scale, label weight) — brand tint lives only where
+   Apple puts tint: text verbs and the tab underline. Motion carries meaning
+   only: the rail's container height animates under the finger (phototropism),
+   the panel FLIPs between rooms, the lift blurs the world behind a choice. */
 #txh{position:relative;z-index:8;background:var(--white);padding:8px 12px 10px;
   border-bottom:1px solid var(--hairline)}
 #txh:empty{display:none}
 .txh-card{position:relative;background:var(--surface);border:1px solid var(--hairline);border-radius:14px}
-.txh-row{display:flex;align-items:center;gap:8px;padding:5px 6px 5px 13px;min-height:46px}
-/* The summary IS the header of this surface: a caption over a figure, stacked,
-   so neither line ever grows long enough to fight the segment for width — the
-   one-line sentence form cropped mid-figure on a phone. Amount in the display
-   face as the hero; words as its quiet caption (the Wallet-card shape). */
+.txh-row{display:flex;align-items:center;gap:8px;padding:7px 8px 7px 13px;min-height:50px}
 .txh-sum{flex:1;min-width:0;display:flex;flex-direction:column;gap:0}
-.txh-sum small{font-size:10.5px;font-weight:700;letter-spacing:.01em;color:var(--muted);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.txh-sum small{display:flex;align-items:baseline;gap:5px;font-size:10.5px;font-weight:700;
+  letter-spacing:.01em;color:var(--muted);white-space:nowrap;overflow:hidden;
+  font-variant-numeric:tabular-nums}
+.txh-sum small .num{font-variant-numeric:tabular-nums}
+.txh-sum small .arm{color:var(--brand)}
 .txh-sum b{font-family:var(--disp);font-size:16.5px;font-weight:800;letter-spacing:-.4px;
   color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.25;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .txh-sum b .dim{color:var(--muted-soft);font-weight:600}
-.txh-seg{display:flex;background:var(--fill-neutral);border-radius:11px;padding:2px;gap:2px}
-.txh-seg button{display:flex;align-items:center;gap:5px;border:0;background:transparent;min-height:36px;
-  padding:0 11px;border-radius:9px;font:inherit;font-size:12px;font-weight:700;color:var(--muted);
-  -webkit-tap-highlight-color:transparent;transition:background .16s ease,color .16s ease}
-.txh-seg button.on{background:var(--white);color:var(--ink);box-shadow:0 1px 5px rgba(25,16,34,.18)}
-.txh-seg svg{width:15px;height:15px}
-/* the fold: grid-rows 0fr→1fr, the only honest way to animate height:auto */
+.txh-sublink{border:0;background:none;font:inherit;font-size:10.5px;font-weight:700;
+  color:var(--brand);padding:0;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.txh-act{border:0;background:none;font:inherit;font-size:14px;font-weight:700;letter-spacing:-.1px;
+  color:var(--brand);min-height:44px;padding:0 8px;white-space:nowrap;
+  -webkit-tap-highlight-color:transparent;transition:opacity .14s ease}
+.txh-act:active{opacity:.55}
+.txh-act.on{font-weight:800}
+
+/* fold + panel: grid-rows for open/close, height transition for room FLIPs */
 .txh-fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s cubic-bezier(.32,.72,0,1)}
 .txh-fold.open{grid-template-rows:1fr}
 .txh-fold>div{overflow:hidden;min-height:0}
-.txh-panel{padding:4px 13px 12px}
+.txh-panel{padding:2px 13px 12px;overflow:hidden;transition:height .32s cubic-bezier(.32,.72,0,1)}
 
-/* the bulk block says what it is — the title names the selection the buttons act on */
-.txh-bulkhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 9px}
-.txh-title{font-size:11.5px;font-weight:700;letter-spacing:.01em;color:var(--muted)}
-.txh-title.none{font-weight:600}
-/* an armed pick turns the title into the confirm sentence — brand, not danger:
-   this is a commit, not a destruction (Xoá keeps its own red) */
-.txh-title.arm{color:var(--brand)}
-.txh-link{border:0;background:none;font:inherit;font-size:12.5px;font-weight:700;color:var(--brand);
-  padding:6px 2px;min-height:36px;white-space:nowrap;-webkit-tap-highlight-color:transparent}
-.txh-link:active{opacity:.55}
+/* the room pill leads — mode before matter */
+.txh-bot{display:flex;justify-content:center;margin:2px 0 12px}
+.txh-rooms{display:flex;justify-content:center}
+.txh-rooms>span{display:flex;background:var(--fill-neutral);border-radius:18px;padding:3px;gap:4px}
+.txh-rooms button{border:0;background:transparent;min-height:34px;padding:0 16px;border-radius:15px;
+  font:inherit;font-size:12.5px;font-weight:700;color:var(--muted);white-space:nowrap;
+  -webkit-tap-highlight-color:transparent;transition:background .16s ease,color .16s ease}
+.txh-rooms button.on{background:var(--white);color:var(--ink);box-shadow:0 1px 5px rgba(25,16,34,.16)}
+.txh-rooms button.danger.on{color:var(--danger)}
 
-/* the rail: rests as bare emoji discs, grows labels under a touch */
-.txh-rail{display:flex;gap:8px;overflow-x:auto;padding:6px 2px 4px;scrollbar-width:none;
-  -webkit-overflow-scrolling:touch;
+/* dimension tabs: underline form — deliberately not a pill */
+.txh-tabs{display:flex;gap:24px;margin:0 2px 12px;border-bottom:1px solid var(--hairline)}
+.txh-tabs button{position:relative;border:0;background:none;font:inherit;font-size:12.5px;font-weight:700;
+  color:var(--muted);padding:6px 2px 10px;-webkit-tap-highlight-color:transparent}
+.txh-tabs button.on{color:var(--ink)}
+.txh-tabs button.on::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;
+  background:var(--brand);border-radius:2px}
+
+/* the rail: rests small, blooms under the finger — the CONTAINER's height
+   animates, so growth is smooth and caused only by touch */
+.txh-rail{display:flex;gap:10px;overflow-x:auto;padding:6px 2px 4px;scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;height:52px;align-items:flex-start;cursor:grab;
+  transition:height .28s cubic-bezier(.32,.72,0,1);
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent);
   mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent)}
 .txh-rail::-webkit-scrollbar{display:none}
-.txh-rail{cursor:grab}
+.txh-rail.big{height:84px}
 .txh-rail.dragging{cursor:grabbing}
 .txh-rail.dragging .txh-it{pointer-events:none}
 .txh-it{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:0;
@@ -240,36 +246,55 @@
 .txh-it .e{width:36px;height:36px;border-radius:50%;background:var(--fill-neutral);
   display:flex;align-items:center;justify-content:center;font-size:19px;
   transition:width .24s cubic-bezier(.32,.72,0,1),height .24s cubic-bezier(.32,.72,0,1),
-    font-size .24s cubic-bezier(.32,.72,0,1),box-shadow .15s ease,background .15s ease}
+    font-size .24s cubic-bezier(.32,.72,0,1),box-shadow .18s ease,background .18s ease,
+    transform .18s cubic-bezier(.32,.72,0,1)}
 .txh-it .l{max-height:0;opacity:0;overflow:hidden;font-size:9.5px;font-weight:700;color:var(--muted);
   letter-spacing:-.01em;white-space:nowrap;max-width:64px;text-overflow:ellipsis;
   transition:max-height .24s cubic-bezier(.32,.72,0,1),opacity .18s ease,margin .24s cubic-bezier(.32,.72,0,1)}
 .txh-rail.big .e{width:52px;height:52px;font-size:28px}
 .txh-rail.big .l{max-height:14px;opacity:1;margin-top:3px}
-.txh-it.on .e{box-shadow:0 0 0 2px var(--brand);background:var(--white)}
-.txh-it.on .l{color:var(--brand)}
+/* selection rises — no strokes */
+.txh-it.on .e{box-shadow:0 6px 18px -6px rgba(25,16,34,.38);background:var(--white);transform:scale(1.07)}
+.txh-it.on .l{color:var(--ink);font-weight:800}
+.txh-it.setd .e{background:var(--white);box-shadow:0 1px 4px rgba(25,16,34,.14)}
+.txh-allrail{justify-content:center;gap:26px;-webkit-mask-image:none;mask-image:none}
 
-/* scope room: the RAIL's own language at destination scale — two emoji discs
-   with the same staging ring, so every room in this panel picks the same way.
-   The bordered mini-cards this replaced looked like a different app had moved
-   in next door to the rail. */
-.txh-scope{display:flex;justify-content:center;gap:38px;padding:7px 0 3px}
-.txh-sc{display:flex;flex-direction:column;align-items:center;gap:0;
-  border:0;background:none;padding:0;font:inherit;
+/* Theo nguồn rows: name · count · a tiny two-icon switcher that lifts */
+.txh-srcs{margin:2px 0}
+.txh-srcrow{display:flex;align-items:center;gap:12px;min-height:46px;border-top:1px solid var(--hairline)}
+.txh-srcrow:first-child{border-top:0}
+.txh-srcrow b{flex:1;min-width:0;font-size:13px;font-weight:700;letter-spacing:-.1px;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.txh-srcrow .m{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.txh-mini{display:flex;gap:2px;border:0;border-radius:999px;background:var(--fill-neutral);
+  padding:4px 6px;min-height:32px;align-items:center;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;transition:box-shadow .15s ease,background .15s ease}
+.txh-mini span{font-size:14px;opacity:.35;transition:opacity .15s ease}
+.txh-mini span.cur{opacity:1}
+.txh-mini.inh span.cur{opacity:.6}
+.txh-mini.on{background:var(--white);box-shadow:0 2px 8px -2px rgba(25,16,34,.28)}
+.txh-mini.on span.cur{opacity:1}
+
+/* the haptic-touch lift: rises as an overlay, world recedes behind blur */
+.txh-lift{position:absolute;inset:0;z-index:80}
+.txh-lift-s{position:absolute;inset:0;background:rgba(25,16,34,.18);
+  backdrop-filter:blur(2.5px);-webkit-backdrop-filter:blur(2.5px);
+  opacity:0;transition:opacity .22s ease}
+.txh-lift.show .txh-lift-s{opacity:1}
+.txh-lift-c{position:absolute;display:flex;align-items:stretch;border-radius:999px;
+  background:var(--white);box-shadow:0 14px 40px -8px rgba(25,16,34,.4);padding:4px;
+  transform:scale(.55);transform-origin:right center;opacity:0;touch-action:none;
+  transition:transform .26s cubic-bezier(.32,.72,0,1),opacity .18s ease}
+.txh-lift.show .txh-lift-c{transform:scale(1);opacity:1}
+.txh-lift-th{position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);
+  border-radius:999px;background:var(--fill-neutral);
+  transition:transform .22s cubic-bezier(.32,.72,0,1)}
+.txh-lift-th.r{transform:translateX(100%)}
+.txh-lift-c button{position:relative;z-index:1;flex:1;border:0;background:none;font:inherit;
+  font-size:12.5px;font-weight:700;color:var(--ink);white-space:nowrap;border-radius:999px;
   -webkit-tap-highlight-color:transparent}
-.txh-sc .e{width:52px;height:52px;border-radius:50%;background:var(--fill-neutral);
-  display:flex;align-items:center;justify-content:center;font-size:26px;
-  transition:box-shadow .15s ease,background .15s ease}
-.txh-sc b{font-size:12.5px;font-weight:700;color:var(--ink);margin-top:5px}
-.txh-sc span{font-size:10.5px;color:var(--muted);margin-top:1px}
-.txh-sc.on .e{box-shadow:0 0 0 2px var(--brand);background:var(--white)}
-.txh-sc.on b{color:var(--brand)}
-.txh-sc[aria-disabled="true"]{opacity:.4}
 
-/* delete room: the shape of a destructive settings ROW — statement on the
-   leading edge, bordered action trailing, arm-then-confirm, never a fill.
-   Armed, the statement turns danger with the button, so the second tap is
-   read in context. */
+/* delete room: a destructive settings ROW — statement leading, action trailing */
 .txh-del{display:flex;align-items:center;gap:12px;padding:9px 2px 5px}
 .txh-del-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left}
 .txh-del-txt b{font-size:12.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
@@ -282,38 +307,9 @@
 .txh-delbtn.armed{border-color:var(--danger);color:var(--danger)}
 .txh-delbtn:disabled{opacity:.34}
 
-/* bottom row: Huỷ on the quiet edge, the room switcher centred, Áp dụng on the
-   trailing edge — a panel-scale pill, not a page CTA */
-.txh-bot{display:flex;align-items:center;gap:10px;margin-top:12px}
-.txh-rooms{flex:1;display:flex;justify-content:center}
-.txh-rooms>span{display:flex;background:var(--fill-neutral);border-radius:18px;padding:3px;gap:2px}
-.txh-rooms button{border:0;background:transparent;min-height:32px;padding:0 13px;border-radius:15px;
-  font:inherit;font-size:12.5px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:4px;
-  white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:background .16s ease,color .16s ease}
-.txh-rooms button.on{background:var(--white);color:var(--ink);box-shadow:0 1px 5px rgba(25,16,34,.16)}
-.txh-rooms button.danger.on{color:var(--danger)}
 @media (prefers-reduced-motion:reduce){
-  .txh-fold,.txh-it .e,.txh-it .l{transition:none}}
-
-/* Where a reviewed bank transaction lands. Borders, not fills (DESIGN §7), and
-   the same .choice chips the expense sheet uses so the two never drift apart.
-   The subtitle above already says what the current pick MEANS, so these read as
-   a switch rather than needing their own explanation. */
-/* .field + label + .choices is the app's own control, inherited whole (50-sheets).
-   Only the placement is local: a rule above it separates the decision from the
-   summary it applies to, and the summary's subtitle already states what the
-   current pick MEANS, so the label can stay a plain question. */
-#csv-result.staged .csv-scope{margin:0 2px 20px;padding:14px 0 0;border-top:1px solid var(--hairline)}
-#csv-result.staged .csv-scope .choice[aria-disabled="true"]{opacity:.4}
-/* Collapsed staged card: tick-to-include, open-to-edit. The import checkmark sits
-   at the TOP-RIGHT (block layout + absolute), and the ✕ delete is removed from the
-   collapsed card — deleting lives only on the expanded card, one deliberate step
-   away. The tap area reserves a right gutter so nothing runs under the tick. */
-#csv-result.staged .bulk-card:not(.active){display:block;position:relative}
-#csv-result.staged .bulk-card:not(.active) .bulk-tap{width:100%;padding:12px 52px 12px 16px}
-#csv-result.staged .bulk-card:not(.active) .bulk-check{position:absolute;right:6px;top:5px}
-#csv-result.staged .bulk-card:not(.active) .bulk-x{display:none}
-#csv-result.staged .csv-scope-note{font-size:12.5px;color:var(--muted);margin-top:8px;letter-spacing:-.01em}
+  .txh-fold,.txh-panel,.txh-rail,.txh-it .e,.txh-it .l,
+  .txh-lift-s,.txh-lift-c,.txh-lift-th{transition:none}}
 
 /* ---------- sealed-staging key-mismatch alarm ---------- */
 /* Blocking, family-wide dialog raised at unlock when the device's staging key

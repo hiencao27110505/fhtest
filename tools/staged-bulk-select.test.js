@@ -39,7 +39,11 @@ var csvReview, csvStagedMode, csvExpand, renders, dropped, toasts, learned, scop
 function renderCsvReview(){ renders++; }
 function fmt(n){ return String(n); }
 var LANG = 'vi';
-function csvAllCats2(){}
+function csvStagedProvider(c){
+  var rows = window._fhStagedRows, i = c && c.rowIndex;
+  var r = rows && typeof i === 'number' ? rows[i] : null;
+  return (r && r.source_provider) || '';
+}
 function csvBaseAmt(n){ return Number(n) || 0; }
 // the header syncs against a DOM; in this harness there is none, and that is
 // fine — csvTxrHeadSync bails on the missing #txh element
@@ -168,41 +172,65 @@ csvStagedSelectAll(false);
 csvTxrRoom = 'del';
 const emptyDel = csvTxrBulkHTML();
 t('delete is disabled, not silently inert', / disabled/.test(emptyDel));
-t('and it offers select-all', /Chọn tất cả/.test(emptyDel));
+t('the way back moved to the header row', (csvTxrOpen = 'bulk', /Chọn tất cả/.test(csvTxrRowHTML())));
 t('select-all from there restores everything', (csvStagedSelectAll(true), picked() === 'a,b,c'));
 
-console.log('\n-- one grammar: first tap arms, the second tap on the SAME pick applies --');
+console.log('\n-- the basket grammar: taps stage, Xong commits --');
 reset();
 const chip = { getAttribute: function(){ return 'Ăn uống'; } };
 csvTxrPickCat(chip);
-t('first tap arms, writes nothing', csvTxrPendCat === 'Ăn uống' && csvReview.ready.every(c => c.categoryName === undefined));
+t('a tap stages, writes nothing', csvTxrPendCat === 'Ăn uống' && csvReview.ready.every(c => c.categoryName === undefined));
 csvTxrPickCat(chip);
-t('second tap applies to every selected row', csvReview.ready.every(c => c.categoryName === 'Ăn uống'));
-t('and the arm is spent', csvTxrPendCat === null);
+t('the same tap again UNSTAGES (toggle, not commit)', csvTxrPendCat === null && csvReview.ready.every(c => c.categoryName === undefined));
+csvTxrPickCat(chip);
+csvTxrCommitAll();
+t('Xong applies the category to every selected row', csvReview.ready.every(c => c.categoryName === 'Ăn uống'));
+t('and the basket is spent', csvTxrPendCat === null);
 
-console.log('\n-- a different chip moves the arm; leaving the room clears it --');
+console.log('\n-- rooms are MECE: drafts SURVIVE the hop --');
 reset();
-csvTxrPickCat({ getAttribute: function(){ return 'Ăn uống'; } });
 csvTxrPickCat({ getAttribute: function(){ return 'Đi lại'; } });
-t('the arm moved, nothing applied', csvTxrPendCat === 'Đi lại' && csvReview.ready.every(c => c.categoryName === undefined));
 csvTxrRoomGo('scope');
-t('switching rooms disarms', csvTxrPendCat === null);
+t('the category draft survives switching rooms', csvTxrPendCat === 'Đi lại');
+csvTxrAllPick('personal');
+t('a ledger draft joins it', csvTxrPendAll === 'personal');
+csvTxrCommitAll();
+t('one commit lands both: category', csvReview.ready.every(c => c.categoryName === 'Đi lại'));
+t('one commit lands both: ledger', csvReview.ready.every(c => c._scope === 'personal'));
 
-console.log('\n-- scope speaks the same grammar --');
+console.log('\n-- per-source routes stage and commit --');
 reset();
-const disc = { getAttribute: function(){ return 'personal'; } };
-csvTxrPickScope(disc);
-t('first tap arms only', csvTxrPendScope === 'personal' && csvReview.ready.every(c => c._scope === undefined));
-csvTxrPickScope(disc);
-t('second tap applies the destination', csvReview.ready.every(c => c._scope === 'personal'));
+window._fhStagedRows = csvReview.ready.map(function(c, i){ return { source_provider: i === 0 ? 'MB' : 'VCB' }; });
+csvTxrSrcStage = {};
+csvTxrPickSrc('MB', 'personal');
+t('a route stages, rows untouched', csvTxrSrcStage['MB'] === 'personal' && csvReview.ready.every(c => c._scope === undefined));
+csvTxrPickSrc('MB', 'personal');
+t('same pick again unstages', csvTxrSrcStage['MB'] === undefined);
+csvTxrPickSrc('MB', 'personal');
+csvTxrCommitAll();
+t('commit stamps ONLY that source', csvReview.ready[0]._scope === 'personal'
+  && csvReview.ready[1]._scope === undefined && csvReview.ready[2]._scope === undefined);
+t('and the route persists as a standing rule', csvTxrRoutes['MB'] === 'personal');
+delete csvTxrRoutes['MB'];
+
+console.log('\n-- a locked personal ledger refuses the stage, not just the commit --');
+reset();
+personalReady = false;
+csvTxrAllPick('personal');
+t('all-tab pick refused with a word', csvTxrPendAll === null && toasts.length === 1);
+csvTxrPickSrc('MB', 'personal');
+t('source pick refused too', csvTxrSrcStage['MB'] === undefined);
 
 console.log('\n-- an empty selection cannot arm anything --');
 reset();
 csvStagedSelectAll(false);
 csvTxrPickCat(chip);
 t('no arm on nothing', csvTxrPendCat === null);
-t('the armed title narrates the confirm', (csvStagedSelectAll(true), csvTxrPendCat = 'Ăn uống', /Chạm lần nữa/.test(csvTxrTitleHTML())));
+t('the caption counts the basket, shape fixed', (csvStagedSelectAll(true), csvTxrOpen = 'bulk', csvTxrPendCat = 'Ăn uống',
+  /Sẽ nhập [\s\S]*3[\s\S]*·[\s\S]*1[\s\S]*thao tác/.test(csvTxrRowHTML())));
 csvTxrPendCat = null;
+t('zero edits still reads a zero, never silence', /·[\s\S]*0[\s\S]*thao tác/.test((csvTxrOpen='bulk', csvTxrRowHTML())));
+csvTxrOpen = null;
 
 console.log('\n-- the armed label states the count, so 47 is never mistaken for 1 --');
 reset();

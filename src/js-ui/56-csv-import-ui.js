@@ -865,7 +865,13 @@ function csvReadEditor(c){
 function csvRowScope(c){
   if(!c) return csvStagedScope();
   if(c._scope === 'personal' && !csvScopeReady()) return 'family';   // locked ledger: never strand a row
-  return c._scope || csvStagedScope();
+  if(c._scope) return c._scope;
+  /* standing per-source route (Theo nguồn): later arrivals from a routed bank
+     default to its ledger without anyone re-picking */
+  var p = (typeof csvStagedProvider === 'function' && csvStagedProvider(c)) || '';
+  var routed = p && typeof csvTxrRoutes !== 'undefined' && csvTxrRoutes[p];
+  if(routed === 'personal' && !csvScopeReady()) routed = null;
+  return routed || csvStagedScope();
 }
 /* Acts on whichever row is open — only one ever is (csvExpand). Reads the rest
    of the editor first, or switching destination would discard an amount or a
@@ -1286,7 +1292,8 @@ var csvSelTouched = false;
 
 function csvBulkReset(){
   csvBulkArmed = false; csvSelTouched = false;
-  csvTxrOpen = null; csvTxrRoom = 'cat'; csvTxrPendCat = null; csvTxrPendScope = null;
+  csvTxrOpen = null; csvTxrRoom = 'cat'; csvTxrDim = 'all';
+  csvTxrPendCat = null; csvTxrPendAll = null; csvTxrSrcStage = {};
   csvTxrAuto = false; csvTxrKey = null;
 }
 
@@ -1355,82 +1362,164 @@ function csvBulkDelete(){
 
 /* ---- The staged-review tools header (#txh) --------------------------------
 
-   One card between the nav and the scroller: a display-face summary, a
-   [Chọn nhiều | Tuần] segment, and a fold that opens downward, pushing the
-   list instead of covering it.
+   One card between the nav and the scroller. The header row is the panel's
+   whole voice — count, instruction, or what Xong is about to do — beside one
+   text action (Thao tác hàng loạt ⇄ Xong). The panel below leads with its
+   room pill (mode before matter), then the room.
 
-   The bulk panel inside the fold is a PLACE with three rooms — Danh mục /
-   Ghi vào / Xoá — swapped by a centred pill switcher (Telegram's sticker-panel
-   move, rebuilt in this app's language), so the panel never grows taller as it
-   gains abilities. Picks STAGE rather than apply: the rail ring, the room
-   segment's emoji and the Áp dụng count all show what one deliberate press is
-   about to do to N rows. Delete is its own room, armed inside it, so a stray
-   tap can never reach it.
+   THE GRAMMAR, one verb per layer: a tap STAGES a draft (elevation, never a
+   stroke — selection rises, it is not outlined); drafts are MECE across rooms
+   and survive switching, and the header narrates the whole basket; XONG
+   commits everything staged and closes; the ledger's true write stays Nhập.
+   Delete is the one exception — its own room, arm-then-confirm with the
+   count, and Xong never touches it.
 
-   The category rail rests as bare emoji discs and grows labels only under the
-   finger (pointer/touch/scroll), shrinking when it leaves — identity while
-   browsing, economy at rest.
+   Rooms: Danh mục (the Telegram rail — rests as bare discs, blooms labels
+   under the finger, the container height animating so growth is caused only
+   by touch) · Ghi vào (dimension tabs: Tất cả = two-disc rail for the queue's
+   default; Theo nguồn = one row per bank with a tiny two-icon switcher that
+   LIFTS on press — haptic-touch lift: the control rises as an overlay, the
+   panel softens behind a blur, choices appear at full identity, release
+   stages) · Xoá (unchanged).
 
-   Everything here re-renders through one key (csvTxrKey); chip taps mutate
-   classes in place and never rebuild, which is what keeps the panel flicker-
-   free. */
+   Per-source routes persist (FH_SRC_ROUTES) and feed csvRowScope as the
+   default for rows that arrive later — client-side "tự động từ giờ"; the
+   pipeline-level version (sealing to the right key at staging time) is a
+   planned follow-up, deliberately not smuggled in here.
+
+   Motion rules: FLIP the panel between rooms (hold old height, swap, ease);
+   in-place class updates for picks — a rebuild under the finger resets the
+   rail's bloom, which reads as a dead control. */
 var csvTxrOpen = null;        // null | 'bulk'
-var csvTxrRoom = 'cat';       // which room of the bulk panel: 'cat' | 'scope' | 'del'
-var csvTxrPendCat = null;     // staged picks; nothing applies until Áp dụng
-var csvTxrPendScope = null;
-var csvTxrAuto = false;       // auto-opened the bulk panel once this build
+var csvTxrRoom = 'cat';       // 'cat' | 'scope' | 'del'
+var csvTxrDim = 'all';        // Ghi vào dimension: 'all' | 'src'
+var csvTxrPendCat = null;     // staged category
+var csvTxrPendAll = null;     // staged default ledger ('personal'|'family')
+var csvTxrSrcStage = {};      // staged per-source routes: provider -> ledger
+var csvTxrAuto = false;       // auto-opened the panel once this build
 var csvTxrKey = null;         // panel content key — rebuild only when it changes
 
 var CSV_TXR_I_SEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9M4 12h9M4 18h9"/><path d="m15.5 11.5 2.5 2.5 5-5.5"/></svg>';
 
+function csvTxrEmo(v){ return v === 'personal' ? '🔒' : '🏡'; }
+function csvTxrLbl(v){ return v === 'personal' ? L('🔒 Cá nhân','🔒 Personal') : L('🏡 Gia đình','🏡 Family'); }
+
+/* Standing per-source routes, remembered like the scope default is. Mirrored
+   in a var so a blocked localStorage (private mode) degrades to session-only
+   rules instead of none. */
+var FH_SRC_ROUTES = 'fh-source-routes';
+var csvTxrRoutes = (function(){
+  try{ return JSON.parse(localStorage.getItem(FH_SRC_ROUTES) || '{}') || {}; }catch(e){ return {}; }
+})();
+function csvTxrRouteSave(){
+  try{ localStorage.setItem(FH_SRC_ROUTES, JSON.stringify(csvTxrRoutes)); }catch(e){}
+}
+
+/* The queue grouped by source bank — the unit the Theo nguồn tab routes. */
+function csvTxrGroups(){
+  var groups = {};
+  ((csvReview && csvReview.ready) || []).forEach(function(c, i){
+    var p = (typeof csvStagedProvider === 'function' && csvStagedProvider(c)) || L('Khác','Other');
+    (groups[p] = groups[p] || { n:0, sum:0, idx:[] });
+    groups[p].n++; groups[p].sum += csvBaseAmt(c.amount); groups[p].idx.push(i);
+  });
+  return groups;
+}
+
+/* ---- the header row: one narrator ---- */
+function csvTxrBasketHTML(){
+  var bits = [];
+  if(csvTxrPendCat){
+    var st = (window.catStyle && window.catStyle[csvTxrPendCat]) || ['🏷️'];
+    bits.push(st[0] + ' ' + csvTxrPendCat);
+  }
+  if(csvTxrPendAll) bits.push(csvTxrLbl(csvTxrPendAll));
+  var routes = Object.keys(csvTxrSrcStage).length;
+  if(routes) bits.push(routes + ' ' + L('tuyến nguồn','source routes'));
+  return bits.length ? bits.join(' · ') : null;
+}
 function csvTxrRowHTML(){
   var sel = csvStagedSelected(), n = sel.length, sum = 0;
   sel.forEach(function(c){ sum += csvBaseAmt(c.amount); });
-  /* Caption + figure, stacked — never one long sentence. A single line holding
-     "Sẽ nhập N khoản · total" NEXT to a two-segment control cropped mid-figure
-     on a phone; two short lines cannot. The amount is the hero (display face),
-     the words are its caption — the Wallet-card shape. */
-  var cap = n ? L('Sẽ nhập '+n+' khoản','Importing '+n)
-              : L('Chưa chọn khoản nào','Nothing selected');
   var fig = n ? esc(fmt(sum)) : '<span class="dim">—</span>';
-  var seg = function(k, icon, vi, en){
-    return '<button type="button" class="'+(csvTxrOpen===k?'on':'')+'" onclick="csvTxrTool(\''+k+'\')">'
-      + icon + '<span>' + L(vi, en) + '</span></button>';
+  var open = csvTxrOpen === 'bulk';
+  if(!open){
+    var cap = n ? L('Sẽ nhập '+n+' khoản','Importing '+n) : L('Chưa chọn khoản nào','Nothing selected');
+    return '<span class="txh-sum"><small>'+esc(cap)+'</small><b>'+fig+'</b></span>'
+      + '<button type="button" class="txh-act" onclick="csvTxrTool(\'bulk\')">'
+      + esc(L('Thao tác hàng loạt','Bulk actions')) + '</button>';
+  }
+  /* A FIXED SHAPE: the words never change, only the two numbers do (and they
+     are tabular, so even digits hold their ground). A caption that reshaped
+     per state — narration here, instruction there — flicked with every tap;
+     stability is the header keeping its word about where things live. The
+     edit-count turns brand when the basket has content: color signals, length
+     never does. Xong's toast still names the edits in full. */
+  var k = (csvTxrPendCat ? 1 : 0) + (csvTxrPendAll ? 1 : 0) + Object.keys(csvTxrSrcStage).length;
+  var allOn = n > 0 && n === csvReview.ready.length;
+  var small = '<span class="'+(k ? 'arm' : '')+'">'
+    + esc(L('Sẽ nhập ','Importing ')) + '<span class="num">'+n+'</span>' + esc(L(' khoản',''))
+    + ' · <span class="num">'+k+'</span> ' + esc(L('thao tác','edits'))
+    + '</span>'
+    + ' <button type="button" class="txh-sublink" onclick="csvStagedSelectAll(' + (allOn ? 'false' : 'true') + ')">'
+    + esc(allOn ? L('Bỏ chọn','Clear') : L('Chọn tất cả','Select all')) + '</button>';
+  return '<span class="txh-sum"><small>'+small+'</small><b>'+fig+'</b></span>'
+    + '<button type="button" class="txh-act on" onclick="csvTxrTool(\'bulk\')">'+esc(L('Xong','Done'))+'</button>';
+}
+
+/* ---- room bodies ---- */
+function csvTxrCatRail(){
+  return '<div class="txh-rail" id="txh-rail">' + csvAllCats().map(function(name){
+    var st = (window.catStyle && window.catStyle[name]) || ['🏷️'];
+    return '<button type="button" class="txh-it'+(csvTxrPendCat===name?' on':'')+'" data-v="'+escAttr(name)+'" onclick="csvTxrPickCat(this)">'
+      + '<span class="e">'+st[0]+'</span><span class="l">'+esc(name)+'</span></button>';
+  }).join('') + '</div>';
+}
+function csvTxrAllRail(){
+  var it = function(v, vi, en){
+    var cls = csvTxrPendAll === v ? ' on' : (csvStagedScope() === v && !csvTxrPendAll ? ' setd' : '');
+    return '<button type="button" class="txh-it'+cls+'" data-v="'+v+'" onclick="csvTxrAllPick(\''+v+'\')">'
+      + '<span class="e">'+csvTxrEmo(v)+'</span><span class="l">'+L(vi,en)+'</span></button>';
   };
-  // Weekly chart fully removed: no toggle, no room, no engine. Only Select remains.
-  return '<span class="txh-sum"><small>'+esc(cap)+'</small><b>'+fig+'</b></span>'
-    + '<span class="txh-seg">'+seg('bulk',CSV_TXR_I_SEL,'Chọn nhiều','Select')+'</span>';
+  return '<div class="txh-rail txh-allrail" id="txh-rail">'
+    + it('personal','Cá nhân','Personal') + it('family','Gia đình','Family') + '</div>';
+}
+function csvTxrSrcRows(){
+  var g = csvTxrGroups(), ps = Object.keys(g).sort();
+  return '<div class="txh-srcs">' + ps.map(function(p){
+    var staged = csvTxrSrcStage[p];
+    var cur = staged || csvTxrRoutes[p] || csvStagedScope();
+    var seg = function(v){ return '<span class="'+(cur===v?'cur':'')+'">'+csvTxrEmo(v)+'</span>'; };
+    return '<div class="txh-srcrow"><b>'+esc(p)+'</b>'
+      + '<span class="m">'+g[p].n+' · '+esc(fmt(g[p].sum))+'</span>'
+      + '<button type="button" class="txh-mini'+(staged?' on':(csvTxrRoutes[p]?'':' inh'))+'"'
+        + ' data-p="'+escAttr(p)+'" data-cur="'+cur+'">'
+        + seg('personal') + seg('family') + '</button>'
+      + '</div>';
+  }).join('') + '</div>';
+}
+function csvTxrDimTabs(){
+  var tab = function(d, label){
+    return '<button type="button" class="'+(csvTxrDim===d?'on':'')+'" onclick="csvTxrDimGo(\''+d+'\')">'+esc(label)+'</button>';
+  };
+  return '<div class="txh-tabs">'+tab('all',L('Tất cả','All'))+tab('src',L('Theo nguồn','By source'))+'</div>';
 }
 
 function csvTxrBulkHTML(){
-  var sel = csvStagedSelected(), n = sel.length, total = csvReview.ready.length;
-  var allOn = n === total, dis = n ? '' : ' disabled';
-  var h = '<div class="txh-bulkhead">'
-    + '<span class="txh-title'+(n?'':' none')+'" id="txh-title">'+csvTxrTitleHTML()+'</span>'
-    + '<button type="button" class="txh-link" onclick="csvStagedSelectAll('+(allOn?'false':'true')+')">'
-      + esc(allOn ? L('Bỏ chọn tất cả','Deselect all') : L('Chọn tất cả','Select all'))+'</button>'
-    + '</div>';
-
+  var n = csvStagedSelected().length, dis = n ? '' : ' disabled';
+  var room = function(k, label){
+    return '<button type="button" class="'+(csvTxrRoom===k?'on ':'')+(k==='del'?'danger':'')+'" onclick="csvTxrRoomGo(\''+k+'\')">'+esc(label)+'</button>';
+  };
+  var h = '<div class="txh-bot"><span class="txh-rooms"><span>'
+    + room('cat', L('Danh mục','Category'))
+    + room('scope', L('Ghi vào','Where'))
+    + room('del', L('Xoá','Delete'))
+    + '</span></span></div>';
   if(csvTxrRoom === 'cat'){
-    h += '<div class="txh-rail" id="txh-rail">' + csvAllCats().map(function(name){
-      var st = (window.catStyle && window.catStyle[name]) || ['🏷️'];
-      return '<button type="button" class="txh-it'+(csvTxrPendCat===name?' on':'')+'" data-v="'+escAttr(name)+'" onclick="csvTxrPickCat(this)">'
-        + '<span class="e">'+st[0]+'</span><span class="l">'+esc(name)+'</span></button>';
-    }).join('') + '</div>';
+    h += csvTxrCatRail();
   } else if(csvTxrRoom === 'scope'){
-    var locked = !csvScopeReady();
-    h += '<div class="txh-scope">'
-      + '<button type="button" class="txh-sc'+(csvTxrPendScope==='personal'?' on':'')+'" data-v="personal"'
-        + (locked ? ' aria-disabled="true"' : '') + ' onclick="csvTxrPickScope(this)">'
-        + '<span class="e">🔒</span><b>'+L('Cá nhân','Personal')+'</b><span>'+L('chỉ mình bạn thấy','only you see it')+'</span></button>'
-      + '<button type="button" class="txh-sc'+(csvTxrPendScope==='family'?' on':'')+'" data-v="family" onclick="csvTxrPickScope(this)">'
-        + '<span class="e">🏡</span><b>'+L('Gia đình','Family')+'</b><span>'+L('cả nhà cùng thấy','everyone sees it')+'</span></button>'
-      + '</div>';
+    h += csvTxrDimTabs() + (csvTxrDim === 'src' ? csvTxrSrcRows() : csvTxrAllRail());
   } else {
-    /* A row, not a dialog: the statement sits where a table row's label would,
-       the action on the trailing edge — the shape of every destructive row in
-       iOS Settings. Armed, the STATEMENT turns danger too, so the second tap
-       is read in context and the button label can stay short. */
     h += '<div class="txh-del">'
       + '<span class="txh-del-txt'+(csvBulkArmed?' armed':'')+'">'
         + '<b>'+esc(csvBulkArmed ? L('Chắc chưa? Không hoàn tác được.','Sure? This cannot be undone.')
@@ -1442,47 +1531,13 @@ function csvTxrBulkHTML(){
         + esc(csvBulkArmed ? L('Xoá '+n+' khoản?','Delete '+n+'?') : L('Xoá '+n,'Delete '+n))+'</button>'
       + '</div>';
   }
-
-  var room = function(k, label, extra){
-    return '<button type="button" id="txh-seg-'+k+'" class="'+(csvTxrRoom===k?'on ':'')+(k==='del'?'danger':'')+'" onclick="csvTxrRoomGo(\''+k+'\')">'
-      + esc(label) + (extra ? ' '+extra : '') + '</button>';
-  };
-  /* The switcher alone, centred. Áp dụng and Huỷ are gone: every room now
-     confirms with a second tap on the pick itself — one grammar for the whole
-     panel, and the room that never had an apply (Xoá) stops being the odd one
-     out. With nothing staged there is nothing to cancel, and the Chọn nhiều
-     segment above already closes the panel. */
-  h += '<div class="txh-bot"><span class="txh-rooms"><span>'
-      + room('cat', L('Danh mục','Category'), '')
-      + room('scope', L('Ghi vào','Where'), '')
-      + room('del', L('Xoá','Delete'), '')
-    + '</span></span></div>';
   return h;
 }
 
-/* The bulkhead title narrates the panel's state: what the selection is, or —
-   with a pick armed — exactly what the second tap is about to do to it. The
-   confirm hint lives HERE, in words with the count, not in a button. */
-function csvTxrTitleHTML(){
-  var n = csvStagedSelected().length;
-  if(csvTxrPendCat){
-    var st = (window.catStyle && window.catStyle[csvTxrPendCat]) || ['🏷️'];
-    return esc(L('Chạm lần nữa: '+st[0]+' '+csvTxrPendCat+' cho '+n+' khoản',
-                 'Tap again: '+st[0]+' '+csvTxrPendCat+' for '+n));
-  }
-  if(csvTxrPendScope){
-    var lbl = csvTxrPendScope==='personal' ? L('🔒 Cá nhân','🔒 Personal') : L('🏡 Gia đình','🏡 Family');
-    return esc(L('Chạm lần nữa: '+lbl+' cho '+n+' khoản','Tap again: '+lbl+' for '+n));
-  }
-  return esc(n ? L('Thao tác với '+n+' khoản đã chọn','Actions for '+n+' selected')
-             : L('Chưa chọn — chạm ô tròn trên từng khoản','Nothing selected — tap a row’s circle'));
-}
-
-/* The whole header, synced from renderCsvReview. Clears itself outside staged
-     mode, so the file importer never sees any of this. */
+/* ---- sync: persistent skeleton, one key, FLIP between states ---- */
 function csvTxrHeadSync(){
   var head = document.getElementById('txh'); if(!head) return;
-  if(!csvStagedMode || !csvReview){ head.innerHTML = ''; csvTxrKey = null; return; }
+  if(!csvStagedMode || !csvReview){ head.innerHTML = ''; csvTxrKey = null; csvTxrLiftClose(); return; }
   if(!head.firstChild){
     head.innerHTML = '<div class="txh-card">'
       + '<div class="txh-row" id="txh-row"></div>'
@@ -1490,40 +1545,43 @@ function csvTxrHeadSync(){
       + '</div>';
     csvTxrKey = null;
   }
-  // The first touch of the selection opens the bulk panel by itself — the
-  // moment someone starts picking is the moment the tools become relevant.
   if(csvSelTouched && !csvTxrAuto){ csvTxrAuto = true; if(!csvTxrOpen) csvTxrOpen = 'bulk'; }
 
   document.getElementById('txh-row').innerHTML = csvTxrRowHTML();
 
   var n = csvStagedSelected().length;
-  var key = [csvTxrOpen, csvTxrRoom, n, csvBulkArmed?1:0, LANG, csvReview.ready.length,
-             csvTxrPendCat||'', csvTxrPendScope||''].join('|');
+  var stageKey = Object.keys(csvTxrSrcStage).sort().map(function(k){ return k + '=' + csvTxrSrcStage[k]; }).join(',');
+  var key = [csvTxrOpen, csvTxrRoom, csvTxrDim, n, csvBulkArmed?1:0, LANG, csvReview.ready.length,
+             csvTxrPendCat||'', csvTxrPendAll||'', stageKey].join('|');
+  var panel = document.getElementById('txh-panel');
   if(key !== csvTxrKey){
+    /* FLIP: hold the height the eye already has, swap, ease to the new one.
+       A teleport between room heights reads as breakage. */
+    var before = panel.offsetHeight;
     csvTxrKey = key;
-    var panel = document.getElementById('txh-panel');
-    panel.innerHTML = csvTxrOpen ? csvTxrBulkHTML() : '';
-    if(csvTxrOpen === 'bulk') csvTxrRailWire();
+    panel.innerHTML = !csvTxrOpen ? '' : csvTxrBulkHTML();
+    if(csvTxrOpen === 'bulk'){ csvTxrRailWire(); csvTxrLiftWire(); }
+    var after = panel.scrollHeight;
+    if(before && Math.abs(after - before) >= 3){
+      panel.style.height = before + 'px';
+      panel.offsetHeight;                        // commit the starting frame
+      panel.style.height = after + 'px';
+      var done = function(){ panel.style.height = ''; panel.removeEventListener('transitionend', done); };
+      panel.addEventListener('transitionend', done);
+    }
   }
-
   var fold = document.getElementById('txh-fold');
   if(csvTxrOpen && !fold.classList.contains('open')){
-    // freshly opened: let the closed state paint once so the fold animates
     (window.requestAnimationFrame || function(f){ f(); })(function(){ fold.classList.add('open'); });
   } else {
     fold.classList.toggle('open', !!csvTxrOpen);
   }
 }
 
-/* The rail grows under a touch and shrinks when it leaves — class toggle only,
-   never a rebuild. Scrolling counts as touching, so it stays big mid-browse.
-
-   It is also GRABBABLE: on a phone the overflow scrolls natively under the
-   finger, but a mouse cannot pull a scrollable div, so pointer-drag maps
-   horizontal movement onto scrollLeft. A drag past 4px suppresses the click
-   that follows it (csvTxrRailDragged, read by csvTxrPickCat) — pulling the
-   rail must never accidentally stage the chip that happened to be under the
-   pointer when it stopped. */
+/* The rail grows under a touch and shrinks when it leaves — the container's
+   own height animates, so the growth is smooth and caused only by the finger.
+   Also grabbable with a mouse (drag → scrollLeft); a drag past 4px suppresses
+   the click it would otherwise spawn. */
 var csvTxrRailDragged = false;
 function csvTxrRailWire(){
   var rail = document.getElementById('txh-rail'); if(!rail) return;
@@ -1538,7 +1596,7 @@ function csvTxrRailWire(){
 
   var sx = 0, sl = 0, down = false;
   rail.addEventListener('pointerdown', function(e){
-    if(e.pointerType === 'touch') return;          // native scroll owns touch
+    if(e.pointerType === 'touch') return;
     sx = e.clientX; sl = rail.scrollLeft; down = true;
   });
   rail.addEventListener('pointermove', function(e){
@@ -1553,67 +1611,164 @@ function csvTxrRailWire(){
   });
   var end = function(){
     down = false; rail.classList.remove('dragging');
-    // the click this drag spawned fires synchronously after pointerup, before
-    // this timeout — so the flag is still up for it, and clear for the next tap
     setTimeout(function(){ csvTxrRailDragged = false; }, 0);
   };
   rail.addEventListener('pointerup', end);
   rail.addEventListener('pointercancel', end);
 }
 
+/* ---- the haptic-touch lift (Theo nguồn's ledger switch) ----
+   Press the tiny two-icon switcher and it RISES out of the row as an overlay
+   (the row provably never moves), the panel softening behind a blur; the two
+   ledgers appear at full identity with a sliding thumb; swipe or tap; release
+   stages. Scrim-tap cancels without staging — forgiveness. */
+function csvTxrLiftClose(commitV, provider){
+  var wrap = document.getElementById('txh-lift'); if(!wrap) return;
+  wrap.classList.remove('show');
+  setTimeout(function(){ if(wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 240);
+  if(commitV) csvTxrPickSrc(provider, commitV);
+}
+function csvTxrLiftOpen(btn){
+  csvTxrLiftClose();
+  var p = btn.getAttribute('data-p');
+  var cur = btn.getAttribute('data-cur');
+  var host = document.getElementById('csv-import-modal'); if(!host) return;
+  var r = btn.getBoundingClientRect(), hr = host.getBoundingClientRect();
+  var W = 188, H = 52;
+  var left = Math.max(8, Math.min(r.right - hr.left - W, hr.width - W - 8));
+  var top = r.top - hr.top + r.height / 2 - H / 2;
+  var wrap = document.createElement('div');
+  wrap.id = 'txh-lift'; wrap.className = 'txh-lift';
+  wrap.innerHTML = '<div class="txh-lift-s"></div>'
+    + '<div class="txh-lift-c" style="left:'+left+'px;top:'+top+'px;width:'+W+'px;height:'+H+'px">'
+      + '<span class="txh-lift-th'+(cur==='family'?' r':'')+'"></span>'
+      + '<button type="button" data-v="personal">🔒 '+L('Cá nhân','Personal')+'</button>'
+      + '<button type="button" data-v="family">🏡 '+L('Gia đình','Family')+'</button>'
+    + '</div>';
+  host.appendChild(wrap);
+  (window.requestAnimationFrame || function(f){ f(); })(function(){ wrap.classList.add('show'); });
 
-/* ---- header handlers (globals — inline onclick targets, §3) ---- */
+  var card = wrap.querySelector('.txh-lift-c');
+  var th = wrap.querySelector('.txh-lift-th');
+  var side = cur;
+  var setSide = function(v){ side = v; th.classList.toggle('r', v === 'family'); };
+  wrap.querySelector('.txh-lift-s').addEventListener('pointerup', function(){ csvTxrLiftClose(); });
+  var opts = card.querySelectorAll('button');
+  for(var i = 0; i < opts.length; i++)(function(o){
+    o.addEventListener('pointerup', function(e){
+      e.stopPropagation();
+      var v = o.getAttribute('data-v');
+      setSide(v); setTimeout(function(){ csvTxrLiftClose(v, p); }, 140);
+    });
+  })(opts[i]);
+  var sx = null;
+  card.addEventListener('pointerdown', function(e){ sx = e.clientX; try{ card.setPointerCapture(e.pointerId); }catch(err){} });
+  card.addEventListener('pointermove', function(e){
+    if(sx == null) return;
+    var dx = e.clientX - sx;
+    if(dx > 24) setSide('family'); else if(dx < -24) setSide('personal');
+  });
+  card.addEventListener('pointerup', function(){
+    if(sx == null) return; sx = null;
+    var v = side;
+    setTimeout(function(){ csvTxrLiftClose(v, p); }, 120);
+  });
+}
+function csvTxrLiftWire(){
+  var els = document.querySelectorAll('#txh .txh-mini');
+  for(var k = 0; k < els.length; k++)(function(el){
+    el.addEventListener('pointerdown', function(e){ e.preventDefault(); csvTxrLiftOpen(el); });
+  })(els[k]);
+}
+
+/* ---- handlers: tap stages, rooms keep the basket, Xong commits ---- */
 function csvTxrTool(k){
   csvDisarmRemove();
-  csvTxrOpen = (k === null || csvTxrOpen === k) ? null : k;
-  csvTxrRoom = 'cat'; csvTxrPendCat = null; csvTxrPendScope = null;
-  csvBulkArmed = false;
-  csvTxrHeadSync();
-}
-function csvTxrRoomGo(a){
-  csvTxrRoom = a;
-  csvTxrPendCat = null; csvTxrPendScope = null;   // leaving a room disarms its pick
-  csvBulkArmed = false;
-  csvTxrHeadSync();
-}
-function csvTxrTitleSync(){
-  var t = document.getElementById('txh-title');
-  if(t){ t.innerHTML = csvTxrTitleHTML(); t.classList.toggle('arm', !!(csvTxrPendCat || csvTxrPendScope)); }
-}
-function csvTxrPickCat(btn){
-  if(csvTxrRailDragged) return;        // that was a pull, not a pick
-  if(!csvStagedSelected().length) return;
-  var v = btn.getAttribute('data-v');
-  if(csvTxrPendCat === v){             // second tap on the same chip: this is the confirm
-    csvTxrPendCat = null; csvTxrKey = null;
-    csvBulkCat(v);
+  if(csvTxrOpen === 'bulk'){                         // Xong: commit the basket, then close
+    csvTxrCommitAll();
+    csvTxrOpen = null; csvTxrRoom = 'cat'; csvTxrDim = 'all'; csvBulkArmed = false;
+    csvTxrLiftClose();
+    csvTxrKey = null; csvTxrHeadSync();
     return;
   }
-  csvTxrPendCat = v; csvTxrPendScope = null;      // first tap (or moving the arm) only arms
-  var cs = document.getElementById('txh-rail').children;
-  for(var i = 0; i < cs.length; i++) cs[i].classList.toggle('on', cs[i].getAttribute('data-v') === v);
-  csvTxrTitleSync();
+  csvTxrOpen = 'bulk'; csvTxrRoom = 'cat'; csvBulkArmed = false;
+  csvTxrKey = null; csvTxrHeadSync();
 }
-function csvTxrPickScope(btn){
+function csvTxrRoomGo(a){
+  csvTxrRoom = a; csvBulkArmed = false;              // drafts SURVIVE the hop — rooms are MECE
+  csvTxrKey = null; csvTxrHeadSync();
+}
+function csvTxrDimGo(d){ csvTxrDim = d; csvTxrKey = null; csvTxrHeadSync(); }
+
+function csvTxrPickCat(btn){
+  if(csvTxrRailDragged) return;                      // that was a pull, not a pick
   if(!csvStagedSelected().length) return;
   var v = btn.getAttribute('data-v');
+  csvTxrPendCat = (csvTxrPendCat === v) ? null : v;  // toggle the stage
+  var rail = document.getElementById('txh-rail');
+  if(rail) for(var i = 0; i < rail.children.length; i++)
+    rail.children[i].classList.toggle('on', !!csvTxrPendCat && rail.children[i].getAttribute('data-v') === csvTxrPendCat);
+  var row = document.getElementById('txh-row'); if(row) row.innerHTML = csvTxrRowHTML();
+}
+function csvTxrAllPick(v){
   if(v === 'personal' && !csvScopeReady()){
     toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
     return;
   }
-  if(csvTxrPendScope === v){
-    csvTxrPendScope = null; csvTxrKey = null;
-    csvBulkScope(v);
+  csvTxrPendAll = (csvTxrPendAll === v) ? null : v;
+  /* in place — a rebuild here would swap the rail mid-touch and reset its
+     bloom, which reads as a dead control next to the category rail */
+  var rail = document.getElementById('txh-rail');
+  if(rail) for(var i = 0; i < rail.children.length; i++){
+    var el = rail.children[i], ev = el.getAttribute('data-v');
+    el.classList.toggle('on', csvTxrPendAll === ev);
+    el.classList.toggle('setd', csvStagedScope() === ev && !csvTxrPendAll);
+  }
+  var row = document.getElementById('txh-row'); if(row) row.innerHTML = csvTxrRowHTML();
+}
+function csvTxrPickSrc(p, v){
+  if(v === 'personal' && !csvScopeReady()){
+    toast(L('Mở khoá sổ cá nhân ở tab Cá nhân trước','Unlock your personal ledger first'));
     return;
   }
-  csvTxrPendScope = v; csvTxrPendCat = null;
-  var cs = document.querySelectorAll('#txh .txh-sc');
-  for(var i = 0; i < cs.length; i++) cs[i].classList.toggle('on', cs[i].getAttribute('data-v') === v);
-  csvTxrTitleSync();
+  if(csvTxrSrcStage[p] === v) delete csvTxrSrcStage[p];   // toggle the stage
+  else csvTxrSrcStage[p] = v;
+  csvTxrKey = null; csvTxrHeadSync();
 }
-/* One press commits everything staged. Scope BEFORE category: csvBulkCat ends
-   in a toast, and this way the toast the person is left reading is about the
-   most visible change. Both act on the same csvStagedSelected() set. */
+
+/* Xong's commit: everything staged, at once, then one toast naming it all.
+   Category goes through csvBulkCat (which learns); ledgers stamp _scope —
+   still only staging for Nhập, the ledger's true write. Per-source picks also
+   persist as standing routes, so later arrivals from that bank default right;
+   one more pick is the undo. */
+function csvTxrCommitAll(){
+  var bits = [], n = csvStagedSelected().length;
+  if(csvTxrPendCat){
+    var st = (window.catStyle && window.catStyle[csvTxrPendCat]) || ['🏷️'];
+    csvBulkCat(csvTxrPendCat);
+    bits.push(st[0] + ' ' + csvTxrPendCat);
+    csvTxrPendCat = null;
+  }
+  if(csvTxrPendAll){
+    var v0 = csvTxrPendAll;
+    csvSetScope(v0);
+    (csvReview.ready || []).forEach(function(c){ c._scope = v0; });
+    bits.push(csvTxrLbl(v0));
+    csvTxrPendAll = null;
+  }
+  var g = csvTxrGroups(), routes = 0;
+  Object.keys(csvTxrSrcStage).forEach(function(p){
+    var v = csvTxrSrcStage[p]; routes++;
+    csvTxrRoutes[p] = v;
+    (g[p] ? g[p].idx : []).forEach(function(i){ var c = csvReview.ready[i]; if(c) c._scope = v; });
+  });
+  if(routes){ csvTxrRouteSave(); bits.push(routes + ' ' + L('tuyến nguồn','source routes')); }
+  csvTxrSrcStage = {};
+  if(bits.length){
+    renderCsvReview();
+    toast(esc(L('Đã áp dụng cho ' + n + ' khoản: ', 'Applied to ' + n + ': ') + bits.join(' · ')));
+  }
+}
 function csvTxrDel(){ csvBulkDelete(); csvTxrHeadSync(); }
 
 /* Removing a staged row used to be in-memory only: the splice lived in
