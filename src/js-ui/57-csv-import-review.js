@@ -739,6 +739,26 @@ function normDescForDedup(s) { return deburr((s||'').trim().toLowerCase()).repla
 var CSV_PROVIDER_NOISE = ['internetbanking', 'mobilebanking', 'onlinebanking', 'smartbanking',
                           'ebanking', 'digibank', 'banking', 'ebank', 'bank', 'jsc'];
 
+/* Display-canonical provider name for rows ALREADY staged under the old,
+   uncoordinated names ('MB', 'MBank', 'MBBank' — three authors, no canon; the
+   pipeline normalises new rows at extraction now, this heals the sealed
+   history at read time). Mirrors canonProviderName in senders.mjs — same
+   noise-stripped key, registry display names, unknowns pass through. */
+var FH_PROVIDER_CANON = {
+  mb:'MB Bank', m:'MB Bank', vietcom:'Vietcombank', vcb:'Vietcombank',
+  vib:'VIB', vp:'VPBank', techcom:'Techcombank', tcb:'Techcombank',
+  acb:'ACB', tp:'TPBank', vietin:'VietinBank', vtb:'VietinBank',
+  agri:'Agribank', bidv:'BIDV', sacom:'Sacombank', shb:'SHB', hdb:'HDBank',
+  ocb:'OCB', msb:'MSB', seab:'SeABank', eximb:'Eximbank', momo:'MoMo',
+  zalopay:'ZaloPay', shopeepay:'ShopeePay', viettelmoney:'Viettel Money'
+};
+function fhProviderName(name){
+  if(!name) return '';
+  var key = csvCanonicalProvider(name);
+  return FH_PROVIDER_CANON[key] || String(name).trim();
+}
+window.fhProviderName = fhProviderName;
+
 function csvCanonicalProvider(name) {
   if (!name) return '';
   var s = deburr(String(name)).toLowerCase().replace(/[^a-z0-9]/g, '');

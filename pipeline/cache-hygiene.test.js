@@ -58,5 +58,15 @@ const promoInside = `| Số tiền khuyến mãi | 50,000 VND |
 const pr = readLabelTable('x', promoInside);
 t('the transaction amount wins', pr && pr.amount === 165000, pr && String(pr.amount));
 
+console.log('\n-- one bank, one name, whoever wrote it down --');
+const S = await import('../supabase/functions/_shared/mailbox/senders.mjs');
+const cp = S.canonProviderName;
+t('MB / MBank / MBBank fold into the registry name',
+  cp('MB') === 'MB Bank' && cp('MBank') === 'MB Bank' && cp('MBBank') === 'MB Bank' && cp('mb bank') === 'MB Bank');
+t('registry names are fixed points', cp('Vietcombank') === 'Vietcombank' && cp('MB Bank') === 'MB Bank');
+t('an unknown bank passes through untouched — folding strangers merges real sources',
+  cp('Ngân hàng XYZ') === 'Ngân hàng XYZ');
+t('null passes through', cp(null) === null);
+
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail ? 1 : 0);

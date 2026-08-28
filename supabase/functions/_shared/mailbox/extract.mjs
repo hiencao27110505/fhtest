@@ -26,6 +26,7 @@
 
 import { applyExtractionTemplate, deriveExtractionTemplate } from './templates.mjs';
 import { readLabelTable, maskAccount, statusReadsFailed, unknownLabels } from './labeltable.mjs';
+import { canonProviderName } from './senders.mjs';
 import { tidyMemo, tidyMerchant } from './memo.mjs';
 import * as llm from './llm.mjs';
 
@@ -273,6 +274,9 @@ function _tidy(extraction, body) {
   // printed, which for MB is the FULL account number sitting one row below the
   // masked one.
   out.account_masked = maskAccount(out.account_masked);
+  // every tier's provider leaves canonical — template statics included, which
+  // is what heals the names already frozen at derivation without touching them
+  out.source_provider = canonProviderName(out.source_provider);
   const tidy = tidyMemo(out.memo, body);
   out.memo_display = tidy.description;
   if (tidy.code) out.type_code = tidy.code;

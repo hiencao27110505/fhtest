@@ -39,10 +39,11 @@ var csvReview, csvStagedMode, csvExpand, renders, dropped, toasts, learned, scop
 function renderCsvReview(){ renders++; }
 function fmt(n){ return String(n); }
 var LANG = 'vi';
+function fhProviderName(n){ return /^(mb|mbank|mbbank)$/i.test(String(n).replace(/\s/g,'')) ? 'MB Bank' : (n === 'VCB' ? 'Vietcombank' : n); }
 function csvStagedProvider(c){
   var rows = window._fhStagedRows, i = c && c.rowIndex;
   var r = rows && typeof i === 'number' ? rows[i] : null;
-  return (r && r.source_provider) || '';
+  return fhProviderName((r && r.source_provider) || '');
 }
 function csvBaseAmt(n){ return Number(n) || 0; }
 // the header syncs against a DOM; in this harness there is none, and that is
@@ -200,18 +201,19 @@ t('one commit lands both: ledger', csvReview.ready.every(c => c._scope === 'pers
 
 console.log('\n-- per-source routes stage and commit --');
 reset();
-window._fhStagedRows = csvReview.ready.map(function(c, i){ return { source_provider: i === 0 ? 'MB' : 'VCB' }; });
+window._fhStagedRows = [{source_provider:'MB'},{source_provider:'MBBank'},{source_provider:'VCB'}];
 csvTxrSrcStage = {};
-csvTxrPickSrc('MB', 'personal');
-t('a route stages, rows untouched', csvTxrSrcStage['MB'] === 'personal' && csvReview.ready.every(c => c._scope === undefined));
-csvTxrPickSrc('MB', 'personal');
-t('same pick again unstages', csvTxrSrcStage['MB'] === undefined);
-csvTxrPickSrc('MB', 'personal');
+csvTxrPickSrc('MB Bank', 'personal');
+t('a route stages, rows untouched', csvTxrSrcStage['MB Bank'] === 'personal' && csvReview.ready.every(c => c._scope === undefined));
+csvTxrPickSrc('MB Bank', 'personal');
+t('same pick again unstages', csvTxrSrcStage['MB Bank'] === undefined);
+csvTxrPickSrc('MB Bank', 'personal');
 csvTxrCommitAll();
-t('commit stamps ONLY that source', csvReview.ready[0]._scope === 'personal'
-  && csvReview.ready[1]._scope === undefined && csvReview.ready[2]._scope === undefined);
-t('and the route persists as a standing rule', csvTxrRoutes['MB'] === 'personal');
-delete csvTxrRoutes['MB'];
+t('commit stamps the whole canonical source — MB and MBBank rows together',
+  csvReview.ready[0]._scope === 'personal' && csvReview.ready[1]._scope === 'personal'
+  && csvReview.ready[2]._scope === undefined);
+t('and the route persists under the canonical name', csvTxrRoutes['MB Bank'] === 'personal');
+delete csvTxrRoutes['MB Bank'];
 
 console.log('\n-- a locked personal ledger refuses the stage, not just the commit --');
 reset();
@@ -231,6 +233,20 @@ t('the caption counts the basket, shape fixed', (csvStagedSelectAll(true), csvTx
 csvTxrPendCat = null;
 t('zero edits still reads a zero, never silence', /·[\s\S]*0[\s\S]*thao tác/.test((csvTxrOpen='bulk', csvTxrRowHTML())));
 csvTxrOpen = null;
+
+console.log('\n-- Chọn comes first: smart sets claim, hand-ticks override --');
+reset();
+window._fhStagedRows = [{source_provider:'MB'},{source_provider:'MBBank'},{source_provider:'VCB'}];
+csvReview.ready.forEach(function(c,i){ c.categoryName = i === 2 ? 'Ăn uống' : null; });
+csvTxrSmartPick('nocat');
+t('a chip selects exactly its set', picked() === 'a,b');
+csvTxrSmartPick('nocat');
+t('the same chip releases it', picked() === '');
+csvTxrSmartPick('bank:MB Bank');
+t("MB and MBBank are ONE source — the split was three uncoordinated authors", picked() === 'a,b');
+csvStagedToggle(2);
+t('a hand-tick releases the claim', csvTxrSmartKey === null);
+t('the panel lands on Chọn', (csvBulkReset(), csvTxrRoom === 'sel'));
 
 console.log('\n-- the armed label states the count, so 47 is never mistaken for 1 --');
 reset();

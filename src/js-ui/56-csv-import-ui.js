@@ -723,7 +723,10 @@ window.csvRowTime = csvRowTime;
 function csvStagedProvider(c){
   if(!window.csvStagedMode || !c || typeof c.rowIndex!=='number') return '';
   var rows = window._fhStagedRows, r = rows && rows[c.rowIndex];
-  return (r && r.source_provider) || '';
+  var raw = (r && r.source_provider) || '';
+  // one reader, one name: cards, Theo nguồn groups and standing routes all
+  // pass through here, so canonicalising this line unifies all three
+  return (typeof fhProviderName === 'function') ? fhProviderName(raw) : raw;
 }
 function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider, scope){
   var tone = isError ? ' attn' : (attn ? ' warn' : '');
@@ -1253,6 +1256,7 @@ function csvStagedSelected(){
 function csvStagedToggle(i){
   if(!csvReview) return;
   var c = csvReview.ready[i]; if(!c) return;
+  if(typeof csvTxrSmartKey !== 'undefined') csvTxrSmartKey = null;   // a hand-tick overrides the chip's claim
   csvDisarmRemove();                 // ticking is not confirming a delete
   c._skipImport = !c._skipImport;
   csvSelTouched = true;              // a tick is the person saying "I am picking"
@@ -1292,8 +1296,9 @@ var csvSelTouched = false;
 
 function csvBulkReset(){
   csvBulkArmed = false; csvSelTouched = false;
-  csvTxrOpen = null; csvTxrRoom = 'cat'; csvTxrDim = 'all';
+  csvTxrOpen = null; csvTxrRoom = 'sel'; csvTxrDim = 'all';
   csvTxrPendCat = null; csvTxrPendAll = null; csvTxrSrcStage = {};
+  csvTxrSmartKey = null;
   csvTxrAuto = false; csvTxrKey = null;
 }
 
@@ -1391,7 +1396,7 @@ function csvBulkDelete(){
    in-place class updates for picks — a rebuild under the finger resets the
    rail's bloom, which reads as a dead control. */
 var csvTxrOpen = null;        // null | 'bulk'
-var csvTxrRoom = 'cat';       // 'cat' | 'scope' | 'del'
+var csvTxrRoom = 'sel';       // 'sel' | 'cat' | 'scope' | 'del' — Chọn first: select, then edit
 var csvTxrDim = 'all';        // Ghi vào dimension: 'all' | 'src'
 var csvTxrPendCat = null;     // staged category
 var csvTxrPendAll = null;     // staged default ledger ('personal'|'family')
@@ -1409,7 +1414,15 @@ function csvTxrLbl(v){ return v === 'personal' ? L('🔒 Cá nhân','🔒 Person
    rules instead of none. */
 var FH_SRC_ROUTES = 'fh-source-routes';
 var csvTxrRoutes = (function(){
-  try{ return JSON.parse(localStorage.getItem(FH_SRC_ROUTES) || '{}') || {}; }catch(e){ return {}; }
+  try{
+    var raw = JSON.parse(localStorage.getItem(FH_SRC_ROUTES) || '{}') || {};
+    var out = {};
+    Object.keys(raw).forEach(function(k){
+      var ck = (typeof fhProviderName === 'function') ? fhProviderName(k) : k;
+      out[ck] = out[ck] || raw[k];         // a route saved under 'MBBank' still routes 'MB Bank'
+    });
+    return out;
+  }catch(e){ return {}; }
 })();
 function csvTxrRouteSave(){
   try{ localStorage.setItem(FH_SRC_ROUTES, JSON.stringify(csvTxrRoutes)); }catch(e){}
@@ -1447,7 +1460,7 @@ function csvTxrRowHTML(){
     var cap = n ? L('Sẽ nhập '+n+' khoản','Importing '+n) : L('Chưa chọn khoản nào','Nothing selected');
     return '<span class="txh-sum"><small>'+esc(cap)+'</small><b>'+fig+'</b></span>'
       + '<button type="button" class="txh-act" onclick="csvTxrTool(\'bulk\')">'
-      + esc(L('Thao tác hàng loạt','Bulk actions')) + '</button>';
+      + esc(L('Chỉnh sửa hàng loạt','Bulk edit')) + '</button>';
   }
   /* A FIXED SHAPE: the words never change, only the two numbers do (and they
      are tabular, so even digits hold their ground). A caption that reshaped
@@ -1498,6 +1511,50 @@ function csvTxrSrcRows(){
       + '</div>';
   }).join('') + '</div>';
 }
+/* ---- the Chọn room: select BEFORE you edit --------------------------------
+   Rows arrive all-ticked for Import, so "selection" never used to happen as an
+   intentional act — the panel now LANDS here. Chips name the sets that exist
+   in the queue, with live counts: one tap claims a set, the same tap releases
+   it, and a hand-tick anywhere releases the chip's claim (the person is
+   overriding). Foraging by kind — pick "all ripe berries", never berry by
+   berry. */
+var csvTxrSmartKey = null;
+function csvTxrSmartSets(){
+  var ready = (csvReview && csvReview.ready) || [], maxT = 0;
+  ready.forEach(function(c){ if(c.date && +c.date > maxT) maxT = +c.date; });
+  var sets = [
+    { k:'all',   label:L('Tất cả','All'),                   test:function(){ return true; } },
+    { k:'nocat', label:L('Chưa có danh mục','No category'),  test:function(c){ return !c.categoryName; } },
+    { k:'week',  label:L('Tuần này','This week'),            test:function(c){ return c.date && (maxT - +c.date) < 7 * 864e5; } },
+  ];
+  var banks = {};
+  ready.forEach(function(c){ var p = (typeof csvStagedProvider === 'function' && csvStagedProvider(c)) || ''; if(p) banks[p] = 1; });
+  Object.keys(banks).sort().forEach(function(p){
+    sets.push({ k:'bank:'+p, label:L('Từ '+p,'From '+p), test:function(c){ return csvStagedProvider(c) === p; } });
+  });
+  return sets.map(function(x){ x.n = ready.filter(function(c){ return x.test(c); }).length; return x; })
+             .filter(function(x){ return x.n > 0; });
+}
+function csvTxrSmartPick(k){
+  var hit = null; csvTxrSmartSets().forEach(function(x){ if(x.k === k) hit = x; });
+  if(!hit) return;
+  if(csvTxrSmartKey === k){
+    csvTxrSmartKey = null;
+    (csvReview.ready || []).forEach(function(c){ c._skipImport = true; });
+  } else {
+    csvTxrSmartKey = k;
+    (csvReview.ready || []).forEach(function(c){ c._skipImport = !hit.test(c); });
+  }
+  csvSelTouched = true; csvTxrKey = null;
+  renderCsvReview();
+}
+function csvTxrSmartHTML(){
+  return '<div class="txh-smart">' + csvTxrSmartSets().map(function(x){
+    return '<button type="button" class="' + (csvTxrSmartKey === x.k ? 'on' : '') + '"'
+      + ' onclick="csvTxrSmartPick(\'' + escAttr(x.k) + '\')">' + esc(x.label) + ' <span>' + x.n + '</span></button>';
+  }).join('') + '</div>';
+}
+
 function csvTxrDimTabs(){
   var tab = function(d, label){
     return '<button type="button" class="'+(csvTxrDim===d?'on':'')+'" onclick="csvTxrDimGo(\''+d+'\')">'+esc(label)+'</button>';
@@ -1511,11 +1568,14 @@ function csvTxrBulkHTML(){
     return '<button type="button" class="'+(csvTxrRoom===k?'on ':'')+(k==='del'?'danger':'')+'" onclick="csvTxrRoomGo(\''+k+'\')">'+esc(label)+'</button>';
   };
   var h = '<div class="txh-bot"><span class="txh-rooms"><span>'
+    + room('sel', L('Chọn','Select'))
     + room('cat', L('Danh mục','Category'))
     + room('scope', L('Ghi vào','Where'))
     + room('del', L('Xoá','Delete'))
     + '</span></span></div>';
-  if(csvTxrRoom === 'cat'){
+  if(csvTxrRoom === 'sel'){
+    h += csvTxrSmartHTML();
+  } else if(csvTxrRoom === 'cat'){
     h += csvTxrCatRail();
   } else if(csvTxrRoom === 'scope'){
     h += csvTxrDimTabs() + (csvTxrDim === 'src' ? csvTxrSrcRows() : csvTxrAllRail());
@@ -1552,7 +1612,7 @@ function csvTxrHeadSync(){
   var n = csvStagedSelected().length;
   var stageKey = Object.keys(csvTxrSrcStage).sort().map(function(k){ return k + '=' + csvTxrSrcStage[k]; }).join(',');
   var key = [csvTxrOpen, csvTxrRoom, csvTxrDim, n, csvBulkArmed?1:0, LANG, csvReview.ready.length,
-             csvTxrPendCat||'', csvTxrPendAll||'', stageKey].join('|');
+             csvTxrPendCat||'', csvTxrPendAll||'', csvTxrSmartKey||'', stageKey].join('|');
   var panel = document.getElementById('txh-panel');
   if(key !== csvTxrKey){
     /* FLIP: hold the height the eye already has, swap, ease to the new one.
@@ -1686,12 +1746,12 @@ function csvTxrTool(k){
   csvDisarmRemove();
   if(csvTxrOpen === 'bulk'){                         // Xong: commit the basket, then close
     csvTxrCommitAll();
-    csvTxrOpen = null; csvTxrRoom = 'cat'; csvTxrDim = 'all'; csvBulkArmed = false;
+    csvTxrOpen = null; csvTxrRoom = 'sel'; csvTxrDim = 'all'; csvBulkArmed = false;
     csvTxrLiftClose();
     csvTxrKey = null; csvTxrHeadSync();
     return;
   }
-  csvTxrOpen = 'bulk'; csvTxrRoom = 'cat'; csvBulkArmed = false;
+  csvTxrOpen = 'bulk'; csvTxrRoom = 'sel'; csvBulkArmed = false;
   csvTxrKey = null; csvTxrHeadSync();
 }
 function csvTxrRoomGo(a){

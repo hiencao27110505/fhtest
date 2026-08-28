@@ -331,3 +331,35 @@ export function inboxQuery(days, extra) {
 }
 
 export const KNOWN_DOMAINS = { BANKS, WALLETS };
+
+/* One display name per provider, whoever wrote it down.
+
+   source_provider has three authors — the model's free text per mail, template
+   statics frozen at derivation ("MB" one day, "MBank" another; both were live),
+   and this registry's fallback ("MB Bank") — and nothing ever unified them, so
+   the same bank surfaced as three sources. The registry's own names are the
+   canon; everything else folds into them by a noise-stripped key, with an alias
+   row for the stumps the stripping leaves ("mbank" → "m"). Unknown names pass
+   through untouched: folding a bank we do not know into one we do would merge
+   real sources, which is worse than the cosmetic split this cures. */
+function _provKey(name) {
+  let s = String(name || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd')
+    .toLowerCase().replace(/[^a-z0-9]/g, '');
+  for (const noise of ['ebanking', 'digibank', 'banking', 'bank']) s = s.split(noise).join('');
+  return s;
+}
+const _PROV_CANON = (() => {
+  const map = {};
+  for (const name of new Set([...Object.values(BANKS), ...Object.values(WALLETS)])) {
+    map[_provKey(name)] = name;
+  }
+  Object.assign(map, {
+    m: 'MB Bank', vcb: 'Vietcombank', tcb: 'Techcombank', vtb: 'VietinBank',
+  });
+  return map;
+})();
+export function canonProviderName(name) {
+  if (!name) return name;
+  return _PROV_CANON[_provKey(name)] || String(name).trim();
+}
