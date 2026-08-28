@@ -4643,13 +4643,22 @@ function fmtK(n){
    parseAmtBase still rounds — but snapAmtInput() writes the rounded value back into
    the field on blur, so the user sees what will actually be saved instead of having
    it silently changed underneath them. */
-function parseAmtBase(s){ return Math.round(parseAmt(s)/curMult()); }   // input is in display currency → store base
+/* Input (display currency) → base units, WITHOUT rounding — otherwise opening
+   an imported row and blurring its amount field would re-round the precision
+   the import just preserved. "45" and "45.000" still give a clean 45; only an
+   input carrying sub-thousand digits (an imported 337.900) keeps them. */
+function parseAmtBase(s){ return parseAmt(s)/curMult(); }   // input is in display currency → store base
 // base → the number an amount input should show (display currency, grouped, no symbol)
 function amtToInput(n){ n=Number(n)||0; return n?(n*curMult()).toLocaleString(CUR==='VND'?'vi-VN':'en-US'):''; }
 function snapAmtInput(el){
   if(!el) return;
   var raw=(el.value||'').trim(); if(!raw) return;
-  var base=parseAmtBase(raw); if(!base){ el.value=''; return; }
+  /* Too small to be a real amount → clear, the same nudge as before. The old
+     guard got this for free from rounding (a typed "45" fell to 0); now that
+     parseAmtBase keeps decimals for imported precision, the threshold has to
+     be stated. Half a base unit — under 500đ — is shorthand or a slip, not a
+     transaction someone means to log. */
+  var base=parseAmtBase(raw); if(!(base >= 0.5)){ el.value=''; return; }
   el.value=amtToInput(base);                       // canonical grouping + the real stored value
 }
 /* One placeholder source, so the separator always matches what the field produces
@@ -10660,7 +10669,22 @@ function csvCatEmoji(name){
    fmt() takes the STORED base and multiplies by curMult() -- 1000 for VND.
    csvBaseAmt does the display->base conversion the write path does, so what
    the review shows is exactly what will be saved, rounding included. */
-function csvBaseAmt(n){ return Math.round(Number(n||0)/curMult()); }
+/* Display currency → base units, WITHOUT rounding.
+   Math.round here quietly destroyed every imported figure: VND base units are
+   thousands, so a 337.900đ card charge became 338 and redisplayed as 338.000đ
+   — every bank row wrong by up to 500đ, and the ledger's totals wrong with
+   them. Hand entry is unaffected (someone typing "45" still means 45.000đ, a
+   whole 45); only amounts that CARRY sub-thousand digits keep them now, which
+   is exactly the imported ones. transactions.amount is numeric(14,2) and holds
+   the decimals; fmt() rounds at the point of DISPLAY, where rounding belongs.
+
+   The residual limit is 10đ, not 500đ: two decimals of a 1.000đ base unit.
+   Every VN bank figure we have seen is a multiple of 100đ (337.900, 95.500,
+   13.000) and survives exactly. Going đồng-exact would mean scale 3, which
+   means dropping and recreating the four views built on this column — a live
+   ledger rewrite to chase 2đ on an FX or interest line. Not worth it; recorded
+   here so the next person does not rediscover the ceiling by surprise. */
+function csvBaseAmt(n){ return Number(n||0)/curMult(); }
 function csvFmt(n){ return fmt(csvBaseAmt(n)); }
 /* Whoever is importing is the payer, unless the file says otherwise.
    lastWho is the wrong default here -- it's the first member in the family

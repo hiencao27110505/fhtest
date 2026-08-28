@@ -127,13 +127,22 @@ function fmtK(n){
    parseAmtBase still rounds — but snapAmtInput() writes the rounded value back into
    the field on blur, so the user sees what will actually be saved instead of having
    it silently changed underneath them. */
-function parseAmtBase(s){ return Math.round(parseAmt(s)/curMult()); }   // input is in display currency → store base
+/* Input (display currency) → base units, WITHOUT rounding — otherwise opening
+   an imported row and blurring its amount field would re-round the precision
+   the import just preserved. "45" and "45.000" still give a clean 45; only an
+   input carrying sub-thousand digits (an imported 337.900) keeps them. */
+function parseAmtBase(s){ return parseAmt(s)/curMult(); }   // input is in display currency → store base
 // base → the number an amount input should show (display currency, grouped, no symbol)
 function amtToInput(n){ n=Number(n)||0; return n?(n*curMult()).toLocaleString(CUR==='VND'?'vi-VN':'en-US'):''; }
 function snapAmtInput(el){
   if(!el) return;
   var raw=(el.value||'').trim(); if(!raw) return;
-  var base=parseAmtBase(raw); if(!base){ el.value=''; return; }
+  /* Too small to be a real amount → clear, the same nudge as before. The old
+     guard got this for free from rounding (a typed "45" fell to 0); now that
+     parseAmtBase keeps decimals for imported precision, the threshold has to
+     be stated. Half a base unit — under 500đ — is shorthand or a slip, not a
+     transaction someone means to log. */
+  var base=parseAmtBase(raw); if(!(base >= 0.5)){ el.value=''; return; }
   el.value=amtToInput(base);                       // canonical grouping + the real stored value
 }
 /* One placeholder source, so the separator always matches what the field produces

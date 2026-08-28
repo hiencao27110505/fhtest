@@ -619,7 +619,22 @@ function csvCatEmoji(name){
    fmt() takes the STORED base and multiplies by curMult() -- 1000 for VND.
    csvBaseAmt does the display->base conversion the write path does, so what
    the review shows is exactly what will be saved, rounding included. */
-function csvBaseAmt(n){ return Math.round(Number(n||0)/curMult()); }
+/* Display currency → base units, WITHOUT rounding.
+   Math.round here quietly destroyed every imported figure: VND base units are
+   thousands, so a 337.900đ card charge became 338 and redisplayed as 338.000đ
+   — every bank row wrong by up to 500đ, and the ledger's totals wrong with
+   them. Hand entry is unaffected (someone typing "45" still means 45.000đ, a
+   whole 45); only amounts that CARRY sub-thousand digits keep them now, which
+   is exactly the imported ones. transactions.amount is numeric(14,2) and holds
+   the decimals; fmt() rounds at the point of DISPLAY, where rounding belongs.
+
+   The residual limit is 10đ, not 500đ: two decimals of a 1.000đ base unit.
+   Every VN bank figure we have seen is a multiple of 100đ (337.900, 95.500,
+   13.000) and survives exactly. Going đồng-exact would mean scale 3, which
+   means dropping and recreating the four views built on this column — a live
+   ledger rewrite to chase 2đ on an FX or interest line. Not worth it; recorded
+   here so the next person does not rediscover the ceiling by surprise. */
+function csvBaseAmt(n){ return Number(n||0)/curMult(); }
 function csvFmt(n){ return fmt(csvBaseAmt(n)); }
 /* Whoever is importing is the payer, unless the file says otherwise.
    lastWho is the wrong default here -- it's the first member in the family
