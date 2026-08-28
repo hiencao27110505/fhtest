@@ -11031,6 +11031,17 @@ function renderCsvReview(){
     var o = { label:L('Có thể trùng','Possible duplicate'), dateIso:d.c.dateDisplay, attn:true, isDup:true,
               _handled:true,
               tapFn:"csvToggleExpand('dup',"+di+")", removeFn:"csvDupSkip("+di+")" };
+    /* The tick is the ONE include verb, parked rows included: on a duplicate it
+       IS "Vẫn nhập" — unchecked at rest (parked = out of the import, honestly),
+       one tap moves the row into the ready list, checked and counted. The
+       expand path with its explanation stays for anyone who wants the why. */
+    if(csvStagedMode){
+      o.checkFn = "csvDupTick("+di+")"; o.checked = false;
+      /* Hien's card law (a34d6d2): a collapsed card is tick-to-include, and
+         delete lives only one deliberate step away. The tick claims the right
+         gutter; Bỏ qua stays on the expanded card where its explanation is. */
+      o.removeFn = null;
+    }
     if(!csvIsOpen('dup', di)){ handledHtml += csvCollapsedCard(d.c, o); return; }
     /* duplicateOfPipeline and duplicateOfSource are the same finding from two
        places -- the pipeline spotted it at 3am, this screen spotted it just now
@@ -11924,6 +11935,9 @@ function csvDupInclude(di){
 }
 
 function csvDupSkip(di){ csvReview.dup[di].resolved='skip'; csvExpand = null; renderCsvReview(); }
+/* The parked card's tick: include-anyway in one tap. Same machinery as the
+   expanded card's "Vẫn nhập" button, so the two paths can never disagree. */
+function csvDupTick(di){ csvDisarmRemove(); csvDupInclude(di); }
 
 /* Deferred row confirmed as a real expense (or completed, for stuck rows).
    Re-enters the normal flow -- INCLUDING the dedup checks the mixed-signs
@@ -12874,7 +12888,15 @@ function bucketCsvCandidates(candidates, mixedSigns) {
     var ident = (c._hasDesc ? normDescForDedup(c.description) : '') ||
                 normDescForDedup(c.counterparty || '');
     if (ident) {
-      var key = ident + '|' + c.amount + '|' + (c.dateDisplay || '');
+      /* Bank-email rows carry a TIME, and it belongs in the key: two topups to
+         the same person for the same amount on the same DAY are how people
+         actually move money (Trang's queue held 44 of them, all parked as
+         "duplicates" nobody asked about). Same minute, same words, same amount
+         is a mail staged twice; a different minute is a different transfer.
+         File rows have no time, so for them the key is unchanged. */
+      var key = ident + '|' + c.amount + '|' + (c.dateDisplay || '')
+              + '|' + ((typeof csvStagedMode !== 'undefined' && csvStagedMode
+                        && typeof csvRowTime === 'function') ? (csvRowTime(c) || '') : '');
       if (seen[key]) { c.duplicateOfBatch = true; possibleDuplicate.push(c); return; }
       seen[key] = c;
     }

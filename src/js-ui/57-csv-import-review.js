@@ -843,7 +843,15 @@ function bucketCsvCandidates(candidates, mixedSigns) {
     var ident = (c._hasDesc ? normDescForDedup(c.description) : '') ||
                 normDescForDedup(c.counterparty || '');
     if (ident) {
-      var key = ident + '|' + c.amount + '|' + (c.dateDisplay || '');
+      /* Bank-email rows carry a TIME, and it belongs in the key: two topups to
+         the same person for the same amount on the same DAY are how people
+         actually move money (Trang's queue held 44 of them, all parked as
+         "duplicates" nobody asked about). Same minute, same words, same amount
+         is a mail staged twice; a different minute is a different transfer.
+         File rows have no time, so for them the key is unchanged. */
+      var key = ident + '|' + c.amount + '|' + (c.dateDisplay || '')
+              + '|' + ((typeof csvStagedMode !== 'undefined' && csvStagedMode
+                        && typeof csvRowTime === 'function') ? (csvRowTime(c) || '') : '');
       if (seen[key]) { c.duplicateOfBatch = true; possibleDuplicate.push(c); return; }
       seen[key] = c;
     }

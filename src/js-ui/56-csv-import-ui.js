@@ -1000,6 +1000,17 @@ function renderCsvReview(){
     var o = { label:L('Có thể trùng','Possible duplicate'), dateIso:d.c.dateDisplay, attn:true, isDup:true,
               _handled:true,
               tapFn:"csvToggleExpand('dup',"+di+")", removeFn:"csvDupSkip("+di+")" };
+    /* The tick is the ONE include verb, parked rows included: on a duplicate it
+       IS "Vẫn nhập" — unchecked at rest (parked = out of the import, honestly),
+       one tap moves the row into the ready list, checked and counted. The
+       expand path with its explanation stays for anyone who wants the why. */
+    if(csvStagedMode){
+      o.checkFn = "csvDupTick("+di+")"; o.checked = false;
+      /* Hien's card law (a34d6d2): a collapsed card is tick-to-include, and
+         delete lives only one deliberate step away. The tick claims the right
+         gutter; Bỏ qua stays on the expanded card where its explanation is. */
+      o.removeFn = null;
+    }
     if(!csvIsOpen('dup', di)){ handledHtml += csvCollapsedCard(d.c, o); return; }
     /* duplicateOfPipeline and duplicateOfSource are the same finding from two
        places -- the pipeline spotted it at 3am, this screen spotted it just now
@@ -1893,6 +1904,9 @@ function csvDupInclude(di){
 }
 
 function csvDupSkip(di){ csvReview.dup[di].resolved='skip'; csvExpand = null; renderCsvReview(); }
+/* The parked card's tick: include-anyway in one tap. Same machinery as the
+   expanded card's "Vẫn nhập" button, so the two paths can never disagree. */
+function csvDupTick(di){ csvDisarmRemove(); csvDupInclude(di); }
 
 /* Deferred row confirmed as a real expense (or completed, for stuck rows).
    Re-enters the normal flow -- INCLUDING the dedup checks the mixed-signs
