@@ -25,6 +25,7 @@
  */
 
 import { applyExtractionTemplate, deriveExtractionTemplate } from './templates.mjs';
+import { readLabelTable, maskAccount, statusReadsFailed } from './labeltable.mjs';
 import { tidyMemo, tidyMerchant } from './memo.mjs';
 import * as llm from './llm.mjs';
 
@@ -99,6 +100,13 @@ export async function readTransaction(message, db, deps) {
     // Stale-version and malformed templates both come back null from here, and
     // both mean the same thing to us: re-derive.
     const applied = applyExtractionTemplate(stored, message.body);
+    // The mail's own status row outranks the template: several stored templates
+    // STATICISED status as success at derivation, so a declined attempt off the
+    // same shape would stage as real spending. Not cached as junk — the sender
+    // is a transaction source; this one mail just reports a failure.
+    if (applied && statusReadsFailed(message.body)) {
+      return { ok: false, reason: 'not_a_transaction' };
+    }
     if (applied && applied.amount != null) {
       return {
         ok: true,
@@ -111,6 +119,37 @@ export async function readTransaction(message, db, deps) {
     // The anchors did not hold. Usually a structurally different mail from the
     // same sender (the credit variant of a debit notice), which is a
     // re-derivation, not a failure. Fall through to the model.
+  }
+
+  // ── stage 1.5: the label-table reader, locally, nothing leaves ───────────
+  // VN bank notices are two-column label/value tables off a small bilingual
+  // vocabulary; this reads that structure directly. It returns null unless the
+  // mail yields amount + timestamp + a counterpart, so anything ambiguous still
+  // falls through to the model's judgement. On success the template learner
+  // runs against ITS output exactly as it runs against the model's — a sender
+  // this tier reads once graduates to the even cheaper stored-template path,
+  // so the table walk is paid per SHAPE, not per mail.
+  if (statusReadsFailed(message.body)) {
+    return { ok: false, reason: 'not_a_transaction' };
+  }
+  const tabled = readLabelTable(message.subject, message.body);
+  if (tabled && tabled.amount != null && tabled.direction) {
+    let derivedT = null;
+    try { derivedT = deriveExtractionTemplate(message.body, tabled); } catch { derivedT = null; }
+    await db.saveFingerprint({
+      sender_address: sender,
+      subject_template: template,
+      is_transaction_source: true,
+      transaction_type: tabled.transaction_type || null,
+      extraction_regex: derivedT,
+    });
+    return {
+      ok: true,
+      extraction: _tidy(tabled, message.body),
+      stage: 'table',
+      learned: !!derivedT,
+      transactionType: tabled.transaction_type || null,
+    };
   }
 
   // ── stage 2: the model, on the mail as written ───────────────────────────
@@ -211,6 +250,11 @@ function _tidy(extraction, body) {
   // ("MB.5153-...NAP TIEN DIEN THOAI...") carries both a human part and a type
   // code, and they are worth keeping apart. Same use the forwarding pipeline
   // makes of it in _withTidyMemo.
+  // A field named `masked` holds only a masked value, whichever tier filled it
+  // — the stored templates predate this rule and capture whatever the mail
+  // printed, which for MB is the FULL account number sitting one row below the
+  // masked one.
+  out.account_masked = maskAccount(out.account_masked);
   const tidy = tidyMemo(out.memo, body);
   out.memo_display = tidy.description;
   if (tidy.code) out.type_code = tidy.code;

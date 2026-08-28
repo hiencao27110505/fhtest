@@ -422,7 +422,11 @@ console.log('\n-- decrypt and show: the app opens it --');
   t('a bank sender reads as a bank transaction', opened.transaction_type === 'bank_txn');
   t('the memo survives, which is the only field saying WHY',
     (opened.raw_extracted.memo || '').includes('ca phe sang'), JSON.stringify(opened.raw_extracted.memo));
-  t('the masked account survives', opened.raw_extracted.account_masked === '0123456789');
+  /* The model returned a FULL account number in the field named masked — banks
+     print them and models copy them. The tidy layer now enforces the name: last
+     four digits survive, the rest never reaches the sealed row. */
+  t('the account survives masked to last four', opened.raw_extracted.account_masked === '…6789');
+  t('the full number is not in the row', !JSON.stringify(opened.raw_extracted).includes('0123456789'));
   t('the transport is recorded', opened.raw_extracted._transport === 'oauth_direct');
   t('the DKIM verdict is recorded on the row', opened.raw_extracted._sender_auth.pass === true);
   t('the date came through', typeof opened.raw_extracted.occurred_at === 'string');

@@ -25,6 +25,26 @@ export const MAX_GRANTS_PER_RUN = 25;
    from actual subject text, and this is punctuation only. */
 export const SENDER_SENTINEL = '*';
 
+/* One value inside a PostgREST `in.(…)` list.
+ *
+ * Quoted, because that is what lets a value carry a space or a comma; only a
+ * quote or a backslash needs escaping inside those quotes.
+ *
+ * DELIBERATELY NOT URL-ENCODED, and this is the whole point of the helper.
+ * `fingerprint()` builds its query with URLSearchParams, which encodes every
+ * value on the way out — so a value encoded here as well arrives at PostgREST
+ * as its own percent-escapes ("Th%C3%B4ng%20b%C3%A1o") and is compared, as that
+ * literal text, against a plain-text column. Every subject containing a space
+ * missed, which is every Vietnamese bank subject there is, so the cache never
+ * hit and every mail went to the model.
+ *
+ * `alreadyStaged` below still encodes by hand, and is right to: it concatenates
+ * its query string itself, so nothing encodes it afterwards. The rule is one
+ * encoding, applied once, by whoever actually writes the URL. */
+export function inValue(v) {
+  return '"' + String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+}
+
 export function createDb(url, serviceKey, fetchImpl) {
   const doFetch = fetchImpl || globalThis.fetch;
   const base = url.replace(/\/$/, '') + '/rest/v1';
@@ -200,7 +220,7 @@ export function createDb(url, serviceKey, fetchImpl) {
       const qs = new URLSearchParams({
         select: 'sender_address,subject_template,is_transaction_source,transaction_type,extraction_regex,last_verified_at',
         sender_address: 'eq.' + sender,
-        subject_template: 'in.(' + [template, SENDER_SENTINEL].map(v => '"' + encodeURIComponent(v) + '"').join(',') + ')',
+        subject_template: 'in.(' + [template, SENDER_SENTINEL].map(inValue).join(',') + ')',
       });
       const rows = (await rest('/sender_fingerprints?' + qs.toString())) || [];
       const exact = rows.find(r => r.subject_template === template) || null;
