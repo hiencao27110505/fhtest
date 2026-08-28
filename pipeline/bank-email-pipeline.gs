@@ -425,11 +425,20 @@ function aliasAddress(tag) {
 
 function extractEmailAddress(fromHeader) {
   var match = fromHeader.match(/<(.+)>/);
-  return match ? match[1] : fromHeader;
+  // Lowercased ALWAYS: this string keys the shared sender_fingerprints cache,
+  // and the direct-read transport lowercases its side. VCB writes its own From
+  // as VCBDigibank@… — without this, the two transports learned the same bank
+  // under two keys and neither pile ever got tall enough to matter (0099
+  // merged the split that this had already caused).
+  return (match ? match[1] : fromHeader).trim().toLowerCase();
 }
 
 function normalizeSubjectTemplate(subject) {
   return subject
+    // Same rule as the direct transport (extract.mjs): a forwarded receipt is
+    // the same shape as the original, so "Fwd: Biên lai" must land on the
+    // "Biên lai" row of the shared cache.
+    .replace(/^\s*((fwd|fw|re|chuyen tiep|chuyển tiếp)\s*:\s*)+/i, '')
     .replace(/#[\w-]+/g, '')
     .replace(/\b\d{6,}\b/g, '')
     .replace(/\b\w+ \d{1,2},? \d{4}\b/g, '')

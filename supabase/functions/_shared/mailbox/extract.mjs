@@ -25,7 +25,7 @@
  */
 
 import { applyExtractionTemplate, deriveExtractionTemplate } from './templates.mjs';
-import { readLabelTable, maskAccount, statusReadsFailed } from './labeltable.mjs';
+import { readLabelTable, maskAccount, statusReadsFailed, unknownLabels } from './labeltable.mjs';
 import { tidyMemo, tidyMerchant } from './memo.mjs';
 import * as llm from './llm.mjs';
 
@@ -36,6 +36,11 @@ import * as llm from './llm.mjs';
  */
 export function normalizeSubjectTemplate(subject) {
   return String(subject || '')
+    // A forwarded receipt is the same shape as the original: "Fwd: Biên lai"
+    // must land on the "Biên lai" row, or every forwarder grows a parallel
+    // cache that never meets the bank's own. Repeated prefixes (Fwd: Fwd:)
+    // collapse in one pass.
+    .replace(/^\s*((fwd|fw|re|chuyen tiep|chuyển tiếp)\s*:\s*)+/i, '')
     .replace(/#[\w-]+/g, '')
     .replace(/\b\d{6,}\b/g, '')
     .replace(/\b\w+ \d{1,2},? \d{4}\b/g, '')
@@ -91,6 +96,7 @@ export async function readTransaction(message, db, deps) {
   // shape never repeats and every message would otherwise pay for a model call
   // to be told the same thing again.
   if (fp && fp.is_transaction_source === false) {
+    await db.bumpReadTally?.('junk_cache');
     return { ok: false, reason: 'not_a_transaction', senderWide: !!fp._sender_wide };
   }
 
@@ -105,9 +111,11 @@ export async function readTransaction(message, db, deps) {
     // same shape would stage as real spending. Not cached as junk — the sender
     // is a transaction source; this one mail just reports a failure.
     if (applied && statusReadsFailed(message.body)) {
+      await db.bumpReadTally?.('failed_status');
       return { ok: false, reason: 'not_a_transaction' };
     }
     if (applied && applied.amount != null) {
+      await db.bumpReadTally?.('template');
       return {
         ok: true,
         extraction: _tidy(applied, message.body),
@@ -130,6 +138,7 @@ export async function readTransaction(message, db, deps) {
   // this tier reads once graduates to the even cheaper stored-template path,
   // so the table walk is paid per SHAPE, not per mail.
   if (statusReadsFailed(message.body)) {
+    await db.bumpReadTally?.('failed_status');
     return { ok: false, reason: 'not_a_transaction' };
   }
   const tabled = readLabelTable(message.subject, message.body);
@@ -143,6 +152,7 @@ export async function readTransaction(message, db, deps) {
       transaction_type: tabled.transaction_type || null,
       extraction_regex: derivedT,
     });
+    await db.bumpReadTally?.('table');
     return {
       ok: true,
       extraction: _tidy(tabled, message.body),
@@ -197,6 +207,7 @@ export async function readTransaction(message, db, deps) {
       } catch (e) { /* the read stands regardless */ }
     }
 
+    await db.bumpReadTally?.('llm_junk');
     return { ok: false, reason: 'not_a_transaction' };
   }
 
@@ -205,6 +216,7 @@ export async function readTransaction(message, db, deps) {
     // built from. Not cached as a non-source: the next mail off this template
     // may well be complete, and caching "not a transaction" here would blind us
     // to the whole sender on the strength of one bad mail.
+    await db.bumpReadTally?.('unreadable');
     return { ok: false, reason: 'unreadable', detail: 'no amount or direction' };
   }
 
@@ -226,6 +238,12 @@ export async function readTransaction(message, db, deps) {
     extraction_regex: derived,
   });
 
+  await db.bumpReadTally?.('llm');
+  /* A transaction the table tier could not read is a dictionary gap. Log the
+     LABELS the mail used — bank boilerplate, no values, no amounts, nothing
+     personal — so coverage grows from real misses without storing anyone's
+     mail. This is the only "training data" this pipeline collects. */
+  await db.logMissLabels?.(sender, unknownLabels(message.body));
   return {
     ok: true,
     extraction: _tidy(extraction, message.body),

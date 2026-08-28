@@ -217,6 +217,7 @@ export function createDb(url, serviceKey, fetchImpl) {
        senders — a second round trip there would put a network hop in front of
        every junk mail. */
     async fingerprint(sender, template) {
+      sender = String(sender || '').toLowerCase();   // the cache key is case-blind, whoever calls
       const qs = new URLSearchParams({
         select: 'sender_address,subject_template,is_transaction_source,transaction_type,extraction_regex,last_verified_at',
         sender_address: 'eq.' + sender,
@@ -235,6 +236,7 @@ export function createDb(url, serviceKey, fetchImpl) {
        Only asked after a model call has already decided "not a transaction", so
        it is one query per NEW junk shape rather than per message. */
     async senderTally(sender) {
+      sender = String(sender || '').toLowerCase();
       const qs = new URLSearchParams({
         select: 'is_transaction_source',
         sender_address: 'eq.' + sender,
@@ -248,12 +250,41 @@ export function createDb(url, serviceKey, fetchImpl) {
     },
 
     async saveFingerprint(row) {
+      row = { ...row, sender_address: String(row.sender_address || '').toLowerCase() };
       await rest('/sender_fingerprints?on_conflict=sender_address,subject_template', {
         method: 'POST',
         headers: { Prefer: 'resolution=merge-duplicates' },
         body: JSON.stringify(row),
       });
     },
+
+    /* Best-effort telemetry — never awaited into a failure. bump_read_tally is
+       one upsert per read naming the tier that answered; extract_miss_labels
+       records the label vocabulary of a transaction the table tier could not
+       read (labels only — the values never leave the mail). A throw here must
+       cost nothing but the data point. */
+    async bumpReadTally(stage) {
+      try {
+        await rest('/rpc/bump_read_tally', {
+          method: 'POST',
+          body: JSON.stringify({ p_stage: String(stage || 'unknown').slice(0, 32) }),
+        });
+      } catch { /* the read stands regardless */ }
+    },
+
+    async logMissLabels(sender, labels) {
+      try {
+        if (!labels || !labels.length) return;
+        await rest('/extract_miss_labels', {
+          method: 'POST',
+          body: JSON.stringify({
+            sender_address: String(sender || '').toLowerCase(),
+            labels: labels.slice(0, 24),
+          }),
+        });
+      } catch { /* ditto */ }
+    },
+
 
     /** Bank domains, if anyone has seeded them. Empty is the normal case. */
     async providerDomains() {

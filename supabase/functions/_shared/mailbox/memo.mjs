@@ -92,8 +92,21 @@ function tidyMemo(raw, body) {
 // brand and branch — AEON is one word, QUICK SAVE MARKET is three, and nothing in
 // the string says which. Grouping branches needs a merchant dictionary, not a
 // heuristic; until that exists the full string stays the learning key.
+/* Card networks append the terminal's city and country to the merchant name —
+   "AEON NGUYEN VAN LINH HO CHI MINH VN" — which tells the cardholder where
+   their own supermarket is. Strip the tail: an optional known VN city, then the
+   country token, both only at the END of the string so a brand containing the
+   same letters mid-name is untouched. If stripping would leave nothing (the
+   merchant IS the city string), keep the original: a noisy name beats a blank. */
+var MERCHANT_CITY_TAIL_RE = new RegExp(
+  '(?:\\s+(?:TP\\.?\\s*)?(?:HO\\s*CHI\\s*MINH(?:\\s*CITY)?|HCMC|HCM|HA\\s*NOI|HANOI|DA\\s*NANG|CAN\\s*THO|' +
+  'HAI\\s*PHONG|NHA\\s*TRANG|DA\\s*LAT|DALAT|VUNG\\s*TAU|BIEN\\s*HOA|THU\\s*DUC|HUE))?\\s*(?:VIET\\s*NAM|VN)\\s*$',
+  'i');
+
 function tidyMerchant(raw) {
-  return String(raw || '').replace(MERCHANT_AGGREGATOR_RE, '').replace(/\s+/g, ' ').trim();
+  var s = String(raw || '').replace(MERCHANT_AGGREGATOR_RE, '').replace(/\s+/g, ' ').trim();
+  var stripped = s.replace(MERCHANT_CITY_TAIL_RE, '').trim();
+  return stripped || s;
 }
 
 // Adds memo_display + type_code without touching memo. Both are additive, so an

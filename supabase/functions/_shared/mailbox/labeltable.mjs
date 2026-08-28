@@ -34,7 +34,12 @@
  *  matters where vocabularies overlap: the first hit wins, so the more specific
  *  entry sits above the generic one ("số tiền phí" must never read as amount). */
 const LABELS = [
-  { field: 'charge',       any: ['so tien phi', 'charge amount', 'loai phi'] },     // above amount: absorbs fee rows
+  /* The absorber row. Sits ABOVE amount so that any "số tiền …" variant that
+     is NOT the transaction amount — fees, promo/cashback figures, reward
+     points — is swallowed here instead of contains-matching into `amount`.
+     Found by a test fixture: "Số tiền khuyến mãi" read as the amount. */
+  { field: 'charge',       any: ['so tien phi', 'charge amount', 'loai phi',
+                                 'khuyen mai', 'so tien hoan', 'cashback', 'diem thuong', 'tich diem'] },
   { field: 'amount',       any: ['so tien giao dich', 'so tien', 'transaction amount', 'amount'] },
   { field: 'occurred_at',  any: ['ngay, gio giao dich', 'ngay gio giao dich', 'trans. date', 'date, time', 'thoi gian giao dich'] },
   { field: 'merchant',     any: ['diem giao dich', 'su dung tai', 'merchant'] },
@@ -172,6 +177,28 @@ export function statusReadsFailed(body) {
     return /khong thanh cong|that bai|tu choi|bi huy|failed|declined|unsuccessful|reversed/.test(_strip(row.value));
   }
   return false;
+}
+
+/** Label cells the dictionary did NOT resolve — the one piece of "training
+ *  data" this pipeline is allowed to collect. Labels are the bank's own
+ *  boilerplate ("Số tiền khuyến mãi", "Mã đơn hàng"); the VALUES never leave.
+ *  Pipe rows give labels directly; in line form a label is guessed by shape —
+ *  short, no digit runs, sitting right above a line that has digits. */
+export function unknownLabels(body) {
+  const out = new Set();
+  const lines = String(body || '').split('\n').map((l) => l.trim());
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line) continue;
+    if (line.includes('|')) {
+      const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
+      if (cells.length === 2 && !_lookup(cells[0]) && cells[0].length <= 60 && !/\d{4,}/.test(cells[0])) out.add(cells[0]);
+      continue;
+    }
+    if (_lookup(line)) continue;
+    if (line.length <= 48 && !/\d/.test(line) && /\d/.test(lines[i + 1] || '')) out.add(line);
+  }
+  return [...out].slice(0, 24);
 }
 
 export function readLabelTable(subject, body) {
