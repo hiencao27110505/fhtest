@@ -430,9 +430,30 @@ fhSyncOnline();
    build. reg.waiting.postMessage('SKIP_WAITING') → the SW activates → controllerchange
    → reload into the new build. */
 var __fhSWReg=null, __fhSwapping=false;
+/* iOS kills the whole app process on background (not just suspends the tab), and
+   WebKit's SW byte-comparison doesn't reliably survive that: on relaunch it can
+   reinstall a worker that is functionally identical to the one already active,
+   which still fires 'installed' beside a controller and looks exactly like a real
+   update. Ask both workers what build they are before trusting that signal — only
+   a genuine mismatch is worth surfacing the chip for. Either side not answering
+   (older worker, no MessageChannel support) falls back to trusting the browser. */
+function fhSwVersion(worker){
+  return new Promise(function(resolve){
+    if(!worker){ resolve(null); return; }
+    var ch=new MessageChannel(), settled=false;
+    ch.port1.onmessage=function(ev){ settled=true; resolve(ev.data||null); };
+    try{ worker.postMessage({type:'GET_VERSION'},[ch.port2]); }catch(e){ resolve(null); return; }
+    setTimeout(function(){ if(!settled) resolve(null); },1500);
+  });
+}
 function fhUpdateReady(reg){
   __fhSWReg=reg||__fhSWReg;
-  if(__fhSWReg && __fhSWReg.waiting) document.documentElement.classList.add('fh-newver');   // reveal the chip
+  if(!__fhSWReg || !__fhSWReg.waiting) return;
+  var waiting=__fhSWReg.waiting, active=navigator.serviceWorker.controller;
+  Promise.all([fhSwVersion(waiting),fhSwVersion(active)]).then(function(v){
+    if(v[0] && v[1] && v[0]===v[1]) return;   // same build, nothing to apply
+    document.documentElement.classList.add('fh-newver');   // reveal the chip
+  });
 }
 function fhApplyUpdate(){
   var reg=__fhSWReg;

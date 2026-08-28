@@ -1,5 +1,5 @@
 /* FamilyHub — offline-first service worker */
-const CACHE_NAME = 'familyhub-v432';
+const CACHE_NAME = 'familyhub-v433';
 /* Photos live in their own cache, deliberately NOT tied to CACHE_NAME. Folding
    them together would throw every photo away on each app release, which is the
    exact re-download this cache exists to prevent. Nothing here ever goes stale:
@@ -42,6 +42,10 @@ self.addEventListener('install', (e) => {
 // background, or from enc-recovery (which needs an immediate self-heal reload).
 self.addEventListener('message', (e) => {
   if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
+  // Lets the page tell a genuinely new build apart from iOS's occasional false
+  // reinstall of a byte-identical worker after the app process is killed and
+  // relaunched (see fhUpdateReady in 80-onboard-boot.js).
+  if (e.data && e.data.type === 'GET_VERSION' && e.ports && e.ports[0]) e.ports[0].postMessage(CACHE_NAME);
 });
 
 self.addEventListener('activate', (e) => {
