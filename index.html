@@ -3000,6 +3000,16 @@ html.fh-can-install .set-row.set-install{display:flex}
    so we give it the app's plain white bordered row instead. */
 #csv-result.staged .bulk-card.attn:not(.active){background:var(--white);border-color:var(--hairline)}
 
+/* Hien's collapsed-card law (a34d6d2), restored verbatim after a wholesale CSS
+   port of mine clobbered it: tick-to-include at the TOP-RIGHT (block layout +
+   absolute, with the tap area reserving a right gutter so nothing runs under
+   the tick), and the ✕ delete gone from collapsed cards — deleting lives only
+   on the expanded card, one deliberate step away. */
+#csv-result.staged .bulk-card:not(.active){display:block;position:relative}
+#csv-result.staged .bulk-card:not(.active) .bulk-tap{width:100%;padding:12px 52px 12px 16px}
+#csv-result.staged .bulk-card:not(.active) .bulk-check{position:absolute;right:6px;top:5px}
+#csv-result.staged .bulk-card:not(.active) .bulk-x{display:none}
+
 /* ── Staged-review tools header (#txh) ───────────────────────────────────────
    Between the nav and the scroller; the list pushes, never slides under.
    Selection is ELEVATION, never a stroke: staged things rise (white fill,
