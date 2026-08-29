@@ -379,32 +379,56 @@ export function createDb(url, serviceKey, fetchImpl) {
        than return an empty set. Failing open here stages everything twice. */
     async alreadyStaged(messageIds, memberId, ownerUserId) {
       if (!messageIds.length) return new Set();
-      // Each id is encoded on its own and the commas stay literal. Encoding the
-      // joined string instead turns the SEPARATORS into %2C, which happens to
-      // survive PostgREST's decode today but makes the query's meaning depend on
-      // decode order rather than on what was written.
-      const list = messageIds.map(id => '"' + encodeURIComponent(id) + '"').join(',');
-      const staged = await rest(
-        '/email_transactions?select=gmail_message_id&gmail_message_id=in.(' + list + ')');
-      const done = new Set((staged || []).map(r => r.gmail_message_id));
 
-      // Scoped to the member: one person finishing with a message says nothing
-      // about another who connected the same shared mailbox. Without a member
-      // the resolved half is skipped rather than asked unscoped — a global
-      // answer here would hide one person's mail behind another's decision.
-      /* Scoped by owner where there is one, member otherwise. Since 0092 the
-         tombstone table is KEYED on owner — a personal-only user has no member
-         to key on, and a tombstone that cannot be written is a message that
-         comes back on every wide read forever. Asking unscoped would be worse
-         than not asking: one person's decision would hide another's mail. */
+      /* CHUNKED, and the chunk size is the whole point (2026-08-29).
+      
+         This used to put every listed id into one `in.(…)` URL. At 90 days that
+         is ~230 ids and about 5KB, which works; at 365 days it is 800+ and about
+         19KB, which Cloudflare rejects with a bare HTTP/2 stream error. The throw
+         landed before any message was read, so a 365-day backfill produced no
+         rows, no read tally, no stall counter and no cursor move — it looked
+         exactly like a mailbox that had nothing in it. Found on a real connect.
+      
+         150 ids is ~2.9KB of query string, comfortably inside every proxy limit
+         with room for the base URL, and costs one extra round trip per 150
+         messages — nothing against the per-message fetches that follow. */
+      const CHUNK = 150;
+      const done = new Set();
+
+      // Scoped by owner where there is one, member otherwise. Since 0092 the
+      // tombstone table is KEYED on owner — a personal-only user has no member
+      // to key on, and a tombstone that cannot be written is a message that
+      // comes back on every wide read forever. Asking unscoped would be worse
+      // than not asking: one person's decision would hide another's mail.
       const scope = ownerUserId
         ? 'owner_user_id=eq.' + encodeURIComponent(ownerUserId)
         : (memberId ? 'member_id=eq.' + encodeURIComponent(memberId) : null);
-      if (scope) {
-        const resolved = await rest(
-          '/resolved_email_messages?select=gmail_message_id&' + scope +
-          '&gmail_message_id=in.(' + list + ')');
-        for (const r of (resolved || [])) done.add(r.gmail_message_id);
+
+      for (let i = 0; i < messageIds.length; i += CHUNK) {
+        // Each id is encoded on its own and the commas stay literal. Encoding
+        // the joined string instead turns the SEPARATORS into %2C, which happens
+        // to survive PostgREST's decode today but makes the query's meaning
+        // depend on decode order rather than on what was written.
+        const list = messageIds.slice(i, i + CHUNK)
+          .map(id => '"' + encodeURIComponent(id) + '"').join(',');
+
+        /* "Have we finished with this message?" — which is NOT the same question
+           as "is it in email_transactions?", and the difference is what let a
+           widened backfill re-stage 42 transactions a person had already
+           promoted. A promotion DELETES the staged row, so the table alone
+           forgets; `resolved_email_messages` (0090) keeps the id and nothing
+           else. Both are asked, and a failure of either must THROW rather than
+           return an empty set — failing open here stages everything twice. */
+        const staged = await rest(
+          '/email_transactions?select=gmail_message_id&gmail_message_id=in.(' + list + ')');
+        for (const r of (staged || [])) done.add(r.gmail_message_id);
+
+        if (scope) {
+          const resolved = await rest(
+            '/resolved_email_messages?select=gmail_message_id&' + scope +
+            '&gmail_message_id=in.(' + list + ')');
+          for (const r of (resolved || [])) done.add(r.gmail_message_id);
+        }
       }
       return done;
     },

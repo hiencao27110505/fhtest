@@ -274,6 +274,38 @@ const GRANT = (over = {}) => ({
     t('a stalled run reports itself in the summary status', /summary\.status = 'stalled'/.test(w));
   }
 
+
+  console.log('\n-- 6. a 365-day window must not build one giant URL (live incident) --');
+  {
+    const fs3 = require('fs');
+    const d3 = fs3.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'mailbox', 'db.mjs'), 'utf8');
+    const w3 = fs3.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'mailbox', 'worker.mjs'), 'utf8');
+
+    t('alreadyStaged chunks its id list', /const CHUNK = \d+;/.test(d3) && /i \+= CHUNK/.test(d3));
+
+    /* The real assertion: drive it with a 365-day-sized id list and prove no
+       single request URL gets anywhere near a proxy limit. This is the bug that
+       made a 365-day backfill stage nothing at all. */
+    const { createDb } = await import(M('db.mjs'));
+    const urls = [];
+    const db = createDb('https://x.supabase.co', 'k', async (u) => {
+      urls.push(String(u));
+      return { ok: true, status: 200, text: async () => '[]', headers: { get: () => null } };
+    });
+    const ids = Array.from({ length: 900 }, (_, i) => '19f' + i.toString(16).padStart(13, '0'));
+    await db.alreadyStaged(ids, null, 'owner-1');
+    const longest = urls.reduce((m, u) => Math.max(m, u.length), 0);
+    t('900 ids produce many small requests, not one huge one', urls.length >= 12, 'requests=' + urls.length);
+    t('and the longest URL stays well under a proxy limit',
+      longest < 6000, 'longest=' + longest + ' chars');
+
+    console.log('\n-- 7. the prefetch cannot hand the loop a null batch --');
+    t('the budget no longer gates prefetching (free tiers must keep reading)',
+      /const more = c \+ 1 < chunks\.length;/.test(w3));
+    t('and an absent prefetch degrades to an empty batch, never null',
+      /const batch = \(await inflight\) \|\| \[\];/.test(w3));
+  }
+
   console.log(fail ? '\n' + fail + ' FAILED\n' : '\nall ' + pass + ' passed\n');
   process.exit(fail ? 1 : 0);
 })();

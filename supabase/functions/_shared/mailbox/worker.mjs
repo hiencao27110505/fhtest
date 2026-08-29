@@ -35,7 +35,7 @@ import { decryptToken } from './token-crypto.mjs';
  *  because "which code is actually deployed" once cost hours of guessing; this
  *  worker had no equivalent, and answering that question is exactly what made
  *  the 28 Aug incident review slow. Bump on any deploy. */
-export const BUILD_ID = '2026-08-29-stall';
+export const BUILD_ID = '2026-08-29-urlfix';
 
 /** How many consecutive no-progress runs before a stalled backfill is allowed
  *  to send its completion notice anyway (0101).
@@ -407,11 +407,19 @@ export async function runGrant(grant, ctx) {
   let inflight = chunks.length ? _fetchChunk(chunks[0]) : null;
 
   for (let c = 0; c < chunks.length; c++) {
-    const batch = await inflight;
-    // Start the NEXT download while this batch is being decided on. The budget
-    // pre-scan is meaningful here for the first time: by now the loop below has
-    // actually spent some of it.
-    const more = (c + 1 < chunks.length) && !(ctx.budget && ctx.budget.left && ctx.budget.left() <= 0);
+    const batch = (await inflight) || [];
+    /* Start the NEXT download while this batch is being decided on.
+    
+       NO BUDGET PRE-SCAN ANY MORE (2026-08-29). It stopped prefetching once the
+       model budget was gone, which made sense while budget exhaustion abandoned
+       the window — but the loop below now CONTINUES, and the two cheap tiers
+       cost no budget at all. Skipping those fetches would strand exactly the
+       mail a stored template reads for free, which is the thing `continue` was
+       added to stop.
+    
+       It was also a live crash: setting `inflight = null` with chunks still to
+       go meant the next iteration awaited null and tried to iterate it. */
+    const more = c + 1 < chunks.length;
     inflight = more ? _fetchChunk(chunks[c + 1]) : null;
 
     /* One fingerprint query for this chunk's senders, for the ones we have not
