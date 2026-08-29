@@ -22,24 +22,31 @@ const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok 
 
 // The rule, extracted from source so it cannot drift from what ships.
 const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '57-csv-import-review.js'), 'utf8');
-const block = src.slice(src.indexOf('    if (staged) {\n      var srow'), src.indexOf('    var ident ='));
-t('the instant check runs BEFORE the text check', block.includes("'inst|'"));
-t('it keys on the exact occurred_at, not the day', /inst\|'\s*\+\s*inst\s*\+\s*'\|'\s*\+\s*c\.amount/.test(block));
-t('it is staged-only — file rows have no instant', src.indexOf('if (staged) {\n      var srow') < src.indexOf('var ident ='));
+t('the survivor is chosen by information, not arrival order',
+  /csvInfoScore\(c\)\s*>\s*csvInfoScore\(held\)/.test(src));
+t('it keys on the exact instant, not the day', /var k = inst \+ '\|' \+ c\.amount/.test(src));
+t('a description outranks every other signal', /if \(desc\) score \+= 100/.test(src));
+t('the pre-pass runs before any text check',
+  src.indexOf('richest[k] = c') < src.indexOf("var ident = (c._hasDesc"));
 
-// Behavioural model of the same rule.
+// Behavioural model: the shipped scorer, evaluated on real shapes.
+function csvRowTime(c){ return c.time || ''; }
+const scoreSrc = src.slice(src.indexOf('function csvInfoScore'), src.indexOf('function csvCanonicalProvider'));
+eval(scoreSrc);
+
 function bucket(rows, stagedRows){
-  const seen = {}, dup = [], ready = [];
+  const richest = {}, dup = [], ready = [];
   rows.forEach(c => {
     const srow = stagedRows[c.rowIndex];
     const inst = srow && srow.occurred_at;
-    if (inst && c.amount) {
-      const k = 'inst|' + inst + '|' + c.amount;
-      if (seen[k]) { dup.push(c); return; }
-      seen[k] = c;
-    }
-    ready.push(c);
+    if (!inst || !c.amount) return;
+    const k = inst + '|' + c.amount;
+    const held = richest[k];
+    if (!held) { richest[k] = c; return; }
+    if (csvInfoScore(c) > csvInfoScore(held)) { held._dupOfRicher = true; richest[k] = c; }
+    else { c._dupOfRicher = true; }
   });
+  rows.forEach(c => (c._dupOfRicher ? dup : ready).push(c));
   return { ready, dup };
 }
 
@@ -55,6 +62,23 @@ let r = bucket([
 t('one survives', r.ready.length === 1);
 t('the other is flagged, despite carrying no text at all', r.dup.length === 1);
 t('the copy WITH a description is the one kept', r.ready[0].rowIndex === 0);
+
+console.log('\n-- and the richest wins even when it arrives SECOND --');
+r = bucket([
+  { rowIndex: 0, amount: 24000, description: '' },                                  // blank copy first
+  { rowIndex: 1, amount: 24000, description: 'TRAN THI CAM NHUNG - 018100XXX1246' },
+], staged);
+t('arrival order does not decide it', r.ready.length === 1 && r.ready[0].rowIndex === 1);
+t('the blank copy is the one flagged', r.dup.length === 1 && r.dup[0].rowIndex === 0);
+
+console.log('\n-- richness ranks the way a person reads the card --');
+t('a description beats a category alone',
+  csvInfoScore({ description: 'AEON' }) > csvInfoScore({ categoryName: 'Đi chợ' }));
+t('the more specific description wins',
+  csvInfoScore({ description: 'TRAN THI CAM NHUNG - 018100XXX1246' }) > csvInfoScore({ description: 'MB' }));
+t('with equal descriptions, a category breaks the tie',
+  csvInfoScore({ description: 'AEON', categoryName: 'Đi chợ' }) > csvInfoScore({ description: 'AEON' }));
+t('an empty copy scores lowest of all', csvInfoScore({}) < csvInfoScore({ description: 'x' }));
 
 console.log('\n-- two real payments, same amount, different seconds --');
 r = bucket([

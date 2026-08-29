@@ -12849,6 +12849,25 @@ function fhProviderName(name){
 }
 window.fhProviderName = fhProviderName;
 
+/* How much a candidate actually TELLS someone, for picking between copies of
+   one payment. Ordered by what a person reads first on the card: a real
+   description outranks everything (and a longer one is usually the more
+   specific one — a beneficiary name over a bare merchant code), then a
+   category, then the smaller corroborating details. Deliberately not a
+   proxy for "which transport": transports change, informativeness is the
+   thing actually wanted. */
+function csvInfoScore(c) {
+  if (!c) return -1;
+  var desc = String(c.description || '').trim();
+  var score = 0;
+  if (desc) score += 100 + Math.min(desc.length, 40);
+  if (c.categoryName) score += 20;
+  if (String(c.counterparty || '').trim()) score += 10;
+  if (typeof csvRowTime === 'function' && csvRowTime(c)) score += 5;
+  if (String(c.reference_number || '').trim()) score += 2;
+  return score;
+}
+
 function csvCanonicalProvider(name) {
   if (!name) return '';
   var s = deburr(String(name)).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -12909,7 +12928,45 @@ function bucketCsvCandidates(candidates, mixedSigns) {
 
   var ready = [], needsCategoryGroups = {}, possibleDuplicate = [], deferred = [];
 
+  /* ONE PAYMENT, THE RICHEST COPY — decided before anything else is bucketed.
+
+     A payment can reach us more than once (both transports live, a bank that
+     notifies twice, a forward someone sent by hand), and we cannot stop that
+     from the client, so the job is to survive it well. The copies are never
+     equally informative: one carries the beneficiary, another only the bank's
+     boilerplate memo that tidy correctly empties, leaving "(không có mô tả)".
+     Keying the check on TEXT is what let those diverge and both slip through —
+     the identity has to be something no wording can reshape.
+
+     So: amount + the exact SECOND, which is the identity the pipeline's own
+     fingerprint uses. Two payments cannot share both; two copies of one payment
+     always do. Whichever copy says the most survives, the rest are flagged —
+     never the other way round, and never "first one wins", because arrival
+     order is an accident and the person is left reading whichever it picked.
+
+     Requires a real instant: a day-only date would collapse two honest
+     same-amount purchases, so those fall through to the text rule below, as do
+     all file-import rows. */
+  if (staged) {
+    var richest = {};
+    candidates.forEach(function(c){
+      var srow = (window._fhStagedRows || [])[c.rowIndex];
+      var inst = srow && srow.occurred_at;
+      if (!inst || !c.amount) return;
+      var k = inst + '|' + c.amount;
+      var held = richest[k];
+      if (!held) { richest[k] = c; return; }
+      if (csvInfoScore(c) > csvInfoScore(held)) { held._dupOfRicher = true; richest[k] = c; }
+      else { c._dupOfRicher = true; }
+    });
+  }
+
   candidates.forEach(function(c) {
+    /* A poorer copy of a payment kept elsewhere in this batch. Flagged here,
+       before the text checks, because its whole problem is that its text no
+       longer matches its twin's. */
+    if (c._dupOfRicher) { c.duplicateOfBatch = true; possibleDuplicate.push(c); return; }
+
     if (mixedSigns || c.isIncome || c.isTransfer || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
       deferred.push(c); return;
     }
@@ -12930,33 +12987,6 @@ function bucketCsvCandidates(candidates, mixedSigns) {
        With neither a description nor a counterparty there is nothing to compare,
        so the row is simply not deduped. A missed duplicate costs one tap to skip;
        a false one hides a real transaction behind a decision nobody asked for. */
-    /* TEXT-FREE FIRST, for staged rows. Trang caught this: the duplicates only
-       became visible after the memo work, and she was right that the tidying
-       caused it — though it created no duplicates. Both transports have always
-       ingested every bank email twice (the mailbox reader and the forwarding
-       alias), and the pipeline lets that pass on purpose: both copies canonicalise
-       to the same bank, and "same bank" means "a real separate transaction" there.
-       The in-batch check below was the net that caught them — and it is keyed on
-       TEXT. It worked while both copies carried the same raw memo. Tidy then
-       correctly emptied that boilerplate ("X chuyen tien"), so one copy fell back
-       to its counterparty and the forwarded copy, which has none, fell to nothing:
-       two different idents, no match, both rows shown.
-
-       Amount + the exact SECOND it occurred is the identity the pipeline's own
-       fingerprint uses. It needs no text, so no tidying can reshape it, and no
-       provider spelling can split it. Two payments cannot share an amount and a
-       second; two ingestions of one payment always do. Requires a real instant —
-       a day-only date would collapse two honest same-amount purchases. */
-    if (staged) {
-      var srow = (window._fhStagedRows || [])[c.rowIndex];
-      var inst = srow && srow.occurred_at;
-      if (inst && c.amount) {
-        var ikey = 'inst|' + inst + '|' + c.amount;
-        if (seen[ikey]) { c.duplicateOfBatch = true; possibleDuplicate.push(c); return; }
-        seen[ikey] = c;
-      }
-    }
-
     var ident = (c._hasDesc ? normDescForDedup(c.description) : '') ||
                 normDescForDedup(c.counterparty || '');
     if (ident) {
