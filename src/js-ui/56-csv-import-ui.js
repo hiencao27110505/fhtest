@@ -48,27 +48,54 @@ function csvSaveDispatch(){ return csvStagedMode ? fhPromoteStaged() : csvPromot
    Remembered across sessions: someone whose bank mail is mostly personal should
    not re-pick it every morning. Never remembered as 'personal' when the personal
    ledger cannot actually be written to — see csvScopeReady. */
-var CSV_SCOPE_KEY = 'fh-staged-scope';
+/* ── Destination scope: contextual, not sticky ───────────────────────────────
+   Where an UNDECIDED card goes is the ENTRY CONTEXT — the ledger the review
+   screen was opened from. Open the queue from the Cá nhân (Personal) tab and cards
+   default to your personal ledger; open it from a space (family) ledger and they
+   default to that space. The context is set fresh at every open (fhTxnReviewSheet)
+   and never persisted, so the entry source is always the source of truth and one
+   tab's choice can never leak into the other's next open — the bug this replaces,
+   where a persisted 'fh-staged-scope' global let a Personal open bleed into a
+   later Family open, and the Family entry (which set nothing) simply inherited
+   whatever was last chosen.
+
+   window.csvEntryScope is a DESCRIPTOR — {kind:'personal'} | {kind:'space', id}.
+   Today there is exactly one space (the active family), so a space descriptor
+   resolves to the legacy 'family' key the rest of this engine still compares
+   against. csvStagedScope is the SINGLE seam a future multi-space world changes:
+   give the descriptor a real space id and resolve it to that ledger there. */
+window.fhNormScope = function(scope){
+  var fid = window.DB && window.DB.fid;
+  if(!scope) return { kind:'space', id:fid };                 // no entry hint -> the shared ledger
+  if(typeof scope === 'string')
+    return scope==='personal' ? { kind:'personal' } : { kind:'space', id:fid };
+  if(scope.kind==='personal') return { kind:'personal' };
+  return { kind:'space', id: scope.id || fid };               // a space; carries its own id for the future
+};
+function csvEntryScopeDesc(){
+  var d = window.csvEntryScope;
+  return (d && d.kind) ? d : window.fhNormScope(null);
+}
 function csvScopeReady(){
   var pd = window.fhPersonalData && window.fhPersonalData();
   return !!(pd && pd.key);
 }
+/* The default destination for an undecided card: the entry context, resolved to
+   today's ledger keys. A personal context on a LOCKED personal ledger falls back
+   to the space, so a row is never stranded where it cannot be written. */
 function csvStagedScope(){
-  if(!csvScopeReady()) return 'family';            // locked ledger -> never offer to lose the row
-  try{ return localStorage.getItem(CSV_SCOPE_KEY)==='personal' ? 'personal' : 'family'; }
-  catch(e){ return 'family'; }
+  var d = csvEntryScopeDesc();
+  if(d.kind==='personal') return csvScopeReady() ? 'personal' : 'family';
+  return 'family';                                            // a space; today the active family
 }
-/* Persist only. Split out from csvPickScope because an ENTRY POINT needs to
-   pre-scope before the review screen exists — opening the queue from the Cá nhân
-   tab means personal, the same way openPersonalExpense() presets the expense
-   modal. Returns whether it took, so a caller can tell refusal from success.
-
-   Refusing when the ledger is locked is the point: csvStagedScope() would fall
-   back to family anyway, and persisting a choice that does not apply would make
-   the picker disagree with itself the moment the ledger unlocks. */
+/* Set the SESSION context (never persisted). Used by the entry point's pre-scope
+   and by in-session overrides — a per-row pick's cascade to still-undecided rows,
+   and the tools-header default setter. Reset on the next open (fhTxnReviewSheet),
+   so it can never become the sticky global that caused cross-tab leakage. Returns
+   whether it took, so a caller can tell refusal (locked) from success. */
 function csvSetScope(v){
   if(v==='personal' && !csvScopeReady()) return false;
-  try{ localStorage.setItem(CSV_SCOPE_KEY, v); }catch(e){}
+  window.csvEntryScope = window.fhNormScope(v);
   return true;
 }
 function csvPickScope(v){

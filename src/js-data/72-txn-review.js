@@ -153,14 +153,17 @@
        • linked           → the review sheet, which itself shows an empty modal
                             when there is nothing, or the list of cards. */
   window.fhEmailTxnCta = async function (preset) {
-    /* Opening the queue from the Cá nhân tab means "these are mine" — the same
-       affordance openPersonalExpense() gives the expense modal. Pre-scoping is
-       refused silently when the personal ledger is locked, because the picker
-       shows that state and explains it far better than a toast fired from a tap
-       on something else. */
-    if (preset && preset.scope && typeof window.csvSetScope === 'function') {
-      window.csvSetScope(preset.scope);
-    }
+    /* The entry SOURCE is the context. Opening from the Cá nhân tab means "these
+       are mine" and defaults the cards to the personal ledger — the same affordance
+       openPersonalExpense() gives the expense modal; opening from a space (family)
+       ledger defaults them to that space. Carried as a per-open descriptor (never
+       persisted) and applied at the sheet, so the source is always the source of
+       truth and neither tab's choice leaks into the other's next open. A future
+       space (trip/friends) passes its own {kind:'space', id} and reuses this
+       screen unchanged. A personal context on a locked ledger is handled at the
+       card default (csvStagedScope falls back to the space), so nothing is refused
+       on the tap here. */
+    var ctx = window.fhNormScope ? window.fhNormScope(preset && preset.scope) : null;
     /* BOTH transports count as set up, and checking only one was a real bug:
        this asked about the forwarding alias alone, so someone already connected
        by OAuth — no alias, a perfectly working mailbox, transactions arriving —
@@ -182,7 +185,7 @@
       })(),
     ]);
 
-    if (fwd || oauth) return window.fhTxnReviewSheet && window.fhTxnReviewSheet();
+    if (fwd || oauth) return window.fhTxnReviewSheet && window.fhTxnReviewSheet(ctx);
     return window.fhEmailSetupChooser
       ? window.fhEmailSetupChooser(preset)
       : (window.fhMailboxSheet && window.fhMailboxSheet());
@@ -437,7 +440,7 @@
     });
   }
 
-  window.fhTxnReviewSheet = async function () {
+  window.fhTxnReviewSheet = async function (ctx) {
     // Key-mismatch alarm latched (18-staging-keys): approval is frozen for the
     // whole family until a verify passes again. Re-show the explanation rather
     // than a dead queue — the freeze must never look like a bug.
@@ -445,6 +448,13 @@
       window.fhStagingAlarmShow && window.fhStagingAlarmShow();
       return;
     }
+    /* Entry context = the source of truth for THIS open, set here because every
+       entry funnels through this one function — the two CTAs (which pass a scope)
+       and the direct opens from push / OAuth settings / the settings row (which
+       pass nothing and so default to the shared ledger). Set fresh each open and
+       never persisted, so the card defaults reflect where the screen was opened
+       from and a previous open's choice cannot linger. */
+    window.csvEntryScope = window.fhNormScope ? window.fhNormScope(ctx) : (ctx || null);
     _txrLoadShow(L('Đang tải giao dịch…', 'Loading transactions…'));
     var raw;
     try {

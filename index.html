@@ -10101,27 +10101,54 @@ function csvSaveDispatch(){ return csvStagedMode ? fhPromoteStaged() : csvPromot
    Remembered across sessions: someone whose bank mail is mostly personal should
    not re-pick it every morning. Never remembered as 'personal' when the personal
    ledger cannot actually be written to — see csvScopeReady. */
-var CSV_SCOPE_KEY = 'fh-staged-scope';
+/* ── Destination scope: contextual, not sticky ───────────────────────────────
+   Where an UNDECIDED card goes is the ENTRY CONTEXT — the ledger the review
+   screen was opened from. Open the queue from the Cá nhân (Personal) tab and cards
+   default to your personal ledger; open it from a space (family) ledger and they
+   default to that space. The context is set fresh at every open (fhTxnReviewSheet)
+   and never persisted, so the entry source is always the source of truth and one
+   tab's choice can never leak into the other's next open — the bug this replaces,
+   where a persisted 'fh-staged-scope' global let a Personal open bleed into a
+   later Family open, and the Family entry (which set nothing) simply inherited
+   whatever was last chosen.
+
+   window.csvEntryScope is a DESCRIPTOR — {kind:'personal'} | {kind:'space', id}.
+   Today there is exactly one space (the active family), so a space descriptor
+   resolves to the legacy 'family' key the rest of this engine still compares
+   against. csvStagedScope is the SINGLE seam a future multi-space world changes:
+   give the descriptor a real space id and resolve it to that ledger there. */
+window.fhNormScope = function(scope){
+  var fid = window.DB && window.DB.fid;
+  if(!scope) return { kind:'space', id:fid };                 // no entry hint -> the shared ledger
+  if(typeof scope === 'string')
+    return scope==='personal' ? { kind:'personal' } : { kind:'space', id:fid };
+  if(scope.kind==='personal') return { kind:'personal' };
+  return { kind:'space', id: scope.id || fid };               // a space; carries its own id for the future
+};
+function csvEntryScopeDesc(){
+  var d = window.csvEntryScope;
+  return (d && d.kind) ? d : window.fhNormScope(null);
+}
 function csvScopeReady(){
   var pd = window.fhPersonalData && window.fhPersonalData();
   return !!(pd && pd.key);
 }
+/* The default destination for an undecided card: the entry context, resolved to
+   today's ledger keys. A personal context on a LOCKED personal ledger falls back
+   to the space, so a row is never stranded where it cannot be written. */
 function csvStagedScope(){
-  if(!csvScopeReady()) return 'family';            // locked ledger -> never offer to lose the row
-  try{ return localStorage.getItem(CSV_SCOPE_KEY)==='personal' ? 'personal' : 'family'; }
-  catch(e){ return 'family'; }
+  var d = csvEntryScopeDesc();
+  if(d.kind==='personal') return csvScopeReady() ? 'personal' : 'family';
+  return 'family';                                            // a space; today the active family
 }
-/* Persist only. Split out from csvPickScope because an ENTRY POINT needs to
-   pre-scope before the review screen exists — opening the queue from the Cá nhân
-   tab means personal, the same way openPersonalExpense() presets the expense
-   modal. Returns whether it took, so a caller can tell refusal from success.
-
-   Refusing when the ledger is locked is the point: csvStagedScope() would fall
-   back to family anyway, and persisting a choice that does not apply would make
-   the picker disagree with itself the moment the ledger unlocks. */
+/* Set the SESSION context (never persisted). Used by the entry point's pre-scope
+   and by in-session overrides — a per-row pick's cascade to still-undecided rows,
+   and the tools-header default setter. Reset on the next open (fhTxnReviewSheet),
+   so it can never become the sticky global that caused cross-tab leakage. Returns
+   whether it took, so a caller can tell refusal (locked) from success. */
 function csvSetScope(v){
   if(v==='personal' && !csvScopeReady()) return false;
-  try{ localStorage.setItem(CSV_SCOPE_KEY, v); }catch(e){}
+  window.csvEntryScope = window.fhNormScope(v);
   return true;
 }
 function csvPickScope(v){
@@ -15655,7 +15682,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v434';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v435';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -23559,14 +23586,17 @@ window.classifyAmount = classifyAmount;
        • linked           → the review sheet, which itself shows an empty modal
                             when there is nothing, or the list of cards. */
   window.fhEmailTxnCta = async function (preset) {
-    /* Opening the queue from the Cá nhân tab means "these are mine" — the same
-       affordance openPersonalExpense() gives the expense modal. Pre-scoping is
-       refused silently when the personal ledger is locked, because the picker
-       shows that state and explains it far better than a toast fired from a tap
-       on something else. */
-    if (preset && preset.scope && typeof window.csvSetScope === 'function') {
-      window.csvSetScope(preset.scope);
-    }
+    /* The entry SOURCE is the context. Opening from the Cá nhân tab means "these
+       are mine" and defaults the cards to the personal ledger — the same affordance
+       openPersonalExpense() gives the expense modal; opening from a space (family)
+       ledger defaults them to that space. Carried as a per-open descriptor (never
+       persisted) and applied at the sheet, so the source is always the source of
+       truth and neither tab's choice leaks into the other's next open. A future
+       space (trip/friends) passes its own {kind:'space', id} and reuses this
+       screen unchanged. A personal context on a locked ledger is handled at the
+       card default (csvStagedScope falls back to the space), so nothing is refused
+       on the tap here. */
+    var ctx = window.fhNormScope ? window.fhNormScope(preset && preset.scope) : null;
     /* BOTH transports count as set up, and checking only one was a real bug:
        this asked about the forwarding alias alone, so someone already connected
        by OAuth — no alias, a perfectly working mailbox, transactions arriving —
@@ -23588,7 +23618,7 @@ window.classifyAmount = classifyAmount;
       })(),
     ]);
 
-    if (fwd || oauth) return window.fhTxnReviewSheet && window.fhTxnReviewSheet();
+    if (fwd || oauth) return window.fhTxnReviewSheet && window.fhTxnReviewSheet(ctx);
     return window.fhEmailSetupChooser
       ? window.fhEmailSetupChooser(preset)
       : (window.fhMailboxSheet && window.fhMailboxSheet());
@@ -23843,7 +23873,7 @@ window.classifyAmount = classifyAmount;
     });
   }
 
-  window.fhTxnReviewSheet = async function () {
+  window.fhTxnReviewSheet = async function (ctx) {
     // Key-mismatch alarm latched (18-staging-keys): approval is frozen for the
     // whole family until a verify passes again. Re-show the explanation rather
     // than a dead queue — the freeze must never look like a bug.
@@ -23851,6 +23881,13 @@ window.classifyAmount = classifyAmount;
       window.fhStagingAlarmShow && window.fhStagingAlarmShow();
       return;
     }
+    /* Entry context = the source of truth for THIS open, set here because every
+       entry funnels through this one function — the two CTAs (which pass a scope)
+       and the direct opens from push / OAuth settings / the settings row (which
+       pass nothing and so default to the shared ledger). Set fresh each open and
+       never persisted, so the card defaults reflect where the screen was opened
+       from and a previous open's choice cannot linger. */
+    window.csvEntryScope = window.fhNormScope ? window.fhNormScope(ctx) : (ctx || null);
     _txrLoadShow(L('Đang tải giao dịch…', 'Loading transactions…'));
     var raw;
     try {
