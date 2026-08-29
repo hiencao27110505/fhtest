@@ -832,7 +832,34 @@ function csvStagedCrossSourceDup(c, provider, currency, kind, priors) {
    bucketing, so a row can't land in "ready" while also being a duplicate. */
 function bucketCsvCandidates(candidates, mixedSigns) {
   var seen = {}; // normDesc+amount -> first candidate seen
-  var existingTxns = window.txns || [];
+  /* THE LEDGER THIS IMPORT WILL LAND IN — both of them, when both are in play.
+
+     `window.txns` is the FAMILY ledger, and for a long time it was the only
+     thing a candidate was cross-matched against. Since Model Y a staged row can
+     just as easily be written to the person's own book (and since the mailbox
+     grant defaults to personal, most of them are) — so a personal import was
+     checked against a ledger it was never going to touch, and re-importing the
+     same batch stacked it silently. Nothing anywhere said so: the rows are
+     ciphertext on the server, so no query notices either.
+
+     Both books are now offered to the cross-match. That is deliberately wider
+     than "the book this row is going to": destination is per-row and editable
+     right up until Import, so narrowing it would make the check depend on a
+     decision the person has not finished making. A hit in either book is worth
+     the same one tap. */
+  var existingTxns = (function(){
+    var fam = window.txns || [];
+    var pd = (typeof window.fhPersonalData === 'function') ? window.fhPersonalData() : null;
+    var mine = (pd && pd.txns) || [];
+    if (!mine.length) return fam;
+    /* The family list carries Date objects on `_d`; the personal cache carries
+       a 'YYYY-MM-DD' string. Normalise here rather than in the matcher, so the
+       matcher keeps one shape to reason about. */
+    var norm = mine.map(function(t){
+      return { amt: t.amt, _d: t.date ? new Date(t.date + 'T00:00:00') : null, _personal: true };
+    }).filter(function(t){ return t._d && t.amt != null; });
+    return fam.concat(norm);
+  })();
   var staged = !!window.csvStagedMode;
   var priors = [];   // staged rows already bucketed, for the cross-source check
 
