@@ -12930,6 +12930,33 @@ function bucketCsvCandidates(candidates, mixedSigns) {
        With neither a description nor a counterparty there is nothing to compare,
        so the row is simply not deduped. A missed duplicate costs one tap to skip;
        a false one hides a real transaction behind a decision nobody asked for. */
+    /* TEXT-FREE FIRST, for staged rows. Trang caught this: the duplicates only
+       became visible after the memo work, and she was right that the tidying
+       caused it — though it created no duplicates. Both transports have always
+       ingested every bank email twice (the mailbox reader and the forwarding
+       alias), and the pipeline lets that pass on purpose: both copies canonicalise
+       to the same bank, and "same bank" means "a real separate transaction" there.
+       The in-batch check below was the net that caught them — and it is keyed on
+       TEXT. It worked while both copies carried the same raw memo. Tidy then
+       correctly emptied that boilerplate ("X chuyen tien"), so one copy fell back
+       to its counterparty and the forwarded copy, which has none, fell to nothing:
+       two different idents, no match, both rows shown.
+
+       Amount + the exact SECOND it occurred is the identity the pipeline's own
+       fingerprint uses. It needs no text, so no tidying can reshape it, and no
+       provider spelling can split it. Two payments cannot share an amount and a
+       second; two ingestions of one payment always do. Requires a real instant —
+       a day-only date would collapse two honest same-amount purchases. */
+    if (staged) {
+      var srow = (window._fhStagedRows || [])[c.rowIndex];
+      var inst = srow && srow.occurred_at;
+      if (inst && c.amount) {
+        var ikey = 'inst|' + inst + '|' + c.amount;
+        if (seen[ikey]) { c.duplicateOfBatch = true; possibleDuplicate.push(c); return; }
+        seen[ikey] = c;
+      }
+    }
+
     var ident = (c._hasDesc ? normDescForDedup(c.description) : '') ||
                 normDescForDedup(c.counterparty || '');
     if (ident) {
