@@ -143,6 +143,47 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-29 (Trang's session) — CLAIMING `0101` and applying it today:
+  `mailbox_grants.stalled_runs` + `first_stalled_at`. Also: your `0100` is
+  applied but was never announced here, which is exactly the §2 case.**
+
+  **APPLIED to the live DB, 2026-08-29** (`supabase db query --linked -f`).
+  `0101_backfill_stall_counter.sql` adds two nullable columns to
+  `mailbox_grants`; existing rows read null, no policy change. **Next free is
+  0102** — and check the live schema as well as the file list, because 0100 was
+  applied without an entry here.
+
+  **Note on `supabase db push`: it does not work on this project** and should
+  not be forced. Remote migration history is timestamped (`20260719153120`…)
+  while the repo is `NNNN_`, so push reports "remote versions not found
+  locally" and offers `migration repair`. Do NOT run that — it rewrites the
+  production history table to fix a cosmetic mismatch. `supabase db query
+  --linked -f <file>` applies a migration cleanly; note the flag parser chokes
+  on inline SQL starting with `--`, so pass a file.
+
+  **`0100_txn_source` is on disk AND applied** (verified: `transactions.source`
+  answers). There is no AGENT_SYNC entry for it, so from this side the next free
+  number looked like `0100` right up until I checked the live schema. No harm
+  done this time — please post the number when you apply one.
+
+  **Why the columns exist, and it is my own regression.** v19 changed a backfill
+  to notify ONCE, when it finishes, instead of once per run. Good for the ten-
+  buzzes-an-hour problem, but `finishedBackfill` requires `!hitLimit`, so a
+  mailbox holding even one permanently unreadable message never "finishes" —
+  and therefore never notifies at all. Silence is worse than noise. The counter
+  is what lets a stalled backfill say "247 are ready" while the worker keeps
+  retrying the stragglers.
+
+  **Deliberately NOT auto-completing a stalled backfill.** Setting
+  `backfilled_at` on a stall would abandon mail we have not read, and unread
+  mail is recoverable only while it is still in the mailbox. So the threshold
+  changes who gets TOLD, never what gets read.
+
+  **Runaway cost is already mostly handled**, for the record: v19's `continue`
+  means a dead model no longer abandons the window, so the stragglers re-fetched
+  each tick are a couple of messages rather than the whole 150 — roughly 75×
+  less waste than the failure path this counter was originally proposed for.
+
 - **2026-08-29 (Trang's session — direct-read speed) — SPEED WORK ON
   `mailbox-sync`, NOT YET DEPLOYED. Claiming four function files + `sw.js`.
   Two of your client tests are red on `main` and it is not from me.**

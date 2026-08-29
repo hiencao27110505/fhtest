@@ -198,8 +198,10 @@ const GRANT = (over = {}) => ({
     /hitLimit = true;\s*\n\s*continue;/.test(src));
   t('a backfill only notifies when it has finished',
     /finishedBackfill\s*=\s*backfilling && !hitLimit && !moreQueued/.test(src));
+  /* The invariant, not the shape: whatever the backfill branch grows into,
+     a NON-backfill run must still notify whenever it staged anything. */
   t('an ordinary poll still notifies per run',
-    /backfilling \? finishedBackfill : summary\.staged > 0/.test(src));
+    /:\s*summary\.staged > 0;/.test(src) && /const shouldNotify = backfilling/.test(src));
   t('the next chunk is requested before the current one is decided',
     /inflight = more \? _fetchChunk/.test(src));
   t('an abandoned prefetch is awaited, so it cannot reject unhandled',
@@ -227,6 +229,50 @@ const GRANT = (over = {}) => ({
   t('the cache name was bumped so poisoned entries are evicted',
     /familyhub-v43[5-9]|familyhub-v4[4-9]\d/.test(sw), (sw.match(/familyhub-v\d+/) || [])[0]);
   t('the media cache is still NOT tied to CACHE_NAME', /familyhub-media-v2/.test(sw));
+
+
+  console.log('\n-- 5. a stalled backfill speaks, but never abandons mail (0101) --');
+  {
+    const fs2 = require('fs');
+    const w = fs2.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'mailbox', 'worker.mjs'), 'utf8');
+    const d2 = fs2.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'mailbox', 'db.mjs'), 'utf8');
+    const mig = fs2.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '0101_backfill_stall_counter.sql'), 'utf8');
+
+    t('a threshold exists and is not hair-trigger',
+      typeof W.STALL_NOTIFY_AFTER === 'number' && W.STALL_NOTIFY_AFTER >= 10,
+      String(W.STALL_NOTIFY_AFTER));
+    t('a no-progress backfill run is what counts as a stall',
+      /backfillStalled = backfilling && summary\.staged === 0 && \(hitLimit \|\| moreQueued\)/.test(w));
+    t('progress clears the streak', /clearStall\(grant\.id\)/.test(w));
+    t('a stalled backfill is allowed to notify', /stalledEnoughToSpeak/.test(w));
+    t('and the notify gate now admits both finished AND stalled',
+      /\(finishedBackfill \|\| stalledEnoughToSpeak\)/.test(w));
+
+    /* The load-bearing one. A stall must change who is TOLD, never what is
+       READ — setting backfilled_at here would abandon unread mail. */
+    const markSyncedCall = w.slice(w.indexOf('if (!hitLimit && !moreQueued)'), w.indexOf('Stall bookkeeping'));
+    t('backfilled_at is STILL only set by a genuinely finished run',
+      /markSynced/.test(markSyncedCall) && !/stalled/i.test(markSyncedCall));
+    t('and the stall path never writes backfilled_at anywhere',
+      !/stalledEnoughToSpeak[\s\S]{0,400}backfilled_at:/.test(w));
+
+    t('db can record and clear a stall', /async recordStall\(/.test(d2) && /async clearStall\(/.test(d2));
+    t('first_stalled_at is only set on the first stall of a streak',
+      /grant\.first_stalled_at \|\| new Date\(\)\.toISOString\(\)/.test(w));
+    t('the grant projection actually selects the new columns, or they read undefined',
+      (d2.match(/stalled_runs,first_stalled_at/g) || []).length >= 2);
+    /* The property is that the ADDED COLUMNS carry no NOT NULL constraint —
+       an existing row must stay valid without a backfill. Checking the whole
+       file for "not null" was wrong: the partial index legitimately says
+       `where stalled_runs is not null`. */
+    const addStmt = (mig.match(/alter table[\s\S]*?;/i) || [''])[0];
+    t('the migration is additive', /add column if not exists/.test(addStmt));
+    t('and the added columns are nullable, so existing rows stay valid',
+      !/not\s+null/i.test(addStmt), addStmt.replace(/\s+/g, ' ').slice(0, 120));
+    t('the migration says it must not abandon mail',
+      /never sets `backfilled_at`|never sets backfilled_at|NOT set/i.test(mig));
+    t('a stalled run reports itself in the summary status', /summary\.status = 'stalled'/.test(w));
+  }
 
   console.log(fail ? '\n' + fail + ' FAILED\n' : '\nall ' + pass + ' passed\n');
   process.exit(fail ? 1 : 0);

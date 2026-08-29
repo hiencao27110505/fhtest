@@ -85,7 +85,7 @@ export function createDb(url, serviceKey, fetchImpl) {
      */
     async dueGrants(limit) {
       const qs = new URLSearchParams({
-        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,default_scope,backfill_days',
+        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,default_scope,backfill_days,stalled_runs,first_stalled_at',
         needs_reauth: 'eq.false',
         // Direction spelled out: PostgREST's order grammar is
         // `col.dir.nullsorder`, and a bare `.nullsfirst` is not reliably parsed.
@@ -109,7 +109,7 @@ export function createDb(url, serviceKey, fetchImpl) {
      */
     async grantByEmail(email, folded) {
       const q = e => new URLSearchParams({
-        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,watch_expires_at,default_scope,backfill_days',
+        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,watch_expires_at,default_scope,backfill_days,stalled_runs,first_stalled_at',
         email: 'eq.' + e,
         needs_reauth: 'eq.false',
         limit: '1',
@@ -154,6 +154,37 @@ export function createDb(url, serviceKey, fetchImpl) {
         limit: String(limit || 25),
       });
       return (await rest('/mailbox_grants?' + qs.toString())) || [];
+    },
+
+    /* A backfill run that staged nothing new, counted (0101).
+    
+       Two fields because "stuck for 40 runs" and "stuck since 09:12" answer
+       different questions, and the second is the one that tells a human whether
+       this is a blip or a rotated API key. `first_stalled_at` is only written
+       on the FIRST stall of a streak, so it keeps meaning "since when".
+    
+       Best-effort throughout: this is bookkeeping about a run that already
+       decided what it was doing, and failing to record a stall must never fail
+       the run that noticed it. */
+    async recordStall(grantId, runs, firstStalledAt) {
+      try {
+        const patch = { stalled_runs: runs, updated_at: new Date().toISOString() };
+        if (firstStalledAt) patch.first_stalled_at = firstStalledAt;
+        await rest('/mailbox_grants?id=eq.' + encodeURIComponent(grantId), {
+          method: 'PATCH', body: JSON.stringify(patch),
+        });
+      } catch { /* bookkeeping, never fatal */ }
+    },
+
+    /* Progress clears the streak. Called only when a run actually staged
+       something, so a mailbox that recovers stops looking stuck immediately. */
+    async clearStall(grantId) {
+      try {
+        await rest('/mailbox_grants?id=eq.' + encodeURIComponent(grantId), {
+          method: 'PATCH',
+          body: JSON.stringify({ stalled_runs: 0, first_stalled_at: null }),
+        });
+      } catch { /* ditto */ }
     },
 
     async markNeedsReauth(grantId) {

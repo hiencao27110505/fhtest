@@ -35,7 +35,22 @@ import { decryptToken } from './token-crypto.mjs';
  *  because "which code is actually deployed" once cost hours of guessing; this
  *  worker had no equivalent, and answering that question is exactly what made
  *  the 28 Aug incident review slow. Bump on any deploy. */
-export const BUILD_ID = '2026-08-29-speed';
+export const BUILD_ID = '2026-08-29-stall';
+
+/** How many consecutive no-progress runs before a stalled backfill is allowed
+ *  to send its completion notice anyway (0101).
+ *
+ *  THE THRESHOLD DECIDES WHO IS TOLD, NEVER WHAT IS READ. `backfilled_at` stays
+ *  null through all of this, so the worker keeps retrying the stragglers and no
+ *  mail is ever abandoned — getting this number wrong costs an early
+ *  notification, not a transaction.
+ *
+ *  Twelve, because the fast lane (0097) runs a stalled backfill once a minute
+ *  and a transient model outage should not trigger it: twelve minutes of zero
+ *  progress is a real problem, two minutes is a blip. On the 5-minute poll the
+ *  same number is an hour, which is also the right shape — a mailbox that has
+ *  staged nothing for an hour is not mid-flight. */
+export const STALL_NOTIFY_AFTER = 12;
 
 /** The FLOOR for an ordinary poll. Overlap is intentional: cheap, and it covers
  *  a mail that arrived while the previous run was mid-flight. The actual window
@@ -534,9 +549,39 @@ export async function runGrant(grant, ctx) {
   
      An ordinary poll is unchanged: it has no completion moment to wait for, and
      one push for one arrival is the whole point of it. */
+  /* Stall bookkeeping (0101). A backfill run that staged nothing new is the
+     shape of a mailbox that cannot finish — one permanently unreadable message
+     is enough to hold `hitLimit` high forever, and before this the person got
+     no notification at all because a backfill only spoke when it finished.
+  
+     Progress clears the streak; no progress extends it. Nothing here changes
+     what gets read or whether the cursor moves. */
+  const backfillStalled = backfilling && summary.staged === 0 && (hitLimit || moreQueued);
+  let stalledRuns = Number(grant.stalled_runs) || 0;
+  if (backfilling && ctx.db.recordStall) {
+    if (summary.staged > 0) {
+      if (stalledRuns > 0 && ctx.db.clearStall) { await ctx.db.clearStall(grant.id); }
+      stalledRuns = 0;
+    } else if (backfillStalled) {
+      stalledRuns += 1;
+      await ctx.db.recordStall(grant.id, stalledRuns,
+        grant.first_stalled_at || new Date().toISOString());
+    }
+  }
+  summary.stalledRuns = stalledRuns;
+
   const finishedBackfill = backfilling && !hitLimit && !moreQueued;
+  /* A backfill that has stopped making progress is allowed to speak once, so
+     the person is not left with a full queue and silence. It is still NOT
+     marked finished: `backfilled_at` is untouched above, the stragglers keep
+     being retried, and if they ever land the normal completion notice follows.
+     `>=` rather than `===` so a mailbox that was already past the threshold
+     when this shipped is not skipped. */
+  const stalledEnoughToSpeak = backfilling && !finishedBackfill
+    && stalledRuns >= (ctx.stallNotifyAfter ?? STALL_NOTIFY_AFTER);
+
   let notifyCount = summary.staged;
-  if (finishedBackfill && ctx.db.pendingCount) {
+  if ((finishedBackfill || stalledEnoughToSpeak) && ctx.db.pendingCount) {
     /* The exact number waiting, asked once. A total accumulated across runs
        would drift the first time a run died halfway; counting at the end
        cannot, and this is the only moment it is ever asked. */
@@ -545,15 +590,18 @@ export async function runGrant(grant, ctx) {
                     || summary.staged;
     } catch { /* fall back to this run's share */ }
   }
-  const shouldNotify = backfilling ? finishedBackfill : summary.staged > 0;
+  const shouldNotify = backfilling
+    ? (finishedBackfill || stalledEnoughToSpeak)
+    : summary.staged > 0;
   if (shouldNotify && notifyCount > 0 && ctx.notify) {
-    try { await ctx.notify(grant, notifyCount, { backfill: finishedBackfill }); }
+    try { await ctx.notify(grant, notifyCount, { backfill: finishedBackfill || stalledEnoughToSpeak }); }
     catch { /* never fails a run */ }
   }
   summary.notified = !!(shouldNotify && notifyCount > 0);
 
   if (hitLimit) summary.status = 'held';
   else if (moreQueued) summary.status = 'more';   // healthy, just not finished
+  if (stalledRuns >= (ctx.stallNotifyAfter ?? STALL_NOTIFY_AFTER)) summary.status = 'stalled';
   return summary;
 }
 
