@@ -232,6 +232,36 @@ export function createDb(url, serviceKey, fetchImpl) {
       return sentinel ? { ...sentinel, _sender_wide: true } : null;
     },
 
+    /* Every fingerprint for a set of senders, in ONE query (2026-08-29).
+    
+       `fingerprint()` above is a round trip per message, and a backfill is
+       hundreds of messages against a handful of distinct senders — so the same
+       few rows were fetched over and over. The worker now warms this once per
+       window and answers from memory, which took a 228-message backfill from
+       228 lookups to one.
+    
+       Returns a Map keyed `sender\u0000subject_template`, holding the same row
+       shape `fingerprint()` returns so the caller can share one code path. The
+       sentinel rows come back under the `*` key and the caller applies the same
+       exact-beats-sentinel rule. */
+    async fingerprintsForSenders(senderAddresses) {
+      const list = [...new Set((senderAddresses || []).filter(Boolean))];
+      if (!list.length) return new Map();
+      const out = new Map();
+      // Chunked: a URL has a length limit and a busy window can touch many
+      // senders. 40 keeps the query string well inside every proxy's ceiling.
+      for (let i = 0; i < list.length; i += 40) {
+        const chunk = list.slice(i, i + 40);
+        const qs = new URLSearchParams({
+          select: 'sender_address,subject_template,is_transaction_source,transaction_type,extraction_regex,last_verified_at',
+          sender_address: 'in.(' + chunk.map(inValue).join(',') + ')',
+        });
+        const rows = (await rest('/sender_fingerprints?' + qs.toString())) || [];
+        for (const r of rows) out.set(r.sender_address + '\u0000' + r.subject_template, r);
+      }
+      return out;
+    },
+
     /* How much this sender has cost, and whether it has ever paid off.
        Only asked after a model call has already decided "not a transaction", so
        it is one query per NEW junk shape rather than per message. */
@@ -346,6 +376,26 @@ export function createDb(url, serviceKey, fetchImpl) {
         for (const r of (resolved || [])) done.add(r.gmail_message_id);
       }
       return done;
+    },
+
+    /* How many rows are waiting for this person, exactly.
+    
+       Asked once per mailbox in its lifetime — when a backfill finishes — so the
+       one notification that read can honestly say how much arrived. A running
+       total threaded through the runs would drift the moment a run failed
+       halfway; counting at the end cannot. Uses a HEAD request with an exact
+       count, so nothing is transferred but the number. */
+    async pendingCount(memberId, ownerUserId) {
+      const scope = ownerUserId
+        ? 'owner_user_id=eq.' + encodeURIComponent(ownerUserId)
+        : (memberId ? 'member_id=eq.' + encodeURIComponent(memberId) : null);
+      if (!scope) return 0;
+      const res = await doFetch(
+        base + '/email_transactions?select=id&review_status=eq.pending&' + scope,
+        { method: 'HEAD', headers: { ...headers, Prefer: 'count=exact' } });
+      const range = res.headers.get('content-range') || '';
+      const n = Number(String(range).split('/')[1]);
+      return Number.isFinite(n) ? n : 0;
     },
 
     /** Candidate duplicates: same member, same fingerprint, within the window. */

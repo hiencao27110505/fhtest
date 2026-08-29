@@ -31,6 +31,12 @@ import * as gmail from './gmail.mjs';
 import * as mailtext from './mailtext.mjs';
 import { decryptToken } from './token-crypto.mjs';
 
+/** What build is live. The Apps Script logs its own version on every run
+ *  because "which code is actually deployed" once cost hours of guessing; this
+ *  worker had no equivalent, and answering that question is exactly what made
+ *  the 28 Aug incident review slow. Bump on any deploy. */
+export const BUILD_ID = '2026-08-29-speed';
+
 /** The FLOOR for an ordinary poll. Overlap is intentional: cheap, and it covers
  *  a mail that arrived while the previous run was mid-flight. The actual window
  *  is measured from the last successful poll — see `windowDays`. */
@@ -68,10 +74,34 @@ export const BACKFILL_DAYS = 90;
  *  Renewing on the last day would leave none. */
 export const RENEW_WITHIN_SECONDS = 2 * 86400;
 
-/** Per-run ceilings. A run has a function timeout and a free-tier model quota,
- *  and both are better spent across mailboxes than exhausted on one. */
-export const MAX_MESSAGES_PER_GRANT = 40;
-export const MAX_MODEL_CALLS_PER_RUN = 10;
+/** Per-run ceilings. A run has a function timeout and a model quota, and both
+ *  are better spent across mailboxes than exhausted on one.
+ *
+ *  40 → 120 (2026-08-29). The old number was sized when a catch-up after an
+ *  outage was rare; `windowDays` widens the window automatically, so the poll
+ *  path does face backlogs, and capping at 40 turned one outage into three
+ *  runs. At the measured cost of a cache-hit row (~24ms) and 20 fetch lanes,
+ *  120 costs about eight seconds. */
+export const MAX_MESSAGES_PER_GRANT = 120;
+
+/** The model-call ceiling, now PER GRANT rather than per run (2026-08-29).
+ *
+ *  It was one pool of 10 shared by every mailbox in a run, which produced the
+ *  exact outcome the comment above set out to prevent: with grants running
+ *  concurrently, whichever reached the model first drained the pool and the
+ *  others got nothing. A per-grant budget is what "spent across mailboxes
+ *  rather than exhausted on one" actually means.
+ *
+ *  10 → 40 for two reasons. The free-tier quota it was sized against is not the
+ *  tier in force (the key reports serviceTier "standard"), and at the measured
+ *  1.54s per call, 40 calls is ~62s — comfortably inside the function timeout
+ *  where 10 used barely a third of the available wall clock. This ceiling only
+ *  binds when the fingerprint cache is missing; in a healthy week the whole
+ *  fleet spends one or two calls a day. */
+export const MAX_MODEL_CALLS_PER_GRANT = 40;
+
+/** Kept as an alias so an older caller passing `maxModelCalls` still works. */
+export const MAX_MODEL_CALLS_PER_RUN = MAX_MODEL_CALLS_PER_GRANT;
 
 /** The staging ceiling for a FIRST read, which is a different size of problem.
  *
@@ -83,8 +113,15 @@ export const MAX_MODEL_CALLS_PER_RUN = 10;
  *
  *  Raised for the backfill path only. An ordinary poll has nothing like this
  *  many messages waiting, so a larger cap there would buy nothing and would
- *  make one busy mailbox able to crowd out the others in a shared run. */
-export const BACKFILL_STAGE_MAX = 150;
+ *  make one busy mailbox able to crowd out the others in a shared run.
+ *
+ *  150 → 400 (2026-08-29). A real 90-day history measured 228 messages, which
+ *  at 150 was two runs and therefore two notifications; 400 makes the ordinary
+ *  case one run and one notification. The ceiling that matters is the function
+ *  timeout: 400 rows is ~26s of pooled fetching plus ~10s of processing, well
+ *  inside it. The listing cap below is what keeps a genuinely huge mailbox from
+ *  trying to do a year in one pass. */
+export const BACKFILL_STAGE_MAX = 400;
 
 /** How many ids ONE RUN may list, on any path.
  *
@@ -148,11 +185,20 @@ export function windowDays(lastSyncedAt, nowMs) {
  *  time, at roughly 1.3 seconds each. Six at a time turns a 40-message run from
  *  ~50 seconds of waiting into ~9, and the work per message is unchanged.
  *
- *  Six rather than "as many as there are": Gmail rate-limits per user, a burst
- *  of forty concurrent gets is exactly what that limit is for, and being
- *  throttled costs more than the waiting it saved. It is also small enough that
- *  a mailbox failing mid-run has only a handful of in-flight requests to lose. */
-export const FETCH_CONCURRENCY = 6;
+ *  Bounded rather than "as many as there are": Gmail rate-limits per user, and
+ *  being throttled costs more than the waiting it saves.
+ *
+ *  6 → 20 (2026-08-29), against the documented budget rather than caution. The
+ *  per-user limit is ~250 quota units per second and `messages.get` costs 5, so
+ *  roughly 50 requests per second are allowed. At 1.3s per call, six lanes used
+ *  ~4.6/s — nine per cent of what was on offer, while fetching was 65% of a
+ *  backfill run's wall clock. Twenty lanes use ~15/s, still under a third of
+ *  the limit, and cut a 228-message backfill's fetching from 49s to 15s.
+ *
+ *  The per-user framing matters: concurrent grants read DIFFERENT mailboxes, so
+ *  they do not share this budget with each other. What they do share is this
+ *  process, which is why GRANT_CONCURRENCY stays where it is. */
+export const FETCH_CONCURRENCY = 20;
 
 /** How many MAILBOXES may be worked at once.
  *
@@ -184,7 +230,11 @@ async function _pooled(items, limit, worker) {
 
 export async function runAll(ctx) {
   const grants = await ctx.db.dueGrants(ctx.maxGrants);
-  const budget = _budget(ctx.maxModelCalls ?? MAX_MODEL_CALLS_PER_RUN);
+  /* A FRESH budget per grant, not one pool shared by the run (2026-08-29).
+     Shared, the first mailbox to reach the model drained it and the rest of the
+     run got none — the opposite of what the ceiling is for. Minted inside the
+     lane below so each mailbox gets its own. */
+  let modelCalls = 0;
   /* Mailboxes run concurrently. One failing must still not stop the others —
      that was true when this was a sequential loop and is more important now, so
      every rejection is caught INSIDE the lane and turned into a result. A throw
@@ -192,7 +242,10 @@ export async function runAll(ctx) {
   const results = await _pooled(grants, ctx.grantConcurrency ?? GRANT_CONCURRENCY,
     async (grant) => {
       try {
-        return await runGrant(grant, { ...ctx, budget });
+        const budget = _budget(ctx.maxModelCalls ?? MAX_MODEL_CALLS_PER_GRANT);
+        const out = await runGrant(grant, { ...ctx, budget });
+        modelCalls += budget.used();
+        return out;
       } catch (e) {
         return {
           grantId: grant.id, email: grant.email,
@@ -200,7 +253,7 @@ export async function runAll(ctx) {
         };
       }
     });
-  return { polled: grants.length, modelCalls: budget.used(), results };
+  return { polled: grants.length, modelCalls, results, build: BUILD_ID };
 }
 
 /**
@@ -286,6 +339,12 @@ export async function runGrant(grant, ctx) {
   const moreQueued = allFresh.length > fresh.length;
   summary.queued = allFresh.length - fresh.length;
 
+  /* The fingerprint cache for this whole window, warmed in one query, filled in
+     as messages arrive. Senders are only known once a message is fetched, so
+     this starts empty and is topped up per chunk below — still one query per
+     chunk of twenty rather than one per message. */
+  const warmFingerprints = new Map();
+
   let hitLimit = false;
 
   /* FETCHED CONCURRENTLY, PROCESSED IN ORDER — and the split is the whole point.
@@ -304,25 +363,65 @@ export async function runGrant(grant, ctx) {
      and stranding messages behind it. */
   const lanes = ctx.fetchConcurrency ?? FETCH_CONCURRENCY;
 
-  /* Fetched a CHUNK at a time rather than all at once, so a window that stops
-     early stops fetching too. The model budget can exhaust on the fifth message
-     of forty; prefetching all forty would spend thirty-five round trips on mail
-     this run was never going to reach, and a backfill raises that cap further.
-     One chunk of waste is the most this can lose. */
-  const fetched = [];
-  for (let i = 0; i < fresh.length; i += lanes) {
-    if (hitLimit) break;
-    const chunk = await _pooled(fresh.slice(i, i + lanes), lanes, async (id) => {
-      try { return { id, message: await gmail.getMessage(id, access, ctx.fetch, mailtext) }; }
-      catch (e) { return { id, error: e }; }
-    });
-    for (const got of chunk) fetched.push(got);
-    // Cheap pre-scan: the loop below is what actually decides, but knowing the
-    // budget is gone lets the NEXT chunk not be fetched at all.
-    if (ctx.budget && ctx.budget.left && ctx.budget.left() <= 0) break;
-  }
+  /* FETCH AND PROCESS ARE INTERLEAVED, one chunk ahead (2026-08-29).
+  
+     They used to be two passes: fetch the entire window, then process it. That
+     had two costs. The wall clock was fetch + process when it could be roughly
+     max(fetch, process), and — worse — a run that stopped early had already
+     paid for every download it was never going to use. A backfill capped at ten
+     model calls downloaded a hundred and fifty messages to stage ten, and did it
+     again on the next tick.
+  
+     Now the next chunk is requested BEFORE the current one is processed, so the
+     network waits behind decisions instead of in front of them, and a run that
+     stops early has at most one chunk in flight to waste.
+  
+     What did NOT change is the ordering that matters: decisions still happen
+     strictly in message order, one at a time. The model budget is still spent in
+     sequence, dedup still compares each row against ones already staged in this
+     same window, and a fetch error is still raised in ITS OWN position rather
+     than surfacing early and stranding messages behind it. */
+  const _fetchChunk = (slice) => _pooled(slice, lanes, async (id) => {
+    try { return { id, message: await gmail.getMessage(id, access, ctx.fetch, mailtext) }; }
+    catch (e) { return { id, error: e }; }
+  });
 
-  for (const got of fetched) {
+  const chunks = [];
+  for (let i = 0; i < fresh.length; i += lanes) chunks.push(fresh.slice(i, i + lanes));
+
+  let inflight = chunks.length ? _fetchChunk(chunks[0]) : null;
+
+  for (let c = 0; c < chunks.length; c++) {
+    const batch = await inflight;
+    // Start the NEXT download while this batch is being decided on. The budget
+    // pre-scan is meaningful here for the first time: by now the loop below has
+    // actually spent some of it.
+    const more = (c + 1 < chunks.length) && !(ctx.budget && ctx.budget.left && ctx.budget.left() <= 0);
+    inflight = more ? _fetchChunk(chunks[c + 1]) : null;
+
+    /* One fingerprint query for this chunk's senders, for the ones we have not
+       already loaded. Twenty messages from three senders costs one round trip
+       instead of twenty. */
+    if (ctx.db.fingerprintsForSenders) {
+      const need = [];
+      for (const g of batch) {
+        const from = g.message && g.message.from;
+        if (!from) continue;
+        const addr = String(from).match(/<([^>]+)>/);
+        const a = (addr ? addr[1] : from).trim().toLowerCase();
+        if (a && !warmFingerprints.has(a + '\u0000__loaded')) need.push(a);
+      }
+      if (need.length) {
+        try {
+          const got = await ctx.db.fingerprintsForSenders(need);
+          for (const [k, v] of got) warmFingerprints.set(k, v);
+          for (const a of need) warmFingerprints.set(a + '\u0000__loaded', true);
+        } catch { /* fall back to per-message lookups */ }
+      }
+    }
+
+    const fetched = batch;
+    for (const got of fetched) {
     const id = got.id;
     if (got.error) throw got.error;
     const message = got.message;
@@ -349,14 +448,22 @@ export async function runGrant(grant, ctx) {
     try {
       read = await readTransaction(message, ctx.db, {
         llm: ctx.llm, fetch: ctx.fetch, budget: ctx.budget,
+        fingerprints: warmFingerprints.size ? warmFingerprints : null,
       });
     } catch (e) {
-      // The model is unreachable or out of quota. HOLD the whole mailbox: the
-      // cursor stays put and this message is read again next poll. Carrying on
-      // through the rest of the window would advance past mail we never read.
+      /* The model is unreachable or out of quota. The mailbox is HELD — the
+         cursor stays put and this message is read again next poll.
+      
+         CONTINUE rather than break (2026-08-29). Holding is about the CURSOR,
+         and `hitLimit` already takes care of that: `markSynced` below refuses to
+         advance while it is set, so nothing is skipped either way. Breaking also
+         abandoned every remaining message in the window, including the ones that
+         needed no model at all — one unknown sender could strand a hundred rows
+         a stored template would have read for free. Those now stage normally and
+         only the model-needing ones wait for the next tick. */
       summary.held++;
       hitLimit = true;
-      break;
+      continue;
     }
 
     if (!read.ok) {
@@ -384,7 +491,12 @@ export async function runGrant(grant, ctx) {
     if (row.duplicate_of_id) summary.duplicates++;
     if (await ctx.db.insertStaged(row)) summary.staged++;
     else summary.skipped++;      // raced with another run; the guard held
+    }
   }
+
+  /* A prefetch we decided not to use must still be awaited, or its rejection
+     surfaces as an unhandled promise after the run has already returned. */
+  if (inflight) { try { await inflight; } catch { /* abandoned on purpose */ } }
 
   // Written last, and only when this run actually FINISHED the window: nothing
   // held, and nothing left queued. Both are the same rule seen from two angles —
@@ -407,13 +519,38 @@ export async function runGrant(grant, ctx) {
       : {});
   }
 
-  // One notification per run per mailbox, not one per transaction: a bank that
-  // sends five mails in a burst is one thing to look at, not five. It carries no
-  // amount and no merchant — the fact that something is waiting is the whole
-  // message, and the payload travels through a service that must not learn more.
-  if (summary.staged > 0 && ctx.notify) {
-    try { await ctx.notify(grant, summary.staged); } catch { /* never fails a run */ }
+  /* One notification per run per mailbox, not one per transaction: a bank that
+     sends five mails in a burst is one thing to look at, not five. It carries no
+     amount and no merchant — the fact that something is waiting is the whole
+     message, and the payload travels through a service that must not learn more.
+  
+     AND NOTHING AT ALL WHILE A BACKFILL IS STILL RUNNING (2026-08-29). A first
+     read is the one time this pipeline stages history in bulk, and announcing
+     each run of it turned "we found your last three months" into ten buzzes in
+     an hour — during the exact minutes someone is deciding whether the feature
+     is worth keeping. So a backfill stays silent until it FINISHES, and then
+     says one thing, counting everything it staged rather than the last run's
+     share. `backfilledTotal` is threaded through by the caller for that.
+  
+     An ordinary poll is unchanged: it has no completion moment to wait for, and
+     one push for one arrival is the whole point of it. */
+  const finishedBackfill = backfilling && !hitLimit && !moreQueued;
+  let notifyCount = summary.staged;
+  if (finishedBackfill && ctx.db.pendingCount) {
+    /* The exact number waiting, asked once. A total accumulated across runs
+       would drift the first time a run died halfway; counting at the end
+       cannot, and this is the only moment it is ever asked. */
+    try {
+      notifyCount = await ctx.db.pendingCount(destination.memberId, destination.ownerUserId)
+                    || summary.staged;
+    } catch { /* fall back to this run's share */ }
   }
+  const shouldNotify = backfilling ? finishedBackfill : summary.staged > 0;
+  if (shouldNotify && notifyCount > 0 && ctx.notify) {
+    try { await ctx.notify(grant, notifyCount, { backfill: finishedBackfill }); }
+    catch { /* never fails a run */ }
+  }
+  summary.notified = !!(shouldNotify && notifyCount > 0);
 
   if (hitLimit) summary.status = 'held';
   else if (moreQueued) summary.status = 'more';   // healthy, just not finished

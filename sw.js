@@ -1,5 +1,5 @@
 /* FamilyHub — offline-first service worker */
-const CACHE_NAME = 'familyhub-v435';
+const CACHE_NAME = 'familyhub-v436';
 /* Photos live in their own cache, deliberately NOT tied to CACHE_NAME. Folding
    them together would throw every photo away on each app release, which is the
    exact re-download this cache exists to prevent. Nothing here ever goes stale:
@@ -133,8 +133,16 @@ self.addEventListener('fetch', (e) => {
     e.respondWith((async () => {
       try {
         const res = (await e.preloadResponse) || await fetch(req);
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
+        /* ONLY cache a real page. A 403 interstitial (Vercel's "Security
+           Checkpoint" when Attack Challenge Mode is on), a 500, or an opaque
+           redirect are all valid Responses that used to be stored as the app
+           shell — so the offline fallback served the challenge page instead of
+           the app, and it survived until the next CACHE_NAME bump. Network-first
+           hid this while online, which is exactly why it went unnoticed. */
+        if (res && res.ok && res.type === 'basic') {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
+        }
         return res;
       } catch (err) {
         const cached = await caches.match(req);
@@ -147,8 +155,14 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(req).then((cached) =>
       cached || fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
+        /* Same guard, and it matters more here: this path is cache-FIRST, so a
+           bad response stored once is served forever, without even a network
+           attempt to correct it. An asset fetched while a challenge or an
+           outage was in front of the origin would be poisoned permanently. */
+        if (res && res.ok && res.type === 'basic') {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
+        }
         return res;
       }).catch(() => cached)
     )

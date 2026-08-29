@@ -55,8 +55,23 @@ t('the backfill cap is larger than the ordinary one',
    nothing recording they existed. */
 t('and comfortably clears a year at the busiest observed rate (~66/month)',
   W.BACKFILL_LIST_MAX >= 365 / 30 * 66, String(W.BACKFILL_LIST_MAX));
-t('a backfill still stages a BOUNDED share per run — listing deep is not staging deep',
-  W.MAX_MESSAGES_PER_GRANT <= 100);
+/* The property, not a number (relaxed 2026-08-29 when the poll cap went 40→120
+   and the backfill cap 150→400). What must hold is that a run LISTS deeper than
+   it STAGES: that gap is the only thing that makes "there is more" detectable,
+   and a run that cannot tell the difference marks itself finished and strands
+   the rest. `MAX_MESSAGES_PER_GRANT <= 100` was a loose stand-in for that and
+   would have failed on any legitimate raise; these assert the real invariant on
+   both paths, with headroom so neither cap can quietly creep up to meet its
+   listing cap. */
+t('an ordinary poll lists deeper than it stages',
+  W.MAX_MESSAGES_PER_GRANT * 3 <= W.LIST_MAX_PER_RUN,
+  W.MAX_MESSAGES_PER_GRANT + ' staged vs ' + W.LIST_MAX_PER_RUN + ' listed');
+t('a backfill lists deeper than it stages',
+  W.BACKFILL_STAGE_MAX * 3 <= W.BACKFILL_LIST_MAX,
+  W.BACKFILL_STAGE_MAX + ' staged vs ' + W.BACKFILL_LIST_MAX + ' listed');
+t('and staging stays bounded per run rather than unbounded',
+  W.MAX_MESSAGES_PER_GRANT <= 500 && W.BACKFILL_STAGE_MAX <= 1000,
+  W.MAX_MESSAGES_PER_GRANT + ' / ' + W.BACKFILL_STAGE_MAX);
 
 console.log('\n-- the ceiling holds wherever a value can enter --');
 const SECRET = 's';

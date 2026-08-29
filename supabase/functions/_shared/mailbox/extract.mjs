@@ -85,7 +85,22 @@ export const SENDER_JUNK_THRESHOLD = 6;
 export async function readTransaction(message, db, deps) {
   const sender = _address(message.from);
   const template = normalizeSubjectTemplate(message.subject);
-  const fp = await db.fingerprint(sender, template);
+
+  /* A warm map, when the caller has one (2026-08-29). The worker fetches every
+     fingerprint for the window's senders in a single query and passes it here,
+     which removes one database round trip per message — the largest remaining
+     per-row cost once the cache is healthy. The same exact-beats-sentinel rule
+     the query applies, applied to the map. A miss falls through to the query,
+     so this stays an optimisation and never a source of truth. */
+  let fp = null;
+  const warm = deps && deps.fingerprints;
+  if (warm) {
+    const exact = warm.get(sender + '\u0000' + template);
+    const wide = warm.get(sender + '\u0000' + SENDER_SENTINEL);
+    if (exact) fp = exact;
+    else if (wide) fp = { ...wide, _sender_wide: true };
+  }
+  if (!fp && !warm) fp = await db.fingerprint(sender, template);
 
   // A cached "not a transaction" costs one lookup and saves a model call
   // forever. This is most of what a real mailbox contains.

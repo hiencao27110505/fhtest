@@ -143,6 +143,92 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-29 (Trang's session — direct-read speed) — SPEED WORK ON
+  `mailbox-sync`, NOT YET DEPLOYED. Claiming four function files + `sw.js`.
+  Two of your client tests are red on `main` and it is not from me.**
+
+  **What Phase 0 found first, because it changes what matters.** `read_tally`
+  exists and answers the Gemini question: **28 Aug was 273 template reads
+  against 1 model call — 0.4%**. The cache is healthy in production. The
+  "near-100% Gemini" reports were the 27→28 Aug encoding window and are
+  history. A real backfill (`trang.nguyen.wh`, 28 Aug 07:10) staged **228 rows
+  in 76 seconds**, so the reported "ten at a time for an hour" is also gone.
+  Both grants are healthy: backfilled, `needs_reauth` false, watches valid.
+
+  **Files I have uncommitted, and am claiming until we sync:**
+  `_shared/mailbox/worker.mjs`, `_shared/mailbox/db.mjs`,
+  `_shared/mailbox/extract.mjs`, `mailbox-sync/index.ts`, `sw.js`,
+  `pipeline/direct-backfill-window.test.js`, and a new
+  `pipeline/direct-speed-and-notify.test.js` (21 assertions).
+
+  **Ceilings raised, with the reasoning rather than the numbers:**
+  `FETCH_CONCURRENCY` 6→20 (Gmail allows ~50 req/s per user at 5 quota units a
+  `messages.get`; six lanes used 9% of that while fetching was 65% of a run),
+  `BACKFILL_STAGE_MAX` 150→400 (a real 90-day history is 228, so one run and
+  one notification instead of two), `MAX_MESSAGES_PER_GRANT` 40→120.
+
+  **The model budget is now PER GRANT (40), not one pool of 10 per run.** The
+  old shape produced exactly what its own comment set out to prevent: with
+  grants running concurrently the first to reach the model drained the pool and
+  the rest got none. Also worth knowing — the free-tier quota that justified 10
+  is not the tier in force; the key reports `serviceTier: standard`, and at a
+  measured 1.54s per call, 40 calls is ~62s, well inside the timeout.
+
+  **Structural:** fetch and process now INTERLEAVE (the next chunk downloads
+  while the current one is decided), fingerprint lookups are BATCHED per chunk
+  instead of one round trip per message, and budget exhaustion `continue`s
+  instead of `break`ing — `hitLimit` already protects the cursor, so breaking
+  only abandoned mail a stored template would have read for free.
+
+  **UX, decided with Trang:** a backfill now sends ONE notification, when it
+  finishes, with an exact count (`pendingCount`, a HEAD + `count=exact`, asked
+  once per mailbox lifetime — a running total drifts the first time a run dies
+  halfway). Ordinary polls are unchanged. The payload gains `backfill: true`
+  so `push-send` may choose warmer copy; an older `push-send` ignores it.
+
+  **`BUILD_ID` now rides in every run summary** (`2026-08-29-speed`). The Apps
+  Script has logged its version for months because "which code is live" once
+  cost hours; the worker had no equivalent, and that absence is precisely what
+  made this week's Phase 0 necessary.
+
+  **⚠️ `sw.js` — I took `v436`, and here is why it matters.** Your `ab7ca28`
+  bumped `CACHE_NAME` to `v435` and that is already on `origin/main`, so
+  clients have seen it. My change fixes a real bug — both cache paths stored
+  responses without checking `res.ok`, so Vercel's 403 "Security Checkpoint"
+  page (Attack Challenge Mode is ON for the project right now, unrelated to
+  us) could be cached AS THE APP SHELL, permanently on the cache-first path.
+  Shipping that fix under `v435` would mean no client ever re-fetches it.
+  **Do not take `v436`.**
+
+  **⚠️ Two of your tests are red on `main`, verified in a clean worktree at
+  HEAD so it is not my working copy:** `tools/staged-scope.test.js`
+  (`ReferenceError: csvEntryScopeDesc is not defined`) and
+  `tools/email-transport-chooser.test.js` (two routing assertions). They came
+  in with the recent review-queue commits. Flagging rather than fixing — they
+  are your files and you will know the intent. Worth remembering that CI runs
+  `npm run parse` only: `npm test` and `npm run check` are both commented out
+  in `.github/workflows/ci.yml`, which is why nothing surfaced this.
+
+  **I also relaxed one assertion in `direct-backfill-window.test.js`** — it
+  pinned `MAX_MESSAGES_PER_GRANT <= 100` as a stand-in for "a run lists deeper
+  than it stages". The raise does not violate that property, so I replaced the
+  magic number with the invariant itself (staged ≤ ⅓ of listed, on both paths,
+  plus an absolute bound). Say if you would rather it stayed a hard number.
+
+  **Deploy state: NOT deployed, and I have not touched production.** When it
+  goes it must be `supabase functions deploy mailbox-sync --no-verify-jwt` —
+  without that flag both pg_cron and Pub/Sub break instantly, neither can
+  present a user JWT.
+
+  **Checked rather than assumed, and it corrects something I first wrote here:**
+  the live function is `mailbox-sync` **v18, deployed 28 Aug 14:17** — which is
+  after `3c64957` and `412e251`, so your function commits are ALREADY live and
+  deploying from this tree does not ship anything of yours that is not already
+  running. `verify_jwt` reads `false` on the deployed function, confirming the
+  flag above. Neither `fh-dedup` nor `fh-sealing` holds any function work,
+  committed or uncommitted, so there is no tree that a deploy from here could
+  erase.
+
 - **2026-08-27 (direct-read session) — REVIEW-SHEET TOOLS HEADER: your weekly
   chart moved house.** Trang drove a full redesign of the staged-review chrome
   (10 prototyped options, then a finalize pass). Result on main:

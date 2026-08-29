@@ -158,8 +158,11 @@ function baseCtx(
       clientSecret: env("GOOGLE_OAUTH_CLIENT_SECRET"),
     },
     llm: { apiKey: env("GEMINI_API_KEY"), model: env("GEMINI_MODEL") || undefined },
-    notify: (grant: { user_id: string; member_id: string }, count: number) =>
-      notifyReview(supabaseUrl, serviceKey, grant, count),
+    notify: (
+      grant: { user_id: string; member_id: string },
+      count: number,
+      meta?: { backfill?: boolean },
+    ) => notifyReview(supabaseUrl, serviceKey, grant, count, meta),
   };
 }
 
@@ -183,10 +186,22 @@ async function notifyReview(
   serviceKey: string,
   grant: { user_id: string; member_id: string },
   count: number,
+  meta?: { backfill?: boolean },
 ) {
+  /* `backfill: true` marks the ONE notification a first read is allowed to
+     send, after it has finished. push-send may use it to choose warmer copy
+     ("your history is ready") over the steady-state line; an older push-send
+     that does not know the flag ignores it and sends the normal notice, which
+     is why it rides alongside `count` rather than replacing it. Still no
+     amount and no merchant — this payload transits a third party. */
   await fetch(url.replace(/\/$/, "") + "/functions/v1/push-send", {
     method: "POST",
     headers: { Authorization: "Bearer " + serviceKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ kind: "txn_review", member_id: grant.member_id, count }),
+    body: JSON.stringify({
+      kind: "txn_review",
+      member_id: grant.member_id,
+      count,
+      ...(meta && meta.backfill ? { backfill: true } : {}),
+    }),
   });
 }
