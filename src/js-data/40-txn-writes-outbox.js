@@ -292,7 +292,8 @@
     if (!catId && navigator.onLine !== false) { try { catId = await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1); } catch (e) {} }
     if (!catId) catId = window.DB.catByName[CAT_FALLBACK] || Object.values(window.DB.catByName)[0];
     const row = Object.assign(
-      { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null },
+      { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null,
+        source: t.source || null },   // 0100 provenance: 'direct-email' | 'forwarding-email' | 'csv-import'; null = hand-entered
       await fhField('amount', t.amt), await fhField('note', t.note),
       await fhField('occurred_time', _okTxnTime(t.time)));   // local "HH:MM" or null (day-only)
     // Offline → queue durably instead of losing the write.

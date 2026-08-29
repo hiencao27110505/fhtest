@@ -6,6 +6,10 @@
     const exD = (typeof window.exDate === 'function') ? window.exDate() : null;
     _origAddExpense.apply(this, arguments);
     let nt = null; for (let i = 0; i < window.txns.length; i++) { if (!before[window.txns[i].id]) { nt = window.txns[i]; break; } }
+    // 0100 provenance: a bulk import (submitBulk) stamps the current row's source
+    // on the global; a manual log has none, so it stays null. Set on nt before the
+    // insert reads it. Cleared by submitBulk after the batch.
+    if (nt) nt.source = window.BULK_SAVING ? (window._fhImportSrc || null) : null;
     const newKeys = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
     const inserted = nt ? _dbInsertTxn(nt, exD) : Promise.resolve();
     // a future expense is a proposal — nudge the family's closed-app devices to review it

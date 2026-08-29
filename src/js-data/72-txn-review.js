@@ -383,6 +383,18 @@
   }
   window.fhStagedMeta = fhStagedMeta;
 
+  /* Which transport imported a staged row → the ledger `source` (0100). The
+     sealed payload carries `_transport`: the direct-read worker stamps
+     'oauth_direct' (stage.mjs); the forwarding pipeline leaves it absent, so
+     anything that is not the direct marker is forwarding. Only ever called for
+     staged rows, which are all email. */
+  window.fhStagedSource = function (c) {
+    var rows = window._fhStagedRows;
+    var r = (c && typeof c.rowIndex === 'number' && rows) ? rows[c.rowIndex] : null;
+    var tr = r && r.raw_extracted && r.raw_extracted._transport;
+    return tr === 'oauth_direct' ? 'direct-email' : 'forwarding-email';
+  };
+
   /* A staged bank-email row's real transaction time → VN-local "HH:MM", for the
      promote path. occurred_at is a timestamptz (the bank's actual moment); we read
      it off the raw staged row via the candidate's rowIndex and format it in the
@@ -708,16 +720,17 @@
         var base = window.csvBaseAmt ? window.csvBaseAmt(c.amount)
           : Math.round(Number(c.amount || 0) / (window.curMult ? window.curMult() : 1));
         var _t = window.csvRowTime ? window.csvRowTime(c) : undefined;   // reviewed time (edited value wins, else derived from occurred_at)
+        var src = window.fhStagedSource ? window.fhStagedSource(c) : null;  // 'direct-email' | 'forwarding-email' (0100 provenance)
         var ok;
         if (c.isIncome) {
           /* A credit/income row goes to the personal INCOME book, not the expense
              one — the family importer holds income back entirely, so this is the
              one place a bank email's incoming money is captured correctly.
              (personal_incomes has no time column yet — income stays day-only.) */
-          ok = await window.fhPersonalAddIncome(base, c.description || '', c.dateDisplay || undefined);
+          ok = await window.fhPersonalAddIncome(base, c.description || '', c.dateDisplay || undefined, src);
         } else {
           var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
-          ok = await window.fhPersonalAddExpense(base, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined, _t);
+          ok = await window.fhPersonalAddExpense(base, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined, _t, src);
         }
         if (!ok) throw new Error('personal write failed at row ' + i);
       }

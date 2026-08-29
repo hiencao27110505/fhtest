@@ -2030,6 +2030,9 @@ function csvPromote(subset, opts){
       return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName,
                who: c.who || csvDefaultWho(), date: c.dateDisplay, _invalid: false,
                _catTouched: true,
+               // 0100 provenance: a staged row's transport ('direct-email'/'forwarding-email'),
+               // or 'csv-import' for a file. submitBulk hands this to the writethrough.
+               source: csvStagedMode ? (window.fhStagedSource ? window.fhStagedSource(c) : 'forwarding-email') : 'csv-import',
                time: csvRowTime(c), _timeAuto: false };   // reviewed time (edited value wins, else derived); '' = day-only
     });
     bulkActive = 0;

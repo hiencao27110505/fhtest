@@ -269,12 +269,12 @@
     // known" (null → day-only) so a clock time is never fabricated.
     const _okTime = (v) => (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) ? v : null;
     /* writes — private (space-less) rows */
-    window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso, timeStr) {
+    window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso, timeStr, source) {
       if (!P.uid || !P.key) return false;
       const t = _okTime(timeStr);
       const row = { owner_user_id: P.uid, txn_date: dateIso || _localDate(new Date()), kind: 'expense', space_id: null, link_id: null,
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
-        occurred_time_enc: t ? await _encP(t) : null };
+        occurred_time_enc: t ? await _encP(t) : null, source: source || null };   // 0100 provenance ('direct-email' | 'forwarding-email'); null = hand-entered
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal expense failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -320,10 +320,10 @@
       if (r.error) { console.warn('personal budget failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
-    window.fhPersonalAddIncome = async function (amt, note, dateIso) {
+    window.fhPersonalAddIncome = async function (amt, note, dateIso, source) {
       if (!P.uid || !P.key) return false;
       const row = { owner_user_id: P.uid, income_date: dateIso || _localDate(new Date()),
-        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null };
+        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, source: source || null };
       const r = await _sb().from('personal_incomes').insert(row);
       if (r.error) { console.warn('personal income failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;

@@ -782,9 +782,11 @@ function submitBulk(opts){
     loadRow(k);                                     // push this row into the #ex-* fields addExpense reads
     exPhotos = (k===0) ? savedPhotos.slice() : [];
     total+=parseAmtBase(rows[k].amt||'');
+    window._fhImportSrc = (rows[k] && rows[k].source) || null;   // 0100 provenance for this row; the writethrough stamps it on the txn
     BULK_SAVING=true;
     try{ window.addExpense(); } finally{ BULK_SAVING=false; }
   }
+  window._fhImportSrc=null;
   exPhotos=[];
   // One nudge for the whole batch — each row's own addExpense() stayed silent under
   // BULK_SAVING. A lone surviving row is a single expense, not a batch (the composer

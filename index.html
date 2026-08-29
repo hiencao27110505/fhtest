@@ -9228,9 +9228,11 @@ function submitBulk(opts){
     loadRow(k);                                     // push this row into the #ex-* fields addExpense reads
     exPhotos = (k===0) ? savedPhotos.slice() : [];
     total+=parseAmtBase(rows[k].amt||'');
+    window._fhImportSrc = (rows[k] && rows[k].source) || null;   // 0100 provenance for this row; the writethrough stamps it on the txn
     BULK_SAVING=true;
     try{ window.addExpense(); } finally{ BULK_SAVING=false; }
   }
+  window._fhImportSrc=null;
   exPhotos=[];
   // One nudge for the whole batch — each row's own addExpense() stayed silent under
   // BULK_SAVING. A lone surviving row is a single expense, not a batch (the composer
@@ -12081,6 +12083,9 @@ function csvPromote(subset, opts){
       return { note: c.description, amt: String(Math.round(c.amount)), cat: c.categoryName,
                who: c.who || csvDefaultWho(), date: c.dateDisplay, _invalid: false,
                _catTouched: true,
+               // 0100 provenance: a staged row's transport ('direct-email'/'forwarding-email'),
+               // or 'csv-import' for a file. submitBulk hands this to the writethrough.
+               source: csvStagedMode ? (window.fhStagedSource ? window.fhStagedSource(c) : 'forwarding-email') : 'csv-import',
                time: csvRowTime(c), _timeAuto: false };   // reviewed time (edited value wins, else derived); '' = day-only
     });
     bulkActive = 0;
@@ -15650,7 +15655,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v433';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v434';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -17337,12 +17342,12 @@ window.obGoogle = async function () {
     // known" (null → day-only) so a clock time is never fabricated.
     const _okTime = (v) => (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) ? v : null;
     /* writes — private (space-less) rows */
-    window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso, timeStr) {
+    window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso, timeStr, source) {
       if (!P.uid || !P.key) return false;
       const t = _okTime(timeStr);
       const row = { owner_user_id: P.uid, txn_date: dateIso || _localDate(new Date()), kind: 'expense', space_id: null, link_id: null,
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
-        occurred_time_enc: t ? await _encP(t) : null };
+        occurred_time_enc: t ? await _encP(t) : null, source: source || null };   // 0100 provenance ('direct-email' | 'forwarding-email'); null = hand-entered
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal expense failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -17388,10 +17393,10 @@ window.obGoogle = async function () {
       if (r.error) { console.warn('personal budget failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
-    window.fhPersonalAddIncome = async function (amt, note, dateIso) {
+    window.fhPersonalAddIncome = async function (amt, note, dateIso, source) {
       if (!P.uid || !P.key) return false;
       const row = { owner_user_id: P.uid, income_date: dateIso || _localDate(new Date()),
-        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null };
+        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, source: source || null };
       const r = await _sb().from('personal_incomes').insert(row);
       if (r.error) { console.warn('personal income failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -18427,7 +18432,8 @@ window.obGoogle = async function () {
     if (!catId && navigator.onLine !== false) { try { catId = await _categoryIdForName(t.cat, t.ico, window.catOrder.indexOf(t.cat) + 1); } catch (e) {} }
     if (!catId) catId = window.DB.catByName[CAT_FALLBACK] || Object.values(window.DB.catByName)[0];
     const row = Object.assign(
-      { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null },
+      { family_id: fid, category_id: catId, member_id: _memberIdForWho(t.who), txn_date: _txnIso(t, exD), status: t.future ? 'planned' : 'realized', created_by: (window.DB && window.DB.ownerMemberId) || null,
+        source: t.source || null },   // 0100 provenance: 'direct-email' | 'forwarding-email' | 'csv-import'; null = hand-entered
       await fhField('amount', t.amt), await fhField('note', t.note),
       await fhField('occurred_time', _okTxnTime(t.time)));   // local "HH:MM" or null (day-only)
     // Offline → queue durably instead of losing the write.
@@ -19432,6 +19438,10 @@ window.classifyAmount = classifyAmount;
     const exD = (typeof window.exDate === 'function') ? window.exDate() : null;
     _origAddExpense.apply(this, arguments);
     let nt = null; for (let i = 0; i < window.txns.length; i++) { if (!before[window.txns[i].id]) { nt = window.txns[i]; break; } }
+    // 0100 provenance: a bulk import (submitBulk) stamps the current row's source
+    // on the global; a manual log has none, so it stays null. Set on nt before the
+    // insert reads it. Cleared by submitBulk after the batch.
+    if (nt) nt.source = window.BULK_SAVING ? (window._fhImportSrc || null) : null;
     const newKeys = (window.order || []).filter((k) => beforeOrder.indexOf(k) < 0);
     const inserted = nt ? _dbInsertTxn(nt, exD) : Promise.resolve();
     // a future expense is a proposal — nudge the family's closed-app devices to review it
@@ -23779,6 +23789,18 @@ window.classifyAmount = classifyAmount;
   }
   window.fhStagedMeta = fhStagedMeta;
 
+  /* Which transport imported a staged row → the ledger `source` (0100). The
+     sealed payload carries `_transport`: the direct-read worker stamps
+     'oauth_direct' (stage.mjs); the forwarding pipeline leaves it absent, so
+     anything that is not the direct marker is forwarding. Only ever called for
+     staged rows, which are all email. */
+  window.fhStagedSource = function (c) {
+    var rows = window._fhStagedRows;
+    var r = (c && typeof c.rowIndex === 'number' && rows) ? rows[c.rowIndex] : null;
+    var tr = r && r.raw_extracted && r.raw_extracted._transport;
+    return tr === 'oauth_direct' ? 'direct-email' : 'forwarding-email';
+  };
+
   /* A staged bank-email row's real transaction time → VN-local "HH:MM", for the
      promote path. occurred_at is a timestamptz (the bank's actual moment); we read
      it off the raw staged row via the candidate's rowIndex and format it in the
@@ -24104,16 +24126,17 @@ window.classifyAmount = classifyAmount;
         var base = window.csvBaseAmt ? window.csvBaseAmt(c.amount)
           : Math.round(Number(c.amount || 0) / (window.curMult ? window.curMult() : 1));
         var _t = window.csvRowTime ? window.csvRowTime(c) : undefined;   // reviewed time (edited value wins, else derived from occurred_at)
+        var src = window.fhStagedSource ? window.fhStagedSource(c) : null;  // 'direct-email' | 'forwarding-email' (0100 provenance)
         var ok;
         if (c.isIncome) {
           /* A credit/income row goes to the personal INCOME book, not the expense
              one — the family importer holds income back entirely, so this is the
              one place a bank email's incoming money is captured correctly.
              (personal_incomes has no time column yet — income stays day-only.) */
-          ok = await window.fhPersonalAddIncome(base, c.description || '', c.dateDisplay || undefined);
+          ok = await window.fhPersonalAddIncome(base, c.description || '', c.dateDisplay || undefined, src);
         } else {
           var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
-          ok = await window.fhPersonalAddExpense(base, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined, _t);
+          ok = await window.fhPersonalAddExpense(base, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined, _t, src);
         }
         if (!ok) throw new Error('personal write failed at row ' + i);
       }
