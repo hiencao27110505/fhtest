@@ -97,6 +97,20 @@ function _rows(body) {
     if (_lookup(line)) {
       let j = i + 1;
       while (j < lines.length && !lines[j]) j++;
+      /* BILINGUAL LABELS ARRIVE AS TWO LINES. VCB writes one cell as
+         "Sử dụng tại<br>At" — Vietnamese label, English twin — and every block
+         tag becomes a newline (mailtext.mjs), so the twin lands where the value
+         should be. Taking it blind made every VCB card row's merchant read
+         "At" instead of AEON MALL: a real name replaced by a preposition.
+
+         _lookup cannot catch it, because it matches by CONTAINS and "at" is
+         not a substring of any Vietnamese label. So the twins are named
+         explicitly and skipped, exactly — never by a heuristic like "short and
+         alphabetic", which would eat "AEON" and "Circle K" too. */
+      while (j < lines.length && _isEnglishTwin(lines[j])) {
+        j++;
+        while (j < lines.length && !lines[j]) j++;
+      }
       const val = (lines[j] || '').replace(/^\|/, '').replace(/\|$/, '').trim();
       if (val && !_lookup(val)) { out.push({ label: line, value: val }); i = j; }
     }
@@ -104,14 +118,66 @@ function _rows(body) {
   return out;
 }
 
+/* The English halves of the bilingual labels VN banks print. Matched EXACTLY
+   on the stripped form — a contains-match on 'at' or 'card' would swallow real
+   merchant names. Additive: a twin missing from this list only reproduces the
+   old behaviour for that one field, never a wrong value elsewhere. */
+const ENGLISH_TWINS = new Set([
+  'at', 'amount', 'transaction amount', 'card', 'merchant', 'balance', 'status',
+  'trans. date, time', 'date, time', 'trans date time', 'transaction date',
+  'debit account', 'credit account', 'account', 'account number',
+  'status of transaction', 'beneficiary name', 'beneficiary bank name',
+  "remitter's name", 'remitters name', 'remitter', 'order number',
+  'reference number', 'details of payment', 'content', 'transaction type',
+  'charge code', 'charge amount', 'net income', 'vat', 'payment receipt',
+]);
+function _isEnglishTwin(line) {
+  return ENGLISH_TWINS.has(_strip(line));
+}
+
+/* A label CELL, not prose that happens to contain a label phrase.
+ *
+ * `includes()` alone matched the footer. Vietcombank signs off with "...liên hệ
+ * với các điểm giao dịch của Vietcombank (trong giờ hành chính)", which contains
+ * "điểm giao dịch" and was therefore read as a merchant row — putting
+ * "Vietcombank (trong giờ hành chính)" into people's ledgers as the shop they
+ * visited. Reported from a real queue.
+ *
+ * Two properties separate a label cell from a sentence, and both are needed:
+ * a label is SHORT, and its phrase sits at or near the START. The footer fails
+ * both (200+ characters, phrase 150 in); every real label passes both, including
+ * the long bilingual ones like "Ngày, giờ giao dịch Trans. Date, Time". */
+const MAX_LABEL_LEN = 80;   // the longest real bilingual label seen is 42
+const MAX_KEY_START = 24;   // "MB TK chạm" puts its key at 3; prose puts it far in
+
 function _lookup(labelCell) {
   const flat = _strip(labelCell);
-  if (!flat) return null;
+  if (!flat || flat.length > MAX_LABEL_LEN) return null;
   for (const entry of LABELS) {
-    for (const key of entry.any) if (flat.includes(key)) return entry.field;
+    for (const key of entry.any) {
+      const at = flat.indexOf(key);
+      if (at >= 0 && at <= MAX_KEY_START) return entry.field;
+    }
   }
   return null;
 }
+
+/* The English halves of the bilingual labels, as they appear ALONE on a line.
+ *
+ * Vietcombank's HTML puts "Sử dụng tại" and "At" in separate cells, so the
+ * flattened text reads label / English-twin / value — and the reader took the
+ * twin as the value, filing every card purchase with the merchant "At".
+ *
+ * Matched EXACTLY, never as a substring: a merchant genuinely called "AEON" is
+ * four letters with no digits and would be indistinguishable from a twin under
+ * any looser rule. Exact matching is what keeps a real short merchant name. */
+const LABEL_TWINS = new Set([
+  'at', 'card', 'amount', 'transaction amount', 'merchant', 'balance',
+  'date, time', 'trans. date, time', 'status', 'status of transaction',
+  'debit account', 'credit account', 'order number', 'reference number',
+  'beneficiary name', "remitter's name", 'remitter', 'details of payment',
+  'charge code', 'charge amount', 'transaction type',
+]);
 
 /** "-37,000 VND" | "(VND) 2,000.00" | "15,000 VND" → { value, negative }.
  *  VN bank notation: comma groups thousands; a trailing .00 (or ,00) is decimals.

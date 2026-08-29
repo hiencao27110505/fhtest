@@ -170,5 +170,39 @@ t('declined pipe form reads failed', statusReadsFailed(VCB_CARD.replace('Thành 
 t('footer safety-advice wording cannot fake a failure',
   statusReadsFailed(LINE_FORM + '\nNếu giao dịch không thành công, vui lòng liên hệ 1900545413') === false);
 
+/* ── the bilingual twin: a merchant name that became a preposition ───────── */
+console.log('\n-- a bilingual label split over two lines does not eat the value --');
+const BILINGUAL = `Thẻ Card
+Visa 452404...0035
+Sử dụng tại
+At
+AEON MALL NGUYEN VAN LINH HO CHI MINH VN
+Số tiền
+Transaction Amount
+337,900 VND
+Ngày, giờ giao dịch
+Trans. Date, Time
+26-08-2026 20:04:26
+Tài khoản trích nợ
+Debit Account
+1046999979
+Tình trạng giao dịch
+Status of Transaction
+Thành công`;
+const bl = readLabelTable('Thông báo giao dịch thẻ', BILINGUAL);
+t('parses', !!bl);
+t('the merchant is the merchant, not the English half of its label',
+  bl && bl.counterparty === 'AEON MALL NGUYEN VAN LINH HO CHI MINH VN', bl && bl.counterparty);
+t('the amount survives its own twin line', bl && bl.amount === 337900);
+t('so does the timestamp', bl && bl.occurred_at === '2026-08-26T20:04:26+07:00');
+t('and the account', bl && bl.account_masked === '…9979');
+t('and the status', bl && bl.status === 'Thành công');
+
+console.log('\n-- and the skip is exact, never a heuristic --');
+t('a short alphabetic MERCHANT is still read',
+  (readLabelTable('x', 'Điểm giao dịch\nAEON\nSố tiền\n50,000 VND\nNgày, giờ giao dịch\n2026-08-26 10:00:00') || {}).counterparty === 'AEON');
+t('a two-letter merchant is not mistaken for a twin',
+  (readLabelTable('x', 'Điểm giao dịch\nGS\nSố tiền\n50,000 VND\nNgày, giờ giao dịch\n2026-08-26 10:00:00') || {}).counterparty === 'GS');
+
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail ? 1 : 0);
