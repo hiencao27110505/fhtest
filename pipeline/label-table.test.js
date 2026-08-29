@@ -204,5 +204,45 @@ t('a short alphabetic MERCHANT is still read',
 t('a two-letter merchant is not mistaken for a twin',
   (readLabelTable('x', 'Điểm giao dịch\nGS\nSố tiền\n50,000 VND\nNgày, giờ giao dịch\n2026-08-26 10:00:00') || {}).counterparty === 'GS');
 
+/* ── footer prose is not a label ─────────────────────────────────────────── */
+console.log('\n-- a bank footer cannot become the merchant --');
+const FOOTER_WRAPPED = `Số tiền
+Transaction Amount
+10,000 VND
+Ngày, giờ giao dịch
+Trans. Date, Time
+14-08-2026 09:36:00
+các điểm giao dịch của
+Vietcombank (trong giờ hành chính).`;
+t('a wrapped footer clause is not read as the merchant label',
+  (readLabelTable('x', FOOTER_WRAPPED) || {}).counterparty !== 'Vietcombank (trong giờ hành chính).');
+t('and with no real merchant the row declines rather than inventing one',
+  readLabelTable('x', FOOTER_WRAPPED) === null);
+t('a run-on footer sentence is rejected too',
+  readLabelTable('x', `Số tiền
+Transaction Amount
+10,000 VND
+Ngày, giờ giao dịch
+Trans. Date, Time
+14-08-2026 09:36:00
+Quý khách liên hệ với các điểm giao dịch của Vietcombank (trong giờ hành chính).`) === null);
+
+console.log('\n-- and a real merchant beside its own footer still wins --');
+const WITH_FOOTER = `Sử dụng tại
+At
+AEON MALL NGUYEN VAN LINH
+Số tiền
+Transaction Amount
+266,320 VND
+Ngày, giờ giao dịch
+Trans. Date, Time
+14-08-2026 12:38:00
+Cám ơn Quý khách đã sử dụng dịch vụ của Vietcombank!
+các điểm giao dịch của
+Vietcombank (trong giờ hành chính).`;
+const wf = readLabelTable('x', WITH_FOOTER);
+t('the shop is the shop', wf && wf.counterparty === 'AEON MALL NGUYEN VAN LINH', wf && wf.counterparty);
+t('with its real amount', wf && wf.amount === 266320);
+
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail ? 1 : 0);

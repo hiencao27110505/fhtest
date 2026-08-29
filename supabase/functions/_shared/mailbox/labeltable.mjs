@@ -150,9 +150,27 @@ function _isEnglishTwin(line) {
 const MAX_LABEL_LEN = 80;   // the longest real bilingual label seen is 42
 const MAX_KEY_START = 24;   // "MB TK chạm" puts its key at 3; prose puts it far in
 
+/* Words that belong to sentences and never to a table label.
+
+   A bank's footer is prose, and prose uses the same nouns the labels do. VCB
+   closes with "liên hệ với các điểm giao dịch của Vietcombank (trong giờ hành
+   chính)" — which contains "điểm giao dịch", so a contains-match reads it as
+   the merchant label and takes the following line as the shop. That is where
+   "Vietcombank (trong giờ hành chính)." came from on Trang's cards.
+
+   MAX_LABEL_LEN alone does not catch it: mailtext breaks that sentence across
+   lines, and the fragment carrying the noun ("các điểm giao dịch của") is
+   short enough to pass a length cap while still being prose. So the two guards
+   are complementary — length rejects the run-on clause, these markers reject
+   the wrapped one. Both are needed; neither is sufficient. */
+const PROSE_MARKERS = [' cua ', ' voi ', ' hoac ', ' cac ', ' den cac ', ' theo ',
+  'lien he', 'quy khach', 'vui long', 'xin cam on', 'cam on', 'thank you', 'please '];
+
 function _lookup(labelCell) {
   const flat = _strip(labelCell);
   if (!flat || flat.length > MAX_LABEL_LEN) return null;
+  const padded = ' ' + flat + ' ';
+  for (const m of PROSE_MARKERS) if (padded.includes(m)) return null;
   for (const entry of LABELS) {
     for (const key of entry.any) {
       const at = flat.indexOf(key);
@@ -253,16 +271,37 @@ export function statusReadsFailed(body) {
 export function unknownLabels(body) {
   const out = new Set();
   const lines = String(body || '').split('\n').map((l) => l.trim());
+
+  /* Widened 2026-08-30. The old line-form rule required the NEXT line to contain
+     a digit, which is true of an amount or a date and false of a merchant, a
+     beneficiary or a payment note — so a whole bank could go through the model
+     hundreds of times and record nothing. VIB did exactly that: 180 model calls,
+     two rows captured, both MoMo. A dictionary gap that cannot be seen cannot be
+     closed.
+  
+     The replacement asks what a LABEL looks like rather than what its value
+     looks like: short, few words, no long digit run, not a sentence, and
+     followed by something that is not itself a label. */
+  const looksLikeLabel = (t) =>
+    !!t && t.length <= 64 && t.split(/\s+/).length <= 8 &&
+    !/\d{4,}/.test(t) && !/[.!?:;]$/.test(t) && !_lookup(t);
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line) continue;
+
     if (line.includes('|')) {
       const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
-      if (cells.length === 2 && !_lookup(cells[0]) && cells[0].length <= 60 && !/\d{4,}/.test(cells[0])) out.add(cells[0]);
+      if (cells.length === 2 && looksLikeLabel(cells[0])) out.add(cells[0]);
       continue;
     }
     if (_lookup(line)) continue;
-    if (line.length <= 48 && !/\d/.test(line) && /\d/.test(lines[i + 1] || '')) out.add(line);
+    if (!looksLikeLabel(line)) continue;
+    let j = i + 1;
+    while (j < lines.length && !lines[j]) j++;
+    const next = lines[j];
+    // A label is followed by a VALUE, not by another label and not by nothing.
+    if (next && !_lookup(next)) out.add(line);
   }
   return [...out].slice(0, 24);
 }
