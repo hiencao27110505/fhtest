@@ -20404,6 +20404,14 @@ window.classifyAmount = classifyAmount;
     // (stale build or missing key) — tell the user what actually unblocks them.
     if (/enc_required/i.test(raw)) return L('Gia đình đã bật mã hóa. Đóng mở lại app cho bản mới nhất rồi nhập mã 6 số nhé','Encryption is on. Reopen the app for the latest version, then enter the 6-digit code');
     if (/row-level security|permission denied|not authorized/i.test(raw)) return L('Bạn không có quyền cho thao tác này','You don’t have permission for that');
+    /* One mailbox, one reader (0103). Named BEFORE the generic duplicate-key
+       line, which would otherwise answer "that already exists" — true, and
+       useless: the thing that already exists is a connection on a DIFFERENT
+       account, which is not something you can see from here. Say which mailbox
+       and what to do, because the fix is on the other account, not this one. */
+    if (/mailbox_grants_one_per_mailbox/i.test(raw))
+      return L('Hộp thư này đã được kết nối ở một tài khoản khác. Ngắt kết nối ở tài khoản đó trước, rồi thử lại.',
+               'This mailbox is already connected on another account. Disconnect it there first, then try again.');
     if (/duplicate key|already exists/i.test(raw)) return L('Mục này đã tồn tại','That already exists');
     // iOS Safari reports an offline fetch as "Load failed" (not "Failed to fetch"),
     // so match that too, and treat navigator offline as a connection issue outright.

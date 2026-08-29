@@ -1,0 +1,32 @@
+-- 0103: one mailbox, one reader.
+--
+-- WHY. `mailbox_grants` was unique on (user_id, provider) — one Google mailbox
+-- per account — which quietly permits the opposite pairing: ONE mailbox
+-- connected from TWO accounts. That happened on live data. Both grants polled
+-- trang.nguyen.wh@gmail.com, and because the staging guard is keyed on
+-- gmail_message_id, neither double-staged anything: whichever grant polled
+-- first simply CLAIMED each message. From 27/08 the second account kept
+-- winning, so three days of transactions landed in a queue nobody was signed
+-- in to, and the person watching saw a feed that stopped dead on the 26th with
+-- no error anywhere. Three more rows were staged unrouted (owner_user_id null),
+-- which under 0092 means visible to nobody at all.
+--
+-- The guard that made it silent is the same guard that makes it correct: the
+-- message-ID check is doing its job, and it has no way to know the two readers
+-- are different people. So the constraint belongs one level up — a mailbox may
+-- be read once.
+--
+-- Case-insensitive because Gmail addresses are, and a grant written as
+-- Trang.Nguyen.WH@gmail.com would otherwise slip past a plain unique index and
+-- rebuild the race with different capitalisation.
+--
+-- Deliberately NOT scoped per provider: the ambiguity is about the human
+-- mailbox, and two providers pointing at one address would race the same way.
+--
+-- A second account connecting an already-connected mailbox now fails loudly at
+-- insert instead of succeeding into a split feed. Loud is the point: the app
+-- can catch that and say "this mailbox is already connected", which is a
+-- sentence someone can act on.
+
+create unique index if not exists mailbox_grants_one_per_mailbox
+  on public.mailbox_grants (lower(btrim(email)));
