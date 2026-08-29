@@ -27,7 +27,12 @@ const shell = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), '
 const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'css', '40-spending-tabs.css'), 'utf8');
 
 console.log('\n-- the entry point considers BOTH transports --');
-const cta = review.slice(review.indexOf('window.fhEmailTxnCta'), review.indexOf('window.fhEmailTxnCta') + 2000);
+/* The WHOLE function, not a fixed-width slice. A 2000-char window silently
+   stopped covering the routing lines as the comments above them grew, so these
+   assertions went red while the code was correct — a test that fails for its
+   own reasons teaches people to ignore it. */
+const _ctaAt = review.indexOf('window.fhEmailTxnCta');
+const cta = review.slice(_ctaAt, review.indexOf('\n  };', _ctaAt));
 
 t('it asks about the forwarding alias', /forwarding_alias/.test(cta));
 t('AND about the OAuth grant — the half that was missing',

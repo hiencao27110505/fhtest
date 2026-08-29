@@ -24904,10 +24904,29 @@ window.classifyAmount = classifyAmount;
          else — the credential is not reachable from a browser even by asking
          for it. One less endpoint, one less CORS surface, and no round trip
          through a function to read four columns. */
-      const res = await sb.from('mailbox_grants')
-        .select('id,provider,email,needs_reauth,connected_at,last_synced_at,default_scope')
+      /* THE STATUS COLUMNS ONLY, and a retry that drops the optional ones.
+
+         0087's column-level grant is what keeps refresh_token_enc unreachable
+         from a browser, and it has a failure mode worth defending against: a
+         column added by a LATER migration is not in the grant, and PostgREST
+         rejects the WHOLE select rather than omitting it. The caller then sees
+         an error instead of a row and concludes there is no connection —
+         which is how someone with a healthy mailbox and two hundred staged
+         transactions was sent to the setup screen (0101 granted the columns;
+         this is the belt to that migration's braces).
+
+         So: ask for everything, and if the select is refused, fall back to the
+         columns 0087 itself granted. A connection reported without its scope
+         is still a connection, and knowing one exists is what the entry point
+         actually needs. */
+      const CORE = 'id,provider,email,needs_reauth,connected_at,last_synced_at';
+      let res = await sb.from('mailbox_grants')
+        .select(CORE + ',default_scope')
         .eq('provider', 'google')
         .limit(1);
+      if (res.error) {
+        res = await sb.from('mailbox_grants').select(CORE).eq('provider', 'google').limit(1);
+      }
       if (res.error) return null;
       const row = (res.data || [])[0] || null;
       if (!row) return null;

@@ -38,6 +38,13 @@ function renderCsvReview() { rendered++; }
 function esc(x) { return String(x); }
 function L(vi) { return vi; }
 
+/* csvEntryScopeDesc reads the per-open entry descriptor (window.csvEntryScope)
+   and falls back to the normalised default. Grabbed from source like the rest,
+   with fhNormScope stubbed to the family default — the harness only needs a
+   shape here, and stubbing the DESCRIPTOR rather than the reader keeps the
+   real fallback path under test. */
+window.fhNormScope = function(d){ return d && d.kind ? d : { kind: 'space' }; };
+eval(grab('csvEntryScopeDesc'));
 eval(grab('csvScopeReady'));
 eval(grab('csvStagedScope'));
 eval(grab('csvSetScope'));
