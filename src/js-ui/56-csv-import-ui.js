@@ -521,6 +521,7 @@ function csvBuildReview(sources, opts){
       ? (buckets.possibleDuplicate.forEach(function(c){ c._skipImport = true; buckets.ready.push(c); }), [])
       : buckets.possibleDuplicate.map(function(c){ return { c:c, resolved:null }; }),
     deferred: buckets.deferred.filter(function(c){ return !c.isSummaryRow; }),
+    mergedCount: buckets.mergedCount || 0,   // copies of one payment folded away; the header says how many
     mixedSignsNote: mixed,
     signMode: signMode,
     blankCount: blanks.dropped,
@@ -1507,10 +1508,15 @@ function csvTxrRowHTML(){
      never does. Xong's toast still names the edits in full. */
   var k = (csvTxrPendCat ? 1 : 0) + (csvTxrPendAll ? 1 : 0) + Object.keys(csvTxrSrcStage).length;
   var allOn = n > 0 && n === csvReview.ready.length;
+  var mg = (csvReview && csvReview.mergedCount) || 0;
   var small = '<span class="'+(k ? 'arm' : '')+'">'
     + esc(L('Sẽ nhập ','Importing ')) + '<span class="num">'+n+'</span>' + esc(L(' khoản',''))
     + ' · <span class="num">'+k+'</span> ' + esc(L('thao tác','edits'))
     + '</span>'
+    /* Merged copies are counted out loud. They are gone from the list because
+       there is nothing to decide about them, but a row that disappears without
+       a word is the one failure this screen exists to prevent. */
+    + (mg ? '<span class="txh-merged"> · ' + esc(L('đã gộp ' + mg + ' bản trùng', mg + ' merged')) + '</span>' : '')
     + ' <button type="button" class="txh-sublink" onclick="csvStagedSelectAll(' + (allOn ? 'false' : 'true') + ')">'
     + esc(allOn ? L('Bỏ chọn','Clear') : L('Chọn tất cả','Select all')) + '</button>';
   return '<span class="txh-sum"><small>'+small+'</small><b>'+fig+'</b></span>'

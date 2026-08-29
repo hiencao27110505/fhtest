@@ -3028,6 +3028,7 @@ html.fh-can-install .set-row.set-install{display:flex}
   font-variant-numeric:tabular-nums}
 .txh-sum small .num{font-variant-numeric:tabular-nums}
 .txh-sum small .arm{color:var(--brand)}
+.txh-sum small .txh-merged{color:var(--muted-soft)}
 .txh-sum b{font-family:var(--disp);font-size:16.5px;font-weight:800;letter-spacing:-.4px;
   color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.25;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -10571,6 +10572,7 @@ function csvBuildReview(sources, opts){
       ? (buckets.possibleDuplicate.forEach(function(c){ c._skipImport = true; buckets.ready.push(c); }), [])
       : buckets.possibleDuplicate.map(function(c){ return { c:c, resolved:null }; }),
     deferred: buckets.deferred.filter(function(c){ return !c.isSummaryRow; }),
+    mergedCount: buckets.mergedCount || 0,   // copies of one payment folded away; the header says how many
     mixedSignsNote: mixed,
     signMode: signMode,
     blankCount: blanks.dropped,
@@ -11557,10 +11559,15 @@ function csvTxrRowHTML(){
      never does. Xong's toast still names the edits in full. */
   var k = (csvTxrPendCat ? 1 : 0) + (csvTxrPendAll ? 1 : 0) + Object.keys(csvTxrSrcStage).length;
   var allOn = n > 0 && n === csvReview.ready.length;
+  var mg = (csvReview && csvReview.mergedCount) || 0;
   var small = '<span class="'+(k ? 'arm' : '')+'">'
     + esc(L('Sẽ nhập ','Importing ')) + '<span class="num">'+n+'</span>' + esc(L(' khoản',''))
     + ' · <span class="num">'+k+'</span> ' + esc(L('thao tác','edits'))
     + '</span>'
+    /* Merged copies are counted out loud. They are gone from the list because
+       there is nothing to decide about them, but a row that disappears without
+       a word is the one failure this screen exists to prevent. */
+    + (mg ? '<span class="txh-merged"> · ' + esc(L('đã gộp ' + mg + ' bản trùng', mg + ' merged')) + '</span>' : '')
     + ' <button type="button" class="txh-sublink" onclick="csvStagedSelectAll(' + (allOn ? 'false' : 'true') + ')">'
     + esc(allOn ? L('Bỏ chọn','Clear') : L('Chọn tất cả','Select all')) + '</button>';
   return '<span class="txh-sum"><small>'+small+'</small><b>'+fig+'</b></span>'
@@ -12926,7 +12933,7 @@ function bucketCsvCandidates(candidates, mixedSigns) {
   var staged = !!window.csvStagedMode;
   var priors = [];   // staged rows already bucketed, for the cross-source check
 
-  var ready = [], needsCategoryGroups = {}, possibleDuplicate = [], deferred = [];
+  var ready = [], needsCategoryGroups = {}, possibleDuplicate = [], deferred = [], merged = 0;
 
   /* ONE PAYMENT, THE RICHEST COPY — decided before anything else is bucketed.
 
@@ -12956,16 +12963,26 @@ function bucketCsvCandidates(candidates, mixedSigns) {
       var k = inst + '|' + c.amount;
       var held = richest[k];
       if (!held) { richest[k] = c; return; }
-      if (csvInfoScore(c) > csvInfoScore(held)) { held._dupOfRicher = true; richest[k] = c; }
-      else { c._dupOfRicher = true; }
+      if (csvInfoScore(c) > csvInfoScore(held)) { held._mergedCopy = true; richest[k] = c; }
+      else { c._mergedCopy = true; }
     });
   }
 
   candidates.forEach(function(c) {
-    /* A poorer copy of a payment kept elsewhere in this batch. Flagged here,
-       before the text checks, because its whole problem is that its text no
-       longer matches its twin's. */
-    if (c._dupOfRicher) { c.duplicateOfBatch = true; possibleDuplicate.push(c); return; }
+    /* A poorer copy of a payment already kept in this batch. MERGED AWAY, not
+       shown: the duplicates section exists for SUSPICIONS a person should rule
+       on — a cross-source pair within three days, where only they know if it
+       was one purchase. This is not that. Same amount to the second is one
+       payment by construction, and asking someone to confirm it is asking a
+       question with no second answer.
+
+       Not silent, though: they are counted and the header says how many were
+       merged, because a row that vanishes without a word is the one failure
+       this screen exists to prevent. And they are still RETIRED on import —
+       being in none of ready/groups/dup/deferred, fhStagedIdsForResolved reads
+       them as finished, which they are: the payment they describe is going in
+       under its better copy. */
+    if (c._mergedCopy) { merged++; return; }
 
     if (mixedSigns || c.isIncome || c.isTransfer || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
       deferred.push(c); return;
@@ -13057,7 +13074,7 @@ function bucketCsvCandidates(candidates, mixedSigns) {
     ready.push(c);
   });
 
-  return { ready: ready, needsCategoryGroups: needsCategoryGroups, possibleDuplicate: possibleDuplicate, deferred: deferred };
+  return { ready: ready, needsCategoryGroups: needsCategoryGroups, possibleDuplicate: possibleDuplicate, deferred: deferred, mergedCount: merged };
 }
 
 /* ---------- photo-picker permission recovery ----------

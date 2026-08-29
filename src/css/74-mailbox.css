@@ -204,6 +204,7 @@
   font-variant-numeric:tabular-nums}
 .txh-sum small .num{font-variant-numeric:tabular-nums}
 .txh-sum small .arm{color:var(--brand)}
+.txh-sum small .txh-merged{color:var(--muted-soft)}
 .txh-sum b{font-family:var(--disp);font-size:16.5px;font-weight:800;letter-spacing:-.4px;
   color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.25;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

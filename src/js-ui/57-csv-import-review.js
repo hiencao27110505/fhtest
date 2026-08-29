@@ -836,7 +836,7 @@ function bucketCsvCandidates(candidates, mixedSigns) {
   var staged = !!window.csvStagedMode;
   var priors = [];   // staged rows already bucketed, for the cross-source check
 
-  var ready = [], needsCategoryGroups = {}, possibleDuplicate = [], deferred = [];
+  var ready = [], needsCategoryGroups = {}, possibleDuplicate = [], deferred = [], merged = 0;
 
   /* ONE PAYMENT, THE RICHEST COPY — decided before anything else is bucketed.
 
@@ -866,16 +866,26 @@ function bucketCsvCandidates(candidates, mixedSigns) {
       var k = inst + '|' + c.amount;
       var held = richest[k];
       if (!held) { richest[k] = c; return; }
-      if (csvInfoScore(c) > csvInfoScore(held)) { held._dupOfRicher = true; richest[k] = c; }
-      else { c._dupOfRicher = true; }
+      if (csvInfoScore(c) > csvInfoScore(held)) { held._mergedCopy = true; richest[k] = c; }
+      else { c._mergedCopy = true; }
     });
   }
 
   candidates.forEach(function(c) {
-    /* A poorer copy of a payment kept elsewhere in this batch. Flagged here,
-       before the text checks, because its whole problem is that its text no
-       longer matches its twin's. */
-    if (c._dupOfRicher) { c.duplicateOfBatch = true; possibleDuplicate.push(c); return; }
+    /* A poorer copy of a payment already kept in this batch. MERGED AWAY, not
+       shown: the duplicates section exists for SUSPICIONS a person should rule
+       on — a cross-source pair within three days, where only they know if it
+       was one purchase. This is not that. Same amount to the second is one
+       payment by construction, and asking someone to confirm it is asking a
+       question with no second answer.
+
+       Not silent, though: they are counted and the header says how many were
+       merged, because a row that vanishes without a word is the one failure
+       this screen exists to prevent. And they are still RETIRED on import —
+       being in none of ready/groups/dup/deferred, fhStagedIdsForResolved reads
+       them as finished, which they are: the payment they describe is going in
+       under its better copy. */
+    if (c._mergedCopy) { merged++; return; }
 
     if (mixedSigns || c.isIncome || c.isTransfer || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
       deferred.push(c); return;
@@ -967,5 +977,5 @@ function bucketCsvCandidates(candidates, mixedSigns) {
     ready.push(c);
   });
 
-  return { ready: ready, needsCategoryGroups: needsCategoryGroups, possibleDuplicate: possibleDuplicate, deferred: deferred };
+  return { ready: ready, needsCategoryGroups: needsCategoryGroups, possibleDuplicate: possibleDuplicate, deferred: deferred, mergedCount: merged };
 }

@@ -22,6 +22,8 @@ const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok 
 
 // The rule, extracted from source so it cannot drift from what ships.
 const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'js-ui', '57-csv-import-review.js'), 'utf8');
+t('a merged copy is dropped, not parked for a ruling', /if \(c\._mergedCopy\) \{ merged\+\+; return; \}/.test(src));
+t('the count survives so the header can say it', /mergedCount: merged/.test(src));
 t('the survivor is chosen by information, not arrival order',
   /csvInfoScore\(c\)\s*>\s*csvInfoScore\(held\)/.test(src));
 t('it keys on the exact instant, not the day', /var k = inst \+ '\|' \+ c\.amount/.test(src));
@@ -43,10 +45,10 @@ function bucket(rows, stagedRows){
     const k = inst + '|' + c.amount;
     const held = richest[k];
     if (!held) { richest[k] = c; return; }
-    if (csvInfoScore(c) > csvInfoScore(held)) { held._dupOfRicher = true; richest[k] = c; }
-    else { c._dupOfRicher = true; }
+    if (csvInfoScore(c) > csvInfoScore(held)) { held._mergedCopy = true; richest[k] = c; }
+    else { c._mergedCopy = true; }
   });
-  rows.forEach(c => (c._dupOfRicher ? dup : ready).push(c));
+  rows.forEach(c => (c._mergedCopy ? dup : ready).push(c));
   return { ready, dup };
 }
 
