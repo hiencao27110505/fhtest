@@ -17,8 +17,10 @@ reviews it, and how an approved row becomes an encrypted ledger entry.
 
 > **Audience & layering.** Part 1 (Behaviour) is for everyone — product,
 > design, QA, onboarding. Part 2 (Technical Appendix) is for engineers.
-> The [transports table](#5-the-three-transports-at-a-glance) is the
-> one-glance summary; the three diagrams are the zoom-out views.
+> Part 3 (Release Notes) is the running log of every deployment that changed
+> what this document describes — **check it first if the doc and production
+> seem to disagree**. The [transports table](#5-the-three-transports-at-a-glance)
+> is the one-glance summary; the four diagrams are the zoom-out views.
 
 > **How this spec relates to its siblings.** This is the wide view. Two
 > stages of the chain have their own deep specs and are *summarised* here:
@@ -1730,3 +1732,114 @@ emit; resolved to a real family category at review, never invented.
   review engine.
 - `docs/PDPL-COMPLIANCE.md` — consent and erasure obligations.
 - `AGENT_SYNC.md` — cross-session ground rules and live claims.
+
+---
+
+# Part 3 — Release Notes
+
+The running log of every deployment that changed what this document
+describes. This part exists so the spec is never quietly wrong: production
+and the doc move together, and anyone — product, engineering, or a Claude
+session picking up the repo cold — can trust the newest entry as the current
+state of the world.
+
+## 27. How this part works
+
+**When to add an entry — any of these ships:**
+
+- an Edge Function deploy of `mailbox-sync`, `mailbox-connect`, or
+  `push-send`
+- an Apps Script paste (a `PIPELINE_VERSION` bump)
+- an applied migration touching the pipeline's tables (`email_transactions`,
+  `mailbox_grants`, `sender_fingerprints`, `resolved_email_messages`,
+  `parse_failures`, staging keys, tallies)
+- a client release changing capture, review, or promotion behaviour
+- transport C going live, or its `/ingest` bridge merging
+
+**How to write one.** Newest first. Every entry carries four lines, so both
+audiences can pick it up without the other's context:
+
+- **For product** — what a user or the team can now see/do differently, in
+  plain words. No function names.
+- **Under the hood** — what actually changed, precise enough for an engineer
+  to find it: components + versions, migrations, constants, commit hashes.
+- **Spec sections updated** — which §§ of this document were edited to
+  match. *An entry with nothing here and a behaviour change is a red flag —
+  either the doc already covered it or the update was skipped.*
+- **Watch for** *(optional)* — what to monitor after this deploy, or what it
+  deliberately does not fix.
+
+**The contract:** the entry, the section edits, and the regenerated `.docx`
+(`build-effortless-transaction-logging-spec.py`; diagrams via
+`build-effortless-diagrams.py` if they changed) land in the **same commit**
+as — or the same day as — the deploy. A deploy announced only in
+`AGENT_SYNC.md` is coordination; this is the record.
+
+## 28. Releases (newest first)
+
+### 2026-08-30 — mailbox-sync v24 · migrations 0101–0103 — the first-real-user backfill incident
+
+- **For product:** the three symptoms of the first outside-team mailbox
+  connect are fixed: the notification-every-minute storm (60/hour) has
+  stopped; VCB card rows no longer arrive titled "At" or with a bank-footer
+  sentence as the merchant; and a 365-day first read now actually stages
+  instead of showing nothing for hours. Backfills are also much faster
+  (a 90-day history in ~76s) and buzz once, not once per chunk. Known
+  remainder: a backfill whose tail is all junk mail still never marks itself
+  finished and re-reads that tail every minute (§24) — queue-healing for the
+  affected account and the completion fix are planned, not shipped.
+- **Under the hood:** stall notice edge-triggered on the streak crossing
+  instead of level-checked (`53e826d`; the level form fired on every
+  fast-lane minute past 12 stalled runs); label-table reader skips bilingual
+  English twin labels ("Sử dụng tại"/"At" split by `<br>` — `c2f6074`) and
+  no longer contains-matches labels inside footer prose (`6ecd86a`);
+  `alreadyStaged` chunked at 150 ids/request — 891 ids in one `in.(…)` URL
+  was ~19KB and Cloudflare refused it before anything ran (`2b6ffad`);
+  model budget now per-grant (`MAX_MODEL_CALLS_PER_GRANT = 40`) instead of
+  10 pooled per run, `BACKFILL_STAGE_MAX` 150→400,
+  `MAX_MESSAGES_PER_GRANT` 40→120, `FETCH_CONCURRENCY` 6→20 (`f699514`);
+  first-read notify moved to on-completion with a stall-counter fallback
+  (`9bd6295`, `0101`); `default_scope` added to the client column grant —
+  its absence sent connected users back to setup (`e341c9d`, `0102`); one
+  grant per fold-normalised mailbox address across accounts (`a82ac66`,
+  `0103`).
+- **Spec sections updated:** §12.4, §14.3–14.4, §14.7, §16.1, §20, §21.5,
+  §24, extraction-flow diagram.
+- **Watch for:** `read_tally.junk_cache` exploding and `backfilled_at`
+  stuck null with a cycling stall streak — that is the §24 wedge, still
+  open. Occasional single stall notices (one per streak re-crossing) are
+  the designed behaviour until it lands.
+
+### 2026-08-29 — this specification first published
+
+- **For product:** the feature has a single end-to-end source of truth;
+  earlier partial docs (`bank-email-capture-spec.docx`,
+  `transaction-review-spec.md`, the feature docs) remain as deep-dives it
+  links.
+- **Under the hood:** no runtime change. `.md` is the editable source;
+  `.docx` and the four PNGs are generated (`7ad2219`).
+- **Spec sections updated:** all (initial).
+
+### 2026-08-26 — migration 0090 — promoted mail stays gone
+
+- **For product:** transactions you already imported can no longer reappear
+  in the review queue when history is re-read (42 already-promoted rows had
+  come back after a backfill was widened 15→90 days).
+- **Under the hood:** `resolved_email_messages` tombstones — ids only,
+  written *before* the staged-row DELETE; `alreadyStaged` unions them.
+  Re-keyed by `0092` so personal-only users can write them.
+- **Spec sections updated:** §12.2, §18.1 (this entry predates the doc;
+  recorded for the historical spine).
+
+### 2026-08-25 — consent v4 · mail sent to the model as written · connect moves in-house
+
+- **For product:** the consent sheet now states plainly that a first-time
+  bank's mail is read by an AI service, amounts and names included —
+  everyone re-affirms (v4). Repeat-sender mail still never leaves the
+  machine. Mailbox connect became a FamilyHub-owned flow instead of the
+  separate Cloud Run API.
+- **Under the hood:** `maskForSharing()`/`unmaskExtraction()` removed;
+  `FH_CONSENT_V = 4`; `mailbox-connect` Edge Function owns
+  authorize/callback and writes `mailbox_grants`; erasure still calls the
+  legacy Cloud Run DELETE to stop its watcher.
+- **Spec sections updated:** §8, §14.1, §16.3 (recorded retroactively).
