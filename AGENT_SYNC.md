@@ -2678,6 +2678,25 @@ hand-merging `index.html`. Both replaced vigilance with structure.
   encVal(dek, priv); (4) TweetNaCl on both ends for the envelope, WebCrypto only
   for the priv-key wrap.
 
+- **2026-08-30** — `docs/specs/bank-email-feature-review.{md,docx}`: independent
+  review of the whole bank-email capture feature, written against live production
+  data rather than the code alone. Three findings worth another pair of eyes
+  before anyone acts on them:
+  (1) the pipeline has no memory of a NEGATIVE decision — `alreadyStaged()` knows
+  staged rows and resolved tombstones, not rejected mail, so every non-transaction
+  email is re-listed, re-FETCHED from Gmail and re-rejected every run. Measured
+  30 Aug: 43,592 reads produced 8 transactions.
+  (2) one message the model throws on holds a mailbox's cursor forever — no
+  attempt counter, no dead-letter, and no `parse_failures` row, because the throw
+  bypasses the code that records failures. `hiencao27110505` has `last_synced_at`
+  NULL with 484 rows staged. The stall is observed; the MECHANISM is inferred and
+  the doc says so — confirm with `summary.held`/`summary.queued` on one run before
+  building the fix.
+  (3) 3 stored templates for 16 transaction shapes; VIB is 6 of the 13 misses.
+  Regenerate the docx with `python3 docs/specs/build-bank-email-feature-review.py`
+  (needs python-docx). Findings 4 and 6 in the doc are about my own code from
+  29-30 Aug and are reported on the same basis as the rest.
+
 - **2026-08-07** — `0050_known_provider_domains_seed`: reviewed + approved
   ("zero-risk, merge & apply, go ahead"), merged to main. Live-DB apply +
   ledger entry: pending (Supabase MCP auth on our side, or SQL-editor paste).
