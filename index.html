@@ -23712,12 +23712,24 @@ window.classifyAmount = classifyAmount;
         ? await window.fhPersonalStagingPrivKey()
         : await window.fhStagingPrivKey();
       var payload = window.fhStagingOpenRow(row, priv);
+      /* Two transports seal two SHAPES. The forwarding pipeline spreads the
+         extracted detail fields FLAT into the sealed payload; the direct-read
+         worker NESTS them under `raw_extracted` (stage.mjs). This screen reads
+         memo_display, category_hint, account_masked, flow and _transport at the
+         TOP level — which is where forwarding puts them — so a direct-read row
+         silently lost every one: descriptions fell back to the counterparty,
+         categories never auto-filled, income mis-routed, and the source tag
+         always read "forwarding". Flatten the nested case up so both shapes are
+         identical from here down. The duplicated cash fields agree, so the merge
+         is lossless. */
+      var re = (payload && payload.raw_extracted && typeof payload.raw_extracted === 'object')
+        ? Object.assign({}, payload, payload.raw_extracted) : payload;
       return {
         id: row.id, member_id: row.member_id,
         source_provider: row.source_provider, occurred_at: row.occurred_at,
-        amount: payload.amount, currency: payload.currency,
-        direction: payload.direction, counterparty: payload.counterparty,
-        raw_extracted: payload,
+        amount: re.amount, currency: re.currency,
+        direction: re.direction, counterparty: re.counterparty,
+        raw_extracted: re,
       };
     } catch (e) {
       // Tampering, a key mismatch, or a locked device. Never silently skip: a row
