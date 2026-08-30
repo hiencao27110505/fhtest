@@ -35,7 +35,7 @@ import { decryptToken } from './token-crypto.mjs';
  *  because "which code is actually deployed" once cost hours of guessing; this
  *  worker had no equivalent, and answering that question is exactly what made
  *  the 28 Aug incident review slow. Bump on any deploy. */
-export const BUILD_ID = '2026-08-29-urlfix';
+export const BUILD_ID = '2026-08-30-stallonce';
 
 /** How many consecutive no-progress runs before a stalled backfill is allowed
  *  to send its completion notice anyway (0101).
@@ -583,10 +583,21 @@ export async function runGrant(grant, ctx) {
      the person is not left with a full queue and silence. It is still NOT
      marked finished: `backfilled_at` is untouched above, the stragglers keep
      being retried, and if they ever land the normal completion notice follows.
-     `>=` rather than `===` so a mailbox that was already past the threshold
-     when this shipped is not skipped. */
+     FIRES ONCE PER STALL, ON THE CROSSING RUN ONLY (fixed 2026-08-30).
+     It first read `stalledRuns >= threshold`, which is true on the crossing run
+     AND on every run after it — and since the 0097 fast lane wakes a stalled
+     backfill once a MINUTE, that was a notification a minute, forever. The
+     feature built to stop ten buzzes an hour was sending sixty.
+  
+     Comparing against the count this run STARTED with is what makes it an edge
+     rather than a level. The case the old `>=` was protecting — a mailbox
+     already past the threshold when this shipped — now waits until its streak
+     next resets and re-crosses, which costs one late notice instead of an
+     unbounded stream of them. */
+  const prevStalled = Number(grant.stalled_runs) || 0;
+  const stallThreshold = ctx.stallNotifyAfter ?? STALL_NOTIFY_AFTER;
   const stalledEnoughToSpeak = backfilling && !finishedBackfill
-    && stalledRuns >= (ctx.stallNotifyAfter ?? STALL_NOTIFY_AFTER);
+    && stalledRuns >= stallThreshold && prevStalled < stallThreshold;
 
   let notifyCount = summary.staged;
   if ((finishedBackfill || stalledEnoughToSpeak) && ctx.db.pendingCount) {

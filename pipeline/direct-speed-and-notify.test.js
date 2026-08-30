@@ -306,6 +306,25 @@ const GRANT = (over = {}) => ({
       /const batch = \(await inflight\) \|\| \[\];/.test(w3));
   }
 
+
+  console.log('\n-- 8. a stalled backfill speaks ONCE, not once a minute --');
+  {
+    const w8 = require('fs').readFileSync(path.join(__dirname,'..','supabase','functions','_shared','mailbox','worker.mjs'),'utf8');
+    t('the notice is an EDGE, compared against the count the run started with',
+      /prevStalled = Number\(grant\.stalled_runs\)/.test(w8) &&
+      /stalledRuns >= stallThreshold && prevStalled < stallThreshold/.test(w8));
+    t('so a level test can never re-fire it every run',
+      !/stalledEnoughToSpeak = backfilling && !finishedBackfill\s*\n\s*&& stalledRuns >= \(ctx\.stallNotifyAfter/.test(w8));
+
+    /* The shape of the bug, stated as arithmetic: with the 1-minute fast lane,
+       a level test fires 60 times an hour once the threshold is passed. */
+    const N = 12, runs = 30;
+    const level = Array.from({length: runs}, (_, i) => i + 1).filter(n => n >= N).length;
+    const edge  = Array.from({length: runs}, (_, i) => i + 1).filter(n => n >= N && n - 1 < N).length;
+    t('over 30 stalled runs: level fires 19 times, edge fires once',
+      level === 19 && edge === 1, 'level=' + level + ' edge=' + edge);
+  }
+
   console.log(fail ? '\n' + fail + ' FAILED\n' : '\nall ' + pass + ' passed\n');
   process.exit(fail ? 1 : 0);
 })();
