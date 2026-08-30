@@ -130,8 +130,12 @@ permanent failure that way is how a topic backs up.
    auto-filtered into a folder is still a transaction.
 6. **Ask what is already done** — one `alreadyStaged(ids, memberId)` call for the whole
    window, unioning `email_transactions` **and** `resolved_email_messages` (§5).
-7. **Per fresh message, up to `MAX_MESSAGES_PER_GRANT` (40):**
-   fetch → sender match → DKIM verdict → parse → seal → fingerprint → dedup → insert.
+7. **Per fresh message, up to `MAX_MESSAGES_PER_GRANT` (120; `BACKFILL_STAGE_MAX` 400
+   on a first read):** fetch → sender match → DKIM verdict → parse → seal → fingerprint
+   → dedup → insert. Fetching is pooled `FETCH_CONCURRENCY` (20) lanes wide and runs one
+   chunk **ahead** of processing; everything after the fetch stays strictly serial,
+   because the model budget is spent in sequence and dedup compares each row against
+   ones already staged in this same window (`f699514`, 2026-08-29).
 8. **Advance the cursor** — `last_synced_at`, plus `backfilled_at` on a first run —
    **only if nothing held and nothing remains queued.**
 9. **Notify** if anything staged.
@@ -149,8 +153,13 @@ normalised to a *shape* so "Giao dịch 1.500.000đ" and "Giao dịch 250.000đ"
 | Gemini (`gemini-3.5-flash-lite`) | 1 API call, budget-capped | parsed, then a template is **learned** |
 
 A derived template is kept only if it **reproduces the model's own output on the very
-body it came from**. `MAX_MODEL_CALLS_PER_RUN` (10) is a hard ceiling; exceeding it
+body it came from**. `MAX_MODEL_CALLS_PER_GRANT` (40) is a hard ceiling; exceeding it
 throws, which HOLDS the mailbox rather than half-reading the window.
+
+The budget is **per mailbox, not per run** (`f699514`, 2026-08-29). Shared, the first
+grant to reach the model drained the pool and every other mailbox in the run got none —
+the opposite of what the ceiling was for. `MAX_MODEL_CALLS_PER_RUN` survives as an alias
+so an older caller passing `maxModelCalls` still works.
 
 The mail is sent to the model **as written** — masking was removed 2026-08-25 and
 consent replaced it. A model that cannot read `750.000` cannot use a figure's magnitude

@@ -506,6 +506,48 @@ Three observations for anyone considering more than repair:
 
 ---
 
+## Part 9 — Where else this feature is documented
+
+**This document is a review, not a reference.** It is dated, it is built on production
+measurement, and it will be superseded. It deliberately does **not** re-describe how the
+pipeline works, because four other documents already do that, and a fifth description is
+how a set of docs starts to disagree with itself.
+
+Read those first if you want the mechanism. Come back here for what it is currently doing.
+
+| If you need | Read |
+|---|---|
+| The whole feature, all three transports, behaviour then technical appendix | `docs/specs/effortless-transaction-logging-spec.md` (1,845 lines) — **the most complete reference** |
+| Route A (forwarding) end to end — dedup history, sealing, retention, schema | `docs/features/bank-email-pipeline.md` |
+| Route B (direct read) — the holds, idempotency, windowing, grant lifecycle | `docs/features/direct-mailbox-read.md` |
+| The review screen — routing, bulk tools, **the category cascade**, retirement | `docs/specs/transaction-review-spec.md` |
+| Why sealed staging is shaped the way it is | `pipeline/SEALED-STAGING-DESIGN.md` |
+| The OAuth compliance position | `pipeline/OAUTH-COMPLIANCE-FINDINGS.md`, `pipeline/OAUTH-DIRECT-READ.md` |
+
+### Things this review deliberately does not repeat
+
+Each of these is already documented, most of them more than once. They are listed so
+nobody adds them here a sixth time:
+
+- **The dedup ladder** — three layers, six verdicts. In four documents.
+- **The category cascade** — eight tiers. `transaction-review-spec.md` §C.
+- **Internal transfers double-count.** A known limit, recorded in four documents. It is
+  a real product gap and it is not a finding of this review, because nobody has failed
+  to notice it.
+- **OAuth connect, template derivation, the model call, the tidy layer** —
+  `effortless-transaction-logging-spec.md` §14.1 and §16.2 to §16.4.
+
+### The one thing worth reconciling
+
+The reference docs describe a cached rejection as cheap: one lookup, no model call, done.
+That is true of the *decision* and false of the *cost*, because the decision needs the
+message body and the body needs a Gmail round trip that nothing remembers making
+(Finding 1). Both statements are honest and they were written from different evidence —
+one from the code, one from the telemetry. **When Finding 1 is fixed, they converge.**
+Until then, treat this paragraph as the errata for the other four.
+
+---
+
 ## Appendix A — File map
 
 | Concern | File |
