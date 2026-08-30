@@ -780,19 +780,30 @@ function csvStagedProvider(c){
   // pass through here, so canonicalising this line unifies all three
   return (typeof fhProviderName === 'function') ? fhProviderName(raw) : raw;
 }
-function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider, scope){
+
+/* Which transport imported this staged row → a short tag for the review card.
+   Reads the same _transport marker the promote path uses (fhStagedSource): the
+   direct-read worker stamps 'oauth_direct', forwarding leaves it absent. Staged
+   rows only; a file-import card has no transport. */
+function csvStagedSourceTag(c){
+  if(!window.csvStagedMode || !window.fhStagedSource || !c || typeof c.rowIndex!=='number') return '';
+  var s = window.fhStagedSource(c);
+  return s==='direct-email' ? L('Trực tiếp','Direct') : (s==='forwarding-email' ? L('Chuyển tiếp','Forwarded') : '');
+}
+function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider, scope, source){
   var tone = isError ? ' attn' : (attn ? ' warn' : '');
-  // Staged (bank-email) rows: ONE quiet meta line — scope · bank · date · time.
-  // The generic "Khoản chi N" index says nothing here and stacking it beside the
-  // rest overflowed the header into a broken two-line wrap; the description below
-  // carries the real identity. Scope rides here too rather than on its own line.
+  // Staged (bank-email) rows: a small source tag, then ONE quiet meta line —
+  // scope · bank · date · time. The generic "Khoản chi N" index says nothing here
+  // and stacking it beside the rest overflowed the header into a broken two-line
+  // wrap; the description below carries the real identity.
   if (provider) {
     var when = dateIso ? esc(bulkDate(dateIso)) + (timeStr ? ' · ' + esc(timeStr) : '') : '';
     var parts = [];
     if (scope) parts.push('<span class="bulk-scope">'+esc(scope)+'</span>');
     parts.push('<span class="bulk-src'+tone+'">'+esc(provider)+'</span>');
     if (when) parts.push('<span class="bulk-when">'+when+'</span>');
-    return '<span class="bulk-head bulk-head-src"><span class="bulk-meta">'
+    var tag = source ? '<span class="bulk-transport">'+esc(source)+'</span>' : '';
+    return '<span class="bulk-head bulk-head-src">' + tag + '<span class="bulk-meta">'
       + parts.join('<span class="bulk-sep">·</span>') + '</span></span>';
   }
   var meta = dateIso ? '<span class="bulk-date">'+esc(bulkDate(dateIso))+(timeStr?' · '+esc(timeStr):'')+'</span>' : '';
@@ -819,7 +830,8 @@ function csvCollapsedCard(c, opts){
     /* Scope now rides in the header meta line (csvCardHead), not on its own row.
        Both destinations are marked so the line always reads scope · bank · time. */
     + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c),
-        (csvStagedMode && !opts.isDup) ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '')
+        (csvStagedMode && !opts.isDup) ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '',
+        csvStagedSourceTag(c))
     + (opts.noPick
         ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+'</span>'
         : bulkSummary(csvRowShape(c, opts.isDup || opts.repeat)))
@@ -879,7 +891,7 @@ function csvActiveCard(c, opts){
   // Expanding was tappable but collapsing wasn't; an up-chevron marks the header
   // as the way back. The × (remove) stays a separate sibling so the two 44px
   // targets never overlap.
-  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c), '');
+  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c), '', csvStagedSourceTag(c));
   var head = opts.tapFn
     ? '<button type="button" class="bulk-collapse" onclick="'+opts.tapFn+'" aria-expanded="true" aria-label="'+escAttr(L('Thu gọn','Collapse'))+'">'
         + headInner

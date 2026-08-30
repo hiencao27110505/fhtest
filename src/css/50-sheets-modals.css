@@ -139,7 +139,12 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 /* Staged (bank-email) card header: one quiet meta line — scope · bank · date ·
    time. Plain text (source_provider, no icon); the bank sits a touch darker so it
    anchors the line, and the whole line truncates rather than wrapping. */
-.bulk-head-src{min-width:0}
+.bulk-head-src{min-width:0;gap:6px}
+/* Source tag: which transport imported the row ('Trực tiếp' / 'Chuyển tiếp').
+   A small branded pill leading the meta line; never shrinks, so the meta text
+   truncates around it. */
+.bulk-transport{flex-shrink:0;font-size:9.5px;font-weight:700;color:var(--brand-ink);
+  background:var(--brand-tint);border-radius:5px;padding:1px 6px;line-height:1.55}
 .bulk-meta{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font-size:11px;font-weight:600;color:var(--muted);line-height:1.35}
 .bulk-meta .bulk-src{font-weight:700;color:var(--ink-2)}
