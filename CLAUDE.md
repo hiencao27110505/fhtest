@@ -177,6 +177,7 @@ blocks (borders + a single left-accent per view instead).
 | Why a specific feature exists + how it works (Problem/Why, Architecture/How, Current State) | `docs/features/*.md` |
 | Dev-facing history of what shipped and why (full backfill from repo start) | `CHANGELOG.md` |
 | Bank-email capture: end-to-end spec + **release log — any deploy touching the pipeline appends an entry there (Part 3)** | `docs/specs/effortless-transaction-logging-spec.md` |
+| How mail text becomes ledger fields: the three extraction tiers, the label→field map, number/date handling | `docs/specs/email-extraction-reference.md` |
 | Cross-session collaboration protocol (AGENT_SYNC usage, attribution, migration numbering, keeping docs current) | `docs/COLLABORATION.md` |
 | Build/edit/commit workflow + why byte-identical is safe | `BUILD.md` |
 | All UI/UX rules (tokens, type, components, voice, currency, checklist) | `DESIGN.md` |

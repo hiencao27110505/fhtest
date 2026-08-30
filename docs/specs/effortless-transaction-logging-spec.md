@@ -1735,6 +1735,12 @@ emit; resolved to a real family category at review, never invented.
 
 ---
 
+> **Extraction detail lives elsewhere.** How a mail's text becomes fields — the
+> three tiers, the full label→field map, number and date handling, and the
+> parsing faults fixed on 30 Aug — is `email-extraction-reference.md`. This
+> document owns the journey; that one owns one link in it, and neither repeats
+> the other.
+
 # Part 3 — Release Notes
 
 The running log of every deployment that changed what this document
