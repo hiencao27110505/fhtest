@@ -144,7 +144,16 @@ function deriveExtractionTemplate(body, extraction) {
   tpl.static.source_provider = extraction.source_provider != null ? extraction.source_provider : null;
   tpl.static.currency = extraction.currency != null ? extraction.currency : null;
   tpl.static.direction = extraction.direction != null ? extraction.direction : null;
-  tpl.static.status = extraction.status != null ? extraction.status : null;
+  /* status is deliberately NOT staticised. It is the one field here that is an
+     OUTCOME of the individual mail rather than a property of the shape: derive
+     off a declined attempt and every later success staticises as "Không thành
+     công", derive off a success and every later decline staticises as real
+     spending. A live VCB template carried the first of those. Nothing corrected
+     it, because a success body does not read as failed.
+     The mail's own status row is the only authority — statusReadsFailed(), which
+     extract.mjs asks above every tier. That makes the static redundant as well
+     as unsafe, so it is gone rather than merely nulled: an absent key copies
+     nothing, and the shape has no opinion to be wrong about. */
 
   if (typeof extraction.occurred_at !== 'string') return null;
   var offM = extraction.occurred_at.match(/([+-]\d{2}:\d{2}|Z)$/);
@@ -197,7 +206,10 @@ function deriveExtractionTemplate(body, extraction) {
   // memo is checked here too. It was missing, which is why the derivation above
   // could drop it and still pass its own "reproduces the LLM exactly" proof — a
   // verification that does not cover a field cannot protect it.
-  var keys = ['transaction_type', 'source_provider', 'occurred_at', 'amount', 'currency', 'direction', 'counterparty', 'reference_number', 'status', 'account_masked', 'memo'];
+  // `status` is absent on purpose, and has to be: the template no longer carries
+  // one, so checking it here would compare undefined against the reading's own
+  // status and fail EVERY derivation off a mail that states an outcome.
+  var keys = ['transaction_type', 'source_provider', 'occurred_at', 'amount', 'currency', 'direction', 'counterparty', 'reference_number', 'account_masked', 'memo'];
   for (var i = 0; i < keys.length; i++) {
     var a2 = check[keys[i]], b2 = extraction[keys[i]];
     if (String(a2 === undefined ? null : a2) !== String(b2 === undefined ? null : b2)) return null;
