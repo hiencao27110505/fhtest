@@ -1792,15 +1792,21 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
-### 2026-08-31 — Apps Script `2026-08-31-notify` — one banner a minute, on the other transport
+### 2026-08-31 — Apps Script `2026-08-31-notify` + mailbox-sync — how often a banner fires, and what it says
 
-- **For product:** the notification storm is fixed on the forwarding side too.
+- **For product:** two things, one per transport. **Forwarding:** the
+  notification storm is fixed there too.
   Before, a queue that drained one message per minute sent one banner per
   minute, each saying "1" and none saying how many were waiting; a thirty-minute
   catch-up meant thirty interruptions. Now the first one still arrives
   immediately — a single bank mail on a quiet afternoon is not delayed at all —
   and anything further is gathered into at most one banner per member per 15
   minutes, carrying the real total. A 31-minute drain went from 30 banners to 3.
+  **Direct read:** a banner now says how many transactions are WAITING rather
+  than how many arrived in the minute that woke the reader. Four mails through a
+  day used to mean four separate "1 giao dịch" alerts while four sat unreviewed;
+  they now read 1, 2, 3, 4. The frequency is unchanged — new mail still speaks
+  when it lands — only the number is now the one a person would act on.
 - **Under the hood:** `notifyStagedReviews` in `bank-email-pipeline.gs` now
   holds a per-member running total in Script Properties (`notifyHold:<id>`,
   `notifyLast:<id>`) and rate-limits with a LEADING-edge cooldown,
@@ -1813,6 +1819,16 @@ as — or the same day as — the deploy. A deploy announced only in
   counts banners; `pipeline/review-notify.test.js` gained scenario isolation
   because the cooldown now survives between its cases, and its writable
   `PropertiesService` stub.
+
+  On the worker side, `db.pendingCount` was being asked only when a backfill
+  FINISHED, so every ordinary poll announced `summary.staged`. It is now asked
+  whenever a banner is about to go out, and only then — an accumulated total
+  would drift the first time a run died halfway, and asking on a silent run
+  spends a query to inform nobody. A count that throws or returns 0 still falls
+  back to this run's share, so the banner is never swallowed.
+  `pipeline/direct-notify-count.test.js` (11 assertions) drives the real
+  `runGrant` against a stubbed Gmail and asserts on what the person is shown —
+  the first behavioural test of the notify path rather than a source-text one.
 
   A trailing-edge version — hold everything, send when a run goes quiet — was
   written first and rejected: it delayed every notification by a trigger cycle.
@@ -1827,14 +1843,20 @@ as — or the same day as — the deploy. A deploy announced only in
 - **Spec sections updated:** none. Notification cadence was never specified
   beyond "one per member per run", which this replaces; §26 still describes the
   targeting rules, which are unchanged.
-- **Watch for:** this is an Apps Script paste, so it is NOT live until
-  `bank-email-pipeline.gs` is pasted from `origin/main` into the editor
-  (`PIPELINE_VERSION` `2026-08-31-notify`). Until then the forwarding transport
-  keeps its per-run behaviour. Also unfixed, and separate: the direct-read
-  ordinary poll still announces only the rows of the run that staged them rather
-  than the queue depth, and the 0097 fast lane wakes EVERY mailbox once a minute
-  while ANY grant is still backfilling — so during someone else's first read,
-  everyone's poll cadence rises from 5 minutes to 1.
+- **Watch for:** NEITHER HALF IS LIVE YET. The forwarding half needs
+  `bank-email-pipeline.gs` pasted from `origin/main` into the Apps Script editor
+  (`PIPELINE_VERSION` `2026-08-31-notify`); the direct-read half needs a
+  `mailbox-sync` deploy. Until each lands, that transport keeps its old
+  behaviour.
+
+  Left unfixed on purpose, and worth watching: the 0097 fast lane POSTs `{}`
+  with no grant filter, so while ANY mailbox is still backfilling, EVERY mailbox
+  is polled once a minute instead of every five — during someone else's first
+  read, everyone pays 5x the Gmail calls and has 5x the chances to be
+  interrupted. And forwarding banners still count rows staged since the last
+  banner rather than rows waiting; matching the worker there means a Supabase
+  round trip per notice from the Apps Script, which was not worth folding in
+  here.
 
 ### 2026-08-30 — mailbox-sync v24 · migrations 0101–0103 — the first-real-user backfill incident
 

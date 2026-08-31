@@ -608,19 +608,28 @@ export async function runGrant(grant, ctx) {
   const stalledEnoughToSpeak = backfilling && !finishedBackfill
     && stalledRuns >= stallThreshold && prevStalled < stallThreshold;
 
+  const shouldNotify = backfilling
+    ? (finishedBackfill || stalledEnoughToSpeak)
+    : summary.staged > 0;
+
+  /* The number a person actually cares about is HOW MANY ARE WAITING, not how
+     many happened to land in the run that woke up. This used to be asked only
+     when a backfill finished, so an ordinary poll said "1 giao dịch" four times
+     in a day while four sat unreviewed — four interruptions, none of them
+     telling you the thing you would act on.
+     Asked once, at the moment of sending, and only when we are actually going to
+     send: an accumulated total would drift the first time a run died halfway,
+     and asking on a silent run would spend a query to inform nobody.
+     `|| summary.staged` covers the count coming back 0 or unavailable — the rows
+     were staged either way, so the banner still goes out with what this run
+     knows rather than being silently dropped. */
   let notifyCount = summary.staged;
-  if ((finishedBackfill || stalledEnoughToSpeak) && ctx.db.pendingCount) {
-    /* The exact number waiting, asked once. A total accumulated across runs
-       would drift the first time a run died halfway; counting at the end
-       cannot, and this is the only moment it is ever asked. */
+  if (shouldNotify && ctx.db.pendingCount) {
     try {
       notifyCount = await ctx.db.pendingCount(destination.memberId, destination.ownerUserId)
                     || summary.staged;
     } catch { /* fall back to this run's share */ }
   }
-  const shouldNotify = backfilling
-    ? (finishedBackfill || stalledEnoughToSpeak)
-    : summary.staged > 0;
   if (shouldNotify && notifyCount > 0 && ctx.notify) {
     try { await ctx.notify(grant, notifyCount, { backfill: finishedBackfill || stalledEnoughToSpeak }); }
     catch { /* never fails a run */ }
