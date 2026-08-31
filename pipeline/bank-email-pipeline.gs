@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-08-25-a';   // raw mail to the model (masking removed, consent v4); whoever merges owns the bump, paste only from origin/main
+var PIPELINE_VERSION = '2026-08-31-notify';  // per-member notification cooldown; whoever merges owns the bump, paste only from origin/main
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -1591,14 +1591,86 @@ function queueReviewNotice(row) {
 // person who can act on it.
 var _PENDING_NOTIFY = {};
 
+/* Batching ACROSS runs, not just within one.
+ *
+ * The trigger fires every minute and each firing is a FRESH script execution, so
+ * `_PENDING_NOTIFY` above only ever batches the rows of a single run. That was
+ * enough for a forwarding burst that lands in one pass, and wrong for a queue
+ * that drains one message per minute: thirty minutes of catching up sent thirty
+ * banners, each saying "1", none saying how many were waiting. The direct-read
+ * worker was given exactly this fix on 2026-08-30 (it stays silent while a
+ * backfill runs and speaks once at the end); this is the same rule for the
+ * transport that never got it.
+ *
+ * The rule is a LEADING-EDGE cooldown, and the leading edge is the load-bearing
+ * half. A trailing-edge version was written first — hold everything, send when a
+ * run goes quiet — and it was wrong: it delayed EVERY notification by a trigger
+ * cycle, including the ordinary case of one mail arriving on a quiet afternoon.
+ * The existing suite caught it, because it already pinned "a burst of 5 sends
+ * ONE notification" on the same run. Quietening a storm must not slow the
+ * common case down.
+ *
+ *   nothing sent recently  -> send NOW, with everything held
+ *   inside the cooldown    -> add to the held total, say nothing
+ *   cooldown expires       -> the held total goes out on the next run
+ *
+ * No notion of "backfill" is needed, and none is added: this file has none and
+ * should not grow one. A drain and a burst look the same to it, which is the
+ * point — the rule is about how often a PERSON is interrupted, not about what
+ * the pipeline happens to be doing.
+ *
+ * State lives in Script Properties because a GAS execution keeps nothing
+ * between triggers.
+ */
+var NOTIFY_HOLD_KEY = 'notifyHold:';        // + member_id -> held count since the last send
+var NOTIFY_LAST_KEY = 'notifyLast:';        // + member_id -> ms of the last send
+var NOTIFY_COOLDOWN_MS = 15 * 60 * 1000;    // at most one banner per member per 15 min
+
+function _num(props, key) {
+  var raw = props.getProperty(key);
+  if (!raw) return 0;
+  var n = Number(raw);
+  return isFinite(n) ? n : 0;              // corrupt -> treat as absent
+}
+
+/* Every member currently holding rows, whether or not THIS run staged for them.
+ * Without this a burst that stops would hold its last rows forever: the send
+ * that clears them happens on a later run, which has nothing in
+ * `_PENDING_NOTIFY` to iterate. */
+function _heldMembers(props) {
+  var out = [], all = props.getProperties();
+  for (var k in all) {
+    if (k.indexOf(NOTIFY_HOLD_KEY) === 0) out.push(k.slice(NOTIFY_HOLD_KEY.length));
+  }
+  return out;
+}
+
 function notifyStagedReviews() {
-  var members = Object.keys(_PENDING_NOTIFY);
-  if (!members.length) return;
   var props = PropertiesService.getScriptProperties();
+  var now = Date.now();
+
+  // 1. fold this run's rows into whatever is already held
+  for (var m in _PENDING_NOTIFY) {
+    props.setProperty(NOTIFY_HOLD_KEY + m,
+      String(_num(props, NOTIFY_HOLD_KEY + m) + _PENDING_NOTIFY[m]));
+  }
+  _PENDING_NOTIFY = {};
+
+  // 2. who is off cooldown. A member never notified has last = 0, so their
+  //    first row goes out on the run that staged it — no delay on the ordinary
+  //    case of one mail arriving.
+  var members = [], candidates = _heldMembers(props);
+  for (var c = 0; c < candidates.length; c++) {
+    var id = candidates[c];
+    if (_num(props, NOTIFY_HOLD_KEY + id) <= 0) { props.deleteProperty(NOTIFY_HOLD_KEY + id); continue; }
+    if (now - _num(props, NOTIFY_LAST_KEY + id) >= NOTIFY_COOLDOWN_MS) members.push(id);
+  }
+  if (!members.length) return;
+
   var base = props.getProperty('SUPABASE_URL');
   var key = props.getProperty('SUPABASE_SERVICE_ROLE_KEY');
   for (var i = 0; i < members.length; i++) {
-    var count = _PENDING_NOTIFY[members[i]];
+    var count = _num(props, NOTIFY_HOLD_KEY + members[i]);
     try {
       // Deliberately no amount, merchant or bank name in the body — push transits
       // a third party, and once sealing is on the robot cannot read those values
@@ -1617,8 +1689,16 @@ function notifyStagedReviews() {
       // already written and will be reviewed whenever the app is next opened.
       Logger.log('notify failed for ' + members[i] + ': ' + e);
     }
+    /* Cleared whether the send succeeded or not, and deliberately. Holding a
+       failed count would re-send it every run for as long as push-send stays
+       unreachable — a notification storm caused by the code that exists to
+       prevent one. The rows are staged and the app shows them on open, so the
+       cost of dropping one banner is a late look, not a lost transaction.
+       The cooldown is stamped for the same reason: a send that threw still
+       COUNTS as an attempt, or a broken push endpoint would retry every run. */
+    props.deleteProperty(NOTIFY_HOLD_KEY + members[i]);
+    props.setProperty(NOTIFY_LAST_KEY + members[i], String(now));
   }
-  _PENDING_NOTIFY = {};
 }
 
 // Resolves which family member this email belongs to via the +tag on the receiving

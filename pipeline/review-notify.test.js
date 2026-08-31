@@ -19,7 +19,17 @@ const t = (n, ok, d) => { console.log((ok ? '  PASS  ' : '  FAIL  ') + n + (!ok 
 const gs = fs.readFileSync(path.join(__dirname, 'bank-email-pipeline.gs'), 'utf8');
 
 let _props = { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'srv-key' };
-global.PropertiesService = { getScriptProperties: () => ({ getProperty: (k) => _props[k] || null }) };
+/* Writable now, because notifyStagedReviews HOLDS a running total in Script
+   Properties between runs — that is how it batches a drain instead of sending a
+   banner a minute (pipeline/notify-debounce.test.js). A read-only stub made
+   this suite fail on the scaffolding rather than the targeting rules it exists
+   to pin. Nothing here asserts on the held state; it just has to be storable. */
+global.PropertiesService = { getScriptProperties: () => ({
+  getProperty: (k) => (k in _props ? _props[k] : null),
+  setProperty: (k, v) => { _props[k] = String(v); },
+  deleteProperty: (k) => { delete _props[k]; },
+  getProperties: () => Object.assign({}, _props),
+}) };
 global.Logger = { log: () => {} };
 
 let CALLS = [];
@@ -37,6 +47,18 @@ eval(gs.slice(gs.indexOf('var _PENDING_NOTIFY'), gs.indexOf('function queueRevie
 
 const MEMBER = '11111111-1111-1111-1111-111111111111';
 function stage(memberId, times) { for (let i = 0; i < times; i++) queueReviewNotice({ member_id: memberId }); }
+
+/* A fresh scenario, not just a fresh run. notifyStagedReviews now rate-limits
+   per member in Script Properties (one banner per NOTIFY_COOLDOWN_MS), so state
+   survives between the scenarios below the way it survives between triggers in
+   production. Without clearing it, scenario N+1 is silenced by scenario N's
+   send and fails for a reason that has nothing to do with what it pins. */
+function freshRun() {
+  CALLS = []; _PENDING_NOTIFY = {};
+  for (const k of Object.keys(_props)) {
+    if (k.indexOf('notifyHold:') === 0 || k.indexOf('notifyLast:') === 0) delete _props[k];
+  }
+}
 
 // ── which rows earn a notice ────────────────────────────────────────────────
 // A row the review screen will never show must not produce a banner: an empty
@@ -74,14 +96,14 @@ t('a SEALED row still notifies — the rule reads only luggage tags',
   _PENDING_NOTIFY[MEMBER] === 1, JSON.stringify(_PENDING_NOTIFY));
 
 // Five emails in one run is one banner, not five.
-CALLS = []; _PENDING_NOTIFY = {};
+freshRun();
 stage('11111111-1111-1111-1111-111111111111', 5);
 notifyStagedReviews();
 t('a burst of 5 sends ONE notification', CALLS.length === 1, JSON.stringify(CALLS.length));
 t('and carries the count', CALLS[0] && CALLS[0].body.count === 5, CALLS[0] && JSON.stringify(CALLS[0].body));
 
 // Two members in one run get one each — never each other's.
-CALLS = []; _PENDING_NOTIFY = {};
+freshRun();
 stage('11111111-1111-1111-1111-111111111111', 2);
 stage('22222222-2222-2222-2222-222222222222', 1);
 notifyStagedReviews();
@@ -92,7 +114,7 @@ t('each carries only its own count',
   JSON.stringify(byMember));
 
 // The payload must not be able to leak money detail into a push service.
-CALLS = []; _PENDING_NOTIFY = {};
+freshRun();
 stage('11111111-1111-1111-1111-111111111111', 1);
 notifyStagedReviews();
 const keys = CALLS[0] ? Object.keys(CALLS[0].body).sort() : [];
@@ -107,7 +129,7 @@ notifyStagedReviews();
 t('a second run with nothing staged sends nothing', CALLS.length === 0);
 
 // A failed notification must never cost a staged row.
-CALLS = []; _PENDING_NOTIFY = {}; THROW_ON = 'push-send';
+freshRun(); THROW_ON = 'push-send';
 stage('11111111-1111-1111-1111-111111111111', 1);
 let threw = false;
 try { notifyStagedReviews(); } catch (e) { threw = true; }
@@ -115,7 +137,7 @@ t('a network failure does not throw into the caller', !threw);
 THROW_ON = null;
 
 // Unrouted rows have no member and therefore no audience.
-CALLS = []; _PENDING_NOTIFY = {};
+freshRun();
 notifyStagedReviews();
 t('a run that staged only unrouted rows notifies nobody', CALLS.length === 0);
 

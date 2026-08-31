@@ -1792,6 +1792,50 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-08-31 — Apps Script `2026-08-31-notify` — one banner a minute, on the other transport
+
+- **For product:** the notification storm is fixed on the forwarding side too.
+  Before, a queue that drained one message per minute sent one banner per
+  minute, each saying "1" and none saying how many were waiting; a thirty-minute
+  catch-up meant thirty interruptions. Now the first one still arrives
+  immediately — a single bank mail on a quiet afternoon is not delayed at all —
+  and anything further is gathered into at most one banner per member per 15
+  minutes, carrying the real total. A 31-minute drain went from 30 banners to 3.
+- **Under the hood:** `notifyStagedReviews` in `bank-email-pipeline.gs` now
+  holds a per-member running total in Script Properties (`notifyHold:<id>`,
+  `notifyLast:<id>`) and rate-limits with a LEADING-edge cooldown,
+  `NOTIFY_COOLDOWN_MS = 15 min`. Each GAS trigger is a fresh execution, so
+  `_PENDING_NOTIFY` could only ever batch one run; the properties are what make
+  batching survive between runs. The hold and the cooldown stamp are both
+  written even when the send throws — otherwise an unreachable `push-send`
+  would retry every run, a storm caused by the code written to prevent one.
+  `pipeline/notify-debounce.test.js` (12 assertions) drives consecutive runs and
+  counts banners; `pipeline/review-notify.test.js` gained scenario isolation
+  because the cooldown now survives between its cases, and its writable
+  `PropertiesService` stub.
+
+  A trailing-edge version — hold everything, send when a run goes quiet — was
+  written first and rejected: it delayed every notification by a trigger cycle.
+  `review-notify.test.js` caught it by already pinning "a burst of 5 sends ONE
+  notification" on the same run.
+
+  Deliberately NO notion of "backfill" was added to the Apps Script. It has none
+  and does not need one: the direct-read worker suppresses banners *because it
+  knows it is backfilling*, while this rule is about how often a person is
+  interrupted, which is the same question whether the queue is a catch-up or a
+  busy afternoon.
+- **Spec sections updated:** none. Notification cadence was never specified
+  beyond "one per member per run", which this replaces; §26 still describes the
+  targeting rules, which are unchanged.
+- **Watch for:** this is an Apps Script paste, so it is NOT live until
+  `bank-email-pipeline.gs` is pasted from `origin/main` into the editor
+  (`PIPELINE_VERSION` `2026-08-31-notify`). Until then the forwarding transport
+  keeps its per-run behaviour. Also unfixed, and separate: the direct-read
+  ordinary poll still announces only the rows of the run that staged them rather
+  than the queue depth, and the 0097 fast lane wakes EVERY mailbox once a minute
+  while ANY grant is still backfilling — so during someone else's first read,
+  everyone's poll cadence rises from 5 minutes to 1.
+
 ### 2026-08-30 — mailbox-sync v24 · migrations 0101–0103 — the first-real-user backfill incident
 
 - **For product:** the three symptoms of the first outside-team mailbox
