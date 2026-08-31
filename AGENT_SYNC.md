@@ -143,6 +143,52 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-08-31 (Trang's session) — `0104_strip_status_statics.sql` APPLIED. Next
+  free is `0105`.**
+
+  Applied to the live DB with `supabase db query --linked -f`, alongside
+  `mailbox-sync` **v25** (`--no-verify-jwt`) and an Apps Script paste
+  (`PIPELINE_VERSION` `2026-08-31-notify`). Verified after: `status_static` went
+  2 → 0 and `templates` stayed 2, so it stripped a key rather than deleting
+  anything.
+
+  **What it does.** `deriveExtractionTemplate` was staticising `status` — the
+  value the ONE mail it learned from happened to report — into the template for
+  the whole shape. A live Vietcombank template had been derived off a DECLINED
+  attempt and carried "Không thành công", so a real purchase off that shape
+  would have staged as failed; the mirror case is worse, since a template
+  derived off a success stages a decline as real spending. Nothing corrected
+  either, because `statusReadsFailed()` reads the mail's own status row and a
+  success body never contradicts a template claiming failure. Both writers stop
+  emitting the key (`templates.mjs` AND `bank-email-pipeline.gs` — they are
+  verbatim copies and share one `sender_fingerprints` row, so a divergence there
+  returns a different status rather than throwing). The migration removes it
+  from the two rows that already had it. STRIP, not purge: nulling
+  `extraction_regex` would also discard anchors that work, and relearning costs
+  a model call per shape on the forwarding transport, which has no label-table
+  tier to fall back on.
+
+  **Heads-up on a claim in five documents, now corrected (`92d467c`).** "A
+  template derived by one transport is applied by the other" was asserted in the
+  extraction reference, the spec's final-proof bullet, `templates.mjs`, the
+  parity suite's header and my own `c2f6074` commit message. **It is false.**
+  Anchors are regexes over the RENDERED body, and the transports render
+  differently: the Apps Script takes Gmail's `getPlainBody()` (a table row
+  flattened onto one line, bold as `*At*`), the worker prefers `text/plain` and
+  otherwise flattens the HTML itself (label and value on separate lines). They
+  agree where a bank sends a plain part; on an HTML-ONLY mail they cannot, and
+  the miss returns the same `null` as "this bank changed its layout". A green
+  parity run proves only that the two copies agree ON THE SAME INPUT.
+  `pipeline/README.md` now carries a Claims table: one owner per claim, and how
+  each was checked. Please add a row before writing a pipeline fact into a
+  second document.
+
+  **Also live from this session:** `read_tally` gained `template_missed` (a
+  stored template that exists and never matches — previously indistinguishable
+  from a legitimate re-derivation) and `held` (a run that stopped on an
+  unreachable model). Worth reading after any backfill:
+  `select day, stage, n from read_tally where day > current_date - 7 order by 1 desc, 3 desc;`
+
 - **2026-08-29 (Trang's session) — CLAIMING `0101` and applying it today:
   `mailbox_grants.stalled_runs` + `first_stalled_at`. Also: your `0100` is
   applied but was never announced here, which is exactly the §2 case.**
