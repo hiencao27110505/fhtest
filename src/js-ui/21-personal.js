@@ -19,6 +19,61 @@ var _ccChev='<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="curren
    in UTC+7, which silently broke the last-month key → daily guide hidden). */
 function _pMonKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 
+/* Selected month for the personal view ('YYYY-MM'); defaults to the live month.
+   The picker only ever offers months the user actually has data for
+   (persAvailableMonths), so with no history it collapses to just this month. */
+try{ window.persSelMon = window.persSelMon || _pMonKey(new Date()); }catch(e){ window.persSelMon = _pMonKey(new Date()); }
+
+/* Distinct months (newest first) carrying any personal txn or income, always
+   including the live month even when still empty. Bounded by the ~2-month
+   hydrate window (19-personal.js), so today this yields at most this + last. */
+function persAvailableMonths(){
+  var P=window.fhPersonalData?fhPersonalData():null, set={};
+  set[_pMonKey(new Date())]=1;
+  if(P){
+    (P.txns||[]).forEach(function(t){ var k=(t.date||'').slice(0,7); if(k) set[k]=1; });
+    (P.incomes||[]).forEach(function(i){ var k=(i.date||'').slice(0,7); if(k) set[k]=1; });
+  }
+  return Object.keys(set).sort().reverse();
+}
+/* 'YYYY-MM' → "Thg 8"/"Aug" (short, for the caret) or "Tháng 8, 2026" (long, sheet). */
+function persMonLabel(key, long){
+  var p=(key||'').split('-'), mo=(parseInt(p[1],10)||1)-1, yr=p[0]||'';
+  return long ? ((isVi()?('Tháng '+(mo+1)):MONA[mo])+', '+yr) : moAbbr(mo);
+}
+/* Paint the current user's avatar into the header disc (#pers-av). Sourced from
+   the FAMILY membersMeta (own member), so it shows regardless of personal-ledger
+   lock state; the photo observer decrypts an '.enc' face in place, initials are
+   the fallback. */
+function persRenderAvatar(){
+  var el=document.getElementById('pers-av'); if(!el) return;
+  var mid=window.DB && window.DB.ownerMemberId;
+  var m=mid && window.DB.memberById && window.DB.memberById[mid];
+  var key=m?(m.is_shared?'Shared':m.name):null;
+  var mm=(key && window.membersMeta)?window.membersMeta[key]:null;
+  if(!mm){ el.className='av av-40 av-shared'; el.removeAttribute('style'); el.textContent=''; return; }
+  el.className='av av-40';
+  el.setAttribute('style', window.fhAvStyle(mm));
+  el.textContent = window.fhAvIni(mm);
+}
+/* Month-picker sheet body (only opened when >1 month exists). */
+window.buildPMonthChoices = function(){
+  var box=document.getElementById('pmonth-list'); if(!box) return;
+  var P=window.fhPersonalData?fhPersonalData():null, cur=_pMonKey(new Date()), html='';
+  persAvailableMonths().forEach(function(k){
+    var sel=k===window.persSelMon, out=0, inc=0;
+    if(P){
+      (P.txns||[]).forEach(function(t){ if(t.kind==='expense' && !t._unreadable && (t.date||'').slice(0,7)===k) out+=(t.amt||0); });
+      (P.incomes||[]).forEach(function(i){ if(!i._unreadable && (i.date||'').slice(0,7)===k) inc+=(i.amt||0); });
+    }
+    var sub = k===cur ? L('Đang diễn ra','In progress') : (fmt(inc-out)+L(' còn lại',' left'));
+    html+='<button class="qa" onclick="persSelectMonth(\''+k+'\')"><div><div class="qt">'+persMonLabel(k,true)+(sel?'  ✓':'')+'</div>'
+      +'<div class="qs">'+sub+'</div></div></button>';
+  });
+  box.innerHTML=html;
+};
+window.persSelectMonth = function(k){ window.persSelMon=k; closeSheet(); renderPersonal(); };
+
 /* personal per-day spend for the live month → daily[], dim, dom */
 function persDaily(){
   var P=fhPersonalData(), now=new Date(), y=now.getFullYear(), mo=now.getMonth();
@@ -63,6 +118,7 @@ function persFamPhotos(){
 
 function renderPersonal(){
   var host = document.getElementById('pers-body'); if(!host) return;
+  persRenderAvatar();     // header disc — independent of personal-ledger state
   var P = window.fhPersonalData ? fhPersonalData() : null;
   if(!P){ host.innerHTML=''; return; }
 
@@ -86,7 +142,10 @@ function renderPersonal(){
   }
 
   /* ready — amounts are base units (thousands of VND); fmt() applies curMult(). */
-  var mon = _pMonKey(new Date());
+  var curMon = _pMonKey(new Date());
+  var avail = persAvailableMonths();
+  if(avail.indexOf(window.persSelMon)<0) window.persSelMon = curMon;   // stale pick (data changed) → snap to live
+  var mon = window.persSelMon, isCur = (mon===curMon);
   /* _unreadable rows are EXCLUDED from every total rather than counted as 0.
      `t.amt||0` used to fold a row we could not decrypt into the month at zero,
      so a wrong key understated spending instead of saying so (19-personal).
@@ -103,18 +162,30 @@ function renderPersonal(){
     var f=(P.fams||[]).find(function(x){return x.family_id===fid;}); return f? f.name : 'Nhóm';
   };
 
+  /* Month caret (minimal, #8): shown only when >1 month of data exists; otherwise
+     the label carries the live month on its own. */
+  var moCaret = (avail.length>1)
+    ? '<button class="pers-mp" onclick="openSheet(\'sheet-pmonth\')">'+persMonLabel(mon,false)
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 9l6 6 6-6"/></svg></button>'
+    : '';
+  var cfLbl = moCaret ? 'Còn lại · cá nhân' : 'Còn lại tháng này · cá nhân';
+
   var h = '';
   h += '<section class="cf-card">'
-     + '<div class="cf-lbl">Còn lại tháng này · cá nhân</div>'
+     + '<div class="cf-lblrow"><div class="cf-lbl">'+cfLbl+'</div>'+moCaret+'</div>'
      + '<div class="cf-big num'+(left<0?' neg':'')+'">'+fmt(left)+'</div>'
      + '<div class="cf-tiles">'
      +   '<button class="cf-tile" onclick="fhIncome(\'personal\')"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">'+fmt(inc)+'</span></button>'
      +   '<button class="cf-tile" onclick="persScrollTx()"><span class="cf-tl"><span class="cf-ar dn">↓</span> Ra</span><span class="cf-tv num">'+fmt(out)+'</span></button>'
      + '</div>'
-     + '<div class="wow" id="pcf-wow" aria-hidden="true"></div>'
-     + '<div class="cf-note" id="pcf-note"></div>'
-     + '<div class="cf-daily" id="pcf-daily" style="display:none"></div>'
-     + '<div class="cf-dots" id="pcf-dots" aria-hidden="true"></div>'
+     /* The swipeable period chart + daily guide are live, to-date comparisons —
+        they only make sense for the current month; a past month shows totals only. */
+     + (isCur ? (
+         '<div class="wow" id="pcf-wow" aria-hidden="true"></div>'
+       + '<div class="cf-note" id="pcf-note"></div>'
+       + '<div class="cf-daily" id="pcf-daily" style="display:none"></div>'
+       + '<div class="cf-dots" id="pcf-dots" aria-hidden="true"></div>'
+       ) : '')
      + '<div class="cf-cta">'
      +   '<button class="cc-row" onclick="openPersonalBudget()"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openTxns(\'personal\')"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem chi tiêu</span>'+_ccChev+'</button>'
@@ -196,17 +267,22 @@ function renderPersonal(){
   }
 
   /* ── Giao dịch của bạn — category emoji is the only emoji (content mark) ── */
+  /* Transactions for the SELECTED month only (newest first), so the list matches
+     the totals + space cards above. Unreadable rows keep a plaintext date, so the
+     per-month warning count is honest too. */
+  var txList = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon; });
+  var monUnread = txList.filter(function(t){ return t._unreadable; }).length;
   h += '<div class="section-h" id="pers-tx"><span class="t">Giao dịch của bạn</span></div><div class="rows">';
   /* Say it before the list, not inside it. A count kept out of the totals has to
      be visible or the totals are quietly wrong -- which is the whole reason this
      stopped being a 0đ row. */
-  if(P.unreadable){
+  if(monUnread){
     h += '<div class="cf-note warn p-unread"><span class="ni">'+PIC.lock+'</span>'
-       + (P.unreadable===1 ? 'Có <b>1 khoản</b> chưa đọc được' : 'Có <b>'+P.unreadable+' khoản</b> chưa đọc được')
+       + (monUnread===1 ? 'Có <b>1 khoản</b> chưa đọc được' : 'Có <b>'+monUnread+' khoản</b> chưa đọc được')
        + ' — chưa tính vào tổng. Mở khoá lại bằng thẻ cá nhân để xem.</div>';
   }
-  if(P.txns.length){
-    P.txns.slice(0,30).forEach(function(t){
+  if(txList.length){
+    txList.slice(0,30).forEach(function(t){
       if(t._unreadable){
         h += '<div class="row is-locked"><div class="r-ico pers-r-ico priv">'+PIC.lock+'</div>'
            + '<div class="r-body"><div class="r-t">Chưa đọc được</div>'
@@ -220,7 +296,7 @@ function renderPersonal(){
          + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';
     });
   } else {
-    h += '<div class="empty-note">Chưa có giao dịch nào trong sổ cá nhân.</div>';
+    h += '<div class="empty-note">'+(isCur?'Chưa có giao dịch nào trong sổ cá nhân.':'Không có giao dịch nào trong tháng này.')+'</div>';
   }
   h += '</div>';
   host.innerHTML = h;

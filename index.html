@@ -1165,9 +1165,15 @@ input{font-family:inherit}
 .cf-tv{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.03em;color:var(--ink);font-variant-numeric:tabular-nums}
 .wow{display:flex;align-items:flex-end;gap:9px;margin-top:16px;padding:0 2px}
 .wcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
-.wbars{position:relative;height:82px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px}
-.wb{width:9px;border-radius:3px 3px 0 0;transition:height .5s cubic-bezier(.3,1,.5,1)}
-.wb.prev{background:var(--fill-neutral)}   /* last week — faint reference behind this week */
+.wbars{position:relative;height:82px;width:100%;display:flex;align-items:flex-end;justify-content:center}
+/* Prev + cur are OVERLAPPED (same width, centered): the faint prev sits behind
+   and the solid cur — rendered after it in the DOM — paints on top, so an
+   underspend lets the prev top peek above and an overspend covers it. Width is a
+   capped %-of-column [min(34px,56%)]: it self-adapts to bar count — the 4-bar
+   Day/Month periods read wider than the 7-bar Week — but the 34px ceiling keeps
+   the low-count periods from turning chunky. Larger corner radius to match. */
+.wb{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:min(34px,56%);border-radius:8px 8px 0 0;transition:height .5s cubic-bezier(.3,1,.5,1)}
+.wb.prev{background:var(--fill-neutral)}   /* previous period — faint reference behind this period */
 .wb.cur{background:var(--good)}
 .wb.cur.over{background:var(--danger)}
 .wd{font-size:9px;font-weight:600;color:var(--muted-soft)}
@@ -1333,6 +1339,21 @@ input{font-family:inherit}
 .ch-pill{display:inline-flex;align-items:center;gap:6px;background:var(--brand-tint);color:var(--brand-ink);border-radius:9999px;padding:9px 13px;font-size:14px;font-weight:700;letter-spacing:-.02em;flex-shrink:0;margin-top:6px}
 .ch-pill svg{width:15px;height:15px;flex-shrink:0}
 .ch-pill:active{transform:scale(.97)}
+/* Tài Chính header cluster — the user's avatar + a Settings gear (opens sheet-theme,
+   same entry as Home's top-right). Sits opposite the title on the light canvas, so
+   the gear is a neutral disc (Home's .hh-ic is white-on-dark for the sky header). */
+.pers-hclus{display:flex;align-items:center;gap:10px;flex-shrink:0;margin-top:2px}
+.pers-gear{position:relative;width:40px;height:40px;border:0;padding:0;border-radius:50%;background:var(--fill-neutral);color:var(--ink-2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .14s ease}
+.pers-gear svg{width:19px;height:19px}
+.pers-gear:active{transform:scale(.94)}
+.pers-gear .wn-dot{position:absolute;top:1px;right:1px}
+/* month picker (minimal): month text + chevron inside the cash-flow label row,
+   in the same eyebrow type as .cf-lbl. Rendered as a button only when >1 month
+   of data exists — otherwise the label alone carries the current month. */
+.cf-lblrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pers-mp{display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;padding:2px 0 2px 8px;cursor:pointer;font:inherit;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand-ink)}
+.pers-mp svg{width:12px;height:12px;flex-shrink:0}
+.pers-mp:active{opacity:.6}
 /* elevated summary card — carries Home's floating-card principle onto the light canvas */
 /* stat card — a peer of the content cards below (same light shadow), not a heavy slab */
 .stat-card{position:relative;background:var(--white);border-radius:20px;margin:14px 16px 4px;padding:17px 19px 16px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 22px rgba(25,16,34,.06)}
@@ -1392,6 +1413,7 @@ input{font-family:inherit}
 .av-leo{background:linear-gradient(160deg,var(--leo-a),var(--leo-b))}
 .av-shared{background:linear-gradient(160deg,#b8b3c0,#8f8a99)}
 .av-32{width:32px;height:32px;font-size:13px;letter-spacing:-.2px}
+.av-40{width:40px;height:40px;font-size:15px;letter-spacing:-.25px}
 .av-44{width:44px;height:44px;font-size:17px;letter-spacing:-.3px}
 .av-stack{display:flex}
 .av-stack .av{margin-left:-9px;box-shadow:0 0 0 2.5px var(--white)}
@@ -3648,9 +3670,16 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
 <!-- CÁ NHÂN (personal ledger — Model Y) -->
 <section class="view" id="v-personal">
   <div class="safe"></div>
-  <header class="child-hdr"><div class="ch-row"><div>
+  <header class="child-hdr"><div class="ch-row">
     <div class="ch-title">Tài Chính</div>
-  </div></div></header>
+    <div class="pers-hclus">
+      <span id="pers-av" class="av av-40 av-shared" aria-hidden="true"></span>
+      <button class="pers-gear" onclick="openSheet('sheet-theme')" aria-label="Cài đặt">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3a9 9 0 100 18 2 2 0 001.6-3.3 2 2 0 011.5-3.2H18a3 3 0 003-3c0-4-4-6-9-6z"/><circle cx="7.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="10" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8" r="1.1" fill="currentColor" stroke="none"/></svg>
+        <span class="wn-dot" id="wn-dot-pers" style="display:none"></span>
+      </button>
+    </div>
+  </div></header>
   <div id="pers-body"></div>
   <div class="spacer"></div>
 </section>
@@ -4208,6 +4237,14 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="sheet-h" data-t="monthTitle">Choose month</div>
   <div class="sheet-sub" data-t="monthSub">See spending and budget for any month.</div>
   <div id="month-list"></div>
+</div>
+
+<!-- personal ledger — month picker (only months the user has data for) -->
+<div class="sheet" id="sheet-pmonth">
+  <div class="grab"></div>
+  <div class="sheet-h">Chọn tháng</div>
+  <div class="sheet-sub">Xem sổ cá nhân của tháng bạn muốn.</div>
+  <div id="pmonth-list"></div>
 </div>
 
 <div class="sheet" id="sheet-savegoal">
@@ -5752,6 +5789,61 @@ var _ccChev='<svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="curren
    in UTC+7, which silently broke the last-month key → daily guide hidden). */
 function _pMonKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 
+/* Selected month for the personal view ('YYYY-MM'); defaults to the live month.
+   The picker only ever offers months the user actually has data for
+   (persAvailableMonths), so with no history it collapses to just this month. */
+try{ window.persSelMon = window.persSelMon || _pMonKey(new Date()); }catch(e){ window.persSelMon = _pMonKey(new Date()); }
+
+/* Distinct months (newest first) carrying any personal txn or income, always
+   including the live month even when still empty. Bounded by the ~2-month
+   hydrate window (19-personal.js), so today this yields at most this + last. */
+function persAvailableMonths(){
+  var P=window.fhPersonalData?fhPersonalData():null, set={};
+  set[_pMonKey(new Date())]=1;
+  if(P){
+    (P.txns||[]).forEach(function(t){ var k=(t.date||'').slice(0,7); if(k) set[k]=1; });
+    (P.incomes||[]).forEach(function(i){ var k=(i.date||'').slice(0,7); if(k) set[k]=1; });
+  }
+  return Object.keys(set).sort().reverse();
+}
+/* 'YYYY-MM' → "Thg 8"/"Aug" (short, for the caret) or "Tháng 8, 2026" (long, sheet). */
+function persMonLabel(key, long){
+  var p=(key||'').split('-'), mo=(parseInt(p[1],10)||1)-1, yr=p[0]||'';
+  return long ? ((isVi()?('Tháng '+(mo+1)):MONA[mo])+', '+yr) : moAbbr(mo);
+}
+/* Paint the current user's avatar into the header disc (#pers-av). Sourced from
+   the FAMILY membersMeta (own member), so it shows regardless of personal-ledger
+   lock state; the photo observer decrypts an '.enc' face in place, initials are
+   the fallback. */
+function persRenderAvatar(){
+  var el=document.getElementById('pers-av'); if(!el) return;
+  var mid=window.DB && window.DB.ownerMemberId;
+  var m=mid && window.DB.memberById && window.DB.memberById[mid];
+  var key=m?(m.is_shared?'Shared':m.name):null;
+  var mm=(key && window.membersMeta)?window.membersMeta[key]:null;
+  if(!mm){ el.className='av av-40 av-shared'; el.removeAttribute('style'); el.textContent=''; return; }
+  el.className='av av-40';
+  el.setAttribute('style', window.fhAvStyle(mm));
+  el.textContent = window.fhAvIni(mm);
+}
+/* Month-picker sheet body (only opened when >1 month exists). */
+window.buildPMonthChoices = function(){
+  var box=document.getElementById('pmonth-list'); if(!box) return;
+  var P=window.fhPersonalData?fhPersonalData():null, cur=_pMonKey(new Date()), html='';
+  persAvailableMonths().forEach(function(k){
+    var sel=k===window.persSelMon, out=0, inc=0;
+    if(P){
+      (P.txns||[]).forEach(function(t){ if(t.kind==='expense' && !t._unreadable && (t.date||'').slice(0,7)===k) out+=(t.amt||0); });
+      (P.incomes||[]).forEach(function(i){ if(!i._unreadable && (i.date||'').slice(0,7)===k) inc+=(i.amt||0); });
+    }
+    var sub = k===cur ? L('Đang diễn ra','In progress') : (fmt(inc-out)+L(' còn lại',' left'));
+    html+='<button class="qa" onclick="persSelectMonth(\''+k+'\')"><div><div class="qt">'+persMonLabel(k,true)+(sel?'  ✓':'')+'</div>'
+      +'<div class="qs">'+sub+'</div></div></button>';
+  });
+  box.innerHTML=html;
+};
+window.persSelectMonth = function(k){ window.persSelMon=k; closeSheet(); renderPersonal(); };
+
 /* personal per-day spend for the live month → daily[], dim, dom */
 function persDaily(){
   var P=fhPersonalData(), now=new Date(), y=now.getFullYear(), mo=now.getMonth();
@@ -5796,6 +5888,7 @@ function persFamPhotos(){
 
 function renderPersonal(){
   var host = document.getElementById('pers-body'); if(!host) return;
+  persRenderAvatar();     // header disc — independent of personal-ledger state
   var P = window.fhPersonalData ? fhPersonalData() : null;
   if(!P){ host.innerHTML=''; return; }
 
@@ -5819,7 +5912,10 @@ function renderPersonal(){
   }
 
   /* ready — amounts are base units (thousands of VND); fmt() applies curMult(). */
-  var mon = _pMonKey(new Date());
+  var curMon = _pMonKey(new Date());
+  var avail = persAvailableMonths();
+  if(avail.indexOf(window.persSelMon)<0) window.persSelMon = curMon;   // stale pick (data changed) → snap to live
+  var mon = window.persSelMon, isCur = (mon===curMon);
   /* _unreadable rows are EXCLUDED from every total rather than counted as 0.
      `t.amt||0` used to fold a row we could not decrypt into the month at zero,
      so a wrong key understated spending instead of saying so (19-personal).
@@ -5836,18 +5932,30 @@ function renderPersonal(){
     var f=(P.fams||[]).find(function(x){return x.family_id===fid;}); return f? f.name : 'Nhóm';
   };
 
+  /* Month caret (minimal, #8): shown only when >1 month of data exists; otherwise
+     the label carries the live month on its own. */
+  var moCaret = (avail.length>1)
+    ? '<button class="pers-mp" onclick="openSheet(\'sheet-pmonth\')">'+persMonLabel(mon,false)
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 9l6 6 6-6"/></svg></button>'
+    : '';
+  var cfLbl = moCaret ? 'Còn lại · cá nhân' : 'Còn lại tháng này · cá nhân';
+
   var h = '';
   h += '<section class="cf-card">'
-     + '<div class="cf-lbl">Còn lại tháng này · cá nhân</div>'
+     + '<div class="cf-lblrow"><div class="cf-lbl">'+cfLbl+'</div>'+moCaret+'</div>'
      + '<div class="cf-big num'+(left<0?' neg':'')+'">'+fmt(left)+'</div>'
      + '<div class="cf-tiles">'
      +   '<button class="cf-tile" onclick="fhIncome(\'personal\')"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">'+fmt(inc)+'</span></button>'
      +   '<button class="cf-tile" onclick="persScrollTx()"><span class="cf-tl"><span class="cf-ar dn">↓</span> Ra</span><span class="cf-tv num">'+fmt(out)+'</span></button>'
      + '</div>'
-     + '<div class="wow" id="pcf-wow" aria-hidden="true"></div>'
-     + '<div class="cf-note" id="pcf-note"></div>'
-     + '<div class="cf-daily" id="pcf-daily" style="display:none"></div>'
-     + '<div class="cf-dots" id="pcf-dots" aria-hidden="true"></div>'
+     /* The swipeable period chart + daily guide are live, to-date comparisons —
+        they only make sense for the current month; a past month shows totals only. */
+     + (isCur ? (
+         '<div class="wow" id="pcf-wow" aria-hidden="true"></div>'
+       + '<div class="cf-note" id="pcf-note"></div>'
+       + '<div class="cf-daily" id="pcf-daily" style="display:none"></div>'
+       + '<div class="cf-dots" id="pcf-dots" aria-hidden="true"></div>'
+       ) : '')
      + '<div class="cf-cta">'
      +   '<button class="cc-row" onclick="openPersonalBudget()"><span class="cc-ic">'+PIC.chart+'</span><span class="cc-t">'+(P.budget>0?'Ngân sách cá nhân':'Lập ngân sách cá nhân')+'</span>'+_ccChev+'</button>'
      +   '<button class="cc-row" onclick="openTxns(\'personal\')"><span class="cc-ic">'+PIC.list+'</span><span class="cc-t">Xem chi tiêu</span>'+_ccChev+'</button>'
@@ -5929,17 +6037,22 @@ function renderPersonal(){
   }
 
   /* ── Giao dịch của bạn — category emoji is the only emoji (content mark) ── */
+  /* Transactions for the SELECTED month only (newest first), so the list matches
+     the totals + space cards above. Unreadable rows keep a plaintext date, so the
+     per-month warning count is honest too. */
+  var txList = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon; });
+  var monUnread = txList.filter(function(t){ return t._unreadable; }).length;
   h += '<div class="section-h" id="pers-tx"><span class="t">Giao dịch của bạn</span></div><div class="rows">';
   /* Say it before the list, not inside it. A count kept out of the totals has to
      be visible or the totals are quietly wrong -- which is the whole reason this
      stopped being a 0đ row. */
-  if(P.unreadable){
+  if(monUnread){
     h += '<div class="cf-note warn p-unread"><span class="ni">'+PIC.lock+'</span>'
-       + (P.unreadable===1 ? 'Có <b>1 khoản</b> chưa đọc được' : 'Có <b>'+P.unreadable+' khoản</b> chưa đọc được')
+       + (monUnread===1 ? 'Có <b>1 khoản</b> chưa đọc được' : 'Có <b>'+monUnread+' khoản</b> chưa đọc được')
        + ' — chưa tính vào tổng. Mở khoá lại bằng thẻ cá nhân để xem.</div>';
   }
-  if(P.txns.length){
-    P.txns.slice(0,30).forEach(function(t){
+  if(txList.length){
+    txList.slice(0,30).forEach(function(t){
       if(t._unreadable){
         h += '<div class="row is-locked"><div class="r-ico pers-r-ico priv">'+PIC.lock+'</div>'
            + '<div class="r-body"><div class="r-t">Chưa đọc được</div>'
@@ -5953,7 +6066,7 @@ function renderPersonal(){
          + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';
     });
   } else {
-    h += '<div class="empty-note">Chưa có giao dịch nào trong sổ cá nhân.</div>';
+    h += '<div class="empty-note">'+(isCur?'Chưa có giao dịch nào trong sổ cá nhân.':'Không có giao dịch nào trong tháng này.')+'</div>';
   }
   h += '</div>';
   host.innerHTML = h;
@@ -8535,6 +8648,7 @@ function openSheet(id){
   if(id==='sheet-event'){ openEventModal(); return; }        // new-event form is a full-screen modal
   if(id==='sheet-fund') buildFundChoices();
   if(id==='sheet-month') buildMonthChoices();
+  if(id==='sheet-pmonth' && window.buildPMonthChoices) buildPMonthChoices();
   if(id==='sheet-savegoal') buildSaveGoalChoices();
   if(id==='sheet-catpick') buildCatPicker();
   if(id==='sheet-budget'){ window.budgetScope='family'; if(window.loadFamilyData){ window.loadFamilyData().then(fillBudgetSheet); } else fillBudgetSheet(); }
@@ -15806,7 +15920,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v438';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v441';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -16018,7 +16132,7 @@ function fhMarkReleasesSeen(){ try{ localStorage.setItem(FH_SEEN_RELEASE, fhLate
 /* Reflect unread state on the gear icon and the Settings row dot. */
 function fhReleaseBadge(){
   var on = fhHasUnseenRelease();
-  ['wn-dot-gear','wn-dot-row'].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; });
+  ['wn-dot-gear','wn-dot-row','wn-dot-pers'].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; });
 }
 
 var FH_MONTHS_VI = ['Thg 1','Thg 2','Thg 3','Thg 4','Thg 5','Thg 6','Thg 7','Thg 8','Thg 9','Thg 10','Thg 11','Thg 12'];

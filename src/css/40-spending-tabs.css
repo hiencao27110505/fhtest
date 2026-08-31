@@ -25,9 +25,15 @@
 .cf-tv{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.03em;color:var(--ink);font-variant-numeric:tabular-nums}
 .wow{display:flex;align-items:flex-end;gap:9px;margin-top:16px;padding:0 2px}
 .wcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
-.wbars{position:relative;height:82px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px}
-.wb{width:9px;border-radius:3px 3px 0 0;transition:height .5s cubic-bezier(.3,1,.5,1)}
-.wb.prev{background:var(--fill-neutral)}   /* last week — faint reference behind this week */
+.wbars{position:relative;height:82px;width:100%;display:flex;align-items:flex-end;justify-content:center}
+/* Prev + cur are OVERLAPPED (same width, centered): the faint prev sits behind
+   and the solid cur — rendered after it in the DOM — paints on top, so an
+   underspend lets the prev top peek above and an overspend covers it. Width is a
+   capped %-of-column [min(34px,56%)]: it self-adapts to bar count — the 4-bar
+   Day/Month periods read wider than the 7-bar Week — but the 34px ceiling keeps
+   the low-count periods from turning chunky. Larger corner radius to match. */
+.wb{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:min(34px,56%);border-radius:8px 8px 0 0;transition:height .5s cubic-bezier(.3,1,.5,1)}
+.wb.prev{background:var(--fill-neutral)}   /* previous period — faint reference behind this period */
 .wb.cur{background:var(--good)}
 .wb.cur.over{background:var(--danger)}
 .wd{font-size:9px;font-weight:600;color:var(--muted-soft)}
@@ -193,6 +199,21 @@
 .ch-pill{display:inline-flex;align-items:center;gap:6px;background:var(--brand-tint);color:var(--brand-ink);border-radius:9999px;padding:9px 13px;font-size:14px;font-weight:700;letter-spacing:-.02em;flex-shrink:0;margin-top:6px}
 .ch-pill svg{width:15px;height:15px;flex-shrink:0}
 .ch-pill:active{transform:scale(.97)}
+/* Tài Chính header cluster — the user's avatar + a Settings gear (opens sheet-theme,
+   same entry as Home's top-right). Sits opposite the title on the light canvas, so
+   the gear is a neutral disc (Home's .hh-ic is white-on-dark for the sky header). */
+.pers-hclus{display:flex;align-items:center;gap:10px;flex-shrink:0;margin-top:2px}
+.pers-gear{position:relative;width:40px;height:40px;border:0;padding:0;border-radius:50%;background:var(--fill-neutral);color:var(--ink-2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .14s ease}
+.pers-gear svg{width:19px;height:19px}
+.pers-gear:active{transform:scale(.94)}
+.pers-gear .wn-dot{position:absolute;top:1px;right:1px}
+/* month picker (minimal): month text + chevron inside the cash-flow label row,
+   in the same eyebrow type as .cf-lbl. Rendered as a button only when >1 month
+   of data exists — otherwise the label alone carries the current month. */
+.cf-lblrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pers-mp{display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;padding:2px 0 2px 8px;cursor:pointer;font:inherit;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand-ink)}
+.pers-mp svg{width:12px;height:12px;flex-shrink:0}
+.pers-mp:active{opacity:.6}
 /* elevated summary card — carries Home's floating-card principle onto the light canvas */
 /* stat card — a peer of the content cards below (same light shadow), not a heavy slab */
 .stat-card{position:relative;background:var(--white);border-radius:20px;margin:14px 16px 4px;padding:17px 19px 16px;box-shadow:0 1px 3px rgba(25,16,34,.05),0 8px 22px rgba(25,16,34,.06)}
@@ -252,6 +273,7 @@
 .av-leo{background:linear-gradient(160deg,var(--leo-a),var(--leo-b))}
 .av-shared{background:linear-gradient(160deg,#b8b3c0,#8f8a99)}
 .av-32{width:32px;height:32px;font-size:13px;letter-spacing:-.2px}
+.av-40{width:40px;height:40px;font-size:15px;letter-spacing:-.25px}
 .av-44{width:44px;height:44px;font-size:17px;letter-spacing:-.3px}
 .av-stack{display:flex}
 .av-stack .av{margin-left:-9px;box-shadow:0 0 0 2.5px var(--white)}

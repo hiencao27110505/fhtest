@@ -239,9 +239,16 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
 <!-- CÁ NHÂN (personal ledger — Model Y) -->
 <section class="view" id="v-personal">
   <div class="safe"></div>
-  <header class="child-hdr"><div class="ch-row"><div>
+  <header class="child-hdr"><div class="ch-row">
     <div class="ch-title">Tài Chính</div>
-  </div></div></header>
+    <div class="pers-hclus">
+      <span id="pers-av" class="av av-40 av-shared" aria-hidden="true"></span>
+      <button class="pers-gear" onclick="openSheet('sheet-theme')" aria-label="Cài đặt">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3a9 9 0 100 18 2 2 0 001.6-3.3 2 2 0 011.5-3.2H18a3 3 0 003-3c0-4-4-6-9-6z"/><circle cx="7.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="10" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8" r="1.1" fill="currentColor" stroke="none"/></svg>
+        <span class="wn-dot" id="wn-dot-pers" style="display:none"></span>
+      </button>
+    </div>
+  </div></header>
   <div id="pers-body"></div>
   <div class="spacer"></div>
 </section>
@@ -799,6 +806,14 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="sheet-h" data-t="monthTitle">Choose month</div>
   <div class="sheet-sub" data-t="monthSub">See spending and budget for any month.</div>
   <div id="month-list"></div>
+</div>
+
+<!-- personal ledger — month picker (only months the user has data for) -->
+<div class="sheet" id="sheet-pmonth">
+  <div class="grab"></div>
+  <div class="sheet-h">Chọn tháng</div>
+  <div class="sheet-sub">Xem sổ cá nhân của tháng bạn muốn.</div>
+  <div id="pmonth-list"></div>
 </div>
 
 <div class="sheet" id="sheet-savegoal">

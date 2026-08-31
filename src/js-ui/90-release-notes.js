@@ -235,7 +235,7 @@ function fhMarkReleasesSeen(){ try{ localStorage.setItem(FH_SEEN_RELEASE, fhLate
 /* Reflect unread state on the gear icon and the Settings row dot. */
 function fhReleaseBadge(){
   var on = fhHasUnseenRelease();
-  ['wn-dot-gear','wn-dot-row'].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; });
+  ['wn-dot-gear','wn-dot-row','wn-dot-pers'].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; });
 }
 
 var FH_MONTHS_VI = ['Thg 1','Thg 2','Thg 3','Thg 4','Thg 5','Thg 6','Thg 7','Thg 8','Thg 9','Thg 10','Thg 11','Thg 12'];
