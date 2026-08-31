@@ -6,6 +6,31 @@
 > and what to do next in the order that reduces risk. This file explains how the
 > machine works; that one explains where it was left.
 
+## Claims — what we believe about this pipeline, and how we know
+
+Read this table before trusting any sentence in the ~15 documents that describe
+this pipeline. It exists because of a specific failure: **five documents asserted
+that an extraction template derived by one transport works for the other. None of
+them had ever tested it. It was false**, and the repetition read as consensus —
+it sent two separate debugging sessions down the wrong path before anyone ran the
+stored template against the other transport's text.
+
+The rule this table enforces: **one owner per claim, and every claim carries how
+it was checked.** A claim with no owner gets restated; a claim with no evidence
+gets believed. Add a row before you write the same fact into a second document,
+and if the evidence column would say "unverified", say so out loud.
+
+| Claim | Owner | Verified by |
+|---|---|---|
+| A template is keyed on `(sender, normalised subject)` and one row is shared by both transports, last writer wins | `docs/specs/email-extraction-reference.md` §Tier 1 | `pipeline/direct-fingerprint-lookup.test.js`; `0099` merged the case-split piles |
+| The `.gs` and `.mjs` copies of the template + memo logic behave identically **on the same input** | `supabase/functions/_shared/mailbox/templates.mjs` header | `pipeline/direct-templates.test.js` — re-slices the `.gs` at test time |
+| ~~A template derived by one transport works for the other~~ **FALSE** — it holds only where both render the same text, and HTML-only mail renders differently on each | this table | disproved by applying the stored VCB template to both renderings; counted live as `template_missed` in `read_tally` |
+| A shape never carries an opinion about whether one transaction succeeded | `templates.mjs` (`deriveExtractionTemplate`) | `pipeline/status-not-static.test.js`, 13 assertions, both directions |
+| A full account number never leaves the reader | `labeltable.mjs` (`maskAccount`), applied in `extract.mjs` `_tidy` | `pipeline/label-table.test.js`; no stored template matches `\d{6,}` (queried 2026-08-31, 0 rows) |
+| The label-table tier reads a bank it has never seen, first mail, with no model | `docs/specs/email-extraction-reference.md` §Tier 1.5 | `pipeline/label-table.test.js`, four real mail shapes |
+| Forwarding runs the **same** extraction logic as the direct read | — | **UNVERIFIED, AND KNOWN FALSE.** The `.gs` has no `readLabelTable`, `maskAccount`, `statusReadsFailed` or `canonProviderName`, and applies `tidyMerchant` destructively. Nothing tests for a function present on one side only |
+| Staged rows can be corrected after the fact | — | **FALSE.** Rows are sealed to a key the server does not hold. A parser fix never reaches a row already staged; it must be re-read or hand-edited |
+
 Reads forwarded bank/provider transaction emails and writes pending rows to
 `email_transactions` (staging — never the real ledger). Promotion into
 `transactions` is a human review step (approve + categorize), not built yet.

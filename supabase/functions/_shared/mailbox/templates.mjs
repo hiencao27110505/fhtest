@@ -7,8 +7,21 @@
  * rewritten because a hand-port of 200 lines of anchor derivation is a
  * transcription-error machine, and because the two implementations have to
  * agree exactly: both transports share `sender_fingerprints`, so a template
- * derived by the Apps Script is applied by this worker and the other way round.
+ * derived by the Apps Script is READ by this worker and the other way round.
  * A divergence would not throw. It would return a different amount.
+ *
+ * READ, not "applied" — corrected 2026-08-31, and the difference is the whole
+ * bug. Sharing the row is not the same as sharing an answer. These anchors are
+ * regexes over the RENDERED body, and the two transports render differently:
+ * the Apps Script takes Gmail's `getPlainBody()` (a table row flattened onto
+ * one line, bold as `*At*`), while this worker prefers the mail's text/plain
+ * part and, when there is none, flattens the HTML itself (label and value on
+ * separate lines). Where a bank sends a text/plain part they agree. On an
+ * HTML-ONLY mail they cannot, and a template derived under one form misses
+ * under the other — returning the same `null` as "this bank changed its
+ * layout", which is why it went unnoticed for weeks. Keeping the two copies
+ * identical is still necessary; it was never sufficient. `template_missed` in
+ * read_tally counts the gap.
  *
  * pipeline/direct-templates.test.js re-slices the .gs AT TEST TIME and runs both
  * copies over the same bodies, so this file cannot quietly fall behind.

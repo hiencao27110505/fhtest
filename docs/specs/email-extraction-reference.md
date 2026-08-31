@@ -32,8 +32,23 @@ than the next.
 ### Tier 1 — stored template (`templates.mjs`)
 
 A per-shape regex set, learned once and reused. Keyed on `(sender_address, normalised subject)` and
-shared by both transports, so a template derived from a forwarded mail serves the direct reader and
-the other way round.
+stored in one `sender_fingerprints` row that **both transports read and write**, last writer wins,
+with no version check and no record of which transport wrote it.
+
+> **Correction, 2026-08-31 — a template does NOT reliably carry between transports.**
+> This section, and four other documents, used to say a template derived from a forwarded mail
+> serves the direct reader and the other way round. That is true only when both transports see the
+> **same text**, and they often do not. A template's anchors are regexes over the *rendered* body,
+> and the two transports render differently: forwarding takes Gmail's own `getPlainBody()`, which
+> flattens a two-cell table row onto one line and marks bold as `*At*`; the direct reader prefers
+> the mail's `text/plain` part and, when there is none, flattens the HTML itself, putting label and
+> value on **separate lines**. For a bank that sends a `text/plain` part the two agree. For an
+> **HTML-only** mail they cannot, and a template derived under one form is a guaranteed miss under
+> the other — indistinguishable, at the call site, from "this bank changed its layout".
+>
+> Verified by running the stored Vietcombank template against both renderings; it matched the
+> plaintext form and returned `null` on the direct reader's. Counted in production since
+> 2026-08-31 as the `template_missed` read-tally stage (see `pipeline/README.md`, Claims).
 
 Two disciplines keep it honest:
 

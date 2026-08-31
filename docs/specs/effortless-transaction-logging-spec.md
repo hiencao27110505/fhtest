@@ -946,10 +946,19 @@ never derive — sending every one of their mails to the model forever.
   after lost it, silently.)
 - **The final proof.** The finished template is applied back to the very
   body it came from, and all eleven fields must reproduce the model's
-  output **exactly** — including memo, including statics. A
-  plausible-looking template that does not actually work would serve wrong
-  figures to every later mail of this sender, *on both transports*. No
-  proof, no template.
+  output **exactly** — including memo. A plausible-looking template that
+  does not actually work would serve wrong figures to every later mail of
+  this sender. No proof, no template.
+  **Corrected 2026-08-31, twice over.** This used to read "*on both
+  transports*", and the proof used to include statics. Neither survived
+  contact with production. The proof runs against **the very body the
+  template came from**, which is one transport's rendering of the mail — so
+  it establishes that the template works *for the transport that derived
+  it*, and says nothing about the other (§ Extraction reference, Tier 1).
+  And `status` is no longer staticised at all: it is the outcome of one
+  mail, not a property of the shape, so a template derived off a declined
+  attempt staticised every later success as failed. Proving a wrong static
+  reproduces itself is not a proof of anything.
 - **`amount` must parse non-zero and `occurred_at` must transform**, or
   `apply()` returns null at use time and the mail falls to the model — a
   template can degrade a mail to the expensive path, never to a wrong

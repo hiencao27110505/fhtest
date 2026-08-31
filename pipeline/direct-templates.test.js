@@ -5,9 +5,17 @@
  * `lib/templates.mjs` and `lib/memo.mjs` are verbatim copies of two slices of
  * pipeline/bank-email-pipeline.gs. Copies rot, and this pair rots dangerously,
  * because both transports READ AND WRITE THE SAME `sender_fingerprints` CACHE:
- * a template derived by the Apps Script is applied by the worker and the other
+ * a template derived by the Apps Script is read by the worker and the other
  * way round. A divergence would not throw anywhere. It would apply one bank's
  * anchors slightly differently and return a different amount.
+ *
+ * WHAT THIS FILE DOES NOT PROVE (corrected 2026-08-31). It proves the two
+ * copies behave identically ON THE SAME INPUT. It does not prove the two
+ * transports ever SEE the same input, and for HTML-only mail they do not —
+ * Gmail's getPlainBody() flattens a table row onto one line, mailtext.toText()
+ * puts label and value on separate lines. So a template can be correct, this
+ * suite green, and the template still never match in production. Parity is
+ * necessary and was never sufficient; see pipeline/README.md, Claims.
  *
  * So this file does not test the copies against expectations. It re-slices the
  * .gs AT TEST TIME, evaluates both, and runs them over the same inputs. If
