@@ -143,6 +143,16 @@ export async function readTransaction(message, db, deps) {
     // The anchors did not hold. Usually a structurally different mail from the
     // same sender (the credit variant of a debit notice), which is a
     // re-derivation, not a failure. Fall through to the model.
+    //
+    // Counted, though, because "usually" was doing a lot of work. A stored
+    // template that can NEVER match — one derived against the other transport's
+    // rendering of the same mail — returns null here too, and the two are
+    // indistinguishable at this line. Silently falling through is correct
+    // behaviour for the first and a permanent tax for the second, so the tally
+    // is the only thing that tells them apart: a shape that misses once is a
+    // variant, a shape that misses every single day is a template that is not
+    // for us. Without this the cost is invisible and the only symptom is a bill.
+    await db.bumpReadTally?.('template_missed');
   }
 
   // ── stage 1.5: the label-table reader, locally, nothing leaves ───────────

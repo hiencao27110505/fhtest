@@ -486,6 +486,15 @@ export async function runGrant(grant, ctx) {
          only the model-needing ones wait for the next tick. */
       summary.held++;
       hitLimit = true;
+      /* Held is a real outcome and it was only ever a number inside one run's
+         summary, so a mailbox stuck behind an exhausted quota looked exactly
+         like a quiet one from outside. A DAY COUNTER rather than a
+         parse_failures row on purpose: a hold is retried on the next poll, so
+         the same message would write a new failure row every tick and the table
+         that is supposed to say "these need a human" would fill with things
+         that fix themselves. Never awaited into a failure — holding must not
+         become throwing. */
+      await ctx.db.bumpReadTally?.('held');
       continue;
     }
 

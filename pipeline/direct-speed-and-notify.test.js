@@ -194,8 +194,15 @@ const GRANT = (over = {}) => ({
   console.log('\n-- 3. the source says what it now does --');
   const fs = require('fs');
   const src = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'mailbox', 'worker.mjs'), 'utf8');
+  /* The invariant, not the shape — same reason as the notify assertion below.
+     This used to require `hitLimit = true;` and `continue;` to be LITERALLY
+     ADJACENT, so adding a line between them (a tally of the hold) failed a test
+     about control flow without any control flow changing. What matters is that
+     the hold branch continues to the next message and never breaks the window:
+     breaking abandoned every remaining message, including ones needing no model. */
+  const holdBranch = (src.match(/summary\.held\+\+;[\s\S]*?\n {4}\}/) || [''])[0];
   t('budget exhaustion CONTINUES rather than breaking the window',
-    /hitLimit = true;\s*\n\s*continue;/.test(src));
+    /\bcontinue;/.test(holdBranch) && !/\bbreak;/.test(holdBranch), holdBranch.slice(0, 120));
   t('a backfill only notifies when it has finished',
     /finishedBackfill\s*=\s*backfilling && !hitLimit && !moreQueued/.test(src));
   /* The invariant, not the shape: whatever the backfill branch grows into,
