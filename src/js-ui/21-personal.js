@@ -44,6 +44,23 @@ function persWeekData(daily, dom, dim){
   return {cur:cur, prev:prev, monThis:monThis, today:dom, maxV:maxV};
 }
 
+/* Recent photos of the ACTIVE family, newest first — same unified source the
+   Memories tab renders from (buildMemRecords: event memories + expense photos).
+   .enc URLs decrypt via the photo observer like everywhere else; a locked or
+   not-yet-hydrated family state just yields no photos, never an error. */
+function persFamPhotos(){
+  try{
+    if(typeof buildMemRecords==='function') buildMemRecords();
+    var recs=(window.memRecords||[]).filter(function(r){ return r.src; });
+    var weekAgo=Date.now()-7*86400000;
+    var srcs=recs.slice(0,3).map(function(r){ return r.src; });
+    var fresh=recs.filter(function(r){ return r.d && r.d.getTime()>=weekAgo; }).length;
+    /* strip shows 3 thumbs; "+N" is the fresh moments beyond those 3, so the
+       strip and the "N ảnh mới" subtitle describe the same 7-day window. */
+    return { srcs: srcs, fresh: fresh, more: Math.max(0, fresh - srcs.length) };
+  }catch(e){ return {srcs:[], fresh:0, more:0}; }
+}
+
 function renderPersonal(){
   var host = document.getElementById('pers-body'); if(!host) return;
   var P = window.fhPersonalData ? fhPersonalData() : null;
@@ -79,7 +96,12 @@ function renderPersonal(){
   var out = txM.reduce(function(s,t){ return s+(t.amt||0); },0);
   var inc = P.incomes.filter(function(i){ return (i.date||'').slice(0,7)===mon && !i._unreadable; }).reduce(function(s,i){ return s+(i.amt||0); },0);
   var left = inc-out;
-  var famName = function(fid){ var f=(P.fams||[]).find(function(x){return x.family_id===fid;}); return f? f.name : 'Nhóm'; };
+  /* Active family's real name comes from FAM (hydrate); P.fams was never
+     populated, so without this the card said a faceless "Nhóm". */
+  var famName = function(fid){
+    if(window.DB && DB.fid===fid && window.FAM && FAM.familyName) return FAM.familyName;
+    var f=(P.fams||[]).find(function(x){return x.family_id===fid;}); return f? f.name : 'Nhóm';
+  };
 
   var h = '';
   h += '<section class="cf-card">'
@@ -111,45 +133,67 @@ function renderPersonal(){
      + '</div>'
      + '</section>';
 
-  /* ── Các nhóm của tôi — per-space roll-up (drawn icons) ── */
-  var bySpace = {};
-  txM.forEach(function(t){ var k=t.spaceId||'_p'; bySpace[k]=(bySpace[k]||0)+(t.amt||0); });
+  /* ── Tiền đi đâu tháng này — one card per space, that space's categories
+     nested inside (the old "Các nhóm của tôi" roll-up and the separate
+     "Chi theo danh mục" card were two cuts of the same money with no visual
+     thread between them; here the space is the unit and the category split
+     lives inside it). Photos are the active family's recent moments — that
+     state is already hydrated and decrypted when this tab is usable. ── */
+  var bySpace = {}, catBySpace = {};
+  txM.forEach(function(t){
+    var k=t.spaceId||'_p'; bySpace[k]=(bySpace[k]||0)+(t.amt||0);
+    var cats=catBySpace[k]||(catBySpace[k]={}), ck=(t.cat||'Khác');
+    if(!cats[ck]) cats[ck]={name:ck, emoji:t.emoji||'🗂️', v:0};
+    cats[ck].v+=(t.amt||0);
+  });
   var spKeys = Object.keys(bySpace).filter(function(k){ return k!=='_p'; });
-  h += '<div class="section-h"><span class="t">Các nhóm của tôi</span></div><div class="rows">';
-  if(spKeys.length){
-    spKeys.forEach(function(k){
-      h += '<div class="row"><div class="r-ico pers-r-ico">'+PIC.house+'</div><div class="r-body"><div class="r-t">'+famName(k)+'</div>'
-         + '<div class="r-s">Bạn đã chi cho nhóm tháng này</div></div><div class="r-amt num">'+fmt(bySpace[k])+'</div></div>';
-    });
-  } else {
-    h += '<div class="empty-note">Các khoản bạn ghi cho gia đình sẽ tự xuất hiện ở đây.</div>';
+  function pspCatRows(cats){
+    var rows=Object.keys(cats||{}).map(function(k){return cats[k];}).sort(function(a,b){return b.v-a.v;});
+    return rows.map(function(c){
+      return '<div class="psp-mini"><span class="psp-mico">'+(c.emoji||'🗂️')+'</span><span class="psp-mname">'+esc(c.name||'Khác')+'</span><span class="psp-mval num">'+fmt(c.v)+'</span></div>';
+    }).join('');
   }
-  if(bySpace['_p']) {
-    h += '<div class="row"><div class="r-ico pers-r-ico priv">'+PIC.lock+'</div><div class="r-body"><div class="r-t">Riêng tư</div>'
-       + '<div class="r-s">Chỉ mình bạn thấy</div></div><div class="r-amt num">'+fmt(bySpace['_p'])+'</div></div>';
+  /* A family space wears a Wallet-style gradient "pass" (its identity band);
+     photos + the subtitle come from the ACTIVE family only — that is the one
+     whose moments are in local state. Non-active spaces get the same pass sans
+     photos. Riêng tư is intentionally NOT a pass; it stays a quiet white card. */
+  var ph = persFamPhotos();
+  var phStrip = ph.srcs.length
+    ? '<div class="psp-pass-ph">'+ph.srcs.map(function(src){ return '<span class="psp-thumb" style="background-image:url('+src+')"></span>'; }).join('')
+      + (ph.more>0 ? '<span class="psp-pass-more num">+'+ph.more+'</span>' : '')+'</div>'
+    : '';
+  var actSub = ph.fresh ? '<b>'+ph.fresh+' ảnh mới</b>' : (ph.srcs.length ? 'Khoảnh khắc gần đây' : 'Nhóm của bạn');
+  function passHead(name, sub, amt, strip){
+    return '<div class="psp-pass"><div class="psp-pass-r1">'
+      + '<div class="psp-pass-bd"><div class="psp-pass-t">'+esc(name)+'</div><div class="psp-pass-s">'+sub+'</div></div>'
+      + (amt!=null ? '<div class="psp-pass-r"><div class="psp-pass-amt num">'+fmt(amt)+'</div><div class="psp-pass-al">bạn đã góp</div></div>' : '')
+      + '</div>'+(strip||'')+'</div>';
   }
-  h += '</div>';
-
-  /* ── Chi theo danh mục (Xem chi tiêu) — spend by category, vs personal budget ── */
-  var byCat={};
-  txM.forEach(function(t){ var k=(t.cat||'Khác'); if(!byCat[k]) byCat[k]={name:k, emoji:t.emoji||'🗂️', v:0}; byCat[k].v+=(t.amt||0); });
-  var catRows=Object.keys(byCat).map(function(k){return byCat[k];}).sort(function(a,b){return b.v-a.v;});
-  var pOver = P.budget>0 && out>P.budget;
-  h += '<section class="fin-cats-card" id="pers-cats"><div class="fin-cats-h"><span>Chi theo danh mục</span>'
+  h += '<div class="section-h" id="pers-cats"><span class="t">Tiền đi đâu tháng này</span>'
      + '<a onclick="openPersonalBudget()">'+(P.budget>0?'Ngân sách':'Lập ngân sách')+'</a></div>';
-  if(P.budget>0){
-    h += '<div class="cf-note '+(pOver?'over':'ok')+'" style="margin:6px 0 4px"><span class="ni">'+(pOver?'▲':'▾')+'</span>Đã chi <b>'+fmt(out)+'</b> / '+fmt(P.budget)+(pOver?' — vượt '+fmt(out-P.budget):' — còn '+fmt(P.budget-out))+'</div>'
-       + '<div class="pbud-bar"><i style="width:'+Math.min(100,P.budget?out/P.budget*100:0)+'%;background:'+(pOver?'var(--danger)':'var(--brand)')+'"></i></div>';
+  if(!spKeys.length && !bySpace['_p']){
+    h += '<section class="psp-card"><div class="empty-note">Chưa có chi tiêu tháng này.</div></section>';
   }
-  h += '<div class="fin-legend">';
-  if(catRows.length){
-    var maxV=catRows[0].v||1;
-    catRows.forEach(function(c){
-      var pct=P.budget>0 ? Math.min(100,c.v/P.budget*100) : (c.v/maxV*100);
-      h += '<div class="fh-lrow"><div class="fh-ico">'+(c.emoji||'🗂️')+'</div><div class="fh-body"><div class="fh-l1"><span class="fh-lname">'+((c.name||'Khác').replace(/</g,'&lt;'))+'</span><span class="fh-lamt"><b>'+fmt(c.v)+'</b></span></div><div class="fh-bar"><i style="width:'+pct+'%"></i></div></div></div>';
-    });
-  } else { h += '<div class="empty-note">Chưa có chi tiêu tháng này.</div>'; }
-  h += '</div></section>';
+  spKeys.forEach(function(k){
+    var isActive = !!(window.DB && DB.fid===k);
+    h += '<section class="psp-card">'
+       + passHead(famName(k), isActive?actSub:'Nhóm của bạn', bySpace[k], isActive?phStrip:'')
+       + '<div class="psp-rows">'+pspCatRows(catBySpace[k])+'</div></section>';
+  });
+  if(!spKeys.length && bySpace['_p'] && window.DB && DB.fid){
+    /* has a family but nothing mirrored yet this month — keep the promise (and
+       the family's moments, if any) visible; no amount block on the empty pass. */
+    h += '<section class="psp-card">'
+       + passHead(famName(DB.fid), ph.srcs.length?actSub:'Nhóm của bạn', null, phStrip)
+       + '<div class="psp-note">Các khoản bạn ghi cho gia đình sẽ tự xuất hiện ở đây.</div></section>';
+  }
+  if(bySpace['_p']){
+    h += '<section class="psp-card"><div class="psp-h">'
+       + '<div class="psp-em priv">'+PIC.lock+'</div>'
+       + '<div class="psp-bd"><div class="psp-t">Riêng tư</div><div class="psp-s">Chỉ mình bạn thấy</div></div>'
+       + '<div class="psp-r"><div class="psp-amt num">'+fmt(bySpace['_p'])+'</div></div>'
+       + '</div><div class="psp-rows">'+pspCatRows(catBySpace['_p'])+'</div></section>';
+  }
 
   /* ── Giao dịch của bạn — category emoji is the only emoji (content mark) ── */
   h += '<div class="section-h" id="pers-tx"><span class="t">Giao dịch của bạn</span></div><div class="rows">';

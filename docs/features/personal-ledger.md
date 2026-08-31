@@ -55,6 +55,31 @@ Personal scope → `fhPersonalAddExpense` writes a private `personal_transaction
 row; family scope → the unchanged family path, then the mirror copies it. The
 Cá nhân tab's quick-add opens this same modal pre-scoped personal.
 
+### Cá nhân tab layout (top → bottom)
+
+Rendered by `renderPersonal()` in `src/js-ui/21-personal.js` into `#pers-body`
+(shell in `src/index.html`, `#v-personal`) — one flat `innerHTML` render, no
+per-widget re-render. When state is locked/loading/error the whole body is
+replaced by a lock card / note instead.
+
+JTBD numbers refer to the four jobs in `research/jtbd-individual-finance.md`
+(1 Capture · 2 Privacy · 3 Fairness · 4 Planning); outcomes are Ulwick-style,
+from the user's POV.
+
+| # | Widget / section | What it is | JTBD & desired outcome (user POV) |
+|---|---|---|---|
+| 1 | Header (`.child-hdr`) | Static title "Cá nhân" + "Sổ riêng của bạn. Gia đình không xem được." | **JTBD 2 Privacy** — increase my certainty that entries here are structurally invisible to other members. |
+| 2 | Cash-flow card (`.cf-card`) | Focal card, same visual system as the family Finance tab: | **JTBD 4 Planning** — minimize the time it takes to answer "can I still afford things this month?" (the one nagging folk-model question). |
+| 2.1 | — Còn lại | "Còn lại tháng này · cá nhân" + big number (income − spend, red if negative). | **JTBD 4** — minimize the time it takes to know my month-to-date position in one glance, no math. |
+| 2.2 | — Vào / Ra tiles | "Vào" opens the income sheet (scope personal); "Ra" scrolls to the tx list. | **JTBD 4** — minimize the time to see what came in vs went out; **JTBD 1 Capture** — minimize the effort to record income from where I see it. |
+| 2.3 | — Period chart (`#pcf-wow`) | Swipeable Day / Week / Month bars: today-vs-yesterday by buổi · this-vs-last week Mon–Sun · 4 weeks this-vs-last month. | **JTBD 4** — increase the likelihood I notice overspending vs my own normal *before* month-end, at day/week/month grain. |
+| 2.4 | — Sync note (`#pcf-note`) | "Đang đồng bộ…" until the mirror has run; empty after. | **JTBD 2** — minimize the effort of keeping two books: increase my certainty that family spend is already counted here (no double entry, no second app). |
+| 2.5 | — Daily guide (`#pcf-daily`) | "Còn tiêu được" per period, self-correcting from remaining month budget; failing month blocks day/week wins. | **JTBD 4** — increase the likelihood I reach month-end within budget by knowing today's safe-to-spend number ("tiêu được an tâm"). |
+| 2.6 | — Period dots (`#pcf-dots`) | 3 dots to indicate/select the period. | **JTBD 4** — minimize the effort to switch time horizon (support for 2.3). |
+| 2.7 | — Action list (`.cf-cta`) | ① Ngân sách cá nhân (shared per-category budget sheet) · ② Xem chi tiêu · ③ Ghi giao dịch (expense modal pre-scoped personal) · ④ Khoản thu chi từ email (+ staged-count badge). | **JTBD 1** — minimize time to record at the moment of spending (③) and minimize transactions left unrecorded by month-end (④ email import); **JTBD 4** — minimize effort to set/check limits (①②). |
+| 3 | Tiền đi đâu tháng này (`.psp-card` per space, `#pers-cats`) | One card per space, categories nested inside it (v437 — replaced the old "Các nhóm của tôi" roll-up + separate "Chi theo danh mục" card, which were two unlinked cuts of the same money). Family card = an Apple-Wallet-style **gradient pass** (`.psp-pass`, `--grad-hero` so it tracks the theme; white text + faint shadow for cross-theme legibility): real name (`FAM.familyName` — `P.fams` was never populated, so it used to say just "Nhóm"), "N ảnh mới" subtitle, amount + "bạn đã góp", and a horizontal strip of the family's newest photos with a "+N" overflow chip (photos + subtitle both from `buildMemRecords`, active family only). Below the pass: that space's own category rows. Riêng tư is deliberately **not** a pass — it stays a quiet white `.psp-h` header (lock chip + amount) with its own categories. "Ngân sách" link moved to the section header; the inline spent-vs-budget bar was retired (pacing lives in the daily guide, detail in the budget sheet). | **JTBD 2** — increase the certainty that my contributions to the family are visible and recognized (named place + its moments), private spend stays its own quiet card; **JTBD 4** — see *where* and *on what* in one glance per space; **JTBD 3** (seed) — what I've advanced toward each circle. |
+| 4 | Giao dịch của bạn (`#pers-tx`) | Latest 30 txns (emoji · note/cat · date · space or "riêng tư" · −amount). `_unreadable` rows render as locked placeholders and a warning note above the list says they're excluded from totals. | **JTBD 1** — increase my certainty that every khoản is recorded and classified right (personal vs which group); increase my trust that totals are honest (unreadable rows declared, never silently counted as 0). |
+
 ## Locked decisions
 1. Person is root; personal = own tables + own key. `families.type` stays only for
    real shared spaces (`family`|`friend`|`trip`); `personal` is retired.
@@ -64,7 +89,7 @@ Cá nhân tab's quick-add opens this same modal pre-scoped personal.
 4. Double-entry mirror for family→personal; personal-only rows never leave.
 5. Family tables + family tab untouched.
 
-## Current state (v376)
+## Current state (v438)
 - Migrations: `0079_personal_model_y` (tables + RPC + RLS revert + retire Model-X
   surface) applied; `0080_drop_model_x_personal` (purge) run. Model X (`0076`
   `0077`) is superseded/reverted; `0078` founder/leave/switch `type='family'`

@@ -286,6 +286,45 @@
 .pcard-code{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:.4px;text-align:center;
   background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:16px 10px;margin:14px 0;word-break:break-all}
 .btn-line-full{width:100%;margin-top:10px}
+/* personal — per-space cards: the space is the unit, its categories nest inside */
+.psp-card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);margin:2px 16px 12px;overflow:hidden}
+.psp-card>.empty-note{padding:16px}
+.psp-h{display:flex;align-items:center;gap:11px;padding:13px 16px 9px}
+.psp-em{width:38px;height:38px;border-radius:11px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.psp-em svg{width:19px;height:19px}
+.psp-em.priv{background:var(--fill-neutral);color:var(--muted)}
+.psp-em.priv svg{width:17px;height:17px}
+.psp-bd{flex:1;min-width:0}
+.psp-t{font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.psp-s{font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.psp-s b{color:var(--brand-ink);font-weight:600}
+.psp-r{text-align:right;flex-shrink:0}
+.psp-amt{font-family:var(--disp);font-size:16.5px;font-weight:700;letter-spacing:-.4px;color:var(--ink)}
+/* Wallet-style pass header for a family space — the group's identity band.
+   Gradient tracks the active theme (--grad-hero); text is white with a faint
+   shadow so it stays legible across all five theme gradients (the light-ended
+   ones — sage, blossom — are the tight cases). Riêng tư deliberately does NOT
+   get a pass: private spend stays the quiet white .psp-h header. */
+.psp-pass{position:relative;background:var(--grad-hero);color:#fff;padding:13px 16px 12px;overflow:hidden;text-shadow:0 1px 3px rgba(20,14,26,.18)}
+.psp-pass::before{content:"";position:absolute;inset:0;background:radial-gradient(130% 110% at 85% -10%,rgba(255,255,255,.2),transparent 55%);pointer-events:none}
+.psp-pass-r1{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.psp-pass-bd{min-width:0}
+.psp-pass-t{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.psp-pass-s{font-size:11px;font-weight:600;opacity:.94;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.psp-pass-s b{font-weight:700}
+.psp-pass-r{text-align:right;flex-shrink:0}
+.psp-pass-amt{font-family:var(--disp);font-size:22px;font-weight:700;letter-spacing:-.7px}
+.psp-pass-al{font-size:10px;font-weight:600;opacity:.9;margin-top:-1px}
+.psp-pass-ph{position:relative;display:flex;gap:5px;margin-top:11px}
+.psp-thumb{width:44px;height:33px;border-radius:8px;border:1.5px solid rgba(255,255,255,.7);background-color:rgba(255,255,255,.16);background-size:cover;background-position:center;flex-shrink:0}
+.psp-pass-more{display:flex;align-items:center;justify-content:center;min-width:44px;height:33px;padding:0 8px;border-radius:8px;background:rgba(255,255,255,.2);font-size:11px;font-weight:700;color:#fff;flex-shrink:0;text-shadow:none}
+.psp-rows{padding:3px 16px 8px}
+.psp-mini{display:flex;align-items:center;gap:10px;min-height:38px;padding:3px 0}
+.psp-mini+.psp-mini{border-top:1px solid var(--divider)}
+.psp-mico{width:26px;height:26px;border-radius:8px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;font-size:13px;flex:0 0 auto}
+.psp-mname{flex:1;min-width:0;font-size:13.5px;font-weight:500;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.psp-mval{font-family:var(--disp);font-size:13px;font-weight:600;letter-spacing:-.2px;color:var(--ink-2)}
+.psp-note{font-size:12.5px;color:var(--muted);padding:2px 16px 12px;line-height:1.5}
 .pers-lock{text-align:center}
 .pers-lock-ic{font-size:34px}
 .pers-lock-t{font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.4px;margin-top:8px;color:var(--ink)}
@@ -299,8 +338,6 @@
 .pers-r-ico svg{width:20px;height:20px}
 .pers-r-ico.priv{background:var(--fill-neutral);color:var(--muted)}
 .pers-lock-ic svg{width:40px;height:40px;color:var(--brand-ink)}
-.pbud-bar{height:8px;border-radius:9999px;background:var(--fill-neutral);overflow:hidden;margin:2px 0 12px}
-.pbud-bar i{display:block;height:100%;border-radius:9999px}
 
 /* Rows we could not decrypt. Kept OUT of every total (19-personal), so it has to
    be visible or the totals lie by omission — but it is a STATE, not an error:
