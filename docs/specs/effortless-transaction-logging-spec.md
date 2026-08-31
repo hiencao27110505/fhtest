@@ -437,6 +437,7 @@ Cite by filename — the numeric sequence has documented collisions.
 | `0101_backfill_stall_counter` | `stalled_runs` / `first_stalled_at` on `mailbox_grants` — lets a backfill that stopped progressing announce its queue instead of staying silent (§20) |
 | `0102_grant_default_scope_read` | Adds `default_scope` to the client's column-level grant — a column added after `0087`'s explicit grant list was invisible to the app, which read "no scope" as "not set up" and sent a connected user back to setup |
 | `0103_one_grant_per_mailbox` | Unique on the (fold-normalised) mailbox address itself — one mailbox, one reader, across *accounts*, not just per account |
+| `0104_strip_status_statics` | Deletes the `static.status` key from every already-stored template (a cache), leaving working anchors intact — `status` is the outcome of one mail, not a property of the shape, so freezing it staticised every later success (or decline) as the first mail's verdict. Both writers stop emitting it in the same change (§16.2). A strip, not a purge: an absent key contributes nothing at `apply()`, so no relearn and no model-call cost |
 
 ## 13. Transport A — forwarding (Apps Script)
 
@@ -1857,6 +1858,34 @@ as — or the same day as — the deploy. A deploy announced only in
   banner rather than rows waiting; matching the worker there means a Supabase
   round trip per notice from the Apps Script, which was not worth folding in
   here.
+### 2026-08-31 — migration 0104 · both extraction writers — templates stop lying about status, and learn date-only banks
+
+- **For product:** two correctness fixes to how a repeat bank's mail is
+  parsed without a model. First, a Vietcombank card template that had been
+  learned off a *declined* attempt was stamping every later real purchase as
+  "Không thành công" (and, the other way, a template learned off a success
+  would have stamped a later decline as real spending the ledger loses
+  twice) — that whole class of error is gone. Second, banks that print only a
+  date with no clock — VCB and VIB write "Ngày giao dịch: 26/08/2026" — can
+  now be learned locally instead of being sent to the AI on *every* mail
+  forever; they graduate to the free template path like every other bank.
+- **Under the hood:** `0104_strip_status_statics` deletes the
+  `static.status` key from every stored `sender_fingerprints.extraction_regex`
+  (a materialized-fenced `#-` update — the fence stops the jsonb cast seeing
+  legacy placeholder strings), and both writers — `templates.mjs` (transport
+  B) and `bank-email-pipeline.gs` (transport A), verbatim copies of each
+  other — stop staticising `status` in `deriveExtractionTemplate`. Separately,
+  `_tryDateTransform` gains the date-only trio (`dmy`, `dmy_slash`, `ymd` →
+  midnight), appended to `_DATE_KINDS` **after** the time-bearing kinds so a
+  mail that does carry a clock still anchors the exact time; covered by a new
+  `extraction-template.test.js` case.
+- **Spec sections updated:** §12.4, §16.2.
+- **Watch for:** the date-only transport A/B change ships by Apps Script paste
+  (bump `PIPELINE_VERSION`) + Edge redeploy of `mailbox-sync` — until both are
+  live, VCB/VIB date-only shapes keep re-deriving to the model. The status
+  strip is safe out of order (0104 is a cache edit; the worst case is a
+  relearn), but a template *re-derived on an old writer* would re-add the key,
+  so deploy the writers alongside the migration.
 
 ### 2026-08-30 — mailbox-sync v24 · migrations 0101–0103 — the first-real-user backfill incident
 

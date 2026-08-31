@@ -100,6 +100,47 @@ if (tplCard) {
   t('the merchant is what fills the description for these', backCard && backCard.counterparty === 'REVI PHU MY HUNG TOWER');
 }
 
+/* Date-only banks. VCB and VIB print "Ngày giao dịch: 26/08/2026" with no clock
+   time, so the date+time anchors never held, no template ever derived, and every
+   one of those banks' mails went to the model forever — the single biggest reason
+   VIB/VCB (85% of real volume) never learned a template while MB, which stamps a
+   full timestamp, did. */
+const BODY_DATEONLY = [
+  'Ten nguoi huong NGUYEN VAN B',
+  'So tien -500,000 VND',
+  'Noi dung tra tien an trua',
+  'Ngay giao dich 26/08/2026',
+].join('\n');
+const EXTRACTION_DATEONLY = {
+  is_transaction: true, transaction_type: 'p2p_transfer', source_provider: 'Vietcombank',
+  occurred_at: '2026-08-26T00:00:00+07:00', amount: -500000, currency: 'VND', direction: 'debit',
+  counterparty: 'NGUYEN VAN B', reference_number: null, status: null,
+  account_masked: null, memo: 'tra tien an trua',
+};
+const tplDate = deriveExtractionTemplate(BODY_DATEONLY, EXTRACTION_DATEONLY);
+t('a date-only email (no clock time) still derives a template', !!tplDate, String(tplDate));
+if (tplDate) {
+  const backD = applyExtractionTemplate(tplDate, BODY_DATEONLY);
+  t('its occurred_at round-trips to midnight',
+    backD && backD.occurred_at === '2026-08-26T00:00:00+07:00',
+    backD ? JSON.stringify(backD.occurred_at) : 'no output');
+  const BODY_DATEONLY_2 = BODY_DATEONLY
+    .replace('26/08/2026', '27/08/2026')
+    .replace('500,000', '120,000')
+    .replace('NGUYEN VAN B', 'TRAN THI C')
+    .replace('tra tien an trua', 'tra tien dien');
+  const secondD = applyExtractionTemplate(tplDate, BODY_DATEONLY_2);
+  t('a later date-only email parses locally with no LLM (different date/amount/name)',
+    !!secondD && secondD.occurred_at === '2026-08-27T00:00:00+07:00' && secondD.counterparty === 'TRAN THI C',
+    secondD ? JSON.stringify(secondD.occurred_at + ' / ' + secondD.counterparty) : 'no output');
+}
+
+/* A body that DOES carry a time still anchors the exact time — the date-only
+   kinds are tried last, so they must not shadow a real clock. */
+const tplTimed = deriveExtractionTemplate(BODY_1, EXTRACTION_1);
+t('a timed email still anchors its exact time, not midnight',
+  !!tplTimed && applyExtractionTemplate(tplTimed, BODY_1).occurred_at === '2026-08-13T23:49:00+07:00');
+
 /* Version gate: bumping EXTRACTION_LOGIC_VERSION must retire templates derived
    by the older, memo-dropping logic rather than letting them live forever. */
 const stale = JSON.parse(tpl || '{}');

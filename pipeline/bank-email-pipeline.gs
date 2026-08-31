@@ -826,9 +826,30 @@ function _tryDateTransform(raw, kind, offset) {
     if (!m) return null;
     return m[1] + '-' + _pad2(m[2]) + '-' + _pad2(m[3]) + 'T' + _pad2(m[4]) + ':' + m[5] + ':' + (m[6] || '00') + offset;
   }
+  // Date-only forms → midnight. Many VN banks (VCB, VIB) print "Ngày giao dịch:
+  // 26/08/2026" with no clock, so the date+time kinds above never anchor and the
+  // template never derives — sending every one of that bank's mails to the model
+  // forever. Tried AFTER the time-bearing kinds, so a body that does carry a time
+  // still anchors the exact time; these only match when the raw is date-only and
+  // the model read the moment as midnight, which is what a date-only source gives.
+  if (kind === 'dmy') {
+    m = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (!m) return null;
+    return m[3] + '-' + _pad2(m[2]) + '-' + _pad2(m[1]) + 'T00:00:00' + offset;
+  }
+  if (kind === 'dmy_slash') {
+    m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return null;
+    return m[3] + '-' + _pad2(m[2]) + '-' + _pad2(m[1]) + 'T00:00:00' + offset;
+  }
+  if (kind === 'ymd') {
+    m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (!m) return null;
+    return m[1] + '-' + _pad2(m[2]) + '-' + _pad2(m[3]) + 'T00:00:00' + offset;
+  }
   return null;
 }
-var _DATE_KINDS = ['dmy_hms', 'dmy_slash_hms', 'ymd_hms'];
+var _DATE_KINDS = ['dmy_hms', 'dmy_slash_hms', 'ymd_hms', 'dmy', 'dmy_slash', 'ymd'];
 var _DATE_RAW_RE = /\d{1,4}[-\/]\d{1,2}[-\/]\d{1,4}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?/g;
 
 // find the stable label text that precedes a value; returns {re} or null.
