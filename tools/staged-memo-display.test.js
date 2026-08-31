@@ -27,9 +27,14 @@ const path = require('path');
 const src = fs.readFileSync(
   path.join(__dirname, '..', 'src', 'js-data', '72-txn-review.js'), 'utf8');
 
-const start = src.indexOf('function fhStagedAsCsvSource');
+/* Start at _BANK_GENERIC_MEMOS, not at fhStagedAsCsvSource: the description rule
+   calls _bankGenericMemo, which is declared just above it. Slicing from the
+   function alone left that undefined and the eval threw — the slice has to cover
+   everything the rule reaches for, or this suite fails on its own scaffolding
+   rather than on the behaviour it is here to pin. */
+const start = src.indexOf('var _BANK_GENERIC_MEMOS');
 if (start < 0) {
-  console.error('fhStagedAsCsvSource not found in 72-txn-review.js — renamed?');
+  console.error('_BANK_GENERIC_MEMOS not found in 72-txn-review.js — renamed?');
   process.exit(1);
 }
 const end = src.indexOf('function fhStagedKind', start);
@@ -94,6 +99,29 @@ t('tidy trimmed the holder name off -> the TIDIED text wins, not the raw',
 t('a real memo beats the counterparty on a card purchase too',
   descOf(row({ memo: 'ca phe', memo_display: 'ca phe', transaction_type: 'card_purchase' },
              { counterparty: 'HIGHLANDS COFFEE' })) === 'ca phe');
+
+/* ── the bank's own category name is the one memo that loses ────────────────
+   Reported: a GS25 purchase showed "Thanh toán dịch vụ - hàng hoá" while the
+   same mail named the shop. Nobody types that on a card swipe — it is the
+   bank's label for the transaction, and between a generic label and a specific
+   merchant the merchant answers "chi cho gì". RANKED, NOT FILTERED: with no
+   merchant to lose to, the phrase still shows, because a bank category still
+   beats an empty row. The list is matched WHOLE and accent-stripped, so a memo
+   that merely opens with the same words is untouched. */
+t('a bank category name loses to the merchant printed in the same mail',
+  descOf(row({ memo: 'Thanh toán dịch vụ - hàng hoá', memo_display: 'Thanh toán dịch vụ - hàng hoá',
+               transaction_type: 'card_purchase' },
+             { counterparty: 'GS25 NGUYEN VAN LINH' })) === 'GS25 NGUYEN VAN LINH');
+
+t('...but with no merchant it is still shown, not thrown away',
+  descOf(row({ memo: 'Thanh toán dịch vụ - hàng hoá', memo_display: 'Thanh toán dịch vụ - hàng hoá',
+               transaction_type: 'card_purchase' },
+             { counterparty: null })) === 'Thanh toán dịch vụ - hàng hoá');
+
+t('a real memo that merely STARTS like a bank phrase is untouched',
+  descOf(row({ memo: 'Thanh toán tiền nhà cho mẹ', memo_display: 'Thanh toán tiền nhà cho mẹ',
+               transaction_type: 'card_purchase' },
+             { counterparty: 'MB Bank' })) === 'Thanh toán tiền nhà cho mẹ');
 
 console.log('\n-- rows staged before the tidy existed keep working --');
 // stage.mjs writes `?? null`, so absent and null both mean "never judged".

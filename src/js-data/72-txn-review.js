@@ -259,6 +259,28 @@
      rather than constructing candidates directly, means the whole category
      cascade (file -> history -> learned) and every later improvement to that
      screen applies here for free. */
+  /* The bank's own category names for a transaction — the phrases it prints when
+     nobody typed anything. They are not wrong and they are not thrown away; they
+     simply lose to a merchant read from the same mail (see the description rule
+     below). Matched WHOLE, on the accent-stripped form, so "Thanh toán tiền nhà
+     cho mẹ" is untouched while "Thanh toán hóa đơn" is recognised. Deliberately
+     short: every entry is a phrase a bank generates, never one a person types. */
+  var _BANK_GENERIC_MEMOS = [
+    'thanh toan dich vu hang hoa', 'thanh toan hang hoa dich vu',
+    'thanh toan hoa don', 'thanh toan the', 'thanh toan qr', 'thanh toan truc tuyen',
+    'mua hang truc tuyen', 'rut tien tai atm', 'rut tien mat',
+    'chuyen tien lien ngan hang', 'chuyen tien nhanh', 'chuyen tien noi bo',
+    'giao dich the', 'giao dich the ghi no', 'giao dich the tin dung',
+    'thanh toan dich vu', 'nap tien dien thoai',
+  ];
+  function _bankGenericMemo(s) {
+    if (!s) return false;
+    var flat = String(s).normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    return _BANK_GENERIC_MEMOS.indexOf(flat) >= 0;
+  }
+
   function fhStagedAsCsvSource(rows) {
     /* `category` rides along as a fifth column so the pipeline's own guess
        enters the review engine at the top of its cascade, as `catSource:'file'`
@@ -303,7 +325,21 @@
       // field falls back, and that is rows staged before the tidy existed.
       var tidied = x.memo_display == null ? x.memo : x.memo_display;
       var isPerson = x.transaction_type === 'p2p_transfer';
-      var description = tidied || (isPerson ? '' : (r.counterparty || r.source_provider || ''));
+      /* The memo still comes first — it is the only field that can carry why the
+         money moved, and "ca phe" beats "HIGHLANDS COFFEE" for that question.
+         ONE EXCEPTION: a memo that is the bank's own CATEGORY NAME. "Thanh toán
+         dịch vụ - hàng hoá" is a true sentence about the row and a useless
+         answer to "chi cho gì", and it was outranking "GS25 NGUYEN VAN LINH"
+         printed in the same mail. Between a generic label and a specific
+         merchant, the merchant is the answer.
+         RANKED, NOT FILTERED (Trang's call): the phrase is not thrown away, it
+         just loses to a merchant. A purchase whose merchant we could not read
+         still shows it, because a bank category still beats a blank row. */
+      var description = isPerson
+        ? (tidied || '')
+        : ((_bankGenericMemo(tidied) && r.counterparty)
+            ? r.counterparty
+            : (tidied || r.counterparty || r.source_provider || ''));
       var amt = (r.direction === 'credit' ? '' : '-') + String(r.amount);
 
       /* The pipeline answers in CONCEPTS — Dining, Groceries, Transport — not in
