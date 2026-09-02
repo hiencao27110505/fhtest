@@ -955,6 +955,7 @@ function csvReadEditor(c){
   if(document.getElementById('csvedit-cats')){ var cat = chosen('csvedit-cats'); if(cat){ c.categoryName = cat; c.catSource='user'; } }
   if(document.getElementById('csvedit-inccats')){ var ic = chosen('csvedit-inccats'); if(ic) c._incomeCat = ic; }
   if(document.getElementById('csvedit-repwho')){ c._repayWho = (document.getElementById('csvedit-repwho').value||'').trim() || c._repayWho; }
+  if(document.getElementById('csvedit-newacct')){ c._xferNewName = document.getElementById('csvedit-newacct').value || ''; }   // keep a half-typed account name across re-renders
   if(document.getElementById('csvedit-who')){ var w = chosen('csvedit-who'); if(w) c.who = w; }
 }
 /* The income-side category set (0109) — its own small list, never the family
@@ -1049,13 +1050,20 @@ function csvRowKindField(c){
   }
   if(cur==='xfer'){
     /* the counterpart account — the leg this mail never saw. A pair is always
-       written (spec T4): confirming creates the other-side row too. */
+       written (spec T4): confirming creates the other-side row too. Some banks
+       never email money-in at all, so the destination may be an account capture
+       has never seen — "+ Tài khoản khác" names it into existence right here. */
     var accts = csvXferAccounts(c);
     var sel = c._xferOtherId || '';
     h += '<div class="field csv-paycardf"><label>'+esc(credit?L('Chuyển từ đâu?','From which account?'):L('Chuyển đến đâu?','To which account?'))+'</label><div class="choices">'
       + accts.map(function(a){ return '<button type="button" class="choice'+(sel===a.id?' on':'')+'" onclick="csvPickXferAcct(\''+a.id+'\')">'+esc(a.name||'Tài khoản')+'</button>'; }).join('')
       + '<button type="button" class="choice'+(sel==='_cash'?' on':'')+'" onclick="csvPickXferAcct(\'_cash\')">'+esc(L('Tiền mặt','Cash'))+'</button>'
+      + '<button type="button" class="choice'+(c._xferAddingNew?' on':'')+'" onclick="csvXferAddNew()">＋ '+esc(L('Tài khoản khác','Other account'))+'</button>'
       + '</div>'
+      + (c._xferAddingNew
+          ? '<div class="csv-newacct"><input id="csvedit-newacct" placeholder="'+escAttr(L('Tên tài khoản, vd. VCB tiết kiệm','Account name, e.g. VCB savings'))+'" value="'+escAttr(c._xferNewName||'')+'"/>'
+            + '<button type="button" class="btn-line" onclick="csvXferCreateAcct()">'+esc(L('Tạo','Create'))+'</button></div>'
+          : '')
       + '<div class="csv-scope-note">'+esc(L('Ghi thành một cặp chuyển khoản — không tính là chi tiêu hay thu nhập.','Recorded as a transfer pair — never spending, never income.'))+'</div></div>';
   }
   if(cur==='repay'){
@@ -1087,8 +1095,30 @@ function csvPickXferAcct(id){
   var c = csvExpandedCandidate(); if(!c) return;
   csvReadEditor(c);
   c._xferOtherId = id || null;
+  c._xferAddingNew = false;
   renderCsvReview();
 }
+/* "+ Tài khoản khác" — the counterpart bank capture has never seen (it sends
+   no money-in emails). Toggles an inline name field; Create materializes a
+   deposit account on the spot and selects it as the pair's other side. */
+function csvXferAddNew(){
+  var c = csvExpandedCandidate(); if(!c) return;
+  csvReadEditor(c);
+  c._xferAddingNew = !c._xferAddingNew;
+  renderCsvReview();
+}
+window.csvXferCreateAcct = async function(){
+  var c = csvExpandedCandidate(); if(!c) return;
+  var el = document.getElementById('csvedit-newacct');
+  var name = ((el && el.value) || '').trim();
+  if(!name){ window.toast && toast(L('Đặt tên tài khoản nhé','Name the account first')); return; }
+  csvReadEditor(c);
+  var id = window.fhPersonalAccountCreate ? await fhPersonalAccountCreate(name, 'deposit') : null;
+  if(!id){ window.toast && toast(L('Chưa tạo được, thử lại','Couldn\'t create, try again')); return; }
+  c._xferOtherId = id; c._xferAddingNew = false; c._xferNewName = null;
+  window.toast && toast(L('Đã tạo tài khoản '+name,'Created '+name));
+  renderCsvReview();
+};
 function csvPickRepayWho(name){
   var c = csvExpandedCandidate(); if(!c) return;
   csvReadEditor(c);

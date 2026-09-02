@@ -121,6 +121,13 @@ leg as "Chuyển khoản nội bộ" asks for the other side's account and
 non-optional: a one-legged transfer is exactly how the destination account's
 balance silently rots (locked decision T4).
 
+Some banks **never email money-in at all** — so the destination may be an
+account capture has never materialized. The counterpart picker therefore
+carries "＋ Tài khoản khác": name it on the spot and a manual `deposit`
+account is created (name is its identity — no provider/tail), selected, and
+the synthesized in-leg lands on it. The manual transfer sheet offers the
+same on both sides.
+
 ### 3.4 Fees
 
 If a transfer ever carries a fee, the fee is its own small `expense` row —

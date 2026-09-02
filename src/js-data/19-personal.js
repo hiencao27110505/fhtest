@@ -490,6 +490,19 @@
       const hit = P.accounts.find((a) => a.kind === 'cash');
       return hit ? Promise.resolve(hit.id) : window.fhPersonalAccountEnsure({ kind: 'cash', name: 'Tiền mặt' });
     };
+    /* Manual account creation (0109): for instruments capture never sees — a
+       bank that sends no alert emails, a savings account. Deliberately NOT
+       ensure(): two manual deposit accounts share (kind, provider null, tail
+       null) and ensure would collapse them; here the NAME is the identity. */
+    window.fhPersonalAccountCreate = async function (name, kind) {
+      if (!P.uid || !P.key || !name) return null;
+      const r = await _sb().from('personal_accounts').insert({ owner_user_id: P.uid,
+        kind: kind || 'deposit', provider: null, tail: null,
+        name_enc: await _encP(name), human_verified: true }).select('id').single();
+      if (r.error) { console.warn('account create failed', r.error); return null; }
+      await window.fhPersonalHydrate();
+      return r.data.id;
+    };
     window.fhPersonalAccountUpdate = async function (id, fields) {
       if (!P.uid || !P.key || !id) return false;
       const row = {};

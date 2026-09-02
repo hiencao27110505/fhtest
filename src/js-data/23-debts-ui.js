@@ -643,11 +643,19 @@
       const P = _P(); if (!P || !P.key) { window.toast && toast('Mở khoá sổ cá nhân trước'); return; }
       const accts = (P.accounts || []).filter((a) => a.kind !== 'credit_card');
       const hasCash = accts.some((a) => a.kind === 'cash');
+      /* every chip re-syncs the "new account" name fields — picking "+ Tài
+         khoản mới" reveals the one for its side, picking anything else hides it */
       const chip = function (grp, a, on) {
-        return '<button class="choice' + (on ? ' on' : '') + '" data-v="' + a.id + '" onclick="pick(\'' + grp + '\',this)">' + _e(a.name || 'Tài khoản') + '</button>';
+        return '<button class="choice' + (on ? ' on' : '') + '" data-v="' + a.id + '" onclick="pick(\'' + grp + '\',this);fhXferNewSync()">' + _e(a.name || 'Tài khoản') + '</button>';
       };
-      const cashChip = function (grp) {
-        return hasCash ? '' : '<button class="choice" data-v="_cash" onclick="pick(\'' + grp + '\',this)">Tiền mặt</button>';
+      const extraChips = function (grp) {
+        return (hasCash ? '' : '<button class="choice" data-v="_cash" onclick="pick(\'' + grp + '\',this);fhXferNewSync()">Tiền mặt</button>')
+          /* a bank that sends no emails never auto-materializes — name it here */
+          + '<button class="choice" data-v="_new" onclick="pick(\'' + grp + '\',this);fhXferNewSync()">＋ Tài khoản mới</button>';
+      };
+      const newField = function (side) {
+        return '<div class="field" id="dbt-xnew-' + side + '-f" hidden><label>Tên tài khoản mới</label>'
+          + '<input id="dbt-xnew-' + side + '" placeholder="vd. VCB tiết kiệm" oninput="fhModalDirty()"></div>';
       };
       // LOCAL YYYY-MM-DD — toISOString() is UTC and would default to yesterday
       // when opening after midnight in UTC+7 (same rule as 19-personal.js).
@@ -655,24 +663,32 @@
       _fhModal({
         title: 'Chuyển giữa tài khoản', saveLabel: 'Ghi lại', reqMsg: 'Chọn hai tài khoản khác nhau và số tiền nhé',
         body: '<div class="field"><label>Từ đâu?</label><div class="choices" id="dbt-xfrom">'
-          + accts.map((a) => chip('dbt-xfrom', a, a.id === presetFromId)).join('') + cashChip('dbt-xfrom') + '</div></div>'
+          + accts.map((a) => chip('dbt-xfrom', a, a.id === presetFromId)).join('') + extraChips('dbt-xfrom') + '</div></div>'
+          + newField('from')
           + '<div class="field"><label>Đến đâu?</label><div class="choices" id="dbt-xto">'
-          + accts.map((a) => chip('dbt-xto', a, false)).join('') + cashChip('dbt-xto') + '</div></div>'
+          + accts.map((a) => chip('dbt-xto', a, false)).join('') + extraChips('dbt-xto') + '</div></div>'
+          + newField('to')
           + _amtIn('dbt-amt')
           + '<div class="field"><label>Ngày</label><input type="date" id="dbt-date" value="' + _today + '" oninput="fhModalDirty()"></div>'
           + '<div class="field"><label>Ghi chú <span class="opt">· tuỳ chọn</span></label><input id="dbt-note" placeholder="vd. chuyển sang tài khoản tiết kiệm" oninput="fhModalDirty()"></div>'
           + '<div class="dbt-note">Ghi thành một cặp: tiền ra ở tài khoản này, tiền vào ở tài khoản kia — không tính là chi tiêu hay thu nhập.</div>',
         required: function () {
           const f = typeof chosen === 'function' ? chosen('dbt-xfrom') : null, t2 = typeof chosen === 'function' ? chosen('dbt-xto') : null;
+          const nm = (side) => ((document.getElementById('dbt-xnew-' + side) || {}).value || '').trim();
           return [
             { el: document.getElementById('dbt-xto'), ok: !!(f && t2 && f !== t2) },
+            { el: document.getElementById('dbt-xnew-from'), ok: f !== '_new' || !!nm('from') },
+            { el: document.getElementById('dbt-xnew-to'), ok: t2 !== '_new' || !!nm('to') },
             { el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 },
           ];
         },
         save: async function () {
           let f = chosen('dbt-xfrom'), t2 = chosen('dbt-xto');
+          const nm = (side) => ((document.getElementById('dbt-xnew-' + side) || {}).value || '').trim();
           if (f === '_cash') f = await fhPersonalCashAccount();
           if (t2 === '_cash') t2 = await fhPersonalCashAccount();
+          if (f === '_new') f = await fhPersonalAccountCreate(nm('from'), 'deposit');
+          if (t2 === '_new') t2 = await fhPersonalAccountCreate(nm('to'), 'deposit');
           if (!f || !t2 || f === t2) throw new Error('save_failed');
           const note = ((document.getElementById('dbt-note') || {}).value || '').trim();
           const ok = await fhPersonalAddTransferPair(_amtOf('dbt-amt'), f, t2, note || 'Chuyển giữa tài khoản', (document.getElementById('dbt-date') || {}).value || undefined, null);
@@ -681,6 +697,14 @@
           return function () { if (window.renderPersonal) renderPersonal(); };
         },
       });
+    };
+    /* show the "new account" name field only while its side has "+ Tài khoản
+       mới" picked — called from every chip in both groups */
+    window.fhXferNewSync = function () {
+      const f = typeof chosen === 'function' ? chosen('dbt-xfrom') : null, t2 = typeof chosen === 'function' ? chosen('dbt-xto') : null;
+      const ff = document.getElementById('dbt-xnew-from-f'), tf = document.getElementById('dbt-xnew-to-f');
+      if (ff) ff.hidden = f !== '_new';
+      if (tf) tf.hidden = t2 !== '_new';
     };
 
     /* A transfer pair, opened from either leg: edit amount/date/note (both legs

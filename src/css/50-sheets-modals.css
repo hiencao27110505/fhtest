@@ -300,6 +300,11 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 /* helper line under a review-card field (kind control, scope, pair notes) —
    the class predates 0109 but never had a rule, so it rendered as bare text */
 .csv-scope-note{font-size:12px;line-height:1.5;color:var(--muted);margin-top:7px}
+/* inline "name a new account" row — for a counterpart bank that sends no
+   emails, so capture never materialized it (0109) */
+.csv-newacct{display:flex;gap:8px;margin-top:8px}
+.csv-newacct input{flex:1;min-width:0}
+.csv-newacct .btn-line{width:auto;margin:0;padding:9px 16px;font-size:14px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 
 /* ── "Chuyển khoản nội bộ?" — the propose-only pair card (0109 full ledger).
    Rides the bulk-card recipe; the title row carries the route (bank → bank)
