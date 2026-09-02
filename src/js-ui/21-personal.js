@@ -204,6 +204,11 @@ function renderPersonal(){
      + '</div>'
      + '</section>';
 
+  /* ── Nợ & cho vay — the balance-sheet dimension (stocks, not flows), between
+     the month's cash-flow card and the month's spending cards. Built by
+     23-debts-ui.js (js-data) so it can share the modal helper + space keys. ── */
+  h += (window.persDebtSection ? persDebtSection() : '');
+
   /* ── Tiền đi đâu tháng này — one card per space, that space's categories
      nested inside (the old "Các nhóm của tôi" roll-up and the separate
      "Chi theo danh mục" card were two cuts of the same money with no visual
@@ -302,6 +307,7 @@ function renderPersonal(){
   host.innerHTML = h;
   persRenderPeriod();          // fills the swipeable Day/Week/Month chart + guide + dots
   persBindSwipe();
+  if(window.persDebtAfterRender) persDebtAfterRender();   // async space balances → section refreshes in place
 }
 function persScrollTx(){ _persScrollTo('pers-tx'); }
 function persScrollCats(){ _persScrollTo('pers-cats'); }

@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Nợ & cho vay — 8 hướng bento</title>
+<style>
+/* ── Real Sage tokens (verbatim from src/css/10-tokens.css) ─────────────────── */
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --grad-hero:linear-gradient(150deg,#4CB584 0%,#2E9E6B 52%,#8FC97E 100%);
+  --brand-glow:rgba(46,158,107,.32); --brand-tint:#e9f7f0;
+  --danger:#E0322F; --danger-tint:#fdecef;
+  --good:#1a9d5f; --good-tint:#e7f5ee; --amber:#B8730B; --amber-tint:#fbefda;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --white:#fff; --canvas:#f4f1f6; --pearl:#fbfafc;
+  --hairline:#e9e4ee; --divider:#f1edf4; --surface:#f9f7f8; --fill-neutral:rgba(138,132,148,.14); --chev:#cfc8d6;
+  --indigo:#5E5CE6; --indigo-tint:#eef0ff;
+  --grape:#8E4EC6; --sky:#32ADE6; --orange:#C4610B;
+  --shadow-focal:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09);
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--text);background:#141019;color:#fff;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+/* ── Gallery scaffold ──────────────────────────────────────────────────────── */
+.hero-head{max-width:1240px;margin:0 auto;padding:46px 28px 8px}
+.hero-head .kick{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#8b8397}
+.hero-head h1{font-family:var(--disp);font-size:38px;font-weight:700;letter-spacing:-1px;margin-top:10px}
+.hero-head p{color:#a49daf;font-size:15px;line-height:1.6;margin-top:12px;max-width:60ch}
+.grid{max-width:1240px;margin:0 auto;padding:26px 20px 90px;display:grid;gap:26px;
+  grid-template-columns:repeat(auto-fill,minmax(392px,1fr))}
+.board{background:#1d1826;border:1px solid #2a2436;border-radius:30px;padding:16px;overflow:hidden}
+.cap{display:flex;align-items:baseline;gap:10px;padding:6px 8px 15px}
+.cap .ix{font-family:var(--disp);font-size:13px;font-weight:700;color:#0f0b16;background:#c9c2d6;border-radius:7px;
+  padding:2px 8px;letter-spacing:0}
+.cap .nm{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.02em}
+.cap .why{font-size:12.5px;color:#918a9e;margin-left:auto;text-align:right;max-width:46%;line-height:1.35}
+/* the phone canvas each variant lives on */
+.tab{background:var(--canvas);border-radius:22px;padding:14px 12px 16px;overflow:hidden}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:4px 8px 12px}
+
+/* ── shared bento primitives ───────────────────────────────────────────────── */
+.bento{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:var(--white);border-radius:22px;box-shadow:var(--shadow-focal);padding:15px 16px;position:relative;
+  cursor:pointer;transition:transform .2s cubic-bezier(.32,.72,0,1),box-shadow .2s ease;overflow:hidden}
+.tile:hover{transform:translateY(-3px);box-shadow:0 2px 6px rgba(25,16,34,.06),0 20px 40px rgba(25,16,34,.14)}
+.tile:focus-visible{outline:2.5px solid var(--brand);outline-offset:2px}
+.wide{grid-column:1 / -1}
+.lbl{font-size:11px;font-weight:600;letter-spacing:-.01em;color:var(--muted)}
+.k{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.big{font-family:var(--disp);font-weight:700;letter-spacing:-.06em;line-height:1;font-variant-numeric:tabular-nums}
+.owe{color:var(--danger)} .owed{color:var(--good)}
+.glyph{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.glyph svg{width:19px;height:19px;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.row{display:flex;align-items:center;gap:11px}
+.due{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;border-radius:9999px;padding:2px 8px;
+  background:var(--amber-tint);color:var(--amber)}
+.updn{font-size:16px;height:26px;width:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700}
+
+@media(prefers-reduced-motion:reduce){.tile{transition:none}}
+@media(max-width:480px){.hero-head{padding:30px 18px 4px}.hero-head h1{font-size:28px}.grid{padding:18px 12px 60px}.board{border-radius:24px}}
+</style>
+</head>
+<body>
+
+<div class="hero-head">
+  <div class="kick">FamilyHub · Tài Chính · design exploration</div>
+  <h1>Nợ &amp; cho vay — 8 hướng bento</h1>
+  <p>Cùng một dữ liệu, tám bố cục. Mỗi hướng “xài bạo” đúng một chỗ làm điểm nhấn. Tất cả trên token Sage thật (SF Pro, số tabular, sáng-only). Chọn hướng bạn thích, mình dựng chi tiết + zoom-in.</p>
+</div>
+
+<div class="grid">
+
+  <!-- ═══════════════ V1 · WALLET — split balance bar ═══════════════ -->
+  <div class="board">
+    <div class="cap"><span class="ix">01</span><span class="nm">Wallet</span><span class="why">Thanh balance tách nợ/được nợ — sạch kiểu Apple Wallet</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <div class="bento v1">
+        <div class="tile wide" tabindex="0" style="padding:17px 18px">
+          <div class="k">Cán cân của bạn</div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:11px">
+            <div><div class="lbl">Tôi nợ</div><div class="big owe" style="font-size:27px;margin-top:3px">7.120.000<span style="font-size:16px">đ</span></div></div>
+            <div style="text-align:right"><div class="lbl">Được nợ / cho vay</div><div class="big owed" style="font-size:27px;margin-top:3px">3.500.000<span style="font-size:16px">đ</span></div></div>
+          </div>
+          <div style="display:flex;height:9px;border-radius:6px;overflow:hidden;margin-top:14px;gap:3px">
+            <i style="width:67%;background:var(--danger);border-radius:6px 3px 3px 6px"></i>
+            <i style="width:33%;background:var(--good);border-radius:3px 6px 6px 3px"></i>
+          </div>
+        </div>
+        <div class="tile" tabindex="0">
+          <div class="row"><span class="glyph" style="background:var(--indigo-tint)"><svg stroke="var(--indigo)"><rect x="2.5" y="5" width="19" height="14" rx="2.6"/><path d="M2.5 9.5h19"/></svg></span>
+            <div><div style="font-size:13px;font-weight:600">Sacombank</div><div class="lbl">Thẻ tín dụng</div></div></div>
+          <div class="big owe" style="font-size:22px;margin-top:13px">−4,82<span style="font-size:14px">tr</span></div>
+          <span class="due" style="margin-top:9px">đến hạn 15/09</span>
+        </div>
+        <div class="tile" tabindex="0">
+          <div class="row"><span class="glyph" style="background:#fff0e6"><svg stroke="var(--orange)"><circle cx="8.5" cy="9" r="2.8"/><circle cx="16" cy="10" r="2.4"/><path d="M3.5 19a5 5 0 0 1 9 0M13.5 19a4.4 4.4 0 0 1 7 0"/></svg></span>
+            <div><div style="font-size:13px;font-weight:600">Nhóm Đà Lạt</div><div class="lbl">được nợ</div></div></div>
+          <div class="big owed" style="font-size:22px;margin-top:13px">+1,50<span style="font-size:14px">tr</span></div>
+        </div>
+        <div class="tile wide" tabindex="0" style="display:flex;align-items:center;gap:12px">
+          <span class="glyph" style="background:var(--brand-tint)"><svg stroke="var(--brand-ink)"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>
+          <div style="flex:1"><div style="font-size:13px;font-weight:600">Thằng em</div><div class="lbl">cho vay · riêng tư</div></div>
+          <div class="big owed" style="font-size:20px">+2,00<span style="font-size:13px">tr</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ V2 · SPOTLIGHT — dark hero ═══════════════ -->
+  <div class="board">
+    <div class="cap"><span class="ix">02</span><span class="nm">Spotlight</span><span class="why">Hero tối + quầng sáng thương hiệu, tương phản mạnh</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <div class="bento v2">
+        <div class="tile wide" tabindex="0" style="background:#191022;box-shadow:0 14px 34px rgba(25,16,34,.4);padding:20px">
+          <div style="position:absolute;top:-40px;right:-30px;width:180px;height:180px;border-radius:50%;
+            background:radial-gradient(circle,var(--brand-glow),transparent 68%)"></div>
+          <div class="k" style="color:#a79fb3;position:relative">Tổng bạn đang nợ</div>
+          <div class="big" style="font-size:40px;color:#fff;margin-top:8px;position:relative">7.120.000<span style="font-size:20px;color:#b7afc4">đ</span></div>
+          <div style="display:flex;gap:8px;margin-top:14px;position:relative">
+            <span style="font-size:12px;font-weight:600;color:#d7d1e0;background:rgba(255,255,255,.08);border-radius:9px;padding:5px 10px">Được nợ lại <b class="num" style="color:var(--brand-2)">3,50tr</b></span>
+            <span style="font-size:12px;font-weight:600;color:#f0b9b7;background:rgba(224,50,47,.14);border-radius:9px;padding:5px 10px">Thẻ đến hạn 15/09</span>
+          </div>
+        </div>
+        <div class="tile" tabindex="0">
+          <span class="glyph" style="background:var(--indigo-tint)"><svg stroke="var(--indigo)"><rect x="2.5" y="5" width="19" height="14" rx="2.6"/><path d="M2.5 9.5h19"/></svg></span>
+          <div class="lbl" style="margin-top:11px">Sacombank Visa</div>
+          <div class="big owe" style="font-size:21px;margin-top:3px">−4,82tr</div>
+        </div>
+        <div class="tile" tabindex="0">
+          <span class="glyph" style="background:var(--danger-tint)"><svg stroke="var(--danger)"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>
+          <div class="lbl" style="margin-top:11px">Anh Long · vay</div>
+          <div class="big owe" style="font-size:21px;margin-top:3px">−2,00tr</div>
+        </div>
+        <div class="tile" tabindex="0">
+          <span class="glyph" style="background:#fff0e6"><svg stroke="var(--orange)"><circle cx="8.5" cy="9" r="2.8"/><circle cx="16" cy="10" r="2.4"/><path d="M3.5 19a5 5 0 0 1 9 0M13.5 19a4.4 4.4 0 0 1 7 0"/></svg></span>
+          <div class="lbl" style="margin-top:11px">Nhóm Đà Lạt</div>
+          <div class="big owed" style="font-size:21px;margin-top:3px">+1,50tr</div>
+        </div>
+        <div class="tile" tabindex="0">
+          <span class="glyph" style="background:var(--brand-tint)"><svg stroke="var(--brand-ink)"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>
+          <div class="lbl" style="margin-top:11px">Thằng em · cho vay</div>
+          <div class="big owed" style="font-size:21px;margin-top:3px">+2,00tr</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ V3 · PASS — gradient wallet pass ═══════════════ -->
+  <div class="board">
+    <div class="cap"><span class="ix">03</span><span class="nm">Pass</span><span class="why">Hero gradient kiểu thẻ thành viên — hợp .psp-pass sẵn có</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <div class="bento v3">
+        <div class="tile wide" tabindex="0" style="background:var(--grad-hero);box-shadow:0 12px 30px var(--brand-glow);padding:19px 20px">
+          <div style="position:absolute;inset:0;background:radial-gradient(120% 90% at 85% -10%,rgba(255,255,255,.35),transparent 55%)"></div>
+          <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start">
+            <div><div class="k" style="color:rgba(255,255,255,.85)">Ròng · được nợ nhiều hơn nợ bạn bè</div>
+              <div class="big" style="font-size:34px;color:#fff;margin-top:9px;text-shadow:0 1px 2px rgba(0,0,0,.12)">+1.200.000<span style="font-size:17px">đ</span></div></div>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="2"><path d="M12 2v20M2 12h20" stroke-linecap="round"/></svg>
+          </div>
+          <div style="position:relative;display:flex;gap:16px;margin-top:16px">
+            <div><div style="font-size:10.5px;color:rgba(255,255,255,.8);font-weight:600">Tôi nợ</div><div class="num" style="font-size:15px;font-weight:700;color:#fff">7,12tr</div></div>
+            <div><div style="font-size:10.5px;color:rgba(255,255,255,.8);font-weight:600">Được nợ</div><div class="num" style="font-size:15px;font-weight:700;color:#fff">3,50tr</div></div>
+            <div style="margin-left:auto;align-self:flex-end;font-size:11px;font-weight:700;color:#fff;background:rgba(255,255,255,.18);border-radius:8px;padding:4px 9px">5 khoản</div>
+          </div>
+        </div>
+        <div class="tile" tabindex="0">
+          <div class="row" style="justify-content:space-between"><span class="glyph" style="background:var(--indigo-tint)"><svg stroke="var(--indigo)"><rect x="2.5" y="5" width="19" height="14" rx="2.6"/><path d="M2.5 9.5h19"/></svg></span><span class="due">15/09</span></div>
+          <div class="lbl" style="margin-top:12px">Sacombank Visa</div><div class="big owe" style="font-size:20px;margin-top:3px">−4,82tr</div>
+        </div>
+        <div class="tile" tabindex="0">
+          <span class="glyph" style="background:#fff0e6"><svg stroke="var(--orange)"><circle cx="8.5" cy="9" r="2.8"/><circle cx="16" cy="10" r="2.4"/><path d="M3.5 19a5 5 0 0 1 9 0M13.5 19a4.4 4.4 0 0 1 7 0"/></svg></span>
+          <div class="lbl" style="margin-top:12px">Nhóm Đà Lạt</div><div class="big owed" style="font-size:20px;margin-top:3px">+1,50tr</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ V4 · PLASTIC — real credit card object ═══════════════ -->
+  <div class="board">
+    <div class="cap"><span class="ix">04</span><span class="nm">Plastic</span><span class="why">Thẻ vật lý làm nhân vật chính — rất Apple Wallet</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <div class="bento v4">
+        <div class="tile wide" tabindex="0" style="background:linear-gradient(135deg,#3a2f6e 0%,#5E5CE6 55%,#8A63E8 100%);box-shadow:0 14px 32px rgba(58,47,110,.42);padding:18px 20px;min-height:172px;color:#fff">
+          <div style="position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.22),transparent 40%)"></div>
+          <div style="position:relative;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:13px;font-weight:700;letter-spacing:.02em">Sacombank Visa</span>
+            <span style="font-family:var(--disp);font-style:italic;font-weight:700;font-size:15px;opacity:.9">VISA</span>
+          </div>
+          <div style="position:relative;width:38px;height:28px;border-radius:6px;margin-top:16px;
+            background:linear-gradient(135deg,#f4d99a,#c9a24b);box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)"></div>
+          <div style="position:relative;margin-top:16px;display:flex;justify-content:space-between;align-items:flex-end">
+            <div><div style="font-size:10.5px;color:rgba(255,255,255,.75);font-weight:600">Dư nợ hiện tại</div>
+              <div class="big" style="font-size:29px;margin-top:3px">4.820.000<span style="font-size:15px">đ</span></div></div>
+            <div style="text-align:right"><div style="font-size:10.5px;color:rgba(255,255,255,.75);font-weight:600">Đến hạn</div>
+              <div class="num" style="font-size:16px;font-weight:700">15/09</div></div>
+          </div>
+        </div>
+        <div class="tile" tabindex="0">
+          <div class="k">Được nợ</div><div class="big owed" style="font-size:24px;margin-top:8px">3,50tr</div>
+          <div class="lbl" style="margin-top:6px">Đà Lạt · Thằng em</div>
+        </div>
+        <div class="tile" tabindex="0">
+          <div class="k">Bạn nợ người</div><div class="big owe" style="font-size:24px;margin-top:8px">2,30tr</div>
+          <div class="lbl" style="margin-top:6px">Anh Long · Ăn chơi</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ V5 · RINGS — activity-ring analytics ═══════════════ -->
+  <div class="board">
+    <div class="cap"><span class="ix">05</span><span class="nm">Rings</span><span class="why">Vòng tròn kiểu Fitness — nợ vs được nợ, hạn mức thẻ</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <div class="bento v5">
+        <div class="tile wide" tabindex="0" style="display:flex;align-items:center;gap:18px;padding:18px 20px">
+          <svg width="112" height="112" viewBox="0 0 120 120" style="flex-shrink:0">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger-tint)" stroke-width="13"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger)" stroke-width="13" stroke-linecap="round"
+              stroke-dasharray="326.7" stroke-dashoffset="108" transform="rotate(-90 60 60)"/>
+            <circle cx="60" cy="60" r="35" fill="none" stroke="var(--good-tint)" stroke-width="13"/>
+            <circle cx="60" cy="60" r="35" fill="none" stroke="var(--good)" stroke-width="13" stroke-linecap="round"
+              stroke-dasharray="219.9" stroke-dashoffset="147" transform="rotate(-90 60 60)"/>
+          </svg>
+          <div>
+            <div class="row" style="gap:7px"><span style="width:9px;height:9px;border-radius:50%;background:var(--danger)"></span><span class="lbl">Tôi nợ</span></div>
+            <div class="big owe" style="font-size:23px;margin:2px 0 12px">7,12tr</div>
+            <div class="row" style="gap:7px"><span style="width:9px;height:9px;border-radius:50%;background:var(--good)"></span><span class="lbl">Được nợ</span></div>
+            <div class="big owed" style="font-size:23px;margin-top:2px">3,50tr</div>
+          </div>
+        </div>
+        <div class="tile" tabindex="0">
+          <div class="lbl">Sacombank Visa</div><div class="big owe" style="font-size:20px;margin:6px 0 10px">−4,82tr</div>
+          <div style="font-size:10.5px;font-weight:600;color:var(--muted);display:flex;justify-content:space-between"><span>Đã dùng 24%</span><span>hạn 20tr</span></div>
+          <div style="height:7px;border-radius:4px;background:var(--fill-neutral);margin-top:5px;overflow:hidden"><i style="display:block;height:100%;width:24%;background:var(--indigo);border-radius:4px"></i></div>
+        </div>
+        <div class="tile" tabindex="0">
+          <div class="lbl">Nhóm Đà Lạt</div><div class="big owed" style="font-size:20px;margin:6px 0 10px">+1,50tr</div>
+          <div style="font-size:10.5px;font-weight:600;color:var(--muted)">2 người cần trả bạn</div>
+          <div class="row" style="margin-top:7px;gap:-6px"><span style="width:22px;height:22px;border-radius:50%;background:var(--indigo);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">M</span><span style="width:22px;height:22px;border-radius:50%;background:#E0567F;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-left:-6px;border:2px solid #fff">T</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ V6 · EDITORIAL — typographic minimal ═══════════════ -->
+  <div class="board">
+    <div class="cap"><span class="ix">06</span><span class="nm">Editorial</span><span class="why">Số cực lớn, gạch hairline, nhiều khoảng thở — tối giản</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <div class="v6" style="background:var(--white);border-radius:22px;box-shadow:var(--shadow-focal);padding:22px 22px 8px;margin:0 2px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div><div class="k" style="color:var(--danger)">Tôi nợ</div>
+            <div class="big" style="font-size:44px;color:var(--ink);margin-top:6px">7,12<span style="font-size:22px;color:var(--muted)">tr</span></div></div>
+          <div style="text-align:right"><div class="k" style="color:var(--good)">Được nợ</div>
+            <div class="big" style="font-size:44px;color:var(--ink);margin-top:6px">3,50<span style="font-size:22px;color:var(--muted)">tr</span></div></div>
+        </div>
+        <div style="height:1px;background:var(--hairline);margin:20px 0 4px"></div>
+        <div class="e-row" tabindex="0">
+          <span class="e-nm">Sacombank Visa</span><span class="e-mt">thẻ tín dụng · 15/09</span><span class="big e-v owe">−4,82tr</span></div>
+        <div class="e-row" tabindex="0">
+          <span class="e-nm">Anh Long</span><span class="e-mt">vay cá nhân</span><span class="big e-v owe">−2,00tr</span></div>
+        <div class="e-row" tabindex="0">
+          <span class="e-nm">Thằng em</span><span class="e-mt">cho vay</span><span class="big e-v owed">+2,00tr</span></div>
+        <div class="e-row" tabindex="0">
+          <span class="e-nm">Nhóm Đà Lạt</span><span class="e-mt">chia đều</span><span class="big e-v owed">+1,50tr</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ V7 · TINTED — iOS-18 colorful widgets ═══════════════ -->
+  <div class="board">
+    <div class="cap"><span class="ix">07</span><span class="nm">Tinted</span><span class="why">Mỗi ô một sắc theo loại — widget iOS-18, glyph lớn</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <div class="bento v7" style="gap:11px">
+        <div class="tile wide" tabindex="0" style="background:var(--ink);color:#fff;padding:17px 18px;box-shadow:0 12px 28px rgba(25,16,34,.35)">
+          <div style="display:flex;justify-content:space-between">
+            <div><div style="font-size:11px;font-weight:700;color:#a79fb3;text-transform:uppercase;letter-spacing:.06em">Tôi nợ</div><div class="big" style="font-size:28px;color:#ff8a87;margin-top:4px">7,12tr</div></div>
+            <div style="text-align:right"><div style="font-size:11px;font-weight:700;color:#a79fb3;text-transform:uppercase;letter-spacing:.06em">Được nợ</div><div class="big" style="font-size:28px;color:var(--brand-2);margin-top:4px">3,50tr</div></div>
+          </div>
+        </div>
+        <div class="tile" tabindex="0" style="background:var(--indigo);color:#fff;box-shadow:0 10px 24px rgba(94,92,230,.32)">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.6"/><path d="M2.5 9.5h19"/></svg>
+          <div style="font-size:12px;font-weight:600;opacity:.9;margin-top:14px">Sacombank · 15/09</div>
+          <div class="big" style="font-size:24px;margin-top:3px">−4,82tr</div>
+        </div>
+        <div class="tile" tabindex="0" style="background:var(--brand);color:#fff;box-shadow:0 10px 24px var(--brand-glow)">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+          <div style="font-size:12px;font-weight:600;opacity:.9;margin-top:14px">Thằng em · cho vay</div>
+          <div class="big" style="font-size:24px;margin-top:3px">+2,00tr</div>
+        </div>
+        <div class="tile" tabindex="0" style="background:var(--orange);color:#fff;box-shadow:0 10px 24px rgba(196,97,11,.3)">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="9" r="2.8"/><circle cx="16" cy="10" r="2.4"/><path d="M3.5 19a5 5 0 0 1 9 0M13.5 19a4.4 4.4 0 0 1 7 0"/></svg>
+          <div style="font-size:12px;font-weight:600;opacity:.9;margin-top:14px">Nhóm Đà Lạt</div>
+          <div class="big" style="font-size:24px;margin-top:3px">+1,50tr</div>
+        </div>
+        <div class="tile" tabindex="0" style="background:var(--danger);color:#fff;box-shadow:0 10px 24px rgba(224,50,47,.28)">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+          <div style="font-size:12px;font-weight:600;opacity:.9;margin-top:14px">Anh Long · vay</div>
+          <div class="big" style="font-size:24px;margin-top:3px">−2,00tr</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ V8 · FROST — layered glass depth ═══════════════ -->
+  <div class="board">
+    <div class="cap"><span class="ix">08</span><span class="nm">Frost</span><span class="why">Kính mờ nhiều lớp trên nền loang — chiều sâu tinh tế</span></div>
+    <div class="tab v8" style="position:relative;background:var(--canvas)">
+      <div style="position:absolute;top:-20px;left:-10px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(94,92,230,.28),transparent 65%);filter:blur(6px)"></div>
+      <div style="position:absolute;bottom:0;right:-30px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,var(--brand-glow),transparent 65%);filter:blur(6px)"></div>
+      <div class="eyebrow" style="position:relative">Nợ &amp; cho vay</div>
+      <div class="bento" style="position:relative">
+        <div class="fg wide" tabindex="0" style="padding:18px 19px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end">
+            <div><div class="k">Tôi nợ</div><div class="big owe" style="font-size:28px;margin-top:5px">7.120.000<span style="font-size:15px">đ</span></div></div>
+            <div style="text-align:right"><div class="k">Được nợ</div><div class="big owed" style="font-size:22px;margin-top:5px">3.500.000<span style="font-size:13px">đ</span></div></div>
+          </div>
+        </div>
+        <div class="fg" tabindex="0">
+          <span class="glyph" style="background:rgba(94,92,230,.16)"><svg stroke="var(--indigo)"><rect x="2.5" y="5" width="19" height="14" rx="2.6"/><path d="M2.5 9.5h19"/></svg></span>
+          <div class="lbl" style="margin-top:11px">Sacombank · 15/09</div><div class="big owe" style="font-size:20px;margin-top:3px">−4,82tr</div>
+        </div>
+        <div class="fg" tabindex="0">
+          <span class="glyph" style="background:rgba(46,158,107,.16)"><svg stroke="var(--brand-ink)"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>
+          <div class="lbl" style="margin-top:11px">Thằng em · cho vay</div><div class="big owed" style="font-size:20px;margin-top:3px">+2,00tr</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<style>
+/* V6 editorial rows */
+.e-row{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:baseline;padding:15px 0;border-bottom:1px solid var(--divider);cursor:pointer}
+.e-row:last-child{border-bottom:0}
+.e-nm{font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.e-mt{grid-column:1;font-size:12px;color:var(--muted)}
+.e-v{grid-column:2;grid-row:1 / span 2;align-self:center;font-size:21px}
+.e-row:hover .e-nm{color:var(--brand-ink)}
+/* V8 frosted glass tiles */
+.v8 .fg{background:rgba(255,255,255,.62);backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%);
+  border:1px solid rgba(255,255,255,.7);border-radius:22px;padding:15px 16px;cursor:pointer;
+  box-shadow:0 1px 2px rgba(25,16,34,.04),0 14px 30px rgba(25,16,34,.10);transition:transform .2s cubic-bezier(.32,.72,0,1)}
+.v8 .fg:hover{transform:translateY(-3px)}
+.v8 .fg:focus-visible{outline:2.5px solid var(--brand);outline-offset:2px}
+</style>
+
+</body>
+</html>

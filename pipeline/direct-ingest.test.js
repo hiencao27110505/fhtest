@@ -370,6 +370,29 @@ console.log('\n-- the reading is translated, not assumed --');
     opened.transaction_type === 'ecommerce_receipt');
 }
 {
+  // The instrument label (spec §8) — the Python parser may send it snake_case
+  // or camelCase, and it has to ride inside the box for the review chip.
+  const db = makeDb();
+  await I.runIngest(payload({}, { account_kind: 'credit_card' }), ctxFor(db));
+  t('account_kind rides through into the sealed raw_extracted',
+    raw(db.state.staged[0]).account_kind === 'credit_card',
+    JSON.stringify(raw(db.state.staged[0]).account_kind));
+}
+{
+  const db = makeDb();
+  await I.runIngest(payload({}, { accountKind: 'ewallet' }), ctxFor(db));
+  t('the camelCase spelling is accepted too',
+    raw(db.state.staged[0]).account_kind === 'ewallet');
+}
+{
+  // The base payload carries no instrument at all — null, never a guess.
+  const db = makeDb();
+  await I.runIngest(payload(), ctxFor(db));
+  t('an absent account_kind stages as null — the client defaults, nothing invents a debt',
+    raw(db.state.staged[0]).account_kind === null,
+    JSON.stringify(raw(db.state.staged[0]).account_kind));
+}
+{
   // The body is passed for the tidy's benefit and must not survive the trip.
   const db = makeDb();
   await I.runIngest(

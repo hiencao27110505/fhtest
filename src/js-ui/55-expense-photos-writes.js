@@ -350,13 +350,18 @@ async function _submitPersonalExpense(){
   if(!rows.length){ if(typeof bulkShowInvalid==='function') bulkShowInvalid(); return; }
   // validate like the family single-row path (amount + a real category)
   for(var k=0;k<rows.length;k++){ if(!(parseAmtBase(rows[k].amt||'')>0 && catValid(rows[k].cat))){ if(typeof bulkShowInvalid==='function'){ bulkShowInvalid(); return; } } }
+  // Instrument tag (0105): the optional "Trả bằng gì?" chip. 'cash' materializes
+  // the Tiền mặt account on first use; a card pick feeds that card's balance.
+  var acctPick=(typeof chosen==='function')? chosen('ex-acct') : null;
+  var acctId=null;
+  if(acctPick){ acctId = (acctPick==='cash' && window.fhPersonalCashAccount) ? await fhPersonalCashAccount() : acctPick; }
   var ok=0;
   for(var i=0;i<rows.length;i++){
     var r=rows[i], amt=parseAmtBase(r.amt||''); if(!(amt>0)) continue;
     var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
     // Model Y: category is denormalised on the personal row (name + emoji) — no personal-category table.
     // Per-row time (commitActiveRow flushed the active row; the rest already hold theirs).
-    if(await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined)) ok++;
+    if(await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined, undefined, {accountId:acctId})) ok++;
   }
   if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
 }

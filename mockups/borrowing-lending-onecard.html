@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Nợ & cho vay — một thẻ liền, 8 hero viz</title>
+<style>
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --brand-glow:rgba(46,158,107,.32); --brand-tint:#e9f7f0;
+  --danger:#E0322F; --danger-tint:#fdecef; --danger-2:#ff6b68;
+  --good:#1a9d5f; --good-tint:#e7f5ee; --amber:#B8730B; --amber-tint:#fbefda;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --white:#fff; --canvas:#f4f1f6; --hairline:#e9e4ee; --divider:#f1edf4;
+  --surface:#f9f7f8; --fill-neutral:rgba(138,132,148,.14); --chev:#cfc8d6;
+  --indigo:#5E5CE6; --indigo-tint:#eef0ff; --orange:#C4610B; --pink:#E0567F; --sky:#32ADE6;
+  --shadow-focal:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09);
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--text);background:#141019;color:#fff;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+.hero-head{max-width:1240px;margin:0 auto;padding:46px 28px 8px}
+.hero-head .kick{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#8b8397}
+.hero-head h1{font-family:var(--disp);font-size:36px;font-weight:700;letter-spacing:-1px;margin-top:10px}
+.hero-head p{color:#a49daf;font-size:15px;line-height:1.6;margin-top:12px;max-width:66ch}
+.grid{max-width:1240px;margin:0 auto;padding:26px 20px 90px;display:grid;gap:26px;grid-template-columns:repeat(auto-fill,minmax(392px,1fr))}
+.board{background:#1d1826;border:1px solid #2a2436;border-radius:30px;padding:16px}
+.cap{display:flex;align-items:baseline;gap:10px;padding:6px 8px 15px}
+.cap .ix{font-family:var(--disp);font-size:13px;font-weight:700;color:#0f0b16;background:#c9c2d6;border-radius:7px;padding:2px 8px}
+.cap .nm{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.02em}
+.cap .why{font-size:12px;color:#918a9e;margin-left:auto;text-align:right;max-width:50%;line-height:1.35}
+.tab{background:var(--canvas);border-radius:22px;padding:14px 12px 16px}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:4px 8px 12px}
+
+/* the ONE card */
+.card{background:var(--white);border-radius:22px;box-shadow:var(--shadow-focal);overflow:hidden}
+.hero{padding:16px 16px 8px}
+.k{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.lbl{font-size:11px;font-weight:600;color:var(--muted)}
+.big{font-family:var(--disp);font-weight:700;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums}
+.owe{color:var(--danger)} .owed{color:var(--good)}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.legend{display:flex;flex-direction:column;gap:0;flex:1}
+.leg-row{display:flex;align-items:center;gap:7px}
+.leg-row .v{margin-left:auto;font-size:20px;color:var(--ink)}
+.leg-div{height:1px;background:var(--divider);margin:10px 0}
+
+/* inline rows — mirror .cc-row from src/js-ui/21-personal.js */
+.cc-row{display:flex;align-items:center;gap:12px;width:100%;padding:11px 16px;border:0;background:none;font:inherit;
+  text-align:left;cursor:pointer;border-top:1px solid var(--divider)}
+.cc-row:active{background:var(--surface)}
+.cc-row:focus-visible{outline:2.5px solid var(--brand);outline-offset:-2px}
+.cc-ic{width:34px;height:34px;flex-shrink:0;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.cc-ic svg{width:19px;height:19px}
+.cc-t{flex:1;min-width:0}
+.cc-n{display:block;font-size:14.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.cc-s{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.cc-meter{display:block;height:5px;border-radius:3px;background:var(--fill-neutral);overflow:hidden;margin-top:7px;max-width:150px}
+.cc-meter>i{display:block;height:100%;border-radius:3px}
+.cc-r{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.due{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;border-radius:9999px;padding:2px 8px;background:var(--amber-tint);color:var(--amber)}
+.av{width:19px;height:19px;border-radius:50%;color:#fff;font-family:var(--disp);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+.cf-cta{border-top:1px solid var(--divider)}
+.cc-row.link{justify-content:space-between}
+.chev{width:18px;height:18px;flex-shrink:0;stroke:var(--chev);stroke-width:2;fill:none}
+@media(max-width:480px){.hero-head{padding:30px 18px 4px}.hero-head h1{font-size:26px}.grid{padding:18px 12px 60px}}
+</style>
+</head>
+<body>
+
+<div class="hero-head">
+  <div class="kick">FamilyHub · Tài Chính · hướng “Một thẻ liền”</div>
+  <h1>Nợ &amp; cho vay — 8 kiểu hero trong một thẻ</h1>
+  <p>Cùng bộ khung .cf-card (nhãn → hero → dòng khoản → CTA liền mép) và cùng các dòng khoản. Chỉ phần <b style="color:#cfc8d6">hero trực quan</b> đổi kiểu — vòng, donut, thanh dung lượng iOS, thanh kéo co, đồng hồ, đường xu hướng, cặp vòng, lưới ô. Dữ liệu: nợ 7,12tr · được nợ 3,50tr · ròng −3,62tr.</p>
+</div>
+
+<div class="grid">
+
+  <!-- 01 CONCENTRIC -->
+  <div class="board"><div class="cap"><span class="ix">01</span><span class="nm">Concentric</span><span class="why">Hai vòng lồng nhau</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <section class="card">
+        <div class="hero"><div class="k">Cán cân nợ · cá nhân</div>
+          <div style="display:flex;align-items:center;gap:18px;margin-top:12px">
+            <svg width="100" height="100" viewBox="0 0 120 120" style="flex-shrink:0">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger-tint)" stroke-width="12"/>
+              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger)" stroke-width="12" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="108" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="36" fill="none" stroke="var(--good-tint)" stroke-width="12"/>
+              <circle cx="60" cy="60" r="36" fill="none" stroke="var(--good)" stroke-width="12" stroke-linecap="round" stroke-dasharray="226.2" stroke-dashoffset="151" transform="rotate(-90 60 60)"/>
+            </svg>
+            <div class="legend">
+              <div class="leg-row"><span class="dot" style="background:var(--danger)"></span><span class="lbl">Tôi nợ</span><span class="big num v">7,12<span style="font-size:12px;color:var(--muted)">tr</span></span></div>
+              <div class="leg-div"></div>
+              <div class="leg-row"><span class="dot" style="background:var(--good)"></span><span class="lbl">Được nợ</span><span class="big num v">3,50<span style="font-size:12px;color:var(--muted)">tr</span></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="rows-slot" style="margin-top:12px"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- 02 DONUT NET-CENTER -->
+  <div class="board"><div class="cap"><span class="ix">02</span><span class="nm">Donut ròng</span><span class="why">Số ròng nằm trong tâm vòng</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <section class="card">
+        <div class="hero"><div class="k">Cán cân nợ · cá nhân</div>
+          <div style="display:flex;align-items:center;gap:18px;margin-top:12px">
+            <svg width="104" height="104" viewBox="0 0 120 120" style="flex-shrink:0">
+              <circle cx="60" cy="60" r="50" fill="none" stroke="var(--surface)" stroke-width="13"/>
+              <circle cx="60" cy="60" r="50" fill="none" stroke="var(--danger)" stroke-width="13" stroke-linecap="round" stroke-dasharray="201 113" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="50" fill="none" stroke="var(--good)" stroke-width="13" stroke-linecap="round" stroke-dasharray="100 214" stroke-dashoffset="-211" transform="rotate(-90 60 60)"/>
+              <text x="60" y="55" text-anchor="middle" font-family="SF Pro Display,sans-serif" font-size="10.5" font-weight="700" fill="var(--muted)" letter-spacing="1">RÒNG</text>
+              <text x="60" y="76" text-anchor="middle" font-family="SF Pro Display,sans-serif" font-size="20" font-weight="700" fill="var(--ink)">−3,62tr</text>
+            </svg>
+            <div class="legend">
+              <div class="leg-row"><span class="dot" style="background:var(--danger)"></span><span class="lbl">Tôi nợ</span><span class="big num v">7,12<span style="font-size:12px;color:var(--muted)">tr</span></span></div>
+              <div class="leg-div"></div>
+              <div class="leg-row"><span class="dot" style="background:var(--good)"></span><span class="lbl">Được nợ</span><span class="big num v">3,50<span style="font-size:12px;color:var(--muted)">tr</span></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="rows-slot" style="margin-top:12px"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- 03 iOS STORAGE BAR -->
+  <div class="board"><div class="cap"><span class="ix">03</span><span class="nm">Storage bar</span><span class="why">Thanh dung lượng iOS — mỗi khoản một khúc màu</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <section class="card">
+        <div class="hero"><div style="display:flex;justify-content:space-between;align-items:baseline">
+            <div><div class="k" style="color:var(--danger)">Tôi nợ</div><div class="big" style="font-size:24px;color:var(--ink);margin-top:4px">7,12tr</div></div>
+            <div style="text-align:right"><div class="k" style="color:var(--good)">Được nợ</div><div class="big" style="font-size:24px;color:var(--ink);margin-top:4px">3,50tr</div></div>
+          </div>
+          <div style="display:flex;gap:2px;height:14px;margin-top:14px;border-radius:5px;overflow:hidden">
+            <i style="flex:454;background:var(--indigo)"></i><i style="flex:188;background:var(--danger)"></i><i style="flex:28;background:var(--orange)"></i>
+            <i style="flex:20;background:transparent"></i>
+            <i style="flex:188;background:var(--good)"></i><i style="flex:141;background:var(--brand-2)"></i>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px">
+            <span class="lg"><span class="dot" style="background:var(--indigo)"></span>Sacombank</span>
+            <span class="lg"><span class="dot" style="background:var(--danger)"></span>Anh Long</span>
+            <span class="lg"><span class="dot" style="background:var(--good)"></span>Thằng em</span>
+            <span class="lg"><span class="dot" style="background:var(--brand-2)"></span>Đà Lạt</span>
+          </div>
+        </div>
+        <div class="rows-slot" style="margin-top:12px"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- 04 DIVERGING TUG-OF-WAR -->
+  <div class="board"><div class="cap"><span class="ix">04</span><span class="nm">Kéo co</span><span class="why">Thanh phân kỳ từ tâm — nợ trái, được nợ phải</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <section class="card">
+        <div class="hero"><div class="k">Nợ ròng</div>
+          <div class="big owe" style="font-size:30px;margin-top:6px">−3.620.000<span style="font-size:15px">đ</span></div>
+          <div style="position:relative;height:30px;margin-top:16px">
+            <div style="position:absolute;left:0;right:0;top:50%;height:1px;background:var(--hairline)"></div>
+            <div style="position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--ink-2);transform:translateX(-1px);border-radius:2px"></div>
+            <div style="position:absolute;right:50%;top:6px;height:18px;width:50%;background:var(--danger);border-radius:6px 3px 3px 6px"></div>
+            <div style="position:absolute;left:50%;top:6px;height:18px;width:24.6%;background:var(--good);border-radius:3px 6px 6px 3px"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:9px">
+            <span class="lbl" style="color:var(--danger)">Tôi nợ 7,12tr</span>
+            <span class="lbl" style="color:var(--good)">Được nợ 3,50tr</span>
+          </div>
+        </div>
+        <div class="rows-slot" style="margin-top:12px"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- 05 GAUGE -->
+  <div class="board"><div class="cap"><span class="ix">05</span><span class="nm">Gauge</span><span class="why">Đồng hồ nửa vòng: được nợ bù được bao nhiêu</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <section class="card">
+        <div class="hero" style="text-align:center">
+          <svg width="220" height="120" viewBox="0 0 128 74" style="max-width:100%">
+            <path d="M12 66 A52 52 0 0 1 116 66" fill="none" stroke="var(--surface)" stroke-width="12" stroke-linecap="round"/>
+            <path d="M12 66 A52 52 0 0 1 116 66" fill="none" stroke="var(--good)" stroke-width="12" stroke-linecap="round" stroke-dasharray="80.1 163.4"/>
+            <text x="64" y="50" text-anchor="middle" font-family="SF Pro Display,sans-serif" font-size="19" font-weight="700" fill="var(--ink)">49%</text>
+            <text x="64" y="64" text-anchor="middle" font-family="SF Pro Text,sans-serif" font-size="8" font-weight="600" fill="var(--muted)">được nợ bù</text>
+          </svg>
+          <div style="display:flex;justify-content:center;gap:24px;margin-top:4px">
+            <div><div class="lbl" style="color:var(--danger)">Tôi nợ</div><div class="big" style="font-size:21px;color:var(--ink);margin-top:3px">7,12tr</div></div>
+            <div style="width:1px;background:var(--divider)"></div>
+            <div><div class="lbl" style="color:var(--good)">Được nợ</div><div class="big" style="font-size:21px;color:var(--ink);margin-top:3px">3,50tr</div></div>
+          </div>
+        </div>
+        <div class="rows-slot" style="margin-top:12px"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- 06 AREA TREND -->
+  <div class="board"><div class="cap"><span class="ix">06</span><span class="nm">Xu hướng</span><span class="why">Đường diện tích nợ ròng 6 tuần đang giảm</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <section class="card">
+        <div class="hero"><div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div><div class="k">Nợ ròng</div><div class="big" style="font-size:28px;color:var(--ink);margin-top:5px">−3,62tr</div>
+              <div style="font-size:12px;font-weight:700;color:var(--good);margin-top:5px">↓ giảm 1,1tr so tháng trước</div></div>
+            <span class="due" style="background:var(--good-tint);color:var(--brand-ink)">6 tuần</span>
+          </div>
+          <svg width="100%" height="56" viewBox="0 0 300 56" preserveAspectRatio="none" style="margin-top:12px;display:block">
+            <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--brand)" stop-opacity=".22"/><stop offset="1" stop-color="var(--brand)" stop-opacity="0"/></linearGradient></defs>
+            <path d="M0 14 L50 20 L100 26 L150 33 L200 40 L250 45 L300 48 L300 56 L0 56 Z" fill="url(#ag)"/>
+            <path d="M0 14 L50 20 L100 26 L150 33 L200 40 L250 45 L300 48" fill="none" stroke="var(--brand)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="300" cy="48" r="4" fill="var(--brand)" stroke="#fff" stroke-width="2"/>
+          </svg>
+        </div>
+        <div class="rows-slot" style="margin-top:10px"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- 07 DUAL RINGS -->
+  <div class="board"><div class="cap"><span class="ix">07</span><span class="nm">Cặp vòng</span><span class="why">Hai vòng riêng cạnh nhau, số ở tâm mỗi vòng</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <section class="card">
+        <div class="hero"><div class="k">Cán cân nợ · cá nhân</div>
+          <div style="display:flex;justify-content:space-around;gap:12px;margin-top:12px">
+            <div style="text-align:center">
+              <svg width="92" height="92" viewBox="0 0 92 92">
+                <circle cx="46" cy="46" r="38" fill="none" stroke="var(--danger-tint)" stroke-width="10"/>
+                <circle cx="46" cy="46" r="38" fill="none" stroke="var(--danger)" stroke-width="10" stroke-linecap="round" stroke-dasharray="238.8" stroke-dashoffset="79" transform="rotate(-90 46 46)"/>
+                <text x="46" y="43" text-anchor="middle" font-family="SF Pro Display,sans-serif" font-size="16" font-weight="700" fill="var(--ink)">7,12</text>
+                <text x="46" y="56" text-anchor="middle" font-family="SF Pro Text,sans-serif" font-size="9" font-weight="600" fill="var(--muted)">triệu</text>
+              </svg>
+              <div class="lbl" style="color:var(--danger);margin-top:6px">Tôi nợ</div>
+            </div>
+            <div style="text-align:center">
+              <svg width="92" height="92" viewBox="0 0 92 92">
+                <circle cx="46" cy="46" r="38" fill="none" stroke="var(--good-tint)" stroke-width="10"/>
+                <circle cx="46" cy="46" r="38" fill="none" stroke="var(--good)" stroke-width="10" stroke-linecap="round" stroke-dasharray="238.8" stroke-dashoffset="160" transform="rotate(-90 46 46)"/>
+                <text x="46" y="43" text-anchor="middle" font-family="SF Pro Display,sans-serif" font-size="16" font-weight="700" fill="var(--ink)">3,50</text>
+                <text x="46" y="56" text-anchor="middle" font-family="SF Pro Text,sans-serif" font-size="9" font-weight="600" fill="var(--muted)">triệu</text>
+              </svg>
+              <div class="lbl" style="color:var(--good);margin-top:6px">Được nợ</div>
+            </div>
+          </div>
+        </div>
+        <div class="rows-slot" style="margin-top:12px"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- 08 WAFFLE / UNIT GRID -->
+  <div class="board"><div class="cap"><span class="ix">08</span><span class="nm">Lưới ô</span><span class="why">Mỗi ô ~250k — đỏ là nợ, xanh là được nợ</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <section class="card">
+        <div class="hero"><div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div><div class="k">Nợ ròng</div><div class="big owe" style="font-size:26px;margin-top:5px">−3,62tr</div></div>
+            <div style="text-align:right;font-size:11px;font-weight:600;color:var(--muted);line-height:1.7">
+              <div><span class="dot" style="background:var(--danger);display:inline-block;margin-right:5px"></span>Nợ 7,12tr</div>
+              <div><span class="dot" style="background:var(--good);display:inline-block;margin-right:5px"></span>Được nợ 3,50tr</div>
+            </div>
+          </div>
+          <div id="waffle" style="display:grid;grid-template-columns:repeat(14,1fr);gap:5px;margin-top:14px"></div>
+        </div>
+        <div class="rows-slot" style="margin-top:12px"></div>
+      </section>
+    </div>
+  </div>
+
+</div>
+
+<style>
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--ink-2)}
+.wd{aspect-ratio:1;border-radius:3px}
+</style>
+
+<script>
+/* shared inline rows + CTA — identical across all 8, so only the hero differs */
+var ICO={
+  card:'<svg viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.6"/><path d="M2.5 9.5h19"/></svg>',
+  space:'<svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="9" r="2.8"/><circle cx="16" cy="10" r="2.4"/><path d="M3.5 19a5 5 0 0 1 9 0M13.5 19a4.4 4.4 0 0 1 7 0"/></svg>',
+  person:'<svg viewBox="0 0 24 24" fill="none" stroke="var(--brand-ink)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>'
+};
+var ROWS =
+  '<button class="cc-row"><span class="cc-ic" style="background:var(--indigo-tint)">'+ICO.card+'</span>'
+  +'<span class="cc-t"><span class="cc-n">Sacombank Visa</span><span class="cc-s">thẻ tín dụng · dùng 24% hạn mức</span>'
+  +'<span class="cc-meter"><i style="width:24%;background:var(--indigo)"></i></span></span>'
+  +'<span class="cc-r"><span class="big owe" style="font-size:16px">−4,82tr</span><span class="due">15/09</span></span></button>'
+  +'<button class="cc-row"><span class="cc-ic" style="background:#fff0e6">'+ICO.space+'</span>'
+  +'<span class="cc-t"><span class="cc-n">Nhóm Đà Lạt</span><span class="cc-s">2 người cần trả bạn</span></span>'
+  +'<span class="cc-r"><span class="big owed" style="font-size:16px">+1,50tr</span>'
+  +'<span style="display:flex"><span class="av" style="background:var(--indigo)">M</span><span class="av" style="background:var(--pink);margin-left:-5px">T</span></span></span></button>'
+  +'<button class="cc-row"><span class="cc-ic" style="background:var(--brand-tint)">'+ICO.person+'</span>'
+  +'<span class="cc-t"><span class="cc-n">Thằng em</span><span class="cc-s">cho vay · riêng tư</span></span>'
+  +'<span class="cc-r"><span class="big owed" style="font-size:16px">+2,00tr</span></span></button>';
+var CTA='<div class="cf-cta"><button class="cc-row link"><span class="cc-t"><span class="cc-n" style="color:var(--brand-ink)">Xem tất cả khoản nợ</span></span>'
+  +'<svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button></div>';
+document.querySelectorAll('.rows-slot').forEach(function(el){ el.innerHTML=ROWS+CTA; });
+
+/* waffle: 42 cells, ~2:1 red:green (7,12 : 3,50 of gross ~10,62) */
+var w=document.getElementById('waffle'),html='';
+for(var i=0;i<42;i++){ var c = i<28?'var(--danger)':'var(--good)'; html+='<span class="wd" style="background:'+c+'"></span>'; }
+w.innerHTML=html;
+</script>
+
+</body>
+</html>

@@ -434,6 +434,47 @@
   }
   window.fhStagedMeta = fhStagedMeta;
 
+  /* The full opened payload of a staged row, by candidate rowIndex —
+     fhStagedAsCsvSource maps _fhStagedRows in order, the same guarantee
+     retirement relies on. Used by the review's transfer wiring (flow /
+     account_kind, the 0105 instrument classifier) without widening the
+     5-column projection. */
+  window.fhStagedRawX = function (rowIndex) {
+    var rows = window._fhStagedRows;
+    if (!rows || typeof rowIndex !== 'number') return null;
+    var r = rows[rowIndex];
+    return (r && r.raw_extracted) || null;
+  };
+
+  /* Instrument identity of a staged row → exactly what fhPersonalAccountEnsure
+     needs to auto-materialize the account (Q15). Null when nothing confident is
+     known (Q16: never invent a debt).
+
+     Rows staged BEFORE the classifier existed carry no account_kind, and their
+     sealed boxes can never be amended — so for those the strongest LOCAL
+     signals stand in: a full-length masked PAN is a card number (only cards
+     print one; a deposit alert masks an account as a short tail), and the
+     wallet providers are wallets by identity. Anything weaker stays null —
+     an absent chip beats a wrong debt. */
+  window.fhStagedAcct = function (c) {
+    var rows = window._fhStagedRows;
+    var r = (c && typeof c.rowIndex === 'number' && rows) ? rows[c.rowIndex] : null;
+    var x = (r && r.raw_extracted) || null;
+    if (!x) return null;
+    var masked = String(x.account_masked || '');
+    var kind = x.account_kind || null;
+    if (!kind) {
+      var prov = String(r.source_provider || '').toLowerCase();
+      var pan = masked.replace(/[^0-9xX*•.]/g, '');
+      if (/momo|zalopay|shopeepay/.test(prov)) kind = 'ewallet';
+      else if (pan.length >= 15) kind = 'credit_card';
+    }
+    if (!kind) return null;
+    return { kind: kind,
+             tail: masked.replace(/\D/g, '').slice(-4) || null,
+             provider: (r && r.source_provider) || null };
+  };
+
   /* Which transport imported a staged row → the ledger `source` (0100). The
      sealed payload carries `_transport`: the direct-read worker stamps
      'oauth_direct' (stage.mjs); the forwarding pipeline leaves it absent, so
@@ -779,6 +820,15 @@
           : Math.round(Number(c.amount || 0) / (window.curMult ? window.curMult() : 1));
         var _t = window.csvRowTime ? window.csvRowTime(c) : undefined;   // reviewed time (edited value wins, else derived from occurred_at)
         var src = window.fhStagedSource ? window.fhStagedSource(c) : null;  // 'direct-email' | 'forwarding-email' (0100 provenance)
+        /* Instrument (0105): the classifier's verdict rides in raw_extracted.
+           A recognised account auto-materializes; a card-tagged expense feeds
+           that card's derived balance. Failure to resolve an account never
+           blocks the import — the row just lands untagged. */
+        var acctId = null;
+        try {
+          var ai = window.fhStagedAcct ? window.fhStagedAcct(c) : null;
+          if (ai && window.fhPersonalAccountEnsure) acctId = await window.fhPersonalAccountEnsure(ai);
+        } catch (eAcct) { acctId = null; }
         var ok;
         if (c.isIncome) {
           /* A credit/income row goes to the personal INCOME book, not the expense
@@ -786,9 +836,15 @@
              one place a bank email's incoming money is captured correctly.
              (personal_incomes has no time column yet — income stays day-only.) */
           ok = await window.fhPersonalAddIncome(base, c.description || '', c.dateDisplay || undefined, src);
+        } else if (c.isTransfer) {
+          /* A card payment / internal transfer is the SETTLEMENT leg — a
+             transfer, never a new expense (the purchases were counted at
+             swipe). Tagged to the card account when known, so the balance
+             draws down; untagged it still stays out of every spend total. */
+          ok = await window.fhPersonalAddTransfer(base, acctId, c.description || 'Thanh toán thẻ', c.dateDisplay || undefined, src);
         } else {
           var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
-          ok = await window.fhPersonalAddExpense(base, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined, _t, src);
+          ok = await window.fhPersonalAddExpense(base, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined, _t, src, { accountId: acctId });
         }
         if (!ok) throw new Error('personal write failed at row ' + i);
       }

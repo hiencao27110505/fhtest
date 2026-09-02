@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Nợ & cho vay — hướng Rings, 6 biến thể</title>
+<style>
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --grad-hero:linear-gradient(150deg,#4CB584 0%,#2E9E6B 52%,#8FC97E 100%);
+  --brand-glow:rgba(46,158,107,.32); --brand-tint:#e9f7f0;
+  --danger:#E0322F; --danger-tint:#fdecef; --danger-2:#ff6b68;
+  --good:#1a9d5f; --good-tint:#e7f5ee; --amber:#B8730B; --amber-tint:#fbefda;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --white:#fff; --canvas:#f4f1f6; --pearl:#fbfafc;
+  --hairline:#e9e4ee; --divider:#f1edf4; --surface:#f9f7f8; --fill-neutral:rgba(138,132,148,.14); --chev:#cfc8d6;
+  --indigo:#5E5CE6; --indigo-tint:#eef0ff; --orange:#C4610B; --pink:#E0567F; --sky:#32ADE6;
+  --shadow-focal:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09);
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--text);background:#141019;color:#fff;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+.hero-head{max-width:1240px;margin:0 auto;padding:46px 28px 8px}
+.hero-head .kick{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#8b8397}
+.hero-head h1{font-family:var(--disp);font-size:36px;font-weight:700;letter-spacing:-1px;margin-top:10px}
+.hero-head p{color:#a49daf;font-size:15px;line-height:1.6;margin-top:12px;max-width:64ch}
+.grid{max-width:1240px;margin:0 auto;padding:26px 20px 90px;display:grid;gap:26px;grid-template-columns:repeat(auto-fill,minmax(392px,1fr))}
+.board{background:#1d1826;border:1px solid #2a2436;border-radius:30px;padding:16px}
+.cap{display:flex;align-items:baseline;gap:10px;padding:6px 8px 15px}
+.cap .ix{font-family:var(--disp);font-size:13px;font-weight:700;color:#0f0b16;background:#c9c2d6;border-radius:7px;padding:2px 8px}
+.cap .nm{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.02em}
+.cap .why{font-size:12px;color:#918a9e;margin-left:auto;text-align:right;max-width:48%;line-height:1.35}
+.cap.star .ix{background:var(--brand);color:#fff}
+.tab{background:var(--canvas);border-radius:22px;padding:14px 12px 16px;overflow:hidden}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:4px 8px 12px}
+
+.bento{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:var(--white);border-radius:22px;box-shadow:var(--shadow-focal);padding:15px 16px;position:relative;
+  cursor:pointer;transition:transform .2s cubic-bezier(.32,.72,0,1),box-shadow .2s ease}
+.tile:hover{transform:translateY(-3px);box-shadow:0 2px 6px rgba(25,16,34,.06),0 20px 40px rgba(25,16,34,.14)}
+.tile:focus-visible,.card:focus-visible,.cc-row:focus-visible{outline:2.5px solid var(--brand);outline-offset:2px}
+.wide{grid-column:1 / -1}
+.card{background:var(--white);border-radius:22px;box-shadow:var(--shadow-focal);overflow:hidden}
+.lbl{font-size:11px;font-weight:600;color:var(--muted)}
+.k{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.big{font-family:var(--disp);font-weight:700;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums}
+.owe{color:var(--danger)} .owed{color:var(--good)}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.due{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;border-radius:9999px;padding:2px 8px;background:var(--amber-tint);color:var(--amber)}
+.meter{height:7px;border-radius:4px;background:var(--fill-neutral);overflow:hidden}
+.meter>i{display:block;height:100%;border-radius:4px}
+.av{width:22px;height:22px;border-radius:50%;color:#fff;font-family:var(--disp);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+.chev{width:18px;height:18px;flex-shrink:0;stroke:var(--chev);stroke-width:2;fill:none}
+@media(prefers-reduced-motion:reduce){.tile{transition:none}}
+@media(max-width:480px){.hero-head{padding:30px 18px 4px}.hero-head h1{font-size:26px}.grid{padding:18px 12px 60px}}
+</style>
+</head>
+<body>
+
+<div class="hero-head">
+  <div class="kick">FamilyHub · Tài Chính · hướng #05 “Rings”</div>
+  <h1>Nợ &amp; cho vay — 6 biến thể vòng tròn</h1>
+  <p>Cùng chất phân tích của #05: vòng tròn kiểu Fitness + đồng hồ hạn mức + avatar. Sáu cách kể khác nhau. <b style="color:#cfc8d6">#05</b> gộp mọi phần vào <b style="color:#cfc8d6">một thẻ duy nhất</b> như widget dòng tiền đầu trang. Dữ liệu: nợ 7,12tr · được nợ 3,50tr · ròng −3,62tr.</p>
+</div>
+
+<div class="grid">
+
+  <!-- ══════════ 01 · CONCENTRIC (refined original) ══════════ -->
+  <div class="board">
+    <div class="cap"><span class="ix">01</span><span class="nm">Concentric</span><span class="why">Hai vòng lồng nhau — nợ ngoài, được nợ trong</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <div class="bento">
+        <div class="tile wide" tabindex="0" style="display:flex;align-items:center;gap:20px;padding:18px 20px">
+          <svg width="120" height="120" viewBox="0 0 120 120" style="flex-shrink:0">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger-tint)" stroke-width="13"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger)" stroke-width="13" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="108" transform="rotate(-90 60 60)"/>
+            <circle cx="60" cy="60" r="35" fill="none" stroke="var(--good-tint)" stroke-width="13"/>
+            <circle cx="60" cy="60" r="35" fill="none" stroke="var(--good)" stroke-width="13" stroke-linecap="round" stroke-dasharray="219.9" stroke-dashoffset="147" transform="rotate(-90 60 60)"/>
+          </svg>
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:7px"><span class="dot" style="background:var(--danger)"></span><span class="lbl">Tôi nợ</span></div>
+            <div class="big owe" style="font-size:24px;margin:3px 0 13px">7,12<span style="font-size:14px">tr</span></div>
+            <div style="display:flex;align-items:center;gap:7px"><span class="dot" style="background:var(--good)"></span><span class="lbl">Được nợ</span></div>
+            <div class="big owed" style="font-size:24px;margin-top:3px">3,50<span style="font-size:14px">tr</span></div>
+          </div>
+        </div>
+        <div class="tile" tabindex="0">
+          <div class="lbl">Sacombank Visa</div><div class="big owe" style="font-size:20px;margin:6px 0 10px">−4,82tr</div>
+          <div style="font-size:10.5px;font-weight:600;color:var(--muted);display:flex;justify-content:space-between"><span>Dùng 24%</span><span>hạn 20tr</span></div>
+          <div class="meter" style="margin-top:5px"><i style="width:24%;background:var(--indigo)"></i></div>
+        </div>
+        <div class="tile" tabindex="0">
+          <div class="lbl">Nhóm Đà Lạt</div><div class="big owed" style="font-size:20px;margin:6px 0 10px">+1,50tr</div>
+          <div style="font-size:10.5px;font-weight:600;color:var(--muted)">2 người cần trả bạn</div>
+          <div style="display:flex;margin-top:7px"><span class="av" style="background:var(--indigo)">M</span><span class="av" style="background:var(--pink);margin-left:-6px">T</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 02 · DONUT SPLIT (net in center) ══════════ -->
+  <div class="board">
+    <div class="cap"><span class="ix">02</span><span class="nm">Donut ròng</span><span class="why">Một vòng chia đôi nợ/được nợ, số ròng ở tâm</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <div class="bento">
+        <div class="tile wide" tabindex="0" style="display:flex;align-items:center;gap:18px;padding:18px 20px">
+          <svg width="122" height="122" viewBox="0 0 120 120" style="flex-shrink:0">
+            <circle cx="60" cy="60" r="50" fill="none" stroke="var(--surface)" stroke-width="14"/>
+            <circle cx="60" cy="60" r="50" fill="none" stroke="var(--danger)" stroke-width="14" stroke-linecap="round" stroke-dasharray="201 113" stroke-dashoffset="0" transform="rotate(-90 60 60)"/>
+            <circle cx="60" cy="60" r="50" fill="none" stroke="var(--good)" stroke-width="14" stroke-linecap="round" stroke-dasharray="94 220" stroke-dashoffset="-211" transform="rotate(-90 60 60)"/>
+            <text x="60" y="54" text-anchor="middle" font-family="var(--disp)" font-size="11" font-weight="700" fill="var(--muted)" letter-spacing=".5">RÒNG</text>
+            <text x="60" y="76" text-anchor="middle" font-family="var(--disp)" font-size="21" font-weight="700" fill="var(--ink)">−3,62tr</text>
+          </svg>
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:7px"><span class="dot" style="background:var(--danger)"></span><span class="lbl">Tôi nợ</span><span class="num" style="margin-left:auto;font-size:15px;font-weight:700;color:var(--ink)">7,12tr</span></div>
+            <div style="height:1px;background:var(--divider);margin:11px 0"></div>
+            <div style="display:flex;align-items:center;gap:7px"><span class="dot" style="background:var(--good)"></span><span class="lbl">Được nợ</span><span class="num" style="margin-left:auto;font-size:15px;font-weight:700;color:var(--ink)">3,50tr</span></div>
+          </div>
+        </div>
+        <div class="tile" tabindex="0">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span class="lbl">Sacombank</span><span class="due">15/09</span></div>
+          <div class="big owe" style="font-size:20px;margin:8px 0 3px">−4,82tr</div><div class="lbl">thẻ tín dụng</div>
+        </div>
+        <div class="tile" tabindex="0">
+          <span class="lbl">Nhóm Đà Lạt</span>
+          <div class="big owed" style="font-size:20px;margin:8px 0 3px">+1,50tr</div><div class="lbl">được nợ</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 03 · GAUGE (coverage) ══════════ -->
+  <div class="board">
+    <div class="cap"><span class="ix">03</span><span class="nm">Gauge</span><span class="why">Đồng hồ nửa vòng: được nợ bù được bao nhiêu phần nợ</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <div class="bento">
+        <div class="tile wide" tabindex="0" style="padding:18px 20px;text-align:center">
+          <svg width="230" height="128" viewBox="0 0 128 74" style="max-width:100%">
+            <path d="M12 66 A52 52 0 0 1 116 66" fill="none" stroke="var(--surface)" stroke-width="12" stroke-linecap="round"/>
+            <path d="M12 66 A52 52 0 0 1 116 66" fill="none" stroke="var(--good)" stroke-width="12" stroke-linecap="round" stroke-dasharray="80.1 163.4"/>
+            <text x="64" y="52" text-anchor="middle" font-family="var(--disp)" font-size="20" font-weight="700" fill="var(--ink)">49%</text>
+            <text x="64" y="66" text-anchor="middle" font-family="var(--text)" font-size="8.5" font-weight="600" fill="var(--muted)">được bù</text>
+          </svg>
+          <div style="display:flex;justify-content:center;gap:22px;margin-top:6px">
+            <div><div class="lbl" style="color:var(--danger)">Tôi nợ</div><div class="big" style="font-size:22px;color:var(--ink);margin-top:3px">7,12tr</div></div>
+            <div style="width:1px;background:var(--divider)"></div>
+            <div><div class="lbl" style="color:var(--good)">Được nợ</div><div class="big" style="font-size:22px;color:var(--ink);margin-top:3px">3,50tr</div></div>
+          </div>
+        </div>
+        <div class="tile" tabindex="0">
+          <div class="lbl">Sacombank Visa</div><div class="big owe" style="font-size:20px;margin:6px 0 10px">−4,82tr</div>
+          <div class="meter"><i style="width:24%;background:var(--indigo)"></i></div>
+        </div>
+        <div class="tile" tabindex="0">
+          <div class="lbl">Thằng em · cho vay</div><div class="big owed" style="font-size:20px;margin:6px 0 10px">+2,00tr</div>
+          <div style="display:flex;margin-top:1px"><span class="av" style="background:var(--brand)">E</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 04 · MULTI-RING ROSTER ══════════ -->
+  <div class="board">
+    <div class="cap"><span class="ix">04</span><span class="nm">Roster</span><span class="why">Mỗi khoản một vòng nhỏ — kiểu tab Sharing của Fitness</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <div class="bento" style="gap:11px">
+        <div class="tile wide" tabindex="0" style="display:flex;gap:10px;padding:16px 18px">
+          <div style="flex:1"><div class="lbl" style="color:var(--danger)">Tôi nợ</div><div class="big owe" style="font-size:26px;margin-top:4px">7,12tr</div></div>
+          <div style="width:1px;background:var(--divider)"></div>
+          <div style="flex:1"><div class="lbl" style="color:var(--good)">Được nợ</div><div class="big owed" style="font-size:26px;margin-top:4px">3,50tr</div></div>
+        </div>
+        <div class="tile wide" tabindex="0" style="padding:6px 14px">
+          <!-- ring-rows -->
+          <div class="rr">
+            <svg width="42" height="42" viewBox="0 0 42 42"><circle cx="21" cy="21" r="16" fill="none" stroke="var(--danger-tint)" stroke-width="5"/><circle cx="21" cy="21" r="16" fill="none" stroke="var(--danger)" stroke-width="5" stroke-linecap="round" stroke-dasharray="100.5" stroke-dashoffset="0" transform="rotate(-90 21 21)"/><text x="21" y="25" text-anchor="middle" font-size="14">💳</text></svg>
+            <div class="rr-b"><div class="rr-n">Sacombank Visa</div><div class="rr-s">thẻ tín dụng · dùng 24% hạn mức</div></div>
+            <div class="big owe rr-v">−4,82tr</div>
+          </div>
+          <div class="rr">
+            <svg width="42" height="42" viewBox="0 0 42 42"><circle cx="21" cy="21" r="16" fill="none" stroke="var(--good-tint)" stroke-width="5"/><circle cx="21" cy="21" r="16" fill="none" stroke="var(--good)" stroke-width="5" stroke-linecap="round" stroke-dasharray="41.7 100.5" transform="rotate(-90 21 21)"/><text x="21" y="25" text-anchor="middle" font-size="14">🧒</text></svg>
+            <div class="rr-b"><div class="rr-n">Thằng em</div><div class="rr-s">cho vay · riêng tư</div></div>
+            <div class="big owed rr-v">+2,00tr</div>
+          </div>
+          <div class="rr">
+            <svg width="42" height="42" viewBox="0 0 42 42"><circle cx="21" cy="21" r="16" fill="none" stroke="var(--good-tint)" stroke-width="5"/><circle cx="21" cy="21" r="16" fill="none" stroke="var(--good)" stroke-width="5" stroke-linecap="round" stroke-dasharray="31.3 100.5" transform="rotate(-90 21 21)"/><text x="21" y="25" text-anchor="middle" font-size="13">⛰️</text></svg>
+            <div class="rr-b"><div class="rr-n">Nhóm Đà Lạt</div><div class="rr-s">2 người cần trả bạn</div></div>
+            <div class="big owed rr-v">+1,50tr</div>
+          </div>
+          <div class="rr" style="border-bottom:0">
+            <svg width="42" height="42" viewBox="0 0 42 42"><circle cx="21" cy="21" r="16" fill="none" stroke="var(--danger-tint)" stroke-width="5"/><circle cx="21" cy="21" r="16" fill="none" stroke="var(--danger)" stroke-width="5" stroke-linecap="round" stroke-dasharray="41.7 100.5" transform="rotate(-90 21 21)"/><text x="21" y="25" text-anchor="middle" font-size="14">🧑</text></svg>
+            <div class="rr-b"><div class="rr-n">Anh Long</div><div class="rr-s">vay cá nhân</div></div>
+            <div class="big owe rr-v">−2,00tr</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 05 · MERGED WHOLE CARD (like the 1st widget) ══════════ -->
+  <div class="board">
+    <div class="cap star"><span class="ix">05</span><span class="nm">Một thẻ liền</span><span class="why">Gộp tất cả vào một thẻ theo đúng khung .cf-card</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <section class="card" tabindex="0" style="padding:0">
+        <!-- hero: eyebrow label + concentric ring + legend, matching cf-card top -->
+        <div style="padding:16px 16px 4px">
+          <div class="k">Cán cân nợ · cá nhân</div>
+          <div style="display:flex;align-items:center;gap:18px;margin-top:12px">
+            <svg width="104" height="104" viewBox="0 0 120 120" style="flex-shrink:0">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger-tint)" stroke-width="12"/>
+              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger)" stroke-width="12" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="108" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="36" fill="none" stroke="var(--good-tint)" stroke-width="12"/>
+              <circle cx="60" cy="60" r="36" fill="none" stroke="var(--good)" stroke-width="12" stroke-linecap="round" stroke-dasharray="226.2" stroke-dashoffset="151" transform="rotate(-90 60 60)"/>
+            </svg>
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;gap:7px"><span class="dot" style="background:var(--danger)"></span><span class="lbl">Tôi nợ</span><span class="big num" style="margin-left:auto;font-size:22px;color:var(--ink)">7.120.000<span style="font-size:12px;color:var(--muted)">đ</span></span></div>
+              <div style="height:1px;background:var(--divider);margin:10px 0"></div>
+              <div style="display:flex;align-items:center;gap:7px"><span class="dot" style="background:var(--good)"></span><span class="lbl">Được nợ</span><span class="big num" style="margin-left:auto;font-size:22px;color:var(--ink)">3.500.000<span style="font-size:12px;color:var(--muted)">đ</span></span></div>
+            </div>
+          </div>
+        </div>
+        <!-- inline rows with mini indicators -->
+        <div style="margin-top:12px">
+          <button class="cc-row">
+            <span class="cc-ic" style="background:var(--indigo-tint)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.6"/><path d="M2.5 9.5h19"/></svg></span>
+            <span class="cc-t"><span class="cc-n">Sacombank Visa</span><span class="cc-s">thẻ tín dụng · dùng 24% hạn mức</span>
+              <span class="cc-meter"><i style="width:24%;background:var(--indigo)"></i></span></span>
+            <span class="cc-r"><span class="big owe" style="font-size:16px">−4,82tr</span><span class="due" style="margin-top:4px">15/09</span></span>
+          </button>
+          <button class="cc-row">
+            <span class="cc-ic" style="background:#fff0e6"><svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="9" r="2.8"/><circle cx="16" cy="10" r="2.4"/><path d="M3.5 19a5 5 0 0 1 9 0M13.5 19a4.4 4.4 0 0 1 7 0"/></svg></span>
+            <span class="cc-t"><span class="cc-n">Nhóm Đà Lạt</span><span class="cc-s">2 người cần trả bạn</span></span>
+            <span class="cc-r"><span class="big owed" style="font-size:16px">+1,50tr</span>
+              <span style="display:flex;margin-top:4px"><span class="av" style="width:19px;height:19px;font-size:10px;background:var(--indigo)">M</span><span class="av" style="width:19px;height:19px;font-size:10px;background:var(--pink);margin-left:-5px">T</span></span></span>
+          </button>
+          <button class="cc-row">
+            <span class="cc-ic" style="background:var(--brand-tint)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--brand-ink)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>
+            <span class="cc-t"><span class="cc-n">Thằng em</span><span class="cc-s">cho vay · riêng tư</span></span>
+            <span class="cc-r"><span class="big owed" style="font-size:16px">+2,00tr</span></span>
+          </button>
+        </div>
+        <!-- bleeding CTA, exactly like .cf-cta -->
+        <div class="cf-cta">
+          <button class="cc-row link"><span class="cc-t"><span class="cc-n" style="color:var(--brand-ink)">Xem tất cả khoản nợ</span></span><svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ══════════ 06 · RING + TRAJECTORY ══════════ -->
+  <div class="board">
+    <div class="cap"><span class="ix">06</span><span class="nm">Trajectory</span><span class="why">Vòng tròn + xu hướng nợ ròng 6 tuần đang giảm</span></div>
+    <div class="tab"><div class="eyebrow">Nợ &amp; cho vay</div>
+      <div class="bento">
+        <div class="tile wide" tabindex="0" style="display:flex;align-items:center;gap:18px;padding:18px 20px">
+          <svg width="104" height="104" viewBox="0 0 120 120" style="flex-shrink:0">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger-tint)" stroke-width="13"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger)" stroke-width="13" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="108" transform="rotate(-90 60 60)"/>
+            <circle cx="60" cy="60" r="35" fill="none" stroke="var(--good-tint)" stroke-width="13"/>
+            <circle cx="60" cy="60" r="35" fill="none" stroke="var(--good)" stroke-width="13" stroke-linecap="round" stroke-dasharray="219.9" stroke-dashoffset="147" transform="rotate(-90 60 60)"/>
+          </svg>
+          <div style="flex:1">
+            <div class="k">Nợ ròng</div>
+            <div class="big" style="font-size:26px;color:var(--ink);margin:4px 0 3px">−3,62tr</div>
+            <div style="font-size:11.5px;font-weight:600;color:var(--good)">↓ giảm 1,1tr so tháng trước</div>
+          </div>
+        </div>
+        <div class="tile wide" tabindex="0" style="padding:15px 18px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="k">Xu hướng 6 tuần</span><span class="lbl">nợ ròng</span></div>
+          <div style="display:flex;align-items:flex-end;gap:8px;height:52px;margin-top:12px">
+            <span style="flex:1;height:100%;background:var(--fill-neutral);border-radius:6px 6px 0 0"></span>
+            <span style="flex:1;height:86%;background:var(--fill-neutral);border-radius:6px 6px 0 0"></span>
+            <span style="flex:1;height:78%;background:var(--fill-neutral);border-radius:6px 6px 0 0"></span>
+            <span style="flex:1;height:64%;background:var(--fill-neutral);border-radius:6px 6px 0 0"></span>
+            <span style="flex:1;height:57%;background:var(--fill-neutral);border-radius:6px 6px 0 0"></span>
+            <span style="flex:1;height:50%;background:var(--brand);border-radius:6px 6px 0 0"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<style>
+/* roster ring-rows (04) */
+.rr{display:flex;align-items:center;gap:13px;padding:11px 2px;border-bottom:1px solid var(--divider)}
+.rr-b{flex:1;min-width:0}
+.rr-n{font-size:14.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.rr-s{font-size:12px;color:var(--muted);margin-top:1px}
+.rr-v{font-size:16px}
+/* merged-card inline rows (05) — mirrors .cc-row from src/js-ui/21-personal.js */
+.cc-row{display:flex;align-items:center;gap:12px;width:100%;padding:11px 16px;border:0;background:none;font:inherit;
+  text-align:left;cursor:pointer;border-top:1px solid var(--divider)}
+.cc-row:first-child{border-top:0}
+.cc-row:active{background:var(--surface)}
+.cc-ic{width:34px;height:34px;flex-shrink:0;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.cc-ic svg{width:19px;height:19px}
+.cc-t{flex:1;min-width:0}
+.cc-n{display:block;font-size:14.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.cc-s{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.cc-meter{display:block;height:5px;border-radius:3px;background:var(--fill-neutral);overflow:hidden;margin-top:7px;max-width:150px}
+.cc-meter>i{display:block;height:100%;border-radius:3px}
+.cc-r{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end}
+.cf-cta{margin-top:4px;border-top:1px solid var(--divider)}
+.cc-row.link{justify-content:space-between}
+</style>
+
+</body>
+</html>

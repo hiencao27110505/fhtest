@@ -10,7 +10,8 @@
      copy). Reserve link_id on the family row FIRST (crash-safe), then insert the
      master; reconcile repairs/refreshes/tombstones. Idempotent by link_id. */
   (function () {
-    const P = { uid: null, key: null, rawKey: null, wrap: null, txns: [], incomes: [], budget: 0, catBudget: {}, state: 'boot', mirrorRan: false };
+    const P = { uid: null, key: null, rawKey: null, wrap: null, txns: [], incomes: [], budget: 0, catBudget: {}, state: 'boot', mirrorRan: false,
+      accounts: [], debts: [] };   // Borrowing & Lending (0105): instruments + ALL-TIME debt-relevant rows
     const _monISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; };
     // LOCAL YYYY-MM-DD — toISOString() is UTC and would log yesterday's date when
     // capturing after midnight in UTC+7.
@@ -224,10 +225,17 @@
       _setState('loading');
       try {
         const from = _winFrom();
-        const [tr, ir, bd] = await Promise.all([
-          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
+        /* Debt rows (loans / repayments / transfers, plus any expense tagged to
+           an account) are fetched ALL-TIME, unlike the month-windowed expense
+           reads: a balance is a stock, not a flow — truncating it to two months
+           would understate every card and IOU. They are rare rows and carried by
+           the partial indexes from 0105. */
+        const [tr, ir, bd, ac, dr] = await Promise.all([
+          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
           _sb().from('personal_incomes').select('id,amount_enc,note_enc,income_date').eq('owner_user_id', P.uid).gte('income_date', from),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
+          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified').eq('owner_user_id', P.uid).is('archived_at', null),
+          _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).limit(2000),
         ]);
         /* Their budget read goes through _decP too, so an unreadable budget must
            not become a number either — the sentinel is a string and Number() of
@@ -261,6 +269,26 @@
           P.incomes.push({ id: i.id, date: i.income_date, amt: bad ? null : Number(a),
             _unreadable: bad, note: await _decTxt(i.note_enc) });
         }
+        /* Instruments + debt rows. Same fail-closed stance: an unreadable amount
+           takes the row out of every balance, counted and declared, never 0đ. */
+        P.accounts = [];
+        for (const a of (ac.data || [])) {
+          const lim = a.credit_limit_enc ? await _decP(a.credit_limit_enc) : null;
+          P.accounts.push({ id: a.id, kind: a.kind, tail: a.tail, provider: a.provider,
+            humanVerified: a.human_verified,
+            name: await _decTxt(a.name_enc),
+            limitK: (lim == null || lim === _DEC_FAILED) ? null : (Number(lim) || null) });
+        }
+        P.debts = [];
+        for (const t of (dr.data || [])) {
+          const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
+          if (bad) P.unreadable++;
+          P.debts.push({ id: t.id, date: t.txn_date, kind: t.kind, accountId: t.account_id,
+            transferGroupId: t.transfer_group_id, ts: t.created_at,
+            amt: bad ? null : Number(a), _unreadable: bad,
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
+            who: await _decTxt(t.counterparty_enc) });
+        }
         _setState('ready');
       } catch (e) { console.warn('personal hydrate failed', e); _setState('error'); }
     };
@@ -268,13 +296,16 @@
     // Only a real local "HH:MM" is stored; anything else is treated as "no time
     // known" (null → day-only) so a clock time is never fabricated.
     const _okTime = (v) => (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) ? v : null;
-    /* writes — private (space-less) rows */
-    window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso, timeStr, source) {
+    /* writes — private (space-less) rows.
+       `opts.accountId` (0105) tags the instrument the money moved through — a
+       credit-card-tagged expense is what builds that card's derived balance. */
+    window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso, timeStr, source, opts) {
       if (!P.uid || !P.key) return false;
       const t = _okTime(timeStr);
       const row = { owner_user_id: P.uid, txn_date: dateIso || _localDate(new Date()), kind: 'expense', space_id: null, link_id: null,
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
-        occurred_time_enc: t ? await _encP(t) : null, source: source || null };   // 0100 provenance ('direct-email' | 'forwarding-email'); null = hand-entered
+        occurred_time_enc: t ? await _encP(t) : null, source: source || null,   // 0100 provenance ('direct-email' | 'forwarding-email'); null = hand-entered
+        account_id: (opts && opts.accountId) || null };
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal expense failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -333,6 +364,114 @@
       const r = await _sb().from('personal_incomes').delete().eq('id', id).eq('owner_user_id', P.uid);
       if (r.error) { console.warn('personal income delete failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
+    };
+
+    /* ═══ Borrowing & Lending (0105) — docs/specs/borrowing-lending-spec.md ═══
+       One primitive: a counterparty balance, DERIVED from rows (Q5).
+       Sign convention, inside the ciphertext, from MY point of view:
+         loan  +X = I lent X (they owe me)   ·   loan  −X = I borrowed X
+         repayment +X = they repaid me X     ·   repayment −X = I repaid X
+       so a person's balance = Σ loan − Σ repayment (positive = they owe me).
+       A card payment is ONE transfer row tagged to the card account:
+         card outstanding = Σ expenses tagged to it − Σ transfers tagged to it.
+       The settlement leg is a transfer — never income, never expense. */
+
+    async function _debtInsert(kind, amt, extra) {
+      if (!P.uid || !P.key) return false;
+      const row = Object.assign({ owner_user_id: P.uid, txn_date: extra.dateIso || _localDate(new Date()),
+        kind: kind, space_id: null, link_id: null,
+        amount_enc: await _encP(Number(amt)),
+        note_enc: extra.note ? await _encP(extra.note) : null,
+        counterparty_enc: extra.who ? await _encP(extra.who) : null,
+        account_id: extra.accountId || null,
+        transfer_group_id: extra.transferGroupId || null,
+        source: extra.source || null });
+      const r = await _sb().from('personal_transactions').insert(row);
+      if (r.error) { console.warn('personal ' + kind + ' failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    }
+    // amtK signed (see convention above); who = tên người, required for loans
+    window.fhPersonalAddLoan = function (amtK, who, note, dateIso, source) {
+      if (!who) return Promise.resolve(false);
+      return _debtInsert('loan', amtK, { who: who, note: note, dateIso: dateIso, source: source });
+    };
+    window.fhPersonalAddRepayment = function (amtK, who, note, dateIso, source) {
+      if (!who) return Promise.resolve(false);
+      return _debtInsert('repayment', amtK, { who: who, note: note, dateIso: dateIso, source: source });
+    };
+    // A transfer tagged to an account (card payment, wallet top-up). amtK > 0.
+    window.fhPersonalAddTransfer = function (amtK, accountId, note, dateIso, source, transferGroupId) {
+      return _debtInsert('transfer', amtK, { accountId: accountId, note: note, dateIso: dateIso, source: source, transferGroupId: transferGroupId });
+    };
+    window.fhPersonalDeleteDebtRow = window.fhPersonalDeleteExpense;   // same guard: private rows only
+
+    /* Accounts auto-materialize (Q15): first sight of a (kind, provider, tail)
+       creates the instrument; the user renames/limits it later. Client-side
+       match is enough — owner-only table, single writer per user in practice;
+       a lost race hits the 0105 partial-unique index and we refetch. */
+    window.fhPersonalAccountEnsure = async function (info) {
+      if (!P.uid || !P.key || !info || !info.kind) return null;
+      const prov = (info.provider || '').toLowerCase() || null;
+      const tail = (info.tail || '').replace(/\D/g, '').slice(-4) || null;
+      const hit = P.accounts.find((a) => a.kind === info.kind && (a.provider || '') === (prov || '') && (a.tail || '') === (tail || ''));
+      if (hit) return hit.id;
+      const name = info.name || ((prov ? prov.charAt(0).toUpperCase() + prov.slice(1) : 'Tài khoản') + (tail ? ' ••' + tail : ''));
+      const r = await _sb().from('personal_accounts').insert({ owner_user_id: P.uid, kind: info.kind,
+        provider: prov, tail: tail, name_enc: await _encP(name) }).select('id').single();
+      if (r.error) {   // lost a race with ourselves → the row exists; refetch and rematch
+        await window.fhPersonalHydrate();
+        const again = P.accounts.find((a) => a.kind === info.kind && (a.provider || '') === (prov || '') && (a.tail || '') === (tail || ''));
+        return again ? again.id : null;
+      }
+      P.accounts.push({ id: r.data.id, kind: info.kind, provider: prov, tail: tail, name: name, limitK: null, humanVerified: false });
+      return r.data.id;
+    };
+    window.fhPersonalCashAccount = function () {
+      const hit = P.accounts.find((a) => a.kind === 'cash');
+      return hit ? Promise.resolve(hit.id) : window.fhPersonalAccountEnsure({ kind: 'cash', name: 'Tiền mặt' });
+    };
+    window.fhPersonalAccountUpdate = async function (id, fields) {
+      if (!P.uid || !P.key || !id) return false;
+      const row = {};
+      if (fields.name != null) row.name_enc = await _encP(fields.name);
+      if (fields.limitK != null) row.credit_limit_enc = fields.limitK > 0 ? await _encP(Number(fields.limitK)) : null;
+      if (fields.kind) row.kind = fields.kind;
+      if (fields.humanVerified != null) row.human_verified = !!fields.humanVerified;
+      if (fields.archived) row.archived_at = new Date().toISOString();
+      const r = await _sb().from('personal_accounts').update(row).eq('id', id).eq('owner_user_id', P.uid);
+      if (r.error) { console.warn('account update failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+
+    /* The zoom-out numbers. Pure derivation over P.debts/P.accounts — spaces
+       are merged in by the UI from the spaces module (different key domain). */
+    window.fhPersonalDebts = function () {
+      const cards = [], people = {}, byAcct = {};
+      for (const d of P.debts) {
+        if (d._unreadable) continue;
+        if (d.accountId) {
+          const b = byAcct[d.accountId] || (byAcct[d.accountId] = { spend: 0, paid: 0, rows: [] });
+          if (d.kind === 'expense') b.spend += d.amt;
+          else if (d.kind === 'transfer') b.paid += d.amt;
+          b.rows.push(d);
+        }
+        if (d.kind === 'loan' || d.kind === 'repayment') {
+          const k = d.who || '—';
+          const p = people[k] || (people[k] = { who: k, loan: 0, repaid: 0, rows: [] });
+          if (d.kind === 'loan') p.loan += d.amt; else p.repaid += d.amt;
+          p.rows.push(d);
+        }
+      }
+      for (const a of P.accounts) {
+        if (a.kind !== 'credit_card') continue;
+        const b = byAcct[a.id] || { spend: 0, paid: 0, rows: [] };
+        cards.push({ acct: a, outstanding: b.spend - b.paid, rows: b.rows });
+      }
+      const persons = Object.values(people).map((p) => ({ who: p.who, balance: p.loan - p.repaid, rows: p.rows }));
+      let owe = 0, owed = 0;
+      for (const c of cards) { if (c.outstanding > 0) owe += c.outstanding; else owed += -c.outstanding; }
+      for (const p of persons) { if (p.balance > 0) owed += p.balance; else owe += -p.balance; }
+      return { cards: cards, people: persons, byAcct: byAcct, owe: owe, owed: owed };
     };
 
     /* mirror — active family, my authored realized expenses → personal masters */

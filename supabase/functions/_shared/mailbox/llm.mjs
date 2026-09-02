@@ -56,6 +56,13 @@ export const EXTRACTION_SYSTEM_PROMPT =
   'meaningful — a human reviews it downstream.\n\n' +
   'Amounts must be the raw number with no currency symbol or thousands separators. If the email ' +
   'states a status (success/failed/pending), extract it; otherwise null.\n\n' +
+  'account_kind: which kind of account the money moved on, judged only from what the mail itself ' +
+  'says. credit_card when the mail shows a credit limit or an outstanding card balance — Vietnamese ' +
+  'banks write "Hạn mức khả dụng" or "Dư nợ" — or names a credit card ("thẻ tín dụng"). deposit ' +
+  'when it reports the account balance after the transaction ("Số dư") or is a balance-change ' +
+  'notice ("biến động số dư") on a bank account. ewallet when the sender is an e-wallet — MoMo, ' +
+  'ZaloPay, ShopeePay, or the mail says "ví điện tử". When the mail carries none of these signals, ' +
+  'answer null — never guess, because a wrongly claimed credit card invents a debt.\n\n' +
   'flow: what KIND of movement this is, as one of exactly these words.\n' +
   '  income   — money that is genuinely the person\'s to spend: salary, a refund, ' +
   'interest, a p2p transfer someone sent them.\n' +
@@ -98,6 +105,16 @@ export const EXTRACTION_SCHEMA = {
     reference_number: { type: ['string', 'null'] },
     status: { type: ['string', 'null'] },
     account_masked: { type: ['string', 'null'] },
+    /* WHICH INSTRUMENT moved the money (borrowing-lending-spec §8): a card
+       debit is spending that also grows a debt, a deposit debit is just
+       spending, a wallet debit is spending from the ví. NOT in `required`:
+       the heuristic in templates.mjs fills the gap when the model says
+       nothing, and null means "the mail did not say" — the client then
+       defaults to deposit-expense behaviour rather than inventing a debt. */
+    account_kind: {
+      type: ['string', 'null'],
+      enum: ['credit_card', 'deposit', 'ewallet', null],
+    },
     /* A CLOSED vocabulary, and the same eight the app already maps to family
        categories (`CONCEPT_MATCH` in 50-sheets-expense-capture.js). Free text
        would be worse than nothing here: the family names its own categories, in

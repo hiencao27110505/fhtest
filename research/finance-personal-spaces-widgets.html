@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Thẻ không gian — 8 biến thể chuẩn widget Apple / Google</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{
+    --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-tint:#e9f7f0;
+    --grad-hero:linear-gradient(150deg,#4CB584 0%,#2E9E6B 52%,#8FC97E 100%);
+    --good:#1a9d5f; --good-tint:#e7f5ee;
+    --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+    --white:#fff; --canvas:#f4f1f6; --surface:#f9f7f8;
+    --hairline:#e9e4ee; --divider:#f1edf4; --fill-neutral:rgba(138,132,148,.14); --chev:#cfc8d6;
+    --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+    --shadow-focal:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09);
+    --r-card-lg:22px;
+    --cat-food:#34C759; --cat-housing:#5E5CE6; --cat-fun:#BF5AF2; --cat-transport:#32ADE6; --cat-dining:#FF375F; --cat-other:#98949e;
+    --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+    --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  }
+  html,body{background:#dcdae1;font-family:var(--text);color:var(--ink);-webkit-font-smoothing:antialiased}
+  body{padding:44px 20px 90px}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  .page-head{max-width:920px;margin:0 auto 40px;text-align:center}
+  .page-head h1{font-family:var(--disp);font-size:32px;font-weight:800;letter-spacing:-1px;margin-bottom:10px}
+  .page-head p{color:#4b4753;font-size:15.5px;line-height:1.65;max-width:740px;margin:0 auto}
+  .page-head .leg{margin-top:13px;font-size:12.5px;color:#847f8e;line-height:1.6}
+
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(352px,1fr));gap:44px 28px;max-width:1180px;margin:0 auto;justify-items:center}
+  .v{width:352px}
+  .cap{margin:0 4px 12px}
+  .cap .n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:11px;margin-right:8px;vertical-align:1px}
+  .cap .t{font-weight:700;font-size:16px;letter-spacing:-.3px}
+  .cap .d{color:#6f6a7a;font-size:12.5px;margin-top:5px;line-height:1.55}
+
+  .screen{background:var(--canvas);border-radius:34px;padding:14px 0 18px;box-shadow:0 12px 34px rgba(0,0,0,.13);overflow:hidden}
+  .ctx{opacity:.42;pointer-events:none}
+  .hdr{padding:6px 22px 10px}
+  .hdr .ht{font-family:var(--disp);font-size:24px;font-weight:800;letter-spacing:-.7px}
+  .hdr .hs{font-size:12px;color:var(--muted);margin-top:1px;letter-spacing:-.01em}
+  .cf{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:14px 16px 10px;margin:2px 16px 12px}
+  .cf-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .cf-big{font-family:var(--disp);font-size:30px;font-weight:700;letter-spacing:-1.1px;line-height:1.04;margin-top:3px}
+  .cf-tiles{display:flex;gap:8px;margin-top:11px}
+  .cf-tile{flex:1;display:flex;flex-direction:column;gap:2px;background:var(--surface);border-radius:12px;padding:8px 12px}
+  .cf-tl{font-size:10.5px;font-weight:600;color:var(--muted)}
+  .cf-tl .up{color:var(--good);font-weight:800}.cf-tl .dn{color:var(--muted-soft);font-weight:800}
+  .cf-tv{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.4px}
+  .cf-dots{display:flex;gap:5px;justify-content:center;align-items:center;padding:10px 0 0}
+  .cf-dots i{width:5px;height:5px;border-radius:50%;background:var(--fill-neutral)}
+  .cf-dots i.on{width:16px;border-radius:3px;background:var(--good)}
+  .sh{display:flex;align-items:baseline;justify-content:space-between;margin:4px 22px 11px}
+  .sh .t{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.5px}
+  .sh a{font-size:13.5px;font-weight:600;color:var(--brand-ink)}
+  .txrows{background:var(--white);border-radius:20px;margin:0 16px;overflow:hidden;box-shadow:var(--shadow-card)}
+  .txrow{display:flex;align-items:center;gap:13px;padding:12px 16px}
+  .txrow .ico{width:38px;height:38px;border-radius:11px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+  .txrow .bd{flex:1;min-width:0}
+  .txrow .t1{font-size:15px;font-weight:500;letter-spacing:-.02em}
+  .txrow .s1{font-size:12px;color:var(--muted);margin-top:1px}
+  .txrow .am{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.3px}
+
+  .pht{position:relative;overflow:hidden;background:#ccc}
+  .pht::after{content:"";position:absolute;inset:0;background:radial-gradient(130% 90% at 28% 18%,rgba(255,255,255,.38),transparent 55%)}
+  .g1{background:linear-gradient(135deg,#f7b267 10%,#e8656f 90%)}
+  .g2{background:linear-gradient(135deg,#8fd3a3 5%,#3f8e63 95%)}
+  .g3{background:linear-gradient(135deg,#8ec9ea 5%,#4a7fd4 95%)}
+  .lk{width:26px;height:26px;border-radius:8px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0}
+  .lk svg{width:14px;height:14px}
+  .lock-svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+  .house-svg{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ═══ 1 · iOS inset list ═══ */
+  .w1-card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);margin:0 16px 12px;padding:14px 14px 12px}
+  .w1-h{display:flex;align-items:center;gap:11px;padding:0 2px 12px}
+  .w1-em{width:40px;height:40px;border-radius:12px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .w1-em svg{width:20px;height:20px}
+  .w1-em.priv{background:var(--fill-neutral);color:var(--muted)}
+  .w1-bd{flex:1;min-width:0}
+  .w1-t{font-size:17px;font-weight:600;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .w1-s{font-size:12.5px;color:var(--muted);margin-top:1px}
+  .w1-s b{color:var(--brand-ink);font-weight:600}
+  .w1-amt{font-family:var(--disp);font-size:18px;font-weight:700;letter-spacing:-.5px;text-align:right}
+  .w1-cap{font-size:10.5px;color:var(--muted);text-align:right;margin-top:0}
+  .w1-fan{display:flex;align-items:center;flex-shrink:0;height:38px;margin-right:2px}
+  .w1-fan .pht{width:31px;height:38px;border-radius:8px;border:2px solid #fff;box-shadow:0 2px 8px rgba(25,16,34,.18)}
+  .w1-fan .pht:nth-child(1){transform:rotate(-7deg) translateY(2px)}
+  .w1-fan .pht:nth-child(2){transform:rotate(2deg) translateY(-1px);margin-left:-14px}
+  .w1-fan .pht:nth-child(3){transform:rotate(8deg) translateY(2px);margin-left:-14px}
+  .w1-rows{display:flex;flex-direction:column;gap:5px}
+  .w1-row{display:flex;align-items:center;gap:11px;background:var(--surface);border-radius:13px;padding:9px 12px}
+  .w1-ico{width:28px;height:28px;border-radius:9px;background:var(--white);box-shadow:0 1px 3px rgba(25,16,34,.07);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+  .w1-nm{flex:1;min-width:0;font-size:14.5px;font-weight:500;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .w1-va{font-family:var(--disp);font-size:14.5px;font-weight:600;letter-spacing:-.3px}
+
+  /* ═══ 2 · iOS hero numeral + health bars ═══ */
+  .w2-card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);margin:0 16px 12px;padding:15px 16px 13px}
+  .w2-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .w2-eb{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--brand-ink)}
+  .w2-eb svg{width:15px;height:15px}
+  .w2-big{font-family:var(--disp);font-size:28px;font-weight:700;letter-spacing:-1px;line-height:1.05;margin-top:5px}
+  .w2-sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .w2-sub b{color:var(--brand-ink);font-weight:600}
+  .w2-fan{display:flex;align-items:center;height:46px}
+  .w2-fan .pht{width:40px;height:46px;border-radius:10px;border:2px solid #fff;box-shadow:0 2px 9px rgba(25,16,34,.2)}
+  .w2-fan .pht:nth-child(1){transform:rotate(-6deg) translateY(2px)}
+  .w2-fan .pht:nth-child(2){transform:rotate(3deg) translateY(-2px);margin-left:-15px}
+  .w2-fan .pht:nth-child(3){transform:rotate(9deg) translateY(2px);margin-left:-15px}
+  .w2-rows{margin-top:13px}
+  .w2-row{display:flex;align-items:center;gap:11px;padding:7px 0}
+  .w2-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .w2-nm{font-size:14.5px;font-weight:500;letter-spacing:-.01em;flex-shrink:0}
+  .w2-track{flex:1;height:5px;border-radius:3px;background:var(--fill-neutral);overflow:hidden;margin:0 2px}
+  .w2-track i{display:block;height:100%;border-radius:3px}
+  .w2-va{font-family:var(--disp);font-size:14px;font-weight:600;letter-spacing:-.3px;flex-shrink:0;min-width:52px;text-align:right}
+
+  /* ═══ 3 · iOS photos edge strip ═══ */
+  .w3-card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);margin:0 16px 12px;overflow:hidden}
+  .w3-h{display:flex;align-items:stretch}
+  .w3-hl{flex:1;min-width:0;padding:15px 8px 12px 16px}
+  .w3-t{font-size:17px;font-weight:600;letter-spacing:-.02em}
+  .w3-s{font-size:12px;color:var(--muted);margin-top:2px}
+  .w3-s b{color:var(--brand-ink);font-weight:600}
+  .w3-amt{font-family:var(--disp);font-size:24px;font-weight:700;letter-spacing:-.8px;margin-top:9px}
+  .w3-cap{font-size:11px;color:var(--muted);margin-top:1px}
+  .w3-strip{display:flex;flex-direction:column;gap:3px;padding:3px 3px 3px 0;width:96px;flex-shrink:0}
+  .w3-strip .pht{flex:1;border-radius:10px}
+  .w3-strip .pht:first-child{border-top-right-radius:19px}
+  .w3-strip .pht:last-child{border-bottom-right-radius:10px}
+  .w3-rows{padding:2px 16px 10px}
+  .w3-row{display:flex;align-items:center;gap:10px;min-height:40px;padding:3px 0}
+  .w3-row + .w3-row{border-top:1px solid var(--divider)}
+  .w3-ico{width:28px;height:28px;border-radius:9px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;font-size:14px;flex:0 0 auto}
+  .w3-nm{flex:1;font-size:14.5px;font-weight:500;letter-spacing:-.01em}
+  .w3-va{font-family:var(--disp);font-size:14px;font-weight:600;letter-spacing:-.3px;color:var(--ink-2)}
+
+  /* ═══ 4 · Wallet pass ═══ */
+  .w4-card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);margin:0 16px 12px;overflow:hidden}
+  .w4-pass{position:relative;background:var(--grad-hero);color:#fff;padding:13px 16px 12px}
+  .w4-pass::before{content:"";position:absolute;inset:0;background:radial-gradient(130% 110% at 85% -10%,rgba(255,255,255,.25),transparent 55%)}
+  .w4-r1{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .w4-t{font-family:var(--disp);font-size:17px;font-weight:700;letter-spacing:-.3px}
+  .w4-s{font-size:11px;font-weight:600;opacity:.92;margin-top:1px}
+  .w4-amt{font-family:var(--disp);font-size:22px;font-weight:700;letter-spacing:-.7px;text-align:right}
+  .w4-al{font-size:10px;font-weight:600;opacity:.88;text-align:right}
+  .w4-ph{position:relative;display:flex;gap:5px;margin-top:11px}
+  .w4-ph .pht{width:44px;height:33px;border-radius:8px;border:1.5px solid rgba(255,255,255,.7)}
+  .w4-ph .more{display:flex;align-items:center;justify-content:center;width:44px;height:33px;border-radius:8px;background:rgba(255,255,255,.2);font-size:11px;font-weight:700}
+  .w4-body{padding:6px 16px 10px}
+  .w4-row{display:flex;align-items:center;gap:10px;min-height:40px;padding:3px 0}
+  .w4-row + .w4-row{border-top:1px solid var(--divider)}
+
+  /* ═══ 5 · activity ring ═══ */
+  .w5-card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);margin:0 16px 12px;padding:14px 16px 12px}
+  .w5-h{display:flex;align-items:center;gap:13px;padding-bottom:10px}
+  .w5-ring{width:56px;height:56px;border-radius:50%;flex-shrink:0;position:relative;background:conic-gradient(var(--brand) 0 63.5%, #e3dfe8 63.5% 100%)}
+  .w5-ring::after{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--white)}
+  .w5-rc{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1;font-family:var(--disp);font-size:12.5px;font-weight:700;letter-spacing:-.3px;color:var(--brand-ink)}
+  .w5-bd{flex:1;min-width:0}
+  .w5-t{font-size:17px;font-weight:600;letter-spacing:-.02em}
+  .w5-s{font-size:12px;color:var(--muted);margin-top:1px}
+  .w5-s b{color:var(--brand-ink);font-weight:600}
+  .w5-amt{font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.5px;text-align:right}
+  .w5-cap{font-size:10.5px;color:var(--muted);text-align:right}
+  .w5-ph{display:flex;align-items:center;margin-top:5px}
+  .w5-ph .pht{width:24px;height:24px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 1px 4px rgba(25,16,34,.18)}
+  .w5-ph .pht+.pht{margin-left:-8px}
+  .w5-phn{font-size:10.5px;font-weight:600;color:var(--brand-ink);margin-left:7px}
+
+  /* ═══ 6 · Material tonal ═══ */
+  .w6-card{background:var(--brand-tint);border-radius:26px;margin:0 16px 12px;padding:16px 16px 14px}
+  .w6-card.neu{background:#edeaf0}
+  .w6-top{display:flex;align-items:center;gap:10px}
+  .w6-t{flex:1;font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--brand-ink)}
+  .w6-card.neu .w6-t{color:var(--ink-2)}
+  .w6-ph{display:flex;align-items:center}
+  .w6-ph .pht{width:30px;height:30px;border-radius:50%;border:2px solid var(--brand-tint)}
+  .w6-card.neu .w6-ph .pht{border-color:#edeaf0}
+  .w6-ph .pht+.pht{margin-left:-10px}
+  .w6-big{font-family:var(--disp);font-size:32px;font-weight:700;letter-spacing:-1.2px;color:var(--ink);margin-top:8px}
+  .w6-sub{font-size:12.5px;font-weight:500;color:var(--brand-ink);margin-top:1px}
+  .w6-card.neu .w6-sub{color:var(--muted)}
+  .w6-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
+  .w6-chip{display:flex;align-items:center;gap:7px;background:var(--white);border-radius:999px;padding:7px 13px 7px 9px;box-shadow:0 1px 3px rgba(25,16,34,.06)}
+  .w6-ci{font-size:13px}
+  .w6-cn{font-size:12.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink-2)}
+  .w6-cv{font-family:var(--disp);font-size:12.5px;font-weight:700;letter-spacing:-.2px}
+
+  /* ═══ 7 · Material segmented bar ═══ */
+  .w7-card{background:var(--white);border-radius:26px;box-shadow:var(--shadow-focal);margin:0 16px 12px;padding:15px 16px 13px}
+  .w7-top{display:flex;align-items:center;gap:11px}
+  .w7-em{width:42px;height:42px;border-radius:14px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .w7-em svg{width:21px;height:21px}
+  .w7-em.priv{background:var(--fill-neutral);color:var(--muted)}
+  .w7-bd{flex:1;min-width:0}
+  .w7-t{font-size:16.5px;font-weight:600;letter-spacing:-.02em}
+  .w7-s{font-size:12px;color:var(--muted);margin-top:1px}
+  .w7-s b{color:var(--brand-ink);font-weight:600}
+  .w7-amt{font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.5px}
+  .w7-bar{display:flex;height:16px;border-radius:8px;overflow:hidden;gap:3px;margin-top:13px}
+  .w7-bar i{height:100%;border-radius:4px}
+  .w7-bar i:first-child{border-radius:8px 4px 4px 8px}
+  .w7-bar i:last-child{border-radius:4px 8px 8px 4px}
+  .w7-leg{display:flex;flex-wrap:wrap;gap:5px 15px;margin-top:11px}
+  .w7-li{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--ink-2)}
+  .w7-li .dot{width:7px;height:7px;border-radius:50%}
+  .w7-li b{font-family:var(--disp);font-weight:700;letter-spacing:-.2px}
+  .w7-ph{display:flex;gap:5px;margin-top:12px}
+  .w7-ph .pht{width:54px;height:40px;border-radius:11px}
+  .w7-phn{align-self:center;font-size:11px;font-weight:600;color:var(--brand-ink);margin-left:5px}
+
+  /* ═══ 8 · Material duo shapes ═══ */
+  .w8-wrap{display:grid;grid-template-columns:1.35fr 1fr;gap:10px;margin:0 16px 12px}
+  .w8-a{background:var(--grad-hero);border-radius:26px;padding:14px 15px;color:#fff;position:relative;overflow:hidden}
+  .w8-a::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 100% at 90% -5%,rgba(255,255,255,.25),transparent 55%)}
+  .w8-at{position:relative;font-size:14px;font-weight:700;letter-spacing:-.01em}
+  .w8-as{position:relative;font-size:10.5px;font-weight:600;opacity:.92;margin-top:1px}
+  .w8-abig{position:relative;font-family:var(--disp);font-size:25px;font-weight:700;letter-spacing:-.9px;margin-top:8px}
+  .w8-ph{position:relative;display:flex;gap:4px;margin-top:10px}
+  .w8-ph .pht{width:34px;height:28px;border-radius:9px;border:1.5px solid rgba(255,255,255,.7)}
+  .w8-b{background:#edeaf0;border-radius:26px;padding:14px 15px;display:flex;flex-direction:column}
+  .w8-bt{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--ink-2)}
+  .w8-bt svg{width:13px;height:13px;color:var(--muted)}
+  .w8-bbig{font-family:var(--disp);font-size:21px;font-weight:700;letter-spacing:-.7px;margin-top:6px}
+  .w8-bs{font-size:10.5px;color:var(--muted);margin-top:1px}
+  .w8-cats{background:var(--white);border-radius:20px;box-shadow:var(--shadow-card);margin:0 16px 12px;padding:5px 16px}
+  .w8-row{display:flex;align-items:center;gap:10px;min-height:42px;padding:3px 0}
+  .w8-row + .w8-row{border-top:1px solid var(--divider)}
+  .w8-ico{width:28px;height:28px;border-radius:9px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;font-size:14px;flex:0 0 auto}
+  .w8-nm{flex:1;font-size:14.5px;font-weight:500;letter-spacing:-.01em}
+  .w8-tag{font-size:10.5px;font-weight:600;color:var(--muted);background:var(--surface);border-radius:6px;padding:2px 7px;margin-right:2px}
+  .w8-tag.fam{color:var(--brand-ink);background:var(--brand-tint)}
+  .w8-va{font-family:var(--disp);font-size:14px;font-weight:600;letter-spacing:-.3px;color:var(--ink-2)}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Thẻ không gian — 8 biến thể chuẩn widget</h1>
+  <p>Cấu trúc giữ nguyên (nhóm là đơn vị, danh mục lồng trong nhóm) — vòng này chỉ nâng chất thị giác lên chuẩn widget <b>Apple</b> (1–5) và <b>Google Material You</b> (6–8). Mỗi khung: thẻ Nhà Mình + thẻ Riêng tư; trên & dưới giữ nguyên, hiển thị mờ.</p>
+  <div class="leg">Nhà Mình 3,24tr = Hoá đơn 1,38tr · Ăn uống 1,06tr · Mua sắm 520k &nbsp;|&nbsp; Riêng tư 1,86tr = Cà phê 480k · Ăn uống 360k · Mua sắm 370k</div>
+</div>
+
+<div class="gallery">
+
+<!-- ════════ 1 · iOS inset list ════════ -->
+<div class="v">
+  <div class="cap"><span class="n">1</span><span class="t">iOS · Danh sách inset</span>
+    <div class="d">Kiểu Cài đặt / Health: hàng danh mục là ô nền xám bo 13px (không kẻ hairline), chip emoji trắng nổi nhẹ. Chất Apple nằm ở nhịp nền-trên-nền, không phải ở đường kẻ.</div></div>
+  <div class="screen">
+    <div class="ctx"><div class="hdr"><div class="ht">Cá nhân</div><div class="hs">Sổ riêng của bạn. Gia đình không xem được.</div></div>
+    <section class="cf"><div class="cf-lbl">Còn lại tháng này · cá nhân</div><div class="cf-big num">2,9tr</div>
+      <div class="cf-tiles"><div class="cf-tile"><span class="cf-tl"><span class="up">↑</span> Vào</span><span class="cf-tv num">8,0tr</span></div><div class="cf-tile"><span class="cf-tl"><span class="dn">↓</span> Ra</span><span class="cf-tv num">5,1tr</span></div></div>
+      <div class="cf-dots"><i></i><i class="on"></i><i></i></div></section></div>
+    <div class="sh"><span class="t">Tiền đi đâu tháng này</span><a>Ngân sách</a></div>
+    <div class="w1-card">
+      <div class="w1-h">
+        <div class="w1-em"><svg class="house-svg" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></div>
+        <div class="w1-bd"><div class="w1-t">Nhà Mình</div><div class="w1-s"><b>3 ảnh mới</b></div></div>
+        <div class="w1-fan"><span class="pht g1"></span><span class="pht g2"></span><span class="pht g3"></span></div>
+        <div><div class="w1-amt num">3,24tr</div><div class="w1-cap">bạn đã góp</div></div>
+      </div>
+      <div class="w1-rows">
+        <div class="w1-row"><span class="w1-ico">🧾</span><span class="w1-nm">Hoá đơn</span><span class="w1-va num">1,38tr</span></div>
+        <div class="w1-row"><span class="w1-ico">🍜</span><span class="w1-nm">Ăn uống</span><span class="w1-va num">1,06tr</span></div>
+        <div class="w1-row"><span class="w1-ico">🛍️</span><span class="w1-nm">Mua sắm</span><span class="w1-va num">520k</span></div>
+      </div>
+    </div>
+    <div class="w1-card">
+      <div class="w1-h" style="padding-bottom:10px">
+        <div class="w1-em priv"><svg class="lock-svg" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg></div>
+        <div class="w1-bd"><div class="w1-t">Riêng tư</div><div class="w1-s">Chỉ mình bạn thấy</div></div>
+        <div><div class="w1-amt num">1,86tr</div></div>
+      </div>
+      <div class="w1-rows">
+        <div class="w1-row"><span class="w1-ico">☕</span><span class="w1-nm">Cà phê</span><span class="w1-va num">480k</span></div>
+        <div class="w1-row"><span class="w1-ico">🍜</span><span class="w1-nm">Ăn uống</span><span class="w1-va num">360k</span></div>
+      </div>
+    </div>
+    <div class="ctx"><div class="sh"><span class="t">Giao dịch của bạn</span></div>
+    <div class="txrows"><div class="txrow"><span class="ico">🍜</span><div class="bd"><div class="t1">Bún bò sáng</div><div class="s1">30/08 · riêng tư</div></div><span class="am num">−45k</span></div></div></div>
+  </div>
+</div>
+
+<!-- ════════ 2 · iOS hero numeral ════════ -->
+<div class="v">
+  <div class="cap"><span class="n">2</span><span class="t">iOS · Số lớn + vạch Health</span>
+    <div class="d">Kiểu Weather/Health: tên nhóm là eyebrow xanh nhỏ, con số góp là nhân vật chính (28px), ảnh xếp lớn bên phải; mỗi danh mục một vạch mảnh chạy hết hàng, chấm màu hệ iOS.</div></div>
+  <div class="screen">
+    <div class="ctx"><div class="hdr"><div class="ht">Cá nhân</div><div class="hs">Sổ riêng của bạn. Gia đình không xem được.</div></div>
+    <section class="cf"><div class="cf-lbl">Còn lại tháng này · cá nhân</div><div class="cf-big num">2,9tr</div>
+      <div class="cf-tiles"><div class="cf-tile"><span class="cf-tl"><span class="up">↑</span> Vào</span><span class="cf-tv num">8,0tr</span></div><div class="cf-tile"><span class="cf-tl"><span class="dn">↓</span> Ra</span><span class="cf-tv num">5,1tr</span></div></div>
+      <div class="cf-dots"><i></i><i class="on"></i><i></i></div></section></div>
+    <div class="sh"><span class="t">Tiền đi đâu tháng này</span><a>Ngân sách</a></div>
+    <div class="w2-card">
+      <div class="w2-top">
+        <div>
+          <div class="w2-eb"><svg class="house-svg" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Nhà Mình</div>
+          <div class="w2-big num">3,24tr</div>
+          <div class="w2-sub">bạn đã góp · <b>3 ảnh mới</b></div>
+        </div>
+        <div class="w2-fan"><span class="pht g1"></span><span class="pht g2"></span><span class="pht g3"></span></div>
+      </div>
+      <div class="w2-rows">
+        <div class="w2-row"><span class="w2-dot" style="background:var(--cat-housing)"></span><span class="w2-nm">Hoá đơn</span><span class="w2-track"><i style="width:100%;background:var(--cat-housing)"></i></span><span class="w2-va num">1,38tr</span></div>
+        <div class="w2-row"><span class="w2-dot" style="background:var(--cat-food)"></span><span class="w2-nm">Ăn uống</span><span class="w2-track"><i style="width:77%;background:var(--cat-food)"></i></span><span class="w2-va num">1,06tr</span></div>
+        <div class="w2-row"><span class="w2-dot" style="background:var(--cat-fun)"></span><span class="w2-nm">Mua sắm</span><span class="w2-track"><i style="width:38%;background:var(--cat-fun)"></i></span><span class="w2-va num">520k</span></div>
+      </div>
+    </div>
+    <div class="w2-card">
+      <div class="w2-top">
+        <div>
+          <div class="w2-eb" style="color:var(--muted)"><svg class="lock-svg" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>Riêng tư</div>
+          <div class="w2-big num">1,86tr</div>
+          <div class="w2-sub">chỉ mình bạn thấy</div>
+        </div>
+      </div>
+      <div class="w2-rows">
+        <div class="w2-row"><span class="w2-dot" style="background:var(--cat-dining)"></span><span class="w2-nm">Cà phê</span><span class="w2-track"><i style="width:100%;background:var(--cat-dining)"></i></span><span class="w2-va num">480k</span></div>
+        <div class="w2-row"><span class="w2-dot" style="background:var(--cat-food)"></span><span class="w2-nm">Ăn uống</span><span class="w2-track"><i style="width:75%;background:var(--cat-food)"></i></span><span class="w2-va num">360k</span></div>
+      </div>
+    </div>
+    <div class="ctx"><div class="sh"><span class="t">Giao dịch của bạn</span></div>
+    <div class="txrows"><div class="txrow"><span class="ico">🍜</span><div class="bd"><div class="t1">Bún bò sáng</div><div class="s1">30/08 · riêng tư</div></div><span class="am num">−45k</span></div></div></div>
+  </div>
+</div>
+
+<!-- ════════ 3 · iOS photos edge strip ════════ -->
+<div class="v">
+  <div class="cap"><span class="n">3</span><span class="t">iOS · Dải ảnh sát mép</span>
+    <div class="d">Kiểu widget Photos: cột 3 ảnh chạm mép phải thẻ (bo theo góc thẻ), trái là tên + số góp lớn; danh mục hairline mảnh phía dưới. Ảnh là vật liệu của thẻ, không phải trang trí.</div></div>
+  <div class="screen">
+    <div class="ctx"><div class="hdr"><div class="ht">Cá nhân</div><div class="hs">Sổ riêng của bạn. Gia đình không xem được.</div></div>
+    <section class="cf"><div class="cf-lbl">Còn lại tháng này · cá nhân</div><div class="cf-big num">2,9tr</div>
+      <div class="cf-tiles"><div class="cf-tile"><span class="cf-tl"><span class="up">↑</span> Vào</span><span class="cf-tv num">8,0tr</span></div><div class="cf-tile"><span class="cf-tl"><span class="dn">↓</span> Ra</span><span class="cf-tv num">5,1tr</span></div></div>
+      <div class="cf-dots"><i></i><i class="on"></i><i></i></div></section></div>
+    <div class="sh"><span class="t">Tiền đi đâu tháng này</span><a>Ngân sách</a></div>
+    <div class="w3-card">
+      <div class="w3-h">
+        <div class="w3-hl">
+          <div class="w3-t">Nhà Mình</div>
+          <div class="w3-s"><b>3 ảnh mới</b> tuần này</div>
+          <div class="w3-amt num">3,24tr</div>
+          <div class="w3-cap">bạn đã góp tháng này</div>
+        </div>
+        <div class="w3-strip"><span class="pht g1"></span><span class="pht g2"></span><span class="pht g3"></span></div>
+      </div>
+      <div class="w3-rows">
+        <div class="w3-row"><span class="w3-ico">🧾</span><span class="w3-nm">Hoá đơn</span><span class="w3-va num">1,38tr</span></div>
+        <div class="w3-row"><span class="w3-ico">🍜</span><span class="w3-nm">Ăn uống</span><span class="w3-va num">1,06tr</span></div>
+        <div class="w3-row"><span class="w3-ico">🛍️</span><span class="w3-nm">Mua sắm</span><span class="w3-va num">520k</span></div>
+      </div>
+    </div>
+    <div class="w3-card">
+      <div class="w3-h">
+        <div class="w3-hl" style="padding-bottom:4px">
+          <div class="w3-t">🔒 Riêng tư</div>
+          <div class="w3-s">Chỉ mình bạn thấy</div>
+        </div>
+        <div style="padding:15px 16px 0"><div class="w3-amt num" style="margin-top:0">1,86tr</div></div>
+      </div>
+      <div class="w3-rows">
+        <div class="w3-row"><span class="w3-ico">☕</span><span class="w3-nm">Cà phê</span><span class="w3-va num">480k</span></div>
+        <div class="w3-row"><span class="w3-ico">🍜</span><span class="w3-nm">Ăn uống</span><span class="w3-va num">360k</span></div>
+      </div>
+    </div>
+    <div class="ctx"><div class="sh"><span class="t">Giao dịch của bạn</span></div>
+    <div class="txrows"><div class="txrow"><span class="ico">🍜</span><div class="bd"><div class="t1">Bún bò sáng</div><div class="s1">30/08 · riêng tư</div></div><span class="am num">−45k</span></div></div></div>
+  </div>
+</div>
+
+<!-- ════════ 4 · Wallet pass ════════ -->
+<div class="v">
+  <div class="cap"><span class="n">4</span><span class="t">iOS · Thẻ Ví</span>
+    <div class="d">Kiểu Apple Wallet: dải pass gradient Sage (tên + số góp), hàng ảnh nằm NGANG trong pass như dãy tem; thân trắng là danh mục. Riêng tư là thẻ trắng có eyebrow khoá.</div></div>
+  <div class="screen">
+    <div class="ctx"><div class="hdr"><div class="ht">Cá nhân</div><div class="hs">Sổ riêng của bạn. Gia đình không xem được.</div></div>
+    <section class="cf"><div class="cf-lbl">Còn lại tháng này · cá nhân</div><div class="cf-big num">2,9tr</div>
+      <div class="cf-tiles"><div class="cf-tile"><span class="cf-tl"><span class="up">↑</span> Vào</span><span class="cf-tv num">8,0tr</span></div><div class="cf-tile"><span class="cf-tl"><span class="dn">↓</span> Ra</span><span class="cf-tv num">5,1tr</span></div></div>
+      <div class="cf-dots"><i></i><i class="on"></i><i></i></div></section></div>
+    <div class="sh"><span class="t">Tiền đi đâu tháng này</span><a>Ngân sách</a></div>
+    <div class="w4-card">
+      <div class="w4-pass">
+        <div class="w4-r1">
+          <div><div class="w4-t">Nhà Mình</div><div class="w4-s">3 khoảnh khắc mới</div></div>
+          <div><div class="w4-amt num">3,24tr</div><div class="w4-al">bạn đã góp</div></div>
+        </div>
+        <div class="w4-ph"><span class="pht g1"></span><span class="pht g2"></span><span class="pht g3"></span><span class="more">+5</span></div>
+      </div>
+      <div class="w4-body">
+        <div class="w4-row"><span class="w3-ico">🧾</span><span class="w3-nm">Hoá đơn</span><span class="w3-va num">1,38tr</span></div>
+        <div class="w4-row"><span class="w3-ico">🍜</span><span class="w3-nm">Ăn uống</span><span class="w3-va num">1,06tr</span></div>
+        <div class="w4-row"><span class="w3-ico">🛍️</span><span class="w3-nm">Mua sắm</span><span class="w3-va num">520k</span></div>
+      </div>
+    </div>
+    <div class="w4-card">
+      <div class="w4-body" style="padding-top:10px">
+        <div class="w2-eb" style="color:var(--muted);padding:2px 0 4px"><svg class="lock-svg" viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>Riêng tư · 1,86tr</div>
+        <div class="w4-row"><span class="w3-ico">☕</span><span class="w3-nm">Cà phê</span><span class="w3-va num">480k</span></div>
+        <div class="w4-row"><span class="w3-ico">🍜</span><span class="w3-nm">Ăn uống</span><span class="w3-va num">360k</span></div>
+      </div>
+    </div>
+    <div class="ctx"><div class="sh"><span class="t">Giao dịch của bạn</span></div>
+    <div class="txrows"><div class="txrow"><span class="ico">🍜</span><div class="bd"><div class="t1">Bún bò sáng</div><div class="s1">30/08 · riêng tư</div></div><span class="am num">−45k</span></div></div></div>
+  </div>
+</div>
+
+<!-- ════════ 5 · activity ring ════════ -->
+<div class="v">
+  <div class="cap"><span class="n">5</span><span class="t">iOS · Vòng hoạt động</span>
+    <div class="d">Kiểu Fitness: vòng nhỏ cạnh tên = phần trăm chi tiêu tháng chảy về nhóm này (64%); ảnh là chuỗi tròn; danh mục ô inset như biến thể 1. Vòng của Riêng tư là phần xám còn lại.</div></div>
+  <div class="screen">
+    <div class="ctx"><div class="hdr"><div class="ht">Cá nhân</div><div class="hs">Sổ riêng của bạn. Gia đình không xem được.</div></div>
+    <section class="cf"><div class="cf-lbl">Còn lại tháng này · cá nhân</div><div class="cf-big num">2,9tr</div>
+      <div class="cf-tiles"><div class="cf-tile"><span class="cf-tl"><span class="up">↑</span> Vào</span><span class="cf-tv num">8,0tr</span></div><div class="cf-tile"><span class="cf-tl"><span class="dn">↓</span> Ra</span><span class="cf-tv num">5,1tr</span></div></div>
+      <div class="cf-dots"><i></i><i class="on"></i><i></i></div></section></div>
+    <div class="sh"><span class="t">Tiền đi đâu tháng này</span><a>Ngân sách</a></div>
+    <div class="w5-card">
+      <div class="w5-h">
+        <div class="w5-ring"><span class="w5-rc num">64%</span></div>
+        <div class="w5-bd">
+          <div class="w5-t">Nhà Mình</div>
+          <div class="w5-ph"><span class="pht g1"></span><span class="pht g2"></span><span class="pht g3"></span><span class="w5-phn">3 ảnh mới</span></div>
+        </div>
+        <div><div class="w5-amt num">3,24tr</div><div class="w5-cap">bạn đã góp</div></div>
+      </div>
+      <div class="w1-rows">
+        <div class="w1-row"><span class="w1-ico">🧾</span><span class="w1-nm">Hoá đơn</span><span class="w1-va num">1,38tr</span></div>
+        <div class="w1-row"><span class="w1-ico">🍜</span><span class="w1-nm">Ăn uống</span><span class="w1-va num">1,06tr</span></div>
+        <div class="w1-row"><span class="w1-ico">🛍️</span><span class="w1-nm">Mua sắm</span><span class="w1-va num">520k</span></div>
+      </div>
+    </div>
+    <div class="w5-card">
+      <div class="w5-h" style="padding-bottom:8px">
+        <div class="w5-ring" style="background:conic-gradient(#b9b3c2 0 36.5%, #efecf2 36.5% 100%)"><span class="w5-rc num" style="color:var(--muted)">36%</span></div>
+        <div class="w5-bd"><div class="w5-t">Riêng tư</div><div class="w5-s">Chỉ mình bạn thấy</div></div>
+        <div><div class="w5-amt num">1,86tr</div></div>
+      </div>
+      <div class="w1-rows">
+        <div class="w1-row"><span class="w1-ico">☕</span><span class="w1-nm">Cà phê</span><span class="w1-va num">480k</span></div>
+        <div class="w1-row"><span class="w1-ico">🍜</span><span class="w1-nm">Ăn uống</span><span class="w1-va num">360k</span></div>
+      </div>
+    </div>
+    <div class="ctx"><div class="sh"><span class="t">Giao dịch của bạn</span></div>
+    <div class="txrows"><div class="txrow"><span class="ico">🍜</span><div class="bd"><div class="t1">Bún bò sáng</div><div class="s1">30/08 · riêng tư</div></div><span class="am num">−45k</span></div></div></div>
+  </div>
+</div>
+
+<!-- ════════ 6 · Material tonal ════════ -->
+<div class="v">
+  <div class="cap"><span class="n">6</span><span class="t">Material · Khối tonal</span>
+    <div class="d">Ngôn ngữ Material You: thẻ nhóm là khối tonal xanh (không trắng, không viền), số 32px, danh mục là chip pill trắng nổi; Riêng tư là khối tonal xám. Hình khối thay cho đường kẻ.</div></div>
+  <div class="screen">
+    <div class="ctx"><div class="hdr"><div class="ht">Cá nhân</div><div class="hs">Sổ riêng của bạn. Gia đình không xem được.</div></div>
+    <section class="cf"><div class="cf-lbl">Còn lại tháng này · cá nhân</div><div class="cf-big num">2,9tr</div>
+      <div class="cf-tiles"><div class="cf-tile"><span class="cf-tl"><span class="up">↑</span> Vào</span><span class="cf-tv num">8,0tr</span></div><div class="cf-tile"><span class="cf-tl"><span class="dn">↓</span> Ra</span><span class="cf-tv num">5,1tr</span></div></div>
+      <div class="cf-dots"><i></i><i class="on"></i><i></i></div></section></div>
+    <div class="sh"><span class="t">Tiền đi đâu tháng này</span><a>Ngân sách</a></div>
+    <div class="w6-card">
+      <div class="w6-top">
+        <span class="w6-t">🏡 Nhà Mình · 3 ảnh mới</span>
+        <div class="w6-ph"><span class="pht g1"></span><span class="pht g2"></span><span class="pht g3"></span></div>
+      </div>
+      <div class="w6-big num">3,24tr</div>
+      <div class="w6-sub">bạn đã góp tháng này</div>
+      <div class="w6-chips">
+        <span class="w6-chip"><span class="w6-ci">🧾</span><span class="w6-cn">Hoá đơn</span><span class="w6-cv num">1,38tr</span></span>
+        <span class="w6-chip"><span class="w6-ci">🍜</span><span class="w6-cn">Ăn uống</span><span class="w6-cv num">1,06tr</span></span>
+        <span class="w6-chip"><span class="w6-ci">🛍️</span><span class="w6-cn">Mua sắm</span><span class="w6-cv num">520k</span></span>
+      </div>
+    </div>
+    <div class="w6-card neu">
+      <div class="w6-top"><span class="w6-t">🔒 Riêng tư</span></div>
+      <div class="w6-big num">1,86tr</div>
+      <div class="w6-sub">chỉ mình bạn thấy</div>
+      <div class="w6-chips">
+        <span class="w6-chip"><span class="w6-ci">☕</span><span class="w6-cn">Cà phê</span><span class="w6-cv num">480k</span></span>
+        <span class="w6-chip"><span class="w6-ci">🍜</span><span class="w6-cn">Ăn uống</span><span class="w6-cv num">360k</span></span>
+        <span class="w6-chip"><span class="w6-ci">🛍️</span><span class="w6-cn">Mua sắm</span><span class="w6-cv num">370k</span></span>
+      </div>
+    </div>
+    <div class="ctx"><div class="sh"><span class="t">Giao dịch của bạn</span></div>
+    <div class="txrows"><div class="txrow"><span class="ico">🍜</span><div class="bd"><div class="t1">Bún bò sáng</div><div class="s1">30/08 · riêng tư</div></div><span class="am num">−45k</span></div></div></div>
+  </div>
+</div>
+
+<!-- ════════ 7 · Material segmented ════════ -->
+<div class="v">
+  <div class="cap"><span class="n">7</span><span class="t">Material · Thanh phân đoạn</span>
+    <div class="d">Kiểu widget Pin/Bộ nhớ của Google: thanh 16px phân đoạn theo màu danh mục (khe hở 3px, đầu bo tròn đặc trưng M3), chú giải chấm màu; ảnh là hàng thumb rộng bên dưới.</div></div>
+  <div class="screen">
+    <div class="ctx"><div class="hdr"><div class="ht">Cá nhân</div><div class="hs">Sổ riêng của bạn. Gia đình không xem được.</div></div>
+    <section class="cf"><div class="cf-lbl">Còn lại tháng này · cá nhân</div><div class="cf-big num">2,9tr</div>
+      <div class="cf-tiles"><div class="cf-tile"><span class="cf-tl"><span class="up">↑</span> Vào</span><span class="cf-tv num">8,0tr</span></div><div class="cf-tile"><span class="cf-tl"><span class="dn">↓</span> Ra</span><span class="cf-tv num">5,1tr</span></div></div>
+      <div class="cf-dots"><i></i><i class="on"></i><i></i></div></section></div>
+    <div class="sh"><span class="t">Tiền đi đâu tháng này</span><a>Ngân sách</a></div>
+    <div class="w7-card">
+      <div class="w7-top">
+        <div class="w7-em"><svg class="house-svg" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></div>
+        <div class="w7-bd"><div class="w7-t">Nhà Mình</div><div class="w7-s"><b>3 ảnh mới</b> tuần này</div></div>
+        <div class="w7-amt num">3,24tr</div>
+      </div>
+      <div class="w7-bar">
+        <i style="flex:138;background:var(--cat-housing)"></i>
+        <i style="flex:106;background:var(--cat-food)"></i>
+        <i style="flex:52;background:var(--cat-fun)"></i>
+        <i style="flex:28;background:var(--cat-transport)"></i>
+      </div>
+      <div class="w7-leg">
+        <span class="w7-li"><span class="dot" style="background:var(--cat-housing)"></span>Hoá đơn <b class="num">1,38tr</b></span>
+        <span class="w7-li"><span class="dot" style="background:var(--cat-food)"></span>Ăn uống <b class="num">1,06tr</b></span>
+        <span class="w7-li"><span class="dot" style="background:var(--cat-fun)"></span>Mua sắm <b class="num">520k</b></span>
+      </div>
+      <div class="w7-ph"><span class="pht g1"></span><span class="pht g2"></span><span class="pht g3"></span><span class="w7-phn">+5 khoảnh khắc</span></div>
+    </div>
+    <div class="w7-card">
+      <div class="w7-top">
+        <div class="w7-em priv"><svg class="lock-svg" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg></div>
+        <div class="w7-bd"><div class="w7-t">Riêng tư</div><div class="w7-s">Chỉ mình bạn thấy</div></div>
+        <div class="w7-amt num">1,86tr</div>
+      </div>
+      <div class="w7-bar">
+        <i style="flex:48;background:var(--cat-dining)"></i>
+        <i style="flex:37;background:var(--cat-fun)"></i>
+        <i style="flex:36;background:var(--cat-food)"></i>
+        <i style="flex:65;background:var(--cat-other)"></i>
+      </div>
+      <div class="w7-leg">
+        <span class="w7-li"><span class="dot" style="background:var(--cat-dining)"></span>Cà phê <b class="num">480k</b></span>
+        <span class="w7-li"><span class="dot" style="background:var(--cat-fun)"></span>Mua sắm <b class="num">370k</b></span>
+        <span class="w7-li"><span class="dot" style="background:var(--cat-food)"></span>Ăn uống <b class="num">360k</b></span>
+      </div>
+    </div>
+    <div class="ctx"><div class="sh"><span class="t">Giao dịch của bạn</span></div>
+    <div class="txrows"><div class="txrow"><span class="ico">🍜</span><div class="bd"><div class="t1">Bún bò sáng</div><div class="s1">30/08 · riêng tư</div></div><span class="am num">−45k</span></div></div></div>
+  </div>
+</div>
+
+<!-- ════════ 8 · Material duo ════════ -->
+<div class="v">
+  <div class="cap"><span class="n">8</span><span class="t">Material · Cặp khối + sổ chung</span>
+    <div class="d">Hai khối M3 trên cùng (nhóm = gradient có ảnh, riêng tư = tonal xám) là phần "ai"; bên dưới MỘT bảng danh mục chung, mỗi hàng đeo tag nhỏ Nhà/Riêng — gọn nhất khi nhiều danh mục.</div></div>
+  <div class="screen">
+    <div class="ctx"><div class="hdr"><div class="ht">Cá nhân</div><div class="hs">Sổ riêng của bạn. Gia đình không xem được.</div></div>
+    <section class="cf"><div class="cf-lbl">Còn lại tháng này · cá nhân</div><div class="cf-big num">2,9tr</div>
+      <div class="cf-tiles"><div class="cf-tile"><span class="cf-tl"><span class="up">↑</span> Vào</span><span class="cf-tv num">8,0tr</span></div><div class="cf-tile"><span class="cf-tl"><span class="dn">↓</span> Ra</span><span class="cf-tv num">5,1tr</span></div></div>
+      <div class="cf-dots"><i></i><i class="on"></i><i></i></div></section></div>
+    <div class="sh"><span class="t">Tiền đi đâu tháng này</span><a>Ngân sách</a></div>
+    <div class="w8-wrap">
+      <div class="w8-a">
+        <div class="w8-at">Nhà Mình</div>
+        <div class="w8-as">3 ảnh mới · bạn đã góp</div>
+        <div class="w8-abig num">3,24tr</div>
+        <div class="w8-ph"><span class="pht g1"></span><span class="pht g2"></span><span class="pht g3"></span></div>
+      </div>
+      <div class="w8-b">
+        <div class="w8-bt"><svg class="lock-svg" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>Riêng tư</div>
+        <div class="w8-bbig num">1,86tr</div>
+        <div class="w8-bs">chỉ mình bạn thấy</div>
+      </div>
+    </div>
+    <div class="w8-cats">
+      <div class="w8-row"><span class="w8-ico">🧾</span><span class="w8-nm">Hoá đơn</span><span class="w8-tag fam">Nhà</span><span class="w8-va num">1,38tr</span></div>
+      <div class="w8-row"><span class="w8-ico">🍜</span><span class="w8-nm">Ăn uống</span><span class="w8-tag fam">Nhà</span><span class="w8-va num">1,06tr</span></div>
+      <div class="w8-row"><span class="w8-ico">☕</span><span class="w8-nm">Cà phê</span><span class="w8-tag">Riêng</span><span class="w8-va num">480k</span></div>
+      <div class="w8-row"><span class="w8-ico">🛍️</span><span class="w8-nm">Mua sắm</span><span class="w8-tag fam">Nhà</span><span class="w8-va num">520k</span></div>
+    </div>
+    <div class="ctx"><div class="sh"><span class="t">Giao dịch của bạn</span></div>
+    <div class="txrows"><div class="txrow"><span class="ico">🍜</span><div class="bd"><div class="t1">Bún bò sáng</div><div class="s1">30/08 · riêng tư</div></div><span class="am num">−45k</span></div></div></div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

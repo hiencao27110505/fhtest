@@ -236,6 +236,17 @@ function processOneMessage(message, runCallCount) {
 
   if (fingerprint && fingerprint.extraction_regex) {
     extraction = tryRegexExtract(fingerprint.extraction_regex, body);
+    // The template carries account_kind as a static when derivation was
+    // confident; when the static is absent the per-mail heuristic fills it.
+    // Never overwrites a template verdict, and null stays null (spec §8.4:
+    // ambiguous never invents a debt — the client defaults, a human corrects).
+    if (extraction && extraction.account_kind == null) {
+      extraction.account_kind = deriveAccountKind({
+        bodyText: body, subject: subject,
+        provider: extraction.source_provider || sender,
+        accountMasked: extraction.account_masked,
+      });
+    }
   }
 
   if (!extraction) {
@@ -255,6 +266,17 @@ function processOneMessage(message, runCallCount) {
     }
 
     extraction = result;
+    // The model may answer account_kind itself (it is in the schema); the
+    // heuristic fills only when it did not — BEFORE derivation, so a non-null
+    // verdict freezes into the template static and every later mail of this
+    // shape inherits it with no model involved.
+    if (extraction.account_kind == null) {
+      extraction.account_kind = deriveAccountKind({
+        bodyText: body, subject: subject,
+        provider: extraction.source_provider || sender,
+        accountMasked: extraction.account_masked,
+      });
+    }
     var derivedRegex = deriveExtractionTemplate(body, extraction);
     upsertFingerprint(sender, template, true, extraction.transaction_type, derivedRegex);
   }
@@ -637,7 +659,14 @@ var EXTRACTION_SYSTEM_PROMPT =
   '"TRANSFER FROM ..."); extract it as written either way and do not try to judge whether it is ' +
   'meaningful — a human reviews it downstream.\n\n' +
   'Amounts must be the raw number with no currency symbol or thousands separators. If the email ' +
-  'states a status (success/failed/pending), extract it; otherwise null.';
+  'states a status (success/failed/pending), extract it; otherwise null.\n\n' +
+  'account_kind: which kind of account the money moved on, judged only from what the mail itself ' +
+  'says. credit_card when the mail shows a credit limit or an outstanding card balance — Vietnamese ' +
+  'banks write "Hạn mức khả dụng" or "Dư nợ" — or names a credit card ("thẻ tín dụng"). deposit ' +
+  'when it reports the account balance after the transaction ("Số dư") or is a balance-change ' +
+  'notice ("biến động số dư") on a bank account. ewallet when the sender is an e-wallet — MoMo, ' +
+  'ZaloPay, ShopeePay, or the mail says "ví điện tử". When the mail carries none of these signals, ' +
+  'answer null — never guess, because a wrongly claimed credit card invents a debt.';
 
 var EXTRACTION_SCHEMA = {
   type: 'object',
@@ -657,6 +686,14 @@ var EXTRACTION_SCHEMA = {
     reference_number: { type: ['string', 'null'] },
     status: { type: ['string', 'null'] },
     account_masked: { type: ['string', 'null'] },
+    // WHICH INSTRUMENT moved the money (borrowing-lending-spec §8). NOT in
+    // `required`: deriveAccountKind() fills the gap when the model says
+    // nothing, and null means "the mail did not say" — the client defaults to
+    // deposit-expense behaviour rather than inventing a debt.
+    account_kind: {
+      type: ['string', 'null'],
+      enum: ['credit_card', 'deposit', 'ewallet', null],
+    },
   },
   required: [
     'is_transaction', 'transaction_type', 'source_provider', 'occurred_at',
@@ -772,7 +809,7 @@ function stripNullsForGemini(schema) {
 // (different amount/name/ref/time), reject-different-structure, reject-stale-
 // version, reject-legacy-placeholder, self-reproduction — all pass.
 
-var EXTRACTION_LOGIC_VERSION = 4;   // 4: memo is anchored + verified (3 silently dropped it)
+var EXTRACTION_LOGIC_VERSION = 5;   // 5: account_kind staticised (4: memo anchored + verified)
 
 function _escRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
@@ -893,6 +930,45 @@ function _valuePatternsFor(rawValue, type) {
   return pats;
 }
 
+// ---- the instrument classifier: which kind of account moved the money? ----
+// borrowing-lending-spec §8. 'credit_card' | 'deposit' | 'ewallet' | null.
+// Heuristic over the mail's own words, diacritic-stripped; rules ordered most
+// reliable first. It NEVER guesses: an ambiguous mail returns null, the client
+// defaults to deposit-expense behaviour with an editable chip, and a phantom
+// card debt is never invented (spec §8.4 / Q16). Lives in this shared slice so
+// both transports classify identically — they write one template cache.
+var _AK_EWALLETS = ['momo', 'zalopay', 'shopeepay'];
+
+function _akNorm(s) {
+  // Escaped, not literal combining marks: the .gs twin of this slice is
+  // deployed by hand-pasting and invisible characters do not survive that.
+  return String(s == null ? '' : s).normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D')
+    .toLowerCase().replace(/\s+/g, ' ');
+}
+
+function deriveAccountKind(input) {
+  var body = _akNorm(input && input.bodyText);
+  var subject = _akNorm(input && input.subject);
+  var provider = _akNorm(input && input.provider).replace(/[^a-z0-9]/g, '');
+  // 1. a credit limit or an outstanding balance — deposit accounts have neither
+  if (/\bhan muc kha dung\b/.test(body) || /\bdu no\b/.test(body)) return 'credit_card';
+  // 2. the wallet providers are e-wallets whatever the body says about balances
+  for (var i = 0; i < _AK_EWALLETS.length; i++) {
+    if (provider.indexOf(_AK_EWALLETS[i]) >= 0) return 'ewallet';
+  }
+  // 3. a balance-after-transaction row is how deposit-account notices sign off
+  if (/\bso du\b/.test(body)) return 'deposit';
+  // 4. the subject names the product where a terse body does not
+  if (/\bthe tin dung\b/.test(subject)) return 'credit_card';
+  if (/\bso du tai khoan\b/.test(subject) || /\bbien dong so du\b/.test(subject)) return 'deposit';
+  // 5. tiebreaker: a 16-digit masked PAN is a card; bank account numbers are shorter
+  var pan = String(input && input.accountMasked != null ? input.accountMasked : '').replace(/[\s.-]/g, '');
+  if (/^[0-9Xx*\u2022\u2026]{15,16}$/.test(pan) && /[0-9]/.test(pan)) return 'credit_card';
+  // 6. unknown stays unknown — null, never a guessed debt
+  return null;
+}
+
 function deriveExtractionTemplate(body, extraction) {
   if (!extraction || extraction.is_transaction !== true) return null;
   var tpl = { v: EXTRACTION_LOGIC_VERSION, static: {}, fields: {} };
@@ -903,6 +979,14 @@ function deriveExtractionTemplate(body, extraction) {
   tpl.static.source_provider = extraction.source_provider != null ? extraction.source_provider : null;
   tpl.static.currency = extraction.currency != null ? extraction.currency : null;
   tpl.static.direction = extraction.direction != null ? extraction.direction : null;
+  /* account_kind is a property of the shape, like direction: a given
+     (sender, subject_template) is almost always ONE product (spec §8.1), so
+     the instrument verdict freezes here — but only when NON-NULL. A null is
+     "the mail did not say", and staticising it would freeze ignorance into
+     the shape; an absent key copies nothing, so every later mail gets the
+     per-mail heuristic again and a confident verdict can still fill it when
+     the shape re-derives. */
+  if (extraction.account_kind != null) tpl.static.account_kind = extraction.account_kind;
   /* status is deliberately NOT staticised. It is the one field here that is an
      OUTCOME of the individual mail rather than a property of the shape: derive
      off a declined attempt and every later success staticises as "Không thành
@@ -968,7 +1052,7 @@ function deriveExtractionTemplate(body, extraction) {
   // `status` is absent on purpose, and has to be: the template no longer carries
   // one, so checking it here would compare undefined against the reading's own
   // status and fail EVERY derivation off a mail that states an outcome.
-  var keys = ['transaction_type', 'source_provider', 'occurred_at', 'amount', 'currency', 'direction', 'counterparty', 'reference_number', 'account_masked', 'memo'];
+  var keys = ['transaction_type', 'source_provider', 'occurred_at', 'amount', 'currency', 'direction', 'account_kind', 'counterparty', 'reference_number', 'account_masked', 'memo'];
   for (var i = 0; i < keys.length; i++) {
     var a2 = check[keys[i]], b2 = extraction[keys[i]];
     if (String(a2 === undefined ? null : a2) !== String(b2 === undefined ? null : b2)) return null;

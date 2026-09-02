@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cá nhân — danh mục lồng trong nhóm · 6 biến thể</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  :root{
+    --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-tint:#e9f7f0;
+    --grad-hero:linear-gradient(150deg,#4CB584 0%,#2E9E6B 52%,#8FC97E 100%);
+    --good:#1a9d5f; --good-tint:#e7f5ee;
+    --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+    --white:#fff; --canvas:#f4f1f6; --surface:#f9f7f8;
+    --hairline:#e9e4ee; --divider:#f1edf4; --fill-neutral:rgba(138,132,148,.14); --chev:#cfc8d6;
+    --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+    --shadow-focal:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09);
+    --r-card-lg:22px;
+    --cat-food:#34C759; --cat-housing:#5E5CE6; --cat-fun:#BF5AF2; --cat-transport:#32ADE6; --cat-dining:#FF375F; --cat-other:#98949e;
+    --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+    --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  }
+  html,body{background:#dcdae1;font-family:var(--text);color:var(--ink);-webkit-font-smoothing:antialiased}
+  body{padding:44px 20px 90px}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  .page-head{max-width:920px;margin:0 auto 40px;text-align:center}
+  .page-head h1{font-family:var(--disp);font-size:32px;font-weight:800;letter-spacing:-1px;margin-bottom:10px}
+  .page-head p{color:#4b4753;font-size:15.5px;line-height:1.65;max-width:720px;margin:0 auto}
+  .page-head .leg{margin-top:13px;font-size:12.5px;color:#847f8e;line-height:1.6}
+
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(352px,1fr));gap:44px 28px;max-width:1180px;margin:0 auto;justify-items:center}
+  .v{width:352px}
+  .cap{margin:0 4px 12px}
+  .cap .n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:11px;margin-right:8px;vertical-align:1px}
+  .cap .t{font-weight:700;font-size:16px;letter-spacing:-.3px}
+  .cap .d{color:#6f6a7a;font-size:12.5px;margin-top:5px;line-height:1.55}
+
+  .screen{background:var(--canvas);border-radius:34px;padding:14px 0 18px;box-shadow:0 12px 34px rgba(0,0,0,.13);overflow:hidden}
+  .ctx{opacity:.42;pointer-events:none}
+  .hdr{padding:6px 22px 10px}
+  .hdr .ht{font-family:var(--disp);font-size:24px;font-weight:800;letter-spacing:-.7px}
+  .hdr .hs{font-size:12px;color:var(--muted);margin-top:1px;letter-spacing:-.01em}
+
+  .cf{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:14px 16px 10px;margin:2px 16px 12px}
+  .cf-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .cf-big{font-family:var(--disp);font-size:30px;font-weight:700;letter-spacing:-1.1px;line-height:1.04;margin-top:3px}
+  .cf-tiles{display:flex;gap:8px;margin-top:11px}
+  .cf-tile{flex:1;display:flex;flex-direction:column;gap:2px;background:var(--surface);border-radius:12px;padding:8px 12px}
+  .cf-tl{font-size:10.5px;font-weight:600;color:var(--muted)}
+  .cf-tl .up{color:var(--good);font-weight:800}.cf-tl .dn{color:var(--muted-soft);font-weight:800}
+  .cf-tv{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.4px}
+  .cf-dots{display:flex;gap:5px;justify-content:center;align-items:center;padding:10px 0 0}
+  .cf-dots i{width:5px;height:5px;border-radius:50%;background:var(--fill-neutral)}
+  .cf-dots i.on{width:16px;border-radius:3px;background:var(--good)}
+
+  /* section header (app .section-h) */
+  .sh{display:flex;align-items:baseline;justify-content:space-between;margin:4px 22px 11px}
+  .sh .t{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.5px}
+  .sh a{font-size:13.5px;font-weight:600;color:var(--brand-ink)}
+
+  /* dimmed tx-list context below */
+  .txrows{background:var(--white);border-radius:20px;margin:0 16px;overflow:hidden;box-shadow:var(--shadow-card)}
+  .txrow{display:flex;align-items:center;gap:13px;padding:12px 16px;border-bottom:1px solid var(--divider)}
+  .txrow .ico{width:38px;height:38px;border-radius:11px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+  .txrow .bd{flex:1;min-width:0}
+  .txrow .t1{font-size:15px;font-weight:500;letter-spacing:-.02em}
+  .txrow .s1{font-size:12px;color:var(--muted);margin-top:1px}
+  .txrow .am{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.3px}
+
+  /* ── shared variant vocabulary ── */
+  .card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);margin:0 16px 12px;overflow:hidden}
+  .eyebrow{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .chev{width:16px;height:16px;flex-shrink:0;color:var(--chev)}
+  .lk{width:26px;height:26px;border-radius:8px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0}
+  .lk svg{width:14px;height:14px}
+  .lock-svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+
+  .pht{position:relative;overflow:hidden;background:#ccc}
+  .pht::after{content:"";position:absolute;inset:0;background:radial-gradient(130% 90% at 28% 18%,rgba(255,255,255,.38),transparent 55%)}
+  .g1{background:linear-gradient(135deg,#f7b267 10%,#e8656f 90%)}
+  .g2{background:linear-gradient(135deg,#8fd3a3 5%,#3f8e63 95%)}
+  .g3{background:linear-gradient(135deg,#8ec9ea 5%,#4a7fd4 95%)}
+  .g4{background:linear-gradient(135deg,#e8c39a 8%,#b0765a 92%)}
+  .fan{display:flex;align-items:center;flex-shrink:0;height:38px}
+  .fan .pht{width:32px;height:38px;border-radius:8px;border:2px solid #fff;box-shadow:0 2px 8px rgba(25,16,34,.18)}
+  .fan .pht:nth-child(1){transform:rotate(-7deg) translateY(2px);z-index:1}
+  .fan .pht:nth-child(2){transform:rotate(2deg) translateY(-1px);margin-left:-12px;z-index:2}
+  .fan .pht:nth-child(3){transform:rotate(9deg) translateY(2px);margin-left:-12px;z-index:3}
+
+  /* group header row */
+  .gh{display:flex;align-items:center;gap:11px;padding:13px 16px 9px}
+  .gh .em{width:38px;height:38px;border-radius:11px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+  .gh .bd{flex:1;min-width:0}
+  .gh .t1{font-size:16px;font-weight:600;letter-spacing:-.02em;white-space:nowrap}
+  .gh .s1{font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap}
+  .gh .s1 b{color:var(--brand-ink);font-weight:600}
+  .gh .amt{font-family:var(--disp);font-size:16.5px;font-weight:700;letter-spacing:-.4px;text-align:right}
+  .gh .sub{font-size:10.5px;color:var(--muted);text-align:right;margin-top:1px}
+
+  /* nested category mini-row */
+  .nest{padding:0 16px 6px}
+  .mini{display:flex;align-items:center;gap:10px;min-height:38px;padding:3px 0}
+  .mini + .mini{border-top:1px solid var(--divider)}
+  .mini .ico{width:26px;height:26px;border-radius:8px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;font-size:13px;flex:0 0 auto}
+  .mini .nm{flex:1;font-size:13.5px;font-weight:500;letter-spacing:-.01em}
+  .mini .va{font-family:var(--disp);font-size:13px;font-weight:600;letter-spacing:-.2px;color:var(--ink-2)}
+  .mini .bw{flex:1;min-width:0}
+  .mini .l1{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .mini .bar{height:3.5px;border-radius:2px;background:var(--fill-neutral);overflow:hidden;margin-top:5px}
+  .mini .bar i{display:block;height:100%;border-radius:2px}
+  .guide{display:flex}
+  .guide .gl{width:2.5px;border-radius:2px;background:var(--brand-tint);margin:2px 0 8px 15px}
+  .guide.dim .gl{background:var(--fill-neutral)}
+  .guide .gi{flex:1;padding-left:12px;min-width:0}
+
+  /* private header */
+  .pv{display:flex;align-items:center;gap:11px;padding:11px 16px 7px}
+  .pv .t1{flex:1;font-size:14.5px;font-weight:600;color:var(--ink-2);letter-spacing:-.01em}
+  .pv .amt{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--muted)}
+
+  /* ═══ V2 cover ═══ */
+  .v2-cover{position:relative;height:106px}
+  .v2-cover .pht{position:absolute;inset:0;border-radius:0}
+  .v2-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,14,26,.05) 25%,rgba(20,14,26,.64) 100%)}
+  .v2-mini{position:absolute;top:9px;right:11px;display:flex;gap:4px}
+  .v2-mini .pht{position:static;width:26px;height:26px;border-radius:8px;border:1.5px solid rgba(255,255,255,.85);box-shadow:0 2px 8px rgba(0,0,0,.25)}
+  .v2-ov{position:absolute;left:16px;right:16px;bottom:10px;color:#fff;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+  .v2-t{font-size:16px;font-weight:700;letter-spacing:-.02em;text-shadow:0 1px 8px rgba(0,0,0,.4)}
+  .v2-s{font-size:10.5px;font-weight:500;opacity:.92;margin-top:1px;text-shadow:0 1px 6px rgba(0,0,0,.4)}
+  .v2-amt{font-family:var(--disp);font-size:18px;font-weight:700;letter-spacing:-.5px;text-shadow:0 1px 8px rgba(0,0,0,.4)}
+  .v2-al{font-size:9px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;opacity:.85;text-align:right}
+
+  /* ═══ V5 pass ═══ */
+  .v5-pass{position:relative;background:var(--grad-hero);color:#fff;padding:12px 16px 11px;overflow:hidden}
+  .v5-pass::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 100% at 85% 0%,rgba(255,255,255,.22),transparent 55%)}
+  .v5-top{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .v5-t{font-family:var(--disp);font-size:16.5px;font-weight:700;letter-spacing:-.3px}
+  .v5-s{font-size:10.5px;font-weight:600;opacity:.9;margin-top:1px}
+  .v5-amt{font-family:var(--disp);font-size:20px;font-weight:700;letter-spacing:-.6px;text-align:right}
+  .v5-al{font-size:9.5px;font-weight:600;opacity:.85;text-align:right}
+  .v5-pass .fan .pht{border-color:rgba(255,255,255,.8)}
+
+  /* ═══ V6 disclosure ═══ */
+  .v6-dis{display:flex;align-items:center;gap:11px;padding:12px 16px;border-top:1px solid var(--divider)}
+  .v6-dt{flex:1;font-size:13.5px;font-weight:500;color:var(--ink-2)}
+  .v6-da{font-family:var(--disp);font-size:14px;font-weight:600;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Danh mục lồng trong nhóm — 6 biến thể</h1>
+  <p>Cấu trúc đã chốt: <b>nhóm là đơn vị</b> — thẻ Nhà Mình mang tên thật + khoảnh khắc mới + số đã góp, và danh mục <i>của chính nhóm đó</i> lồng bên trong; Riêng tư là khối lặng hơn với danh mục riêng. Thẻ "Chi theo danh mục" cũ tan vào đây. Trên (dòng tiền) và dưới (Giao dịch của bạn) giữ nguyên — hiển thị mờ.</p>
+  <div class="leg">Nhà Mình 3,24tr = Hoá đơn 1,38tr · Ăn uống 1,06tr · Mua sắm 520k · Đi lại 280k&nbsp;&nbsp;|&nbsp;&nbsp;Riêng tư 1,86tr = Cà phê 480k · Ăn uống 360k · Mua sắm 370k · còn lại 650k</div>
+</div>
+
+<div class="gallery">
+
+<!-- ═══════════ V1 — Sổ lồng ═══════════ -->
+<div class="v">
+  <div class="cap"><span class="n">1</span><span class="t">Sổ lồng</span>
+    <div class="d">Một thẻ, hai chương: đầu chương Nhà Mình (tên + xấp ảnh + số góp), danh mục thụt vào theo vạch dẫn màu brand; chương Riêng tư vạch xám. Đọc như một cuốn sổ.</div></div>
+  <div class="screen">
+    <div class="ctx"><div class="hdr"><div class="ht">Cá nhân</div><div class="hs">Sổ riêng của bạn. Gia đình không xem được.</div></div>
+    <section class="cf"><div class="cf-lbl">Còn lại tháng này · cá nhân</div><div class="cf-big num">2,9tr</div>
+      <div class="cf-tiles"><div class="cf-tile"><span class="cf-tl"><span class="up">↑</span> Vào</span><span class="cf-tv num">8,0tr</span></div><div class="cf-tile"><span class="cf-tl"><span class="dn">↓</span> Ra</span><span class="cf-tv num">5,1tr</span></div></div>
+      <div class="cf-dots"><i></i><i class="on"></i><i></i></div></section></div>
+    <div class="sh"><span class="t">Tiền đi đâu tháng này</span><a>Ngân sách</a></div>
+    <div class="card" style="padding-bottom:6px">
+      <div class="gh">
+        <div class="em">🏡</div>
+        <div class="bd"><div class="t1">Nhà Mình</div><div class="s1"><b>3 ảnh mới</b></div></div>
+        <div class="fan"><span class="pht g1"></span><span class="pht g2"></span><span class="pht g3"></span></div>
+        <div><div class="amt num">3,24tr</div><div class="sub">bạn đã góp</div></div>
+      </div>
+      <div class="guide"><div class="gl"></div><div class="gi">
+        <div class="mini"><span class="ico">🧾</span><span class="nm">Hoá đơn</span><span class="va num">1,38tr</span></div>
+        <div class="mini"><span class="ico">🍜</span><span class="nm">Ăn uống</span><span class="va num">1,06tr</span></div>
+        <div class="mini" style="padding-right:16px"><span class="ico">🛍️</span><span class="nm">Mua sắm</span><span class="va num">520k</span></div>
+      </div></div>
+      <div style="height:1px;background:var(--divider);margin:2px 16px"></div>
+      <div class="pv">
+        <div class="lk"><svg class="lock-svg" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg></div>
+        <div class="t1">Riêng tư</div><div class="amt num">1,86tr</div>
+      </div>
+      <div class="guide dim"><div class="gl"></div><div class="gi">
+        <div class="mini"><span class="ico">☕</span><span class="nm">Cà phê</span><span class="va num">480k</span></div>
+        <div class="mini"><span class="ico">🍜</span><span class="nm">Ăn uống</span><span class="va num">360k</span></div>
+        <div class="mini" style="padding-right:16px"><span class="ico">🛍️</span><span class="nm">Mua sắm</span><span class="va num">370k</span></div>
+      </div></div>
+    </div>
+    <div class="ctx"><div class="sh"><span class="t">Giao dịch của bạn</span></div>
+    <div class="txrows"><div class="txrow"><span class="ico">🍜</span><div class="bd"><div class="t1">Bún bò sáng</div><div class="s1">30/08 · riêng tư</div></div><span class="am num">−45k</span></div></div></div>
+  </div>
+</div>
+
+<!-- ═══════════ V2 — Ảnh bìa + lồng ═══════════ -->
+<div class="v">
+  <div class="cap"><span class="n">2</span><span class="t">Ảnh bìa + lồng</span>
+    <div class="d">Khoảnh khắc mới nhất làm bìa thẻ nhóm, tên + số góp trên scrim; danh mục của nhóm ngay dưới bìa. Riêng tư là khối trắng lặng cùng thẻ.</div></div>
+  <div class="screen">
+    <div class="ctx"><div class="hdr"><div class="ht">Cá nhân</div><div class="hs">Sổ riêng của bạn. Gia đình không xem được.</div></div>
+    <section class="cf"><div class="cf-lbl">Còn lại tháng này · cá nhân</div><div class="cf-big num">2,9tr</div>
+      <div class="cf-tiles"><div class="cf-tile"><span class="cf-tl"><span class="up">↑</span> Vào</span><span class="cf-tv num">8,0tr</span></div><div class="cf-tile"><span class="cf-tl"><span class="dn">↓</span> Ra</span><span class="cf-tv num">5,1tr</span></div></div>
+      <div class="cf-dots"><i></i><i class="on"></i><i></i></div></section></div>
+    <div class="sh"><span class="t">Tiền đi đâu tháng này</span><a>Ngân sách</a></div>
+    <div class="card">
+      <div class="v2-cover">
+        <span class="pht g1"></span>
+        <div class="v2-scrim"></div>
+        <div class="v2-mini"><span class="pht g2"></span><span class="pht g3"></span></div>
+        <div class="v2-ov">
+          <div><div class="v2-t">Nhà Mình</div><div class="v2-s">Bữa tối Chủ nhật · 3 ảnh mới</div></div>
+          <div><div class="v2-al">Bạn đã góp</div><div class="v2-amt num">3,24tr</div></div>
+        </div>
+      </div>
+      <div class="nest" style="padding-top:4px">
+        <div class="mini"><span class="ico">🧾</span><span class="nm">Hoá đơn</span><span class="va num">1,38tr</span></div>
+        <div class="mini"><span class="ico">🍜</span><span class="nm">Ăn uống</span><span class="va num">1,06tr</span></div>
+        <div class="mini"><span class="ico">🛍️</span><span class="nm">Mua sắm</span><span class="va num">520k</span></div>
+      </div>
+      <div style="height:1px;background:var(--divider);margin:0 16px"></div>
+      <div class="pv">
+        <div class="lk"><svg class="lock-svg" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg></div>
+        <div class="t1">Riêng tư</div><div class="amt num">1,86tr</div>
+      </div>
+      <div class="nest">
+        <div class="mini"><span class="ico">☕</span><span class="nm">Cà phê</span><span class="va num">480k</span></div>
+        <div class="mini"><span class="ico">🍜</span><span class="nm">Ăn uống</span><span class="va num">360k</span></div>
+      </div>
+    </div>
+    <div class="ctx"><div class="sh"><span class="t">Giao dịch của bạn</span></div>
+    <div class="txrows"><div class="txrow"><span class="ico">🍜</span><div class="bd"><div class="t1">Bún bò sáng</div><div class="s1">30/08 · riêng tư</div></div><span class="am num">−45k</span></div></div></div>
+  </div>
+</div>
+
+<!-- ═══════════ V3 — Hai thẻ, hai không gian ═══════════ -->
+<div class="v">
+  <div class="cap"><span class="n">3</span><span class="t">Hai thẻ, hai không gian</span>
+    <div class="d">Mỗi không gian một thẻ riêng: thẻ Nhà Mình (ảnh + góp + danh mục nhóm), thẻ Riêng tư (khoá + danh mục riêng). "Space = một nơi chốn" rõ nhất, sẵn sàng cho nhóm bạn bè sau này.</div></div>
+  <div class="screen">
+    <div class="ctx"><div class="hdr"><div class="ht">Cá nhân</div><div class="hs">Sổ riêng của bạn. Gia đình không xem được.</div></div>
+    <section class="cf"><div class="cf-lbl">Còn lại tháng này · cá nhân</div><div class="cf-big num">2,9tr</div>
+      <div class="cf-tiles"><div class="cf-tile"><span class="cf-tl"><span class="up">↑</span> Vào</span><span class="cf-tv num">8,0tr</span></div><div class="cf-tile"><span class="cf-tl"><span class="dn">↓</span> Ra</span><span class="cf-tv num">5,1tr</span></div></div>
+      <div class="cf-dots"><i></i><i class="on"></i><i></i></div></section></div>
+    <div class="sh"><span class="t">Tiền đi đâu tháng này</span><a>Ngân sách</a></div>
+    <div class="card">
+      <div class="gh">
+        <div class="em">🏡</div>
+        <div class="bd"><div class="t1">Nhà Mình</div><div class="s1"><b>3 ảnh mới</b></div></div>
+        <div class="fan"><span class="pht g1"></span><span class="pht g2"></span><span class="pht g3"></span></div>
+        <div><div class="amt num">3,24tr</div><div class="sub">bạn đã góp</div></div>
+      </div>
+      <div class="nest">
+        <div class="mini"><span class="ico">🧾</span><span class="nm">Hoá đơn</span><span class="va num">1,38tr</span></div>
+        <div class="mini"><span class="ico">🍜</span><span class="nm">Ăn uống</span><span class="va num">1,06tr</span></div>
+        <div class="mini"><span class="ico">🛍️</span><span class="nm">Mua sắm</span><span class="va num">520k</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="pv" style="padding-top:13px">
+        <div class="lk"><svg class="lock-svg" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg></div>
+        <div class="t1" style="font-size:16px;color:var(--ink)">Riêng tư</div><div class="amt num" style="font-size:16.5px;color:var(--ink)">1,86tr</div>
+      </div>
+      <div class="nest">
+        <div class="mini"><span class="ico">☕</span><span class="nm">Cà phê</span><span class="va num">480k</span></div>
+        <div class="mini"><span class="ico">🍜</span><span class="nm">Ăn uống</span><span class="va num">360k</span></div>
+        <div class="mini"><span class="ico">🛍️</span><span class="nm">Mua sắm</span><span class="va num">370k</span></div>
+      </div>
+    </div>
+    <div class="ctx"><div class="sh"><span class="t">Giao dịch của bạn</span></div>
+    <div class="txrows"><div class="txrow"><span class="ico">🍜</span><div class="bd"><div class="t1">Bún bò sáng</div><div class="s1">30/08 · riêng tư</div></div><span class="am num">−45k</span></div></div></div>
+  </div>
+</div>
+
+<!-- ═══════════ V4 — Lồng + thanh tỷ lệ ═══════════ -->
+<div class="v">
+  <div class="cap"><span class="n">4</span><span class="t">Lồng + thanh tỷ lệ</span>
+    <div class="d">Như V3 nhưng mỗi danh mục có thanh tỷ lệ (so với tổng của không gian đó) — giữ lại "cảm giác phân bố" của thẻ danh mục cũ, màu danh mục hệ iOS.</div></div>
+  <div class="screen">
+    <div class="ctx"><div class="hdr"><div class="ht">Cá nhân</div><div class="hs">Sổ riêng của bạn. Gia đình không xem được.</div></div>
+    <section class="cf"><div class="cf-lbl">Còn lại tháng này · cá nhân</div><div class="cf-big num">2,9tr</div>
+      <div class="cf-tiles"><div class="cf-tile"><span class="cf-tl"><span class="up">↑</span> Vào</span><span class="cf-tv num">8,0tr</span></div><div class="cf-tile"><span class="cf-tl"><span class="dn">↓</span> Ra</span><span class="cf-tv num">5,1tr</span></div></div>
+      <div class="cf-dots"><i></i><i class="on"></i><i></i></div></section></div>
+    <div class="sh"><span class="t">Tiền đi đâu tháng này</span><a>Ngân sách</a></div>
+    <div class="card">
+      <div class="gh">
+        <div class="em">🏡</div>
+        <div class="bd"><div class="t1">Nhà Mình</div><div class="s1"><b>3 ảnh mới</b></div></div>
+        <div class="fan"><span class="pht g1"></span><span class="pht g2"></span><span class="pht g3"></span></div>
+        <div><div class="amt num">3,24tr</div><div class="sub">bạn đã góp</div></div>
+      </div>
+      <div class="nest">
+        <div class="mini"><span class="ico">🧾</span><div class="bw"><div class="l1"><span class="nm">Hoá đơn</span><span class="va num">1,38tr</span></div><div class="bar"><i style="width:100%;background:var(--cat-housing)"></i></div></div></div>
+        <div class="mini"><span class="ico">🍜</span><div class="bw"><div class="l1"><span class="nm">Ăn uống</span><span class="va num">1,06tr</span></div><div class="bar"><i style="width:77%;background:var(--cat-food)"></i></div></div></div>
+        <div class="mini"><span class="ico">🛍️</span><div class="bw"><div class="l1"><span class="nm">Mua sắm</span><span class="va num">520k</span></div><div class="bar"><i style="width:38%;background:var(--cat-fun)"></i></div></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="pv" style="padding-top:13px">
+        <div class="lk"><svg class="lock-svg" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg></div>
+        <div class="t1" style="font-size:16px;color:var(--ink)">Riêng tư</div><div class="amt num" style="font-size:16.5px;color:var(--ink)">1,86tr</div>
+      </div>
+      <div class="nest">
+        <div class="mini"><span class="ico">☕</span><div class="bw"><div class="l1"><span class="nm">Cà phê</span><span class="va num">480k</span></div><div class="bar"><i style="width:100%;background:var(--cat-dining)"></i></div></div></div>
+        <div class="mini"><span class="ico">🍜</span><div class="bw"><div class="l1"><span class="nm">Ăn uống</span><span class="va num">360k</span></div><div class="bar"><i style="width:75%;background:var(--cat-food)"></i></div></div></div>
+      </div>
+    </div>
+    <div class="ctx"><div class="sh"><span class="t">Giao dịch của bạn</span></div>
+    <div class="txrows"><div class="txrow"><span class="ico">🍜</span><div class="bd"><div class="t1">Bún bò sáng</div><div class="s1">30/08 · riêng tư</div></div><span class="am num">−45k</span></div></div></div>
+  </div>
+</div>
+
+<!-- ═══════════ V5 — Thẻ Ví + lồng ═══════════ -->
+<div class="v">
+  <div class="cap"><span class="n">5</span><span class="t">Thẻ Ví + lồng</span>
+    <div class="d">Đầu thẻ nhóm là dải gradient Sage kiểu Apple Wallet (tên + ảnh + số góp), thân trắng là danh mục của nhóm. Riêng tư là thẻ trắng nhỏ. Nhóm nổi bật nhất trong 6 phương án.</div></div>
+  <div class="screen">
+    <div class="ctx"><div class="hdr"><div class="ht">Cá nhân</div><div class="hs">Sổ riêng của bạn. Gia đình không xem được.</div></div>
+    <section class="cf"><div class="cf-lbl">Còn lại tháng này · cá nhân</div><div class="cf-big num">2,9tr</div>
+      <div class="cf-tiles"><div class="cf-tile"><span class="cf-tl"><span class="up">↑</span> Vào</span><span class="cf-tv num">8,0tr</span></div><div class="cf-tile"><span class="cf-tl"><span class="dn">↓</span> Ra</span><span class="cf-tv num">5,1tr</span></div></div>
+      <div class="cf-dots"><i></i><i class="on"></i><i></i></div></section></div>
+    <div class="sh"><span class="t">Tiền đi đâu tháng này</span><a>Ngân sách</a></div>
+    <div class="card">
+      <div class="v5-pass">
+        <div class="v5-top">
+          <div><div class="v5-t">🏡 Nhà Mình</div><div class="v5-s">3 ảnh mới</div></div>
+          <div class="fan"><span class="pht g1"></span><span class="pht g2"></span><span class="pht g3"></span></div>
+          <div><div class="v5-amt num">3,24tr</div><div class="v5-al">bạn đã góp</div></div>
+        </div>
+      </div>
+      <div class="nest" style="padding-top:4px">
+        <div class="mini"><span class="ico">🧾</span><span class="nm">Hoá đơn</span><span class="va num">1,38tr</span></div>
+        <div class="mini"><span class="ico">🍜</span><span class="nm">Ăn uống</span><span class="va num">1,06tr</span></div>
+        <div class="mini"><span class="ico">🛍️</span><span class="nm">Mua sắm</span><span class="va num">520k</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="pv" style="padding-top:13px">
+        <div class="lk"><svg class="lock-svg" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg></div>
+        <div class="t1" style="font-size:16px;color:var(--ink)">Riêng tư</div><div class="amt num" style="font-size:16.5px;color:var(--ink)">1,86tr</div>
+      </div>
+      <div class="nest">
+        <div class="mini"><span class="ico">☕</span><span class="nm">Cà phê</span><span class="va num">480k</span></div>
+        <div class="mini"><span class="ico">🍜</span><span class="nm">Ăn uống</span><span class="va num">360k</span></div>
+      </div>
+    </div>
+    <div class="ctx"><div class="sh"><span class="t">Giao dịch của bạn</span></div>
+    <div class="txrows"><div class="txrow"><span class="ico">🍜</span><div class="bd"><div class="t1">Bún bò sáng</div><div class="s1">30/08 · riêng tư</div></div><span class="am num">−45k</span></div></div></div>
+  </div>
+</div>
+
+<!-- ═══════════ V6 — Riêng tư gấp gọn ═══════════ -->
+<div class="v">
+  <div class="cap"><span class="n">6</span><span class="t">Riêng tư gấp gọn</span>
+    <div class="d">Nhà Mình mở sẵn đầy đủ (ảnh + danh mục); Riêng tư chỉ là một hàng gấp — chạm mới mở danh mục riêng. Tab ngắn nhất, nhóm là nhân vật chính, riêng tư kín đáo đúng nghĩa.</div></div>
+  <div class="screen">
+    <div class="ctx"><div class="hdr"><div class="ht">Cá nhân</div><div class="hs">Sổ riêng của bạn. Gia đình không xem được.</div></div>
+    <section class="cf"><div class="cf-lbl">Còn lại tháng này · cá nhân</div><div class="cf-big num">2,9tr</div>
+      <div class="cf-tiles"><div class="cf-tile"><span class="cf-tl"><span class="up">↑</span> Vào</span><span class="cf-tv num">8,0tr</span></div><div class="cf-tile"><span class="cf-tl"><span class="dn">↓</span> Ra</span><span class="cf-tv num">5,1tr</span></div></div>
+      <div class="cf-dots"><i></i><i class="on"></i><i></i></div></section></div>
+    <div class="sh"><span class="t">Tiền đi đâu tháng này</span><a>Ngân sách</a></div>
+    <div class="card">
+      <div class="gh">
+        <div class="em">🏡</div>
+        <div class="bd"><div class="t1">Nhà Mình</div><div class="s1"><b>3 ảnh mới</b></div></div>
+        <div class="fan"><span class="pht g1"></span><span class="pht g2"></span><span class="pht g3"></span></div>
+        <div><div class="amt num">3,24tr</div><div class="sub">bạn đã góp</div></div>
+      </div>
+      <div class="nest">
+        <div class="mini"><span class="ico">🧾</span><span class="nm">Hoá đơn</span><span class="va num">1,38tr</span></div>
+        <div class="mini"><span class="ico">🍜</span><span class="nm">Ăn uống</span><span class="va num">1,06tr</span></div>
+        <div class="mini"><span class="ico">🛍️</span><span class="nm">Mua sắm</span><span class="va num">520k</span></div>
+        <div class="mini"><span class="ico">🛵</span><span class="nm">Đi lại</span><span class="va num">280k</span></div>
+      </div>
+      <div class="v6-dis">
+        <div class="lk"><svg class="lock-svg" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg></div>
+        <div class="v6-dt">Riêng tư</div><div class="v6-da num">1,86tr</div>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
+      </div>
+    </div>
+    <div class="ctx"><div class="sh"><span class="t">Giao dịch của bạn</span></div>
+    <div class="txrows"><div class="txrow"><span class="ico">🍜</span><div class="bd"><div class="t1">Bún bò sáng</div><div class="s1">30/08 · riêng tư</div></div><span class="am num">−45k</span></div></div></div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

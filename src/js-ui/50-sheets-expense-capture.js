@@ -134,6 +134,26 @@ function _syncExTime(){
   if(r){ r.time=tEl.value; }
 }
 function pickExScope(btn){ pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} selectChipByVal('ex-scope',btn.dataset.v); _applyExLayout(); }
+/* Instrument chips (0105): built from the personal ledger's accounts + Tiền mặt.
+   Optional — no chip selected means "don't tag". Last pick remembered; a
+   credit-card pick is what feeds that card's derived balance. */
+function buildExAcctChips(){
+  var box=document.getElementById('ex-acct'); if(!box) return;
+  var pd=window.fhPersonalData&&fhPersonalData(); var accts=(pd&&pd.accounts)||[];
+  var last=null; try{ last=localStorage.getItem('fh-last-acct'); }catch(e){}
+  var ico={credit_card:'💳',deposit:'🏦',ewallet:'📱',cash:'💵'};
+  var h='<button class="choice'+(last==='cash'?' on':'')+'" data-v="cash" onclick="pickExAcct(this)">💵 Tiền mặt</button>';
+  accts.forEach(function(a){ if(a.kind==='cash') return;
+    h+='<button class="choice'+(last===a.id?' on':'')+'" data-v="'+a.id+'" onclick="pickExAcct(this)">'+(ico[a.kind]||'💳')+' '+String(a.name||'Tài khoản').replace(/</g,'&lt;')+'</button>'; });
+  box.innerHTML=h;
+}
+function pickExAcct(btn){
+  // toggle: tapping the selected chip clears it (the field is optional)
+  var was=btn.classList.contains('on');
+  var box=document.getElementById('ex-acct'); if(box) box.querySelectorAll('.choice').forEach(function(b){ b.classList.remove('on'); });
+  if(!was){ btn.classList.add('on'); try{ localStorage.setItem('fh-last-acct',btn.dataset.v); }catch(e){} }
+  else { try{ localStorage.removeItem('fh-last-acct'); }catch(e){} }
+}
 function pickExType(btn){
   pick('ex-type',btn); exType=btn.dataset.v;
   if(typeof renderBulk==='function') renderBulk();   // refresh the card header ("Khoản chi/thu") to the new type…
@@ -146,6 +166,9 @@ function _applyExScope(v){ selectChipByVal('ex-scope', v); _applyExLayout(); }
    restores per scope, exactly as before. */
 function _applyExLayout(){
   var personal=(chosen('ex-scope')==='personal'), income=(exType==='income');
+  // Instrument chips: personal expenses only (family rows have no account concept).
+  var af=document.getElementById('ex-acctfield');
+  if(af){ var show=(personal&&!income&&!editingTx&&!editingPTx); af.style.display=show?'':'none'; if(show) buildExAcctChips(); }
   var who=document.getElementById('ex-whofield'); if(who) who.style.display=(personal||income)?'none':'';   // no member-split in a private ledger / for income
   var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=(personal||income)?'none':'';     // personal photos not wired yet; income has none
   var bulk=document.getElementById('bulk-add'); if(bulk) bulk.style.display=(personal||income)?'none':'';     // keep personal + income single

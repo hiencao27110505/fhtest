@@ -175,6 +175,23 @@ for (const s of ['Ngân hàng', 'Kỹ Thương', 'chuyển tiền', 'ĐẦU TƯ'
   t('deburrAscii(' + JSON.stringify(s) + ') matches', M.deburrAscii(s) === deburrAscii(s));
 }
 
+console.log('\n-- and the instrument classifier, which both transports freeze into statics --');
+for (const c of [
+  { bodyText: 'Hạn mức khả dụng: 15.000.000 VND' },
+  { bodyText: 'Dư nợ thẻ: 3.200.000 VND' },
+  { bodyText: BODY },                                     // carries a "So du" row
+  { provider: 'MoMo', bodyText: 'thanh toan 50.000d' },
+  { provider: 'no-reply@zalopay.vn', bodyText: 'x' },
+  { subject: 'Thông báo giao dịch thẻ tín dụng', bodyText: 'GD -1,500,000 VND' },
+  { subject: 'Biến động số dư', bodyText: 'GD -50,000 VND' },
+  { bodyText: 'GD -100,000 VND', accountMasked: '4412 34** **** 5678' },
+  { bodyText: 'GD -100,000 VND' },                        // ambiguous → null
+]) {
+  t('deriveAccountKind(' + JSON.stringify(c).slice(0, 56) + '…) matches',
+    T.deriveAccountKind(c) === deriveAccountKind(c),
+    JSON.stringify(T.deriveAccountKind(c)) + ' vs ' + JSON.stringify(deriveAccountKind(c)));
+}
+
 console.log('\n' + (fail ? 'FAILED ' + fail + ' of ' + (pass + fail)
                          : 'ALL ' + pass + ' assertions passed'));
 process.exit(fail ? 1 : 0);

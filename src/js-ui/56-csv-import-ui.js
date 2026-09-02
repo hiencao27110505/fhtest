@@ -790,17 +790,27 @@ function csvStagedSourceTag(c){
   var s = window.fhStagedSource(c);
   return s==='direct-email' ? L('Trực tiếp','Direct') : (s==='forwarding-email' ? L('Chuyển tiếp','Forwarded') : '');
 }
-function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider, scope, source){
+/* Instrument chip (0105): the classifier's verdict, quiet plain text in the meta
+   line — "tín dụng ••1234" / "TK ••5678" / "ví". Empty when the classifier had
+   no confident answer (Q16), which reads as today's header, not as "unknown". */
+function csvStagedAcctChip(c){
+  if(!csvStagedMode || !window.fhStagedAcct) return '';
+  var ai = fhStagedAcct(c); if(!ai) return '';
+  var k = ai.kind==='credit_card' ? L('tín dụng','credit') : (ai.kind==='ewallet' ? L('ví','wallet') : 'TK');
+  return k + (ai.tail ? ' ••'+ai.tail : '');
+}
+function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider, scope, source, acct){
   var tone = isError ? ' attn' : (attn ? ' warn' : '');
   // Staged (bank-email) rows: a small source tag, then ONE quiet meta line —
-  // scope · bank · date · time. The generic "Khoản chi N" index says nothing here
-  // and stacking it beside the rest overflowed the header into a broken two-line
-  // wrap; the description below carries the real identity.
+  // scope · bank · account · date · time. The generic "Khoản chi N" index says
+  // nothing here and stacking it beside the rest overflowed the header into a
+  // broken two-line wrap; the description below carries the real identity.
   if (provider) {
     var when = dateIso ? esc(bulkDate(dateIso)) + (timeStr ? ' · ' + esc(timeStr) : '') : '';
     var parts = [];
     if (scope) parts.push('<span class="bulk-scope">'+esc(scope)+'</span>');
     parts.push('<span class="bulk-src'+tone+'">'+esc(provider)+'</span>');
+    if (acct) parts.push('<span class="bulk-when">'+esc(acct)+'</span>');   // instrument chip (0105): tín dụng ••1234 / TK / ví
     if (when) parts.push('<span class="bulk-when">'+when+'</span>');
     var tag = source ? '<span class="bulk-transport">'+esc(source)+'</span>' : '';
     return '<span class="bulk-head bulk-head-src">' + tag + '<span class="bulk-meta">'
@@ -831,7 +841,7 @@ function csvCollapsedCard(c, opts){
        Both destinations are marked so the line always reads scope · bank · time. */
     + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c),
         (csvStagedMode && !opts.isDup) ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '',
-        csvStagedSourceTag(c))
+        csvStagedSourceTag(c), csvStagedAcctChip(c))
     + (opts.noPick
         ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+'</span>'
         : bulkSummary(csvRowShape(c, opts.isDup || opts.repeat)))

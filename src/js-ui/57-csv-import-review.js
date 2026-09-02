@@ -570,6 +570,21 @@ function buildCsvCandidates(parsed, result) {
       var ttext = ' ' + deburr((desc || '').toLowerCase()) + ' ';
       if (/thanh toan (sao ke |du no )?the( tin dung)?|tt the tin dung|tra no the|thanh toan the (visa|master|jcb)|credit card payment|tra tien the tin dung/.test(ttext)) isTransfer = true;
     }
+    /* Staged (bank-email) rows carry the pipeline's own sealed verdicts —
+       flow (its internal-transfer call) and account_kind (the 0105 instrument
+       classifier). The §8.3 matrix: money INTO a credit card is a payment or
+       refund drawing the debt down — a transfer, never income. The memo regex
+       above still stands for CSV files and rows staged before the classifier. */
+    if (window.csvStagedMode && typeof window.fhStagedRawX === 'function') {
+      var _sx = window.fhStagedRawX(i);
+      /* fhStagedAcct carries the classifier verdict AND the local fallback for
+         rows staged before it existed (masked-PAN / wallet provider). */
+      var _sa = window.fhStagedAcct ? window.fhStagedAcct({ rowIndex: i }) : null;
+      if (_sx) {
+        if (_sx.flow === 'transfer') { isTransfer = true; isIncome = false; }
+        else if (_sa && _sa.kind === 'credit_card' && _sx.direction === 'credit') { isTransfer = true; isIncome = false; }
+      }
+    }
 
     var party = colFor.counterparty !== undefined ? (row[colFor.counterparty] || '').trim() : '';
 

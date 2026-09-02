@@ -167,6 +167,11 @@
     }
     _obChecking = false;
     _obInvites = Array.isArray(invs) ? invs : (invs ? [invs] : []);
+    /* Friend/trip SPACE invites (0106b exposes family_type) do not belong to
+       this door — joining one must never run family onboarding or move the
+       active-family slot. They surface on the Tài Chính tab's Nợ & cho vay
+       section instead (23-debts-ui). Absent field (older deploy) = family. */
+    _obInvites = _obInvites.filter(function (inv) { return (inv.family_type || 'family') === 'family'; });
     _obSel = 0;
     _obMode = _obInvites.length ? 'invite' : 'create';
     _fhJoinCtx = _obInvites.length ? _obInvites[0] : null;

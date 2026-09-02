@@ -26,3 +26,4 @@ earthy/serverless/functions/transaction-parser/tests/fixtures/bodies/
 
 # Supabase CLI state (project-ref, pooler url)
 supabase/.temp/
+__pycache__/

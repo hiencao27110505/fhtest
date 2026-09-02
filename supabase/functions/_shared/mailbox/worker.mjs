@@ -674,6 +674,10 @@ function _toReading(x, message) {
     typeCode: x.type_code || null,
     channel: x.channel || null,
     accountTail: x.account_masked || null,
+    // Which instrument moved the money (spec §8) — template static, model
+    // answer or heuristic, whichever tier filled it. Null rides through as
+    // null: the client defaults rather than this layer guessing.
+    accountKind: x.account_kind || null,
     category: x.category || null,
     flow: x.flow || null,
     senderAuth: message.dkim,

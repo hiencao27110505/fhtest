@@ -114,6 +114,7 @@ export function normaliseReading(raw, body) {
     typeCode: r.type_code || r.typeCode || tidy.code || null,
     channel: r.channel ?? null,
     accountTail: r.account_tail ?? r.accountTail ?? null,
+    accountKind: r.account_kind ?? r.accountKind ?? null,
     reference: r.reference ?? r.reference_number ?? null,
     category: r.category ?? null,
     occurredAt: r.occurred_at ?? r.occurredAt ?? null,

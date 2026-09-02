@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Nợ & cho vay — FamilyHub</title>
+<style>
+/* ============================================================================
+   Design tokens — copied VERBATIM from familyhub/src/css/10-tokens.css (Sage).
+   The prototype reuses the real token vocabulary so the new "Nợ & cho vay"
+   card is pixel-faithful to the cash-flow card, not an approximation.
+   ========================================================================== */
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --grad-hero:linear-gradient(150deg,#4CB584 0%,#2E9E6B 52%,#8FC97E 100%);
+  --brand-glow:rgba(46,158,107,.32); --brand-tint:#e9f7f0;
+  --danger:#E0322F; --danger-tint:#fdecef;
+  --good:#1a9d5f; --good-tint:#e7f5ee; --amber:#B8730B; --amber-tint:#fbefda;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --white:#ffffff; --canvas:#f4f1f6; --pearl:#fbfafc;
+  --hairline:#e9e4ee; --divider:#f1edf4;
+  --surface:#f9f7f8; --fill-neutral:rgba(138,132,148,.14); --chev:#cfc8d6;
+  --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+  --shadow-focal:0 1px 3px rgba(25,16,34,.05),0 12px 30px rgba(25,16,34,.09);
+  --shadow-raised:0 2px 6px rgba(25,16,34,.06),0 16px 34px rgba(25,16,34,.12);
+  --r-card-lg:22px;
+  --cat-food:#34C759; --cat-dining:#FF375F; --cat-transport:#32ADE6;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--text);color:var(--ink);background:#20182a;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  display:flex;align-items:center;justify-content:center;
+}
+.num{font-family:var(--disp);font-feature-settings:"tnum";font-variant-numeric:tabular-nums}
+
+/* ── Phone frame (presentation on desktop; fills the screen on device) ─────── */
+.phone{
+  position:relative;width:100%;max-width:402px;height:100vh;max-height:874px;
+  background:var(--canvas);overflow:hidden;display:flex;flex-direction:column;
+  box-shadow:0 40px 90px rgba(0,0,0,.5);
+}
+@media(min-width:440px){ .phone{border-radius:46px;border:11px solid #05030a} }
+
+/* ── iOS status bar ────────────────────────────────────────────────────────── */
+.ios-status{
+  flex:0 0 auto;height:calc(44px + env(safe-area-inset-top));
+  padding:env(safe-area-inset-top) 30px 0;
+  display:flex;align-items:center;justify-content:space-between;
+  font-family:var(--disp);font-size:15px;font-weight:600;color:var(--ink);
+  position:relative;z-index:40;background:var(--canvas);
+}
+.ios-status .r{display:flex;align-items:center;gap:6px}
+.ios-status svg{display:block}
+
+/* ── Navigation bar (Apple HIG) ────────────────────────────────────────────── */
+.nav{
+  flex:0 0 auto;background:var(--canvas);position:relative;z-index:30;
+}
+.nav-inline{
+  height:44px;display:flex;align-items:center;justify-content:center;position:relative;
+}
+.nav-title{font-family:var(--disp);font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink);
+  max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-back{
+  position:absolute;left:6px;top:0;height:44px;min-width:44px;padding:0 8px;
+  display:flex;align-items:center;gap:2px;border:0;background:none;cursor:pointer;
+  color:var(--brand-ink);font-family:var(--text);font-size:17px;font-weight:400;letter-spacing:-.02em;
+}
+.nav-back svg{width:22px;height:22px;stroke:var(--brand-ink);stroke-width:2.6}
+.nav-back:active{opacity:.4}
+.large-title{padding:4px 20px 8px;font-family:var(--disp);font-size:34px;font-weight:700;
+  letter-spacing:-1px;line-height:1.04;color:var(--ink)}
+
+/* ── Scroll body ───────────────────────────────────────────────────────────── */
+.scroll{
+  flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+  padding-bottom:calc(40px + env(safe-area-inset-bottom));background:var(--canvas);position:relative;
+}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+  padding:14px 26px 7px}
+
+/* ============================================================================
+   CARD RECIPE — identical to .cf-card (white · 22px · --shadow-focal · gutter)
+   ========================================================================== */
+.card{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);
+  margin:2px 16px 12px;overflow:hidden}
+
+/* ── Context: a faithful (trimmed) cash-flow card, to prove placement + kinship ─ */
+.cf-card{padding:16px 16px 14px}
+.cf-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cf-big{font-family:var(--disp);font-size:34px;font-weight:700;letter-spacing:-1.2px;line-height:1.04;
+  color:var(--ink);font-variant-numeric:tabular-nums;margin-top:4px}
+.cf-tiles{display:flex;gap:8px;margin-top:13px}
+.cf-tile{flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;
+  background:var(--surface);border:0;border-radius:12px;padding:10px 12px;font:inherit;cursor:pointer;
+  transition:transform .16s cubic-bezier(.4,0,.2,1)}
+.cf-tile:active{transform:scale(.98)}
+.cf-tl{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--muted)}
+.cf-ar{font-weight:700}.cf-ar.up{color:var(--good)}.cf-ar.dn{color:var(--ink-2)}
+.cf-tv{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.03em;color:var(--ink);
+  font-variant-numeric:tabular-nums}
+/* the cross-link heads-up (spec §6.3): a looming statement, amber like .cf-note */
+.cf-note{font-size:12px;font-weight:600;line-height:1.45;letter-spacing:-.01em;padding:9px 12px;
+  border-radius:11px;margin-top:15px;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:7px;
+  background:var(--amber-tint);color:var(--amber)}
+.cf-note b{font-weight:800;white-space:nowrap}
+.cf-note svg{width:15px;height:15px;flex-shrink:0;stroke:var(--amber);stroke-width:2}
+
+/* ── The star: "Nợ & cho vay" zoom-out card ────────────────────────────────── */
+.nl-hd{padding:16px 16px 4px}
+.nl-hd .cf-lbl{margin-bottom:12px}
+.nl-tot{display:flex;gap:10px}
+.nl-tcol{flex:1;min-width:0}
+.nl-tk{font-size:11px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:5px}
+.nl-tk .dot{width:7px;height:7px;border-radius:50%}
+.nl-tv{font-family:var(--disp);font-size:26px;font-weight:700;letter-spacing:-.9px;line-height:1.05;
+  font-variant-numeric:tabular-nums;margin-top:4px}
+.nl-tv.owe{color:var(--danger)} .nl-tv.owed{color:var(--good)}
+.nl-glbl{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--muted);padding:15px 16px 2px}
+.nl-list{padding:0 0 2px}
+/* a counterparty row — HIG: ≥44pt target, chevron affordance, :active fill */
+.nl-row{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:11px 16px;
+  border:0;background:none;font:inherit;text-align:left;cursor:pointer;
+  border-top:1px solid var(--divider)}
+.nl-glbl + .nl-list .nl-row:first-child{border-top:0}
+.nl-row:active{background:var(--surface)}
+.nl-ic{width:38px;height:38px;flex-shrink:0;border-radius:11px;display:flex;align-items:center;justify-content:center}
+.nl-ic svg{width:20px;height:20px}
+.nl-ic.card{background:#eef0ff;color:#5E5CE6}
+.nl-ic.person{background:var(--brand-tint);color:var(--brand-ink)}
+.nl-ic.space{background:#fff0e6;color:#C4610B}
+.nl-bd{flex:1;min-width:0}
+.nl-nm{font-size:15.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nl-sub{font-size:12.5px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:4px;border-radius:9999px;padding:2px 9px;
+  font-size:11px;font-weight:700;letter-spacing:-.01em}
+.chip.due{background:var(--amber-tint);color:var(--amber)}
+.chip.priv{background:var(--fill-neutral);color:var(--muted)}
+.nl-r{text-align:right;flex-shrink:0;display:flex;align-items:center;gap:6px}
+.nl-amt{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.4px;font-variant-numeric:tabular-nums}
+.nl-amt.neg{color:var(--danger)} .nl-amt.pos{color:var(--good)}
+.chev{width:18px;height:18px;flex-shrink:0;stroke:var(--chev);stroke-width:2;fill:none}
+
+/* stub of the next section, for context only */
+.stub{padding:15px 16px;color:var(--muted);font-size:13.5px;font-weight:500}
+.stub b{color:var(--ink);font-weight:600}
+
+/* ============================================================================
+   DETAIL PANEL — pushed iOS-style over the tab
+   ========================================================================== */
+.detail{position:absolute;inset:0;z-index:50;background:var(--canvas);display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .34s cubic-bezier(.32,.72,0,1);
+  box-shadow:-16px 0 40px rgba(0,0,0,.10)}
+.detail.open{transform:none}
+.detail .scroll{padding-top:2px}
+.d-hero{padding:8px 22px 4px}
+.d-hk{font-size:12px;font-weight:600;color:var(--muted)}
+.d-hv{font-family:var(--disp);font-size:40px;font-weight:700;letter-spacing:-1.6px;line-height:1;margin-top:6px;
+  font-variant-numeric:tabular-nums}
+.d-hv.owe{color:var(--danger)} .d-hv.owed{color:var(--good)}
+.d-hsub{font-size:13px;color:var(--muted);margin-top:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* limit meter */
+.meter{height:7px;border-radius:4px;background:var(--fill-neutral);margin-top:12px;overflow:hidden;max-width:260px}
+.meter > i{display:block;height:100%;border-radius:4px;background:var(--brand)}
+/* statement callout */
+.callout{margin:16px;padding:13px 15px;border-radius:14px;background:var(--amber-tint);
+  display:flex;align-items:center;gap:11px}
+.callout .ci{width:34px;height:34px;border-radius:10px;background:rgba(184,115,11,.16);color:var(--amber);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.callout .ci svg{width:18px;height:18px;stroke:var(--amber);stroke-width:2;fill:none}
+.callout .ct{flex:1;min-width:0}
+.callout .ct b{font-family:var(--disp);font-size:15px;font-weight:700;color:#7a4d07;letter-spacing:-.02em}
+.callout .ct span{display:block;font-size:12px;color:var(--amber);margin-top:1px;font-weight:600}
+
+/* generic inset list inside a detail (HIG grouped style) */
+.d-sec-lbl{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--muted);
+  text-transform:uppercase;padding:18px 26px 8px}
+.li{display:flex;align-items:center;gap:12px;min-height:56px;padding:9px 16px;border-top:1px solid var(--divider)}
+.card > .li:first-child{border-top:0}
+.li-ic{width:34px;height:34px;flex-shrink:0;border-radius:10px;background:var(--surface);
+  display:flex;align-items:center;justify-content:center;font-size:17px}
+.li-bd{flex:1;min-width:0}
+.li-nm{font-size:14.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.li-amt{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.3px;
+  font-variant-numeric:tabular-nums;flex-shrink:0}
+.li-amt.neg{color:var(--ink-2)} .li-amt.pos{color:var(--good)} .li-amt.pay{color:var(--good)}
+.li-tag{font-size:10.5px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);
+  border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:middle}
+.footnote{padding:12px 26px 4px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.footnote b{color:var(--ink-2);font-weight:600}
+
+/* member balance row (space detail) */
+.mb{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 16px;border-top:1px solid var(--divider)}
+.card > .mb:first-child{border-top:0}
+.mb-av{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--disp);font-size:14px;font-weight:700;color:#fff}
+.mb-nm{flex:1;font-size:14.5px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+.mb-nm .you{font-size:11px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);
+  border-radius:5px;padding:1px 6px;margin-left:6px;letter-spacing:0}
+.mb-net{font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.3px;font-variant-numeric:tabular-nums}
+.mb-net.pos{color:var(--good)} .mb-net.neg{color:var(--danger)}
+.pair{padding:11px 16px;font-size:13px;color:var(--ink-2);border-top:1px solid var(--divider);
+  display:flex;align-items:center;gap:8px}
+.pair .num{font-weight:700}
+
+/* action buttons (HIG filled + tinted) */
+.acts{display:flex;gap:10px;padding:16px}
+.btn{flex:1;min-height:48px;border:0;border-radius:14px;font-family:var(--text);font-size:15px;font-weight:600;
+  letter-spacing:-.01em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;
+  transition:transform .14s ease}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--brand);color:#fff}
+.btn.tinted{background:var(--brand-tint);color:var(--brand-ink)}
+.btn svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none}
+
+@media(prefers-reduced-motion:reduce){
+  .detail{transition:none}
+  .cf-tile,.btn{transition:none}
+}
+</style>
+</head>
+<body>
+<div class="phone t-sage">
+
+  <!-- iOS status bar -->
+  <div class="ios-status">
+    <span>9:41</span>
+    <span class="r">
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="var(--ink)"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+      <svg width="17" height="12" viewBox="0 0 17 12" fill="var(--ink)"><path d="M8.5 2.3c2.3 0 4.4.9 6 2.4l-1.2 1.2A7 7 0 0 0 8.5 4a7 7 0 0 0-4.8 1.9L2.5 4.7A8.7 8.7 0 0 1 8.5 2.3Zm0 3.4c1.4 0 2.6.5 3.6 1.4l-1.3 1.3c-.6-.6-1.4-.9-2.3-.9s-1.7.3-2.3.9L4.9 7.1A5.2 5.2 0 0 1 8.5 5.7Zm0 3.2 1.6 1.6-1.6 1.5-1.6-1.5 1.6-1.6Z"/></svg>
+      <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="21" height="11" rx="3" stroke="var(--ink)" stroke-opacity=".4"/><rect x="2.5" y="2.5" width="16" height="8" rx="1.6" fill="var(--ink)"/><rect x="23.5" y="4" width="1.6" height="5" rx=".8" fill="var(--ink)" fill-opacity=".4"/></svg>
+    </span>
+  </div>
+
+  <!-- Root tab: Tài Chính -->
+  <div class="nav"><div class="large-title">Tài Chính</div></div>
+
+  <div class="scroll" id="rootScroll">
+
+    <!-- CONTEXT: trimmed cash-flow card (the first stats widget) — placement + kinship proof -->
+    <div class="eyebrow">Dòng tiền tháng này</div>
+    <section class="card cf-card">
+      <div class="cf-lbl">Còn lại tháng này · cá nhân</div>
+      <div class="cf-big num">6.480.000đ</div>
+      <div class="cf-tiles">
+        <button class="cf-tile"><span class="cf-tl"><span class="cf-ar up">↑</span> Vào</span><span class="cf-tv num">18.000.000đ</span></button>
+        <button class="cf-tile"><span class="cf-tl"><span class="cf-ar dn">↓</span> Ra</span><span class="cf-tv num">11.520.000đ</span></button>
+      </div>
+      <!-- cross-link heads-up (spec §6.3): the looming statement, folded into planning -->
+      <div class="cf-note"><svg viewBox="0 0 24 24" fill="none"><path d="M12 8v5M12 16h.01M10.3 3.9 2.3 18a2 2 0 0 0 1.7 3h16a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Sắp phải trả thẻ <b>~4.820.000đ</b> · đến hạn 15/09</span></div>
+    </section>
+
+    <!-- THE STAR: Nợ & cho vay -->
+    <div class="eyebrow">Bức tranh nợ</div>
+    <section class="card">
+      <div class="nl-hd">
+        <div class="cf-lbl">Nợ & cho vay</div>
+        <div class="nl-tot">
+          <div class="nl-tcol">
+            <div class="nl-tk"><span class="dot" style="background:var(--danger)"></span> Tôi nợ</div>
+            <div class="nl-tv owe num">7.120.000đ</div>
+          </div>
+          <div class="nl-tcol">
+            <div class="nl-tk"><span class="dot" style="background:var(--good)"></span> Được nợ / cho vay</div>
+            <div class="nl-tv owed num">3.500.000đ</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="nl-glbl">Thẻ & khoản vay</div>
+      <div class="nl-list" id="grp-cards"></div>
+
+      <div class="nl-glbl">Bạn bè & nhóm</div>
+      <div class="nl-list" id="grp-people"></div>
+    </section>
+
+    <!-- stub: the next section, for context -->
+    <div class="eyebrow">Tiền đi đâu tháng này</div>
+    <section class="card"><div class="stub">Nhóm Đà Lạt · Gia đình · Riêng tư…  <b>bạn được nợ 1.500.000đ ở Nhóm Đà Lạt ›</b></div></section>
+  </div>
+
+  <!-- Detail panel (reused) -->
+  <div class="detail" id="detail">
+    <div class="ios-status">
+      <span>9:41</span>
+      <span class="r">
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="var(--ink)"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4.5" width="3" height="7.5" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="var(--ink)"><path d="M8.5 2.3c2.3 0 4.4.9 6 2.4l-1.2 1.2A7 7 0 0 0 8.5 4a7 7 0 0 0-4.8 1.9L2.5 4.7A8.7 8.7 0 0 1 8.5 2.3Z"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="21" height="11" rx="3" stroke="var(--ink)" stroke-opacity=".4"/><rect x="2.5" y="2.5" width="16" height="8" rx="1.6" fill="var(--ink)"/></svg>
+      </span>
+    </div>
+    <div class="nav"><div class="nav-inline">
+      <button class="nav-back" onclick="closeDetail()"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>Tài Chính</button>
+      <div class="nav-title" id="dTitle"></div>
+    </div></div>
+    <div class="scroll" id="dBody"></div>
+  </div>
+
+</div>
+
+<script>
+/* ── mock data ─────────────────────────────────────────────────────────────── */
+var DATA={
+  cards:['sacombank','anhlong'],
+  people:['dalat','thangem','anchoi'],
+  items:{
+    sacombank:{type:'card',name:'Sacombank Visa',sub:'Thẻ tín dụng · ••1234',amt:-4820000,due:'15/09',
+      icon:'card',limitUsed:4820000,limitTotal:20000000,famNote:500000,
+      lines:[
+        {emoji:'🍜',nm:'Bún bò Huế',sub:'Ăn uống · 28/08',amt:-185000},
+        {emoji:'🛒',nm:'WinMart',sub:'Chợ, siêu thị · 26/08',amt:-542000},
+        {emoji:'🏡',nm:'Ăn tối gia đình',sub:'Ăn uống · 24/08',amt:-500000,fam:true},
+        {emoji:'⛽',nm:'Petrolimex',sub:'Di chuyển · 21/08',amt:-700000},
+        {emoji:'📱',nm:'FPT Shop',sub:'Mua sắm · 18/08',amt:-1893000},
+        {emoji:'💳',nm:'Thanh toán sao kê',sub:'Chuyển khoản · 15/08',amt:2400000,pay:true}
+      ]},
+    anhlong:{type:'person',name:'Anh Long',rel:'owe',amt:-2000000,icon:'person',scope:'Vay cá nhân',priv:true,
+      events:[
+        {emoji:'💵',nm:'Anh Long cho bạn mượn',sub:'12/08',amt:-2000000}
+      ]},
+    thangem:{type:'person',name:'Thằng em',rel:'owed',amt:2000000,icon:'person',scope:'Cho vay',priv:true,
+      events:[
+        {emoji:'💸',nm:'Bạn cho thằng em mượn',sub:'20/08',amt:2000000}
+      ]},
+    dalat:{type:'space',name:'Nhóm Đà Lạt',sub:'bạn được nợ',amt:1500000,icon:'space',
+      members:[{n:'Bạn',net:1500000,you:true,c:'#2E9E6B'},{n:'Minh',net:-900000,c:'#5E5CE6'},{n:'Trang',net:-600000,c:'#E0567F'}],
+      pairs:[{t:'Minh → bạn',a:900000},{t:'Trang → bạn',a:600000}],
+      exp:[
+        {emoji:'🏨',nm:'Villa 2 đêm',sub:'Bạn trả · chia đều 3 · 23/08',amt:-4500000},
+        {emoji:'🍢',nm:'BBQ tối',sub:'Minh trả · chia đều 3 · 23/08',amt:-600000}
+      ]},
+    anchoi:{type:'space',name:'Nhóm Ăn chơi',sub:'bạn nợ Bình',amt:-300000,icon:'space',
+      members:[{n:'Bình',net:600000,c:'#C4610B'},{n:'Bạn',net:-300000,you:true,c:'#2E9E6B'},{n:'Cường',net:-300000,c:'#32ADE6'}],
+      pairs:[{t:'Bạn → Bình',a:300000},{t:'Cường → Bình',a:300000}],
+      exp:[
+        {emoji:'🍻',nm:'Bia tối qua',sub:'Bình trả · chia đều 3 · 29/08',amt:-900000}
+      ]}
+  }
+};
+
+var ICON={
+  card:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.6"/><path d="M2.5 9.5h19"/></svg>',
+  person:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>',
+  space:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="9" r="2.8"/><circle cx="16" cy="10" r="2.4"/><path d="M3.5 19a5 5 0 0 1 9 0M13.5 19a4.4 4.4 0 0 1 7 0"/></svg>'
+};
+var CHEV='<svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>';
+
+/* ── VND formatting ────────────────────────────────────────────────────────── */
+function grp(n){return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
+function fmt(n){return grp(Math.abs(n))+'đ';}
+function fmtSigned(n){return (n<0?'−':'+')+grp(Math.abs(n))+'đ';}
+
+/* ── render the zoom-out rows ──────────────────────────────────────────────── */
+function rowHTML(id){
+  var it=DATA.items[id];
+  var neg=it.amt<0;
+  var sub='';
+  if(it.type==='card'&&it.due) sub='<span class="chip due">đến hạn '+it.due+'</span>';
+  else if(it.type==='person') sub='<span class="chip priv">🔒 '+it.scope+'</span>';
+  else if(it.type==='space') sub='<span>'+it.sub+'</span>';
+  var subline = it.type==='card' ? '<div class="nl-sub">'+it.sub+'  '+(it.due?'<span class="chip due">đến hạn '+it.due+'</span>':'')+'</div>'
+              : '<div class="nl-sub">'+sub+'</div>';
+  return '<button class="nl-row" onclick="openDetail(\''+id+'\')">'
+    + '<span class="nl-ic '+it.type+'">'+ICON[it.icon]+'</span>'
+    + '<span class="nl-bd"><span class="nl-nm">'+it.name+'</span>'+subline+'</span>'
+    + '<span class="nl-r"><span class="nl-amt '+(neg?'neg':'pos')+' num">'+fmtSigned(it.amt)+'</span>'+CHEV+'</span>'
+    + '</button>';
+}
+document.getElementById('grp-cards').innerHTML=DATA.cards.map(rowHTML).join('');
+document.getElementById('grp-people').innerHTML=DATA.people.map(rowHTML).join('');
+
+/* ── detail renderers ──────────────────────────────────────────────────────── */
+function detailCard(it){
+  var pct=Math.round(it.limitUsed/it.limitTotal*100);
+  var h='<div class="d-hero"><div class="d-hk">Đang nợ</div><div class="d-hv owe num">'+fmt(it.amt)+'</div>'
+    + '<div class="d-hsub">Hạn mức còn '+fmt(it.limitTotal-it.limitUsed)+' / '+fmt(it.limitTotal)+'</div>'
+    + '<div class="meter"><i style="width:'+pct+'%"></i></div></div>';
+  h+='<div class="callout"><span class="ci"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4" stroke-linecap="round"/></svg></span>'
+    + '<span class="ct"><b>Sao kê đến hạn '+it.due+'</b><span>'+fmt(it.limitUsed)+' · chạm để đặt nhắc</span></span>'+CHEV+'</div>';
+  h+='<div class="d-sec-lbl">Kỳ này</div><section class="card">';
+  h+=it.lines.map(function(l){
+    return '<div class="li"><span class="li-ic">'+l.emoji+'</span>'
+      + '<span class="li-bd"><span class="li-nm">'+l.nm+(l.fam?'<span class="li-tag">Gia đình</span>':'')+(l.pay?'<span class="li-tag">Chuyển khoản</span>':'')+'</span><span class="li-sub">'+l.sub+'</span></span>'
+      + '<span class="li-amt '+(l.pay?'pay':'neg')+' num">'+fmtSigned(l.amt)+'</span></div>';
+  }).join('');
+  h+='</section>';
+  h+='<div class="footnote">Trong đó <b>'+fmt(it.famNote)+'</b> là chi tiêu gia đình bạn ứng thẻ — đã hiển thị ở sổ gia đình, không tính hai lần.</div>';
+  return h;
+}
+function detailPerson(it){
+  var owe=it.rel==='owe';
+  var h='<div class="d-hero"><div class="d-hk">'+(owe?'Bạn đang nợ':'Đang nợ bạn')+'</div>'
+    + '<div class="d-hv '+(owe?'owe':'owed')+' num">'+fmt(it.amt)+'</div>'
+    + '<div class="d-hsub"><span class="chip priv">🔒 '+it.scope+' · riêng tư</span></div></div>';
+  h+='<div class="d-sec-lbl">Lịch sử</div><section class="card">';
+  h+=it.events.map(function(e){
+    var neg=e.amt<0;
+    return '<div class="li"><span class="li-ic">'+e.emoji+'</span>'
+      + '<span class="li-bd"><span class="li-nm">'+e.nm+'</span><span class="li-sub">'+e.sub+'</span></span>'
+      + '<span class="li-amt '+(neg?'neg':'pos')+' num">'+fmtSigned(e.amt)+'</span></div>';
+  }).join('');
+  h+='</section>';
+  h+='<div class="acts"><button class="btn primary"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>Ghi đã trả</button>'
+    + '<button class="btn tinted"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" stroke-linecap="round" stroke-linejoin="round"/></svg>Nhắc trả</button></div>';
+  h+='<div class="footnote">Khoản vay 1:1 chỉ mình bạn ghi nhận — không cần người kia dùng app.</div>';
+  return h;
+}
+function detailSpace(it){
+  var owed=it.amt>=0;
+  var h='<div class="d-hero"><div class="d-hk">'+(owed?'Bạn được nợ':'Bạn đang nợ')+' trong nhóm này</div>'
+    + '<div class="d-hv '+(owed?'owed':'owe')+' num">'+fmt(it.amt)+'</div></div>';
+  h+='<div class="d-sec-lbl">Số dư nhóm</div><section class="card">';
+  h+=it.members.map(function(m){
+    var pos=m.net>=0;
+    return '<div class="mb"><span class="mb-av" style="background:'+m.c+'">'+m.n.charAt(0)+'</span>'
+      + '<span class="mb-nm">'+m.n+(m.you?'<span class="you">bạn</span>':'')+'</span>'
+      + '<span class="mb-net '+(pos?'pos':'neg')+' num">'+fmtSigned(m.net)+'</span></div>';
+  }).join('');
+  h+=it.pairs.map(function(p){
+    return '<div class="pair"><span>⇄</span> '+p.t+' <span class="num" style="margin-left:auto">'+fmt(p.a)+'</span></div>';
+  }).join('');
+  h+='</section>';
+  h+='<div class="d-sec-lbl">Chi tiêu chung</div><section class="card">';
+  h+=it.exp.map(function(e){
+    return '<div class="li"><span class="li-ic">'+e.emoji+'</span>'
+      + '<span class="li-bd"><span class="li-nm">'+e.nm+'</span><span class="li-sub">'+e.sub+'</span></span>'
+      + '<span class="li-amt neg num">'+fmt(e.amt)+'</span></div>';
+  }).join('');
+  h+='</section>';
+  h+='<div class="acts"><button class="btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>Ghi thanh toán</button>'
+    + '<button class="btn tinted"><svg viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>Chia khoản mới</button></div>';
+  return h;
+}
+
+function openDetail(id){
+  var it=DATA.items[id];
+  document.getElementById('dTitle').textContent=it.name;
+  var body=document.getElementById('dBody');
+  body.innerHTML = it.type==='card'?detailCard(it) : it.type==='person'?detailPerson(it) : detailSpace(it);
+  body.scrollTop=0;
+  document.getElementById('detail').classList.add('open');
+}
+function closeDetail(){ document.getElementById('detail').classList.remove('open'); }
+</script>
+</body>
+</html>

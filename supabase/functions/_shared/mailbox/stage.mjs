@@ -154,6 +154,14 @@ export async function buildStagedRow(args) {
       type_code: reading.typeCode || null,
       channel: reading.channel || null,
       account_masked: reading.accountTail || reading.account_tail || null,
+      /* WHICH INSTRUMENT moved the money (borrowing-lending-spec §8): the
+         review chip and the ledger meaning (expense vs card debt vs top-up)
+         hang off this. Inside raw_extracted like the other cash-flow fields —
+         a new top-level column would need 0068's CHECK to null it out, and the
+         sealed row's key set is pinned. Null means "the mail did not say":
+         the client defaults to deposit-expense behaviour with an editable
+         chip, never inventing a debt. */
+      account_kind: reading.accountKind ?? reading.account_kind ?? null,
       reference_number: reading.reference || null,
       transaction_type: transactionType,
       occurred_at: occurredAt,

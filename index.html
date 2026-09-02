@@ -1514,6 +1514,102 @@ input{font-family:inherit}
 .rows .row.is-locked .r-t{color:var(--muted)}
 .rows .row.is-locked .r-amt{color:var(--chev)}
 
+/* ── Nợ & cho vay — bento + zoom-in overlay (23-debts-ui.js) ─────────────────
+   Design: mockups/borrowing-lending-ring.html variant 01 (Concentric), on the
+   cf-card recipe: white / 22px / --shadow-focal / 16px gutter. Owe = --danger,
+   owed = --good; rings reuse the tint tokens. */
+
+/* bento */
+.debt-bento{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 16px 12px}
+.dbt-tile{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:14px 15px;
+  border:0;font:inherit;text-align:left;cursor:pointer;display:block;transition:transform .16s cubic-bezier(.4,0,.2,1)}
+.dbt-tile:active{transform:scale(.98)}
+.dbt-tile.wide{grid-column:1 / -1}
+.dbt-hero{display:flex;align-items:center;gap:16px;padding:16px;cursor:default}
+.dbt-hero:active{transform:none}
+.dbt-hero svg{flex-shrink:0}
+.dbt-legend{flex:1;min-width:0}
+.dbt-lr{display:flex;align-items:center;gap:7px}
+.dbt-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dbt-lk{font-size:11px;font-weight:600;color:var(--muted)}
+.dbt-lv{margin-left:auto;font-family:var(--disp);font-size:20px;font-weight:700;letter-spacing:-.5px;color:var(--ink)}
+.dbt-ldiv{height:1px;background:var(--divider);margin:10px 0}
+.dbt-tk{font-size:13px;font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbt-tv{font-family:var(--disp);font-size:21px;font-weight:700;letter-spacing:-.5px;margin-top:6px}
+.dbt-tv.owe{color:var(--danger)} .dbt-tv.owed{color:var(--good)}
+.dbt-ts{font-size:11px;font-weight:600;color:var(--muted);margin-top:5px}
+.dbt-ms{display:flex;justify-content:space-between;font-size:10.5px;font-weight:600;color:var(--muted);margin-top:9px}
+.dbt-meter{height:6px;border-radius:4px;background:var(--fill-neutral);overflow:hidden;margin-top:5px}
+.dbt-meter>i{display:block;height:100%;border-radius:4px;background:var(--cat-housing)}
+.dbt-meter.big{height:8px;max-width:280px;margin-top:12px}
+
+/* empty state */
+.dbt-empty{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:2px 16px 12px;padding:16px}
+.dbt-empty-t{font-size:13.5px;line-height:1.5;color:var(--ink-2)}
+.dbt-empty-cta{display:flex;gap:8px;margin-top:12px}
+.dbt-empty-cta button{flex:1;min-height:42px;border:0;border-radius:12px;background:var(--brand-tint);color:var(--brand-ink);
+  font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.dbt-empty-cta button:active{transform:scale(.98)}
+
+/* overlay internals */
+#debt-overlay .txn-title{padding-bottom:4px}
+.dbt-hero2{padding:6px 22px 4px}
+.dbt-hk{font-size:12.5px;font-weight:600;color:var(--muted)}
+.dbt-hv{font-family:var(--disp);font-size:38px;font-weight:700;letter-spacing:-1.4px;line-height:1;margin-top:7px;color:var(--ink)}
+.dbt-hv.owe{color:var(--danger)} .dbt-hv.owed{color:var(--good)}
+.dbt-hs{font-size:13px;color:var(--muted);margin-top:9px}
+.dbt-chip{display:inline-flex;align-items:center;gap:4px;background:var(--fill-neutral);color:var(--muted);
+  border-radius:9999px;padding:4px 11px;font-size:11.5px;font-weight:700}
+.dbt-acts{display:flex;gap:10px;padding:16px 16px 4px}
+.dbt-btn{flex:1;min-height:46px;border:0;border-radius:13px;font:inherit;font-size:14.5px;font-weight:600;
+  letter-spacing:-.01em;cursor:pointer;transition:transform .14s ease}
+.dbt-btn:active{transform:scale(.98)}
+.dbt-btn.primary{background:var(--brand);color:#fff}
+.dbt-btn.tinted{background:var(--brand-tint);color:var(--brand-ink)}
+.dbt-sec{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:18px 26px 8px}
+.dbt-card{background:var(--white);border-radius:20px;margin:0 16px;box-shadow:var(--shadow-card);overflow:hidden}
+.dbt-note{padding:13px 16px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.dbt-li{display:flex;align-items:center;gap:12px;min-height:54px;padding:9px 16px;border-top:1px solid var(--divider)}
+.dbt-card>.dbt-li:first-child{border-top:0}
+.dbt-lic{width:32px;height:32px;flex-shrink:0;border-radius:10px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px}
+.dbt-lib{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.dbt-lin{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbt-lis{font-size:11.5px;color:var(--muted)}
+.dbt-liv{font-family:var(--disp);font-size:14.5px;font-weight:700;letter-spacing:-.3px;color:var(--ink-2);flex-shrink:0}
+.dbt-liv.owed{color:var(--good)}
+.dbt-tag{display:inline-block;font-style:normal;font-size:10px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);
+  border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:middle}
+.dbt-foot{padding:12px 26px 4px;font-size:12px;line-height:1.55;color:var(--muted)}
+.dbt-foot b{color:var(--ink-2);font-weight:600}
+
+/* member balance rows (space) */
+.dbt-mb{display:flex;align-items:center;gap:12px;min-height:50px;padding:8px 16px;border-top:1px solid var(--divider)}
+.dbt-card>.dbt-mb:first-child{border-top:0}
+.dbt-av{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--disp);font-size:13px;font-weight:700;color:#fff}
+.dbt-mbn{flex:1;font-size:14px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+.dbt-you{display:inline-block;font-style:normal;font-size:10px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);
+  border-radius:5px;padding:1px 6px;margin-left:6px}
+.dbt-mbv{font-family:var(--disp);font-size:14.5px;font-weight:700;letter-spacing:-.3px}
+.dbt-mbv.owe{color:var(--danger)} .dbt-mbv.owed{color:var(--good)}
+.dbt-pair{display:flex;align-items:center;gap:8px;padding:10px 16px;font-size:12.5px;font-weight:500;color:var(--ink-2);border-top:1px solid var(--divider)}
+.dbt-pair .num{margin-left:auto;font-weight:700}
+
+/* secondary actions (space) */
+.dbt-acts2{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px 4px}
+.dbt-acts2 button{border:0;border-radius:9999px;background:var(--fill-neutral);color:var(--ink-2);
+  font:inherit;font-size:12.5px;font-weight:600;padding:9px 14px;cursor:pointer}
+.dbt-acts2 button.danger{color:var(--danger);background:var(--danger-tint)}
+.dbt-acts2 button:active{transform:scale(.97)}
+
+/* sheets */
+.dbt-in{width:100%;border:1.5px solid var(--hairline);border-radius:12px;padding:12px 13px;font:inherit;font-size:15px;background:var(--pearl)}
+.dbt-cardshow{background:var(--surface);border:1.5px dashed var(--hairline);border-radius:14px;padding:16px;
+  font-size:17px;font-weight:700;letter-spacing:.06em;text-align:center;word-break:break-all;user-select:all;-webkit-user-select:all}
+.dbt-exrow{display:flex;align-items:center;gap:10px;margin-top:8px}
+.dbt-exn{flex:0 0 90px;font-size:13px;font-weight:600;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbt-exrow input{flex:1}
+
 /* Savings goals — ONE grouped card: the brief (goal-gradient framing) is the header,
    the goal list its body. A single border + shadow makes the whole thing read as one object. */
 .goal-card{background:var(--white);border:1px solid var(--hairline);border-radius:18px;margin:0 16px 12px;overflow:hidden;box-shadow:var(--shadow-card)}
@@ -3843,6 +3939,19 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="cd-cta-bar" id="exd-cta"></div>
 </div>
 
+<!-- NỢ & CHO VAY DETAIL — account · person · space zoom-ins (23-debts-ui.js) -->
+<div class="overlay" id="debt-overlay">
+  <div class="safe"></div>
+  <div class="cd-nav">
+    <button class="cd-back" onclick="closeDebt()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span>Tài Chính</span></button>
+  </div>
+  <h1 class="txn-title" id="dbt-title">Nợ &amp; cho vay</h1>
+  <div class="cd-scroll" id="dbt-scroll">
+    <div id="dbt-body"></div>
+    <div class="spacer"></div>
+  </div>
+</div>
+
 <!-- GOAL DETAIL — view a saving goal + its review first; Add funds / Edit / Delete from here -->
 <div class="overlay" id="goal-overlay">
   <div class="safe"></div>
@@ -4001,6 +4110,9 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       <button class="choice on" data-v="personal" onclick="pickExScope(this)">🔒 Cá nhân</button>
       <button class="choice" data-v="family" onclick="pickExScope(this)">🏡 Gia đình</button>
     </div></div>
+    <!-- Instrument (0105): personal expenses only; chips built from personal_accounts.
+         A credit-card pick is what feeds that card's derived balance (Nợ & cho vay). -->
+    <div class="field" id="ex-acctfield" style="display:none"><label>Trả bằng gì? <span class="opt">· tuỳ chọn</span></label><div class="choices" id="ex-acct"></div></div>
     <div class="field">
       <label id="ex-note-lbl" data-t="exWhatFor">What for?</label>
       <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()" onblur="onExNoteBlur()"/>
@@ -5974,6 +6086,11 @@ function renderPersonal(){
      + '</div>'
      + '</section>';
 
+  /* ── Nợ & cho vay — the balance-sheet dimension (stocks, not flows), between
+     the month's cash-flow card and the month's spending cards. Built by
+     23-debts-ui.js (js-data) so it can share the modal helper + space keys. ── */
+  h += (window.persDebtSection ? persDebtSection() : '');
+
   /* ── Tiền đi đâu tháng này — one card per space, that space's categories
      nested inside (the old "Các nhóm của tôi" roll-up and the separate
      "Chi theo danh mục" card were two cuts of the same money with no visual
@@ -6072,6 +6189,7 @@ function renderPersonal(){
   host.innerHTML = h;
   persRenderPeriod();          // fills the swipeable Day/Week/Month chart + guide + dots
   persBindSwipe();
+  if(window.persDebtAfterRender) persDebtAfterRender();   // async space balances → section refreshes in place
 }
 function persScrollTx(){ _persScrollTo('pers-tx'); }
 function persScrollCats(){ _persScrollTo('pers-cats'); }
@@ -8778,6 +8896,26 @@ function _syncExTime(){
   if(r){ r.time=tEl.value; }
 }
 function pickExScope(btn){ pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} selectChipByVal('ex-scope',btn.dataset.v); _applyExLayout(); }
+/* Instrument chips (0105): built from the personal ledger's accounts + Tiền mặt.
+   Optional — no chip selected means "don't tag". Last pick remembered; a
+   credit-card pick is what feeds that card's derived balance. */
+function buildExAcctChips(){
+  var box=document.getElementById('ex-acct'); if(!box) return;
+  var pd=window.fhPersonalData&&fhPersonalData(); var accts=(pd&&pd.accounts)||[];
+  var last=null; try{ last=localStorage.getItem('fh-last-acct'); }catch(e){}
+  var ico={credit_card:'💳',deposit:'🏦',ewallet:'📱',cash:'💵'};
+  var h='<button class="choice'+(last==='cash'?' on':'')+'" data-v="cash" onclick="pickExAcct(this)">💵 Tiền mặt</button>';
+  accts.forEach(function(a){ if(a.kind==='cash') return;
+    h+='<button class="choice'+(last===a.id?' on':'')+'" data-v="'+a.id+'" onclick="pickExAcct(this)">'+(ico[a.kind]||'💳')+' '+String(a.name||'Tài khoản').replace(/</g,'&lt;')+'</button>'; });
+  box.innerHTML=h;
+}
+function pickExAcct(btn){
+  // toggle: tapping the selected chip clears it (the field is optional)
+  var was=btn.classList.contains('on');
+  var box=document.getElementById('ex-acct'); if(box) box.querySelectorAll('.choice').forEach(function(b){ b.classList.remove('on'); });
+  if(!was){ btn.classList.add('on'); try{ localStorage.setItem('fh-last-acct',btn.dataset.v); }catch(e){} }
+  else { try{ localStorage.removeItem('fh-last-acct'); }catch(e){} }
+}
 function pickExType(btn){
   pick('ex-type',btn); exType=btn.dataset.v;
   if(typeof renderBulk==='function') renderBulk();   // refresh the card header ("Khoản chi/thu") to the new type…
@@ -8790,6 +8928,9 @@ function _applyExScope(v){ selectChipByVal('ex-scope', v); _applyExLayout(); }
    restores per scope, exactly as before. */
 function _applyExLayout(){
   var personal=(chosen('ex-scope')==='personal'), income=(exType==='income');
+  // Instrument chips: personal expenses only (family rows have no account concept).
+  var af=document.getElementById('ex-acctfield');
+  if(af){ var show=(personal&&!income&&!editingTx&&!editingPTx); af.style.display=show?'':'none'; if(show) buildExAcctChips(); }
   var who=document.getElementById('ex-whofield'); if(who) who.style.display=(personal||income)?'none':'';   // no member-split in a private ledger / for income
   var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=(personal||income)?'none':'';     // personal photos not wired yet; income has none
   var bulk=document.getElementById('bulk-add'); if(bulk) bulk.style.display=(personal||income)?'none':'';     // keep personal + income single
@@ -10074,13 +10215,18 @@ async function _submitPersonalExpense(){
   if(!rows.length){ if(typeof bulkShowInvalid==='function') bulkShowInvalid(); return; }
   // validate like the family single-row path (amount + a real category)
   for(var k=0;k<rows.length;k++){ if(!(parseAmtBase(rows[k].amt||'')>0 && catValid(rows[k].cat))){ if(typeof bulkShowInvalid==='function'){ bulkShowInvalid(); return; } } }
+  // Instrument tag (0105): the optional "Trả bằng gì?" chip. 'cash' materializes
+  // the Tiền mặt account on first use; a card pick feeds that card's balance.
+  var acctPick=(typeof chosen==='function')? chosen('ex-acct') : null;
+  var acctId=null;
+  if(acctPick){ acctId = (acctPick==='cash' && window.fhPersonalCashAccount) ? await fhPersonalCashAccount() : acctPick; }
   var ok=0;
   for(var i=0;i<rows.length;i++){
     var r=rows[i], amt=parseAmtBase(r.amt||''); if(!(amt>0)) continue;
     var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
     // Model Y: category is denormalised on the personal row (name + emoji) — no personal-category table.
     // Per-row time (commitActiveRow flushed the active row; the rest already hold theirs).
-    if(await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined)) ok++;
+    if(await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined, undefined, {accountId:acctId})) ok++;
   }
   if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
 }
@@ -11042,17 +11188,27 @@ function csvStagedSourceTag(c){
   var s = window.fhStagedSource(c);
   return s==='direct-email' ? L('Trực tiếp','Direct') : (s==='forwarding-email' ? L('Chuyển tiếp','Forwarded') : '');
 }
-function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider, scope, source){
+/* Instrument chip (0105): the classifier's verdict, quiet plain text in the meta
+   line — "tín dụng ••1234" / "TK ••5678" / "ví". Empty when the classifier had
+   no confident answer (Q16), which reads as today's header, not as "unknown". */
+function csvStagedAcctChip(c){
+  if(!csvStagedMode || !window.fhStagedAcct) return '';
+  var ai = fhStagedAcct(c); if(!ai) return '';
+  var k = ai.kind==='credit_card' ? L('tín dụng','credit') : (ai.kind==='ewallet' ? L('ví','wallet') : 'TK');
+  return k + (ai.tail ? ' ••'+ai.tail : '');
+}
+function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider, scope, source, acct){
   var tone = isError ? ' attn' : (attn ? ' warn' : '');
   // Staged (bank-email) rows: a small source tag, then ONE quiet meta line —
-  // scope · bank · date · time. The generic "Khoản chi N" index says nothing here
-  // and stacking it beside the rest overflowed the header into a broken two-line
-  // wrap; the description below carries the real identity.
+  // scope · bank · account · date · time. The generic "Khoản chi N" index says
+  // nothing here and stacking it beside the rest overflowed the header into a
+  // broken two-line wrap; the description below carries the real identity.
   if (provider) {
     var when = dateIso ? esc(bulkDate(dateIso)) + (timeStr ? ' · ' + esc(timeStr) : '') : '';
     var parts = [];
     if (scope) parts.push('<span class="bulk-scope">'+esc(scope)+'</span>');
     parts.push('<span class="bulk-src'+tone+'">'+esc(provider)+'</span>');
+    if (acct) parts.push('<span class="bulk-when">'+esc(acct)+'</span>');   // instrument chip (0105): tín dụng ••1234 / TK / ví
     if (when) parts.push('<span class="bulk-when">'+when+'</span>');
     var tag = source ? '<span class="bulk-transport">'+esc(source)+'</span>' : '';
     return '<span class="bulk-head bulk-head-src">' + tag + '<span class="bulk-meta">'
@@ -11083,7 +11239,7 @@ function csvCollapsedCard(c, opts){
        Both destinations are marked so the line always reads scope · bank · time. */
     + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c),
         (csvStagedMode && !opts.isDup) ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '',
-        csvStagedSourceTag(c))
+        csvStagedSourceTag(c), csvStagedAcctChip(c))
     + (opts.noPick
         ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+'</span>'
         : bulkSummary(csvRowShape(c, opts.isDup || opts.repeat)))
@@ -12909,6 +13065,21 @@ function buildCsvCandidates(parsed, result) {
     if (!isIncome) {
       var ttext = ' ' + deburr((desc || '').toLowerCase()) + ' ';
       if (/thanh toan (sao ke |du no )?the( tin dung)?|tt the tin dung|tra no the|thanh toan the (visa|master|jcb)|credit card payment|tra tien the tin dung/.test(ttext)) isTransfer = true;
+    }
+    /* Staged (bank-email) rows carry the pipeline's own sealed verdicts —
+       flow (its internal-transfer call) and account_kind (the 0105 instrument
+       classifier). The §8.3 matrix: money INTO a credit card is a payment or
+       refund drawing the debt down — a transfer, never income. The memo regex
+       above still stands for CSV files and rows staged before the classifier. */
+    if (window.csvStagedMode && typeof window.fhStagedRawX === 'function') {
+      var _sx = window.fhStagedRawX(i);
+      /* fhStagedAcct carries the classifier verdict AND the local fallback for
+         rows staged before it existed (masked-PAN / wallet provider). */
+      var _sa = window.fhStagedAcct ? window.fhStagedAcct({ rowIndex: i }) : null;
+      if (_sx) {
+        if (_sx.flow === 'transfer') { isTransfer = true; isIncome = false; }
+        else if (_sa && _sa.kind === 'credit_card' && _sx.direction === 'credit') { isTransfer = true; isIncome = false; }
+      }
     }
 
     var party = colFor.counterparty !== undefined ? (row[colFor.counterparty] || '').trim() : '';
@@ -15920,7 +16091,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v441';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v442';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -17348,7 +17519,8 @@ window.obGoogle = async function () {
      copy). Reserve link_id on the family row FIRST (crash-safe), then insert the
      master; reconcile repairs/refreshes/tombstones. Idempotent by link_id. */
   (function () {
-    const P = { uid: null, key: null, rawKey: null, wrap: null, txns: [], incomes: [], budget: 0, catBudget: {}, state: 'boot', mirrorRan: false };
+    const P = { uid: null, key: null, rawKey: null, wrap: null, txns: [], incomes: [], budget: 0, catBudget: {}, state: 'boot', mirrorRan: false,
+      accounts: [], debts: [] };   // Borrowing & Lending (0105): instruments + ALL-TIME debt-relevant rows
     const _monISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; };
     // LOCAL YYYY-MM-DD — toISOString() is UTC and would log yesterday's date when
     // capturing after midnight in UTC+7.
@@ -17562,10 +17734,17 @@ window.obGoogle = async function () {
       _setState('loading');
       try {
         const from = _winFrom();
-        const [tr, ir, bd] = await Promise.all([
-          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
+        /* Debt rows (loans / repayments / transfers, plus any expense tagged to
+           an account) are fetched ALL-TIME, unlike the month-windowed expense
+           reads: a balance is a stock, not a flow — truncating it to two months
+           would understate every card and IOU. They are rare rows and carried by
+           the partial indexes from 0105. */
+        const [tr, ir, bd, ac, dr] = await Promise.all([
+          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
           _sb().from('personal_incomes').select('id,amount_enc,note_enc,income_date').eq('owner_user_id', P.uid).gte('income_date', from),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
+          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified').eq('owner_user_id', P.uid).is('archived_at', null),
+          _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).limit(2000),
         ]);
         /* Their budget read goes through _decP too, so an unreadable budget must
            not become a number either — the sentinel is a string and Number() of
@@ -17599,6 +17778,26 @@ window.obGoogle = async function () {
           P.incomes.push({ id: i.id, date: i.income_date, amt: bad ? null : Number(a),
             _unreadable: bad, note: await _decTxt(i.note_enc) });
         }
+        /* Instruments + debt rows. Same fail-closed stance: an unreadable amount
+           takes the row out of every balance, counted and declared, never 0đ. */
+        P.accounts = [];
+        for (const a of (ac.data || [])) {
+          const lim = a.credit_limit_enc ? await _decP(a.credit_limit_enc) : null;
+          P.accounts.push({ id: a.id, kind: a.kind, tail: a.tail, provider: a.provider,
+            humanVerified: a.human_verified,
+            name: await _decTxt(a.name_enc),
+            limitK: (lim == null || lim === _DEC_FAILED) ? null : (Number(lim) || null) });
+        }
+        P.debts = [];
+        for (const t of (dr.data || [])) {
+          const a = await _decP(t.amount_enc), bad = (a === _DEC_FAILED);
+          if (bad) P.unreadable++;
+          P.debts.push({ id: t.id, date: t.txn_date, kind: t.kind, accountId: t.account_id,
+            transferGroupId: t.transfer_group_id, ts: t.created_at,
+            amt: bad ? null : Number(a), _unreadable: bad,
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
+            who: await _decTxt(t.counterparty_enc) });
+        }
         _setState('ready');
       } catch (e) { console.warn('personal hydrate failed', e); _setState('error'); }
     };
@@ -17606,13 +17805,16 @@ window.obGoogle = async function () {
     // Only a real local "HH:MM" is stored; anything else is treated as "no time
     // known" (null → day-only) so a clock time is never fabricated.
     const _okTime = (v) => (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) ? v : null;
-    /* writes — private (space-less) rows */
-    window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso, timeStr, source) {
+    /* writes — private (space-less) rows.
+       `opts.accountId` (0105) tags the instrument the money moved through — a
+       credit-card-tagged expense is what builds that card's derived balance. */
+    window.fhPersonalAddExpense = async function (amt, note, catName, catEmoji, dateIso, timeStr, source, opts) {
       if (!P.uid || !P.key) return false;
       const t = _okTime(timeStr);
       const row = { owner_user_id: P.uid, txn_date: dateIso || _localDate(new Date()), kind: 'expense', space_id: null, link_id: null,
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
-        occurred_time_enc: t ? await _encP(t) : null, source: source || null };   // 0100 provenance ('direct-email' | 'forwarding-email'); null = hand-entered
+        occurred_time_enc: t ? await _encP(t) : null, source: source || null,   // 0100 provenance ('direct-email' | 'forwarding-email'); null = hand-entered
+        account_id: (opts && opts.accountId) || null };
       const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal expense failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -17671,6 +17873,114 @@ window.obGoogle = async function () {
       const r = await _sb().from('personal_incomes').delete().eq('id', id).eq('owner_user_id', P.uid);
       if (r.error) { console.warn('personal income delete failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
+    };
+
+    /* ═══ Borrowing & Lending (0105) — docs/specs/borrowing-lending-spec.md ═══
+       One primitive: a counterparty balance, DERIVED from rows (Q5).
+       Sign convention, inside the ciphertext, from MY point of view:
+         loan  +X = I lent X (they owe me)   ·   loan  −X = I borrowed X
+         repayment +X = they repaid me X     ·   repayment −X = I repaid X
+       so a person's balance = Σ loan − Σ repayment (positive = they owe me).
+       A card payment is ONE transfer row tagged to the card account:
+         card outstanding = Σ expenses tagged to it − Σ transfers tagged to it.
+       The settlement leg is a transfer — never income, never expense. */
+
+    async function _debtInsert(kind, amt, extra) {
+      if (!P.uid || !P.key) return false;
+      const row = Object.assign({ owner_user_id: P.uid, txn_date: extra.dateIso || _localDate(new Date()),
+        kind: kind, space_id: null, link_id: null,
+        amount_enc: await _encP(Number(amt)),
+        note_enc: extra.note ? await _encP(extra.note) : null,
+        counterparty_enc: extra.who ? await _encP(extra.who) : null,
+        account_id: extra.accountId || null,
+        transfer_group_id: extra.transferGroupId || null,
+        source: extra.source || null });
+      const r = await _sb().from('personal_transactions').insert(row);
+      if (r.error) { console.warn('personal ' + kind + ' failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    }
+    // amtK signed (see convention above); who = tên người, required for loans
+    window.fhPersonalAddLoan = function (amtK, who, note, dateIso, source) {
+      if (!who) return Promise.resolve(false);
+      return _debtInsert('loan', amtK, { who: who, note: note, dateIso: dateIso, source: source });
+    };
+    window.fhPersonalAddRepayment = function (amtK, who, note, dateIso, source) {
+      if (!who) return Promise.resolve(false);
+      return _debtInsert('repayment', amtK, { who: who, note: note, dateIso: dateIso, source: source });
+    };
+    // A transfer tagged to an account (card payment, wallet top-up). amtK > 0.
+    window.fhPersonalAddTransfer = function (amtK, accountId, note, dateIso, source, transferGroupId) {
+      return _debtInsert('transfer', amtK, { accountId: accountId, note: note, dateIso: dateIso, source: source, transferGroupId: transferGroupId });
+    };
+    window.fhPersonalDeleteDebtRow = window.fhPersonalDeleteExpense;   // same guard: private rows only
+
+    /* Accounts auto-materialize (Q15): first sight of a (kind, provider, tail)
+       creates the instrument; the user renames/limits it later. Client-side
+       match is enough — owner-only table, single writer per user in practice;
+       a lost race hits the 0105 partial-unique index and we refetch. */
+    window.fhPersonalAccountEnsure = async function (info) {
+      if (!P.uid || !P.key || !info || !info.kind) return null;
+      const prov = (info.provider || '').toLowerCase() || null;
+      const tail = (info.tail || '').replace(/\D/g, '').slice(-4) || null;
+      const hit = P.accounts.find((a) => a.kind === info.kind && (a.provider || '') === (prov || '') && (a.tail || '') === (tail || ''));
+      if (hit) return hit.id;
+      const name = info.name || ((prov ? prov.charAt(0).toUpperCase() + prov.slice(1) : 'Tài khoản') + (tail ? ' ••' + tail : ''));
+      const r = await _sb().from('personal_accounts').insert({ owner_user_id: P.uid, kind: info.kind,
+        provider: prov, tail: tail, name_enc: await _encP(name) }).select('id').single();
+      if (r.error) {   // lost a race with ourselves → the row exists; refetch and rematch
+        await window.fhPersonalHydrate();
+        const again = P.accounts.find((a) => a.kind === info.kind && (a.provider || '') === (prov || '') && (a.tail || '') === (tail || ''));
+        return again ? again.id : null;
+      }
+      P.accounts.push({ id: r.data.id, kind: info.kind, provider: prov, tail: tail, name: name, limitK: null, humanVerified: false });
+      return r.data.id;
+    };
+    window.fhPersonalCashAccount = function () {
+      const hit = P.accounts.find((a) => a.kind === 'cash');
+      return hit ? Promise.resolve(hit.id) : window.fhPersonalAccountEnsure({ kind: 'cash', name: 'Tiền mặt' });
+    };
+    window.fhPersonalAccountUpdate = async function (id, fields) {
+      if (!P.uid || !P.key || !id) return false;
+      const row = {};
+      if (fields.name != null) row.name_enc = await _encP(fields.name);
+      if (fields.limitK != null) row.credit_limit_enc = fields.limitK > 0 ? await _encP(Number(fields.limitK)) : null;
+      if (fields.kind) row.kind = fields.kind;
+      if (fields.humanVerified != null) row.human_verified = !!fields.humanVerified;
+      if (fields.archived) row.archived_at = new Date().toISOString();
+      const r = await _sb().from('personal_accounts').update(row).eq('id', id).eq('owner_user_id', P.uid);
+      if (r.error) { console.warn('account update failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+
+    /* The zoom-out numbers. Pure derivation over P.debts/P.accounts — spaces
+       are merged in by the UI from the spaces module (different key domain). */
+    window.fhPersonalDebts = function () {
+      const cards = [], people = {}, byAcct = {};
+      for (const d of P.debts) {
+        if (d._unreadable) continue;
+        if (d.accountId) {
+          const b = byAcct[d.accountId] || (byAcct[d.accountId] = { spend: 0, paid: 0, rows: [] });
+          if (d.kind === 'expense') b.spend += d.amt;
+          else if (d.kind === 'transfer') b.paid += d.amt;
+          b.rows.push(d);
+        }
+        if (d.kind === 'loan' || d.kind === 'repayment') {
+          const k = d.who || '—';
+          const p = people[k] || (people[k] = { who: k, loan: 0, repaid: 0, rows: [] });
+          if (d.kind === 'loan') p.loan += d.amt; else p.repaid += d.amt;
+          p.rows.push(d);
+        }
+      }
+      for (const a of P.accounts) {
+        if (a.kind !== 'credit_card') continue;
+        const b = byAcct[a.id] || { spend: 0, paid: 0, rows: [] };
+        cards.push({ acct: a, outstanding: b.spend - b.paid, rows: b.rows });
+      }
+      const persons = Object.values(people).map((p) => ({ who: p.who, balance: p.loan - p.repaid, rows: p.rows }));
+      let owe = 0, owed = 0;
+      for (const c of cards) { if (c.outstanding > 0) owe += c.outstanding; else owed += -c.outstanding; }
+      for (const p of persons) { if (p.balance > 0) owed += p.balance; else owe += -p.balance; }
+      return { cards: cards, people: persons, byAcct: byAcct, owe: owe, owed: owed };
     };
 
     /* mirror — active family, my authored realized expenses → personal masters */
@@ -17933,6 +18243,764 @@ window.obGoogle = async function () {
     fill('mom-who', 'pickMomWho(this)');
     if (mems[0]) window.lastWho = mems[0].name;
   }
+
+  /* ═══ Friend/trip spaces — the shared split ledger ══════════════════════════
+     A space (families.type 'friend'|'trip') is a shared container that is NEVER
+     the active family: switch_family rejects it, the join RPCs (0106b) never
+     point profiles.family_id at it, and access rides the additive membership
+     policies from 0106a. So everything here works WHILE a real family is active.
+
+     Crypto: one DEK per space, enc-from-birth (init_space_card), stored in the
+     same fh-keys IDB store the family/personal keys use (keyPath 'fid' — space
+     ids never collide with them). Space ciphertext MUST go through S.keys[fid]
+     — never fhEncStr/fhDecStr, which are bound to the ACTIVE family's DEK.
+
+     Balances are DERIVED, never stored (spec Q5):
+       my net = Σ paid(by me) − Σ my share + Σ settles I sent − Σ settles I got
+     Everyone computes the same number from the same shared rows. Settle-ups
+     are unilateral, trust-based (Q11). */
+  (function () {
+    const S = { uid: null, list: [], keys: {}, data: {}, state: 'boot' };
+    window.fhSpacesData = function () { return S; };
+    const _sb = () => window.sb;
+    const _localDate = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
+    /* fh-keys IDB — same store the personal module uses; own handles because
+       that module's helpers are IIFE-private. */
+    function _kOpen() {
+      return new Promise((res, rej) => { let rq; try { rq = indexedDB.open('fh-keys', 1); } catch (e) { return rej(e); }
+        rq.onupgradeneeded = () => { const db = rq.result; if (!db.objectStoreNames.contains('k')) db.createObjectStore('k', { keyPath: 'fid' }); };
+        rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error); });
+    }
+    async function _kPut(id, key) { try { const db = await _kOpen(); await new Promise((res, rej) => { const tx = db.transaction('k', 'readwrite'); tx.objectStore('k').put({ fid: id, key: key, at: Date.now() }); tx.oncomplete = () => res(1); tx.onerror = () => rej(tx.error); }); } catch (e) {} }
+    async function _kGet(id) { try { const db = await _kOpen(); return await new Promise((res) => { const tx = db.transaction('k', 'readonly'); const rq = tx.objectStore('k').get(id); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); } catch (e) { return null; } }
+
+    const _enc = (fid, v) => FHCrypto.encVal(S.keys[fid], v);
+    const _DEC_FAILED = ' fh-dec-failed';
+    const _dec = async (fid, b64) => { if (!b64) return null; try { return await FHCrypto.decVal(S.keys[fid], b64); } catch (e) { return _DEC_FAILED; } };
+    const _decTxt = async (fid, b64) => { const v = await _dec(fid, b64); return v === _DEC_FAILED ? null : v; };
+
+    // Space card display cached per-space on this device (parity with family/personal)
+    const _cardLS = (fid) => 'fh-scard:' + fid;
+    window.fhSpaceCardCached = function (fid) { try { return localStorage.getItem(_cardLS(fid)); } catch (e) { return null; } };
+
+    window.fhSpaceKeyReady = function (fid) { return !!S.keys[fid]; };
+
+    /* ── roster ───────────────────────────────────────────────────────────── */
+    let _booting = false;
+    window.fhSpacesBoot = async function () {
+      if (_booting || !_sb()) return; _booting = true;
+      try {
+        const sess = await _sb().auth.getSession();
+        S.uid = sess.data.session ? sess.data.session.user.id : null;
+        if (!S.uid) { S.state = 'error'; return; }
+        const r = await _sb().rpc('my_families');
+        const rows = Array.isArray(r.data) ? r.data : [];
+        S.list = rows.filter((f) => f && (f.type === 'friend' || f.type === 'trip'))
+                     .map((f) => ({ id: f.id, name: f.name, type: f.type, ownerId: f.owner_id }));
+        for (const sp of S.list) {
+          if (!S.keys[sp.id]) { const kc = await _kGet(sp.id); if (kc && kc.key) S.keys[sp.id] = kc.key; }
+        }
+        S.state = 'ready';
+      } catch (e) { console.warn('spaces boot failed', e); S.state = 'error'; }
+      finally { _booting = false; }
+    };
+
+    /* ── create (owner mints DEK + Key Card, server holds only the wrap) ──── */
+    window.fhSpaceCreate = async function (name, type) {
+      const r = await _sb().rpc('create_space', { p_name: name, p_type: type || 'friend', p_idempotency_key: crypto.randomUUID() });
+      if (r.error) { console.warn('create_space failed', r.error); return { ok: false, error: r.error.message }; }
+      const fid = r.data;
+      const card = FHCrypto.genCard(), salt = FHCrypto.genSaltHex();
+      const keys = await FHCrypto.deriveKeys(card.key, salt, window.FH_KDF_ITERS_CARD, 1);
+      const dekRaw = await FHCrypto.genDekRaw();
+      const wrapped = await FHCrypto.wrapDek(dekRaw, keys.kWrap);
+      const cr = await _sb().rpc('init_space_card', { p_family_id: fid, p_kdf_salt: salt, p_kdf_iters: window.FH_KDF_ITERS_CARD, p_kdf_version: 1, p_wrapped_dek: wrapped });
+      if (cr.error) { console.warn('init_space_card failed', cr.error); return { ok: false, error: cr.error.message }; }
+      S.keys[fid] = await FHCrypto.importDek(dekRaw);
+      await _kPut(fid, S.keys[fid]);
+      try { localStorage.setItem(_cardLS(fid), card.display); } catch (e) {}
+      await window.fhSpacesBoot();
+      return { ok: true, fid: fid, card: card };
+    };
+
+    /* ── join-side unlock: enter the space's Key Card, unwrap its DEK ─────── */
+    window.fhSpaceUnlock = async function (fid, cardInput) {
+      const p = FHCrypto.parseCard(cardInput); if (!p.ok) return { ok: false, error: p.error };
+      const wr = await _sb().from('family_key_wraps').select('kdf_salt,kdf_iters,kdf_version,wrapped_dek').eq('family_id', fid).eq('kind', 'card').maybeSingle();
+      if (wr.error || !wr.data) return { ok: false, error: 'no_wrap' };
+      try {
+        const keys = await FHCrypto.deriveKeys(p.key, wr.data.kdf_salt, wr.data.kdf_iters, wr.data.kdf_version);
+        const raw = await FHCrypto.unwrapDek(wr.data.wrapped_dek, keys.kWrap);
+        S.keys[fid] = await FHCrypto.importDek(raw);
+        await _kPut(fid, S.keys[fid]);
+        try { localStorage.setItem(_cardLS(fid), p.display); } catch (e) {}
+        return { ok: true };
+      } catch (e) { return { ok: false, error: 'wrong_card' }; }
+    };
+
+    window.fhSpaceInvite = async function (fid, email) {
+      const r = await _sb().rpc('space_whitelist_add', { p_family_id: fid, p_email: email });
+      return r.error ? { ok: false, error: r.error.message } : { ok: true, list: r.data };
+    };
+    window.fhSpaceJoin = async function (fid) {   // member row + accepted invite; active family untouched (0106b)
+      const r = await _sb().rpc('join_with_whitelist', { p_family_id: fid });
+      return r.error ? { ok: false, error: r.error.message } : { ok: true };
+    };
+    window.fhSpaceLeave = async function (fid) {
+      const r = await _sb().rpc('leave_space', { p_family_id: fid });
+      if (!r.error) { delete S.keys[fid]; delete S.data[fid]; await window.fhSpacesBoot(); }
+      return r.error ? { ok: false, error: r.error.message } : { ok: true };
+    };
+
+    /* ── hydrate one space (refetch-on-open; spaces have no realtime) ─────── */
+    window.fhSpaceHydrate = async function (fid) {
+      if (!S.keys[fid]) return null;
+      const [mm, tt, sh, su, cc] = await Promise.all([
+        _sb().from('members').select('id,user_id,name,is_shared,archived_at').eq('family_id', fid),
+        _sb().from('transactions').select('id,txn_date,amount_enc,note_enc,category_id,member_id,created_by,status,kind').eq('family_id', fid).eq('status', 'realized').order('txn_date', { ascending: false }).limit(500),
+        _sb().from('txn_shares').select('id,txn_id,payer_member_id,rule,shares_enc,version').eq('family_id', fid),
+        _sb().from('settle_ups').select('id,from_member,to_member,amount_enc,note_enc,settle_date,created_by,transfer_group_id').eq('family_id', fid).order('settle_date', { ascending: false }),
+        _sb().from('categories').select('id,name,name_enc,emoji').eq('family_id', fid).is('archived_at', null),
+      ]);
+      const members = (mm.data || []).filter((m) => !m.is_shared && !m.archived_at)
+        .map((m) => ({ id: m.id, userId: m.user_id, name: m.name }));
+      const cats = [];
+      for (const c of (cc.data || [])) cats.push({ id: c.id, name: c.name != null ? c.name : await _decTxt(fid, c.name_enc), emoji: c.emoji });
+      const txns = []; let unreadable = 0;
+      for (const t of (tt.data || [])) {
+        const a = await _dec(fid, t.amount_enc), bad = (a === _DEC_FAILED);
+        if (bad) unreadable++;
+        txns.push({ id: t.id, date: t.txn_date, amt: bad ? null : Number(a), _unreadable: bad,
+          note: await _decTxt(fid, t.note_enc), catId: t.category_id, payer: t.member_id, by: t.created_by });
+      }
+      const shares = {};
+      for (const s of (sh.data || [])) {
+        let map = null;
+        const raw = await _decTxt(fid, s.shares_enc);
+        if (raw) { try { map = JSON.parse(raw); } catch (e) {} }
+        shares[s.txn_id] = { payer: s.payer_member_id, rule: s.rule, map: map };
+      }
+      const settles = [];
+      for (const s of (su.data || [])) {
+        const a = await _dec(fid, s.amount_enc), bad = (a === _DEC_FAILED);
+        if (bad) unreadable++;
+        settles.push({ id: s.id, from: s.from_member, to: s.to_member, amt: bad ? null : Number(a),
+          _unreadable: bad, note: await _decTxt(fid, s.note_enc), date: s.settle_date, transferGroupId: s.transfer_group_id });
+      }
+      S.data[fid] = { members: members, txns: txns, shares: shares, settles: settles, cats: cats, unreadable: unreadable, at: Date.now() };
+      return S.data[fid];
+    };
+
+    window.fhSpaceMyMemberId = function (fid) {
+      const d = S.data[fid]; if (!d) return null;
+      const m = d.members.find((m) => m.userId === S.uid);
+      return m ? m.id : null;
+    };
+
+    /* ── writes ───────────────────────────────────────────────────────────── */
+    /* Split expense: ONE family-table row (payer = member_id) + one shares row.
+       `shares` = { memberId: amountK } summing to amtK (rule 'equal' is stored
+       for provenance; the map is always explicit so balances never re-derive
+       division). category is required by the transactions schema. */
+    window.fhSpaceAddExpense = async function (fid, o) {
+      if (!S.keys[fid]) return { ok: false, error: 'locked' };
+      const my = window.fhSpaceMyMemberId(fid);
+      const row = { family_id: fid, category_id: o.catId, member_id: o.payerMemberId,
+        created_by: my, status: 'realized', kind: 'expense',
+        txn_date: o.dateIso || _localDate(new Date()),
+        amount_enc: await _enc(fid, Number(o.amtK)),
+        note_enc: o.note ? await _enc(fid, o.note) : null };
+      const r = await _sb().from('transactions').insert(row).select('id').single();
+      if (r.error) { console.warn('space expense failed', r.error); return { ok: false, error: r.error.message }; }
+      const sr = await _sb().from('txn_shares').insert({ family_id: fid, txn_id: r.data.id,
+        payer_member_id: o.payerMemberId, rule: o.rule || 'equal',
+        shares_enc: await _enc(fid, JSON.stringify(o.shares || {})) });
+      if (sr.error) { console.warn('txn_shares failed', sr.error); return { ok: false, error: sr.error.message }; }
+      await window.fhSpaceHydrate(fid);
+      return { ok: true, txnId: r.data.id };
+    };
+
+    window.fhSpaceSettle = async function (fid, o) {
+      if (!S.keys[fid]) return { ok: false, error: 'locked' };
+      const r = await _sb().from('settle_ups').insert({ family_id: fid,
+        from_member: o.fromMember, to_member: o.toMember,
+        amount_enc: await _enc(fid, Number(o.amtK)),
+        note_enc: o.note ? await _enc(fid, o.note) : null,
+        settle_date: o.dateIso || _localDate(new Date()),
+        created_by: S.uid, transfer_group_id: o.transferGroupId || null });
+      if (r.error) { console.warn('settle failed', r.error); return { ok: false, error: r.error.message }; }
+      await window.fhSpaceHydrate(fid);
+      return { ok: true };
+    };
+
+    /* ── derivation ───────────────────────────────────────────────────────── */
+    window.fhSpaceBalances = function (fid) {
+      const d = S.data[fid]; if (!d) return null;
+      const by = {};
+      for (const m of d.members) by[m.id] = { member: m, paid: 0, share: 0, out: 0, in: 0 };
+      for (const t of d.txns) {
+        if (t._unreadable) continue;
+        const s = d.shares[t.id]; if (!s) continue;      // unshared rows don't move balances
+        if (by[s.payer]) by[s.payer].paid += t.amt;
+        if (s.map) for (const mid in s.map) { if (by[mid]) by[mid].share += Number(s.map[mid]) || 0; }
+      }
+      for (const s of d.settles) {
+        if (s._unreadable) continue;
+        if (by[s.from]) by[s.from].out += s.amt;
+        if (by[s.to]) by[s.to].in += s.amt;
+      }
+      return d.members.map((m) => {
+        const b = by[m.id];
+        return { member: m, net: b.paid - b.share + b.out - b.in, paid: b.paid, share: b.share };
+      });
+    };
+    window.fhSpaceMyNet = function (fid) {
+      const my = window.fhSpaceMyMemberId(fid); if (!my) return 0;
+      const b = (window.fhSpaceBalances(fid) || []).find((r) => r.member.id === my);
+      return b ? b.net : 0;
+    };
+    /* Simplified pairwise (greedy): debtors pay creditors largest-first. */
+    window.fhSpacePairwise = function (fid) {
+      const bal = window.fhSpaceBalances(fid); if (!bal) return [];
+      const cr = bal.filter((b) => b.net > 0.5).map((b) => ({ m: b.member, v: b.net })).sort((a, b) => b.v - a.v);
+      const db = bal.filter((b) => b.net < -0.5).map((b) => ({ m: b.member, v: -b.net })).sort((a, b) => b.v - a.v);
+      const out = [];
+      let i = 0, j = 0;
+      while (i < db.length && j < cr.length) {
+        const x = Math.min(db[i].v, cr[j].v);
+        out.push({ from: db[i].m, to: cr[j].m, amt: x });
+        db[i].v -= x; cr[j].v -= x;
+        if (db[i].v < 0.5) i++;
+        if (cr[j].v < 0.5) j++;
+      }
+      return out;
+    };
+  })();
+
+  /* ═══ Nợ & cho vay — UI (docs/specs/borrowing-lending-spec.md §6) ═══════════
+     The "zoom out": a bento section on the Tài Chính tab — a wide hero tile with
+     dual concentric rings (Tôi nợ / Được nợ) + one tile per counterparty — and
+     the "zoom in": a full-screen overlay with three flavors (account · person ·
+     space). Chosen design: mockups/borrowing-lending-ring.html variant 01.
+
+     Lives in js-data (module scope) so it can use _fhModal (60-settings) and the
+     space DEK helpers (22-spaces); renderPersonal (js-ui) reaches it via the
+     window.persDebt* exports. Amounts are base units (thousands); parseAmtBase /
+     fmt / fmtK are classic-script globals. */
+  (function () {
+    const _e = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const _P = () => window.fhPersonalData && fhPersonalData();
+    const _S = () => window.fhSpacesData && fhSpacesData();
+    const AV_COLORS = ['#5E5CE6', '#E0567F', '#12B5A6', '#E8843C', '#9D4EFF', '#1FA971'];
+    const _avColor = (i) => AV_COLORS[i % AV_COLORS.length];
+    let _last = null;          // last computed personal debts (tile taps resolve through this)
+    let _spinning = false;     // space hydrate in flight
+
+    /* ── totals: personal (cards + 1:1) ⊕ space nets — two key domains, one view ── */
+    function _totals() {
+      const d = window.fhPersonalDebts ? fhPersonalDebts() : { cards: [], people: [], owe: 0, owed: 0 };
+      _last = d;
+      let owe = d.owe, owed = d.owed;
+      const spaces = [];
+      const S = _S();
+      if (S && S.list) for (const sp of S.list) {
+        const net = (S.data[sp.id]) ? fhSpaceMyNet(sp.id) : null;   // null = not loaded yet
+        spaces.push({ sp: sp, net: net, ready: !!S.keys[sp.id], loaded: !!S.data[sp.id] });
+        if (net != null) { if (net > 0) owed += net; else owe += -net; }
+      }
+      return { d: d, spaces: spaces, owe: owe, owed: owed };
+    }
+
+    /* ── the bento section ─────────────────────────────────────────────────── */
+    window.persDebtSection = function () {
+      const P = _P(); if (!P || !P.key) return '';
+      const t = _totals();
+      const hasAny = t.d.cards.length || t.d.people.length || t.spaces.length || _spaceInvites.length;
+      let h = '<div id="pers-debts-wrap">'
+        + '<div class="section-h" id="pers-debts-h"><span class="t">Nợ &amp; cho vay</span>'
+        + '<a onclick="fhDebtLoanSheet()">Ghi khoản vay</a></div>';
+      /* pending space invites — above everything, they need a decision */
+      _spaceInvites.forEach(function (inv) {
+        h += '<section class="dbt-empty dbt-invite"><div class="dbt-empty-t"><b>' + _e(inv.invited_by || 'Bạn của bạn') + '</b> mời bạn vào nhóm chia tiền <b>' + _e(inv.family_name || 'Nhóm') + '</b>.</div>'
+          + '<div class="dbt-empty-cta"><button onclick="fhSpaceAcceptInvite(\'' + inv.family_id + '\')">Tham gia nhóm</button></div></section>';
+      });
+      if (!hasAny) {
+        h += '<section class="dbt-empty"><div class="dbt-empty-t">Thẻ tín dụng, cho vay, chia tiền nhóm — bức tranh nợ của bạn nằm ở đây.</div>'
+          + '<div class="dbt-empty-cta">'
+          + '<button onclick="fhDebtLoanSheet()">Ghi cho vay / mượn</button>'
+          + '<button onclick="fhSpaceCreateSheet()">Tạo nhóm chia tiền</button>'
+          + '</div></section></div>';
+        return h;
+      }
+      /* hero — dual concentric rings; frac against max side so the fuller ring closes */
+      const mx = Math.max(t.owe, t.owed, 1);
+      const C1 = 326.7, C2 = 219.9;                       // r=52 / r=35
+      const o1 = (C1 * (1 - t.owe / mx)).toFixed(1), o2 = (C2 * (1 - t.owed / mx)).toFixed(1);
+      h += '<div class="debt-bento">'
+        + '<section class="dbt-tile wide dbt-hero">'
+        + '<svg width="100" height="100" viewBox="0 0 120 120" aria-hidden="true">'
+        + '<circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger-tint)" stroke-width="12"/>'
+        + '<circle cx="60" cy="60" r="52" fill="none" stroke="var(--danger)" stroke-width="12" stroke-linecap="round" stroke-dasharray="' + C1 + '" stroke-dashoffset="' + o1 + '" transform="rotate(-90 60 60)"/>'
+        + '<circle cx="60" cy="60" r="35" fill="none" stroke="var(--good-tint)" stroke-width="12"/>'
+        + '<circle cx="60" cy="60" r="35" fill="none" stroke="var(--good)" stroke-width="12" stroke-linecap="round" stroke-dasharray="' + C2 + '" stroke-dashoffset="' + o2 + '" transform="rotate(-90 60 60)"/>'
+        + '</svg>'
+        + '<div class="dbt-legend">'
+        + '<div class="dbt-lr"><span class="dbt-dot" style="background:var(--danger)"></span><span class="dbt-lk">Tôi nợ</span><span class="dbt-lv num">' + fmt(t.owe) + '</span></div>'
+        + '<div class="dbt-ldiv"></div>'
+        + '<div class="dbt-lr"><span class="dbt-dot" style="background:var(--good)"></span><span class="dbt-lk">Được nợ</span><span class="dbt-lv num">' + fmt(t.owed) + '</span></div>'
+        + '</div></section>';
+      /* card tiles */
+      t.d.cards.forEach(function (c) {
+        const neg = c.outstanding > 0;
+        h += '<button class="dbt-tile" onclick="openDebtAccount(\'' + c.acct.id + '\')">'
+          + '<div class="dbt-tk">' + _e(c.acct.name || 'Thẻ') + '</div>'
+          + '<div class="dbt-tv num ' + (neg ? 'owe' : 'owed') + '">' + (neg ? '−' : '+') + fmtK(Math.abs(c.outstanding)) + '</div>';
+        if (c.acct.limitK > 0) {
+          const pct = Math.min(100, Math.round(c.outstanding / c.acct.limitK * 100));
+          h += '<div class="dbt-ms"><span>Dùng ' + pct + '%</span><span>hạn ' + fmtK(c.acct.limitK) + '</span></div>'
+            + '<div class="dbt-meter"><i style="width:' + pct + '%"></i></div>';
+        } else {
+          h += '<div class="dbt-ts">thẻ tín dụng</div>';
+        }
+        h += '</button>';
+      });
+      /* space tiles */
+      t.spaces.forEach(function (s) {
+        const net = s.net, known = net != null;
+        h += '<button class="dbt-tile" onclick="openDebtSpace(\'' + s.sp.id + '\')">'
+          + '<div class="dbt-tk">' + _e(s.sp.name) + '</div>';
+        if (known && Math.abs(net) > 0.5) {
+          h += '<div class="dbt-tv num ' + (net < 0 ? 'owe' : 'owed') + '">' + (net < 0 ? '−' : '+') + fmtK(Math.abs(net)) + '</div>'
+            + '<div class="dbt-ts">' + (net < 0 ? 'bạn nợ nhóm' : 'nhóm nợ bạn') + '</div>';
+        } else if (known) {
+          h += '<div class="dbt-tv num">0đ</div><div class="dbt-ts">đã cân bằng</div>';
+        } else {
+          h += '<div class="dbt-tv num">…</div><div class="dbt-ts">' + (s.ready ? 'đang tải' : 'nhập thẻ nhóm để mở') + '</div>';
+        }
+        h += '</button>';
+      });
+      /* person tiles */
+      t.d.people.forEach(function (p, i) {
+        if (Math.abs(p.balance) < 0.5) return;
+        const owedMe = p.balance > 0;
+        h += '<button class="dbt-tile" onclick="openDebtPerson(' + i + ')">'
+          + '<div class="dbt-tk">' + _e(p.who) + '</div>'
+          + '<div class="dbt-tv num ' + (owedMe ? 'owed' : 'owe') + '">' + (owedMe ? '+' : '−') + fmtK(Math.abs(p.balance)) + '</div>'
+          + '<div class="dbt-ts">🔒 ' + (owedMe ? 'cho vay · riêng tư' : 'bạn mượn · riêng tư') + '</div>'
+          + '</button>';
+      });
+      h += '</div></div>';
+      return h;
+    };
+
+    /* Space data arrives async — refresh ONLY this section in place. */
+    let _spaceInvites = [];
+    window.persDebtAfterRender = function () {
+      const S = _S(); if (!S || _spinning) return;
+      _spinning = true;
+      (async function () {
+        try {
+          await fhSpacesBoot();
+          let changed = false;
+          /* Pending SPACE invites (filtered out of the onboarding door) land
+             here: "bạn được mời vào nhóm X". */
+          try {
+            const r = await window.sb.rpc('find_my_invites');
+            const invs = (Array.isArray(r.data) ? r.data : []).filter((i) =>
+              (i.family_type === 'friend' || i.family_type === 'trip')
+              && !(S.list || []).some((sp) => sp.id === i.family_id));
+            if (invs.length !== _spaceInvites.length) changed = true;
+            _spaceInvites = invs;
+          } catch (e) {}
+          for (const sp of (S.list || [])) {
+            if (S.keys[sp.id] && (!S.data[sp.id] || Date.now() - S.data[sp.id].at > 60000)) {
+              await fhSpaceHydrate(sp.id); changed = true;
+            }
+          }
+          if (changed) _redraw();
+        } catch (e) { console.warn('debt spaces refresh failed', e); }
+        finally { _spinning = false; }
+      })();
+    };
+    window.fhSpaceAcceptInvite = async function (fid) {
+      const r = await fhSpaceJoin(fid);
+      if (!r.ok) { window.toast && toast('Chưa tham gia được — nhờ chủ nhóm mời lại nhé'); return; }
+      _spaceInvites = _spaceInvites.filter((i) => i.family_id !== fid);
+      await fhSpacesBoot();
+      _redraw();
+      window.toast && toast('Đã vào nhóm — nhập thẻ nhóm để đọc sổ');
+      openDebtSpace(fid);
+    };
+    function _redraw() {
+      const el = document.getElementById('pers-debts-wrap');
+      if (el && window.persDebtSection) {
+        const html = persDebtSection();
+        if (html) el.outerHTML = html;
+      }
+    }
+
+    /* ── the overlay (zoom in) ─────────────────────────────────────────────── */
+    function _ovOpen(title, bodyHtml) {
+      const t = document.getElementById('dbt-title'); if (t) t.textContent = title;
+      const b = document.getElementById('dbt-body'); if (b) { b.innerHTML = bodyHtml; }
+      const ov = document.getElementById('debt-overlay'); if (ov) ov.classList.add('on');
+      const sc = document.getElementById('dbt-scroll'); if (sc) sc.scrollTop = 0;
+    }
+    window.closeDebt = function () { const ov = document.getElementById('debt-overlay'); if (ov) ov.classList.remove('on'); };
+
+    const _dmy = (iso) => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '';
+
+    /* ① account (card) detail */
+    window.openDebtAccount = function (acctId) {
+      const P = _P(); if (!P) return;
+      const acct = P.accounts.find((a) => a.id === acctId); if (!acct) return;
+      const d = _last || fhPersonalDebts();
+      const b = (d.byAcct && d.byAcct[acctId]) || { spend: 0, paid: 0, rows: [] };
+      const out = b.spend - b.paid;
+      let h = '<div class="dbt-hero2"><div class="dbt-hk">' + (out >= 0 ? 'Đang nợ' : 'Đang dư') + '</div>'
+        + '<div class="dbt-hv num ' + (out > 0 ? 'owe' : 'owed') + '">' + fmt(Math.abs(out)) + '</div>';
+      if (acct.limitK > 0) {
+        const pct = Math.min(100, Math.round(out / acct.limitK * 100));
+        h += '<div class="dbt-hs">Hạn mức còn ' + fmt(Math.max(0, acct.limitK - out)) + ' / ' + fmt(acct.limitK) + '</div>'
+          + '<div class="dbt-meter big"><i style="width:' + Math.max(0, pct) + '%"></i></div>';
+      }
+      h += '</div>';
+      h += '<div class="dbt-acts">'
+        + '<button class="dbt-btn primary" onclick="fhCardPaySheet(\'' + acct.id + '\')">Ghi thanh toán thẻ</button>'
+        + '<button class="dbt-btn tinted" onclick="fhAcctEditSheet(\'' + acct.id + '\')">Tên &amp; hạn mức</button>'
+        + '</div>';
+      const rows = (b.rows || []).slice().sort((a, x) => (x.date || '').localeCompare(a.date || ''));
+      h += '<div class="dbt-sec">Trên thẻ này</div><div class="dbt-card">';
+      if (!rows.length) h += '<div class="dbt-note">Chưa có giao dịch nào gắn với thẻ này. Các khoản chi từ email sẽ tự gắn khi được duyệt.</div>';
+      rows.slice(0, 60).forEach(function (r) {
+        const pay = r.kind === 'transfer';
+        h += '<div class="dbt-li"><span class="dbt-lic">' + (pay ? '💳' : (r.emoji || '🗂️')) + '</span>'
+          + '<span class="dbt-lib"><span class="dbt-lin">' + _e(pay ? (r.note || 'Thanh toán thẻ') : (r.note || r.cat || 'Khoản chi')) + (pay ? '<i class="dbt-tag">trả nợ</i>' : '') + '</span>'
+          + '<span class="dbt-lis">' + _dmy(r.date) + (r.cat && !pay ? ' · ' + _e(r.cat) : '') + '</span></span>'
+          + '<span class="dbt-liv num ' + (pay ? 'owed' : '') + '">' + (pay ? '−' : '+') + fmt(Math.abs(r.amt || 0)) + '</span></div>';
+      });
+      h += '</div>';
+      h += '<div class="dbt-foot">Trả sao kê là <b>chuyển khoản</b>, không phải chi tiêu — các khoản chi đã được tính lúc quẹt, nên không bị đếm hai lần.</div>';
+      _ovOpen(acct.name || 'Thẻ', h);
+    };
+
+    /* ② person (1:1 IOU) detail */
+    window.openDebtPerson = function (idx) {
+      const d = _last || fhPersonalDebts();
+      const p = d.people[idx]; if (!p) return;
+      const owedMe = p.balance > 0;
+      let h = '<div class="dbt-hero2"><div class="dbt-hk">' + (owedMe ? _e(p.who) + ' đang nợ bạn' : 'Bạn đang nợ ' + _e(p.who)) + '</div>'
+        + '<div class="dbt-hv num ' + (owedMe ? 'owed' : 'owe') + '">' + fmt(Math.abs(p.balance)) + '</div>'
+        + '<div class="dbt-hs"><span class="dbt-chip">🔒 riêng tư — chỉ mình bạn thấy</span></div></div>';
+      h += '<div class="dbt-acts">'
+        + '<button class="dbt-btn primary" onclick="fhDebtRepaySheet(' + idx + ')">Ghi đã trả</button>'
+        + '<button class="dbt-btn tinted" onclick="fhDebtLoanSheet(\'' + _e(p.who).replace(/'/g, '\\\'') + '\')">Ghi thêm khoản</button>'
+        + '</div>';
+      const rows = (p.rows || []).slice().sort((a, x) => (x.date || '').localeCompare(a.date || ''));
+      h += '<div class="dbt-sec">Lịch sử</div><div class="dbt-card">';
+      rows.forEach(function (r) {
+        const loan = r.kind === 'loan';
+        const lent = (r.amt || 0) > 0;
+        const label = loan ? (lent ? 'Bạn cho mượn' : 'Bạn mượn') : (lent ? _e(p.who) + ' trả bạn' : 'Bạn trả');
+        h += '<div class="dbt-li"><span class="dbt-lic">' + (loan ? '💵' : '✅') + '</span>'
+          + '<span class="dbt-lib"><span class="dbt-lin">' + label + (r.note ? ' · ' + _e(r.note) : '') + '</span>'
+          + '<span class="dbt-lis">' + _dmy(r.date) + '</span></span>'
+          + '<span class="dbt-liv num">' + fmt(Math.abs(r.amt || 0)) + '</span></div>';
+      });
+      h += '</div>';
+      h += '<div class="dbt-foot">Khoản vay 1:1 nằm trong sổ cá nhân của bạn — người kia không cần dùng app.</div>';
+      _ovOpen(p.who, h);
+    };
+
+    /* ③ space detail */
+    window.openDebtSpace = function (fid) {
+      const S = _S(); if (!S) return;
+      const sp = (S.list || []).find((x) => x.id === fid); if (!sp) return;
+      if (!S.keys[fid]) {
+        _ovOpen(sp.name,
+          '<div class="dbt-hero2"><div class="dbt-hk">Nhóm đang khoá</div>'
+          + '<div class="dbt-hs" style="margin-top:8px">Nhập thẻ nhóm (người tạo nhóm gửi cho bạn) để mở sổ chia tiền.</div></div>'
+          + '<div class="dbt-card" style="padding:14px 16px">'
+          + '<input id="dbt-unlock-in" class="dbt-in" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off">'
+          + '<button class="dbt-btn primary" style="width:100%;margin-top:10px" onclick="fhSpaceTryUnlock(\'' + fid + '\')">Mở nhóm</button></div>');
+        return;
+      }
+      const d = S.data[fid];
+      if (!d) { fhSpaceHydrate(fid).then(() => openDebtSpace(fid)); _ovOpen(sp.name, '<div class="dbt-note" style="padding:20px">Đang tải…</div>'); return; }
+      const my = fhSpaceMyMemberId(fid);
+      const net = fhSpaceMyNet(fid);
+      const bal = fhSpaceBalances(fid) || [];
+      const pairs = fhSpacePairwise(fid) || [];
+      let h = '<div class="dbt-hero2"><div class="dbt-hk">' + (net >= 0 ? 'Bạn được nợ trong nhóm này' : 'Bạn đang nợ trong nhóm này') + '</div>'
+        + '<div class="dbt-hv num ' + (net >= 0 ? 'owed' : 'owe') + '">' + fmt(Math.abs(net)) + '</div></div>';
+      h += '<div class="dbt-acts">'
+        + '<button class="dbt-btn primary" onclick="fhSpaceSplitSheet(\'' + fid + '\')">Chia khoản mới</button>'
+        + '<button class="dbt-btn tinted" onclick="fhSpaceSettleSheet(\'' + fid + '\')">Ghi trả nợ</button>'
+        + '</div>';
+      h += '<div class="dbt-sec">Số dư nhóm</div><div class="dbt-card">';
+      bal.forEach(function (b, i) {
+        h += '<div class="dbt-mb"><span class="dbt-av" style="background:' + _avColor(i) + '">' + _e((b.member.name || '?').charAt(0).toUpperCase()) + '</span>'
+          + '<span class="dbt-mbn">' + _e(b.member.name) + (b.member.id === my ? '<i class="dbt-you">bạn</i>' : '') + '</span>'
+          + '<span class="dbt-mbv num ' + (b.net >= 0 ? 'owed' : 'owe') + '">' + (b.net >= 0 ? '+' : '−') + fmt(Math.abs(b.net)) + '</span></div>';
+      });
+      pairs.forEach(function (pr) {
+        h += '<div class="dbt-pair">⇄ ' + _e(pr.from.name) + ' → ' + _e(pr.to.name) + '<span class="num">' + fmt(pr.amt) + '</span></div>';
+      });
+      h += '</div>';
+      h += '<div class="dbt-sec">Chi tiêu chung</div><div class="dbt-card">';
+      if (!d.txns.length) h += '<div class="dbt-note">Chưa có khoản nào. Bấm “Chia khoản mới” để bắt đầu.</div>';
+      d.txns.slice(0, 40).forEach(function (t) {
+        const s = d.shares[t.id];
+        const payer = s && d.members.find((m) => m.id === s.payer);
+        h += '<div class="dbt-li"><span class="dbt-lic">🧾</span>'
+          + '<span class="dbt-lib"><span class="dbt-lin">' + _e(t.note || 'Khoản chi') + '</span>'
+          + '<span class="dbt-lis">' + (payer ? _e(payer.name) + ' trả · ' : '') + _dmy(t.date) + '</span></span>'
+          + '<span class="dbt-liv num">' + (t._unreadable ? '—' : fmt(t.amt)) + '</span></div>';
+      });
+      (d.settles || []).slice(0, 20).forEach(function (s) {
+        const f = d.members.find((m) => m.id === s.from), tt = d.members.find((m) => m.id === s.to);
+        h += '<div class="dbt-li"><span class="dbt-lic">✅</span>'
+          + '<span class="dbt-lib"><span class="dbt-lin">' + _e(f ? f.name : '?') + ' trả ' + _e(tt ? tt.name : '?') + '</span>'
+          + '<span class="dbt-lis">' + _dmy(s.date) + '</span></span>'
+          + '<span class="dbt-liv num owed">' + (s._unreadable ? '—' : fmt(s.amt)) + '</span></div>';
+      });
+      h += '</div>';
+      h += '<div class="dbt-acts2">'
+        + '<button onclick="fhSpaceInviteSheet(\'' + fid + '\')">Mời bạn vào nhóm</button>'
+        + (window.fhSpaceCardCached(fid) ? '<button onclick="fhSpaceCardShow(\'' + fid + '\')">Xem thẻ nhóm</button>' : '')
+        + '<button class="danger" onclick="fhSpaceLeaveArm(\'' + fid + '\')">Rời nhóm</button>'
+        + '</div>';
+      _ovOpen(sp.name, h);
+    };
+
+    window.fhSpaceTryUnlock = async function (fid) {
+      const v = (document.getElementById('dbt-unlock-in') || {}).value || '';
+      const r = await fhSpaceUnlock(fid, v);
+      if (!r.ok) { window.toast && toast('Thẻ chưa đúng, thử lại nhé'); return; }
+      await fhSpaceHydrate(fid);
+      openDebtSpace(fid); _redraw();
+    };
+    window.fhSpaceCardShow = function (fid) {
+      const disp = window.fhSpaceCardCached(fid); if (!disp) return;
+      _fhModal({ title: 'Thẻ nhóm', saveLabel: 'Xong',
+        body: '<div class="dbt-cardshow num">' + _e(disp) + '</div>'
+          + '<div class="dbt-note">Gửi thẻ này cho người được mời — họ cần nó để đọc được sổ nhóm. Đừng đăng công khai.</div>',
+        save: async function () {} });
+    };
+    let _leaveArm = null;
+    window.fhSpaceLeaveArm = async function (fid) {
+      if (_leaveArm !== fid) { _leaveArm = fid; window.toast && toast('Bấm lần nữa để rời nhóm'); setTimeout(() => { if (_leaveArm === fid) _leaveArm = null; }, 4000); return; }
+      _leaveArm = null;
+      const r = await fhSpaceLeave(fid);
+      if (r.ok) { closeDebt(); _redraw(); window.toast && toast('Đã rời nhóm'); }
+      else window.toast && toast(r.error === 'owner_cannot_leave' ? 'Chủ nhóm không rời được nhóm của mình' : 'Chưa rời được, thử lại');
+    };
+
+    /* ── sheets (all via _fhModal) ─────────────────────────────────────────── */
+    const _amtIn = (id, ph) => '<div class="field"><label>Số tiền</label><input class="num" id="' + id + '" inputmode="numeric" placeholder="' + (ph || '0 ₫') + '" oninput="fhModalDirty()"></div>';
+    const _amtOf = (id) => window.parseAmtBase ? parseAmtBase((document.getElementById(id) || {}).value || '') : 0;
+
+    window.fhDebtLoanSheet = function (presetWho) {
+      _fhModal({
+        title: 'Cho vay / mượn', saveLabel: 'Ghi lại', reqMsg: 'Điền tên và số tiền nhé',
+        body: '<div class="field"><label>Chiều nào?</label><div class="choices" id="dbt-dir">'
+          + '<button class="choice on" data-v="lend" onclick="pick(\'dbt-dir\',this)">💸 Tôi cho mượn</button>'
+          + '<button class="choice" data-v="borrow" onclick="pick(\'dbt-dir\',this)">🤝 Tôi mượn</button></div></div>'
+          + '<div class="field"><label>Ai?</label><input id="dbt-who" placeholder="vd. Thằng em" value="' + _e(presetWho || '') + '" oninput="fhModalDirty()"></div>'
+          + _amtIn('dbt-amt')
+          + '<div class="field"><label>Ghi chú <span class="opt">· tuỳ chọn</span></label><input id="dbt-note" placeholder="vd. mượn đóng học phí" oninput="fhModalDirty()"></div>',
+        required: function () { return [
+          { el: document.getElementById('dbt-who'), ok: !!((document.getElementById('dbt-who') || {}).value || '').trim() },
+          { el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 },
+        ]; },
+        save: async function () {
+          const who = ((document.getElementById('dbt-who') || {}).value || '').trim();
+          const lend = (typeof chosen === 'function' ? chosen('dbt-dir') : 'lend') !== 'borrow';
+          const amt = _amtOf('dbt-amt') * (lend ? 1 : -1);
+          const note = ((document.getElementById('dbt-note') || {}).value || '').trim();
+          const ok = await fhPersonalAddLoan(amt, who, note, undefined, null);
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã ghi vào sổ riêng');
+          return function () { if (window.renderPersonal) renderPersonal(); };
+        },
+      });
+    };
+
+    window.fhDebtRepaySheet = function (idx) {
+      const d = _last || fhPersonalDebts(); const p = d.people[idx]; if (!p) return;
+      const owedMe = p.balance > 0;
+      _fhModal({
+        title: owedMe ? _e(p.who) + ' trả bạn' : 'Bạn trả ' + _e(p.who), saveLabel: 'Ghi lại', reqMsg: 'Điền số tiền nhé',
+        body: _amtIn('dbt-amt', fmt(Math.abs(p.balance)))
+          + '<div class="dbt-note">Còn ' + fmt(Math.abs(p.balance)) + (owedMe ? ' họ đang nợ bạn.' : ' bạn đang nợ.') + ' Trả nợ là chuyển khoản — không tính là chi tiêu hay thu nhập.</div>',
+        required: function () { return [{ el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 }]; },
+        save: async function () {
+          const amt = _amtOf('dbt-amt') * (owedMe ? 1 : -1);
+          const ok = await fhPersonalAddRepayment(amt, p.who, null, undefined, null);
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã ghi');
+          return function () { const d2 = fhPersonalDebts(); const i2 = d2.people.findIndex((x) => x.who === p.who); if (i2 >= 0 && Math.abs(d2.people[i2].balance) > 0.5) openDebtPerson(i2); else closeDebt(); if (window.renderPersonal) renderPersonal(); };
+        },
+      });
+    };
+
+    window.fhCardPaySheet = function (acctId) {
+      const P = _P(); const acct = P && P.accounts.find((a) => a.id === acctId); if (!acct) return;
+      _fhModal({
+        title: 'Thanh toán ' + _e(acct.name || 'thẻ'), saveLabel: 'Ghi lại', reqMsg: 'Điền số tiền nhé',
+        body: _amtIn('dbt-amt')
+          + '<div class="field"><label>Ngày</label><input type="date" id="dbt-date" value="' + new Date().toISOString().slice(0, 10) + '" oninput="fhModalDirty()"></div>'
+          + '<div class="dbt-note">Khoản này trừ vào dư nợ thẻ — không tính là chi tiêu mới (đã tính lúc quẹt rồi).</div>',
+        required: function () { return [{ el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 }]; },
+        save: async function () {
+          const ok = await fhPersonalAddTransfer(_amtOf('dbt-amt'), acctId, 'Thanh toán thẻ', (document.getElementById('dbt-date') || {}).value || undefined, null);
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã ghi thanh toán');
+          return function () { openDebtAccount(acctId); if (window.renderPersonal) renderPersonal(); };
+        },
+      });
+    };
+
+    window.fhAcctEditSheet = function (acctId) {
+      const P = _P(); const acct = P && P.accounts.find((a) => a.id === acctId); if (!acct) return;
+      _fhModal({
+        title: 'Thẻ / tài khoản', saveLabel: 'Lưu',
+        body: '<div class="field"><label>Tên</label><input id="dbt-aname" value="' + _e(acct.name || '') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Hạn mức thẻ <span class="opt">· để trống nếu không nhớ</span></label><input class="num" id="dbt-alim" inputmode="numeric" value="' + (acct.limitK > 0 ? Math.round(acct.limitK * (window.curMult ? curMult() : 1000)).toLocaleString('vi-VN') : '') + '" oninput="fhModalDirty()"></div>',
+        save: async function () {
+          const name = ((document.getElementById('dbt-aname') || {}).value || '').trim();
+          const lim = _amtOf('dbt-alim');
+          const ok = await fhPersonalAccountUpdate(acctId, { name: name || acct.name, limitK: lim > 0 ? lim : null, humanVerified: true });
+          if (!ok) throw new Error('save_failed');
+          return function () { openDebtAccount(acctId); if (window.renderPersonal) renderPersonal(); };
+        },
+      });
+    };
+
+    /* space create → card intro → invite */
+    window.fhSpaceCreateSheet = function () {
+      _fhModal({
+        title: 'Nhóm chia tiền', saveLabel: 'Tạo nhóm', reqMsg: 'Đặt tên nhóm nhé',
+        body: '<div class="field"><label>Tên nhóm</label><input id="dbt-spname" placeholder="vd. Đà Lạt 10/2026" oninput="fhModalDirty()"></div>'
+          + '<div class="dbt-note">Nhóm có sổ chia tiền riêng, mã hoá bằng thẻ nhóm — ai có thẻ mới đọc được. Gia đình bạn không thấy nhóm này.</div>',
+        required: function () { return [{ el: document.getElementById('dbt-spname'), ok: !!((document.getElementById('dbt-spname') || {}).value || '').trim() }]; },
+        save: async function () {
+          const name = ((document.getElementById('dbt-spname') || {}).value || '').trim();
+          const r = await fhSpaceCreate(name, 'friend');
+          if (!r.ok) throw new Error(r.error || 'create_failed');
+          const fid = r.fid, disp = r.card.display;
+          return function () {
+            _fhModal({ title: 'Thẻ nhóm — giữ kỹ', saveLabel: 'Đã lưu thẻ, tiếp tục',
+              body: '<div class="dbt-cardshow num">' + _e(disp) + '</div>'
+                + '<div class="dbt-note">Đây là chìa khoá của sổ nhóm. Gửi cho từng người bạn mời (Zalo/tin nhắn) — không có thẻ thì không đọc được. Thẻ cũng được lưu trên máy này.</div>',
+              save: async function () { return function () { fhSpaceInviteSheet(fid); }; } });
+          };
+        },
+      });
+    };
+
+    window.fhSpaceInviteSheet = function (fid) {
+      _fhModal({
+        title: 'Mời vào nhóm', saveLabel: 'Mời', reqMsg: 'Điền email nhé',
+        body: '<div class="field"><label>Email Google của bạn ấy</label><input id="dbt-inv" inputmode="email" placeholder="ban@gmail.com" oninput="fhModalDirty()"></div>'
+          + '<div class="dbt-note">Bạn ấy đăng nhập FamilyHub bằng email này, vào Tài Chính → nhóm sẽ hiện lời mời. Nhớ gửi kèm thẻ nhóm.</div>',
+        required: function () { return [{ el: document.getElementById('dbt-inv'), ok: /@.+\./.test(((document.getElementById('dbt-inv') || {}).value || '')) }]; },
+        save: async function () {
+          const r = await fhSpaceInvite(fid, ((document.getElementById('dbt-inv') || {}).value || '').trim());
+          if (!r.ok) { const e = new Error(r.error || 'invite_failed'); if (/already_member/.test(r.error || '')) e.fhMsg = 'Bạn ấy đã ở trong nhóm rồi'; throw e; }
+          window.toast && toast('Đã mời — nhớ gửi thẻ nhóm cho bạn ấy');
+          return function () { openDebtSpace(fid); };
+        },
+      });
+    };
+
+    /* split expense */
+    window.fhSpaceSplitSheet = function (fid) {
+      const S = _S(); const d = S.data[fid]; if (!d) return;
+      const cats = d.cats || [], mems = d.members || [];
+      const my = fhSpaceMyMemberId(fid);
+      let body = '<div class="field"><label>Chi cho gì?</label><input id="dbt-snote" placeholder="vd. Ăn tối BBQ" oninput="fhModalDirty()"></div>'
+        + _amtIn('dbt-amt')
+        + '<div class="field"><label>Nhóm chi</label><div class="choices" id="dbt-scat">'
+        + cats.map((c, i) => '<button class="choice' + (i === 0 ? ' on' : '') + '" data-v="' + c.id + '" onclick="pick(\'dbt-scat\',this)">' + (c.emoji || '🏷️') + ' ' + _e(c.name) + '</button>').join('') + '</div></div>'
+        + '<div class="field"><label>Ai trả?</label><div class="choices" id="dbt-spayer">'
+        + mems.map((m) => '<button class="choice' + (m.id === my ? ' on' : '') + '" data-v="' + m.id + '" onclick="pick(\'dbt-spayer\',this)">' + _e(m.name) + '</button>').join('') + '</div></div>'
+        + '<div class="field"><label>Chia sao?</label><div class="choices" id="dbt-srule">'
+        + '<button class="choice on" data-v="equal" onclick="pick(\'dbt-srule\',this);fhSplitRule()">Chia đều</button>'
+        + '<button class="choice" data-v="exact" onclick="pick(\'dbt-srule\',this);fhSplitRule()">Tự nhập</button></div></div>'
+        + '<div id="dbt-sexact" style="display:none">'
+        + mems.map((m) => '<div class="field-row dbt-exrow"><span class="dbt-exn">' + _e(m.name) + '</span><input class="num" id="dbt-ex-' + m.id + '" inputmode="numeric" placeholder="0 ₫" oninput="fhModalDirty()"></div>').join('')
+        + '</div>';
+      _fhModal({
+        title: 'Chia khoản mới', saveLabel: 'Ghi &amp; chia'.replace('&amp;', '&'), reqMsg: 'Điền nội dung và số tiền nhé',
+        body: body,
+        required: function () { return [
+          { el: document.getElementById('dbt-snote'), ok: !!((document.getElementById('dbt-snote') || {}).value || '').trim() },
+          { el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 },
+        ]; },
+        save: async function () {
+          const amt = _amtOf('dbt-amt');
+          const rule = (typeof chosen === 'function' && chosen('dbt-srule')) || 'equal';
+          const shares = {};
+          if (rule === 'exact') {
+            let sum = 0;
+            mems.forEach((m) => { const v = _amtOf('dbt-ex-' + m.id); if (v > 0) { shares[m.id] = v; sum += v; } });
+            if (Math.abs(sum - amt) > 1) { const e = new Error('shares_mismatch'); e.fhMsg = 'Các phần chia phải cộng đúng bằng tổng (' + fmt(amt) + ')'; throw e; }
+          } else {
+            const per = amt / mems.length;
+            let acc = 0;
+            mems.forEach((m, i) => { const v = (i === mems.length - 1) ? (amt - acc) : Math.round(per * 10) / 10; shares[m.id] = v; acc += v; });
+          }
+          const r = await fhSpaceAddExpense(fid, {
+            amtK: amt, note: ((document.getElementById('dbt-snote') || {}).value || '').trim(),
+            catId: (typeof chosen === 'function' && chosen('dbt-scat')) || (cats[0] && cats[0].id),
+            payerMemberId: (typeof chosen === 'function' && chosen('dbt-spayer')) || my,
+            rule: rule, shares: shares,
+          });
+          if (!r.ok) throw new Error(r.error || 'save_failed');
+          window.toast && toast('Đã chia cho ' + mems.length + ' người');
+          return function () { openDebtSpace(fid); _redraw(); };
+        },
+      });
+    };
+    window.fhSplitRule = function () {
+      const ex = document.getElementById('dbt-sexact');
+      if (ex) ex.style.display = (typeof chosen === 'function' && chosen('dbt-srule')) === 'exact' ? '' : 'none';
+    };
+
+    /* settle-up: directed member→member transfer (Q8b) */
+    window.fhSpaceSettleSheet = function (fid) {
+      const S = _S(); const d = S.data[fid]; if (!d) return;
+      const mems = d.members || [], my = fhSpaceMyMemberId(fid);
+      const pairs = fhSpacePairwise(fid) || [];
+      const mine = pairs.find((p) => p.from.id === my) || pairs[0] || null;
+      _fhModal({
+        title: 'Ghi trả nợ', saveLabel: 'Ghi lại', reqMsg: 'Chọn người và số tiền nhé',
+        body: '<div class="field"><label>Ai trả?</label><div class="choices" id="dbt-sufrom">'
+          + mems.map((m) => '<button class="choice' + ((mine ? mine.from.id : my) === m.id ? ' on' : '') + '" data-v="' + m.id + '" onclick="pick(\'dbt-sufrom\',this)">' + _e(m.name) + '</button>').join('') + '</div></div>'
+          + '<div class="field"><label>Trả cho ai?</label><div class="choices" id="dbt-suto">'
+          + mems.map((m) => '<button class="choice' + (mine && mine.to.id === m.id ? ' on' : '') + '" data-v="' + m.id + '" onclick="pick(\'dbt-suto\',this)">' + _e(m.name) + '</button>').join('') + '</div></div>'
+          + _amtIn('dbt-amt', mine ? fmt(mine.amt) : '0 ₫')
+          + '<div class="dbt-note">Ai trong nhóm cũng ghi được — số dư của cả hai bên cập nhật ngay.</div>',
+        required: function () {
+          const f = typeof chosen === 'function' ? chosen('dbt-sufrom') : null, t = typeof chosen === 'function' ? chosen('dbt-suto') : null;
+          return [
+            { el: document.getElementById('dbt-suto'), ok: !!(f && t && f !== t) },
+            { el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 },
+          ];
+        },
+        save: async function () {
+          const r = await fhSpaceSettle(fid, {
+            fromMember: chosen('dbt-sufrom'), toMember: chosen('dbt-suto'), amtK: _amtOf('dbt-amt'),
+          });
+          if (!r.ok) throw new Error(r.error || 'save_failed');
+          window.toast && toast('Đã ghi trả nợ');
+          return function () { openDebtSpace(fid); _redraw(); };
+        },
+      });
+    };
+  })();
 
   // ---- THE hydrate: pull the active family into the app's globals ----
   // opts.windowed → R6 windowed refresh (recent slice merged onto the baseline);
@@ -21133,6 +22201,11 @@ window.classifyAmount = classifyAmount;
     }
     _obChecking = false;
     _obInvites = Array.isArray(invs) ? invs : (invs ? [invs] : []);
+    /* Friend/trip SPACE invites (0106b exposes family_type) do not belong to
+       this door — joining one must never run family onboarding or move the
+       active-family slot. They surface on the Tài Chính tab's Nợ & cho vay
+       section instead (23-debts-ui). Absent field (older deploy) = family. */
+    _obInvites = _obInvites.filter(function (inv) { return (inv.family_type || 'family') === 'family'; });
     _obSel = 0;
     _obMode = _obInvites.length ? 'invite' : 'create';
     _fhJoinCtx = _obInvites.length ? _obInvites[0] : null;
@@ -24113,6 +25186,47 @@ window.classifyAmount = classifyAmount;
   }
   window.fhStagedMeta = fhStagedMeta;
 
+  /* The full opened payload of a staged row, by candidate rowIndex —
+     fhStagedAsCsvSource maps _fhStagedRows in order, the same guarantee
+     retirement relies on. Used by the review's transfer wiring (flow /
+     account_kind, the 0105 instrument classifier) without widening the
+     5-column projection. */
+  window.fhStagedRawX = function (rowIndex) {
+    var rows = window._fhStagedRows;
+    if (!rows || typeof rowIndex !== 'number') return null;
+    var r = rows[rowIndex];
+    return (r && r.raw_extracted) || null;
+  };
+
+  /* Instrument identity of a staged row → exactly what fhPersonalAccountEnsure
+     needs to auto-materialize the account (Q15). Null when nothing confident is
+     known (Q16: never invent a debt).
+
+     Rows staged BEFORE the classifier existed carry no account_kind, and their
+     sealed boxes can never be amended — so for those the strongest LOCAL
+     signals stand in: a full-length masked PAN is a card number (only cards
+     print one; a deposit alert masks an account as a short tail), and the
+     wallet providers are wallets by identity. Anything weaker stays null —
+     an absent chip beats a wrong debt. */
+  window.fhStagedAcct = function (c) {
+    var rows = window._fhStagedRows;
+    var r = (c && typeof c.rowIndex === 'number' && rows) ? rows[c.rowIndex] : null;
+    var x = (r && r.raw_extracted) || null;
+    if (!x) return null;
+    var masked = String(x.account_masked || '');
+    var kind = x.account_kind || null;
+    if (!kind) {
+      var prov = String(r.source_provider || '').toLowerCase();
+      var pan = masked.replace(/[^0-9xX*•.]/g, '');
+      if (/momo|zalopay|shopeepay/.test(prov)) kind = 'ewallet';
+      else if (pan.length >= 15) kind = 'credit_card';
+    }
+    if (!kind) return null;
+    return { kind: kind,
+             tail: masked.replace(/\D/g, '').slice(-4) || null,
+             provider: (r && r.source_provider) || null };
+  };
+
   /* Which transport imported a staged row → the ledger `source` (0100). The
      sealed payload carries `_transport`: the direct-read worker stamps
      'oauth_direct' (stage.mjs); the forwarding pipeline leaves it absent, so
@@ -24458,6 +25572,15 @@ window.classifyAmount = classifyAmount;
           : Math.round(Number(c.amount || 0) / (window.curMult ? window.curMult() : 1));
         var _t = window.csvRowTime ? window.csvRowTime(c) : undefined;   // reviewed time (edited value wins, else derived from occurred_at)
         var src = window.fhStagedSource ? window.fhStagedSource(c) : null;  // 'direct-email' | 'forwarding-email' (0100 provenance)
+        /* Instrument (0105): the classifier's verdict rides in raw_extracted.
+           A recognised account auto-materializes; a card-tagged expense feeds
+           that card's derived balance. Failure to resolve an account never
+           blocks the import — the row just lands untagged. */
+        var acctId = null;
+        try {
+          var ai = window.fhStagedAcct ? window.fhStagedAcct(c) : null;
+          if (ai && window.fhPersonalAccountEnsure) acctId = await window.fhPersonalAccountEnsure(ai);
+        } catch (eAcct) { acctId = null; }
         var ok;
         if (c.isIncome) {
           /* A credit/income row goes to the personal INCOME book, not the expense
@@ -24465,9 +25588,15 @@ window.classifyAmount = classifyAmount;
              one place a bank email's incoming money is captured correctly.
              (personal_incomes has no time column yet — income stays day-only.) */
           ok = await window.fhPersonalAddIncome(base, c.description || '', c.dateDisplay || undefined, src);
+        } else if (c.isTransfer) {
+          /* A card payment / internal transfer is the SETTLEMENT leg — a
+             transfer, never a new expense (the purchases were counted at
+             swipe). Tagged to the card account when known, so the balance
+             draws down; untagged it still stays out of every spend total. */
+          ok = await window.fhPersonalAddTransfer(base, acctId, c.description || 'Thanh toán thẻ', c.dateDisplay || undefined, src);
         } else {
           var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
-          ok = await window.fhPersonalAddExpense(base, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined, _t, src);
+          ok = await window.fhPersonalAddExpense(base, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined, _t, src, { accountId: acctId });
         }
         if (!ok) throw new Error('personal write failed at row ' + i);
       }

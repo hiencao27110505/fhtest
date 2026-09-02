@@ -1,0 +1,95 @@
+/* ── Nợ & cho vay — bento + zoom-in overlay (23-debts-ui.js) ─────────────────
+   Design: mockups/borrowing-lending-ring.html variant 01 (Concentric), on the
+   cf-card recipe: white / 22px / --shadow-focal / 16px gutter. Owe = --danger,
+   owed = --good; rings reuse the tint tokens. */
+
+/* bento */
+.debt-bento{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 16px 12px}
+.dbt-tile{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-focal);padding:14px 15px;
+  border:0;font:inherit;text-align:left;cursor:pointer;display:block;transition:transform .16s cubic-bezier(.4,0,.2,1)}
+.dbt-tile:active{transform:scale(.98)}
+.dbt-tile.wide{grid-column:1 / -1}
+.dbt-hero{display:flex;align-items:center;gap:16px;padding:16px;cursor:default}
+.dbt-hero:active{transform:none}
+.dbt-hero svg{flex-shrink:0}
+.dbt-legend{flex:1;min-width:0}
+.dbt-lr{display:flex;align-items:center;gap:7px}
+.dbt-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dbt-lk{font-size:11px;font-weight:600;color:var(--muted)}
+.dbt-lv{margin-left:auto;font-family:var(--disp);font-size:20px;font-weight:700;letter-spacing:-.5px;color:var(--ink)}
+.dbt-ldiv{height:1px;background:var(--divider);margin:10px 0}
+.dbt-tk{font-size:13px;font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbt-tv{font-family:var(--disp);font-size:21px;font-weight:700;letter-spacing:-.5px;margin-top:6px}
+.dbt-tv.owe{color:var(--danger)} .dbt-tv.owed{color:var(--good)}
+.dbt-ts{font-size:11px;font-weight:600;color:var(--muted);margin-top:5px}
+.dbt-ms{display:flex;justify-content:space-between;font-size:10.5px;font-weight:600;color:var(--muted);margin-top:9px}
+.dbt-meter{height:6px;border-radius:4px;background:var(--fill-neutral);overflow:hidden;margin-top:5px}
+.dbt-meter>i{display:block;height:100%;border-radius:4px;background:var(--cat-housing)}
+.dbt-meter.big{height:8px;max-width:280px;margin-top:12px}
+
+/* empty state */
+.dbt-empty{background:var(--white);border-radius:var(--r-card-lg);box-shadow:var(--shadow-card);margin:2px 16px 12px;padding:16px}
+.dbt-empty-t{font-size:13.5px;line-height:1.5;color:var(--ink-2)}
+.dbt-empty-cta{display:flex;gap:8px;margin-top:12px}
+.dbt-empty-cta button{flex:1;min-height:42px;border:0;border-radius:12px;background:var(--brand-tint);color:var(--brand-ink);
+  font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.dbt-empty-cta button:active{transform:scale(.98)}
+
+/* overlay internals */
+#debt-overlay .txn-title{padding-bottom:4px}
+.dbt-hero2{padding:6px 22px 4px}
+.dbt-hk{font-size:12.5px;font-weight:600;color:var(--muted)}
+.dbt-hv{font-family:var(--disp);font-size:38px;font-weight:700;letter-spacing:-1.4px;line-height:1;margin-top:7px;color:var(--ink)}
+.dbt-hv.owe{color:var(--danger)} .dbt-hv.owed{color:var(--good)}
+.dbt-hs{font-size:13px;color:var(--muted);margin-top:9px}
+.dbt-chip{display:inline-flex;align-items:center;gap:4px;background:var(--fill-neutral);color:var(--muted);
+  border-radius:9999px;padding:4px 11px;font-size:11.5px;font-weight:700}
+.dbt-acts{display:flex;gap:10px;padding:16px 16px 4px}
+.dbt-btn{flex:1;min-height:46px;border:0;border-radius:13px;font:inherit;font-size:14.5px;font-weight:600;
+  letter-spacing:-.01em;cursor:pointer;transition:transform .14s ease}
+.dbt-btn:active{transform:scale(.98)}
+.dbt-btn.primary{background:var(--brand);color:#fff}
+.dbt-btn.tinted{background:var(--brand-tint);color:var(--brand-ink)}
+.dbt-sec{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:18px 26px 8px}
+.dbt-card{background:var(--white);border-radius:20px;margin:0 16px;box-shadow:var(--shadow-card);overflow:hidden}
+.dbt-note{padding:13px 16px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.dbt-li{display:flex;align-items:center;gap:12px;min-height:54px;padding:9px 16px;border-top:1px solid var(--divider)}
+.dbt-card>.dbt-li:first-child{border-top:0}
+.dbt-lic{width:32px;height:32px;flex-shrink:0;border-radius:10px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px}
+.dbt-lib{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.dbt-lin{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbt-lis{font-size:11.5px;color:var(--muted)}
+.dbt-liv{font-family:var(--disp);font-size:14.5px;font-weight:700;letter-spacing:-.3px;color:var(--ink-2);flex-shrink:0}
+.dbt-liv.owed{color:var(--good)}
+.dbt-tag{display:inline-block;font-style:normal;font-size:10px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);
+  border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:middle}
+.dbt-foot{padding:12px 26px 4px;font-size:12px;line-height:1.55;color:var(--muted)}
+.dbt-foot b{color:var(--ink-2);font-weight:600}
+
+/* member balance rows (space) */
+.dbt-mb{display:flex;align-items:center;gap:12px;min-height:50px;padding:8px 16px;border-top:1px solid var(--divider)}
+.dbt-card>.dbt-mb:first-child{border-top:0}
+.dbt-av{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--disp);font-size:13px;font-weight:700;color:#fff}
+.dbt-mbn{flex:1;font-size:14px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+.dbt-you{display:inline-block;font-style:normal;font-size:10px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);
+  border-radius:5px;padding:1px 6px;margin-left:6px}
+.dbt-mbv{font-family:var(--disp);font-size:14.5px;font-weight:700;letter-spacing:-.3px}
+.dbt-mbv.owe{color:var(--danger)} .dbt-mbv.owed{color:var(--good)}
+.dbt-pair{display:flex;align-items:center;gap:8px;padding:10px 16px;font-size:12.5px;font-weight:500;color:var(--ink-2);border-top:1px solid var(--divider)}
+.dbt-pair .num{margin-left:auto;font-weight:700}
+
+/* secondary actions (space) */
+.dbt-acts2{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px 4px}
+.dbt-acts2 button{border:0;border-radius:9999px;background:var(--fill-neutral);color:var(--ink-2);
+  font:inherit;font-size:12.5px;font-weight:600;padding:9px 14px;cursor:pointer}
+.dbt-acts2 button.danger{color:var(--danger);background:var(--danger-tint)}
+.dbt-acts2 button:active{transform:scale(.97)}
+
+/* sheets */
+.dbt-in{width:100%;border:1.5px solid var(--hairline);border-radius:12px;padding:12px 13px;font:inherit;font-size:15px;background:var(--pearl)}
+.dbt-cardshow{background:var(--surface);border:1.5px dashed var(--hairline);border-radius:14px;padding:16px;
+  font-size:17px;font-weight:700;letter-spacing:.06em;text-align:center;word-break:break-all;user-select:all;-webkit-user-select:all}
+.dbt-exrow{display:flex;align-items:center;gap:10px;margin-top:8px}
+.dbt-exn{flex:0 0 90px;font-size:13px;font-weight:600;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbt-exrow input{flex:1}

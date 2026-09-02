@@ -412,6 +412,19 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="cd-cta-bar" id="exd-cta"></div>
 </div>
 
+<!-- NỢ & CHO VAY DETAIL — account · person · space zoom-ins (23-debts-ui.js) -->
+<div class="overlay" id="debt-overlay">
+  <div class="safe"></div>
+  <div class="cd-nav">
+    <button class="cd-back" onclick="closeDebt()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg><span>Tài Chính</span></button>
+  </div>
+  <h1 class="txn-title" id="dbt-title">Nợ &amp; cho vay</h1>
+  <div class="cd-scroll" id="dbt-scroll">
+    <div id="dbt-body"></div>
+    <div class="spacer"></div>
+  </div>
+</div>
+
 <!-- GOAL DETAIL — view a saving goal + its review first; Add funds / Edit / Delete from here -->
 <div class="overlay" id="goal-overlay">
   <div class="safe"></div>
@@ -570,6 +583,9 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
       <button class="choice on" data-v="personal" onclick="pickExScope(this)">🔒 Cá nhân</button>
       <button class="choice" data-v="family" onclick="pickExScope(this)">🏡 Gia đình</button>
     </div></div>
+    <!-- Instrument (0105): personal expenses only; chips built from personal_accounts.
+         A credit-card pick is what feeds that card's derived balance (Nợ & cho vay). -->
+    <div class="field" id="ex-acctfield" style="display:none"><label>Trả bằng gì? <span class="opt">· tuỳ chọn</span></label><div class="choices" id="ex-acct"></div></div>
     <div class="field">
       <label id="ex-note-lbl" data-t="exWhatFor">What for?</label>
       <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()" onblur="onExNoteBlur()"/>

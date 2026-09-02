@@ -24,7 +24,7 @@
  * sender misclassifies whichever kind arrived first.
  */
 
-import { applyExtractionTemplate, deriveExtractionTemplate } from './templates.mjs';
+import { applyExtractionTemplate, deriveAccountKind, deriveExtractionTemplate } from './templates.mjs';
 import { readLabelTable, maskAccount, statusReadsFailed, unknownLabels } from './labeltable.mjs';
 import { canonProviderName } from './senders.mjs';
 import { tidyMemo, tidyMerchant } from './memo.mjs';
@@ -132,6 +132,7 @@ export async function readTransaction(message, db, deps) {
     }
     if (applied && applied.amount != null) {
       await db.bumpReadTally?.('template');
+      _fillAccountKind(applied, message, sender);
       return {
         ok: true,
         extraction: _tidy(applied, message.body),
@@ -169,6 +170,7 @@ export async function readTransaction(message, db, deps) {
   }
   const tabled = readLabelTable(message.subject, message.body);
   if (tabled && tabled.amount != null && tabled.direction) {
+    _fillAccountKind(tabled, message, sender);
     let derivedT = null;
     try { derivedT = deriveExtractionTemplate(message.body, tabled); } catch { derivedT = null; }
     await db.saveFingerprint({
@@ -253,6 +255,7 @@ export async function readTransaction(message, db, deps) {
   // this sender, and to the other transport as well. Storing null is the right
   // outcome then: the sender is confirmed as a transaction source, and the next
   // mail tries the model again rather than trusting an unproven template.
+  _fillAccountKind(extraction, message, sender);
   let derived = null;
   try { derived = deriveExtractionTemplate(message.body, extraction); } catch { derived = null; }
 
@@ -311,6 +314,34 @@ function _tidy(extraction, body) {
     if (merchant && merchant !== out.counterparty) out.counterparty_display = merchant;
   }
   return out;
+}
+
+/**
+ * Fills `account_kind` where the tier that read the mail did not.
+ *
+ * The LLM may answer it (schema in llm.mjs); the template tier carries it as a
+ * static when derivation was confident; the table tier never answers it. The
+ * heuristic (templates.mjs deriveAccountKind, spec §8.2) fills the gap — and
+ * only the gap, so a model or template verdict is never overwritten. Runs
+ * BEFORE template derivation at every call site, so a non-null verdict freezes
+ * into the shape's static and later mails inherit it for free. A null result
+ * stays null: ambiguous never invents a debt (spec §8.4), the client defaults
+ * to deposit-expense behaviour and the review chip stays editable.
+ *
+ * The provider falls back to the sender address because the table tier leaves
+ * source_provider null — and "the sender is MoMo" is exactly the e-wallet
+ * signal the spec names, which the address carries as well as the label.
+ */
+function _fillAccountKind(extraction, message, sender) {
+  if (extraction.account_kind == null) {
+    extraction.account_kind = deriveAccountKind({
+      bodyText: message.body,
+      subject: message.subject,
+      provider: extraction.source_provider || sender,
+      accountMasked: extraction.account_masked,
+    });
+  }
+  return extraction;
 }
 
 function _address(fromHeader) {

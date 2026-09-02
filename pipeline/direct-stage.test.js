@@ -85,7 +85,7 @@ const reading = {
   merchant: 'HIGHLANDS COFFEE', reference: 'FT26234000123',
   occurredAt: '2026-08-24T03:15:00.000Z', balance: 4210000,
   description: 'ca phe sang', channel: 'QR', accountTail: '5153',
-  category: 'ăn uống',
+  category: 'ăn uống', accountKind: 'credit_card',
 };
 const deps = { nacl, dedupKey: KEY, subtle: crypto.webcrypto.subtle };
 const row = await S.buildStagedRow({
@@ -131,6 +131,10 @@ t('channel survives', opened.raw_extracted.channel === 'QR');
 t('the masked account survives', opened.raw_extracted.account_masked === '5153');
 t('the category is carried as a hint for the review screen',
   opened.raw_extracted.category_hint === 'ăn uống');
+// The instrument (spec §8) rides inside the box like the other cash-flow
+// fields — a top-level column would need 0068's CHECK to null it out.
+t('the account kind survives, sealed, for the review chip',
+  opened.raw_extracted.account_kind === 'credit_card');
 t('the transport is recorded on the row', opened.raw_extracted._transport === 'oauth_direct');
 t('raw_body is nowhere, sealed or clear',
   opened.raw_body === undefined && opened.raw_extracted.raw_body === undefined);
