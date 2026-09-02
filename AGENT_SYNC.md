@@ -143,6 +143,57 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-02 (Trang's session) — IN FLIGHT: template graduation fixes, phases
+  1–4. Files claimed: `supabase/functions/_shared/mailbox/templates.mjs`,
+  `labeltable.mjs`, `extract.mjs`, `pipeline/bank-email-pipeline.gs`, their
+  tests.**
+
+  **Why.** 16 of 18 transaction shapes never graduate a template
+  (`extraction_regex` null), so they pay a model call per MAIL forever — the
+  mechanism behind the 20.5-hour backfill and 731k held reads. Verified against
+  five REAL mail bodies (four repo fixtures + one pasted VIB mail), two causes,
+  every failing shape bisected to a single field:
+
+  | shape | blocker |
+  |---|---|
+  | MB transfer, VCB card | masking runs before learning — `readLabelTable` masks
+    the account to `…9979`, derivation needs it verbatim in the body |
+  | VIB card | time-before-date (`10:17 30/08/2026`) — `_DATE_RAW_RE` only knows
+    time AFTER the date, every candidate resolves to midnight |
+  | VCB receipt | both |
+  | MB tap | graduates (control) — its bank prints its own masked form |
+
+  **The plan, in commit order:**
+  1. **Masking after learning.** `readLabelTable` returns the account as the
+     mail printed it; `maskAccount` enforcement lives only in `_tidy`, which
+     every tier's output already passes through. The last-four-only invariant
+     moves its enforcement point, not its truth — pinned end-to-end in tests.
+  2. **`account_masked` can no longer kill a template.** Unanchorable →
+     omitted, derivation continues, self-check skips the omitted field. ONLY
+     this field: it has zero client consumers today, while `memo` keeps its
+     fail-hard scar (a template silently dropping memo was a real incident).
+  3. **Anchor hygiene.** Digits in an anchor prefix are never literal
+     (`10:17` → `\d+:\d+`, so a template no longer matches only one
+     timestamp); a numeric value owns its sign (`[-+]?`, retiring the
+     `+37,000`-refund-only bug); `account_masked` anchors by label line only
+     (its same-line prefix is the holder's NAME in every layout we hold); and a
+     finished template containing a digit run ≥6 or any full extracted value is
+     refused — the PII audit that was a lucky one-off query becomes a rule.
+  4. **Dates.** `_DATE_RAW_RE` accepts a leading time (weekday-tolerant);
+     new `_DATE_KINDS` entry for `HH:MM dd/mm/yyyy`.
+
+  All four land in the VERBATIM-COPIED slice, so `templates.mjs` and the `.gs`
+  take the identical diff; parity suites re-slice at test time and stay green
+  only if both sides moved together. `EXTRACTION_LOGIC_VERSION` stays 4 — the
+  broken `+`-anchored mbcard template self-heals (its every miss falls to the
+  label table, which re-derives under the new rules and overwrites it).
+
+  **Accepted risk, Trang's call (2026-09-02): NO cache partition first.**
+  Write-back re-enabled with one shared row per shape across two transports
+  that render differently — shapes both transports see may alternate template
+  forms. Tripwire: `template_missed` in read_tally. Superseded by the planned
+  move to centralised template learning.
+
 - **2026-08-31 (Trang's session) — `0104_strip_status_statics.sql` APPLIED. Next
   free is `0105`.**
 
