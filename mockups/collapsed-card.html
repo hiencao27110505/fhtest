@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thẻ thu gọn — 8 skin, cùng cấu trúc</title>
+<style>
+/* ===== Tokens — src/css/10-tokens.css (Sage) ===== */
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --brand-tint:#e9f7f0; --brand-glow:rgba(46,158,107,.32);
+  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --danger:#E0322F; --amber:#B8730B; --amber-tint:#fbefda;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --canvas:#f4f1f6; --pearl:#fbfafc; --surface:#f9f7f8; --white:#fff;
+  --hairline:#e9e4ee; --divider:#f1edf4; --chev:#cfc8d6;
+  --fill-neutral:rgba(138,132,148,.14);
+  --shadow-card:0 4px 18px -6px rgba(25,16,34,.14);
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased}
+body{font-family:var(--text);background:#e7e2ec;color:var(--ink)}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+
+.wrap{max-width:1900px;margin:0 auto;padding:44px 28px 90px}
+.hero{max-width:900px}
+.hero h1{font-family:var(--disp);font-size:28px;font-weight:800;letter-spacing:-.5px}
+.hero p{margin-top:10px;font-size:15px;color:var(--muted);line-height:1.55}
+.grid{margin-top:34px;display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:40px 34px}
+@media(max-width:480px){.grid{grid-template-columns:1fr}}
+.panel{max-width:402px;margin:0 auto;background:var(--white);border-radius:26px;padding:16px 16px 18px;box-shadow:0 18px 44px rgba(10,5,20,.14)}
+.cap{max-width:402px;margin:14px auto 0;padding:0 10px}
+.cap .tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:3px 8px;margin-right:8px;vertical-align:2px}
+.cap b{font-size:15px;font-weight:700}
+.cap p{margin-top:5px;font-size:13px;color:var(--muted);line-height:1.5}
+.datelbl{margin:2px 4px 10px;font-size:12px;font-weight:800;letter-spacing:.09em;color:var(--muted);text-transform:uppercase}
+
+/* ===== shared anatomy: [meta+ckb] / [note ×2] / [amount · cat · transport] ===== */
+.c{position:relative;padding:12px 46px 11px 15px;text-align:left}
+.c .meta{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c .meta .sep{color:var(--muted-soft);margin:0 4px;font-weight:700}
+.c .note{margin-top:4px;font-size:14.5px;font-weight:600;letter-spacing:-.01em;line-height:1.35;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.c .bot{margin-top:5px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.c .amt{font-family:var(--disp);font-size:15.5px;font-weight:800;letter-spacing:-.02em;white-space:nowrap}
+.c .cat{font-size:11.5px;font-weight:600;color:var(--ink-2)}
+.c .cat.warn{color:var(--amber)}
+.c .src{font-size:11.5px;font-weight:500;color:var(--muted-soft)}
+.c .ck{position:absolute;right:11px;top:11px;width:22px;height:22px;border-radius:7px;border:2px solid var(--hairline);display:flex;align-items:center;justify-content:center;color:transparent;font-size:12px;font-weight:800}
+.c .ck.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.c.off .note,.c.off .amt{color:var(--muted);font-weight:500}
+.c.off .amt{text-decoration:line-through;text-decoration-color:var(--chev)}
+
+/* ── A · hairline (shipped, type-tuned) ── */
+.sA .c{border:1.5px solid var(--hairline);border-radius:16px;background:var(--white)}
+.sA .c+.c{margin-top:10px}
+/* ── B · full-bleed list ── */
+.sB{margin:0 -16px}
+.sB .c{border-bottom:1px solid var(--divider);padding-left:20px}
+.sB .c:last-child{border-bottom:0}
+.sB .ck{border-radius:50%}
+/* ── C · soft tile ── */
+.sC .c{background:var(--surface);border-radius:18px}
+.sC .c+.c{margin-top:9px}
+.sC .ck{background:var(--white);border-color:var(--white);box-shadow:inset 0 0 0 1.5px var(--hairline)}
+.sC .ck.on{background:var(--brand);box-shadow:none;border-color:var(--brand)}
+/* ── D · elevation = selection ── */
+.sD{background:var(--canvas);margin:0 -16px;padding:12px 16px}
+.sD .c{background:var(--white);border-radius:18px;box-shadow:var(--shadow-card)}
+.sD .c+.c{margin-top:10px}
+.sD .c.off{background:transparent;box-shadow:none;border:1.5px dashed var(--hairline)}
+.sD .ck{border-radius:50%}
+/* ── E · status rail ── */
+.sE .c{border:1.5px solid var(--hairline);border-left:0;border-radius:14px;background:var(--white);box-shadow:inset 3px 0 0 var(--brand-2)}
+.sE .c+.c{margin-top:10px}
+.sE .c.warnrail{box-shadow:inset 3px 0 0 var(--amber)}
+.sE .c.off{box-shadow:inset 3px 0 0 var(--chev)}
+/* ── F · chipless typographic ── */
+.sF .c{border-top:1px solid var(--hairline);border-radius:0;padding-left:4px;padding-right:40px}
+.sF .c:first-of-type{border-top:0}
+.sF .meta{letter-spacing:.02em;text-transform:uppercase;font-size:10px;font-weight:700}
+.sF .note{font-weight:500}
+.sF .amt{font-weight:800}
+.sF .cat::before,.sF .src::before{content:"·";margin-right:9px;color:var(--chev)}
+.sF .ck{right:2px}
+/* ── G · monogram avatar ── */
+.sG .c{border:1.5px solid var(--hairline);border-radius:16px;background:var(--white);padding-left:60px}
+.sG .c+.c{margin-top:10px}
+.sG .ava{position:absolute;left:13px;top:14px;width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-size:11px;font-weight:800;color:#fff;letter-spacing:.02em}
+.sG .ava.vib{background:linear-gradient(135deg,#1E9BE0,#3FB6D9)}
+.sG .ava.cash{background:linear-gradient(135deg,#a9a2b2,#8a8494)}
+/* ── H · pearl receipt ── */
+.sH{background:var(--pearl);margin:0 -16px;padding:6px 20px}
+.sH .c{border-bottom:1px dashed var(--hairline);padding-left:2px;padding-right:40px}
+.sH .c:last-child{border-bottom:0}
+.sH .note{font-weight:550}
+.sH .amt{border-bottom:2px solid var(--brand-tint);padding-bottom:1px}
+.sH .ck{right:0;border-radius:7px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <h1>Thẻ thu gọn — 8 skin, cùng cấu trúc & thông tin</h1>
+  <p>Bất biến ở cả 8: dòng meta (scope · ngân hàng · tài khoản · ngày · giờ) → ghi chú tối đa 2 dòng → dòng đáy <b>số tiền dẫn trái</b> · danh mục · nguồn nhập chữ thường — checkbox góc phải trên. Chỉ đổi lớp vỏ: viền, nền, phân cách, kiểu chữ, kiểu tick. Mỗi panel: 1 khoản cá nhân trả thẻ, 1 khoản gia đình, 1 khoản bỏ chọn.</p>
+</div>
+
+<div class="grid">
+
+<!-- A -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="sA">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917<span class="sep">·</span>Hôm nay · 20:56</div>
+      <div class="note">CAO THAI DUY HIEN chuyen tien den CAKE BY VPBANK</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🏡 Gia đình<span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917<span class="sep">·</span>Hôm nay · 18:22</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB<span class="sep">·</span>tín dụng ••4751<span class="sep">·</span>Hôm nay · 09:12</div>
+      <div class="note">THANHTOAN THE VIB ONLINE PAYMENT</div>
+      <div class="bot"><span class="amt num">−3.590.000</span><span class="cat warn">Chọn danh mục</span><span class="src">Chuyển tiếp</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">A</span><b>Hairline — bản đang chạy, tinh chỉnh chữ</b>
+  <p>Giữ nguyên viền hairline 16px; meta hạ xuống 11px, số tiền lên 800 tabular. Mốc so sánh cho 7 skin còn lại.</p></div>
+</div>
+
+<!-- B -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="sB">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917<span class="sep">·</span>Hôm nay · 20:56</div>
+      <div class="note">CAO THAI DUY HIEN chuyen tien den CAKE BY VPBANK</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🏡 Gia đình<span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917<span class="sep">·</span>Hôm nay · 18:22</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB<span class="sep">·</span>tín dụng ••4751<span class="sep">·</span>Hôm nay · 09:12</div>
+      <div class="note">THANHTOAN THE VIB ONLINE PAYMENT</div>
+      <div class="bot"><span class="amt num">−3.590.000</span><span class="cat warn">Chọn danh mục</span><span class="src">Chuyển tiếp</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">B</span><b>Full-bleed list — iOS Mail</b>
+  <p>Bỏ hẳn viền thẻ: hàng tràn mép, chỉ ngăn bằng divider mảnh, tick tròn. 75 khoản đọc như một hộp thư — nhẹ nhất về mực, cuộn nhanh nhất.</p></div>
+</div>
+
+<!-- C -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="sC">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917<span class="sep">·</span>Hôm nay · 20:56</div>
+      <div class="note">CAO THAI DUY HIEN chuyen tien den CAKE BY VPBANK</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🏡 Gia đình<span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917<span class="sep">·</span>Hôm nay · 18:22</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB<span class="sep">·</span>tín dụng ••4751<span class="sep">·</span>Hôm nay · 09:12</div>
+      <div class="note">THANHTOAN THE VIB ONLINE PAYMENT</div>
+      <div class="bot"><span class="amt num">−3.590.000</span><span class="cat warn">Chọn danh mục</span><span class="src">Chuyển tiếp</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">C</span><b>Soft tile — nền thay viền</b>
+  <p>Fill --surface, không stroke. Êm hơn hairline khi xếp 75 khoản; thẻ mở rộng (viền brand đậm) nổi hẳn lên giữa các tile mềm.</p></div>
+</div>
+
+<!-- D -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="sD">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917<span class="sep">·</span>Hôm nay · 20:56</div>
+      <div class="note">CAO THAI DUY HIEN chuyen tien den CAKE BY VPBANK</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🏡 Gia đình<span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917<span class="sep">·</span>Hôm nay · 18:22</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB<span class="sep">·</span>tín dụng ••4751<span class="sep">·</span>Hôm nay · 09:12</div>
+      <div class="note">THANHTOAN THE VIB ONLINE PAYMENT</div>
+      <div class="bot"><span class="amt num">−3.590.000</span><span class="cat warn">Chọn danh mục</span><span class="src">Chuyển tiếp</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">D</span><b>Elevation = selection</b>
+  <p>Nền canvas; khoản ĐƯỢC chọn là thẻ trắng có bóng (nổi lên = sẽ nhập), bỏ chọn xẹp xuống thành khung đứt. Đúng ngôn ngữ "selection is elevation, never a stroke" của txh header.</p></div>
+</div>
+
+<!-- E -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="sE">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917<span class="sep">·</span>Hôm nay · 20:56</div>
+      <div class="note">CAO THAI DUY HIEN chuyen tien den CAKE BY VPBANK</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c warnrail"><span class="ck on">✓</span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB<span class="sep">·</span>tín dụng ••4751<span class="sep">·</span>Hôm nay · 09:12</div>
+      <div class="note">THANHTOAN THE VIB ONLINE PAYMENT</div>
+      <div class="bot"><span class="amt num">−3.590.000</span><span class="cat warn">Chọn danh mục</span><span class="src">Chuyển tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="meta">🏡 Gia đình<span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917<span class="sep">·</span>Hôm nay · 18:22</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span><span class="src">Trực tiếp</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">E</span><b>Status rail — mép trái kể trạng thái</b>
+  <p>Rail 3px bên trái: xanh = sẵn sàng, hổ phách = còn thiếu (khớp giá trị amber trong thẻ mở), xám = bỏ chọn. Quét dọc một đường là biết cả 75 khoản đứng ở đâu.</p></div>
+</div>
+
+<!-- F -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="sF">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🔒 Riêng tư · VIB · TK ••0917 · Hôm nay · 20:56</div>
+      <div class="note">CAO THAI DUY HIEN chuyen tien den CAKE BY VPBANK</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🏡 Gia đình · VIB · TK ••0917 · Hôm nay · 18:22</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="meta">🔒 Riêng tư · VIB · tín dụng ••4751 · Hôm nay · 09:12</div>
+      <div class="note">THANHTOAN THE VIB ONLINE PAYMENT</div>
+      <div class="bot"><span class="amt num">−3.590.000</span><span class="cat warn">Chọn danh mục</span><span class="src">Chuyển tiếp</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">F</span><b>Chipless typographic</b>
+  <p>Không viền, không chip: meta thành small-caps 10px, mọi thứ ở dòng đáy ngăn bằng dấu chấm giữa. Cùng giọng "chữ thay khung" với các hàng settings của thẻ mở rộng.</p></div>
+</div>
+
+<!-- G -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="sG">
+    <div class="c"><span class="ava vib">VIB</span><span class="ck on">✓</span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>TK ••0917<span class="sep">·</span>Hôm nay · 20:56</div>
+      <div class="note">CAO THAI DUY HIEN chuyen tien den CAKE BY VPBANK</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c"><span class="ava vib">VIB</span><span class="ck on">✓</span>
+      <div class="meta">🏡 Gia đình<span class="sep">·</span>TK ••0917<span class="sep">·</span>Hôm nay · 18:22</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ava cash">₫</span><span class="ck"></span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>Tiền mặt<span class="sep">·</span>Hôm nay · 15:40</div>
+      <div class="note">Cà phê với khách</div>
+      <div class="bot"><span class="amt num">−65.000</span><span class="cat">🍜 Ăn ngoài</span><span class="src">Nhập tay</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">G</span><b>Monogram nguồn tiền</b>
+  <p>Ngân hàng rời dòng meta thành avatar vuông bo màu theo nhà băng — nhận nguồn bằng mắt trước khi đọc. Meta ngắn lại một bậc; thông tin không mất, chỉ đổi hình thức.</p></div>
+</div>
+
+<!-- H -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="sH">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917<span class="sep">·</span>Hôm nay · 20:56</div>
+      <div class="note">CAO THAI DUY HIEN chuyen tien den CAKE BY VPBANK</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🏡 Gia đình<span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917<span class="sep">·</span>Hôm nay · 18:22</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB<span class="sep">·</span>tín dụng ••4751<span class="sep">·</span>Hôm nay · 09:12</div>
+      <div class="note">THANHTOAN THE VIB ONLINE PAYMENT</div>
+      <div class="bot"><span class="amt num">−3.590.000</span><span class="cat warn">Chọn danh mục</span><span class="src">Chuyển tiếp</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">H</span><b>Pearl receipt — hoá đơn giấy</b>
+  <p>Nền pearl (trùng nền thẻ mở rộng), ngăn dòng bằng nét đứt, số tiền gạch chân tint xanh. Cảm giác sao kê — hợp bản chất "đang soát biên lai" của màn này.</p></div>
+</div>
+
+</div>
+</div>
+</body>
+</html>
