@@ -143,6 +143,37 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-02 (Trang's session) — IN FLIGHT: selection & learning, plans 1–3.
+  CLAIMING migrations `0107` (coverage_candidates + weekly probe cron) and
+  `0108` (learned_labels + counting RPCs). Files: `worker.mjs`, `gmail.mjs`,
+  `extract.mjs`, `labeltable.mjs`, `db.mjs`, `mailbox-sync/index.ts`, tests.**
+
+  1. **Metadata-first selection.** Bodies are fetched only for mail the run will
+     use: known-junk shapes are skipped from headers alone (exact
+     (sender,subject) matches ONLY — never the sender-wide sentinel, which is a
+     heuristic that would hide a sender's first real transaction), and shapes
+     already known to need the model are deferred without a body once the
+     budget is gone (cursor held, so a table-readable-but-ungraduated shape is
+     delayed at most one run, never stranded — the 29-08 regression this must
+     not repeat). junk_cache was 22% of ~951k reads; held 77%.
+  2. **Coverage probe (weekly).** Lists category:updates minus the registry,
+     headers only, and records DOMAIN + COUNTS only into coverage_candidates.
+     Surfacing, not auto-widening: provider_domains stays a human decision.
+  3. **Learned labels, conservatively.** deriveLabelMappings inverts the model's
+     answer the way deriveExtractionTemplate already does: value beside label ⇒
+     label means field. Evidence table learned_labels; a mapping APPLIES only at
+     n≥3 from the same sender domain; hardcoded LABELS always wins; SAFE fields
+     only (memo, reference; merchant/beneficiary type-conditioned) — never
+     amount, occurred_at, account, status; `delete from learned_labels` fully
+     restores hand-authored behaviour, and a test proves it.
+
+  Also fixing in passing: `recordDeriveFailure` wrote via merge-duplicates,
+  which never increments `n` (a counter that counts to one). Both counters move
+  to SECURITY DEFINER RPCs in 0108.
+
+  No `.gs` change in any of the three — worker/labeltable are mjs-only, so no
+  paste; forwarding gains nothing until shared-logic, noted in the docs.
+
 - **2026-09-02 (Trang's session) — IN FLIGHT: template graduation fixes, phases
   1–4. Files claimed: `supabase/functions/_shared/mailbox/templates.mjs`,
   `labeltable.mjs`, `extract.mjs`, `pipeline/bank-email-pipeline.gs`, their
