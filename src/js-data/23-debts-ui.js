@@ -190,15 +190,27 @@
         + '<button class="dbt-btn primary" onclick="fhCardPaySheet(\'' + acct.id + '\')">Ghi thanh toán thẻ</button>'
         + '<button class="dbt-btn tinted" onclick="fhAcctEditSheet(\'' + acct.id + '\')">Tên &amp; hạn mức</button>'
         + '</div>';
-      const rows = (b.rows || []).slice().sort((a, x) => (x.date || '').localeCompare(a.date || ''));
-      h += '<div class="dbt-sec">Trên thẻ này</div><div class="dbt-card">';
-      if (!rows.length) h += '<div class="dbt-note">Chưa có giao dịch nào gắn với thẻ này. Các khoản chi từ email sẽ tự gắn khi được duyệt.</div>';
-      rows.slice(0, 60).forEach(function (r) {
-        const pay = r.kind === 'transfer';
-        h += '<div class="dbt-li"><span class="dbt-lic">' + (pay ? '💳' : (r.emoji || '🗂️')) + '</span>'
-          + '<span class="dbt-lib"><span class="dbt-lin">' + _e(pay ? (r.note || 'Thanh toán thẻ') : (r.note || r.cat || 'Khoản chi')) + (pay ? '<i class="dbt-tag">trả nợ</i>' : '') + '</span>'
-          + '<span class="dbt-lis">' + _dmy(r.date) + (r.cat && !pay ? ' · ' + _e(r.cat) : '') + '</span></span>'
-          + '<span class="dbt-liv num ' + (pay ? 'owed' : '') + '">' + (pay ? '−' : '+') + fmt(Math.abs(r.amt || 0)) + '</span></div>';
+      /* Two sides of the card, two sections: what the card BOUGHT (expenses that
+         build the balance) and what PAID it OFF (transfers that draw it down). */
+      const all = (b.rows || []).slice().sort((a, x) => (x.date || '').localeCompare(a.date || ''));
+      const spends = all.filter((r) => r.kind !== 'transfer');
+      const pays = all.filter((r) => r.kind === 'transfer');
+      h += '<div class="dbt-sec">Chi tiêu trên thẻ</div><div class="dbt-card">';
+      if (!spends.length) h += '<div class="dbt-note">Chưa có khoản chi nào gắn với thẻ này. Chi tiêu từ email tự gắn khi bạn duyệt (chọn đúng thẻ khi ghi thủ công).</div>';
+      spends.slice(0, 80).forEach(function (r) {
+        h += '<div class="dbt-li"><span class="dbt-lic">' + (r.emoji || '🗂️') + '</span>'
+          + '<span class="dbt-lib"><span class="dbt-lin">' + _e(r.note || r.cat || 'Khoản chi') + '</span>'
+          + '<span class="dbt-lis">' + _dmy(r.date) + (r.cat ? ' · ' + _e(r.cat) : '') + '</span></span>'
+          + '<span class="dbt-liv num">+' + fmt(Math.abs(r.amt || 0)) + '</span></div>';
+      });
+      h += '</div>';
+      h += '<div class="dbt-sec">Thanh toán thẻ</div><div class="dbt-card">';
+      if (!pays.length) h += '<div class="dbt-note">Chưa ghi thanh toán nào. Bấm “Ghi thanh toán thẻ” ở trên — có thể chọn từ các khoản trả thẻ đang chờ trong hộp thư.</div>';
+      pays.slice(0, 40).forEach(function (r) {
+        h += '<div class="dbt-li"><span class="dbt-lic">💳</span>'
+          + '<span class="dbt-lib"><span class="dbt-lin">' + _e(r.note || 'Thanh toán thẻ') + '<i class="dbt-tag">trả nợ</i></span>'
+          + '<span class="dbt-lis">' + _dmy(r.date) + '</span></span>'
+          + '<span class="dbt-liv num owed">−' + fmt(Math.abs(r.amt || 0)) + '</span></div>';
       });
       h += '</div>';
       h += '<div class="dbt-foot">Trả sao kê là <b>chuyển khoản</b>, không phải chi tiêu — các khoản chi đã được tính lúc quẹt, nên không bị đếm hai lần.</div>';
@@ -371,7 +383,8 @@
         title: 'Thanh toán ' + _e(acct.name || 'thẻ'), saveLabel: 'Ghi lại', reqMsg: 'Điền số tiền nhé',
         body: _amtIn('dbt-amt')
           + '<div class="field"><label>Ngày</label><input type="date" id="dbt-date" value="' + new Date().toISOString().slice(0, 10) + '" oninput="fhModalDirty()"></div>'
-          + '<div class="dbt-note">Khoản này trừ vào dư nợ thẻ — không tính là chi tiêu mới (đã tính lúc quẹt rồi).</div>',
+          + '<div class="dbt-note">Khoản này trừ vào dư nợ thẻ — không tính là chi tiêu mới (đã tính lúc quẹt rồi).</div>'
+          + '<div id="dbt-paycands"></div>',
         required: function () { return [{ el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 }]; },
         save: async function () {
           const ok = await fhPersonalAddTransfer(_amtOf('dbt-amt'), acctId, 'Thanh toán thẻ', (document.getElementById('dbt-date') || {}).value || undefined, null);
@@ -379,7 +392,44 @@
           window.toast && toast('Đã ghi thanh toán');
           return function () { openDebtAccount(acctId); if (window.renderPersonal) renderPersonal(); };
         },
+        after: function () { _fillPayCands(acctId); },
       });
+    };
+
+    /* #3 — the card's own "assign an inbox payment to me" list. The bank mail
+       that pays a card can't say WHICH card, so this is where the person says
+       it: the same rows the review would call "Trả nợ thẻ", filtered here into
+       this card's context. Tapping one records the transfer against THIS card
+       and retires the staged row so it can't be imported twice. */
+    let _payCands = [];
+    const _baseAmt = (n) => window.csvBaseAmt ? csvBaseAmt(n) : Math.round(Number(n || 0) / (window.curMult ? curMult() : 1000));
+    async function _fillPayCands(acctId) {
+      const box = document.getElementById('dbt-paycands'); if (!box) return;
+      if (!window.fhStagedCardPayments) return;
+      box.innerHTML = '<div class="dbt-pc-h">Đang tìm khoản trả thẻ trong hộp thư…</div>';
+      let cands = [];
+      try { cands = await fhStagedCardPayments(); } catch (e) { cands = []; }
+      if (!document.getElementById('dbt-paycands')) return;      // sheet closed while loading
+      _payCands = cands;
+      if (!cands.length) { box.innerHTML = ''; return; }
+      let h = '<div class="dbt-pc-h">Từ hộp thư · đang chờ · chạm để gán vào thẻ này</div>';
+      cands.forEach(function (c, i) {
+        h += '<button type="button" class="dbt-pc" onclick="fhCardPayFromStaged(\'' + acctId + '\',' + i + ')">'
+          + '<span class="dbt-pc-b"><span class="dbt-pc-n">' + _e(c.description) + '</span>'
+          + '<span class="dbt-pc-s">' + _e(c.provider || 'Ngân hàng') + (c.tail ? ' ••' + c.tail : '') + ' · ' + _dmy((c.occurredAt || '').slice(0, 10)) + '</span></span>'
+          + '<span class="dbt-pc-a num">' + fmt(_baseAmt(c.amount)) + '</span></button>';
+      });
+      box.innerHTML = h;
+    }
+    window.fhCardPayFromStaged = async function (acctId, i) {
+      const c = _payCands[i]; if (!c) return;
+      const ok = await fhPersonalAddTransfer(_baseAmt(c.amount), acctId, c.description || 'Thanh toán thẻ', (c.occurredAt || '').slice(0, 10) || undefined, 'direct-email');
+      if (!ok) { window.toast && toast('Chưa ghi được, thử lại'); return; }
+      if (window.fhStagedRetireIds) { try { await fhStagedRetireIds([c.id]); } catch (e) {} }
+      window.toast && toast('Đã gán vào thẻ & xoá khỏi hộp chờ');
+      if (window._closeOv) window._closeOv();
+      openDebtAccount(acctId);
+      if (window.renderPersonal) renderPersonal();
     };
 
     window.fhAcctEditSheet = function (acctId) {

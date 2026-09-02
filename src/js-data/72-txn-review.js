@@ -475,6 +475,47 @@
              provider: (r && r.source_provider) || null };
   };
 
+  /* Card-payment candidates still waiting in the inbox — for the card detail's
+     "Ghi thanh toán thẻ" sheet, which lets a person assign one to a SPECIFIC
+     card (the sending bank mail can't say which). Fetch + open + filter, read
+     only: never touches the review's own _fhStagedRows state. A row is a
+     card-payment candidate when the pipeline called it a transfer, when it is a
+     credit-card "payment received" (credit into a card), or when its memo says
+     so. Returns display-currency amounts, like the review's candidates. */
+  var _CARD_PAY_RX = /thanh toan (sao ke |du no )?the|tt the tin dung|tra no the|thanh toan the (visa|master|jcb)|tra tien the tin dung/;
+  window.fhStagedCardPayments = async function () {
+    var raw;
+    try { raw = await fhFetchStagedTxns(); } catch (e) { return []; }
+    var out = [];
+    for (var i = 0; i < raw.length; i++) {
+      var r = await fhReadStagedRow(raw[i]);
+      if (i % 25 === 0) { await new Promise(function (res) { setTimeout(res, 0); }); }   // yield, keep the tap alive
+      if (!r || r._unreadable) continue;
+      var re = r.raw_extracted || {};
+      var memo = String(re.memo_display != null ? re.memo_display : (re.memo || r.counterparty || '')).toLowerCase();
+      var flat = memo.normalize ? memo.normalize('NFD').replace(/[̀-ͯ]/g, '') : memo;
+      var isPay = re.flow === 'transfer'
+        || (re.account_kind === 'credit_card' && r.direction === 'credit')
+        || _CARD_PAY_RX.test(flat);
+      if (!isPay) continue;
+      out.push({ id: r.id, amount: Number(r.amount) || 0, occurredAt: r.occurred_at || '',
+        description: re.memo_display || re.memo || r.counterparty || 'Thanh toán thẻ',
+        provider: r.source_provider || '',
+        tail: String(re.account_masked || '').replace(/\D/g, '').slice(-4) || null });
+    }
+    return out;
+  };
+
+  /* Retire specific staged rows by id — local-first (survives a failed server
+     delete), so a row assigned to a card from the detail screen cannot also
+     reappear in the review to be imported twice. */
+  window.fhStagedRetireIds = async function (ids) {
+    if (!ids || !ids.length) return false;
+    _stagedRetiredAdd(ids);
+    try { await _rpc('resolve_email_transactions', { p_ids: ids }); return true; }
+    catch (e) { console.warn('staged retire (targeted) failed', e, { ids: ids }); return false; }
+  };
+
   /* Which transport imported a staged row → the ledger `source` (0100). The
      sealed payload carries `_transport`: the direct-read worker stamps
      'oauth_direct' (stage.mjs); the forwarding pipeline leaves it absent, so
@@ -821,14 +862,11 @@
         var _t = window.csvRowTime ? window.csvRowTime(c) : undefined;   // reviewed time (edited value wins, else derived from occurred_at)
         var src = window.fhStagedSource ? window.fhStagedSource(c) : null;  // 'direct-email' | 'forwarding-email' (0100 provenance)
         /* Instrument (0105): the classifier's verdict rides in raw_extracted.
-           A recognised account auto-materializes; a card-tagged expense feeds
-           that card's derived balance. Failure to resolve an account never
-           blocks the import — the row just lands untagged. */
-        var acctId = null;
-        try {
-          var ai = window.fhStagedAcct ? window.fhStagedAcct(c) : null;
-          if (ai && window.fhPersonalAccountEnsure) acctId = await window.fhPersonalAccountEnsure(ai);
-        } catch (eAcct) { acctId = null; }
+           Never lets a resolution error block the import — the row just lands
+           untagged. */
+        var ai = null;
+        try { ai = window.fhStagedAcct ? window.fhStagedAcct(c) : null; } catch (eAcct) { ai = null; }
+        var pd = (window.fhPersonalData && window.fhPersonalData()) || { accounts: [] };
         var ok;
         if (c.isIncome) {
           /* A credit/income row goes to the personal INCOME book, not the expense
@@ -837,12 +875,26 @@
              (personal_incomes has no time column yet — income stays day-only.) */
           ok = await window.fhPersonalAddIncome(base, c.description || '', c.dateDisplay || undefined, src);
         } else if (c.isTransfer) {
-          /* A card payment / internal transfer is the SETTLEMENT leg — a
-             transfer, never a new expense (the purchases were counted at
-             swipe). Tagged to the card account when known, so the balance
-             draws down; untagged it still stays out of every spend total. */
-          ok = await window.fhPersonalAddTransfer(base, acctId, c.description || 'Thanh toán thẻ', c.dateDisplay || undefined, src);
+          /* A card payment pays off a CARD — drawing its balance down — not the
+             bank account the money left. So it is tagged to the card, never to
+             the sending instrument. The card is known when the mail is the
+             card's own "payment received" alert (ai.kind === 'credit_card');
+             otherwise a one-card wallet has only one answer. Ambiguous (several
+             cards) → untagged, and assignable later from the card's own detail
+             screen. Either way it is a transfer, out of every spend total. */
+          var payCard = null;
+          if (ai && ai.kind === 'credit_card' && window.fhPersonalAccountEnsure) {
+            try { payCard = await window.fhPersonalAccountEnsure(ai); } catch (e1) {}
+          } else {
+            var _cards = (pd.accounts || []).filter(function (a) { return a.kind === 'credit_card'; });
+            if (_cards.length === 1) payCard = _cards[0].id;
+          }
+          ok = await window.fhPersonalAddTransfer(base, payCard, c.description || 'Thanh toán thẻ', c.dateDisplay || undefined, src);
         } else {
+          /* An expense tags its instrument (a credit-card purchase is what
+             BUILDS that card's balance). Auto-materializes the account (Q15). */
+          var acctId = null;
+          if (ai && window.fhPersonalAccountEnsure) { try { acctId = await window.fhPersonalAccountEnsure(ai); } catch (e2) {} }
           var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
           ok = await window.fhPersonalAddExpense(base, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined, _t, src, { accountId: acctId });
         }

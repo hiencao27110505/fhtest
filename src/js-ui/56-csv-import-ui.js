@@ -754,7 +754,7 @@ function csvSpendPanel(r){
 // produces byte-identical markup (bc-note / bc-amt / bc-cat / bc-pick / bc-dup).
 function csvRowShape(c, isDup){
   return { note: c.description || '', amt: c.amount != null ? String(Math.round(c.amount)) : '',
-           cat: c.categoryName || '', _dup: !!isDup };
+           cat: c.categoryName || '', _dup: !!isDup, _transfer: !!(c && c.isTransfer) };
 }
 
 /* isError separates "this can't go in" (red) from "worth a glance" (amber).

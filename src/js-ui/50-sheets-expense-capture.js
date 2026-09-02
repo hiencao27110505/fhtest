@@ -505,7 +505,9 @@ function bulkSummary(r){
   var base=parseAmtBase(r.amt||'');
   var meta='';
   if(base>0) meta+='<span class="bc-amt">'+fmt(base)+'</span>';
-  if(catValid(r.cat)){
+  if(r._transfer){                                            // a card payment — a transfer, not a spend; no category
+    meta+='<span class="bc-cat bc-transfer">💳 '+L('Trả nợ thẻ','Card payment')+'</span>';
+  } else if(catValid(r.cat)){
     if(r.cat==='Event') meta+='<span class="bc-cat">🎈 '+L('Sự kiện','Event')+'</span>';
     else { var s=catStyle[r.cat]||['🏷️']; meta+='<span class="bc-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
   } else if(note || base>0){                                  // has content but no real category → prompt to pick

@@ -929,7 +929,12 @@ function bucketCsvCandidates(candidates, mixedSigns) {
        under its better copy. */
     if (c._mergedCopy) { merged++; return; }
 
-    if (mixedSigns || c.isIncome || c.isTransfer || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
+    /* A card payment is a real thing to import now — a TRANSFER that draws a
+       card's balance down (Borrowing & Lending). So in staged (bank-email)
+       mode it is a normal, checkable, importable card, not something set aside.
+       Only CSV-file transfers stay deferred, where importing a card statement
+       AND a bank statement genuinely double-counts. */
+    if (mixedSigns || c.isIncome || (c.isTransfer && !staged) || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
       deferred.push(c); return;
     }
 
@@ -1010,7 +1015,10 @@ function bucketCsvCandidates(candidates, mixedSigns) {
       if (sourceMatch) { c.duplicateOfSource = sourceMatch; possibleDuplicate.push(c); return; }
     }
 
-    if (!c.categoryName) {
+    /* A transfer (card payment) has no category and needs none — it is not
+       spending. It goes straight to ready rather than the pick-a-category
+       queue; its card marks itself "Trả nợ thẻ" instead. */
+    if (!c.categoryName && !c.isTransfer) {
       var gkey = normDescForDedup(c.description);
       (needsCategoryGroups[gkey] = needsCategoryGroups[gkey] || []).push(c);
       return;
