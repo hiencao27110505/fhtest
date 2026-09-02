@@ -1,9 +1,10 @@
   /* ═══ Personal ledger — Model Y (0074) ══════════════════════════════════════
      The PERSON is the root. Personal data lives in its own owner-scoped tables
-     (personal_transactions / personal_incomes) encrypted under a per-USER key
-     (personal_keys), NOT in any family. The family `transactions` table is never
-     touched by this module. Tables are ciphertext-only (no plaintext columns),
-     so E2EE is by construction.
+     (personal_transactions, one spine since 0109: expense · income · transfer ·
+     loan · repayment) encrypted under a per-USER key (personal_keys), NOT in any
+     family. The family `transactions` table is never touched by this module.
+     Tables are ciphertext-only (no plaintext columns), so E2EE is by
+     construction.
 
      Double-entry: a family transaction the user authored is mirrored here as a
      personal master (space_id = the family it flows to, link_id → the family
@@ -230,11 +231,10 @@
            reads: a balance is a stock, not a flow — truncating it to two months
            would understate every card and IOU. They are rare rows and carried by
            the partial indexes from 0105. */
-        const [tr, ir, bd, ac, dr] = await Promise.all([
-          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
-          _sb().from('personal_incomes').select('id,amount_enc,note_enc,income_date').eq('owner_user_id', P.uid).gte('income_date', from),
+        const [tr, bd, ac, dr] = await Promise.all([
+          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
-          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day').eq('owner_user_id', P.uid).is('archived_at', null),
+          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date').eq('owner_user_id', P.uid).is('archived_at', null),
           _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).limit(2000),
         ]);
         /* Their budget read goes through _decP too, so an unreadable budget must
@@ -258,27 +258,34 @@
           if (bad) P.unreadable++;
           P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
             version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at,
+            accountId: t.account_id, transferGroupId: t.transfer_group_id,
             amt: bad ? null : Number(a), _unreadable: bad,
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
             time: await _decTxt(t.occurred_time_enc) });   // local "HH:MM" if the time was known, else null (day-only)
         }
-        P.incomes = [];
-        for (const i of (ir.data || [])) {
-          const a = await _decP(i.amount_enc), bad = (a === _DEC_FAILED);
-          if (bad) P.unreadable++;
-          P.incomes.push({ id: i.id, date: i.income_date, amt: bad ? null : Number(a),
-            _unreadable: bad, note: await _decTxt(i.note_enc) });
-        }
+        /* Income lives on the spine since 0109 (kind='income'); P.incomes stays
+           as a derived view so every existing reader (the income sheet, the
+           month totals, the month picker) keeps its shape without knowing. */
+        P.incomes = P.txns.filter((t) => t.kind === 'income')
+          .map((t) => ({ id: t.id, date: t.date, amt: t.amt, _unreadable: t._unreadable, note: t.note, cat: t.cat, accountId: t.accountId }));
         /* Instruments + debt rows. Same fail-closed stance: an unreadable amount
            takes the row out of every balance, counted and declared, never 0đ. */
         P.accounts = [];
         for (const a of (ac.data || [])) {
           const lim = a.credit_limit_enc ? await _decP(a.credit_limit_enc) : null;
+          const anch = a.anchor_balance_enc ? await _decP(a.anchor_balance_enc) : null;
+          const ext = a.ext_balance_enc ? await _decP(a.ext_balance_enc) : null;
           P.accounts.push({ id: a.id, kind: a.kind, tail: a.tail, provider: a.provider,
             humanVerified: a.human_verified,
             statementDay: a.statement_day || null, dueDay: a.due_day || null,
             name: await _decTxt(a.name_enc),
-            limitK: (lim == null || lim === _DEC_FAILED) ? null : (Number(lim) || null) });
+            limitK: (lim == null || lim === _DEC_FAILED) ? null : (Number(lim) || null),
+            /* balance anchor (0109): null = never set → no balance is shown.
+               An unreadable anchor is also null — a wrong number is worse. */
+            anchorK: (anch == null || anch === _DEC_FAILED) ? null : Number(anch),
+            anchorAt: a.anchor_at || null,
+            extK: (ext == null || ext === _DEC_FAILED) ? null : Number(ext),
+            extDate: a.ext_balance_date || null });
         }
         P.debts = [];
         for (const t of (dr.data || [])) {
@@ -352,17 +359,27 @@
       if (r.error) { console.warn('personal budget failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
-    window.fhPersonalAddIncome = async function (amt, note, dateIso, source) {
+    /* Income writes to the SPINE since 0109 (kind='income'). Same signature the
+       income sheet has always called, plus opts for what the full ledger adds:
+       { catName, catEmoji, accountId, time } — which account it landed in is
+       what makes a deposit balance computable at all. */
+    window.fhPersonalAddIncome = async function (amt, note, dateIso, source, opts) {
       if (!P.uid || !P.key) return false;
-      const row = { owner_user_id: P.uid, income_date: dateIso || _localDate(new Date()),
-        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, source: source || null };
-      const r = await _sb().from('personal_incomes').insert(row);
+      opts = opts || {};
+      const t = _okTime(opts.time);
+      const row = { owner_user_id: P.uid, txn_date: dateIso || _localDate(new Date()), kind: 'income',
+        space_id: null, link_id: null,
+        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null,
+        cat_name_enc: opts.catName ? await _encP(opts.catName) : null, cat_emoji: opts.catEmoji || null,
+        occurred_time_enc: t ? await _encP(t) : null,
+        account_id: opts.accountId || null, source: source || null };
+      const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal income failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
     window.fhPersonalDelIncome = async function (id) {
       if (!P.uid || !id) return false;
-      const r = await _sb().from('personal_incomes').delete().eq('id', id).eq('owner_user_id', P.uid);
+      const r = await _sb().from('personal_transactions').delete().eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'income').is('link_id', null);
       if (r.error) { console.warn('personal income delete failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
@@ -403,6 +420,48 @@
     // A transfer tagged to an account (card payment, wallet top-up). amtK > 0.
     window.fhPersonalAddTransfer = function (amtK, accountId, note, dateIso, source, transferGroupId) {
       return _debtInsert('transfer', amtK, { accountId: accountId, note: note, dateIso: dateIso, source: source, transferGroupId: transferGroupId });
+    };
+    /* ═══ Full ledger (0109) — the transfer PAIR (spec T4/T5) ═══════════════════
+       An own-account transfer is TWO rows sharing one transfer_group_id: the
+       out-leg (−amt, from-account) and the in-leg (+amt, to-account). Both are
+       kind='transfer', so both stay out of every income/expense total; the sign
+       lives inside amount_enc like everywhere else. Cash is a normal account, so
+       an ATM withdrawal is the same shape. Legacy one-leg card payments keep
+       transfer_group_id null. amtK > 0. */
+    window.fhPersonalAddTransferPair = async function (amtK, fromAccountId, toAccountId, note, dateIso, source) {
+      if (!P.uid || !P.key || !(amtK > 0) || !fromAccountId || !toAccountId || fromAccountId === toAccountId) return false;
+      const gid = crypto.randomUUID();
+      const date = dateIso || _localDate(new Date());
+      const mk = async (amt, acct) => ({ owner_user_id: P.uid, txn_date: date, kind: 'transfer',
+        space_id: null, link_id: null,
+        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null,
+        account_id: acct, transfer_group_id: gid, source: source || null });
+      const r = await _sb().from('personal_transactions').insert([await mk(-amtK, fromAccountId), await mk(amtK, toAccountId)]);
+      if (r.error) { console.warn('personal transfer pair failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* Pair integrity (T10): the two legs can never diverge, so editing goes
+       through the group and deleting takes both. Editing only amount/note/date —
+       the accounts are the pair's identity; changing those is delete + re-add. */
+    window.fhPersonalUpdateTransferPair = async function (groupId, fields) {
+      if (!P.uid || !P.key || !groupId) return false;
+      const legs = P.debts.filter((d) => d.transferGroupId === groupId);
+      if (!legs.length) return false;
+      for (const leg of legs) {
+        const row = {};
+        if (fields.amtK > 0) row.amount_enc = await _encP((leg.amt != null && leg.amt < 0 ? -1 : 1) * Number(fields.amtK));
+        if (fields.hasOwnProperty('note')) row.note_enc = fields.note ? await _encP(fields.note) : null;
+        if (fields.dateIso) row.txn_date = fields.dateIso;
+        const r = await _sb().from('personal_transactions').update(row).eq('id', leg.id).eq('owner_user_id', P.uid).is('link_id', null);
+        if (r.error) { console.warn('transfer pair update failed', r.error); return false; }
+      }
+      await window.fhPersonalHydrate(); return true;
+    };
+    window.fhPersonalDeleteTransferPair = async function (groupId) {
+      if (!P.uid || !groupId) return false;
+      const r = await _sb().from('personal_transactions').delete().eq('owner_user_id', P.uid).eq('transfer_group_id', groupId).is('link_id', null);
+      if (r.error) { console.warn('transfer pair delete failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
     };
     window.fhPersonalDeleteDebtRow = window.fhPersonalDeleteExpense;   // same guard: private rows only
 
@@ -475,6 +534,67 @@
       for (const c of cards) { if (c.outstanding > 0) owe += c.outstanding; else owed += -c.outstanding; }
       for (const p of persons) { if (p.balance > 0) owed += p.balance; else owe += -p.balance; }
       return { cards: cards, people: persons, byAcct: byAcct, owe: owe, owed: owed };
+    };
+
+    /* ═══ Account balances (0109, spec §5) ══════════════════════════════════════
+       For every NON-card account: balance = anchor ± rows since the anchor.
+       No anchor → no number (a derived balance with no anchor would be
+       confidently wrong, which is worse than absent). "Since the anchor" =
+       txn_date after the anchor's local day, plus same-day rows created after
+       anchor_at — a row backdated to before the anchor deliberately does NOT
+       move the balance, because the anchor already contained it.
+       Contribution: expense −amt · income +amt · transfer +amt (pair legs carry
+       their sign inside the ciphertext; a legacy top-up is +amt by the same
+       0105 convention). Loans/repayments carry no account today and are skipped.
+       Cards keep their outstanding derivation in fhPersonalDebts, untouched. */
+    window.fhPersonalBalance = function (acctId) {
+      const a = P.accounts.find((x) => x.id === acctId);
+      if (!a || a.kind === 'credit_card' || a.anchorK == null) return null;
+      const anchorDay = a.anchorAt ? _localDate(new Date(a.anchorAt)) : null;
+      let bal = a.anchorK;
+      for (const d of P.debts) {
+        if (d.accountId !== acctId || d._unreadable || d.amt == null) continue;
+        if (d.kind !== 'expense' && d.kind !== 'income' && d.kind !== 'transfer') continue;
+        if (anchorDay) {
+          if (d.date < anchorDay) continue;
+          if (d.date === anchorDay && (!d.ts || d.ts <= a.anchorAt)) continue;
+        }
+        bal += (d.kind === 'expense') ? -d.amt : d.amt;
+      }
+      return bal;
+    };
+    /* Drift (spec §5.2): the bank's last self-stated balance vs the derived one.
+       Only meaningful when both exist; a hair of float noise is not a drift. */
+    window.fhPersonalDrift = function (acctId) {
+      const a = P.accounts.find((x) => x.id === acctId);
+      if (!a || a.extK == null) return null;
+      const bal = window.fhPersonalBalance(acctId);
+      if (bal == null) return null;
+      const d = a.extK - bal;
+      return Math.abs(d) < 0.5 ? null : { drift: d, extK: a.extK, extDate: a.extDate };
+    };
+    /* The anchor: "Số dư hiện tại", declared truth at this moment. */
+    window.fhPersonalAnchorSet = async function (acctId, amtK) {
+      if (!P.uid || !P.key || !acctId || !(isFinite(amtK))) return false;
+      const r = await _sb().from('personal_accounts').update({
+        anchor_balance_enc: await _encP(Number(amtK)), anchor_at: new Date().toISOString(),
+      }).eq('id', acctId).eq('owner_user_id', P.uid);
+      if (r.error) { console.warn('anchor set failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* The bank's own "Số dư" from a captured mail — stored newest-wins so the
+       drift badge always argues against the freshest statement, never an old one. */
+    window.fhPersonalExtBalanceSet = async function (acctId, amtK, dateIso) {
+      if (!P.uid || !P.key || !acctId || !(isFinite(amtK))) return false;
+      const a = P.accounts.find((x) => x.id === acctId);
+      const day = dateIso || _localDate(new Date());
+      if (a && a.extDate && a.extDate > day) return true;   // an older statement never overwrites a newer one
+      const r = await _sb().from('personal_accounts').update({
+        ext_balance_enc: await _encP(Number(amtK)), ext_balance_date: day,
+      }).eq('id', acctId).eq('owner_user_id', P.uid);
+      if (r.error) { console.warn('ext balance set failed', r.error); return false; }
+      if (a) { a.extK = Number(amtK); a.extDate = day; }   // local update — no full rehydrate for a side-signal
+      return true;
     };
 
     /* mirror — active family, my authored realized expenses → personal masters */
@@ -557,15 +677,25 @@
           try { await FHCrypto.decVal(newKey, b64); return b64; } catch (e) {}   // already migrated → keep
           const pt = await FHCrypto.decVal(P.key, b64); return FHCrypto.encVal(newKey, pt);
         };
-        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc').eq('owner_user_id', P.uid);
-        const inc = await _sb().from('personal_incomes').select('id,amount_enc,note_enc').eq('owner_user_id', P.uid);
-        const tot = (tr.data || []).length + (inc.data || []).length; let n = 0;
+        /* EVERY personal-DEK ciphertext, one sweep: the spine (income folded in
+           since 0109 — no separate incomes pass any more), the accounts (names,
+           limits, the 0109 anchor + bank-stated balance) and the budgets. A
+           rotation that misses a field makes that field unreadable forever, so
+           the list here must grow with every _enc column the schema gains. */
+        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc').eq('owner_user_id', P.uid);
+        const ac = await _sb().from('personal_accounts').select('id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc').eq('owner_user_id', P.uid);
+        const bg = await _sb().from('personal_budgets').select('owner_user_id,month,total_enc,cats_enc').eq('owner_user_id', P.uid);
+        const tot = (tr.data || []).length + (ac.data || []).length + (bg.data || []).length; let n = 0;
         for (const r of (tr.data || [])) {
-          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc) }).eq('id', r.id);
+          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc) }).eq('id', r.id);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
-        for (const r of (inc.data || [])) {
-          const u = await _sb().from('personal_incomes').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc) }).eq('id', r.id);
+        for (const r of (ac.data || [])) {
+          const u = await _sb().from('personal_accounts').update({ name_enc: await reEnc(r.name_enc), credit_limit_enc: await reEnc(r.credit_limit_enc), anchor_balance_enc: await reEnc(r.anchor_balance_enc), ext_balance_enc: await reEnc(r.ext_balance_enc) }).eq('id', r.id);
+          if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
+        for (const r of (bg.data || [])) {
+          const u = await _sb().from('personal_budgets').update({ total_enc: await reEnc(r.total_enc), cats_enc: await reEnc(r.cats_enc) }).eq('owner_user_id', P.uid).eq('month', r.month);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         const rr = await _sb().rpc('rotate_personal_key', { p_kdf_salt: salt, p_kdf_iters: window.FH_KDF_ITERS_CARD, p_kdf_version: 1, p_wrapped_dek: newWrapped });

@@ -505,8 +505,15 @@ function bulkSummary(r){
   var base=parseAmtBase(r.amt||'');
   var meta='';
   if(base>0) meta+='<span class="bc-amt">'+fmt(base)+'</span>';
+  if(base>0 && r._income) meta='<span class="bc-amt in">+'+fmt(base)+'</span>';   // money in wears its sign
   if(r._transfer){                                            // a card payment — a transfer, not a spend; no category
     meta+='<span class="bc-cat bc-transfer">💳 '+L('Trả nợ thẻ','Card payment')+'</span>';
+  } else if(r._xfer){                                         // an own-account transfer leg (0109) — stats-neutral
+    meta+='<span class="bc-cat bc-transfer">🔁 '+L('Chuyển khoản nội bộ','Internal transfer')+'</span>';
+  } else if(r._repay){                                        // repayment received — draws a counterparty balance down
+    meta+='<span class="bc-cat bc-transfer">🤝 '+L('Thu nợ','Repayment in')+'</span>';
+  } else if(r._income){                                       // income — its own category set, never the expense picker
+    meta+='<span class="bc-cat in">'+esc(r.cat||L('Thu nhập','Income'))+'</span>';
   } else if(catValid(r.cat)){
     if(r.cat==='Event') meta+='<span class="bc-cat">🎈 '+L('Sự kiện','Event')+'</span>';
     else { var s=catStyle[r.cat]||['🏷️']; meta+='<span class="bc-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }

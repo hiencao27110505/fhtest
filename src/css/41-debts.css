@@ -125,3 +125,20 @@
 .dbt-tag.adj{background:var(--fill-neutral);color:var(--muted)}
 /* the lone/odd card tile spans full width — a touch more inside padding earns it */
 .debt-bento .dbt-tile.wide.dbt-card-tile{padding:16px 18px}
+
+/* ── Full ledger (0109): balance tiles, drift, transfer pair ─────────────────
+   A balance is the same visual grammar as an outstanding — dbt-tv / dbt-hv —
+   just neutral ink (a balance is a fact, not a debt). "No anchor yet" is a
+   muted em-dash, never a fake zero. */
+.dbt-tv.dim,.dbt-hv.dim{color:var(--muted)}
+/* drift — a quiet card between the hero and the actions, stating the bank's
+   number and the gap, with exactly two ways out */
+.dbt-drift{background:var(--white);border-radius:20px;margin:12px 16px 0;box-shadow:var(--shadow-card);padding:14px 16px}
+.dbt-drift-t{font-size:13.5px;font-weight:700;letter-spacing:-.01em;color:var(--ink);line-height:1.4}
+.dbt-drift-s{font-size:12.5px;line-height:1.5;color:var(--muted);margin-top:3px}
+.dbt-drift .dbt-acts{padding:12px 0 0}
+/* destructive, full-width inside a sheet (delete a transfer pair) */
+.dbt-btn.danger{background:var(--danger-tint);color:var(--danger);width:100%;margin-top:10px}
+/* a history row that opens something (a transfer pair) — visible press feedback */
+.dbt-li.tap{cursor:pointer;transition:background .12s ease}
+.dbt-li.tap:active{background:var(--surface)}

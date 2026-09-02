@@ -119,7 +119,9 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .bc-note.bc-empty{font-weight:500;color:var(--muted);font-style:italic}
 .bc-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:17px}
 .bc-amt{font-size:16px;font-weight:800;color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
+.bc-amt.in{color:var(--good)}   /* money in wears its sign and its colour (0109) */
 .bc-cat{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.bc-cat.in{color:var(--good)}
 .bc-dup{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
 /* Shared header — same on collapsed and open cards. */
 .bulk-head{display:flex;align-items:center;gap:8px}
@@ -295,6 +297,20 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .notice-text.notice-tip{color:var(--muted);margin-top:8px}
 
 /* Money in — one quiet line, not a stack of cards. Expands to plain rows. */
+/* helper line under a review-card field (kind control, scope, pair notes) —
+   the class predates 0109 but never had a rule, so it rendered as bare text */
+.csv-scope-note{font-size:12px;line-height:1.5;color:var(--muted);margin-top:7px}
+
+/* ── "Chuyển khoản nội bộ?" — the propose-only pair card (0109 full ledger).
+   Rides the bulk-card recipe; the title row carries the route (bank → bank)
+   with the amount right-aligned in display type, then one quiet sentence and
+   the two standard dup-actions buttons. ── */
+.csv-xfer-prop{display:block;padding:14px 16px;margin-bottom:10px}
+.csv-xfer-t{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;letter-spacing:-.01em;color:var(--ink);min-width:0}
+.csv-xfer-t .route{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csv-xfer-amt{margin-left:auto;flex-shrink:0;font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--ink)}
+.csv-xfer-s{font-size:12.5px;line-height:1.5;color:var(--muted);margin:5px 0 11px}
+
 .csv-inflow{background:var(--canvas);border-radius:14px;padding:4px 0;margin-top:12px}
 .csv-inflow-head{display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:none;border:none;text-align:left;cursor:pointer}
 .csv-inflow-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}

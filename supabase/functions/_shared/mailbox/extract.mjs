@@ -341,7 +341,28 @@ function _tidy(extraction, body) {
     const merchant = tidyMerchant(out.counterparty);
     if (merchant && merchant !== out.counterparty) out.counterparty_display = merchant;
   }
+  /* balance-after (full-ledger spec §7.4): the label-table tier reads it as a
+     field; the template and model tiers usually don't. A deposit notice signs
+     off with "Số dư: 11.800.000 VND", so a cheap body scan fills the gap —
+     fail-quiet, because a missing balance only mutes the client's drift
+     detector, never a transaction. */
+  if (out.balance == null) out.balance = _balanceAfter(body);
   return out;
+}
+
+/** "Số dư (khả dụng/cuối/hiện tại): 12.345.678 (VND|đ)" → 12345678, else null.
+ *  Deburred + lowercased before matching, so the mail's own diacritics (or a
+ *  bank's lack of them) don't decide coverage. VND has no decimals in these
+ *  notices — separators are thousands marks and are simply stripped. */
+function _balanceAfter(body) {
+  try {
+    const flat = String(body || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+    const m = flat.match(/so\s*du(?:\s*(?:kha\s*dung|cuoi|hien\s*tai|tai\s*khoan))?\s*[:\-]?\s*(?:vnd\s*)?([\d][\d.,\s]{2,18}[\d])/);
+    if (!m) return null;
+    const n = Number(m[1].replace(/[^\d]/g, ''));
+    return (n > 0 && n < 1e13) ? n : null;
+  } catch { return null; }
 }
 
 /**

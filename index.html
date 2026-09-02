@@ -218,6 +218,9 @@ input{font-family:inherit}
 .section-h .t{font-family:var(--disp);font-weight:700;font-size:22px;letter-spacing:-.6px;color:var(--ink)}
 .section-h a{display:inline-flex;align-items:center;min-height:44px;margin:-13px -4px;padding:0 4px;font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--brand-ink);cursor:pointer}
 .section-h a:active{opacity:.5}
+/* two header actions, one right-aligned cluster — each link keeps its own 44px
+   target; the gap between them comes from their built-in padding plus this */
+.section-h .acts{display:flex;align-items:baseline;gap:14px}
 
 .card{background:var(--white);border-radius:20px;margin:0 16px 14px;padding:20px;box-shadow:var(--shadow-card)}
 
@@ -1400,6 +1403,7 @@ input{font-family:inherit}
 .r-s{font-size:13.5px;letter-spacing:-.01em;color:var(--muted);margin-top:2px}
 .r-amt{font-family:var(--disp);font-weight:700;font-size:16.5px;letter-spacing:-.4px;text-align:right;white-space:nowrap;color:var(--ink);line-height:1.2}
 .r-amt.pos{color:#12B08C}
+.r-amt.xfer{color:var(--muted)}   /* a transfer/loan leg — recorded, never counted (0109) */
 /* C1 row: right block = bold amount over category; subline keeps only the date */
 .r-right{flex-shrink:0;text-align:right}
 .r-cat{font-size:12px;color:var(--muted);letter-spacing:-.01em;margin-top:1px;white-space:nowrap}
@@ -1641,6 +1645,23 @@ input{font-family:inherit}
 .dbt-tag.adj{background:var(--fill-neutral);color:var(--muted)}
 /* the lone/odd card tile spans full width — a touch more inside padding earns it */
 .debt-bento .dbt-tile.wide.dbt-card-tile{padding:16px 18px}
+
+/* ── Full ledger (0109): balance tiles, drift, transfer pair ─────────────────
+   A balance is the same visual grammar as an outstanding — dbt-tv / dbt-hv —
+   just neutral ink (a balance is a fact, not a debt). "No anchor yet" is a
+   muted em-dash, never a fake zero. */
+.dbt-tv.dim,.dbt-hv.dim{color:var(--muted)}
+/* drift — a quiet card between the hero and the actions, stating the bank's
+   number and the gap, with exactly two ways out */
+.dbt-drift{background:var(--white);border-radius:20px;margin:12px 16px 0;box-shadow:var(--shadow-card);padding:14px 16px}
+.dbt-drift-t{font-size:13.5px;font-weight:700;letter-spacing:-.01em;color:var(--ink);line-height:1.4}
+.dbt-drift-s{font-size:12.5px;line-height:1.5;color:var(--muted);margin-top:3px}
+.dbt-drift .dbt-acts{padding:12px 0 0}
+/* destructive, full-width inside a sheet (delete a transfer pair) */
+.dbt-btn.danger{background:var(--danger-tint);color:var(--danger);width:100%;margin-top:10px}
+/* a history row that opens something (a transfer pair) — visible press feedback */
+.dbt-li.tap{cursor:pointer;transition:background .12s ease}
+.dbt-li.tap:active{background:var(--surface)}
 
 /* Savings goals — ONE grouped card: the brief (goal-gradient framing) is the header,
    the goal list its body. A single border + shadow makes the whole thing read as one object. */
@@ -2150,7 +2171,9 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .bc-note.bc-empty{font-weight:500;color:var(--muted);font-style:italic}
 .bc-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:17px}
 .bc-amt{font-size:16px;font-weight:800;color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
+.bc-amt.in{color:var(--good)}   /* money in wears its sign and its colour (0109) */
 .bc-cat{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.bc-cat.in{color:var(--good)}
 .bc-dup{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
 /* Shared header — same on collapsed and open cards. */
 .bulk-head{display:flex;align-items:center;gap:8px}
@@ -2326,6 +2349,20 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .notice-text.notice-tip{color:var(--muted);margin-top:8px}
 
 /* Money in — one quiet line, not a stack of cards. Expands to plain rows. */
+/* helper line under a review-card field (kind control, scope, pair notes) —
+   the class predates 0109 but never had a rule, so it rendered as bare text */
+.csv-scope-note{font-size:12px;line-height:1.5;color:var(--muted);margin-top:7px}
+
+/* ── "Chuyển khoản nội bộ?" — the propose-only pair card (0109 full ledger).
+   Rides the bulk-card recipe; the title row carries the route (bank → bank)
+   with the amount right-aligned in display type, then one quiet sentence and
+   the two standard dup-actions buttons. ── */
+.csv-xfer-prop{display:block;padding:14px 16px;margin-bottom:10px}
+.csv-xfer-t{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;letter-spacing:-.01em;color:var(--ink);min-width:0}
+.csv-xfer-t .route{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csv-xfer-amt{margin-left:auto;flex-shrink:0;font-family:var(--disp);font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--ink)}
+.csv-xfer-s{font-size:12.5px;line-height:1.5;color:var(--muted);margin:5px 0 11px}
+
 .csv-inflow{background:var(--canvas);border-radius:14px;padding:4px 0;margin-top:12px}
 .csv-inflow-head{display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:none;border:none;text-align:left;cursor:pointer}
 .csv-inflow-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
@@ -6188,8 +6225,31 @@ function renderPersonal(){
   /* ── Giao dịch của bạn — category emoji is the only emoji (content mark) ── */
   /* Transactions for the SELECTED month only (newest first), so the list matches
      the totals + space cards above. Unreadable rows keep a plaintext date, so the
-     per-month warning count is honest too. */
-  var txList = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon; });
+     per-month warning count is honest too. Since 0109 the spine carries every
+     kind — expense, income, transfer legs, loans — and the list shows them all
+     (a full ledger hides nothing), each styled by what it is. A transfer PAIR
+     renders once, not twice: the out-leg carries the row, the in-leg is folded
+     into it (same group id), so "VIB → VCB" reads as one event. */
+  var txAll = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon; });
+  var seenXfer = {}, txList = [];
+  txAll.forEach(function(t){
+    if(t.kind==='transfer' && t.transferGroupId){
+      if(seenXfer[t.transferGroupId]) return;   // second leg of a pair already listed
+      seenXfer[t.transferGroupId] = 1;
+    }
+    txList.push(t);
+  });
+  var acctName = function(id){
+    var a = id && (P.accounts||[]).find(function(x){ return x.id===id; });
+    return a ? (a.name||'Tài khoản') : null;
+  };
+  /* the pair's two ends, from either leg: negative leg = from, positive = to */
+  var pairEnds = function(t){
+    var legs = txAll.filter(function(x){ return x.kind==='transfer' && x.transferGroupId===t.transferGroupId; });
+    var from=null, to=null;
+    legs.forEach(function(l){ if((l.amt||0)<0) from=l.accountId; else to=l.accountId; });
+    return { from: acctName(from), to: acctName(to) };
+  };
   var monUnread = txList.filter(function(t){ return t._unreadable; }).length;
   h += '<div class="section-h" id="pers-tx"><span class="t">Giao dịch của bạn</span></div><div class="rows">';
   /* Say it before the list, not inside it. A count kept out of the totals has to
@@ -6209,10 +6269,30 @@ function renderPersonal(){
            + '<div class="r-amt num">—</div></div>';
         return;
       }
-      h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>'
-         + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
-         + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.time?' · '+t.time:'')+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
-         + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';
+      var meta = t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.time?' · '+t.time:'');
+      if(t.kind==='income'){
+        h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'💰')+'</div>'
+           + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Thu nhập').replace(/</g,'&lt;'))+'</div>'
+           + '<div class="r-s">'+meta+' · thu nhập</div></div>'
+           + '<div class="r-amt num pos">+'+fmt(t.amt||0)+'</div></div>';
+      } else if(t.kind==='transfer'){
+        var ends = t.transferGroupId ? pairEnds(t) : null;
+        var xt = ends && ends.from && ends.to ? (ends.from+' → '+ends.to) : ((t.note||'Chuyển khoản').replace(/</g,'&lt;'));
+        h += '<div class="row"><div class="r-ico personal-ico">🔁</div>'
+           + '<div class="r-body"><div class="r-t">'+xt+'</div>'
+           + '<div class="r-s">'+meta+' · chuyển khoản — không tính thu chi</div></div>'
+           + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
+      } else if(t.kind==='loan' || t.kind==='repayment'){
+        h += '<div class="row"><div class="r-ico personal-ico">'+(t.kind==='loan'?'💵':'✅')+'</div>'
+           + '<div class="r-body"><div class="r-t">'+((t.note||(t.kind==='loan'?'Cho vay / mượn':'Trả nợ')).replace(/</g,'&lt;'))+'</div>'
+           + '<div class="r-s">'+meta+' · '+(t.kind==='loan'?'khoản vay':'trả nợ')+'</div></div>'
+           + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
+      } else {
+        h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>'
+           + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
+           + '<div class="r-s">'+meta+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
+           + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';
+      }
     });
   } else {
     h += '<div class="empty-note">'+(isCur?'Chưa có giao dịch nào trong sổ cá nhân.':'Không có giao dịch nào trong tháng này.')+'</div>';
@@ -9299,8 +9379,15 @@ function bulkSummary(r){
   var base=parseAmtBase(r.amt||'');
   var meta='';
   if(base>0) meta+='<span class="bc-amt">'+fmt(base)+'</span>';
+  if(base>0 && r._income) meta='<span class="bc-amt in">+'+fmt(base)+'</span>';   // money in wears its sign
   if(r._transfer){                                            // a card payment — a transfer, not a spend; no category
     meta+='<span class="bc-cat bc-transfer">💳 '+L('Trả nợ thẻ','Card payment')+'</span>';
+  } else if(r._xfer){                                         // an own-account transfer leg (0109) — stats-neutral
+    meta+='<span class="bc-cat bc-transfer">🔁 '+L('Chuyển khoản nội bộ','Internal transfer')+'</span>';
+  } else if(r._repay){                                        // repayment received — draws a counterparty balance down
+    meta+='<span class="bc-cat bc-transfer">🤝 '+L('Thu nợ','Repayment in')+'</span>';
+  } else if(r._income){                                       // income — its own category set, never the expense picker
+    meta+='<span class="bc-cat in">'+esc(r.cat||L('Thu nhập','Income'))+'</span>';
   } else if(catValid(r.cat)){
     if(r.cat==='Event') meta+='<span class="bc-cat">🎈 '+L('Sự kiện','Event')+'</span>';
     else { var s=catStyle[r.cat]||['🏷️']; meta+='<span class="bc-cat">'+s[0]+' '+esc(r.cat)+'</span>'; }
@@ -10960,7 +11047,11 @@ function csvBuildReview(sources, opts){
   csvMarkSummaryRows(candidates);      // a trailing total is not a transaction
   csvPatternPass(candidates);          // habits the dictionary can't name
   var signMode = csvResolveSignMode(candidates);
-  var mixed = (signMode === 'ambiguous');   // only a genuine 50/50 split stops everything
+  /* Sign-majority guessing is for FILES, whose one amount column hides the
+     direction. A staged bank-email row carries `direction` from the pipeline —
+     authoritative, per row — so a queue that is 60% debits and 40% credits is
+     not ambiguous, it is a working full ledger (0109). */
+  var mixed = (signMode === 'ambiguous') && !csvStagedMode;
   var buckets = bucketCsvCandidates(candidates, mixed);
   var rowsRead = sources.reduce(function(n, src){ return n + src.parsed.rows.length; }, 0);
 
@@ -11186,7 +11277,10 @@ function csvSpendPanel(r){
 // produces byte-identical markup (bc-note / bc-amt / bc-cat / bc-pick / bc-dup).
 function csvRowShape(c, isDup){
   return { note: c.description || '', amt: c.amount != null ? String(Math.round(c.amount)) : '',
-           cat: c.categoryName || '', _dup: !!isDup, _transfer: !!(c && c.isTransfer) };
+           cat: (c.isIncome && !c._xfer && !c._repay) ? (c._incomeCat || '') : (c.categoryName || ''),
+           _dup: !!isDup, _transfer: !!(c && c.isTransfer),
+           _xfer: !!(c && c._xfer), _repay: !!(c && c._repay),
+           _income: !!(c && c.isIncome && !c._xfer && !c._repay) };
 }
 
 /* isError separates "this can't go in" (red) from "worth a glance" (amber).
@@ -11304,26 +11398,38 @@ function csvActiveCard(c, opts){
       return '<button type="button" class="choice'+(m.name===whoSel?' on':'')+'" data-v="'+escAttr(m.name)+'" onclick="pick(\'csvedit-who\',this)">'+esc(m.name)+'</button>';
     }).join('') + '<button type="button" class="choice'+(whoSel==='Both'?' on':'')+'" data-v="Both" onclick="pick(\'csvedit-who\',this)">'+esc(LANG==='vi'?'Chung':'Both')+'</button>';
 
-    body += '<div class="field"><label>'+(c.isTransfer?L('Ghi chú','Note'):L('Chi cho gì?','What for?'))+'</label>'
+    // Which face this row wears right now (0109): income keeps its own category
+    // set; a transfer leg / repayment / card payment has no category at all.
+    var isIncomeNow = !!(c.isIncome && !c._xfer && !c._repay);
+    var noCat = c.isTransfer || c._xfer || c._repay;
+    var incChips = FH_INCOME_CATS.map(function(name){
+      return '<button type="button" class="choice'+(name===(c._incomeCat||'Khác')?' on':'')+'" data-v="'+escAttr(name)+'" onclick="pick(\'csvedit-inccats\',this)">'+esc(name)+'</button>';
+    }).join('');
+    body += '<div class="field"><label>'+(noCat?L('Ghi chú','Note'):(isIncomeNow?L('Tiền gì vậy?','What money is this?'):L('Chi cho gì?','What for?')))+'</label>'
       + '<input id="csvedit-note" value="'+escAttr(c.description||'')+'"/>'
-      // a transfer (card payment) has no category — the chips are hidden so
-      // csvReadEditor never reads one, and the row stays a transfer
-      + (c.isTransfer ? '' : '<div class="choices" id="csvedit-cats" style="margin-top:10px">'+catChips+'</div>')+'</div>'
+      // a transfer / repayment has no category — the chips are hidden so
+      // csvReadEditor never reads one, and the row keeps its kind. Income gets
+      // the income-side set (Lương · Thưởng · Hoàn tiền · Khác), never the
+      // family expense picker.
+      + (noCat ? '' : (isIncomeNow
+          ? '<div class="choices" id="csvedit-inccats" style="margin-top:10px">'+incChips+'</div>'
+          : '<div class="choices" id="csvedit-cats" style="margin-top:10px">'+catChips+'</div>'))+'</div>'
       + '<div class="field-row">'
       + '<div class="field"><label>'+L('Số tiền','Amount')+'</label><input class="num" id="csvedit-amt" inputmode="numeric" onblur="snapAmtInput(this)" placeholder="'+escAttr(amtPlaceholder())+'" value="'+escAttr(c.amount!=null?csvAmtInputVal(c.amount):'')+'"/></div>'
       + '<div class="field"><label>'+L('Khi nào','When')+'</label><input type="date" id="csvedit-date" value="'+escAttr(c.dateDisplay||'')+'"/></div>'
       + '</div>'
       // Time carried from the bank email (occurred_at) — shown so the reviewer can
-      // verify, correct or clear it before it's stored. Empty = day-only. Income
-      // rows have no time column, so no field for them.
-      + (!c.isIncome ? '<div class="field"><label>'+L('Giờ','Time')+' <span class="opt">'+L('tuỳ chọn','optional')+'</span></label><input type="time" id="csvedit-time" value="'+escAttr(csvRowTime(c))+'"/></div>' : '')
+      // verify, correct or clear it before it's stored. Empty = day-only. Since
+      // 0109 income lives on the spine and carries a time too.
+      + '<div class="field"><label>'+L('Giờ','Time')+' <span class="opt">'+L('tuỳ chọn','optional')+'</span></label><input type="time" id="csvedit-time" value="'+escAttr(csvRowTime(c))+'"/></div>'
       + (csvStagedMode ? csvRowScopeField(c) : '')
       // "Trả nợ thẻ" is a PERSONAL liability by nature — a card is never a
       // space's debt. So the Kind control only appears for a personal-scoped
       // row; a shared row is a plain expense (its transfer flag is cleared on
       // the scope flip below). The "space payable" kind is a separate deferred
-      // flow (routing a settle-up out of the review).
-      + (csvStagedMode && !c.isIncome && csvRowScope(c)==='personal' ? csvRowKindField(c) : '')
+      // flow (routing a settle-up out of the review). Credit rows carry their
+      // own 3-way control (Thu nhập / Chuyển khoản nội bộ / Thu nợ).
+      + (csvStagedMode && csvRowScope(c)==='personal' ? csvRowKindField(c) : '')
       /* A private row has no member split — the same reason #ex-whofield hides
          when the expense modal is scoped personal. Asking "who paid" about a
          ledger with one member in it is a question with no wrong answer, which
@@ -11366,8 +11472,13 @@ function csvReadEditor(c){
   var ti=document.getElementById('csvedit-time');
   if(ti) c.time = ti.value || '';   // explicit reviewed value (incl. '' to clear → day-only)
   if(document.getElementById('csvedit-cats')){ var cat = chosen('csvedit-cats'); if(cat){ c.categoryName = cat; c.catSource='user'; } }
+  if(document.getElementById('csvedit-inccats')){ var ic = chosen('csvedit-inccats'); if(ic) c._incomeCat = ic; }
+  if(document.getElementById('csvedit-repwho')){ c._repayWho = (document.getElementById('csvedit-repwho').value||'').trim() || c._repayWho; }
   if(document.getElementById('csvedit-who')){ var w = chosen('csvedit-who'); if(w) c.who = w; }
 }
+/* The income-side category set (0109) — its own small list, never the family
+   expense categories. */
+var FH_INCOME_CATS = ['Lương','Thưởng','Hoàn tiền','Khác'];
 
 /* Per-ROW destination. It was one control for the whole pass, and the argument
    for that was real — selection x batch-scope covers a mixed batch in two taps.
@@ -11404,7 +11515,7 @@ function csvPickRowScope(v){
   c._scope = v;
   // A card payment is personal — a shared row can never be one, so leaving it
   // family-scoped would import "trả nợ thẻ" as a family expense and double-count.
-  if(v!=='personal'){ c.isTransfer = false; c._payCardId = null; }
+  if(v!=='personal'){ c.isTransfer = false; c._payCardId = null; c._xfer = false; c._xferOtherId = null; c._repay = false; c._repayWho = null; }
   csvSetScope(v);              // and it becomes the default for rows not yet decided
   renderCsvReview();
 }
@@ -11417,14 +11528,35 @@ function csvPickRowScope(v){
 function csvCreditCards(){
   return ((window.fhPersonalData && fhPersonalData().accounts) || []).filter(function(a){ return a.kind==='credit_card'; });
 }
+/* Non-card accounts a transfer leg can pair with (0109) — the "other side"
+   picker. Excludes the row's own instrument when it is knowable. */
+function csvXferAccounts(c){
+  var mine = (window.fhStagedAcct && c) ? fhStagedAcct(c) : null;
+  return ((window.fhPersonalData && fhPersonalData().accounts) || []).filter(function(a){
+    if(a.kind === 'credit_card') return false;
+    if(mine && mine.tail && a.tail && a.tail === mine.tail && (a.provider||'') === (mine.provider||'').toLowerCase()) return false;
+    return true;
+  });
+}
 function csvRowKindField(c){
-  var isTr = !!c.isTransfer;
+  var credit = !!c.isIncome || c._xferDir === 'in';
+  /* which face is on: expense | cardpay | xfer | income | repay */
+  var cur = c._xfer ? 'xfer' : (c._repay ? 'repay' : (c.isTransfer ? 'cardpay' : (c.isIncome ? 'income' : 'expense')));
   var kchip = function(v,label){
-    return '<button type="button" class="choice'+((isTr?'transfer':'expense')===v?' on':'')+'" onclick="csvPickRowKind(\''+v+'\')">'+esc(label)+'</button>';
+    return '<button type="button" class="choice'+(cur===v?' on':'')+'" onclick="csvPickRowKind(\''+v+'\')">'+esc(label)+'</button>';
   };
-  var h = '<div class="field csv-kindf"><label>'+esc(L('Loại khoản','Kind'))+'</label>'
-    + '<div class="choices">'+kchip('expense',L('Chi tiêu','Spending'))+kchip('transfer',L('💳 Trả nợ thẻ','💳 Card payment'))+'</div></div>';
-  if(isTr){
+  var h = '<div class="field csv-kindf"><label>'+esc(L('Loại khoản','Kind'))+'</label><div class="choices">';
+  if(credit){
+    h += kchip('income',L('Thu nhập','Income'))
+       + kchip('xfer',L('🔁 Chuyển khoản nội bộ','🔁 Internal transfer'))
+       + kchip('repay',L('🤝 Thu nợ','🤝 Repayment in'));
+  } else {
+    h += kchip('expense',L('Chi tiêu','Spending'))
+       + kchip('transfer',L('💳 Trả nợ thẻ','💳 Card payment'))
+       + kchip('xfer',L('🔁 Chuyển đi nội bộ','🔁 Internal transfer'));
+  }
+  h += '</div></div>';
+  if(cur==='cardpay'){
     var cards = csvCreditCards();
     var pc = c._payCardId || (cards.length===1 ? cards[0].id : '');
     h += '<div class="field csv-paycardf"><label>'+esc(L('Trả cho thẻ nào','Which card'))+'</label><div class="choices">'
@@ -11434,15 +11566,53 @@ function csvRowKindField(c){
       + (cards.length ? '' : '<div class="csv-scope-note">'+esc(L('Chưa có thẻ tín dụng nào — vẫn ghi được, gán thẻ sau ở mục Nợ & cho vay.','No credit card yet — it still imports, assign a card later in Owing & lending.'))+'</div>')
       + '</div>';
   }
+  if(cur==='xfer'){
+    /* the counterpart account — the leg this mail never saw. A pair is always
+       written (spec T4): confirming creates the other-side row too. */
+    var accts = csvXferAccounts(c);
+    var sel = c._xferOtherId || '';
+    h += '<div class="field csv-paycardf"><label>'+esc(credit?L('Chuyển từ đâu?','From which account?'):L('Chuyển đến đâu?','To which account?'))+'</label><div class="choices">'
+      + accts.map(function(a){ return '<button type="button" class="choice'+(sel===a.id?' on':'')+'" onclick="csvPickXferAcct(\''+a.id+'\')">'+esc(a.name||'Tài khoản')+'</button>'; }).join('')
+      + '<button type="button" class="choice'+(sel==='_cash'?' on':'')+'" onclick="csvPickXferAcct(\'_cash\')">'+esc(L('Tiền mặt','Cash'))+'</button>'
+      + '</div>'
+      + '<div class="csv-scope-note">'+esc(L('Ghi thành một cặp chuyển khoản — không tính là chi tiêu hay thu nhập.','Recorded as a transfer pair — never spending, never income.'))+'</div></div>';
+  }
+  if(cur==='repay'){
+    var pd = (window.fhPersonalDebts && fhPersonalDebts()) || { people: [] };
+    var names = pd.people.filter(function(p){ return p.balance > 0.5; }).map(function(p){ return p.who; });
+    h += '<div class="field csv-paycardf"><label>'+esc(L('Ai trả bạn?','Who repaid you?'))+'</label>'
+      + (names.length ? '<div class="choices" style="margin-bottom:8px">'
+          + names.map(function(n){ return '<button type="button" class="choice'+(c._repayWho===n?' on':'')+'" onclick="csvPickRepayWho(\''+escAttr(n)+'\')">'+esc(n)+'</button>'; }).join('')+'</div>' : '')
+      + '<input id="csvedit-repwho" placeholder="'+escAttr(L('vd. Thằng em','e.g. a name'))+'" value="'+escAttr(c._repayWho||'')+'"/>'
+      + '<div class="csv-scope-note">'+esc(L('Trừ vào số họ đang nợ bạn — không tính là thu nhập.','Draws down what they owe you — never income.'))+'</div></div>';
+  }
   return h;
 }
 function csvPickRowKind(v){
   var c = csvExpandedCandidate(); if(!c) return;
   csvReadEditor(c);
   c.isTransfer = (v==='transfer');
+  c._xfer = (v==='xfer');
+  c._repay = (v==='repay');
+  if(v==='income'){ c.isIncome = true; }
+  else if(v==='expense'){ c.isIncome = false; }
   if(!c.isTransfer){ c._payCardId = null; }
   else if(!c._payCardId){ var cards = csvCreditCards(); if(cards.length===1) c._payCardId = cards[0].id; }
-  renderCsvReview();          // stays expanded (csvExpand unchanged); shows/hides the card picker + category
+  if(!c._xfer){ c._xferOtherId = null; }
+  if(!c._repay){ c._repayWho = null; }
+  renderCsvReview();          // stays expanded (csvExpand unchanged); shows/hides the pickers + category
+}
+function csvPickXferAcct(id){
+  var c = csvExpandedCandidate(); if(!c) return;
+  csvReadEditor(c);
+  c._xferOtherId = id || null;
+  renderCsvReview();
+}
+function csvPickRepayWho(name){
+  var c = csvExpandedCandidate(); if(!c) return;
+  csvReadEditor(c);
+  c._repayWho = name || null;
+  renderCsvReview();
 }
 function csvPickPayCard(id){
   var c = csvExpandedCandidate(); if(!c) return;
@@ -11450,6 +11620,77 @@ function csvPickPayCard(id){
   c._payCardId = id || null;
   renderCsvReview();
 }
+/* ── the internal-transfer matcher (0109, spec §8) ──────────────────────────
+   pairable(debit, credit): opposite directions · two different own instruments ·
+   EXACT amount (VN internal transfers are fee-free — no tolerance) · txn_date
+   within ±1 day · neither is a card leg (those keep the card-payment flow).
+   Greedy, one partner each; any ambiguity proposes nothing. */
+var csvXferDismissed = {};
+function csvXferProposals(){
+  if(!csvStagedMode || !csvReview) return [];
+  var credits = [], debits = [];
+  (csvReview.ready||[]).forEach(function(c){
+    if(c._xfer || c.isTransfer || c._repay || c._skipImport) return;
+    if(!(c.amount > 0) || !c.date) return;
+    var ai = window.fhStagedAcct ? fhStagedAcct(c) : null;
+    if(!ai || ai.kind === 'credit_card') return;
+    (c.isIncome ? credits : debits).push({ c: c, ai: ai });
+  });
+  var used = {}, out = [];
+  credits.forEach(function(cr){
+    var matches = debits.filter(function(db){
+      if(used[db.c.rowIndex]) return false;
+      if(Math.abs(db.c.amount - cr.c.amount) >= 1) return false;
+      if(Math.abs(db.c.date.getTime() - cr.c.date.getTime())/86400000 > 1.5) return false;
+      if((db.ai.provider||'') === (cr.ai.provider||'') && (db.ai.tail||'') === (cr.ai.tail||'')) return false;   // same instrument — not a move between two
+      return true;
+    });
+    if(matches.length !== 1) return;   // zero or ambiguous → no proposal
+    var db = matches[0];
+    var rows = window._fhStagedRows || [];
+    var key = ((rows[db.c.rowIndex]||{}).id || db.c.rowIndex) + '|' + ((rows[cr.c.rowIndex]||{}).id || cr.c.rowIndex);
+    if(csvXferDismissed[key]) return;
+    used[db.c.rowIndex] = 1;
+    out.push({ key: key, debit: db, credit: cr });
+  });
+  return out;
+}
+/* A captured "Số dư" rides along at commit: store it on the account so the
+   drift badge argues against the bank's own number (spec §5.2). Base units. */
+function csvXferCaptureBal(c, acctId){
+  try{
+    var x = window.fhStagedRawX ? fhStagedRawX(c.rowIndex) : null;
+    var b = x && Number(x.balance);
+    if(acctId && b > 0 && window.fhPersonalExtBalanceSet) fhPersonalExtBalanceSet(acctId, csvBaseAmt(b), c.dateDisplay || undefined);
+  }catch(e){}
+}
+window.csvXferConfirm = async function(key){
+  var p = (window._csvXferProps||{})[key]; if(!p) return;
+  var pd = window.fhPersonalData ? fhPersonalData() : null;
+  if(!pd || pd.state !== 'ready'){ window.toast && toast(L('Mở khoá sổ cá nhân trước','Unlock your personal ledger first')); return; }
+  var fromId = null, toId = null;
+  try{ fromId = await fhPersonalAccountEnsure(p.debit.ai); toId = await fhPersonalAccountEnsure(p.credit.ai); }catch(e){}
+  if(!fromId || !toId || fromId === toId){ window.toast && toast(L('Chưa nhận diện được hai tài khoản','Couldn\'t resolve the two accounts')); return; }
+  var base = csvBaseAmt(p.debit.c.amount);
+  var note = p.debit.c.description || p.credit.c.description || L('Chuyển khoản nội bộ','Internal transfer');
+  var src = window.fhStagedSource ? fhStagedSource(p.debit.c) : null;
+  var ok = await fhPersonalAddTransferPair(base, fromId, toId, note, p.debit.c.dateDisplay || undefined, src);
+  if(!ok){ window.toast && toast(L('Chưa ghi được, thử lại','Couldn\'t save, try again')); return; }
+  csvXferCaptureBal(p.debit.c, fromId);
+  csvXferCaptureBal(p.credit.c, toId);
+  var rows = window._fhStagedRows || [];
+  var ids = [rows[p.debit.c.rowIndex], rows[p.credit.c.rowIndex]].map(function(r){ return r && r.id; }).filter(Boolean);
+  if(ids.length && window.fhStagedRetireIds){ try{ await fhStagedRetireIds(ids); }catch(e){} }
+  csvReview.ready = (csvReview.ready||[]).filter(function(c){ return c !== p.debit.c && c !== p.credit.c; });
+  window.toast && toast(L('Đã ghi chuyển khoản nội bộ','Internal transfer recorded'));
+  if(window.renderPersonal) renderPersonal();
+  renderCsvReview();
+};
+window.csvXferDismiss = function(key){
+  csvXferDismissed[key] = 1;
+  renderCsvReview();
+};
+
 function csvExpandedCandidate(){
   if(!csvExpand || !csvReview) return null;
   if(csvExpand.kind==='ready') return csvReview.ready[csvExpand.idx] || null;
@@ -11701,6 +11942,32 @@ function renderCsvReview(){
       });
     }
     html += '</div>';
+  }
+
+  /* ── Chuyển khoản nội bộ? (0109, spec §8) — propose-only pairing. A captured
+     debit and credit that look like two legs of one own-account transfer are
+     grouped into ONE card; a tap commits the pair (both legs, one
+     transfer_group_id) and retires both staged rows. Ambiguity (two possible
+     partners) proposes nothing; a dismissed pair stays dismissed this open. ── */
+  if(csvStagedMode){
+    var props = csvXferProposals();
+    window._csvXferProps = {};
+    if(props.length){
+      html += '<div class="group-h">'+esc(L('Chuyển khoản nội bộ?','Internal transfer?'))+'</div>';
+      props.forEach(function(p){
+        window._csvXferProps[p.key] = p;
+        var fromN = fhProviderName(p.debit.ai.provider||'') || L('Tài khoản','Account');
+        var toN = fhProviderName(p.credit.ai.provider||'') || L('Tài khoản','Account');
+        html += '<div class="bulk-card csv-xfer-prop">'
+          + '<div class="csv-xfer-t"><span class="route">🔁 '+esc(fromN)+(p.debit.ai.tail?' ••'+esc(p.debit.ai.tail):'')+' → '+esc(toN)+(p.credit.ai.tail?' ••'+esc(p.credit.ai.tail):'')+'</span>'
+          + '<span class="csv-xfer-amt num">'+esc(csvFmt(p.debit.c.amount))+'</span></div>'
+          + '<div class="csv-xfer-s">'+esc(L('Hai giao dịch này khớp số tiền và ngày — có vẻ là bạn chuyển giữa tài khoản của mình. Ghi thành một cặp chuyển khoản, không tính thu chi.','These two match on amount and date — looks like a move between your own accounts. Records as one transfer pair, never income or spending.'))+'</div>'
+          + '<div class="dup-actions">'
+          + '<button type="button" class="btn-line" onclick="csvXferConfirm(\''+escAttr(p.key)+'\')">'+esc(L('Đúng, ghi chuyển khoản','Yes, record the transfer'))+'</button>'
+          + '<button type="button" class="btn-text-quiet" onclick="csvXferDismiss(\''+escAttr(p.key)+'\')">'+esc(L('Không phải','Not a transfer'))+'</button>'
+          + '</div></div>';
+      });
+    }
   }
 
   /* Ready list, grouped by date (newest first) -- same cards, no red border. */
@@ -13166,6 +13433,10 @@ function buildCsvCandidates(parsed, result) {
       if (_sx) {
         if (_sx.flow === 'transfer') { isTransfer = true; isIncome = false; }
         else if (_sa && _sa.kind === 'credit_card' && _sx.direction === 'credit') { isTransfer = true; isIncome = false; }
+        /* Money INTO a deposit/wallet is a first-class candidate now (0109 full
+           ledger): a checkable card with a 3-way Kind control — Thu nhập /
+           Chuyển khoản nội bộ / Thu nợ — not a row parked in the inflow strip. */
+        else if (_sx.direction === 'credit') { isIncome = true; }
       }
     }
 
@@ -13238,10 +13509,22 @@ function buildCsvCandidates(parsed, result) {
     if (!catName && !isIncome && csvCatOk(CAT_FALLBACK)) { catName = CAT_FALLBACK; catSource = 'fallback'; }
     if (!catName) flags.push('needs_category');
 
+    /* Income category default (0109): the small income-side set, guessed from
+       wording, always overridable on the card. Never a family expense category. */
+    var incomeCat = null;
+    if (isIncome) {
+      var itext = deburr(String(desc || '').toLowerCase());
+      incomeCat = /\b(luong|salary|payroll)\b/.test(itext) ? 'Lương'
+        : /\b(thuong|bonus)\b/.test(itext) ? 'Thưởng'
+        : /\b(hoan tien|refund|hoan phi)\b/.test(itext) ? 'Hoàn tiền'
+        : 'Khác';
+    }
+
     return {
       rowIndex: i, raw: row, flags: flags,
       date: date, dateDisplay: date ? (date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0')) : '',
       amount: amount, negative: aclass.status === 'ok' && String(amtRaw).trim().indexOf('-') === 0,
+      _incomeCat: incomeCat,
       description: desc || catGuess || L('(không có mô tả)','(no description)'),
       // Did this row actually SAY anything? The line above substitutes a
       // placeholder, and that placeholder is identical on every silent row —
@@ -13453,7 +13736,10 @@ function bucketCsvCandidates(candidates, mixedSigns) {
     /* The family list carries Date objects on `_d`; the personal cache carries
        a 'YYYY-MM-DD' string. Normalise here rather than in the matcher, so the
        matcher keeps one shape to reason about. */
-    var norm = mine.map(function(t){
+    /* Expenses only: since 0109 the personal cache carries every kind (income,
+       transfer legs, loans) and matching a candidate's magnitude against those
+       would flag phantom duplicates. */
+    var norm = mine.filter(function(t){ return t.kind === 'expense'; }).map(function(t){
       return { amt: t.amt, _d: t.date ? new Date(t.date + 'T00:00:00') : null, _personal: true };
     }).filter(function(t){ return t._d && t.amt != null; });
     return fam.concat(norm);
@@ -13516,8 +13802,12 @@ function bucketCsvCandidates(candidates, mixedSigns) {
        card's balance down (Borrowing & Lending). So in staged (bank-email)
        mode it is a normal, checkable, importable card, not something set aside.
        Only CSV-file transfers stay deferred, where importing a card statement
-       AND a bank statement genuinely double-counts. */
-    if (mixedSigns || c.isIncome || (c.isTransfer && !staged) || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
+       AND a bank statement genuinely double-counts. Since 0109 the same goes
+       for money IN: a staged credit row is a normal card with a 3-way Kind
+       control (income / internal transfer / repayment received) — only
+       CSV-file income stays deferred, because the file importer still writes
+       expenses only. */
+    if (mixedSigns || (c.isIncome && !staged) || (c.isTransfer && !staged) || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
       deferred.push(c); return;
     }
 
@@ -13556,7 +13846,10 @@ function bucketCsvCandidates(candidates, mixedSigns) {
     // cross-match against the ledger and the needs-a-category grouping below —
     // returning early here would file an uncategorised row straight into ready.
 
-    var crossMatch = existingTxns.find(function(t) {
+    /* Money-in candidates never cross-match the spend ledgers: the lists below
+       are expenses, and a +5tr credit beside a −5tr purchase is a coincidence
+       of magnitude, not one event twice. */
+    var crossMatch = !c.isIncome && existingTxns.find(function(t) {
       if (!t._d || !c.date) return false;
       var daysApart = Math.abs(t._d.getTime() - c.date.getTime()) / 86400000;
       return daysApart <= 3 && Math.abs(Number(t.amt) - c.amount) < 1;
@@ -13593,15 +13886,20 @@ function bucketCsvCandidates(candidates, mixedSigns) {
         c.pipelineDupOverruled = true;   // two banks; falls through to the normal path
       }
 
-      var sourceMatch = csvStagedCrossSourceDup(c, provider, currency, kind, priors);
-      priors.push(prior);
+      /* Cross-source dedup hunts one PURCHASE reported by a bank and a
+         merchant; a credit row is not a purchase, so it never joins that hunt
+         (its magnitude beside a debit's is coincidence, not identity). */
+      var sourceMatch = c.isIncome ? null : csvStagedCrossSourceDup(c, provider, currency, kind, priors);
+      if (!c.isIncome) priors.push(prior);
       if (sourceMatch) { c.duplicateOfSource = sourceMatch; possibleDuplicate.push(c); return; }
     }
 
     /* A transfer (card payment) has no category and needs none — it is not
        spending. It goes straight to ready rather than the pick-a-category
-       queue; its card marks itself "Trả nợ thẻ" instead. */
-    if (!c.categoryName && !c.isTransfer) {
+       queue; its card marks itself "Trả nợ thẻ" instead. Income likewise: its
+       category set is the income one (_incomeCat, defaulted at build), never
+       the family expense picker. */
+    if (!c.categoryName && !c.isTransfer && !c.isIncome) {
       var gkey = normDescForDedup(c.description);
       (needsCategoryGroups[gkey] = needsCategoryGroups[gkey] || []).push(c);
       return;
@@ -16186,7 +16484,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v446';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v447';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -17619,10 +17917,11 @@ window.obGoogle = async function () {
   })();
   /* ═══ Personal ledger — Model Y (0074) ══════════════════════════════════════
      The PERSON is the root. Personal data lives in its own owner-scoped tables
-     (personal_transactions / personal_incomes) encrypted under a per-USER key
-     (personal_keys), NOT in any family. The family `transactions` table is never
-     touched by this module. Tables are ciphertext-only (no plaintext columns),
-     so E2EE is by construction.
+     (personal_transactions, one spine since 0109: expense · income · transfer ·
+     loan · repayment) encrypted under a per-USER key (personal_keys), NOT in any
+     family. The family `transactions` table is never touched by this module.
+     Tables are ciphertext-only (no plaintext columns), so E2EE is by
+     construction.
 
      Double-entry: a family transaction the user authored is mirrored here as a
      personal master (space_id = the family it flows to, link_id → the family
@@ -17849,11 +18148,10 @@ window.obGoogle = async function () {
            reads: a balance is a stock, not a flow — truncating it to two months
            would understate every card and IOU. They are rare rows and carried by
            the partial indexes from 0105. */
-        const [tr, ir, bd, ac, dr] = await Promise.all([
-          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
-          _sb().from('personal_incomes').select('id,amount_enc,note_enc,income_date').eq('owner_user_id', P.uid).gte('income_date', from),
+        const [tr, bd, ac, dr] = await Promise.all([
+          _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id,transfer_group_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
-          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day').eq('owner_user_id', P.uid).is('archived_at', null),
+          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day,anchor_balance_enc,anchor_at,ext_balance_enc,ext_balance_date').eq('owner_user_id', P.uid).is('archived_at', null),
           _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).limit(2000),
         ]);
         /* Their budget read goes through _decP too, so an unreadable budget must
@@ -17877,27 +18175,34 @@ window.obGoogle = async function () {
           if (bad) P.unreadable++;
           P.txns.push({ id: t.id, date: t.txn_date, kind: t.kind, spaceId: t.space_id, linkId: t.link_id,
             version: t.version || 1, updatedAt: t.updated_at, ts: t.created_at,
+            accountId: t.account_id, transferGroupId: t.transfer_group_id,
             amt: bad ? null : Number(a), _unreadable: bad,
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
             time: await _decTxt(t.occurred_time_enc) });   // local "HH:MM" if the time was known, else null (day-only)
         }
-        P.incomes = [];
-        for (const i of (ir.data || [])) {
-          const a = await _decP(i.amount_enc), bad = (a === _DEC_FAILED);
-          if (bad) P.unreadable++;
-          P.incomes.push({ id: i.id, date: i.income_date, amt: bad ? null : Number(a),
-            _unreadable: bad, note: await _decTxt(i.note_enc) });
-        }
+        /* Income lives on the spine since 0109 (kind='income'); P.incomes stays
+           as a derived view so every existing reader (the income sheet, the
+           month totals, the month picker) keeps its shape without knowing. */
+        P.incomes = P.txns.filter((t) => t.kind === 'income')
+          .map((t) => ({ id: t.id, date: t.date, amt: t.amt, _unreadable: t._unreadable, note: t.note, cat: t.cat, accountId: t.accountId }));
         /* Instruments + debt rows. Same fail-closed stance: an unreadable amount
            takes the row out of every balance, counted and declared, never 0đ. */
         P.accounts = [];
         for (const a of (ac.data || [])) {
           const lim = a.credit_limit_enc ? await _decP(a.credit_limit_enc) : null;
+          const anch = a.anchor_balance_enc ? await _decP(a.anchor_balance_enc) : null;
+          const ext = a.ext_balance_enc ? await _decP(a.ext_balance_enc) : null;
           P.accounts.push({ id: a.id, kind: a.kind, tail: a.tail, provider: a.provider,
             humanVerified: a.human_verified,
             statementDay: a.statement_day || null, dueDay: a.due_day || null,
             name: await _decTxt(a.name_enc),
-            limitK: (lim == null || lim === _DEC_FAILED) ? null : (Number(lim) || null) });
+            limitK: (lim == null || lim === _DEC_FAILED) ? null : (Number(lim) || null),
+            /* balance anchor (0109): null = never set → no balance is shown.
+               An unreadable anchor is also null — a wrong number is worse. */
+            anchorK: (anch == null || anch === _DEC_FAILED) ? null : Number(anch),
+            anchorAt: a.anchor_at || null,
+            extK: (ext == null || ext === _DEC_FAILED) ? null : Number(ext),
+            extDate: a.ext_balance_date || null });
         }
         P.debts = [];
         for (const t of (dr.data || [])) {
@@ -17971,17 +18276,27 @@ window.obGoogle = async function () {
       if (r.error) { console.warn('personal budget failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
-    window.fhPersonalAddIncome = async function (amt, note, dateIso, source) {
+    /* Income writes to the SPINE since 0109 (kind='income'). Same signature the
+       income sheet has always called, plus opts for what the full ledger adds:
+       { catName, catEmoji, accountId, time } — which account it landed in is
+       what makes a deposit balance computable at all. */
+    window.fhPersonalAddIncome = async function (amt, note, dateIso, source, opts) {
       if (!P.uid || !P.key) return false;
-      const row = { owner_user_id: P.uid, income_date: dateIso || _localDate(new Date()),
-        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, source: source || null };
-      const r = await _sb().from('personal_incomes').insert(row);
+      opts = opts || {};
+      const t = _okTime(opts.time);
+      const row = { owner_user_id: P.uid, txn_date: dateIso || _localDate(new Date()), kind: 'income',
+        space_id: null, link_id: null,
+        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null,
+        cat_name_enc: opts.catName ? await _encP(opts.catName) : null, cat_emoji: opts.catEmoji || null,
+        occurred_time_enc: t ? await _encP(t) : null,
+        account_id: opts.accountId || null, source: source || null };
+      const r = await _sb().from('personal_transactions').insert(row);
       if (r.error) { console.warn('personal income failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
     window.fhPersonalDelIncome = async function (id) {
       if (!P.uid || !id) return false;
-      const r = await _sb().from('personal_incomes').delete().eq('id', id).eq('owner_user_id', P.uid);
+      const r = await _sb().from('personal_transactions').delete().eq('id', id).eq('owner_user_id', P.uid).eq('kind', 'income').is('link_id', null);
       if (r.error) { console.warn('personal income delete failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
@@ -18022,6 +18337,48 @@ window.obGoogle = async function () {
     // A transfer tagged to an account (card payment, wallet top-up). amtK > 0.
     window.fhPersonalAddTransfer = function (amtK, accountId, note, dateIso, source, transferGroupId) {
       return _debtInsert('transfer', amtK, { accountId: accountId, note: note, dateIso: dateIso, source: source, transferGroupId: transferGroupId });
+    };
+    /* ═══ Full ledger (0109) — the transfer PAIR (spec T4/T5) ═══════════════════
+       An own-account transfer is TWO rows sharing one transfer_group_id: the
+       out-leg (−amt, from-account) and the in-leg (+amt, to-account). Both are
+       kind='transfer', so both stay out of every income/expense total; the sign
+       lives inside amount_enc like everywhere else. Cash is a normal account, so
+       an ATM withdrawal is the same shape. Legacy one-leg card payments keep
+       transfer_group_id null. amtK > 0. */
+    window.fhPersonalAddTransferPair = async function (amtK, fromAccountId, toAccountId, note, dateIso, source) {
+      if (!P.uid || !P.key || !(amtK > 0) || !fromAccountId || !toAccountId || fromAccountId === toAccountId) return false;
+      const gid = crypto.randomUUID();
+      const date = dateIso || _localDate(new Date());
+      const mk = async (amt, acct) => ({ owner_user_id: P.uid, txn_date: date, kind: 'transfer',
+        space_id: null, link_id: null,
+        amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null,
+        account_id: acct, transfer_group_id: gid, source: source || null });
+      const r = await _sb().from('personal_transactions').insert([await mk(-amtK, fromAccountId), await mk(amtK, toAccountId)]);
+      if (r.error) { console.warn('personal transfer pair failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* Pair integrity (T10): the two legs can never diverge, so editing goes
+       through the group and deleting takes both. Editing only amount/note/date —
+       the accounts are the pair's identity; changing those is delete + re-add. */
+    window.fhPersonalUpdateTransferPair = async function (groupId, fields) {
+      if (!P.uid || !P.key || !groupId) return false;
+      const legs = P.debts.filter((d) => d.transferGroupId === groupId);
+      if (!legs.length) return false;
+      for (const leg of legs) {
+        const row = {};
+        if (fields.amtK > 0) row.amount_enc = await _encP((leg.amt != null && leg.amt < 0 ? -1 : 1) * Number(fields.amtK));
+        if (fields.hasOwnProperty('note')) row.note_enc = fields.note ? await _encP(fields.note) : null;
+        if (fields.dateIso) row.txn_date = fields.dateIso;
+        const r = await _sb().from('personal_transactions').update(row).eq('id', leg.id).eq('owner_user_id', P.uid).is('link_id', null);
+        if (r.error) { console.warn('transfer pair update failed', r.error); return false; }
+      }
+      await window.fhPersonalHydrate(); return true;
+    };
+    window.fhPersonalDeleteTransferPair = async function (groupId) {
+      if (!P.uid || !groupId) return false;
+      const r = await _sb().from('personal_transactions').delete().eq('owner_user_id', P.uid).eq('transfer_group_id', groupId).is('link_id', null);
+      if (r.error) { console.warn('transfer pair delete failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
     };
     window.fhPersonalDeleteDebtRow = window.fhPersonalDeleteExpense;   // same guard: private rows only
 
@@ -18094,6 +18451,67 @@ window.obGoogle = async function () {
       for (const c of cards) { if (c.outstanding > 0) owe += c.outstanding; else owed += -c.outstanding; }
       for (const p of persons) { if (p.balance > 0) owed += p.balance; else owe += -p.balance; }
       return { cards: cards, people: persons, byAcct: byAcct, owe: owe, owed: owed };
+    };
+
+    /* ═══ Account balances (0109, spec §5) ══════════════════════════════════════
+       For every NON-card account: balance = anchor ± rows since the anchor.
+       No anchor → no number (a derived balance with no anchor would be
+       confidently wrong, which is worse than absent). "Since the anchor" =
+       txn_date after the anchor's local day, plus same-day rows created after
+       anchor_at — a row backdated to before the anchor deliberately does NOT
+       move the balance, because the anchor already contained it.
+       Contribution: expense −amt · income +amt · transfer +amt (pair legs carry
+       their sign inside the ciphertext; a legacy top-up is +amt by the same
+       0105 convention). Loans/repayments carry no account today and are skipped.
+       Cards keep their outstanding derivation in fhPersonalDebts, untouched. */
+    window.fhPersonalBalance = function (acctId) {
+      const a = P.accounts.find((x) => x.id === acctId);
+      if (!a || a.kind === 'credit_card' || a.anchorK == null) return null;
+      const anchorDay = a.anchorAt ? _localDate(new Date(a.anchorAt)) : null;
+      let bal = a.anchorK;
+      for (const d of P.debts) {
+        if (d.accountId !== acctId || d._unreadable || d.amt == null) continue;
+        if (d.kind !== 'expense' && d.kind !== 'income' && d.kind !== 'transfer') continue;
+        if (anchorDay) {
+          if (d.date < anchorDay) continue;
+          if (d.date === anchorDay && (!d.ts || d.ts <= a.anchorAt)) continue;
+        }
+        bal += (d.kind === 'expense') ? -d.amt : d.amt;
+      }
+      return bal;
+    };
+    /* Drift (spec §5.2): the bank's last self-stated balance vs the derived one.
+       Only meaningful when both exist; a hair of float noise is not a drift. */
+    window.fhPersonalDrift = function (acctId) {
+      const a = P.accounts.find((x) => x.id === acctId);
+      if (!a || a.extK == null) return null;
+      const bal = window.fhPersonalBalance(acctId);
+      if (bal == null) return null;
+      const d = a.extK - bal;
+      return Math.abs(d) < 0.5 ? null : { drift: d, extK: a.extK, extDate: a.extDate };
+    };
+    /* The anchor: "Số dư hiện tại", declared truth at this moment. */
+    window.fhPersonalAnchorSet = async function (acctId, amtK) {
+      if (!P.uid || !P.key || !acctId || !(isFinite(amtK))) return false;
+      const r = await _sb().from('personal_accounts').update({
+        anchor_balance_enc: await _encP(Number(amtK)), anchor_at: new Date().toISOString(),
+      }).eq('id', acctId).eq('owner_user_id', P.uid);
+      if (r.error) { console.warn('anchor set failed', r.error); return false; }
+      await window.fhPersonalHydrate(); return true;
+    };
+    /* The bank's own "Số dư" from a captured mail — stored newest-wins so the
+       drift badge always argues against the freshest statement, never an old one. */
+    window.fhPersonalExtBalanceSet = async function (acctId, amtK, dateIso) {
+      if (!P.uid || !P.key || !acctId || !(isFinite(amtK))) return false;
+      const a = P.accounts.find((x) => x.id === acctId);
+      const day = dateIso || _localDate(new Date());
+      if (a && a.extDate && a.extDate > day) return true;   // an older statement never overwrites a newer one
+      const r = await _sb().from('personal_accounts').update({
+        ext_balance_enc: await _encP(Number(amtK)), ext_balance_date: day,
+      }).eq('id', acctId).eq('owner_user_id', P.uid);
+      if (r.error) { console.warn('ext balance set failed', r.error); return false; }
+      if (a) { a.extK = Number(amtK); a.extDate = day; }   // local update — no full rehydrate for a side-signal
+      return true;
     };
 
     /* mirror — active family, my authored realized expenses → personal masters */
@@ -18176,15 +18594,25 @@ window.obGoogle = async function () {
           try { await FHCrypto.decVal(newKey, b64); return b64; } catch (e) {}   // already migrated → keep
           const pt = await FHCrypto.decVal(P.key, b64); return FHCrypto.encVal(newKey, pt);
         };
-        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc').eq('owner_user_id', P.uid);
-        const inc = await _sb().from('personal_incomes').select('id,amount_enc,note_enc').eq('owner_user_id', P.uid);
-        const tot = (tr.data || []).length + (inc.data || []).length; let n = 0;
+        /* EVERY personal-DEK ciphertext, one sweep: the spine (income folded in
+           since 0109 — no separate incomes pass any more), the accounts (names,
+           limits, the 0109 anchor + bank-stated balance) and the budgets. A
+           rotation that misses a field makes that field unreadable forever, so
+           the list here must grow with every _enc column the schema gains. */
+        const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc').eq('owner_user_id', P.uid);
+        const ac = await _sb().from('personal_accounts').select('id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc').eq('owner_user_id', P.uid);
+        const bg = await _sb().from('personal_budgets').select('owner_user_id,month,total_enc,cats_enc').eq('owner_user_id', P.uid);
+        const tot = (tr.data || []).length + (ac.data || []).length + (bg.data || []).length; let n = 0;
         for (const r of (tr.data || [])) {
-          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc) }).eq('id', r.id);
+          const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc) }).eq('id', r.id);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
-        for (const r of (inc.data || [])) {
-          const u = await _sb().from('personal_incomes').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc) }).eq('id', r.id);
+        for (const r of (ac.data || [])) {
+          const u = await _sb().from('personal_accounts').update({ name_enc: await reEnc(r.name_enc), credit_limit_enc: await reEnc(r.credit_limit_enc), anchor_balance_enc: await reEnc(r.anchor_balance_enc), ext_balance_enc: await reEnc(r.ext_balance_enc) }).eq('id', r.id);
+          if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
+        for (const r of (bg.data || [])) {
+          const u = await _sb().from('personal_budgets').update({ total_enc: await reEnc(r.total_enc), cats_enc: await reEnc(r.cats_enc) }).eq('owner_user_id', P.uid).eq('month', r.month);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
         }
         const rr = await _sb().rpc('rotate_personal_key', { p_kdf_salt: salt, p_kdf_iters: window.FH_KDF_ITERS_CARD, p_kdf_version: 1, p_wrapped_dek: newWrapped });
@@ -18629,10 +19057,12 @@ window.obGoogle = async function () {
     window.persDebtSection = function () {
       const P = _P(); if (!P || !P.key) return '';
       const t = _totals();
-      const hasAny = t.d.cards.length || t.d.people.length || t.spaces.length || _spaceInvites.length;
+      const balAccts = (P.accounts || []).filter((a) => a.kind !== 'credit_card');
+      const hasAny = t.d.cards.length || t.d.people.length || t.spaces.length || _spaceInvites.length || balAccts.length;
       let h = '<div id="pers-debts-wrap">'
         + '<div class="section-h" id="pers-debts-h"><span class="t">Nợ &amp; cho vay</span>'
-        + '<a onclick="fhDebtLoanSheet()">Ghi khoản vay</a></div>';
+        + '<span class="acts"><a onclick="fhXferSheet()">Chuyển tiền</a>'
+        + '<a onclick="fhDebtLoanSheet()">Ghi khoản vay</a></span></div>';
       /* pending space invites — above everything, they need a decision */
       _spaceInvites.forEach(function (inv) {
         h += '<section class="dbt-empty dbt-invite"><div class="dbt-empty-t"><b>' + _e(inv.invited_by || 'Bạn của bạn') + '</b> mời bạn vào nhóm chia tiền <b>' + _e(inv.family_name || 'Nhóm') + '</b>.</div>'
@@ -18682,6 +19112,25 @@ window.obGoogle = async function () {
         if (due) ht += '<div class="dbt-tchip"><span class="dbt-due">' + due + '</span></div>';
         ht += '</button>';
         tiles.push(ht);
+      });
+      /* Non-card accounts (0109): a balance tile each — anchor-derived number,
+         or the honest "chưa có mốc" when no anchor exists (a derived balance
+         with no anchor would be confidently wrong). Drift wears a quiet chip. */
+      balAccts.forEach(function (a) {
+        const bal = window.fhPersonalBalance ? fhPersonalBalance(a.id) : null;
+        const dr = window.fhPersonalDrift ? fhPersonalDrift(a.id) : null;
+        const kindLbl = a.kind === 'ewallet' ? 'ví điện tử' : (a.kind === 'cash' ? 'tiền mặt' : 'tài khoản');
+        let ht = '<button class="dbt-tile" onclick="openBalAccount(\'' + a.id + '\')">'
+          + '<div class="dbt-tk">' + _e(a.name || 'Tài khoản') + '</div>';
+        if (bal != null) {
+          ht += '<div class="dbt-tv num' + (bal < 0 ? ' owe' : '') + '">' + (bal < 0 ? '−' : '') + fmtK(Math.abs(bal)) + '</div>'
+            + '<div class="dbt-ts">' + kindLbl + '</div>';
+        } else {
+          ht += '<div class="dbt-tv num dim">—</div>'
+            + '<div class="dbt-ts">chưa có mốc số dư · chạm để đặt</div>';
+        }
+        if (dr) ht += '<div class="dbt-tchip"><span class="dbt-due">lệch ' + (dr.drift > 0 ? '+' : '−') + fmtK(Math.abs(dr.drift)) + '</span></div>';
+        tiles.push(ht + '</button>');
       });
       t.spaces.forEach(function (s) {
         const net = s.net, known = net != null;
@@ -19119,6 +19568,185 @@ window.obGoogle = async function () {
           return function () { openDebtAccount(acctId); if (window.renderPersonal) renderPersonal(); };
         },
       });
+    };
+
+    /* ═══ Full ledger (0109) — balances, anchors, drift, the transfer pair ═══ */
+
+    /* ①b — a NON-card account: balance hero + drift + its history. */
+    window.openBalAccount = function (acctId) {
+      const P = _P(); if (!P) return;
+      const acct = P.accounts.find((a) => a.id === acctId); if (!acct) return;
+      const bal = window.fhPersonalBalance ? fhPersonalBalance(acctId) : null;
+      const dr = window.fhPersonalDrift ? fhPersonalDrift(acctId) : null;
+      const d = _last || fhPersonalDebts();
+      const b = (d.byAcct && d.byAcct[acctId]) || { rows: [] };
+      let h = '<div class="dbt-hero2"><div class="dbt-hk">Số dư</div>';
+      if (bal != null) {
+        h += '<div class="dbt-hv num' + (bal < 0 ? ' owe' : '') + '">' + (bal < 0 ? '−' : '') + fmt(Math.abs(bal)) + '</div>';
+        if (acct.anchorAt) h += '<div class="dbt-hs">mốc đặt ' + _dmy(String(acct.anchorAt).slice(0, 10)) + ' — đã bao gồm mọi giao dịch trước lúc đặt</div>';
+      } else {
+        h += '<div class="dbt-hv num dim">—</div>'
+          + '<div class="dbt-hs">Chưa có mốc số dư. Nhập số dư hiện tại (xem trong app ngân hàng) để bắt đầu theo dõi.</div>';
+      }
+      h += '<button class="dbt-relink" onclick="fhAnchorSheet(\'' + acctId + '\')">' + (bal != null ? 'Cập nhật số dư thực tế' : 'Đặt mốc số dư') + '</button>';
+      h += '</div>';
+      /* drift — a STATE, not an event (spec T9): the bank's own number vs the
+         derived one, with exactly two ways out. */
+      if (dr) {
+        h += '<div class="dbt-drift">'
+          + '<div class="dbt-drift-t">Ngân hàng báo ' + fmt(dr.extK) + (dr.extDate ? ' (' + _dmy(dr.extDate) + ')' : '') + ' — lệch ' + (dr.drift > 0 ? '+' : '−') + fmt(Math.abs(dr.drift)) + '</div>'
+          + '<div class="dbt-drift-s">Có thể còn giao dịch chưa ghi, hoặc mốc cũ rồi.</div>'
+          + '<div class="dbt-acts">'
+          + '<button class="dbt-btn primary" onclick="fhDriftAnchor(\'' + acctId + '\')">Chốt theo ngân hàng</button>'
+          + '<button class="dbt-btn tinted" onclick="fhDriftAdd(\'' + acctId + '\',' + (dr.drift < 0 ? 1 : 0) + ')">Thêm giao dịch thiếu</button>'
+          + '</div></div>';
+      }
+      h += '<div class="dbt-acts">'
+        + '<button class="dbt-btn primary" onclick="fhXferSheet(\'' + acctId + '\')">Chuyển giữa tài khoản</button>'
+        + '<button class="dbt-btn tinted" onclick="fhAcctEditSheet(\'' + acctId + '\')">Cài đặt</button>'
+        + '</div>';
+      const all = (b.rows || []).slice().sort((a, x) => (x.date || '').localeCompare(a.date || ''));
+      h += '<div class="dbt-sec">Giao dịch</div><div class="dbt-card">';
+      if (!all.length) h += '<div class="dbt-note">Chưa có giao dịch nào gắn với tài khoản này. Chi tiêu và tiền vào từ email tự gắn khi bạn duyệt.</div>';
+      all.slice(0, 120).forEach(function (r) {
+        const xfer = r.kind === 'transfer', inc = r.kind === 'income';
+        const signed = xfer ? (r.amt || 0) : (inc ? (r.amt || 0) : -(r.amt || 0));
+        const isPair = xfer && r.transferGroupId;
+        const tap = isPair ? ' onclick="fhXferPairSheet(\'' + r.transferGroupId + '\')"' : '';
+        h += '<div class="dbt-li' + (isPair ? ' tap' : '') + '"' + tap + '><span class="dbt-lic">' + (xfer ? '🔁' : (inc ? '💰' : (r.emoji || '🗂️'))) + '</span>'
+          + '<span class="dbt-lib"><span class="dbt-lin">' + _e(r.note || r.cat || (xfer ? 'Chuyển khoản' : (inc ? 'Thu nhập' : 'Khoản chi')))
+          + (xfer ? '<i class="dbt-tag">chuyển khoản</i>' : '') + '</span>'
+          + '<span class="dbt-lis">' + _dmy(r.date) + '</span></span>'
+          + '<span class="dbt-liv num' + (signed > 0 ? ' owed' : '') + '">' + (signed > 0 ? '+' : '−') + fmt(Math.abs(signed)) + '</span></div>';
+      });
+      h += '</div>';
+      h += '<div class="dbt-foot">Chuyển giữa tài khoản của mình là <b>chuyển khoản</b> — không tính là chi tiêu hay thu nhập, chỉ đổi chỗ tiền.</div>';
+      _ovOpen(acct.name || 'Tài khoản', h);
+    };
+
+    /* The anchor sheet — "Số dư hiện tại", declared truth (spec §5.1). */
+    window.fhAnchorSheet = function (acctId) {
+      const P = _P(); const acct = P && P.accounts.find((a) => a.id === acctId); if (!acct) return;
+      const dr = window.fhPersonalDrift ? fhPersonalDrift(acctId) : null;
+      _fhModal({
+        title: 'Số dư hiện tại — ' + _e(acct.name || 'tài khoản'), saveLabel: 'Đặt mốc', reqMsg: 'Nhập số dư nhé',
+        body: '<div class="field"><label>Số dư hiện tại</label><input class="num" id="dbt-amt" inputmode="numeric" placeholder="' + (dr ? fmt(dr.extK) : '0 ₫') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="dbt-note">Nhập đúng số dư đang thấy trong app ngân hàng. Mốc này đã bao gồm mọi giao dịch trước lúc đặt — các khoản ghi sau đó cộng/trừ tiếp lên nó.</div>',
+        required: function () { return [{ el: document.getElementById('dbt-amt'), ok: !!((document.getElementById('dbt-amt') || {}).value || '').trim() }]; },
+        save: async function () {
+          const ok = await fhPersonalAnchorSet(acctId, _amtOf('dbt-amt'));
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã đặt mốc số dư');
+          return function () { openBalAccount(acctId); if (window.renderPersonal) renderPersonal(); };
+        },
+      });
+    };
+    /* Drift resolution ① — adopt the bank's number as the new anchor. */
+    window.fhDriftAnchor = async function (acctId) {
+      const P = _P(); const acct = P && P.accounts.find((a) => a.id === acctId);
+      if (!acct || acct.extK == null) return;
+      const ok = await fhPersonalAnchorSet(acctId, acct.extK);
+      if (!ok) { window.toast && toast('Chưa cập nhật được, thử lại'); return; }
+      window.toast && toast('Đã chốt theo số ngân hàng báo');
+      openBalAccount(acctId); if (window.renderPersonal) renderPersonal();
+    };
+    /* Drift resolution ② — the gap is a real, unrecorded movement: open the
+       right entry surface (bank lower than app = missing spending; higher =
+       missing money in). */
+    window.fhDriftAdd = function (acctId, missingSpend) {
+      closeDebt();
+      if (missingSpend) { if (window.openPersonalExpense) openPersonalExpense(); }
+      else if (window.fhIncome) fhIncome('personal');
+    };
+
+    /* "Chuyển giữa tài khoản" — the manual transfer PAIR (spec §3.1). */
+    window.fhXferSheet = function (presetFromId) {
+      const P = _P(); if (!P || !P.key) { window.toast && toast('Mở khoá sổ cá nhân trước'); return; }
+      const accts = (P.accounts || []).filter((a) => a.kind !== 'credit_card');
+      const hasCash = accts.some((a) => a.kind === 'cash');
+      const chip = function (grp, a, on) {
+        return '<button class="choice' + (on ? ' on' : '') + '" data-v="' + a.id + '" onclick="pick(\'' + grp + '\',this)">' + _e(a.name || 'Tài khoản') + '</button>';
+      };
+      const cashChip = function (grp) {
+        return hasCash ? '' : '<button class="choice" data-v="_cash" onclick="pick(\'' + grp + '\',this)">Tiền mặt</button>';
+      };
+      // LOCAL YYYY-MM-DD — toISOString() is UTC and would default to yesterday
+      // when opening after midnight in UTC+7 (same rule as 19-personal.js).
+      const _n = new Date(), _today = _n.getFullYear() + '-' + String(_n.getMonth() + 1).padStart(2, '0') + '-' + String(_n.getDate()).padStart(2, '0');
+      _fhModal({
+        title: 'Chuyển giữa tài khoản', saveLabel: 'Ghi lại', reqMsg: 'Chọn hai tài khoản khác nhau và số tiền nhé',
+        body: '<div class="field"><label>Từ đâu?</label><div class="choices" id="dbt-xfrom">'
+          + accts.map((a) => chip('dbt-xfrom', a, a.id === presetFromId)).join('') + cashChip('dbt-xfrom') + '</div></div>'
+          + '<div class="field"><label>Đến đâu?</label><div class="choices" id="dbt-xto">'
+          + accts.map((a) => chip('dbt-xto', a, false)).join('') + cashChip('dbt-xto') + '</div></div>'
+          + _amtIn('dbt-amt')
+          + '<div class="field"><label>Ngày</label><input type="date" id="dbt-date" value="' + _today + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Ghi chú <span class="opt">· tuỳ chọn</span></label><input id="dbt-note" placeholder="vd. chuyển sang tài khoản tiết kiệm" oninput="fhModalDirty()"></div>'
+          + '<div class="dbt-note">Ghi thành một cặp: tiền ra ở tài khoản này, tiền vào ở tài khoản kia — không tính là chi tiêu hay thu nhập.</div>',
+        required: function () {
+          const f = typeof chosen === 'function' ? chosen('dbt-xfrom') : null, t2 = typeof chosen === 'function' ? chosen('dbt-xto') : null;
+          return [
+            { el: document.getElementById('dbt-xto'), ok: !!(f && t2 && f !== t2) },
+            { el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 },
+          ];
+        },
+        save: async function () {
+          let f = chosen('dbt-xfrom'), t2 = chosen('dbt-xto');
+          if (f === '_cash') f = await fhPersonalCashAccount();
+          if (t2 === '_cash') t2 = await fhPersonalCashAccount();
+          if (!f || !t2 || f === t2) throw new Error('save_failed');
+          const note = ((document.getElementById('dbt-note') || {}).value || '').trim();
+          const ok = await fhPersonalAddTransferPair(_amtOf('dbt-amt'), f, t2, note || 'Chuyển giữa tài khoản', (document.getElementById('dbt-date') || {}).value || undefined, null);
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã ghi chuyển khoản — không tính thu chi');
+          return function () { if (window.renderPersonal) renderPersonal(); };
+        },
+      });
+    };
+
+    /* A transfer pair, opened from either leg: edit amount/date/note (both legs
+       stay in lockstep) or delete BOTH (spec T10 — a pair is atomic). */
+    window.fhXferPairSheet = function (groupId) {
+      const P = _P(); if (!P) return;
+      const legs = (P.debts || []).filter((d) => d.transferGroupId === groupId);
+      if (!legs.length) return;
+      const out = legs.find((l) => (l.amt || 0) < 0), inn = legs.find((l) => (l.amt || 0) > 0);
+      const nameOf = (l) => { const a = l && P.accounts.find((x) => x.id === l.accountId); return a ? (a.name || 'Tài khoản') : '?'; };
+      const amt = Math.abs((legs[0].amt) || 0);
+      _fhModal({
+        title: 'Chuyển khoản — ' + _e(nameOf(out)) + ' → ' + _e(nameOf(inn)), saveLabel: 'Lưu',
+        body: '<div class="field"><label>Số tiền</label><input class="num" id="dbt-amt" inputmode="numeric" value="' + Math.round(amt * (window.curMult ? curMult() : 1000)).toLocaleString('vi-VN') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Ngày</label><input type="date" id="dbt-date" value="' + (legs[0].date || '') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Ghi chú</label><input id="dbt-note" value="' + _e(legs[0].note || '') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="dbt-note">Sửa là sửa cả hai đầu — hai vế của một lần chuyển không bao giờ lệch nhau.</div>'
+          + '<button class="dbt-btn danger" onclick="fhXferPairDelete(\'' + groupId + '\',this)">Xoá cặp chuyển khoản này</button>',
+        required: function () { return [{ el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 }]; },
+        save: async function () {
+          const ok = await fhPersonalUpdateTransferPair(groupId, {
+            amtK: _amtOf('dbt-amt'),
+            note: ((document.getElementById('dbt-note') || {}).value || '').trim() || null,
+            dateIso: (document.getElementById('dbt-date') || {}).value || null,
+          });
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã cập nhật cả hai đầu');
+          return function () { if (window.renderPersonal) renderPersonal(); closeDebt(); };
+        },
+      });
+    };
+    let _pairArm = null;
+    window.fhXferPairDelete = async function (groupId, btn) {
+      if (_pairArm !== groupId) {
+        _pairArm = groupId;
+        if (btn) btn.textContent = 'Bấm lần nữa để xoá cả hai đầu';
+        setTimeout(() => { if (_pairArm === groupId) { _pairArm = null; if (btn && btn.isConnected) btn.textContent = 'Xoá cặp chuyển khoản này'; } }, 4000);
+        return;
+      }
+      _pairArm = null;
+      const ok = await fhPersonalDeleteTransferPair(groupId);
+      if (!ok) { window.toast && toast('Chưa xoá được, thử lại'); return; }
+      window.toast && toast('Đã xoá cả hai đầu');
+      if (window.closeModals) closeModals();
+      closeDebt(); if (window.renderPersonal) renderPersonal();
     };
 
     /* space create → card intro → invite */
@@ -25828,9 +26456,13 @@ window.classifyAmount = classifyAmount;
        csvReview.ready, and reading a candidate out of it afterwards reads a list
        that has already been emptied. */
     var picked = (typeof csvStagedSelected === 'function') ? csvStagedSelected() : [];
-    var mine = [], theirs = [];
+    var mine = [], theirs = [], famInc = [];
     picked.forEach(function (c) {
       if (typeof csvRowScope === 'function' && csvRowScope(c) === 'personal') mine.push(c);
+      /* A family-scoped INCOME row goes to the family income book — the family
+         expense importer (csvPromote) writes expenses only, and money-in must
+         never ride into it as spending (0109). */
+      else if (c.isIncome && !c._xfer && !c._repay) famInc.push(c);
       else theirs.push(c);
     });
     if (!picked.length) return;
@@ -25862,13 +26494,66 @@ window.classifyAmount = classifyAmount;
         var ai = null;
         try { ai = window.fhStagedAcct ? window.fhStagedAcct(c) : null; } catch (eAcct) { ai = null; }
         var pd = (window.fhPersonalData && window.fhPersonalData()) || { accounts: [] };
+        /* The captured "Số dư" (balance_after) rides along at commit: stored on
+           the resolved NON-card account so the drift badge argues against the
+           bank's own number (0109 §5.2). Base units, newest-wins. */
+        var _sx2 = null;
+        try { _sx2 = window.fhStagedRawX ? window.fhStagedRawX(c.rowIndex) : null; } catch (eSx) {}
+        var _extBal = function (acctId) {
+          try {
+            var b = _sx2 && Number(_sx2.balance);
+            if (!acctId || !(b > 0) || !window.fhPersonalExtBalanceSet) return;
+            var acct = (pd.accounts || []).find(function (a) { return a.id === acctId; });
+            if (acct && acct.kind === 'credit_card') return;
+            var bb = window.csvBaseAmt ? window.csvBaseAmt(b) : b;
+            window.fhPersonalExtBalanceSet(acctId, bb, c.dateDisplay || undefined);
+          } catch (eB) {}
+        };
         var ok;
-        if (c.isIncome) {
-          /* A credit/income row goes to the personal INCOME book, not the expense
-             one — the family importer holds income back entirely, so this is the
-             one place a bank email's incoming money is captured correctly.
-             (personal_incomes has no time column yet — income stays day-only.) */
-          ok = await window.fhPersonalAddIncome(base, c.description || '', c.dateDisplay || undefined, src);
+        if (c._xfer) {
+          /* An own-account transfer leg (0109 spec T4): ALWAYS a pair. The
+             captured side resolves from the classifier; the counterpart is the
+             account picked on the card ('_cash' = the Tiền mặt account,
+             auto-materialized). Both legs share one transfer_group_id; the sign
+             lives inside the ciphertext. If only one side resolves, the leg
+             books one-legged (legacy shape), signed by direction, so the money
+             is at least recorded rather than lost. */
+          var ownId = null, otherId = null;
+          if (ai && window.fhPersonalAccountEnsure) { try { ownId = await window.fhPersonalAccountEnsure(ai); } catch (eO) {} }
+          if (c._xferOtherId === '_cash' && window.fhPersonalCashAccount) { try { otherId = await window.fhPersonalCashAccount(); } catch (eC) {} }
+          else if (c._xferOtherId) otherId = c._xferOtherId;
+          var credit = !!c.isIncome;
+          if (ownId && otherId && ownId !== otherId) {
+            ok = await window.fhPersonalAddTransferPair(base,
+              credit ? otherId : ownId, credit ? ownId : otherId,
+              c.description || 'Chuyển khoản nội bộ', c.dateDisplay || undefined, src);
+          } else {
+            var legAcct = ownId || otherId;
+            var legAmt = legAcct === ownId ? (credit ? base : -base) : (credit ? -base : base);
+            ok = await window.fhPersonalAddTransfer(legAmt, legAcct, c.description || 'Chuyển khoản nội bộ', c.dateDisplay || undefined, src);
+          }
+          if (ok && ownId) _extBal(ownId);
+        } else if (c._repay) {
+          /* Repayment received (0109): draws the counterparty's balance down —
+             the review-side entry the borrowing-lending spec §5 wanted. +X =
+             they repaid me (credit rows are the only ones offered this kind). */
+          var who = (c._repayWho || '').trim() || (c.counterparty || '').trim() || '—';
+          ok = await window.fhPersonalAddRepayment(base, who, c.description || null, c.dateDisplay || undefined, src);
+          if (ok && ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
+            try { _extBal(await window.fhPersonalAccountEnsure(ai)); } catch (eR) {}
+          }
+        } else if (c.isIncome) {
+          /* Income is first-class on the spine since 0109: category (the
+             income-side set), the receiving account (what makes a deposit
+             balance computable), and the bank's real time all ride along. */
+          var incAcct = null;
+          if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
+            try { incAcct = await window.fhPersonalAccountEnsure(ai); } catch (e3) {}
+          }
+          var incEmoji = ({ 'Lương': '💼', 'Thưởng': '🎁', 'Hoàn tiền': '💸' })[c._incomeCat] || '💰';
+          ok = await window.fhPersonalAddIncome(base, c.description || '', c.dateDisplay || undefined, src,
+            { catName: c._incomeCat || 'Khác', catEmoji: incEmoji, accountId: incAcct, time: _t });
+          if (ok) _extBal(incAcct);
         } else if (c.isTransfer) {
           /* A card payment pays off a CARD — drawing its balance down — not the
              bank account the money left. So it is tagged to the card, never to
@@ -25894,8 +26579,19 @@ window.classifyAmount = classifyAmount;
           if (ai && window.fhPersonalAccountEnsure) { try { acctId = await window.fhPersonalAccountEnsure(ai); } catch (e2) {} }
           var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
           ok = await window.fhPersonalAddExpense(base, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined, _t, src, { accountId: acctId });
+          if (ok) _extBal(acctId);
         }
         if (!ok) throw new Error('personal write failed at row ' + i);
+      }
+
+      /* Family-scoped income → the family income book (never the expense
+         importer). Same base-unit conversion as the personal writes. */
+      for (var fi2 = 0; fi2 < famInc.length; fi2++) {
+        var cf = famInc[fi2];
+        var fBase = window.csvBaseAmt ? window.csvBaseAmt(cf.amount)
+          : Math.round(Number(cf.amount || 0) / (window.curMult ? window.curMult() : 1));
+        var fOk = window.fhAddFamilyIncome ? await window.fhAddFamilyIncome(fBase, cf.description || '', cf.dateDisplay || undefined) : false;
+        if (!fOk) throw new Error('family income write failed at row ' + fi2);
       }
 
       // csvPromote() returns its promise chain, so this genuinely waits for the

@@ -583,6 +583,10 @@ function buildCsvCandidates(parsed, result) {
       if (_sx) {
         if (_sx.flow === 'transfer') { isTransfer = true; isIncome = false; }
         else if (_sa && _sa.kind === 'credit_card' && _sx.direction === 'credit') { isTransfer = true; isIncome = false; }
+        /* Money INTO a deposit/wallet is a first-class candidate now (0109 full
+           ledger): a checkable card with a 3-way Kind control — Thu nhập /
+           Chuyển khoản nội bộ / Thu nợ — not a row parked in the inflow strip. */
+        else if (_sx.direction === 'credit') { isIncome = true; }
       }
     }
 
@@ -655,10 +659,22 @@ function buildCsvCandidates(parsed, result) {
     if (!catName && !isIncome && csvCatOk(CAT_FALLBACK)) { catName = CAT_FALLBACK; catSource = 'fallback'; }
     if (!catName) flags.push('needs_category');
 
+    /* Income category default (0109): the small income-side set, guessed from
+       wording, always overridable on the card. Never a family expense category. */
+    var incomeCat = null;
+    if (isIncome) {
+      var itext = deburr(String(desc || '').toLowerCase());
+      incomeCat = /\b(luong|salary|payroll)\b/.test(itext) ? 'Lương'
+        : /\b(thuong|bonus)\b/.test(itext) ? 'Thưởng'
+        : /\b(hoan tien|refund|hoan phi)\b/.test(itext) ? 'Hoàn tiền'
+        : 'Khác';
+    }
+
     return {
       rowIndex: i, raw: row, flags: flags,
       date: date, dateDisplay: date ? (date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0')) : '',
       amount: amount, negative: aclass.status === 'ok' && String(amtRaw).trim().indexOf('-') === 0,
+      _incomeCat: incomeCat,
       description: desc || catGuess || L('(không có mô tả)','(no description)'),
       // Did this row actually SAY anything? The line above substitutes a
       // placeholder, and that placeholder is identical on every silent row —
@@ -870,7 +886,10 @@ function bucketCsvCandidates(candidates, mixedSigns) {
     /* The family list carries Date objects on `_d`; the personal cache carries
        a 'YYYY-MM-DD' string. Normalise here rather than in the matcher, so the
        matcher keeps one shape to reason about. */
-    var norm = mine.map(function(t){
+    /* Expenses only: since 0109 the personal cache carries every kind (income,
+       transfer legs, loans) and matching a candidate's magnitude against those
+       would flag phantom duplicates. */
+    var norm = mine.filter(function(t){ return t.kind === 'expense'; }).map(function(t){
       return { amt: t.amt, _d: t.date ? new Date(t.date + 'T00:00:00') : null, _personal: true };
     }).filter(function(t){ return t._d && t.amt != null; });
     return fam.concat(norm);
@@ -933,8 +952,12 @@ function bucketCsvCandidates(candidates, mixedSigns) {
        card's balance down (Borrowing & Lending). So in staged (bank-email)
        mode it is a normal, checkable, importable card, not something set aside.
        Only CSV-file transfers stay deferred, where importing a card statement
-       AND a bank statement genuinely double-counts. */
-    if (mixedSigns || c.isIncome || (c.isTransfer && !staged) || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
+       AND a bank statement genuinely double-counts. Since 0109 the same goes
+       for money IN: a staged credit row is a normal card with a 3-way Kind
+       control (income / internal transfer / repayment received) — only
+       CSV-file income stays deferred, because the file importer still writes
+       expenses only. */
+    if (mixedSigns || (c.isIncome && !staged) || (c.isTransfer && !staged) || c.flags.indexOf('date_missing') >= 0 || c.flags.indexOf('amount_missing') >= 0) {
       deferred.push(c); return;
     }
 
@@ -973,7 +996,10 @@ function bucketCsvCandidates(candidates, mixedSigns) {
     // cross-match against the ledger and the needs-a-category grouping below —
     // returning early here would file an uncategorised row straight into ready.
 
-    var crossMatch = existingTxns.find(function(t) {
+    /* Money-in candidates never cross-match the spend ledgers: the lists below
+       are expenses, and a +5tr credit beside a −5tr purchase is a coincidence
+       of magnitude, not one event twice. */
+    var crossMatch = !c.isIncome && existingTxns.find(function(t) {
       if (!t._d || !c.date) return false;
       var daysApart = Math.abs(t._d.getTime() - c.date.getTime()) / 86400000;
       return daysApart <= 3 && Math.abs(Number(t.amt) - c.amount) < 1;
@@ -1010,15 +1036,20 @@ function bucketCsvCandidates(candidates, mixedSigns) {
         c.pipelineDupOverruled = true;   // two banks; falls through to the normal path
       }
 
-      var sourceMatch = csvStagedCrossSourceDup(c, provider, currency, kind, priors);
-      priors.push(prior);
+      /* Cross-source dedup hunts one PURCHASE reported by a bank and a
+         merchant; a credit row is not a purchase, so it never joins that hunt
+         (its magnitude beside a debit's is coincidence, not identity). */
+      var sourceMatch = c.isIncome ? null : csvStagedCrossSourceDup(c, provider, currency, kind, priors);
+      if (!c.isIncome) priors.push(prior);
       if (sourceMatch) { c.duplicateOfSource = sourceMatch; possibleDuplicate.push(c); return; }
     }
 
     /* A transfer (card payment) has no category and needs none — it is not
        spending. It goes straight to ready rather than the pick-a-category
-       queue; its card marks itself "Trả nợ thẻ" instead. */
-    if (!c.categoryName && !c.isTransfer) {
+       queue; its card marks itself "Trả nợ thẻ" instead. Income likewise: its
+       category set is the income one (_incomeCat, defaulted at build), never
+       the family expense picker. */
+    if (!c.categoryName && !c.isTransfer && !c.isIncome) {
       var gkey = normDescForDedup(c.description);
       (needsCategoryGroups[gkey] = needsCategoryGroups[gkey] || []).push(c);
       return;

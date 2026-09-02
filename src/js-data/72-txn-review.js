@@ -833,9 +833,13 @@
        csvReview.ready, and reading a candidate out of it afterwards reads a list
        that has already been emptied. */
     var picked = (typeof csvStagedSelected === 'function') ? csvStagedSelected() : [];
-    var mine = [], theirs = [];
+    var mine = [], theirs = [], famInc = [];
     picked.forEach(function (c) {
       if (typeof csvRowScope === 'function' && csvRowScope(c) === 'personal') mine.push(c);
+      /* A family-scoped INCOME row goes to the family income book — the family
+         expense importer (csvPromote) writes expenses only, and money-in must
+         never ride into it as spending (0109). */
+      else if (c.isIncome && !c._xfer && !c._repay) famInc.push(c);
       else theirs.push(c);
     });
     if (!picked.length) return;
@@ -867,13 +871,66 @@
         var ai = null;
         try { ai = window.fhStagedAcct ? window.fhStagedAcct(c) : null; } catch (eAcct) { ai = null; }
         var pd = (window.fhPersonalData && window.fhPersonalData()) || { accounts: [] };
+        /* The captured "Số dư" (balance_after) rides along at commit: stored on
+           the resolved NON-card account so the drift badge argues against the
+           bank's own number (0109 §5.2). Base units, newest-wins. */
+        var _sx2 = null;
+        try { _sx2 = window.fhStagedRawX ? window.fhStagedRawX(c.rowIndex) : null; } catch (eSx) {}
+        var _extBal = function (acctId) {
+          try {
+            var b = _sx2 && Number(_sx2.balance);
+            if (!acctId || !(b > 0) || !window.fhPersonalExtBalanceSet) return;
+            var acct = (pd.accounts || []).find(function (a) { return a.id === acctId; });
+            if (acct && acct.kind === 'credit_card') return;
+            var bb = window.csvBaseAmt ? window.csvBaseAmt(b) : b;
+            window.fhPersonalExtBalanceSet(acctId, bb, c.dateDisplay || undefined);
+          } catch (eB) {}
+        };
         var ok;
-        if (c.isIncome) {
-          /* A credit/income row goes to the personal INCOME book, not the expense
-             one — the family importer holds income back entirely, so this is the
-             one place a bank email's incoming money is captured correctly.
-             (personal_incomes has no time column yet — income stays day-only.) */
-          ok = await window.fhPersonalAddIncome(base, c.description || '', c.dateDisplay || undefined, src);
+        if (c._xfer) {
+          /* An own-account transfer leg (0109 spec T4): ALWAYS a pair. The
+             captured side resolves from the classifier; the counterpart is the
+             account picked on the card ('_cash' = the Tiền mặt account,
+             auto-materialized). Both legs share one transfer_group_id; the sign
+             lives inside the ciphertext. If only one side resolves, the leg
+             books one-legged (legacy shape), signed by direction, so the money
+             is at least recorded rather than lost. */
+          var ownId = null, otherId = null;
+          if (ai && window.fhPersonalAccountEnsure) { try { ownId = await window.fhPersonalAccountEnsure(ai); } catch (eO) {} }
+          if (c._xferOtherId === '_cash' && window.fhPersonalCashAccount) { try { otherId = await window.fhPersonalCashAccount(); } catch (eC) {} }
+          else if (c._xferOtherId) otherId = c._xferOtherId;
+          var credit = !!c.isIncome;
+          if (ownId && otherId && ownId !== otherId) {
+            ok = await window.fhPersonalAddTransferPair(base,
+              credit ? otherId : ownId, credit ? ownId : otherId,
+              c.description || 'Chuyển khoản nội bộ', c.dateDisplay || undefined, src);
+          } else {
+            var legAcct = ownId || otherId;
+            var legAmt = legAcct === ownId ? (credit ? base : -base) : (credit ? -base : base);
+            ok = await window.fhPersonalAddTransfer(legAmt, legAcct, c.description || 'Chuyển khoản nội bộ', c.dateDisplay || undefined, src);
+          }
+          if (ok && ownId) _extBal(ownId);
+        } else if (c._repay) {
+          /* Repayment received (0109): draws the counterparty's balance down —
+             the review-side entry the borrowing-lending spec §5 wanted. +X =
+             they repaid me (credit rows are the only ones offered this kind). */
+          var who = (c._repayWho || '').trim() || (c.counterparty || '').trim() || '—';
+          ok = await window.fhPersonalAddRepayment(base, who, c.description || null, c.dateDisplay || undefined, src);
+          if (ok && ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
+            try { _extBal(await window.fhPersonalAccountEnsure(ai)); } catch (eR) {}
+          }
+        } else if (c.isIncome) {
+          /* Income is first-class on the spine since 0109: category (the
+             income-side set), the receiving account (what makes a deposit
+             balance computable), and the bank's real time all ride along. */
+          var incAcct = null;
+          if (ai && ai.kind !== 'credit_card' && window.fhPersonalAccountEnsure) {
+            try { incAcct = await window.fhPersonalAccountEnsure(ai); } catch (e3) {}
+          }
+          var incEmoji = ({ 'Lương': '💼', 'Thưởng': '🎁', 'Hoàn tiền': '💸' })[c._incomeCat] || '💰';
+          ok = await window.fhPersonalAddIncome(base, c.description || '', c.dateDisplay || undefined, src,
+            { catName: c._incomeCat || 'Khác', catEmoji: incEmoji, accountId: incAcct, time: _t });
+          if (ok) _extBal(incAcct);
         } else if (c.isTransfer) {
           /* A card payment pays off a CARD — drawing its balance down — not the
              bank account the money left. So it is tagged to the card, never to
@@ -899,8 +956,19 @@
           if (ai && window.fhPersonalAccountEnsure) { try { acctId = await window.fhPersonalAccountEnsure(ai); } catch (e2) {} }
           var emoji = (window.catStyle && window.catStyle[c.categoryName] && window.catStyle[c.categoryName][0]) || '🗂️';
           ok = await window.fhPersonalAddExpense(base, c.description || '', c.categoryName || null, emoji, c.dateDisplay || undefined, _t, src, { accountId: acctId });
+          if (ok) _extBal(acctId);
         }
         if (!ok) throw new Error('personal write failed at row ' + i);
+      }
+
+      /* Family-scoped income → the family income book (never the expense
+         importer). Same base-unit conversion as the personal writes. */
+      for (var fi2 = 0; fi2 < famInc.length; fi2++) {
+        var cf = famInc[fi2];
+        var fBase = window.csvBaseAmt ? window.csvBaseAmt(cf.amount)
+          : Math.round(Number(cf.amount || 0) / (window.curMult ? window.curMult() : 1));
+        var fOk = window.fhAddFamilyIncome ? await window.fhAddFamilyIncome(fBase, cf.description || '', cf.dateDisplay || undefined) : false;
+        if (!fOk) throw new Error('family income write failed at row ' + fi2);
       }
 
       // csvPromote() returns its promise chain, so this genuinely waits for the

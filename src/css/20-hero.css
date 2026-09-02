@@ -78,6 +78,9 @@
 .section-h .t{font-family:var(--disp);font-weight:700;font-size:22px;letter-spacing:-.6px;color:var(--ink)}
 .section-h a{display:inline-flex;align-items:center;min-height:44px;margin:-13px -4px;padding:0 4px;font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--brand-ink);cursor:pointer}
 .section-h a:active{opacity:.5}
+/* two header actions, one right-aligned cluster — each link keeps its own 44px
+   target; the gap between them comes from their built-in padding plus this */
+.section-h .acts{display:flex;align-items:baseline;gap:14px}
 
 .card{background:var(--white);border-radius:20px;margin:0 16px 14px;padding:20px;box-shadow:var(--shadow-card)}
 

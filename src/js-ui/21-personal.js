@@ -274,8 +274,31 @@ function renderPersonal(){
   /* ── Giao dịch của bạn — category emoji is the only emoji (content mark) ── */
   /* Transactions for the SELECTED month only (newest first), so the list matches
      the totals + space cards above. Unreadable rows keep a plaintext date, so the
-     per-month warning count is honest too. */
-  var txList = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon; });
+     per-month warning count is honest too. Since 0109 the spine carries every
+     kind — expense, income, transfer legs, loans — and the list shows them all
+     (a full ledger hides nothing), each styled by what it is. A transfer PAIR
+     renders once, not twice: the out-leg carries the row, the in-leg is folded
+     into it (same group id), so "VIB → VCB" reads as one event. */
+  var txAll = P.txns.filter(function(t){ return (t.date||'').slice(0,7)===mon; });
+  var seenXfer = {}, txList = [];
+  txAll.forEach(function(t){
+    if(t.kind==='transfer' && t.transferGroupId){
+      if(seenXfer[t.transferGroupId]) return;   // second leg of a pair already listed
+      seenXfer[t.transferGroupId] = 1;
+    }
+    txList.push(t);
+  });
+  var acctName = function(id){
+    var a = id && (P.accounts||[]).find(function(x){ return x.id===id; });
+    return a ? (a.name||'Tài khoản') : null;
+  };
+  /* the pair's two ends, from either leg: negative leg = from, positive = to */
+  var pairEnds = function(t){
+    var legs = txAll.filter(function(x){ return x.kind==='transfer' && x.transferGroupId===t.transferGroupId; });
+    var from=null, to=null;
+    legs.forEach(function(l){ if((l.amt||0)<0) from=l.accountId; else to=l.accountId; });
+    return { from: acctName(from), to: acctName(to) };
+  };
   var monUnread = txList.filter(function(t){ return t._unreadable; }).length;
   h += '<div class="section-h" id="pers-tx"><span class="t">Giao dịch của bạn</span></div><div class="rows">';
   /* Say it before the list, not inside it. A count kept out of the totals has to
@@ -295,10 +318,30 @@ function renderPersonal(){
            + '<div class="r-amt num">—</div></div>';
         return;
       }
-      h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>'
-         + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
-         + '<div class="r-s">'+t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.time?' · '+t.time:'')+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
-         + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';
+      var meta = t.date.slice(8,10)+'/'+t.date.slice(5,7)+(t.time?' · '+t.time:'');
+      if(t.kind==='income'){
+        h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'💰')+'</div>'
+           + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Thu nhập').replace(/</g,'&lt;'))+'</div>'
+           + '<div class="r-s">'+meta+' · thu nhập</div></div>'
+           + '<div class="r-amt num pos">+'+fmt(t.amt||0)+'</div></div>';
+      } else if(t.kind==='transfer'){
+        var ends = t.transferGroupId ? pairEnds(t) : null;
+        var xt = ends && ends.from && ends.to ? (ends.from+' → '+ends.to) : ((t.note||'Chuyển khoản').replace(/</g,'&lt;'));
+        h += '<div class="row"><div class="r-ico personal-ico">🔁</div>'
+           + '<div class="r-body"><div class="r-t">'+xt+'</div>'
+           + '<div class="r-s">'+meta+' · chuyển khoản — không tính thu chi</div></div>'
+           + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
+      } else if(t.kind==='loan' || t.kind==='repayment'){
+        h += '<div class="row"><div class="r-ico personal-ico">'+(t.kind==='loan'?'💵':'✅')+'</div>'
+           + '<div class="r-body"><div class="r-t">'+((t.note||(t.kind==='loan'?'Cho vay / mượn':'Trả nợ')).replace(/</g,'&lt;'))+'</div>'
+           + '<div class="r-s">'+meta+' · '+(t.kind==='loan'?'khoản vay':'trả nợ')+'</div></div>'
+           + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
+      } else {
+        h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>'
+           + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
+           + '<div class="r-s">'+meta+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
+           + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';
+      }
     });
   } else {
     h += '<div class="empty-note">'+(isCur?'Chưa có giao dịch nào trong sổ cá nhân.':'Không có giao dịch nào trong tháng này.')+'</div>';

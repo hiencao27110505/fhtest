@@ -36,10 +36,12 @@
     window.persDebtSection = function () {
       const P = _P(); if (!P || !P.key) return '';
       const t = _totals();
-      const hasAny = t.d.cards.length || t.d.people.length || t.spaces.length || _spaceInvites.length;
+      const balAccts = (P.accounts || []).filter((a) => a.kind !== 'credit_card');
+      const hasAny = t.d.cards.length || t.d.people.length || t.spaces.length || _spaceInvites.length || balAccts.length;
       let h = '<div id="pers-debts-wrap">'
         + '<div class="section-h" id="pers-debts-h"><span class="t">Nợ &amp; cho vay</span>'
-        + '<a onclick="fhDebtLoanSheet()">Ghi khoản vay</a></div>';
+        + '<span class="acts"><a onclick="fhXferSheet()">Chuyển tiền</a>'
+        + '<a onclick="fhDebtLoanSheet()">Ghi khoản vay</a></span></div>';
       /* pending space invites — above everything, they need a decision */
       _spaceInvites.forEach(function (inv) {
         h += '<section class="dbt-empty dbt-invite"><div class="dbt-empty-t"><b>' + _e(inv.invited_by || 'Bạn của bạn') + '</b> mời bạn vào nhóm chia tiền <b>' + _e(inv.family_name || 'Nhóm') + '</b>.</div>'
@@ -89,6 +91,25 @@
         if (due) ht += '<div class="dbt-tchip"><span class="dbt-due">' + due + '</span></div>';
         ht += '</button>';
         tiles.push(ht);
+      });
+      /* Non-card accounts (0109): a balance tile each — anchor-derived number,
+         or the honest "chưa có mốc" when no anchor exists (a derived balance
+         with no anchor would be confidently wrong). Drift wears a quiet chip. */
+      balAccts.forEach(function (a) {
+        const bal = window.fhPersonalBalance ? fhPersonalBalance(a.id) : null;
+        const dr = window.fhPersonalDrift ? fhPersonalDrift(a.id) : null;
+        const kindLbl = a.kind === 'ewallet' ? 'ví điện tử' : (a.kind === 'cash' ? 'tiền mặt' : 'tài khoản');
+        let ht = '<button class="dbt-tile" onclick="openBalAccount(\'' + a.id + '\')">'
+          + '<div class="dbt-tk">' + _e(a.name || 'Tài khoản') + '</div>';
+        if (bal != null) {
+          ht += '<div class="dbt-tv num' + (bal < 0 ? ' owe' : '') + '">' + (bal < 0 ? '−' : '') + fmtK(Math.abs(bal)) + '</div>'
+            + '<div class="dbt-ts">' + kindLbl + '</div>';
+        } else {
+          ht += '<div class="dbt-tv num dim">—</div>'
+            + '<div class="dbt-ts">chưa có mốc số dư · chạm để đặt</div>';
+        }
+        if (dr) ht += '<div class="dbt-tchip"><span class="dbt-due">lệch ' + (dr.drift > 0 ? '+' : '−') + fmtK(Math.abs(dr.drift)) + '</span></div>';
+        tiles.push(ht + '</button>');
       });
       t.spaces.forEach(function (s) {
         const net = s.net, known = net != null;
@@ -526,6 +547,185 @@
           return function () { openDebtAccount(acctId); if (window.renderPersonal) renderPersonal(); };
         },
       });
+    };
+
+    /* ═══ Full ledger (0109) — balances, anchors, drift, the transfer pair ═══ */
+
+    /* ①b — a NON-card account: balance hero + drift + its history. */
+    window.openBalAccount = function (acctId) {
+      const P = _P(); if (!P) return;
+      const acct = P.accounts.find((a) => a.id === acctId); if (!acct) return;
+      const bal = window.fhPersonalBalance ? fhPersonalBalance(acctId) : null;
+      const dr = window.fhPersonalDrift ? fhPersonalDrift(acctId) : null;
+      const d = _last || fhPersonalDebts();
+      const b = (d.byAcct && d.byAcct[acctId]) || { rows: [] };
+      let h = '<div class="dbt-hero2"><div class="dbt-hk">Số dư</div>';
+      if (bal != null) {
+        h += '<div class="dbt-hv num' + (bal < 0 ? ' owe' : '') + '">' + (bal < 0 ? '−' : '') + fmt(Math.abs(bal)) + '</div>';
+        if (acct.anchorAt) h += '<div class="dbt-hs">mốc đặt ' + _dmy(String(acct.anchorAt).slice(0, 10)) + ' — đã bao gồm mọi giao dịch trước lúc đặt</div>';
+      } else {
+        h += '<div class="dbt-hv num dim">—</div>'
+          + '<div class="dbt-hs">Chưa có mốc số dư. Nhập số dư hiện tại (xem trong app ngân hàng) để bắt đầu theo dõi.</div>';
+      }
+      h += '<button class="dbt-relink" onclick="fhAnchorSheet(\'' + acctId + '\')">' + (bal != null ? 'Cập nhật số dư thực tế' : 'Đặt mốc số dư') + '</button>';
+      h += '</div>';
+      /* drift — a STATE, not an event (spec T9): the bank's own number vs the
+         derived one, with exactly two ways out. */
+      if (dr) {
+        h += '<div class="dbt-drift">'
+          + '<div class="dbt-drift-t">Ngân hàng báo ' + fmt(dr.extK) + (dr.extDate ? ' (' + _dmy(dr.extDate) + ')' : '') + ' — lệch ' + (dr.drift > 0 ? '+' : '−') + fmt(Math.abs(dr.drift)) + '</div>'
+          + '<div class="dbt-drift-s">Có thể còn giao dịch chưa ghi, hoặc mốc cũ rồi.</div>'
+          + '<div class="dbt-acts">'
+          + '<button class="dbt-btn primary" onclick="fhDriftAnchor(\'' + acctId + '\')">Chốt theo ngân hàng</button>'
+          + '<button class="dbt-btn tinted" onclick="fhDriftAdd(\'' + acctId + '\',' + (dr.drift < 0 ? 1 : 0) + ')">Thêm giao dịch thiếu</button>'
+          + '</div></div>';
+      }
+      h += '<div class="dbt-acts">'
+        + '<button class="dbt-btn primary" onclick="fhXferSheet(\'' + acctId + '\')">Chuyển giữa tài khoản</button>'
+        + '<button class="dbt-btn tinted" onclick="fhAcctEditSheet(\'' + acctId + '\')">Cài đặt</button>'
+        + '</div>';
+      const all = (b.rows || []).slice().sort((a, x) => (x.date || '').localeCompare(a.date || ''));
+      h += '<div class="dbt-sec">Giao dịch</div><div class="dbt-card">';
+      if (!all.length) h += '<div class="dbt-note">Chưa có giao dịch nào gắn với tài khoản này. Chi tiêu và tiền vào từ email tự gắn khi bạn duyệt.</div>';
+      all.slice(0, 120).forEach(function (r) {
+        const xfer = r.kind === 'transfer', inc = r.kind === 'income';
+        const signed = xfer ? (r.amt || 0) : (inc ? (r.amt || 0) : -(r.amt || 0));
+        const isPair = xfer && r.transferGroupId;
+        const tap = isPair ? ' onclick="fhXferPairSheet(\'' + r.transferGroupId + '\')"' : '';
+        h += '<div class="dbt-li' + (isPair ? ' tap' : '') + '"' + tap + '><span class="dbt-lic">' + (xfer ? '🔁' : (inc ? '💰' : (r.emoji || '🗂️'))) + '</span>'
+          + '<span class="dbt-lib"><span class="dbt-lin">' + _e(r.note || r.cat || (xfer ? 'Chuyển khoản' : (inc ? 'Thu nhập' : 'Khoản chi')))
+          + (xfer ? '<i class="dbt-tag">chuyển khoản</i>' : '') + '</span>'
+          + '<span class="dbt-lis">' + _dmy(r.date) + '</span></span>'
+          + '<span class="dbt-liv num' + (signed > 0 ? ' owed' : '') + '">' + (signed > 0 ? '+' : '−') + fmt(Math.abs(signed)) + '</span></div>';
+      });
+      h += '</div>';
+      h += '<div class="dbt-foot">Chuyển giữa tài khoản của mình là <b>chuyển khoản</b> — không tính là chi tiêu hay thu nhập, chỉ đổi chỗ tiền.</div>';
+      _ovOpen(acct.name || 'Tài khoản', h);
+    };
+
+    /* The anchor sheet — "Số dư hiện tại", declared truth (spec §5.1). */
+    window.fhAnchorSheet = function (acctId) {
+      const P = _P(); const acct = P && P.accounts.find((a) => a.id === acctId); if (!acct) return;
+      const dr = window.fhPersonalDrift ? fhPersonalDrift(acctId) : null;
+      _fhModal({
+        title: 'Số dư hiện tại — ' + _e(acct.name || 'tài khoản'), saveLabel: 'Đặt mốc', reqMsg: 'Nhập số dư nhé',
+        body: '<div class="field"><label>Số dư hiện tại</label><input class="num" id="dbt-amt" inputmode="numeric" placeholder="' + (dr ? fmt(dr.extK) : '0 ₫') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="dbt-note">Nhập đúng số dư đang thấy trong app ngân hàng. Mốc này đã bao gồm mọi giao dịch trước lúc đặt — các khoản ghi sau đó cộng/trừ tiếp lên nó.</div>',
+        required: function () { return [{ el: document.getElementById('dbt-amt'), ok: !!((document.getElementById('dbt-amt') || {}).value || '').trim() }]; },
+        save: async function () {
+          const ok = await fhPersonalAnchorSet(acctId, _amtOf('dbt-amt'));
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã đặt mốc số dư');
+          return function () { openBalAccount(acctId); if (window.renderPersonal) renderPersonal(); };
+        },
+      });
+    };
+    /* Drift resolution ① — adopt the bank's number as the new anchor. */
+    window.fhDriftAnchor = async function (acctId) {
+      const P = _P(); const acct = P && P.accounts.find((a) => a.id === acctId);
+      if (!acct || acct.extK == null) return;
+      const ok = await fhPersonalAnchorSet(acctId, acct.extK);
+      if (!ok) { window.toast && toast('Chưa cập nhật được, thử lại'); return; }
+      window.toast && toast('Đã chốt theo số ngân hàng báo');
+      openBalAccount(acctId); if (window.renderPersonal) renderPersonal();
+    };
+    /* Drift resolution ② — the gap is a real, unrecorded movement: open the
+       right entry surface (bank lower than app = missing spending; higher =
+       missing money in). */
+    window.fhDriftAdd = function (acctId, missingSpend) {
+      closeDebt();
+      if (missingSpend) { if (window.openPersonalExpense) openPersonalExpense(); }
+      else if (window.fhIncome) fhIncome('personal');
+    };
+
+    /* "Chuyển giữa tài khoản" — the manual transfer PAIR (spec §3.1). */
+    window.fhXferSheet = function (presetFromId) {
+      const P = _P(); if (!P || !P.key) { window.toast && toast('Mở khoá sổ cá nhân trước'); return; }
+      const accts = (P.accounts || []).filter((a) => a.kind !== 'credit_card');
+      const hasCash = accts.some((a) => a.kind === 'cash');
+      const chip = function (grp, a, on) {
+        return '<button class="choice' + (on ? ' on' : '') + '" data-v="' + a.id + '" onclick="pick(\'' + grp + '\',this)">' + _e(a.name || 'Tài khoản') + '</button>';
+      };
+      const cashChip = function (grp) {
+        return hasCash ? '' : '<button class="choice" data-v="_cash" onclick="pick(\'' + grp + '\',this)">Tiền mặt</button>';
+      };
+      // LOCAL YYYY-MM-DD — toISOString() is UTC and would default to yesterday
+      // when opening after midnight in UTC+7 (same rule as 19-personal.js).
+      const _n = new Date(), _today = _n.getFullYear() + '-' + String(_n.getMonth() + 1).padStart(2, '0') + '-' + String(_n.getDate()).padStart(2, '0');
+      _fhModal({
+        title: 'Chuyển giữa tài khoản', saveLabel: 'Ghi lại', reqMsg: 'Chọn hai tài khoản khác nhau và số tiền nhé',
+        body: '<div class="field"><label>Từ đâu?</label><div class="choices" id="dbt-xfrom">'
+          + accts.map((a) => chip('dbt-xfrom', a, a.id === presetFromId)).join('') + cashChip('dbt-xfrom') + '</div></div>'
+          + '<div class="field"><label>Đến đâu?</label><div class="choices" id="dbt-xto">'
+          + accts.map((a) => chip('dbt-xto', a, false)).join('') + cashChip('dbt-xto') + '</div></div>'
+          + _amtIn('dbt-amt')
+          + '<div class="field"><label>Ngày</label><input type="date" id="dbt-date" value="' + _today + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Ghi chú <span class="opt">· tuỳ chọn</span></label><input id="dbt-note" placeholder="vd. chuyển sang tài khoản tiết kiệm" oninput="fhModalDirty()"></div>'
+          + '<div class="dbt-note">Ghi thành một cặp: tiền ra ở tài khoản này, tiền vào ở tài khoản kia — không tính là chi tiêu hay thu nhập.</div>',
+        required: function () {
+          const f = typeof chosen === 'function' ? chosen('dbt-xfrom') : null, t2 = typeof chosen === 'function' ? chosen('dbt-xto') : null;
+          return [
+            { el: document.getElementById('dbt-xto'), ok: !!(f && t2 && f !== t2) },
+            { el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 },
+          ];
+        },
+        save: async function () {
+          let f = chosen('dbt-xfrom'), t2 = chosen('dbt-xto');
+          if (f === '_cash') f = await fhPersonalCashAccount();
+          if (t2 === '_cash') t2 = await fhPersonalCashAccount();
+          if (!f || !t2 || f === t2) throw new Error('save_failed');
+          const note = ((document.getElementById('dbt-note') || {}).value || '').trim();
+          const ok = await fhPersonalAddTransferPair(_amtOf('dbt-amt'), f, t2, note || 'Chuyển giữa tài khoản', (document.getElementById('dbt-date') || {}).value || undefined, null);
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã ghi chuyển khoản — không tính thu chi');
+          return function () { if (window.renderPersonal) renderPersonal(); };
+        },
+      });
+    };
+
+    /* A transfer pair, opened from either leg: edit amount/date/note (both legs
+       stay in lockstep) or delete BOTH (spec T10 — a pair is atomic). */
+    window.fhXferPairSheet = function (groupId) {
+      const P = _P(); if (!P) return;
+      const legs = (P.debts || []).filter((d) => d.transferGroupId === groupId);
+      if (!legs.length) return;
+      const out = legs.find((l) => (l.amt || 0) < 0), inn = legs.find((l) => (l.amt || 0) > 0);
+      const nameOf = (l) => { const a = l && P.accounts.find((x) => x.id === l.accountId); return a ? (a.name || 'Tài khoản') : '?'; };
+      const amt = Math.abs((legs[0].amt) || 0);
+      _fhModal({
+        title: 'Chuyển khoản — ' + _e(nameOf(out)) + ' → ' + _e(nameOf(inn)), saveLabel: 'Lưu',
+        body: '<div class="field"><label>Số tiền</label><input class="num" id="dbt-amt" inputmode="numeric" value="' + Math.round(amt * (window.curMult ? curMult() : 1000)).toLocaleString('vi-VN') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Ngày</label><input type="date" id="dbt-date" value="' + (legs[0].date || '') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Ghi chú</label><input id="dbt-note" value="' + _e(legs[0].note || '') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="dbt-note">Sửa là sửa cả hai đầu — hai vế của một lần chuyển không bao giờ lệch nhau.</div>'
+          + '<button class="dbt-btn danger" onclick="fhXferPairDelete(\'' + groupId + '\',this)">Xoá cặp chuyển khoản này</button>',
+        required: function () { return [{ el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 }]; },
+        save: async function () {
+          const ok = await fhPersonalUpdateTransferPair(groupId, {
+            amtK: _amtOf('dbt-amt'),
+            note: ((document.getElementById('dbt-note') || {}).value || '').trim() || null,
+            dateIso: (document.getElementById('dbt-date') || {}).value || null,
+          });
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã cập nhật cả hai đầu');
+          return function () { if (window.renderPersonal) renderPersonal(); closeDebt(); };
+        },
+      });
+    };
+    let _pairArm = null;
+    window.fhXferPairDelete = async function (groupId, btn) {
+      if (_pairArm !== groupId) {
+        _pairArm = groupId;
+        if (btn) btn.textContent = 'Bấm lần nữa để xoá cả hai đầu';
+        setTimeout(() => { if (_pairArm === groupId) { _pairArm = null; if (btn && btn.isConnected) btn.textContent = 'Xoá cặp chuyển khoản này'; } }, 4000);
+        return;
+      }
+      _pairArm = null;
+      const ok = await fhPersonalDeleteTransferPair(groupId);
+      if (!ok) { window.toast && toast('Chưa xoá được, thử lại'); return; }
+      window.toast && toast('Đã xoá cả hai đầu');
+      if (window.closeModals) closeModals();
+      closeDebt(); if (window.renderPersonal) renderPersonal();
     };
 
     /* space create → card intro → invite */
