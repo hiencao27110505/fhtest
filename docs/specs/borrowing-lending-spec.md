@@ -26,6 +26,21 @@ card issuer, a friend, and a group are all just parties you owe or who owe you.
 > bank; the card detail splits Chi tiêu / Thanh toán; "Ghi thanh toán thẻ" lists
 > in-review card-payment candidates to assign to a specific card.
 >
+> **v445 refinements** (migration `0108`: `personal_accounts.statement_day` +
+> `due_day`). Five polish items: (1) the card detail is ONE filterable list
+> (Tất cả · Chi tiêu · Trả nợ), no +/− signs — direction reads from colour + a
+> tag; (2) inbox payoff candidates open an editable confirm sheet (amount · date
+> · which card) before they commit + retire, not one instant tap; (3) card
+> config gains ngày chốt sao kê + ngày đến hạn (driving a "đến hạn DD/MM" chip)
+> and a **reconcile** action — the person types the real debt and the gap books
+> as a dated "Điều chỉnh dư nợ" transfer, so the derived balance is right even
+> when capture missed rows (the derived model stays honest — the gap is a
+> visible line, not a silent override); (4) the review's expanded card gains a
+> Kind control (Chi tiêu ↔ Trả nợ thẻ + which-card picker) so a wrong "trả nợ
+> thẻ" guess is correctable and an explicit card pick wins in promote (space
+> settle-up routing still deferred); (5) the bento is adaptive — a lone/odd tile
+> spans full width so a single card no longer half-empties the row.
+>
 > **Known issue (2026-09-02).** The *auto-capture* half is throttled by the
 > Gemini free-tier quota (HTTP 429) — mail whose shape needs a model read is
 > held until quota returns (see `effortless-transaction-logging-spec.md` §24 +
