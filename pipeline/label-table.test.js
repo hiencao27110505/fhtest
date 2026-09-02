@@ -45,7 +45,16 @@ t('amount 37000 from "-37,000 VND"', a && a.amount === 37000);
 t('negative sign → debit', a && a.direction === 'debit');
 t('ymd time zone-stamped', a && a.occurred_at === '2026-08-25T18:52:04+07:00');
 t('merchant read', a && a.counterparty === 'AEON NGUYEN VAN LINH');
-t("the bank's own masked form wins, full number never leaves", a && a.account_masked === 'x5249' && !/3510187654001/.test(JSON.stringify(a)));
+/* THE MASKING MOVED (2026-09-02). This tier now returns the account AS THE
+   MAIL PRINTED IT, because masking before the template learner ran was
+   silently killing graduation — the learner needs each value verbatim in the
+   body, and "…9979" never is. Last-four-only is still the law; it is enforced
+   at `_tidy` in extract.mjs, the one gate every tier's output passes, and
+   pinned END-TO-END in template-graduation.test.js against readTransaction's
+   actual output. Here we pin the tier's new contract: raw in, so the learner
+   can anchor it. MB prints its own masked form first, so this row is x5249
+   either way. */
+t("the tier hands over what the mail printed (MB's own masked form)", a && a.account_masked === 'x5249');
 t('the balance the mail carries is kept', a && a.balance === 53362751);
 t('card spend is a receipt, not a transfer', a && a.transaction_type === 'ecommerce_receipt');
 
@@ -90,7 +99,7 @@ t('parses', !!c);
 t('"Số tiền Transaction Amount" is still the amount', c && c.amount === 337900);
 t('unsigned card notice → debit', c && c.direction === 'debit');
 t('merchant via "Sử dụng tại At"', c && /^AEON NGUYEN VAN LINH/.test(c.counterparty || ''));
-t('account masked to last four', c && c.account_masked === '…9979');
+t('the account as printed — masking is _tidy\'s job now', c && c.account_masked === '1046999979');
 
 /* ── fixture D: VCB biên lai — the shape that burned a model call per mail ── */
 const VCB_RECEIPT = ` Vietcombank
@@ -195,7 +204,7 @@ t('the merchant is the merchant, not the English half of its label',
   bl && bl.counterparty === 'AEON MALL NGUYEN VAN LINH HO CHI MINH VN', bl && bl.counterparty);
 t('the amount survives its own twin line', bl && bl.amount === 337900);
 t('so does the timestamp', bl && bl.occurred_at === '2026-08-26T20:04:26+07:00');
-t('and the account', bl && bl.account_masked === '…9979');
+t('and the account, as printed', bl && bl.account_masked === '1046999979');
 t('and the status', bl && bl.status === 'Thành công');
 
 console.log('\n-- and the skip is exact, never a heuristic --');

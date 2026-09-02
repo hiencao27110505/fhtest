@@ -354,7 +354,17 @@ export function readLabelTable(subject, body) {
     memo: got.memo || null,
     reference_number: got.reference || null,
     status: got.status || null,
-    account_masked: maskAccount(got.account),
+    /* AS THE MAIL PRINTED IT, not masked here (2026-09-02). Masking moved to
+       the one place every tier's output already passes through — `_tidy` in
+       extract.mjs — because masking BEFORE the template learner ran was
+       silently killing graduation: the learner requires each value verbatim in
+       the body, `…9979` never is, and a shape that cannot graduate pays a
+       model call per mail forever. Three of the five real shapes we hold were
+       blocked by exactly this. The last-four-only invariant is unchanged and
+       still pinned in tests — what changed is WHERE it is enforced, not
+       whether. Nothing reads this tier's output except extract.mjs, which
+       tidies, and the learner, which needs the raw. */
+    account_masked: got.account || null,
     category: null,                              // the client's learning owns this
     flow: self ? 'transfer' : null,              // anything else is stage.mjs's judgement
     balance: got.balance ? (parseAmountCell(got.balance) || {}).value ?? null : null,

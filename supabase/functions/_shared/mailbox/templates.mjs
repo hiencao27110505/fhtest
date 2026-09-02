@@ -105,6 +105,14 @@ function _tryDateTransform(raw, kind, offset) {
     if (!m) return null;
     return m[1] + '-' + _pad2(m[2]) + '-' + _pad2(m[3]) + 'T' + _pad2(m[4]) + ':' + m[5] + ':' + (m[6] || '00') + offset;
   }
+  if (kind === 'hm_dmy_slash') {
+    // "10:17 30/08/2026", optionally with the weekday between: "11:11 Chủ Nhật
+    // 23/08/2026". The weekday is display, not data — stripped before parsing.
+    m = raw.replace(/\s+(?:Thứ\s+\S+|Chủ\s+Nhật)\s+/, ' ')
+           .match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s+(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return null;
+    return m[6] + '-' + _pad2(m[5]) + '-' + _pad2(m[4]) + 'T' + _pad2(m[1]) + ':' + m[2] + ':' + (m[3] || '00') + offset;
+  }
   // Date-only forms → midnight. Many VN banks (VCB, VIB) print "Ngày giao dịch:
   // 26/08/2026" with no clock, so the date+time kinds above never anchor and the
   // template never derives — sending every one of that bank's mails to the model
@@ -128,17 +136,39 @@ function _tryDateTransform(raw, kind, offset) {
   }
   return null;
 }
-var _DATE_KINDS = ['dmy_hms', 'dmy_slash_hms', 'ymd_hms', 'dmy', 'dmy_slash', 'ymd'];
-var _DATE_RAW_RE = /\d{1,4}[-\/]\d{1,2}[-\/]\d{1,4}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?/g;
+var _DATE_KINDS = ['dmy_hms', 'dmy_slash_hms', 'ymd_hms', 'hm_dmy_slash', 'dmy', 'dmy_slash', 'ymd'];
+/* Time may come FIRST (2026-09-02). VIB writes "Vào lúc: 10:17 30/08/2026" and
+   VCB receipts write "11:11 Chủ Nhật 23/08/2026" — the scanner only knew
+   time-AFTER-date, so it captured the bare date, every kind resolved to
+   midnight, midnight never equalled the model's 10:17, and the very first
+   required field killed the whole derivation. Both shapes are real mails in
+   pipeline/template-graduation.test.js. */
+var _DATE_RAW_RE = /(?:\d{1,2}:\d{2}(?::\d{2})?\s+(?:(?:Thứ\s+\S+|Chủ\s+Nhật)\s+)?)?\d{1,4}[-\/]\d{1,2}[-\/]\d{1,4}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?/g;
 
 // find the stable label text that precedes a value; returns {re} or null.
-function _deriveAnchor(body, rawValue, valuePatterns) {
+/* An anchor label, made safe to reuse (2026-09-02). Escaped, then every digit
+   run generalised to \d+ and any trailing sign dropped. Three live templates
+   carried their sample's noise as literal anchor text — a "+" that matched only
+   refunds, a "10:17" that matched only one clock time — because the text
+   between a label and its value belongs to the SAMPLE, not the shape. */
+function _anchorLabel(text) {
+  return _escRe(String(text).replace(/[+\-]\s*$/, '').trim()).replace(/\d+/g, '\\d+');
+}
+
+function _deriveAnchor(body, rawValue, valuePatterns, opts) {
   var idx = body.indexOf(rawValue);
   if (idx < 0) return null;
   var lineStart = body.lastIndexOf('\n', idx - 1) + 1;
-  var samePrefix = body.slice(lineStart, idx);
+  var samePrefix = body.slice(lineStart, idx).replace(/[+\-]\s*$/, '');
   var trials = [];
-  if (samePrefix.trim().length >= 2) {
+  /* A same-line prefix that reads like a PERSON'S NAME (two-plus consecutive
+     unaccented-caps words, the exact way banks print holders) never becomes an
+     anchor: it would put the name in a plaintext shared table AND pin the
+     template to one person. The label-line trial below covers those layouts.
+     Guarded per-field via opts, because "MB TK" must keep anchoring. */
+  var nameLike = /[A-Z]{2,}(?: [A-Z]{2,})+/.exec(samePrefix);
+  var nameRisk = !!(opts && opts.avoidNamePrefix && nameLike && nameLike[0].replace(/ /g, '').length >= 8);
+  if (samePrefix.trim().length >= 2 && !nameRisk) {
     trials.push({ label: samePrefix.trim(), joiner: '[^\\S\\n]*' });
   }
   var cursor = lineStart - 1;
@@ -146,11 +176,11 @@ function _deriveAnchor(body, rawValue, valuePatterns) {
   if (cursor > 0) {
     var prevStart = body.lastIndexOf('\n', cursor - 1) + 1;
     var prevLine = body.slice(prevStart, cursor + 1).trim();
-    if (prevLine.length >= 2) trials.push({ label: prevLine, joiner: '\\s*\\n\\s*' + _escRe(samePrefix.trim()) + (samePrefix.trim() ? '[^\\S\\n]*' : '') });
+    if (prevLine.length >= 2) trials.push({ label: prevLine, joiner: '\\s*\\n\\s*' + (nameRisk ? '[^\\n]*?' : _anchorLabel(samePrefix)) + (samePrefix.trim() ? '[^\\S\\n]*' : '') });
   }
   for (var t = 0; t < trials.length; t++) {
     for (var p = 0; p < valuePatterns.length; p++) {
-      var src = _escRe(trials[t].label) + trials[t].joiner + valuePatterns[p];
+      var src = _anchorLabel(trials[t].label) + trials[t].joiner + valuePatterns[p];
       try {
         var m = new RegExp(src).exec(body);
         if (m && m[1] !== undefined && String(m[1]).trim() === rawValue) return { re: src };
@@ -165,7 +195,22 @@ function _deriveAnchor(body, rawValue, valuePatterns) {
 // on the next email. Per-field validation rejects over-greedy captures.
 function _valuePatternsFor(rawValue, type) {
   var pats = [];
-  if (type === 'number') { pats.push('(-?[\\d.,]+)'); return pats; }
+  if (type === 'number') {
+    // The SIGN belongs to the value, never to the anchor (2026-09-02). A live
+    // template had "\\+" baked into its amount anchor — derived off a refund —
+    // and matched nothing but refunds: 409 misses a day, found by the
+    // template_missed tally. parseFloat reads a leading + or - natively.
+    // Matched OUTSIDE the capture: the template tolerates any sign, captures
+    // none, and direction stays where it belongs — the statics and the status
+    // of the mail. Capturing it broke the verbatim check; anchoring it broke
+    // every mail with the other sign.
+    pats.push('(?:[-+][^\\S\\n]*)?([\\d.,]+)');
+    // A reading whose amount is ITSELF signed must capture the sign, or the
+    // parse-back can never equal it. Tried second, so unsigned readings still
+    // get the sign-tolerant anchor above.
+    if (/^[-+]/.test(rawValue)) pats.push('([-+][\\d.,]+)');
+    return pats;
+  }
   pats.push('([^\\n]+)');
   if (/^\d+$/.test(rawValue)) pats.push('(\\d{' + Math.max(4, rawValue.length - 4) + ',})');
   pats.push('(' + _escRe(rawValue).replace(/\d+/g, '\\d+') + ')');
@@ -211,7 +256,13 @@ function deriveAccountKind(input) {
   return null;
 }
 
-function deriveExtractionTemplate(body, extraction) {
+function deriveExtractionTemplate(body, extraction, trace) {
+  /* `trace`, optional: called with ONE short step name at whichever exit killed
+     the derivation — 'date', 'amount', 'anchor:<field>', 'proof', 'hygiene'.
+     Never a value, never mail text: the step is diagnosis, the value is PII.
+     Sixteen shapes failed here for weeks with a bare null, and every caller had
+     to bisect by hand what this one word would have said. */
+  var fail = function (step) { try { if (trace) trace(step); } catch (e) {} return null; };
   if (!extraction || extraction.is_transaction !== true) return null;
   var tpl = { v: EXTRACTION_LOGIC_VERSION, static: {}, fields: {} };
 
@@ -248,12 +299,12 @@ function deriveExtractionTemplate(body, extraction) {
   for (var d = 0; d < rawDates.length && !found; d++) {
     for (var k = 0; k < _DATE_KINDS.length && !found; k++) {
       if (_tryDateTransform(rawDates[d], _DATE_KINDS[k], offset) === extraction.occurred_at) {
-        var anch = _deriveAnchor(body, rawDates[d], ['([\\d\\-\\/ T:]+?)(?=\\s*$|\\s*\\n)', '([\\d\\-\\/ T:]+)']);
+        var anch = _deriveAnchor(body, rawDates[d], ['([\\d\\-\\/ T:]+?)(?=\\s*$|\\s*\\n)', '([\\d\\-\\/ T:]+)', '([\\d:]{4,8}\\s+(?:Thứ\\s+\\S+|Chủ\\s+Nhật)\\s+[\\d\\/]{8,10})']);
         if (anch) found = { re: anch.re, dt: _DATE_KINDS[k], off: offset };
       }
     }
   }
-  if (!found) return null;
+  if (!found) return fail('date');
   tpl.fields.occurred_at = found;
 
   if (typeof extraction.amount !== 'number') return null;
@@ -266,7 +317,7 @@ function deriveExtractionTemplate(body, extraction) {
       amtSpec = { re: a.re, num: cands[c].parse };
     }
   }
-  if (!amtSpec) return null;
+  if (!amtSpec) return fail('amount');
   tpl.fields.amount = amtSpec;
 
   // varying string fields — anchored if present; a present-but-unanchorable
@@ -277,17 +328,31 @@ function deriveExtractionTemplate(body, extraction) {
   // memo (LLM path) and every email after it lost one (template path) — silently,
   // and on the path that carries most volume permanently.
   var strFields = ['counterparty', 'reference_number', 'account_masked', 'memo'];
+  var accountDegraded = false;
   for (var f = 0; f < strFields.length; f++) {
     var name = strFields[f], val = extraction[name];
     if (val === null || val === undefined || val === '') { tpl.static[name] = null; continue; }
-    var spec = _deriveAnchor(body, String(val), _valuePatternsFor(String(val), 'string'));
-    if (!spec) return null;
+    var spec = _deriveAnchor(body, String(val), _valuePatternsFor(String(val), 'string'),
+                             name === 'account_masked' ? { avoidNamePrefix: true } : null);
+    if (!spec) {
+      /* account_masked ALONE may degrade (2026-09-02): omitted from the
+         template, derivation continues, and later mails of this shape read
+         every other field free while the account stays whatever richer tier
+         filled it. Three real shapes were dying on this one field — a value
+         nothing in the client reads today — at the price of a model call per
+         mail forever. Every OTHER field keeps the fail-hard rule, memo above
+         all: a template that silently drops the one field carrying WHY the
+         money moved was a real incident, and this loop's strictness is its
+         scar. Degrading is per-field justified or it is silent data loss. */
+      if (name === 'account_masked') { accountDegraded = true; continue; }
+      return fail('anchor:' + name);
+    }
     tpl.fields[name] = spec;
   }
 
   // final proof: the template must reproduce the LLM's extraction exactly
   var check = applyExtractionTemplate(JSON.stringify(tpl), body);
-  if (!check) return null;
+  if (!check) return fail('proof');
   // memo is checked here too. It was missing, which is why the derivation above
   // could drop it and still pass its own "reproduces the LLM exactly" proof — a
   // verification that does not cover a field cannot protect it.
@@ -295,11 +360,23 @@ function deriveExtractionTemplate(body, extraction) {
   // one, so checking it here would compare undefined against the reading's own
   // status and fail EVERY derivation off a mail that states an outcome.
   var keys = ['transaction_type', 'source_provider', 'occurred_at', 'amount', 'currency', 'direction', 'account_kind', 'counterparty', 'reference_number', 'account_masked', 'memo'];
+  // A degraded account is ABSENT from the template on purpose, so the proof
+  // must not demand the template reproduce it — that would re-kill exactly the
+  // derivations the degrade exists to save.
+  if (accountDegraded) keys = keys.filter(function (k) { return k !== 'account_masked'; });
   for (var i = 0; i < keys.length; i++) {
     var a2 = check[keys[i]], b2 = extraction[keys[i]];
-    if (String(a2 === undefined ? null : a2) !== String(b2 === undefined ? null : b2)) return null;
+    if (String(a2 === undefined ? null : a2) !== String(b2 === undefined ? null : b2)) return fail('proof:' + keys[i]);
   }
-  return JSON.stringify(tpl);
+  /* The backstop that turns a lucky audit into a rule (2026-09-02): no
+     template may carry a six-plus digit run — an account number, a phone, a
+     reference — into `sender_fingerprints`, which is plaintext and shared by
+     every family. The audit that found 0 such rows ran once, by hand; this
+     runs on every derivation, forever. Refusing is the same safe outcome as
+     any other failed derivation: the shape stays on the model path. */
+  var tplJsonOut = JSON.stringify(tpl);
+  if (/\d{6,}/.test(tplJsonOut)) return fail('hygiene');
+  return tplJsonOut;
 }
 
 // run a stored template against a new email body → extraction object or null
