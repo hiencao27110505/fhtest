@@ -84,6 +84,56 @@ if (vibTpl) {
     vibTpl && JSON.parse(vibTpl).fields.occurred_at.re);
 }
 
+/* ── 2b. a SECOND real VIB shape, in BOTH renderings ─────────────────────
+   "Thanh toán thẻ tín dụng VIB thành công" (info@myvib.vib.com.vn,
+   02-09-2026) — one of the 16 shapes that could never graduate. Time-first
+   again, and it carries a 16-digit reference and a 15-digit account, so it is
+   also the sharpest test of the hygiene rule: none of those digits may reach
+   `sender_fingerprints`, which is plaintext and shared by every family.
+   Run in BOTH text forms because the two transports render differently — a
+   template that graduates in one and not the other is the split we already
+   paid to learn about. */
+const V2_ROWS = [
+  ['Số giao dịch', '2609024028332978'],
+  ['Trạng thái giao dịch', 'Thành công'],
+  ['Ngày giao dịch', '11:57 02/09/2026'],
+  ['Từ tài khoản', '609704060065140'],
+  ['Số thẻ', 'CAO THAI DUY HIEN - ●●●● 4751'],
+  ['Ngân hàng hưởng', 'Ngân hàng TMCP Quốc tế Việt Nam'],
+  ['Số tiền', '136,670 ₫'],
+  ['Phí giao dịch (bao gồm VAT)', '0 ₫'],
+  ['Diễn giải', 'Thanh toan sao ke the Master Card 08/2026'],
+];
+const V2_READING = {
+  is_transaction: true, transaction_type: 'bank_txn', source_provider: 'VIB',
+  occurred_at: '2026-09-02T11:57:00+07:00', amount: 136670, currency: 'VND',
+  direction: 'debit', counterparty: 'Ngân hàng TMCP Quốc tế Việt Nam',
+  reference_number: '2609024028332978', status: 'Thành công',
+  account_masked: '609704060065140',
+  memo: 'Thanh toan sao ke the Master Card 08/2026',
+};
+const MT = await import('../supabase/functions/_shared/mailbox/mailtext.mjs');
+const V2_FORMS = [
+  ['Gmail plaintext', 'Thanh toán thẻ tín dụng VIB thành công\n\n' +
+    V2_ROWS.map(function (r) { return r[0] + '\t' + r[1]; }).join('\n')],
+  ['direct reader', MT.toText('<table>' + V2_ROWS.map(function (r) {
+    return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>'; }).join('') + '</table>')],
+];
+console.log('\n-- VIB card-bill payment, both renderings --');
+for (const [form, body] of V2_FORMS) {
+  let s2 = null;
+  const tpl2 = T.deriveExtractionTemplate(body, V2_READING, (x) => { s2 = x; });
+  t(form + ': graduates', !!tpl2, 'failed at: ' + s2);
+  if (!tpl2) continue;
+  const b2 = T.applyExtractionTemplate(tpl2, body);
+  t('  ' + form + ': reads 11:57 and 136,670', !!b2 &&
+    b2.occurred_at === '2026-09-02T11:57:00+07:00' && b2.amount === 136670,
+    JSON.stringify(b2 && { at: b2.occurred_at, amt: b2.amount }));
+  t('  ' + form + ': no 6+ digit run, no holder name, no literal clock',
+    !/\d{6,}/.test(tpl2) && !/CAO THAI|CAO THÁI/.test(tpl2) && !/11:57/.test(tpl2),
+    (tpl2.match(/\d{6,}/g) || []).join(','));
+}
+
 /* ── 3. the sign is never an anchor and never lost ───────────────────────── */
 console.log('\n-- signs --');
 const signBody = (s) => ['MB TK cham', 'x5249', 'Ngay, gio giao dich', '2026-08-25 18:52:04',
