@@ -39,10 +39,25 @@ var ICO = {
   shield:'<path d="M12 3.2 5 6v5.4c0 4.4 2.9 7.5 7 9.4 4.1-1.9 7-5 7-9.4V6z"/><path d="M9.2 12.2l2 2 3.6-3.9"/>',
   bell:'<path d="M12 4.2a5.3 5.3 0 00-5.3 5.3c0 3.9-1.3 5.3-2.2 6.3h15c-.9-1-2.2-2.4-2.2-6.3A5.3 5.3 0 0012 4.2z"/><path d="M9.9 18.9a2.2 2.2 0 004.2 0M12 2.4v1.8"/>',
   install:'<path d="M12 3v10.5M8 9.7l4 4 4-4"/><path d="M4.5 15v2.7A2.3 2.3 0 006.8 20h10.4a2.3 2.3 0 002.3-2.3V15"/>',
-  bolt:'<path d="M13 2.7 5.8 12.6a.6.6 0 00.5 1H10l-1 7.7 7.2-9.9a.6.6 0 00-.5-1H12l1-7.7z"/>'
+  bolt:'<path d="M13 2.7 5.8 12.6a.6.6 0 00.5 1H10l-1 7.7 7.2-9.9a.6.6 0 00-.5-1H12l1-7.7z"/>',
+  swap:'<path d="M4 9h13M13.5 5.5 17 9l-3.5 3.5"/><path d="M20 15H7M10.5 11.5 7 15l3.5 3.5"/>'
 };
 
 var RELEASES = [
+  { id:'2026-09-02-no-cho-vay', date:'2026-09-02', time:'11:53', ver:'v443', icon:ICO.swap,
+    vi:{ t:'Nợ & cho vay',
+      problem:'Thẻ tín dụng, tiền cho bạn mượn, bữa nhóm ai đó trả trước, mấy khoản này nằm rải rác chẳng đâu ghi, tới lúc cần nhớ ai nợ ai thì chịu.',
+      sol:'Trong tab Tài Chính có thêm mục Nợ & cho vay: mình đang nợ bao nhiêu, ai đang nợ mình, dư nợ từng thẻ. Lập nhóm để chia tiền đi chơi rồi ghi ai đã trả, số dư hai bên tự cập nhật.' },
+    en:{ t:'Owing and lending',
+      problem:'Credit cards, money you lent a friend, the group dinner someone fronted, all of it lived nowhere, so working out who owed whom was guesswork.',
+      sol:'The Tài Chính tab has a new Owing & lending section: what you owe, who owes you, the balance on each card. Make a group to split a trip, mark who has paid, and both sides update on their own.' } },
+  { id:'2026-08-31-tai-chinh-tab', date:'2026-08-31', time:'11:48', ver:'v438', icon:ICO.pie,
+    vi:{ t:'Tab Cá nhân giờ là Tài Chính',
+      problem:'Sổ riêng trước chỉ có một cục tổng, không thấy tháng này tiền đã đi vào nhóm nào, việc chung hay khoản riêng của mình.',
+      sol:'Đổi tên thành Tài Chính, và mỗi nhóm có một thẻ kiểu ví riêng, kèm vài tấm ảnh gần đây của nhóm đó. Tháng này mình góp cho nhà bao nhiêu, xài riêng bao nhiêu, tách rõ ra.' },
+    en:{ t:'The Cá nhân tab is now Tài Chính',
+      problem:'Your own book showed one lump sum, with no sense of which group the money went to this month or what stayed private.',
+      sol:'It is renamed Tài Chính, and every group gets a wallet-style card with a few recent photos from that group, so what you put toward the family and what you spent on your own are finally separate.' } },
   { id:'2026-08-20-finance-tab', date:'2026-08-20', time:'16:53', ver:'v357', icon:ICO.pie,
     vi:{ t:'Tab Tài chính sắp xếp lại',
       problem:'Màn hình tài chính cũ dồn nhiều thứ một chỗ, muốn biết tháng này còn lại bao nhiêu phải tự nhẩm.',
