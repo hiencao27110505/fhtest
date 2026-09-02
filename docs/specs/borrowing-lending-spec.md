@@ -7,18 +7,32 @@ This epic adds that missing dimension — the user's "zoom out" — by modelling
 primitive: **a running balance against a named counterparty**, where a credit
 card issuer, a friend, and a group are all just parties you owe or who owe you.
 
-> **Status, 2026-09-02.** v1 IMPLEMENTED (uncommitted, pending founder review).
-> Migrations 0105 / 0106a / 0106b / 0107 are **applied to the live DB**. Built:
-> the personal debt layer (accounts, loan/repayment/transfer kinds, derived
-> balances — `19-personal.js`), friend/trip spaces with splits + settle-ups
+> **Status, 2026-09-02.** v1 SHIPPED to production (app `v442`+`v443`, migrations
+> 0105 / 0106a / 0106b / 0107 applied live, `mailbox-sync` v26→v27). Built: the
+> personal debt layer (accounts, loan/repayment/transfer kinds, derived balances
+> — `19-personal.js`), friend/trip spaces with splits + settle-ups
 > (`22-spaces.js`, the 0106 substrate), the Nợ & cho vay bento + three zoom-ins
 > + sheets (`23-debts-ui.js`, `41-debts.css`, `#debt-overlay`), the expense-modal
-> instrument picker, the pipeline instrument classifier (`account_kind`,
-> EXTRACTION_LOGIC_VERSION 5, both transports byte-identical), and the review
-> screen's account chips + transfer matrix + promote threading. Deferred within
-> v1: statement-due parsing, settle-up transfer-leg auto-matching ("khớp với…" —
+> instrument picker, the pipeline instrument classifier (`account_kind`, filled
+> by a per-read heuristic on both transports), and the review screen's account
+> chips + transfer matrix + promote threading. Deferred within v1: statement-due
+> parsing, settle-up transfer-leg auto-matching ("khớp với…" —
 > `transfer_group_id` is plumbed but unused), review-chip → fingerprint
 > `human_verified` write-back, daily-guide card heads-up.
+>
+> **v443 refinements.** Card payments render as normal (checkable) review cards,
+> not the set-aside grey zone; a promoted card payment tags the CARD it pays off
+> (its own payment-received alert, or the sole credit card), not the sending
+> bank; the card detail splits Chi tiêu / Thanh toán; "Ghi thanh toán thẻ" lists
+> in-review card-payment candidates to assign to a specific card.
+>
+> **Known issue (2026-09-02).** The *auto-capture* half is throttled by the
+> Gemini free-tier quota (HTTP 429) — mail whose shape needs a model read is
+> held until quota returns (see `effortless-transaction-logging-spec.md` §24 +
+> Part 3 v27). This does NOT affect the ledger itself: cards, 1:1 IOUs, groups,
+> splits and settle-ups all work from manual entry with no model call. NB: the
+> ELV bump to 5 that shipped with v26 was reverted in v27 — `account_kind` is
+> heuristic-filled and needs no version bump.
 
 > **How this relates to its siblings.** `effortless-transaction-logging-spec.md`
 > is how a bank email becomes a ledger row; this spec is what a *subset* of those

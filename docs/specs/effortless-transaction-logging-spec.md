@@ -1645,6 +1645,20 @@ the bridge branch).
 
 ## 24. Open questions
 
+- **The Gemini free-tier quota is the throughput ceiling** (live, 2026-09-02).
+  Any mail whose shape has no learned template needs a model call, and the
+  free-tier request quota (per-minute and per-day) is far below one mailbox's
+  first-backfill demand — so the model returns HTTP 429, every model-needing
+  mail is `held` on `LlmUnavailable`, and `read_tally.held` runs into the
+  hundreds of thousands per day across grants. The local tiers (junk cache,
+  stored template, label-table) need no quota and are unaffected. Two fix
+  directions, not exclusive: (a) **billing** — a paid Gemini tier is the real
+  unblock; (b) **fewer model calls** — extend the label-table reader to the
+  shapes that currently fall through to the model (VN card-payment
+  confirmations are the observed gap), so the model is a rare last resort, not
+  a per-mailbox dependency. Compounds with the junk-tail item below: a
+  never-finishing backfill keeps re-listing the same model-needing mail and
+  re-spending the quota.
 - **A junk-tailed backfill can never finish** (open as of 2026-08-30, live on
   a real grant). Only staged rows and tombstones are remembered as done;
   junk-cached and failed-status mail is processed cheaply but *re-listed and
@@ -1792,6 +1806,68 @@ as — or the same day as — the deploy. A deploy announced only in
 `AGENT_SYNC.md` is coordination; this is the record.
 
 ## 28. Releases (newest first)
+
+### 2026-09-02 — mailbox-sync v27 — logic version reverted (5→4), holds made visible, and the wall behind it all: Gemini free-tier quota
+
+- **For product:** why auto-capture went quiet. A mailbox that connected on
+  2026-09-02 stopped importing new mail — a second credit-card-payment email
+  never reached review. Root cause: the model (Gemini) is returning HTTP 429
+  "quota exceeded", so every mail that needs a model read is HELD and retried
+  forever rather than staged. The previous day's classifier deploy made it
+  worse by forcing every stored template to re-derive through the model at
+  once. The version bump is undone; the instrument classifier itself stays,
+  filled by a local heuristic that needs no model. **Nothing is lost** — held
+  mail sits in Gmail and re-reads the moment quota returns. **The unblock is
+  billing, not code: the Gemini key needs a paid tier.**
+- **Under the hood:** `EXTRACTION_LOGIC_VERSION` reverted 5→4 in
+  `templates.mjs` + `bank-email-pipeline.gs` (commit `b0d5fdd`). The bump to 5
+  (v26, below) staticised `account_kind` into the template and so invalidated
+  every v4 template — the first backfill under it needed one model call per
+  shape, blew `MAX_MODEL_CALLS_PER_GRANT` (40/run), `held` the excess on
+  `LlmUnavailable`, left `backfilled_at` null, and re-read the same window
+  every minute (`stalled_runs` 21→33). No bump was needed: `_fillAccountKind`
+  runs the heuristic on EVERY tier including template reads, so the field is
+  populated without freezing it. Also — the worker's hold-catch
+  (`worker.mjs`) now `console.error`s the real exception; it had swallowed
+  every `readTransaction` throw as a generic model-hold, which is exactly why
+  the stall was invisible in the logs until this deploy surfaced the 429.
+  `read_tally` shows `held` in the hundreds of thousands per day across all
+  grants — the quota wall is chronic, not new.
+- **Spec sections updated:** §16 (extraction — `account_kind` is
+  heuristic-filled, not version-gated); §24 (Gemini free-tier quota added as a
+  live limit).
+- **Watch for:** the live wall is the **Gemini free-tier request quota**.
+  Until the key is on a paid tier, any mail whose shape has no learned
+  template (most VN card-payment confirmations) is held on 429; the local
+  tiers (junk cache, stored template, label-table) need no quota and keep
+  working. **Do NOT reset-and-reconnect a mailbox while quota is dead** — a
+  fresh backfill re-hits 429 and re-stalls. Efficiency (fewer model calls per
+  mailbox — e.g. teaching the label-table reader VIB's payment-confirmation
+  format) is being investigated separately.
+
+### 2026-09-01 — mailbox-sync v26 — the instrument classifier (`account_kind`)
+
+- **For product:** captured rows now carry WHICH instrument moved the money —
+  credit card, bank account, or e-wallet. It is what the new "Nợ & cho vay"
+  (borrowing & lending) feature needs to build a card's balance and to tell a
+  card *payment* (a transfer) from a card *purchase* (a spend). Shown as a
+  quiet chip on the review card ("VIB · tín dụng ••1234").
+- **Under the hood:** `deriveAccountKind` (spec §8.2 signals: hạn mức/dư nợ →
+  credit_card, số dư → deposit, ví providers → ewallet, else null) added to
+  the shared extraction slice, byte-identical in `templates.mjs` and
+  `bank-email-pipeline.gs`; wired into all three tiers via `_fillAccountKind`
+  (`extract.mjs`); the LLM schema gained a nullable `account_kind` enum
+  (`llm.mjs`); threaded `_toReading` → `normaliseReading` → sealed INSIDE
+  `raw_extracted` (never a top-level column, so `sealing.test.js` and 0068's
+  CHECK are untouched). New `pipeline/account-kind.test.js`. This deploy also
+  bumped `EXTRACTION_LOGIC_VERSION` 4→5 to staticise the field — **reverted the
+  next day (v27, above)** after it stalled a backfill. Treat v26 + v27 as one
+  landing: the classifier stays, the version bump does not.
+- **Spec sections updated:** §8 (the instrument classifier — new); §16
+  (extraction cascade fills `account_kind`).
+- **Watch for:** see v27 — the classifier is inert on model-needing mail while
+  the Gemini quota is exhausted, but the heuristic still tags anything the
+  local tiers can read.
 
 ### 2026-08-31 — Apps Script `2026-08-31-notify` + mailbox-sync — how often a banner fires, and what it says
 
