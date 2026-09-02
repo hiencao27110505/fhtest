@@ -122,11 +122,21 @@ non-optional: a one-legged transfer is exactly how the destination account's
 balance silently rots (locked decision T4).
 
 Some banks **never email money-in at all** — so the destination may be an
-account capture has never materialized. The counterpart picker therefore
-carries "＋ Tài khoản khác": name it on the spot and a manual `deposit`
-account is created (name is its identity — no provider/tail), selected, and
-the synthesized in-leg lands on it. The manual transfer sheet offers the
-same on both sides.
+account capture has never materialized. Two mechanisms close that gap
+(follow-up interview, T11):
+
+- **Eager materialization**: the review queue is a *census* of the person's
+  instruments — every staged row names the account it moved through. At
+  review open, each distinct (kind · provider · tail) is ensured into
+  `personal_accounts` (named via `fhProviderName`), so every picker is
+  complete the moment it renders. The bento shows the full portfolio;
+  unwanted instruments archive away. Cards stay **out** of the transfer
+  picker — money into your own card is its own kind (Trả nợ thẻ).
+- **"＋ Tài khoản khác"**, demoted to last resort: for the truly silent
+  instrument (a bank with no alerts at all, a savings sub-account), name it
+  on the spot and a manual `deposit` account is created (name is its
+  identity — no provider/tail). The manual transfer sheet offers the same
+  on both sides.
 
 ### 3.4 Fees
 
@@ -405,6 +415,7 @@ From the design interview, 2026-09-02.
 | T8 | Credit email classifies 3 ways: Thu nhập / Chuyển khoản nội bộ / Thu nợ. Income gets categories via the existing encrypted mechanism (Lương · Thưởng · Hoàn tiền · Khác). |
 | T9 | Balance truth = **manual anchor** + email `balance_after` as drift detector; drift is a quiet badge with two resolutions (re-anchor / add missing txn), never a review card. |
 | T10 | Edge rules blessed: pair delete/edit atomicity · fees as separate expense rows · VND-only · legacy single-leg transfers untouched. |
+| T11 | Accounts materialize **eagerly at review open** from the queue's instrument census (not at import) — pickers list accounts only and are always complete. Cards stay out of the transfer picker (one kind = one meaning). "＋ Tài khoản khác" survives as the last-resort escape hatch for instruments with no email footprint at all. |
 | B1 | Build shape: **big bang** — one spec, one release, no phases. |
 | B2 | Branding out of scope. |
 

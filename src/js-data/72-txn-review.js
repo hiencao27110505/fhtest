@@ -642,6 +642,37 @@
        screen exists to prevent. */
     window._fhStagedRows = readable;
 
+    /* Eager account materialization (0109): the queue is a CENSUS of the
+       person's instruments — every staged row names the account it moved
+       through (classifier kind · provider · tail). Materialize each distinct
+       one now, not at import, so every picker (transfer counterpart, which-card)
+       is complete the moment it renders and never asks the person to create an
+       account the app has already seen. Names go through fhProviderName so a
+       created account reads "VIB ••1234", not "vib ••1234". Fire-and-forget —
+       a slow insert must never hold the list — and idempotent: ensure() keys
+       on (kind, provider, tail), so reopening the queue creates nothing twice. */
+    (async function () {
+      try {
+        var pdE = window.fhPersonalData && window.fhPersonalData();
+        if (!pdE || pdE.state !== 'ready' || !window.fhPersonalAccountEnsure) return;   // locked ledger — pickers fall back as today
+        var seenAi = {}, made = false;
+        for (var ei = 0; ei < readable.length; ei++) {
+          var aiE = null;
+          try { aiE = window.fhStagedAcct ? window.fhStagedAcct({ rowIndex: ei }) : null; } catch (eA) {}
+          if (!aiE) continue;
+          var aiKey = aiE.kind + '|' + (aiE.provider || '') + '|' + (aiE.tail || '');
+          if (seenAi[aiKey]) continue; seenAi[aiKey] = 1;
+          var disp = (window.fhProviderName ? window.fhProviderName(aiE.provider || '') : (aiE.provider || '')) || '';
+          try {
+            var idE = await window.fhPersonalAccountEnsure(Object.assign({}, aiE,
+              { name: disp ? (disp + (aiE.tail ? ' ••' + aiE.tail : '')) : null }));
+            if (idE) made = true;
+          } catch (eB) {}
+        }
+        if (made) { try { window.renderPersonal && window.renderPersonal(); } catch (eC) {} }
+      } catch (eD) {}
+    })();
+
     window.csvStagedMode = true;   // reuse the review engine, drop its file-only chrome
     csvLearnLoad();
     csvBuildReview([fhStagedAsCsvSource(readable)], {});
