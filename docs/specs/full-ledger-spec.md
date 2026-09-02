@@ -416,6 +416,7 @@ From the design interview, 2026-09-02.
 | T9 | Balance truth = **manual anchor** + email `balance_after` as drift detector; drift is a quiet badge with two resolutions (re-anchor / add missing txn), never a review card. |
 | T10 | Edge rules blessed: pair delete/edit atomicity · fees as separate expense rows · VND-only · legacy single-leg transfers untouched. |
 | T11 | Accounts materialize **eagerly at review open** from the queue's instrument census (not at import) — pickers list accounts only and are always complete. Cards stay out of the transfer picker (one kind = one meaning). "＋ Tài khoản khác" survives as the last-resort escape hatch for instruments with no email footprint at all. |
+| T12 | An instrument's **identity is (provider, tail)** — kind is editable metadata, never part of the ensure() match (a kind-keyed match once duplicated a real account). The 16-digit-PAN ⇒ credit-card client heuristic is dead (VN debit cards print full PANs too; a mis-kinded account polluted both pickers); unconfident stays null. The account settings sheet carries a kind switcher (card-only fields follow it) so a wrong guess is one tap from fixed. |
 | B1 | Build shape: **big bang** — one spec, one release, no phases. |
 | B2 | Branding out of scope. |
 

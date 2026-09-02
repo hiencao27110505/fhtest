@@ -451,11 +451,12 @@
      known (Q16: never invent a debt).
 
      Rows staged BEFORE the classifier existed carry no account_kind, and their
-     sealed boxes can never be amended — so for those the strongest LOCAL
-     signals stand in: a full-length masked PAN is a card number (only cards
-     print one; a deposit alert masks an account as a short tail), and the
-     wallet providers are wallets by identity. Anything weaker stays null —
-     an absent chip beats a wrong debt. */
+     sealed boxes can never be amended — so for those only one LOCAL signal
+     stands in: the wallet providers are wallets by identity. A full-length
+     masked PAN is deliberately NOT read as a credit card any more — VN debit
+     cards print 16-digit PANs too, and that guess is exactly how a debit
+     account became a phantom card (2026-09-02). Anything unconfident stays
+     null — an absent chip beats a wrong debt (Q16). */
   window.fhStagedAcct = function (c) {
     var rows = window._fhStagedRows;
     var r = (c && typeof c.rowIndex === 'number' && rows) ? rows[c.rowIndex] : null;
@@ -465,9 +466,7 @@
     var kind = x.account_kind || null;
     if (!kind) {
       var prov = String(r.source_provider || '').toLowerCase();
-      var pan = masked.replace(/[^0-9xX*•.]/g, '');
       if (/momo|zalopay|shopeepay/.test(prov)) kind = 'ewallet';
-      else if (pan.length >= 15) kind = 'credit_card';
     }
     if (!kind) return null;
     return { kind: kind,

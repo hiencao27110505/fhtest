@@ -502,23 +502,44 @@
     window.fhAcctEditSheet = function (acctId) {
       const P = _P(); const acct = P && P.accounts.find((a) => a.id === acctId); if (!acct) return;
       const _dayIn = (id, val) => '<input type="number" min="1" max="31" id="' + id + '" inputmode="numeric" placeholder="—" value="' + (val || '') + '" oninput="fhModalDirty()">';
+      /* The kind is EDITABLE — the classifier can mis-guess (a VN debit card
+         prints a 16-digit PAN like a credit card), and the person is the one
+         who knows what the instrument actually is. Card-only fields (hạn mức,
+         ngày chốt/đến hạn) show only while "Thẻ tín dụng" is picked. */
+      const KINDS = [['credit_card', '💳 Thẻ tín dụng'], ['deposit', '🏦 Tài khoản ngân hàng'], ['ewallet', '📱 Ví điện tử'], ['cash', '💵 Tiền mặt']];
+      const kindChips = KINDS.map(([v, lbl]) =>
+        '<button class="choice' + (acct.kind === v ? ' on' : '') + '" data-v="' + v + '" onclick="pick(\'dbt-akind\',this);fhAcctKindSync()">' + lbl + '</button>').join('');
       _fhModal({
-        title: 'Cài đặt thẻ', saveLabel: 'Lưu',
+        title: 'Cài đặt tài khoản', saveLabel: 'Lưu',
         body: '<div class="field"><label>Tên</label><input id="dbt-aname" value="' + _e(acct.name || '') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Loại</label><div class="choices" id="dbt-akind">' + kindChips + '</div></div>'
+          + '<div id="dbt-acardf"' + (acct.kind === 'credit_card' ? '' : ' hidden') + '>'
           + '<div class="field"><label>Hạn mức thẻ <span class="opt">· để trống nếu không nhớ</span></label><input class="num" id="dbt-alim" inputmode="numeric" value="' + (acct.limitK > 0 ? Math.round(acct.limitK * (window.curMult ? curMult() : 1000)).toLocaleString('vi-VN') : '') + '" oninput="fhModalDirty()"></div>'
           + '<div class="field-row"><div class="field"><label>Ngày chốt sao kê</label>' + _dayIn('dbt-astm', acct.statementDay) + '</div>'
           + '<div class="field"><label>Ngày đến hạn</label>' + _dayIn('dbt-adue', acct.dueDay) + '</div></div>'
-          + '<div class="dbt-note">Ngày chốt và ngày đến hạn là ngày trong tháng (1–31), theo sao kê thẻ của bạn. Dùng để nhắc “đến hạn”.</div>',
+          + '<div class="dbt-note">Ngày chốt và ngày đến hạn là ngày trong tháng (1–31), theo sao kê thẻ của bạn. Dùng để nhắc “đến hạn”.</div>'
+          + '</div>',
         save: async function () {
           const name = ((document.getElementById('dbt-aname') || {}).value || '').trim();
-          const lim = _amtOf('dbt-alim');
+          const kind = (typeof chosen === 'function' && chosen('dbt-akind')) || acct.kind;
+          const isCard = kind === 'credit_card';
+          const lim = isCard ? _amtOf('dbt-alim') : 0;
           const _day = (id) => { const v = parseInt((document.getElementById(id) || {}).value || '', 10); return (v >= 1 && v <= 31) ? v : null; };
-          const ok = await fhPersonalAccountUpdate(acctId, { name: name || acct.name, limitK: lim > 0 ? lim : null,
-            statementDay: _day('dbt-astm'), dueDay: _day('dbt-adue'), humanVerified: true });
+          const ok = await fhPersonalAccountUpdate(acctId, { name: name || acct.name, kind: kind,
+            limitK: lim > 0 ? lim : null,
+            statementDay: isCard ? _day('dbt-astm') : null, dueDay: isCard ? _day('dbt-adue') : null,
+            humanVerified: true });
           if (!ok) throw new Error('save_failed');
-          return function () { openDebtAccount(acctId); if (window.renderPersonal) renderPersonal(); };
+          // the detail overlay must match the (possibly new) kind
+          return function () { if (isCard) openDebtAccount(acctId); else openBalAccount(acctId); if (window.renderPersonal) renderPersonal(); };
         },
       });
+    };
+    /* card-only fields follow the picked kind, live */
+    window.fhAcctKindSync = function () {
+      const k = typeof chosen === 'function' ? chosen('dbt-akind') : null;
+      const f = document.getElementById('dbt-acardf');
+      if (f) f.hidden = k !== 'credit_card';
     };
 
     /* Reconcile (spec Q3a): the derived balance is only as complete as the mail

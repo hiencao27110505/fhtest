@@ -473,14 +473,21 @@
       if (!P.uid || !P.key || !info || !info.kind) return null;
       const prov = (info.provider || '').toLowerCase() || null;
       const tail = (info.tail || '').replace(/\D/g, '').slice(-4) || null;
-      const hit = P.accounts.find((a) => a.kind === info.kind && (a.provider || '') === (prov || '') && (a.tail || '') === (tail || ''));
+      /* Identity is the NUMBER, not our guess of the kind. A (provider, tail)
+         pair names one instrument; matching kind too is how one heuristic
+         mis-guess minted a phantom duplicate of a real account (2026-09-02).
+         Kind only participates when there is no tail to identify by. */
+      const _match = (a) => tail
+        ? ((a.provider || '') === (prov || '') && (a.tail || '') === tail)
+        : (a.kind === info.kind && (a.provider || '') === (prov || '') && !a.tail);
+      const hit = P.accounts.find(_match);
       if (hit) return hit.id;
       const name = info.name || ((prov ? prov.charAt(0).toUpperCase() + prov.slice(1) : 'Tài khoản') + (tail ? ' ••' + tail : ''));
       const r = await _sb().from('personal_accounts').insert({ owner_user_id: P.uid, kind: info.kind,
         provider: prov, tail: tail, name_enc: await _encP(name) }).select('id').single();
       if (r.error) {   // lost a race with ourselves → the row exists; refetch and rematch
         await window.fhPersonalHydrate();
-        const again = P.accounts.find((a) => a.kind === info.kind && (a.provider || '') === (prov || '') && (a.tail || '') === (tail || ''));
+        const again = P.accounts.find(_match);
         return again ? again.id : null;
       }
       P.accounts.push({ id: r.data.id, kind: info.kind, provider: prov, tail: tail, name: name, limitK: null, humanVerified: false });

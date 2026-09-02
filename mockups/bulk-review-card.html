@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bulk review card — 16 hướng cải tổ</title>
+<style>
+/* ===== Tokens — copied from src/css/10-tokens.css (Sage default) ===== */
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --brand-tint:#e9f7f0; --brand-glow:rgba(46,158,107,.32);
+  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --danger:#E0322F; --danger-tint:#fdecef;
+  --good:#1a9d5f; --good-tint:#e7f5ee;
+  --amber:#B8730B; --amber-tint:#fbefda;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --canvas:#f4f1f6; --pearl:#fbfafc; --surface:#f9f7f8; --white:#fff;
+  --hairline:#e9e4ee; --divider:#f1edf4; --chev:#cfc8d6;
+  --fill-neutral:rgba(138,132,148,.14);
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased}
+body{font-family:var(--text);background:#e7e2ec;color:var(--ink)}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+
+/* ===== Gallery layout ===== */
+.wrap{max-width:1900px;margin:0 auto;padding:44px 28px 90px}
+.hero{max-width:900px;margin-bottom:10px}
+.hero h1{font-family:var(--disp);font-size:30px;font-weight:800;letter-spacing:-.5px}
+.hero p{margin-top:10px;font-size:15px;color:var(--muted);line-height:1.55}
+.sec{margin-top:52px}
+.sec-h{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+.sec-h h2{font-family:var(--disp);font-size:21px;font-weight:800;letter-spacing:-.3px}
+.sec-h span{font-size:13px;color:var(--muted)}
+.sec-sub{font-size:14px;color:var(--muted);max-width:820px;line-height:1.5}
+.grid{margin-top:26px;display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:44px 36px}
+@media(max-width:480px){.grid{grid-template-columns:1fr}}
+.item .cap{margin:16px 10px 0;max-width:402px;margin-left:auto;margin-right:auto}
+.cap .tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:3px 8px;margin-right:8px;vertical-align:2px}
+.cap b{font-size:15.5px;font-weight:700}
+.cap p{margin-top:6px;font-size:13px;color:var(--muted);line-height:1.5}
+
+/* ===== Phone frame — mockups/ convention (402×874, black bezel) ===== */
+.phone{width:100%;max-width:402px;height:874px;margin:0 auto;background:var(--white);overflow:hidden;display:flex;flex-direction:column;border-radius:46px;border:11px solid #05030a;box-shadow:0 30px 60px rgba(10,5,20,.28)}
+.scr{flex:1;overflow-y:auto;overscroll-behavior:contain;background:var(--white);position:relative}
+.scr::-webkit-scrollbar{width:0}
+
+/* ===== Shared screen chrome ===== */
+.grab{width:44px;height:5px;border-radius:99px;background:var(--hairline);margin:10px auto 2px}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:12px 20px 10px}
+.nav b{font-family:var(--disp);font-size:17px;font-weight:700}
+.nav .side{font-size:16.5px;font-weight:700;color:var(--brand-ink)}
+.nav .side.dim{font-weight:500}
+.sumbar{margin:4px 16px 0;background:var(--surface);border:1px solid var(--divider);border-radius:16px;padding:13px 16px;display:flex;align-items:center;justify-content:space-between}
+.sumbar small{display:block;font-size:12.5px;font-weight:600;color:var(--muted)}
+.sumbar .tot{font-family:var(--disp);font-size:19px;font-weight:800;letter-spacing:-.3px}
+.sumbar .lnk{font-size:14px;font-weight:700;color:var(--brand-ink)}
+.datelbl{margin:18px 20px 4px;font-size:12px;font-weight:800;letter-spacing:.09em;color:var(--muted);text-transform:uppercase}
+
+/* ===== Current-style card anatomy ===== */
+.tcard{margin:10px 16px;border:1.5px solid var(--hairline);border-radius:16px;background:var(--white);padding:15px}
+.tcard.open{border:2px solid var(--brand);background:var(--pearl);padding:14px}
+.chead{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.chead .badge{font-size:11px;font-weight:800;color:var(--brand-ink);background:var(--brand-tint);border-radius:9999px;padding:3px 9px}
+.chead .badge.amber{color:var(--amber);background:var(--amber-tint)}
+.chead b{color:var(--ink);font-weight:700}
+.chead .sp{flex:1}
+.chead .ic{color:var(--chev);font-size:15px;font-weight:700;padding:0 2px}
+.fld{margin-top:13px}
+.fld>label{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.fld>label .opt{font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted-soft)}
+.inp{background:var(--canvas);border-radius:13px;padding:13px 14px;font-size:15px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inp small{color:var(--muted)}
+.row2{display:grid;grid-template-columns:1.05fr .95fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr .8fr;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:9px 15px;border-radius:9999px;border:1.5px solid var(--hairline);background:var(--white);font-size:14px;font-weight:500;color:var(--ink-2)}
+.chip.on{padding:8px 14px;border:2px solid var(--brand);color:var(--brand-ink);background:var(--brand-tint);font-weight:700}
+.chip.sm{padding:6px 11px;font-size:13px}
+.chip.sm.on{padding:5px 10px}
+.btn{display:block;width:100%;text-align:center;border-radius:9999px;padding:13px;font-size:15.5px;font-weight:700}
+.btn.solid{background:var(--grad-brand);color:#fff;box-shadow:0 6px 16px var(--brand-glow)}
+.btn.ghost{color:var(--brand-ink);background:var(--white);border:1.5px solid var(--hairline)}
+.btn.mini{display:inline-block;width:auto;padding:8px 18px;font-size:14px}
+
+/* Collapsed neighbor row */
+.mrow{margin:10px 16px;border:1.5px solid var(--hairline);border-radius:16px;background:var(--white);padding:13px 15px;display:flex;align-items:center;gap:12px}
+.mrow .mi{flex:1;min-width:0}
+.mrow .mi b{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow .mi small{font-size:12.5px;color:var(--muted)}
+.mrow .amt{font-family:var(--disp);font-size:15px;font-weight:700;white-space:nowrap}
+.mrow .chev{color:var(--chev);font-size:17px}
+.mrow.dim{opacity:.55}
+
+/* ================= A1 — triage confirm card ================= */
+.a1-title{margin-top:10px;font-family:var(--disp);font-size:16.5px;font-weight:700;letter-spacing:-.2px}
+.a1-src{margin-top:3px;font-size:12.5px;color:var(--muted-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.a1-amt{font-family:var(--disp);font-size:17px;font-weight:800;letter-spacing:-.3px}
+.a1-sugg{margin-top:11px;display:flex;flex-wrap:wrap;gap:6px}
+.pillro{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);border-radius:9999px;padding:5px 11px}
+.pillro.neutral{color:var(--ink-2);background:var(--fill-neutral)}
+.a1-act{margin-top:13px;display:flex;align-items:center;gap:14px}
+.a1-act .btn{flex:1}
+.a1-act .edit{font-size:14.5px;font-weight:700;color:var(--muted);padding:0 6px}
+.a1-done{display:flex;align-items:center;gap:11px}
+.a1-done .ck{width:26px;height:26px;border-radius:50%;background:var(--good-tint);color:var(--good);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex:none}
+.a1-done .mi b{color:var(--muted)}
+.a1-done .undo{font-size:13px;font-weight:700;color:var(--brand-ink)}
+
+/* ================= A2 — bottom sheet editor ================= */
+.a2-scrim{position:absolute;inset:0;background:rgba(20,12,28,.38);z-index:5}
+.a2-sheet{position:absolute;left:0;right:0;bottom:0;z-index:6;background:var(--white);border-radius:22px 22px 0 0;box-shadow:0 -14px 44px rgba(15,8,25,.25);padding:0 18px 20px}
+.a2-nav{display:flex;align-items:center;justify-content:space-between;padding:8px 0 2px}
+.a2-nav b{font-family:var(--disp);font-size:15px;font-weight:700}
+.a2-nav small{display:block;text-align:center;font-size:12px;color:var(--muted);font-weight:600}
+.a2-arw{width:34px;height:34px;border-radius:50%;background:var(--canvas);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--ink-2)}
+.a2-arw.dis{opacity:.35}
+
+/* ================= A3 — wizard ================= */
+.a3-top{padding:16px 20px 0}
+.a3-bar{height:4px;border-radius:99px;background:var(--divider);overflow:hidden}
+.a3-bar i{display:block;height:100%;width:4%;background:var(--grad-brand);border-radius:99px}
+.a3-meta{display:flex;justify-content:space-between;margin-top:8px;font-size:12.5px;font-weight:700;color:var(--muted)}
+.a3-body{padding:34px 26px 0;text-align:center}
+.a3-amt{font-family:var(--disp);font-size:40px;font-weight:800;letter-spacing:-1px}
+.a3-amt small{font-size:22px;font-weight:700;color:var(--muted)}
+.a3-t{margin-top:8px;font-family:var(--disp);font-size:18px;font-weight:700}
+.a3-src{margin-top:5px;font-size:12.5px;color:var(--muted-soft)}
+.a3-card{margin:26px 6px 0;background:var(--surface);border:1px solid var(--divider);border-radius:18px;padding:6px 18px;text-align:left}
+.a3-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--divider)}
+.a3-row:last-child{border-bottom:0}
+.a3-row small{font-size:13px;font-weight:600;color:var(--muted)}
+.a3-row b{font-size:14.5px;font-weight:700}
+.a3-row .chev{color:var(--chev);margin-left:8px}
+.a3-acts{padding:26px 26px 0}
+.a3-acts .btn+.btn{margin-top:10px}
+.a3-hint{margin-top:16px;text-align:center;font-size:12.5px;color:var(--muted-soft)}
+
+/* ================= A4 — smart groups ================= */
+.a4-g{margin:10px 16px;border:1.5px solid var(--hairline);border-radius:18px;background:var(--white);padding:15px}
+.a4-g.open{border:2px solid var(--brand);background:var(--pearl)}
+.a4-h{display:flex;align-items:center;gap:10px}
+.a4-n{width:34px;height:34px;border-radius:11px;background:var(--brand-tint);color:var(--brand-ink);font-family:var(--disp);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex:none}
+.a4-h .mi{flex:1;min-width:0}
+.a4-h .mi b{display:block;font-size:14.5px;font-weight:700}
+.a4-h .mi small{font-size:12.5px;color:var(--muted)}
+.a4-rows{margin-top:12px;border-top:1px solid var(--divider)}
+.a4-r{display:flex;justify-content:space-between;padding:9px 2px;border-bottom:1px solid var(--divider);font-size:13px;color:var(--ink-2)}
+.a4-r b{font-family:var(--disp);font-weight:600}
+.a4-more{padding:9px 2px;font-size:13px;font-weight:700;color:var(--brand-ink)}
+.a4-act{margin-top:12px;display:flex;gap:10px;align-items:center}
+.a4-act .btn{flex:1;padding:11px}
+.a4-act .edit{font-size:13.5px;font-weight:700;color:var(--muted)}
+
+/* ================= A5 — swipe triage ================= */
+.a5-hint{margin:12px 16px 2px;background:var(--surface);border:1px solid var(--divider);border-radius:12px;padding:10px 14px;font-size:12.5px;color:var(--muted);text-align:center}
+.a5-w{margin:10px 16px;border-radius:16px;position:relative;overflow:hidden}
+.a5-bg{position:absolute;inset:0;display:flex;align-items:center;font-size:13.5px;font-weight:800;color:#fff}
+.a5-bg.ok{background:var(--good);justify-content:flex-start;padding-left:18px}
+.a5-bg.edit{background:var(--muted);justify-content:flex-end;padding-right:18px}
+.a5-row{position:relative;background:var(--white);border:1.5px solid var(--hairline);border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:12px}
+.a5-row .mi{flex:1;min-width:0}
+.a5-row .mi b{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.a5-row .mi small{font-size:12.5px;color:var(--muted)}
+.a5-row.r{transform:translateX(84px)}
+.a5-row.l{transform:translateX(-84px)}
+
+/* ================= A6 — token sentence ================= */
+.a6-sent{margin-top:12px;font-size:14.5px;line-height:2.15;color:var(--ink-2)}
+.tok{display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:9999px;background:var(--brand-tint);color:var(--brand-ink);font-weight:700;font-size:13.5px;border:1px dashed rgba(46,158,107,.55);white-space:nowrap;vertical-align:middle}
+.tok.neutral{background:var(--fill-neutral);color:var(--ink-2);border-color:var(--hairline)}
+.a6-meta{margin-top:10px;padding-top:11px;border-top:1px solid var(--divider);font-size:13px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+.a6-meta .num{font-weight:700;color:var(--ink-2)}
+.pop{margin-top:10px;background:var(--white);border:1px solid var(--hairline);border-radius:14px;box-shadow:0 14px 34px rgba(18,8,30,.16);padding:9px}
+.pop small{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:2px 6px 8px}
+.pop .chips{gap:6px}
+
+/* ================= A7 — needs-attention split ================= */
+.a7-sec{margin:18px 20px 4px;display:flex;align-items:baseline;gap:8px}
+.a7-sec b{font-size:14.5px;font-weight:800}
+.a7-sec span{font-size:12.5px;font-weight:700;color:var(--muted);background:var(--fill-neutral);border-radius:9999px;padding:2px 9px}
+.a7-why{margin-top:10px;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--amber);background:var(--amber-tint);border-radius:9999px;padding:5px 11px}
+.a7-q{margin-top:11px;font-size:15px;font-weight:700}
+.a7-stack{margin:14px 16px 10px;position:relative}
+.a7-stack::before,.a7-stack::after{content:"";position:absolute;left:10px;right:10px;height:14px;border:1.5px solid var(--hairline);border-bottom:0;background:var(--surface);border-radius:14px 14px 0 0}
+.a7-stack::before{top:-7px;left:18px;right:18px;opacity:.6}
+.a7-stack::after{top:-3.5px}
+.a7-card{position:relative;border:1.5px solid var(--hairline);border-radius:16px;background:var(--white);padding:15px;display:flex;align-items:center;gap:12px}
+.a7-card .ck{width:30px;height:30px;border-radius:50%;background:var(--good-tint);color:var(--good);display:flex;align-items:center;justify-content:center;font-weight:800;flex:none}
+.a7-card .mi{flex:1}
+.a7-card .mi b{display:block;font-size:14.5px;font-weight:700}
+.a7-card .mi small{font-size:12.5px;color:var(--muted)}
+.a7-card .lnk{font-size:13.5px;font-weight:700;color:var(--brand-ink)}
+
+/* ================= A8 — one-question card ================= */
+.a8-rc{margin-top:11px;background:var(--surface);border:1px solid var(--divider);border-radius:13px;padding:11px 13px}
+.a8-rc p{font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.a8-rc small{display:block;margin-top:3px;font-size:12.5px;color:var(--muted)}
+.a8-auto{margin-top:11px;display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--good)}
+.a8-q{margin-top:13px;font-size:15.5px;font-weight:700}
+.a8-else{margin-top:12px;font-size:13px;font-weight:700;color:var(--muted)}
+
+/* ================= B2 — segmented ================= */
+.seg{display:flex;background:var(--canvas);border-radius:12px;padding:3px;gap:2px}
+.seg span{flex:1;text-align:center;padding:8px 4px;font-size:13px;font-weight:600;color:var(--muted);border-radius:9px;white-space:nowrap}
+.seg span.on{background:var(--white);color:var(--brand-ink);font-weight:700;box-shadow:0 1px 4px rgba(20,10,30,.14)}
+
+/* ================= B3 — select rows ================= */
+.srow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12.5px 2px;border-bottom:1px solid var(--divider)}
+.srow:last-child{border-bottom:0}
+.srow small{font-size:13px;font-weight:600;color:var(--muted);flex:none}
+.srow .val{display:flex;align-items:center;gap:6px;min-width:0}
+.srow .val b{font-size:14px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow .chev{color:var(--chev);font-size:15px}
+
+/* ================= B4 — dense grid ================= */
+.b4 .fld{margin-top:9px}
+.b4 .inp{padding:8px 12px 9px;border-radius:11px;font-size:14px}
+.b4 .inp small{display:block;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.b4 .chips{gap:6px}
+
+/* ================= B5 — disclosure ================= */
+.b5-more{margin-top:13px;border-top:1px solid var(--divider);padding-top:11px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.b5-more small{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.b5-more .v{font-size:13px;font-weight:600;color:var(--ink-2)}
+.b5-more .chev{color:var(--chev);margin-left:8px;transition:transform .2s}
+.b5-body{display:none}
+.b5.on .b5-body{display:block}
+.b5.on .b5-more .chev{transform:rotate(180deg)}
+.b5.on .b5-more .v{display:none}
+
+/* ================= B6 — capped card ================= */
+.b6-card{margin:10px 16px;border:2px solid var(--brand);border-radius:16px;background:var(--pearl);max-height:430px;display:flex;flex-direction:column;overflow:hidden}
+.b6-head{padding:12px 14px;border-bottom:1px solid var(--divider);display:flex;align-items:center;gap:10px;background:var(--pearl);box-shadow:0 6px 14px rgba(20,10,30,.06);z-index:2}
+.b6-head .mi{flex:1;min-width:0}
+.b6-head .mi b{display:block;font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b6-head .mi small{font-size:12px;color:var(--muted)}
+.b6-head .btn{width:auto;padding:8px 16px;font-size:13.5px;flex:none}
+.b6-body{overflow-y:auto;padding:1px 14px 14px;position:relative}
+.b6-body::-webkit-scrollbar{width:3px}
+.b6-body::-webkit-scrollbar-thumb{background:var(--chev);border-radius:99px}
+.b6-fade{position:sticky;bottom:-14px;height:26px;margin:0 -14px;background:linear-gradient(to top,var(--pearl),transparent);pointer-events:none}
+
+/* ================= B7 — mixed vocabulary ================= */
+.b7-sel{background:var(--canvas);border-radius:13px;padding:12px 14px;font-size:14.5px;font-weight:650;display:flex;align-items:center;justify-content:space-between}
+.b7-sel .car{color:var(--chev);font-size:11px}
+.b7-cards{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;margin-right:-14px}
+.b7-cc{flex:none;width:118px;border-radius:13px;padding:11px 12px;border:1.5px solid var(--hairline);background:var(--white)}
+.b7-cc.on{border:2px solid var(--brand);background:var(--brand-tint)}
+.b7-cc .chipic{width:22px;height:15px;border-radius:4px;background:var(--grad-brand);opacity:.85}
+.b7-cc.gray .chipic{background:linear-gradient(135deg,#a9a2b2,#8a8494)}
+.b7-cc b{display:block;margin-top:8px;font-size:12.5px;font-weight:700}
+.b7-cc small{font-size:11px;color:var(--muted)}
+
+/* ================= B8 — receipt / typographic ================= */
+.b8-line{display:flex;align-items:baseline;gap:14px;padding:10.5px 2px;border-bottom:1px solid var(--divider)}
+.b8-line:last-child{border-bottom:0}
+.b8-line small{flex:none;width:86px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.b8-line .v{flex:1;min-width:0;font-size:14.5px;font-weight:550;color:var(--ink);border-bottom:1.5px dashed var(--chev);padding-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b8-line .v.pick{color:var(--brand-ink);font-weight:700;border-bottom-style:solid;border-bottom-color:var(--brand-2)}
+.b8-line .v .car{font-size:10px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <h1>Duyệt giao dịch — 16 hướng cải tổ thẻ giao dịch</h1>
+  <p>Thẻ mở rộng hiện tại cao ~2 màn hình trong danh sách 75 khoản. Dưới đây là 16 phương án: <b>A</b> — 8 mô hình mới theo hướng <i>gợi ý sẵn, xác nhận 1 chạm</i>; <b>B</b> — 8 bản tinh gọn thẻ inline hiện tại, giữ nguyên dữ liệu phải tự điền. Mỗi máy dùng đúng ca khó nhất: trả nợ thẻ + chọn thẻ, memo ngân hàng dài.</p>
+</div>
+
+<!-- ============================================================ SECTION A ============================================================ -->
+<div class="sec">
+  <div class="sec-h"><h2>A · Mô hình mới — gợi ý trước, sửa sau</h2><span>8 paradigms</span></div>
+  <p class="sec-sub">Giả định engine đã đoán sẵn ghi chú sạch, nơi ghi, loại khoản. Người dùng chỉ xác nhận hoặc sửa chỗ sai.</p>
+  <div class="grid">
+
+  <!-- A1 · Triage confirm card -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>Sẽ nhập 75 khoản</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Chỉnh sửa hàng loạt</span></div>
+      <div class="datelbl">2 THG 9</div>
+
+      <div class="tcard open">
+        <div class="chead"><span class="badge">Gợi ý sẵn</span><b>VIB</b><span>· 20:56</span><span class="sp"></span><span class="ic">✕</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+          <div style="min-width:0">
+            <div class="a1-title">Trả nợ thẻ VIB Credit ••4751</div>
+            <div class="a1-src">CAO THAI DUY HIEN chuyen tien den CAKE BY VPBANK</div>
+          </div>
+          <div class="a1-amt num">−88.888</div>
+        </div>
+        <div class="a1-sugg">
+          <span class="pillro">🔒 Cá nhân</span>
+          <span class="pillro">💳 Trả nợ thẻ</span>
+          <span class="pillro neutral num">02/09 · 20:56</span>
+        </div>
+        <div class="a1-act">
+          <span class="btn solid mini" style="flex:1">✓ Nhập như gợi ý</span>
+          <span class="edit">Sửa</span>
+        </div>
+      </div>
+
+      <div class="tcard a1-done">
+        <span class="ck">✓</span>
+        <div class="mi"><b>Grab · Ăn uống ngoài</b><small>🏡 Gia đình · −86.000 · 18:22</small></div>
+        <span class="undo">Hoàn tác</span>
+      </div>
+
+      <div class="mrow"><div class="mi"><b>THANHTOAN THE VIB ONLINE</b><small>VIB · 09:12</small></div><span class="amt num">−3.590.000</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>NGUYEN VAN A chuyen tien</b><small>VIB · 08:15</small></div><span class="amt num">+1.250.000</span><span class="chev">›</span></div>
+    </div></div>
+    <div class="cap"><span class="tag">A1</span><b>Triage card — confirm, don't edit</b>
+    <p>The card leads with the <i>interpreted</i> transaction, not raw fields. One primary action accepts the whole suggestion; "Sửa" is the escape hatch. Accepted cards compress to a single green row with undo. ~⅓ the height of today's card.</p></div>
+  </div>
+
+  <!-- A2 · Bottom sheet editor -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>Sẽ nhập 75 khoản</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Chỉnh sửa hàng loạt</span></div>
+      <div class="datelbl">2 THG 9</div>
+      <div class="mrow" style="border-color:var(--brand);border-width:2px"><div class="mi"><b>CAO THAI DUY HIEN chuyen tien den CAKE…</b><small>VIB · 20:56</small></div><span class="amt num">−88.888</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>THANHTOAN THE VIB ONLINE</b><small>VIB · 09:12</small></div><span class="amt num">−3.590.000</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>GRAB* TRIP HCM</b><small>VIB · 18:22</small></div><span class="amt num">−86.000</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>NGUYEN VAN A chuyen tien</b><small>VIB · 08:15</small></div><span class="amt num">+1.250.000</span><span class="chev">›</span></div>
+
+      <div class="a2-scrim"></div>
+      <div class="a2-sheet">
+        <div class="grab"></div>
+        <div class="a2-nav">
+          <span class="a2-arw dis">‹</span>
+          <div><b>CAKE BY VPBANK</b><small>Khoản 3 / 75 · <span class="num">−88.888 đ</span></small></div>
+          <span class="a2-arw">›</span>
+        </div>
+        <div class="fld"><label>Ghi chú</label><div class="inp">Trả nợ thẻ VIB Credit</div></div>
+        <div class="fld"><label>Ghi vào đâu?</label><div class="chips"><span class="chip on">🔒 Cá nhân</span><span class="chip">🏡 Gia đình</span></div></div>
+        <div class="fld"><label>Loại khoản</label><div class="chips"><span class="chip sm">Chi tiêu</span><span class="chip sm on">💳 Trả nợ thẻ</span><span class="chip sm">🔁 Chuyển đi nội bộ</span></div></div>
+        <div class="fld"><label>Trả cho thẻ nào</label><div class="chips"><span class="chip sm on">VIB Credit ••4751</span><span class="chip sm">Chưa rõ</span></div></div>
+        <div class="fld"><span class="btn solid">Lưu & khoản tiếp theo ›</span></div>
+      </div>
+    </div></div>
+    <div class="cap"><span class="tag">A2</span><b>Bottom-sheet editor — the list never stretches</b>
+    <p>Rows stay one line tall forever; editing happens in a sheet with prev/next paging ("Khoản 3/75"). The list keeps its scroll position and the editor gets a dedicated, height-stable canvas. Amount/date live in the sheet header — read-only until tapped.</p></div>
+  </div>
+
+  <!-- A3 · Wizard -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="a3-top">
+        <div class="a3-bar"><i style="width:5%"></i></div>
+        <div class="a3-meta"><span>Khoản 3 / 75</span><span style="color:var(--brand-ink)">Duyệt cả 72 khoản còn lại ›</span></div>
+      </div>
+      <div class="a3-body">
+        <div class="a3-amt num">−88.888 <small>đ</small></div>
+        <div class="a3-t">Trả nợ thẻ VIB Credit</div>
+        <div class="a3-src">CAO THAI DUY HIEN chuyen tien den CAKE BY VPBANK · 20:56</div>
+        <div class="a3-card">
+          <div class="a3-row"><small>Ghi vào</small><span><b>🔒 Cá nhân</b><span class="chev">›</span></span></div>
+          <div class="a3-row"><small>Loại khoản</small><span><b>💳 Trả nợ thẻ</b><span class="chev">›</span></span></div>
+          <div class="a3-row"><small>Trả cho thẻ</small><span><b>VIB Credit ••4751</b><span class="chev">›</span></span></div>
+        </div>
+      </div>
+      <div class="a3-acts">
+        <span class="btn solid">Đúng rồi ✓</span>
+        <span class="btn ghost">Bỏ qua khoản này</span>
+        <div class="a3-hint">Giữ nút xanh để duyệt nhanh các khoản tương tự</div>
+      </div>
+    </div></div>
+    <div class="cap"><span class="tag">A3</span><b>Wizard — one transaction, full screen</b>
+    <p>Replaces the list with a card-at-a-time flow: big amount, interpreted title, three key-value rows (each tappable to override). Zero scrolling per decision. The "duyệt cả 72 khoản còn lại" shortcut exits the wizard once the user trusts the suggestions.</p></div>
+  </div>
+
+  <!-- A4 · Smart groups -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>75 khoản · gộp thành 9 nhóm</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Bỏ gộp</span></div>
+
+      <div class="a4-g open">
+        <div class="a4-h"><span class="a4-n">12</span><div class="mi"><b>Chuyển đến CAKE BY VPBANK</b><small>Gợi ý: 🔒 Cá nhân · 💳 Trả nợ thẻ ••4751</small></div><b class="num" style="font-family:var(--disp)">−9.640.888</b></div>
+        <div class="a4-rows">
+          <div class="a4-r"><span class="num">02/09 · 20:56</span><b class="num">−88.888</b></div>
+          <div class="a4-r"><span class="num">28/08 · 21:10</span><b class="num">−1.500.000</b></div>
+          <div class="a4-r"><span class="num">25/08 · 19:03</span><b class="num">−850.000</b></div>
+          <div class="a4-more">Xem 9 khoản còn lại ▾</div>
+        </div>
+        <div class="a4-act"><span class="btn solid mini" style="flex:1">✓ Nhập cả nhóm</span><span class="edit">Sửa từng khoản</span></div>
+      </div>
+
+      <div class="a4-g">
+        <div class="a4-h"><span class="a4-n">31</span><div class="mi"><b>GRAB* TRIP HCM</b><small>Gợi ý: 🏡 Gia đình · Di chuyển</small></div><b class="num" style="font-family:var(--disp)">−2.914.000</b></div>
+      </div>
+      <div class="a4-g">
+        <div class="a4-h"><span class="a4-n">8</span><div class="mi"><b>THANHTOAN THE VIB ONLINE</b><small>Gợi ý: 🔒 Cá nhân · Chi tiêu</small></div><b class="num" style="font-family:var(--disp)">−12.301.253</b></div>
+      </div>
+      <div class="a4-g">
+        <div class="a4-h"><span class="a4-n">1</span><div class="mi"><b>NGUYEN VAN A chuyen tien</b><small>Gợi ý: 🔒 Cá nhân · Thu nhập khác</small></div><b class="num" style="font-family:var(--disp)">+1.250.000</b></div>
+      </div>
+    </div></div>
+    <div class="cap"><span class="tag">A4</span><b>Smart groups — decide once per pattern, not per row</b>
+    <p>75 transactions collapse into ~9 recurring patterns. One tap classifies a whole group; "Sửa từng khoản" drills into exceptions. Attacks the real scale problem — the card can stay long if you only ever open 9 of them.</p></div>
+  </div>
+
+  <!-- A5 · Swipe triage -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>Đã duyệt 2 / 75</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Chỉnh sửa hàng loạt</span></div>
+      <div class="a5-hint">Vuốt phải để <b style="color:var(--good)">nhập theo gợi ý</b> · vuốt trái để <b>sửa</b></div>
+      <div class="datelbl">2 THG 9</div>
+
+      <div class="a5-w">
+        <div class="a5-bg ok">✓ Nhập</div>
+        <div class="a5-row r"><div class="mi"><b>Trả nợ thẻ VIB Credit ••4751</b><small>🔒 Cá nhân · 20:56</small></div><span class="amt num">−88.888</span></div>
+      </div>
+      <div class="a5-w">
+        <div class="a5-bg edit">Sửa ✎</div>
+        <div class="a5-row l"><div class="mi"><b>THANHTOAN THE VIB ONLINE</b><small>Gợi ý: Chi tiêu · Chưa rõ danh mục</small></div><span class="amt num">−3.590.000</span></div>
+      </div>
+      <div class="a5-w">
+        <div class="a5-row"><div class="mi"><b>Grab · Di chuyển</b><small>🏡 Gia đình · 18:22</small></div><span class="amt num">−86.000</span></div>
+      </div>
+      <div class="a5-w">
+        <div class="a5-row"><div class="mi"><b>NGUYEN VAN A chuyen tien</b><small>Gợi ý: 🔒 Cá nhân · Thu nhập</small></div><span class="amt num">+1.250.000</span></div>
+      </div>
+      <div class="a5-w">
+        <div class="a5-row"><div class="mi"><b>HIGHLANDS COFFEE NVL</b><small>Gợi ý: 🏡 Gia đình · Cà phê</small></div><span class="amt num">−65.000</span></div>
+      </div>
+    </div></div>
+    <div class="cap"><span class="tag">A5</span><b>Swipe triage — Mail-style inbox zero</b>
+    <p>Every row shows the interpreted result inline; swipe right accepts, swipe left opens the editor (sheet). The expanded card disappears from the main loop entirely — it only exists behind the left swipe. Fastest possible path through 75 items.</p></div>
+  </div>
+
+  <!-- A6 · Token sentence -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>Sẽ nhập 75 khoản</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Chỉnh sửa hàng loạt</span></div>
+      <div class="datelbl">2 THG 9</div>
+
+      <div class="tcard open">
+        <div class="chead"><span class="badge">Trực tiếp</span><b>VIB</b><span>· Hôm nay · 20:56</span><span class="sp"></span><span class="ic">⌃</span><span class="ic">✕</span></div>
+        <div class="fld"><div class="inp">Trả nợ thẻ VIB Credit</div></div>
+        <div class="a6-sent">
+          Ghi vào <span class="tok">🔒 Cá nhân</span> dạng <span class="tok">💳 Trả nợ thẻ</span> cho <span class="tok">VIB ••4751</span>
+        </div>
+        <div class="pop">
+          <small>Trả cho thẻ nào</small>
+          <div class="chips"><span class="chip sm on">VIB Credit ••4751</span><span class="chip sm">Chưa rõ</span></div>
+        </div>
+        <div class="a6-meta"><span class="num">−88.888 đ · 02/09/2026 · 20:56</span><span style="color:var(--brand-ink);font-weight:700">Sửa</span></div>
+      </div>
+
+      <div class="mrow"><div class="mi"><b>THANHTOAN THE VIB ONLINE</b><small>VIB · 09:12</small></div><span class="amt num">−3.590.000</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>GRAB* TRIP HCM</b><small>VIB · 18:22</small></div><span class="amt num">−86.000</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>NGUYEN VAN A chuyen tien</b><small>VIB · 08:15</small></div><span class="amt num">+1.250.000</span><span class="chev">›</span></div>
+    </div></div>
+    <div class="cap"><span class="tag">A6</span><b>Token sentence — the card reads like a statement</b>
+    <p>The three decisions become tappable tokens in one Vietnamese sentence; tapping a token opens a small in-card picker (shown open for the thẻ token). Amount/date/time demote to one muted line. The expanded card fits under 300px even mid-edit.</p></div>
+  </div>
+
+  <!-- A7 · Needs-attention split -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>Sẽ nhập 75 khoản</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Chỉnh sửa hàng loạt</span></div>
+
+      <div class="a7-sec"><b>Cần bạn xem</b><span>6</span></div>
+      <div class="tcard open">
+        <div class="chead"><b>CAKE BY VPBANK</b><span class="num">· −88.888 · 20:56</span><span class="sp"></span><span class="ic">✕</span></div>
+        <div><span class="a7-why">⚠ Chưa rõ trả cho thẻ nào</span></div>
+        <div class="a7-q">Khoản này trả cho thẻ nào?</div>
+        <div class="fld"><div class="chips"><span class="chip on">VIB Credit ••4751</span><span class="chip">Chưa rõ</span><span class="chip">Không phải trả thẻ</span></div></div>
+      </div>
+      <div class="tcard">
+        <div class="chead"><b>NGUYEN VAN A chuyen tien</b><span class="num">· +1.250.000</span><span class="sp"></span></div>
+        <div><span class="a7-why">⚠ Tiền vào — thu nhập hay thu nợ?</span></div>
+        <div class="fld" style="margin-top:9px"><div class="chips"><span class="chip sm">Thu nhập</span><span class="chip sm">🤝 Thu nợ</span><span class="chip sm">🔁 Chuyển nội bộ</span></div></div>
+      </div>
+
+      <div class="a7-sec" style="margin-top:26px"><b>Đã chắc chắn</b><span>69</span></div>
+      <div class="a7-stack">
+        <div class="a7-card">
+          <span class="ck">✓</span>
+          <div class="mi"><b>69 khoản đã tự điền</b><small>Grab, Highlands, lương, hoá đơn điện…</small></div>
+          <span class="lnk">Xem ›</span>
+        </div>
+      </div>
+    </div></div>
+    <div class="cap"><span class="tag">A7</span><b>Attention split — only ambiguity gets pixels</b>
+    <p>Confident suggestions collapse into one stacked "69 khoản đã tự điền" card; the screen is spent on the 6 rows the engine couldn't resolve, each opening with <i>why</i> it needs review and only the missing question. Review effort scales with uncertainty, not volume.</p></div>
+  </div>
+
+  <!-- A8 · One-question card -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>Sẽ nhập 75 khoản</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Chỉnh sửa hàng loạt</span></div>
+      <div class="datelbl">2 THG 9</div>
+
+      <div class="tcard open">
+        <div class="chead"><span class="badge">Trực tiếp</span><b>VIB</b><span>· Hôm nay · 20:56</span><span class="sp"></span><span class="ic">✕</span></div>
+        <div class="a8-rc">
+          <p>CAO THAI DUY HIEN chuyen tien den CAKE BY VPBANK</p>
+          <small class="num">−88.888 đ · 02/09/2026 · 20:56</small>
+        </div>
+        <div class="a8-auto">✓ Đã tự điền: 🔒 Cá nhân · 💳 Trả nợ thẻ</div>
+        <div class="a8-q">Trả cho thẻ nào?</div>
+        <div class="fld" style="margin-top:9px"><div class="chips"><span class="chip on">VIB Credit ••4751</span><span class="chip">Chưa rõ</span></div></div>
+        <div class="a8-else">Sửa chi tiết khác ›</div>
+      </div>
+
+      <div class="tcard a1-done">
+        <span class="ck">✓</span>
+        <div class="mi"><b>Grab · Di chuyển</b><small>🏡 Gia đình · −86.000</small></div>
+        <span class="undo">Hoàn tác</span>
+      </div>
+      <div class="mrow"><div class="mi"><b>THANHTOAN THE VIB ONLINE</b><small>VIB · 09:12</small></div><span class="amt num">−3.590.000</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>NGUYEN VAN A chuyen tien</b><small>VIB · 08:15</small></div><span class="amt num">+1.250.000</span><span class="chev">›</span></div>
+    </div></div>
+    <div class="cap"><span class="tag">A8</span><b>One-question card — everything else is a receipt</b>
+    <p>Raw bank data compresses into a read-only receipt block; auto-filled decisions show as one green confirmation line. The card surfaces exactly one unresolved question with answer chips, then auto-collapses. Full editing hides behind "Sửa chi tiết khác".</p></div>
+  </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ SECTION B ============================================================ -->
+<div class="sec">
+  <div class="sec-h"><h2>B · Tinh gọn thẻ inline hiện tại</h2><span>8 refinements · edit-first, đủ mọi trường</span></div>
+  <p class="sec-sub">Không giả định gợi ý thông minh — người dùng vẫn tự điền. Mục tiêu: cùng lượng thông tin, chiều cao giảm 40–60%.</p>
+  <div class="grid">
+
+  <!-- B1 · Reordered + merged meta row -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>Sẽ nhập 75 khoản</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Chỉnh sửa hàng loạt</span></div>
+      <div class="datelbl">2 THG 9</div>
+
+      <div class="tcard open">
+        <div class="chead"><span class="badge">Trực tiếp</span><b>VIB</b><span>· Hôm nay · 20:56</span><span class="sp"></span><span class="ic">⌃</span><span class="ic">✕</span></div>
+        <div class="fld"><label>Ghi chú</label><div class="inp">CAO THAI DUY HIEN chuyen tien den CA…</div></div>
+        <div class="fld"><label>Ghi vào đâu?</label><div class="chips"><span class="chip on">🔒 Cá nhân</span><span class="chip">🏡 Gia đình</span></div></div>
+        <div class="fld"><label>Loại khoản</label><div class="chips"><span class="chip sm">Chi tiêu</span><span class="chip sm on">💳 Trả nợ thẻ</span><span class="chip sm">🔁 Chuyển đi nội bộ</span></div></div>
+        <div class="fld"><label>Trả cho thẻ nào</label><div class="chips"><span class="chip sm on">VIB Credit ••4751</span><span class="chip sm">Chưa rõ</span></div></div>
+        <div class="fld"><label>Số tiền · Ngày · Giờ <span class="opt">— chạm để sửa</span></label>
+          <div class="row3">
+            <div class="inp num">88.888</div>
+            <div class="inp num">02/09/2026</div>
+            <div class="inp num">20:56</div>
+          </div>
+        </div>
+        <div class="fld" style="margin-top:15px"><span class="btn ghost mini">Xong</span></div>
+      </div>
+
+      <div class="mrow"><div class="mi"><b>THANHTOAN THE VIB ONLINE</b><small>VIB · 09:12</small></div><span class="amt num">−3.590.000</span><span class="chev">›</span></div>
+    </div></div>
+    <div class="cap"><span class="tag">B1</span><b>Reorder + merge — decisions first, data last</b>
+    <p>Same components as today, resequenced: the three fields users actually touch come first; số tiền/ngày/giờ merge into one 3-column row at the bottom (they're trusted bank data). Saves ~2 full field groups of height with zero new components.</p></div>
+  </div>
+
+  <!-- B2 · Segmented controls -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>Sẽ nhập 75 khoản</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Chỉnh sửa hàng loạt</span></div>
+      <div class="datelbl">2 THG 9</div>
+
+      <div class="tcard open">
+        <div class="chead"><span class="badge">Trực tiếp</span><b>VIB</b><span>· Hôm nay · 20:56</span><span class="sp"></span><span class="ic">⌃</span><span class="ic">✕</span></div>
+        <div class="fld"><label>Ghi chú</label><div class="inp">CAO THAI DUY HIEN chuyen tien den CA…</div></div>
+        <div class="row2 fld">
+          <div><label>Số tiền</label><div class="inp num">88.888</div></div>
+          <div><label>Khi nào</label><div class="inp num">02/09/2026 <small>· 20:56</small></div></div>
+        </div>
+        <div class="fld"><label>Ghi vào đâu?</label>
+          <div class="seg"><span class="on">🔒 Cá nhân</span><span>🏡 Gia đình</span></div>
+        </div>
+        <div class="fld"><label>Loại khoản</label>
+          <div class="seg"><span>Chi tiêu</span><span class="on">💳 Trả nợ thẻ</span><span>🔁 Nội bộ</span></div>
+        </div>
+        <div class="fld"><label>Trả cho thẻ nào</label>
+          <div class="seg"><span class="on">VIB ••4751</span><span>Chưa rõ</span></div>
+        </div>
+        <div class="fld" style="margin-top:15px"><span class="btn ghost mini">Xong</span></div>
+      </div>
+
+      <div class="mrow"><div class="mi"><b>THANHTOAN THE VIB ONLINE</b><small>VIB · 09:12</small></div><span class="amt num">−3.590.000</span><span class="chev">›</span></div>
+    </div></div>
+    <div class="cap"><span class="tag">B2</span><b>Segmented controls — chips stop wrapping</b>
+    <p>Every choice group becomes a fixed one-line segmented control (iOS native pattern), so the 3-way LOẠI KHOẢN can never wrap to two rows and option groups get visual parity. Date+time also merge into one input. Predictable, compiler-tight height.</p></div>
+  </div>
+
+  <!-- B3 · Select rows -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>Sẽ nhập 75 khoản</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Chỉnh sửa hàng loạt</span></div>
+      <div class="datelbl">2 THG 9</div>
+
+      <div class="tcard open">
+        <div class="chead"><span class="badge">Trực tiếp</span><b>VIB</b><span>· Hôm nay · 20:56</span><span class="sp"></span><span class="ic">⌃</span><span class="ic">✕</span></div>
+        <div class="fld"><label>Ghi chú</label><div class="inp">CAO THAI DUY HIEN chuyen tien den CA…</div></div>
+        <div style="margin-top:6px">
+          <div class="srow"><small>Ghi vào đâu</small><span class="val"><b>🔒 Cá nhân</b><span class="chev">›</span></span></div>
+          <div class="srow"><small>Loại khoản</small><span class="val"><b>💳 Trả nợ thẻ</b><span class="chev">›</span></span></div>
+          <div class="srow" style="background:var(--brand-tint);margin:0 -6px;padding-left:8px;padding-right:8px;border-radius:11px;border-bottom:0"><small style="color:var(--brand-ink)">Trả cho thẻ</small><span class="val"><b style="color:var(--brand-ink)">VIB Credit ••4751</b><span class="chev" style="color:var(--brand-ink)">›</span></span></div>
+          <div class="srow"><small>Số tiền</small><span class="val"><b class="num">88.888 đ</b><span class="chev">›</span></span></div>
+          <div class="srow"><small>Khi nào</small><span class="val"><b class="num">02/09/2026 · 20:56</b><span class="chev">›</span></span></div>
+        </div>
+      </div>
+
+      <div class="mrow"><div class="mi"><b>THANHTOAN THE VIB ONLINE</b><small>VIB · 09:12</small></div><span class="amt num">−3.590.000</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>GRAB* TRIP HCM</b><small>VIB · 18:22</small></div><span class="amt num">−86.000</span><span class="chev">›</span></div>
+    </div></div>
+    <div class="cap"><span class="tag">B3</span><b>Settings rows — every field is one line</b>
+    <p>Chips become iOS-Settings value rows: label left, current value + chevron right; tapping opens a picker sheet. Five fields cost five slim rows (~48px each) regardless of how many options each has. The freshly-changed row highlights in brand tint.</p></div>
+  </div>
+
+  <!-- B4 · Dense grid -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>Sẽ nhập 75 khoản</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Chỉnh sửa hàng loạt</span></div>
+      <div class="datelbl">2 THG 9</div>
+
+      <div class="tcard open b4">
+        <div class="chead"><span class="badge">Trực tiếp</span><b>VIB</b><span>· Hôm nay · 20:56</span><span class="sp"></span><span class="ic">⌃</span><span class="ic">✕</span></div>
+        <div class="fld"><div class="inp"><small>Ghi chú</small>CAO THAI DUY HIEN chuyen tien den CAKE…</div></div>
+        <div class="row2 fld">
+          <div class="inp num"><small>Số tiền</small>88.888</div>
+          <div class="inp num"><small>Khi nào</small>02/09 · 20:56</div>
+        </div>
+        <div class="fld"><div class="chips"><span class="chip sm on">🔒 Cá nhân</span><span class="chip sm">🏡 Gia đình</span></div></div>
+        <div class="fld"><div class="chips"><span class="chip sm">Chi tiêu</span><span class="chip sm on">💳 Trả nợ thẻ</span><span class="chip sm">🔁 Nội bộ</span></div></div>
+        <div class="fld"><div class="chips"><span class="chip sm on">VIB Credit ••4751</span><span class="chip sm">Chưa rõ</span></div></div>
+      </div>
+
+      <div class="mrow"><div class="mi"><b>THANHTOAN THE VIB ONLINE</b><small>VIB · 09:12</small></div><span class="amt num">−3.590.000</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>GRAB* TRIP HCM</b><small>VIB · 18:22</small></div><span class="amt num">−86.000</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>NGUYEN VAN A chuyen tien</b><small>VIB · 08:15</small></div><span class="amt num">+1.250.000</span><span class="chev">›</span></div>
+    </div></div>
+    <div class="cap"><span class="tag">B4</span><b>Dense grid — labels move inside, spacing halves</b>
+    <p>Uppercase section labels fold into the inputs as floating micro-labels; chip rows drop their headers entirely (the options are self-describing); vertical rhythm tightens from 13px to 9px. Same order, same components — ~45% shorter through typography alone.</p></div>
+  </div>
+
+  <!-- B5 · Disclosure -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>Sẽ nhập 75 khoản</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Chỉnh sửa hàng loạt</span></div>
+      <div class="datelbl">2 THG 9</div>
+
+      <div class="tcard open b5" onclick="void(0)">
+        <div class="chead"><span class="badge">Trực tiếp</span><b>VIB</b><span>· Hôm nay · 20:56</span><span class="sp"></span><span class="ic">⌃</span><span class="ic">✕</span></div>
+        <div class="fld"><label>Ghi chú</label><div class="inp">CAO THAI DUY HIEN chuyen tien den CA…</div></div>
+        <div class="fld"><label>Ghi vào đâu?</label><div class="chips"><span class="chip on">🔒 Cá nhân</span><span class="chip">🏡 Gia đình</span></div></div>
+        <div class="fld"><label>Loại khoản</label><div class="chips"><span class="chip sm">Chi tiêu</span><span class="chip sm on">💳 Trả nợ thẻ</span><span class="chip sm">🔁 Chuyển đi nội bộ</span></div></div>
+        <div class="fld"><label>Trả cho thẻ nào</label><div class="chips"><span class="chip sm on">VIB Credit ••4751</span><span class="chip sm">Chưa rõ</span></div></div>
+        <div class="b5-more" data-toggle>
+          <small>Chi tiết</small>
+          <span style="display:flex;align-items:center"><span class="v num">88.888 đ · 02/09 · 20:56</span><span class="chev">▾</span></span>
+        </div>
+        <div class="b5-body">
+          <div class="row2 fld" style="margin-top:8px">
+            <div><label>Số tiền</label><div class="inp num">88.888</div></div>
+            <div><label>Khi nào</label><div class="inp num">02/09/2026</div></div>
+          </div>
+          <div class="fld"><label>Giờ <span class="opt">tuỳ chọn</span></label><div class="inp num">20:56</div></div>
+        </div>
+      </div>
+
+      <div class="mrow"><div class="mi"><b>THANHTOAN THE VIB ONLINE</b><small>VIB · 09:12</small></div><span class="amt num">−3.590.000</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>GRAB* TRIP HCM</b><small>VIB · 18:22</small></div><span class="amt num">−86.000</span><span class="chev">›</span></div>
+    </div></div>
+    <div class="cap"><span class="tag">B5</span><b>Disclosure — rare fields fold behind "Chi tiết" <i>(tap it — it works)</i></b>
+    <p>Decisions stay expanded; số tiền/ngày/giờ collapse into one summary line that shows current values, expanding only when tapped. 90% of reviews never open it. The summary doubles as verification — you still <i>see</i> the values without paying their height.</p></div>
+  </div>
+
+  <!-- B6 · Capped card -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>Sẽ nhập 75 khoản</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Chỉnh sửa hàng loạt</span></div>
+      <div class="datelbl">2 THG 9</div>
+
+      <div class="b6-card">
+        <div class="b6-head">
+          <div class="mi"><b>CAO THAI DUY HIEN chuyen tien den CAKE…</b><small class="num">−88.888 đ · VIB · 20:56</small></div>
+          <span class="btn solid">Xong</span>
+        </div>
+        <div class="b6-body">
+          <div class="fld"><label>Ghi chú</label><div class="inp">CAO THAI DUY HIEN chuyen tien den CA…</div></div>
+          <div class="row2 fld">
+            <div><label>Số tiền</label><div class="inp num">88.888</div></div>
+            <div><label>Khi nào</label><div class="inp num">02/09/2026</div></div>
+          </div>
+          <div class="fld"><label>Ghi vào đâu?</label><div class="chips"><span class="chip on">🔒 Cá nhân</span><span class="chip">🏡 Gia đình</span></div></div>
+          <div class="fld"><label>Loại khoản</label><div class="chips"><span class="chip sm">Chi tiêu</span><span class="chip sm on">💳 Trả nợ thẻ</span><span class="chip sm">🔁 Chuyển đi nội bộ</span></div></div>
+          <div class="fld"><label>Trả cho thẻ nào</label><div class="chips"><span class="chip sm on">VIB Credit ••4751</span><span class="chip sm">Chưa rõ</span></div></div>
+          <div class="fld"><label>Giờ <span class="opt">tuỳ chọn</span></label><div class="inp num">20:56</div></div>
+          <div class="b6-fade"></div>
+        </div>
+      </div>
+
+      <div class="mrow"><div class="mi"><b>THANHTOAN THE VIB ONLINE</b><small>VIB · 09:12</small></div><span class="amt num">−3.590.000</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>GRAB* TRIP HCM</b><small>VIB · 18:22</small></div><span class="amt num">−86.000</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>NGUYEN VAN A chuyen tien</b><small>VIB · 08:15</small></div><span class="amt num">+1.250.000</span><span class="chev">›</span></div>
+    </div></div>
+    <div class="cap"><span class="tag">B6</span><b>Capped card — contain, don't compress <i>(inner area scrolls)</i></b>
+    <p>The card keeps every field as-is but caps at ~430px with its own scroll; a sticky mini-header pins the transaction identity + "Xong" so the exit is never off-screen. The list stays navigable around the card. Cheapest to implement — pure CSS on today's DOM.</p></div>
+  </div>
+
+  <!-- B7 · Mixed vocabulary -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>Sẽ nhập 75 khoản</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Chỉnh sửa hàng loạt</span></div>
+      <div class="datelbl">2 THG 9</div>
+
+      <div class="tcard open">
+        <div class="chead"><span class="badge">Trực tiếp</span><b>VIB</b><span>· Hôm nay · 20:56</span><span class="sp"></span><span class="ic">⌃</span><span class="ic">✕</span></div>
+        <div class="fld"><label>Ghi chú</label><div class="inp">CAO THAI DUY HIEN chuyen tien den CA…</div></div>
+        <div class="row2 fld">
+          <div><label>Số tiền</label><div class="inp num">88.888</div></div>
+          <div><label>Khi nào</label><div class="inp num">02/09 · 20:56</div></div>
+        </div>
+        <div class="fld"><label>Ghi vào đâu?</label><div class="chips"><span class="chip on">🔒 Cá nhân</span><span class="chip">🏡 Gia đình</span></div></div>
+        <div class="fld"><label>Loại khoản</label>
+          <div class="b7-sel"><span>💳 Trả nợ thẻ</span><span class="car">▲▼</span></div>
+        </div>
+        <div class="fld"><label>Trả cho thẻ nào</label>
+          <div class="b7-cards">
+            <div class="b7-cc on"><div class="chipic"></div><b>VIB Credit</b><small>••4751</small></div>
+            <div class="b7-cc gray"><div class="chipic"></div><b>VPBank</b><small>••2280</small></div>
+            <div class="b7-cc" style="border-style:dashed"><div style="height:15px"></div><b style="color:var(--muted)">Chưa rõ</b><small>chọn sau</small></div>
+          </div>
+        </div>
+        <div class="fld" style="margin-top:14px"><span class="btn ghost mini">Xong</span></div>
+      </div>
+
+      <div class="mrow"><div class="mi"><b>THANHTOAN THE VIB ONLINE</b><small>VIB · 09:12</small></div><span class="amt num">−3.590.000</span><span class="chev">›</span></div>
+    </div></div>
+    <div class="cap"><span class="tag">B7</span><b>Mixed vocabulary — component matches cardinality</b>
+    <p>Binary choices stay chips (fastest), 3+ options become a compact dropdown (LOẠI KHOẢN), and the card picker becomes a horizontal scroll of mini card tiles — it grows sideways, not downward, no matter how many cards you own.</p></div>
+  </div>
+
+  <!-- B8 · Receipt typographic -->
+  <div class="item">
+    <div class="phone"><div class="scr">
+      <div class="grab"></div>
+      <div class="nav"><span class="side dim">Huỷ</span><b>Duyệt giao dịch</b><span class="side">Nhập 75</span></div>
+      <div class="sumbar"><div><small>Sẽ nhập 75 khoản</small><b class="tot num">86.901.141 đ</b></div><span class="lnk">Chỉnh sửa hàng loạt</span></div>
+      <div class="datelbl">2 THG 9</div>
+
+      <div class="tcard open">
+        <div class="chead"><span class="badge">Trực tiếp</span><b>VIB</b><span>· Hôm nay · 20:56</span><span class="sp"></span><span class="ic">⌃</span><span class="ic">✕</span></div>
+        <div style="margin-top:8px">
+          <div class="b8-line"><small>Ghi chú</small><span class="v">CAO THAI DUY HIEN chuyen tien den CAKE…</span></div>
+          <div class="b8-line"><small>Số tiền</small><span class="v num">88.888 đ</span></div>
+          <div class="b8-line"><small>Khi nào</small><span class="v num">02/09/2026 · 20:56</span></div>
+          <div class="b8-line"><small>Ghi vào</small><span class="v pick">🔒 Cá nhân <span class="car">▼</span></span></div>
+          <div class="b8-line"><small>Loại khoản</small><span class="v pick">💳 Trả nợ thẻ <span class="car">▼</span></span></div>
+          <div class="b8-line"><small>Trả cho thẻ</small><span class="v pick">VIB Credit ••4751 <span class="car">▼</span></span></div>
+        </div>
+      </div>
+
+      <div class="mrow"><div class="mi"><b>THANHTOAN THE VIB ONLINE</b><small>VIB · 09:12</small></div><span class="amt num">−3.590.000</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>GRAB* TRIP HCM</b><small>VIB · 18:22</small></div><span class="amt num">−86.000</span><span class="chev">›</span></div>
+      <div class="mrow"><div class="mi"><b>NGUYEN VAN A chuyen tien</b><small>VIB · 08:15</small></div><span class="amt num">+1.250.000</span><span class="chev">›</span></div>
+    </div></div>
+    <div class="cap"><span class="tag">B8</span><b>Receipt — strip the chrome, keep the ink</b>
+    <p>No boxed inputs, no chips: fields render as a typographic receipt — label column left, editable value right (dashed underline = free text, green solid = picker). The full 6-field card fits in ~330px, half of today, purely by removing container chrome.</p></div>
+  </div>
+
+  </div>
+</div>
+
+</div>
+<script>
+document.querySelectorAll('[data-toggle]').forEach(function(el){
+  el.addEventListener('click',function(e){
+    e.stopPropagation();
+    el.closest('.b5').classList.toggle('on');
+  });
+});
+</script>
+</body>
+</html>

@@ -16519,7 +16519,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v449';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v450';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -18425,14 +18425,21 @@ window.obGoogle = async function () {
       if (!P.uid || !P.key || !info || !info.kind) return null;
       const prov = (info.provider || '').toLowerCase() || null;
       const tail = (info.tail || '').replace(/\D/g, '').slice(-4) || null;
-      const hit = P.accounts.find((a) => a.kind === info.kind && (a.provider || '') === (prov || '') && (a.tail || '') === (tail || ''));
+      /* Identity is the NUMBER, not our guess of the kind. A (provider, tail)
+         pair names one instrument; matching kind too is how one heuristic
+         mis-guess minted a phantom duplicate of a real account (2026-09-02).
+         Kind only participates when there is no tail to identify by. */
+      const _match = (a) => tail
+        ? ((a.provider || '') === (prov || '') && (a.tail || '') === tail)
+        : (a.kind === info.kind && (a.provider || '') === (prov || '') && !a.tail);
+      const hit = P.accounts.find(_match);
       if (hit) return hit.id;
       const name = info.name || ((prov ? prov.charAt(0).toUpperCase() + prov.slice(1) : 'Tài khoản') + (tail ? ' ••' + tail : ''));
       const r = await _sb().from('personal_accounts').insert({ owner_user_id: P.uid, kind: info.kind,
         provider: prov, tail: tail, name_enc: await _encP(name) }).select('id').single();
       if (r.error) {   // lost a race with ourselves → the row exists; refetch and rematch
         await window.fhPersonalHydrate();
-        const again = P.accounts.find((a) => a.kind === info.kind && (a.provider || '') === (prov || '') && (a.tail || '') === (tail || ''));
+        const again = P.accounts.find(_match);
         return again ? again.id : null;
       }
       P.accounts.push({ id: r.data.id, kind: info.kind, provider: prov, tail: tail, name: name, limitK: null, humanVerified: false });
@@ -19571,23 +19578,44 @@ window.obGoogle = async function () {
     window.fhAcctEditSheet = function (acctId) {
       const P = _P(); const acct = P && P.accounts.find((a) => a.id === acctId); if (!acct) return;
       const _dayIn = (id, val) => '<input type="number" min="1" max="31" id="' + id + '" inputmode="numeric" placeholder="—" value="' + (val || '') + '" oninput="fhModalDirty()">';
+      /* The kind is EDITABLE — the classifier can mis-guess (a VN debit card
+         prints a 16-digit PAN like a credit card), and the person is the one
+         who knows what the instrument actually is. Card-only fields (hạn mức,
+         ngày chốt/đến hạn) show only while "Thẻ tín dụng" is picked. */
+      const KINDS = [['credit_card', '💳 Thẻ tín dụng'], ['deposit', '🏦 Tài khoản ngân hàng'], ['ewallet', '📱 Ví điện tử'], ['cash', '💵 Tiền mặt']];
+      const kindChips = KINDS.map(([v, lbl]) =>
+        '<button class="choice' + (acct.kind === v ? ' on' : '') + '" data-v="' + v + '" onclick="pick(\'dbt-akind\',this);fhAcctKindSync()">' + lbl + '</button>').join('');
       _fhModal({
-        title: 'Cài đặt thẻ', saveLabel: 'Lưu',
+        title: 'Cài đặt tài khoản', saveLabel: 'Lưu',
         body: '<div class="field"><label>Tên</label><input id="dbt-aname" value="' + _e(acct.name || '') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Loại</label><div class="choices" id="dbt-akind">' + kindChips + '</div></div>'
+          + '<div id="dbt-acardf"' + (acct.kind === 'credit_card' ? '' : ' hidden') + '>'
           + '<div class="field"><label>Hạn mức thẻ <span class="opt">· để trống nếu không nhớ</span></label><input class="num" id="dbt-alim" inputmode="numeric" value="' + (acct.limitK > 0 ? Math.round(acct.limitK * (window.curMult ? curMult() : 1000)).toLocaleString('vi-VN') : '') + '" oninput="fhModalDirty()"></div>'
           + '<div class="field-row"><div class="field"><label>Ngày chốt sao kê</label>' + _dayIn('dbt-astm', acct.statementDay) + '</div>'
           + '<div class="field"><label>Ngày đến hạn</label>' + _dayIn('dbt-adue', acct.dueDay) + '</div></div>'
-          + '<div class="dbt-note">Ngày chốt và ngày đến hạn là ngày trong tháng (1–31), theo sao kê thẻ của bạn. Dùng để nhắc “đến hạn”.</div>',
+          + '<div class="dbt-note">Ngày chốt và ngày đến hạn là ngày trong tháng (1–31), theo sao kê thẻ của bạn. Dùng để nhắc “đến hạn”.</div>'
+          + '</div>',
         save: async function () {
           const name = ((document.getElementById('dbt-aname') || {}).value || '').trim();
-          const lim = _amtOf('dbt-alim');
+          const kind = (typeof chosen === 'function' && chosen('dbt-akind')) || acct.kind;
+          const isCard = kind === 'credit_card';
+          const lim = isCard ? _amtOf('dbt-alim') : 0;
           const _day = (id) => { const v = parseInt((document.getElementById(id) || {}).value || '', 10); return (v >= 1 && v <= 31) ? v : null; };
-          const ok = await fhPersonalAccountUpdate(acctId, { name: name || acct.name, limitK: lim > 0 ? lim : null,
-            statementDay: _day('dbt-astm'), dueDay: _day('dbt-adue'), humanVerified: true });
+          const ok = await fhPersonalAccountUpdate(acctId, { name: name || acct.name, kind: kind,
+            limitK: lim > 0 ? lim : null,
+            statementDay: isCard ? _day('dbt-astm') : null, dueDay: isCard ? _day('dbt-adue') : null,
+            humanVerified: true });
           if (!ok) throw new Error('save_failed');
-          return function () { openDebtAccount(acctId); if (window.renderPersonal) renderPersonal(); };
+          // the detail overlay must match the (possibly new) kind
+          return function () { if (isCard) openDebtAccount(acctId); else openBalAccount(acctId); if (window.renderPersonal) renderPersonal(); };
         },
       });
+    };
+    /* card-only fields follow the picked kind, live */
+    window.fhAcctKindSync = function () {
+      const k = typeof chosen === 'function' ? chosen('dbt-akind') : null;
+      const f = document.getElementById('dbt-acardf');
+      if (f) f.hidden = k !== 'credit_card';
     };
 
     /* Reconcile (spec Q3a): the derived balance is only as complete as the mail
@@ -26146,11 +26174,12 @@ window.classifyAmount = classifyAmount;
      known (Q16: never invent a debt).
 
      Rows staged BEFORE the classifier existed carry no account_kind, and their
-     sealed boxes can never be amended — so for those the strongest LOCAL
-     signals stand in: a full-length masked PAN is a card number (only cards
-     print one; a deposit alert masks an account as a short tail), and the
-     wallet providers are wallets by identity. Anything weaker stays null —
-     an absent chip beats a wrong debt. */
+     sealed boxes can never be amended — so for those only one LOCAL signal
+     stands in: the wallet providers are wallets by identity. A full-length
+     masked PAN is deliberately NOT read as a credit card any more — VN debit
+     cards print 16-digit PANs too, and that guess is exactly how a debit
+     account became a phantom card (2026-09-02). Anything unconfident stays
+     null — an absent chip beats a wrong debt (Q16). */
   window.fhStagedAcct = function (c) {
     var rows = window._fhStagedRows;
     var r = (c && typeof c.rowIndex === 'number' && rows) ? rows[c.rowIndex] : null;
@@ -26160,9 +26189,7 @@ window.classifyAmount = classifyAmount;
     var kind = x.account_kind || null;
     if (!kind) {
       var prov = String(r.source_provider || '').toLowerCase();
-      var pan = masked.replace(/[^0-9xX*•.]/g, '');
       if (/momo|zalopay|shopeepay/.test(prov)) kind = 'ewallet';
-      else if (pan.length >= 15) kind = 'credit_card';
     }
     if (!kind) return null;
     return { kind: kind,
