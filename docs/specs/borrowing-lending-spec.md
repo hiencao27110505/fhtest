@@ -41,6 +41,14 @@ card issuer, a friend, and a group are all just parties you owe or who owe you.
 > settle-up routing still deferred); (5) the bento is adaptive — a lone/odd tile
 > spans full width so a single card no longer half-empties the row.
 >
+> **v446.** The review's Kind control ("Trả nợ thẻ") now shows only for a
+> **personal-scoped** row — a card is a personal liability, never a space's
+> debt — and flipping a row's scope to Gia đình clears its transfer flag, so a
+> card payment can't ride into the family ledger as an expense and double-count.
+> The "space payable" kind (originating a settle-up from the review) stays
+> deferred: it needs friend/trip spaces as review scopes + a payer→payee pick,
+> not a toggle.
+>
 > **Known issue (2026-09-02).** The *auto-capture* half is throttled by the
 > Gemini free-tier quota (HTTP 429) — mail whose shape needs a model read is
 > held until quota returns (see `effortless-transaction-logging-spec.md` §24 +
