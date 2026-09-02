@@ -137,7 +137,8 @@ function openCsvImport(){
   if(typeof csvTxrHeadSync === 'function') csvTxrHeadSync();   // staged tools header clears itself
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
-  csvReview = null; csvExpand = null;
+  var rs=document.getElementById('csv-rowsheet'); if(rs) rs.innerHTML='';   // no stale staged picker over the file picker
+  csvReview = null; csvExpand = null; csvRowSheet = null; csvRowHot = null;
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='';
   // Restore this flow's own title — the staged review borrows the same modal and
   // retitles it, so the file entry must reclaim its title rather than inherit it.
@@ -165,7 +166,8 @@ function csvPickAnother(){
   csvClearDraft();               // deliberately starting over
   var input=document.getElementById('csv-file-input'); if(input) input.value='';
   var out=document.getElementById('csv-result'); if(out) out.innerHTML='';
-  csvReview = null; csvExpand = null;
+  var rs=document.getElementById('csv-rowsheet'); if(rs) rs.innerHTML='';   // no stale staged picker over the file picker
+  csvReview = null; csvExpand = null; csvRowSheet = null; csvRowHot = null;
   var pick=document.getElementById('csv-pick'); if(pick) pick.style.display='';
   var save=document.getElementById('csv-save'); if(save){ save.disabled=true; save.textContent=L('Nhập','Import'); }
 }
@@ -842,16 +844,23 @@ function csvCollapsedCard(c, opts){
       + ' aria-label="'+escAttr(L('Chọn khoản này để nhập','Select this item to import'))+'">'
       + '<i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></i></button>'
     : '';
+  /* The transport ("Trực tiếp"/"Chuyển tiếp") used to be a highlighted tag at the
+     head. It is provenance, not a decision — so it now sits at the BOTTOM as one
+     quiet plain-text line, and the header meta keeps only scope · bank · account
+     · date · time. */
+  var srcTag = csvStagedSourceTag(c);
+  var srcLine = srcTag ? '<span class="bc-srcline">'+esc(srcTag)+'</span>' : '';
   return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
     /* Scope now rides in the header meta line (csvCardHead), not on its own row.
        Both destinations are marked so the line always reads scope · bank · time. */
     + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c),
         (csvStagedMode && !opts.isDup) ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '',
-        csvStagedSourceTag(c), csvStagedAcctChip(c))
+        '', csvStagedAcctChip(c))
     + (opts.noPick
         ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+'</span>'
         : bulkSummary(csvRowShape(c, opts.isDup || opts.repeat)))
+    + srcLine
     + '</button>' + rm + '</div>';
 }
 
@@ -864,6 +873,18 @@ function csvCollapsedCard(c, opts){
    but its own inputs, so neither surface can empty the other. */
 function csvActiveCard(c, opts){
   var rm = opts.removeFn ? '<button type="button" class="bulk-x" onclick="'+opts.removeFn+'" aria-label="'+L('Xoá khoản này','Remove this item')+'">✕</button>' : '';
+  /* Settings-rows redesign (staged review): the ✕ leaves the header — deleting
+     moved to the bottom CTA bar, one deliberate step away — and the header's
+     right slot holds the same tick as the collapsed card, so the checkbox sits
+     at the SAME top-right corner in both states. */
+  if(csvStagedMode && opts.fields){
+    rm = opts.checkFn
+      ? '<button type="button" class="bulk-check'+(opts.checked?' on':'')+'" onclick="'+opts.checkFn+'"'
+        + ' role="checkbox" aria-checked="'+(opts.checked?'true':'false')+'"'
+        + ' aria-label="'+escAttr(L('Chọn khoản này để nhập','Select this item to import'))+'">'
+        + '<i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></i></button>'
+      : '';
+  }
   var catChips = csvAllCats().map(function(name){
     var st=(window.catStyle&&window.catStyle[name])||['🏷️'];
     var act = opts.instantChips ? 'csvGroupPick(\''+escAttr(name)+'\')' : 'pick(\'csvedit-cats\',this)';
@@ -872,7 +893,12 @@ function csvActiveCard(c, opts){
 
   var body = '';
   if(opts.note) body += '<div class="csv-expand-note">'+opts.note+'</div>';
-  if(opts.fields){
+  if(opts.fields && csvStagedMode){
+    /* Staged review wears the settings-rows card: note (2 lines) on top, then
+       one slim label/value row per decision, each opening a picker sheet. The
+       file-import flow below keeps its chip workbench untouched. */
+    body += csvStagedRowsCard(c, opts);
+  } else if(opts.fields){
     var mems = (window.FAM && window.FAM.members) || [];
     var whoSel = (c && c.who) || csvDefaultWho();
     var whoChips = mems.map(function(m){
@@ -928,7 +954,9 @@ function csvActiveCard(c, opts){
   // Expanding was tappable but collapsing wasn't; an up-chevron marks the header
   // as the way back. The × (remove) stays a separate sibling so the two 44px
   // targets never overlap.
-  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c), '', csvStagedSourceTag(c));
+  // Transport tag no longer rides the expanded header either — the card body's
+  // read-only "Nguồn nhập" row carries it now.
+  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c), '', csvStagedMode ? '' : csvStagedSourceTag(c));
   var head = opts.tapFn
     ? '<button type="button" class="bulk-collapse" onclick="'+opts.tapFn+'" aria-expanded="true" aria-label="'+escAttr(L('Thu gọn','Collapse'))+'">'
         + headInner
@@ -939,6 +967,345 @@ function csvActiveCard(c, opts){
     + '<div class="bulk-head">'+head+rm+'</div>'
     + '<div class="csv-card-body">'+body+'</div></div>';
 }
+
+/* ── Settings-rows card (staged review redesign) ────────────────────────────
+   The expanded card stopped being a chip workbench: every decision is one slim
+   label/value row (iOS Settings grammar), so the card's height is field COUNT,
+   not option count. Tapping a row opens a small picker sheet over the modal;
+   the picked value writes straight onto the candidate and the row re-renders,
+   briefly tinted (csvRowHot). Amount/date demote to rows too — bank data is
+   trusted, editing it is the rare path. */
+var csvRowSheet = null;   // which field's picker sheet is open ('scope'|'kind'|...)
+var csvRowHot = null;     // last field changed — its row wears the brand tint
+
+function csvRowKindCur(c){
+  return c._xfer ? 'xfer' : (c._repay ? 'repay' : (c.isTransfer ? 'cardpay' : (c.isIncome ? 'income' : 'expense')));
+}
+function csvStagedRowsCard(c, opts){
+  var isIncomeNow = !!(c.isIncome && !c._xfer && !c._repay);
+  var noCat = c.isTransfer || c._xfer || c._repay;
+  var noteLbl = noCat ? L('Ghi chú','Note') : (isIncomeNow ? L('Tiền gì vậy?','What money is this?') : L('Chi cho gì?','What for?'));
+  var h = '<div class="field csv-notef"><label>'+noteLbl+'</label>'
+    + '<textarea id="csvedit-note" rows="2">'+esc(c.description||'')+'</textarea></div>';
+
+  var row = function(f, lbl, val, mods){
+    mods = mods || {};
+    var cls = 'csv-srow'+(mods.ro?' ro':'')+(csvRowHot===f && !mods.ro?' hot':'')+(mods.miss?' miss':'');
+    var inner = '<small>'+lbl+'</small><span class="csv-sval"><b>'+val+'</b>'
+      + (mods.ro ? '' : '<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>')
+      + '</span>';
+    return mods.ro ? '<div class="'+cls+'">'+inner+'</div>'
+      : '<button type="button" class="'+cls+'" onclick="csvRowSheetOpen(\''+f+'\')">'+inner+'</button>';
+  };
+  var rows = '';
+  var sc = csvRowScope(c);
+  rows += row('scope', L('Ghi vào đâu','Where to'),
+    sc==='personal' ? L('🔒 Cá nhân','🔒 Personal') : L('🏡 Gia đình','🏡 Family'));
+  if(sc==='personal'){
+    var cur = csvRowKindCur(c);
+    var kindLbls = { expense:L('Chi tiêu','Spending'), cardpay:L('💳 Trả nợ thẻ','💳 Card payment'),
+                     xfer:L('🔁 Chuyển khoản nội bộ','🔁 Internal transfer'),
+                     income:L('Thu nhập','Income'), repay:L('🤝 Thu nợ','🤝 Repayment in') };
+    rows += row('kind', L('Loại khoản','Kind'), kindLbls[cur] || '');
+    if(cur==='cardpay'){
+      var cards = csvCreditCards();
+      var pc = c._payCardId || (cards.length===1 ? cards[0].id : '');
+      var cardName = '';
+      cards.forEach(function(a){ if(a.id===pc) cardName = a.name || L('Thẻ','Card'); });
+      rows += row('paycard', L('Trả cho thẻ','Which card'),
+        cardName ? esc(cardName) : L('Chưa rõ','Not sure'), { miss: !cardName && cards.length>0 });
+    }
+    if(cur==='xfer'){
+      var accts = csvXferAccounts(c), sel = c._xferOtherId || '', an = '';
+      accts.forEach(function(a){ if(a.id===sel) an = a.name || L('Tài khoản','Account'); });
+      if(sel==='_cash') an = L('Tiền mặt','Cash');
+      rows += row('xferacct',
+        (c.isIncome ? L('Chuyển từ đâu','From where') : L('Chuyển đến đâu','To where')),
+        an ? esc(an) : L('Chọn tài khoản','Pick one'), { miss: !an });
+    }
+    if(cur==='repay'){
+      rows += row('repay', L('Ai trả bạn','Who repaid'),
+        c._repayWho ? esc(c._repayWho) : L('Chọn','Pick'), { miss: !c._repayWho });
+    }
+  }
+  if(!noCat){
+    if(isIncomeNow){
+      rows += row('inccat', L('Danh mục','Category'), esc(c._incomeCat || 'Khác'));
+    } else {
+      rows += row('cat', L('Danh mục','Category'),
+        c.categoryName ? (csvCatEmoji(c.categoryName)+' '+esc(c.categoryName)) : L('Chưa rõ','Not set'),
+        { miss: !c.categoryName });
+    }
+  }
+  var mems = (window.FAM && FAM.members) || [];
+  if(mems.length && sc!=='personal' && !opts.isDup){
+    var whoSel = c.who || csvDefaultWho();
+    rows += row('who', L('Ai trả','Who paid'), whoSel==='Both' ? L('Chung','Both') : esc(whoSel || ''));
+  }
+  rows += row('amount', L('Số tiền','Amount'),
+    '<span class="num">'+esc(csvFmt(c.amount!=null ? c.amount : 0))+'</span>');
+  var t = csvRowTime(c);
+  rows += row('when', L('Khi nào','When'),
+    '<span class="num">'+esc(bulkDate(c.dateDisplay))+(t ? ' · '+esc(t) : '')+'</span>');
+  /* Provenance, read-only: which instrument the money moved on, and which
+     transport brought the row in. Quiet grey, no chevron — informational. */
+  var prov = csvStagedProvider(c), acct = csvStagedAcctChip(c);
+  if(prov || acct) rows += row('srcacct', L('Nguồn tiền','Money source'),
+    esc([prov, acct].filter(Boolean).join(' · ')), { ro:true });
+  var tag = csvStagedSourceTag(c);
+  if(tag) rows += row('transport', L('Nguồn nhập','Imported via'), esc(tag), { ro:true });
+
+  h += '<div class="csv-srows">'+rows+'</div>';
+
+  /* Bottom CTA bar (ready rows only — dup/defer cards keep their own verbs):
+     delete (moved down from the old header ✕, same arm-then-confirm), apply
+     this classification to lookalike rows, and import just this one now. */
+  if(opts.ctaIdx !== undefined){
+    var i = opts.ctaIdx, sims = csvSimilarRows(c).length;
+    h += '<div class="csv-cta">'
+      + '<button type="button" class="csv-cta-del'+(csvArmedRemove===i?' armed':'')+'" onclick="csvReadyRemove('+i+')"'
+      + ' aria-label="'+escAttr(csvArmedRemove===i ? L('Xác nhận xoá khoản này','Confirm removing this item') : L('Xoá khoản này','Remove this item'))+'">'
+      + (csvArmedRemove===i ? esc(L('Xoá?','Delete?'))
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>')
+      + '</button>'
+      + (sims ? '<button type="button" class="csv-cta-ghost" onclick="csvApplySimilar('+i+')">'
+          + esc(L('Áp cho '+sims+' khoản giống','Apply to '+sims+' similar'))+'</button>' : '')
+      + '<button type="button" class="csv-cta-go" onclick="csvImportOne('+i+')">✓ '+esc(L('Nhập khoản này','Import this one'))+'</button>'
+      + '</div>';
+  }
+  return h;
+}
+
+/* ── the row-picker sheet ── */
+function csvRowSheetOpen(f){
+  var c = csvExpandedCandidate(); if(!c) return;
+  csvReadEditor(c);          // keep a note someone was mid-typing
+  csvDisarmRemove();
+  csvRowSheet = f;
+  renderCsvReview();
+}
+function csvRowSheetClose(){ csvRowSheet = null; renderCsvReview(); }
+
+/* One dispatcher for every chip in the sheet: closes the sheet, marks the row
+   hot, then routes to the SAME pick handlers the chip workbench used — the
+   data path is unchanged, only the surface moved. */
+function csvSheetPick(f, v){
+  csvRowSheet = null; csvRowHot = f;
+  if(f==='scope'){ csvPickRowScope(v); renderCsvReview(); return; }   // locked pick refuses without rendering
+  if(f==='kind'){ csvPickRowKind(v); return; }
+  if(f==='paycard'){ csvPickPayCard(v); return; }
+  if(f==='xferacct'){ csvPickXferAcct(v); return; }
+  if(f==='repay'){ csvPickRepayWho(v); return; }
+  var c = csvExpandedCandidate(); if(!c){ renderCsvReview(); return; }
+  if(f==='cat'){ c.categoryName = v; c.catSource = 'user'; if(typeof csvLearnFrom === 'function') csvLearnFrom(c); }
+  else if(f==='inccat'){ c._incomeCat = v; }
+  else if(f==='who'){ c.who = v; }
+  renderCsvReview();
+}
+/* Sheets with typed input (amount / date+time / repay free-text) commit on Xong. */
+window.csvSheetValDone = function(){
+  var c = csvExpandedCandidate();
+  var f = csvRowSheet;
+  if(c && f==='amount'){
+    var a = document.getElementById('csvsheet-amt');
+    var v = (a && window.classifyAmount) ? classifyAmount(a.value||'') : null;
+    if(v && v.status==='ok' && v.value > 0) c.amount = v.value;
+  } else if(c && f==='when'){
+    var d = document.getElementById('csvsheet-date');
+    if(d && d.value){ c.dateDisplay = d.value; c.date = new Date(d.value+'T00:00:00'); }
+    var t = document.getElementById('csvsheet-time');
+    if(t) c.time = t.value || '';
+  } else if(c && f==='repay'){
+    var r = document.getElementById('csvsheet-repwho');
+    if(r && r.value.trim()) c._repayWho = r.value.trim();
+  }
+  csvRowHot = f; csvRowSheet = null;
+  renderCsvReview();
+};
+/* "+ Tài khoản khác" inside the transfer-counterpart sheet: toggle the inline
+   name field (sheet stays open), then Create materializes + selects + closes. */
+function csvSheetXferAddNew(){
+  var c = csvExpandedCandidate(); if(!c) return;
+  c._xferAddingNew = !c._xferAddingNew;
+  renderCsvReview();
+}
+window.csvSheetXferCreate = async function(){
+  var c = csvExpandedCandidate(); if(!c) return;
+  var el = document.getElementById('csvsheet-newacct');
+  var name = ((el && el.value) || '').trim();
+  if(!name){ window.toast && toast(L('Đặt tên tài khoản nhé','Name the account first')); return; }
+  var id = window.fhPersonalAccountCreate ? await fhPersonalAccountCreate(name, 'deposit') : null;
+  if(!id){ window.toast && toast(L('Chưa tạo được, thử lại','Couldn\'t create, try again')); return; }
+  c._xferOtherId = id; c._xferAddingNew = false; c._xferNewName = null;
+  csvRowSheet = null; csvRowHot = 'xferacct';
+  window.toast && toast(L('Đã tạo tài khoản '+name,'Created '+name));
+  renderCsvReview();
+};
+
+function csvRowSheetHTML(c){
+  var f = csvRowSheet;
+  var title = '', body = '';
+  var chip = function(on, click, label){
+    return '<button type="button" class="choice'+(on?' on':'')+'" onclick="'+click+'">'+label+'</button>';
+  };
+  if(f==='scope'){
+    var sc = csvRowScope(c), locked = !csvScopeReady();
+    title = L('Ghi vào đâu?','Where does this go?');
+    body = '<div class="choices">'
+      + chip(sc==='personal', "csvSheetPick('scope','personal')", esc(L('🔒 Cá nhân','🔒 Personal')))
+      + chip(sc==='family', "csvSheetPick('scope','family')", esc(L('🏡 Gia đình','🏡 Family')))
+      + '</div>'
+      + (locked ? '<div class="csv-scope-note">'+esc(L('Sổ cá nhân đang khoá — mở ở tab Cá nhân để chọn được.','Personal ledger is locked — unlock it on the Cá nhân tab to pick it.'))+'</div>' : '');
+  } else if(f==='kind'){
+    var credit = !!c.isIncome || c._xferDir === 'in';
+    var cur = csvRowKindCur(c);
+    title = L('Loại khoản','Kind');
+    body = '<div class="choices">' + (credit
+      ? chip(cur==='income', "csvSheetPick('kind','income')", esc(L('Thu nhập','Income')))
+        + chip(cur==='xfer', "csvSheetPick('kind','xfer')", esc(L('🔁 Chuyển khoản nội bộ','🔁 Internal transfer')))
+        + chip(cur==='repay', "csvSheetPick('kind','repay')", esc(L('🤝 Thu nợ','🤝 Repayment in')))
+      : chip(cur==='expense', "csvSheetPick('kind','expense')", esc(L('Chi tiêu','Spending')))
+        + chip(cur==='cardpay', "csvSheetPick('kind','transfer')", esc(L('💳 Trả nợ thẻ','💳 Card payment')))
+        + chip(cur==='xfer', "csvSheetPick('kind','xfer')", esc(L('🔁 Chuyển đi nội bộ','🔁 Internal transfer')))
+    ) + '</div>';
+  } else if(f==='paycard'){
+    var cards = csvCreditCards();
+    var pc = c._payCardId || (cards.length===1 ? cards[0].id : '');
+    title = L('Trả cho thẻ nào','Which card');
+    body = '<div class="choices">'
+      + cards.map(function(a){ return chip(pc===a.id, "csvSheetPick('paycard','"+a.id+"')", esc(a.name||L('Thẻ','Card'))); }).join('')
+      + chip(!pc, "csvSheetPick('paycard','')", esc(L('Chưa rõ','Not sure')))
+      + '</div>'
+      + (cards.length ? '' : '<div class="csv-scope-note">'+esc(L('Chưa có thẻ tín dụng nào — vẫn ghi được, gán thẻ sau ở mục Nợ & cho vay.','No credit card yet — it still imports, assign a card later in Owing & lending.'))+'</div>');
+  } else if(f==='xferacct'){
+    var accts = csvXferAccounts(c), sel = c._xferOtherId || '';
+    title = c.isIncome ? L('Chuyển từ đâu?','From which account?') : L('Chuyển đến đâu?','To which account?');
+    body = '<div class="choices">'
+      + accts.map(function(a){ return chip(sel===a.id, "csvSheetPick('xferacct','"+a.id+"')", esc(a.name||L('Tài khoản','Account'))); }).join('')
+      + chip(sel==='_cash', "csvSheetPick('xferacct','_cash')", esc(L('Tiền mặt','Cash')))
+      + chip(!!c._xferAddingNew, "csvSheetXferAddNew()", '＋ '+esc(L('Tài khoản khác','Other account')))
+      + '</div>'
+      + (c._xferAddingNew
+          ? '<div class="csv-newacct"><input id="csvsheet-newacct" class="crs-in" placeholder="'+escAttr(L('Tên tài khoản, vd. VCB tiết kiệm','Account name, e.g. VCB savings'))+'" value="'+escAttr(c._xferNewName||'')+'"/>'
+            + '<button type="button" class="btn-line" onclick="csvSheetXferCreate()">'+esc(L('Tạo','Create'))+'</button></div>'
+          : '')
+      + '<div class="csv-scope-note">'+esc(L('Ghi thành một cặp chuyển khoản — không tính là chi tiêu hay thu nhập.','Recorded as a transfer pair — never spending, never income.'))+'</div>';
+  } else if(f==='repay'){
+    var pd = (window.fhPersonalDebts && fhPersonalDebts()) || { people: [] };
+    var names = pd.people.filter(function(p){ return p.balance > 0.5; }).map(function(p){ return p.who; });
+    title = L('Ai trả bạn?','Who repaid you?');
+    body = (names.length ? '<div class="choices" style="margin-bottom:10px">'
+        + names.map(function(n){ return chip(c._repayWho===n, "csvSheetPick('repay','"+escAttr(n)+"')", esc(n)); }).join('')+'</div>' : '')
+      + '<input id="csvsheet-repwho" class="crs-in" placeholder="'+escAttr(L('vd. Thằng em','e.g. a name'))+'" value="'+escAttr(c._repayWho||'')+'"/>'
+      + '<div class="csv-scope-note">'+esc(L('Trừ vào số họ đang nợ bạn — không tính là thu nhập.','Draws down what they owe you — never income.'))+'</div>'
+      + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
+  } else if(f==='cat'){
+    title = L('Danh mục','Category');
+    body = '<div class="choices">'
+      + csvAllCats().map(function(name){
+          var st = (window.catStyle && catStyle[name]) || ['🏷️'];
+          return chip(c.categoryName===name, "csvSheetPick('cat','"+escAttr(name)+"')", st[0]+' '+esc(name));
+        }).join('')
+      + '</div>';
+  } else if(f==='inccat'){
+    title = L('Tiền gì vậy?','What money is this?');
+    body = '<div class="choices">'
+      + FH_INCOME_CATS.map(function(name){
+          return chip((c._incomeCat||'Khác')===name, "csvSheetPick('inccat','"+escAttr(name)+"')", esc(name));
+        }).join('')
+      + '</div>';
+  } else if(f==='who'){
+    var mems = (window.FAM && FAM.members) || [];
+    var whoSel = c.who || csvDefaultWho();
+    title = L('Ai trả','Who paid');
+    body = '<div class="choices">'
+      + mems.map(function(m){ return chip(m.name===whoSel, "csvSheetPick('who','"+escAttr(m.name)+"')", esc(m.name)); }).join('')
+      + chip(whoSel==='Both', "csvSheetPick('who','Both')", esc(L('Chung','Both')))
+      + '</div>';
+  } else if(f==='amount'){
+    title = L('Số tiền','Amount');
+    body = '<input id="csvsheet-amt" class="crs-in num" inputmode="numeric" placeholder="'+escAttr(amtPlaceholder())+'" value="'+escAttr(c.amount!=null ? csvAmtInputVal(c.amount) : '')+'"/>'
+      + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
+  } else if(f==='when'){
+    title = L('Khi nào','When');
+    body = '<div class="crs-row2">'
+      + '<div><span class="crs-lbl">'+esc(L('Ngày','Date'))+'</span><input type="date" id="csvsheet-date" class="crs-in" value="'+escAttr(c.dateDisplay||'')+'"/></div>'
+      + '<div><span class="crs-lbl">'+esc(L('Giờ','Time'))+' <span style="text-transform:none;letter-spacing:0;font-weight:500">'+esc(L('tuỳ chọn','optional'))+'</span></span><input type="time" id="csvsheet-time" class="crs-in" value="'+escAttr(csvRowTime(c))+'"/></div>'
+      + '</div>'
+      + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
+  } else { return ''; }
+  var sub = '<span class="num">'+esc(csvFmt(c.amount!=null ? c.amount : 0))+'</span>'
+    + (c.description ? ' · '+esc(String(c.description).slice(0,36)) : '');
+  return '<div class="crs-scrim" onclick="csvRowSheetClose()"></div>'
+    + '<div class="crs-sheet"><div class="modal-grip"></div>'
+    + '<div class="crs-t">'+esc(title)+'</div><div class="crs-sub">'+sub+'</div>'
+    + '<div class="crs-body">'+body+'</div></div>';
+}
+/* Paint (or clear) the picker overlay. Runs on every review render, so the
+   sheet's chips always reflect the candidate's current values, and a sheet
+   whose row vanished (collapse, import, delete) closes itself. */
+function csvRowSheetSync(){
+  var m = document.getElementById('csv-rowsheet'); if(!m) return;
+  var c = (csvRowSheet && csvStagedMode) ? csvExpandedCandidate() : null;
+  if(!c){ if(m.innerHTML) m.innerHTML=''; csvRowSheet = null; return; }
+  m.innerHTML = csvRowSheetHTML(c);
+}
+
+/* ── CTA bar actions ── */
+/* Lookalike rows: same bank, same direction, same memo once numbers are
+   stripped. Deliberately conservative — a too-short key matches everything,
+   so anything under 6 meaningful chars proposes nothing. */
+function csvSimKey(c){
+  var s = (c.description||'').toLowerCase().replace(/\d+/g,' ').replace(/\s+/g,' ').trim();
+  return s.length >= 6 ? s : '';
+}
+function csvSimilarRows(c){
+  if(!csvReview || !csvStagedMode) return [];
+  var k = csvSimKey(c); if(!k) return [];
+  var prov = csvStagedProvider(c);
+  return (csvReview.ready||[]).filter(function(r){
+    return r !== c && csvSimKey(r) === k && csvStagedProvider(r) === prov
+      && !!r.isIncome === !!c.isIncome;
+  });
+}
+/* Copy this row's decisions onto its lookalikes: destination, kind (with the
+   kind's follow-up picks), category, payer. Facts (amount, date, time, memo)
+   stay each row's own. */
+function csvApplySimilar(i){
+  if(!csvReview) return;
+  var c = csvReview.ready[i]; if(!c) return;
+  csvReadEditor(c);
+  var sims = csvSimilarRows(c); if(!sims.length) return;
+  sims.forEach(function(r){
+    r._scope = csvRowScope(c);
+    r.isTransfer = c.isTransfer; r._xfer = c._xfer; r._repay = c._repay; r.isIncome = c.isIncome;
+    r._payCardId = c._payCardId; r._xferOtherId = c._xferOtherId; r._repayWho = c._repayWho;
+    if(c.categoryName){ r.categoryName = c.categoryName; r.catSource = 'user';
+      if(typeof csvLearnFrom === 'function') csvLearnFrom(r); }
+    if(c._incomeCat) r._incomeCat = c._incomeCat;
+    if(c.who) r.who = c.who;
+  });
+  window.toast && toast(L('Đã áp cho '+sims.length+' khoản giống','Applied to '+sims.length+' similar'));
+  renderCsvReview();
+}
+/* Import exactly one row, now. Rides the whole fhPromoteStaged machinery —
+   write, retire, view rebuild — by borrowing the selection for one call:
+   everything else is unticked for the duration and restored after, so the
+   real selection survives whether the write lands or fails. */
+window.csvImportOne = async function(i){
+  if(!csvReview || !csvStagedMode || !window.fhPromoteStaged) return;
+  var c = csvReview.ready[i]; if(!c) return;
+  csvReadEditor(c);
+  c._skipImport = false;              // importing it IS selecting it
+  csvRowSheet = null; csvExpand = null;
+  var stash = csvReview.ready.map(function(r){ return [r, !!r._skipImport]; });
+  csvReview.ready.forEach(function(r){ r._skipImport = (r !== c); });
+  try { await fhPromoteStaged(); }
+  finally {
+    stash.forEach(function(p){ if(p[0] !== c) p[0]._skipImport = p[1]; });
+    if(window.csvReview && document.getElementById('csv-result')) renderCsvReview();
+  }
+};
 
 // Reads the expanded card's fields back onto its candidate.
 function csvReadEditor(c){
@@ -1503,9 +1870,15 @@ function renderCsvReview(){
                   tapFn:"csvToggleExpand('ready',"+e.i+")", removeFn:"csvReadyRemove("+e.i+")" };
         if(csvStagedMode){ o.checkFn = "csvStagedToggle("+e.i+")"; o.checked = !e.c._skipImport;
                            o.armed = (csvArmedRemove === e.i); }
+        /* Staged expanded card wears the settings-rows layout with its own CTA
+           bar (delete / apply-to-similar / import-one) — the explicit Xong
+           button belongs to the file workbench; here the header collapse and
+           the accordion flush already close a card safely. */
         html += csvIsOpen('ready', e.i)
-          ? csvActiveCard(e.c, Object.assign({}, o, { fields:true,
-              buttons:'<button type="button" class="btn-line" onclick="csvExpandDone()">'+L('Xong','Done')+'</button>' }))
+          ? csvActiveCard(e.c, Object.assign({}, o, csvStagedMode
+              ? { fields:true, ctaIdx:e.i }
+              : { fields:true,
+                  buttons:'<button type="button" class="btn-line" onclick="csvExpandDone()">'+L('Xong','Done')+'</button>' }))
           : csvCollapsedCard(e.c, o);
       });
       html += '</div>';
@@ -1554,6 +1927,10 @@ function renderCsvReview(){
   // The tools header lives OUTSIDE this scroller; sync it with every render so
   // its counts always agree with the ticks. Clears itself in the file flow.
   csvTxrHeadSync();
+
+  // Same contract for the row-picker overlay: repaint from state every render,
+  // clear itself whenever its card is gone.
+  csvRowSheetSync();
 }
 
 /* ---- inline expansion handlers ------------------------------------------- */
@@ -1574,12 +1951,13 @@ function csvFlushExpand(){
 
 function csvToggleExpand(kind, idx){
   csvDisarmRemove();                 // a tap elsewhere is not a confirmation
+  csvRowSheet = null; csvRowHot = null;   // a picker belongs to the card that opened it
   if(csvIsOpen(kind, idx)){ csvFlushExpand(); csvExpand = null; }
   else { csvFlushExpand(); csvExpand = { kind:kind, idx:idx }; }
   renderCsvReview();
 }
 
-function csvExpandDone(){ csvFlushExpand(); csvExpand = null; renderCsvReview(); }
+function csvExpandDone(){ csvRowSheet = null; csvRowHot = null; csvFlushExpand(); csvExpand = null; renderCsvReview(); }
 
 /* Learning happens on the way OUT of an edit, and only from an explicit pick
    -- csvReadEditor stamps catSource:'user' when the person chose a chip. */
