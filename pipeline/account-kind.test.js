@@ -150,12 +150,17 @@ const EXTRACTION = {
     !!applied && applied.account_kind === undefined);
 }
 {
-  t('the logic version is 5 on both sides — v4 templates predate the field',
-    T.EXTRACTION_LOGIC_VERSION === 5 && EXTRACTION_LOGIC_VERSION === 5,
+  // account_kind is filled by the per-read heuristic, not frozen behind a
+  // version bump — so the logic version stays 4 (bumping it forced a mass
+  // re-derivation that stalled backfills, 2026-09-02). account_kind is still
+  // written into a freshly-derived template's static when non-null (additive),
+  // and read back by the heuristic when a template predates it.
+  t('the logic version is 4 on both sides',
+    T.EXTRACTION_LOGIC_VERSION === 4 && EXTRACTION_LOGIC_VERSION === 4,
     T.EXTRACTION_LOGIC_VERSION + ' / ' + EXTRACTION_LOGIC_VERSION);
-  const v4 = JSON.stringify({ ...JSON.parse(T.deriveExtractionTemplate(BODY, EXTRACTION)), v: 4 });
-  t('a v4 template is refused, forcing one clean re-derivation per shape',
-    T.applyExtractionTemplate(v4, BODY) === null && applyExtractionTemplate(v4, BODY) === null);
+  const stale = JSON.stringify({ ...JSON.parse(T.deriveExtractionTemplate(BODY, EXTRACTION)), v: 3 });
+  t('a previous-version template is refused, forcing one clean re-derivation per shape',
+    T.applyExtractionTemplate(stale, BODY) === null && applyExtractionTemplate(stale, BODY) === null);
 }
 
 /* ── 3. the wiring: every tier leaves with a verdict, none overwrites one ── */

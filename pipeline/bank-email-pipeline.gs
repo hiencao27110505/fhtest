@@ -809,7 +809,9 @@ function stripNullsForGemini(schema) {
 // (different amount/name/ref/time), reject-different-structure, reject-stale-
 // version, reject-legacy-placeholder, self-reproduction — all pass.
 
-var EXTRACTION_LOGIC_VERSION = 5;   // 5: account_kind staticised (4: memo anchored + verified)
+var EXTRACTION_LOGIC_VERSION = 4;   // 4: memo anchored + verified. account_kind is filled by the
+                                    // per-read heuristic on every tier, so it needs no version bump —
+                                    // bumping to 5 to staticise it stalled backfills (2026-09-02).
 
 function _escRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 

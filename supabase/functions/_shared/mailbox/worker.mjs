@@ -486,6 +486,14 @@ export async function runGrant(grant, ctx) {
          only the model-needing ones wait for the next tick. */
       summary.held++;
       hitLimit = true;
+      /* A hold is meant to be "the model is unreachable / out of quota", and the
+         cursor stays put so the message is retried. But ANY throw from
+         readTransaction lands here — a real code bug is then indistinguishable
+         from a quota wait, holds forever, and stalls the backfill with nothing
+         in the logs (2026-09-02: a mis-bumped logic version stalled a grant this
+         way, invisibly). So the actual error is logged, once per hold, without
+         changing the hold behaviour. */
+      try { console.error('mailbox hold on', id, '—', (e && (e.stack || e.message)) || e); } catch (_e) {}
       /* Held is a real outcome and it was only ever a number inside one run's
          summary, so a mailbox stuck behind an exhausted quota looked exactly
          like a quiet one from outside. A DAY COUNTER rather than a

@@ -47,7 +47,11 @@
  * the diff against the .gs slice is the thing keeping the two honest.
  */
 
-var EXTRACTION_LOGIC_VERSION = 5;   // 5: account_kind staticised (4: memo anchored + verified)
+var EXTRACTION_LOGIC_VERSION = 4;   // 4: memo anchored + verified. account_kind is filled by the
+                                    // per-read heuristic (_fillAccountKind) on EVERY tier including
+                                    // template reads, so it needs no version bump — bumping to 5 to
+                                    // freeze it as a static forced a mass re-derivation that exceeded
+                                    // MAX_MODEL_CALLS_PER_GRANT and stalled backfills (2026-09-02).
 
 function _escRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
