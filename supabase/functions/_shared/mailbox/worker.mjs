@@ -725,6 +725,11 @@ function _toReading(x, message) {
     amount: x.amount,
     direction: x.direction,
     currency: x.currency || 'VND',
+    // The foreign original behind a converted-VND amount (labeltable/llm,
+    // foreign-currency-emails-spec.md Approach 2). Provenance only — the
+    // amount above is already the figure that moved.
+    fxAmount: x.fx_amount ?? null,
+    fxCurrency: x.fx_currency || null,
     merchant: x.counterparty_display || x.counterparty || null,
     reference: x.reference_number || null,
     // Falling back to the mail's own date: a template that could not anchor the

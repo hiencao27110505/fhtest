@@ -139,6 +139,37 @@ console.log('\n-- a structurally different mail is refused, not guessed at --');
     T.applyExtractionTemplate('some-old-regex', BODY) === null);
 }
 
+console.log('\n-- foreign currency: both sides refuse rather than misread --');
+{
+  // No foreign-static template may ever exist: derivation refuses a non-VND
+  // reading on both sides (foreign-currency-emails-spec.md).
+  const USD_EXTRACTION = { ...EXTRACTION, amount: 111, currency: 'USD' };
+  t('mine refuses to derive off a USD reading',
+    T.deriveExtractionTemplate(BODY, USD_EXTRACTION) === null);
+  t('theirs refuses too',
+    deriveExtractionTemplate(BODY, USD_EXTRACTION) === null);
+
+  // A VND-derived template DEGRADES a mail whose amount line speaks a foreign
+  // currency, instead of re-parsing "111.00" under VN grouping as 11100.
+  const USD_BODY = BODY.replace('-165,000 VND', '-111.00 USD');
+  t('mine degrades the USD mail to the smarter tiers',
+    T.applyExtractionTemplate(mine, USD_BODY) === null);
+  t('theirs degrades identically',
+    applyExtractionTemplate(theirs, USD_BODY) === null);
+
+  // An explicit currency row elsewhere in the mail degrades the same way.
+  const CURROW_BODY = BODY + '\nLoai tien\nUSD';
+  t('mine degrades on a "Loại tiền: USD" row',
+    T.applyExtractionTemplate(mine, CURROW_BODY) === null);
+  t('theirs degrades identically on it',
+    applyExtractionTemplate(theirs, CURROW_BODY) === null);
+
+  // And the guard never taxes domestic mail: the plain VND bodies above
+  // already proved they still parse (identical-result assertions).
+  t('a domestic mail still parses under the guarded template',
+    T.applyExtractionTemplate(mine, BODY_2) !== null);
+}
+
 console.log('\n-- memo tidying agrees on every shape in the corpus --');
 const MEMOS = [
   // bank auto-fill: says nothing, and a pre-filled wrong answer is worse than

@@ -434,6 +434,36 @@
   }
   window.fhStagedMeta = fhStagedMeta;
 
+  /* Foreign-currency posture of a staged row, by candidate rowIndex
+     (foreign-currency-emails-spec.md). Three answers:
+
+       null                    — a domestic row; nothing special anywhere.
+       {kind:'foreign', ...}   — the row is denominated in a currency that is
+                                 not the family's. Its amount is NOT a VND
+                                 figure: rendering it with curFmt or writing it
+                                 through csvBaseAmt is the 111đ corruption.
+                                 The card shows "$111" and Import stays gated
+                                 until the person types the real VND amount.
+       {kind:'converted', ...} — the amount IS VND (the bank's own settled
+                                 conversion, preferred at extraction), and the
+                                 foreign original rides along for display
+                                 ("≈ $111") and note provenance.
+
+     `amount`/`currency` in the answer are always the FOREIGN pair. */
+  window.fhStagedFx = function (rowIndex) {
+    var rows = window._fhStagedRows;
+    var r = (rows && typeof rowIndex === 'number') ? rows[rowIndex] : null;
+    if (!r || r._unreadable) return null;
+    var home = String(window.CUR || 'VND').toUpperCase();
+    var cur = String(r.currency || '').toUpperCase();
+    if (cur && cur !== home) return { kind: 'foreign', currency: cur, amount: r.amount };
+    var x = r.raw_extracted || {};
+    if (x.fx_amount != null && x.fx_currency && String(x.fx_currency).toUpperCase() !== home) {
+      return { kind: 'converted', currency: String(x.fx_currency).toUpperCase(), amount: x.fx_amount };
+    }
+    return null;
+  };
+
   /* The full opened payload of a staged row, by candidate rowIndex —
      fhStagedAsCsvSource maps _fhStagedRows in order, the same guarantee
      retirement relies on. Used by the review's transfer wiring (flow /
@@ -853,6 +883,39 @@
       window.fhStagingAlarmShow && window.fhStagingAlarmShow();
       return;
     }
+    /* THE FX GATE (foreign-currency-emails-spec.md, Approach 1). A row still
+       denominated in a foreign currency has no VND amount to write: importing
+       it would push c.amount through csvBaseAmt as if "$111" were 111đ — the
+       exact corruption this gate exists to stop. Such a row imports only after
+       the person typed the real VND figure (the amount editor sets _fxVnd).
+       Runs BEFORE the resolved-ids read below, and marks the row _skipImport
+       so BOTH the import set and the retire set exclude it — a gated row must
+       stay staged, never be retired unimported.
+
+       Importable rows with a foreign original (converted or person-resolved)
+       get the original appended to the note in a fixed machine-readable form,
+       "[111 USD]" — the provenance a future multi-currency migration recovers
+       (spec §9, answered by decision #4). */
+    var fxHeld = 0;
+    ((window.csvReview && csvReview.ready) || []).forEach(function (c) {
+      if (!c || typeof c.rowIndex !== 'number' || !window.fhStagedFx) return;
+      var fx = window.fhStagedFx(c.rowIndex);
+      if (!fx) return;
+      if (fx.kind === 'foreign' && !c._fxVnd) {
+        if (!c._skipImport) { c._skipImport = true; fxHeld++; }
+        return;
+      }
+      var tag = '[' + Number(fx.amount).toLocaleString('en-US', { maximumFractionDigits: 2 })
+        + ' ' + fx.currency + ']';
+      if ((c.description || '').indexOf(tag) < 0) {
+        c.description = ((c.description || '') + ' ' + tag).trim();
+      }
+    });
+    if (fxHeld && window.toast) {
+      toast(L(fxHeld + ' khoản ngoại tệ cần nhập số tiền ₫ trước khi vào sổ',
+              fxHeld + ' foreign-currency item(s) need a ₫ amount before import'));
+    }
+
     /* Everything the person has finished with — imported OR removed on purpose.
        Read BEFORE csvPromote(), which consumes csvReview.ready, and before the
        ✕ handlers' splices become impossible to reason about. */

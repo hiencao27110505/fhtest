@@ -253,5 +253,83 @@ const wf = readLabelTable('x', WITH_FOOTER);
 t('the shop is the shop', wf && wf.counterparty === 'AEON MALL NGUYEN VAN LINH', wf && wf.counterparty);
 t('with its real amount', wf && wf.amount === 266320);
 
+/* ── foreign currency: the USD-as-VND defect (foreign-currency-emails-spec.md) ──
+   A $111 subscription charge once staged as 111đ: parseAmountCell stripped the
+   USD token and readLabelTable hardcoded currency 'VND'. These fixtures pin
+   the three honest outcomes: a USD-only notice stays USD, a notice that also
+   prints the bank's converted VND figure takes THAT (with the original riding
+   as fx provenance), and the FX-rate row can never hijack the amount. */
+console.log('\n-- foreign currency: USD stays USD --');
+const USD_ONLY = `Thông báo giao dịch thẻ
+Số thẻ
+Visa 452404...0035
+Sử dụng tại
+CLAUDE.AI SUBSCRIPTION
+Số tiền giao dịch
+-111.00 USD
+Ngày, giờ giao dịch
+2026-09-01 09:15:00
+Tình trạng
+Thành công`;
+const u = readLabelTable('Thông báo giao dịch thẻ', USD_ONLY);
+t('parses', !!u);
+t('amount is 111, not 11100', u && u.amount === 111, u && String(u.amount));
+t('currency is USD, never a VND default', u && u.currency === 'USD', u && u.currency);
+t('no fx pair — nothing was converted', u && u.fx_amount === null && u.fx_currency === null);
+t('sign still reads → debit', u && u.direction === 'debit');
+
+console.log('\n-- foreign currency: the bank\'s own converted VND wins --');
+const USD_CONVERTED = `Thông báo giao dịch thẻ
+Số thẻ
+Visa 452404...0035
+Sử dụng tại
+CLAUDE.AI SUBSCRIPTION
+Số tiền giao dịch
+-111.00 USD
+Tỷ giá quy đổi
+26,350
+Số tiền quy đổi
+2,924,850 VND
+Ngày, giờ giao dịch
+2026-09-01 09:15:00`;
+const uc = readLabelTable('Thông báo giao dịch thẻ', USD_CONVERTED);
+t('parses', !!uc);
+t('amount is the converted VND figure', uc && uc.amount === 2924850, uc && String(uc.amount));
+t('currency is VND — the money that actually moved', uc && uc.currency === 'VND');
+t('the original rides as fx provenance', uc && uc.fx_amount === 111 && uc.fx_currency === 'USD',
+  uc && (uc.fx_amount + ' ' + uc.fx_currency));
+t('the FX RATE row is absorbed, never the amount', uc && uc.amount !== 26350);
+t('the sign on the foreign row still decides direction', uc && uc.direction === 'debit');
+
+console.log('\n-- foreign currency: an explicit currency row names a bare amount --');
+const CUR_ROW = `Thông báo giao dịch thẻ
+Sử dụng tại
+NETFLIX.COM
+Số tiền giao dịch
+45.00
+Loại tiền
+USD
+Ngày, giờ giao dịch
+2026-09-01 09:15:00`;
+const cr = readLabelTable('Thông báo giao dịch thẻ', CUR_ROW);
+t('parses', !!cr);
+t('the currency row names the bare amount', cr && cr.currency === 'USD', cr && cr.currency);
+t('and the amount keeps its US-notation read', cr && cr.amount === 45, cr && String(cr.amount));
+
+console.log('\n-- parseAmountCell: foreign notation keeps its cents --');
+t('"$111.00" → 111 USD', (function () {
+  const r = parseAmountCell('$111.00');
+  return r && r.value === 111 && r.currency === 'USD';
+})());
+t('"12.99 USD" keeps the cents', (parseAmountCell('12.99 USD') || {}).value === 12.99);
+t('"1,234.56 USD" groups US-style', (parseAmountCell('1,234.56 USD') || {}).value === 1234.56);
+t('"111 USD" bare integer', (function () {
+  const r = parseAmountCell('111 USD');
+  return r && r.value === 111 && r.currency === 'USD';
+})());
+t('VND cells still name their currency', (parseAmountCell('-37,000 VND') || {}).currency === 'VND');
+t('a bare VND number stays currency-null for the caller to default',
+  (parseAmountCell('37,000') || {}).currency === null);
+
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail ? 1 : 0);

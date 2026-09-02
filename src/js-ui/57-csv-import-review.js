@@ -670,8 +670,19 @@ function buildCsvCandidates(parsed, result) {
         : 'Khác';
     }
 
+    /* A staged row still denominated in a foreign currency arrives DESELECTED
+       (foreign-currency-emails-spec.md): its amount is "$111", not a VND
+       figure, so it must never ride into a select-all import. The tick stays
+       locked until the person types the VND amount (which sets _fxVnd and
+       lifts the gate — csvSheetValDone / csvReadEditor). */
+    var _fxSkip = false;
+    if (window.csvStagedMode && typeof window.fhStagedFx === 'function') {
+      var _fxp = window.fhStagedFx(i);
+      _fxSkip = !!(_fxp && _fxp.kind === 'foreign');
+    }
+
     return {
-      rowIndex: i, raw: row, flags: flags,
+      rowIndex: i, raw: row, flags: flags, _skipImport: _fxSkip || undefined,
       date: date, dateDisplay: date ? (date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0')) : '',
       amount: amount, negative: aclass.status === 'ok' && String(amtRaw).trim().indexOf('-') === 0,
       _incomeCat: incomeCat,

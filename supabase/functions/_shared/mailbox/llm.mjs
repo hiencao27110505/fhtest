@@ -56,6 +56,14 @@ export const EXTRACTION_SYSTEM_PROMPT =
   'meaningful — a human reviews it downstream.\n\n' +
   'Amounts must be the raw number with no currency symbol or thousands separators. If the email ' +
   'states a status (success/failed/pending), extract it; otherwise null.\n\n' +
+  'currency: the ISO 4217 code the amount is denominated in (VND, USD, EUR, ...), exactly as the ' +
+  'email states it — never default to VND when the mail prints another currency. International ' +
+  'card notices from Vietnamese banks often show BOTH a foreign transaction amount and the ' +
+  'converted amount actually debited in VND (labelled "Số tiền quy đổi", "Số tiền ghi nợ" or ' +
+  'similar). When both are present, amount must be the converted VND figure with currency VND, ' +
+  'and the original foreign figure goes into fx_amount and fx_currency. When only a foreign ' +
+  'amount is present, amount is that figure with its own currency code and fx_amount/fx_currency ' +
+  'stay null. Never compute a conversion yourself — only report figures the mail prints.\n\n' +
   'account_kind: which kind of account the money moved on, judged only from what the mail itself ' +
   'says. credit_card when the mail shows a credit limit or an outstanding card balance — Vietnamese ' +
   'banks write "Hạn mức khả dụng" or "Dư nợ" — or names a credit card ("thẻ tín dụng"). deposit ' +
@@ -99,6 +107,14 @@ export const EXTRACTION_SCHEMA = {
     occurred_at: { type: ['string', 'null'] },
     amount: { type: ['number', 'null'] },
     currency: { type: ['string', 'null'] },
+    /* The ORIGINAL foreign figure, when the mail shows both it and the
+       converted VND amount it billed (foreign-currency-emails-spec.md,
+       Approach 2). `amount` then carries the converted VND — the money that
+       actually moved — and this pair keeps "$111" visible to the reviewer and
+       recoverable by a future multi-currency migration. Null on every
+       domestic mail and on foreign mail with no conversion printed. */
+    fx_amount: { type: ['number', 'null'] },
+    fx_currency: { type: ['string', 'null'] },
     direction: { type: ['string', 'null'], enum: ['debit', 'credit', null] },
     counterparty: { type: ['string', 'null'] },
     memo: { type: ['string', 'null'] },

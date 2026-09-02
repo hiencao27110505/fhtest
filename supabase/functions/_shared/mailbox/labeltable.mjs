@@ -36,11 +36,25 @@
 const LABELS = [
   /* The absorber row. Sits ABOVE amount so that any "số tiền …" variant that
      is NOT the transaction amount — fees, promo/cashback figures, reward
-     points — is swallowed here instead of contains-matching into `amount`.
-     Found by a test fixture: "Số tiền khuyến mãi" read as the amount. */
-  { field: 'charge',       any: ['so tien phi', 'charge amount', 'loai phi',
+     points, and the FX rate on an international card notice — is swallowed
+     here instead of contains-matching into `amount`. Found by a test fixture:
+     "Số tiền khuyến mãi" read as the amount; "Tỷ giá quy đổi" would have
+     turned an exchange RATE into a transaction amount the same way. */
+  { field: 'charge',       any: ['so tien phi', 'charge amount', 'loai phi', 'ty gia',
                                  'khuyen mai', 'so tien hoan', 'cashback', 'diem thuong', 'tich diem'] },
+  /* The converted/billed VND figure an international card notice prints beside
+     its foreign transaction amount ("Số tiền quy đổi: 2.923.000 VND"). Above
+     `amount` because every key here contains "số tiền" and would be swallowed
+     by amount's contains-match. When the mail is foreign-denominated this is
+     the number that actually left the account — the bank's own settled
+     conversion — so readLabelTable prefers it over the foreign figure. */
+  { field: 'converted',    any: ['so tien quy doi', 'so tien ghi no', 'so tien thanh toan',
+                                 'billed amount', 'billing amount', 'converted amount'] },
   { field: 'amount',       any: ['so tien giao dich', 'so tien', 'transaction amount', 'amount'] },
+  /* An explicit currency row ("Loại tiền: USD"). Some banks denominate the
+     amount cell bare and state the currency here instead — without this row
+     a USD notice whose amount cell prints no token reads as VND. */
+  { field: 'currency_row', any: ['loai tien te', 'loai tien', 'don vi tien te'] },
   { field: 'occurred_at',  any: ['ngay, gio giao dich', 'ngay gio giao dich', 'trans. date', 'date, time', 'thoi gian giao dich'] },
   { field: 'merchant',     any: ['diem giao dich', 'su dung tai', 'merchant'] },
   { field: 'beneficiary',  any: ['ten nguoi huong', 'nguoi thu huong', 'beneficiary name'] },
@@ -133,6 +147,7 @@ const ENGLISH_TWINS = new Set([
   "remitter's name", 'remitters name', 'remitter', 'order number',
   'reference number', 'details of payment', 'content', 'transaction type',
   'charge code', 'charge amount', 'net income', 'vat', 'payment receipt',
+  'currency', 'exchange rate', 'billed amount', 'billing amount', 'converted amount',
 ]);
 function _isEnglishTwin(line) {
   return ENGLISH_TWINS.has(_strip(line));
@@ -216,15 +231,61 @@ const LABEL_TWINS = new Set([
   'debit account', 'credit account', 'order number', 'reference number',
   'beneficiary name', "remitter's name", 'remitter', 'details of payment',
   'charge code', 'charge amount', 'transaction type',
+  'currency', 'exchange rate', 'billed amount', 'billing amount', 'converted amount',
 ]);
 
-/** "-37,000 VND" | "(VND) 2,000.00" | "15,000 VND" → { value, negative }.
+/* The currencies a VN bank's international card notice actually prints.
+ * ISO codes matched as WORDS (a substring match would find 'AUD' inside a
+ * merchant name); the four symbols cover the banks that print "$111.00" with
+ * no code at all. 'đ' and 'dong' are VND. FIRST occurrence wins, which is
+ * also what makes a dual cell like "111 USD (2.923.000 VND)" read as the
+ * foreign figure and "2.923.000 VND (111 USD)" read as the VND one — the
+ * number the regex grabs is the first number, so the nearest token names it. */
+const _CUR_WORD_RE = /\b(USD|EUR|GBP|AUD|SGD|JPY|CNY|KRW|THB|HKD|CHF|CAD|NZD|TWD|MYR|INR|VND)\b|(dong)/i;
+const _CUR_SYMBOLS = { '$': 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY' };
+
+/** The currency a cell's text names, as an ISO code, or null when it names
+ *  none. Word beats symbol beats 'đ' — "US$" resolves via '$' either way. */
+export function cellCurrency(raw) {
+  const s = String(raw || '');
+  const w = s.match(_CUR_WORD_RE);
+  if (w) return w[2] ? 'VND' : w[1].toUpperCase();
+  const sym = s.match(/[$€£¥]/);
+  if (sym) return _CUR_SYMBOLS[sym[0]];
+  if (/đ/.test(s)) return 'VND';
+  return null;
+}
+
+/** A foreign-denominated number in the notations VN banks print them:
+ *  "1,234.56" (US), "111.00", "1.234,56" (EU), "111". Decimals are KEPT —
+ *  $12.99 is not $12 — which is the opposite of the VND rule below, where a
+ *  decimal tail is print noise on a currency that has no cents. */
+function _parseForeignNumber(digits) {
+  if (/^\d+$/.test(digits)) return parseInt(digits, 10);
+  if (/^\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?$/.test(digits)) return parseFloat(digits.replace(/,/g, ''));
+  if (/^\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?$/.test(digits)) return parseFloat(digits.replace(/\./g, '').replace(',', '.'));
+  if (/^\d+\.\d{1,2}$/.test(digits)) return parseFloat(digits);
+  return null;
+}
+
+/** "-37,000 VND" | "(VND) 2,000.00" | "15,000 VND" → { value, negative, currency }.
  *  VN bank notation: comma groups thousands; a trailing .00 (or ,00) is decimals.
+ *  `currency` is the ISO code the cell itself names, or null when it names
+ *  none — the CALLER defaults, so a bare number stays distinguishable from an
+ *  explicit "VND". A cell naming a foreign currency parses with decimals kept
+ *  ($12.99 stays 12.99); stripping the "USD" token and reading the digits as
+ *  VND is exactly how a $111 subscription once staged as 111đ.
  *  Returns null when the cell does not parse as one clean number. */
 export function parseAmountCell(raw) {
+  const currency = cellCurrency(raw);
   const s = String(raw || '').replace(/VND|đ|dong/gi, '').trim();
   const m = s.match(/(-)?\s*([\d.,]+)/);
   if (!m) return null;
+  if (currency && currency !== 'VND') {
+    const fv = _parseForeignNumber(m[2].replace(/[.,]+$/, ''));
+    if (fv == null || !Number.isFinite(fv) || fv <= 0) return null;
+    return { value: fv, negative: !!m[1], currency };
+  }
   let digits = m[2];
   // strip ONE decimal tail if present, then everything else is grouping
   digits = digits.replace(/[.,]\d{2}$/, '');
@@ -232,7 +293,7 @@ export function parseAmountCell(raw) {
   if (!/^\d+$/.test(digits)) return null;
   const value = parseInt(digits, 10);
   if (!Number.isFinite(value) || value <= 0) return null;
-  return { value, negative: !!m[1] };
+  return { value, negative: !!m[1], currency };
 }
 
 /** The three date shapes these banks write, all Vietnam local time:
@@ -389,7 +450,40 @@ export function readLabelTable(subject, body, learned) {
     if (field && !(field in got)) got[field] = row.value;   // first hit wins; later dupes are footer noise
   }
 
-  const amt = parseAmountCell(got.amount);
+  /* The amount, in the mail's own currency. Three rows can carry money here:
+     the transaction amount, the converted/billed VND figure an international
+     card notice prints beside it, and an explicit currency row. The rules:
+
+       - a VND (or unmarked) transaction amount is the amount, as ever;
+       - a FOREIGN transaction amount with a converted-VND row beside it takes
+         the CONVERTED figure — that is the bank's own settled conversion, the
+         money that actually left the account — and the foreign original rides
+         along as fx_amount/fx_currency so the reviewer still sees "$111";
+       - a foreign amount with NO converted row stays foreign, honestly: the
+         reviewer types the VND figure at review. Defaulting it to VND is how
+         a $111 subscription staged as 111đ;
+       - a converted row with no transaction-amount row IS the amount (some
+         banks label their only figure "Số tiền ghi nợ"). */
+  let amtRaw = parseAmountCell(got.amount);
+  const conv = got.converted ? parseAmountCell(got.converted) : null;
+  const convVnd = (conv && (conv.currency == null || conv.currency === 'VND')) ? conv : null;
+  const curRow = got.currency_row ? cellCurrency(got.currency_row) : null;
+  // A bare amount cell named foreign only by the currency ROW parsed under the
+  // VND rule (decimal tail = print noise) and would lose its cents — re-read
+  // it under the currency the row names.
+  if (amtRaw && !amtRaw.currency && curRow && curRow !== 'VND') {
+    amtRaw = parseAmountCell(String(got.amount) + ' ' + curRow) || amtRaw;
+  }
+  const txnCur = amtRaw ? (amtRaw.currency || curRow || 'VND') : null;
+
+  let amt = amtRaw, currency = txnCur, fxAmount = null, fxCurrency = null;
+  if (amtRaw && txnCur !== 'VND' && convVnd) {
+    amt = convVnd; currency = 'VND';
+    fxAmount = amtRaw.value; fxCurrency = txnCur;
+  } else if (!amtRaw && convVnd) {
+    amt = convVnd; currency = 'VND';
+  }
+
   const when = got.occurred_at ? parseWhenCell(got.occurred_at) : null;
   const who = got.merchant || got.beneficiary || null;
 
@@ -404,7 +498,11 @@ export function readLabelTable(subject, body, learned) {
 
   // Direction: the sign when the bank prints one; otherwise the document kind.
   // A card notice or an outgoing transfer is money leaving; a refund is not.
-  const direction = amt.negative ? 'debit' : (refund ? 'credit' : 'debit');
+  // The sign lives on the TRANSACTION amount row even when the converted VND
+  // figure is the one being taken — banks print "-111 USD" and an unsigned
+  // conversion beside it.
+  const negative = amtRaw ? amtRaw.negative : amt.negative;
+  const direction = negative ? 'debit' : (refund ? 'credit' : 'debit');
 
   // Self-transfer: the sender and the beneficiary are the same letters. That
   // is the person moving money between their own pockets, and filing it as an
@@ -421,7 +519,15 @@ export function readLabelTable(subject, body, learned) {
     source_provider: null,                       // worker falls back to the sender registry
     occurred_at: when,
     amount: amt.value,
-    currency: 'VND',
+    /* The currency the amount is REALLY in. 'VND' was hardcoded here until
+       2026-09-03, which — with parseAmountCell then discarding the USD token —
+       is the whole USD-as-VND defect (foreign-currency-emails-spec.md §2.1). */
+    currency,
+    /* The foreign original, when the converted VND figure was preferred over
+       it. Provenance for the reviewer ("2.923.000 ₫ ≈ $111") and for the
+       ledger row's note; null on every domestic mail. */
+    fx_amount: fxAmount,
+    fx_currency: fxCurrency,
     direction,
     counterparty: who,
     memo: got.memo || null,

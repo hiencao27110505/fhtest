@@ -693,6 +693,34 @@ function csvDefaultWho(){
 
 function csvAmtInputVal(n){ return Number(n).toLocaleString(CUR==='VND'?'vi-VN':'en-US'); }
 
+/* Foreign-currency helpers (foreign-currency-emails-spec.md). A staged row can
+   be denominated in a currency that is not the family's — a $111 Claude
+   subscription off a VN bank card. Its c.amount is NOT a VND figure, so every
+   place that shows or writes it asks here first. Null everywhere outside
+   staged mode, so the file-import flow is untouched. */
+function csvFxInfo(c){
+  if(!window.csvStagedMode || !c || typeof c.rowIndex!=='number' || !window.fhStagedFx) return null;
+  return window.fhStagedFx(c.rowIndex);
+}
+/* Still foreign-denominated: no VND amount exists yet (the person hasn't typed
+   one), so the row can neither total, select, nor import. */
+function csvFxUnresolved(c){
+  var fx = csvFxInfo(c);
+  return !!(fx && fx.kind==='foreign' && !c._fxVnd);
+}
+function csvFxAmtStr(fx){
+  var n = Number(fx.amount)||0;
+  var s = n.toLocaleString('en-US',{maximumFractionDigits:2});
+  return fx.currency==='USD' ? '$'+s : s+' '+fx.currency;
+}
+/* One amount string for any card/list line: the honest "$111" while a foreign
+   row has no VND figure, the normal VND format everywhere else. */
+function csvAmtDisp(c){
+  var fx = csvFxInfo(c);
+  if(fx && csvFxUnresolved(c)) return csvFxAmtStr(fx);
+  return csvFmt(c.amount!=null ? c.amount : 0);
+}
+
 /* What the file adds up to, shown before the row-by-row work.
    The rows below answer "is each one right?"; this answers the question people
    actually opened the file for -- where did the money go. It reads only rows
@@ -703,6 +731,7 @@ function csvSpendPanel(r){
 
   var byCat = {}, totalBase = 0;
   rows.forEach(function(c){
+    if(csvFxUnresolved(c)) return;      // a foreign amount is not a VND figure
     var b = csvBaseAmt(c.amount);
     if(!(b > 0)) return;
     totalBase += b;
@@ -759,8 +788,15 @@ function csvSpendPanel(r){
 // A candidate rendered as one of the composer's row objects, so bulkSummary()
 // produces byte-identical markup (bc-note / bc-amt / bc-cat / bc-pick / bc-dup).
 function csvRowShape(c, isDup){
+  var fx = csvFxInfo(c);
   return { note: c.description || '', amt: c.amount != null ? String(Math.round(c.amount)) : '',
            cat: (c.isIncome && !c._xfer && !c._repay) ? (c._incomeCat || '') : (c.categoryName || ''),
+           /* Foreign currency (foreign-currency-emails-spec.md): _fxAmt is the
+              card's WHOLE amount while no VND figure exists ("$111" — never
+              111đ); _fxRef is a quiet "≈ $111" beside a real VND amount once
+              the bank converted it or the person typed it. */
+           _fxAmt: csvFxUnresolved(c) && fx ? csvFxAmtStr(fx) : '',
+           _fxRef: (fx && !csvFxUnresolved(c)) ? csvFxAmtStr(fx) : '',
            _dup: !!isDup, _transfer: !!(c && c.isTransfer),
            _xfer: !!(c && c._xfer), _repay: !!(c && c._repay),
            _income: !!(c && c.isIncome && !c._xfer && !c._repay) };
@@ -858,7 +894,7 @@ function csvCollapsedCard(c, opts){
         (csvStagedMode && !opts.isDup) ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '',
         '', csvStagedAcctChip(c))
     + (opts.noPick
-        ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+srcSpan+'</span>'
+        ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+esc(csvAmtDisp(c))+'</span>':'')+srcSpan+'</span>'
         : bulkSummary(csvRowShape(c, opts.isDup || opts.repeat), srcSpan))
     + '</button>' + rm + '</div>';
 }
@@ -921,7 +957,11 @@ function csvActiveCard(c, opts){
           ? '<div class="choices" id="csvedit-inccats" style="margin-top:10px">'+incChips+'</div>'
           : '<div class="choices" id="csvedit-cats" style="margin-top:10px">'+catChips+'</div>'))+'</div>'
       + '<div class="field-row">'
-      + '<div class="field"><label>'+L('Số tiền','Amount')+'</label><input class="num" id="csvedit-amt" inputmode="numeric" onblur="snapAmtInput(this)" placeholder="'+escAttr(amtPlaceholder())+'" value="'+escAttr(c.amount!=null?csvAmtInputVal(c.amount):'')+'"/></div>'
+      /* A foreign-denominated row opens with an EMPTY amount and its original
+         as the placeholder ("$111 → ₫?"): pre-filling the foreign number would
+         let one accidental Done commit 111 as 111đ — the exact corruption the
+         FX gate exists to stop. Typing a value here is what resolves the row. */
+      + '<div class="field"><label>'+L('Số tiền','Amount')+'</label><input class="num" id="csvedit-amt" inputmode="numeric" onblur="snapAmtInput(this)" placeholder="'+escAttr(csvFxUnresolved(c) ? csvFxAmtStr(csvFxInfo(c))+' → ₫?' : amtPlaceholder())+'" value="'+escAttr(!csvFxUnresolved(c) && c.amount!=null?csvAmtInputVal(c.amount):'')+'"/></div>'
       + '<div class="field"><label>'+L('Khi nào','When')+'</label><input type="date" id="csvedit-date" value="'+escAttr(c.dateDisplay||'')+'"/></div>'
       + '</div>'
       // Time carried from the bank email (occurred_at) — shown so the reviewer can
@@ -1041,8 +1081,19 @@ function csvStagedRowsCard(c, opts){
     var whoSel = c.who || csvDefaultWho();
     rows += row('who', L('Ai trả','Who paid'), whoSel==='Both' ? L('Chung','Both') : esc(whoSel || ''));
   }
-  rows += row('amount', L('Số tiền','Amount'),
-    '<span class="num">'+esc(csvFmt(c.amount!=null ? c.amount : 0))+'</span>');
+  /* Foreign currency: while no VND figure exists the row must show the honest
+     "$111 → ₫?" (never csvFmt of a non-VND number), styled as missing so the
+     person knows this is the field blocking import. Once resolved or bank-
+     converted, the VND amount leads and the original rides beside it. */
+  var _fx = csvFxInfo(c);
+  if(csvFxUnresolved(c)){
+    rows += row('amount', L('Số tiền','Amount'),
+      '<span class="num">'+esc(csvFxAmtStr(_fx))+' → ₫?</span>', { miss: true });
+  } else {
+    rows += row('amount', L('Số tiền','Amount'),
+      '<span class="num">'+esc(csvFmt(c.amount!=null ? c.amount : 0))
+        + (_fx ? ' <span style="opacity:.55">≈ '+esc(csvFxAmtStr(_fx))+'</span>' : '')+'</span>');
+  }
   var t = csvRowTime(c);
   rows += row('when', L('Khi nào','When'),
     '<span class="num">'+esc(bulkDate(c.dateDisplay))+(t ? ' · '+esc(t) : '')+'</span>');
@@ -1108,7 +1159,12 @@ window.csvSheetValDone = function(){
   if(c && f==='amount'){
     var a = document.getElementById('csvsheet-amt');
     var v = (a && window.classifyAmount) ? classifyAmount(a.value||'') : null;
-    if(v && v.status==='ok' && v.value > 0) c.amount = v.value;
+    if(v && v.status==='ok' && v.value > 0){
+      // Typing a ₫ figure into a foreign row RESOLVES it (the FX gate lifts)
+      // and re-selects it — resolving is the act of choosing to import.
+      if(csvFxUnresolved(c)){ c._fxVnd = true; c._skipImport = false; }
+      c.amount = v.value;
+    }
   } else if(c && f==='when'){
     var d = document.getElementById('csvsheet-date');
     if(d && d.value){ c.dateDisplay = d.value; c.date = new Date(d.value+'T00:00:00'); }
@@ -1223,7 +1279,8 @@ function csvRowSheetHTML(c){
       + '</div>';
   } else if(f==='amount'){
     title = L('Số tiền','Amount');
-    body = '<input id="csvsheet-amt" class="crs-in num" inputmode="numeric" placeholder="'+escAttr(amtPlaceholder())+'" value="'+escAttr(c.amount!=null ? csvAmtInputVal(c.amount) : '')+'"/>'
+    // Foreign rows open empty with the original as placeholder — see csvedit-amt.
+    body = '<input id="csvsheet-amt" class="crs-in num" inputmode="numeric" placeholder="'+escAttr(csvFxUnresolved(c) ? csvFxAmtStr(csvFxInfo(c))+' → ₫?' : amtPlaceholder())+'" value="'+escAttr(!csvFxUnresolved(c) && c.amount!=null ? csvAmtInputVal(c.amount) : '')+'"/>'
       + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
   } else if(f==='when'){
     title = L('Khi nào','When');
@@ -1233,7 +1290,7 @@ function csvRowSheetHTML(c){
       + '</div>'
       + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
   } else { return ''; }
-  var sub = '<span class="num">'+esc(csvFmt(c.amount!=null ? c.amount : 0))+'</span>'
+  var sub = '<span class="num">'+esc(csvAmtDisp(c))+'</span>'
     + (c.description ? ' · '+esc(String(c.description).slice(0,36)) : '');
   return '<div class="crs-scrim" onclick="csvRowSheetClose()"></div>'
     + '<div class="crs-sheet"><div class="modal-grip"></div>'
@@ -1313,7 +1370,13 @@ function csvReadEditor(c){
   if(n && n.value.trim()) c.description = n.value.trim();
   var a=document.getElementById('csvedit-amt');
   if(a){ var v = window.classifyAmount ? window.classifyAmount(a.value||'') : null;
-         if(v && v.status==='ok' && v.value > 0) c.amount = v.value; }
+         if(v && v.status==='ok' && v.value > 0){
+           // A typed ₫ figure resolves a foreign row (see csvSheetValDone). The
+           // input renders EMPTY for unresolved rows, so an untouched editor
+           // commits nothing and the gate holds.
+           if(csvFxUnresolved(c)){ c._fxVnd = true; c._skipImport = false; }
+           c.amount = v.value;
+         } }
   var d=document.getElementById('csvedit-date');
   if(d && d.value){ c.dateDisplay = d.value; c.date = new Date(d.value+'T00:00:00'); }
   var ti=document.getElementById('csvedit-time');
@@ -1803,7 +1866,7 @@ function renderCsvReview(){
         html += '<button type="button" class="csv-inflow-row'+(open?' open':'')+'" onclick="csvInflowToggle('+e.di+')">'
           + '<span class="csv-inflow-d">'+esc(e.c.dateDisplay ? fmtDayMon(e.c.date) : '')+'</span>'
           + '<span class="csv-inflow-n">'+esc(e.c.description)+'</span>'
-          + '<span class="csv-inflow-a">'+esc(csvFmt(e.c.amount))+'</span>'
+          + '<span class="csv-inflow-a">'+esc(csvAmtDisp(e.c))+'</span>'
         + '</button>';
         if(open){
           /* The open row above already shows date, memo (now unclipped) and
@@ -1985,6 +2048,15 @@ function csvStagedToggle(i){
   var c = csvReview.ready[i]; if(!c) return;
   if(typeof csvTxrSmartKey !== 'undefined') csvTxrSmartKey = null;   // a hand-tick overrides the chip's claim
   csvDisarmRemove();                 // ticking is not confirming a delete
+  /* A foreign-denominated row cannot be SELECTED until someone types its VND
+     amount — selecting is asking to import, and there is no figure to import
+     (foreign-currency-emails-spec.md, the FX gate). Deselecting stays free. */
+  if(c._skipImport && csvFxUnresolved(c)){
+    window.toast && toast(L('Nhập số tiền ₫ cho khoản ngoại tệ này trước nhé','Enter the ₫ amount for this foreign-currency item first'));
+    csvFlushExpand(); csvExpand = { kind:'ready', idx:i }; csvRowHot = 'amount';
+    renderCsvReview();
+    return;
+  }
   c._skipImport = !c._skipImport;
   csvSelTouched = true;              // a tick is the person saying "I am picking"
   /* Close whatever row was open, like every other row action here does. Flush
@@ -2033,7 +2105,8 @@ function csvStagedSelectAll(on){
   if(!csvReview) return;
   csvDisarmRemove();
   csvFlushExpand(); csvExpand = null;   // an open editor's edits are kept, not dropped
-  csvReview.ready.forEach(function(c){ c._skipImport = !on; });
+  // Select-all never selects a foreign row with no VND amount — the FX gate.
+  csvReview.ready.forEach(function(c){ c._skipImport = !on || csvFxUnresolved(c); });
   csvSelTouched = true;
   renderCsvReview();
 }
@@ -2275,7 +2348,8 @@ function csvTxrSmartPick(k){
     (csvReview.ready || []).forEach(function(c){ c._skipImport = true; });
   } else {
     csvTxrSmartKey = k;
-    (csvReview.ready || []).forEach(function(c){ c._skipImport = !hit.test(c); });
+    // The chip's claim still never selects an unresolved foreign row (FX gate).
+    (csvReview.ready || []).forEach(function(c){ c._skipImport = !hit.test(c) || csvFxUnresolved(c); });
   }
   csvSelTouched = true; csvTxrKey = null;
   renderCsvReview();

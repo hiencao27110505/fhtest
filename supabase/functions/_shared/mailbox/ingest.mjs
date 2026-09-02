@@ -106,6 +106,10 @@ export function normaliseReading(raw, body) {
   return {
     amount: r.amount,
     currency: r.currency || 'VND',
+    // The foreign original behind a converted-VND amount (Approach 2 of
+    // foreign-currency-emails-spec.md) — provenance the review card shows.
+    fxAmount: r.fx_amount ?? r.fxAmount ?? null,
+    fxCurrency: r.fx_currency ?? r.fxCurrency ?? null,
     direction: r.direction,
     balance: r.balance ?? null,
     merchant: merchant ? tidyMerchant(merchant) : null,

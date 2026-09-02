@@ -256,14 +256,52 @@ function deriveAccountKind(input) {
   return null;
 }
 
+/* Foreign-currency guard for the template tier (2026-09-03).
+ *
+ * Templates freeze `currency` as a static of the shape, and one (sender,
+ * subject_template) shape legitimately carries BOTH: a bank's card notice
+ * announces a domestic coffee in VND and a foreign subscription in USD off the
+ * same layout. A static cannot express that, so the rule is asymmetric:
+ *
+ *   - derivation REFUSES a non-VND extraction outright ('foreign_currency'),
+ *     so no foreign-static template can ever exist and the statics stay the
+ *     one honest value they can hold;
+ *   - apply DEGRADES (returns null) when the mail itself speaks a foreign
+ *     currency — a token on the amount's own line, or an explicit currency
+ *     row — while the template would answer VND. Degrading hands the mail to
+ *     the currency-aware tiers (label-table reader, then the model), which is
+ *     the standing rule: a template can degrade a mail to the expensive path,
+ *     never to a wrong answer. Before this guard, a VND-derived template
+ *     stamped VND onto every USD mail of its shape and re-parsed "111.00"
+ *     under VN grouping as 11100.
+ *
+ * The token check is deliberately NARROW: the amount's line and a labelled
+ * currency row, never the whole body — a footer mentioning USD in marketing
+ * prose must not send every domestic mail of the shape to the model. */
+var _FOREIGN_CUR_CODES = 'USD|EUR|GBP|AUD|SGD|JPY|CNY|KRW|THB|HKD|CHF|CAD|NZD|TWD|MYR|INR';
+// Escaped symbols, not literals: the .gs twin of this slice is deployed by
+// hand-pasting, the same reason _akNorm escapes its combining marks.
+var _FOREIGN_CUR_LINE_RE = new RegExp('(?:\\b(?:' + _FOREIGN_CUR_CODES + ')\\b|[$\\u20AC\\u00A3\\u00A5])', 'i');
+function _readsForeignCurrency(body, amountLine) {
+  if (amountLine && _FOREIGN_CUR_LINE_RE.test(amountLine)) return true;
+  var flat = _akNorm(body);
+  var m = flat.match(/(?:loai tien(?: te)?|don vi tien te)\s*[:.\-]?\s*([a-z]{3})\b/);
+  if (!m) return false;
+  return new RegExp('^(?:' + _FOREIGN_CUR_CODES.toLowerCase() + ')$').test(m[1]);
+}
+
 function deriveExtractionTemplate(body, extraction, trace) {
   /* `trace`, optional: called with ONE short step name at whichever exit killed
-     the derivation — 'date', 'amount', 'anchor:<field>', 'proof', 'hygiene'.
+     the derivation — 'date', 'amount', 'anchor:<field>', 'proof', 'hygiene',
+     'foreign_currency'.
      Never a value, never mail text: the step is diagnosis, the value is PII.
      Sixteen shapes failed here for weeks with a bare null, and every caller had
      to bisect by hand what this one word would have said. */
   var fail = function (step) { try { if (trace) trace(step); } catch (e) {} return null; };
   if (!extraction || extraction.is_transaction !== true) return null;
+  // See the foreign-currency guard above: a non-VND reading never becomes a
+  // template, because the shape it came from also sends VND mail.
+  if (extraction.currency != null && extraction.currency !== 'VND') return fail('foreign_currency');
   var tpl = { v: EXTRACTION_LOGIC_VERSION, static: {}, fields: {} };
 
   // constants for this (sender, subject_template) email kind — protected by the
@@ -389,6 +427,7 @@ function applyExtractionTemplate(tplJson, body) {
   var out = { is_transaction: true };
   for (var s in tpl.static) out[s] = tpl.static[s];
 
+  var amtLine = '';
   for (var f in tpl.fields) {
     var spec = tpl.fields[f], m;
     try { m = new RegExp(spec.re).exec(body); } catch (e) { return null; }
@@ -402,11 +441,22 @@ function applyExtractionTemplate(tplJson, body) {
       var n = _parseAmount(raw, spec.num);
       if (n === null || n === 0) return null;
       out[f] = n;
+      if (f === 'amount') {
+        // the LINE the amount was read off — where a foreign token would sit
+        var vi = m.index + m[0].lastIndexOf(m[1]);
+        var ls = body.lastIndexOf('\n', vi) + 1;
+        var le = body.indexOf('\n', vi);
+        amtLine = body.slice(ls, le < 0 ? body.length : le);
+      }
     } else {
       out[f] = raw;
     }
   }
   if (typeof out.amount !== 'number' || typeof out.occurred_at !== 'string') return null;
+  // The foreign-currency degrade (see the guard above deriveExtractionTemplate):
+  // a mail that speaks a foreign currency where this template would answer VND
+  // goes to the currency-aware tiers instead of being misread here.
+  if ((out.currency == null || out.currency === 'VND') && _readsForeignCurrency(body, amtLine)) return null;
   return out;
 }
 

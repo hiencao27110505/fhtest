@@ -146,6 +146,14 @@ export async function buildStagedRow(args) {
     raw_extracted: {
       amount: reading.amount,
       currency,
+      /* The foreign original behind a converted-VND amount (a $111
+         subscription billed as 2.923.000đ — foreign-currency-emails-spec.md,
+         Approach 2). Rides inside the box like every other content field; the
+         review card shows it ("≈ $111") and promotion writes it into the
+         ledger row's note as machine-readable provenance, so a future
+         multi-currency migration can recover the originals. */
+      fx_amount: reading.fxAmount ?? reading.fx_amount ?? null,
+      fx_currency: reading.fxCurrency ?? reading.fx_currency ?? null,
       direction: reading.direction,
       balance: reading.balance ?? null,
       counterparty: reading.merchant || null,
