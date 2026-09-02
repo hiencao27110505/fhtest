@@ -18,6 +18,50 @@ Going forward, add an entry here when a feature area changes meaningfully — se
 
 ---
 
+## 2026-09-03
+
+### Selection looks before it lifts, and two more surfaces learn (09-03)
+
+Three changes to how mail is CHOSEN and how the pipeline LEARNS, built on one
+measured fact: a single 365-day backfill performed 951k message reads to stage
+1,745 rows — 22% of them bodies fetched for mail the junk cache then discarded,
+77% bodies fetched for mail the model budget then deferred and re-fetched every
+minute until funded.
+
+**Metadata-first selection** (`gmail.getMessageMetadata`, worker two-pass).
+Every cached verdict is keyed on (sender, subject) — headers — yet the only
+fetch was `?format=full`. The worker now fetches headers, classifies against
+the warm fingerprint cache, and pays for a body only when the run will use it:
+exact-shape junk is settled headerside; shapes known to need the model are
+held body-less once the budget is gone. Two old bugs are pinned against
+regression in `pipeline/metadata-first.test.js`: the sender-wide junk sentinel
+is a heuristic and still fetches, and the free tiers keep reading at budget
+zero (the deleted-in-August pre-scan's mistake).
+
+**The vocabulary learns, conservatively** (`deriveLabelMappings`, 0111).
+When the model reads a mail the label table could not, the (label, value) rows
+beside the model's answer are votes: "Diễn giải" next to the reported memo
+teaches `dien giai → memo`. Votes apply only at n≥3 per sender domain, only
+for safe fields (memo, reference; merchant/beneficiary under the transaction
+type that disambiguates them) — never amount, occurred_at, account or status.
+Hardcoded LABELS always wins, and `delete from learned_labels` restores the
+hand-authored reader byte-for-byte — a contract pinned in
+`pipeline/learned-labels.test.js`. Honest limit, also pinned: learning alone
+cannot open VIB, because its date label is hand-add-only by design.
+
+**Coverage probe** (`runCoverageProbe`, 0107, weekly cron). Selection is
+`from:(157 hardcoded domains)`; a bank outside the list is never listed and no
+downstream instrument can see it. The probe lists category:updates minus the
+registry, headers only, and persists DOMAIN + COUNTS only — no subjects, no
+addresses, no per-user rows. Surfacing, not selecting: provider_domains stays
+a human decision.
+
+Found along the way, each now fixed and tested: the bare card key 'the'
+matched inside prose titles and made them swallow the next table row (why the
+direct-reader form of VIB mail returned null); `recordDeriveFailure` wrote
+through merge-duplicates, which cannot increment, so the counter counted to
+one forever (both counters now go through SECURITY DEFINER RPCs).
+
 ## 2026-08-23
 
 ### A duplicate becomes a suspicion instead of a delete order (08-23)

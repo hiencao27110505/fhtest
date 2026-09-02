@@ -25,7 +25,7 @@
 
 import { resolveDestination, MailboxHold } from './identity.mjs';
 import { buildStagedRow } from './stage.mjs';
-import { readTransaction } from './extract.mjs';
+import { readTransaction, normalizeSubjectTemplate, SENDER_SENTINEL } from './extract.mjs';
 import * as senders from './senders.mjs';
 import * as gmail from './gmail.mjs';
 import * as mailtext from './mailtext.mjs';
@@ -254,6 +254,12 @@ export async function runAll(ctx) {
      that was true when this was a sequential loop and is more important now, so
      every rejection is caught INSIDE the lane and turned into a result. A throw
      escaping here would abandon whatever else was in flight. */
+  /* Confirmed learned-label mappings, ONE query for the whole run — every
+     grant's reads share it, and a failed load is simply the hand-authored
+     vocabulary, which is the kill-switch contract. */
+  if (!ctx.learnedLabels && ctx.db.loadLearnedLabels) {
+    try { ctx = { ...ctx, learnedLabels: await ctx.db.loadLearnedLabels() }; } catch { /* hand-authored it is */ }
+  }
   const results = await _pooled(grants, ctx.grantConcurrency ?? GRANT_CONCURRENCY,
     async (grant) => {
       try {
@@ -396,42 +402,62 @@ export async function runGrant(grant, ctx) {
      sequence, dedup still compares each row against ones already staged in this
      same window, and a fetch error is still raised in ITS OWN position rather
      than surfacing early and stranding messages behind it. */
-  const _fetchChunk = (slice) => _pooled(slice, lanes, async (id) => {
+  /* METADATA FIRST (2026-09-02). Headers carry everything selection needs —
+     sender, subject, DKIM — and the KEY of every cached verdict is
+     (sender, subject). So the pipeline now looks before it lifts:
+  
+       metadata (cheap)  →  classify from the caches  →  body, only if used
+  
+     Measured cause: in one backfill, 22% of ~951k reads were bodies fetched for
+     mail the junk cache then discarded, and 77% were bodies fetched for mail
+     the model budget then deferred — fetched again every run until funded.
+  
+     TWO RULES KEEP THIS FROM REPEATING OLD BUGS, and both are pinned in
+     pipeline/metadata-first.test.js:
+  
+     • Only an EXACT (sender, subject) junk verdict skips a body. The
+       sender-wide sentinel is a HEURISTIC — six junk shapes and never a
+       transaction — and skipping on it would permanently hide that sender's
+       first real transaction. Sentinel verdicts still fetch, and
+       readTransaction judges them as before.
+  
+     • Only a shape ALREADY KNOWN to need the model is deferred body-less when
+       the budget is gone (fingerprint says transaction source, no template).
+       The budget pre-scan this resembles was deleted on 2026-08-29 because it
+       stranded mail the FREE tiers read for nothing; those shapes either have
+       a template (never gated) or an unknown fingerprint (never gated). A
+       table-readable shape that has not yet graduated is delayed at most one
+       run — hitLimit holds the cursor, next run's fresh budget funds it. */
+  const _metaChunk = (slice) => _pooled(slice, lanes, async (id) => {
+    try { return { id, meta: await gmail.getMessageMetadata(id, access, ctx.fetch) }; }
+    catch (e) { return { id, error: e }; }
+  });
+  const _fetchBodies = (slice) => _pooled(slice, lanes, async (id) => {
     try { return { id, message: await gmail.getMessage(id, access, ctx.fetch, mailtext) }; }
     catch (e) { return { id, error: e }; }
   });
+  const _senderKey = (from) => {
+    const m = String(from || '').match(/<([^>]+)>/);
+    return (m ? m[1] : String(from || '')).trim().toLowerCase();
+  };
 
   const chunks = [];
   for (let i = 0; i < fresh.length; i += lanes) chunks.push(fresh.slice(i, i + lanes));
 
-  let inflight = chunks.length ? _fetchChunk(chunks[0]) : null;
+  let inflight = chunks.length ? _metaChunk(chunks[0]) : null;
 
   for (let c = 0; c < chunks.length; c++) {
-    const batch = (await inflight) || [];
-    /* Start the NEXT download while this batch is being decided on.
-    
-       NO BUDGET PRE-SCAN ANY MORE (2026-08-29). It stopped prefetching once the
-       model budget was gone, which made sense while budget exhaustion abandoned
-       the window — but the loop below now CONTINUES, and the two cheap tiers
-       cost no budget at all. Skipping those fetches would strand exactly the
-       mail a stored template reads for free, which is the thing `continue` was
-       added to stop.
-    
-       It was also a live crash: setting `inflight = null` with chunks still to
-       go meant the next iteration awaited null and tried to iterate it. */
+    const metas = (await inflight) || [];
+    // Next chunk's HEADERS download while this one is classified and read.
     const more = c + 1 < chunks.length;
-    inflight = more ? _fetchChunk(chunks[c + 1]) : null;
+    inflight = more ? _metaChunk(chunks[c + 1]) : null;
 
-    /* One fingerprint query for this chunk's senders, for the ones we have not
-       already loaded. Twenty messages from three senders costs one round trip
-       instead of twenty. */
+    /* One fingerprint query for this chunk's senders — now BEFORE any body is
+       paid for, because classification is what the warm cache is for. */
     if (ctx.db.fingerprintsForSenders) {
       const need = [];
-      for (const g of batch) {
-        const from = g.message && g.message.from;
-        if (!from) continue;
-        const addr = String(from).match(/<([^>]+)>/);
-        const a = (addr ? addr[1] : from).trim().toLowerCase();
+      for (const g of metas) {
+        const a = g.meta && _senderKey(g.meta.from);
         if (a && !warmFingerprints.has(a + '\u0000__loaded')) need.push(a);
       }
       if (need.length) {
@@ -443,8 +469,44 @@ export async function runGrant(grant, ctx) {
       }
     }
 
-    const fetched = batch;
-    for (const got of fetched) {
+    /* Classify on headers. Everything that keeps its slot goes to the body
+       fetch; everything else is settled for the price of its headers. Errors
+       ride through as errors so they still throw AT THEIR OWN POSITION. */
+    const keep = [];
+    for (const g of metas) {
+      if (g.error) { keep.push(g); continue; }             // thrown in position below
+      const meta = g.meta;
+      if (!meta) { summary.skipped++; continue; }          // deleted between list and get
+      if (!senders.match(meta.from, domains)) { summary.skipped++; continue; }
+      const key = _senderKey(meta.from) + '\u0000' + normalizeSubjectTemplate(meta.subject);
+      const fp = warmFingerprints.get(key);
+      if (fp && fp.is_transaction_source === false) {
+        // The exact-shape junk verdict, applied where it was always known:
+        // before the body. Same tally stage as before — it means "answered by
+        // the junk cache", and it just got 20KB cheaper.
+        summary.skipped++;
+        await ctx.db.bumpReadTally?.('junk_cache');
+        continue;
+      }
+      if (fp && fp.is_transaction_source === true && typeof fp.extraction_regex !== 'string'
+          && ctx.budget && ctx.budget.left() === 0) {
+        // Known model-bound, no budget left: this body would only be fetched,
+        // decoded, and HELD. Hold it without the fetch. hitLimit keeps the
+        // cursor, so nothing is skipped — only deferred to a funded run.
+        summary.held++;
+        hitLimit = true;
+        await ctx.db.bumpReadTally?.('held');
+        continue;
+      }
+      keep.push(g);
+    }
+
+    const fetched = await _fetchBodies(keep.map((g) => (g.error ? g : g.id)).filter((x) => typeof x === 'string'));
+    // Re-thread metadata-stage errors into position among the fetched results.
+    const byId = new Map(fetched.map((f) => [f.id, f]));
+    const batchOrdered = keep.map((g) => (g.error ? g : (byId.get(g.id) || { id: g.id, message: null })));
+
+    for (const got of batchOrdered) {
     const id = got.id;
     if (got.error) throw got.error;
     const message = got.message;
@@ -472,6 +534,7 @@ export async function runGrant(grant, ctx) {
       read = await readTransaction(message, ctx.db, {
         llm: ctx.llm, fetch: ctx.fetch, budget: ctx.budget,
         fingerprints: warmFingerprints.size ? warmFingerprints : null,
+        learnedLabels: ctx.learnedLabels || null,
       });
     } catch (e) {
       /* The model is unreachable or out of quota. The mailbox is HELD — the
@@ -745,6 +808,91 @@ export async function runPush(notification, ctx) {
     budget: ctx.budget || _budget(ctx.maxModelCalls ?? MAX_MODEL_CALLS_PER_RUN),
   });
   return { ...summary, ack: true };
+}
+
+/**
+ * The weekly coverage probe: which banks send mail we never LIST?
+ *
+ * Selection is `from:(registry domains)`. A bank outside the registry is never
+ * listed, so every downstream instrument — template_missed, extract_miss_labels,
+ * parse_failures — is structurally blind to it. This is the only place the
+ * pipeline can learn about mail it is not reading: list category:updates for a
+ * month, drop everything the registry already covers, and count the domains
+ * whose SUBJECTS look like transactions.
+ *
+ * HEADERS AND COUNTS ONLY, and that is the design rather than an economy.
+ * What leaves this function is {domain, mailboxes, messages} — no subject, no
+ * address, no message id, no per-user rows (`mailboxes` is aggregated in memory
+ * across the run). Written the way extract_miss_labels had to learn to be
+ * written after it was found holding amounts, a name and cinema seats.
+ *
+ * SURFACING, NOT SELECTING. Nothing here widens the Gmail query. Adding a
+ * domain stays a person's decision via provider_domains — a heuristic must
+ * never decide by itself what mail enters a ledger pipeline.
+ */
+export const COVERAGE_LIST_MAX = 300;      // per mailbox per probe — a survey, not a sweep
+export const COVERAGE_DAYS = 30;
+
+const COVERAGE_TOKENS =
+  /giao dich|bien lai|thanh toan|so du|chuyen khoan|chuyen tien|hoa don|receipt|statement|invoice|transaction|payment/;
+
+function _coverageShaped(subject) {
+  const flat = String(subject || '').normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D')
+    .toLowerCase();
+  return COVERAGE_TOKENS.test(flat);
+}
+
+export async function runCoverageProbe(ctx) {
+  const grants = await ctx.db.dueGrants(ctx.maxGrants);   // dueGrants applies its own default cap
+  const domains = await ctx.db.providerDomains();
+  const seen = new Map();   // domain -> { messages, mailboxes:Set(grant.id) }
+  const summary = { grants: grants.length, listed: 0, candidates: 0, errors: 0 };
+
+  for (const grant of grants) {
+    let access;
+    try {
+      const enc = ctx.fromBytea ? ctx.fromBytea(grant.refresh_token_enc) : grant.refresh_token_enc;
+      const token = await decryptToken(enc, ctx.tokenKey, { subtle: ctx.subtle });
+      access = await gmail.accessToken(token, ctx.google, ctx.fetch);
+    } catch { summary.errors++; continue; }   // a probe never flags reauth; the poll owns that
+
+    let ids = [];
+    try {
+      ids = await gmail.listMessageIds(
+        'category:updates newer_than:' + COVERAGE_DAYS + 'd',
+        ctx.coverageListMax ?? COVERAGE_LIST_MAX, access, ctx.fetch);
+    } catch { summary.errors++; continue; }
+    summary.listed += ids.length;
+
+    const lanes = ctx.fetchConcurrency ?? FETCH_CONCURRENCY;
+    const metas = await _pooled(ids, lanes, async (id) => {
+      try { return await gmail.getMessageMetadata(id, access, ctx.fetch); }
+      catch { return null; }               // one lost header is not a lost survey
+    });
+
+    for (const meta of metas) {
+      if (!meta) continue;
+      if (senders.match(meta.from, domains)) continue;         // covered — not a gap
+      const m = String(meta.from || '').match(/<([^>]+)>/);
+      const addr = (m ? m[1] : String(meta.from || '')).trim().toLowerCase();
+      const at = addr.lastIndexOf('@');
+      if (at < 1) continue;
+      const domain = addr.slice(at + 1);
+      if (!domain || !_coverageShaped(meta.subject)) continue;
+      if (!seen.has(domain)) seen.set(domain, { messages: 0, mailboxes: new Set() });
+      const row = seen.get(domain);
+      row.messages++;
+      row.mailboxes.add(grant.id);
+    }
+  }
+
+  const rows = [...seen.entries()].map(([domain, v]) => ({
+    domain, messages: v.messages, mailboxes: v.mailboxes.size,
+  }));
+  summary.candidates = rows.length;
+  await ctx.db.saveCoverageCandidates(rows);
+  return summary;
 }
 
 /**

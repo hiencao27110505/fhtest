@@ -1807,6 +1807,38 @@ as — or the same day as — the deploy. A deploy announced only in
 
 ## 28. Releases (newest first)
 
+### 2026-09-03 — mailbox-sync (pending deploy) · migrations 0110–0111 — selection looks before it lifts, and two more surfaces learn
+
+- **For product:** three invisible costs go away or become visible. Reading a
+  mailbox no longer downloads promotional mail it already knows is junk, or
+  mail it cannot afford to read this minute — one backfill had spent 99% of
+  951k reads exactly there, which is most of why a first day felt slow. The
+  reader's Vietnamese vocabulary now grows itself from real mail instead of
+  waiting for a developer (with a hard OFF switch), and once a week the system
+  counts bank-shaped mail from banks we don't yet cover — so "my bank isn't
+  supported" becomes a number we see instead of silence a user feels.
+- **Under the hood:** metadata-first selection (`gmail.getMessageMetadata`,
+  two-pass classify in `runGrant`; exact-shape junk skips and budget-gated
+  model-bound skips only — the sentinel and the free tiers keep their fetches,
+  pinned in `pipeline/metadata-first.test.js`). Learned labels: 0111
+  `learned_labels` + `deriveLabelMappings` votes, applied at n≥3/domain, safe
+  fields only, hardcoded-first, kill switch = `delete from learned_labels`
+  (pinned in `pipeline/learned-labels.test.js`, incl. the honest limit that
+  VIB's date label stays hand-add-only). Coverage probe: 0110
+  `coverage_candidates` + weekly `_mailbox_coverage_tick` (0110) (Sun 03:00 UTC,
+  `{"coverage":true}`, timeout_milliseconds set), domain+counts only. Fixed in
+  passing: bare card key 'the' let prose titles swallow the following table
+  row; both diagnostic counters moved to RPCs because merge-duplicates cannot
+  increment.
+- **Spec sections updated:** email-extraction-reference.md gains "Between the
+  tiers: what is learned, and from what"; pipeline/README claims table updated.
+- **Watch for:** NOT LIVE until a `mailbox-sync` deploy and 0110+0111 are
+  applied. No `.gs` change — forwarding neither gains nor needs a paste, and
+  learned labels help direct read only until shared logic lands. After deploy:
+  reads-per-staged-row in `read_tally` (was 545:1, target <10:1),
+  `coverage_candidates` after Sunday, and `learned_labels` accumulating votes
+  BEFORE any mapping crosses n=3.
+
 ### 2026-09-02 — mailbox-sync v27 — logic version reverted (5→4), holds made visible, and the wall behind it all: Gemini free-tier quota
 
 - **For product:** why auto-capture went quiet. A mailbox that connected on

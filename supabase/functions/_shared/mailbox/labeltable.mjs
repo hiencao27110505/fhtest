@@ -51,7 +51,7 @@ const LABELS = [
   { field: 'status',       any: ['tinh trang', 'trang thai', 'status'] },
   { field: 'balance',      any: ['so du', 'balance'] },
   { field: 'txn_kind',     any: ['loai giao dich', 'transaction type'] },
-  { field: 'card',         any: ['the card', 'the'] },
+  { field: 'card',         any: ['so the', 'the card', 'the'] },
 ];
 
 function _strip(s) {
@@ -77,7 +77,7 @@ function _strip(s) {
  *  whose meaning is NOT one label + one value, so they are skipped, not
  *  guessed at. In line form, a label line whose next line is itself a label is
  *  a field the bank left empty. */
-function _rows(body) {
+function _rows(body, learned) {
   const out = [];
   const lines = String(body || '').split('\n').map((l) => l.trim());
   for (let i = 0; i < lines.length; i++) {
@@ -86,15 +86,15 @@ function _rows(body) {
     if (line.includes('|')) {
       const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
       if (cells.length === 2) out.push({ label: cells[0], value: cells[1] });
-      else if (cells.length === 1 && _lookup(cells[0]) && lines[i + 1]) {
+      else if (cells.length === 1 && _lookup(cells[0], learned) && lines[i + 1]) {
         // piped label with its value on the following line
         const next = lines[i + 1].split('|').map((c) => c.trim()).filter(Boolean);
-        if (next.length === 1 && !_lookup(next[0])) { out.push({ label: cells[0], value: next[0] }); i++; }
+        if (next.length === 1 && !_lookup(next[0], learned)) { out.push({ label: cells[0], value: next[0] }); i++; }
       }
       continue;
     }
     // line form: a known label, value on the next non-empty line
-    if (_lookup(line)) {
+    if (_lookup(line, learned)) {
       let j = i + 1;
       while (j < lines.length && !lines[j]) j++;
       /* BILINGUAL LABELS ARRIVE AS TWO LINES. VCB writes one cell as
@@ -112,7 +112,10 @@ function _rows(body) {
         while (j < lines.length && !lines[j]) j++;
       }
       const val = (lines[j] || '').replace(/^\|/, '').replace(/\|$/, '').trim();
-      if (val && !_lookup(val)) { out.push({ label: line, value: val }); i = j; }
+      /* A "value" that still contains a pipe is a TABLE ROW, not a value — a
+         label that swallows one consumes somebody else's data. Leave it for
+         the pipe-form branch on its own turn. */
+      if (val && !val.includes('|') && !_lookup(val, learned)) { out.push({ label: line, value: val }); i = j; }
     }
   }
   return out;
@@ -166,7 +169,7 @@ const MAX_KEY_START = 24;   // "MB TK chạm" puts its key at 3; prose puts it f
 const PROSE_MARKERS = [' cua ', ' voi ', ' hoac ', ' cac ', ' den cac ', ' theo ',
   'lien he', 'quy khach', 'vui long', 'xin cam on', 'cam on', 'thank you', 'please '];
 
-function _lookup(labelCell) {
+function _lookup(labelCell, learned) {
   const flat = _strip(labelCell);
   if (!flat || flat.length > MAX_LABEL_LEN) return null;
   const padded = ' ' + flat + ' ';
@@ -174,8 +177,26 @@ function _lookup(labelCell) {
   for (const entry of LABELS) {
     for (const key of entry.any) {
       const at = flat.indexOf(key);
+      /* The bare card key 'the' (thẻ, stripped) must match only at the START.
+         As a contains-key it fired inside prose — "Thanh toán THE tin dung VIB
+         thành công" — turning a mail's TITLE into a line-form label that then
+         swallowed the next table row as its "value". Found by the learned-labels
+         suite: the eaten row was the one it expected a vote from. 'so the'
+         (Số thẻ) carries the real mid-string use as its own key. */
+      if (key === 'the' && at !== 0) continue;
       if (at >= 0 && at <= MAX_KEY_START) return entry.field;
     }
+  }
+  /* LEARNED mappings (0111), consulted strictly AFTER the hand-authored
+     vocabulary declined — hardcoded always wins, so learning can only EXTEND
+     the reader, never override it. EXACT match on the stripped form, never
+     contains: a learned entry earned trust for one string, not for every
+     string containing it. An absent/empty map is byte-for-byte the old
+     behaviour, which is the kill-switch contract `delete from learned_labels`
+     relies on — pinned in pipeline/learned-labels.test.js. */
+  if (learned && learned.size) {
+    const f = learned.get(flat);
+    if (f) return f;
   }
   return null;
 }
@@ -306,13 +327,65 @@ export function unknownLabels(body) {
   return [...out].slice(0, 24);
 }
 
-export function readLabelTable(subject, body) {
-  const rows = _rows(body);
+/**
+ * The vocabulary learns — CONSERVATIVELY, and every limit here is a scar.
+ *
+ * When the model reads a mail this dictionary could not, the caller holds both
+ * the body and the answer. A (label, value) row whose value EQUALS a field of
+ * that answer is one vote that the label means that field: "Diễn giải" beside
+ * the memo the model reported teaches `dien giai → memo`. Same inversion
+ * deriveExtractionTemplate performs per-shape, one level of generality up.
+ *
+ * What a vote is NOT: truth. The reader applies a mapping only at n>=3 from
+ * one sender domain (db.loadLearnedLabels) — one equal value is a coincidence,
+ * three is a layout. And these fields may NEVER be learned, in this order of
+ * why: amount and occurred_at have absorbers and format rules a heuristic
+ * would subvert into a wrong number in a ledger; account is a masking surface;
+ * status gates staging. merchant/beneficiary are learned only under the
+ * transaction type that disambiguates them, because `who` feeds the
+ * self-transfer check and a swapped mapping would misfile transfers.
+ *
+ * Returns [{label, field}] — label is the STRIPPED form, the reader's own
+ * matching key, and never a value from the mail.
+ */
+export function deriveLabelMappings(body, reading) {
+  if (!reading || reading.is_transaction !== true) return [];
+  const votes = new Map();           // label_norm -> field | null(=ambiguous, drop)
+  const consider = (label, field) => {
+    if (votes.has(label) && votes.get(label) !== field) votes.set(label, null);
+    else votes.set(label, field);
+  };
+  const eq = (v, target) => {
+    const a = String(v == null ? '' : v).trim();
+    const b = String(target == null ? '' : target).trim();
+    return a.length >= 3 && a === b;
+  };
+  for (const row of _rows(body)) {
+    const lab = _strip(row.label);
+    if (!lab || lab.length < 3 || lab.length > 64) continue;
+    if (/\d{4,}/.test(lab)) continue;                 // a "label" with a number in it is a value
+    if (_lookup(row.label)) continue;                  // already known — nothing to learn
+    if (eq(row.value, reading.memo)) consider(lab, 'memo');
+    if (eq(row.value, reading.reference_number)) consider(lab, 'reference');
+    if (eq(row.value, reading.counterparty)) {
+      if (reading.transaction_type === 'p2p_transfer') consider(lab, 'beneficiary');
+      else if (reading.transaction_type === 'ecommerce_receipt') consider(lab, 'merchant');
+      // any other type: the value matched but nothing disambiguates who the
+      // counterparty IS — no vote at all beats a coin-flip vote
+    }
+  }
+  const out = [];
+  for (const [label, field] of votes) if (field) out.push({ label, field });
+  return out;
+}
+
+export function readLabelTable(subject, body, learned) {
+  const rows = _rows(body, learned);
   if (rows.length < 3) return null;
 
   const got = {};
   for (const row of rows) {
-    const field = _lookup(row.label);
+    const field = _lookup(row.label, learned);
     if (field && !(field in got)) got[field] = row.value;   // first hit wins; later dupes are footer noise
   }
 

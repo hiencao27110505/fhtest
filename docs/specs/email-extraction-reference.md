@@ -59,6 +59,33 @@ Two disciplines keep it honest:
   self-invalidates the cache and forces one clean re-derivation per shape, rather than serving
   answers shaped by logic that no longer exists.
 
+### Between the tiers: what is learned, and from what (2026-09-03)
+
+Three learning surfaces, three different teachers:
+
+- **Junk verdicts** are learned per (sender, subject) shape and — since the
+  metadata-first change — applied BEFORE the body is fetched: an exact-shape
+  verdict settles a message for the price of its headers. The sender-wide
+  sentinel (`*`) never skips a fetch: it is a heuristic, and a marketing-heavy
+  sender's first real transaction must still get read.
+- **Templates** are learned per shape from any successful reading (label table
+  or model), as before.
+- **The label vocabulary itself learns** (0108): when the model reads a mail
+  the dictionary could not, each (label, value) row whose value equals a field
+  of the model's answer is one VOTE that the label means that field. Votes
+  apply only at n≥3 from one sender domain; only memo, reference, merchant and
+  beneficiary may be learned (the last two only under the transaction type that
+  disambiguates them); amount, occurred_at, account and status are hand-add
+  only, because a heuristic must never steer a number in a ledger. Hardcoded
+  entries always win, and `delete from learned_labels` restores the
+  hand-authored reader exactly. Learning is direct-read only until the shared
+  logic plan reaches the forwarding transport.
+
+Coverage — which senders are listed at ALL — is the one dimension no tier can
+learn, so a weekly probe (`coverage_candidates`, 0110) counts transaction-shaped
+mail from non-registry domains, storing domain + counts only. Widening the
+registry stays a human act via `provider_domains`.
+
 ### Tier 2 — label table (`labeltable.mjs`) — added this week
 
 Every Vietnamese bank notice we hold is a two-column label/value table over a small bilingual

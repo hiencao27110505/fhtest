@@ -338,17 +338,73 @@ export function createDb(url, serviceKey, fetchImpl) {
        failures age out visibly instead of polluting the picture forever.
        Best-effort like the tally above: instrumenting a failure must never
        create one. */
-    async recordDeriveFailure(sender, subjectTemplate, step) {
+    /* One probe run's verdicts, replacing last week's. These are SNAPSHOTS,
+       not counters — overwrite is the correct semantics, unlike the two
+       counting RPCs. Domain + counts only, aggregated in memory by the caller:
+       no subjects, no addresses, no per-user rows can reach this table because
+       the row shape has nowhere to put them. */
+    async saveCoverageCandidates(rows) {
+      if (!rows || !rows.length) return;
       try {
-        await rest('/template_derive_failures?on_conflict=sender_address,subject_template,step,logic_version', {
+        await rest('/coverage_candidates?on_conflict=domain', {
           method: 'POST',
           headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-          body: JSON.stringify({
-            sender_address: String(sender || '').toLowerCase(),
-            subject_template: subjectTemplate,
-            step: step,
-            logic_version: EXTRACTION_LOGIC_VERSION,
+          body: JSON.stringify(rows.map((r) => ({
+            domain: r.domain, mailboxes: r.mailboxes, messages: r.messages,
             last_seen: new Date().toISOString(),
+          }))),
+        });
+      } catch { /* a lost snapshot is next week's snapshot */ }
+    },
+
+    /* Confirmed learned label mappings, loaded ONCE per run. n >= 3 is the
+       confirmation threshold — one mail where a value happens to equal a field
+       is a coincidence; three from the same domain is a layout. The field
+       allowlist is enforced here as well as at learning time: two mechanisms
+       have to fail before a learned mapping can steer amount or occurred_at. */
+    async loadLearnedLabels() {
+      const SAFE = new Set(['memo', 'reference', 'merchant', 'beneficiary']);
+      const byDomain = new Map();
+      try {
+        const rows = (await rest('/learned_labels?select=label_norm,field,sender_domain&n=gte.3&limit=500')) || [];
+        for (const r of rows) {
+          if (!SAFE.has(r.field)) continue;
+          const d = String(r.sender_domain || '').toLowerCase();
+          if (!byDomain.has(d)) byDomain.set(d, new Map());
+          const m = byDomain.get(d);
+          // A label claiming two fields is a bad signal: apply NEITHER.
+          if (m.has(r.label_norm) && m.get(r.label_norm) !== r.field) m.set(r.label_norm, null);
+          else if (!m.has(r.label_norm)) m.set(r.label_norm, r.field);
+        }
+        for (const m of byDomain.values()) for (const [k, v] of m) if (v === null) m.delete(k);
+      } catch { /* no learning is exactly the hand-authored behaviour */ }
+      return byDomain;
+    },
+
+    /* One vote: this label meant this field, in a mail from this domain.
+       An RPC, not an upsert — merge-duplicates cannot increment (0111). */
+    async recordLearnedLabel(domain, label, field) {
+      try {
+        await rest('/rpc/record_learned_label', {
+          method: 'POST',
+          body: JSON.stringify({ p_domain: domain, p_label: label, p_field: field }),
+        });
+      } catch { /* a lost vote is not a lost transaction */ }
+    },
+
+    async recordDeriveFailure(sender, subjectTemplate, step) {
+      /* Through the RPC, not merge-duplicates (0111): merge-duplicates UPDATES
+         only the payload's columns, `n` was never in the payload, and so the
+         counter counted to one forever. Found while planning the learned-labels
+         work; the RPC is the same shape bump_read_tally has always used. */
+      try {
+        await rest('/rpc/record_derive_failure', {
+          method: 'POST',
+          body: JSON.stringify({
+            p_sender: String(sender || '').toLowerCase(),
+            p_subject: subjectTemplate,
+            p_step: step,
+            p_version: EXTRACTION_LOGIC_VERSION,
           }),
         });
       } catch { /* a lost data point is not a lost transaction */ }

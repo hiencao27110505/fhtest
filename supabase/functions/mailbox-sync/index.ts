@@ -12,7 +12,7 @@
    runner. This file is transport: read the environment, build the context,
    report what happened. */
 import nacl from "npm:tweetnacl@1.0.3";
-import { runAll, runPush, renewWatches } from "../_shared/mailbox/worker.mjs";
+import { runAll, runPush, renewWatches, runCoverageProbe } from "../_shared/mailbox/worker.mjs";
 import { runIngest } from "../_shared/mailbox/ingest.mjs";
 import { createDb } from "../_shared/mailbox/db.mjs";
 import { fromBytea } from "../_shared/mailbox/token-crypto.mjs";
@@ -111,6 +111,26 @@ Deno.serve(async (req: Request) => {
     } catch (e) {
       console.error("mailbox-sync ingest failed:", e);
       return json({ error: String((e as Error)?.message || e) }, 500);
+    }
+  }
+
+  /* ── the weekly coverage probe (0110) ─────────────────────────────────────
+     Fired by its own cron with body {"coverage":true}. Kept OFF the poll path:
+     it lists a different query (category:updates minus the registry), it is
+     due weekly rather than every five minutes, and a probe that misbehaves
+     must never be able to delay a read. Same secret gate as everything above. */
+  {
+    let body: Record<string, unknown> | null = null;
+    try { body = await req.clone().json(); } catch { /* an empty tick body is normal */ }
+    if (body && body.coverage === true) {
+      try {
+        const out = await runCoverageProbe(ctx);
+        console.log("mailbox-sync coverage probe", JSON.stringify(out));
+        return json(out, 200);
+      } catch (e) {
+        console.error("mailbox-sync coverage probe failed:", e);
+        return json({ error: String((e as Error)?.message || e) }, 500);
+      }
     }
   }
 

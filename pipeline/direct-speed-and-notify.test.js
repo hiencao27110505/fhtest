@@ -209,8 +209,11 @@ const GRANT = (over = {}) => ({
      a NON-backfill run must still notify whenever it staged anything. */
   t('an ordinary poll still notifies per run',
     /:\s*summary\.staged > 0;/.test(src) && /const shouldNotify = backfilling/.test(src));
+  /* The invariant, not the identifier: metadata-first (2026-09-02) renamed the
+     prefetcher from _fetchChunk to _metaChunk — the one-ahead pipelining is
+     unchanged and is what this pins. */
   t('the next chunk is requested before the current one is decided',
-    /inflight = more \? _fetchChunk/.test(src));
+    /inflight = more \? _\w*[Cc]hunk/.test(src));
   t('an abandoned prefetch is awaited, so it cannot reject unhandled',
     /if \(inflight\) \{ try \{ await inflight/.test(src));
   t('fingerprints are warmed per chunk rather than per message',
@@ -310,7 +313,7 @@ const GRANT = (over = {}) => ({
     t('the budget no longer gates prefetching (free tiers must keep reading)',
       /const more = c \+ 1 < chunks\.length;/.test(w3));
     t('and an absent prefetch degrades to an empty batch, never null',
-      /const batch = \(await inflight\) \|\| \[\];/.test(w3));
+      /const \w+ = \(await inflight\) \|\| \[\];/.test(w3));
   }
 
 

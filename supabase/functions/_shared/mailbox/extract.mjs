@@ -25,7 +25,7 @@
  */
 
 import { applyExtractionTemplate, deriveAccountKind, deriveExtractionTemplate } from './templates.mjs';
-import { readLabelTable, maskAccount, statusReadsFailed, unknownLabels } from './labeltable.mjs';
+import { readLabelTable, maskAccount, statusReadsFailed, unknownLabels, deriveLabelMappings } from './labeltable.mjs';
 import { canonProviderName } from './senders.mjs';
 import { tidyMemo, tidyMerchant } from './memo.mjs';
 import * as llm from './llm.mjs';
@@ -188,7 +188,12 @@ export async function readTransaction(message, db, deps) {
     await db.bumpReadTally?.('failed_status');
     return { ok: false, reason: 'not_a_transaction' };
   }
-  const tabled = readLabelTable(message.subject, message.body);
+  /* The learned vocabulary for THIS sender's domain, if any mappings have
+     reached the n>=3 confirmation bar (db.loadLearnedLabels, 0111). Hardcoded LABELS
+     always wins inside the reader; an absent map is exactly the old reader. */
+  const learnedForDomain = deps && deps.learnedLabels
+    ? deps.learnedLabels.get(sender.slice(sender.lastIndexOf('@') + 1)) : undefined;
+  const tabled = readLabelTable(message.subject, message.body, learnedForDomain);
   if (tabled && tabled.amount != null && tabled.direction) {
     _fillAccountKind(tabled, message, sender);
     let derivedT = null;
@@ -301,6 +306,19 @@ export async function readTransaction(message, db, deps) {
      personal — so coverage grows from real misses without storing anyone's
      mail. This is the only "training data" this pipeline collects. */
   await db.logMissLabels?.(sender, unknownLabels(message.body));
+  /* And the mappings those labels imply — the model's answer beside the mail's
+     own rows, inverted into label→field VOTES (deriveLabelMappings; applied
+     only at n>=3, safe fields only, hardcoded vocabulary always first). Fire
+     and forget with the same discipline as the failure recorder: a rejected
+     promise from a telemetry write must never cost the transaction. */
+  try {
+    const learned = deriveLabelMappings(message.body, extraction);
+    const dom = sender.slice(sender.lastIndexOf('@') + 1);
+    for (const m of learned) {
+      const lp = db.recordLearnedLabel?.(dom, m.label, m.field);
+      if (lp && typeof lp.catch === 'function') lp.catch(() => {});
+    }
+  } catch { /* learning is optional; reading is not */ }
   return {
     ok: true,
     extraction: _tidy(extraction, message.body),

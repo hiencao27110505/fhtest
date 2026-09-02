@@ -29,6 +29,9 @@ and if the evidence column would say "unverified", say so out loud.
 | A full account number never leaves the reader | `labeltable.mjs` (`maskAccount`), applied in `extract.mjs` `_tidy` | `pipeline/label-table.test.js`; no stored template matches `\d{6,}` (queried 2026-08-31, 0 rows) |
 | The label-table tier reads a bank it has never seen, first mail, with no model | `docs/specs/email-extraction-reference.md` §Tier 1.5 | `pipeline/label-table.test.js`, four real mail shapes |
 | Forwarding runs the **same** extraction logic as the direct read | — | **UNVERIFIED, AND KNOWN FALSE.** The `.gs` has no `readLabelTable`, `maskAccount`, `statusReadsFailed` or `canonProviderName`, and applies `tidyMerchant` destructively. Nothing tests for a function present on one side only |
+| Selection fetches a body only for mail the run will use; exact-shape junk and budget-gated model-bound mail settle on headers | `worker.mjs` metadata-first block | `pipeline/metadata-first.test.js` — incl. the sentinel-still-fetches and free-tiers-at-budget-zero guards |
+| The label vocabulary learns from model answers — n≥3/domain, safe fields only, hardcoded wins, `delete from learned_labels` restores hand-authored behaviour exactly | `labeltable.mjs` `deriveLabelMappings` + 0111 | `pipeline/learned-labels.test.js` — kill switch pinned; VIB's date label stays hand-add-only |
+| Coverage gaps are surfaced weekly as domain+counts, never auto-added to selection | 0110 + `runCoverageProbe` | `pipeline/coverage-probe.test.js` — payload keys pinned to domain, mailboxes, messages |
 | Staged rows can be corrected after the fact | — | **FALSE.** Rows are sealed to a key the server does not hold. A parser fix never reaches a row already staged; it must be re-read or hand-edited |
 
 Reads forwarded bank/provider transaction emails and writes pending rows to

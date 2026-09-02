@@ -144,8 +144,9 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 ## Open
 
 - **2026-09-02 (Trang's session) — IN FLIGHT: selection & learning, plans 1–3.
-  CLAIMING migrations `0107` (coverage_candidates + weekly probe cron) and
-  `0108` (learned_labels + counting RPCs). Files: `worker.mjs`, `gmail.mjs`,
+  CLAIMING migrations `0110` (coverage_candidates + weekly probe cron) and
+  `0111` (RENUMBERED from 0107/0108 mid-flight — Hien applied his own
+  0107–0109 concurrently; the claim was here but unpulled) (learned_labels + counting RPCs (renumbered 0111)). Files: `worker.mjs`, `gmail.mjs`,
   `extract.mjs`, `labeltable.mjs`, `db.mjs`, `mailbox-sync/index.ts`, tests.**
 
   1. **Metadata-first selection.** Bodies are fetched only for mail the run will
