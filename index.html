@@ -3250,8 +3250,8 @@ html.fh-can-install .set-row.set-install{display:flex}
    its structure but gains a 2-line memo and a plain-text transport line at the
    bottom (provenance is information, not a badge). */
 #csv-result.staged .bc-note{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-#csv-result.staged .bc-amt{margin-left:auto;order:9}
-.bc-srcline{display:block;font-size:11.5px;font-weight:500;color:var(--muted-soft);margin-top:1px}
+/* transport rides the end of the amount · category line — plain text, no chip */
+.bc-src-txt{font-size:11.5px;font-weight:500;color:var(--muted-soft)}
 
 /* expanded head: the tick takes the old ✕ slot — same corner as collapsed */
 #csv-result.staged .bulk-card.active .bulk-head .bulk-check{margin-left:auto}
@@ -9440,7 +9440,10 @@ function bulkDate(iso){
 }
 /* Collapsed-card body: the note on its own full-width row, then amount + category
    (or a red "Chọn danh mục" prompt) on the row below. */
-function bulkSummary(r){
+/* extra: optional trailing span(s) for the meta line — the staged review rides
+   its transport ("Trực tiếp"/"Chuyển tiếp") at the end of the same amount ·
+   category line. Composer callers pass nothing and are unchanged. */
+function bulkSummary(r, extra){
   var note=(r.note||'').trim();
   var noteHtml = note
     ? '<span class="bc-note">'+esc(note)+'</span>'
@@ -9465,7 +9468,7 @@ function bulkSummary(r){
   }
   if(r.time) meta+='<span class="bc-cat">🕘 '+esc(r.time)+'</span>';   // per-row time, when known
   if(r._dup) meta+='<span class="bc-dup">'+L('lặp lại','repeat')+'</span>';
-  return noteHtml+'<span class="bc-meta">'+meta+'</span>';
+  return noteHtml+'<span class="bc-meta">'+meta+(extra||'')+'</span>';
 }
 /* Rebuild the card list and relocate the single #ex-editor into the active card.
    Edit mode (or an empty model) renders the editor in place with no cards/＋. */
@@ -11433,11 +11436,11 @@ function csvCollapsedCard(c, opts){
       + '<i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></i></button>'
     : '';
   /* The transport ("Trực tiếp"/"Chuyển tiếp") used to be a highlighted tag at the
-     head. It is provenance, not a decision — so it now sits at the BOTTOM as one
-     quiet plain-text line, and the header meta keeps only scope · bank · account
-     · date · time. */
+     head. It is provenance, not a decision — so it rides the END of the bottom
+     meta line (amount · category · transport) as quiet plain text, and the
+     header meta keeps only scope · bank · account · date · time. */
   var srcTag = csvStagedSourceTag(c);
-  var srcLine = srcTag ? '<span class="bc-srcline">'+esc(srcTag)+'</span>' : '';
+  var srcSpan = srcTag ? '<span class="bc-src-txt">'+esc(srcTag)+'</span>' : '';
   return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
     /* Scope now rides in the header meta line (csvCardHead), not on its own row.
@@ -11446,9 +11449,8 @@ function csvCollapsedCard(c, opts){
         (csvStagedMode && !opts.isDup) ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '',
         '', csvStagedAcctChip(c))
     + (opts.noPick
-        ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+'</span>'
-        : bulkSummary(csvRowShape(c, opts.isDup || opts.repeat)))
-    + srcLine
+        ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+srcSpan+'</span>'
+        : bulkSummary(csvRowShape(c, opts.isDup || opts.repeat), srcSpan))
     + '</button>' + rm + '</div>';
 }
 
@@ -16961,7 +16963,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v451';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v452';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',

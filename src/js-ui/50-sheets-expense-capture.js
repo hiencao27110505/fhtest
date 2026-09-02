@@ -497,7 +497,10 @@ function bulkDate(iso){
 }
 /* Collapsed-card body: the note on its own full-width row, then amount + category
    (or a red "Chọn danh mục" prompt) on the row below. */
-function bulkSummary(r){
+/* extra: optional trailing span(s) for the meta line — the staged review rides
+   its transport ("Trực tiếp"/"Chuyển tiếp") at the end of the same amount ·
+   category line. Composer callers pass nothing and are unchanged. */
+function bulkSummary(r, extra){
   var note=(r.note||'').trim();
   var noteHtml = note
     ? '<span class="bc-note">'+esc(note)+'</span>'
@@ -522,7 +525,7 @@ function bulkSummary(r){
   }
   if(r.time) meta+='<span class="bc-cat">🕘 '+esc(r.time)+'</span>';   // per-row time, when known
   if(r._dup) meta+='<span class="bc-dup">'+L('lặp lại','repeat')+'</span>';
-  return noteHtml+'<span class="bc-meta">'+meta+'</span>';
+  return noteHtml+'<span class="bc-meta">'+meta+(extra||'')+'</span>';
 }
 /* Rebuild the card list and relocate the single #ex-editor into the active card.
    Edit mode (or an empty model) renders the editor in place with no cards/＋. */

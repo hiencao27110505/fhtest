@@ -845,11 +845,11 @@ function csvCollapsedCard(c, opts){
       + '<i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></i></button>'
     : '';
   /* The transport ("Trực tiếp"/"Chuyển tiếp") used to be a highlighted tag at the
-     head. It is provenance, not a decision — so it now sits at the BOTTOM as one
-     quiet plain-text line, and the header meta keeps only scope · bank · account
-     · date · time. */
+     head. It is provenance, not a decision — so it rides the END of the bottom
+     meta line (amount · category · transport) as quiet plain text, and the
+     header meta keeps only scope · bank · account · date · time. */
   var srcTag = csvStagedSourceTag(c);
-  var srcLine = srcTag ? '<span class="bc-srcline">'+esc(srcTag)+'</span>' : '';
+  var srcSpan = srcTag ? '<span class="bc-src-txt">'+esc(srcTag)+'</span>' : '';
   return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
     /* Scope now rides in the header meta line (csvCardHead), not on its own row.
@@ -858,9 +858,8 @@ function csvCollapsedCard(c, opts){
         (csvStagedMode && !opts.isDup) ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '',
         '', csvStagedAcctChip(c))
     + (opts.noPick
-        ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+'</span>'
-        : bulkSummary(csvRowShape(c, opts.isDup || opts.repeat)))
-    + srcLine
+        ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+csvFmt(c.amount)+'</span>':'')+srcSpan+'</span>'
+        : bulkSummary(csvRowShape(c, opts.isDup || opts.repeat), srcSpan))
     + '</button>' + rm + '</div>';
 }
 
