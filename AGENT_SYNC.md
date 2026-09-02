@@ -143,6 +143,24 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-03 (Trang's session) — `0110_coverage_candidates` and
+  `0111_learned_labels` APPLIED to the live DB; `mailbox-sync` deployed as
+  v31. Next free migration number is `0112`.**
+
+  Verified after apply: both tables present with RLS on and zero
+  anon/authenticated grants, all three functions present
+  (`record_derive_failure`, `record_learned_label`, `_mailbox_coverage_tick`),
+  and cron `familyhub-coverage-probe @ 0 3 * * 0` scheduled (job 8).
+
+  These were drafted as 0107/0108 — the numbers your session applied
+  concurrently for space splits / personal statements / full ledger. The claim
+  was posted here before coding, but a claim only works if it is PULLED before
+  a number is taken; renumbered to 0110/0111 in flight, no live objects
+  affected. Same §2 lesson, third occurrence: check the live schema AND pull
+  this file before claiming.
+
+  No `.gs` paste is needed for any of this — worker/labeltable are mjs-only.
+
 - **2026-09-02 (Trang's session) — IN FLIGHT: selection & learning, plans 1–3.
   CLAIMING migrations `0110` (coverage_candidates + weekly probe cron) and
   `0111` (RENUMBERED from 0107/0108 mid-flight — Hien applied his own
