@@ -70,46 +70,52 @@
         + '<div class="dbt-ldiv"></div>'
         + '<div class="dbt-lr"><span class="dbt-dot" style="background:var(--good)"></span><span class="dbt-lk">Được nợ</span><span class="dbt-lv num">' + fmt(t.owed) + '</span></div>'
         + '</div></section>';
-      /* card tiles */
+      /* Tiles collected first, so a lone one (or an odd trailing one) can span
+         the full width instead of leaving half the row empty — the sparse /
+         single-card case (spec Q5). */
+      const tiles = [];
       t.d.cards.forEach(function (c) {
-        const neg = c.outstanding > 0;
-        h += '<button class="dbt-tile" onclick="openDebtAccount(\'' + c.acct.id + '\')">'
+        const neg = c.outstanding > 0, due = _dueLabel(c.acct);
+        let ht = '<button class="dbt-tile dbt-card-tile" onclick="openDebtAccount(\'' + c.acct.id + '\')">'
           + '<div class="dbt-tk">' + _e(c.acct.name || 'Thẻ') + '</div>'
           + '<div class="dbt-tv num ' + (neg ? 'owe' : 'owed') + '">' + (neg ? '−' : '+') + fmtK(Math.abs(c.outstanding)) + '</div>';
         if (c.acct.limitK > 0) {
           const pct = Math.min(100, Math.round(c.outstanding / c.acct.limitK * 100));
-          h += '<div class="dbt-ms"><span>Dùng ' + pct + '%</span><span>hạn ' + fmtK(c.acct.limitK) + '</span></div>'
+          ht += '<div class="dbt-ms"><span>Dùng ' + pct + '%</span><span>hạn ' + fmtK(c.acct.limitK) + '</span></div>'
             + '<div class="dbt-meter"><i style="width:' + pct + '%"></i></div>';
         } else {
-          h += '<div class="dbt-ts">thẻ tín dụng</div>';
+          ht += '<div class="dbt-ts">thẻ tín dụng</div>';
         }
-        h += '</button>';
+        if (due) ht += '<div class="dbt-tchip"><span class="dbt-due">' + due + '</span></div>';
+        ht += '</button>';
+        tiles.push(ht);
       });
-      /* space tiles */
       t.spaces.forEach(function (s) {
         const net = s.net, known = net != null;
-        h += '<button class="dbt-tile" onclick="openDebtSpace(\'' + s.sp.id + '\')">'
+        let ht = '<button class="dbt-tile" onclick="openDebtSpace(\'' + s.sp.id + '\')">'
           + '<div class="dbt-tk">' + _e(s.sp.name) + '</div>';
         if (known && Math.abs(net) > 0.5) {
-          h += '<div class="dbt-tv num ' + (net < 0 ? 'owe' : 'owed') + '">' + (net < 0 ? '−' : '+') + fmtK(Math.abs(net)) + '</div>'
+          ht += '<div class="dbt-tv num ' + (net < 0 ? 'owe' : 'owed') + '">' + (net < 0 ? '−' : '+') + fmtK(Math.abs(net)) + '</div>'
             + '<div class="dbt-ts">' + (net < 0 ? 'bạn nợ nhóm' : 'nhóm nợ bạn') + '</div>';
         } else if (known) {
-          h += '<div class="dbt-tv num">0đ</div><div class="dbt-ts">đã cân bằng</div>';
+          ht += '<div class="dbt-tv num">0đ</div><div class="dbt-ts">đã cân bằng</div>';
         } else {
-          h += '<div class="dbt-tv num">…</div><div class="dbt-ts">' + (s.ready ? 'đang tải' : 'nhập thẻ nhóm để mở') + '</div>';
+          ht += '<div class="dbt-tv num">…</div><div class="dbt-ts">' + (s.ready ? 'đang tải' : 'nhập thẻ nhóm để mở') + '</div>';
         }
-        h += '</button>';
+        tiles.push(ht + '</button>');
       });
-      /* person tiles */
       t.d.people.forEach(function (p, i) {
         if (Math.abs(p.balance) < 0.5) return;
         const owedMe = p.balance > 0;
-        h += '<button class="dbt-tile" onclick="openDebtPerson(' + i + ')">'
+        tiles.push('<button class="dbt-tile" onclick="openDebtPerson(' + i + ')">'
           + '<div class="dbt-tk">' + _e(p.who) + '</div>'
           + '<div class="dbt-tv num ' + (owedMe ? 'owed' : 'owe') + '">' + (owedMe ? '+' : '−') + fmtK(Math.abs(p.balance)) + '</div>'
           + '<div class="dbt-ts">🔒 ' + (owedMe ? 'cho vay · riêng tư' : 'bạn mượn · riêng tư') + '</div>'
-          + '</button>';
+          + '</button>');
       });
+      // an odd trailing tile spans the full row so the grid never looks half-empty
+      if (tiles.length % 2 === 1) tiles[tiles.length - 1] = tiles[tiles.length - 1].replace('class="dbt-tile', 'class="dbt-tile wide');
+      h += tiles.join('');
       h += '</div></div>';
       return h;
     };
@@ -170,6 +176,16 @@
     window.closeDebt = function () { const ov = document.getElementById('debt-overlay'); if (ov) ov.classList.remove('on'); };
 
     const _dmy = (iso) => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '';
+    /* "đến hạn DD/MM" — the next occurrence of the card's due day, clamped to
+       the real length of that month so a due_day of 31 never rolls to the 1st. */
+    const _dueLabel = (acct) => {
+      if (!acct || !acct.dueDay) return '';
+      const now = new Date(); let y = now.getFullYear(), mo = now.getMonth();
+      if (now.getDate() > acct.dueDay) { mo++; if (mo > 11) { mo = 0; y++; } }
+      const dim = new Date(y, mo + 1, 0).getDate();
+      const day = Math.min(acct.dueDay, dim);
+      return 'đến hạn ' + String(day).padStart(2, '0') + '/' + String(mo + 1).padStart(2, '0');
+    };
 
     /* ① account (card) detail */
     window.openDebtAccount = function (acctId) {
@@ -178,43 +194,58 @@
       const d = _last || fhPersonalDebts();
       const b = (d.byAcct && d.byAcct[acctId]) || { spend: 0, paid: 0, rows: [] };
       const out = b.spend - b.paid;
+      const due = _dueLabel(acct);
       let h = '<div class="dbt-hero2"><div class="dbt-hk">' + (out >= 0 ? 'Đang nợ' : 'Đang dư') + '</div>'
         + '<div class="dbt-hv num ' + (out > 0 ? 'owe' : 'owed') + '">' + fmt(Math.abs(out)) + '</div>';
+      const meta = [];
+      if (acct.limitK > 0) meta.push('Hạn mức còn ' + fmt(Math.max(0, acct.limitK - out)) + ' / ' + fmt(acct.limitK));
+      if (due) meta.push(due);
+      if (meta.length) h += '<div class="dbt-hs">' + meta.join(' · ') + '</div>';
       if (acct.limitK > 0) {
         const pct = Math.min(100, Math.round(out / acct.limitK * 100));
-        h += '<div class="dbt-hs">Hạn mức còn ' + fmt(Math.max(0, acct.limitK - out)) + ' / ' + fmt(acct.limitK) + '</div>'
-          + '<div class="dbt-meter big"><i style="width:' + Math.max(0, pct) + '%"></i></div>';
+        h += '<div class="dbt-meter big"><i style="width:' + Math.max(0, pct) + '%"></i></div>';
       }
+      // reconcile: the derived balance is only as complete as what got captured
+      h += '<button class="dbt-relink" onclick="fhCardReconcileSheet(\'' + acct.id + '\')">Số chưa khớp? Cập nhật dư nợ thực tế</button>';
       h += '</div>';
       h += '<div class="dbt-acts">'
         + '<button class="dbt-btn primary" onclick="fhCardPaySheet(\'' + acct.id + '\')">Ghi thanh toán thẻ</button>'
-        + '<button class="dbt-btn tinted" onclick="fhAcctEditSheet(\'' + acct.id + '\')">Tên &amp; hạn mức</button>'
+        + '<button class="dbt-btn tinted" onclick="fhAcctEditSheet(\'' + acct.id + '\')">Cài đặt thẻ</button>'
         + '</div>';
-      /* Two sides of the card, two sections: what the card BOUGHT (expenses that
-         build the balance) and what PAID it OFF (transfers that draw it down). */
+      /* One list, both sides of the card, filterable. No +/− signs — a payment
+         reads as green with a "trả nợ" tag, a purchase is neutral ink, and a
+         reconcile shows an "điều chỉnh" tag. Direction lives in colour + tag +
+         filter, not in the number's sign (spec Q1). */
       const all = (b.rows || []).slice().sort((a, x) => (x.date || '').localeCompare(a.date || ''));
-      const spends = all.filter((r) => r.kind !== 'transfer');
-      const pays = all.filter((r) => r.kind === 'transfer');
-      h += '<div class="dbt-sec">Chi tiêu trên thẻ</div><div class="dbt-card">';
-      if (!spends.length) h += '<div class="dbt-note">Chưa có khoản chi nào gắn với thẻ này. Chi tiêu từ email tự gắn khi bạn duyệt (chọn đúng thẻ khi ghi thủ công).</div>';
-      spends.slice(0, 80).forEach(function (r) {
-        h += '<div class="dbt-li"><span class="dbt-lic">' + (r.emoji || '🗂️') + '</span>'
-          + '<span class="dbt-lib"><span class="dbt-lin">' + _e(r.note || r.cat || 'Khoản chi') + '</span>'
-          + '<span class="dbt-lis">' + _dmy(r.date) + (r.cat ? ' · ' + _e(r.cat) : '') + '</span></span>'
-          + '<span class="dbt-liv num">+' + fmt(Math.abs(r.amt || 0)) + '</span></div>';
-      });
-      h += '</div>';
-      h += '<div class="dbt-sec">Thanh toán thẻ</div><div class="dbt-card">';
-      if (!pays.length) h += '<div class="dbt-note">Chưa ghi thanh toán nào. Bấm “Ghi thanh toán thẻ” ở trên — có thể chọn từ các khoản trả thẻ đang chờ trong hộp thư.</div>';
-      pays.slice(0, 40).forEach(function (r) {
-        h += '<div class="dbt-li"><span class="dbt-lic">💳</span>'
-          + '<span class="dbt-lib"><span class="dbt-lin">' + _e(r.note || 'Thanh toán thẻ') + '<i class="dbt-tag">trả nợ</i></span>'
-          + '<span class="dbt-lis">' + _dmy(r.date) + '</span></span>'
-          + '<span class="dbt-liv num owed">−' + fmt(Math.abs(r.amt || 0)) + '</span></div>';
+      h += '<div class="dbt-sec">Giao dịch</div>';
+      h += '<div class="dbt-filters" id="dbt-filters">'
+        + '<button class="dbt-fchip on" data-f="all" onclick="fhCardFilter(this,\'all\')">Tất cả</button>'
+        + '<button class="dbt-fchip" data-f="spend" onclick="fhCardFilter(this,\'spend\')">Chi tiêu</button>'
+        + '<button class="dbt-fchip" data-f="pay" onclick="fhCardFilter(this,\'pay\')">Trả nợ</button>'
+        + '</div>';
+      h += '<div class="dbt-card" id="dbt-txlist">';
+      if (!all.length) h += '<div class="dbt-note">Chưa có giao dịch nào gắn với thẻ này. Chi tiêu từ email tự gắn khi bạn duyệt; trả nợ thì bấm “Ghi thanh toán thẻ”.</div>';
+      all.slice(0, 120).forEach(function (r) {
+        const pay = r.kind === 'transfer';
+        const adj = pay && (r.note || '').indexOf('Điều chỉnh') === 0;
+        h += '<div class="dbt-li" data-k="' + (pay ? 'pay' : 'spend') + '"><span class="dbt-lic">' + (adj ? '⚖️' : (pay ? '💳' : (r.emoji || '🗂️'))) + '</span>'
+          + '<span class="dbt-lib"><span class="dbt-lin">' + _e(pay ? (r.note || 'Thanh toán thẻ') : (r.note || r.cat || 'Khoản chi'))
+          + (pay ? '<i class="dbt-tag' + (adj ? ' adj' : '') + '">' + (adj ? 'điều chỉnh' : 'trả nợ') + '</i>' : '') + '</span>'
+          + '<span class="dbt-lis">' + _dmy(r.date) + (!pay && r.cat ? ' · ' + _e(r.cat) : '') + '</span></span>'
+          + '<span class="dbt-liv num' + (pay && !adj ? ' owed' : '') + '">' + fmt(Math.abs(r.amt || 0)) + '</span></div>';
       });
       h += '</div>';
       h += '<div class="dbt-foot">Trả sao kê là <b>chuyển khoản</b>, không phải chi tiêu — các khoản chi đã được tính lúc quẹt, nên không bị đếm hai lần.</div>';
       _ovOpen(acct.name || 'Thẻ', h);
+    };
+    /* filter the unified card list in place (no re-render) */
+    window.fhCardFilter = function (btn, f) {
+      const wrap = document.getElementById('dbt-filters');
+      if (wrap) wrap.querySelectorAll('.dbt-fchip').forEach(function (b) { b.classList.toggle('on', b === btn); });
+      const list = document.getElementById('dbt-txlist'); if (!list) return;
+      list.querySelectorAll('.dbt-li').forEach(function (li) {
+        li.style.display = (f === 'all' || li.getAttribute('data-k') === f) ? '' : 'none';
+      });
     };
 
     /* ② person (1:1 IOU) detail */
@@ -421,28 +452,77 @@
       });
       box.innerHTML = h;
     }
-    window.fhCardPayFromStaged = async function (acctId, i) {
+    /* Tapping an inbox candidate no longer logs on the spot — it opens a confirm
+       sheet (amount · date · which card, all editable) so a wrong amount or the
+       wrong card is caught before it commits + retires the staged row (spec Q2). */
+    window.fhCardPayFromStaged = function (acctId, i) {
       const c = _payCands[i]; if (!c) return;
-      const ok = await fhPersonalAddTransfer(_baseAmt(c.amount), acctId, c.description || 'Thanh toán thẻ', (c.occurredAt || '').slice(0, 10) || undefined, 'direct-email');
-      if (!ok) { window.toast && toast('Chưa ghi được, thử lại'); return; }
-      if (window.fhStagedRetireIds) { try { await fhStagedRetireIds([c.id]); } catch (e) {} }
-      window.toast && toast('Đã gán vào thẻ & xoá khỏi hộp chờ');
-      if (window._closeOv) window._closeOv();
-      openDebtAccount(acctId);
-      if (window.renderPersonal) renderPersonal();
+      const P = _P(); const cards = ((P && P.accounts) || []).filter((a) => a.kind === 'credit_card');
+      _fhModal({
+        title: 'Xác nhận trả nợ thẻ', saveLabel: 'Ghi thanh toán', reqMsg: 'Kiểm tra số tiền nhé',
+        body: '<div class="dbt-note">Từ hộp thư: ' + _e(c.description) + ' · ' + _e(c.provider || 'Ngân hàng') + (c.tail ? ' ••' + c.tail : '') + '</div>'
+          + '<div class="field"><label>Số tiền</label><input class="num" id="dbt-amt" inputmode="numeric" value="' + Number(c.amount || 0).toLocaleString('vi-VN') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field"><label>Ngày</label><input type="date" id="dbt-date" value="' + ((c.occurredAt || '').slice(0, 10) || new Date().toISOString().slice(0, 10)) + '" oninput="fhModalDirty()"></div>'
+          + (cards.length > 1 ? '<div class="field"><label>Trả cho thẻ nào</label><div class="choices" id="dbt-paycard">'
+              + cards.map(function (a) { return '<button class="choice' + (a.id === acctId ? ' on' : '') + '" data-v="' + a.id + '" onclick="pick(\'dbt-paycard\',this)">' + _e(a.name || 'Thẻ') + '</button>'; }).join('') + '</div></div>' : '')
+          + '<div class="dbt-note">Ghi xong sẽ trừ vào dư nợ thẻ và xoá khỏi hộp chờ.</div>',
+        required: function () { return [{ el: document.getElementById('dbt-amt'), ok: _amtOf('dbt-amt') > 0 }]; },
+        save: async function () {
+          const target = (cards.length > 1 && typeof chosen === 'function' && chosen('dbt-paycard')) || acctId;
+          const ok = await fhPersonalAddTransfer(_amtOf('dbt-amt'), target, c.description || 'Thanh toán thẻ', (document.getElementById('dbt-date') || {}).value || undefined, 'direct-email');
+          if (!ok) throw new Error('save_failed');
+          if (window.fhStagedRetireIds) { try { await fhStagedRetireIds([c.id]); } catch (e) {} }
+          window.toast && toast('Đã gán vào thẻ & xoá khỏi hộp chờ');
+          return function () { openDebtAccount(target); if (window.renderPersonal) renderPersonal(); };
+        },
+      });
     };
 
     window.fhAcctEditSheet = function (acctId) {
       const P = _P(); const acct = P && P.accounts.find((a) => a.id === acctId); if (!acct) return;
+      const _dayIn = (id, val) => '<input type="number" min="1" max="31" id="' + id + '" inputmode="numeric" placeholder="—" value="' + (val || '') + '" oninput="fhModalDirty()">';
       _fhModal({
-        title: 'Thẻ / tài khoản', saveLabel: 'Lưu',
+        title: 'Cài đặt thẻ', saveLabel: 'Lưu',
         body: '<div class="field"><label>Tên</label><input id="dbt-aname" value="' + _e(acct.name || '') + '" oninput="fhModalDirty()"></div>'
-          + '<div class="field"><label>Hạn mức thẻ <span class="opt">· để trống nếu không nhớ</span></label><input class="num" id="dbt-alim" inputmode="numeric" value="' + (acct.limitK > 0 ? Math.round(acct.limitK * (window.curMult ? curMult() : 1000)).toLocaleString('vi-VN') : '') + '" oninput="fhModalDirty()"></div>',
+          + '<div class="field"><label>Hạn mức thẻ <span class="opt">· để trống nếu không nhớ</span></label><input class="num" id="dbt-alim" inputmode="numeric" value="' + (acct.limitK > 0 ? Math.round(acct.limitK * (window.curMult ? curMult() : 1000)).toLocaleString('vi-VN') : '') + '" oninput="fhModalDirty()"></div>'
+          + '<div class="field-row"><div class="field"><label>Ngày chốt sao kê</label>' + _dayIn('dbt-astm', acct.statementDay) + '</div>'
+          + '<div class="field"><label>Ngày đến hạn</label>' + _dayIn('dbt-adue', acct.dueDay) + '</div></div>'
+          + '<div class="dbt-note">Ngày chốt và ngày đến hạn là ngày trong tháng (1–31), theo sao kê thẻ của bạn. Dùng để nhắc “đến hạn”.</div>',
         save: async function () {
           const name = ((document.getElementById('dbt-aname') || {}).value || '').trim();
           const lim = _amtOf('dbt-alim');
-          const ok = await fhPersonalAccountUpdate(acctId, { name: name || acct.name, limitK: lim > 0 ? lim : null, humanVerified: true });
+          const _day = (id) => { const v = parseInt((document.getElementById(id) || {}).value || '', 10); return (v >= 1 && v <= 31) ? v : null; };
+          const ok = await fhPersonalAccountUpdate(acctId, { name: name || acct.name, limitK: lim > 0 ? lim : null,
+            statementDay: _day('dbt-astm'), dueDay: _day('dbt-adue'), humanVerified: true });
           if (!ok) throw new Error('save_failed');
+          return function () { openDebtAccount(acctId); if (window.renderPersonal) renderPersonal(); };
+        },
+      });
+    };
+
+    /* Reconcile (spec Q3a): the derived balance is only as complete as the mail
+       that got captured. The person types the real current debt from their bank
+       app; we book the gap as a dated "Điều chỉnh dư nợ" transfer, so the number
+       matches now AND future captured purchases add on top correctly. The
+       derived-balance model stays honest — the gap is an explicit line, not a
+       silent override. */
+    window.fhCardReconcileSheet = function (acctId) {
+      const P = _P(); const acct = P && P.accounts.find((a) => a.id === acctId); if (!acct) return;
+      const d = _last || fhPersonalDebts();
+      const b = (d.byAcct && d.byAcct[acctId]) || { spend: 0, paid: 0 };
+      const cur = b.spend - b.paid;
+      _fhModal({
+        title: 'Cập nhật dư nợ thực tế', saveLabel: 'Cập nhật', reqMsg: 'Nhập dư nợ hiện tại nhé',
+        body: '<div class="dbt-note">App đang tính dư nợ thẻ là <b>' + fmt(Math.max(0, cur)) + '</b> từ những khoản đã ghi. Nếu app đọc thiếu vài giao dịch, nhập dư nợ thật (xem trong app ngân hàng), app sẽ ghi một dòng điều chỉnh cho khớp.</div>'
+          + '<div class="field"><label>Dư nợ thực tế</label><input class="num" id="dbt-amt" inputmode="numeric" placeholder="' + fmt(Math.max(0, cur)) + '" oninput="fhModalDirty()"></div>',
+        required: function () { return [{ el: document.getElementById('dbt-amt'), ok: !!((document.getElementById('dbt-amt') || {}).value || '').trim() }]; },
+        save: async function () {
+          const actual = _amtOf('dbt-amt');
+          const adj = cur - actual;   // >0 draws debt down (like a payment); <0 raises it (missed purchases)
+          if (Math.abs(adj) < 0.5) { window.toast && toast('Đã khớp, không cần điều chỉnh'); return function () { openDebtAccount(acctId); }; }
+          const ok = await fhPersonalAddTransfer(adj, acctId, 'Điều chỉnh dư nợ', undefined, null);
+          if (!ok) throw new Error('save_failed');
+          window.toast && toast('Đã cập nhật dư nợ');
           return function () { openDebtAccount(acctId); if (window.renderPersonal) renderPersonal(); };
         },
       });

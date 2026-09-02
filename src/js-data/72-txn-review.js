@@ -882,12 +882,14 @@
              otherwise a one-card wallet has only one answer. Ambiguous (several
              cards) → untagged, and assignable later from the card's own detail
              screen. Either way it is a transfer, out of every spend total. */
-          var payCard = null;
-          if (ai && ai.kind === 'credit_card' && window.fhPersonalAccountEnsure) {
-            try { payCard = await window.fhPersonalAccountEnsure(ai); } catch (e1) {}
-          } else {
-            var _cards = (pd.accounts || []).filter(function (a) { return a.kind === 'credit_card'; });
-            if (_cards.length === 1) payCard = _cards[0].id;
+          var payCard = c._payCardId || null;   // an explicit pick in the expanded review card wins
+          if (!payCard) {
+            if (ai && ai.kind === 'credit_card' && window.fhPersonalAccountEnsure) {
+              try { payCard = await window.fhPersonalAccountEnsure(ai); } catch (e1) {}
+            } else {
+              var _cards = (pd.accounts || []).filter(function (a) { return a.kind === 'credit_card'; });
+              if (_cards.length === 1) payCard = _cards[0].id;
+            }
           }
           ok = await window.fhPersonalAddTransfer(base, payCard, c.description || 'Thanh toán thẻ', c.dateDisplay || undefined, src);
         } else {

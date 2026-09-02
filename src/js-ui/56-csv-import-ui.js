@@ -872,9 +872,11 @@ function csvActiveCard(c, opts){
       return '<button type="button" class="choice'+(m.name===whoSel?' on':'')+'" data-v="'+escAttr(m.name)+'" onclick="pick(\'csvedit-who\',this)">'+esc(m.name)+'</button>';
     }).join('') + '<button type="button" class="choice'+(whoSel==='Both'?' on':'')+'" data-v="Both" onclick="pick(\'csvedit-who\',this)">'+esc(LANG==='vi'?'Chung':'Both')+'</button>';
 
-    body += '<div class="field"><label>'+L('Chi cho gì?','What for?')+'</label>'
+    body += '<div class="field"><label>'+(c.isTransfer?L('Ghi chú','Note'):L('Chi cho gì?','What for?'))+'</label>'
       + '<input id="csvedit-note" value="'+escAttr(c.description||'')+'"/>'
-      + '<div class="choices" id="csvedit-cats" style="margin-top:10px">'+catChips+'</div></div>'
+      // a transfer (card payment) has no category — the chips are hidden so
+      // csvReadEditor never reads one, and the row stays a transfer
+      + (c.isTransfer ? '' : '<div class="choices" id="csvedit-cats" style="margin-top:10px">'+catChips+'</div>')+'</div>'
       + '<div class="field-row">'
       + '<div class="field"><label>'+L('Số tiền','Amount')+'</label><input class="num" id="csvedit-amt" inputmode="numeric" onblur="snapAmtInput(this)" placeholder="'+escAttr(amtPlaceholder())+'" value="'+escAttr(c.amount!=null?csvAmtInputVal(c.amount):'')+'"/></div>'
       + '<div class="field"><label>'+L('Khi nào','When')+'</label><input type="date" id="csvedit-date" value="'+escAttr(c.dateDisplay||'')+'"/></div>'
@@ -884,6 +886,7 @@ function csvActiveCard(c, opts){
       // rows have no time column, so no field for them.
       + (!c.isIncome ? '<div class="field"><label>'+L('Giờ','Time')+' <span class="opt">'+L('tuỳ chọn','optional')+'</span></label><input type="time" id="csvedit-time" value="'+escAttr(csvRowTime(c))+'"/></div>' : '')
       + (csvStagedMode ? csvRowScopeField(c) : '')
+      + (csvStagedMode && !c.isIncome ? csvRowKindField(c) : '')
       /* A private row has no member split — the same reason #ex-whofield hides
          when the expense modal is scoped personal. Asking "who paid" about a
          ledger with one member in it is a question with no wrong answer, which
@@ -963,6 +966,48 @@ function csvPickRowScope(v){
   csvReadEditor(c);
   c._scope = v;
   csvSetScope(v);              // and it becomes the default for rows not yet decided
+  renderCsvReview();
+}
+/* Kind control for a STAGED row: the pipeline guessed "trả nợ thẻ" (a transfer)
+   or a normal spend, and the guess can be wrong — this lets a person correct it
+   in the expanded card. "Trả nợ thẻ" also asks WHICH card (the bank mail that
+   pays a card rarely names it). Flipping to "Chi tiêu" restores the category
+   chips so it imports as a normal expense. (Routing a transfer to a group
+   settle-up is deferred — a bank debit rarely names the group.) */
+function csvCreditCards(){
+  return ((window.fhPersonalData && fhPersonalData().accounts) || []).filter(function(a){ return a.kind==='credit_card'; });
+}
+function csvRowKindField(c){
+  var isTr = !!c.isTransfer;
+  var kchip = function(v,label){
+    return '<button type="button" class="choice'+((isTr?'transfer':'expense')===v?' on':'')+'" onclick="csvPickRowKind(\''+v+'\')">'+esc(label)+'</button>';
+  };
+  var h = '<div class="field csv-kindf"><label>'+esc(L('Loại khoản','Kind'))+'</label>'
+    + '<div class="choices">'+kchip('expense',L('Chi tiêu','Spending'))+kchip('transfer',L('💳 Trả nợ thẻ','💳 Card payment'))+'</div></div>';
+  if(isTr){
+    var cards = csvCreditCards();
+    var pc = c._payCardId || (cards.length===1 ? cards[0].id : '');
+    h += '<div class="field csv-paycardf"><label>'+esc(L('Trả cho thẻ nào','Which card'))+'</label><div class="choices">'
+      + cards.map(function(a){ return '<button type="button" class="choice'+(pc===a.id?' on':'')+'" onclick="csvPickPayCard(\''+a.id+'\')">'+esc(a.name||'Thẻ')+'</button>'; }).join('')
+      + '<button type="button" class="choice'+(!pc?' on':'')+'" onclick="csvPickPayCard(\'\')">'+esc(L('Chưa rõ','Not sure'))+'</button>'
+      + '</div>'
+      + (cards.length ? '' : '<div class="csv-scope-note">'+esc(L('Chưa có thẻ tín dụng nào — vẫn ghi được, gán thẻ sau ở mục Nợ & cho vay.','No credit card yet — it still imports, assign a card later in Owing & lending.'))+'</div>')
+      + '</div>';
+  }
+  return h;
+}
+function csvPickRowKind(v){
+  var c = csvExpandedCandidate(); if(!c) return;
+  csvReadEditor(c);
+  c.isTransfer = (v==='transfer');
+  if(!c.isTransfer){ c._payCardId = null; }
+  else if(!c._payCardId){ var cards = csvCreditCards(); if(cards.length===1) c._payCardId = cards[0].id; }
+  renderCsvReview();          // stays expanded (csvExpand unchanged); shows/hides the card picker + category
+}
+function csvPickPayCard(id){
+  var c = csvExpandedCandidate(); if(!c) return;
+  csvReadEditor(c);
+  c._payCardId = id || null;
   renderCsvReview();
 }
 function csvExpandedCandidate(){

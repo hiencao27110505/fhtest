@@ -234,7 +234,7 @@
           _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,cat_emoji,occurred_time_enc,txn_date,kind,space_id,link_id,version,updated_at,created_at,account_id').eq('owner_user_id', P.uid).gte('txn_date', from).order('txn_date', { ascending: false }),
           _sb().from('personal_incomes').select('id,amount_enc,note_enc,income_date').eq('owner_user_id', P.uid).gte('income_date', from),
           _sb().from('personal_budgets').select('total_enc,cats_enc').eq('owner_user_id', P.uid).eq('month', _monISO()).maybeSingle(),
-          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified').eq('owner_user_id', P.uid).is('archived_at', null),
+          _sb().from('personal_accounts').select('id,kind,name_enc,tail,provider,credit_limit_enc,human_verified,statement_day,due_day').eq('owner_user_id', P.uid).is('archived_at', null),
           _sb().from('personal_transactions').select('id,amount_enc,note_enc,counterparty_enc,cat_name_enc,cat_emoji,txn_date,kind,account_id,transfer_group_id,created_at').eq('owner_user_id', P.uid).or('kind.neq.expense,account_id.not.is.null').order('txn_date', { ascending: false }).limit(2000),
         ]);
         /* Their budget read goes through _decP too, so an unreadable budget must
@@ -276,6 +276,7 @@
           const lim = a.credit_limit_enc ? await _decP(a.credit_limit_enc) : null;
           P.accounts.push({ id: a.id, kind: a.kind, tail: a.tail, provider: a.provider,
             humanVerified: a.human_verified,
+            statementDay: a.statement_day || null, dueDay: a.due_day || null,
             name: await _decTxt(a.name_enc),
             limitK: (lim == null || lim === _DEC_FAILED) ? null : (Number(lim) || null) });
         }
@@ -437,6 +438,8 @@
       if (fields.limitK != null) row.credit_limit_enc = fields.limitK > 0 ? await _encP(Number(fields.limitK)) : null;
       if (fields.kind) row.kind = fields.kind;
       if (fields.humanVerified != null) row.human_verified = !!fields.humanVerified;
+      if (fields.hasOwnProperty('statementDay')) row.statement_day = fields.statementDay || null;
+      if (fields.hasOwnProperty('dueDay')) row.due_day = fields.dueDay || null;
       if (fields.archived) row.archived_at = new Date().toISOString();
       const r = await _sb().from('personal_accounts').update(row).eq('id', id).eq('owner_user_id', P.uid);
       if (r.error) { console.warn('account update failed', r.error); return false; }
