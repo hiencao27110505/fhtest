@@ -82,6 +82,26 @@ export const SENDER_SENTINEL = '*';
  *  silently. Six distinct shapes with nothing to show is a newsletter. */
 export const SENDER_JUNK_THRESHOLD = 6;
 
+/* Fire-and-forget, and BOTH halves of that matter.
+ *
+ * `trace` is called from inside deriveExtractionTemplate, which is synchronous
+ * and guards it with try/catch — but a try/catch cannot catch a REJECTED
+ * PROMISE, and the recorder is async. Without the `.catch` below, a telemetry
+ * table that is unreachable, revoked, or renamed takes the whole read down with
+ * it: a lost data point becomes a lost transaction. Which is the exact rule the
+ * recorder was written to obey, broken at the call site rather than inside it,
+ * and caught by pipeline/derive-failures.test.js rather than by production.
+ *
+ * Not awaited, deliberately: the derivation's answer must not wait on a
+ * diagnostic write.
+ */
+function _noteDeriveFailure(db, sender, subjectTemplate, step) {
+  try {
+    const p = db.recordDeriveFailure?.(sender, subjectTemplate, step);
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch { /* a synchronous throw is just as harmless as an async one */ }
+}
+
 export async function readTransaction(message, db, deps) {
   const sender = _address(message.from);
   const template = normalizeSubjectTemplate(message.subject);
@@ -172,7 +192,10 @@ export async function readTransaction(message, db, deps) {
   if (tabled && tabled.amount != null && tabled.direction) {
     _fillAccountKind(tabled, message, sender);
     let derivedT = null;
-    try { derivedT = deriveExtractionTemplate(message.body, tabled); } catch { derivedT = null; }
+    try {
+      derivedT = deriveExtractionTemplate(message.body, tabled,
+        (step) => { _noteDeriveFailure(db, sender, template, step); });
+    } catch { derivedT = null; }
     await db.saveFingerprint({
       sender_address: sender,
       subject_template: template,
@@ -181,6 +204,7 @@ export async function readTransaction(message, db, deps) {
       extraction_regex: derivedT,
     });
     await db.bumpReadTally?.('table');
+    await db.bumpReadTally?.(derivedT ? 'template_learned' : 'template_unlearnable');
     return {
       ok: true,
       extraction: _tidy(tabled, message.body),
@@ -257,7 +281,10 @@ export async function readTransaction(message, db, deps) {
   // mail tries the model again rather than trusting an unproven template.
   _fillAccountKind(extraction, message, sender);
   let derived = null;
-  try { derived = deriveExtractionTemplate(message.body, extraction); } catch { derived = null; }
+  try {
+    derived = deriveExtractionTemplate(message.body, extraction,
+      (step) => { _noteDeriveFailure(db, sender, template, step); });
+  } catch { derived = null; }
 
   await db.saveFingerprint({
     sender_address: sender,
@@ -268,6 +295,7 @@ export async function readTransaction(message, db, deps) {
   });
 
   await db.bumpReadTally?.('llm');
+  await db.bumpReadTally?.(derived ? 'template_learned' : 'template_unlearnable');
   /* A transaction the table tier could not read is a dictionary gap. Log the
      LABELS the mail used — bank boilerplate, no values, no amounts, nothing
      personal — so coverage grows from real misses without storing anyone's

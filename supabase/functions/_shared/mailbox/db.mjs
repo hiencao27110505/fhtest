@@ -18,6 +18,11 @@
  */
 
 /** How many mailboxes one run touches. Bounds a run against a function timeout. */
+/* Stamped onto every derive-failure row, so a fixed deriver's old failures age
+   out visibly rather than reading as current. Imported rather than duplicated:
+   two copies of a cache-keying version is how they drift. */
+import { EXTRACTION_LOGIC_VERSION } from './templates.mjs';
+
 export const MAX_GRANTS_PER_RUN = 25;
 
 /* The subject_template of a SENDER-WIDE verdict, as opposed to a per-shape one.
@@ -324,6 +329,31 @@ export function createDb(url, serviceKey, fetchImpl) {
        records the label vocabulary of a transaction the table tier could not
        read (labels only — the values never leave the mail). A throw here must
        cost nothing but the data point. */
+    /* WHY a shape could not learn a template — the counterpart to
+       `template_missed`, which says only THAT one exists and never matches.
+       Counted per (sender, subject, step, logic_version), never one row per
+       event: a shape that fails does so on every mail of that shape, and an
+       event log would be a flood bounded by mail volume rather than by the
+       number of shapes. `logic_version` is what lets a fixed deriver's old
+       failures age out visibly instead of polluting the picture forever.
+       Best-effort like the tally above: instrumenting a failure must never
+       create one. */
+    async recordDeriveFailure(sender, subjectTemplate, step) {
+      try {
+        await rest('/template_derive_failures?on_conflict=sender_address,subject_template,step,logic_version', {
+          method: 'POST',
+          headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify({
+            sender_address: String(sender || '').toLowerCase(),
+            subject_template: subjectTemplate,
+            step: step,
+            logic_version: EXTRACTION_LOGIC_VERSION,
+            last_seen: new Date().toISOString(),
+          }),
+        });
+      } catch { /* a lost data point is not a lost transaction */ }
+    },
+
     async bumpReadTally(stage) {
       try {
         await rest('/rpc/bump_read_tally', {
