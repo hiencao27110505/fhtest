@@ -886,7 +886,12 @@ function csvActiveCard(c, opts){
       // rows have no time column, so no field for them.
       + (!c.isIncome ? '<div class="field"><label>'+L('Giờ','Time')+' <span class="opt">'+L('tuỳ chọn','optional')+'</span></label><input type="time" id="csvedit-time" value="'+escAttr(csvRowTime(c))+'"/></div>' : '')
       + (csvStagedMode ? csvRowScopeField(c) : '')
-      + (csvStagedMode && !c.isIncome ? csvRowKindField(c) : '')
+      // "Trả nợ thẻ" is a PERSONAL liability by nature — a card is never a
+      // space's debt. So the Kind control only appears for a personal-scoped
+      // row; a shared row is a plain expense (its transfer flag is cleared on
+      // the scope flip below). The "space payable" kind is a separate deferred
+      // flow (routing a settle-up out of the review).
+      + (csvStagedMode && !c.isIncome && csvRowScope(c)==='personal' ? csvRowKindField(c) : '')
       /* A private row has no member split — the same reason #ex-whofield hides
          when the expense modal is scoped personal. Asking "who paid" about a
          ledger with one member in it is a question with no wrong answer, which
@@ -965,6 +970,9 @@ function csvPickRowScope(v){
   }
   csvReadEditor(c);
   c._scope = v;
+  // A card payment is personal — a shared row can never be one, so leaving it
+  // family-scoped would import "trả nợ thẻ" as a family expense and double-count.
+  if(v!=='personal'){ c.isTransfer = false; c._payCardId = null; }
   csvSetScope(v);              // and it becomes the default for rows not yet decided
   renderCsvReview();
 }

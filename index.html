@@ -11318,7 +11318,12 @@ function csvActiveCard(c, opts){
       // rows have no time column, so no field for them.
       + (!c.isIncome ? '<div class="field"><label>'+L('Giờ','Time')+' <span class="opt">'+L('tuỳ chọn','optional')+'</span></label><input type="time" id="csvedit-time" value="'+escAttr(csvRowTime(c))+'"/></div>' : '')
       + (csvStagedMode ? csvRowScopeField(c) : '')
-      + (csvStagedMode && !c.isIncome ? csvRowKindField(c) : '')
+      // "Trả nợ thẻ" is a PERSONAL liability by nature — a card is never a
+      // space's debt. So the Kind control only appears for a personal-scoped
+      // row; a shared row is a plain expense (its transfer flag is cleared on
+      // the scope flip below). The "space payable" kind is a separate deferred
+      // flow (routing a settle-up out of the review).
+      + (csvStagedMode && !c.isIncome && csvRowScope(c)==='personal' ? csvRowKindField(c) : '')
       /* A private row has no member split — the same reason #ex-whofield hides
          when the expense modal is scoped personal. Asking "who paid" about a
          ledger with one member in it is a question with no wrong answer, which
@@ -11397,6 +11402,9 @@ function csvPickRowScope(v){
   }
   csvReadEditor(c);
   c._scope = v;
+  // A card payment is personal — a shared row can never be one, so leaving it
+  // family-scoped would import "trả nợ thẻ" as a family expense and double-count.
+  if(v!=='personal'){ c.isTransfer = false; c._payCardId = null; }
   csvSetScope(v);              // and it becomes the default for rows not yet decided
   renderCsvReview();
 }
@@ -16178,7 +16186,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v445';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v446';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
