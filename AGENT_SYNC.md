@@ -143,6 +143,50 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-03 (Hien's session) — APPLIED `0112_fx_rates` to the live DB;
+  `mailbox-sync` redeployed **v32**; NEW edge function `fx-refresh` deployed.
+  Next free migration number is `0113`. ⚠️ `.gs` PASTE NEEDED — handoff to
+  Trang at the end of this entry.**
+
+  Shipped the foreign-currency-email fix: a "$111" card charge (e.g. a Claude
+  subscription) was staging AND logging as `111đ`. Full write-up and the
+  decision record (Approach 3 auto-convert, zero-typing; decision #4 confirmed
+  = T10 reversed, multi-currency is a future epic):
+  `docs/specs/foreign-currency-emails-spec.md`.
+
+  **Live singletons I touched (per §1) — all verified after the fact:**
+  - **Migration 0112**: new GLOBAL table `public.fx_rates` (`currency`,
+    `rate_to_vnd`, `fee_pct` default 3.0, `updated_at`, `source`) — RLS
+    read-for-`authenticated` / service-role write, seeded 15 majors. Plus
+    `_fx_refresh_tick()` + cron `familyhub-fx-refresh @ 0 1 * * *`. Additive
+    only; no existing object altered. `fee_pct` is a POLICY value (the bank's
+    FX markup, folded into the estimate) — the rate refresh NEVER overwrites it.
+  - **Edge functions**: `mailbox-sync` redeployed **v32** (shared
+    `_shared/mailbox/*` currency work — labeltable/templates/llm/stage/worker/
+    ingest); NEW `fx-refresh` (pulls `open.er-api.com` daily, upserts
+    `rate_to_vnd` only). A redeploy replaces whatever was live — flagging per §1.
+  - **Env / vault (§1: no diff, no history — announcing)**: set function env
+    `FX_REFRESH_SECRET`; set vault secrets `fx_refresh_url` + `fx_refresh_secret`
+    (they must match — the tick reads the vault, the function reads the env).
+    Verified end-to-end: direct invoke → `{ok:true,updated:15}`, live rates
+    landed (USD ≈ 26,016, `source=open.er-api.com`, `fee_pct` untouched), and
+    the cron tick → HTTP 200.
+
+  **⚠️ HANDOFF TO TRANG — the one thing I can't do: re-paste the `.gs`.**
+  `pipeline/bank-email-pipeline.gs` DID change this time (unlike 0110/0111): the
+  template slice gained a foreign-currency guard (`deriveExtractionTemplate`
+  refuses a non-VND reading; `applyExtractionTemplate` degrades a mail that
+  speaks a foreign currency to the model), and the LLM prompt+schema gained the
+  currency rule + `fx_amount`/`fx_currency`. Until it's pasted, the FORWARDING
+  transport still reads a USD mail as VND — direct-read is already fixed (v32).
+  Please paste `pipeline/bank-email-pipeline.gs` from **origin/main** (commit
+  "Foreign-currency emails: zero-typing auto-convert…", landing once my push
+  goes through — GitHub push is timing out on my end, retrying) into the Apps
+  Script editor, confirm `EXTRACTION_LOGIC_VERSION` still reads `4`, and move
+  this to Resolved with the paste date. Parity is pinned by
+  `pipeline/direct-templates.test.js` — run it first; if the slice drifted it
+  will say so before you paste.
+
 - **2026-09-03 (Trang's session) — `0110_coverage_candidates` and
   `0111_learned_labels` APPLIED to the live DB; `mailbox-sync` deployed as
   v31. Next free migration number is `0112`.**
