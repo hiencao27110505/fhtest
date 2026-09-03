@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thẻ thu gọn — 8 option chữ & bố cục, cùng viền</title>
+<style>
+/* ===== Tokens — src/css/10-tokens.css (Sage) ===== */
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --brand-tint:#e9f7f0; --brand-glow:rgba(46,158,107,.32);
+  --danger:#E0322F; --amber:#B8730B; --amber-tint:#fbefda;
+  --good:#1a9d5f;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --canvas:#f4f1f6; --pearl:#fbfafc; --surface:#f9f7f8; --white:#fff;
+  --hairline:#e9e4ee; --divider:#f1edf4; --chev:#cfc8d6;
+  --cat-dining:#FF375F; --cat-transport:#32ADE6; --cat-food:#34C759;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased}
+body{font-family:var(--text);background:#e7e2ec;color:var(--ink)}
+.num{font-variant-numeric:tabular-nums}
+
+.wrap{max-width:1900px;margin:0 auto;padding:44px 28px 90px}
+.hero{max-width:920px}
+.hero h1{font-family:var(--disp);font-size:28px;font-weight:800;letter-spacing:-.5px}
+.hero p{margin-top:10px;font-size:15px;color:var(--muted);line-height:1.55}
+.grid{margin-top:34px;display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:40px 34px}
+@media(max-width:480px){.grid{grid-template-columns:1fr}}
+.panel{max-width:402px;margin:0 auto;background:var(--white);border-radius:26px;padding:16px 16px 18px;box-shadow:0 18px 44px rgba(10,5,20,.14)}
+.cap{max-width:402px;margin:14px auto 0;padding:0 10px}
+.cap .tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:3px 8px;margin-right:8px;vertical-align:2px}
+.cap b{font-size:15px;font-weight:700}
+.cap p{margin-top:5px;font-size:13px;color:var(--muted);line-height:1.5}
+.cap .keep{font-size:11px;font-weight:700;color:var(--muted-soft);text-transform:uppercase;letter-spacing:.04em}
+.datelbl{margin:2px 4px 10px;font-size:12px;font-weight:800;letter-spacing:.09em;color:var(--muted);text-transform:uppercase}
+
+/* ===== FIXED across all 8: hairline bordered card + tick top-right ===== */
+.c{position:relative;border:1.5px solid var(--hairline);border-radius:16px;background:var(--white);padding:12px 46px 11px 15px;text-align:left}
+.c+.c{margin-top:10px}
+.ck{position:absolute;right:11px;top:11px;width:22px;height:22px;border-radius:7px;border:2px solid var(--hairline);display:flex;align-items:center;justify-content:center;color:transparent;font-size:12px;font-weight:800}
+.ck.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.c.off .note,.c.off .amt{color:var(--muted)!important;font-weight:500!important}
+.c.off .amt{text-decoration:line-through;text-decoration-color:var(--chev)}
+/* functional-color helpers (shared vocabulary, used differently per option) */
+.warn{color:var(--amber)!important}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--chev);margin-right:5px;vertical-align:1px}
+.dot.dining{background:var(--cat-dining)} .dot.transport{background:var(--cat-transport)} .dot.food{background:var(--cat-food)}
+
+/* base spans, overridden per option */
+.meta{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta .sep{color:var(--muted-soft);margin:0 4px;font-weight:700}
+.note{margin-top:4px;font-size:14.5px;font-weight:600;letter-spacing:-.01em;line-height:1.35;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.bot{margin-top:5px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.amt{font-family:var(--disp);font-size:15.5px;font-weight:800;letter-spacing:-.02em;white-space:nowrap}
+.cat{font-size:11.5px;font-weight:600;color:var(--ink-2)}
+.src{font-size:11.5px;font-weight:500;color:var(--muted-soft)}
+
+/* ── O1 · Type-scale: note is the hero ── */
+.o1 .meta{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-soft)}
+.o1 .note{font-family:var(--disp);font-size:16.5px;font-weight:700;margin-top:5px}
+.o1 .amt{font-size:15px}
+
+/* ── O2 · Date/time to the right, note owns the left ── */
+.o2 .note{font-size:15px;font-weight:650}
+.o2 .toprow{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.o2 .when{flex:none;font-size:11px;font-weight:700;color:var(--muted-soft);white-space:nowrap}
+.o2 .meta{margin-top:4px;font-size:11px}
+
+/* ── O3 · Monoline: one muted meta run, transport folded in ── */
+.o3 .meta{font-size:11px;font-weight:500;color:var(--muted-soft)}
+.o3 .note{font-size:14.5px;font-weight:600}
+.o3 .cat{font-weight:700;color:var(--ink)}
+
+/* ── O4 · Provenance demoted: bottom is amount · category only ── */
+.o4 .meta{font-size:10.5px;font-weight:600;color:var(--muted-soft)}
+.o4 .note{font-size:15px;font-weight:650}
+.o4 .amt{font-size:16px}
+.o4 .under{margin-top:2px;font-size:10.5px;font-weight:500;color:var(--muted-soft)}
+
+/* ── O5 · Color-coded labels (functional color) ── */
+.o5 .meta{font-size:10.5px;font-weight:700;letter-spacing:.02em}
+.o5 .scope-p{color:var(--brand-ink)} .o5 .scope-f{color:var(--ink-2)}
+.o5 .note{font-size:14.5px;font-weight:600}
+.o5 .amt.in{color:var(--good)}
+.o5 .cat{font-weight:700}
+
+/* ── O6 · Compact dense: tight, packed for 75-row scanning ── */
+.o6 .c{padding:9px 44px 9px 13px}
+.o6 .c+.c{margin-top:7px}
+.o6 .meta{font-size:10px;font-weight:600}
+.o6 .note{margin-top:2px;font-size:13.5px;font-weight:600;line-height:1.25;-webkit-line-clamp:1}
+.o6 .bot{margin-top:2px;gap:7px}
+.o6 .amt{font-size:14px}
+.o6 .cat,.o6 .src{font-size:11px}
+
+/* ── O7 · Display/Text contrast: two type families ── */
+.o7 .meta{font-family:var(--text);font-size:10.5px;font-weight:600;letter-spacing:.02em;color:var(--muted)}
+.o7 .note{font-family:var(--disp);font-size:16px;font-weight:600;letter-spacing:-.02em;margin-top:5px}
+.o7 .amt{font-family:var(--disp);font-size:16px;font-weight:800}
+.o7 .cat{font-family:var(--text);font-size:11.5px}
+
+/* ── O8 · Quiet meta / loud note ── */
+.o8 .meta{font-size:9.5px;font-weight:600;letter-spacing:.03em;color:var(--muted-soft);opacity:.9}
+.o8 .note{font-size:15.5px;font-weight:650;margin-top:3px}
+.o8 .amt{font-size:15px}
+.o8 .src{font-size:10.5px;opacity:.85}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <h1>Thẻ thu gọn — 8 option chữ & bố cục</h1>
+  <p><b>Cố định cả 8:</b> viền hairline 1.5px bo 16px · checkbox góc phải trên · số tiền dẫn đầu dòng đáy (trái). <b>Thay đổi:</b> kiểu chữ, cỡ, màu (chỉ màu chức năng), và cách sắp xếp thông tin. Mỗi panel: 1 khoản cá nhân trả thẻ · 1 khoản gia đình · 1 khoản bỏ chọn/thiếu thông tin.</p>
+</div>
+
+<div class="grid">
+
+<!-- O1 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="o1">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🔒 RIÊNG TƯ<span class="sep">·</span>VIB ••0917<span class="sep">·</span>20:56</div>
+      <div class="note">Trả nợ thẻ VIB Credit ••4751</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🏡 GIA ĐÌNH<span class="sep">·</span>VIB ••0917<span class="sep">·</span>18:22</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="meta">🔒 RIÊNG TƯ<span class="sep">·</span>VIB ••4751<span class="sep">·</span>09:12</div>
+      <div class="note">THANHTOAN THE VIB ONLINE PAYMENT</div>
+      <div class="bot"><span class="amt num">−3.590.000</span><span class="cat warn">Chọn danh mục</span><span class="src">Chuyển tiếp</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">O1</span><b>Type-scale — ghi chú là nhân vật chính</b>
+  <p><span class="keep">giữ đủ 9</span> · Meta thành small-caps 10px mờ, ghi chú lên Display 16.5px/700. Hệ thứ bậc chỉ do cỡ + độ đậm, không đổi khung.</p></div>
+</div>
+
+<!-- O2 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="o2">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="toprow"><div class="note">Trả nợ thẻ VIB Credit ••4751</div><span class="when num">Hôm nay 20:56</span></div>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="toprow"><div class="note">GRAB* TRIP HCM</div><span class="when num">Hôm nay 18:22</span></div>
+      <div class="meta">🏡 Gia đình<span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="toprow"><div class="note">THANHTOAN THE VIB ONLINE PAYMENT</div><span class="when num">Hôm nay 09:12</span></div>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB<span class="sep">·</span>tín dụng ••4751</div>
+      <div class="bot"><span class="amt num">−3.590.000</span><span class="cat warn">Chọn danh mục</span><span class="src">Chuyển tiếp</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">O2</span><b>Ngày giờ về bên phải, ghi chú chiếm trái</b>
+  <p><span class="keep">giữ đủ 9</span> · Sắp lại: ghi chú + thời điểm cùng một hàng trên (đọc "cái gì · khi nào" liền mạch), meta còn lại tụt xuống. Không giấu trường nào.</p></div>
+</div>
+
+<!-- O3 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="o3">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🔒 riêng tư · vib · tk ••0917 · hôm nay 20:56 · trực tiếp</div>
+      <div class="note">Trả nợ thẻ VIB Credit ••4751</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🏡 gia đình · vib · tk ••0917 · hôm nay 18:22 · trực tiếp</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="meta">🔒 riêng tư · vib · td ••4751 · hôm nay 09:12 · chuyển tiếp</div>
+      <div class="note">THANHTOAN THE VIB ONLINE PAYMENT</div>
+      <div class="bot"><span class="amt num">−3.590.000</span><span class="cat warn">Chọn danh mục</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">O3</span><b>Monoline — gộp meta + nguồn nhập một dòng</b>
+  <p><span class="keep">gộp / hạ cấp</span> · Nguồn nhập rời dòng đáy, nhập vào cuối dòng meta chữ thường. Dòng đáy chỉ còn số tiền + danh mục (đậm hơn) — sạch và cân.</p></div>
+</div>
+
+<!-- O4 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="o4">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>Hôm nay 20:56</div>
+      <div class="note">Trả nợ thẻ VIB Credit ••4751</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span></div>
+      <div class="under">VIB · TK ••0917 · Trực tiếp</div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🏡 Gia đình<span class="sep">·</span>Hôm nay 18:22</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span></div>
+      <div class="under">VIB · TK ••0917 · Trực tiếp</div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>Hôm nay 09:12</div>
+      <div class="note">THANHTOAN THE VIB ONLINE PAYMENT</div>
+      <div class="bot"><span class="amt num">−3.590.000</span><span class="cat warn">Chọn danh mục</span></div>
+      <div class="under">VIB · tín dụng ••4751 · Chuyển tiếp</div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">O4</span><b>Hạ cấp nguồn — quyết định lên trên, xuất xứ xuống đáy</b>
+  <p><span class="keep">gộp / hạ cấp</span> · Trên = điều cần quyết (scope, ghi chú, số tiền, danh mục). Dưới = xuất xứ ngân hàng/tài khoản/nguồn nhập, gom một dòng nhỏ mờ. Vẫn đủ 9, nhưng phân tầng theo mức quan trọng.</p></div>
+</div>
+
+<!-- O5 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="o5">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta"><span class="scope-p">🔒 Riêng tư</span><span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917<span class="sep">·</span>20:56</div>
+      <div class="note">Trả nợ thẻ VIB Credit ••4751</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat"><span class="dot"></span>💳 Trả nợ thẻ</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta"><span class="scope-f">🏡 Gia đình</span><span class="sep">·</span>VIB<span class="sep">·</span>TK ••0917<span class="sep">·</span>18:22</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat"><span class="dot transport"></span>Di chuyển</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="meta"><span class="scope-p">🔒 Riêng tư</span><span class="sep">·</span>VIB<span class="sep">·</span>••4751<span class="sep">·</span>09:12</div>
+      <div class="note">NGUYEN VAN A chuyen tien</div>
+      <div class="bot"><span class="amt num in">+1.250.000</span><span class="cat warn">Thu nhập hay thu nợ?</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">O5</span><b>Màu chức năng — nhãn dẫn màu</b>
+  <p><span class="keep">giữ đủ 9</span> · Chấm màu theo danh mục, tiền vào mang dấu + xanh, "còn thiếu" hổ phách, scope cá nhân xanh brand. Màu chỉ để phân loại, không tô nền, viền vẫn hairline.</p></div>
+</div>
+
+<!-- O6 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="o6">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB ••0917<span class="sep">·</span>20:56<span class="sep">·</span>Trực tiếp</div>
+      <div class="note">Trả nợ thẻ VIB Credit ••4751</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🏡 Gia đình<span class="sep">·</span>VIB ••0917<span class="sep">·</span>18:22<span class="sep">·</span>Trực tiếp</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>Tiền mặt<span class="sep">·</span>15:40<span class="sep">·</span>Nhập tay</div>
+      <div class="note">Cà phê với khách</div>
+      <div class="bot"><span class="amt num">−65.000</span><span class="cat">🍜 Ăn ngoài</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="meta">🔒 Riêng tư<span class="sep">·</span>VIB ••4751<span class="sep">·</span>09:12<span class="sep">·</span>Chuyển tiếp</div>
+      <div class="note">THANHTOAN THE VIB ONLINE PAYMENT</div>
+      <div class="bot"><span class="amt num">−3.590.000</span><span class="cat warn">Chọn danh mục</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">O6</span><b>Compact dense — soát 75 khoản nhanh</b>
+  <p><span class="keep">gộp / hạ cấp</span> · Ghi chú 1 dòng, nguồn nhập nhập vào cuối meta, padding + line-height siết lại. Nhiều khoản lọt màn hơn — hợp người soát cả sao kê dài.</p></div>
+</div>
+
+<!-- O7 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="o7">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🔒 Riêng tư · VIB · TK ••0917 · Hôm nay 20:56</div>
+      <div class="note">Trả nợ thẻ VIB Credit ••4751</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🏡 Gia đình · VIB · TK ••0917 · Hôm nay 18:22</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="meta">🔒 Riêng tư · VIB · tín dụng ••4751 · Hôm nay 09:12</div>
+      <div class="note">THANHTOAN THE VIB ONLINE PAYMENT</div>
+      <div class="bot"><span class="amt num">−3.590.000</span><span class="cat warn">Chọn danh mục</span><span class="src">Chuyển tiếp</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">O7</span><b>Display × Text — tương phản hai kiểu chữ</b>
+  <p><span class="keep">giữ đủ 9</span> · Ghi chú + số tiền dùng SF Pro Display (nét thoáng, chữ số đẹp), meta + danh mục dùng SF Pro Text. Thứ bậc đến từ khác kiểu chữ, không cần đổi màu hay khung.</p></div>
+</div>
+
+<!-- O8 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">2 THG 9</div><div class="o8">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🔒 RIÊNG TƯ · VIB · TK ••0917 · 20:56</div>
+      <div class="note">Trả nợ thẻ VIB Credit ••4751</div>
+      <div class="bot"><span class="amt num">−88.888</span><span class="cat">💳 Trả nợ thẻ</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="meta">🏡 GIA ĐÌNH · VIB · TK ••0917 · 18:22</div>
+      <div class="note">GRAB* TRIP HCM</div>
+      <div class="bot"><span class="amt num">−86.000</span><span class="cat">🚗 Di chuyển</span><span class="src">Trực tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="meta">🔒 RIÊNG TƯ · VIB · ••4751 · 09:12</div>
+      <div class="note">THANHTOAN THE VIB ONLINE PAYMENT</div>
+      <div class="bot"><span class="amt num">−3.590.000</span><span class="cat warn">Chọn danh mục</span><span class="src">Chuyển tiếp</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">O8</span><b>Meta thật khẽ / ghi chú thật rõ</b>
+  <p><span class="keep">gộp / hạ cấp</span> · Đẩy tương phản tới hạn: meta 9.5px mờ gần chìm, ghi chú 15.5px nổi bật. Mắt bập ngay vào "chi cho gì" rồi mới đến bối cảnh.</p></div>
+</div>
+
+</div>
+</div>
+</body>
+</html>
