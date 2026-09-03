@@ -340,7 +340,18 @@
         : ((_bankGenericMemo(tidied) && r.counterparty)
             ? r.counterparty
             : (tidied || r.counterparty || r.source_provider || ''));
-      var amt = (r.direction === 'credit' ? '' : '-') + String(r.amount);
+      /* Foreign-currency rows carry the ESTIMATED VND into the amount cell, so
+         every downstream reader — totals, the write, csvBaseAmt — works in VND
+         and never mistakes "$111" for 111đ. The foreign original stays visible
+         via fhStagedFx ("≈ $111 · est."), and the person can edit the estimate.
+         When no rate is known the estimate is null and the raw amount rides
+         through — the review then shows "$111 → ₫?" and asks for the figure. */
+      var _fxHome = String(window.CUR || 'VND').toUpperCase();
+      var _fxCur = String(r.currency || '').toUpperCase();
+      var _fxEst = (_fxCur && _fxCur !== _fxHome && window.fhFxEstimate)
+        ? window.fhFxEstimate(r.amount, _fxCur) : null;
+      var _amtNum = _fxEst ? _fxEst.vnd : r.amount;
+      var amt = (r.direction === 'credit' ? '' : '-') + String(_amtNum);
 
       /* The pipeline answers in CONCEPTS — Dining, Groceries, Transport — not in
          this family's category names, because it has no idea what they are and
@@ -450,13 +461,42 @@
                                  ("≈ $111") and note provenance.
 
      `amount`/`currency` in the answer are always the FOREIGN pair. */
+  /* The VND estimate for a foreign amount, from the shared fx_rates table (0112,
+     hydrated to window.FX_RATES). round(amount × rate × (1 + fee/100)) — the fee
+     is the bank's foreign-transaction markup, so the pre-filled number lands
+     near the real debit instead of a few percent low. Rounded to the nearest
+     1.000đ because it IS an estimate and a clean number reads as one. Null when
+     no rate is known for the currency — the caller then asks for the amount. */
+  window.fhFxEstimate = function (amount, currency) {
+    var t = window.FX_RATES && window.FX_RATES[String(currency || '').toUpperCase()];
+    var a = Number(amount);
+    if (!t || !(t.rate > 0) || !(a > 0)) return null;
+    var fee = (t.fee > 0) ? t.fee : 0;
+    var gross = a * t.rate * (1 + fee / 100);
+    var vnd = Math.max(1000, Math.round(gross / 1000) * 1000);
+    return { vnd: vnd, rate: t.rate, fee: fee };
+  };
+
+  /* Foreign-currency posture of a staged row (foreign-currency-emails-spec.md):
+       null                    — domestic, nothing special.
+       {kind:'converted', ...} — the amount is already the bank's own VND
+                                 conversion; `amount`/`currency` are the foreign
+                                 original, shown as "≈ $111" for reference.
+       {kind:'foreign', ...}   — the row is denominated in a foreign currency.
+                                 `est` is the VND estimate ({vnd,rate,fee}) when a
+                                 rate is known — the review pre-fills it so the
+                                 person just taps import — or null when it isn't,
+                                 the one case where a ₫ amount must be typed. */
   window.fhStagedFx = function (rowIndex) {
     var rows = window._fhStagedRows;
     var r = (rows && typeof rowIndex === 'number') ? rows[rowIndex] : null;
     if (!r || r._unreadable) return null;
     var home = String(window.CUR || 'VND').toUpperCase();
     var cur = String(r.currency || '').toUpperCase();
-    if (cur && cur !== home) return { kind: 'foreign', currency: cur, amount: r.amount };
+    if (cur && cur !== home) {
+      return { kind: 'foreign', currency: cur, amount: r.amount,
+               est: window.fhFxEstimate(r.amount, cur) };
+    }
     var x = r.raw_extracted || {};
     if (x.fx_amount != null && x.fx_currency && String(x.fx_currency).toUpperCase() !== home) {
       return { kind: 'converted', currency: String(x.fx_currency).toUpperCase(), amount: x.fx_amount };
@@ -883,37 +923,45 @@
       window.fhStagingAlarmShow && window.fhStagingAlarmShow();
       return;
     }
-    /* THE FX GATE (foreign-currency-emails-spec.md, Approach 1). A row still
-       denominated in a foreign currency has no VND amount to write: importing
-       it would push c.amount through csvBaseAmt as if "$111" were 111đ — the
-       exact corruption this gate exists to stop. Such a row imports only after
-       the person typed the real VND figure (the amount editor sets _fxVnd).
-       Runs BEFORE the resolved-ids read below, and marks the row _skipImport
-       so BOTH the import set and the retire set exclude it — a gated row must
-       stay staged, never be retired unimported.
+    /* FOREIGN CURRENCY at import (foreign-currency-emails-spec.md, zero-typing).
+       A foreign row's c.amount is already the ESTIMATED VND (set in
+       fhStagedAsCsvSource) or the person's own edited figure, so it writes like
+       any VND row. Two things happen here:
 
-       Importable rows with a foreign original (converted or person-resolved)
-       get the original appended to the note in a fixed machine-readable form,
-       "[111 USD]" — the provenance a future multi-currency migration recovers
-       (spec §9, answered by decision #4). */
+       1. Provenance. The foreign original is appended to the note in a fixed,
+          machine-readable form so a future multi-currency migration (decision
+          #4) can recover it — "[111 USD]" for a person-confirmed or bank-
+          converted amount, "[111 USD @26,350 +3% est.]" when the app estimated
+          it, so an estimate is never mistaken later for an exact figure.
+
+       2. The one hold that remains: a foreign row whose currency has NO rate,
+          so no estimate exists AND the person never typed one. It cannot be
+          written (there is no VND), so it is kept staged (_skipImport) rather
+          than logged as a wrong number. With USD/EUR/… rates seeded this is the
+          rare exotic-currency case, not the common path. */
     var fxHeld = 0;
     ((window.csvReview && csvReview.ready) || []).forEach(function (c) {
       if (!c || typeof c.rowIndex !== 'number' || !window.fhStagedFx) return;
       var fx = window.fhStagedFx(c.rowIndex);
       if (!fx) return;
-      if (fx.kind === 'foreign' && !c._fxVnd) {
+      var hasEst = !!(fx.est && fx.est.vnd > 0);
+      if (fx.kind === 'foreign' && !hasEst && !c._fxVnd) {
         if (!c._skipImport) { c._skipImport = true; fxHeld++; }
         return;
       }
-      var tag = '[' + Number(fx.amount).toLocaleString('en-US', { maximumFractionDigits: 2 })
-        + ' ' + fx.currency + ']';
-      if ((c.description || '').indexOf(tag) < 0) {
+      var orig = Number(fx.amount).toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' ' + fx.currency;
+      var estimated = (fx.kind === 'foreign' && hasEst && !c._fxVnd);
+      var tag = estimated
+        ? '[' + orig + ' @' + Math.round(fx.est.rate).toLocaleString('en-US')
+            + (fx.est.fee ? ' +' + fx.est.fee + '%' : '') + ' est.]'
+        : '[' + orig + ']';
+      if ((c.description || '').indexOf('[' + orig) < 0) {
         c.description = ((c.description || '') + ' ' + tag).trim();
       }
     });
     if (fxHeld && window.toast) {
-      toast(L(fxHeld + ' khoản ngoại tệ cần nhập số tiền ₫ trước khi vào sổ',
-              fxHeld + ' foreign-currency item(s) need a ₫ amount before import'));
+      toast(L(fxHeld + ' khoản ngoại tệ chưa có tỷ giá — nhập số tiền ₫ giúp nhé',
+              fxHeld + ' foreign item(s) have no rate — enter the ₫ amount'));
     }
 
     /* Everything the person has finished with — imported OR removed on purpose.

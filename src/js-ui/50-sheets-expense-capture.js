@@ -507,10 +507,11 @@ function bulkSummary(r, extra){
     : '<span class="bc-note bc-empty">'+L('(khoản trống)','(empty item)')+'</span>';
   var base=parseAmtBase(r.amt||'');
   var meta='';
-  /* A row still denominated in a foreign currency (csvRowShape sets _fxAmt —
-     staged bank-email review only). Its amt is NOT a VND figure, so fmt()
-     would print the 111đ corruption; the card shows the honest "$111" and a
-     prompt to type the real ₫ amount instead. */
+  /* Foreign currency, no rate to estimate with (csvRowShape sets _fxAmt — staged
+     bank-email review only). Its amt is NOT a VND figure, so fmt() would print
+     the 111đ corruption; show the honest "$111" and ask for the ₫ amount. The
+     common case (a rate exists) carries an estimated VND in amt and never hits
+     this branch. */
   if(r._fxAmt){
     meta+='<span class="bc-amt">'+esc(r._fxAmt)+'</span>'
         + '<span class="bc-pick">'+L('Nhập số tiền ₫','Enter ₫ amount')+'</span>';
@@ -518,7 +519,8 @@ function bulkSummary(r, extra){
   }
   if(base>0) meta+='<span class="bc-amt">'+fmt(base)+'</span>';
   if(base>0 && r._income) meta='<span class="bc-amt in">+'+fmt(base)+'</span>';   // money in wears its sign
-  if(base>0 && r._fxRef) meta+='<span class="bc-cat">≈ '+esc(r._fxRef)+'</span>'; // the foreign original, quietly
+  // The foreign original beside the VND, marked "est." when the VND is our estimate.
+  if(base>0 && r._fxRef) meta+='<span class="bc-cat">≈ '+esc(r._fxRef)+(r._fxEst?' · '+L('ước tính','est.'):'')+'</span>';
   if(r._transfer){                                            // a card payment — a transfer, not a spend; no category
     meta+='<span class="bc-cat bc-transfer">💳 '+L('Trả nợ thẻ','Card payment')+'</span>';
   } else if(r._xfer){                                         // an own-account transfer leg (0109) — stats-neutral

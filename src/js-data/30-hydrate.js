@@ -191,6 +191,23 @@
         }
       } catch (e) {}
 
+      // Shared FX reference rates + fee (0112) for the foreign-currency estimate
+      // on the bank-email review screen. Global table (not family-scoped), read
+      // separately from the big snapshot and cached to localStorage so the
+      // estimate survives offline. Absent/older DB → keep the cache we booted
+      // with, else {} and the review screen falls back to asking for the amount.
+      try {
+        const _fx = await sb.from('fx_rates').select('currency,rate_to_vnd,fee_pct');
+        if (_fx && !_fx.error && Array.isArray(_fx.data) && _fx.data.length) {
+          const _fxMap = {};
+          _fx.data.forEach(function (r) {
+            _fxMap[String(r.currency).toUpperCase()] = { rate: Number(r.rate_to_vnd), fee: Number(r.fee_pct) };
+          });
+          window.FX_RATES = _fxMap;
+          try { localStorage.setItem('fh-fx', JSON.stringify(_fxMap)); } catch (e) {}
+        }
+      } catch (e) {}
+
       // members → membersMeta + maps
       window.DB.memberById = {}; window.DB.memberByAppName = {}; window.DB.sharedId = null; window.DB.ownerMemberId = null;
       const mm = {};

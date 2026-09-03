@@ -670,15 +670,15 @@ function buildCsvCandidates(parsed, result) {
         : 'Khác';
     }
 
-    /* A staged row still denominated in a foreign currency arrives DESELECTED
-       (foreign-currency-emails-spec.md): its amount is "$111", not a VND
-       figure, so it must never ride into a select-all import. The tick stays
-       locked until the person types the VND amount (which sets _fxVnd and
-       lifts the gate — csvSheetValDone / csvReadEditor). */
+    /* A foreign row the app could NOT estimate (no rate for its currency)
+       arrives DESELECTED — it has no VND figure, so it must never ride a
+       select-all into the ledger; the tick unlocks once the person types the ₫
+       amount. A foreign row we DID estimate is import-ready like any VND row
+       (zero-typing) and is selected by default. */
     var _fxSkip = false;
     if (window.csvStagedMode && typeof window.fhStagedFx === 'function') {
       var _fxp = window.fhStagedFx(i);
-      _fxSkip = !!(_fxp && _fxp.kind === 'foreign');
+      _fxSkip = !!(_fxp && _fxp.kind === 'foreign' && !(_fxp.est && _fxp.est.vnd > 0));
     }
 
     return {

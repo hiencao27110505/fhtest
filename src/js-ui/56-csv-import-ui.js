@@ -695,29 +695,38 @@ function csvAmtInputVal(n){ return Number(n).toLocaleString(CUR==='VND'?'vi-VN':
 
 /* Foreign-currency helpers (foreign-currency-emails-spec.md). A staged row can
    be denominated in a currency that is not the family's — a $111 Claude
-   subscription off a VN bank card. Its c.amount is NOT a VND figure, so every
-   place that shows or writes it asks here first. Null everywhere outside
-   staged mode, so the file-import flow is untouched. */
+   subscription off a VN bank card. The app pre-fills a VND ESTIMATE (rate ×
+   amount × (1+fee), from fx_rates) so the person just taps import; the foreign
+   original stays visible for reference. Null everywhere outside staged mode, so
+   the file-import flow is untouched. */
 function csvFxInfo(c){
   if(!window.csvStagedMode || !c || typeof c.rowIndex!=='number' || !window.fhStagedFx) return null;
   return window.fhStagedFx(c.rowIndex);
 }
-/* Still foreign-denominated: no VND amount exists yet (the person hasn't typed
-   one), so the row can neither total, select, nor import. */
+/* The rare fallback: a foreign row whose currency has NO rate, so no estimate
+   exists and the person hasn't typed a ₫ amount. Only THIS state blocks totals,
+   selection and import — an estimated row (USD/EUR/…) is a normal VND row. */
 function csvFxUnresolved(c){
   var fx = csvFxInfo(c);
-  return !!(fx && fx.kind==='foreign' && !c._fxVnd);
+  return !!(fx && fx.kind==='foreign' && !(fx.est && fx.est.vnd>0) && !c._fxVnd);
 }
-function csvFxAmtStr(fx){
+/* The foreign original as a short string ("$111" / "111 USD"). */
+function csvFxOrigStr(fx){
   var n = Number(fx.amount)||0;
   var s = n.toLocaleString('en-US',{maximumFractionDigits:2});
   return fx.currency==='USD' ? '$'+s : s+' '+fx.currency;
 }
-/* One amount string for any card/list line: the honest "$111" while a foreign
-   row has no VND figure, the normal VND format everywhere else. */
+/* Is this foreign row showing an app ESTIMATE (vs the bank's own conversion or
+   a figure the person typed)? Drives the "· est." marker. */
+function csvFxIsEstimate(c){
+  var fx = csvFxInfo(c);
+  return !!(fx && fx.kind==='foreign' && fx.est && fx.est.vnd>0 && !c._fxVnd);
+}
+/* One amount string for any card/list line: the honest "$111" only when we
+   truly cannot estimate, the normal VND format (estimate or real) otherwise. */
 function csvAmtDisp(c){
   var fx = csvFxInfo(c);
-  if(fx && csvFxUnresolved(c)) return csvFxAmtStr(fx);
+  if(fx && csvFxUnresolved(c)) return csvFxOrigStr(fx);
   return csvFmt(c.amount!=null ? c.amount : 0);
 }
 
@@ -792,11 +801,12 @@ function csvRowShape(c, isDup){
   return { note: c.description || '', amt: c.amount != null ? String(Math.round(c.amount)) : '',
            cat: (c.isIncome && !c._xfer && !c._repay) ? (c._incomeCat || '') : (c.categoryName || ''),
            /* Foreign currency (foreign-currency-emails-spec.md): _fxAmt is the
-              card's WHOLE amount while no VND figure exists ("$111" — never
-              111đ); _fxRef is a quiet "≈ $111" beside a real VND amount once
-              the bank converted it or the person typed it. */
-           _fxAmt: csvFxUnresolved(c) && fx ? csvFxAmtStr(fx) : '',
-           _fxRef: (fx && !csvFxUnresolved(c)) ? csvFxAmtStr(fx) : '',
+              card's WHOLE amount only in the no-rate fallback ("$111", asks for
+              a ₫ figure); _fxRef is a quiet "≈ $111" beside the VND amount
+              (estimate or real); _fxEst marks the VND as an app estimate. */
+           _fxAmt: csvFxUnresolved(c) && fx ? csvFxOrigStr(fx) : '',
+           _fxRef: (fx && !csvFxUnresolved(c)) ? csvFxOrigStr(fx) : '',
+           _fxEst: csvFxIsEstimate(c),
            _dup: !!isDup, _transfer: !!(c && c.isTransfer),
            _xfer: !!(c && c._xfer), _repay: !!(c && c._repay),
            _income: !!(c && c.isIncome && !c._xfer && !c._repay) };
@@ -961,7 +971,7 @@ function csvActiveCard(c, opts){
          as the placeholder ("$111 → ₫?"): pre-filling the foreign number would
          let one accidental Done commit 111 as 111đ — the exact corruption the
          FX gate exists to stop. Typing a value here is what resolves the row. */
-      + '<div class="field"><label>'+L('Số tiền','Amount')+'</label><input class="num" id="csvedit-amt" inputmode="numeric" onblur="snapAmtInput(this)" placeholder="'+escAttr(csvFxUnresolved(c) ? csvFxAmtStr(csvFxInfo(c))+' → ₫?' : amtPlaceholder())+'" value="'+escAttr(!csvFxUnresolved(c) && c.amount!=null?csvAmtInputVal(c.amount):'')+'"/></div>'
+      + '<div class="field"><label>'+L('Số tiền','Amount')+'</label><input class="num" id="csvedit-amt" inputmode="numeric" onblur="snapAmtInput(this)" placeholder="'+escAttr(csvFxUnresolved(c) ? csvFxOrigStr(csvFxInfo(c))+' → ₫?' : amtPlaceholder())+'" value="'+escAttr(!csvFxUnresolved(c) && c.amount!=null?csvAmtInputVal(c.amount):'')+'"/></div>'
       + '<div class="field"><label>'+L('Khi nào','When')+'</label><input type="date" id="csvedit-date" value="'+escAttr(c.dateDisplay||'')+'"/></div>'
       + '</div>'
       // Time carried from the bank email (occurred_at) — shown so the reviewer can
@@ -1081,18 +1091,18 @@ function csvStagedRowsCard(c, opts){
     var whoSel = c.who || csvDefaultWho();
     rows += row('who', L('Ai trả','Who paid'), whoSel==='Both' ? L('Chung','Both') : esc(whoSel || ''));
   }
-  /* Foreign currency: while no VND figure exists the row must show the honest
-     "$111 → ₫?" (never csvFmt of a non-VND number), styled as missing so the
-     person knows this is the field blocking import. Once resolved or bank-
-     converted, the VND amount leads and the original rides beside it. */
+  /* Foreign currency: the VND estimate leads (or the bank's own conversion, or
+     a figure the person typed), with the foreign original beside it and a quiet
+     "est." when the VND is our estimate. Only the no-rate fallback shows the
+     bare "$111 → ₫?" styled as missing — the field to fill before import. */
   var _fx = csvFxInfo(c);
   if(csvFxUnresolved(c)){
     rows += row('amount', L('Số tiền','Amount'),
-      '<span class="num">'+esc(csvFxAmtStr(_fx))+' → ₫?</span>', { miss: true });
+      '<span class="num">'+esc(csvFxOrigStr(_fx))+' → ₫?</span>', { miss: true });
   } else {
     rows += row('amount', L('Số tiền','Amount'),
       '<span class="num">'+esc(csvFmt(c.amount!=null ? c.amount : 0))
-        + (_fx ? ' <span style="opacity:.55">≈ '+esc(csvFxAmtStr(_fx))+'</span>' : '')+'</span>');
+        + (_fx ? ' <span style="opacity:.55">≈ '+esc(csvFxOrigStr(_fx))+(csvFxIsEstimate(c)?' '+L('ước tính','est.'):'')+'</span>' : '')+'</span>');
   }
   var t = csvRowTime(c);
   rows += row('when', L('Khi nào','When'),
@@ -1160,9 +1170,10 @@ window.csvSheetValDone = function(){
     var a = document.getElementById('csvsheet-amt');
     var v = (a && window.classifyAmount) ? classifyAmount(a.value||'') : null;
     if(v && v.status==='ok' && v.value > 0){
-      // Typing a ₫ figure into a foreign row RESOLVES it (the FX gate lifts)
-      // and re-selects it — resolving is the act of choosing to import.
-      if(csvFxUnresolved(c)){ c._fxVnd = true; c._skipImport = false; }
+      // A typed ₫ figure on a foreign row is the person's own number, not the
+      // app's estimate: mark it (clears the "est." tag) and, if it was the
+      // no-rate fallback, select it — entering the amount is choosing to import.
+      if(csvFxInfo(c)){ if(csvFxUnresolved(c)) c._skipImport = false; c._fxVnd = true; }
       c.amount = v.value;
     }
   } else if(c && f==='when'){
@@ -1280,7 +1291,7 @@ function csvRowSheetHTML(c){
   } else if(f==='amount'){
     title = L('Số tiền','Amount');
     // Foreign rows open empty with the original as placeholder — see csvedit-amt.
-    body = '<input id="csvsheet-amt" class="crs-in num" inputmode="numeric" placeholder="'+escAttr(csvFxUnresolved(c) ? csvFxAmtStr(csvFxInfo(c))+' → ₫?' : amtPlaceholder())+'" value="'+escAttr(!csvFxUnresolved(c) && c.amount!=null ? csvAmtInputVal(c.amount) : '')+'"/>'
+    body = '<input id="csvsheet-amt" class="crs-in num" inputmode="numeric" placeholder="'+escAttr(csvFxUnresolved(c) ? csvFxOrigStr(csvFxInfo(c))+' → ₫?' : amtPlaceholder())+'" value="'+escAttr(!csvFxUnresolved(c) && c.amount!=null ? csvAmtInputVal(c.amount) : '')+'"/>'
       + '<button type="button" class="crs-done" onclick="csvSheetValDone()">'+esc(L('Xong','Done'))+'</button>';
   } else if(f==='when'){
     title = L('Khi nào','When');
@@ -1371,10 +1382,11 @@ function csvReadEditor(c){
   var a=document.getElementById('csvedit-amt');
   if(a){ var v = window.classifyAmount ? window.classifyAmount(a.value||'') : null;
          if(v && v.status==='ok' && v.value > 0){
-           // A typed ₫ figure resolves a foreign row (see csvSheetValDone). The
-           // input renders EMPTY for unresolved rows, so an untouched editor
-           // commits nothing and the gate holds.
-           if(csvFxUnresolved(c)){ c._fxVnd = true; c._skipImport = false; }
+           // A typed ₫ figure is the person's own number (see csvSheetValDone);
+           // it overrides the estimate and, for the no-rate fallback, selects
+           // the row. The estimate is pre-filled, so leaving it untouched keeps
+           // it — which is the whole zero-typing point.
+           if(csvFxInfo(c)){ if(csvFxUnresolved(c)) c._skipImport = false; c._fxVnd = true; }
            c.amount = v.value;
          } }
   var d=document.getElementById('csvedit-date');

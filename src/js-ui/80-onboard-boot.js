@@ -268,6 +268,9 @@ function obInit(){
     try{ var saved=localStorage.getItem('fh-fam'); if(saved) FAM=JSON.parse(saved); }catch(e){}
     try{ var sl=localStorage.getItem('fh-lang'); if(sl) LANG=sl; }catch(e){}
     try{ var sc=localStorage.getItem('fh-cur'); if(sc) CUR=sc; }catch(e){}
+    // FX rates (0112) from the last hydrate, so the foreign-currency estimate on
+    // the review screen works offline / before the fresh read lands.
+    try{ var sfx=localStorage.getItem('fh-fx'); if(sfx) window.FX_RATES=JSON.parse(sfx); }catch(e){}
     applyFam(); applyLang(); applyCurrency();
     document.getElementById('onboarding').classList.add('done');
   } else {

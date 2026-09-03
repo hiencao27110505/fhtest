@@ -7,15 +7,17 @@ row is imported, the ledger records roughly one-thousandth of the real cost of
 the purchase, in the wrong currency, with no trace that anything was foreign.
 This document is the defect analysis and the design options for fixing it.
 
-> **Status, 2026-09-03 (evening).** Approaches **1+2 BUILT and shipped** the
-> same day this analysis was written — see §10 for exactly what landed. And the
-> product call was made: **decision #4 is confirmed** — first-class
-> multi-currency is the approved direction, which formally reverses locked
-> decision T10 (`full-ledger-spec.md`). Approach 4's build is NOT part of this
-> fix; it needs its own spec (ledger currency columns on both spines, totals
-> policy, display). Until that epic lands, the ledger stays VND-only in schema
-> and the shipped fix preserves machine-readable FX provenance (§10) so the
-> migration can recover every original.
+> **Status, 2026-09-03 (evening).** Approaches **1+2 BUILT and shipped**, then
+> revised the same evening to **Approach 3 (auto-convert)** after a product
+> call: the manual-VND-entry gate broke the app's zero-typing promise. The
+> live behaviour is now **fully zero-typing** — a foreign row is auto-converted
+> to an estimated VND (bank-fee-adjusted), pre-filled, and imported with a tap;
+> typing is only ever needed for a currency with no rate on file. See §10 for
+> exactly what landed and §11 for the fee model. **Decision #4 is confirmed** —
+> first-class multi-currency is the approved direction, formally reversing
+> locked decision T10 (`full-ledger-spec.md`) — but it is a separate epic;
+> until it lands the ledger stays VND-only and the shipped fix preserves
+> machine-readable FX provenance so the migration can recover every original.
 
 > **How this relates to its siblings.**
 > `effortless-transaction-logging-spec.md` is how a bank email becomes a staged
@@ -191,7 +193,14 @@ to Approach 1's behaviour.
 | No FX-rate source, no schema change, VND-only stands | Two amounts in one email is exactly the class the pipeline has been burned by before (the cashback line once hijacked the amount — reference §5); field precedence needs care and tests |
 | Dedup improves: the staged VND amount matches the bank CSV's settled VND row | Auth-time vs settlement amounts can differ slightly as the rate moves — minor mismatch risk |
 
-### Approach 3 — Auto FX conversion at review time (client-side rate)
+### Approach 3 — Auto FX conversion at review time (client-side rate) — **SHIPPED**
+
+> **Decision, 2026-09-03: this is the live behaviour.** Chosen over the manual
+> gate because that gate broke zero-typing. Rate + fee live in a shared DB
+> table (`fx_rates`, migration 0112), refreshed daily and hydrated to the
+> client so the estimate works offline; the card **pre-fills** the estimated
+> VND ("≈ $111 · ước tính"), the person taps import, editing is optional. See
+> §10–§11.
 
 Foundation fix, plus: the review client converts. A USD→VND reference rate is
 fetched from a public source (cached) or kept as a user-editable setting; the
@@ -226,6 +235,20 @@ rows from VND totals or convert at display time.
 | | Weeks of work for what is today a handful of USD subscriptions a month |
 
 ## 6. Recommendation
+
+> **Superseded by what shipped (see the status note and §10).** The original
+> recommendation was 1+2 with a manual-entry fallback; the manual gate was
+> then dropped for **Approach 3 (auto-convert)** to keep the app zero-typing.
+> The final shape is: **2 first** (use the bank's own converted VND whenever
+> the email prints it — most accurate, zero cost), **3 for the rest**
+> (estimate USD-only emails with a fee-adjusted rate, pre-filled, tap to
+> import), and **1's honest display + edit affordance** retained as the visible
+> layer (the foreign original is always shown; the amount is always editable;
+> only a no-rate currency ever forces typing). Approach 4 remains a separate
+> epic.
+
+The reasoning below is kept for the record; §10 is what to read for current
+behaviour.
 
 **Ship 1 + 2 together, in that order.** Approach 1 is the safety fix — the app
 is silently corrupting data today, and the guardrail stops that immediately.
@@ -304,26 +327,82 @@ The fix is forward-looking only; two classes of existing damage need a sweep:
 - Tests: USD fixtures in `label-table.test.js` (USD-only, converted, currency
   row, cent-keeping) and foreign parity blocks in `direct-templates.test.js`.
 
-**Review client (Approach 1 + display of Approach 2):**
+**Rate + fee store (migration 0112 + `fx-refresh` edge function):**
 
-- `fhStagedFx(rowIndex)` (72-txn-review.js): `null` | `{kind:'foreign'}` |
-  `{kind:'converted'}`, always carrying the foreign pair.
-- Cards render `$111` (never `111 ₫`) while unresolved, `≈ $111` beside the
-  VND amount once converted/resolved; the amount editor opens EMPTY with the
-  original as placeholder — typing a ₫ figure is what resolves the row
-  (`_fxVnd`) and re-selects it.
-- Unresolved foreign rows arrive deselected and cannot be selected — per-card
-  tick, select-all, and the by-source chips all respect the gate; the spend
-  panel excludes them from totals.
-- The FX gate in `fhPromoteStaged` re-checks at import time and holds
-  unresolved rows staged (never retired unimported); importable rows with a
-  foreign original get the `[111 USD]` note tag appended before the write.
+- Table `public.fx_rates` (`currency` PK, `rate_to_vnd`, `fee_pct` default 3.0,
+  `updated_at`, `source`) — global, not family-scoped; RLS allows any signed-in
+  user to read, only the service role writes. Seeded with ~15 majors so the
+  feature works before the refresh ever runs.
+- `fx-refresh` edge function pulls `open.er-api.com` (keyless), computes
+  VND-per-unit for each currency, and upserts `rate_to_vnd` only — `fee_pct` is
+  a policy value it never touches. Fail-soft: an unreachable feed leaves the
+  existing rates in place, never nulls them.
+- `_fx_refresh_tick()` + a daily `pg_cron` job (01:00 UTC) wake it, via a vault
+  URL + shared secret, exactly like the mailbox-sync tick (0088). No-ops until
+  the vault secrets are set; the seed carries the app until then.
+- Client loads `fx_rates` on hydrate → `window.FX_RATES`, cached to
+  `localStorage` (`fh-fx`) and restored at boot so the estimate works offline.
+
+**Review client (zero-typing auto-convert):**
+
+- `fhFxEstimate(amount, currency)` (72-txn-review.js): `round(amount × rate ×
+  (1 + fee/100))` to the nearest 1.000đ from `window.FX_RATES`, or `null` when
+  no rate is known. `fhStagedFx(rowIndex)` returns
+  `{kind:'foreign', currency, amount, est}` | `{kind:'converted', …}` | `null`.
+- `fhStagedAsCsvSource` puts the **estimated VND** into the candidate's amount
+  cell, so totals, the write, and `csvBaseAmt` all work in VND and never see
+  "$111" as a number. The foreign original stays visible via `fhStagedFx`.
+- Cards render the VND (estimate or bank-converted) with **"≈ $111 · ước tính"**
+  beside it (the "· ước tính / est." marker only when it's the app's estimate);
+  the amount editor **pre-fills the estimate**, editable — an untouched editor
+  keeps the estimate, which is the zero-typing path. Editing sets `_fxVnd`
+  (the person's own figure overrides the estimate and drops the marker).
+- Estimated rows behave like any VND row: selected by default, counted in the
+  spend panel, importable with a tap.
+- The **only** row that still requires typing is a foreign currency with **no
+  rate on file** (`csvFxUnresolved`): shown as "$111 → ₫?", deselected, and
+  held staged at import until a ₫ figure is entered. With the majors seeded
+  this is the rare exotic-currency case.
+- `fhPromoteStaged` appends provenance to the note before the write:
+  `[111 USD]` for a bank-converted or person-typed amount, `[111 USD @26,350
+  +3% est.]` when the app estimated it — so an estimate is never later mistaken
+  for an exact figure, and the Approach 4 migration can recover the original
+  plus the rate/fee it was estimated at.
 
 **Not shipped here:** the Approach 4 epic (ledger schema, totals policy,
 native display) and any remediation sweep for rows corrupted before the fix
 (§7 still applies — hand-fix the known few).
 
 **Deploy surfaces:** `mailbox-sync` edge function (shared `_shared/mailbox`
-code), the client bundle (build + service-worker bump), and a **manual
+code), **migration 0112** + the **`fx-refresh` edge function** + its two vault
+secrets (`fx_refresh_url`, `fx_refresh_secret`) and the `FX_REFRESH_SECRET`
+function env, the client bundle (build + service-worker bump), and a **manual
 re-paste of `bank-email-pipeline.gs`** into the Apps Script editor — the
 forwarding transport does not deploy from this repo.
+
+## 11. The fee model
+
+A foreign card charge does not hit the account at the mid-market rate. The
+issuer bills `foreign × its own rate`, where that rate carries a spread over
+mid-market, and Vietnamese issuers frequently add an explicit foreign-
+transaction fee on top — together commonly ~2–4%. Estimating with a bare
+mid-market rate therefore lands systematically **low**, and a spend tracker
+that always under-reads foreign spend is quietly wrong in one direction.
+
+So the estimate is `round(amount × rate_to_vnd × (1 + fee_pct/100))`:
+
+- `rate_to_vnd` is a reference/mid rate, refreshed daily.
+- `fee_pct` is the issuer's markup+fee as a percent — a **policy value**,
+  defaulting to 3.0, stored per currency and editable in the DB, never
+  overwritten by the rate refresh.
+
+It is an estimate and is labelled as one ("· ước tính"); the person can edit it
+to the exact debit when the statement lands. When the bank email itself prints
+the converted VND (Approach 2), that real number is used and no fee is applied —
+the bank already baked its fee into the figure it billed.
+
+Two refinements deliberately left for later, both recorded so they are not
+rediscovered as bugs: (a) a per-**family** or per-**card** fee override, since
+issuers differ; (b) back-solving the effective rate from Approach-2 emails
+(where both the foreign and the billed VND are printed) to self-tune `fee_pct`
+per issuer over time. Neither is needed for a correct-enough estimate today.
