@@ -210,6 +210,29 @@ function _csvWordIn(needle, hay) {
   return new RegExp('(^|\\s)' + String(needle).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|\\s)').test(hay);
 }
 
+/* A memo shaped "X chuyển tiền đến X" — the SAME name on both sides — is a move
+   between the person's own accounts, not a card payment. The pipeline can only
+   call it flow:'transfer' (money left the account); it can't know the two ends
+   are the same person, but the memo does. Detecting it lets the review default
+   to an internal transfer (which asks "to which account") instead of a card
+   payment (which asks "which card") for exactly the case where "which card" is
+   the wrong question. Conservative on purpose: only fires when both name halves
+   match after stripping account numbers, so a false miss (stays card payment) is
+   the failure mode, never a false self-transfer. */
+function _isSelfTransfer(memo) {
+  var m = deburr(String(memo || '').toLowerCase());
+  var mm = m.match(/(.+?)\s+chuyen\s+(?:tien|khoan)\s+(?:den|toi|cho|sang)\s+(.+)/);
+  if (!mm) return false;
+  var norm = function (s) {
+    return s.replace(/\s*[-–:].*$/, '')     // drop a "- 1046382279" account tail
+            .replace(/\d+/g, ' ')
+            .replace(/[^a-z ]+/g, ' ')
+            .replace(/\s+/g, ' ').trim();
+  };
+  var a = norm(mm[1]), b = norm(mm[2]);
+  return a.length >= 6 && a === b;
+}
+
 /* ---- bank-statement merchant recognition ---------------------------------
    guessCat() reads human notes ("đi chợ", "tiền điện"). A bank export doesn't
    write like that: it writes "CUSTOMER MBCT NGUYEN THU TRANG chuyen tien" or
@@ -590,6 +613,20 @@ function buildCsvCandidates(parsed, result) {
       }
     }
 
+    /* Self-transfer ("X chuyển tiền đến X") is an internal move between own
+       accounts, not a card payment — reclassify cardpay → xfer so the review
+       asks which account, not which card. Reads the staged memo (the counterparty
+       tail lives there) and falls back to the description for CSV rows. */
+    var _xfer = false;
+    if (isTransfer) {
+      var _selfMemo = '';
+      if (window.csvStagedMode && typeof window.fhStagedRawX === 'function') {
+        var _rx = window.fhStagedRawX(i);
+        _selfMemo = _rx ? (_rx.memo_display != null ? _rx.memo_display : (_rx.memo || '')) : '';
+      }
+      if (_isSelfTransfer(_selfMemo || desc)) { _xfer = true; isTransfer = false; }
+    }
+
     var party = colFor.counterparty !== undefined ? (row[colFor.counterparty] || '').trim() : '';
 
     /* The file often records who paid, and the ledger has that field too --
@@ -605,7 +642,7 @@ function buildCsvCandidates(parsed, result) {
       }
       if (!who && /^(chung|both|ca hai)$/.test(pn)) who = 'Both';
     }
-    var catName = (isIncome || isTransfer) ? null : matchCategoryName(catGuess);
+    var catName = (isIncome || isTransfer || _xfer) ? null : matchCategoryName(catGuess);
     var catSource = catName ? 'file' : null;
     /* History is keyed on what past transactions were CALLED (their note), so it
        only ever matched when the saved note happened to be the merchant. Rename a
@@ -692,7 +729,7 @@ function buildCsvCandidates(parsed, result) {
       // which the duplicate check must not read as them all being the same thing.
       _hasDesc: !!(desc || catGuess),
       categoryGuess: catGuess, categoryName: catName, catSource: catSource,
-      counterparty: party, who: who, isIncome: isIncome, isTransfer: isTransfer,
+      counterparty: party, who: who, isIncome: isIncome, isTransfer: isTransfer, _xfer: _xfer,
     };
   });
 }
@@ -869,6 +906,31 @@ function csvStagedCrossSourceDup(c, provider, currency, kind, priors) {
   return null;
 }
 
+/* Merchant identity for the near-miss tier: deburred, lowercased, stripped to
+   alphanumerics — the same flattening the provider canon uses, because "AEON
+   Nguyen Van Linh" hand-typed and "AEON NGUYEN VAN LINH" from a bank mail are
+   one place. Too-short keys refuse to match: "ck" is not an identity. */
+function _csvNameKey(s) {
+  return deburr(String(s || '')).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+function csvNearMissDup(c, existing) {
+  if (!c.date || c.amount == null) return null;
+  var name = _csvNameKey(c.counterparty) || _csvNameKey(c.description);
+  if (name.length < 4) return null;
+  for (var i = 0; i < existing.length; i++) {
+    var t = existing[i];
+    if (t.kind !== 'expense') continue;
+    if (Math.abs(t._d.getTime() - c.date.getTime()) / 86400000 >= 1) continue;  // same calendar day only
+    var diff = Math.abs(t.amtD - c.amount);
+    if (diff < 1 || diff >= 1000) continue;   // <1 is the exact tier's; ≥1000đ is a different purchase
+    var tn = _csvNameKey(t.note);
+    if (tn.length < 4) continue;
+    if (tn.indexOf(name) < 0 && name.indexOf(tn) < 0) continue;
+    return t;
+  }
+  return null;
+}
+
 /* Buckets: ready / needsCategory (grouped by merchant) / possibleDuplicate /
    deferred. Self-dedup and cross-source dedup both happen here, before
    bucketing, so a row can't land in "ready" while also being a duplicate. */
@@ -888,22 +950,44 @@ function bucketCsvCandidates(candidates, mixedSigns) {
      than "the book this row is going to": destination is per-row and editable
      right up until Import, so narrowing it would make the check depend on a
      decision the person has not finished making. A hit in either book is worth
-     the same one tap. */
+     the same one tap.
+
+     EVERY ENTRY IS NORMALISED TO RAW ĐỒNG (`amtD`). Ledger rows store amounts
+     in base units (đồng ÷ curMult — fmt() multiplies back for display) while a
+     candidate's `c.amount` is the raw đồng the bank mail stated. The old code
+     compared the two raw — |92.5 − 92500| is never < 1 — so the against-the-
+     ledger check silently matched NOTHING for VND, ever, in either book. Two
+     exact SHOPEE repeats sat ticked in ready to prove it (2026-09-03). One
+     shape, one unit, carrying the evidence fields the flagged card shows. */
   var existingTxns = (function(){
-    var fam = window.txns || [];
-    var pd = (typeof window.fhPersonalData === 'function') ? window.fhPersonalData() : null;
-    var mine = (pd && pd.txns) || [];
-    if (!mine.length) return fam;
-    /* The family list carries Date objects on `_d`; the personal cache carries
-       a 'YYYY-MM-DD' string. Normalise here rather than in the matcher, so the
-       matcher keeps one shape to reason about. */
-    /* Expenses only: since 0109 the personal cache carries every kind (income,
-       transfer legs, loans) and matching a candidate's magnitude against those
-       would flag phantom duplicates. */
-    var norm = mine.filter(function(t){ return t.kind === 'expense'; }).map(function(t){
-      return { amt: t.amt, _d: t.date ? new Date(t.date + 'T00:00:00') : null, _personal: true };
-    }).filter(function(t){ return t._d && t.amt != null; });
-    return fam.concat(norm);
+    var mult = (typeof curMult === 'function' ? curMult() : 1) || 1;
+    var out = [];
+    (window.txns || []).forEach(function(t){
+      if (!t._d || t.amt == null) return;
+      out.push({ amtD: Number(t.amt) * mult, _d: t._d, kind: 'expense', book: 'family',
+                 note: t.note || '', cat: t.cat || '', who: t.who || '' });
+    });
+    /* Personal side: the review-time slice (fhPersonalMatchSlice, fetched to
+       the mailbox backfill horizon) when it is there, else the ~2-month tab
+       cache. The slice exists because a re-staged card can carry an occurred_at
+       far older than the cache window — matched against a ledger that short, an
+       old import came back clean. Income rides along since 0109 put it on the
+       spine: an income candidate is matched against income rows ONLY (kind is
+       checked in the matcher), never against a same-magnitude expense. */
+    var mine = window._fhPersonalMatchSlice;
+    if (!mine || !mine.length) {
+      var pd = (typeof window.fhPersonalData === 'function') ? window.fhPersonalData() : null;
+      mine = (pd && pd.txns) || [];
+    }
+    mine.forEach(function(t){
+      if (t.amt == null || !t.date) return;
+      if (t.kind !== 'expense' && t.kind !== 'income') return;
+      var d = new Date(t.date + 'T00:00:00');
+      if (isNaN(d.getTime())) return;
+      out.push({ amtD: Number(t.amt) * mult, _d: d, kind: t.kind, book: 'personal',
+                 note: t.note || '', cat: t.cat || '', who: '' });
+    });
+    return out;
   })();
   var staged = !!window.csvStagedMode;
   var priors = [];   // staged rows already bucketed, for the cross-source check
@@ -959,6 +1043,19 @@ function bucketCsvCandidates(candidates, mixedSigns) {
        under its better copy. */
     if (c._mergedCopy) { merged++; return; }
 
+    /* CERTAIN, not suspected: the server re-staged this mail knowing its id was
+       already promoted or dismissed in a previous connection (resolved_before,
+       0113). Message-id equality is not a guess, so this outranks every fuzzy
+       tier below and the card says "đã nhập trước đó" rather than "có thể
+       trùng". Still a flag and a tap, never a deletion — the ledger is the
+       anchor, and only the person knows whether they since removed the row. */
+    if (staged) {
+      var srowRB = (window._fhStagedRows || [])[c.rowIndex];
+      if (srowRB && srowRB.resolved_before) {
+        c.duplicateResolvedBefore = true; possibleDuplicate.push(c); return;
+      }
+    }
+
     /* A card payment is a real thing to import now — a TRANSFER that draws a
        card's balance down (Borrowing & Lending). So in staged (bank-email)
        mode it is a normal, checkable, importable card, not something set aside.
@@ -1007,15 +1104,28 @@ function bucketCsvCandidates(candidates, mixedSigns) {
     // cross-match against the ledger and the needs-a-category grouping below —
     // returning early here would file an uncategorised row straight into ready.
 
-    /* Money-in candidates never cross-match the spend ledgers: the lists below
-       are expenses, and a +5tr credit beside a −5tr purchase is a coincidence
-       of magnitude, not one event twice. */
-    var crossMatch = !c.isIncome && existingTxns.find(function(t) {
-      if (!t._d || !c.date) return false;
+    /* Kind must agree before amount is even looked at: a +5tr credit beside a
+       −5tr purchase is a coincidence of magnitude, not one event twice. An
+       income candidate therefore hunts income rows only (personal book — the
+       family table carries no income), an expense hunts expenses in both. */
+    var wantKind = c.isIncome ? 'income' : 'expense';
+    var crossMatch = existingTxns.find(function(t) {
+      if (t.kind !== wantKind || !c.date) return false;
       var daysApart = Math.abs(t._d.getTime() - c.date.getTime()) / 86400000;
-      return daysApart <= 3 && Math.abs(Number(t.amt) - c.amount) < 1;
+      return daysApart <= 3 && Math.abs(t.amtD - c.amount) < 1;
     });
     if (crossMatch) { c.duplicateOfExisting = crossMatch; possibleDuplicate.push(c); return; }
+
+    /* NEAR-MISS tier, weaker on purpose: a hand-logged row is routinely rounded
+       ("467.000đ" against the bank's 467.290đ — a real pair from the ledger
+       that exact matching waved through). Amount alone would flag constantly,
+       so the gate is all three of: same calendar day, same merchant identity,
+       and a gap under 1.000đ that exact matching didn't already catch. The
+       card copy must read as a weaker guess than an exact hit. */
+    if (!c.isIncome) {
+      var nearMiss = csvNearMissDup(c, existingTxns);
+      if (nearMiss) { c.duplicateNearMiss = nearMiss; possibleDuplicate.push(c); return; }
+    }
 
     /* Staged email rows only, and last, so the most concrete reason wins: a
        match against a transaction already in the ledger beats a suspicion about

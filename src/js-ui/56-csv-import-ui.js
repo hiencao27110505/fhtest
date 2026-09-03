@@ -908,7 +908,7 @@ function csvCollapsedCard(c, opts){
     } else catTxt = null;
     var catHtml = catTxt
       ? '<span class="scv-cat">'+catTxt+'</span>'
-      : '<span class="scv-cat warn">'+L('Chọn danh mục','Pick a category')+'</span>';
+      : '<span class="scv-cat unset">'+L('Chọn danh mục','Pick a category')+'</span>';
     var dupHtml = r._dup ? '<span class="scv-dup">'+L('lặp lại','repeat')+'</span>' : '';
     var amtHtml = (c.amount!=null)
       ? '<span class="scv-amt num">'+esc(csvAmtDisp(c))+'</span>'
@@ -1080,9 +1080,16 @@ function csvStagedRowsCard(c, opts){
   var h = '<div class="field csv-notef"><label>'+noteLbl+'</label>'
     + '<textarea id="csvedit-note" rows="2">'+esc(c.description||'')+'</textarea></div>';
 
+  /* Two "not filled" states, deliberately different colours:
+       miss (amber) — BLOCKING: import is gated until this is set (the no-rate
+                      foreign amount is the only one).
+       soft (grey)  — OPTIONAL: the row imports fine unset and can be refined
+                      later (which card, which account, category). Painting these
+                      amber made a card with nothing wrong look like it had two
+                      problems. */
   var row = function(f, lbl, val, mods){
     mods = mods || {};
-    var cls = 'csv-srow'+(mods.ro?' ro':'')+(csvRowHot===f && !mods.ro?' hot':'')+(mods.miss?' miss':'');
+    var cls = 'csv-srow'+(mods.ro?' ro':'')+(csvRowHot===f && !mods.ro?' hot':'')+(mods.miss?' miss':'')+(mods.soft?' soft':'');
     var inner = '<small>'+lbl+'</small><span class="csv-sval"><b>'+val+'</b>'
       + (mods.ro ? '' : '<svg class="csv-schev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>')
       + '</span>';
@@ -1105,7 +1112,7 @@ function csvStagedRowsCard(c, opts){
       var cardName = '';
       cards.forEach(function(a){ if(a.id===pc) cardName = a.name || L('Thẻ','Card'); });
       rows += row('paycard', L('Trả cho thẻ','Which card'),
-        cardName ? esc(cardName) : L('Chưa rõ','Not sure'), { miss: !cardName && cards.length>0 });
+        cardName ? esc(cardName) : L('Chưa rõ','Not sure'), { soft: !cardName && cards.length>0 });
     }
     if(cur==='xfer'){
       var accts = csvXferAccounts(c), sel = c._xferOtherId || '', an = '';
@@ -1113,11 +1120,11 @@ function csvStagedRowsCard(c, opts){
       if(sel==='_cash') an = L('Tiền mặt','Cash');
       rows += row('xferacct',
         (c.isIncome ? L('Chuyển từ đâu','From where') : L('Chuyển đến đâu','To where')),
-        an ? esc(an) : L('Chọn tài khoản','Pick one'), { miss: !an });
+        an ? esc(an) : L('Chọn tài khoản','Pick one'), { soft: !an });
     }
     if(cur==='repay'){
       rows += row('repay', L('Ai trả bạn','Who repaid'),
-        c._repayWho ? esc(c._repayWho) : L('Chọn','Pick'), { miss: !c._repayWho });
+        c._repayWho ? esc(c._repayWho) : L('Chọn','Pick'), { soft: !c._repayWho });
     }
   }
   if(!noCat){
@@ -1126,7 +1133,7 @@ function csvStagedRowsCard(c, opts){
     } else {
       rows += row('cat', L('Danh mục','Category'),
         c.categoryName ? (csvCatEmoji(c.categoryName)+' '+esc(c.categoryName)) : L('Chưa rõ','Not set'),
-        { miss: !c.categoryName });
+        { soft: !c.categoryName });
     }
   }
   var mems = (window.FAM && FAM.members) || [];
@@ -2773,9 +2780,12 @@ function csvDeferConfirm(di){
   var key = normDescForDedup(c.description)+'|'+c.amount;
   var already = csvReview.ready.some(function(x){ return normDescForDedup(x.description)+'|'+x.amount === key; })
     || csvReview.groups.some(function(g){ return g.items.some(function(x){ return normDescForDedup(x.description)+'|'+x.amount === key; }); });
+  /* Ledger amounts are stored in base units (÷curMult); c.amount is raw đồng.
+     Compare in đồng — comparing raw was the bug that kept this check silent. */
+  var _cm = (typeof curMult === 'function' ? curMult() : 1) || 1;
   var crossMatch = !already && (window.txns||[]).find(function(t){
-    if(!t._d || !c.date) return false;
-    return Math.abs(t._d.getTime()-c.date.getTime())/86400000 <= 3 && Math.abs(Number(t.amt)-c.amount) < 1;
+    if(!t._d || !c.date || t.amt == null) return false;
+    return Math.abs(t._d.getTime()-c.date.getTime())/86400000 <= 3 && Math.abs(Number(t.amt)*_cm - c.amount) < 1;
   });
   if(already){ c.duplicateOfBatch = true; csvReview.dup.push({ c:c, resolved:null }); }
   else if(crossMatch){ c.duplicateOfExisting = crossMatch; csvReview.dup.push({ c:c, resolved:null }); }

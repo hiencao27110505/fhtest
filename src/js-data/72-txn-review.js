@@ -94,7 +94,7 @@
      gmail_message_id, which the sealed path verifies against the payload. */
   async function fhFetchStagedTxns() {
     var res = await sb.from('email_transactions')
-      .select('id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,amount,currency,direction,counterparty,reference_number,transaction_type,raw_extracted,duplicate_of_id,sealed,eph_pub,nonce,enc_v,created_at')
+      .select('id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,amount,currency,direction,counterparty,reference_number,transaction_type,raw_extracted,duplicate_of_id,resolved_before,sealed,eph_pub,nonce,enc_v,created_at')
       .eq('review_status', 'pending')
       /* duplicate_of_id is a SUSPICION, not a delete order. It used to be
          filtered out here, which gave a guess made blind at 3am the power to
@@ -244,6 +244,12 @@
         source_provider: row.source_provider, occurred_at: row.occurred_at,
         amount: re.amount, currency: re.currency,
         direction: re.direction, counterparty: re.counterparty,
+        /* Workflow columns ride OUTSIDE the box and must survive this rebuild:
+           dropping duplicate_of_id here is what made fhStagedMeta's pipelineDup
+           read false on every sealed row — the pipeline's whole verdict lost on
+           the last hop. resolved_before (0113) is the certainty badge. */
+        duplicate_of_id: row.duplicate_of_id || null,
+        resolved_before: !!row.resolved_before,
         raw_extracted: re,
       };
     } catch (e) {
@@ -346,9 +352,9 @@
          via fhStagedFx ("≈ $111 · est."), and the person can edit the estimate.
          When no rate is known the estimate is null and the raw amount rides
          through — the review then shows "$111 → ₫?" and asks for the figure. */
-      var _fxHome = String(window.CUR || 'VND').toUpperCase();
-      var _fxCur = String(r.currency || '').toUpperCase();
-      var _fxEst = (_fxCur && _fxCur !== _fxHome && window.fhFxEstimate)
+      var _fxHome = window.fhCurNorm ? window.fhCurNorm(window.CUR || 'VND') : 'VND';
+      var _fxCur = window.fhCurNorm ? window.fhCurNorm(r.currency) : 'VND';
+      var _fxEst = (_fxCur !== 'VND' && _fxCur !== _fxHome && window.fhFxEstimate)
         ? window.fhFxEstimate(r.amount, _fxCur) : null;
       var _amtNum = _fxEst ? _fxEst.vnd : r.amount;
       var amt = (r.direction === 'credit' ? '' : '-') + String(_amtNum);
@@ -487,19 +493,35 @@
                                  rate is known — the review pre-fills it so the
                                  person just taps import — or null when it isn't,
                                  the one case where a ₫ amount must be typed. */
+  /* A bank email labels its VND amount in many ways — "đ", "VNĐ", "đồng", "₫",
+     a bare "" — and the foreign check compared the raw token to "VND" by string.
+     So a plain VND row whose currency read "đ" was flagged FOREIGN, had no rate
+     to estimate, and rendered the nonsensical "1.000.000 đ → đ?" that also GATED
+     its import. Fold every home-currency synonym to the canonical code before any
+     compare, so only a genuinely different currency is ever treated as foreign. */
+  function fhCurNorm(s) {
+    var c = String(s == null ? '' : s).toUpperCase();
+    c = c.normalize ? c.normalize('NFD').replace(/[̀-ͯ]/g, '') : c;   // strip diacritics
+    c = c.replace(/Đ/g, 'D').replace(/[.\s₫]/g, '');                            // đ/Đ → D, drop dots/spaces/₫
+    if (c === '' || c === 'VND' || c === 'VN' || c === 'D' || c === 'DONG') return 'VND';
+    return c;
+  }
+  window.fhCurNorm = fhCurNorm;
+
   window.fhStagedFx = function (rowIndex) {
     var rows = window._fhStagedRows;
     var r = (rows && typeof rowIndex === 'number') ? rows[rowIndex] : null;
     if (!r || r._unreadable) return null;
-    var home = String(window.CUR || 'VND').toUpperCase();
-    var cur = String(r.currency || '').toUpperCase();
-    if (cur && cur !== home) {
+    var home = fhCurNorm(window.CUR || 'VND');
+    var cur = fhCurNorm(r.currency);
+    if (cur !== 'VND' && cur !== home) {
       return { kind: 'foreign', currency: cur, amount: r.amount,
                est: window.fhFxEstimate(r.amount, cur) };
     }
     var x = r.raw_extracted || {};
-    if (x.fx_amount != null && x.fx_currency && String(x.fx_currency).toUpperCase() !== home) {
-      return { kind: 'converted', currency: String(x.fx_currency).toUpperCase(), amount: x.fx_amount };
+    var fxc = fhCurNorm(x.fx_currency);
+    if (x.fx_amount != null && x.fx_currency && fxc !== 'VND' && fxc !== home) {
+      return { kind: 'converted', currency: fxc, amount: x.fx_amount };
     }
     return null;
   };
@@ -743,6 +765,17 @@
     })();
 
     window.csvStagedMode = true;   // reuse the review engine, drop its file-only chrome
+
+    /* The duplicate matcher inside csvBuildReview is synchronous, so the
+       personal slice it matches against (365-day horizon — a re-staged card can
+       be that old, the tab cache reaches back one month) must be here BEFORE
+       bucketing runs. Locked or failing personal ledger → empty slice → the
+       matcher falls back to the short cache, and the queue still opens. */
+    try {
+      window._fhPersonalMatchSlice = window.fhPersonalMatchSlice
+        ? await window.fhPersonalMatchSlice() : null;
+    } catch (e) { window._fhPersonalMatchSlice = null; }
+
     csvLearnLoad();
     csvBuildReview([fhStagedAsCsvSource(readable)], {});
     renderCsvReview();

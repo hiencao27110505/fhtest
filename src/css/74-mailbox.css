@@ -204,6 +204,7 @@
 .scv-amt.warn{font-size:15px;font-weight:700}
 .scv-cat{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ink-2);padding:4px 10px;background:var(--fill-neutral);border-radius:9999px;white-space:nowrap}
 .scv-cat.warn{background:var(--amber-tint);color:var(--amber)}
+.scv-cat.unset{color:var(--muted-soft)}   /* category not set is optional, not a blocker */
 .scv-dup{font-size:11px;font-weight:700;color:var(--muted);background:var(--fill-neutral);border-radius:9999px;padding:3px 9px}
 .scv-memo{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:5px;font-size:12.5px;font-weight:500;color:var(--muted);line-height:1.35}
 .scv-memo.scv-empty{font-style:italic;color:var(--muted-soft)}
@@ -226,7 +227,8 @@
 .csv-schev{width:15px;height:15px;color:var(--chev);flex:none}
 button.csv-srow:active{background:var(--surface)}
 .csv-srow.ro .csv-sval b{color:var(--muted);font-weight:600}
-.csv-srow.miss .csv-sval b{color:var(--amber)}
+.csv-srow.miss .csv-sval b{color:var(--amber)}        /* blocking: import is gated */
+.csv-srow.soft .csv-sval b{color:var(--muted-soft);font-weight:600}   /* optional: refine later */
 .csv-srow.hot{background:var(--brand-tint);margin:0 -6px;padding:12px 8px;border-radius:11px;border-bottom-color:transparent}
 .csv-srow.hot small,.csv-srow.hot .csv-sval b{color:var(--brand-ink)}
 .csv-srow.hot .csv-schev{color:var(--brand-ink)}
