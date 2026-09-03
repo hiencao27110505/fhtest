@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thẻ thu gọn — 8 hướng bố cục thông tin</title>
+<style>
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --brand-tint:#e9f7f0; --brand-glow:rgba(46,158,107,.32);
+  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --danger:#E0322F; --amber:#B8730B; --amber-tint:#fbefda; --good:#1a9d5f;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#8a8494;
+  --canvas:#f4f1f6; --pearl:#fbfafc; --surface:#f9f7f8; --white:#fff;
+  --hairline:#e9e4ee; --divider:#f1edf4; --chev:#cfc8d6;
+  --fill-neutral:rgba(138,132,148,.13);
+  --cat-dining:#FF375F; --cat-transport:#32ADE6; --cat-other:#98949e; --cat-fun:#BF5AF2;
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased}
+body{font-family:var(--text);background:#e7e2ec;color:var(--ink)}
+.num{font-variant-numeric:tabular-nums}
+
+.wrap{max-width:1900px;margin:0 auto;padding:44px 28px 90px}
+.hero{max-width:960px}
+.hero h1{font-family:var(--disp);font-size:28px;font-weight:800;letter-spacing:-.5px}
+.hero p{margin-top:10px;font-size:15px;color:var(--muted);line-height:1.55}
+.hero .thesis{margin-top:12px;padding:12px 16px;border-left:3px solid var(--brand);background:var(--brand-tint);border-radius:0 10px 10px 0;font-size:13.5px;color:var(--ink-2);line-height:1.5}
+.grid{margin-top:34px;display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:40px 34px}
+@media(max-width:480px){.grid{grid-template-columns:1fr}}
+.panel{max-width:402px;margin:0 auto;background:var(--white);border-radius:26px;padding:16px 16px 18px;box-shadow:0 18px 44px rgba(10,5,20,.14)}
+.cap{max-width:402px;margin:14px auto 0;padding:0 10px}
+.cap .tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:3px 8px;margin-right:8px;vertical-align:2px}
+.cap b{font-size:15px;font-weight:700}
+.cap p{margin-top:5px;font-size:13px;color:var(--muted);line-height:1.5}
+.cap .sig{color:var(--brand-ink);font-weight:600}
+.datelbl{margin:2px 4px 12px;font-size:12px;font-weight:800;letter-spacing:.09em;color:var(--muted);text-transform:uppercase}
+
+/* fixed: hairline bordered card + tick top-right */
+.c{position:relative;border:1.5px solid var(--hairline);border-radius:16px;background:var(--white)}
+.c+.c{margin-top:10px}
+.ck{position:absolute;right:11px;top:11px;width:22px;height:22px;border-radius:7px;border:2px solid var(--hairline);display:flex;align-items:center;justify-content:center;color:transparent;font-size:12px;font-weight:800;flex:none;z-index:2}
+.ck.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.c.off{opacity:.62}
+.c.off .amt{text-decoration:line-through;text-decoration-color:var(--chev)}
+.warn{color:var(--amber)!important}
+.metaline{font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--muted-soft);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metaline .sep{margin:0 5px;color:var(--chev)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+.d-other{background:var(--cat-other)}.d-transport{background:var(--cat-transport)}.d-dining{background:var(--cat-dining)}.d-fun{background:var(--cat-fun)}
+
+/* ============ M1 · Amount anchor ============ */
+.m1 .c{padding:12px 46px 12px 15px}
+.m1 .moneyrow{display:flex;align-items:baseline;gap:10px;margin-top:6px}
+.m1 .amt{font-family:var(--disp);font-size:22px;font-weight:800;letter-spacing:-.5px}
+.m1 .cat{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.m1 .memo{margin-top:4px;font-size:12.5px;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m1 .src{margin-top:3px;font-size:11px;color:var(--muted-soft)}
+
+/* ============ M2 · Counterparty first ============ */
+.m2 .c{padding:12px 46px 12px 15px}
+.m2 .titlerow{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:6px}
+.m2 .party{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m2 .party .verb{color:var(--muted);font-weight:600;font-size:13px;margin-right:4px}
+.m2 .amt{font-family:var(--disp);font-size:16px;font-weight:800;white-space:nowrap;flex:none}
+.m2 .sub{margin-top:5px;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+.m2 .cat{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:var(--ink-2)}
+
+/* ============ M3 · Bank-statement (amount right) ============ */
+.m3 .c{display:flex;align-items:center;gap:12px;padding:13px 46px 13px 15px}
+.m3 .left{flex:1;min-width:0}
+.m3 .party{font-size:14.5px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m3 .meta{margin-top:3px;font-size:11px;color:var(--muted-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m3 .right{text-align:right;flex:none}
+.m3 .amt{font-family:var(--disp);font-size:16px;font-weight:800;letter-spacing:-.3px}
+.m3 .cat{margin-top:3px;display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--ink-2)}
+
+/* ============ M4 · Category avatar ============ */
+.m4 .c{display:flex;gap:12px;padding:13px 46px 13px 14px}
+.m4 .ava{width:40px;height:40px;border-radius:12px;background:var(--fill-neutral);display:flex;align-items:center;justify-content:center;font-size:19px;flex:none;margin-top:1px}
+.m4 .body{flex:1;min-width:0}
+.m4 .toprow{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.m4 .party{font-size:14.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m4 .amt{font-family:var(--disp);font-size:15.5px;font-weight:800;flex:none}
+.m4 .meta{margin-top:3px;font-size:11px;color:var(--muted-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ============ M5 · Classification forward ============ */
+.m5 .c{padding:13px 46px 13px 15px}
+.m5 .chips{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.m5 .chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:9999px;background:var(--fill-neutral);color:var(--ink-2)}
+.m5 .chip.scope{background:var(--brand-tint);color:var(--brand-ink)}
+.m5 .chip.miss{background:var(--amber-tint);color:var(--amber)}
+.m5 .amt{margin-left:auto;font-family:var(--disp);font-size:16px;font-weight:800}
+.m5 .idline{margin-top:8px;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m5 .idline b{color:var(--ink-2);font-weight:650}
+
+/* ============ M6 · Ultra-compact ============ */
+.m6 .c{padding:10px 44px 10px 14px}
+.m6 .c+.c{margin-top:7px}
+.m6 .line1{display:flex;align-items:baseline;gap:9px}
+.m6 .amt{font-family:var(--disp);font-size:15px;font-weight:800;flex:none}
+.m6 .party{font-size:13.5px;font-weight:600;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m6 .line2{margin-top:2px;font-size:10.5px;font-weight:600;color:var(--muted-soft);text-transform:uppercase;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.m6 .line2 .sep{color:var(--chev)}
+
+/* ============ M7 · Tiered ============ */
+.m7 .c{padding:0 46px 0 0}
+.m7 .t-ctx{padding:10px 15px 8px;font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--muted-soft);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m7 .t-ctx .sep{margin:0 5px;color:var(--chev)}
+.m7 .t-money{padding:9px 15px;border-top:1px solid var(--divider);display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.m7 .amt{font-family:var(--disp);font-size:19px;font-weight:800;letter-spacing:-.4px}
+.m7 .cat{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.m7 .t-memo{padding:0 15px 11px;font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ============ M8 · Natural sentence ============ */
+.m8 .c{padding:12px 46px 12px 15px}
+.m8 .sentence{margin-top:6px;font-size:15px;font-weight:500;line-height:1.45;color:var(--ink-2)}
+.m8 .sentence .amt{font-family:var(--disp);font-weight:800;color:var(--ink)}
+.m8 .sentence .party{font-weight:700;color:var(--ink)}
+.m8 .sub{margin-top:6px;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+.m8 .cat{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:var(--ink-2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <h1>Thẻ thu gọn — 8 hướng bố cục lại thông tin</h1>
+  <p>O1 sai ở chỗ: nó phóng to đúng thứ ít giá trị nhất — chuỗi memo thô của ngân hàng ("CAO THÁI DUY HIẾN chuyen tien den…"). Khi soát 75 dòng, mắt tìm <b>số tiền</b> và <b>đã phân loại đúng chưa</b>, không đọc từng ký tự memo.</p>
+  <div class="thesis"><b>Nguyên tắc thiết kế:</b> số tiền là mỏ neo để quét · phân loại (scope + danh mục) là thứ đang được duyệt · memo thô là nhiễu — hoặc <b>trích người/đối tác</b> ra khỏi nó, hoặc hạ xuống thành một dòng mờ. Cả 8 giữ viền hairline + checkbox góc phải; chỉ đổi cách sắp và làm nổi thông tin.</p>
+</div>
+
+<div class="grid">
+
+<!-- M1 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">30 THG 8</div><div class="m1">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="metaline">🔒 Riêng tư<span class="sep">·</span>VIB ••5140<span class="sep">·</span>18:19</div>
+      <div class="moneyrow"><span class="amt num">90.000đ</span><span class="cat"><span class="dot d-other"></span>Others</span></div>
+      <div class="memo">CAO THÁI DUY HIẾN chuyen tien den NGUYEN DUC THIEN - 220999999994</div>
+      <div class="src">Trực tiếp</div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="metaline">🏡 Gia đình<span class="sep">·</span>VIB ••0917<span class="sep">·</span>08:22</div>
+      <div class="moneyrow"><span class="amt num">86.000đ</span><span class="cat"><span class="dot d-transport"></span>Di chuyển</span></div>
+      <div class="memo">GRAB* TRIP HCM</div>
+      <div class="src">Trực tiếp</div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="metaline">🔒 Riêng tư<span class="sep">·</span>VIB ••4751<span class="sep">·</span>09:12</div>
+      <div class="moneyrow"><span class="amt num">3.590.000đ</span><span class="cat warn">Chọn danh mục</span></div>
+      <div class="memo">THANHTOAN THE VIB ONLINE PAYMENT</div>
+      <div class="src">Chuyển tiếp</div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">M1</span><b>Amount anchor — số tiền là mỏ neo</b>
+  <p>Lật O1: <span class="sig">số tiền 22px là nhân vật chính</span>, memo tụt xuống một dòng mờ. Quét 75 dòng bằng cột số tiền; memo còn đó cho ai cần đọc, nhưng không giành sân khấu.</p></div>
+</div>
+
+<!-- M2 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">30 THG 8</div><div class="m2">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="metaline">🔒 Riêng tư<span class="sep">·</span>VIB ••5140<span class="sep">·</span>30/08 18:19</div>
+      <div class="titlerow"><div class="party"><span class="verb">Đến</span>NGUYEN DUC THIEN</div><span class="amt num">90.000đ</span></div>
+      <div class="sub"><span class="cat"><span class="dot d-other"></span>Others</span><span>·</span><span>Trực tiếp</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="metaline">🏡 Gia đình<span class="sep">·</span>VIB ••0917<span class="sep">·</span>30/08 08:22</div>
+      <div class="titlerow"><div class="party">GRAB* TRIP HCM</div><span class="amt num">86.000đ</span></div>
+      <div class="sub"><span class="cat"><span class="dot d-transport"></span>Di chuyển</span><span>·</span><span>Trực tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="metaline">🔒 Riêng tư<span class="sep">·</span>VIB ••4751<span class="sep">·</span>30/08 09:12</div>
+      <div class="titlerow"><div class="party">THANH TOÁN THẺ VIB</div><span class="amt num">3.590.000đ</span></div>
+      <div class="sub"><span class="cat warn">Chọn danh mục</span><span>·</span><span>Chuyển tiếp</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">M2</span><b>Counterparty first — trích đối tác làm tiêu đề</b>
+  <p><span class="sig">Nước đi thông minh nhất:</span> memo có cấu trúc "X chuyển tiền đến Y" — lấy Y (NGUYEN DUC THIEN), bỏ số tài khoản đuôi, ẩn phần thô. Tiêu đề sạch + số tiền phải. Cần parse memo, nhưng đổi chất lượng hẳn.</p></div>
+</div>
+
+<!-- M3 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">30 THG 8</div><div class="m3">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="left"><div class="party">Đến NGUYEN DUC THIEN</div><div class="meta">🔒 Riêng tư · VIB ••5140 · 18:19 · Trực tiếp</div></div>
+      <div class="right"><div class="amt num">90.000đ</div><div class="cat"><span class="dot d-other"></span>Others</div></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="left"><div class="party">GRAB* TRIP HCM</div><div class="meta">🏡 Gia đình · VIB ••0917 · 08:22 · Trực tiếp</div></div>
+      <div class="right"><div class="amt num">86.000đ</div><div class="cat"><span class="dot d-transport"></span>Di chuyển</div></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="left"><div class="party">THANH TOÁN THẺ VIB</div><div class="meta">🔒 Riêng tư · VIB ••4751 · 09:12 · Chuyển tiếp</div></div>
+      <div class="right"><div class="amt num">3.590.000đ</div><div class="cat warn">Chọn</div></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">M3</span><b>Bank-statement — số tiền canh phải</b>
+  <p>Bố cục sao kê ngân hàng ai cũng quen: <span class="sig">định danh trái, tiền canh phải</span>, danh mục nằm dưới số tiền. Cột tiền thẳng hàng, cộng nhẩm và so sánh dễ. Meta gộp một dòng mờ.</p></div>
+</div>
+
+<!-- M4 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">30 THG 8</div><div class="m4">
+    <div class="c"><span class="ck on">✓</span>
+      <span class="ava">📁</span>
+      <div class="body"><div class="toprow"><div class="party">Đến NGUYEN DUC THIEN</div><span class="amt num">90.000đ</span></div>
+        <div class="meta">🔒 Riêng tư · VIB ••5140 · 18:19 · Trực tiếp</div></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <span class="ava">🚗</span>
+      <div class="body"><div class="toprow"><div class="party">GRAB* TRIP HCM</div><span class="amt num">86.000đ</span></div>
+        <div class="meta">🏡 Gia đình · VIB ••0917 · 08:22 · Trực tiếp</div></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <span class="ava" style="background:var(--amber-tint)">❓</span>
+      <div class="body"><div class="toprow"><div class="party">THANH TOÁN THẺ VIB</div><span class="amt num">3.590.000đ</span></div>
+        <div class="meta warn">Chưa có danh mục · VIB ••4751 · 09:12</div></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">M4</span><b>Category avatar — icon danh mục dẫn đầu</b>
+  <p><span class="sig">Phân loại nhìn thấy tức thì:</span> ô icon danh mục bên trái, quét dọc là biết nhóm nào mà chẳng cần đọc chữ. Khoản chưa rõ đeo icon ❓ hổ phách — chỗ cần bạn xử tự nổi lên.</p></div>
+</div>
+
+<!-- M5 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">30 THG 8</div><div class="m5">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="chips"><span class="chip scope">🔒 Riêng tư</span><span class="chip"><span class="dot d-other"></span>Others</span><span class="amt num">90.000đ</span></div>
+      <div class="idline"><b>Đến NGUYEN DUC THIEN</b> · VIB ••5140 · 18:19</div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="chips"><span class="chip scope">🏡 Gia đình</span><span class="chip"><span class="dot d-transport"></span>Di chuyển</span><span class="amt num">86.000đ</span></div>
+      <div class="idline"><b>GRAB* TRIP HCM</b> · VIB ••0917 · 08:22</div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="chips"><span class="chip scope">🔒 Riêng tư</span><span class="chip miss">Chọn danh mục</span><span class="amt num">3.590.000đ</span></div>
+      <div class="idline"><b>THANH TOÁN THẺ VIB</b> · VIB ••4751 · 09:12</div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">M5</span><b>Classification forward — nêu thứ đang duyệt</b>
+  <p>Màn này là để <span class="sig">soát phân loại</span>, nên dẫn bằng đúng hai chip đó: scope + danh mục + số tiền trên một hàng. Danh tính tụt xuống dòng mờ. Thiếu danh mục thì chip hổ phách hét lên ngay.</p></div>
+</div>
+
+<!-- M6 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">30 THG 8</div><div class="m6">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="line1"><span class="amt num">90.000đ</span><span class="party">Đến NGUYEN DUC THIEN</span></div>
+      <div class="line2"><span class="dot d-other"></span>Others<span class="sep">·</span>🔒<span class="sep">·</span>VIB ••5140<span class="sep">·</span>18:19<span class="sep">·</span>Trực tiếp</div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="line1"><span class="amt num">86.000đ</span><span class="party">GRAB* TRIP HCM</span></div>
+      <div class="line2"><span class="dot d-transport"></span>Di chuyển<span class="sep">·</span>🏡<span class="sep">·</span>VIB ••0917<span class="sep">·</span>08:22<span class="sep">·</span>Trực tiếp</div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="line1"><span class="amt num">65.000đ</span><span class="party">Cà phê với khách</span></div>
+      <div class="line2"><span class="dot d-dining"></span>Ăn ngoài<span class="sep">·</span>🔒<span class="sep">·</span>Tiền mặt<span class="sep">·</span>15:40<span class="sep">·</span>Nhập tay</div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="line1"><span class="amt num">3.590.000đ</span><span class="party">THANH TOÁN THẺ VIB</span></div>
+      <div class="line2 warn">Chọn danh mục<span class="sep">·</span>🔒<span class="sep">·</span>VIB ••4751<span class="sep">·</span>09:12</div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">M6</span><b>Ultra-compact — hai dòng, soát siêu nhanh</b>
+  <p><span class="sig">Nhồi tối đa số dòng lên màn hình:</span> dòng 1 tiền + đối tác, dòng 2 mọi bối cảnh dạng small-caps mờ. Hợp người có sao kê 75+ khoản muốn lướt một mạch.</p></div>
+</div>
+
+<!-- M7 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">30 THG 8</div><div class="m7">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="t-ctx">🔒 Riêng tư<span class="sep">·</span>VIB ••5140<span class="sep">·</span>30/08 18:19<span class="sep">·</span>Trực tiếp</div>
+      <div class="t-money"><span class="amt num">90.000đ</span><span class="cat"><span class="dot d-other"></span>Others</span></div>
+      <div class="t-memo">CAO THÁI DUY HIẾN chuyen tien den NGUYEN DUC THIEN - 220999999994</div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="t-ctx">🏡 Gia đình<span class="sep">·</span>VIB ••0917<span class="sep">·</span>30/08 08:22<span class="sep">·</span>Trực tiếp</div>
+      <div class="t-money"><span class="amt num">86.000đ</span><span class="cat"><span class="dot d-transport"></span>Di chuyển</span></div>
+      <div class="t-memo">GRAB* TRIP HCM</div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="t-ctx">🔒 Riêng tư<span class="sep">·</span>VIB ••4751<span class="sep">·</span>30/08 09:12<span class="sep">·</span>Chuyển tiếp</div>
+      <div class="t-money"><span class="amt num">3.590.000đ</span><span class="cat warn">Chọn danh mục</span></div>
+      <div class="t-memo">THANHTOAN THE VIB ONLINE PAYMENT</div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">M7</span><b>Tiered — ba tầng rõ rệt</b>
+  <p><span class="sig">Bối cảnh → tiền → chi tiết</span>, ngăn bằng một nét mảnh. Tầng giữa (số tiền + danh mục) là tâm điểm; memo thô nằm tầng đáy, mờ, giữ nguyên cho ai cần đối chiếu. Giữ đủ mọi thông tin.</p></div>
+</div>
+
+<!-- M8 -->
+<div class="item">
+  <div class="panel"><div class="datelbl">30 THG 8</div><div class="m8">
+    <div class="c"><span class="ck on">✓</span>
+      <div class="metaline">🔒 Riêng tư<span class="sep">·</span>VIB ••5140<span class="sep">·</span>30/08 18:19</div>
+      <div class="sentence">Chuyển <span class="amt num">90.000đ</span> đến <span class="party">NGUYEN DUC THIEN</span></div>
+      <div class="sub"><span class="cat"><span class="dot d-other"></span>Others</span><span>·</span><span>Trực tiếp</span></div>
+    </div>
+    <div class="c"><span class="ck on">✓</span>
+      <div class="metaline">🏡 Gia đình<span class="sep">·</span>VIB ••0917<span class="sep">·</span>30/08 08:22</div>
+      <div class="sentence">Chi <span class="amt num">86.000đ</span> ở <span class="party">Grab</span></div>
+      <div class="sub"><span class="cat"><span class="dot d-transport"></span>Di chuyển</span><span>·</span><span>Trực tiếp</span></div>
+    </div>
+    <div class="c off"><span class="ck"></span>
+      <div class="metaline">🔒 Riêng tư<span class="sep">·</span>VIB ••4751<span class="sep">·</span>30/08 09:12</div>
+      <div class="sentence">Trả thẻ <span class="amt num">3.590.000đ</span> — <span class="party warn">chưa rõ danh mục</span></div>
+      <div class="sub"><span>Chuyển tiếp</span></div>
+    </div>
+  </div></div>
+  <div class="cap"><span class="tag">M8</span><b>Natural sentence — đọc như một câu</b>
+  <p><span class="sig">Ghép thành câu người đọc:</span> "Chuyển 90.000đ đến NGUYEN DUC THIEN" — động từ theo loại khoản (Chuyển/Chi/Trả thẻ), số tiền + đối tác in đậm. Ấm và dễ hiểu; cần parse để tự tin dựng câu.</p></div>
+</div>
+
+</div>
+</div>
+</body>
+</html>
