@@ -90,7 +90,7 @@ export function createDb(url, serviceKey, fetchImpl) {
      */
     async dueGrants(limit) {
       const qs = new URLSearchParams({
-        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,default_scope,backfill_days,stalled_runs,first_stalled_at',
+        select: 'id,user_id,member_id,family_id,provider,email,refresh_token_enc,scopes,needs_reauth,history_id,last_synced_at,backfilled_at,connected_at,default_scope,backfill_days,stalled_runs,first_stalled_at',
         needs_reauth: 'eq.false',
         // Direction spelled out: PostgREST's order grammar is
         // `col.dir.nullsorder`, and a bare `.nullsfirst` is not reliably parsed.
@@ -463,8 +463,16 @@ export function createDb(url, serviceKey, fetchImpl) {
 
        Both are asked in one pass, and a failure of either must THROW rather
        than return an empty set. Failing open here stages everything twice. */
-    async alreadyStaged(messageIds, memberId, ownerUserId) {
-      if (!messageIds.length) return new Set();
+    /* The two halves ANSWERED SEPARATELY (0113): `staged` — the id is sitting
+       in email_transactions right now; `resolved` — a tombstone remembers it
+       was promoted or dismissed, mapped to WHEN, because the worker re-stages
+       prior-epoch tombstones during a backfill (the "đã nhập trước đó" badge)
+       and must tell those apart from a tombstone written five minutes ago.
+       alreadyStaged below keeps the union shape for the ingest path, whose
+       relay-minted ids never match a tombstone anyway. */
+    async stagedState(messageIds, memberId, ownerUserId) {
+      const out = { staged: new Set(), resolved: new Map() };
+      if (!messageIds.length) return out;
 
       /* CHUNKED, and the chunk size is the whole point (2026-08-29).
       
@@ -479,7 +487,6 @@ export function createDb(url, serviceKey, fetchImpl) {
          with room for the base URL, and costs one extra round trip per 150
          messages — nothing against the per-message fetches that follow. */
       const CHUNK = 150;
-      const done = new Set();
 
       // Scoped by owner where there is one, member otherwise. Since 0092 the
       // tombstone table is KEYED on owner — a personal-only user has no member
@@ -507,15 +514,26 @@ export function createDb(url, serviceKey, fetchImpl) {
            return an empty set — failing open here stages everything twice. */
         const staged = await rest(
           '/email_transactions?select=gmail_message_id&gmail_message_id=in.(' + list + ')');
-        for (const r of (staged || [])) done.add(r.gmail_message_id);
+        for (const r of (staged || [])) out.staged.add(r.gmail_message_id);
 
         if (scope) {
           const resolved = await rest(
-            '/resolved_email_messages?select=gmail_message_id&' + scope +
+            '/resolved_email_messages?select=gmail_message_id,resolved_at&' + scope +
             '&gmail_message_id=in.(' + list + ')');
-          for (const r of (resolved || [])) done.add(r.gmail_message_id);
+          for (const r of (resolved || [])) out.resolved.set(r.gmail_message_id, r.resolved_at || null);
         }
       }
+      return out;
+    },
+
+    /* Union view for the ingest path: "have we finished with this message?".
+       Kept because a forwarded mail is staged under the RELAY's message id —
+       it can never match a tombstone from a previous life, so the re-stage
+       nuance above buys nothing there and the simple set stays honest. */
+    async alreadyStaged(messageIds, memberId, ownerUserId) {
+      const s = await this.stagedState(messageIds, memberId, ownerUserId);
+      const done = new Set(s.staged);
+      for (const id of s.resolved.keys()) done.add(id);
       return done;
     },
 

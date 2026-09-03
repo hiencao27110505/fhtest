@@ -22,6 +22,16 @@ const src = fs.readFileSync(
   path.join(__dirname, '..', 'src', 'js-ui', '57-csv-import-review.js'), 'utf8');
 
 function normDescForDedup(x){ return String(x||'').trim().toLowerCase().replace(/\s+/g,' '); }
+function deburr(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,''); }
+// Each dependency of bucketCsvCandidates, sliced from its `function NAME` to
+// the first column-0 close brace — the same trick the main extraction uses.
+const fx = (name) => {
+  const j = src.indexOf('function ' + name);
+  if (j < 0) { console.error(name + ' not found — renamed?'); process.exit(1); }
+  return src.slice(j, src.indexOf('\n}', j) + 2);
+};
+eval(fx('_csvNameKey'));
+eval(fx('csvNearMissDup'));
 const i = src.indexOf('function bucketCsvCandidates');
 if (i < 0) { console.error('bucketCsvCandidates not found — renamed?'); process.exit(1); }
 var window = { txns: [] };
@@ -81,6 +91,36 @@ r = bucketCsvCandidates([ silent(2000, '', '2026-08-16') ], false);
 t('an existing transaction is still matched', r.possibleDuplicate.length === 1,
   String(r.possibleDuplicate.length));
 window.txns = [];
+
+console.log('\n-- the units bug (2026-09-03): ledger stores base units, candidates carry đồng --');
+/* With curMult live (1000 for VND), a stored 92.5 IS the candidate's 92.500đ.
+   The old comparison ran raw — |92.5 − 92500| — and never matched anything,
+   which is how two exact SHOPEE repeats sat ticked in ready on a real queue. */
+curMult = function(){ return 1000; };
+window.txns = [{ _d: new Date('2026-08-29'), amt: 92.5, note: 'SHOPEE - VIETNAM 87821624', cat: 'Shopping', who: 'Hiền' }];
+r = bucketCsvCandidates([ spoken('SHOPEE - VIETNAM 87821624', 92500, '2026-08-29') ], false);
+t('a base-unit ledger row matches a đồng candidate', r.possibleDuplicate.length === 1,
+  String(r.possibleDuplicate.length));
+t('and the flag carries the matched row as evidence',
+  r.possibleDuplicate.length === 1 && !!r.possibleDuplicate[0].duplicateOfExisting
+  && r.possibleDuplicate[0].duplicateOfExisting.note === 'SHOPEE - VIETNAM 87821624');
+
+console.log('\n-- the near-miss tier: same merchant, same day, rounded by hand --');
+/* 467.000đ hand-logged against the bank's 467.290đ — a real pair the exact
+   tier waved through. Merchant + day + a gap under 1.000đ = the weak flag. */
+window.txns = [{ _d: new Date('2026-08-27'), amt: 467, note: 'AEON NGUYEN VAN LINH', cat: 'Đi chợ', who: 'Hiền' }];
+r = bucketCsvCandidates([ spoken('AEON NGUYEN VAN LINH', 467290, '2026-08-27') ], false);
+t('a rounded hand-log is flagged as a near miss',
+  r.possibleDuplicate.length === 1 && !!r.possibleDuplicate[0].duplicateNearMiss,
+  String(r.possibleDuplicate.length));
+r = bucketCsvCandidates([ spoken('AEON NGUYEN VAN LINH', 468500, '2026-08-27') ], false);
+t('a gap of 1.500đ is a different purchase, not a near miss', r.possibleDuplicate.length === 0,
+  String(r.possibleDuplicate.length));
+r = bucketCsvCandidates([ spoken('HIGHLANDS COFFEE', 467290, '2026-08-27') ], false);
+t('a different merchant never near-misses, however close the amount', r.possibleDuplicate.length === 0,
+  String(r.possibleDuplicate.length));
+window.txns = [];
+curMult = undefined;
 
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail ? 1 : 0);

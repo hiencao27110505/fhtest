@@ -203,6 +203,18 @@ function makeDb(o) {
       const have = new Set(state.staged.map(r => r.gmail_message_id));
       return new Set(ids.filter(id => have.has(id)));
     },
+    /* The split view (0113): staged now, and tombstoned-when. The harness keeps
+       tombstones in state.resolved as { id: resolved_at } when a scenario sets
+       them; most scenarios have none. */
+    async stagedState(ids) {
+      if (o.stagedLookupThrows) throw new Error('database unreachable');
+      const have = new Set(state.staged.map(r => r.gmail_message_id));
+      const resolved = new Map();
+      for (const [id, at] of Object.entries(state.resolved || {})) {
+        if (ids.includes(id)) resolved.set(id, at);
+      }
+      return { staged: new Set(ids.filter(id => have.has(id))), resolved };
+    },
     async stagedCandidates() { return o.candidates || []; },
     async insertStaged(row) {
       if (state.staged.some(r => r.gmail_message_id === row.gmail_message_id)) return false;

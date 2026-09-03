@@ -1213,6 +1213,18 @@ The question is **"have we finished with this message?"** — not "is it in
   record it is the one ordering that cannot be recovered from.
 - The client's own retired-set guard cannot cover this: it remembers staged
   row UUIDs, and a re-staged message is a new row with a new UUID.
+- **Since 0113 the tombstone is a badge, not a gate, during backfills.** The
+  ledger is the anchor of truth (2026-09-03): a person re-scanning their
+  history is owed a visible card, not an exclusion they cannot tell apart
+  from a missed email. While `backfilled_at` is null, a message whose
+  tombstone **predates `grant.connected_at`** (a previous connection — a
+  disconnect deletes the grant row, so a true re-opt-in mints a new epoch) is
+  staged again with `resolved_before = true`; the review screen shows it as a
+  certain "đã nhập trước đó" card. Steady-state polls keep the skip: without
+  it, a row imported minutes ago would boomerang back on the next tick. The
+  ingest/watch paths keep the plain union (`alreadyStaged`) — a forwarded
+  mail is staged under the relay's message id and can never match a tombstone
+  from a previous life anyway.
 
 ### 18.2 Cross-source dedup — the most-revised part of the pipeline
 
@@ -1267,11 +1279,22 @@ The result sets `duplicate_of_id`. **Nothing is deleted** (§7).
 The review screen re-runs the rule (`csvStagedCrossSourceDup`) with strictly
 more evidence: the decrypted amount, the unsealed provider,
 `transaction_type` — which the pipeline cannot read on sealed rows — and the
-real ledger to compare against (same amount within 3 days of an existing
-transaction; in-batch same description+amount+day+minute). Where it can
-prove a pipeline flag wrong (bank-vs-bank), it drops the flag rather than
-passing the tap to a person. Two independent implementations disagreeing is a
-free correctness signal — it is how the currency bug was found.
+real ledger to compare against. Where it can prove a pipeline flag wrong
+(bank-vs-bank), it drops the flag rather than passing the tap to a person.
+Two independent implementations disagreeing is a free correctness signal — it
+is how the currency bug was found.
+
+The against-the-ledger comparison (same amount within 3 days) is **unit- and
+kind-aware since 2026-09-03**: ledger amounts are stored in base units while
+candidates carry raw đồng, and comparing them raw meant the check had never
+fired for VND (the "two amount-conversion paths" hazard, realised). Both books
+are normalised to đồng; expense candidates hunt expenses, income candidates
+hunt personal income rows; the personal book is matched against a 365-day
+decrypted slice (`fhPersonalMatchSlice`) so a re-staged year-old card is not
+compared against a two-month cache. A weaker near-miss tier (same canonical
+merchant, same day, gap under 1.000đ) catches the hand-logged rounded entry,
+flagged with softer copy. Full layer order and card anatomy:
+`transaction-review-spec.md` §F.
 
 ## 19. Review — how rows land in buckets, and what Nhập actually does
 

@@ -287,7 +287,7 @@ export async function runAll(ctx) {
 export async function runGrant(grant, ctx) {
   const summary = {
     grantId: grant.id, email: grant.email, status: 'ok',
-    fetched: 0, staged: 0, skipped: 0, unreadable: 0, held: 0, duplicates: 0, queued: 0,
+    fetched: 0, staged: 0, skipped: 0, unreadable: 0, held: 0, duplicates: 0, queued: 0, restaged: 0,
   };
 
   // Resolved BEFORE any mail is fetched. A mailbox whose family has no staging
@@ -348,8 +348,31 @@ export async function runGrant(grant, ctx) {
   // One query for the whole window. A throw here is NOT caught: if the database
   // is unreachable, concluding "not staged" would insert a second copy of every
   // transaction in the window.
-  const staged = await ctx.db.alreadyStaged(ids, destination.memberId, destination.ownerUserId);
-  const allFresh = ids.filter(id => !staged.has(id));
+  const state = await ctx.db.stagedState(ids, destination.memberId, destination.ownerUserId);
+
+  /* RE-STAGE, DON'T SILENTLY SKIP (0113) — but only mail resolved in a
+     PREVIOUS connection, and only while backfilling. The ledger is the anchor
+     of truth: a person re-scanning their history is owed a visible, certain
+     "đã nhập trước đó" card, not an exclusion they cannot tell apart from a
+     missed email. Two guards keep that from becoming a boomerang:
+
+       * backfilling only — a steady-state poll re-reads a window that still
+         covers mail imported minutes ago; re-staging those would bounce every
+         fresh import straight back into the queue on the next tick.
+       * tombstone older than grant.connected_at — a disconnect deletes the
+         grant row (0087), so a true re-opt-in mints a new connected_at, while
+         a token-expiry reconnect keeps the old one. An import made mid-backfill
+         writes a tombstone NEWER than the epoch and stays skipped. */
+  const epoch = grant.connected_at ? Date.parse(grant.connected_at) : 0;
+  const restage = new Set();
+  if (backfilling && epoch) {
+    for (const [rid, at] of state.resolved) {
+      const t = Date.parse(at || '');
+      if (t && t < epoch) restage.add(rid);
+    }
+  }
+  const allFresh = ids.filter(id =>
+    !state.staged.has(id) && (!state.resolved.has(id) || restage.has(id)));
   summary.skipped = ids.length - allFresh.length;
 
   // The per-run ceiling applies to what is actually WORKED ON, not to what was
@@ -590,6 +613,11 @@ export async function runGrant(grant, ctx) {
         dedupKey: ctx.dedupKey, db: ctx.db,
       },
     });
+
+    /* The certainty badge (0113): this exact message id was promoted or
+       dismissed in a previous connection. Stamped on the row AFTER the build —
+       it is workflow state like review_status, not sealed content. */
+    if (restage.has(id)) { row.resolved_before = true; summary.restaged++; }
 
     if (row.duplicate_of_id) summary.duplicates++;
     if (await ctx.db.insertStaged(row)) summary.staged++;

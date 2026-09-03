@@ -14,7 +14,7 @@
  * assertion inspects the ACTUAL upsert payload — domain, mailboxes, messages,
  * last_seen, and not one other key.
  */
-const nacl = await import('/Users/thutrang290902gmail.com/Desktop/Projects/fhtest/node_modules/tweetnacl/nacl-fast.js').then(m => m.default || m);
+const nacl = await import('tweetnacl').then(m => m.default || m);
 const crypto = await import('node:crypto').then(m => m.default || m);
 const url = await import('node:url');
 const HERE = url.fileURLToPath(new URL('.', import.meta.url));

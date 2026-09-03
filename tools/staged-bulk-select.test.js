@@ -60,6 +60,10 @@ function csvAllCats(){ return ['Ăn uống', 'Đi lại']; }
 function csvScopeReady(){ return personalReady; }
 function csvSetScope(v){ scopeSaves.push(v); return true; }
 function csvLearnFrom(c){ learned.push(c); }
+// FX gating (0112): the harness's rows are all domestic VND, so nothing is
+// ever held back as unresolved-foreign.
+function csvFxUnresolved(){ return false; }
+function csvFxInfo(){ return null; }
 global.window = {
   catStyle: { 'Ăn uống': ['🍜'], 'Đi lại': ['🚌'] },
   fhStagedDropMany: function (list) { dropped.push(list); },

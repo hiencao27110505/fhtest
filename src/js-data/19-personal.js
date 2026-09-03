@@ -223,6 +223,9 @@
 
     window.fhPersonalHydrate = async function () {
       if (!P.uid || !P.key) return;
+      // Every write path funnels through a re-hydrate, so this is the one spot
+      // that keeps the review screen's duplicate-match slice from going stale.
+      try { window.fhPersonalMatchSliceInvalidate && window.fhPersonalMatchSliceInvalidate(); } catch (e) {}
       _setState('loading');
       try {
         const from = _winFrom();
@@ -300,6 +303,44 @@
         _setState('ready');
       } catch (e) { console.warn('personal hydrate failed', e); _setState('error'); }
     };
+
+    /* Duplicate-match slice for the staged review screen. The tab cache above
+       reaches back one month — a stock the tab needs — but a re-staged bank
+       mail can carry an occurred_at a year old (the mailbox backfill window is
+       up to 365 days), and matched against a two-month ledger an old import
+       came back clean. This fetches expense+income rows to that horizon,
+       amount/note/cat only, decrypted once and cached per session; the review
+       screen awaits it BEFORE bucketing because the matcher is synchronous.
+       Returns [] rather than throwing — a locked ledger degrades to the short
+       cache, never blocks the queue from opening. */
+    let _matchSlice = null;
+    window.fhPersonalMatchSlice = async function () {
+      if (!P.uid || !P.key) return [];
+      if (_matchSlice) return _matchSlice;
+      try {
+        const d = new Date(); d.setDate(d.getDate() - 365);
+        const from = _localDate(d);
+        const r = await _sb().from('personal_transactions')
+          .select('id,amount_enc,note_enc,cat_name_enc,txn_date,kind')
+          .eq('owner_user_id', P.uid)
+          .in('kind', ['expense', 'income'])
+          .gte('txn_date', from)
+          .order('txn_date', { ascending: false })
+          .limit(4000);
+        if (r.error) { console.warn('personal match slice failed', r.error); return []; }
+        const out = [];
+        for (const t of (r.data || [])) {
+          const a = await _decP(t.amount_enc);
+          if (a == null || a === _DEC_FAILED) continue;   // unreadable amount → cannot match, skip (fail closed)
+          out.push({ id: t.id, date: t.txn_date, kind: t.kind, amt: Number(a),
+            note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc) });
+        }
+        _matchSlice = out;
+        return out;
+      } catch (e) { console.warn('personal match slice failed', e); return []; }
+    };
+    /* A write through this module makes the cached slice stale by definition. */
+    window.fhPersonalMatchSliceInvalidate = function () { _matchSlice = null; };
 
     // Only a real local "HH:MM" is stored; anything else is treated as "no time
     // known" (null → day-only) so a clock time is never fabricated.

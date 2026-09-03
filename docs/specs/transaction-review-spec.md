@@ -478,26 +478,60 @@ personal rows always leave it null.
 
 ### F. Duplicate detection
 
-The pipeline computes `duplicate_of_id`, but that is a **suspicion, not a delete
-order** — the authority moved to this screen after 0060 activated a dormant
-deletion path and made a real 2.000đ transfer disappear. Flagged rows land in the
-"Có thể trùng" bucket with *Vẫn nhập* / *Bỏ qua*; nothing is hidden.
+**The ledger is the sole anchor of truth** (decided 2026-09-03): email-reading
+history informs, but what decides whether a card is suspect is comparison
+against what is actually in the books. The pipeline computes `duplicate_of_id`,
+but that is a **suspicion, not a delete order** — the authority moved to this
+screen after 0060 activated a dormant deletion path and made a real 2.000đ
+transfer disappear. Flagged rows are shown with *Vẫn nhập* / *Bỏ qua* (file
+mode: the "Có thể trùng" section; staged mode: inline, unticked, chip-flagged);
+nothing is hidden.
 
-The screen re-runs detection with better evidence (it holds the decrypted amount,
-the unsealed `source_provider`, and — crucially — `transaction_type` the pipeline
-can't read on sealed rows). Layers, most concrete last so it wins
-(`src/js-ui/57-csv-import-review.js:788-914`):
+> **The units bug (fixed 2026-09-03).** Ledger rows store amounts in base
+> units (đồng ÷ `curMult()`); a candidate's `amount` is raw đồng. The
+> against-the-ledger comparison ran on the raw values — |92.5 − 92500| < 1 is
+> never true — so that layer had **never fired for VND**, in either book.
+> Proven live: two exact SHOPEE repeats (92.500đ / 77.600đ, same day) sat
+> ticked in ready. All ledger comparisons now normalise to đồng (`amtD`).
 
+The screen re-runs detection with better evidence (it holds the decrypted
+amount, the unsealed `source_provider`, and — crucially — `transaction_type`
+the pipeline can't read on sealed rows). Layers, most concrete first:
+
+- **Imported before (certain)** — the server re-staged this exact
+  `gmail_message_id` knowing its tombstone predates the current mailbox
+  connection (`resolved_before`, 0113). Message-id equality is a fact, not a
+  guess: the card wears the strong "đã nhập trước đó" chip. Still one tap,
+  never a deletion — only the person knows whether they since removed the row.
 - **In-batch** — same description **and** amount **and** day **and** minute → a
-  mail staged twice. Time is in the key because two topups to the same person for
-  the same amount on the same day are ordinary, not duplicates.
-- **Against the ledger** — same amount within 3 days of an existing transaction.
-- **Cross-source** — a bank *and* a non-bank reporting one swipe. Two of the same
-  bank, or two *different* banks, are never duplicates (each sees only its own
-  account); currency must match before amount.
+  mail staged twice. Time is in the key because two topups to the same person
+  for the same amount on the same day are ordinary, not duplicates.
+- **Against the ledger** — same amount (in đồng, within 1đ) within 3 days of an
+  existing transaction **of the same kind**: expense candidates hunt expenses
+  in both books, income candidates hunt income rows (personal book — the
+  family table carries no income). The personal side is matched against a
+  365-day slice (`fhPersonalMatchSlice`, amounts/notes/cats only, decrypted
+  once per session) because a re-staged card can be far older than the
+  personal tab's ~2-month cache.
+- **Near-miss (weak)** — same canonical merchant + same calendar day + amounts
+  under 1.000đ apart that the exact tier didn't catch: the hand-logged rounded
+  entry (467.000đ against the bank's 467.290đ — a real pair). Wears the quiet
+  "gần trùng" chip and says the gap out loud.
+- **Cross-source** — a bank *and* a non-bank reporting one swipe. Two of the
+  same bank, or two *different* banks, are never duplicates (each sees only its
+  own account); currency must match before amount.
 - **Pipeline flag** — kept as a suspicion, but the client *overrules* a
   bank-vs-bank flag it can prove wrong (the pipeline flagged it blind to
   `transaction_type`).
+
+**Visible diligence.** Staged review opens with a check-count line — "Đã đối
+chiếu N thẻ với sổ chi tiêu — X có thể trùng" — because an unflagged card
+carries an invisible claim ("we checked; looks new") that used to be
+indistinguishable from no check at all. When X > 0 the line offers a filter
+("Chỉ xem thẻ trùng") that narrows the list to flagged cards, plus select-all /
+clear-all over exactly those. An opened flagged card shows its evidence: the
+matched ledger row's note/category, amount, date, which book, and who logged it
+(`csvDupWhy`) — "is this the same purchase?" is unanswerable from memory.
 
 ### G. Retirement bookkeeping
 

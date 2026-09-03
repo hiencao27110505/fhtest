@@ -66,6 +66,7 @@ function makeCtx(queue, banners) {
       async stagingPubForUser() { return FAM_PUB; },
       async providerDomains() { return ['mbbank.com.vn']; },
       async alreadyStaged() { return new Set(); },
+      async stagedState() { return { staged: new Set(), resolved: new Map() }; },
       async stagedCandidates() { return []; },
       async insertStaged() { return true; },
       async recordFailure() {}, async markSynced() {},

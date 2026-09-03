@@ -41,6 +41,8 @@ if (!NOISE) { console.error('CSV_PROVIDER_NOISE not found'); process.exit(1); }
 eval(NOISE[0]);
 eval(grab('csvCanonicalProvider'));
 eval(grab('csvStagedCrossSourceDup'));
+eval(grab('_csvNameKey'));
+eval(grab('csvNearMissDup'));
 
 var window = { txns: [], csvStagedMode: false };
 eval(grab('bucketCsvCandidates'));

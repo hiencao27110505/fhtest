@@ -765,6 +765,7 @@
     })();
 
     window.csvStagedMode = true;   // reuse the review engine, drop its file-only chrome
+    window.csvDupFilter = false;   // each open starts on the full list; a filter is a session choice, never a state
 
     /* The duplicate matcher inside csvBuildReview is synchronous, so the
        personal slice it matches against (365-day horizon — a re-staged card can
