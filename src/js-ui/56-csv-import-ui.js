@@ -890,22 +890,53 @@ function csvCollapsedCard(c, opts){
       + ' aria-label="'+escAttr(L('Chọn khoản này để nhập','Select this item to import'))+'">'
       + '<i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></i></button>'
     : '';
-  /* The transport ("Trực tiếp"/"Chuyển tiếp") used to be a highlighted tag at the
-     head. It is provenance, not a decision — so it rides the END of the bottom
-     meta line (amount · category · transport) as quiet plain text, and the
-     header meta keeps only scope · bank · account · date · time. */
-  var srcTag = csvStagedSourceTag(c);
-  var srcSpan = srcTag ? '<span class="bc-src-txt">'+esc(srcTag)+'</span>' : '';
+  /* Staged review wears the amount-anchor card: scope eyebrow, the AMOUNT as the
+     scannable hero next to its category, the raw bank memo demoted to a quiet
+     line (up to 2 lines), and the fixed provenance — money source · date-time ·
+     transport — on the bottom line. When reviewing 75 bank rows the eye scans
+     the amount and whether it is classified right; the memo is the noise. */
+  if(csvStagedMode){
+    var r = csvRowShape(c, opts.isDup || opts.repeat);
+    var scope = !opts.isDup ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '';
+    var catTxt;
+    if(r._transfer)      catTxt = '💳 '+L('Trả nợ thẻ','Card payment');
+    else if(r._xfer)     catTxt = '🔁 '+L('Chuyển khoản nội bộ','Internal transfer');
+    else if(r._repay)    catTxt = '🤝 '+L('Thu nợ','Repayment in');
+    else if(r._income)   catTxt = esc(r.cat||L('Thu nhập','Income'));
+    else if(r.cat && (typeof catValid!=='function' || catValid(r.cat))){
+      var s=(window.catStyle&&catStyle[r.cat])||['🏷️']; catTxt = s[0]+' '+esc(r.cat);
+    } else catTxt = null;
+    var catHtml = catTxt
+      ? '<span class="scv-cat">'+catTxt+'</span>'
+      : '<span class="scv-cat warn">'+L('Chọn danh mục','Pick a category')+'</span>';
+    var dupHtml = r._dup ? '<span class="scv-dup">'+L('lặp lại','repeat')+'</span>' : '';
+    var amtHtml = (c.amount!=null)
+      ? '<span class="scv-amt num">'+esc(csvAmtDisp(c))+'</span>'
+      : '<span class="scv-amt num warn">'+L('Thiếu số tiền','No amount')+'</span>';
+    var note = (c.description||'').trim();
+    var memoHtml = note
+      ? '<span class="scv-memo">'+esc(note)+'</span>'
+      : '<span class="scv-memo scv-empty">'+L('(khoản trống)','(empty item)')+'</span>';
+    var prov = csvStagedProvider(c), acct = csvStagedAcctChip(c);
+    var whenTxt = opts.dateIso ? (bulkDate(opts.dateIso) + (opts.timeStr ? ' · '+opts.timeStr : '')) : '';
+    var tag = csvStagedSourceTag(c);
+    var provBits = [prov, acct, whenTxt, tag].filter(Boolean).map(function(x){ return esc(x); });
+    var provHtml = provBits.length ? '<span class="scv-prov">'+provBits.join('<span class="scv-sep">·</span>')+'</span>' : '';
+    return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
+      + '<button type="button" class="bulk-tap scv-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
+      + (scope ? '<span class="scv-scope">'+esc(scope)+'</span>' : '')
+      + '<span class="scv-money">'+amtHtml+catHtml+dupHtml+'</span>'
+      + memoHtml + provHtml
+      + '</button>' + rm + '</div>';
+  }
+
+  // File-import flow: unchanged — index label + date header, note, amount·category.
   return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
     + '<button type="button" class="bulk-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
-    /* Scope now rides in the header meta line (csvCardHead), not on its own row.
-       Both destinations are marked so the line always reads scope · bank · time. */
-    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c),
-        (csvStagedMode && !opts.isDup) ? (csvRowScope(c)==='personal' ? L('🔒 Riêng tư','🔒 Private') : L('🏡 Gia đình','🏡 Family')) : '',
-        '', csvStagedAcctChip(c))
+    + csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c), '', '', '')
     + (opts.noPick
-        ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+esc(csvAmtDisp(c))+'</span>':'')+srcSpan+'</span>'
-        : bulkSummary(csvRowShape(c, opts.isDup || opts.repeat), srcSpan))
+        ? '<span class="bc-note">'+esc(c.description||'')+'</span><span class="bc-meta">'+(c.amount!=null?'<span class="bc-amt">'+esc(csvAmtDisp(c))+'</span>':'')+'</span>'
+        : bulkSummary(csvRowShape(c, opts.isDup || opts.repeat)))
     + '</button>' + rm + '</div>';
 }
 
@@ -1003,9 +1034,21 @@ function csvActiveCard(c, opts){
   // Expanding was tappable but collapsing wasn't; an up-chevron marks the header
   // as the way back. The × (remove) stays a separate sibling so the two 44px
   // targets never overlap.
-  // Transport tag no longer rides the expanded header either — the card body's
-  // read-only "Nguồn nhập" row carries it now.
-  var headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c), '', csvStagedMode ? '' : csvStagedSourceTag(c));
+  var headInner;
+  if(csvStagedMode && opts.fields){
+    /* The top line IS the fixed provenance now — bank · instrument · transport
+       (nguồn tiền + nguồn nhập). None of it is adjustable, so it is stated here
+       once instead of eating read-only rows below. Scope, date and time stay OUT
+       of this line: each is an editable row in the card body. */
+    var _bits = [csvStagedProvider(c), csvStagedAcctChip(c), csvStagedSourceTag(c)]
+      .filter(Boolean).map(function(x){ return '<span class="bulk-when">'+esc(x)+'</span>'; });
+    var _fb = opts.dateIso ? esc(bulkDate(opts.dateIso)) + (opts.timeStr ? ' · '+esc(opts.timeStr) : '') : L('Giao dịch','Transaction');
+    headInner = '<span class="bulk-head bulk-head-src"><span class="bulk-meta">'
+      + (_bits.length ? _bits.join('<span class="bulk-sep">·</span>') : '<span class="bulk-when">'+esc(_fb)+'</span>')
+      + '</span></span>';
+  } else {
+    headInner = csvCardHead(opts.label, opts.dateIso, null, opts.invalid || opts.attn, opts.invalid, opts.timeStr, csvStagedProvider(c), '', csvStagedMode ? '' : csvStagedSourceTag(c));
+  }
   var head = opts.tapFn
     ? '<button type="button" class="bulk-collapse" onclick="'+opts.tapFn+'" aria-expanded="true" aria-label="'+escAttr(L('Thu gọn','Collapse'))+'">'
         + headInner
@@ -1107,13 +1150,9 @@ function csvStagedRowsCard(c, opts){
   var t = csvRowTime(c);
   rows += row('when', L('Khi nào','When'),
     '<span class="num">'+esc(bulkDate(c.dateDisplay))+(t ? ' · '+esc(t) : '')+'</span>');
-  /* Provenance, read-only: which instrument the money moved on, and which
-     transport brought the row in. Quiet grey, no chevron — informational. */
-  var prov = csvStagedProvider(c), acct = csvStagedAcctChip(c);
-  if(prov || acct) rows += row('srcacct', L('Nguồn tiền','Money source'),
-    esc([prov, acct].filter(Boolean).join(' · ')), { ro:true });
-  var tag = csvStagedSourceTag(c);
-  if(tag) rows += row('transport', L('Nguồn nhập','Imported via'), esc(tag), { ro:true });
+  /* Nguồn tiền (bank · instrument) and Nguồn nhập (transport) used to be two
+     read-only rows here. They are fixed provenance, so they moved up to the
+     card's top line (csvActiveCard header) and no longer take a row. */
 
   h += '<div class="csv-srows">'+rows+'</div>';
 
