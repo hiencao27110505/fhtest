@@ -237,9 +237,11 @@ staged rows.
 - **Live:** everything in this Part — provisioning, unlock, the full tab,
   mirror, scope-picked capture, personal budget (total + categories), personal
   income, sealed email routing, card regeneration, Settings card viewing.
-- **Not built yet:** transfers between your own accounts (`kind='transfer'` is
-  schema-ready, unused); publishing a private row out to a family afterwards;
-  friend/trip spaces; photos and reactions on personal rows; automatic
+- **Since built elsewhere:** transfers between your own accounts
+  (`full-ledger-spec.md`, 0109); publishing a private row out to a family —
+  and pulling an authored family row back — plus **photos on personal rows**
+  (`cross-ledger-move-spec.md`, 0114).
+- **Not built yet:** friend/trip spaces; reactions on personal rows; automatic
   categories; full-history view — the ledger decrypts a rolling ~2-month
   window (this month + last), and older rows, while stored, are not shown.
 - The mirror covers the **active family only**; switching families mirrors

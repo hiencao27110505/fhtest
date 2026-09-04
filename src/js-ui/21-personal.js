@@ -337,7 +337,16 @@ function renderPersonal(){
            + '<div class="r-s">'+meta+' · '+(t.kind==='loan'?'khoản vay':'trả nợ')+'</div></div>'
            + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
       } else {
-        h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>'
+        /* 0114: private rows tap into their edit sheet; mirror rows tap through
+           to the family expense detail (M10 — the natural door for "I spotted
+           my mis-filed row in my own book"). A photo wears the tile, exactly
+           like the family list; /personal-media/ URLs decrypt in place. */
+        var _tap = t.spaceId ? ' onclick="fhMirrorRowTap(\''+t.id+'\')"'
+                 : (!t.linkId ? ' onclick="openPersonalTxEdit(\''+t.id+'\')"' : '');
+        var _tile = (t.photos&&t.photos.length)
+          ? '<div class="r-ico ph" style="background-image:url('+escAttr(t.photos[0])+')"></div>'
+          : '<div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>';
+        h += '<div class="row'+(_tap?' tap':'')+'"'+_tap+'>'+_tile
            + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
            + '<div class="r-s">'+meta+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
            + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';

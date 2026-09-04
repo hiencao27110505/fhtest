@@ -143,6 +143,28 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-04 (Hien's session) — APPLIED `0114_cross_ledger_move` to the live
+  DB (verified: table + bucket + 4 storage policies created); client shipped
+  as sw `v459`.** Cross-ledger move epic (move a transaction between the
+  personal and family ledgers, photos included) + personal-ledger photo
+  capture parity. Spec + decision log M1–M13:
+  `docs/specs/cross-ledger-move-spec.md`. 0114 is **additive only**: new table
+  `personal_transaction_photos` (owner-RLS), new storage bucket
+  `personal-media` (public, path-keyed to `auth.uid()`, ciphertext-only
+  objects) + its four storage.objects policies. No existing table, policy, or
+  Edge Function touched — **next free migration number: `0115`**.
+  Client work is all in `src/`: new `src/js-data/21-ledger-move.js` (move
+  engine + crash journal) and `src/js-ui/59-ledger-move-ui.js` (#sheet-move
+  confirm + mirror-row tap), edits to 19-personal (photo layer, regen photo
+  sweep, mirror resume hook) / 20-data-helpers / 40-txn-writes / 50-sheets /
+  55-photos / 57-photo-enc (personal-key decrypt branch) / 60-transactions /
+  21-personal / index.html + CSS. Note for the other session: the edit sheet's
+  scope chips are UN-hidden in edit mode now (they're the move affordance) —
+  `pickExScope` branches on editing; and `fhPersonalAddExpense` now returns
+  the new row's **id** (truthy — boolean callers unaffected).
+  Pre-existing test failures `personal-unreadable` / `staged-scope` (stale
+  source pins, fail on clean HEAD too) are unchanged.
+
 - **2026-09-03 (Hien's session) — APPLIED `0112_fx_rates` to the live DB;
   `mailbox-sync` redeployed **v32**; NEW edge function `fx-refresh` deployed.
   Next free migration number is `0113`. ⚠️ `.gs` PASTE NEEDED — handoff to

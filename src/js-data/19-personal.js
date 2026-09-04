@@ -215,6 +215,8 @@
     async function _afterKey() {
       await window.fhPersonalHydrate();
       _mirrorSoon();
+      // personal photos blanked while this ledger was locked can decrypt now
+      try { window.__fhPhotoRefresh && __fhPhotoRefresh(); } catch (e) {}
       /* Fire-and-forget, after the data the person is waiting for. A staging
          keypair they do not have yet only costs them latency on mail that has
          not arrived; failing hydrate over it would cost them their ledger. */
@@ -266,6 +268,15 @@
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
             time: await _decTxt(t.occurred_time_enc) });   // local "HH:MM" if the time was known, else null (day-only)
         }
+        /* Photos (0114): attach public URLs to the window's rows; the photo
+           observer decrypts /personal-media/ bytes in place. One owner-scoped
+           query (never an id-list URL — the 891-id Cloudflare refusal scar). */
+        try {
+          const pp = await _sb().from('personal_transaction_photos').select('transaction_id,photo_url,sort_order').eq('owner_user_id', P.uid).order('sort_order').limit(800);
+          const byTx = {};
+          for (const p of (pp.data || [])) (byTx[p.transaction_id] = byTx[p.transaction_id] || []).push(_pPhotoUrl(p.photo_url));
+          for (const t of P.txns) if (byTx[t.id]) t.photos = byTx[t.id];
+        } catch (e) {}
         /* Income lives on the spine since 0109 (kind='income'); P.incomes stays
            as a derived view so every existing reader (the income sheet, the
            month totals, the month picker) keeps its shape without knowing. */
@@ -342,6 +353,92 @@
     /* A write through this module makes the cached slice stale by definition. */
     window.fhPersonalMatchSliceInvalidate = function () { _matchSlice = null; };
 
+    /* ═══ Personal photos (0114) — capture parity with the family book ═══════
+       Bytes are ALWAYS ciphertext under the personal DEK ('.enc' objects in the
+       public personal-media bucket — privacy from the key, not the address);
+       the photo observer (57-photo-enc) decrypts /personal-media/ URLs with
+       this key. Paths embed a timestamp + random suffix (immutable → long
+       cache), owner-scoped by the 0114 storage policies. The compressor is the
+       family one (fhCompressImage) so EXIF/GPS stripping stays a single
+       implementation. */
+    const _pPhotoUrl = (path) => SUPABASE_URL + '/storage/v1/object/public/personal-media/' + String(path).split('/').map(encodeURIComponent).join('/');
+    window.fhPersonalPhotoUrl = _pPhotoUrl;
+    window.fhPersonalKeyReady = function () { return !!P.key; };
+    window.fhPersonalEncBytes = async function (bytes) { if (!P.key) throw new Error('personal_locked'); return FHCrypto.encBytes(P.key, bytes); };
+    window.fhPersonalDecBytes = async function (all) { if (!P.key) throw new Error('personal_locked'); return FHCrypto.decBytes(P.key, all); };
+    async function _pUploadPhoto(dataUri) {
+      if (!P.uid || !P.key || !dataUri || dataUri.indexOf('data:') !== 0) return null;
+      const src = window.fhCompressImage ? await fhCompressImage(dataUri) : dataUri;
+      const m = String(src).match(/^data:([^;]+);base64,(.*)$/); if (!m) return null;
+      const bin = atob(m[2]); let arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const plain = arr;
+      const ext = (((m[1].split('/')[1]) || 'jpg').replace('jpeg', 'jpg')) + '.enc';
+      arr = await window.fhPersonalEncBytes(arr);
+      const path = P.uid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      const up = await _sb().storage.from('personal-media').upload(path, arr, { contentType: 'application/octet-stream', cacheControl: '31536000' });
+      if (up.error) { console.warn('personal photo upload failed', up.error); return null; }
+      // seed the render cache with the plaintext we already hold — the fresh
+      // photo shows instantly instead of blank→fetch→decrypt
+      if (window.__fhPhotoSeed) { try { window.__fhPhotoSeed(_pPhotoUrl(path), plain, m[1]); } catch (e) {} }
+      return path;
+    }
+    window.fhPersonalUploadTxnPhotos = async function (txnId, photos) {
+      if (!txnId || !photos || !photos.length) return true;
+      let failed = 0;
+      try { window.fhUploadBusy && fhUploadBusy(photos.length); } catch (e) {}
+      try {
+        for (let i = 0; i < photos.length; i++) {
+          const takenOn = window.fhPhotoTakenOn ? fhPhotoTakenOn(photos[i]) : null;
+          const path = await _pUploadPhoto(photos[i]);
+          if (path) { const r = await _sb().from('personal_transaction_photos').insert({ owner_user_id: P.uid, transaction_id: txnId, photo_url: path, sort_order: i, taken_on: takenOn }); if (r.error) failed++; }
+          else failed++;
+        }
+      } catch (e) { console.warn('personal txn photos failed', e); failed++; }
+      finally { try { window.fhUploadBusy && fhUploadBusy(-photos.length); } catch (e) {} }
+      return failed === 0;
+    };
+    /* Edit-time reconcile — mirror of the family _dbSyncTxnPhotos: keep the
+       existing URL entries, upload the new data: entries, delete the removed
+       (rows + storage objects). */
+    window.fhPersonalSyncTxnPhotos = async function (txnId, photos) {
+      if (!P.uid || !txnId) return false;
+      photos = photos || [];
+      const cur = (await _sb().from('personal_transaction_photos').select('id,photo_url').eq('transaction_id', txnId)).data || [];
+      const kept = new Set(); const uploads = [];
+      photos.forEach((p) => {
+        if (typeof p !== 'string') return;
+        if (p.indexOf('data:') === 0) { uploads.push(p); return; }
+        const mm = p.match(/\/personal-media\/([^?]+)/);
+        if (mm) kept.add(decodeURIComponent(mm[1]));
+      });
+      const removed = cur.filter((r) => !kept.has(r.photo_url));
+      if (removed.length) {
+        await _sb().from('personal_transaction_photos').delete().in('id', removed.map((r) => r.id));
+        try { await _sb().storage.from('personal-media').remove(removed.map((r) => r.photo_url)); } catch (e) {}
+      }
+      let sort = cur.length - removed.length;
+      for (const dataUri of uploads) {
+        const takenOn = window.fhPhotoTakenOn ? fhPhotoTakenOn(dataUri) : null;
+        const path = await _pUploadPhoto(dataUri);
+        if (path) await _sb().from('personal_transaction_photos').insert({ owner_user_id: P.uid, transaction_id: txnId, photo_url: path, sort_order: sort++, taken_on: takenOn });
+      }
+      return true;
+    };
+    /* Photo rows for one txn (path + taken_on) — the move engine reads these. */
+    window.fhPersonalTxnPhotoRows = async function (txnId) {
+      const r = await _sb().from('personal_transaction_photos').select('id,photo_url,sort_order,taken_on').eq('transaction_id', txnId).order('sort_order');
+      if (r.error) throw r.error;
+      return r.data || [];
+    };
+    window.fhPersonalRemovePhotoRows = async function (txnId) {
+      const rows = await window.fhPersonalTxnPhotoRows(txnId);
+      if (!rows.length) return true;
+      await _sb().from('personal_transaction_photos').delete().eq('transaction_id', txnId);
+      try { await _sb().storage.from('personal-media').remove(rows.map((r) => r.photo_url)); } catch (e) {}
+      return true;
+    };
+
     // Only a real local "HH:MM" is stored; anything else is treated as "no time
     // known" (null → day-only) so a clock time is never fabricated.
     const _okTime = (v) => (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) ? v : null;
@@ -355,9 +452,11 @@
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
         occurred_time_enc: t ? await _encP(t) : null, source: source || null,   // 0100 provenance ('direct-email' | 'forwarding-email'); null = hand-entered
         account_id: (opts && opts.accountId) || null };
-      const r = await _sb().from('personal_transactions').insert(row);
+      // Returns the new row's id (truthy — every boolean caller keeps working);
+      // the photo path needs it to attach personal_transaction_photos rows.
+      const r = await _sb().from('personal_transactions').insert(row).select('id').single();
       if (r.error) { console.warn('personal expense failed', r.error); return false; }
-      await window.fhPersonalHydrate(); return true;
+      await window.fhPersonalHydrate(); return (r.data && r.data.id) || true;
     };
     /* Edit / delete — PRIVATE rows only (space_id null AND link_id null). A mirror
        row (a family expense the user authored, space_id set, link_id → the family
@@ -375,12 +474,17 @@
         cat_emoji: fields.emoji || null,
         occurred_time_enc: t ? await _encP(t) : null };   // always set → clearing the time drops back to day-only
       if (fields.dateIso) row.txn_date = fields.dateIso;
+      // accountId (M9): undefined = leave untouched, null = clear, id = set —
+      // this is what makes a row that landed untagged taggable at all.
+      if (fields.hasOwnProperty('accountId')) row.account_id = fields.accountId || null;
       const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
       if (r.error) { console.warn('personal expense update failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
     window.fhPersonalDeleteExpense = async function (id) {
       if (!P.uid || !id) return false;
+      // storage objects don't cascade — remove the photo files (and rows) first
+      try { await window.fhPersonalRemovePhotoRows(id); } catch (e) {}
       const r = await _sb().from('personal_transactions').delete().eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
       if (r.error) { console.warn('personal expense delete failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -670,6 +774,10 @@
       if (!fid || !myMem || !window.fhKeyReady || !fhKeyReady()) { if (_mirrorTries++ < 5) _mirrorSoon(4000); return; }
       _mirroring = true;
       try {
+        /* Cross-ledger move journal repair (0114 spec §8.3) — this is the one
+           moment both ledgers are known ready, so an interrupted move finishes
+           its second half here. Idempotent; a no-op when the journal is empty. */
+        try { if (window.fhLedgerMoveResume) await fhLedgerMoveResume(); } catch (e) {}
         const fc = await _sb().from('categories').select('id,name,name_enc,emoji').eq('family_id', fid).is('archived_at', null);
         const famCat = {}; for (const c of (fc.data || [])) famCat[c.id] = { name: c.name != null ? c.name : await fhDecStr(c.name_enc), emoji: c.emoji };
         const from = _winFrom();
@@ -746,7 +854,8 @@
         const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc').eq('owner_user_id', P.uid);
         const ac = await _sb().from('personal_accounts').select('id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc').eq('owner_user_id', P.uid);
         const bg = await _sb().from('personal_budgets').select('owner_user_id,month,total_enc,cats_enc').eq('owner_user_id', P.uid);
-        const tot = (tr.data || []).length + (ac.data || []).length + (bg.data || []).length; let n = 0;
+        const ph = await _sb().from('personal_transaction_photos').select('id,photo_url').eq('owner_user_id', P.uid);
+        const tot = (tr.data || []).length + (ac.data || []).length + (bg.data || []).length + (ph.data || []).length; let n = 0;
         for (const r of (tr.data || [])) {
           const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc) }).eq('id', r.id);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
@@ -758,6 +867,32 @@
         for (const r of (bg.data || [])) {
           const u = await _sb().from('personal_budgets').update({ total_enc: await reEnc(r.total_enc), cats_enc: await reEnc(r.cats_enc) }).eq('owner_user_id', P.uid).eq('month', r.month);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
+        /* Photo OBJECTS (0114) are ciphertext under the personal DEK too — a
+           rotation that skipped them would strand every receipt photo behind a
+           retired key. Resumable like the columns: bytes already readable under
+           the new key are skipped; a photo that cannot rotate aborts (throws)
+           BEFORE the wrap swap, so the old card still opens everything. New
+           path per object (paths are immutable-cache), old object removed. */
+        for (const r of (ph.data || [])) {
+          const resp = await fetch(_pPhotoUrl(r.photo_url));
+          if (resp.ok) {
+            const ct = new Uint8Array(await resp.arrayBuffer());
+            let migrated = false;
+            try { await FHCrypto.decBytes(newKey, ct); migrated = true; } catch (e) {}
+            if (!migrated) {
+              const pt = await FHCrypto.decBytes(P.key, ct);
+              const enc = await FHCrypto.encBytes(newKey, pt);
+              const ext = (r.photo_url.match(/\.(\w+\.enc)$/) || [])[1] || 'jpg.enc';
+              const np = P.uid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+              const up = await _sb().storage.from('personal-media').upload(np, enc, { contentType: 'application/octet-stream', cacheControl: '31536000' });
+              if (up.error) throw up.error;
+              const uu = await _sb().from('personal_transaction_photos').update({ photo_url: np }).eq('id', r.id);
+              if (uu.error) throw uu.error;
+              try { await _sb().storage.from('personal-media').remove([r.photo_url]); } catch (e) {}
+            }
+          }
+          n++; if (onProgress) onProgress(n, tot);
         }
         const rr = await _sb().rpc('rotate_personal_key', { p_kdf_salt: salt, p_kdf_iters: window.FH_KDF_ITERS_CARD, p_kdf_version: 1, p_wrapped_dek: newWrapped });
         if (rr.error) throw rr.error;

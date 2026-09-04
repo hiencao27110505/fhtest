@@ -77,6 +77,11 @@
   // Shared with the avatar module (69-avatar.js): encrypt+upload any data-URL
   // image through the same '.enc' pipeline, returning the storage path.
   window.fhUploadEncImage = _uploadPhoto;
+  // Shared with the personal-photo path (19-personal.js): one compressor means
+  // EXIF/GPS stripping stays a single implementation, and the EXIF capture-date
+  // lookup works for personal uploads exactly as it does for family ones.
+  window.fhCompressImage = _compressImage;
+  window.fhPhotoTakenOn = _takenOn;
   /* EXIF capture date for a pre-compression data URI, recorded by readPhoto().
      Photos that predate the parser, or that carried no usable EXIF, return null
      and are stored as "date unknown" rather than guessed at. */

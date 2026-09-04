@@ -24,6 +24,7 @@
     return window.DB.ownerMemberId || window.DB.sharedId;
   }
   window._categoryIdForName = (n, e, so) => _categoryIdForName(n, e, so);
+  window._memberIdForWho = _memberIdForWho;   // shared with the cross-ledger move sheet (59-ledger-move-ui)
   async function _categoryIdForName(name, emoji, sort) {
     const nm = String(name == null ? '' : name).trim();
     if (!nm) return null;

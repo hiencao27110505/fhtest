@@ -2387,6 +2387,15 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .csv-inflow-meta{font-size:12px;color:var(--muted);margin-top:2px}
 .csv-inflow-take{display:inline-block;margin:8px 0 2px;font-size:13px;font-weight:600}
 
+/* ── cross-ledger move confirm (0114, #sheet-move) ──────────────────────────
+   Sheets sit at z-index 60, UNDER modals (62) — but this sheet opens on top of
+   the expense edit modal (a chip flip inside it), so it alone rides above. */
+#sheet-move{z-index:64}
+#mv-facts{margin:2px 0 14px}
+.mv-fact{font-size:14px;color:var(--ink-2);padding:9px 2px;border-bottom:1px solid var(--divider)}
+.mv-fact:last-child{border-bottom:none}
+#sheet-move .cta{margin-top:6px}
+
 /* ---------- Log a moment (photo-first) ---------- */
 /* The photo dropzone is the modal's hero — larger and warmer than a field, so the
    eye lands on "add photos" before anything else (mirror of expense = amount-first). */
@@ -4528,6 +4537,20 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
   <div class="choices" id="savegoal-list"></div>
 </div>
 
+<!-- cross-ledger move (0114): the confirm sheet a scope-chip flip opens in edit
+     mode. Body is built per direction by fhMoveSheetOpen (59-ledger-move-ui);
+     nothing moves without the one tap on #mv-go. -->
+<div class="sheet" id="sheet-move">
+  <div class="grab"></div>
+  <div class="sheet-h" id="mv-h">Chuyển sổ</div>
+  <div class="sheet-sub" id="mv-sub"></div>
+  <div id="mv-facts"></div>
+  <div class="field" id="mv-payerfield" style="display:none"><label>Ai trả?</label><div class="choices" id="mv-payer"></div></div>
+  <div class="field" id="mv-acctfield" style="display:none"><label>Trả bằng gì? <span class="opt">· tuỳ chọn</span></label><div class="choices" id="mv-acct"></div></div>
+  <button class="cta" id="mv-go" onclick="fhMoveConfirm()">Chuyển</button>
+  <button class="btn-line" style="margin-top:10px" onclick="fhMoveCancel()">Không chuyển nữa</button>
+</div>
+
 <div class="sheet" id="sheet-catpick">
   <div class="grab"></div>
   <div class="sheet-h" id="catpick-h">Category</div>
@@ -6382,7 +6405,16 @@ function renderPersonal(){
            + '<div class="r-s">'+meta+' · '+(t.kind==='loan'?'khoản vay':'trả nợ')+'</div></div>'
            + '<div class="r-amt num xfer">'+fmt(Math.abs(t.amt||0))+'</div></div>';
       } else {
-        h += '<div class="row"><div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>'
+        /* 0114: private rows tap into their edit sheet; mirror rows tap through
+           to the family expense detail (M10 — the natural door for "I spotted
+           my mis-filed row in my own book"). A photo wears the tile, exactly
+           like the family list; /personal-media/ URLs decrypt in place. */
+        var _tap = t.spaceId ? ' onclick="fhMirrorRowTap(\''+t.id+'\')"'
+                 : (!t.linkId ? ' onclick="openPersonalTxEdit(\''+t.id+'\')"' : '');
+        var _tile = (t.photos&&t.photos.length)
+          ? '<div class="r-ico ph" style="background-image:url('+escAttr(t.photos[0])+')"></div>'
+          : '<div class="r-ico personal-ico">'+(t.emoji||'🗂️')+'</div>';
+        h += '<div class="row'+(_tap?' tap':'')+'"'+_tap+'>'+_tile
            + '<div class="r-body"><div class="r-t">'+((t.note||t.cat||'Khoản chi').replace(/</g,'&lt;'))+'</div>'
            + '<div class="r-s">'+meta+(t.spaceId? ' · '+famName(t.spaceId) : ' · riêng tư')+'</div></div>'
            + '<div class="r-amt num">−'+fmt(t.amt||0)+'</div></div>';
@@ -9057,12 +9089,22 @@ function openExpense(preset){
   var _tf0=document.getElementById('ex-timefield'); if(_tf0) _tf0.style.display='none';   // shown for any expense (add via _applyExLayout, edit via fill)
   var _ea=document.getElementById('ex-amt'); if(_ea) _ea.classList.remove('inc-amt');   // edit is always Chi; drop any leftover income tint
   var _nl=document.getElementById('ex-note-lbl'); if(_nl && editing) _nl.textContent=L('Chi cho gì','What for?');
-  // A private personal edit has no member-split / photos — hide those like a
-  // personal add does.
-  if(editingPTx){ ['ex-whofield','ex-photofield','bulk-add'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; }); }
-  // Scope picker: hidden while editing (scope is fixed once logged); resets to
-  // family on every fresh open so a prior personal pick never carries over.
-  var sf=document.getElementById('ex-scopefield'); if(sf) sf.style.display = editing? 'none':'';
+  // A private personal edit has no member-split / bulk; photos it now has
+  // (0114 — capture parity), shown + prefilled by fillPersonalExpenseFromTx.
+  if(editingPTx){ ['ex-whofield','bulk-add'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; }); }
+  // Scope picker: for a NEW entry it picks the destination; while EDITING it is
+  // the cross-ledger move affordance (0114, spec M4 — this retires the old
+  // "scope is fixed once logged" rule): shown only for a move-eligible row,
+  // selected on the row's current book; flipping it opens the confirm sheet
+  // (fhMoveChipTap) instead of silently re-scoping anything.
+  var sf=document.getElementById('ex-scopefield');
+  if(sf){
+    if(editing){
+      var _mv=(typeof fhMoveEligibleEdit==='function')?fhMoveEligibleEdit():null;
+      sf.style.display=_mv?'':'none';
+      if(_mv) selectChipByVal('ex-scope', _mv.cur);
+    } else sf.style.display='';
+  }
   // Type toggle is meaningless while editing (a logged row's kind is fixed).
   var tf=document.getElementById('ex-typefield'); if(tf) tf.style.display = editing? 'none':'';
   if(!editing){
@@ -9101,18 +9143,29 @@ function _syncExTime(){
   tEl.value = (iso===isoDate(TODAY)) ? _nowHM() : '';   // today → now; back-dated → unknown
   if(r){ r.time=tEl.value; }
 }
-function pickExScope(btn){ pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} selectChipByVal('ex-scope',btn.dataset.v); _applyExLayout(); }
+function pickExScope(btn){
+  // Edit mode: the chips are the cross-ledger move affordance (0114) — the tap
+  // opens the confirm sheet and the selection flips only if the move commits.
+  if(editingTx || editingPTx){ if(typeof fhMoveChipTap==='function') fhMoveChipTap(btn.dataset.v); return; }
+  pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} selectChipByVal('ex-scope',btn.dataset.v); _applyExLayout();
+}
 /* Instrument chips (0105): built from the personal ledger's accounts + Tiền mặt.
    Optional — no chip selected means "don't tag". Last pick remembered; a
    credit-card pick is what feeds that card's derived balance. */
-function buildExAcctChips(){
+/* selId (optional, 0114): an explicit selection for edit mode — an account id,
+   or null for "no tag". Omitted = the remembered last pick (capture mode). */
+function buildExAcctChips(selId){
   var box=document.getElementById('ex-acct'); if(!box) return;
   var pd=window.fhPersonalData&&fhPersonalData(); var accts=(pd&&pd.accounts)||[];
-  var last=null; try{ last=localStorage.getItem('fh-last-acct'); }catch(e){}
+  var sel;
+  if(typeof selId!=='undefined'){
+    var cashA=accts.filter(function(a){ return a.kind==='cash'; })[0];
+    sel = selId ? ((cashA && selId===cashA.id) ? 'cash' : selId) : null;
+  } else { try{ sel=localStorage.getItem('fh-last-acct'); }catch(e){ sel=null; } }
   var ico={credit_card:'💳',deposit:'🏦',ewallet:'📱',cash:'💵'};
-  var h='<button class="choice'+(last==='cash'?' on':'')+'" data-v="cash" onclick="pickExAcct(this)">💵 Tiền mặt</button>';
+  var h='<button class="choice'+(sel==='cash'?' on':'')+'" data-v="cash" onclick="pickExAcct(this)">💵 Tiền mặt</button>';
   accts.forEach(function(a){ if(a.kind==='cash') return;
-    h+='<button class="choice'+(last===a.id?' on':'')+'" data-v="'+a.id+'" onclick="pickExAcct(this)">'+(ico[a.kind]||'💳')+' '+String(a.name||'Tài khoản').replace(/</g,'&lt;')+'</button>'; });
+    h+='<button class="choice'+(sel===a.id?' on':'')+'" data-v="'+a.id+'" onclick="pickExAcct(this)">'+(ico[a.kind]||'💳')+' '+String(a.name||'Tài khoản').replace(/</g,'&lt;')+'</button>'; });
   box.innerHTML=h;
 }
 function pickExAcct(btn){
@@ -9121,6 +9174,8 @@ function pickExAcct(btn){
   var box=document.getElementById('ex-acct'); if(box) box.querySelectorAll('.choice').forEach(function(b){ b.classList.remove('on'); });
   if(!was){ btn.classList.add('on'); try{ localStorage.setItem('fh-last-acct',btn.dataset.v); }catch(e){} }
   else { try{ localStorage.removeItem('fh-last-acct'); }catch(e){} }
+  // account changes count as edits on a private row (M9) — enable Save
+  if(editingPTx && typeof refreshExCta==='function') refreshExCta();
 }
 function pickExType(btn){
   pick('ex-type',btn); exType=btn.dataset.v;
@@ -9138,7 +9193,7 @@ function _applyExLayout(){
   var af=document.getElementById('ex-acctfield');
   if(af){ var show=(personal&&!income&&!editingTx&&!editingPTx); af.style.display=show?'':'none'; if(show) buildExAcctChips(); }
   var who=document.getElementById('ex-whofield'); if(who) who.style.display=(personal||income)?'none':'';   // no member-split in a private ledger / for income
-  var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=(personal||income)?'none':'';     // personal photos not wired yet; income has none
+  var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=income?'none':'';                 // photos on any expense — personal included since 0114; income has none
   var bulk=document.getElementById('bulk-add'); if(bulk) bulk.style.display=(personal||income)?'none':'';     // keep personal + income single
   var cat=document.getElementById('ex-cat'); if(cat) cat.style.display=income?'none':'';                      // income has no category
   // Optional time — any single expense (personal or family). Hidden for income;
@@ -10320,6 +10375,7 @@ function exFormState(){                                     // snapshot used to 
   return document.getElementById('ex-note').value.trim()
     +'|'+parseAmtBase(document.getElementById('ex-amt').value)
     +'|'+chosen('ex-cat')+'|'+chosen('ex-who')
+    +'|'+chosen('ex-acct')                                  // account tag counts as an edit on a private row (M9)
     +'|'+document.getElementById('ex-date').value
     +'|'+exPhotos.length+':'+exPhotos.map(function(s){return s.length;}).join(',');
 }
@@ -10376,6 +10432,13 @@ function fillPersonalExpenseFromTx(){
   // (not auto-overwritten by _syncExTime). Empty = the row was day-only.
   var _tf=document.getElementById('ex-timefield'); if(_tf) _tf.style.display='';
   var _ti=document.getElementById('ex-time'); if(_ti) _ti.value=t.time||'';
+  // Photos (0114 — capture parity): show + prefill; savePersonalTxEdit syncs
+  // adds/removals through fhPersonalSyncTxnPhotos.
+  exPhotos=(t.photos||[]).slice(); renderExPhoto();
+  var _pf=document.getElementById('ex-photofield'); if(_pf) _pf.style.display='';
+  // Instrument chips (M9): editable on a private row, prefilled from the row —
+  // this is what makes a row that landed untagged taggable at all.
+  var _af=document.getElementById('ex-acctfield'); if(_af){ _af.style.display=''; buildExAcctChips(t.accountId||null); }
   setTxt('ex-title',L('Sửa khoản chi','Edit expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
   resetDelArm();
@@ -10451,12 +10514,21 @@ async function _submitPersonalExpense(){
   var acctId=null;
   if(acctPick){ acctId = (acctPick==='cash' && window.fhPersonalCashAccount) ? await fhPersonalCashAccount() : acctPick; }
   var ok=0;
+  var _pPhotos=exPhotos.slice();   // photos ride the first row only — single-row is the only way to attach them (parity with submitBulk)
   for(var i=0;i<rows.length;i++){
     var r=rows[i], amt=parseAmtBase(r.amt||''); if(!(amt>0)) continue;
     var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
     // Model Y: category is denormalised on the personal row (name + emoji) — no personal-category table.
     // Per-row time (commitActiveRow flushed the active row; the rest already hold theirs).
-    if(await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined, undefined, {accountId:acctId})) ok++;
+    var rid=await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined, undefined, {accountId:acctId});
+    if(rid){
+      ok++;
+      // Photos (0114): encrypted under the personal DEK, attached to the new row.
+      if(i===0 && _pPhotos.length && typeof rid==='string' && window.fhPersonalUploadTxnPhotos){
+        await fhPersonalUploadTxnPhotos(rid, _pPhotos);
+        await window.fhPersonalHydrate();
+      }
+    }
   }
   if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
 }
@@ -10558,7 +10630,17 @@ async function savePersonalTxEdit(){
   var emoji=(cat && window.catStyle && catStyle[cat] && catStyle[cat][0]) || (orig&&orig.emoji) || '🗂️';
   var date=(document.getElementById('ex-date')||{}).value||undefined;
   var time=(document.getElementById('ex-time')||{}).value||'';   // '' clears back to day-only
-  var ok=await window.fhPersonalUpdateExpense(id, {amt:amt, note:note, cat:cat||null, emoji:emoji, dateIso:date, time:time});
+  // Instrument (M9): the chips reflect the row's current tag; '' = cleared → null.
+  var _acct=(typeof chosen==='function')?chosen('ex-acct'):'';
+  var _acctId=null;
+  if(_acct==='cash' && window.fhPersonalCashAccount) _acctId=await fhPersonalCashAccount();
+  else if(_acct) _acctId=_acct;
+  var _photos=exPhotos.slice();
+  var ok=await window.fhPersonalUpdateExpense(id, {amt:amt, note:note, cat:cat||null, emoji:emoji, dateIso:date, time:time, accountId:_acctId});
+  // Photos (0114): reconcile adds/removals, then re-hydrate so the tab shows them.
+  if(ok && window.fhPersonalSyncTxnPhotos){
+    try{ await fhPersonalSyncTxnPhotos(id, _photos); await window.fhPersonalHydrate(); }catch(e){}
+  }
   editingPTx=null; editSnap=null;
   if(ok){ if(typeof renderPersonal==='function') renderPersonal(); if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay(); closeExpense(); window.toast&&toast(L('Đã lưu','Changes saved')); }
   else { window.toast&&toast(L('Chưa lưu được, thử lại','Couldn’t save, try again')); }
@@ -14901,6 +14983,168 @@ function bucketCsvCandidates(candidates, mixedSigns) {
   window.fhPhotoRetry = function(){ hide(); if(lastInput){ try { lastInput.click(); } catch(e){} } };
 })();
 
+/* ── Cross-ledger move UI (0114) — docs/specs/cross-ledger-move-spec.md ──
+   The scope chips (🏡/🔒), hidden in edit mode until this epic, become the
+   move affordance: for a move-eligible row the chips reappear selected on the
+   row's current book, and flipping them opens #sheet-move — the confirm sheet
+   that names every consequence (family visibility, photos, reactions, the
+   optional account tag) before the one tap that commits. A flip never moves
+   anything silently (M4); cancel restores the chip to the row's real book.
+   The engine lives in js-data/21-ledger-move.js. */
+var _mvCtx=null;   // {dir:'p2f'|'f2p', pid?|localId?, cur:'personal'|'family'}
+
+/* Is the row being edited movable — and which book does it live in now?
+   personal→family needs the family side writable (key when enc is on);
+   family→personal is author-only (M2) and needs the personal ledger open. */
+function fhMoveEligibleEdit(){
+  if(typeof editingPTx!=='undefined' && editingPTx){
+    var t=(typeof _pTxById==='function')?_pTxById(editingPTx):null;
+    if(!t || t.spaceId || t.linkId || t.kind!=='expense' || t._unreadable) return null;
+    if(t.date && t.date>isoDate(TODAY)) return null;                                  // M6: realized only
+    if(!(window.DB && DB.fid && DB.ownerMemberId)) return null;
+    if(window.fhEncState && fhEncState()!=='off' && !(window.fhKeyReady && fhKeyReady())) return null;
+    return {cur:'personal'};
+  }
+  if(typeof editingTx!=='undefined' && editingTx){
+    var f=(typeof txById==='function')?txById(editingTx):null;
+    if(!f || f.future || !f._dbId) return null;
+    if(!f._createdBy || !window.DB || f._createdBy!==DB.ownerMemberId) return null;   // M2: author-only
+    var pd=window.fhPersonalData && fhPersonalData();
+    if(!pd || !pd.key) return null;
+    return {cur:'family'};
+  }
+  return null;
+}
+/* A chip tap in edit mode. Tapping the row's own book does nothing; tapping
+   the other book opens the confirm sheet. The chip selection is deliberately
+   NOT changed here — it flips only once the move actually commits. */
+function fhMoveChipTap(v){
+  var el=fhMoveEligibleEdit(); if(!el) return;
+  if(v===el.cur) return;
+  if(navigator.onLine===false){ toast('Cần mạng để chuyển sổ'); return; }
+  _mvCtx=(el.cur==='personal') ? {dir:'p2f', pid:editingPTx, cur:el.cur} : {dir:'f2p', localId:editingTx, cur:el.cur};
+  fhMoveSheetOpen();
+}
+function fhMoveSheetOpen(){
+  if(!_mvCtx) return;
+  var facts='', payer=document.getElementById('mv-payerfield'), acct=document.getElementById('mv-acctfield');
+  if(_mvCtx.dir==='p2f'){
+    var t=(typeof _pTxById==='function')?_pTxById(_mvCtx.pid):null;
+    if(!t){ _mvCtx=null; return; }
+    setTxt('mv-h','Chuyển sang sổ gia đình?');
+    setTxt('mv-sub','Cả nhà sẽ thấy khoản này. Muốn giấu lại sau cũng không xoá được điều mọi người đã thấy.');
+    facts+='<div class="mv-fact">'+esc(t.note||t.cat||'Khoản chi')+' · '+fmt(t.amt||0)+'</div>';
+    var ph=(t.photos||[]).length;
+    if(ph) facts+='<div class="mv-fact">📷 '+ph+' ảnh đi kèm được giữ nguyên — cả nhà xem được</div>';
+    if(t.accountId) facts+='<div class="mv-fact">Tài khoản đã gắn vẫn được giữ trong sổ của bạn</div>';
+    if(payer){
+      payer.style.display='';
+      var mine=(typeof _reqName==='function' && window.DB)?_reqName(DB.ownerMemberId):null;
+      var box=document.getElementById('mv-payer');
+      if(box) box.innerHTML=Object.keys(window.membersMeta||{}).map(function(n){
+        return '<button class="choice'+(n===mine?' on':'')+'" data-v="'+escAttr(n)+'" onclick="pick(\'mv-payer\',this)">'+esc(n)+'</button>';
+      }).join('');
+    }
+    if(acct) acct.style.display='none';
+  } else {
+    var f=(typeof txById==='function')?txById(_mvCtx.localId):null;
+    if(!f){ _mvCtx=null; return; }
+    setTxt('mv-h','Chuyển về sổ riêng?');
+    setTxt('mv-sub','Khoản này rời khỏi sổ gia đình. Cả nhà đã thấy nó rồi — chuyển sổ chỉ đổi nơi ghi, không đổi điều đó.');
+    facts+='<div class="mv-fact">'+esc(f.note||f.cat||'Khoản chi')+' · '+fmt(f.amt||0)+'</div>';
+    var rx=(f.reactions||[]).length;
+    if(rx) facts+='<div class="mv-fact">💬 '+rx+' cảm xúc của cả nhà sẽ mất</div>';
+    var phf=(f.photos||(f.photo?[f.photo]:[])).length;
+    if(phf) facts+='<div class="mv-fact">📷 '+phf+' ảnh chuyển theo vào sổ riêng</div>';
+    if(payer) payer.style.display='none';
+    if(acct){
+      acct.style.display='';
+      var pd=window.fhPersonalData && fhPersonalData(); var accts=(pd&&pd.accounts)||[];
+      var ico={deposit:'🏦',ewallet:'📱'};
+      // cards stay out (money into your own card is its own kind — T11);
+      // no chip selected = "don't tag", same as the capture sheet
+      var h='<button class="choice" data-v="cash" onclick="fhMvAcctPick(this)">💵 Tiền mặt</button>';
+      accts.forEach(function(a){
+        if(a.kind==='cash'||a.kind==='credit_card') return;
+        h+='<button class="choice" data-v="'+escAttr(a.id)+'" onclick="fhMvAcctPick(this)">'+(ico[a.kind]||'🏦')+' '+esc(a.name||'Tài khoản')+'</button>';
+      });
+      var abox=document.getElementById('mv-acct'); if(abox) abox.innerHTML=h;
+    }
+  }
+  setHTML('mv-facts', facts);
+  var go=document.getElementById('mv-go'); if(go){ go.disabled=false; go.textContent='Chuyển'; }
+  openSheet('sheet-move');
+}
+function fhMvAcctPick(btn){   // optional field → tapping the selected chip clears it
+  var was=btn.classList.contains('on');
+  document.getElementById('mv-acct').querySelectorAll('.choice').forEach(function(b){ b.classList.remove('on'); });
+  if(!was) btn.classList.add('on');
+}
+async function fhMoveConfirm(){
+  if(!_mvCtx) return;
+  var btn=document.getElementById('mv-go');
+  if(btn){ if(btn.disabled) return; btn.disabled=true; btn.textContent='Đang chuyển…'; }
+  var r;
+  try{
+    if(_mvCtx.dir==='p2f'){
+      var payerName=chosen('mv-payer');
+      var payerId=(payerName && window._memberIdForWho)?_memberIdForWho(payerName):null;
+      r=await fhLedgerMoveToFamily(_mvCtx.pid, {payerMemberId:payerId||undefined});
+    } else {
+      var a=chosen('mv-acct')||'', acctId=null;
+      if(a==='cash' && window.fhPersonalCashAccount) acctId=await fhPersonalCashAccount();
+      else if(a) acctId=a;
+      r=await fhLedgerMoveToPersonal(_mvCtx.localId, {accountId:acctId});
+    }
+  }catch(e){ r={ok:false, error:'failed'}; }
+  if(btn){ btn.disabled=false; btn.textContent='Chuyển'; }
+  if(r && r.ok){
+    var dir=_mvCtx.dir; _mvCtx=null;
+    closeSheet(); closeModals();
+    if(typeof closeExpenseDetail==='function') closeExpenseDetail();
+    if(typeof renderPersonal==='function') renderPersonal();
+    if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay();
+    toast(dir==='p2f'?'Đã chuyển sang sổ gia đình':'Đã chuyển về sổ riêng');
+    return;
+  }
+  if(r && r.pending){
+    // the destination write landed; the source removal finishes on the next
+    // sync pass (journal repair) — say so instead of pretending it failed
+    _mvCtx=null; closeSheet(); closeModals();
+    toast('Đang chuyển dở — sẽ tự hoàn tất khi đồng bộ');
+    return;
+  }
+  var msg={ personal_locked:'Mở khoá sổ cá nhân trước đã',
+            family_locked:'Nhập mã gia đình trước đã',
+            offline:'Cần mạng để chuyển sổ',
+            photos:'Chưa chuyển được ảnh — khoản chưa di chuyển, thử lại nhé',
+            not_author:'Chỉ người ghi khoản này mới chuyển được' }[(r&&r.error)||'']
+          || 'Chưa chuyển được, thử lại nhé';
+  toast(msg);
+}
+function fhMoveCancel(){
+  var el=fhMoveEligibleEdit(); _mvCtx=null; closeSheet();
+  // the edit modal is still open underneath — keep its scrim up
+  var sc=document.getElementById('scrim'); if(sc) sc.classList.add('on');
+  if(el) selectChipByVal('ex-scope', el.cur);   // chip back to the row's real book
+}
+/* Mirror rows in the personal book become tappable (M10): resolve the family
+   twin by link_id and open the real family expense detail — one source of
+   truth, no bespoke read-only view. Write-inertness is unchanged. */
+function fhMirrorRowTap(pid){
+  var P=window.fhPersonalData && fhPersonalData(); if(!P) return;
+  var t=(P.txns||[]).filter(function(x){ return x.id===pid; })[0];
+  if(!t || !t.spaceId) return;
+  if(!window.DB || t.spaceId!==DB.fid){ toast('Khoản này thuộc nhóm khác — mở nhóm đó để xem'); return; }
+  if(!t.linkId){ toast('Đang đồng bộ khoản này — thử lại sau nhé'); return; }
+  window.sb.from('transactions').select('id').eq('link_id', t.linkId).maybeSingle().then(function(r){
+    var fid=r && r.data && r.data.id;
+    var local=fid && (window.txns||[]).filter(function(x){ return x._dbId===fid; })[0];
+    if(local && typeof openExpenseDetail==='function') openExpenseDetail(local.id);
+    else toast('Khoản này nằm ngoài các tháng đang tải — xem ở tab Gia đình');
+  }).catch(function(){ toast('Chưa mở được, thử lại nhé'); });
+}
+
 /* ---------- expense ---------- */
 var catStyle={};
 /* ---------- transactions (with spender avatar) ---------- */
@@ -14955,8 +15199,9 @@ function _pBuildTxnCtx(){
     var cat=t.cat||other, _d=t.date?new Date(t.date+'T00:00:00'):null;
     if(!style[cat]){ style[cat]=[t.emoji||'🗂️', PAL[order.length%PAL.length], 'var(--cat-other)']; order.push(cat); }
     // Only PRIVATE rows are editable here; mirror rows (spaceId/linkId set) are a
-    // family expense shown in the personal book and are edited on the family side.
-    rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _edit:!t.spaceId&&!t.linkId, time:t.time||null });
+    // family expense shown in the personal book — write-inert, but tappable
+    // since 0114 (fhMirrorRowTap → the family expense detail, M10).
+    rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _edit:!t.spaceId&&!t.linkId, _mirror:!!(t.spaceId||t.linkId), photos:t.photos||undefined, time:t.time||null });
     if((t.date||'').slice(0,7)===ym) spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
   });
   order.sort(function(a,b){ return (spent[b]||0)-(spent[a]||0); });
@@ -14981,10 +15226,12 @@ function txRow(t){
             :'<div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico)+'</div>';
   var av=personal?'':spAv(t.who);                                 // personal ledger has no members
   // Family rows open the detail screen; private personal rows open the edit sheet;
-  // mirror personal rows (a family expense) stay view-only here.
-  var open=personal?(t._edit?(' onclick="openPersonalTxEdit(\''+t.id+'\')"'):'')
+  // mirror personal rows (a family expense) are view-only but tap through to
+  // the family expense detail (0114, M10).
+  var open=personal?(t._edit?(' onclick="openPersonalTxEdit(\''+t.id+'\')"')
+                            :(t._mirror?(' onclick="fhMirrorRowTap(\''+t.id+'\')"'):''))
                     :(' onclick="openExpenseDetail(\''+t.id+'\')"');
-  var tapCls=(personal? (t._edit?' tap':'') : ' tap');
+  var tapCls=(personal? ((t._edit||t._mirror)?' tap':'') : ' tap');
   return '<div class="row'+tapCls+(chip?' has-rx':'')+'"'+rxid+open+'><div class="r-ico-wrap">'+tile+av+'</div>'
     +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+dstr+(t.time?' · '+esc(t.time):'')+'</div></div>'
     +'<div class="r-right"><div class="r-amt num">'+fmt(t.amt)+'</div><div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
@@ -17361,7 +17608,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v458';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v459';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -19009,6 +19256,8 @@ window.obGoogle = async function () {
     async function _afterKey() {
       await window.fhPersonalHydrate();
       _mirrorSoon();
+      // personal photos blanked while this ledger was locked can decrypt now
+      try { window.__fhPhotoRefresh && __fhPhotoRefresh(); } catch (e) {}
       /* Fire-and-forget, after the data the person is waiting for. A staging
          keypair they do not have yet only costs them latency on mail that has
          not arrived; failing hydrate over it would cost them their ledger. */
@@ -19060,6 +19309,15 @@ window.obGoogle = async function () {
             note: await _decTxt(t.note_enc), cat: await _decTxt(t.cat_name_enc), emoji: t.cat_emoji,
             time: await _decTxt(t.occurred_time_enc) });   // local "HH:MM" if the time was known, else null (day-only)
         }
+        /* Photos (0114): attach public URLs to the window's rows; the photo
+           observer decrypts /personal-media/ bytes in place. One owner-scoped
+           query (never an id-list URL — the 891-id Cloudflare refusal scar). */
+        try {
+          const pp = await _sb().from('personal_transaction_photos').select('transaction_id,photo_url,sort_order').eq('owner_user_id', P.uid).order('sort_order').limit(800);
+          const byTx = {};
+          for (const p of (pp.data || [])) (byTx[p.transaction_id] = byTx[p.transaction_id] || []).push(_pPhotoUrl(p.photo_url));
+          for (const t of P.txns) if (byTx[t.id]) t.photos = byTx[t.id];
+        } catch (e) {}
         /* Income lives on the spine since 0109 (kind='income'); P.incomes stays
            as a derived view so every existing reader (the income sheet, the
            month totals, the month picker) keeps its shape without knowing. */
@@ -19136,6 +19394,92 @@ window.obGoogle = async function () {
     /* A write through this module makes the cached slice stale by definition. */
     window.fhPersonalMatchSliceInvalidate = function () { _matchSlice = null; };
 
+    /* ═══ Personal photos (0114) — capture parity with the family book ═══════
+       Bytes are ALWAYS ciphertext under the personal DEK ('.enc' objects in the
+       public personal-media bucket — privacy from the key, not the address);
+       the photo observer (57-photo-enc) decrypts /personal-media/ URLs with
+       this key. Paths embed a timestamp + random suffix (immutable → long
+       cache), owner-scoped by the 0114 storage policies. The compressor is the
+       family one (fhCompressImage) so EXIF/GPS stripping stays a single
+       implementation. */
+    const _pPhotoUrl = (path) => SUPABASE_URL + '/storage/v1/object/public/personal-media/' + String(path).split('/').map(encodeURIComponent).join('/');
+    window.fhPersonalPhotoUrl = _pPhotoUrl;
+    window.fhPersonalKeyReady = function () { return !!P.key; };
+    window.fhPersonalEncBytes = async function (bytes) { if (!P.key) throw new Error('personal_locked'); return FHCrypto.encBytes(P.key, bytes); };
+    window.fhPersonalDecBytes = async function (all) { if (!P.key) throw new Error('personal_locked'); return FHCrypto.decBytes(P.key, all); };
+    async function _pUploadPhoto(dataUri) {
+      if (!P.uid || !P.key || !dataUri || dataUri.indexOf('data:') !== 0) return null;
+      const src = window.fhCompressImage ? await fhCompressImage(dataUri) : dataUri;
+      const m = String(src).match(/^data:([^;]+);base64,(.*)$/); if (!m) return null;
+      const bin = atob(m[2]); let arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const plain = arr;
+      const ext = (((m[1].split('/')[1]) || 'jpg').replace('jpeg', 'jpg')) + '.enc';
+      arr = await window.fhPersonalEncBytes(arr);
+      const path = P.uid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      const up = await _sb().storage.from('personal-media').upload(path, arr, { contentType: 'application/octet-stream', cacheControl: '31536000' });
+      if (up.error) { console.warn('personal photo upload failed', up.error); return null; }
+      // seed the render cache with the plaintext we already hold — the fresh
+      // photo shows instantly instead of blank→fetch→decrypt
+      if (window.__fhPhotoSeed) { try { window.__fhPhotoSeed(_pPhotoUrl(path), plain, m[1]); } catch (e) {} }
+      return path;
+    }
+    window.fhPersonalUploadTxnPhotos = async function (txnId, photos) {
+      if (!txnId || !photos || !photos.length) return true;
+      let failed = 0;
+      try { window.fhUploadBusy && fhUploadBusy(photos.length); } catch (e) {}
+      try {
+        for (let i = 0; i < photos.length; i++) {
+          const takenOn = window.fhPhotoTakenOn ? fhPhotoTakenOn(photos[i]) : null;
+          const path = await _pUploadPhoto(photos[i]);
+          if (path) { const r = await _sb().from('personal_transaction_photos').insert({ owner_user_id: P.uid, transaction_id: txnId, photo_url: path, sort_order: i, taken_on: takenOn }); if (r.error) failed++; }
+          else failed++;
+        }
+      } catch (e) { console.warn('personal txn photos failed', e); failed++; }
+      finally { try { window.fhUploadBusy && fhUploadBusy(-photos.length); } catch (e) {} }
+      return failed === 0;
+    };
+    /* Edit-time reconcile — mirror of the family _dbSyncTxnPhotos: keep the
+       existing URL entries, upload the new data: entries, delete the removed
+       (rows + storage objects). */
+    window.fhPersonalSyncTxnPhotos = async function (txnId, photos) {
+      if (!P.uid || !txnId) return false;
+      photos = photos || [];
+      const cur = (await _sb().from('personal_transaction_photos').select('id,photo_url').eq('transaction_id', txnId)).data || [];
+      const kept = new Set(); const uploads = [];
+      photos.forEach((p) => {
+        if (typeof p !== 'string') return;
+        if (p.indexOf('data:') === 0) { uploads.push(p); return; }
+        const mm = p.match(/\/personal-media\/([^?]+)/);
+        if (mm) kept.add(decodeURIComponent(mm[1]));
+      });
+      const removed = cur.filter((r) => !kept.has(r.photo_url));
+      if (removed.length) {
+        await _sb().from('personal_transaction_photos').delete().in('id', removed.map((r) => r.id));
+        try { await _sb().storage.from('personal-media').remove(removed.map((r) => r.photo_url)); } catch (e) {}
+      }
+      let sort = cur.length - removed.length;
+      for (const dataUri of uploads) {
+        const takenOn = window.fhPhotoTakenOn ? fhPhotoTakenOn(dataUri) : null;
+        const path = await _pUploadPhoto(dataUri);
+        if (path) await _sb().from('personal_transaction_photos').insert({ owner_user_id: P.uid, transaction_id: txnId, photo_url: path, sort_order: sort++, taken_on: takenOn });
+      }
+      return true;
+    };
+    /* Photo rows for one txn (path + taken_on) — the move engine reads these. */
+    window.fhPersonalTxnPhotoRows = async function (txnId) {
+      const r = await _sb().from('personal_transaction_photos').select('id,photo_url,sort_order,taken_on').eq('transaction_id', txnId).order('sort_order');
+      if (r.error) throw r.error;
+      return r.data || [];
+    };
+    window.fhPersonalRemovePhotoRows = async function (txnId) {
+      const rows = await window.fhPersonalTxnPhotoRows(txnId);
+      if (!rows.length) return true;
+      await _sb().from('personal_transaction_photos').delete().eq('transaction_id', txnId);
+      try { await _sb().storage.from('personal-media').remove(rows.map((r) => r.photo_url)); } catch (e) {}
+      return true;
+    };
+
     // Only a real local "HH:MM" is stored; anything else is treated as "no time
     // known" (null → day-only) so a clock time is never fabricated.
     const _okTime = (v) => (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) ? v : null;
@@ -19149,9 +19493,11 @@ window.obGoogle = async function () {
         amount_enc: await _encP(Number(amt)), note_enc: note ? await _encP(note) : null, cat_name_enc: catName ? await _encP(catName) : null, cat_emoji: catEmoji || null,
         occurred_time_enc: t ? await _encP(t) : null, source: source || null,   // 0100 provenance ('direct-email' | 'forwarding-email'); null = hand-entered
         account_id: (opts && opts.accountId) || null };
-      const r = await _sb().from('personal_transactions').insert(row);
+      // Returns the new row's id (truthy — every boolean caller keeps working);
+      // the photo path needs it to attach personal_transaction_photos rows.
+      const r = await _sb().from('personal_transactions').insert(row).select('id').single();
       if (r.error) { console.warn('personal expense failed', r.error); return false; }
-      await window.fhPersonalHydrate(); return true;
+      await window.fhPersonalHydrate(); return (r.data && r.data.id) || true;
     };
     /* Edit / delete — PRIVATE rows only (space_id null AND link_id null). A mirror
        row (a family expense the user authored, space_id set, link_id → the family
@@ -19169,12 +19515,17 @@ window.obGoogle = async function () {
         cat_emoji: fields.emoji || null,
         occurred_time_enc: t ? await _encP(t) : null };   // always set → clearing the time drops back to day-only
       if (fields.dateIso) row.txn_date = fields.dateIso;
+      // accountId (M9): undefined = leave untouched, null = clear, id = set —
+      // this is what makes a row that landed untagged taggable at all.
+      if (fields.hasOwnProperty('accountId')) row.account_id = fields.accountId || null;
       const r = await _sb().from('personal_transactions').update(row).eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
       if (r.error) { console.warn('personal expense update failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
     };
     window.fhPersonalDeleteExpense = async function (id) {
       if (!P.uid || !id) return false;
+      // storage objects don't cascade — remove the photo files (and rows) first
+      try { await window.fhPersonalRemovePhotoRows(id); } catch (e) {}
       const r = await _sb().from('personal_transactions').delete().eq('id', id).eq('owner_user_id', P.uid).is('link_id', null);
       if (r.error) { console.warn('personal expense delete failed', r.error); return false; }
       await window.fhPersonalHydrate(); return true;
@@ -19464,6 +19815,10 @@ window.obGoogle = async function () {
       if (!fid || !myMem || !window.fhKeyReady || !fhKeyReady()) { if (_mirrorTries++ < 5) _mirrorSoon(4000); return; }
       _mirroring = true;
       try {
+        /* Cross-ledger move journal repair (0114 spec §8.3) — this is the one
+           moment both ledgers are known ready, so an interrupted move finishes
+           its second half here. Idempotent; a no-op when the journal is empty. */
+        try { if (window.fhLedgerMoveResume) await fhLedgerMoveResume(); } catch (e) {}
         const fc = await _sb().from('categories').select('id,name,name_enc,emoji').eq('family_id', fid).is('archived_at', null);
         const famCat = {}; for (const c of (fc.data || [])) famCat[c.id] = { name: c.name != null ? c.name : await fhDecStr(c.name_enc), emoji: c.emoji };
         const from = _winFrom();
@@ -19540,7 +19895,8 @@ window.obGoogle = async function () {
         const tr = await _sb().from('personal_transactions').select('id,amount_enc,note_enc,cat_name_enc,counterparty_enc,occurred_time_enc').eq('owner_user_id', P.uid);
         const ac = await _sb().from('personal_accounts').select('id,name_enc,credit_limit_enc,anchor_balance_enc,ext_balance_enc').eq('owner_user_id', P.uid);
         const bg = await _sb().from('personal_budgets').select('owner_user_id,month,total_enc,cats_enc').eq('owner_user_id', P.uid);
-        const tot = (tr.data || []).length + (ac.data || []).length + (bg.data || []).length; let n = 0;
+        const ph = await _sb().from('personal_transaction_photos').select('id,photo_url').eq('owner_user_id', P.uid);
+        const tot = (tr.data || []).length + (ac.data || []).length + (bg.data || []).length + (ph.data || []).length; let n = 0;
         for (const r of (tr.data || [])) {
           const u = await _sb().from('personal_transactions').update({ amount_enc: await reEnc(r.amount_enc), note_enc: await reEnc(r.note_enc), cat_name_enc: await reEnc(r.cat_name_enc), counterparty_enc: await reEnc(r.counterparty_enc), occurred_time_enc: await reEnc(r.occurred_time_enc) }).eq('id', r.id);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
@@ -19552,6 +19908,32 @@ window.obGoogle = async function () {
         for (const r of (bg.data || [])) {
           const u = await _sb().from('personal_budgets').update({ total_enc: await reEnc(r.total_enc), cats_enc: await reEnc(r.cats_enc) }).eq('owner_user_id', P.uid).eq('month', r.month);
           if (u.error) throw u.error; n++; if (onProgress) onProgress(n, tot);
+        }
+        /* Photo OBJECTS (0114) are ciphertext under the personal DEK too — a
+           rotation that skipped them would strand every receipt photo behind a
+           retired key. Resumable like the columns: bytes already readable under
+           the new key are skipped; a photo that cannot rotate aborts (throws)
+           BEFORE the wrap swap, so the old card still opens everything. New
+           path per object (paths are immutable-cache), old object removed. */
+        for (const r of (ph.data || [])) {
+          const resp = await fetch(_pPhotoUrl(r.photo_url));
+          if (resp.ok) {
+            const ct = new Uint8Array(await resp.arrayBuffer());
+            let migrated = false;
+            try { await FHCrypto.decBytes(newKey, ct); migrated = true; } catch (e) {}
+            if (!migrated) {
+              const pt = await FHCrypto.decBytes(P.key, ct);
+              const enc = await FHCrypto.encBytes(newKey, pt);
+              const ext = (r.photo_url.match(/\.(\w+\.enc)$/) || [])[1] || 'jpg.enc';
+              const np = P.uid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+              const up = await _sb().storage.from('personal-media').upload(np, enc, { contentType: 'application/octet-stream', cacheControl: '31536000' });
+              if (up.error) throw up.error;
+              const uu = await _sb().from('personal_transaction_photos').update({ photo_url: np }).eq('id', r.id);
+              if (uu.error) throw uu.error;
+              try { await _sb().storage.from('personal-media').remove([r.photo_url]); } catch (e) {}
+            }
+          }
+          n++; if (onProgress) onProgress(n, tot);
         }
         const rr = await _sb().rpc('rotate_personal_key', { p_kdf_salt: salt, p_kdf_iters: window.FH_KDF_ITERS_CARD, p_kdf_version: 1, p_wrapped_dek: newWrapped });
         if (rr.error) throw rr.error;
@@ -19598,6 +19980,7 @@ window.obGoogle = async function () {
     return window.DB.ownerMemberId || window.DB.sharedId;
   }
   window._categoryIdForName = (n, e, so) => _categoryIdForName(n, e, so);
+  window._memberIdForWho = _memberIdForWho;   // shared with the cross-ledger move sheet (59-ledger-move-ui)
   async function _categoryIdForName(name, emoji, sort) {
     const nm = String(name == null ? '' : name).trim();
     if (!nm) return null;
@@ -19722,6 +20105,251 @@ window.obGoogle = async function () {
     fill('mom-who', 'pickMomWho(this)');
     if (mems[0]) window.lastWho = mems[0].name;
   }
+
+  /* ═══ Cross-ledger move (0114) — docs/specs/cross-ledger-move-spec.md ═══════
+     Move a logged expense between the personal and family books. A move is a
+     STATE TRANSITION riding the mirror pairing, never a copy-paste:
+
+       personal→family: insert the family row (link_id pre-set — the write-once
+         trigger allows the initial set), then CONVERT the private row in place
+         into the mirror master (space_id + link_id). The row keeps its id,
+         created_at and account_id, so the account's anchored balance stays
+         correct for free. Personal month totals never change — only the label.
+
+       family→personal: convert my master BACK into a private row (clear
+         space_id/link_id first, so no reconcile pass can tombstone it when the
+         family row disappears), then delete the family row.
+
+     Photos travel: bytes are re-encrypted from the source book's key to the
+     destination's before anything is removed; ANY photo failure aborts the
+     whole move (edge rule 2). Destination is written first, source removed
+     last (rule 1). A local-first journal covers the crash window between the
+     two halves; fhPersonalMirror calls fhLedgerMoveResume at the top of every
+     pass — the one moment both ledgers are known ready (rule 3).
+
+     The conversion here is THE one sanctioned write that adds a link to a
+     personal row (rule 8); every ordinary personal writer keeps its
+     `link_id is null` filter. */
+  (function () {
+    const _mv = () => window.sb;
+    const _mvUid = () => { const p = window.fhPersonalData && fhPersonalData(); return p ? p.uid : null; };
+    const _mvKey = () => 'fh-move-journal:' + (_mvUid() || '');
+    function _mvJGet() { try { return JSON.parse(localStorage.getItem(_mvKey()) || 'null'); } catch (e) { return null; } }
+    function _mvJSet(j) { try { localStorage.setItem(_mvKey(), JSON.stringify(j)); } catch (e) {} }
+    function _mvJClear() { try { localStorage.removeItem(_mvKey()); } catch (e) {} }
+
+    // Both keys, online, and a family to move against. The family side needs
+    // its key only when encryption is on (photos + fhField both fail closed).
+    function _mvGuards() {
+      const p = window.fhPersonalData && fhPersonalData();
+      if (!p || !p.key) return 'personal_locked';
+      if (!(window.DB && DB.fid && DB.ownerMemberId)) return 'no_family';
+      if (fhEncState() !== 'off' && !fhKeyReady()) return 'family_locked';
+      if (navigator.onLine === false) return 'offline';
+      return null;
+    }
+    window.fhLedgerMoveGuard = _mvGuards;
+
+    const _extOf = (path) => ((String(path).match(/\.(\w+)\.enc$/) || [])[1] || 'jpg');
+    const _mime = (ext) => ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
+
+    /* One personal photo object → a family-media object (bytes re-encrypted
+       from the personal DEK to the family's rules: ciphertext when the family
+       is enc-committed, plaintext bytes otherwise — the same rule every family
+       photo upload follows). Returns the new storage path or throws. */
+    async function _photoP2F(fid, path) {
+      const resp = await fetch(window.fhPersonalPhotoUrl(path));
+      if (!resp.ok) throw new Error('photo_fetch');
+      let bytes = await window.fhPersonalDecBytes(new Uint8Array(await resp.arrayBuffer()));
+      const ext = _extOf(path);
+      let outExt = ext, ctype = _mime(ext);
+      if (fhEncState() === 'enc' && fhKeyReady()) { bytes = await fhEncBytes(bytes); outExt = ext + '.enc'; ctype = 'application/octet-stream'; }
+      const np = fid + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + outExt;
+      const up = await _mv().storage.from('family-media').upload(np, bytes, { contentType: ctype, cacheControl: '31536000' });
+      if (up.error) throw up.error;
+      return np;
+    }
+    /* One family photo URL → a personal-media object (always ciphertext under
+       the personal DEK — the personal book has no plaintext state). */
+    async function _photoF2P(url) {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('photo_fetch');
+      let bytes = new Uint8Array(await resp.arrayBuffer());
+      if (String(url).indexOf('.enc') >= 0) bytes = await fhDecBytes(bytes);
+      const m = String(url).match(/\.(\w+)(?:\.enc)?(?:$|\?)/);
+      const ext = ((m && m[1]) || 'jpg') + '.enc';
+      const enc = await window.fhPersonalEncBytes(bytes);
+      const np = _mvUid() + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      const up = await _mv().storage.from('personal-media').upload(np, enc, { contentType: 'application/octet-stream', cacheControl: '31536000' });
+      if (up.error) throw up.error;
+      return np;
+    }
+
+    /* ── personal → family (spec §8.1) ──────────────────────────────────────── */
+    window.fhLedgerMoveToFamily = async function (pid, opts) {
+      opts = opts || {};
+      const bad = _mvGuards(); if (bad) return { ok: false, error: bad };
+      const p = fhPersonalData();
+      const t = (p.txns || []).find((x) => x.id === pid);
+      if (!t || t.spaceId || t.linkId || t.kind !== 'expense' || t._unreadable) return { ok: false, error: 'ineligible' };
+      // M6: a future-dated private row would materialize as a proposal needing
+      // someone's 🥰 — surprising enough to be out of scope. Realized only.
+      const _now = new Date();
+      const _todayIso = _now.getFullYear() + '-' + String(_now.getMonth() + 1).padStart(2, '0') + '-' + String(_now.getDate()).padStart(2, '0');
+      if (t.date && t.date > _todayIso) return { ok: false, error: 'future' };
+      const fid = DB.fid, me = DB.ownerMemberId;
+      const payer = opts.payerMemberId || me;
+      const linkId = crypto.randomUUID();
+      _mvJSet({ dir: 'p2f', pid: pid, linkId: linkId, fid: fid });
+      try {
+        // photos first — part of the destination write; any failure aborts
+        const pRows = await window.fhPersonalTxnPhotoRows(pid);
+        const famPhotos = [];
+        try {
+          for (const r of pRows) famPhotos.push({ path: await _photoP2F(fid, r.photo_url), taken_on: r.taken_on || null });
+        } catch (e) {
+          try { if (famPhotos.length) await _mv().storage.from('family-media').remove(famPhotos.map((x) => x.path)); } catch (e2) {}
+          _mvJClear(); return { ok: false, error: 'photos' };
+        }
+        // category: resolve against (or create in) the family's own set
+        let catId = null;
+        try { catId = await window._categoryIdForName(t.cat || window.CAT_FALLBACK, t.emoji || '🗂️', (window.catOrder || []).length + 1); } catch (e) {}
+        if (!catId) catId = (DB.catByName && (DB.catByName[t.cat] || DB.catByName[window.CAT_FALLBACK])) || null;
+        if (!catId) { _mvJClear(); return { ok: false, error: 'category' }; }
+        // the family row, link_id pre-set (write-once trigger allows the initial set)
+        const row = Object.assign(
+          { family_id: fid, category_id: catId, member_id: payer, txn_date: t.date, status: 'realized',
+            created_by: me, link_id: linkId, source: null },
+          await fhField('amount', t.amt), await fhField('note', t.note || ''),
+          await fhField('occurred_time', t.time || null));
+        const ins = await _mv().from('transactions').insert(row).select('id').single();
+        if (ins.error || !ins.data) {
+          try { if (famPhotos.length) await _mv().storage.from('family-media').remove(famPhotos.map((x) => x.path)); } catch (e2) {}
+          _mvJClear(); return { ok: false, error: 'insert' };
+        }
+        for (let i = 0; i < famPhotos.length; i++) {
+          await _mv().from('transaction_photos').insert({ family_id: fid, transaction_id: ins.data.id, photo_url: famPhotos[i].path, sort_order: i, taken_on: famPhotos[i].taken_on });
+        }
+        // convert the private row in place into the mirror master (account_id survives)
+        const cv = await _mv().from('personal_transactions').update({ space_id: fid, link_id: linkId, version: 1 })
+          .eq('id', pid).eq('owner_user_id', p.uid).is('link_id', null);
+        if (cv.error) return { ok: false, error: 'convert', pending: true };   // journal stays — resume finishes this half
+        // the master is photo-less (M7): the photos live with the family row now
+        try { await window.fhPersonalRemovePhotoRows(pid); } catch (e) {}
+        _mvJClear();
+        // a family-visible expense just appeared — nudge the household exactly
+        // like a freshly-logged one (payload carries no amount, as ever)
+        try { window.fhNotify && fhNotify('expense_new', { tx: ins.data.id }); } catch (e) {}
+        try { window.loadFamilyData && loadFamilyData(); } catch (e) {}
+        try { await window.fhPersonalHydrate(); } catch (e) {}
+        try { window.fhPersonalMirrorSoon && fhPersonalMirrorSoon(); } catch (e) {}
+        return { ok: true };
+      } catch (e) {
+        console.warn('move to family failed', e);
+        return { ok: false, error: 'failed', pending: !!_mvJGet() };
+      }
+    };
+
+    /* ── family → personal (spec §8.2) ──────────────────────────────────────── */
+    window.fhLedgerMoveToPersonal = async function (localId, opts) {
+      opts = opts || {};
+      const bad = _mvGuards(); if (bad) return { ok: false, error: bad };
+      const p = fhPersonalData();
+      const t = (typeof txById === 'function') ? txById(localId) : null;
+      if (!t || t.future || !t._dbId) return { ok: false, error: 'ineligible' };
+      if (!t._createdBy || t._createdBy !== DB.ownerMemberId) return { ok: false, error: 'not_author' };   // M2: author-only
+      const famId = t._dbId;
+      const acctId = opts.accountId || null;
+      // where is my master? (may lag if the mirror hasn't caught up)
+      const lk = await _mv().from('transactions').select('link_id').eq('id', famId).single();
+      if (lk.error) return { ok: false, error: 'read' };
+      let pid = null;
+      if (lk.data && lk.data.link_id) {
+        const m = await _mv().from('personal_transactions').select('id').eq('owner_user_id', p.uid).eq('link_id', lk.data.link_id).maybeSingle();
+        pid = (m.data && m.data.id) || null;
+      }
+      _mvJSet({ dir: 'f2p', famId: famId, pid: pid, converted: false });
+      try {
+        if (pid) {
+          // photos onto the (still-)master row, then convert it back to private.
+          // Convert BEFORE the family delete: once link_id is cleared, no
+          // reconcile pass can tombstone this row when its family twin vanishes.
+          // A master is photo-less by invariant (M7), so clearing first only
+          // removes debris from a prior failed attempt — retries stay idempotent.
+          try { await window.fhPersonalRemovePhotoRows(pid); } catch (e) {}
+          try { await _f2pPhotos(t, pid); } catch (e) { _mvJClear(); return { ok: false, error: 'photos' }; }
+          const cv = await _mv().from('personal_transactions')
+            .update({ space_id: null, link_id: null, account_id: acctId })
+            .eq('id', pid).eq('owner_user_id', p.uid);
+          if (cv.error) { _mvJClear(); return { ok: false, error: 'convert' }; }
+        } else {
+          // mirror lag — no master yet: a fresh private row, same net effect
+          const dateIso = t._d ? (t._d.getFullYear() + '-' + String(t._d.getMonth() + 1).padStart(2, '0') + '-' + String(t._d.getDate()).padStart(2, '0')) : null;
+          const nid = await window.fhPersonalAddExpense(t.amt, t.note || '', t.cat || null, t.ico || '🗂️', dateIso || undefined, t.time || undefined, null, { accountId: acctId });
+          if (!nid) { _mvJClear(); return { ok: false, error: 'insert' }; }
+          pid = (typeof nid === 'string') ? nid : null;
+          try { if (pid) await _f2pPhotos(t, pid); } catch (e) { /* row landed; photos best-effort in this rare lag path */ }
+        }
+        _mvJSet({ dir: 'f2p', famId: famId, pid: pid, converted: true });
+        // now remove the family side: mirror event first (same order as the
+        // wrapped delete — FK RESTRICT on fundings), then storage, then the row
+        const mirrorId = (t.linkedEvent && window.events && events[t.linkedEvent]) ? events[t.linkedEvent]._dbId : null;
+        if (mirrorId) { try { await _mv().rpc('archive_event', { p_event_id: mirrorId }); } catch (e) {} }
+        await _famRowDelete(famId);
+        _mvJClear();
+        try { window.loadFamilyData && loadFamilyData(); } catch (e) {}
+        try { await window.fhPersonalHydrate(); } catch (e) {}
+        try { window.fhPersonalMirrorSoon && fhPersonalMirrorSoon(); } catch (e) {}
+        return { ok: true };
+      } catch (e) {
+        console.warn('move to personal failed', e);
+        return { ok: false, error: 'failed', pending: !!_mvJGet() };
+      }
+    };
+    async function _f2pPhotos(t, pid) {
+      const urls = (t.photos || (t.photo ? [t.photo] : [])).filter((u) => typeof u === 'string' && u.indexOf('data:') !== 0);
+      for (let i = 0; i < urls.length; i++) {
+        const np = await _photoF2P(urls[i]);
+        // the family taken_on isn't in the local model — the capture date stays unknown
+        await _mv().from('personal_transaction_photos').insert({ owner_user_id: _mvUid(), transaction_id: pid, photo_url: np, sort_order: i, taken_on: null });
+      }
+    }
+    async function _famRowDelete(famId) {
+      try {
+        const phr = (await _mv().from('transaction_photos').select('photo_url').eq('transaction_id', famId)).data || [];
+        const files = phr.map((r) => r.photo_url).filter((x) => x && x.indexOf('http') !== 0);
+        if (files.length) await _mv().storage.from('family-media').remove(files);
+      } catch (e) {}
+      const del = await _mv().from('transactions').delete().eq('id', famId);
+      if (del.error) throw del.error;
+    }
+
+    /* ── crash repair (spec §8.3) — idempotent, run from fhPersonalMirror ───── */
+    window.fhLedgerMoveResume = async function () {
+      const j = _mvJGet(); if (!j) return;
+      const p = window.fhPersonalData && fhPersonalData(); if (!p || !p.key) return;
+      if (j.dir === 'p2f') {
+        const fam = await _mv().from('transactions').select('id').eq('link_id', j.linkId).maybeSingle();
+        if (fam.error) return;                       // can't tell — try again next pass
+        if (!fam.data) { _mvJClear(); return; }      // nothing committed (orphaned uploads are debris only)
+        // finish the conversion (no-op when it already happened)…
+        await _mv().from('personal_transactions').update({ space_id: j.fid, link_id: j.linkId, version: 1 })
+          .eq('id', j.pid).eq('owner_user_id', p.uid).is('link_id', null);
+        // …and remove any reconcile-minted duplicate master born in the window
+        const dups = await _mv().from('personal_transactions').select('id').eq('owner_user_id', p.uid).eq('link_id', j.linkId).neq('id', j.pid);
+        for (const d of (dups.data || [])) await _mv().from('personal_transactions').delete().eq('id', d.id);
+        try { await window.fhPersonalRemovePhotoRows(j.pid); } catch (e) {}
+        _mvJClear();
+        try { await window.fhPersonalHydrate(); } catch (e) {}
+      } else if (j.dir === 'f2p') {
+        const fam = await _mv().from('transactions').select('id').eq('id', j.famId).maybeSingle();
+        if (fam.error) return;
+        if (!fam.data) { _mvJClear(); return; }      // family row already gone → move finished
+        if (!j.converted) { _mvJClear(); return; }   // died before the point of no return → the user simply retries
+        try { await _famRowDelete(j.famId); _mvJClear(); try { window.loadFamilyData && loadFamilyData(); } catch (e) {} } catch (e) {}
+      } else { _mvJClear(); }
+    };
+  })();
 
   /* ═══ Friend/trip spaces — the shared split ledger ══════════════════════════
      A space (families.type 'friend'|'trip') is a shared container that is NEVER
@@ -21421,6 +22049,11 @@ window.obGoogle = async function () {
   // Shared with the avatar module (69-avatar.js): encrypt+upload any data-URL
   // image through the same '.enc' pipeline, returning the storage path.
   window.fhUploadEncImage = _uploadPhoto;
+  // Shared with the personal-photo path (19-personal.js): one compressor means
+  // EXIF/GPS stripping stays a single implementation, and the EXIF capture-date
+  // lookup works for personal uploads exactly as it does for family ones.
+  window.fhCompressImage = _compressImage;
+  window.fhPhotoTakenOn = _takenOn;
   /* EXIF capture date for a pre-compression data URI, recorded by readPhoto().
      Photos that predate the parser, or that carried no usable EXIF, return null
      and are stored as "date unknown" rather than guessed at. */
@@ -23374,10 +24007,16 @@ window.classifyAmount = classifyAmount;
       if (e && e.u) { try { URL.revokeObjectURL(e.u) } catch (x) {} }
     }
   }
+  /* Which key domain owns this URL. personal-media objects (0114) are sealed
+     under the PERSONAL DEK; everything else keeps the family key. The branch
+     lives here — no render site knows two key domains exist. */
+  function _phPersonal(url) { return String(url).indexOf('/personal-media/') >= 0; }
   function _phResolve(url) {
-    // Locked: return null WITHOUT caching, so the very next attempt (after the
-    // key is entered) retries instead of being pinned to this null forever.
-    if (!fhKeyReady()) return Promise.resolve(null);
+    // Locked (in the URL's own key domain): return null WITHOUT caching, so the
+    // very next attempt (after the key is entered) retries instead of being
+    // pinned to this null forever.
+    const personal = _phPersonal(url);
+    if (personal ? !(window.fhPersonalKeyReady && fhPersonalKeyReady()) : !fhKeyReady()) return Promise.resolve(null);
     const hit = _phCache.get(url);
     if (hit) { _phCache.delete(url); _phCache.set(url, hit); return hit.p; }   // LRU refresh
     const entry = {
@@ -23386,7 +24025,8 @@ window.classifyAmount = classifyAmount;
         try {
           const resp = await fetch(url);
           if (!resp.ok) return null;
-          const pt = await fhDecBytes(new Uint8Array(await resp.arrayBuffer()));
+          const ct = new Uint8Array(await resp.arrayBuffer());
+          const pt = personal ? await window.fhPersonalDecBytes(ct) : await fhDecBytes(ct);
           entry.u = URL.createObjectURL(new Blob([pt], { type: _phMime(url) }));
           return entry.u;
         } catch (e) { return null; }

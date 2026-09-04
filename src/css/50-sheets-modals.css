@@ -334,3 +334,12 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .csv-inflow-detail{padding:0 14px 10px 66px;background:var(--white)}
 .csv-inflow-meta{font-size:12px;color:var(--muted);margin-top:2px}
 .csv-inflow-take{display:inline-block;margin:8px 0 2px;font-size:13px;font-weight:600}
+
+/* ── cross-ledger move confirm (0114, #sheet-move) ──────────────────────────
+   Sheets sit at z-index 60, UNDER modals (62) — but this sheet opens on top of
+   the expense edit modal (a chip flip inside it), so it alone rides above. */
+#sheet-move{z-index:64}
+#mv-facts{margin:2px 0 14px}
+.mv-fact{font-size:14px;color:var(--ink-2);padding:9px 2px;border-bottom:1px solid var(--divider)}
+.mv-fact:last-child{border-bottom:none}
+#sheet-move .cta{margin-top:6px}

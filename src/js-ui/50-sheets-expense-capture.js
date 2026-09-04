@@ -89,12 +89,22 @@ function openExpense(preset){
   var _tf0=document.getElementById('ex-timefield'); if(_tf0) _tf0.style.display='none';   // shown for any expense (add via _applyExLayout, edit via fill)
   var _ea=document.getElementById('ex-amt'); if(_ea) _ea.classList.remove('inc-amt');   // edit is always Chi; drop any leftover income tint
   var _nl=document.getElementById('ex-note-lbl'); if(_nl && editing) _nl.textContent=L('Chi cho gì','What for?');
-  // A private personal edit has no member-split / photos — hide those like a
-  // personal add does.
-  if(editingPTx){ ['ex-whofield','ex-photofield','bulk-add'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; }); }
-  // Scope picker: hidden while editing (scope is fixed once logged); resets to
-  // family on every fresh open so a prior personal pick never carries over.
-  var sf=document.getElementById('ex-scopefield'); if(sf) sf.style.display = editing? 'none':'';
+  // A private personal edit has no member-split / bulk; photos it now has
+  // (0114 — capture parity), shown + prefilled by fillPersonalExpenseFromTx.
+  if(editingPTx){ ['ex-whofield','bulk-add'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; }); }
+  // Scope picker: for a NEW entry it picks the destination; while EDITING it is
+  // the cross-ledger move affordance (0114, spec M4 — this retires the old
+  // "scope is fixed once logged" rule): shown only for a move-eligible row,
+  // selected on the row's current book; flipping it opens the confirm sheet
+  // (fhMoveChipTap) instead of silently re-scoping anything.
+  var sf=document.getElementById('ex-scopefield');
+  if(sf){
+    if(editing){
+      var _mv=(typeof fhMoveEligibleEdit==='function')?fhMoveEligibleEdit():null;
+      sf.style.display=_mv?'':'none';
+      if(_mv) selectChipByVal('ex-scope', _mv.cur);
+    } else sf.style.display='';
+  }
   // Type toggle is meaningless while editing (a logged row's kind is fixed).
   var tf=document.getElementById('ex-typefield'); if(tf) tf.style.display = editing? 'none':'';
   if(!editing){
@@ -133,18 +143,29 @@ function _syncExTime(){
   tEl.value = (iso===isoDate(TODAY)) ? _nowHM() : '';   // today → now; back-dated → unknown
   if(r){ r.time=tEl.value; }
 }
-function pickExScope(btn){ pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} selectChipByVal('ex-scope',btn.dataset.v); _applyExLayout(); }
+function pickExScope(btn){
+  // Edit mode: the chips are the cross-ledger move affordance (0114) — the tap
+  // opens the confirm sheet and the selection flips only if the move commits.
+  if(editingTx || editingPTx){ if(typeof fhMoveChipTap==='function') fhMoveChipTap(btn.dataset.v); return; }
+  pick('ex-scope',btn); try{ localStorage.setItem('fh-last-scope',btn.dataset.v); }catch(e){} selectChipByVal('ex-scope',btn.dataset.v); _applyExLayout();
+}
 /* Instrument chips (0105): built from the personal ledger's accounts + Tiền mặt.
    Optional — no chip selected means "don't tag". Last pick remembered; a
    credit-card pick is what feeds that card's derived balance. */
-function buildExAcctChips(){
+/* selId (optional, 0114): an explicit selection for edit mode — an account id,
+   or null for "no tag". Omitted = the remembered last pick (capture mode). */
+function buildExAcctChips(selId){
   var box=document.getElementById('ex-acct'); if(!box) return;
   var pd=window.fhPersonalData&&fhPersonalData(); var accts=(pd&&pd.accounts)||[];
-  var last=null; try{ last=localStorage.getItem('fh-last-acct'); }catch(e){}
+  var sel;
+  if(typeof selId!=='undefined'){
+    var cashA=accts.filter(function(a){ return a.kind==='cash'; })[0];
+    sel = selId ? ((cashA && selId===cashA.id) ? 'cash' : selId) : null;
+  } else { try{ sel=localStorage.getItem('fh-last-acct'); }catch(e){ sel=null; } }
   var ico={credit_card:'💳',deposit:'🏦',ewallet:'📱',cash:'💵'};
-  var h='<button class="choice'+(last==='cash'?' on':'')+'" data-v="cash" onclick="pickExAcct(this)">💵 Tiền mặt</button>';
+  var h='<button class="choice'+(sel==='cash'?' on':'')+'" data-v="cash" onclick="pickExAcct(this)">💵 Tiền mặt</button>';
   accts.forEach(function(a){ if(a.kind==='cash') return;
-    h+='<button class="choice'+(last===a.id?' on':'')+'" data-v="'+a.id+'" onclick="pickExAcct(this)">'+(ico[a.kind]||'💳')+' '+String(a.name||'Tài khoản').replace(/</g,'&lt;')+'</button>'; });
+    h+='<button class="choice'+(sel===a.id?' on':'')+'" data-v="'+a.id+'" onclick="pickExAcct(this)">'+(ico[a.kind]||'💳')+' '+String(a.name||'Tài khoản').replace(/</g,'&lt;')+'</button>'; });
   box.innerHTML=h;
 }
 function pickExAcct(btn){
@@ -153,6 +174,8 @@ function pickExAcct(btn){
   var box=document.getElementById('ex-acct'); if(box) box.querySelectorAll('.choice').forEach(function(b){ b.classList.remove('on'); });
   if(!was){ btn.classList.add('on'); try{ localStorage.setItem('fh-last-acct',btn.dataset.v); }catch(e){} }
   else { try{ localStorage.removeItem('fh-last-acct'); }catch(e){} }
+  // account changes count as edits on a private row (M9) — enable Save
+  if(editingPTx && typeof refreshExCta==='function') refreshExCta();
 }
 function pickExType(btn){
   pick('ex-type',btn); exType=btn.dataset.v;
@@ -170,7 +193,7 @@ function _applyExLayout(){
   var af=document.getElementById('ex-acctfield');
   if(af){ var show=(personal&&!income&&!editingTx&&!editingPTx); af.style.display=show?'':'none'; if(show) buildExAcctChips(); }
   var who=document.getElementById('ex-whofield'); if(who) who.style.display=(personal||income)?'none':'';   // no member-split in a private ledger / for income
-  var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=(personal||income)?'none':'';     // personal photos not wired yet; income has none
+  var ph=document.getElementById('ex-photofield'); if(ph) ph.style.display=income?'none':'';                 // photos on any expense — personal included since 0114; income has none
   var bulk=document.getElementById('bulk-add'); if(bulk) bulk.style.display=(personal||income)?'none':'';     // keep personal + income single
   var cat=document.getElementById('ex-cat'); if(cat) cat.style.display=income?'none':'';                      // income has no category
   // Optional time — any single expense (personal or family). Hidden for income;

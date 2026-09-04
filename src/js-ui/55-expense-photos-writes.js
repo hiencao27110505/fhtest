@@ -225,6 +225,7 @@ function exFormState(){                                     // snapshot used to 
   return document.getElementById('ex-note').value.trim()
     +'|'+parseAmtBase(document.getElementById('ex-amt').value)
     +'|'+chosen('ex-cat')+'|'+chosen('ex-who')
+    +'|'+chosen('ex-acct')                                  // account tag counts as an edit on a private row (M9)
     +'|'+document.getElementById('ex-date').value
     +'|'+exPhotos.length+':'+exPhotos.map(function(s){return s.length;}).join(',');
 }
@@ -281,6 +282,13 @@ function fillPersonalExpenseFromTx(){
   // (not auto-overwritten by _syncExTime). Empty = the row was day-only.
   var _tf=document.getElementById('ex-timefield'); if(_tf) _tf.style.display='';
   var _ti=document.getElementById('ex-time'); if(_ti) _ti.value=t.time||'';
+  // Photos (0114 — capture parity): show + prefill; savePersonalTxEdit syncs
+  // adds/removals through fhPersonalSyncTxnPhotos.
+  exPhotos=(t.photos||[]).slice(); renderExPhoto();
+  var _pf=document.getElementById('ex-photofield'); if(_pf) _pf.style.display='';
+  // Instrument chips (M9): editable on a private row, prefilled from the row —
+  // this is what makes a row that landed untagged taggable at all.
+  var _af=document.getElementById('ex-acctfield'); if(_af){ _af.style.display=''; buildExAcctChips(t.accountId||null); }
   setTxt('ex-title',L('Sửa khoản chi','Edit expense'));
   var del=document.getElementById('ex-del'); if(del)del.style.display='block';
   resetDelArm();
@@ -356,12 +364,21 @@ async function _submitPersonalExpense(){
   var acctId=null;
   if(acctPick){ acctId = (acctPick==='cash' && window.fhPersonalCashAccount) ? await fhPersonalCashAccount() : acctPick; }
   var ok=0;
+  var _pPhotos=exPhotos.slice();   // photos ride the first row only — single-row is the only way to attach them (parity with submitBulk)
   for(var i=0;i<rows.length;i++){
     var r=rows[i], amt=parseAmtBase(r.amt||''); if(!(amt>0)) continue;
     var emoji=(window.catStyle&&catStyle[r.cat]&&catStyle[r.cat][0])||'🗂️';
     // Model Y: category is denormalised on the personal row (name + emoji) — no personal-category table.
     // Per-row time (commitActiveRow flushed the active row; the rest already hold theirs).
-    if(await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined, undefined, {accountId:acctId})) ok++;
+    var rid=await window.fhPersonalAddExpense(amt, r.note||'', r.cat||null, emoji, r.date||undefined, r.time||undefined, undefined, {accountId:acctId});
+    if(rid){
+      ok++;
+      // Photos (0114): encrypted under the personal DEK, attached to the new row.
+      if(i===0 && _pPhotos.length && typeof rid==='string' && window.fhPersonalUploadTxnPhotos){
+        await fhPersonalUploadTxnPhotos(rid, _pPhotos);
+        await window.fhPersonalHydrate();
+      }
+    }
   }
   if(ok){ if(typeof clearDrafts==='function') clearDrafts(); if(typeof closeExpense==='function') closeExpense(); window.toast&&toast(L('Đã ghi vào sổ cá nhân','Saved to your personal ledger')); if(typeof renderPersonal==='function') renderPersonal(); }
 }
@@ -463,7 +480,17 @@ async function savePersonalTxEdit(){
   var emoji=(cat && window.catStyle && catStyle[cat] && catStyle[cat][0]) || (orig&&orig.emoji) || '🗂️';
   var date=(document.getElementById('ex-date')||{}).value||undefined;
   var time=(document.getElementById('ex-time')||{}).value||'';   // '' clears back to day-only
-  var ok=await window.fhPersonalUpdateExpense(id, {amt:amt, note:note, cat:cat||null, emoji:emoji, dateIso:date, time:time});
+  // Instrument (M9): the chips reflect the row's current tag; '' = cleared → null.
+  var _acct=(typeof chosen==='function')?chosen('ex-acct'):'';
+  var _acctId=null;
+  if(_acct==='cash' && window.fhPersonalCashAccount) _acctId=await fhPersonalCashAccount();
+  else if(_acct) _acctId=_acct;
+  var _photos=exPhotos.slice();
+  var ok=await window.fhPersonalUpdateExpense(id, {amt:amt, note:note, cat:cat||null, emoji:emoji, dateIso:date, time:time, accountId:_acctId});
+  // Photos (0114): reconcile adds/removals, then re-hydrate so the tab shows them.
+  if(ok && window.fhPersonalSyncTxnPhotos){
+    try{ await fhPersonalSyncTxnPhotos(id, _photos); await window.fhPersonalHydrate(); }catch(e){}
+  }
   editingPTx=null; editSnap=null;
   if(ok){ if(typeof renderPersonal==='function') renderPersonal(); if(typeof refreshPersonalTxnOverlay==='function') refreshPersonalTxnOverlay(); closeExpense(); window.toast&&toast(L('Đã lưu','Changes saved')); }
   else { window.toast&&toast(L('Chưa lưu được, thử lại','Couldn’t save, try again')); }

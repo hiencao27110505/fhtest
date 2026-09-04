@@ -842,6 +842,20 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
   <div class="choices" id="savegoal-list"></div>
 </div>
 
+<!-- cross-ledger move (0114): the confirm sheet a scope-chip flip opens in edit
+     mode. Body is built per direction by fhMoveSheetOpen (59-ledger-move-ui);
+     nothing moves without the one tap on #mv-go. -->
+<div class="sheet" id="sheet-move">
+  <div class="grab"></div>
+  <div class="sheet-h" id="mv-h">Chuyển sổ</div>
+  <div class="sheet-sub" id="mv-sub"></div>
+  <div id="mv-facts"></div>
+  <div class="field" id="mv-payerfield" style="display:none"><label>Ai trả?</label><div class="choices" id="mv-payer"></div></div>
+  <div class="field" id="mv-acctfield" style="display:none"><label>Trả bằng gì? <span class="opt">· tuỳ chọn</span></label><div class="choices" id="mv-acct"></div></div>
+  <button class="cta" id="mv-go" onclick="fhMoveConfirm()">Chuyển</button>
+  <button class="btn-line" style="margin-top:10px" onclick="fhMoveCancel()">Không chuyển nữa</button>
+</div>
+
 <div class="sheet" id="sheet-catpick">
   <div class="grab"></div>
   <div class="sheet-h" id="catpick-h">Category</div>

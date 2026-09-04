@@ -26,10 +26,16 @@
       if (e && e.u) { try { URL.revokeObjectURL(e.u) } catch (x) {} }
     }
   }
+  /* Which key domain owns this URL. personal-media objects (0114) are sealed
+     under the PERSONAL DEK; everything else keeps the family key. The branch
+     lives here — no render site knows two key domains exist. */
+  function _phPersonal(url) { return String(url).indexOf('/personal-media/') >= 0; }
   function _phResolve(url) {
-    // Locked: return null WITHOUT caching, so the very next attempt (after the
-    // key is entered) retries instead of being pinned to this null forever.
-    if (!fhKeyReady()) return Promise.resolve(null);
+    // Locked (in the URL's own key domain): return null WITHOUT caching, so the
+    // very next attempt (after the key is entered) retries instead of being
+    // pinned to this null forever.
+    const personal = _phPersonal(url);
+    if (personal ? !(window.fhPersonalKeyReady && fhPersonalKeyReady()) : !fhKeyReady()) return Promise.resolve(null);
     const hit = _phCache.get(url);
     if (hit) { _phCache.delete(url); _phCache.set(url, hit); return hit.p; }   // LRU refresh
     const entry = {
@@ -38,7 +44,8 @@
         try {
           const resp = await fetch(url);
           if (!resp.ok) return null;
-          const pt = await fhDecBytes(new Uint8Array(await resp.arrayBuffer()));
+          const ct = new Uint8Array(await resp.arrayBuffer());
+          const pt = personal ? await window.fhPersonalDecBytes(ct) : await fhDecBytes(ct);
           entry.u = URL.createObjectURL(new Blob([pt], { type: _phMime(url) }));
           return entry.u;
         } catch (e) { return null; }

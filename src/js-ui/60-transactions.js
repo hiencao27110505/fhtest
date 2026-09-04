@@ -52,8 +52,9 @@ function _pBuildTxnCtx(){
     var cat=t.cat||other, _d=t.date?new Date(t.date+'T00:00:00'):null;
     if(!style[cat]){ style[cat]=[t.emoji||'🗂️', PAL[order.length%PAL.length], 'var(--cat-other)']; order.push(cat); }
     // Only PRIVATE rows are editable here; mirror rows (spaceId/linkId set) are a
-    // family expense shown in the personal book and are edited on the family side.
-    rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _edit:!t.spaceId&&!t.linkId, time:t.time||null });
+    // family expense shown in the personal book — write-inert, but tappable
+    // since 0114 (fhMirrorRowTap → the family expense detail, M10).
+    rows.push({ id:t.id, cat:cat, note:t.note||cat, amt:t.amt||0, _d:_d, ico:t.emoji||'🗂️', who:null, _style:style[cat], _edit:!t.spaceId&&!t.linkId, _mirror:!!(t.spaceId||t.linkId), photos:t.photos||undefined, time:t.time||null });
     if((t.date||'').slice(0,7)===ym) spent[cat]=(spent[cat]||0)+(t.amt||0);   // hero = this month only (parity with family M())
   });
   order.sort(function(a,b){ return (spent[b]||0)-(spent[a]||0); });
@@ -78,10 +79,12 @@ function txRow(t){
             :'<div class="r-ico" style="background:'+s[1]+';color:'+s[2]+'">'+esc(t.ico)+'</div>';
   var av=personal?'':spAv(t.who);                                 // personal ledger has no members
   // Family rows open the detail screen; private personal rows open the edit sheet;
-  // mirror personal rows (a family expense) stay view-only here.
-  var open=personal?(t._edit?(' onclick="openPersonalTxEdit(\''+t.id+'\')"'):'')
+  // mirror personal rows (a family expense) are view-only but tap through to
+  // the family expense detail (0114, M10).
+  var open=personal?(t._edit?(' onclick="openPersonalTxEdit(\''+t.id+'\')"')
+                            :(t._mirror?(' onclick="fhMirrorRowTap(\''+t.id+'\')"'):''))
                     :(' onclick="openExpenseDetail(\''+t.id+'\')"');
-  var tapCls=(personal? (t._edit?' tap':'') : ' tap');
+  var tapCls=(personal? ((t._edit||t._mirror)?' tap':'') : ' tap');
   return '<div class="row'+tapCls+(chip?' has-rx':'')+'"'+rxid+open+'><div class="r-ico-wrap">'+tile+av+'</div>'
     +'<div class="r-body"><div class="r-t">'+esc(t.note)+'</div><div class="r-s">'+dstr+(t.time?' · '+esc(t.time):'')+'</div></div>'
     +'<div class="r-right"><div class="r-amt num">'+fmt(t.amt)+'</div><div class="r-cat">'+esc(t.cat)+'</div></div>'+chip+'</div>';
