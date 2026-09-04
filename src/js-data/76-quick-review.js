@@ -421,9 +421,9 @@
     }
     /* Mirrors csvPromote for ONE row: family income → fhAddFamilyIncome;
        expense → the supported prepared-bulk path (bulkRows + submitBulk), which
-       is exactly how the full review promotes family rows. Returns truthy on a
-       started write; submitBulk's own writes are fire-and-forget like the full
-       path, and the local-first retire guards a failure. */
+       write. Returns truthy on a started write; the write-through is
+       fire-and-forget (a _syncSoon reload follows), and the local-first retire
+       guards a failure. */
     async function _qrWriteFamily(src) {
       if (QR.flow === 'income') {
         var b = Number(QR.amount || 0) / (typeof curMult === 'function' ? curMult() : 1000);
@@ -436,6 +436,15 @@
       if (window._categoryIdForName && navigator.onLine !== false) {
         try { await window._categoryIdForName(name, (window.catStyle[name] || [])[0], (window.catOrder || []).indexOf(name) + 1); } catch (e) {}
       }
+      if (typeof window.addExpense !== 'function') return false;
+      /* Populate the composer for this ONE prepared row and fire the
+         write-through addExpense DIRECTLY — deliberately NOT submitBulk.
+         submitBulk's tail is what made the app flash 3-4 times after a family
+         log: a second renderAll()+renderTxns(), closeModals() (which strips the
+         scrim this sheet sits on), the 🎉 confetti, and its own toast + nav.
+         addExpense alone updates the model + write-through (+ one _syncSoon
+         reload), which is all a single quiet import needs. renderBulk() is
+         skipped too — loadRow sets the #ex-* fields by id without it. */
       window.bulkRows = [{
         note: QR.desc || '', amt: String(Math.round(QR.amount)), cat: name,
         who: (typeof csvDefaultWho === 'function' ? csvDefaultWho() : (window.lastWho || '')),
@@ -444,12 +453,57 @@
       }];
       window.bulkActive = 0; window.exPhotos = [];
       try { if (typeof buildExCatChips === 'function') buildExCatChips(); } catch (e) {}
-      try { if (typeof renderBulk === 'function') renderBulk(); } catch (e) {}
       try { if (typeof loadRow === 'function') loadRow(0); } catch (e) {}
-      if (typeof submitBulk !== 'function') return false;
-      // prepared → no interactive re-parse; stay → don't bounce off the tab
-      submitBulk({ prepared: true, stay: true });
+      window._fhImportSrc = src || null;
+      window._dgLocalAdd = true;                 // this device logged → allow the daily-guide push
+      window.BULK_SAVING = true;                 // suppress addExpense's own close/toast/nav + per-row notify
+      // addExpense bails SILENTLY on a bad amount (it just focuses the field),
+      // so confirm a row was actually added before the caller retires the
+      // staged draft — otherwise a no-op write would delete the draft and lose
+      // the transaction. It unshifts window.txns on success.
+      var before = (window.txns || []).length;
+      try { window.addExpense(); }
+      catch (e) { window.BULK_SAVING = false; window._fhImportSrc = null; console.warn('quick family write failed', e); return false; }
+      window.BULK_SAVING = false; window._fhImportSrc = null;
+      if ((window.txns || []).length <= before) { console.warn('quick family write added nothing'); return false; }
+      /* Hold the new txn OBJECT so the photo step can read the id the async
+         insert stamps on it (_dbInsertTxn sets t._dbId on this same object).
+         The 700ms reload replaces window.txns wholesale, but this reference
+         keeps the _dbId set on it. */
+      QR._famTxn = (window.txns || [])[0] || null;
+      try { window.fhNotify && window.fhNotify('expense_new', {}); } catch (e) {}   // one nudge to the family
       return true;
+    }
+    /* Wait for the family txn's id (the insert stamps it a beat after the
+       write). Resolves null after a grace period — e.g. offline, where the row
+       is queued and gets its id only on the next flush. */
+    function _qrResolveFamilyTxnId(famTxn) {
+      return new Promise(function (resolve) {
+        var t0 = Date.now();
+        (function poll() {
+          var id = famTxn && famTxn._dbId;
+          if (id) return resolve(id);
+          if (Date.now() - t0 > 8000) return resolve(null);
+          setTimeout(poll, 150);
+        })();
+      });
+    }
+    /* Family photo attach — the personal path (fhPersonalUploadTxnPhotos) is
+       owner-scoped; the family equivalent is fhUploadEncImage (family DEK, .enc)
+       + a transaction_photos row, mirroring 40's file-local _dbUploadTxnPhotos. */
+    async function _qrUploadFamilyPhotos(dbId, uris) {
+      if (!window.fhUploadEncImage || !window.DB || !window.DB.fid) return false;
+      var failed = 0;
+      for (var i = 0; i < uris.length; i++) {
+        try {
+          var path = await window.fhUploadEncImage(uris[i]);
+          if (!path) { failed++; continue; }
+          var takenOn = window.fhPhotoTakenOn ? window.fhPhotoTakenOn(uris[i]) : null;
+          var r = await window.sb.from('transaction_photos').insert({ family_id: window.DB.fid, transaction_id: dbId, photo_url: path, sort_order: i, taken_on: takenOn });
+          if (r && r.error) failed++;
+        } catch (e) { failed++; }
+      }
+      return failed === 0;
     }
 
     /* ---- actions ---------------------------------------------------------- */
@@ -459,11 +513,11 @@
       var btn = document.getElementById('qr-go');
       if (btn) { btn.disabled = true; btn.textContent = L('Đang lưu…', 'Saving…'); }
       /* Pre-acquire the camera NOW, still inside the tap gesture, when this row
-         will reach the photo step (personal expense over 30k). iOS loses the
-         camera gesture across the awaited write below, so asking afterwards
-         fails; asking here keeps it. Released by _qrStopCam on every path that
-         does not open the photo step (write failure, no id, or a close). */
-      if (QR.dest !== 'family' && QR.flow !== 'income' && Number(QR.amount) > 30000) _qrCamPreacquire();
+         will reach the photo step (any expense over 30k — personal or family).
+         iOS loses the camera gesture across the awaited write below, so asking
+         afterwards fails; asking here keeps it. Released by _qrStopCam on every
+         path that does not open the photo step (write failure, no id, close). */
+      if (QR.flow !== 'income' && Number(QR.amount) > 30000) _qrCamPreacquire();
       try {
         var src = QR.re._transport === 'oauth_direct' ? 'direct-email' : 'forwarding-email';   // 0100 provenance
         var toFamily = QR.dest === 'family';
@@ -510,16 +564,17 @@
         try { await window.fhStagedRetireIds([QR.row.id]); } catch (e) {}
         try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}
         try { typeof renderPersonal === 'function' && renderPersonal(); } catch (e) {}
-        /* The photo beat is PERSONAL-only: it uses the personal photo path and
-           the id fhPersonalAddExpense returns. A family expense goes through
-           submitBulk (no id handed back) and its photos live in a different
-           table — those can be added from the family expense's own detail
-           screen. So a family import ends here; submitBulk already toasted. */
+        /* The photo beat now covers BOTH ledgers. Personal has its row id in
+           hand (fhPersonalAddExpense returns it); family reads the id the async
+           insert stamps on QR._famTxn, resolved when the photo is uploaded. */
         QR.txnId = (!toFamily && typeof ok === 'string') ? ok : null;
-        if (!toFamily && QR.flow !== 'income' && QR.amount > 30000 && QR.txnId) {
+        var canPhoto = QR.flow !== 'income' && QR.amount > 30000 && (toFamily ? !!QR._famTxn : !!QR.txnId);
+        if (canPhoto) {
           QR.state = 'photo'; QR.busy = false; _qrRender(); _qrStartCam(); return;
         }
-        if (!toFamily) window.toast && window.toast(L('Đã lưu vào sổ Cá nhân', 'Saved to your personal ledger'));
+        window.toast && window.toast(toFamily
+          ? L('Đã lưu vào sổ Gia đình', 'Saved to the family ledger')
+          : L('Đã lưu vào sổ Cá nhân', 'Saved to your personal ledger'));
         _qrClose();
       } catch (e) {
         console.warn('quick review approve failed', e);
@@ -635,16 +690,28 @@
       }
     }
     async function _qrPhotos(uris) {
-      if (!QR || !QR.txnId || !uris.length) return _qrClose();
+      // Capture what we need up front — _qrClose (or a dismissal) may null QR
+      // while the upload is in flight.
+      var toFamily = QR && QR.dest === 'family';
+      var personalId = QR && QR.txnId, famTxn = QR && QR._famTxn;
+      if (!uris.length || (!toFamily && !personalId) || (toFamily && !famTxn)) return _qrClose();
       window.toast && window.toast(L('Đang lưu ảnh…', 'Saving photo…'));
       try {
-        var ok = await window.fhPersonalUploadTxnPhotos(QR.txnId, uris);
-        try { await window.fhPersonalHydrate(); } catch (e) {}
-        try { typeof renderPersonal === 'function' && renderPersonal(); } catch (e) {}
+        var ok;
+        if (toFamily) {
+          var dbId = await _qrResolveFamilyTxnId(famTxn);
+          if (!dbId) throw new Error('family txn id not ready');
+          ok = await _qrUploadFamilyPhotos(dbId, uris);
+          try { window.loadFamilyData && window.loadFamilyData({ windowed: true }); } catch (e) {}   // reload so the photo shows
+        } else {
+          ok = await window.fhPersonalUploadTxnPhotos(personalId, uris);
+          try { await window.fhPersonalHydrate(); } catch (e) {}
+          try { typeof renderPersonal === 'function' && renderPersonal(); } catch (e) {}
+        }
         window.toast && window.toast(ok ? L('Đã lưu ảnh vào khoản chi 📸', 'Photo saved to the expense 📸')
                                         : L('Có ảnh chưa lưu được', 'Some photos could not be saved'));
       } catch (e) {
-        window.toast && window.toast(L('Chưa lưu được ảnh', 'Could not save the photo'));
+        window.toast && window.toast(L('Chưa lưu được ảnh, thêm lại từ khoản chi nhé', 'Could not attach the photo, add it from the expense'));
       }
       _qrClose();
     }
