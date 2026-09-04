@@ -143,6 +143,52 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-04 (Hien — bank-email monitoring) — `0119` + `0120` APPLIED and
+  verified end to end. Next free is `0121`. ⚠️ `.gs` PASTE NEEDED
+  (`2026-09-04-health`). Files: new `supabase/migrations/0119_pipeline_health.sql`,
+  `0120_tg_send_timeout.sql`, `pipeline/bank-email-pipeline.gs`, new
+  `pipeline/pipeline-health.test.js`.**
+
+  **What it monitors, and why the obvious things would not have worked.** The
+  09-04 review found the worst ratio in the whole incident: six days of silence,
+  and the only thing that eventually spoke was a Google quota email naming the
+  wrong system. A heartbeat would have been green (the runs succeeded), an error
+  rate flat (there were no errors), and "time since last staged row" is
+  indistinguishable from a member who simply did not spend anything. The number
+  actually climbing in plain sight was the age of the oldest unprocessed message.
+
+  Two signals, two different failures, neither subsuming the other. **stuck** —
+  oldest held message over 6h, the 08-29 failure. **silent** — no report for 30
+  minutes, the 09-04 failure, which would have been caught in half an hour. The
+  `.gs` counts both out of the batch it already walked, so it costs no API call;
+  `held` is counted BY ELIMINATION (terminal = relabelled or trashed, everything
+  else held) so a hold path added later counts itself.
+
+  **`0120` is the find, and it is worse than the monitor.** Testing 0119's first
+  alert showed it composed, debounced, recorded as sent — and never delivered.
+  `net._http_response` had `Timeout of 5000 ms reached ... (DNS time: 21.2ms,
+  TCP/SSL handshake ...)`. 5000ms is pg_net's DEFAULT and `_tg_send` (0061) never
+  overrode it, so **every founder digest and every notification this project has
+  sent has been running on a budget the ap-southeast-1 → Telegram route does not
+  reliably fit inside.** Nobody noticed because `perform net.http_post(...)` only
+  ENQUEUES: the function succeeds, `cron.job_run_details` records `succeeded`,
+  and the message just does not arrive. Every layer reported success. That is the
+  exact failure class 0119 exists to catch, reproduced inside the alerting path.
+  0120 raises it to 15s; re-tested and Telegram returned `{"ok":true,
+  "message_id":772}`.
+
+  **STILL OPEN — delivery is not auditable.** `net._http_response` retains ~6h
+  and does not record the request URL, so "did last Tuesday's digest arrive" is
+  unanswerable. Fixing that means logging request ids and reconciling them; it is
+  a real feature and should be decided on its own merits, not smuggled into a
+  timeout fix. Worth doing: it is the only reason 0120 went unnoticed for weeks.
+
+  **Also worth knowing:** the durable-version-check lesson. `gs-429-requeue` and
+  `retired-alias` both pinned `PIPELINE_VERSION` as an exact literal and both
+  failed on the next unrelated bump, each claiming the previous fix had
+  regressed. Both now assert the version's DATE has reached the fix date, which
+  survives every future bump. Do not pin the literal.
+
 - **2026-09-04 (Hien's session, later) — UI + fixes only, NO db / migration /
   edge fn. Shipped as sw `v466`.** Settings-rows redesign of the review card
   detail + the edit modal, amount-on-top in both, and three review correctness

@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-09-04-degrade';  // retired aliases + a quota trip degrades instead of killing every run; paste only from origin/main
+var PIPELINE_VERSION = '2026-09-04-health';  // the run reports whether it is working, so a silent stall is visible (0119); paste only from origin/main
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -636,6 +636,51 @@ function relabelThread(thread, labelName) {
     if (inbox) thread.removeLabel(inbox);
   } catch (e) { /* not labelled; nothing to remove */ }
   thread.addLabel(GmailApp.getUserLabelByName(labelName));
+}
+
+// ---------- Pipeline health (0119) ----------
+
+// How often the run reports. The trigger fires every minute; reporting each
+// tick would spend 1,440 UrlFetch calls a day — 7% of the platform's daily cap
+// — to answer a question whose answer is measured in hours. The `silent`
+// alert's threshold is 30 minutes, two windows, so a single missed report is
+// never mistaken for a dead pipeline.
+var HEALTH_REPORT_INTERVAL_MIN = 15;
+var HEALTH_LAST_PROP = 'PIPELINE_HEALTH_LAST_AT';
+
+/* Reports what this run saw, so somebody other than a human reading Apps Script
+   logs can tell a working pipeline from a quiet one.
+ 
+   NOT throttled when the queue is stuck. A run that finds held mail reports
+   immediately: the interval exists to save quota on the boring case, and the
+   interesting case is exactly when you want the number fresh. A clear queue
+   reports on the interval, which is what keeps `ran_at` moving and proves the
+   pipeline is alive. */
+function reportPipelineHealth(walked, held, oldestHeld, truncated) {
+  var props = PropertiesService.getScriptProperties();
+  var last = parseInt(props.getProperty(HEALTH_LAST_PROP), 10);
+  var now = new Date().getTime();
+  if (!held && isFinite(last) && (now - last) < HEALTH_REPORT_INTERVAL_MIN * 60000) return;
+
+  supabasePost('pipeline_health', {
+    transport: 'forwarding',
+    ran_at: new Date(now).toISOString(),
+    walked: walked,
+    held: held,
+    oldest_held_at: oldestHeld ? oldestHeld.toISOString() : null,
+    truncated: !!truncated,
+    version: PIPELINE_VERSION,
+    note: null,
+  }, 'transport');
+
+  // Stamped only after the write lands. A failed report must leave the
+  // timestamp alone so the next tick retries — and if it keeps failing, ran_at
+  // goes stale and the silent alert fires, which is the correct outcome: a
+  // pipeline that cannot reach the database is not healthy.
+  props.setProperty(HEALTH_LAST_PROP, String(now));
+  Logger.log('v' + PIPELINE_VERSION + ' | health: walked=' + walked + ' held=' + held +
+    ' oldest=' + (oldestHeld ? oldestHeld.toISOString() : 'none') +
+    (truncated ? ' TRUNCATED' : ''));
 }
 
 // ---------- Inbox retention ----------

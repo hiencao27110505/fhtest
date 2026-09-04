@@ -244,9 +244,14 @@ t('and it ends the run rather than walking the batch into the same wall',
 // ── 7. the paste marker moved ─────────────────────────────────────────────
 // The .gs only reaches production by hand, so an unbumped version is how a fix
 // silently stays un-deployed while the repo says it shipped.
-t('PIPELINE_VERSION names this change',
-  /var PIPELINE_VERSION = '2026-09-04-degrade'/.test(gs),
-  (gs.match(/var PIPELINE_VERSION = '[^']*'/) || [])[0]);
+// The version is a DATE, so assert it has reached this fix's date rather than
+// pinning the literal. PIPELINE_VERSION is one global that every change bumps:
+// an exact-string check turns every later fix into a false failure claiming
+// THIS one regressed. That has now happened twice (gs-429-requeue on 09-04,
+// retired-alias an hour later), which is twice more than a version marker
+// should cost.
+const _ver = (gs.match(/var PIPELINE_VERSION = '(\d{4}-\d{2}-\d{2})/) || [])[1];
+t('PIPELINE_VERSION has reached 2026-09-04 or later', !!_ver && _ver >= '2026-09-04', _ver);
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
