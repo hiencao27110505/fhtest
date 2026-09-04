@@ -184,7 +184,31 @@ t('the return shape gains a key rather than changing one',
   /'connections', v_conns/.test(fn) && /'pending_deleted', v_rows/.test(fn) &&
   /'grants', v_grants/.test(fn) && /'aliases_retired', v_retired/.test(fn));
 
-// ── 5. the paste marker moved ─────────────────────────────────────────────
+// ── 5. the invariant holds in BOTH directions (0118) ─────────────────────
+// retired_aliases means "no live connection holds this tag". 0117 maintains the
+// insert side; without 0118 nothing maintained the other, because the minter
+// tests uniqueness against mailbox_connections — a table retired tags are by
+// construction no longer in. A tag could be live AND tombstoned at once, and
+// which fact wins would depend only on the order two checks happen to run in.
+const mint = fs.readFileSync(
+  path.join(__dirname, '..', 'supabase', 'migrations', '0118_alias_issue_unretires.sql'), 'utf8');
+t('0118 replaces the minter', /create or replace function public\.get_or_create_mailbox_alias/.test(mint));
+t('issuing a tag clears its tombstone',
+  /delete from retired_aliases where forwarding_alias = v_tag;/.test(mint));
+// Inside the loop, after the insert: the tag does not exist before it succeeds.
+const insAt = mint.indexOf('insert into mailbox_connections');
+const delAt = mint.indexOf('delete from retired_aliases');
+t('and does so AFTER the insert that names the tag',
+  insAt !== -1 && delAt !== -1 && delAt > insAt, insAt + ' vs ' + delAt);
+// 0067's behaviour must survive the replacement, or applying this locks out
+// the beta users or the already-connected ones.
+t('the beta gate survives the replacement', /mailbox_not_in_beta/.test(mint));
+t('and the pre-gate "already issued" return still comes first',
+  mint.indexOf("'created',          false") < mint.indexOf('mailbox_not_in_beta'));
+t('withdrawal is untouched by 0118', !/disconnect_my_mailbox/.test(
+  mint.replace(/--[^\n]*/g, '')));
+
+// ── 6. the paste marker moved ─────────────────────────────────────────────
 // The .gs only reaches production by hand, so an unbumped version is how a fix
 // silently stays un-deployed while the repo says it shipped.
 t('PIPELINE_VERSION names this change',

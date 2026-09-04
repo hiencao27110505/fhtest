@@ -232,13 +232,27 @@ hand-merging `index.html`. Both replaced vigilance with structure.
   will say so before you paste.
 
 - **2026-09-04 (Hien — bank-email retired aliases) — WRITTEN, NOT YET APPLIED OR
-  PASTED. Migration `0117` CLAIMED; next free is `0118`. Files: new
+  PASTED. Migrations `0117` + `0118` CLAIMED; next free is `0119`. Files: new
   `supabase/migrations/0117_retired_aliases.sql`,
   `pipeline/bank-email-pipeline.gs` (`PIPELINE_VERSION` → `2026-09-04-retired`),
   `src/js-data/74-autotxn-ui.js` + rebuilt `index.html`, new
   `pipeline/retired-alias.test.js`. Confirmed free before claiming:
   `git ls-tree origin/main supabase/migrations/` (latest `0111`) plus the
   `0116`/`0115` entries below.**
+
+  **`0118` added after review (Trang's question).** The in-use forwarding flow
+  needed one change, and it is not the one it looks like: no query anywhere
+  needs a "not retired" filter, because withdrawal DELETES the
+  `mailbox_connections` row rather than flagging it — every existing reader
+  (`buildInboxQuery`, `sealingPreflight`, `markMailboxVerified`,
+  `handleForwardingConfirmation`) therefore sees only live connections, for
+  free. What did need fixing is the other direction of the invariant:
+  `get_or_create_mailbox_alias` tests a new tag for uniqueness against
+  `mailbox_connections`, which retired tags are by construction no longer in,
+  so the minter could issue a tag that is also tombstoned. Harmless today only
+  because `processOneMessage` resolves before it checks retired — reorder those
+  two and it silently deletes a live user's mail. `0118` clears the tombstone
+  when a tag is issued.
 
   ⚠️ **RENUMBERED ON INTEGRATION, and this is the collision the numbering rule
   exists to prevent — it still happened.** This work was written against a
