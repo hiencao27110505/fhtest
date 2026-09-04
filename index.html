@@ -2465,32 +2465,30 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .csum-lbl{font-size:9px;font-weight:600;color:var(--muted-soft);white-space:nowrap}
 
 /* ── quick review sheet (76-quick-review.js) ───────────────────────────────
-   One fresh email transaction on the #fh-sheet layer. Speaks the settings-rows
-   language of the bulk-review expanded card: note in a canvas box, label/value
-   rows, the suggested category as the one brand-tinted "hot" row. */
+   One fresh email transaction on the #fh-sheet layer. It reuses the app's REAL
+   form components — .field / .field label / .field input / .choices / .choice
+   are global (defined in 50-sheets-modals.css), so the sheet is pixel-identical
+   to "Sửa chi tiêu". Only the accordion collapse behaviour is re-scoped below
+   from #ex-editor.ex-accordion, because that selector is id-bound. */
 .qr{padding:2px 2px 6px}
-.qr-src{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:6px}
-.qr-eyebrow{font-size:11.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.qr-when{font-size:13px;color:var(--muted-soft);flex:none}
-.qr-note{margin-top:12px;background:var(--canvas);border-radius:13px;padding:11px 14px;font-size:14.5px;font-weight:600;line-height:1.4;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.qr-src{margin-top:6px;margin-bottom:2px}
+.qr-eyebrow{font-size:11.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 .qr-dim{color:var(--muted);font-weight:500}
-.qr-rows{margin-top:4px}
-.qr-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 2px;border-bottom:1px solid var(--divider)}
-.qr-rows .qr-row:last-child{border-bottom:0}
-.qr-row small{font-size:13px;font-weight:600;color:var(--muted);flex:none}
-.qr-val{display:flex;align-items:center;gap:6px;min-width:0}
-.qr-val b{font-size:14.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.qr-chev{color:var(--chev);font-size:15px}
-.qr-row.qr-hot{background:var(--brand-tint);margin:0 -6px;padding-left:8px;padding-right:8px;border-radius:11px;border-bottom:0}
-.qr-row.qr-hot small,.qr-row.qr-hot .qr-val b,.qr-row.qr-hot .qr-chev{color:var(--brand-ink)}
-.qr-row.qr-ro .qr-val b{color:var(--muted);font-weight:600}
-/* inline editors */
-.qr-editor{display:flex;gap:8px;margin:10px 0 2px}
-.qr-editor input{flex:1;min-width:0;border:1.5px solid var(--hairline);border-radius:13px;padding:11px 13px;font-size:16px;font-family:var(--text);background:var(--white)}
-.qr-ed-ok{flex:none;padding:0 18px;border:0;border-radius:9999px;background:var(--brand-tint);color:var(--brand-ink);font-size:14px;font-weight:700}
-.qr-chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 2px}
-.qr-chip{padding:9px 14px;border-radius:9999px;border:1.5px solid var(--hairline);background:var(--white);font-size:14px;font-weight:500;color:var(--ink-2)}
-.qr-chip.on{border:2px solid var(--brand);padding:8px 13px;color:var(--brand-ink);background:var(--brand-tint);font-weight:700}
+/* the form: text fields stay open (label above, input box); picker rows collapse */
+.qr-form{margin-top:12px}
+.qr-form .field{margin-bottom:16px}
+.qr-form .ex-arow{margin-bottom:0;border-bottom:1px solid var(--divider)}
+.qr-form .ex-arow > label{display:flex;align-items:center;gap:10px;margin:0;padding:14px 2px;cursor:pointer}
+.qr-form .ex-arow > label::after{content:"›";margin-left:2px;color:var(--chev);font-size:17px;font-weight:400;transition:transform .18s}
+.qr-form .ex-arow.open > label::after{transform:rotate(90deg)}
+.qr-form .ex-arow > label .opt{color:var(--muted-soft);font-weight:500;text-transform:none;letter-spacing:0}
+.qr-form .ex-arow-val{margin-left:auto;max-width:60%;font-size:14px;font-weight:650;color:var(--ink);text-transform:none;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+.qr-form .ex-arow.open .ex-arow-val{display:none}
+.qr-form .ex-arow:not(.open) > .choices,.qr-form .ex-arow:not(.open) > input,.qr-form .ex-arow:not(.open) .qr-inline-note{display:none}
+.qr-form .ex-arow > .choices{margin:2px 0 14px}
+.qr-form .ex-arow > input{margin:2px 0 14px}
+.qr-form .choice.qr-off{opacity:.5}
+.qr-inline-note{font-size:12.5px;color:var(--muted);padding:0 2px 12px}
 /* actions */
 .qr-cta{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;margin-top:14px;padding:16px;border:0;border-radius:9999px;background:var(--grad-brand);color:#fff;font-family:var(--text);font-size:17px;font-weight:700;box-shadow:0 8px 22px var(--brand-glow)}
 .qr-cta:disabled{opacity:.6}
@@ -17868,7 +17866,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v473';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v475';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -30734,6 +30732,7 @@ window.classifyAmount = classifyAmount;
           amount: Number(re.amount) || 0,                       // display units (full VND)
           desc: desc, cat: cat,
           dest: 'personal',                                     // default = the staged scope; tappable to 'family'
+          acctId: null,                                         // null = auto-resolve the bank instrument; else an explicit personal account
           dateIso: _qrLocalIso(isNaN(oa.getTime()) ? new Date() : oa),
           time: _qrTime(row.occurred_at),
           queue: rows.length, txnId: null, busy: false,
@@ -30761,73 +30760,117 @@ window.classifyAmount = classifyAmount;
       var d = new Date(QR.dateIso + 'T00:00:00');
       var today = new Date(); today.setHours(0, 0, 0, 0);
       var diff = Math.round((today - d) / 86400000);
-      var day = diff === 0 ? L('Hôm nay', 'Today') : diff === 1 ? L('Hôm qua', 'Yesterday')
-        : (typeof fmtDayMon === 'function' ? fmtDayMon(d) : QR.dateIso);
-      return day + (QR.time ? ', ' + QR.time : '');
+      var vi = (typeof isVi === 'function') ? isVi() : true;
+      // "Hôm nay, 04/09, 07:55" — day word + date + time (time only when known).
+      var dayWord;
+      if (diff === 0) dayWord = L('Hôm nay', 'Today');
+      else if (diff === 1) dayWord = L('Hôm qua', 'Yesterday');
+      else if (vi && typeof WKD_VI !== 'undefined') dayWord = WKD_VI[d.getDay()];
+      else if (!vi && typeof WKD !== 'undefined') dayWord = WKD[d.getDay()];
+      else dayWord = '';
+      var dd = String(d.getDate()).padStart(2, '0');
+      var mm = String(d.getMonth() + 1).padStart(2, '0');
+      var datePart = vi ? (dd + '/' + mm)
+        : ((typeof MONA !== 'undefined' ? MONA[d.getMonth()] : mm) + ' ' + d.getDate());
+      var parts = [];
+      if (dayWord) parts.push(dayWord);
+      parts.push(datePart);
+      if (QR.time) parts.push(QR.time);
+      return parts.join(', ');
     }
-    /* Topline source: "TỪ EMAIL · VIETCOMBANK · •••• 2279". The bank name gives
-       the account its context, so the masked tail folds in here rather than
-       spending its own settings row — the kind word (Thẻ/Tài khoản) is dropped
-       for space, the tail alone identifies it. */
+    /* Slim provenance eyebrow above the form: "TỪ EMAIL · VIB". The account tail
+       now lives in the "Trả bằng gì?" field, so it is dropped here. */
     function _qrSrcLabel() {
       var prov = String(QR.row.source_provider || '').replace(/[_-]/g, ' ').trim();
-      var tail = String((QR.re && QR.re.account_masked) || '').replace(/\D/g, '').slice(-4);
-      return L('Từ email', 'From email')
-        + (prov ? ' · ' + prov.toUpperCase() : '')
-        + (tail ? ' · •••• ' + tail : '');
+      return L('Từ email', 'From email') + (prov ? ' · ' + prov.toUpperCase() : '');
     }
+    function _qrKindEmoji(k) { return k === 'credit_card' ? '💳' : k === 'ewallet' ? '📱' : k === 'cash' ? '💵' : '🏦'; }
+    // The bank instrument this row came in on, e.g. "💳 VIB ••4751".
+    function _qrInstrLabel() {
+      var re = QR.re || {};
+      var tail = String(re.account_masked || '').replace(/\D/g, '').slice(-4);
+      var prov = String(re.source_provider || '').replace(/[_-]/g, ' ').trim();
+      return _qrKindEmoji(re.account_kind) + ' ' + (prov || L('Tài khoản', 'Account')) + (tail ? ' ••' + tail : '');
+    }
+    function _qrAcctVal() {
+      if (QR.acctId) {
+        var pd = (window.fhPersonalData && fhPersonalData()) || { accounts: [] };
+        var a = (pd.accounts || []).find(function (x) { return x.id === QR.acctId; });
+        if (a) return _qrKindEmoji(a.kind) + ' ' + a.name;
+      }
+      return _qrInstrLabel();
+    }
+    function _qrDestVal() { return QR.dest === 'family' ? L('🏡 Gia đình', '🏡 Family') : L('🔒 Cá nhân', '🔒 Personal'); }
     function _qrCatCell() {
       if (QR.flow === 'income') return '💰 ' + L('Thu nhập', 'Income');
       if (!QR.cat) return L('Chưa chọn', 'Not set');
       var emo = (window.catStyle && window.catStyle[QR.cat] && window.catStyle[QR.cat][0]) || '';
       return (emo ? emo + ' ' : '') + QR.cat + (QR.editedCat ? '' : ' · ' + L('gợi ý', 'suggested'));
     }
+    /* Chip groups — the app's global .choices/.choice components, so they are
+       pixel-identical to the ones in the expense sheet. */
+    function _qrCatChips() {
+      return '<div class="choices">' + (window.catOrder || []).map(function (c) {
+        var emo = (window.catStyle && window.catStyle[c] && window.catStyle[c][0]) || '';
+        return '<button class="choice' + (c === QR.cat ? ' on' : '') + '" onclick="fhQrAct(\'cat-pick\',this.dataset.c)" data-c="' + _esc2(c) + '">' + _esc2((emo ? emo + ' ' : '') + c) + '</button>';
+      }).join('') + '</div>';
+    }
+    function _qrDestChips() {
+      var locked = _qrFamilyLocked();
+      return '<div class="choices">' +
+        '<button class="choice' + (QR.dest === 'personal' ? ' on' : '') + '" onclick="fhQrAct(\'dest-pick\',\'personal\')">' + L('🔒 Cá nhân', '🔒 Personal') + '</button>' +
+        '<button class="choice' + (QR.dest === 'family' ? ' on' : '') + (locked ? ' qr-off' : '') + '" onclick="fhQrAct(\'dest-pick\',\'family\')">' + L('🏡 Gia đình', '🏡 Family') + '</button>' +
+        '</div>' +
+        (locked ? '<div class="qr-inline-note">' + L('Sổ gia đình đang khoá.', 'The family ledger is locked.') + '</div>' : '');
+    }
+    function _qrAcctChips() {
+      var pd = (window.fhPersonalData && fhPersonalData()) || { accounts: [] };
+      var chips = '<button class="choice' + (!QR.acctId ? ' on' : '') + '" onclick="fhQrAct(\'acct-pick\',\'\')">' + _esc2(L('Tự động', 'Auto') + ' · ' + _qrInstrLabel()) + '</button>';
+      chips += (pd.accounts || []).map(function (a) {
+        return '<button class="choice' + (QR.acctId === a.id ? ' on' : '') + '" onclick="fhQrAct(\'acct-pick\',this.dataset.id)" data-id="' + _esc2(a.id) + '">' + _esc2(_qrKindEmoji(a.kind) + ' ' + a.name) + '</button>';
+      }).join('');
+      return '<div class="choices">' + chips + '</div>';
+    }
+    /* One accordion picker row — the app's .field.ex-arow, collapsed by default
+       (label left, value right, chevron), tapping the label expands its body
+       inline. Single-open via QR.edit. labelHtml may carry markup (the "· tuỳ
+       chọn" hint); valText is escaped by the caller. */
+    function _qrArow(key, labelHtml, valText, bodyHtml) {
+      var open = QR.edit === key;
+      return '<div class="field ex-arow' + (open ? ' open' : '') + '">' +
+        '<label onclick="fhQrAct(\'edit\',\'' + key + '\')">' + labelHtml + '<span class="ex-arow-val">' + valText + '</span></label>' +
+        bodyHtml + '</div>';
+    }
     function _qrRender() {
       if (!QR) return;
       if (QR.state === 'photo') return _qrRenderPhoto();
-      var sign = QR.flow === 'income' ? '+' : '−';
-      var editor = '';
-      if (QR.edit === 'amt') {
-        editor = '<div class="qr-editor"><input id="qr-in-amt" inputmode="numeric" value="' + _esc2(Number(QR.amount).toLocaleString('vi-VN')) + '">' +
-          '<button class="qr-ed-ok" onclick="fhQrAct(\'amt-ok\')">' + L('Xong', 'Done') + '</button></div>';
-      } else if (QR.edit === 'date') {
-        editor = '<div class="qr-editor"><input id="qr-in-date" type="date" value="' + _esc2(QR.dateIso) + '">' +
-          '<button class="qr-ed-ok" onclick="fhQrAct(\'date-ok\')">' + L('Xong', 'Done') + '</button></div>';
-      } else if (QR.edit === 'cat') {
-        var chips = (window.catOrder || []).map(function (c) {
-          var emo = (window.catStyle && window.catStyle[c] && window.catStyle[c][0]) || '';
-          return '<button class="qr-chip' + (c === QR.cat ? ' on' : '') + '" onclick="fhQrAct(\'cat-pick\',this.dataset.c)" data-c="' + _esc2(c) + '">' + _esc2((emo ? emo + ' ' : '') + c) + '</button>';
-        }).join('');
-        editor = '<div class="qr-chips">' + chips + '</div>';
-      } else if (QR.edit === 'dest') {
-        var locked = _qrFamilyLocked();
-        editor = '<div class="qr-chips">' +
-          '<button class="qr-chip' + (QR.dest === 'personal' ? ' on' : '') + '" onclick="fhQrAct(\'dest-pick\',\'personal\')">' + L('🔒 Cá nhân', '🔒 Personal') + '</button>' +
-          '<button class="qr-chip' + (QR.dest === 'family' ? ' on' : '') + (locked ? ' qr-chip-off' : '') + '" onclick="fhQrAct(\'dest-pick\',\'family\')">' + L('🏡 Gia đình', '🏡 Family') + '</button>' +
-          '</div>' +
-          (locked ? '<div class="qr-dim" style="font-size:12.5px;padding:2px 2px 0">' + L('Sổ gia đình đang khoá.', 'The family ledger is locked.') + '</div>' : '');
-      }
-      var ctaLabel = QR.flow === 'income' ? L('Duyệt thu nhập', 'Approve income')
+      var income = QR.flow === 'income';
+      var amtStr = Number(QR.amount).toLocaleString('vi-VN');
+      var noteVal = _esc2(QR.desc || '');   // esc() HTML-escapes quotes for the value="" attribute
+      var noteLbl = income ? L('Tiền gì vậy?', 'What money is this?') : L('Chi cho gì', 'What for?');
+      var notePh = income ? L('vd. Lương', 'e.g. Salary') : L('vd. Đi chợ', 'e.g. Groceries');
+      var ctaLabel = income ? L('Duyệt thu nhập', 'Approve income')
         : (QR.cat ? L('Duyệt · ', 'Approve · ') + _esc2(QR.cat) : L('Duyệt', 'Approve'));
       var others = Math.max(0, (QR.queue || 1) - 1);
+
+      // Text fields: label above + input box (Số tiền, Chi cho gì) — exactly the
+      // expense sheet's .field. Amount reads green for income (.inc-amt).
+      var fields = '<div class="field"><label>' + L('Số tiền', 'Amount') + '</label>' +
+        '<input id="qr-amt-in" class="big num' + (income ? ' inc-amt' : '') + '" inputmode="numeric" autocomplete="off" value="' + _esc2(amtStr) + '" oninput="fhQrAct(\'amt-live\',this.value)"></div>' +
+        '<div class="field"><label>' + noteLbl + '</label>' +
+        '<input id="qr-note-in" value="' + noteVal + '" placeholder="' + notePh + '" oninput="fhQrAct(\'note-live\',this.value)"></div>' +
+        _qrArow('dest', L('Ghi vào đâu?', 'Where to?'), _esc2(_qrDestVal()), _qrDestChips());
+      if (!income) {
+        fields += _qrArow('acct', L('Trả bằng gì?', 'Paid with?') + ' <span class="opt">' + L('· tuỳ chọn', '· optional') + '</span>', _esc2(_qrAcctVal()), _qrAcctChips());
+        fields += _qrArow('cat', L('Danh mục', 'Category'), _esc2(_qrCatCell()), _qrCatChips());
+      }
+      fields += _qrArow('date', L('Khi nào', 'When'), _esc2(_qrDateLabel()),
+        '<input id="qr-in-date" type="date" value="' + _esc2(QR.dateIso) + '" onchange="fhQrAct(\'date-ok\')">');
+
       _qrShow(
         '<div class="qr">' +
-          '<div class="qr-src"><span class="qr-eyebrow">' + _esc2(_qrSrcLabel()) + '</span><span class="qr-when">' + _esc2(_qrDateLabel()) + '</span></div>' +
-          '<div class="qr-note">' + (QR.desc ? _esc2(QR.desc) : '<span class="qr-dim">' + L('Chưa có mô tả', 'No description yet') + '</span>') + '</div>' +
-          '<div class="qr-rows">' +
-            '<div class="qr-row" onclick="fhQrAct(\'edit\',\'amt\')"><small>' + L('Số tiền', 'Amount') + '</small><div class="qr-val"><b class="num">' + sign + _esc2(_qrFmt(QR.amount)) + '</b><span class="qr-chev">›</span></div></div>' +
-            (QR.flow === 'income'
-              ? '<div class="qr-row qr-ro"><small>' + L('Loại', 'Type') + '</small><div class="qr-val"><b>' + _qrCatCell() + '</b></div></div>'
-              : '<div class="qr-row qr-hot" onclick="fhQrAct(\'edit\',\'cat\')"><small>' + L('Danh mục', 'Category') + '</small><div class="qr-val"><b>' + _esc2(_qrCatCell()) + '</b><span class="qr-chev">›</span></div></div>') +
-            '<div class="qr-row" onclick="fhQrAct(\'edit\',\'date\')"><small>' + L('Ngày', 'Date') + '</small><div class="qr-val"><b>' + _esc2(_qrDateLabel()) + '</b><span class="qr-chev">›</span></div></div>' +
-            /* Destination ledger — defaults to the staged (personal) scope but
-               is tappable: a captured row can be redirected to the family book.
-               The seal only governs who can READ the queued row; once it is
-               decrypted on this device the plaintext writes to whichever ledger
-               is chosen (the family write re-encrypts under the family DEK). */
-            '<div class="qr-row qr-dest" onclick="fhQrAct(\'edit\',\'dest\')"><small>' + L('Ghi vào sổ', 'Logs to') + '</small><div class="qr-val"><b>' + (QR.dest === 'family' ? L('🏡 Gia đình · cả nhà thấy', '🏡 Family · shared') : L('🔒 Cá nhân · riêng tư', '🔒 Personal · private')) + '</b><span class="qr-chev">›</span></div></div>' +
-          '</div>' +
-          editor +
+          '<div class="qr-src"><span class="qr-eyebrow">' + _esc2(_qrSrcLabel()) + '</span></div>' +
+          '<div class="qr-form">' + fields + '</div>' +
           '<button class="qr-cta" id="qr-go" onclick="fhQrAct(\'approve\')">' + ctaLabel + '</button>' +
           '<div class="qr-actrow">' +
             '<button class="qr-ghost" onclick="fhQrAct(\'later\')">' + L('Để lúc khác', 'Later') + '</button>' +
@@ -30919,12 +30962,17 @@ window.classifyAmount = classifyAmount;
         } else {
           var base = Number(QR.amount || 0) / (typeof curMult === 'function' ? curMult() : 1000);
           if (!(base > 0)) throw new Error('bad amount');
+          // "Trả bằng gì?": an explicit pick wins; otherwise auto-resolve the
+          // bank instrument (creating the account if needed), as before.
           var ai = _qrAcct(QR.re);
-          var acctId = null;
-          if (ai && window.fhPersonalAccountEnsure) { try { acctId = await window.fhPersonalAccountEnsure(ai); } catch (e) {} }
+          var autoIsCard = !!(ai && ai.kind === 'credit_card');
+          var acctId = QR.acctId || null;
+          if (!acctId && ai && window.fhPersonalAccountEnsure) { try { acctId = await window.fhPersonalAccountEnsure(ai); } catch (e) {} }
           if (QR.flow === 'income') {
+            // income never lands on a credit card; keep the auto card-exclusion,
+            // but honour an explicit account pick.
             ok = await window.fhPersonalAddIncome(base, QR.desc || '', QR.dateIso, src,
-              { catName: 'Khác', catEmoji: '💰', accountId: (ai && ai.kind !== 'credit_card') ? acctId : null, time: QR.time });
+              { catName: 'Khác', catEmoji: '💰', accountId: QR.acctId ? QR.acctId : (autoIsCard ? null : acctId), time: QR.time });
           } else {
             var emoji = (window.catStyle && window.catStyle[QR.cat] && window.catStyle[QR.cat][0]) || '🗂️';
             ok = await window.fhPersonalAddExpense(base, QR.desc || '', QR.cat || null, emoji, QR.dateIso, QR.time, src, { accountId: acctId });
@@ -30996,12 +31044,14 @@ window.classifyAmount = classifyAmount;
     window.fhQrAct = function (a, v) {
       if (!QR) return;
       if (a === 'edit') { QR.edit = (QR.edit === v) ? null : v; _qrRender(); return; }
-      if (a === 'amt-ok') {
-        var el = document.getElementById('qr-in-amt');
-        var n = el && typeof parseAmt === 'function' ? parseAmt(el.value) : 0;
-        if (n > 0) QR.amount = n;
-        QR.edit = null; _qrRender(); return;
+      if (a === 'amt-live') {
+        // Live update from the amount input; never re-render, or it loses focus.
+        var n = (typeof parseAmt === 'function') ? parseAmt(v) : (parseInt(String(v || '').replace(/\D/g, ''), 10) || 0);
+        if (n >= 0) QR.amount = n;
+        return;
       }
+      if (a === 'note-live') { QR.desc = String(v == null ? '' : v); return; }   // live, no re-render
+      if (a === 'acct-pick') { QR.acctId = v || null; QR.edit = null; _qrRender(); return; }
       if (a === 'date-ok') {
         var d = document.getElementById('qr-in-date');
         if (d && /^\d{4}-\d{2}-\d{2}$/.test(d.value)) { QR.dateIso = d.value; QR.time = undefined; }
