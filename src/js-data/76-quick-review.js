@@ -40,6 +40,15 @@
            queue and its badge. */
     var _qrSessionSkip = {};
 
+    /* Live in-modal camera (photo step). The MediaStream MUST be stopped on
+       every exit — capture, library, "Để sau", _qrClose, and any sheet
+       dismissal (drag/scrim), which the observer below catches — or the camera
+       light stays on after the sheet is gone.
+       _qrCamPending holds the getUserMedia promise pre-acquired inside the
+       Duyệt tap (iOS keeps the camera gesture only if getUserMedia is called
+       within it, before the awaited write); _qrStopCam releases it too. */
+    var _qrCamStream = null, _qrCamObs = null, _qrCamPending = null;
+
     /* ---- persistent seen marker: written only on an explicit "Bỏ qua" ------
        Same shape as 72's fh-staged-retired ledger: per-user key, pruned against
        the server's answer so it cannot grow without bound. (A deferred row is
@@ -383,11 +392,17 @@
         '<div class="qr qr-photo">' +
           '<div class="qr-done"><span class="qr-ck">✓</span>' + _esc2(L('Đã vào sổ', 'Saved') + ' · ' + _qrFmt(QR.amount) + (QR.cat ? ' ' + QR.cat : '')) + '</div>' +
           '<div class="qr-ph-h">' + L('Giữ lại khoảnh khắc này?', 'Keep this moment?') + '</div>' +
-          '<div class="qr-ph-sub">' + L('Một tấm ảnh làm khoản chi này dễ nhớ hơn nhiều, sau này lướt sổ lại thấy vui.', 'A photo makes this one easier to remember, and nicer to scroll past later.') + '</div>' +
-          '<div class="qr-snap"><div class="qr-snap-in">' + L('Ảnh của khoảnh khắc này', 'A photo of this moment') + '</div></div>' +
-          '<button class="qr-cta" onclick="fhQrAct(\'cam\')">' +
+          '<div class="qr-ph-sub">' + L('Chụp ngay tại đây — một tấm ảnh làm khoản chi này dễ nhớ hơn nhiều.', 'Snap it right here — a photo makes this one much easier to remember.') + '</div>' +
+          // Live camera preview inside the sheet; the shutter grabs the frame.
+          '<div class="qr-cam-wrap" id="qr-cam-wrap">' +
+            '<video id="qr-cam" autoplay playsinline muted webkit-playsinline></video>' +
+            '<div class="qr-cam-hint" id="qr-cam-hint">' + L('Đang mở máy ảnh…', 'Opening the camera…') + '</div>' +
+          '</div>' +
+          '<button class="qr-shutter" id="qr-shutter" onclick="fhQrAct(\'capture\')" disabled aria-label="' + L('Chụp', 'Capture') + '"><span></span></button>' +
+          // Fallback (iOS gesture / permission blocked): the system camera app.
+          '<button class="qr-cta qr-cam-fallback" id="qr-cam-fallback" style="display:none" onclick="fhQrAct(\'cam\')">' +
             '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M8.5 7 10 4.5h4L15.5 7"/><circle cx="12" cy="13.5" r="3.5"/></svg>' +
-            L('Chụp ảnh', 'Take a photo') + '</button>' +
+            L('Chụp bằng máy ảnh', 'Use the camera app') + '</button>' +
           '<div class="qr-ph-row">' +
             '<button class="qr-ghost" onclick="fhQrAct(\'lib\')">' + L('Chọn từ thư viện', 'From library') + '</button>' +
             '<button class="qr-skip qr-skip-inline" onclick="fhQrAct(\'later\')">' + L('Để sau', 'Later') + '</button>' +
@@ -443,6 +458,12 @@
       QR.busy = true;
       var btn = document.getElementById('qr-go');
       if (btn) { btn.disabled = true; btn.textContent = L('Đang lưu…', 'Saving…'); }
+      /* Pre-acquire the camera NOW, still inside the tap gesture, when this row
+         will reach the photo step (personal expense over 30k). iOS loses the
+         camera gesture across the awaited write below, so asking afterwards
+         fails; asking here keeps it. Released by _qrStopCam on every path that
+         does not open the photo step (write failure, no id, or a close). */
+      if (QR.dest !== 'family' && QR.flow !== 'income' && Number(QR.amount) > 30000) _qrCamPreacquire();
       try {
         var src = QR.re._transport === 'oauth_direct' ? 'direct-email' : 'forwarding-email';   // 0100 provenance
         var toFamily = QR.dest === 'family';
@@ -496,12 +517,13 @@
            screen. So a family import ends here; submitBulk already toasted. */
         QR.txnId = (!toFamily && typeof ok === 'string') ? ok : null;
         if (!toFamily && QR.flow !== 'income' && QR.amount > 30000 && QR.txnId) {
-          QR.state = 'photo'; QR.busy = false; _qrRender(); return;
+          QR.state = 'photo'; QR.busy = false; _qrRender(); _qrStartCam(); return;
         }
         if (!toFamily) window.toast && window.toast(L('Đã lưu vào sổ Cá nhân', 'Saved to your personal ledger'));
         _qrClose();
       } catch (e) {
         console.warn('quick review approve failed', e);
+        _qrStopCam();   // the write failed → release the camera pre-acquired in the tap
         window.toast && window.toast(L('Chưa lưu được', 'Could not save'));
         QR.busy = false;
         if (btn) { btn.disabled = false; }
@@ -519,6 +541,99 @@
         r.readAsDataURL(f);
       });
     }
+    /* ---- live camera ------------------------------------------------------ */
+    function _qrStopCam() {
+      try { if (_qrCamStream) _qrCamStream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} }); } catch (e) {}
+      _qrCamStream = null;
+      // Release a still-in-flight pre-acquire too: stop its stream once it
+      // resolves (and swallow a rejection) so a camera opened in the tap can't
+      // outlive a sheet that closed before the photo step showed.
+      var p = _qrCamPending; _qrCamPending = null;
+      if (p) p.then(function (s) { try { s.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} }, function () {});
+      var v = document.getElementById('qr-cam'); if (v) { try { v.srcObject = null; } catch (e) {} }
+      try { if (_qrCamObs) { _qrCamObs.disconnect(); _qrCamObs = null; } } catch (e) {}
+    }
+    /* iOS keeps the camera gesture only if getUserMedia is CALLED synchronously
+       inside the tap — the permission/gesture is checked at call time, not when
+       the promise resolves. So the Duyệt handler kicks this off before its
+       awaited write; _qrStartCam then just awaits the result. */
+    function _qrCamPreacquire() {
+      if (_qrCamPending || _qrCamStream) return;
+      if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return;
+      try {
+        _qrCamPending = navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+        _qrCamPending.catch(function () {});   // keep an early rejection from going unhandled
+      } catch (e) { _qrCamPending = null; }
+    }
+    /* Stop the stream the moment the sheet leaves the screen by ANY path — a
+       drag-dismiss or scrim tap goes through _closeOv, never our buttons. */
+    function _qrCamWatch() {
+      try {
+        var sheet = document.getElementById('fh-sheet');
+        if (!sheet || typeof MutationObserver === 'undefined') return;
+        _qrCamObs = new MutationObserver(function () { if (!sheet.classList.contains('on')) _qrStopCam(); });
+        _qrCamObs.observe(sheet, { attributes: true, attributeFilter: ['class'] });
+      } catch (e) {}
+    }
+    function _qrCamFail(reason) {
+      _qrStopCam();
+      var wrap = document.getElementById('qr-cam-wrap'); if (wrap) wrap.classList.add('failed');
+      var hint = document.getElementById('qr-cam-hint');
+      if (hint) { hint.style.display = ''; hint.textContent = reason === 'denied'
+        ? L('Chưa được phép dùng máy ảnh trong app', 'Camera access is blocked in the app')
+        : L('Máy ảnh không khả dụng ở đây', 'Camera is not available here'); }
+      var sh = document.getElementById('qr-shutter'); if (sh) sh.style.display = 'none';
+      var fb = document.getElementById('qr-cam-fallback'); if (fb) fb.style.display = '';   // system-camera fallback
+    }
+    /* Attach the camera when the photo step appears — awaiting the stream the
+       Duyệt tap pre-acquired (the iOS-safe path); if there was none (re-entry,
+       or the pre-acquire was skipped) it falls back to a fresh getUserMedia,
+       which still works on Android/desktop and degrades to the system-camera
+       button on iOS. */
+    async function _qrStartCam() {
+      var video = document.getElementById('qr-cam');
+      if (!video) return;
+      var pending = _qrCamPending; _qrCamPending = null;
+      if (!pending && !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { _qrCamFail('unsupported'); return; }
+      try {
+        var stream = pending
+          ? await pending
+          : await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+        if (!QR || QR.state !== 'photo') {   // sheet closed while permission was pending
+          try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+          return;
+        }
+        _qrCamStream = stream;
+        video.srcObject = stream;
+        video.onloadedmetadata = function () { try { video.play(); } catch (e) {} };
+        video.onplaying = function () {
+          var sh = document.getElementById('qr-shutter'); if (sh) sh.disabled = false;
+          var wrap = document.getElementById('qr-cam-wrap'); if (wrap) wrap.classList.add('live');
+        };
+        _qrCamWatch();
+      } catch (e) {
+        _qrCamFail(e && (e.name === 'NotAllowedError' || e.name === 'SecurityError') ? 'denied' : 'error');
+      }
+    }
+    /* Grab the current frame → a JPEG data URI → the existing upload path (which
+       compresses again). The long edge is capped so a 4K sensor frame isn't
+       shuttled around at full size. Canvas output carries no EXIF. */
+    function _qrCapture() {
+      var video = document.getElementById('qr-cam');
+      if (!video || !video.videoWidth) return;
+      try {
+        var w = video.videoWidth, h = video.videoHeight;
+        var scale = Math.min(1, 1600 / Math.max(w, h));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.round(w * scale); canvas.height = Math.round(h * scale);
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        var uri = canvas.toDataURL('image/jpeg', 0.9);
+        _qrStopCam();
+        _qrPhotos([uri]);
+      } catch (e) {
+        window.toast && window.toast(L('Chưa chụp được, thử lại', 'Could not capture, try again'));
+      }
+    }
     async function _qrPhotos(uris) {
       if (!QR || !QR.txnId || !uris.length) return _qrClose();
       window.toast && window.toast(L('Đang lưu ảnh…', 'Saving photo…'));
@@ -534,6 +649,7 @@
       _qrClose();
     }
     function _qrClose() {
+      _qrStopCam();
       QR = null;
       window._closeOv && window._closeOv();
     }
@@ -563,9 +679,9 @@
       if (a === 'later') { _qrClose(); return; }             // session-suppressed only → eligible again next app open
       if (a === 'dismiss') { _qrSeenAdd(QR.row.id); _qrClose(); return; }   // persistent → won't auto-pop again (stays in the full queue)
       if (a === 'all') { _qrClose(); window.fhTxnReviewSheet && window.fhTxnReviewSheet(); return; }
-      if (a === 'cam') { var c = document.getElementById('qr-file-cam'); c && c.click(); return; }
-      if (a === 'lib') { var l = document.getElementById('qr-file-lib'); l && l.click(); return; }
-      if (a === 'later') { window.toast && window.toast(L('Đã lưu vào sổ Cá nhân', 'Saved to your personal ledger')); _qrClose(); return; }
-      if (a === 'files') { _qrFilesToDataUris(v, function (uris) { _qrPhotos(uris); }); return; }
+      if (a === 'capture') { _qrCapture(); return; }
+      if (a === 'cam') { _qrStopCam(); var c = document.getElementById('qr-file-cam'); c && c.click(); return; }
+      if (a === 'lib') { _qrStopCam(); var l = document.getElementById('qr-file-lib'); l && l.click(); return; }
+      if (a === 'files') { _qrStopCam(); _qrFilesToDataUris(v, function (uris) { _qrPhotos(uris); }); return; }
     };
   })();
