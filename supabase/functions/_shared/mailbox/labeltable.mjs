@@ -55,9 +55,22 @@ const LABELS = [
      amount cell bare and state the currency here instead — without this row
      a USD notice whose amount cell prints no token reads as VND. */
   { field: 'currency_row', any: ['loai tien te', 'loai tien', 'don vi tien te'] },
-  { field: 'occurred_at',  any: ['ngay, gio giao dich', 'ngay gio giao dich', 'trans. date', 'date, time', 'thoi gian giao dich'] },
+  /* 'ngay giao dich' is VIB's date label, and its plainness is why it was
+     missed: every other entry here carries a "giờ" or a comma, so VIB's form
+     matched nothing and its mail could never satisfy the amount+instant+
+     counterpart gate below — it went to the model every single time, 801
+     recorded misses from one sender. Contains-matching keeps this additive:
+     "ngay, gio giao dich" does not contain "ngay giao dich". */
+  { field: 'occurred_at',  any: ['ngay, gio giao dich', 'ngay gio giao dich', 'ngay giao dich', 'trans. date', 'date, time', 'thoi gian giao dich'] },
   { field: 'merchant',     any: ['diem giao dich', 'su dung tai', 'merchant'] },
-  { field: 'beneficiary',  any: ['ten nguoi huong', 'nguoi thu huong', 'beneficiary name'] },
+  /* 'den tai khoan' is a JUDGEMENT, not a synonym. On a VIB transfer notice the
+     destination-account row is where the counterparty's NAME is printed, so it
+     answers "who", which is what this field means. It sits here rather than in
+     `account` below deliberately — first field wins, and reading it as an
+     account would drop the counterparty from the row entirely. If a bank ever
+     prints a bare number there, counterparty becomes a number: visible in
+     review and correctable, never silent. */
+  { field: 'beneficiary',  any: ['ten nguoi huong', 'nguoi thu huong', 'den tai khoan', 'beneficiary name'] },
   { field: 'remitter',     any: ['ten nguoi chuyen', "remitter's name", 'remitter'] },
   { field: 'memo',         any: ['noi dung chuyen tien', 'noi dung', 'details of payment'] },
   { field: 'account',      any: ['tai khoan trich no', 'tai khoan nguon', 'so tai khoan', 'debit account', 'tk cham'] },
@@ -350,7 +363,69 @@ export function statusReadsFailed(body) {
  *  boilerplate ("Số tiền khuyến mãi", "Mã đơn hàng"); the VALUES never leave.
  *  Pipe rows give labels directly; in line form a label is guessed by shape —
  *  short, no digit runs, sitting right above a line that has digits. */
-export function unknownLabels(body) {
+/* Boilerplate that is never a field label, matched on the stripped form as a
+   prefix. "Kính gửi CAO THÁI DUY HIỂN" is the one that mattered: a salutation
+   carrying the account holder's own name passed every shape test there was. */
+const _MISS_DENY = ['kinh gui', 'theo doi', 'website', 'email', 'dia chi',
+                    'hotline', 'tong dai', 'tran trong', 'ngan hang quoc te'];
+
+/* Is this candidate actually a VALUE wearing a label's shape?
+ *
+ * WHY THIS EXISTS. Until 2026-09-03 this file recorded 1,627 rows of which 500
+ * distinct entries were amount-shaped and 318 were names or merchants — a named
+ * individual and their spending, in a plaintext table, under a comment claiming
+ * "no values, no amounts, nothing personal". The old test asked whether a line
+ * LOOKED like a label; in line form a formatted amount does, because `500,000`
+ * never presents four consecutive digits to /\d{4,}/.
+ *
+ * Four rules, each aimed at a family of the real leaked entries:
+ *   digits/currency  — every amount, date, reference and account number
+ *   extracted values — memos and counterparties, subtracted using the answer we
+ *                      are already holding rather than guessed at
+ *   caps runs        — proper nouns: "CAO THÁI DUY HIỂN", "MPOS*WAYNESCOFFEE",
+ *                      "TLJ CRESCENT MALL". One short run survives on purpose,
+ *                      so "Phí (bao gồm VAT)" is still learnable.
+ *   deny prefixes    — salutations and footers, which are neither.
+ *
+ * KNOWN GAP, deliberately left: a fused "Tại Shopee" survives when the merchant
+ * was not the extracted counterparty. It is a merchant rather than a person,
+ * it is the coverage signal we are here for, and the DB CHECK in 0115 is the
+ * backstop for the categories that actually matter. */
+function _isValueShaped(raw, values) {
+  const t = String(raw || '').trim();
+  if (!t || t.length < 3) return true;              // no field label is one glyph
+  if (/[0-9]/.test(t)) return true;
+  if (/(₫|\bVND\b|\bđ\b|\$)/i.test(t)) return true;
+  // a host, a URL or an address is a footer value, never a label
+  if (/@|:\/\/|\.[a-z]{2,}/i.test(t)) return true;
+
+  const stripped = _strip(t);
+  for (const d of _MISS_DENY) if (stripped.startsWith(d)) return true;
+  for (const v of values) {
+    if (!v) continue;
+    if (stripped === v || stripped.includes(v)) return true;
+  }
+
+  const caps = t.split(/\s+/).filter((w) => {
+    const letters = w.replace(/[^\p{L}]/gu, '');
+    return letters.length >= 2 && letters === letters.toUpperCase();
+  });
+  if (caps.length >= 2) return true;
+  if (caps.some((w) => w.replace(/[^\p{L}]/gu, '').length >= 6)) return true;
+
+  return false;
+}
+
+/* `reading` is the model's own answer for this mail. It is optional only so a
+   caller with nothing to subtract still gets the shape rules; production always
+   passes it, because subtracting real values is the half that catches a memo. */
+export function unknownLabels(body, reading) {
+  const values = [];
+  for (const v of Object.values(reading || {})) {
+    if (v == null || typeof v === 'boolean') continue;
+    const sv = _strip(String(v));
+    if (sv.length >= 3) values.push(sv);
+  }
   const out = new Set();
   const lines = String(body || '').split('\n').map((l) => l.trim());
 
@@ -385,7 +460,7 @@ export function unknownLabels(body) {
     // A label is followed by a VALUE, not by another label and not by nothing.
     if (next && !_lookup(next)) out.add(line);
   }
-  return [...out].slice(0, 24);
+  return [...out].filter((l) => !_isValueShaped(l, values)).slice(0, 24);
 }
 
 /**

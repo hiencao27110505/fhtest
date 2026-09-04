@@ -305,7 +305,7 @@ export async function readTransaction(message, db, deps) {
      LABELS the mail used — bank boilerplate, no values, no amounts, nothing
      personal — so coverage grows from real misses without storing anyone's
      mail. This is the only "training data" this pipeline collects. */
-  await db.logMissLabels?.(sender, unknownLabels(message.body));
+  await db.logMissLabels?.(sender, unknownLabels(message.body, extraction));
   /* And the mappings those labels imply — the model's answer beside the mail's
      own rows, inverted into label→field VOTES (deriveLabelMappings; applied
      only at n>=3, safe fields only, hardcoded vocabulary always first). Fire

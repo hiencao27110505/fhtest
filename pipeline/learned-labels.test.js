@@ -91,14 +91,30 @@ const learned = new Map([['ngay giao dich', 'memo'],        // hostile: tries to
    mappings for memo + beneficiary, `who` and the gate change. */
 const before = LT.readLabelTable('x', VIB);
 t('without learning, VIB still returns null (date label unknown)', before === null);
-/* AND WITH LEARNING TOO — this is the design, not a gap in the test. The gate
-   needs a timestamp, VIB's date label ("Ngày giao dịch") is missing from the
-   vocabulary, and occurred_at is on the BANNED list: a heuristic must never
-   decide what a date label is. So learning alone cannot open VIB; that last
-   word is a deliberate HAND-AUTHORED vocabulary addition, scoped separately.
-   Pinned so nobody reads Plan 2 as "VIB is now free" — it is one word short. */
-t('and learning CANNOT open it either — the date label is hand-add only',
-  LT.readLabelTable('x', VIB, learned) === null);
+/* THE HAND-ADD LANDED (2026-09-03), so this now asserts the opposite of what it
+   used to. Until today the gate had no timestamp: VIB's date label ("Ngày giao
+   dịch") was absent from the vocabulary, and occurred_at is on the BANNED list
+   because a heuristic must never decide what a date label is. That last word
+   was always going to be a deliberate HAND-AUTHORED addition, and it now is
+   ('ngay giao dich' → occurred_at), so vocabulary + learning together open this
+   shape.
+
+   WHAT IT READS, AND WHERE IT STILL DIVERGES. Amount, instant, counterparty and
+   memo all come back equal to the model's own answer on this mail. The type
+   does not: `isTransfer` is true whenever a beneficiary was found, so a credit
+   card bill payment reads p2p_transfer where the model said bank_txn. That is
+   wrong but VISIBLE — it reaches a human in review, and nothing downstream
+   spends money on it. Pinned rather than fixed here because the fix belongs to
+   the type heuristic, not to a vocabulary entry, and a silent divergence
+   between the two tiers reading one mail is exactly what this file exists to
+   catch. */
+t('with the date hand-added, learned mappings DO open this shape',
+  LT.readLabelTable('x', VIB, learned) !== null);
+t('  counterparty matches the model exactly, not a degraded guess',
+  LT.readLabelTable('x', VIB, learned).counterparty === READING.counterparty);
+t('  KNOWN DIVERGENCE: a card bill reads p2p_transfer, model said bank_txn',
+  LT.readLabelTable('x', VIB, learned).transaction_type === 'p2p_transfer' &&
+  READING.transaction_type === 'bank_txn');
 
 /* Swap in the known date label and the learned mappings carry the rest. */
 const VIB_KNOWN_DATE = VIB.replace('Ngày giao dịch', 'Thời gian giao dịch');
