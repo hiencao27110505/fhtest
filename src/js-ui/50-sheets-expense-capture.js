@@ -86,6 +86,9 @@ function openExpense(preset){
   // and edit layouts always start from everything visible; _applyExLayout below
   // re-hides for income/personal on a fresh open.
   ['ex-cat','ex-whofield','ex-photofield','bulk-add'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=''; });
+  // "+ Thêm khoản" adds another DRAFT row — meaningless while editing one logged
+  // transaction, and it read as broken in the settings-rows layout. Hide it.
+  if(editing){ var _ba0=document.getElementById('bulk-add'); if(_ba0) _ba0.style.display='none'; }
   var _tf0=document.getElementById('ex-timefield'); if(_tf0) _tf0.style.display='none';   // shown for any expense (add via _applyExLayout, edit via fill)
   var _ea=document.getElementById('ex-amt'); if(_ea) _ea.classList.remove('inc-amt');   // edit is always Chi; drop any leftover income tint
   var _nl=document.getElementById('ex-note-lbl'); if(_nl && editing) _nl.textContent=L('Chi cho gì','What for?');
@@ -119,8 +122,94 @@ function openExpense(preset){
     var want=(preset&&preset.scope) || (pReady ? (_lastScope()||'personal') : 'family');
     _applyExScope(want);
   }
+  // Edit an existing row → settings-rows accordion; create/bulk → normal chips.
+  exAccordionApply(!!editing);
 }
 function closeExpense(){ closeModals(); }
+
+/* ── Edit-mode accordion (option 2) ──────────────────────────────────────────
+   When EDITING an existing transaction, the expense modal collapses each field
+   into a compact settings-row (label + current value + chevron) that expands in
+   place to reveal the SAME chips/input — the rows language of the bulk-review
+   card, but reusing every existing control and the unchanged save path. Purely
+   presentational: it never reads or writes the transaction, so a bug here can
+   only mis-display, never mis-save. Inert in create/bulk mode (the class is only
+   set while editingTx || editingPTx), so those flows are untouched. */
+function _exArowVal(field){
+  var choices = field.querySelector('.choices');
+  if(choices){
+    var on = choices.querySelector('.choice.on');
+    return on ? on.textContent.trim() : L('Chưa chọn','Not set');
+  }
+  var inp = field.querySelector('input');
+  if(!inp) return '';
+  if(inp.type==='date'){
+    var v=inp.value; if(!v) return '—';
+    var p=v.split('-'); return p.length===3 ? (p[2]+'/'+p[1]+'/'+p[0]) : v;
+  }
+  if(inp.id==='ex-time') return inp.value || L('tuỳ chọn','optional');
+  return (inp.value||'').trim() || '—';   // amount
+}
+function exAccordionRefresh(){
+  var ed=document.getElementById('ex-editor');
+  if(!ed || !ed.classList.contains('ex-accordion')) return;
+  ed.querySelectorAll('.ex-arow').forEach(function(f){
+    var v=f.querySelector('.ex-arow-val'); if(v) v.textContent=_exArowVal(f);
+  });
+}
+function exArowToggle(field){
+  var ed=document.getElementById('ex-editor'); if(!ed) return;
+  var wasOpen=field.classList.contains('open');
+  ed.querySelectorAll('.ex-arow.open').forEach(function(f){ f.classList.remove('open'); });   // single-open keeps it compact
+  if(!wasOpen) field.classList.add('open');
+  exAccordionRefresh();
+}
+function _exAccordionWire(){
+  var ed=document.getElementById('ex-editor'); if(!ed || ed._exAccWired) return;
+  ed._exAccWired=true;
+  ed.addEventListener('click', function(e){
+    if(!ed.classList.contains('ex-accordion')) return;
+    // A tap on the row's own label toggles it (labels here have no `for`, so this
+    // never steals focus from an input).
+    var lbl=e.target.closest('.ex-arow > label');
+    if(lbl && lbl.parentNode.id!=='ex-amtfield'){ e.preventDefault(); exArowToggle(lbl.parentNode); return; }   // amount is a top input, not a toggle row
+    // Picking a chip inside an open row: let the existing handler run, then
+    // collapse the row and re-read its value (mirrors the bulk sheet closing).
+    var chip=e.target.closest('.ex-arow .choice');
+    if(chip){ var f=chip.closest('.ex-arow'); setTimeout(function(){ if(f) f.classList.remove('open'); exAccordionRefresh(); },0); }
+  });
+  ed.addEventListener('input', function(){ if(ed.classList.contains('ex-accordion')) exAccordionRefresh(); });
+}
+function exAccordionApply(on){
+  var ed=document.getElementById('ex-editor'); if(!ed) return;
+  var amt=document.getElementById('ex-amtfield');
+  var amtrow=document.getElementById('ex-amtrow');
+  var dateF=document.getElementById('ex-datefield');
+  if(!on){
+    ed.classList.remove('ex-accordion');
+    ed.querySelectorAll('.ex-arow.open').forEach(function(f){ f.classList.remove('open'); });
+    // Restore amount into the amount+date field-row so create keeps them side by
+    // side (relative to amtrow, so it works even while #ex-editor is mounted in a
+    // bulk card). Idempotent.
+    if(amt){ amt.classList.remove('ex-topinput'); if(amtrow && dateF && amt.parentNode!==amtrow) amtrow.insertBefore(amt, dateF); }
+    return;
+  }
+  var cl=document.getElementById('ex-cat-lbl'); if(cl) cl.textContent=L('Danh mục','Category');
+  // Amount leads as a top input field (like the description), not a collapsed row:
+  // pull it out of the field-row up to the top of the editor. .ex-topinput + the
+  // CSS below un-collapse it; it keeps .ex-arow so the class stays stable.
+  if(amt){ if(amt.parentNode!==ed) ed.insertBefore(amt, ed.firstChild); amt.classList.add('ex-topinput'); }
+  ed.querySelectorAll('.ex-arow').forEach(function(f){
+    var lbl=f.querySelector(':scope > label');
+    if(lbl && !lbl.querySelector('.ex-arow-val')){
+      var s=document.createElement('span'); s.className='ex-arow-val'; lbl.appendChild(s);
+    }
+    f.classList.remove('open');
+  });
+  ed.classList.add('ex-accordion');
+  _exAccordionWire();
+  exAccordionRefresh();
+}
 // Open the shared expense modal pre-scoped to the personal ledger (Cá nhân tab).
 function openPersonalExpense(){ openExpense({scope:'personal'}); }
 function _lastScope(){ try{ return localStorage.getItem('fh-last-scope'); }catch(e){ return null; } }

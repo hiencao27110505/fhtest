@@ -583,17 +583,23 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
       <button class="choice on" data-v="expense" onclick="pickExType(this)">↓ Chi</button>
       <button class="choice" data-v="income" onclick="pickExType(this)">↑ Thu</button>
     </div></div>
-    <div class="field" id="ex-scopefield"><label>Ghi vào đâu?</label><div class="choices" id="ex-scope">
+    <div class="field ex-arow" id="ex-scopefield"><label>Ghi vào đâu?</label><div class="choices" id="ex-scope">
       <button class="choice on" data-v="personal" onclick="pickExScope(this)">🔒 Cá nhân</button>
       <button class="choice" data-v="family" onclick="pickExScope(this)">🏡 Gia đình</button>
     </div></div>
     <!-- Instrument (0105): personal expenses only; chips built from personal_accounts.
          A credit-card pick is what feeds that card's derived balance (Nợ & cho vay). -->
-    <div class="field" id="ex-acctfield" style="display:none"><label>Trả bằng gì? <span class="opt">· tuỳ chọn</span></label><div class="choices" id="ex-acct"></div></div>
-    <div class="field">
+    <div class="field ex-arow" id="ex-acctfield" style="display:none"><label>Trả bằng gì? <span class="opt">· tuỳ chọn</span></label><div class="choices" id="ex-acct"></div></div>
+    <div class="field" id="ex-notefield">
       <label id="ex-note-lbl" data-t="exWhatFor">What for?</label>
       <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()" onblur="onExNoteBlur()"/>
-      <div class="choices" id="ex-cat" style="margin-top:10px">
+    </div>
+    <!-- Category split into its own field so edit-mode's accordion can collapse it
+         to a settings-row while the note above stays visible. In create mode the
+         label is hidden (CSS) so the chips read exactly as before. -->
+    <div class="field ex-arow" id="ex-catfield">
+      <label id="ex-cat-lbl"></label>
+      <div class="choices" id="ex-cat">
         <button class="choice on" data-v="Groceries" onclick="pickExCat(this)">🛒 Groceries</button>
         <button class="choice" data-v="Housing" onclick="pickExCat(this)">🏠 Housing</button>
         <button class="choice" data-v="Dining" onclick="pickExCat(this)">🍽️ Dining</button>
@@ -605,16 +611,16 @@ try{ if(localStorage.getItem('fh-resume')==='1'){
     </div>
 
     <div class="field-row" id="ex-amtrow">
-      <div class="field"><label data-t="amountLbl">Amount</label><input class="num" id="ex-amt" inputmode="numeric" placeholder="$0" oninput="onExInput()"/></div>
-      <div class="field"><label data-t="whenLbl">When</label><input type="date" id="ex-date" value="2026-07-13" min="2026-07-01" onchange="onExInput()" oninput="onExInput()"/></div>
+      <div class="field ex-arow" id="ex-amtfield"><label data-t="amountLbl">Amount</label><input class="num" id="ex-amt" inputmode="numeric" placeholder="$0" oninput="onExInput()"/></div>
+      <div class="field ex-arow" id="ex-datefield"><label data-t="whenLbl">When</label><input type="date" id="ex-date" value="2026-07-13" min="2026-07-01" onchange="onExInput()" oninput="onExInput()"/></div>
     </div>
 
     <!-- Optional time — per row, on any expense (personal or family). Stored as
          local HH:MM (encrypted); empty means only the day is known. Defaults to now
          for a same-day row, cleared when back-dated (see _syncExTime). -->
-    <div class="field" id="ex-timefield" style="display:none"><label>Giờ <span class="opt">· tuỳ chọn</span></label><input type="time" id="ex-time" oninput="onExTimeTouched()"/></div>
+    <div class="field ex-arow" id="ex-timefield" style="display:none"><label>Giờ <span class="opt">· tuỳ chọn</span></label><input type="time" id="ex-time" oninput="onExTimeTouched()"/></div>
 
-    <div class="field" id="ex-whofield"><label data-t="whoPaidLbl">Who paid</label><div class="choices" id="ex-who">
+    <div class="field ex-arow" id="ex-whofield"><label data-t="whoPaidLbl">Who paid</label><div class="choices" id="ex-who">
       <button class="choice on" data-v="Emma" onclick="pickExWho(this)">Emma</button>
       <button class="choice" data-v="James" onclick="pickExWho(this)">James</button>
       <button class="choice" data-v="Both" onclick="pickExWho(this)" data-t="whoBoth">Both</button>

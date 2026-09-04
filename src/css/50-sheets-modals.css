@@ -75,6 +75,51 @@
 .field input[type=date]{font-size:15px;font-weight:600;color:var(--ink);min-height:53px}
 .field input[type=date]::-webkit-calendar-picker-indicator{opacity:.45;cursor:pointer}
 .field input[type=date]:focus::-webkit-calendar-picker-indicator{opacity:.8}
+/* ── Edit-mode accordion (option 2) ──────────────────────────────────────────
+   Only active when #ex-editor carries .ex-accordion (edit an existing txn). Each
+   .ex-arow field collapses to a settings-row — label left, current value right,
+   chevron — matching the bulk-review card; tapping expands the real chips/input
+   in place. Create/bulk mode never sets the class, so everything below is inert
+   there and the chip form renders exactly as before. */
+#ex-editor:not(.ex-accordion) .ex-arow-val{display:none}
+#ex-editor:not(.ex-accordion) #ex-cat-lbl{display:none}   /* category had no label in create — keep it that way */
+#ex-editor:not(.ex-accordion) #ex-cat{margin-top:10px}    /* preserve the old note→chips gap */
+#ex-editor.ex-accordion #ex-amtrow{display:block}          /* stack amount + date as separate rows */
+#ex-editor.ex-accordion .ex-arow{margin-bottom:0;border-bottom:1px solid var(--divider)}
+#ex-editor.ex-accordion .ex-arow > label{display:flex;align-items:center;gap:10px;margin:0;padding:14px 2px;
+  cursor:pointer;text-transform:none;letter-spacing:-.01em;font-size:13px;font-weight:600;color:var(--muted)}
+#ex-editor.ex-accordion .ex-arow > label::after{content:"›";margin-left:2px;color:var(--chev);font-size:17px;
+  font-weight:700;transition:transform .2s cubic-bezier(.32,.72,0,1)}
+#ex-editor.ex-accordion .ex-arow.open > label::after{transform:rotate(90deg)}
+#ex-editor.ex-accordion .ex-arow-val{margin-left:auto;max-width:62%;font-size:14px;font-weight:650;
+  letter-spacing:-.01em;color:var(--ink);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ex-editor.ex-accordion .ex-arow.open .ex-arow-val{display:none}
+#ex-editor.ex-accordion .ex-arow > .opt{color:var(--muted-soft);font-weight:500}
+#ex-editor.ex-accordion .ex-arow:not(.open) > .choices,
+#ex-editor.ex-accordion .ex-arow:not(.open) > input{display:none}
+#ex-editor.ex-accordion .ex-arow > .choices{margin:2px 0 14px}
+#ex-editor.ex-accordion .ex-arow > input{margin:2px 0 14px}
+/* The description leads (like the bulk card): a full-width field at the top, then
+   the metadata rows. Note + photos are section blocks, not rows, so their labels
+   take the same quiet sentence-case voice as the rows — no uppercase shouting
+   between them — and the note input is trimmed to sit in the same rhythm. */
+#ex-editor.ex-accordion{display:flex;flex-direction:column}
+#ex-editor.ex-accordion #ex-notefield{order:-1;margin-bottom:8px}
+#ex-editor.ex-accordion #ex-notefield > label,
+#ex-editor.ex-accordion #ex-photofield > label{text-transform:none;letter-spacing:-.01em;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px}
+#ex-editor.ex-accordion #ex-note{font-size:15px;padding:13px 14px}
+#ex-editor.ex-accordion #ex-photofield{order:99;margin-top:16px}
+/* Amount leads as a top input field (above the description), not a collapsed row
+   — it's the number people most want to see and change. .ex-topinput un-collapses
+   it (id specificity beats the .ex-arow collapse rules above) and drops the row
+   chrome (chevron, value summary). */
+#ex-editor.ex-accordion #ex-amtfield.ex-topinput{order:-2;border-bottom:0;margin:0 0 8px}
+#ex-editor.ex-accordion #ex-amtfield.ex-topinput > label{display:block;margin:0 0 8px;padding:0;cursor:default;
+  text-transform:none;letter-spacing:-.01em;font-size:13px;font-weight:600;color:var(--muted)}
+#ex-editor.ex-accordion #ex-amtfield.ex-topinput > label::after{content:none}
+#ex-editor.ex-accordion #ex-amtfield.ex-topinput .ex-arow-val{display:none}
+#ex-editor.ex-accordion #ex-amtfield.ex-topinput > input{display:block;margin:0;font-size:15px;padding:13px 14px}
+
 .choices{display:flex;gap:8px;flex-wrap:wrap}
 .choice{padding:10px 15px;border-radius:9999px;background:var(--white);border:1.5px solid var(--hairline);font-size:15px;font-weight:500;letter-spacing:-.01em;color:var(--ink)}
 .choice.on{border-color:var(--brand);border-width:2px;padding:9px 14px;color:var(--brand);font-weight:700;background:var(--brand-tint)}

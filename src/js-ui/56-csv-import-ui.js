@@ -875,6 +875,22 @@ function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider,
   return '<span class="bulk-head"><span class="bulk-idx'+tone+'">'+esc(label)+'</span>' + meta + '</span>';
 }
 
+/* The datetime line on a collapsed card, now led by the weekday — "Thứ 5, 03/09"
+   — so a bank date reads as a day, not just a number. Year appended only when it
+   isn't the current one; time appended when known. Falls back to bulkDate if the
+   row has no parseable date. */
+var FH_WD_VI=['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+var FH_WD_EN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function csvWhenLine(c, opts){
+  var d = (c && c.date instanceof Date && !isNaN(c.date)) ? c.date
+        : (opts.dateIso ? new Date(opts.dateIso+'T00:00:00') : null);
+  if(!d || isNaN(d)) return opts.dateIso ? (bulkDate(opts.dateIso)+(opts.timeStr?' · '+opts.timeStr:'')) : '';
+  var wd = (typeof LANG!=='undefined' && LANG==='vi' ? FH_WD_VI : FH_WD_EN)[d.getDay()];
+  var s = wd + ', ' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+  if(typeof TODAY!=='undefined' && TODAY && d.getFullYear()!==TODAY.getFullYear()) s += '/' + d.getFullYear();
+  if(opts.timeStr) s += ' · ' + opts.timeStr;
+  return s;
+}
 function csvCollapsedCard(c, opts){
   var rm = opts.removeFn
     ? '<button type="button" class="bulk-x'+(opts.armed?' armed':'')+'" onclick="'+opts.removeFn+'"'
@@ -924,16 +940,22 @@ function csvCollapsedCard(c, opts){
     var memoHtml = note
       ? '<span class="scv-memo">'+esc(note)+'</span>'
       : '<span class="scv-memo scv-empty">'+L('(khoản trống)','(empty item)')+'</span>';
+    /* Top line: scope + money source (bank · instrument), one eyebrow in one
+       style — the fixed "where it lives / where it came from". */
     var prov = csvStagedProvider(c), acct = csvStagedAcctChip(c);
-    var whenTxt = opts.dateIso ? (bulkDate(opts.dateIso) + (opts.timeStr ? ' · '+opts.timeStr : '')) : '';
+    var topBits = [scope, prov, acct].filter(Boolean).map(function(x){ return esc(x); });
+    var topHtml = topBits.length ? '<span class="scv-scope">'+topBits.join('<span class="scv-sep">·</span>')+'</span>' : '';
+    /* Bottom line: the datetime (with weekday) then the import method, inline —
+       quiet provenance you rarely read. */
+    var whenTxt = csvWhenLine(c, opts);
     var tag = csvStagedSourceTag(c);
-    var provBits = [prov, acct, whenTxt, tag].filter(Boolean).map(function(x){ return esc(x); });
-    var provHtml = provBits.length ? '<span class="scv-prov">'+provBits.join('<span class="scv-sep">·</span>')+'</span>' : '';
+    var footBits = [whenTxt, tag].filter(Boolean).map(function(x){ return esc(x); });
+    var footHtml = footBits.length ? '<span class="scv-foot">'+footBits.join('<span class="scv-sep">·</span>')+'</span>' : '';
     return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
       + '<button type="button" class="bulk-tap scv-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
-      + (scope ? '<span class="scv-scope">'+esc(scope)+'</span>' : '')
+      + topHtml
       + '<span class="scv-money">'+amtHtml+catHtml+dupHtml+'</span>'
-      + memoHtml + provHtml
+      + memoHtml + footHtml
       + '</button>' + rm + '</div>';
   }
 
@@ -1084,7 +1106,18 @@ function csvStagedRowsCard(c, opts){
   var isIncomeNow = !!(c.isIncome && !c._xfer && !c._repay);
   var noCat = c.isTransfer || c._xfer || c._repay;
   var noteLbl = noCat ? L('Ghi chú','Note') : (isIncomeNow ? L('Tiền gì vậy?','What money is this?') : L('Chi cho gì?','What for?'));
-  var h = '<div class="field csv-notef"><label>'+noteLbl+'</label>'
+  /* Amount leads as a top input field — the number people most want to see and
+     change — above the description. csvReadEditor(#csvedit-amt) reads it back with
+     full FX handling (a typed ₫ figure resolves a no-rate foreign row). */
+  var _fx = csvFxInfo(c);
+  var fxUn = csvFxUnresolved(c);
+  var fxHint = fxUn
+    ? '<div class="csv-amt-hint warn">'+esc(L('Nhập số tiền ₫ để nhập khoản này','Enter the ₫ amount to import'))+'</div>'
+    : (_fx ? '<div class="csv-amt-hint">≈ '+esc(csvFxOrigStr(_fx))+(csvFxIsEstimate(c)?' '+esc(L('ước tính','est.')):'')+'</div>' : '');
+  var h = '<div class="field csv-amtf'+(fxUn?' need':'')+'"><label>'+L('Số tiền','Amount')+'</label>'
+    + '<input class="num" id="csvedit-amt" inputmode="numeric" onblur="csvAmtBlur(this)" placeholder="'+escAttr(fxUn ? csvFxOrigStr(_fx)+' → ₫?' : amtPlaceholder())+'" value="'+escAttr(!fxUn && c.amount!=null?csvAmtInputVal(c.amount):'')+'"/>'
+    + fxHint + '</div>'
+    + '<div class="field csv-notef"><label>'+noteLbl+'</label>'
     + '<textarea id="csvedit-note" rows="2">'+esc(c.description||'')+'</textarea></div>';
 
   /* Two "not filled" states, deliberately different colours:
@@ -1148,19 +1181,8 @@ function csvStagedRowsCard(c, opts){
     var whoSel = c.who || csvDefaultWho();
     rows += row('who', L('Ai trả','Who paid'), whoSel==='Both' ? L('Chung','Both') : esc(whoSel || ''));
   }
-  /* Foreign currency: the VND estimate leads (or the bank's own conversion, or
-     a figure the person typed), with the foreign original beside it and a quiet
-     "est." when the VND is our estimate. Only the no-rate fallback shows the
-     bare "$111 → ₫?" styled as missing — the field to fill before import. */
-  var _fx = csvFxInfo(c);
-  if(csvFxUnresolved(c)){
-    rows += row('amount', L('Số tiền','Amount'),
-      '<span class="num">'+esc(csvFxOrigStr(_fx))+' → ₫?</span>', { miss: true });
-  } else {
-    rows += row('amount', L('Số tiền','Amount'),
-      '<span class="num">'+esc(csvFmt(c.amount!=null ? c.amount : 0))
-        + (_fx ? ' <span style="opacity:.55">≈ '+esc(csvFxOrigStr(_fx))+(csvFxIsEstimate(c)?' '+L('ước tính','est.'):'')+'</span>' : '')+'</span>');
-  }
+  // Amount now leads as a top input field (above the note) — see the h assembly
+  // above; it is no longer a row here.
   var t = csvRowTime(c);
   rows += row('when', L('Khi nào','When'),
     '<span class="num">'+esc(bulkDate(c.dateDisplay))+(t ? ' · '+esc(t) : '')+'</span>');
@@ -1428,6 +1450,14 @@ window.csvImportOne = async function(i){
 };
 
 // Reads the expanded card's fields back onto its candidate.
+/* Amount is a plain top input now (not a sheet that committed on "Xong"), so it
+   only lands on the candidate when csvReadEditor runs. Flush on blur so a typed
+   figure survives a straight tap to the nav Import, not only a row/collapse. */
+window.csvAmtBlur = function(el){
+  if(typeof snapAmtInput==='function') snapAmtInput(el);
+  var c = (typeof csvExpandedCandidate==='function') ? csvExpandedCandidate() : null;
+  if(c) csvReadEditor(c);
+};
 function csvReadEditor(c){
   if(!c) return;
   var n=document.getElementById('csvedit-note');

@@ -2127,6 +2127,51 @@ input{font-family:inherit}
 .field input[type=date]{font-size:15px;font-weight:600;color:var(--ink);min-height:53px}
 .field input[type=date]::-webkit-calendar-picker-indicator{opacity:.45;cursor:pointer}
 .field input[type=date]:focus::-webkit-calendar-picker-indicator{opacity:.8}
+/* ── Edit-mode accordion (option 2) ──────────────────────────────────────────
+   Only active when #ex-editor carries .ex-accordion (edit an existing txn). Each
+   .ex-arow field collapses to a settings-row — label left, current value right,
+   chevron — matching the bulk-review card; tapping expands the real chips/input
+   in place. Create/bulk mode never sets the class, so everything below is inert
+   there and the chip form renders exactly as before. */
+#ex-editor:not(.ex-accordion) .ex-arow-val{display:none}
+#ex-editor:not(.ex-accordion) #ex-cat-lbl{display:none}   /* category had no label in create — keep it that way */
+#ex-editor:not(.ex-accordion) #ex-cat{margin-top:10px}    /* preserve the old note→chips gap */
+#ex-editor.ex-accordion #ex-amtrow{display:block}          /* stack amount + date as separate rows */
+#ex-editor.ex-accordion .ex-arow{margin-bottom:0;border-bottom:1px solid var(--divider)}
+#ex-editor.ex-accordion .ex-arow > label{display:flex;align-items:center;gap:10px;margin:0;padding:14px 2px;
+  cursor:pointer;text-transform:none;letter-spacing:-.01em;font-size:13px;font-weight:600;color:var(--muted)}
+#ex-editor.ex-accordion .ex-arow > label::after{content:"›";margin-left:2px;color:var(--chev);font-size:17px;
+  font-weight:700;transition:transform .2s cubic-bezier(.32,.72,0,1)}
+#ex-editor.ex-accordion .ex-arow.open > label::after{transform:rotate(90deg)}
+#ex-editor.ex-accordion .ex-arow-val{margin-left:auto;max-width:62%;font-size:14px;font-weight:650;
+  letter-spacing:-.01em;color:var(--ink);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ex-editor.ex-accordion .ex-arow.open .ex-arow-val{display:none}
+#ex-editor.ex-accordion .ex-arow > .opt{color:var(--muted-soft);font-weight:500}
+#ex-editor.ex-accordion .ex-arow:not(.open) > .choices,
+#ex-editor.ex-accordion .ex-arow:not(.open) > input{display:none}
+#ex-editor.ex-accordion .ex-arow > .choices{margin:2px 0 14px}
+#ex-editor.ex-accordion .ex-arow > input{margin:2px 0 14px}
+/* The description leads (like the bulk card): a full-width field at the top, then
+   the metadata rows. Note + photos are section blocks, not rows, so their labels
+   take the same quiet sentence-case voice as the rows — no uppercase shouting
+   between them — and the note input is trimmed to sit in the same rhythm. */
+#ex-editor.ex-accordion{display:flex;flex-direction:column}
+#ex-editor.ex-accordion #ex-notefield{order:-1;margin-bottom:8px}
+#ex-editor.ex-accordion #ex-notefield > label,
+#ex-editor.ex-accordion #ex-photofield > label{text-transform:none;letter-spacing:-.01em;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px}
+#ex-editor.ex-accordion #ex-note{font-size:15px;padding:13px 14px}
+#ex-editor.ex-accordion #ex-photofield{order:99;margin-top:16px}
+/* Amount leads as a top input field (above the description), not a collapsed row
+   — it's the number people most want to see and change. .ex-topinput un-collapses
+   it (id specificity beats the .ex-arow collapse rules above) and drops the row
+   chrome (chevron, value summary). */
+#ex-editor.ex-accordion #ex-amtfield.ex-topinput{order:-2;border-bottom:0;margin:0 0 8px}
+#ex-editor.ex-accordion #ex-amtfield.ex-topinput > label{display:block;margin:0 0 8px;padding:0;cursor:default;
+  text-transform:none;letter-spacing:-.01em;font-size:13px;font-weight:600;color:var(--muted)}
+#ex-editor.ex-accordion #ex-amtfield.ex-topinput > label::after{content:none}
+#ex-editor.ex-accordion #ex-amtfield.ex-topinput .ex-arow-val{display:none}
+#ex-editor.ex-accordion #ex-amtfield.ex-topinput > input{display:block;margin:0;font-size:15px;padding:13px 14px}
+
 .choices{display:flex;gap:8px;flex-wrap:wrap}
 .choice{padding:10px 15px;border-radius:9999px;background:var(--white);border:1.5px solid var(--hairline);font-size:15px;font-weight:500;letter-spacing:-.01em;color:var(--ink)}
 .choice.on{border-color:var(--brand);border-width:2px;padding:9px 14px;color:var(--brand);font-weight:700;background:var(--brand-tint)}
@@ -2480,6 +2525,11 @@ input.invalid,input.invalid:focus,textarea.invalid,textarea.invalid:focus{border
 .ex-del{display:none;width:fit-content;margin:26px auto 4px;background:none;color:var(--muted);font-size:14px;font-weight:500;letter-spacing:-.01em;padding:8px 16px}
 .ex-del.armed{color:var(--danger);font-weight:700}
 .ex-del:active{opacity:.55}
+/* In the settings-rows edit modal the delete is the form's closing action, not a
+   link floating in the void: full width with a hairline above (matching the row
+   dividers), centered. Still the app's quiet muted text — red only when armed
+   (that colour rules above still win, since this sets layout only). */
+#ex-del{width:100%;margin:18px 0 0;padding:16px 0 2px;border-top:1px solid var(--divider);border-radius:0;text-align:center}
 .ev-del{display:none;width:fit-content;margin:10px auto 0;background:none;border:0;color:var(--muted);font-size:14px;font-weight:500;letter-spacing:-.01em;padding:8px 16px;font-family:inherit}
 .ev-del:active{opacity:.55}
 /* suggestion / founders' note */
@@ -3283,11 +3333,21 @@ html.fh-can-install .set-row.set-install{display:flex}
 .csv-dupstrip .txh-sublink{flex-shrink:0}
 .scv-memo{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:5px;font-size:12.5px;font-weight:500;color:var(--muted);line-height:1.35}
 .scv-memo.scv-empty{font-style:italic;color:var(--muted-soft)}
-.scv-prov{display:block;margin-top:6px;font-size:11px;font-weight:500;color:var(--muted-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.scv-prov .scv-sep{margin:0 5px;color:var(--chev)}
+/* Bottom line: datetime (with weekday) then the import method, inline. */
+.scv-foot{display:block;margin-top:6px;font-size:11px;font-weight:500;color:var(--muted-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scv-sep{margin:0 5px;color:var(--chev)}
 
 /* expanded head: the tick takes the old ✕ slot — same corner as collapsed */
 #csv-result.staged .bulk-card.active .bulk-head .bulk-check{margin-left:auto}
+
+/* Amount leads as a top input (above the note) — the hero number, so a touch
+   bolder. Amber border + hint when a no-rate foreign row still needs its ₫ figure
+   (the one blocking state). */
+#csv-result.staged .csv-amtf input{width:100%;background:var(--canvas);border:2px solid transparent;border-radius:13px;padding:12px 14px;font:inherit;font-size:16px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+#csv-result.staged .csv-amtf input:focus{outline:none;border-color:var(--brand);background:var(--white)}
+#csv-result.staged .csv-amtf.need input{border-color:var(--amber)}
+#csv-result.staged .csv-amt-hint{margin-top:6px;font-size:12px;color:var(--muted-soft)}
+#csv-result.staged .csv-amt-hint.warn{color:var(--amber)}
 
 /* note field: a real 2-line textarea, same skin as the composer inputs */
 #csv-result.staged .csv-notef textarea{width:100%;background:var(--canvas);border:2px solid transparent;border-radius:13px;padding:12px 14px;font:inherit;font-size:14.5px;line-height:1.45;color:var(--ink);resize:none;display:block}
@@ -4278,17 +4338,23 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
       <button class="choice on" data-v="expense" onclick="pickExType(this)">↓ Chi</button>
       <button class="choice" data-v="income" onclick="pickExType(this)">↑ Thu</button>
     </div></div>
-    <div class="field" id="ex-scopefield"><label>Ghi vào đâu?</label><div class="choices" id="ex-scope">
+    <div class="field ex-arow" id="ex-scopefield"><label>Ghi vào đâu?</label><div class="choices" id="ex-scope">
       <button class="choice on" data-v="personal" onclick="pickExScope(this)">🔒 Cá nhân</button>
       <button class="choice" data-v="family" onclick="pickExScope(this)">🏡 Gia đình</button>
     </div></div>
     <!-- Instrument (0105): personal expenses only; chips built from personal_accounts.
          A credit-card pick is what feeds that card's derived balance (Nợ & cho vay). -->
-    <div class="field" id="ex-acctfield" style="display:none"><label>Trả bằng gì? <span class="opt">· tuỳ chọn</span></label><div class="choices" id="ex-acct"></div></div>
-    <div class="field">
+    <div class="field ex-arow" id="ex-acctfield" style="display:none"><label>Trả bằng gì? <span class="opt">· tuỳ chọn</span></label><div class="choices" id="ex-acct"></div></div>
+    <div class="field" id="ex-notefield">
       <label id="ex-note-lbl" data-t="exWhatFor">What for?</label>
       <input id="ex-note" data-tp="phExNote" placeholder="e.g. Grocery run" oninput="onExNoteInput()" onblur="onExNoteBlur()"/>
-      <div class="choices" id="ex-cat" style="margin-top:10px">
+    </div>
+    <!-- Category split into its own field so edit-mode's accordion can collapse it
+         to a settings-row while the note above stays visible. In create mode the
+         label is hidden (CSS) so the chips read exactly as before. -->
+    <div class="field ex-arow" id="ex-catfield">
+      <label id="ex-cat-lbl"></label>
+      <div class="choices" id="ex-cat">
         <button class="choice on" data-v="Groceries" onclick="pickExCat(this)">🛒 Groceries</button>
         <button class="choice" data-v="Housing" onclick="pickExCat(this)">🏠 Housing</button>
         <button class="choice" data-v="Dining" onclick="pickExCat(this)">🍽️ Dining</button>
@@ -4300,16 +4366,16 @@ html.fh-offline #fh-offline{display:flex;animation:fh-up-in .3s ease both}
     </div>
 
     <div class="field-row" id="ex-amtrow">
-      <div class="field"><label data-t="amountLbl">Amount</label><input class="num" id="ex-amt" inputmode="numeric" placeholder="$0" oninput="onExInput()"/></div>
-      <div class="field"><label data-t="whenLbl">When</label><input type="date" id="ex-date" value="2026-07-13" min="2026-07-01" onchange="onExInput()" oninput="onExInput()"/></div>
+      <div class="field ex-arow" id="ex-amtfield"><label data-t="amountLbl">Amount</label><input class="num" id="ex-amt" inputmode="numeric" placeholder="$0" oninput="onExInput()"/></div>
+      <div class="field ex-arow" id="ex-datefield"><label data-t="whenLbl">When</label><input type="date" id="ex-date" value="2026-07-13" min="2026-07-01" onchange="onExInput()" oninput="onExInput()"/></div>
     </div>
 
     <!-- Optional time — per row, on any expense (personal or family). Stored as
          local HH:MM (encrypted); empty means only the day is known. Defaults to now
          for a same-day row, cleared when back-dated (see _syncExTime). -->
-    <div class="field" id="ex-timefield" style="display:none"><label>Giờ <span class="opt">· tuỳ chọn</span></label><input type="time" id="ex-time" oninput="onExTimeTouched()"/></div>
+    <div class="field ex-arow" id="ex-timefield" style="display:none"><label>Giờ <span class="opt">· tuỳ chọn</span></label><input type="time" id="ex-time" oninput="onExTimeTouched()"/></div>
 
-    <div class="field" id="ex-whofield"><label data-t="whoPaidLbl">Who paid</label><div class="choices" id="ex-who">
+    <div class="field ex-arow" id="ex-whofield"><label data-t="whoPaidLbl">Who paid</label><div class="choices" id="ex-who">
       <button class="choice on" data-v="Emma" onclick="pickExWho(this)">Emma</button>
       <button class="choice" data-v="James" onclick="pickExWho(this)">James</button>
       <button class="choice" data-v="Both" onclick="pickExWho(this)" data-t="whoBoth">Both</button>
@@ -9086,6 +9152,9 @@ function openExpense(preset){
   // and edit layouts always start from everything visible; _applyExLayout below
   // re-hides for income/personal on a fresh open.
   ['ex-cat','ex-whofield','ex-photofield','bulk-add'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=''; });
+  // "+ Thêm khoản" adds another DRAFT row — meaningless while editing one logged
+  // transaction, and it read as broken in the settings-rows layout. Hide it.
+  if(editing){ var _ba0=document.getElementById('bulk-add'); if(_ba0) _ba0.style.display='none'; }
   var _tf0=document.getElementById('ex-timefield'); if(_tf0) _tf0.style.display='none';   // shown for any expense (add via _applyExLayout, edit via fill)
   var _ea=document.getElementById('ex-amt'); if(_ea) _ea.classList.remove('inc-amt');   // edit is always Chi; drop any leftover income tint
   var _nl=document.getElementById('ex-note-lbl'); if(_nl && editing) _nl.textContent=L('Chi cho gì','What for?');
@@ -9119,8 +9188,94 @@ function openExpense(preset){
     var want=(preset&&preset.scope) || (pReady ? (_lastScope()||'personal') : 'family');
     _applyExScope(want);
   }
+  // Edit an existing row → settings-rows accordion; create/bulk → normal chips.
+  exAccordionApply(!!editing);
 }
 function closeExpense(){ closeModals(); }
+
+/* ── Edit-mode accordion (option 2) ──────────────────────────────────────────
+   When EDITING an existing transaction, the expense modal collapses each field
+   into a compact settings-row (label + current value + chevron) that expands in
+   place to reveal the SAME chips/input — the rows language of the bulk-review
+   card, but reusing every existing control and the unchanged save path. Purely
+   presentational: it never reads or writes the transaction, so a bug here can
+   only mis-display, never mis-save. Inert in create/bulk mode (the class is only
+   set while editingTx || editingPTx), so those flows are untouched. */
+function _exArowVal(field){
+  var choices = field.querySelector('.choices');
+  if(choices){
+    var on = choices.querySelector('.choice.on');
+    return on ? on.textContent.trim() : L('Chưa chọn','Not set');
+  }
+  var inp = field.querySelector('input');
+  if(!inp) return '';
+  if(inp.type==='date'){
+    var v=inp.value; if(!v) return '—';
+    var p=v.split('-'); return p.length===3 ? (p[2]+'/'+p[1]+'/'+p[0]) : v;
+  }
+  if(inp.id==='ex-time') return inp.value || L('tuỳ chọn','optional');
+  return (inp.value||'').trim() || '—';   // amount
+}
+function exAccordionRefresh(){
+  var ed=document.getElementById('ex-editor');
+  if(!ed || !ed.classList.contains('ex-accordion')) return;
+  ed.querySelectorAll('.ex-arow').forEach(function(f){
+    var v=f.querySelector('.ex-arow-val'); if(v) v.textContent=_exArowVal(f);
+  });
+}
+function exArowToggle(field){
+  var ed=document.getElementById('ex-editor'); if(!ed) return;
+  var wasOpen=field.classList.contains('open');
+  ed.querySelectorAll('.ex-arow.open').forEach(function(f){ f.classList.remove('open'); });   // single-open keeps it compact
+  if(!wasOpen) field.classList.add('open');
+  exAccordionRefresh();
+}
+function _exAccordionWire(){
+  var ed=document.getElementById('ex-editor'); if(!ed || ed._exAccWired) return;
+  ed._exAccWired=true;
+  ed.addEventListener('click', function(e){
+    if(!ed.classList.contains('ex-accordion')) return;
+    // A tap on the row's own label toggles it (labels here have no `for`, so this
+    // never steals focus from an input).
+    var lbl=e.target.closest('.ex-arow > label');
+    if(lbl && lbl.parentNode.id!=='ex-amtfield'){ e.preventDefault(); exArowToggle(lbl.parentNode); return; }   // amount is a top input, not a toggle row
+    // Picking a chip inside an open row: let the existing handler run, then
+    // collapse the row and re-read its value (mirrors the bulk sheet closing).
+    var chip=e.target.closest('.ex-arow .choice');
+    if(chip){ var f=chip.closest('.ex-arow'); setTimeout(function(){ if(f) f.classList.remove('open'); exAccordionRefresh(); },0); }
+  });
+  ed.addEventListener('input', function(){ if(ed.classList.contains('ex-accordion')) exAccordionRefresh(); });
+}
+function exAccordionApply(on){
+  var ed=document.getElementById('ex-editor'); if(!ed) return;
+  var amt=document.getElementById('ex-amtfield');
+  var amtrow=document.getElementById('ex-amtrow');
+  var dateF=document.getElementById('ex-datefield');
+  if(!on){
+    ed.classList.remove('ex-accordion');
+    ed.querySelectorAll('.ex-arow.open').forEach(function(f){ f.classList.remove('open'); });
+    // Restore amount into the amount+date field-row so create keeps them side by
+    // side (relative to amtrow, so it works even while #ex-editor is mounted in a
+    // bulk card). Idempotent.
+    if(amt){ amt.classList.remove('ex-topinput'); if(amtrow && dateF && amt.parentNode!==amtrow) amtrow.insertBefore(amt, dateF); }
+    return;
+  }
+  var cl=document.getElementById('ex-cat-lbl'); if(cl) cl.textContent=L('Danh mục','Category');
+  // Amount leads as a top input field (like the description), not a collapsed row:
+  // pull it out of the field-row up to the top of the editor. .ex-topinput + the
+  // CSS below un-collapse it; it keeps .ex-arow so the class stays stable.
+  if(amt){ if(amt.parentNode!==ed) ed.insertBefore(amt, ed.firstChild); amt.classList.add('ex-topinput'); }
+  ed.querySelectorAll('.ex-arow').forEach(function(f){
+    var lbl=f.querySelector(':scope > label');
+    if(lbl && !lbl.querySelector('.ex-arow-val')){
+      var s=document.createElement('span'); s.className='ex-arow-val'; lbl.appendChild(s);
+    }
+    f.classList.remove('open');
+  });
+  ed.classList.add('ex-accordion');
+  _exAccordionWire();
+  exAccordionRefresh();
+}
 // Open the shared expense modal pre-scoped to the personal ledger (Cá nhân tab).
 function openPersonalExpense(){ openExpense({scope:'personal'}); }
 function _lastScope(){ try{ return localStorage.getItem('fh-last-scope'); }catch(e){ return null; } }
@@ -11585,6 +11740,22 @@ function csvCardHead(label, dateIso, removeFn, attn, isError, timeStr, provider,
   return '<span class="bulk-head"><span class="bulk-idx'+tone+'">'+esc(label)+'</span>' + meta + '</span>';
 }
 
+/* The datetime line on a collapsed card, now led by the weekday — "Thứ 5, 03/09"
+   — so a bank date reads as a day, not just a number. Year appended only when it
+   isn't the current one; time appended when known. Falls back to bulkDate if the
+   row has no parseable date. */
+var FH_WD_VI=['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+var FH_WD_EN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function csvWhenLine(c, opts){
+  var d = (c && c.date instanceof Date && !isNaN(c.date)) ? c.date
+        : (opts.dateIso ? new Date(opts.dateIso+'T00:00:00') : null);
+  if(!d || isNaN(d)) return opts.dateIso ? (bulkDate(opts.dateIso)+(opts.timeStr?' · '+opts.timeStr:'')) : '';
+  var wd = (typeof LANG!=='undefined' && LANG==='vi' ? FH_WD_VI : FH_WD_EN)[d.getDay()];
+  var s = wd + ', ' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+  if(typeof TODAY!=='undefined' && TODAY && d.getFullYear()!==TODAY.getFullYear()) s += '/' + d.getFullYear();
+  if(opts.timeStr) s += ' · ' + opts.timeStr;
+  return s;
+}
 function csvCollapsedCard(c, opts){
   var rm = opts.removeFn
     ? '<button type="button" class="bulk-x'+(opts.armed?' armed':'')+'" onclick="'+opts.removeFn+'"'
@@ -11634,16 +11805,22 @@ function csvCollapsedCard(c, opts){
     var memoHtml = note
       ? '<span class="scv-memo">'+esc(note)+'</span>'
       : '<span class="scv-memo scv-empty">'+L('(khoản trống)','(empty item)')+'</span>';
+    /* Top line: scope + money source (bank · instrument), one eyebrow in one
+       style — the fixed "where it lives / where it came from". */
     var prov = csvStagedProvider(c), acct = csvStagedAcctChip(c);
-    var whenTxt = opts.dateIso ? (bulkDate(opts.dateIso) + (opts.timeStr ? ' · '+opts.timeStr : '')) : '';
+    var topBits = [scope, prov, acct].filter(Boolean).map(function(x){ return esc(x); });
+    var topHtml = topBits.length ? '<span class="scv-scope">'+topBits.join('<span class="scv-sep">·</span>')+'</span>' : '';
+    /* Bottom line: the datetime (with weekday) then the import method, inline —
+       quiet provenance you rarely read. */
+    var whenTxt = csvWhenLine(c, opts);
     var tag = csvStagedSourceTag(c);
-    var provBits = [prov, acct, whenTxt, tag].filter(Boolean).map(function(x){ return esc(x); });
-    var provHtml = provBits.length ? '<span class="scv-prov">'+provBits.join('<span class="scv-sep">·</span>')+'</span>' : '';
+    var footBits = [whenTxt, tag].filter(Boolean).map(function(x){ return esc(x); });
+    var footHtml = footBits.length ? '<span class="scv-foot">'+footBits.join('<span class="scv-sep">·</span>')+'</span>' : '';
     return '<div class="bulk-card'+(opts.invalid?' invalid':(opts.attn?' attn':''))+'">' + ck
       + '<button type="button" class="bulk-tap scv-tap" onclick="'+opts.tapFn+'" aria-label="'+L('Sửa khoản này','Edit this item')+'">'
-      + (scope ? '<span class="scv-scope">'+esc(scope)+'</span>' : '')
+      + topHtml
       + '<span class="scv-money">'+amtHtml+catHtml+dupHtml+'</span>'
-      + memoHtml + provHtml
+      + memoHtml + footHtml
       + '</button>' + rm + '</div>';
   }
 
@@ -11794,7 +11971,18 @@ function csvStagedRowsCard(c, opts){
   var isIncomeNow = !!(c.isIncome && !c._xfer && !c._repay);
   var noCat = c.isTransfer || c._xfer || c._repay;
   var noteLbl = noCat ? L('Ghi chú','Note') : (isIncomeNow ? L('Tiền gì vậy?','What money is this?') : L('Chi cho gì?','What for?'));
-  var h = '<div class="field csv-notef"><label>'+noteLbl+'</label>'
+  /* Amount leads as a top input field — the number people most want to see and
+     change — above the description. csvReadEditor(#csvedit-amt) reads it back with
+     full FX handling (a typed ₫ figure resolves a no-rate foreign row). */
+  var _fx = csvFxInfo(c);
+  var fxUn = csvFxUnresolved(c);
+  var fxHint = fxUn
+    ? '<div class="csv-amt-hint warn">'+esc(L('Nhập số tiền ₫ để nhập khoản này','Enter the ₫ amount to import'))+'</div>'
+    : (_fx ? '<div class="csv-amt-hint">≈ '+esc(csvFxOrigStr(_fx))+(csvFxIsEstimate(c)?' '+esc(L('ước tính','est.')):'')+'</div>' : '');
+  var h = '<div class="field csv-amtf'+(fxUn?' need':'')+'"><label>'+L('Số tiền','Amount')+'</label>'
+    + '<input class="num" id="csvedit-amt" inputmode="numeric" onblur="csvAmtBlur(this)" placeholder="'+escAttr(fxUn ? csvFxOrigStr(_fx)+' → ₫?' : amtPlaceholder())+'" value="'+escAttr(!fxUn && c.amount!=null?csvAmtInputVal(c.amount):'')+'"/>'
+    + fxHint + '</div>'
+    + '<div class="field csv-notef"><label>'+noteLbl+'</label>'
     + '<textarea id="csvedit-note" rows="2">'+esc(c.description||'')+'</textarea></div>';
 
   /* Two "not filled" states, deliberately different colours:
@@ -11858,19 +12046,8 @@ function csvStagedRowsCard(c, opts){
     var whoSel = c.who || csvDefaultWho();
     rows += row('who', L('Ai trả','Who paid'), whoSel==='Both' ? L('Chung','Both') : esc(whoSel || ''));
   }
-  /* Foreign currency: the VND estimate leads (or the bank's own conversion, or
-     a figure the person typed), with the foreign original beside it and a quiet
-     "est." when the VND is our estimate. Only the no-rate fallback shows the
-     bare "$111 → ₫?" styled as missing — the field to fill before import. */
-  var _fx = csvFxInfo(c);
-  if(csvFxUnresolved(c)){
-    rows += row('amount', L('Số tiền','Amount'),
-      '<span class="num">'+esc(csvFxOrigStr(_fx))+' → ₫?</span>', { miss: true });
-  } else {
-    rows += row('amount', L('Số tiền','Amount'),
-      '<span class="num">'+esc(csvFmt(c.amount!=null ? c.amount : 0))
-        + (_fx ? ' <span style="opacity:.55">≈ '+esc(csvFxOrigStr(_fx))+(csvFxIsEstimate(c)?' '+L('ước tính','est.'):'')+'</span>' : '')+'</span>');
-  }
+  // Amount now leads as a top input field (above the note) — see the h assembly
+  // above; it is no longer a row here.
   var t = csvRowTime(c);
   rows += row('when', L('Khi nào','When'),
     '<span class="num">'+esc(bulkDate(c.dateDisplay))+(t ? ' · '+esc(t) : '')+'</span>');
@@ -12138,6 +12315,14 @@ window.csvImportOne = async function(i){
 };
 
 // Reads the expanded card's fields back onto its candidate.
+/* Amount is a plain top input now (not a sheet that committed on "Xong"), so it
+   only lands on the candidate when csvReadEditor runs. Flush on blur so a typed
+   figure survives a straight tap to the nav Import, not only a row/collapse. */
+window.csvAmtBlur = function(el){
+  if(typeof snapAmtInput==='function') snapAmtInput(el);
+  var c = (typeof csvExpandedCandidate==='function') ? csvExpandedCandidate() : null;
+  if(c) csvReadEditor(c);
+};
 function csvReadEditor(c){
   if(!c) return;
   var n=document.getElementById('csvedit-note');
@@ -17608,7 +17793,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v459';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v466';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
