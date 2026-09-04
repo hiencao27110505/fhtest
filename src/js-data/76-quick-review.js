@@ -1,0 +1,519 @@
+  // ═══ quick review: one fresh email transaction, one tap into the ledger ═══
+  /* The proactive companion to 72-txn-review's full queue. When a bank email
+     lands in the PERSONAL staging scope, the person is offered exactly ONE
+     sheet: the newest pending transaction, decrypted on this device, with a
+     one-tap "Duyệt · <category>" and, for expenses over 30.000đ, a camera-first
+     photo beat right after — import first, then attach, reusing the shipped
+     personal photo plumbing (0114) on the now-real row.
+
+     Two entrances, one surface: opening the Cá nhân tab auto-pops it for an
+     UNSEEN row and a notification tap forces it regardless, because a tap is
+     explicit intent. The person has three answers: Duyệt (import), "Để lúc
+     khác" (defer — pops again the next app open), and "Bỏ qua" (stop
+     auto-prompting; the row still lives in the full queue). After Duyệt the
+     sheet closes; no conveyor belt, the badge carries the rest of the queue.
+
+     SCOPE: only personal-STAGED rows are fetched (the mailbox scope the row was
+     sealed under), and only simple VND expense/income. The DESTINATION is then
+     the person's choice — Personal (default) or the family book, picked on the
+     "Ghi vào sổ" row; the family write reuses the full screen's prepared-bulk
+     path. Transfers, repayments, foreign currency and duplicate suspicions stay
+     judgment calls the full review screen handles — a forced open falls back to
+     it, an auto-pop just stays quiet. This file talks ONLY to window-exported
+     APIs (72's file-local helpers are out of reach behind its wrapper), so the
+     small decrypt/describe duplications below are annotated with their 72
+     originals and must follow them if those change. */
+
+  (function () {
+    var QR = null;          // state of the currently shown sheet, null when closed
+    var _qrInFlight = false;
+
+    /* Two-tier suppression, so "remind me next time" and "stop reminding me"
+       are different answers:
+         • SESSION set (in-memory, below) — cleared only when the app is
+           relaunched. Stops a row re-popping on every tab switch inside one
+           run, and it is where "Để lúc khác" leaves a row: eligible again the
+           NEXT app open, suppressed until then.
+         • PERSISTENT seen marker (localStorage, _qrSeen*) — written only when
+           the person explicitly picks "Bỏ qua". That is the "don't auto-prompt
+           me about this one again" choice; the row still lives in the full
+           queue and its badge. */
+    var _qrSessionSkip = {};
+
+    /* ---- persistent seen marker: written only on an explicit "Bỏ qua" ------
+       Same shape as 72's fh-staged-retired ledger: per-user key, pruned against
+       the server's answer so it cannot grow without bound. (A deferred row is
+       held in the in-memory session set instead — see _qrSessionSkip.) */
+    function _qrSeenKey() {
+      var uid = (window.fhUser && window.fhUser.id) || '';
+      return uid ? 'fh-qr-seen:' + uid : '';
+    }
+    function _qrSeenGet() {
+      try {
+        var k = _qrSeenKey(); if (!k) return [];
+        var v = JSON.parse(localStorage.getItem(k) || '[]');
+        return Array.isArray(v) ? v : [];
+      } catch (e) { return []; }
+    }
+    function _qrSeenAdd(id) {
+      try {
+        var k = _qrSeenKey(); if (!k || !id) return;
+        var set = _qrSeenGet();
+        if (set.indexOf(id) === -1) set.push(id);
+        localStorage.setItem(k, JSON.stringify(set.slice(-80)));
+      } catch (e) {}
+    }
+    function _qrSeenPrune(liveIds) {
+      try {
+        var k = _qrSeenKey(); if (!k) return;
+        var live = _qrSeenGet().filter(function (id) { return liveIds.indexOf(id) !== -1; });
+        localStorage.setItem(k, JSON.stringify(live));
+      } catch (e) {}
+    }
+
+    /* Rows this device already retired locally (promoted/dismissed) while the
+       server delete may still be catching up — 72 owns that ledger; reading its
+       key here keeps a just-imported row from popping back up. */
+    function _qrRetired() {
+      try {
+        var mid = (window.DB && window.DB.ownerMemberId) || '';
+        var v = JSON.parse(localStorage.getItem('fh-staged-retired:' + mid) || '[]');
+        return Array.isArray(v) ? v : [];
+      } catch (e) { return []; }
+    }
+
+    /* ---- one personal row, fetched + opened -------------------------------
+       Mirrors 72-txn-review's fhFetchStagedTxns projection (column-named, no
+       raw_body) and fhReadStagedRow's PERSONAL branch, via the same window-
+       exported openers. */
+    var _QR_COLS = 'id,member_id,owner_user_id,staging_scope,gmail_message_id,source_provider,occurred_at,duplicate_of_id,resolved_before,sealed,eph_pub,nonce,enc_v,created_at';
+    async function _qrFetch() {
+      var res = await window.sb.from('email_transactions')
+        .select(_QR_COLS)
+        .eq('review_status', 'pending')
+        .eq('staging_scope', 'personal')
+        .is('duplicate_of_id', null)
+        .order('occurred_at', { ascending: false })
+        .limit(30);
+      if (res.error) throw res.error;
+      var rows = res.data || [];
+      _qrSeenPrune(rows.map(function (r) { return r.id; }));
+      var retired = _qrRetired();
+      /* resolved_before (0113): this message was promoted or dismissed in a
+         PREVIOUS connection and re-staged by a re-scan. The full review screen
+         surfaces it with an "đã nhập trước đó" badge so the person decides;
+         one-tap approve here would risk re-importing something already in the
+         ledger. Keep those out of the quick path — they stay in the full queue
+         with their badge intact. */
+      return rows.filter(function (r) { return retired.indexOf(r.id) === -1 && !r.resolved_before; });
+    }
+    async function _qrOpen(row) {
+      if (!row.sealed || !window.fhStagingOpenRow || !window.fhPersonalStagingPrivKey) return null;
+      try {
+        row.family_id = window.DB && window.DB.fid;            // opener verifies OUR family (see 72)
+        row.owner_user_id = (window.fhUser && window.fhUser.id) || null;   // OUR session, never the server's
+        var priv = await window.fhPersonalStagingPrivKey();
+        var payload = window.fhStagingOpenRow(row, priv);
+        // direct-read nests detail under raw_extracted; forwarding spreads it flat (72)
+        return (payload && payload.raw_extracted && typeof payload.raw_extracted === 'object')
+          ? Object.assign({}, payload, payload.raw_extracted) : payload;
+      } catch (e) { return null; }                             // locked / mismatch → stay quiet
+    }
+
+    /* "Chi cho gì" — same judgement 72's fhStagedAsCsvSource makes: the tidied
+       memo wins; a memo-less p2p transfer stays blank (a person's name answers
+       "who", not "what for"); a card purchase's counterparty IS the merchant. */
+    function _qrDesc(re) {
+      var tidied = re.memo_display == null ? re.memo : re.memo_display;
+      if (tidied) return String(tidied);
+      if (re.transaction_type === 'p2p_transfer') return '';
+      return String(re.counterparty || '');
+    }
+    function _qrAcct(re) {
+      var masked = String(re.account_masked || '');
+      var kind = re.account_kind || null;
+      if (!kind) {
+        var prov = String(re.source_provider || '').toLowerCase();
+        if (/momo|zalopay|shopeepay/.test(prov)) kind = 'ewallet';
+      }
+      if (!kind) return null;
+      return { kind: kind, tail: masked.replace(/\D/g, '').slice(-4) || null, provider: re.source_provider || null };
+    }
+    /* Category suggestion — the SAME cascade the bulk review screen runs, in
+       the same confidence order, so the quick sheet never knows less than the
+       big screen about an identical row (parity fix, 2026-09-04):
+         1. the pipeline's own concept hint (catSource:'file' over there)
+         2. merchant memory — what this device was taught about this merchant
+            (csvLearnedCat; gateway-stripped, amount-banded with bare fallback)
+         3. keyword guess on the human-ish description (guessCat)
+         4. the bank-statement merchant table + brand substrings
+            (csvMerchantConcept over counterparty + memo)
+       Every arm resolves through the family's OWN category names and each is
+       optional — a helper missing behind its wrapper just skips its turn. */
+    function _qrSuggestCat(re, desc) {
+      try {
+        var hint = re.category_hint && typeof familyCatForConcept === 'function'
+          ? familyCatForConcept(re.category_hint) : '';
+        if (hint) return hint;
+        if (typeof csvLearnedCat === 'function') {
+          var learned = csvLearnedCat({ counterparty: re.counterparty || '', description: desc, amount: Number(re.amount) || 0 });
+          if (learned) return learned;
+        }
+        var kw = typeof guessCat === 'function' ? guessCat(desc) : '';
+        if (kw) return kw;
+        if (typeof csvMerchantConcept === 'function' && typeof familyCatForConcept === 'function') {
+          var concept = csvMerchantConcept((re.counterparty || '') + ' ' + (desc || ''));
+          if (concept) return familyCatForConcept(concept) || '';
+        }
+      } catch (e) {}
+      return '';
+    }
+    function _qrLocalIso(d) {
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    // bank timestamp → local "HH:MM"; a date-only UTC-midnight placeholder stays timeless (72's rule)
+    function _qrTime(oa) {
+      if (!oa) return undefined;
+      var d = new Date(oa); if (isNaN(d.getTime())) return undefined;
+      if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return undefined;
+      return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    }
+
+    /* ---- entry point ------------------------------------------------------
+       opts.force: a notification tap — ignores the seen marker, and a row the
+       quick sheet cannot handle falls back to the full review screen. */
+    window.fhQuickReviewMaybe = async function (opts) {
+      opts = opts || {};
+      if (_qrInFlight) return;
+      _qrInFlight = true;
+      try {
+        var sheetEl = document.getElementById('fh-sheet');
+        if (!window.DB || !window.DB._hydrated) return;
+        if (sheetEl && sheetEl.classList.contains('on')) return;         // something else is up
+        if (window.fhStagingAlarmActive && window.fhStagingAlarmActive()) return;   // key alarm freezes approval
+        // promoting needs the personal DEK; a locked ledger gets no teaser
+        if (!window.fhPersonalKeyReady || !window.fhPersonalKeyReady()) {
+          if (opts.force && window.fhTxnReviewSheet) window.fhTxnReviewSheet();
+          return;
+        }
+
+        /* Merchant memory loads lazily (the bulk screen calls this at open);
+           kick it BEFORE the fetch/unseal awaits so an enc family's async
+           decrypt has landed by the time _qrSuggestCat consults it. */
+        try { if (typeof csvLearnLoad === 'function') csvLearnLoad(); } catch (e) {}
+
+        var rows;
+        try { rows = await _qrFetch(); } catch (e) { return; }
+        if (!rows.length) { if (opts.force && window.fhTxnReviewSheet) window.fhTxnReviewSheet(); return; }
+        var seen = _qrSeenGet();
+        var row = opts.force ? rows[0]
+          : rows.find(function (r) { return seen.indexOf(r.id) === -1 && !_qrSessionSkip[r.id]; });
+        if (!row) return;
+
+        var re = await _qrOpen(row);
+        if (!re) { if (opts.force && window.fhTxnReviewSheet) window.fhTxnReviewSheet(); return; }
+
+        var flow = re.flow || (re.direction === 'credit' ? 'income' : 'expense');
+        var foreign = re.currency && re.currency !== 'VND';
+        if (flow === 'transfer' || foreign) {
+          // a judgment-call row belongs to the full review screen
+          if (opts.force && window.fhTxnReviewSheet) window.fhTxnReviewSheet();
+          return;
+        }
+
+        var desc = _qrDesc(re);
+        var cat = flow !== 'income' ? _qrSuggestCat(re, desc) : '';
+        var oa = row.occurred_at ? new Date(row.occurred_at) : new Date();
+        QR = {
+          row: row, re: re, flow: flow, state: 'review', edit: null,
+          amount: Number(re.amount) || 0,                       // display units (full VND)
+          desc: desc, cat: cat,
+          dest: 'personal',                                     // default = the staged scope; tappable to 'family'
+          dateIso: _qrLocalIso(isNaN(oa.getTime()) ? new Date() : oa),
+          time: _qrTime(row.occurred_at),
+          queue: rows.length, txnId: null, busy: false,
+        };
+        _qrSessionSkip[row.id] = true;                          // shown this run — no re-pop on the next tab switch
+        _qrRender();
+      } finally { _qrInFlight = false; }
+    };
+
+    /* ---- rendering --------------------------------------------------------
+       Lives on the app's own #fh-sheet layer (DESIGN §4): device frame,
+       drag-to-dismiss, below the toast. */
+    function _qrShow(html) {
+      var body = document.getElementById('fh-sheet-body'); if (!body) return;
+      body.innerHTML = html;
+      document.getElementById('scrim').classList.add('on');
+      document.getElementById('fh-sheet').classList.add('on');
+    }
+    function _esc2(s) { return window.esc ? window.esc(String(s == null ? '' : s)) : String(s == null ? '' : s); }
+    function _qrFmt(displayAmt) {
+      var base = Number(displayAmt || 0) / (typeof curMult === 'function' ? curMult() : 1000);
+      return typeof fmt === 'function' ? fmt(base) : displayAmt + ' ₫';
+    }
+    function _qrDateLabel() {
+      var d = new Date(QR.dateIso + 'T00:00:00');
+      var today = new Date(); today.setHours(0, 0, 0, 0);
+      var diff = Math.round((today - d) / 86400000);
+      var day = diff === 0 ? L('Hôm nay', 'Today') : diff === 1 ? L('Hôm qua', 'Yesterday')
+        : (typeof fmtDayMon === 'function' ? fmtDayMon(d) : QR.dateIso);
+      return day + (QR.time ? ', ' + QR.time : '');
+    }
+    /* Topline source: "TỪ EMAIL · VIETCOMBANK · •••• 2279". The bank name gives
+       the account its context, so the masked tail folds in here rather than
+       spending its own settings row — the kind word (Thẻ/Tài khoản) is dropped
+       for space, the tail alone identifies it. */
+    function _qrSrcLabel() {
+      var prov = String(QR.row.source_provider || '').replace(/[_-]/g, ' ').trim();
+      var tail = String((QR.re && QR.re.account_masked) || '').replace(/\D/g, '').slice(-4);
+      return L('Từ email', 'From email')
+        + (prov ? ' · ' + prov.toUpperCase() : '')
+        + (tail ? ' · •••• ' + tail : '');
+    }
+    function _qrCatCell() {
+      if (QR.flow === 'income') return '💰 ' + L('Thu nhập', 'Income');
+      if (!QR.cat) return L('Chưa chọn', 'Not set');
+      var emo = (window.catStyle && window.catStyle[QR.cat] && window.catStyle[QR.cat][0]) || '';
+      return (emo ? emo + ' ' : '') + QR.cat + (QR.editedCat ? '' : ' · ' + L('gợi ý', 'suggested'));
+    }
+    function _qrRender() {
+      if (!QR) return;
+      if (QR.state === 'photo') return _qrRenderPhoto();
+      var sign = QR.flow === 'income' ? '+' : '−';
+      var editor = '';
+      if (QR.edit === 'amt') {
+        editor = '<div class="qr-editor"><input id="qr-in-amt" inputmode="numeric" value="' + _esc2(Number(QR.amount).toLocaleString('vi-VN')) + '">' +
+          '<button class="qr-ed-ok" onclick="fhQrAct(\'amt-ok\')">' + L('Xong', 'Done') + '</button></div>';
+      } else if (QR.edit === 'date') {
+        editor = '<div class="qr-editor"><input id="qr-in-date" type="date" value="' + _esc2(QR.dateIso) + '">' +
+          '<button class="qr-ed-ok" onclick="fhQrAct(\'date-ok\')">' + L('Xong', 'Done') + '</button></div>';
+      } else if (QR.edit === 'cat') {
+        var chips = (window.catOrder || []).map(function (c) {
+          var emo = (window.catStyle && window.catStyle[c] && window.catStyle[c][0]) || '';
+          return '<button class="qr-chip' + (c === QR.cat ? ' on' : '') + '" onclick="fhQrAct(\'cat-pick\',this.dataset.c)" data-c="' + _esc2(c) + '">' + _esc2((emo ? emo + ' ' : '') + c) + '</button>';
+        }).join('');
+        editor = '<div class="qr-chips">' + chips + '</div>';
+      } else if (QR.edit === 'dest') {
+        var locked = _qrFamilyLocked();
+        editor = '<div class="qr-chips">' +
+          '<button class="qr-chip' + (QR.dest === 'personal' ? ' on' : '') + '" onclick="fhQrAct(\'dest-pick\',\'personal\')">' + L('🔒 Cá nhân', '🔒 Personal') + '</button>' +
+          '<button class="qr-chip' + (QR.dest === 'family' ? ' on' : '') + (locked ? ' qr-chip-off' : '') + '" onclick="fhQrAct(\'dest-pick\',\'family\')">' + L('🏡 Gia đình', '🏡 Family') + '</button>' +
+          '</div>' +
+          (locked ? '<div class="qr-dim" style="font-size:12.5px;padding:2px 2px 0">' + L('Sổ gia đình đang khoá.', 'The family ledger is locked.') + '</div>' : '');
+      }
+      var ctaLabel = QR.flow === 'income' ? L('Duyệt thu nhập', 'Approve income')
+        : (QR.cat ? L('Duyệt · ', 'Approve · ') + _esc2(QR.cat) : L('Duyệt', 'Approve'));
+      var others = Math.max(0, (QR.queue || 1) - 1);
+      _qrShow(
+        '<div class="qr">' +
+          '<div class="qr-src"><span class="qr-eyebrow">' + _esc2(_qrSrcLabel()) + '</span><span class="qr-when">' + _esc2(_qrDateLabel()) + '</span></div>' +
+          '<div class="qr-note">' + (QR.desc ? _esc2(QR.desc) : '<span class="qr-dim">' + L('Chưa có mô tả', 'No description yet') + '</span>') + '</div>' +
+          '<div class="qr-rows">' +
+            '<div class="qr-row" onclick="fhQrAct(\'edit\',\'amt\')"><small>' + L('Số tiền', 'Amount') + '</small><div class="qr-val"><b class="num">' + sign + _esc2(_qrFmt(QR.amount)) + '</b><span class="qr-chev">›</span></div></div>' +
+            (QR.flow === 'income'
+              ? '<div class="qr-row qr-ro"><small>' + L('Loại', 'Type') + '</small><div class="qr-val"><b>' + _qrCatCell() + '</b></div></div>'
+              : '<div class="qr-row qr-hot" onclick="fhQrAct(\'edit\',\'cat\')"><small>' + L('Danh mục', 'Category') + '</small><div class="qr-val"><b>' + _esc2(_qrCatCell()) + '</b><span class="qr-chev">›</span></div></div>') +
+            '<div class="qr-row" onclick="fhQrAct(\'edit\',\'date\')"><small>' + L('Ngày', 'Date') + '</small><div class="qr-val"><b>' + _esc2(_qrDateLabel()) + '</b><span class="qr-chev">›</span></div></div>' +
+            /* Destination ledger — defaults to the staged (personal) scope but
+               is tappable: a captured row can be redirected to the family book.
+               The seal only governs who can READ the queued row; once it is
+               decrypted on this device the plaintext writes to whichever ledger
+               is chosen (the family write re-encrypts under the family DEK). */
+            '<div class="qr-row qr-dest" onclick="fhQrAct(\'edit\',\'dest\')"><small>' + L('Ghi vào sổ', 'Logs to') + '</small><div class="qr-val"><b>' + (QR.dest === 'family' ? L('🏡 Gia đình · cả nhà thấy', '🏡 Family · shared') : L('🔒 Cá nhân · riêng tư', '🔒 Personal · private')) + '</b><span class="qr-chev">›</span></div></div>' +
+          '</div>' +
+          editor +
+          '<button class="qr-cta" id="qr-go" onclick="fhQrAct(\'approve\')">' + ctaLabel + '</button>' +
+          '<div class="qr-actrow">' +
+            '<button class="qr-ghost" onclick="fhQrAct(\'later\')">' + L('Để lúc khác', 'Later') + '</button>' +
+            '<button class="qr-skip qr-skip-inline" onclick="fhQrAct(\'dismiss\')">' + L('Bỏ qua', 'Skip') + '</button>' +
+          '</div>' +
+          (others > 0
+            ? '<div class="qr-foot">' + L('Còn ' + others + ' khoản trong hàng chờ', others + ' more in the queue') + ' · <b onclick="fhQrAct(\'all\')">' + L('Xem tất cả', 'View all') + '</b></div>'
+            : '') +
+        '</div>');
+    }
+    function _qrRenderPhoto() {
+      _qrShow(
+        '<div class="qr qr-photo">' +
+          '<div class="qr-done"><span class="qr-ck">✓</span>' + _esc2(L('Đã vào sổ', 'Saved') + ' · ' + _qrFmt(QR.amount) + (QR.cat ? ' ' + QR.cat : '')) + '</div>' +
+          '<div class="qr-ph-h">' + L('Giữ lại khoảnh khắc này?', 'Keep this moment?') + '</div>' +
+          '<div class="qr-ph-sub">' + L('Một tấm ảnh làm khoản chi này dễ nhớ hơn nhiều, sau này lướt sổ lại thấy vui.', 'A photo makes this one easier to remember, and nicer to scroll past later.') + '</div>' +
+          '<div class="qr-snap"><div class="qr-snap-in">' + L('Ảnh của khoảnh khắc này', 'A photo of this moment') + '</div></div>' +
+          '<button class="qr-cta" onclick="fhQrAct(\'cam\')">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M8.5 7 10 4.5h4L15.5 7"/><circle cx="12" cy="13.5" r="3.5"/></svg>' +
+            L('Chụp ảnh', 'Take a photo') + '</button>' +
+          '<div class="qr-ph-row">' +
+            '<button class="qr-ghost" onclick="fhQrAct(\'lib\')">' + L('Chọn từ thư viện', 'From library') + '</button>' +
+            '<button class="qr-skip qr-skip-inline" onclick="fhQrAct(\'later\')">' + L('Để sau', 'Later') + '</button>' +
+          '</div>' +
+          '<input type="file" id="qr-file-cam" accept="image/*" capture="environment" hidden onchange="fhQrAct(\'files\',this)">' +
+          '<input type="file" id="qr-file-lib" accept="image/*" multiple hidden onchange="fhQrAct(\'files\',this)">' +
+        '</div>');
+    }
+
+    /* ---- family destination ----------------------------------------------
+       Redirecting a personal-staged row to the family book. The seal only
+       governed who could READ the queue; the plaintext is in hand, so this is
+       an ordinary family write (re-encrypted under the family DEK). */
+    function _qrFamilyLocked() {
+      return !!(window._fhWriteLocked && window._fhWriteLocked());
+    }
+    /* Mirrors csvPromote for ONE row: family income → fhAddFamilyIncome;
+       expense → the supported prepared-bulk path (bulkRows + submitBulk), which
+       is exactly how the full review promotes family rows. Returns truthy on a
+       started write; submitBulk's own writes are fire-and-forget like the full
+       path, and the local-first retire guards a failure. */
+    async function _qrWriteFamily(src) {
+      if (QR.flow === 'income') {
+        var b = Number(QR.amount || 0) / (typeof curMult === 'function' ? curMult() : 1000);
+        if (!(b > 0)) return false;
+        return await window.fhAddFamilyIncome(b, QR.desc || '', QR.dateIso);
+      }
+      var name = QR.cat;
+      // Pre-resolve the category id so the write finds it instead of racing to
+      // create it (harmless for one row, but keeps parity with csvPromote).
+      if (window._categoryIdForName && navigator.onLine !== false) {
+        try { await window._categoryIdForName(name, (window.catStyle[name] || [])[0], (window.catOrder || []).indexOf(name) + 1); } catch (e) {}
+      }
+      window.bulkRows = [{
+        note: QR.desc || '', amt: String(Math.round(QR.amount)), cat: name,
+        who: (typeof csvDefaultWho === 'function' ? csvDefaultWho() : (window.lastWho || '')),
+        date: QR.dateIso, _invalid: false, _catTouched: true,
+        source: src, time: QR.time || '', _timeAuto: false,
+      }];
+      window.bulkActive = 0; window.exPhotos = [];
+      try { if (typeof buildExCatChips === 'function') buildExCatChips(); } catch (e) {}
+      try { if (typeof renderBulk === 'function') renderBulk(); } catch (e) {}
+      try { if (typeof loadRow === 'function') loadRow(0); } catch (e) {}
+      if (typeof submitBulk !== 'function') return false;
+      // prepared → no interactive re-parse; stay → don't bounce off the tab
+      submitBulk({ prepared: true, stay: true });
+      return true;
+    }
+
+    /* ---- actions ---------------------------------------------------------- */
+    async function _qrApprove() {
+      if (!QR || QR.busy) return;
+      QR.busy = true;
+      var btn = document.getElementById('qr-go');
+      if (btn) { btn.disabled = true; btn.textContent = L('Đang lưu…', 'Saving…'); }
+      try {
+        var src = QR.re._transport === 'oauth_direct' ? 'direct-email' : 'forwarding-email';   // 0100 provenance
+        var toFamily = QR.dest === 'family';
+        /* A family EXPENSE needs a real family category — submitBulk validates it
+           and would otherwise bounce to the full composer. Personal allows an
+           unclassified row, so this gate is family-only. */
+        if (toFamily && QR.flow !== 'income' && !(typeof catValid === 'function' && catValid(QR.cat))) {
+          window.toast && window.toast(L('Chọn danh mục trước khi ghi vào sổ gia đình', 'Pick a category before logging to the family'));
+          QR.busy = false; if (btn) { btn.disabled = false; } QR.edit = 'cat'; _qrRender(); return;
+        }
+        var ok;
+        if (toFamily) {
+          ok = await _qrWriteFamily(src);
+        } else {
+          var base = Number(QR.amount || 0) / (typeof curMult === 'function' ? curMult() : 1000);
+          if (!(base > 0)) throw new Error('bad amount');
+          var ai = _qrAcct(QR.re);
+          var acctId = null;
+          if (ai && window.fhPersonalAccountEnsure) { try { acctId = await window.fhPersonalAccountEnsure(ai); } catch (e) {} }
+          if (QR.flow === 'income') {
+            ok = await window.fhPersonalAddIncome(base, QR.desc || '', QR.dateIso, src,
+              { catName: 'Khác', catEmoji: '💰', accountId: (ai && ai.kind !== 'credit_card') ? acctId : null, time: QR.time });
+          } else {
+            var emoji = (window.catStyle && window.catStyle[QR.cat] && window.catStyle[QR.cat][0]) || '🗂️';
+            ok = await window.fhPersonalAddExpense(base, QR.desc || '', QR.cat || null, emoji, QR.dateIso, QR.time, src, { accountId: acctId });
+          }
+        }
+        if (!ok) throw new Error('write failed');
+        /* A hand-picked category is a lesson: teach the shared merchant memory
+           (csvLearnFrom only accepts catSource:'user'), so the NEXT quick sheet
+           and the bulk screen both already know this merchant. */
+        if (QR.editedCat && QR.cat && typeof csvLearnFrom === 'function') {
+          try {
+            csvLearnFrom({ counterparty: QR.re.counterparty || '', description: QR.desc || '',
+              amount: Number(QR.amount) || 0, categoryName: QR.cat, catSource: 'user' });
+          } catch (e) {}
+        }
+        // ledger write landed → retire the staged row (local-first inside 72's helper)
+        try { await window.fhStagedRetireIds([QR.row.id]); } catch (e) {}
+        try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}
+        try { typeof renderPersonal === 'function' && renderPersonal(); } catch (e) {}
+        /* The photo beat is PERSONAL-only: it uses the personal photo path and
+           the id fhPersonalAddExpense returns. A family expense goes through
+           submitBulk (no id handed back) and its photos live in a different
+           table — those can be added from the family expense's own detail
+           screen. So a family import ends here; submitBulk already toasted. */
+        QR.txnId = (!toFamily && typeof ok === 'string') ? ok : null;
+        if (!toFamily && QR.flow !== 'income' && QR.amount > 30000 && QR.txnId) {
+          QR.state = 'photo'; QR.busy = false; _qrRender(); return;
+        }
+        if (!toFamily) window.toast && window.toast(L('Đã lưu vào sổ Cá nhân', 'Saved to your personal ledger'));
+        _qrClose();
+      } catch (e) {
+        console.warn('quick review approve failed', e);
+        window.toast && window.toast(L('Chưa lưu được', 'Could not save'));
+        QR.busy = false;
+        if (btn) { btn.disabled = false; }
+        _qrRender();
+      }
+    }
+    function _qrFilesToDataUris(input, cb) {
+      var files = Array.prototype.slice.call(input.files || []).slice(0, 10);
+      if (!files.length) return cb([]);
+      var out = [], left = files.length;
+      files.forEach(function (f, i) {
+        var r = new FileReader();
+        r.onload = function () { out[i] = r.result; if (!--left) cb(out.filter(Boolean)); };
+        r.onerror = function () { if (!--left) cb(out.filter(Boolean)); };
+        r.readAsDataURL(f);
+      });
+    }
+    async function _qrPhotos(uris) {
+      if (!QR || !QR.txnId || !uris.length) return _qrClose();
+      window.toast && window.toast(L('Đang lưu ảnh…', 'Saving photo…'));
+      try {
+        var ok = await window.fhPersonalUploadTxnPhotos(QR.txnId, uris);
+        try { await window.fhPersonalHydrate(); } catch (e) {}
+        try { typeof renderPersonal === 'function' && renderPersonal(); } catch (e) {}
+        window.toast && window.toast(ok ? L('Đã lưu ảnh vào khoản chi 📸', 'Photo saved to the expense 📸')
+                                        : L('Có ảnh chưa lưu được', 'Some photos could not be saved'));
+      } catch (e) {
+        window.toast && window.toast(L('Chưa lưu được ảnh', 'Could not save the photo'));
+      }
+      _qrClose();
+    }
+    function _qrClose() {
+      QR = null;
+      window._closeOv && window._closeOv();
+    }
+
+    window.fhQrAct = function (a, v) {
+      if (!QR) return;
+      if (a === 'edit') { QR.edit = (QR.edit === v) ? null : v; _qrRender(); return; }
+      if (a === 'amt-ok') {
+        var el = document.getElementById('qr-in-amt');
+        var n = el && typeof parseAmt === 'function' ? parseAmt(el.value) : 0;
+        if (n > 0) QR.amount = n;
+        QR.edit = null; _qrRender(); return;
+      }
+      if (a === 'date-ok') {
+        var d = document.getElementById('qr-in-date');
+        if (d && /^\d{4}-\d{2}-\d{2}$/.test(d.value)) { QR.dateIso = d.value; QR.time = undefined; }
+        QR.edit = null; _qrRender(); return;
+      }
+      if (a === 'cat-pick') { QR.cat = v || QR.cat; QR.editedCat = true; QR.edit = null; _qrRender(); return; }
+      if (a === 'dest-pick') {
+        if (v === 'family' && _qrFamilyLocked()) { window.toast && window.toast(L('Sổ gia đình đang khoá', 'The family ledger is locked')); return; }
+        QR.dest = v || QR.dest; QR.edit = null; _qrRender(); return;
+      }
+      if (a === 'approve') { _qrApprove(); return; }
+      if (a === 'later') { _qrClose(); return; }             // session-suppressed only → eligible again next app open
+      if (a === 'dismiss') { _qrSeenAdd(QR.row.id); _qrClose(); return; }   // persistent → won't auto-pop again (stays in the full queue)
+      if (a === 'all') { _qrClose(); window.fhTxnReviewSheet && window.fhTxnReviewSheet(); return; }
+      if (a === 'cam') { var c = document.getElementById('qr-file-cam'); c && c.click(); return; }
+      if (a === 'lib') { var l = document.getElementById('qr-file-lib'); l && l.click(); return; }
+      if (a === 'later') { window.toast && window.toast(L('Đã lưu vào sổ Cá nhân', 'Saved to your personal ledger')); _qrClose(); return; }
+      if (a === 'files') { _qrFilesToDataUris(v, function (uris) { _qrPhotos(uris); }); return; }
+    };
+  })();

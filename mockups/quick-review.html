@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duyệt nhanh giao dịch từ email — noti + sheet + ảnh</title>
+<style>
+/* ===== Tokens — copied from src/css/10-tokens.css (Sage default) ===== */
+:root{
+  --brand:#2E9E6B; --brand-ink:#1F7E52; --brand-2:#5FD3A0;
+  --brand-tint:#e9f7f0; --brand-glow:rgba(46,158,107,.32);
+  --grad-brand:linear-gradient(135deg,#34B87A,#5FC98D);
+  --danger:#E0322F; --danger-tint:#fdecef;
+  --good:#1a9d5f; --good-tint:#e7f5ee;
+  --amber:#B8730B; --amber-tint:#fbefda;
+  --ink:#191022; --ink-2:#3a2f45; --muted:#6b6576; --muted-soft:#78727f;
+  --canvas:#f4f1f6; --pearl:#fbfafc; --surface:#f9f7f8; --white:#fff;
+  --hairline:#e9e4ee; --divider:#f1edf4; --chev:#cfc8d6;
+  --fill-neutral:rgba(138,132,148,.14);
+  --cat-dining:#FF375F; --cat-transport:#32ADE6; --cat-fun:#BF5AF2; --cat-other:#98949e;
+  --shadow-card:0 1px 3px rgba(25,16,34,.05),0 8px 24px rgba(25,16,34,.04);
+  --disp:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+  --text:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+body{font-family:var(--text);background:#e7e2ec;color:var(--ink)}
+.num{font-family:var(--disp);font-variant-numeric:tabular-nums}
+
+/* ===== Gallery layout ===== */
+.wrap{max-width:1500px;margin:0 auto;padding:44px 28px 90px}
+.hero{max-width:920px;margin-bottom:6px}
+.hero h1{font-family:var(--disp);font-size:28px;font-weight:800;letter-spacing:-.5px}
+.hero p{margin-top:10px;font-size:15px;color:var(--muted);line-height:1.55}
+.hero p b{color:var(--ink-2)}
+.grid{margin-top:36px;display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:48px 36px}
+@media(max-width:480px){.grid{grid-template-columns:1fr}.wrap{padding:32px 14px 70px}}
+.item .cap{margin:16px auto 0;max-width:402px;padding:0 10px}
+.cap .tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;padding:3px 8px;margin-right:8px;vertical-align:2px}
+.cap b{font-size:15.5px;font-weight:700}
+.cap p{margin-top:6px;font-size:13px;color:var(--muted);line-height:1.5}
+
+/* ===== Phone frame ===== */
+.phone{width:100%;max-width:402px;height:874px;margin:0 auto;background:var(--white);overflow:hidden;display:flex;flex-direction:column;border-radius:46px;border:11px solid #05030a;box-shadow:0 30px 60px rgba(10,5,20,.28);position:relative}
+.scr{flex:1;overflow-y:auto;overscroll-behavior:contain;background:var(--canvas);position:relative;display:flex;flex-direction:column}
+.scr::-webkit-scrollbar{width:0}
+
+/* ===================================================================
+   A — LOCK SCREEN
+   =================================================================== */
+.lock{flex:1;display:flex;flex-direction:column;background:
+  radial-gradient(120% 70% at 80% -10%,rgba(95,211,160,.16),transparent 55%),
+  radial-gradient(100% 60% at 10% 110%,rgba(46,158,107,.14),transparent 60%),
+  linear-gradient(168deg,#10231b 0%,#0c1a14 48%,#132a20 100%);
+  color:#f4f7f5;padding:0 14px}
+.lk-status{display:flex;justify-content:center;padding-top:16px}
+.lk-lockicon{opacity:.85}
+.lk-clock{text-align:center;margin-top:26px}
+.lk-clock .dt{font-size:15px;font-weight:600;letter-spacing:.01em;color:rgba(244,247,245,.85)}
+.lk-clock .tm{font-family:var(--disp);font-size:78px;font-weight:250;letter-spacing:-1.5px;line-height:1.04;margin-top:2px}
+.lk-stack{margin-top:auto;padding-bottom:14px;display:flex;flex-direction:column;gap:9px}
+.noti{background:rgba(248,248,251,.92);backdrop-filter:blur(18px);border-radius:20px;padding:11px 13px;color:var(--ink);box-shadow:0 6px 20px rgba(5,10,8,.25)}
+.noti .row{display:flex;gap:10px;align-items:flex-start}
+.appic{width:36px;height:36px;border-radius:9px;flex:none;background:var(--grad-brand);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.35)}
+.appic svg{width:20px;height:20px}
+.noti .tx{flex:1;min-width:0}
+.noti .head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.noti .ttl{font-size:14.5px;font-weight:650;line-height:1.28}
+.noti .when{font-size:12px;color:var(--muted-soft);flex:none}
+.noti .bd{font-size:14px;line-height:1.34;color:var(--ink-2);margin-top:1px}
+.noti .bd .more{color:var(--muted);font-weight:500}
+.noti.dim{background:rgba(248,248,251,.78);transform:scale(.965);transform-origin:bottom center}
+.lk-home{width:120px;height:5px;border-radius:99px;background:rgba(244,247,245,.85);margin:8px auto 8px}
+.lk-quick{display:flex;justify-content:space-between;padding:4px 26px 18px}
+.qbtn{width:46px;height:46px;border-radius:50%;background:rgba(244,247,245,.16);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center}
+.qbtn svg{width:20px;height:20px;stroke:#f4f7f5}
+
+/* ===================================================================
+   Ledger backdrop (B & D)
+   =================================================================== */
+.grab{width:44px;height:5px;border-radius:99px;background:var(--hairline);margin:10px auto 2px;flex:none}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 6px;flex:none}
+.nav .h-title{font-family:var(--disp);font-size:34px;font-weight:700;letter-spacing:-1px}
+.nav .avatar{width:36px;height:36px;border-radius:50%;background:var(--grad-brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px}
+.bal{margin:8px 16px 0;background:var(--white);border-radius:22px;padding:18px 18px 16px;box-shadow:var(--shadow-card);flex:none}
+.bal small{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.bal .big{font-family:var(--disp);font-size:33px;font-weight:700;letter-spacing:-1px;margin-top:4px}
+.bal .sub{font-size:13px;color:var(--muted);margin-top:4px}
+.bal .sub b{color:var(--good);font-weight:650}
+.datelbl{margin:20px 20px 4px;font-size:12px;font-weight:800;letter-spacing:.09em;color:var(--muted);text-transform:uppercase;flex:none}
+.lrow{margin:8px 16px 0;background:var(--white);border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:11px;box-shadow:var(--shadow-card);flex:none}
+.lrow .emo{width:38px;height:38px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--fill-neutral)}
+.lrow .emo.thumb{background:linear-gradient(140deg,#dcd4e6,#c9bfd6);position:relative;overflow:hidden;font-size:15px}
+.lrow .mid{flex:1;min-width:0}
+.lrow .t{font-size:15px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lrow .s{font-size:13px;color:var(--muted);margin-top:1px}
+.lrow .amt{font-family:var(--disp);font-size:15px;font-weight:650;white-space:nowrap}
+.lrow.fresh{box-shadow:0 0 0 1.5px var(--brand) inset,var(--shadow-card);background:var(--pearl)}
+.tabbar{margin-top:auto;flex:none;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-top:1px solid var(--divider);display:flex;justify-content:space-around;padding:9px 8px 22px}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:600;color:var(--muted-soft);width:60px}
+.tab svg{width:23px;height:23px;stroke:var(--muted-soft)}
+.tab.on{color:var(--brand-ink)}
+.tab.on svg{stroke:var(--brand-ink)}
+
+/* ===== Sheet + scrim ===== */
+.scrim{position:absolute;inset:0;background:rgba(20,12,28,.38);z-index:5}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:6;background:var(--white);border-radius:24px 24px 0 0;box-shadow:0 -12px 44px rgba(25,16,34,.22);padding:0 20px calc(14px + 18px)}
+.sheet .grab{background:var(--hairline)}
+
+/* --- B: review state — settings-rows language (same as bulk-review expanded card / sửa chi tiêu) --- */
+.src-line{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+.src-line .eyebrow{font-size:11.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.src-line .when{font-size:13px;color:var(--muted-soft)}
+.note{margin-top:12px;background:var(--canvas);border-radius:13px;padding:11px 14px;font-size:14.5px;font-weight:600;line-height:1.4;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rows{margin-top:4px}
+.srow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 2px;border-bottom:1px solid var(--divider)}
+.srow:last-child{border-bottom:0}
+.srow small{font-size:13px;font-weight:600;color:var(--muted);flex:none}
+.srow .val{display:flex;align-items:center;gap:6px;min-width:0}
+.srow .val b{font-size:14.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow .chev{color:var(--chev);font-size:15px}
+.srow.hot{background:var(--brand-tint);margin:0 -6px;padding-left:8px;padding-right:8px;border-radius:11px;border-bottom:0}
+.srow.hot small,.srow.hot .val b,.srow.hot .chev{color:var(--brand-ink)}
+.srow.ro .val b{color:var(--muted);font-weight:600}
+.cta{display:block;width:100%;margin-top:16px;padding:17px;border:0;border-radius:9999px;background:var(--grad-brand);color:#fff;font-family:var(--text);font-size:17px;font-weight:700;box-shadow:0 8px 22px var(--brand-glow);text-align:center}
+.btnrow{display:flex;align-items:center;gap:10px;margin-top:10px}
+.ghost{flex:1;text-align:center;padding:13px;border-radius:9999px;border:1.5px solid var(--hairline);background:var(--white);font-size:15px;font-weight:650;color:var(--ink-2)}
+.plain{flex:1;text-align:center;padding:13px;font-size:15px;font-weight:600;color:var(--muted)}
+.qfoot{margin-top:12px;padding-top:12px;border-top:1px solid var(--divider);text-align:center;font-size:13.5px;color:var(--muted)}
+.qfoot b{color:var(--brand-ink);font-weight:700}
+
+/* --- C: photo beat --- */
+.done-chip{margin:14px auto 0;display:flex;align-items:center;gap:8px;width:max-content;max-width:100%;background:var(--good-tint);border-radius:9999px;padding:7px 14px 7px 9px}
+.done-chip .ck{width:22px;height:22px;border-radius:50%;background:var(--good);display:flex;align-items:center;justify-content:center;flex:none}
+.done-chip .ck svg{width:12px;height:12px}
+.done-chip span{font-size:13.5px;font-weight:650;color:var(--good)}
+.ph-h{font-family:var(--disp);font-size:25px;font-weight:700;letter-spacing:-.7px;text-align:center;margin-top:16px}
+.ph-sub{font-size:14.5px;color:var(--muted);text-align:center;line-height:1.45;margin-top:7px;padding:0 10px}
+.snap{width:190px;height:158px;margin:20px auto 0;background:var(--white);border-radius:6px;padding:9px 9px 30px;box-shadow:0 10px 26px rgba(25,16,34,.14),0 2px 6px rgba(25,16,34,.08);transform:rotate(-2.5deg)}
+.snap .ph{width:100%;height:100%;border-radius:3px;border:1.5px dashed var(--chev);background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted-soft)}
+.snap .ph svg{width:26px;height:26px;stroke:var(--chev)}
+.snap .ph span{font-size:11.5px;font-weight:600}
+.cta.cam{margin-top:22px;display:flex;align-items:center;justify-content:center;gap:9px}
+.cta.cam svg{width:21px;height:21px}
+
+/* --- D: toast --- */
+.toast{position:absolute;left:24px;right:24px;bottom:110px;z-index:7;background:var(--ink);color:#fff;border-radius:14px;padding:13px 16px;font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:9px;box-shadow:0 12px 30px rgba(10,5,20,.35)}
+.toast .ck{width:20px;height:20px;border-radius:50%;background:var(--good);display:flex;align-items:center;justify-content:center;flex:none}
+.toast .ck svg{width:11px;height:11px}
+.toast .sub2{margin-left:auto;color:var(--brand-2);font-weight:700}
+
+/* ===================================================================
+   Copy board
+   =================================================================== */
+.board{margin-top:64px}
+.board h2{font-family:var(--disp);font-size:22px;font-weight:800;letter-spacing:-.4px}
+.board>p{margin-top:8px;font-size:14px;color:var(--muted);max-width:860px;line-height:1.55}
+.tiers{margin-top:26px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:26px}
+.tier h3{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-bottom:8px;border-bottom:1px solid var(--hairline)}
+.tier h3 b{color:var(--brand-ink)}
+.cvar{margin-top:12px;background:var(--white);border-radius:16px;padding:13px 15px;box-shadow:var(--shadow-card)}
+.cvar .cb{font-size:14.5px;font-weight:550;color:var(--ink);line-height:1.45}
+.cvar .cm{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-soft);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <h1>Duyệt nhanh giao dịch từ email · noti mới + sheet + ảnh kỷ niệm</h1>
+  <p>Luồng đầy đủ cho giao dịch bắt từ email (sổ <b>Cá nhân</b>): noti theo ngữ cảnh với copy xoay vòng →
+  chạm noti hoặc mở tab Cá nhân → sheet tự hiện <b>một</b> giao dịch mới nhất → Duyệt một chạm với danh mục gợi ý →
+  mời chụp ảnh (chi tiêu &gt; 30.000đ) → xong, sheet đóng, không dí thêm.</p>
+</div>
+
+<div class="grid">
+
+<!-- ============ A: LOCK SCREEN ============ -->
+<div class="item">
+  <div class="phone">
+    <div class="lock">
+      <div class="lk-status">
+        <svg class="lk-lockicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f4f7f5" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+      </div>
+      <div class="lk-clock">
+        <div class="dt">Thứ Năm, 4 Tháng 9</div>
+        <div class="tm num">12:47</div>
+      </div>
+      <div class="lk-stack">
+        <div class="noti">
+          <div class="row">
+            <div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v8.5h11V10"/></svg></div>
+            <div class="tx">
+              <div class="head"><span class="ttl">Earthy</span><span class="when">bây giờ</span></div>
+              <div class="bd">Ăn ngon là khoản đầu tư ít khi lỗ 🍜 <span class="more">· còn 3 khoản chờ duyệt</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="noti">
+          <div class="row">
+            <div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v8.5h11V10"/></svg></div>
+            <div class="tx">
+              <div class="head"><span class="ttl">Earthy</span><span class="when">2 giờ</span></div>
+              <div class="bd">Khoản lớn đó nha 💸 Hít thở sâu, vào xem lại cho chắc.</div>
+            </div>
+          </div>
+        </div>
+        <div class="noti dim">
+          <div class="row">
+            <div class="appic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v8.5h11V10"/></svg></div>
+            <div class="tx">
+              <div class="head"><span class="ttl">Earthy</span><span class="when">hôm qua</span></div>
+              <div class="bd">Hộp thư kết nối xong, 128 giao dịch cũ đã vào hàng chờ 📬 Từ từ duyệt, không vội.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="lk-quick">
+        <div class="qbtn"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M9 3h6l1 4a4 4 0 0 1-2 3.5V19a2 2 0 0 1-4 0v-8.5A4 4 0 0 1 8 7z"/></svg></div>
+        <div class="qbtn"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M8.5 7 10 4.5h4L15.5 7"/><circle cx="12" cy="13.5" r="3.5"/></svg></div>
+      </div>
+      <div class="lk-home"></div>
+    </div>
+  </div>
+  <div class="cap">
+    <span class="tag">A</span><b>Noti theo ngữ cảnh — chỉ dùng phần body</b>
+    <p>Title để trống, hệ thống tự hiện "Earthy". Body không nhắc lại số tiền hay danh mục, chỉ chọn giọng theo ngữ cảnh (danh mục × bậc tiền), xoay vòng 4 biến thể mỗi ô. Nhờ vậy payload noti không mang dữ liệu tài chính nào. Hàng chờ &gt; 1 thì nối "· còn N khoản chờ duyệt". Noti mờ phía dưới là digest một lần khi quét xong hộp thư mới kết nối.</p>
+  </div>
+</div>
+
+<!-- ============ B: QUICK REVIEW SHEET ============ -->
+<div class="item">
+  <div class="phone">
+    <div class="scr">
+      <div class="nav"><span class="h-title">Cá nhân</span><span class="avatar">H</span></div>
+      <div class="bal">
+        <small>Chi tháng 9</small>
+        <div class="big num">4.860.000đ</div>
+        <div class="sub">Còn <b>7.140.000đ</b> trong hạn mức tháng này</div>
+      </div>
+      <div class="datelbl">Hôm nay</div>
+      <div class="lrow"><div class="emo">☕</div><div class="mid"><div class="t">Cà phê sáng</div><div class="s">Ăn uống · 08:12</div></div><div class="amt num">−29.000đ</div></div>
+      <div class="lrow"><div class="emo">🛵</div><div class="mid"><div class="t">Xe ôm đi làm</div><div class="s">Di chuyển · 08:40</div></div><div class="amt num">−62.000đ</div></div>
+      <div class="datelbl">Hôm qua</div>
+      <div class="lrow"><div class="emo">🥬</div><div class="mid"><div class="t">Đi chợ cuối tuần</div><div class="s">Đi chợ · 18:20</div></div><div class="amt num">−320.000đ</div></div>
+      <div class="lrow"><div class="emo">🎬</div><div class="mid"><div class="t">Vé xem phim</div><div class="s">Giải trí · 20:05</div></div><div class="amt num">−90.000đ</div></div>
+      <div class="lrow"><div class="emo">⚡</div><div class="mid"><div class="t">Hoá đơn điện tháng 8</div><div class="s">Nhà cửa · 09:15</div></div><div class="amt num">−1.240.000đ</div></div>
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v8.5h11V10"/></svg>Tổ ấm</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 19V10m5.5 9V5m5.5 14v-7m5.5 7V8"/></svg>Chi tiêu</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M9 15c.8.9 1.8 1.3 3 1.3s2.2-.4 3-1.3M9.5 10.5h0m5 0h0"/></svg>Kỷ niệm</div>
+        <div class="tab on"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3.6"/><path d="M5.5 19.5c1-3.2 3.4-4.8 6.5-4.8s5.5 1.6 6.5 4.8"/></svg>Cá nhân</div>
+      </div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <div class="grab"></div>
+        <div class="src-line">
+          <span class="eyebrow">Từ email · Techcombank</span>
+          <span class="when">Hôm nay, 12:45</span>
+        </div>
+        <div class="note">BUN CHA HUONG LIEN · QR thanh toán</div>
+        <div class="rows">
+          <div class="srow"><small>Số tiền</small><div class="val"><b class="num">185.000đ</b><span class="chev">›</span></div></div>
+          <div class="srow hot"><small>Danh mục</small><div class="val"><b>🍜 Ăn uống · gợi ý</b><span class="chev">›</span></div></div>
+          <div class="srow"><small>Ngày</small><div class="val"><b>Hôm nay, 12:45</b><span class="chev">›</span></div></div>
+          <div class="srow ro"><small>Nguồn tiền</small><div class="val"><b>Thẻ Techcombank •••• 8241</b></div></div>
+        </div>
+        <button class="cta">Duyệt · Ăn uống</button>
+        <div class="btnrow">
+          <div class="plain">Bỏ qua</div>
+        </div>
+        <div class="qfoot">Còn 3 khoản trong hàng chờ · <b>Xem tất cả</b></div>
+      </div>
+    </div>
+  </div>
+  <div class="cap">
+    <span class="tag">B</span><b>Sheet duyệt nhanh — cùng ngôn ngữ với thẻ duyệt hàng loạt</b>
+    <p>Tự hiện khi mở tab Cá nhân có khoản mới chưa xem (mỗi khoản chỉ hiện một lần), hoặc khi chạm noti. Ghi chú ngân hàng trong ô canvas, dưới là các hàng Số tiền / Danh mục / Ngày / Nguồn tiền đúng kiểu thẻ mở rộng của màn duyệt hàng loạt; chạm hàng để sửa tại chỗ, hàng Danh mục nổi brand vì là gợi ý cần liếc qua. "Duyệt · Ăn uống" nhập một chạm. Khoá máy chưa mở khoá thì sheet không hiện.</p>
+  </div>
+</div>
+
+<!-- ============ C: PHOTO BEAT ============ -->
+<div class="item">
+  <div class="phone">
+    <div class="scr">
+      <div class="nav"><span class="h-title">Cá nhân</span><span class="avatar">H</span></div>
+      <div class="bal">
+        <small>Chi tháng 9</small>
+        <div class="big num">5.045.000đ</div>
+        <div class="sub">Còn <b>6.955.000đ</b> trong hạn mức tháng này</div>
+      </div>
+      <div class="datelbl">Hôm nay</div>
+      <div class="lrow"><div class="emo">☕</div><div class="mid"><div class="t">Cà phê sáng</div><div class="s">Ăn uống · 08:12</div></div><div class="amt num">−29.000đ</div></div>
+      <div class="lrow"><div class="emo">🛵</div><div class="mid"><div class="t">Xe ôm đi làm</div><div class="s">Di chuyển · 08:40</div></div><div class="amt num">−62.000đ</div></div>
+      <div class="datelbl">Hôm qua</div>
+      <div class="lrow"><div class="emo">🥬</div><div class="mid"><div class="t">Đi chợ cuối tuần</div><div class="s">Đi chợ · 18:20</div></div><div class="amt num">−320.000đ</div></div>
+      <div class="lrow"><div class="emo">🎬</div><div class="mid"><div class="t">Vé xem phim</div><div class="s">Giải trí · 20:05</div></div><div class="amt num">−90.000đ</div></div>
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v8.5h11V10"/></svg>Tổ ấm</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 19V10m5.5 9V5m5.5 14v-7m5.5 7V8"/></svg>Chi tiêu</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M9 15c.8.9 1.8 1.3 3 1.3s2.2-.4 3-1.3M9.5 10.5h0m5 0h0"/></svg>Kỷ niệm</div>
+        <div class="tab on"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3.6"/><path d="M5.5 19.5c1-3.2 3.4-4.8 6.5-4.8s5.5 1.6 6.5 4.8"/></svg>Cá nhân</div>
+      </div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <div class="grab"></div>
+        <div class="done-chip">
+          <div class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg></div>
+          <span>Đã vào sổ · 185.000đ Ăn uống</span>
+        </div>
+        <div class="ph-h">Giữ lại khoảnh khắc này?</div>
+        <div class="ph-sub">Một tấm ảnh làm khoản chi này dễ nhớ hơn nhiều, sau này lướt sổ lại thấy vui.</div>
+        <div class="snap">
+          <div class="ph">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="9" cy="10.5" r="1.8"/><path d="M4.5 18.5 10 13l4 4 3-3 2.5 2.5"/></svg>
+            <span>Ảnh của bữa trưa nay</span>
+          </div>
+        </div>
+        <button class="cta cam">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M8.5 7 10 4.5h4L15.5 7"/><circle cx="12" cy="13.5" r="3.5"/></svg>
+          Chụp ảnh
+        </button>
+        <div class="btnrow">
+          <div class="ghost">Chọn từ thư viện</div>
+          <div class="plain">Để sau</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cap">
+    <span class="tag">C</span><b>Nhịp ảnh — ngay sau khi Duyệt</b>
+    <p>Chỉ hiện với chi tiêu &gt; 30.000đ (không hiện với thu nhập). Ưu tiên chụp mới vì món đồ còn ngay trước mặt; thư viện và "Để sau" đều một chạm. Ảnh nén, xoá EXIF, mã hoá bằng khoá cá nhân rồi mới tải lên, dùng đúng đường ống ảnh sẵn có của sổ Cá nhân.</p>
+  </div>
+</div>
+
+<!-- ============ D: DONE ============ -->
+<div class="item">
+  <div class="phone">
+    <div class="scr">
+      <div class="nav"><span class="h-title">Cá nhân</span><span class="avatar">H</span></div>
+      <div class="bal">
+        <small>Chi tháng 9</small>
+        <div class="big num">5.045.000đ</div>
+        <div class="sub">Còn <b>6.955.000đ</b> trong hạn mức tháng này</div>
+      </div>
+      <div class="datelbl">Hôm nay</div>
+      <div class="lrow fresh"><div class="emo thumb">🍜</div><div class="mid"><div class="t">Bún chả Hương Liên</div><div class="s">Ăn uống · 12:45 · có ảnh</div></div><div class="amt num">−185.000đ</div></div>
+      <div class="lrow"><div class="emo">☕</div><div class="mid"><div class="t">Cà phê sáng</div><div class="s">Ăn uống · 08:12</div></div><div class="amt num">−29.000đ</div></div>
+      <div class="lrow"><div class="emo">🛵</div><div class="mid"><div class="t">Xe ôm đi làm</div><div class="s">Di chuyển · 08:40</div></div><div class="amt num">−62.000đ</div></div>
+      <div class="datelbl">Hôm qua</div>
+      <div class="lrow"><div class="emo">🥬</div><div class="mid"><div class="t">Đi chợ cuối tuần</div><div class="s">Đi chợ · 18:20</div></div><div class="amt num">−320.000đ</div></div>
+      <div class="lrow"><div class="emo">🎬</div><div class="mid"><div class="t">Vé xem phim</div><div class="s">Giải trí · 20:05</div></div><div class="amt num">−90.000đ</div></div>
+      <div class="lrow"><div class="emo">⚡</div><div class="mid"><div class="t">Hoá đơn điện tháng 8</div><div class="s">Nhà cửa · 09:15</div></div><div class="amt num">−1.240.000đ</div></div>
+      <div class="toast">
+        <div class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg></div>
+        Đã lưu vào sổ Cá nhân
+        <span class="sub2">Còn 3 khoản chờ</span>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v8.5h11V10"/></svg>Tổ ấm</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 19V10m5.5 9V5m5.5 14v-7m5.5 7V8"/></svg>Chi tiêu</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M9 15c.8.9 1.8 1.3 3 1.3s2.2-.4 3-1.3M9.5 10.5h0m5 0h0"/></svg>Kỷ niệm</div>
+        <div class="tab on"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3.6"/><path d="M5.5 19.5c1-3.2 3.4-4.8 6.5-4.8s5.5 1.6 6.5 4.8"/></svg>Cá nhân</div>
+      </div>
+    </div>
+  </div>
+  <div class="cap">
+    <span class="tag">D</span><b>Xong — sheet đóng, không dí tiếp</b>
+    <p>Giao dịch mới nằm đầu danh sách với ảnh vừa chụp, viền brand nhạt vài giây rồi trở lại bình thường. Toast xác nhận kèm số khoản còn chờ; muốn duyệt tiếp thì vào hàng chờ từ badge, app không tự mở khoản kế tiếp.</p>
+  </div>
+</div>
+
+</div><!-- /grid -->
+
+<!-- ============ COPY BOARD ============ -->
+<div class="board">
+  <h2>Copy mẫu — giọng của noti</h2>
+  <p>Chỉ dùng phần body, không nhắc lại số tiền hay danh mục — ngữ cảnh chọn giọng, không chọn nội dung.
+  Nguyên tắc: template chỉ được nói điều chắc chắn đúng với ô của nó; muốn cụ thể hơn (cà phê, trà sữa, Grab…)
+  phải qua pool riêng mở khoá bằng từ khoá trong tên nơi bán, không khớp thì rơi về câu chung.
+  Trích vài ô trong ma trận (10 danh mục × 4 bậc tiền × 4 biến thể, song ngữ). Vui kiểu người thật,
+  có ý tiêu khéo sống khoẻ nhưng không dạy đời, không kêu gọi hành động. Bộ đầy đủ sẽ đưa bạn duyệt riêng.</p>
+  <div class="tiers">
+    <div class="tier">
+      <h3>Bậc 1 · <b>≤ 30.000đ</b> lặt vặt</h3>
+      <div class="cvar"><div class="cb">Khoản nhỏ xíu mà vui cả buổi thì quá hời 🍡</div><div class="cm">Dining · biến thể 1/4</div></div>
+      <div class="cvar"><div class="cb">Tỉnh táo rồi thì làm gì đó cho đáng ly cà phê nha ☕</div><div class="cm">Dining · pool "cà phê" — chỉ khi tên nơi bán khớp từ khoá (CAFE, HIGHLANDS…)</div></div>
+      <div class="cvar"><div class="cb">Xe an toàn, lòng thanh thản 🛵</div><div class="cm">Transport · biến thể 2/4</div></div>
+    </div>
+    <div class="tier">
+      <h3>Bậc 2 · <b>30.000đ – 500.000đ</b> thường ngày</h3>
+      <div class="cvar"><div class="cb">Ăn ngon là khoản đầu tư ít khi lỗ 🍜</div><div class="cm">Dining · biến thể 1/4</div></div>
+      <div class="cvar"><div class="cb">Tủ lạnh đầy là tuần này yên tâm một nửa rồi 🥬</div><div class="cm">Groceries · biến thể 3/4</div></div>
+    </div>
+    <div class="tier">
+      <h3>Bậc 3 · <b>500.000đ – 5 triệu</b> đáng chú ý</h3>
+      <div class="cvar"><div class="cb">Máy lạnh tháng này chạy hết mình rồi đó ⚡</div><div class="cm">Housing · biến thể 2/4</div></div>
+      <div class="cvar"><div class="cb">Đẹp thì đẹp thật, nhớ xài cho kỹ nha 🛍</div><div class="cm">Shopping · biến thể 1/4</div></div>
+    </div>
+    <div class="tier">
+      <h3>Bậc 4 · <b>&gt; 5 triệu</b> mạnh tay · thu nhập · digest</h3>
+      <div class="cvar"><div class="cb">Khoản lớn đó nha 💸 Hít thở sâu, vào xem lại cho chắc.</div><div class="cm">Bậc 4 · biến thể 1/4</div></div>
+      <div class="cvar"><div class="cb">Tiền về rồi 🎉 Để dành trước, tiêu sau, nhẹ đầu.</div><div class="cm">Income · biến thể 2/4</div></div>
+      <div class="cvar"><div class="cb">Hộp thư kết nối xong, 128 giao dịch cũ đã vào hàng chờ 📬 Từ từ duyệt, không vội.</div><div class="cm">Digest sau khi quét hộp thư · một lần · được phép nêu số lượng</div></div>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

@@ -19,6 +19,7 @@
    verify_jwt=true; the user's JWT is also parsed here to resolve family. */
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import * as webpush from "jsr:@negrel/webpush@0.3";
+import { reviewBody, digestBody, queueSuffix } from "../_shared/mailbox/notify-copy.mjs";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -93,28 +94,21 @@ function isServiceRole(jwt: string): boolean {
   }
 }
 
-/* Count only — never the amount, the merchant, or the bank.
- * The file's standing rule is that E2EE plaintext must not transit a push
- * service, and once sealing is switched on the pipeline could not read those
- * values to send them even if it wanted to. The notification's whole job is
- * "there is something here for you", and the app shows the rest behind the lock. */
-function buildReviewCopy(count: number, lang: string): { title: string; body: string } {
-  const vi = lang !== "en";
-  const n = count > 1 ? count : 1;
-  if (vi) {
-    return {
-      title: "Có giao dịch mới cần bạn duyệt",
-      body: n > 1
-        ? `${n} giao dịch từ email ngân hàng đang chờ bạn xem và phân loại.`
-        : "Một giao dịch từ email ngân hàng đang chờ bạn xem và phân loại.",
-    };
-  }
-  return {
-    title: "New transactions to review",
-    body: n > 1
-      ? `${n} transactions from your bank email are waiting for you to check and categorise.`
-      : "A transaction from your bank email is waiting for you to check and categorise.",
-  };
+/* txn_review copy (2026-09-04, "notify voice"): body-only, no title — the
+ * service worker's `d.title || 'Earthy'` fallback names the app in the tray.
+ * mailbox-sync distills the plaintext into a tiny enum {c: concept, t: tier,
+ * p: pool} (notify-copy.mjs) and THIS function picks one pre-written line, so
+ * the payload still carries no amount, no merchant, no category name — the
+ * standing rule that E2EE plaintext must not transit a push service holds.
+ * backfill:true → the one-time digest (a queue size is not private).
+ * No copy meta at all (an older mailbox-sync, or the forwarding pipeline's
+ * per-message notify) → the generic 'unknown' voice. */
+function buildReviewBody(
+  meta: { c?: string; t?: number; p?: string } | null,
+  backfill: boolean, count: number, lang: string,
+): string {
+  if (backfill) return digestBody(count, lang);
+  return reviewBody(meta, lang) + queueSuffix(count - 1, lang);
 }
 const ENTITY_TYPES = ["expense", "goal", "occasion"];
 
@@ -228,10 +222,19 @@ Deno.serve(async (req: Request) => {
 
       const srv2 = await getAppServer();
       if (!srv2) return json({ error: "push not configured" }, 500);
-      const c = buildReviewCopy(count, lg);
+      const backfill = b.backfill === true;
+      const meta = (b.copy && typeof b.copy === "object") ? b.copy : null;
+      const scope = b.scope === "personal" ? "personal" : null;
+      const body2 = buildReviewBody(meta, backfill, count, lg);
       // tag collapses a burst: three emails in one run replace each other in the
-      // tray rather than stacking three identical rows.
-      const pl = JSON.stringify({ title: c.title, body: c.body, tag: "fh-txn_review", url: "./", nav: { k: "txn_review" } });
+      // tray rather than stacking three identical rows (latest voice wins).
+      // No title on purpose — sw.js falls back to 'Earthy'. nav.s='personal'
+      // routes the tap to the personal quick-review sheet; family scope keeps
+      // the classic full-queue landing.
+      const pl = JSON.stringify({
+        body: body2, tag: "fh-txn_review", url: "./",
+        nav: { k: "txn_review", ...(scope ? { s: "personal" } : {}) },
+      });
 
       let n = 0; const gone: string[] = [];
       await Promise.all(own.map(async (s: { id: string; endpoint: string; p256dh: string; auth: string }) => {

@@ -154,24 +154,48 @@ const grab = (header) => {
 };
 const DenoEnv = { SUPABASE_SERVICE_ROLE_KEY: 'srv-key' };
 global.Deno = { env: { get: (k) => DenoEnv[k] } };
-eval(esbuild.transformSync(grab('function isServiceRole') + '\n' + grab('function buildReviewCopy'), { loader: 'ts' }).code);
+eval(esbuild.transformSync(grab('function isServiceRole'), { loader: 'ts' }).code);
 
 t('the service-role key opens the pipeline entrance', isServiceRole('srv-key') === true);
 t('a user JWT does not', isServiceRole('eyJhbGciOi.some.jwt') === false);
 t('a prefix of the key does not', isServiceRole('srv') === false);
 t('an empty bearer does not', isServiceRole('') === false);
 
-const vi1 = buildReviewCopy(1, 'vi'), vi3 = buildReviewCopy(3, 'vi'), en3 = buildReviewCopy(3, 'en');
-t('VN singular reads naturally', vi1.body.indexOf('Một giao dịch') === 0, vi1.body);
-t('VN plural carries the number', vi3.body.indexOf('3 giao dịch') === 0, vi3.body);
-t('EN follows the family language', en3.body.indexOf('3 transactions') === 0, en3.body);
-t('an unknown language falls back to Vietnamese', buildReviewCopy(1, 'fr').title === vi1.title);
+/* The copy engine moved into _shared/mailbox/notify-copy.mjs (2026-09-04,
+   "notify voice"): body-only lines chosen from a pre-written matrix by the
+   tiny {c: concept, t: tier, p: pool} enum the worker distills while it still
+   holds the plaintext. push-send only assembles: digest when backfill, else
+   matrix line + queue suffix. The invariant this block guards is unchanged —
+   nothing that transits the push service may carry an amount or a merchant. */
+const nc = require(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'mailbox', 'notify-copy.mjs'));
+global.reviewBody = nc.reviewBody; global.digestBody = nc.digestBody; global.queueSuffix = nc.queueSuffix;
+eval(esbuild.transformSync(grab('function buildReviewBody'), { loader: 'ts' }).code);
 
-// Currency markers and bank/merchant names only — a bare \d would hit the count,
-// which is the one number these are allowed to carry.
+const vi1 = buildReviewBody({ c: 'Dining', t: 2 }, false, 1, 'vi');
+const vi3 = buildReviewBody({ c: 'Dining', t: 2 }, false, 3, 'vi');
+const en3 = buildReviewBody({ c: 'Dining', t: 2 }, false, 3, 'en');
+const dg = buildReviewBody(null, true, 128, 'vi');
+t('a single fresh row reads as one clean line, no counters', !/\d/.test(vi1), vi1);
+t('a queue behind it rides as a suffix with the OTHERS count', vi3.indexOf('còn 2 khoản khác') > 0, vi3);
+t('EN follows the family language', en3.indexOf('2 more waiting') > 0, en3);
+t('an unknown language falls back to Vietnamese',
+  buildReviewBody({ c: 'Dining', t: 2 }, false, 3, 'fr').indexOf('còn 2 khoản khác') > 0);
+t('backfill speaks as the digest, the one line allowed a queue size', dg.indexOf('128') >= 0, dg);
+t('a missing meta still yields a line (older sender / forwarding path)',
+  buildReviewBody(null, false, 1, 'vi').length > 0);
+
+// Currency markers and bank/merchant names only — the digest count and the
+// queue suffix are the ONLY numbers allowed anywhere in this copy. Every cell
+// of the matrix and every keyword pool is swept, both languages.
 const money = /VND|₫|\bđ\b|\bmbbank\b|\bvietcombank\b|REVI PHU/i;
-t('no copy variant can carry an amount or a merchant',
-  !money.test(vi1.title + vi1.body + vi3.title + vi3.body + en3.title + en3.body));
+const everyLine = [];
+['vi', 'en'].forEach((lg) => {
+  const concepts = ['Housing', 'Groceries', 'Clothing', 'Shopping', 'Transport', 'Dining', 'Fun', 'Others', 'income', 'unknown'];
+  concepts.forEach((c) => { for (let ti = 1; ti <= 4; ti++) for (let r = 0; r < 4; r++) everyLine.push(nc.reviewBody({ c, t: ti }, lg, r / 4 + 0.001)); });
+  ['coffee', 'milktea', 'ride', 'cinema'].forEach((p) => { for (let r = 0; r < 4; r++) everyLine.push(nc.reviewBody({ c: 'Dining', t: 2, p }, lg, r / 4 + 0.001)); });
+});
+t('no matrix or pool line can carry an amount, a merchant, or any digit',
+  everyLine.every((s) => !money.test(s) && !/\d/.test(s)));
 
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail ? 1 : 0);

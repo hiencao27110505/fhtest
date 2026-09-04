@@ -179,6 +179,17 @@
          and has no _dbId to find, so it must be answered before anything tries
          to look one up. */
       if (nav.k === 'txn_review') {
+        /* s:'personal' (2026-09-04): the pipeline staged into the PERSONAL
+           scope, so the tap lands on the Cá nhân tab with the quick-review
+           sheet forced open — a tap is explicit intent, so the once-only seen
+           marker is bypassed. Rows the quick sheet won't handle (transfer,
+           foreign currency, locked ledger) fall back to the full queue inside
+           fhQuickReviewMaybe itself. Family scope keeps the classic landing. */
+        if (nav.s === 'personal' && window.fhQuickReviewMaybe) {
+          if (window.go) window.go('personal');
+          window.fhQuickReviewMaybe({ force: true });
+          return;
+        }
         if (window.fhTxnReviewSheet) { window.fhTxnReviewSheet(); return; }
         if (window.go) window.go('spending');                                 // not yet loaded: the ledger is next best
         return;

@@ -25,6 +25,7 @@
 
 import { resolveDestination, MailboxHold } from './identity.mjs';
 import { buildStagedRow } from './stage.mjs';
+import { copyMeta } from './notify-copy.mjs';
 import { readTransaction, normalizeSubjectTemplate, SENDER_SENTINEL } from './extract.mjs';
 import * as senders from './senders.mjs';
 import * as gmail from './gmail.mjs';
@@ -35,7 +36,7 @@ import { decryptToken } from './token-crypto.mjs';
  *  because "which code is actually deployed" once cost hours of guessing; this
  *  worker had no equivalent, and answering that question is exactly what made
  *  the 28 Aug incident review slow. Bump on any deploy. */
-export const BUILD_ID = '2026-08-30-stallonce';
+export const BUILD_ID = '2026-09-04-notifyvoice';
 
 /** How many consecutive no-progress runs before a stalled backfill is allowed
  *  to send its completion notice anyway (0101).
@@ -391,6 +392,12 @@ export async function runGrant(grant, ctx) {
 
   let hitLimit = false;
 
+  /* The freshest staged transaction of this run, distilled to the tiny copy
+     enum {c,t,p} the moment the plaintext is still in hand (notify-copy.mjs).
+     Only the enum survives past this loop — the notification's contextual
+     voice needs to know "Dining, tier 2, coffee", never the amount itself. */
+  let copyBest = null;
+
   /* FETCHED CONCURRENTLY, PROCESSED IN ORDER — and the split is the whole point.
   
      `messages.get` is pure I/O with no dependency on any other message, so
@@ -620,7 +627,20 @@ export async function runGrant(grant, ctx) {
     if (restage.has(id)) { row.resolved_before = true; summary.restaged++; }
 
     if (row.duplicate_of_id) summary.duplicates++;
-    if (await ctx.db.insertStaged(row)) summary.staged++;
+    if (await ctx.db.insertStaged(row)) {
+      summary.staged++;
+      /* Newest staged row wins the notification's voice. Gmail lists newest
+         first but a widened window can interleave, so compare on the bank's
+         own timestamp rather than trusting arrival order. A duplicate
+         SUSPICION is excluded — its copy would voice a transaction the queue
+         may end up calling "Có thể trùng". */
+      if (!row.duplicate_of_id) {
+        try {
+          const at = Date.parse(read.extraction.occurred_at || '') || 0;
+          if (!copyBest || at >= copyBest.at) copyBest = { at, meta: copyMeta(read.extraction) };
+        } catch { /* copy is a garnish; staging never fails on it */ }
+      }
+    }
     else summary.skipped++;      // raced with another run; the guard held
     }
   }
@@ -730,7 +750,17 @@ export async function runGrant(grant, ctx) {
     } catch { /* fall back to this run's share */ }
   }
   if (shouldNotify && notifyCount > 0 && ctx.notify) {
-    try { await ctx.notify(grant, notifyCount, { backfill: finishedBackfill || stalledEnoughToSpeak }); }
+    /* A backfill speaks as a digest (count only); a steady-state poll speaks
+       with the freshest transaction's voice. scope rides along so the tap can
+       land on the personal quick-review sheet instead of the generic queue. */
+    const isDigest = finishedBackfill || stalledEnoughToSpeak;
+    try {
+      await ctx.notify(grant, notifyCount, {
+        backfill: isDigest,
+        ...(!isDigest && copyBest ? { copy: copyBest.meta } : {}),
+        ...(destination && destination.scope ? { scope: destination.scope } : {}),
+      });
+    }
     catch { /* never fails a run */ }
   }
   summary.notified = !!(shouldNotify && notifyCount > 0);

@@ -23,7 +23,13 @@ function go(name){
   if(name==='home' && typeof renderHome==='function'){ try{ renderHome(); }catch(e){} }   // fresh home (milestone shows on open)
   // Cá nhân: FAB adds to the FAMILY — hide it here; the tab has its own quick-add.
   var _fab=document.querySelector('.fab'); if(_fab) _fab.style.display=(name==='personal')?'none':'';
-  if(name==='personal'){ try{ if(typeof renderPersonal==='function') renderPersonal(); if(window.fhPersonalData && fhPersonalData().state==='boot' && window.fhPersonalBoot) fhPersonalBoot(); }catch(e){} }
+  if(name==='personal'){ try{ if(typeof renderPersonal==='function') renderPersonal(); if(window.fhPersonalData && fhPersonalData().state==='boot' && window.fhPersonalBoot) fhPersonalBoot(); }catch(e){}
+    // Quick review: an UNSEEN personal email-transaction pops its one-time sheet
+    // here (76-quick-review.js). Delayed so the tab paints first; the function
+    // itself declines when the sheet layer is busy, the ledger is locked, or
+    // every pending row has already had its one showing.
+    try{ if(window.fhQuickReviewMaybe) setTimeout(function(){ window.fhQuickReviewMaybe(); }, 450); }catch(e){}
+  }
 }
 /* Khoảnh Khắc has three inner sections: Dự định (plans) · Kỷ niệm (memories) · Album gia đình (album). */
 /* Khoảnh Khắc is one flat scroll now (like Tài Chính) — momSec glides to a section

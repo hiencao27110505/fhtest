@@ -181,7 +181,7 @@ function baseCtx(
     notify: (
       grant: { user_id: string; member_id: string },
       count: number,
-      meta?: { backfill?: boolean },
+      meta?: { backfill?: boolean; copy?: { c: string; t: number; p?: string }; scope?: string },
     ) => notifyReview(supabaseUrl, serviceKey, grant, count, meta),
   };
 }
@@ -206,14 +206,17 @@ async function notifyReview(
   serviceKey: string,
   grant: { user_id: string; member_id: string },
   count: number,
-  meta?: { backfill?: boolean },
+  meta?: { backfill?: boolean; copy?: { c: string; t: number; p?: string }; scope?: string },
 ) {
   /* `backfill: true` marks the ONE notification a first read is allowed to
-     send, after it has finished. push-send may use it to choose warmer copy
-     ("your history is ready") over the steady-state line; an older push-send
-     that does not know the flag ignores it and sends the normal notice, which
-     is why it rides alongside `count` rather than replacing it. Still no
-     amount and no merchant — this payload transits a third party. */
+     send, after it has finished; push-send voices it as the digest.
+     `copy` is the tiny {concept, tier, pool} enum distilled by notify-copy.mjs
+     while the worker still held the plaintext — push-send turns it into one
+     pre-written contextual line. `scope` lets the tap land on the personal
+     quick-review sheet. Still no amount and no merchant anywhere in this
+     payload — it transits a third party, and the enum asserts nothing a wrong
+     guess could contradict. An older push-send ignores all three and sends
+     the legacy notice, which is why they ride alongside `count`. */
   await fetch(url.replace(/\/$/, "") + "/functions/v1/push-send", {
     method: "POST",
     headers: { Authorization: "Bearer " + serviceKey, "Content-Type": "application/json" },
@@ -222,6 +225,8 @@ async function notifyReview(
       member_id: grant.member_id,
       count,
       ...(meta && meta.backfill ? { backfill: true } : {}),
+      ...(meta && meta.copy ? { copy: meta.copy } : {}),
+      ...(meta && meta.scope ? { scope: meta.scope } : {}),
     }),
   });
 }
