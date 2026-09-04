@@ -109,10 +109,13 @@ from the user's POV.
   (e.g. "Tài chính của tôi") or a rethink. (c) The new header is hardcoded VN
   (not `data-t`), consistent with the VN-only note below but still on the i18n
   debt list.
-- **Not built:** transfers (`kind='transfer'` two-leg pairing — schema-ready),
-  publish-from-personal→space, friend/trip spaces, annotation (photo/reaction)
-  join into the personal stream, full-history backfill beyond the ~2-month window,
-  `data-t` i18n for the personal strings (VN-only for now).
+- **Since built:** transfer pairs (`docs/specs/full-ledger-spec.md`, 0109);
+  publish-from-personal→space and the reverse pull-back, plus personal photos
+  (`docs/specs/cross-ledger-move-spec.md`, 0114).
+- **Not built:** friend/trip spaces, annotation (photo/reaction) join of
+  family rows into the personal stream (ordinary mirror rows stay photo-less —
+  move-spec decision M7 kept this deferred), full-history backfill beyond the
+  ~2-month window, `data-t` i18n for the personal strings (VN-only for now).
 
 ## Migration-number note
 My personal migrations originally used `0071–0075`, colliding with the partner's

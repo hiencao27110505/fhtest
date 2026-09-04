@@ -373,7 +373,7 @@ one. The 6-month trend and the month picker read from the same derived model.
 | Encryption | `off → dual → enc` lifecycle, DB-enforced | Ciphertext-only from birth |
 | Categories | Family table, "Others" invariant, renames cascade | Denormalised on each row |
 | Social layer | Reactions + proposals/reviews | None |
-| Photos | Yes (encrypted objects) | Not wired yet |
+| Photos | Yes (encrypted objects) | Yes since 0114 — own bucket, personal-DEK encrypted (`cross-ledger-move-spec.md` §3) |
 | Your authored family expenses | Live here | Mirrored in, read-only, via `link_id` |
 | Offline writes | Outbox with pre-minted ids | Direct writes |
 
@@ -784,6 +784,8 @@ paired by `link_id` — the other spec's object.
 
 - [`personal-ledger-spec.md`](personal-ledger-spec.md) — the Cá nhân tab;
   the mirror's other half.
+- [`cross-ledger-move-spec.md`](cross-ledger-move-spec.md) — moving a logged
+  expense between this ledger and the personal book (0114).
 - [`bank-email-capture-spec.docx`](bank-email-capture-spec.docx) — how bank
   emails become staged transactions.
 - [`transaction-review-spec.md`](transaction-review-spec.md) — the review

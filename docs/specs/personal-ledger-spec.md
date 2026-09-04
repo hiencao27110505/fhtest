@@ -142,8 +142,10 @@ total and labelled**, never silently counted as zero.
 The scope chips (🔒 Cá nhân / 🏡 Gia đình) default to personal — your last
 choice is remembered — and fall back to family only when the personal ledger
 isn't unlocked yet. Personal scope trims the form: no member split (a private
-book has no members), no photos (not wired for personal yet), no bulk-add.
-The family FAB is hidden on this tab on purpose; the tab has its own quick-add.
+book has no members), no bulk-add. Photos are carried since 0114 — up to 10,
+EXIF-stripped, encrypted under the personal DEK (`cross-ledger-move-spec.md`
+§3). The family FAB is hidden on this tab on purpose; the tab has its own
+quick-add.
 
 ### 5.2 Your family expenses, mirrored automatically
 
@@ -208,7 +210,7 @@ staged rows.
 | Encryption lifecycle | off → dual → enc migration (legacy families) | Ciphertext-only from birth — no lifecycle |
 | Categories | Family category table | Denormalised name + emoji on each row |
 | Budget | Family monthly + per-category | Personal monthly + per-category (same sheet, own scope) |
-| Photos, reactions, member split | Yes | No (not wired for personal) |
+| Photos, reactions, member split | Yes | Photos yes (0114, personal-DEK encrypted); reactions and member split no |
 | Mirror rows | — | Family expenses you authored, read-only copies |
 | Email capture destination | "🏡 Gia đình" chip | "🔒 Cá nhân" chip — the default |
 | If the key is lost | Any keyed member can re-share; social recovery | New card from an unlocked device, else data is gone |
@@ -492,9 +494,13 @@ sheets:
 
 - **Expense** — `openPersonalExpense()` = `openExpense({scope:'personal'})`.
   Chip default: last choice, else personal when ready, else family. Personal
-  layout drops member-split, photos, bulk-add. Submit requires `P.key` (toast
-  "Mở khoá sổ cá nhân" otherwise). Edit/delete exist only for private rows
-  (`openPersonalTxEdit` → `fhPersonalUpdateExpense` / `fhPersonalDeleteExpense`).
+  layout drops member-split and bulk-add; photos are carried since 0114
+  (personal-DEK encrypted). Submit requires `P.key` (toast "Mở khoá sổ cá
+  nhân" otherwise). Edit/delete exist only for private rows
+  (`openPersonalTxEdit` → `fhPersonalUpdateExpense` / `fhPersonalDeleteExpense`);
+  in edit mode the scope chips double as the cross-ledger move affordance
+  (`cross-ledger-move-spec.md` — a flip opens the confirm sheet, never a
+  silent re-scope), and the instrument chips are editable on private rows.
 - **Budget** — `openPersonalBudget()` sets `budgetScope='personal'` on the
   family budget sheet; personal branch builds its category universe from the
   ledger's own rows + saved map, has no catch-all "Others" row, and saves via
@@ -567,6 +573,8 @@ person-is-root design.
 ## 20. Related documents
 
 - `docs/features/personal-ledger.md` — design rationale and locked decisions.
+- `docs/specs/cross-ledger-move-spec.md` — moving a row between the books
+  (chips-in-edit, in-place master conversion, personal photos, 0114).
 - `docs/features/encryption.md`, `docs/features/key-card-auth.md` — the
   family-side crypto this construction mirrors one level down.
 - `docs/specs/bank-email-capture-spec.docx` — the capture pipeline feeding §5.3.

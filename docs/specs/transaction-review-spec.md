@@ -345,7 +345,7 @@ Everything a reader needs to know about how the two destinations differ.
 | Offline | Durable outbox | Online-only |
 | Default when ledger locked | Always available | Falls back to Family; never stranded |
 | Which staging key opens it | Family staging key | Personal staging key (`staging_scope='personal'`) |
-| Can re-route at review | — | Personal row → Family is allowed; Family row → Personal is **not** |
+| Can re-route at review | — | Personal row → Family is allowed; Family row → Personal is **not** (a *committed* row can move later in either direction — `cross-ledger-move-spec.md`; the one-way rule here protects unseen sealed data only) |
 
 The last row is the "over-sealing is recoverable, under-sealing is not" rule: a
 row sealed as private can be promoted outward to the family later, but a row
