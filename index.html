@@ -17878,7 +17878,7 @@ _fhInstallReveal();   // iOS reveals immediately (no event); Android reveals whe
    - ver: the service-worker build the change shipped in.
    - problem + sol render as one paragraph.
 */
-var FH_VERSION = 'v479';   // current running build, injected by build.js from sw.js
+var FH_VERSION = 'v480';   // current running build, injected by build.js from sw.js
 
 var ICO = {
   heart:'<path d="M12 20s-6.6-4.3-9.1-8.1C1.4 9.3 2.9 5.7 6.2 5.7c1.9 0 3.1 1.2 3.9 2.4.8-1.2 2-2.4 3.9-2.4 3.3 0 4.8 3.6 3.3 6.2C18.6 15.7 12 20 12 20z"/>',
@@ -31077,8 +31077,11 @@ window.classifyAmount = classifyAmount;
         }
         // ledger write landed → retire the staged row (local-first inside 72's helper)
         try { await window.fhStagedRetireIds([QR.row.id]); } catch (e) {}
+        /* fhRefreshStagedCount re-renders the personal view (badge + list) on
+           its own, and a personal write already re-rendered via fhPersonalHydrate
+           — so no extra renderPersonal() here. A third redundant render was a
+           needless flicker of the visible list. */
         try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}
-        try { typeof renderPersonal === 'function' && renderPersonal(); } catch (e) {}
         /* The photo beat now covers BOTH ledgers. Personal has its row id in
            hand (fhPersonalAddExpense returns it); family reads the id the async
            insert stamps on QR._famTxn, resolved when the photo is uploaded. */

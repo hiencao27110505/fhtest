@@ -562,8 +562,11 @@
         }
         // ledger write landed → retire the staged row (local-first inside 72's helper)
         try { await window.fhStagedRetireIds([QR.row.id]); } catch (e) {}
+        /* fhRefreshStagedCount re-renders the personal view (badge + list) on
+           its own, and a personal write already re-rendered via fhPersonalHydrate
+           — so no extra renderPersonal() here. A third redundant render was a
+           needless flicker of the visible list. */
         try { window.fhRefreshStagedCount && window.fhRefreshStagedCount(); } catch (e) {}
-        try { typeof renderPersonal === 'function' && renderPersonal(); } catch (e) {}
         /* The photo beat now covers BOTH ledgers. Personal has its row id in
            hand (fhPersonalAddExpense returns it); family reads the id the async
            insert stamps on QR._famTxn, resolved when the photo is uploaded. */
