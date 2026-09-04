@@ -19,7 +19,7 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-09-04-retired';  // a withdrawn alias's mail is trashed on sight, not held for 14 days; paste only from origin/main
+var PIPELINE_VERSION = '2026-09-04-degrade';  // retired aliases + a quota trip degrades instead of killing every run; paste only from origin/main
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
@@ -154,7 +154,7 @@ function _processEmailsLocked() {
         //
         // GEMINI_* joined this list on 2026-09-03. Until then a 429 read as the message's
         // own fault and burned it permanently; see classifyAndExtractViaGemini.
-        if (/(SUPABASE_|GEMINI_UNAVAILABLE|GEMINI_RATE_LIMIT)/.test(String(err))) {
+        if (/(SUPABASE_|GEMINI_UNAVAILABLE|GEMINI_RATE_LIMIT|APPSCRIPT_QUOTA_)/.test(String(err))) {
           Logger.log('transient, leaving ' + messages[m].getId() + ' queued: ' + err);
           // A DAY-scope wall is different in kind from everything else here: every
           // remaining message in this run would hit it too, and each attempt is a
@@ -166,6 +166,14 @@ function _processEmailsLocked() {
           // landed perfectly well before it.
           if (String(err).indexOf('GEMINI_RATE_LIMIT_day') !== -1) {
             Logger.log('Gemini daily quota exhausted — ending run, resumes after 14:00 VN');
+            break threadLoop;
+          }
+          // The platform's own UrlFetch cap is the same KIND of wall: day-scope,
+          // and every remaining message would spend a call we are not allowed to
+          // make. Standing down is the only useful response — the pool refills
+          // at the quota-day rollover and nothing before then changes it.
+          if (String(err).indexOf('APPSCRIPT_QUOTA_URLFETCH') !== -1) {
+            Logger.log('Apps Script UrlFetch quota exhausted — ending run until the daily reset');
             break threadLoop;
           }
           continue;
@@ -427,7 +435,34 @@ function buildInboxQuery() {
     // per-message afterwards. Safe because processOneMessage now routes BEFORE
     // extracting: anything without a known alias is skipped without ever
     // reaching the LLM.
-    var rows = supabaseGet('mailbox_connections', { select: 'forwarding_alias' });
+    /* A REFRESH FAILURE MUST NOT KILL THE RUN, and until 2026-09-04 it did.
+       This call sits outside the per-message try/catch that protects everything
+       downstream, so one failure here ends the whole execution — and because
+       the cache timestamp is only written on SUCCESS, the cache stays stale
+       forever and every subsequent tick fails the same way. One transport blip
+       became a hard outage lasting until the quota day rolled over.
+
+       Observed in production: the UrlFetch daily cap was exhausted, and this
+       line then failed 1,440 times in a row, each failure sending an alert
+       email, while the actual work queue was EMPTY and the run had nothing to
+       do. The last good query string was sitting in Script Properties the whole
+       time, unread, because "stale" was treated as "absent".
+
+       Stale is not absent. Connections change when somebody onboards, which is
+       rare; serving a query a few minutes old is exactly the trade the cache
+       already makes, and it is strictly better than not running. Rethrow only
+       when there has never been a successful read — then there is genuinely
+       nothing to serve. */
+    var rows;
+    try {
+      rows = supabaseGet('mailbox_connections', { select: 'forwarding_alias' });
+    } catch (e) {
+      var stale = props.getProperty(ALIAS_CACHE_PROP);
+      if (stale === null) throw e;          // never succeeded once: nothing to fall back to
+      Logger.log('v' + PIPELINE_VERSION + ' | alias refresh failed, serving the cached query ' +
+        'and NOT restamping it so the next tick retries: ' + e);
+      return _wrapInboxQuery(stale);
+    }
     // Not deliveredto:<bare inbox> — that matches the entire mailbox (measured:
     // 500 threads), so every personal email would be walked every minute.
     // And not deliveredto:<alias> either: Gmail strips the +tag from
@@ -500,6 +535,14 @@ function buildInboxQuery() {
     props.setProperty(ALIAS_CACHE_AT_PROP, String(new Date().getTime()));
   }
 
+  return _wrapInboxQuery(aliasPart);
+}
+
+// The alias terms wrapped into the query actually sent. Factored out so the
+// stale-cache fallback above returns a query IDENTICAL in shape to the fresh
+// path — a fallback that assembled its own string would drift from this one and
+// only be noticed when it silently stopped matching something.
+function _wrapInboxQuery(aliasPart) {
   // NOT is:unread. Read-state is a terrible record of "have I handled this" — a
   // human glancing at the message silently removes it from the search forever,
   // which happened during testing. The same labels that gate transactions gate
@@ -2503,7 +2546,21 @@ function _supabaseFetch(url, options) {
     // A perfectly good bank email was discarded because the database was briefly
     // over quota — observed 2026-08-15, three rows in parse_failures.
     // Tagging them here is what makes transient reliably mean transient.
-    throw new Error('SUPABASE_NET: ' + String((e && e.message) || e).slice(0, 300));
+    //
+    // ONE OF THOSE FAILURES IS NOT SUPABASE AT ALL (2026-09-04). Apps Script's
+    // own daily UrlFetch cap — 20,000 on a consumer account — surfaces here as
+    // "Service invoked too many times for one day: urlfetch", and calling that
+    // SUPABASE_NET sent a morning of investigation at a database that was
+    // perfectly healthy. It is a THIRD quota ceiling beside the two Gemini
+    // walls, it belongs to the platform rather than to any dependency, and it
+    // is a DAY-scope wall: every remaining call in this run would hit it too.
+    // Named separately so the caller can stand down instead of walking the
+    // batch making requests it is not allowed to make.
+    var _msg = String((e && e.message) || e);
+    if (/too many times for one day/i.test(_msg)) {
+      throw new Error('APPSCRIPT_QUOTA_URLFETCH: ' + _msg.slice(0, 300));
+    }
+    throw new Error('SUPABASE_NET: ' + _msg.slice(0, 300));
   }
   var code = response.getResponseCode();
   var text = response.getContentText();

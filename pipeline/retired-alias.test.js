@@ -208,11 +208,44 @@ t('and the pre-gate "already issued" return still comes first',
 t('withdrawal is untouched by 0118', !/disconnect_my_mailbox/.test(
   mint.replace(/--[^\n]*/g, '')));
 
-// ── 6. the paste marker moved ─────────────────────────────────────────────
+// ── 6. a quota trip DEGRADES, it does not kill every run ─────────────────
+// The production symptom on 2026-09-04, after the held-mail backlog was already
+// cleared: the work queue was EMPTY and the script still failed 1,440 times in
+// a row, one alert email each. buildInboxQuery sits outside the per-message
+// try/catch, and its cache timestamp is written only on success — so the first
+// failure made the cache permanently stale and every later tick failed the same
+// way, with the last good query sitting unread in Script Properties.
+const biq2 = codeOnly(topLevelFn(gs, 'buildInboxQuery') || '');
+t('the alias refresh is wrapped', /try \{[\s\S]{0,200}supabaseGet\('mailbox_connections'[\s\S]{0,200}catch/.test(biq2));
+t('a failed refresh serves the stale cached query',
+  /getProperty\(ALIAS_CACHE_PROP\)[\s\S]{0,300}return _wrapInboxQuery\(stale\)/.test(biq2));
+// Never invent a query from nothing: with no cache there is genuinely nothing
+// to serve, and guessing would search the whole mailbox.
+t('but rethrows when there has never been a successful read', /if \(stale === null\) throw e;/.test(biq2));
+// The timestamp must NOT be restamped on the fallback path, or one outage
+// would freeze the query for a full cache window past recovery.
+t('and does not restamp the cache on the fallback path',
+  !/ALIAS_CACHE_AT_PROP/.test(biq2.slice(biq2.indexOf('catch'), biq2.indexOf('return _wrapInboxQuery(stale)'))));
+t('fresh and fallback paths return the SAME shape',
+  (biq2.match(/_wrapInboxQuery\(/g) || []).length >= 2);
+
+// The platform quota is not a Supabase failure and must not be labelled one.
+const sf = codeOnly(topLevelFn(gs, '_supabaseFetch') || '');
+t('the UrlFetch day cap gets its own token',
+  /too many times for one day/i.test(sf) && /APPSCRIPT_QUOTA_URLFETCH/.test(sf));
+t('and is classified BEFORE the generic SUPABASE_NET label',
+  sf.indexOf('APPSCRIPT_QUOTA_URLFETCH') < sf.indexOf("'SUPABASE_NET: '"));
+const proc2 = codeOnly(topLevelFn(gs, '_processEmailsLocked') || '');
+t('a quota trip is transient, so mail is requeued not burned',
+  /APPSCRIPT_QUOTA_/.test((proc2.match(/if \(\/\([^)]*\)\/\.test\(String\(err\)\)\)/) || [''])[0]));
+t('and it ends the run rather than walking the batch into the same wall',
+  /APPSCRIPT_QUOTA_URLFETCH[\s\S]{0,300}break threadLoop;/.test(proc2));
+
+// ── 7. the paste marker moved ─────────────────────────────────────────────
 // The .gs only reaches production by hand, so an unbumped version is how a fix
 // silently stays un-deployed while the repo says it shipped.
 t('PIPELINE_VERSION names this change',
-  /var PIPELINE_VERSION = '2026-09-04-retired'/.test(gs),
+  /var PIPELINE_VERSION = '2026-09-04-degrade'/.test(gs),
   (gs.match(/var PIPELINE_VERSION = '[^']*'/) || [])[0]);
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

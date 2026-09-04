@@ -35,8 +35,19 @@ global.UrlFetchApp = { fetch: (u, o) => FETCH(u, o) };
 eval(src.slice(src.indexOf('function _supabaseFetch'), src.indexOf('function supabasePost')));
 eval(src.slice(src.indexOf('function isAlreadyStaged'), src.indexOf('// ---------- review notifications')));
 
-/* processEmails' own rule for "is this the database's problem, not the email's". */
-const treatedAsTransient = (err) => String(err).indexOf('SUPABASE_') !== -1;
+/* processEmails' own rule for "is this the database's problem, not the email's".
+ *
+ * READ OUT OF THE SOURCE, not restated here. This was a hardcoded
+ * `indexOf('SUPABASE_')` — a copy of the guard rather than the guard — and on
+ * 2026-09-04 the real one grew APPSCRIPT_QUOTA_ (the platform's own UrlFetch day
+ * cap is not a Supabase failure and no longer wears its name). The copy went on
+ * asserting the old rule and failed the case it was written to protect, while
+ * the shipping behaviour was correct. A test that duplicates the logic it
+ * guards eventually tests only the duplicate. */
+const _guard = src.match(/if \((\/\([^)]*\)\/)\.test\(String\(err\)\)\) \{/);
+if (!_guard) throw new Error('could not find the transient guard in processEmails');
+const _guardRe = eval(_guard[1]);
+const treatedAsTransient = (err) => _guardRe.test(String(err));
 
 const throwsWith = (msg) => { FETCH = () => { throw new Error(msg); }; };
 const capture = (fn) => { try { fn(); return null; } catch (e) { return e; } };
