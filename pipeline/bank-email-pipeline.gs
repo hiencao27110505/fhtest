@@ -135,11 +135,16 @@ function _processEmailsLocked() {
   if (threads.length === 0) return;
 
   var runCallCount = 0;
+  // What this run SAW, for 0119. Costs no API call: every number here comes
+  // from the batch we were already walking.
+  var _walked = 0, _held = 0, _oldestHeld = null, _truncated = false;
 
   threadLoop:
   for (var t = 0; t < threads.length; t++) {
     var messages = threads[t].getMessages();
     for (var m = 0; m < messages.length; m++) {
+      _walked++;
+      _MSG_TERMINAL = false;
       try {
         runCallCount = processOneMessage(messages[m], runCallCount);
       } catch (err) {
@@ -166,6 +171,7 @@ function _processEmailsLocked() {
           // landed perfectly well before it.
           if (String(err).indexOf('GEMINI_RATE_LIMIT_day') !== -1) {
             Logger.log('Gemini daily quota exhausted — ending run, resumes after 14:00 VN');
+            _truncated = true;
             break threadLoop;
           }
           // The platform's own UrlFetch cap is the same KIND of wall: day-scope,
@@ -174,6 +180,7 @@ function _processEmailsLocked() {
           // at the quota-day rollover and nothing before then changes it.
           if (String(err).indexOf('APPSCRIPT_QUOTA_URLFETCH') !== -1) {
             Logger.log('Apps Script UrlFetch quota exhausted — ending run until the daily reset');
+            _truncated = true;
             break threadLoop;
           }
           continue;
@@ -187,11 +194,26 @@ function _processEmailsLocked() {
         }
         relabelThread(threads[t], 'txn/parse-failed');
       }
+      /* Counted AFTER the try/catch, so a message left queued by a transient
+         throw counts as held exactly like one held on purpose. From the queue's
+         point of view they are the same thing: still there, still costing a
+         lookup a minute, still not a transaction anyone can see. */
+      if (!_MSG_TERMINAL) {
+        _held++;
+        var _d = null;
+        try { _d = messages[m].getDate(); } catch (e3) { /* unreadable date */ }
+        if (_d && (_oldestHeld === null || _d < _oldestHeld)) _oldestHeld = _d;
+      }
     }
   }
 
   // One notification per member per run, after every row is safely written.
   notifyStagedReviews();
+
+  // Last, and wrapped: telemetry must never be the reason a run that did real
+  // work reports as a failure.
+  try { reportPipelineHealth(_walked, _held, _oldestHeld, _truncated); }
+  catch (e) { Logger.log('pipeline_health report failed: ' + e); }
 }
 
 // A forwarding confirmation is identified by its SENDER — never by the absence
@@ -244,6 +266,7 @@ function processOneMessage(message, runCallCount) {
        arrived at, and a thread can hold mail from a live alias too. */
     if (isRetiredAlias(message)) {
       Logger.log('retired alias on ' + message.getId() + ', trashing (owner withdrew)');
+      _MSG_TERMINAL = true;
       try { message.moveToTrash(); }
       catch (e) { Logger.log('could not trash ' + message.getId() + ': ' + e); }
       return runCallCount;
@@ -593,7 +616,19 @@ function relabelMessageThread(message, labelName) {
   relabelThread(thread, labelName);
 }
 
+/* Did the message just handled reach a TERMINAL state — staged, parse-failed,
+   already-staged, or trashed as retired? Anything else is HELD, and held mail
+   that nobody counts is what ran unnoticed for six days (0119).
+
+   Set by the terminal ACTIONS rather than at each return, deliberately. There
+   are many ways to hold and exactly two ways to finish: relabel the thread, or
+   trash the message. Tracking the two means a hold path added later counts as
+   held automatically, with nobody having to remember to instrument it — the
+   safe default is the one you get by forgetting. */
+var _MSG_TERMINAL = false;
+
 function relabelThread(thread, labelName) {
+  _MSG_TERMINAL = true;
   // txn/inbox may never have been applied — mail is now found by delivery
   // address, not by label — so removing it is best-effort.
   try {
@@ -1244,6 +1279,19 @@ var _FOREIGN_CUR_CODES = 'USD|EUR|GBP|AUD|SGD|JPY|CNY|KRW|THB|HKD|CHF|CAD|NZD|TW
 // Escaped symbols, not literals: the .gs twin of this slice is deployed by
 // hand-pasting, the same reason _akNorm escapes its combining marks.
 var _FOREIGN_CUR_LINE_RE = new RegExp('(?:\\b(?:' + _FOREIGN_CUR_CODES + ')\\b|[$\\u20AC\\u00A3\\u00A5])', 'i');
+/* The đồng, in every spelling the model copies out of real mail: the symbol,
+   VNĐ, a bare đ/d, 'dong', any casing. The guard below refuses non-VND — which
+   is right for USD and was WRONG for '₫': its first day in production refused
+   two genuinely-VND shapes (MoMo train ticket, VIB card bill) as 'foreign',
+   quietly re-creating the model-call-per-mail disease the graduation fixes had
+   just cured. Strict equality on a model-spelt string is a fixture that only
+   ever met one spelling. template_derive_failures caught it in one day. */
+function _canonCurrency(c) {
+  var flat = _akNorm(c).replace(/[^a-z$\u20ac\u00a3\u00a5\u20ab]/g, '');
+  if (flat === '' || flat === 'vnd' || flat === 'vn' || flat === 'd' || flat === 'dong' || flat === '\u20ab') return 'VND';
+  return String(c).trim().toUpperCase();
+}
+
 function _readsForeignCurrency(body, amountLine) {
   if (amountLine && _FOREIGN_CUR_LINE_RE.test(amountLine)) return true;
   var flat = _akNorm(body);
@@ -1263,7 +1311,7 @@ function deriveExtractionTemplate(body, extraction, trace) {
   if (!extraction || extraction.is_transaction !== true) return null;
   // See the foreign-currency guard above: a non-VND reading never becomes a
   // template, because the shape it came from also sends VND mail.
-  if (extraction.currency != null && extraction.currency !== 'VND') return fail('foreign_currency');
+  if (extraction.currency != null && _canonCurrency(extraction.currency) !== 'VND') return fail('foreign_currency');
   var tpl = { v: EXTRACTION_LOGIC_VERSION, static: {}, fields: {} };
 
   // constants for this (sender, subject_template) email kind — protected by the

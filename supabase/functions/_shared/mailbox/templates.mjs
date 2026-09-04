@@ -282,6 +282,19 @@ var _FOREIGN_CUR_CODES = 'USD|EUR|GBP|AUD|SGD|JPY|CNY|KRW|THB|HKD|CHF|CAD|NZD|TW
 // Escaped symbols, not literals: the .gs twin of this slice is deployed by
 // hand-pasting, the same reason _akNorm escapes its combining marks.
 var _FOREIGN_CUR_LINE_RE = new RegExp('(?:\\b(?:' + _FOREIGN_CUR_CODES + ')\\b|[$\\u20AC\\u00A3\\u00A5])', 'i');
+/* The đồng, in every spelling the model copies out of real mail: the symbol,
+   VNĐ, a bare đ/d, 'dong', any casing. The guard below refuses non-VND — which
+   is right for USD and was WRONG for '₫': its first day in production refused
+   two genuinely-VND shapes (MoMo train ticket, VIB card bill) as 'foreign',
+   quietly re-creating the model-call-per-mail disease the graduation fixes had
+   just cured. Strict equality on a model-spelt string is a fixture that only
+   ever met one spelling. template_derive_failures caught it in one day. */
+function _canonCurrency(c) {
+  var flat = _akNorm(c).replace(/[^a-z$\u20ac\u00a3\u00a5\u20ab]/g, '');
+  if (flat === '' || flat === 'vnd' || flat === 'vn' || flat === 'd' || flat === 'dong' || flat === '\u20ab') return 'VND';
+  return String(c).trim().toUpperCase();
+}
+
 function _readsForeignCurrency(body, amountLine) {
   if (amountLine && _FOREIGN_CUR_LINE_RE.test(amountLine)) return true;
   var flat = _akNorm(body);
@@ -301,7 +314,7 @@ function deriveExtractionTemplate(body, extraction, trace) {
   if (!extraction || extraction.is_transaction !== true) return null;
   // See the foreign-currency guard above: a non-VND reading never becomes a
   // template, because the shape it came from also sends VND mail.
-  if (extraction.currency != null && extraction.currency !== 'VND') return fail('foreign_currency');
+  if (extraction.currency != null && _canonCurrency(extraction.currency) !== 'VND') return fail('foreign_currency');
   var tpl = { v: EXTRACTION_LOGIC_VERSION, static: {}, fields: {} };
 
   // constants for this (sender, subject_template) email kind — protected by the

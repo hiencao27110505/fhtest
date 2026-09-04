@@ -134,6 +134,25 @@ for (const [form, body] of V2_FORMS) {
     (tpl2.match(/\d{6,}/g) || []).join(','));
 }
 
+/* ── 2c. the đồng in every spelling the model copies out of real mail ─────
+   The foreign-currency guard's first day in production refused two
+   genuinely-VND shapes (MoMo train ticket, VIB card bill) because the model
+   spelt đồng as '₫' and strict equality only knew 'VND'. Caught by
+   template_derive_failures within a day — the instrument's first real catch.
+   USD must stay refused; every đồng spelling must derive. */
+console.log('\n-- đồng spellings all derive; foreign stays refused --');
+for (const cur of ['VND', '₫', 'VNĐ', 'đ', 'dong', 'vnd']) {
+  let cs = null;
+  t('currency "' + cur + '" derives',
+    !!T.deriveExtractionTemplate(VIB, { ...VIB_READING, currency: cur }, (x) => { cs = x; }),
+    'refused at: ' + cs);
+}
+for (const cur of ['USD', 'usd', 'EUR']) {
+  let cs = null;
+  T.deriveExtractionTemplate(VIB, { ...VIB_READING, currency: cur }, (x) => { cs = x; });
+  t('currency "' + cur + '" refused as foreign', cs === 'foreign_currency', 'step: ' + cs);
+}
+
 /* ── 3. the sign is never an anchor and never lost ───────────────────────── */
 console.log('\n-- signs --');
 const signBody = (s) => ['MB TK cham', 'x5249', 'Ngay, gio giao dich', '2026-08-25 18:52:04',
