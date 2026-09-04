@@ -378,6 +378,12 @@ The build must sweep every consumer of `P.incomes`, which ceases to exist:
   the verbatim-ciphertext copy (reversible until `drop table`) and testing
   the migration on a branch DB first.
 - **VND-only stands** (locked decision T10) — still no currency column.
+  **Update 2026-09-03: T10 reversed.** First-class multi-currency is now the
+  approved product direction (decision #4 in `foreign-currency-emails-spec.md`).
+  It is a separate future epic — the ledger stays VND-only in schema until it
+  lands; the foreign-currency email fix converts to VND at review and preserves
+  the original (note tag + sealed `fx_amount`/`fx_currency`) so that migration
+  can recover every original amount.
 
 ## 11. Scope
 
@@ -396,7 +402,9 @@ The build must sweep every consumer of `P.incomes`, which ceases to exist:
 - Space contributions (future sibling spec).
 - Historical double-count cleanup (forward-only; manual reclassify exists).
 - Income analytics screen beyond category list.
-- Multi-currency.
+- Multi-currency — *out of scope for THIS epic, but no longer out of scope as a
+  direction: T10 was reversed 2026-09-03 (decision #4,
+  `foreign-currency-emails-spec.md`); it is now its own future epic.*
 - UI rename to "Earthy".
 
 ## 12. Decision log
@@ -414,7 +422,7 @@ From the design interview, 2026-09-02.
 | T7 | Income **unifies into `personal_transactions`** as `kind='income'`; `personal_incomes` migrated and dropped. |
 | T8 | Credit email classifies 3 ways: Thu nhập / Chuyển khoản nội bộ / Thu nợ. Income gets categories via the existing encrypted mechanism (Lương · Thưởng · Hoàn tiền · Khác). |
 | T9 | Balance truth = **manual anchor** + email `balance_after` as drift detector; drift is a quiet badge with two resolutions (re-anchor / add missing txn), never a review card. |
-| T10 | Edge rules blessed: pair delete/edit atomicity · fees as separate expense rows · VND-only · legacy single-leg transfers untouched. |
+| T10 | Edge rules blessed: pair delete/edit atomicity · fees as separate expense rows · VND-only *(the VND-only part was later REVERSED 2026-09-03 — see §10 / decision #4 in `foreign-currency-emails-spec.md`)* · legacy single-leg transfers untouched. |
 | T11 | Accounts materialize **eagerly at review open** from the queue's instrument census (not at import) — pickers list accounts only and are always complete. Cards stay out of the transfer picker (one kind = one meaning). "＋ Tài khoản khác" survives as the last-resort escape hatch for instruments with no email footprint at all. |
 | T12 | An instrument's **identity is (provider, tail)** — kind is editable metadata, never part of the ensure() match (a kind-keyed match once duplicated a real account). The 16-digit-PAN ⇒ credit-card client heuristic is dead (VN debit cards print full PANs too; a mis-kinded account polluted both pickers); unconfident stays null. The account settings sheet carries a kind switcher (card-only fields follow it) so a wrong guess is one tap from fixed. |
 | B1 | Build shape: **big bang** — one spec, one release, no phases. |

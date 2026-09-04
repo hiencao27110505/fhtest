@@ -289,8 +289,11 @@ suspicion:
     §21.5).
   - Internal transfers between your own accounts double-count.
   - One mailbox per person; a second Google account replaces the first.
-  - Foreign-currency rows stage correctly but the ledger has no currency
-    column; conversion is undecided (§24).
+  - Foreign-currency rows: extraction now reads the real currency and the
+    review screen auto-converts to an estimated VND (bank-fee-adjusted,
+    pre-filled, tap to import) — no longer the "staged VND-blind" limitation
+    this line used to describe. The ledger still has no currency column
+    (`foreign-currency-emails-spec.md`; §24).
   - Refresh tokens expire weekly while the Google app is in Testing status —
     a routine reconnect prompt, not an outage.
   - Sender authenticity (DKIM) is recorded on every row but not yet enforced.
@@ -1706,9 +1709,16 @@ the bridge branch).
 - **Auto-routing one mailbox to both ledgers** is a rule engine away, not a
   crypto change: destination is already per-row at review, and
   personal-by-default sealing makes any automation survivable.
-- **Currency / FX at promotion.** `email_transactions.currency` is per-row
-  (a real USD sample exists); `transactions` has no currency column.
-  Conversion point undecided.
+- **Currency / FX at promotion.** ~~Conversion point undecided.~~ **Decided &
+  shipped 2026-09-03** (`foreign-currency-emails-spec.md`). Extraction reads the
+  real currency; the review client converts to VND at review time — the bank's
+  own converted figure when the email prints it, else an estimate from a shared
+  rate table (`fx_rates`, migration 0112) plus the issuer's FX fee — pre-fills
+  it, and imports with a tap. The foreign original is preserved as a note tag
+  (`[111 USD]` / `[111 USD @26,350 +3% est.]`) and in the sealed
+  `raw_extracted.fx_amount`/`fx_currency`. `transactions` still has no currency
+  column; first-class multi-currency (decision #4, reversing T10) is a separate
+  future epic and the note tags + fx pair are its recovery path.
 - **Should `dedup_fp` retire?** The client runs the same rule with strictly
   more evidence. Against: two independent implementations disagreeing is a
   free correctness signal. Not a decision to take in the change that builds

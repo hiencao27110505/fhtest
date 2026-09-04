@@ -512,7 +512,12 @@ found. Not a decision to take in the same change that built its replacement.
 
 **Currency / FX at promotion.** `email_transactions.currency` is per-row (there is a
 real USD sample) but `transactions` has no currency column — the app's currency is
-family-level. Where conversion happens is undecided.
+family-level. ~~Where conversion happens is undecided.~~ **Decided & shipped
+2026-09-03:** extraction reads the real currency and the review client converts to
+VND (bank's own converted figure when the email prints it, else an estimate from the
+`fx_rates` table + issuer fee), pre-filled and tap-to-import; the foreign original is
+kept as a note tag and sealed `fx_amount`/`fx_currency`. See
+`docs/specs/foreign-currency-emails-spec.md`.
 
 **Category resolution.** `resolveCategoryId()` is a stub returning null; a person
 picks on every row. Nothing auto-promotes, so this costs nothing today.

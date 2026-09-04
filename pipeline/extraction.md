@@ -20,7 +20,11 @@ occurred_at: ISO 8601, and must include a UTC offset. If the email states one, u
 counterparty: copy the full counterparty string exactly as written in the email, including any account number, phone number, or identifier alongside the name — do not shorten or summarize it.
 
 Amounts must be the raw number with no currency symbol or thousands separators. If the email states a status (success/failed/pending), extract it; otherwise null.
+
+currency: the ISO 4217 code the amount is denominated in (VND, USD, EUR, ...), exactly as the email states it — never default to VND when the mail prints another currency. International card notices from Vietnamese banks often show BOTH a foreign transaction amount and the converted amount actually debited in VND (labelled "Số tiền quy đổi", "Số tiền ghi nợ" or similar). When both are present, amount must be the converted VND figure with currency VND, and the original foreign figure goes into fx_amount and fx_currency. When only a foreign amount is present, amount is that figure with its own currency code and fx_amount/fx_currency stay null. Never compute a conversion yourself — only report figures the mail prints.
 ```
+
+> **Added 2026-09-03** (`foreign-currency-emails-spec.md`): the `currency` paragraph above and the `fx_amount`/`fx_currency` schema fields below. Fix for the USD-as-VND defect. Mirror any change here in `supabase/functions/_shared/mailbox/llm.mjs` AND `pipeline/bank-email-pipeline.gs` — both transports share the template cache.
 
 **Corrected 2026-08-03**, after the first real (non-simulated) extraction run surfaced three gaps in the v1 prompt above: `transaction_type` was ambiguous between `bank_txn`/`p2p_transfer` with no disambiguation rule, `occurred_at` came back with no UTC offset (would silently misread as UTC downstream — a 7-hour skew on every Vietnamese-bank row), and `counterparty` got summarized down to just a name, dropping the phone number/account identifier. All three are prompt gaps, not model-specific — would have shown up with any model.
 
@@ -39,6 +43,8 @@ Amounts must be the raw number with no currency symbol or thousands separators. 
     "occurred_at": { "type": ["string", "null"], "description": "ISO 8601" },
     "amount": { "type": ["number", "null"] },
     "currency": { "type": ["string", "null"] },
+    "fx_amount": { "type": ["number", "null"] },
+    "fx_currency": { "type": ["string", "null"] },
     "direction": { "type": ["string", "null"], "enum": ["debit", "credit", null] },
     "counterparty": { "type": ["string", "null"] },
     "reference_number": { "type": ["string", "null"] },

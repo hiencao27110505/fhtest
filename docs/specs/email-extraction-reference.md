@@ -144,10 +144,21 @@ thing. Matching is by substring, which is why the guards in §5 exist.
 
 ## 4. Number and date handling
 
-**Amounts.** VND is stored in base units of 1.000đ. The parser strips a currency marker, removes one
-decimal tail if present, then removes grouping separators. It refuses a zero: a statement writes
-"0,00" in the debit column of every credit row, and letting that through turns half the rows of a
-two-column statement into phantom transactions.
+**Amounts.** VND is stored in base units of 1.000đ. For a VND (or unmarked) cell the parser strips
+the currency marker, removes one decimal tail if present, then removes grouping separators. It
+refuses a zero: a statement writes "0,00" in the debit column of every credit row, and letting that
+through turns half the rows of a two-column statement into phantom transactions.
+
+> **Currency detection, 2026-09-03.** The parser is no longer VND-only. `parseAmountCell` now reads
+> the cell's currency (ISO codes `USD/EUR/…` and the symbols `$ € £ ¥`) and returns it; a foreign
+> cell keeps its decimals (`$12.99` stays 12.99 — the opposite of the VND decimal-tail rule) and
+> parses US or EU grouping. `readLabelTable` resolves the row's currency (amount cell → an explicit
+> `Loại tiền / currency` row → VND default) instead of the old hardcoded `'VND'`. When an
+> international card notice prints BOTH a foreign amount and the bank's converted VND ("Số tiền quy
+> đổi / ghi nợ"), the converted VND is taken as the amount and the foreign original rides along as
+> `fx_amount`/`fx_currency`; an FX-rate row (`tỷ giá`) is absorbed so it can never be mistaken for the
+> amount. Full write-up: `foreign-currency-emails-spec.md`. This is the fix for the USD-as-VND defect
+> where "111 USD" staged and logged as 111đ.
 
 **Dates.** Three shapes are recognised, all Vietnam local time, all normalised to ISO with the
 `+07:00` the mails omit because they never leave Vietnam:
