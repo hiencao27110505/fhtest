@@ -1,6 +1,6 @@
 ---
 name: familyhub-reset-test-user
-description: Reset a FamilyHub test account back to a brand-new user so the same Gmail can re-run onboarding. Triggers on "reset test user", "reset onboarding", "delete user", "wipe my account", "test onboarding again", "brand new user", "xóa user test", "reset tài khoản test", or any request to re-test the FamilyHub new-user / create-family flow. Deletes every family the account SOLELY owns (all its data + media-metadata rows; media blobs purged out-of-band via the Storage API), and by default deletes the auth.users account too. Requires an email argument; protects real/shared families.
+description: Reset a FamilyHub test account back to a brand-new user so the same Gmail can re-run onboarding. Triggers on "reset test user", "reset onboarding", "delete user", "wipe my account", "test onboarding again", "brand new user", "xóa user test", "reset tài khoản test", or any request to re-test the FamilyHub new-user / create-family flow. Deletes every family the account SOLELY owns (all its data + media-metadata rows; media blobs purged out-of-band via the Storage API), and by default deletes the auth.users account too. Also supports a `--personal` mode ("reset personal ledger", "forgot/lost personal key", "reset Cá nhân", "personal key issue") that wipes only ONE user's personal ledger (Model Y tables + personal Key Card) so the app re-provisions a fresh card, keeping the account and all families intact. Requires an email argument; protects real/shared families.
 ---
 
 # FamilyHub — Reset a test user for onboarding
@@ -22,10 +22,17 @@ family. Run everything through the **Supabase MCP** (`mcp__supabase__execute_sql
   `UPDATE profiles …`, and the auto-create trigger only fires on user creation — a missing profile
   leaves a broken half-state.)
 
+- **`--personal`** — a different job entirely: wipe ONE user's **personal ledger** (their own
+  Key Card + personal data) so the app re-provisions a fresh personal card, while keeping the
+  **auth account AND every family intact**. Use when a member forgot/lost their *personal* key
+  (a separate secret from the family key) and has no unlocked device to self-serve a regen. See
+  **[Personal-ledger reset](#personal-ledger-reset-keep-family--account)** below. Does NOT touch
+  families, membership, or `auth.users`.
+
 ## Required argument
 
 An **email** is mandatory. If the user didn't give one, ask — never guess, never default.
-Optional flag: `--soft` (anything else, or nothing, means hard).
+Optional flag: `--soft` or `--personal` (anything else, or nothing, means hard).
 
 ## Steps
 
@@ -80,6 +87,47 @@ State what was deleted. Then give the on-device step, because the PWA caches sta
   `fhWarmAbandon()` clears the `fh-fam`/`fh-snap`/`fh-onboarded` caches, and lands on the
   create/join onboarding. To also replay the welcome/auth screens, sign out first.
 
+## Personal-ledger reset (keep family + account)
+
+For `--personal`. The personal ledger (Model Y) is **owner-scoped by user**, encrypted under the
+user's **own personal Key Card** — a separate secret from the family key, with **no escrow** (not
+even the operator can recover it). So a member who lost their personal card and has no unlocked
+device is stuck at the "Sổ cá nhân đang khóa — nhập thẻ khóa" wall with no in-app escape. This
+resets them to a fresh personal ledger without disturbing anything family-side.
+
+### P1. Personal dry run
+Run this (substitute `__EMAIL__`) to see the split before wiping. `space_id IS NULL` rows are
+**private = true loss**; `space_id` set are **family mirrors** that rebuild after re-provision.
+```sql
+SELECT u.id, u.email,
+  (SELECT count(*) FROM personal_keys              WHERE user_id=u.id)      AS pk,
+  (SELECT count(*) FROM personal_transactions      WHERE owner_user_id=u.id) AS ptxns,
+  (SELECT count(*) FROM personal_transactions      WHERE owner_user_id=u.id AND space_id IS NULL)     AS ptxns_private,
+  (SELECT count(*) FROM personal_transactions      WHERE owner_user_id=u.id AND space_id IS NOT NULL) AS ptxns_mirror,
+  (SELECT count(*) FROM personal_accounts          WHERE owner_user_id=u.id) AS paccounts,
+  (SELECT count(*) FROM personal_transaction_photos WHERE owner_user_id=u.id) AS pphotos,
+  (SELECT count(*) FROM personal_budgets           WHERE owner_user_id=u.id) AS pbudgets
+FROM auth.users u WHERE lower(u.email)=lower('__EMAIL__');
+```
+`id` NULL → no such account, stop. Report the private-vs-mirror split (that's what's genuinely
+lost) and get a go-ahead.
+
+### P2. Apply
+Read `reset-personal.sql`, replace `__EMAIL__`, run in one `execute_sql`. One `BEGIN…COMMIT`,
+leaf-first, scoped to the user. Families, membership, and `auth.users` are never referenced.
+
+### P3. Personal media blobs
+Only if the dry run showed `pphotos` > 0: personal photo blobs live in the **`personal-media`**
+bucket (not `family-media`). Same `storage.protect_delete()` constraint — purge out-of-band via
+the Storage API, or leave orphaned (harmless, encrypted).
+
+### P4. Report
+Tell them to open the **Cá nhân** tab → it mints a fresh card → **save it immediately** (Lưu
+file / Sao chép → password manager) before dismissing. Mirror rows rebuild over the next moment;
+private rows are gone. Since v441 the app no longer phantom-re-mints on a flaky read, so the card
+it shows is stable — but the "lose it = gone, no escrow" property is unchanged, so the save is
+non-negotiable.
+
 ## Why it's safe (don't remove these guards)
 
 - **Solo-ownership scoping:** purges only families where `owner_id` = the target and no other
@@ -101,3 +149,21 @@ State what was deleted. Then give the on-device step, because the PWA caches sta
   (`src/js-data/10-client-auth.js`).
 - If you add a new family-scoped table in a future migration, add its `DELETE` to `reset.sql`
   in the correct leaf-first position.
+- **Schema drift — re-verify the table list before trusting either SQL file.** The schema moves;
+  confirm current tables/FKs each time with:
+  ```sql
+  SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name LIKE 'personal%';
+  -- and, for the FK order, the referencing/referenced pairs (see how this skill was last verified).
+  ```
+  Known additions already handled: family side — `email_transactions`, `mailbox_connections`
+  (member-scoped), `family_creation_keys` (family+user-scoped); personal side — `personal_accounts`
+  and `personal_transaction_photos` were added and `personal_incomes` was **folded into**
+  `personal_transactions` (a `kind` column). If a new `personal%` table appears, add its `DELETE`
+  to BOTH the HARD block of `reset.sql` and to `reset-personal.sql`, leaf-first.
+- **Personal key facts** (for accurate reporting): the personal ledger is E2EE under the user's own
+  Key Card with **no escrow**; `init_personal_key` is `ON CONFLICT DO NOTHING` (first-writer-wins,
+  server wrap never clobbered). The historical "new key minted on every reopen" modal was a
+  client bug (a flaky `personal_keys` read fell through to provisioning) — fixed in v441
+  (`src/js-data/19-personal.js`, the `wr.error` guard). A narrow residual race remains (a genuine
+  concurrent first-run can still cache a mismatched DEK) until `init_personal_key` reports whether
+  it actually inserted.
