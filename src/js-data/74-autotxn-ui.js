@@ -726,6 +726,7 @@
     clearTimeout(_atxOffTimer);
     _atxOffArmed = false;
     if (btn) { btn.disabled = true; btn.textContent = L('Đang ngừng…', 'Stopping…'); }
+    let _stopped = null;
     try {
       /* disconnect_my_mailbox() (0082, extended by 0087) rather than a DELETE
          on one row. It is the WITHDRAWAL action, not just an unlink: it deletes
@@ -736,7 +737,7 @@
 
          Deleting nothing is success, not a 404: the state they asked for is the
          state that already holds. */
-      await _rpc('disconnect_my_mailbox', {});
+      _stopped = await _rpc('disconnect_my_mailbox', {});
     } catch (e) {
       window.toast && window.toast(window._fhFriendly ? window._fhFriendly(e)
         : L('Chưa ngừng được, thử lại nhé', 'Could not stop it — try again'));
@@ -744,10 +745,10 @@
       if (btn) { btn.disabled = false; btn.textContent = _ATX_OFF_LABEL(); }
       return;
     }
-    fhAutoTxnStopped();
+    fhAutoTxnStopped(_stopped);
   };
 
-  function fhAutoTxnStopped() {
+  function fhAutoTxnStopped(res) {
     _fhSheet(
       '<div class="sheet-h">' + _esc(L('Đã ngừng', 'Stopped')) + '</div>' +
       '<div class="sheet-sub">' + _esc(L(
@@ -758,6 +759,28 @@
         'FamilyHub is still listed among your Google account’s apps. To remove it on Google’s side as well, open the permissions page below.')) + '</span></div>' +
       '<a class="btn-line" href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">' +
         _esc(L('Mở quyền truy cập Google', 'Open Google permissions')) + '</a>' +
+
+      /* THE FORWARDING RULE IS THEIRS TO REMOVE, and until 2026-09-04 this
+         sheet never said so. The note above covers the OAuth grant; the other
+         transport has the person point Gmail at an alias we own, and that rule
+         lives in their mailbox where nothing here can reach it. Deleting our
+         row stops us READING — which is what the line above promises, and it is
+         true — but the mail keeps arriving at a shared inbox, and someone who
+         has just been told "we will read no more of your email" would not guess
+         that. It is the same honesty 0087 already applies to the Google grant,
+         owed to the other half of the users.
+
+         Shown only when a forwarding alias was actually retired (0117 returns
+         the count), so the OAuth-only case does not get told to go turn off
+         something it never set up. */
+      (res && res.aliases_retired > 0
+        ? '<div class="mbx-note">' + _mbxGlyph('mail') + '<span>' + _esc(L(
+            'Bạn đang chuyển tiếp thư sang hộp của tụi mình. Quy tắc chuyển tiếp nằm trong Gmail của bạn, tụi mình không tắt hộ được. Bạn vào Cài đặt Gmail, mục Chuyển tiếp, rồi bỏ địa chỉ đó đi nhé.',
+            'You had Gmail forwarding mail to us. That rule lives in your Gmail and we can’t switch it off for you. Open Gmail settings, go to Forwarding, and remove the address.')) + '</span></div>' +
+          '<a class="btn-line" href="https://mail.google.com/mail/u/0/#settings/fwdandpop" target="_blank" rel="noopener">' +
+            _esc(L('Mở cài đặt chuyển tiếp', 'Open forwarding settings')) + '</a>'
+        : '') +
+
       '<button class="btn-skip" onclick="_closeOv()">' + _esc(L('Đóng', 'Close')) + '</button>'
     );
   }

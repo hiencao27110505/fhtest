@@ -231,6 +231,210 @@ hand-merging `index.html`. Both replaced vigilance with structure.
   `pipeline/direct-templates.test.js` — run it first; if the slice drifted it
   will say so before you paste.
 
+- **2026-09-04 (Hien — bank-email retired aliases) — WRITTEN, NOT YET APPLIED OR
+  PASTED. Migration `0117` CLAIMED; next free is `0118`. Files: new
+  `supabase/migrations/0117_retired_aliases.sql`,
+  `pipeline/bank-email-pipeline.gs` (`PIPELINE_VERSION` → `2026-09-04-retired`),
+  `src/js-data/74-autotxn-ui.js` + rebuilt `index.html`, new
+  `pipeline/retired-alias.test.js`. Confirmed free before claiming:
+  `git ls-tree origin/main supabase/migrations/` (latest `0111`) plus the
+  `0116`/`0115` entries below.**
+
+  ⚠️ **RENUMBERED ON INTEGRATION, and this is the collision the numbering rule
+  exists to prevent — it still happened.** This work was written against a
+  `main` whose highest migration was `0111`, and claimed `0112`/`0113`/`0114`.
+  By the time it was pushed, `main` had moved 16 commits and all three numbers
+  were taken by DIFFERENT migrations, already applied: `0112_fx_rates`,
+  `0113_restage_resolved_badge`, `0114_cross_ledger_move`. Renumbered here to
+  `0115`/`0116`/`0117`, which is safe only because nothing keys off the prefix
+  (no `supabase/config.toml`, no runner ledger) and the live objects are
+  distinct — `fx_rates` and `model_budget` are different tables and both are
+  applied. Nothing needs re-running.
+
+  **What actually failed was the freshness of the check, not the rule.** Both
+  sessions ran `git ls-tree origin/main` and both got a true answer; the answers
+  were hours apart and the branch never re-checked before pushing. The rule as
+  written ("check before claiming") cannot catch this. Re-check immediately
+  before you push, not only before you write — or claim the number by pushing an
+  empty commit that reserves the filename, which is the version of this rule
+  that does not depend on anyone remembering.
+
+  **To finish this, in order:** apply `0117`, then paste the `.gs`. That order
+  matters only for tidiness — the paste is safe either way, because the
+  `retired_aliases` read is wrapped and a missing table degrades to the old
+  routing grace. The `.gs` paste also carries the uncommitted `429` work above
+  it; both are in the same file and cannot be pasted separately.
+
+  Suite: **58 passed, 2 failed** — `tools/personal-unreadable` and
+  `tools/staged-scope`, the same two Trang reports below, pre-existing on `main`
+  and untouched here. `pipeline/retired-alias.test.js` is 34 of the passes.
+
+  One edit outside my own files: `pipeline/gs-429-requeue.test.js` pinned
+  `PIPELINE_VERSION` as an exact literal, so it failed the moment any later
+  change bumped it and read as "the 429 fix regressed". Now asserts the version
+  moved OFF `2026-09-02-graduate` instead, which is what that check meant.
+
+  **Found by a quota alarm, but the quota is the least of it.** Apps Script mailed
+  `SUPABASE_NET: Service invoked too many times for one day: urlfetch` at 09:21 ICT.
+  That is not Supabase — it is Apps Script's OWN cap, **20,000 UrlFetch calls/day on
+  a consumer account**, a THIRD ceiling beside the two Gemini walls `0116` addresses.
+  `_supabaseFetch` tags every `UrlFetchApp` throw `SUPABASE_NET:`, so the message
+  points at the wrong system; the token is still doing its real job (marking the
+  failure transient), only the name is wrong.
+
+  **What was burning it.** Trang moved off forwarding. `disconnect_my_mailbox()`
+  (0082, extended by 0087) DELETES the `mailbox_connections` row, so her alias
+  `8xr4ed9vr8` resolved to nothing — and `processOneMessage` reads "no connection"
+  as *onboarding has not finished yet* and holds for the 14-day
+  `ROUTING_GRACE_DAYS`. It cannot tell **not connected yet** from **disconnected on
+  purpose**; those are opposite situations getting identical treatment. 15 held
+  messages were re-walked by the 1-minute trigger, one `mailbox_connections` lookup
+  each: 15 x 1,440 = 21,600/day against a 20,000 cap. The queue grew linearly and
+  crossed the line this week, which is why it tripped now and not in August.
+  Measured, not inferred — the pipeline inbox is readable over the Gmail MCP.
+
+  **The part that matters more.** Deleting the row cannot stop Gmail forwarding:
+  that rule lives in her personal mailbox and only she can remove it. 0087 already
+  says exactly this about the OAuth grant — *"Deleting the row is what stops US
+  reading. It does not revoke the grant at Google"* — and the stop-sheet in
+  `74-autotxn-ui.js` links Google's permissions page accordingly. Forwarding got no
+  such sentence, so for anyone who came in by forwarding the promise reads wider
+  than it is. Her real bank mail kept arriving into the shared inbox and sat in
+  `txn/inbox`, which `sweepProcessedMail` does not sweep (it passes over
+  `txn/processed` and `txn/parse-failed` only), for 14 days; then it becomes
+  `txn/parse-failed` for 90 more, plus a `parse_failures` row each. ~104 days of
+  retention per message, regenerating every time she used her card. Same class as
+  the `extract_miss_labels` finding in `0115`.
+
+  **Done already:** the 15 held messages (10 threads) are trashed, so the burn has
+  stopped and `txn/inbox` is empty.
+
+  **0117 adds** `retired_aliases` (alias, retired_at) and has
+  `disconnect_my_mailbox()` record the alias there as it deletes the connection —
+  replaced, not edited, the append-only way. The `.gs` then TRASHES mail for a
+  retired alias on sight: no 14-day hold, no `parse_failures` row, no staging. The
+  retired list rides the existing 5-minute alias cache, so it costs zero extra
+  fetches per message. And the stop-sheet gains a forwarding sentence beside the
+  Google-permissions one.
+
+  **Not fixing here, but worth someone's time** (all found reading this path, none
+  blocking): `buildInboxQuery()` is called outside any try/catch and refuses to fall
+  back to its still-present stale cached query, so one quota trip kills every run
+  for the rest of the day instead of degrading; `GmailApp.search(q)` is unbounded,
+  so per-tick cost scales with the backlog without limit; there is no per-run
+  UrlFetch budget anywhere; and genuine holds (sealing, model ceiling) still retry
+  every 60s forever with no backoff. A day's whole budget is ~14 fetches per tick at
+  the 1-minute trigger, which is a tighter margin than anything in the file admits.
+
+- **2026-09-03 (Trang's session) — `0116` and `0115` APPLIED to the live DB.
+  Next free is `0118`. Files: `labeltable.mjs`, `extract.mjs`,
+  `pipeline/learned-labels.test.js`, new `pipeline/miss-labels-hygiene.test.js`.
+  NOT deployed yet — see the note at the end.**
+
+  **`0116` (Hien's, applied on his behalf at Trang's request).** Verified after:
+  both tables RLS-on with grants only to `postgres`/`service_role`, all four
+  functions present, caps read 450/350. Lane guard proved in a rolled-back
+  transaction: backfill takes 350, is refused at 351, and live mail still gets
+  its reserved 100 with backfill exhausted — the 09-02 incident, prevented.
+
+  **`0115_miss_labels_no_values` (mine).** `extract_miss_labels` held 1,627 rows
+  whose 697 distinct entries included **500 amount-shaped strings and 318 names
+  or merchants** — the account holder's own name in 772 rows, their coffee
+  shops, bare figures like `7,500,000 ₫` — under a call-site comment asserting
+  "no values, no amounts, nothing personal". Access control was never the defect
+  (RLS on, no policies, service_role only); the defect is that the database
+  sealing exists to keep money out of had acquired a plaintext table of one
+  person's spending, described by no consent text we have shown anyone.
+
+  Cause: the writer asked whether a line LOOKED like a label. In line-form
+  rendering a value looks exactly like one, and a formatted VND amount never
+  shows four consecutive digits because of its commas, so `500,000 ₫` passed.
+  `unknownLabels` now takes the reading and subtracts its values, and rejects
+  digits, currency, hosts and proper-noun runs. Migration purges the table and
+  adds a CHECK via an IMMUTABLE helper (a CHECK may not hold a subquery).
+  **The 70 entries that survive the new filter are snapshotted** to
+  `~/Downloads/earthy-reviews/vocabulary-gaps-snapshot-2026-09-03.md` — the
+  purge would otherwise destroy the only coverage signal we have.
+
+  **Vocabulary: two hand-authored additions, and VIB stops paying the model.**
+  `ngay giao dich` → `occurred_at` and `den tai khoan` → `beneficiary`. VIB was
+  1,605 of the 1,627 miss rows; with these two a VIB transfer notice reads
+  amount, instant, counterparty, direction and type on the free tier with no
+  model call. This is the addition `learned-labels.test.js` was pinned waiting
+  for — `occurred_at` is on the BANNED list, so learning could never supply it,
+  which is exactly why it had to be hand-authored.
+
+  That pin is now updated rather than deleted: it asserts the shape opens, that
+  the counterparty equals the model's own answer, and pins a KNOWN DIVERGENCE —
+  a card bill reads `p2p_transfer` where the model said `bank_txn`, because
+  `isTransfer` is true whenever a beneficiary was found. Wrong but visible in
+  review, and it belongs to the type heuristic rather than to a vocabulary
+  entry.
+
+  Suite: **57 passed, 2 failed** — `tools/personal-unreadable` and
+  `tools/staged-scope`, both pre-existing on `main` and untouched by this work.
+
+  **NOT DEPLOYED, deliberately.** `supabase functions deploy mailbox-sync`
+  bundles all of `_shared/mailbox/*`, which currently includes Hien's
+  **uncommitted** `llm.mjs` 429 classifier. That change is backward compatible
+  (`LlmRateLimited extends LlmUnavailable`, so an unwired worker still holds
+  exactly as before) and its tests are green, but shipping another session's
+  uncommitted work is his call, not mine. Hien: say the word and I will deploy,
+  or deploy it yourself and mine rides along. Nothing here needs a `.gs` paste —
+  `labeltable.mjs` is Edge-only.
+
+- **2026-09-03 (Hien's session) — IN FLIGHT: Gemini quota hardening, phase 1.
+  CLAIMING migration `0116` (model budget ledger + pause). Files: `llm.mjs`,
+  `pipeline/bank-email-pipeline.gs`, `src/js-data/74-autotxn-ui.js`, new tests
+  `pipeline/llm-429.test.js` + `pipeline/gs-429-requeue.test.js`.**
+
+  Confirmed free before claiming: `git ls-tree origin/main supabase/migrations/`
+  (latest applied `0111`) AND the entry below. Not touching `worker.mjs`,
+  `db.mjs`, `extract.mjs`, `labeltable.mjs`, `gmail.mjs` or
+  `mailbox-sync/index.ts` in this phase — phase 1 is mechanism only; the wiring
+  that needs those files is phase 1b, after this lands.
+
+  **Why.** The 2026-09-02 incident (v26 logic-version bump → mass re-derivation
+  → 40-call budget exhausted → 66 stalled runs → a live 136,670đ transaction
+  invisible for 90 minutes) had three enablers, none of them fixed by the
+  revert:
+
+  1. **A 429 is unclassified.** Per-minute and per-day exhaustion are the same
+     opaque `LlmUnavailable`, so the worker retried into a dead pool every
+     minute instead of standing down until the Pacific reset.
+  2. **The `.gs` writes off rate-limited mail PERMANENTLY.** ⚠️ Highest
+     severity here and independent of the incident:
+     `classifyAndExtractViaGemini` never checks `getResponseCode()`, so a 429
+     falls through to a generic throw; `processEmails` tests only for
+     `SUPABASE_` when deciding "transient", so the mail gets
+     `insertParseFailure` + `txn/parse-failed` and is never retried. A real
+     forwarded transaction arriving in any rate-limited window is lost. The
+     Edge worker handles the same case correctly — this is a one-sided defect.
+  3. **Three budgets, none measuring the real quota.** Edge caps 40/run and has
+     NO daily cap; the `.gs` caps 50/day on the SCRIPT's timezone; the actual
+     limit is 500/day per PROJECT (both transports share it) resetting at
+     midnight Pacific = 14:00 VN. `bump_read_tally` uses `current_date` (UTC)
+     and so cannot be reused for this.
+
+  **0116 adds** `model_budget` (day, model, lane, spent — day is the PACIFIC
+  date) and `model_pause`, plus `spend_model_budget(model, lane, n)`,
+  `pause_model(...)`, and `mailbox_read_status()` (security definer, granted to
+  authenticated, pending count scoped to the caller's own member/owner so the
+  banner reveals nothing cross-family). Daily cap 450 (50 under the real 500),
+  of which the `backfill` lane may take at most 350 — so **≥100 calls/day are
+  always reachable by live mail**. That lane split is the direct fix for the
+  demo failure: a backfill can no longer starve a live transaction.
+
+  **Note for whoever bumps `EXTRACTION_LOGIC_VERSION` next.** That bump is a
+  self-inflicted mass re-derivation — every learned shape returns to the model
+  at once, which is what actually exhausted the budget on 09-02. Once 0116 is
+  in, treat a bump as a planned quota spend (staged, or on the backfill lane),
+  never a routine version edit.
+
+  Full plan, including phases 2–3 (batching ~8 mails/request for backfills,
+  model-bucket + Haiku fallback, tombstoning, the pause banner):
+  `~/Downloads/earthy-reviews/gemini-quota-implementation-plan-2026-09-03.md`.
+
 - **2026-09-03 (Trang's session) — `0110_coverage_candidates` and
   `0111_learned_labels` APPLIED to the live DB; `mailbox-sync` deployed as
   v31. Next free migration number is `0112`.**

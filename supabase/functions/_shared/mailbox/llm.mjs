@@ -195,6 +195,100 @@ export class LlmUnavailable extends Error {
 }
 
 /**
+ * A 429 that says WHICH wall we hit, and for how long.
+ *
+ * Both walls used to arrive as the same opaque LlmUnavailable, and the caller's
+ * only move was "hold, retry next run". That is right for the per-minute wall
+ * and badly wrong for the per-day one: on 2026-09-02 a mailbox re-read the same
+ * window 66 times against an exhausted daily pool while a live transaction sat
+ * unstaged inside it. Retrying into a wall we have already been told about is
+ * the whole failure.
+ *
+ * `scope` is what lets the caller stand down for the right length of time.
+ */
+export class LlmRateLimited extends LlmUnavailable {
+  constructor(scope, retryAfterMs, detail) {
+    super('rate_limited_' + scope + (detail ? ': ' + detail : ''));
+    this.name = 'LlmRateLimited';
+    this.scope = scope;                 // 'day' | 'minute'
+    this.retryAfterMs = retryAfterMs;   // null on 'day' — the caller uses the Pacific reset
+  }
+}
+
+/** What a per-minute wall costs us when the body does not say. */
+export const DEFAULT_RETRY_AFTER_MS = 30000;
+
+/**
+ * Reads a 429 body into {scope, retryAfterMs}.
+ *
+ * Gemini answers with `error.details[]` carrying a QuotaFailure (whose
+ * `quotaId` names the dimension, e.g. GenerateRequestsPerDayPerProjectPerModel
+ * vs ...PerMinute...) and often a RetryInfo (`retryDelay: "34s"`).
+ *
+ * EVERY AMBIGUITY RESOLVES TO 'minute', and that asymmetry is deliberate.
+ * Reading a per-minute wall as per-day pauses the whole fleet's capture for
+ * hours over one misparse; reading a per-day wall as per-minute costs one
+ * wasted request before we hit it again and learn. Those are not comparable, so
+ * the tie goes to staying live.
+ */
+export function rateLimitFrom(bodyText) {
+  let details = [];
+  try {
+    const parsed = JSON.parse(bodyText);
+    details = (parsed && parsed.error && parsed.error.details) || [];
+  } catch { /* a 429 with an unreadable body is still a 429 */ }
+
+  let scope = null;
+  let retryAfterMs = null;
+
+  for (const d of (Array.isArray(details) ? details : [])) {
+    const type = String((d && d['@type']) || '');
+    if (/QuotaFailure$/.test(type)) {
+      for (const v of (d.violations || [])) {
+        const id = String((v && (v.quotaId || v.quotaMetric)) || '');
+        // Day wins outright: a body naming both dimensions has us past the
+        // larger wall, and honouring the smaller one would retry into it.
+        if (/PerDay/i.test(id)) { scope = 'day'; break; }
+        if (/PerMinute/i.test(id) && !scope) scope = 'minute';
+      }
+    }
+    if (/RetryInfo$/.test(type)) {
+      const m = String((d && d.retryDelay) || '').match(/^([\d.]+)s$/);
+      if (m) retryAfterMs = Math.round(parseFloat(m[1]) * 1000);
+    }
+  }
+
+  if (scope !== 'day') scope = 'minute';
+  return new LlmRateLimited(
+    scope,
+    scope === 'minute' ? (retryAfterMs != null ? retryAfterMs : DEFAULT_RETRY_AFTER_MS) : retryAfterMs,
+    bodyText ? String(bodyText).slice(0, 200) : '');
+}
+
+/**
+ * When the daily pool refills: the next midnight America/Los_Angeles, which is
+ * 14:00 Vietnam.
+ *
+ * RPD resets on Google's Pacific calendar day, so every counter and every pause
+ * in this pipeline has to be measured there — not on the script's timezone
+ * (which is what the Apps Script's own daily cap wrongly used) and not on the
+ * database's `current_date`, which is UTC.
+ *
+ * Intl rather than a fixed -7/-8: the offset moves twice a year, and a
+ * hard-coded one is wrong for months at a time without ever throwing.
+ */
+export function nextPacificReset(nowMs) {
+  const now = new Date(nowMs);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles', hour12: false,
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).format(now).split(':').map(Number);
+  // Some ICU builds render midnight as 24; fold it so elapsed is never a day.
+  const elapsed = (((parts[0] % 24) * 60 + parts[1]) * 60 + parts[2]) * 1000;
+  return new Date(nowMs + (86400000 - elapsed));
+}
+
+/**
  * Reads one mail. Returns the extraction object, or throws.
  *
  * Throwing rather than returning null: the caller's only sane response is to
@@ -227,6 +321,9 @@ export async function extract(sender, subject, body, cfg, fetchImpl) {
   });
 
   const text = await res.text();
+  // Classified BEFORE the generic branch: a 429 is the one non-2xx whose right
+  // response is not "hold and retry next run".
+  if (res.status === 429) throw rateLimitFrom(text);
   if (!res.ok) throw new LlmUnavailable('http ' + res.status + ': ' + text.slice(0, 200));
 
   let data;

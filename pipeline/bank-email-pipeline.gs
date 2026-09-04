@@ -19,10 +19,14 @@
 // Bumped on every change that gets pasted into Apps Script. Logged on each run
 // so "which code is actually live" is never again something to infer from the
 // wording of an error — several hours went into that guess this session.
-var PIPELINE_VERSION = '2026-09-02-graduate';  // template graduation fixes: mask-after-learn, sign/time anchor hygiene, time-first dates; paste only from origin/main
+var PIPELINE_VERSION = '2026-09-04-retired';  // a withdrawn alias's mail is trashed on sight, not held for 14 days; paste only from origin/main
 
 var MAX_NEW_CLASSIFICATIONS_PER_RUN = 10;
 var MAX_NEW_CLASSIFICATIONS_PER_DAY = 50;
+// Free tier is 15 requests/minute for the whole PROJECT, and the Edge worker
+// draws on the same pool. 5s holds this transport at 12 RPM with room for the
+// other; see the call site in processOneMessage.
+var GEMINI_MIN_CALL_GAP_MS = 5000;
 var DEDUPE_WINDOW_DAYS = 3;
 // How long to keep retrying an email whose +tag matches no mailbox_connections
 // row. Long enough to cover "set up forwarding, onboard the app a few days
@@ -132,6 +136,7 @@ function _processEmailsLocked() {
 
   var runCallCount = 0;
 
+  threadLoop:
   for (var t = 0; t < threads.length; t++) {
     var messages = threads[t].getMessages();
     for (var m = 0; m < messages.length; m++) {
@@ -139,13 +144,30 @@ function _processEmailsLocked() {
         runCallCount = processOneMessage(messages[m], runCallCount);
       } catch (err) {
         // Two very different failures land here, and treating them alike loses data:
-        //   • Supabase unreachable/erroring — nothing to do with THIS email. Leave it
-        //     labeled txn/inbox so the next run retries it. Relabelling it failed here
-        //     would drop a perfectly good transaction because the database blinked
-        //     (and insertParseFailure would fail too, so there'd be no record at all).
+        //   • The INFRASTRUCTURE failed — Supabase unreachable, or the model rate-limited
+        //     or erroring. Nothing to do with THIS email. Leave it labeled txn/inbox so
+        //     the next run retries it. Relabelling it failed here would drop a perfectly
+        //     good transaction because the database blinked or a free-tier quota reset in
+        //     four minutes (and insertParseFailure would fail too, so there'd be no
+        //     record at all).
         //   • Anything else — genuinely this message's problem. Record and stop retrying.
-        if (String(err).indexOf('SUPABASE_') !== -1) {
-          Logger.log('Supabase unavailable, leaving ' + messages[m].getId() + ' queued: ' + err);
+        //
+        // GEMINI_* joined this list on 2026-09-03. Until then a 429 read as the message's
+        // own fault and burned it permanently; see classifyAndExtractViaGemini.
+        if (/(SUPABASE_|GEMINI_UNAVAILABLE|GEMINI_RATE_LIMIT)/.test(String(err))) {
+          Logger.log('transient, leaving ' + messages[m].getId() + ' queued: ' + err);
+          // A DAY-scope wall is different in kind from everything else here: every
+          // remaining message in this run would hit it too, and each attempt is a
+          // request we are not allowed to make. Stop the run rather than walk the
+          // batch burning them — the pool refills at the Pacific reset (14:00 VN).
+          // Breaks the OUTER loop rather than returning: everything staged
+          // earlier in this run still has to reach notifyStagedReviews() below,
+          // or a quota wall would also swallow the notification for rows that
+          // landed perfectly well before it.
+          if (String(err).indexOf('GEMINI_RATE_LIMIT_day') !== -1) {
+            Logger.log('Gemini daily quota exhausted — ending run, resumes after 14:00 VN');
+            break threadLoop;
+          }
           continue;
         }
         try {
@@ -194,6 +216,30 @@ function processOneMessage(message, runCallCount) {
   // mailbox onboarding has not finished yet.
   var _routedMailbox = resolveMailbox(message);
   if (!_routedMailbox) {
+    /* WITHDRAWN beats the grace, and the order of these two checks is the whole
+       point (0117). "No connection" used to mean one thing — onboarding has not
+       finished yet — so mail with no match was held for ROUTING_GRACE_DAYS. But
+       disconnect_my_mailbox() DELETES the connection row, which produces exactly
+       the same absence from the opposite situation, and Gmail keeps forwarding
+       regardless: that rule lives in the person's own mailbox and is not ours to
+       revoke. So a withdrawn user's real bank mail kept landing in the shared
+       inbox and was HELD there for 14 days (txn/inbox is swept by nothing), then
+       kept 90 more as txn/parse-failed with a parse_failures row. Observed live
+       2026-09-04.
+
+       Trashed, not staged, not recorded, not held. The message is deleted at the
+       point we learn we should not have it — which is the promise the consent
+       sheet makes — and it stops being re-walked every minute, which is what
+       exhausted the daily UrlFetch quota.
+
+       Per MESSAGE, not per thread: the decision is about the address this one
+       arrived at, and a thread can hold mail from a live alias too. */
+    if (isRetiredAlias(message)) {
+      Logger.log('retired alias on ' + message.getId() + ', trashing (owner withdrew)');
+      try { message.moveToTrash(); }
+      catch (e) { Logger.log('could not trash ' + message.getId() + ': ' + e); }
+      return runCallCount;
+    }
     var _age = (new Date().getTime() - message.getDate().getTime()) / 86400000;
     if (_age < ROUTING_GRACE_DAYS) {
       Logger.log('no known alias on ' + message.getId() + ', holding for retry');
@@ -250,10 +296,23 @@ function processOneMessage(message, runCallCount) {
   }
 
   if (!extraction) {
-    // Needs Haiku — check safety ceilings first.
+    // Needs the model — check safety ceilings first.
     if (runCallCount >= MAX_NEW_CLASSIFICATIONS_PER_RUN || dailyCallCountExceeded()) {
       return runCallCount; // leave labeled txn/inbox, retry next run/day
     }
+
+    /* PACED, because the per-minute wall is real and we were walking into it.
+       Free tier allows 15 requests/minute; ten unpaced calls leave here in a
+       few seconds, which is a burst well past that on its own — and the Edge
+       worker is drawing on the SAME project quota at the same time, so each
+       transport's "well under the limit" was measured against a pool the other
+       one was also spending. The peaks reached ~24 RPM.
+       Spacing to 5s holds this side at 12 RPM with room for the other. Ten
+       calls then cost 50 seconds of a six-minute execution limit, and only on
+       runs that actually meet an unlearned shape — which, now that templates
+       graduate, is rare. Skipped before the FIRST call: an idle tick must stay
+       idle, and a lone new shape should not wait for nothing. */
+    if (runCallCount > 0) Utilities.sleep(GEMINI_MIN_CALL_GAP_MS);
 
     var result = classifyAndExtractViaGemini(sender, subject, body);
     runCallCount++;
@@ -350,6 +409,10 @@ var ALIAS_CACHE_PROP = 'ALIAS_QUERY_CACHE_V4';   // bump when the query shape ch
                                                  // or a cached old query outlives the code
 var ALIAS_CACHE_AT_PROP = 'ALIAS_QUERY_CACHE_AT';
 var ALIAS_CACHE_MINUTES = 5;
+// Tags whose owner withdrew (0117). Refreshed on the SAME 5-minute tick as the
+// alias query, and for the same reason: consulted per message, it must not cost
+// a round trip per message. See isRetiredAlias.
+var RETIRED_CACHE_PROP = 'RETIRED_ALIAS_CACHE';
 
 function buildInboxQuery() {
   var props = PropertiesService.getScriptProperties();
@@ -418,6 +481,19 @@ function buildInboxQuery() {
     // Parenthesised deliberately: inside Gmail parens a space means AND, so
     // `(from:a OR from:b newer_than:7d)` would bind the date to from:b alone.
     if (froms.length) terms.push('((' + froms.join(' OR ') + ') newer_than:' + PROVIDER_LOOKBACK_DAYS + 'd)');
+
+    // Retired tags ride this same refresh. Wrapped, and deliberately: this file
+    // gets pasted into Apps Script by hand, so it can be live BEFORE 0117 is
+    // applied. A missing table must degrade to the old behaviour (hold for the
+    // grace) rather than take down the query that every transaction depends on.
+    var retired = [];
+    try { retired = supabaseGet('retired_aliases', { select: 'forwarding_alias' }) || []; }
+    catch (e) { Logger.log('retired_aliases unreadable, falling back to the routing grace: ' + e); }
+    var deadTags = [];
+    for (var r = 0; r < retired.length; r++) {
+      if (retired[r].forwarding_alias) deadTags.push(retired[r].forwarding_alias);
+    }
+    props.setProperty(RETIRED_CACHE_PROP, deadTags.join(','));
 
     aliasPart = rows.length ? terms.join(' OR ') : '';
     props.setProperty(ALIAS_CACHE_PROP, aliasPart);
@@ -746,10 +822,53 @@ function classifyAndExtractViaHaiku(sender, subject, body) {
 }
 
 // Gemini equivalent — same system prompt + schema, different request/response shape.
-// Free tier (Google AI Studio, no card): gemini-3.5-flash-lite, rate-limited but well
-// above what this pipeline needs given the fingerprint cache. Swap the call site in
+// Free tier (Google AI Studio, no card): gemini-3.5-flash-lite. Swap the call site in
 // processOneMessage back to classifyAndExtractViaHaiku() to switch models later.
 var GEMINI_MODEL = 'gemini-3.5-flash-lite';
+
+/* Which rate-limit wall a 429 body describes — the ES5 twin of `rateLimitFrom`
+   in supabase/functions/_shared/mailbox/llm.mjs. Kept verbatim in behaviour for
+   the same reason the dedup and template code is: both transports share one
+   quota, one budget ledger and one pause row, so two readings of the same 429
+   would have them stand down for different lengths of time against the same
+   wall.
+
+   EVERY AMBIGUITY RESOLVES TO 'minute'. Reading a per-minute wall as per-day
+   pauses capture for hours over one misparse; reading a per-day wall as
+   per-minute costs one wasted request before we hit it again and learn. The tie
+   goes to staying live. See pipeline/llm-429.test.js for the cases. */
+function geminiRateLimitError(rawBody) {
+  var scope = null;
+  var retryMs = null;
+  try {
+    var parsed = JSON.parse(rawBody);
+    var details = (parsed && parsed.error && parsed.error.details) || [];
+    if (Object.prototype.toString.call(details) === '[object Array]') {
+      for (var i = 0; i < details.length; i++) {
+        var d = details[i] || {};
+        var type = String(d['@type'] || '');
+        if (/QuotaFailure$/.test(type)) {
+          var vs = d.violations || [];
+          for (var j = 0; j < vs.length; j++) {
+            var id = String((vs[j] && (vs[j].quotaId || vs[j].quotaMetric)) || '');
+            // Day wins outright: a body naming both has us past the larger wall.
+            if (/PerDay/i.test(id)) { scope = 'day'; break; }
+            if (/PerMinute/i.test(id) && !scope) scope = 'minute';
+          }
+        }
+        if (/RetryInfo$/.test(type)) {
+          var m = String(d.retryDelay || '').match(/^([\d.]+)s$/);
+          if (m) retryMs = Math.round(parseFloat(m[1]) * 1000);
+        }
+      }
+    }
+  } catch (e) { /* a 429 with an unreadable body is still a 429 */ }
+
+  if (scope !== 'day') scope = 'minute';
+  if (scope === 'minute' && retryMs === null) retryMs = 30000;
+  return 'GEMINI_RATE_LIMIT_' + scope + (retryMs !== null ? '_' + retryMs + 'ms' : '') +
+    ': ' + String(rawBody || '').slice(0, 200);
+}
 
 function classifyAndExtractViaGemini(sender, subject, body) {
   var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
@@ -777,9 +896,35 @@ function classifyAndExtractViaGemini(sender, subject, body) {
     muteHttpExceptions: true,
   });
 
-  var data = JSON.parse(response.getContentText());
+  /* THE STATUS CODE IS READ FIRST, and this is a data-loss fix (2026-09-03).
+
+     `muteHttpExceptions: true` means a 429 or a 503 arrives here as an ordinary
+     response, and this function used to walk straight past it into
+     `JSON.parse(...).candidates` — which is absent on an error body, so every
+     transport failure surfaced as `Gemini returned no candidates`. That string
+     contains no marker processEmails recognises as transient, so its catch
+     treated a RATE LIMIT as THIS MESSAGE'S OWN FAULT: insertParseFailure, then
+     relabel to txn/parse-failed. Permanently. A real forwarded transaction that
+     happened to arrive while the free tier was exhausted was written off and
+     never retried, and nothing anywhere said so.
+
+     The Edge worker has always handled the same case correctly (llm.mjs throws,
+     the worker holds, the cursor stays put). This side was the one-sided
+     defect. Every throw below now carries a token that processEmails knows to
+     requeue on. */
+  var code = response.getResponseCode();
+  var raw = response.getContentText();
+  if (code === 429) throw new Error(geminiRateLimitError(raw));
+  if (code < 200 || code >= 300) {
+    throw new Error('GEMINI_UNAVAILABLE_HTTP_' + code + ': ' + String(raw).slice(0, 300));
+  }
+
+  var data = JSON.parse(raw);
   if (!data.candidates || !data.candidates.length) {
-    throw new Error('Gemini returned no candidates: ' + response.getContentText());
+    // Also transient in practice — a safety block or an empty candidate list is
+    // not something re-reading this mail tomorrow cannot fix, and burning it
+    // costs a real transaction.
+    throw new Error('GEMINI_UNAVAILABLE_NOCAND: ' + String(raw).slice(0, 300));
   }
   return JSON.parse(data.candidates[0].content.parts[0].text);
 }
@@ -1966,6 +2111,29 @@ function resolveMailbox(message) {
 function resolveMemberId(message) {
   var mailbox = resolveMailbox(message);
   return mailbox ? mailbox.member_id : null;
+}
+
+// Did the person who held this tag withdraw? (0117)
+//
+// Only meaningful AFTER resolveMailbox has failed, and the caller enforces that
+// ordering: a tag that resolves is live, whatever this table remembers, so a
+// re-issued alias can never be shadowed by an old retirement.
+//
+// Reads the 5-minute cache rather than the table, so the answer costs nothing
+// per message. An empty cache (first run after a paste, or 0117 not applied
+// yet) answers false, which lands the message back on the routing grace — the
+// behaviour that held before this existed.
+function isRetiredAlias(message) {
+  var raw = PropertiesService.getScriptProperties().getProperty(RETIRED_CACHE_PROP) || '';
+  if (!raw) return false;
+  var dead = raw.split(',');
+  var tags = extractPlusTags(recipientForRouting(message));
+  for (var i = 0; i < tags.length; i++) {
+    for (var j = 0; j < dead.length; j++) {
+      if (dead[j] && dead[j] === tags[i]) return true;
+    }
+  }
+  return false;
 }
 
 // Which address did this actually arrive at?

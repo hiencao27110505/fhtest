@@ -56,6 +56,11 @@ global.UrlFetchApp = {
     // A minimal well-formed answer in each provider's own response shape.
     const answer = JSON.stringify({ is_transaction: true, amount: 165000 });
     return {
+      // A real UrlFetchApp response always carries this; the stub grew it on
+      // 2026-09-03 when classifyAndExtractViaGemini started reading the status
+      // before trusting the body (a 429 used to be parsed as a success payload,
+      // which permanently burned rate-limited mail — pipeline/gs-429-requeue.test.js).
+      getResponseCode: () => 200,
       getContentText: () => JSON.stringify(
         url.indexOf('anthropic') >= 0
           ? { content: [{ text: answer }] }
