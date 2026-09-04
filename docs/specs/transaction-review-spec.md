@@ -14,6 +14,17 @@ history without passing through here.
 > first written spec for the screen — reconstructed from the live code, not a
 > forward-looking design.
 
+> **Update, 2026-09-04 (sw v466).** The card detail was redesigned from a chip
+> workbench to a **settings-rows** card (compact label/value rows that open
+> picker sheets) — see [§4a](#4a-card-detail-the-settings-rows-redesign-2026-09).
+> The collapsed card became **amount-anchored** (the amount is the hero, the raw
+> bank memo demoted), and the **amount** is now a top input field above the note
+> in the expanded card. Three correctness fixes shipped alongside: VND
+> currency-synonym normalization (a "đ"/"VNĐ" row no longer misreads as foreign),
+> a blocking (amber) vs optional (grey) split for unfilled rows, and
+> self-transfer classification ("X chuyển tiền đến X" → internal transfer, not
+> card payment).
+
 > **Audience & layering.** Part 1 (Behaviour) is for everyone — product, design,
 > QA, onboarding. Part 2 (Technical Appendix) is for engineers maintaining or
 > extending the screen. The [Family vs Personal](#family-vs-personal-at-a-glance)
@@ -126,7 +137,9 @@ and labelled with the live count ("Nhập 12").
 Every card can be **ticked** (include in this import — all rows arrive ticked),
 **tapped** (unfold the editor), or **removed** (✕, arm-then-confirm).
 
-Inside the editor:
+Inside the editor (the bullets below are the field *semantics*; for the current
+staged-card *presentation* — amount as a top input, the rest as rows that open
+picker sheets — see [§4a](#4a-card-detail-the-settings-rows-redesign-2026-09)):
 
 - **Chi cho gì? / What for?** — the description. This is the field the whole
   screen exists for. A person-to-person transfer is deliberately left blank rather
@@ -158,6 +171,62 @@ Row-level verbs, and what each means for the queue:
 
 The untick-vs-✕ distinction is load-bearing: unticking never hands a row to
 retirement, so it survives; the ✕ is the only "never" (`src/js-ui/56-csv-import-ui.js:1282-1292`).
+
+### 4a. Card detail — the settings-rows redesign (2026-09)
+
+The staged card (only `csvStagedMode`; the file-import flow keeps its chip form)
+was rebuilt so its height scales with **field count, not option count** — the old
+chip workbench ran two screens tall on a card-payment row. Built by
+`csvStagedRowsCard` / `csvCollapsedCard` in `src/js-ui/56-csv-import-ui.js`.
+
+**Collapsed card — amount-anchored.** When reviewing a long queue the eye scans
+the amount and whether it's classified right; the raw bank memo is noise. So the
+collapsed card leads with the **amount** (the hero) beside its category, demotes
+the memo to a quiet 2-line line, and carries the fixed context on two thin lines:
+
+- **Top eyebrow:** scope **·** money source (bank · instrument) — "where it lives
+  / where it came from", one style.
+- **Bottom line:** the datetime led by its weekday (**"Thứ 5, 03/09"**,
+  `csvWhenLine`), then the import method inline (Trực tiếp / Chuyển tiếp).
+- The **checkbox** sits top-right in both collapsed and expanded states.
+
+**Expanded card — rows + top inputs.** Tapping a card opens it in place:
+
+- **Fixed provenance** (bank · instrument · transport) rides the header's top
+  line — non-adjustable, so it's stated once, never as editable rows.
+- **Số tiền / Amount** is a **top input field** above the note (FX-aware: a
+  no-rate foreign row shows an amber border + "Nhập số tiền ₫" hint; a converted
+  row shows a quiet "≈ $111" reference). It blur-flushes through `csvReadEditor`.
+- **Ghi chú / description** is a 2-line textarea below the amount.
+- Every remaining decision — scope, kind (+ its follow-up: which card / which
+  account / who repaid), category, who paid, when — is a **slim label/value row**
+  that opens a small **picker sheet** (`#csv-rowsheet`, an overlay inside the
+  modal because the global sheet layer sits *under* it). The picked value writes
+  straight onto the candidate; the changed row briefly tints.
+- **Bottom CTA bar:** 🗑 delete (arm-then-confirm) · **"Áp cho N khoản giống"**
+  (copy this row's decisions onto look-alikes — same bank, direction, digit-
+  stripped memo) · **"Nhập khoản này"** (import just this one, via a single
+  `fhPromoteStaged` borrowing the selection).
+
+**Two "unfilled" states, deliberately different colours.** Amber (`.miss`) is
+reserved for **blocking** — the one no-rate foreign amount that gates import.
+Everything the row imports fine without (which card, which account, category) is
+a neutral grey (`.soft`) "refine later", so a card with nothing wrong shows no
+alarming rows.
+
+**Correctness fixes shipped with the redesign:**
+
+- **Currency-synonym normalization** (`fhCurNorm`, `src/js-data/72-txn-review.js`).
+  The foreign check compared `r.currency` to `"VND"` by exact string, so a VND row
+  labelled "đ"/"VNĐ"/"đồng"/"₫" was flagged foreign, had no rate to estimate, and
+  rendered a nonsensical "1.000.000 đ → đ?" that *also gated import*. All
+  home-currency synonyms now fold to VND before any compare.
+- **Self-transfer classification** (`_isSelfTransfer`,
+  `src/js-ui/57-csv-import-review.js`). "X chuyển tiền đến X" (same name both
+  sides, after stripping the account-number tail) is a move between the person's
+  own accounts, so it defaults to **internal transfer**, not card payment — the
+  card asks "to which account", not "which card". Conservative: a name mismatch
+  stays a card payment.
 
 ### 5. Destination routing — Family vs Personal (the cross-tab heart)
 

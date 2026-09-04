@@ -143,6 +143,28 @@ hand-merging `index.html`. Both replaced vigilance with structure.
 
 ## Open
 
+- **2026-09-04 (Hien's session, later) — UI + fixes only, NO db / migration /
+  edge fn. Shipped as sw `v466`.** Settings-rows redesign of the review card
+  detail + the edit modal, amount-on-top in both, and three review correctness
+  fixes. Files: `src/js-ui/56-csv-import-ui.js`, `57-csv-import-review.js`,
+  `50-sheets-expense-capture.js`, `src/index.html`, CSS (`50-sheets-modals`,
+  `55-event-sheet-catrows`, `74-mailbox`), `src/js-data/72-txn-review.js`.
+  Notes for the other session:
+  - New globals/shape you may touch: `window.fhCurNorm` (currency-synonym →
+    canonical, in `72-txn-review.js`), `_isSelfTransfer` (`57-csv-import-review.js`)
+    and review candidates now carry **`_xfer`** from build; `window.csvAmtBlur`
+    (`56-csv-import-ui.js`) flushes the new top amount input.
+  - The staged review card is now built by `csvStagedRowsCard` / an amount-anchored
+    `csvCollapsedCard`; amount moved from a row→sheet to a **top input** above the
+    note. The edit modal ("Sửa khoản chi") gained an `#ex-editor.ex-accordion`
+    layout gated to `editingTx`/`editingPTx` (create + bulk-photo untouched).
+  - Fixes: VND-synonym rows no longer misflag as foreign (`fhCurNorm`); amber is
+    now reserved for blocking states only (grey `.soft` for optional); self-
+    transfers default to internal transfer, not card payment.
+  - Docs updated: `transaction-review-spec.md` §4a, `foreign-currency-emails-spec.md`
+    follow-up, `cross-ledger-move-spec.md` UI update. No migration used —
+    **next free migration number unchanged (`0115`).**
+
 - **2026-09-04 (Hien's session) — APPLIED `0114_cross_ledger_move` to the live
   DB (verified: table + bucket + 4 storage policies created); client shipped
   as sw `v459`.** Cross-ledger move epic (move a transaction between the

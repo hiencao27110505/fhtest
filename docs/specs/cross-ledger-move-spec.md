@@ -19,6 +19,17 @@ parity with the family book.
 > tap-through and account editing on private rows (`60-transactions.js`,
 > `21-personal.js`).
 
+> **UI update, 2026-09-04 (sw v466).** The edit modal ("Sửa khoản chi") was
+> restyled to a **settings-rows accordion** to match the review card
+> (`transaction-review-spec.md` §4a). It applies ONLY when editing an existing
+> transaction (`editingTx`/`editingPTx`); create and bulk-photo keep the chip
+> form untouched. Each field collapses to a label/value row that expands in place
+> to the existing chips/input — pure presentation over the unchanged save path,
+> gated by the `#ex-editor.ex-accordion` class (`50-sheets-expense-capture.js`,
+> `50-sheets-modals.css`). Amount and description lead as top input fields; the
+> scope chips (this spec's move affordance) become the "Ghi vào đâu" row and still
+> open `#sheet-move` on a flip. Delete becomes the form's closing footer action.
+
 > **How this relates to its siblings.** `personal-ledger-spec.md` §9 named
 > "publishing a private row out to a family afterwards" as designed-but-unbuilt
 > — this spec builds it, plus the reverse direction. The review screen's rule

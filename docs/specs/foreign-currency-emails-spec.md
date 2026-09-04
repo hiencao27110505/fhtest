@@ -19,6 +19,15 @@ This document is the defect analysis and the design options for fixing it.
 > until it lands the ledger stays VND-only and the shipped fix preserves
 > machine-readable FX provenance so the migration can recover every original.
 
+> **Follow-up fix, 2026-09-04 (sw v466).** The foreign check compared
+> `r.currency` to the home currency by exact string, so a genuinely-VND row whose
+> currency arrived as **"đ" / "VNĐ" / "đồng" / "₫"** was misread as *foreign*,
+> found no rate to estimate, and rendered a nonsensical "1.000.000 đ → đ?" in the
+> review card that also **gated import**. Fixed with `fhCurNorm`
+> (`src/js-data/72-txn-review.js`), which folds every home-currency synonym to the
+> canonical code before any compare — used in `fhStagedFx` and the amount-cell
+> estimate. Only a genuinely different currency is treated as foreign now.
+
 > **How this relates to its siblings.**
 > `effortless-transaction-logging-spec.md` is how a bank email becomes a staged
 > row — the defect's first two failure points live inside its extraction tiers.
